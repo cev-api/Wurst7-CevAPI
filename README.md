@@ -1,4 +1,4 @@
-# Wurst Client v7
+# Wurst Client v7 - Modified by CevAPI
 
 ![Wurst Client logo](https://img.wimods.net/github.com/Wurst-Imperium/Wurst7?to=https://wurst.wiki/_media/logo/wurst_758x192.webp)
 
@@ -18,88 +18,58 @@
 
 - **Donations/Perks:** [https://ko-fi.com/wurst](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https://ko-fi.com/wurst)
 
-## Installation
 
-Wurst 7 can be installed just like any other Fabric mod. Here are the basic installation steps:
+## What’s new in this fork
 
-1. Run the Fabric installer.
-2. Add the Wurst Client and Fabric API to your mods folder.
+### New hacks
+- MobSearch
+  - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).
+  - Rendering: Boxes, Lines, or Both. Rainbow or fixed color (default red). Box size configurable.
 
-Please refer to the [full Wurst 7 installation guide](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo) if you need more detailed instructions or run into any problems.
+- BedESP
+  - Chunk-based scanning with configurable color and Box/Line style.
 
-Also, this should be obvious, but you do need to have a licensed copy of Minecraft Java Edition in order to use Wurst. Wurst is a cheat client, not a pirate client.
+- SignESP
+  - Finds all sign types/materials.
+  - Option: Include Frames (item frames + glow item frames) with a separate color.
+  - Style + color + area; empty/zero-size shapes are ignored for stability.
 
-## Development Setup
+- WorkstationESP
+  - Highlights: Crafting Table, Smithing Table, Anvil (all states), Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.
+  - Style + color + area.
+  - Per-block toggles and per-block colors. Defaults: all enabled; each uses the main/default color unless overridden.
 
-> [!IMPORTANT]
-> Make sure you have [Java Development Kit 21](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fadoptium.net%2F%3Fvariant%3Dopenjdk21%26jvmVariant%3Dhotspot) installed. It won't work with other versions.
+- RedstoneESP
+  - Highlights: Redstone Torch/Block, Lever, Buttons/Plates (all types), Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Sculk Sensor (+ Calibrated), Pistons (regular/sticky), Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.
+  - Style + color + area.
+  - Per-component toggles and per-component colors. Defaults: all enabled; each uses the main/default color unless overridden.
 
-### Development using Eclipse
+### Search improvements
+- New keyword field (plain text): type terms like “diamond”. Falls back to the block picker when empty.
+- Rendering style: Boxes, Lines, or Both (tracers). View-bobbing is canceled when lines are enabled.
+- Color mode: “Use fixed color” toggle (default off → rainbow). When enabled, you can pick a fixed color.
+- Safer update cycle: query/radius changes trigger proper rescans; shared normalization and predicate helpers.
+- Tracer safety: falls back to block center when the outline shape is empty (prevents crashes on empty VoxelShapes).
 
-1. Clone the repository:
+### Portal ESP improvement
+- Area/radius changes reset its scan coordinator so expanding the radius takes effect immediately.
 
-   ```pwsh
-   git clone https://github.com/Wurst-Imperium/Wurst7.git
-   cd Wurst7
-   ```
+### Larger scan radius
+- ChunkAreaSetting extended up to 65×65 chunks for all chunk-based features (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP).
 
-2. Generate the sources:
+### Sticky area (new option)
+- Added to: Search, Portal ESP, BedESP, SignESP, RedstoneESP, WorkstationESP, ChestESP.
+- Default: Off (re-centers every time you enter a new chunk to match ESP drop-off distances).
+- Tip: Turn Sticky area On to keep results anchored as you move. Useful for pathing back to things you found at the edge of your range.
 
-   ```pwsh
-   ./gradlew genSources eclipse
-   ```
+### Stability
+- Fixed “UnsupportedOperationException: No bounds for empty shape” by:
+  - Using the block center when an outline is empty (Search tracers).
+  - Skipping entries with empty/zero-size shapes (SignESP).
 
-3. In Eclipse, go to `Import...` > `Existing Projects into Workspace` and select this project.
-
-4. **Optional:** Right-click on the project and select `Properties` > `Java Code Style`. Then under `Clean Up`, `Code Templates`, `Formatter`, import the respective files in the `codestyle` folder.
-
-### Development using VSCode / Cursor
-
-> [!TIP]
-> You'll probably want to install the [Extension Pack for Java](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fmarketplace.visualstudio.com%2Fitems%3FitemName%3Dvscjava.vscode-java-pack) to make development easier.
-
-1. Clone the repository:
-
-   ```pwsh
-   git clone https://github.com/Wurst-Imperium/Wurst7.git
-   cd Wurst7
-   ```
-
-2. Generate the sources:
-
-   ```pwsh
-   ./gradlew genSources vscode
-   ```
-
-3. Open the `Wurst7` folder in VSCode / Cursor.
-
-4. **Optional:** In the VSCode settings, set `java.format.settings.url` to `https://raw.githubusercontent.com/Wurst-Imperium/Wurst7/master/codestyle/formatter.xml` and `java.format.settings.profile` to `Wurst-Imperium`.
-
-### Development using IntelliJ IDEA
-
-I don't use or recommend IntelliJ, but the commands to run would be:
-
-```pwsh
-git clone https://github.com/Wurst-Imperium/Wurst7.git
-cd Wurst7
-./gradlew genSources idea
-```
-
-
-## Contributing
-
-Please always [contact me](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Fcontact%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo) before opening a Pull Request. Any method works. That way we can discuss your ideas early and avoid wasting your time working on unwanted features or having to make lots of changes later.
-
-We also have [contributing guidelines](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https://github.com/Wurst-Imperium/Wurst7/blob/master/CONTRIBUTING.md) to help you get started.
-
-## Translations
-
-To enable translations in-game, go to Wurst Options > Translations > ON.
-
-The preferred way to submit translations is through a Pull Request here on GitHub. The translation files are located in [this folder](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https://github.com/Wurst-Imperium/Wurst7/tree/master/src/main/resources/assets/wurst/translations).
-
-Names of features (hacks/commands/etc.) should always be kept in English. This ensures that everyone can use the same commands, keybinds, etc. regardless of their language setting. It also makes it easier to communicate with someone who uses Wurst in a different language.
+### Notes
+- Scanning only includes chunks the server has sent. Larger radii work best in singleplayer or on servers with higher view distance.
 
 ## License
 
-This code is licensed under the GNU General Public License v3. **You can only use this code in open-source clients that you release under the same license! Using it in closed-source/proprietary clients is not allowed!**
+This code is licensed under the GNU General Public License v3. 
