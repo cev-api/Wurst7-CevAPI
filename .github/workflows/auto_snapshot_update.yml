@@ -1,0 +1,110 @@
+# Experimental workflow to automate updating to a new Minecraft snapshot.
+name: Auto Snapshot Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      mc_version:
+        description: "Minecraft version to update to"
+        required: true
+      yarn_mappings:
+        description: "Yarn mappings version"
+        required: true
+      fabric_loader:
+        description: "Fabric Loader version"
+        required: true
+      fapi_version:
+        description: "Fabric API version"
+        required: true
+      distinct_id:
+        description: "Automatically set by the return-dispatch action (leave blank if running manually)"
+        required: false
+
+permissions:
+  # To push changes to the snapshot branch.
+  contents: write
+  # To trigger the CI workflow.
+  actions: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Echo distinct ID ${{ inputs.distinct_id }}
+      run: echo ${{ inputs.distinct_id }}
+
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Set up Java 21
+      uses: actions/setup-java@v5
+      with:
+        java-version: "21"
+        distribution: "microsoft"
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        build-scan-publish: true
+        build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
+        build-scan-terms-of-use-agree: "yes"
+
+    - name: Migrate mappings for main source set
+      run: |
+        ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --input "src/main/java" --output "src/main/java_"
+        rm -rf ./src/main/java
+        mv ./src/main/java_ ./src/main/java
+
+    - name: Migrate mappings for test source set
+      run: |
+        ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --input "src/test/java" --output "src/test/java_"
+        rm -rf ./src/test/java
+        mv ./src/test/java_ ./src/test/java
+
+    - name: Update version constants
+      run: |
+        python scripts/update_version_constants.py \
+          "${{ inputs.mc_version }}" \
+          "${{ inputs.yarn_mappings }}" \
+          "${{ inputs.fabric_loader }}" \
+          "${{ inputs.fapi_version }}"
+
+    # To fix any style issues that the migration scripts might cause
+    - name: Run spotlessApply task
+      run: ./gradlew spotlessApply
+
+    - name: Commit and push changes
+      run: |
+        git config --global user.name "Wurst-Bot"
+        git config --global user.email "contact.wurstimperium@gmail.com"
+        git add .
+        git commit -m "[Wurst-Bot] Update to ${{ inputs.mc_version }}"
+        git push
+
+    - name: Trigger CI
+      id: ci_dispatch
+      uses: codex-/return-dispatch@v2
+      with:
+        token: ${{ github.token }}
+        owner: Wurst-Imperium
+        repo: ${{ github.event.repository.name }}
+        ref: ${{ github.ref }}
+        workflow: gradle.yml
+
+    - name: Wait for CI to finish (run ${{ steps.ci_dispatch.outputs.run_id }})
+      uses: codex-/await-remote-run@v1
+      with:
+        token: ${{ github.token }}
+        owner: Wurst-Imperium
+        repo: ${{ github.event.repository.name }}
+        run_id: ${{ steps.ci_dispatch.outputs.run_id }}
+        run_timeout_seconds: 600  # 10 minutes
