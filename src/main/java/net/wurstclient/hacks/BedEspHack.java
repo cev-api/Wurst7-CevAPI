@@ -13,19 +13,20 @@ import java.util.List;
 import java.util.function.BiPredicate;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.block.BedBlock;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
+import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.hacks.portalesp.PortalEspBlockGroup;
+import net.wurstclient.hacks.bedesp.BedEspBlockGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -34,7 +35,8 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
-public final class PortalEspHack extends Hack implements UpdateListener,
+@SearchTags({"BedESP", "bed esp"})
+public final class BedEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
 	private final EspStyleSetting style = new EspStyleSetting();
@@ -44,56 +46,33 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				+ "On: Keeps results anchored so you can path back to them.",
 			false);
 	
-	private final PortalEspBlockGroup netherPortal =
-		new PortalEspBlockGroup(Blocks.NETHER_PORTAL,
-			new ColorSetting("Nether portal color",
-				"Nether portals will be highlighted in this color.", Color.RED),
-			new CheckboxSetting("Include nether portals", true));
+	private final BedEspBlockGroup beds =
+		new BedEspBlockGroup(
+			new ColorSetting("Bed color",
+				"Beds will be highlighted in this color.", new Color(0xFF69B4)),
+			new CheckboxSetting("Include beds", true));
 	
-	private final PortalEspBlockGroup endPortal =
-		new PortalEspBlockGroup(Blocks.END_PORTAL,
-			new ColorSetting("End portal color",
-				"End portals will be highlighted in this color.", Color.GREEN),
-			new CheckboxSetting("Include end portals", true));
-	
-	private final PortalEspBlockGroup endPortalFrame = new PortalEspBlockGroup(
-		Blocks.END_PORTAL_FRAME,
-		new ColorSetting("End portal frame color",
-			"End portal frames will be highlighted in this color.", Color.BLUE),
-		new CheckboxSetting("Include end portal frames", true));
-	
-	private final PortalEspBlockGroup endGateway = new PortalEspBlockGroup(
-		Blocks.END_GATEWAY,
-		new ColorSetting("End gateway color",
-			"End gateways will be highlighted in this color.", Color.YELLOW),
-		new CheckboxSetting("Include end gateways", true));
-	
-	private final List<PortalEspBlockGroup> groups =
-		Arrays.asList(netherPortal, endPortal, endPortalFrame, endGateway);
+	private final List<BedEspBlockGroup> groups = Arrays.asList(beds);
 	
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
 	
 	private final BiPredicate<BlockPos, BlockState> query =
-		(pos, state) -> state.getBlock() == Blocks.NETHER_PORTAL
-			|| state.getBlock() == Blocks.END_PORTAL
-			|| state.getBlock() == Blocks.END_PORTAL_FRAME
-			|| state.getBlock() == Blocks.END_GATEWAY;
+		(pos, state) -> state.getBlock() instanceof BedBlock;
 	
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(query, area);
 	
 	private boolean groupsUpToDate;
-	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
 	
-	public PortalEspHack()
+	public BedEspHack()
 	{
-		super("PortalESP");
+		super("BedESP");
 		setCategory(Category.RENDER);
 		addSetting(style);
-		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
+		groups.stream().flatMap(BedEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(area);
 		addSetting(stickyArea);
@@ -103,13 +82,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	protected void onEnable()
 	{
 		groupsUpToDate = false;
-		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		EVENTS.add(net.wurstclient.events.PacketInputListener.class,
-			coordinator);
+		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
 	}
 	
 	@Override
@@ -121,27 +98,15 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		
 		coordinator.reset();
-		groups.forEach(PortalEspBlockGroup::clear);
-	}
-	
-	@Override
-	public void onCameraTransformViewBobbing(
-		CameraTransformViewBobbingEvent event)
-	{
-		if(style.getSelected().hasLines())
-			event.cancel();
+		groups.forEach(BedEspBlockGroup::clear);
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
-		if(currentArea != lastAreaSelection)
-		{
-			lastAreaSelection = currentArea;
-			coordinator.reset();
+		boolean searchersChanged = coordinator.update();
+		if(searchersChanged)
 			groupsUpToDate = false;
-		}
 		// Recenter per chunk when sticky is off
 		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
@@ -150,29 +115,34 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			coordinator.reset();
 			groupsUpToDate = false;
 		}
-		boolean searchersChanged = coordinator.update();
-		if(searchersChanged)
-			groupsUpToDate = false;
 		if(!groupsUpToDate && coordinator.isDone())
 			updateGroupBoxes();
 	}
 	
 	@Override
+	public void onCameraTransformViewBobbing(
+		CameraTransformViewBobbingEvent event)
+	{
+		if(style.hasLines())
+			event.cancel();
+	}
+	
+	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
-		if(style.getSelected().hasBoxes())
+		if(style.hasBoxes())
 			renderBoxes(matrixStack);
 		
-		if(style.getSelected().hasLines())
+		if(style.hasLines())
 			renderTracers(matrixStack, partialTicks);
 	}
 	
 	private void renderBoxes(MatrixStack matrixStack)
 	{
-		for(PortalEspBlockGroup group : groups)
+		for(BedEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
-				return;
+				continue;
 			
 			List<Box> boxes = group.getBoxes();
 			int quadsColor = group.getColorI(0x40);
@@ -186,10 +156,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	
 	private void renderTracers(MatrixStack matrixStack, float partialTicks)
 	{
-		for(PortalEspBlockGroup group : groups)
+		for(BedEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
-				return;
+				continue;
 			
 			List<Box> boxes = group.getBoxes();
 			List<Vec3d> ends = boxes.stream().map(Box::getCenter).toList();
@@ -202,18 +172,17 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	
 	private void updateGroupBoxes()
 	{
-		groups.forEach(PortalEspBlockGroup::clear);
+		groups.forEach(BedEspBlockGroup::clear);
 		coordinator.getMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 	}
 	
 	private void addToGroupBoxes(Result result)
 	{
-		for(PortalEspBlockGroup group : groups)
-			if(result.state().getBlock() == group.getBlock())
-			{
-				group.add(result.pos());
-				break;
-			}
+		for(BedEspBlockGroup group : groups)
+		{
+			group.add(result);
+			break;
+		}
 	}
 }

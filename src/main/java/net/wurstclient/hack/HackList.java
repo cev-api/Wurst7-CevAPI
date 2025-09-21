@@ -80,6 +80,7 @@ public final class HackList implements UpdateListener
 	public final ChatTranslatorHack chatTranslatorHack =
 		new ChatTranslatorHack();
 	public final ChestEspHack chestEspHack = new ChestEspHack();
+	public final BedEspHack bedEspHack = new BedEspHack();
 	public final ClickAuraHack clickAuraHack = new ClickAuraHack();
 	public final ClickGuiHack clickGuiHack = new ClickGuiHack();
 	public final CrashChestHack crashChestHack = new CrashChestHack();
@@ -126,6 +127,7 @@ public final class HackList implements UpdateListener
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final MileyCyrusHack mileyCyrusHack = new MileyCyrusHack();
 	public final MobEspHack mobEspHack = new MobEspHack();
+	public final MobSearchHack mobSearchHack = new MobSearchHack();
 	public final MobSpawnEspHack mobSpawnEspHack = new MobSpawnEspHack();
 	public final MultiAuraHack multiAuraHack = new MultiAuraHack();
 	public final NameProtectHack nameProtectHack = new NameProtectHack();
@@ -167,6 +169,10 @@ public final class HackList implements UpdateListener
 	public final SafeWalkHack safeWalkHack = new SafeWalkHack();
 	public final ScaffoldWalkHack scaffoldWalkHack = new ScaffoldWalkHack();
 	public final SearchHack searchHack = new SearchHack();
+	public final SignEspHack signEspHack = new SignEspHack();
+	public final WorkstationEspHack workstationEspHack =
+		new WorkstationEspHack();
+	public final RedstoneEspHack redstoneEspHack = new RedstoneEspHack();
 	public final SkinDerpHack skinDerpHack = new SkinDerpHack();
 	public final SneakHack sneakHack = new SneakHack();
 	public final SnowShoeHack snowShoeHack = new SnowShoeHack();

@@ -40,6 +40,12 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
 	private final EspStyleSetting style = new EspStyleSetting();
+	private final net.wurstclient.settings.CheckboxSetting stickyArea =
+		new net.wurstclient.settings.CheckboxSetting("Sticky area",
+			"Off: ESP drop-off follows you as chunks change.\n"
+				+ "On: Keeps results anchored (useful for pathing back).\n"
+				+ "Note: ChestESP tracks loaded block entities; visibility is still limited by server view distance.",
+			false);
 	
 	private final ChestEspBlockGroup basicChests = new ChestEspBlockGroup(
 		new ColorSetting("Chest color",
@@ -131,8 +137,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	{
 		super("ChestESP");
 		setCategory(Category.RENDER);
-		
 		addSetting(style);
+		addSetting(stickyArea);
 		groups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
 	}

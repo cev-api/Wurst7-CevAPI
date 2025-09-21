@@ -57,7 +57,23 @@ public final class ChunkAreaSetting
 		A27("27x27 chunks", 13),
 		A29("29x29 chunks", 14),
 		A31("31x31 chunks", 15),
-		A33("33x33 chunks", 16);
+		A33("33x33 chunks", 16),
+		A35("35x35 chunks", 17),
+		A37("37x37 chunks", 18),
+		A39("39x39 chunks", 19),
+		A41("41x41 chunks", 20),
+		A43("43x43 chunks", 21),
+		A45("45x45 chunks", 22),
+		A47("47x47 chunks", 23),
+		A49("49x49 chunks", 24),
+		A51("51x51 chunks", 25),
+		A53("53x53 chunks", 26),
+		A55("55x55 chunks", 27),
+		A57("57x57 chunks", 28),
+		A59("59x59 chunks", 29),
+		A61("61x61 chunks", 30),
+		A63("63x63 chunks", 31),
+		A65("65x65 chunks", 32);
 		
 		private final String name;
 		private final int chunkRange;
