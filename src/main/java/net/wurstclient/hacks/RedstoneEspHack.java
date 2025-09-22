@@ -8,9 +8,12 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.stream.Stream;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -47,9 +50,35 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			false);
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
-			+ "Higher values require a faster computer.");
+			+ "Higher values require a faster computer.",
+		ChunkAreaSetting.ChunkArea.A33);
 	private final Color defaultColor = Color.RED;
-	// Per-block groups (default enabled)
+	// Grouped categories
+	private final MultiBlockEspGroup buttonsGroup = new MultiBlockEspGroup(
+		blocks(Blocks.OAK_BUTTON, Blocks.SPRUCE_BUTTON, Blocks.BIRCH_BUTTON,
+			Blocks.JUNGLE_BUTTON, Blocks.ACACIA_BUTTON, Blocks.DARK_OAK_BUTTON,
+			Blocks.MANGROVE_BUTTON, Blocks.BAMBOO_BUTTON, Blocks.CHERRY_BUTTON,
+			Blocks.CRIMSON_BUTTON, Blocks.WARPED_BUTTON, Blocks.STONE_BUTTON,
+			Blocks.POLISHED_BLACKSTONE_BUTTON),
+		new ColorSetting("Buttons color",
+			"All button types will be highlighted in this color.",
+			defaultColor),
+		new CheckboxSetting("Include buttons", true));
+	private final MultiBlockEspGroup platesGroup = new MultiBlockEspGroup(
+		blocks(Blocks.OAK_PRESSURE_PLATE, Blocks.SPRUCE_PRESSURE_PLATE,
+			Blocks.BIRCH_PRESSURE_PLATE, Blocks.JUNGLE_PRESSURE_PLATE,
+			Blocks.ACACIA_PRESSURE_PLATE, Blocks.DARK_OAK_PRESSURE_PLATE,
+			Blocks.MANGROVE_PRESSURE_PLATE, Blocks.BAMBOO_PRESSURE_PLATE,
+			Blocks.CHERRY_PRESSURE_PLATE, Blocks.CRIMSON_PRESSURE_PLATE,
+			Blocks.WARPED_PRESSURE_PLATE, Blocks.STONE_PRESSURE_PLATE,
+			Blocks.POLISHED_BLACKSTONE_PRESSURE_PLATE,
+			Blocks.LIGHT_WEIGHTED_PRESSURE_PLATE,
+			Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE),
+		new ColorSetting("Pressure plates color",
+			"All pressure plate types will be highlighted in this color.",
+			defaultColor),
+		new CheckboxSetting("Include pressure plates", true));
+	// Single components (wrapped)
 	private final PortalEspBlockGroup redstoneTorch =
 		new PortalEspBlockGroup(Blocks.REDSTONE_TORCH,
 			new ColorSetting("Redstone torch color",
@@ -66,98 +95,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			new ColorSetting("Lever color",
 				"Levers will be highlighted in this color.", defaultColor),
 			new CheckboxSetting("Include levers", true));
-	// Buttons
-	private final PortalEspBlockGroup[] buttons = new PortalEspBlockGroup[]{
-		new PortalEspBlockGroup(
-			Blocks.OAK_BUTTON,
-			new ColorSetting("Oak button color", "", defaultColor),
-			new CheckboxSetting("Include oak buttons", true)),
-		new PortalEspBlockGroup(Blocks.SPRUCE_BUTTON,
-			new ColorSetting("Spruce button color", "", defaultColor),
-			new CheckboxSetting("Include spruce buttons", true)),
-		new PortalEspBlockGroup(Blocks.BIRCH_BUTTON,
-			new ColorSetting("Birch button color", "", defaultColor),
-			new CheckboxSetting("Include birch buttons", true)),
-		new PortalEspBlockGroup(Blocks.JUNGLE_BUTTON,
-			new ColorSetting("Jungle button color", "", defaultColor),
-			new CheckboxSetting("Include jungle buttons", true)),
-		new PortalEspBlockGroup(Blocks.ACACIA_BUTTON,
-			new ColorSetting("Acacia button color", "", defaultColor),
-			new CheckboxSetting("Include acacia buttons", true)),
-		new PortalEspBlockGroup(Blocks.DARK_OAK_BUTTON,
-			new ColorSetting("Dark oak button color", "", defaultColor),
-			new CheckboxSetting("Include dark oak buttons", true)),
-		new PortalEspBlockGroup(Blocks.MANGROVE_BUTTON,
-			new ColorSetting("Mangrove button color", "", defaultColor),
-			new CheckboxSetting("Include mangrove buttons", true)),
-		new PortalEspBlockGroup(Blocks.BAMBOO_BUTTON,
-			new ColorSetting("Bamboo button color", "", defaultColor),
-			new CheckboxSetting("Include bamboo buttons", true)),
-		new PortalEspBlockGroup(Blocks.CHERRY_BUTTON,
-			new ColorSetting("Cherry button color", "", defaultColor),
-			new CheckboxSetting("Include cherry buttons", true)),
-		new PortalEspBlockGroup(Blocks.CRIMSON_BUTTON,
-			new ColorSetting("Crimson button color", "", defaultColor),
-			new CheckboxSetting("Include crimson buttons", true)),
-		new PortalEspBlockGroup(Blocks.WARPED_BUTTON,
-			new ColorSetting("Warped button color", "", defaultColor),
-			new CheckboxSetting("Include warped buttons", true)),
-		new PortalEspBlockGroup(Blocks.STONE_BUTTON,
-			new ColorSetting("Stone button color", "", defaultColor),
-			new CheckboxSetting("Include stone buttons", true)),
-		new PortalEspBlockGroup(Blocks.POLISHED_BLACKSTONE_BUTTON,
-			new ColorSetting("Polished blackstone button color", "",
-				defaultColor),
-			new CheckboxSetting("Include polished blackstone buttons", true))};
-	// Plates
-	private final PortalEspBlockGroup[] plates = new PortalEspBlockGroup[]{
-		new PortalEspBlockGroup(Blocks.OAK_PRESSURE_PLATE,
-			new ColorSetting("Oak pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include oak plates", true)),
-		new PortalEspBlockGroup(Blocks.SPRUCE_PRESSURE_PLATE,
-			new ColorSetting("Spruce pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include spruce plates", true)),
-		new PortalEspBlockGroup(Blocks.BIRCH_PRESSURE_PLATE,
-			new ColorSetting("Birch pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include birch plates", true)),
-		new PortalEspBlockGroup(Blocks.JUNGLE_PRESSURE_PLATE,
-			new ColorSetting("Jungle pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include jungle plates", true)),
-		new PortalEspBlockGroup(Blocks.ACACIA_PRESSURE_PLATE,
-			new ColorSetting("Acacia pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include acacia plates", true)),
-		new PortalEspBlockGroup(Blocks.DARK_OAK_PRESSURE_PLATE,
-			new ColorSetting("Dark oak pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include dark oak plates", true)),
-		new PortalEspBlockGroup(Blocks.MANGROVE_PRESSURE_PLATE,
-			new ColorSetting("Mangrove pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include mangrove plates", true)),
-		new PortalEspBlockGroup(Blocks.BAMBOO_PRESSURE_PLATE,
-			new ColorSetting("Bamboo pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include bamboo plates", true)),
-		new PortalEspBlockGroup(Blocks.CHERRY_PRESSURE_PLATE,
-			new ColorSetting("Cherry pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include cherry plates", true)),
-		new PortalEspBlockGroup(Blocks.CRIMSON_PRESSURE_PLATE,
-			new ColorSetting("Crimson pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include crimson plates", true)),
-		new PortalEspBlockGroup(Blocks.WARPED_PRESSURE_PLATE,
-			new ColorSetting("Warped pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include warped plates", true)),
-		new PortalEspBlockGroup(Blocks.STONE_PRESSURE_PLATE,
-			new ColorSetting("Stone pressure plate color", "", defaultColor),
-			new CheckboxSetting("Include stone plates", true)),
-		new PortalEspBlockGroup(Blocks.POLISHED_BLACKSTONE_PRESSURE_PLATE,
-			new ColorSetting("Polished blackstone pressure plate color", "",
-				defaultColor),
-			new CheckboxSetting("Include polished blackstone plates", true)),
-		new PortalEspBlockGroup(Blocks.LIGHT_WEIGHTED_PRESSURE_PLATE,
-			new ColorSetting("Light weighted plate color", "", defaultColor),
-			new CheckboxSetting("Include light weighted plates", true)),
-		new PortalEspBlockGroup(Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE,
-			new ColorSetting("Heavy weighted plate color", "", defaultColor),
-			new CheckboxSetting("Include heavy weighted plates", true))};
-	// Remaining components
 	private final PortalEspBlockGroup tripwireHook =
 		new PortalEspBlockGroup(Blocks.TRIPWIRE_HOOK,
 			new ColorSetting("Tripwire hook color", "", defaultColor),
@@ -237,21 +174,20 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		new PortalEspBlockGroup(Blocks.ACTIVATOR_RAIL,
 			new ColorSetting("Activator rail color", "", defaultColor),
 			new CheckboxSetting("Include activator rails", true));
-	private final List<PortalEspBlockGroup> allGroups =
-		Arrays.asList(redstoneTorch, redstoneBlock, lever,
-			// buttons
-			buttons[0], buttons[1], buttons[2], buttons[3], buttons[4],
-			buttons[5], buttons[6], buttons[7], buttons[8], buttons[9],
-			buttons[10], buttons[11],
-			// plates
-			plates[0], plates[1], plates[2], plates[3], plates[4], plates[5],
-			plates[6], plates[7], plates[8], plates[9], plates[10], plates[11],
-			plates[12], plates[13], plates[14],
-			// rest
-			tripwireHook, target, dust, repeater, comparator, observer,
-			daylight, sculk, cSculk, piston, stickyPiston, dispenser, dropper,
-			hopper, trappedChest, noteBlock, jukebox, bell, lectern,
-			poweredRail, detectorRail, activatorRail);
+	
+	private final java.util.List<RenderGroup> renderGroups =
+		java.util.Arrays.asList(
+			// grouped first
+			buttonsGroup, platesGroup,
+			// singles via adapters
+			wrap(redstoneTorch), wrap(redstoneBlock), wrap(lever),
+			wrap(tripwireHook), wrap(target), wrap(dust), wrap(repeater),
+			wrap(comparator), wrap(observer), wrap(daylight), wrap(sculk),
+			wrap(cSculk), wrap(piston), wrap(stickyPiston), wrap(dispenser),
+			wrap(dropper), wrap(hopper), wrap(trappedChest), wrap(noteBlock),
+			wrap(jukebox), wrap(bell), wrap(lectern), wrap(poweredRail),
+			wrap(detectorRail), wrap(activatorRail));
+	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> isEnabledTarget(state.getBlock());
 	private final ChunkSearcherCoordinator coordinator =
@@ -265,16 +201,21 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		super("RedstoneESP");
 		setCategory(Category.RENDER);
 		addSetting(style);
-		allGroups.stream().flatMap(PortalEspBlockGroup::getSettings)
+		renderGroups.stream().flatMap(RenderGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
 	
+	private static Set<Block> blocks(Block... bs)
+	{
+		return new HashSet<>(java.util.Arrays.asList(bs));
+	}
+	
 	private boolean isEnabledTarget(Block b)
 	{
-		for(PortalEspBlockGroup g : allGroups)
-			if(g.getBlock() == b && g.isEnabled())
+		for(RenderGroup g : renderGroups)
+			if(g.isEnabled() && g.matches(b))
 				return true;
 		return false;
 	}
@@ -301,7 +242,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(net.wurstclient.events.PacketInputListener.class,
 			coordinator);
 		coordinator.reset();
-		allGroups.forEach(PortalEspBlockGroup::clear);
+		renderGroups.forEach(RenderGroup::clear);
 	}
 	
 	@Override
@@ -348,7 +289,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private void renderBoxes(MatrixStack matrixStack)
 	{
-		for(PortalEspBlockGroup group : allGroups)
+		for(RenderGroup group : renderGroups)
 		{
 			if(!group.isEnabled())
 				continue;
@@ -363,7 +304,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private void renderTracers(MatrixStack matrixStack, float partialTicks)
 	{
-		for(PortalEspBlockGroup group : allGroups)
+		for(RenderGroup group : renderGroups)
 		{
 			if(!group.isEnabled())
 				continue;
@@ -377,18 +318,152 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private void updateGroupBoxes()
 	{
-		allGroups.forEach(PortalEspBlockGroup::clear);
+		renderGroups.forEach(RenderGroup::clear);
 		coordinator.getMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 	}
 	
 	private void addToGroupBoxes(Result result)
 	{
-		for(PortalEspBlockGroup group : allGroups)
-			if(result.state().getBlock() == group.getBlock())
+		Block b = result.state().getBlock();
+		for(RenderGroup group : renderGroups)
+			if(group.matches(b))
 			{
 				group.add(result.pos());
 				break;
 			}
+	}
+	
+	// Common interface for rendering groups
+	private static interface RenderGroup
+	{
+		boolean isEnabled();
+		
+		boolean matches(Block b);
+		
+		void add(BlockPos pos);
+		
+		void clear();
+		
+		List<Box> getBoxes();
+		
+		int getColorI(int alpha);
+		
+		Stream<net.wurstclient.settings.Setting> getSettings();
+	}
+	
+	// Adapter for single-block groups
+	private static RenderGroup wrap(PortalEspBlockGroup g)
+	{
+		return new RenderGroup()
+		{
+			@Override
+			public boolean isEnabled()
+			{
+				return g.isEnabled();
+			}
+			
+			@Override
+			public boolean matches(Block b)
+			{
+				return g.getBlock() == b;
+			}
+			
+			@Override
+			public void add(BlockPos pos)
+			{
+				g.add(pos);
+			}
+			
+			@Override
+			public void clear()
+			{
+				g.clear();
+			}
+			
+			@Override
+			public List<Box> getBoxes()
+			{
+				return g.getBoxes();
+			}
+			
+			@Override
+			public int getColorI(int alpha)
+			{
+				return g.getColorI(alpha);
+			}
+			
+			@Override
+			public Stream<net.wurstclient.settings.Setting> getSettings()
+			{
+				return g.getSettings();
+			}
+		};
+	}
+	
+	// Group that matches any of multiple blocks
+	private static final class MultiBlockEspGroup implements RenderGroup
+	{
+		private final ArrayList<Box> boxes = new ArrayList<>();
+		private final Set<Block> blocks;
+		private final ColorSetting color;
+		private final CheckboxSetting enabled;
+		
+		private MultiBlockEspGroup(Set<Block> blocks, ColorSetting color,
+			CheckboxSetting enabled)
+		{
+			this.blocks = new HashSet<>(blocks);
+			this.color = java.util.Objects.requireNonNull(color);
+			this.enabled = enabled;
+		}
+		
+		@Override
+		public boolean isEnabled()
+		{
+			return enabled == null || enabled.isChecked();
+		}
+		
+		@Override
+		public boolean matches(Block b)
+		{
+			return blocks.contains(b);
+		}
+		
+		@Override
+		public void add(BlockPos pos)
+		{
+			if(!isEnabled())
+				return;
+			if(!net.wurstclient.util.BlockUtils.canBeClicked(pos))
+				return;
+			Box box = net.wurstclient.util.BlockUtils.getBoundingBox(pos);
+			if(box.getAverageSideLength() == 0)
+				return;
+			boxes.add(box);
+		}
+		
+		@Override
+		public void clear()
+		{
+			boxes.clear();
+		}
+		
+		@Override
+		public List<Box> getBoxes()
+		{
+			return java.util.Collections.unmodifiableList(boxes);
+		}
+		
+		@Override
+		public int getColorI(int alpha)
+		{
+			return color.getColorI(alpha);
+		}
+		
+		@Override
+		public Stream<net.wurstclient.settings.Setting> getSettings()
+		{
+			return Stream.of(enabled, color).filter(java.util.Objects::nonNull);
+		}
 	}
 }
