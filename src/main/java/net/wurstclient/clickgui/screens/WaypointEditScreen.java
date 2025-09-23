@@ -43,6 +43,11 @@ public final class WaypointEditScreen extends Screen
 	private TextFieldWidget zField;
 	private ButtonWidget colorButton;
 	private ColorSetting colorSetting;
+	// Draft values to preserve user input across color picker navigation
+	private String draftName;
+	private String draftX;
+	private String draftY;
+	private String draftZ;
 	
 	private int dimIndex;
 	private ButtonWidget dimButton;
@@ -79,7 +84,8 @@ public final class WaypointEditScreen extends Screen
 		yName = y;
 		nameField = new TextFieldWidget(client.textRenderer, x, y, 300, 20,
 			Text.literal(""));
-		nameField.setText(waypoint.getName() == null ? "" : waypoint.getName());
+		String baseName = waypoint.getName() == null ? "" : waypoint.getName();
+		nameField.setText(draftName != null ? draftName : baseName);
 		addDrawableChild(nameField);
 		setFocused(nameField);
 		// increased gap to avoid XYZ labels overlapping name field
@@ -90,15 +96,15 @@ public final class WaypointEditScreen extends Screen
 		yXYZ = y;
 		xField = new TextFieldWidget(client.textRenderer, x, y, 95, 20,
 			Text.literal(""));
-		xField.setText(Integer.toString(p.getX()));
+		xField.setText(draftX != null ? draftX : Integer.toString(p.getX()));
 		addDrawableChild(xField);
 		yField = new TextFieldWidget(client.textRenderer, x + 102, y, 95, 20,
 			Text.literal(""));
-		yField.setText(Integer.toString(p.getY()));
+		yField.setText(draftY != null ? draftY : Integer.toString(p.getY()));
 		addDrawableChild(yField);
 		zField = new TextFieldWidget(client.textRenderer, x + 204, y, 96, 20,
 			Text.literal(""));
-		zField.setText(Integer.toString(p.getZ()));
+		zField.setText(draftZ != null ? draftZ : Integer.toString(p.getZ()));
 		addDrawableChild(zField);
 		y += 28;
 		
@@ -190,6 +196,12 @@ public final class WaypointEditScreen extends Screen
 			Text.literal(
 				"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"),
 			b -> {
+				// Preserve current edits so they survive re-init after
+				// returning
+				draftName = nameField.getText();
+				draftX = xField.getText();
+				draftY = yField.getText();
+				draftZ = zField.getText();
 				client.setScreen(new EditColorScreen(this, colorSetting));
 			}).dimensions(x, y, 300 - 24, 20).build();
 		addDrawableChild(colorButton);
