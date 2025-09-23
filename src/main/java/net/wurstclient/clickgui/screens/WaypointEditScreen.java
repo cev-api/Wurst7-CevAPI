@@ -30,12 +30,16 @@ public final class WaypointEditScreen extends Screen
 	// removed unused: private final boolean isNew;
 	// cached layout positions
 	private int fieldsBaseX;
+	private int fieldsWidth;
+	private boolean narrow;
 	private int yName;
 	private int yXYZ;
 	// removed unused: private int yDim;
 	private int yToggles;
 	// removed unused: private int yIcon;
 	private int yColor;
+	private int xXYZ1, xXYZ2, xXYZ3;
+	private int yXField, yYField, yZField;
 	
 	private TextFieldWidget nameField;
 	private TextFieldWidget xField;
@@ -43,6 +47,7 @@ public final class WaypointEditScreen extends Screen
 	private TextFieldWidget zField;
 	private ButtonWidget colorButton;
 	private ColorSetting colorSetting;
+	private int alphaPercent = 100; // 1..100 persisted across picker
 	// Draft values to preserve user input across color picker navigation
 	private String draftName;
 	private String draftX;
@@ -76,13 +81,17 @@ public final class WaypointEditScreen extends Screen
 	@Override
 	protected void init()
 	{
-		int x = width / 2 - 150;
+		int cw = Math.max(220, Math.min(this.width - 40, 360));
+		narrow = cw < 340;
+		narrow = cw < 340;
+		int x = this.width / 2 - cw / 2;
 		int y = 36;
 		fieldsBaseX = x;
+		fieldsWidth = cw;
 		
 		// Name
 		yName = y;
-		nameField = new TextFieldWidget(client.textRenderer, x, y, 300, 20,
+		nameField = new TextFieldWidget(client.textRenderer, x, y, cw, 20,
 			Text.literal(""));
 		String baseName = waypoint.getName() == null ? "" : waypoint.getName();
 		nameField.setText(draftName != null ? draftName : baseName);
@@ -91,22 +100,31 @@ public final class WaypointEditScreen extends Screen
 		// increased gap to avoid XYZ labels overlapping name field
 		y += 44;
 		
-		// Position fields
+		// Position fields (responsive)
 		BlockPos p = waypoint.getPos();
 		yXYZ = y;
-		xField = new TextFieldWidget(client.textRenderer, x, y, 95, 20,
+		int gap = 8;
+		int colW = (cw - gap * 2) / 3;
+		xXYZ1 = x;
+		xXYZ2 = x + colW + gap;
+		xXYZ3 = x + (colW + gap) * 2;
+		xField = new TextFieldWidget(client.textRenderer, xXYZ1, y, colW, 20,
 			Text.literal(""));
 		xField.setText(draftX != null ? draftX : Integer.toString(p.getX()));
 		addDrawableChild(xField);
-		yField = new TextFieldWidget(client.textRenderer, x + 102, y, 95, 20,
-			Text.literal(""));
+		yField = new TextFieldWidget(client.textRenderer, xXYZ2,
+			narrow ? y + 28 : y, colW, 20, Text.literal(""));
 		yField.setText(draftY != null ? draftY : Integer.toString(p.getY()));
 		addDrawableChild(yField);
-		zField = new TextFieldWidget(client.textRenderer, x + 204, y, 96, 20,
-			Text.literal(""));
+		zField = new TextFieldWidget(client.textRenderer, xXYZ3,
+			narrow ? y + 56 : y, colW, 20, Text.literal(""));
 		zField.setText(draftZ != null ? draftZ : Integer.toString(p.getZ()));
 		addDrawableChild(zField);
-		y += 28;
+		// Track individual field Y for labels
+		yXField = y;
+		yYField = narrow ? y + 28 : y;
+		yZField = narrow ? y + 56 : y;
+		y += narrow ? 84 : 28;
 		
 		// Dimension cycle
 		// removed yDim tracking
@@ -123,18 +141,20 @@ public final class WaypointEditScreen extends Screen
 				dimIndex = (dimIndex + 1) % dims.length;
 				b.setMessage(
 					Text.literal("Dimension: " + dims[dimIndex].name()));
-			}).dimensions(x, y, 300, 20).build();
+			}).dimensions(x, y, cw, 20).build();
 		addDrawableChild(dimButton);
 		y += 28;
 		
 		// Opposite toggle
 		yToggles = y;
+		int halfGap = 10;
+		int halfW = (cw - halfGap) / 2;
 		oppositeButton = ButtonWidget.builder(
 			Text.literal(buttonLabel("Opposite", waypoint.isOpposite())), b -> {
 				waypoint.setOpposite(!waypoint.isOpposite());
 				b.setMessage(Text
 					.literal(buttonLabel("Opposite", waypoint.isOpposite())));
-			}).dimensions(x, y, 145, 20).build();
+			}).dimensions(x, y, halfW, 20).build();
 		addDrawableChild(oppositeButton);
 		
 		// Visible toggle
@@ -145,7 +165,7 @@ public final class WaypointEditScreen extends Screen
 					b.setMessage(Text
 						.literal(buttonLabel("Visible", waypoint.isVisible())));
 				})
-			.dimensions(x + 155, y, 145, 20).build();
+			.dimensions(x + halfW + halfGap, y, halfW, 20).build();
 		addDrawableChild(visibleButton);
 		y += 28;
 		
@@ -159,7 +179,7 @@ public final class WaypointEditScreen extends Screen
 					b.setMessage(
 						Text.literal(buttonLabel("Lines", waypoint.isLines())));
 				})
-			.dimensions(x, y, 300, 20).build();
+			.dimensions(x, y, cw, 20).build();
 		addDrawableChild(linesButton);
 		y += 28;
 		
@@ -179,7 +199,7 @@ public final class WaypointEditScreen extends Screen
 			.builder(Text.literal("Icon: " + ICONS[iconIndex]), b -> {
 				iconIndex = (iconIndex + 1) % ICONS.length;
 				b.setMessage(Text.literal("Icon: " + ICONS[iconIndex]));
-			}).dimensions(x, y, 300, 20).build();
+			}).dimensions(x, y, cw, 20).build();
 		addDrawableChild(iconButton);
 		y += 28;
 		// extra spacing before color row
@@ -192,6 +212,14 @@ public final class WaypointEditScreen extends Screen
 		if(colorSetting == null)
 			colorSetting = new ColorSetting("Waypoint Color", new Color(
 				(waypoint.getColor() & 0x00FFFFFF) | 0xFF000000, true));
+		// Initialize alpha from waypoint once
+		if(alphaPercent == 100)
+		{
+			int a = (waypoint.getColor() >>> 24) & 0xFF;
+			if(a > 0)
+				alphaPercent = Math.max(1,
+					Math.min(100, (int)Math.round(a / 255.0 * 100)));
+		}
 		colorButton = ButtonWidget.builder(
 			Text.literal(
 				"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"),
@@ -203,25 +231,64 @@ public final class WaypointEditScreen extends Screen
 				draftY = yField.getText();
 				draftZ = zField.getText();
 				client.setScreen(new EditColorScreen(this, colorSetting));
-			}).dimensions(x, y, 300 - 24, 20).build();
+			}).dimensions(x, y, cw - 24, 20).build();
 		addDrawableChild(colorButton);
+		y += 28;
+		
+		// Transparency slider (1%..100%)
+		addDrawableChild(
+			new net.minecraft.client.gui.widget.SliderWidget(x, y, fieldsWidth,
+				20, Text.literal("Transparency: " + alphaPercent + "%"),
+				(alphaPercent - 1) / 99.0)
+			{
+				@Override
+				protected void updateMessage()
+				{
+					int val = 1 + (int)Math.round(value * 99.0);
+					alphaPercent = Math.max(1, Math.min(100, val));
+					setMessage(
+						Text.literal("Transparency: " + alphaPercent + "%"));
+				}
+				
+				@Override
+				protected void applyValue()
+				{
+					int val = 1 + (int)Math.round(value * 99.0);
+					alphaPercent = Math.max(1, Math.min(100, val));
+				}
+			});
 		y += 28;
 		
 		// Buttons
 		addDrawableChild(ButtonWidget
 			.builder(Text.literal("Use player pos"), b -> usePlayerPos())
-			.dimensions(x, y, 145, 20).build());
+			.dimensions(x, y, halfW, 20).build());
 		addDrawableChild(
 			ButtonWidget.builder(Text.literal("Delete"), b -> doDelete())
-				.dimensions(x + 155, y, 145, 20).build());
+				.dimensions(x + halfW + halfGap, y, halfW, 20).build());
 		y += 28;
 		
 		addDrawableChild(
 			ButtonWidget.builder(Text.literal("Save"), b -> saveAndBack())
-				.dimensions(x, height - 52, 145, 20).build());
+				.dimensions(x, height - 52, halfW, 20).build());
 		addDrawableChild(ButtonWidget
 			.builder(Text.literal("Cancel"), b -> client.setScreen(prev))
-			.dimensions(x + 155, height - 52, 145, 20).build());
+			.dimensions(x + halfW + halfGap, height - 52, halfW, 20).build());
+	}
+	
+	@Override
+	public void resize(net.minecraft.client.MinecraftClient client, int width,
+		int height)
+	{
+		// Preserve current edits before re-initializing layout for new size
+		if(nameField != null)
+		{
+			draftName = nameField.getText();
+			draftX = xField.getText();
+			draftY = yField.getText();
+			draftZ = zField.getText();
+		}
+		init(client, width, height);
 	}
 	
 	private static String buttonLabel(String name, boolean on)
@@ -268,8 +335,10 @@ public final class WaypointEditScreen extends Screen
 		// Icon
 		waypoint.setIcon(ICONS[iconIndex]);
 		
-		// Color
-		waypoint.setColor(colorSetting.getColorI());
+		// Color + transparency
+		int saveAlpha = (int)Math
+			.round(Math.max(1, Math.min(100, alphaPercent)) / 100.0 * 255);
+		waypoint.setColor(colorSetting.getColorI(saveAlpha));
 		
 		manager.addOrUpdate(waypoint);
 		if(listScreen != null)
@@ -301,18 +370,20 @@ public final class WaypointEditScreen extends Screen
 		int x = fieldsBaseX;
 		context.drawText(client.textRenderer, "Name", x, yName - 18,
 			Colors.LIGHT_GRAY, false);
-		context.drawText(client.textRenderer, "X", x, yXYZ - 18,
+		context.drawText(client.textRenderer, "X", xXYZ1, yXYZ - 18,
 			Colors.LIGHT_GRAY, false);
-		context.drawText(client.textRenderer, "Y", x + 102, yXYZ - 18,
-			Colors.LIGHT_GRAY, false);
-		context.drawText(client.textRenderer, "Z", x + 204, yXYZ - 18,
-			Colors.LIGHT_GRAY, false);
+		context.drawText(client.textRenderer, "Y", xXYZ2,
+			(narrow ? yYField : yXYZ) - 18, Colors.LIGHT_GRAY, false);
+		context.drawText(client.textRenderer, "Z", xXYZ3,
+			(narrow ? yZField : yXYZ) - 18, Colors.LIGHT_GRAY, false);
 		// removed explicit "Color" text label to avoid redundancy and crowding
 		
 		// Color preview box
-		int boxX = x + 300 - 20;
+		int boxX = x + fieldsWidth - 20;
 		int boxY = yColor;
-		int color = colorSetting.getColorI();
+		int alpha = (int)Math
+			.round(Math.max(1, Math.min(100, alphaPercent)) / 100.0 * 255);
+		int color = colorSetting.getColorI(alpha);
 		context.fill(boxX - 1, boxY - 1, boxX + 18, boxY + 18, Colors.GRAY);
 		context.fill(boxX, boxY, boxX + 16, boxY + 16, color);
 		

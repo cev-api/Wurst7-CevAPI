@@ -166,8 +166,9 @@ public final class WaypointsHack extends Hack implements RenderListener,
 			// labels near distance
 			double dist = Math.sqrt(distSq);
 			double trd = textRenderDistance.getValue();
-			boolean renderLabel = dist <= trd || alwaysRenderText.isChecked();
-			boolean beyond = trd == 0 || dist > trd;
+			boolean always = alwaysRenderText.isChecked();
+			boolean allowBySlider = trd > 0 && dist <= trd;
+			boolean renderLabel = always || allowBySlider;
 			if(renderLabel)
 			{
 				String title = w.getName() == null ? "" : w.getName();
@@ -179,11 +180,12 @@ public final class WaypointsHack extends Hack implements RenderListener,
 				double lx = wp.getX() + 0.5;
 				double ly = baseY;
 				double lz = wp.getZ() + 0.5;
-				// If rendering beyond the text render distance and
-				// always-render is
-				// enabled, anchor the label along the camera->waypoint ray at a
-				// fixed distance so it stays visible and consistently sized.
-				if(alwaysRenderText.isChecked() && beyond)
+				// Anchor at a near, fixed distance when either:
+				// - Always-render is on (override distance completely), or
+				// - The label is extremely far away (to avoid engine culling),
+				// even if we're still within the slider distance.
+				boolean needAnchor = always || dist > 256.0;
+				if(needAnchor)
 				{
 					Vec3d cam = RenderUtils.getCameraPos();
 					Vec3d target = new Vec3d(lx, ly, lz);
@@ -199,7 +201,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 					}
 				}
 				float scale = (float)labelScale.getValue();
-				boolean anchored = alwaysRenderText.isChecked() && beyond;
+				boolean anchored = needAnchor;
 				// When not anchored, compensate by distance so on-screen size
 				// remains approximately constant.
 				if(!anchored)
