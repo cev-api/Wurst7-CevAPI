@@ -47,7 +47,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 	private long lastDeathCreatedMs;
 	
 	private final SliderSetting textRenderDistance = new SliderSetting(
-		"Text render distance", 127, 0, 2000, 1, ValueDisplay.INTEGER);
+		"Text render distance", 127, 0, 5000, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting alwaysRenderText =
 		new CheckboxSetting("Always render text", false);
 	private final SliderSetting fadeDistance = new SliderSetting(
@@ -55,7 +55,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 	private final SliderSetting maxDeathPositions = new SliderSetting(
 		"Max death positions", 4, 0, 20, 1, ValueDisplay.INTEGER);
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
-		2.0, 0.5, 10.0, 0.1, ValueDisplay.DECIMAL);
+		2.0, 0.5, 5.0, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting chatOnDeath =
 		new CheckboxSetting("Chat", true);
 	private final CheckboxSetting createDeathWaypoints =
@@ -165,8 +165,10 @@ public final class WaypointsHack extends Hack implements RenderListener,
 			
 			// labels near distance
 			double dist = Math.sqrt(distSq);
-			if(alwaysRenderText.isChecked()
-				|| dist <= textRenderDistance.getValue())
+			double trd = textRenderDistance.getValue();
+			boolean renderLabel = dist <= trd || alwaysRenderText.isChecked();
+			boolean beyond = trd == 0 || dist > trd;
+			if(renderLabel)
 			{
 				String title = w.getName() == null ? "" : w.getName();
 				String icon = iconChar(w.getIcon());
@@ -177,11 +179,11 @@ public final class WaypointsHack extends Hack implements RenderListener,
 				double lx = wp.getX() + 0.5;
 				double ly = baseY;
 				double lz = wp.getZ() + 0.5;
-				// If always-render is on, anchor the label along the ray from
-				// the
-				// camera to the waypoint, to keep it within a stable render
-				// range.
-				if(alwaysRenderText.isChecked())
+				// If rendering beyond the text render distance and
+				// always-render is
+				// enabled, anchor the label along the camera->waypoint ray at a
+				// fixed distance so it stays visible and consistently sized.
+				if(alwaysRenderText.isChecked() && beyond)
 				{
 					Vec3d cam = RenderUtils.getCameraPos();
 					Vec3d target = new Vec3d(lx, ly, lz);
@@ -197,6 +199,16 @@ public final class WaypointsHack extends Hack implements RenderListener,
 					}
 				}
 				float scale = (float)labelScale.getValue();
+				boolean anchored = alwaysRenderText.isChecked() && beyond;
+				// When not anchored, compensate by distance so on-screen size
+				// remains approximately constant.
+				if(!anchored)
+				{
+					Vec3d cam2 = RenderUtils.getCameraPos();
+					double dLabel = cam2.distanceTo(new Vec3d(lx, ly, lz));
+					double compensate = Math.max(1.0, dLabel * 0.1);
+					scale *= (float)compensate;
+				}
 				// Keep a constant 10px separation using local pixel offset
 				float sepPx = 10.0f;
 				drawWorldLabel(matrices, title, lx, ly, lz,
