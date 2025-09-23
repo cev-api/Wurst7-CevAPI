@@ -24,31 +24,72 @@ All credit for the original client goes to Wurst‑Imperium and its contributors
 
 ## What’s new in this fork
 
-### New hacks
-- MobSearch
+### MobSearch
   - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).
   - Multi-term queries: separate with commas (e.g., `skeleton, zombie`).
   - Rendering: Boxes, Lines, or Both. Rainbow or fixed color (default red). Box size configurable.
 
-- BedESP
+### BedESP
+  - Finds all bed types.
   - Chunk-based scanning with configurable color and Box/Line style.
+  - Rendering: Boxes, Lines, or Both in a fixed color.
 
-- SignESP
+### SignESP
   - Finds all sign types/materials.
   - Option: Include Frames (item frames + glow item frames) with a separate color.
-  - Style + color + area; empty/zero-size shapes are ignored for stability.
+  - Rendering: Boxes, Lines, or Both in a fixed color.
 
-- WorkstationESP
+### WorkstationESP
   - Highlights: Crafting Table, Smithing Table, Anvil (all states), Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.
-  - Style + color + area.
   - Per-block toggles and per-block colors. Defaults: all enabled; each uses the main/default color unless overridden.
+  - Rendering: Boxes, Lines, or Both in a fixed color.
 
-- RedstoneESP
+### RedstoneESP
   - Highlights: Redstone Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Sculk Sensor (+ Calibrated), Pistons (regular/sticky), Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.
   - Buttons and Pressure Plates are grouped:
     - Include buttons + Buttons color (matches all button variants)
     - Include pressure plates + Pressure plates color (matches all plate variants)
-  - Style + color + area.
+  - Rendering: Boxes, Lines, or Both in a fixed color.
+
+### Waypoints 
+Create and save waypoints and automatically save and or display in chat the location of your death.
+- Opening the manager
+  - Default keybind: apostrophe ('). This triggers the command `.waypoints`.
+- Creating and editing
+  - The editor shows name, coordinates (X/Y/Z), dimension, icon, visibility, lines on/off, and color.
+  - Copy coordinates: In the manager list, each waypoint row includes a Copy button that places `x, y, z` on the clipboard.
+  - Opposite: Default OFF. When ON (and applicable), the editor shows a hint below the toggle: “Opposite shows in … at (x, y, z)”. This converts Overworld <-> Nether using the usual 8× rule. (Opposite has no effect in the End.)
+- Rendering behavior
+  - Constant-size labels: Waypoint name and distance are rendered at a configurable and fixed on‑screen size
+  - Per‑waypoint “lines” toggle: Draws tracer + box around the target block when enabled.
+  - Death waypoints: Optional automatic waypoints on death. You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
+- Manager list
+  - Remove and edit existing waypoints easily
+- Storage
+  - Waypoints are stored per world/server under `wurst/waypoints/<worldId>.json` where `<worldId>` is the server address (or `singleplayer`).
+
+### Breadcrumbs 
+A line follows you wherever you go, useful for tracing back your path.
+- Settings
+  - Color
+  - Max sections (how many points are kept)
+  - Section length (distance before a new point is added)
+  - Line thickness
+    
+### LogoutSpots
+Visualizes where players logged out.
+- How it works
+  - The hack snapshots the current player list and compares it each tick. If an entry disappears, a logout spot is recorded at that player’s last known position (bounding box).
+  - Spots for players who rejoin are removed automatically.
+- Rendering
+  - Draws solid boxes (sides) plus an outline around each recorded spot.
+  - Optional tracers from your camera to each spot’s center.
+  - On‑screen labels with the player’s name (and adjustable name scale).
+- Settings
+  - Side color (box fill)
+  - Line color (outline + tracers)
+  - Name scale
+  - Show tracers (on/off)
 
 ### Search improvements
 - Keyword field accepts plain-text terms (e.g., `diamond`). Falls back to the block picker when empty.
@@ -83,63 +124,6 @@ All credit for the original client goes to Wurst‑Imperium and its contributors
 
 ### Notes
 - Scanning only includes chunks the server has sent. Larger radii work best in singleplayer or on servers with higher view distance.
-
-### Waypoints (overhaul)
-
-Waypoints received a usability pass and rendering upgrades.
-
-- Opening the manager
-  - Default keybind: apostrophe ('). This triggers the command `.waypoints`.
-  - You can also run the command `.waypoints` in chat or bind it yourself.
-
-- Creating and editing
-  - The editor shows name, coordinates (X/Y/Z), dimension, icon, visibility, lines on/off, and color.
-  - Color picker: Pick any color, click Done, and the editor immediately reflects the new color (button text + preview square). Press Save to persist the waypoint.
-  - Copy coordinates: In the manager list, each waypoint row includes a Copy button that places `x, y, z` on the clipboard.
-  - Opposite: Default OFF. When ON (and applicable), the editor shows a hint below the toggle: “Opposite shows in … at (x, y, z)”. This converts Overworld <-> Nether using the usual 8× rule. (Opposite has no effect in the End.)
-
-- Rendering behavior
-  - Constant-size labels: Waypoint name and distance are rendered at a fixed on‑screen size (configurable via “Label scale”), with a constant pixel gap between the two lines. This prevents drifting/squeezing as you move.
-  - Max label scale is 15.
-  - Per‑waypoint “lines” toggle: Draws tracer + box around the target block when enabled.
-  - Death waypoints: Optional automatic waypoints on death. You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
-
-- Manager list quality-of-life
-  - Color swatch: Each saved waypoint shows a small color box for quick identification.
-  - Show/Hide and Delete refresh in place (no stacked screens), so Back only needs to be pressed once.
-
-- Storage
-  - Waypoints are stored per world/server under `wurst/waypoints/<worldId>.json` where `<worldId>` is the server address (or `singleplayer`).
-
-### Breadcrumbs (rendering improvement)
-
-Breadcrumbs now uses a single, true thick line.
-
-- Previous versions simulated thickness by drawing multiple offset lines. This fork switches to a custom line‑strip width for a cleaner, more stable trail with less overdraw.
-- Settings
-  - Color
-  - Max sections (how many points are kept)
-  - Section length (distance before a new point is added)
-  - Line thickness (applied as a real line width)
-
-### LogoutSpots (new)
-
-Visualizes where players logged out.
-
-- How it works
-  - The hack snapshots the current player list and compares it each tick. If an entry disappears, a logout spot is recorded at that player’s last known position (bounding box).
-  - Spots for players who rejoin are removed automatically.
-
-- Rendering
-  - Draws solid boxes (sides) plus an outline around each recorded spot.
-  - Optional tracers from your camera to each spot’s center.
-  - On‑screen labels with the player’s name (and adjustable name scale).
-
-- Settings
-  - Side color (box fill)
-  - Line color (outline + tracers)
-  - Name scale
-  - Show tracers (on/off)
 
 ## License
 
