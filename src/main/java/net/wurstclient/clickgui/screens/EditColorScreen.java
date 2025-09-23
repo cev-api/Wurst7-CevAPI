@@ -255,35 +255,48 @@ public final class EditColorScreen extends Screen
 		if(mouseX >= paletteX && mouseX <= paletteX + paletteWidth
 			&& mouseY >= paletteY && mouseY <= paletteY + paletteHeight)
 		{
-			if(paletteAsBufferedImage == null)
-				return super.mouseClicked(mouseX, mouseY, button);
-			
-			int x = (int)Math.round((mouseX - paletteX) / paletteWidth
-				* paletteAsBufferedImage.getWidth());
-			int y = (int)Math.round((mouseY - paletteY) / paletteHeight
-				* paletteAsBufferedImage.getHeight());
-			
-			if(x > 0 && y > 0 && x < paletteAsBufferedImage.getWidth()
-				&& y < paletteAsBufferedImage.getHeight())
+			if(paletteAsBufferedImage != null)
 			{
-				int rgb = paletteAsBufferedImage.getRGB(x, y);
-				Color color = new Color(rgb, true);
-				
-				// Set color if pixel has full alpha
-				if(color.getAlpha() >= 255)
-					setColor(color);
+				int x = (int)Math.round((mouseX - paletteX) / paletteWidth
+					* paletteAsBufferedImage.getWidth());
+				int y = (int)Math.round((mouseY - paletteY) / paletteHeight
+					* paletteAsBufferedImage.getHeight());
+				if(x > 0 && y > 0 && x < paletteAsBufferedImage.getWidth()
+					&& y < paletteAsBufferedImage.getHeight())
+				{
+					int rgb = paletteAsBufferedImage.getRGB(x, y);
+					// Always set picked color, force full alpha for consistency
+					setColor(new Color((rgb & 0x00FFFFFF) | 0xFF000000, true));
+				}
+			}else
+			{
+				// Fallback: compute color procedurally from position
+				// Horizontal = hue, vertical = brightness
+				double u = Math.max(0,
+					Math.min(1, (mouseX - paletteX) / paletteWidth));
+				double v = Math.max(0,
+					Math.min(1, (mouseY - paletteY) / paletteHeight));
+				float hue = (float)u;
+				float sat = 1.0f;
+				float bri = (float)(1.0 - v);
+				int rgb = java.awt.Color.HSBtoRGB(hue, sat, bri);
+				setColor(new Color((rgb & 0x00FFFFFF) | 0xFF000000, true));
 			}
+			return true;
 		}
-		
 		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	
 	private void setColor(Color color)
 	{
+		// Update working color and UI fields without triggering listeners
+		this.color = color;
+		ignoreChanges = true;
 		hexValueField.setText(ColorUtils.toHex(color).substring(1));
 		redValueField.setText("" + color.getRed());
 		greenValueField.setText("" + color.getGreen());
 		blueValueField.setText("" + color.getBlue());
+		ignoreChanges = false;
 	}
 	
 	@Override

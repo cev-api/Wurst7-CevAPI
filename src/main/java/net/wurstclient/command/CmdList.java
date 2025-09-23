@@ -69,6 +69,8 @@ public final class CmdList
 	public final ViewCompCmd viewCompCmd = new ViewCompCmd();
 	public final ViewNbtCmd viewNbtCmd = new ViewNbtCmd();
 	public final XrayCmd xrayCmd = new XrayCmd();
+	public final net.wurstclient.commands.WaypointsCmd waypointsCmd =
+		new net.wurstclient.commands.WaypointsCmd();
 	
 	private final TreeMap<String, Command> cmds =
 		new TreeMap<>(String::compareToIgnoreCase);

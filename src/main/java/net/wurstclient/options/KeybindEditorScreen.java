@@ -38,6 +38,15 @@ public final class KeybindEditorScreen extends Screen
 		oldCommands = null;
 	}
 	
+	public KeybindEditorScreen(Screen prevScreen, String defaultCommands)
+	{
+		super(Text.literal(""));
+		this.prevScreen = prevScreen;
+		this.key = "NONE";
+		this.oldKey = null;
+		this.oldCommands = defaultCommands;
+	}
+	
 	public KeybindEditorScreen(Screen prevScreen, String key, String commands)
 	{
 		super(Text.literal(""));

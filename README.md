@@ -84,6 +84,63 @@ All credit for the original client goes to Wurst‑Imperium and its contributors
 ### Notes
 - Scanning only includes chunks the server has sent. Larger radii work best in singleplayer or on servers with higher view distance.
 
+### Waypoints (overhaul)
+
+Waypoints received a usability pass and rendering upgrades.
+
+- Opening the manager
+  - Default keybind: apostrophe ('). This triggers the command `.waypoints`.
+  - You can also run the command `.waypoints` in chat or bind it yourself.
+
+- Creating and editing
+  - The editor shows name, coordinates (X/Y/Z), dimension, icon, visibility, lines on/off, and color.
+  - Color picker: Pick any color, click Done, and the editor immediately reflects the new color (button text + preview square). Press Save to persist the waypoint.
+  - Copy coordinates: In the manager list, each waypoint row includes a Copy button that places `x, y, z` on the clipboard.
+  - Opposite: Default OFF. When ON (and applicable), the editor shows a hint below the toggle: “Opposite shows in … at (x, y, z)”. This converts Overworld <-> Nether using the usual 8× rule. (Opposite has no effect in the End.)
+
+- Rendering behavior
+  - Constant-size labels: Waypoint name and distance are rendered at a fixed on‑screen size (configurable via “Label scale”), with a constant pixel gap between the two lines. This prevents drifting/squeezing as you move.
+  - Max label scale is 15.
+  - Per‑waypoint “lines” toggle: Draws tracer + box around the target block when enabled.
+  - Death waypoints: Optional automatic waypoints on death. You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
+
+- Manager list quality-of-life
+  - Color swatch: Each saved waypoint shows a small color box for quick identification.
+  - Show/Hide and Delete refresh in place (no stacked screens), so Back only needs to be pressed once.
+
+- Storage
+  - Waypoints are stored per world/server under `wurst/waypoints/<worldId>.json` where `<worldId>` is the server address (or `singleplayer`).
+
+### Breadcrumbs (rendering improvement)
+
+Breadcrumbs now uses a single, true thick line.
+
+- Previous versions simulated thickness by drawing multiple offset lines. This fork switches to a custom line‑strip width for a cleaner, more stable trail with less overdraw.
+- Settings
+  - Color
+  - Max sections (how many points are kept)
+  - Section length (distance before a new point is added)
+  - Line thickness (applied as a real line width)
+
+### LogoutSpots (new)
+
+Visualizes where players logged out.
+
+- How it works
+  - The hack snapshots the current player list and compares it each tick. If an entry disappears, a logout spot is recorded at that player’s last known position (bounding box).
+  - Spots for players who rejoin are removed automatically.
+
+- Rendering
+  - Draws solid boxes (sides) plus an outline around each recorded spot.
+  - Optional tracers from your camera to each spot’s center.
+  - On‑screen labels with the player’s name (and adjustable name scale).
+
+- Settings
+  - Side color (box fill)
+  - Line color (outline + tracers)
+  - Name scale
+  - Show tracers (on/off)
+
 ## License
 
 This code is licensed under the GNU General Public License v3. 

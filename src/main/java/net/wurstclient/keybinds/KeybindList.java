@@ -131,6 +131,8 @@ public final class KeybindList
 		addKB(set, "u", "freecam");
 		addKB(set, "x", "x-ray");
 		addKB(set, "y", "sneak");
+		// Default shortcut to open the Waypoints manager
+		addKB(set, "apostrophe", ".waypoints");
 		return Collections.unmodifiableSet(set);
 	}
 	

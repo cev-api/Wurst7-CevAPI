@@ -109,4 +109,23 @@ public enum WurstRenderLayers
 	{
 		return depthTest ? LINE_STRIP : ESP_LINE_STRIP;
 	}
+	
+	/**
+	 * Line strip with custom width.
+	 */
+	public static RenderLayer.MultiPhase getLineStrip(boolean depthTest,
+		double width)
+	{
+		return RenderLayer.of(
+			depthTest
+				? "wurst:line_strip_custom" : "wurst:esp_line_strip_custom",
+			1536,
+			depthTest ? WurstShaderPipelines.DEPTH_TEST_LINE_STRIP
+				: WurstShaderPipelines.ESP_LINE_STRIP,
+			RenderLayer.MultiPhaseParameters.builder()
+				.lineWidth(new RenderPhase.LineWidth(
+					java.util.OptionalDouble.of(width)))
+				.layering(RenderLayer.VIEW_OFFSET_Z_LAYERING)
+				.target(RenderLayer.ITEM_ENTITY_TARGET).build(false));
+	}
 }

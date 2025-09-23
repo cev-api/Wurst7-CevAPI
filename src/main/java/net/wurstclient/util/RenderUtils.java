@@ -233,6 +233,20 @@ public enum RenderUtils
 		vcp.draw(layer);
 	}
 	
+	public static void drawCurvedLine(MatrixStack matrices, List<Vec3d> points,
+		int color, boolean depthTest, double width)
+	{
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getLineStrip(depthTest, width);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d offset = getCameraPos().negate();
+		List<Vec3d> points2 = points.stream().map(v -> v.add(offset)).toList();
+		drawCurvedLine(matrices, buffer, points2, color);
+		
+		vcp.draw(layer);
+	}
+	
 	public static void drawCurvedLine(MatrixStack matrices,
 		VertexConsumer buffer, List<Vec3d> points, int color)
 	{

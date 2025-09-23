@@ -1,0 +1,348 @@
+/*
+ * Copyright (c) 2014-2025 Wurst-Imperium and contributors.
+ *
+ * This source code is subject to the terms of the GNU General Public
+ * License, version 3. If a copy of the GPL was not distributed with this
+ * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
+ */
+package net.wurstclient.hacks;
+
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.UUID;
+
+import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.render.VertexConsumerProvider;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
+import net.wurstclient.Category;
+import net.wurstclient.SearchTags;
+import net.wurstclient.events.DeathListener;
+import net.wurstclient.events.RenderListener;
+import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.waypoints.Waypoint;
+import net.wurstclient.waypoints.WaypointDimension;
+import net.wurstclient.waypoints.WaypointsManager;
+
+@SearchTags({"waypoint", "waypoints", "marker"})
+public final class WaypointsHack extends Hack implements RenderListener,
+	DeathListener, net.wurstclient.events.UpdateListener
+{
+	private final WaypointsManager manager;
+	private static final DateTimeFormatter TIME_FMT =
+		DateTimeFormatter.ofPattern("HH:mm:ss");
+	
+	private String worldId = "default";
+	private BlockPos lastDeathAt;
+	private long lastDeathCreatedMs;
+	
+	private final SliderSetting textRenderDistance = new SliderSetting(
+		"Text render distance", 127, 16, 1024, 1, ValueDisplay.INTEGER);
+	private final SliderSetting fadeDistance = new SliderSetting(
+		"Waypoint fade distance", 20, 0, 100, 1, ValueDisplay.INTEGER);
+	private final SliderSetting maxDeathPositions = new SliderSetting(
+		"Max death positions", 4, 0, 20, 1, ValueDisplay.INTEGER);
+	private final SliderSetting labelScale = new SliderSetting("Label scale",
+		2.0, 0.5, 15.0, 0.1, ValueDisplay.DECIMAL);
+	private final CheckboxSetting chatOnDeath =
+		new CheckboxSetting("Chat", true);
+	private final CheckboxSetting createDeathWaypoints =
+		new CheckboxSetting("Create death waypoints", true);
+	private final CheckboxSetting deathWaypointLines =
+		new CheckboxSetting("Death waypoint lines", true);
+	private final ColorSetting deathColor =
+		new ColorSetting("Death waypoint color", new java.awt.Color(0xFF4444));
+	
+	public WaypointsHack()
+	{
+		super("Waypoints");
+		setCategory(Category.RENDER);
+		this.manager = new WaypointsManager(WURST.getWurstFolder());
+		addSetting(new net.wurstclient.settings.WaypointsSetting(
+			"Manage waypoints", this.manager));
+		
+		addSetting(textRenderDistance);
+		addSetting(fadeDistance);
+		addSetting(maxDeathPositions);
+		addSetting(chatOnDeath);
+		addSetting(createDeathWaypoints);
+		addSetting(deathWaypointLines);
+		addSetting(labelScale);
+		addSetting(deathColor);
+	}
+	
+	@Override
+	protected void onEnable()
+	{
+		worldId = resolveWorldId();
+		manager.load(worldId);
+		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(net.wurstclient.events.UpdateListener.class, this);
+		EVENTS.add(DeathListener.class, this);
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		manager.save(worldId);
+		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(net.wurstclient.events.UpdateListener.class, this);
+		EVENTS.remove(DeathListener.class, this);
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		String wid = resolveWorldId();
+		if(!wid.equals(worldId))
+		{
+			manager.save(worldId);
+			worldId = wid;
+			manager.load(worldId);
+		}
+	}
+	
+	@Override
+	public void onRender(MatrixStack matrices, float partialTicks)
+	{
+		if(MC.player == null || MC.world == null)
+			return;
+		
+		var list = new ArrayList<>(manager.all());
+		for(Waypoint w : list)
+		{
+			if(!w.isVisible())
+				continue;
+			
+			BlockPos wp = worldSpace(w);
+			if(wp == null)
+				continue;
+			
+			double distSq = MC.player.squaredDistanceTo(wp.getX() + 0.5,
+				wp.getY() + 0.5, wp.getZ() + 0.5);
+			if(distSq > (double)(w.getMaxVisible() * w.getMaxVisible()))
+				continue;
+			
+			// Near action with 1s cooldown after creation
+			if(System.currentTimeMillis() - w.getCreatedAt() >= 1000
+				&& distSq <= (double)(w.getActionWhenNearDistance()
+					* w.getActionWhenNearDistance()))
+			{
+				switch(w.getActionWhenNear())
+				{
+					case HIDE -> w.setVisible(false);
+					case DELETE -> manager.remove(w);
+					default ->
+						{
+						}
+				}
+			}
+			
+			// draw tracer + box if enabled
+			if(w.isLines())
+			{
+				RenderUtils.drawTracer(matrices, partialTicks,
+					new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
+						wp.getZ() + 0.5),
+					applyFade(w.getColor(), distSq), false);
+				RenderUtils.drawOutlinedBoxes(matrices,
+					java.util.List.of(new Box(wp)),
+					applyFade(w.getColor(), distSq), false);
+			}
+			
+			// labels near distance
+			double dist = Math.sqrt(distSq);
+			if(dist <= textRenderDistance.getValue())
+			{
+				String title = w.getName() == null ? "" : w.getName();
+				String icon = iconChar(w.getIcon());
+				if(!icon.isEmpty())
+					title = icon + (title.isEmpty() ? "" : " " + title);
+				String distanceText = (int)dist + " blocks";
+				double baseY = wp.getY() + 1.2;
+				float scale = (float)labelScale.getValue();
+				// Compensate for distance so on-screen size stays roughly
+				// constant
+				double compensate = Math.max(1.0, Math.sqrt(distSq) * 0.1);
+				scale *= (float)compensate;
+				// Keep a constant 10px separation using local pixel offset
+				float sepPx = 10.0f;
+				drawWorldLabel(matrices, title, wp.getX() + 0.5, baseY,
+					wp.getZ() + 0.5, applyFade(w.getColor(), distSq), scale,
+					-sepPx);
+				drawWorldLabel(matrices, distanceText, wp.getX() + 0.5, baseY,
+					wp.getZ() + 0.5, applyFade(w.getColor(), distSq),
+					(float)(scale * 0.9f), 0f);
+			}
+		}
+	}
+	
+	@Override
+	public void onDeath()
+	{
+		if(MC.player == null)
+			return;
+		
+		BlockPos at = MC.player.getBlockPos().up(2);
+		long now = System.currentTimeMillis();
+		if(lastDeathAt != null && lastDeathAt.equals(at)
+			&& now - lastDeathCreatedMs < 10000)
+			return; // avoid multiple waypoints per death screen
+			
+		// Optional death chat, regardless of creating a waypoint
+		if(chatOnDeath.isChecked())
+			MC.player.sendMessage(Text.literal(
+				"Died at " + at.getX() + ", " + at.getY() + ", " + at.getZ()),
+				false);
+		
+		if(createDeathWaypoints.isChecked())
+		{
+			Waypoint w = new Waypoint(UUID.randomUUID(), now);
+			w.setName("Death " + TIME_FMT.format(LocalTime.now()));
+			w.setIcon("skull");
+			w.setColor(deathColor.getColorI());
+			w.setPos(at);
+			w.setDimension(currentDim());
+			w.setActionWhenNear(Waypoint.ActionWhenNear.DELETE);
+			w.setActionWhenNearDistance(4);
+			w.setLines(deathWaypointLines.isChecked());
+			manager.addOrUpdate(w);
+			pruneDeaths();
+			manager.save(worldId);
+		}
+		
+		lastDeathAt = at;
+		lastDeathCreatedMs = now;
+	}
+	
+	private WaypointDimension currentDim()
+	{
+		if(MC.world == null)
+			return WaypointDimension.OVERWORLD;
+		String key = MC.world.getRegistryKey().getValue().getPath();
+		return switch(key)
+		{
+			case "the_nether" -> WaypointDimension.NETHER;
+			case "the_end" -> WaypointDimension.END;
+			default -> WaypointDimension.OVERWORLD;
+		};
+	}
+	
+	private String resolveWorldId()
+	{
+		ServerInfo s = MC.getCurrentServerEntry();
+		if(s != null && s.address != null && !s.address.isEmpty())
+			return s.address.replace(':', '_');
+		return "singleplayer";
+	}
+	
+	private BlockPos worldSpace(Waypoint w)
+	{
+		WaypointDimension pd = currentDim();
+		WaypointDimension wd = w.getDimension();
+		BlockPos p = w.getPos();
+		if(pd == wd)
+			return p;
+		if(!w.isOpposite())
+			return null;
+		// Convert between Overworld and Nether
+		if(pd == WaypointDimension.OVERWORLD && wd == WaypointDimension.NETHER)
+			return new BlockPos(p.getX() * 8, p.getY(), p.getZ() * 8);
+		if(pd == WaypointDimension.NETHER && wd == WaypointDimension.OVERWORLD)
+			return new BlockPos(p.getX() / 8, p.getY(), p.getZ() / 8);
+		return null;
+	}
+	
+	private void pruneDeaths()
+	{
+		var all = manager.all();
+		var deaths = new ArrayList<Waypoint>();
+		for(Waypoint w : all)
+			if(w.getName() != null && w.getName().startsWith("Death "))
+				deaths.add(w);
+		if(deaths.size() <= maxDeathPositions.getValueI())
+			return;
+		deaths.sort((a, b) -> Long.compare(a.getCreatedAt(), b.getCreatedAt()));
+		int remove = deaths.size() - maxDeathPositions.getValueI();
+		for(int i = 0; i < remove; i++)
+			manager.remove(deaths.get(i));
+	}
+	
+	private void drawWorldLabel(MatrixStack matrices, String text, double x,
+		double y, double z, int argb, float scale, float offsetPx)
+	{
+		matrices.push();
+		Vec3d cam = RenderUtils.getCameraPos();
+		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		matrices.multiply(MC.getEntityRenderDispatcher().getRotation());
+		float s = 0.025F * scale;
+		matrices.scale(s, -s, s);
+		// After scaling, translate by pixel offset to separate lines
+		// consistently.
+		matrices.translate(0, offsetPx, 0);
+		TextRenderer tr = MC.textRenderer;
+		VertexConsumerProvider.Immediate vcp = RenderUtils.getVCP();
+		float w = tr.getWidth(text) / 2F;
+		int bg = (int)(MC.options.getTextBackgroundOpacity(0.25F) * 255) << 24;
+		var matrix = matrices.peek().getPositionMatrix();
+		tr.draw(text, -w, 0, argb, false, matrix, vcp,
+			TextRenderer.TextLayerType.SEE_THROUGH, bg, 0xF000F0);
+		vcp.draw();
+		matrices.pop();
+	}
+	
+	private int applyFade(int argb, double distSq)
+	{
+		double fade = fadeDistance.getValue();
+		if(fade <= 0)
+			return argb;
+		double dist = Math.sqrt(distSq);
+		if(dist >= fade)
+			return argb;
+		int a = (argb >>> 24) & 0xFF;
+		int r = (argb >>> 16) & 0xFF;
+		int g = (argb >>> 8) & 0xFF;
+		int b = argb & 0xFF;
+		int na = (int)Math.max(0, Math.min(a, a * (dist / fade)));
+		return (na << 24) | (r << 16) | (g << 8) | b;
+	}
+	
+	private String iconChar(String icon)
+	{
+		if(icon == null)
+			return "";
+		switch(icon.toLowerCase())
+		{
+			case "square":
+			return "■";
+			case "circle":
+			return "●";
+			case "triangle":
+			return "▲";
+			case "star":
+			return "★";
+			case "diamond":
+			return "♦";
+			case "skull":
+			return "☠";
+			default:
+			return "";
+		}
+	}
+	
+	public void openManager()
+	{
+		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
+			MC.currentScreen, manager));
+	}
+}

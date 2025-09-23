@@ -1,0 +1,348 @@
+/*
+ * Copyright (c) 2014-2025 Wurst-Imperium and contributors.
+ *
+ * This source code is subject to the terms of the GNU General Public
+ * License, version 3. If a copy of the GPL was not distributed with this
+ * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
+ */
+package net.wurstclient.clickgui.screens;
+
+import java.awt.Color;
+
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
+import net.minecraft.util.Colors;
+import net.minecraft.util.math.BlockPos;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.waypoints.Waypoint;
+import net.wurstclient.waypoints.WaypointDimension;
+import net.wurstclient.waypoints.WaypointsManager;
+
+public final class WaypointEditScreen extends Screen
+{
+	private final Screen prev;
+	private final WaypointsManager manager;
+	private final WaypointsScreen listScreen;
+	private final Waypoint waypoint;
+	// removed unused: private final boolean isNew;
+	// cached layout positions
+	private int fieldsBaseX;
+	private int yName;
+	private int yXYZ;
+	// removed unused: private int yDim;
+	private int yToggles;
+	// removed unused: private int yIcon;
+	private int yColor;
+	
+	private TextFieldWidget nameField;
+	private TextFieldWidget xField;
+	private TextFieldWidget yField;
+	private TextFieldWidget zField;
+	private ButtonWidget colorButton;
+	private ColorSetting colorSetting;
+	
+	private int dimIndex;
+	private ButtonWidget dimButton;
+	
+	private static final String[] ICONS = new String[]{"square", "circle",
+		"triangle", "star", "diamond", "skull"};
+	private int iconIndex;
+	private ButtonWidget iconButton;
+	
+	private ButtonWidget oppositeButton;
+	private ButtonWidget visibleButton;
+	private ButtonWidget linesButton;
+	
+	public WaypointEditScreen(Screen prev, WaypointsManager manager,
+		Waypoint waypoint, boolean isNew)
+	{
+		super(Text.literal("Edit Waypoint"));
+		this.prev = prev;
+		this.manager = manager;
+		this.listScreen =
+			prev instanceof WaypointsScreen ? (WaypointsScreen)prev : null;
+		this.waypoint = waypoint;
+		// removed: this.isNew = isNew;
+	}
+	
+	@Override
+	protected void init()
+	{
+		int x = width / 2 - 150;
+		int y = 36;
+		fieldsBaseX = x;
+		
+		// Name
+		yName = y;
+		nameField = new TextFieldWidget(client.textRenderer, x, y, 300, 20,
+			Text.literal(""));
+		nameField.setText(waypoint.getName() == null ? "" : waypoint.getName());
+		addDrawableChild(nameField);
+		setFocused(nameField);
+		// increased gap to avoid XYZ labels overlapping name field
+		y += 44;
+		
+		// Position fields
+		BlockPos p = waypoint.getPos();
+		yXYZ = y;
+		xField = new TextFieldWidget(client.textRenderer, x, y, 95, 20,
+			Text.literal(""));
+		xField.setText(Integer.toString(p.getX()));
+		addDrawableChild(xField);
+		yField = new TextFieldWidget(client.textRenderer, x + 102, y, 95, 20,
+			Text.literal(""));
+		yField.setText(Integer.toString(p.getY()));
+		addDrawableChild(yField);
+		zField = new TextFieldWidget(client.textRenderer, x + 204, y, 96, 20,
+			Text.literal(""));
+		zField.setText(Integer.toString(p.getZ()));
+		addDrawableChild(zField);
+		y += 28;
+		
+		// Dimension cycle
+		// removed yDim tracking
+		WaypointDimension[] dims = WaypointDimension.values();
+		dimIndex = 0;
+		for(int i = 0; i < dims.length; i++)
+			if(dims[i] == waypoint.getDimension())
+			{
+				dimIndex = i;
+				break;
+			}
+		dimButton = ButtonWidget
+			.builder(Text.literal("Dimension: " + dims[dimIndex].name()), b -> {
+				dimIndex = (dimIndex + 1) % dims.length;
+				b.setMessage(
+					Text.literal("Dimension: " + dims[dimIndex].name()));
+			}).dimensions(x, y, 300, 20).build();
+		addDrawableChild(dimButton);
+		y += 28;
+		
+		// Opposite toggle
+		yToggles = y;
+		oppositeButton = ButtonWidget.builder(
+			Text.literal(buttonLabel("Opposite", waypoint.isOpposite())), b -> {
+				waypoint.setOpposite(!waypoint.isOpposite());
+				b.setMessage(Text
+					.literal(buttonLabel("Opposite", waypoint.isOpposite())));
+			}).dimensions(x, y, 145, 20).build();
+		addDrawableChild(oppositeButton);
+		
+		// Visible toggle
+		visibleButton = ButtonWidget
+			.builder(Text.literal(buttonLabel("Visible", waypoint.isVisible())),
+				b -> {
+					waypoint.setVisible(!waypoint.isVisible());
+					b.setMessage(Text
+						.literal(buttonLabel("Visible", waypoint.isVisible())));
+				})
+			.dimensions(x + 155, y, 145, 20).build();
+		addDrawableChild(visibleButton);
+		y += 28;
+		
+		// Reserve space for opposite preview text, then Lines toggle row
+		y += 16;
+		// Lines toggle row
+		linesButton = ButtonWidget
+			.builder(Text.literal(buttonLabel("Lines", waypoint.isLines())),
+				b -> {
+					waypoint.setLines(!waypoint.isLines());
+					b.setMessage(
+						Text.literal(buttonLabel("Lines", waypoint.isLines())));
+				})
+			.dimensions(x, y, 300, 20).build();
+		addDrawableChild(linesButton);
+		y += 28;
+		
+		// (no extra space here; preview is rendered just below the opposite
+		// row)
+		// Icon selector
+		// removed yIcon tracking
+		iconIndex = 0;
+		String currentIcon = waypoint.getIcon();
+		for(int i = 0; i < ICONS.length; i++)
+			if(ICONS[i].equalsIgnoreCase(currentIcon))
+			{
+				iconIndex = i;
+				break;
+			}
+		iconButton = ButtonWidget
+			.builder(Text.literal("Icon: " + ICONS[iconIndex]), b -> {
+				iconIndex = (iconIndex + 1) % ICONS.length;
+				b.setMessage(Text.literal("Icon: " + ICONS[iconIndex]));
+			}).dimensions(x, y, 300, 20).build();
+		addDrawableChild(iconButton);
+		y += 28;
+		// extra spacing before color row
+		y += 8;
+		
+		// Color editor button + preview
+		yColor = y;
+		// Reuse existing setting if returning from color picker, otherwise
+		// initialize from the waypoint color (force full alpha)
+		if(colorSetting == null)
+			colorSetting = new ColorSetting("Waypoint Color", new Color(
+				(waypoint.getColor() & 0x00FFFFFF) | 0xFF000000, true));
+		colorButton = ButtonWidget.builder(
+			Text.literal(
+				"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"),
+			b -> {
+				client.setScreen(new EditColorScreen(this, colorSetting));
+			}).dimensions(x, y, 300 - 24, 20).build();
+		addDrawableChild(colorButton);
+		y += 28;
+		
+		// Buttons
+		addDrawableChild(ButtonWidget
+			.builder(Text.literal("Use player pos"), b -> usePlayerPos())
+			.dimensions(x, y, 145, 20).build());
+		addDrawableChild(
+			ButtonWidget.builder(Text.literal("Delete"), b -> doDelete())
+				.dimensions(x + 155, y, 145, 20).build());
+		y += 28;
+		
+		addDrawableChild(
+			ButtonWidget.builder(Text.literal("Save"), b -> saveAndBack())
+				.dimensions(x, height - 52, 145, 20).build());
+		addDrawableChild(ButtonWidget
+			.builder(Text.literal("Cancel"), b -> client.setScreen(prev))
+			.dimensions(x + 155, height - 52, 145, 20).build());
+	}
+	
+	private static String buttonLabel(String name, boolean on)
+	{
+		return name + ": " + (on ? "ON" : "OFF");
+	}
+	
+	private void usePlayerPos()
+	{
+		if(client.player == null)
+			return;
+		BlockPos p = BlockPos.ofFloored(client.player.getPos());
+		xField.setText(Integer.toString(p.getX()));
+		yField.setText(Integer.toString(p.getY()));
+		zField.setText(Integer.toString(p.getZ()));
+	}
+	
+	private void doDelete()
+	{
+		manager.remove(waypoint);
+		if(listScreen != null)
+			listScreen.saveNow();
+		client.setScreen(prev);
+	}
+	
+	private void saveAndBack()
+	{
+		// Name
+		waypoint.setName(nameField.getText());
+		
+		// Position
+		try
+		{
+			int x = Integer.parseInt(xField.getText());
+			int y = Integer.parseInt(yField.getText());
+			int z = Integer.parseInt(zField.getText());
+			waypoint.setPos(new BlockPos(x, y, z));
+		}catch(Exception ignored)
+		{}
+		
+		// Dimension
+		waypoint.setDimension(WaypointDimension.values()[dimIndex]);
+		
+		// Icon
+		waypoint.setIcon(ICONS[iconIndex]);
+		
+		// Color
+		waypoint.setColor(colorSetting.getColorI());
+		
+		manager.addOrUpdate(waypoint);
+		if(listScreen != null)
+			listScreen.saveNow();
+		client.setScreen(prev);
+	}
+	
+	private String toHex6(int argb)
+	{
+		int rgb = argb & 0x00FFFFFF;
+		String s = Integer.toHexString(rgb).toUpperCase();
+		while(s.length() < 6)
+			s = "0" + s;
+		return s;
+	}
+	
+	@Override
+	public void render(DrawContext context, int mouseX, int mouseY, float delta)
+	{
+		context.fill(0, 0, this.width, this.height, 0x88000000);
+		super.render(context, mouseX, mouseY, delta);
+		
+		// Update color button label in case it changed in child screen
+		if(colorButton != null && colorSetting != null)
+			colorButton.setMessage(Text.literal(
+				"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"));
+		
+		// Labels
+		int x = fieldsBaseX;
+		context.drawText(client.textRenderer, "Name", x, yName - 18,
+			Colors.LIGHT_GRAY, false);
+		context.drawText(client.textRenderer, "X", x, yXYZ - 18,
+			Colors.LIGHT_GRAY, false);
+		context.drawText(client.textRenderer, "Y", x + 102, yXYZ - 18,
+			Colors.LIGHT_GRAY, false);
+		context.drawText(client.textRenderer, "Z", x + 204, yXYZ - 18,
+			Colors.LIGHT_GRAY, false);
+		// removed explicit "Color" text label to avoid redundancy and crowding
+		
+		// Color preview box
+		int boxX = x + 300 - 20;
+		int boxY = yColor;
+		int color = colorSetting.getColorI();
+		context.fill(boxX - 1, boxY - 1, boxX + 18, boxY + 18, Colors.GRAY);
+		context.fill(boxX, boxY, boxX + 16, boxY + 16, color);
+		
+		// Opposite preview text – render below the toggles and lines rows
+		String opp = oppositePreview();
+		if(!opp.isEmpty())
+			context.drawText(client.textRenderer, opp, fieldsBaseX,
+				/* directly below the opposite/visible row */
+				yToggles + 28 + 8, 0xFFCCCCCC, false);
+	}
+	
+	private String oppositePreview()
+	{
+		if(!waypoint.isOpposite())
+			return "";
+		WaypointDimension d = WaypointDimension.values()[dimIndex];
+		if(d == WaypointDimension.END)
+			return "Opposite has no effect in the End";
+		try
+		{
+			int x = Integer.parseInt(xField.getText());
+			int z = Integer.parseInt(zField.getText());
+			int y = Integer.parseInt(yField.getText());
+			int ox = x;
+			int oz = z;
+			WaypointDimension td;
+			if(d == WaypointDimension.OVERWORLD)
+			{
+				ox = Math.floorDiv(x, 8);
+				oz = Math.floorDiv(z, 8);
+				td = WaypointDimension.NETHER;
+			}else // NETHER
+			{
+				ox = x * 8;
+				oz = z * 8;
+				td = WaypointDimension.OVERWORLD;
+			}
+			return "Opposite shows in " + td.name() + " at (" + ox + ", " + y
+				+ ", " + oz + ")";
+		}catch(Exception e)
+		{
+			return "";
+		}
+	}
+}
