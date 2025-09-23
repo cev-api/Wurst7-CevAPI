@@ -181,6 +181,9 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	
 	private Predicate<LivingEntity> byFuzzyQuery(String q)
 	{
+		// Support multiple comma-separated terms, match if any term matches
+		String[] terms = Stream.of(q.split(",")).map(String::trim)
+			.filter(s -> !s.isEmpty()).toArray(String[]::new);
 		return e -> {
 			Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
 			String s = id == null ? "" : id.toString();
@@ -189,10 +192,14 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			String localSpaced = local.replace('_', ' ');
 			String transKey = e.getType().getTranslationKey();
 			String display = e.getType().getName().getString();
-			return containsNormalized(s, q) || containsNormalized(local, q)
-				|| containsNormalized(localSpaced, q)
-				|| containsNormalized(transKey, q)
-				|| containsNormalized(display, q);
+			for(String term : terms)
+				if(containsNormalized(s, term)
+					|| containsNormalized(local, term)
+					|| containsNormalized(localSpaced, term)
+					|| containsNormalized(transKey, term)
+					|| containsNormalized(display, term))
+					return true;
+			return false;
 		};
 	}
 	

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.stream.Collectors;
@@ -75,7 +76,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
-			+ "Higher values require a faster computer.");
+			+ "Higher values require a faster computer.",
+		ChunkAreaSetting.ChunkArea.A33);
 	
 	private final SliderSetting limit = new SliderSetting("Limit",
 		"The maximum number of blocks to display.\n"
@@ -313,12 +315,21 @@ public final class SearchHack extends Hack implements UpdateListener,
 		String id = BlockUtils.getName(block);
 		String localId =
 			id.contains(":") ? id.substring(id.indexOf(":") + 1) : id;
-		
-		return containsNormalized(id, normalizedQuery)
-			|| containsNormalized(localId, normalizedQuery)
-			|| containsNormalized(localId.replace('_', ' '), normalizedQuery)
-			|| containsNormalized(block.getTranslationKey(), normalizedQuery)
-			|| containsNormalized(block.getName().getString(), normalizedQuery);
+		// Support multiple comma-separated terms; match if ANY term matches
+		String[] terms = Arrays.stream(normalizedQuery.split(","))
+			.map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
+		if(terms.length == 0)
+			terms = new String[]{normalizedQuery};
+		String localSpaced = localId.replace('_', ' ');
+		String transKey = block.getTranslationKey();
+		String display = block.getName().getString();
+		for(String term : terms)
+			if(containsNormalized(id, term) || containsNormalized(localId, term)
+				|| containsNormalized(localSpaced, term)
+				|| containsNormalized(transKey, term)
+				|| containsNormalized(display, term))
+				return true;
+		return false;
 	}
 	
 	private boolean containsNormalized(String haystack, String normalizedQuery)

@@ -11,12 +11,12 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.awt.Color;
 
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -26,6 +26,8 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.EspBoxSizeSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.*;
 import net.wurstclient.util.EntityUtils;
@@ -42,6 +44,13 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting(
 		"\u00a7lAccurate\u00a7r mode shows the exact hitbox of each mob.\n"
 			+ "\u00a7lFancy\u00a7r mode shows slightly larger boxes that look better.");
+	
+	// New color options to match MobSearch
+	private final CheckboxSetting useRainbow =
+		new CheckboxSetting("Rainbow colors",
+			"Use a rainbow color instead of the fixed color.", false);
+	private final ColorSetting color = new ColorSetting("Color",
+		"Fixed color used when Rainbow colors is disabled.", Color.RED);
 	
 	private final EntityFilterList entityFilters =
 		new EntityFilterList(FilterHostileSetting.genericVision(false),
@@ -75,6 +84,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(boxSize);
+		// Add new color settings
+		addSetting(useRainbow);
+		addSetting(color);
 		entityFilters.forEach(this::addSetting);
 	}
 	
@@ -130,7 +142,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			{
 				Box box = EntityUtils.getLerpedBox(e, partialTicks)
 					.offset(0, extraSize, 0).expand(extraSize);
-				boxes.add(new ColoredBox(box, getColor(e)));
+				boxes.add(new ColoredBox(box, getColorI(0.5F)));
 			}
 			
 			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, false);
@@ -143,19 +155,20 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			{
 				Vec3d point =
 					EntityUtils.getLerpedBox(e, partialTicks).getCenter();
-				ends.add(new ColoredPoint(point, getColor(e)));
+				ends.add(new ColoredPoint(point, getColorI(0.5F)));
 			}
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
 		}
 	}
 	
-	private int getColor(LivingEntity e)
+	private int getColorI(float alpha)
 	{
-		float f = MC.player.distanceTo(e) / 20F;
-		float r = MathHelper.clamp(2 - f, 0, 1);
-		float g = MathHelper.clamp(f, 0, 1);
-		float[] rgb = {r, g, 0};
-		return RenderUtils.toIntColor(rgb, 0.5F);
+		if(useRainbow.isChecked())
+		{
+			float[] rgb = RenderUtils.getRainbowColor();
+			return RenderUtils.toIntColor(rgb, alpha);
+		}
+		return RenderUtils.toIntColor(color.getColorF(), alpha);
 	}
 }
