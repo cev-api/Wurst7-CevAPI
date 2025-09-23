@@ -83,7 +83,7 @@ Visualizes where players logged out.
   - Spots for players who rejoin are removed automatically.
 - Rendering
   - Draws solid boxes (sides) plus an outline around each recorded spot.
-  - Optional tracers from your camera to each spot’s center.
+  - Optional line tracer.
   - On‑screen labels with the player’s name (and adjustable name scale).
 - Settings
   - Side color (box fill)
