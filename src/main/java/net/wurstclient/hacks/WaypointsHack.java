@@ -11,12 +11,17 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
@@ -25,6 +30,8 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.DeathListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.events.ChatInputListener;
+import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -36,7 +43,7 @@ import net.wurstclient.waypoints.WaypointsManager;
 
 @SearchTags({"waypoint", "waypoints", "marker"})
 public final class WaypointsHack extends Hack implements RenderListener,
-	DeathListener, net.wurstclient.events.UpdateListener
+	DeathListener, net.wurstclient.events.UpdateListener, ChatInputListener
 {
 	private final WaypointsManager manager;
 	private static final DateTimeFormatter TIME_FMT =
@@ -45,13 +52,19 @@ public final class WaypointsHack extends Hack implements RenderListener,
 	private String worldId = "default";
 	private BlockPos lastDeathAt;
 	private long lastDeathCreatedMs;
+	// Track recent death times to avoid duplicates per player
+	private final Map<UUID, Long> otherDeathCooldown = new HashMap<>();
+	// Track current dead state for edge detection
+	private final Set<UUID> knownDead = new HashSet<>();
+	// Guard to avoid handling our own injected chat messages
+	private boolean sendingOwnChat = false;
 	
 	private final SliderSetting textRenderDistance = new SliderSetting(
 		"Text render distance", 127, 0, 5000, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting alwaysRenderText =
 		new CheckboxSetting("Always render text", false);
 	private final SliderSetting fadeDistance = new SliderSetting(
-		"Waypoint fade distance", 20, 0, 100, 1, ValueDisplay.INTEGER);
+		"Waypoint fade distance", 20, 0, 1000, 1, ValueDisplay.INTEGER);
 	private final SliderSetting maxDeathPositions = new SliderSetting(
 		"Max death positions", 4, 0, 20, 1, ValueDisplay.INTEGER);
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
@@ -60,6 +73,8 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		new CheckboxSetting("Chat", true);
 	private final CheckboxSetting createDeathWaypoints =
 		new CheckboxSetting("Create death waypoints", true);
+	private final CheckboxSetting trackOtherDeaths =
+		new CheckboxSetting("Track other players' deaths", false);
 	private final CheckboxSetting deathWaypointLines =
 		new CheckboxSetting("Death waypoint lines", true);
 	private final ColorSetting deathColor =
@@ -80,6 +95,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		addSetting(chatOnDeath);
 		addSetting(createDeathWaypoints);
 		addSetting(deathWaypointLines);
+		addSetting(trackOtherDeaths);
 		addSetting(labelScale);
 		addSetting(deathColor);
 	}
@@ -92,6 +108,9 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.add(DeathListener.class, this);
+		EVENTS.add(ChatInputListener.class, this);
+		otherDeathCooldown.clear();
+		knownDead.clear();
 	}
 	
 	@Override
@@ -101,6 +120,9 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.remove(DeathListener.class, this);
+		EVENTS.remove(ChatInputListener.class, this);
+		otherDeathCooldown.clear();
+		knownDead.clear();
 	}
 	
 	@Override
@@ -113,6 +135,124 @@ public final class WaypointsHack extends Hack implements RenderListener,
 			worldId = wid;
 			manager.load(worldId);
 		}
+		// Detect deaths of other players
+		if(trackOtherDeaths.isChecked() && MC.world != null
+			&& MC.player != null)
+		{
+			long now = System.currentTimeMillis();
+			for(var p : MC.world.getPlayers())
+			{
+				if(p == MC.player)
+					continue;
+				UUID id = p.getUuid();
+				boolean deadNow =
+					p.getHealth() <= 0 || p.isDead() || p.isRemoved();
+				boolean wasDead = knownDead.contains(id);
+				if(deadNow && !wasDead)
+				{
+					knownDead.add(id);
+					long last = otherDeathCooldown.getOrDefault(id, 0L);
+					if(now - last >= 10000)
+					{
+						BlockPos at = p.getBlockPos().up(2);
+						Waypoint w = new Waypoint(UUID.randomUUID(), now);
+						String name = p.getName().getString();
+						w.setName("Death of " + name + " "
+							+ TIME_FMT.format(LocalTime.now()));
+						w.setIcon("skull");
+						w.setColor(deathColor.getColorI());
+						w.setPos(at);
+						w.setDimension(currentDim());
+						w.setActionWhenNear(Waypoint.ActionWhenNear.DELETE);
+						w.setActionWhenNearDistance(4);
+						w.setLines(deathWaypointLines.isChecked());
+						// Always save and prune
+						manager.addOrUpdate(w);
+						pruneDeaths();
+						manager.save(worldId);
+						// Announce in chat if enabled (guard recursion)
+						if(chatOnDeath.isChecked())
+						{
+							sendingOwnChat = true;
+							try
+							{
+								MC.player.sendMessage(
+									Text.literal(name + " died at " + at.getX()
+										+ ", " + at.getY() + ", " + at.getZ()),
+									false);
+							}finally
+							{
+								sendingOwnChat = false;
+							}
+						}
+						otherDeathCooldown.put(id, now);
+					}
+				}else if(!deadNow && wasDead)
+				{
+					knownDead.remove(id);
+				}
+			}
+			// removed: pruneTempOtherDeaths();
+		}
+	}
+	
+	@Override
+	public void onReceivedMessage(ChatInputEvent event)
+	{
+		if(sendingOwnChat)
+			return; // don't react to our own injected messages
+		if(!trackOtherDeaths.isChecked() || MC.world == null
+			|| MC.player == null)
+			return;
+		String msg = event.getComponent().getString();
+		if(msg == null || msg.isEmpty())
+			return;
+		long now = System.currentTimeMillis();
+		// Try to match standard death messages: "<name> ..."
+		for(var p : MC.world.getPlayers())
+		{
+			if(p == MC.player)
+				continue;
+			String name = p.getName().getString();
+			if(name == null || name.isEmpty())
+				continue;
+			if(!msg.startsWith(name + " "))
+				continue;
+			UUID id = p.getUuid();
+			long last = otherDeathCooldown.getOrDefault(id, 0L);
+			if(now - last < 10000)
+				return; // cooldown
+			BlockPos at = p.getBlockPos().up(2);
+			Waypoint w = new Waypoint(UUID.randomUUID(), now);
+			w.setName(
+				"Death of " + name + " " + TIME_FMT.format(LocalTime.now()));
+			w.setIcon("skull");
+			w.setColor(deathColor.getColorI());
+			w.setPos(at);
+			w.setDimension(currentDim());
+			w.setActionWhenNear(Waypoint.ActionWhenNear.DELETE);
+			w.setActionWhenNearDistance(4);
+			w.setLines(deathWaypointLines.isChecked());
+			// Always save and prune
+			manager.addOrUpdate(w);
+			pruneDeaths();
+			manager.save(worldId);
+			otherDeathCooldown.put(id, now);
+			
+			// If chat is enabled, append coordinates to the incoming line
+			if(chatOnDeath.isChecked())
+			{
+				// Safe-append to avoid immutable siblings crash
+				MutableText oldText = (MutableText)event.getComponent();
+				MutableText newText = MutableText.of(oldText.getContent());
+				newText.setStyle(oldText.getStyle());
+				oldText.getSiblings().forEach(newText::append);
+				newText.append(
+					" at " + at.getX() + ", " + at.getY() + ", " + at.getZ());
+				event.setComponent(newText);
+			}
+			return;
+		}
 	}
 	
 	@Override
@@ -122,6 +262,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 			return;
 		
 		var list = new ArrayList<>(manager.all());
+		// removed: tempOtherDeathWps rendering since we always save now
 		for(Waypoint w : list)
 		{
 			if(!w.isVisible())

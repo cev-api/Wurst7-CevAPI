@@ -55,6 +55,7 @@ All credit for the original client goes to Wurst‑Imperium and its contributors
 Create and save waypoints and automatically save and or display in chat the location of your death.
 - Opening the manager
   - Default keybind: apostrophe ('). This triggers the command `.waypoints`.
+  - Can also be found in the options menu.
 - Creating and editing
   - The editor shows name, coordinates (X/Y/Z), dimension, icon, visibility, lines on/off, and color.
   - Copy coordinates: In the manager list, each waypoint row includes a Copy button that places `x, y, z` on the clipboard.
@@ -62,14 +63,14 @@ Create and save waypoints and automatically save and or display in chat the loca
 - Rendering behavior
   - Constant-size labels: Waypoint name and distance are rendered at a configurable and fixed on‑screen size
   - Per‑waypoint “lines” toggle: Draws tracer + box around the target block when enabled.
-  - Death waypoints: Optional automatic waypoints on death. You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
+  - Death waypoints: Optional automatic waypoints on death (for both you and optionally other players). You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
 - Manager list
-  - Remove and edit existing waypoints easily
+  - Remove and edit existing waypoints easily.
 - Storage
   - Waypoints are stored per world/server under `wurst/waypoints/<worldId>.json` where `<worldId>` is the server address (or `singleplayer`).
 
 ### Breadcrumbs 
-A line follows you wherever you go, useful for tracing back your path.
+A line follows you wherever you go, useful for tracing back your path. It can be pausable via a keybind or through the menu.
 - Settings
   - Color
   - Max sections (how many points are kept)
@@ -113,6 +114,16 @@ Visualizes where players logged out.
 - Added to: Search, Portal ESP, BedESP, SignESP, RedstoneESP, WorkstationESP, ChestESP.
 - Turn Sticky area On to keep results anchored as you move. Useful for pathing back to things you found at the edge of your range.
 - Default: Off (re-centers every time you enter a new chunk to match ESP drop-off distances).
+
+### Unsafe Chat Toast
+- Now optional, toggle it within NoChatReports or Wurst Options menu.
+
+### Removed Wurst Logo
+- Removed from UI when out-dated
+- Removed from Options Button
+
+### Replace Taco with Neco
+- Removed the stupid little Taco guy and replaced it with Neco-Arc dancing instead! Amazing achievement! 
 
 ### Usability
 - Right-click the Area setting to reset to its default (e.g., 33×33 where configured).

@@ -2,15 +2,16 @@
   "schemaVersion": 1,
   "id": "wurst",
   "version": "${version}",
-  "name": "Wurst Client",
-  "description": "Wurst Wurst Wurst!",
+  "name": "Wurst Client - Modified by CevAPI",
+  "description": "Cevapi Cevapi Cevapi!",
   "authors": [
-    "Alexander01998"
+    "Alexander01998",
+    "CevAPI"
   ],
   "contact": {
-    "homepage": "https://www.wurstclient.net/modmenu-homepage/",
-    "sources": "https://www.wurstclient.net/modmenu-sources/",
-    "issues": "https://www.wurstclient.net/modmenu-issues/"
+    "homepage": "https://github.com/cev-api/Wurst7-CevAPI/",
+    "sources": "https://github.com/cev-api/Wurst7-CevAPI/",
+    "issues": "https://github.com/cev-api/Wurst7-CevAPI/"
   },
   "license": "GPL-3.0-or-later",
   "icon": "assets/wurst/icon.png",
@@ -42,7 +43,7 @@
   "custom": {
     "modmenu": {
       "links": {
-        "modmenu.donate": "https://www.wurstclient.net/modmenu-donate/",
+        "GitHub": "https://github.com/cev-api/Wurst7-CevAPI/",
         "modmenu.twitter": "https://www.wurstclient.net/modmenu-twitter/",
         "modmenu.wiki": "https://www.wurstclient.net/modmenu-wiki/",
         "Forum": "https://www.wurstclient.net/modmenu-forum/"

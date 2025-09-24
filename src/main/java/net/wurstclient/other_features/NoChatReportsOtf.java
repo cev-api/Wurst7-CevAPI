@@ -46,14 +46,23 @@ public final class NoChatReportsOtf extends OtherFeature
 				EVENTS.add(UpdateListener.class, NoChatReportsOtf.this);
 			}
 		};
+	// Controls whether to show the Wurst unsafe chat toast when joining servers
+	private final CheckboxSetting unsafeChatToast =
+		new CheckboxSetting("Unsafe Chat Toast", true);
 	
 	public NoChatReportsOtf()
 	{
 		super("NoChatReports", "description.wurst.other_feature.nochatreports");
 		addSetting(disableSignatures);
+		addSetting(unsafeChatToast);
 		
 		ClientLoginConnectionEvents.INIT.register(this::onLoginStart);
 		EVENTS.add(ChatInputListener.class, this);
+	}
+	
+	public CheckboxSetting getUnsafeChatToast()
+	{
+		return unsafeChatToast;
 	}
 	
 	@Override

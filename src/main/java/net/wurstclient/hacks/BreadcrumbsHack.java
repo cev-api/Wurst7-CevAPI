@@ -22,6 +22,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 
@@ -40,6 +41,7 @@ public final class BreadcrumbsHack extends Hack
 	private final SliderSetting lineThickness =
 		new SliderSetting("Line thickness", 2.0, 1.0, 10.0, 1.0,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting paused = new CheckboxSetting("Paused", false);
 	
 	private final Deque<Vec3d> points = new ArrayDeque<>();
 	
@@ -51,6 +53,13 @@ public final class BreadcrumbsHack extends Hack
 		addSetting(maxSections);
 		addSetting(sectionLen);
 		addSetting(lineThickness);
+		addSetting(paused);
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		return paused.isChecked() ? getName() + " [Paused]" : getName();
 	}
 	
 	@Override
@@ -73,6 +82,9 @@ public final class BreadcrumbsHack extends Hack
 	public void onUpdate()
 	{
 		if(MC.player == null)
+			return;
+		// Do not add new points while paused
+		if(paused.isChecked())
 			return;
 		Vec3d here = MC.player.getPos();
 		if(points.isEmpty())

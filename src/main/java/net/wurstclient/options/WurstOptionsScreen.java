@@ -63,6 +63,8 @@ public class WurstOptionsScreen extends Screen
 		VanillaSpoofOtf vanillaSpoofOtf = wurst.getOtfs().vanillaSpoofOtf;
 		CheckboxSetting forceEnglish =
 			wurst.getOtfs().translationsOtf.getForceEnglish();
+		CheckboxSetting unsafeChatToast =
+			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
 		
 		new WurstOptionsButton(-154, 24,
 			() -> "Click Friends: "
@@ -94,6 +96,12 @@ public class WurstOptionsScreen extends Screen
 				+ " English. It will use the same language that Minecraft is"
 				+ " set to.\n\n" + "This is an experimental feature!",
 			b -> forceEnglish.setChecked(!forceEnglish.isChecked()));
+		
+		new WurstOptionsButton(-154, 120,
+			() -> "Unsafe Chat Toast: "
+				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
+			"Shows a toast warning when a server enforces insecure chat/reporting.",
+			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
 	}
 	
 	private void addManagerButtons()
@@ -113,32 +121,32 @@ public class WurstOptionsScreen extends Screen
 			"The Zoom Manager allows you to change the zoom key and how far it"
 				+ " will zoom in.",
 			b -> client.setScreen(new ZoomManagerScreen(this)));
+		
+		new WurstOptionsButton(-50, 96, () -> "Waypoints",
+			"Manage your waypoints.",
+			b -> WurstClient.INSTANCE.getHax().waypointsHack.openManager());
 	}
 	
 	private void addLinkButtons()
 	{
 		OperatingSystem os = Util.getOperatingSystem();
+		new WurstOptionsButton(54, 24, () -> "CevAPI Github",
+			"§n§lGitHub page for CevAPI, the maker of this Wurst Client fork",
+			b -> os.open("https://github.com/cev-api/Wurst7-CevAPI"));
 		
-		new WurstOptionsButton(54, 24, () -> "Official Website",
+		new WurstOptionsButton(54, 48, () -> "Wurst Website",
 			"§n§lWurstClient.net",
 			b -> os.open("https://www.wurstclient.net/options-website/"));
 		
-		new WurstOptionsButton(54, 48, () -> "Wurst Wiki", "§n§lWurst.Wiki",
+		new WurstOptionsButton(54, 72, () -> "Wurst Wiki", "§n§lWurst.Wiki",
 			b -> os.open("https://www.wurstclient.net/options-wiki/"));
 		
-		new WurstOptionsButton(54, 72, () -> "WurstForum", "§n§lWurstForum.net",
+		new WurstOptionsButton(54, 96, () -> "WurstForum", "§n§lWurstForum.net",
 			b -> os.open("https://www.wurstclient.net/options-forum/"));
 		
-		new WurstOptionsButton(54, 96, () -> "Twitter", "@Wurst_Imperium",
+		new WurstOptionsButton(54, 120, () -> "Twitter", "@Wurst_Imperium",
 			b -> os.open("https://www.wurstclient.net/options-twitter/"));
 		
-		new WurstOptionsButton(54, 120, () -> "Donate",
-			"§n§lWurstClient.net/donate\n"
-				+ "Donate now to help me keep the Wurst Client alive and free"
-				+ " to use for everyone.\n\n"
-				+ "Every bit helps and is much appreciated! You can also get a"
-				+ " few cool perks in return.",
-			b -> os.open("https://www.wurstclient.net/options-donate/"));
 	}
 	
 	@Override

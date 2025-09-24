@@ -18,22 +18,27 @@ import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.util.RenderUtils;
 
-public final class TacoCmd extends Command
+public final class NecoCmd extends Command
 	implements GUIRenderListener, UpdateListener
 {
-	private final Identifier[] tacos =
-		{Identifier.of("wurst", "dancingtaco1.png"),
-			Identifier.of("wurst", "dancingtaco2.png"),
-			Identifier.of("wurst", "dancingtaco3.png"),
-			Identifier.of("wurst", "dancingtaco4.png")};
+	private final Identifier[] necos = buildNecoFrames();
+	
+	private static final int NECO_TEX_W = 200;
+	private static final int NECO_TEX_H = 200;
+	private static final int DRAW_W = 200;
+	private static final int DRAW_H = 200;
+	private static final int RIGHT_MARGIN = 10;
+	private static final int ABOVE_HUNGER = 4;
+	private static final int HUNGER_ROW_BASELINE = 39;
 	
 	private boolean enabled;
 	private int ticks = 0;
 	
-	public TacoCmd()
+	private static final int TICKS_PER_FRAME = 2;
+	
+	public NecoCmd()
 	{
-		super("taco", "Spawns a dancing taco on your hotbar.\n"
-			+ "\"I love that little guy. So cute!\" -WiZARD");
+		super("neco", "Spawns a dancing Neco-Arc.\n");
 		setCategory(Category.FUN);
 	}
 	
@@ -41,7 +46,7 @@ public final class TacoCmd extends Command
 	public void call(String[] args) throws CmdException
 	{
 		if(args.length != 0)
-			throw new CmdSyntaxError("Tacos don't need arguments!");
+			throw new CmdSyntaxError("Neco-arc doesn't want your arguments!");
 		
 		enabled = !enabled;
 		
@@ -49,7 +54,6 @@ public final class TacoCmd extends Command
 		{
 			EVENTS.add(GUIRenderListener.class, this);
 			EVENTS.add(UpdateListener.class, this);
-			
 		}else
 		{
 			EVENTS.remove(GUIRenderListener.class, this);
@@ -60,19 +64,20 @@ public final class TacoCmd extends Command
 	@Override
 	public String getPrimaryAction()
 	{
-		return "Be a BOSS!";
+		return "Summon Neco-Arc!";
 	}
 	
 	@Override
 	public void doPrimaryAction()
 	{
-		WURST.getCmdProcessor().process("taco");
+		WURST.getCmdProcessor().process("neco");
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(ticks >= 31)
+		int cycle = 37 * TICKS_PER_FRAME;
+		if(ticks >= cycle - 1)
 			ticks = 0;
 		else
 			ticks++;
@@ -85,11 +90,24 @@ public final class TacoCmd extends Command
 			? RenderUtils.toIntColor(WURST.getGui().getAcColor(), 1)
 			: 0xFFFFFFFF;
 		
-		int x = context.getScaledWindowWidth() / 2 - 32 + 76;
-		int y = context.getScaledWindowHeight() - 32 - 19;
-		int w = 64;
-		int h = 32;
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, tacos[ticks / 8], x,
-			y, 0, 0, w, h, w, h, color);
+		int sw = context.getScaledWindowWidth();
+		int sh = context.getScaledWindowHeight();
+		int hungerBaselineY = sh - HUNGER_ROW_BASELINE;
+		
+		int x = sw - DRAW_W - RIGHT_MARGIN;
+		int y = hungerBaselineY - DRAW_H - ABOVE_HUNGER;
+		
+		int frameIndex = (ticks / TICKS_PER_FRAME) % 37;
+		
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, necos[frameIndex], x,
+			y, 0, 0, DRAW_W, DRAW_H, NECO_TEX_W, NECO_TEX_H, color);
+	}
+	
+	private static Identifier[] buildNecoFrames()
+	{
+		Identifier[] frames = new Identifier[37];
+		for(int i = 0; i < 37; i++)
+			frames[i] = Identifier.of("wurst", "neco" + (i + 1) + ".png");
+		return frames;
 	}
 }

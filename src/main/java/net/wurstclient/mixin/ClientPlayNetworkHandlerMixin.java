@@ -57,7 +57,10 @@ public abstract class ClientPlayNetworkHandlerMixin
 			return;
 		}
 		
-		// Add an honest warning toast on unsafe servers
+		// Add an honest warning toast on unsafe servers (if enabled)
+		if(!wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast().isChecked())
+			return;
+		
 		MutableText title = Text.literal(ChatUtils.WURST_PREFIX
 			+ wurst.translate("toast.wurst.nochatreports.unsafe_server.title"));
 		MutableText message = Text.literal(
