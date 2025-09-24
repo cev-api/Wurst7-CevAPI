@@ -34,17 +34,15 @@ public final class LogoutSpotsHack extends Hack
 {
 	private static final class Entry
 	{
-		final UUID uuid;
 		final String name;
 		final Box box;
-		final float health;
+		final String dimKey;
 		
-		Entry(UUID u, String n, Box b, float h)
+		Entry(UUID u, String n, Box b, float h, String dim)
 		{
-			uuid = u;
 			name = n;
 			box = b;
-			health = h;
+			dimKey = dim;
 		}
 	}
 	
@@ -112,8 +110,8 @@ public final class LogoutSpotsHack extends Hack
 					{
 						Box b = p.getBoundingBox();
 						float h = p.getHealth();
-						spots.put(id,
-							new Entry(id, p.getName().getString(), b, h));
+						spots.put(id, new Entry(id, p.getName().getString(), b,
+							h, currentDimKey()));
 					}
 				}
 			snapshot();
@@ -124,6 +122,13 @@ public final class LogoutSpotsHack extends Hack
 			for(PlayerEntity p : MC.world.getPlayers())
 				spots.remove(p.getUuid());
 		}
+	}
+	
+	private String currentDimKey()
+	{
+		if(MC.world == null)
+			return "overworld";
+		return MC.world.getRegistryKey().getValue().getPath();
 	}
 	
 	private void snapshot()
@@ -145,11 +150,15 @@ public final class LogoutSpotsHack extends Hack
 	{
 		if(spots.isEmpty())
 			return;
+		String curDim = currentDimKey();
 		int sides = sideColor.getColorI(0x40);
 		int lines = lineColor.getColorI(0xFF);
-		var boxes = new java.util.ArrayList<Box>(spots.size());
+		var boxes = new java.util.ArrayList<Box>();
 		for(var e : spots.values())
-			boxes.add(e.box);
+			if(e.dimKey.equals(curDim))
+				boxes.add(e.box);
+		if(boxes.isEmpty())
+			return;
 		RenderUtils.drawSolidBoxes(matrices, boxes, sides, false);
 		RenderUtils.drawOutlinedBoxes(matrices, boxes, lines, false);
 		// (Optional) draw tracers to centers
@@ -160,6 +169,8 @@ public final class LogoutSpotsHack extends Hack
 		}
 		for(var e : spots.values())
 		{
+			if(!e.dimKey.equals(curDim))
+				continue;
 			var c = e.box.getCenter();
 			drawWorldLabel(matrices, e.name, c.x, e.box.maxY + 0.5, c.z,
 				0xFFFFFFFF, scale.getValueF());
@@ -184,6 +195,7 @@ public final class LogoutSpotsHack extends Hack
 		var matrix = matrices.peek().getPositionMatrix();
 		tr.draw(text, -w, 0, argb, false, matrix, vcp,
 			TextRenderer.TextLayerType.SEE_THROUGH, bg, 0xF000F0);
+		vcp.draw();
 		matrices.pop();
 	}
 }

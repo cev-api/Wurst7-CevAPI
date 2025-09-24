@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Locale;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.network.ServerInfo;
@@ -31,7 +32,6 @@ import net.wurstclient.events.DeathListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.events.ChatInputListener;
-import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -145,8 +145,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 				if(p == MC.player)
 					continue;
 				UUID id = p.getUuid();
-				boolean deadNow =
-					p.getHealth() <= 0 || p.isDead() || p.isRemoved();
+				boolean deadNow = p.getHealth() <= 0 || p.isDead();
 				boolean wasDead = knownDead.contains(id);
 				if(deadNow && !wasDead)
 				{
@@ -207,6 +206,9 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		String msg = event.getComponent().getString();
 		if(msg == null || msg.isEmpty())
 			return;
+		String lower = msg.toLowerCase(Locale.ROOT);
+		if(lower.contains("left the game") || lower.contains("joined the game"))
+			return; // ignore login/logout messages
 		long now = System.currentTimeMillis();
 		// Try to match standard death messages: "<name> ..."
 		for(var p : MC.world.getPlayers())
