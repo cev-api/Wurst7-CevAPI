@@ -49,6 +49,7 @@ public final class WaypointsScreen extends Screen
 					w.setPos(BlockPos.ORIGIN);
 				w.setDimension(currentDim());
 				w.setMaxVisible(5000);
+				w.setLines(false); // default new waypoints without lines
 				client
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
 			}).dimensions(x, y, 300, 20).build());

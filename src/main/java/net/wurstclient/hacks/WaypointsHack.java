@@ -506,12 +506,26 @@ public final class WaypointsHack extends Hack implements RenderListener,
 			return "●";
 			case "triangle":
 			return "▲";
+			case "triangle_down":
+			return "▼";
 			case "star":
 			return "★";
 			case "diamond":
 			return "♦";
 			case "skull":
 			return "☠";
+			case "heart":
+			return "♥";
+			case "check":
+			return "✓";
+			case "x":
+			return "✗";
+			case "arrow_down":
+			return "↓";
+			case "sun":
+			return "☀";
+			case "snowflake":
+			return "❄";
 			default:
 			return "";
 		}

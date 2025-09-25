@@ -57,8 +57,16 @@ public final class WaypointEditScreen extends Screen
 	private int dimIndex;
 	private ButtonWidget dimButton;
 	
-	private static final String[] ICONS = new String[]{"square", "circle",
-		"triangle", "star", "diamond", "skull"};
+	private static final String[] ICON_KEYS =
+		new String[]{"square", "circle", "triangle", "star", "diamond", "skull",
+			"heart", "check", "x", "arrow_down", "sun", "snowflake"};
+	private static final String[] ICONS; // display labels (symbol + name)
+	static
+	{
+		ICONS = new String[ICON_KEYS.length];
+		for(int i = 0; i < ICON_KEYS.length; i++)
+			ICONS[i] = iconChar(ICON_KEYS[i]) + " " + ICON_KEYS[i];
+	}
 	private int iconIndex;
 	private ButtonWidget iconButton;
 	
@@ -189,8 +197,8 @@ public final class WaypointEditScreen extends Screen
 		// removed yIcon tracking
 		iconIndex = 0;
 		String currentIcon = waypoint.getIcon();
-		for(int i = 0; i < ICONS.length; i++)
-			if(ICONS[i].equalsIgnoreCase(currentIcon))
+		for(int i = 0; i < ICON_KEYS.length; i++)
+			if(ICON_KEYS[i].equalsIgnoreCase(currentIcon))
 			{
 				iconIndex = i;
 				break;
@@ -333,7 +341,7 @@ public final class WaypointEditScreen extends Screen
 		waypoint.setDimension(WaypointDimension.values()[dimIndex]);
 		
 		// Icon
-		waypoint.setIcon(ICONS[iconIndex]);
+		waypoint.setIcon(ICON_KEYS[iconIndex]);
 		
 		// Color + transparency
 		int saveAlpha = (int)Math
@@ -353,6 +361,43 @@ public final class WaypointEditScreen extends Screen
 		while(s.length() < 6)
 			s = "0" + s;
 		return s;
+	}
+	
+	private static String iconChar(String icon)
+	{
+		if(icon == null)
+			return "";
+		switch(icon.toLowerCase())
+		{
+			case "square":
+			return "■";
+			case "circle":
+			return "●";
+			case "triangle":
+			return "▲";
+			case "triangle_down":
+			return "▼";
+			case "star":
+			return "★";
+			case "diamond":
+			return "♦";
+			case "skull":
+			return "☠";
+			case "heart":
+			return "♥";
+			case "check":
+			return "✓";
+			case "x":
+			return "✗";
+			case "arrow_down":
+			return "↓";
+			case "sun":
+			return "☀";
+			case "snowflake":
+			return "❄";
+			default:
+			return "";
+		}
 	}
 	
 	@Override

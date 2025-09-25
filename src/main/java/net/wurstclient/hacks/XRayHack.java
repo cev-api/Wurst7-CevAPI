@@ -18,6 +18,8 @@ import net.minecraft.block.Block;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.util.math.Box;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
@@ -26,19 +28,27 @@ import net.wurstclient.events.RenderBlockEntityListener;
 import net.wurstclient.events.SetOpaqueCubeListener;
 import net.wurstclient.events.ShouldDrawSideListener;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.RenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.ISimpleOption;
+import net.wurstclient.util.RenderUtils;
 import net.wurstclient.settings.BlockListSetting;
-import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
 @SearchTags({"XRay", "x ray", "OreFinder", "ore finder"})
 public final class XRayHack extends Hack implements UpdateListener,
 	SetOpaqueCubeListener, GetAmbientOcclusionLightLevelListener,
-	ShouldDrawSideListener, RenderBlockEntityListener
+	ShouldDrawSideListener, RenderBlockEntityListener, RenderListener
 {
 	private final BlockListSetting ores = new BlockListSetting("Ores",
 		"A list of blocks that X-Ray will show. They don't have to be just ores"
@@ -100,6 +110,43 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private final ThreadLocal<BlockPos.Mutable> mutablePosForExposedCheck =
 		ThreadLocal.withInitial(BlockPos.Mutable::new);
 	
+	// Track last selected mode so switching triggers reloads
+	private Mode lastMode = null;
+	private boolean lastOnlyExposed = false;
+	
+	// Mode: LIST (use configured block list) or QUERY (use query text)
+	private static enum Mode
+	{
+		LIST,
+		QUERY
+	}
+	
+	private final EnumSetting<Mode> mode =
+		new EnumSetting<>("Mode", new Mode[]{Mode.LIST, Mode.QUERY}, Mode.LIST);
+	private final TextFieldSetting query =
+		new TextFieldSetting("Query", "", "");
+	
+	// Corner highlight ESP settings
+	private final CheckboxSetting highlightCorners =
+		new CheckboxSetting("Highlight corners", false);
+	private final CheckboxSetting highlightFill =
+		new CheckboxSetting("Fill blocks (outline + fill)", false);
+	private final ColorSetting highlightColor =
+		new ColorSetting("Highlight color", new java.awt.Color(0xFFFF00));
+	private final SliderSetting highlightAlpha =
+		new SliderSetting("Highlight transparency", 80, 1, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
+	// (block transparency override removed)
+	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
+		"The area around the player to search in. Higher values require a faster computer.");
+	private final ChunkSearcherCoordinator coordinator;
+	// store found positions separately so we can quickly filter by exposure
+	private boolean highlightPositionsUpToDate = false;
+	private java.util.List<BlockPos> highlightPositions =
+		new java.util.ArrayList<>();
+	private boolean visibleBoxesUpToDate = false;
+	private java.util.List<Box> visibleBoxes = new java.util.ArrayList<>();
+	
 	public XRayHack()
 	{
 		super("X-Ray");
@@ -107,7 +154,44 @@ public final class XRayHack extends Hack implements UpdateListener,
 		addSetting(ores);
 		addSetting(onlyExposed);
 		addSetting(opacity);
+		addSetting(mode);
+		addSetting(query);
+		addSetting(highlightCorners);
+		addSetting(highlightFill);
+		addSetting(highlightColor);
+		addSetting(highlightAlpha);
 		optiFineWarning = checkOptiFine();
+		// Coordinator query: lightweight matching (ID + simple name), exposure
+		// filtering is applied on main thread when building boxes
+		coordinator = new ChunkSearcherCoordinator((pos, state) -> {
+			String idFull =
+				net.wurstclient.util.BlockUtils.getName(state.getBlock());
+			// LIST mode matching
+			if(mode.getSelected() == Mode.LIST)
+			{
+				if(oreExactIds != null && oreExactIds.contains(idFull))
+					return true;
+				if(oreExactIds == null && oreNamesCache != null
+					&& oreNamesCache.contains(idFull))
+					return true;
+				return false;
+			}
+			// QUERY mode matching (only by id/local id/local spaced)
+			if(oreKeywords == null || oreKeywords.length == 0)
+				return false;
+			String localId = idFull.contains(":")
+				? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+			String localSpaced = localId.replace('_', ' ');
+			for(String term : oreKeywords)
+			{
+				if(idFull.toLowerCase(java.util.Locale.ROOT).contains(term)
+					|| localId.toLowerCase(java.util.Locale.ROOT).contains(term)
+					|| localSpaced.toLowerCase(java.util.Locale.ROOT)
+						.contains(term))
+					return true;
+			}
+			return false;
+		}, area);
 	}
 	
 	@Override
@@ -120,12 +204,42 @@ public final class XRayHack extends Hack implements UpdateListener,
 	protected void onEnable()
 	{
 		// cache block names in case the setting changes while X-Ray is enabled
-		oreNamesCache = new ArrayList<>(ores.getBlockNames());
-		lastOresHash = ores.getBlockNames().hashCode();
-		lastOpacityVal = opacity.getValue();
+		lastMode = mode.getSelected();
+		if(lastMode == Mode.LIST)
+		{
+			oreNamesCache = new ArrayList<>(ores.getBlockNames());
+			lastOresHash = ores.getBlockNames().hashCode();
+			lastOpacityVal = opacity.getValue();
+			// build lookup caches immediately so isVisible() works on first
+			// tick
+			rebuildOreCaches();
+		}else
+		{
+			// QUERY mode: pre-parse query into keywords
+			String q = query.getValue();
+			oreExactIds = null;
+			if(q == null || q.isBlank())
+				oreKeywords = new String[0];
+			else
+			{
+				oreKeywords = Stream.of(q.split(","))
+					.map(s -> s.trim().toLowerCase(java.util.Locale.ROOT))
+					.filter(s -> !s.isEmpty()).toArray(String[]::new);
+			}
+			lastOpacityVal = opacity.getValue();
+		}
+		
+		// remember current onlyExposed value to detect changes later
+		lastOnlyExposed = onlyExposed.isChecked();
+		// reset coordinator
+		coordinator.reset();
+		highlightPositionsUpToDate = false;
+		visibleBoxesUpToDate = false;
 		
 		// add event listeners
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PacketInputListener.class, coordinator);
+		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(SetOpaqueCubeListener.class, this);
 		EVENTS.add(GetAmbientOcclusionLightLevelListener.class, this);
 		EVENTS.add(ShouldDrawSideListener.class, this);
@@ -144,6 +258,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 	{
 		// remove event listeners
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(PacketInputListener.class, coordinator);
+		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(SetOpaqueCubeListener.class, this);
 		EVENTS.remove(GetAmbientOcclusionLightLevelListener.class, this);
 		EVENTS.remove(ShouldDrawSideListener.class, this);
@@ -162,23 +278,152 @@ public final class XRayHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		// update chunk searchers (background search)
+		boolean changed = coordinator.update();
+		if(changed)
+		{
+			highlightPositionsUpToDate = false;
+			visibleBoxesUpToDate = false;
+		}
+		
 		// force gamma to 16 so that ores are bright enough to see
 		ISimpleOption.get(MC.options.getGamma()).forceSetValue(16.0);
 		// Live-apply changes to list and opacity
-		int currentHash = ores.getBlockNames().hashCode();
-		if(currentHash != lastOresHash)
+		// Detect mode changes and handle switching
+		Mode curMode = mode.getSelected();
+		if(curMode != lastMode)
 		{
-			lastOresHash = currentHash;
-			oreNamesCache = new ArrayList<>(ores.getBlockNames());
-			rebuildOreCaches();
-			MC.worldRenderer.reload();
+			lastMode = curMode;
+			if(curMode == Mode.LIST)
+			{
+				oreNamesCache = new ArrayList<>(ores.getBlockNames());
+				lastOresHash = ores.getBlockNames().hashCode();
+				rebuildOreCaches();
+				MC.worldRenderer.reload();
+			}else // switched to QUERY
+			{
+				oreNamesCache = null; // avoid fallback to list
+				oreExactIds = null;
+				String q = query.getValue();
+				if(q == null || q.isBlank())
+					oreKeywords = new String[0];
+				else
+					oreKeywords = Stream.of(q.split(","))
+						.map(s -> s.trim().toLowerCase(java.util.Locale.ROOT))
+						.filter(s -> !s.isEmpty()).toArray(String[]::new);
+				MC.worldRenderer.reload();
+			}
 		}
+		
+		if(curMode == Mode.LIST)
+		{
+			int currentHash = ores.getBlockNames().hashCode();
+			if(currentHash != lastOresHash)
+			{
+				lastOresHash = currentHash;
+				oreNamesCache = new ArrayList<>(ores.getBlockNames());
+				rebuildOreCaches();
+				MC.worldRenderer.reload();
+			}else
+			{
+				// safety: if caches are missing (e.g., after a reload), rebuild
+				// them
+				if(oreExactIds == null || oreKeywords == null)
+					rebuildOreCaches();
+			}
+		}else // QUERY mode
+		{
+			String q = query.getValue();
+			// parse and update keywords if changed
+			if(q == null)
+				q = "";
+			String[] newKw = Stream.of(q.split(","))
+				.map(s -> s.trim().toLowerCase(java.util.Locale.ROOT))
+				.filter(s -> !s.isEmpty()).toArray(String[]::new);
+			boolean kwChanged = false;
+			if(oreKeywords == null || oreKeywords.length != newKw.length)
+				kwChanged = true;
+			else
+			{
+				for(int i = 0; i < newKw.length; i++)
+					if(!oreKeywords[i].equals(newKw[i]))
+					{
+						kwChanged = true;
+						break;
+					}
+			}
+			if(kwChanged)
+			{
+				oreKeywords = newKw;
+				oreExactIds = null; // force keyword path
+				MC.worldRenderer.reload();
+			}
+		}
+		
 		double currentOpacity = opacity.getValue();
 		if(currentOpacity != lastOpacityVal)
 		{
 			lastOpacityVal = currentOpacity;
 			MC.worldRenderer.reload();
 		}
+		// Detect only-exposed toggle changes and reload chunks so mixins
+		// re-evaluate visibility based on the new setting.
+		boolean curOnly = onlyExposed.isChecked();
+		if(curOnly != lastOnlyExposed)
+		{
+			lastOnlyExposed = curOnly;
+			// Rebuild visible boxes immediately from known positions so the
+			// ESP updates without waiting for a full coordinator pass.
+			rebuildVisibleBoxes();
+			MC.worldRenderer.reload();
+		}
+	}
+	
+	@Override
+	public void onRender(MatrixStack matrices, float partialTicks)
+	{
+		// Ensure we have visible boxes computed from known positions
+		if(!visibleBoxesUpToDate)
+			rebuildVisibleBoxes();
+		
+		if(visibleBoxes.isEmpty())
+		{
+			// If we have no positions yet but coordinator is done, populate
+			if(!highlightPositionsUpToDate && coordinator.isDone())
+			{
+				highlightPositions.clear();
+				coordinator.getMatches()
+					.forEach(r -> highlightPositions.add(r.pos()));
+				highlightPositionsUpToDate = true;
+				rebuildVisibleBoxes();
+			}
+			return;
+		}
+		
+		int color = getHighlightColorWithAlpha();
+		if(highlightFill.isChecked())
+		{
+			int fullAlpha = (color >>> 24) & 0xFF;
+			int halfAlpha = Math.max(1, fullAlpha / 2);
+			int rgb = color & 0x00FFFFFF;
+			int solidColor = (halfAlpha << 24) | rgb;
+			RenderUtils.drawSolidBoxes(matrices, visibleBoxes, solidColor,
+				false);
+		}
+		if(highlightCorners.isChecked())
+			RenderUtils.drawOutlinedBoxes(matrices, visibleBoxes, color, false);
+	}
+	
+	private void rebuildVisibleBoxes()
+	{
+		visibleBoxes.clear();
+		for(BlockPos p : highlightPositions)
+		{
+			if(onlyExposed.isChecked() && !isExposed(p))
+				continue;
+			visibleBoxes.add(new Box(p));
+		}
+		visibleBoxesUpToDate = true;
 	}
 	
 	@Override
@@ -213,27 +458,42 @@ public final class XRayHack extends Hack implements UpdateListener,
 			event.cancel();
 	}
 	
+	// add fallback when caches are null
 	public boolean isVisible(Block block, BlockPos pos)
 	{
 		String idFull = BlockUtils.getName(block);
-		boolean visible = oreExactIds != null && oreExactIds.contains(idFull);
-		if(!visible && oreKeywords != null && oreKeywords.length > 0)
+		
+		boolean visible = false;
+		// Behavior depends on mode
+		Mode cur = mode.getSelected();
+		if(cur == Mode.LIST)
 		{
-			String localId = idFull.contains(":")
-				? idFull.substring(idFull.indexOf(":") + 1) : idFull;
-			String localSpaced = localId.replace('_', ' ');
-			String transKey = block.getTranslationKey();
-			String display = block.getName().getString();
-			for(String term : oreKeywords)
-				if(containsNormalized(idFull, term)
-					|| containsNormalized(localId, term)
-					|| containsNormalized(localSpaced, term)
-					|| containsNormalized(transKey, term)
-					|| containsNormalized(display, term))
-				{
-					visible = true;
-					break;
-				}
+			// exact ID set (preferred fast path)
+			if(oreExactIds != null)
+				visible = oreExactIds.contains(idFull);
+			// fallback to original list if caches aren't ready yet
+			if(!visible && oreExactIds == null && oreNamesCache != null)
+				visible = oreNamesCache.contains(idFull);
+		}else // QUERY mode
+		{
+			if(oreKeywords != null && oreKeywords.length > 0)
+			{
+				String localId = idFull.contains(":")
+					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+				String localSpaced = localId.replace('_', ' ');
+				String transKey = block.getTranslationKey();
+				String display = block.getName().getString();
+				for(String term : oreKeywords)
+					if(containsNormalized(idFull, term)
+						|| containsNormalized(localId, term)
+						|| containsNormalized(localSpaced, term)
+						|| containsNormalized(transKey, term)
+						|| containsNormalized(display, term))
+					{
+						visible = true;
+						break;
+					}
+			}
 		}
 		
 		if(visible && onlyExposed.isChecked() && pos != null)
@@ -289,6 +549,27 @@ public final class XRayHack extends Hack implements UpdateListener,
 	public float getOpacityFloat()
 	{
 		return opacity.getValueF();
+	}
+	
+	// New public API for corner highlight ESP and block transparency override
+	public boolean isHighlightCornersEnabled()
+	{
+		return isEnabled() && highlightCorners.isChecked();
+	}
+	
+	public int getHighlightColorWithAlpha()
+	{
+		int v = (int)Math.round(highlightAlpha.getValue());
+		v = Math.max(0, Math.min(100, v));
+		int alpha = (int)Math.round(v / 100.0 * 255);
+		int rgb = highlightColor.getColorI() & 0x00FFFFFF;
+		return (alpha << 24) | rgb;
+	}
+	
+	public float getHighlightAlphaFloat()
+	{
+		return (float)(Math.max(1,
+			Math.min(100, (int)Math.round(highlightAlpha.getValue()))) / 100.0);
 	}
 	
 	/**

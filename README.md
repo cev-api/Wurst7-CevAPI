@@ -59,6 +59,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
 - Manager UI (`.waypoints` or apostrophe key).  
+- Preset icons
 - Features: name, coords, dimension, icon, visibility, lines, color, copy button, opposite coords, death pruning.  
 - Constant-size labels and optional tracers.  
 - Stored per world/server under `wurst/waypoints/<worldId>.json`.  
@@ -77,14 +78,14 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 Highlights dropped, equipped, and framed items with powerful filters and customization.
 
 - Base highlighting: all dropped items with configurable base color.  
-- Special filters: List, Item ID, or Query (keywords).  
+- Special filters: List, Item ID, or Query (multi-term keywords).  
 - Special colors & styles: fixed or rainbow, outline-only, lines-only-for-special.  
 - Equipped specials: highlight items held or worn by players/mobs (not yourself).  
 - Item frames: highlight frames if the contained item matches special criteria.  
-- Keyword matching: supports base ID, translation key, and display name (works with renamed/NBT/plugin-modified items).  
+- Keyword matching: supports base ID, translation key, and display name (works with renamed/NBT/plugin-modified items). 
+- Multi-term queries: comma-separated (e.g., `head, axe`).   
 - Rendering: boxes with fill + outline; tracers use special color (or base color).  
 - Robust parsing: lists accept unknown entries as keywords (safe parsing via `Identifier.tryParse`).  
-- Works across item, block, and entity lists (Search, MobSearch, X-Ray, BaseFinder, HandNoClip, Nuker).  
 
 Examples:  
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
@@ -93,13 +94,16 @@ Examples:
 ### Search improvements
 - Keyword queries supported; falls back to picker when empty.  
 - List mode with visual item list.  
-- Multi-term queries supported.  
+- Multi-term queries: comma-separated (e.g., `ore, ancient`).  
 - Rendering: Boxes, Lines, or Both. Tracers cancel view-bobbing.  
 - Fixed/rainbow line colors.  
 - Safer rescans and better crash handling.  
 
-### Xray improvements
-- Opacity and block type changes apply live without toggling.  
+### X-Ray improvements
+- Added ESP (Highlight Corners and or Fill Blocks)
+    - Uses cached positions for speed
+- Multi-term queries: comma-separated (e.g., `diamond, ancient`).  
+- Opacity, block type changes and 'only show exposed' apply live without toggling.  
 
 ### BaseFinder improvements
 - Updated natural blocks list to latest versions.  
