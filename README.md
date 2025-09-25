@@ -93,6 +93,26 @@ Visualizes where players logged out.
   - Name scale
   - Show tracers (on/off)
 
+### TridentESP
+Highlights thrown and or held tridents in the world.
+- Optional: highlight tridents held by other players or mobs (not your own).
+- Optional: color distinctions for ownership:
+  - Your tridents
+  - Other players’ tridents
+  - Mobs’ tridents
+- Rendering styles: Boxes, Lines, or Both.
+- Box size modes: Accurate (tight fit) or Fancy (larger/nicer boxes).
+- Color options:
+  - Fixed single color
+  - Rainbow
+  - Color by owner type (overrides fixed/rainbow).
+- Settings
+  - Toggle held-trident highlights (players/mobs).
+  - Choose rendering style, box size, and color mode.
+- Usage
+  - Enable TridentESP from the ClickGUI → Render tab.
+  - Adjust style, color, and ownership toggles as desired.
+
 ### Added keyword matches for all lists (Search, MobSearch, Nuker, SpeedNuker, NoHandClip AutoDrop, Xray etc)
 - Type a keyword (eg., "diamond") to populate the list with all matching blocks/mobs.
 - Clear list button added.
