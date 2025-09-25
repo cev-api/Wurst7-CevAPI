@@ -147,6 +147,11 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private boolean visibleBoxesUpToDate = false;
 	private java.util.List<Box> visibleBoxes = new java.util.ArrayList<>();
 	
+	// Debounce to avoid flashing when coordinator updates rapidly (e.g., on
+	// right-click or fast movement). Measured in milliseconds.
+	private static final long COORDINATOR_DEBOUNCE_MS = 200L;
+	private long lastCoordinatorChangeMs = 0L;
+	
 	public XRayHack()
 	{
 		super("X-Ray");
@@ -284,6 +289,11 @@ public final class XRayHack extends Hack implements UpdateListener,
 		{
 			highlightPositionsUpToDate = false;
 			visibleBoxesUpToDate = false;
+			// Record change timestamp and DO NOT immediately clear cached
+			// boxes.
+			// This avoids flicker during quick user actions; boxes will be
+			// refreshed when new data arrives or after debounce.
+			lastCoordinatorChangeMs = System.currentTimeMillis();
 		}
 		
 		// force gamma to 16 so that ores are bright enough to see
@@ -382,23 +392,46 @@ public final class XRayHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrices, float partialTicks)
 	{
-		// Ensure we have visible boxes computed from known positions
+		long now = System.currentTimeMillis();
+		
+		// If coordinator finished, refresh highlight positions immediately.
+		if(!highlightPositionsUpToDate && coordinator.isDone())
+		{
+			highlightPositions.clear();
+			coordinator.getMatches()
+				.forEach(r -> highlightPositions.add(r.pos()));
+			highlightPositionsUpToDate = true;
+			visibleBoxesUpToDate = false;
+		}
+		
+		// Rebuild visible boxes if needed. Use debounce to avoid flicker: if
+		// rebuild would create an empty set but the coordinator just changed
+		// recently, keep existing boxes until debounce expires.
 		if(!visibleBoxesUpToDate)
-			rebuildVisibleBoxes();
+		{
+			java.util.List<Box> newBoxes = new java.util.ArrayList<>();
+			for(BlockPos p : highlightPositions)
+			{
+				if(onlyExposed.isChecked() && !isExposed(p))
+					continue;
+				newBoxes.add(new Box(p));
+			}
+			
+			// If newBoxes empty but coordinator changed very recently, skip
+			// replacing to avoid flicker.
+			if(newBoxes.isEmpty()
+				&& now - lastCoordinatorChangeMs < COORDINATOR_DEBOUNCE_MS)
+			{
+				// keep previous visibleBoxes until debounce expires
+			}else
+			{
+				visibleBoxes = newBoxes;
+				visibleBoxesUpToDate = true;
+			}
+		}
 		
 		if(visibleBoxes.isEmpty())
-		{
-			// If we have no positions yet but coordinator is done, populate
-			if(!highlightPositionsUpToDate && coordinator.isDone())
-			{
-				highlightPositions.clear();
-				coordinator.getMatches()
-					.forEach(r -> highlightPositions.add(r.pos()));
-				highlightPositionsUpToDate = true;
-				rebuildVisibleBoxes();
-			}
 			return;
-		}
 		
 		int color = getHighlightColorWithAlpha();
 		if(highlightFill.isChecked())
