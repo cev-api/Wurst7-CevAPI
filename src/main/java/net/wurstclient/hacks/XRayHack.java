@@ -94,6 +94,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 		Math.random() < 0.01 ? "X-Wurst" : getName();
 	
 	private ArrayList<String> oreNamesCache;
+	private double lastOpacityVal;
+	private int lastOresHash;
 	private final ThreadLocal<BlockPos.Mutable> mutablePosForExposedCheck =
 		ThreadLocal.withInitial(BlockPos.Mutable::new);
 	
@@ -118,6 +120,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 	{
 		// cache block names in case the setting changes while X-Ray is enabled
 		oreNamesCache = new ArrayList<>(ores.getBlockNames());
+		lastOresHash = ores.getBlockNames().hashCode();
+		lastOpacityVal = opacity.getValue();
 		
 		// add event listeners
 		EVENTS.add(UpdateListener.class, this);
@@ -159,6 +163,20 @@ public final class XRayHack extends Hack implements UpdateListener,
 	{
 		// force gamma to 16 so that ores are bright enough to see
 		ISimpleOption.get(MC.options.getGamma()).forceSetValue(16.0);
+		// Live-apply changes to list and opacity
+		int currentHash = ores.getBlockNames().hashCode();
+		if(currentHash != lastOresHash)
+		{
+			lastOresHash = currentHash;
+			oreNamesCache = new ArrayList<>(ores.getBlockNames());
+			MC.worldRenderer.reload();
+		}
+		double currentOpacity = opacity.getValue();
+		if(currentOpacity != lastOpacityVal)
+		{
+			lastOpacityVal = currentOpacity;
+			MC.worldRenderer.reload();
+		}
 	}
 	
 	@Override

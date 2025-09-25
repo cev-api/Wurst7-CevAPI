@@ -13,7 +13,6 @@ import java.util.Objects;
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
@@ -23,80 +22,78 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
-import net.wurstclient.settings.BlockListSetting;
-import net.wurstclient.util.BlockUtils;
-import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.WurstColors;
+import net.minecraft.util.Identifier;
+import net.wurstclient.settings.EntityTypeListSetting;
 
-public final class EditBlockListScreen extends Screen
+public final class EditEntityTypeListScreen extends Screen
 {
 	private final Screen prevScreen;
-	private final BlockListSetting blockList;
+	private final EntityTypeListSetting typeList;
 	
 	private ListGui listGui;
-	private TextFieldWidget blockNameField;
+	private TextFieldWidget typeNameField;
 	private ButtonWidget addButton;
 	private ButtonWidget removeButton;
 	private ButtonWidget doneButton;
 	
-	private Block blockToAdd;
-	private java.util.List<net.minecraft.block.Block> fuzzyMatches =
+	private net.minecraft.entity.EntityType<?> typeToAdd;
+	private java.util.List<net.minecraft.entity.EntityType<?>> fuzzyMatches =
 		java.util.Collections.emptyList();
 	
-	public EditBlockListScreen(Screen prevScreen, BlockListSetting blockList)
+	public EditEntityTypeListScreen(Screen prevScreen,
+		EntityTypeListSetting typeList)
 	{
 		super(Text.literal(""));
 		this.prevScreen = prevScreen;
-		this.blockList = blockList;
+		this.typeList = typeList;
 	}
 	
 	@Override
 	public void init()
 	{
-		listGui = new ListGui(client, this, blockList.getBlockNames());
+		listGui = new ListGui(client, this, typeList.getTypeNames());
 		addSelectableChild(listGui);
 		
-		blockNameField = new TextFieldWidget(client.textRenderer,
+		typeNameField = new TextFieldWidget(client.textRenderer,
 			width / 2 - 152, height - 56, 140, 20, Text.literal(""));
-		addSelectableChild(blockNameField);
-		blockNameField.setMaxLength(256);
+		addSelectableChild(typeNameField);
+		typeNameField.setMaxLength(256);
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
-				if(blockToAdd != null)
+				if(typeToAdd != null)
 				{
-					blockList.add(blockToAdd);
+					typeList.add(typeToAdd);
 				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
 				{
-					for(net.minecraft.block.Block bk : fuzzyMatches)
-						blockList.add(bk);
+					for(net.minecraft.entity.EntityType<?> et : fuzzyMatches)
+						typeList.add(et);
 				}
-				client.setScreen(EditBlockListScreen.this);
-			}).dimensions(width / 2 + 40, height - 56, 80, 20).build());
+				client.setScreen(EditEntityTypeListScreen.this);
+			}).dimensions(width / 2 - 2, height - 56, 80, 20).build());
 		
-		// Shift remove to the right to make room for wider Add
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
-				blockList
-					.remove(blockList.indexOf(listGui.getSelectedBlockName()));
-				client.setScreen(EditBlockListScreen.this);
-			}).dimensions(width / 2 + 124, height - 56, 120, 20).build());
+				String selected = listGui.getSelectedTypeName();
+				typeList.remove(typeList.getTypeNames().indexOf(selected));
+				client.setScreen(EditEntityTypeListScreen.this);
+			}).dimensions(width / 2 + 82, height - 56, 120, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
 				if(b2)
-					blockList.resetToDefaults();
-				client.setScreen(EditBlockListScreen.this);
+					typeList.resetToDefaults();
+				client.setScreen(EditEntityTypeListScreen.this);
 			}, Text.literal("Reset to Defaults"),
 				Text.literal("Are you sure?"))))
 			.dimensions(width - 328, 8, 150, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
-			blockList.clear();
-			client.setScreen(EditBlockListScreen.this);
+			typeList.clear();
+			client.setScreen(EditEntityTypeListScreen.this);
 		}).dimensions(width - 168, 8, 150, 20).build());
 		
 		addDrawableChild(doneButton = ButtonWidget
@@ -107,7 +104,7 @@ public final class EditBlockListScreen extends Screen
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int mouseButton)
 	{
-		blockNameField.mouseClicked(mouseX, mouseY, mouseButton);
+		typeNameField.mouseClicked(mouseX, mouseY, mouseButton);
 		return super.mouseClicked(mouseX, mouseY, mouseButton);
 	}
 	
@@ -122,7 +119,7 @@ public final class EditBlockListScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_DELETE:
-			if(!blockNameField.isFocused())
+			if(!typeNameField.isFocused())
 				removeButton.onPress();
 			break;
 			
@@ -140,11 +137,19 @@ public final class EditBlockListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String nameOrId = blockNameField.getText();
-		blockToAdd =
-			net.wurstclient.util.BlockUtils.getBlockFromNameOrID(nameOrId);
-		// Build fuzzy matches if no exact block found
-		if(blockToAdd == null)
+		String nameOrId = typeNameField.getText().toLowerCase();
+		try
+		{
+			Identifier id = Identifier.of(nameOrId);
+			typeToAdd =
+				net.minecraft.registry.Registries.ENTITY_TYPE.containsId(id)
+					? net.minecraft.registry.Registries.ENTITY_TYPE.get(id)
+					: null;
+		}catch(IllegalArgumentException e)
+		{
+			typeToAdd = null;
+		}
+		if(typeToAdd == null)
 		{
 			String q = nameOrId == null ? ""
 				: nameOrId.trim().toLowerCase(java.util.Locale.ROOT);
@@ -153,24 +158,21 @@ public final class EditBlockListScreen extends Screen
 				fuzzyMatches = java.util.Collections.emptyList();
 			}else
 			{
-				java.util.ArrayList<net.minecraft.block.Block> list =
+				java.util.ArrayList<net.minecraft.entity.EntityType<?>> list =
 					new java.util.ArrayList<>();
-				for(net.minecraft.util.Identifier id : net.minecraft.registry.Registries.BLOCK
-					.getIds())
+				for(Identifier id : Registries.ENTITY_TYPE.getIds())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
 					if(s.contains(q))
-						list.add(
-							net.minecraft.registry.Registries.BLOCK.get(id));
+						list.add(Registries.ENTITY_TYPE.get(id));
 				}
-				// Deduplicate and sort by identifier
-				java.util.LinkedHashMap<String, net.minecraft.block.Block> map =
+				java.util.LinkedHashMap<String, net.minecraft.entity.EntityType<?>> map =
 					new java.util.LinkedHashMap<>();
-				for(net.minecraft.block.Block b : list)
-					map.put(net.wurstclient.util.BlockUtils.getName(b), b);
+				for(net.minecraft.entity.EntityType<?> et : list)
+					map.put(Registries.ENTITY_TYPE.getId(et).toString(), et);
 				fuzzyMatches = new java.util.ArrayList<>(map.values());
-				fuzzyMatches.sort(java.util.Comparator
-					.comparing(net.wurstclient.util.BlockUtils::getName));
+				fuzzyMatches.sort(java.util.Comparator.comparing(
+					t -> Registries.ENTITY_TYPE.getId(t).toString()));
 			}
 			addButton.active = !fuzzyMatches.isEmpty();
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
@@ -194,12 +196,12 @@ public final class EditBlockListScreen extends Screen
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
 		context.drawCenteredTextWithShadow(client.textRenderer,
-			blockList.getName() + " (" + blockList.size() + ")", width / 2, 12,
-			Colors.WHITE);
+			typeList.getName() + " (" + typeList.getTypeNames().size() + ")",
+			width / 2, 12, Colors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
-		blockNameField.render(context, mouseX, mouseY, partialTicks);
+		typeNameField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Drawable drawable : drawables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
@@ -210,26 +212,21 @@ public final class EditBlockListScreen extends Screen
 		// translate).
 		context.state.goUpLayer();
 		
-		int x0 = blockNameField.getX();
-		int y0 = blockNameField.getY();
-		int x1 = x0 + blockNameField.getWidth();
-		int y1 = y0 + blockNameField.getHeight();
+		int x0 = typeNameField.getX();
+		int y0 = typeNameField.getY();
+		int x1 = x0 + typeNameField.getWidth();
+		int y1 = y0 + typeNameField.getHeight();
 		
-		if(blockNameField.getText().isEmpty() && !blockNameField.isFocused())
-			context.drawTextWithShadow(client.textRenderer, "block name or ID",
+		if(typeNameField.getText().isEmpty() && !typeNameField.isFocused())
+			context.drawTextWithShadow(client.textRenderer, "entity type id",
 				x0 + 6, y0 + 6, Colors.GRAY);
 		
 		int border =
-			blockNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
+			typeNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
 		int black = Colors.BLACK;
 		
-		// Left decoration for the item icon, anchored to the field.
 		context.fill(x0 - 16, y0, x0, y1, border);
 		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
-		
-		RenderUtils.drawItem(context,
-			blockToAdd == null ? ItemStack.EMPTY : new ItemStack(blockToAdd),
-			x0 - 28, y0 + 4, false);
 		
 		context.state.goDownLayer();
 		matrixStack.popMatrix();
@@ -247,25 +244,21 @@ public final class EditBlockListScreen extends Screen
 		return false;
 	}
 	
-	private final class Entry
-		extends AlwaysSelectedEntryListWidget.Entry<EditBlockListScreen.Entry>
+	private final class Entry extends
+		AlwaysSelectedEntryListWidget.Entry<EditEntityTypeListScreen.Entry>
 	{
-		private final String blockName;
+		private final String typeName;
 		
-		public Entry(String blockName)
+		public Entry(String typeName)
 		{
-			this.blockName = Objects.requireNonNull(blockName);
+			this.typeName = Objects.requireNonNull(typeName);
 		}
 		
 		@Override
-		public Text getNarration()
+		public net.minecraft.text.Text getNarration()
 		{
-			Block block = BlockUtils.getBlockFromName(blockName);
-			ItemStack stack = new ItemStack(block);
-			
-			return Text.translatable("narrator.select",
-				"Block " + getDisplayName(stack) + ", " + blockName + ", "
-					+ getIdText(block));
+			return net.minecraft.text.Text.translatable("narrator.select",
+				"Entity " + typeName);
 		}
 		
 		@Override
@@ -273,47 +266,31 @@ public final class EditBlockListScreen extends Screen
 			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
-			Block block = BlockUtils.getBlockFromName(blockName);
-			ItemStack stack = new ItemStack(block);
 			TextRenderer tr = client.textRenderer;
-			
-			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
-			context.drawText(tr, getDisplayName(stack), x + 28, y,
-				WurstColors.VERY_LIGHT_GRAY, false);
-			context.drawText(tr, blockName, x + 28, y + 9, Colors.LIGHT_GRAY,
+			String display = Registries.ENTITY_TYPE.get(Identifier.of(typeName))
+				.getName().getString();
+			context.drawText(tr, display, x + 8, y,
+				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
+			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,
 				false);
-			context.drawText(tr, getIdText(block), x + 28, y + 18,
-				Colors.LIGHT_GRAY, false);
-		}
-		
-		private String getDisplayName(ItemStack stack)
-		{
-			return stack.isEmpty() ? "\u00a7ounknown block\u00a7r"
-				: stack.getName().getString();
-		}
-		
-		private String getIdText(Block block)
-		{
-			return "ID: " + Block.getRawIdFromState(block.getDefaultState());
 		}
 	}
 	
 	private final class ListGui
-		extends AlwaysSelectedEntryListWidget<EditBlockListScreen.Entry>
+		extends AlwaysSelectedEntryListWidget<EditEntityTypeListScreen.Entry>
 	{
-		public ListGui(MinecraftClient minecraft, EditBlockListScreen screen,
-			List<String> list)
+		public ListGui(MinecraftClient minecraft,
+			EditEntityTypeListScreen screen, List<String> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30, 0);
-			
-			list.stream().map(EditBlockListScreen.Entry::new)
+			list.stream().map(EditEntityTypeListScreen.Entry::new)
 				.forEach(this::addEntry);
 		}
 		
-		public String getSelectedBlockName()
+		public String getSelectedTypeName()
 		{
-			EditBlockListScreen.Entry selected = getSelectedOrNull();
-			return selected != null ? selected.blockName : null;
+			EditEntityTypeListScreen.Entry selected = getSelectedOrNull();
+			return selected != null ? selected.typeName : null;
 		}
 	}
 }

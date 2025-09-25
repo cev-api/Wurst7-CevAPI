@@ -42,6 +42,19 @@ import net.wurstclient.util.RenderUtils.ColoredPoint;
 public final class MobSearchHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
+	private enum SearchMode
+	{
+		LIST,
+		TYPE_ID,
+		QUERY
+	}
+	
+	private final net.wurstclient.settings.EnumSetting<SearchMode> mode =
+		new net.wurstclient.settings.EnumSetting<>("Mode", SearchMode.values(),
+			SearchMode.TYPE_ID);
+	private final net.wurstclient.settings.EntityTypeListSetting entityList =
+		new net.wurstclient.settings.EntityTypeListSetting("Entity List",
+			"Entities to match when Mode is set to List.");
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting(
 		"\u00a7lAccurate\u00a7r mode shows the exact hitbox of each mob.\n"
@@ -59,11 +72,15 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		"Fixed color used when Rainbow colors is disabled.", Color.RED);
 	
 	private final ArrayList<LivingEntity> matches = new ArrayList<>();
+	private SearchMode lastMode;
+	private int lastEntityListHash;
 	
 	public MobSearchHack()
 	{
 		super("MobSearch");
 		setCategory(Category.RENDER);
+		addSetting(mode);
+		addSetting(entityList);
 		addSetting(style);
 		addSetting(boxSize);
 		addSetting(typeId);
@@ -78,6 +95,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		lastMode = mode.getSelected();
+		lastEntityListHash = entityList.getTypeNames().hashCode();
 	}
 	
 	@Override
@@ -93,21 +112,55 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	public String getRenderName()
 	{
 		String q = query.getValue().trim();
-		if(!q.isEmpty())
-			return getName() + " [" + abbreviate(q) + "]";
-		String t = typeId.getValue().trim();
-		if(t.startsWith("minecraft:"))
-			t = t.substring("minecraft:".length());
-		return getName() + " [" + t + "]";
+		switch(mode.getSelected())
+		{
+			case LIST:
+			return getName() + " [List:" + entityList.getTypeNames().size()
+				+ "]";
+			case QUERY:
+			if(!q.isEmpty())
+				return getName() + " [" + abbreviate(q) + "]";
+			return getName() + " [query]";
+			case TYPE_ID:
+			default:
+			String t = typeId.getValue().trim();
+			if(t.startsWith("minecraft:"))
+				t = t.substring("minecraft:".length());
+			return getName() + " [" + t + "]";
+		}
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		matches.clear();
-		String q = normalize(query.getValue());
-		Predicate<LivingEntity> predicate = q.isEmpty()
-			? byExactType(normalize(typeId.getValue())) : byFuzzyQuery(q);
+		SearchMode currentMode = mode.getSelected();
+		if(currentMode != lastMode)
+			lastMode = currentMode;
+		if(currentMode == SearchMode.LIST)
+		{
+			int h = entityList.getTypeNames().hashCode();
+			if(h != lastEntityListHash)
+				lastEntityListHash = h;
+		}
+		java.util.function.Predicate<LivingEntity> predicate;
+		switch(currentMode)
+		{
+			case LIST:
+			predicate = e -> {
+				Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
+				String s = id == null ? "" : id.toString();
+				return java.util.Collections
+					.binarySearch(entityList.getTypeNames(), s) >= 0;
+			};
+			break;
+			case QUERY:
+			predicate = byFuzzyQuery(normalize(query.getValue()));
+			break;
+			case TYPE_ID:
+			default:
+			predicate = byExactType(normalize(typeId.getValue()));
+		}
 		
 		Stream<LivingEntity> stream = StreamSupport
 			.stream(MC.world.getEntities().spliterator(), false)

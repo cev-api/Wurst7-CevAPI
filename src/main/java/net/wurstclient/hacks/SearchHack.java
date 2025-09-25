@@ -51,6 +51,19 @@ import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 public final class SearchHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
+	private enum SearchMode
+	{
+		LIST,
+		BLOCK_ID,
+		QUERY
+	}
+	
+	private final net.wurstclient.settings.EnumSetting<SearchMode> mode =
+		new net.wurstclient.settings.EnumSetting<>("Mode", SearchMode.values(),
+			SearchMode.BLOCK_ID);
+	private final net.wurstclient.settings.BlockListSetting blockList =
+		new net.wurstclient.settings.BlockListSetting("Block List",
+			"Blocks to search when Mode is set to List.");
 	private final TextFieldSetting query = new TextFieldSetting("Query",
 		"Enter text to match block IDs or names. Leave empty to search for the selected block only.",
 		"", value -> value.length() <= 64);
@@ -103,10 +116,15 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private java.util.List<net.minecraft.util.math.Vec3d> tracerEnds;
 	private ChunkPos lastPlayerChunk;
 	
+	private SearchMode lastMode;
+	private int lastListHash;
+	
 	public SearchHack()
 	{
 		super("Search");
 		setCategory(Category.RENDER);
+		addSetting(mode);
+		addSetting(blockList);
 		addSetting(query);
 		addSetting(block);
 		addSetting(style);
@@ -120,13 +138,24 @@ public final class SearchHack extends Hack implements UpdateListener,
 	@Override
 	public String getRenderName()
 	{
-		String rawQuery = query.getValue().trim();
 		String colorMode = useFixedColor.isChecked() ? "Fixed" : "Rainbow";
-		if(!rawQuery.isEmpty())
-			return getName() + " [" + abbreviate(rawQuery) + "] (" + colorMode
+		switch(mode.getSelected())
+		{
+			case LIST:
+			return getName() + " [List:" + blockList.size() + "] (" + colorMode
 				+ ")";
-		return getName() + " [" + block.getBlockName().replace("minecraft:", "")
-			+ "] (" + colorMode + ")";
+			case QUERY:
+			String rawQuery = query.getValue().trim();
+			if(!rawQuery.isEmpty())
+				return getName() + " [" + abbreviate(rawQuery) + "] ("
+					+ colorMode + ")";
+			return getName() + " [query] (" + colorMode + ")";
+			case BLOCK_ID:
+			default:
+			return getName() + " ["
+				+ block.getBlockName().replace("minecraft:", "") + "] ("
+				+ colorMode + ")";
+		}
 	}
 	
 	@Override
@@ -138,7 +167,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 		bufferUpToDate = false;
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
-		applySearchCriteria(block.getBlock(), normalizeQuery(query.getValue()));
+		lastMode = mode.getSelected();
+		lastListHash = blockList.getBlockNames().hashCode();
+		applySearchCriteria(block.getBlock(), "");
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(RenderListener.class, this);
@@ -168,6 +199,24 @@ public final class SearchHack extends Hack implements UpdateListener,
 	public void onUpdate()
 	{
 		boolean searchersChanged = false;
+		// Mode/list changes
+		SearchMode currentMode = mode.getSelected();
+		if(currentMode != lastMode)
+		{
+			lastMode = currentMode;
+			applySearchCriteria(block.getBlock(), "");
+			searchersChanged = true;
+		}
+		if(currentMode == SearchMode.LIST)
+		{
+			int listHash = blockList.getBlockNames().hashCode();
+			if(listHash != lastListHash)
+			{
+				lastListHash = listHash;
+				applySearchCriteria(block.getBlock(), "");
+				searchersChanged = true;
+			}
+		}
 		// Recenter per chunk when sticky is off
 		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
@@ -177,7 +226,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 			stopBuildingBuffer();
 			searchersChanged = true;
 		}
-		
+		// Area changes
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -185,21 +234,29 @@ public final class SearchHack extends Hack implements UpdateListener,
 			coordinator.reset();
 			searchersChanged = true;
 		}
-		
-		Block currentBlock = block.getBlock();
-		String currentQuery = normalizeQuery(query.getValue());
-		if(shouldUpdateSearch(currentBlock, currentQuery))
+		// Criteria changes only for modes that use them
+		if(currentMode == SearchMode.BLOCK_ID)
 		{
-			applySearchCriteria(currentBlock, currentQuery);
-			searchersChanged = true;
+			Block currentBlock = block.getBlock();
+			if(currentBlock != lastBlock)
+			{
+				applySearchCriteria(currentBlock, "");
+				searchersChanged = true;
+			}
+		}else if(currentMode == SearchMode.QUERY)
+		{
+			String currentQuery = normalizeQuery(query.getValue());
+			if(!currentQuery.equals(lastQuery))
+			{
+				applySearchCriteria(block.getBlock(), currentQuery);
+				searchersChanged = true;
+			}
 		}
-		
+		// Coordinator update
 		if(coordinator.update())
 			searchersChanged = true;
-		
 		if(searchersChanged)
 			stopBuildingBuffer();
-		
 		if(!coordinator.isDone())
 			return;
 		
@@ -269,14 +326,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private boolean shouldUpdateSearch(Block currentBlock, String currentQuery)
-	{
-		if(!currentQuery.equals(lastQuery))
-			return true;
-		
-		return currentQuery.isEmpty() && currentBlock != lastBlock;
-	}
-	
 	private String normalizeQuery(String rawQuery)
 	{
 		if(rawQuery == null)
@@ -295,18 +344,30 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void applySearchCriteria(Block currentBlock, String normalizedQuery)
 	{
-		if(normalizedQuery.isEmpty())
+		switch(mode.getSelected())
 		{
+			case LIST:
 			lastBlock = currentBlock;
-			coordinator.setTargetBlock(currentBlock);
-		}else
-		{
+			coordinator.setQuery((pos, state) -> {
+				String id =
+					net.wurstclient.util.BlockUtils.getName(state.getBlock());
+				return java.util.Collections
+					.binarySearch(blockList.getBlockNames(), id) >= 0;
+			});
+			lastQuery = "";
+			break;
+			case QUERY:
 			lastBlock = currentBlock;
 			coordinator.setQuery((pos,
 				state) -> blockMatchesQuery(state.getBlock(), normalizedQuery));
+			lastQuery = normalizedQuery;
+			break;
+			case BLOCK_ID:
+			default:
+			lastBlock = currentBlock;
+			coordinator.setTargetBlock(currentBlock);
+			lastQuery = "";
 		}
-		
-		lastQuery = normalizedQuery;
 		notify = true;
 	}
 	

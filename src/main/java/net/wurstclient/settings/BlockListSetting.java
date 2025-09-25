@@ -112,6 +112,12 @@ public class BlockListSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
+	public void clear()
+	{
+		blockNames.clear();
+		WurstClient.INSTANCE.saveSettings();
+	}
+	
 	@Override
 	public Component getComponent()
 	{

@@ -20,81 +20,93 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
-import net.minecraft.item.Item;
+import net.minecraft.entity.EntityType;
+import net.minecraft.entity.SpawnGroup;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
-import net.wurstclient.clickgui.components.ItemListEditButton;
+import net.wurstclient.clickgui.components.EntityTypeListEditButton;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.text.WText;
 
-public final class ItemListSetting extends Setting
+public final class EntityTypeListSetting extends Setting
 {
-	private final ArrayList<String> itemNames = new ArrayList<>();
+	private final ArrayList<String> typeNames = new ArrayList<>();
 	private final String[] defaultNames;
 	
-	public ItemListSetting(String name, WText description, String... items)
+	public EntityTypeListSetting(String name, WText description,
+		String... types)
 	{
 		super(name, description);
-		
-		Arrays.stream(items).parallel()
-			.map(s -> Registries.ITEM.get(Identifier.of(s)))
-			.filter(Objects::nonNull)
-			.map(i -> Registries.ITEM.getId(i).toString()).distinct().sorted()
-			.forEachOrdered(s -> itemNames.add(s));
-		defaultNames = itemNames.toArray(new String[0]);
+		if(types != null && types.length > 0)
+		{
+			Arrays.stream(types).parallel()
+				.map(s -> Registries.ENTITY_TYPE.get(Identifier.of(s)))
+				.filter(Objects::nonNull)
+				.map(t -> Registries.ENTITY_TYPE.getId(t).toString()).distinct()
+				.sorted().forEachOrdered(s -> typeNames.add(s));
+		}else
+		{
+			// Default to all non-MISC spawn group entity types (typical mobs)
+			Registries.ENTITY_TYPE.getIds().forEach(id -> {
+				EntityType<?> t = Registries.ENTITY_TYPE.get(id);
+				SpawnGroup g = t.getSpawnGroup();
+				if(g != SpawnGroup.MISC)
+					typeNames.add(id.toString());
+			});
+			Collections.sort(typeNames);
+		}
+		defaultNames = typeNames.toArray(new String[0]);
 	}
 	
-	public ItemListSetting(String name, String descriptionKey, String... items)
+	public EntityTypeListSetting(String name, String descriptionKey)
 	{
-		this(name, WText.translated(descriptionKey), items);
+		this(name, WText.translated(descriptionKey));
 	}
 	
-	public List<String> getItemNames()
+	public List<String> getTypeNames()
 	{
-		return Collections.unmodifiableList(itemNames);
+		return Collections.unmodifiableList(typeNames);
 	}
 	
-	public void add(Item item)
+	public void add(EntityType<?> type)
 	{
-		String name = Registries.ITEM.getId(item).toString();
-		if(Collections.binarySearch(itemNames, name) >= 0)
+		String name = Registries.ENTITY_TYPE.getId(type).toString();
+		if(Collections.binarySearch(typeNames, name) >= 0)
 			return;
-		
-		itemNames.add(name);
-		Collections.sort(itemNames);
+		typeNames.add(name);
+		Collections.sort(typeNames);
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void remove(int index)
 	{
-		if(index < 0 || index >= itemNames.size())
+		if(index < 0 || index >= typeNames.size())
 			return;
-		
-		itemNames.remove(index);
+		typeNames.remove(index);
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void resetToDefaults()
 	{
-		itemNames.clear();
-		itemNames.addAll(Arrays.asList(defaultNames));
+		typeNames.clear();
+		typeNames.addAll(Arrays.asList(defaultNames));
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void clear()
 	{
-		itemNames.clear();
+		typeNames.clear();
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	@Override
 	public Component getComponent()
 	{
-		return new ItemListEditButton(this);
+		return new EntityTypeListEditButton(this);
 	}
 	
 	@Override
@@ -102,22 +114,17 @@ public final class ItemListSetting extends Setting
 	{
 		try
 		{
-			itemNames.clear();
-			
-			// if string "default", load default items
+			typeNames.clear();
 			if(JsonUtils.getAsString(json, "nope").equals("default"))
 			{
-				itemNames.addAll(Arrays.asList(defaultNames));
+				typeNames.addAll(Arrays.asList(defaultNames));
 				return;
 			}
-			
-			// otherwise, load the items in the JSON array
 			JsonUtils.getAsArray(json).getAllStrings().parallelStream()
-				.map(s -> Registries.ITEM.get(Identifier.of(s)))
+				.map(s -> Registries.ENTITY_TYPE.get(Identifier.of(s)))
 				.filter(Objects::nonNull)
-				.map(i -> Registries.ITEM.getId(i).toString()).distinct()
-				.sorted().forEachOrdered(s -> itemNames.add(s));
-			
+				.map(t -> Registries.ENTITY_TYPE.getId(t).toString()).distinct()
+				.sorted().forEachOrdered(s -> typeNames.add(s));
 		}catch(JsonException e)
 		{
 			e.printStackTrace();
@@ -128,12 +135,10 @@ public final class ItemListSetting extends Setting
 	@Override
 	public JsonElement toJson()
 	{
-		// if itemNames is the same as defaultNames, save string "default"
-		if(itemNames.equals(Arrays.asList(defaultNames)))
+		if(typeNames.equals(Arrays.asList(defaultNames)))
 			return new JsonPrimitive("default");
-		
 		JsonArray json = new JsonArray();
-		itemNames.forEach(s -> json.add(s));
+		typeNames.forEach(s -> json.add(s));
 		return json;
 	}
 	
@@ -143,12 +148,10 @@ public final class ItemListSetting extends Setting
 		JsonObject json = new JsonObject();
 		json.addProperty("name", getName());
 		json.addProperty("description", getDescription());
-		json.addProperty("type", "ItemList");
-		
-		JsonArray defaultItems = new JsonArray();
-		Arrays.stream(defaultNames).forEachOrdered(s -> defaultItems.add(s));
-		json.add("defaultItems", defaultItems);
-		
+		json.addProperty("type", "EntityTypeList");
+		JsonArray defaults = new JsonArray();
+		Arrays.stream(defaultNames).forEachOrdered(defaults::add);
+		json.add("defaultTypes", defaults);
 		return json;
 	}
 	
@@ -156,19 +159,10 @@ public final class ItemListSetting extends Setting
 	public Set<PossibleKeybind> getPossibleKeybinds(String featureName)
 	{
 		String fullName = featureName + " " + getName();
-		
-		String command = ".itemlist " + featureName.toLowerCase() + " ";
-		command += getName().toLowerCase().replace(" ", "_") + " ";
-		
+		String command = ".entitylist " + featureName.toLowerCase() + " "
+			+ getName().toLowerCase().replace(" ", "_") + " ";
 		LinkedHashSet<PossibleKeybind> pkb = new LinkedHashSet<>();
-		// Can't just list all the items here. Would need to change UI to allow
-		// user to choose an item after selecting this option.
-		// pkb.add(new PossibleKeybind(command + "add dirt",
-		// "Add dirt to " + fullName));
-		// pkb.add(new PossibleKeybind(command + "remove dirt",
-		// "Remove dirt from " + fullName));
 		pkb.add(new PossibleKeybind(command + "reset", "Reset " + fullName));
-		
 		return pkb;
 	}
 }

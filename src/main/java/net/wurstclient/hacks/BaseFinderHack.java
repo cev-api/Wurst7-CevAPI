@@ -40,46 +40,145 @@ public final class BaseFinderHack extends Hack
 		"Natural Blocks",
 		"These blocks will be considered part of natural generation.\n\n"
 			+ "They will NOT be highlighted as player bases.",
-		"minecraft:acacia_leaves", "minecraft:acacia_log", "minecraft:air",
-		"minecraft:allium", "minecraft:amethyst_block",
-		"minecraft:amethyst_cluster", "minecraft:andesite",
-		"minecraft:azure_bluet", "minecraft:bedrock", "minecraft:birch_leaves",
-		"minecraft:birch_log", "minecraft:blue_orchid",
-		"minecraft:brown_mushroom", "minecraft:brown_mushroom_block",
-		"minecraft:bubble_column", "minecraft:budding_amethyst",
-		"minecraft:calcite", "minecraft:cave_air", "minecraft:clay",
-		"minecraft:coal_ore", "minecraft:cobweb", "minecraft:copper_ore",
-		"minecraft:cornflower", "minecraft:dandelion",
-		"minecraft:dark_oak_leaves", "minecraft:dark_oak_log",
-		"minecraft:dead_bush", "minecraft:deepslate",
-		"minecraft:deepslate_coal_ore", "minecraft:deepslate_copper_ore",
-		"minecraft:deepslate_diamond_ore", "minecraft:deepslate_emerald_ore",
-		"minecraft:deepslate_gold_ore", "minecraft:deepslate_iron_ore",
-		"minecraft:deepslate_lapis_ore", "minecraft:deepslate_redstone_ore",
-		"minecraft:diamond_ore", "minecraft:diorite", "minecraft:dirt",
-		"minecraft:dripstone_block", "minecraft:emerald_ore", "minecraft:fern",
-		"minecraft:glow_lichen", "minecraft:gold_ore", "minecraft:granite",
-		"minecraft:grass", "minecraft:grass_block", "minecraft:gravel",
-		"minecraft:ice", "minecraft:infested_stone", "minecraft:iron_ore",
-		"minecraft:jungle_leaves", "minecraft:jungle_log", "minecraft:kelp",
-		"minecraft:kelp_plant", "minecraft:lapis_ore",
-		"minecraft:large_amethyst_bud", "minecraft:large_fern",
-		"minecraft:lava", "minecraft:lilac", "minecraft:lily_of_the_valley",
-		"minecraft:lily_pad", "minecraft:medium_amethyst_bud",
-		"minecraft:mossy_cobblestone", "minecraft:mushroom_stem",
-		"minecraft:nether_quartz_ore", "minecraft:netherrack",
-		"minecraft:oak_leaves", "minecraft:oak_log", "minecraft:obsidian",
-		"minecraft:orange_tulip", "minecraft:oxeye_daisy", "minecraft:peony",
-		"minecraft:pink_tulip", "minecraft:pointed_dripstone",
-		"minecraft:poppy", "minecraft:red_mushroom",
-		"minecraft:red_mushroom_block", "minecraft:red_tulip",
-		"minecraft:redstone_ore", "minecraft:rose_bush", "minecraft:sand",
-		"minecraft:sandstone", "minecraft:seagrass",
-		"minecraft:small_amethyst_bud", "minecraft:smooth_basalt",
-		"minecraft:snow", "minecraft:spawner", "minecraft:spruce_leaves",
-		"minecraft:spruce_log", "minecraft:stone", "minecraft:sunflower",
-		"minecraft:tall_grass", "minecraft:tall_seagrass", "minecraft:tuff",
-		"minecraft:vine", "minecraft:water", "minecraft:white_tulip");
+		// Air/fluids/gases
+		"minecraft:air", "minecraft:cave_air", "minecraft:bubble_column",
+		"minecraft:water", "minecraft:lava",
+		
+		// Terrain (Overworld stone & dirt family)
+		"minecraft:stone", "minecraft:dirt", "minecraft:coarse_dirt",
+		"minecraft:rooted_dirt", "minecraft:podzol", "minecraft:mycelium",
+		"minecraft:grass_block", "minecraft:gravel", "minecraft:clay",
+		"minecraft:sand", "minecraft:red_sand", "minecraft:sandstone",
+		"minecraft:red_sandstone", "minecraft:granite", "minecraft:diorite",
+		"minecraft:andesite", "minecraft:tuff", "minecraft:calcite",
+		"minecraft:smooth_basalt", "minecraft:bedrock",
+		"minecraft:infested_stone", "minecraft:mossy_cobblestone",
+		
+		// Snow & ice
+		"minecraft:snow", "minecraft:snow_block", "minecraft:powder_snow",
+		"minecraft:ice", "minecraft:packed_ice", "minecraft:blue_ice",
+		
+		// Geodes
+		"minecraft:amethyst_block", "minecraft:budding_amethyst",
+		"minecraft:amethyst_cluster", "minecraft:large_amethyst_bud",
+		"minecraft:medium_amethyst_bud", "minecraft:small_amethyst_bud",
+		
+		// Dripstone & caves
+		"minecraft:dripstone_block", "minecraft:pointed_dripstone",
+		"minecraft:glow_lichen", "minecraft:spore_blossom",
+		"minecraft:small_dripleaf", "minecraft:big_dripleaf",
+		"minecraft:cave_vines", "minecraft:cave_vines_plant",
+		
+		// Lush caves / moss & azalea
+		"minecraft:moss_block", "minecraft:moss_carpet", "minecraft:azalea",
+		"minecraft:flowering_azalea", "minecraft:azalea_leaves",
+		"minecraft:flowering_azalea_leaves", "minecraft:rooted_dirt",
+		"minecraft:hanging_roots",
+		
+		// Plants & flowers (Overworld)
+		"minecraft:grass", "minecraft:tall_grass", "minecraft:fern",
+		"minecraft:large_fern", "minecraft:dead_bush", "minecraft:dandelion",
+		"minecraft:poppy", "minecraft:blue_orchid", "minecraft:allium",
+		"minecraft:azure_bluet", "minecraft:red_tulip",
+		"minecraft:orange_tulip", "minecraft:white_tulip",
+		"minecraft:pink_tulip", "minecraft:oxeye_daisy", "minecraft:cornflower",
+		"minecraft:lily_of_the_valley", "minecraft:sunflower",
+		"minecraft:lilac", "minecraft:rose_bush", "minecraft:peony",
+		"minecraft:lily_pad", "minecraft:sweet_berry_bush",
+		"minecraft:leaf_litter", "minecraft:pink_petals",
+		"minecraft:short_dry_grass", "minecraft:tall_dry_grass",
+		"minecraft:wildflowers", "minecraft:bush", "minecraft:cactus_flower",
+		
+		// Mushrooms
+		"minecraft:red_mushroom", "minecraft:brown_mushroom",
+		"minecraft:red_mushroom_block", "minecraft:brown_mushroom_block",
+		"minecraft:mushroom_stem",
+		
+		// Trees & leaves (all current vanilla species)
+		"minecraft:oak_log", "minecraft:oak_leaves", "minecraft:spruce_log",
+		"minecraft:spruce_leaves", "minecraft:birch_log",
+		"minecraft:birch_leaves", "minecraft:jungle_log",
+		"minecraft:jungle_leaves", "minecraft:acacia_log",
+		"minecraft:acacia_leaves", "minecraft:dark_oak_log",
+		"minecraft:dark_oak_leaves", "minecraft:mangrove_log",
+		"minecraft:mangrove_leaves", "minecraft:mangrove_roots",
+		"minecraft:muddy_mangrove_roots", "minecraft:mangrove_propagule",
+		"minecraft:cherry_log", "minecraft:cherry_leaves", "minecraft:bamboo",
+		
+		// Aquatic vegetation & coral
+		"minecraft:seagrass", "minecraft:tall_seagrass", "minecraft:kelp",
+		"minecraft:kelp_plant", "minecraft:sea_pickle", "minecraft:sugar_cane",
+		"minecraft:tube_coral_block", "minecraft:brain_coral_block",
+		"minecraft:bubble_coral_block", "minecraft:fire_coral_block",
+		"minecraft:horn_coral_block", "minecraft:tube_coral",
+		"minecraft:brain_coral", "minecraft:bubble_coral",
+		"minecraft:fire_coral", "minecraft:horn_coral",
+		"minecraft:tube_coral_fan", "minecraft:brain_coral_fan",
+		"minecraft:bubble_coral_fan", "minecraft:fire_coral_fan",
+		"minecraft:horn_coral_fan", "minecraft:dead_tube_coral_block",
+		"minecraft:dead_brain_coral_block", "minecraft:dead_bubble_coral_block",
+		"minecraft:dead_fire_coral_block", "minecraft:dead_horn_coral_block",
+		"minecraft:dead_tube_coral", "minecraft:dead_brain_coral",
+		"minecraft:dead_bubble_coral", "minecraft:dead_fire_coral",
+		"minecraft:dead_horn_coral", "minecraft:dead_tube_coral_fan",
+		"minecraft:dead_brain_coral_fan", "minecraft:dead_bubble_coral_fan",
+		"minecraft:dead_fire_coral_fan", "minecraft:dead_horn_coral_fan",
+		
+		// Ocean monuments
+		"minecraft:wet_sponge",
+		
+		// Ores (Overworld & Deepslate)
+		"minecraft:coal_ore", "minecraft:iron_ore", "minecraft:copper_ore",
+		"minecraft:gold_ore", "minecraft:redstone_ore", "minecraft:emerald_ore",
+		"minecraft:diamond_ore", "minecraft:lapis_ore", "minecraft:deepslate",
+		"minecraft:deepslate_coal_ore", "minecraft:deepslate_iron_ore",
+		"minecraft:deepslate_copper_ore", "minecraft:deepslate_gold_ore",
+		"minecraft:deepslate_redstone_ore", "minecraft:deepslate_emerald_ore",
+		"minecraft:deepslate_diamond_ore", "minecraft:deepslate_lapis_ore",
+		
+		// Archaeology
+		"minecraft:suspicious_sand", "minecraft:suspicious_gravel",
+		
+		// Sculk / Deep Dark
+		"minecraft:sculk", "minecraft:sculk_vein", "minecraft:sculk_sensor",
+		"minecraft:sculk_catalyst", "minecraft:sculk_shrieker",
+		
+		// Nether terrain & flora
+		"minecraft:netherrack", "minecraft:basalt", "minecraft:blackstone",
+		"minecraft:soul_sand", "minecraft:soul_soil", "minecraft:magma_block",
+		"minecraft:nether_quartz_ore", "minecraft:nether_gold_ore",
+		"minecraft:ancient_debris", "minecraft:glowstone",
+		"minecraft:crimson_nylium", "minecraft:warped_nylium",
+		"minecraft:crimson_stem", "minecraft:warped_stem",
+		"minecraft:crimson_roots", "minecraft:warped_roots",
+		"minecraft:nether_sprouts", "minecraft:shroomlight",
+		"minecraft:weeping_vines", "minecraft:weeping_vines_plant",
+		"minecraft:twisting_vines", "minecraft:twisting_vines_plant",
+		"minecraft:nether_wart_block", "minecraft:warped_wart_block",
+		"minecraft:crimson_fungus", "minecraft:warped_fungus",
+		"minecraft:nether_wart",
+		
+		// End terrain & plants (no player-crafted building sets)
+		"minecraft:end_stone", "minecraft:chorus_plant",
+		"minecraft:chorus_flower",
+		
+		// Pale Garden (Overworld)
+		"minecraft:pale_oak_log", "minecraft:pale_oak_leaves",
+		"minecraft:pale_moss_block", "minecraft:pale_moss_carpet",
+		"minecraft:pale_hanging_moss", "minecraft:open_eyeblossom",
+		"minecraft:closed_eyeblossom", "minecraft:resin_clump",
+		
+		// Crops & produce that world-generate
+		"minecraft:pumpkin", "minecraft:melon", "minecraft:cocoa",
+		
+		// Trial Chambers
+		"minecraft:trial_spawner",
+		
+		// Natural obsidian (e.g., lava-water, ruined portals) & world spawners
+		"minecraft:obsidian", "minecraft:crying_obsidian", "minecraft:spawner",
+		
+		// Misc vines
+		"minecraft:vine");
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Man-made blocks will be highlighted in this color.", Color.RED);

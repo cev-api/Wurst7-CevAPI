@@ -26,6 +26,7 @@ All credit for the original client goes to Wurst‑Imperium and its contributors
 
 ### MobSearch
   - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).
+  - Added list mode (with mode switcher) with visual list of mobs to search for.
   - Multi-term queries: separate with commas (e.g., `skeleton, zombie`).
   - Rendering: Boxes, Lines, or Both. Rainbow or fixed color (default red). Box size configurable.
 
@@ -92,13 +93,24 @@ Visualizes where players logged out.
   - Name scale
   - Show tracers (on/off)
 
+### Added keyword matches for all lists (Search, MobSearch, Nuker, SpeedNuker, NoHandClip AutoDrop, Xray etc)
+- Type a keyword (eg., "diamond") to populate the list with all matching blocks/mobs.
+- Clear list button added.
+
 ### Search improvements
 - Keyword field accepts plain-text terms (e.g., `diamond`). Falls back to the block picker when empty.
+- Added list mode (with mode switcher) with visual list of items to search for.
 - Multi-term queries supported: comma-separated terms (e.g., `diamond, ancient`) to match both diamond ores and ancient debris.
 - Rendering style: Boxes, Lines, or Both (tracers). View-bobbing is canceled when lines are enabled.
 - Color mode for lines: “Use fixed color” toggle (default off → rainbow). When enabled, pick a fixed color.
 - Safer update cycle: query/radius changes trigger proper rescans; shared normalization and predicate helpers.
 - Tracer safety: falls back to block center when the outline shape is empty (prevents crashes on empty VoxelShapes).
+
+### Xray improvements
+- Opacity and block types apply live with no toggling of the hack required.
+
+### BaseFinder improvements
+- Updated the list of natural world generated blocks to latest minecraft blocks/biomes.
 
 ### MobESP improvements
 - Added color options like MobSearch:

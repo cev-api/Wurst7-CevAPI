@@ -45,6 +45,8 @@ public final class EditItemListScreen extends Screen
 	private ButtonWidget doneButton;
 	
 	private Item itemToAdd;
+	private java.util.List<net.minecraft.item.Item> fuzzyMatches =
+		java.util.Collections.emptyList();
 	
 	public EditItemListScreen(Screen prevScreen, ItemListSetting itemList)
 	{
@@ -60,22 +62,29 @@ public final class EditItemListScreen extends Screen
 		addSelectableChild(listGui);
 		
 		itemNameField = new TextFieldWidget(client.textRenderer,
-			width / 2 - 152, height - 56, 150, 20, Text.literal(""));
+			width / 2 - 152, height - 56, 140, 20, Text.literal(""));
 		addSelectableChild(itemNameField);
 		itemNameField.setMaxLength(256);
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
-				itemList.add(itemToAdd);
+				if(itemToAdd != null)
+				{
+					itemList.add(itemToAdd);
+				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
+				{
+					for(net.minecraft.item.Item it : fuzzyMatches)
+						itemList.add(it);
+				}
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(width / 2 - 2, height - 56, 30, 20).build());
+			}).dimensions(width / 2 + 40, height - 56, 80, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
 				itemList.remove(itemList.getItemNames()
 					.indexOf(listGui.getSelectedBlockName()));
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(width / 2 + 52, height - 56, 100, 20).build());
+			}).dimensions(width / 2 + 124, height - 56, 120, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -84,7 +93,12 @@ public final class EditItemListScreen extends Screen
 				client.setScreen(EditItemListScreen.this);
 			}, Text.literal("Reset to Defaults"),
 				Text.literal("Are you sure?"))))
-			.dimensions(width - 108, 8, 100, 20).build());
+			.dimensions(width - 328, 8, 150, 20).build());
+		
+		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
+			itemList.clear();
+			client.setScreen(EditItemListScreen.this);
+		}).dimensions(width - 168, 8, 150, 20).build());
 		
 		addDrawableChild(doneButton = ButtonWidget
 			.builder(Text.literal("Done"), b -> client.setScreen(prevScreen))
@@ -129,7 +143,44 @@ public final class EditItemListScreen extends Screen
 	{
 		String nameOrId = itemNameField.getText().toLowerCase();
 		itemToAdd = ItemUtils.getItemFromNameOrID(nameOrId);
-		addButton.active = itemToAdd != null;
+		if(itemToAdd == null)
+		{
+			String q = nameOrId == null ? ""
+				: nameOrId.trim().toLowerCase(java.util.Locale.ROOT);
+			if(q.isEmpty())
+			{
+				fuzzyMatches = java.util.Collections.emptyList();
+			}else
+			{
+				java.util.ArrayList<net.minecraft.item.Item> list =
+					new java.util.ArrayList<>();
+				for(net.minecraft.util.Identifier id : net.minecraft.registry.Registries.ITEM
+					.getIds())
+				{
+					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
+					if(s.contains(q))
+						list.add(
+							net.minecraft.registry.Registries.ITEM.get(id));
+				}
+				java.util.LinkedHashMap<String, net.minecraft.item.Item> map =
+					new java.util.LinkedHashMap<>();
+				for(net.minecraft.item.Item it : list)
+					map.put(net.minecraft.registry.Registries.ITEM.getId(it)
+						.toString(), it);
+				fuzzyMatches = new java.util.ArrayList<>(map.values());
+				fuzzyMatches.sort(java.util.Comparator
+					.comparing(i -> net.minecraft.registry.Registries.ITEM
+						.getId(i).toString()));
+			}
+			addButton.active = !fuzzyMatches.isEmpty();
+			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
+				: ("Add Matches (" + fuzzyMatches.size() + ")")));
+		}else
+		{
+			fuzzyMatches = java.util.Collections.emptyList();
+			addButton.active = true;
+			addButton.setMessage(Text.literal("Add"));
+		}
 		
 		removeButton.active = listGui.getSelectedOrNull() != null;
 	}
