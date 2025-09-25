@@ -118,6 +118,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private SearchMode lastMode;
 	private int lastListHash;
+	// Cache for LIST mode: exact IDs and keyword terms
+	private java.util.Set<String> listExactIds;
+	private String[] listKeywords;
 	
 	public SearchHack()
 	{
@@ -348,11 +351,42 @@ public final class SearchHack extends Hack implements UpdateListener,
 		{
 			case LIST:
 			lastBlock = currentBlock;
+			// Build caches: exact IDs vs keyword terms
+			java.util.List<String> names = blockList.getBlockNames();
+			java.util.ArrayList<String> kw = new java.util.ArrayList<>();
+			java.util.HashSet<String> exact = new java.util.HashSet<>();
+			for(String s : names)
+			{
+				// consider it exact if it parses as an Identifier
+				net.minecraft.util.Identifier id =
+					net.minecraft.util.Identifier.tryParse(s);
+				if(id != null)
+					exact.add(id.toString());
+				else if(s != null && !s.isBlank())
+					kw.add(s.toLowerCase(java.util.Locale.ROOT));
+			}
+			listExactIds = exact;
+			listKeywords = kw.toArray(new String[0]);
 			coordinator.setQuery((pos, state) -> {
-				String id =
+				String idFull =
 					net.wurstclient.util.BlockUtils.getName(state.getBlock());
-				return java.util.Collections
-					.binarySearch(blockList.getBlockNames(), id) >= 0;
+				if(listExactIds.contains(idFull))
+					return true;
+				String localId = idFull.contains(":")
+					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+				String localSpaced = localId.replace('_', ' ');
+				String transKey = state.getBlock().getTranslationKey();
+				String display = state.getBlock().getName().getString();
+				for(String term : listKeywords)
+				{
+					if(containsNormalized(idFull, term)
+						|| containsNormalized(localId, term)
+						|| containsNormalized(localSpaced, term)
+						|| containsNormalized(transKey, term)
+						|| containsNormalized(display, term))
+						return true;
+				}
+				return false;
 			});
 			lastQuery = "";
 			break;

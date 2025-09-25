@@ -71,6 +71,13 @@ public final class EditEntityTypeListScreen extends Screen
 				{
 					for(net.minecraft.entity.EntityType<?> et : fuzzyMatches)
 						typeList.add(et);
+				}else
+				{
+					String raw = typeNameField.getText();
+					if(raw != null)
+						raw = raw.trim();
+					if(raw != null && !raw.isEmpty())
+						typeList.addRawName(raw);
 				}
 				client.setScreen(EditEntityTypeListScreen.this);
 			}).dimensions(width / 2 - 2, height - 56, 80, 20).build());
@@ -174,7 +181,9 @@ public final class EditEntityTypeListScreen extends Screen
 				fuzzyMatches.sort(java.util.Comparator.comparing(
 					t -> Registries.ENTITY_TYPE.getId(t).toString()));
 			}
-			addButton.active = !fuzzyMatches.isEmpty();
+			addButton.active =
+				!fuzzyMatches.isEmpty() || (typeNameField.getText() != null
+					&& !typeNameField.getText().trim().isEmpty());
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
 				: ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
@@ -214,7 +223,6 @@ public final class EditEntityTypeListScreen extends Screen
 		
 		int x0 = typeNameField.getX();
 		int y0 = typeNameField.getY();
-		int x1 = x0 + typeNameField.getWidth();
 		int y1 = y0 + typeNameField.getHeight();
 		
 		if(typeNameField.getText().isEmpty() && !typeNameField.isFocused())
@@ -267,8 +275,15 @@ public final class EditEntityTypeListScreen extends Screen
 			boolean hovered, float tickDelta)
 		{
 			TextRenderer tr = client.textRenderer;
-			String display = Registries.ENTITY_TYPE.get(Identifier.of(typeName))
-				.getName().getString();
+			String display;
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(typeName);
+			if(id != null
+				&& net.minecraft.registry.Registries.ENTITY_TYPE.containsId(id))
+				display = net.minecraft.registry.Registries.ENTITY_TYPE.get(id)
+					.getName().getString();
+			else
+				display = "\u00a7okeyword\u00a7r";
 			context.drawText(tr, display, x + 8, y,
 				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
 			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,

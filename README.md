@@ -2,171 +2,142 @@
 
 ![Wurst Client logo](https://img.wimods.net/github.com/Wurst-Imperium/Wurst7?to=https://wurst.wiki/_media/logo/wurst_758x192.webp)
 
-- **Original Repo:** https://github.com/Wurst-Imperium/Wurst7
-
-- **Downloads:** [https://www.wurstclient.net/download/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Fdownload%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)
-
-- **Installation guide:** [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)
-
-- **Feature list:** [https://www.wurstclient.net/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)
-
-- **Wiki:** [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)
+- Original Repo: https://github.com/Wurst-Imperium/Wurst7  
+- Downloads: [https://www.wurstclient.net/download/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Fdownload%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
+- Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
+- Feature list: [https://www.wurstclient.net/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
+- Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 
 ## Relationship to upstream
 
 This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I’m keeping them in a separate fork. I’ll continue to maintain these additions and periodically rebase/sync with the upstream project.
 
-- Upstream repository: https://github.com/Wurst-Imperium/Wurst7
-- This fork: https://github.com/cev-api/Wurst7-CevAPI
-- Status: actively maintained and rebased as upstream evolves
+- Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
+- This fork: https://github.com/cev-api/Wurst7-CevAPI  
+- Status: actively maintained and rebased as upstream evolves  
 
-All credit for the original client goes to Wurst‑Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst‑Imperium. This fork maintains the original GPLv3 licensing.
+All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
+
+---
 
 ## What’s new in this fork
 
 ### MobSearch
-  - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).
-  - Added list mode (with mode switcher) with visual list of mobs to search for.
-  - Multi-term queries: separate with commas (e.g., `skeleton, zombie`).
-  - Rendering: Boxes, Lines, or Both. Rainbow or fixed color (default red). Box size configurable.
+- Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
+- Added list mode with visual list of mobs.  
+- Multi-term queries: comma-separated (e.g., `skeleton, zombie`).  
+- Rendering: Boxes, Lines, or Both. Rainbow or fixed color. Box size configurable.  
 
 ### BedESP
-  - Finds all bed types.
-  - Chunk-based scanning with configurable color and Box/Line style.
-  - Rendering: Boxes, Lines, or Both in a fixed color.
+- Finds all bed types.  
+- Chunk-based scanning with configurable color and Box/Line style.  
+- Rendering: Boxes, Lines, or Both in a fixed color.  
 
 ### SignESP
-  - Finds all sign types/materials.
-  - Option: Include Frames (item frames + glow item frames) with a separate color.
-  - Rendering: Boxes, Lines, or Both in a fixed color.
+- Finds all sign types/materials.  
+- Option: include frames (item frames + glow item frames) with a separate color.  
+- Rendering: Boxes, Lines, or Both in a fixed color.  
 
 ### WorkstationESP
-  - Highlights: Crafting Table, Smithing Table, Anvil (all states), Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.
-  - Per-block toggles and per-block colors. Defaults: all enabled; each uses the main/default color unless overridden.
-  - Rendering: Boxes, Lines, or Both in a fixed color.
+- Highlights crafting/workstation blocks: Crafting Table, Smithing Table, Anvil, Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.  
+- Per-block toggles and colors. Defaults: all enabled.  
+- Rendering: Boxes, Lines, or Both in a fixed color.  
 
 ### RedstoneESP
-  - Highlights: Redstone Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Sculk Sensor (+ Calibrated), Pistons (regular/sticky), Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.
-  - Buttons and Pressure Plates are grouped:
-    - Include buttons + Buttons color (matches all button variants)
-    - Include pressure plates + Pressure plates color (matches all plate variants)
-  - Rendering: Boxes, Lines, or Both in a fixed color.
-
-### Waypoints 
-Create and save waypoints and automatically save and or display in chat the location of your death.
-- Opening the manager
-  - Default keybind: apostrophe ('). This triggers the command `.waypoints`.
-  - Can also be found in the options menu.
-- Creating and editing
-  - The editor shows name, coordinates (X/Y/Z), dimension, icon, visibility, lines on/off, and color.
-  - Copy coordinates: In the manager list, each waypoint row includes a Copy button that places `x, y, z` on the clipboard.
-  - Opposite: Default OFF. When ON (and applicable), the editor shows a hint below the toggle: “Opposite shows in … at (x, y, z)”. This converts Overworld <-> Nether using the usual 8× rule. (Opposite has no effect in the End.)
-- Rendering behavior
-  - Constant-size labels: Waypoint name and distance are rendered at a configurable and fixed on‑screen size
-  - Per‑waypoint “lines” toggle: Draws tracer + box around the target block when enabled.
-  - Death waypoints: Optional automatic waypoints on death (for both you and optionally other players). You can toggle creating death waypoints, toggle whether they have lines, and choose their color. There’s also a setting to prune older death waypoints.
-- Manager list
-  - Remove and edit existing waypoints easily.
-- Storage
-  - Waypoints are stored per world/server under `wurst/waypoints/<worldId>.json` where `<worldId>` is the server address (or `singleplayer`).
-
-### Breadcrumbs 
-A line follows you wherever you go, useful for tracing back your path. It can be pausable via a keybind or through the menu.
-- Settings
-  - Color
-  - Max sections (how many points are kept)
-  - Section length (distance before a new point is added)
-  - Line thickness
-    
-### LogoutSpots
-Visualizes where players logged out.
-- How it works
-  - The hack snapshots the current player list and compares it each tick. If an entry disappears, a logout spot is recorded at that player’s last known position (bounding box).
-  - Spots for players who rejoin are removed automatically.
-- Rendering
-  - Draws solid boxes (sides) plus an outline around each recorded spot.
-  - Optional line tracer.
-  - On‑screen labels with the player’s name (and adjustable name scale).
-- Settings
-  - Side color (box fill)
-  - Line color (outline + tracers)
-  - Name scale
-  - Show tracers (on/off)
+- Highlights redstone components: Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Sculk Sensor (+ Calibrated), Pistons, Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.  
+- Buttons and pressure plates are grouped with individual toggles + colors.  
+- Rendering: Boxes, Lines, or Both in a fixed color.  
 
 ### TridentESP
-Highlights thrown and or held tridents in the world.
-- Optional: highlight tridents held by other players or mobs (not your own).
-- Optional: color distinctions for ownership:
-  - Your tridents
-  - Other players’ tridents
-  - Mobs’ tridents
-- Rendering styles: Boxes, Lines, or Both.
-- Box size modes: Accurate (tight fit) or Fancy (larger/nicer boxes).
-- Color options:
-  - Fixed single color
-  - Rainbow
-  - Color by owner type (overrides fixed/rainbow).
-- Settings
-  - Toggle held-trident highlights (players/mobs).
-  - Choose rendering style, box size, and color mode.
-- Usage
-  - Enable TridentESP from the ClickGUI → Render tab.
-  - Adjust style, color, and ownership toggles as desired.
+- Highlights thrown tridents, plus held tridents by players/mobs.  
+- Color distinctions: your tridents, other players, mobs.  
+- Rendering: Boxes, Lines, or Both.  
+- Box size: Accurate or Fancy.  
+- Colors: fixed, rainbow, or by owner type.  
+- Toggles for held-trident highlights.  
 
-### Added keyword matches for all lists (Search, MobSearch, Nuker, SpeedNuker, NoHandClip AutoDrop, Xray etc)
-- Type a keyword (eg., "diamond") to populate the list with all matching blocks/mobs.
-- Clear list button added.
+### Waypoints
+- Create and save waypoints, with optional automatic death waypoints for all players.  
+- Manager UI (`.waypoints` or apostrophe key).  
+- Features: name, coords, dimension, icon, visibility, lines, color, copy button, opposite coords, death pruning.  
+- Constant-size labels and optional tracers.  
+- Stored per world/server under `wurst/waypoints/<worldId>.json`.  
+
+### Breadcrumbs
+- Leaves a line trail behind you (toggleable/pauseable).  
+- Settings: color, max sections, section length, thickness.  
+
+### LogoutSpots
+- Records where players log out.  
+- Removes spots when they rejoin.  
+- Rendering: solid box + outline, optional tracers, name labels with adjustable scale.  
+- Settings: side color, line color, name scale, tracers toggle.  
+
+### ItemESP (expanded)
+Highlights dropped, equipped, and framed items with powerful filters and customization.
+
+- Base highlighting: all dropped items with configurable base color.  
+- Special filters: List, Item ID, or Query (keywords).  
+- Special colors & styles: fixed or rainbow, outline-only, lines-only-for-special.  
+- Equipped specials: highlight items held or worn by players/mobs (not yourself).  
+- Item frames: highlight frames if the contained item matches special criteria.  
+- Keyword matching: supports base ID, translation key, and display name (works with renamed/NBT/plugin-modified items).  
+- Rendering: boxes with fill + outline; tracers use special color (or base color).  
+- Robust parsing: lists accept unknown entries as keywords (safe parsing via `Identifier.tryParse`).  
+- Works across item, block, and entity lists (Search, MobSearch, X-Ray, BaseFinder, HandNoClip, Nuker).  
+
+Examples:  
+- Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
+- Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.  
 
 ### Search improvements
-- Keyword field accepts plain-text terms (e.g., `diamond`). Falls back to the block picker when empty.
-- Added list mode (with mode switcher) with visual list of items to search for.
-- Multi-term queries supported: comma-separated terms (e.g., `diamond, ancient`) to match both diamond ores and ancient debris.
-- Rendering style: Boxes, Lines, or Both (tracers). View-bobbing is canceled when lines are enabled.
-- Color mode for lines: “Use fixed color” toggle (default off → rainbow). When enabled, pick a fixed color.
-- Safer update cycle: query/radius changes trigger proper rescans; shared normalization and predicate helpers.
-- Tracer safety: falls back to block center when the outline shape is empty (prevents crashes on empty VoxelShapes).
+- Keyword queries supported; falls back to picker when empty.  
+- List mode with visual item list.  
+- Multi-term queries supported.  
+- Rendering: Boxes, Lines, or Both. Tracers cancel view-bobbing.  
+- Fixed/rainbow line colors.  
+- Safer rescans and better crash handling.  
 
 ### Xray improvements
-- Opacity and block types apply live with no toggling of the hack required.
+- Opacity and block type changes apply live without toggling.  
 
 ### BaseFinder improvements
-- Updated the list of natural world generated blocks to latest minecraft blocks/biomes.
+- Updated natural blocks list to latest versions.  
 
 ### MobESP improvements
-- Added color options like MobSearch:
-  - Rainbow or fixed color for boxes/lines (configurable).
+- Added rainbow/fixed color options for boxes/lines.  
 
 ### Portal ESP improvement
-- Area/radius changes reset its scan coordinator so expanding the radius takes effect immediately.
+- Radius changes reset scan instantly.  
 
 ### Larger scan radius
-- ChunkAreaSetting extended up to 65×65 chunks for all chunk-based features (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP).
+- Extended up to 65×65 chunks for all chunk-based features.  
 
 ### Sticky area (new option)
-- Added to: Search, Portal ESP, BedESP, SignESP, RedstoneESP, WorkstationESP, ChestESP.
-- Turn Sticky area On to keep results anchored as you move. Useful for pathing back to things you found at the edge of your range.
-- Default: Off (re-centers every time you enter a new chunk to match ESP drop-off distances).
+- Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
+- Keeps results anchored as you move. Default OFF.  
 
 ### Unsafe Chat Toast
-- Now optional, toggle it within NoChatReports or Wurst Options menu.
+- Optional; toggle via NoChatReports or Wurst Options.  
 
 ### Removed Wurst Logo
-- Removed from UI when out-dated
-- Removed from Options Button
+- Removed from UI and Options.  
 
 ### Replace Taco with Neco
-- Removed the stupid little Taco guy and replaced it with Neco-Arc dancing instead! Amazing achievement! 
+- Replaced Taco icon with dancing Neco-Arc.  
 
 ### Usability
-- Right-click the Area setting to reset to its default (e.g., 33×33 where configured).
+- Right-click Area setting resets it to default.  
 
 ### Stability
-- Fixed “UnsupportedOperationException: No bounds for empty shape” by:
-  - Using the block center when an outline is empty (Search tracers).
-  - Skipping entries with empty/zero-size shapes (SignESP).
+- Fixed crashes on empty/zero-size shapes.  
+- Search tracers now use block centers as fallback.  
+- SignESP skips zero-size entries safely.  
 
 ### Notes
-- Scanning only includes chunks the server has sent. Larger radii work best in singleplayer or on servers with higher view distance.
+- Scanning only includes server-loaded chunks. Larger radii work best in singleplayer or on high view distance servers.  
+
+---
 
 ## License
 

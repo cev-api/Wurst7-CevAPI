@@ -8,7 +8,6 @@
 package net.wurstclient.hacks;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -94,6 +93,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 		Math.random() < 0.01 ? "X-Wurst" : getName();
 	
 	private ArrayList<String> oreNamesCache;
+	private java.util.Set<String> oreExactIds;
+	private String[] oreKeywords;
 	private double lastOpacityVal;
 	private int lastOresHash;
 	private final ThreadLocal<BlockPos.Mutable> mutablePosForExposedCheck =
@@ -169,6 +170,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		{
 			lastOresHash = currentHash;
 			oreNamesCache = new ArrayList<>(ores.getBlockNames());
+			rebuildOreCaches();
 			MC.worldRenderer.reload();
 		}
 		double currentOpacity = opacity.getValue();
@@ -213,9 +215,26 @@ public final class XRayHack extends Hack implements UpdateListener,
 	
 	public boolean isVisible(Block block, BlockPos pos)
 	{
-		String name = BlockUtils.getName(block);
-		int index = Collections.binarySearch(oreNamesCache, name);
-		boolean visible = index >= 0;
+		String idFull = BlockUtils.getName(block);
+		boolean visible = oreExactIds != null && oreExactIds.contains(idFull);
+		if(!visible && oreKeywords != null && oreKeywords.length > 0)
+		{
+			String localId = idFull.contains(":")
+				? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+			String localSpaced = localId.replace('_', ' ');
+			String transKey = block.getTranslationKey();
+			String display = block.getName().getString();
+			for(String term : oreKeywords)
+				if(containsNormalized(idFull, term)
+					|| containsNormalized(localId, term)
+					|| containsNormalized(localSpaced, term)
+					|| containsNormalized(transKey, term)
+					|| containsNormalized(display, term))
+				{
+					visible = true;
+					break;
+				}
+		}
 		
 		if(visible && onlyExposed.isChecked() && pos != null)
 			return isExposed(pos);
@@ -233,6 +252,30 @@ public final class XRayHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
+	private void rebuildOreCaches()
+	{
+		java.util.HashSet<String> exact = new java.util.HashSet<>();
+		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
+		for(String s : oreNamesCache)
+		{
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(s);
+			if(id != null)
+				exact.add(id.toString());
+			else if(s != null && !s.isBlank())
+				kw.add(s.toLowerCase(java.util.Locale.ROOT));
+		}
+		oreExactIds = exact;
+		oreKeywords = kw.toArray(new String[0]);
+	}
+	
+	private static boolean containsNormalized(String haystack, String needle)
+	{
+		return haystack != null
+			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
+	}
+	
+	// Public API used by rendering mixins
 	public boolean isOpacityMode()
 	{
 		return isEnabled() && opacity.getValue() > 0;

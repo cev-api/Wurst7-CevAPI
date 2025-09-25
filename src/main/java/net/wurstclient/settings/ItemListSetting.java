@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
@@ -41,16 +40,35 @@ public final class ItemListSetting extends Setting
 		super(name, description);
 		
 		Arrays.stream(items).parallel()
-			.map(s -> Registries.ITEM.get(Identifier.of(s)))
-			.filter(Objects::nonNull)
-			.map(i -> Registries.ITEM.getId(i).toString()).distinct().sorted()
-			.forEachOrdered(s -> itemNames.add(s));
+			.forEachOrdered(s -> addFromStringCanonicalizing(s));
 		defaultNames = itemNames.toArray(new String[0]);
 	}
 	
 	public ItemListSetting(String name, String descriptionKey, String... items)
 	{
 		this(name, WText.translated(descriptionKey), items);
+	}
+	
+	private void addFromStringCanonicalizing(String s)
+	{
+		Identifier id = Identifier.tryParse(s);
+		String name;
+		
+		if(id != null)
+		{
+			// It's a valid identifier format.
+			name = id.toString();
+		}else
+		{
+			// Not a valid identifier format, treat as a raw keyword.
+			name = s;
+		}
+		
+		if(Collections.binarySearch(itemNames, name) < 0)
+		{
+			itemNames.add(name);
+			Collections.sort(itemNames);
+		}
 	}
 	
 	public List<String> getItemNames()
@@ -64,6 +82,21 @@ public final class ItemListSetting extends Setting
 		if(Collections.binarySearch(itemNames, name) >= 0)
 			return;
 		
+		itemNames.add(name);
+		Collections.sort(itemNames);
+		WurstClient.INSTANCE.saveSettings();
+	}
+	
+	// New: allow adding raw keyword entries
+	public void addRawName(String raw)
+	{
+		if(raw == null)
+			return;
+		String name = raw.trim();
+		if(name.isEmpty())
+			return;
+		if(Collections.binarySearch(itemNames, name) >= 0)
+			return;
 		itemNames.add(name);
 		Collections.sort(itemNames);
 		WurstClient.INSTANCE.saveSettings();
@@ -111,12 +144,9 @@ public final class ItemListSetting extends Setting
 				return;
 			}
 			
-			// otherwise, load the items in the JSON array
-			JsonUtils.getAsArray(json).getAllStrings().parallelStream()
-				.map(s -> Registries.ITEM.get(Identifier.of(s)))
-				.filter(Objects::nonNull)
-				.map(i -> Registries.ITEM.getId(i).toString()).distinct()
-				.sorted().forEachOrdered(s -> itemNames.add(s));
+			// otherwise, load strings; keep unknown as raw keywords
+			for(String s : JsonUtils.getAsArray(json).getAllStrings())
+				addFromStringCanonicalizing(s);
 			
 		}catch(JsonException e)
 		{
@@ -161,12 +191,6 @@ public final class ItemListSetting extends Setting
 		command += getName().toLowerCase().replace(" ", "_") + " ";
 		
 		LinkedHashSet<PossibleKeybind> pkb = new LinkedHashSet<>();
-		// Can't just list all the items here. Would need to change UI to allow
-		// user to choose an item after selecting this option.
-		// pkb.add(new PossibleKeybind(command + "add dirt",
-		// "Add dirt to " + fullName));
-		// pkb.add(new PossibleKeybind(command + "remove dirt",
-		// "Remove dirt from " + fullName));
 		pkb.add(new PossibleKeybind(command + "reset", "Reset " + fullName));
 		
 		return pkb;

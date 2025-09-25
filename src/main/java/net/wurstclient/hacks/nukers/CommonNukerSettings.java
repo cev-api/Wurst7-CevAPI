@@ -93,7 +93,7 @@ public final class CommonNukerSettings implements LeftClickListener
 			return BlockUtils.getName(pos).equals(id.getBlockName());
 			
 			case MULTI_ID:
-			return multiIdList.contains(BlockUtils.getBlock(pos));
+			return multiIdList.matchesBlock(BlockUtils.getBlock(pos));
 			
 			case SMASH:
 			return BlockUtils.getHardness(pos) >= 1;

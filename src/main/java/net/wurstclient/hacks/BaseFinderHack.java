@@ -9,7 +9,6 @@ package net.wurstclient.hacks;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 
 import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
@@ -184,6 +183,8 @@ public final class BaseFinderHack extends Hack
 		"Man-made blocks will be highlighted in this color.", Color.RED);
 	
 	private ArrayList<String> blockNames;
+	private java.util.Set<String> naturalExactIds;
+	private String[] naturalKeywords;
 	
 	private final HashSet<BlockPos> matchingBlocks = new HashSet<>();
 	private ArrayList<int[]> vertices = new ArrayList<>();
@@ -227,6 +228,7 @@ public final class BaseFinderHack extends Hack
 		// reset timer
 		messageTimer = 0;
 		blockNames = new ArrayList<>(naturalBlocks.getBlockNames());
+		rebuildNaturalCaches();
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -308,8 +310,31 @@ public final class BaseFinderHack extends Hack
 					BlockPos pos = new BlockPos(playerPos.getX() + x, y,
 						playerPos.getZ() + z);
 					
-					if(Collections.binarySearch(blockNames,
-						BlockUtils.getName(pos)) >= 0)
+					String idFull = BlockUtils.getName(pos);
+					boolean isNatural = naturalExactIds != null
+						&& naturalExactIds.contains(idFull);
+					if(!isNatural && naturalKeywords != null
+						&& naturalKeywords.length > 0)
+					{
+						String localId = idFull.contains(":")
+							? idFull.substring(idFull.indexOf(":") + 1)
+							: idFull;
+						String localSpaced = localId.replace('_', ' ');
+						net.minecraft.block.Block b = BlockUtils.getBlock(pos);
+						String transKey = b.getTranslationKey();
+						String display = b.getName().getString();
+						for(String term : naturalKeywords)
+							if(containsNormalized(idFull, term)
+								|| containsNormalized(localId, term)
+								|| containsNormalized(localSpaced, term)
+								|| containsNormalized(transKey, term)
+								|| containsNormalized(display, term))
+							{
+								isNatural = true;
+								break;
+							}
+					}
+					if(isNatural)
 						continue;
 					
 					matchingBlocks.add(pos);
@@ -341,5 +366,28 @@ public final class BaseFinderHack extends Hack
 		
 		// calculate vertices
 		vertices = BlockVertexCompiler.compile(matchingBlocks);
+	}
+	
+	private void rebuildNaturalCaches()
+	{
+		java.util.HashSet<String> exact = new java.util.HashSet<>();
+		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
+		for(String s : blockNames)
+		{
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(s);
+			if(id != null)
+				exact.add(id.toString());
+			else if(s != null && !s.isBlank())
+				kw.add(s.toLowerCase(java.util.Locale.ROOT));
+		}
+		naturalExactIds = exact;
+		naturalKeywords = kw.toArray(new String[0]);
+	}
+	
+	private static boolean containsNormalized(String haystack, String needle)
+	{
+		return haystack != null
+			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
 	}
 }

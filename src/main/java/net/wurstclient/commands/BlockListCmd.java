@@ -81,8 +81,18 @@ public final class BlockListCmd extends Command
 		String inputBlockName = args[3];
 		Block block = BlockUtils.getBlockFromNameOrID(inputBlockName);
 		if(block == null)
-			throw new CmdSyntaxError(
-				"\"" + inputBlockName + "\" is not a valid block.");
+		{
+			// Fallback: add raw keyword entry
+			String raw = inputBlockName;
+			if(raw == null || raw.trim().isEmpty())
+				throw new CmdSyntaxError(
+					"\"" + inputBlockName + "\" is not a valid block.");
+			if(setting.contains(raw))
+				throw new CmdError(feature.getName() + " " + setting.getName()
+					+ " already contains " + raw);
+			setting.addRawName(raw);
+			return;
+		}
 		
 		String blockName = BlockUtils.getName(block);
 		if(setting.contains(blockName))
@@ -101,8 +111,15 @@ public final class BlockListCmd extends Command
 		String inputBlockName = args[3];
 		Block block = BlockUtils.getBlockFromNameOrID(inputBlockName);
 		if(block == null)
-			throw new CmdSyntaxError(
-				"\"" + inputBlockName + "\" is not a valid block.");
+		{
+			// Try remove raw keyword
+			int idx = setting.indexOf(inputBlockName);
+			if(idx < 0)
+				throw new CmdError(feature.getName() + " " + setting.getName()
+					+ " does not contain " + inputBlockName);
+			setting.remove(idx);
+			return;
+		}
 		
 		String blockName = BlockUtils.getName(block);
 		int index = setting.indexOf(blockName);

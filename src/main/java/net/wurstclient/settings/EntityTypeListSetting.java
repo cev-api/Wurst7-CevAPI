@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
@@ -44,10 +43,7 @@ public final class EntityTypeListSetting extends Setting
 		if(types != null && types.length > 0)
 		{
 			Arrays.stream(types).parallel()
-				.map(s -> Registries.ENTITY_TYPE.get(Identifier.of(s)))
-				.filter(Objects::nonNull)
-				.map(t -> Registries.ENTITY_TYPE.getId(t).toString()).distinct()
-				.sorted().forEachOrdered(s -> typeNames.add(s));
+				.forEachOrdered(s -> addFromStringCanonicalizing(s));
 		}else
 		{
 			// Default to all non-MISC spawn group entity types (typical mobs)
@@ -70,6 +66,41 @@ public final class EntityTypeListSetting extends Setting
 	public List<String> getTypeNames()
 	{
 		return Collections.unmodifiableList(typeNames);
+	}
+	
+	private void addFromStringCanonicalizing(String s)
+	{
+		Identifier id = Identifier.tryParse(s);
+		String name;
+		
+		if(id != null)
+		{
+			name = id.toString();
+		}else
+		{
+			name = s;
+		}
+		
+		if(Collections.binarySearch(typeNames, name) < 0)
+		{
+			typeNames.add(name);
+			Collections.sort(typeNames);
+		}
+	}
+	
+	// Allow adding raw keyword entries
+	public void addRawName(String raw)
+	{
+		if(raw == null)
+			return;
+		String name = raw.trim();
+		if(name.isEmpty())
+			return;
+		if(Collections.binarySearch(typeNames, name) >= 0)
+			return;
+		typeNames.add(name);
+		Collections.sort(typeNames);
+		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void add(EntityType<?> type)
@@ -120,11 +151,8 @@ public final class EntityTypeListSetting extends Setting
 				typeNames.addAll(Arrays.asList(defaultNames));
 				return;
 			}
-			JsonUtils.getAsArray(json).getAllStrings().parallelStream()
-				.map(s -> Registries.ENTITY_TYPE.get(Identifier.of(s)))
-				.filter(Objects::nonNull)
-				.map(t -> Registries.ENTITY_TYPE.getId(t).toString()).distinct()
-				.sorted().forEachOrdered(s -> typeNames.add(s));
+			for(String s : JsonUtils.getAsArray(json).getAllStrings())
+				addFromStringCanonicalizing(s);
 		}catch(JsonException e)
 		{
 			e.printStackTrace();

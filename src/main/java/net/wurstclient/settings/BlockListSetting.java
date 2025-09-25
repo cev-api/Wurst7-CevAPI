@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
@@ -40,9 +39,7 @@ public class BlockListSetting extends Setting
 	{
 		super(name, description);
 		
-		Arrays.stream(blocks).parallel().map(BlockUtils::getBlockFromNameOrID)
-			.filter(Objects::nonNull).map(BlockUtils::getName).distinct()
-			.sorted().forEachOrdered(s -> blockNames.add(s));
+		Arrays.stream(blocks).parallel().forEachOrdered(this::addFromString);
 		defaultNames = blockNames.toArray(new String[0]);
 	}
 	
@@ -50,6 +47,26 @@ public class BlockListSetting extends Setting
 		String... blocks)
 	{
 		this(name, WText.translated(descriptionKey), blocks);
+	}
+	
+	private void addFromString(String s)
+	{
+		Identifier id = Identifier.tryParse(s);
+		String name;
+		
+		if(id != null)
+		{
+			name = id.toString();
+		}else
+		{
+			name = s;
+		}
+		
+		if(Collections.binarySearch(blockNames, name) < 0)
+		{
+			blockNames.add(name);
+			Collections.sort(blockNames);
+		}
 	}
 	
 	public List<String> getBlockNames()
@@ -91,6 +108,21 @@ public class BlockListSetting extends Setting
 		if(Collections.binarySearch(blockNames, name) >= 0)
 			return;
 		
+		blockNames.add(name);
+		Collections.sort(blockNames);
+		WurstClient.INSTANCE.saveSettings();
+	}
+	
+	// New: allow adding raw keyword entries
+	public void addRawName(String raw)
+	{
+		if(raw == null)
+			return;
+		String name = raw.trim();
+		if(name.isEmpty())
+			return;
+		if(Collections.binarySearch(blockNames, name) >= 0)
+			return;
 		blockNames.add(name);
 		Collections.sort(blockNames);
 		WurstClient.INSTANCE.saveSettings();
@@ -138,28 +170,9 @@ public class BlockListSetting extends Setting
 				return;
 			}
 			
-			// otherwise, load the blocks in the JSON array
+			// otherwise, load the strings; keep unknown as raw keywords
 			for(String rawName : JsonUtils.getAsArray(json).getAllStrings())
-			{
-				Identifier id = Identifier.tryParse(rawName);
-				if(id == null)
-				{
-					System.out.println("Discarding BlockList entry \"" + rawName
-						+ "\" as it is not a valid identifier");
-					continue;
-				}
-				
-				String name = id.toString();
-				if(blockNames.contains(name))
-				{
-					System.out.println("Discarding BlockList entry \"" + rawName
-						+ "\" as \"" + name + "\" is already in the list");
-					continue;
-				}
-				
-				blockNames.add(name);
-			}
-			blockNames.sort(null);
+				addFromString(rawName);
 			
 		}catch(JsonException e)
 		{
@@ -215,5 +228,45 @@ public class BlockListSetting extends Setting
 		pkb.add(new PossibleKeybind(command + "reset", "Reset " + fullName));
 		
 		return pkb;
+	}
+	
+	/**
+	 * Keyword-aware match: returns true if the list contains the block's exact
+	 * ID or if any non-identifier entry (keyword) matches typical names for
+	 * that block (full ID, local ID, spaced local, translation key, display
+	 * name). Intended for lighter checks; performance-sensitive hacks should
+	 * precompute keyword caches themselves.
+	 */
+	public boolean matchesBlock(net.minecraft.block.Block block)
+	{
+		String idFull = net.wurstclient.util.BlockUtils.getName(block);
+		if(contains(idFull))
+			return true;
+		String localId = idFull.contains(":")
+			? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+		String localSpaced = localId.replace('_', ' ');
+		String transKey = block.getTranslationKey();
+		String display = block.getName().getString();
+		for(String s : blockNames)
+		{
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(s);
+			if(id != null)
+				continue; // already checked exact ID above
+			String term = s.toLowerCase(java.util.Locale.ROOT);
+			if(containsNormalized(idFull, term)
+				|| containsNormalized(localId, term)
+				|| containsNormalized(localSpaced, term)
+				|| containsNormalized(transKey, term)
+				|| containsNormalized(display, term))
+				return true;
+		}
+		return false;
+	}
+	
+	private static boolean containsNormalized(String haystack, String needle)
+	{
+		return haystack != null
+			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
 	}
 }

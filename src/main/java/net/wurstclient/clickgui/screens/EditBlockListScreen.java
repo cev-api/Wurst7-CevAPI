@@ -73,6 +73,13 @@ public final class EditBlockListScreen extends Screen
 				{
 					for(net.minecraft.block.Block bk : fuzzyMatches)
 						blockList.add(bk);
+				}else
+				{
+					String raw = blockNameField.getText();
+					if(raw != null)
+						raw = raw.trim();
+					if(raw != null && !raw.isEmpty())
+						blockList.addRawName(raw);
 				}
 				client.setScreen(EditBlockListScreen.this);
 			}).dimensions(width / 2 + 40, height - 56, 80, 20).build());
@@ -172,7 +179,9 @@ public final class EditBlockListScreen extends Screen
 				fuzzyMatches.sort(java.util.Comparator
 					.comparing(net.wurstclient.util.BlockUtils::getName));
 			}
-			addButton.active = !fuzzyMatches.isEmpty();
+			addButton.active =
+				!fuzzyMatches.isEmpty() || (blockNameField.getText() != null
+					&& !blockNameField.getText().trim().isEmpty());
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
 				: ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
@@ -212,7 +221,6 @@ public final class EditBlockListScreen extends Screen
 		
 		int x0 = blockNameField.getX();
 		int y0 = blockNameField.getY();
-		int x1 = x0 + blockNameField.getWidth();
 		int y1 = y0 + blockNameField.getHeight();
 		
 		if(blockNameField.getText().isEmpty() && !blockNameField.isFocused())

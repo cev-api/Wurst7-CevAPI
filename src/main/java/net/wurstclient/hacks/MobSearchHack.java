@@ -74,6 +74,9 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	private final ArrayList<LivingEntity> matches = new ArrayList<>();
 	private SearchMode lastMode;
 	private int lastEntityListHash;
+	// Caches for LIST mode
+	private java.util.Set<String> listExactIds;
+	private String[] listKeywords;
 	
 	public MobSearchHack()
 	{
@@ -142,6 +145,20 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			int h = entityList.getTypeNames().hashCode();
 			if(h != lastEntityListHash)
 				lastEntityListHash = h;
+			// rebuild caches
+			java.util.HashSet<String> exact = new java.util.HashSet<>();
+			java.util.ArrayList<String> kw = new java.util.ArrayList<>();
+			for(String s : entityList.getTypeNames())
+			{
+				net.minecraft.util.Identifier id =
+					net.minecraft.util.Identifier.tryParse(s);
+				if(id != null)
+					exact.add(id.toString());
+				else if(s != null && !s.isBlank())
+					kw.add(s.toLowerCase(java.util.Locale.ROOT));
+			}
+			listExactIds = exact;
+			listKeywords = kw.toArray(new String[0]);
 		}
 		java.util.function.Predicate<LivingEntity> predicate;
 		switch(currentMode)
@@ -149,9 +166,23 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			case LIST:
 			predicate = e -> {
 				Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
-				String s = id == null ? "" : id.toString();
-				return java.util.Collections
-					.binarySearch(entityList.getTypeNames(), s) >= 0;
+				String idFull = id == null ? "" : id.toString();
+				if(listExactIds != null && listExactIds.contains(idFull))
+					return true;
+				String local = idFull.contains(":")
+					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+				String localSpaced = local.replace('_', ' ');
+				String transKey = e.getType().getTranslationKey();
+				String display = e.getType().getName().getString();
+				if(listKeywords != null)
+					for(String term : listKeywords)
+						if(containsNormalized(idFull, term)
+							|| containsNormalized(local, term)
+							|| containsNormalized(localSpaced, term)
+							|| containsNormalized(transKey, term)
+							|| containsNormalized(display, term))
+							return true;
+				return false;
 			};
 			break;
 			case QUERY:

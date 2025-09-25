@@ -24,10 +24,8 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
@@ -75,6 +73,13 @@ public final class EditItemListScreen extends Screen
 				{
 					for(net.minecraft.item.Item it : fuzzyMatches)
 						itemList.add(it);
+				}else
+				{
+					String raw = itemNameField.getText();
+					if(raw != null)
+						raw = raw.trim();
+					if(raw != null && !raw.isEmpty())
+						itemList.addRawName(raw);
 				}
 				client.setScreen(EditItemListScreen.this);
 			}).dimensions(width / 2 + 40, height - 56, 80, 20).build());
@@ -172,7 +177,10 @@ public final class EditItemListScreen extends Screen
 					.comparing(i -> net.minecraft.registry.Registries.ITEM
 						.getId(i).toString()));
 			}
-			addButton.active = !fuzzyMatches.isEmpty();
+			// Allow adding raw keyword when no match found
+			addButton.active =
+				!fuzzyMatches.isEmpty() || (itemNameField.getText() != null
+					&& !itemNameField.getText().trim().isEmpty());
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
 				: ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
@@ -203,34 +211,35 @@ public final class EditItemListScreen extends Screen
 		
 		for(Drawable drawable : drawables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
-		
+			
+		// Draw placeholder + decorative left icon frame using ABSOLUTE
+		// coordinates
+		// derived from the actual TextFieldWidget position/size (no matrix
+		// translate).
 		context.state.goUpLayer();
-		matrixStack.pushMatrix();
-		matrixStack.translate(-64 + width / 2 - 152, 0);
+		
+		int x0 = itemNameField.getX();
+		int y0 = itemNameField.getY();
+		int y1 = y0 + itemNameField.getHeight();
 		
 		if(itemNameField.getText().isEmpty() && !itemNameField.isFocused())
 			context.drawTextWithShadow(client.textRenderer, "item name or ID",
-				68, height - 50, Colors.GRAY);
+				x0 + 6, y0 + 6, Colors.GRAY);
 		
 		int border =
 			itemNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
 		int black = Colors.BLACK;
 		
-		context.fill(48, height - 56, 64, height - 36, border);
-		context.fill(49, height - 55, 65, height - 37, black);
-		context.fill(214, height - 56, 244, height - 55, border);
-		context.fill(214, height - 37, 244, height - 36, border);
-		context.fill(244, height - 56, 246, height - 36, border);
-		context.fill(213, height - 55, 243, height - 52, black);
-		context.fill(213, height - 40, 243, height - 37, black);
-		context.fill(213, height - 55, 216, height - 37, black);
-		context.fill(242, height - 55, 245, height - 37, black);
+		// Left decoration for the item icon, anchored to the field (keeps your
+		// look).
+		context.fill(x0 - 16, y0, x0, y1, border);
+		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
 		
-		matrixStack.popMatrix();
-		
+		// Draw preview item next to the field (positioned relative to the
+		// field).
 		RenderUtils.drawItem(context,
 			itemToAdd == null ? ItemStack.EMPTY : new ItemStack(itemToAdd),
-			width / 2 - 164, height - 52, false);
+			x0 - 28, y0 + 4, false);
 		
 		context.state.goDownLayer();
 		matrixStack.popMatrix();
@@ -261,9 +270,15 @@ public final class EditItemListScreen extends Screen
 		@Override
 		public Text getNarration()
 		{
-			Item item = Registries.ITEM.get(Identifier.of(itemName));
-			ItemStack stack = new ItemStack(item);
-			
+			// Safe narration even for unknown entries
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(itemName);
+			net.minecraft.item.Item item = id != null
+				&& net.minecraft.registry.Registries.ITEM.containsId(id)
+					? net.minecraft.registry.Registries.ITEM.get(id) : null;
+			net.minecraft.item.ItemStack stack =
+				item == null ? net.minecraft.item.ItemStack.EMPTY
+					: new net.minecraft.item.ItemStack(item);
 			return Text.translatable("narrator.select",
 				"Item " + getDisplayName(stack) + ", " + itemName + ", "
 					+ getIdText(item));
@@ -274,8 +289,14 @@ public final class EditItemListScreen extends Screen
 			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
-			Item item = Registries.ITEM.get(Identifier.of(itemName));
-			ItemStack stack = new ItemStack(item);
+			net.minecraft.util.Identifier id =
+				net.minecraft.util.Identifier.tryParse(itemName);
+			net.minecraft.item.Item item = id != null
+				&& net.minecraft.registry.Registries.ITEM.containsId(id)
+					? net.minecraft.registry.Registries.ITEM.get(id) : null;
+			net.minecraft.item.ItemStack stack =
+				item == null ? net.minecraft.item.ItemStack.EMPTY
+					: new net.minecraft.item.ItemStack(item);
 			TextRenderer tr = client.textRenderer;
 			
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
@@ -287,15 +308,18 @@ public final class EditItemListScreen extends Screen
 				Colors.LIGHT_GRAY, false);
 		}
 		
-		private String getDisplayName(ItemStack stack)
+		private String getDisplayName(net.minecraft.item.ItemStack stack)
 		{
-			return stack.isEmpty() ? "\u00a7ounknown item\u00a7r"
+			return stack.isEmpty() ? "\u00a7okeyword\u00a7r"
 				: stack.getName().getString();
 		}
 		
-		private String getIdText(Item item)
+		private String getIdText(net.minecraft.item.Item item)
 		{
-			return "ID: " + Registries.ITEM.getRawId(item);
+			if(item == null)
+				return "ID: n/a";
+			return "ID: "
+				+ net.minecraft.registry.Registries.ITEM.getRawId(item);
 		}
 	}
 	

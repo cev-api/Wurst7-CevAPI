@@ -79,15 +79,29 @@ public final class ItemListCmd extends Command
 		if(args.length != 4)
 			throw new CmdSyntaxError();
 		
-		Item item = CmdUtils.parseItem(args[3]);
-		
-		String itemName = Registries.ITEM.getId(item).toString();
-		int index = Collections.binarySearch(setting.getItemNames(), itemName);
-		if(index >= 0)
-			throw new CmdError(feature.getName() + " " + setting.getName()
-				+ " already contains " + itemName);
-		
-		setting.add(item);
+		try
+		{
+			Item item = CmdUtils.parseItem(args[3]);
+			String itemName = Registries.ITEM.getId(item).toString();
+			int index =
+				Collections.binarySearch(setting.getItemNames(), itemName);
+			if(index >= 0)
+				throw new CmdError(feature.getName() + " " + setting.getName()
+					+ " already contains " + itemName);
+			
+			setting.add(item);
+		}catch(CmdException ex)
+		{
+			// Fallback: add raw keyword entry
+			String raw = args[3];
+			if(raw == null || raw.trim().isEmpty())
+				throw ex;
+			java.util.List<String> names = setting.getItemNames();
+			if(java.util.Collections.binarySearch(names, raw) >= 0)
+				throw new CmdError(feature.getName() + " " + setting.getName()
+					+ " already contains " + raw);
+			setting.addRawName(raw);
+		}
 	}
 	
 	private void remove(Feature feature, ItemListSetting setting, String[] args)
