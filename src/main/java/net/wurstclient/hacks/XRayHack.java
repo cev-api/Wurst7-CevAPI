@@ -123,14 +123,17 @@ public final class XRayHack extends Hack implements UpdateListener,
 	
 	private final EnumSetting<Mode> mode =
 		new EnumSetting<>("Mode", new Mode[]{Mode.LIST, Mode.QUERY}, Mode.LIST);
-	private final TextFieldSetting query =
-		new TextFieldSetting("Query", "", "");
+	private final TextFieldSetting query = new TextFieldSetting("Query",
+		"Enter text to match block IDs or names by keyword. Separate multiple terms with commas.",
+		"");
 	
 	// Corner highlight ESP settings
-	private final CheckboxSetting highlightCorners =
-		new CheckboxSetting("Highlight corners", false);
-	private final CheckboxSetting highlightFill =
-		new CheckboxSetting("Fill blocks (outline + fill)", false);
+	private final CheckboxSetting highlightCorners = new CheckboxSetting(
+		"Highlight corners",
+		"Partial ESP for blocks, will cause lag if there are too many!", false);
+	private final CheckboxSetting highlightFill = new CheckboxSetting(
+		"Fill blocks (outline + fill)",
+		"Full ESP for blocks, will cause lag if there are too many!", false);
 	private final ColorSetting highlightColor =
 		new ColorSetting("Highlight color", new java.awt.Color(0xFFFF00));
 	private final SliderSetting highlightAlpha =

@@ -209,6 +209,22 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		String lower = msg.toLowerCase(Locale.ROOT);
 		if(lower.contains("left the game") || lower.contains("joined the game"))
 			return; // ignore login/logout messages
+			
+		// Ignore achievement / advancement messages which often start with
+		// "<player> made the achievement" or similar. These should not
+		// be treated as death messages and were causing false death
+		// waypoints when servers include coordinates in achievement chat.
+		if(lower.contains("made the achievement")
+			|| lower.contains("made the advancement")
+			|| lower.contains("got the achievement")
+			|| lower.contains("got the advancement")
+			|| lower.contains("earned the achievement")
+			|| lower.contains("earned the advancement")
+			|| lower.contains("has made the advancement")
+			|| lower.contains("has made the achievement")
+			|| (lower.contains("advancement") && lower.contains("completed")))
+			return;
+		
 		long now = System.currentTimeMillis();
 		// Try to match standard death messages: "<name> ..."
 		for(var p : MC.world.getPlayers())

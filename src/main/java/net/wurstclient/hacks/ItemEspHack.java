@@ -76,8 +76,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"Item ID", "Exact item ID when Special mode is Item_ID.",
 		"minecraft:player_head", v -> v.length() <= 64);
 	private final TextFieldSetting specialQuery = new TextFieldSetting("Query",
-		"Text to match item IDs or names (comma-separated terms allowed).", "",
-		v -> v.length() <= 64);
+		"Enter text to match item IDs or names by keyword. Separate multiple terms with commas.",
+		"", v -> v.length() <= 64);
 	private final CheckboxSetting specialRainbow = new CheckboxSetting(
 		"Special rainbow",
 		"If enabled, selected items will cycle through rainbow colors.", false);

@@ -63,7 +63,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		"The entity type to match when Query is empty (e.g. minecraft:zombie or zombie).",
 		"minecraft:zombie", v -> v.length() <= 64);
 	private final TextFieldSetting query = new TextFieldSetting("Query",
-		"Enter text to match entity IDs or names. Leave empty to match the selected type only.",
+		"Enter text to match entity IDs or names by keyword. Separate multiple terms with commas.",
 		"", v -> v.length() <= 64);
 	private final CheckboxSetting useRainbow =
 		new CheckboxSetting("Rainbow colors",

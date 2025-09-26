@@ -29,6 +29,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.nukers.CommonNukerSettings;
 import net.wurstclient.mixinterface.IKeyBinding;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.SwingHandSetting;
@@ -53,8 +54,17 @@ public final class NukerLegitHack extends Hack
 		SwingHandSetting.withoutOffOption(
 			SwingHandSetting.genericMiningDescription(this), SwingHand.CLIENT);
 	
+	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
+		"Auto switch tool",
+		"Automatically switch to the best tool in your hotbar for the current"
+			+ " block even if the AutoTool hack is disabled.",
+		false);
+	
 	private final OverlayRenderer overlay = new OverlayRenderer();
 	private BlockPos currentBlock;
+	
+	// Remember whether AutoTool was enabled before this hack enabled it
+	private boolean prevAutoToolEnabled;
 	
 	public NukerLegitHack()
 	{
@@ -63,6 +73,7 @@ public final class NukerLegitHack extends Hack
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
 		addSetting(swingHand);
+		addSetting(autoSwitchTool);
 	}
 	
 	@Override
@@ -80,6 +91,13 @@ public final class NukerLegitHack extends Hack
 		WURST.getHax().speedNukerHack.setEnabled(false);
 		WURST.getHax().tunnellerHack.setEnabled(false);
 		WURST.getHax().veinMinerHack.setEnabled(false);
+		
+		// Auto-enable AutoTool if requested by per-hack setting
+		prevAutoToolEnabled = WURST.getHax().autoToolHack.isEnabled();
+		if(autoSwitchTool.isChecked() && !prevAutoToolEnabled)
+		{
+			WURST.getHax().autoToolHack.setEnabled(true);
+		}
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(LeftClickListener.class, commonSettings);
@@ -101,6 +119,12 @@ public final class NukerLegitHack extends Hack
 		overlay.resetProgress();
 		currentBlock = null;
 		commonSettings.reset();
+		
+		// Restore AutoTool previous state if we enabled it
+		if(!prevAutoToolEnabled && WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.setEnabled(false);
+		}
 	}
 	
 	@Override
@@ -176,7 +200,16 @@ public final class NukerLegitHack extends Hack
 			return true;
 		}
 		
-		WURST.getHax().autoToolHack.equipIfEnabled(params.pos());
+		// Prefer global AutoTool when enabled, otherwise use per-hack auto
+		// switch
+		if(WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.equipIfEnabled(params.pos());
+		}else if(autoSwitchTool.isChecked())
+		{
+			WURST.getHax().autoToolHack.equipBestTool(params.pos(), true, true,
+				0);
+		}
 		
 		if(MC.player.isUsingItem())
 			// This case doesn't cancel block breaking in vanilla Minecraft.

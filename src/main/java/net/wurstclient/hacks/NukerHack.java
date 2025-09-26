@@ -21,6 +21,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.nukers.CommonNukerSettings;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.SwingHandSetting;
@@ -44,9 +45,18 @@ public final class NukerHack extends Hack
 	private final SwingHandSetting swingHand = new SwingHandSetting(
 		SwingHandSetting.genericMiningDescription(this), SwingHand.SERVER);
 	
+	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
+		"Auto switch tool",
+		"Automatically switch to the best tool in your hotbar for the current"
+			+ " block even if the AutoTool hack is disabled.",
+		false);
+	
 	private final BlockBreakingCache cache = new BlockBreakingCache();
 	private final OverlayRenderer overlay = new OverlayRenderer();
 	private BlockPos currentBlock;
+	
+	// Remember whether AutoTool was enabled before this hack enabled it
+	private boolean prevAutoToolEnabled;
 	
 	public NukerHack()
 	{
@@ -55,6 +65,7 @@ public final class NukerHack extends Hack
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
 		addSetting(swingHand);
+		addSetting(autoSwitchTool);
 	}
 	
 	@Override
@@ -72,6 +83,13 @@ public final class NukerHack extends Hack
 		WURST.getHax().speedNukerHack.setEnabled(false);
 		WURST.getHax().tunnellerHack.setEnabled(false);
 		WURST.getHax().veinMinerHack.setEnabled(false);
+		
+		// Auto-enable AutoTool if requested by per-hack setting
+		prevAutoToolEnabled = WURST.getHax().autoToolHack.isEnabled();
+		if(autoSwitchTool.isChecked() && !prevAutoToolEnabled)
+		{
+			WURST.getHax().autoToolHack.setEnabled(true);
+		}
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(LeftClickListener.class, commonSettings);
@@ -95,6 +113,12 @@ public final class NukerHack extends Hack
 		cache.reset();
 		overlay.resetProgress();
 		commonSettings.reset();
+		
+		// Restore AutoTool previous state if we enabled it
+		if(!prevAutoToolEnabled && WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.setEnabled(false);
+		}
 	}
 	
 	@Override
@@ -154,6 +178,20 @@ public final class NukerHack extends Hack
 	private boolean breakOneBlock(BlockBreakingParams params)
 	{
 		WURST.getRotationFaker().faceVectorPacket(params.hitVec());
+		
+		// Auto-switch tool behavior: prefer using the global AutoTool hack when
+		// enabled,
+		// otherwise use this per-hack setting to call equipBestTool directly.
+		if(WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.equipIfEnabled(params.pos());
+		}else if(autoSwitchTool.isChecked())
+		{
+			// use default options: allow swords, allow fallback to hands, no
+			// repair mode
+			WURST.getHax().autoToolHack.equipBestTool(params.pos(), true, true,
+				0);
+		}
 		
 		if(!MC.interactionManager.updateBlockBreakingProgress(params.pos(),
 			params.side()))

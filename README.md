@@ -105,6 +105,12 @@ Examples:
 - Multi-term queries: comma-separated (e.g., `diamond, ancient`).  
 - Opacity, block type changes and 'only show exposed' apply live without toggling.  
 
+### Nuker improvements
+- Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
+
+### AutoSteal improvements
+- Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bindable to a key.
+
 ### BaseFinder improvements
 - Updated natural blocks list to latest versions.  
 

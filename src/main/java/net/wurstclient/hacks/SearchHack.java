@@ -65,7 +65,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		new net.wurstclient.settings.BlockListSetting("Block List",
 			"Blocks to search when Mode is set to List.");
 	private final TextFieldSetting query = new TextFieldSetting("Query",
-		"Enter text to match block IDs or names. Leave empty to search for the selected block only.",
+		"Enter text to match block IDs or names by keyword. Separate multiple terms with commas.",
 		"", value -> value.length() <= 64);
 	private final BlockSetting block = new BlockSetting("Block",
 		"The type of block to search for.", "minecraft:diamond_ore", false);

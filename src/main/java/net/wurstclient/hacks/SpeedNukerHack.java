@@ -22,6 +22,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.nukers.CommonNukerSettings;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.SwingHandSetting;
@@ -43,6 +44,15 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	private final SwingHandSetting swingHand = new SwingHandSetting(
 		SwingHandSetting.genericMiningDescription(this), SwingHand.OFF);
 	
+	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
+		"Auto switch tool",
+		"Automatically switch to the best tool in your hotbar for the current"
+			+ " block even if the AutoTool hack is disabled.",
+		false);
+	
+	// Remember whether AutoTool was enabled before this hack enabled it
+	private boolean prevAutoToolEnabled;
+	
 	public SpeedNukerHack()
 	{
 		super("SpeedNuker");
@@ -50,6 +60,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
 		addSetting(swingHand);
+		addSetting(autoSwitchTool);
 	}
 	
 	@Override
@@ -68,6 +79,13 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		WURST.getHax().tunnellerHack.setEnabled(false);
 		WURST.getHax().veinMinerHack.setEnabled(false);
 		
+		// Auto-enable AutoTool if requested by per-hack setting
+		prevAutoToolEnabled = WURST.getHax().autoToolHack.isEnabled();
+		if(autoSwitchTool.isChecked() && !prevAutoToolEnabled)
+		{
+			WURST.getHax().autoToolHack.setEnabled(true);
+		}
+		
 		EVENTS.add(LeftClickListener.class, commonSettings);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -79,6 +97,12 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		EVENTS.remove(UpdateListener.class, this);
 		
 		commonSettings.reset();
+		
+		// Restore AutoTool previous state if we enabled it
+		if(!prevAutoToolEnabled && WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.setEnabled(false);
+		}
 	}
 	
 	@Override
@@ -108,8 +132,18 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		
 		if(blocks.isEmpty())
 			return;
+			
+		// Prefer global AutoTool when enabled, otherwise use per-hack auto
+		// switch
+		if(WURST.getHax().autoToolHack.isEnabled())
+		{
+			WURST.getHax().autoToolHack.equipIfEnabled(blocks.get(0));
+		}else if(autoSwitchTool.isChecked())
+		{
+			WURST.getHax().autoToolHack.equipBestTool(blocks.get(0), true, true,
+				0);
+		}
 		
-		WURST.getHax().autoToolHack.equipIfEnabled(blocks.get(0));
 		BlockBreaker.breakBlocksWithPacketSpam(blocks);
 		swingHand.swing(Hand.MAIN_HAND);
 	}
