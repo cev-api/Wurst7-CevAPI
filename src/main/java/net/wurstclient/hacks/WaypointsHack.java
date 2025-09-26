@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.Locale;
 
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -30,6 +31,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.DeathListener;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.settings.CheckboxSetting;
@@ -42,8 +44,9 @@ import net.wurstclient.waypoints.WaypointDimension;
 import net.wurstclient.waypoints.WaypointsManager;
 
 @SearchTags({"waypoint", "waypoints", "marker"})
-public final class WaypointsHack extends Hack implements RenderListener,
-	DeathListener, net.wurstclient.events.UpdateListener, ChatInputListener
+public final class WaypointsHack extends Hack
+	implements RenderListener, DeathListener,
+	net.wurstclient.events.UpdateListener, ChatInputListener, GUIRenderListener
 {
 	private final WaypointsManager manager;
 	private static final DateTimeFormatter TIME_FMT =
@@ -68,7 +71,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 	private final SliderSetting maxDeathPositions = new SliderSetting(
 		"Max death positions", 4, 0, 20, 1, ValueDisplay.INTEGER);
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
-		2.0, 0.5, 5.0, 0.1, ValueDisplay.DECIMAL);
+		1.0, 0.5, 5.0, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting chatOnDeath =
 		new CheckboxSetting("Chat", true);
 	private final CheckboxSetting createDeathWaypoints =
@@ -79,6 +82,19 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		new CheckboxSetting("Death waypoint lines", true);
 	private final ColorSetting deathColor =
 		new ColorSetting("Death waypoint color", new java.awt.Color(0xFF4444));
+	private final CheckboxSetting compassMode =
+		new CheckboxSetting("Compass mode (top bar)", false);
+	// Opacity slider for compass icons and distance/name text (0-100%)
+	private final SliderSetting compassOpacity = new SliderSetting(
+		"Compass opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	// Compass position sliders (percent of screen)
+	private final SliderSetting compassXPercent =
+		new SliderSetting("Compass X %", 50, 0, 100, 1, ValueDisplay.INTEGER);
+	private final SliderSetting compassYPercent =
+		new SliderSetting("Compass Y %", 3, 0, 100, 1, ValueDisplay.INTEGER);
+	// Show player XYZ above the compass
+	private final CheckboxSetting showPlayerCoordsAboveCompass =
+		new CheckboxSetting("Show player XYZ above compass", false);
 	
 	public WaypointsHack()
 	{
@@ -91,6 +107,11 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		addSetting(textRenderDistance);
 		addSetting(alwaysRenderText);
 		addSetting(fadeDistance);
+		addSetting(compassMode);
+		addSetting(compassXPercent);
+		addSetting(compassYPercent);
+		addSetting(showPlayerCoordsAboveCompass);
+		addSetting(compassOpacity);
 		addSetting(maxDeathPositions);
 		addSetting(chatOnDeath);
 		addSetting(createDeathWaypoints);
@@ -109,6 +130,8 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		EVENTS.add(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.add(DeathListener.class, this);
 		EVENTS.add(ChatInputListener.class, this);
+		// Register GUI render listener for compass bar
+		EVENTS.add(GUIRenderListener.class, this);
 		otherDeathCooldown.clear();
 		knownDead.clear();
 	}
@@ -121,6 +144,7 @@ public final class WaypointsHack extends Hack implements RenderListener,
 		EVENTS.remove(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.remove(DeathListener.class, this);
 		EVENTS.remove(ChatInputListener.class, this);
+		EVENTS.remove(GUIRenderListener.class, this);
 		otherDeathCooldown.clear();
 		knownDead.clear();
 	}
@@ -551,5 +575,190 @@ public final class WaypointsHack extends Hack implements RenderListener,
 	{
 		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
 			MC.currentScreen, manager));
+	}
+	
+	@Override
+	public void onRenderGUI(DrawContext context, float partialTicks)
+	{
+		if(!compassMode.isChecked() || MC.player == null || MC.world == null)
+			return;
+		
+		TextRenderer tr = MC.textRenderer;
+		int sw = context.getScaledWindowWidth();
+		int sh = context.getScaledWindowHeight();
+		// Position from settings (percent of screen)
+		int centerX =
+			(int)Math.round(sw * (compassXPercent.getValue() / 100.0));
+		int barY = (int)Math.round(sh * (compassYPercent.getValue() / 100.0));
+		int barH = 12; // thinner
+		int pad = 6;
+		int halfWidth = Math.min(120, Math.max(60, sw / 4)); // shorter
+		double visibleAngle = 90.0; // degrees each side
+		double selectFov = 6.0; // degrees for selection
+		
+		// background bar
+		context.fill(centerX - halfWidth - pad, barY - 2,
+			centerX + halfWidth + pad, barY + barH + 2, 0x80000000);
+		
+		// Optionally draw player coords above the bar
+		if(showPlayerCoordsAboveCompass.isChecked())
+		{
+			String dir = cardinalFromYaw(MC.player.getYaw());
+			int ix = (int)Math.floor(MC.player.getX());
+			int iy = (int)Math.floor(MC.player.getY());
+			int iz = (int)Math.floor(MC.player.getZ());
+			String coords = dir + ": " + ix + " " + iy + " " + iz;
+			int cw = tr.getWidth(coords);
+			int cx = centerX - cw / 2;
+			int cy = Math.max(2, barY - 12); // avoid off-screen
+			context.drawText(tr, coords, cx, cy, 0xFFFFFFFF, false);
+		}
+		
+		var list = new ArrayList<>(manager.all());
+		ArrayList<WaypointEntry> entries = new ArrayList<>();
+		double bestAbs = Double.MAX_VALUE;
+		WaypointEntry best = null;
+		
+		double px = MC.player.getX();
+		double pz = MC.player.getZ();
+		double playerYaw = MC.player.getYaw();
+		
+		for(Waypoint w : list)
+		{
+			if(!w.isVisible())
+				continue;
+			BlockPos wpb = worldSpace(w);
+			if(wpb == null)
+				continue;
+			double dx = (wpb.getX() + 0.5) - px;
+			double dz = (wpb.getZ() + 0.5) - pz;
+			double distSq = MC.player.squaredDistanceTo(wpb.getX() + 0.5,
+				wpb.getY() + 0.5, wpb.getZ() + 0.5);
+			if(distSq > (double)(w.getMaxVisible() * w.getMaxVisible()))
+				continue;
+				
+			// Compute horizontal signed angle between player's forward vector
+			// and the vector to the waypoint. This is robust to Minecraft yaw
+			// conventions and avoids axis-misalignment issues.
+			double len = Math.sqrt(dx * dx + dz * dz);
+			if(len < 1e-6)
+				continue;
+			double nx = dx / len;
+			double nz = dz / len;
+			double yawRad = Math.toRadians(playerYaw);
+			// Player forward vector in Minecraft: (-sin(yaw), cos(yaw))
+			double fx = -Math.sin(yawRad);
+			double fz = Math.cos(yawRad);
+			// Signed angle: atan2(cross, dot)
+			double cross = fx * nz - fz * nx;
+			double dot = fx * nx + fz * nz;
+			double delta = Math.toDegrees(Math.atan2(cross, dot));
+			if(Math.abs(delta) > visibleAngle)
+				continue;
+			
+			double x = centerX + (delta / visibleAngle) * halfWidth;
+			WaypointEntry e = new WaypointEntry(w, x, delta);
+			entries.add(e);
+			double ad = Math.abs(delta);
+			if(ad < bestAbs)
+			{
+				bestAbs = ad;
+				best = e;
+			}
+		}
+		
+		// If best within small fov, mark selected
+		WaypointEntry selected = null;
+		if(best != null && Math.abs(best.delta) <= selectFov)
+			selected = best;
+		
+		// Draw icons
+		for(WaypointEntry e : entries)
+		{
+			int ix = (int)Math.round(e.x);
+			if(selected != null && e.w.getUuid().equals(selected.w.getUuid()))
+				ix = centerX; // center selected
+			String icon = iconChar(e.w.getIcon());
+			if(icon == null)
+				icon = "";
+			int color = e.w.getColor();
+			int iconW = tr.getWidth(icon);
+			context.drawText(tr, icon, ix - iconW / 2, barY + 2, color, false);
+		}
+		
+		// Draw selected name and distance
+		if(selected != null)
+		{
+			String title =
+				selected.w.getName() == null ? "" : selected.w.getName();
+			String icon = iconChar(selected.w.getIcon());
+			if(icon != null && !icon.isEmpty())
+				title = icon + (title.isEmpty() ? "" : " " + title);
+			// distance in blocks
+			BlockPos wpb = worldSpace(selected.w);
+			int distBlocks = 0;
+			if(wpb != null)
+				distBlocks = (int)Math.round(
+					Math.sqrt(MC.player.squaredDistanceTo(wpb.getX() + 0.5,
+						wpb.getY() + 0.5, wpb.getZ() + 0.5)));
+			String distText = distBlocks + " blocks";
+			int tw = tr.getWidth(title);
+			int dw = tr.getWidth(distText);
+			int titleX = centerX - tw / 2;
+			int distX = centerX - dw / 2;
+			int titleY = barY + barH + 2;
+			int distY = titleY + 10;
+			// apply compass opacity to text
+			double opaText =
+				Math.max(0.0, Math.min(1.0, compassOpacity.getValue() / 100.0));
+			int aText = (int)Math.round(255 * opaText);
+			int textColor = (aText << 24) | 0x00FFFFFF;
+			context.drawText(tr, title, titleX, titleY, textColor, false);
+			context.drawText(tr, distText, distX, distY, textColor, false);
+		}
+	}
+	
+	private static String cardinalFromYaw(double yaw)
+	{
+		// Normalize yaw to [0,360)
+		double norm = yaw % 360.0;
+		if(norm < 0)
+			norm += 360.0;
+		int idx = (int)Math.floor((norm + 22.5) / 45.0) % 8;
+		switch(idx)
+		{
+			case 0:
+			return "S";
+			case 1:
+			return "SW";
+			case 2:
+			return "W";
+			case 3:
+			return "NW";
+			case 4:
+			return "N";
+			case 5:
+			return "NE";
+			case 6:
+			return "E";
+			case 7:
+			return "SE";
+			default:
+			return "?";
+		}
+	}
+	
+	private static final class WaypointEntry
+	{
+		final Waypoint w;
+		final double x;
+		final double delta;
+		
+		WaypointEntry(Waypoint w, double x, double delta)
+		{
+			this.w = w;
+			this.x = x;
+			this.delta = delta;
+		}
 	}
 }

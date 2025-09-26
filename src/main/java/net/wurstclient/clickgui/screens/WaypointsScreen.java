@@ -25,6 +25,28 @@ public final class WaypointsScreen extends Screen
 	private java.util.List<Waypoint> cachedList;
 	private int listStartY;
 	
+	// Scrolling support
+	private static final int ROW_HEIGHT = 24;
+	private int scroll; // 0 at top, grows when scrolling down
+	private int viewportTop;
+	private int viewportBottom;
+	
+	// Dimension filter (null = show all)
+	private net.wurstclient.waypoints.WaypointDimension filterDim = null;
+	
+	// One row = 4 buttons. We keep references so we can reposition & toggle
+	// visibility.
+	private static final class RowWidgets
+	{
+		Waypoint w;
+		ButtonWidget nameBtn;
+		ButtonWidget visBtn;
+		ButtonWidget delBtn;
+		ButtonWidget copyBtn;
+	}
+	
+	private final ArrayList<RowWidgets> rows = new ArrayList<>();
+	
 	public WaypointsScreen(Screen prev, WaypointsManager manager)
 	{
 		super(Text.literal("Waypoints"));
@@ -38,6 +60,48 @@ public final class WaypointsScreen extends Screen
 		int y = 32;
 		int x = this.width / 2 - 150;
 		
+		rows.clear();
+		scroll = 0;
+		
+		// Initialize default filter to current world if not set
+		if(filterDim == null)
+			filterDim = currentDim();
+		
+		// Filter buttons centered above the create button
+		int filterBtnWidth = 64;
+		int spacing = 8;
+		int totalWidth = filterBtnWidth * 3 + spacing * 2;
+		int fx = this.width / 2 - totalWidth / 2;
+		int fy = y; // top row for filters
+		
+		addDrawableChild(ButtonWidget.builder(Text.literal(
+			(filterDim == net.wurstclient.waypoints.WaypointDimension.OVERWORLD)
+				? "[OW]" : "OW"),
+			b -> {
+				filterDim =
+					net.wurstclient.waypoints.WaypointDimension.OVERWORLD;
+				client.setScreen(this);
+			}).dimensions(fx, fy, filterBtnWidth, 20).build());
+		addDrawableChild(ButtonWidget.builder(Text.literal(
+			(filterDim == net.wurstclient.waypoints.WaypointDimension.NETHER)
+				? "[Nether]" : "Nether"),
+			b -> {
+				filterDim = net.wurstclient.waypoints.WaypointDimension.NETHER;
+				client.setScreen(this);
+			}).dimensions(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
+			.build());
+		addDrawableChild(ButtonWidget.builder(Text.literal(
+			(filterDim == net.wurstclient.waypoints.WaypointDimension.END)
+				? "[End]" : "End"),
+			b -> {
+				filterDim = net.wurstclient.waypoints.WaypointDimension.END;
+				client.setScreen(this);
+			}).dimensions(fx + (filterBtnWidth + spacing) * 2, fy,
+				filterBtnWidth, 20)
+			.build());
+		
+		// Move create button below the filters
+		int createY = y + 24; // 20 height + 4px gap
 		addDrawableChild(
 			ButtonWidget.builder(Text.literal("Create waypoint"), b -> {
 				Waypoint w = new Waypoint(java.util.UUID.randomUUID(),
@@ -52,21 +116,37 @@ public final class WaypointsScreen extends Screen
 				w.setLines(false); // default new waypoints without lines
 				client
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
-			}).dimensions(x, y, 300, 20).build());
-		y += 28;
+			}).dimensions(x, createY, 300, 20).build());
+		
+		// Advance y to start the list below the create button (keep previous
+		// gap)
+		y = createY + 28;
 		// Cache list for consistent rendering and color boxes
-		cachedList = new ArrayList<>(manager.all());
+		// Apply dimension filter when building the cached list
+		cachedList = new ArrayList<>();
+		for(Waypoint w : manager.all())
+		{
+			if(filterDim == null || w.getDimension() == filterDim)
+				cachedList.add(w);
+		}
 		listStartY = y;
+		
+		// Determine viewport for the list (space until the Back button line)
+		viewportTop = listStartY;
+		viewportBottom = this.height - 36; // a bit above back button
+		
 		for(int i = 0; i < cachedList.size(); i++)
 		{
 			Waypoint w = cachedList.get(i);
-			int rowY = y + i * 24;
-			addDrawableChild(
+			int rowY = y + i * ROW_HEIGHT;
+			
+			ButtonWidget nameBtn = addDrawableChild(
 				ButtonWidget.builder(Text.literal(w.getName()), b -> {
 					client.setScreen(
 						new WaypointEditScreen(this, manager, w, false));
 				}).dimensions(x, rowY, 140, 20).build());
-			addDrawableChild(ButtonWidget
+			
+			ButtonWidget visBtn = addDrawableChild(ButtonWidget
 				.builder(Text.literal(w.isVisible() ? "Hide" : "Show"), b -> {
 					w.setVisible(!w.isVisible());
 					manager.addOrUpdate(w);
@@ -74,22 +154,66 @@ public final class WaypointsScreen extends Screen
 					// Refresh in-place without stacking a new screen
 					client.setScreen(this);
 				}).dimensions(x + 145, rowY, 55, 20).build());
-			addDrawableChild(ButtonWidget.builder(Text.literal("Delete"), b -> {
-				manager.remove(w);
-				saveNow();
-				// Refresh in-place without stacking a new screen
-				client.setScreen(this);
-			}).dimensions(x + 205, rowY, 55, 20).build());
-			addDrawableChild(ButtonWidget.builder(Text.literal("Copy"), b -> {
-				String s = w.getPos().getX() + ", " + w.getPos().getY() + ", "
-					+ w.getPos().getZ();
-				client.keyboard.setClipboard(s);
-			}).dimensions(x + 265, rowY, 35, 20).build());
+			
+			ButtonWidget delBtn = addDrawableChild(
+				ButtonWidget.builder(Text.literal("Delete"), b -> {
+					manager.remove(w);
+					saveNow();
+					// Refresh in-place without stacking a new screen
+					client.setScreen(this);
+				}).dimensions(x + 205, rowY, 55, 20).build());
+			
+			ButtonWidget copyBtn = addDrawableChild(
+				ButtonWidget.builder(Text.literal("Copy"), b -> {
+					String s = w.getPos().getX() + ", " + w.getPos().getY()
+						+ ", " + w.getPos().getZ();
+					client.keyboard.setClipboard(s);
+				}).dimensions(x + 265, rowY, 35, 20).build());
+			
+			RowWidgets rw = new RowWidgets();
+			rw.w = w;
+			rw.nameBtn = nameBtn;
+			rw.visBtn = visBtn;
+			rw.delBtn = delBtn;
+			rw.copyBtn = copyBtn;
+			rows.add(rw);
 		}
+		
+		// Scroll buttons (▲ / ▼) positioned just to the right of the 300px list
+		// area
+		int arrowX = x + 305; // a little to the right of the list
+		addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> {
+			scrollBy(-ROW_HEIGHT * 3);
+		}).dimensions(arrowX, viewportTop, 20, 20).build());
+		addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> {
+			scrollBy(ROW_HEIGHT * 3);
+		}).dimensions(arrowX, viewportBottom - 20, 20, 20).build());
 		
 		addDrawableChild(ButtonWidget
 			.builder(Text.literal("Back"), b -> client.setScreen(prev))
 			.dimensions(x, this.height - 28, 300, 20).build());
+	}
+	
+	private void scrollBy(int dy)
+	{
+		int contentHeight = rows.size() * ROW_HEIGHT;
+		int maxScroll =
+			Math.max(0, contentHeight - (viewportBottom - viewportTop));
+		scroll = Math.max(0, Math.min(scroll + dy, maxScroll));
+	}
+	
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY,
+		double horizontalAmount, double verticalAmount)
+	{
+		int step = (int)Math.signum(verticalAmount) * ROW_HEIGHT * 2;
+		if(step != 0)
+		{
+			scrollBy(-step); // invert so wheel up moves content up
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, horizontalAmount,
+			verticalAmount);
 	}
 	
 	@Override
@@ -97,27 +221,82 @@ public final class WaypointsScreen extends Screen
 	{
 		// No blur - just a translucent background
 		context.fill(0, 0, this.width, this.height, 0x88000000);
+		
+		// Update row positions & visibility before widgets are rendered
+		int x = this.width / 2 - 150;
+		viewportTop = listStartY;
+		viewportBottom = this.height - 36;
+		// viewport height used for clipping below
+		
+		for(int i = 0; i < rows.size(); i++)
+		{
+			RowWidgets rw = rows.get(i);
+			int rowY = listStartY + i * ROW_HEIGHT - scroll;
+			
+			boolean visible =
+				rowY >= viewportTop && rowY <= viewportBottom - 20;
+			// Reposition
+			rw.nameBtn.setY(rowY);
+			rw.visBtn.setY(rowY);
+			rw.delBtn.setY(rowY);
+			rw.copyBtn.setY(rowY);
+			// Toggle visibility so buttons outside viewport don't render or
+			// receive input
+			rw.nameBtn.visible = visible;
+			rw.visBtn.visible = visible;
+			rw.delBtn.visible = visible;
+			rw.copyBtn.visible = visible;
+		}
+		
 		super.render(context, mouseX, mouseY, delta);
+		
+		// Title
 		context.drawCenteredTextWithShadow(client.textRenderer, "Waypoints",
 			this.width / 2, 12, 0xFFFFFFFF);
 		
 		// Draw small color boxes for each saved waypoint next to the name
-		// Use live list so color changes reflect immediately after returning
-		int x = this.width / 2 - 150;
-		int y = listStartY;
+		// Use the same filtered list as the rows to render color boxes and clip
+		// to viewport
+		int boxLeft = x - 20;
 		var liveList = new ArrayList<>(manager.all());
-		for(int i = 0; i < liveList.size(); i++)
+		// If a filter is active, filter the live list too
+		if(filterDim != null)
 		{
-			Waypoint w = liveList.get(i);
-			int rowY = y + i * 24;
-			int boxX = x - 20;
-			int boxY = rowY + 2;
-			int color = w.getColor();
-			// border
-			context.fill(boxX - 1, boxY - 1, boxX + 17, boxY + 17, 0xFF333333);
-			// fill
-			context.fill(boxX, boxY, boxX + 16, boxY + 16, color);
+			var tmp = new ArrayList<Waypoint>();
+			for(Waypoint w : liveList)
+				if(w.getDimension() == filterDim)
+					tmp.add(w);
+			liveList = tmp;
 		}
+		
+		// Enable scissor so stray boxes outside the list area are not drawn
+		int scissorLeft = boxLeft - 2;
+		int scissorTop = viewportTop;
+		int scissorRight = x + 300 + 20;
+		int scissorBottom = viewportBottom;
+		context.enableScissor(scissorLeft, scissorTop, scissorRight,
+			scissorBottom);
+		
+		// Draw color boxes based on the rows we've created; only draw visible
+		// rows
+		for(RowWidgets rw : rows)
+		{
+			if(rw == null || rw.nameBtn == null || !rw.nameBtn.visible)
+				continue;
+			int rowY = rw.nameBtn.getY();
+			// ensure within viewport
+			if(rowY + 16 < viewportTop || rowY > viewportBottom)
+				continue;
+			int boxY = rowY + 2;
+			int color = rw.w.getColor();
+			// border
+			context.fill(boxLeft - 1, boxY - 1, boxLeft + 17, boxY + 17,
+				0xFF333333);
+			// fill
+			context.fill(boxLeft, boxY, boxLeft + 16, boxY + 16, color);
+		}
+		
+		context.disableScissor();
 	}
 	
 	private WaypointDimension currentDim()

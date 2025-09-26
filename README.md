@@ -59,6 +59,8 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
 - Manager UI (`.waypoints` or apostrophe key).  
+- Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency)
+- Coordinates overlay: Show your direction and current XYZ position above the compass overlay
 - Preset icons
 - Features: name, coords, dimension, icon, visibility, lines, color, copy button, opposite coords, death pruning.  
 - Constant-size labels and optional tracers.  
