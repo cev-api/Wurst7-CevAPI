@@ -1,6 +1,6 @@
 # Wurst Client v7.50.1 (MC1.21.8) - Modified by CevAPI 
 
-![Wurst Client logo](https://img.wimods.net/github.com/Wurst-Imperium/Wurst7?to=https://wurst.wiki/_media/logo/wurst_758x192.webp)
+![CevAPI Logo](https://i.imgur.com/Uju0ZZJ.png)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
 - Downloads: [https://www.wurstclient.net/download/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Fdownload%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
