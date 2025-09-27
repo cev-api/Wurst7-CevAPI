@@ -10,11 +10,11 @@
 
 ## Relationship to upstream
 
-This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I’m keeping them in a separate fork. I’ll continue to maintain these additions and periodically rebase/sync with the upstream project.
+This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I’m keeping them in a separate fork. I’ll continue to maintain these additions and periodically re-base/sync with the upstream project.
 
 - Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
 - This fork: https://github.com/cev-api/Wurst7-CevAPI  
-- Status: actively maintained and rebased as upstream evolves  
+- Status: actively maintained and re-based as upstream evolves  
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
@@ -44,7 +44,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Rendering: Boxes, Lines, or Both in a fixed color.  
 
 ### RedstoneESP
-- Highlights redstone components: Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Sculk Sensor (+ Calibrated), Pistons, Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.  
+- Highlights redstone components: Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Skulk Sensor (+ Calibrated), Pistons, Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.  
 - Buttons and pressure plates are grouped with individual toggles + colors.  
 - Rendering: Boxes, Lines, or Both in a fixed color.  
 
@@ -62,12 +62,12 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency)
 - Coordinates overlay: Show your direction and current XYZ position above the compass overlay
 - Preset icons
-- Features: name, coords, dimension, icon, visibility, lines, color, copy button, opposite coords, death pruning.  
+- Features: name, co-ordinates, dimension, icon, visibility, lines, color, copy button, opposite co-ordinates (nether), death pruning.  
 - Constant-size labels and optional tracers.  
 - Stored per world/server under `wurst/waypoints/<worldId>.json`.  
 
 ### Breadcrumbs
-- Leaves a line trail behind you (toggleable/pauseable).  
+- Leaves a line trail behind you (toggle-able/pause-able).  
 - Settings: color, max sections, section length, thickness.  
 
 ### LogoutSpots
@@ -94,8 +94,8 @@ Examples:
 - Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.  
 
 ### ClickGUI improvements
-- Accidently typing in ClickGUI just continues what you typed in the Navigator
-- Favourites category, middle click a hack for it to be added to Favourites. Middle click when within Favourites to remove it.
+- Accidentally typing in ClickGUI just continues what you typed in the Navigator typing in ClickGUI just continues what you typed in the Navigator
+- Favorites category, middle click a hack for it to be added to Favorites. Middle click when within Favorites to remove it.
 
 ### Search improvements
 - Keyword queries supported; falls back to picker when empty.  
@@ -115,7 +115,7 @@ Examples:
 - Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
 
 ### AutoSteal improvements
-- Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bindable to a key.
+- Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bind-able to a key.
 
 ### BaseFinder improvements
 - Updated natural blocks list to latest versions.  
@@ -151,10 +151,12 @@ Examples:
 - SignESP skips zero-size entries safely.  
 
 ### Notes
-- Scanning only includes server-loaded chunks. Larger radii work best in singleplayer or on high view distance servers.  
+- Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
 
 ---
 
 ## License
 
 This code is licensed under the GNU General Public License v3. 
+
+
