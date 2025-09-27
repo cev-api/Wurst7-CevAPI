@@ -93,6 +93,10 @@ Examples:
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
 - Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.  
 
+### ClickGUI improvements
+- Accidently typing in ClickGUI just continues what you typed in the Navigator
+- Favourites category, middle click a hack for it to be added to Favourites. Middle click when within Favourites to remove it.
+
 ### Search improvements
 - Keyword queries supported; falls back to picker when empty.  
 - List mode with visual item list.  

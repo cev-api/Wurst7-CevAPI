@@ -20,6 +20,7 @@ import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import org.lwjgl.glfw.GLFW;
 
 public final class FeatureButton extends Component
 {
@@ -39,11 +40,41 @@ public final class FeatureButton extends Component
 		hasSettings = !feature.getSettings().isEmpty();
 	}
 	
+	public Feature getFeature()
+	{
+		return feature;
+	}
+	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton)
 	{
-		if(mouseButton != 0)
+		if(mouseButton != 0 && mouseButton != GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
 			return;
+		
+		// middle click anywhere on the feature toggles favourite
+		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+			&& feature instanceof net.wurstclient.hack.Hack)
+		{
+			net.wurstclient.hack.Hack h = (net.wurstclient.hack.Hack)feature;
+			boolean inFavouritesWindow = false;
+			if(getParent() != null && getParent().getTitle()
+				.equals(net.wurstclient.Category.FAVORITES.getName()))
+				inFavouritesWindow = true;
+			
+			if(inFavouritesWindow)
+			{
+				h.setFavorite(false);
+				net.wurstclient.util.ChatUtils
+					.message(h.getName() + " removed from favourites.");
+				return;
+			}else
+			{
+				h.setFavorite(true);
+				net.wurstclient.util.ChatUtils
+					.message(h.getName() + " added to favourites.");
+				return;
+			}
+		}
 		
 		if(hasSettings && (mouseX > getX() + getWidth() - 12
 			|| feature.getPrimaryAction().isEmpty()))

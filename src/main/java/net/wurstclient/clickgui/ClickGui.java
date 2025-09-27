@@ -80,7 +80,18 @@ public final class ClickGui
 		for(Feature f : features)
 			if(f.getCategory() != null)
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
-			
+		// add favorites window entries (show favorites in the Favorites
+		// category)
+		for(Feature f : features)
+			if(f instanceof net.wurstclient.hack.Hack
+				&& ((net.wurstclient.hack.Hack)f).isFavorite())
+				windowMap.get(net.wurstclient.Category.FAVORITES)
+					.add(new FeatureButton(f));
+		// ensure favourites window is sorted alphabetically
+		Window favWindow = windowMap.get(net.wurstclient.Category.FAVORITES);
+		if(favWindow != null)
+			sortFavoritesWindow(favWindow);
+		
 		windows.addAll(windowMap.values());
 		
 		Window uiSettings = new Window("UI Settings");
@@ -836,8 +847,94 @@ public final class ClickGui
 		popups.add(popup);
 	}
 	
+	/**
+	 * Add a feature to the Favorites window if not already present.
+	 */
+	public void addFavoriteFeature(Feature feature)
+	{
+		String favTitle = net.wurstclient.Category.FAVORITES.getName();
+		for(Window window : windows)
+		{
+			if(window.getTitle().equals(favTitle))
+			{
+				// check existing
+				for(int i = 0; i < window.countChildren(); i++)
+				{
+					Component c = window.getChild(i);
+					if(c instanceof net.wurstclient.clickgui.components.FeatureButton)
+					{
+						net.wurstclient.clickgui.components.FeatureButton fb =
+							(net.wurstclient.clickgui.components.FeatureButton)c;
+						if(fb.getFeature().getName().equals(feature.getName()))
+							return;
+					}
+				}
+				window
+					.add(new net.wurstclient.clickgui.components.FeatureButton(
+						feature));
+				sortFavoritesWindow(window);
+				return;
+			}
+		}
+	}
+	
+	public void removeFavoriteFeature(Feature feature)
+	{
+		String favTitle = net.wurstclient.Category.FAVORITES.getName();
+		for(Window window : windows)
+		{
+			if(!window.getTitle().equals(favTitle))
+				continue;
+			for(int i = window.countChildren() - 1; i >= 0; i--)
+			{
+				Component c = window.getChild(i);
+				if(c instanceof net.wurstclient.clickgui.components.FeatureButton)
+				{
+					net.wurstclient.clickgui.components.FeatureButton fb =
+						(net.wurstclient.clickgui.components.FeatureButton)c;
+					if(fb.getFeature().getName().equals(feature.getName()))
+					{
+						window.remove(i);
+						window.pack();
+						return;
+					}
+				}
+			}
+		}
+	}
+	
 	public boolean isLeftMouseButtonPressed()
 	{
 		return leftMouseButtonPressed;
+	}
+	
+	/**
+	 * Sort the given favourites window's children alphabetically by feature
+	 * name.
+	 */
+	private void sortFavoritesWindow(Window window)
+	{
+		if(window == null)
+			return;
+		// collect children
+		ArrayList<Component> all = new ArrayList<>();
+		for(int i = 0; i < window.countChildren(); i++)
+			all.add(window.getChild(i));
+		// sort by feature name when possible
+		all.sort((c1, c2) -> {
+			String n1 = c1 instanceof FeatureButton
+				? ((FeatureButton)c1).getFeature().getName()
+				: c1.getClass().getName();
+			String n2 = c2 instanceof FeatureButton
+				? ((FeatureButton)c2).getFeature().getName()
+				: c2.getClass().getName();
+			return n1.compareToIgnoreCase(n2);
+		});
+		// remove all children and re-add in sorted order
+		for(int i = window.countChildren() - 1; i >= 0; i--)
+			window.remove(i);
+		for(Component c : all)
+			window.add(c);
+		window.pack();
 	}
 }

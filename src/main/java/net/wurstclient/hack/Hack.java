@@ -25,6 +25,9 @@ public abstract class Hack extends Feature
 	private final boolean stateSaved =
 		!getClass().isAnnotationPresent(DontSaveState.class);
 	
+	// favorites
+	private boolean favorite = false;
+	
 	public Hack(String name)
 	{
 		this.name = Objects.requireNonNull(name);
@@ -109,6 +112,37 @@ public abstract class Hack extends Feature
 	public final boolean isStateSaved()
 	{
 		return stateSaved;
+	}
+	
+	// favorites
+	public final boolean isFavorite()
+	{
+		return favorite;
+	}
+	
+	public final void setFavorite(boolean fav)
+	{
+		if(this.favorite == fav)
+			return;
+		this.favorite = fav;
+		// allow HackList to persist favorites when needed
+		if(WURST != null && WURST.getHax() != null)
+			WURST.getHax().saveFavoriteHax();
+		
+		// update ClickGui immediately if present
+		if(WURST != null && WURST.getGui() != null)
+		{
+			try
+			{
+				if(fav)
+					WURST.getGui().addFavoriteFeature(this);
+				else
+					WURST.getGui().removeFavoriteFeature(this);
+			}catch(Exception e)
+			{
+				// ignore GUI update failures
+			}
+		}
 	}
 	
 	protected void onEnable()

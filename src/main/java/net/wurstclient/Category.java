@@ -9,6 +9,7 @@ package net.wurstclient;
 
 public enum Category
 {
+	FAVORITES("Favorites"),
 	BLOCKS("Blocks"),
 	MOVEMENT("Movement"),
 	COMBAT("Combat"),

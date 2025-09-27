@@ -46,6 +46,23 @@ public final class KeybindProcessor implements KeyPressListener
 		Screen screen = WurstClient.MC.currentScreen;
 		if(screen != null && !(screen instanceof ClickGuiScreen))
 			return;
+			
+		// if ClickGuiScreen is open and user typed a printable key, open
+		// navigator and pass the initial character
+		if(screen instanceof ClickGuiScreen)
+		{
+			String ch =
+				mapPrintableChar(event.getKeyCode(), event.getModifiers());
+			if(ch != null)
+			{
+				// open navigator without prepopulating the search to avoid
+				// the first character being entered twice (widget will receive
+				// it)
+				WurstClient.MC.setScreen(
+					new net.wurstclient.navigator.NavigatorMainScreen());
+				return;
+			}
+		}
 		
 		String keyName = getKeyName(event);
 		
@@ -54,6 +71,26 @@ public final class KeybindProcessor implements KeyPressListener
 			return;
 		
 		processCmds(cmds);
+	}
+	
+	private String mapPrintableChar(int keyCode, int modifiers)
+	{
+		// letters a-z
+		if(keyCode >= GLFW.GLFW_KEY_A && keyCode <= GLFW.GLFW_KEY_Z)
+		{
+			char c = (char)('a' + (keyCode - GLFW.GLFW_KEY_A));
+			return String.valueOf(c);
+		}
+		// numbers 0-9 (top row)
+		if(keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9)
+		{
+			char c = (char)('0' + (keyCode - GLFW.GLFW_KEY_0));
+			return String.valueOf(c);
+		}
+		if(keyCode == GLFW.GLFW_KEY_SPACE)
+			return " ";
+		// add basic punctuation if desired
+		return null;
 	}
 	
 	private String getKeyName(KeyPressEvent event)

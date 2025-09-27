@@ -204,15 +204,17 @@ public final class HackList implements UpdateListener
 		new TreeMap<>(String::compareToIgnoreCase);
 	
 	private final EnabledHacksFile enabledHacksFile;
+	private final FavoriteHacksFile favoriteHacksFile;
 	private final Path profilesFolder =
 		WurstClient.INSTANCE.getWurstFolder().resolve("enabled hacks");
 	
 	private final EventManager eventManager =
 		WurstClient.INSTANCE.getEventManager();
 	
-	public HackList(Path enabledHacksFile)
+	public HackList(Path enabledHacksFile, Path favoriteHacksFile)
 	{
 		this.enabledHacksFile = new EnabledHacksFile(enabledHacksFile);
+		this.favoriteHacksFile = new FavoriteHacksFile(favoriteHacksFile);
 		
 		try
 		{
@@ -239,12 +241,18 @@ public final class HackList implements UpdateListener
 	public void onUpdate()
 	{
 		enabledHacksFile.load(this);
+		favoriteHacksFile.load(this);
 		eventManager.remove(UpdateListener.class, this);
 	}
 	
 	public void saveEnabledHax()
 	{
 		enabledHacksFile.save(this);
+	}
+	
+	public void saveFavoriteHax()
+	{
+		favoriteHacksFile.save(this);
 	}
 	
 	public Hack getHackByName(String name)

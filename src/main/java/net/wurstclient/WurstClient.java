@@ -91,7 +91,8 @@ public enum WurstClient
 		eventManager = new EventManager(this);
 		
 		Path enabledHacksFile = wurstFolder.resolve("enabled-hacks.json");
-		hax = new HackList(enabledHacksFile);
+		Path favoritesHacksFile = wurstFolder.resolve("favourites.json");
+		hax = new HackList(enabledHacksFile, favoritesHacksFile);
 		
 		cmds = new CmdList();
 		

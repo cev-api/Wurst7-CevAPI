@@ -40,10 +40,18 @@ public final class NavigatorMainScreen extends NavigatorScreen
 	private boolean expanding = false;
 	private Feature expandingFeature;
 	
+	private final String initialSearchText;
+	
 	public NavigatorMainScreen()
+	{
+		this("");
+	}
+	
+	public NavigatorMainScreen(String initialSearch)
 	{
 		hasBackground = false;
 		nonScrollableArea = 0;
+		this.initialSearchText = initialSearch != null ? initialSearch : "";
 		
 		Navigator navigator = WurstClient.INSTANCE.getNavigator();
 		navigator.copyNavigatorList(navigatorDisplayList);
@@ -66,6 +74,13 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		searchBar.setFocused(true);
 		
 		searchBar.setX(middleX - 100);
+		
+		// if we have an initial search text, populate the search bar
+		if(!initialSearchText.isEmpty())
+		{
+			searchBar.setText(initialSearchText);
+			lastSearchText = ""; // force update on next tick
+		}
 		setContentHeight(navigatorDisplayList.size() / 3 * 20);
 	}
 	
