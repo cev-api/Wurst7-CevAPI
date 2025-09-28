@@ -41,6 +41,7 @@ import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -139,6 +140,10 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private final SliderSetting highlightAlpha =
 		new SliderSetting("Highlight transparency", 80, 1, 100, 1,
 			ValueDisplay.INTEGER.withSuffix("%"));
+	// Maximum number of highlighted blocks to render (log scale)
+	private final SliderSetting renderAmount = new SliderSetting(
+		"Render amount", "The maximum number of blocks to render.", 3, 2, 6, 1,
+		ValueDisplay.LOGARITHMIC);
 	// (block transparency override removed)
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in. Higher values require a faster computer.");
@@ -168,6 +173,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		addSetting(highlightFill);
 		addSetting(highlightColor);
 		addSetting(highlightAlpha);
+		addSetting(renderAmount);
 		optiFineWarning = checkOptiFine();
 		// Coordinator query: lightweight matching (ID + simple name), exposure
 		// filtering is applied on main thread when building boxes
@@ -401,8 +407,13 @@ public final class XRayHack extends Hack implements UpdateListener,
 		if(!highlightPositionsUpToDate && coordinator.isDone())
 		{
 			highlightPositions.clear();
-			coordinator.getMatches()
-				.forEach(r -> highlightPositions.add(r.pos()));
+			// collect nearest N positions (limit controlled by renderAmount)
+			BlockPos playerPos = MC.player.getBlockPos();
+			java.util.Comparator<BlockPos> comparator = java.util.Comparator
+				.comparingInt(p -> playerPos.getManhattanDistance(p));
+			coordinator.getMatches().map(r -> r.pos()).sorted(comparator)
+				.limit(renderAmount.getValueLog())
+				.forEach(highlightPositions::add);
 			highlightPositionsUpToDate = true;
 			visibleBoxesUpToDate = false;
 		}

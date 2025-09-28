@@ -9,13 +9,12 @@ package net.wurstclient.hacks;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Arrays;
+import java.util.PriorityQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
-import java.util.stream.Collectors;
 
 import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 
@@ -95,7 +94,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private final SliderSetting limit = new SliderSetting("Limit",
 		"The maximum number of blocks to display.\n"
 			+ "Higher values require a faster computer.",
-		4, 3, 6, 1, ValueDisplay.LOGARITHMIC);
+		4, 2, 6, 1, ValueDisplay.LOGARITHMIC);
 	private int prevLimit;
 	private boolean notify;
 	
@@ -435,14 +434,32 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void startGetMatchingBlocksTask()
 	{
+		// Use a bounded max-heap to keep only the closest N matches without
+		// sorting the entire result set. This avoids long pauses when scanning
+		// very large areas.
 		BlockPos eyesPos = BlockPos.ofFloored(RotationUtils.getEyesPos());
-		Comparator<BlockPos> comparator =
-			Comparator.comparingInt(pos -> eyesPos.getManhattanDistance(pos));
-		
-		getMatchingBlocksTask = forkJoinPool.submit(() -> coordinator
-			.getMatches().parallel().map(ChunkSearcher.Result::pos)
-			.sorted(comparator).limit(limit.getValueLog())
-			.collect(Collectors.toCollection(HashSet::new)));
+		final int limitCount = limit.getValueLog();
+		getMatchingBlocksTask = forkJoinPool.submit(() -> {
+			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
+				(a, b) -> Integer.compare(b.getManhattanDistance(eyesPos),
+					a.getManhattanDistance(eyesPos)));
+			java.util.Iterator<ChunkSearcher.Result> it =
+				coordinator.getMatches().iterator();
+			while(it.hasNext())
+			{
+				ChunkSearcher.Result r = it.next();
+				BlockPos pos = r.pos();
+				if(heap.size() < limitCount)
+					heap.offer(pos);
+				else if(pos.getManhattanDistance(eyesPos) < heap.peek()
+					.getManhattanDistance(eyesPos))
+				{
+					heap.poll();
+					heap.offer(pos);
+				}
+			}
+			return new HashSet<>(heap);
+		});
 	}
 	
 	private void startCompileVerticesTask()

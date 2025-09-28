@@ -56,6 +56,11 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Colors: fixed, rainbow, or by owner type.  
 - Toggles for held-trident highlights.  
 
+### LavaWaterESP
+- Highlights lava and water blocks (source and flowing) with boxes and or traces.
+- Per type toggles, color and transparency sliders.
+- Render cap and adjustable chunk radius to keep FPS down and the view unobstructive.
+
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
 - Manager UI (`.waypoints` or apostrophe key).  
@@ -103,13 +108,17 @@ Examples:
 - Multi-term queries: comma-separated (e.g., `ore, ancient`).  
 - Rendering: Boxes, Lines, or Both. Tracers cancel view-bobbing.  
 - Fixed/rainbow line colors.  
+- New minimum search to 100 results.
+- Replaced full-sort approach to bounded max-heap (PriorityQueue) that keeps the closest N matches. This avoids sorting entire result and keeps search as fast as X-Ray.
 - Safer rescans and better crash handling.  
 
 ### X-Ray improvements
 - Added ESP (Highlight Corners and or Fill Blocks)
     - Uses cached positions for speed
+    - Optional transparency slider for ESP
 - Multi-term queries: comma-separated (e.g., `diamond, ancient`).  
 - Opacity, block type changes and 'only show exposed' apply live without toggling.  
+- New minimum search to 100 blocks.
 
 ### Nuker improvements
 - Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
