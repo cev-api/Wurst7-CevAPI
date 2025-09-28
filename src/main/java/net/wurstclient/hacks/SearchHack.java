@@ -19,6 +19,8 @@ import java.util.concurrent.ForkJoinTask;
 import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
 
 import net.minecraft.block.Block;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
@@ -57,6 +59,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		QUERY
 	}
 	
+	private static final int MAX_QUERY_LENGTH = 256;
 	private final net.wurstclient.settings.EnumSetting<SearchMode> mode =
 		new net.wurstclient.settings.EnumSetting<>("Mode", SearchMode.values(),
 			SearchMode.BLOCK_ID);
@@ -65,7 +68,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 			"Blocks to search when Mode is set to List.");
 	private final TextFieldSetting query = new TextFieldSetting("Query",
 		"Enter text to match block IDs or names by keyword. Separate multiple terms with commas.",
-		"", value -> value.length() <= 64);
+		"", value -> value.length() <= MAX_QUERY_LENGTH);
 	private final BlockSetting block = new BlockSetting("Block",
 		"The type of block to search for.", "minecraft:diamond_ore", false);
 	// New: style setting for boxes/lines like ChestESP
@@ -356,19 +359,21 @@ public final class SearchHack extends Hack implements UpdateListener,
 			java.util.HashSet<String> exact = new java.util.HashSet<>();
 			for(String s : names)
 			{
-				// consider it exact if it parses as an Identifier
-				net.minecraft.util.Identifier id =
-					net.minecraft.util.Identifier.tryParse(s);
-				if(id != null)
+				if(s == null)
+					continue;
+				String raw = s.trim();
+				if(raw.isEmpty())
+					continue;
+				Identifier id = Identifier.tryParse(raw);
+				if(id != null && Registries.BLOCK.containsId(id))
 					exact.add(id.toString());
-				else if(s != null && !s.isBlank())
-					kw.add(s.toLowerCase(java.util.Locale.ROOT));
+				else
+					kw.add(raw.toLowerCase(Locale.ROOT));
 			}
 			listExactIds = exact;
 			listKeywords = kw.toArray(new String[0]);
 			coordinator.setQuery((pos, state) -> {
-				String idFull =
-					net.wurstclient.util.BlockUtils.getName(state.getBlock());
+				String idFull = BlockUtils.getName(state.getBlock());
 				if(listExactIds.contains(idFull))
 					return true;
 				String localId = idFull.contains(":")

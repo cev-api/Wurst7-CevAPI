@@ -51,18 +51,16 @@ public final class ItemListSetting extends Setting
 	
 	private void addFromStringCanonicalizing(String s)
 	{
-		Identifier id = Identifier.tryParse(s);
-		String name;
+		if(s == null)
+			return;
+		String raw = s.trim();
+		if(raw.isEmpty())
+			return;
 		
-		if(id != null)
-		{
-			// It's a valid identifier format.
+		Identifier id = Identifier.tryParse(raw);
+		String name = raw;
+		if(id != null && Registries.ITEM.containsId(id))
 			name = id.toString();
-		}else
-		{
-			// Not a valid identifier format, treat as a raw keyword.
-			name = s;
-		}
 		
 		if(Collections.binarySearch(itemNames, name) < 0)
 		{
@@ -90,23 +88,16 @@ public final class ItemListSetting extends Setting
 	// New: allow adding raw keyword entries
 	public void addRawName(String raw)
 	{
-		if(raw == null)
-			return;
-		String name = raw.trim();
-		if(name.isEmpty())
-			return;
-		if(Collections.binarySearch(itemNames, name) >= 0)
-			return;
-		itemNames.add(name);
-		Collections.sort(itemNames);
-		WurstClient.INSTANCE.saveSettings();
+		int before = itemNames.size();
+		addFromStringCanonicalizing(raw);
+		if(itemNames.size() != before)
+			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void remove(int index)
 	{
 		if(index < 0 || index >= itemNames.size())
 			return;
-		
 		itemNames.remove(index);
 		WurstClient.INSTANCE.saveSettings();
 	}

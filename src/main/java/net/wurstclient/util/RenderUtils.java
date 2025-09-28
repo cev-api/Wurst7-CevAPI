@@ -357,6 +357,188 @@ public enum RenderUtils
 		buffer.vertex(entry, x1, y2, z1).color(color);
 	}
 	
+	public static void drawOutlinedOctahedrons(MatrixStack matrices,
+		List<Box> boxes, int color, boolean depthTest)
+	{
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d camOffset = getCameraPos().negate();
+		for(Box box : boxes)
+			drawOutlinedOctahedron(matrices, buffer, box.offset(camOffset),
+				color);
+		
+		vcp.draw(layer);
+	}
+	
+	public static void drawOutlinedOctahedrons(MatrixStack matrices,
+		List<ColoredBox> boxes, boolean depthTest)
+	{
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d camOffset = getCameraPos().negate();
+		for(ColoredBox box : boxes)
+			drawOutlinedOctahedron(matrices, buffer,
+				box.box().offset(camOffset), box.color());
+		
+		vcp.draw(layer);
+	}
+	
+	public static void drawSolidOctahedrons(MatrixStack matrices,
+		List<Box> boxes, int color, boolean depthTest)
+	{
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d camOffset = getCameraPos().negate();
+		for(Box box : boxes)
+			drawSolidOctahedron(matrices, buffer, box.offset(camOffset), color);
+		
+		vcp.draw(layer);
+	}
+	
+	public static void drawSolidOctahedrons(MatrixStack matrices,
+		List<ColoredBox> boxes, boolean depthTest)
+	{
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d camOffset = getCameraPos().negate();
+		for(ColoredBox box : boxes)
+			drawSolidOctahedron(matrices, buffer, box.box().offset(camOffset),
+				box.color());
+		
+		vcp.draw(layer);
+	}
+	
+	public static void drawOutlinedOctahedron(VertexConsumer buffer, Box box,
+		int color)
+	{
+		drawOutlinedOctahedron(new MatrixStack(), buffer, box, color);
+	}
+	
+	public static void drawOutlinedOctahedron(MatrixStack matrices,
+		VertexConsumer buffer, Box box, int color)
+	{
+		MatrixStack.Entry entry = matrices.peek();
+		float x1 = (float)box.minX;
+		float y1 = (float)box.minY;
+		float z1 = (float)box.minZ;
+		float x2 = (float)box.maxX;
+		float y2 = (float)box.maxY;
+		float z2 = (float)box.maxZ;
+		
+		float cx = (x1 + x2) / 2F;
+		float cy = (y1 + y2) / 2F;
+		float cz = (z1 + z2) / 2F;
+		
+		Vector3f top = new Vector3f(cx, y2, cz);
+		Vector3f bottom = new Vector3f(cx, y1, cz);
+		Vector3f east = new Vector3f(x2, cy, cz);
+		Vector3f west = new Vector3f(x1, cy, cz);
+		Vector3f north = new Vector3f(cx, cy, z1);
+		Vector3f south = new Vector3f(cx, cy, z2);
+		
+		putLine(entry, buffer, top, east, color);
+		putLine(entry, buffer, top, west, color);
+		putLine(entry, buffer, top, north, color);
+		putLine(entry, buffer, top, south, color);
+		putLine(entry, buffer, bottom, east, color);
+		putLine(entry, buffer, bottom, west, color);
+		putLine(entry, buffer, bottom, north, color);
+		putLine(entry, buffer, bottom, south, color);
+		putLine(entry, buffer, east, north, color);
+		putLine(entry, buffer, north, west, color);
+		putLine(entry, buffer, west, south, color);
+		putLine(entry, buffer, south, east, color);
+	}
+	
+	public static void drawSolidOctahedron(VertexConsumer buffer, Box box,
+		int color)
+	{
+		drawSolidOctahedron(new MatrixStack(), buffer, box, color);
+	}
+	
+	public static void drawSolidOctahedron(MatrixStack matrices,
+		VertexConsumer buffer, Box box, int color)
+	{
+		MatrixStack.Entry entry = matrices.peek();
+		float x1 = (float)box.minX;
+		float y1 = (float)box.minY;
+		float z1 = (float)box.minZ;
+		float x2 = (float)box.maxX;
+		float y2 = (float)box.maxY;
+		float z2 = (float)box.maxZ;
+		
+		float cx = (x1 + x2) / 2F;
+		float cy = (y1 + y2) / 2F;
+		float cz = (z1 + z2) / 2F;
+		Vector3f center = new Vector3f(cx, cy, cz);
+		
+		Vector3f top = new Vector3f(cx, y2, cz);
+		Vector3f bottom = new Vector3f(cx, y1, cz);
+		Vector3f east = new Vector3f(x2, cy, cz);
+		Vector3f west = new Vector3f(x1, cy, cz);
+		Vector3f north = new Vector3f(cx, cy, z1);
+		Vector3f south = new Vector3f(cx, cy, z2);
+		
+		putTriangle(entry, buffer, center, top, east, north, color);
+		putTriangle(entry, buffer, center, top, north, west, color);
+		putTriangle(entry, buffer, center, top, west, south, color);
+		putTriangle(entry, buffer, center, top, south, east, color);
+		putTriangle(entry, buffer, center, bottom, north, east, color);
+		putTriangle(entry, buffer, center, bottom, west, north, color);
+		putTriangle(entry, buffer, center, bottom, south, west, color);
+		putTriangle(entry, buffer, center, bottom, east, south, color);
+	}
+	
+	private static void putLine(MatrixStack.Entry entry, VertexConsumer buffer,
+		Vector3f from, Vector3f to, int color)
+	{
+		Vector3f normal = new Vector3f(to).sub(from);
+		if(normal.lengthSquared() > 0)
+			normal.normalize();
+		else
+			normal.set(0, 1, 0);
+		
+		putVertex(entry, buffer, from, normal, color);
+		putVertex(entry, buffer, to, normal, color);
+	}
+	
+	private static void putTriangle(MatrixStack.Entry entry,
+		VertexConsumer buffer, Vector3f center, Vector3f v1, Vector3f v2,
+		Vector3f v3, int color)
+	{
+		Vector3f normal =
+			new Vector3f(v2).sub(v1).cross(new Vector3f(v3).sub(v1));
+		if(normal.lengthSquared() > 0)
+		{
+			Vector3f faceDir =
+				new Vector3f(v1).add(v2).add(v3).div(3F).sub(center);
+			if(normal.dot(faceDir) < 0)
+				normal.negate();
+			normal.normalize();
+		}else
+			normal.set(0, 1, 0);
+		
+		putVertex(entry, buffer, v1, normal, color);
+		putVertex(entry, buffer, v2, normal, color);
+		putVertex(entry, buffer, v3, normal, color);
+		putVertex(entry, buffer, v3, normal, color);
+	}
+	
+	private static void putVertex(MatrixStack.Entry entry,
+		VertexConsumer buffer, Vector3f pos, Vector3f normal, int color)
+	{
+		buffer.vertex(entry, pos.x(), pos.y(), pos.z()).color(color)
+			.normal(entry, normal.x(), normal.y(), normal.z());
+	}
+	
 	public static void drawOutlinedBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{

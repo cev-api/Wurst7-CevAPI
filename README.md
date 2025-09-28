@@ -64,7 +64,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
 - Manager UI (`.waypoints` or apostrophe key).  
-- Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency)
+- Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency and Render Distance)
 - Coordinates overlay: Show your direction and current XYZ position above the compass overlay
 - Preset icons
 - Features: name, co-ordinates, dimension, icon, visibility, lines, color, copy button, opposite co-ordinates (nether), death pruning.  
@@ -73,6 +73,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ### Breadcrumbs
 - Leaves a line trail behind you (toggle-able/pause-able).  
+- Trail can be infinitely long
 - Settings: color, max sections, section length, thickness.  
 
 ### LogoutSpots
@@ -80,6 +81,9 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Removes spots when they rejoin.  
 - Rendering: solid box + outline, optional tracers, name labels with adjustable scale.  
 - Settings: side color, line color, name scale, tracers toggle.  
+
+### AutoDisenchant
+- Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
 
 ### ItemESP (expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
@@ -97,6 +101,10 @@ Highlights dropped, equipped, and framed items with powerful filters and customi
 Examples:  
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
 - Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.  
+
+### List UI (Search, MobSearch, ItemESP, Xray etc) improvemements
+- Able to specifically enter and save keywords into the list (Great for custom items on modded servers).
+- Able to clear the entire list with a single button
 
 ### ClickGUI improvements
 - Accidentally typing in ClickGUI just continues what you typed in the Navigator typing in ClickGUI just continues what you typed in the Navigator
@@ -131,6 +139,8 @@ Examples:
 
 ### MobESP improvements
 - Added rainbow/fixed color options for boxes/lines.  
+- Added octahedron shapes and set it as the new default.
+- Added box color fill option
 
 ### Portal ESP improvement
 - Radius changes reset scan instantly.  

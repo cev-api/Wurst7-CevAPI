@@ -49,6 +49,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		QUERY
 	}
 	
+	private static final int MAX_TEXT_LENGTH = 256;
 	private final net.wurstclient.settings.EnumSetting<SearchMode> mode =
 		new net.wurstclient.settings.EnumSetting<>("Mode", SearchMode.values(),
 			SearchMode.TYPE_ID);
@@ -61,10 +62,10 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			+ "\u00a7lFancy\u00a7r mode shows slightly larger boxes that look better.");
 	private final TextFieldSetting typeId = new TextFieldSetting("Type",
 		"The entity type to match when Query is empty (e.g. minecraft:zombie or zombie).",
-		"minecraft:zombie", v -> v.length() <= 64);
+		"minecraft:zombie", v -> v.length() <= MAX_TEXT_LENGTH);
 	private final TextFieldSetting query = new TextFieldSetting("Query",
 		"Enter text to match entity IDs or names by keyword. Separate multiple terms with commas.",
-		"", v -> v.length() <= 64);
+		"", v -> v.length() <= MAX_TEXT_LENGTH);
 	private final CheckboxSetting useRainbow =
 		new CheckboxSetting("Rainbow colors",
 			"Use a rainbow color instead of the fixed color.", false);
@@ -150,12 +151,16 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 			for(String s : entityList.getTypeNames())
 			{
-				net.minecraft.util.Identifier id =
-					net.minecraft.util.Identifier.tryParse(s);
-				if(id != null)
+				if(s == null)
+					continue;
+				String raw = s.trim();
+				if(raw.isEmpty())
+					continue;
+				Identifier id = Identifier.tryParse(raw);
+				if(id != null && Registries.ENTITY_TYPE.containsId(id))
 					exact.add(id.toString());
-				else if(s != null && !s.isBlank())
-					kw.add(s.toLowerCase(java.util.Locale.ROOT));
+				else
+					kw.add(raw.toLowerCase(Locale.ROOT));
 			}
 			listExactIds = exact;
 			listKeywords = kw.toArray(new String[0]);

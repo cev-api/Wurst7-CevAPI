@@ -39,6 +39,7 @@
     "GameMenuScreenMixin",
     "GameRendererMixin",
     "GenericContainerScreenMixin",
+    "GrindstoneScreenMixin",
     "HeldItemRendererMixin",
     "IngameHudMixin",
     "InGameOverlayRendererMixin",
