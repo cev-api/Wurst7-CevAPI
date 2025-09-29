@@ -73,6 +73,7 @@ public final class WaypointEditScreen extends Screen
 	private ButtonWidget oppositeButton;
 	private ButtonWidget visibleButton;
 	private ButtonWidget linesButton;
+	private ButtonWidget beaconButton;
 	
 	public WaypointEditScreen(Screen prev, WaypointsManager manager,
 		Waypoint waypoint, boolean isNew)
@@ -183,8 +184,9 @@ public final class WaypointEditScreen extends Screen
 			addDrawableChild(visibleButton);
 			y += 28;
 			
-			// Reserve space for opposite preview text, then Lines toggle row
+			// Reserve space for opposite preview text, then Lines/Beacon row
 			y += 16;
+			int toggleWidth = (cw - halfGap) / 2;
 			linesButton = ButtonWidget
 				.builder(Text.literal(buttonLabel("Lines", waypoint.isLines())),
 					b -> {
@@ -192,8 +194,19 @@ public final class WaypointEditScreen extends Screen
 						b.setMessage(Text
 							.literal(buttonLabel("Lines", waypoint.isLines())));
 					})
-				.dimensions(x, y, cw, 20).build();
+				.dimensions(x, y, toggleWidth, 20).build();
 			addDrawableChild(linesButton);
+			beaconButton = ButtonWidget
+				.builder(Text.literal(beaconLabel(waypoint.getBeaconMode())),
+					b -> {
+						Waypoint.BeaconMode next =
+							nextBeaconMode(waypoint.getBeaconMode());
+						waypoint.setBeaconMode(next);
+						b.setMessage(Text.literal(beaconLabel(next)));
+					})
+				.dimensions(x + toggleWidth + halfGap, y, toggleWidth, 20)
+				.build();
+			addDrawableChild(beaconButton);
 			y += 28;
 			
 			// Icon selector
@@ -303,6 +316,31 @@ public final class WaypointEditScreen extends Screen
 	private static String buttonLabel(String name, boolean on)
 	{
 		return name + ": " + (on ? "ON" : "OFF");
+	}
+	
+	private String beaconLabel(Waypoint.BeaconMode mode)
+	{
+		Waypoint.BeaconMode safe =
+			mode == null ? Waypoint.BeaconMode.OFF : mode;
+		String state = switch(safe)
+		{
+			case OFF -> "OFF";
+			case SOLID -> "ON";
+			case ESP -> "ESP";
+		};
+		return "Beacon: " + state;
+	}
+	
+	private Waypoint.BeaconMode nextBeaconMode(Waypoint.BeaconMode mode)
+	{
+		Waypoint.BeaconMode safe =
+			mode == null ? Waypoint.BeaconMode.OFF : mode;
+		return switch(safe)
+		{
+			case OFF -> Waypoint.BeaconMode.SOLID;
+			case SOLID -> Waypoint.BeaconMode.ESP;
+			case ESP -> Waypoint.BeaconMode.OFF;
+		};
 	}
 	
 	private void usePlayerPos()

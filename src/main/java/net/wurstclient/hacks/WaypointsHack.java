@@ -51,6 +51,7 @@ public final class WaypointsHack extends Hack
 	private final WaypointsManager manager;
 	private static final DateTimeFormatter TIME_FMT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
+	private static final double DISTANCE_SLIDER_INFINITE = 10001.0;
 	
 	private String worldId = "default";
 	private BlockPos lastDeathAt;
@@ -62,10 +63,9 @@ public final class WaypointsHack extends Hack
 	// Guard to avoid handling our own injected chat messages
 	private boolean sendingOwnChat = false;
 	
-	private final SliderSetting textRenderDistance = new SliderSetting(
-		"Text render distance", 127, 0, 5000, 1, ValueDisplay.INTEGER);
-	private final CheckboxSetting alwaysRenderText =
-		new CheckboxSetting("Always render text", false);
+	private final SliderSetting waypointRenderDistance = new SliderSetting(
+		"Waypoint render distance", 127, 0, DISTANCE_SLIDER_INFINITE, 1,
+		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
 	private final SliderSetting fadeDistance = new SliderSetting(
 		"Waypoint fade distance", 20, 0, 1000, 1, ValueDisplay.INTEGER);
 	private final SliderSetting maxDeathPositions = new SliderSetting(
@@ -84,9 +84,17 @@ public final class WaypointsHack extends Hack
 		new ColorSetting("Death waypoint color", new java.awt.Color(0xFF4444));
 	private final CheckboxSetting compassMode =
 		new CheckboxSetting("Compass mode (top bar)", false);
+	private final SliderSetting compassIconRange = new SliderSetting(
+		"Compass icon range", 5000, 0, DISTANCE_SLIDER_INFINITE, 1,
+		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
+	private final SliderSetting compassBackgroundOpacity = new SliderSetting(
+		"Compass background opacity", 50, 0, 100, 1, ValueDisplay.INTEGER);
 	// Opacity slider for compass icons and distance/name text (0-100%)
 	private final SliderSetting compassOpacity = new SliderSetting(
 		"Compass opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	private final SliderSetting beaconRenderDistance = new SliderSetting(
+		"Beacon render distance", 1000, 0, DISTANCE_SLIDER_INFINITE, 1,
+		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
 	// Compass position sliders (percent of screen)
 	private final SliderSetting compassXPercent =
 		new SliderSetting("Compass X %", 50, 0, 100, 1, ValueDisplay.INTEGER);
@@ -104,14 +112,16 @@ public final class WaypointsHack extends Hack
 		addSetting(new net.wurstclient.settings.WaypointsSetting(
 			"Manage waypoints", this.manager));
 		
-		addSetting(textRenderDistance);
-		addSetting(alwaysRenderText);
+		addSetting(waypointRenderDistance);
 		addSetting(fadeDistance);
 		addSetting(compassMode);
+		addSetting(compassIconRange);
 		addSetting(compassXPercent);
 		addSetting(compassYPercent);
 		addSetting(showPlayerCoordsAboveCompass);
 		addSetting(compassOpacity);
+		addSetting(beaconRenderDistance);
+		addSetting(compassBackgroundOpacity);
 		addSetting(maxDeathPositions);
 		addSetting(chatOnDeath);
 		addSetting(createDeathWaypoints);
@@ -304,6 +314,11 @@ public final class WaypointsHack extends Hack
 			return;
 		
 		var list = new ArrayList<>(manager.all());
+		double beaconRange = beaconRenderDistance.getValue();
+		boolean beaconInfinite = beaconRange >= DISTANCE_SLIDER_INFINITE;
+		boolean beaconsEnabled = beaconInfinite || beaconRange > 0.0;
+		double beaconRangeSq = beaconInfinite ? Double.POSITIVE_INFINITY
+			: beaconRange * beaconRange;
 		// removed: tempOtherDeathWps rendering since we always save now
 		for(Waypoint w : list)
 		{
@@ -316,42 +331,53 @@ public final class WaypointsHack extends Hack
 			
 			double distSq = MC.player.squaredDistanceTo(wp.getX() + 0.5,
 				wp.getY() + 0.5, wp.getZ() + 0.5);
-			if(distSq > (double)(w.getMaxVisible() * w.getMaxVisible()))
+			double dist = Math.sqrt(distSq);
+			double trd = waypointRenderDistance.getValue();
+			boolean infiniteLabels = trd >= DISTANCE_SLIDER_INFINITE;
+			boolean allowBySlider = trd > 0 && dist <= trd;
+			boolean renderLabel = infiniteLabels || allowBySlider;
+			boolean beyondMaxVisible =
+				distSq > (double)(w.getMaxVisible() * w.getMaxVisible());
+			if(beyondMaxVisible && !renderLabel)
 				continue;
 			
-			// Near action with 1s cooldown after creation
-			if(System.currentTimeMillis() - w.getCreatedAt() >= 1000
-				&& distSq <= (double)(w.getActionWhenNearDistance()
-					* w.getActionWhenNearDistance()))
+			if(!beyondMaxVisible)
 			{
-				switch(w.getActionWhenNear())
+				// Near action with 1s cooldown after creation
+				if(System.currentTimeMillis() - w.getCreatedAt() >= 1000
+					&& distSq <= (double)(w.getActionWhenNearDistance()
+						* w.getActionWhenNearDistance()))
 				{
-					case HIDE -> w.setVisible(false);
-					case DELETE -> manager.remove(w);
-					default ->
-						{
-						}
+					switch(w.getActionWhenNear())
+					{
+						case HIDE -> w.setVisible(false);
+						case DELETE -> manager.remove(w);
+						default ->
+							{
+							}
+					}
+				}
+				
+				// draw tracer + box if enabled
+				if(w.isLines())
+				{
+					RenderUtils.drawTracer(matrices, partialTicks,
+						new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
+							wp.getZ() + 0.5),
+						applyFade(w.getColor(), distSq), false);
+					RenderUtils.drawOutlinedBoxes(matrices,
+						java.util.List.of(new Box(wp)),
+						applyFade(w.getColor(), distSq), false);
+				}
+				Waypoint.BeaconMode beaconMode = waypointBeaconMode(w);
+				if(beaconsEnabled && beaconMode != Waypoint.BeaconMode.OFF)
+				{
+					if(beaconInfinite || distSq <= beaconRangeSq)
+						drawBeaconBeam(matrices, wp,
+							applyFade(w.getColor(), distSq), beaconMode);
 				}
 			}
 			
-			// draw tracer + box if enabled
-			if(w.isLines())
-			{
-				RenderUtils.drawTracer(matrices, partialTicks,
-					new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
-						wp.getZ() + 0.5),
-					applyFade(w.getColor(), distSq), false);
-				RenderUtils.drawOutlinedBoxes(matrices,
-					java.util.List.of(new Box(wp)),
-					applyFade(w.getColor(), distSq), false);
-			}
-			
-			// labels near distance
-			double dist = Math.sqrt(distSq);
-			double trd = textRenderDistance.getValue();
-			boolean always = alwaysRenderText.isChecked();
-			boolean allowBySlider = trd > 0 && dist <= trd;
-			boolean renderLabel = always || allowBySlider;
 			if(renderLabel)
 			{
 				String title = w.getName() == null ? "" : w.getName();
@@ -364,10 +390,11 @@ public final class WaypointsHack extends Hack
 				double ly = baseY;
 				double lz = wp.getZ() + 0.5;
 				// Anchor at a near, fixed distance when either:
-				// - Always-render is on (override distance completely), or
+				// - Infinite labels are enabled (override distance completely),
+				// or
 				// - The label is extremely far away (to avoid engine culling),
 				// even if we're still within the slider distance.
-				boolean needAnchor = always || dist > 256.0;
+				boolean needAnchor = infiniteLabels || dist > 256.0;
 				if(needAnchor)
 				{
 					Vec3d cam = RenderUtils.getCameraPos();
@@ -518,6 +545,70 @@ public final class WaypointsHack extends Hack
 		matrices.pop();
 	}
 	
+	private void drawBeaconBeam(MatrixStack matrices, BlockPos pos, int color,
+		Waypoint.BeaconMode mode)
+	{
+		if(MC.world == null)
+			return;
+		Waypoint.BeaconMode safeMode =
+			mode == null ? Waypoint.BeaconMode.OFF : mode;
+		if(safeMode == Waypoint.BeaconMode.OFF)
+			return;
+		int minY = MC.world.getBottomY();
+		int maxY = MC.world.getTopYInclusive() + 1;
+		double baseX = pos.getX();
+		double baseZ = pos.getZ();
+		double centerX = baseX + 0.5;
+		double centerZ = baseZ + 0.5;
+		boolean depthTest = safeMode != Waypoint.BeaconMode.ESP;
+		int rgb = color & 0x00FFFFFF;
+		int alpha = (color >>> 24) & 0xFF;
+		if(alpha <= 0)
+			alpha = 64;
+		java.util.ArrayList<RenderUtils.ColoredBox> boxes =
+			new java.util.ArrayList<>();
+		boxes
+			.add(new RenderUtils.ColoredBox(
+				new Box(centerX - 0.18, minY, centerZ - 0.18, centerX + 0.18,
+					maxY, centerZ + 0.18),
+				withAlpha(rgb, Math.min(255, alpha + 100))));
+		boxes
+			.add(
+				new RenderUtils.ColoredBox(
+					new Box(centerX - 0.32, minY, centerZ - 0.05,
+						centerX + 0.32, maxY, centerZ + 0.05),
+					withAlpha(rgb, alpha / 2)));
+		boxes
+			.add(
+				new RenderUtils.ColoredBox(
+					new Box(centerX - 0.05, minY, centerZ - 0.32,
+						centerX + 0.05, maxY, centerZ + 0.32),
+					withAlpha(rgb, alpha / 2)));
+		boxes.add(new RenderUtils.ColoredBox(
+			new Box(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1),
+			withAlpha(rgb, Math.max(30, alpha / 6))));
+		RenderUtils.drawSolidBoxes(matrices, boxes, depthTest);
+		if(safeMode == Waypoint.BeaconMode.ESP)
+		{
+			RenderUtils.drawOutlinedBoxes(matrices,
+				java.util.List.of(
+					new Box(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
+				withAlpha(rgb, Math.max(alpha, 120)), false);
+		}
+	}
+	
+	private Waypoint.BeaconMode waypointBeaconMode(Waypoint waypoint)
+	{
+		Waypoint.BeaconMode mode = waypoint.getBeaconMode();
+		return mode == null ? Waypoint.BeaconMode.OFF : mode;
+	}
+	
+	private static int withAlpha(int rgb, int alpha)
+	{
+		int clamped = Math.max(0, Math.min(255, alpha));
+		return (clamped << 24) | (rgb & 0x00FFFFFF);
+	}
+	
 	private int applyFade(int argb, double distSq)
 	{
 		double fade = fadeDistance.getValue();
@@ -597,8 +688,12 @@ public final class WaypointsHack extends Hack
 		double selectFov = 6.0; // degrees for selection
 		
 		// background bar
+		double bgOpacity = Math.max(0.0,
+			Math.min(1.0, compassBackgroundOpacity.getValue() / 100.0));
+		int bgAlpha = (int)Math.round(255 * bgOpacity);
+		int bgColor = (bgAlpha << 24);
 		context.fill(centerX - halfWidth - pad, barY - 2,
-			centerX + halfWidth + pad, barY + barH + 2, 0x80000000);
+			centerX + halfWidth + pad, barY + barH + 2, bgColor);
 		
 		// Optionally draw player coords above the bar
 		if(showPlayerCoordsAboveCompass.isChecked())
@@ -616,6 +711,9 @@ public final class WaypointsHack extends Hack
 		
 		var list = new ArrayList<>(manager.all());
 		ArrayList<WaypointEntry> entries = new ArrayList<>();
+		double iconRange = compassIconRange.getValue();
+		boolean infiniteIconRange = iconRange >= DISTANCE_SLIDER_INFINITE;
+		double iconRangeSq = iconRange * iconRange;
 		double bestAbs = Double.MAX_VALUE;
 		WaypointEntry best = null;
 		
@@ -634,9 +732,19 @@ public final class WaypointsHack extends Hack
 			double dz = (wpb.getZ() + 0.5) - pz;
 			double distSq = MC.player.squaredDistanceTo(wpb.getX() + 0.5,
 				wpb.getY() + 0.5, wpb.getZ() + 0.5);
-			if(distSq > (double)(w.getMaxVisible() * w.getMaxVisible()))
-				continue;
-				
+			int waypointMax = w.getMaxVisible();
+			double waypointMaxSq = (double)(waypointMax * waypointMax);
+			boolean beyondWaypointMax = distSq > waypointMaxSq;
+			if(!infiniteIconRange)
+			{
+				if(iconRange <= 0 && distSq > 0)
+					continue;
+				if(iconRange > 0 && distSq > iconRangeSq)
+					continue;
+				if(iconRange <= waypointMax && beyondWaypointMax)
+					continue;
+			}
+			
 			// Compute horizontal signed angle between player's forward vector
 			// and the vector to the waypoint. This is robust to Minecraft yaw
 			// conventions and avoids axis-misalignment issues.

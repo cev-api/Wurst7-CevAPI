@@ -30,11 +30,14 @@ import net.wurstclient.util.RenderUtils;
 public final class BreadcrumbsHack extends Hack
 	implements UpdateListener, RenderListener
 {
+	private static final int MAX_SECTIONS_INFINITE = 10050;
+	
 	private final ColorSetting color =
 		new ColorSetting("Color", "Trail color.", new Color(255, 64, 64));
 	private final SliderSetting maxSections =
-		new SliderSetting("Max sections", 1000, 100, 5000, 50,
-			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
+		new SliderSetting("Max sections", 1000, 100, MAX_SECTIONS_INFINITE, 50,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER
+				.withLabel(MAX_SECTIONS_INFINITE, "Infinite"));
 	private final SliderSetting sectionLen =
 		new SliderSetting("Section length", 0.5, 0.1, 5.0, 0.1,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
@@ -96,7 +99,9 @@ public final class BreadcrumbsHack extends Hack
 		if(movedEnough(last, here, sectionLen.getValue()))
 		{
 			points.add(here);
-			while(points.size() > maxSections.getValueI())
+			int limit = maxSections.getValueI();
+			boolean infinite = limit >= MAX_SECTIONS_INFINITE;
+			while(!infinite && points.size() > limit)
 				points.pollFirst();
 		}
 	}

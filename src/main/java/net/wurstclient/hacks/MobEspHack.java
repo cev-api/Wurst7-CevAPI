@@ -7,27 +7,26 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import java.awt.Color;
 
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.settings.EspBoxSizeSetting;
-import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.EspBoxSizeSetting;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.*;
 import net.wurstclient.util.EntityUtils;
@@ -39,11 +38,15 @@ import net.wurstclient.util.RenderUtils.ColoredPoint;
 public final class MobEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
-	private final EspStyleSetting style = new EspStyleSetting();
+	private final MobEspStyleSetting style = new MobEspStyleSetting();
 	
-	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting(
+	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting("Box size",
 		"\u00a7lAccurate\u00a7r mode shows the exact hitbox of each mob.\n"
-			+ "\u00a7lFancy\u00a7r mode shows slightly larger boxes that look better.");
+			+ "\u00a7lFancy\u00a7r mode shows slightly larger boxes that look better.",
+		EspBoxSizeSetting.BoxSize.ACCURATE);
+	
+	private final CheckboxSetting fillShapes = new CheckboxSetting(
+		"Fill shapes", "Render filled versions of the ESP shapes.", true);
 	
 	// New color options to match MobSearch
 	private final CheckboxSetting useRainbow =
@@ -84,7 +87,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(boxSize);
-		// Add new color settings
+		addSetting(fillShapes);
 		addSetting(useRainbow);
 		addSetting(color);
 		entityFilters.forEach(this::addSetting);
@@ -133,42 +136,136 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
-		if(style.hasBoxes())
+		MobEspStyleSetting.Shape shape = style.getShape();
+		boolean drawShape = shape != MobEspStyleSetting.Shape.NONE;
+		boolean drawLines = style.hasLines();
+		boolean drawFill = drawShape && fillShapes.isChecked();
+		
+		ArrayList<ColoredBox> outlineShapes =
+			drawShape ? new ArrayList<>(mobs.size()) : null;
+		ArrayList<ColoredBox> filledShapes =
+			drawFill ? new ArrayList<>(mobs.size()) : null;
+		ArrayList<ColoredPoint> ends =
+			drawLines ? new ArrayList<>(mobs.size()) : null;
+		
+		if(drawShape || drawLines)
 		{
-			double extraSize = boxSize.getExtraSize() / 2;
+			double extraSize = drawShape ? boxSize.getExtraSize() / 2D : 0;
 			
-			ArrayList<ColoredBox> boxes = new ArrayList<>(mobs.size());
 			for(LivingEntity e : mobs)
 			{
-				Box box = EntityUtils.getLerpedBox(e, partialTicks)
-					.offset(0, extraSize, 0).expand(extraSize);
-				boxes.add(new ColoredBox(box, getColorI(0.5F)));
+				Box lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
+				float[] rgb = getColorRgb();
+				int outlineColor = RenderUtils.toIntColor(rgb, 0.5F);
+				
+				if(drawShape)
+				{
+					Box box =
+						lerpedBox.offset(0, extraSize, 0).expand(extraSize);
+					outlineShapes.add(new ColoredBox(box, outlineColor));
+					
+					if(filledShapes != null)
+					{
+						int fillColor = RenderUtils.toIntColor(rgb, 0.15F);
+						filledShapes.add(new ColoredBox(box, fillColor));
+					}
+				}
+				
+				if(drawLines && ends != null)
+					ends.add(
+						new ColoredPoint(lerpedBox.getCenter(), outlineColor));
 			}
-			
-			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, false);
 		}
 		
-		if(style.hasLines())
+		if(filledShapes != null && !filledShapes.isEmpty())
 		{
-			ArrayList<ColoredPoint> ends = new ArrayList<>(mobs.size());
-			for(LivingEntity e : mobs)
+			switch(shape)
 			{
-				Vec3d point =
-					EntityUtils.getLerpedBox(e, partialTicks).getCenter();
-				ends.add(new ColoredPoint(point, getColorI(0.5F)));
+				case BOX -> RenderUtils.drawSolidBoxes(matrixStack,
+					filledShapes, false);
+				case OCTAHEDRON -> RenderUtils.drawSolidOctahedrons(matrixStack,
+					filledShapes, false);
+				default ->
+					{
+					}
 			}
-			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
 		}
+		
+		if(outlineShapes != null && !outlineShapes.isEmpty())
+		{
+			switch(shape)
+			{
+				case BOX -> RenderUtils.drawOutlinedBoxes(matrixStack,
+					outlineShapes, false);
+				case OCTAHEDRON -> RenderUtils
+					.drawOutlinedOctahedrons(matrixStack, outlineShapes, false);
+				default ->
+					{
+					}
+			}
+		}
+		
+		if(ends != null && !ends.isEmpty())
+			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
 	}
 	
-	private int getColorI(float alpha)
+	private float[] getColorRgb()
 	{
 		if(useRainbow.isChecked())
+			return RenderUtils.getRainbowColor();
+		return color.getColorF();
+	}
+	
+	private static final class MobEspStyleSetting
+		extends EnumSetting<MobEspStyleSetting.Style>
+	{
+		private MobEspStyleSetting()
 		{
-			float[] rgb = RenderUtils.getRainbowColor();
-			return RenderUtils.toIntColor(rgb, alpha);
+			super("Style", Style.values(), Style.OCTAHEDRONS);
 		}
-		return RenderUtils.toIntColor(color.getColorF(), alpha);
+		
+		public Shape getShape()
+		{
+			return getSelected().shape;
+		}
+		
+		public boolean hasLines()
+		{
+			return getSelected().lines;
+		}
+		
+		enum Shape
+		{
+			NONE,
+			BOX,
+			OCTAHEDRON;
+		}
+		
+		private enum Style
+		{
+			BOXES("Boxes only", Shape.BOX, false),
+			OCTAHEDRONS("Octahedrons only", Shape.OCTAHEDRON, false),
+			LINES("Lines only", Shape.NONE, true),
+			LINES_AND_BOXES("Lines and boxes", Shape.BOX, true),
+			LINES_AND_OCTAHEDRONS("Lines and octahedrons", Shape.OCTAHEDRON,
+				true);
+			
+			private final String name;
+			private final Shape shape;
+			private final boolean lines;
+			
+			private Style(String name, Shape shape, boolean lines)
+			{
+				this.name = name;
+				this.shape = shape;
+				this.lines = lines;
+			}
+			
+			@Override
+			public String toString()
+			{
+				return name;
+			}
+		}
 	}
 }

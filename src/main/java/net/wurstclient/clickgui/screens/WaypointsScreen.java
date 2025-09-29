@@ -118,9 +118,23 @@ public final class WaypointsScreen extends Screen
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
 			}).dimensions(x, createY, 300, 20).build());
 		
-		// Advance y to start the list below the create button (keep previous
+		// Xaero integration buttons sit right below the create button
+		int toolsY = createY + 24;
+		int toolGap = 10;
+		int toolWidth = (300 - toolGap) / 2;
+		addDrawableChild(
+			ButtonWidget.builder(Text.literal("Import Xaero"), b -> {
+				importFromXaero();
+			}).dimensions(x, toolsY, toolWidth, 20).build());
+		addDrawableChild(
+			ButtonWidget.builder(Text.literal("Export Xaero"), b -> {
+				exportToXaero();
+			}).dimensions(x + toolWidth + toolGap, toolsY, toolWidth, 20)
+				.build());
+		
+		// Advance y to start the list below the Xaero buttons (keep previous
 		// gap)
-		y = createY + 28;
+		y = toolsY + 28;
 		// Cache list for consistent rendering and color boxes
 		// Apply dimension filter when building the cached list
 		cachedList = new ArrayList<>();
@@ -322,6 +336,69 @@ public final class WaypointsScreen extends Screen
 		if(s != null && s.address != null && !s.address.isEmpty())
 			return s.address.replace(':', '_');
 		return "singleplayer";
+	}
+	
+	private void importFromXaero()
+	{
+		String worldId = resolveWorldId();
+		WaypointsManager.XaeroSyncStats stats =
+			manager.importFromXaero(worldId);
+		if(stats.imported() > 0 || stats.updated() > 0)
+		{
+			manager.save(worldId);
+			refreshAfterDataChange();
+		}
+		sendXaeroMessage(importSummary(stats));
+	}
+	
+	private void exportToXaero()
+	{
+		String worldId = resolveWorldId();
+		WaypointsManager.XaeroSyncStats stats = manager.exportToXaero(worldId);
+		sendXaeroMessage(exportSummary(stats));
+	}
+	
+	private void refreshAfterDataChange()
+	{
+		init(client, this.width, this.height);
+	}
+	
+	private void sendXaeroMessage(String message)
+	{
+		if(message == null || message.isBlank() || client == null)
+			return;
+		Text text = Text.literal(message);
+		if(client.player != null)
+			client.player.sendMessage(text, false);
+		else if(client.inGameHud != null)
+			client.inGameHud.getChatHud().addMessage(text);
+	}
+	
+	private String importSummary(WaypointsManager.XaeroSyncStats stats)
+	{
+		if(stats.filesTouched().isEmpty() && stats.imported() == 0
+			&& stats.updated() == 0 && stats.skipped() == 0)
+			return "No Xaero waypoint files found for this world.";
+		StringBuilder sb = new StringBuilder("Imported from Xaero: ");
+		sb.append(stats.imported()).append(" added");
+		sb.append(", ").append(stats.updated()).append(" updated");
+		if(stats.skipped() > 0)
+			sb.append(" (").append(stats.skipped()).append(" skipped)");
+		return sb.toString();
+	}
+	
+	private String exportSummary(WaypointsManager.XaeroSyncStats stats)
+	{
+		StringBuilder sb = new StringBuilder("Exported to Xaero: ");
+		if(stats.exported() > 0)
+			sb.append(stats.exported()).append(" waypoints");
+		else
+			sb.append("no waypoints written");
+		if(!stats.filesTouched().isEmpty())
+			sb.append(" -> ").append(stats.filesTouched().get(0));
+		if(stats.skipped() > 0)
+			sb.append(" (").append(stats.skipped()).append(" errors)");
+		return sb.toString();
 	}
 	
 	void saveNow()

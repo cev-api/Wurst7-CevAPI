@@ -35,6 +35,7 @@ public final class EditEntityTypeListScreen extends Screen
 	
 	private ListGui listGui;
 	private TextFieldWidget typeNameField;
+	private ButtonWidget addKeywordButton;
 	private ButtonWidget addButton;
 	private ButtonWidget removeButton;
 	private ButtonWidget doneButton;
@@ -57,10 +58,34 @@ public final class EditEntityTypeListScreen extends Screen
 		listGui = new ListGui(client, this, typeList.getTypeNames());
 		addSelectableChild(listGui);
 		
-		typeNameField = new TextFieldWidget(client.textRenderer,
-			width / 2 - 152, height - 56, 140, 20, Text.literal(""));
+		int rowY = height - 56;
+		int gap = 8;
+		int fieldWidth = 160;
+		int keywordWidth = 110;
+		int addWidth = 80;
+		int removeWidth = 120;
+		int totalWidth =
+			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
+		int rowStart = width / 2 - totalWidth / 2;
+		
+		typeNameField = new TextFieldWidget(client.textRenderer, rowStart, rowY,
+			fieldWidth, 20, Text.literal(""));
 		addSelectableChild(typeNameField);
 		typeNameField.setMaxLength(256);
+		
+		int keywordX = rowStart + fieldWidth + gap;
+		int addX = keywordX + keywordWidth + gap;
+		int removeX = addX + addWidth + gap;
+		
+		addDrawableChild(addKeywordButton =
+			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
+				String raw = typeNameField.getText();
+				if(raw != null)
+					raw = raw.trim();
+				if(raw != null && !raw.isEmpty())
+					typeList.addRawName(raw);
+				client.setScreen(EditEntityTypeListScreen.this);
+			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
@@ -80,14 +105,14 @@ public final class EditEntityTypeListScreen extends Screen
 						typeList.addRawName(raw);
 				}
 				client.setScreen(EditEntityTypeListScreen.this);
-			}).dimensions(width / 2 - 2, height - 56, 80, 20).build());
+			}).dimensions(addX, rowY, addWidth, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
 				String selected = listGui.getSelectedTypeName();
 				typeList.remove(typeList.getTypeNames().indexOf(selected));
 				client.setScreen(EditEntityTypeListScreen.this);
-			}).dimensions(width / 2 + 82, height - 56, 120, 20).build());
+			}).dimensions(removeX, rowY, removeWidth, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -144,7 +169,10 @@ public final class EditEntityTypeListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String nameOrId = typeNameField.getText().toLowerCase();
+		String rawInput = typeNameField.getText();
+		String nameOrId = rawInput == null ? "" : rawInput.toLowerCase();
+		String trimmed = rawInput == null ? "" : rawInput.trim();
+		boolean hasInput = !trimmed.isEmpty();
 		try
 		{
 			Identifier id = Identifier.of(nameOrId);
@@ -158,8 +186,8 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		if(typeToAdd == null)
 		{
-			String q = nameOrId == null ? ""
-				: nameOrId.trim().toLowerCase(java.util.Locale.ROOT);
+			String q = trimmed.isEmpty() ? ""
+				: trimmed.toLowerCase(java.util.Locale.ROOT);
 			if(q.isEmpty())
 			{
 				fuzzyMatches = java.util.Collections.emptyList();
@@ -181,9 +209,7 @@ public final class EditEntityTypeListScreen extends Screen
 				fuzzyMatches.sort(java.util.Comparator.comparing(
 					t -> Registries.ENTITY_TYPE.getId(t).toString()));
 			}
-			addButton.active =
-				!fuzzyMatches.isEmpty() || (typeNameField.getText() != null
-					&& !typeNameField.getText().trim().isEmpty());
+			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
 				: ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
@@ -193,6 +219,7 @@ public final class EditEntityTypeListScreen extends Screen
 			addButton.setMessage(Text.literal("Add"));
 		}
 		
+		addKeywordButton.active = hasInput;
 		removeButton.active = listGui.getSelectedOrNull() != null;
 	}
 	

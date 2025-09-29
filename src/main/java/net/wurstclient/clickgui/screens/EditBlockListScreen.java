@@ -38,6 +38,7 @@ public final class EditBlockListScreen extends Screen
 	
 	private ListGui listGui;
 	private TextFieldWidget blockNameField;
+	private ButtonWidget addKeywordButton;
 	private ButtonWidget addButton;
 	private ButtonWidget removeButton;
 	private ButtonWidget doneButton;
@@ -59,10 +60,34 @@ public final class EditBlockListScreen extends Screen
 		listGui = new ListGui(client, this, blockList.getBlockNames());
 		addSelectableChild(listGui);
 		
-		blockNameField = new TextFieldWidget(client.textRenderer,
-			width / 2 - 152, height - 56, 140, 20, Text.literal(""));
+		int rowY = height - 56;
+		int gap = 8;
+		int fieldWidth = 160;
+		int keywordWidth = 110;
+		int addWidth = 80;
+		int removeWidth = 120;
+		int totalWidth =
+			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
+		int rowStart = width / 2 - totalWidth / 2;
+		
+		blockNameField = new TextFieldWidget(client.textRenderer, rowStart,
+			rowY, fieldWidth, 20, Text.literal(""));
 		addSelectableChild(blockNameField);
 		blockNameField.setMaxLength(256);
+		
+		int keywordX = rowStart + fieldWidth + gap;
+		int addX = keywordX + keywordWidth + gap;
+		int removeX = addX + addWidth + gap;
+		
+		addDrawableChild(addKeywordButton =
+			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
+				String raw = blockNameField.getText();
+				if(raw != null)
+					raw = raw.trim();
+				if(raw != null && !raw.isEmpty())
+					blockList.addRawName(raw);
+				client.setScreen(EditBlockListScreen.this);
+			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
@@ -82,15 +107,14 @@ public final class EditBlockListScreen extends Screen
 						blockList.addRawName(raw);
 				}
 				client.setScreen(EditBlockListScreen.this);
-			}).dimensions(width / 2 + 40, height - 56, 80, 20).build());
+			}).dimensions(addX, rowY, addWidth, 20).build());
 		
-		// Shift remove to the right to make room for wider Add
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
 				blockList
 					.remove(blockList.indexOf(listGui.getSelectedBlockName()));
 				client.setScreen(EditBlockListScreen.this);
-			}).dimensions(width / 2 + 124, height - 56, 120, 20).build());
+			}).dimensions(removeX, rowY, removeWidth, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -148,13 +172,14 @@ public final class EditBlockListScreen extends Screen
 	public void tick()
 	{
 		String nameOrId = blockNameField.getText();
+		String trimmed = nameOrId == null ? "" : nameOrId.trim();
+		boolean hasInput = !trimmed.isEmpty();
 		blockToAdd =
 			net.wurstclient.util.BlockUtils.getBlockFromNameOrID(nameOrId);
 		// Build fuzzy matches if no exact block found
 		if(blockToAdd == null)
 		{
-			String q = nameOrId == null ? ""
-				: nameOrId.trim().toLowerCase(java.util.Locale.ROOT);
+			String q = trimmed.toLowerCase(java.util.Locale.ROOT);
 			if(q.isEmpty())
 			{
 				fuzzyMatches = java.util.Collections.emptyList();
@@ -179,9 +204,7 @@ public final class EditBlockListScreen extends Screen
 				fuzzyMatches.sort(java.util.Comparator
 					.comparing(net.wurstclient.util.BlockUtils::getName));
 			}
-			addButton.active =
-				!fuzzyMatches.isEmpty() || (blockNameField.getText() != null
-					&& !blockNameField.getText().trim().isEmpty());
+			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
 				: ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
@@ -191,6 +214,7 @@ public final class EditBlockListScreen extends Screen
 			addButton.setMessage(Text.literal("Add"));
 		}
 		
+		addKeywordButton.active = hasInput;
 		removeButton.active = listGui.getSelectedOrNull() != null;
 	}
 	
@@ -230,14 +254,15 @@ public final class EditBlockListScreen extends Screen
 		int border =
 			blockNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
 		int black = Colors.BLACK;
+		int iconBoxLeft = x0 - 20;
 		
 		// Left decoration for the item icon, anchored to the field.
-		context.fill(x0 - 16, y0, x0, y1, border);
-		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
+		context.fill(iconBoxLeft, y0, x0, y1, border);
+		context.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
 		
 		RenderUtils.drawItem(context,
 			blockToAdd == null ? ItemStack.EMPTY : new ItemStack(blockToAdd),
-			x0 - 28, y0 + 4, false);
+			iconBoxLeft + 2, y0 + 2, false);
 		
 		context.state.goDownLayer();
 		matrixStack.popMatrix();

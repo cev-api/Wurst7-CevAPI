@@ -20,6 +20,13 @@ public final class Waypoint
 		DELETE
 	}
 	
+	public enum BeaconMode
+	{
+		OFF,
+		SOLID,
+		ESP
+	}
+	
 	private final UUID uuid;
 	private final long createdAt;
 	
@@ -34,6 +41,7 @@ public final class Waypoint
 	private boolean opposite;
 	// Render lines (tracer/box) toggle
 	private boolean lines;
+	private BeaconMode beaconMode;
 	private ActionWhenNear actionWhenNear;
 	private int actionWhenNearDistance;
 	
@@ -50,7 +58,8 @@ public final class Waypoint
 		this.pos = BlockPos.ORIGIN;
 		this.dimension = WaypointDimension.OVERWORLD;
 		this.opposite = false;
-		this.lines = true;
+		this.lines = false;
+		this.beaconMode = BeaconMode.OFF;
 		this.actionWhenNear = ActionWhenNear.DISABLED;
 		this.actionWhenNearDistance = 8;
 	}
@@ -153,6 +162,26 @@ public final class Waypoint
 	public void setOpposite(boolean opposite)
 	{
 		this.opposite = opposite;
+	}
+	
+	public BeaconMode getBeaconMode()
+	{
+		return beaconMode;
+	}
+	
+	public void setBeaconMode(BeaconMode beaconMode)
+	{
+		this.beaconMode = beaconMode == null ? BeaconMode.OFF : beaconMode;
+	}
+	
+	public boolean hasBeacon()
+	{
+		return beaconMode != BeaconMode.OFF;
+	}
+	
+	public void setBeacon(boolean beacon)
+	{
+		setBeaconMode(beacon ? BeaconMode.ESP : BeaconMode.OFF);
 	}
 	
 	public boolean isLines()

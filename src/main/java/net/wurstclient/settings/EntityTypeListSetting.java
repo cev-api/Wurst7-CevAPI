@@ -70,16 +70,16 @@ public final class EntityTypeListSetting extends Setting
 	
 	private void addFromStringCanonicalizing(String s)
 	{
-		Identifier id = Identifier.tryParse(s);
-		String name;
+		if(s == null)
+			return;
+		String raw = s.trim();
+		if(raw.isEmpty())
+			return;
 		
-		if(id != null)
-		{
+		Identifier id = Identifier.tryParse(raw);
+		String name = raw;
+		if(id != null && Registries.ENTITY_TYPE.containsId(id))
 			name = id.toString();
-		}else
-		{
-			name = s;
-		}
 		
 		if(Collections.binarySearch(typeNames, name) < 0)
 		{
@@ -91,16 +91,10 @@ public final class EntityTypeListSetting extends Setting
 	// Allow adding raw keyword entries
 	public void addRawName(String raw)
 	{
-		if(raw == null)
-			return;
-		String name = raw.trim();
-		if(name.isEmpty())
-			return;
-		if(Collections.binarySearch(typeNames, name) >= 0)
-			return;
-		typeNames.add(name);
-		Collections.sort(typeNames);
-		WurstClient.INSTANCE.saveSettings();
+		int before = typeNames.size();
+		addFromStringCanonicalizing(raw);
+		if(typeNames.size() != before)
+			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void add(EntityType<?> type)

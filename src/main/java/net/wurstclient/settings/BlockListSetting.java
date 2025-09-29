@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 import net.minecraft.block.Block;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
@@ -51,16 +52,17 @@ public class BlockListSetting extends Setting
 	
 	private void addFromString(String s)
 	{
-		Identifier id = Identifier.tryParse(s);
-		String name;
+		if(s == null)
+			return;
+		String raw = s.trim();
+		if(raw.isEmpty())
+			return;
 		
-		if(id != null)
-		{
+		Identifier id = Identifier.tryParse(raw);
+		String name = raw;
+		
+		if(id != null && Registries.BLOCK.containsId(id))
 			name = id.toString();
-		}else
-		{
-			name = s;
-		}
 		
 		if(Collections.binarySearch(blockNames, name) < 0)
 		{
@@ -116,16 +118,10 @@ public class BlockListSetting extends Setting
 	// New: allow adding raw keyword entries
 	public void addRawName(String raw)
 	{
-		if(raw == null)
-			return;
-		String name = raw.trim();
-		if(name.isEmpty())
-			return;
-		if(Collections.binarySearch(blockNames, name) >= 0)
-			return;
-		blockNames.add(name);
-		Collections.sort(blockNames);
-		WurstClient.INSTANCE.saveSettings();
+		int before = blockNames.size();
+		addFromString(raw);
+		if(blockNames.size() != before)
+			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void remove(int index)

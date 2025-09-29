@@ -64,15 +64,18 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
 - Manager UI (`.waypoints` or apostrophe key).  
-- Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency)
+- Compass overlay: Show a bar at the top of the screen that shows the waypoint icons, when you're looking at it then it will display its name (Adjustable Position/Transparency and Render Distance)
 - Coordinates overlay: Show your direction and current XYZ position above the compass overlay
 - Preset icons
 - Features: name, co-ordinates, dimension, icon, visibility, lines, color, copy button, opposite co-ordinates (nether), death pruning.  
 - Constant-size labels and optional tracers.  
 - Stored per world/server under `wurst/waypoints/<worldId>.json`.  
+- Xaero's Minimap integration, allows exporting and importing of waypoint data.
+- Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 
 ### Breadcrumbs
 - Leaves a line trail behind you (toggle-able/pause-able).  
+- Trail can be infinitely long
 - Settings: color, max sections, section length, thickness.  
 
 ### LogoutSpots
@@ -81,7 +84,10 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Rendering: solid box + outline, optional tracers, name labels with adjustable scale.  
 - Settings: side color, line color, name scale, tracers toggle.  
 
-### ItemESP (expanded)
+### AutoDisenchant
+- Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
+
+### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
 
 - Base highlighting: all dropped items with configurable base color.  
@@ -98,11 +104,15 @@ Examples:
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
 - Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.  
 
-### ClickGUI improvements
+### List UI (Search, MobSearch, ItemESP, Xray etc) Improvements
+- Able to specifically enter and save keywords into the list (Great for custom items on modded servers).
+- Able to clear the entire list with a single button
+
+### ClickGUI Improvements
 - Accidentally typing in ClickGUI just continues what you typed in the Navigator typing in ClickGUI just continues what you typed in the Navigator
 - Favorites category, middle click a hack for it to be added to Favorites. Middle click when within Favorites to remove it.
 
-### Search improvements
+### Search Improvements
 - Keyword queries supported; falls back to picker when empty.  
 - List mode with visual item list.  
 - Multi-term queries: comma-separated (e.g., `ore, ancient`).  
@@ -112,7 +122,7 @@ Examples:
 - Replaced full-sort approach to bounded max-heap (PriorityQueue) that keeps the closest N matches. This avoids sorting entire result and keeps search as fast as X-Ray.
 - Safer rescans and better crash handling.  
 
-### X-Ray improvements
+### X-Ray Improvements
 - Added ESP (Highlight Corners and or Fill Blocks)
     - Uses cached positions for speed
     - Optional transparency slider for ESP
@@ -120,25 +130,27 @@ Examples:
 - Opacity, block type changes and 'only show exposed' apply live without toggling.  
 - New minimum search to 100 blocks.
 
-### Nuker improvements
+### Nuker Improvements
 - Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
 
-### AutoSteal improvements
+### AutoSteal Improvements
 - Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bind-able to a key.
 
-### BaseFinder improvements
+### BaseFinder Improvements
 - Updated natural blocks list to latest versions.  
 
-### MobESP improvements
+### MobESP Improvements
 - Added rainbow/fixed color options for boxes/lines.  
+- Added octahedron shapes and set it as the new default.
+- Added box color fill option
 
-### Portal ESP improvement
+### Portal ESP Improvement
 - Radius changes reset scan instantly.  
 
-### Larger scan radius
+### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
 
-### Sticky area (new option)
+### Sticky Area (New Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
 - Keeps results anchored as you move. Default OFF.  
 

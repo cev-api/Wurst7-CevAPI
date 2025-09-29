@@ -53,6 +53,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		QUERY
 	}
 	
+	private static final int MAX_SPECIAL_TEXT_LENGTH = 256;
 	private final EspStyleSetting style = new EspStyleSetting();
 	
 	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting(
@@ -74,10 +75,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"minecraft:piglin_head");
 	private final TextFieldSetting specialItemId = new TextFieldSetting(
 		"Item ID", "Exact item ID when Special mode is Item_ID.",
-		"minecraft:player_head", v -> v.length() <= 64);
+		"minecraft:player_head", v -> v.length() <= MAX_SPECIAL_TEXT_LENGTH);
 	private final TextFieldSetting specialQuery = new TextFieldSetting("Query",
 		"Enter text to match item IDs or names by keyword. Separate multiple terms with commas.",
-		"", v -> v.length() <= 64);
+		"", v -> v.length() <= MAX_SPECIAL_TEXT_LENGTH);
 	private final CheckboxSetting specialRainbow = new CheckboxSetting(
 		"Special rainbow",
 		"If enabled, selected items will cycle through rainbow colors.", false);
@@ -185,12 +186,16 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 				for(String s : specialList.getItemNames())
 				{
-					net.minecraft.util.Identifier id =
-						net.minecraft.util.Identifier.tryParse(s);
-					if(id != null)
+					if(s == null)
+						continue;
+					String raw = s.trim();
+					if(raw.isEmpty())
+						continue;
+					Identifier id = Identifier.tryParse(raw);
+					if(id != null && Registries.ITEM.containsId(id))
 						exact.add(id.toString());
-					else if(s != null && !s.isBlank())
-						kw.add(s.toLowerCase(java.util.Locale.ROOT));
+					else
+						kw.add(raw.toLowerCase(Locale.ROOT));
 				}
 				specialExactIds = exact;
 				specialKeywords = kw.toArray(new String[0]);
