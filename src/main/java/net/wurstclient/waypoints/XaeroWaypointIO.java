@@ -25,6 +25,10 @@ final class XaeroWaypointIO
 	static final String HEADER =
 		"#waypoint:name:initials:x:y:z:color:disabled:type:set:rotate_on_tp:tp_yaw:visibility_type:destination";
 	static final String DEFAULT_SET = "gui.xaero_default";
+	private static final int DEFAULT_TYPE_IDX = 0;
+	// Xaero only keeps waypoints with icon type IDs in [0, 4]. Clamp anything
+	// higher so exports persist.
+	private static final int MAX_SUPPORTED_TYPE = 4;
 	private static final String SAFE_DELIMITER = "§§";
 	private static final int[] COLOR_TABLE = new int[]{0xFFFFFFFF, 0xFFFFAA00,
 		0xFFFF55FF, 0xFF55FFFF, 0xFFFFFF55, 0xFF55FF55, 0xFFFF55AA, 0xFF555555,
@@ -210,9 +214,10 @@ final class XaeroWaypointIO
 	static int typeFromIcon(String icon)
 	{
 		if(icon == null)
-			return 0;
+			return DEFAULT_TYPE_IDX;
 		String key = icon.toLowerCase(Locale.ROOT);
-		return ICON_TO_TYPE.getOrDefault(key, 0);
+		int type = ICON_TO_TYPE.getOrDefault(key, DEFAULT_TYPE_IDX);
+		return type <= MAX_SUPPORTED_TYPE ? type : DEFAULT_TYPE_IDX;
 	}
 	
 	private static String encode(String value)

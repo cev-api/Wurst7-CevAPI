@@ -857,7 +857,8 @@ public final class WaypointsHack extends Hack
 		{
 			if(y >= maxY)
 				return maxY;
-			y += 10; //default 19px height, but use 10px as it looks better (at least for me)
+			y += 10; // default 19px height, but use 10px as it looks better (at
+						// least for me)
 		}
 		return Math.min(y, maxY);
 	}
