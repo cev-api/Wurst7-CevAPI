@@ -19,6 +19,8 @@ import java.util.Locale;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.hud.BossBarHud;
+import net.minecraft.client.gui.hud.ClientBossBar;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -89,9 +91,9 @@ public final class WaypointsHack extends Hack
 		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
 	private final SliderSetting compassBackgroundOpacity = new SliderSetting(
 		"Compass background opacity", 50, 0, 100, 1, ValueDisplay.INTEGER);
-	// Opacity slider for compass icons and distance/name text (0-100%)
+	// Opacity slider for compass text (0-100%)
 	private final SliderSetting compassOpacity = new SliderSetting(
-		"Compass opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+		"Compass text opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
 	private final SliderSetting beaconRenderDistance = new SliderSetting(
 		"Beacon render distance", 1000, 0, DISTANCE_SLIDER_INFINITE, 1,
 		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
@@ -116,11 +118,11 @@ public final class WaypointsHack extends Hack
 		addSetting(fadeDistance);
 		addSetting(compassMode);
 		addSetting(compassIconRange);
+		addSetting(beaconRenderDistance);
 		addSetting(compassXPercent);
 		addSetting(compassYPercent);
 		addSetting(showPlayerCoordsAboveCompass);
 		addSetting(compassOpacity);
-		addSetting(beaconRenderDistance);
 		addSetting(compassBackgroundOpacity);
 		addSetting(maxDeathPositions);
 		addSetting(chatOnDeath);
@@ -680,7 +682,9 @@ public final class WaypointsHack extends Hack
 		// Position from settings (percent of screen)
 		int centerX =
 			(int)Math.round(sw * (compassXPercent.getValue() / 100.0));
-		int barY = (int)Math.round(sh * (compassYPercent.getValue() / 100.0));
+		int baseBarY =
+			(int)Math.round(sh * (compassYPercent.getValue() / 100.0));
+		int barY = adjustCompassYForOverlays(context, baseBarY);
 		int barH = 12; // thinner
 		int pad = 6;
 		int halfWidth = Math.min(120, Math.max(60, sw / 4)); // shorter
@@ -824,6 +828,38 @@ public final class WaypointsHack extends Hack
 			context.drawText(tr, title, titleX, titleY, textColor, false);
 			context.drawText(tr, distText, distX, distY, textColor, false);
 		}
+	}
+	
+	private int adjustCompassYForOverlays(DrawContext context, int baseY)
+	{
+		int adjusted = baseY;
+		int bossBarBottom = getBossBarBottom(context);
+		if(bossBarBottom > 0)
+		{
+			int margin = showPlayerCoordsAboveCompass.isChecked() ? 10 : 2;
+			adjusted = Math.max(adjusted, bossBarBottom + margin);
+		}
+		return adjusted;
+	}
+	
+	private int getBossBarBottom(DrawContext context)
+	{
+		if(MC.inGameHud == null)
+			return 0;
+		BossBarHud bossBarHud = MC.inGameHud.getBossBarHud();
+		if(bossBarHud == null || bossBarHud.bossBars.isEmpty())
+			return 0;
+		int screenHeight = context.getScaledWindowHeight();
+		int maxY = screenHeight / 3;
+		// Vanilla boss bars start at y=12 and advance by 19px per entry.
+		int y = 12;
+		for(ClientBossBar bar : bossBarHud.bossBars.values())
+		{
+			if(y >= maxY)
+				return maxY;
+			y += 10; //default 19px height, but use 10px as it looks better (at least for me)
+		}
+		return Math.min(y, maxY);
 	}
 	
 	private static String cardinalFromYaw(double yaw)

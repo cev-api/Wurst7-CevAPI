@@ -36,3 +36,4 @@ accessible	field	net/minecraft/entity/Entity	movementMultiplier	Lnet/minecraft/u
 accessible	field	net/minecraft/entity/LivingEntity	equipment	Lnet/minecraft/entity/EntityEquipment;
 accessible	field	net/minecraft/entity/LivingEntity	jumping	Z
 accessible	field	net/minecraft/network/packet/s2c/play/ChunkDeltaUpdateS2CPacket	sectionPos	Lnet/minecraft/util/math/ChunkSectionPos;
+accessible	field	net/minecraft/client/gui/hud/BossBarHud	bossBars	Ljava/util/Map;
