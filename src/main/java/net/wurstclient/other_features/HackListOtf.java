@@ -41,6 +41,16 @@ public final class HackListOtf extends OtherFeature
 			+ "Only visible when \u00a76RainbowUI\u00a7r is disabled.",
 		Color.WHITE);
 	
+	private final CheckboxSetting shadowBox = new CheckboxSetting("Shadow box",
+		"Replace the text shadow with a transparent black box background. Useful when scaled fonts produce ugly shadows.",
+		false);
+	
+	// Shadow box alpha (0.0 - 1.0)
+	private final net.wurstclient.settings.SliderSetting shadowBoxAlpha =
+		new net.wurstclient.settings.SliderSetting("Shadow box alpha", 0.5, 0.0,
+			1.0, 0.01,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
+	
 	// Transparency (0.0 - 1.0)
 	private final net.wurstclient.settings.SliderSetting transparency =
 		new net.wurstclient.settings.SliderSetting("Transparency", 1.0, 0.0,
@@ -79,7 +89,7 @@ public final class HackListOtf extends OtherFeature
 	
 	// New: spacing between entries in screen pixels (can be negative)
 	private final net.wurstclient.settings.SliderSetting entrySpacing =
-		new net.wurstclient.settings.SliderSetting("Entry spacing", 0.0, -8.0,
+		new net.wurstclient.settings.SliderSetting("Entry spacing", 0.0, 0,
 			24.0, 1.0,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
 	
@@ -90,6 +100,8 @@ public final class HackListOtf extends OtherFeature
 		addSetting(mode);
 		addSetting(position);
 		addSetting(color);
+		addSetting(shadowBox);
+		addSetting(shadowBoxAlpha);
 		addSetting(fontSize);
 		addSetting(entrySpacing);
 		addSetting(transparency);
@@ -141,6 +153,11 @@ public final class HackListOtf extends OtherFeature
 		return animations.isChecked();
 	}
 	
+	public boolean useShadowBox()
+	{
+		return shadowBox.isChecked();
+	}
+	
 	public Comparator<Hack> getComparator()
 	{
 		if(revSort.isChecked())
@@ -176,6 +193,11 @@ public final class HackListOtf extends OtherFeature
 	public int getColor(int alpha)
 	{
 		return color.getColorI(alpha);
+	}
+	
+	public double getShadowBoxAlpha()
+	{
+		return shadowBoxAlpha.getValue();
 	}
 	
 	public static enum Mode

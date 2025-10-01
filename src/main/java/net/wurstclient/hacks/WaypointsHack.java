@@ -74,7 +74,7 @@ public final class WaypointsHack extends Hack
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
 		1.0, 0.5, 5.0, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting chatOnDeath =
-		new CheckboxSetting("Chat", true);
+		new CheckboxSetting("Say death position in chat", true);
 	private final CheckboxSetting createDeathWaypoints =
 		new CheckboxSetting("Create death waypoints", true);
 	private final CheckboxSetting trackOtherDeaths =
@@ -117,20 +117,20 @@ public final class WaypointsHack extends Hack
 		
 		addSetting(waypointRenderDistance);
 		addSetting(fadeDistance);
-		addSetting(compassMode);
-		addSetting(compassIconRange);
 		addSetting(beaconRenderDistance);
+		addSetting(labelScale);
+		addSetting(compassMode);
+		addSetting(showPlayerCoordsAboveCompass);
+		addSetting(compassIconRange);
 		addSetting(compassXPercent);
 		addSetting(compassYPercent);
-		addSetting(showPlayerCoordsAboveCompass);
 		addSetting(compassOpacity);
 		addSetting(compassBackgroundOpacity);
-		addSetting(maxDeathPositions);
-		addSetting(chatOnDeath);
 		addSetting(createDeathWaypoints);
+		addSetting(chatOnDeath);
 		addSetting(deathWaypointLines);
 		addSetting(trackOtherDeaths);
-		addSetting(labelScale);
+		addSetting(maxDeathPositions);
 		addSetting(deathColor);
 	}
 	

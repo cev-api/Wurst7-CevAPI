@@ -177,8 +177,22 @@ public final class HackListHUD implements UpdateListener
 		int shadowY = (int)Math.round((baseSY + 1) * scale); // consistent 1px
 																// vertical
 																// offset
-		RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
-			0x04000000 | alpha, false, scale);
+		if(WurstClient.INSTANCE.getOtfs().hackListOtf.useShadowBox())
+		{
+			int pad = (int)Math.max(1, Math.round(2 * scale));
+			int boxX1 = mainX - pad;
+			int boxY1 = mainY; // align to line top to avoid overlap
+			int boxX2 = mainX + stringWidth + pad;
+			int boxY2 = mainY + lineHeight; // align to line bottom
+			int fillAlpha = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
+				.getShadowBoxAlpha() * otf.getTransparency() * 255);
+			int boxColor = (fillAlpha << 24);
+			context.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
+		}else
+		{
+			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+				0x04000000 | alpha, false, scale);
+		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(textColor | alpha), false, scale);
@@ -222,8 +236,22 @@ public final class HackListHUD implements UpdateListener
 		int mainY2 = (int)Math.round(baseSY2 * scale);
 		int shadowX2 = (int)Math.round((baseSX2 + 1) * scale);
 		int shadowY2 = (int)Math.round((baseSY2 + 1) * scale);
-		RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
-			0x04000000 | alpha, false, scale);
+		if(WurstClient.INSTANCE.getOtfs().hackListOtf.useShadowBox())
+		{
+			int pad2 = (int)Math.max(1, Math.round(2 * scale));
+			int boxX12 = mainX2 - pad2;
+			int boxY12 = mainY2; // align to line top
+			int boxX22 = mainX2 + stringWidth + pad2;
+			int boxY22 = mainY2 + lineHeight; // align to line bottom
+			int fillAlpha2 = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
+				.getShadowBoxAlpha() * otf.getTransparency() * 255);
+			int boxColor2 = (fillAlpha2 << 24);
+			context.fill(boxX12, boxY12, boxX22, boxY22, boxColor2);
+		}else
+		{
+			RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
+				0x04000000 | alpha, false, scale);
+		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
 			(textColor | alpha), false, scale);
