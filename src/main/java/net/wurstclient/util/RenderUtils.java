@@ -1052,4 +1052,32 @@ public enum RenderUtils
 	
 	public record ColoredBox(Box box, int color)
 	{}
+	
+	/**
+	 * Draw text scaled by the given scale factor.
+	 * This applies a matrix transform so glyphs are scaled.
+	 */
+	public static void drawScaledText(DrawContext context, TextRenderer tr,
+		String text, int x, int y, int color, boolean shadow, double scale)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		if(Math.abs(scale - 1.0) < 1e-6)
+		{
+			context.drawText(tr, text, x, y, color, shadow);
+			return;
+		}
+		
+		// push matrix, scale, draw at coordinates adjusted by scale, pop
+		context.getMatrices().pushMatrix();
+		// scale both axes; Z scale = 1
+		context.getMatrices().scale((float)scale);
+		// When the matrix is scaled by `scale`, coordinates supplied to
+		// drawText
+		// must be divided by `scale` to appear at the intended screen position.
+		int sx = (int)Math.round(x / scale);
+		int sy = (int)Math.round(y / scale);
+		context.drawText(tr, text, sx, sy, color, shadow);
+		context.getMatrices().popMatrix();
+	}
 }

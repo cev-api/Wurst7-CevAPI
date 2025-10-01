@@ -20,6 +20,7 @@ import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.ui.UiScale;
 import org.lwjgl.glfw.GLFW;
 
 public final class FeatureButton extends Component
@@ -152,7 +153,10 @@ public final class FeatureButton extends Component
 		String name = feature.getName();
 		int tx = x1 + (x3 - x1 - TR.getWidth(name)) / 2;
 		int ty = y1 + 2;
-		context.drawText(TR, name, tx, ty, GUI.getTxtColor(), false);
+		double scale = UiScale.OVERRIDE_SCALE != 1.0 ? UiScale.OVERRIDE_SCALE
+			: UiScale.getScale();
+		RenderUtils.drawScaledText(context, TR, name, tx, ty, GUI.getTxtColor(),
+			false, scale);
 		
 		context.state.goDownLayer();
 	}

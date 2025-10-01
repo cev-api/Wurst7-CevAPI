@@ -34,12 +34,29 @@ public final class HackListOtf extends OtherFeature
 	private final EnumSetting<Position> position = new EnumSetting<>("Position",
 		"Which side of the screen the HackList should be shown on."
 			+ "\nChange this to \u00a7lRight\u00a7r when using TabGUI.",
-		Position.values(), Position.LEFT);
+		Position.values(), Position.TOP_LEFT);
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Color of the HackList text.\n"
 			+ "Only visible when \u00a76RainbowUI\u00a7r is disabled.",
 		Color.WHITE);
+	
+	// Transparency (0.0 - 1.0)
+	private final net.wurstclient.settings.SliderSetting transparency =
+		new net.wurstclient.settings.SliderSetting("Transparency", 1.0, 0.0,
+			1.0, 0.01,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
+	
+	// X and Y offset from screen edge in pixels (can be negative)
+	private final net.wurstclient.settings.SliderSetting xOffset =
+		new net.wurstclient.settings.SliderSetting("X offset", 0.0, -200.0,
+			200.0, 1.0,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
+	
+	private final net.wurstclient.settings.SliderSetting yOffset =
+		new net.wurstclient.settings.SliderSetting("Y offset", 0.0, -200.0,
+			200.0, 1.0,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
 	
 	private final EnumSetting<SortBy> sortBy = new EnumSetting<>("Sort by",
 		"Determines how the HackList entries are sorted.\n"
@@ -56,6 +73,16 @@ public final class HackListOtf extends OtherFeature
 	private SortBy prevSortBy;
 	private Boolean prevRevSort;
 	
+	private final net.wurstclient.settings.SliderSetting fontSize =
+		new net.wurstclient.settings.SliderSetting("Font size", 1.0, 0.5, 2.0,
+			0.05, net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
+	
+	// New: spacing between entries in screen pixels (can be negative)
+	private final net.wurstclient.settings.SliderSetting entrySpacing =
+		new net.wurstclient.settings.SliderSetting("Entry spacing", 0.0, -8.0,
+			24.0, 1.0,
+			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
+	
 	public HackListOtf()
 	{
 		super("HackList", "Shows a list of active hacks on the screen.");
@@ -63,6 +90,11 @@ public final class HackListOtf extends OtherFeature
 		addSetting(mode);
 		addSetting(position);
 		addSetting(color);
+		addSetting(fontSize);
+		addSetting(entrySpacing);
+		addSetting(transparency);
+		addSetting(xOffset);
+		addSetting(yOffset);
 		addSetting(sortBy);
 		addSetting(revSort);
 		addSetting(animations);
@@ -76,6 +108,32 @@ public final class HackListOtf extends OtherFeature
 	public Position getPosition()
 	{
 		return position.getSelected();
+	}
+	
+	public double getTransparency()
+	{
+		return transparency.getValue();
+	}
+	
+	public double getFontSize()
+	{
+		return fontSize.getValue();
+	}
+	
+	// New: get entry spacing in screen pixels
+	public int getEntrySpacing()
+	{
+		return entrySpacing.getValueI();
+	}
+	
+	public int getXOffset()
+	{
+		return xOffset.getValueI();
+	}
+	
+	public int getYOffset()
+	{
+		return yOffset.getValueI();
 	}
 	
 	public boolean isAnimations()
@@ -144,9 +202,16 @@ public final class HackListOtf extends OtherFeature
 	
 	public static enum Position
 	{
+		// Legacy values for backward compatibility
 		LEFT("Left"),
+		RIGHT("Right"),
+		TOP_LEFT("Top left"),
 		
-		RIGHT("Right");
+		TOP_RIGHT("Top right"),
+		
+		BOTTOM_LEFT("Bottom left"),
+		
+		BOTTOM_RIGHT("Bottom right");
 		
 		private final String name;
 		

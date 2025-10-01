@@ -12,15 +12,16 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 
-import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Colors;
+import net.minecraft.client.font.TextRenderer;
+import net.wurstclient.ui.UiScale;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.other_features.HackListOtf;
 import net.wurstclient.other_features.HackListOtf.Mode;
 import net.wurstclient.other_features.HackListOtf.Position;
+import net.wurstclient.util.RenderUtils;
 
 public final class HackListHUD implements UpdateListener
 {
@@ -39,11 +40,23 @@ public final class HackListHUD implements UpdateListener
 		if(otf.getMode() == Mode.HIDDEN)
 			return;
 		
-		if(otf.getPosition() == Position.LEFT
-			&& WurstClient.INSTANCE.getOtfs().wurstLogoOtf.isVisible())
-			posY = 22;
+		boolean isBottom = (otf.getPosition() == Position.BOTTOM_LEFT
+			|| otf.getPosition() == Position.BOTTOM_RIGHT);
+		// Factor both global UI scale and hacklist font size multiplier
+		int lineHeight = (int)Math.round(9 * getScale() * otf.getFontSize());
+		int spacing = otf.getEntrySpacing();
+		int count = activeHax.size();
+		int height = count == 0 ? 0
+			: count * lineHeight + Math.max(0, count - 1) * spacing;
+		
+		int baseY = isBottom ? context.getScaledWindowHeight() - height - 2 : 2;
+		// Avoid overlapping with Wurst Logo in top-left
+		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
+			|| otf.getPosition() == Position.BOTTOM_LEFT);
+		if(isLeft && WurstClient.INSTANCE.getOtfs().wurstLogoOtf.isVisible())
+			posY = Math.max(baseY, 22);
 		else
-			posY = 2;
+			posY = baseY;
 		
 		// color
 		if(WurstClient.INSTANCE.getHax().rainbowUiHack.isEnabled())
@@ -55,30 +68,33 @@ public final class HackListHUD implements UpdateListener
 		}else
 			textColor = otf.getColor(0x04);
 		
-		int height = posY + activeHax.size() * 9;
-		
+		int totalHeight = height + posY;
 		if(otf.getMode() == Mode.COUNT
-			|| height > context.getScaledWindowHeight())
+			|| totalHeight > context.getScaledWindowHeight())
 			drawCounter(context);
 		else
-			drawHackList(context, partialTicks);
+			drawHackList(context, partialTicks, lineHeight, spacing);
 	}
 	
 	private void drawCounter(DrawContext context)
 	{
 		long size = activeHax.stream().filter(e -> e.hack.isEnabled()).count();
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
-		drawString(context, s);
+		drawString(context, s,
+			/* lineHeight */(int)Math.round(9 * getScale() * otf.getFontSize()),
+			/* spacing */0);
 	}
 	
-	private void drawHackList(DrawContext context, float partialTicks)
+	private void drawHackList(DrawContext context, float partialTicks,
+		int lineHeight, int spacing)
 	{
 		if(otf.isAnimations())
 			for(HackListEntry e : activeHax)
-				drawWithOffset(context, e, partialTicks);
+				drawWithOffset(context, e, partialTicks, lineHeight, spacing);
 		else
 			for(HackListEntry e : activeHax)
-				drawString(context, e.hack.getRenderName());
+				drawString(context, e.hack.getRenderName(), lineHeight,
+					spacing);
 	}
 	
 	public void updateState(Hack hack)
@@ -129,31 +145,50 @@ public final class HackListHUD implements UpdateListener
 		}
 	}
 	
-	private void drawString(DrawContext context, String s)
+	private void drawString(DrawContext context, String s, int lineHeight,
+		int spacing)
 	{
 		TextRenderer tr = WurstClient.MC.textRenderer;
 		int posX;
-		
-		if(otf.getPosition() == Position.LEFT)
-			posX = 2;
+		int yDraw = posY + otf.getYOffset();
+		double scale = getScale() * otf.getFontSize();
+		// scaled string width
+		int stringWidth = (int)(tr.getWidth(s) * scale);
+		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
+			|| otf.getPosition() == Position.BOTTOM_LEFT);
+		if(isLeft)
+			posX = 2 + otf.getXOffset();
 		else
 		{
 			int screenWidth = context.getScaledWindowWidth();
-			int stringWidth = tr.getWidth(s);
-			
-			posX = screenWidth - stringWidth - 2;
+			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
 		}
-		
-		context.drawText(tr, s, posX + 1, posY + 1, Colors.BLACK, false);
+		int alpha = (int)(otf.getTransparency() * 255) << 24;
+		// Quantize to scaled-space integer coordinates to avoid half-pixel
+		// blurring
+		// Compute base pre-scale coords once and derive shadow/main from them
+		double eps = 1e-6;
+		int baseSX = (int)Math.round(posX / scale + eps);
+		int baseSY = (int)Math.round(yDraw / scale + eps);
+		int mainX = (int)Math.round(baseSX * scale);
+		int mainY = (int)Math.round(baseSY * scale);
+		int shadowX = (int)Math.round((baseSX + 1) * scale); // +1 pre-scale =
+																// 1px on screen
+		int shadowY = (int)Math.round((baseSY + 1) * scale); // consistent 1px
+																// vertical
+																// offset
+		RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+			0x04000000 | alpha, false, scale);
 		context.state.goUpLayer();
-		context.drawText(tr, s, posX, posY, textColor | Colors.BLACK, false);
+		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
+			(textColor | alpha), false, scale);
 		context.state.goDownLayer();
 		
-		posY += 9;
+		posY += lineHeight + spacing;
 	}
 	
 	private void drawWithOffset(DrawContext context, HackListEntry e,
-		float partialTicks)
+		float partialTicks, int lineHeight, int spacing)
 	{
 		TextRenderer tr = WurstClient.MC.textRenderer;
 		String s = e.hack.getRenderName();
@@ -161,25 +196,46 @@ public final class HackListHUD implements UpdateListener
 		float offset =
 			e.offset * partialTicks + e.prevOffset * (1 - partialTicks);
 		
+		double scale = getScale() * otf.getFontSize();
+		int stringWidth = (int)(tr.getWidth(s) * scale);
+		
 		float posX;
-		if(otf.getPosition() == Position.LEFT)
-			posX = 2 - 5 * offset;
+		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
+			|| otf.getPosition() == Position.BOTTOM_LEFT);
+		if(isLeft)
+			posX = 2 - (int)(5 * offset * scale) + otf.getXOffset();
 		else
 		{
 			int screenWidth = context.getScaledWindowWidth();
-			int stringWidth = tr.getWidth(s);
-			
-			posX = screenWidth - stringWidth - 2 + 5 * offset;
+			posX = screenWidth - stringWidth - 2 + (int)(5 * offset * scale)
+				+ otf.getXOffset();
 		}
 		
-		int alpha = (int)(255 * (1 - offset / 4)) << 24;
-		context.drawText(tr, s, (int)posX + 1, posY + 1, 0x04000000 | alpha,
-			false);
+		int yDraw = posY + otf.getYOffset();
+		
+		int alpha = (int)(255 * (1 - offset / 4) * otf.getTransparency()) << 24;
+		// Quantize positions for consistent pixel alignment
+		double eps2 = 1e-6;
+		int baseSX2 = (int)Math.round(posX / scale + eps2);
+		int baseSY2 = (int)Math.round(yDraw / scale + eps2);
+		int mainX2 = (int)Math.round(baseSX2 * scale);
+		int mainY2 = (int)Math.round(baseSY2 * scale);
+		int shadowX2 = (int)Math.round((baseSX2 + 1) * scale);
+		int shadowY2 = (int)Math.round((baseSY2 + 1) * scale);
+		RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
+			0x04000000 | alpha, false, scale);
 		context.state.goUpLayer();
-		context.drawText(tr, s, (int)posX, posY, textColor | alpha, false);
+		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
+			(textColor | alpha), false, scale);
 		context.state.goDownLayer();
 		
-		posY += 9;
+		posY += lineHeight + spacing;
+	}
+	
+	private double getScale()
+	{
+		return UiScale.OVERRIDE_SCALE != 1.0 ? UiScale.OVERRIDE_SCALE
+			: UiScale.getScale();
 	}
 	
 	private static final class HackListEntry

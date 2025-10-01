@@ -20,7 +20,6 @@ import java.util.Locale;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.BossBarHud;
-import net.minecraft.client.gui.hud.ClientBossBar;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -106,6 +105,8 @@ public final class WaypointsHack extends Hack
 	private final CheckboxSetting showPlayerCoordsAboveCompass =
 		new CheckboxSetting("Show player XYZ above compass", false);
 	
+	private final Set<java.util.UUID> tempWaypoints = new HashSet<>();
+	
 	public WaypointsHack()
 	{
 		super("Waypoints");
@@ -151,7 +152,7 @@ public final class WaypointsHack extends Hack
 	@Override
 	protected void onDisable()
 	{
-		manager.save(worldId);
+		saveExcludingTemporaries();
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.remove(DeathListener.class, this);
@@ -161,13 +162,65 @@ public final class WaypointsHack extends Hack
 		knownDead.clear();
 	}
 	
+	// Add a temporary waypoint that should not be persisted. Returns the
+	// created waypoint UUID.
+	public java.util.UUID addTemporaryWaypoint(Waypoint w)
+	{
+		manager.addOrUpdate(w);
+		tempWaypoints.add(w.getUuid());
+		// Do not persist permanently; but update file without temporaries
+		saveExcludingTemporaries();
+		return w.getUuid();
+	}
+	
+	public void removeTemporaryWaypoint(java.util.UUID uuid)
+	{
+		// remove from manager and from temp tracking
+		// find waypoint by uuid
+		Waypoint toRemove = null;
+		for(Waypoint wp : new ArrayList<>(manager.all()))
+			if(wp.getUuid().equals(uuid))
+			{
+				toRemove = wp;
+				break;
+			}
+		if(toRemove != null)
+		{
+			manager.remove(toRemove);
+			tempWaypoints.remove(uuid);
+			saveExcludingTemporaries();
+		}
+	}
+	
+	private void saveExcludingTemporaries()
+	{
+		if(tempWaypoints.isEmpty())
+		{
+			manager.save(worldId);
+			return;
+		}
+		// Backup temporary waypoints
+		ArrayList<Waypoint> backups = new ArrayList<>();
+		for(Waypoint w : new ArrayList<>(manager.all()))
+			if(tempWaypoints.contains(w.getUuid()))
+				backups.add(w);
+		// Remove temporaries from manager
+		for(Waypoint w : backups)
+			manager.remove(w);
+		// Save without temporaries
+		manager.save(worldId);
+		// Re-add temporaries
+		for(Waypoint w : backups)
+			manager.addOrUpdate(w);
+	}
+	
 	@Override
 	public void onUpdate()
 	{
 		String wid = resolveWorldId();
 		if(!wid.equals(worldId))
 		{
-			manager.save(worldId);
+			saveExcludingTemporaries();
 			worldId = wid;
 			manager.load(worldId);
 		}
@@ -204,7 +257,7 @@ public final class WaypointsHack extends Hack
 						// Always save and prune
 						manager.addOrUpdate(w);
 						pruneDeaths();
-						manager.save(worldId);
+						saveExcludingTemporaries();
 						// Announce in chat if enabled (guard recursion)
 						if(chatOnDeath.isChecked())
 						{
@@ -290,7 +343,7 @@ public final class WaypointsHack extends Hack
 			// Always save and prune
 			manager.addOrUpdate(w);
 			pruneDeaths();
-			manager.save(worldId);
+			saveExcludingTemporaries();
 			otherDeathCooldown.put(id, now);
 			
 			// If chat is enabled, append coordinates to the incoming line
@@ -464,7 +517,7 @@ public final class WaypointsHack extends Hack
 			w.setLines(deathWaypointLines.isChecked());
 			manager.addOrUpdate(w);
 			pruneDeaths();
-			manager.save(worldId);
+			saveExcludingTemporaries();
 		}
 		
 		lastDeathAt = at;
@@ -853,7 +906,7 @@ public final class WaypointsHack extends Hack
 		int maxY = screenHeight / 3;
 		// Vanilla boss bars start at y=12 and advance by 19px per entry.
 		int y = 12;
-		for(ClientBossBar bar : bossBarHud.bossBars.values())
+		for(int i = 0; i < bossBarHud.bossBars.size(); i++)
 		{
 			if(y >= maxY)
 				return maxY;

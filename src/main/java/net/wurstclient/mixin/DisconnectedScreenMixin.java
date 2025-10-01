@@ -84,8 +84,21 @@ public class DisconnectedScreenMixin extends Screen
 			.builder(Text.literal("AutoReconnect"), b -> pressAutoReconnect())
 			.width(200).build());
 		
+		// Show player location (click to copy to clipboard)
+		final String posString;
+		if(client.player != null)
+		{
+			var ppos = client.player.getBlockPos();
+			posString = ppos.getX() + ", " + ppos.getY() + ", " + ppos.getZ();
+		}else
+			posString = "Unknown";
+		ButtonWidget copyLocButton = grid.add(ButtonWidget
+			.builder(Text.literal("Copy location: " + posString), b -> {
+				client.keyboard.setClipboard(posString);
+			}).width(200).build());
+		
 		grid.refreshPositions();
-		Stream.of(reconnectButton, autoReconnectButton)
+		Stream.of(reconnectButton, autoReconnectButton, copyLocButton)
 			.forEach(this::addDrawableChild);
 		
 		AutoReconnectHack autoReconnect =
