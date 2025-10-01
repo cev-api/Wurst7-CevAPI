@@ -196,12 +196,23 @@ public final class WaypointsScreen extends Screen
 		// Scroll buttons (▲ / ▼) positioned just to the right of the 300px list
 		// area
 		int arrowX = x + 305; // a little to the right of the list
+		// "Top" button above the up-arrow that jumps directly to the top
+		addDrawableChild(ButtonWidget.builder(Text.literal("▲▲"), b -> {
+			scrollToTop();
+		}).dimensions(arrowX + 20, Math.max(0, viewportTop - 24), 20, 20)
+			.build());
+		// Up arrow (move up by a few rows)
 		addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> {
 			scrollBy(-ROW_HEIGHT * 3);
-		}).dimensions(arrowX, viewportTop, 20, 20).build());
+		}).dimensions(arrowX + 20, viewportTop, 20, 20).build());
+		// Down arrow (move down by a few rows)
 		addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> {
 			scrollBy(ROW_HEIGHT * 3);
-		}).dimensions(arrowX, viewportBottom - 20, 20, 20).build());
+		}).dimensions(arrowX + 20, viewportBottom - 20, 20, 20).build());
+		// "Bottom" button below the down-arrow that jumps directly to bottom
+		addDrawableChild(ButtonWidget.builder(Text.literal("▼▼"), b -> {
+			scrollToBottom();
+		}).dimensions(arrowX + 20, viewportBottom, 20, 20).build());
 		
 		addDrawableChild(ButtonWidget
 			.builder(Text.literal("Back"), b -> client.setScreen(prev))
@@ -404,5 +415,18 @@ public final class WaypointsScreen extends Screen
 	void saveNow()
 	{
 		manager.save(resolveWorldId());
+	}
+	
+	private void scrollToTop()
+	{
+		scroll = 0;
+	}
+	
+	private void scrollToBottom()
+	{
+		int contentHeight = rows.size() * ROW_HEIGHT;
+		int maxScroll =
+			Math.max(0, contentHeight - (viewportBottom - viewportTop));
+		scroll = maxScroll;
 	}
 }

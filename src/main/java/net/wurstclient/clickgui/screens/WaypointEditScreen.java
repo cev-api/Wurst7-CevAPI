@@ -56,6 +56,8 @@ public final class WaypointEditScreen extends Screen
 	
 	private int dimIndex;
 	private ButtonWidget dimButton;
+	// Draft storage for dimension selection when navigating to child screens
+	private Integer draftDimIndex;
 	
 	private static final String[] ICON_KEYS =
 		new String[]{"square", "circle", "triangle", "star", "diamond", "skull",
@@ -150,6 +152,13 @@ public final class WaypointEditScreen extends Screen
 					dimIndex = i;
 					break;
 				}
+			// If we have a draft index (from opening a child screen), restore
+			// it
+			if(draftDimIndex != null)
+			{
+				dimIndex = draftDimIndex;
+				draftDimIndex = null;
+			}
 			dimButton = ButtonWidget
 				.builder(Text.literal("Dimension: " + dims[dimIndex].name()),
 					b -> {
@@ -249,6 +258,9 @@ public final class WaypointEditScreen extends Screen
 					draftX = xField.getText();
 					draftY = yField.getText();
 					draftZ = zField.getText();
+					// Preserve selected dimension index so it isn't lost when
+					// the child color screen re-initializes this screen.
+					draftDimIndex = dimIndex;
 					client.setScreen(new EditColorScreen(this, colorSetting));
 				}).dimensions(x, y, cw - 24, 20).build();
 			addDrawableChild(colorButton);
@@ -309,6 +321,8 @@ public final class WaypointEditScreen extends Screen
 			draftX = xField.getText();
 			draftY = yField.getText();
 			draftZ = zField.getText();
+			// Preserve dimension selection across resize/child screens
+			draftDimIndex = dimIndex;
 		}
 		init(client, width, height);
 	}
