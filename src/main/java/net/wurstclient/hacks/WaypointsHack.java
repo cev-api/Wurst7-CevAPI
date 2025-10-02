@@ -311,7 +311,10 @@ public final class WaypointsHack extends Hack
 			|| lower.contains("earned the advancement")
 			|| lower.contains("has made the advancement")
 			|| lower.contains("has made the achievement")
-			|| (lower.contains("advancement") && lower.contains("completed")))
+			|| (lower.contains("advancement") && lower.contains("completed"))
+			|| (lower.contains("completed")
+				&& (lower.contains("challenge") || lower.contains("advancement")
+					|| lower.contains("achievement"))))
 			return;
 		
 		long now = System.currentTimeMillis();
@@ -910,8 +913,10 @@ public final class WaypointsHack extends Hack
 		{
 			if(y >= maxY)
 				return maxY;
-			y += 10; // default 19px height, but use 10px as it looks better (at
-						// least for me)
+			y += 10; // default is 19px height, but using 10px as it looks nicer, however, 
+					// when there's two boss bars it will overlap
+
+						
 		}
 		return Math.min(y, maxY);
 	}

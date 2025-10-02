@@ -168,8 +168,11 @@ public final class AutoDisenchantHack extends Hack
 	
 	private boolean canDisenchant(ItemStack stack)
 	{
-		if(!stack.hasEnchantments())
-			return false;
+		// if(!stack.hasEnchantments())
+		// return false;
+		
+		// Use EnchantmentHelper instead of ItemStack::hasEnchantments
+		// because the latter returns false for enchanted books.
 		
 		var enchantments =
 			EnchantmentHelper.getEnchantments(stack).getEnchantmentEntries();

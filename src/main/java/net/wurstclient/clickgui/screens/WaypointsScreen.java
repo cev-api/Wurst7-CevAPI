@@ -8,6 +8,8 @@
 package net.wurstclient.clickgui.screens;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -47,6 +49,21 @@ public final class WaypointsScreen extends Screen
 	
 	private final ArrayList<RowWidgets> rows = new ArrayList<>();
 	
+	// Persisted scroll per-world+dimension so returning keeps the same
+	// position even if a new screen instance was created.
+	private static final Map<String, Integer> savedScrolls = new HashMap<>();
+	
+	private void saveScrollState()
+	{
+		try
+		{
+			String key = resolveWorldId() + ":"
+				+ (filterDim == null ? "ALL" : filterDim.name());
+			savedScrolls.put(key, scroll);
+		}catch(Exception ignored)
+		{}
+	}
+	
 	public WaypointsScreen(Screen prev, WaypointsManager manager)
 	{
 		super(Text.literal("Waypoints"));
@@ -61,7 +78,9 @@ public final class WaypointsScreen extends Screen
 		int x = this.width / 2 - 150;
 		
 		rows.clear();
-		scroll = 0;
+		// preserve scroll so returning to this screen or refreshing doesn't
+		// jump the list back to the top
+		// scroll = 0;
 		
 		// Initialize default filter to current world if not set
 		if(filterDim == null)
@@ -149,6 +168,17 @@ public final class WaypointsScreen extends Screen
 		viewportTop = listStartY;
 		viewportBottom = this.height - 36; // a bit above back button
 		
+		// Try to restore a previously saved scroll position for this world+dim
+		try
+		{
+			String key = resolveWorldId() + ":"
+				+ (filterDim == null ? "ALL" : filterDim.name());
+			Integer s = savedScrolls.get(key);
+			if(s != null)
+				scroll = s;
+		}catch(Exception ignored)
+		{}
+		
 		for(int i = 0; i < cachedList.size(); i++)
 		{
 			Waypoint w = cachedList.get(i);
@@ -193,6 +223,14 @@ public final class WaypointsScreen extends Screen
 			rows.add(rw);
 		}
 		
+		// Clamp scroll so it stays within valid bounds after rebuilding the
+		// list
+		int contentHeight = rows.size() * ROW_HEIGHT;
+		int maxScroll =
+			Math.max(0, contentHeight - (viewportBottom - viewportTop));
+		scroll = Math.max(0, Math.min(scroll, maxScroll));
+		// Persist the (possibly adjusted) scroll position
+		saveScrollState();
 		// Scroll buttons (▲ / ▼) positioned just to the right of the 300px list
 		// area
 		int arrowX = x + 305; // a little to the right of the list
@@ -225,6 +263,7 @@ public final class WaypointsScreen extends Screen
 		int maxScroll =
 			Math.max(0, contentHeight - (viewportBottom - viewportTop));
 		scroll = Math.max(0, Math.min(scroll + dy, maxScroll));
+		saveScrollState();
 	}
 	
 	@Override
@@ -420,6 +459,7 @@ public final class WaypointsScreen extends Screen
 	private void scrollToTop()
 	{
 		scroll = 0;
+		saveScrollState();
 	}
 	
 	private void scrollToBottom()
@@ -428,5 +468,6 @@ public final class WaypointsScreen extends Screen
 		int maxScroll =
 			Math.max(0, contentHeight - (viewportBottom - viewportTop));
 		scroll = maxScroll;
+		saveScrollState();
 	}
 }
