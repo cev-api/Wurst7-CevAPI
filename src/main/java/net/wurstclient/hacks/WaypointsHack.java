@@ -913,10 +913,10 @@ public final class WaypointsHack extends Hack
 		{
 			if(y >= maxY)
 				return maxY;
-			y += 10; // default is 19px height, but using 10px as it looks nicer, however, 
-					// when there's two boss bars it will overlap
-
-						
+			y += 10; // default is 19px height, but using 10px as it looks
+						// nicer, however,
+						// when there's two boss bars it will overlap
+			
 		}
 		return Math.min(y, maxY);
 	}
