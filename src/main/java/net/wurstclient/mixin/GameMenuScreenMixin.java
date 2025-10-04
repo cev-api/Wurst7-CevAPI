@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -25,12 +26,17 @@ import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.resource.language.I18n;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.options.WurstOptionsScreen;
 
 @Mixin(GameMenuScreen.class)
 public abstract class GameMenuScreenMixin extends Screen
 {
+	@Unique
+	private static final Identifier WURST_TEXTURE =
+		Identifier.of("wurst", "wurst_128.png");
+	
 	@Unique
 	private ButtonWidget wurstOptionsButton;
 	
@@ -55,6 +61,18 @@ public abstract class GameMenuScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled() || wurstOptionsButton == null)
 			return;
+		
+		int x = wurstOptionsButton.getX() + 34;
+		int y = wurstOptionsButton.getY() + 2;
+		int w = 63;
+		int h = 16;
+		int fw = 63;
+		int fh = 16;
+		float u = 0;
+		float v = 0;
+		context.state.goUpLayer();
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, WURST_TEXTURE, x, y,
+			u, v, w, h, fw, fh);
 	}
 	
 	@Unique
@@ -90,8 +108,8 @@ public abstract class GameMenuScreenMixin extends Screen
 		hideFeedbackReportAndServerLinksButtons();
 		ensureSpaceAvailable(buttonX, buttonY, buttonWidth, buttonHeight);
 		
-		// Create Wurst Options button with full label instead of padded spaces
-		MutableText buttonText = Text.literal("Wurst 7 CevAPI Options");
+		// Create Wurst Options button
+		MutableText buttonText = Text.literal("            Options");
 		wurstOptionsButton = ButtonWidget
 			.builder(buttonText, b -> openWurstOptions())
 			.dimensions(buttonX, buttonY, buttonWidth, buttonHeight).build();

@@ -15,6 +15,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.ConfirmScreen;
@@ -22,10 +23,13 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
+import net.minecraft.util.Identifier;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
@@ -38,14 +42,11 @@ public final class EditItemListScreen extends Screen
 	
 	private ListGui listGui;
 	private TextFieldWidget itemNameField;
-	private ButtonWidget addKeywordButton;
 	private ButtonWidget addButton;
 	private ButtonWidget removeButton;
 	private ButtonWidget doneButton;
 	
 	private Item itemToAdd;
-	private java.util.List<net.minecraft.item.Item> fuzzyMatches =
-		java.util.Collections.emptyList();
 	
 	public EditItemListScreen(Screen prevScreen, ItemListSetting itemList)
 	{
@@ -60,61 +61,23 @@ public final class EditItemListScreen extends Screen
 		listGui = new ListGui(client, this, itemList.getItemNames());
 		addSelectableChild(listGui);
 		
-		int rowY = height - 56;
-		int gap = 8;
-		int fieldWidth = 160;
-		int keywordWidth = 110;
-		int addWidth = 80;
-		int removeWidth = 120;
-		int totalWidth =
-			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
-		int rowStart = width / 2 - totalWidth / 2;
-		
-		itemNameField = new TextFieldWidget(client.textRenderer, rowStart, rowY,
-			fieldWidth, 20, Text.literal(""));
+		itemNameField = new TextFieldWidget(client.textRenderer,
+			width / 2 - 152, height - 56, 150, 20, Text.literal(""));
 		addSelectableChild(itemNameField);
 		itemNameField.setMaxLength(256);
 		
-		int keywordX = rowStart + fieldWidth + gap;
-		int addX = keywordX + keywordWidth + gap;
-		int removeX = addX + addWidth + gap;
-		
-		addDrawableChild(addKeywordButton =
-			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
-				String raw = itemNameField.getText();
-				if(raw != null)
-					raw = raw.trim();
-				if(raw != null && !raw.isEmpty())
-					itemList.addRawName(raw);
-				client.setScreen(EditItemListScreen.this);
-			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
-		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
-				if(itemToAdd != null)
-				{
-					itemList.add(itemToAdd);
-				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
-				{
-					for(net.minecraft.item.Item it : fuzzyMatches)
-						itemList.add(it);
-				}else
-				{
-					String raw = itemNameField.getText();
-					if(raw != null)
-						raw = raw.trim();
-					if(raw != null && !raw.isEmpty())
-						itemList.addRawName(raw);
-				}
+				itemList.add(itemToAdd);
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(addX, rowY, addWidth, 20).build());
+			}).dimensions(width / 2 - 2, height - 56, 30, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
 				itemList.remove(itemList.getItemNames()
 					.indexOf(listGui.getSelectedBlockName()));
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(removeX, rowY, removeWidth, 20).build());
+			}).dimensions(width / 2 + 52, height - 56, 100, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -123,12 +86,7 @@ public final class EditItemListScreen extends Screen
 				client.setScreen(EditItemListScreen.this);
 			}, Text.literal("Reset to Defaults"),
 				Text.literal("Are you sure?"))))
-			.dimensions(width - 328, 8, 150, 20).build());
-		
-		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
-			itemList.clear();
-			client.setScreen(EditItemListScreen.this);
-		}).dimensions(width - 168, 8, 150, 20).build());
+			.dimensions(width - 108, 8, 100, 20).build());
 		
 		addDrawableChild(doneButton = ButtonWidget
 			.builder(Text.literal("Done"), b -> client.setScreen(prevScreen))
@@ -136,86 +94,45 @@ public final class EditItemListScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int mouseButton)
+	public boolean mouseClicked(Click context, boolean doubleClick)
 	{
-		itemNameField.mouseClicked(mouseX, mouseY, mouseButton);
-		return super.mouseClicked(mouseX, mouseY, mouseButton);
+		itemNameField.mouseClicked(context, doubleClick);
+		return super.mouseClicked(context, doubleClick);
 	}
 	
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int int_3)
+	public boolean keyPressed(KeyInput context)
 	{
-		switch(keyCode)
+		switch(context.key())
 		{
 			case GLFW.GLFW_KEY_ENTER:
 			if(addButton.active)
-				addButton.onPress();
+				addButton.onPress(context);
 			break;
 			
 			case GLFW.GLFW_KEY_DELETE:
 			if(!itemNameField.isFocused())
-				removeButton.onPress();
+				removeButton.onPress(context);
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			doneButton.onPress();
+			doneButton.onPress(context);
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(keyCode, scanCode, int_3);
+		return super.keyPressed(context);
 	}
 	
 	@Override
 	public void tick()
 	{
-		String rawInput = itemNameField.getText();
-		String nameOrId = rawInput == null ? "" : rawInput.toLowerCase();
-		String trimmed = rawInput == null ? "" : rawInput.trim();
-		boolean hasInput = !trimmed.isEmpty();
+		String nameOrId = itemNameField.getText().toLowerCase();
 		itemToAdd = ItemUtils.getItemFromNameOrID(nameOrId);
-		if(itemToAdd == null)
-		{
-			String q = trimmed.isEmpty() ? ""
-				: trimmed.toLowerCase(java.util.Locale.ROOT);
-			if(q.isEmpty())
-			{
-				fuzzyMatches = java.util.Collections.emptyList();
-			}else
-			{
-				java.util.ArrayList<net.minecraft.item.Item> list =
-					new java.util.ArrayList<>();
-				for(net.minecraft.util.Identifier id : net.minecraft.registry.Registries.ITEM
-					.getIds())
-				{
-					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
-					if(s.contains(q))
-						list.add(
-							net.minecraft.registry.Registries.ITEM.get(id));
-				}
-				java.util.LinkedHashMap<String, net.minecraft.item.Item> map =
-					new java.util.LinkedHashMap<>();
-				for(net.minecraft.item.Item it : list)
-					map.put(net.minecraft.registry.Registries.ITEM.getId(it)
-						.toString(), it);
-				fuzzyMatches = new java.util.ArrayList<>(map.values());
-				fuzzyMatches.sort(java.util.Comparator
-					.comparing(i -> net.minecraft.registry.Registries.ITEM
-						.getId(i).toString()));
-			}
-			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
-			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
-				: ("Add Matches (" + fuzzyMatches.size() + ")")));
-		}else
-		{
-			fuzzyMatches = java.util.Collections.emptyList();
-			addButton.active = true;
-			addButton.setMessage(Text.literal("Add"));
-		}
+		addButton.active = itemToAdd != null;
 		
-		addKeywordButton.active = hasInput;
 		removeButton.active = listGui.getSelectedOrNull() != null;
 	}
 	
@@ -237,37 +154,35 @@ public final class EditItemListScreen extends Screen
 		
 		for(Drawable drawable : drawables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
-			
-		// Draw placeholder + decorative left icon frame using ABSOLUTE
-		// coordinates
-		// derived from the actual TextFieldWidget position/size (no matrix
-		// translate).
-		context.state.goUpLayer();
 		
-		int x0 = itemNameField.getX();
-		int y0 = itemNameField.getY();
-		int y1 = y0 + itemNameField.getHeight();
+		context.state.goUpLayer();
+		matrixStack.pushMatrix();
+		matrixStack.translate(-64 + width / 2 - 152, 0);
 		
 		if(itemNameField.getText().isEmpty() && !itemNameField.isFocused())
 			context.drawTextWithShadow(client.textRenderer, "item name or ID",
-				x0 + 6, y0 + 6, Colors.GRAY);
+				68, height - 50, Colors.GRAY);
 		
 		int border =
 			itemNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
 		int black = Colors.BLACK;
-		int iconBoxLeft = x0 - 20;
 		
-		// Left decoration for the item icon, anchored to the field (keeps your
-		// look).
-		context.fill(iconBoxLeft, y0, x0, y1, border);
-		context.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
+		context.fill(48, height - 56, 64, height - 36, border);
+		context.fill(49, height - 55, 65, height - 37, black);
+		context.fill(214, height - 56, 244, height - 55, border);
+		context.fill(214, height - 37, 244, height - 36, border);
+		context.fill(244, height - 56, 246, height - 36, border);
+		context.fill(213, height - 55, 243, height - 52, black);
+		context.fill(213, height - 40, 243, height - 37, black);
+		context.fill(213, height - 55, 216, height - 37, black);
+		context.fill(242, height - 55, 245, height - 37, black);
 		
-		// Draw preview item inside the decorative frame.
+		matrixStack.popMatrix();
+		
 		RenderUtils.drawItem(context,
 			itemToAdd == null ? ItemStack.EMPTY : new ItemStack(itemToAdd),
-			iconBoxLeft + 2, y0 + 2, false);
+			width / 2 - 164, height - 52, false);
 		
-		context.state.goDownLayer();
 		matrixStack.popMatrix();
 	}
 	
@@ -296,33 +211,23 @@ public final class EditItemListScreen extends Screen
 		@Override
 		public Text getNarration()
 		{
-			// Safe narration even for unknown entries
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(itemName);
-			net.minecraft.item.Item item = id != null
-				&& net.minecraft.registry.Registries.ITEM.containsId(id)
-					? net.minecraft.registry.Registries.ITEM.get(id) : null;
-			net.minecraft.item.ItemStack stack =
-				item == null ? net.minecraft.item.ItemStack.EMPTY
-					: new net.minecraft.item.ItemStack(item);
+			Item item = Registries.ITEM.get(Identifier.of(itemName));
+			ItemStack stack = new ItemStack(item);
+			
 			return Text.translatable("narrator.select",
 				"Item " + getDisplayName(stack) + ", " + itemName + ", "
 					+ getIdText(item));
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
-			int entryWidth, int entryHeight, int mouseX, int mouseY,
+		public void render(DrawContext context, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(itemName);
-			net.minecraft.item.Item item = id != null
-				&& net.minecraft.registry.Registries.ITEM.containsId(id)
-					? net.minecraft.registry.Registries.ITEM.get(id) : null;
-			net.minecraft.item.ItemStack stack =
-				item == null ? net.minecraft.item.ItemStack.EMPTY
-					: new net.minecraft.item.ItemStack(item);
+			int x = getContentX();
+			int y = getContentY();
+			
+			Item item = Registries.ITEM.get(Identifier.of(itemName));
+			ItemStack stack = new ItemStack(item);
 			TextRenderer tr = client.textRenderer;
 			
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
@@ -334,18 +239,15 @@ public final class EditItemListScreen extends Screen
 				Colors.LIGHT_GRAY, false);
 		}
 		
-		private String getDisplayName(net.minecraft.item.ItemStack stack)
+		private String getDisplayName(ItemStack stack)
 		{
-			return stack.isEmpty() ? "\u00a7okeyword\u00a7r"
+			return stack.isEmpty() ? "\u00a7ounknown item\u00a7r"
 				: stack.getName().getString();
 		}
 		
-		private String getIdText(net.minecraft.item.Item item)
+		private String getIdText(Item item)
 		{
-			if(item == null)
-				return "ID: n/a";
-			return "ID: "
-				+ net.minecraft.registry.Registries.ITEM.getRawId(item);
+			return "ID: " + Registries.ITEM.getRawId(item);
 		}
 	}
 	
@@ -355,7 +257,7 @@ public final class EditItemListScreen extends Screen
 		public ListGui(MinecraftClient minecraft, EditItemListScreen screen,
 			List<String> list)
 		{
-			super(minecraft, screen.width, screen.height - 96, 36, 30, 0);
+			super(minecraft, screen.width, screen.height - 96, 36, 30);
 			
 			list.stream().map(EditItemListScreen.Entry::new)
 				.forEach(this::addEntry);

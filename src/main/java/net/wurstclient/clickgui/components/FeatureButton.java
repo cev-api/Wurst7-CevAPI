@@ -10,6 +10,7 @@ package net.wurstclient.clickgui.components;
 import java.util.Objects;
 
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.wurstclient.Feature;
 import net.wurstclient.clickgui.ClickGui;
@@ -20,8 +21,6 @@ import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.ui.UiScale;
-import org.lwjgl.glfw.GLFW;
 
 public final class FeatureButton extends Component
 {
@@ -41,41 +40,12 @@ public final class FeatureButton extends Component
 		hasSettings = !feature.getSettings().isEmpty();
 	}
 	
-	public Feature getFeature()
-	{
-		return feature;
-	}
-	
 	@Override
-	public void handleMouseClick(double mouseX, double mouseY, int mouseButton)
+	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
+		Click context)
 	{
-		if(mouseButton != 0 && mouseButton != GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if(mouseButton != 0)
 			return;
-		
-		// middle click anywhere on the feature toggles favourite
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
-			&& feature instanceof net.wurstclient.hack.Hack)
-		{
-			net.wurstclient.hack.Hack h = (net.wurstclient.hack.Hack)feature;
-			boolean inFavouritesWindow = false;
-			if(getParent() != null && getParent().getTitle()
-				.equals(net.wurstclient.Category.FAVORITES.getName()))
-				inFavouritesWindow = true;
-			
-			if(inFavouritesWindow)
-			{
-				h.setFavorite(false);
-				net.wurstclient.util.ChatUtils
-					.message(h.getName() + " removed from favourites.");
-				return;
-			}else
-			{
-				h.setFavorite(true);
-				net.wurstclient.util.ChatUtils
-					.message(h.getName() + " added to favourites.");
-				return;
-			}
-		}
 		
 		if(hasSettings && (mouseX > getX() + getWidth() - 12
 			|| feature.getPrimaryAction().isEmpty()))
@@ -153,12 +123,7 @@ public final class FeatureButton extends Component
 		String name = feature.getName();
 		int tx = x1 + (x3 - x1 - TR.getWidth(name)) / 2;
 		int ty = y1 + 2;
-		double scale = UiScale.OVERRIDE_SCALE != 1.0 ? UiScale.OVERRIDE_SCALE
-			: UiScale.getScale();
-		RenderUtils.drawScaledText(context, TR, name, tx, ty, GUI.getTxtColor(),
-			false, scale);
-		
-		context.state.goDownLayer();
+		context.drawText(TR, name, tx, ty, GUI.getTxtColor(), false);
 	}
 	
 	private int getButtonColor(boolean enabled, boolean hovering)

@@ -8,7 +8,9 @@
 package net.wurstclient.hud;
 
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.util.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.WurstLogoOtf;
 import net.wurstclient.util.RenderUtils;
@@ -16,6 +18,8 @@ import net.wurstclient.util.RenderUtils;
 public final class WurstLogo
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
+	private static final Identifier LOGO_TEXTURE =
+		Identifier.of("wurst", "wurst_128.png");
 	
 	public void render(DrawContext context)
 	{
@@ -24,17 +28,7 @@ public final class WurstLogo
 			return;
 		
 		String version = getVersionString();
-		String brand = "Wurst 7 CevAPI";
 		TextRenderer tr = WurstClient.MC.textRenderer;
-		
-		// Measure and layout
-		int brandWidth = tr.getWidth(brand);
-		int versionWidth = tr.getWidth(version);
-		int leftPadding = 4;
-		int gap = 6;
-		int rightPadding = 8;
-		int bgWidth =
-			leftPadding + brandWidth + gap + versionWidth + rightPadding;
 		
 		// background
 		int bgColor;
@@ -42,19 +36,16 @@ public final class WurstLogo
 			bgColor = RenderUtils.toIntColor(WURST.getGui().getAcColor(), 0.5F);
 		else
 			bgColor = otf.getBackgroundColor();
-		context.fill(0, 6, bgWidth, 17, bgColor);
+		context.fill(0, 6, tr.getWidth(version) + 76, 17, bgColor);
 		
 		context.state.goUpLayer();
 		
-		// brand and version strings
-		int textY = 8;
-		int brandX = leftPadding;
-		int versionX = brandX + brandWidth + gap;
-		context.drawText(tr, brand, brandX, textY, otf.getTextColor(), false);
-		context.drawText(tr, version, versionX, textY, otf.getTextColor(),
-			false);
+		// version string
+		context.drawText(tr, version, 74, 8, otf.getTextColor(), false);
 		
-		context.state.goDownLayer();
+		// Wurst logo
+		context.drawTexture(RenderPipelines.GUI_TEXTURED, LOGO_TEXTURE, 0, 3, 0,
+			0, 72, 18, 72, 18);
 	}
 	
 	private String getVersionString()
