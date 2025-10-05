@@ -46,6 +46,25 @@ public abstract class Hack extends Feature
 		return name;
 	}
 	
+	/**
+	 * Optional: A representative ARGB color to display this hack in the
+	 * HackList.
+	 * Default implementation searches for a ColorSetting among this hack's
+	 * settings
+	 * and returns its color with the given alpha, or -1 if not available.
+	 *
+	 * @param alpha
+	 *            0-255 alpha byte used for composition in the HUD
+	 * @return ARGB int color or -1 if no color is defined
+	 */
+	public int getHackListColorI(int alpha)
+	{
+		for(net.wurstclient.settings.Setting s : getSettings().values())
+			if(s instanceof net.wurstclient.settings.ColorSetting cs)
+				return cs.getColorI(alpha);
+		return -1;
+	}
+	
 	@Override
 	public final String getDescription()
 	{

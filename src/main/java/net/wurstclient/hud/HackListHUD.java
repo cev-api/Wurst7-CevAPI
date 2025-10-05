@@ -29,6 +29,7 @@ public final class HackListHUD implements UpdateListener
 	private final HackListOtf otf = WurstClient.INSTANCE.getOtfs().hackListOtf;
 	private int posY;
 	private int textColor;
+	private boolean usePerHackColors;
 	
 	public HackListHUD()
 	{
@@ -59,7 +60,9 @@ public final class HackListHUD implements UpdateListener
 			posY = baseY;
 		
 		// color
-		if(WurstClient.INSTANCE.getHax().rainbowUiHack.isEnabled())
+		boolean rainbowUi =
+			WurstClient.INSTANCE.getHax().rainbowUiHack.isEnabled();
+		if(rainbowUi)
 		{
 			float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
 			textColor = 0x04 << 24 | (int)(acColor[0] * 0xFF) << 16
@@ -67,6 +70,8 @@ public final class HackListHUD implements UpdateListener
 			
 		}else
 			textColor = otf.getColor(0x04);
+		// Enable per-hack colors only when toggle is on and RainbowUI is off
+		usePerHackColors = otf.useHackColors() && !rainbowUi;
 		
 		int totalHeight = height + posY;
 		if(otf.getMode() == Mode.COUNT
@@ -93,7 +98,7 @@ public final class HackListHUD implements UpdateListener
 				drawWithOffset(context, e, partialTicks, lineHeight, spacing);
 		else
 			for(HackListEntry e : activeHax)
-				drawString(context, e.hack.getRenderName(), lineHeight,
+				drawString(context, e.hack, e.hack.getRenderName(), lineHeight,
 					spacing);
 	}
 	
@@ -177,6 +182,8 @@ public final class HackListHUD implements UpdateListener
 		int shadowY = (int)Math.round((baseSY + 1) * scale); // consistent 1px
 																// vertical
 																// offset
+		int lineColor = textColor;
+		// No hack reference available in this overload; use default textColor
 		if(WurstClient.INSTANCE.getOtfs().hackListOtf.useShadowBox())
 		{
 			int pad = (int)Math.max(1, Math.round(2 * scale));
@@ -195,7 +202,69 @@ public final class HackListHUD implements UpdateListener
 		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
-			(textColor | alpha), false, scale);
+			(lineColor | alpha), false, scale);
+		
+		posY += lineHeight + spacing;
+	}
+	
+	private void drawString(DrawContext context, Hack hack, String s,
+		int lineHeight, int spacing)
+	{
+		TextRenderer tr = WurstClient.MC.textRenderer;
+		int posX;
+		int yDraw = posY + otf.getYOffset();
+		double scale = getScale() * otf.getFontSize();
+		// scaled string width
+		int stringWidth = (int)(tr.getWidth(s) * scale);
+		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
+			|| otf.getPosition() == Position.BOTTOM_LEFT);
+		if(isLeft)
+			posX = 2 + otf.getXOffset();
+		else
+		{
+			int screenWidth = context.getScaledWindowWidth();
+			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
+		}
+		int alpha = (int)(otf.getTransparency() * 255) << 24;
+		// Quantize to scaled-space integer coordinates to avoid half-pixel
+		// blurring
+		// Compute base pre-scale coords once and derive shadow/main from them
+		double eps = 1e-6;
+		int baseSX = (int)Math.round(posX / scale + eps);
+		int baseSY = (int)Math.round(yDraw / scale + eps);
+		int mainX = (int)Math.round(baseSX * scale);
+		int mainY = (int)Math.round(baseSY * scale);
+		int shadowX = (int)Math.round((baseSX + 1) * scale); // +1 pre-scale =
+																// 1px on screen
+		int shadowY = (int)Math.round((baseSY + 1) * scale); // consistent 1px
+																// vertical
+																// offset
+		int lineColor = textColor;
+		if(usePerHackColors)
+		{
+			int c = hack.getHackListColorI(0x04);
+			if(c != -1)
+				lineColor = c;
+		}
+		if(WurstClient.INSTANCE.getOtfs().hackListOtf.useShadowBox())
+		{
+			int pad = (int)Math.max(1, Math.round(2 * scale));
+			int boxX1 = mainX - pad;
+			int boxY1 = mainY; // align to line top to avoid overlap
+			int boxX2 = mainX + stringWidth + pad;
+			int boxY2 = mainY + lineHeight; // align to line bottom
+			int fillAlpha = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
+				.getShadowBoxAlpha() * otf.getTransparency() * 255);
+			int boxColor = (fillAlpha << 24);
+			context.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
+		}else
+		{
+			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+				0x04000000 | alpha, false, scale);
+		}
+		context.state.goUpLayer();
+		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
+			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
@@ -235,6 +304,13 @@ public final class HackListHUD implements UpdateListener
 		int mainY2 = (int)Math.round(baseSY2 * scale);
 		int shadowX2 = (int)Math.round((baseSX2 + 1) * scale);
 		int shadowY2 = (int)Math.round((baseSY2 + 1) * scale);
+		int lineColor = textColor;
+		if(usePerHackColors)
+		{
+			int c = e.hack.getHackListColorI(0x04);
+			if(c != -1)
+				lineColor = c;
+		}
 		if(WurstClient.INSTANCE.getOtfs().hackListOtf.useShadowBox())
 		{
 			int pad2 = (int)Math.max(1, Math.round(2 * scale));
@@ -253,7 +329,7 @@ public final class HackListHUD implements UpdateListener
 		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
-			(textColor | alpha), false, scale);
+			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
