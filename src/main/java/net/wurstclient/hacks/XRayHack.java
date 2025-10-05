@@ -318,6 +318,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 				oreNamesCache = new ArrayList<>(ores.getBlockNames());
 				lastOresHash = ores.getBlockNames().hashCode();
 				rebuildOreCaches();
+				// reset search and highlights
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}else // switched to QUERY
 			{
@@ -330,6 +332,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 					oreKeywords = Stream.of(q.split(","))
 						.map(s -> s.trim().toLowerCase(java.util.Locale.ROOT))
 						.filter(s -> !s.isEmpty()).toArray(String[]::new);
+				// reset search and highlights
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}
 		}
@@ -342,6 +346,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 				lastOresHash = currentHash;
 				oreNamesCache = new ArrayList<>(ores.getBlockNames());
 				rebuildOreCaches();
+				// reset so results update instantly
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}else
 			{
@@ -375,6 +381,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 			{
 				oreKeywords = newKw;
 				oreExactIds = null; // force keyword path
+				// reset so results update instantly
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}
 		}
@@ -642,4 +650,16 @@ public final class XRayHack extends Hack implements UpdateListener,
 	}
 	
 	// See AbstractBlockRenderContextMixin, RenderLayersMixin
+	
+	private void resetCoordinatorAndHighlights()
+	{
+		// Cancel current searches and clear cached highlights to avoid stale
+		// results persisting after mode/list/query changes.
+		coordinator.reset();
+		highlightPositions.clear();
+		visibleBoxes.clear();
+		highlightPositionsUpToDate = false;
+		visibleBoxesUpToDate = false;
+		lastCoordinatorChangeMs = System.currentTimeMillis();
+	}
 }

@@ -114,10 +114,10 @@ public final class LogoutSpotsHack extends Hack
 			// find missing
 			var lastMap = new HashMap<UUID, PlayerListEntry>();
 			for(var e : lastList)
-				lastMap.put(e.getProfile().getId(), e);
+				lastMap.put(e.getProfile().id(), e);
 			var nowMap = new HashMap<UUID, PlayerListEntry>();
 			for(var e : nowList)
-				nowMap.put(e.getProfile().getId(), e);
+				nowMap.put(e.getProfile().id(), e);
 			for(var id : lastMap.keySet())
 				if(!nowMap.containsKey(id))
 				{
@@ -231,7 +231,17 @@ public final class LogoutSpotsHack extends Hack
 		net.minecraft.util.math.Vec3d cam =
 			net.wurstclient.util.RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		matrices.multiply(MC.getEntityRenderDispatcher().getRotation());
+		// Face the camera (billboard)
+		var camEntity = MC.getCameraEntity();
+		if(camEntity != null)
+		{
+			matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
+				.rotationDegrees(-camEntity.getYaw()));
+			matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X
+				.rotationDegrees(camEntity.getPitch()));
+		}
+		matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
+			.rotationDegrees(180.0F));
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		TextRenderer tr = MC.textRenderer;

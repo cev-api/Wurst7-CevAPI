@@ -89,7 +89,8 @@ public final class BreadcrumbsHack extends Hack
 		// Do not add new points while paused
 		if(paused.isChecked())
 			return;
-		Vec3d here = MC.player.getPos();
+		Vec3d here =
+			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
 		if(points.isEmpty())
 		{
 			points.add(here);

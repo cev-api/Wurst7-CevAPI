@@ -127,7 +127,8 @@ public final class WaypointsScreen extends Screen
 					System.currentTimeMillis());
 				w.setName("New Waypoint");
 				if(client.player != null)
-					w.setPos(BlockPos.ofFloored(client.player.getPos()));
+					w.setPos(BlockPos.ofFloored(client.player.getX(),
+						client.player.getY(), client.player.getZ()));
 				else
 					w.setPos(BlockPos.ORIGIN);
 				w.setDimension(currentDim());

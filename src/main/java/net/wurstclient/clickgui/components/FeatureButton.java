@@ -21,6 +21,7 @@ import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import org.lwjgl.glfw.GLFW;
 
 public final class FeatureButton extends Component
 {
@@ -29,6 +30,11 @@ public final class FeatureButton extends Component
 	
 	private final Feature feature;
 	private final boolean hasSettings;
+	
+	public Feature getFeature()
+	{
+		return feature;
+	}
 	
 	private Window settingsWindow;
 	
@@ -44,7 +50,19 @@ public final class FeatureButton extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		Click context)
 	{
-		if(mouseButton != 0)
+		// middle click toggles favorites
+		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		{
+			if(feature instanceof net.wurstclient.hack.Hack)
+			{
+				net.wurstclient.hack.Hack h =
+					(net.wurstclient.hack.Hack)feature;
+				h.setFavorite(!h.isFavorite());
+			}
+			return;
+		}
+		
+		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
 		
 		if(hasSettings && (mouseX > getX() + getWidth() - 12

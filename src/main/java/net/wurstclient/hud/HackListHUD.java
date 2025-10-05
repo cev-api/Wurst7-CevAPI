@@ -196,7 +196,6 @@ public final class HackListHUD implements UpdateListener
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(textColor | alpha), false, scale);
-		context.state.goDownLayer();
 		
 		posY += lineHeight + spacing;
 	}
@@ -255,7 +254,6 @@ public final class HackListHUD implements UpdateListener
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
 			(textColor | alpha), false, scale);
-		context.state.goDownLayer();
 		
 		posY += lineHeight + spacing;
 	}

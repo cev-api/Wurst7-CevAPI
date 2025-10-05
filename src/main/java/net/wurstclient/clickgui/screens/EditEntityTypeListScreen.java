@@ -16,6 +16,8 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -134,36 +136,37 @@ public final class EditEntityTypeListScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int mouseButton)
+	public boolean mouseClicked(Click context, boolean doubleClick)
 	{
-		typeNameField.mouseClicked(mouseX, mouseY, mouseButton);
-		return super.mouseClicked(mouseX, mouseY, mouseButton);
+		typeNameField.mouseClicked(context, doubleClick);
+		return super.mouseClicked(context, doubleClick);
 	}
 	
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int int_3)
+	public boolean keyPressed(KeyInput keyInput)
 	{
+		int keyCode = keyInput.key();
 		switch(keyCode)
 		{
 			case GLFW.GLFW_KEY_ENTER:
 			if(addButton.active)
-				addButton.onPress();
+				addButton.onPress(keyInput);
 			break;
 			
 			case GLFW.GLFW_KEY_DELETE:
 			if(!typeNameField.isFocused())
-				removeButton.onPress();
+				removeButton.onPress(keyInput);
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			doneButton.onPress();
+			doneButton.onPress(keyInput);
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(keyCode, scanCode, int_3);
+		return super.keyPressed(keyInput);
 	}
 	
 	@Override
@@ -263,7 +266,6 @@ public final class EditEntityTypeListScreen extends Screen
 		context.fill(x0 - 16, y0, x0, y1, border);
 		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
 		
-		context.state.goDownLayer();
 		matrixStack.popMatrix();
 	}
 	
@@ -297,8 +299,7 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
-			int entryWidth, int entryHeight, int mouseX, int mouseY,
+		public void render(DrawContext context, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
 			TextRenderer tr = client.textRenderer;
@@ -311,6 +312,8 @@ public final class EditEntityTypeListScreen extends Screen
 					.getName().getString();
 			else
 				display = "\u00a7okeyword\u00a7r";
+			int x = getContentX();
+			int y = getContentY();
 			context.drawText(tr, display, x + 8, y,
 				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
 			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,
@@ -324,7 +327,7 @@ public final class EditEntityTypeListScreen extends Screen
 		public ListGui(MinecraftClient minecraft,
 			EditEntityTypeListScreen screen, List<String> list)
 		{
-			super(minecraft, screen.width, screen.height - 96, 36, 30, 0);
+			super(minecraft, screen.width, screen.height - 96, 36, 30);
 			list.stream().map(EditEntityTypeListScreen.Entry::new)
 				.forEach(this::addEntry);
 		}

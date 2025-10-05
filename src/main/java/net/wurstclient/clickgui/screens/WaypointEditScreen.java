@@ -361,7 +361,8 @@ public final class WaypointEditScreen extends Screen
 	{
 		if(client.player == null)
 			return;
-		BlockPos p = BlockPos.ofFloored(client.player.getPos());
+		BlockPos p = BlockPos.ofFloored(client.player.getX(),
+			client.player.getY(), client.player.getZ());
 		xField.setText(Integer.toString(p.getX()));
 		yField.setText(Integer.toString(p.getY()));
 		zField.setText(Integer.toString(p.getZ()));

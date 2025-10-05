@@ -586,7 +586,17 @@ public final class WaypointsHack extends Hack
 		matrices.push();
 		Vec3d cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		matrices.multiply(MC.getEntityRenderDispatcher().getRotation());
+		// Face the camera (billboard)
+		var camEntity = MC.getCameraEntity();
+		if(camEntity != null)
+		{
+			matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
+				.rotationDegrees(-camEntity.getYaw()));
+			matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_X
+				.rotationDegrees(camEntity.getPitch()));
+		}
+		matrices.multiply(net.minecraft.util.math.RotationAxis.POSITIVE_Y
+			.rotationDegrees(180.0F));
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		// After scaling, translate by pixel offset to separate lines
@@ -608,6 +618,8 @@ public final class WaypointsHack extends Hack
 	{
 		if(MC.world == null)
 			return;
+		@SuppressWarnings("all")
+		// noinspection RedundantQualifierName
 		Waypoint.BeaconMode safeMode =
 			mode == null ? Waypoint.BeaconMode.OFF : mode;
 		if(safeMode == Waypoint.BeaconMode.OFF)
@@ -765,7 +777,7 @@ public final class WaypointsHack extends Hack
 			String coords = dir + ": " + ix + " " + iy + " " + iz;
 			int cw = tr.getWidth(coords);
 			int cx = centerX - cw / 2;
-			int cy = Math.max(2, barY - 12); // avoid off-screen
+			int cy = Math.max(2, barY - 13); // was 12, now 13
 			context.drawText(tr, coords, cx, cy, 0xFFFFFFFF, false);
 		}
 		
@@ -874,7 +886,7 @@ public final class WaypointsHack extends Hack
 			int dw = tr.getWidth(distText);
 			int titleX = centerX - tw / 2;
 			int distX = centerX - dw / 2;
-			int titleY = barY + barH + 2;
+			int titleY = barY + barH + 3; // was 2, now 3 for 1.21.9
 			int distY = titleY + 10;
 			// apply compass opacity to text
 			double opaText =

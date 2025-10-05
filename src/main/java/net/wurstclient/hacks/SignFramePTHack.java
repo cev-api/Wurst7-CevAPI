@@ -102,7 +102,7 @@ public class SignFramePTHack extends Hack implements RightClickListener
 					Box box = EntityUtils.getLerpedBox(frame, 0.0f);
 					if(box.contains(hitPos))
 					{
-						ehr = new EntityHitResult(frame, frame.getPos());
+						ehr = new EntityHitResult(frame, hitPos);
 						break;
 					}
 				}
