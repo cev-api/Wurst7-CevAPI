@@ -39,8 +39,7 @@ public final class ItemListSetting extends Setting
 	{
 		super(name, description);
 		
-		Arrays.stream(items).parallel()
-			.forEachOrdered(s -> addFromStringCanonicalizing(s));
+		Arrays.stream(items).forEach(this::addFromStringCanonicalizing);
 		defaultNames = itemNames.toArray(new String[0]);
 	}
 	

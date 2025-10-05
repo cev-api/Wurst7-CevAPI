@@ -42,11 +42,14 @@ public final class EditItemListScreen extends Screen
 	
 	private ListGui listGui;
 	private TextFieldWidget itemNameField;
+	private ButtonWidget addKeywordButton;
 	private ButtonWidget addButton;
 	private ButtonWidget removeButton;
 	private ButtonWidget doneButton;
 	
 	private Item itemToAdd;
+	private java.util.List<net.minecraft.item.Item> fuzzyMatches =
+		java.util.Collections.emptyList();
 	
 	public EditItemListScreen(Screen prevScreen, ItemListSetting itemList)
 	{
@@ -61,23 +64,61 @@ public final class EditItemListScreen extends Screen
 		listGui = new ListGui(client, this, itemList.getItemNames());
 		addSelectableChild(listGui);
 		
-		itemNameField = new TextFieldWidget(client.textRenderer,
-			width / 2 - 152, height - 56, 150, 20, Text.literal(""));
+		int rowY = height - 56;
+		int gap = 8;
+		int fieldWidth = 160;
+		int keywordWidth = 110;
+		int addWidth = 80;
+		int removeWidth = 120;
+		int totalWidth =
+			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
+		int rowStart = width / 2 - totalWidth / 2;
+		
+		itemNameField = new TextFieldWidget(client.textRenderer, rowStart, rowY,
+			fieldWidth, 20, Text.literal(""));
 		addSelectableChild(itemNameField);
 		itemNameField.setMaxLength(256);
 		
+		int keywordX = rowStart + fieldWidth + gap;
+		int addX = keywordX + keywordWidth + gap;
+		int removeX = addX + addWidth + gap;
+		
+		addDrawableChild(addKeywordButton =
+			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
+				String raw = itemNameField.getText();
+				if(raw != null)
+					raw = raw.trim();
+				if(raw != null && !raw.isEmpty())
+					itemList.addRawName(raw);
+				client.setScreen(EditItemListScreen.this);
+			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
+		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
-				itemList.add(itemToAdd);
+				if(itemToAdd != null)
+				{
+					itemList.add(itemToAdd);
+				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
+				{
+					for(net.minecraft.item.Item it : fuzzyMatches)
+						itemList.add(it);
+				}else
+				{
+					String raw = itemNameField.getText();
+					if(raw != null)
+						raw = raw.trim();
+					if(raw != null && !raw.isEmpty())
+						itemList.addRawName(raw);
+				}
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(width / 2 - 2, height - 56, 30, 20).build());
+			}).dimensions(addX, rowY, addWidth, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
 				itemList.remove(itemList.getItemNames()
 					.indexOf(listGui.getSelectedBlockName()));
 				client.setScreen(EditItemListScreen.this);
-			}).dimensions(width / 2 + 52, height - 56, 100, 20).build());
+			}).dimensions(removeX, rowY, removeWidth, 20).build());
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -86,7 +127,12 @@ public final class EditItemListScreen extends Screen
 				client.setScreen(EditItemListScreen.this);
 			}, Text.literal("Reset to Defaults"),
 				Text.literal("Are you sure?"))))
-			.dimensions(width - 108, 8, 100, 20).build());
+			.dimensions(width - 328, 8, 150, 20).build());
+		
+		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
+			itemList.clear();
+			client.setScreen(EditItemListScreen.this);
+		}).dimensions(width - 168, 8, 150, 20).build());
 		
 		addDrawableChild(doneButton = ButtonWidget
 			.builder(Text.literal("Done"), b -> client.setScreen(prevScreen))
@@ -129,10 +175,51 @@ public final class EditItemListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String nameOrId = itemNameField.getText().toLowerCase();
+		String nameOrId = itemNameField.getText();
+		String trimmed = nameOrId == null ? "" : nameOrId.trim();
+		boolean hasInput = !trimmed.isEmpty();
 		itemToAdd = ItemUtils.getItemFromNameOrID(nameOrId);
-		addButton.active = itemToAdd != null;
+		// Build fuzzy matches if no exact item found
+		if(itemToAdd == null)
+		{
+			String q = trimmed.toLowerCase(java.util.Locale.ROOT);
+			if(q.isEmpty())
+			{
+				fuzzyMatches = java.util.Collections.emptyList();
+			}else
+			{
+				java.util.ArrayList<net.minecraft.item.Item> list =
+					new java.util.ArrayList<>();
+				for(net.minecraft.util.Identifier id : net.minecraft.registry.Registries.ITEM
+					.getIds())
+				{
+					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
+					if(s.contains(q))
+						list.add(
+							net.minecraft.registry.Registries.ITEM.get(id));
+				}
+				// Deduplicate and sort by identifier
+				java.util.LinkedHashMap<String, net.minecraft.item.Item> map =
+					new java.util.LinkedHashMap<>();
+				for(net.minecraft.item.Item it : list)
+					map.put(net.minecraft.registry.Registries.ITEM.getId(it)
+						.toString(), it);
+				fuzzyMatches = new java.util.ArrayList<>(map.values());
+				fuzzyMatches.sort(java.util.Comparator
+					.comparing(it -> net.minecraft.registry.Registries.ITEM
+						.getId(it).toString()));
+			}
+			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
+			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
+				: ("Add Matches (" + fuzzyMatches.size() + ")")));
+		}else
+		{
+			fuzzyMatches = java.util.Collections.emptyList();
+			addButton.active = true;
+			addButton.setMessage(Text.literal("Add"));
+		}
 		
+		addKeywordButton.active = hasInput;
 		removeButton.active = listGui.getSelectedOrNull() != null;
 	}
 	
@@ -155,33 +242,28 @@ public final class EditItemListScreen extends Screen
 		for(Drawable drawable : drawables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
+		// Draw placeholder + decorative left icon frame anchored to the field
 		context.state.goUpLayer();
-		matrixStack.pushMatrix();
-		matrixStack.translate(-64 + width / 2 - 152, 0);
+		
+		int x0 = itemNameField.getX();
+		int y0 = itemNameField.getY();
+		int y1 = y0 + itemNameField.getHeight();
 		
 		if(itemNameField.getText().isEmpty() && !itemNameField.isFocused())
 			context.drawTextWithShadow(client.textRenderer, "item name or ID",
-				68, height - 50, Colors.GRAY);
+				x0 + 6, y0 + 6, Colors.GRAY);
 		
 		int border =
 			itemNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
 		int black = Colors.BLACK;
+		int iconBoxLeft = x0 - 20;
 		
-		context.fill(48, height - 56, 64, height - 36, border);
-		context.fill(49, height - 55, 65, height - 37, black);
-		context.fill(214, height - 56, 244, height - 55, border);
-		context.fill(214, height - 37, 244, height - 36, border);
-		context.fill(244, height - 56, 246, height - 36, border);
-		context.fill(213, height - 55, 243, height - 52, black);
-		context.fill(213, height - 40, 243, height - 37, black);
-		context.fill(213, height - 55, 216, height - 37, black);
-		context.fill(242, height - 55, 245, height - 37, black);
-		
-		matrixStack.popMatrix();
+		context.fill(iconBoxLeft, y0, x0, y1, border);
+		context.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
 		
 		RenderUtils.drawItem(context,
 			itemToAdd == null ? ItemStack.EMPTY : new ItemStack(itemToAdd),
-			width / 2 - 164, height - 52, false);
+			iconBoxLeft + 2, y0 + 2, false);
 		
 		matrixStack.popMatrix();
 	}
