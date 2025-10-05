@@ -51,16 +51,22 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			"Off: Re-centers every chunk to match ESP drop-off.\n"
 				+ "On: Keeps results anchored so you can path back to them.",
 			false);
-	private final SignEspGroup signs = new SignEspGroup(
-		new ColorSetting("Sign color",
-			"Signs will be highlighted in this color.", Color.ORANGE),
-		new CheckboxSetting("Include signs", true));
+	// Signs are always included; frame inclusion is controlled by a single
+	// checkbox that used to be named "Include signs" in the UI per request.
+	private final SignEspGroup signs =
+		new SignEspGroup(
+			new ColorSetting("Sign color",
+				"Signs will be highlighted in this color.", Color.ORANGE),
+			null);
 	private final List<SignEspGroup> groups = Arrays.asList(signs);
-	// New: Frames (incl. glow) toggle/group
+	// Frames (incl. glow) toggle/group - controlled by a single checkbox
+	// labeled "Include frames".
+	private final CheckboxSetting framesEnabled =
+		new CheckboxSetting("Include frames", false);
 	private final FrameEspEntityGroup frames =
 		new FrameEspEntityGroup(new ColorSetting("Frame color",
 			"Item frames (including glow frames) will be highlighted in this color.",
-			Color.YELLOW), new CheckboxSetting("Include frames", false));
+			Color.YELLOW), framesEnabled);
 	private final List<FrameEspEntityGroup> entityGroups =
 		Arrays.asList(frames);
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",

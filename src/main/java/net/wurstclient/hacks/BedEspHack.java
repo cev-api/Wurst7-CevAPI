@@ -27,7 +27,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.bedesp.BedEspBlockGroup;
-import net.wurstclient.settings.CheckboxSetting;
+// checkbox setting not needed here (stickyArea uses fully-qualified name)
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
@@ -47,10 +47,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			false);
 	
 	private final BedEspBlockGroup beds =
-		new BedEspBlockGroup(
-			new ColorSetting("Bed color",
-				"Beds will be highlighted in this color.", new Color(0xFF69B4)),
-			new CheckboxSetting("Include beds", true));
+		new BedEspBlockGroup(new ColorSetting("Bed color",
+			"Beds will be highlighted in this color.", new Color(0xFF69B4)));
 	
 	private final List<BedEspBlockGroup> groups = Arrays.asList(beds);
 	
