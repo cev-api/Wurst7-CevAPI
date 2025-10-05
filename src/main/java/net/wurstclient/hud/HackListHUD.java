@@ -202,10 +202,6 @@ public final class HackListHUD implements UpdateListener
 		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
-<<<<<<< HEAD
-			(textColor | alpha), false, scale);
-		context.state.goDownLayer();
-=======
 			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
@@ -269,7 +265,6 @@ public final class HackListHUD implements UpdateListener
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
->>>>>>> d8d884524 (Colored HackList)
 		
 		posY += lineHeight + spacing;
 	}
@@ -334,12 +329,7 @@ public final class HackListHUD implements UpdateListener
 		}
 		context.state.goUpLayer();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
-<<<<<<< HEAD
-			(textColor | alpha), false, scale);
-		context.state.goDownLayer();
-=======
 			(lineColor | alpha), false, scale);
->>>>>>> d8d884524 (Colored HackList)
 		
 		posY += lineHeight + spacing;
 	}
