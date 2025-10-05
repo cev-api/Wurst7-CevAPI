@@ -40,7 +40,7 @@ public class BlockListSetting extends Setting
 	{
 		super(name, description);
 		
-		Arrays.stream(blocks).parallel().forEachOrdered(this::addFromString);
+		Arrays.stream(blocks).forEach(this::addFromString);
 		defaultNames = blockNames.toArray(new String[0]);
 	}
 	

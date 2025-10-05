@@ -171,15 +171,14 @@ public final class EditItemListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String rawInput = itemNameField.getText();
-		String nameOrId = rawInput == null ? "" : rawInput.toLowerCase();
-		String trimmed = rawInput == null ? "" : rawInput.trim();
+		String nameOrId = itemNameField.getText();
+		String trimmed = nameOrId == null ? "" : nameOrId.trim();
 		boolean hasInput = !trimmed.isEmpty();
 		itemToAdd = ItemUtils.getItemFromNameOrID(nameOrId);
+		// Build fuzzy matches if no exact item found
 		if(itemToAdd == null)
 		{
-			String q = trimmed.isEmpty() ? ""
-				: trimmed.toLowerCase(java.util.Locale.ROOT);
+			String q = trimmed.toLowerCase(java.util.Locale.ROOT);
 			if(q.isEmpty())
 			{
 				fuzzyMatches = java.util.Collections.emptyList();
@@ -195,6 +194,7 @@ public final class EditItemListScreen extends Screen
 						list.add(
 							net.minecraft.registry.Registries.ITEM.get(id));
 				}
+				// Deduplicate and sort by identifier
 				java.util.LinkedHashMap<String, net.minecraft.item.Item> map =
 					new java.util.LinkedHashMap<>();
 				for(net.minecraft.item.Item it : list)
@@ -202,8 +202,8 @@ public final class EditItemListScreen extends Screen
 						.toString(), it);
 				fuzzyMatches = new java.util.ArrayList<>(map.values());
 				fuzzyMatches.sort(java.util.Comparator
-					.comparing(i -> net.minecraft.registry.Registries.ITEM
-						.getId(i).toString()));
+					.comparing(it -> net.minecraft.registry.Registries.ITEM
+						.getId(it).toString()));
 			}
 			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
 			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
@@ -237,11 +237,8 @@ public final class EditItemListScreen extends Screen
 		
 		for(Drawable drawable : drawables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
-			
-		// Draw placeholder + decorative left icon frame using ABSOLUTE
-		// coordinates
-		// derived from the actual TextFieldWidget position/size (no matrix
-		// translate).
+		
+		// Draw placeholder + decorative left icon frame anchored to the field
 		context.state.goUpLayer();
 		
 		int x0 = itemNameField.getX();
@@ -257,8 +254,6 @@ public final class EditItemListScreen extends Screen
 		int black = Colors.BLACK;
 		int iconBoxLeft = x0 - 20;
 		
-		// Left decoration for the item icon, anchored to the field (keeps your
-		// look).
 		context.fill(iconBoxLeft, y0, x0, y1, border);
 		context.fill(iconBoxLeft + 1, y0 + 1, x0 - 1, y1 - 1, black);
 		
