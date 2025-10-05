@@ -41,6 +41,13 @@ public final class HackListOtf extends OtherFeature
 			+ "Only visible when \u00a76RainbowUI\u00a7r is disabled.",
 		Color.WHITE);
 	
+	// New: Use each hack's own color for its entry (if available)
+	private final CheckboxSetting useHackColors = new CheckboxSetting(
+		"Use hack colors",
+		"When enabled, each entry uses the hack's own color (if available), e.g. ESP highlight colors.\n"
+			+ "Has no effect while RainbowUI is enabled.",
+		false);
+	
 	private final CheckboxSetting shadowBox = new CheckboxSetting("Shadow box",
 		"Replace the text shadow with a transparent black box background. Useful when scaled fonts produce ugly shadows.",
 		false);
@@ -100,6 +107,7 @@ public final class HackListOtf extends OtherFeature
 		addSetting(mode);
 		addSetting(position);
 		addSetting(color);
+		addSetting(useHackColors);
 		addSetting(shadowBox);
 		addSetting(shadowBoxAlpha);
 		addSetting(fontSize);
@@ -193,6 +201,11 @@ public final class HackListOtf extends OtherFeature
 	public int getColor(int alpha)
 	{
 		return color.getColorI(alpha);
+	}
+	
+	public boolean useHackColors()
+	{
+		return useHackColors.isChecked();
 	}
 	
 	public double getShadowBoxAlpha()
