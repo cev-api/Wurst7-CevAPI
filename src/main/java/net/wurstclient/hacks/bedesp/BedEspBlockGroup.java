@@ -29,12 +29,11 @@ public final class BedEspBlockGroup
 {
 	private final ArrayList<Box> boxes = new ArrayList<>();
 	private final ColorSetting color;
-	private final CheckboxSetting enabled;
+	private final CheckboxSetting enabled = null;
 	
-	public BedEspBlockGroup(ColorSetting color, CheckboxSetting enabled)
+	public BedEspBlockGroup(ColorSetting color)
 	{
 		this.color = Objects.requireNonNull(color);
-		this.enabled = enabled;
 	}
 	
 	public void add(Result result)
