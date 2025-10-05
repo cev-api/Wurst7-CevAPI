@@ -765,7 +765,7 @@ public final class WaypointsHack extends Hack
 			String coords = dir + ": " + ix + " " + iy + " " + iz;
 			int cw = tr.getWidth(coords);
 			int cx = centerX - cw / 2;
-			int cy = Math.max(2, barY - 12); // avoid off-screen
+			int cy = Math.max(2, barY - 13); // was 12, now 13
 			context.drawText(tr, coords, cx, cy, 0xFFFFFFFF, false);
 		}
 		

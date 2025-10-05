@@ -41,7 +41,6 @@ import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
-import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -318,6 +317,9 @@ public final class XRayHack extends Hack implements UpdateListener,
 				oreNamesCache = new ArrayList<>(ores.getBlockNames());
 				lastOresHash = ores.getBlockNames().hashCode();
 				rebuildOreCaches();
+				// reset coordinator & highlights so we immediately reflect LIST
+				// mode
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}else // switched to QUERY
 			{
@@ -330,6 +332,9 @@ public final class XRayHack extends Hack implements UpdateListener,
 					oreKeywords = Stream.of(q.split(","))
 						.map(s -> s.trim().toLowerCase(java.util.Locale.ROOT))
 						.filter(s -> !s.isEmpty()).toArray(String[]::new);
+				// reset coordinator & highlights so we immediately reflect
+				// QUERY mode
+				resetCoordinatorAndHighlights();
 				MC.worldRenderer.reload();
 			}
 		}
@@ -642,4 +647,16 @@ public final class XRayHack extends Hack implements UpdateListener,
 	}
 	
 	// See AbstractBlockRenderContextMixin, RenderLayersMixin
+	
+	private void resetCoordinatorAndHighlights()
+	{
+		// Cancel current searches and clear cached highlights to avoid stale
+		// results persisting after mode/list/query changes.
+		coordinator.reset();
+		highlightPositions.clear();
+		visibleBoxes.clear();
+		highlightPositionsUpToDate = false;
+		visibleBoxesUpToDate = false;
+		lastCoordinatorChangeMs = System.currentTimeMillis();
+	}
 }
