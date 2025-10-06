@@ -85,6 +85,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private final net.wurstclient.settings.ColorSetting fixedColor =
 		new net.wurstclient.settings.ColorSetting("Fixed color",
 			"Color used when \"Use fixed color\" is enabled.", Color.RED);
+	// New: optionally show detected count in HackList
+	private final net.wurstclient.settings.CheckboxSetting showCountInHackList =
+		new net.wurstclient.settings.CheckboxSetting("HackList count",
+			"Appends the number of found blocks to this hack's entry in the HackList.",
+			false);
 	private Block lastBlock;
 	private String lastQuery = "";
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
@@ -124,6 +129,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private java.util.Set<String> listExactIds;
 	private String[] listKeywords;
 	
+	private int foundCount; // number of currently displayed matches (clamped)
+	
 	public SearchHack()
 	{
 		super("Search");
@@ -138,29 +145,38 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(fixedColor);
 		addSetting(area);
 		addSetting(limit);
+		// new setting
+		addSetting(showCountInHackList);
 	}
 	
 	@Override
 	public String getRenderName()
 	{
 		String colorMode = useFixedColor.isChecked() ? "Fixed" : "Rainbow";
+		String base;
 		switch(mode.getSelected())
 		{
 			case LIST:
-			return getName() + " [List:" + blockList.size() + "] (" + colorMode
+			base = getName() + " [List:" + blockList.size() + "] (" + colorMode
 				+ ")";
+			break;
 			case QUERY:
 			String rawQuery = query.getValue().trim();
 			if(!rawQuery.isEmpty())
-				return getName() + " [" + abbreviate(rawQuery) + "] ("
+				base = getName() + " [" + abbreviate(rawQuery) + "] ("
 					+ colorMode + ")";
-			return getName() + " [query] (" + colorMode + ")";
+			else
+				base = getName() + " [query] (" + colorMode + ")";
+			break;
 			case BLOCK_ID:
 			default:
-			return getName() + " ["
+			base = getName() + " ["
 				+ block.getBlockName().replace("minecraft:", "") + "] ("
 				+ colorMode + ")";
 		}
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + Math.min(foundCount, 999) + "]";
+		return base;
 	}
 	
 	@Override
@@ -198,6 +214,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastMatchingBlocks = null;
 		tracerEnds = null;
 		lastPlayerChunk = null;
+		foundCount = 0; // reset count
 	}
 	
 	@Override
@@ -510,6 +527,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 						.getCenter();
 				return pos.toCenterPos();
 			}).collect(java.util.stream.Collectors.toList());
+			// update count for HUD (clamped to 999)
+			foundCount = Math.min(lastMatchingBlocks.size(), 999);
+		}else
+		{
+			foundCount = 0;
 		}
 	}
 	
