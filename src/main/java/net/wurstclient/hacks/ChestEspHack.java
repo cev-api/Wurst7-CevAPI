@@ -132,6 +132,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private final List<ChestEspEntityGroup> entityGroups =
 		Arrays.asList(chestCarts, chestBoats, hopperCarts);
+
+	// New: optionally show detected count in HackList
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
+		false);
+
+	private int foundCount;
 	
 	public ChestEspHack()
 	{
@@ -141,6 +149,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		groups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 	}
 	
 	@Override
@@ -159,6 +168,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		
 		groups.forEach(ChestEspGroup::clear);
+		entityGroups.forEach(ChestEspGroup::clear);
+		foundCount = 0;
 	}
 	
 	@Override
@@ -202,6 +213,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			else if(entity instanceof ChestBoatEntity
 				|| entity instanceof ChestRaftEntity)
 				chestBoats.add(entity);
+
+		// compute found count from enabled groups (clamped)
+		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		total += entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(total, 999);
 	}
 	
 	@Override
@@ -256,5 +272,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}
+	}
+
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 }

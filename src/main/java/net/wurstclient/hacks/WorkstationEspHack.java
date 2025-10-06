@@ -176,6 +176,11 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private int foundCount;
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of found workstation blocks to this hack's entry in the HackList.",
+		false);
 	
 	public WorkstationEspHack()
 	{
@@ -184,6 +189,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		addSetting(style);
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
@@ -219,6 +225,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			coordinator);
 		coordinator.reset();
 		groups.forEach(PortalEspBlockGroup::clear);
+		foundCount = 0;
 	}
 	
 	@Override
@@ -297,6 +304,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		groups.forEach(PortalEspBlockGroup::clear);
 		coordinator.getMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
+		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(total, 999);
 	}
 	
 	private void addToGroupBoxes(Result result)
@@ -307,5 +316,14 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 				group.add(result.pos());
 				break;
 			}
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 }

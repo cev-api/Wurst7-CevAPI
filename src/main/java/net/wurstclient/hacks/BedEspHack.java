@@ -51,6 +51,11 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			"Beds will be highlighted in this color.", new Color(0xFF69B4)));
 	
 	private final List<BedEspBlockGroup> groups = Arrays.asList(beds);
+	// New: optionally show detected count in HackList
+	private final net.wurstclient.settings.CheckboxSetting showCountInHackList =
+		new net.wurstclient.settings.CheckboxSetting("HackList count",
+			"Appends the number of found beds to this hack's entry in the HackList.",
+			false);
 	
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
@@ -64,6 +69,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private boolean groupsUpToDate;
 	private ChunkPos lastPlayerChunk;
+	private int foundCount;
 	
 	public BedEspHack()
 	{
@@ -72,6 +78,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(style);
 		groups.stream().flatMap(BedEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
@@ -97,6 +104,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		
 		coordinator.reset();
 		groups.forEach(BedEspBlockGroup::clear);
+		// reset count
+		foundCount = 0;
 	}
 	
 	@Override
@@ -171,8 +180,21 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(BedEspBlockGroup::clear);
-		coordinator.getMatches().forEach(this::addToGroupBoxes);
+		java.util.List<Result> results = coordinator.getMatches().toList();
+		results.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
+		// update count for HUD (clamped to 999) based on displayed boxes
+		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(total, 999);
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 	
 	private void addToGroupBoxes(Result result)

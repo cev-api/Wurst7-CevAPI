@@ -195,6 +195,11 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private int foundCount;
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of found redstone components to this hack's entry in the HackList.",
+		false);
 	
 	public RedstoneEspHack()
 	{
@@ -203,6 +208,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		addSetting(style);
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
@@ -243,6 +249,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			coordinator);
 		coordinator.reset();
 		renderGroups.forEach(RenderGroup::clear);
+		foundCount = 0;
 	}
 	
 	@Override
@@ -321,6 +328,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		renderGroups.forEach(RenderGroup::clear);
 		coordinator.getMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
+		int total =
+			renderGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(total, 999);
 	}
 	
 	private void addToGroupBoxes(Result result)
@@ -332,6 +342,15 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				group.add(result.pos());
 				break;
 			}
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 	
 	// Common interface for rendering groups
