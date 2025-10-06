@@ -73,6 +73,11 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			"Use a rainbow color instead of the fixed color.", false);
 	private final ColorSetting color = new ColorSetting("Color",
 		"Fixed color used when Rainbow colors is disabled.", Color.PINK);
+	// New: optionally show detected count in HackList
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of matched mobs to this hack's entry in the HackList.",
+		false);
 	
 	private final ArrayList<LivingEntity> matches = new ArrayList<>();
 	private SearchMode lastMode;
@@ -80,6 +85,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	// Caches for LIST mode
 	private java.util.Set<String> listExactIds;
 	private String[] listKeywords;
+	private int foundCount;
 	
 	public MobSearchHack()
 	{
@@ -94,6 +100,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		addSetting(query);
 		addSetting(useRainbow);
 		addSetting(color);
+		addSetting(showCountInHackList);
 	}
 	
 	@Override
@@ -113,6 +120,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		matches.clear();
+		foundCount = 0;
 	}
 	
 	@Override
@@ -122,18 +130,19 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		switch(mode.getSelected())
 		{
 			case LIST:
-			return getName() + " [List:" + entityList.getTypeNames().size()
-				+ "]";
+			return appendCountIfEnabled(
+				getName() + " [List:" + entityList.getTypeNames().size() + "]");
 			case QUERY:
 			if(!q.isEmpty())
-				return getName() + " [" + abbreviate(q) + "]";
-			return getName() + " [query]";
+				return appendCountIfEnabled(
+					getName() + " [" + abbreviate(q) + "]");
+			return appendCountIfEnabled(getName() + " [query]");
 			case TYPE_ID:
 			default:
 			String t = typeId.getValue().trim();
 			if(t.startsWith("minecraft:"))
 				t = t.substring("minecraft:".length());
-			return getName() + " [" + t + "]";
+			return appendCountIfEnabled(getName() + " [" + t + "]");
 		}
 	}
 	
@@ -208,6 +217,15 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			.filter(e -> !e.isRemoved() && e.getHealth() > 0).filter(predicate);
 		
 		matches.addAll(stream.collect(Collectors.toList()));
+		// update count for HUD (clamped to 999)
+		foundCount = Math.min(matches.size(), 999);
+	}
+	
+	private String appendCountIfEnabled(String base)
+	{
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 	
 	@Override

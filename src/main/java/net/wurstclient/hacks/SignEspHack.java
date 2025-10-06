@@ -72,6 +72,11 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
+	// New: optionally show detected count in HackList
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of found signs/frames to this hack's entry in the HackList.",
+		false);
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof AbstractSignBlock;
 	private final ChunkSearcherCoordinator coordinator =
@@ -79,6 +84,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private int foundCount;
 	
 	public SignEspHack()
 	{
@@ -89,6 +95,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 		entityGroups.stream().flatMap(FrameEspEntityGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
@@ -116,6 +123,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			coordinator);
 		coordinator.reset();
 		groups.forEach(SignEspGroup::clear);
+		entityGroups.forEach(FrameEspEntityGroup::clear);
+		foundCount = 0;
 	}
 	
 	@Override
@@ -220,6 +229,11 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		groups.forEach(SignEspGroup::clear);
 		coordinator.getMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
+		// compute count from both sign boxes and frame boxes
+		int signs = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		int framesCount =
+			entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(signs + framesCount, 999);
 	}
 	
 	private void addToGroupBoxes(Result result)
@@ -229,6 +243,15 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			group.add(result.pos());
 			break;
 		}
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 	
 	private static final class SignEspGroup

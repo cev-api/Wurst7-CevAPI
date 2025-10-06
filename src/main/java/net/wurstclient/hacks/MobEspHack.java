@@ -80,6 +80,14 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			FilterArmorStandsSetting.genericVision(true));
 	
 	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
+
+	// New: optionally show detected count in HackList
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of detected mobs to this hack's entry in the HackList.",
+		false);
+
+	private int foundCount;
 	
 	public MobEspHack()
 	{
@@ -91,6 +99,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(useRainbow);
 		addSetting(color);
 		entityFilters.forEach(this::addSetting);
+		addSetting(showCountInHackList);
 	}
 	
 	@Override
@@ -107,6 +116,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		foundCount = 0;
 	}
 	
 	@Override
@@ -123,6 +133,17 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		stream = entityFilters.applyTo(stream);
 		
 		mobs.addAll(stream.collect(Collectors.toList()));
+		// update count for HUD (clamped to 999)
+		foundCount = Math.min(mobs.size(), 999);
+	}
+
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 	
 	@Override
