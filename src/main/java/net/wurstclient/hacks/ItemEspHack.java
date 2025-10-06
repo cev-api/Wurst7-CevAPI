@@ -108,11 +108,18 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Highlight frames with special",
 			"Also highlight item frames if the item inside is special.", true);
 	
+	// New: optionally show detected count in HackList
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of detected items to this hack's entry in the HackList.",
+		false);
+	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
 	// cache for LIST mode: exact IDs and keyword terms
 	private java.util.Set<String> specialExactIds;
 	private String[] specialKeywords;
 	private int lastSpecialListHash;
+	private int foundCount; // current number of detected items
 	
 	public ItemEspHack()
 	{
@@ -132,6 +139,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(linesOnlyForSpecial);
 		addSetting(includeEquippedSpecial);
 		addSetting(includeItemFrames);
+		// new setting
+		addSetting(showCountInHackList);
 	}
 	
 	@Override
@@ -148,6 +157,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		// reset count
+		foundCount = 0;
 	}
 	
 	@Override
@@ -157,6 +168,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		for(Entity entity : MC.world.getEntities())
 			if(entity instanceof ItemEntity)
 				items.add((ItemEntity)entity);
+		// update count for HUD (clamped to 999)
+		foundCount = Math.min(items.size(), 999);
 	}
 	
 	@Override
@@ -468,5 +481,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return null;
 		double r = 0.18;
 		return new Box(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String base = getName();
+		if(showCountInHackList.isChecked() && foundCount > 0)
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 }
