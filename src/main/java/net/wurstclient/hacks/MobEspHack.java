@@ -80,13 +80,13 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			FilterArmorStandsSetting.genericVision(true));
 	
 	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
-
+	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
 		"HackList count",
 		"Appends the number of detected mobs to this hack's entry in the HackList.",
 		false);
-
+	
 	private int foundCount;
 	
 	public MobEspHack()
@@ -136,7 +136,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		// update count for HUD (clamped to 999)
 		foundCount = Math.min(mobs.size(), 999);
 	}
-
+	
 	@Override
 	public String getRenderName()
 	{

@@ -132,13 +132,13 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private final List<ChestEspEntityGroup> entityGroups =
 		Arrays.asList(chestCarts, chestBoats, hopperCarts);
-
+	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
 		"HackList count",
 		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
 		false);
-
+	
 	private int foundCount;
 	
 	public ChestEspHack()
@@ -213,7 +213,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			else if(entity instanceof ChestBoatEntity
 				|| entity instanceof ChestRaftEntity)
 				chestBoats.add(entity);
-
+			
 		// compute found count from enabled groups (clamped)
 		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
 		total += entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
@@ -273,7 +273,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				false);
 		}
 	}
-
+	
 	@Override
 	public String getRenderName()
 	{

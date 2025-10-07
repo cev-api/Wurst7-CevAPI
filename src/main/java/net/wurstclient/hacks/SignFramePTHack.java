@@ -167,9 +167,12 @@ public class SignFramePTHack extends Hack implements RightClickListener
 			return;
 			
 		// Cancel the normal interaction and interact with the block behind
-		// the frame/sign instead.
+		// the frame/sign instead. Use InteractionSimulator to mirror vanilla
+		// behavior and avoid accidentally starting item use (e.g. eating a
+		// carrot) after opening the container.
 		event.cancel();
-		IMC.getInteractionManager().rightClickBlock(bhit.getBlockPos(),
-			bhit.getSide(), bhit.getPos());
+		// match vanilla: set item use cooldown before simulating
+		MC.itemUseCooldown = 4;
+		net.wurstclient.util.InteractionSimulator.rightClickBlock(bhit);
 	}
 }
