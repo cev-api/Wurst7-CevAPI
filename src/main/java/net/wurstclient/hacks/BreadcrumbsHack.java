@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -46,19 +45,79 @@ public final class BreadcrumbsHack extends Hack
 		BOTH
 	}
 	
+	private boolean movedEnough(Vec3d a, Vec3d b, double minDist)
+	{
+		double dx = a.x - b.x;
+		double dy = a.y - b.y;
+		double dz = a.z - b.z;
+		double sq = dx * dx + dy * dy + dz * dz;
+		return sq >= minDist * minDist;
+	}
+	
 	private final EnumSetting<Target> target =
 		new EnumSetting<>("Target", Target.values(), Target.YOU);
 	private final ColorSetting otherColor = new ColorSetting("Other color",
-		"Color for other players' trails.", new Color(64, 160, 255));
+		"Color for other players' trails. Note: PlayerESP overrides Breadcrumbs'\n"
+			+ "colors; if PlayerESP is using a static or unique color for a player,\n"
+			+ "Breadcrumbs will show that color instead.",
+		new Color(64, 160, 255));
 	private final CheckboxSetting keepOthersOnLeave =
-		new CheckboxSetting("Keep other trails when out of view", false);
+		new CheckboxSetting("Keep trails when out of view/logout", false);
 	// If enabled, assign bright random-ish colors to other players.
-	private final CheckboxSetting randomBrightColors =
-		new CheckboxSetting("Random bright colors for others", false);
-	private final SliderSetting maxSections =
-		new SliderSetting("Max sections", 1000, 100, MAX_SECTIONS_INFINITE, 50,
-			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER
-				.withLabel(MAX_SECTIONS_INFINITE, "Infinite"));
+	private final CheckboxSetting randomBrightColors = new CheckboxSetting(
+		"Unique colors for others",
+		"Assign bright deterministic colors per-player so other hacks\n"
+			+ "(for example PlayerESP) can share the same color. If you turn\n"
+			+ "this off, Breadcrumbs will remove colors it owns from the\n"
+			+ "shared registry so other features may take over.",
+		false);
+	// Build a piecewise sections map: 0..100 (step 1), 200..1000 (step 100),
+	// 1200..5000 (step 200), 6000..9000 (step 1000), then 9999 and Infinite.
+	private static final int[] SECTIONS_MAP = buildSectionsMap();
+	
+	private static int[] buildSectionsMap()
+	{
+		java.util.ArrayList<Integer> list = new java.util.ArrayList<>();
+		for(int i = 0; i <= 100; i++)
+			list.add(i);
+		for(int v = 200; v <= 1000; v += 100)
+			list.add(v);
+		for(int v = 1200; v <= 5000; v += 200)
+			list.add(v);
+		for(int v = 6000; v <= 9000; v += 1000)
+			list.add(v);
+		list.add(9999);
+		list.add(MAX_SECTIONS_INFINITE);
+		int[] arr = new int[list.size()];
+		for(int i = 0; i < list.size(); i++)
+			arr[i] = list.get(i);
+		return arr;
+	}
+	
+	private static int findIndexFor(int value)
+	{
+		for(int i = 0; i < SECTIONS_MAP.length; i++)
+			if(SECTIONS_MAP[i] == value)
+				return i;
+		return 0;
+	}
+	
+	// Slider indexes into SECTIONS_MAP. Display the mapped value (actual
+	// section count) instead of the raw index so users see values like
+	// 2500 or "Infinite".
+	private final SliderSetting maxSections = new SliderSetting("Max sections",
+		findIndexFor(1000), 0, SECTIONS_MAP.length - 1, 1,
+		new net.wurstclient.settings.SliderSetting.ValueDisplay()
+		{
+			@Override
+			public String getValueString(double v)
+			{
+				int idx = (int)v;
+				int mapped = computeMaxSections(idx);
+				return mapped >= MAX_SECTIONS_INFINITE ? "Infinite"
+					: Integer.toString(mapped);
+			}
+		});
 	private final SliderSetting sectionLen =
 		new SliderSetting("Section length", 0.5, 0.1, 5.0, 0.1,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
@@ -72,8 +131,9 @@ public final class BreadcrumbsHack extends Hack
 	private final Map<UUID, Deque<Vec3d>> otherPoints = new HashMap<>();
 	// previous target selection to detect changes
 	private Target prevTarget = null;
-	// per-player assigned colors when randomBrightColors is enabled
-	private final Map<UUID, Color> playerColors = new HashMap<>();
+	// previous random toggle so we can clean up registry on toggle off
+	private boolean prevRandom = false;
+	// per-player colors are managed via PlayerColorRegistry
 	
 	public BreadcrumbsHack()
 	{
@@ -102,6 +162,7 @@ public final class BreadcrumbsHack extends Hack
 		points.clear();
 		otherPoints.clear();
 		prevTarget = target.getSelected();
+		prevRandom = randomBrightColors.isChecked();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
@@ -152,7 +213,7 @@ public final class BreadcrumbsHack extends Hack
 		if(movedEnough(last, here, sectionLen.getValue()))
 		{
 			points.add(here);
-			int limit = maxSections.getValueI();
+			int limit = computeMaxSections(maxSections.getValueI());
 			boolean infinite = limit >= MAX_SECTIONS_INFINITE;
 			while(!infinite && points.size() > limit)
 				points.pollFirst();
@@ -161,17 +222,24 @@ public final class BreadcrumbsHack extends Hack
 		// Track other players if enabled
 		if(sel == Target.OTHERS || sel == Target.BOTH)
 		{
+			int nextIndex = 0;
 			for(var p : MC.world.getPlayers())
 			{
 				if(p == MC.player)
 					continue;
 				UUID id = p.getUuid();
-				// assign a color if needed
-				if(randomBrightColors.isChecked()
-					&& !playerColors.containsKey(id))
+				// assign a color if needed via central registry
+				if(randomBrightColors.isChecked())
 				{
-					playerColors.put(id,
-						generateBrightColor(playerColors.size()));
+					java.awt.Color assigned =
+						net.wurstclient.util.PlayerColorRegistry.get(id);
+					if(assigned == null)
+					{
+						// assign deterministically so all features agree on
+						// the color for this player
+						net.wurstclient.util.PlayerColorRegistry
+							.assignDeterministic(id, "Breadcrumbs");
+					}
 				}
 				Deque<Vec3d> dq =
 					otherPoints.computeIfAbsent(id, k -> new ArrayDeque<>());
@@ -185,7 +253,7 @@ public final class BreadcrumbsHack extends Hack
 				if(movedEnough(lastp, pos, sectionLen.getValue()))
 				{
 					dq.add(pos);
-					int limit = maxSections.getValueI();
+					int limit = computeMaxSections(maxSections.getValueI());
 					boolean infinite = limit >= MAX_SECTIONS_INFINITE;
 					while(!infinite && dq.size() > limit)
 						dq.pollFirst();
@@ -194,14 +262,40 @@ public final class BreadcrumbsHack extends Hack
 			// Remove trails for players that left, unless user chose to keep
 			if(!keepOthersOnLeave.isChecked())
 			{
-				otherPoints.keySet().removeIf(uuid -> {
-					boolean gone = MC.world.getPlayerByUuid(uuid) == null;
-					if(gone)
-						playerColors.remove(uuid);
-					return gone;
+				otherPoints.keySet()
+					.removeIf(uuid -> MC.world.getPlayerByUuid(uuid) == null);
+				// If not keeping trails we also remove registry entries
+				otherPoints.keySet().forEach(uuid -> {
+					if(MC.world.getPlayerByUuid(uuid) == null)
+						net.wurstclient.util.PlayerColorRegistry.remove(uuid);
 				});
 			}
 		}
+		
+		// If the random toggle was turned off, remove Breadcrumbs-owned
+		// registry
+		// entries so other hacks can take over colors.
+		boolean curRandom = randomBrightColors.isChecked();
+		if(prevRandom && !curRandom)
+		{
+			net.wurstclient.util.PlayerColorRegistry
+				.removeByOwner("Breadcrumbs");
+		}
+		prevRandom = curRandom;
+	}
+	
+	/**
+	 * Map the slider value to an actual max sections value. Values up to
+	 * 1000 are linear; values above 1000 scale up exponentially to allow
+	 * very large values without losing slider precision.
+	 */
+	private int computeMaxSections(int sliderIndex)
+	{
+		if(sliderIndex < 0)
+			return SECTIONS_MAP[0];
+		if(sliderIndex >= SECTIONS_MAP.length)
+			return SECTIONS_MAP[SECTIONS_MAP.length - 1];
+		return SECTIONS_MAP[sliderIndex];
 	}
 	
 	@Override
@@ -230,8 +324,10 @@ public final class BreadcrumbsHack extends Hack
 				int oc;
 				if(randomBrightColors.isChecked())
 				{
-					Color col =
-						playerColors.getOrDefault(id, otherColor.getColor());
+					java.awt.Color col =
+						net.wurstclient.util.PlayerColorRegistry.get(id);
+					if(col == null)
+						col = otherColor.getColor();
 					oc = RenderUtils
 						.toIntColor(
 							new float[]{col.getRed() / 255f,
@@ -281,10 +377,4 @@ public final class BreadcrumbsHack extends Hack
 		return new Color(r, g, bl);
 	}
 	
-	private boolean movedEnough(Vec3d a, Vec3d b, double min)
-	{
-		return MathHelper.abs((float)(a.x - b.x)) >= min
-			|| MathHelper.abs((float)(a.y - b.y)) >= min
-			|| MathHelper.abs((float)(a.z - b.z)) >= min;
-	}
 }
