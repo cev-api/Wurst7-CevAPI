@@ -60,6 +60,13 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "palette and forces it into the shared color registry.\n"
 			+ "PlayerESP takes ownership of these colors (overrides Breadcrumbs).",
 		false);
+	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
+		"Ignore NPCs",
+		"When enabled, players not present on the client's tab-list are\n"
+			+ "considered likely NPCs and will be ignored. This filters common\n"
+			+ "server-side NPCs but may hide real players who are intentionally\n"
+			+ "hidden from the tab-list.",
+		true);
 	private final CheckboxSetting filledBoxes = new CheckboxSetting(
 		"Filled boxes",
 		"When enabled, renders solid filled boxes instead of outlined boxes.",
@@ -90,6 +97,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(playerColor);
 		addSetting(boxSize);
 		entityFilters.forEach(this::addSetting);
+		addSetting(ignoreNpcs);
 	}
 	
 	@Override
@@ -118,6 +126,18 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			.filter(e -> e != MC.player)
 			.filter(e -> !(e instanceof FakePlayerEntity))
 			.filter(e -> Math.abs(e.getY() - MC.player.getY()) <= 1e6);
+		
+		// If enabled, filter out players that aren't present on the client's
+		// player list (likely NPCs spawned by server plugins).
+		if(ignoreNpcs.isChecked())
+		{
+			stream = stream.filter(e -> {
+				if(MC.getNetworkHandler() == null)
+					return true;
+				return MC.getNetworkHandler()
+					.getPlayerListEntry(e.getUuid()) != null;
+			});
+		}
 		
 		stream = entityFilters.applyTo(stream);
 		
