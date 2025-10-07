@@ -103,8 +103,8 @@ public final class PlayerColorRegistry
 		int baseCount = base.length;
 		int b = Math.abs(index) % baseCount;
 		int round = Math.abs(index) / baseCount;
-		// slightly vary brightness by round but keep it bright
-		float factor = 1.0f - Math.min(0.35f, round * 0.08f);
+		// Slightly vary brightness by round while keeping colors vibrant
+		float factor = 1.0f - Math.min(0.2f, round * 0.04f);
 		Color bc = base[b];
 		int r = Math.min(255, Math.max(0, (int)(bc.getRed() * factor)));
 		int g = Math.min(255, Math.max(0, (int)(bc.getGreen() * factor)));
