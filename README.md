@@ -109,7 +109,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Rendering: solid box + outline, optional tracers, name labels with adjustable scale.  
 - Settings: side color, line color, name scale, tracers toggle, spot lifetime, waypoint toggle.  
 
-![Logout](https://i.imgur.com/WSnrGEj.png)
+![Logout](https://i.imgur.com/dPpTS5J.png)
 
 ### AutoDisenchant
 - Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
@@ -245,6 +245,7 @@ Examples:
 ## License
 
 This code is licensed under the GNU General Public License v3. 
+
 
 
 
