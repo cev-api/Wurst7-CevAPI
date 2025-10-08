@@ -10,11 +10,13 @@ package net.wurstclient.hacks;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.util.math.MatrixStack;
@@ -40,12 +42,14 @@ public final class LogoutSpotsHack extends Hack
 		final String name;
 		final Box box;
 		final String dimKey;
+		final long createdAtMs;
 		
-		Entry(UUID u, String n, Box b, float h, String dim)
+		Entry(String n, Box b, String dim, long createdAtMs)
 		{
 			name = n;
 			box = b;
 			dimKey = dim;
+			this.createdAtMs = createdAtMs;
 		}
 	}
 	
@@ -61,11 +65,17 @@ public final class LogoutSpotsHack extends Hack
 	private final net.wurstclient.settings.CheckboxSetting addAsWaypoint =
 		new net.wurstclient.settings.CheckboxSetting(
 			"Add logout spot as waypoint", false);
+	private static final int INFINITE_LIFETIME_MARKER = 121;
+	private final SliderSetting spotLifetimeMinutes = new SliderSetting(
+		"Spot lifetime (minutes)", 60, 1, INFINITE_LIFETIME_MARKER, 1,
+		net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER
+			.withLabel(INFINITE_LIFETIME_MARKER, "Infinite"));
 	
 	private final Map<UUID, Entry> spots = new HashMap<>();
 	private List<PlayerListEntry> lastList = List.of();
 	private Map<UUID, PlayerEntity> lastPlayers = Map.of();
 	private final Map<UUID, java.util.UUID> spotToWaypoint = new HashMap<>();
+	private String lastServerKey = "unknown";
 	
 	public LogoutSpotsHack()
 	{
@@ -75,17 +85,18 @@ public final class LogoutSpotsHack extends Hack
 		addSetting(lineColor);
 		addSetting(scale);
 		addSetting(showTracers);
+		addSetting(spotLifetimeMinutes);
 		addSetting(addAsWaypoint);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
-		spots.clear();
+		clearAllSpots();
+		lastServerKey = resolveServerKey();
 		snapshot();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		spotToWaypoint.clear();
 	}
 	
 	@Override
@@ -93,19 +104,21 @@ public final class LogoutSpotsHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
-		spots.clear();
-		// remove any temporary waypoints that we created
-		if(WURST.getHax().waypointsHack != null)
-		{
-			for(java.util.UUID wp : new ArrayList<>(spotToWaypoint.values()))
-				WURST.getHax().waypointsHack.removeTemporaryWaypoint(wp);
-		}
-		spotToWaypoint.clear();
+		clearAllSpots();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		String serverKeyNow = resolveServerKey();
+		if(!serverKeyNow.equals(lastServerKey))
+		{
+			clearAllSpots();
+			lastList = List.of();
+			lastPlayers = Map.of();
+			lastServerKey = serverKeyNow;
+		}
+		
 		if(MC.getNetworkHandler() == null || MC.world == null)
 			return;
 		var nowList = MC.getNetworkHandler().getPlayerList();
@@ -125,9 +138,9 @@ public final class LogoutSpotsHack extends Hack
 					if(p != null)
 					{
 						Box b = p.getBoundingBox();
-						float h = p.getHealth();
-						spots.put(id, new Entry(id, p.getName().getString(), b,
-							h, currentDimKey()));
+						long now = System.currentTimeMillis();
+						spots.put(id, new Entry(p.getName().getString(), b,
+							currentDimKey(), now));
 						// Optionally add a temporary waypoint for this logout
 						// spot
 						if(addAsWaypoint.isChecked()
@@ -135,8 +148,7 @@ public final class LogoutSpotsHack extends Hack
 							&& WURST.getHax().waypointsHack.isEnabled())
 						{
 							Waypoint w =
-								new Waypoint(java.util.UUID.randomUUID(),
-									System.currentTimeMillis());
+								new Waypoint(java.util.UUID.randomUUID(), now);
 							w.setName("Logout: " + p.getName().getString());
 							w.setIcon("skull");
 							w.setColor(0xFF88CCFF);
@@ -163,10 +175,24 @@ public final class LogoutSpotsHack extends Hack
 			for(PlayerEntity p : MC.world.getPlayers())
 			{
 				spots.remove(p.getUuid());
-				// remove any temporary waypoint associated with this spot
-				java.util.UUID wp = spotToWaypoint.remove(p.getUuid());
-				if(wp != null && WURST.getHax().waypointsHack != null)
-					WURST.getHax().waypointsHack.removeTemporaryWaypoint(wp);
+				removeTemporaryWaypoint(p.getUuid());
+			}
+		}
+		
+		int lifetimeMinutes = spotLifetimeMinutes.getValueI();
+		if(lifetimeMinutes < INFINITE_LIFETIME_MARKER && !spots.isEmpty())
+		{
+			long lifetimeMs = lifetimeMinutes * 60_000L;
+			long cutoff = System.currentTimeMillis() - lifetimeMs;
+			Iterator<Map.Entry<UUID, Entry>> it = spots.entrySet().iterator();
+			while(it.hasNext())
+			{
+				var entry = it.next();
+				if(entry.getValue().createdAtMs <= cutoff)
+				{
+					removeTemporaryWaypoint(entry.getKey());
+					it.remove();
+				}
 			}
 		}
 	}
@@ -190,6 +216,41 @@ public final class LogoutSpotsHack extends Hack
 				map.put(p.getUuid(), p);
 		}
 		lastPlayers = map;
+	}
+	
+	private String resolveServerKey()
+	{
+		ServerInfo info = MC.getCurrentServerEntry();
+		if(info != null)
+		{
+			if(info.address != null && !info.address.isEmpty())
+				return info.address.replace(':', '_');
+			if(info.isRealm())
+				return "realms_" + (info.name == null ? "" : info.name);
+			if(info.name != null && !info.name.isEmpty())
+				return "server_" + info.name;
+		}
+		if(MC.isIntegratedServerRunning())
+			return "singleplayer";
+		return "unknown";
+	}
+	
+	private void clearAllSpots()
+	{
+		if(!spotToWaypoint.isEmpty() && WURST.getHax().waypointsHack != null)
+		{
+			for(java.util.UUID wp : new ArrayList<>(spotToWaypoint.values()))
+				WURST.getHax().waypointsHack.removeTemporaryWaypoint(wp);
+		}
+		spotToWaypoint.clear();
+		spots.clear();
+	}
+	
+	private void removeTemporaryWaypoint(UUID playerId)
+	{
+		java.util.UUID wp = spotToWaypoint.remove(playerId);
+		if(wp != null && WURST.getHax().waypointsHack != null)
+			WURST.getHax().waypointsHack.removeTemporaryWaypoint(wp);
 	}
 	
 	@Override

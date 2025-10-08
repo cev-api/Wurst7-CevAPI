@@ -8,6 +8,10 @@
 package net.wurstclient.hacks;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -17,6 +21,8 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.Util;
+import net.minecraft.util.hit.HitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -32,11 +38,13 @@ import net.wurstclient.settings.filters.FilterSleepingSetting;
 import net.wurstclient.settings.ColorSetting;
 import java.awt.Color;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import net.minecraft.world.RaycastContext;
 
 @SearchTags({"player esp", "PlayerTracers", "player tracers"})
 public final class PlayerEspHack extends Hack implements UpdateListener,
@@ -60,6 +68,17 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "palette and forces it into the shared color registry.\n"
 			+ "PlayerESP takes ownership of these colors (overrides Breadcrumbs).",
 		false);
+	private final CheckboxSetting losThreatDetection = new CheckboxSetting(
+		"Line-of-sight detection",
+		"Highlights players who currently have direct line of sight on you\n"
+			+ "and temporarily overrides their ESP color.",
+		false);
+	private final SliderSetting losThreatFov =
+		new SliderSetting("LOS FOV (degrees)", 140, 30, 180, 1,
+			SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting losThreatRange =
+		new SliderSetting("LOS detection range", 100, 16, 100, 1,
+			SliderSetting.ValueDisplay.INTEGER);
 	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
 		"Ignore NPCs",
 		"When enabled, players not present on the client's tab-list are\n"
@@ -84,6 +103,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new net.wurstclient.settings.SliderSetting("Filled box alpha", 35, 0,
 			100, 1,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
+	private final Map<UUID, LosState> losStates = new HashMap<>();
+	private static final long LOS_HOLD_MS = 250;
+	private static final long LOS_FADE_MS = 120;
+	private static final double THREAT_LINE_WIDTH = 4.0; // thickness of threat
+															// lines
 	
 	public PlayerEspHack()
 	{
@@ -91,6 +115,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(randomBrightColors);
+		addSetting(losThreatDetection);
+		addSetting(losThreatFov);
+		addSetting(losThreatRange);
 		addSetting(filledBoxes);
 		addSetting(filledAlpha);
 		addSetting(useStaticPlayerColor);
@@ -114,6 +141,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		losStates.clear();
 	}
 	
 	@Override
@@ -142,6 +170,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		stream = entityFilters.applyTo(stream);
 		
 		players.addAll(stream.collect(Collectors.toList()));
+		
+		if(losThreatDetection.isChecked())
+			updateLosStates(Util.getMeasuringTimeMs());
+		else
+			losStates.clear();
 	}
 	
 	@Override
@@ -155,58 +188,101 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
+		long now = Util.getMeasuringTimeMs();
+		Map<UUID, PlayerVisual> visualCache = new HashMap<>(players.size());
+		
 		if(style.hasBoxes())
 		{
 			double extraSize = boxSize.getExtraSize() / 2;
 			
-			ArrayList<ColoredBox> boxes = new ArrayList<>(players.size());
+			ArrayList<ColoredBox> normalOutline = new ArrayList<>();
+			ArrayList<ColoredBox> threatOutline = new ArrayList<>();
+			ArrayList<ColoredBox> solid = filledBoxes.isChecked()
+				? new ArrayList<>(players.size()) : null;
+			
 			for(PlayerEntity e : players)
 			{
 				Box box = EntityUtils.getLerpedBox(e, partialTicks)
 					.offset(0, extraSize, 0).expand(extraSize);
-				int col = getColor(e);
-				boxes.add(new ColoredBox(box, col));
+				PlayerVisual visual = visualCache.computeIfAbsent(e.getUuid(),
+					id -> getVisual(e, now));
+				int boxColor = visual.boxColor();
+				
+				if(filledBoxes.isChecked())
+				{
+					int rgb = boxColor & 0x00FFFFFF;
+					int solidAlpha =
+						(int)((filledAlpha.getValue() / 100f) * 255) << 24;
+					int solidColor = rgb | solidAlpha;
+					if(solid != null)
+						solid.add(new ColoredBox(box, solidColor));
+					int outlineColor = rgb | (0xFF << 24);
+					ColoredBox outlineBox = new ColoredBox(box, outlineColor);
+					if(visual.isThreat())
+						threatOutline.add(outlineBox);
+					else
+						normalOutline.add(outlineBox);
+				}else
+				{
+					ColoredBox cb = new ColoredBox(box, boxColor);
+					if(visual.isThreat())
+						threatOutline.add(cb);
+					else
+						normalOutline.add(cb);
+				}
 			}
 			
 			if(filledBoxes.isChecked())
 			{
-				// Draw semi-transparent filled boxes, then draw opaque
-				// outlines on top
-				ArrayList<ColoredBox> solid = new ArrayList<>(boxes.size());
-				ArrayList<ColoredBox> outline = new ArrayList<>(boxes.size());
-				for(ColoredBox cb : boxes)
-				{
-					int base = cb.color();
-					int solidAlpha =
-						(int)((filledAlpha.getValue() / 100f) * 255) << 24;
-					int solidColor = (base & 0x00FFFFFF) | solidAlpha;
-					solid.add(new ColoredBox(cb.box(), solidColor));
-					int outlineColor = (base & 0x00FFFFFF) | (0xFF << 24);
-					outline.add(new ColoredBox(cb.box(), outlineColor));
-				}
-				RenderUtils.drawSolidBoxes(matrixStack, solid, false);
-				RenderUtils.drawOutlinedBoxes(matrixStack, outline, false);
+				if(solid != null && !solid.isEmpty())
+					RenderUtils.drawSolidBoxes(matrixStack, solid, false);
+				if(!normalOutline.isEmpty())
+					RenderUtils.drawOutlinedBoxes(matrixStack, normalOutline,
+						false);
+				if(!threatOutline.isEmpty())
+					RenderUtils.drawOutlinedBoxes(matrixStack, threatOutline,
+						false, THREAT_LINE_WIDTH);
 			}else
 			{
-				RenderUtils.drawOutlinedBoxes(matrixStack, boxes, false);
+				if(!normalOutline.isEmpty())
+					RenderUtils.drawOutlinedBoxes(matrixStack, normalOutline,
+						false);
+				if(!threatOutline.isEmpty())
+					RenderUtils.drawOutlinedBoxes(matrixStack, threatOutline,
+						false, THREAT_LINE_WIDTH);
 			}
 		}
 		
 		if(style.hasLines())
 		{
-			ArrayList<ColoredPoint> ends = new ArrayList<>(players.size());
+			ArrayList<ColoredPoint> normalEnds =
+				new ArrayList<>(players.size());
+			ArrayList<ColoredPoint> threatEnds = new ArrayList<>();
+			
 			for(PlayerEntity e : players)
 			{
+				PlayerVisual visual = visualCache.computeIfAbsent(e.getUuid(),
+					id -> getVisual(e, now));
 				Vec3d point =
 					EntityUtils.getLerpedBox(e, partialTicks).getCenter();
-				ends.add(new ColoredPoint(point, getColor(e)));
+				ColoredPoint colored =
+					new ColoredPoint(point, visual.tracerColor());
+				if(visual.isThreat())
+					threatEnds.add(colored);
+				else
+					normalEnds.add(colored);
 			}
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			if(!normalEnds.isEmpty())
+				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
+					false);
+			if(!threatEnds.isEmpty())
+				RenderUtils.drawTracers(matrixStack, partialTicks, threatEnds,
+					false, THREAT_LINE_WIDTH);
 		}
 	}
 	
-	private int getColor(PlayerEntity e)
+	private int getBaseColor(PlayerEntity e)
 	{
 		if(WURST.getFriends().contains(e.getName().getString()))
 			return 0x800000FF;
@@ -269,5 +345,231 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		float g = MathHelper.clamp(f, 0, 1);
 		float[] rgb = {r, g, 0};
 		return RenderUtils.toIntColor(rgb, 0.5F);
+	}
+	
+	private PlayerVisual getVisual(PlayerEntity e, long now)
+	{
+		int baseColor = getBaseColor(e);
+		if(!losThreatDetection.isChecked())
+			return new PlayerVisual(baseColor, baseColor, 0F);
+		
+		float factor = getLosFactor(e, now);
+		int boxColor = mixThreatColor(baseColor, factor, false);
+		int tracerColor = mixThreatColor(baseColor, factor, true);
+		return new PlayerVisual(boxColor, tracerColor, factor);
+	}
+	
+	private float getLosFactor(PlayerEntity e, long now)
+	{
+		LosState state = losStates.get(e.getUuid());
+		if(state == null)
+			return 0F;
+		
+		if(state.los)
+			return 1F;
+		
+		if(now <= state.holdUntil)
+			return 1F;
+		
+		if(state.fadeUntil > now)
+		{
+			long fadeStart = state.fadeUntil - LOS_FADE_MS;
+			long elapsed = Math.max(0L, now - fadeStart);
+			float progress = 1F - (float)elapsed / (float)LOS_FADE_MS;
+			return MathHelper.clamp(progress, 0F, 1F);
+		}
+		
+		return 0F;
+	}
+	
+	private float getFovDotThreshold()
+	{
+		double fovDegrees = MathHelper.clamp(losThreatFov.getValue(), 1, 180);
+		double halfAngle = fovDegrees / 2.0;
+		return (float)Math.cos(Math.toRadians(halfAngle));
+	}
+	
+	private int mixThreatColor(int baseColor, float factor, boolean tracer)
+	{
+		if(factor <= 0F)
+			return baseColor;
+		
+		float clampedFactor = MathHelper.clamp(factor, 0F, 1F);
+		
+		float baseA = ((baseColor >>> 24) & 0xFF) / 255F;
+		float baseR = ((baseColor >>> 16) & 0xFF) / 255F;
+		float baseG = ((baseColor >>> 8) & 0xFF) / 255F;
+		float baseB = (baseColor & 0xFF) / 255F;
+		
+		float threatAlpha =
+			MathHelper.clamp(baseA + (tracer ? 0.45F : 0.35F), 0F, 1F);
+		
+		float inv = 1F - clampedFactor;
+		float r = 1F * clampedFactor + baseR * inv;
+		float g = baseG * inv;
+		float b = baseB * inv;
+		float a = threatAlpha * clampedFactor + baseA * inv;
+		
+		return RenderUtils.toIntColor(new float[]{r, g, b}, a);
+	}
+	
+	private void updateLosStates(long now)
+	{
+		if(MC.player == null || MC.world == null)
+			return;
+		
+		for(LosState state : losStates.values())
+			state.touched = false;
+		
+		for(PlayerEntity player : players)
+		{
+			LosState state = losStates.computeIfAbsent(player.getUuid(),
+				uuid -> new LosState(uuid, now));
+			state.touched = true;
+			updateLosState(player, state, now);
+		}
+		
+		losStates.entrySet().removeIf(entry -> !entry.getValue().touched);
+	}
+	
+	private void updateLosState(PlayerEntity target, LosState state, long now)
+	{
+		PlayerEntity self = MC.player;
+		if(self == null)
+			return;
+		
+		double maxRange = losThreatRange.getValue();
+		double maxRangeSq = maxRange * maxRange;
+		double distSq = target.squaredDistanceTo(self);
+		
+		if(distSq > maxRangeSq)
+		{
+			state.setLos(false, now);
+			state.scheduleNext(now);
+			return;
+		}
+		
+		if(now < state.nextCheckAt)
+			return;
+		
+		boolean hasLos = computeLineOfSight(target);
+		state.setLos(hasLos, now);
+		state.scheduleNext(now);
+	}
+	
+	private boolean computeLineOfSight(PlayerEntity target)
+	{
+		PlayerEntity self = MC.player;
+		if(self == null || MC.world == null)
+			return false;
+		
+		Box myBox = self.getBoundingBox();
+		Vec3d eyePos = new Vec3d(target.getX(),
+			target.getY() + target.getStandingEyeHeight(), target.getZ());
+		
+		if(myBox.contains(eyePos))
+			return true;
+		
+		double clampedX = MathHelper.clamp(eyePos.x, myBox.minX, myBox.maxX);
+		double clampedY = MathHelper.clamp(eyePos.y, myBox.minY, myBox.maxY);
+		double clampedZ = MathHelper.clamp(eyePos.z, myBox.minZ, myBox.maxZ);
+		Vec3d closestPoint = new Vec3d(clampedX, clampedY, clampedZ);
+		
+		Vec3d dirToYouVec = closestPoint.subtract(eyePos);
+		double distance = dirToYouVec.length();
+		if(distance < 1e-4)
+			return true;
+		Vec3d dirToYou = dirToYouVec.normalize();
+		
+		Vec3d lookVec = target.getRotationVec(1.0F);
+		float fovThreshold = getFovDotThreshold();
+		if(lookVec.dotProduct(dirToYou) < fovThreshold)
+			return false;
+		
+		Optional<Vec3d> hitOpt = myBox.raycast(eyePos, closestPoint);
+		if(hitOpt.isEmpty())
+			hitOpt = myBox.raycast(eyePos, myBox.getCenter());
+		Vec3d hitPos = hitOpt.orElse(closestPoint);
+		
+		RaycastContext ctx =
+			new RaycastContext(eyePos, hitPos, RaycastContext.ShapeType.VISUAL,
+				RaycastContext.FluidHandling.NONE, target);
+		HitResult blockHit = MC.world.raycast(ctx);
+		
+		if(blockHit.getType() == HitResult.Type.MISS)
+			return true;
+		
+		double blockDistSq = blockHit.getPos().squaredDistanceTo(eyePos);
+		double targetDistSq = hitPos.squaredDistanceTo(eyePos);
+		return blockDistSq >= targetDistSq - 1e-3;
+	}
+	
+	private static final class PlayerVisual
+	{
+		private final int boxColor;
+		private final int tracerColor;
+		private final float threatFactor;
+		
+		private PlayerVisual(int boxColor, int tracerColor, float threatFactor)
+		{
+			this.boxColor = boxColor;
+			this.tracerColor = tracerColor;
+			this.threatFactor = threatFactor;
+		}
+		
+		public int boxColor()
+		{
+			return boxColor;
+		}
+		
+		public int tracerColor()
+		{
+			return tracerColor;
+		}
+		
+		public boolean isThreat()
+		{
+			return threatFactor > 0.001F;
+		}
+	}
+	
+	private static final class LosState
+	{
+		private final int checkIntervalMs;
+		private long nextCheckAt;
+		private boolean los;
+		private long holdUntil = Long.MIN_VALUE;
+		private long fadeUntil = Long.MIN_VALUE;
+		private boolean touched;
+		
+		private LosState(UUID uuid, long now)
+		{
+			int hash = Math.floorMod(uuid.hashCode(), 10_000);
+			checkIntervalMs = 80 + hash % 90;
+			int offset = hash % checkIntervalMs;
+			nextCheckAt = now + offset;
+		}
+		
+		private void scheduleNext(long now)
+		{
+			nextCheckAt = now + checkIntervalMs;
+		}
+		
+		private void setLos(boolean value, long now)
+		{
+			if(los == value)
+				return;
+			
+			los = value;
+			if(value)
+			{
+				holdUntil = Long.MIN_VALUE;
+				fadeUntil = Long.MIN_VALUE;
+			}else
+			{
+				holdUntil = now + LOS_HOLD_MS;
+				fadeUntil = holdUntil + LOS_FADE_MS;
+			}
+		}
 	}
 }

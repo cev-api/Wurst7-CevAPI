@@ -178,6 +178,25 @@ public enum RenderUtils
 		vcp.draw(layer);
 	}
 	
+	public static void drawTracers(MatrixStack matrices, float partialTicks,
+		List<ColoredPoint> ends, boolean depthTest, double lineWidth)
+	{
+		if(ends == null || ends.isEmpty())
+			return;
+		
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d start = getTracerOrigin(partialTicks);
+		Vec3d offset = getCameraPos().negate();
+		for(ColoredPoint end : ends)
+			drawLine(matrices, buffer, start, end.point().add(offset),
+				end.color());
+		
+		vcp.draw(layer);
+	}
+	
 	public static void drawLine(MatrixStack matrices, VertexConsumer buffer,
 		Vec3d start, Vec3d end, int color)
 	{
@@ -571,6 +590,24 @@ public enum RenderUtils
 	{
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3d camOffset = getCameraPos().negate();
+		for(ColoredBox box : boxes)
+			drawOutlinedBox(matrices, buffer, box.box().offset(camOffset),
+				box.color());
+		
+		vcp.draw(layer);
+	}
+	
+	public static void drawOutlinedBoxes(MatrixStack matrices,
+		List<ColoredBox> boxes, boolean depthTest, double lineWidth)
+	{
+		if(boxes == null || boxes.isEmpty())
+			return;
+		
+		VertexConsumerProvider.Immediate vcp = getVCP();
+		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();

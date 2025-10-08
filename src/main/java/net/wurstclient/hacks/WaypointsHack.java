@@ -80,7 +80,15 @@ public final class WaypointsHack extends Hack
 	private final CheckboxSetting trackOtherDeaths =
 		new CheckboxSetting("Track other players' deaths", false);
 	private final CheckboxSetting deathWaypointLines =
-		new CheckboxSetting("Death waypoint lines", true);
+		new CheckboxSetting("Death waypoint lines", true)
+		{
+			@Override
+			public void update()
+			{
+				super.update();
+				applyDeathWaypointLinesSetting();
+			}
+		};
 	private final ColorSetting deathColor =
 		new ColorSetting("Death waypoint color", new java.awt.Color(0xFF4444));
 	private final CheckboxSetting compassMode =
@@ -139,6 +147,7 @@ public final class WaypointsHack extends Hack
 	{
 		worldId = resolveWorldId();
 		manager.load(worldId);
+		applyDeathWaypointLinesSetting();
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.add(DeathListener.class, this);
@@ -223,6 +232,7 @@ public final class WaypointsHack extends Hack
 			saveExcludingTemporaries();
 			worldId = wid;
 			manager.load(worldId);
+			applyDeathWaypointLinesSetting();
 		}
 		// Detect deaths of other players
 		if(trackOtherDeaths.isChecked() && MC.world != null
@@ -578,6 +588,31 @@ public final class WaypointsHack extends Hack
 		int remove = deaths.size() - maxDeathPositions.getValueI();
 		for(int i = 0; i < remove; i++)
 			manager.remove(deaths.get(i));
+	}
+	
+	private void applyDeathWaypointLinesSetting()
+	{
+		if(manager == null)
+			return;
+		
+		boolean linesEnabled = deathWaypointLines.isChecked();
+		boolean changed = false;
+		for(Waypoint w : manager.all())
+		{
+			String name = w.getName();
+			if(name == null)
+				continue;
+			
+			if(name.startsWith("Death ") || name.startsWith("Death of "))
+				if(w.isLines() != linesEnabled)
+				{
+					w.setLines(linesEnabled);
+					changed = true;
+				}
+		}
+		
+		if(changed)
+			saveExcludingTemporaries();
 	}
 	
 	private void drawWorldLabel(MatrixStack matrices, String text, double x,
