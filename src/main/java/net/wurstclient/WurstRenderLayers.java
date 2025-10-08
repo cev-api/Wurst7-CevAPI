@@ -102,6 +102,22 @@ public enum WurstRenderLayers
 	}
 	
 	/**
+	 * Returns a line render layer with a custom width.
+	 */
+	public static RenderLayer.MultiPhase getLines(boolean depthTest,
+		double width)
+	{
+		return RenderLayer.of(
+			depthTest ? "wurst:lines_custom" : "wurst:esp_lines_custom", 1536,
+			depthTest ? WurstShaderPipelines.DEPTH_TEST_LINES
+				: WurstShaderPipelines.ESP_LINES,
+			RenderLayer.MultiPhaseParameters.builder()
+				.lineWidth(new RenderPhase.LineWidth(OptionalDouble.of(width)))
+				.layering(RenderLayer.VIEW_OFFSET_Z_LAYERING)
+				.target(RenderLayer.ITEM_ENTITY_TARGET).build(false));
+	}
+	
+	/**
 	 * Returns either {@link #LINE_STRIP} or {@link #ESP_LINE_STRIP} depending
 	 * on the value of {@code depthTest}.
 	 */
