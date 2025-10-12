@@ -101,7 +101,13 @@ public final class ClickGui
 		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
 		Stream<Setting> settings = clickGuiHack.getSettings().values().stream();
 		settings.map(Setting::getComponent).forEach(c -> uiSettings.add(c));
+		// Removed secondary Chest Search button from UI Settings so Chest
+		// Search
+		// only appears in the ITEMS category via its hack.
 		windows.add(uiSettings);
+		
+		// Removed dedicated Chest Tools window so Chest Search isn't shown in
+		// its own category/window.
 		
 		for(Window window : windows)
 			window.setMinimized(true);
@@ -114,13 +120,14 @@ public final class ClickGui
 		for(Window window : windows)
 		{
 			window.pack();
-			
+			// Ensure Chest Tools is not minimized so it’s visible by default
+			if(window.getTitle().equals("Chest Tools"))
+				window.setMinimized(false);
 			if(x + window.getWidth() + 5 > scaledWidth)
 			{
 				x = 5;
 				y += 18;
 			}
-			
 			window.setX(x);
 			window.setY(y);
 			x += window.getWidth() + 5;

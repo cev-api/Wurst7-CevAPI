@@ -94,6 +94,18 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ![WayPoints](https://i.imgur.com/Tmp71qs.png) ![Waypoint Manager](https://i.imgur.com/41CKEiO.png) ![Waypoint Editor](https://i.imgur.com/QNCS66B.png)
 
+### Chest Search
+- Automatically or manually scan each chest you open and store its contents in a JSON file per server
+ - Able to detect chest changes that you make, so adding or removing items instantly updates the JSON
+ - Unable to detect chest changes that other players make
+ - Able to delete entries
+- Visually search all scanned chests for content based on keywords
+- Create an ESP highlight of the chest that has your desired item or create a waypoint to track the chest down
+- Chests are auto-removed if it has been detected as broken/missing
+- Adjustable Waypoint and ESP timeout
+- Adjustable ESP and Waypoint colors
+
+![ChestSearch](https://i.imgur.com/o5DYBqR.png)
 
 ### Breadcrumbs
 - Leaves a line trail behind you (toggle-able/pause-able).  

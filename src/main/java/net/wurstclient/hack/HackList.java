@@ -203,6 +203,7 @@ public final class HackList implements UpdateListener
 	public final BreadcrumbsHack breadcrumbsHack = new BreadcrumbsHack();
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();
+	public final ChestSearchHack chestSearchHack = new ChestSearchHack();
 	
 	private final TreeMap<String, Hack> hax =
 		new TreeMap<>(String::compareToIgnoreCase);
