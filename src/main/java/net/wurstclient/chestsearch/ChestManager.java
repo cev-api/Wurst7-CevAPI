@@ -104,6 +104,11 @@ public class ChestManager
 		return getCurrentDb().all();
 	}
 	
+	public ChestConfig getConfig()
+	{
+		return this.config;
+	}
+	
 	// Helper: parse a string containing NBT JSON into JsonElement; caller may
 	// obtain full ItemStack NBT
 	public static JsonElement parseNbtJson(String nbtJson)

@@ -299,9 +299,16 @@ public final class ChestSearchScreen extends Screen
 		ordered.addAll(others);
 		totalMatches = ordered.size();
 		results = ordered;
-		limitedResults = results.size() > 50;
+		int maxResults = 50;
+		try
+		{
+			maxResults = WurstClient.INSTANCE.getHax().chestSearchHack
+				.getMaxSearchResults();
+		}catch(Throwable ignored)
+		{}
+		limitedResults = results.size() > maxResults;
 		if(limitedResults)
-			results = new java.util.ArrayList<>(results.subList(0, 50));
+			results = new java.util.ArrayList<>(results.subList(0, maxResults));
 		clampScroll();
 		rebuildRowButtons();
 	}
@@ -319,6 +326,9 @@ public final class ChestSearchScreen extends Screen
 		int y = resultsTop - (int)Math.round(scrollOffset);
 		int visibleTop = resultsTop;
 		int visibleBottom = getVisibleBottom();
+		// scrolling buttons/row setup only
+		
+		// scrolling buttons/row setup only
 		for(ChestEntry e : results)
 		{
 			String dim = normalizeDimension(e.dimension);
@@ -410,7 +420,6 @@ public final class ChestSearchScreen extends Screen
 			int wpWidth = 56;
 			int espWidth = 40;
 			int deleteWidth = 56;
-			int gap = 4;
 			// Stack buttons vertically at the right edge (ESP, Waypoint,
 			// Delete)
 			int stackWidth = Math.max(Math.max(wpWidth, espWidth), deleteWidth);
@@ -508,6 +517,15 @@ public final class ChestSearchScreen extends Screen
 				}).dimensions(0, btnY, deleteWidth, 16).build();
 			delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
 				btnY + 36);
+			// hide per-row buttons when their row is outside the visible
+			// scrolling region so they don't overlap header/search UI
+			boolean rowVisible = btnY >= visibleTop && btnY <= visibleBottom;
+			espBtn.visible = rowVisible;
+			wpBtn.visible = rowVisible;
+			delBtn.visible = rowVisible;
+			espBtn.active = rowVisible;
+			wpBtn.active = rowVisible;
+			delBtn.active = rowVisible;
 			delBtn.setTooltip(net.minecraft.client.gui.tooltip.Tooltip
 				.of(Text.literal("Delete entry")));
 			addDrawableChild(delBtn);
@@ -802,8 +820,7 @@ public final class ChestSearchScreen extends Screen
 			// buttons)
 			int wpWidth = 56;
 			int espWidth = 40;
-			int gap = 4;
-			int availWidth = (boxRight - x) - (espWidth + gap + wpWidth + 12);
+			int availWidth = (boxRight - x) - (espWidth + 4 + wpWidth + 12);
 			if(availWidth < 50) // fallback
 				availWidth = 50;
 			if(pinnedEntry)
@@ -871,10 +888,22 @@ public final class ChestSearchScreen extends Screen
 			}
 			y += boxHeight + 6;
 		}
+		// disable clipping before drawing GUI children so they are not
+		// clipped by the results region
+		try
+		{
+			context.disableScissor();
+		}catch(Throwable ignored)
+		{
+			// ignore scissor underflow if scissor wasn't enabled
+		}
 		// now draw children (buttons etc.) on top
 		super.render(context, mouseX, mouseY, delta);
 		int shown = results == null ? 0 : results.size();
-		String limiter = limitedResults ? " (showing first 50)" : "";
+		String limiter = limitedResults
+			? " (showing first " + WurstClient.INSTANCE.getHax().chestSearchHack
+				.getMaxSearchResults() + ")"
+			: "";
 		String summary =
 			"Showing " + shown + "/" + totalMatches + limiter + " - Tracking "
 				+ totalChestsLogged + " chests, " + totalItemsLogged + " items";
@@ -958,47 +987,52 @@ public final class ChestSearchScreen extends Screen
 		return matches;
 	}
 	
-	/** Find a canonical chest entry for given entry by matching contents. */
-	private ChestEntry findCanonicalEntry(ChestEntry entry)
-	{
-		if(entry == null || entry.items == null)
-			return entry;
-		for(ChestEntry e : chestManager.all())
-		{
-			if(e.items == null)
-				continue;
-			if(e.items.size() != entry.items.size())
-				continue;
-			boolean same = true;
-			for(int i = 0; i < e.items.size(); i++)
-			{
-				ChestEntry.ItemEntry a = e.items.get(i);
-				ChestEntry.ItemEntry b = entry.items.get(i);
-				if(a == null && b == null)
-					continue;
-				if(a == null || b == null)
-				{
-					same = false;
-					break;
-				}
-				if(a.count != b.count)
-				{
-					same = false;
-					break;
-				}
-				String ida = a.itemId == null ? "" : a.itemId;
-				String idb = b.itemId == null ? "" : b.itemId;
-				if(!ida.equals(idb))
-				{
-					same = false;
-					break;
-				}
-			}
-			if(same)
-				return e;
-		}
-		return entry;
-	}
+	/*
+	 * Find a canonical chest entry for given entry by matching contents.
+	 *
+	 * Currently unused; kept for reference. If needed later it can be
+	 * re-enabled to map an entry to a canonical one by comparing item lists.
+	 */
+	// private ChestEntry findCanonicalEntry(ChestEntry entry)
+	// {
+	// if(entry == null || entry.items == null)
+	// return entry;
+	// for(ChestEntry e : chestManager.all())
+	// {
+	// if(e.items == null)
+	// continue;
+	// if(e.items.size() != entry.items.size())
+	// continue;
+	// boolean same = true;
+	// for(int i = 0; i < e.items.size(); i++)
+	// {
+	// ChestEntry.ItemEntry a = e.items.get(i);
+	// ChestEntry.ItemEntry b = entry.items.get(i);
+	// if(a == null && b == null)
+	// continue;
+	// if(a == null || b == null)
+	// {
+	// same = false;
+	// break;
+	// }
+	// if(a.count != b.count)
+	// {
+	// same = false;
+	// break;
+	// }
+	// String ida = a.itemId == null ? "" : a.itemId;
+	// String idb = b.itemId == null ? "" : b.itemId;
+	// if(!ida.equals(idb))
+	// {
+	// same = false;
+	// break;
+	// }
+	// }
+	// if(same)
+	// return e;
+	// }
+	// return entry;
+	// }
 	
 	private static int headerLineCount(boolean pinnedEntry)
 	{

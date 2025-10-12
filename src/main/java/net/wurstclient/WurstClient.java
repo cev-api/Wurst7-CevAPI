@@ -180,6 +180,18 @@ public enum WurstClient
 	public void saveSettings()
 	{
 		settingsFile.save();
+		// Also persist chest search cleaner config from ChestSearchHack
+		try
+		{
+			net.wurstclient.hacks.ChestSearchHack csh =
+				getHax().chestSearchHack;
+			net.wurstclient.chestsearch.ChestConfig cc =
+				new net.wurstclient.chestsearch.ChestManager().getConfig();
+			cc.graceTicks = csh.getCleanerGraceTicks();
+			cc.scanRadius = csh.getCleanerScanRadius();
+			cc.save();
+		}catch(Throwable ignored)
+		{}
 	}
 	
 	public ArrayList<Path> listSettingsProfiles()
