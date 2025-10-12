@@ -9,7 +9,6 @@ package net.wurstclient.clickgui.screens;
 
 import java.util.ArrayList;
 
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -604,11 +603,8 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(Click context, boolean doubleClick)
+	public boolean mouseClicked(double mouseX, double mouseY, int button)
 	{
-		double mouseX = context.x();
-		double mouseY = context.y();
-		int button = context.button();
 		if(button == 0 && scrollMaxOffset > 0)
 		{
 			if(isOverScrollbarThumb(mouseX, mouseY))
@@ -635,14 +631,13 @@ public final class ChestSearchScreen extends Screen
 				return true;
 			}
 		}
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	
 	@Override
-	public boolean mouseDragged(Click context, double deltaX, double deltaY)
+	public boolean mouseDragged(double mouseX, double mouseY, int button,
+		double deltaX, double deltaY)
 	{
-		double mouseY = context.y();
-		int button = context.button();
 		if(draggingScrollbar && button == 0 && scrollMaxOffset > 0)
 		{
 			double trackRange =
@@ -658,18 +653,18 @@ public final class ChestSearchScreen extends Screen
 			}
 			return true;
 		}
-		return super.mouseDragged(context, deltaX, deltaY);
+		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
 	}
 	
 	@Override
-	public boolean mouseReleased(Click context)
+	public boolean mouseReleased(double mouseX, double mouseY, int button)
 	{
-		if(context.button() == 0 && draggingScrollbar)
+		if(button == 0 && draggingScrollbar)
 		{
 			draggingScrollbar = false;
 			return true;
 		}
-		return super.mouseReleased(context);
+		return super.mouseReleased(mouseX, mouseY, button);
 	}
 	
 	private boolean isOverScrollbarThumb(double mouseX, double mouseY)

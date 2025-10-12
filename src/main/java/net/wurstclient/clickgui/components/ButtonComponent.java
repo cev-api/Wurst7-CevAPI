@@ -9,7 +9,6 @@ package net.wurstclient.clickgui.components;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.util.RenderUtils;
@@ -28,8 +27,7 @@ public final class ButtonComponent extends Component
 	}
 	
 	@Override
-	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		Click context)
+	public void handleMouseClick(double mouseX, double mouseY, int mouseButton)
 	{
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
