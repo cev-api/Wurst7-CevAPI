@@ -22,6 +22,13 @@ public final class ChestSearchHack extends Hack
 		"Waypoint time (s)", 60, 5, 600, 5, ValueDisplay.INTEGER);
 	private final SliderSetting espTimeSec =
 		new SliderSetting("ESP time (s)", 60, 5, 600, 5, ValueDisplay.INTEGER);
+	// controls for cleaner behaviour (exposed in navigator)
+	private final SliderSetting gracePeriodSec = new SliderSetting(
+		"Cleaner grace (s)", 10, 0, 60, 1, ValueDisplay.INTEGER);
+	private final SliderSetting scanRadius = new SliderSetting(
+		"Cleaner scan radius", 64, 8, 512, 8, ValueDisplay.INTEGER);
+	private final SliderSetting maxResults = new SliderSetting(
+		"Max search results", 50, 10, 1000, 10, ValueDisplay.INTEGER);
 	private final ColorSetting waypointColor =
 		new ColorSetting("Waypoint color", new java.awt.Color(0xFFFF00));
 	private final ColorSetting espFillColor =
@@ -38,9 +45,28 @@ public final class ChestSearchHack extends Hack
 		addSetting(automaticMode);
 		addSetting(waypointTimeSec);
 		addSetting(espTimeSec);
+		// expose cleaner settings in navigator so user can tune them
+		addSetting(gracePeriodSec);
+		addSetting(scanRadius);
+		addSetting(maxResults);
 		addSetting(waypointColor);
 		addSetting(espFillColor);
 		addSetting(espLineColor);
+	}
+	
+	public int getCleanerGraceTicks()
+	{
+		return (int)(gracePeriodSec.getValueI() * 20);
+	}
+	
+	public int getCleanerScanRadius()
+	{
+		return scanRadius.getValueI();
+	}
+	
+	public int getMaxSearchResults()
+	{
+		return maxResults.getValueI();
 	}
 	
 	public int getWaypointTimeMs()

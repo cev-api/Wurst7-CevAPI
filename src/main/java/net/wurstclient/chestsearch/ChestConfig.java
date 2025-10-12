@@ -19,6 +19,12 @@ public class ChestConfig
 	public boolean enabled = true;
 	public boolean storeFullItemNbt = true;
 	public String dbPath = "config/wurst/chest_database.json";
+	// grace period in ticks to wait after joining/changing dimension before
+	// allowing automatic deletions (20 ticks = 1 second)
+	public int graceTicks = 200; // ~10s
+	// scan radius in blocks within which the player must be to validate
+	// a recorded chest
+	public int scanRadius = 64;
 	
 	private final File file;
 	private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
