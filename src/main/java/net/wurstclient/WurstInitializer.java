@@ -8,6 +8,9 @@
 package net.wurstclient;
 
 import net.fabricmc.api.ModInitializer;
+import net.wurstclient.chestsearch.ChestCleaner;
+import net.wurstclient.chestsearch.TargetHighlighter;
+import net.wurstclient.events.RenderListener;
 
 public final class WurstInitializer implements ModInitializer
 {
@@ -25,6 +28,19 @@ public final class WurstInitializer implements ModInitializer
 				"WurstInitializer.onInitialize() ran twice!");
 		
 		WurstClient.INSTANCE.initialize();
+		// Register chest cleaner
+		try
+		{
+			new ChestCleaner().register();
+		}catch(Throwable ignored)
+		{}
+		// Register targeted highlighter
+		try
+		{
+			WurstClient.INSTANCE.getEventManager().add(RenderListener.class,
+				TargetHighlighter.INSTANCE);
+		}catch(Throwable ignored)
+		{}
 		initialized = true;
 	}
 }
