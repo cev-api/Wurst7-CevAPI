@@ -32,6 +32,17 @@ public final class WaypointsScreen extends Screen
 	private int scroll; // 0 at top, grows when scrolling down
 	private int viewportTop;
 	private int viewportBottom;
+	// Scrollbar interaction
+	private boolean draggingScrollbar = false;
+	private double scrollbarDragStartY = 0.0;
+	private double scrollbarStartScroll = 0.0;
+	private int scrollTrackTop = 0;
+	private int scrollTrackBottom = 0;
+	private int scrollTrackX = 0;
+	private int scrollTrackWidth = 0;
+	private int scrollThumbTop = 0;
+	private int scrollThumbHeight = 0;
+	private int scrollMax = 0;
 	
 	// Dimension filter (null = show all)
 	private net.wurstclient.waypoints.WaypointDimension filterDim = null;
@@ -238,7 +249,7 @@ public final class WaypointsScreen extends Screen
 		// "Top" button above the up-arrow that jumps directly to the top
 		addDrawableChild(ButtonWidget.builder(Text.literal("▲▲"), b -> {
 			scrollToTop();
-		}).dimensions(arrowX + 20, Math.max(0, viewportTop - 24), 20, 20)
+		}).dimensions(arrowX + 20, Math.max(0, viewportTop - 20), 20, 20)
 			.build());
 		// Up arrow (move up by a few rows)
 		addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> {
@@ -279,6 +290,92 @@ public final class WaypointsScreen extends Screen
 		}
 		return super.mouseScrolled(mouseX, mouseY, horizontalAmount,
 			verticalAmount);
+	}
+	
+	@Override
+	public boolean mouseClicked(net.minecraft.client.gui.Click context,
+		boolean doubleClick)
+	{
+		double mouseX = context.x();
+		double mouseY = context.y();
+		int button = context.button();
+		if(button == 0 && scrollMax > 0)
+		{
+			if(isOverScrollbarThumb(mouseX, mouseY))
+			{
+				draggingScrollbar = true;
+				scrollbarDragStartY = mouseY;
+				scrollbarStartScroll = scroll;
+				return true;
+			}
+			if(isOverScrollbarTrack(mouseX, mouseY))
+			{
+				int trackRange =
+					(scrollTrackBottom - scrollTrackTop) - scrollThumbHeight;
+				if(trackRange > 0)
+				{
+					double ratio =
+						(mouseY - scrollTrackTop - scrollThumbHeight / 2.0)
+							/ (double)trackRange;
+					scroll = (int)Math.max(0,
+						Math.min(scrollMax, Math.round(ratio * scrollMax)));
+					saveScrollState();
+					return true;
+				}
+				return true;
+			}
+		}
+		return super.mouseClicked(context, doubleClick);
+	}
+	
+	@Override
+	public boolean mouseDragged(net.minecraft.client.gui.Click context,
+		double deltaX, double deltaY)
+	{
+		double mouseY = context.y();
+		int button = context.button();
+		if(draggingScrollbar && button == 0 && scrollMax > 0)
+		{
+			int trackRange =
+				(scrollTrackBottom - scrollTrackTop) - scrollThumbHeight;
+			if(trackRange > 0)
+			{
+				double delta = mouseY - scrollbarDragStartY;
+				double ratio = delta / (double)trackRange;
+				scroll = (int)Math.max(0, Math.min(scrollMax,
+					Math.round(scrollbarStartScroll + ratio * scrollMax)));
+				saveScrollState();
+				return true;
+			}
+			return true;
+		}
+		return super.mouseDragged(context, deltaX, deltaY);
+	}
+	
+	@Override
+	public boolean mouseReleased(net.minecraft.client.gui.Click context)
+	{
+		if(context.button() == 0 && draggingScrollbar)
+		{
+			draggingScrollbar = false;
+			return true;
+		}
+		return super.mouseReleased(context);
+	}
+	
+	private boolean isOverScrollbarThumb(double mouseX, double mouseY)
+	{
+		return scrollMax > 0 && mouseX >= scrollTrackX
+			&& mouseX <= scrollTrackX + scrollTrackWidth
+			&& mouseY >= scrollThumbTop
+			&& mouseY <= scrollThumbTop + scrollThumbHeight;
+	}
+	
+	private boolean isOverScrollbarTrack(double mouseX, double mouseY)
+	{
+		return scrollMax > 0 && mouseX >= scrollTrackX
+			&& mouseX <= scrollTrackX + scrollTrackWidth
+			&& mouseY >= scrollTrackTop && mouseY <= scrollTrackBottom;
 	}
 	
 	@Override
@@ -362,6 +459,49 @@ public final class WaypointsScreen extends Screen
 		}
 		
 		context.disableScissor();
+		
+		// Draw scrollbar track & thumb (to the right of the list area)
+		int contentHeight = rows.size() * ROW_HEIGHT;
+		int trackWidth = 8;
+		// position scrollbar centered with the arrow buttons (they are
+		// placed at arrowX + 20 in init(), where arrowX = x + 305)
+		int arrowX = x + 305;
+		int buttonX = arrowX + 20;
+		int buttonWidth = 20;
+		int trackX = buttonX + (buttonWidth - trackWidth) / 2;
+		// leave space for the ▲▲ and ▼▼ buttons above/below the track
+		int trackTop = viewportTop + 24; // push down past the top arrow
+		int trackBottom = viewportBottom - 24; // leave room for bottom arrow
+		scrollMax = Math.max(0, contentHeight - (viewportBottom - viewportTop));
+		if(scrollMax > 0 && trackBottom > trackTop + 1)
+		{
+			scrollTrackTop = trackTop;
+			scrollTrackBottom = trackBottom;
+			scrollTrackX = trackX;
+			scrollTrackWidth = trackWidth;
+			int trackHeight = trackBottom - trackTop;
+			int thumbHeight =
+				(int)Math.round(((double)(viewportBottom - viewportTop)
+					/ Math.max(1.0, (double)contentHeight)) * trackHeight);
+			scrollThumbHeight =
+				Math.max(12, Math.min(trackHeight, thumbHeight));
+			int thumbTravel = trackHeight - scrollThumbHeight;
+			int thumbOffset = thumbTravel > 0
+				? (int)Math
+					.round(((double)scroll / (double)scrollMax) * thumbTravel)
+				: 0;
+			scrollThumbTop = trackTop + thumbOffset;
+			context.fill(trackX, trackTop, trackX + trackWidth, trackBottom,
+				0x55222222);
+			context.fill(trackX, scrollThumbTop, trackX + trackWidth,
+				scrollThumbTop + scrollThumbHeight, 0xFFAAAAAA);
+		}else
+		{
+			scrollTrackTop = trackTop;
+			scrollTrackBottom = trackTop;
+			scrollThumbTop = trackTop;
+			scrollThumbHeight = 0;
+		}
 	}
 	
 	private WaypointDimension currentDim()
