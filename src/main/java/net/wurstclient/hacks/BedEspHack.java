@@ -31,6 +31,7 @@ import net.wurstclient.hacks.bedesp.BedEspBlockGroup;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -61,6 +62,13 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
 	
+	// Above-ground filter
+	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
+		new net.wurstclient.settings.CheckboxSetting("Above ground only",
+			"Only show beds at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof BedBlock;
 	
@@ -81,6 +89,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 	}
 	
 	@Override
@@ -199,6 +209,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private void addToGroupBoxes(Result result)
 	{
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return;
 		for(BedEspBlockGroup group : groups)
 		{
 			group.add(result);

@@ -34,6 +34,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -201,6 +202,14 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		"Appends the number of found redstone components to this hack's entry in the HackList.",
 		false);
 	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show redstone components at or above the configured Y level.",
+			false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	public RedstoneEspHack()
 	{
 		super("RedstoneESP");
@@ -209,6 +218,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(showCountInHackList);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		addSetting(area);
 		addSetting(stickyArea);
 	}
@@ -335,6 +346,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private void addToGroupBoxes(Result result)
 	{
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return;
 		Block b = result.state().getBlock();
 		for(RenderGroup group : renderGroups)
 			if(group.matches(b))

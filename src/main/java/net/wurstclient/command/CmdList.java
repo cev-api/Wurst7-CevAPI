@@ -59,6 +59,7 @@ public final class CmdList
 	public final SetColorCmd setColorCmd = new SetColorCmd();
 	public final SetModeCmd setModeCmd = new SetModeCmd();
 	public final SetSliderCmd setSliderCmd = new SetSliderCmd();
+	public final AboveGroundCmd aboveGroundCmd = new AboveGroundCmd();
 	public final SettingsCmd settingsCmd = new SettingsCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
 	public final TCmd tCmd = new TCmd();

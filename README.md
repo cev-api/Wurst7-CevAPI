@@ -223,6 +223,11 @@ Examples:
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
 
+### Above Ground (New Option)
+- ItemESP, MobSearch, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
+- There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```)
+- This will help prevent you from detecting inaccessible mobs/items and essentially only scanning the surface of the world 
+
 ### Sticky Area (New Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
 - Keeps results anchored as you move. Default OFF.  

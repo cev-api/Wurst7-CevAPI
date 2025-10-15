@@ -33,6 +33,7 @@ import net.wurstclient.hacks.chestesp.ChestEspGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
@@ -141,6 +142,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private int foundCount;
 	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show chests/containers at or above the configured Y level.",
+			false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	public ChestEspHack()
 	{
 		super("ChestESP");
@@ -149,6 +158,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		groups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		addSetting(showCountInHackList);
 	}
 	
@@ -182,6 +193,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				.collect(Collectors.toCollection(ArrayList::new));
 		
 		for(BlockEntity blockEntity : blockEntities)
+		{
+			if(onlyAboveGround.isChecked()
+				&& blockEntity.getPos().getY() < aboveGroundY.getValue())
+				continue;
 			if(blockEntity instanceof TrappedChestBlockEntity)
 				trapChests.add(blockEntity);
 			else if(blockEntity instanceof ChestBlockEntity)
@@ -205,7 +220,13 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			else if(blockEntity instanceof AbstractFurnaceBlockEntity)
 				furnaces.add(blockEntity);
 			
+		}
+		
 		for(Entity entity : MC.world.getEntities())
+		{
+			if(onlyAboveGround.isChecked()
+				&& entity.getY() < aboveGroundY.getValue())
+				continue;
 			if(entity instanceof ChestMinecartEntity)
 				chestCarts.add(entity);
 			else if(entity instanceof HopperMinecartEntity)
@@ -213,7 +234,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			else if(entity instanceof ChestBoatEntity
 				|| entity instanceof ChestRaftEntity)
 				chestBoats.add(entity);
-			
+		}
+		
 		// compute found count from enabled groups (clamped)
 		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
 		total += entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
