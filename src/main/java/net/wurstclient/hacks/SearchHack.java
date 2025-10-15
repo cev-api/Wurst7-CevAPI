@@ -90,6 +90,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 		new net.wurstclient.settings.CheckboxSetting("HackList count",
 			"Appends the number of found blocks to this hack's entry in the HackList.",
 			false);
+
+	// Above-ground filter
+	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
+		new net.wurstclient.settings.CheckboxSetting("Above ground only",
+			"Only show blocks at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private Block lastBlock;
 	private String lastQuery = "";
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
@@ -145,6 +152,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(fixedColor);
 		addSetting(area);
 		addSetting(limit);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		// new setting
 		addSetting(showCountInHackList);
 	}
@@ -390,6 +399,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 			listExactIds = exact;
 			listKeywords = kw.toArray(new String[0]);
 			coordinator.setQuery((pos, state) -> {
+                if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+                    return false;
 				String idFull = BlockUtils.getName(state.getBlock());
 				if(listExactIds.contains(idFull))
 					return true;
@@ -414,13 +425,21 @@ public final class SearchHack extends Hack implements UpdateListener,
 			case QUERY:
 			lastBlock = currentBlock;
 			coordinator.setQuery((pos,
-				state) -> blockMatchesQuery(state.getBlock(), normalizedQuery));
+				state) -> {
+					if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+						return false;
+					return blockMatchesQuery(state.getBlock(), normalizedQuery);
+				});
 			lastQuery = normalizedQuery;
 			break;
 			case BLOCK_ID:
 			default:
 			lastBlock = currentBlock;
-			coordinator.setTargetBlock(currentBlock);
+			coordinator.setQuery((pos, state) -> {
+				if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+					return false;
+				return state.getBlock() == currentBlock;
+			});
 			lastQuery = "";
 		}
 		notify = true;
