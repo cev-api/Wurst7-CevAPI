@@ -223,12 +223,12 @@ Examples:
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
 
-### Above Ground (New Option)
+### Above Ground (New ESP Option)
 - ItemESP, MobSearch, Search, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
 - There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```)
-- This will help prevent you from detecting inaccessible mobs/items and essentially only scanning the surface of the world 
+- This will help prevent you from detecting inaccessible mobs/items and help you focus on scanning the surface of the world (if that's your goal) 
 
-### Sticky Area (New Option)
+### Sticky Area (New ESP Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
 - Keeps results anchored as you move. Default OFF.  
 
@@ -245,6 +245,17 @@ Examples:
 - Copyable XYZ co-ordinates on disconnect/kick (Works with AutoLeave)
 
 ![Disc](https://i.imgur.com/b327XLx.png)
+
+### Anti-Fingerprint
+- Detects and stops resource-pack fingerprinting. 
+- Policies: Observe (vanilla prompt + log), BlockLocal (decline private/LAN), BlockAll (decline all), SandboxAll (server sees fail; client saves copy). 
+- Detects burst requests (N in M ms) with toasts; supports host whitelist. 
+- Cache defenses: clear before download and per-session cache isolation. 
+- Sandbox: optional auto-extract of resource-packs for inspection. 
+- Telemetry: toast verbosity + audit log (host/IP/URL/UUID/required, cache/sandbox paths). 
+- Access via Other → Anti-Fingerprint, Wurst Options, and Multiplayer/Server Finder buttons. 
+
+![AntiFingerprint](https://i.imgur.com/4xycaQG.png)
 
 ### Usability
 - Right-click Area setting resets it to default.  

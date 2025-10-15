@@ -20,6 +20,7 @@ import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.Identifier;
+import net.cevapi.security.ResourcePackProtector;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
@@ -78,5 +79,11 @@ public class IngameHudMixin
 			return;
 		
 		ci.cancel();
+	}
+	
+	@Inject(at = @At("TAIL"), method = "tick")
+	private void onTick(CallbackInfo ci)
+	{
+		ResourcePackProtector.flushToasts();
 	}
 }
