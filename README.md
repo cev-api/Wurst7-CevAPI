@@ -224,7 +224,7 @@ Examples:
 - Extended up to 65×65 chunks for all chunk-based features.  
 
 ### Above Ground (New Option)
-- ItemESP, MobSearch, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
+- ItemESP, MobSearch, Search, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
 - There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```)
 - This will help prevent you from detecting inaccessible mobs/items and essentially only scanning the surface of the world 
 
