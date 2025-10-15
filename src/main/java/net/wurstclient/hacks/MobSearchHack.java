@@ -30,6 +30,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspBoxSizeSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
@@ -71,6 +72,13 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	private final CheckboxSetting useRainbow =
 		new CheckboxSetting("Rainbow colors",
 			"Use a rainbow color instead of the fixed color.", false);
+	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show mobs at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private final ColorSetting color = new ColorSetting("Color",
 		"Fixed color used when Rainbow colors is disabled.", Color.PINK);
 	// New: optionally show detected count in HackList
@@ -99,6 +107,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		addSetting(typeId);
 		addSetting(query);
 		addSetting(useRainbow);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		addSetting(color);
 		addSetting(showCountInHackList);
 	}
@@ -215,6 +225,10 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			.filter(LivingEntity.class::isInstance).map(e -> (LivingEntity)e)
 			.filter(e -> !(e instanceof PlayerEntity))
 			.filter(e -> !e.isRemoved() && e.getHealth() > 0).filter(predicate);
+		
+		// apply above-ground filter if enabled
+		if(onlyAboveGround.isChecked())
+			stream = stream.filter(e -> e.getY() >= aboveGroundY.getValue());
 		
 		matches.addAll(stream.collect(Collectors.toList()));
 		// update count for HUD (clamped to 999)

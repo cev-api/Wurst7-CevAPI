@@ -242,6 +242,24 @@ public final class HackList implements UpdateListener
 		eventManager.add(UpdateListener.class, this);
 	}
 	
+	/**
+	 * Toggle the per-hack "Only above ground" filter for all hacks that
+	 * expose the setting. Useful for binding to a key or calling from the
+	 * command interface.
+	 */
+	public void setAboveGroundFilterEnabled(boolean enabled)
+	{
+		AboveGroundFilterManager.toggle(this, enabled);
+	}
+	
+	/**
+	 * Set the Y threshold used by hacks that expose the above-ground filter.
+	 */
+	public void setAboveGroundFilterY(int y)
+	{
+		AboveGroundFilterManager.setY(this, y);
+	}
+	
 	@Override
 	public void onUpdate()
 	{

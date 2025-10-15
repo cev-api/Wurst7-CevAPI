@@ -34,6 +34,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.EntityUtils;
@@ -86,6 +87,13 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private ChunkPos lastPlayerChunk;
 	private int foundCount;
 	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround = new CheckboxSetting(
+		"Above ground only",
+		"Only show signs/frames at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	public SignEspHack()
 	{
 		super("SignESP");
@@ -98,6 +106,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 	}
 	
 	@Override
@@ -238,6 +248,9 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	
 	private void addToGroupBoxes(Result result)
 	{
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return;
 		for(SignEspGroup group : groups)
 		{
 			group.add(result.pos());
@@ -304,7 +317,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private static final class FrameEspEntityGroup
+	private final class FrameEspEntityGroup
 	{
 		private final ArrayList<Box> boxes = new ArrayList<>();
 		private final ColorSetting color;
@@ -326,6 +339,9 @@ public final class SignEspHack extends Hack implements UpdateListener,
 				if(e instanceof ItemFrameEntity
 					|| e instanceof GlowItemFrameEntity)
 				{
+					if(onlyAboveGround.isChecked()
+						&& e.getY() < aboveGroundY.getValue())
+						continue;
 					Box b = EntityUtils.getLerpedBox(e, partialTicks);
 					boxes.add(b);
 				}

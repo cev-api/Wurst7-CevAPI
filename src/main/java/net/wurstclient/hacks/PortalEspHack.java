@@ -30,6 +30,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -75,6 +76,13 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
 	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show portals at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() == Blocks.NETHER_PORTAL
 			|| state.getBlock() == Blocks.END_PORTAL
@@ -97,6 +105,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 	}
 	
 	@Override
@@ -209,6 +219,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	
 	private void addToGroupBoxes(Result result)
 	{
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return;
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{

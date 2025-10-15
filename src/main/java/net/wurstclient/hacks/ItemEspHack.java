@@ -39,6 +39,7 @@ import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 
@@ -115,6 +116,12 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		false);
 	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show items at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	// cache for LIST mode: exact IDs and keyword terms
 	private java.util.Set<String> specialExactIds;
 	private String[] specialKeywords;
@@ -139,6 +146,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(linesOnlyForSpecial);
 		addSetting(includeEquippedSpecial);
 		addSetting(includeItemFrames);
+		// above-ground filter
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		// new setting
 		addSetting(showCountInHackList);
 	}
@@ -224,6 +234,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		double extraSize = boxSize.getExtraSize() / 2;
 		for(ItemEntity e : items)
 		{
+			if(onlyAboveGround.isChecked()
+				&& e.getY() < aboveGroundY.getValue())
+				continue;
 			Box box = EntityUtils.getLerpedBox(e, partialTicks)
 				.offset(0, extraSize, 0).expand(extraSize);
 			boolean isSpecial = isSpecial(e.getStack());
@@ -252,6 +265,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					continue;
 				if(!isSpecial(fs))
 					continue;
+				if(onlyAboveGround.isChecked()
+					&& frame.getY() < aboveGroundY.getValue())
+					continue;
 				Box fbox = EntityUtils.getLerpedBox(frame, partialTicks)
 					.offset(0, extraSize, 0).expand(extraSize);
 				specialBoxes.add(fbox);
@@ -273,8 +289,12 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				ItemStack main = le.getMainHandStack();
 				if(main != null && !main.isEmpty() && isSpecial(main))
 				{
-					Box b = smallBoxAt(
-						getHeldItemPos(le, Hand.MAIN_HAND, partialTicks));
+					Vec3d pos =
+						getHeldItemPos(le, Hand.MAIN_HAND, partialTicks);
+					if(onlyAboveGround.isChecked() && pos != null
+						&& pos.y < aboveGroundY.getValue())
+						continue;
+					Box b = smallBoxAt(pos);
 					if(b != null)
 					{
 						specialBoxes.add(b);
@@ -284,8 +304,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				ItemStack off = le.getOffHandStack();
 				if(off != null && !off.isEmpty() && isSpecial(off))
 				{
-					Box b = smallBoxAt(
-						getHeldItemPos(le, Hand.OFF_HAND, partialTicks));
+					Vec3d pos = getHeldItemPos(le, Hand.OFF_HAND, partialTicks);
+					if(onlyAboveGround.isChecked() && pos != null
+						&& pos.y < aboveGroundY.getValue())
+						continue;
+					Box b = smallBoxAt(pos);
 					if(b != null)
 					{
 						specialBoxes.add(b);
@@ -299,6 +322,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					Vec3d hp = getHeadPos(le, partialTicks);
 					if(hp != null)
 					{
+						if(onlyAboveGround.isChecked()
+							&& hp.y < aboveGroundY.getValue())
+							continue;
 						Box b = smallBoxAt(hp);
 						specialBoxes.add(b);
 						specialEnds.add(hp);
