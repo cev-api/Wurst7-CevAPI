@@ -30,6 +30,7 @@
     "DeathScreenMixin",
     "DimensionOrBossFogModifierMixin",
     "DirectConnectScreenMixin",
+    "DownloaderMixin",
     "DisconnectedScreenMixin",
     "EntityMixin",
     "EntityRendererMixin",

@@ -25,6 +25,7 @@ import net.wurstclient.mixinterface.IMultiplayerScreen;
 import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
+import net.cevapi.config.AntiFingerprintConfigScreen;
 
 @Mixin(MultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen implements IMultiplayerScreen
@@ -51,6 +52,12 @@ public class MultiplayerScreenMixin extends Screen implements IMultiplayerScreen
 					.joinLastServer((MultiplayerScreen)(Object)this))
 			.dimensions(width / 2 - 154, 10, 100, 20).build());
 		updateLastServerButton();
+		
+		addDrawableChild(ButtonWidget
+			.builder(Text.literal("Anti-Fingerprint"),
+				b -> client.setScreen(new AntiFingerprintConfigScreen(
+					(MultiplayerScreen)(Object)this)))
+			.dimensions(width / 2 + 54, 10, 100, 20).build());
 		
 		addDrawableChild(
 			ButtonWidget

@@ -47,7 +47,7 @@ public class WurstOptionsScreen extends Screen
 	{
 		addDrawableChild(ButtonWidget
 			.builder(Text.literal("Back"), b -> client.setScreen(prevScreen))
-			.dimensions(width / 2 - 100, height / 4 + 144 - 16, 200, 20)
+			.dimensions(width / 2 - 100, height / 4 + 168 - 16, 200, 20)
 			.build());
 		
 		addSettingButtons();
@@ -103,6 +103,11 @@ public class WurstOptionsScreen extends Screen
 				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
 			"Shows a toast warning when a server enforces insecure chat/reporting.",
 			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
+		
+		new WurstOptionsButton(-154, 144, () -> "Anti-Fingerprint",
+			"Open the Anti-Fingerprint controls for resource-pack handling.",
+			b -> client.setScreen(
+				new net.cevapi.config.AntiFingerprintConfigScreen(this)));
 	}
 	
 	private void addManagerButtons()

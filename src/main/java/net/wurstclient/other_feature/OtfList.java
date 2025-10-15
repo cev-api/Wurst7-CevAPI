@@ -17,6 +17,8 @@ import net.wurstclient.other_features.*;
 
 public final class OtfList
 {
+	public final AntiFingerprintOtf antiFingerprintOtf =
+		new AntiFingerprintOtf();
 	public final ChangelogOtf changelogOtf = new ChangelogOtf();
 	public final CleanUpOtf cleanUpOtf = new CleanUpOtf();
 	public final DisableOtf disableOtf = new DisableOtf();

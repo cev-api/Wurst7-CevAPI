@@ -90,7 +90,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		new net.wurstclient.settings.CheckboxSetting("HackList count",
 			"Appends the number of found blocks to this hack's entry in the HackList.",
 			false);
-
+	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
 		new net.wurstclient.settings.CheckboxSetting("Above ground only",
@@ -399,8 +399,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 			listExactIds = exact;
 			listKeywords = kw.toArray(new String[0]);
 			coordinator.setQuery((pos, state) -> {
-                if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
-                    return false;
+				if(onlyAboveGround.isChecked()
+					&& pos.getY() < aboveGroundY.getValue())
+					return false;
 				String idFull = BlockUtils.getName(state.getBlock());
 				if(listExactIds.contains(idFull))
 					return true;
@@ -424,19 +425,20 @@ public final class SearchHack extends Hack implements UpdateListener,
 			break;
 			case QUERY:
 			lastBlock = currentBlock;
-			coordinator.setQuery((pos,
-				state) -> {
-					if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
-						return false;
-					return blockMatchesQuery(state.getBlock(), normalizedQuery);
-				});
+			coordinator.setQuery((pos, state) -> {
+				if(onlyAboveGround.isChecked()
+					&& pos.getY() < aboveGroundY.getValue())
+					return false;
+				return blockMatchesQuery(state.getBlock(), normalizedQuery);
+			});
 			lastQuery = normalizedQuery;
 			break;
 			case BLOCK_ID:
 			default:
 			lastBlock = currentBlock;
 			coordinator.setQuery((pos, state) -> {
-				if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+				if(onlyAboveGround.isChecked()
+					&& pos.getY() < aboveGroundY.getValue())
 					return false;
 				return state.getBlock() == currentBlock;
 			});
