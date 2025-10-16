@@ -133,6 +133,31 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Right-clicking item frames (with items in them) or signs interacts with the block behind them. Hold sneak to interact with the frame or sign normally.
 - Toggle between signs, frames or both
 
+### Location on Disconnect
+- Copyable XYZ co-ordinates on disconnect/kick (Works with AutoLeave)
+
+![Disc](https://i.imgur.com/b327XLx.png)
+
+### Anti-Fingerprint
+- Detects and stops resource-pack fingerprinting. 
+- Policies: Observe (vanilla prompt + log), BlockLocal (decline private/LAN), BlockAll (decline all), SandboxAll (server sees fail; client saves copy). 
+- Detects burst requests (N in M ms) with toasts; supports host whitelist. 
+- Cache defenses: clear before download and per-session cache isolation. 
+- Sandbox: optional auto-extract of resource-packs for inspection. 
+- Telemetry: toast verbosity + audit log (host/IP/URL/UUID/required, cache/sandbox paths). 
+- Access via Other → Anti-Fingerprint, Wurst Options, and Multiplayer/Server Finder buttons. 
+
+![AntiFingerprint](https://i.imgur.com/4xycaQG.png)
+
+### Cheat Detect
+- Watches other players each tick, tracking motion/swing stats to detect suspicious patterns
+- Detects speed, flight, boat flight and high CPS sword swings
+- Able to adjust the sensitivity for each detection
+- Alerts throttle themselves to prevent spam
+- Able to detect if other players are as cool as you!
+
+![Cheater](https://i.imgur.com/beZoL1U.png)
+
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
 
@@ -231,6 +256,7 @@ Examples:
 ### Sticky Area (New ESP Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
 - Keeps results anchored as you move. Default OFF.  
+- Greatly helps with FPS when using things like Search or X-Ray and moving quickly
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
@@ -240,31 +266,6 @@ Examples:
 
 ### Replace Taco with Neco
 - Replaced Taco icon with dancing Neco-Arc.  
-
-### Location on Disconnect
-- Copyable XYZ co-ordinates on disconnect/kick (Works with AutoLeave)
-
-![Disc](https://i.imgur.com/b327XLx.png)
-
-### Anti-Fingerprint
-- Detects and stops resource-pack fingerprinting. 
-- Policies: Observe (vanilla prompt + log), BlockLocal (decline private/LAN), BlockAll (decline all), SandboxAll (server sees fail; client saves copy). 
-- Detects burst requests (N in M ms) with toasts; supports host whitelist. 
-- Cache defenses: clear before download and per-session cache isolation. 
-- Sandbox: optional auto-extract of resource-packs for inspection. 
-- Telemetry: toast verbosity + audit log (host/IP/URL/UUID/required, cache/sandbox paths). 
-- Access via Other → Anti-Fingerprint, Wurst Options, and Multiplayer/Server Finder buttons. 
-
-![AntiFingerprint](https://i.imgur.com/4xycaQG.png)
-
-### Cheat Detect
-- Watches other players each tick, tracking motion/swing stats to detect suspicious patterns
-- Detects speed, flight, boat flight and high CPS sword swings
-- Able to adjust the sensitivity for each detection
-- Alerts throttle themselves to prevent spam
-- Able to detect if other players are as cool as you!
-
-![Cheater](https://i.imgur.com/beZoL1U.png)
 
 ### Usability
 - Right-click Area setting resets it to default.  
