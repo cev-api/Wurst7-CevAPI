@@ -15,12 +15,13 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 - Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
 - This fork: https://github.com/cev-api/Wurst7-CevAPI  
 - Status: actively maintained and re-based as upstream evolves  
+- Will try and support at least the latest two Minecraft versions
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
 ---
 
-## What’s new in this fork
+## What’s new in this fork?
 
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
@@ -157,6 +158,8 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Able to detect if other players are as cool as you!
 
 ![Cheater](https://i.imgur.com/beZoL1U.png)
+
+## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
