@@ -257,6 +257,15 @@ Examples:
 
 ![AntiFingerprint](https://i.imgur.com/4xycaQG.png)
 
+### Cheat Detect
+- Watches other players each tick, tracking motion/swing stats to detect suspicious patterns
+- Detects speed, flight, boat flight and high CPS sword swings
+- Able to adjust the sensitivity for each detection
+- Alerts throttle themselves to prevent spam
+- Able to detect if other players are as cool as you!
+
+![Cheater](https://i.imgur.com/beZoL1U.png)
+
 ### Usability
 - Right-click Area setting resets it to default.  
 
