@@ -8,6 +8,7 @@
 package net.wurstclient.clickgui.screens;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -15,6 +16,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.chestsearch.ChestEntry;
@@ -34,6 +36,9 @@ public final class ChestSearchScreen extends Screen
 	private int totalChestsLogged = 0;
 	private long totalItemsLogged = 0;
 	private int totalMatches = 0;
+	private boolean radiusFilterActive = false;
+	private int radiusLimitBlocks = Integer.MAX_VALUE;
+	private int radiusFilteredOut = 0;
 	private boolean limitedResults = false;
 	private double scrollOffset = 0.0;
 	private ButtonWidget scrollUpButton;
@@ -68,6 +73,18 @@ public final class ChestSearchScreen extends Screen
 	private static String normalizeDimension(String dimension)
 	{
 		return dimension == null ? "" : dimension;
+	}
+	
+	private static String canonicalDimension(String dimension)
+	{
+		String dim = normalizeDimension(dimension).trim();
+		if(dim.isEmpty())
+			return "";
+		String lower = dim.toLowerCase(Locale.ROOT);
+		int colon = lower.indexOf(':');
+		if(colon >= 0 && colon < lower.length() - 1)
+			return lower.substring(colon + 1);
+		return lower;
 	}
 	
 	private static String makePosKey(String dimension, BlockPos pos)
@@ -296,8 +313,8 @@ public final class ChestSearchScreen extends Screen
 		java.util.List<ChestEntry> ordered = new java.util.ArrayList<>();
 		ordered.addAll(pinned);
 		ordered.addAll(others);
-		totalMatches = ordered.size();
-		results = ordered;
+		results = applyRadiusFilter(ordered);
+		totalMatches = results.size();
 		int maxResults = 50;
 		try
 		{
@@ -310,6 +327,78 @@ public final class ChestSearchScreen extends Screen
 			results = new java.util.ArrayList<>(results.subList(0, maxResults));
 		clampScroll();
 		rebuildRowButtons();
+	}
+	
+	private java.util.List<ChestEntry> applyRadiusFilter(
+		java.util.List<ChestEntry> entries)
+	{
+		radiusFilterActive = false;
+		radiusFilteredOut = 0;
+		radiusLimitBlocks = Integer.MAX_VALUE;
+		if(entries == null || entries.isEmpty())
+			return entries;
+		
+		net.minecraft.client.MinecraftClient mc = WurstClient.MC;
+		if(mc == null || mc.player == null)
+			return entries;
+		
+		net.wurstclient.hacks.ChestSearchHack hack;
+		try
+		{
+			hack = WurstClient.INSTANCE.getHax().chestSearchHack;
+		}catch(Throwable ignored)
+		{
+			hack = null;
+		}
+		if(hack == null || hack.isDisplayRadiusUnlimited())
+			return entries;
+		
+		int radiusBlocks = hack.getDisplayRadius();
+		if(radiusBlocks <= 0 || radiusBlocks >= Integer.MAX_VALUE)
+			return entries;
+		
+		radiusFilterActive = true;
+		radiusLimitBlocks = radiusBlocks;
+		double radiusSq = (double)radiusBlocks * (double)radiusBlocks;
+		Vec3d playerPos =
+			new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+		String playerDim = "";
+		try
+		{
+			if(mc.world != null)
+				playerDim = mc.world.getRegistryKey().getValue().toString();
+		}catch(Throwable ignored)
+		{}
+		String playerDimKey = canonicalDimension(playerDim);
+		
+		java.util.ArrayList<ChestEntry> filtered =
+			new java.util.ArrayList<>(entries.size());
+		int filteredOut = 0;
+		for(ChestEntry entry : entries)
+		{
+			if(entry == null)
+				continue;
+			boolean include = true;
+			String entryDimKey = canonicalDimension(entry.dimension);
+			if(!entryDimKey.isEmpty() && !playerDimKey.isEmpty()
+				&& !entryDimKey.equals(playerDimKey))
+				include = false;
+			
+			if(include)
+			{
+				BlockPos pos = entry.getClickedPos();
+				Vec3d chestPos = Vec3d.ofCenter(pos);
+				if(chestPos.squaredDistanceTo(playerPos) > radiusSq)
+					include = false;
+			}
+			
+			if(include)
+				filtered.add(entry);
+			else
+				filteredOut++;
+		}
+		radiusFilteredOut = filteredOut;
+		return filtered;
 	}
 	
 	private void rebuildRowButtons()
@@ -700,8 +789,6 @@ public final class ChestSearchScreen extends Screen
 		int sfY = 18;
 		context.fill(sfX - 2, sfY - 2, sfX + 222, sfY + 22, 0xFF333333);
 		int summaryY = sfY + 24;
-		context.fill(sfX - 2, summaryY - 2, sfX + 360, summaryY + 18,
-			0xFF222222);
 		// draw result panels BEFORE super.render so buttons draw on top
 		int x = this.width / 2 - 150;
 		int visibleTop = getResultsTop();
@@ -899,11 +986,29 @@ public final class ChestSearchScreen extends Screen
 			? " (showing first " + WurstClient.INSTANCE.getHax().chestSearchHack
 				.getMaxSearchResults() + ")"
 			: "";
-		String summary =
-			"Showing " + shown + "/" + totalMatches + limiter + " - Tracking "
-				+ totalChestsLogged + " chests, " + totalItemsLogged + " items";
-		context.drawText(this.textRenderer, Text.literal(summary), sfX,
-			summaryY + 2, 0xFFCCCCCC, false);
+		java.util.ArrayList<String> summaryExtras = new java.util.ArrayList<>();
+		if(radiusFilterActive && radiusLimitBlocks < Integer.MAX_VALUE)
+			summaryExtras.add("radius <= " + radiusLimitBlocks + " blocks");
+		if(radiusFilterActive && radiusFilteredOut > 0)
+			summaryExtras.add(radiusFilteredOut + " outside radius");
+		String extra = summaryExtras.isEmpty() ? ""
+			: " (" + String.join(", ", summaryExtras) + ")";
+		String summary = "Showing " + shown + "/" + totalMatches + limiter
+			+ extra + " - Tracking " + totalChestsLogged + " chests, "
+			+ totalItemsLogged + " items";
+		int summaryPadding = 8;
+		int summaryWidth =
+			this.textRenderer.getWidth(summary) + summaryPadding * 2;
+		if(summaryWidth > this.width - 4)
+			summaryWidth = this.width - 4;
+		int summaryHalf = summaryWidth / 2;
+		int summaryCenter = this.width / 2;
+		int summaryLeft = Math.max(0, summaryCenter - summaryHalf);
+		int summaryRight = Math.min(this.width, summaryCenter + summaryHalf);
+		context.fill(summaryLeft, summaryY - 2, summaryRight, summaryY + 18,
+			0xFF222222);
+		context.drawCenteredTextWithShadow(this.textRenderer,
+			Text.literal(summary), this.width / 2, summaryY + 2, 0xFFCCCCCC);
 		
 		if(shown == 0)
 		{
