@@ -105,6 +105,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Chests are auto-removed if it has been detected as broken/missing
 - Adjustable Waypoint and ESP timeout
 - Adjustable ESP and Waypoint colors
+- Adjustable search radius
 
 ![ChestSearch](https://i.imgur.com/o5DYBqR.png)
 
