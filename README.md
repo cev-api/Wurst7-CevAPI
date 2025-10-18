@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.50.2 (MC1.21.9) - Modified by CevAPI 
+﻿# Wurst Client v7.50.3 (MC1.21.10) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/Uju0ZZJ.png)
 
@@ -142,6 +142,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ### Anti-Fingerprint
 - Detects and stops resource-pack fingerprinting. 
+  - Basic protections are already enabled by default.
 - Policies: Observe (vanilla prompt + log), BlockLocal (decline private/LAN), BlockAll (decline all), SandboxAll (server sees fail; client saves copy). 
 - Detects burst requests (N in M ms) with toasts; supports host whitelist. 
 - Cache defenses: clear before download and per-session cache isolation. 
