@@ -474,7 +474,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	
 	private double getClearanceAboveGround(Entity entity, int maxDepth)
 	{
-		ClientWorld world = (ClientWorld)entity.getEntityWorld();
+		ClientWorld world = (ClientWorld)entity.getWorld();
 		Box box = entity.getBoundingBox();
 		double entityBottom = box.minY;
 		
@@ -519,7 +519,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	
 	private boolean isBoatSupported(BoatEntity boat)
 	{
-		ClientWorld world = (ClientWorld)boat.getEntityWorld();
+		ClientWorld world = (ClientWorld)boat.getWorld();
 		Box box = boat.getBoundingBox();
 		double sampleMinY = box.minY - 0.2;
 		double sampleMaxY = box.minY - 0.05;

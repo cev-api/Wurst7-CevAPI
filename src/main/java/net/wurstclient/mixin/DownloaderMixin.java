@@ -15,16 +15,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 
-<<<<<<< HEAD
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import com.llamalad7.mixinextras.sugar.Local;
-
-import net.cevapi.security.ResourcePackProtector;
-import net.minecraft.util.Downloader;
-
-@Mixin(Downloader.class)
-public abstract class DownloaderMixin
-=======
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
@@ -35,22 +25,11 @@ import net.wurstclient.WurstClient;
 
 @Mixin(Downloader.class)
 public abstract class DownloaderMixin implements AutoCloseable
->>>>>>> upstream/1.21.8
 {
 	@Shadow
 	@Final
 	private Path directory;
 	
-<<<<<<< HEAD
-	@ModifyExpressionValue(method = "method_55485",
-		at = @At(value = "INVOKE",
-			target = "Ljava/nio/file/Path;resolve(Ljava/lang/String;)Ljava/nio/file/Path;"))
-	private Path cevapi$rewriteDownloadPath(Path original,
-		@Local(argsOnly = true) UUID packId)
-	{
-		return ResourcePackProtector.remapDownloadPath(directory, original,
-			packId);
-=======
 	/**
 	 * Patches a fingerprinting vulnerability by creating a separate cache
 	 * folder for each Minecraft account.
@@ -85,6 +64,5 @@ public abstract class DownloaderMixin implements AutoCloseable
 		
 		return result.getParent().resolve(uuid.toString())
 			.resolve(result.getFileName());
->>>>>>> upstream/1.21.8
 	}
 }
