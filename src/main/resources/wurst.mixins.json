@@ -32,6 +32,7 @@
     "DirectConnectScreenMixin",
     "DownloaderMixin",
     "DisconnectedScreenMixin",
+    "DownloaderMixin",
     "EntityMixin",
     "EntityRenderDispatcherMixin",
     "EntityRendererMixin",
