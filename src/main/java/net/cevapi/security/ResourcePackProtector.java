@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -88,6 +89,10 @@ public final class ResourcePackProtector
 	private static final Deque<ToastPayload> TOAST_QUEUE = new ArrayDeque<>();
 	private static final UUID SESSION_CACHE_SALT = UUID.randomUUID();
 	private static final Map<UUID, PackContext> CONTEXTS_BY_ID =
+		new ConcurrentHashMap<>();
+	private static final Set<String> PROMPT_SNAPSHOTS =
+		ConcurrentHashMap.newKeySet();
+	private static final Map<String, Path> DOWNLOAD_TARGETS =
 		new ConcurrentHashMap<>();
 	
 	private ResourcePackProtector()
@@ -150,38 +155,38 @@ public final class ResourcePackProtector
 		if(directory == null || original == null)
 			return original;
 		
-		if(!CONFIG.shouldIsolateCache())
+		Path target = original;
+		if(CONFIG.shouldIsolateCache())
 		{
-			logDownloadLocation("CACHE_PATH", context, original);
-			return original;
-		}
-		
-		MinecraftClient mc = MinecraftClient.getInstance();
-		String accountSegment = "no-account";
-		if(mc != null && mc.getSession() != null)
-		{
-			try
+			MinecraftClient mc = MinecraftClient.getInstance();
+			String accountSegment = "no-account";
+			if(mc != null && mc.getSession() != null)
 			{
-				UUID accountId = mc.getSession().getUuidOrNull();
-				if(accountId != null)
-					accountSegment = accountId.toString();
-			}catch(Exception e)
-			{
-				LOGGER.debug(
-					"Failed to obtain session UUID for cache isolation.", e);
+				try
+				{
+					UUID accountId = mc.getSession().getUuidOrNull();
+					if(accountId != null)
+						accountSegment = accountId.toString();
+				}catch(Exception e)
+				{
+					LOGGER.debug(
+						"Failed to obtain session UUID for cache isolation.",
+						e);
+				}
 			}
+			
+			String fileName = original.getFileName() == null
+				? packId != null ? packId.toString()
+					: UUID.randomUUID().toString()
+				: original.getFileName().toString();
+			
+			target = directory.resolve("cevapi").resolve(accountSegment)
+				.resolve(SESSION_CACHE_SALT.toString()).resolve(fileName);
 		}
 		
-		String fileName = original.getFileName() == null
-			? packId != null ? packId.toString() : UUID.randomUUID().toString()
-			: original.getFileName().toString();
-		
-		Path isolated = directory.resolve("cevapi").resolve(accountSegment)
-			.resolve(SESSION_CACHE_SALT.toString()).resolve(fileName);
-		
-		logDownloadLocation("CACHE_PATH", context, isolated);
-		
-		return isolated;
+		logDownloadLocation("CACHE_PATH", context, target);
+		registerDownloadTarget(context, target);
+		return target;
 	}
 	
 	private static InetSocketAddress getRemoteAddress()
@@ -262,7 +267,6 @@ public final class ResourcePackProtector
 					mcClient != null ? mcClient : MinecraftClient.getInstance();
 				if(target != null)
 					target.execute(() -> sandboxDownload(context));
-				noteHandled(context);
 				return true;
 			}
 			
@@ -291,25 +295,31 @@ public final class ResourcePackProtector
 	
 	public static void sandboxDownload(PackContext context)
 	{
+		sandboxDownload(context, SandboxRequest.POLICY, null);
+	}
+	
+	private static void sandboxDownload(PackContext context,
+		SandboxRequest sandboxRequest, String dedupeKey)
+	{
 		try
 		{
-			if(context.url.isBlank())
+			URI uri = null;
+			if(!context.url.isBlank())
 			{
-				pushToast(ToastLevel.ERROR, context, "Sandbox download failed",
-					"Server did not provide a valid URL.");
-				return;
-			}
-			
-			URI uri;
-			try
-			{
-				uri = new URI(context.url);
-			}catch(URISyntaxException e)
-			{
-				pushToast(ToastLevel.ERROR, context, "Sandbox download failed",
-					"Invalid URL syntax.");
-				LOGGER.warn("Invalid resource pack URI {}", context.url, e);
-				return;
+				try
+				{
+					uri = new URI(context.url);
+				}catch(URISyntaxException e)
+				{
+					pushToast(ToastLevel.ERROR, context,
+						sandboxRequest.failTitle, "Invalid URL syntax.");
+					LOGGER.warn("Invalid resource pack URI {}", context.url, e);
+					logAudit(sandboxRequest.auditFail, context,
+						"error=invalid_url message=" + shortMessage(e));
+					if(dedupeKey != null)
+						PROMPT_SNAPSHOTS.remove(dedupeKey);
+					return;
+				}
 			}
 			
 			Path sandboxFolder =
@@ -319,26 +329,34 @@ public final class ResourcePackProtector
 			String fileName = buildSandboxFileName(context, uri);
 			Path sandboxTarget = ensureUnique(sandboxFolder.resolve(fileName));
 			
-			pushToast(ToastLevel.INFO, context, "Sandbox download",
-				"Fetching remote pack.");
-			logAudit("SANDBOX_START", context,
+			pushToast(sandboxRequest.startLevel, context,
+				sandboxRequest.startTitle, sandboxRequest.startBody);
+			logAudit(sandboxRequest.auditStart, context,
 				"target=" + sandboxTarget.toAbsolutePath());
+			
+			if(uri == null)
+			{
+				copyCachedPack(context, sandboxTarget, sandboxRequest,
+					dedupeKey);
+				return;
+			}
 			
 			HttpClient client = HttpClient.newBuilder()
 				.followRedirects(HttpClient.Redirect.NORMAL)
 				.connectTimeout(Duration.ofSeconds(15)).build();
 			
-			HttpRequest request = HttpRequest.newBuilder(uri)
+			HttpRequest httpRequest = HttpRequest.newBuilder(uri)
 				.timeout(Duration.ofSeconds(60)).GET().build();
 			
 			HttpResponse.BodyHandler<Path> handler =
 				HttpResponse.BodyHandlers.ofFile(sandboxTarget);
 			
-			client.sendAsync(request, handler)
+			client.sendAsync(httpRequest, handler)
 				.whenCompleteAsync((response, throwable) -> {
 					if(throwable != null)
 					{
-						handleSandboxFailure(context, sandboxTarget, throwable);
+						handleSandboxFailure(context, sandboxTarget, throwable,
+							sandboxRequest, dedupeKey);
 						return;
 					}
 					
@@ -346,27 +364,27 @@ public final class ResourcePackProtector
 					if(status >= 200 && status < 300)
 					{
 						Path absolute = sandboxTarget.toAbsolutePath();
-						pushToast(ToastLevel.WARN, context,
-							"Sandboxed resource pack", "Stored copy: "
-								+ trimToLength(absolute.toString(), 160));
-						logAudit("SANDBOX_OK", context,
+						if(dedupeKey != null)
+							PROMPT_SNAPSHOTS.remove(dedupeKey);
+						handleSandboxSuccess(absolute, context, sandboxRequest,
 							"status=" + status + " path=" + absolute);
-						if(CONFIG.shouldExtractSandbox())
-							CompletableFuture.runAsync(
-								() -> extractSandboxPack(absolute, context),
-								Util.getIoWorkerExecutor());
 						return;
 					}
 					
 					handleSandboxFailure(context, sandboxTarget,
-						new IOException("HTTP " + status));
+						new IOException("HTTP " + status), sandboxRequest,
+						dedupeKey);
 				}, Util.getIoWorkerExecutor());
 			
 		}catch(Exception e)
 		{
 			LOGGER.warn("Sandbox download failed unexpectedly.", e);
-			pushToast(ToastLevel.ERROR, context, "Sandbox download failed",
+			pushToast(ToastLevel.ERROR, context, sandboxRequest.failTitle,
 				"Unexpected error: " + e.getClass().getSimpleName());
+			logAudit(sandboxRequest.auditFail, context,
+				"error=unexpected:" + e.getClass().getSimpleName());
+			if(dedupeKey != null)
+				PROMPT_SNAPSHOTS.remove(dedupeKey);
 		}
 	}
 	
@@ -448,7 +466,50 @@ public final class ResourcePackProtector
 			? "Server requested a resource pack." : extra;
 		pushToast(ToastLevel.INFO, context, "Resource pack request", detail);
 		logAudit("OBSERVE", context, detail);
+		if(context != null && (!context.required || !context.prompt.isBlank()))
+			schedulePromptSandboxDownload(context);
 		return new PolicyResult(Decision.ALLOW, detail, context);
+	}
+	
+	private static void schedulePromptSandboxDownload(PackContext context)
+	{
+		if(context == null)
+			return;
+		
+		String key = context.cacheKey;
+		if(key == null || key.isBlank())
+		{
+			if(context.packId != null)
+				key = context.packId.toString();
+			else if(!context.url.isBlank())
+				key = context.url;
+		}
+		
+		if(key == null || key.isBlank())
+			key = context.url;
+		if(key == null || key.isBlank())
+			return;
+		
+		if(!PROMPT_SNAPSHOTS.add(key))
+			return;
+		
+		MinecraftClient client = WurstClient.MC;
+		if(client == null)
+		{
+			PROMPT_SNAPSHOTS.remove(key);
+			return;
+		}
+		
+		final String snapshotKey = key;
+		try
+		{
+			client.execute(() -> sandboxDownload(context, SandboxRequest.PROMPT,
+				snapshotKey));
+		}catch(Exception e)
+		{
+			PROMPT_SNAPSHOTS.remove(snapshotKey);
+			LOGGER.warn("Failed to schedule prompt sandbox download.", e);
+		}
 	}
 	
 	private static void recordFingerprint(PackContext context)
@@ -508,7 +569,7 @@ public final class ResourcePackProtector
 	}
 	
 	private static void handleSandboxFailure(PackContext context, Path target,
-		Throwable throwable)
+		Throwable throwable, SandboxRequest sandboxRequest, String dedupeKey)
 	{
 		try
 		{
@@ -519,10 +580,137 @@ public final class ResourcePackProtector
 		}
 		
 		LOGGER.warn("Sandbox download failed for {}", context.url, throwable);
-		pushToast(ToastLevel.ERROR, context, "Sandbox download failed",
+		pushToast(ToastLevel.ERROR, context, sandboxRequest.failTitle,
 			shortMessage(throwable));
-		logAudit("SANDBOX_FAIL", context,
+		logAudit(sandboxRequest.auditFail, context,
 			shortMessage(throwable) + " target=" + target.toAbsolutePath());
+		if(dedupeKey != null)
+			PROMPT_SNAPSHOTS.remove(dedupeKey);
+		noteHandled(context);
+	}
+	
+	private static void handleSandboxSuccess(Path absolute, PackContext context,
+		SandboxRequest sandboxRequest, String auditDetail)
+	{
+		pushToast(sandboxRequest.successLevel, context,
+			sandboxRequest.successTitle, sandboxRequest.successBodyPrefix
+				+ trimToLength(absolute.toString(), 160));
+		logAudit(sandboxRequest.auditOk, context, auditDetail);
+		clearDownloadTarget(context);
+		if(CONFIG.shouldExtractSandbox())
+			CompletableFuture
+				.runAsync(() -> extractSandboxPack(absolute, context),
+					Util.getIoWorkerExecutor())
+				.whenComplete((unused, throwable) -> noteHandled(context));
+		else
+			noteHandled(context);
+	}
+	
+	private static void copyCachedPack(PackContext context, Path sandboxTarget,
+		SandboxRequest sandboxRequest, String dedupeKey)
+	{
+		CompletableFuture
+			.supplyAsync(() -> copyCachedPackSync(context, sandboxTarget),
+				Util.getIoWorkerExecutor())
+			.whenComplete((absolute, throwable) -> {
+				if(throwable != null)
+				{
+					Throwable cause = throwable;
+					if(throwable instanceof CompletionException completion)
+						cause = completion.getCause();
+					if(cause == null)
+						cause = throwable;
+					
+					handleSandboxFailure(context, sandboxTarget, cause,
+						sandboxRequest, dedupeKey);
+					return;
+				}
+				
+				if(absolute == null)
+				{
+					Path cached = getDownloadTarget(context);
+					String message = cached == null
+						? context != null && context.url.isBlank()
+							? "Cached pack path unavailable (no URL provided)"
+							: "Cached pack path unavailable"
+						: "Cached pack not ready";
+					handleSandboxFailure(context, sandboxTarget,
+						new IOException(message), sandboxRequest, dedupeKey);
+					return;
+				}
+				
+				if(dedupeKey != null)
+					PROMPT_SNAPSHOTS.remove(dedupeKey);
+				handleSandboxSuccess(absolute, context, sandboxRequest,
+					"source=CACHE path=" + absolute);
+			});
+	}
+	
+	private static Path copyCachedPackSync(PackContext context,
+		Path sandboxTarget)
+	{
+		if(context == null)
+			return null;
+		
+		long deadline =
+			System.currentTimeMillis() + Duration.ofSeconds(30).toMillis();
+		long lastSize = -1L;
+		Path lastPath = null;
+		int stableTicks = 0;
+		IOException lastError = null;
+		
+		while(System.currentTimeMillis() < deadline)
+		{
+			Path cachePath = getDownloadTarget(context);
+			if(cachePath != null && Files.exists(cachePath))
+			{
+				try
+				{
+					if(!cachePath.equals(lastPath))
+					{
+						lastPath = cachePath;
+						lastSize = -1L;
+						stableTicks = 0;
+					}
+					
+					long size = Files.size(cachePath);
+					if(size > 0 && size == lastSize)
+						stableTicks++;
+					else
+					{
+						lastSize = size;
+						stableTicks = 0;
+					}
+					
+					if(stableTicks >= 2 && size > 0)
+					{
+						Path parent = sandboxTarget.getParent();
+						if(parent != null)
+							Files.createDirectories(parent);
+						Files.copy(cachePath, sandboxTarget,
+							StandardCopyOption.REPLACE_EXISTING);
+						return sandboxTarget.toAbsolutePath();
+					}
+				}catch(IOException e)
+				{
+					lastError = e;
+				}
+			}
+			
+			try
+			{
+				Thread.sleep(200);
+			}catch(InterruptedException e)
+			{
+				Thread.currentThread().interrupt();
+				throw new RuntimeException(
+					"Interrupted while copying cached resource pack", e);
+			}
+		}
+		
+		if(lastError != null)
+			throw new UncheckedIOException(lastError);
+		return null;
 	}
 	
 	private static String shortMessage(Throwable throwable)
@@ -559,8 +747,13 @@ public final class ResourcePackProtector
 	
 	private static void clearContext(PackContext context)
 	{
-		if(context != null && context.packId != null)
+		if(context == null)
+			return;
+		
+		if(context.packId != null)
 			CONTEXTS_BY_ID.remove(context.packId);
+		
+		clearDownloadTarget(context);
 	}
 	
 	private static void logDownloadLocation(String action, PackContext context,
@@ -570,6 +763,48 @@ public final class ResourcePackProtector
 			return;
 		
 		logAudit(action, context, "path=" + path.toAbsolutePath());
+	}
+	
+	private static void registerDownloadTarget(PackContext context, Path path)
+	{
+		String key = contextKey(context);
+		if(key == null || path == null)
+			return;
+		
+		DOWNLOAD_TARGETS.put(key, path);
+	}
+	
+	private static Path getDownloadTarget(PackContext context)
+	{
+		String key = contextKey(context);
+		if(key == null)
+			return null;
+		return DOWNLOAD_TARGETS.get(key);
+	}
+	
+	private static void clearDownloadTarget(PackContext context)
+	{
+		String key = contextKey(context);
+		if(key == null)
+			return;
+		DOWNLOAD_TARGETS.remove(key);
+	}
+	
+	private static String contextKey(PackContext context)
+	{
+		if(context == null)
+			return null;
+		
+		if(context.packId != null)
+			return "id:" + context.packId;
+		
+		if(context.cacheKey != null && !context.cacheKey.isBlank())
+			return "cache:" + context.cacheKey;
+		
+		if(!context.url.isBlank())
+			return "url:" + context.url;
+		
+		return null;
 	}
 	
 	private static void extractSandboxPack(Path zipPath, PackContext context)
@@ -847,16 +1082,32 @@ public final class ResourcePackProtector
 			base = context.hash;
 		else if(!context.host.canonical.isEmpty())
 			base = context.host.canonical.replace(':', '_');
+		else if(context.packId != null)
+			base = context.packId.toString();
 		else
 			base = "resource-pack";
 		
-		String path = uri.getPath();
+		String path = uri != null ? uri.getPath() : null;
 		String extension = ".zip";
 		if(path != null && path.contains("."))
 		{
 			String candidate = path.substring(path.lastIndexOf('.'));
 			if(candidate.length() <= 6 && candidate.matches("\\.[A-Za-z0-9]+"))
 				extension = candidate;
+		}else
+		{
+			Path cached = getDownloadTarget(context);
+			if(cached != null)
+			{
+				String cachedName = cached.getFileName().toString();
+				int dot = cachedName.lastIndexOf('.');
+				if(dot > 0 && cachedName.length() - dot <= 6)
+				{
+					String candidate = cachedName.substring(dot);
+					if(candidate.matches("\\.[A-Za-z0-9]+"))
+						extension = candidate;
+				}
+			}
 		}
 		
 		String fileName = (base + extension).replaceAll("[^A-Za-z0-9._-]", "_");
@@ -1332,6 +1583,47 @@ public final class ResourcePackProtector
 	{
 		private final Deque<Long> timestamps = new ArrayDeque<>();
 		private long lastAlert;
+	}
+	
+	private enum SandboxRequest
+	{
+		POLICY("SANDBOX_START", "SANDBOX_OK", "SANDBOX_FAIL",
+			"Sandbox download", "Fetching remote pack.",
+			"Sandboxed resource pack", "Stored copy: ", ToastLevel.INFO,
+			ToastLevel.WARN, "Sandbox download failed"),
+		PROMPT("PROMPT_SNAPSHOT_START", "PROMPT_SNAPSHOT_OK",
+			"PROMPT_SNAPSHOT_FAIL", "Prompt inspection copy",
+			"Downloading pack snapshot.", "Prompt inspection copy ready",
+			"Saved copy: ", ToastLevel.INFO, ToastLevel.INFO,
+			"Prompt inspection copy failed");
+		
+		private final String auditStart;
+		private final String auditOk;
+		private final String auditFail;
+		private final String startTitle;
+		private final String startBody;
+		private final String successTitle;
+		private final String successBodyPrefix;
+		private final ToastLevel startLevel;
+		private final ToastLevel successLevel;
+		private final String failTitle;
+		
+		SandboxRequest(String auditStart, String auditOk, String auditFail,
+			String startTitle, String startBody, String successTitle,
+			String successBodyPrefix, ToastLevel startLevel,
+			ToastLevel successLevel, String failTitle)
+		{
+			this.auditStart = auditStart;
+			this.auditOk = auditOk;
+			this.auditFail = auditFail;
+			this.startTitle = startTitle;
+			this.startBody = startBody;
+			this.successTitle = successTitle;
+			this.successBodyPrefix = successBodyPrefix;
+			this.startLevel = startLevel;
+			this.successLevel = successLevel;
+			this.failTitle = failTitle;
+		}
 	}
 	
 	public static enum Decision
