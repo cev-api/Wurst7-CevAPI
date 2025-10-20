@@ -309,7 +309,6 @@ public enum WurstClient
 		if(!enabled)
 		{
 			hax.panicHack.setEnabled(true);
-			hax.panicHack.onUpdate();
 		}
 	}
 	

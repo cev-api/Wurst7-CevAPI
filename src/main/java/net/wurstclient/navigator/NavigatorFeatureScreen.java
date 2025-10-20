@@ -80,6 +80,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	protected void onResize()
 	{
 		buttonDatas.clear();
+		windowComponentY = 0;
 		
 		// primary button
 		String primaryAction = feature.getPrimaryAction();
@@ -133,10 +134,21 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		if(!settings.isEmpty())
 		{
 			text += "\n\nSettings:";
-			windowComponentY = getStringHeight(text) + 2;
+			window.validate();
 			
-			for(int i = 0; i < Math.ceil(window.getInnerHeight() / 9.0); i++)
+			int fontHeight = client.textRenderer.fontHeight;
+			if(fontHeight <= 0)
+				fontHeight = 9;
+			
+			windowComponentY = getStringHeight(text) + 2;
+			int windowBottom = windowComponentY + window.getInnerHeight();
+			int textHeight = getStringHeight(text);
+			
+			while(textHeight < windowBottom)
+			{
 				text += "\n";
+				textHeight += fontHeight;
+			}
 		}
 		
 		// keybinds
@@ -226,7 +238,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		}
 		
 		// text height
-		setContentHeight(getStringHeight(text));
+		int windowBottom = windowComponentY + window.getInnerHeight();
+		setContentHeight(Math.max(getStringHeight(text), windowBottom));
 	}
 	
 	@Override
