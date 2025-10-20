@@ -262,6 +262,12 @@ Examples:
 - Keeps results anchored as you move. Default OFF.  
 - Greatly helps with FPS when using things like Search or X-Ray and moving quickly
 
+### TooManyHax Improved
+- Submenu of TooManyHax in the ClickUI/Navigator shows a list of toggleable hacks instead of needing to manually enter the name of each one via cmd.
+
+### Panic Improved
+- It now saves your current enabled hacks and allows you to restore them via ClickUI/Navigator or keybind.
+
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
 
