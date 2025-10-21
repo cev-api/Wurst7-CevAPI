@@ -23,7 +23,6 @@ import com.google.gson.JsonObject;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.wurstclient.Category;
 import net.wurstclient.DontBlock;
@@ -250,7 +249,7 @@ public final class TooManyHaxHack extends Hack
 		
 		@Override
 		public void handleMouseClick(double mouseX, double mouseY,
-			int mouseButton, Click context)
+			int mouseButton)
 		{
 			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 				return;
