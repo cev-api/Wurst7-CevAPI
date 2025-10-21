@@ -86,6 +86,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "server-side NPCs but may hide real players who are intentionally\n"
 			+ "hidden from the tab-list.",
 		true);
+	private final SliderSetting tracerThickness =
+		new SliderSetting("Tracer thickness", 2, 0.5, 8, 0.1,
+			SliderSetting.ValueDisplay.DECIMAL.withSuffix("px"));
 	private final CheckboxSetting filledBoxes = new CheckboxSetting(
 		"Filled boxes",
 		"When enabled, renders solid filled boxes instead of outlined boxes.",
@@ -106,8 +109,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private final Map<UUID, LosState> losStates = new HashMap<>();
 	private static final long LOS_HOLD_MS = 250;
 	private static final long LOS_FADE_MS = 120;
-	private static final double THREAT_LINE_WIDTH = 4.0; // thickness of threat
-															// lines
+	private static final double THREAT_LINE_WIDTH = 4.0; // base thickness of
+															// threat lines
 	
 	public PlayerEspHack()
 	{
@@ -118,6 +121,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(losThreatDetection);
 		addSetting(losThreatFov);
 		addSetting(losThreatRange);
+		addSetting(tracerThickness);
 		addSetting(filledBoxes);
 		addSetting(filledAlpha);
 		addSetting(useStaticPlayerColor);
@@ -273,12 +277,15 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 					normalEnds.add(colored);
 			}
 			
+			double normalLineWidth = tracerThickness.getValue();
+			double threatLineWidth = normalLineWidth + Math.max(0,
+				THREAT_LINE_WIDTH - tracerThickness.getDefaultValue());
 			if(!normalEnds.isEmpty())
 				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
-					false);
+					false, normalLineWidth);
 			if(!threatEnds.isEmpty())
 				RenderUtils.drawTracers(matrixStack, partialTicks, threatEnds,
-					false, THREAT_LINE_WIDTH);
+					false, threatLineWidth);
 		}
 	}
 	
