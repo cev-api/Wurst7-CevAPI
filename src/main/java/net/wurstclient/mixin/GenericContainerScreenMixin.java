@@ -1564,32 +1564,6 @@ public abstract class GenericContainerScreenMixin
 			// primary record at provided coords
 			chestRecorder.recordFromStacksWithSlotOrder(serverIp, dimension, x,
 				y, z, stacks, slotOrder, bounds);
-			// if bounds spans multiple blocks (double chest), also record for
-			// the other half
-			if(bounds != null
-				&& (bounds.minX != bounds.maxX || bounds.minZ != bounds.maxZ))
-			{
-				int otherX = x, otherZ = z;
-				// choose the other block pos within bounds that's not (x,z)
-				if(bounds.minX != bounds.maxX)
-				{
-					// varies on X
-					otherX = (x == bounds.minX) ? bounds.maxX : bounds.minX;
-				}
-				if(bounds.minZ != bounds.maxZ)
-				{
-					otherZ = (z == bounds.minZ) ? bounds.maxZ : bounds.minZ;
-				}
-				// ensure we don't double record same pos
-				if(otherX != x || otherZ != z)
-				{
-					chestRecorder.recordFromStacksWithSlotOrder(serverIp,
-						dimension, otherX, y, otherZ, stacks, slotOrder,
-						bounds);
-					System.out.println("[ChestPos] also recorded other half at "
-						+ otherX + "," + y + "," + otherZ);
-				}
-			}
 		}catch(Throwable t)
 		{
 			t.printStackTrace();

@@ -91,6 +91,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"If enabled, selected items keep the normal box fill color and only the outline changes to the special color.",
 		false);
 	
+	// Ignored items
+	private final CheckboxSetting useIgnoredItems = new CheckboxSetting(
+		"Use ignored items",
+		"When enabled, items from the ignored list will not be highlighted.",
+		false);
+	private final ItemListSetting ignoredList = new ItemListSetting(
+		"Ignored items", "Blocks/items that should never be highlighted.");
+	
 	// New: draw tracers only for special items
 	private final CheckboxSetting linesOnlyForSpecial =
 		new CheckboxSetting("Lines only for special",
@@ -126,6 +134,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	private java.util.Set<String> specialExactIds;
 	private String[] specialKeywords;
 	private int lastSpecialListHash;
+	// cache for ignored items
+	private java.util.Set<String> ignoredExactIds;
+	private int lastIgnoredListHash;
 	private int foundCount; // current number of detected items
 	
 	public ItemEspHack()
@@ -143,6 +154,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(specialRainbow);
 		addSetting(specialColor);
 		addSetting(outlineOnly);
+		// ignored items
+		addSetting(useIgnoredItems);
+		addSetting(ignoredList);
 		addSetting(linesOnlyForSpecial);
 		addSetting(includeEquippedSpecial);
 		addSetting(includeItemFrames);
@@ -225,6 +239,33 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 		}
 		
+		// Update ignored list cache when needed
+		if(useIgnoredItems.isChecked())
+		{
+			int h = ignoredList.getItemNames().hashCode();
+			if(h != lastIgnoredListHash || ignoredExactIds == null)
+			{
+				lastIgnoredListHash = h;
+				java.util.HashSet<String> exact = new java.util.HashSet<>();
+				for(String s : ignoredList.getItemNames())
+				{
+					if(s == null)
+						continue;
+					String raw = s.trim();
+					if(raw.isEmpty())
+						continue;
+					Identifier id = Identifier.tryParse(raw);
+					if(id != null && Registries.ITEM.containsId(id))
+						exact.add(id.toString());
+				}
+				ignoredExactIds = exact;
+			}
+		}else
+		{
+			ignoredExactIds = null;
+			lastIgnoredListHash = 0;
+		}
+		
 		// Partition items into normal vs special
 		ArrayList<Box> normalBoxes = new ArrayList<>();
 		ArrayList<Box> specialBoxes = new ArrayList<>();
@@ -232,14 +273,21 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		ArrayList<Vec3d> specialEnds = new ArrayList<>();
 		
 		double extraSize = boxSize.getExtraSize() / 2;
+		int visibleDrops = 0;
 		for(ItemEntity e : items)
 		{
 			if(onlyAboveGround.isChecked()
 				&& e.getY() < aboveGroundY.getValue())
 				continue;
+			ItemStack stack = e.getStack();
+			if(stack == null || stack.isEmpty())
+				continue;
+			if(isIgnored(stack))
+				continue;
 			Box box = EntityUtils.getLerpedBox(e, partialTicks)
 				.offset(0, extraSize, 0).expand(extraSize);
-			boolean isSpecial = isSpecial(e.getStack());
+			boolean isSpecial = isSpecial(stack);
+			visibleDrops++;
 			if(isSpecial)
 				specialBoxes.add(box);
 			else
@@ -252,6 +300,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			else
 				normalEnds.add(center);
 		}
+		foundCount = Math.min(visibleDrops, 999);
 		
 		// Item frames holding special items
 		if(includeItemFrames.isChecked())
@@ -262,6 +311,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					continue;
 				ItemStack fs = frame.getHeldItemStack();
 				if(fs == null || fs.isEmpty())
+					continue;
+				if(isIgnored(fs))
 					continue;
 				if(!isSpecial(fs))
 					continue;
@@ -287,7 +338,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					continue; // skip local player
 				// hands
 				ItemStack main = le.getMainHandStack();
-				if(main != null && !main.isEmpty() && isSpecial(main))
+				if(main != null && !main.isEmpty() && !isIgnored(main)
+					&& isSpecial(main))
 				{
 					Vec3d pos =
 						getHeldItemPos(le, Hand.MAIN_HAND, partialTicks);
@@ -302,7 +354,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					}
 				}
 				ItemStack off = le.getOffHandStack();
-				if(off != null && !off.isEmpty() && isSpecial(off))
+				if(off != null && !off.isEmpty() && !isIgnored(off)
+					&& isSpecial(off))
 				{
 					Vec3d pos = getHeldItemPos(le, Hand.OFF_HAND, partialTicks);
 					if(onlyAboveGround.isChecked() && pos != null
@@ -317,7 +370,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				}
 				// head worn
 				ItemStack head = le.getEquippedStack(EquipmentSlot.HEAD);
-				if(head != null && !head.isEmpty() && isSpecial(head))
+				if(head != null && !head.isEmpty() && !isIgnored(head)
+					&& isSpecial(head))
 				{
 					Vec3d hp = getHeadPos(le, partialTicks);
 					if(hp != null)
@@ -380,6 +434,20 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		float[] rgb = specialRainbow.isChecked() ? RenderUtils.getRainbowColor()
 			: specialColor.getColorF();
 		return RenderUtils.toIntColor(rgb, alpha / 255f);
+	}
+	
+	private boolean isIgnored(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return false;
+		if(!useIgnoredItems.isChecked())
+			return false;
+		if(ignoredExactIds == null || ignoredExactIds.isEmpty())
+			return false;
+		Identifier id = Registries.ITEM.getId(stack.getItem());
+		if(id == null)
+			return false;
+		return ignoredExactIds.contains(id.toString());
 	}
 	
 	private boolean isSpecial(ItemStack stack)
