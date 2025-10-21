@@ -8,6 +8,8 @@
 package net.wurstclient.clickgui.screens;
 
 import java.util.ArrayList;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
 import net.minecraft.client.gui.DrawContext;
@@ -35,6 +37,7 @@ public final class ChestSearchScreen extends Screen
 		new java.util.ArrayList<>();
 	private int totalChestsLogged = 0;
 	private long totalItemsLogged = 0;
+	private long totalMatchingItems = 0;
 	private int totalMatches = 0;
 	private boolean radiusFilterActive = false;
 	private int radiusLimitBlocks = Integer.MAX_VALUE;
@@ -69,6 +72,10 @@ public final class ChestSearchScreen extends Screen
 	
 	private static final java.util.Map<String, TempWp> TEMP_WP_BY_POS =
 		new java.util.HashMap<>();
+	private final java.util.Map<ChestEntry, java.util.List<ChestEntry.ItemEntry>> matchCache =
+		new java.util.HashMap<>();
+	private String lastMatchQuery = "";
+	private String currentQuery = "";
 	
 	private static String normalizeDimension(String dimension)
 	{
@@ -93,15 +100,23 @@ public final class ChestSearchScreen extends Screen
 		return pos.getX() + "," + pos.getY() + "," + pos.getZ() + ":" + dim;
 	}
 	
+	private static String formatBlockPos(BlockPos pos)
+	{
+		if(pos == null)
+			return "null";
+		return pos.getX() + "," + pos.getY() + "," + pos.getZ();
+	}
+	
 	private static String makeEntryKey(ChestEntry entry)
 	{
+		if(entry == null)
+			return "";
 		String server = entry.serverIp == null ? "" : entry.serverIp;
-		// Use the clicked position when building the entry key so that
-		// separate recordings of the same canonical chest (different
-		// clicked halves) are not deduplicated away. This ensures the
-		// UI shows the exact recorded block the player clicked.
-		BlockPos pos = entry.getClickedPos();
-		return server + "|" + makePosKey(entry.dimension, pos);
+		String dim = normalizeDimension(entry.dimension);
+		BlockPos min = entry.getMinPos();
+		BlockPos max = entry.getMaxPos();
+		return server + "|" + dim + "|" + formatBlockPos(min) + ">"
+			+ formatBlockPos(max);
 	}
 	
 	public static boolean isWaypointActive(String dimension, BlockPos pos)
@@ -259,6 +274,9 @@ public final class ChestSearchScreen extends Screen
 			}
 		}
 		String qq = (q == null ? "" : q).trim();
+		currentQuery = qq;
+		lastMatchQuery = qq.toLowerCase(Locale.ROOT);
+		matchCache.clear();
 		this.chestManager = new ChestManager();
 		java.util.List<ChestEntry> raw =
 			qq.isEmpty() ? new java.util.ArrayList<>(chestManager.all())
@@ -282,14 +300,28 @@ public final class ChestSearchScreen extends Screen
 		for(ChestEntry e : raw)
 		{
 			String key = makeEntryKey(e);
-			if(!dedup.containsKey(key))
+			ChestEntry existing = dedup.get(key);
+			if(existing == null
+				|| extractLastSeenOrder(e) > extractLastSeenOrder(existing))
 				dedup.put(key, e);
 		}
 		
 		java.util.List<ChestEntry> allEntries = chestManager.all();
-		totalChestsLogged = allEntries.size();
-		long totalItems = 0L;
+		java.util.Map<String, ChestEntry> canonicalAll =
+			new java.util.LinkedHashMap<>();
 		for(ChestEntry entry : allEntries)
+		{
+			if(entry == null)
+				continue;
+			String key = makeEntryKey(entry);
+			ChestEntry existing = canonicalAll.get(key);
+			if(existing == null
+				|| extractLastSeenOrder(entry) > extractLastSeenOrder(existing))
+				canonicalAll.put(key, entry);
+		}
+		totalChestsLogged = canonicalAll.size();
+		long totalItems = 0L;
+		for(ChestEntry entry : canonicalAll.values())
 		{
 			if(entry.items == null)
 				continue;
@@ -300,6 +332,11 @@ public final class ChestSearchScreen extends Screen
 		
 		java.util.List<ChestEntry> working =
 			new java.util.ArrayList<>(dedup.values());
+		java.util.Comparator<ChestEntry> recencyComparator =
+			java.util.Comparator
+				.comparingLong(ChestSearchScreen::extractLastSeenOrder)
+				.reversed();
+		working.sort(recencyComparator);
 		java.util.List<ChestEntry> pinned = new java.util.ArrayList<>();
 		java.util.List<ChestEntry> others = new java.util.ArrayList<>();
 		for(ChestEntry e : working)
@@ -315,18 +352,51 @@ public final class ChestSearchScreen extends Screen
 		ordered.addAll(others);
 		results = applyRadiusFilter(ordered);
 		totalMatches = results.size();
-		int maxResults = 50;
-		try
+		boolean shouldLimit = qq.isEmpty();
+		if(shouldLimit)
 		{
-			maxResults = WurstClient.INSTANCE.getHax().chestSearchHack
-				.getMaxSearchResults();
-		}catch(Throwable ignored)
-		{}
-		limitedResults = results.size() > maxResults;
-		if(limitedResults)
-			results = new java.util.ArrayList<>(results.subList(0, maxResults));
+			int maxResults = 50;
+			try
+			{
+				maxResults = WurstClient.INSTANCE.getHax().chestSearchHack
+					.getMaxSearchResults();
+			}catch(Throwable ignored)
+			{}
+			limitedResults = results.size() > maxResults;
+			if(limitedResults)
+				results =
+					new java.util.ArrayList<>(results.subList(0, maxResults));
+		}else
+		{
+			limitedResults = false;
+		}
+		totalMatchingItems = 0;
+		for(ChestEntry entry : results)
+		{
+			for(ChestEntry.ItemEntry item : collectMatches(entry, qq))
+			{
+				if(item != null)
+					totalMatchingItems += item.count;
+			}
+		}
 		clampScroll();
 		rebuildRowButtons();
+	}
+	
+	private static long extractLastSeenOrder(ChestEntry entry)
+	{
+		if(entry == null || entry.lastSeen == null)
+			return Long.MIN_VALUE;
+		try
+		{
+			return Instant.parse(entry.lastSeen).toEpochMilli();
+		}catch(DateTimeParseException e)
+		{
+			return Long.MIN_VALUE;
+		}catch(Throwable ignored)
+		{
+			return Long.MIN_VALUE;
+		}
 	}
 	
 	private java.util.List<ChestEntry> applyRadiusFilter(
@@ -993,9 +1063,12 @@ public final class ChestSearchScreen extends Screen
 			summaryExtras.add(radiusFilteredOut + " outside radius");
 		String extra = summaryExtras.isEmpty() ? ""
 			: " (" + String.join(", ", summaryExtras) + ")";
-		String summary = "Showing " + shown + "/" + totalMatches + limiter
-			+ extra + " - Tracking " + totalChestsLogged + " chests, "
-			+ totalItemsLogged + " items";
+		String matchLabel =
+			currentQuery.isEmpty() ? "Listed items" : "Matching items";
+		String summary =
+			"Showing " + shown + "/" + totalMatches + limiter + extra + " - "
+				+ matchLabel + ": " + totalMatchingItems + " - Tracking "
+				+ totalChestsLogged + " chests, " + totalItemsLogged + " items";
 		int summaryPadding = 8;
 		int summaryWidth =
 			this.textRenderer.getWidth(summary) + summaryPadding * 2;
@@ -1012,10 +1085,12 @@ public final class ChestSearchScreen extends Screen
 		
 		if(shown == 0)
 		{
-			String msg = totalChestsLogged > 0
-				? "No chests match this search. Tracking " + totalChestsLogged
-					+ " chests with " + totalItemsLogged + " items."
-				: "No chests recorded yet.";
+			String msg =
+				totalChestsLogged > 0
+					? "No chests match this search. Tracking "
+						+ totalChestsLogged + " chests with " + totalItemsLogged
+						+ " items." + " Matching items: 0."
+					: "No chests recorded yet.";
 			context.drawCenteredTextWithShadow(this.textRenderer,
 				Text.literal(msg), this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
@@ -1054,11 +1129,23 @@ public final class ChestSearchScreen extends Screen
 	private java.util.List<ChestEntry.ItemEntry> collectMatches(
 		ChestEntry entry, String query)
 	{
-		String q = query == null ? "" : query.toLowerCase();
+		String q = (query == null ? "" : query.trim()).toLowerCase(Locale.ROOT);
+		if(q.equals(lastMatchQuery))
+		{
+			java.util.List<ChestEntry.ItemEntry> cached = matchCache.get(entry);
+			if(cached != null)
+				return cached;
+		}
+		if(entry.items == null)
+		{
+			java.util.List<ChestEntry.ItemEntry> empty =
+				java.util.Collections.emptyList();
+			if(q.equals(lastMatchQuery))
+				matchCache.put(entry, empty);
+			return empty;
+		}
 		java.util.List<ChestEntry.ItemEntry> matches =
 			new java.util.ArrayList<>();
-		if(entry.items == null)
-			return matches;
 		for(ChestEntry.ItemEntry it : entry.items)
 		{
 			if(it == null)
@@ -1067,24 +1154,28 @@ public final class ChestSearchScreen extends Screen
 			if(q.isEmpty())
 				matched = true;
 			if(!matched && it.itemId != null
-				&& it.itemId.toLowerCase().contains(q))
+				&& it.itemId.toLowerCase(Locale.ROOT).contains(q))
 				matched = true;
 			if(!matched && it.displayName != null
-				&& it.displayName.toLowerCase().contains(q))
+				&& it.displayName.toLowerCase(Locale.ROOT).contains(q))
 				matched = true;
 			// Also search NBT (full ItemStack data) so enchantments on
 			// books/gear
 			// are searchable if full NBT was recorded.
 			if(!matched && it.nbt != null)
 			{
-				String n = it.nbt.toString().toLowerCase();
+				String n = it.nbt.toString().toLowerCase(Locale.ROOT);
 				if(n.contains(q))
 					matched = true;
 			}
 			if(matched)
 				matches.add(it);
 		}
-		return matches;
+		java.util.List<ChestEntry.ItemEntry> immutable = java.util.Collections
+			.unmodifiableList(new java.util.ArrayList<>(matches));
+		if(q.equals(lastMatchQuery))
+			matchCache.put(entry, immutable);
+		return immutable;
 	}
 	
 	/*

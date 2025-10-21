@@ -60,6 +60,8 @@ public class ChestDatabase
 							entry.ensureBounds();
 					}
 					this.entries = read;
+					if(dedupeLoadedEntries())
+						save();
 				}
 			}
 		}catch(Exception e)
@@ -122,7 +124,7 @@ public class ChestDatabase
 						entries.remove(e);
 						entry.touch();
 						entries.add(entry);
-						save();
+						finalizeInsert(entry);
 						System.out.println(
 							"[ChestDatabase] merged entry by contents; preserved primary="
 								+ entry.x + "," + entry.y + "," + entry.z);
@@ -148,7 +150,7 @@ public class ChestDatabase
 				entry.touch();
 				it.remove();
 				entries.add(entry);
-				save();
+				finalizeInsert(entry);
 				System.out.println("[ChestDatabase] updated entry at bounds "
 					+ entry.getMinPos() + " -> " + entry.getMaxPos()
 					+ " facing=" + entry.facing + " (preserved primary="
@@ -158,7 +160,7 @@ public class ChestDatabase
 		}
 		entry.touch();
 		entries.add(entry);
-		save();
+		finalizeInsert(entry);
 		System.out.println(
 			"[ChestDatabase] added entry at bounds " + entry.getMinPos()
 				+ " -> " + entry.getMaxPos() + " facing=" + entry.facing);
@@ -208,7 +210,7 @@ public class ChestDatabase
 	{
 		if(a == null || b == null)
 			return false;
-		// Compare canonical bounds (min/max) and facing
+		// Compare canonical bounds (min/max)
 		int aMinX = Math.min(a.x, a.maxX);
 		int aMinY = Math.min(a.y, a.maxY);
 		int aMinZ = Math.min(a.z, a.maxZ);
@@ -227,11 +229,78 @@ public class ChestDatabase
 			&& aMaxX == bMaxX && aMaxY == bMaxY && aMaxZ == bMaxZ;
 		if(!boundsEqual)
 			return false;
-		if(a.facing == null && b.facing == null)
-			return true;
-		if(a.facing == null || b.facing == null)
+		return true;
+	}
+	
+	private void finalizeInsert(ChestEntry entry)
+	{
+		boolean removed = removeOverlappingDuplicates(entry);
+		if(removed)
+			System.out.println(
+				"[ChestDatabase] cleaned overlapping duplicates after insert.");
+		save();
+	}
+	
+	private boolean removeOverlappingDuplicates(ChestEntry reference)
+	{
+		String refKey = contentsKey(reference);
+		if(refKey == null)
 			return false;
-		return a.facing.equals(b.facing);
+		int refMinX = Math.min(reference.x, reference.maxX);
+		int refMinY = Math.min(reference.y, reference.maxY);
+		int refMinZ = Math.min(reference.z, reference.maxZ);
+		int refMaxX = Math.max(reference.x, reference.maxX);
+		int refMaxY = Math.max(reference.y, reference.maxY);
+		int refMaxZ = Math.max(reference.z, reference.maxZ);
+		boolean removed = false;
+		java.util.Iterator<ChestEntry> it = entries.iterator();
+		while(it.hasNext())
+		{
+			ChestEntry other = it.next();
+			if(other == reference)
+				continue;
+			if(!equalsServerDim(other, reference))
+				continue;
+			String otherKey = contentsKey(other);
+			if(otherKey == null || !refKey.equals(otherKey))
+				continue;
+			int otherMinX = Math.min(other.x, other.maxX);
+			int otherMinY = Math.min(other.y, other.maxY);
+			int otherMinZ = Math.min(other.z, other.maxZ);
+			int otherMaxX = Math.max(other.x, other.maxX);
+			int otherMaxY = Math.max(other.y, other.maxY);
+			int otherMaxZ = Math.max(other.z, other.maxZ);
+			boolean overlap = refMinX <= otherMaxX && refMaxX >= otherMinX
+				&& refMinY <= otherMaxY && refMaxY >= otherMinY
+				&& refMinZ <= otherMaxZ && refMaxZ >= otherMinZ;
+			if(!overlap)
+				continue;
+			it.remove();
+			System.out
+				.println("[ChestDatabase] removed overlapping duplicate at "
+					+ other.getMinPos() + " -> " + other.getMaxPos());
+			removed = true;
+		}
+		return removed;
+	}
+	
+	private boolean dedupeLoadedEntries()
+	{
+		if(entries == null || entries.isEmpty())
+			return false;
+		java.util.List<ChestEntry> copy = new ArrayList<>(entries);
+		entries = new ArrayList<>();
+		boolean removedAny = false;
+		for(ChestEntry entry : copy)
+		{
+			if(entry == null)
+				continue;
+			entry.ensureBounds();
+			entries.add(entry);
+			if(removeOverlappingDuplicates(entry))
+				removedAny = true;
+		}
+		return removedAny;
 	}
 	
 	private boolean equalsServerDim(ChestEntry a, ChestEntry b)
