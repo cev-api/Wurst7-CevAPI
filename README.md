@@ -267,6 +267,8 @@ Examples:
 ### TooManyHax Improved
 - Submenu of TooManyHax in the ClickUI/Navigator shows a list of toggleable hacks instead of needing to manually enter the name of each one via cmd.
 
+![TooMany](https://i.imgur.com/I3cg7Qf.png)
+
 ### Panic Improved
 - It now saves your current enabled hacks and allows you to restore them via ClickUI/Navigator or keybind.
 
