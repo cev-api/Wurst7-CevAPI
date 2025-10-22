@@ -52,7 +52,7 @@
   "description.wurst.hack.barrieresp": "Allows you to see nearby barrier blocks.",
   "description.wurst.hack.basefinder": "Finds player bases by searching for man-made blocks.\nThe blocks that it finds will be highlighted in the selected color.\nGood for finding faction bases.",
   "description.wurst.hack.bedesp": "Highlights nearby beds",
-  "description.wurst.hack.betterbookhandling": "Adds a left-aligned overlay for chests that lists their enchanted books by category and lets you grab single books or entire categories with one click.",
+  "description.wurst.hack.enchantmenthandler": "Overlays chest GUIs with a breakdown of enchanted armor and weapons inside, grouped by slot or weapon type with quick take and take-all buttons.",
   "description.wurst.hack.blink": "Suspends all motion updates while enabled.",
   "description.wurst.hack.boatfly": "Allows you to fly with boats and other vehicles.\nPress the sprint key to go down faster.",
   "description.wurst.hack.bonemealaura": "Automatically uses bone meal on specific types of plants.\nUse the checkboxes to specify the types of plants.",
