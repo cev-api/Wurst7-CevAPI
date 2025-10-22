@@ -42,6 +42,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"better book handling", "book overlay", "enchanted books"})
 public final class BetterBookHandlingHack extends Hack
@@ -57,7 +58,6 @@ public final class BetterBookHandlingHack extends Hack
 	private static final int ENTRY_HOVER_COLOR = 0xFFFFE7A9;
 	private static final int ACTION_COLOR = 0xFF86C5FF;
 	private static final int ACTION_HOVER_COLOR = 0xFFB6E1FF;
-	private static final double HOVER_SCROLL_SPEED = 40.0;
 	private static final long HOVER_SCROLL_DELAY_MS = 400;
 	private static final double HOVER_SCROLL_PAUSE = 32.0;
 	
@@ -79,6 +79,9 @@ public final class BetterBookHandlingHack extends Hack
 		ValueDisplay.INTEGER);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 0.7,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
+	private final SliderSetting hoverScrollSpeed = new SliderSetting(
+		"Hover scroll speed", "Pixels per second when hovering long entries.",
+		25, 5, 80, 1, ValueDisplay.INTEGER);
 	
 	private double scrollOffset;
 	private double maxScroll;
@@ -89,7 +92,7 @@ public final class BetterBookHandlingHack extends Hack
 	private boolean lastRenderActive;
 	private boolean needsRescan = true;
 	private int contentHeight;
-	private BookEntry hoveredEntry;
+	private int hoveredSlotId = -1;
 	private long hoverStartMs;
 	
 	public BetterBookHandlingHack()
@@ -102,6 +105,7 @@ public final class BetterBookHandlingHack extends Hack
 		addSetting(offsetX);
 		addSetting(offsetY);
 		addSetting(textScale);
+		addSetting(hoverScrollSpeed);
 		
 		for(BookCategory category : BookCategory.ORDERED)
 			groupedEntries.put(category, new ArrayList<>());
@@ -118,7 +122,8 @@ public final class BetterBookHandlingHack extends Hack
 		entries.clear();
 		groupedEntries.values().forEach(List::clear);
 		hitboxes.clear();
-		hoveredEntry = null;
+		hoveredSlotId = -1;
+		hoverStartMs = 0L;
 	}
 	
 	public void renderOnHandledScreen(HandledScreen<?> screen,
@@ -140,7 +145,8 @@ public final class BetterBookHandlingHack extends Hack
 		if(entries.isEmpty())
 		{
 			hitboxes.clear();
-			hoveredEntry = null;
+			hoveredSlotId = -1;
+			hoverStartMs = 0L;
 			return;
 		}
 		
@@ -290,7 +296,9 @@ public final class BetterBookHandlingHack extends Hack
 		double cursorY = contentTop;
 		double offset = scrollOffset;
 		boolean anyEntryHovered = false;
-		int textAreaWidth = Math.max(1, panelWidth - 2 * PANEL_PADDING - 4);
+		double textAreaWidth =
+			Math.max(1.0, panelWidth - 2.0 * PANEL_PADDING - 4.0);
+		double hoverSpeed = Math.max(1.0, hoverScrollSpeed.getValueI());
 		
 		for(BookCategory category : BookCategory.ORDERED)
 		{
@@ -334,51 +342,51 @@ public final class BetterBookHandlingHack extends Hack
 						panelX + panelWidth - 2, entryY + lineHeight + 2,
 						0x802A2A2A);
 				
-				int textWidth =
-					Math.max(1, Math.round(tr.getWidth(entry.line) * scale));
-				float scrollX = 0;
+				double textWidth =
+					Math.max(1.0, (double)tr.getWidth(entry.line) * scale);
+				double travel = textWidth - textAreaWidth;
+				double scrollX = 0.0;
 				if(hovered)
 				{
 					anyEntryHovered = true;
-					if(entry != hoveredEntry)
+					if(entry.slotId != hoveredSlotId)
 					{
-						hoveredEntry = entry;
+						hoveredSlotId = entry.slotId;
 						hoverStartMs = System.currentTimeMillis();
 					}
 					
-					if(textWidth > textAreaWidth)
+					if(travel > 1.0)
 					{
 						long elapsed =
 							System.currentTimeMillis() - hoverStartMs;
 						if(elapsed > HOVER_SCROLL_DELAY_MS)
 						{
-							double travel = textWidth - textAreaWidth;
-							if(travel > 1.0)
+							double progress = (elapsed - HOVER_SCROLL_DELAY_MS)
+								/ 1000.0 * hoverSpeed;
+							double cycle = travel * 2.0 + HOVER_SCROLL_PAUSE;
+							double cyclePos = progress % cycle;
+							if(cyclePos <= travel)
+								scrollX = cyclePos;
+							else if(cyclePos <= travel + HOVER_SCROLL_PAUSE)
+								scrollX = travel;
+							else
 							{
-								double progress =
-									(elapsed - HOVER_SCROLL_DELAY_MS) / 1000.0
-										* HOVER_SCROLL_SPEED;
-								double cycle =
-									travel * 2.0 + HOVER_SCROLL_PAUSE;
-								double cyclePos = progress % cycle;
-								if(cyclePos <= travel)
-									scrollX = (float)cyclePos;
-								else if(cyclePos <= travel + HOVER_SCROLL_PAUSE)
-									scrollX = (float)travel;
-								else
-								{
-									double back =
-										cyclePos - travel - HOVER_SCROLL_PAUSE;
-									scrollX =
-										(float)Math.max(0.0, travel - back);
-								}
+								double back =
+									cyclePos - travel - HOVER_SCROLL_PAUSE;
+								scrollX = Math.max(0.0, travel - back);
 							}
 						}
 					}
-				}else if(hoveredEntry == entry)
-					hoveredEntry = null;
+					scrollX =
+						MathHelper.clamp(scrollX, 0.0, Math.max(0.0, travel));
+				}else if(hoveredSlotId == entry.slotId)
+				{
+					hoveredSlotId = -1;
+					hoverStartMs = 0L;
+				}
 				
-				drawScaledText(context, tr, entry.line, titleX - scrollX,
+				float renderScroll = (float)(scrollX / scale);
+				drawScaledText(context, tr, entry.line, titleX - renderScroll,
 					entryY, hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
 				
 				hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2,
@@ -391,7 +399,10 @@ public final class BetterBookHandlingHack extends Hack
 		}
 		
 		if(!anyEntryHovered)
-			hoveredEntry = null;
+		{
+			hoveredSlotId = -1;
+			hoverStartMs = 0L;
+		}
 		
 		contentHeight = (int)Math.max(0, Math.round(cursorY - contentTop));
 		maxScroll = Math.max(0, contentHeight - innerHeight);
@@ -577,12 +588,8 @@ public final class BetterBookHandlingHack extends Hack
 	private static void drawScaledText(DrawContext context, TextRenderer tr,
 		String text, float x, float y, int color, float scale)
 	{
-		var matrices = context.getMatrices();
-		matrices.pushMatrix();
-		matrices.translate(x, y);
-		matrices.scale(scale);
-		context.drawText(tr, text, 0, 0, color, false);
-		matrices.popMatrix();
+		RenderUtils.drawScaledText(context, tr, text, Math.round(x),
+			Math.round(y), color, false, scale);
 	}
 	
 	private static String limitLength(String text, int max)
