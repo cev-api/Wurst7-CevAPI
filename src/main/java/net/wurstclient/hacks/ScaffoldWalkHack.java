@@ -12,6 +12,7 @@ import java.util.Arrays;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.FallingBlock;
+import net.minecraft.block.ShulkerBoxBlock;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
@@ -70,6 +71,9 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 			Block block = Block.getBlockFromItem(stack.getItem());
 			BlockState state = block.getDefaultState();
 			if(!state.isFullCube(EmptyBlockView.INSTANCE, BlockPos.ORIGIN))
+				continue;
+			
+			if(block instanceof ShulkerBoxBlock)
 				continue;
 			
 			// filter out blocks that would fall

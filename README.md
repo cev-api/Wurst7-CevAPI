@@ -282,6 +282,9 @@ Examples:
 ### Panic Improved
 - It now saves your current enabled hacks and allows you to restore them via ClickUI/Navigator or keybind.
 
+### Scaffold Walk Improved
+- Ignores shulker boxes
+
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
 
