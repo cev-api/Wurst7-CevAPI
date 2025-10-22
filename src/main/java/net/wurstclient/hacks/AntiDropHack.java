@@ -23,9 +23,9 @@ public final class AntiDropHack extends Hack
 		"minecraft:iron_sword", "minecraft:golden_sword",
 		"minecraft:diamond_sword", "minecraft:netherite_sword",
 		// axes
-		"minecraft:wooden_axe", "minecraft:stone_axe",
-		"minecraft:iron_axe", "minecraft:golden_axe",
-		"minecraft:diamond_axe", "minecraft:netherite_axe",
+		"minecraft:wooden_axe", "minecraft:stone_axe", "minecraft:iron_axe",
+		"minecraft:golden_axe", "minecraft:diamond_axe",
+		"minecraft:netherite_axe",
 		// pickaxes
 		"minecraft:wooden_pickaxe", "minecraft:stone_pickaxe",
 		"minecraft:iron_pickaxe", "minecraft:golden_pickaxe",
@@ -35,9 +35,9 @@ public final class AntiDropHack extends Hack
 		"minecraft:iron_shovel", "minecraft:golden_shovel",
 		"minecraft:diamond_shovel", "minecraft:netherite_shovel",
 		// hoes
-		"minecraft:wooden_hoe", "minecraft:stone_hoe",
-		"minecraft:iron_hoe", "minecraft:golden_hoe",
-		"minecraft:diamond_hoe", "minecraft:netherite_hoe",
+		"minecraft:wooden_hoe", "minecraft:stone_hoe", "minecraft:iron_hoe",
+		"minecraft:golden_hoe", "minecraft:diamond_hoe",
+		"minecraft:netherite_hoe",
 		// other weapons & tools
 		"minecraft:bow", "minecraft:crossbow", "minecraft:trident",
 		"minecraft:mace", "minecraft:shield", "minecraft:flint_and_steel",
@@ -53,11 +53,11 @@ public final class AntiDropHack extends Hack
 		"minecraft:cyan_shulker_box", "minecraft:purple_shulker_box",
 		"minecraft:blue_shulker_box", "minecraft:brown_shulker_box",
 		"minecraft:green_shulker_box", "minecraft:red_shulker_box",
-		"minecraft:black_shulker_box"
-	};
+		"minecraft:black_shulker_box"};
 	
 	private final ItemListSetting items = new ItemListSetting("Items",
-		"Items that can't be dropped while AntiDrop is enabled.", DEFAULT_ITEMS);
+		"Items that can't be dropped while AntiDrop is enabled.",
+		DEFAULT_ITEMS);
 	
 	public AntiDropHack()
 	{
