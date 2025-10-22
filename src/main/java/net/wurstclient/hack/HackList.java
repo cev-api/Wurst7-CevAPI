@@ -85,6 +85,8 @@ public final class HackList implements UpdateListener
 		new ChatTranslatorHack();
 	public final ChestEspHack chestEspHack = new ChestEspHack();
 	public final BedEspHack bedEspHack = new BedEspHack();
+	public final BetterBookHandlingHack betterBookHandlingHack =
+		new BetterBookHandlingHack();
 	public final ClickAuraHack clickAuraHack = new ClickAuraHack();
 	public final ClickGuiHack clickGuiHack = new ClickGuiHack();
 	public final CrashChestHack crashChestHack = new CrashChestHack();
