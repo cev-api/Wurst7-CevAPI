@@ -33,7 +33,7 @@ public final class ClickGuiHack extends Hack
 		new ColorSetting("Text", "Text color", new Color(0xF0F0F0));
 	
 	private final SliderSetting opacity = new SliderSetting("Opacity", 0.5,
-		0.15, 0.85, 0.01, ValueDisplay.PERCENTAGE);
+		0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final SliderSetting ttOpacity = new SliderSetting("Tooltip opacity",
 		0.75, 0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
