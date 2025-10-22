@@ -22,9 +22,11 @@ import net.minecraft.client.network.SequencedPacketCreator;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
 import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
+import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
@@ -32,10 +34,12 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
+import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgressEvent;
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
+import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 
 @Mixin(ClientPlayerInteractionManager.class)
@@ -61,6 +65,55 @@ public abstract class ClientPlayerInteractionManagerMixin
 	private void onStopUsingItem(PlayerEntity player, CallbackInfo ci)
 	{
 		EventManager.fire(StopUsingItemEvent.INSTANCE);
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "clickSlot(IIILnet/minecraft/screen/slot/SlotActionType;Lnet/minecraft/entity/player/PlayerEntity;)V",
+		cancellable = true)
+	private void onClickSlotHEAD(int syncId, int slotId, int button,
+		SlotActionType actionType, PlayerEntity player, CallbackInfo ci)
+	{
+		if(actionType != SlotActionType.THROW)
+			return;
+		
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		AntiDropHack antiDrop = WurstClient.INSTANCE.getHax().antiDropHack;
+		if(!antiDrop.isEnabled())
+			return;
+		
+		ItemStack stack = ItemStack.EMPTY;
+		
+		if(slotId == -999 && player.currentScreenHandler != null
+			&& player.currentScreenHandler.syncId == syncId)
+		{
+			stack = player.currentScreenHandler.getCursorStack();
+			
+		}else if(slotId >= 0)
+		{
+			if(player.currentScreenHandler != null
+				&& player.currentScreenHandler.syncId == syncId
+				&& slotId < player.currentScreenHandler.slots.size())
+			{
+				Slot slot = player.currentScreenHandler.getSlot(slotId);
+				if(slot != null)
+					stack = slot.getStack();
+				
+			}else if(player.playerScreenHandler != null
+				&& player.playerScreenHandler.syncId == syncId
+				&& slotId < player.playerScreenHandler.slots.size())
+			{
+				Slot slot = player.playerScreenHandler.getSlot(slotId);
+				if(slot != null)
+					stack = slot.getStack();
+			}
+		}
+		
+		if(!antiDrop.shouldBlock(stack))
+			return;
+		
+		ci.cancel();
 	}
 	
 	@Inject(at = @At("HEAD"),
