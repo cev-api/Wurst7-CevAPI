@@ -788,7 +788,7 @@ public final class WaypointsHack extends Hack
 		int baseBarY =
 			(int)Math.round(sh * (compassYPercent.getValue() / 100.0));
 		int barY = adjustCompassYForOverlays(context, baseBarY);
-		int barH = 12; // thinner
+		int barH = 8; // thinner (was 12)
 		int pad = 6;
 		int halfWidth = Math.min(120, Math.max(60, sw / 4)); // shorter
 		double visibleAngle = 90.0; // degrees each side
@@ -898,7 +898,9 @@ public final class WaypointsHack extends Hack
 				icon = "";
 			int color = e.w.getColor();
 			int iconW = tr.getWidth(icon);
-			context.drawText(tr, icon, ix - iconW / 2, barY + 2, color, false);
+			int iconY =
+				(int)Math.round(barY + barH / 2.0 - tr.fontHeight / 2.0);
+			context.drawText(tr, icon, ix - iconW / 2, iconY, color, false);
 		}
 		
 		// Draw selected name and distance
