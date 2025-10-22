@@ -278,10 +278,6 @@ public final class EnchantmentHandlerHack extends Hack
 		int headerMargin = Math.max(1, Math.round(HEADER_MARGIN * scale));
 		int entryMargin = Math.max(1, Math.round(ENTRY_MARGIN * scale));
 		
-		int titleY = panelY + PANEL_PADDING;
-		int titleX = panelX + PANEL_PADDING;
-		int titleHeight = Math.max(1, Math.round(tr.fontHeight * scale));
-		
 		context.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight,
 			0xC0101010);
 		context.fill(panelX, panelY, panelX + panelWidth, panelY + 1,
@@ -293,10 +289,8 @@ public final class EnchantmentHandlerHack extends Hack
 		context.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth,
 			panelY + panelHeight, 0xFF202020);
 		
-		drawScaledText(context, tr, "Enchantment Handler", titleX, titleY,
-			TITLE_COLOR, scale);
-		
-		int contentTop = titleY + titleHeight + headerMargin + 1;
+		int contentTop = panelY + PANEL_PADDING;
+		int titleX = panelX + PANEL_PADDING;
 		int contentBottom = panelY + panelHeight - PANEL_PADDING;
 		int innerHeight = contentBottom - contentTop;
 		if(innerHeight <= 0)
@@ -355,7 +349,11 @@ public final class EnchantmentHandlerHack extends Hack
 		int sectionTitleY = (int)Math.round(cursorY - offset);
 		drawScaledText(context, tr, "Enchanted Gear", titleX, sectionTitleY,
 			TITLE_COLOR, scale);
-		cursorY += lineHeight + headerMargin;
+		int underlineY = sectionTitleY
+			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
+			underlineY + 1, 0xFFD0D0D0);
+		cursorY += lineHeight + headerMargin + 4;
 		
 		for(GearCategory category : GearCategory.ORDERED)
 		{
@@ -388,7 +386,11 @@ public final class EnchantmentHandlerHack extends Hack
 		int sectionTitleY = (int)Math.round(cursorY - offset);
 		drawScaledText(context, tr, "Enchanted Books", titleX, sectionTitleY,
 			TITLE_COLOR, scale);
-		cursorY += lineHeight + headerMargin;
+		int underlineY = sectionTitleY
+			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
+			underlineY + 1, 0xFFD0D0D0);
+		cursorY += lineHeight + headerMargin + 4;
 		
 		for(BookCategory category : BookCategory.ORDERED)
 		{
@@ -502,6 +504,19 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		cursorY += headerMargin;
 		return cursorY;
+	}
+	
+	private void drawSectionHeader(DrawContext context, TextRenderer tr, int x,
+		int y, String text, float scale)
+	{
+		int textWidth = Math.max(1, Math.round(tr.getWidth(text) * scale));
+		int textHeight = Math.max(1, Math.round(tr.fontHeight * scale));
+		int left = Math.round(x - 4);
+		int right = Math.round(x + textWidth + 4);
+		int top = Math.round(y - 4);
+		int bottom = Math.round(y + textHeight + 4);
+		context.fill(left, top, right, bottom, 0xC0282828);
+		drawScaledText(context, tr, text, x, y, TITLE_COLOR, scale);
 	}
 	
 	private void rescan(GenericContainerScreen screen)
