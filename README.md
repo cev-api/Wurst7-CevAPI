@@ -177,7 +177,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
 - Works with books and gear and will separate them in the list by category and type
 
-![Chest](https://i.ibb.co/60vGQ4mF/javaw-IAy9-Qmap-N3.png)
+![Chest](https://i.ibb.co/0yRPQ0jy/javaw-sg-VUhu-MCDY.png)
 
 ## What’s changed or improved in this fork?
 
