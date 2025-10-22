@@ -9,7 +9,6 @@ package net.wurstclient.hacks;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,8 +23,12 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.util.Window;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.WeaponComponent;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -42,13 +45,14 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
 
-@SearchTags({"better book handling", "book overlay", "enchanted books"})
-public final class BetterBookHandlingHack extends Hack
+@SearchTags({"enchantment handler", "gear enchantments", "book enchantments"})
+public final class EnchantmentHandlerHack extends Hack
 {
-	private static final int MIN_BOX_WIDTH = 120;
-	private static final int MAX_BOX_WIDTH = 320;
+	private static final int MIN_BOX_WIDTH = 140;
+	private static final int MAX_BOX_WIDTH = 360;
 	private static final int PANEL_PADDING = 6;
 	private static final int HEADER_MARGIN = 4;
 	private static final int ENTRY_MARGIN = 3;
@@ -61,12 +65,14 @@ public final class BetterBookHandlingHack extends Hack
 	private static final long HOVER_SCROLL_DELAY_MS = 400;
 	private static final double HOVER_SCROLL_PAUSE = 32.0;
 	
-	private final List<BookEntry> entries = new ArrayList<>();
-	private final Map<BookCategory, List<BookEntry>> groupedEntries =
+	private final List<AbstractEntry> allEntries = new ArrayList<>();
+	private final Map<GearCategory, List<GearEntry>> gearGroupedEntries =
+		new LinkedHashMap<>();
+	private final Map<BookCategory, List<BookEntry>> bookGroupedEntries =
 		new LinkedHashMap<>();
 	private final List<Hitbox> hitboxes = new ArrayList<>();
 	
-	private final SliderSetting boxWidth = new SliderSetting("Box width", 180,
+	private final SliderSetting boxWidth = new SliderSetting("Box width", 200,
 		MIN_BOX_WIDTH, MAX_BOX_WIDTH, 2, ValueDisplay.INTEGER);
 	private final SliderSetting boxHeight = new SliderSetting("Box height",
 		"Panel height in pixels.\n0 = match the container height.", 0, 0, 320,
@@ -95,11 +101,11 @@ public final class BetterBookHandlingHack extends Hack
 	private int hoveredSlotId = -1;
 	private long hoverStartMs;
 	
-	public BetterBookHandlingHack()
+	public EnchantmentHandlerHack()
 	{
-		super("BetterBookHandling");
-		
+		super("EnchantmentHandler");
 		setCategory(Category.ITEMS);
+		
 		addSetting(boxWidth);
 		addSetting(boxHeight);
 		addSetting(offsetX);
@@ -107,8 +113,10 @@ public final class BetterBookHandlingHack extends Hack
 		addSetting(textScale);
 		addSetting(hoverScrollSpeed);
 		
+		for(GearCategory category : GearCategory.ORDERED)
+			gearGroupedEntries.put(category, new ArrayList<>());
 		for(BookCategory category : BookCategory.ORDERED)
-			groupedEntries.put(category, new ArrayList<>());
+			bookGroupedEntries.put(category, new ArrayList<>());
 	}
 	
 	@Override
@@ -119,8 +127,9 @@ public final class BetterBookHandlingHack extends Hack
 		maxScroll = 0;
 		lastRenderActive = false;
 		needsRescan = true;
-		entries.clear();
-		groupedEntries.values().forEach(List::clear);
+		allEntries.clear();
+		gearGroupedEntries.values().forEach(List::clear);
+		bookGroupedEntries.values().forEach(List::clear);
 		hitboxes.clear();
 		hoveredSlotId = -1;
 		hoverStartMs = 0L;
@@ -142,7 +151,7 @@ public final class BetterBookHandlingHack extends Hack
 		else
 			refreshIfDirty(generic);
 		
-		if(entries.isEmpty())
+		if(allEntries.isEmpty())
 		{
 			hitboxes.clear();
 			hoveredSlotId = -1;
@@ -186,36 +195,47 @@ public final class BetterBookHandlingHack extends Hack
 		if(button != 0 && button != 1)
 			return isInsidePanel(mouseX, mouseY);
 		
+		GenericContainerScreenHandler handler =
+			((GenericContainerScreen)screen).getScreenHandler();
+		
 		for(Hitbox hitbox : hitboxes)
 		{
 			if(!hitbox.contains(mouseX, mouseY))
 				continue;
 			
-			if(hitbox.category != null)
+			if(hitbox.entry != null)
 			{
-				if(button == 0 || button == 1)
+				if(button == 0)
 				{
-					takeCategory(hitbox.category,
-						((GenericContainerScreen)screen).getScreenHandler());
+					if(hitbox.entry instanceof GearEntry gear)
+						takeEntry(gear, handler);
+					else if(hitbox.entry instanceof BookEntry book)
+						takeEntry(book, handler);
+					return true;
+				}
+				
+				if(button == 1)
+				{
+					if(hitbox.entry instanceof GearEntry gear)
+						takeGearCategory(gear.category, handler);
+					else if(hitbox.entry instanceof BookEntry book)
+						takeBookCategory(book.category, handler);
 					return true;
 				}
 				continue;
 			}
 			
-			if(hitbox.entry == null)
-				continue;
-			
-			if(button == 0)
+			if(hitbox.categoryKind == CategoryKind.GEAR
+				&& hitbox.category instanceof GearCategory gearCat)
 			{
-				takeEntry(hitbox.entry,
-					((GenericContainerScreen)screen).getScreenHandler());
+				takeGearCategory(gearCat, handler);
 				return true;
 			}
 			
-			if(button == 1)
+			if(hitbox.categoryKind == CategoryKind.BOOK
+				&& hitbox.category instanceof BookCategory bookCat)
 			{
-				takeCategory(hitbox.entry.category,
-					((GenericContainerScreen)screen).getScreenHandler());
+				takeBookCategory(bookCat, handler);
 				return true;
 			}
 		}
@@ -273,7 +293,7 @@ public final class BetterBookHandlingHack extends Hack
 		context.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth,
 			panelY + panelHeight, 0xFF202020);
 		
-		drawScaledText(context, tr, "Enchanted Books", titleX, titleY,
+		drawScaledText(context, tr, "Enchantment Handler", titleX, titleY,
 			TITLE_COLOR, scale);
 		
 		int contentTop = titleY + titleHeight + headerMargin + 1;
@@ -295,110 +315,20 @@ public final class BetterBookHandlingHack extends Hack
 		
 		double cursorY = contentTop;
 		double offset = scrollOffset;
-		boolean anyEntryHovered = false;
+		boolean[] hoverFlag = new boolean[]{false};
 		double textAreaWidth =
 			Math.max(1.0, panelWidth - 2.0 * PANEL_PADDING - 4.0);
 		double hoverSpeed = Math.max(1.0, hoverScrollSpeed.getValueI());
 		
-		for(BookCategory category : BookCategory.ORDERED)
-		{
-			List<BookEntry> list =
-				groupedEntries.getOrDefault(category, Collections.emptyList());
-			if(list.isEmpty())
-				continue;
-			
-			int headerY = (int)Math.round(cursorY - offset);
-			String headerText = category.displayName + " (" + list.size() + ")";
-			drawScaledText(context, tr, headerText, titleX, headerY,
-				HEADER_COLOR, scale);
-			
-			String takeAllText = "Take All";
-			int takeAllWidth =
-				Math.max(1, Math.round(tr.getWidth(takeAllText) * scale));
-			int takeAllX = panelX + panelWidth - PANEL_PADDING - takeAllWidth;
-			int takeAllY = headerY;
-			boolean actionHovered = scaledMouseX >= takeAllX - 2
-				&& scaledMouseX <= takeAllX + takeAllWidth + 2
-				&& scaledMouseY >= takeAllY - 2
-				&& scaledMouseY <= takeAllY + lineHeight + 2;
-			
-			drawScaledText(context, tr, takeAllText, takeAllX, takeAllY,
-				actionHovered ? ACTION_HOVER_COLOR : ACTION_COLOR, scale);
-			
-			hitboxes.add(Hitbox.forCategory(takeAllX - 2, takeAllY - 2,
-				takeAllWidth + 4, lineHeight + 4, category));
-			
-			cursorY += lineHeight + entryMargin;
-			for(BookEntry entry : list)
-			{
-				int entryY = (int)Math.round(cursorY - offset);
-				boolean hovered = scaledMouseX >= panelX + 2
-					&& scaledMouseX <= panelX + panelWidth - 2
-					&& scaledMouseY >= entryY - 2
-					&& scaledMouseY <= entryY + lineHeight + 2;
-				
-				if(hovered)
-					context.fill(panelX + 2, entryY - 2,
-						panelX + panelWidth - 2, entryY + lineHeight + 2,
-						0x802A2A2A);
-				
-				double textWidth =
-					Math.max(1.0, (double)tr.getWidth(entry.line) * scale);
-				double travel = textWidth - textAreaWidth;
-				double scrollX = 0.0;
-				if(hovered)
-				{
-					anyEntryHovered = true;
-					if(entry.slotId != hoveredSlotId)
-					{
-						hoveredSlotId = entry.slotId;
-						hoverStartMs = System.currentTimeMillis();
-					}
-					
-					if(travel > 1.0)
-					{
-						long elapsed =
-							System.currentTimeMillis() - hoverStartMs;
-						if(elapsed > HOVER_SCROLL_DELAY_MS)
-						{
-							double progress = (elapsed - HOVER_SCROLL_DELAY_MS)
-								/ 1000.0 * hoverSpeed;
-							double cycle = travel * 2.0 + HOVER_SCROLL_PAUSE;
-							double cyclePos = progress % cycle;
-							if(cyclePos <= travel)
-								scrollX = cyclePos;
-							else if(cyclePos <= travel + HOVER_SCROLL_PAUSE)
-								scrollX = travel;
-							else
-							{
-								double back =
-									cyclePos - travel - HOVER_SCROLL_PAUSE;
-								scrollX = Math.max(0.0, travel - back);
-							}
-						}
-					}
-					scrollX =
-						MathHelper.clamp(scrollX, 0.0, Math.max(0.0, travel));
-				}else if(hoveredSlotId == entry.slotId)
-				{
-					hoveredSlotId = -1;
-					hoverStartMs = 0L;
-				}
-				
-				float renderScroll = (float)(scrollX / scale);
-				drawScaledText(context, tr, entry.line, titleX - renderScroll,
-					entryY, hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
-				
-				hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2,
-					panelWidth - 4, lineHeight + 4, entry));
-				
-				cursorY += lineHeight + entryMargin;
-			}
-			
-			cursorY += headerMargin;
-		}
+		cursorY = renderGearSection(context, tr, scale, titleX, cursorY, offset,
+			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
+			entryMargin, headerMargin, hoverFlag);
 		
-		if(!anyEntryHovered)
+		cursorY = renderBookSection(context, tr, scale, titleX, cursorY, offset,
+			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
+			entryMargin, headerMargin, hoverFlag);
+		
+		if(!hoverFlag[0])
 		{
 			hoveredSlotId = -1;
 			hoverStartMs = 0L;
@@ -409,6 +339,169 @@ public final class BetterBookHandlingHack extends Hack
 		scrollOffset = MathHelper.clamp(scrollOffset, 0, maxScroll);
 		
 		context.disableScissor();
+	}
+	
+	private double renderGearSection(DrawContext context, TextRenderer tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
+	{
+		boolean hasEntries = GearCategory.ORDERED.stream().anyMatch(
+			cat -> !gearGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
+		if(!hasEntries)
+			return cursorY;
+		
+		int sectionTitleY = (int)Math.round(cursorY - offset);
+		drawScaledText(context, tr, "Enchanted Gear", titleX, sectionTitleY,
+			TITLE_COLOR, scale);
+		cursorY += lineHeight + headerMargin;
+		
+		for(GearCategory category : GearCategory.ORDERED)
+		{
+			List<GearEntry> list =
+				gearGroupedEntries.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.GEAR, category, list,
+				hoverFlag);
+		}
+		
+		return cursorY;
+	}
+	
+	private double renderBookSection(DrawContext context, TextRenderer tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
+	{
+		boolean hasEntries = BookCategory.ORDERED.stream().anyMatch(
+			cat -> !bookGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
+		if(!hasEntries)
+			return cursorY;
+		
+		int sectionTitleY = (int)Math.round(cursorY - offset);
+		drawScaledText(context, tr, "Enchanted Books", titleX, sectionTitleY,
+			TITLE_COLOR, scale);
+		cursorY += lineHeight + headerMargin;
+		
+		for(BookCategory category : BookCategory.ORDERED)
+		{
+			List<BookEntry> list =
+				bookGroupedEntries.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.BOOK, category, list,
+				hoverFlag);
+		}
+		
+		return cursorY;
+	}
+	
+	private double renderCategoryEntries(DrawContext context, TextRenderer tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		String displayName, CategoryKind kind, Object category,
+		List<? extends AbstractEntry> entries, boolean[] hoverFlag)
+	{
+		int headerY = (int)Math.round(cursorY - offset);
+		String headerText = displayName + " (" + entries.size() + ")";
+		drawScaledText(context, tr, headerText, titleX, headerY, HEADER_COLOR,
+			scale);
+		
+		String takeAllText = "Take All";
+		int takeAllWidth =
+			Math.max(1, Math.round(tr.getWidth(takeAllText) * scale));
+		int takeAllX = panelX + panelWidth - PANEL_PADDING - takeAllWidth;
+		int takeAllY = headerY;
+		boolean actionHovered = scaledMouseX >= takeAllX - 2
+			&& scaledMouseX <= takeAllX + takeAllWidth + 2
+			&& scaledMouseY >= takeAllY - 2
+			&& scaledMouseY <= takeAllY + lineHeight + 2;
+		
+		drawScaledText(context, tr, takeAllText, takeAllX, takeAllY,
+			actionHovered ? ACTION_HOVER_COLOR : ACTION_COLOR, scale);
+		
+		hitboxes.add(Hitbox.forCategory(takeAllX - 2, takeAllY - 2,
+			takeAllWidth + 4, lineHeight + 4, kind, category));
+		
+		cursorY += lineHeight + entryMargin;
+		
+		for(AbstractEntry entry : entries)
+		{
+			int entryY = (int)Math.round(cursorY - offset);
+			boolean hovered = scaledMouseX >= panelX + 2
+				&& scaledMouseX <= panelX + panelWidth - 2
+				&& scaledMouseY >= entryY - 2
+				&& scaledMouseY <= entryY + lineHeight + 2;
+			
+			if(hovered)
+				context.fill(panelX + 2, entryY - 2, panelX + panelWidth - 2,
+					entryY + lineHeight + 2, 0x802A2A2A);
+			
+			double textWidth = Math.max(1.0, tr.getWidth(entry.line) * scale);
+			double travel = textWidth - textAreaWidth;
+			double scrollX = 0.0;
+			
+			if(hovered)
+			{
+				hoverFlag[0] = true;
+				if(entry.slotId != hoveredSlotId)
+				{
+					hoveredSlotId = entry.slotId;
+					hoverStartMs = System.currentTimeMillis();
+				}
+				
+				if(travel > 1.0)
+				{
+					long elapsed = System.currentTimeMillis() - hoverStartMs;
+					if(elapsed > HOVER_SCROLL_DELAY_MS)
+					{
+						double progress = (elapsed - HOVER_SCROLL_DELAY_MS)
+							/ 1000.0 * hoverSpeed;
+						double cycle = travel * 2.0 + HOVER_SCROLL_PAUSE;
+						double cyclePos = progress % cycle;
+						if(cyclePos <= travel)
+							scrollX = cyclePos;
+						else if(cyclePos <= travel + HOVER_SCROLL_PAUSE)
+							scrollX = travel;
+						else
+						{
+							double back =
+								cyclePos - travel - HOVER_SCROLL_PAUSE;
+							scrollX = Math.max(0.0, travel - back);
+						}
+					}
+				}
+				scrollX = MathHelper.clamp(scrollX, 0.0, Math.max(0.0, travel));
+			}else if(hoveredSlotId == entry.slotId)
+			{
+				hoveredSlotId = -1;
+				hoverStartMs = 0L;
+			}
+			
+			float renderScroll = (float)(scrollX / scale);
+			drawScaledText(context, tr, entry.line, titleX - renderScroll,
+				entryY, hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
+			
+			hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2, panelWidth - 4,
+				lineHeight + 4, entry));
+			
+			cursorY += lineHeight + entryMargin;
+		}
+		
+		cursorY += headerMargin;
+		return cursorY;
 	}
 	
 	private void rescan(GenericContainerScreen screen)
@@ -424,8 +517,9 @@ public final class BetterBookHandlingHack extends Hack
 	
 	private void refreshEntries(ScreenHandler handler)
 	{
-		entries.clear();
-		groupedEntries.values().forEach(List::clear);
+		allEntries.clear();
+		gearGroupedEntries.values().forEach(List::clear);
+		bookGroupedEntries.values().forEach(List::clear);
 		
 		if(!(handler instanceof GenericContainerScreenHandler genericHandler))
 			return;
@@ -441,8 +535,27 @@ public final class BetterBookHandlingHack extends Hack
 				continue;
 			
 			ItemStack stack = slot.getStack();
-			if(!stack.isOf(Items.ENCHANTED_BOOK))
+			if(stack.isEmpty())
 				continue;
+			
+			if(stack.isOf(Items.ENCHANTED_BOOK))
+			{
+				Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
+					EnchantmentHelper.getEnchantments(stack)
+						.getEnchantmentEntries();
+				if(enchantments.isEmpty())
+					continue;
+				
+				BookEntry entry = buildBookEntry(slot, enchantments);
+				if(entry == null)
+					continue;
+				
+				allEntries.add(entry);
+				bookGroupedEntries
+					.computeIfAbsent(entry.category, c -> new ArrayList<>())
+					.add(entry);
+				continue;
+			}
 			
 			Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
 				EnchantmentHelper.getEnchantments(stack)
@@ -450,26 +563,63 @@ public final class BetterBookHandlingHack extends Hack
 			if(enchantments.isEmpty())
 				continue;
 			
-			BookEntry entry = buildEntry(slot, enchantments);
+			GearCategory category = GearCategory.fromStack(stack);
+			if(category == null)
+				continue;
+			
+			GearEntry entry =
+				buildGearEntry(slot, stack, category, enchantments);
 			if(entry == null)
 				continue;
 			
-			entries.add(entry);
-			groupedEntries
-				.computeIfAbsent(entry.category, c -> new ArrayList<>())
+			allEntries.add(entry);
+			gearGroupedEntries.computeIfAbsent(category, c -> new ArrayList<>())
 				.add(entry);
 		}
 		
-		for(BookCategory category : BookCategory.ORDERED)
-		{
-			List<BookEntry> list = groupedEntries.get(category);
-			if(list != null)
-				list.sort(
-					(a, b) -> Integer.compare(a.displaySlot, b.displaySlot));
-		}
+		gearGroupedEntries.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		bookGroupedEntries.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
 	}
 	
-	private BookEntry buildEntry(Slot slot,
+	private GearEntry buildGearEntry(Slot slot, ItemStack stack,
+		GearCategory category,
+		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+	{
+		List<String> parts = new ArrayList<>();
+		
+		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		{
+			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			if(enchantmentEntry == null)
+				continue;
+			
+			int level = entry.getIntValue();
+			Identifier id = enchantmentEntry.getKey()
+				.map(registryKey -> registryKey.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(enchantmentEntry.getIdAsString());
+			String name = buildEnchantmentName(id, path);
+			String levelText =
+				Text.translatable("enchantment.level." + level).getString();
+			parts.add(name + " " + levelText);
+		}
+		
+		if(parts.isEmpty())
+			return null;
+		
+		String enchantSummary = limitLength(String.join(", ", parts), 90);
+		
+		int slotNumber = slot.getIndex() + 1;
+		String itemName = limitLength(stack.getName().getString(), 40);
+		
+		String line = slotNumber + " - " + itemName + " | " + enchantSummary;
+		
+		return new GearEntry(slot.id, slotNumber, category, line);
+	}
+	
+	private BookEntry buildBookEntry(Slot slot,
 		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
 	{
 		List<String> parts = new ArrayList<>();
@@ -504,28 +654,20 @@ public final class BetterBookHandlingHack extends Hack
 					.orElse(BookCategory.MISC));
 		
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
-		
 		int slotNumber = slot.getIndex() + 1;
 		String line = slotNumber + " - " + enchantSummary;
 		
 		return new BookEntry(slot.id, slotNumber, primary, line);
 	}
 	
-	private void takeEntry(BookEntry entry,
+	private void takeEntry(GearEntry entry,
 		GenericContainerScreenHandler handler)
 	{
-		if(MC.player == null || MC.interactionManager == null)
-			return;
-		
-		if(entry == null)
+		if(MC.player == null || MC.interactionManager == null || entry == null)
 			return;
 		
 		Slot slot = handler.getSlot(entry.slotId);
 		if(slot == null || !slot.hasStack())
-			return;
-		
-		ItemStack stack = slot.getStack();
-		if(!stack.isOf(Items.ENCHANTED_BOOK))
 			return;
 		
 		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
@@ -533,13 +675,51 @@ public final class BetterBookHandlingHack extends Hack
 		needsRescan = true;
 	}
 	
-	private void takeCategory(BookCategory category,
+	private void takeEntry(BookEntry entry,
+		GenericContainerScreenHandler handler)
+	{
+		if(MC.player == null || MC.interactionManager == null || entry == null)
+			return;
+		
+		Slot slot = handler.getSlot(entry.slotId);
+		if(slot == null || !slot.hasStack())
+			return;
+		
+		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
+			SlotActionType.QUICK_MOVE, MC.player);
+		needsRescan = true;
+	}
+	
+	private void takeGearCategory(GearCategory category,
 		GenericContainerScreenHandler handler)
 	{
 		if(MC.player == null || MC.interactionManager == null)
 			return;
 		
-		List<BookEntry> list = groupedEntries.get(category);
+		List<GearEntry> list = gearGroupedEntries.get(category);
+		if(list == null || list.isEmpty())
+			return;
+		
+		for(GearEntry entry : new ArrayList<>(list))
+		{
+			Slot slot = handler.getSlot(entry.slotId);
+			if(slot == null || !slot.hasStack())
+				continue;
+			
+			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
+				SlotActionType.QUICK_MOVE, MC.player);
+		}
+		
+		needsRescan = true;
+	}
+	
+	private void takeBookCategory(BookCategory category,
+		GenericContainerScreenHandler handler)
+	{
+		if(MC.player == null || MC.interactionManager == null)
+			return;
+		
+		List<BookEntry> list = bookGroupedEntries.get(category);
 		if(list == null || list.isEmpty())
 			return;
 		
@@ -547,9 +727,6 @@ public final class BetterBookHandlingHack extends Hack
 		{
 			Slot slot = handler.getSlot(entry.slotId);
 			if(slot == null || !slot.hasStack())
-				continue;
-			
-			if(!slot.getStack().isOf(Items.ENCHANTED_BOOK))
 				continue;
 			
 			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
@@ -634,20 +811,41 @@ public final class BetterBookHandlingHack extends Hack
 			: raw;
 	}
 	
-	private static final class BookEntry
+	private static abstract class AbstractEntry
 	{
 		final int slotId;
 		final int displaySlot;
-		final BookCategory category;
 		final String line;
+		
+		AbstractEntry(int slotId, int displaySlot, String line)
+		{
+			this.slotId = slotId;
+			this.displaySlot = displaySlot;
+			this.line = line;
+		}
+	}
+	
+	private static final class GearEntry extends AbstractEntry
+	{
+		final GearCategory category;
+		
+		GearEntry(int slotId, int displaySlot, GearCategory category,
+			String line)
+		{
+			super(slotId, displaySlot, line);
+			this.category = Objects.requireNonNull(category);
+		}
+	}
+	
+	private static final class BookEntry extends AbstractEntry
+	{
+		final BookCategory category;
 		
 		BookEntry(int slotId, int displaySlot, BookCategory category,
 			String line)
 		{
-			this.slotId = slotId;
-			this.displaySlot = displaySlot;
+			super(slotId, displaySlot, line);
 			this.category = Objects.requireNonNull(category);
-			this.line = line;
 		}
 	}
 	
@@ -657,31 +855,32 @@ public final class BetterBookHandlingHack extends Hack
 		final int y;
 		final int width;
 		final int height;
-		final BookEntry entry;
-		final BookCategory category;
+		final AbstractEntry entry;
+		final CategoryKind categoryKind;
+		final Object category;
 		
-		private Hitbox(int x, int y, int width, int height, BookEntry entry,
-			BookCategory category)
+		private Hitbox(int x, int y, int width, int height, AbstractEntry entry,
+			CategoryKind categoryKind, Object category)
 		{
 			this.x = x;
 			this.y = y;
 			this.width = width;
 			this.height = height;
 			this.entry = entry;
+			this.categoryKind = categoryKind;
 			this.category = category;
 		}
 		
 		static Hitbox forEntry(int x, int y, int width, int height,
-			BookEntry entry)
+			AbstractEntry entry)
 		{
-			return new Hitbox(x, y, width, height, entry, null);
+			return new Hitbox(x, y, width, height, entry, null, null);
 		}
 		
 		static Hitbox forCategory(int x, int y, int width, int height,
-			BookCategory category)
+			CategoryKind kind, Object category)
 		{
-			return new Hitbox(x, y, width, height, null,
-				Objects.requireNonNull(category));
+			return new Hitbox(x, y, width, height, null, kind, category);
 		}
 		
 		boolean contains(double mouseX, double mouseY)
@@ -691,7 +890,73 @@ public final class BetterBookHandlingHack extends Hack
 		}
 	}
 	
-	private enum BookCategory
+	private static enum CategoryKind
+	{
+		GEAR,
+		BOOK;
+	}
+	
+	private static enum GearCategory
+	{
+		HELMET("Armor (Helmet)"),
+		CHESTPLATE("Armor (Chest)"),
+		LEGGINGS("Armor (Leggings)"),
+		BOOTS("Armor (Boots)"),
+		SHIELD("Shield"),
+		WEAPON("Weapons");
+		
+		static final List<GearCategory> ORDERED =
+			List.of(GearCategory.values());
+		
+		private final String displayName;
+		
+		GearCategory(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		String getDisplayName()
+		{
+			return displayName;
+		}
+		
+		static GearCategory fromStack(ItemStack stack)
+		{
+			Item item = stack.getItem();
+			EquipmentSlot slot = ItemUtils.getArmorSlot(item);
+			if(slot != null)
+				return switch(slot)
+				{
+					case HEAD -> HELMET;
+					case CHEST -> CHESTPLATE;
+					case LEGS -> LEGGINGS;
+					case FEET -> BOOTS;
+					case OFFHAND ->
+					{
+						if(stack.isOf(Items.SHIELD))
+							yield SHIELD;
+						yield null;
+					}
+					default -> null;
+				};
+			
+			if(stack.isOf(Items.SHIELD))
+				return SHIELD;
+			
+			if(stack.isOf(Items.TRIDENT) || stack.isOf(Items.BOW)
+				|| stack.isOf(Items.CROSSBOW))
+				return WEAPON;
+			
+			WeaponComponent weapon =
+				stack.getComponents().get(DataComponentTypes.WEAPON);
+			if(weapon != null)
+				return WEAPON;
+			
+			return null;
+		}
+	}
+	
+	private static enum BookCategory
 	{
 		HELMET("Armor (Helmet)", "respiration", "aqua_affinity"),
 		CHEST("Armor (Chest)", "protection", "fire_protection",
@@ -701,7 +966,7 @@ public final class BetterBookHandlingHack extends Hack
 			"frost_walker", "soul_speed"),
 		WEAPON("Weapons", "sharpness", "smite", "bane_of_arthropods",
 			"knockback", "looting", "fire_aspect", "sweeping", "sweeping_edge",
-			"breach", "density"),
+			"breach", "density", "wind_burst"),
 		TOOLS("Tools", "efficiency", "silk_touch", "fortune"),
 		BOW("Bow", "power", "punch", "flame", "infinity"),
 		CROSSBOW("Crossbow", "piercing", "quick_charge", "multishot"),
@@ -709,12 +974,10 @@ public final class BetterBookHandlingHack extends Hack
 		SHIELD("Shield", "bulwark"),
 		ELYTRA("Elytra", "wind_burst"),
 		MISC("Misc", "mending", "unbreaking", "binding_curse",
-			"vanishing_curse", "lure", "luck_of_the_sea", "looting",
-			"frost_walker", "aqua_affinity");
+			"vanishing_curse", "lure", "luck_of_the_sea");
 		
 		static final List<BookCategory> ORDERED =
-			List.of(HELMET, CHEST, LEGGINGS, BOOTS, WEAPON, TOOLS, BOW,
-				CROSSBOW, TRIDENT, SHIELD, ELYTRA, MISC);
+			List.of(BookCategory.values());
 		
 		private final String displayName;
 		private final Set<String> enchantIds;
@@ -723,6 +986,11 @@ public final class BetterBookHandlingHack extends Hack
 		{
 			this.displayName = displayName;
 			this.enchantIds = Set.of(enchantIds);
+		}
+		
+		String getDisplayName()
+		{
+			return displayName;
 		}
 		
 		static BookCategory fromPath(String path)

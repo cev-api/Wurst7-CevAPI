@@ -22,7 +22,7 @@ import net.minecraft.screen.slot.Slot;
 import net.minecraft.screen.slot.SlotActionType;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AntiDropHack;
-import net.wurstclient.hacks.BetterBookHandlingHack;
+import net.wurstclient.hacks.EnchantmentHandlerHack;
 
 @Mixin(HandledScreen.class)
 public abstract class HandledScreenMixin
@@ -66,13 +66,11 @@ public abstract class HandledScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		BetterBookHandlingHack hack =
-			WurstClient.INSTANCE.getHax().betterBookHandlingHack;
-		if(hack == null || !hack.isEnabled())
-			return;
-		
-		if(hack.handleMouseClick((HandledScreen<?>)(Object)this, context.x(),
-			context.y(), context.button()))
+		EnchantmentHandlerHack enchantHack =
+			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
+		if(enchantHack != null && enchantHack.isEnabled()
+			&& enchantHack.handleMouseClick((HandledScreen<?>)(Object)this,
+				context.x(), context.y(), context.button()))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
@@ -87,13 +85,11 @@ public abstract class HandledScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		BetterBookHandlingHack hack =
-			WurstClient.INSTANCE.getHax().betterBookHandlingHack;
-		if(hack == null || !hack.isEnabled())
-			return;
-		
-		if(hack.handleMouseScroll((HandledScreen<?>)(Object)this, mouseX,
-			mouseY, verticalAmount))
+		EnchantmentHandlerHack enchantHack =
+			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
+		if(enchantHack != null && enchantHack.isEnabled()
+			&& enchantHack.handleMouseScroll((HandledScreen<?>)(Object)this,
+				mouseX, mouseY, verticalAmount))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
@@ -108,12 +104,11 @@ public abstract class HandledScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		BetterBookHandlingHack hack =
-			WurstClient.INSTANCE.getHax().betterBookHandlingHack;
-		if(hack == null || !hack.isEnabled())
-			return;
+		EnchantmentHandlerHack enchantHack =
+			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		
-		hack.renderOnHandledScreen((HandledScreen<?>)(Object)this, context,
-			delta);
+		if(enchantHack != null && enchantHack.isEnabled())
+			enchantHack.renderOnHandledScreen((HandledScreen<?>)(Object)this,
+				context, delta);
 	}
 }

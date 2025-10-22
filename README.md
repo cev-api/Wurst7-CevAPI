@@ -171,11 +171,12 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.
 - When enabled you cannot press the throw button on the chosen items and you cannot drag the chosen items out of inventory.
 
-### BetterBookHandling
-- Inventory overlay for chests with enchanted books that lists each book with a slot number, enchantment and a quick take or take all by category
-- Renders on top of the vanilla screen darkening, stays aligned beside the container and has adjustable size and font scaling
+### EnchantmentHandler
+- Displays an inventory overlay for chests containing enchanted items, listing each item’s slot number, enchantments, and providing quick-take options (single or by category).
+- Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
+- Works with books and gear and will separate them in the list by category and type
 
-![Chest](https://i.ibb.co/JjRCjKht/javaw-S2z-Nfp-XIVE.png)
+![Chest](https://i.ibb.co/60vGQ4mF/javaw-IAy9-Qmap-N3.png)
 
 ## What’s changed or improved in this fork?
 
