@@ -172,6 +172,12 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.
 - When enabled you cannot press the throw button on the chosen items and you cannot drag the chosen items out of inventory.
 
+### BetterBookHandling
+- Inventory overlay for chests with enchanted books that lists each book with a slot number, enchantment and a quick take or take all by category
+- Renders on top of the vanilla screen darkening, stays aligned beside the container and has adjustable size and font scaling
+
+![Chest](https://i.ibb.co/JjRCjKht/javaw-S2z-Nfp-XIVE.png)
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
