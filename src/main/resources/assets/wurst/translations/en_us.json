@@ -17,6 +17,7 @@
   "description.wurst.hack.antiafk": "Walks around randomly to hide you from AFK detectors.",
   "description.wurst.hack.antiblind": "Prevents blindness and darkness effects.\nIncompatible with OptiFine.",
   "description.wurst.hack.anticactus": "Protects you from cactus damage.",
+  "description.wurst.hack.antidrop": "Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.",
   "description.wurst.hack.antientitypush": "Prevents you from getting pushed by players and mobs.",
   "description.wurst.hack.antihunger": "Slows down your hunger when you are walking.\n\n??c??lWARNING:??r There have been reports of this hack causing you to take extra fall damage under specific, unknown conditions.",
   "description.wurst.hack.antiknockback": "Prevents you from taking knockback from players and mobs.",

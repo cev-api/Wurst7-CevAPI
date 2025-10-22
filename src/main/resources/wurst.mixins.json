@@ -39,6 +39,7 @@
     "FogRendererMixin",
     "GameMenuScreenMixin",
     "GameRendererMixin",
+    "HandledScreenMixin",
     "GenericContainerScreenMixin",
     "GrindstoneScreenMixin",
     "HeldItemRendererMixin",

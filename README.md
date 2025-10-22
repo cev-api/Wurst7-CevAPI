@@ -168,6 +168,10 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ![Surface](https://i.ibb.co.com/WptKT2yY/Untitldded.png) 
 
+### AntiDrop
+- Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.
+- When enabled you cannot press the throw button on the chosen items and you cannot drag the chosen items out of inventory.
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)

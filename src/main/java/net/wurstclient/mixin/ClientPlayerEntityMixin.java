@@ -30,6 +30,7 @@ import net.minecraft.entity.MovementType;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.ItemStack;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.WurstClient;
@@ -43,6 +44,7 @@ import net.wurstclient.events.PostMotionListener.PostMotionEvent;
 import net.wurstclient.events.PreMotionListener.PreMotionEvent;
 import net.wurstclient.events.UpdateListener.UpdateEvent;
 import net.wurstclient.hack.HackList;
+import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.mixinterface.IClientPlayerEntity;
 
 @Mixin(ClientPlayerEntity.class)
@@ -173,6 +175,26 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayerEntity
 	{
 		if(WurstClient.INSTANCE.getHax().autoSprintHack.shouldSprintHungry())
 			cir.setReturnValue(true);
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "dropSelectedItem(Z)Z",
+		cancellable = true)
+	private void onDropSelectedItem(boolean entireStack,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		AntiDropHack antiDrop = WurstClient.INSTANCE.getHax().antiDropHack;
+		if(!antiDrop.isEnabled())
+			return;
+		
+		ItemStack stack = getMainHandStack();
+		if(!antiDrop.shouldBlock(stack))
+			return;
+		
+		cir.setReturnValue(false);
 	}
 	
 	/**
