@@ -17,6 +17,7 @@ import net.minecraft.client.render.BlockRenderLayer;
 import net.minecraft.client.render.RenderLayers;
 import net.minecraft.fluid.FluidState;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.SurfaceXrayHack;
 
 @Mixin(RenderLayers.class)
 public abstract class RenderLayersMixin
@@ -30,6 +31,13 @@ public abstract class RenderLayersMixin
 	private static void onGetBlockLayer(BlockState state,
 		CallbackInfoReturnable<BlockRenderLayer> cir)
 	{
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled() && surface.isTarget(state))
+		{
+			cir.setReturnValue(BlockRenderLayer.TRANSLUCENT);
+			return;
+		}
+		
 		if(!WurstClient.INSTANCE.getHax().xRayHack.isOpacityMode())
 			return;
 		
@@ -45,6 +53,14 @@ public abstract class RenderLayersMixin
 	private static void onGetFluidLayer(FluidState state,
 		CallbackInfoReturnable<BlockRenderLayer> cir)
 	{
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled()
+			&& surface.isTarget(state.getBlockState().getBlock()))
+		{
+			cir.setReturnValue(BlockRenderLayer.TRANSLUCENT);
+			return;
+		}
+		
 		if(!WurstClient.INSTANCE.getHax().xRayHack.isOpacityMode())
 			return;
 		

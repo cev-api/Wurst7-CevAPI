@@ -24,6 +24,8 @@ import net.minecraft.world.BlockRenderView;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 /**
@@ -63,11 +65,21 @@ public class SodiumDefaultFluidRendererMixin
 		require = 0,
 		remap = false)
 	private int onUpdateQuad(int original, @Local(argsOnly = true) BlockPos pos,
-		@Local(argsOnly = true) FluidState state)
+		@Local(argsOnly = true) FluidState fluid)
 	{
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled())
+		{
+			SurfaceState surfaceState = surface.classifyFluid(fluid, pos);
+			if(surfaceState == SurfaceState.INTERIOR)
+				return original & 0x00FFFFFF;
+			if(surfaceState == SurfaceState.SURFACE)
+				original &= surface.getSurfaceOpacityMask();
+		}
+		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		if(!xray.isOpacityMode()
-			|| xray.isVisible(state.getBlockState().getBlock(), pos))
+			|| xray.isVisible(fluid.getBlockState().getBlock(), pos))
 			return original;
 		
 		return original & xray.getOpacityColorMask();

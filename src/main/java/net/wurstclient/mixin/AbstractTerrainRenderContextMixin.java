@@ -18,6 +18,8 @@ import net.fabricmc.fabric.impl.client.indigo.renderer.mesh.MutableQuadViewImpl;
 import net.fabricmc.fabric.impl.client.indigo.renderer.render.AbstractTerrainRenderContext;
 import net.fabricmc.fabric.impl.client.indigo.renderer.render.BlockRenderInfo;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 @Mixin(value = AbstractTerrainRenderContext.class, remap = false)
@@ -37,11 +39,38 @@ public abstract class AbstractTerrainRenderContextMixin
 		boolean emissive, boolean vanillaShade, CallbackInfo ci)
 	{
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
-		if(!xray.isOpacityMode() || xray
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		
+		int mask = 0xFFFFFFFF;
+		boolean modified = false;
+		
+		if(surface.isEnabled())
+		{
+			SurfaceState state =
+				surface.classifyBlock(blockInfo.blockState, blockInfo.blockPos);
+			if(state == SurfaceState.INTERIOR)
+			{
+				for(int i = 0; i < 4; i++)
+					quad.color(i, quad.color(i) & 0x00FFFFFF);
+				return;
+			}else if(state == SurfaceState.SURFACE)
+			{
+				mask &= surface.getSurfaceOpacityMask();
+				modified = true;
+			}
+		}
+		
+		if(xray.isOpacityMode() && !xray
 			.isVisible(blockInfo.blockState.getBlock(), blockInfo.blockPos))
+		{
+			mask &= xray.getOpacityColorMask();
+			modified = true;
+		}
+		
+		if(!modified)
 			return;
 		
 		for(int i = 0; i < 4; i++)
-			quad.color(i, quad.color(i) & xray.getOpacityColorMask());
+			quad.color(i, quad.color(i) & mask);
 	}
 }
