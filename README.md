@@ -160,6 +160,13 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ![Cheater](https://i.imgur.com/beZoL1U.png)
 
+### SurfaceXRay
+- Makes the exposed surface of tracked blocks or fluids like lava or water partially or fully transparent while clearing the matching volume underneath.
+- Works together with XRay
+- Add items with the list UI, meaning you can add keywords or just select multiple blocks easily. 
+
+![Surface](https://i.ibb.co.com/WptKT2yY/Untitldded.png) 
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)

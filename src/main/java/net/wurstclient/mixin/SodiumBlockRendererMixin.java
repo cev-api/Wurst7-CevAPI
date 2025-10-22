@@ -14,6 +14,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 /**
@@ -37,6 +39,16 @@ public class SodiumBlockRendererMixin
 		require = 0)
 	private int onBufferQuad(int original)
 	{
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled())
+		{
+			SurfaceState surfaceState = surface.classifyBlock(state, pos);
+			if(surfaceState == SurfaceState.INTERIOR)
+				return original & 0x00FFFFFF;
+			if(surfaceState == SurfaceState.SURFACE)
+				original &= surface.getSurfaceOpacityMask();
+		}
+		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		if(!xray.isOpacityMode() || xray.isVisible(state.getBlock(), pos))
 			return original;

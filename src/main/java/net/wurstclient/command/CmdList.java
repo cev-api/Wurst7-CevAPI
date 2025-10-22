@@ -70,6 +70,7 @@ public final class CmdList
 	public final VClipCmd vClipCmd = new VClipCmd();
 	public final ViewCompCmd viewCompCmd = new ViewCompCmd();
 	public final ViewNbtCmd viewNbtCmd = new ViewNbtCmd();
+	public final SurfaceXrayCmd surfaceXrayCmd = new SurfaceXrayCmd();
 	public final XrayCmd xrayCmd = new XrayCmd();
 	public final net.wurstclient.commands.WaypointsCmd waypointsCmd =
 		new net.wurstclient.commands.WaypointsCmd();

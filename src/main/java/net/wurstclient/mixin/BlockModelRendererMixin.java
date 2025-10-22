@@ -24,6 +24,8 @@ import net.minecraft.world.BlockRenderView;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 @Mixin(BlockModelRenderer.class)
@@ -49,10 +51,23 @@ public abstract class BlockModelRendererMixin implements ItemConvertible
 		EventManager.fire(event);
 		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
-		if(!xray.isOpacityMode() || xray.isVisible(state.getBlock(), pos))
-			currentOpacity.set(1F);
-		else
-			currentOpacity.set(xray.getOpacityFloat());
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		
+		float opacity = 1F;
+		
+		if(surface.isEnabled())
+		{
+			SurfaceState surfaceState = surface.classifyBlock(state, pos);
+			if(surfaceState == SurfaceState.INTERIOR)
+				event.setRendered(false);
+			else if(surfaceState == SurfaceState.SURFACE)
+				opacity = surface.getSurfaceOpacity();
+		}
+		
+		if(xray.isOpacityMode() && !xray.isVisible(state.getBlock(), pos))
+			opacity = Math.min(opacity, xray.getOpacityFloat());
+		
+		currentOpacity.set(opacity);
 		
 		if(event.isRendered() != null)
 			return event.isRendered();
