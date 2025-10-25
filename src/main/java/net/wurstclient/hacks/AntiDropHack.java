@@ -58,6 +58,7 @@ public final class AntiDropHack extends Hack
 	private final ItemListSetting items = new ItemListSetting("Items",
 		"Items that can't be dropped while AntiDrop is enabled.",
 		DEFAULT_ITEMS);
+	private boolean temporarilyBypass;
 	
 	public AntiDropHack()
 	{
@@ -68,10 +69,28 @@ public final class AntiDropHack extends Hack
 	
 	public boolean shouldBlock(ItemStack stack)
 	{
+		if(temporarilyBypass)
+			return false;
+		
+		return isProtectedItem(stack);
+	}
+	
+	public boolean isProtectedItem(ItemStack stack)
+	{
 		if(stack == null || stack.isEmpty())
 			return false;
 		
 		String itemName = Registries.ITEM.getId(stack.getItem()).toString();
 		return items.getItemNames().contains(itemName);
+	}
+	
+	public void setTemporarilyBypass(boolean value)
+	{
+		temporarilyBypass = value;
+	}
+	
+	public boolean isTemporarilyBypassing()
+	{
+		return temporarilyBypass;
 	}
 }

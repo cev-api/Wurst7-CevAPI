@@ -84,7 +84,7 @@ public final class BookOffersSetting extends Setting
 	public void add(BookOffer offer)
 	{
 		// check if offer is valid
-		if(offer == null || !offer.isFullyValid())
+		if(offer == null || !offer.isMostlyValid())
 			return;
 		
 		// check if an equal offer is already in the list
@@ -117,7 +117,7 @@ public final class BookOffersSetting extends Setting
 			return;
 		
 		// check if new offer is valid
-		if(offer == null || !offer.isFullyValid())
+		if(offer == null || !offer.isMostlyValid())
 			return;
 		
 		// check if new offer is different and already in the list

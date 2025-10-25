@@ -204,6 +204,8 @@ Examples:
 ### List UI (Search, MobSearch, ItemESP, Xray etc) Improvements
 - Able to specifically enter and save keywords into the list (Great for custom items on modded servers).
 - Able to clear the entire list with a single button
+- Can now multi-select items by holding CTRL or SHIFT
+- Deleting entries does not push you to the top of the list anymore
 
 ![ListUI](https://i.imgur.com/rjfk4em.png)
 
@@ -292,6 +294,9 @@ Examples:
 
 ### Scaffold Walk Improved
 - Ignores shulker boxes
+
+### AutoLibrarian Improved
+- Can now discover enchantments provided by modpacks
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  

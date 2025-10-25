@@ -15,7 +15,6 @@ import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.text.Text;
 import net.minecraft.text.TranslatableTextContent;
 import net.minecraft.util.Identifier;
@@ -40,9 +39,16 @@ public record BookOffer(String id, int level, int price)
 			return Optional.empty();
 		
 		DynamicRegistryManager drm = WurstClient.MC.world.getRegistryManager();
-		Registry<Enchantment> registry =
-			drm.getOrThrow(RegistryKeys.ENCHANTMENT);
-		return registry.getEntry(Identifier.of(id));
+		Identifier identifier = Identifier.tryParse(id);
+		if(identifier == null)
+			return Optional.empty();
+		
+		Optional<Registry<Enchantment>> registryOpt =
+			drm.getOptional(RegistryKeys.ENCHANTMENT);
+		if(registryOpt.isEmpty())
+			return Optional.empty();
+		
+		return registryOpt.get().getEntry(identifier);
 	}
 	
 	public Enchantment getEnchantment()
@@ -52,7 +58,11 @@ public record BookOffer(String id, int level, int price)
 	
 	public String getEnchantmentName()
 	{
-		Text description = getEnchantment().description();
+		Enchantment enchantment = getEnchantment();
+		if(enchantment == null)
+			return id;
+		
+		Text description = enchantment.description();
 		if(description.getContent() instanceof TranslatableTextContent tr)
 			return WurstClient.INSTANCE.getTranslator()
 				.translateMcEnglish(tr.getKey());
@@ -66,13 +76,17 @@ public record BookOffer(String id, int level, int price)
 		Enchantment enchantment = getEnchantment();
 		String name;
 		
-		if(enchantment.description()
+		if(enchantment == null)
+		{
+			name = id;
+		}else if(enchantment.description()
 			.getContent() instanceof TranslatableTextContent tr)
 			name = translator.translateMcEnglish(tr.getKey());
 		else
 			name = enchantment.description().getString();
 		
-		if(enchantment.getMaxLevel() > 1)
+		int maxLevel = enchantment != null ? enchantment.getMaxLevel() : level;
+		if(maxLevel > 1)
 			name += " "
 				+ translator.translateMcEnglish("enchantment.level." + level);
 		
@@ -90,10 +104,11 @@ public record BookOffer(String id, int level, int price)
 	 */
 	public boolean isFullyValid()
 	{
-		return isMostlyValid() && getEnchantmentEntry()
-			.map(entry -> entry.isIn(EnchantmentTags.TRADEABLE)
-				&& level <= entry.value().getMaxLevel())
-			.orElse(false);
+		if(!isMostlyValid())
+			return false;
+		
+		return getEnchantmentEntry()
+			.map(entry -> level <= entry.value().getMaxLevel()).orElse(true);
 	}
 	
 	/**

@@ -23,7 +23,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
@@ -86,7 +85,8 @@ public final class EditBookOfferScreen extends Screen
 				return true;
 			
 			Enchantment enchantment = offerToSave.getEnchantment();
-			return level <= enchantment.getMaxLevel();
+			int maxLevel = enchantment != null ? enchantment.getMaxLevel() : 10;
+			return level <= maxLevel;
 		});
 		levelField.setChangedListener(t -> {
 			if(!MathUtils.isInteger(t))
@@ -132,7 +132,7 @@ public final class EditBookOfferScreen extends Screen
 		
 		addDrawableChild(
 			saveButton = ButtonWidget.builder(Text.literal("Save"), b -> {
-				if(offerToSave == null || !offerToSave.isFullyValid())
+				if(offerToSave == null || !offerToSave.isMostlyValid())
 					return;
 				
 				bookOffers.replace(index, offerToSave);
@@ -157,7 +157,8 @@ public final class EditBookOfferScreen extends Screen
 		int price = offerToSave.price();
 		
 		Enchantment enchantment = offerToSave.getEnchantment();
-		if(level < 1 || level > enchantment.getMaxLevel())
+		int maxLevel = enchantment != null ? enchantment.getMaxLevel() : 10;
+		if(level < 1 || level > maxLevel)
 			return;
 		
 		updateSelectedOffer(new BookOffer(id, level, price));
@@ -184,7 +185,8 @@ public final class EditBookOfferScreen extends Screen
 		alreadyAdded =
 			offer != null && !offer.equals(bookOffers.getOffers().get(index))
 				&& bookOffers.contains(offer);
-		saveButton.active = offer != null && !alreadyAdded;
+		saveButton.active =
+			offer != null && offer.isMostlyValid() && !alreadyAdded;
 		
 		if(offer == null)
 		{
@@ -244,8 +246,11 @@ public final class EditBookOfferScreen extends Screen
 	@Override
 	public void tick()
 	{
-		levelPlusButton.active = offerToSave != null
-			&& offerToSave.level() < offerToSave.getEnchantment().getMaxLevel();
+		Enchantment enchantment =
+			offerToSave != null ? offerToSave.getEnchantment() : null;
+		int maxLevel = enchantment != null ? enchantment.getMaxLevel() : 10;
+		levelPlusButton.active =
+			offerToSave != null && offerToSave.level() < maxLevel;
 		levelMinusButton.active =
 			offerToSave != null && offerToSave.level() > 1;
 		
@@ -278,10 +283,9 @@ public final class EditBookOfferScreen extends Screen
 		BookOffer bookOffer = offerToSave;
 		String name = bookOffer.getEnchantmentNameWithLevel();
 		
-		RegistryEntry<Enchantment> enchantment =
-			bookOffer.getEnchantmentEntry().get();
-		int nameColor = enchantment.isIn(EnchantmentTags.CURSE)
-			? WurstColors.LIGHT_RED : Colors.WHITE;
+		boolean isCurse = bookOffer.getEnchantmentEntry()
+			.map(entry -> entry.isIn(EnchantmentTags.CURSE)).orElse(false);
+		int nameColor = isCurse ? WurstColors.LIGHT_RED : Colors.WHITE;
 		context.drawTextWithShadow(tr, name, x + 28, y, nameColor);
 		
 		context.drawText(tr, bookOffer.id(), x + 28, y + 9, Colors.LIGHT_GRAY,

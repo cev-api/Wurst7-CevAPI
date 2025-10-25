@@ -434,7 +434,7 @@ public final class AutoLibrarianHack extends Hack
 			int price = tradeOffer.getDisplayedFirstBuyItem().getCount();
 			BookOffer bookOffer = new BookOffer(enchantment, level, price);
 			
-			if(!bookOffer.isFullyValid())
+			if(!bookOffer.isMostlyValid())
 			{
 				System.out.println("Found invalid enchanted book offer.\n"
 					+ "Component data: " + enchantmentLevelMap);

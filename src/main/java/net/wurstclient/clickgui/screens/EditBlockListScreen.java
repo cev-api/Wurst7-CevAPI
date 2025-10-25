@@ -7,6 +7,9 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,13 +24,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
+import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
@@ -86,13 +89,25 @@ public final class EditBlockListScreen extends Screen
 				String raw = blockNameField.getText();
 				if(raw != null)
 					raw = raw.trim();
-				if(raw != null && !raw.isEmpty())
-					blockList.addRawName(raw);
-				client.setScreen(EditBlockListScreen.this);
+				if(raw == null || raw.isEmpty())
+					return;
+				
+				var prevState = listGui.captureState();
+				List<String> before =
+					new ArrayList<>(blockList.getBlockNames());
+				blockList.addRawName(raw);
+				List<String> added = new ArrayList<>(blockList.getBlockNames());
+				added.removeAll(before);
+				
+				refreshList(prevState, added, prevState.scrollAmount());
 			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
+				var prevState = listGui.captureState();
+				List<String> before =
+					new ArrayList<>(blockList.getBlockNames());
+				
 				if(blockToAdd != null)
 				{
 					blockList.add(blockToAdd);
@@ -108,15 +123,33 @@ public final class EditBlockListScreen extends Screen
 					if(raw != null && !raw.isEmpty())
 						blockList.addRawName(raw);
 				}
-				client.setScreen(EditBlockListScreen.this);
+				
+				List<String> added = new ArrayList<>(blockList.getBlockNames());
+				added.removeAll(before);
+				
+				refreshList(prevState, added, prevState.scrollAmount());
 			}).dimensions(addX, rowY, addWidth, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
-				blockList
-					.remove(blockList.indexOf(listGui.getSelectedBlockName()));
-				client.setScreen(EditBlockListScreen.this);
+				List<String> selected = listGui.getSelectedBlockNames();
+				if(selected.isEmpty())
+					return;
+				
+				var prevState = listGui.captureState();
+				for(String key : selected)
+				{
+					int index = blockList.getBlockNames().indexOf(key);
+					if(index >= 0)
+						blockList.remove(index);
+				}
+				
+				refreshList(prevState, Collections.emptyList(),
+					prevState.scrollAmount());
 			}).dimensions(removeX, rowY, removeWidth, 20).build());
+		
+		listGui.setSelectionListener(this::updateButtons);
+		updateButtons();
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -217,7 +250,7 @@ public final class EditBlockListScreen extends Screen
 		}
 		
 		addKeywordButton.active = hasInput;
-		removeButton.active = listGui.getSelectedOrNull() != null;
+		updateButtons();
 	}
 	
 	@Override
@@ -281,13 +314,29 @@ public final class EditBlockListScreen extends Screen
 		return false;
 	}
 	
+	private void updateButtons()
+	{
+		if(removeButton != null)
+			removeButton.active = listGui.hasSelection();
+	}
+	
+	private void refreshList(
+		MultiSelectEntryListWidget.SelectionState previousState,
+		Collection<String> preferredKeys, double scrollAmount)
+	{
+		listGui.reloadPreservingState(blockList.getBlockNames(), previousState,
+			preferredKeys, scrollAmount);
+		updateButtons();
+	}
+	
 	private final class Entry
-		extends AlwaysSelectedEntryListWidget.Entry<EditBlockListScreen.Entry>
+		extends MultiSelectEntryListWidget.Entry<EditBlockListScreen.Entry>
 	{
 		private final String blockName;
 		
-		public Entry(String blockName)
+		public Entry(ListGui parent, String blockName)
 		{
+			super(parent);
 			this.blockName = Objects.requireNonNull(blockName);
 		}
 		
@@ -332,24 +381,65 @@ public final class EditBlockListScreen extends Screen
 		{
 			return "ID: " + Block.getRawIdFromState(block.getDefaultState());
 		}
+		
+		@Override
+		public String selectionKey()
+		{
+			return blockName;
+		}
 	}
 	
 	private final class ListGui
-		extends AlwaysSelectedEntryListWidget<EditBlockListScreen.Entry>
+		extends MultiSelectEntryListWidget<EditBlockListScreen.Entry>
 	{
 		public ListGui(MinecraftClient minecraft, EditBlockListScreen screen,
 			List<String> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30);
-			
-			list.stream().map(EditBlockListScreen.Entry::new)
+			reload(list);
+			ensureSelection();
+		}
+		
+		public void reload(List<String> list)
+		{
+			clearEntries();
+			list.stream().map(name -> new EditBlockListScreen.Entry(this, name))
 				.forEach(this::addEntry);
 		}
 		
-		public String getSelectedBlockName()
+		public void reloadPreservingState(List<String> list,
+			SelectionState previousState, Collection<String> preferredKeys,
+			double scrollAmount)
 		{
-			EditBlockListScreen.Entry selected = getSelectedOrNull();
-			return selected != null ? selected.blockName : null;
+			reload(list);
+			
+			if(preferredKeys != null && !preferredKeys.isEmpty())
+			{
+				setSelection(preferredKeys, scrollAmount);
+				return;
+			}
+			
+			if(previousState != null)
+			{
+				restoreState(new SelectionState(
+					new ArrayList<>(previousState.selectedKeys()),
+					previousState.anchorKey(), scrollAmount,
+					previousState.anchorIndex()));
+				return;
+			}
+			
+			ensureSelection();
+		}
+		
+		public List<String> getSelectedBlockNames()
+		{
+			return getSelectedKeys();
+		}
+		
+		@Override
+		protected String getSelectionKey(EditBlockListScreen.Entry entry)
+		{
+			return entry.blockName;
 		}
 	}
 }

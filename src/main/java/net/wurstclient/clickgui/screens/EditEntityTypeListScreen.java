@@ -7,6 +7,9 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -21,13 +24,13 @@ import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
 import net.minecraft.util.Identifier;
+import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.EntityTypeListSetting;
 
 public final class EditEntityTypeListScreen extends Screen
@@ -84,13 +87,23 @@ public final class EditEntityTypeListScreen extends Screen
 				String raw = typeNameField.getText();
 				if(raw != null)
 					raw = raw.trim();
-				if(raw != null && !raw.isEmpty())
-					typeList.addRawName(raw);
-				client.setScreen(EditEntityTypeListScreen.this);
+				if(raw == null || raw.isEmpty())
+					return;
+				
+				var prevState = listGui.captureState();
+				List<String> before = new ArrayList<>(typeList.getTypeNames());
+				typeList.addRawName(raw);
+				List<String> added = new ArrayList<>(typeList.getTypeNames());
+				added.removeAll(before);
+				
+				refreshList(prevState, added, prevState.scrollAmount());
 			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
 		
 		addDrawableChild(
 			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
+				var prevState = listGui.captureState();
+				List<String> before = new ArrayList<>(typeList.getTypeNames());
+				
 				if(typeToAdd != null)
 				{
 					typeList.add(typeToAdd);
@@ -106,15 +119,33 @@ public final class EditEntityTypeListScreen extends Screen
 					if(raw != null && !raw.isEmpty())
 						typeList.addRawName(raw);
 				}
-				client.setScreen(EditEntityTypeListScreen.this);
+				
+				List<String> added = new ArrayList<>(typeList.getTypeNames());
+				added.removeAll(before);
+				
+				refreshList(prevState, added, prevState.scrollAmount());
 			}).dimensions(addX, rowY, addWidth, 20).build());
 		
 		addDrawableChild(removeButton =
 			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
-				String selected = listGui.getSelectedTypeName();
-				typeList.remove(typeList.getTypeNames().indexOf(selected));
-				client.setScreen(EditEntityTypeListScreen.this);
+				List<String> selected = listGui.getSelectedTypeNames();
+				if(selected.isEmpty())
+					return;
+				
+				var prevState = listGui.captureState();
+				for(String key : selected)
+				{
+					int index = typeList.getTypeNames().indexOf(key);
+					if(index >= 0)
+						typeList.remove(index);
+				}
+				
+				refreshList(prevState, Collections.emptyList(),
+					prevState.scrollAmount());
 			}).dimensions(removeX, rowY, removeWidth, 20).build());
+		
+		listGui.setSelectionListener(this::updateButtons);
+		updateButtons();
 		
 		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
 			b -> client.setScreen(new ConfirmScreen(b2 -> {
@@ -223,7 +254,7 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		
 		addKeywordButton.active = hasInput;
-		removeButton.active = listGui.getSelectedOrNull() != null;
+		updateButtons();
 	}
 	
 	@Override
@@ -281,13 +312,29 @@ public final class EditEntityTypeListScreen extends Screen
 		return false;
 	}
 	
-	private final class Entry extends
-		AlwaysSelectedEntryListWidget.Entry<EditEntityTypeListScreen.Entry>
+	private void updateButtons()
+	{
+		if(removeButton != null)
+			removeButton.active = listGui.hasSelection();
+	}
+	
+	private void refreshList(
+		MultiSelectEntryListWidget.SelectionState previousState,
+		Collection<String> preferredKeys, double scrollAmount)
+	{
+		listGui.reloadPreservingState(typeList.getTypeNames(), previousState,
+			preferredKeys, scrollAmount);
+		updateButtons();
+	}
+	
+	private final class Entry
+		extends MultiSelectEntryListWidget.Entry<EditEntityTypeListScreen.Entry>
 	{
 		private final String typeName;
 		
-		public Entry(String typeName)
+		public Entry(ListGui parent, String typeName)
 		{
+			super(parent);
 			this.typeName = Objects.requireNonNull(typeName);
 		}
 		
@@ -303,6 +350,7 @@ public final class EditEntityTypeListScreen extends Screen
 			boolean hovered, float tickDelta)
 		{
 			TextRenderer tr = client.textRenderer;
+			
 			String display;
 			net.minecraft.util.Identifier id =
 				net.minecraft.util.Identifier.tryParse(typeName);
@@ -319,23 +367,66 @@ public final class EditEntityTypeListScreen extends Screen
 			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,
 				false);
 		}
+		
+		@Override
+		public String selectionKey()
+		{
+			return typeName;
+		}
 	}
 	
 	private final class ListGui
-		extends AlwaysSelectedEntryListWidget<EditEntityTypeListScreen.Entry>
+		extends MultiSelectEntryListWidget<EditEntityTypeListScreen.Entry>
 	{
 		public ListGui(MinecraftClient minecraft,
 			EditEntityTypeListScreen screen, List<String> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30);
-			list.stream().map(EditEntityTypeListScreen.Entry::new)
+			reload(list);
+			ensureSelection();
+		}
+		
+		public void reload(List<String> list)
+		{
+			clearEntries();
+			list.stream()
+				.map(name -> new EditEntityTypeListScreen.Entry(this, name))
 				.forEach(this::addEntry);
 		}
 		
-		public String getSelectedTypeName()
+		public void reloadPreservingState(List<String> list,
+			SelectionState previousState, Collection<String> preferredKeys,
+			double scrollAmount)
 		{
-			EditEntityTypeListScreen.Entry selected = getSelectedOrNull();
-			return selected != null ? selected.typeName : null;
+			reload(list);
+			
+			if(preferredKeys != null && !preferredKeys.isEmpty())
+			{
+				setSelection(preferredKeys, scrollAmount);
+				return;
+			}
+			
+			if(previousState != null)
+			{
+				restoreState(new SelectionState(
+					new ArrayList<>(previousState.selectedKeys()),
+					previousState.anchorKey(), scrollAmount,
+					previousState.anchorIndex()));
+				return;
+			}
+			
+			ensureSelection();
+		}
+		
+		public List<String> getSelectedTypeNames()
+		{
+			return getSelectedKeys();
+		}
+		
+		@Override
+		protected String getSelectionKey(EditEntityTypeListScreen.Entry entry)
+		{
+			return entry.typeName;
 		}
 	}
 }
