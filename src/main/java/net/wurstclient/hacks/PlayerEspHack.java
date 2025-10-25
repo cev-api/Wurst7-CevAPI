@@ -358,11 +358,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	{
 		int baseColor = getBaseColor(e);
 		if(!losThreatDetection.isChecked())
-			return new PlayerVisual(baseColor, baseColor, 0F);
+			return new PlayerVisual(baseColor, makeOpaque(baseColor), 0F);
 		
 		float factor = getLosFactor(e, now);
 		int boxColor = mixThreatColor(baseColor, factor, false);
-		int tracerColor = mixThreatColor(baseColor, factor, true);
+		int tracerColor = mixThreatColor(makeOpaque(baseColor), factor, true);
 		return new PlayerVisual(boxColor, tracerColor, factor);
 	}
 	
@@ -399,7 +399,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private int mixThreatColor(int baseColor, float factor, boolean tracer)
 	{
 		if(factor <= 0F)
-			return baseColor;
+			return tracer ? makeOpaque(baseColor) : baseColor;
+		
+		if(tracer)
+			baseColor = makeOpaque(baseColor);
 		
 		float clampedFactor = MathHelper.clamp(factor, 0F, 1F);
 		
@@ -415,9 +418,14 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		float r = 1F * clampedFactor + baseR * inv;
 		float g = baseG * inv;
 		float b = baseB * inv;
-		float a = threatAlpha * clampedFactor + baseA * inv;
+		float a = tracer ? 1F : threatAlpha * clampedFactor + baseA * inv;
 		
 		return RenderUtils.toIntColor(new float[]{r, g, b}, a);
+	}
+	
+	private static int makeOpaque(int color)
+	{
+		return color | 0xFF000000;
 	}
 	
 	private void updateLosStates(long now)

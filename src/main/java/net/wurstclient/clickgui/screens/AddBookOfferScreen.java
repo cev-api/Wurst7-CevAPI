@@ -7,20 +7,23 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
-import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -29,12 +32,12 @@ import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.tag.EnchantmentTags;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
+import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.hacks.autolibrarian.BookOffer;
 import net.wurstclient.settings.BookOffersSetting;
 import net.wurstclient.util.MathUtils;
@@ -48,6 +51,7 @@ public final class AddBookOfferScreen extends Screen
 	
 	private ListGui listGui;
 	
+	private TextFieldWidget searchField;
 	private TextFieldWidget levelField;
 	private ButtonWidget levelPlusButton;
 	private ButtonWidget levelMinusButton;
@@ -61,6 +65,7 @@ public final class AddBookOfferScreen extends Screen
 	
 	private BookOffer offerToAdd;
 	private boolean alreadyAdded;
+	private boolean suppressSearchListener;
 	
 	public AddBookOfferScreen(Screen prevScreen, BookOffersSetting bookOffers)
 	{
@@ -74,6 +79,15 @@ public final class AddBookOfferScreen extends Screen
 	{
 		listGui = new ListGui(client, this);
 		addSelectableChild(listGui);
+		
+		int searchWidth = 200;
+		int searchTop = 44;
+		searchField = new TextFieldWidget(client.textRenderer,
+			width / 2 - searchWidth / 2, searchTop, searchWidth, 18,
+			Text.literal(""));
+		addSelectableChild(searchField);
+		searchField.setMaxLength(256);
+		searchField.setChangedListener(this::onSearchChanged);
 		
 		levelField = new TextFieldWidget(client.textRenderer, width / 2 - 32,
 			height - 74, 28, 12, Text.literal(""));
@@ -94,7 +108,7 @@ public final class AddBookOfferScreen extends Screen
 				return true;
 			
 			Enchantment enchantment = offerToAdd.getEnchantment();
-			return level <= enchantment.getMaxLevel();
+			return enchantment == null || level <= enchantment.getMaxLevel();
 		});
 		levelField.setChangedListener(t -> {
 			if(!MathUtils.isInteger(t))
@@ -173,10 +187,11 @@ public final class AddBookOfferScreen extends Screen
 		
 		String id = offerToAdd.id();
 		int level = offset ? offerToAdd.level() + i : i;
+		level = Math.max(1, Math.min(10, level));
 		int price = offerToAdd.price();
 		
 		Enchantment enchantment = offerToAdd.getEnchantment();
-		if(level < 1 || level > enchantment.getMaxLevel())
+		if(enchantment != null && level > enchantment.getMaxLevel())
 			return;
 		
 		updateSelectedOffer(new BookOffer(id, level, price));
@@ -197,72 +212,150 @@ public final class AddBookOfferScreen extends Screen
 		updateSelectedOffer(new BookOffer(id, level, price));
 	}
 	
+	private int parseLevel(String text, int fallback)
+	{
+		if(MathUtils.isInteger(text))
+		{
+			int value = Integer.parseInt(text);
+			return Math.max(1, Math.min(10, value));
+		}
+		
+		return Math.max(1, Math.min(10, fallback));
+	}
+	
+	private int parsePrice(String text, int fallback)
+	{
+		if(MathUtils.isInteger(text))
+		{
+			int value = Integer.parseInt(text);
+			return Math.max(1, Math.min(64, value));
+		}
+		
+		return Math.max(1, Math.min(64, fallback));
+	}
+	
+	private void onSearchChanged(String value)
+	{
+		if(suppressSearchListener)
+			return;
+		
+		String query = value == null ? "" : value.trim();
+		listGui.setFilter(query);
+		
+		if(query.isEmpty())
+		{
+			updateSelectedOfferFromList(listGui.getPrimarySelection());
+			return;
+		}
+		
+		BookOffer match = listGui.findById(query);
+		if(match != null)
+		{
+			listGui.selectByKey(toKey(match));
+			return;
+		}
+		
+		Identifier id = Identifier.tryParse(query);
+		if(id == null)
+		{
+			updateSelectedOffer(null);
+			return;
+		}
+		
+		int level = parseLevel(levelField.getText(),
+			offerToAdd != null ? offerToAdd.level() : 1);
+		int price = parsePrice(priceField.getText(),
+			offerToAdd != null ? offerToAdd.price() : 64);
+		updateSelectedOffer(new BookOffer(query, level, price));
+	}
+	
+	private void updateSelectedOfferFromList(BookOffer offer)
+	{
+		updateSelectedOffer(offer);
+	}
+	
+	private static String toKey(BookOffer offer)
+	{
+		return offer.id() + ";" + offer.level();
+	}
+	
 	private void updateSelectedOffer(BookOffer offer)
 	{
 		offerToAdd = offer;
 		alreadyAdded = offer != null && bookOffers.contains(offer);
-		addButton.active = offer != null && !alreadyAdded;
+		if(addButton != null)
+			addButton.active =
+				offer != null && offer.isMostlyValid() && !alreadyAdded;
 		
 		if(offer == null)
 		{
-			if(!levelField.getText().isEmpty())
+			if(levelField != null && !levelField.getText().isEmpty())
 				levelField.setText("");
 			
-			if(!priceField.getText().isEmpty())
+			if(priceField != null && !priceField.getText().isEmpty())
 				priceField.setText("");
 			
 		}else
 		{
 			String level = "" + offer.level();
-			if(!levelField.getText().equals(level))
+			if(levelField != null && !levelField.getText().equals(level))
 				levelField.setText(level);
 			
 			String price = "" + offer.price();
-			if(!priceField.getText().equals(price))
+			if(priceField != null && !priceField.getText().equals(price))
 				priceField.setText(price);
 		}
 	}
 	
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int mouseButton)
+	public boolean mouseClicked(Click context, boolean doubleClick)
 	{
-		boolean childClicked = super.mouseClicked(mouseX, mouseY, mouseButton);
+		if(searchField.mouseClicked(context, doubleClick))
+		{
+			setFocused(searchField);
+			return true;
+		}
 		
-		levelField.mouseClicked(mouseX, mouseY, mouseButton);
-		priceField.mouseClicked(mouseX, mouseY, mouseButton);
+		boolean childClicked = super.mouseClicked(context, doubleClick);
 		
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_4)
-			cancelButton.onPress();
+		levelField.mouseClicked(context, doubleClick);
+		priceField.mouseClicked(context, doubleClick);
+		
+		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+			cancelButton.onPress(context);
 		
 		return childClicked;
 	}
 	
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int int_3)
+	public boolean keyPressed(KeyInput context)
 	{
-		switch(keyCode)
+		switch(context.key())
 		{
 			case GLFW.GLFW_KEY_ENTER:
 			if(addButton.active)
-				addButton.onPress();
+				addButton.onPress(context);
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			cancelButton.onPress();
+			cancelButton.onPress(context);
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(keyCode, scanCode, int_3);
+		return super.keyPressed(context);
 	}
 	
 	@Override
 	public void tick()
 	{
-		levelPlusButton.active = offerToAdd != null
-			&& offerToAdd.level() < offerToAdd.getEnchantment().getMaxLevel();
+		Enchantment enchantment =
+			offerToAdd != null ? offerToAdd.getEnchantment() : null;
+		int maxLevel = enchantment != null ? enchantment.getMaxLevel() : 10;
+		levelPlusButton.active =
+			offerToAdd != null && offerToAdd.level() < maxLevel;
 		levelMinusButton.active = offerToAdd != null && offerToAdd.level() > 1;
 		
 		pricePlusButton.active = offerToAdd != null && offerToAdd.price() < 64;
@@ -284,6 +377,11 @@ public final class AddBookOfferScreen extends Screen
 			"Available Books (" + listGui.children().size() + ")";
 		context.drawCenteredTextWithShadow(tr, titleText, width / 2, 12,
 			Colors.WHITE);
+		
+		searchField.render(context, mouseX, mouseY, partialTicks);
+		if(searchField.getText().isEmpty() && !searchField.isFocused())
+			context.drawTextWithShadow(tr, "search or custom ID",
+				searchField.getX() + 4, searchField.getY() + 5, Colors.GRAY);
 		
 		levelField.render(context, mouseX, mouseY, partialTicks);
 		priceField.render(context, mouseX, mouseY, partialTicks);
@@ -325,23 +423,23 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	private final class Entry
-		extends AlwaysSelectedEntryListWidget.Entry<AddBookOfferScreen.Entry>
+		extends MultiSelectEntryListWidget.Entry<AddBookOfferScreen.Entry>
 	{
 		private final BookOffer bookOffer;
 		private long lastClickTime;
 		
-		public Entry(BookOffer bookOffer)
+		public Entry(ListGui parent, BookOffer bookOffer)
 		{
+			super(parent);
 			this.bookOffer = Objects.requireNonNull(bookOffer);
 		}
 		
 		@Override
 		public Text getNarration()
 		{
-			RegistryEntry<Enchantment> enchantment =
-				bookOffer.getEnchantmentEntry().get();
-			
-			int maxLevel = enchantment.value().getMaxLevel();
+			int maxLevel = bookOffer.getEnchantmentEntry()
+				.map(entry -> entry.value().getMaxLevel())
+				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
 			
 			return Text.translatable("narrator.select",
@@ -350,70 +448,164 @@ public final class AddBookOfferScreen extends Screen
 		}
 		
 		@Override
-		public boolean mouseClicked(double mouseX, double mouseY,
-			int mouseButton)
+		public boolean mouseClicked(Click context, boolean doubleClick)
 		{
-			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(!super.mouseClicked(context, doubleClick))
 				return false;
 			
 			long timeSinceLastClick = Util.getMeasuringTimeMs() - lastClickTime;
 			lastClickTime = Util.getMeasuringTimeMs();
 			
 			if(timeSinceLastClick < 250 && addButton.active)
-				addButton.onPress();
+				addButton.onPress(context);
 			
 			return true;
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
-			int entryWidth, int entryHeight, int mouseX, int mouseY,
+		public void render(DrawContext context, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
+			int x = getContentX();
+			int y = getContentY();
+			
 			Item item = Registries.ITEM.get(Identifier.of("enchanted_book"));
 			ItemStack stack = new ItemStack(item);
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
 			
 			TextRenderer tr = client.textRenderer;
-			RegistryEntry<Enchantment> enchantment =
-				bookOffer.getEnchantmentEntry().get();
-			
 			String name = bookOffer.getEnchantmentName();
-			int nameColor = enchantment.isIn(EnchantmentTags.CURSE)
-				? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
+			boolean isCurse = bookOffer.getEnchantmentEntry()
+				.map(entry -> entry.isIn(EnchantmentTags.CURSE)).orElse(false);
+			int nameColor =
+				isCurse ? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
 			context.drawText(tr, name, x + 28, y, nameColor, false);
 			
 			context.drawText(tr, bookOffer.id(), x + 28, y + 9,
 				Colors.LIGHT_GRAY, false);
 			
-			int maxLevel = enchantment.value().getMaxLevel();
+			int maxLevel = bookOffer.getEnchantmentEntry()
+				.map(entry -> entry.value().getMaxLevel())
+				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
 			context.drawText(tr, levels, x + 28, y + 18, Colors.LIGHT_GRAY,
 				false);
 		}
+		
+		@Override
+		public String selectionKey()
+		{
+			return toKey(bookOffer);
+		}
 	}
 	
 	private final class ListGui
-		extends AlwaysSelectedEntryListWidget<AddBookOfferScreen.Entry>
+		extends MultiSelectEntryListWidget<AddBookOfferScreen.Entry>
 	{
+		private final List<BookOffer> allOffers = new ArrayList<>();
+		private String filterText = "";
+		
 		public ListGui(MinecraftClient minecraft, AddBookOfferScreen screen)
 		{
-			super(minecraft, screen.width, screen.height - 120, 36, 30, 0);
+			super(minecraft, screen.width, screen.height - 152, 68, 30);
+			setSelectionListener(
+				() -> updateSelectedOfferFromList(getPrimarySelection()));
 			
 			DynamicRegistryManager drm = client.world.getRegistryManager();
 			Registry<Enchantment> registry =
 				drm.getOrThrow(RegistryKeys.ENCHANTMENT);
 			
 			registry.stream().map(BookOffer::create)
-				.filter(BookOffer::isFullyValid).sorted()
-				.map(AddBookOfferScreen.Entry::new).forEach(this::addEntry);
+				.filter(BookOffer::isMostlyValid).sorted()
+				.forEach(allOffers::add);
+			
+			applyFilter();
+			ensureSelection();
+		}
+		
+		private void applyFilter()
+		{
+			SelectionState previousState = captureState();
+			clearEntries();
+			String query = filterText.toLowerCase(Locale.ROOT);
+			allOffers.stream().filter(offer -> matchesFilter(offer, query))
+				.map(offer -> new AddBookOfferScreen.Entry(this, offer))
+				.forEach(this::addEntry);
+			
+			if(children().isEmpty())
+			{
+				ensureSelection();
+				return;
+			}
+			
+			if(previousState != null && !previousState.selectedKeys().isEmpty())
+			{
+				restoreState(previousState);
+				return;
+			}
+			
+			ensureSelection();
+		}
+		
+		private boolean matchesFilter(BookOffer offer, String query)
+		{
+			if(query.isEmpty())
+				return true;
+			
+			String idLower = offer.id().toLowerCase(Locale.ROOT);
+			if(idLower.contains(query))
+				return true;
+			
+			return offer.getEnchantmentNameWithLevel().toLowerCase(Locale.ROOT)
+				.contains(query);
+		}
+		
+		public void setFilter(String text)
+		{
+			BookOffer previous = getPrimarySelection();
+			filterText = text == null ? "" : text.toLowerCase(Locale.ROOT);
+			applyFilter();
+			if(previous != null)
+				selectByKey(toKey(previous));
+		}
+		
+		public BookOffer findById(String id)
+		{
+			if(id == null || id.isEmpty())
+				return null;
+			
+			String lower = id.toLowerCase(Locale.ROOT);
+			return allOffers.stream()
+				.filter(
+					offer -> offer.id().toLowerCase(Locale.ROOT).equals(lower))
+				.findFirst().orElse(null);
+		}
+		
+		public BookOffer getPrimarySelection()
+		{
+			List<AddBookOfferScreen.Entry> selected = getSelectedEntries();
+			return selected.isEmpty() ? null : selected.get(0).bookOffer;
+		}
+		
+		public void selectByKey(String key)
+		{
+			if(key == null)
+				return;
+			
+			for(AddBookOfferScreen.Entry entry : children())
+			{
+				if(toKey(entry.bookOffer).equals(key))
+				{
+					onEntryClicked(entry, false, false);
+					return;
+				}
+			}
 		}
 		
 		@Override
-		public void setSelected(@Nullable AddBookOfferScreen.Entry entry)
+		protected String getSelectionKey(AddBookOfferScreen.Entry entry)
 		{
-			super.setSelected(entry);
-			updateSelectedOffer(entry == null ? null : entry.bookOffer);
+			return toKey(entry.bookOffer);
 		}
 	}
 }

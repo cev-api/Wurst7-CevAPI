@@ -22,6 +22,7 @@ import net.minecraft.client.network.SequencedPacketCreator;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.BlockItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
@@ -49,6 +50,8 @@ public abstract class ClientPlayerInteractionManagerMixin
 	@Shadow
 	@Final
 	private MinecraftClient client;
+	
+	private boolean antiDropBypassingPlacement;
 	
 	@Inject(at = @At(value = "INVOKE",
 		target = "Lnet/minecraft/client/network/ClientPlayerEntity;getId()I",
@@ -180,6 +183,48 @@ public abstract class ClientPlayerInteractionManagerMixin
 	{
 		sendSequencedPacket(client.world,
 			i -> new PlayerInteractBlockC2SPacket(hand, blockHitResult, i));
+	}
+	
+	@Inject(method = "interactBlock", at = @At(value = "HEAD"))
+	private void wurst$allowBlockPlacementBypass(ClientPlayerEntity player,
+		Hand hand, BlockHitResult hitResult,
+		CallbackInfoReturnable<ActionResult> cir)
+	{
+		if(player == null || !WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		AntiDropHack antiDrop = WurstClient.INSTANCE.getHax().antiDropHack;
+		if(antiDrop == null || !antiDrop.isEnabled())
+			return;
+		
+		ItemStack stack = player.getStackInHand(hand);
+		if(stack == null || stack.isEmpty()
+			|| !(stack.getItem() instanceof BlockItem))
+			return;
+		
+		if(!antiDrop.isProtectedItem(stack))
+			return;
+		antiDrop.setTemporarilyBypass(true);
+		antiDropBypassingPlacement = true;
+	}
+	
+	@Inject(method = "interactBlock", at = @At(value = "RETURN"))
+	private void wurst$resetBlockPlacementBypass(ClientPlayerEntity player,
+		Hand hand, BlockHitResult hitResult,
+		CallbackInfoReturnable<ActionResult> cir)
+	{
+		AntiDropHack antiDrop = WurstClient.INSTANCE.getHax().antiDropHack;
+		if(antiDrop == null)
+		{
+			antiDropBypassingPlacement = false;
+			return;
+		}
+		
+		if(!antiDropBypassingPlacement && !antiDrop.isTemporarilyBypassing())
+			return;
+		
+		antiDropBypassingPlacement = false;
+		antiDrop.setTemporarilyBypass(false);
 	}
 	
 	@Shadow
