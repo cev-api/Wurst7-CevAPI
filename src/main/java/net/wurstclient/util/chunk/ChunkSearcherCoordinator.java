@@ -11,6 +11,9 @@ import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
 import net.minecraft.block.BlockState;
+import net.minecraft.network.packet.Packet;
+import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -32,7 +35,24 @@ public final class ChunkSearcherCoordinator extends AbstractChunkCoordinator
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
-		ChunkPos chunkPos = ChunkUtils.getAffectedChunk(event.getPacket());
+		Packet<?> packet = event.getPacket();
+		
+		if(packet instanceof BlockUpdateS2CPacket blockUpdate)
+		{
+			BlockPos pos = blockUpdate.getPos();
+			enqueueBlockUpdate(new ChunkPos(pos), pos, blockUpdate.getState());
+			return;
+		}
+		
+		if(packet instanceof ChunkDeltaUpdateS2CPacket deltaUpdate)
+		{
+			ChunkPos chunkPos = deltaUpdate.sectionPos.toChunkPos();
+			deltaUpdate.visitUpdates(
+				(pos, state) -> enqueueBlockUpdate(chunkPos, pos, state));
+			return;
+		}
+		
+		ChunkPos chunkPos = ChunkUtils.getAffectedChunk(packet);
 		
 		if(chunkPos != null)
 			chunksToUpdate.add(chunkPos);
@@ -41,5 +61,10 @@ public final class ChunkSearcherCoordinator extends AbstractChunkCoordinator
 	public Stream<Result> getMatches()
 	{
 		return searchers.values().stream().flatMap(ChunkSearcher::getMatches);
+	}
+	
+	public Stream<Result> getReadyMatches()
+	{
+		return streamReadyMatches();
 	}
 }
