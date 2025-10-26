@@ -19,6 +19,14 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
+## Other Projects
+
+I felt I should also make a more publicly accessible version of this fork via [NiceWurst](https://github.com/cev-api/NiceWurst), which is a **cheat-free** version of this very fork. This means, for example, that all ESPs that haven't been trimmed aren't visible through walls. Almost all combat-based hacks have been removed, except for AutoTotem and AutoLeave, which are questionable but are more about breaking server rules rather than any universal definition of cheating. Check out the page, see the list of what has been kept, and give it a go!
+
+## My Goals and Experience
+
+I have no other experience in the field of Minecraft and have never used any other hack except Wurst and Meteor. I ended up liking the UI and features of Wurst more, but I found there were some things that needed tweaking. This is why I made this fork. I don't play on anarchy servers and I don't grief or do anything dramatic. I just wanted a client that would make my survival Minecraft games a bit more enjoyable and personalised. While I don't actively test or use other cheats, I still come up with new ideas constantly and I'm often surprised that I'm the first to implement some of the things below. Maybe they're too superfluous or stupid, but I definitely like them.
+
 ---
 
 ## What’s new in this fork?
