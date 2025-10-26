@@ -129,6 +129,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	// Precomputed tracer endpoints
 	private java.util.List<net.minecraft.util.math.Vec3d> tracerEnds;
 	private ChunkPos lastPlayerChunk;
+	private int lastMatchesVersion;
 	
 	private SearchMode lastMode;
 	private int lastListHash;
@@ -200,6 +201,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastMode = mode.getSelected();
 		lastListHash = blockList.getBlockNames().hashCode();
 		applySearchCriteria(block.getBlock(), "");
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(RenderListener.class, this);
@@ -213,7 +215,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		EVENTS.remove(PacketInputListener.class, coordinator);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
-		stopBuildingBuffer();
+		stopBuildingBuffer(true);
 		coordinator.reset();
 		forkJoinPool.shutdownNow();
 		if(vertexBuffer != null)
@@ -229,14 +231,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
-		boolean searchersChanged = false;
-		// Mode/list changes
 		SearchMode currentMode = mode.getSelected();
+		
+		// Mode/list changes
 		if(currentMode != lastMode)
 		{
 			lastMode = currentMode;
 			applySearchCriteria(block.getBlock(), "");
-			searchersChanged = true;
 		}
 		if(currentMode == SearchMode.LIST)
 		{
@@ -245,58 +246,60 @@ public final class SearchHack extends Hack implements UpdateListener,
 			{
 				lastListHash = listHash;
 				applySearchCriteria(block.getBlock(), "");
-				searchersChanged = true;
 			}
 		}
+		
 		// Recenter per chunk when sticky is off
 		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
 			coordinator.reset();
-			stopBuildingBuffer();
-			searchersChanged = true;
+			stopBuildingBuffer(false);
 		}
+		
 		// Area changes
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
 			lastAreaSelection = currentArea;
 			coordinator.reset();
-			searchersChanged = true;
+			stopBuildingBuffer(true);
+			notify = true;
 		}
+		
 		// Criteria changes only for modes that use them
 		if(currentMode == SearchMode.BLOCK_ID)
 		{
 			Block currentBlock = block.getBlock();
 			if(currentBlock != lastBlock)
-			{
 				applySearchCriteria(currentBlock, "");
-				searchersChanged = true;
-			}
 		}else if(currentMode == SearchMode.QUERY)
 		{
 			String currentQuery = normalizeQuery(query.getValue());
 			if(!currentQuery.equals(lastQuery))
-			{
 				applySearchCriteria(block.getBlock(), currentQuery);
-				searchersChanged = true;
-			}
 		}
-		// Coordinator update
-		if(coordinator.update())
-			searchersChanged = true;
-		if(searchersChanged)
-			stopBuildingBuffer();
-		if(!coordinator.isDone())
-			return;
+		
+		// Update coordinator (adds/removes searchers, applies packet updates)
+		coordinator.update();
+		
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion != lastMatchesVersion)
+		{
+			lastMatchesVersion = matchesVersion;
+			stopBuildingBuffer(false);
+		}
 		
 		if(limit.getValueI() != prevLimit)
 		{
-			stopBuildingBuffer();
+			stopBuildingBuffer(false);
 			prevLimit = limit.getValueI();
 			notify = true;
 		}
+		
+		if(!coordinator.hasReadyMatches())
+			return;
 		
 		if(getMatchingBlocksTask == null)
 			startGetMatchingBlocksTask();
@@ -326,34 +329,31 @@ public final class SearchHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
-		if(vertexBuffer == null || bufferRegion == null)
-		{
-			if(style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty())
-			{
-				int color = useFixedColor.isChecked()
-					? net.wurstclient.util.RenderUtils
-						.toIntColor(fixedColor.getColorF(), 0.5F)
-					: net.wurstclient.util.RenderUtils.toIntColor(
-						net.wurstclient.util.RenderUtils.getRainbowColor(),
-						0.5F);
-				net.wurstclient.util.RenderUtils.drawTracers(matrixStack,
-					partialTicks, tracerEnds, color, false);
-			}
+		boolean drawBoxes =
+			style.hasBoxes() && vertexBuffer != null && bufferRegion != null;
+		boolean drawTracers =
+			style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty();
+		
+		if(!drawBoxes && !drawTracers)
 			return;
-		}
-		matrixStack.push();
-		RenderUtils.applyRegionalRenderOffset(matrixStack, bufferRegion);
+		
 		float[] rgb = useFixedColor.isChecked() ? fixedColor.getColorF()
 			: RenderUtils.getRainbowColor();
-		vertexBuffer.draw(matrixStack, WurstRenderLayers.ESP_QUADS, rgb, 0.5F);
-		matrixStack.pop();
-		if(style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty())
+		
+		if(drawBoxes)
 		{
-			int color = useFixedColor.isChecked()
-				? RenderUtils.toIntColor(fixedColor.getColorF(), 0.5F)
-				: RenderUtils.toIntColor(RenderUtils.getRainbowColor(), 0.5F);
+			matrixStack.push();
+			RenderUtils.applyRegionalRenderOffset(matrixStack, bufferRegion);
+			vertexBuffer.draw(matrixStack, WurstRenderLayers.ESP_QUADS, rgb,
+				0.5F);
+			matrixStack.pop();
+		}
+		
+		if(drawTracers)
+		{
+			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
 			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				color, false);
+				tracerColor, false);
 		}
 	}
 	
@@ -375,6 +375,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void applySearchCriteria(Block currentBlock, String normalizedQuery)
 	{
+		stopBuildingBuffer(true);
+		
 		switch(mode.getSelected())
 		{
 			case LIST:
@@ -445,6 +447,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 			lastQuery = "";
 		}
 		notify = true;
+		lastMatchesVersion = coordinator.getMatchesVersion();
 	}
 	
 	private boolean blockMatchesQuery(Block block, String normalizedQuery)
@@ -487,7 +490,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				(a, b) -> Integer.compare(b.getManhattanDistance(eyesPos),
 					a.getManhattanDistance(eyesPos)));
 			java.util.Iterator<ChunkSearcher.Result> it =
-				coordinator.getMatches().iterator();
+				coordinator.getReadyMatches().iterator();
 			while(it.hasNext())
 			{
 				ChunkSearcher.Result r = it.next();
@@ -556,7 +559,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void stopBuildingBuffer()
+	private void stopBuildingBuffer(boolean discardCurrent)
 	{
 		if(getMatchingBlocksTask != null)
 			getMatchingBlocksTask.cancel(true);
@@ -565,6 +568,17 @@ public final class SearchHack extends Hack implements UpdateListener,
 			compileVerticesTask.cancel(true);
 		compileVerticesTask = null;
 		bufferUpToDate = false;
-		tracerEnds = null;
+		if(discardCurrent)
+		{
+			tracerEnds = null;
+			lastMatchingBlocks = null;
+			foundCount = 0;
+			if(vertexBuffer != null)
+			{
+				vertexBuffer.close();
+				vertexBuffer = null;
+			}
+			bufferRegion = null;
+		}
 	}
 }

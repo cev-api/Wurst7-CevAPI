@@ -36,6 +36,8 @@ public final class ChunkSearcher
 	
 	private CompletableFuture<ArrayList<Result>> future;
 	private boolean interrupted;
+	private volatile ArrayList<Result> results;
+	private ArrayList<BlockUpdate> pendingUpdates;
 	
 	public ChunkSearcher(BiPredicate<BlockPos, BlockState> query, Chunk chunk,
 		DimensionType dimension)
@@ -78,7 +80,7 @@ public final class ChunkSearcher
 					if(!query.test(pos, state))
 						continue;
 					
-					results.add(new Result(pos, state));
+					results.add(new Result(pos.toImmutable(), state));
 				}
 			
 		return results;
@@ -113,7 +115,13 @@ public final class ChunkSearcher
 		if(future == null || future.isCancelled())
 			return Stream.empty();
 		
-		return future.join().stream();
+		ensureResultsLoaded();
+		ArrayList<Result> snapshot;
+		synchronized(this)
+		{
+			snapshot = new ArrayList<>(results);
+		}
+		return snapshot.stream();
 	}
 	
 	public List<Result> getMatchesList()
@@ -121,7 +129,35 @@ public final class ChunkSearcher
 		if(future == null || future.isCancelled())
 			return List.of();
 		
-		return Collections.unmodifiableList(future.join());
+		ensureResultsLoaded();
+		synchronized(this)
+		{
+			return Collections.unmodifiableList(new ArrayList<>(results));
+		}
+	}
+	
+	public Stream<Result> getReadyMatches()
+	{
+		if(!hasResultsReady())
+			return Stream.empty();
+		
+		ArrayList<Result> snapshot;
+		synchronized(this)
+		{
+			snapshot = new ArrayList<>(results);
+		}
+		return snapshot.stream();
+	}
+	
+	public List<Result> getReadyMatchesList()
+	{
+		if(!hasResultsReady())
+			return List.of();
+		
+		synchronized(this)
+		{
+			return Collections.unmodifiableList(new ArrayList<>(results));
+		}
 	}
 	
 	public boolean isDone()
@@ -129,6 +165,116 @@ public final class ChunkSearcher
 		return future != null && future.isDone();
 	}
 	
+	public boolean hasResultsReady()
+	{
+		if(future == null || future.isCancelled())
+			return false;
+		if(results != null)
+			return true;
+		if(!future.isDone())
+			return false;
+		
+		ensureResultsLoaded();
+		return results != null;
+	}
+	
+	public boolean applyBlockUpdates(List<BlockUpdate> updates)
+	{
+		if(updates == null || updates.isEmpty())
+			return false;
+		
+		synchronized(this)
+		{
+			if(future == null || future.isCancelled())
+				return false;
+			
+			if(!future.isDone())
+			{
+				if(pendingUpdates == null)
+					pendingUpdates = new ArrayList<>();
+				pendingUpdates.addAll(updates);
+				return false;
+			}
+		}
+		
+		ensureResultsLoaded();
+		synchronized(this)
+		{
+			return applyUpdates(results, updates);
+		}
+	}
+	
+	private void ensureResultsLoaded()
+	{
+		if(results != null || future == null || future.isCancelled())
+			return;
+		
+		ArrayList<Result> computed = future.join();
+		
+		synchronized(this)
+		{
+			if(results == null)
+			{
+				results = computed;
+				if(pendingUpdates != null && !pendingUpdates.isEmpty())
+				{
+					applyUpdates(results, pendingUpdates);
+					pendingUpdates.clear();
+					pendingUpdates = null;
+				}else
+				{
+					pendingUpdates = null;
+				}
+			}
+		}
+	}
+	
+	private boolean applyUpdates(ArrayList<Result> target,
+		List<BlockUpdate> updates)
+	{
+		boolean changed = false;
+		
+		for(BlockUpdate update : updates)
+		{
+			BlockPos pos = update.pos();
+			BlockState state = update.state();
+			boolean matches = query.test(pos, state);
+			int index = indexOf(target, pos);
+			
+			if(matches)
+			{
+				Result newResult = new Result(pos, state);
+				if(index < 0)
+				{
+					target.add(newResult);
+					changed = true;
+				}else if(target.get(index).state() != state)
+				{
+					target.set(index, newResult);
+					changed = true;
+				}
+			}else if(index >= 0)
+			{
+				target.remove(index);
+				changed = true;
+			}
+		}
+		
+		return changed;
+	}
+	
+	private int indexOf(ArrayList<Result> list, BlockPos pos)
+	{
+		for(int i = 0; i < list.size(); i++)
+			if(list.get(i).pos().equals(pos))
+				return i;
+			
+		return -1;
+	}
+	
 	public record Result(BlockPos pos, BlockState state)
+	{}
+	
+	public record BlockUpdate(BlockPos pos, BlockState state)
 	{}
 }

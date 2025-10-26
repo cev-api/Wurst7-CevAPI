@@ -58,6 +58,17 @@ public final class ChunkVertexBufferCoordinator extends AbstractChunkCoordinator
 	@Override
 	protected void onRemove(ChunkSearcher searcher)
 	{
+		super.onRemove(searcher);
+		@SuppressWarnings("resource")
+		EasyVertexBuffer buffer = buffers.remove(searcher.getPos());
+		if(buffer != null)
+			buffer.close();
+	}
+	
+	@Override
+	protected void onMatchesUpdated(ChunkSearcher searcher)
+	{
+		super.onMatchesUpdated(searcher);
 		@SuppressWarnings("resource")
 		EasyVertexBuffer buffer = buffers.remove(searcher.getPos());
 		if(buffer != null)

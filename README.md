@@ -166,7 +166,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Works together with XRay
 - Add items with the list UI, meaning you can add keywords or just select multiple blocks easily. 
 
-![Surface](https://i.ibb.co.com/WptKT2yY/Untitldded.png) 
+![Surface](https://i.imgur.com/fQzefis.png) 
 
 ### AntiDrop
 - Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.
@@ -177,7 +177,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
 - Works with books and gear and will separate them in the list by category and type
 
-![Chest](https://i.ibb.co/0yRPQ0jy/javaw-sg-VUhu-MCDY.png)
+![Chest](https://i.imgur.com/6u9S2OD.png)
 
 ## What’s changed or improved in this fork?
 
@@ -227,6 +227,7 @@ Examples:
 - New minimum search to 100 results.
 - Replaced full-sort approach to bounded max-heap (PriorityQueue) that keeps the closest N matches. This avoids sorting entire result and keeps search as fast as X-Ray.
 - Safer rescans and better crash handling.
+- Improved search speed.
 
 ![Search](https://i.imgur.com/zpITuWb.png)
 
@@ -296,7 +297,10 @@ Examples:
 - Ignores shulker boxes
 
 ### AutoLibrarian Improved
-- Can now discover enchantments provided by modpacks
+- Can now discover enchantments provided by data packs.
+- Able to search for enchantments by keywords.
+
+![Library](https://i.imgur.com/ZCK7Frz.png)
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
