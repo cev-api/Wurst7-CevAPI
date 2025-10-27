@@ -24,6 +24,10 @@ import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.util.Window;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.potion.Potion;
 import net.minecraft.component.type.WeaponComponent;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.EnchantmentHelper;
@@ -69,6 +73,8 @@ public final class EnchantmentHandlerHack extends Hack
 	private final Map<GearCategory, List<GearEntry>> gearGroupedEntries =
 		new LinkedHashMap<>();
 	private final Map<BookCategory, List<BookEntry>> bookGroupedEntries =
+		new LinkedHashMap<>();
+	private final Map<PotionCategory, List<PotionEntry>> potionGroupedEntries =
 		new LinkedHashMap<>();
 	private final List<Hitbox> hitboxes = new ArrayList<>();
 	
@@ -117,6 +123,8 @@ public final class EnchantmentHandlerHack extends Hack
 			gearGroupedEntries.put(category, new ArrayList<>());
 		for(BookCategory category : BookCategory.ORDERED)
 			bookGroupedEntries.put(category, new ArrayList<>());
+		for(PotionCategory category : PotionCategory.ORDERED)
+			potionGroupedEntries.put(category, new ArrayList<>());
 	}
 	
 	@Override
@@ -130,6 +138,7 @@ public final class EnchantmentHandlerHack extends Hack
 		allEntries.clear();
 		gearGroupedEntries.values().forEach(List::clear);
 		bookGroupedEntries.values().forEach(List::clear);
+		potionGroupedEntries.values().forEach(List::clear);
 		hitboxes.clear();
 		hoveredSlotId = -1;
 		hoverStartMs = 0L;
@@ -211,6 +220,8 @@ public final class EnchantmentHandlerHack extends Hack
 						takeEntry(gear, handler);
 					else if(hitbox.entry instanceof BookEntry book)
 						takeEntry(book, handler);
+					else if(hitbox.entry instanceof PotionEntry potion)
+						takeEntry(potion, handler);
 					return true;
 				}
 				
@@ -220,6 +231,8 @@ public final class EnchantmentHandlerHack extends Hack
 						takeGearCategory(gear.category, handler);
 					else if(hitbox.entry instanceof BookEntry book)
 						takeBookCategory(book.category, handler);
+					else if(hitbox.entry instanceof PotionEntry potion)
+						takePotionCategory(potion.category, handler);
 					return true;
 				}
 				continue;
@@ -236,6 +249,13 @@ public final class EnchantmentHandlerHack extends Hack
 				&& hitbox.category instanceof BookCategory bookCat)
 			{
 				takeBookCategory(bookCat, handler);
+				return true;
+			}
+			
+			if(hitbox.categoryKind == CategoryKind.POTION
+				&& hitbox.category instanceof PotionCategory potCat)
+			{
+				takePotionCategory(potCat, handler);
 				return true;
 			}
 		}
@@ -318,6 +338,10 @@ public final class EnchantmentHandlerHack extends Hack
 			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
 			entryMargin, headerMargin, hoverFlag);
 		
+		cursorY = renderPotionSection(context, tr, scale, titleX, cursorY,
+			offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+			lineHeight, entryMargin, headerMargin, hoverFlag);
+		
 		cursorY = renderBookSection(context, tr, scale, titleX, cursorY, offset,
 			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
 			entryMargin, headerMargin, hoverFlag);
@@ -347,8 +371,8 @@ public final class EnchantmentHandlerHack extends Hack
 			return cursorY;
 		
 		int sectionTitleY = (int)Math.round(cursorY - offset);
-		drawScaledText(context, tr, "Enchanted Gear", titleX, sectionTitleY,
-			TITLE_COLOR, scale);
+		drawSectionHeader(context, tr, titleX, sectionTitleY, "Enchanted Gear",
+			scale);
 		int underlineY = sectionTitleY
 			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
@@ -384,8 +408,8 @@ public final class EnchantmentHandlerHack extends Hack
 			return cursorY;
 		
 		int sectionTitleY = (int)Math.round(cursorY - offset);
-		drawScaledText(context, tr, "Enchanted Books", titleX, sectionTitleY,
-			TITLE_COLOR, scale);
+		drawSectionHeader(context, tr, titleX, sectionTitleY, "Enchanted Books",
+			scale);
 		int underlineY = sectionTitleY
 			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
@@ -403,6 +427,43 @@ public final class EnchantmentHandlerHack extends Hack
 				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
 				lineHeight, entryMargin, headerMargin,
 				category.getDisplayName(), CategoryKind.BOOK, category, list,
+				hoverFlag);
+		}
+		
+		return cursorY;
+	}
+	
+	private double renderPotionSection(DrawContext context, TextRenderer tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
+	{
+		boolean hasEntries = PotionCategory.ORDERED.stream()
+			.anyMatch(cat -> !potionGroupedEntries.getOrDefault(cat, List.of())
+				.isEmpty());
+		if(!hasEntries)
+			return cursorY;
+		
+		int sectionTitleY = (int)Math.round(cursorY - offset);
+		drawSectionHeader(context, tr, titleX, sectionTitleY, "Potions", scale);
+		int underlineY = sectionTitleY
+			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
+			underlineY + 1, 0xFFD0D0D0);
+		cursorY += lineHeight + headerMargin + 4;
+		
+		for(PotionCategory category : PotionCategory.ORDERED)
+		{
+			List<PotionEntry> list =
+				potionGroupedEntries.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.POTION, category, list,
 				hoverFlag);
 		}
 		
@@ -506,19 +567,6 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private void drawSectionHeader(DrawContext context, TextRenderer tr, int x,
-		int y, String text, float scale)
-	{
-		int textWidth = Math.max(1, Math.round(tr.getWidth(text) * scale));
-		int textHeight = Math.max(1, Math.round(tr.fontHeight * scale));
-		int left = Math.round(x - 4);
-		int right = Math.round(x + textWidth + 4);
-		int top = Math.round(y - 4);
-		int bottom = Math.round(y + textHeight + 4);
-		context.fill(left, top, right, bottom, 0xC0282828);
-		drawScaledText(context, tr, text, x, y, TITLE_COLOR, scale);
-	}
-	
 	private void rescan(GenericContainerScreen screen)
 	{
 		refreshEntries(screen.getScreenHandler());
@@ -535,6 +583,7 @@ public final class EnchantmentHandlerHack extends Hack
 		allEntries.clear();
 		gearGroupedEntries.values().forEach(List::clear);
 		bookGroupedEntries.values().forEach(List::clear);
+		potionGroupedEntries.values().forEach(List::clear);
 		
 		if(!(handler instanceof GenericContainerScreenHandler genericHandler))
 			return;
@@ -572,6 +621,20 @@ public final class EnchantmentHandlerHack extends Hack
 				continue;
 			}
 			
+			// Potions: illustrate contents and put into delivery subcategories
+			PotionCategory pCat = PotionCategory.fromItem(stack.getItem());
+			if(pCat != null)
+			{
+				PotionEntry entry = buildPotionEntry(slot, stack, pCat);
+				if(entry == null)
+					continue;
+				allEntries.add(entry);
+				potionGroupedEntries
+					.computeIfAbsent(entry.category, c -> new ArrayList<>())
+					.add(entry);
+				continue;
+			}
+			
 			Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
 				EnchantmentHelper.getEnchantments(stack)
 					.getEnchantmentEntries();
@@ -596,6 +659,19 @@ public final class EnchantmentHandlerHack extends Hack
 			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
 		bookGroupedEntries.values().forEach(list -> list
 			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		potionGroupedEntries.values().forEach(list -> list.sort((a, b) -> {
+			int n = a.primaryName.compareToIgnoreCase(b.primaryName);
+			if(n != 0)
+				return n;
+			n = Integer.compare(b.primaryLevel, a.primaryLevel); // higher first
+			if(n != 0)
+				return n;
+			n = Integer.compare(b.primaryDuration, a.primaryDuration); // longer
+																		// first
+			if(n != 0)
+				return n;
+			return Integer.compare(a.displaySlot, b.displaySlot);
+		}));
 	}
 	
 	private GearEntry buildGearEntry(Slot slot, ItemStack stack,
@@ -675,6 +751,92 @@ public final class EnchantmentHandlerHack extends Hack
 		return new BookEntry(slot.id, slotNumber, primary, line);
 	}
 	
+	private PotionEntry buildPotionEntry(Slot slot, ItemStack stack,
+		PotionCategory category)
+	{
+		List<String> parts = new ArrayList<>();
+		PotionContentsComponent potionContents = stack.getComponents()
+			.getOrDefault(DataComponentTypes.POTION_CONTENTS,
+				PotionContentsComponent.DEFAULT);
+		
+		// First list all actual effects
+		for(StatusEffectInstance effectInstance : potionContents.getEffects())
+		{
+			RegistryEntry<StatusEffect> effEntry =
+				effectInstance.getEffectType();
+			Identifier id =
+				effEntry.getKey().map(k -> k.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(effEntry.getIdAsString());
+			String name = buildEffectName(id, path);
+			String ampText = effectInstance.getAmplifier() > 0
+				? " " + (effectInstance.getAmplifier() + 1) : "";
+			String durText = effectInstance.getDuration() > 0
+				? " " + Math.max(0, effectInstance.getDuration() / 20) + "s"
+				: "";
+			parts.add(name + ampText + durText);
+		}
+		
+		// If there are no effects, fall back to base potion name (water,
+		// mundane, etc.)
+		if(parts.isEmpty())
+		{
+			var basePotion = potionContents.potion();
+			if(basePotion.isPresent())
+			{
+				RegistryEntry<Potion> p = basePotion.get();
+				Identifier id = p.getKey().map(k -> k.getValue()).orElse(null);
+				String path =
+					id != null ? id.getPath() : sanitizePath(p.getIdAsString());
+				String name = buildPotionName(id, path);
+				parts.add(name);
+			}
+		}
+		
+		String primaryName = null;
+		int primaryLevel = 0;
+		int primaryDuration = 0;
+		
+		Iterable<StatusEffectInstance> effects = potionContents.getEffects();
+		java.util.Iterator<StatusEffectInstance> it = effects.iterator();
+		if(it.hasNext())
+		{
+			StatusEffectInstance first = it.next();
+			Identifier id = first.getEffectType().getKey()
+				.map(k -> k.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(first.getEffectType().getIdAsString());
+			primaryName = buildEffectName(id, path);
+			primaryLevel = first.getAmplifier() + 1;
+			primaryDuration = Math.max(0, first.getDuration());
+		}else
+		{
+			var basePotion = potionContents.potion();
+			if(basePotion.isPresent())
+			{
+				Identifier id = basePotion.get().getKey().map(k -> k.getValue())
+					.orElse(null);
+				String path = id != null ? id.getPath()
+					: sanitizePath(basePotion.get().getIdAsString());
+				primaryName = buildPotionName(id, path);
+			}else
+			{
+				primaryName = "Unknown";
+			}
+		}
+		
+		if(parts.isEmpty())
+			return null;
+		
+		String summary = limitLength(String.join(", ", parts), 90);
+		int slotNumber = slot.getIndex() + 1;
+		String itemName = limitLength(stack.getName().getString(), 40);
+		String line = slotNumber + " - " + itemName + " | " + summary;
+		
+		return new PotionEntry(slot.id, slotNumber, category, line, primaryName,
+			primaryLevel, primaryDuration);
+	}
+	
 	private void takeEntry(GearEntry entry,
 		GenericContainerScreenHandler handler)
 	{
@@ -691,6 +853,21 @@ public final class EnchantmentHandlerHack extends Hack
 	}
 	
 	private void takeEntry(BookEntry entry,
+		GenericContainerScreenHandler handler)
+	{
+		if(MC.player == null || MC.interactionManager == null || entry == null)
+			return;
+		
+		Slot slot = handler.getSlot(entry.slotId);
+		if(slot == null || !slot.hasStack())
+			return;
+		
+		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
+			SlotActionType.QUICK_MOVE, MC.player);
+		needsRescan = true;
+	}
+	
+	private void takeEntry(PotionEntry entry,
 		GenericContainerScreenHandler handler)
 	{
 		if(MC.player == null || MC.interactionManager == null || entry == null)
@@ -751,6 +928,29 @@ public final class EnchantmentHandlerHack extends Hack
 		needsRescan = true;
 	}
 	
+	private void takePotionCategory(PotionCategory category,
+		GenericContainerScreenHandler handler)
+	{
+		if(MC.player == null || MC.interactionManager == null)
+			return;
+		
+		List<PotionEntry> list = potionGroupedEntries.get(category);
+		if(list == null || list.isEmpty())
+			return;
+		
+		for(PotionEntry entry : new ArrayList<>(list))
+		{
+			Slot slot = handler.getSlot(entry.slotId);
+			if(slot == null || !slot.hasStack())
+				continue;
+			
+			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
+				SlotActionType.QUICK_MOVE, MC.player);
+		}
+		
+		needsRescan = true;
+	}
+	
 	private int panelInnerHeight()
 	{
 		float scale = MathHelper.clamp(textScale.getValueF(), 0.5F, 1.25F);
@@ -784,6 +984,19 @@ public final class EnchantmentHandlerHack extends Hack
 			Math.round(y), color, false, scale);
 	}
 	
+	private void drawSectionHeader(DrawContext context, TextRenderer tr, int x,
+		int y, String text, float scale)
+	{
+		int textWidth = Math.max(1, Math.round(tr.getWidth(text) * scale));
+		int textHeight = Math.max(1, Math.round(tr.fontHeight * scale));
+		int left = Math.round(x - 4);
+		int right = Math.round(x + textWidth + 4);
+		int top = Math.round(y - 4);
+		int bottom = Math.round(y + textHeight + 4);
+		context.fill(left, top, right, bottom, 0xC0282828);
+		drawScaledText(context, tr, text, x, y, TITLE_COLOR, scale);
+	}
+	
 	private static String limitLength(String text, int max)
 	{
 		if(text.length() <= max)
@@ -798,6 +1011,32 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "enchantment." + namespace + "." + path;
+		String translated = Text.translatable(key).getString();
+		if(translated.equals(key))
+			return humanize(path);
+		return translated;
+	}
+	
+	private static String buildEffectName(Identifier id, String path)
+	{
+		if(path == null || path.isEmpty())
+			return "Unknown Effect";
+		
+		String namespace = id != null ? id.getNamespace() : "minecraft";
+		String key = "effect." + namespace + "." + path;
+		String translated = Text.translatable(key).getString();
+		if(translated.equals(key))
+			return humanize(path);
+		return translated;
+	}
+	
+	private static String buildPotionName(Identifier id, String path)
+	{
+		if(path == null || path.isEmpty())
+			return "Unknown Potion";
+		
+		String namespace = id != null ? id.getNamespace() : "minecraft";
+		String key = "potion." + namespace + "." + path;
 		String translated = Text.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
@@ -864,6 +1103,25 @@ public final class EnchantmentHandlerHack extends Hack
 		}
 	}
 	
+	private static final class PotionEntry extends AbstractEntry
+	{
+		final PotionCategory category;
+		final String primaryName;
+		final int primaryLevel;
+		final int primaryDuration; // ticks
+		
+		PotionEntry(int slotId, int displaySlot, PotionCategory category,
+			String line, String primaryName, int primaryLevel,
+			int primaryDuration)
+		{
+			super(slotId, displaySlot, line);
+			this.category = Objects.requireNonNull(category);
+			this.primaryName = primaryName != null ? primaryName : "";
+			this.primaryLevel = primaryLevel;
+			this.primaryDuration = primaryDuration;
+		}
+	}
+	
 	private static final class Hitbox
 	{
 		final int x;
@@ -908,7 +1166,8 @@ public final class EnchantmentHandlerHack extends Hack
 	private static enum CategoryKind
 	{
 		GEAR,
-		BOOK;
+		BOOK,
+		POTION;
 	}
 	
 	private static enum GearCategory
@@ -1018,6 +1277,39 @@ public final class EnchantmentHandlerHack extends Hack
 					return category;
 				
 			return MISC;
+		}
+	}
+	
+	private static enum PotionCategory
+	{
+		NORMAL("Potions (Normal)"),
+		SPLASH("Potions (Splash)"),
+		LINGERING("Potions (Lingering)");
+		
+		static final List<PotionCategory> ORDERED =
+			List.of(PotionCategory.values());
+		
+		private final String displayName;
+		
+		PotionCategory(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		String getDisplayName()
+		{
+			return displayName;
+		}
+		
+		static PotionCategory fromItem(Item item)
+		{
+			if(item == Items.POTION)
+				return NORMAL;
+			if(item == Items.SPLASH_POTION)
+				return SPLASH;
+			if(item == Items.LINGERING_POTION)
+				return LINGERING;
+			return null;
 		}
 	}
 }
