@@ -14,7 +14,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
@@ -57,11 +56,9 @@ public abstract class HandledScreenMixin
 			ci.cancel();
 	}
 	
-	@Inject(at = @At("HEAD"),
-		method = "mouseClicked(Lnet/minecraft/client/gui/Click;Z)Z",
-		cancellable = true)
-	private void wurst$handleMouseClick(Click context, boolean doubleClick,
-		CallbackInfoReturnable<Boolean> cir)
+	@Inject(at = @At("HEAD"), method = "mouseClicked(DDI)Z", cancellable = true)
+	private void wurst$handleMouseClick(double mouseX, double mouseY,
+		int button, CallbackInfoReturnable<Boolean> cir)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -70,7 +67,7 @@ public abstract class HandledScreenMixin
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(enchantHack != null && enchantHack.isEnabled()
 			&& enchantHack.handleMouseClick((HandledScreen<?>)(Object)this,
-				context.x(), context.y(), context.button()))
+				mouseX, mouseY, button))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();

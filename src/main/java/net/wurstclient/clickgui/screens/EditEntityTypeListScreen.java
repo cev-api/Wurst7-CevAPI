@@ -19,8 +19,6 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
@@ -167,37 +165,36 @@ public final class EditEntityTypeListScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(Click context, boolean doubleClick)
+	public boolean mouseClicked(double mouseX, double mouseY, int button)
 	{
-		typeNameField.mouseClicked(context, doubleClick);
-		return super.mouseClicked(context, doubleClick);
+		typeNameField.mouseClicked(mouseX, mouseY, button);
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	
 	@Override
-	public boolean keyPressed(KeyInput keyInput)
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers)
 	{
-		int keyCode = keyInput.key();
 		switch(keyCode)
 		{
 			case GLFW.GLFW_KEY_ENTER:
 			if(addButton.active)
-				addButton.onPress(keyInput);
+				addButton.onPress();
 			break;
 			
 			case GLFW.GLFW_KEY_DELETE:
 			if(!typeNameField.isFocused())
-				removeButton.onPress(keyInput);
+				removeButton.onPress();
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			doneButton.onPress(keyInput);
+			doneButton.onPress();
 			break;
 			
 			default:
 			break;
 		}
 		
-		return super.keyPressed(keyInput);
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 	
 	@Override
@@ -346,7 +343,8 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		
 		@Override
-		public void render(DrawContext context, int mouseX, int mouseY,
+		public void render(DrawContext context, int index, int y, int x,
+			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
 			TextRenderer tr = client.textRenderer;
@@ -360,8 +358,6 @@ public final class EditEntityTypeListScreen extends Screen
 					.getName().getString();
 			else
 				display = "\u00a7okeyword\u00a7r";
-			int x = getContentX();
-			int y = getContentY();
 			context.drawText(tr, display, x + 8, y,
 				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
 			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,

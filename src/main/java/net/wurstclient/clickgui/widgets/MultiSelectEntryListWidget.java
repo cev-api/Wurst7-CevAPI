@@ -18,10 +18,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
-import net.minecraft.client.input.SystemKeycodes;
 import net.minecraft.client.util.Window;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
@@ -84,22 +82,6 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	protected boolean isEntrySelected(E entry)
 	{
 		return selectedKeys.contains(getSelectionKey(entry));
-	}
-	
-	@Override
-	protected void renderEntry(DrawContext context, int mouseX, int mouseY,
-		float delta, E entry)
-	{
-		if(isEntrySelectionAllowed()
-			&& selectedKeys.contains(getSelectionKey(entry)))
-		{
-			int color = this.getSelectedOrNull() == entry && this.isFocused()
-				? -1 : -8355712;
-			drawSelectionHighlight(context, entry, color);
-		}
-		
-		entry.render(context, mouseX, mouseY,
-			Objects.equals(getHoveredEntry(), entry), delta);
 	}
 	
 	protected abstract String getSelectionKey(E entry);
@@ -272,9 +254,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	protected boolean isControlDown()
 	{
 		boolean control = isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL)
-			|| isKeyDown(SystemKeycodes.LEFT_CTRL)
-			|| isKeyDown(SystemKeycodes.RIGHT_CTRL);
+			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
 		if(Util.getOperatingSystem() == Util.OperatingSystem.OSX)
 			control |= isKeyDown(GLFW.GLFW_KEY_LEFT_SUPER)
 				|| isKeyDown(GLFW.GLFW_KEY_RIGHT_SUPER);
@@ -401,16 +381,14 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		public abstract String selectionKey();
 		
 		@Override
-		public boolean mouseClicked(Click context, boolean doubleClick)
+		public boolean mouseClicked(double mouseX, double mouseY, int button)
 		{
-			if(context.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 				return false;
 			
-			boolean shiftDown = (context.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0
-				|| context.hasShift() || parent.isShiftDown();
+			boolean shiftDown = Screen.hasShiftDown() || parent.isShiftDown();
 			boolean ctrlDown =
-				(context.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0
-					|| context.hasCtrl() || parent.isControlDown();
+				Screen.hasControlDown() || parent.isControlDown();
 			
 			parent.onEntryClicked(self(), shiftDown, ctrlDown);
 			return true;

@@ -338,7 +338,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 				int bx = MathHelper.floor(vehicle.getX());
 				int bz = MathHelper.floor(vehicle.getZ());
 				int by = MathHelper.floor(vehicle.getY()) - 1;
-				BlockState under = ((ClientWorld)vehicle.getEntityWorld())
+				BlockState under = ((ClientWorld)vehicle.getWorld())
 					.getBlockState(new BlockPos(bx, by, bz));
 				String id =
 					under.getBlock().toString().toLowerCase(Locale.ROOT);
