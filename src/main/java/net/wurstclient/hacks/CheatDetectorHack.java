@@ -49,9 +49,78 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	
 	private final CheckboxSetting detectSpeed =
 		new CheckboxSetting("Detect speed", true);
+	// New: use more fine-grained speed configuration inspired by VelocityGuard
 	private final SliderSetting speedThreshold =
-		new SliderSetting("Speed threshold (blocks/s)", 9.0, 5.0, 40.0, 0.5,
+		new SliderSetting("Speed threshold (blocks/s)", 10.0, 5.0, 80.0, 0.1,
 			ValueDisplay.DECIMAL);
+	private final SliderSetting cancelDuration = new SliderSetting(
+		"Cancel movement duration (s)", 1, 0, 10, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting latencyCompensationEnabled =
+		new CheckboxSetting("Latency compensation", true);
+	// latency compensation factors (multipliers for allowed speed)
+	private final SliderSetting latencyVeryLowFactor = new SliderSetting(
+		"very-low-ping factor", 2.9, 1.0, 10.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyLowFactor = new SliderSetting(
+		"low-ping factor", 2.9, 1.0, 10.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyMediumFactor = new SliderSetting(
+		"medium-ping factor", 3.3, 1.0, 12.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyHighFactor = new SliderSetting(
+		"high-ping factor", 3.6, 1.0, 15.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyVeryHighFactor = new SliderSetting(
+		"very-high-ping factor", 4.6, 1.0, 20.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyExtremeFactor = new SliderSetting(
+		"extreme-ping factor", 5.7, 1.0, 25.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyUltraFactor = new SliderSetting(
+		"ultra-ping factor", 6.6, 1.0, 30.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting latencyInsaneFactor = new SliderSetting(
+		"insane-ping factor", 7.5, 1.0, 40.0, 0.1, ValueDisplay.DECIMAL);
+	
+	// Burst tolerance - consecutive violations allowed before alert
+	private final SliderSetting burstDefault = new SliderSetting(
+		"burst-tolerance default", 19, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstVeryLow = new SliderSetting(
+		"burst-tolerance very-low-ping", 20, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstLow = new SliderSetting(
+		"burst-tolerance low-ping", 21, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstMedium = new SliderSetting(
+		"burst-tolerance medium-ping", 22, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstHigh = new SliderSetting(
+		"burst-tolerance high-ping", 24, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstVeryHigh = new SliderSetting(
+		"burst-tolerance very-high-ping", 27, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstExtreme = new SliderSetting(
+		"burst-tolerance extreme-ping", 30, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstUltra = new SliderSetting(
+		"burst-tolerance ultra-ping", 33, 1, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting burstInsane = new SliderSetting(
+		"burst-tolerance insane-ping", 35, 1, 200, 1, ValueDisplay.INTEGER);
+	
+	// Knockback and special movement multipliers
+	private final SliderSetting knockbackMultiplier = new SliderSetting(
+		"knockback multiplier", 6.0, 1.0, 20.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting knockbackDuration = new SliderSetting(
+		"knockback duration (ms)", 1000, 0, 10000, 100, ValueDisplay.INTEGER);
+	
+	private final SliderSetting riptideMultiplier = new SliderSetting(
+		"riptide multiplier", 1.5, 1.0, 10.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting riptideDuration = new SliderSetting(
+		"riptide duration (ms)", 3000, 0, 10000, 100, ValueDisplay.INTEGER);
+	
+	private final SliderSetting elytraGlidingMultiplier = new SliderSetting(
+		"elytra gliding multiplier", 1.5, 1.0, 10.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting elytraLandingDuration =
+		new SliderSetting("elytra landing duration (ms)", 1500, 0, 10000, 100,
+			ValueDisplay.INTEGER);
+	
+	private final SliderSetting vehicleSpeedMultiplier = new SliderSetting(
+		"vehicle speed multiplier", 1.9, 1.0, 10.0, 0.1, ValueDisplay.DECIMAL);
+	private final SliderSetting vehicleIceSpeedMultiplier =
+		new SliderSetting("vehicle ice speed multiplier", 4.3, 1.0, 20.0, 0.1,
+			ValueDisplay.DECIMAL);
+	
+	// Extra buffer applied to all speed checks
+	private final SliderSetting bufferMultiplier = new SliderSetting(
+		"buffer multiplier", 1.2, 1.0, 3.0, 0.01, ValueDisplay.DECIMAL);
 	
 	private final CheckboxSetting detectFlight =
 		new CheckboxSetting("Detect flight", true);
@@ -99,6 +168,34 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		setCategory(Category.OTHER);
 		addSetting(detectSpeed);
 		addSetting(speedThreshold);
+		addSetting(cancelDuration);
+		addSetting(latencyCompensationEnabled);
+		addSetting(latencyVeryLowFactor);
+		addSetting(latencyLowFactor);
+		addSetting(latencyMediumFactor);
+		addSetting(latencyHighFactor);
+		addSetting(latencyVeryHighFactor);
+		addSetting(latencyExtremeFactor);
+		addSetting(latencyUltraFactor);
+		addSetting(latencyInsaneFactor);
+		addSetting(burstDefault);
+		addSetting(burstVeryLow);
+		addSetting(burstLow);
+		addSetting(burstMedium);
+		addSetting(burstHigh);
+		addSetting(burstVeryHigh);
+		addSetting(burstExtreme);
+		addSetting(burstUltra);
+		addSetting(burstInsane);
+		addSetting(knockbackMultiplier);
+		addSetting(knockbackDuration);
+		addSetting(riptideMultiplier);
+		addSetting(riptideDuration);
+		addSetting(elytraGlidingMultiplier);
+		addSetting(elytraLandingDuration);
+		addSetting(vehicleSpeedMultiplier);
+		addSetting(vehicleIceSpeedMultiplier);
+		addSetting(bufferMultiplier);
 		addSetting(detectFlight);
 		addSetting(flightAirTicks);
 		addSetting(flightClearanceThreshold);
@@ -217,24 +314,75 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		if(!detectSpeed.isChecked())
 			return;
 		
-		if(isUsingElytra(player) || player.hasVehicle()
-			|| player.isTouchingWater() || player.isSwimming())
+		// ignore if elytra or in vehicle or swimming - handle separately
+		if(player.isTouchingWater() || player.isSwimming())
 			return;
 		
-		if(player.hasStatusEffect(StatusEffects.SPEED)
-			&& horizontalPerSecond <= speedThreshold.getValue() * 1.2)
-			return;
+		// compute base allowed speed with buffer
+		double allowed =
+			speedThreshold.getValue() * bufferMultiplier.getValue();
 		
-		if(horizontalPerSecond <= speedThreshold.getValue())
-			return;
+		// adjust for elytra
+		if(isUsingElytra(player))
+			allowed *= elytraGlidingMultiplier.getValue();
 		
+		// adjust for vehicles
+		Entity vehicle = player.getVehicle();
+		if(vehicle != null)
+		{
+			allowed *= vehicleSpeedMultiplier.getValue();
+			// boats on ice can be much faster - rudimentary check: block under
+			// vehicle
+			try
+			{
+				int bx = MathHelper.floor(vehicle.getX());
+				int bz = MathHelper.floor(vehicle.getZ());
+				int by = MathHelper.floor(vehicle.getY()) - 1;
+				BlockState under = ((ClientWorld)vehicle.getEntityWorld())
+					.getBlockState(new BlockPos(bx, by, bz));
+				String id =
+					under.getBlock().toString().toLowerCase(Locale.ROOT);
+				if(id.contains("ice"))
+					allowed *= vehicleIceSpeedMultiplier.getValue();
+			}catch(Exception ignore)
+			{}
+		}
+		
+		// status effect speed gives small allowance
+		if(player.hasStatusEffect(StatusEffects.SPEED))
+			allowed *= 1.2;
+		
+		// latency compensation
+		int ping = getPlayerPing(player);
+		if(latencyCompensationEnabled.isChecked() && ping >= 0)
+			allowed *= getLatencyFactorForPing(ping);
+		
+		// final check
+		if(horizontalPerSecond <= allowed)
+		{
+			// reset violation counter
+			stats.speedViolationCount = 0;
+			return;
+		}
+		
+		// increase violation counter
+		stats.speedViolationCount++;
+		
+		int allowedBurst = getBurstToleranceForPing(ping);
+		if(stats.speedViolationCount < allowedBurst)
+			return; // within burst tolerance
+			
 		if(tickCounter - stats.lastSpeedAlertTick < ALERT_COOLDOWN_TICKS)
 			return;
 		
 		stats.lastSpeedAlertTick = tickCounter;
 		sendAlert(player,
-			String.format(Locale.ROOT, "suspected of speed (%s blocks/s)",
-				formatDouble(horizontalPerSecond)));
+			String.format(Locale.ROOT,
+				"suspected of speed (%.1f blocks/s) [allowed %.1f]",
+				horizontalPerSecond, allowed));
+		
+		// reset after alert
+		stats.speedViolationCount = 0;
 	}
 	
 	private void updateFlightPattern(PlayerEntity player, PlayerStats stats,
@@ -472,6 +620,107 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		return String.format(Locale.ROOT, "%.1f", value);
 	}
 	
+	/**
+	 * Try to obtain the player's ping/latency in milliseconds. Returns -1 if
+	 * unavailable.
+	 */
+	private int getPlayerPing(PlayerEntity player)
+	{
+		try
+		{
+			var handler = MC.getNetworkHandler();
+			if(handler == null)
+				return -1;
+			var entry = handler.getPlayerListEntry(player.getUuid());
+			if(entry == null)
+				return -1;
+				
+			// try common method names via reflection to be resilient across
+			// mappings
+			try
+			{
+				java.lang.reflect.Method m =
+					entry.getClass().getMethod("getLatency");
+				Object o = m.invoke(entry);
+				if(o instanceof Integer)
+					return (Integer)o;
+				if(o instanceof Long)
+					return ((Long)o).intValue();
+			}catch(NoSuchMethodException ignored)
+			{}
+			
+			try
+			{
+				java.lang.reflect.Method m =
+					entry.getClass().getMethod("getLatencyMs");
+				Object o = m.invoke(entry);
+				if(o instanceof Integer)
+					return (Integer)o;
+				if(o instanceof Long)
+					return ((Long)o).intValue();
+			}catch(NoSuchMethodException ignored)
+			{}
+			
+			// fallback: try field "latency" if present
+			try
+			{
+				java.lang.reflect.Field f =
+					entry.getClass().getDeclaredField("latency");
+				f.setAccessible(true);
+				Object o = f.get(entry);
+				if(o instanceof Integer)
+					return (Integer)o;
+				if(o instanceof Long)
+					return ((Long)o).intValue();
+			}catch(NoSuchFieldException ignored)
+			{}
+		}catch(Throwable t)
+		{ /* ignore */ }
+		return -1;
+	}
+	
+	private double getLatencyFactorForPing(int pingMs)
+	{
+		if(pingMs < 0)
+			return 1.0;
+		if(pingMs <= 50)
+			return latencyVeryLowFactor.getValue();
+		if(pingMs <= 100)
+			return latencyLowFactor.getValue();
+		if(pingMs <= 200)
+			return latencyMediumFactor.getValue();
+		if(pingMs <= 300)
+			return latencyHighFactor.getValue();
+		if(pingMs <= 500)
+			return latencyVeryHighFactor.getValue();
+		if(pingMs <= 750)
+			return latencyExtremeFactor.getValue();
+		if(pingMs <= 1000)
+			return latencyUltraFactor.getValue();
+		return latencyInsaneFactor.getValue();
+	}
+	
+	private int getBurstToleranceForPing(int pingMs)
+	{
+		if(pingMs < 0)
+			return (int)burstDefault.getValueI();
+		if(pingMs <= 50)
+			return (int)burstVeryLow.getValueI();
+		if(pingMs <= 100)
+			return (int)burstLow.getValueI();
+		if(pingMs <= 200)
+			return (int)burstMedium.getValueI();
+		if(pingMs <= 300)
+			return (int)burstHigh.getValueI();
+		if(pingMs <= 500)
+			return (int)burstVeryHigh.getValueI();
+		if(pingMs <= 750)
+			return (int)burstExtreme.getValueI();
+		if(pingMs <= 1000)
+			return (int)burstUltra.getValueI();
+		return (int)burstInsane.getValueI();
+	}
+	
 	private double getClearanceAboveGround(Entity entity, int maxDepth)
 	{
 		ClientWorld world = (ClientWorld)entity.getWorld();
@@ -570,6 +819,8 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		private long lastFlightAlertTick;
 		private long lastBoatAlertTick;
 		private long lastAuraAlertTick;
+		// consecutive speed violations
+		private int speedViolationCount;
 		
 		private void resetPosition(PlayerEntity player)
 		{
@@ -589,6 +840,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			swingIntervals.clear();
 			lastSwingTick = 0L;
 			lastSwingProgress = player.getHandSwingProgress(1.0F);
+			speedViolationCount = 0;
 		}
 	}
 	
