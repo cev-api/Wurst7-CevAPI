@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.world.dimension.DimensionType;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -126,14 +127,26 @@ public final class BreadcrumbsHack extends Hack
 			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
 	private final CheckboxSetting paused = new CheckboxSetting("Paused", false);
 	
-	private final Deque<Vec3d> points = new ArrayDeque<>();
+	private final Deque<Point> points = new ArrayDeque<>();
 	// map from player uuid to their breadcrumb points
-	private final Map<UUID, Deque<Vec3d>> otherPoints = new HashMap<>();
+	private final Map<UUID, Deque<Point>> otherPoints = new HashMap<>();
 	// previous target selection to detect changes
 	private Target prevTarget = null;
 	// previous random toggle so we can clean up registry on toggle off
 	private boolean prevRandom = false;
+	
 	// per-player colors are managed via PlayerColorRegistry
+	private static final class Point
+	{
+		final Vec3d pos;
+		final DimensionType dim;
+		
+		Point(Vec3d pos, DimensionType dim)
+		{
+			this.pos = pos;
+			this.dim = dim;
+		}
+	}
 	
 	public BreadcrumbsHack()
 	{
@@ -202,17 +215,18 @@ public final class BreadcrumbsHack extends Hack
 		// Do not add new points while paused
 		if(paused.isChecked())
 			return;
-		Vec3d here =
+		Vec3d herePos =
 			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		DimensionType hereDim = MC.world.getDimension();
 		if(points.isEmpty())
 		{
-			points.add(here);
+			points.add(new Point(herePos, hereDim));
 			return;
 		}
-		Vec3d last = points.peekLast();
-		if(movedEnough(last, here, sectionLen.getValue()))
+		Vec3d last = points.peekLast().pos;
+		if(movedEnough(last, herePos, sectionLen.getValue()))
 		{
-			points.add(here);
+			points.add(new Point(herePos, hereDim));
 			int limit = computeMaxSections(maxSections.getValueI());
 			boolean infinite = limit >= MAX_SECTIONS_INFINITE;
 			while(!infinite && points.size() > limit)
@@ -222,7 +236,6 @@ public final class BreadcrumbsHack extends Hack
 		// Track other players if enabled
 		if(sel == Target.OTHERS || sel == Target.BOTH)
 		{
-			int nextIndex = 0;
 			for(var p : MC.world.getPlayers())
 			{
 				if(p == MC.player)
@@ -241,18 +254,19 @@ public final class BreadcrumbsHack extends Hack
 							.assignDeterministic(id, "Breadcrumbs");
 					}
 				}
-				Deque<Vec3d> dq =
+				Deque<Point> dq =
 					otherPoints.computeIfAbsent(id, k -> new ArrayDeque<>());
 				Vec3d pos = new Vec3d(p.getX(), p.getY(), p.getZ());
+				DimensionType pdim = MC.world.getDimension();
 				if(dq.isEmpty())
 				{
-					dq.add(pos);
+					dq.add(new Point(pos, pdim));
 					continue;
 				}
-				Vec3d lastp = dq.peekLast();
+				Vec3d lastp = dq.peekLast().pos;
 				if(movedEnough(lastp, pos, sectionLen.getValue()))
 				{
-					dq.add(pos);
+					dq.add(new Point(pos, pdim));
 					int limit = computeMaxSections(maxSections.getValueI());
 					boolean infinite = limit >= MAX_SECTIONS_INFINITE;
 					while(!infinite && dq.size() > limit)
@@ -304,23 +318,45 @@ public final class BreadcrumbsHack extends Hack
 		double thickness = lineThickness.getValue();
 		Target sel = target.getSelected();
 		// render your trail only when YOU or BOTH selected
-		if((sel == Target.YOU || sel == Target.BOTH) && points.size() >= 2)
+		if((sel == Target.YOU || sel == Target.BOTH))
 		{
-			List<Vec3d> list = new ArrayList<>(points);
-			int c = RenderUtils.toIntColor(new float[]{color.getColorF()[0],
-				color.getColorF()[1], color.getColorF()[2]}, 0.8F);
-			RenderUtils.drawCurvedLine(matrixStack, list, c, false, thickness);
+			DimensionType curDim = MC.world.getDimension();
+			List<Vec3d> list = new ArrayList<>();
+			for(Point p : points)
+			{
+				if(p.dim == curDim)
+					list.add(p.pos);
+			}
+			if(list.size() >= 2)
+			{
+				int c =
+					RenderUtils
+						.toIntColor(
+							new float[]{color.getColorF()[0],
+								color.getColorF()[1], color.getColorF()[2]},
+							0.8F);
+				RenderUtils.drawCurvedLine(matrixStack, list, c, false,
+					thickness);
+			}
 		}
 		
 		// render other players' trails
 		if(sel == Target.OTHERS || sel == Target.BOTH)
 		{
+			DimensionType curDim = MC.world.getDimension();
 			for(var entry : otherPoints.entrySet())
 			{
-				Deque<Vec3d> dq = entry.getValue();
-				if(dq.size() < 2)
-					continue;
+				Deque<Point> dq = entry.getValue();
 				UUID id = entry.getKey();
+				
+				List<Vec3d> l = new ArrayList<>();
+				for(Point p : dq)
+					if(p.dim == curDim)
+						l.add(p.pos);
+					
+				if(l.size() < 2)
+					continue;
+				
 				int oc;
 				if(randomBrightColors.isChecked())
 				{
@@ -339,7 +375,7 @@ public final class BreadcrumbsHack extends Hack
 						otherColor.getColorF()[0], otherColor.getColorF()[1],
 						otherColor.getColorF()[2]}, 0.8F);
 				}
-				List<Vec3d> l = new ArrayList<>(dq);
+				
 				RenderUtils.drawCurvedLine(matrixStack, l, oc, false,
 					thickness);
 			}

@@ -35,6 +35,7 @@ import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.components.FeatureButton;
 import net.wurstclient.hacks.ClickGuiHack;
+import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.json.JsonUtils;
@@ -67,6 +68,10 @@ public final class ClickGui
 	
 	public void init()
 	{
+		// Clear existing windows/popups so repeated init() calls rebuild
+		// the UI instead of duplicating entries.
+		windows.clear();
+		popups.clear();
 		updateColors();
 		
 		LinkedHashMap<Category, Window> windowMap = new LinkedHashMap<>();
@@ -78,16 +83,41 @@ public final class ClickGui
 		features.addAll(WURST.getCmds().getAllCmds());
 		features.addAll(WURST.getOtfs().getAllOtfs());
 		
+		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
 		for(Feature f : features)
+		{
+			// When TooManyHax is enabled, hide hacks that it disabled from
+			// the ClickGUI to avoid cluttering the UI. The Navigator should
+			// keep showing all features, so we only apply this filter here.
+			if(f instanceof net.wurstclient.hack.Hack && tooManyHax.isEnabled()
+				&& tooManyHax.isBlocked(f)
+				&& !((net.wurstclient.hack.Hack)f).isEnabled())
+			{
+				continue;
+			}
+			
 			if(f.getCategory() != null)
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
+		}
 		// add favorites window entries (show favorites in the Favorites
-		// category)
+		// category). Respect TooManyHax hiding behaviour here as well so
+		// favorite hacks disabled by TooManyHax don't appear in ClickGUI.
 		for(Feature f : features)
-			if(f instanceof net.wurstclient.hack.Hack
-				&& ((net.wurstclient.hack.Hack)f).isFavorite())
-				windowMap.get(net.wurstclient.Category.FAVORITES)
-					.add(new FeatureButton(f));
+		{
+			if(!(f instanceof net.wurstclient.hack.Hack
+				&& ((net.wurstclient.hack.Hack)f).isFavorite()))
+				continue;
+			
+			if(f instanceof net.wurstclient.hack.Hack && tooManyHax.isEnabled()
+				&& tooManyHax.isBlocked(f)
+				&& !((net.wurstclient.hack.Hack)f).isEnabled())
+			{
+				continue;
+			}
+			
+			windowMap.get(net.wurstclient.Category.FAVORITES)
+				.add(new FeatureButton(f));
+		}
 		// ensure favourites window is sorted alphabetically
 		Window favWindow = windowMap.get(net.wurstclient.Category.FAVORITES);
 		if(favWindow != null)
@@ -329,7 +359,9 @@ public final class ClickGui
 			int cMouseY = (int)(mouseY - y0);
 			popup.handleMouseClick(cMouseX, cMouseY, mouseButton);
 			
-			popups.remove(i);
+			// remove by object to avoid index-based removal issues if the
+			// list was modified concurrently
+			popups.remove(popup);
 			popups.add(popup);
 			return true;
 		}
@@ -380,8 +412,10 @@ public final class ClickGui
 				
 			}else
 				continue;
-			
-			windows.remove(i);
+				
+			// remove by object to avoid index-based removal issues if the
+			// windows list was modified concurrently
+			windows.remove(window);
 			windows.add(window);
 			break;
 		}

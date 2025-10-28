@@ -183,7 +183,7 @@ I have no other experience in the field of Minecraft and have never used any oth
 ### EnchantmentHandler
 - Displays an inventory overlay for chests containing enchanted items, listing each item’s slot number, enchantments, and providing quick-take options (single or by category).
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
-- Works with books and gear and will separate them in the list by category and type
+- Works with books, potions and gear and will separate them in the list by category and type
 
 ![Chest](https://i.imgur.com/6u9S2OD.png)
 
