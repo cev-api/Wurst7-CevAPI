@@ -27,6 +27,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.EspBoxSizeSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.*;
 import net.wurstclient.util.EntityUtils;
@@ -87,6 +88,13 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Appends the number of detected mobs to this hack's entry in the HackList.",
 		false);
 	
+	// Above-ground filter
+	private final CheckboxSetting onlyAboveGround =
+		new CheckboxSetting("Above ground only",
+			"Only show mobs at or above the configured Y level.", false);
+	private final SliderSetting aboveGroundY = new SliderSetting(
+		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
 	private int foundCount;
 	
 	public MobEspHack()
@@ -99,6 +107,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(useRainbow);
 		addSetting(color);
 		entityFilters.forEach(this::addSetting);
+		addSetting(onlyAboveGround);
+		addSetting(aboveGroundY);
 		addSetting(showCountInHackList);
 	}
 	
@@ -129,6 +139,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			.filter(LivingEntity.class::isInstance).map(e -> (LivingEntity)e)
 			.filter(e -> !(e instanceof PlayerEntity))
 			.filter(e -> !e.isRemoved() && e.getHealth() > 0);
+		// optionally filter out mobs below the configured Y level
+		if(onlyAboveGround.isChecked())
+			stream = stream.filter(e -> e.getY() >= aboveGroundY.getValue());
 		
 		stream = entityFilters.applyTo(stream);
 		

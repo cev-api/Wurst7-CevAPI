@@ -92,7 +92,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		"Above ground only",
 		"Only show signs/frames at or above the configured Y level.", false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
-		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	
 	public SignEspHack()
 	{
