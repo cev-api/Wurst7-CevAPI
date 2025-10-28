@@ -90,6 +90,15 @@ public final class TooManyHaxHack extends Hack
 			
 			((Hack)feature).setEnabled(false);
 		}
+		// Refresh ClickGUI so hacks disabled by TooManyHax are hidden there
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
+		}
 	}
 	
 	public ArrayList<Path> listProfiles()
@@ -139,6 +148,14 @@ public final class TooManyHaxHack extends Hack
 			blockedFeatures.remove(feature);
 		
 		file.save();
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
+		}
 	}
 	
 	public void blockAll()
@@ -162,12 +179,42 @@ public final class TooManyHaxHack extends Hack
 			.sort(Comparator.comparing(f -> f.getName().toLowerCase()));
 		
 		file.save();
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
+		}
 	}
 	
 	public void unblockAll()
 	{
 		blockedFeatures.clear();
 		file.save();
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
+		}
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		// Rebuild ClickGUI so previously hidden hacks reappear
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
+		}
 	}
 	
 	public List<Feature> getBlockedFeatures()
