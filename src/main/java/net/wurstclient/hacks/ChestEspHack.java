@@ -148,7 +148,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			"Only show chests/containers at or above the configured Y level.",
 			false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
-		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	
 	public ChestEspHack()
 	{

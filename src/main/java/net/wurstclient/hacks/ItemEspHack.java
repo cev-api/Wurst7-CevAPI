@@ -129,7 +129,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Above ground only",
 			"Only show items at or above the configured Y level.", false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
-		"Above ground Y", 62, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	// cache for LIST mode: exact IDs and keyword terms
 	private java.util.Set<String> specialExactIds;
 	private String[] specialKeywords;
