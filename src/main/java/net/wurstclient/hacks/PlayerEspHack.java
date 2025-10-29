@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,6 +25,10 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.Util;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.TextColor;
+import net.minecraft.util.Formatting;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -42,6 +48,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
 import net.minecraft.world.RaycastContext;
@@ -62,6 +69,19 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new FilterInvisibleSetting("Won't show invisible players.", false));
 	
 	private final ArrayList<PlayerEntity> players = new ArrayList<>();
+	// Alert settings & tracking for enter/exit notifications
+	private final CheckboxSetting enterAlert = new CheckboxSetting(
+		"Enter alert",
+		"When enabled, notifies in chat when a player first becomes visible\n"
+			+ "to PlayerESP, showing distance and XYZ.",
+		false);
+	private final CheckboxSetting exitAlert = new CheckboxSetting("Exit alert",
+		"When enabled, notifies in chat when a player leaves PlayerESP\n"
+			+ "visibility, showing distance and XYZ at which they left.",
+		false);
+	private final Set<UUID> prevVisible = new HashSet<>();
+	private final Map<UUID, Vec3d> lastPositions = new HashMap<>();
+	private final Map<UUID, String> lastNames = new HashMap<>();
 	private final CheckboxSetting randomBrightColors = new CheckboxSetting(
 		"Unique colors for players",
 		"When enabled, assigns each player a bright color from a shared\n"
@@ -127,6 +147,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(useStaticPlayerColor);
 		addSetting(playerColor);
 		addSetting(boxSize);
+		
+		// Alerts when players enter/leave PlayerESP visibility
+		addSetting(enterAlert);
+		addSetting(exitAlert);
 		entityFilters.forEach(this::addSetting);
 		addSetting(ignoreNpcs);
 	}
@@ -146,6 +170,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		losStates.clear();
+		prevVisible.clear();
+		lastPositions.clear();
+		lastNames.clear();
 	}
 	
 	@Override
@@ -175,10 +202,123 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		players.addAll(stream.collect(Collectors.toList()));
 		
+		// detect enter / exit visibility changes
+		handleVisibilityChanges();
+		
 		if(losThreatDetection.isChecked())
 			updateLosStates(Util.getMeasuringTimeMs());
 		else
 			losStates.clear();
+	}
+	
+	/**
+	 * Detect which players entered or left the PlayerESP-visible list since
+	 * the last update and send chat alerts if configured.
+	 */
+	private void handleVisibilityChanges()
+	{
+		// Build a set of currently visible *non-bot* players. Use the same
+		// bot/NPC checks PlayerESP already uses: FakePlayerEntity and
+		// (when enabled) players missing from the client's tab-list.
+		Set<UUID> currentNonBot = new HashSet<>();
+		
+		// Added players (only non-bots)
+		for(PlayerEntity p : players)
+		{
+			// skip known fake players
+			if(p instanceof FakePlayerEntity)
+				continue;
+			
+			UUID id = p.getUuid();
+			
+			// If ignoreNpcs is enabled, treat players not on the client
+			// player list as bots/NPCs and ignore them for alerts.
+			if(ignoreNpcs.isChecked() && MC.getNetworkHandler() != null
+				&& MC.getNetworkHandler().getPlayerListEntry(id) == null)
+			{
+				continue;
+			}
+			
+			currentNonBot.add(id);
+			lastPositions.put(id, new Vec3d(p.getX(), p.getY(), p.getZ()));
+			lastNames.put(id, p.getName().getString());
+			if(!prevVisible.contains(id) && enterAlert.isChecked())
+				sendEnterMessage(p);
+		}
+		
+		// Removed players (only consider previously tracked non-bot IDs)
+		for(UUID id : new HashSet<>(prevVisible))
+		{
+			if(!currentNonBot.contains(id))
+			{
+				Vec3d pos = lastPositions.get(id);
+				String name = lastNames.getOrDefault(id, "<unknown>");
+				if(exitAlert.isChecked())
+					sendExitMessage(id, name, pos);
+				lastPositions.remove(id);
+				lastNames.remove(id);
+				prevVisible.remove(id);
+			}
+		}
+		
+		prevVisible.clear();
+		prevVisible.addAll(currentNonBot);
+	}
+	
+	private void sendEnterMessage(PlayerEntity p)
+	{
+		if(MC.player == null)
+			return;
+		UUID id = p.getUuid();
+		double dist = Math.round(MC.player.distanceTo(p) * 10.0) / 10.0;
+		int x = (int)Math.round(p.getX());
+		int y = (int)Math.round(p.getY());
+		int z = (int)Math.round(p.getZ());
+		MutableText nameText =
+			MutableText.of(Text.literal(p.getName().getString()).getContent());
+		if(randomBrightColors.isChecked())
+		{
+			int idx = Math.abs(id.hashCode());
+			java.awt.Color gen = net.wurstclient.util.PlayerColorRegistry
+				.generateBrightColor(idx);
+			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
+				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
+		}
+		Text msg = nameText.append(Text
+			.literal(" entered range (" + dist + " blocks) at " + x + ", " + y
+				+ ", " + z + ".")
+			.styled(
+				s -> s.withColor(TextColor.fromFormatting(Formatting.WHITE))));
+		ChatUtils.component(msg);
+	}
+	
+	private void sendExitMessage(UUID id, String name, Vec3d pos)
+	{
+		if(MC.player == null)
+			return;
+		double dist = pos == null ? -1.0
+			: Math.round(pos.distanceTo(
+				new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
+				* 10.0) / 10.0;
+		int x = pos == null ? 0 : (int)Math.round(pos.x);
+		int y = pos == null ? 0 : (int)Math.round(pos.y);
+		int z = pos == null ? 0 : (int)Math.round(pos.z);
+		MutableText nameText = MutableText.of(Text.literal(name).getContent());
+		if(randomBrightColors.isChecked())
+		{
+			int idx = Math.abs(id.hashCode());
+			java.awt.Color gen = net.wurstclient.util.PlayerColorRegistry
+				.generateBrightColor(idx);
+			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
+				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
+		}
+		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
+		Text msg = nameText.append(Text
+			.literal(" left range (" + distStr + ") at " + x + ", " + y + ", "
+				+ z + ".")
+			.styled(
+				s -> s.withColor(TextColor.fromFormatting(Formatting.WHITE))));
+		ChatUtils.component(msg);
 	}
 	
 	@Override
