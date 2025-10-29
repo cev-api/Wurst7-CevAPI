@@ -257,6 +257,7 @@ Examples:
     - Adjustable FOV and range
 - Improved coloring for default distance based rendering, close (red) to far (green) (when all above off)
 - Able to ignore NPCs
+- Enter/Leave area notification option in chat with name, co-ordinates and block distance
 
 ![ESP](https://i.imgur.com/1F7zU31.png)
 
