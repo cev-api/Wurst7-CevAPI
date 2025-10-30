@@ -41,6 +41,8 @@ public final class ChestSearchHack extends Hack
 		new ColorSetting("ESP fill", new java.awt.Color(0x22FF88));
 	private final ColorSetting espLineColor =
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
+	private final SliderSetting textScale = new SliderSetting("Text scale", 1.0,
+		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
 	
 	public ChestSearchHack()
 	{
@@ -56,6 +58,7 @@ public final class ChestSearchHack extends Hack
 		addSetting(scanRadius);
 		addSetting(maxResults);
 		addSetting(displayRadius);
+		addSetting(textScale);
 		addSetting(waypointColor);
 		addSetting(espFillColor);
 		addSetting(espLineColor);
@@ -100,6 +103,17 @@ public final class ChestSearchHack extends Hack
 	public int getEspTimeMs()
 	{
 		return (int)(espTimeSec.getValue() * 1000);
+	}
+	
+	public float getTextScaleF()
+	{
+		try
+		{
+			return (float)textScale.getValueF();
+		}catch(Throwable t)
+		{
+			return 1.0f;
+		}
 	}
 	
 	public int getWaypointColorARGB()

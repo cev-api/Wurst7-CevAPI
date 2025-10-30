@@ -108,14 +108,16 @@ I have no other experience in the field of Minecraft and have never used any oth
  - Able to detect chest changes that you make, so adding or removing items instantly updates the JSON
  - Unable to detect chest changes that other players make
  - Able to delete entries
+ - Able to determine and search for weapon/armor, potion and book enchantments
 - Visually search all scanned chests for content based on keywords
 - Create an ESP highlight of the chest that has your desired item or create a waypoint to track the chest down
 - Chests are auto-removed if it has been detected as broken/missing
 - Adjustable Waypoint and ESP timeout
 - Adjustable ESP and Waypoint colors
 - Adjustable search radius
+- Adjustable font size
 
-![ChestSearch](https://i.imgur.com/o5DYBqR.png)
+![ChestSearch](https://i.imgur.com/fBF3YQ0.png) ![Search](https://i.imgur.com/uRvJi9c.png)
 
 ### Breadcrumbs
 - Leaves a line trail behind you (toggle-able/pause-able).  
