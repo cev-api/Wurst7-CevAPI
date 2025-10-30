@@ -199,6 +199,34 @@ public class ChestDatabase
 				if(!matched && item.nbt != null
 					&& item.nbt.toString().toLowerCase().contains(q))
 					matched = true;
+				// Also match extracted enchantment and potion ids collected
+				// by the recorder so searches like "sharpness" or "speed"
+				// will find chests containing those effects.
+				if(!matched && item.enchantments != null)
+				{
+					for(String en : item.enchantments)
+					{
+						if(en != null && en.toLowerCase().contains(q))
+						{
+							matched = true;
+							break;
+						}
+					}
+				}
+				if(!matched && item.potionEffects != null)
+				{
+					for(String pe : item.potionEffects)
+					{
+						if(pe != null && pe.toLowerCase().contains(q))
+						{
+							matched = true;
+							break;
+						}
+					}
+				}
+				if(!matched && item.primaryPotion != null
+					&& item.primaryPotion.toLowerCase().contains(q))
+					matched = true;
 			}
 			if(matched)
 				res.add(e);

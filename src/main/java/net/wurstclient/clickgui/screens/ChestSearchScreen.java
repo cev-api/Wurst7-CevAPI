@@ -21,6 +21,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.WurstClient;
+import net.wurstclient.util.ItemNameUtils;
+import net.wurstclient.util.RenderUtils;
 import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.chestsearch.ChestEntry;
 import net.wurstclient.hacks.WaypointsHack;
@@ -872,6 +874,15 @@ public final class ChestSearchScreen extends Screen
 		String q = searchField.getText() == null ? ""
 			: searchField.getText().toLowerCase();
 		int contentHeight = calculateContentHeight(q);
+		float scale = 1.0f;
+		try
+		{
+			net.wurstclient.hacks.ChestSearchHack hack =
+				WurstClient.INSTANCE.getHax().chestSearchHack;
+			if(hack != null)
+				scale = hack.getTextScaleF();
+		}catch(Throwable ignored)
+		{}
 		double maxScroll = Math.max(0, contentHeight - visibleHeight);
 		scrollMaxOffset = maxScroll;
 		if(scrollOffset < 0)
@@ -987,22 +998,24 @@ public final class ChestSearchScreen extends Screen
 					header += "  x" + totalCount;
 				// wrap header into up to two lines so it doesn't go under
 				// buttons
-				java.util.List<String> lines = wrapText(header, availWidth);
+				java.util.List<String> lines =
+					wrapText(header, availWidth, scale);
 				for(int i = 0; i < lines.size(); i++)
-					context.drawText(this.textRenderer,
-						Text.literal(lines.get(i)), x, headerY + i * 12,
-						0xFFF8D866, false);
+					RenderUtils.drawScaledText(context, this.textRenderer,
+						lines.get(i), x, headerY + i * 12, 0xFFF8D866, false,
+						scale);
 				// Omit the small "Active: ESP/Waypoint" status line to
 				// reduce clutter and avoid overlap with the location text.
 			}else
 			{
 				String header = locationLabel
 					+ (totalCount > 0 ? ("  x" + totalCount) : "");
-				java.util.List<String> lines = wrapText(header, availWidth);
+				java.util.List<String> lines =
+					wrapText(header, availWidth, scale);
 				for(int i = 0; i < lines.size(); i++)
-					context.drawText(this.textRenderer,
-						Text.literal(lines.get(i)), x, headerY + i * 12,
-						0xFFFFFFFF, false);
+					RenderUtils.drawScaledText(context, this.textRenderer,
+						lines.get(i), x, headerY + i * 12, 0xFFFFFFFF, false,
+						scale);
 			}
 			int headerLines = headerLineCount(pinnedEntry);
 			int lineY = headerY + headerLines * 14;
@@ -1013,9 +1026,9 @@ public final class ChestSearchScreen extends Screen
 			{
 				String msg = q.isEmpty() ? "No items recorded."
 					: "No items match this search.";
-				context.drawText(this.textRenderer, Text.literal(msg), x,
-					lineY + 2, 0xFFBBBBBB, false);
-				lineY += 18;
+				RenderUtils.drawScaledText(context, this.textRenderer, msg, x,
+					lineY + 2, 0xFFBBBBBB, false, scale);
+				lineY += Math.round(18 * scale);
 			}else
 			{
 				for(ChestEntry.ItemEntry it : matches)
@@ -1036,11 +1049,126 @@ public final class ChestSearchScreen extends Screen
 					{}
 					String name =
 						(it.displayName != null ? it.displayName : it.itemId);
-					String line =
-						name + " x" + it.count + " (slot " + it.slot + ")";
-					context.drawText(this.textRenderer, Text.literal(line),
-						x + 20, lineY + 2, 0xFFEFEFEF, false);
-					lineY += 18;
+					// If we have structured enchantment/potion info, append a
+					// short readable summary so users can see e.g. "Sharpness"
+					String extra = "";
+					try
+					{
+						if(it.enchantments != null
+							&& !it.enchantments.isEmpty())
+						{
+							java.util.List<String> human =
+								new java.util.ArrayList<>();
+							for(int ei = 0; ei < it.enchantments.size(); ei++)
+							{
+								String ench = it.enchantments.get(ei);
+								net.minecraft.util.Identifier eid = null;
+								try
+								{
+									eid = net.minecraft.util.Identifier
+										.tryParse(ench);
+								}catch(Throwable ignored)
+								{}
+								String path = eid != null ? eid.getPath()
+									: ItemNameUtils.sanitizePath(ench);
+								String baseName = ItemNameUtils
+									.buildEnchantmentName(eid, path);
+								String levelText = "";
+								try
+								{
+									if(it.enchantmentLevels != null
+										&& ei < it.enchantmentLevels.size())
+									{
+										int lvl = it.enchantmentLevels.get(ei)
+											.intValue();
+										if(lvl > 0)
+											levelText = " " + Text
+												.translatable(
+													"enchantment.level." + lvl)
+												.getString();
+									}
+								}catch(Throwable ignored)
+								{}
+								human.add(baseName + levelText);
+							}
+							extra =
+								" [" + String.join(", ", human) + "\u00A7r]";
+						}else if(it.primaryPotion != null
+							&& !it.primaryPotion.isBlank())
+						{
+							net.minecraft.util.Identifier pid = null;
+							try
+							{
+								pid = net.minecraft.util.Identifier
+									.tryParse(it.primaryPotion);
+							}catch(Throwable ignored)
+							{}
+							String ppath = pid != null ? pid.getPath()
+								: ItemNameUtils.sanitizePath(it.primaryPotion);
+							extra =
+								" [" + ItemNameUtils.buildPotionName(pid, ppath)
+									+ "\u00A7r]";
+						}
+						
+						// Fallback: if recorder didn't populate structured
+						// fields,
+						// try to extract probable enchantment/effect ids from
+						// NBT
+						// text (covers older entries or cases where structured
+						// extraction failed).
+						if(extra.isEmpty() && it.nbt != null)
+						{
+							String s =
+								it.nbt.toString().toLowerCase(Locale.ROOT);
+							java.util.regex.Matcher m = java.util.regex.Pattern
+								.compile("([a-z0-9_]+):([a-z0-9_]+)")
+								.matcher(s);
+							java.util.List<String> found =
+								new java.util.ArrayList<>();
+							while(m.find() && found.size() < 3)
+							{
+								String part = m.group(2);
+								if(part == null)
+									continue;
+								if(found.contains(part))
+									continue;
+								// skip obvious tokens
+								if(part.equals("nbt") || part.equals("ench")
+									|| part.equals("id") || part.equals("item"))
+									continue;
+								found.add(part);
+							}
+							if(!found.isEmpty())
+								extra = " ["
+									+ String.join(", ",
+										found.stream()
+											.map(ChestSearchScreen::humanize)
+											.toArray(String[]::new))
+									+ "\u00A7r]";
+						}
+					}catch(Throwable ignored)
+					{}
+					
+					// If extra is identical to the base name (e.g. "Paper" and
+					// "[Paper]"), omit the extra to avoid duplication.
+					if(extra != null && !extra.isEmpty())
+					{
+						String extraContent = extra.length() > 3
+							? extra.substring(2, extra.length() - 1) : "";
+						String normExtra = extraContent.toLowerCase(Locale.ROOT)
+							.replaceAll("[^a-z0-9 ]", "").trim();
+						String normName =
+							(name == null ? "" : name).toLowerCase(Locale.ROOT)
+								.replaceAll("[^a-z0-9 ]", "").trim();
+						if(normExtra.equals(normName))
+							extra = "";
+					}
+					
+					String line = name + extra + " x" + it.count + " (slot "
+						+ it.slot + ")";
+					RenderUtils.drawScaledText(context, this.textRenderer, line,
+						x + 20, lineY + 2, 0xFFEFEFEF, false, scale);
+					lineY += Math.max(18, Math.round(18 * scale));
 				}
 			}
 			y += boxHeight + 6;
@@ -1173,6 +1301,33 @@ public final class ChestSearchScreen extends Screen
 				if(n.contains(q))
 					matched = true;
 			}
+			// Also match extracted enchantment/potion ids collected by the
+			// recorder so queries like "sharpness" or "speed" match items.
+			if(!matched && it.enchantments != null)
+			{
+				for(String en : it.enchantments)
+				{
+					if(en != null && en.toLowerCase(Locale.ROOT).contains(q))
+					{
+						matched = true;
+						break;
+					}
+				}
+			}
+			if(!matched && it.potionEffects != null)
+			{
+				for(String pe : it.potionEffects)
+				{
+					if(pe != null && pe.toLowerCase(Locale.ROOT).contains(q))
+					{
+						matched = true;
+						break;
+					}
+				}
+			}
+			if(!matched && it.primaryPotion != null
+				&& it.primaryPotion.toLowerCase(Locale.ROOT).contains(q))
+				matched = true;
 			if(matched)
 				matches.add(it);
 		}
@@ -1252,32 +1407,36 @@ public final class ChestSearchScreen extends Screen
 			topPadding + headerHeight + minButtonSpace + bottomPadding);
 	}
 	
-	private java.util.List<String> wrapText(String text, int maxWidth)
+	private java.util.List<String> wrapText(String text, int maxWidth,
+		float scale)
 	{
 		java.util.List<String> lines = new java.util.ArrayList<>();
 		if(text == null || text.isEmpty())
 		{
 			return lines;
 		}
+		
 		String remaining = text;
 		for(int line = 0; line < 2 && !remaining.isEmpty(); line++)
 		{
-			if(this.textRenderer.getWidth(remaining) <= maxWidth)
+			if(this.textRenderer.getWidth(remaining) * scale <= maxWidth)
 			{
 				lines.add(remaining);
 				break;
 			}
 			// find split point at last space that fits
 			int cut = remaining.length();
-			while(cut > 0 && this.textRenderer
-				.getWidth(remaining.substring(0, cut)) > maxWidth)
+			while(cut > 0
+				&& this.textRenderer.getWidth(remaining.substring(0, cut))
+					* scale > maxWidth)
 				cut = remaining.lastIndexOf(' ', Math.max(0, cut - 1));
 			if(cut <= 0)
 			{
 				// can't find space - hard cut
 				int pos = 1;
-				while(pos < remaining.length() && this.textRenderer
-					.getWidth(remaining.substring(0, pos)) <= maxWidth)
+				while(pos < remaining.length()
+					&& this.textRenderer.getWidth(remaining.substring(0, pos))
+						* scale <= maxWidth)
 					pos++;
 				lines.add(remaining.substring(0, pos - 1));
 				remaining = remaining.substring(pos - 1).trim();
@@ -1288,6 +1447,18 @@ public final class ChestSearchScreen extends Screen
 			}
 		}
 		return lines.isEmpty() ? java.util.List.of("") : lines;
+	}
+	
+	private static String humanize(String path)
+	{
+		if(path == null || path.isEmpty())
+			return "Unknown";
+		String humanized = java.util.Arrays.stream(path.split("_"))
+			.filter(part -> !part.isEmpty())
+			.map(part -> Character.toUpperCase(part.charAt(0))
+				+ (part.length() > 1 ? part.substring(1) : ""))
+			.collect(java.util.stream.Collectors.joining(" "));
+		return humanized.isEmpty() ? "Unknown" : humanized;
 	}
 	
 	@Override

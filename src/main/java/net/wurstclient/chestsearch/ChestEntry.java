@@ -36,6 +36,24 @@ public class ChestEntry
 		public String displayName;
 		/** Full ItemStack NBT if configured; stored as a JsonObject */
 		public JsonElement nbt;
+		/**
+		 * Optional list of enchantment ids/paths (e.g. "sharpness") extracted
+		 * when recording.
+		 */
+		public java.util.List<String> enchantments;
+		/**
+		 * Optional parallel list of enchantment levels matching the
+		 * enchantments
+		 * list. Same length as enchantments when present.
+		 */
+		public java.util.List<Integer> enchantmentLevels;
+		/**
+		 * Optional list of potion/effect ids/paths (e.g. "speed") extracted
+		 * when recording.
+		 */
+		public java.util.List<String> potionEffects;
+		/** Optional primary potion/effect name for quick categorization. */
+		public String primaryPotion;
 	}
 	
 	public ChestEntry()

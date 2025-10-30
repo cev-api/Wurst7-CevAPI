@@ -14,6 +14,16 @@ import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.ScreenHandlerListener;
 import net.minecraft.util.math.BlockPos;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.registry.entry.RegistryEntry;
+import java.util.Set;
+import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffect;
+import net.minecraft.util.Identifier;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -23,9 +33,6 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
-/**
- * Captures chest contents whenever a container screen opens.
- */
 public class ChestRecorder
 {
 	private final ChestManager manager;
@@ -347,6 +354,88 @@ public class ChestRecorder
 			{
 				it.nbt = null;
 			}
+			// Extract enchantment ids and potion/effect ids from the actual
+			// ItemStack where possible. This allows searching by enchantment
+			// or potion even if the textual NBT is not easily searchable.
+			try
+			{
+				// Enchantments (including enchanted books)
+				try
+				{
+					Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchSet =
+						EnchantmentHelper.getEnchantments(copy)
+							.getEnchantmentEntries();
+					if(enchSet != null && !enchSet.isEmpty())
+					{
+						it.enchantments = new java.util.ArrayList<>();
+						it.enchantmentLevels = new java.util.ArrayList<>();
+						for(Object2IntMap.Entry<RegistryEntry<Enchantment>> e : enchSet)
+						{
+							RegistryEntry<Enchantment> ren = e.getKey();
+							if(ren == null)
+								continue;
+							Identifier id = ren.getKey().map(k -> k.getValue())
+								.orElse(null);
+							String idStr = id != null ? id.toString()
+								: ren.getIdAsString();
+							int lvl = e.getIntValue();
+							if(idStr != null && !idStr.isBlank())
+							{
+								it.enchantments.add(idStr);
+								it.enchantmentLevels.add(Integer.valueOf(lvl));
+							}
+						}
+					}
+				}catch(Throwable ignored)
+				{}
+				
+				// Potions / effects
+				try
+				{
+					PotionContentsComponent potionContents =
+						copy.getComponents().getOrDefault(
+							DataComponentTypes.POTION_CONTENTS,
+							PotionContentsComponent.DEFAULT);
+					if(potionContents != null)
+					{
+						java.util.List<String> pe = new java.util.ArrayList<>();
+						for(StatusEffectInstance sei : potionContents
+							.getEffects())
+						{
+							RegistryEntry<StatusEffect> effEntry =
+								sei.getEffectType();
+							Identifier id = effEntry.getKey()
+								.map(k -> k.getValue()).orElse(null);
+							String idStr = id != null ? id.toString()
+								: effEntry.getIdAsString();
+							if(idStr != null && !idStr.isBlank())
+								pe.add(idStr);
+						}
+						if(!pe.isEmpty())
+						{
+							it.potionEffects = pe;
+							it.primaryPotion = pe.get(0);
+						}else
+						{
+							// fallback to base potion id
+							java.util.Optional<net.minecraft.registry.entry.RegistryEntry<net.minecraft.potion.Potion>> basePotion =
+								potionContents.potion();
+							if(basePotion.isPresent())
+							{
+								Identifier id = basePotion.get().getKey()
+									.map(k -> k.getValue()).orElse(null);
+								String idStr = id != null ? id.toString()
+									: basePotion.get().getIdAsString();
+								it.primaryPotion = idStr;
+							}
+						}
+					}
+				}catch(Throwable ignored)
+				{}
+			}catch(Throwable ignored)
+			{
+				// ignore extraction errors
+			}
 			items.add(it);
 		}
 		
@@ -412,6 +501,15 @@ public class ChestRecorder
 		{
 			ignored.printStackTrace();
 		}
+	}
+	
+	private static String sanitizePath(String raw)
+	{
+		if(raw == null || raw.isEmpty())
+			return "";
+		int colon = raw.indexOf(':');
+		return colon >= 0 && colon + 1 < raw.length() ? raw.substring(colon + 1)
+			: raw;
 	}
 	
 }
