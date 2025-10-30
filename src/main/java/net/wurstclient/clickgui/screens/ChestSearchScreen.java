@@ -1150,6 +1150,14 @@ public final class ChestSearchScreen extends Screen
 					{
 						String extraContent = extra.length() > 3
 							? extra.substring(2, extra.length() - 1) : "";
+						// remove Minecraft formatting sequences (section sign +
+						// code)
+						try
+						{
+							extraContent =
+								extraContent.replaceAll("\u00A7.", "");
+						}catch(Throwable ignored)
+						{}
 						String normExtra = extraContent.toLowerCase(Locale.ROOT)
 							.replaceAll("[^a-z0-9 ]", "").trim();
 						String normName =
