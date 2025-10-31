@@ -415,6 +415,9 @@ public final class ClickGui
 				
 			// remove by object to avoid index-based removal issues if the
 			// windows list was modified concurrently
+			if(!windows.contains(window))
+				break;
+			
 			windows.remove(window);
 			windows.add(window);
 			break;

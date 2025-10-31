@@ -298,6 +298,7 @@ Examples:
 
 ### TooManyHax Improved
 - Submenu of TooManyHax in the ClickUI/Navigator shows a list of toggleable hacks instead of needing to manually enter the name of each one via cmd.
+- Hacks disabled by TooManyHax will be removed from the ClickUI to declutter
 
 ![TooMany](https://i.imgur.com/I3cg7Qf.png)
 
