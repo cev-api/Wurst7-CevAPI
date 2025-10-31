@@ -189,6 +189,10 @@ I have no other experience in the field of Minecraft and have never used any oth
 
 ![Chest](https://i.imgur.com/6u9S2OD.png)
 
+### SafeTP
+- Combines Blink, your desired teleport command and a timer into a single function
+- Allows you to teleport without worrying about the movement restrictions during the countdown
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
