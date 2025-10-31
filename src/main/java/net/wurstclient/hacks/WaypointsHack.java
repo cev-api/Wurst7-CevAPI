@@ -406,8 +406,24 @@ public final class WaypointsHack extends Hack
 			boolean renderLabel = infiniteLabels || allowBySlider;
 			boolean beyondMaxVisible =
 				distSq > (double)(w.getMaxVisible() * w.getMaxVisible());
-			if(beyondMaxVisible && !renderLabel)
+			// Don't skip entirely if the waypoint has lines enabled - lines
+			// should render regardless of label visibility/distance.
+			if(beyondMaxVisible && !renderLabel && !w.isLines())
 				continue;
+				
+			// draw tracer + box if enabled. Lines should be rendered
+			// regardless of beyondMaxVisible so users can always see
+			// the tracer when the "lines" option is enabled.
+			if(w.isLines())
+			{
+				RenderUtils.drawTracer(matrices, partialTicks,
+					new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
+						wp.getZ() + 0.5),
+					applyFade(w.getColor(), distSq), false);
+				RenderUtils.drawOutlinedBoxes(matrices,
+					java.util.List.of(new Box(wp)),
+					applyFade(w.getColor(), distSq), false);
+			}
 			
 			if(!beyondMaxVisible)
 			{
@@ -426,17 +442,6 @@ public final class WaypointsHack extends Hack
 					}
 				}
 				
-				// draw tracer + box if enabled
-				if(w.isLines())
-				{
-					RenderUtils.drawTracer(matrices, partialTicks,
-						new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
-							wp.getZ() + 0.5),
-						applyFade(w.getColor(), distSq), false);
-					RenderUtils.drawOutlinedBoxes(matrices,
-						java.util.List.of(new Box(wp)),
-						applyFade(w.getColor(), distSq), false);
-				}
 				Waypoint.BeaconMode beaconMode = waypointBeaconMode(w);
 				if(beaconsEnabled && beaconMode != Waypoint.BeaconMode.OFF)
 				{
