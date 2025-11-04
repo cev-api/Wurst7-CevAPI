@@ -27,7 +27,6 @@ import net.minecraft.client.option.ServerList;
 import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
 import net.minecraft.util.Util;
-import net.wurstclient.mixinterface.IMultiplayerScreen;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.wurstclient.util.MathUtils;
 

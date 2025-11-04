@@ -31,6 +31,12 @@ import net.cevapi.config.AntiFingerprintConfigScreen;
 public class MultiplayerScreenMixin extends Screen
 {
 	private ButtonWidget lastServerButton;
+	@Unique
+	private ButtonWidget antiFingerprintButton;
+	@Unique
+	private ButtonWidget cornerServerFinderButton;
+	@Unique
+	private ButtonWidget cornerCleanUpButton;
 	
 	private MultiplayerScreenMixin(WurstClient wurst, Text title)
 	{
@@ -40,6 +46,10 @@ public class MultiplayerScreenMixin extends Screen
 	@Inject(at = @At("HEAD"), method = "init()V")
 	private void beforeVanillaButtons(CallbackInfo ci)
 	{
+		antiFingerprintButton = null;
+		cornerServerFinderButton = null;
+		cornerCleanUpButton = null;
+		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
@@ -85,24 +95,47 @@ public class MultiplayerScreenMixin extends Screen
 	{
 		updateLastServerButton();
 		
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("Anti-Fingerprint"),
-				b -> client.setScreen(new AntiFingerprintConfigScreen(
-					(MultiplayerScreen)(Object)this)))
-			.dimensions(width / 2 + 54, 10, 100, 20).build());
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
 		
-		addDrawableChild(
-			ButtonWidget
+		if(antiFingerprintButton == null)
+		{
+			antiFingerprintButton = ButtonWidget
+				.builder(Text.literal("Anti-Fingerprint"),
+					b -> client.setScreen(new AntiFingerprintConfigScreen(
+						(MultiplayerScreen)(Object)this)))
+				.dimensions(0, 0, 100, 20).build();
+			addDrawableChild(antiFingerprintButton);
+		}
+		antiFingerprintButton.setX(width / 2 + 54);
+		antiFingerprintButton.setY(10);
+		antiFingerprintButton.setWidth(100);
+		
+		if(cornerServerFinderButton == null)
+		{
+			cornerServerFinderButton = ButtonWidget
 				.builder(Text.literal("Server Finder"),
 					b -> client.setScreen(new ServerFinderScreen(
 						(MultiplayerScreen)(Object)this)))
-				.dimensions(width / 2 + 154 + 4, height - 54, 100, 20).build());
+				.dimensions(0, 0, 100, 20).build();
+			addDrawableChild(cornerServerFinderButton);
+		}
+		cornerServerFinderButton.setX(width / 2 + 154 + 4);
+		cornerServerFinderButton.setY(height - 54);
+		cornerServerFinderButton.setWidth(100);
 		
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("Clean Up"),
-				b -> client.setScreen(
-					new CleanUpScreen((MultiplayerScreen)(Object)this)))
-			.dimensions(width / 2 + 154 + 4, height - 30, 100, 20).build());
+		if(cornerCleanUpButton == null)
+		{
+			cornerCleanUpButton = ButtonWidget
+				.builder(Text.literal("Clean Up"),
+					b -> client.setScreen(
+						new CleanUpScreen((MultiplayerScreen)(Object)this)))
+				.dimensions(0, 0, 100, 20).build();
+			addDrawableChild(cornerCleanUpButton);
+		}
+		cornerCleanUpButton.setX(width / 2 + 154 + 4);
+		cornerCleanUpButton.setY(height - 30);
+		cornerCleanUpButton.setWidth(100);
 	}
 	
 	@Inject(at = @At("HEAD"),

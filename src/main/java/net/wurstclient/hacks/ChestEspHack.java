@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import java.util.List;
 
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
@@ -19,6 +20,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.chestesp.ChestEspGroup;
 import net.wurstclient.hacks.chestesp.ChestEspGroupManager;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
@@ -34,102 +36,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				+ "On: Keeps results anchored (useful for pathing back).\n"
 				+ "Note: ChestESP tracks loaded block entities; visibility is still limited by server view distance.",
 			false);
+	private final ChestEspGroupManager groups = new ChestEspGroupManager();
 	
-	private final ChestEspBlockGroup basicChests = new ChestEspBlockGroup(
-		new ColorSetting("Chest color",
-			"Normal chests will be highlighted in this color.", Color.GREEN),
-		null);
-	
-	private final ChestEspBlockGroup trapChests = new ChestEspBlockGroup(
-		new ColorSetting("Trap chest color",
-			"Trapped chests will be highlighted in this color.",
-			new Color(0xFF8000)),
-		new CheckboxSetting("Include trap chests", true));
-	
-	private final ChestEspBlockGroup enderChests = new ChestEspBlockGroup(
-		new ColorSetting("Ender color",
-			"Ender chests will be highlighted in this color.", Color.CYAN),
-		new CheckboxSetting("Include ender chests", true));
-	
-	private final ChestEspEntityGroup chestCarts =
-		new ChestEspEntityGroup(
-			new ColorSetting("Chest cart color",
-				"Minecarts with chests will be highlighted in this color.",
-				Color.YELLOW),
-			new CheckboxSetting("Include chest carts", true));
-	
-	private final ChestEspEntityGroup chestBoats =
-		new ChestEspEntityGroup(
-			new ColorSetting("Chest boat color",
-				"Boats with chests will be highlighted in this color.",
-				Color.YELLOW),
-			new CheckboxSetting("Include chest boats", true));
-	
-	private final ChestEspBlockGroup barrels = new ChestEspBlockGroup(
-		new ColorSetting("Barrel color",
-			"Barrels will be highlighted in this color.", Color.GREEN),
-		new CheckboxSetting("Include barrels", true));
-	
-	private final ChestEspBlockGroup pots = new ChestEspBlockGroup(
-		new ColorSetting("Pots color",
-			"Decorated pots will be highlighted in this color.", Color.GREEN),
-		new CheckboxSetting("Include pots", false));
-	
-	private final ChestEspBlockGroup shulkerBoxes = new ChestEspBlockGroup(
-		new ColorSetting("Shulker color",
-			"Shulker boxes will be highlighted in this color.", Color.MAGENTA),
-		new CheckboxSetting("Include shulkers", true));
-	
-	private final ChestEspBlockGroup hoppers = new ChestEspBlockGroup(
-		new ColorSetting("Hopper color",
-			"Hoppers will be highlighted in this color.", Color.WHITE),
-		new CheckboxSetting("Include hoppers", false));
-	
-	private final ChestEspEntityGroup hopperCarts =
-		new ChestEspEntityGroup(
-			new ColorSetting("Hopper cart color",
-				"Minecarts with hoppers will be highlighted in this color.",
-				Color.YELLOW),
-			new CheckboxSetting("Include hopper carts", false));
-	
-	private final ChestEspBlockGroup droppers = new ChestEspBlockGroup(
-		new ColorSetting("Dropper color",
-			"Droppers will be highlighted in this color.", Color.WHITE),
-		new CheckboxSetting("Include droppers", false));
-	
-	private final ChestEspBlockGroup dispensers = new ChestEspBlockGroup(
-		new ColorSetting("Dispenser color",
-			"Dispensers will be highlighted in this color.",
-			new Color(0xFF8000)),
-		new CheckboxSetting("Include dispensers", false));
-	
-	private final ChestEspBlockGroup crafters = new ChestEspBlockGroup(
-		new ColorSetting("Crafter color",
-			"Crafters will be highlighted in this color.", Color.WHITE),
-		new CheckboxSetting("Include crafters", false));
-	
-	private final ChestEspBlockGroup furnaces =
-		new ChestEspBlockGroup(new ColorSetting("Furnace color",
-			"Furnaces, smokers, and blast furnaces will be highlighted in this color.",
-			Color.RED), new CheckboxSetting("Include furnaces", false));
-	
-	private final List<ChestEspGroup> groups =
-		Arrays.asList(basicChests, trapChests, enderChests, chestCarts,
-			chestBoats, barrels, pots, shulkerBoxes, hoppers, hopperCarts,
-			droppers, dispensers, crafters, furnaces);
-	
-	private final List<ChestEspEntityGroup> entityGroups =
-		Arrays.asList(chestCarts, chestBoats, hopperCarts);
-	
-	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
 		"HackList count",
 		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
 		false);
-	
 	private int foundCount;
 	
-	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
 			"Only show chests/containers at or above the configured Y level.",
@@ -143,7 +57,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(stickyArea);
-		groups.stream().flatMap(ChestEspGroup::getSettings)
+		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
@@ -165,67 +79,39 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		
-		groups.forEach(ChestEspGroup::clear);
-		entityGroups.forEach(ChestEspGroup::clear);
+		groups.allGroups.forEach(ChestEspGroup::clear);
 		foundCount = 0;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		groups.forEach(ChestEspGroup::clear);
+		groups.allGroups.forEach(ChestEspGroup::clear);
 		
-		ArrayList<BlockEntity> blockEntities =
-			ChunkUtils.getLoadedBlockEntities()
-				.collect(Collectors.toCollection(ArrayList::new));
+		double yLimit = aboveGroundY.getValue();
+		boolean enforceAboveGround = onlyAboveGround.isChecked();
 		
-		for(BlockEntity blockEntity : blockEntities)
-		{
-			if(onlyAboveGround.isChecked()
-				&& blockEntity.getPos().getY() < aboveGroundY.getValue())
-				continue;
-			if(blockEntity instanceof TrappedChestBlockEntity)
-				trapChests.add(blockEntity);
-			else if(blockEntity instanceof ChestBlockEntity)
-				basicChests.add(blockEntity);
-			else if(blockEntity instanceof EnderChestBlockEntity)
-				enderChests.add(blockEntity);
-			else if(blockEntity instanceof ShulkerBoxBlockEntity)
-				shulkerBoxes.add(blockEntity);
-			else if(blockEntity instanceof BarrelBlockEntity)
-				barrels.add(blockEntity);
-			else if(blockEntity instanceof DecoratedPotBlockEntity)
-				pots.add(blockEntity);
-			else if(blockEntity instanceof HopperBlockEntity)
-				hoppers.add(blockEntity);
-			else if(blockEntity instanceof DropperBlockEntity)
-				droppers.add(blockEntity);
-			else if(blockEntity instanceof DispenserBlockEntity)
-				dispensers.add(blockEntity);
-			else if(blockEntity instanceof CrafterBlockEntity)
-				crafters.add(blockEntity);
-			else if(blockEntity instanceof AbstractFurnaceBlockEntity)
-				furnaces.add(blockEntity);
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(enforceAboveGround && be.getPos().getY() < yLimit)
+				return;
 			
-		}
+			groups.blockGroups.forEach(group -> group.addIfMatches(be));
+		});
 		
-		for(Entity entity : MC.world.getEntities())
+		if(MC.world != null)
 		{
-			if(onlyAboveGround.isChecked()
-				&& entity.getY() < aboveGroundY.getValue())
-				continue;
-			if(entity instanceof ChestMinecartEntity)
-				chestCarts.add(entity);
-			else if(entity instanceof HopperMinecartEntity)
-				hopperCarts.add(entity);
-			else if(entity instanceof ChestBoatEntity
-				|| entity instanceof ChestRaftEntity)
-				chestBoats.add(entity);
+			for(Entity entity : MC.world.getEntities())
+			{
+				if(enforceAboveGround && entity.getY() < yLimit)
+					continue;
+				
+				groups.entityGroups
+					.forEach(group -> group.addIfMatches(entity));
+			}
 		}
 		
-		// compute found count from enabled groups (clamped)
-		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
-		total += entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
+		int total = groups.allGroups.stream().filter(ChestEspGroup::isEnabled)
+			.mapToInt(g -> g.getBoxes().size()).sum();
 		foundCount = Math.min(total, 999);
 	}
 	
