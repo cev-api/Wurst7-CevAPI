@@ -271,6 +271,7 @@ public final class HackList implements UpdateListener
 	{
 		enabledHacksFile.load(this);
 		favoriteHacksFile.load(this);
+		panicHack.handleStartupRestore();
 		eventManager.remove(UpdateListener.class, this);
 	}
 	
