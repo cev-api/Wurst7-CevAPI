@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.51 (MC1.21.8) - Modified by CevAPI 
+﻿# Wurst Client v7.51 (MC1.21.10) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/Uju0ZZJ.png)
 
@@ -152,6 +152,7 @@ I have no other experience in the field of Minecraft and have never used any oth
 
 ### Anti-Fingerprint
 - Detects and stops resource-pack fingerprinting. 
+  - Basic protections are already enabled by default.
 - Policies: Observe (vanilla prompt + log), BlockLocal (decline private/LAN), BlockAll (decline all), SandboxAll (server sees fail; client saves copy). 
 - Detects burst requests (N in M ms) with toasts; supports host whitelist. 
 - Cache defenses: clear before download and per-session cache isolation. 
@@ -289,8 +290,8 @@ Examples:
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
 
-### Above Ground (New ESP Option)
-- ItemESP, MobSearch, Search, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
+### Above Ground/ESP Y Limit (New ESP Option)
+- ItemESP, MobESP, MobSearch, Search, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
 - There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```)
 - This will help prevent you from detecting inaccessible mobs/items and help you focus on scanning the surface of the world (if that's your goal) 
 
@@ -342,7 +343,6 @@ Examples:
 ## License
 
 This code is licensed under the GNU General Public License v3. 
-
 
 
 

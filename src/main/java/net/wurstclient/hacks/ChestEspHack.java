@@ -9,8 +9,6 @@ package net.wurstclient.hacks;
 
 import java.util.List;
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.util.math.Box;
@@ -20,8 +18,6 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
-import net.wurstclient.hacks.chestesp.ChestEspEntityGroup;
 import net.wurstclient.hacks.chestesp.ChestEspGroup;
 import net.wurstclient.hacks.chestesp.ChestEspGroupManager;
 import net.wurstclient.settings.CheckboxSetting;
@@ -34,25 +30,26 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
 	private final EspStyleSetting style = new EspStyleSetting();
-	private final CheckboxSetting stickyArea = new CheckboxSetting(
-		"Sticky area",
-		"Off: ESP drop-off follows you as chunks change.\n"
-			+ "On: Keeps results anchored (useful for pathing back).\n"
-			+ "Note: ChestESP tracks loaded block entities; visibility is still limited by server view distance.",
+	private final net.wurstclient.settings.CheckboxSetting stickyArea =
+		new net.wurstclient.settings.CheckboxSetting("Sticky area",
+			"Off: ESP drop-off follows you as chunks change.\n"
+				+ "On: Keeps results anchored (useful for pathing back).\n"
+				+ "Note: ChestESP tracks loaded block entities; visibility is still limited by server view distance.",
+			false);
+	private final ChestEspGroupManager groups = new ChestEspGroupManager();
+	
+	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
+		"HackList count",
+		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
 		false);
+	private int foundCount;
+	
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
 			"Only show chests/containers at or above the configured Y level.",
 			false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
-	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
-		"HackList count",
-		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
-		false);
-	private final ChestEspGroupManager groups = new ChestEspGroupManager();
-	private final LongOpenHashSet stickyPositions = new LongOpenHashSet();
-	private int foundCount;
 	
 	public ChestEspHack()
 	{
@@ -81,84 +78,41 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
-		clearBlockGroups();
-		groups.entityGroups.forEach(ChestEspGroup::clear);
+		
+		groups.allGroups.forEach(ChestEspGroup::clear);
 		foundCount = 0;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(MC.world == null)
-			return;
+		groups.allGroups.forEach(ChestEspGroup::clear);
 		
-		if(!stickyArea.isChecked())
-			clearBlockGroups();
-		groups.entityGroups.forEach(ChestEspGroup::clear);
+		double yLimit = aboveGroundY.getValue();
+		boolean enforceAboveGround = onlyAboveGround.isChecked();
 		
-		ChunkUtils.getLoadedBlockEntities().forEach(this::handleBlockEntity);
-		MC.world.getEntities().forEach(this::handleEntity);
-		
-		int total =
-			groups.allGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
-		foundCount = Math.min(total, 999);
-	}
-	
-	private void handleBlockEntity(BlockEntity blockEntity)
-	{
-		if(blockEntity == null)
-			return;
-		
-		if(onlyAboveGround.isChecked()
-			&& blockEntity.getPos().getY() < aboveGroundY.getValue())
-			return;
-		
-		if(stickyArea.isChecked())
-		{
-			long key = blockEntity.getPos().asLong();
-			if(stickyPositions.contains(key))
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(enforceAboveGround && be.getPos().getY() < yLimit)
 				return;
 			
-			if(addBlockEntity(blockEntity))
-				stickyPositions.add(key);
-			
-			return;
-		}
+			groups.blockGroups.forEach(group -> group.addIfMatches(be));
+		});
 		
-		addBlockEntity(blockEntity);
-	}
-	
-	private boolean addBlockEntity(BlockEntity blockEntity)
-	{
-		boolean matched = false;
-		for(ChestEspBlockGroup group : groups.blockGroups)
+		if(MC.world != null)
 		{
-			int before = group.getBoxes().size();
-			group.addIfMatches(blockEntity);
-			if(group.getBoxes().size() != before)
-				matched = true;
+			for(Entity entity : MC.world.getEntities())
+			{
+				if(enforceAboveGround && entity.getY() < yLimit)
+					continue;
+				
+				groups.entityGroups
+					.forEach(group -> group.addIfMatches(entity));
+			}
 		}
 		
-		return matched;
-	}
-	
-	private void handleEntity(Entity entity)
-	{
-		if(entity == null)
-			return;
-		
-		if(onlyAboveGround.isChecked()
-			&& entity.getY() < aboveGroundY.getValue())
-			return;
-		
-		for(ChestEspEntityGroup group : groups.entityGroups)
-			group.addIfMatches(entity);
-	}
-	
-	private void clearBlockGroups()
-	{
-		groups.blockGroups.forEach(ChestEspGroup::clear);
-		stickyPositions.clear();
+		int total = groups.allGroups.stream().filter(ChestEspGroup::isEnabled)
+			.mapToInt(g -> g.getBoxes().size()).sum();
+		foundCount = Math.min(total, 999);
 	}
 	
 	@Override
@@ -218,8 +172,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	@Override
 	public String getRenderName()
 	{
+		String base = getName();
 		if(showCountInHackList.isChecked() && foundCount > 0)
-			return getName() + " [" + foundCount + "]";
-		return getName();
+			return base + " [" + foundCount + "]";
+		return base;
 	}
 }
