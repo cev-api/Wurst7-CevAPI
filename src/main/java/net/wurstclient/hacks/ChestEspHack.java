@@ -7,19 +7,9 @@
  */
 package net.wurstclient.hacks;
 
-import java.awt.Color;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import net.minecraft.block.entity.*;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.vehicle.ChestBoatEntity;
-import net.minecraft.entity.vehicle.ChestMinecartEntity;
-import net.minecraft.entity.vehicle.ChestRaftEntity;
-import net.minecraft.entity.vehicle.HopperMinecartEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
@@ -27,11 +17,8 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
-import net.wurstclient.hacks.chestesp.ChestEspEntityGroup;
 import net.wurstclient.hacks.chestesp.ChestEspGroup;
-import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.hacks.chestesp.ChestEspGroupManager;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
@@ -253,7 +240,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
-		entityGroups.stream().filter(ChestEspGroup::isEnabled)
+		groups.entityGroups.stream().filter(ChestEspGroup::isEnabled)
 			.forEach(g -> g.updateBoxes(partialTicks));
 		
 		if(style.hasBoxes())
@@ -265,7 +252,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void renderBoxes(MatrixStack matrixStack)
 	{
-		for(ChestEspGroup group : groups)
+		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
 				continue;
@@ -282,7 +269,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void renderTracers(MatrixStack matrixStack, float partialTicks)
 	{
-		for(ChestEspGroup group : groups)
+		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
 				continue;
