@@ -192,6 +192,7 @@ I have no other experience in the field of Minecraft and have never used any oth
 ### SafeTP
 - Combines Blink, your desired teleport command and a timer into a single function
 - Allows you to teleport without worrying about the movement restrictions during the countdown
+- Safe TPA Here option: Allows you to auto activate blink when a player accepts your TPA Here request and then auto deactivates when they arrive.
 
 ## What’s changed or improved in this fork?
 
