@@ -18,6 +18,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import net.minecraft.client.render.Camera;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -28,6 +35,7 @@ import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.WurstRenderLayers;
 
 public final class NiceWurstModule
 {
@@ -53,6 +61,10 @@ public final class NiceWurstModule
 		"net.wurstclient.hacks.PortalEspHack",
 		"net.wurstclient.hacks.SearchHack",
 		"net.wurstclient.hacks.TridentEspHack");
+	private static final Set<String> ENTITY_OVERLAY_CALLERS =
+		Set.of("net.wurstclient.hacks.MobEspHack");
+	private static final Set<String> TRACER_VISIBILITY_EXCEPTIONS =
+		Set.of("net.wurstclient.hacks.WaypointsHack");
 	
 	private static boolean applied;
 	
@@ -138,6 +150,9 @@ public final class NiceWurstModule
 		if(originalDepthTest || !isActive())
 			return originalDepthTest;
 		
+		if(isEntityOverlayCall())
+			return originalDepthTest;
+		
 		for(StackTraceElement element : Thread.currentThread().getStackTrace())
 		{
 			if(DEPTH_TEST_CALLERS.contains(element.getClassName()))
@@ -145,6 +160,99 @@ public final class NiceWurstModule
 		}
 		
 		return originalDepthTest;
+	}
+	
+	public static RenderLayer.MultiPhase enforceDepthTest(
+		RenderLayer.MultiPhase originalLayer)
+	{
+		if(!isActive() || originalLayer == null)
+			return originalLayer;
+		
+		if(isEntityOverlayCall())
+			return originalLayer;
+		
+		if(originalLayer == WurstRenderLayers.ESP_QUADS)
+			return WurstRenderLayers.QUADS;
+		
+		if(originalLayer == WurstRenderLayers.ESP_QUADS_NO_CULLING)
+			return WurstRenderLayers.QUADS_NO_CULLING;
+		
+		if(originalLayer == WurstRenderLayers.ESP_LINES)
+			return WurstRenderLayers.LINES;
+		
+		if(originalLayer == WurstRenderLayers.ESP_LINE_STRIP)
+			return WurstRenderLayers.LINE_STRIP;
+		
+		return originalLayer;
+	}
+	
+	public static boolean shouldEnforceTracerVisibility()
+	{
+		if(!isActive())
+			return false;
+		
+		for(StackTraceElement element : Thread.currentThread().getStackTrace())
+		{
+			if(TRACER_VISIBILITY_EXCEPTIONS.contains(element.getClassName()))
+				return false;
+		}
+		
+		return true;
+	}
+	
+	public static boolean shouldRenderTarget(Vec3d target)
+	{
+		if(!isActive() || target == null)
+			return true;
+		
+		if(WurstClient.MC.world == null || WurstClient.MC.player == null)
+			return true;
+		
+		Camera camera = WurstClient.MC.gameRenderer.getCamera();
+		if(camera == null)
+			return true;
+		
+		Vec3d from = camera.getPos();
+		if(from == null)
+			return true;
+		
+		if(from.squaredDistanceTo(target) < 1e-6)
+			return true;
+		
+		RaycastContext context =
+			new RaycastContext(from, target, RaycastContext.ShapeType.COLLIDER,
+				RaycastContext.FluidHandling.NONE, WurstClient.MC.player);
+		HitResult hit = WurstClient.MC.world.raycast(context);
+		if(hit == null || hit.getType() == HitResult.Type.MISS)
+			return true;
+		
+		if(hit.getType() != HitResult.Type.BLOCK)
+			return true;
+		
+		BlockPos hitPos = ((BlockHitResult)hit).getBlockPos();
+		BlockPos targetPos = BlockPos.ofFloored(target);
+		if(hitPos.equals(targetPos))
+			return true;
+		
+		double targetDistSq = from.squaredDistanceTo(target);
+		double hitDistSq = hit.getPos().squaredDistanceTo(from);
+		return hitDistSq >= targetDistSq - 1e-3;
+	}
+	
+	public static boolean shouldOverlayEntityShapes()
+	{
+		return isActive() && isEntityOverlayCall();
+	}
+	
+	private static boolean isEntityOverlayCall()
+	{
+		for(StackTraceElement element : Thread.currentThread().getStackTrace())
+		{
+			if(ENTITY_OVERLAY_CALLERS.contains(element.getClassName()))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	private static void filterHackList(HackList hackList)

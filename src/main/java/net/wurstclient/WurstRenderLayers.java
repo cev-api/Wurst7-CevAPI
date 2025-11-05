@@ -68,6 +68,15 @@ public enum WurstRenderLayers
 		RenderLayer.MultiPhaseParameters.builder().build(false));
 	
 	/**
+	 * Similar to {@link RenderLayer#getDebugQuads()}, but without back-face
+	 * culling.
+	 */
+	public static final RenderLayer.MultiPhase QUADS_NO_CULLING =
+		RenderLayer.of("wurst:quads_no_culling", 1536, false, true,
+			WurstShaderPipelines.QUADS_NO_CULLING,
+			RenderLayer.MultiPhaseParameters.builder().build(false));
+	
+	/**
 	 * Similar to {@link RenderLayer#getDebugQuads()}, but with culling enabled
 	 * and no depth test.
 	 */
