@@ -21,7 +21,7 @@ All credit for the original client goes to Wurst-Imperium and its contributors. 
 
 ## NiceWurst Variant (Cheat-Free Build)
 
-This fork now ships with NiceWurst, a non-cheating configuration you can build from the same source by passing ```-Pnicewurst=1``` at build (or setting NICEWURST=1 as an env var). 
+This fork now ships with [NiceWurst](https://github.com/cev-api/NiceWurst), a non-cheating configuration you can build from the same source by passing ```-Pnicewurst=1``` at build (or setting NICEWURST=1 as an env var). 
 
 ### The NiceWurst profile:
 
