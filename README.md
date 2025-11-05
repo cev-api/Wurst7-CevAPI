@@ -19,9 +19,9 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
-## NiceWurst Variant (Cheat-Reduced Build)
+## NiceWurst Variant (Cheat-Free Build)
 
-This fork now ships with NiceWurst, a non-cheating configuration you can build from the same source by passing ```-Pnicewurst=1``` (or setting NICEWURST=1 as an env var). 
+This fork now ships with NiceWurst, a non-cheating configuration you can build from the same source by passing ```-Pnicewurst=1``` at build (or setting NICEWURST=1 as an env var). 
 
 ### The NiceWurst profile:
 
