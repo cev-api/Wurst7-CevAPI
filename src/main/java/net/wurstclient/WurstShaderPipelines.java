@@ -81,6 +81,17 @@ public enum WurstShaderPipelines
 			.build());
 	
 	/**
+	 * Similar to the DEBUG_QUADS ShaderPipeline, but with no back-face culling.
+	 */
+	public static final RenderPipeline QUADS_NO_CULLING = RenderPipelines
+		.register(RenderPipeline.builder(RenderPipelines.POSITION_COLOR_SNIPPET)
+			.withLocation(
+				Identifier.of("wurst:pipeline/wurst_quads_no_culling"))
+			.withCull(false)
+			.withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
+			.build());
+	
+	/**
 	 * Similar to the DEBUG_QUADS ShaderPipeline, but with culling enabled
 	 * and no depth test.
 	 */

@@ -138,7 +138,13 @@ public enum RenderUtils
 	public static void drawTracer(MatrixStack matrices, float partialTicks,
 		Vec3d end, int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean enforceVisibility =
+			NiceWurstModule.shouldEnforceTracerVisibility();
+		if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
+			return;
+		
+		if(!enforceVisibility)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -153,34 +159,57 @@ public enum RenderUtils
 	public static void drawTracers(MatrixStack matrices, float partialTicks,
 		List<Vec3d> ends, int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean enforceVisibility =
+			NiceWurstModule.shouldEnforceTracerVisibility();
+		if(!enforceVisibility)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d start = getTracerOrigin(partialTicks);
 		Vec3d offset = getCameraPos().negate();
-		for(Vec3d end : ends)
-			drawLine(matrices, buffer, start, end.add(offset), color);
 		
-		vcp.draw(layer);
+		boolean rendered = false;
+		for(Vec3d end : ends)
+		{
+			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
+				continue;
+			drawLine(matrices, buffer, start, end.add(offset), color);
+			rendered = true;
+		}
+		
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawTracers(MatrixStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean enforceVisibility =
+			NiceWurstModule.shouldEnforceTracerVisibility();
+		if(!enforceVisibility)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d start = getTracerOrigin(partialTicks);
 		Vec3d offset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredPoint end : ends)
-			drawLine(matrices, buffer, start, end.point().add(offset),
-				end.color());
+		{
+			Vec3d point = end.point();
+			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
+				continue;
+			drawLine(matrices, buffer, start, point.add(offset), end.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawTracers(MatrixStack matrices, float partialTicks,
@@ -189,18 +218,29 @@ public enum RenderUtils
 		if(ends == null || ends.isEmpty())
 			return;
 		
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean enforceVisibility =
+			NiceWurstModule.shouldEnforceTracerVisibility();
+		if(!enforceVisibility)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d start = getTracerOrigin(partialTicks);
 		Vec3d offset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredPoint end : ends)
-			drawLine(matrices, buffer, start, end.point().add(offset),
-				end.color());
+		{
+			Vec3d point = end.point();
+			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
+				continue;
+			drawLine(matrices, buffer, start, point.add(offset), end.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawLine(MatrixStack matrices, VertexConsumer buffer,
@@ -298,7 +338,12 @@ public enum RenderUtils
 	public static void drawSolidBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			return;
+		
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -312,32 +357,53 @@ public enum RenderUtils
 	public static void drawSolidBoxes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(Box box : boxes)
+		{
+			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+				continue;
+			
 			drawSolidBox(matrices, buffer, box.offset(camOffset), color);
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawSolidBoxes(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredBox box : boxes)
+		{
+			if(overlay
+				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+				continue;
+			
 			drawSolidBox(matrices, buffer, box.box().offset(camOffset),
 				box.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawSolidBox(VertexConsumer buffer, Box box, int color)
@@ -390,64 +456,106 @@ public enum RenderUtils
 	public static void drawOutlinedOctahedrons(MatrixStack matrices,
 		List<Box> boxes, int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(Box box : boxes)
+		{
+			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+				continue;
+			
 			drawOutlinedOctahedron(matrices, buffer, box.offset(camOffset),
 				color);
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawOutlinedOctahedrons(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredBox box : boxes)
+		{
+			if(overlay
+				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+				continue;
+			
 			drawOutlinedOctahedron(matrices, buffer,
 				box.box().offset(camOffset), box.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawSolidOctahedrons(MatrixStack matrices,
 		List<Box> boxes, int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(Box box : boxes)
+		{
+			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+				continue;
+			
 			drawSolidOctahedron(matrices, buffer, box.offset(camOffset), color);
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawSolidOctahedrons(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredBox box : boxes)
+		{
+			if(overlay
+				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+				continue;
+			
 			drawSolidOctahedron(matrices, buffer, box.box().offset(camOffset),
 				box.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawOutlinedOctahedron(VertexConsumer buffer, Box box,
@@ -576,7 +684,12 @@ public enum RenderUtils
 	public static void drawOutlinedBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			return;
+		
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -590,32 +703,53 @@ public enum RenderUtils
 	public static void drawOutlinedBoxes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(Box box : boxes)
+		{
+			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+				continue;
+			
 			drawOutlinedBox(matrices, buffer, box.offset(camOffset), color);
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawOutlinedBoxes(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredBox box : boxes)
+		{
+			if(overlay
+				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+				continue;
+			
 			drawOutlinedBox(matrices, buffer, box.box().offset(camOffset),
 				box.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawOutlinedBoxes(MatrixStack matrices,
@@ -624,17 +758,28 @@ public enum RenderUtils
 		if(boxes == null || boxes.isEmpty())
 			return;
 		
-		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
+		if(!overlay)
+			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3d camOffset = getCameraPos().negate();
+		boolean rendered = false;
 		for(ColoredBox box : boxes)
+		{
+			if(overlay
+				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+				continue;
+			
 			drawOutlinedBox(matrices, buffer, box.box().offset(camOffset),
 				box.color());
+			rendered = true;
+		}
 		
-		vcp.draw(layer);
+		if(rendered)
+			vcp.draw(layer);
 	}
 	
 	public static void drawOutlinedBox(VertexConsumer buffer, Box box,

@@ -31,6 +31,7 @@ import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.util.math.MatrixStack;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 /**
  * An abstraction of Minecraft 1.21.5's new {@code GpuBuffer} system that makes
@@ -111,18 +112,21 @@ public final class EasyVertexBuffer implements AutoCloseable
 		if(vertexBuffer == null)
 			return;
 		
+		RenderLayer.MultiPhase effectiveLayer =
+			NiceWurstModule.enforceDepthTest(layer);
+		
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 		modelViewStack.pushMatrix();
 		modelViewStack.mul(matrixStack.peek().getPositionMatrix());
 		
-		layer.startDrawing();
+		effectiveLayer.startDrawing();
 		GpuBufferSlice gpuBufferSlice = RenderSystem.getDynamicUniforms().write(
 			RenderSystem.getModelViewMatrix(),
 			new Vector4f(red, green, blue, alpha), new Vector3f(),
 			RenderSystem.getTextureMatrix(), RenderSystem.getShaderLineWidth());
 		
-		Framebuffer framebuffer = layer.phases.target.get();
-		RenderPipeline pipeline = layer.pipeline;
+		Framebuffer framebuffer = effectiveLayer.phases.target.get();
+		RenderPipeline pipeline = effectiveLayer.pipeline;
 		GpuBuffer indexBuffer = shapeIndexBuffer.getIndexBuffer(indexCount);
 		
 		try(RenderPass renderPass =
@@ -140,7 +144,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 			renderPass.drawIndexed(0, 0, indexCount, 1);
 		}
 		
-		layer.endDrawing();
+		effectiveLayer.endDrawing();
 		modelViewStack.popMatrix();
 	}
 	
