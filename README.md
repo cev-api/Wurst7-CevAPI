@@ -19,13 +19,18 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
-## Other Projects
+## NiceWurst Variant (Cheat-Reduced Build)
 
-I felt I should also make a more publicly accessible version of this fork via [NiceWurst](https://github.com/cev-api/NiceWurst), which is a **cheat-free** version of this very fork. This means, for example, that all ESPs that haven't been trimmed aren't visible through walls. Almost all combat-based hacks have been removed, except for AutoTotem and AutoLeave, which are questionable but are more about breaking server rules rather than any universal definition of cheating. Check out the page, see the list of what has been kept, and give it a go!
+This fork now ships with NiceWurst, a non-cheating configuration you can build from the same source by passing ```-Pnicewurst=1``` (or setting NICEWURST=1 as an env var). 
 
-## My Goals and Experience
+### The NiceWurst profile:
 
-I have no other experience in the field of Minecraft and have never used any other hack except Wurst and Meteor. I ended up liking the UI and features of Wurst more, but I found there were some things that needed tweaking. This is why I made this fork. I don't play on anarchy servers and I don't grief or do anything dramatic. I just wanted a client that would make my survival Minecraft games a bit more enjoyable and personalised. While I don't actively test or use other cheats, I still come up with new ideas constantly and I'm often surprised that I'm the first to implement some of the things below. Maybe they're too superfluous or stupid, but I definitely like them.
+- Keeps only the utility/survival hacks listed in ```src/main/java/net/wurstclient/nicewurst/NiceWurstModule.java``` (edit the allowlist there if you want to add or remove features);
+- Removes combat/duplication/exploit hacks entirely and forces all ESP overlays to respect walls, so you can’t see entities through blocks;
+hides the Alt Manager, Anti-Fingerprint UI, X-Ray block editor, and other “grey-area” tools;
+- Rebrands the mod (jar name, mod id, HUD, links) to “NiceWurst 7” and stores data in .minecraft/nicewurst/ so it never touches your regular Wurst profile.
+
+Build without the flag to get the full CevAPI experience; build with the flag for a genuinely cheat-free alternative.
 
 ---
 

@@ -42,6 +42,8 @@ import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.WurstUpdater;
 import net.wurstclient.util.json.JsonException;
+import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.config.BuildConfig;
 
 public enum WurstClient
 {
@@ -142,12 +144,15 @@ public enum WurstClient
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
 		altManager = new AltManager(altsFile, encFolder);
+		
+		NiceWurstModule.apply(this);
 	}
 	
 	private Path createWurstFolder()
 	{
 		Path dotMinecraftFolder = MC.runDirectory.toPath().normalize();
-		Path wurstFolder = dotMinecraftFolder.resolve("wurst");
+		String folderName = BuildConfig.NICE_WURST ? "nicewurst" : "wurst";
+		Path wurstFolder = dotMinecraftFolder.resolve(folderName);
 		
 		try
 		{

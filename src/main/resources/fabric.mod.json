@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "id": "wurst",
+  "id": "${modId}",
   "version": "${version}",
-  "name": "Wurst Client - Modified by CevAPI",
-  "description": "Cevapi Cevapi Cevapi!",
+  "name": "${modName}",
+  "description": "${modDescription}",
   "authors": [
     "Alexander01998",
     "CevAPI"
   ],
   "contact": {
-    "homepage": "https://github.com/cev-api/Wurst7-CevAPI/",
-    "sources": "https://github.com/cev-api/Wurst7-CevAPI/",
-    "issues": "https://github.com/cev-api/Wurst7-CevAPI/"
+    "homepage": "${homepage}",
+    "sources": "${sources}",
+    "issues": "${issues}"
   },
   "license": "GPL-3.0-or-later",
   "icon": "assets/wurst/icon.png",
