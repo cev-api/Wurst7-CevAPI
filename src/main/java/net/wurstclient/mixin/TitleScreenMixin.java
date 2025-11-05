@@ -22,6 +22,7 @@ import net.minecraft.client.resource.language.I18n;
 import net.minecraft.text.Text;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen
@@ -58,15 +59,20 @@ public abstract class TitleScreenMixin extends Screen
 		if(realmsButton == null)
 			throw new IllegalStateException("Couldn't find realms button!");
 		
-		// make Realms button smaller
-		realmsButton.setWidth(98);
-		
-		// add AltManager button
-		addDrawableChild(altsButton = ButtonWidget
-			.builder(Text.literal("Alt Manager"),
-				b -> client.setScreen(new AltManagerScreen(this,
-					WurstClient.INSTANCE.getAltManager())))
-			.dimensions(width / 2 + 2, realmsButton.getY(), 98, 20).build());
+		if(NiceWurstModule.showAltManager())
+		{
+			// make Realms button smaller
+			realmsButton.setWidth(98);
+			
+			// add AltManager button
+			addDrawableChild(altsButton = ButtonWidget
+				.builder(Text.literal("Alt Manager"),
+					b -> client.setScreen(new AltManagerScreen(this,
+						WurstClient.INSTANCE.getAltManager())))
+				.dimensions(width / 2 + 2, realmsButton.getY(), 98, 20)
+				.build());
+		}else
+			altsButton = null;
 	}
 	
 	@Inject(at = @At("RETURN"), method = "tick()V")

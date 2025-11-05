@@ -26,6 +26,7 @@ import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
 import net.cevapi.config.AntiFingerprintConfigScreen;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(MultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen
@@ -100,16 +101,27 @@ public class MultiplayerScreenMixin extends Screen
 		
 		if(antiFingerprintButton == null)
 		{
-			antiFingerprintButton = ButtonWidget
-				.builder(Text.literal("Anti-Fingerprint"),
-					b -> client.setScreen(new AntiFingerprintConfigScreen(
-						(MultiplayerScreen)(Object)this)))
-				.dimensions(0, 0, 100, 20).build();
-			addDrawableChild(antiFingerprintButton);
+			if(!NiceWurstModule.showAntiFingerprintControls())
+			{
+				antiFingerprintButton = null;
+			}else
+			{
+				antiFingerprintButton = ButtonWidget
+					.builder(Text.literal("Anti-Fingerprint"),
+						b -> client.setScreen(new AntiFingerprintConfigScreen(
+							(MultiplayerScreen)(Object)this)))
+					.dimensions(0, 0, 100, 20).build();
+				addDrawableChild(antiFingerprintButton);
+			}
 		}
-		antiFingerprintButton.setX(width / 2 + 54);
-		antiFingerprintButton.setY(10);
-		antiFingerprintButton.setWidth(100);
+		
+		if(antiFingerprintButton != null)
+		{
+			antiFingerprintButton.setX(width / 2 + 54);
+			antiFingerprintButton.setY(10);
+			antiFingerprintButton.setWidth(100);
+			antiFingerprintButton.visible = true;
+		}
 		
 		if(cornerServerFinderButton == null)
 		{

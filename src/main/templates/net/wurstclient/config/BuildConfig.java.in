@@ -1,0 +1,8 @@
+package net.wurstclient.config;
+
+public final class BuildConfig
+{
+	private BuildConfig() {}
+	
+	public static final boolean NICE_WURST = ${NICE_WURST};
+}

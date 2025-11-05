@@ -29,6 +29,7 @@ import net.minecraft.util.Colors;
 import net.minecraft.util.Util;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.wurstclient.util.MathUtils;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 public class ServerFinderScreen extends Screen
 {
@@ -66,18 +67,21 @@ public class ServerFinderScreen extends Screen
 				.dimensions(width / 2 - 100, height / 4 + 120 + 12, 200, 20)
 				.build());
 		
-		addDrawableChild(
-			ButtonWidget
+		if(NiceWurstModule.showAntiFingerprintControls())
+		{
+			addDrawableChild(ButtonWidget
 				.builder(Text.literal("Anti-Fingerprint"),
 					b -> client
 						.setScreen(new AntiFingerprintConfigScreen(this)))
 				.dimensions(width / 2 - 100, height / 4 + 144 + 12, 200, 20)
 				.build());
+		}
 		
+		int backButtonY = height / 4
+			+ (NiceWurstModule.showAntiFingerprintControls() ? 168 : 144) + 12;
 		addDrawableChild(
 			ButtonWidget.builder(Text.literal("Back"), b -> close())
-				.dimensions(width / 2 - 100, height / 4 + 168 + 12, 200, 20)
-				.build());
+				.dimensions(width / 2 - 100, backButtonY, 200, 20).build());
 		
 		ipBox = new TextFieldWidget(textRenderer, width / 2 - 100,
 			height / 4 + 34, 200, 20, Text.empty());

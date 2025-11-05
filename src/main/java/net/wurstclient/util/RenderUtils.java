@@ -33,6 +33,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.chunk.Chunk;
 import net.wurstclient.WurstClient;
 import net.wurstclient.WurstRenderLayers;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 public enum RenderUtils
 {
@@ -113,6 +114,7 @@ public enum RenderUtils
 	public static void drawLine(MatrixStack matrices, Vec3d start, Vec3d end,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -136,6 +138,7 @@ public enum RenderUtils
 	public static void drawTracer(MatrixStack matrices, float partialTicks,
 		Vec3d end, int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -150,6 +153,7 @@ public enum RenderUtils
 	public static void drawTracers(MatrixStack matrices, float partialTicks,
 		List<Vec3d> ends, int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -165,6 +169,7 @@ public enum RenderUtils
 	public static void drawTracers(MatrixStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -184,6 +189,7 @@ public enum RenderUtils
 		if(ends == null || ends.isEmpty())
 			return;
 		
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -241,6 +247,7 @@ public enum RenderUtils
 	public static void drawCurvedLine(MatrixStack matrices, List<Vec3d> points,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLineStrip(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -255,6 +262,7 @@ public enum RenderUtils
 	public static void drawCurvedLine(MatrixStack matrices, List<Vec3d> points,
 		int color, boolean depthTest, double width)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLineStrip(depthTest, width);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -290,6 +298,7 @@ public enum RenderUtils
 	public static void drawSolidBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -303,6 +312,7 @@ public enum RenderUtils
 	public static void drawSolidBoxes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -317,6 +327,7 @@ public enum RenderUtils
 	public static void drawSolidBoxes(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -379,6 +390,7 @@ public enum RenderUtils
 	public static void drawOutlinedOctahedrons(MatrixStack matrices,
 		List<Box> boxes, int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -394,6 +406,7 @@ public enum RenderUtils
 	public static void drawOutlinedOctahedrons(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -409,6 +422,7 @@ public enum RenderUtils
 	public static void drawSolidOctahedrons(MatrixStack matrices,
 		List<Box> boxes, int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -423,6 +437,7 @@ public enum RenderUtils
 	public static void drawSolidOctahedrons(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -561,6 +576,7 @@ public enum RenderUtils
 	public static void drawOutlinedBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -574,6 +590,7 @@ public enum RenderUtils
 	public static void drawOutlinedBoxes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -588,6 +605,7 @@ public enum RenderUtils
 	public static void drawOutlinedBoxes(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -606,6 +624,7 @@ public enum RenderUtils
 		if(boxes == null || boxes.isEmpty())
 			return;
 		
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -669,6 +688,7 @@ public enum RenderUtils
 	public static void drawCrossBox(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -682,6 +702,7 @@ public enum RenderUtils
 	public static void drawCrossBoxes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -696,6 +717,7 @@ public enum RenderUtils
 	public static void drawCrossBoxes(MatrixStack matrices,
 		List<ColoredBox> boxes, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -764,6 +786,7 @@ public enum RenderUtils
 	public static void drawNode(MatrixStack matrices, Box box, int color,
 		boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
@@ -776,6 +799,7 @@ public enum RenderUtils
 	public static void drawNodes(MatrixStack matrices, List<Box> boxes,
 		int color, boolean depthTest)
 	{
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		VertexConsumerProvider.Immediate vcp = getVCP();
 		RenderLayer layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);

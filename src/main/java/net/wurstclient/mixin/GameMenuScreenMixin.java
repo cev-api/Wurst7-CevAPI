@@ -27,6 +27,7 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.wurstclient.WurstClient;
 import net.wurstclient.options.WurstOptionsScreen;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(GameMenuScreen.class)
 public abstract class GameMenuScreenMixin extends Screen
@@ -91,7 +92,9 @@ public abstract class GameMenuScreenMixin extends Screen
 		ensureSpaceAvailable(buttonX, buttonY, buttonWidth, buttonHeight);
 		
 		// Create Wurst Options button with full label instead of padded spaces
-		MutableText buttonText = Text.literal("Wurst 7 CevAPI Options");
+		String label =
+			NiceWurstModule.getOptionsLabel("Wurst 7 CevAPI Options");
+		MutableText buttonText = Text.literal(label);
 		wurstOptionsButton = ButtonWidget
 			.builder(buttonText, b -> openWurstOptions())
 			.dimensions(buttonX, buttonY, buttonWidth, buttonHeight).build();

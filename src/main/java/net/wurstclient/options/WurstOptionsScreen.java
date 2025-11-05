@@ -31,6 +31,7 @@ import net.wurstclient.other_features.VanillaSpoofOtf;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.WurstColors;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 public class WurstOptionsScreen extends Screen
 {
@@ -104,31 +105,37 @@ public class WurstOptionsScreen extends Screen
 			"Shows a toast warning when a server enforces insecure chat/reporting.",
 			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
 		
-		new WurstOptionsButton(-154, 144, () -> "Anti-Fingerprint",
-			"Open the Anti-Fingerprint controls for resource-pack handling.",
-			b -> client.setScreen(
-				new net.cevapi.config.AntiFingerprintConfigScreen(this)));
+		if(NiceWurstModule.showAntiFingerprintControls())
+		{
+			new WurstOptionsButton(-154, 144, () -> "Anti-Fingerprint",
+				"Open the Anti-Fingerprint controls for resource-pack handling.",
+				b -> client.setScreen(
+					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
+		}
 	}
 	
 	private void addManagerButtons()
 	{
-		XRayHack xRayHack = WurstClient.INSTANCE.getHax().xRayHack;
-		
-		new WurstOptionsButton(-50, 24, () -> "Keybinds",
+		int row = 0;
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Keybinds",
 			"Keybinds allow you to toggle any hack or command by simply"
 				+ " pressing a button.",
 			b -> client.setScreen(new KeybindManagerScreen(this)));
 		
-		new WurstOptionsButton(-50, 48, () -> "X-Ray Blocks",
-			"Manager for the blocks that X-Ray will show.",
-			b -> xRayHack.openBlockListEditor(this));
+		if(NiceWurstModule.showXrayBlocksManager())
+		{
+			XRayHack xRayHack = WurstClient.INSTANCE.getHax().xRayHack;
+			new WurstOptionsButton(-50, 24 + row++ * 24, () -> "X-Ray Blocks",
+				"Manager for the blocks that X-Ray will show.",
+				b -> xRayHack.openBlockListEditor(this));
+		}
 		
-		new WurstOptionsButton(-50, 72, () -> "Zoom",
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Zoom",
 			"The Zoom Manager allows you to change the zoom key and how far it"
 				+ " will zoom in.",
 			b -> client.setScreen(new ZoomManagerScreen(this)));
 		
-		new WurstOptionsButton(-50, 96, () -> "Waypoints",
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Waypoints",
 			"Manage your waypoints.",
 			b -> WurstClient.INSTANCE.getHax().waypointsHack.openManager());
 	}
@@ -136,9 +143,17 @@ public class WurstOptionsScreen extends Screen
 	private void addLinkButtons()
 	{
 		OperatingSystem os = Util.getOperatingSystem();
-		new WurstOptionsButton(54, 24, () -> "CevAPI Github",
-			"§n§lGitHub page for CevAPI, the maker of this Wurst Client fork",
-			b -> os.open("https://github.com/cev-api/Wurst7-CevAPI"));
+		String primaryLabel =
+			NiceWurstModule.isActive() ? "NiceWurst Github" : "CevAPI Github";
+		String primaryTooltip = NiceWurstModule.isActive()
+			? "§n§lGitHub page for NiceWurst, the curated build of this fork"
+			: "§n§lGitHub page for CevAPI, the maker of this Wurst Client fork";
+		String primaryUrl =
+			NiceWurstModule.isActive() ? "https://github.com/cev-api/NiceWurst"
+				: "https://github.com/cev-api/Wurst7-CevAPI";
+		
+		new WurstOptionsButton(54, 24, () -> primaryLabel, primaryTooltip,
+			b -> os.open(primaryUrl));
 		
 		new WurstOptionsButton(54, 48, () -> "Wurst Website",
 			"§n§lWurstClient.net",
@@ -180,7 +195,9 @@ public class WurstOptionsScreen extends Screen
 		int y1 = 40;
 		int y2 = height / 4 + 24 - 28;
 		
-		context.drawCenteredTextWithShadow(tr, "Wurst Options", middleX, y1,
+		String title =
+			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
+		context.drawCenteredTextWithShadow(tr, title, middleX, y1,
 			Colors.WHITE);
 		
 		context.drawCenteredTextWithShadow(tr, "Settings", middleX - 104, y2,

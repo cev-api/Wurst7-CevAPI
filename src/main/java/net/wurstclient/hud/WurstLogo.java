@@ -12,6 +12,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.WurstLogoOtf;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 public final class WurstLogo
 {
@@ -24,7 +25,7 @@ public final class WurstLogo
 			return;
 		
 		String version = getVersionString();
-		String brand = "Wurst 7 CevAPI";
+		String brand = NiceWurstModule.getBrandLabel("Wurst 7 CevAPI");
 		TextRenderer tr = WurstClient.MC.textRenderer;
 		
 		// Measure and layout

@@ -11,11 +11,33 @@ plugins {
 
 def ENV = System.getenv()
 
-version = project.mod_version
+def niceWurstRaw =
+	(project.findProperty("nicewurst") ?: ENV.NICEWURST ?: "0").toString()
+def niceWurstEnabled = !["0", "false", "off", "no", ""]
+	.contains(niceWurstRaw.toLowerCase(Locale.ROOT))
+
+def effectiveVersion = niceWurstEnabled
+	? project.mod_version.replace("-Cevapi", "")
+	: project.mod_version
+def effectiveArchiveName =
+	niceWurstEnabled ? "NiceWurst" : project.archives_base_name
+def modId = niceWurstEnabled ? "nicewurst" : "wurst"
+def modName = niceWurstEnabled ? "NiceWurst 7"
+	: "Wurst Client - Modified by CevAPI"
+def modDescription = niceWurstEnabled
+	? "NiceWurst is a curated, cheat-free build of this fork."
+	: "Cevapi Cevapi Cevapi!"
+def homepageUrl = niceWurstEnabled ? "https://github.com/cev-api/NiceWurst"
+	: "https://github.com/cev-api/Wurst7-CevAPI/"
+def sourcesUrl = homepageUrl
+def issuesUrl =
+	homepageUrl + (homepageUrl.endsWith("/") ? "issues" : "/issues")
+
+version = effectiveVersion
 group = project.maven_group
 
 base {
-	archivesName = project.archives_base_name
+	archivesName = effectiveArchiveName
 }
 
 repositories {
@@ -81,6 +103,7 @@ dependencies {
 }
 
 import net.fabricmc.loom.util.Platform
+import java.util.Locale
 tasks.register('runEndToEndTest', JavaExec) {
 	dependsOn remapJar, downloadAssets
 	classpath.from configurations.productionRuntime
@@ -115,10 +138,60 @@ tasks.register('runEndToEndTest', JavaExec) {
 processResources {
 	def modVersion = project.version.substring(1)
 	inputs.property("version", modVersion)
+	inputs.property("modName", modName)
+	inputs.property("modDescription", modDescription)
+	inputs.property("homepageUrl", homepageUrl)
+	inputs.property("sourcesUrl", sourcesUrl)
+	inputs.property("issuesUrl", issuesUrl)
+	inputs.property("modId", modId)
 	
 	filesMatching("fabric.mod.json") {
-		expand(version: modVersion)
+		expand([
+			modId: modId,
+			version: modVersion,
+			modName: modName,
+			modDescription: modDescription,
+			homepage: homepageUrl,
+			sources: sourcesUrl,
+			issues: issuesUrl
+		])
 	}
+}
+
+def buildConfigOutput =
+	layout.buildDirectory.dir("generated/sources/buildConfig/java")
+
+tasks.register("generateBuildConfig") {
+	def template =
+		file("src/main/templates/net/wurstclient/config/BuildConfig.java.in")
+	
+	inputs.file(template)
+	inputs.property("niceWurstEnabled", niceWurstEnabled)
+	outputs.dir(buildConfigOutput)
+	
+	doLast {
+		def targetDir =
+			buildConfigOutput.get().dir("net/wurstclient/config").asFile
+		if(!targetDir.exists())
+			targetDir.mkdirs()
+		
+		def content = template.getText("UTF-8")
+			.replace('${NICE_WURST}', String.valueOf(niceWurstEnabled))
+		
+		def targetFile = new File(targetDir, "BuildConfig.java")
+		targetFile.setText(content, "UTF-8")
+	}
+}
+
+sourceSets.main.java.srcDir(buildConfigOutput)
+
+tasks.named("compileJava").configure {
+	dependsOn(tasks.named("generateBuildConfig"))
+}
+
+tasks.configureEach {
+	if(name == "sourcesJar" || name == "spotlessJava")
+		dependsOn(tasks.named("generateBuildConfig"))
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -151,6 +224,7 @@ import com.diffplug.spotless.generic.LicenseHeaderStep
 spotless {
 	lineEndings = "WINDOWS"
 	java {
+		targetExclude("build/generated/sources/buildConfig/java/**/*.java")
 		removeUnusedImports()
 		leadingSpacesToTabs()
 		trimTrailingWhitespace()
