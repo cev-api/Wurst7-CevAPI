@@ -67,9 +67,9 @@ jobs:
 
     - name: Migrate mappings for test source set
       run: |
-        ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --input "src/test/java" --output "src/test/java_"
-        rm -rf ./src/test/java
-        mv ./src/test/java_ ./src/test/java
+        ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
+        ./gradlew migrateTestMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
+        ./gradlew migrateClassTweakerMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
 
     - name: Update version constants
       run: |
