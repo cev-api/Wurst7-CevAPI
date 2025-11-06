@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.wurstclient.Category;
@@ -45,6 +46,10 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	private final CheckboxSetting autoJump = new CheckboxSetting("Auto jump",
 		"Automatically jumps before throwing if you are on the ground.", true);
 	
+	private final CheckboxSetting lookDownBeforeThrow = new CheckboxSetting(
+		"Look down",
+		"Faces straight down before throwing to maximize launch height.", true);
+	
 	private final SliderSetting jumpDelayMs = new SliderSetting("Jump delay",
 		10, 0, 200, 5, ValueDisplay.INTEGER.withSuffix("ms"));
 	
@@ -56,6 +61,14 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	private long lastThrowTime;
 	private long switchBackTime;
 	private long jumpStartTime;
+	private boolean awaitingLaunch;
+	private int pendingSlot = -1;
+	private boolean pendingSilent;
+	private boolean pendingLookDown;
+	private long launchDeadline;
+	private boolean restorePitch;
+	private float savedPitch;
+	private long restorePitchAt;
 	
 	public WindChargeKeyHack()
 	{
@@ -67,6 +80,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		addSetting(throwDelayMs);
 		addSetting(silentMode);
 		addSetting(autoJump);
+		addSetting(lookDownBeforeThrow);
 		addSetting(jumpDelayMs);
 	}
 	
@@ -121,6 +135,27 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 				MC.player.jump();
 		}
 		
+		if(awaitingLaunch)
+		{
+			boolean airborne = !MC.player.isOnGround();
+			boolean upward = MC.player.getVelocity().y > 0.08;
+			boolean ready = upward || (!autoJump.isChecked() && airborne)
+				|| now >= launchDeadline;
+			
+			if(ready)
+			{
+				awaitingLaunch = false;
+				int slot = pendingSlot;
+				boolean silent = pendingSilent;
+				boolean lookDown = pendingLookDown;
+				clearPending();
+				performThrow(slot, silent, lookDown);
+			}
+		}
+		
+		if(restorePitch && now >= restorePitchAt)
+			restorePitchImmediate(savedPitch);
+		
 		if(needsSlotRestore && now - switchBackTime >= getSwitchDelay())
 		{
 			if(originalSlot != -1
@@ -138,6 +173,9 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	{
 		long now = System.currentTimeMillis();
 		
+		if(awaitingLaunch)
+			return;
+		
 		if(!firstThrow && now - lastThrowTime < getThrowDelay())
 			return;
 		
@@ -145,28 +183,124 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		if(windChargeSlot == -1)
 			return;
 		
+		boolean silent = silentMode.isChecked();
+		boolean lookDown = lookDownBeforeThrow.isChecked();
+		
 		if(autoJump.isChecked() && MC.player.isOnGround())
 		{
-			long jumpDelay = getJumpDelay();
-			
-			if(jumpDelay == 0)
-				MC.player.jump();
-			else
-			{
-				jumpScheduled = true;
-				jumpStartTime = now;
-			}
+			clearPending();
+			pendingSlot = windChargeSlot;
+			pendingSilent = silent;
+			pendingLookDown = lookDown;
+			launchDeadline = now + Math.max(250L, getJumpDelay() + 200L);
+			awaitingLaunch = true;
+			scheduleJump(now);
+			return;
 		}
 		
-		boolean success =
-			silentMode.isChecked() ? throwWindChargeSilently(windChargeSlot)
-				: throwWindChargeNormally(windChargeSlot, now);
+		performThrow(windChargeSlot, silent, lookDown);
+	}
+	
+	private void scheduleJump(long now)
+	{
+		long delay = getJumpDelay();
+		if(delay <= 0)
+		{
+			if(MC.player.isOnGround())
+				MC.player.jump();
+			return;
+		}
+		
+		jumpScheduled = true;
+		jumpStartTime = now;
+	}
+	
+	private void performThrow(int preferredSlot, boolean silent,
+		boolean lookDown)
+	{
+		clearPending();
+		
+		int slot = resolveWindChargeSlot(preferredSlot);
+		if(slot == -1)
+			return;
+		
+		float previousPitch = 0F;
+		boolean appliedLookDown = lookDown && lookDownBeforeThrow.isChecked();
+		if(appliedLookDown)
+			previousPitch = applyLookDown();
+		
+		long now = System.currentTimeMillis();
+		boolean success = silent ? throwWindChargeSilently(slot)
+			: throwWindChargeNormally(slot, now);
 		
 		if(!success)
+		{
+			if(appliedLookDown)
+				restorePitchImmediate(previousPitch);
 			return;
+		}
+		
+		if(appliedLookDown)
+		{
+			savedPitch = previousPitch;
+			restorePitch = true;
+			restorePitchAt = now + 150;
+		}else
+		{
+			restorePitch = false;
+			restorePitchAt = 0;
+		}
 		
 		firstThrow = false;
 		lastThrowTime = now;
+	}
+	
+	private int resolveWindChargeSlot(int preferredSlot)
+	{
+		if(preferredSlot >= 0 && preferredSlot < 9)
+		{
+			ItemStack stack = MC.player.getInventory().getStack(preferredSlot);
+			if(stack.isOf(Items.WIND_CHARGE))
+				return preferredSlot;
+		}
+		
+		return findWindChargeInHotbar();
+	}
+	
+	private float applyLookDown()
+	{
+		float oldPitch = MC.player.getPitch();
+		float downwardPitch = 90F;
+		MC.player.setPitch(downwardPitch);
+		MC.player.networkHandler.sendPacket(
+			new PlayerMoveC2SPacket.LookAndOnGround(MC.player.getYaw(),
+				downwardPitch, MC.player.isOnGround(),
+				MC.player.horizontalCollision));
+		return oldPitch;
+	}
+	
+	private void restorePitchImmediate(float pitch)
+	{
+		if(MC.player == null)
+			return;
+		
+		MC.player.setPitch(pitch);
+		MC.player.networkHandler.sendPacket(
+			new PlayerMoveC2SPacket.LookAndOnGround(MC.player.getYaw(), pitch,
+				MC.player.isOnGround(), MC.player.horizontalCollision));
+		restorePitch = false;
+		restorePitchAt = 0;
+	}
+	
+	private void clearPending()
+	{
+		awaitingLaunch = false;
+		pendingSlot = -1;
+		pendingSilent = false;
+		pendingLookDown = false;
+		launchDeadline = 0;
+		jumpScheduled = false;
+		jumpStartTime = 0;
 	}
 	
 	private boolean throwWindChargeSilently(int slot)
@@ -268,13 +402,19 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	
 	private void resetState()
 	{
+		clearPending();
+		
+		if(restorePitch && MC.player != null)
+			restorePitchImmediate(savedPitch);
+		
 		keyPressed = false;
 		originalSlot = -1;
 		needsSlotRestore = false;
 		firstThrow = true;
-		jumpScheduled = false;
 		lastThrowTime = 0;
 		switchBackTime = 0;
-		jumpStartTime = 0;
+		restorePitch = false;
+		restorePitchAt = 0;
+		savedPitch = 0F;
 	}
 }
