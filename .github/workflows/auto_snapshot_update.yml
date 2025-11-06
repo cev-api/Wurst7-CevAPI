@@ -59,10 +59,17 @@ jobs:
         cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
         cache-read-only: ${{ github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/heads/1.') }}
 
-    - name: Migrate mappings
+    - name: Migrate mappings for main source set
+      run: |
+        ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --input "src/main/java" --output "src/main/java_"
+        rm -rf ./src/main/java
+        mv ./src/main/java_ ./src/main/java
+
+    - name: Migrate mappings for test source set
       run: |
         ./gradlew migrateMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
         ./gradlew migrateTestMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
+        ./gradlew migrateClassTweakerMappings --mappings ${{ inputs.yarn_mappings }} --overrideInputsIHaveABackup
 
     - name: Update version constants
       run: |
