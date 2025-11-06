@@ -309,13 +309,14 @@ Examples:
 
 ### Above Ground/ESP Y Limit (New ESP Option)
 - ItemESP, MobESP, MobSearch, Search, ChestESP, BedESP, SignESP, PortalESP, RedstoneESP and WorkstationESP now have an adjustable Y limit (default 62 which is approximately sea level)
-- There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```)
+- There is a global toggle and setting that can apply to all, or the user can set toggle and set them individually in the hack's settings (```.aboveground on/off```, ```.aboveground toggle```, ```.aboveground y #```) - also accessible via 'GlobalToggle' setting in the Other category within the ClickUI.
 - This will help prevent you from detecting inaccessible mobs/items and help you focus on scanning the surface of the world (if that's your goal) 
 
 ### Sticky Area (New ESP Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
 - Keeps results anchored as you move. Default OFF.  
 - Greatly helps with FPS when using things like Search or X-Ray and moving quickly
+- Global toggle accessible via 'GlobalToggle' setting in the Other category within the ClickUI. 
 
 ### TooManyHax Improved
 - Submenu of TooManyHax in the ClickUI/Navigator shows a list of toggleable hacks instead of needing to manually enter the name of each one via cmd.

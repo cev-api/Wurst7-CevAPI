@@ -114,6 +114,7 @@
   "description.wurst.hack.follow": "A bot that follows the closest entity.\nVery annoying.\n\nUse .follow to follow a specific entity.",
   "description.wurst.hack.forceop": "Cracks AuthMe passwords.\nCan be used to get OP.",
   "description.wurst.hack.freecam": "Allows you to move the camera without moving your character.",
+  "description.wurst.hack.globaltoggle": "Controls global overrides for sticky areas and above-ground ESP filters.",
   "description.wurst.hack.fullbright": "Allows you to see in the dark.",
   "description.wurst.hack.glide": "Makes you glide down slowly when falling.\n\n??c??lWARNING:??r You will take fall damage if you don't use NoFall.",
   "description.wurst.hack.handnoclip": "Allows you to reach specific blocks through walls.",
