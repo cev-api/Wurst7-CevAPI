@@ -291,6 +291,7 @@ Examples:
 ![Mob](https://i.imgur.com/VXHW4qe.png)
 
 ### Portal ESP Improvement
+- Single centered line for Nether Portals, End Portal Frames, and active End Portals.
 - Radius changes reset scan instantly.  
 
 ### Larger Scan Radius
