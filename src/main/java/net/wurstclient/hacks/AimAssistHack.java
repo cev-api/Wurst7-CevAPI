@@ -8,10 +8,12 @@
 package net.wurstclient.hacks;
 
 import java.util.Comparator;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.events.MouseUpdateListener;
@@ -90,6 +92,8 @@ public final class AimAssistHack extends Hack
 	private Entity target;
 	private float nextYaw;
 	private float nextPitch;
+	private Function<Entity, Vec3d> overrideAimPoint;
+	private Entity externalTarget;
 	
 	public AimAssistHack()
 	{
@@ -131,6 +135,8 @@ public final class AimAssistHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(MouseUpdateListener.class, this);
 		target = null;
+		overrideAimPoint = null;
+		externalTarget = null;
 	}
 	
 	@Override
@@ -145,11 +151,19 @@ public final class AimAssistHack extends Hack
 		if(!aimWhileBlocking.isChecked() && MC.player.isUsingItem())
 			return;
 		
-		chooseTarget();
+		Entity forced = externalTarget;
+		if(forced != null && !isValidForcedTarget(forced))
+			externalTarget = forced = null;
+		
+		if(forced != null)
+			target = forced;
+		else
+			chooseTarget();
+		
 		if(target == null)
 			return;
 		
-		Vec3d hitVec = aimAt.getAimPoint(target);
+		Vec3d hitVec = getAimPoint(target);
 		if(checkLOS.isChecked() && !BlockUtils.hasLineOfSight(hitVec))
 		{
 			target = null;
@@ -176,14 +190,14 @@ public final class AimAssistHack extends Hack
 		stream = stream.filter(e -> MC.player.squaredDistanceTo(e) <= rangeSq);
 		
 		if(fov.getValue() < 360.0)
-			stream = stream.filter(e -> RotationUtils.getAngleToLookVec(
-				aimAt.getAimPoint(e)) <= fov.getValue() / 2.0);
+			stream = stream.filter(e -> RotationUtils
+				.getAngleToLookVec(getAimPoint(e)) <= fov.getValue() / 2.0);
 		
 		stream = entityFilters.applyTo(stream);
 		
 		target = stream
 			.min(Comparator.comparingDouble(
-				e -> RotationUtils.getAngleToLookVec(aimAt.getAimPoint(e))))
+				e -> RotationUtils.getAngleToLookVec(getAimPoint(e))))
 			.orElse(null);
 	}
 	
@@ -213,5 +227,45 @@ public final class AimAssistHack extends Hack
 		
 		event.setDeltaX(mouseInputX + diffYaw);
 		event.setDeltaY(mouseInputY + diffPitch);
+	}
+	
+	private Vec3d getAimPoint(Entity entity)
+	{
+		if(overrideAimPoint != null)
+			return overrideAimPoint.apply(entity);
+		
+		return aimAt.getAimPoint(entity);
+	}
+	
+	public void setOverrideAimPoint(Function<Entity, Vec3d> override)
+	{
+		overrideAimPoint = override;
+	}
+	
+	public void setExternalTarget(Entity entity)
+	{
+		externalTarget = entity;
+	}
+	
+	public void clearExternalTarget()
+	{
+		externalTarget = null;
+	}
+	
+	private boolean isValidForcedTarget(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		
+		if(entity.isRemoved())
+			return false;
+		
+		if(entity instanceof LivingEntity living && !living.isAlive())
+			return false;
+		
+		if(!EntityUtils.IS_ATTACKABLE.test(entity))
+			return false;
+		
+		return true;
 	}
 }

@@ -54,6 +54,7 @@ public final class HackList implements UpdateListener
 	public final AutoEatHack autoEatHack = new AutoEatHack();
 	public final AutoFarmHack autoFarmHack = new AutoFarmHack();
 	public final AutoFishHack autoFishHack = new AutoFishHack();
+	public final AutoMaceHack autoMaceHack = new AutoMaceHack();
 	public final AutoMineHack autoMineHack = new AutoMineHack();
 	public final AutoPotionHack autoPotionHack = new AutoPotionHack();
 	public final AutoReconnectHack autoReconnectHack = new AutoReconnectHack();
@@ -68,6 +69,7 @@ public final class HackList implements UpdateListener
 	public final AutoToolHack autoToolHack = new AutoToolHack();
 	public final AutoTotemHack autoTotemHack = new AutoTotemHack();
 	public final AutoWalkHack autoWalkHack = new AutoWalkHack();
+	public final WindChargeKeyHack windChargeKeyHack = new WindChargeKeyHack();
 	public final BarrierEspHack barrierEspHack = new BarrierEspHack();
 	public final BaseFinderHack baseFinderHack = new BaseFinderHack();
 	public final BlinkHack blinkHack = new BlinkHack();
