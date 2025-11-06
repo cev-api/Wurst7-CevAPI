@@ -8,7 +8,10 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.function.BiPredicate;
 
@@ -18,6 +21,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -199,10 +203,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
-				return;
+				continue;
 			
-			List<Box> boxes = group.getBoxes();
-			List<Vec3d> ends = boxes.stream().map(Box::getCenter).toList();
+			List<Vec3d> ends = getTracerTargets(group);
+			if(ends.isEmpty())
+				continue;
+			
 			int color = group.getColorI(0x80);
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
@@ -228,5 +234,64 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				group.add(result.pos());
 				break;
 			}
+	}
+	
+	private List<Vec3d> getTracerTargets(PortalEspBlockGroup group)
+	{
+		if(!usesStructureCenter(group))
+			return group.getBoxes().stream().map(Box::getCenter).toList();
+		
+		return getStructureCenters(group.getPositions());
+	}
+	
+	private boolean usesStructureCenter(PortalEspBlockGroup group)
+	{
+		return group == netherPortal || group == endPortalFrame
+			|| group == endPortal;
+	}
+	
+	private List<Vec3d> getStructureCenters(List<BlockPos> positions)
+	{
+		if(positions.isEmpty())
+			return List.of();
+		
+		HashSet<BlockPos> remaining = new HashSet<>(positions);
+		ArrayList<Vec3d> centers = new ArrayList<>();
+		
+		while(!remaining.isEmpty())
+		{
+			BlockPos start = remaining.iterator().next();
+			remaining.remove(start);
+			
+			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+			queue.add(start);
+			
+			int count = 0;
+			double sumX = 0;
+			double sumY = 0;
+			double sumZ = 0;
+			
+			while(!queue.isEmpty())
+			{
+				BlockPos current = queue.removeFirst();
+				count++;
+				sumX += current.getX() + 0.5;
+				sumY += current.getY() + 0.5;
+				sumZ += current.getZ() + 0.5;
+				
+				for(Direction dir : Direction.values())
+				{
+					BlockPos neighbor = current.offset(dir);
+					if(remaining.remove(neighbor))
+						queue.addLast(neighbor);
+				}
+			}
+			
+			if(count > 0)
+				centers
+					.add(new Vec3d(sumX / count, sumY / count, sumZ / count));
+		}
+		
+		return centers;
 	}
 }
