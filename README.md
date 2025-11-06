@@ -48,6 +48,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Finds all bed types.  
 - Chunk-based scanning with configurable color and Box/Line style.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
+- Filter for hiding Trial Chamber and or Villager beds.
 
 ![BedESP](https://i.imgur.com/kPHKPDz.png)
 
