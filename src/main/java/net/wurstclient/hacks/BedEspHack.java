@@ -11,10 +11,25 @@ import java.awt.Color;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.BedBlock;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.DoorBlock;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.block.enums.BedPart;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.passive.IronGolemEntity;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.tag.TagKey;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.ChunkPos;
@@ -33,8 +48,10 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
+import net.wurstclient.util.chunk.ChunkUtils;
 
 @SearchTags({"BedESP", "bed esp"})
 public final class BedEspHack extends Hack implements UpdateListener,
@@ -68,6 +85,12 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			"Only show beds at or above the configured Y level.", false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final net.wurstclient.settings.CheckboxSetting filterTrialChambers =
+		new net.wurstclient.settings.CheckboxSetting("Filter trial chambers",
+			"Hides beds that match common trial chamber layouts.", false);
+	private final net.wurstclient.settings.CheckboxSetting filterVillageBeds =
+		new net.wurstclient.settings.CheckboxSetting("Filter village beds",
+			"Hides beds that appear to belong to villages.", false);
 	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof BedBlock;
@@ -78,6 +101,13 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkPos lastPlayerChunk;
 	private int foundCount;
+	private List<BlockPos> cachedTrialSpawners = List.of();
+	private List<Vec3d> cachedVillagerPositions = List.of();
+	private List<Vec3d> cachedGolemPositions = List.of();
+	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG = TagKey.of(
+		RegistryKeys.BLOCK, Identifier.of("minecraft", "waxed_copper_blocks"));
+	private boolean lastTrialFilterState;
+	private boolean lastVillageFilterState;
 	
 	public BedEspHack()
 	{
@@ -91,6 +121,11 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(filterTrialChambers);
+		addSetting(filterVillageBeds);
+		
+		lastTrialFilterState = filterTrialChambers.isChecked();
+		lastVillageFilterState = filterVillageBeds.isChecked();
 	}
 	
 	@Override
@@ -102,6 +137,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastTrialFilterState = filterTrialChambers.isChecked();
+		lastVillageFilterState = filterVillageBeds.isChecked();
 	}
 	
 	@Override
@@ -116,6 +153,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		groups.forEach(BedEspBlockGroup::clear);
 		// reset count
 		foundCount = 0;
+		cachedTrialSpawners = List.of();
+		cachedVillagerPositions = List.of();
+		cachedGolemPositions = List.of();
 	}
 	
 	@Override
@@ -132,6 +172,10 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			coordinator.reset();
 			groupsUpToDate = false;
 		}
+		
+		if(didFiltersChange())
+			groupsUpToDate = false;
+		
 		if(!groupsUpToDate && coordinator.isDone())
 			updateGroupBoxes();
 	}
@@ -191,6 +235,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	{
 		groups.forEach(BedEspBlockGroup::clear);
 		java.util.List<Result> results = coordinator.getMatches().toList();
+		refreshEnvironmentalCaches();
 		results.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 		// update count for HUD (clamped to 999) based on displayed boxes
@@ -209,13 +254,188 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private void addToGroupBoxes(Result result)
 	{
+		BlockState state = result.state();
+		if(!(state.getBlock() instanceof BedBlock)
+			|| state.get(BedBlock.PART) == BedPart.FOOT)
+			return;
+		
+		BlockPos headPos = result.pos();
 		if(onlyAboveGround.isChecked()
-			&& result.pos().getY() < aboveGroundY.getValue())
+			&& headPos.getY() < aboveGroundY.getValue())
+			return;
+		
+		if(filterTrialChambers.isChecked() && isTrialChamberBed(headPos))
+			return;
+		
+		if(filterVillageBeds.isChecked() && isLikelyVillageBed(headPos))
 			return;
 		for(BedEspBlockGroup group : groups)
 		{
 			group.add(result);
 			break;
 		}
+	}
+	
+	private void refreshEnvironmentalCaches()
+	{
+		if(filterTrialChambers.isChecked())
+			cachedTrialSpawners = collectTrialSpawnerPositions();
+		else
+			cachedTrialSpawners = List.of();
+		
+		if(filterVillageBeds.isChecked())
+		{
+			cachedVillagerPositions =
+				collectEntityPositions(VillagerEntity.class);
+			cachedGolemPositions =
+				collectEntityPositions(IronGolemEntity.class);
+		}else
+		{
+			cachedVillagerPositions = List.of();
+			cachedGolemPositions = List.of();
+		}
+	}
+	
+	private boolean didFiltersChange()
+	{
+		boolean trial = filterTrialChambers.isChecked();
+		boolean village = filterVillageBeds.isChecked();
+		if(trial != lastTrialFilterState || village != lastVillageFilterState)
+		{
+			lastTrialFilterState = trial;
+			lastVillageFilterState = village;
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private List<BlockPos> collectTrialSpawnerPositions()
+	{
+		if(MC.world == null)
+			return List.of();
+		
+		return ChunkUtils.getLoadedBlockEntities()
+			.filter(be -> be instanceof TrialSpawnerBlockEntity)
+			.map(BlockEntity::getPos).map(BlockPos::toImmutable)
+			.collect(Collectors.toList());
+	}
+	
+	private <T extends Entity> List<Vec3d> collectEntityPositions(Class<T> type)
+	{
+		if(MC.world == null)
+			return List.of();
+		
+		return StreamSupport.stream(MC.world.getEntities().spliterator(), false)
+			.filter(e -> !e.isRemoved()).filter(type::isInstance)
+			.map(entity -> Vec3d.ofCenter(entity.getBlockPos()))
+			.collect(Collectors.toList());
+	}
+	
+	private boolean isTrialChamberBed(BlockPos headPos)
+	{
+		int y = headPos.getY();
+		if(y < -38 || y > 10)
+			return false;
+		
+		if(!isNearWaxedCopper(headPos, 5))
+			return false;
+		
+		return isNearTrialSpawner(headPos, 100);
+	}
+	
+	private boolean isNearWaxedCopper(BlockPos center, int range)
+	{
+		if(MC.world == null)
+			return false;
+		
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> isWaxedCopper(BlockUtils.getState(pos)));
+	}
+	
+	private boolean isWaxedCopper(BlockState state)
+	{
+		if(state.isIn(WAXED_COPPER_BLOCKS_TAG))
+			return true;
+		
+		String idPath = Registries.BLOCK.getId(state.getBlock()).getPath();
+		return idPath.contains("waxed") && idPath.contains("copper");
+	}
+	
+	private boolean isNearTrialSpawner(BlockPos center, int range)
+	{
+		if(cachedTrialSpawners.isEmpty())
+			return false;
+		
+		double rangeSq = range * range;
+		Vec3d centerVec = Vec3d.ofCenter(center);
+		return cachedTrialSpawners.stream().anyMatch(
+			pos -> Vec3d.ofCenter(pos).squaredDistanceTo(centerVec) <= rangeSq);
+	}
+	
+	private boolean isLikelyVillageBed(BlockPos headPos)
+	{
+		if(!hasDoorNearby(headPos, 4))
+			return false;
+		
+		boolean hasVillageEntity =
+			isEntityWithinRange(cachedVillagerPositions, headPos, 24)
+				|| isEntityWithinRange(cachedGolemPositions, headPos, 24);
+		boolean hayCluster = hasHayBaleCluster(headPos, 6);
+		
+		if(hasVillageEntity || hayCluster)
+			return true;
+		
+		return hasGlassPaneCluster(headPos, 4, 1);
+	}
+	
+	private boolean isEntityWithinRange(List<Vec3d> positions, BlockPos center,
+		double range)
+	{
+		if(positions.isEmpty())
+			return false;
+		
+		double rangeSq = range * range;
+		Vec3d centerVec = Vec3d.ofCenter(center);
+		return positions.stream()
+			.anyMatch(pos -> pos.squaredDistanceTo(centerVec) <= rangeSq);
+	}
+	
+	private boolean hasHayBaleCluster(BlockPos center, int range)
+	{
+		if(MC.world == null)
+			return false;
+		
+		long count = BlockUtils.getAllInBoxStream(center, range)
+			.filter(pos -> BlockUtils.getBlock(pos) == Blocks.HAY_BLOCK)
+			.limit(16).count();
+		return count >= 4;
+	}
+	
+	private boolean hasDoorNearby(BlockPos center, int range)
+	{
+		if(MC.world == null)
+			return false;
+		
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> BlockUtils.getBlock(pos) instanceof DoorBlock);
+	}
+	
+	private boolean hasGlassPaneCluster(BlockPos center, int range,
+		int requiredCount)
+	{
+		if(MC.world == null)
+			return false;
+		
+		long glassCount = BlockUtils.getAllInBoxStream(center, range)
+			.filter(pos -> isGlassPane(BlockUtils.getBlock(pos)))
+			.limit(requiredCount).count();
+		return glassCount >= requiredCount;
+	}
+	
+	private boolean isGlassPane(Block block)
+	{
+		String path = Registries.BLOCK.getId(block).getPath();
+		return path.contains("glass_pane");
 	}
 }
