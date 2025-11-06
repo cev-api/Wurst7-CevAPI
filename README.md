@@ -199,6 +199,15 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Allows you to teleport without worrying about the movement restrictions during the countdown
 - Safe TPA Here option: Allows you to auto activate blink when a player accepts your TPA Here request and then auto deactivates when they arrive.
 
+### AutoMace
+- Auto changes to mace and attacks when falling on a target
+- Has various settings such as minimum fall distance, switch delay, attack delay and filters
+- Novel design where it implements a toggleable modified AimAssist setting whilst falling to aim for the top of the targets head when falling
+
+### WindChargeKey
+- Bind switching then throwing a wind charge to a key
+- Delay, silent and auto jump settings
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
