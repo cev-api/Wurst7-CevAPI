@@ -18,8 +18,10 @@ import net.minecraft.entity.passive.TameableEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
@@ -30,6 +32,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 
 @SearchTags({"mace", "auto mace", "fall attack"})
@@ -60,6 +63,11 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			"Longest delay before AutoMace can swing the mace.", 150, 50, 500,
 			10, ValueDisplay.INTEGER.withSuffix("ms"));
 	
+	private final SliderSetting slamDelayMs = new SliderSetting("Slam delay",
+		"Extra time to wait after all conditions are met before swinging.\n"
+			+ "Helps time the slam right before landing.",
+		60, 0, 200, 5, ValueDisplay.INTEGER.withSuffix("ms"));
+	
 	private final CheckboxSetting targetPlayers =
 		new CheckboxSetting("Target players", true);
 	
@@ -89,8 +97,17 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		"Temporarily enables AimAssist while you are falling towards a target.",
 		false);
 	
+	private final CheckboxSetting useMaceDmg = new CheckboxSetting(
+		"Use MaceDMG", "Enables the MaceDMG hack for guaranteed slam damage. "
+			+ "Skips fall distance checks.",
+		false);
+	
+	private final CheckboxSetting debugLogs = new CheckboxSetting("Debug logs",
+		"Prints status messages that can help diagnose timing issues.", false);
+	
 	private static final Function<Entity, Vec3d> TOP_HITBOX_AIM =
 		AutoMaceHack::getTopAimPoint;
+	private static final long POST_SWITCH_ATTACK_BUFFER_MS = 75;
 	
 	private int previousSlot = -1;
 	private boolean hadMaceEquipped;
@@ -103,6 +120,12 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	private long lastAttackMs;
 	private long attackDelayMs;
 	private boolean aimAssistTemporarilyEnabled;
+	private long lastLandingLogMs;
+	private boolean landingLogged;
+	private boolean attackedThisFall;
+	private Entity scheduledTarget;
+	private long scheduledAttackTime;
+	private boolean maceDmgForced;
 	
 	public AutoMaceHack()
 	{
@@ -114,6 +137,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		addSetting(switchDelayMax);
 		addSetting(attackDelayMin);
 		addSetting(attackDelayMax);
+		addSetting(slamDelayMs);
 		addSetting(targetPlayers);
 		addSetting(targetMobs);
 		addSetting(autoSwitchBack);
@@ -122,6 +146,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		addSetting(ignoreInvisible);
 		addSetting(respectCooldown);
 		addSetting(useAimAssist);
+		addSetting(useMaceDmg);
+		addSetting(debugLogs);
 	}
 	
 	@Override
@@ -129,6 +155,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	{
 		resetState();
 		EVENTS.add(UpdateListener.class, this);
+		updateMaceDmgState();
 	}
 	
 	@Override
@@ -140,6 +167,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			switchToSlot(previousSlot);
 		
 		updateAimAssist(false, null);
+		disableForcedMaceDmg();
+		clearScheduledAttack();
 		resetState();
 	}
 	
@@ -159,27 +188,36 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		double currentFallDistance = getCurrentFallDistance();
 		boolean fallingWindow = airborne && falling
 			&& currentFallDistance >= minFallDistance.getValue();
+		if(airborne)
+			landingLogged = false;
 		boolean hasTarget = hasValidTarget(currentTarget);
+		
+		if(airborne && falling && !isMaceEquipped() && !hasSwitchedToMace
+			&& currentFallDistance >= Math.max(1,
+				minFallDistance.getValue() * 0.4)
+			&& canSwitchWeapon())
+		{
+			storePreviousSlot();
+			hasSwitchedToMace = switchToMace();
+		}
 		
 		updateAimAssist(fallingWindow && hasTarget,
 			hasTarget ? currentTarget : null);
+		processScheduledAttack(fallingWindow && hasTarget);
 		
 		if(fallingWindow)
 		{
 			if(hasTarget)
 			{
+				logDebug("Falling - target acquired: "
+					+ currentTarget.getName().getString());
 				alignToTargetTop(currentTarget);
 				
-				if(!isMaceEquipped() && !hasSwitchedToMace && canSwitchWeapon())
-				{
-					storePreviousSlot();
-					hasSwitchedToMace = switchToMace();
-				}
-				
-				if(isMaceEquipped() && shouldAttack())
-					attackTarget();
+				if(isMaceEquipped())
+					tryScheduleAttack();
 			}else
 				handleNoTarget();
+			
 		}else if(MC.player.isOnGround())
 			handleLanding();
 		else if(airborne && !falling)
@@ -225,10 +263,12 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			candidate = ((EntityHitResult)MC.crosshairTarget).getEntity();
 		}
 		
-		if(!isTargetCandidate(candidate))
+		if(!isTargetCandidate(candidate) || !isFallReachable(candidate))
 			candidate = findBestFallTarget();
 		
-		currentTarget = isTargetCandidate(candidate) ? candidate : null;
+		currentTarget =
+			isTargetCandidate(candidate) && isFallReachable(candidate)
+				? candidate : null;
 	}
 	
 	private void updateFallTracking()
@@ -244,6 +284,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			{
 				isInAir = false;
 				fallStartY = -1;
+				attackedThisFall = false;
 			}
 			return;
 		}
@@ -252,6 +293,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		{
 			isInAir = true;
 			fallStartY = currentY;
+			attackedThisFall = false;
 			return;
 		}
 		
@@ -321,27 +363,66 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	private boolean canSwitchWeapon()
 	{
 		long now = System.currentTimeMillis();
-		if(now - lastSwitchMs < switchDelayMs)
-			return false;
-		
-		lastSwitchMs = now;
-		switchDelayMs =
-			nextDelay(switchDelayMin.getValue(), switchDelayMax.getValue());
-		return true;
+		return now - lastSwitchMs >= switchDelayMs;
 	}
 	
 	private boolean shouldAttack()
 	{
+		boolean cheatMode = useMaceDmg.isChecked();
 		if(currentTarget == null)
+		{
+			logSkip("no target");
 			return false;
+		}
 		
 		if(respectCooldown.isChecked()
-			&& MC.player.getAttackCooldownProgress(0) < 0.9F)
+			&& MC.player.getAttackCooldownProgress(0) < 0.75F)
+		{
+			logSkip("cooldown=" + String.format("%.2f",
+				MC.player.getAttackCooldownProgress(0)));
 			return false;
+		}
 		
 		long now = System.currentTimeMillis();
 		if(now - lastAttackMs < attackDelayMs)
+		{
+			logSkip("attack delay remaining "
+				+ (attackDelayMs - (now - lastAttackMs)) + "ms");
 			return false;
+		}
+		
+		if(hasSwitchedToMace
+			&& now - lastSwitchMs < POST_SWITCH_ATTACK_BUFFER_MS)
+		{
+			logSkip("slot sync buffer " + (now - lastSwitchMs) + "ms");
+			return false;
+		}
+		
+		if(!isWithinAttackRange(currentTarget))
+		{
+			logSkip("out of reach");
+			return false;
+		}
+		
+		if(attackedThisFall)
+		{
+			logSkip("already attacked this fall");
+			return false;
+		}
+		
+		if(!cheatMode)
+		{
+			float minCritFall =
+				(float)MathHelper.clamp(minFallDistance.getValue() * 0.8F, 1.2F,
+					Math.max(2.0F, minFallDistance.getValue() + 0.4F));
+			if(MC.player.fallDistance < minCritFall)
+			{
+				logSkip("fall distance "
+					+ String.format("%.2f", MC.player.fallDistance) + " < min "
+					+ String.format("%.2f", minCritFall));
+				return false;
+			}
+		}
 		
 		lastAttackMs = now;
 		attackDelayMs =
@@ -349,13 +430,77 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		return true;
 	}
 	
-	private void attackTarget()
+	private void attackTarget(Entity target)
 	{
-		if(currentTarget == null || MC.interactionManager == null)
+		if(target == null || MC.interactionManager == null)
 			return;
 		
-		MC.interactionManager.attackEntity(MC.player, currentTarget);
+		currentTarget = target;
+		MC.interactionManager.attackEntity(MC.player, target);
 		MC.player.swingHand(Hand.MAIN_HAND);
+		MC.player.resetLastAttackedTicks();
+		attackedThisFall = true;
+		double vertical = MC.player.getY() - target.getBoundingBox().maxY;
+		logDebug("Attacked target " + target.getName().getString()
+			+ " fallDist=" + String.format("%.2f", MC.player.fallDistance)
+			+ " vertDiff=" + String.format("%.2f", vertical) + " horDist="
+			+ String.format("%.2f", Math.hypot(MC.player.getX() - target.getX(),
+				MC.player.getZ() - target.getZ())));
+	}
+	
+	private void tryScheduleAttack()
+	{
+		if(currentTarget == null || scheduledTarget != null)
+			return;
+		
+		if(!shouldAttack())
+			return;
+		
+		scheduleAttack(currentTarget);
+	}
+	
+	private void scheduleAttack(Entity target)
+	{
+		if(target == null)
+			return;
+		
+		long delay = useMaceDmg.isChecked() ? 0L
+			: Math.max(0L, Math.round(slamDelayMs.getValue()));
+		
+		if(delay <= 0)
+		{
+			attackTarget(target);
+			return;
+		}
+		
+		scheduledTarget = target;
+		scheduledAttackTime = System.currentTimeMillis() + delay;
+		logDebug("Scheduled attack in " + delay + "ms");
+	}
+	
+	private void processScheduledAttack(boolean canAttackNow)
+	{
+		if(scheduledTarget == null)
+			return;
+		
+		if(!canAttackNow || !hasValidTarget(scheduledTarget))
+		{
+			logDebug("Cancelled scheduled attack");
+			clearScheduledAttack();
+			return;
+		}
+		
+		if(System.currentTimeMillis() < scheduledAttackTime)
+			return;
+		
+		if(!useMaceDmg.isChecked() && !isWithinAttackRange(scheduledTarget))
+		{
+			scheduledAttackTime = System.currentTimeMillis() + 10;
+			return;
+		}
+		
+		attackTarget(scheduledTarget);
+		clearScheduledAttack();
 	}
 	
 	private void handleLanding()
@@ -364,6 +509,13 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		fallStartY = -1;
 		hasSwitchedToMace = false;
 		updateAimAssist(false, null);
+		clearScheduledAttack();
+		attackedThisFall = false;
+		if(!landingLogged)
+		{
+			logLandingState("Landing - resetting state");
+			landingLogged = true;
+		}
 		
 		if(autoSwitchBack.isChecked() && previousSlot != -1 && !hadMaceEquipped)
 			switchToSlot(previousSlot);
@@ -375,6 +527,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	private void handleNoTarget()
 	{
 		updateAimAssist(false, null);
+		clearScheduledAttack();
 		
 		if(!autoSwitchBack.isChecked() || !instantSwitchBack.isChecked())
 			return;
@@ -385,6 +538,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		switchToSlot(previousSlot);
 		previousSlot = -1;
 		hasSwitchedToMace = false;
+		logDebug("Lost target - switching back to slot "
+			+ slotDescription(previousSlot));
 	}
 	
 	private void handleNotFalling()
@@ -421,7 +576,12 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			ItemStack stack = MC.player.getInventory().getStack(i);
 			if(stack.isOf(Items.MACE))
 			{
-				MC.player.getInventory().setSelectedSlot(i);
+				setSelectedHotbarSlot(i);
+				hasSwitchedToMace = true;
+				lastSwitchMs = System.currentTimeMillis();
+				switchDelayMs = nextDelay(switchDelayMin.getValue(),
+					switchDelayMax.getValue());
+				logDebug("Switched to mace slot " + i);
 				return true;
 			}
 		}
@@ -434,7 +594,19 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(slot < 0 || slot >= 9)
 			return;
 		
+		setSelectedHotbarSlot(slot);
+	}
+	
+	private void setSelectedHotbarSlot(int slot)
+	{
+		if(MC.player == null
+			|| MC.player.getInventory().getSelectedSlot() == slot)
+			return;
+		
 		MC.player.getInventory().setSelectedSlot(slot);
+		if(MC.player.networkHandler != null)
+			MC.player.networkHandler
+				.sendPacket(new UpdateSelectedSlotC2SPacket(slot));
 	}
 	
 	private void alignToTargetTop(Entity target)
@@ -448,6 +620,80 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		WURST.getRotationFaker().faceVectorPacket(topCenter);
 	}
 	
+	private boolean isWithinAttackRange(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		
+		Box playerBox = MC.player.getBoundingBox();
+		Box targetBox = entity.getBoundingBox();
+		
+		double playerFeet = playerBox.minY;
+		double playerTop = playerBox.maxY;
+		double targetTop = targetBox.maxY;
+		double targetBottom = targetBox.minY;
+		
+		if(playerFeet > targetTop + 0.25)
+			return false;
+		
+		if(playerTop < targetBottom - 0.2)
+			return false;
+		
+		double playerCenterX = (playerBox.minX + playerBox.maxX) * 0.5;
+		double playerCenterZ = (playerBox.minZ + playerBox.maxZ) * 0.5;
+		double targetCenterX = (targetBox.minX + targetBox.maxX) * 0.5;
+		double targetCenterZ = (targetBox.minZ + targetBox.maxZ) * 0.5;
+		double horizontal = Math.hypot(playerCenterX - targetCenterX,
+			playerCenterZ - targetCenterZ);
+		
+		double maxHorizontal = Math.max(1.4, 0.9 + entity.getWidth() * 0.6);
+		if(horizontal > maxHorizontal)
+		{
+			logSkip(String.format("horizontal %.2f > %.2f", horizontal,
+				maxHorizontal));
+			return false;
+		}
+		
+		double downwardSpeed = MC.player.getVelocity().y;
+		if(downwardSpeed > -0.35)
+		{
+			logSkip(String.format("velocity %.3f too slow", downwardSpeed));
+			return false;
+		}
+		
+		if(playerFeet - targetTop > 0.35)
+		{
+			logSkip(String.format("feet above target by %.2f",
+				playerFeet - targetTop));
+			return false;
+		}
+		
+		return true;
+	}
+	
+	private boolean isFallReachable(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		
+		Vec3d playerPos =
+			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		Vec3d top = getTopAimPoint(entity);
+		
+		if(top.y >= playerPos.y)
+			return false;
+		
+		double horizontal =
+			Math.hypot(playerPos.x - top.x, playerPos.z - top.z);
+		double vertical = playerPos.y - top.y;
+		
+		if(vertical < 0.2 || vertical > 3.5)
+			return false;
+		
+		double maxHorizontal = Math.min(2.5, vertical + 1.1);
+		return horizontal <= maxHorizontal;
+	}
+	
 	private Entity findBestFallTarget()
 	{
 		Vec3d playerPos =
@@ -458,7 +704,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		return EntityUtils.getAttackableEntities()
 			.filter(this::isTargetCandidate)
 			.filter(e -> MC.player.squaredDistanceTo(e) <= maxDistanceSq)
-			.filter(e -> getTopAimPoint(e).y < playerPos.y).filter(e -> {
+			.filter(e -> getTopAimPoint(e).y < playerPos.y)
+			.filter(this::isFallReachable).filter(e -> {
 				Vec3d top = getTopAimPoint(e);
 				double dx = top.x - playerPos.x;
 				double dz = top.z - playerPos.z;
@@ -510,6 +757,11 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		lastAttackMs = 0;
 		attackDelayMs = 0;
 		aimAssistTemporarilyEnabled = false;
+		lastLandingLogMs = 0;
+		landingLogged = false;
+		attackedThisFall = false;
+		clearScheduledAttack();
+		maceDmgForced = false;
 	}
 	
 	private void updateAimAssist(boolean shouldEnable, Entity target)
@@ -539,5 +791,108 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			aimAssist.setEnabled(false);
 		
 		aimAssistTemporarilyEnabled = false;
+	}
+	
+	private void logDebug(String message)
+	{
+		if(!debugLogs.isChecked())
+			return;
+		
+		ChatUtils.message("[AutoMace] " + message);
+	}
+	
+	private void logDebugState(String message)
+	{
+		if(!debugLogs.isChecked())
+			return;
+		
+		CombinedFormatter formatter = new CombinedFormatter();
+		formatter.add(message);
+		formatter.add("fallDist=%.2f", MC.player.fallDistance);
+		formatter.add("velY=%.3f", MC.player.getVelocity().y);
+		formatter.add("hasMace=%s", isMaceEquipped());
+		formatter.add("target=%s", currentTarget == null ? "none"
+			: currentTarget.getName().getString());
+		ChatUtils.message("[AutoMace] " + formatter.toString());
+	}
+	
+	private void logLandingState(String message)
+	{
+		if(!debugLogs.isChecked())
+			return;
+		
+		long now = System.currentTimeMillis();
+		if(now - lastLandingLogMs < 200)
+			return;
+		
+		lastLandingLogMs = now;
+		logDebugState(message);
+	}
+	
+	private String slotDescription(int slot)
+	{
+		return slot < 0 ? "none" : Integer.toString(slot);
+	}
+	
+	private void logSkip(String message)
+	{
+		if(!debugLogs.isChecked())
+			return;
+		
+		ChatUtils.message("[AutoMace] Skip attack: " + message);
+	}
+	
+	private void clearScheduledAttack()
+	{
+		scheduledTarget = null;
+		scheduledAttackTime = -1;
+	}
+	
+	private void updateMaceDmgState()
+	{
+		if(!useMaceDmg.isChecked())
+		{
+			disableForcedMaceDmg();
+			return;
+		}
+		
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		if(maceDmg != null && !maceDmg.isEnabled())
+		{
+			maceDmg.setEnabled(true);
+			maceDmgForced = true;
+		}
+	}
+	
+	private void disableForcedMaceDmg()
+	{
+		if(!maceDmgForced)
+			return;
+		
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		if(maceDmg != null && maceDmg.isEnabled())
+			maceDmg.setEnabled(false);
+		
+		maceDmgForced = false;
+	}
+	
+	private static final class CombinedFormatter
+	{
+		private final StringBuilder builder = new StringBuilder();
+		private boolean first = true;
+		
+		private void add(String format, Object... args)
+		{
+			if(!first)
+				builder.append(" | ");
+			first = false;
+			builder.append(String.format(format, args));
+		}
+		
+		@Override
+		public String toString()
+		{
+			return builder.toString();
+		}
 	}
 }
