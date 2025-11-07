@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.command.CommandOutput;
 import net.minecraft.util.Nameable;
@@ -77,5 +78,29 @@ public abstract class EntityMixin implements Nameable, EntityLike, CommandOutput
 		if(WurstClient.INSTANCE.getHax().trueSightHack
 			.shouldBeVisible((Entity)(Object)this))
 			cir.setReturnValue(false);
+	}
+	
+	@Inject(at = @At("RETURN"), method = "isGlowing", cancellable = true)
+	private void onIsGlowing(CallbackInfoReturnable<Boolean> cir)
+	{
+		if(cir.getReturnValueZ())
+			return;
+		
+		if((Object)this instanceof LivingEntity living
+			&& WurstClient.INSTANCE.getHax().mobEspHack.shouldGlow(living))
+			cir.setReturnValue(true);
+	}
+	
+	@Inject(at = @At("RETURN"),
+		method = "getTeamColorValue",
+		cancellable = true)
+	private void onGetTeamColorValue(CallbackInfoReturnable<Integer> cir)
+	{
+		if(!((Object)this instanceof LivingEntity living))
+			return;
+		
+		if(WurstClient.INSTANCE.getHax().mobEspHack.shouldGlow(living))
+			cir.setReturnValue(
+				WurstClient.INSTANCE.getHax().mobEspHack.getGlowColor());
 	}
 }

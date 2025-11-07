@@ -171,7 +171,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
 		MobEspStyleSetting.Shape shape = style.getShape();
-		boolean drawShape = shape != MobEspStyleSetting.Shape.NONE;
+		boolean glowMode = shape == MobEspStyleSetting.Shape.GLOW;
+		boolean drawShape = !glowMode && shape != MobEspStyleSetting.Shape.NONE;
 		boolean drawLines = style.hasLines();
 		boolean drawFill = drawShape && fillShapes.isChecked();
 		
@@ -211,31 +212,34 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			}
 		}
 		
-		if(filledShapes != null && !filledShapes.isEmpty())
+		if(!glowMode)
 		{
-			switch(shape)
+			if(filledShapes != null && !filledShapes.isEmpty())
 			{
-				case BOX -> RenderUtils.drawSolidBoxes(matrixStack,
-					filledShapes, false);
-				case OCTAHEDRON -> RenderUtils.drawSolidOctahedrons(matrixStack,
-					filledShapes, false);
-				default ->
-					{
-					}
+				switch(shape)
+				{
+					case BOX -> RenderUtils.drawSolidBoxes(matrixStack,
+						filledShapes, false);
+					case OCTAHEDRON -> RenderUtils
+						.drawSolidOctahedrons(matrixStack, filledShapes, false);
+					default ->
+						{
+						}
+				}
 			}
-		}
-		
-		if(outlineShapes != null && !outlineShapes.isEmpty())
-		{
-			switch(shape)
+			
+			if(outlineShapes != null && !outlineShapes.isEmpty())
 			{
-				case BOX -> RenderUtils.drawOutlinedBoxes(matrixStack,
-					outlineShapes, false);
-				case OCTAHEDRON -> RenderUtils
-					.drawOutlinedOctahedrons(matrixStack, outlineShapes, false);
-				default ->
-					{
-					}
+				switch(shape)
+				{
+					case BOX -> RenderUtils.drawOutlinedBoxes(matrixStack,
+						outlineShapes, false);
+					case OCTAHEDRON -> RenderUtils.drawOutlinedOctahedrons(
+						matrixStack, outlineShapes, false);
+					default ->
+						{
+						}
+				}
 			}
 		}
 		
@@ -248,6 +252,17 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		if(useRainbow.isChecked())
 			return RenderUtils.getRainbowColor();
 		return color.getColorF();
+	}
+	
+	public boolean shouldGlow(LivingEntity entity)
+	{
+		return isEnabled() && style.getShape() == MobEspStyleSetting.Shape.GLOW
+			&& mobs.contains(entity);
+	}
+	
+	public int getGlowColor()
+	{
+		return RenderUtils.toIntColor(getColorRgb(), 1F);
 	}
 	
 	private static final class MobEspStyleSetting
@@ -272,7 +287,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		{
 			NONE,
 			BOX,
-			OCTAHEDRON;
+			OCTAHEDRON,
+			GLOW;
 		}
 		
 		private enum Style
@@ -282,7 +298,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			LINES("Lines only", Shape.NONE, true),
 			LINES_AND_BOXES("Lines and boxes", Shape.BOX, true),
 			LINES_AND_OCTAHEDRONS("Lines and octahedrons", Shape.OCTAHEDRON,
-				true);
+				true),
+			GLOW("Glow only", Shape.GLOW, false),
+			LINES_AND_GLOW("Lines and glow", Shape.GLOW, true);
 			
 			private final String name;
 			private final Shape shape;
