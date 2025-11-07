@@ -101,7 +101,7 @@ public final class AutoLeaveHack extends Hack implements UpdateListener
 			return;
 		
 		// leave server
-		mode.getSelected().leave.run();
+		mode.getSelected().leave();
 		
 		// disable
 		setEnabled(false);
@@ -135,6 +135,11 @@ public final class AutoLeaveHack extends Hack implements UpdateListener
 		public String toString()
 		{
 			return name;
+		}
+		
+		public void leave()
+		{
+			leave.run();
 		}
 	}
 }
