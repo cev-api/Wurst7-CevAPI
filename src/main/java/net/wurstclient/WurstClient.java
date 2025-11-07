@@ -41,6 +41,7 @@ import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.WurstUpdater;
+import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.config.BuildConfig;
@@ -71,6 +72,7 @@ public enum WurstClient
 	private RotationFaker rotationFaker;
 	private FriendsList friends;
 	private WurstTranslator translator;
+	private PlayerRangeAlertManager playerRangeAlertManager;
 	
 	private boolean enabled = true;
 	private static boolean guiInitialized;
@@ -91,6 +93,7 @@ public enum WurstClient
 		plausible.pageview("/");
 		
 		eventManager = new EventManager(this);
+		playerRangeAlertManager = new PlayerRangeAlertManager(eventManager);
 		
 		Path enabledHacksFile = wurstFolder.resolve("enabled-hacks.json");
 		Path favoritesHacksFile = wurstFolder.resolve("favourites.json");
@@ -300,6 +303,11 @@ public enum WurstClient
 	public WurstTranslator getTranslator()
 	{
 		return translator;
+	}
+	
+	public PlayerRangeAlertManager getPlayerRangeAlertManager()
+	{
+		return playerRangeAlertManager;
 	}
 	
 	public boolean isEnabled()

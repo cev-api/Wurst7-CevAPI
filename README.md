@@ -157,6 +157,11 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ![Disc](https://i.imgur.com/b327XLx.png)
 
+### Antisocial
+- Hooks into the PlayerESP enter/leave detector (even if ESP itself is off) and logs out the instant someone walks into range.
+- Reuses AutoLeave's Quit/Chars/SelfHurt modes so you can pick the safest disconnect for your server.
+- Perfect for hiding or protecting yourself while AFK farming—optionally toggles AutoReconnect off so you stay gone.
+
 ### Anti-Fingerprint
 - Detects and stops resource-pack fingerprinting. 
   - Basic protections are already enabled by default.
