@@ -296,6 +296,7 @@ Examples:
 ### MobESP Improvements
 - Added rainbow/fixed color options for boxes/lines.  
 - Added octahedron shapes and set it as the new default.
+- Added glow outlines as an option
 - Added box color fill option
 
 ![Mob](https://i.imgur.com/VXHW4qe.png)
