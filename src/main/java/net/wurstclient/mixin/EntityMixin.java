@@ -86,8 +86,11 @@ public abstract class EntityMixin implements Nameable, EntityLike, CommandOutput
 		if(cir.getReturnValueZ())
 			return;
 		
-		if((Object)this instanceof LivingEntity living
-			&& WurstClient.INSTANCE.getHax().mobEspHack.shouldGlow(living))
+		if(!((Object)this instanceof LivingEntity living))
+			return;
+		
+		Integer glowColor = getEspGlowColor(living);
+		if(glowColor != null)
 			cir.setReturnValue(true);
 	}
 	
@@ -99,8 +102,23 @@ public abstract class EntityMixin implements Nameable, EntityLike, CommandOutput
 		if(!((Object)this instanceof LivingEntity living))
 			return;
 		
-		if(WurstClient.INSTANCE.getHax().mobEspHack.shouldGlow(living))
-			cir.setReturnValue(
-				WurstClient.INSTANCE.getHax().mobEspHack.getGlowColor());
+		Integer glowColor = getEspGlowColor(living);
+		if(glowColor != null)
+			cir.setReturnValue(glowColor);
+	}
+	
+	private Integer getEspGlowColor(LivingEntity living)
+	{
+		var hax = WurstClient.INSTANCE.getHax();
+		
+		Integer color = hax.playerEspHack.getGlowColor(living);
+		if(color != null)
+			return color;
+		
+		color = hax.mobSearchHack.getGlowColor(living);
+		if(color != null)
+			return color;
+		
+		return hax.mobEspHack.getGlowColor(living);
 	}
 }
