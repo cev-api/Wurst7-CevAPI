@@ -16,8 +16,10 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
@@ -111,6 +113,15 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"Highlight equipped special",
 		"Also highlight when a special item is held or worn on the head by a player/mob.",
 		true);
+	private final CheckboxSetting ignoreArmorStands =
+		new CheckboxSetting("Ignore armor stands",
+			"Won't highlight equipped special items on armor stands.", false);
+	private final CheckboxSetting ignoreOtherPlayers =
+		new CheckboxSetting("Ignore other players",
+			"Won't highlight equipped special items on other players.", false);
+	private final CheckboxSetting ignoreVillagers =
+		new CheckboxSetting("Ignore villagers",
+			"Won't highlight equipped special items on villagers.", false);
 	
 	// New: include item frames holding special items
 	private final CheckboxSetting includeItemFrames =
@@ -159,6 +170,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(ignoredList);
 		addSetting(linesOnlyForSpecial);
 		addSetting(includeEquippedSpecial);
+		addSetting(ignoreArmorStands);
+		addSetting(ignoreOtherPlayers);
+		addSetting(ignoreVillagers);
 		addSetting(includeItemFrames);
 		// above-ground filter
 		addSetting(onlyAboveGround);
@@ -331,11 +345,19 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		{
 			for(Entity ent : MC.world.getEntities())
 			{
-				if(!(ent instanceof LivingEntity))
+				if(!(ent instanceof LivingEntity le))
 					continue;
-				LivingEntity le = (LivingEntity)ent;
+				if(ignoreArmorStands.isChecked()
+					&& le instanceof ArmorStandEntity)
+					continue;
+				boolean isPlayer = le instanceof PlayerEntity;
+				if(ignoreVillagers.isChecked() && le instanceof VillagerEntity)
+					continue;
+				if(ignoreOtherPlayers.isChecked() && isPlayer
+					&& le != MC.player)
+					continue;
 				if(le == MC.player)
-					continue; // skip local player
+					continue;
 				// hands
 				ItemStack main = le.getMainHandStack();
 				if(main != null && !main.isEmpty() && !isIgnored(main)
