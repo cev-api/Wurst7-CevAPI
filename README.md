@@ -230,6 +230,7 @@ Highlights dropped, equipped, and framed items with powerful filters and customi
 - Rendering: boxes with fill + outline; tracers use special color (or base color).  
 - Robust parsing: lists accept unknown entries as keywords (safe parsing via `Identifier.tryParse`).  
 - Ignore list: using keywords or specific item names you can exclude items from being highlighted entirely.
+- Entity ignore: Can ignore other players, armor stands etc
 
 Examples:  
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  

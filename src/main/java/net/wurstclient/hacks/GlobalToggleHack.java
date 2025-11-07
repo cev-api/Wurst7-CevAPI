@@ -45,6 +45,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private OverrideState lastStickyState = OverrideState.NONE;
 	private OverrideState lastYState = OverrideState.NONE;
 	private int lastYLimitValue = 62;
+	private boolean stickyAnnouncementsReady;
+	private boolean yLimitAnnouncementsReady;
 	
 	public GlobalToggleHack()
 	{
@@ -80,6 +82,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 				stickyForceOff.setChecked(false);
 			else
 				stickyForceOn.setChecked(false);
+			stickyAnnouncementsReady = true;
 			return;
 		}
 		
@@ -101,10 +104,12 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 						CheckboxOverrideManager.capture(hacks, "stickyArea");
 				CheckboxOverrideManager.apply(hacks, "stickyArea",
 					stickyState == OverrideState.FORCE_ON);
-				announceSticky(stickyState == OverrideState.FORCE_ON);
+				if(stickyAnnouncementsReady)
+					announceSticky(stickyState == OverrideState.FORCE_ON);
 			}
 			
 			lastStickyState = stickyState;
+			stickyAnnouncementsReady = true;
 		}
 		
 		// Y limit override -------------------------------------------------
@@ -114,6 +119,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 				yLimitForceOff.setChecked(false);
 			else
 				yLimitForceOn.setChecked(false);
+			yLimitAnnouncementsReady = true;
 			return;
 		}
 		
@@ -143,10 +149,12 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 					yState == OverrideState.FORCE_ON);
 				if(yState == OverrideState.FORCE_ON)
 					AboveGroundFilterManager.setY(hacks, yValue);
-				announceYLimit(yState == OverrideState.FORCE_ON);
+				if(yLimitAnnouncementsReady)
+					announceYLimit(yState == OverrideState.FORCE_ON);
 			}
 			
 			lastYState = yState;
+			yLimitAnnouncementsReady = true;
 		}
 		
 		if(yState == OverrideState.FORCE_ON && yValue != lastYLimitValue)
@@ -157,6 +165,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		{
 			lastYLimitValue = yValue;
 		}
+		
+		if(!stickyAnnouncementsReady)
+			stickyAnnouncementsReady = true;
+		if(!yLimitAnnouncementsReady)
+			yLimitAnnouncementsReady = true;
 	}
 	
 	private void announceSticky(boolean forcingOn)
