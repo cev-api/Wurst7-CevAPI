@@ -257,7 +257,9 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			return;
 		
 		MobSearchStyleSetting.Shape shape = style.getShape();
-		boolean drawShape = shape != MobSearchStyleSetting.Shape.NONE;
+		boolean glowMode = shape == MobSearchStyleSetting.Shape.GLOW;
+		boolean drawShape =
+			!glowMode && shape != MobSearchStyleSetting.Shape.NONE;
 		boolean drawLines = style.hasLines();
 		boolean drawFill = drawShape && fillShapes.isChecked();
 		
@@ -295,31 +297,34 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			}
 		}
 		
-		if(filledShapes != null && !filledShapes.isEmpty())
+		if(!glowMode)
 		{
-			switch(shape)
+			if(filledShapes != null && !filledShapes.isEmpty())
 			{
-				case BOX -> RenderUtils.drawSolidBoxes(matrixStack,
-					filledShapes, false);
-				case OCTAHEDRON -> RenderUtils.drawSolidOctahedrons(matrixStack,
-					filledShapes, false);
-				default ->
-					{
-					}
+				switch(shape)
+				{
+					case BOX -> RenderUtils.drawSolidBoxes(matrixStack,
+						filledShapes, false);
+					case OCTAHEDRON -> RenderUtils
+						.drawSolidOctahedrons(matrixStack, filledShapes, false);
+					default ->
+						{
+						}
+				}
 			}
-		}
-		
-		if(outlineShapes != null && !outlineShapes.isEmpty())
-		{
-			switch(shape)
+			
+			if(outlineShapes != null && !outlineShapes.isEmpty())
 			{
-				case BOX -> RenderUtils.drawOutlinedBoxes(matrixStack,
-					outlineShapes, false);
-				case OCTAHEDRON -> RenderUtils
-					.drawOutlinedOctahedrons(matrixStack, outlineShapes, false);
-				default ->
-					{
-					}
+				switch(shape)
+				{
+					case BOX -> RenderUtils.drawOutlinedBoxes(matrixStack,
+						outlineShapes, false);
+					case OCTAHEDRON -> RenderUtils.drawOutlinedOctahedrons(
+						matrixStack, outlineShapes, false);
+					default ->
+						{
+						}
+				}
 			}
 		}
 		
@@ -392,13 +397,24 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		return text.substring(0, 32) + "...";
 	}
 	
+	public Integer getGlowColor(LivingEntity entity)
+	{
+		if(!isEnabled())
+			return null;
+		if(style.getShape() != MobSearchStyleSetting.Shape.GLOW)
+			return null;
+		if(!matches.contains(entity))
+			return null;
+		return getColorI(1F);
+	}
+	
 	// Local style setting that mirrors MobEsp's style but for MobSearch
 	private static final class MobSearchStyleSetting extends
 		net.wurstclient.settings.EnumSetting<MobSearchStyleSetting.Style>
 	{
 		private MobSearchStyleSetting()
 		{
-			super("Style", Style.values(), Style.OCTAHEDRONS);
+			super("Style", Style.values(), Style.LINES_AND_GLOW);
 		}
 		
 		public Shape getShape()
@@ -415,7 +431,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		{
 			NONE,
 			BOX,
-			OCTAHEDRON;
+			OCTAHEDRON,
+			GLOW;
 		}
 		
 		private enum Style
@@ -425,7 +442,9 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			LINES("Lines only", Shape.NONE, true),
 			LINES_AND_BOXES("Lines and boxes", Shape.BOX, true),
 			LINES_AND_OCTAHEDRONS("Lines and octahedrons", Shape.OCTAHEDRON,
-				true);
+				true),
+			GLOW("Glow only", Shape.GLOW, false),
+			LINES_AND_GLOW("Lines and glow", Shape.GLOW, true);
 			
 			private final String name;
 			private final Shape shape;

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +20,7 @@ import java.util.stream.Stream;
 
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -29,36 +31,34 @@ import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Formatting;
+import net.minecraft.world.RaycastContext;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.EspBoxSizeSetting;
-import net.wurstclient.settings.EspStyleSetting;
-import net.wurstclient.settings.EspStyleSetting.EspStyle;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.FilterInvisibleSetting;
 import net.wurstclient.settings.filters.FilterSleepingSetting;
-import net.wurstclient.settings.ColorSetting;
-import java.awt.Color;
-import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
-import net.minecraft.world.RaycastContext;
 
 @SearchTags({"player esp", "PlayerTracers", "player tracers"})
 public final class PlayerEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
-	private final EspStyleSetting style =
-		new EspStyleSetting(EspStyle.LINES_AND_BOXES);
+	private final PlayerEspStyleSetting style =
+		new PlayerEspStyleSetting(PlayerEspStyleSetting.Style.LINES_AND_GLOW);
 	
 	private final EspBoxSizeSetting boxSize = new EspBoxSizeSetting(
 		"\u00a7lAccurate\u00a7r mode shows the exact hitbox of each player.\n"
@@ -429,6 +429,20 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
+	public Integer getGlowColor(LivingEntity entity)
+	{
+		if(!isEnabled())
+			return null;
+		if(!style.hasGlow())
+			return null;
+		if(!(entity instanceof PlayerEntity player))
+			return null;
+		if(!players.contains(player))
+			return null;
+		
+		return makeOpaque(getBaseColor(player));
+	}
+	
 	private int getBaseColor(PlayerEntity e)
 	{
 		if(WURST.getFriends().contains(e.getName().getString()))
@@ -724,6 +738,59 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			{
 				holdUntil = now + LOS_HOLD_MS;
 				fadeUntil = holdUntil + LOS_FADE_MS;
+			}
+		}
+	}
+	
+	private static final class PlayerEspStyleSetting
+		extends EnumSetting<PlayerEspStyleSetting.Style>
+	{
+		private PlayerEspStyleSetting(Style defaultStyle)
+		{
+			super("Style", Style.values(), defaultStyle);
+		}
+		
+		public boolean hasBoxes()
+		{
+			return getSelected().boxes;
+		}
+		
+		public boolean hasLines()
+		{
+			return getSelected().lines;
+		}
+		
+		public boolean hasGlow()
+		{
+			return getSelected().glow;
+		}
+		
+		private enum Style
+		{
+			BOXES("Boxes only", true, false, false),
+			LINES("Lines only", false, true, false),
+			LINES_AND_BOXES("Lines and boxes", true, true, false),
+			GLOW("Glow only", false, false, true),
+			LINES_AND_GLOW("Lines and glow", false, true, true);
+			
+			private final String name;
+			private final boolean boxes;
+			private final boolean lines;
+			private final boolean glow;
+			
+			private Style(String name, boolean boxes, boolean lines,
+				boolean glow)
+			{
+				this.name = name;
+				this.boxes = boxes;
+				this.lines = lines;
+				this.glow = glow;
+			}
+			
+			@Override
+			public String toString()
+			{
+				return name;
 			}
 		}
 	}

@@ -40,9 +40,10 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
 - Added list mode with visual list of mobs.  
 - Multi-term queries: comma-separated (e.g., `skeleton, zombie`).  
-- Rendering: Boxes, Octahedrons, Lines, or Both. Rainbow or fixed color, filled or unfilled and configurable box size.
+- Rendering: Glow Outlines, Boxes, Octahedrons, Lines, or Both. Rainbow or fixed color, filled or unfilled and configurable box size.
 
 ![MobSearch](https://i.imgur.com/PeklZSq.png)
+![Glowing](https://i.imgur.com/nj29EQY.png)
 
 ### BedESP
 - Finds all bed types.  
@@ -275,6 +276,7 @@ Examples:
 - Added toggle for unique colors for each player (shared with Breadcrumbs)
 - Added box fill with transparency slider
 - Added static color option
+- Added glow outlines as an option 
 - Added Line of Sight Detection (LOS)
     - When you're spotted ESP and tracer will turn a bold red regardless of distance or color settings
     - Adjustable FOV and range
@@ -295,9 +297,9 @@ Examples:
 
 ### MobESP Improvements
 - Added rainbow/fixed color options for boxes/lines.  
-- Added octahedron shapes and set it as the new default.
-- Added glow outlines as an option
-- Added box color fill option
+- Added octahedron shapes.
+- Added glow outlines as an option and set it as the new default.
+- Added box color fill option.
 
 ![Mob](https://i.imgur.com/VXHW4qe.png)
 

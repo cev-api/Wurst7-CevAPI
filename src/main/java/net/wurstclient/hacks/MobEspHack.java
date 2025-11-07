@@ -254,14 +254,14 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		return color.getColorF();
 	}
 	
-	public boolean shouldGlow(LivingEntity entity)
+	public Integer getGlowColor(LivingEntity entity)
 	{
-		return isEnabled() && style.getShape() == MobEspStyleSetting.Shape.GLOW
-			&& mobs.contains(entity);
-	}
-	
-	public int getGlowColor()
-	{
+		if(!isEnabled())
+			return null;
+		if(style.getShape() != MobEspStyleSetting.Shape.GLOW)
+			return null;
+		if(!mobs.contains(entity))
+			return null;
 		return RenderUtils.toIntColor(getColorRgb(), 1F);
 	}
 	
@@ -270,7 +270,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	{
 		private MobEspStyleSetting()
 		{
-			super("Style", Style.values(), Style.OCTAHEDRONS);
+			super("Style", Style.values(), Style.GLOW);
 		}
 		
 		public Shape getShape()
