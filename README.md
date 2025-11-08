@@ -223,6 +223,13 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Bind switching then throwing a wind charge to a key
 - Delay, silent and auto jump settings
 
+### XCarryHack
+- Store items in your crafting table
+- Added alerts if the game auto-drops or returns the items back into your main inventory
+
+### BeaconExploit
+- Force specific effects even on lower tiers
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
