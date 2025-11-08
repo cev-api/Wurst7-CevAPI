@@ -160,7 +160,8 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### Antisocial
 - Hooks into the PlayerESP enter/leave detector (even if ESP itself is off) and logs out the instant someone walks into range.
 - Reuses AutoLeave's Quit/Chars/SelfHurt modes so you can pick the safest disconnect for your server.
-- Perfect for hiding or protecting yourself while AFK farming—optionally toggles AutoReconnect off so you stay gone.
+- Toggles AutoReconnect off so you stay gone.
+- Perfect for hiding or protecting yourself while AFK farming
 
 ### Anti-Fingerprint
 - Detects and stops resource-pack fingerprinting. 
@@ -209,7 +210,8 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### AutoMace
 - Auto changes to mace and attacks when falling on a target
 - Has various settings such as minimum fall distance, switch delay, attack delay and filters
-- Novel design where it implements a toggleable modified AimAssist setting whilst falling to aim for the top of the targets head when falling
+- Novel design where it implements a toggleable modified AimAssist setting whilst falling
+- Adds toggleable MaceDMG hack on impact
 
 ### WindChargeKey
 - Bind switching then throwing a wind charge to a key
