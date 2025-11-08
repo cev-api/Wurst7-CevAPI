@@ -32,6 +32,12 @@ hides the Alt Manager, Anti-Fingerprint UI, X-Ray block editor, and other “gre
 
 Build without the flag to get the full CevAPI experience; build with the flag for a genuinely cheat-free alternative.
 
+### NiceWurst In-Game Screenshot
+![NiceWurst](https://i.imgur.com/86vmxQi.png)
+
+### Wurst7-CevAPI In-Game Screenshot
+![Wurst7Cevapi](https://i.imgur.com/HjOIhzM.png)
+
 ---
 
 ## What’s new in this fork?
