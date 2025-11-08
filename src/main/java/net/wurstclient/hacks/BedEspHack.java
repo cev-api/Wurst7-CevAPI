@@ -101,6 +101,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkPos lastPlayerChunk;
 	private int foundCount;
+	private int lastMatchesVersion;
 	private List<BlockPos> cachedTrialSpawners = List.of();
 	private List<Vec3d> cachedVillagerPositions = List.of();
 	private List<Vec3d> cachedGolemPositions = List.of();
@@ -137,6 +138,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastTrialFilterState = filterTrialChambers.isChecked();
 		lastVillageFilterState = filterVillageBeds.isChecked();
 	}
@@ -150,6 +152,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(BedEspBlockGroup::clear);
 		// reset count
 		foundCount = 0;
@@ -164,6 +167,12 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion != lastMatchesVersion)
+		{
+			lastMatchesVersion = matchesVersion;
+			groupsUpToDate = false;
+		}
 		// Recenter per chunk when sticky is off
 		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))

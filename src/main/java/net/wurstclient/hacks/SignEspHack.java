@@ -86,6 +86,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
 	private int foundCount;
+	private int lastMatchesVersion;
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround = new CheckboxSetting(
@@ -116,6 +117,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -132,6 +134,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(net.wurstclient.events.PacketInputListener.class,
 			coordinator);
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(SignEspGroup::clear);
 		entityGroups.forEach(FrameEspEntityGroup::clear);
 		foundCount = 0;
@@ -158,6 +161,12 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion != lastMatchesVersion)
+		{
+			lastMatchesVersion = matchesVersion;
+			groupsUpToDate = false;
+		}
 		if(!groupsUpToDate && coordinator.isDone())
 			updateGroupBoxes();
 	}
