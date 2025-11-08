@@ -96,8 +96,8 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
-				"AutoSteal", "ChestSearch", "EnchantmentHandler",
-				"SignFramePT"));
+				"AutoSteal", "ChestSearch", "EnchantmentHandler", "SignFramePT",
+				"XCarry"));
 	}
 	
 	private NiceWurstModule()
