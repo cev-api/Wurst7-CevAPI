@@ -32,6 +32,7 @@ hs_err_pid*
 
 # python
 *.pyc
+*.py
 
 desktop.ini
 *.rar

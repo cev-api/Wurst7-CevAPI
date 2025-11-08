@@ -79,7 +79,7 @@ public final class NiceWurstModule
 			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
-			Set.of("AutoRespawn", "AutoTotem", "AutoLeave"));
+			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "WindChargeKey"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("Breadcrumbs", "Fullbright", "HealthTags", "ItemESP",
