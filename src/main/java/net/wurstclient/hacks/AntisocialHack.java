@@ -49,7 +49,7 @@ public final class AntisocialHack extends Hack
 	public AntisocialHack()
 	{
 		super("Antisocial");
-		setCategory(Category.COMBAT);
+		setCategory(Category.OTHER);
 		addSetting(mode);
 		addSetting(disableAutoReconnect);
 		addSetting(ignoreNpcs);

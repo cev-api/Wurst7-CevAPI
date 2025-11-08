@@ -20,6 +20,7 @@ import java.util.TreeMap;
 
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
@@ -89,9 +90,9 @@ public final class NiceWurstModule
 				"Waypoints"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
-			Set.of("AntiAFK", "AutoFish", "AutoLibrarian", "AutoReconnect",
-				"CheatDetector", "ClickGUI", "FeedAura", "Navigator", "Panic",
-				"PortalGUI", "SafeTP", "TooManyHax"));
+			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
+				"AutoReconnect", "CheatDetector", "ClickGUI", "FeedAura",
+				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
@@ -237,6 +238,17 @@ public final class NiceWurstModule
 		double targetDistSq = from.squaredDistanceTo(target);
 		double hitDistSq = hit.getPos().squaredDistanceTo(from);
 		return hitDistSq >= targetDistSq - 1e-3;
+	}
+	
+	public static Integer filterGlowColor(LivingEntity entity, Integer color)
+	{
+		if(color == null || !isActive())
+			return color;
+		if(entity == null)
+			return color;
+		
+		Vec3d target = entity.getBoundingBox().getCenter();
+		return shouldRenderTarget(target) ? color : null;
 	}
 	
 	public static boolean shouldOverlayEntityShapes()

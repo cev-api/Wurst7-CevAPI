@@ -27,6 +27,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.VelocityFromEntityCollisionListener.VelocityFromEntityCollisionEvent;
 import net.wurstclient.events.VelocityFromFluidListener.VelocityFromFluidEvent;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(Entity.class)
 public abstract class EntityMixin implements Nameable, EntityLike, CommandOutput
@@ -111,14 +112,17 @@ public abstract class EntityMixin implements Nameable, EntityLike, CommandOutput
 	{
 		var hax = WurstClient.INSTANCE.getHax();
 		
-		Integer color = hax.playerEspHack.getGlowColor(living);
+		Integer color = NiceWurstModule.filterGlowColor(living,
+			hax.playerEspHack.getGlowColor(living));
 		if(color != null)
 			return color;
 		
-		color = hax.mobSearchHack.getGlowColor(living);
+		color = NiceWurstModule.filterGlowColor(living,
+			hax.mobSearchHack.getGlowColor(living));
 		if(color != null)
 			return color;
 		
-		return hax.mobEspHack.getGlowColor(living);
+		return NiceWurstModule.filterGlowColor(living,
+			hax.mobEspHack.getGlowColor(living));
 	}
 }
