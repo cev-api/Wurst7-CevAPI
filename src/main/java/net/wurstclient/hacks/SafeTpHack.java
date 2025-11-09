@@ -173,7 +173,7 @@ public final class SafeTpHack extends Hack
 			if(MC.player == null || MC.getNetworkHandler() == null)
 				return;
 			
-			trapPos = BlockPos.ofFloored(MC.player.getEntityPos());
+			trapPos = BlockPos.ofFloored(MC.player.getPos());
 			
 			BlinkHack blinkHack = WURST.getHax().blinkHack;
 			boolean blinkAlready = blinkHack.isEnabled();

@@ -27,8 +27,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Colors;
 import net.minecraft.util.Util;
 import net.cevapi.config.AntiFingerprintConfigScreen;
-import net.wurstclient.util.MathUtils;
+import net.wurstclient.mixinterface.IMultiplayerScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.util.MathUtils;
 
 public class ServerFinderScreen extends Screen
 {

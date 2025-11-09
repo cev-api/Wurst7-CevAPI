@@ -118,8 +118,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		if(key == null)
 			return;
 		
-		boolean currentlyPressed =
-			InputUtil.isKeyPressed(MC.getWindow(), key.getCode());
+		boolean currentlyPressed = InputUtil
+			.isKeyPressed(MC.getWindow().getHandle(), key.getCode());
 		
 		if(currentlyPressed && !keyPressed)
 			handleWindChargeThrow();
