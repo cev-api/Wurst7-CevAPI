@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import net.minecraft.client.font.TextRenderer.TextLayerType;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.entity.LivingEntity;
@@ -65,6 +66,8 @@ public final class NiceWurstModule
 		"net.wurstclient.hacks.TridentEspHack");
 	private static final Set<String> ENTITY_OVERLAY_CALLERS =
 		Set.of("net.wurstclient.hacks.MobEspHack");
+	private static final Set<String> TEXT_DEPTH_TEST_CALLERS =
+		Set.of("net.wurstclient.hacks.TrialSpawnerEspHack");
 	private static final Set<String> TRACER_VISIBILITY_EXCEPTIONS =
 		Set.of("net.wurstclient.hacks.WaypointsHack");
 	
@@ -250,6 +253,23 @@ public final class NiceWurstModule
 		
 		Vec3d target = entity.getBoundingBox().getCenter();
 		return shouldRenderTarget(target) ? color : null;
+	}
+	
+	public static TextLayerType enforceTextLayer(TextLayerType originalLayer)
+	{
+		if(originalLayer == null || !isActive())
+			return originalLayer;
+		
+		if(originalLayer != TextLayerType.SEE_THROUGH)
+			return originalLayer;
+		
+		for(StackTraceElement element : Thread.currentThread().getStackTrace())
+		{
+			if(TEXT_DEPTH_TEST_CALLERS.contains(element.getClassName()))
+				return TextLayerType.NORMAL;
+		}
+		
+		return originalLayer;
 	}
 	
 	public static boolean shouldOverlayEntityShapes()

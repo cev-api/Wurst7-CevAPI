@@ -70,6 +70,7 @@
     "StatsScreenMixin",
     "StatusEffectInstanceMixin",
     "TelemetryManagerMixin",
+    "TextRendererMixin",
     "TextVisitFactoryMixin",
     "TrialSpawnerDataAccessor",
     "TitleScreenMixin",
