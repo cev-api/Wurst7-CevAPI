@@ -71,6 +71,7 @@
     "StatusEffectInstanceMixin",
     "TelemetryManagerMixin",
     "TextVisitFactoryMixin",
+    "TrialSpawnerDataAccessor",
     "TitleScreenMixin",
     "WorldMixin",
     "WorldRendererMixin"
