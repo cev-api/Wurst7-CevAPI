@@ -53,6 +53,9 @@ public final class OpenWaterEspHack extends Hack implements RenderListener
 	@Override
 	public void onRender(MatrixStack matrixStack, float partialTicks)
 	{
+		if(MC.player == null)
+			return;
+		
 		FishingBobberEntity bobber = MC.player.fishHook;
 		if(bobber == null)
 			return;
