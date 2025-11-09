@@ -61,6 +61,7 @@ public final class NiceWurstModule
 		"net.wurstclient.hacks.PlayerEspHack",
 		"net.wurstclient.hacks.PortalEspHack",
 		"net.wurstclient.hacks.SearchHack",
+		"net.wurstclient.hacks.TrialSpawnerEspHack",
 		"net.wurstclient.hacks.TridentEspHack");
 	private static final Set<String> ENTITY_OVERLAY_CALLERS =
 		Set.of("net.wurstclient.hacks.MobEspHack");
@@ -86,8 +87,8 @@ public final class NiceWurstModule
 				"LavaWaterESP", "LogoutSpots", "MobESP", "MobSearch",
 				"MobSpawnESP", "NewChunks", "NoBackground", "NoFireOverlay",
 				"NoVignette", "NoWeather", "Freecam", "OpenWaterESP",
-				"PlayerESP", "PortalESP", "Radar", "Search", "TridentESP",
-				"Waypoints"));
+				"PlayerESP", "PortalESP", "Radar", "Search", "TrialSpawnerESP",
+				"TridentESP", "Waypoints"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",

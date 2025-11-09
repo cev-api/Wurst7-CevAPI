@@ -230,6 +230,16 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### BeaconExploit
 - Force specific effects even on lower tiers
 
+### TrialSpawnerESP
+- Finds every Trial Spawner entity and renders colors based on the state (idle, charging, active, completed)
+- Draws activation ring which brightens when you're within the detection range
+- Reads data on the on the spawner to show wave progress, active mob count, next-wave timer, cooldown countdown, trial type, distance, mob type, ominous/normal state and more
+- Uses block-decoration heuristics to determine mob type even if data is missing
+- Draws tethers to nearby Trial Vaults
+- Congifurable with toggles for all of the above
+
+![Trial](https://i.imgur.com/Hp20hse.png)
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
