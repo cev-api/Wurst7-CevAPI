@@ -267,6 +267,12 @@ public final class ClickGui
 	
 	public void handleMouseScroll(double mouseX, double mouseY, double delta)
 	{
+		if(delta == 0)
+			return;
+		
+		if(handlePopupMouseScroll(mouseX, mouseY, delta))
+			return;
+		
 		int dWheel = (int)delta * 4;
 		if(dWheel == 0)
 			return;
@@ -364,7 +370,43 @@ public final class ClickGui
 		return false;
 	}
 	
-	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton)
+	private boolean handlePopupMouseScroll(double mouseX, double mouseY,
+		double delta)
+	{
+		for(int i = popups.size() - 1; i >= 0; i--)
+		{
+			Popup popup = popups.get(i);
+			if(popup.getWidth() <= 0 || popup.getHeight() <= 0)
+				continue;
+			
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			
+			int x0 = parent.getX() + owner.getX();
+			int y0 =
+				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			
+			int x1 = x0 + popup.getX();
+			int y1 = y0 + popup.getY();
+			int x2 = x1 + popup.getWidth();
+			int y2 = y1 + popup.getHeight();
+			
+			if(mouseX < x1 || mouseY < y1)
+				continue;
+			if(mouseX >= x2 || mouseY >= y2)
+				continue;
+			
+			int cMouseX = (int)(mouseX - x0);
+			int cMouseY = (int)(mouseY - y0);
+			if(popup.handleMouseScroll(cMouseX, cMouseY, delta))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
+		Click context)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{

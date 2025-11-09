@@ -339,6 +339,10 @@ Examples:
 
 ![ESP](https://i.imgur.com/1F7zU31.png)
 
+### TriggerBot Improvements
+- Can now select the mob and the desired weapon/tool to use against them and it will quickly auto-switch when detected
+  - Limited to three different mobs for now to prevent clutter
+
 ### Nuker Improvements
 - Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
 
@@ -403,6 +407,7 @@ Examples:
 
 ### Usability
 - Right-click Area setting resets it to default.  
+- Can now scroll all drop down/pop ups with your mouse.
 
 ### Stability
 - Fixed crashes on empty/zero-size shapes.  

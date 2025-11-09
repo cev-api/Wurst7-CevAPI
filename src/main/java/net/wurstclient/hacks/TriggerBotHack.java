@@ -20,6 +20,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyBinding;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.MobWeaponRuleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.SwingHandSetting;
@@ -72,6 +73,16 @@ public final class TriggerBotHack extends Hack
 	private final EntityFilterList entityFilters =
 		EntityFilterList.genericCombat();
 	
+	private final MobWeaponRuleSetting[] weaponRuleSettings =
+		new MobWeaponRuleSetting[]{new MobWeaponRuleSetting("Mob Tool Rule 1"),
+			new MobWeaponRuleSetting("Mob Tool Rule 2"),
+			new MobWeaponRuleSetting("Mob Tool Rule 3")};
+	private final WeaponRuleController[] weaponRuleControllers =
+		new WeaponRuleController[]{
+			new WeaponRuleController(weaponRuleSettings[0]),
+			new WeaponRuleController(weaponRuleSettings[1]),
+			new WeaponRuleController(weaponRuleSettings[2])};
+	
 	private boolean simulatingMouseClick;
 	
 	public TriggerBotHack()
@@ -87,6 +98,8 @@ public final class TriggerBotHack extends Hack
 		addSetting(simulateMouseClick);
 		
 		entityFilters.forEach(this::addSetting);
+		for(MobWeaponRuleSetting setting : weaponRuleSettings)
+			addSetting(setting);
 	}
 	
 	@Override
@@ -116,6 +129,9 @@ public final class TriggerBotHack extends Hack
 			simulatingMouseClick = false;
 		}
 		
+		for(WeaponRuleController controller : weaponRuleControllers)
+			controller.reset();
+		
 		EVENTS.remove(PreMotionListener.class, this);
 		EVENTS.remove(HandleInputListener.class, this);
 	}
@@ -134,26 +150,36 @@ public final class TriggerBotHack extends Hack
 	public void onHandleInput()
 	{
 		speed.updateTimer();
-		if(!speed.isTimeToAttack())
+		ClientPlayerEntity player = MC.player;
+		if(player == null)
+		{
+			releaseWeaponRules();
 			return;
+		}
 		
 		// don't attack when a container/inventory screen is open
 		if(MC.currentScreen instanceof HandledScreen)
+		{
+			releaseWeaponRules();
 			return;
+		}
 		
-		ClientPlayerEntity player = MC.player;
 		if(!attackWhileBlocking.isChecked() && player.isUsingItem())
+		{
+			releaseWeaponRules();
+			return;
+		}
+		
+		Entity target = getTargetUnderCrosshair();
+		boolean usedCustomRule = applyWeaponRules(target);
+		if(target == null)
 			return;
 		
-		if(MC.crosshairTarget == null
-			|| !(MC.crosshairTarget instanceof EntityHitResult eResult))
+		if(!speed.isTimeToAttack())
 			return;
 		
-		Entity target = eResult.getEntity();
-		if(!isCorrectEntity(target))
-			return;
-		
-		WURST.getHax().autoSwordHack.setSlot(target);
+		if(!usedCustomRule)
+			WURST.getHax().autoSwordHack.setSlot(target);
 		
 		if(simulateMouseClick.isChecked())
 		{
@@ -178,5 +204,93 @@ public final class TriggerBotHack extends Hack
 			return false;
 		
 		return entityFilters.testOne(entity);
+	}
+	
+	private Entity getTargetUnderCrosshair()
+	{
+		if(MC.crosshairTarget == null
+			|| !(MC.crosshairTarget instanceof EntityHitResult eResult))
+			return null;
+		
+		Entity entity = eResult.getEntity();
+		return isCorrectEntity(entity) ? entity : null;
+	}
+	
+	private boolean applyWeaponRules(Entity target)
+	{
+		boolean applied = false;
+		for(WeaponRuleController controller : weaponRuleControllers)
+		{
+			if(!applied && controller.tryApply(target))
+			{
+				applied = true;
+				continue;
+			}
+			
+			controller.deactivate();
+		}
+		
+		return applied;
+	}
+	
+	private void releaseWeaponRules()
+	{
+		for(WeaponRuleController controller : weaponRuleControllers)
+			controller.deactivate();
+	}
+	
+	private final class WeaponRuleController
+	{
+		private final MobWeaponRuleSetting setting;
+		private int previousSlot = -1;
+		private boolean active;
+		
+		private WeaponRuleController(MobWeaponRuleSetting setting)
+		{
+			this.setting = setting;
+		}
+		
+		private boolean tryApply(Entity target)
+		{
+			if(target == null || !setting.isActiveFor(target))
+				return false;
+			
+			ClientPlayerEntity player = MC.player;
+			if(player == null)
+				return false;
+			
+			int slot = setting.findPreferredHotbarSlot(player);
+			if(slot < 0)
+				return false;
+			
+			if(previousSlot == -1)
+				previousSlot = player.getInventory().getSelectedSlot();
+			
+			player.getInventory().setSelectedSlot(slot);
+			active = true;
+			return true;
+		}
+		
+		private void deactivate()
+		{
+			if(!active && previousSlot == -1)
+				return;
+			
+			active = false;
+			restoreSlot();
+		}
+		
+		private void reset()
+		{
+			active = false;
+			restoreSlot();
+		}
+		
+		private void restoreSlot()
+		{
+			if(previousSlot != -1 && MC.player != null)
+				MC.player.getInventory().setSelectedSlot(previousSlot);
+			previousSlot = -1;
+		}
 	}
 }

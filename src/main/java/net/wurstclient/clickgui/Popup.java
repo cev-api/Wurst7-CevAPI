@@ -33,6 +33,11 @@ public abstract class Popup
 	
 	public abstract int getDefaultHeight();
 	
+	public boolean handleMouseScroll(int mouseX, int mouseY, double delta)
+	{
+		return false;
+	}
+	
 	public Component getOwner()
 	{
 		return owner;
