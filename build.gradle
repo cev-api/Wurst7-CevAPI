@@ -23,9 +23,7 @@ def niceWurstRaw =
 def niceWurstEnabled = !["0", "false", "off", "no", ""]
 	.contains(niceWurstRaw.toLowerCase(Locale.ROOT))
 
-def effectiveVersion = niceWurstEnabled
-	? project.mod_version.replace("-Cevapi", "")
-	: project.mod_version
+def effectiveVersion = project.mod_version
 def effectiveArchiveName =
 	niceWurstEnabled ? "NiceWurst" : project.archives_base_name
 def modId = niceWurstEnabled ? "nicewurst" : "wurst"
