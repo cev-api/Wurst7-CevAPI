@@ -240,6 +240,17 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ![Trial](https://i.imgur.com/Hp20hse.png)
 
+### QuickShulker
+- Automates sorting and storage by moving items into a temporary shulker box. Works on both containers (like chests, barrels, hoppers) and your own inventory.
+- When used on an open container, it detects which items were taken (based on inventory slot increases) and transfers only those into the shulker, keeping the rest of your items untouched.
+- When used from your own inventory, it simply transfers eligible items according to your filters and mode.
+- Supports transfer modes (All / Stackable / Non-stackable) and blacklist / whitelist item lists.
+- Protects key hotbar slots (placed shulker and best pickaxe) from being moved or overwritten.
+- Automatically places a shulker safely nearby, faces it, opens it, deposits items, then breaks and retrieves it.
+- Uses safe placement logic and short, latency-aware waits to sync with server timing.
+- Ideal for rapid looting, cleanup, or personal inventory compression without manual sorting.
+- Optionally can continue to a new shulker box if the first is full mid-transfer.
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)

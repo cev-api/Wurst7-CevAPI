@@ -34,6 +34,7 @@ import net.wurstclient.chestsearch.ChestConfig;
 import net.wurstclient.chestsearch.ChestRecorder;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
+import net.wurstclient.hacks.QuickShulkerHack;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -109,7 +110,24 @@ public abstract class GenericContainerScreenMixin
 		}
 		if(autoSteal.isEnabled())
 			autoSteal.steal(this, rows);
-			
+		
+		QuickShulkerHack quickShulker =
+			WurstClient.INSTANCE.getHax().quickShulkerHack;
+		if(quickShulker != null && quickShulker.isEnabled()
+			&& quickShulker.hasUsableShulker())
+		{
+			// place QuickShulker above the container border so it is
+			// visually outside the chest/inventory GUI. Use the same
+			// positioning/size as the inventory screen button so it
+			// appears outside the form consistently.
+			ButtonWidget quickButton = ButtonWidget
+				.builder(Text.literal("QuickShulker"),
+					b -> quickShulker.triggerFromGui())
+				.dimensions(x + backgroundWidth - 90, y - 20, 80, 16).build();
+			quickButton.active = !quickShulker.isBusy();
+			addDrawableChild(quickButton);
+		}
+		
 		// Add a manual scan button to help on plugin-protected servers when
 		// chest search is in manual mode. The toggle is provided in the
 		// ChestSearch hack settings.

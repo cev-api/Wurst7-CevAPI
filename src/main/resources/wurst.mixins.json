@@ -42,6 +42,7 @@
     "GameRendererMixin",
     "HandledScreenAccessor",
     "HandledScreenMixin",
+    "InventoryScreenMixin",
     "GenericContainerScreenMixin",
     "GrindstoneScreenMixin",
     "HeldItemRendererMixin",

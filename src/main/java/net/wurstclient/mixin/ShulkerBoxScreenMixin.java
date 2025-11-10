@@ -18,6 +18,7 @@ import net.minecraft.screen.ShulkerBoxScreenHandler;
 import net.minecraft.text.Text;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoStealHack;
+import net.wurstclient.hacks.QuickShulkerHack;
 
 @Mixin(ShulkerBoxScreen.class)
 public abstract class ShulkerBoxScreenMixin
@@ -26,6 +27,9 @@ public abstract class ShulkerBoxScreenMixin
 	@Unique
 	private final AutoStealHack autoSteal =
 		WurstClient.INSTANCE.getHax().autoStealHack;
+	@Unique
+	private final QuickShulkerHack quickShulker =
+		WurstClient.INSTANCE.getHax().quickShulkerHack;
 	
 	private ShulkerBoxScreenMixin(WurstClient wurst,
 		ShulkerBoxScreenHandler handler, PlayerInventory inventory, Text title)
@@ -54,5 +58,19 @@ public abstract class ShulkerBoxScreenMixin
 		
 		if(autoSteal.isEnabled())
 			autoSteal.steal(this, 3);
+		
+		if(quickShulker != null && quickShulker.isEnabled()
+			&& quickShulker.hasUsableShulker())
+		{
+			// place the QuickShulker button outside the shulker UI so it
+			// doesn't overlap the container background, matching the
+			// inventory screen placement
+			ButtonWidget quickButton = ButtonWidget
+				.builder(Text.literal("QuickShulker"),
+					b -> quickShulker.triggerFromGui())
+				.dimensions(x + backgroundWidth - 90, y - 20, 80, 16).build();
+			quickButton.active = !quickShulker.isBusy();
+			addDrawableChild(quickButton);
+		}
 	}
 }
