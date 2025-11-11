@@ -251,6 +251,15 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Ideal for rapid looting, cleanup, or personal inventory compression without manual sorting.
 - Optionally can continue to a new shulker box if the first is full mid-transfer.
 
+### AutoTrader
+- Automatically sells selected items to villagers / merchants.
+- Adds an "AutoTrader" button to the trade screen and a configurable Item List setting where you pick which items to quickly sell.
+- When a merchant GUI is open the hack will detect matching trades (first and optional second buy-slot) and repeatedly perform purchases while:
+  - the villager still has the trade available
+  - the selected item is present in the player's inventory
+- Robust sold-out detection and safe-stop logic to avoid spamming when offers are exhausted.
+- Ideal for quickly offloading farmed goods (seeds, string, paper, etc.) into emeralds without manual clicking.
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
