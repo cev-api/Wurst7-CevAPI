@@ -20,11 +20,11 @@ import java.util.stream.Collectors;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.util.Window;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.component.type.ContainerComponent;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.potion.Potion;
@@ -49,6 +49,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
 
@@ -76,6 +77,20 @@ public final class EnchantmentHandlerHack extends Hack
 		new LinkedHashMap<>();
 	private final Map<PotionCategory, List<PotionEntry>> potionGroupedEntries =
 		new LinkedHashMap<>();
+	// Separate grouped maps for player inventory and shulker contents
+	private final Map<GearCategory, List<GearEntry>> gearGroupedEntriesPlayer =
+		new LinkedHashMap<>();
+	private final Map<BookCategory, List<BookEntry>> bookGroupedEntriesPlayer =
+		new LinkedHashMap<>();
+	private final Map<PotionCategory, List<PotionEntry>> potionGroupedEntriesPlayer =
+		new LinkedHashMap<>();
+	
+	private final Map<GearCategory, List<GearEntry>> gearGroupedEntriesShulker =
+		new LinkedHashMap<>();
+	private final Map<BookCategory, List<BookEntry>> bookGroupedEntriesShulker =
+		new LinkedHashMap<>();
+	private final Map<PotionCategory, List<PotionEntry>> potionGroupedEntriesShulker =
+		new LinkedHashMap<>();
 	private final List<Hitbox> hitboxes = new ArrayList<>();
 	
 	private final SliderSetting boxWidth = new SliderSetting("Box width", 200,
@@ -94,6 +109,11 @@ public final class EnchantmentHandlerHack extends Hack
 	private final SliderSetting hoverScrollSpeed = new SliderSetting(
 		"Hover scroll speed", "Pixels per second when hovering long entries.",
 		25, 5, 80, 1, ValueDisplay.INTEGER);
+	
+	private final CheckboxSetting includePlayerInventory =
+		new CheckboxSetting("Include player inventory", false);
+	private final CheckboxSetting includeShulkerContents =
+		new CheckboxSetting("Include shulker contents", false);
 	
 	private double scrollOffset;
 	private double maxScroll;
@@ -118,13 +138,27 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(offsetY);
 		addSetting(textScale);
 		addSetting(hoverScrollSpeed);
+		addSetting(includePlayerInventory);
+		addSetting(includeShulkerContents);
 		
-		for(GearCategory category : GearCategory.ORDERED)
-			gearGroupedEntries.put(category, new ArrayList<>());
-		for(BookCategory category : BookCategory.ORDERED)
-			bookGroupedEntries.put(category, new ArrayList<>());
-		for(PotionCategory category : PotionCategory.ORDERED)
-			potionGroupedEntries.put(category, new ArrayList<>());
+		for(GearCategory cat : GearCategory.ORDERED)
+		{
+			gearGroupedEntries.put(cat, new ArrayList<>());
+			gearGroupedEntriesPlayer.put(cat, new ArrayList<>());
+			gearGroupedEntriesShulker.put(cat, new ArrayList<>());
+		}
+		for(BookCategory cat : BookCategory.ORDERED)
+		{
+			bookGroupedEntries.put(cat, new ArrayList<>());
+			bookGroupedEntriesPlayer.put(cat, new ArrayList<>());
+			bookGroupedEntriesShulker.put(cat, new ArrayList<>());
+		}
+		for(PotionCategory cat : PotionCategory.ORDERED)
+		{
+			potionGroupedEntries.put(cat, new ArrayList<>());
+			potionGroupedEntriesPlayer.put(cat, new ArrayList<>());
+			potionGroupedEntriesShulker.put(cat, new ArrayList<>());
+		}
 	}
 	
 	@Override
@@ -139,6 +173,13 @@ public final class EnchantmentHandlerHack extends Hack
 		gearGroupedEntries.values().forEach(List::clear);
 		bookGroupedEntries.values().forEach(List::clear);
 		potionGroupedEntries.values().forEach(List::clear);
+		// also clear player / shulker grouped maps
+		gearGroupedEntriesPlayer.values().forEach(List::clear);
+		bookGroupedEntriesPlayer.values().forEach(List::clear);
+		potionGroupedEntriesPlayer.values().forEach(List::clear);
+		gearGroupedEntriesShulker.values().forEach(List::clear);
+		bookGroupedEntriesShulker.values().forEach(List::clear);
+		potionGroupedEntriesShulker.values().forEach(List::clear);
 		hitboxes.clear();
 		hoveredSlotId = -1;
 		hoverStartMs = 0L;
@@ -149,16 +190,13 @@ public final class EnchantmentHandlerHack extends Hack
 	{
 		lastRenderActive = false;
 		
-		if(!(screen instanceof GenericContainerScreen generic))
-			return;
-		
 		if(MC.player == null || MC.interactionManager == null)
 			return;
 		
 		if(needsRescan)
-			rescan(generic);
+			rescan(screen);
 		else
-			refreshIfDirty(generic);
+			refreshIfDirty(screen);
 		
 		if(allEntries.isEmpty())
 		{
@@ -198,14 +236,13 @@ public final class EnchantmentHandlerHack extends Hack
 	public boolean handleMouseClick(HandledScreen<?> screen, double mouseX,
 		double mouseY, int button)
 	{
-		if(!lastRenderActive || !(screen instanceof GenericContainerScreen))
+		if(!lastRenderActive)
 			return false;
 		
 		if(button != 0 && button != 1)
 			return isInsidePanel(mouseX, mouseY);
 		
-		GenericContainerScreenHandler handler =
-			((GenericContainerScreen)screen).getScreenHandler();
+		ScreenHandler handler = ((HandledScreen<?>)screen).getScreenHandler();
 		
 		for(Hitbox hitbox : hitboxes)
 		{
@@ -228,11 +265,12 @@ public final class EnchantmentHandlerHack extends Hack
 				if(button == 1)
 				{
 					if(hitbox.entry instanceof GearEntry gear)
-						takeGearCategory(gear.category, handler);
+						takeGearCategory(gear.category, handler, hitbox.source);
 					else if(hitbox.entry instanceof BookEntry book)
-						takeBookCategory(book.category, handler);
+						takeBookCategory(book.category, handler, hitbox.source);
 					else if(hitbox.entry instanceof PotionEntry potion)
-						takePotionCategory(potion.category, handler);
+						takePotionCategory(potion.category, handler,
+							hitbox.source);
 					return true;
 				}
 				continue;
@@ -241,21 +279,21 @@ public final class EnchantmentHandlerHack extends Hack
 			if(hitbox.categoryKind == CategoryKind.GEAR
 				&& hitbox.category instanceof GearCategory gearCat)
 			{
-				takeGearCategory(gearCat, handler);
+				takeGearCategory(gearCat, handler, hitbox.source);
 				return true;
 			}
 			
 			if(hitbox.categoryKind == CategoryKind.BOOK
 				&& hitbox.category instanceof BookCategory bookCat)
 			{
-				takeBookCategory(bookCat, handler);
+				takeBookCategory(bookCat, handler, hitbox.source);
 				return true;
 			}
 			
 			if(hitbox.categoryKind == CategoryKind.POTION
 				&& hitbox.category instanceof PotionCategory potCat)
 			{
-				takePotionCategory(potCat, handler);
+				takePotionCategory(potCat, handler, hitbox.source);
 				return true;
 			}
 		}
@@ -266,7 +304,7 @@ public final class EnchantmentHandlerHack extends Hack
 	public boolean handleMouseScroll(HandledScreen<?> screen, double mouseX,
 		double mouseY, double amount)
 	{
-		if(!lastRenderActive || !(screen instanceof GenericContainerScreen))
+		if(!lastRenderActive)
 			return false;
 		
 		if(!isInsidePanel(mouseX, mouseY))
@@ -334,17 +372,31 @@ public final class EnchantmentHandlerHack extends Hack
 			Math.max(1.0, panelWidth - 2.0 * PANEL_PADDING - 4.0);
 		double hoverSpeed = Math.max(1.0, hoverScrollSpeed.getValueI());
 		
-		cursorY = renderGearSection(context, tr, scale, titleX, cursorY, offset,
-			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
-			entryMargin, headerMargin, hoverFlag);
-		
-		cursorY = renderPotionSection(context, tr, scale, titleX, cursorY,
+		// Render source sections: Container always, then optional Player and
+		// Shulker sections (each contains gear, potions and books
+		// subcategories)
+		cursorY = renderSourceSection(context, tr, scale, titleX, cursorY,
 			offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
-			lineHeight, entryMargin, headerMargin, hoverFlag);
+			lineHeight, entryMargin, headerMargin, hoverFlag, "Container",
+			gearGroupedEntries, potionGroupedEntries, bookGroupedEntries);
 		
-		cursorY = renderBookSection(context, tr, scale, titleX, cursorY, offset,
-			textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY, lineHeight,
-			entryMargin, headerMargin, hoverFlag);
+		if(includePlayerInventory.isChecked())
+		{
+			cursorY = renderSourceSection(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin, hoverFlag,
+				"Player Inventory", gearGroupedEntriesPlayer,
+				potionGroupedEntriesPlayer, bookGroupedEntriesPlayer);
+		}
+		
+		if(includeShulkerContents.isChecked())
+		{
+			cursorY = renderSourceSection(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin, hoverFlag,
+				"Shulker contents", gearGroupedEntriesShulker,
+				potionGroupedEntriesShulker, bookGroupedEntriesShulker);
+		}
 		
 		if(!hoverFlag[0])
 		{
@@ -390,7 +442,80 @@ public final class EnchantmentHandlerHack extends Hack
 				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
 				lineHeight, entryMargin, headerMargin,
 				category.getDisplayName(), CategoryKind.GEAR, category, list,
-				hoverFlag);
+				hoverFlag, "Container");
+		}
+		
+		return cursorY;
+	}
+	
+	private double renderSourceSection(DrawContext context, TextRenderer tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag, String sourceTitle,
+		Map<GearCategory, List<GearEntry>> gearMap,
+		Map<PotionCategory, List<PotionEntry>> potionMap,
+		Map<BookCategory, List<BookEntry>> bookMap)
+	{
+		boolean hasEntries = GearCategory.ORDERED.stream()
+			.anyMatch(cat -> !gearMap.getOrDefault(cat, List.of()).isEmpty())
+			|| BookCategory.ORDERED.stream().anyMatch(
+				cat -> !bookMap.getOrDefault(cat, List.of()).isEmpty())
+			|| PotionCategory.ORDERED.stream().anyMatch(
+				cat -> !potionMap.getOrDefault(cat, List.of()).isEmpty());
+		if(!hasEntries)
+			return cursorY;
+		
+		int sectionTitleY = (int)Math.round(cursorY - offset);
+		drawSectionHeader(context, tr, titleX, sectionTitleY, sourceTitle,
+			scale);
+		int underlineY = sectionTitleY
+			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
+			underlineY + 1, 0xFFD0D0D0);
+		cursorY += lineHeight + headerMargin + 4;
+		
+		// Gear
+		for(GearCategory category : GearCategory.ORDERED)
+		{
+			List<GearEntry> list = gearMap.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.GEAR, category, list,
+				hoverFlag, sourceTitle);
+		}
+		
+		// Potions
+		for(PotionCategory category : PotionCategory.ORDERED)
+		{
+			List<PotionEntry> list =
+				potionMap.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.POTION, category, list,
+				hoverFlag, sourceTitle);
+		}
+		
+		// Books
+		for(BookCategory category : BookCategory.ORDERED)
+		{
+			List<BookEntry> list = bookMap.getOrDefault(category, List.of());
+			if(list.isEmpty())
+				continue;
+			
+			cursorY = renderCategoryEntries(context, tr, scale, titleX, cursorY,
+				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
+				lineHeight, entryMargin, headerMargin,
+				category.getDisplayName(), CategoryKind.BOOK, category, list,
+				hoverFlag, sourceTitle);
 		}
 		
 		return cursorY;
@@ -427,7 +552,7 @@ public final class EnchantmentHandlerHack extends Hack
 				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
 				lineHeight, entryMargin, headerMargin,
 				category.getDisplayName(), CategoryKind.BOOK, category, list,
-				hoverFlag);
+				hoverFlag, "Container");
 		}
 		
 		return cursorY;
@@ -464,7 +589,7 @@ public final class EnchantmentHandlerHack extends Hack
 				offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
 				lineHeight, entryMargin, headerMargin,
 				category.getDisplayName(), CategoryKind.POTION, category, list,
-				hoverFlag);
+				hoverFlag, "Container");
 		}
 		
 		return cursorY;
@@ -475,7 +600,8 @@ public final class EnchantmentHandlerHack extends Hack
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
 		String displayName, CategoryKind kind, Object category,
-		List<? extends AbstractEntry> entries, boolean[] hoverFlag)
+		List<? extends AbstractEntry> entries, boolean[] hoverFlag,
+		String source)
 	{
 		int headerY = (int)Math.round(cursorY - offset);
 		String headerText = displayName + " (" + entries.size() + ")";
@@ -495,8 +621,11 @@ public final class EnchantmentHandlerHack extends Hack
 		drawScaledText(context, tr, takeAllText, takeAllX, takeAllY,
 			actionHovered ? ACTION_HOVER_COLOR : ACTION_COLOR, scale);
 		
+		// source will be supplied by the caller (renderSourceSection) via a
+		// temporary field in the accessor - we pass a placeholder here; the
+		// real value is set by renderSourceSection wrapper below when used.
 		hitboxes.add(Hitbox.forCategory(takeAllX - 2, takeAllY - 2,
-			takeAllWidth + 4, lineHeight + 4, kind, category));
+			takeAllWidth + 4, lineHeight + 4, kind, category, source));
 		
 		cursorY += lineHeight + entryMargin;
 		
@@ -567,13 +696,13 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private void rescan(GenericContainerScreen screen)
+	private void rescan(HandledScreen<?> screen)
 	{
 		refreshEntries(screen.getScreenHandler());
 		needsRescan = false;
 	}
 	
-	private void refreshIfDirty(GenericContainerScreen screen)
+	private void refreshIfDirty(HandledScreen<?> screen)
 	{
 		refreshEntries(screen.getScreenHandler());
 	}
@@ -584,13 +713,36 @@ public final class EnchantmentHandlerHack extends Hack
 		gearGroupedEntries.values().forEach(List::clear);
 		bookGroupedEntries.values().forEach(List::clear);
 		potionGroupedEntries.values().forEach(List::clear);
+		// clear player / shulker grouped maps too
+		gearGroupedEntriesPlayer.values().forEach(List::clear);
+		bookGroupedEntriesPlayer.values().forEach(List::clear);
+		potionGroupedEntriesPlayer.values().forEach(List::clear);
+		gearGroupedEntriesShulker.values().forEach(List::clear);
+		bookGroupedEntriesShulker.values().forEach(List::clear);
+		potionGroupedEntriesShulker.values().forEach(List::clear);
 		
-		if(!(handler instanceof GenericContainerScreenHandler genericHandler))
-			return;
-		
-		int containerSlots = genericHandler.getRows() * 9;
-		List<Slot> slots = genericHandler.slots;
-		containerSlots = Math.min(containerSlots, slots.size());
+		List<Slot> slots = handler.slots;
+		int totalSlots = slots.size();
+		int containerSlots;
+		if(handler instanceof GenericContainerScreenHandler genericHandler)
+		{
+			containerSlots = Math.min(genericHandler.getRows() * 9, totalSlots);
+		}else
+		{
+			// For other handlers (shulker, player inventory, etc.) assume the
+			// player inventory occupies the last 36 slots. Compute container
+			// slots as total - 36. If this yields 0, fall back to using all
+			// slots so we still show items.
+			int playerInvSlots = 36;
+			if(MC.player != null && handler == MC.player.playerScreenHandler)
+				containerSlots = totalSlots; // player's own inventory: show all
+			else
+			{
+				containerSlots = Math.max(0, totalSlots - playerInvSlots);
+				if(containerSlots == 0)
+					containerSlots = totalSlots;
+			}
+		}
 		
 		for(int i = 0; i < containerSlots; i++)
 		{
@@ -601,6 +753,76 @@ public final class EnchantmentHandlerHack extends Hack
 			ItemStack stack = slot.getStack();
 			if(stack.isEmpty())
 				continue;
+				
+			// If configured, inspect shulker contents stored inside container
+			// items
+			if(includeShulkerContents.isChecked())
+			{
+				ContainerComponent container =
+					stack.get(DataComponentTypes.CONTAINER);
+				if(container != null)
+				{
+					int parentSlotNumber = slot.getIndex() + 1;
+					for(ItemStack inner : container.iterateNonEmpty())
+					{
+						if(inner == null || inner.isEmpty())
+							continue;
+						if(inner.isOf(Items.ENCHANTED_BOOK))
+						{
+							var ench = EnchantmentHelper.getEnchantments(inner)
+								.getEnchantmentEntries();
+							BookEntry entry = buildBookEntryFromStack(
+								parentSlotNumber, inner, ench);
+							if(entry != null)
+							{
+								allEntries.add(entry);
+								bookGroupedEntries
+									.computeIfAbsent(entry.category,
+										c -> new ArrayList<>())
+									.add(entry);
+							}
+							continue;
+						}
+						PotionCategory pCatInner =
+							PotionCategory.fromItem(inner.getItem());
+						if(pCatInner != null)
+						{
+							PotionEntry entry = buildPotionEntryFromStack(
+								parentSlotNumber, inner, pCatInner);
+							if(entry != null)
+							{
+								allEntries.add(entry);
+								potionGroupedEntries
+									.computeIfAbsent(entry.category,
+										c -> new ArrayList<>())
+									.add(entry);
+							}
+							continue;
+						}
+						var enchInner = EnchantmentHelper.getEnchantments(inner)
+							.getEnchantmentEntries();
+						if(!enchInner.isEmpty())
+						{
+							GearCategory gCatInner =
+								GearCategory.fromStack(inner);
+							if(gCatInner != null)
+							{
+								GearEntry entry =
+									buildGearEntryFromStack(parentSlotNumber,
+										inner, gCatInner, enchInner);
+								if(entry != null)
+								{
+									allEntries.add(entry);
+									gearGroupedEntries
+										.computeIfAbsent(entry.category,
+											c -> new ArrayList<>())
+										.add(entry);
+								}
+							}
+						}
+					}
+				}
+			}
 			
 			if(stack.isOf(Items.ENCHANTED_BOOK))
 			{
@@ -655,9 +877,160 @@ public final class EnchantmentHandlerHack extends Hack
 				.add(entry);
 		}
 		
+		// Optionally include player inventory slots as well
+		int scanSlots = containerSlots;
+		if(includePlayerInventory.isChecked())
+			scanSlots = slots.size();
+		
+		for(int i = containerSlots; i < scanSlots; i++)
+		{
+			Slot slot = slots.get(i);
+			if(slot == null || !slot.hasStack())
+				continue;
+			ItemStack stack = slot.getStack();
+			if(stack.isEmpty())
+				continue;
+				
+			// First, handle top-level enchanted books, potions and gear in
+			// the player inventory the same way we handle container slots.
+			if(stack.isOf(Items.ENCHANTED_BOOK))
+			{
+				Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
+					EnchantmentHelper.getEnchantments(stack)
+						.getEnchantmentEntries();
+				if(!enchantments.isEmpty())
+				{
+					BookEntry entry = buildBookEntry(slot, enchantments);
+					if(entry != null)
+					{
+						allEntries.add(entry);
+						bookGroupedEntriesPlayer.computeIfAbsent(entry.category,
+							c -> new ArrayList<>()).add(entry);
+					}
+				}
+				continue;
+			}
+			
+			PotionCategory pCat = PotionCategory.fromItem(stack.getItem());
+			if(pCat != null)
+			{
+				PotionEntry entry = buildPotionEntry(slot, stack, pCat);
+				if(entry != null)
+				{
+					allEntries.add(entry);
+					potionGroupedEntriesPlayer
+						.computeIfAbsent(entry.category, c -> new ArrayList<>())
+						.add(entry);
+				}
+				continue;
+			}
+			
+			Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
+				EnchantmentHelper.getEnchantments(stack)
+					.getEnchantmentEntries();
+			if(!enchantments.isEmpty())
+			{
+				GearCategory category = GearCategory.fromStack(stack);
+				if(category != null)
+				{
+					GearEntry entry =
+						buildGearEntry(slot, stack, category, enchantments);
+					if(entry != null)
+					{
+						allEntries.add(entry);
+						gearGroupedEntriesPlayer
+							.computeIfAbsent(category, c -> new ArrayList<>())
+							.add(entry);
+					}
+				}
+				continue;
+			}
+			
+			// If configured, inspect shulker contents stored inside inventory
+			// items
+			if(includeShulkerContents.isChecked())
+			{
+				ContainerComponent container =
+					stack.get(DataComponentTypes.CONTAINER);
+				if(container != null)
+				{
+					int parentSlotNumber = slot.getIndex() + 1;
+					for(ItemStack inner : container.iterateNonEmpty())
+					{
+						if(inner == null || inner.isEmpty())
+							continue;
+						// Enchanted book inside shulker
+						if(inner.isOf(Items.ENCHANTED_BOOK))
+						{
+							var ench = EnchantmentHelper.getEnchantments(inner)
+								.getEnchantmentEntries();
+							BookEntry entry = buildBookEntryFromStack(
+								parentSlotNumber, inner, ench);
+							if(entry != null)
+							{
+								allEntries.add(entry);
+								bookGroupedEntriesShulker
+									.computeIfAbsent(entry.category,
+										c -> new ArrayList<>())
+									.add(entry);
+							}
+							continue;
+						}
+						// Potions inside shulker
+						PotionCategory pCatInner =
+							PotionCategory.fromItem(inner.getItem());
+						if(pCatInner != null)
+						{
+							PotionEntry entry = buildPotionEntryFromStack(
+								parentSlotNumber, inner, pCatInner);
+							if(entry != null)
+							{
+								allEntries.add(entry);
+								potionGroupedEntriesShulker
+									.computeIfAbsent(entry.category,
+										c -> new ArrayList<>())
+									.add(entry);
+							}
+							continue;
+						}
+						var enchInner = EnchantmentHelper.getEnchantments(inner)
+							.getEnchantmentEntries();
+						if(!enchInner.isEmpty())
+						{
+							GearCategory gCatInner =
+								GearCategory.fromStack(inner);
+							if(gCatInner != null)
+							{
+								GearEntry entry =
+									buildGearEntryFromStack(parentSlotNumber,
+										inner, gCatInner, enchInner);
+								if(entry != null)
+								{
+									allEntries.add(entry);
+									gearGroupedEntriesShulker
+										.computeIfAbsent(entry.category,
+											c -> new ArrayList<>())
+										.add(entry);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		// Sort container, player and shulker grouped lists
 		gearGroupedEntries.values().forEach(list -> list
 			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		gearGroupedEntriesPlayer.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		gearGroupedEntriesShulker.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
 		bookGroupedEntries.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		bookGroupedEntriesPlayer.values().forEach(list -> list
+			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		bookGroupedEntriesShulker.values().forEach(list -> list
 			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
 		potionGroupedEntries.values().forEach(list -> list.sort((a, b) -> {
 			int n = a.primaryName.compareToIgnoreCase(b.primaryName);
@@ -672,6 +1045,36 @@ public final class EnchantmentHandlerHack extends Hack
 				return n;
 			return Integer.compare(a.displaySlot, b.displaySlot);
 		}));
+		potionGroupedEntriesPlayer.values()
+			.forEach(list -> list.sort((a, b) -> {
+				int n = a.primaryName.compareToIgnoreCase(b.primaryName);
+				if(n != 0)
+					return n;
+				n = Integer.compare(b.primaryLevel, a.primaryLevel); // higher
+																		// first
+				if(n != 0)
+					return n;
+				n = Integer.compare(b.primaryDuration, a.primaryDuration); // longer
+				// first
+				if(n != 0)
+					return n;
+				return Integer.compare(a.displaySlot, b.displaySlot);
+			}));
+		potionGroupedEntriesShulker.values()
+			.forEach(list -> list.sort((a, b) -> {
+				int n = a.primaryName.compareToIgnoreCase(b.primaryName);
+				if(n != 0)
+					return n;
+				n = Integer.compare(b.primaryLevel, a.primaryLevel); // higher
+																		// first
+				if(n != 0)
+					return n;
+				n = Integer.compare(b.primaryDuration, a.primaryDuration); // longer
+				// first
+				if(n != 0)
+					return n;
+				return Integer.compare(a.displaySlot, b.displaySlot);
+			}));
 	}
 	
 	private GearEntry buildGearEntry(Slot slot, ItemStack stack,
@@ -708,6 +1111,36 @@ public final class EnchantmentHandlerHack extends Hack
 		String line = slotNumber + " - " + itemName + " | " + enchantSummary;
 		
 		return new GearEntry(slot.id, slotNumber, category, line);
+	}
+	
+	// Build a GearEntry for an item inside a shulker box (no real slot id)
+	private GearEntry buildGearEntryFromStack(int parentSlotNumber,
+		ItemStack stack, GearCategory category,
+		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+	{
+		List<String> parts = new ArrayList<>();
+		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		{
+			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			if(enchantmentEntry == null)
+				continue;
+			int level = entry.getIntValue();
+			Identifier id = enchantmentEntry.getKey()
+				.map(registryKey -> registryKey.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(enchantmentEntry.getIdAsString());
+			String name = buildEnchantmentName(id, path);
+			String levelText =
+				Text.translatable("enchantment.level." + level).getString();
+			parts.add(name + " " + levelText);
+		}
+		if(parts.isEmpty())
+			return null;
+		String enchantSummary = limitLength(String.join(", ", parts), 90);
+		String itemName = limitLength(stack.getName().getString(), 40);
+		String line = parentSlotNumber + " - " + itemName + " | "
+			+ enchantSummary + " (in shulker)";
+		return new GearEntry(-1, parentSlotNumber, category, line);
 	}
 	
 	private BookEntry buildBookEntry(Slot slot,
@@ -749,6 +1182,42 @@ public final class EnchantmentHandlerHack extends Hack
 		String line = slotNumber + " - " + enchantSummary;
 		
 		return new BookEntry(slot.id, slotNumber, primary, line);
+	}
+	
+	// Build a BookEntry for an item inside a shulker box (no real slot id)
+	private BookEntry buildBookEntryFromStack(int parentSlotNumber,
+		ItemStack stack,
+		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+	{
+		List<String> parts = new ArrayList<>();
+		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
+		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		{
+			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			if(enchantmentEntry == null)
+				continue;
+			int level = entry.getIntValue();
+			Identifier id = enchantmentEntry.getKey()
+				.map(registryKey -> registryKey.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(enchantmentEntry.getIdAsString());
+			BookCategory category = BookCategory.fromPath(path);
+			categories.add(category);
+			String name = buildEnchantmentName(id, path);
+			String levelText =
+				Text.translatable("enchantment.level." + level).getString();
+			parts.add(name + " " + levelText);
+		}
+		if(parts.isEmpty())
+			return null;
+		BookCategory primary =
+			categories.stream().filter(c -> c != BookCategory.MISC).findFirst()
+				.orElseGet(() -> categories.stream().findFirst()
+					.orElse(BookCategory.MISC));
+		String enchantSummary = limitLength(String.join(", ", parts), 90);
+		String line =
+			parentSlotNumber + " - " + enchantSummary + " (in shulker)";
+		return new BookEntry(-1, parentSlotNumber, primary, line);
 	}
 	
 	private PotionEntry buildPotionEntry(Slot slot, ItemStack stack,
@@ -837,10 +1306,89 @@ public final class EnchantmentHandlerHack extends Hack
 			primaryLevel, primaryDuration);
 	}
 	
-	private void takeEntry(GearEntry entry,
-		GenericContainerScreenHandler handler)
+	private PotionEntry buildPotionEntryFromStack(int parentSlotNumber,
+		ItemStack stack, PotionCategory category)
+	{
+		List<String> parts = new ArrayList<>();
+		PotionContentsComponent potionContents = stack.getComponents()
+			.getOrDefault(DataComponentTypes.POTION_CONTENTS,
+				PotionContentsComponent.DEFAULT);
+		for(StatusEffectInstance effectInstance : potionContents.getEffects())
+		{
+			RegistryEntry<StatusEffect> effEntry =
+				effectInstance.getEffectType();
+			Identifier id =
+				effEntry.getKey().map(k -> k.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(effEntry.getIdAsString());
+			String name = buildEffectName(id, path);
+			String ampText = effectInstance.getAmplifier() > 0
+				? " " + (effectInstance.getAmplifier() + 1) : "";
+			String durText = effectInstance.getDuration() > 0
+				? " " + Math.max(0, effectInstance.getDuration() / 20) + "s"
+				: "";
+			parts.add(name + ampText + durText);
+		}
+		if(parts.isEmpty())
+		{
+			var basePotion = potionContents.potion();
+			if(basePotion.isPresent())
+			{
+				RegistryEntry<Potion> p = basePotion.get();
+				Identifier id = p.getKey().map(k -> k.getValue()).orElse(null);
+				String path =
+					id != null ? id.getPath() : sanitizePath(p.getIdAsString());
+				String name = buildPotionName(id, path);
+				parts.add(name);
+			}
+		}
+		if(parts.isEmpty())
+			return null;
+		String summary = limitLength(String.join(", ", parts), 90);
+		String itemName = limitLength(stack.getName().getString(), 40);
+		String line = parentSlotNumber + " - " + itemName + " | " + summary
+			+ " (in shulker)";
+		String primaryName = null;
+		int primaryLevel = 0;
+		int primaryDuration = 0;
+		Iterable<StatusEffectInstance> effects = potionContents.getEffects();
+		java.util.Iterator<StatusEffectInstance> it = effects.iterator();
+		if(it.hasNext())
+		{
+			StatusEffectInstance first = it.next();
+			Identifier id = first.getEffectType().getKey()
+				.map(k -> k.getValue()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(first.getEffectType().getIdAsString());
+			primaryName = buildEffectName(id, path);
+			primaryLevel = first.getAmplifier() + 1;
+			primaryDuration = Math.max(0, first.getDuration());
+		}else
+		{
+			var basePotion = potionContents.potion();
+			if(basePotion.isPresent())
+			{
+				Identifier id = basePotion.get().getKey().map(k -> k.getValue())
+					.orElse(null);
+				String path = id != null ? id.getPath()
+					: sanitizePath(basePotion.get().getIdAsString());
+				primaryName = buildPotionName(id, path);
+			}else
+			{
+				primaryName = "Unknown";
+			}
+		}
+		return new PotionEntry(-1, parentSlotNumber, category, line,
+			primaryName, primaryLevel, primaryDuration);
+	}
+	
+	private void takeEntry(GearEntry entry, ScreenHandler handler)
 	{
 		if(MC.player == null || MC.interactionManager == null || entry == null)
+			return;
+		
+		// slotId < 0 indicates a display-only entry (e.g. shulker-inner)
+		if(entry.slotId < 0)
 			return;
 		
 		Slot slot = handler.getSlot(entry.slotId);
@@ -852,10 +1400,12 @@ public final class EnchantmentHandlerHack extends Hack
 		needsRescan = true;
 	}
 	
-	private void takeEntry(BookEntry entry,
-		GenericContainerScreenHandler handler)
+	private void takeEntry(BookEntry entry, ScreenHandler handler)
 	{
 		if(MC.player == null || MC.interactionManager == null || entry == null)
+			return;
+		
+		if(entry.slotId < 0)
 			return;
 		
 		Slot slot = handler.getSlot(entry.slotId);
@@ -867,10 +1417,12 @@ public final class EnchantmentHandlerHack extends Hack
 		needsRescan = true;
 	}
 	
-	private void takeEntry(PotionEntry entry,
-		GenericContainerScreenHandler handler)
+	private void takeEntry(PotionEntry entry, ScreenHandler handler)
 	{
 		if(MC.player == null || MC.interactionManager == null || entry == null)
+			return;
+		
+		if(entry.slotId < 0)
 			return;
 		
 		Slot slot = handler.getSlot(entry.slotId);
@@ -882,18 +1434,32 @@ public final class EnchantmentHandlerHack extends Hack
 		needsRescan = true;
 	}
 	
-	private void takeGearCategory(GearCategory category,
-		GenericContainerScreenHandler handler)
+	private void takeGearCategory(GearCategory category, ScreenHandler handler,
+		String source)
 	{
 		if(MC.player == null || MC.interactionManager == null)
 			return;
 		
-		List<GearEntry> list = gearGroupedEntries.get(category);
+		List<GearEntry> list;
+		switch(source)
+		{
+			case "Player Inventory":
+			list = gearGroupedEntriesPlayer.get(category);
+			break;
+			case "Shulker contents":
+			list = gearGroupedEntriesShulker.get(category);
+			break;
+			default:
+			list = gearGroupedEntries.get(category);
+		}
+		
 		if(list == null || list.isEmpty())
 			return;
 		
 		for(GearEntry entry : new ArrayList<>(list))
 		{
+			if(entry.slotId < 0)
+				continue; // display-only (in shulker)
 			Slot slot = handler.getSlot(entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
@@ -905,22 +1471,35 @@ public final class EnchantmentHandlerHack extends Hack
 		needsRescan = true;
 	}
 	
-	private void takeBookCategory(BookCategory category,
-		GenericContainerScreenHandler handler)
+	private void takeBookCategory(BookCategory category, ScreenHandler handler,
+		String source)
 	{
 		if(MC.player == null || MC.interactionManager == null)
 			return;
 		
-		List<BookEntry> list = bookGroupedEntries.get(category);
+		List<BookEntry> list;
+		switch(source)
+		{
+			case "Player Inventory":
+			list = bookGroupedEntriesPlayer.get(category);
+			break;
+			case "Shulker contents":
+			list = bookGroupedEntriesShulker.get(category);
+			break;
+			default:
+			list = bookGroupedEntries.get(category);
+		}
+		
 		if(list == null || list.isEmpty())
 			return;
 		
 		for(BookEntry entry : new ArrayList<>(list))
 		{
+			if(entry.slotId < 0)
+				continue;
 			Slot slot = handler.getSlot(entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
-			
 			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
 				SlotActionType.QUICK_MOVE, MC.player);
 		}
@@ -929,21 +1508,34 @@ public final class EnchantmentHandlerHack extends Hack
 	}
 	
 	private void takePotionCategory(PotionCategory category,
-		GenericContainerScreenHandler handler)
+		ScreenHandler handler, String source)
 	{
 		if(MC.player == null || MC.interactionManager == null)
 			return;
 		
-		List<PotionEntry> list = potionGroupedEntries.get(category);
+		List<PotionEntry> list;
+		switch(source)
+		{
+			case "Player Inventory":
+			list = potionGroupedEntriesPlayer.get(category);
+			break;
+			case "Shulker contents":
+			list = potionGroupedEntriesShulker.get(category);
+			break;
+			default:
+			list = potionGroupedEntries.get(category);
+		}
+		
 		if(list == null || list.isEmpty())
 			return;
 		
 		for(PotionEntry entry : new ArrayList<>(list))
 		{
+			if(entry.slotId < 0)
+				continue;
 			Slot slot = handler.getSlot(entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
-			
 			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
 				SlotActionType.QUICK_MOVE, MC.player);
 		}
@@ -1131,9 +1723,11 @@ public final class EnchantmentHandlerHack extends Hack
 		final AbstractEntry entry;
 		final CategoryKind categoryKind;
 		final Object category;
+		final String source; // "Container", "Player Inventory" or "Shulker
+								// contents"
 		
 		private Hitbox(int x, int y, int width, int height, AbstractEntry entry,
-			CategoryKind categoryKind, Object category)
+			CategoryKind categoryKind, Object category, String source)
 		{
 			this.x = x;
 			this.y = y;
@@ -1142,18 +1736,21 @@ public final class EnchantmentHandlerHack extends Hack
 			this.entry = entry;
 			this.categoryKind = categoryKind;
 			this.category = category;
+			this.source = source;
 		}
 		
 		static Hitbox forEntry(int x, int y, int width, int height,
 			AbstractEntry entry)
 		{
-			return new Hitbox(x, y, width, height, entry, null, null);
+			return new Hitbox(x, y, width, height, entry, null, null,
+				"Container");
 		}
 		
 		static Hitbox forCategory(int x, int y, int width, int height,
-			CategoryKind kind, Object category)
+			CategoryKind kind, Object category, String source)
 		{
-			return new Hitbox(x, y, width, height, null, kind, category);
+			return new Hitbox(x, y, width, height, null, kind, category,
+				source);
 		}
 		
 		boolean contains(double mouseX, double mouseY)
