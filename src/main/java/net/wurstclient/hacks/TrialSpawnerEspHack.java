@@ -75,14 +75,13 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Show mob type", true);
 	private final CheckboxSetting showStatus =
 		new CheckboxSetting("Show status", true);
-	private final CheckboxSetting showWaveInfo =
-		new CheckboxSetting("Show wave info", true);
+	// removed wave info setting (simplified status display)
 	private final CheckboxSetting showNextSpawn =
 		new CheckboxSetting("Show next wave", true);
-	private final CheckboxSetting showCooldown =
-		new CheckboxSetting("Show cooldown", true);
-	private final CheckboxSetting showCooldownBar =
-		new CheckboxSetting("Show cooldown bar", true);
+	private final ColorSetting vaultBoxColor =
+		new ColorSetting("Vault box color", new Color(0xFF7CF2C9));
+	private final ColorSetting ominousVaultBoxColor =
+		new ColorSetting("Ominous vault color", new Color(0xFF9B59B6));
 	private final CheckboxSetting showDistance =
 		new CheckboxSetting("Show distance", true);
 	private final CheckboxSetting showTrialType =
@@ -124,15 +123,14 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		addSetting(overlayScale);
 		addSetting(showMobType);
 		addSetting(showStatus);
-		addSetting(showWaveInfo);
 		addSetting(showNextSpawn);
-		addSetting(showCooldown);
-		addSetting(showCooldownBar);
 		addSetting(showDistance);
 		addSetting(showTrialType);
 		addSetting(showActivationRadius);
 		addSetting(showVaultLink);
 		addSetting(vaultLinkRange);
+		addSetting(vaultBoxColor);
+		addSetting(ominousVaultBoxColor);
 		addSetting(showCountInHackList);
 		addSetting(colorIdle);
 		addSetting(colorCharging);
@@ -173,11 +171,10 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		}
 		
 		vaults.clear();
-		if(showVaultLink.isChecked())
-			ChunkUtils.getLoadedBlockEntities()
-				.filter(be -> be instanceof VaultBlockEntity)
-				.map(be -> (VaultBlockEntity)be).forEach(
-					be -> vaults.add(new VaultInfo(be.getPos().toImmutable())));
+		ChunkUtils.getLoadedBlockEntities()
+			.filter(be -> be instanceof VaultBlockEntity)
+			.map(be -> (VaultBlockEntity)be).forEach(
+				be -> vaults.add(new VaultInfo(be.getPos().toImmutable())));
 		
 		boolean limit = maxDistance.getValue() > 0;
 		double maxDistanceSq = maxDistance.getValue() * maxDistance.getValue();
@@ -213,7 +210,7 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(MatrixStack matrices, float partialTicks)
 	{
-		if(spawners.isEmpty() || MC.world == null)
+		if(MC.world == null)
 			return;
 		
 		ArrayList<ColoredBox> outlineBoxes = new ArrayList<>();
@@ -221,6 +218,35 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			fillShapes.isChecked() ? new ArrayList<>() : null;
 		ArrayList<ColoredPoint> tracerTargets =
 			drawTracers.isChecked() ? new ArrayList<>() : null;
+		
+		// Render vault ESP boxes and simple status labels while hack is enabled
+		if(!vaults.isEmpty())
+		{
+			for(VaultInfo v : vaults)
+			{
+				BlockPos vpos = v.pos();
+				BlockState vstate = MC.world.getBlockState(vpos);
+				int vcolor = vaultBoxColor.getColorI();
+				boolean ominous = vstate.contains(VaultBlock.OMINOUS)
+					&& vstate.get(VaultBlock.OMINOUS);
+				if(ominous)
+					vcolor = ominousVaultBoxColor.getColorI();
+				Box vbox = new Box(vpos);
+				outlineBoxes.add(new ColoredBox(vbox, vcolor));
+				if(filledBoxes != null)
+					filledBoxes
+						.add(new ColoredBox(vbox, withAlpha(vcolor, 0.18F)));
+				
+				// show simple status label above the vault
+				String status = describeVaultState(vstate);
+				List<OverlayLine> lines =
+					List.of(new OverlayLine("Vault", vcolor),
+						new OverlayLine(status, 0xFFFFFFFF));
+				Vec3d labelPos = Vec3d.ofCenter(vpos).add(0, 1.0, 0);
+				labelPos = resolveLabelPosition(labelPos);
+				drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
+			}
+		}
 		
 		for(TrialSpawnerInfo info : spawners)
 		{
@@ -366,8 +392,7 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		
 		String trialType = describeTrialType(mobName, spawnId);
 		TrialStatus status = TrialStatus.fromState(state);
-		String statusLine =
-			describeStatus(status, currentWave, totalWaves, cooldownSeconds);
+		String statusLine = describeStatus(status);
 		
 		ArrayList<OverlayLine> lines = new ArrayList<>();
 		String title =
@@ -383,12 +408,7 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		if(alive > 0)
 			lines.add(new OverlayLine("Active mobs: " + alive, 0xFFFFFFFF));
 		
-		if(showWaveInfo.isChecked())
-		{
-			String waveText = "Wave: " + currentWave + "/" + totalWaves + " ("
-				+ mobsProgress + "/" + totalMobs + " mobs)";
-			lines.add(new OverlayLine(waveText, 0xFFFFFFFF));
-		}
+		// removed wave info display (keeps overlay simple)
 		
 		if(showNextSpawn.isChecked() && state == TrialSpawnerState.ACTIVE)
 		{
@@ -397,20 +417,7 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			lines.add(new OverlayLine(next, 0xFFFFFFFF));
 		}
 		
-		if(showCooldown.isChecked() && cooldownSeconds > 0)
-			lines.add(new OverlayLine(
-				"Cooldown: " + formatSeconds(cooldownSeconds), 0xFFFFFFFF));
-		
-		if(showCooldownBar.isChecked() && status == TrialStatus.IDLE
-			&& state == TrialSpawnerState.COOLDOWN
-			&& logic.getCooldownLength() > 0)
-		{
-			double total = logic.getCooldownLength() / 20.0;
-			double progress = total <= 0 ? 1
-				: MathHelper.clamp(1 - (cooldownSeconds / total), 0, 1);
-			lines.add(new OverlayLine("Cooling: " + progressBar(progress) + " "
-				+ Math.round(progress * 100) + "%", 0xFFFFFFFF));
-		}
+		// removed cooldown display
 		
 		if(showTrialType.isChecked())
 			lines.add(new OverlayLine("Trial: " + trialType, 0xFFFFFFFF));
@@ -775,16 +782,14 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		};
 	}
 	
-	private String describeStatus(TrialStatus status, int currentWave,
-		int totalWaves, double cooldownSeconds)
+	private String describeStatus(TrialStatus status)
 	{
 		return switch(status)
 		{
-			case ACTIVE -> "Spawning wave " + currentWave + "/" + totalWaves;
-			case CHARGING -> "Priming (" + currentWave + "/" + totalWaves + ")";
+			case ACTIVE -> "Spawning";
+			case CHARGING -> "Priming";
 			case COMPLETED -> "Completed";
-			case IDLE -> cooldownSeconds > 0
-				? "Cooling (" + formatSeconds(cooldownSeconds) + ")" : "Idle";
+			case IDLE -> "Idle";
 		};
 	}
 	
