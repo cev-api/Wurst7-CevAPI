@@ -233,9 +233,11 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### TrialSpawnerESP
 - Finds every Trial Spawner entity and renders colors based on the state (idle, charging, active, completed)
 - Draws activation ring which brightens when you're within the detection range
-- Reads data on the on the spawner to show wave progress, active mob count, next-wave timer, cooldown countdown, trial type, distance, mob type, ominous/normal state and more
+- Reads data on the on the spawner to show wave progress, active mob count, next-wave timer, cooldown countdown, trial type, distance, mob type and more
 - Uses block-decoration heuristics to determine mob type even if data is missing
 - Draws tethers to nearby Trial Vaults
+- Highlights and counts Trial/Ominous Vaults
+- Able to record opened Ominous Vaults to avoid re-trying the same ones in the future
 - Congifurable with toggles for all of the above
 
 ![Trial](https://i.imgur.com/Hp20hse.png)

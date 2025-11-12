@@ -11,9 +11,14 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Set;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -57,9 +62,18 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
 import net.wurstclient.util.chunk.ChunkUtils;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.util.ArrayList;
 
-public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+public final class TrialSpawnerEspHack extends Hack
+	implements UpdateListener, CameraTransformViewBobbingListener,
+	RenderListener, net.wurstclient.events.RightClickListener
 {
 	private final SliderSetting maxDistance =
 		new SliderSetting("Max distance", 160, 0, 256, 1, ValueDisplay.INTEGER);
@@ -78,6 +92,13 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 	// removed wave info setting (simplified status display)
 	private final CheckboxSetting showNextSpawn =
 		new CheckboxSetting("Show next wave", true);
+	private final CheckboxSetting showCooldown =
+		new CheckboxSetting("Show cooldown", true);
+	private final CheckboxSetting markOnApproach =
+		new CheckboxSetting("Mark on approach", false);
+	private final SliderSetting approachRange =
+		new SliderSetting("Approach range", 4, 1, 16, 1, ValueDisplay.INTEGER);
+	// spawn tracers removed
 	private final ColorSetting vaultBoxColor =
 		new ColorSetting("Vault box color", new Color(0xFF7CF2C9));
 	private final ColorSetting ominousVaultBoxColor =
@@ -110,7 +131,20 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 	
 	private final ArrayList<TrialSpawnerInfo> spawners = new ArrayList<>();
 	private final ArrayList<VaultInfo> vaults = new ArrayList<>();
+	private final HashSet<String> openedVaultKeys = new HashSet<>();
+	private boolean openedVaultsLoaded = false;
+	private final java.util.Set<String> approachScheduledKeys =
+		new java.util.HashSet<>();
+	private final Timer approachTimer = new Timer(true);
+	private static final Gson GSON =
+		new GsonBuilder().setPrettyPrinting().create();
+	// predicted cooldown end ticks for spawners when we observe the transition
+	private final Map<BlockPos, Long> predictedCooldownEnds = new HashMap<>();
+	// previous known states to detect transitions
+	private final Map<BlockPos, TrialSpawnerState> prevStates = new HashMap<>();
 	private int foundCount;
+	private final CheckboxSetting estimateCooldownOnTransition =
+		new CheckboxSetting("Estimate cooldown when observed", true);
 	
 	public TrialSpawnerEspHack()
 	{
@@ -124,6 +158,11 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		addSetting(showMobType);
 		addSetting(showStatus);
 		addSetting(showNextSpawn);
+		addSetting(showCooldown);
+		addSetting(markOnApproach);
+		addSetting(approachRange);
+		// spawn tracers removed
+		addSetting(estimateCooldownOnTransition);
 		addSetting(showDistance);
 		addSetting(showTrialType);
 		addSetting(showActivationRadius);
@@ -146,6 +185,7 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(net.wurstclient.events.RightClickListener.class, this);
 	}
 	
 	@Override
@@ -154,9 +194,13 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(net.wurstclient.events.RightClickListener.class, this);
 		spawners.clear();
 		vaults.clear();
 		foundCount = 0;
+		// reset opened vaults load state so they are reloaded on next world
+		openedVaultsLoaded = false;
+		openedVaultKeys.clear();
 	}
 	
 	@Override
@@ -170,14 +214,122 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			return;
 		}
 		
+		// load opened vaults for current server once
+		if(!openedVaultsLoaded)
+		{
+			loadOpenedVaults();
+			openedVaultsLoaded = true;
+		}
+		
 		vaults.clear();
 		ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof VaultBlockEntity)
-			.map(be -> (VaultBlockEntity)be).forEach(
-				be -> vaults.add(new VaultInfo(be.getPos().toImmutable())));
+			.map(be -> (VaultBlockEntity)be).forEach(be -> {
+				BlockPos vpos = be.getPos().toImmutable();
+				vaults.add(new VaultInfo(vpos));
+				// detect ominous vaults that have been opened / ejected
+				if(MC.world != null)
+				{
+					BlockState state = MC.world.getBlockState(vpos);
+					if(state.isOf(Blocks.VAULT)
+						&& state.contains(VaultBlock.OMINOUS)
+						&& state.get(VaultBlock.OMINOUS))
+					{
+						if(state.contains(VaultBlock.VAULT_STATE))
+						{
+							VaultState vs = state.get(VaultBlock.VAULT_STATE);
+							// treat any non-INACTIVE /
+							// ejecting/unlocking/active as opened
+							if(vs == VaultState.EJECTING)
+							{
+								String dim = "unknown";
+								try
+								{
+									if(MC != null && MC.world != null)
+										dim = MC.world.getRegistryKey()
+											.getValue().toString();
+								}catch(Throwable ignored)
+								{}
+								String key = dim + "|" + vpos.getX() + ","
+									+ vpos.getY() + "," + vpos.getZ();
+								if(openedVaultKeys.add(key))
+									saveOpenedVaults();
+							}
+						}
+					}
+				}
+			});
 		
 		boolean limit = maxDistance.getValue() > 0;
 		double maxDistanceSq = maxDistance.getValue() * maxDistance.getValue();
+		
+		// schedule approach-based checks for ominous vaults
+		if(markOnApproach.isChecked())
+		{
+			double range = approachRange.getValue();
+			double rangeSq = range * range;
+			for(VaultInfo v : vaults)
+			{
+				BlockPos vpos = v.pos();
+				String dim = "unknown";
+				try
+				{
+					if(MC != null && MC.world != null)
+						dim = MC.world.getRegistryKey().getValue().toString();
+				}catch(Throwable ignored)
+				{}
+				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
+					+ vpos.getZ();
+				if(openedVaultKeys.contains(key)
+					|| approachScheduledKeys.contains(key))
+					continue;
+				if(MC.player.squaredDistanceTo(vpos.getX() + 0.5,
+					vpos.getY() + 0.5, vpos.getZ() + 0.5) <= rangeSq)
+				{
+					BlockState state = MC.world.getBlockState(vpos);
+					VaultState prev = state.contains(VaultBlock.VAULT_STATE)
+						? state.get(VaultBlock.VAULT_STATE) : null;
+					// make final copies for inner class
+					final VaultState prevFinal = prev;
+					final String keyFinal = key;
+					final BlockPos vposFinal = vpos;
+					approachScheduledKeys.add(keyFinal);
+					approachTimer.schedule(new TimerTask()
+					{
+						@Override
+						public void run()
+						{
+							try
+							{
+								if(MC == null || MC.world == null)
+									return;
+								BlockState after =
+									MC.world.getBlockState(vposFinal);
+								VaultState afterState =
+									after.contains(VaultBlock.VAULT_STATE)
+										? after.get(VaultBlock.VAULT_STATE)
+										: null;
+								boolean prevIdle = prevFinal == null
+									|| prevFinal == VaultState.INACTIVE;
+								if(prevIdle && ((afterState == null
+									&& prevFinal == null)
+									|| (afterState == prevFinal)))
+								{
+									// unchanged and was idle -> assume already
+									// opened/locked
+									if(openedVaultKeys.add(keyFinal))
+										saveOpenedVaults();
+								}
+							}catch(Throwable ignored)
+							{}finally
+							{
+								approachScheduledKeys.remove(keyFinal);
+							}
+						}
+					}, 1500L);
+				}
+			}
+		}
 		
 		ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof TrialSpawnerBlockEntity)
@@ -197,6 +349,50 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			});
 		
 		foundCount = spawners.size();
+		// detect transitions and predict cooldown end when configured
+		if(MC.world != null && estimateCooldownOnTransition.isChecked())
+		{
+			long worldTime = MC.world.getTime();
+			for(TrialSpawnerInfo info : spawners)
+			{
+				var be = info.blockEntity();
+				if(be == null || be.isRemoved() || be.getWorld() != MC.world)
+					continue;
+				TrialSpawnerLogic logic = be.getSpawner();
+				if(logic == null)
+					continue;
+				TrialSpawnerState state = logic.getSpawnerState() == null
+					? TrialSpawnerState.INACTIVE : logic.getSpawnerState();
+				TrialSpawnerData data = logic.getData();
+				long cooldownEnd = 0;
+				if(data != null)
+				{
+					TrialSpawnerDataAccessor acc =
+						(TrialSpawnerDataAccessor)data;
+					cooldownEnd = acc.getCooldownEnd();
+				}
+				BlockPos pos = info.pos();
+				TrialSpawnerState prev = prevStates.get(pos);
+				// if we observed it go from ACTIVE to non-ACTIVE and there's no
+				// server cooldown
+				if(prev == TrialSpawnerState.ACTIVE
+					&& state != TrialSpawnerState.ACTIVE
+					&& cooldownEnd <= worldTime)
+				{
+					long predicted = worldTime + logic.getCooldownLength();
+					predictedCooldownEnds.put(pos, predicted);
+				}
+				// if server set a cooldown, prefer that and remove any
+				// prediction
+				if(cooldownEnd > worldTime)
+					predictedCooldownEnds.remove(pos);
+				// update previous state
+				prevStates.put(pos, state);
+			}
+			// cleanup expired predictions
+			predictedCooldownEnds.entrySet()
+				.removeIf(e -> e.getValue() <= MC.world.getTime());
+		}
 	}
 	
 	@Override
@@ -205,6 +401,68 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 	{
 		if(drawTracers.isChecked() || showOverlay.isChecked())
 			event.cancel();
+	}
+	
+	@Override
+	public void onRightClick(
+		net.wurstclient.events.RightClickListener.RightClickEvent event)
+	{
+		if(MC == null || MC.world == null || MC.player == null)
+			return;
+		var hit = MC.crosshairTarget;
+		if(!(hit instanceof net.minecraft.util.hit.BlockHitResult bhr))
+			return;
+		BlockPos pos = bhr.getBlockPos();
+		BlockState state = MC.world.getBlockState(pos);
+		if(!state.isOf(Blocks.VAULT))
+			return;
+		// remember initial state and schedule a check after 1.5s
+		VaultState before = state.contains(VaultBlock.VAULT_STATE)
+			? state.get(VaultBlock.VAULT_STATE) : null;
+		String dim = "unknown";
+		try
+		{
+			if(MC.world != null)
+				dim = MC.world.getRegistryKey().getValue().toString();
+		}catch(Throwable ignored)
+		{}
+		// make final copies for inner class
+		final VaultState beforeFinal = before;
+		final String dimFinal = dim;
+		final BlockPos posFinal = pos;
+		TimerTask task = new TimerTask()
+		{
+			@Override
+			public void run()
+			{
+				try
+				{
+					if(MC == null || MC.world == null)
+						return;
+					BlockState after = MC.world.getBlockState(posFinal);
+					VaultState afterState =
+						after.contains(VaultBlock.VAULT_STATE)
+							? after.get(VaultBlock.VAULT_STATE) : null;
+					// Only mark as opened if the vault was idle/inactive when
+					// we checked and the state stayed unchanged. If it was
+					// ACTIVE (mouth opened) or transitioned to ACTIVE/EJECTING,
+					// do not mark.
+					boolean beforeIdle = beforeFinal == null
+						|| beforeFinal == VaultState.INACTIVE;
+					if(beforeIdle
+						&& ((afterState == null && beforeFinal == null)
+							|| (afterState == beforeFinal)))
+					{
+						String key = dimFinal + "|" + posFinal.getX() + ","
+							+ posFinal.getY() + "," + posFinal.getZ();
+						if(openedVaultKeys.add(key))
+							saveOpenedVaults();
+					}
+				}catch(Throwable ignored)
+				{}
+			}
+		};
+		new Timer(true).schedule(task, 1500);
 	}
 	
 	@Override
@@ -231,6 +489,22 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 					&& vstate.get(VaultBlock.OMINOUS);
 				if(ominous)
 					vcolor = ominousVaultBoxColor.getColorI();
+				// if we know this ominous vault was opened before, mark it
+				// differently
+				String dim = "unknown";
+				try
+				{
+					if(MC != null && MC.world != null)
+						dim = MC.world.getRegistryKey().getValue().toString();
+				}catch(Throwable ignored)
+				{}
+				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
+					+ vpos.getZ();
+				if(ominous && openedVaultKeys.contains(key))
+				{
+					// darken color to indicate opened
+					vcolor = mixWithWhite(vcolor, 0.6F);
+				}
 				Box vbox = new Box(vpos);
 				outlineBoxes.add(new ColoredBox(vbox, vcolor));
 				if(filledBoxes != null)
@@ -239,9 +513,11 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 				
 				// show simple status label above the vault
 				String status = describeVaultState(vstate);
-				List<OverlayLine> lines =
-					List.of(new OverlayLine("Vault", vcolor),
-						new OverlayLine(status, 0xFFFFFFFF));
+				ArrayList<OverlayLine> lines = new ArrayList<>();
+				lines.add(new OverlayLine("Vault", vcolor));
+				lines.add(new OverlayLine(status, 0xFFFFFFFF));
+				if(ominous && openedVaultKeys.contains(key))
+					lines.add(new OverlayLine("Opened", 0xFFDD4444));
 				Vec3d labelPos = Vec3d.ofCenter(vpos).add(0, 1.0, 0);
 				labelPos = resolveLabelPosition(labelPos);
 				drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
@@ -275,6 +551,8 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			
 			if(showVaultLink.isChecked() && info.vault() != null)
 				drawVaultLink(matrices, info, color);
+			
+			// spawn tracers removed
 			
 			if(showOverlay.isChecked())
 				drawOverlay(matrices, info, logic, state, color);
@@ -356,6 +634,17 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 		long worldTime = MC.world.getTime();
 		long cooldownTicks = accessor.getCooldownEnd() - worldTime;
 		double cooldownSeconds = Math.max(0, cooldownTicks / 20.0);
+		boolean cooldownEstimated = false;
+		// if server did not set a cooldown, check predicted values we observed
+		if(cooldownTicks <= 0 && estimateCooldownOnTransition.isChecked())
+		{
+			Long predicted = predictedCooldownEnds.get(info.pos());
+			if(predicted != null && predicted > worldTime)
+			{
+				cooldownSeconds = Math.max(0, (predicted - worldTime) / 20.0);
+				cooldownEstimated = true;
+			}
+		}
 		long nextSpawnTicks = accessor.getNextMobSpawnsAt() - worldTime;
 		double nextSpawnSeconds = Math.max(0, nextSpawnTicks / 20.0);
 		
@@ -417,7 +706,14 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			lines.add(new OverlayLine(next, 0xFFFFFFFF));
 		}
 		
-		// removed cooldown display
+		if(showCooldown.isChecked() && cooldownSeconds > 0)
+		{
+			String prefix =
+				cooldownEstimated ? "Cooldown (est): " : "Cooldown: ";
+			lines.add(new OverlayLine(prefix + formatSeconds(cooldownSeconds),
+				0xFFFFFFFF));
+		}
+		// raw timer debug removed
 		
 		if(showTrialType.isChecked())
 			lines.add(new OverlayLine("Trial: " + trialType, 0xFFFFFFFF));
@@ -519,6 +815,120 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 			}
 		}
 		return closest;
+	}
+	
+	private void loadOpenedVaults()
+	{
+		String server = null;
+		try
+		{
+			if(MC != null && MC.getCurrentServerEntry() != null)
+				server = MC.getCurrentServerEntry().address;
+		}catch(Throwable ignored)
+		{}
+		String name = sanitizeServer(server);
+		File dir = new File("config/wurst/opened_vaults");
+		if(!dir.exists())
+			dir.mkdirs();
+		File file = new File(dir, name + ".json");
+		if(!file.isFile())
+			return;
+		try(FileReader r = new FileReader(file))
+		{
+			JsonObject root = GSON.fromJson(r, JsonObject.class);
+			JsonArray arr = root.getAsJsonArray("openedPositions");
+			if(arr == null)
+				return;
+			for(var el : arr)
+			{
+				try
+				{
+					JsonObject o = el.getAsJsonObject();
+					int x = o.get("x").getAsInt();
+					int y = o.get("y").getAsInt();
+					int z = o.get("z").getAsInt();
+					String dim = null;
+					if(o.has("dimension"))
+						dim = o.get("dimension").getAsString();
+					if(dim == null)
+					{
+						try
+						{
+							if(MC != null && MC.world != null)
+								dim = MC.world.getRegistryKey().getValue()
+									.toString();
+						}catch(Throwable ignored)
+						{}
+						if(dim == null)
+							dim = "unknown";
+					}
+					String key = dim + "|" + x + "," + y + "," + z;
+					openedVaultKeys.add(key);
+				}catch(Throwable ignored)
+				{}
+			}
+		}catch(Throwable ignored)
+		{}
+	}
+	
+	private void saveOpenedVaults()
+	{
+		String server = null;
+		try
+		{
+			if(MC != null && MC.getCurrentServerEntry() != null)
+				server = MC.getCurrentServerEntry().address;
+		}catch(Throwable ignored)
+		{}
+		String name = sanitizeServer(server);
+		File dir = new File("config/wurst/opened_vaults");
+		if(!dir.exists())
+			dir.mkdirs();
+		File file = new File(dir, name + ".json");
+		JsonObject root = new JsonObject();
+		JsonArray arr = new JsonArray();
+		for(String key : openedVaultKeys)
+		{
+			try
+			{
+				String dim = "unknown";
+				String coords = key;
+				int sep = key.indexOf('|');
+				if(sep >= 0)
+				{
+					dim = key.substring(0, sep);
+					coords = key.substring(sep + 1);
+				}
+				String[] parts = coords.split(",");
+				if(parts.length >= 3)
+				{
+					int x = Integer.parseInt(parts[0]);
+					int y = Integer.parseInt(parts[1]);
+					int z = Integer.parseInt(parts[2]);
+					JsonObject o = new JsonObject();
+					o.addProperty("dimension", dim);
+					o.addProperty("x", x);
+					o.addProperty("y", y);
+					o.addProperty("z", z);
+					arr.add(o);
+				}
+			}catch(Throwable ignored)
+			{}
+		}
+		root.add("openedPositions", arr);
+		try(FileWriter w = new FileWriter(file))
+		{
+			w.write(GSON.toJson(root));
+		}catch(Throwable ignored)
+		{}
+	}
+	
+	private String sanitizeServer(String serverIp)
+	{
+		if(serverIp == null || serverIp.isBlank())
+			return "singleplayer";
+		return serverIp.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9._-]",
+			"_");
 	}
 	
 	private String detectMobFromDecor(BlockPos spawnerPos)
@@ -795,6 +1205,17 @@ public final class TrialSpawnerEspHack extends Hack implements UpdateListener,
 	
 	private String formatSeconds(double seconds)
 	{
+		if(seconds >= 60)
+		{
+			int mins = (int)Math.floor(seconds / 60.0);
+			int secs = (int)Math.round(seconds - mins * 60);
+			if(secs == 60)
+			{
+				mins++;
+				secs = 0;
+			}
+			return mins + "m " + String.format(Locale.ROOT, "%02ds", secs);
+		}
 		if(seconds >= 10)
 			return (int)Math.round(seconds) + "s";
 		return String.format(Locale.ROOT, "%.1fs", seconds);

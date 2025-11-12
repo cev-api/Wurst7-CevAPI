@@ -222,6 +222,7 @@
   "description.wurst.setting.treebot.swing_hand": "How TreeBot should swing your hand when breaking logs and leaves.",
   "description.wurst.hack.triggerbot": "Automatically attacks the entity you're looking at.",
   "description.wurst.hack.trialspawneresp": "Highlights trial spawners with ESP boxes, tracer lines, overlays for mob type, waves, cooldowns, activation radius hints, and optional Trial Vault linking.",
+  "description.wurst.setting.trialspawneresp.estimate_cooldown_on_transition": "When observing ACTIVE->COOLDOWN transitions, estimate a cooldown using the spawner's configured cooldown length.",
   "description.wurst.hack.trollpotion": "Generates a potion with many annoying effects on it.",
   "description.wurst.hack.truesight": "Allows you to see invisible entities.",
   "description.wurst.hack.tunneller": "Automatically digs a tunnel.\n\n??c??lWARNING:??r Although this bot will try to avoid lava and other dangers, there is no guarantee that it won't die. Only send it out with gear that you don't mind losing.",
