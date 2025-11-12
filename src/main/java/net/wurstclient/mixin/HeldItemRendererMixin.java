@@ -28,13 +28,13 @@ public abstract class HeldItemRendererMixin
 	 * switch.
 	 */
 	@Inject(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
+		target = "Lnet/minecraft/client/render/item/HeldItemRenderer;applyEquipOffset(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/Arm;F)V",
 		ordinal = 3),
-		method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V")
-	private void onApplyEquipOffsetBlocking(AbstractClientPlayer player,
-		float tickDelta, float pitch, InteractionHand hand, float swingProgress,
-		ItemStack item, float equipProgress, PoseStack matrices,
-		MultiBufferSource vertexConsumers, int light, CallbackInfo ci)
+		method = "renderFirstPersonItem(Lnet/minecraft/client/network/AbstractClientPlayerEntity;FFLnet/minecraft/util/Hand;FLnet/minecraft/item/ItemStack;FLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V")
+	private void onApplyEquipOffsetBlocking(AbstractClientPlayerEntity player,
+		float tickDelta, float pitch, Hand hand, float swingProgress,
+		ItemStack item, float equipProgress, MatrixStack matrices,
+		VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci)
 	{
 		// lower shield when blocking
 		if(item.getItem() == Items.SHIELD)
