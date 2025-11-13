@@ -26,8 +26,9 @@ public class ChestConfig
 	// a recorded chest
 	public int scanRadius = 64;
 	
-	private final File file;
-	private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+	private final transient File file;
+	private final transient Gson gson =
+		new GsonBuilder().setPrettyPrinting().create();
 	
 	public ChestConfig(File file)
 	{
@@ -38,6 +39,30 @@ public class ChestConfig
 	public ChestConfig()
 	{
 		this(new File("config/wurst/chest_search.json"));
+	}
+	
+	private ChestConfigData toData()
+	{
+		ChestConfigData data = new ChestConfigData();
+		data.enabled = enabled;
+		data.storeFullItemNbt = storeFullItemNbt;
+		data.dbPath = dbPath;
+		data.graceTicks = graceTicks;
+		data.scanRadius = scanRadius;
+		return data;
+	}
+	
+	private void applyData(ChestConfigData data)
+	{
+		if(data == null)
+			return;
+		
+		enabled = data.enabled;
+		storeFullItemNbt = data.storeFullItemNbt;
+		if(data.dbPath != null && !data.dbPath.isBlank())
+			dbPath = data.dbPath;
+		graceTicks = data.graceTicks;
+		scanRadius = data.scanRadius;
 	}
 	
 	public synchronized void load()
@@ -52,13 +77,8 @@ public class ChestConfig
 			}
 			try(FileReader r = new FileReader(file))
 			{
-				ChestConfig c = gson.fromJson(r, ChestConfig.class);
-				if(c != null)
-				{
-					this.enabled = c.enabled;
-					this.storeFullItemNbt = c.storeFullItemNbt;
-					this.dbPath = c.dbPath;
-				}
+				ChestConfigData c = gson.fromJson(r, ChestConfigData.class);
+				applyData(c);
 			}
 		}catch(Exception e)
 		{
@@ -70,10 +90,19 @@ public class ChestConfig
 	{
 		try(FileWriter w = new FileWriter(file))
 		{
-			gson.toJson(this, w);
+			gson.toJson(toData(), w);
 		}catch(Exception e)
 		{
 			e.printStackTrace();
 		}
+	}
+	
+	private static class ChestConfigData
+	{
+		public boolean enabled = true;
+		public boolean storeFullItemNbt = true;
+		public String dbPath = "config/wurst/chest_database.json";
+		public int graceTicks = 200;
+		public int scanRadius = 64;
 	}
 }
