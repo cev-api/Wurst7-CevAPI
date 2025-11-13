@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.Optional;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -94,5 +96,29 @@ public abstract class ClientPlayNetworkHandlerMixin
 		packet.runUpdates(
 			(pos, state) -> WurstClient.INSTANCE.getHax().newChunksHack
 				.afterUpdateBlock(pos));
+	}
+	
+	@Inject(
+		method = "onExplosion(Lnet/minecraft/network/packet/s2c/play/ExplosionS2CPacket;)V",
+		at = @At(value = "INVOKE",
+			target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"),
+		cancellable = true)
+	private void wurst$handleExplosionKnockback(ExplosionS2CPacket packet,
+		CallbackInfo ci)
+	{
+		ClientPlayerEntity player = client.player;
+		if(player == null)
+			return;
+		
+		Optional<Vec3d> knockback = packet.playerKnockback();
+		if(knockback.isEmpty())
+			return;
+		
+		Vec3d vec = knockback.get();
+		Vec3d adjusted = WurstClient.INSTANCE.getHax().antiBlastHack
+			.modifyKnockback(vec.x, vec.y, vec.z);
+		
+		player.addVelocity(adjusted.x, adjusted.y, adjusted.z);
+		ci.cancel();
 	}
 }

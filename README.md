@@ -262,6 +262,9 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Robust sold-out detection and safe-stop logic to avoid spamming when offers are exhausted.
 - Ideal for quickly offloading farmed goods (seeds, string, paper, etc.) into emeralds without manual clicking.
 
+### AntiBlast
+- Prevents push back from TNT, creeper explosions, respawn anchors, crystals, wither skulls, wither spawn explosions, ghast fireballs, breeze gusts (and wind charges) and other custom plugins/entities that use explosion physics.
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
