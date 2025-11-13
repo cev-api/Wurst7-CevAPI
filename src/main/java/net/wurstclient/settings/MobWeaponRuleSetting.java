@@ -18,8 +18,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerInventory;
@@ -28,6 +31,9 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.MaceItem;
 import net.minecraft.item.TridentItem;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.Identifier;
 import net.wurstclient.WurstClient;
@@ -44,7 +50,7 @@ public final class MobWeaponRuleSetting extends Setting
 {
 	private static final MobOption ANY_OPTION =
 		new MobOption("any", "Any mob", null);
-	private static final List<MobOption> MOB_OPTIONS = buildMobOptions();
+	private static volatile List<MobOption> mobOptionsCache;
 	
 	private MobOption selectedMob = ANY_OPTION;
 	private WeaponCategory selectedWeapon = WeaponCategory.NONE;
@@ -65,7 +71,7 @@ public final class MobWeaponRuleSetting extends Setting
 	
 	public List<MobOption> getMobOptions()
 	{
-		return MOB_OPTIONS;
+		return getOrCreateMobOptions();
 	}
 	
 	public MobOption getSelectedMob()
@@ -171,28 +177,86 @@ public final class MobWeaponRuleSetting extends Setting
 	
 	private static MobOption findMobOption(String id)
 	{
-		for(MobOption option : MOB_OPTIONS)
+		for(MobOption option : getOrCreateMobOptions())
 			if(option.id().equals(id))
 				return option;
 			
 		return ANY_OPTION;
 	}
 	
+	private static List<MobOption> getOrCreateMobOptions()
+	{
+		List<MobOption> cached = mobOptionsCache;
+		int cachedSize = cached == null ? 0 : cached.size();
+		if(cached == null || cachedSize <= 1)
+		{
+			List<MobOption> rebuilt = buildMobOptions();
+			if(rebuilt.size() > 1)
+			{
+				mobOptionsCache = rebuilt;
+				return rebuilt;
+			}
+			
+			return rebuilt;
+		}
+		
+		return cached;
+	}
+	
 	private static List<MobOption> buildMobOptions()
 	{
 		List<MobOption> options = new ArrayList<>();
 		options.add(ANY_OPTION);
-		Registries.ENTITY_TYPE.getIds().stream()
-			.map(Registries.ENTITY_TYPE::get)
-			.filter(type -> type.getSpawnGroup() != SpawnGroup.MISC)
-			.map(type -> {
-				Identifier id = Registries.ENTITY_TYPE.getId(type);
-				String name = type.getName().getString();
-				return new MobOption(id.toString(), name, type);
-			}).sorted(Comparator.comparing(MobOption::displayName,
-				String.CASE_INSENSITIVE_ORDER))
-			.forEach(options::add);
+		
+		Registry<EntityType<?>> registry = resolveEntityRegistry();
+		for(Identifier id : registry.getIds())
+		{
+			EntityType<?> type = registry.get(id);
+			if(type == null || type.getSpawnGroup() == SpawnGroup.MISC)
+				continue;
+			
+			String name = type.getName().getString();
+			options.add(new MobOption(id.toString(), name, type));
+		}
+		
+		options.sort(Comparator.comparing(MobOption::displayName,
+			String.CASE_INSENSITIVE_ORDER));
 		return Collections.unmodifiableList(options);
+	}
+	
+	private static Registry<EntityType<?>> resolveEntityRegistry()
+	{
+		MinecraftClient mc = WurstClient.MC;
+		if(mc != null)
+		{
+			if(mc.world != null)
+			{
+				Registry<EntityType<?>> worldRegistry =
+					getRegistryFromManager(mc.world.getRegistryManager());
+				if(worldRegistry != null)
+					return worldRegistry;
+			}
+			
+			ClientPlayNetworkHandler handler = mc.getNetworkHandler();
+			if(handler != null)
+			{
+				Registry<EntityType<?>> networkRegistry =
+					getRegistryFromManager(handler.getRegistryManager());
+				if(networkRegistry != null)
+					return networkRegistry;
+			}
+		}
+		
+		return Registries.ENTITY_TYPE;
+	}
+	
+	private static Registry<EntityType<?>> getRegistryFromManager(
+		DynamicRegistryManager manager)
+	{
+		if(manager == null)
+			return null;
+		
+		return manager.getOptional(RegistryKeys.ENTITY_TYPE).orElse(null);
 	}
 	
 	public record MobOption(String id, String displayName,

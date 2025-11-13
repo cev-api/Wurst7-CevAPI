@@ -318,6 +318,22 @@ public final class ClickGui
 		return popupClicked;
 	}
 	
+	public boolean handleNavigatorMouseScroll(double mouseX, double mouseY,
+		double delta)
+	{
+		boolean popupScrolled = handlePopupMouseScroll(mouseX, mouseY, delta);
+		if(popupScrolled)
+		{
+			for(Popup popup : popups)
+				if(popup.getOwner().getParent().isClosing())
+					popup.close();
+				
+			popups.removeIf(Popup::isClosing);
+		}
+		
+		return popupScrolled;
+	}
+	
 	public void handleNavigatorMouseClick(double cMouseX, double cMouseY,
 		int mouseButton, Window window)
 	{
@@ -405,8 +421,7 @@ public final class ClickGui
 		return false;
 	}
 	
-	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
-		Click context)
+	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{

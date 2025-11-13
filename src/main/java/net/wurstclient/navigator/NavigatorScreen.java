@@ -107,6 +107,10 @@ public abstract class NavigatorScreen extends Screen
 	public final boolean mouseScrolled(double mouseX, double mouseY,
 		double horizontalAmount, double verticalAmount)
 	{
+		if(WurstClient.INSTANCE.getGui().handleNavigatorMouseScroll(mouseX,
+			mouseY, verticalAmount))
+			return true;
+		
 		// scrollbar
 		if(!scrollbarLocked)
 		{

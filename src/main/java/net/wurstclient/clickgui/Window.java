@@ -20,6 +20,7 @@ public class Window
 	private int y;
 	private int width;
 	private int height;
+	private boolean clampPosition = true;
 	
 	private boolean valid;
 	private final ArrayList<Component> children = new ArrayList<>();
@@ -68,6 +69,9 @@ public class Window
 	 */
 	public final int getX()
 	{
+		if(!clampPosition)
+			return x;
+		
 		int scaledWidth = WurstClient.MC.getWindow().getScaledWidth();
 		return MathHelper.clamp(x, -width + 1, scaledWidth - 1);
 	}
@@ -92,6 +96,9 @@ public class Window
 	 */
 	public final int getY()
 	{
+		if(!clampPosition)
+			return y;
+		
 		int scaledHeight = WurstClient.MC.getWindow().getScaledHeight();
 		return MathHelper.clamp(y, -12, scaledHeight - 1);
 	}
@@ -109,6 +116,11 @@ public class Window
 	public final void setY(int y)
 	{
 		this.y = y;
+	}
+	
+	public final void setClampPosition(boolean clampPosition)
+	{
+		this.clampPosition = clampPosition;
 	}
 	
 	public final int getWidth()

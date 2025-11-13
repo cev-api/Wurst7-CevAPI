@@ -68,6 +68,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				window.add(c);
 		}
 		
+		window.setClampPosition(false);
 		window.setWidth(308);
 		window.setFixedWidth(true);
 		window.pack();
