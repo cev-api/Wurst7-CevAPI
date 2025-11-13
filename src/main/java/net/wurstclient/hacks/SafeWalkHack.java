@@ -81,7 +81,7 @@ public final class SafeWalkHack extends Hack
 		IKeyBinding sneakKey = IKeyBinding.get(MC.options.keyShift);
 		
 		if(sneaking)
-			sneakKey.setPressed(true);
+			sneakKey.setDown(true);
 		else
 			sneakKey.resetPressedState();
 		

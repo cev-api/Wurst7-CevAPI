@@ -22,7 +22,7 @@ public interface IKeyBinding
 	
 	/**
 	 * Simulates the user pressing this key on their keyboard or mouse. This is
-	 * much more aggressive than using {@link #setPressed(boolean)} and should
+	 * much more aggressive than using {@link #setDown(boolean)} and should
 	 * be used sparingly.
 	 */
 	public default void simulatePress(boolean pressed)
@@ -30,7 +30,7 @@ public interface IKeyBinding
 		wurst_simulatePress(pressed);
 	}
 	
-	public default void setPressed(boolean pressed)
+	public default void setDown(boolean down)
 	{
 		asVanilla().setDown(pressed);
 	}
