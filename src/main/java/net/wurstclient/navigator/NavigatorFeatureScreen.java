@@ -63,6 +63,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		this.parent = parent;
 		hasBackground = false;
 		
+		window.setClampPosition(false);
+		
 		for(Setting setting : feature.getSettings().values())
 		{
 			Component c = setting.getComponent();

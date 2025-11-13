@@ -1391,7 +1391,7 @@ public final class EnchantmentHandlerHack extends Hack
 		if(entry.slotId < 0)
 			return;
 		
-		Slot slot = handler.getSlot(entry.slotId);
+		Slot slot = getSlotSafe(handler, entry.slotId);
 		if(slot == null || !slot.hasStack())
 			return;
 		
@@ -1408,7 +1408,7 @@ public final class EnchantmentHandlerHack extends Hack
 		if(entry.slotId < 0)
 			return;
 		
-		Slot slot = handler.getSlot(entry.slotId);
+		Slot slot = getSlotSafe(handler, entry.slotId);
 		if(slot == null || !slot.hasStack())
 			return;
 		
@@ -1425,7 +1425,7 @@ public final class EnchantmentHandlerHack extends Hack
 		if(entry.slotId < 0)
 			return;
 		
-		Slot slot = handler.getSlot(entry.slotId);
+		Slot slot = getSlotSafe(handler, entry.slotId);
 		if(slot == null || !slot.hasStack())
 			return;
 		
@@ -1460,7 +1460,7 @@ public final class EnchantmentHandlerHack extends Hack
 		{
 			if(entry.slotId < 0)
 				continue; // display-only (in shulker)
-			Slot slot = handler.getSlot(entry.slotId);
+			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
 			
@@ -1497,7 +1497,7 @@ public final class EnchantmentHandlerHack extends Hack
 		{
 			if(entry.slotId < 0)
 				continue;
-			Slot slot = handler.getSlot(entry.slotId);
+			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
 			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
@@ -1533,7 +1533,7 @@ public final class EnchantmentHandlerHack extends Hack
 		{
 			if(entry.slotId < 0)
 				continue;
-			Slot slot = handler.getSlot(entry.slotId);
+			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasStack())
 				continue;
 			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
@@ -1541,6 +1541,18 @@ public final class EnchantmentHandlerHack extends Hack
 		}
 		
 		needsRescan = true;
+	}
+	
+	private Slot getSlotSafe(ScreenHandler handler, int slotId)
+	{
+		if(handler == null || slotId < 0)
+			return null;
+		
+		List<Slot> slots = handler.slots;
+		if(slots == null || slotId >= slots.size())
+			return null;
+		
+		return handler.getSlot(slotId);
 	}
 	
 	private int panelInnerHeight()
