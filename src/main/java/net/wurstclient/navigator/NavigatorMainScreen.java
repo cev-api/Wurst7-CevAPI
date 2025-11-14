@@ -362,8 +362,9 @@ public final class NavigatorMainScreen extends NavigatorScreen
 			tooltip = feature.getWrappedDescription(200);
 		
 		// box & shadow
-		int featColor = RenderUtils.toIntColor(
-			feature.isEnabled() ? new float[]{0, 1, 0} : gui.getBgColor(),
+		float[] featRgb =
+			feature.isEnabled() ? gui.getEnabledHackColor() : gui.getBgColor();
+		int featColor = RenderUtils.toIntColor(featRgb,
 			gui.getOpacity() * (renderAsHovered ? 1.5F : 1));
 		drawBox(context, area.x, area.y, area.x + area.width,
 			area.y + area.height, featColor);

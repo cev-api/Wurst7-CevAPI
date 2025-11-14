@@ -15,6 +15,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -48,11 +49,15 @@ public final class ClickGui
 	
 	private float[] bgColor = new float[3];
 	private float[] acColor = new float[3];
+	private float[] enabledHackColor = new float[3];
+	private float[] dropdownButtonColor = new float[3];
+	private float[] pinButtonColor = new float[3];
 	private int txtColor;
 	private float opacity;
 	private float ttOpacity;
 	private int maxHeight;
 	private int maxSettingsHeight;
+	private boolean isolateWindows;
 	
 	private String tooltip = "";
 	
@@ -127,7 +132,10 @@ public final class ClickGui
 		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
 		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
-		Stream<Setting> settings = clickGuiHack.getSettings().values().stream();
+		uiSettings.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
+		Stream<Setting> settings =
+			clickGuiHack.getSettings().values().stream().filter(
+				setting -> setting != clickGuiHack.getIsolateWindowsSetting());
 		settings.map(Setting::getComponent).forEach(c -> uiSettings.add(c));
 		// Removed secondary Chest Search button from UI Settings so Chest
 		// Search
@@ -572,7 +580,7 @@ public final class ClickGui
 		matrixStack.pushMatrix();
 		
 		tooltip = "";
-		int windowLayers = 0;
+		ArrayList<Window> visibleWindows = new ArrayList<>();
 		for(Window window : windows)
 		{
 			if(window.isInvisible())
@@ -595,10 +603,18 @@ public final class ClickGui
 				else
 					window.stopDraggingScrollbar();
 				
-			context.guiRenderState.up();
-			windowLayers++;
-			renderWindow(context, window, mouseX, mouseY, partialTicks);
+			visibleWindows.add(window);
 		}
+		
+		if(isolateWindows && !visibleWindows.isEmpty())
+			renderWindowsWithIsolation(context, visibleWindows, mouseX, mouseY,
+				partialTicks);
+		else
+			for(Window window : visibleWindows)
+			{
+				context.state.goUpLayer();
+				renderWindow(context, window, mouseX, mouseY, partialTicks);
+			}
 		
 		renderPopups(context, mouseX, mouseY);
 		renderTooltip(context, mouseX, mouseY);
@@ -679,20 +695,26 @@ public final class ClickGui
 	
 	public void renderPinnedWindows(GuiGraphics context, float partialTicks)
 	{
-		int windowLayers = 0;
+		ArrayList<Window> pinnedWindows = new ArrayList<>();
 		for(Window window : windows)
 		{
-			if(!window.isPinned() || window.isInvisible())
-				continue;
-			
-			context.guiRenderState.up();
-			windowLayers++;
-			renderWindow(context, window, Integer.MIN_VALUE, Integer.MIN_VALUE,
-				partialTicks);
+			if(window.isPinned() && !window.isInvisible())
+				pinnedWindows.add(window);
 		}
 		
-		for(int i = 0; i < windowLayers; i++)
-			context.guiRenderState.down();
+		if(pinnedWindows.isEmpty())
+			return;
+		
+		if(isolateWindows)
+			renderWindowsWithIsolation(context, pinnedWindows,
+				Integer.MIN_VALUE, Integer.MIN_VALUE, partialTicks);
+		else
+			for(Window window : pinnedWindows)
+			{
+				context.state.goUpLayer();
+				renderWindow(context, window, Integer.MIN_VALUE,
+					Integer.MIN_VALUE, partialTicks);
+			}
 	}
 	
 	public void updateColors()
@@ -703,6 +725,10 @@ public final class ClickGui
 		ttOpacity = clickGui.getTooltipOpacity();
 		bgColor = clickGui.getBackgroundColor();
 		txtColor = clickGui.getTextColor();
+		enabledHackColor = clickGui.getEnabledHackColor();
+		dropdownButtonColor = clickGui.getDropdownButtonColor();
+		pinButtonColor = clickGui.getPinButtonColor();
+		isolateWindows = clickGui.isWindowIsolationEnabled();
 		maxHeight = clickGui.getMaxHeight();
 		maxSettingsHeight = clickGui.getMaxSettingsHeight();
 		
@@ -917,9 +943,93 @@ public final class ClickGui
 		return acColor;
 	}
 	
+	public float[] getEnabledHackColor()
+	{
+		return enabledHackColor;
+	}
+	
 	public int getTxtColor()
 	{
 		return txtColor;
+	}
+	
+	public float[] getDropdownButtonColor()
+	{
+		return dropdownButtonColor;
+	}
+	
+	public float[] getPinButtonColor()
+	{
+		return pinButtonColor;
+	}
+	
+	public boolean isWindowIsolationEnabled()
+	{
+		return isolateWindows;
+	}
+	
+	private void renderWindowsWithIsolation(DrawContext context,
+		List<Window> windowsToRender, int mouseX, int mouseY,
+		float partialTicks)
+	{
+		List<List<Rect>> occlusionMasks = buildOcclusionMasks(windowsToRender);
+		
+		for(int i = 0; i < windowsToRender.size(); i++)
+		{
+			Window window = windowsToRender.get(i);
+			List<Rect> visibleAreas =
+				computeVisibleAreas(window, occlusionMasks.get(i));
+			
+			if(visibleAreas.isEmpty())
+				continue;
+			
+			for(Rect rect : visibleAreas)
+			{
+				context.enableScissor(rect.x1, rect.y1, rect.x2, rect.y2);
+				context.state.goUpLayer();
+				renderWindow(context, window, mouseX, mouseY, partialTicks);
+				context.disableScissor();
+			}
+		}
+	}
+	
+	private List<List<Rect>> buildOcclusionMasks(List<Window> windowsToRender)
+	{
+		ArrayList<List<Rect>> masks = new ArrayList<>(windowsToRender.size());
+		for(int i = 0; i < windowsToRender.size(); i++)
+			masks.add(new ArrayList<>());
+		
+		ArrayList<Rect> accumulated = new ArrayList<>();
+		for(int i = windowsToRender.size() - 1; i >= 0; i--)
+		{
+			ArrayList<Rect> copy = new ArrayList<>(accumulated.size());
+			for(Rect rect : accumulated)
+				copy.add(rect.copy());
+			masks.set(i, copy);
+			
+			accumulated.add(Rect.fromWindow(windowsToRender.get(i)));
+		}
+		
+		return masks;
+	}
+	
+	private List<Rect> computeVisibleAreas(Window window, List<Rect> occluders)
+	{
+		ArrayList<Rect> visible = new ArrayList<>();
+		visible.add(Rect.fromWindow(window));
+		
+		for(Rect occluder : occluders)
+			visible = subtractRectangles(visible, occluder);
+		
+		return visible;
+	}
+	
+	private ArrayList<Rect> subtractRectangles(List<Rect> source, Rect occluder)
+	{
+		ArrayList<Rect> result = new ArrayList<>();
+		for(Rect rect : source)
+			result.addAll(rect.subtract(occluder));
+		return result;
 	}
 	
 	public float getOpacity()
@@ -935,6 +1045,72 @@ public final class ClickGui
 	public void setTooltip(String tooltip)
 	{
 		this.tooltip = Objects.requireNonNull(tooltip);
+	}
+	
+	private static final class Rect
+	{
+		final int x1;
+		final int y1;
+		final int x2;
+		final int y2;
+		
+		Rect(int x1, int y1, int x2, int y2)
+		{
+			this.x1 = x1;
+			this.y1 = y1;
+			this.x2 = x2;
+			this.y2 = y2;
+		}
+		
+		static Rect fromWindow(Window window)
+		{
+			int x1 = window.getX();
+			int y1 = window.getY();
+			int width = window.getWidth();
+			int height = window.isMinimized() ? 13 : window.getHeight();
+			return new Rect(x1, y1, x1 + width, y1 + height);
+		}
+		
+		Rect copy()
+		{
+			return new Rect(x1, y1, x2, y2);
+		}
+		
+		List<Rect> subtract(Rect other)
+		{
+			ArrayList<Rect> pieces = new ArrayList<>();
+			if(!intersects(other))
+			{
+				pieces.add(this);
+				return pieces;
+			}
+			
+			int ox1 = Math.max(x1, other.x1);
+			int oy1 = Math.max(y1, other.y1);
+			int ox2 = Math.min(x2, other.x2);
+			int oy2 = Math.min(y2, other.y2);
+			
+			if(oy1 > y1)
+				pieces.add(new Rect(x1, y1, x2, oy1));
+			if(oy2 < y2)
+				pieces.add(new Rect(x1, oy2, x2, y2));
+			
+			if(oy1 < oy2)
+			{
+				if(ox1 > x1)
+					pieces.add(new Rect(x1, oy1, ox1, oy2));
+				if(ox2 < x2)
+					pieces.add(new Rect(ox2, oy1, x2, oy2));
+			}
+			
+			return pieces;
+		}
+		
+		private boolean intersects(Rect other)
+		{
+			return x1 < other.x2 && x2 > other.x1 && y1 < other.y2
+				&& y2 > other.y1;
+		}
 	}
 	
 	public void addWindow(Window window)

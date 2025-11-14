@@ -302,8 +302,10 @@ Examples:
 - Hacklist has font scaler, transparency, X & Y position adjustments, adjustable shadow box.
 - Hacklist has the ability to highlight entries pursuant to the selected ESP color.
 - Hacklist has the ability show the count of detected ESP items/blocks/entities (BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP, MobsearchESP, MobESP, ItemESP). They're toggled in each hack.
+- UI now has more color options which are also applied to the Navigator UI
+- New Isolate Windows toggle which allows the active window (or sub category/setting) to not display any other windows behind it
 
-![HackList](https://i.imgur.com/FsOxPD2.png)
+![HackList](https://i.imgur.com/fzcQdjy.png)
 
 ### Search Improvements
 - Keyword queries supported; falls back to picker when empty.  
