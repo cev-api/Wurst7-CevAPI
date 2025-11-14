@@ -90,6 +90,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private int lastMatchesVersion;
 	
 	public LavaWaterEspHack()
 	{
@@ -119,7 +120,8 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -136,6 +138,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(net.wurstclient.events.PacketInputListener.class,
 			coordinator);
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(LiquidEspBlockGroup::clear);
 	}
 	
@@ -160,6 +163,12 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion != lastMatchesVersion)
+		{
+			lastMatchesVersion = matchesVersion;
+			groupsUpToDate = false;
+		}
 		if(!groupsUpToDate && coordinator.isDone())
 			updateGroupBoxes();
 	}
