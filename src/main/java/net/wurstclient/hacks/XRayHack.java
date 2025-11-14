@@ -154,6 +154,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		new java.util.ArrayList<>();
 	private boolean visibleBoxesUpToDate = false;
 	private java.util.List<Box> visibleBoxes = new java.util.ArrayList<>();
+	private int lastMatchesVersion;
 	
 	// Debounce to avoid flashing when coordinator updates rapidly (e.g., on
 	// right-click or fast movement). Measured in milliseconds.
@@ -247,8 +248,10 @@ public final class XRayHack extends Hack implements UpdateListener,
 		lastOnlyExposed = onlyExposed.isChecked();
 		// reset coordinator
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		highlightPositionsUpToDate = false;
 		visibleBoxesUpToDate = false;
+		lastCoordinatorChangeMs = System.currentTimeMillis();
 		
 		// add event listeners
 		EVENTS.add(UpdateListener.class, this);
@@ -294,7 +297,11 @@ public final class XRayHack extends Hack implements UpdateListener,
 	{
 		// update chunk searchers (background search)
 		boolean changed = coordinator.update();
-		if(changed)
+		int matchesVersion = coordinator.getMatchesVersion();
+		boolean resultsChanged = matchesVersion != lastMatchesVersion;
+		if(resultsChanged)
+			lastMatchesVersion = matchesVersion;
+		if(changed || resultsChanged)
 		{
 			highlightPositionsUpToDate = false;
 			visibleBoxesUpToDate = false;
@@ -656,6 +663,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		// Cancel current searches and clear cached highlights to avoid stale
 		// results persisting after mode/list/query changes.
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		highlightPositions.clear();
 		visibleBoxes.clear();
 		highlightPositionsUpToDate = false;

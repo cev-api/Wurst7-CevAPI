@@ -138,7 +138,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Trail can be applied to other players (toggleable unique colors for each player (shared with PlayerESP))
 - Settings: color, max sections, section length, thickness, targets, keep trails toggle, unique colors toggle.
 
-![BreadCrumbs](https://i.imgur.com/OXzqDOz.png)
+![BreadCrumbs](https://i.imgur.com/XYWLWXY.png)
 
 ### LogoutSpots
 - Records where players log out.  
@@ -146,7 +146,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Rendering: solid box + outline, optional tracers, name labels with adjustable scale.  
 - Settings: side color, line color, name scale, tracers toggle, spot lifetime, waypoint toggle.  
 
-![Logout](https://i.imgur.com/dPpTS5J.png)
+![Logout](https://i.imgur.com/4JKPkNL.png)
 
 ### AutoDisenchant
 - Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
@@ -286,7 +286,7 @@ Examples:
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
 - Highlight talismans (non-standard item) → Query: `talisman`, special color: rainbow, highlight frames ON, lines-only-for-special ON.
 
-![Item](https://i.imgur.com/nsWLDdJ.png)
+![Item](https://i.imgur.com/d0z2gTj.png)
 
 ### List UI (Search, MobSearch, ItemESP, Xray etc) Improvements
 - Able to specifically enter and save keywords into the list (Great for custom items on modded servers).
@@ -294,7 +294,7 @@ Examples:
 - Can now multi-select items by holding CTRL or SHIFT
 - Deleting entries does not push you to the top of the list anymore
 
-![ListUI](https://i.imgur.com/rjfk4em.png)
+![ListUI](https://i.imgur.com/elZoUaz.png)
 
 ### ClickGUI Improvements
 - Accidentally typing in ClickGUI just continues what you typed in the Navigator.
@@ -318,7 +318,7 @@ Examples:
 - Safer rescans and better crash handling.
 - Improved search speed.
 
-![Search](https://i.imgur.com/zpITuWb.png)
+![Search](https://i.imgur.com/jxcn89u.png)
 
 ### X-Ray Improvements
 - Added ESP (Highlight Corners and or Fill Blocks)
@@ -328,7 +328,8 @@ Examples:
 - Opacity, block type changes and 'only show exposed' apply live without toggling.  
 - New minimum search to 100 blocks.
 
-![X](https://i.imgur.com/CXm2HzS.png)
+![X](https://i.imgur.com/21DE1Gt.png)
+![X2](https://i.imgur.com/K2MjX6w.png)
 
 ### PlayerESP Improvements
 - Added toggle for unique colors for each player (shared with Breadcrumbs)
@@ -342,7 +343,7 @@ Examples:
 - Able to ignore NPCs
 - Enter/Leave area notification option in chat with name, co-ordinates and block distance
 
-![ESP](https://i.imgur.com/1F7zU31.png)
+![ESP](https://i.imgur.com/ydpYuOm.png)
 
 ### TriggerBot Improvements
 - Can now select the mob and the desired weapon/tool to use against them and it will quickly auto-switch when detected
@@ -363,7 +364,7 @@ Examples:
 - Added glow outlines as an option and set it as the new default.
 - Added box color fill option.
 
-![Mob](https://i.imgur.com/VXHW4qe.png)
+![Mob](https://i.imgur.com/1LFR8ll.png)
 
 ### Portal ESP Improvement
 - Single centered line for Nether Portals, End Portal Frames, and active End Portals.
