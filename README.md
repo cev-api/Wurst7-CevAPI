@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.51 (MC1.21.8) - Modified by CevAPI 
+﻿# Wurst Client v7.51.1 (MC1.21.8) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
@@ -38,6 +38,25 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/HjOIhzM.png)
 
+## Novelty
+
+I’m pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren’t found in any other clients or mods. Some are even original enough to stand on their own as full concepts. These include:
+
+- EnchantmentHandler
+- ChestSearch
+- AutoDisenchant
+- AntiSocial
+- CheatDetect
+- SafeTP / TPAHere
+- TrialSpawnerESP
+- QuickShulker
+- AutoTrader
+- AntiBlast
+- [NiceWurst](https://github.com/cev-api/NiceWurst)
+- Custom Waypoint System (not a new idea, but unique in design and functionality)
+
+Because so many of these mods are entirely original, I plan to release some of them as standalone projects in the future.
+
 ---
 
 ## What’s new in this fork?
@@ -48,8 +67,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Multi-term queries: comma-separated (e.g., `skeleton, zombie`).  
 - Rendering: Glow Outlines, Boxes, Octahedrons, Lines, or Both. Rainbow or fixed color, filled or unfilled and configurable box size.
 
-![MobSearch](https://i.imgur.com/PeklZSq.png)
-![Glowing](https://i.imgur.com/nj29EQY.png)
+![MobSearch](https://i.imgur.com/BXtUd9Q.png)
 
 ### BedESP
 - Finds all bed types.  
@@ -57,28 +75,28 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Rendering: Boxes, Lines, or Both in a fixed color.
 - Filter for hiding Trial Chamber and or Villager beds.
 
-![BedESP](https://i.imgur.com/kPHKPDz.png)
+![BedESP](https://i.imgur.com/8ZF7n6a.png)
 
 ### SignESP
 - Finds all sign types/materials.  
 - Option: include frames (item frames + glow item frames) with a separate color.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
 
-![SignESP](https://i.imgur.com/oD0tV1l.png)
+![SignESP](https://i.imgur.com/qgb9lOr.png)
 
 ### WorkstationESP
 - Highlights crafting/workstation blocks: Crafting Table, Smithing Table, Anvil, Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.  
 - Per-block toggles and colors. Defaults: all enabled.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
 
-![WorkStation](https://i.imgur.com/OloVtTi.png)
+![WorkStation](https://i.imgur.com/prsll1D.png)
 
 ### RedstoneESP
 - Highlights redstone components: Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Skulk Sensor (+ Calibrated), Pistons, Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.  
 - Buttons and pressure plates are grouped with individual toggles + colors.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
 
-![RedStone](https://i.imgur.com/Vf9dI8W.png)
+![RedStone](https://i.imgur.com/VGGq4eU.png)
 
 ### TridentESP
 - Highlights thrown tridents, plus held tridents by players/mobs.  
@@ -88,14 +106,14 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Colors: fixed, rainbow, or by owner type.  
 - Toggles for held-trident highlights.
 
-![Trident](https://i.imgur.com/8v7uVbU.png)
+![Trident](https://i.imgur.com/h3m9NcD.png)
 
 ### LavaWaterESP
 - Highlights lava and water blocks (source and flowing) with boxes and or traces.
 - Per type toggles, color and transparency sliders.
 - Render cap and adjustable chunk radius to keep FPS down and the view unobstructive.
 
-![Lava](https://i.imgur.com/34Kss6S.png)
+![Lava](https://i.imgur.com/UU8vTIh.png)
 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
@@ -114,7 +132,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Xaero's Minimap integration, allows exporting and importing of waypoint data (disconnect & reconnect to update).
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 
-![WayPoints](https://i.imgur.com/Tmp71qs.png) ![Waypoint Manager](https://i.imgur.com/41CKEiO.png) ![Waypoint Editor](https://i.imgur.com/QNCS66B.png)
+![WayPoints](https://i.imgur.com/dxFc17N.png) ![Waypoint Manager](https://i.imgur.com/K2xGVqc.png) ![Waypoint Editor](https://i.imgur.com/23i14s1.png)
 
 ### Chest Search
 - Automatically or manually scan each chest you open and store its contents in a JSON file per server
@@ -130,7 +148,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Adjustable search radius
 - Adjustable font size
 
-![ChestSearch](https://i.imgur.com/fBF3YQ0.png) ![Search](https://i.imgur.com/uRvJi9c.png)
+![ChestSearch](https://i.imgur.com/OXuVeF5.png) 
 
 ### Breadcrumbs
 - Leaves a line trail behind you (toggle-able/pause-able).  
@@ -150,8 +168,6 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ### AutoDisenchant
 - Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
-
-![Auto](https://i.imgur.com/bpUaRf1.png) ![Dis](https://i.imgur.com/7Bu31YZ.png)
 
 ### SignFramePassThrough
 - You can now open chests that have item frames or signs in the way!
@@ -179,7 +195,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Telemetry: toast verbosity + audit log (host/IP/URL/UUID/required, cache/sandbox paths). 
 - Access via Other → Anti-Fingerprint, Wurst Options, and Multiplayer/Server Finder buttons. 
 
-![AntiFingerprint](https://i.imgur.com/4xycaQG.png)
+![AntiFingerprint](https://i.imgur.com/b6VgF2K.png)
 
 ### Cheat Detect
 - Watches other players each tick, tracking motion/swing stats to detect suspicious patterns
@@ -188,14 +204,16 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Alerts throttle themselves to prevent spam
 - Able to detect if other players are as cool as you!
 
-![Cheater](https://i.imgur.com/beZoL1U.png)
+![Cheater](https://i.imgur.com/X3l0ASq.png)
 
 ### SurfaceXRay
 - Makes the exposed surface of tracked blocks or fluids like lava or water partially or fully transparent while clearing the matching volume underneath.
 - Works together with XRay
+- Can basically be used as a floor/block remover (see 2nd screenshot)
 - Add items with the list UI, meaning you can add keywords or just select multiple blocks easily. 
 
-![Surface](https://i.imgur.com/fQzefis.png) 
+![Surface](https://i.imgur.com/GLou1Ey.png) 
+![NoNetherrack](https://i.imgur.com/AyVac4K.png)
 
 ### AntiDrop
 - Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.
@@ -206,7 +224,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
 - Works with books, potions and gear and will separate them in the list by category and type
 
-![Chest](https://i.imgur.com/6u9S2OD.png)
+![Chest](https://i.imgur.com/0TdpYkM.png)
 
 ### SafeTP
 - Combines Blink, your desired teleport command and a timer into a single function
@@ -229,6 +247,9 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ### BeaconExploit
 - Force specific effects even on lower tiers
+- Get resistance, regeneration, jump boost and strength with 4 beacons on a single level for example
+
+![Sus](https://i.imgur.com/1eJGZpv.png)
 
 ### TrialSpawnerESP
 - Finds every Trial Spawner entity and renders colors based on the state (idle, charging, active, completed)
@@ -240,7 +261,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 - Able to record opened Ominous Vaults to avoid re-trying the same ones in the future
 - Congifurable with toggles for all of the above
 
-![Trial](https://i.imgur.com/Hp20hse.png)
+![Trial](https://i.imgur.com/xOL9U3G.png)
 
 ### QuickShulker
 - Automates sorting and storage by moving items into a temporary shulker box. Works on both containers (like chests, barrels, hoppers) and your own inventory.
@@ -388,8 +409,6 @@ Examples:
 - Submenu of TooManyHax in the ClickUI/Navigator shows a list of toggleable hacks instead of needing to manually enter the name of each one via cmd.
 - Hacks disabled by TooManyHax will be removed from the ClickUI to declutter
 
-![TooMany](https://i.imgur.com/I3cg7Qf.png)
-
 ### Panic Improved
 - It now saves your current enabled hacks and allows you to restore them via ClickUI/Navigator or keybind.
 
@@ -400,7 +419,7 @@ Examples:
 - Can now discover enchantments provided by data packs.
 - Able to search for enchantments by keywords.
 
-![Library](https://i.imgur.com/ZCK7Frz.png)
+![Library](https://i.imgur.com/pWqgNz8.png)
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
