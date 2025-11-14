@@ -32,7 +32,7 @@ public interface IKeyBinding
 	
 	public default void setDown(boolean down)
 	{
-		asVanilla().setDown(pressed);
+		asVanilla().setDown(down);
 	}
 	
 	public default KeyMapping asVanilla()

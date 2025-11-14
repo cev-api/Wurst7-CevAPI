@@ -324,7 +324,7 @@ public final class AutoLibrarianHack extends Hack
 		
 		// sneak-place to avoid activating trapdoors/chests/etc.
 		IKeyBinding sneakKey = IKeyBinding.get(MC.options.keyShift);
-		sneakKey.setPressed(true);
+		sneakKey.setDown(true);
 		if(!MC.player.isShiftKeyDown())
 			return;
 		

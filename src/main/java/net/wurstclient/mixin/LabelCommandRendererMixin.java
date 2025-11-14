@@ -91,8 +91,8 @@ public class LabelCommandRendererMixin
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
 		
 		if(nameTags.isEnabled() && nameTags.isSeeThrough())
-			if(originalList == nameTagSubmitsNormal)
-				return nameTagSubmitsSeethrough;
+			if(originalList == normalLabels)
+				return seethroughLabels;
 			
 		return originalList;
 	}
@@ -112,8 +112,8 @@ public class LabelCommandRendererMixin
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
 		
 		if(nameTags.isEnabled() && nameTags.isSeeThrough())
-			if(originalList == nameTagSubmitsSeethrough)
-				return nameTagSubmitsNormal;
+			if(originalList == seethroughLabels)
+				return normalLabels;
 			
 		return originalList;
 	}

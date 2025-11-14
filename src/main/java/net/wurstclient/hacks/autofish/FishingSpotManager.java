@@ -151,14 +151,14 @@ public final class FishingSpotManager
 			}
 			
 			// jump if necessary
-			jumpKey.setPressed(
+			jumpKey.setDown(
 				MC.player.isInWater() || MC.player.horizontalCollision);
 			
 			// walk or teleport depending on distance
 			if(distance < 0.2)
 				MC.player.setPos(nextPos.x, nextPos.y, nextPos.z);
 			else if(distance > 0.7 || MC.player.tickCount % 10 == 0)
-				forwardKey.setPressed(true);
+				forwardKey.setDown(true);
 			return;
 		}
 		
