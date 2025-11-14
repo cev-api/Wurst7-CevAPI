@@ -14,6 +14,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -32,11 +33,26 @@ public final class ClickGuiHack extends Hack
 	private final ColorSetting txtColor =
 		new ColorSetting("Text", "Text color", new Color(0xF0F0F0));
 	
+	private final ColorSetting enabledHackColor =
+		new ColorSetting("Enabled hacks", "Background color of enabled hacks",
+			new Color(0x00D900));
+	
+	private final ColorSetting dropdownButtonColor =
+		new ColorSetting("Dropdown button", "Color of dropdown/minimize arrows",
+			new Color(0x00D900));
+	
+	private final ColorSetting pinButtonColor = new ColorSetting("Pin button",
+		"Color of the pin button when unpinned", new Color(0x00D900));
+	
 	private final SliderSetting opacity = new SliderSetting("Opacity", 0.5,
 		0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final SliderSetting ttOpacity = new SliderSetting("Tooltip opacity",
 		0.75, 0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
+	
+	private final CheckboxSetting isolateWindows =
+		new CheckboxSetting("Isolate windows",
+			"Hide overlapping windows behind the front-most window.", false);
 	
 	private final SliderSetting maxHeight = new SliderSetting("Max height",
 		"Maximum window height\n" + "0 = no limit", 200, 0, 1000, 50,
@@ -53,8 +69,12 @@ public final class ClickGuiHack extends Hack
 		addSetting(bgColor);
 		addSetting(acColor);
 		addSetting(txtColor);
+		addSetting(enabledHackColor);
+		addSetting(dropdownButtonColor);
+		addSetting(pinButtonColor);
 		addSetting(opacity);
 		addSetting(ttOpacity);
+		addSetting(isolateWindows);
 		addSetting(maxHeight);
 		addSetting(maxSettingsHeight);
 	}
@@ -81,6 +101,21 @@ public final class ClickGuiHack extends Hack
 		return txtColor.getColorI();
 	}
 	
+	public float[] getEnabledHackColor()
+	{
+		return enabledHackColor.getColorF();
+	}
+	
+	public float[] getDropdownButtonColor()
+	{
+		return dropdownButtonColor.getColorF();
+	}
+	
+	public float[] getPinButtonColor()
+	{
+		return pinButtonColor.getColorF();
+	}
+	
 	public float getOpacity()
 	{
 		return opacity.getValueF();
@@ -89,6 +124,16 @@ public final class ClickGuiHack extends Hack
 	public float getTooltipOpacity()
 	{
 		return ttOpacity.getValueF();
+	}
+	
+	public boolean isWindowIsolationEnabled()
+	{
+		return isolateWindows.isChecked();
+	}
+	
+	public CheckboxSetting getIsolateWindowsSetting()
+	{
+		return isolateWindows;
 	}
 	
 	public int getMaxHeight()

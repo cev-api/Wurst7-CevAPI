@@ -146,7 +146,7 @@ public final class FeatureButton extends Component
 	
 	private int getButtonColor(boolean enabled, boolean hovering)
 	{
-		float[] rgb = enabled ? new float[]{0, 1, 0} : GUI.getBgColor();
+		float[] rgb = enabled ? GUI.getEnabledHackColor() : GUI.getBgColor();
 		float opacity = GUI.getOpacity() * (hovering ? 1.5F : 1);
 		return RenderUtils.toIntColor(rgb, opacity);
 	}

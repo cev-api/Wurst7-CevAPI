@@ -18,6 +18,11 @@ public enum ClickGuiIcons
 	public static void drawMinimizeArrow(DrawContext context, float x1,
 		float y1, float x2, float y2, boolean hovering, boolean minimized)
 	{
+		ClickGui gui = WurstClient.INSTANCE.getGui();
+		int collapsedColor =
+			RenderUtils.toIntColor(gui.getDropdownButtonColor(), 1F);
+		int collapsedHoverColor = scaleColor(collapsedColor, 1.15F);
+		
 		float xa1 = x1 + 1;
 		float xa2 = (x1 + x2) / 2;
 		float xa3 = x2 - 1;
@@ -31,7 +36,7 @@ public enum ClickGuiIcons
 		{
 			ya1 = y1 + 3;
 			ya2 = y2 - 2.5F;
-			arrowColor = hovering ? 0xFF00FF00 : 0xFF00D900;
+			arrowColor = hovering ? collapsedHoverColor : collapsedColor;
 			arrowVertices = new float[][]{{xa1, ya1}, {xa2, ya2}, {xa3, ya1}};
 			
 		}else
@@ -102,6 +107,11 @@ public enum ClickGuiIcons
 			
 		}else
 		{
+			ClickGui gui = WurstClient.INSTANCE.getGui();
+			int basePinColor =
+				RenderUtils.toIntColor(gui.getPinButtonColor(), 1F);
+			int hoverPinColor = scaleColor(basePinColor, 1.15F);
+			
 			float xk1 = x2 - 3.5F;
 			float xk2 = x2 - 0.5F;
 			float xk3 = x2 - 3;
@@ -118,7 +128,7 @@ public enum ClickGuiIcons
 			float yk7 = y2 - 1;
 			
 			// knob
-			int knobColor = hovering ? 0xFF00FF00 : 0xFF00D900;
+			int knobColor = hovering ? hoverPinColor : basePinColor;
 			float[][] knobVertices = {{xk4, yk4}, {xk3, yk3}, {xk2, yk2},
 				{xk1, yk1}, {xk5, yk5}, {xk7, yk4}, {xk3, yk7}, {xk6, yk6}};
 			RenderUtils.fillQuads2D(context, knobVertices, knobColor);
@@ -223,5 +233,23 @@ public enum ClickGuiIcons
 			{xc4, yc2}, {xc3, yc1}, {xc7, yc6}, {xc3, yc3}, {xc4, yc4},
 			{xc6, yc7}, {xc2, yc4}, {xc1, yc3}, {xc5, yc6}};
 		RenderUtils.drawLineStrip2D(context, outlineVertices, outlineColor);
+	}
+	
+	private static int scaleColor(int color, float factor)
+	{
+		int a = color >>> 24;
+		int r = clampChannel((int)Math.round(((color >> 16) & 0xFF) * factor));
+		int g = clampChannel((int)Math.round(((color >> 8) & 0xFF) * factor));
+		int b = clampChannel((int)Math.round((color & 0xFF) * factor));
+		return a << 24 | r << 16 | g << 8 | b;
+	}
+	
+	private static int clampChannel(int value)
+	{
+		if(value < 0)
+			return 0;
+		if(value > 255)
+			return 255;
+		return value;
 	}
 }
