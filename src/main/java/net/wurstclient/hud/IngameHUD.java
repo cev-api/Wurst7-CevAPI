@@ -18,6 +18,7 @@ public final class IngameHUD implements GUIRenderListener
 	private final WurstLogo wurstLogo = new WurstLogo();
 	private final HackListHUD hackList = new HackListHUD();
 	private TabGui tabGui;
+	private net.wurstclient.hacks.itemhandler.ItemHandlerHud itemHandlerHud;
 	
 	@Override
 	public void onRenderGUI(GuiGraphics context, float partialTicks)
@@ -35,6 +36,11 @@ public final class IngameHUD implements GUIRenderListener
 		wurstLogo.render(context);
 		hackList.render(context, partialTicks);
 		tabGui.render(context, partialTicks);
+		
+		if(itemHandlerHud == null)
+			itemHandlerHud =
+				new net.wurstclient.hacks.itemhandler.ItemHandlerHud();
+		itemHandlerHud.render(context, partialTicks);
 		
 		// pinned windows
 		if(!(WurstClient.MC.screen instanceof ClickGuiScreen))
