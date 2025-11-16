@@ -29,7 +29,7 @@ public abstract class KeyBindingMixin implements IKeyBinding
 	@Override
 	@Unique
 	@Deprecated // use IKeyBinding.resetPressedState() instead
-	public void wurst_resetPressedState()
+	public void resetPressedState()
 	{
 		Window window = WurstClient.MC.getWindow();
 		int code = key.getValue();
@@ -43,7 +43,7 @@ public abstract class KeyBindingMixin implements IKeyBinding
 	@Override
 	@Unique
 	@Deprecated // use IKeyBinding.simulatePress() instead
-	public void wurst_simulatePress(boolean pressed)
+	public void simulatePress(boolean pressed)
 	{
 		Minecraft mc = WurstClient.MC;
 		Window window = mc.getWindow();

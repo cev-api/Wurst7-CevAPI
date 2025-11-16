@@ -11,53 +11,37 @@ import net.minecraft.client.KeyMapping;
 
 public interface IKeyBinding
 {
-	/**
-	 * Resets the pressed state to whether or not the user is actually pressing
-	 * this key on their keyboard.
-	 */
-	public default void resetPressedState()
+	static IKeyBinding get(KeyMapping key)
 	{
-		wurst_resetPressedState();
+		return (IKeyBinding)key;
 	}
 	
-	/**
-	 * Simulates the user pressing this key on their keyboard or mouse. This is
-	 * much more aggressive than using {@link #setPressed(boolean)} and should
-	 * be used sparingly.
-	 */
-	public default void simulatePress(boolean pressed)
-	{
-		wurst_simulatePress(pressed);
-	}
-	
-	public default void setPressed(boolean pressed)
-	{
-		asVanilla().setDown(pressed);
-	}
-	
-	public default KeyMapping asVanilla()
+	default KeyMapping asVanilla()
 	{
 		return (KeyMapping)this;
 	}
 	
-	/**
-	 * Returns the given KeyBinding object as an IKeyBinding, allowing you to
-	 * access the resetPressedState() method.
-	 */
-	public static IKeyBinding get(KeyMapping kb)
+	default void setPressed(boolean value)
 	{
-		return (IKeyBinding)kb;
+		asVanilla().setDown(value);
 	}
 	
-	/**
-	 * @deprecated Use {@link #resetPressedState()} instead.
-	 */
-	@Deprecated
-	public void wurst_resetPressedState();
+	default boolean isPressed()
+	{
+		return asVanilla().isDown();
+	}
 	
-	/**
-	 * @deprecated Use {@link #simulatePress()} instead.
-	 */
-	@Deprecated
-	public void wurst_simulatePress(boolean pressed);
+	default void setDown(boolean value)
+	{
+		setPressed(value);
+	}
+	
+	default boolean isDown()
+	{
+		return isPressed();
+	}
+	
+	void resetPressedState();
+	
+	void simulatePress(boolean pressed);
 }
