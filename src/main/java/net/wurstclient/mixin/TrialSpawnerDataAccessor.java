@@ -9,24 +9,22 @@ package net.wurstclient.mixin;
 
 import java.util.Set;
 import java.util.UUID;
-
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerStateData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.block.spawner.TrialSpawnerData;
-
-@Mixin(TrialSpawnerData.class)
+@Mixin(TrialSpawnerStateData.class)
 public interface TrialSpawnerDataAccessor
 {
-	@Accessor("cooldownEnd")
+	@Accessor("cooldownEndsAt")
 	long getCooldownEnd();
 	
 	@Accessor("nextMobSpawnsAt")
 	long getNextMobSpawnsAt();
 	
-	@Accessor("totalSpawnedMobs")
+	@Accessor("totalMobsSpawned")
 	int getTotalSpawnedMobs();
 	
-	@Accessor("spawnedMobsAlive")
+	@Accessor("currentMobs")
 	Set<UUID> getSpawnedMobsAlive();
 }

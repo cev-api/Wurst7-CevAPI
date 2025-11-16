@@ -10,9 +10,8 @@ package net.wurstclient.command;
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.TreeMap;
-
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
+import net.minecraft.CrashReport;
+import net.minecraft.ReportedException;
 import net.wurstclient.commands.*;
 
 public final class CmdList
@@ -94,8 +93,8 @@ public final class CmdList
 		}catch(Exception e)
 		{
 			String message = "Initializing Wurst commands";
-			CrashReport report = CrashReport.create(e, message);
-			throw new CrashException(report);
+			CrashReport report = CrashReport.forThrowable(e, message);
+			throw new ReportedException(report);
 		}
 	}
 	

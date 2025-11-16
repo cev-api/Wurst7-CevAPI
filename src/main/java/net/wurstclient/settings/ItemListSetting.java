@@ -18,10 +18,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.ItemListEditButton;
@@ -56,9 +55,9 @@ public final class ItemListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		Identifier id = Identifier.tryParse(raw);
+		ResourceLocation id = ResourceLocation.tryParse(raw);
 		String name = raw;
-		if(id != null && Registries.ITEM.containsId(id))
+		if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 			name = id.toString();
 		
 		if(Collections.binarySearch(itemNames, name) < 0)
@@ -75,7 +74,7 @@ public final class ItemListSetting extends Setting
 	
 	public void add(Item item)
 	{
-		String name = Registries.ITEM.getId(item).toString();
+		String name = BuiltInRegistries.ITEM.getKey(item).toString();
 		if(Collections.binarySearch(itemNames, name) >= 0)
 			return;
 		

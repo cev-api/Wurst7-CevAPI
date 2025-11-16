@@ -7,13 +7,13 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -41,11 +41,11 @@ public final class WaypointEditScreen extends Screen
 	private boolean compactMode = false; // when true, show only name +
 											// Save/Cancel
 	
-	private TextFieldWidget nameField;
-	private TextFieldWidget xField;
-	private TextFieldWidget yField;
-	private TextFieldWidget zField;
-	private ButtonWidget colorButton;
+	private EditBox nameField;
+	private EditBox xField;
+	private EditBox yField;
+	private EditBox zField;
+	private Button colorButton;
 	private ColorSetting colorSetting;
 	private int alphaPercent = 100; // 1..100 persisted across picker
 	// Draft values to preserve user input across color picker navigation
@@ -55,7 +55,7 @@ public final class WaypointEditScreen extends Screen
 	private String draftZ;
 	
 	private int dimIndex;
-	private ButtonWidget dimButton;
+	private Button dimButton;
 	// Draft storage for dimension selection when navigating to child screens
 	private Integer draftDimIndex;
 	
@@ -70,17 +70,17 @@ public final class WaypointEditScreen extends Screen
 			ICONS[i] = iconChar(ICON_KEYS[i]) + " " + ICON_KEYS[i];
 	}
 	private int iconIndex;
-	private ButtonWidget iconButton;
+	private Button iconButton;
 	
-	private ButtonWidget oppositeButton;
-	private ButtonWidget visibleButton;
-	private ButtonWidget linesButton;
-	private ButtonWidget beaconButton;
+	private Button oppositeButton;
+	private Button visibleButton;
+	private Button linesButton;
+	private Button beaconButton;
 	
 	public WaypointEditScreen(Screen prev, WaypointsManager manager,
 		Waypoint waypoint, boolean isNew)
 	{
-		super(Text.literal("Edit Waypoint"));
+		super(Component.literal("Edit Waypoint"));
 		this.prev = prev;
 		this.manager = manager;
 		this.listScreen =
@@ -104,11 +104,11 @@ public final class WaypointEditScreen extends Screen
 		
 		// Name (always present)
 		yName = y;
-		nameField = new TextFieldWidget(client.textRenderer, x, y, cw, 20,
-			Text.literal(""));
+		nameField =
+			new EditBox(minecraft.font, x, y, cw, 20, Component.literal(""));
 		String baseName = waypoint.getName() == null ? "" : waypoint.getName();
-		nameField.setText(draftName != null ? draftName : baseName);
-		addDrawableChild(nameField);
+		nameField.setValue(draftName != null ? draftName : baseName);
+		addRenderableWidget(nameField);
 		setFocused(nameField);
 		// increased gap to avoid XYZ labels overlapping name field
 		y += 44;
@@ -123,21 +123,21 @@ public final class WaypointEditScreen extends Screen
 			xXYZ1 = x;
 			xXYZ2 = x + colW + gap;
 			xXYZ3 = x + (colW + gap) * 2;
-			xField = new TextFieldWidget(client.textRenderer, xXYZ1, y, colW,
-				20, Text.literal(""));
+			xField = new EditBox(minecraft.font, xXYZ1, y, colW, 20,
+				Component.literal(""));
 			xField
-				.setText(draftX != null ? draftX : Integer.toString(p.getX()));
-			addDrawableChild(xField);
-			yField = new TextFieldWidget(client.textRenderer, xXYZ2,
-				narrow ? y + 28 : y, colW, 20, Text.literal(""));
+				.setValue(draftX != null ? draftX : Integer.toString(p.getX()));
+			addRenderableWidget(xField);
+			yField = new EditBox(minecraft.font, xXYZ2, narrow ? y + 28 : y,
+				colW, 20, Component.literal(""));
 			yField
-				.setText(draftY != null ? draftY : Integer.toString(p.getY()));
-			addDrawableChild(yField);
-			zField = new TextFieldWidget(client.textRenderer, xXYZ3,
-				narrow ? y + 56 : y, colW, 20, Text.literal(""));
+				.setValue(draftY != null ? draftY : Integer.toString(p.getY()));
+			addRenderableWidget(yField);
+			zField = new EditBox(minecraft.font, xXYZ3, narrow ? y + 56 : y,
+				colW, 20, Component.literal(""));
 			zField
-				.setText(draftZ != null ? draftZ : Integer.toString(p.getZ()));
-			addDrawableChild(zField);
+				.setValue(draftZ != null ? draftZ : Integer.toString(p.getZ()));
+			addRenderableWidget(zField);
 			// Track individual field Y for labels
 			yYField = narrow ? y + 28 : y;
 			yZField = narrow ? y + 56 : y;
@@ -159,63 +159,62 @@ public final class WaypointEditScreen extends Screen
 				dimIndex = draftDimIndex;
 				draftDimIndex = null;
 			}
-			dimButton = ButtonWidget
-				.builder(Text.literal("Dimension: " + dims[dimIndex].name()),
-					b -> {
-						dimIndex = (dimIndex + 1) % dims.length;
-						b.setMessage(Text
-							.literal("Dimension: " + dims[dimIndex].name()));
-					})
-				.dimensions(x, y, cw, 20).build();
-			addDrawableChild(dimButton);
+			dimButton = Button.builder(
+				Component.literal("Dimension: " + dims[dimIndex].name()), b -> {
+					dimIndex = (dimIndex + 1) % dims.length;
+					b.setMessage(Component
+						.literal("Dimension: " + dims[dimIndex].name()));
+				}).bounds(x, y, cw, 20).build();
+			addRenderableWidget(dimButton);
 			y += 28;
 			
 			// Opposite / Visible toggles + Lines
 			yToggles = y;
 			int halfGap = 10;
 			int halfW = (cw - halfGap) / 2;
-			oppositeButton = ButtonWidget.builder(
-				Text.literal(buttonLabel("Opposite", waypoint.isOpposite())),
-				b -> {
-					waypoint.setOpposite(!waypoint.isOpposite());
-					b.setMessage(Text.literal(
-						buttonLabel("Opposite", waypoint.isOpposite())));
-				}).dimensions(x, y, halfW, 20).build();
-			addDrawableChild(oppositeButton);
+			oppositeButton =
+				Button
+					.builder(
+						Component.literal(
+							buttonLabel("Opposite", waypoint.isOpposite())),
+						b -> {
+							waypoint.setOpposite(!waypoint.isOpposite());
+							b.setMessage(Component.literal(buttonLabel(
+								"Opposite", waypoint.isOpposite())));
+						})
+					.bounds(x, y, halfW, 20).build();
+			addRenderableWidget(oppositeButton);
 			
-			visibleButton = ButtonWidget.builder(
-				Text.literal(buttonLabel("Visible", waypoint.isVisible())),
+			visibleButton = Button.builder(
+				Component.literal(buttonLabel("Visible", waypoint.isVisible())),
 				b -> {
 					waypoint.setVisible(!waypoint.isVisible());
-					b.setMessage(Text
+					b.setMessage(Component
 						.literal(buttonLabel("Visible", waypoint.isVisible())));
-				}).dimensions(x + halfW + halfGap, y, halfW, 20).build();
-			addDrawableChild(visibleButton);
+				}).bounds(x + halfW + halfGap, y, halfW, 20).build();
+			addRenderableWidget(visibleButton);
 			y += 28;
 			
 			// Reserve space for opposite preview text, then Lines/Beacon row
 			y += 16;
 			int toggleWidth = (cw - halfGap) / 2;
-			linesButton = ButtonWidget
-				.builder(Text.literal(buttonLabel("Lines", waypoint.isLines())),
-					b -> {
-						waypoint.setLines(!waypoint.isLines());
-						b.setMessage(Text
-							.literal(buttonLabel("Lines", waypoint.isLines())));
-					})
-				.dimensions(x, y, toggleWidth, 20).build();
-			addDrawableChild(linesButton);
-			beaconButton = ButtonWidget
-				.builder(Text.literal(beaconLabel(waypoint.getBeaconMode())),
-					b -> {
-						Waypoint.BeaconMode next =
-							nextBeaconMode(waypoint.getBeaconMode());
-						waypoint.setBeaconMode(next);
-						b.setMessage(Text.literal(beaconLabel(next)));
-					})
-				.dimensions(x + toggleWidth + halfGap, y, toggleWidth, 20)
+			linesButton = Button.builder(
+				Component.literal(buttonLabel("Lines", waypoint.isLines())),
+				b -> {
+					waypoint.setLines(!waypoint.isLines());
+					b.setMessage(Component
+						.literal(buttonLabel("Lines", waypoint.isLines())));
+				}).bounds(x, y, toggleWidth, 20).build();
+			addRenderableWidget(linesButton);
+			beaconButton = Button.builder(
+				Component.literal(beaconLabel(waypoint.getBeaconMode())), b -> {
+					Waypoint.BeaconMode next =
+						nextBeaconMode(waypoint.getBeaconMode());
+					waypoint.setBeaconMode(next);
+					b.setMessage(Component.literal(beaconLabel(next)));
+				}).bounds(x + toggleWidth + halfGap, y, toggleWidth, 20)
 				.build();
-			addDrawableChild(beaconButton);
+			addRenderableWidget(beaconButton);
 			y += 28;
 			
 			// Icon selector
@@ -227,12 +226,13 @@ public final class WaypointEditScreen extends Screen
 					iconIndex = i;
 					break;
 				}
-			iconButton = ButtonWidget
-				.builder(Text.literal("Icon: " + ICONS[iconIndex]), b -> {
+			iconButton = Button
+				.builder(Component.literal("Icon: " + ICONS[iconIndex]), b -> {
 					iconIndex = (iconIndex + 1) % ICONS.length;
-					b.setMessage(Text.literal("Icon: " + ICONS[iconIndex]));
-				}).dimensions(x, y, cw, 20).build();
-			addDrawableChild(iconButton);
+					b.setMessage(
+						Component.literal("Icon: " + ICONS[iconIndex]));
+				}).bounds(x, y, cw, 20).build();
+			addRenderableWidget(iconButton);
 			y += 28;
 			// extra spacing before color row
 			y += 8;
@@ -250,77 +250,80 @@ public final class WaypointEditScreen extends Screen
 					alphaPercent = Math.max(1,
 						Math.min(100, (int)Math.round(a / 255.0 * 100)));
 			}
-			colorButton = ButtonWidget.builder(
-				Text.literal(
+			colorButton = Button.builder(
+				Component.literal(
 					"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"),
 				b -> {
-					draftName = nameField.getText();
-					draftX = xField.getText();
-					draftY = yField.getText();
-					draftZ = zField.getText();
+					draftName = nameField.getValue();
+					draftX = xField.getValue();
+					draftY = yField.getValue();
+					draftZ = zField.getValue();
 					// Preserve selected dimension index so it isn't lost when
 					// the child color screen re-initializes this screen.
 					draftDimIndex = dimIndex;
-					client.setScreen(new EditColorScreen(this, colorSetting));
-				}).dimensions(x, y, cw - 24, 20).build();
-			addDrawableChild(colorButton);
+					minecraft
+						.setScreen(new EditColorScreen(this, colorSetting));
+				}).bounds(x, y, cw - 24, 20).build();
+			addRenderableWidget(colorButton);
 			y += 28;
-			addDrawableChild(new net.minecraft.client.gui.widget.SliderWidget(x,
-				y, fieldsWidth, 20,
-				Text.literal("Transparency: " + alphaPercent + "%"),
-				(alphaPercent - 1) / 99.0)
-			{
-				@Override
-				protected void updateMessage()
+			addRenderableWidget(
+				new net.minecraft.client.gui.components.AbstractSliderButton(x,
+					y, fieldsWidth, 20,
+					Component.literal("Transparency: " + alphaPercent + "%"),
+					(alphaPercent - 1) / 99.0)
 				{
-					int val = 1 + (int)Math.round(value * 99.0);
-					alphaPercent = Math.max(1, Math.min(100, val));
-					setMessage(
-						Text.literal("Transparency: " + alphaPercent + "%"));
-				}
-				
-				@Override
-				protected void applyValue()
-				{
-					int val = 1 + (int)Math.round(value * 99.0);
-					alphaPercent = Math.max(1, Math.min(100, val));
-				}
-			});
+					@Override
+					protected void updateMessage()
+					{
+						int val = 1 + (int)Math.round(value * 99.0);
+						alphaPercent = Math.max(1, Math.min(100, val));
+						setMessage(Component
+							.literal("Transparency: " + alphaPercent + "%"));
+					}
+					
+					@Override
+					protected void applyValue()
+					{
+						int val = 1 + (int)Math.round(value * 99.0);
+						alphaPercent = Math.max(1, Math.min(100, val));
+					}
+				});
 			y += 28;
 			
 			// Use player pos & delete buttons
-			addDrawableChild(ButtonWidget
-				.builder(Text.literal("Use player pos"), b -> usePlayerPos())
-				.dimensions(x, y, halfW, 20).build());
-			addDrawableChild(
-				ButtonWidget.builder(Text.literal("Delete"), b -> doDelete())
-					.dimensions(x + halfW + halfGap, y, halfW, 20).build());
+			addRenderableWidget(
+				Button.builder(Component.literal("Use player pos"),
+					b -> usePlayerPos()).bounds(x, y, halfW, 20).build());
+			addRenderableWidget(
+				Button.builder(Component.literal("Delete"), b -> doDelete())
+					.bounds(x + halfW + halfGap, y, halfW, 20).build());
 			y += 28;
 		}
 		
 		// Always add Save/Cancel anchored at bottom
 		int halfGap = 10;
 		int halfW = (fieldsWidth - halfGap) / 2;
-		addDrawableChild(
-			ButtonWidget.builder(Text.literal("Save"), b -> saveAndBack())
-				.dimensions(fieldsBaseX, height - 52, halfW, 20).build());
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("Cancel"), b -> client.setScreen(prev))
-			.dimensions(fieldsBaseX + halfW + halfGap, height - 52, halfW, 20)
+		addRenderableWidget(
+			Button.builder(Component.literal("Save"), b -> saveAndBack())
+				.bounds(fieldsBaseX, height - 52, halfW, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Cancel"),
+				b -> minecraft.setScreen(prev))
+			.bounds(fieldsBaseX + halfW + halfGap, height - 52, halfW, 20)
 			.build());
 	}
 	
 	@Override
-	public void resize(net.minecraft.client.MinecraftClient client, int width,
+	public void resize(net.minecraft.client.Minecraft client, int width,
 		int height)
 	{
 		// Preserve current edits before re-initializing layout for new size
 		if(nameField != null)
 		{
-			draftName = nameField.getText();
-			draftX = xField.getText();
-			draftY = yField.getText();
-			draftZ = zField.getText();
+			draftName = nameField.getValue();
+			draftX = xField.getValue();
+			draftY = yField.getValue();
+			draftZ = zField.getValue();
 			// Preserve dimension selection across resize/child screens
 			draftDimIndex = dimIndex;
 		}
@@ -359,13 +362,13 @@ public final class WaypointEditScreen extends Screen
 	
 	private void usePlayerPos()
 	{
-		if(client.player == null)
+		if(minecraft.player == null)
 			return;
-		BlockPos p = BlockPos.ofFloored(client.player.getX(),
-			client.player.getY(), client.player.getZ());
-		xField.setText(Integer.toString(p.getX()));
-		yField.setText(Integer.toString(p.getY()));
-		zField.setText(Integer.toString(p.getZ()));
+		BlockPos p = BlockPos.containing(minecraft.player.getX(),
+			minecraft.player.getY(), minecraft.player.getZ());
+		xField.setValue(Integer.toString(p.getX()));
+		yField.setValue(Integer.toString(p.getY()));
+		zField.setValue(Integer.toString(p.getZ()));
 	}
 	
 	private void doDelete()
@@ -373,22 +376,22 @@ public final class WaypointEditScreen extends Screen
 		manager.remove(waypoint);
 		if(listScreen != null)
 			listScreen.saveNow();
-		client.setScreen(prev);
+		minecraft.setScreen(prev);
 	}
 	
 	private void saveAndBack()
 	{
 		// Name
-		waypoint.setName(nameField.getText());
+		waypoint.setName(nameField.getValue());
 		
 		// Position
 		if(xField != null && yField != null && zField != null)
 		{
 			try
 			{
-				int x = Integer.parseInt(xField.getText());
-				int y = Integer.parseInt(yField.getText());
-				int z = Integer.parseInt(zField.getText());
+				int x = Integer.parseInt(xField.getValue());
+				int y = Integer.parseInt(yField.getValue());
+				int z = Integer.parseInt(zField.getValue());
 				waypoint.setPos(new BlockPos(x, y, z));
 			}catch(Exception ignored)
 			{}
@@ -408,7 +411,7 @@ public final class WaypointEditScreen extends Screen
 		manager.addOrUpdate(waypoint);
 		if(listScreen != null)
 			listScreen.saveNow();
-		client.setScreen(prev);
+		minecraft.setScreen(prev);
 	}
 	
 	private String toHex6(int argb)
@@ -458,28 +461,28 @@ public final class WaypointEditScreen extends Screen
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
 		super.render(context, mouseX, mouseY, delta);
 		
 		// Update color button label in case it changed in child screen
 		if(colorButton != null && colorSetting != null)
-			colorButton.setMessage(Text.literal(
+			colorButton.setMessage(Component.literal(
 				"Pick color (#" + toHex6(colorSetting.getColorI()) + ")"));
 		
 		// Labels
 		int x = fieldsBaseX;
-		context.drawText(client.textRenderer, "Name", x, yName - 18,
-			Colors.LIGHT_GRAY, false);
+		context.drawString(minecraft.font, "Name", x, yName - 18,
+			CommonColors.LIGHT_GRAY, false);
 		if(xField != null)
 		{
-			context.drawText(client.textRenderer, "X", xXYZ1, yXYZ - 18,
-				Colors.LIGHT_GRAY, false);
-			context.drawText(client.textRenderer, "Y", xXYZ2,
-				(narrow ? yYField : yXYZ) - 18, Colors.LIGHT_GRAY, false);
-			context.drawText(client.textRenderer, "Z", xXYZ3,
-				(narrow ? yZField : yXYZ) - 18, Colors.LIGHT_GRAY, false);
+			context.drawString(minecraft.font, "X", xXYZ1, yXYZ - 18,
+				CommonColors.LIGHT_GRAY, false);
+			context.drawString(minecraft.font, "Y", xXYZ2,
+				(narrow ? yYField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
+			context.drawString(minecraft.font, "Z", xXYZ3,
+				(narrow ? yZField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
 		}
 		// removed explicit "Color" text label to avoid redundancy and crowding
 		
@@ -489,13 +492,14 @@ public final class WaypointEditScreen extends Screen
 		int alpha = (int)Math
 			.round(Math.max(1, Math.min(100, alphaPercent)) / 100.0 * 255);
 		int color = colorSetting.getColorI(alpha);
-		context.fill(boxX - 1, boxY - 1, boxX + 18, boxY + 18, Colors.GRAY);
+		context.fill(boxX - 1, boxY - 1, boxX + 18, boxY + 18,
+			CommonColors.GRAY);
 		context.fill(boxX, boxY, boxX + 16, boxY + 16, color);
 		
 		// Opposite preview text – render below the toggles and lines rows
 		String opp = oppositePreview();
 		if(!opp.isEmpty())
-			context.drawText(client.textRenderer, opp, fieldsBaseX,
+			context.drawString(minecraft.font, opp, fieldsBaseX,
 				/* directly below the opposite/visible row */
 				yToggles + 28 + 8, 0xFFCCCCCC, false);
 	}
@@ -509,9 +513,9 @@ public final class WaypointEditScreen extends Screen
 			return "Opposite has no effect in the End";
 		try
 		{
-			int x = Integer.parseInt(xField.getText());
-			int z = Integer.parseInt(zField.getText());
-			int y = Integer.parseInt(yField.getText());
+			int x = Integer.parseInt(xField.getValue());
+			int z = Integer.parseInt(zField.getValue());
+			int y = Integer.parseInt(yField.getValue());
 			int ox = x;
 			int oz = z;
 			WaypointDimension td;

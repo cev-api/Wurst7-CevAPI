@@ -18,14 +18,12 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
 
 public final class WaypointsManager
 {
@@ -309,10 +307,11 @@ public final class WaypointsManager
 	
 	private Path xaeroRoot()
 	{
-		MinecraftClient client = MinecraftClient.getInstance();
+		Minecraft client = Minecraft.getInstance();
 		if(client == null)
 			return null;
-		return client.runDirectory.toPath().resolve("xaero").resolve("minimap");
+		return client.gameDirectory.toPath().resolve("xaero")
+			.resolve("minimap");
 	}
 	
 	private static List<Path> listDirectories(Path root)

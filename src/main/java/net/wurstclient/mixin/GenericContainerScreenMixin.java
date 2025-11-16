@@ -14,21 +14,28 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import net.minecraft.client.gui.screen.ingame.GenericContainerScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandlerContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.state.property.Properties;
-
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.ContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DecoratedPotBlock;
+import net.minecraft.world.level.block.EnderChestBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.ChestConfig;
 import net.wurstclient.chestsearch.ChestRecorder;
@@ -36,23 +43,13 @@ import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
 import net.wurstclient.hacks.QuickShulkerHack;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ChestBlock;
-import net.minecraft.block.EnderChestBlock;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.block.BarrelBlock;
-import net.minecraft.block.DecoratedPotBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.enums.ChestType;
-
-@Mixin(GenericContainerScreen.class)
+@Mixin(ContainerScreen.class)
 public abstract class GenericContainerScreenMixin
-	extends HandledScreen<GenericContainerScreenHandler>
+	extends AbstractContainerScreen<ChestMenu>
 {
 	@Shadow
 	@Final
-	private int rows;
+	private int containerRows;
 	
 	@Unique
 	private final AutoStealHack autoSteal =
@@ -84,9 +81,8 @@ public abstract class GenericContainerScreenMixin
 	@Unique
 	private long lastRecordUntilMs = 0L;
 	
-	public GenericContainerScreenMixin(WurstClient wurst,
-		GenericContainerScreenHandler container,
-		PlayerInventory playerInventory, Text name)
+	public GenericContainerScreenMixin(WurstClient wurst, ChestMenu container,
+		Inventory playerInventory, Component name)
 	{
 		super(container, playerInventory, name);
 	}
@@ -99,17 +95,18 @@ public abstract class GenericContainerScreenMixin
 			return;
 		if(autoSteal.areButtonsVisible())
 		{
-			addDrawableChild(ButtonWidget
-				.builder(Text.literal("Steal"),
-					b -> autoSteal.steal(this, rows))
-				.dimensions(x + backgroundWidth - 108, y + 4, 50, 12).build());
-			addDrawableChild(ButtonWidget
-				.builder(Text.literal("Store"),
-					b -> autoSteal.store(this, rows))
-				.dimensions(x + backgroundWidth - 56, y + 4, 50, 12).build());
+			addRenderableWidget(Button
+				.builder(Component.literal("Steal"),
+					b -> autoSteal.steal(this, containerRows))
+				.bounds(leftPos + imageWidth - 108, topPos + 4, 50, 12)
+				.build());
+			addRenderableWidget(Button
+				.builder(Component.literal("Store"),
+					b -> autoSteal.store(this, containerRows))
+				.bounds(leftPos + imageWidth - 56, topPos + 4, 50, 12).build());
 		}
 		if(autoSteal.isEnabled())
-			autoSteal.steal(this, rows);
+			autoSteal.steal(this, containerRows);
 		
 		QuickShulkerHack quickShulker =
 			WurstClient.INSTANCE.getHax().quickShulkerHack;
@@ -120,12 +117,12 @@ public abstract class GenericContainerScreenMixin
 			// visually outside the chest/inventory GUI. Use the same
 			// positioning/size as the inventory screen button so it
 			// appears outside the form consistently.
-			ButtonWidget quickButton = ButtonWidget
-				.builder(Text.literal("QuickShulker"),
+			Button quickButton = Button
+				.builder(Component.literal("QuickShulker"),
 					b -> quickShulker.triggerFromGui())
-				.dimensions(x + backgroundWidth - 90, y - 20, 80, 16).build();
+				.bounds(leftPos + imageWidth - 90, topPos - 20, 80, 16).build();
 			quickButton.active = !quickShulker.isBusy();
-			addDrawableChild(quickButton);
+			addRenderableWidget(quickButton);
 		}
 		
 		// Add a manual scan button to help on plugin-protected servers when
@@ -143,9 +140,9 @@ public abstract class GenericContainerScreenMixin
 			}catch(Throwable ignored)
 			{}
 			if(showScan)
-				addDrawableChild(ButtonWidget
-					.builder(Text.literal("Scan"), b -> startManualScan())
-					.dimensions(x + 6, y + 4, 50, 12).build());
+				addRenderableWidget(Button
+					.builder(Component.literal("Scan"), b -> startManualScan())
+					.bounds(leftPos + 6, topPos + 4, 50, 12).build());
 		}catch(Throwable ignored)
 		{}
 		
@@ -166,16 +163,16 @@ public abstract class GenericContainerScreenMixin
 			try
 			{
 				if(WurstClient.MC != null
-					&& WurstClient.MC.getCurrentServerEntry() != null)
-					serverIp = WurstClient.MC.getCurrentServerEntry().address;
+					&& WurstClient.MC.getCurrentServer() != null)
+					serverIp = WurstClient.MC.getCurrentServer().ip;
 			}catch(Throwable ignored)
 			{}
 			String dimension = null;
 			try
 			{
-				if(WurstClient.MC != null && WurstClient.MC.world != null)
-					dimension = WurstClient.MC.world.getRegistryKey().getValue()
-						.toString();
+				if(WurstClient.MC != null && WurstClient.MC.level != null)
+					dimension =
+						WurstClient.MC.level.dimension().location().toString();
 			}catch(Throwable ignored)
 			{}
 			
@@ -185,11 +182,11 @@ public abstract class GenericContainerScreenMixin
 			try
 			{
 				java.lang.reflect.Method gb =
-					this.handler.getClass().getMethod("getBlockEntity");
-				Object be = gb.invoke(this.handler);
+					this.menu.getClass().getMethod("getBlockEntity");
+				Object be = gb.invoke(this.menu);
 				if(be instanceof BlockEntity)
 				{
-					resolvedPos = ((BlockEntity)be).getPos();
+					resolvedPos = ((BlockEntity)be).getBlockPos();
 					if(resolvedPos != null)
 					{
 						// debug removed
@@ -205,7 +202,7 @@ public abstract class GenericContainerScreenMixin
 				// crosshair fallback
 				try
 				{
-					HitResult hr = WurstClient.MC.crosshairTarget;
+					HitResult hr = WurstClient.MC.hitResult;
 					if(hr instanceof BlockHitResult bhr)
 					{
 						BlockPos bp = bhr.getBlockPos();
@@ -228,25 +225,25 @@ public abstract class GenericContainerScreenMixin
 					try
 					{
 						java.lang.reflect.Method m =
-							this.handler.getClass().getMethod("getContext");
-						ctxObj = m.invoke(this.handler);
+							this.menu.getClass().getMethod("getContext");
+						ctxObj = m.invoke(this.menu);
 					}catch(Throwable ignored)
 					{}
 					if(ctxObj == null)
 					{
 						try
 						{
-							java.lang.reflect.Field f = this.handler.getClass()
+							java.lang.reflect.Field f = this.menu.getClass()
 								.getDeclaredField("context");
 							f.setAccessible(true);
-							ctxObj = f.get(this.handler);
+							ctxObj = f.get(this.menu);
 						}catch(Throwable ignored)
 						{}
 					}
-					if(ctxObj instanceof ScreenHandlerContext ctx)
+					if(ctxObj instanceof ContainerLevelAccess ctx)
 					{
 						BlockPos[] holder = new BlockPos[1];
-						ctx.run((world, pos) -> holder[0] = pos);
+						ctx.execute((world, pos) -> holder[0] = pos);
 						if(holder[0] != null)
 						{
 							resolvedPos = holder[0];
@@ -262,8 +259,8 @@ public abstract class GenericContainerScreenMixin
 			{
 				try
 				{
-					Object inv = this.handler.getClass()
-						.getMethod("getInventory").invoke(this.handler);
+					Object inv = this.menu.getClass().getMethod("getInventory")
+						.invoke(this.menu);
 					if(inv != null)
 					{
 						try
@@ -322,32 +319,32 @@ public abstract class GenericContainerScreenMixin
 				try
 				{
 					if(WurstClient.MC != null && WurstClient.MC.player != null
-						&& WurstClient.MC.world != null)
+						&& WurstClient.MC.level != null)
 					{
 						var player = WurstClient.MC.player;
-						net.minecraft.util.math.Vec3d eye =
-							player.getCameraPosVec(1.0f);
-						net.minecraft.util.math.Vec3d look =
-							player.getRotationVec(1.0f).normalize();
-						BlockPos pcenter = player.getBlockPos();
+						net.minecraft.world.phys.Vec3 eye =
+							player.getEyePosition(1.0f);
+						net.minecraft.world.phys.Vec3 look =
+							player.getViewVector(1.0f).normalize();
+						BlockPos pcenter = player.blockPosition();
 						BlockPos best = null;
 						double bestScore = -1e9;
 						for(int dx = -2; dx <= 2; dx++)
 							for(int dy = -1; dy <= 2; dy++)
 								for(int dz = -2; dz <= 2; dz++)
 								{
-									BlockPos c = pcenter.add(dx, dy, dz);
+									BlockPos c = pcenter.offset(dx, dy, dz);
 									BlockState s =
-										WurstClient.MC.world.getBlockState(c);
+										WurstClient.MC.level.getBlockState(c);
 									if(!(s.getBlock() instanceof ChestBlock))
 										continue;
-									net.minecraft.util.math.Vec3d center =
-										new net.minecraft.util.math.Vec3d(
+									net.minecraft.world.phys.Vec3 center =
+										new net.minecraft.world.phys.Vec3(
 											c.getX() + 0.5, c.getY() + 0.5,
 											c.getZ() + 0.5);
-									double dist = center.squaredDistanceTo(eye);
-									double align = look.dotProduct(
-										center.subtract(eye).normalize());
+									double dist = center.distanceToSqr(eye);
+									double align = look
+										.dot(center.subtract(eye).normalize());
 									double score = 2.0 - dist * 0.01
 										+ Math.max(0, align) * 0.5;
 									if(score > bestScore)
@@ -402,7 +399,7 @@ public abstract class GenericContainerScreenMixin
 				}catch(Throwable ignored)
 				{}
 			}
-			final int chestSlots = Math.max(0, rows * 9);
+			final int chestSlots = Math.max(0, containerRows * 9);
 			// prepare slot order in outer scope so fallback branches can reuse
 			java.util.List<Integer> chestSlotIndices =
 				new java.util.ArrayList<>();
@@ -415,16 +412,17 @@ public abstract class GenericContainerScreenMixin
 					// Prefer reading from handler.slots (client-side view)
 					try
 					{
-						java.util.List<net.minecraft.item.ItemStack> all =
+						java.util.List<net.minecraft.world.item.ItemStack> all =
 							new java.util.ArrayList<>();
-						for(int i = 0; i < this.handler.slots.size(); i++)
+						for(int i = 0; i < this.menu.slots.size(); i++)
 						{
 							try
 							{
-								all.add(this.handler.slots.get(i).getStack());
+								all.add(this.menu.slots.get(i).getItem());
 							}catch(Throwable ignored)
 							{
-								all.add(net.minecraft.item.ItemStack.EMPTY);
+								all.add(
+									net.minecraft.world.item.ItemStack.EMPTY);
 							}
 						}
 						// determine candidate slots that belong to chest (not
@@ -460,11 +458,11 @@ public abstract class GenericContainerScreenMixin
 							}
 						}catch(Throwable ignored)
 						{}
-						for(int i = 0; i < this.handler.slots.size(); i++)
+						for(int i = 0; i < this.menu.slots.size(); i++)
 						{
 							try
 							{
-								Object slot = this.handler.slots.get(i);
+								Object slot = this.menu.slots.get(i);
 								Class<?> sc = slot.getClass();
 								Object inv = null;
 								// strategy 1: field named "inventory"
@@ -525,7 +523,7 @@ public abstract class GenericContainerScreenMixin
 								{}
 								// as a safety, if index is within last 36 slots
 								// (typical player inv range), mark as player
-								int totalSlots = this.handler.slots.size();
+								int totalSlots = this.menu.slots.size();
 								if(!isPlayerInv && totalSlots >= 36
 									&& i >= totalSlots - 36)
 									isPlayerInv = true;
@@ -578,47 +576,49 @@ public abstract class GenericContainerScreenMixin
 						// otherwise fallback to old heuristic
 						if(bestStartIdx >= 0 && bestLen > 0)
 						{
-							int window =
-								Math.min(bestLen, Math.max(0, rows * 9));
+							int window = Math.min(bestLen,
+								Math.max(0, containerRows * 9));
 							chestSlotIndices.clear();
 							for(int ii = 0; ii < window && bestStartIdx
-								+ ii < this.handler.slots.size(); ii++)
+								+ ii < this.menu.slots.size(); ii++)
 								chestSlotIndices.add(bestStartIdx + ii);
 							System.out.println(
 								"[ChestRecorder] detected chest region start="
 									+ bestStartIdx + " len=" + window);
 						}else
 						{
-							int window = Math.min(Math.max(0, rows * 9),
-								this.handler.slots.size());
+							int window =
+								Math.min(Math.max(0, containerRows * 9),
+									this.menu.slots.size());
 							System.out.println(
 								"[ChestRecorder] fallback chest region start="
 									+ 0 + " len=" + window);
 							chestSlotIndices.clear();
 							for(int ii = 0; ii < window
-								&& ii < this.handler.slots.size(); ii++)
+								&& ii < this.menu.slots.size(); ii++)
 								chestSlotIndices.add(ii);
 						}
 						java.util.List<Integer> slotOrder =
 							new java.util.ArrayList<>(chestSlotIndices);
 						if(slotOrder.isEmpty())
 						{
-							int fallbackWindow = Math.min(Math.max(0, rows * 9),
-								this.handler.slots.size());
+							int fallbackWindow =
+								Math.min(Math.max(0, containerRows * 9),
+									this.menu.slots.size());
 							for(int ii = 0; ii < fallbackWindow; ii++)
 								slotOrder.add(ii);
 						}
 						this.chestSlotOrder =
 							new java.util.ArrayList<>(slotOrder);
-						java.util.List<net.minecraft.item.ItemStack> region =
+						java.util.List<net.minecraft.world.item.ItemStack> region =
 							new java.util.ArrayList<>(slotOrder.size());
 						int nonEmpty = 0;
 						for(int idx : slotOrder)
 						{
-							net.minecraft.item.ItemStack s =
-								(idx >= 0 && idx < this.handler.slots.size())
-									? this.handler.slots.get(idx).getStack()
-									: net.minecraft.item.ItemStack.EMPTY;
+							net.minecraft.world.item.ItemStack s =
+								(idx >= 0 && idx < this.menu.slots.size())
+									? this.menu.slots.get(idx).getItem()
+									: net.minecraft.world.item.ItemStack.EMPTY;
 							region.add(s);
 							if(s != null && !s.isEmpty())
 								nonEmpty++;
@@ -643,8 +643,8 @@ public abstract class GenericContainerScreenMixin
 										GenericContainerScreenMixin.this.clickedZ;
 									try
 									{
-										var hr = WurstClient.MC.crosshairTarget;
-										if(hr instanceof net.minecraft.util.hit.BlockHitResult bhr)
+										var hr = WurstClient.MC.hitResult;
+										if(hr instanceof net.minecraft.world.phys.BlockHitResult bhr)
 										{
 											var bpos = bhr.getBlockPos();
 											if(bpos != null)
@@ -661,9 +661,8 @@ public abstract class GenericContainerScreenMixin
 										wurst$currentBounds());
 									// debug removed
 									chestRecorder.onChestOpened(fServerIp,
-										fDimension, px, py, pz, handler,
-										slotCount, slotOrder,
-										wurst$currentBounds());
+										fDimension, px, py, pz, menu, slotCount,
+										slotOrder, wurst$currentBounds());
 								}
 							}catch(Throwable ignored)
 							{}
@@ -675,15 +674,15 @@ public abstract class GenericContainerScreenMixin
 					}
 					// fallback to block entity read
 					BlockPos bp = new BlockPos(fx, fy, fz);
-					if(WurstClient.MC != null && WurstClient.MC.world != null)
+					if(WurstClient.MC != null && WurstClient.MC.level != null)
 					{
 						BlockEntity be =
-							WurstClient.MC.world.getBlockEntity(bp);
+							WurstClient.MC.level.getBlockEntity(bp);
 						if(be != null)
 						{
 							try
 							{
-								java.util.List<net.minecraft.item.ItemStack> stacks =
+								java.util.List<net.minecraft.world.item.ItemStack> stacks =
 									new java.util.ArrayList<>();
 								java.util.List<Integer> slotOrderEntity =
 									new java.util.ArrayList<>();
@@ -691,17 +690,16 @@ public abstract class GenericContainerScreenMixin
 								{
 									try
 									{
-										stacks
-											.add(
-												(net.minecraft.item.ItemStack)be
-													.getClass()
-													.getMethod("getStack",
-														int.class)
-													.invoke(be, i));
+										stacks.add(
+											(net.minecraft.world.item.ItemStack)be
+												.getClass()
+												.getMethod("getStack",
+													int.class)
+												.invoke(be, i));
 									}catch(Throwable ignored)
 									{
 										stacks.add(
-											net.minecraft.item.ItemStack.EMPTY);
+											net.minecraft.world.item.ItemStack.EMPTY);
 									}
 									slotOrderEntity.add(i);
 								}
@@ -722,9 +720,8 @@ public abstract class GenericContainerScreenMixin
 											GenericContainerScreenMixin.this.clickedZ;
 										try
 										{
-											var hr =
-												WurstClient.MC.crosshairTarget;
-											if(hr instanceof net.minecraft.util.hit.BlockHitResult bhr)
+											var hr = WurstClient.MC.hitResult;
+											if(hr instanceof net.minecraft.world.phys.BlockHitResult bhr)
 											{
 												var bpos = bhr.getBlockPos();
 												if(bpos != null)
@@ -753,7 +750,7 @@ public abstract class GenericContainerScreenMixin
 								if(chestSlotIndices.isEmpty())
 								{
 									for(int ii = 0; ii < Math.min(chestSlots,
-										this.handler.slots.size()); ii++)
+										this.menu.slots.size()); ii++)
 										chestSlotIndices.add(ii);
 								}
 								this.chestSlotOrder =
@@ -771,7 +768,7 @@ public abstract class GenericContainerScreenMixin
 											GenericContainerScreenMixin.this.clickedX,
 											GenericContainerScreenMixin.this.clickedY,
 											GenericContainerScreenMixin.this.clickedZ,
-											handler, chestSlotIndices.size(),
+											menu, chestSlotIndices.size(),
 											chestSlotIndices,
 											wurst$currentBounds());
 								}catch(Throwable ignored)
@@ -794,7 +791,7 @@ public abstract class GenericContainerScreenMixin
 				if(chestSlotIndices.isEmpty())
 				{
 					for(int ii = 0; ii < Math.min(chestSlots,
-						this.handler.slots.size()); ii++)
+						this.menu.slots.size()); ii++)
 						chestSlotIndices.add(ii);
 				}
 				java.util.List<Integer> slotOrder =
@@ -808,7 +805,7 @@ public abstract class GenericContainerScreenMixin
 						chestRecorder.onChestOpened(fServerIp, fDimension,
 							GenericContainerScreenMixin.this.clickedX,
 							GenericContainerScreenMixin.this.clickedY,
-							GenericContainerScreenMixin.this.clickedZ, handler,
+							GenericContainerScreenMixin.this.clickedZ, menu,
 							slotOrder.size(), slotOrder, wurst$currentBounds());
 				}catch(Throwable ignored)
 				{}
@@ -824,11 +821,11 @@ public abstract class GenericContainerScreenMixin
 				{
 					try
 					{
-						java.util.List<net.minecraft.item.ItemStack> all =
+						java.util.List<net.minecraft.world.item.ItemStack> all =
 							new java.util.ArrayList<>();
-						for(int i = 0; i < handler.slots.size(); i++)
+						for(int i = 0; i < menu.slots.size(); i++)
 						{
-							all.add(handler.slots.get(i).getStack());
+							all.add(menu.slots.get(i).getItem());
 						}
 						int total = all.size();
 						java.util.List<Integer> slotOrder =
@@ -836,19 +833,19 @@ public abstract class GenericContainerScreenMixin
 								GenericContainerScreenMixin.this.chestSlotOrder);
 						if(slotOrder.isEmpty())
 						{
-							int fallbackWindow =
-								Math.min(chestSlots, Math.min(total, rows * 9));
+							int fallbackWindow = Math.min(chestSlots,
+								Math.min(total, containerRows * 9));
 							for(int i = 0; i < fallbackWindow; i++)
 								slotOrder.add(i);
 						}
-						java.util.List<net.minecraft.item.ItemStack> region =
+						java.util.List<net.minecraft.world.item.ItemStack> region =
 							new java.util.ArrayList<>(slotOrder.size());
 						int nonEmpty = 0;
 						for(int idx : slotOrder)
 						{
-							net.minecraft.item.ItemStack stack =
+							net.minecraft.world.item.ItemStack stack =
 								(idx >= 0 && idx < total) ? all.get(idx)
-									: net.minecraft.item.ItemStack.EMPTY;
+									: net.minecraft.world.item.ItemStack.EMPTY;
 							region.add(stack);
 							if(stack != null && !stack.isEmpty())
 								nonEmpty++;
@@ -875,8 +872,8 @@ public abstract class GenericContainerScreenMixin
 										GenericContainerScreenMixin.this.clickedZ;
 									try
 									{
-										var hr = WurstClient.MC.crosshairTarget;
-										if(hr instanceof net.minecraft.util.hit.BlockHitResult bhr)
+										var hr = WurstClient.MC.hitResult;
+										if(hr instanceof net.minecraft.world.phys.BlockHitResult bhr)
 										{
 											var bpos = bhr.getBlockPos();
 											if(bpos != null)
@@ -925,40 +922,40 @@ public abstract class GenericContainerScreenMixin
 		try
 		{
 			final String serverIp = (WurstClient.MC != null
-				&& WurstClient.MC.getCurrentServerEntry() != null)
-					? WurstClient.MC.getCurrentServerEntry().address : null;
+				&& WurstClient.MC.getCurrentServer() != null)
+					? WurstClient.MC.getCurrentServer().ip : null;
 			final String dimension =
-				(WurstClient.MC != null && WurstClient.MC.world != null)
-					? WurstClient.MC.world.getRegistryKey().getValue()
-						.toString()
+				(WurstClient.MC != null && WurstClient.MC.level != null)
+					? WurstClient.MC.level.dimension().location().toString()
 					: null;
 			
 			java.util.List<Integer> slotOrder =
 				new java.util.ArrayList<>(this.chestSlotOrder);
 			if(slotOrder.isEmpty())
 			{
-				int limit =
-					Math.min(Math.max(0, rows * 9), this.handler.slots.size());
+				int limit = Math.min(Math.max(0, containerRows * 9),
+					this.menu.slots.size());
 				for(int i = 0; i < limit; i++)
 					slotOrder.add(i);
 			}
-			java.util.List<net.minecraft.item.ItemStack> region =
+			java.util.List<net.minecraft.world.item.ItemStack> region =
 				new java.util.ArrayList<>();
 			for(int idx : slotOrder)
 			{
-				net.minecraft.item.ItemStack s =
-					(idx >= 0 && idx < this.handler.slots.size())
-						? this.handler.slots.get(idx).getStack()
-						: net.minecraft.item.ItemStack.EMPTY;
-				region.add(s == null ? net.minecraft.item.ItemStack.EMPTY : s);
+				net.minecraft.world.item.ItemStack s =
+					(idx >= 0 && idx < this.menu.slots.size())
+						? this.menu.slots.get(idx).getItem()
+						: net.minecraft.world.item.ItemStack.EMPTY;
+				region.add(
+					s == null ? net.minecraft.world.item.ItemStack.EMPTY : s);
 			}
 			// choose primary position: prefer crosshair block the player was
 			// pointing at
 			int px = chestX, py = chestY, pz = chestZ;
 			try
 			{
-				var hr = WurstClient.MC.crosshairTarget;
-				if(hr instanceof net.minecraft.util.hit.BlockHitResult bhr)
+				var hr = WurstClient.MC.hitResult;
+				if(hr instanceof net.minecraft.world.phys.BlockHitResult bhr)
 				{
 					var bpos = bhr.getBlockPos();
 					if(bpos != null)
@@ -972,7 +969,7 @@ public abstract class GenericContainerScreenMixin
 			{}
 			
 			boolean any = false;
-			for(net.minecraft.item.ItemStack s : region)
+			for(net.minecraft.world.item.ItemStack s : region)
 				if(s != null && !s.isEmpty())
 				{
 					any = true;
@@ -987,16 +984,16 @@ public abstract class GenericContainerScreenMixin
 			Runnable doRecord = () -> {
 				try
 				{
-					java.util.List<net.minecraft.item.ItemStack> reg =
+					java.util.List<net.minecraft.world.item.ItemStack> reg =
 						new java.util.ArrayList<>();
 					for(int idx2 : fSlotOrder)
 					{
-						net.minecraft.item.ItemStack s2 =
-							(idx2 >= 0 && idx2 < this.handler.slots.size())
-								? this.handler.slots.get(idx2).getStack()
-								: net.minecraft.item.ItemStack.EMPTY;
-						reg.add(s2 == null ? net.minecraft.item.ItemStack.EMPTY
-							: s2);
+						net.minecraft.world.item.ItemStack s2 =
+							(idx2 >= 0 && idx2 < this.menu.slots.size())
+								? this.menu.slots.get(idx2).getItem()
+								: net.minecraft.world.item.ItemStack.EMPTY;
+						reg.add(s2 == null
+							? net.minecraft.world.item.ItemStack.EMPTY : s2);
 					}
 					chestRecorder.recordFromStacksWithSlotOrder(fServer, fDim,
 						fpx, fpy, fpz, reg, fSlotOrder, fBounds);
@@ -1034,14 +1031,13 @@ public abstract class GenericContainerScreenMixin
 			System.currentTimeMillis() + Math.max(500, durationMs);
 		System.out.println(
 			"[ChestRecorder] Manual scan started. Hover/click through chest slots.");
-		final int chestSlots = Math.max(0, rows * 9);
+		final int chestSlots = Math.max(0, containerRows * 9);
 		final String serverIp = (WurstClient.MC != null
-			&& WurstClient.MC.getCurrentServerEntry() != null)
-				? WurstClient.MC.getCurrentServerEntry().address : null;
+			&& WurstClient.MC.getCurrentServer() != null)
+				? WurstClient.MC.getCurrentServer().ip : null;
 		final String dimension =
-			(WurstClient.MC != null && WurstClient.MC.world != null)
-				? WurstClient.MC.world.getRegistryKey().getValue().toString()
-				: null;
+			(WurstClient.MC != null && WurstClient.MC.level != null)
+				? WurstClient.MC.level.dimension().location().toString() : null;
 		// choose chest position determined on open; fallback to crosshair, then
 		// player
 		BlockPos chosenPos = null;
@@ -1051,7 +1047,7 @@ public abstract class GenericContainerScreenMixin
 		{
 			try
 			{
-				HitResult hr = WurstClient.MC.crosshairTarget;
+				HitResult hr = WurstClient.MC.hitResult;
 				if(hr instanceof BlockHitResult bhr)
 				{
 					BlockPos bp = bhr.getBlockPos();
@@ -1062,7 +1058,7 @@ public abstract class GenericContainerScreenMixin
 			{}
 			if(chosenPos == null && WurstClient.MC != null
 				&& WurstClient.MC.player != null)
-				chosenPos = WurstClient.MC.player.getBlockPos();
+				chosenPos = WurstClient.MC.player.blockPosition();
 		}
 		final BlockPos bp =
 			chosenPos != null ? chosenPos : new BlockPos(0, 0, 0);
@@ -1075,7 +1071,7 @@ public abstract class GenericContainerScreenMixin
 				try
 				{
 					if(WurstClient.MC == null
-						|| WurstClient.MC.currentScreen != GenericContainerScreenMixin.this
+						|| WurstClient.MC.screen != GenericContainerScreenMixin.this
 						|| !manualScanActive
 						|| System.currentTimeMillis() > manualScanUntil)
 					{
@@ -1085,11 +1081,11 @@ public abstract class GenericContainerScreenMixin
 							.println("[ChestRecorder] Manual scan finished.");
 						return;
 					}
-					java.util.List<net.minecraft.item.ItemStack> all =
+					java.util.List<net.minecraft.world.item.ItemStack> all =
 						new java.util.ArrayList<>();
-					for(int i = 0; i < handler.slots.size(); i++)
+					for(int i = 0; i < menu.slots.size(); i++)
 					{
-						all.add(handler.slots.get(i).getStack());
+						all.add(menu.slots.get(i).getItem());
 					}
 					int total = all.size();
 					int window = Math.min(chestSlots, total);
@@ -1100,7 +1096,8 @@ public abstract class GenericContainerScreenMixin
 						int count = 0;
 						for(int i = 0; i < window; i++)
 						{
-							net.minecraft.item.ItemStack s = all.get(start + i);
+							net.minecraft.world.item.ItemStack s =
+								all.get(start + i);
 							if(s != null && !s.isEmpty())
 								count++;
 						}
@@ -1110,7 +1107,7 @@ public abstract class GenericContainerScreenMixin
 							bestStart = start;
 						}
 					}
-					java.util.List<net.minecraft.item.ItemStack> region =
+					java.util.List<net.minecraft.world.item.ItemStack> region =
 						new java.util.ArrayList<>(window);
 					java.util.List<Integer> slotOrder =
 						new java.util.ArrayList<>(window);
@@ -1137,7 +1134,7 @@ public abstract class GenericContainerScreenMixin
 	
 	// Replace hard override with a safe inject at TAIL to render overlay
 	@Inject(method = "render", at = @At("TAIL"))
-	private void wurst$renderOverlay(DrawContext context, int mouseX,
+	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
 		long now = System.currentTimeMillis();
@@ -1145,15 +1142,15 @@ public abstract class GenericContainerScreenMixin
 		{
 			int textX = this.width / 2 - 120;
 			int textY = this.height - 18; // near bottom
-			context.drawText(this.textRenderer, Text.literal(lastRecordMessage),
+			context.drawString(this.font, Component.literal(lastRecordMessage),
 				textX, textY, 0xFFFFFF00, false);
 		}else if(manualScanActive && !manualScanQuiet)
 		{
 			String hint = "Scanning... hover/click slots to reveal items";
 			int textX = this.width / 2 - 120;
 			int textY = this.height - 18;
-			context.drawText(this.textRenderer, Text.literal(hint), textX,
-				textY, 0xFFFFFF00, false);
+			context.drawString(this.font, Component.literal(hint), textX, textY,
+				0xFFFFFF00, false);
 		}
 	}
 	
@@ -1170,7 +1167,7 @@ public abstract class GenericContainerScreenMixin
 	{
 		try
 		{
-			if(this.chestRecorder == null || this.handler == null)
+			if(this.chestRecorder == null || this.menu == null)
 				return;
 			// Only finalize snapshot automatically if automatic mode is on
 			try
@@ -1188,21 +1185,21 @@ public abstract class GenericContainerScreenMixin
 			{
 				if(net.wurstclient.WurstClient.MC != null
 					&& net.wurstclient.WurstClient.MC
-						.getCurrentServerEntry() != null)
-					serverIp = net.wurstclient.WurstClient.MC
-						.getCurrentServerEntry().address;
+						.getCurrentServer() != null)
+					serverIp =
+						net.wurstclient.WurstClient.MC.getCurrentServer().ip;
 			}catch(Throwable ignored)
 			{}
 			try
 			{
 				if(net.wurstclient.WurstClient.MC != null
-					&& net.wurstclient.WurstClient.MC.world != null)
-					dimension = net.wurstclient.WurstClient.MC.world
-						.getRegistryKey().getValue().toString();
+					&& net.wurstclient.WurstClient.MC.level != null)
+					dimension = net.wurstclient.WurstClient.MC.level.dimension()
+						.location().toString();
 			}catch(Throwable ignored)
 			{}
-			int chestSlots = Math.max(0, this.rows * 9);
-			int total = this.handler.slots.size();
+			int chestSlots = Math.max(0, this.containerRows * 9);
+			int total = this.menu.slots.size();
 			java.util.List<Integer> slotOrder =
 				new java.util.ArrayList<>(this.chestSlotOrder);
 			if(slotOrder.isEmpty())
@@ -1211,14 +1208,14 @@ public abstract class GenericContainerScreenMixin
 				for(int i = 0; i < fallbackWindow; i++)
 					slotOrder.add(i);
 			}
-			java.util.List<net.minecraft.item.ItemStack> region =
+			java.util.List<net.minecraft.world.item.ItemStack> region =
 				new java.util.ArrayList<>(slotOrder.size());
 			boolean any = false;
 			for(int idx : slotOrder)
 			{
 				var st = (idx >= 0 && idx < total)
-					? this.handler.slots.get(idx).getStack()
-					: net.minecraft.item.ItemStack.EMPTY;
+					? this.menu.slots.get(idx).getItem()
+					: net.minecraft.world.item.ItemStack.EMPTY;
 				region.add(st);
 				if(st != null && !st.isEmpty())
 					any = true;
@@ -1237,14 +1234,14 @@ public abstract class GenericContainerScreenMixin
 	private BlockPos wurst$normalizeContainerPos(BlockPos pos)
 	{
 		if(pos == null || WurstClient.MC == null
-			|| WurstClient.MC.world == null)
+			|| WurstClient.MC.level == null)
 			return pos;
 		BlockPos current = pos;
-		BlockState state = WurstClient.MC.world.getBlockState(current);
+		BlockState state = WurstClient.MC.level.getBlockState(current);
 		if(!wurst$isTrackableContainer(state))
 		{
-			BlockPos below = current.down();
-			BlockState belowState = WurstClient.MC.world.getBlockState(below);
+			BlockPos below = current.below();
+			BlockState belowState = WurstClient.MC.level.getBlockState(below);
 			if(wurst$isTrackableContainer(belowState))
 			{
 				current = below;
@@ -1266,7 +1263,7 @@ public abstract class GenericContainerScreenMixin
 			{
 				for(Direction d : Direction.values())
 				{
-					if(d.asString().equalsIgnoreCase(fName))
+					if(d.getSerializedName().equalsIgnoreCase(fName))
 					{
 						facingDir = d;
 						break;
@@ -1277,14 +1274,14 @@ public abstract class GenericContainerScreenMixin
 			{
 				try
 				{
-					facingDir = state.get(ChestBlock.FACING);
+					facingDir = state.getValue(ChestBlock.FACING);
 				}catch(Throwable ignored)
 				{}
 			}
 		}catch(Throwable ignored)
 		{}
 		if(facingDir != null)
-			this.chestFacing = facingDir.asString();
+			this.chestFacing = facingDir.getSerializedName();
 		
 		// If chest block, try to find its connected pair
 		if(state.getBlock() instanceof ChestBlock)
@@ -1301,12 +1298,13 @@ public abstract class GenericContainerScreenMixin
 						try
 						{
 							String of = wurst$getFacingName(
-								WurstClient.MC.world.getBlockState(other));
+								WurstClient.MC.level.getBlockState(other));
 							if(of != null)
 							{
 								for(Direction d : Direction.values())
 								{
-									if(d.asString().equalsIgnoreCase(of))
+									if(d.getSerializedName()
+										.equalsIgnoreCase(of))
 									{
 										facingDir = d;
 										break;
@@ -1363,13 +1361,13 @@ public abstract class GenericContainerScreenMixin
 					try
 					{
 						BlockEntity beL =
-							WurstClient.MC.world.getBlockEntity(minPos);
-						if(beL instanceof net.minecraft.block.entity.LockableContainerBlockEntity)
+							WurstClient.MC.level.getBlockEntity(minPos);
+						if(beL instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity)
 						{
-							var inv = (net.minecraft.inventory.Inventory)beL;
-							for(int i = 0; i < inv.size(); i++)
-								if(inv.getStack(i) != null
-									&& !inv.getStack(i).isEmpty())
+							var inv = (net.minecraft.world.Container)beL;
+							for(int i = 0; i < inv.getContainerSize(); i++)
+								if(inv.getItem(i) != null
+									&& !inv.getItem(i).isEmpty())
 								{
 									leftHasItems = true;
 									break;
@@ -1380,13 +1378,13 @@ public abstract class GenericContainerScreenMixin
 					try
 					{
 						BlockEntity beR =
-							WurstClient.MC.world.getBlockEntity(maxPos);
-						if(beR instanceof net.minecraft.block.entity.LockableContainerBlockEntity)
+							WurstClient.MC.level.getBlockEntity(maxPos);
+						if(beR instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity)
 						{
-							var inv = (net.minecraft.inventory.Inventory)beR;
-							for(int i = 0; i < inv.size(); i++)
-								if(inv.getStack(i) != null
-									&& !inv.getStack(i).isEmpty())
+							var inv = (net.minecraft.world.Container)beR;
+							for(int i = 0; i < inv.getContainerSize(); i++)
+								if(inv.getItem(i) != null
+									&& !inv.getItem(i).isEmpty())
 								{
 									rightHasItems = true;
 									break;
@@ -1482,22 +1480,22 @@ public abstract class GenericContainerScreenMixin
 		try
 		{
 			if(WurstClient.MC == null || WurstClient.MC.player == null
-				|| WurstClient.MC.world == null)
+				|| WurstClient.MC.level == null)
 				return null;
 			var player = WurstClient.MC.player;
-			net.minecraft.util.math.Vec3d eye = player.getCameraPosVec(1.0f);
-			net.minecraft.util.math.Vec3d look = player.getRotationVec(1.0f);
+			net.minecraft.world.phys.Vec3 eye = player.getEyePosition(1.0f);
+			net.minecraft.world.phys.Vec3 look = player.getViewVector(1.0f);
 			double reach = 5.0;
-			net.minecraft.util.math.Vec3d end =
+			net.minecraft.world.phys.Vec3 end =
 				eye.add(look.x * reach, look.y * reach, look.z * reach);
 			int steps = 40;
 			for(int i = 0; i <= steps; i++)
 			{
 				double t = (double)i / (double)steps;
-				net.minecraft.util.math.Vec3d p =
-					eye.multiply(1.0 - t).add(end.multiply(t));
-				BlockPos bp = BlockPos.ofFloored(p);
-				BlockState s = WurstClient.MC.world.getBlockState(bp);
+				net.minecraft.world.phys.Vec3 p =
+					eye.scale(1.0 - t).add(end.scale(t));
+				BlockPos bp = BlockPos.containing(p);
+				BlockState s = WurstClient.MC.level.getBlockState(bp);
 				if(s.getBlock() instanceof ChestBlock)
 					return bp;
 			}
@@ -1513,15 +1511,17 @@ public abstract class GenericContainerScreenMixin
 			return null;
 		try
 		{
-			if(state.contains(Properties.HORIZONTAL_FACING))
-				return state.get(Properties.HORIZONTAL_FACING).asString();
-			if(state.contains(Properties.FACING))
-				return state.get(Properties.FACING).asString();
+			if(state.hasProperty(BlockStateProperties.HORIZONTAL_FACING))
+				return state.getValue(BlockStateProperties.HORIZONTAL_FACING)
+					.getSerializedName();
+			if(state.hasProperty(BlockStateProperties.FACING))
+				return state.getValue(BlockStateProperties.FACING)
+					.getSerializedName();
 			try
 			{
-				Direction d = state.get(ChestBlock.FACING);
+				Direction d = state.getValue(ChestBlock.FACING);
 				if(d != null)
-					return d.asString();
+					return d.getSerializedName();
 			}catch(Throwable ignored)
 			{}
 		}catch(Throwable ignored)
@@ -1533,16 +1533,16 @@ public abstract class GenericContainerScreenMixin
 	private BlockPos wurst$findConnectedChest(BlockPos current,
 		BlockState state, Direction facing)
 	{
-		if(WurstClient.MC == null || WurstClient.MC.world == null)
+		if(WurstClient.MC == null || WurstClient.MC.level == null)
 			return null;
 		try
 		{
 			for(Direction d : new Direction[]{Direction.NORTH, Direction.SOUTH,
 				Direction.WEST, Direction.EAST})
 			{
-				BlockPos candidate = current.offset(d);
+				BlockPos candidate = current.relative(d);
 				BlockState other =
-					WurstClient.MC.world.getBlockState(candidate);
+					WurstClient.MC.level.getBlockState(candidate);
 				if(!(other.getBlock() instanceof ChestBlock))
 					continue;
 				try
@@ -1550,13 +1550,13 @@ public abstract class GenericContainerScreenMixin
 					Direction of = null;
 					try
 					{
-						of = other.get(ChestBlock.FACING);
+						of = other.getValue(ChestBlock.FACING);
 					}catch(Throwable ignored)
 					{}
 					ChestType ot = null;
 					try
 					{
-						ot = other.get(ChestBlock.CHEST_TYPE);
+						ot = other.getValue(ChestBlock.TYPE);
 					}catch(Throwable ignored)
 					{}
 					if(ot != ChestType.SINGLE)
@@ -1574,7 +1574,7 @@ public abstract class GenericContainerScreenMixin
 	
 	@Unique
 	private void wurst$recordForBounds(String serverIp, String dimension, int x,
-		int y, int z, java.util.List<net.minecraft.item.ItemStack> stacks,
+		int y, int z, java.util.List<net.minecraft.world.item.ItemStack> stacks,
 		java.util.List<Integer> slotOrder, ChestRecorder.Bounds bounds)
 	{
 		try

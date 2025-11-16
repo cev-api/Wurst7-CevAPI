@@ -16,8 +16,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.google.gson.JsonObject;
-
-import net.minecraft.client.util.InputUtil;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.json.WsonObject;
@@ -87,7 +86,7 @@ public final class KeybindsFile
 	{
 		try
 		{
-			InputUtil.fromTranslationKey(key);
+			InputConstants.getKey(key);
 			return true;
 			
 		}catch(IllegalArgumentException e)

@@ -10,12 +10,11 @@ package net.wurstclient.clickgui.screens;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointsManager;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -52,10 +51,10 @@ public final class WaypointsScreen extends Screen
 	private static final class RowWidgets
 	{
 		Waypoint w;
-		ButtonWidget nameBtn;
-		ButtonWidget visBtn;
-		ButtonWidget delBtn;
-		ButtonWidget copyBtn;
+		Button nameBtn;
+		Button visBtn;
+		Button delBtn;
+		Button copyBtn;
 	}
 	
 	private final ArrayList<RowWidgets> rows = new ArrayList<>();
@@ -77,7 +76,7 @@ public final class WaypointsScreen extends Screen
 	
 	public WaypointsScreen(Screen prev, WaypointsManager manager)
 	{
-		super(Text.literal("Waypoints"));
+		super(Component.literal("Waypoints"));
 		this.prev = prev;
 		this.manager = manager;
 	}
@@ -104,64 +103,63 @@ public final class WaypointsScreen extends Screen
 		int fx = this.width / 2 - totalWidth / 2;
 		int fy = y; // top row for filters
 		
-		addDrawableChild(ButtonWidget.builder(Text.literal(
+		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.OVERWORLD)
 				? "[OW]" : "OW"),
 			b -> {
 				filterDim =
 					net.wurstclient.waypoints.WaypointDimension.OVERWORLD;
-				client.setScreen(this);
-			}).dimensions(fx, fy, filterBtnWidth, 20).build());
-		addDrawableChild(ButtonWidget.builder(Text.literal(
+				minecraft.setScreen(this);
+			}).bounds(fx, fy, filterBtnWidth, 20).build());
+		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.NETHER)
 				? "[Nether]" : "Nether"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.NETHER;
-				client.setScreen(this);
-			}).dimensions(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
+				minecraft.setScreen(this);
+			}).bounds(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
 			.build());
-		addDrawableChild(ButtonWidget.builder(Text.literal(
+		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.END)
 				? "[End]" : "End"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.END;
-				client.setScreen(this);
-			}).dimensions(fx + (filterBtnWidth + spacing) * 2, fy,
-				filterBtnWidth, 20)
+				minecraft.setScreen(this);
+			})
+			.bounds(fx + (filterBtnWidth + spacing) * 2, fy, filterBtnWidth, 20)
 			.build());
 		
 		// Move create button below the filters
 		int createY = y + 24; // 20 height + 4px gap
-		addDrawableChild(
-			ButtonWidget.builder(Text.literal("Create waypoint"), b -> {
+		addRenderableWidget(
+			Button.builder(Component.literal("Create waypoint"), b -> {
 				Waypoint w = new Waypoint(java.util.UUID.randomUUID(),
 					System.currentTimeMillis());
 				w.setName("New Waypoint");
-				if(client.player != null)
-					w.setPos(BlockPos.ofFloored(client.player.getX(),
-						client.player.getY(), client.player.getZ()));
+				if(minecraft.player != null)
+					w.setPos(BlockPos.containing(minecraft.player.getX(),
+						minecraft.player.getY(), minecraft.player.getZ()));
 				else
-					w.setPos(BlockPos.ORIGIN);
+					w.setPos(BlockPos.ZERO);
 				w.setDimension(currentDim());
 				w.setMaxVisible(5000);
 				w.setLines(false); // default new waypoints without lines
-				client
+				minecraft
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
-			}).dimensions(x, createY, 300, 20).build());
+			}).bounds(x, createY, 300, 20).build());
 		
 		// Xaero integration buttons sit right below the create button
 		int toolsY = createY + 24;
 		int toolGap = 10;
 		int toolWidth = (300 - toolGap) / 2;
-		addDrawableChild(
-			ButtonWidget.builder(Text.literal("Import Xaero"), b -> {
+		addRenderableWidget(
+			Button.builder(Component.literal("Import Xaero"), b -> {
 				importFromXaero();
-			}).dimensions(x, toolsY, toolWidth, 20).build());
-		addDrawableChild(
-			ButtonWidget.builder(Text.literal("Export Xaero"), b -> {
+			}).bounds(x, toolsY, toolWidth, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Export Xaero"), b -> {
 				exportToXaero();
-			}).dimensions(x + toolWidth + toolGap, toolsY, toolWidth, 20)
-				.build());
+			}).bounds(x + toolWidth + toolGap, toolsY, toolWidth, 20).build());
 		
 		// Advance y to start the list below the Xaero buttons (keep previous
 		// gap)
@@ -196,35 +194,37 @@ public final class WaypointsScreen extends Screen
 			Waypoint w = cachedList.get(i);
 			int rowY = y + i * ROW_HEIGHT;
 			
-			ButtonWidget nameBtn = addDrawableChild(
-				ButtonWidget.builder(Text.literal(w.getName()), b -> {
-					client.setScreen(
+			Button nameBtn = addRenderableWidget(
+				Button.builder(Component.literal(w.getName()), b -> {
+					minecraft.setScreen(
 						new WaypointEditScreen(this, manager, w, false));
-				}).dimensions(x, rowY, 140, 20).build());
+				}).bounds(x, rowY, 140, 20).build());
 			
-			ButtonWidget visBtn = addDrawableChild(ButtonWidget
-				.builder(Text.literal(w.isVisible() ? "Hide" : "Show"), b -> {
-					w.setVisible(!w.isVisible());
-					manager.addOrUpdate(w);
-					saveNow();
-					// Refresh in-place without stacking a new screen
-					client.setScreen(this);
-				}).dimensions(x + 145, rowY, 55, 20).build());
+			Button visBtn = addRenderableWidget(Button
+				.builder(Component.literal(w.isVisible() ? "Hide" : "Show"),
+					b -> {
+						w.setVisible(!w.isVisible());
+						manager.addOrUpdate(w);
+						saveNow();
+						// Refresh in-place without stacking a new screen
+						minecraft.setScreen(this);
+					})
+				.bounds(x + 145, rowY, 55, 20).build());
 			
-			ButtonWidget delBtn = addDrawableChild(
-				ButtonWidget.builder(Text.literal("Delete"), b -> {
+			Button delBtn = addRenderableWidget(
+				Button.builder(Component.literal("Delete"), b -> {
 					manager.remove(w);
 					saveNow();
 					// Refresh in-place without stacking a new screen
-					client.setScreen(this);
-				}).dimensions(x + 205, rowY, 55, 20).build());
+					minecraft.setScreen(this);
+				}).bounds(x + 205, rowY, 55, 20).build());
 			
-			ButtonWidget copyBtn = addDrawableChild(
-				ButtonWidget.builder(Text.literal("Copy"), b -> {
+			Button copyBtn = addRenderableWidget(
+				Button.builder(Component.literal("Copy"), b -> {
 					String s = w.getPos().getX() + ", " + w.getPos().getY()
 						+ ", " + w.getPos().getZ();
-					client.keyboard.setClipboard(s);
-				}).dimensions(x + 265, rowY, 35, 20).build());
+					minecraft.keyboardHandler.setClipboard(s);
+				}).bounds(x + 265, rowY, 35, 20).build());
 			
 			RowWidgets rw = new RowWidgets();
 			rw.w = w;
@@ -247,26 +247,25 @@ public final class WaypointsScreen extends Screen
 		// area
 		int arrowX = x + 305; // a little to the right of the list
 		// "Top" button above the up-arrow that jumps directly to the top
-		addDrawableChild(ButtonWidget.builder(Text.literal("▲▲"), b -> {
+		addRenderableWidget(Button.builder(Component.literal("▲▲"), b -> {
 			scrollToTop();
-		}).dimensions(arrowX + 20, Math.max(0, viewportTop - 20), 20, 20)
-			.build());
+		}).bounds(arrowX + 20, Math.max(0, viewportTop - 20), 20, 20).build());
 		// Up arrow (move up by a few rows)
-		addDrawableChild(ButtonWidget.builder(Text.literal("▲"), b -> {
+		addRenderableWidget(Button.builder(Component.literal("▲"), b -> {
 			scrollBy(-ROW_HEIGHT * 3);
-		}).dimensions(arrowX + 20, viewportTop, 20, 20).build());
+		}).bounds(arrowX + 20, viewportTop, 20, 20).build());
 		// Down arrow (move down by a few rows)
-		addDrawableChild(ButtonWidget.builder(Text.literal("▼"), b -> {
+		addRenderableWidget(Button.builder(Component.literal("▼"), b -> {
 			scrollBy(ROW_HEIGHT * 3);
-		}).dimensions(arrowX + 20, viewportBottom - 20, 20, 20).build());
+		}).bounds(arrowX + 20, viewportBottom - 20, 20, 20).build());
 		// "Bottom" button below the down-arrow that jumps directly to bottom
-		addDrawableChild(ButtonWidget.builder(Text.literal("▼▼"), b -> {
+		addRenderableWidget(Button.builder(Component.literal("▼▼"), b -> {
 			scrollToBottom();
-		}).dimensions(arrowX + 20, viewportBottom, 20, 20).build());
+		}).bounds(arrowX + 20, viewportBottom, 20, 20).build());
 		
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("Back"), b -> client.setScreen(prev))
-			.dimensions(x, this.height - 28, 300, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
+			.bounds(x, this.height - 28, 300, 20).build());
 	}
 	
 	private void scrollBy(int dy)
@@ -293,7 +292,8 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(net.minecraft.client.gui.Click context,
+	public boolean mouseClicked(
+		net.minecraft.client.input.MouseButtonEvent context,
 		boolean doubleClick)
 	{
 		double mouseX = context.x();
@@ -329,8 +329,9 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseDragged(net.minecraft.client.gui.Click context,
-		double deltaX, double deltaY)
+	public boolean mouseDragged(
+		net.minecraft.client.input.MouseButtonEvent context, double deltaX,
+		double deltaY)
 	{
 		double mouseY = context.y();
 		int button = context.button();
@@ -353,7 +354,8 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseReleased(net.minecraft.client.gui.Click context)
+	public boolean mouseReleased(
+		net.minecraft.client.input.MouseButtonEvent context)
 	{
 		if(context.button() == 0 && draggingScrollbar)
 		{
@@ -379,7 +381,7 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		// No blur - just a translucent background
 		context.fill(0, 0, this.width, this.height, 0x88000000);
@@ -413,8 +415,8 @@ public final class WaypointsScreen extends Screen
 		super.render(context, mouseX, mouseY, delta);
 		
 		// Title
-		context.drawCenteredTextWithShadow(client.textRenderer, "Waypoints",
-			this.width / 2, 12, 0xFFFFFFFF);
+		context.drawCenteredString(minecraft.font, "Waypoints", this.width / 2,
+			12, 0xFFFFFFFF);
 		
 		// Draw small color boxes for each saved waypoint next to the name
 		// Use the same filtered list as the rows to render color boxes and clip
@@ -506,9 +508,9 @@ public final class WaypointsScreen extends Screen
 	
 	private WaypointDimension currentDim()
 	{
-		if(client.world == null)
+		if(minecraft.level == null)
 			return WaypointDimension.OVERWORLD;
-		String key = client.world.getRegistryKey().getValue().getPath();
+		String key = minecraft.level.dimension().location().getPath();
 		switch(key)
 		{
 			case "the_nether":
@@ -522,10 +524,10 @@ public final class WaypointsScreen extends Screen
 	
 	private String resolveWorldId()
 	{
-		net.minecraft.client.network.ServerInfo s =
-			client.getCurrentServerEntry();
-		if(s != null && s.address != null && !s.address.isEmpty())
-			return s.address.replace(':', '_');
+		net.minecraft.client.multiplayer.ServerData s =
+			minecraft.getCurrentServer();
+		if(s != null && s.ip != null && !s.ip.isEmpty())
+			return s.ip.replace(':', '_');
 		return "singleplayer";
 	}
 	
@@ -551,18 +553,18 @@ public final class WaypointsScreen extends Screen
 	
 	private void refreshAfterDataChange()
 	{
-		init(client, this.width, this.height);
+		init(minecraft, this.width, this.height);
 	}
 	
 	private void sendXaeroMessage(String message)
 	{
-		if(message == null || message.isBlank() || client == null)
+		if(message == null || message.isBlank() || minecraft == null)
 			return;
-		Text text = Text.literal(message);
-		if(client.player != null)
-			client.player.sendMessage(text, false);
-		else if(client.inGameHud != null)
-			client.inGameHud.getChatHud().addMessage(text);
+		Component text = Component.literal(message);
+		if(minecraft.player != null)
+			minecraft.player.displayClientMessage(text, false);
+		else if(minecraft.gui != null)
+			minecraft.gui.getChat().addMessage(text);
 	}
 	
 	private String importSummary(WaypointsManager.XaeroSyncStats stats)

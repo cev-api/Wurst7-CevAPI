@@ -143,8 +143,8 @@ public class ChestManager
 		try
 		{
 			if(WurstClient.MC != null
-				&& WurstClient.MC.getCurrentServerEntry() != null)
-				serverIp = WurstClient.MC.getCurrentServerEntry().address;
+				&& WurstClient.MC.getCurrentServer() != null)
+				serverIp = WurstClient.MC.getCurrentServer().ip;
 		}catch(Throwable ignored)
 		{}
 		return getDb(serverIp);

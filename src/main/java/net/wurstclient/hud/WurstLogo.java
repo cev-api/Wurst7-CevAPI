@@ -7,8 +7,8 @@
  */
 package net.wurstclient.hud;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.WurstLogoOtf;
 import net.wurstclient.util.RenderUtils;
@@ -18,7 +18,7 @@ public final class WurstLogo
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	
-	public void render(DrawContext context)
+	public void render(GuiGraphics context)
 	{
 		WurstLogoOtf otf = WURST.getOtfs().wurstLogoOtf;
 		if(!otf.isVisible())
@@ -26,11 +26,11 @@ public final class WurstLogo
 		
 		String version = getVersionString();
 		String brand = NiceWurstModule.getBrandLabel("Wurst 7 CevAPI");
-		TextRenderer tr = WurstClient.MC.textRenderer;
+		Font tr = WurstClient.MC.font;
 		
 		// Measure and layout
-		int brandWidth = tr.getWidth(brand);
-		int versionWidth = tr.getWidth(version);
+		int brandWidth = tr.width(brand);
+		int versionWidth = tr.width(version);
 		int leftPadding = 4;
 		int gap = 6;
 		int rightPadding = 8;
@@ -45,14 +45,14 @@ public final class WurstLogo
 			bgColor = otf.getBackgroundColor();
 		context.fill(0, 6, bgWidth, 17, bgColor);
 		
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		
 		// brand and version strings
 		int textY = 8;
 		int brandX = leftPadding;
 		int versionX = brandX + brandWidth + gap;
-		context.drawText(tr, brand, brandX, textY, otf.getTextColor(), false);
-		context.drawText(tr, version, versionX, textY, otf.getTextColor(),
+		context.drawString(tr, brand, brandX, textY, otf.getTextColor(), false);
+		context.drawString(tr, version, versionX, textY, otf.getTextColor(),
 			false);
 	}
 	

@@ -10,32 +10,31 @@ package net.wurstclient.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
-
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.font.TextRenderer.TextLayerType;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Font.DisplayMode;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
-@Mixin(TextRenderer.class)
+@Mixin(Font.class)
 public abstract class TextRendererMixin
 {
 	@ModifyVariable(
-		method = "draw(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/render/VertexConsumerProvider;Lnet/minecraft/client/font/TextRenderer$TextLayerType;II)V",
+		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
-	private TextLayerType nicewurst$enforceDepthOnStringLabels(
-		TextLayerType originalLayer)
+	private DisplayMode nicewurst$enforceDepthOnStringLabels(
+		DisplayMode originalLayer)
 	{
 		return NiceWurstModule.enforceTextLayer(originalLayer);
 	}
 	
 	@ModifyVariable(
-		method = "draw(Lnet/minecraft/text/Text;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/render/VertexConsumerProvider;Lnet/minecraft/client/font/TextRenderer$TextLayerType;II)V",
+		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
-	private TextLayerType nicewurst$enforceDepthOnComponentLabels(
-		TextLayerType originalLayer)
+	private DisplayMode nicewurst$enforceDepthOnComponentLabels(
+		DisplayMode originalLayer)
 	{
 		return NiceWurstModule.enforceTextLayer(originalLayer);
 	}

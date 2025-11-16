@@ -8,12 +8,11 @@
 package net.wurstclient.navigator;
 
 import java.awt.Rectangle;
-
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.util.RenderUtils;
@@ -32,7 +31,7 @@ public abstract class NavigatorScreen extends Screen
 	
 	public NavigatorScreen()
 	{
-		super(Text.literal(""));
+		super(Component.literal(""));
 	}
 	
 	@Override
@@ -43,14 +42,15 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final boolean keyPressed(KeyInput context)
+	public final boolean keyPressed(KeyEvent context)
 	{
 		onKeyPress(context);
 		return super.keyPressed(context);
 	}
 	
 	@Override
-	public final boolean mouseClicked(Click context, boolean doubleClick)
+	public final boolean mouseClicked(MouseButtonEvent context,
+		boolean doubleClick)
 	{
 		// scrollbar
 		if(new Rectangle(width / 2 + 170, 60, 12, height - 103)
@@ -64,7 +64,7 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final boolean mouseDragged(Click context, double double_3,
+	public final boolean mouseDragged(MouseButtonEvent context, double double_3,
 		double double_4)
 	{
 		// scrollbar
@@ -95,7 +95,7 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final boolean mouseReleased(Click context)
+	public final boolean mouseReleased(MouseButtonEvent context)
 	{
 		// scrollbar
 		scrolling = false;
@@ -143,7 +143,7 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final void render(DrawContext context, int mouseX, int mouseY,
+	public final void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
 		// background
@@ -182,23 +182,23 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public void renderBackground(DrawContext context, int mouseX, int mouseY,
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
 		float deltaTicks)
 	{
 		// Don't blur
 	}
 	
 	@Override
-	public final boolean shouldPause()
+	public final boolean isPauseScreen()
 	{
 		return false;
 	}
 	
 	protected abstract void onResize();
 	
-	protected abstract void onKeyPress(KeyInput context);
+	protected abstract void onKeyPress(KeyEvent context);
 	
-	protected abstract void onMouseClick(Click context);
+	protected abstract void onMouseClick(MouseButtonEvent context);
 	
 	protected abstract void onMouseDrag(double mouseX, double mouseY,
 		int button, double double_3, double double_4);
@@ -207,12 +207,12 @@ public abstract class NavigatorScreen extends Screen
 	
 	protected abstract void onUpdate();
 	
-	protected abstract void onRender(DrawContext context, int mouseX,
+	protected abstract void onRender(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks);
 	
 	protected final int getStringHeight(String s)
 	{
-		int fontHeight = client.textRenderer.fontHeight;
+		int fontHeight = minecraft.font.lineHeight;
 		int height = fontHeight;
 		
 		for(int i = 0; i < s.length(); i++)
@@ -233,7 +233,7 @@ public abstract class NavigatorScreen extends Screen
 			scroll = maxScroll;
 	}
 	
-	protected final void drawDownShadow(DrawContext context, int x1, int y1,
+	protected final void drawDownShadow(GuiGraphics context, int x1, int y1,
 		int x2, int y2)
 	{
 		float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
@@ -249,7 +249,7 @@ public abstract class NavigatorScreen extends Screen
 		context.fillGradient(x1, y1, x2, y2, shadowColor1, shadowColor2);
 	}
 	
-	protected final void drawBox(DrawContext context, int x1, int y1, int x2,
+	protected final void drawBox(GuiGraphics context, int x1, int y1, int x2,
 		int y2, int color)
 	{
 		context.fill(x1, y1, x2, y2, color);
@@ -263,7 +263,7 @@ public abstract class NavigatorScreen extends Screen
 		return RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity());
 	}
 	
-	protected final void drawBackgroundBox(DrawContext context, int x1, int y1,
+	protected final void drawBackgroundBox(GuiGraphics context, int x1, int y1,
 		int x2, int y2)
 	{
 		drawBox(context, x1, y1, x2, y2, getBackgroundColor());

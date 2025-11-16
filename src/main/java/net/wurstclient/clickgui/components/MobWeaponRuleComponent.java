@@ -14,10 +14,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.Component;
@@ -30,7 +29,7 @@ import net.wurstclient.util.RenderUtils;
 public final class MobWeaponRuleComponent extends Component
 {
 	private static final ClickGui GUI = WURST.getGui();
-	private static final TextRenderer TR = MC.textRenderer;
+	private static final Font TR = MC.font;
 	private static final int BOX_HEIGHT = 11;
 	private static final int ARROW_SIZE = 11;
 	private static final int BOX_GAP = 4;
@@ -50,7 +49,7 @@ public final class MobWeaponRuleComponent extends Component
 	
 	@Override
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		Click context)
+		MouseButtonEvent context)
 	{
 		Box mobBox = getMobBox();
 		Box weaponBox = getWeaponBox();
@@ -117,7 +116,7 @@ public final class MobWeaponRuleComponent extends Component
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY,
+	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
 		int x1 = getX();
@@ -127,7 +126,7 @@ public final class MobWeaponRuleComponent extends Component
 		
 		int txtColor = GUI.getTxtColor();
 		
-		context.drawText(TR, setting.getName(), x1, y1, txtColor, false);
+		context.drawString(TR, setting.getName(), x1, y1, txtColor, false);
 		
 		Box mobBox = getMobBox();
 		Box weaponBox = getWeaponBox();
@@ -145,7 +144,7 @@ public final class MobWeaponRuleComponent extends Component
 			disabled, weaponPopup != null && !weaponPopup.isClosing());
 	}
 	
-	private void drawDropdown(DrawContext context, Box box, String value,
+	private void drawDropdown(GuiGraphics context, Box box, String value,
 		int mouseX, int mouseY, String tooltip, boolean dimmed,
 		boolean expanded)
 	{
@@ -166,7 +165,7 @@ public final class MobWeaponRuleComponent extends Component
 			RenderUtils.toIntColor(GUI.getBgColor(),
 				GUI.getOpacity() * (hovering ? 1.5F : 1F)));
 		
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		
 		// outlines
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
@@ -181,7 +180,7 @@ public final class MobWeaponRuleComponent extends Component
 		
 		// value
 		int color = dimmed ? 0xFFAAAAAA : GUI.getTxtColor();
-		context.drawText(TR, value, box.x1 + 2, box.y1 + 2, color, false);
+		context.drawString(TR, value, box.x1 + 2, box.y1 + 2, color, false);
 	}
 	
 	private Box getMobBox()
@@ -189,7 +188,7 @@ public final class MobWeaponRuleComponent extends Component
 		int width = getWidth() - PADDING * 2 - BOX_GAP;
 		int boxWidth = width / 2;
 		int x1 = getX() + PADDING;
-		int y = getY() + TR.fontHeight + 2;
+		int y = getY() + TR.lineHeight + 2;
 		return new Box(x1, y, x1 + boxWidth, y + BOX_HEIGHT);
 	}
 	
@@ -205,7 +204,7 @@ public final class MobWeaponRuleComponent extends Component
 	{
 		int max = 0;
 		for(T value : values)
-			max = Math.max(max, TR.getWidth(labelGetter.apply(value)));
+			max = Math.max(max, TR.width(labelGetter.apply(value)));
 		
 		return max;
 	}
@@ -213,13 +212,13 @@ public final class MobWeaponRuleComponent extends Component
 	@Override
 	public int getDefaultWidth()
 	{
-		return TR.getWidth(setting.getName()) + 40;
+		return TR.width(setting.getName()) + 40;
 	}
 	
 	@Override
 	public int getDefaultHeight()
 	{
-		return TR.fontHeight + BOX_HEIGHT + 3;
+		return TR.lineHeight + BOX_HEIGHT + 3;
 	}
 	
 	private record Box(int x1, int y1, int x2, int y2)
@@ -301,7 +300,7 @@ public final class MobWeaponRuleComponent extends Component
 		}
 		
 		@Override
-		public void render(DrawContext context, int mouseX, int mouseY)
+		public void render(GuiGraphics context, int mouseX, int mouseY)
 		{
 			if(visibleRows <= 0)
 				return;
@@ -338,8 +337,8 @@ public final class MobWeaponRuleComponent extends Component
 					RenderUtils.toIntColor(GUI.getBgColor(),
 						GUI.getOpacity() * (hovering ? 1.5F : 1F)));
 				
-				context.state.goUpLayer();
-				context.drawText(TR, labelGetter.apply(option), x1 + 2,
+				context.guiRenderState.up();
+				context.drawString(TR, labelGetter.apply(option), x1 + 2,
 					currentY + 2, GUI.getTxtColor(), false);
 				
 				drawn++;

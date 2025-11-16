@@ -12,7 +12,9 @@ import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.contextualbar.LocatorBarRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,11 +22,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.client.gui.hud.bar.LocatorBar;
-
-@Mixin(value = LocatorBar.class)
+@Mixin(value = LocatorBarRenderer.class)
 public class LocatorBarMixin
 {
 	private static final Logger LOGGER =
@@ -35,9 +33,9 @@ public class LocatorBarMixin
 	// Inject after vanilla finishes rendering addons to snapshot entries for
 	// this frame
 	@Inject(
-		method = "renderAddons(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("TAIL"))
-	private void onRenderAddons(DrawContext ctx, RenderTickCounter rtc,
+	private void onRenderAddons(GuiGraphics ctx, DeltaTracker rtc,
 		CallbackInfo ci)
 	{
 		// Log once to confirm mixin was executed in-game
@@ -251,10 +249,9 @@ public class LocatorBarMixin
 	
 	// Also hook the main bar render as a fallback point each frame
 	@Inject(
-		method = "renderBar(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+		method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("TAIL"))
-	private void onRenderBar(DrawContext ctx, RenderTickCounter rtc,
-		CallbackInfo ci)
+	private void onRenderBar(GuiGraphics ctx, DeltaTracker rtc, CallbackInfo ci)
 	{
 		// Keep data store from going stale until we map exact fields
 		// LocatorDataStore may not be present in this build; guard usage

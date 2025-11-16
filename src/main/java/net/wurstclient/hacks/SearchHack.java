@@ -7,6 +7,9 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -15,16 +18,11 @@ import java.util.Arrays;
 import java.util.PriorityQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
-
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
-
-import net.minecraft.block.Block;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Block;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
@@ -127,7 +125,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private RegionPos bufferRegion;
 	private boolean bufferUpToDate;
 	// Precomputed tracer endpoints
-	private java.util.List<net.minecraft.util.math.Vec3d> tracerEnds;
+	private java.util.List<net.minecraft.world.phys.Vec3> tracerEnds;
 	private ChunkPos lastPlayerChunk;
 	private int lastMatchesVersion;
 	
@@ -197,7 +195,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		forkJoinPool = new ForkJoinPool();
 		bufferUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMode = mode.getSelected();
 		lastListHash = blockList.getBlockNames().hashCode();
 		applySearchCriteria(block.getBlock(), "");
@@ -250,7 +248,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 		
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -327,7 +325,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		boolean drawBoxes =
 			style.hasBoxes() && vertexBuffer != null && bufferRegion != null;
@@ -342,11 +340,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(drawBoxes)
 		{
-			matrixStack.push();
+			matrixStack.pushPose();
 			RenderUtils.applyRegionalRenderOffset(matrixStack, bufferRegion);
 			vertexBuffer.draw(matrixStack, WurstRenderLayers.ESP_QUADS, rgb,
 				0.5F);
-			matrixStack.pop();
+			matrixStack.popPose();
 		}
 		
 		if(drawTracers)
@@ -392,8 +390,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 				String raw = s.trim();
 				if(raw.isEmpty())
 					continue;
-				Identifier id = Identifier.tryParse(raw);
-				if(id != null && Registries.BLOCK.containsId(id))
+				ResourceLocation id = ResourceLocation.tryParse(raw);
+				if(id != null && BuiltInRegistries.BLOCK.containsKey(id))
 					exact.add(id.toString());
 				else
 					kw.add(raw.toLowerCase(Locale.ROOT));
@@ -410,7 +408,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				String localId = idFull.contains(":")
 					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
 				String localSpaced = localId.replace('_', ' ');
-				String transKey = state.getBlock().getTranslationKey();
+				String transKey = state.getBlock().getDescriptionId();
 				String display = state.getBlock().getName().getString();
 				for(String term : listKeywords)
 				{
@@ -461,7 +459,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		if(terms.length == 0)
 			terms = new String[]{normalizedQuery};
 		String localSpaced = localId.replace('_', ' ');
-		String transKey = block.getTranslationKey();
+		String transKey = block.getDescriptionId();
 		String display = block.getName().getString();
 		for(String term : terms)
 			if(containsNormalized(id, term) || containsNormalized(localId, term)
@@ -483,12 +481,12 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// Use a bounded max-heap to keep only the closest N matches without
 		// sorting the entire result set. This avoids long pauses when scanning
 		// very large areas.
-		BlockPos eyesPos = BlockPos.ofFloored(RotationUtils.getEyesPos());
+		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		final int limitCount = limit.getValueLog();
 		getMatchingBlocksTask = forkJoinPool.submit(() -> {
 			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
-				(a, b) -> Integer.compare(b.getManhattanDistance(eyesPos),
-					a.getManhattanDistance(eyesPos)));
+				(a, b) -> Integer.compare(b.distManhattan(eyesPos),
+					a.distManhattan(eyesPos)));
 			java.util.Iterator<ChunkSearcher.Result> it =
 				coordinator.getReadyMatches().iterator();
 			while(it.hasNext())
@@ -497,8 +495,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 				BlockPos pos = r.pos();
 				if(heap.size() < limitCount)
 					heap.offer(pos);
-				else if(pos.getManhattanDistance(eyesPos) < heap.peek()
-					.getManhattanDistance(eyesPos))
+				else if(pos.distManhattan(eyesPos) < heap.peek()
+					.distManhattan(eyesPos))
 				{
 					heap.poll();
 					heap.offer(pos);
@@ -534,11 +532,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 		RegionPos region = RenderUtils.getCameraRegion();
 		if(vertexBuffer != null)
 			vertexBuffer.close();
-		vertexBuffer = EasyVertexBuffer.createAndUpload(DrawMode.QUADS,
-			VertexFormats.POSITION_COLOR, buffer -> {
+		vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+			DefaultVertexFormat.POSITION_COLOR, buffer -> {
 				for(int[] vertex : vertices)
-					buffer.vertex(vertex[0] - region.x(), vertex[1],
-						vertex[2] - region.z()).color(0xFFFFFFFF);
+					buffer.addVertex(vertex[0] - region.x(), vertex[1],
+						vertex[2] - region.z()).setColor(0xFFFFFFFF);
 			});
 		bufferUpToDate = true;
 		bufferRegion = region;
@@ -549,7 +547,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
-				return pos.toCenterPos();
+				return pos.getCenter();
 			}).collect(java.util.stream.Collectors.toList());
 			// update count for HUD (clamped to 999)
 			foundCount = Math.min(lastMatchingBlocks.size(), 999);

@@ -9,13 +9,12 @@ package net.wurstclient.util.chunk;
 
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.play.BlockUpdateS2CPacket;
-import net.minecraft.network.packet.s2c.play.ChunkDeltaUpdateS2CPacket;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 
@@ -37,17 +36,18 @@ public final class ChunkSearcherCoordinator extends AbstractChunkCoordinator
 	{
 		Packet<?> packet = event.getPacket();
 		
-		if(packet instanceof BlockUpdateS2CPacket blockUpdate)
+		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
 		{
 			BlockPos pos = blockUpdate.getPos();
-			enqueueBlockUpdate(new ChunkPos(pos), pos, blockUpdate.getState());
+			enqueueBlockUpdate(new ChunkPos(pos), pos,
+				blockUpdate.getBlockState());
 			return;
 		}
 		
-		if(packet instanceof ChunkDeltaUpdateS2CPacket deltaUpdate)
+		if(packet instanceof ClientboundSectionBlocksUpdatePacket deltaUpdate)
 		{
-			ChunkPos chunkPos = deltaUpdate.sectionPos.toChunkPos();
-			deltaUpdate.visitUpdates(
+			ChunkPos chunkPos = deltaUpdate.sectionPos.chunk();
+			deltaUpdate.runUpdates(
 				(pos, state) -> enqueueBlockUpdate(chunkPos, pos, state));
 			return;
 		}

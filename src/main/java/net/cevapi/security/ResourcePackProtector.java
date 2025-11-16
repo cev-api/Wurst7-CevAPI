@@ -53,15 +53,15 @@ import org.apache.logging.log4j.Logger;
 import net.cevapi.config.AntiFingerprintConfig;
 import net.cevapi.config.AntiFingerprintConfig.Policy;
 import net.cevapi.config.AntiFingerprintConfig.ToastLevel;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.client.toast.SystemToast;
-import net.minecraft.client.toast.ToastManager;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.packet.s2c.common.ResourcePackSendS2CPacket;
-import net.minecraft.network.packet.c2s.common.ResourcePackStatusC2SPacket;
-import net.minecraft.text.Text;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.gui.components.toasts.ToastManager;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.Connection;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ChatUtils;
 
@@ -110,11 +110,11 @@ public final class ResourcePackProtector
 		if(!CONFIG.shouldClearCache())
 			return;
 		
-		MinecraftClient client = WurstClient.MC;
-		if(client == null || client.runDirectory == null)
+		Minecraft client = WurstClient.MC;
+		if(client == null || client.gameDirectory == null)
 			return;
 		
-		Path cacheDir = client.runDirectory.toPath().resolve("resourcepacks")
+		Path cacheDir = client.gameDirectory.toPath().resolve("resourcepacks")
 			.resolve("server");
 		if(!Files.exists(cacheDir))
 			return;
@@ -158,13 +158,13 @@ public final class ResourcePackProtector
 		Path target = original;
 		if(CONFIG.shouldIsolateCache())
 		{
-			MinecraftClient mc = MinecraftClient.getInstance();
+			Minecraft mc = Minecraft.getInstance();
 			String accountSegment = "no-account";
-			if(mc != null && mc.getSession() != null)
+			if(mc != null && mc.getUser() != null)
 			{
 				try
 				{
-					UUID accountId = mc.getSession().getUuidOrNull();
+					UUID accountId = mc.getUser().getProfileId();
 					if(accountId != null)
 						accountSegment = accountId.toString();
 				}catch(Exception e)
@@ -191,19 +191,20 @@ public final class ResourcePackProtector
 	
 	private static InetSocketAddress getRemoteAddress()
 	{
-		MinecraftClient mc = MinecraftClient.getInstance();
+		Minecraft mc = Minecraft.getInstance();
 		if(mc == null)
 			return null;
 		
-		ClientPlayNetworkHandler handler = mc.getNetworkHandler();
+		ClientPacketListener handler = mc.getConnection();
 		if(handler == null)
 			return null;
 		
-		var address = handler.getConnection().getAddress();
+		var address = handler.getConnection().getRemoteAddress();
 		return address instanceof InetSocketAddress isa ? isa : null;
 	}
 	
-	public static PolicyResult evaluate(ResourcePackSendS2CPacket packet)
+	public static PolicyResult evaluate(
+		ClientboundResourcePackPushPacket packet)
 	{
 		if(packet == null)
 			return new PolicyResult(Decision.ALLOW, "No packet",
@@ -238,7 +239,7 @@ public final class ResourcePackProtector
 	}
 	
 	public static boolean applyDecision(PolicyResult result,
-		ClientConnection connection, MinecraftClient mcClient)
+		Connection connection, Minecraft mcClient)
 	{
 		if(result == null)
 			return false;
@@ -248,12 +249,12 @@ public final class ResourcePackProtector
 		{
 			case BLOCK ->
 			{
-				MinecraftClient target =
-					mcClient != null ? mcClient : MinecraftClient.getInstance();
+				Minecraft target =
+					mcClient != null ? mcClient : Minecraft.getInstance();
 				if(target != null)
-					target.getToastManager().toastQueue.clear();
+					target.getToastManager().queued.clear();
 				sendStatus(connection, context,
-					ResourcePackStatusC2SPacket.Status.DECLINED);
+					ServerboundResourcePackPacket.Action.DECLINED);
 				noteHandled(context);
 				return true;
 			}
@@ -261,10 +262,10 @@ public final class ResourcePackProtector
 			case SANDBOX ->
 			{
 				sendStatus(connection, context,
-					ResourcePackStatusC2SPacket.Status.FAILED_DOWNLOAD);
+					ServerboundResourcePackPacket.Action.FAILED_DOWNLOAD);
 				
-				MinecraftClient target =
-					mcClient != null ? mcClient : MinecraftClient.getInstance();
+				Minecraft target =
+					mcClient != null ? mcClient : Minecraft.getInstance();
 				if(target != null)
 					target.execute(() -> sandboxDownload(context));
 				return true;
@@ -374,7 +375,7 @@ public final class ResourcePackProtector
 					handleSandboxFailure(context, sandboxTarget,
 						new IOException("HTTP " + status), sandboxRequest,
 						dedupeKey);
-				}, Util.getIoWorkerExecutor());
+				}, Util.ioPool());
 			
 		}catch(Exception e)
 		{
@@ -390,7 +391,7 @@ public final class ResourcePackProtector
 	
 	public static void flushToasts()
 	{
-		MinecraftClient client = WurstClient.MC;
+		Minecraft client = WurstClient.MC;
 		if(client == null)
 			return;
 		
@@ -493,7 +494,7 @@ public final class ResourcePackProtector
 		if(!PROMPT_SNAPSHOTS.add(key))
 			return;
 		
-		MinecraftClient client = WurstClient.MC;
+		Minecraft client = WurstClient.MC;
 		if(client == null)
 		{
 			PROMPT_SNAPSHOTS.remove(key);
@@ -539,7 +540,7 @@ public final class ResourcePackProtector
 							+ context.host.displayName() + " ("
 							+ history.timestamps.size() + " packs / " + windowMs
 							+ "ms)";
-					MinecraftClient client = WurstClient.MC;
+					Minecraft client = WurstClient.MC;
 					if(client != null)
 					{
 						client.execute(() -> ChatUtils.warning(message));
@@ -600,7 +601,7 @@ public final class ResourcePackProtector
 		if(CONFIG.shouldExtractSandbox())
 			CompletableFuture
 				.runAsync(() -> extractSandboxPack(absolute, context),
-					Util.getIoWorkerExecutor())
+					Util.ioPool())
 				.whenComplete((unused, throwable) -> noteHandled(context));
 		else
 			noteHandled(context);
@@ -611,7 +612,7 @@ public final class ResourcePackProtector
 	{
 		CompletableFuture
 			.supplyAsync(() -> copyCachedPackSync(context, sandboxTarget),
-				Util.getIoWorkerExecutor())
+				Util.ioPool())
 			.whenComplete((absolute, throwable) -> {
 				if(throwable != null)
 				{
@@ -902,16 +903,16 @@ public final class ResourcePackProtector
 		return dot > 0 ? value.substring(0, dot) : value;
 	}
 	
-	private static void sendStatus(ClientConnection connection,
-		PackContext context, ResourcePackStatusC2SPacket.Status status)
+	private static void sendStatus(Connection connection, PackContext context,
+		ServerboundResourcePackPacket.Action status)
 	{
 		if(connection == null || status == null)
 			return;
 		
 		try
 		{
-			connection
-				.send(new ResourcePackStatusC2SPacket(context.packId, status));
+			connection.send(
+				new ServerboundResourcePackPacket(context.packId, status));
 		}catch(Exception e)
 		{
 			LOGGER.debug("Failed to send resource-pack status update.", e);
@@ -946,9 +947,9 @@ public final class ResourcePackProtector
 		if(!CONFIG.getToastVerbosity().allows(level))
 			return;
 		
-		Text toastTitle = Text.literal(title == null ? "" : title);
-		Text toastMessage = message == null || message.isBlank()
-			? Text.literal("") : Text.literal(message);
+		Component toastTitle = Component.literal(title == null ? "" : title);
+		Component toastMessage = message == null || message.isBlank()
+			? Component.literal("") : Component.literal(message);
 		
 		ToastPayload payload =
 			new ToastPayload(toToastType(level), toastTitle, toastMessage);
@@ -1065,13 +1066,13 @@ public final class ResourcePackProtector
 		return value.replace('\r', ' ').replace('\n', ' ').trim();
 	}
 	
-	private static SystemToast.Type toToastType(ToastLevel level)
+	private static SystemToast.SystemToastId toToastType(ToastLevel level)
 	{
 		return switch(level)
 		{
-			case INFO -> SystemToast.Type.NARRATOR_TOGGLE;
-			case WARN -> SystemToast.Type.UNSECURE_SERVER_WARNING;
-			case ERROR -> SystemToast.Type.PACK_LOAD_FAILURE;
+			case INFO -> SystemToast.SystemToastId.NARRATOR_TOGGLE;
+			case WARN -> SystemToast.SystemToastId.UNSECURE_SERVER_WARNING;
+			case ERROR -> SystemToast.SystemToastId.PACK_LOAD_FAILURE;
 		};
 	}
 	
@@ -1280,7 +1281,7 @@ public final class ResourcePackProtector
 		return null;
 	}
 	
-	private static Text invokeText(Object target, String... candidates)
+	private static Component invokeText(Object target, String... candidates)
 	{
 		for(String name : candidates)
 		{
@@ -1297,17 +1298,17 @@ public final class ResourcePackProtector
 					if(optional.isPresent())
 					{
 						Object value = optional.get();
-						if(value instanceof Text text)
+						if(value instanceof Component text)
 							return text;
-						return Text.literal(Objects.toString(value, ""));
+						return Component.literal(Objects.toString(value, ""));
 					}
 					continue;
 				}
 				
-				if(result instanceof Text text)
+				if(result instanceof Component text)
 					return text;
 				
-				return Text.literal(Objects.toString(result, ""));
+				return Component.literal(Objects.toString(result, ""));
 				
 			}catch(ReflectiveOperationException e)
 			{
@@ -1435,7 +1436,8 @@ public final class ResourcePackProtector
 		return false;
 	}
 	
-	private static PackContext buildContext(ResourcePackSendS2CPacket packet)
+	private static PackContext buildContext(
+		ClientboundResourcePackPushPacket packet)
 	{
 		String url = invokeString(packet, "getUrl", "getURL", "url");
 		String hash = invokeString(packet, "getHash", "hash", "getHashValue");
@@ -1447,7 +1449,7 @@ public final class ResourcePackProtector
 			invokeBoolean(packet, false, "isRequired", "isMandatory");
 		
 		UUID packId = invokeUuid(packet, "getId", "id");
-		Text promptText = invokeText(packet, "getPrompt", "prompt");
+		Component promptText = invokeText(packet, "getPrompt", "prompt");
 		String prompt =
 			promptText == null ? "" : sanitizeMultiline(promptText.getString());
 		
@@ -1466,7 +1468,7 @@ public final class ResourcePackProtector
 	private record PackContext(String url, String hash, HostInfo host,
 		boolean required, String cacheKey, UUID packId, String prompt)
 	{
-		static PackContext from(ResourcePackSendS2CPacket packet)
+		static PackContext from(ClientboundResourcePackPushPacket packet)
 		{
 			try
 			{
@@ -1637,7 +1639,7 @@ public final class ResourcePackProtector
 		PackContext context)
 	{}
 	
-	private record ToastPayload(SystemToast.Type type, Text title,
-		Text description)
+	private record ToastPayload(SystemToast.SystemToastId type, Component title,
+		Component description)
 	{}
 }

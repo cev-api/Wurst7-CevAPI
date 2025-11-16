@@ -15,32 +15,31 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientCommonNetworkHandler;
-import net.minecraft.network.ClientConnection;
-import net.minecraft.network.listener.ClientCommonPacketListener;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.s2c.common.ResourcePackSendS2CPacket;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
 import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.security.ResourcePackProtector.PolicyResult;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientCommonPacketListener;
+import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
 
-@Mixin(ClientCommonNetworkHandler.class)
+@Mixin(ClientCommonPacketListenerImpl.class)
 public abstract class ClientCommonNetworkHandlerMixin
 	implements ClientCommonPacketListener
 {
 	@Shadow
-	protected MinecraftClient client;
+	protected Minecraft minecraft;
 	
 	@Shadow
-	protected ClientConnection connection;
+	protected Connection connection;
 	
 	@WrapOperation(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/network/ClientConnection;send(Lnet/minecraft/network/packet/Packet;)V"),
-		method = "sendPacket(Lnet/minecraft/network/packet/Packet;)V")
-	private void wrapSendPacket(ClientConnection connection, Packet<?> packet,
+		target = "Lnet/minecraft/network/Connection;send(Lnet/minecraft/network/protocol/Packet;)V"),
+		method = "send(Lnet/minecraft/network/protocol/Packet;)V")
+	private void wrapSendPacket(Connection connection, Packet<?> packet,
 		Operation<Void> original)
 	{
 		PacketOutputEvent event = new PacketOutputEvent(packet);
@@ -51,16 +50,16 @@ public abstract class ClientCommonNetworkHandlerMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "onResourcePackSend(Lnet/minecraft/network/packet/s2c/common/ResourcePackSendS2CPacket;)V",
+		method = "handleResourcePackPush(Lnet/minecraft/network/protocol/common/ClientboundResourcePackPushPacket;)V",
 		cancellable = true)
-	private void onResourcePackSend(ResourcePackSendS2CPacket packet,
+	private void onResourcePackSend(ClientboundResourcePackPushPacket packet,
 		CallbackInfo ci)
 	{
 		try
 		{
 			PolicyResult result = ResourcePackProtector.evaluate(packet);
-			MinecraftClient mc =
-				client != null ? client : MinecraftClient.getInstance();
+			Minecraft mc =
+				minecraft != null ? minecraft : Minecraft.getInstance();
 			boolean cancel =
 				ResourcePackProtector.applyDecision(result, connection, mc);
 			if(cancel)

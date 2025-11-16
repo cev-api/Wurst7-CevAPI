@@ -14,27 +14,26 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayerInteractionManager;
-import net.minecraft.client.network.SequencedPacketCreator;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
-import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket.Action;
-import net.minecraft.network.packet.c2s.play.PlayerInteractBlockC2SPacket;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.multiplayer.prediction.PredictiveAction;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgressEvent;
@@ -43,20 +42,21 @@ import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 
-@Mixin(ClientPlayerInteractionManager.class)
+@Mixin(MultiPlayerGameMode.class)
 public abstract class ClientPlayerInteractionManagerMixin
 	implements IClientPlayerInteractionManager
 {
 	@Shadow
 	@Final
-	private MinecraftClient client;
+	private Minecraft minecraft;
 	
 	private boolean antiDropBypassingPlacement;
 	
-	@Inject(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/network/ClientPlayerEntity;getId()I",
-		ordinal = 0),
-		method = "updateBlockBreakingProgress(Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/util/math/Direction;)Z")
+	@Inject(
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/player/LocalPlayer;getId()I",
+			ordinal = 0),
+		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z")
 	private void onPlayerDamageBlock(BlockPos pos, Direction direction,
 		CallbackInfoReturnable<Boolean> cir)
 	{
@@ -64,19 +64,19 @@ public abstract class ClientPlayerInteractionManagerMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "stopUsingItem(Lnet/minecraft/entity/player/PlayerEntity;)V")
-	private void onStopUsingItem(PlayerEntity player, CallbackInfo ci)
+		method = "releaseUsingItem(Lnet/minecraft/world/entity/player/Player;)V")
+	private void onStopUsingItem(Player player, CallbackInfo ci)
 	{
 		EventManager.fire(StopUsingItemEvent.INSTANCE);
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "clickSlot(IIILnet/minecraft/screen/slot/SlotActionType;Lnet/minecraft/entity/player/PlayerEntity;)V",
+		method = "handleInventoryMouseClick(IIILnet/minecraft/world/inventory/ClickType;Lnet/minecraft/world/entity/player/Player;)V",
 		cancellable = true)
 	private void onClickSlotHEAD(int syncId, int slotId, int button,
-		SlotActionType actionType, PlayerEntity player, CallbackInfo ci)
+		ClickType actionType, Player player, CallbackInfo ci)
 	{
-		if(actionType != SlotActionType.THROW)
+		if(actionType != ClickType.THROW)
 			return;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -88,28 +88,28 @@ public abstract class ClientPlayerInteractionManagerMixin
 		
 		ItemStack stack = ItemStack.EMPTY;
 		
-		if(slotId == -999 && player.currentScreenHandler != null
-			&& player.currentScreenHandler.syncId == syncId)
+		if(slotId == -999 && player.containerMenu != null
+			&& player.containerMenu.containerId == syncId)
 		{
-			stack = player.currentScreenHandler.getCursorStack();
+			stack = player.containerMenu.getCarried();
 			
 		}else if(slotId >= 0)
 		{
-			if(player.currentScreenHandler != null
-				&& player.currentScreenHandler.syncId == syncId
-				&& slotId < player.currentScreenHandler.slots.size())
+			if(player.containerMenu != null
+				&& player.containerMenu.containerId == syncId
+				&& slotId < player.containerMenu.slots.size())
 			{
-				Slot slot = player.currentScreenHandler.getSlot(slotId);
+				Slot slot = player.containerMenu.getSlot(slotId);
 				if(slot != null)
-					stack = slot.getStack();
+					stack = slot.getItem();
 				
-			}else if(player.playerScreenHandler != null
-				&& player.playerScreenHandler.syncId == syncId
-				&& slotId < player.playerScreenHandler.slots.size())
+			}else if(player.inventoryMenu != null
+				&& player.inventoryMenu.containerId == syncId
+				&& slotId < player.inventoryMenu.slots.size())
 			{
-				Slot slot = player.playerScreenHandler.getSlot(slotId);
+				Slot slot = player.inventoryMenu.getSlot(slotId);
 				if(slot != null)
-					stack = slot.getStack();
+					stack = slot.getItem();
 			}
 		}
 		
@@ -120,11 +120,10 @@ public abstract class ClientPlayerInteractionManagerMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "attackEntity(Lnet/minecraft/entity/player/PlayerEntity;Lnet/minecraft/entity/Entity;)V")
-	private void onAttackEntity(PlayerEntity player, Entity target,
-		CallbackInfo ci)
+		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V")
+	private void onAttackEntity(Player player, Entity target, CallbackInfo ci)
 	{
-		if(player != client.player)
+		if(player != minecraft.player)
 			return;
 		
 		EventManager.fire(new PlayerAttacksEntityEvent(target));
@@ -133,62 +132,67 @@ public abstract class ClientPlayerInteractionManagerMixin
 	@Override
 	public void windowClick_PICKUP(int slot)
 	{
-		clickSlot(0, slot, 0, SlotActionType.PICKUP, client.player);
+		handleInventoryMouseClick(0, slot, 0, ClickType.PICKUP,
+			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_QUICK_MOVE(int slot)
 	{
-		clickSlot(0, slot, 0, SlotActionType.QUICK_MOVE, client.player);
+		handleInventoryMouseClick(0, slot, 0, ClickType.QUICK_MOVE,
+			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_THROW(int slot)
 	{
-		clickSlot(0, slot, 1, SlotActionType.THROW, client.player);
+		handleInventoryMouseClick(0, slot, 1, ClickType.THROW,
+			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_SWAP(int from, int to)
 	{
-		clickSlot(0, from, to, SlotActionType.SWAP, client.player);
+		handleInventoryMouseClick(0, from, to, ClickType.SWAP,
+			minecraft.player);
 	}
 	
 	@Override
 	public void rightClickItem()
 	{
-		interactItem(client.player, Hand.MAIN_HAND);
+		useItem(minecraft.player, InteractionHand.MAIN_HAND);
 	}
 	
 	@Override
-	public void rightClickBlock(BlockPos pos, Direction side, Vec3d hitVec)
+	public void rightClickBlock(BlockPos pos, Direction side, Vec3 hitVec)
 	{
 		BlockHitResult hitResult = new BlockHitResult(hitVec, side, pos, false);
-		Hand hand = Hand.MAIN_HAND;
-		interactBlock(client.player, hand, hitResult);
-		interactItem(client.player, hand);
+		InteractionHand hand = InteractionHand.MAIN_HAND;
+		useItemOn(minecraft.player, hand, hitResult);
+		useItem(minecraft.player, hand);
 	}
 	
 	@Override
 	public void sendPlayerActionC2SPacket(Action action, BlockPos blockPos,
 		Direction direction)
 	{
-		sendSequencedPacket(client.world,
-			i -> new PlayerActionC2SPacket(action, blockPos, direction, i));
+		startPrediction(minecraft.level,
+			i -> new ServerboundPlayerActionPacket(action, blockPos, direction,
+				i));
 	}
 	
 	@Override
-	public void sendPlayerInteractBlockPacket(Hand hand,
+	public void sendPlayerInteractBlockPacket(InteractionHand hand,
 		BlockHitResult blockHitResult)
 	{
-		sendSequencedPacket(client.world,
-			i -> new PlayerInteractBlockC2SPacket(hand, blockHitResult, i));
+		startPrediction(minecraft.level,
+			i -> new ServerboundUseItemOnPacket(hand, blockHitResult, i));
 	}
 	
-	@Inject(method = "interactBlock", at = @At(value = "HEAD"))
-	private void wurst$allowBlockPlacementBypass(ClientPlayerEntity player,
-		Hand hand, BlockHitResult hitResult,
-		CallbackInfoReturnable<ActionResult> cir)
+	@Inject(method = "useItemOn", at = @At(value = "HEAD"))
+	private void wurst$allowBlockPlacementBypass(LocalPlayer player,
+		InteractionHand hand, BlockHitResult hitResult,
+		CallbackInfoReturnable<InteractionResult> cir)
 	{
 		if(player == null || !WurstClient.INSTANCE.isEnabled())
 			return;
@@ -197,7 +201,7 @@ public abstract class ClientPlayerInteractionManagerMixin
 		if(antiDrop == null || !antiDrop.isEnabled())
 			return;
 		
-		ItemStack stack = player.getStackInHand(hand);
+		ItemStack stack = player.getItemInHand(hand);
 		if(stack == null || stack.isEmpty()
 			|| !(stack.getItem() instanceof BlockItem))
 			return;
@@ -208,10 +212,10 @@ public abstract class ClientPlayerInteractionManagerMixin
 		antiDropBypassingPlacement = true;
 	}
 	
-	@Inject(method = "interactBlock", at = @At(value = "RETURN"))
-	private void wurst$resetBlockPlacementBypass(ClientPlayerEntity player,
-		Hand hand, BlockHitResult hitResult,
-		CallbackInfoReturnable<ActionResult> cir)
+	@Inject(method = "useItemOn", at = @At(value = "RETURN"))
+	private void wurst$resetBlockPlacementBypass(LocalPlayer player,
+		InteractionHand hand, BlockHitResult hitResult,
+		CallbackInfoReturnable<InteractionResult> cir)
 	{
 		AntiDropHack antiDrop = WurstClient.INSTANCE.getHax().antiDropHack;
 		if(antiDrop == null)
@@ -228,20 +232,21 @@ public abstract class ClientPlayerInteractionManagerMixin
 	}
 	
 	@Shadow
-	private void sendSequencedPacket(ClientWorld world,
-		SequencedPacketCreator packetCreator)
+	private void startPrediction(ClientLevel world,
+		PredictiveAction packetCreator)
 	{
 		
 	}
 	
 	@Shadow
-	public abstract ActionResult interactBlock(ClientPlayerEntity player,
-		Hand hand, BlockHitResult hitResult);
+	public abstract InteractionResult useItemOn(LocalPlayer player,
+		InteractionHand hand, BlockHitResult hitResult);
 	
 	@Shadow
-	public abstract ActionResult interactItem(PlayerEntity player, Hand hand);
+	public abstract InteractionResult useItem(Player player,
+		InteractionHand hand);
 	
 	@Shadow
-	public abstract void clickSlot(int syncId, int slotId, int button,
-		SlotActionType actionType, PlayerEntity player);
+	public abstract void handleInventoryMouseClick(int syncId, int slotId,
+		int button, ClickType actionType, Player player);
 }

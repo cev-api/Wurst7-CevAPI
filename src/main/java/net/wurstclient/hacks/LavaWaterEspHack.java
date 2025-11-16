@@ -7,21 +7,20 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
-
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -121,7 +120,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -154,7 +153,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -183,7 +182,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
@@ -191,13 +190,13 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			renderTracers(matrixStack, partialTicks);
 	}
 	
-	private void renderBoxes(MatrixStack matrixStack)
+	private void renderBoxes(PoseStack matrixStack)
 	{
 		for(LiquidEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				continue;
-			List<Box> boxes = group.getBoxes();
+			List<AABB> boxes = group.getBoxes();
 			int alpha = group == lavaGroup ? lavaAlpha.getValueI()
 				: waterAlpha.getValueI();
 			int quadsColor = group.getColorI(alpha);
@@ -208,14 +207,14 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void renderTracers(MatrixStack matrixStack, float partialTicks)
+	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
 		for(LiquidEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				continue;
-			List<Box> boxes = group.getBoxes();
-			List<Vec3d> ends = boxes.stream().map(Box::getCenter).toList();
+			List<AABB> boxes = group.getBoxes();
+			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int alpha = group == lavaGroup ? lavaAlpha.getValueI()
 				: waterAlpha.getValueI();
 			int color = group.getColorI(alpha);
@@ -230,7 +229,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		int limit = renderAmount.getValueI();
 		java.util.List<Result> matches = coordinator.getMatches()
 			.sorted(Comparator.comparingDouble(
-				r -> r.pos().getSquaredDistance(RotationUtils.getEyesPos())))
+				r -> r.pos().distToCenterSqr(RotationUtils.getEyesPos())))
 			.limit(limit).collect(Collectors.toList());
 		matches.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;

@@ -17,9 +17,8 @@ import java.util.Collections;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import net.minecraft.util.crash.CrashException;
-import net.minecraft.util.crash.CrashReport;
+import net.minecraft.CrashReport;
+import net.minecraft.ReportedException;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.UpdateListener;
@@ -252,8 +251,8 @@ public final class HackList implements UpdateListener
 		}catch(Exception e)
 		{
 			String message = "Initializing Wurst hacks";
-			CrashReport report = CrashReport.create(e, message);
-			throw new CrashException(report);
+			CrashReport report = CrashReport.forThrowable(e, message);
+			throw new ReportedException(report);
 		}
 		
 		eventManager.add(UpdateListener.class, this);

@@ -11,22 +11,21 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.screen.PlayerScreenHandler;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.QuickShulkerHack;
 
 @Mixin(InventoryScreen.class)
 public abstract class InventoryScreenMixin
-	extends HandledScreen<PlayerScreenHandler>
+	extends AbstractContainerScreen<InventoryMenu>
 {
-	private InventoryScreenMixin(WurstClient wurst, PlayerScreenHandler handler,
-		PlayerInventory inventory, Text title)
+	private InventoryScreenMixin(WurstClient wurst, InventoryMenu handler,
+		Inventory inventory, Component title)
 	{
 		super(handler, inventory, title);
 	}
@@ -45,11 +44,11 @@ public abstract class InventoryScreenMixin
 			
 		// place the button above the inventory border so it doesn't overlap
 		// the container background
-		ButtonWidget button = ButtonWidget
-			.builder(Text.literal("QuickShulker"),
+		Button button = Button
+			.builder(Component.literal("QuickShulker"),
 				b -> quickShulker.triggerFromGui())
-			.dimensions(x + backgroundWidth - 90, y - 20, 80, 16).build();
+			.bounds(leftPos + imageWidth - 90, topPos - 20, 80, 16).build();
 		button.active = !quickShulker.isBusy();
-		addDrawableChild(button);
+		addRenderableWidget(button);
 	}
 }

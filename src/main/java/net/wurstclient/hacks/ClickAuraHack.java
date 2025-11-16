@@ -10,11 +10,10 @@ package net.wurstclient.hacks;
 import java.util.Comparator;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
-
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.Hand;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.LeftClickListener;
@@ -93,7 +92,7 @@ public final class ClickAuraHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(!MC.options.attackKey.isPressed())
+		if(!MC.options.keyAttack.isDown())
 			return;
 		
 		speed.updateTimer();
@@ -112,11 +111,11 @@ public final class ClickAuraHack extends Hack
 	private void attack()
 	{
 		// set entity
-		ClientPlayerEntity player = MC.player;
+		LocalPlayer player = MC.player;
 		Stream<Entity> stream = EntityUtils.getAttackableEntities();
 		
 		double rangeSq = Math.pow(range.getValue(), 2);
-		stream = stream.filter(e -> player.squaredDistanceTo(e) <= rangeSq);
+		stream = stream.filter(e -> player.distanceToSqr(e) <= rangeSq);
 		
 		if(fov.getValue() < 360.0)
 			stream = stream.filter(e -> RotationUtils.getAngleToLookVec(
@@ -136,14 +135,14 @@ public final class ClickAuraHack extends Hack
 			.sendPlayerLookPacket();
 		
 		// attack entity
-		MC.interactionManager.attackEntity(player, target);
-		player.swingHand(Hand.MAIN_HAND);
+		MC.gameMode.attack(player, target);
+		player.swing(InteractionHand.MAIN_HAND);
 		speed.resetTimer();
 	}
 	
 	private enum Priority
 	{
-		DISTANCE("Distance", e -> MC.player.squaredDistanceTo(e)),
+		DISTANCE("Distance", e -> MC.player.distanceToSqr(e)),
 		
 		ANGLE("Angle",
 			e -> RotationUtils

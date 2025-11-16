@@ -12,10 +12,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
-
-import net.minecraft.block.Block;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.Setting;
@@ -23,7 +22,7 @@ import net.wurstclient.util.BlockUtils;
 
 public final class LiquidEspBlockGroup
 {
-	protected final ArrayList<Box> boxes = new ArrayList<>();
+	protected final ArrayList<AABB> boxes = new ArrayList<>();
 	private final Block block;
 	private final ColorSetting color;
 	private final CheckboxSetting enabled;
@@ -38,19 +37,19 @@ public final class LiquidEspBlockGroup
 	
 	public void add(BlockPos pos)
 	{
-		Box box = getBox(pos);
+		AABB box = getBox(pos);
 		if(box == null)
 			return;
 		boxes.add(box);
 	}
 	
-	private Box getBox(BlockPos pos)
+	private AABB getBox(BlockPos pos)
 	{
 		// fluids often have empty outline shapes; fall back to full block box
 		if(BlockUtils.canBeClicked(pos))
 			return BlockUtils.getBoundingBox(pos);
 		
-		return new Box(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0,
+		return new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0,
 			pos.getY() + 1.0, pos.getZ() + 1.0);
 	}
 	
@@ -79,7 +78,7 @@ public final class LiquidEspBlockGroup
 		return color.getColorI(alpha);
 	}
 	
-	public List<Box> getBoxes()
+	public List<AABB> getBoxes()
 	{
 		return Collections.unmodifiableList(boxes);
 	}

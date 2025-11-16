@@ -18,10 +18,9 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import net.minecraft.block.Block;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.BlockListEditButton;
@@ -58,10 +57,10 @@ public class BlockListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		Identifier id = Identifier.tryParse(raw);
+		ResourceLocation id = ResourceLocation.tryParse(raw);
 		String name = raw;
 		
-		if(id != null && Registries.BLOCK.containsId(id))
+		if(id != null && BuiltInRegistries.BLOCK.containsKey(id))
 			name = id.toString();
 		
 		if(Collections.binarySearch(blockNames, name) < 0)
@@ -233,7 +232,7 @@ public class BlockListSetting extends Setting
 	 * name). Intended for lighter checks; performance-sensitive hacks should
 	 * precompute keyword caches themselves.
 	 */
-	public boolean matchesBlock(net.minecraft.block.Block block)
+	public boolean matchesBlock(net.minecraft.world.level.block.Block block)
 	{
 		String idFull = net.wurstclient.util.BlockUtils.getName(block);
 		if(contains(idFull))
@@ -241,12 +240,12 @@ public class BlockListSetting extends Setting
 		String localId = idFull.contains(":")
 			? idFull.substring(idFull.indexOf(":") + 1) : idFull;
 		String localSpaced = localId.replace('_', ' ');
-		String transKey = block.getTranslationKey();
+		String transKey = block.getDescriptionId();
 		String display = block.getName().getString();
 		for(String s : blockNames)
 		{
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(s);
+			net.minecraft.resources.ResourceLocation id =
+				net.minecraft.resources.ResourceLocation.tryParse(s);
 			if(id != null)
 				continue; // already checked exact ID above
 			String term = s.toLowerCase(java.util.Locale.ROOT);

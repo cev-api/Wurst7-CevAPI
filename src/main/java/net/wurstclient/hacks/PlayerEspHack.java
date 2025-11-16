@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,21 +16,19 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.Util;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.text.Text;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.TextColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.ChatFormatting;
+import net.minecraft.Util;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -67,7 +66,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new FilterSleepingSetting("Won't show sleeping players.", false),
 		new FilterInvisibleSetting("Won't show invisible players.", false));
 	
-	private final ArrayList<PlayerEntity> players = new ArrayList<>();
+	private final ArrayList<Player> players = new ArrayList<>();
 	// Alert settings & tracking for enter/exit notifications
 	private final CheckboxSetting enterAlert = new CheckboxSetting(
 		"Enter alert",
@@ -84,7 +83,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new PlayerRangeAlertManager.Listener()
 		{
 			@Override
-			public void onPlayerEnter(PlayerEntity player,
+			public void onPlayerEnter(Player player,
 				PlayerRangeAlertManager.PlayerInfo info)
 			{
 				if(!isEnabled() || !enterAlert.isChecked())
@@ -205,7 +204,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	{
 		players.clear();
 		
-		Stream<AbstractClientPlayerEntity> stream = MC.world.getPlayers()
+		Stream<AbstractClientPlayer> stream = MC.level.players()
 			.parallelStream().filter(e -> !e.isRemoved() && e.getHealth() > 0)
 			.filter(e -> e != MC.player)
 			.filter(e -> !(e instanceof FakePlayerEntity))
@@ -216,10 +215,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(ignoreNpcs.isChecked())
 		{
 			stream = stream.filter(e -> {
-				if(MC.getNetworkHandler() == null)
+				if(MC.getConnection() == null)
 					return true;
-				return MC.getNetworkHandler()
-					.getPlayerListEntry(e.getUuid()) != null;
+				return MC.getConnection().getPlayerInfo(e.getUUID()) != null;
 			});
 		}
 		
@@ -228,22 +226,22 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		players.addAll(stream.collect(Collectors.toList()));
 		
 		if(losThreatDetection.isChecked())
-			updateLosStates(Util.getMeasuringTimeMs());
+			updateLosStates(Util.getMillis());
 		else
 			losStates.clear();
 	}
 	
-	private void sendEnterMessage(PlayerEntity p)
+	private void sendEnterMessage(Player p)
 	{
 		if(MC.player == null)
 			return;
-		UUID id = p.getUuid();
+		UUID id = p.getUUID();
 		double dist = Math.round(MC.player.distanceTo(p) * 10.0) / 10.0;
 		int x = (int)Math.round(p.getX());
 		int y = (int)Math.round(p.getY());
 		int z = (int)Math.round(p.getZ());
-		MutableText nameText =
-			MutableText.of(Text.literal(p.getName().getString()).getContent());
+		MutableComponent nameText = MutableComponent
+			.create(Component.literal(p.getName().getString()).getContents());
 		if(randomBrightColors.isChecked())
 		{
 			int idx = Math.abs(id.hashCode());
@@ -252,11 +250,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
-		Text msg = nameText.append(Text
+		Component msg = nameText.append(Component
 			.literal(" entered range (" + dist + " blocks) at " + x + ", " + y
 				+ ", " + z + ".")
-			.styled(
-				s -> s.withColor(TextColor.fromFormatting(Formatting.WHITE))));
+			.withStyle(s -> s
+				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
 		ChatUtils.component(msg);
 	}
 	
@@ -265,16 +263,16 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(MC.player == null)
 			return;
 		
-		Vec3d pos = info.getLastPos();
+		Vec3 pos = info.getLastPos();
 		double dist = pos == null ? -1.0
 			: Math.round(pos.distanceTo(
-				new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
+				new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
 				* 10.0) / 10.0;
 		int x = pos == null ? 0 : (int)Math.round(pos.x);
 		int y = pos == null ? 0 : (int)Math.round(pos.y);
 		int z = pos == null ? 0 : (int)Math.round(pos.z);
-		MutableText nameText =
-			MutableText.of(Text.literal(info.getName()).getContent());
+		MutableComponent nameText = MutableComponent
+			.create(Component.literal(info.getName()).getContents());
 		if(randomBrightColors.isChecked())
 		{
 			int idx = Math.abs(info.getUuid().hashCode());
@@ -284,11 +282,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
 		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
-		Text msg = nameText.append(Text
+		Component msg = nameText.append(Component
 			.literal(" left range (" + distStr + ") at " + x + ", " + y + ", "
 				+ z + ".")
-			.styled(
-				s -> s.withColor(TextColor.fromFormatting(Formatting.WHITE))));
+			.withStyle(s -> s
+				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
 		ChatUtils.component(msg);
 	}
 	
@@ -301,9 +299,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		long now = Util.getMeasuringTimeMs();
+		long now = Util.getMillis();
 		Map<UUID, PlayerVisual> visualCache = new HashMap<>(players.size());
 		
 		if(style.hasBoxes())
@@ -315,11 +313,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			ArrayList<ColoredBox> solid = filledBoxes.isChecked()
 				? new ArrayList<>(players.size()) : null;
 			
-			for(PlayerEntity e : players)
+			for(Player e : players)
 			{
-				Box box = EntityUtils.getLerpedBox(e, partialTicks)
-					.offset(0, extraSize, 0).expand(extraSize);
-				PlayerVisual visual = visualCache.computeIfAbsent(e.getUuid(),
+				AABB box = EntityUtils.getLerpedBox(e, partialTicks)
+					.move(0, extraSize, 0).inflate(extraSize);
+				PlayerVisual visual = visualCache.computeIfAbsent(e.getUUID(),
 					id -> getVisual(e, now));
 				int boxColor = visual.boxColor();
 				
@@ -374,11 +372,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				new ArrayList<>(players.size());
 			ArrayList<ColoredPoint> threatEnds = new ArrayList<>();
 			
-			for(PlayerEntity e : players)
+			for(Player e : players)
 			{
-				PlayerVisual visual = visualCache.computeIfAbsent(e.getUuid(),
+				PlayerVisual visual = visualCache.computeIfAbsent(e.getUUID(),
 					id -> getVisual(e, now));
-				Vec3d point =
+				Vec3 point =
 					EntityUtils.getLerpedBox(e, partialTicks).getCenter();
 				ColoredPoint colored =
 					new ColoredPoint(point, visual.tracerColor());
@@ -406,7 +404,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			return null;
 		if(!style.hasGlow())
 			return null;
-		if(!(entity instanceof PlayerEntity player))
+		if(!(entity instanceof Player player))
 			return null;
 		if(!players.contains(player))
 			return null;
@@ -414,7 +412,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		return makeOpaque(getBaseColor(player));
 	}
 	
-	private int getBaseColor(PlayerEntity e)
+	private int getBaseColor(Player e)
 	{
 		if(WURST.getFriends().contains(e.getName().getString()))
 			return 0x800000FF;
@@ -423,7 +421,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(useStaticPlayerColor.isChecked())
 		{
 			java.awt.Color pc = playerColor.getColor();
-			net.wurstclient.util.PlayerColorRegistry.forceAssign(e.getUuid(),
+			net.wurstclient.util.PlayerColorRegistry.forceAssign(e.getUUID(),
 				pc, "PlayerESP");
 			return RenderUtils.toIntColor(new float[]{pc.getRed() / 255f,
 				pc.getGreen() / 255f, pc.getBlue() / 255f}, 0.85F);
@@ -434,10 +432,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// Breadcrumbs.
 		if(randomBrightColors.isChecked())
 		{
-			int idx = Math.abs(e.getUuid().hashCode());
+			int idx = Math.abs(e.getUUID().hashCode());
 			java.awt.Color gen = net.wurstclient.util.PlayerColorRegistry
 				.generateBrightColor(idx);
-			net.wurstclient.util.PlayerColorRegistry.forceAssign(e.getUuid(),
+			net.wurstclient.util.PlayerColorRegistry.forceAssign(e.getUUID(),
 				gen, "PlayerESP");
 			return RenderUtils.toIntColor(new float[]{gen.getRed() / 255f,
 				gen.getGreen() / 255f, gen.getBlue() / 255f}, 0.9F);
@@ -459,7 +457,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(useStaticPlayerColor.isChecked() || randomBrightColors.isChecked())
 		{
 			java.awt.Color reg2 =
-				net.wurstclient.util.PlayerColorRegistry.get(e.getUuid());
+				net.wurstclient.util.PlayerColorRegistry.get(e.getUUID());
 			if(reg2 != null)
 			{
 				return RenderUtils
@@ -473,13 +471,13 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// Otherwise fall back to the dynamic distance-based coloring (default).
 		
 		float f = MC.player.distanceTo(e) / 20F;
-		float r = MathHelper.clamp(2 - f, 0, 1);
-		float g = MathHelper.clamp(f, 0, 1);
+		float r = Mth.clamp(2 - f, 0, 1);
+		float g = Mth.clamp(f, 0, 1);
 		float[] rgb = {r, g, 0};
 		return RenderUtils.toIntColor(rgb, 0.5F);
 	}
 	
-	private PlayerVisual getVisual(PlayerEntity e, long now)
+	private PlayerVisual getVisual(Player e, long now)
 	{
 		int baseColor = getBaseColor(e);
 		if(!losThreatDetection.isChecked())
@@ -491,9 +489,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		return new PlayerVisual(boxColor, tracerColor, factor);
 	}
 	
-	private float getLosFactor(PlayerEntity e, long now)
+	private float getLosFactor(Player e, long now)
 	{
-		LosState state = losStates.get(e.getUuid());
+		LosState state = losStates.get(e.getUUID());
 		if(state == null)
 			return 0F;
 		
@@ -508,7 +506,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			long fadeStart = state.fadeUntil - LOS_FADE_MS;
 			long elapsed = Math.max(0L, now - fadeStart);
 			float progress = 1F - (float)elapsed / (float)LOS_FADE_MS;
-			return MathHelper.clamp(progress, 0F, 1F);
+			return Mth.clamp(progress, 0F, 1F);
 		}
 		
 		return 0F;
@@ -516,7 +514,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	
 	private float getFovDotThreshold()
 	{
-		double fovDegrees = MathHelper.clamp(losThreatFov.getValue(), 1, 180);
+		double fovDegrees = Mth.clamp(losThreatFov.getValue(), 1, 180);
 		double halfAngle = fovDegrees / 2.0;
 		return (float)Math.cos(Math.toRadians(halfAngle));
 	}
@@ -529,15 +527,14 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(tracer)
 			baseColor = makeOpaque(baseColor);
 		
-		float clampedFactor = MathHelper.clamp(factor, 0F, 1F);
+		float clampedFactor = Mth.clamp(factor, 0F, 1F);
 		
 		float baseA = ((baseColor >>> 24) & 0xFF) / 255F;
 		float baseR = ((baseColor >>> 16) & 0xFF) / 255F;
 		float baseG = ((baseColor >>> 8) & 0xFF) / 255F;
 		float baseB = (baseColor & 0xFF) / 255F;
 		
-		float threatAlpha =
-			MathHelper.clamp(baseA + (tracer ? 0.45F : 0.35F), 0F, 1F);
+		float threatAlpha = Mth.clamp(baseA + (tracer ? 0.45F : 0.35F), 0F, 1F);
 		
 		float inv = 1F - clampedFactor;
 		float r = 1F * clampedFactor + baseR * inv;
@@ -555,15 +552,15 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	
 	private void updateLosStates(long now)
 	{
-		if(MC.player == null || MC.world == null)
+		if(MC.player == null || MC.level == null)
 			return;
 		
 		for(LosState state : losStates.values())
 			state.touched = false;
 		
-		for(PlayerEntity player : players)
+		for(Player player : players)
 		{
-			LosState state = losStates.computeIfAbsent(player.getUuid(),
+			LosState state = losStates.computeIfAbsent(player.getUUID(),
 				uuid -> new LosState(uuid, now));
 			state.touched = true;
 			updateLosState(player, state, now);
@@ -572,15 +569,15 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		losStates.entrySet().removeIf(entry -> !entry.getValue().touched);
 	}
 	
-	private void updateLosState(PlayerEntity target, LosState state, long now)
+	private void updateLosState(Player target, LosState state, long now)
 	{
-		PlayerEntity self = MC.player;
+		Player self = MC.player;
 		if(self == null)
 			return;
 		
 		double maxRange = losThreatRange.getValue();
 		double maxRangeSq = maxRange * maxRange;
-		double distSq = target.squaredDistanceTo(self);
+		double distSq = target.distanceToSqr(self);
 		
 		if(distSq > maxRangeSq)
 		{
@@ -597,50 +594,49 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		state.scheduleNext(now);
 	}
 	
-	private boolean computeLineOfSight(PlayerEntity target)
+	private boolean computeLineOfSight(Player target)
 	{
-		PlayerEntity self = MC.player;
-		if(self == null || MC.world == null)
+		Player self = MC.player;
+		if(self == null || MC.level == null)
 			return false;
 		
-		Box myBox = self.getBoundingBox();
-		Vec3d eyePos = new Vec3d(target.getX(),
-			target.getY() + target.getStandingEyeHeight(), target.getZ());
+		AABB myBox = self.getBoundingBox();
+		Vec3 eyePos = new Vec3(target.getX(),
+			target.getY() + target.getEyeHeight(), target.getZ());
 		
 		if(myBox.contains(eyePos))
 			return true;
 		
-		double clampedX = MathHelper.clamp(eyePos.x, myBox.minX, myBox.maxX);
-		double clampedY = MathHelper.clamp(eyePos.y, myBox.minY, myBox.maxY);
-		double clampedZ = MathHelper.clamp(eyePos.z, myBox.minZ, myBox.maxZ);
-		Vec3d closestPoint = new Vec3d(clampedX, clampedY, clampedZ);
+		double clampedX = Mth.clamp(eyePos.x, myBox.minX, myBox.maxX);
+		double clampedY = Mth.clamp(eyePos.y, myBox.minY, myBox.maxY);
+		double clampedZ = Mth.clamp(eyePos.z, myBox.minZ, myBox.maxZ);
+		Vec3 closestPoint = new Vec3(clampedX, clampedY, clampedZ);
 		
-		Vec3d dirToYouVec = closestPoint.subtract(eyePos);
+		Vec3 dirToYouVec = closestPoint.subtract(eyePos);
 		double distance = dirToYouVec.length();
 		if(distance < 1e-4)
 			return true;
-		Vec3d dirToYou = dirToYouVec.normalize();
+		Vec3 dirToYou = dirToYouVec.normalize();
 		
-		Vec3d lookVec = target.getRotationVec(1.0F);
+		Vec3 lookVec = target.getViewVector(1.0F);
 		float fovThreshold = getFovDotThreshold();
-		if(lookVec.dotProduct(dirToYou) < fovThreshold)
+		if(lookVec.dot(dirToYou) < fovThreshold)
 			return false;
 		
-		Optional<Vec3d> hitOpt = myBox.raycast(eyePos, closestPoint);
+		Optional<Vec3> hitOpt = myBox.clip(eyePos, closestPoint);
 		if(hitOpt.isEmpty())
-			hitOpt = myBox.raycast(eyePos, myBox.getCenter());
-		Vec3d hitPos = hitOpt.orElse(closestPoint);
+			hitOpt = myBox.clip(eyePos, myBox.getCenter());
+		Vec3 hitPos = hitOpt.orElse(closestPoint);
 		
-		RaycastContext ctx =
-			new RaycastContext(eyePos, hitPos, RaycastContext.ShapeType.VISUAL,
-				RaycastContext.FluidHandling.NONE, target);
-		HitResult blockHit = MC.world.raycast(ctx);
+		ClipContext ctx = new ClipContext(eyePos, hitPos,
+			ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, target);
+		HitResult blockHit = MC.level.clip(ctx);
 		
 		if(blockHit.getType() == HitResult.Type.MISS)
 			return true;
 		
-		double blockDistSq = blockHit.getPos().squaredDistanceTo(eyePos);
-		double targetDistSq = hitPos.squaredDistanceTo(eyePos);
+		double blockDistSq = blockHit.getLocation().distanceToSqr(eyePos);
+		double targetDistSq = hitPos.distanceToSqr(eyePos);
 		return blockDistSq >= targetDistSq - 1e-3;
 	}
 	

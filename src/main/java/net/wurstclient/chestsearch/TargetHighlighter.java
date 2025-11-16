@@ -7,13 +7,12 @@
  */
 package net.wurstclient.chestsearch;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.RenderListener;
-import net.minecraft.client.util.math.MatrixStack;
 import net.wurstclient.util.RenderUtils;
-
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.*;
 
 /** Renders temporary highlight boxes at specific chest positions. */
@@ -98,15 +97,13 @@ public final class TargetHighlighter implements RenderListener
 	}
 	
 	@Override
-	public synchronized void onRender(MatrixStack matrixStack,
-		float partialTicks)
+	public synchronized void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		if(WurstClient.MC == null || WurstClient.MC.world == null)
+		if(WurstClient.MC == null || WurstClient.MC.level == null)
 			return;
-		String dim =
-			WurstClient.MC.world.getRegistryKey().getValue().toString();
+		String dim = WurstClient.MC.level.dimension().location().toString();
 		long now = System.currentTimeMillis();
-		List<Box> boxes = new ArrayList<>();
+		List<AABB> boxes = new ArrayList<>();
 		Iterator<Map.Entry<String, Target>> it = targets.entrySet().iterator();
 		while(it.hasNext())
 		{
@@ -125,7 +122,7 @@ public final class TargetHighlighter implements RenderListener
 			String k = e.getKey();
 			if(!k.startsWith(dim + "|"))
 				continue;
-			boxes.add(new Box(target.minX, target.minY, target.minZ,
+			boxes.add(new AABB(target.minX, target.minY, target.minZ,
 				target.maxX + 1, target.maxY + 1, target.maxZ + 1));
 		}
 		if(boxes.isEmpty())

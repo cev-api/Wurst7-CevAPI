@@ -13,8 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
 import net.wurstclient.analytics.PlausibleAnalytics;
@@ -50,7 +49,7 @@ public enum WurstClient
 {
 	INSTANCE;
 	
-	public static MinecraftClient MC;
+	public static Minecraft MC;
 	public static IMinecraftClient IMC;
 	
 	public static final String VERSION = "7.51.1";
@@ -84,7 +83,7 @@ public enum WurstClient
 	{
 		System.out.println("Starting Wurst Client...");
 		
-		MC = MinecraftClient.getInstance();
+		MC = Minecraft.getInstance();
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
 		
@@ -153,7 +152,7 @@ public enum WurstClient
 	
 	private Path createWurstFolder()
 	{
-		Path dotMinecraftFolder = MC.runDirectory.toPath().normalize();
+		Path dotMinecraftFolder = MC.gameDirectory.toPath().normalize();
 		String folderName = BuildConfig.NICE_WURST ? "nicewurst" : "wurst";
 		Path wurstFolder = dotMinecraftFolder.resolve(folderName);
 		

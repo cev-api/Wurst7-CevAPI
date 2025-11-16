@@ -22,9 +22,8 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Category;
 import net.wurstclient.DontBlock;
 import net.wurstclient.Feature;
@@ -297,7 +296,7 @@ public final class TooManyHaxHack extends Hack
 		
 		@Override
 		public void handleMouseClick(double mouseX, double mouseY,
-			int mouseButton, Click context)
+			int mouseButton, MouseButtonEvent context)
 		{
 			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 				return;
@@ -333,7 +332,7 @@ public final class TooManyHaxHack extends Hack
 		}
 		
 		@Override
-		public void render(DrawContext context, int mouseX, int mouseY,
+		public void render(GuiGraphics context, int mouseX, int mouseY,
 			float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
@@ -341,9 +340,8 @@ public final class TooManyHaxHack extends Hack
 			
 			if(hacks.isEmpty())
 			{
-				context.drawText(MC.textRenderer, "No hacks available.",
-					getX() + 2, getY() + 2, WURST.getGui().getTxtColor(),
-					false);
+				context.drawString(MC.font, "No hacks available.", getX() + 2,
+					getY() + 2, WURST.getGui().getTxtColor(), false);
 				return;
 			}
 			
@@ -398,8 +396,8 @@ public final class TooManyHaxHack extends Hack
 				if(!hack.isSafeToBlock())
 					textColor = (textColor & 0x00FFFFFF) | 0x55000000;
 				
-				context.drawText(MC.textRenderer, hack.getName(), boxX2 + 2,
-					y1 + 2, textColor, false);
+				context.drawString(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+					textColor, false);
 			}
 		}
 		
@@ -410,8 +408,8 @@ public final class TooManyHaxHack extends Hack
 			
 			int maxNameWidth = 0;
 			for(Hack hack : hacks)
-				maxNameWidth = Math.max(maxNameWidth,
-					MC.textRenderer.getWidth(hack.getName()));
+				maxNameWidth =
+					Math.max(maxNameWidth, MC.font.width(hack.getName()));
 			
 			return Math.max(130, BOX_SIZE + 4 + maxNameWidth);
 		}

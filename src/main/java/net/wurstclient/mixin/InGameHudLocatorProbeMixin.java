@@ -12,7 +12,10 @@ import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.contextualbar.LocatorBarRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,12 +23,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.InGameHud;
-import net.minecraft.client.gui.hud.bar.LocatorBar;
-import net.minecraft.client.render.RenderTickCounter;
-
-@Mixin(InGameHud.class)
+@Mixin(Gui.class)
 public class InGameHudLocatorProbeMixin
 {
 	private static final Logger LOGGER =
@@ -33,9 +31,9 @@ public class InGameHudLocatorProbeMixin
 	private static long lastProbeLogMs = 0L;
 	
 	@Inject(
-		method = "renderPlayerList(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V",
+		method = "renderTabList(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"))
-	private void onAnyHudRender(DrawContext ctx, RenderTickCounter rtc,
+	private void onAnyHudRender(GuiGraphics ctx, DeltaTracker rtc,
 		CallbackInfo ci)
 	{
 		long now = System.currentTimeMillis();
@@ -61,7 +59,7 @@ public class InGameHudLocatorProbeMixin
 						int count = 0;
 						for(Object val : map.values())
 						{
-							if(val instanceof LocatorBar)
+							if(val instanceof LocatorBarRenderer)
 							{
 								count++;
 								reflectLocatorBar(val);

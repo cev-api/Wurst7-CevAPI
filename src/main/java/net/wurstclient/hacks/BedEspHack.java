@@ -7,33 +7,32 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.BedBlock;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.DoorBlock;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.block.enums.BedPart;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.passive.IronGolemEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.TagKey;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -103,10 +102,11 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private int foundCount;
 	private int lastMatchesVersion;
 	private List<BlockPos> cachedTrialSpawners = List.of();
-	private List<Vec3d> cachedVillagerPositions = List.of();
-	private List<Vec3d> cachedGolemPositions = List.of();
-	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG = TagKey.of(
-		RegistryKeys.BLOCK, Identifier.of("minecraft", "waxed_copper_blocks"));
+	private List<Vec3> cachedVillagerPositions = List.of();
+	private List<Vec3> cachedGolemPositions = List.of();
+	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG =
+		TagKey.create(Registries.BLOCK, ResourceLocation
+			.fromNamespaceAndPath("minecraft", "waxed_copper_blocks"));
 	private boolean lastTrialFilterState;
 	private boolean lastVillageFilterState;
 	
@@ -137,7 +137,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastTrialFilterState = filterTrialChambers.isChecked();
 		lastVillageFilterState = filterVillageBeds.isChecked();
@@ -174,7 +174,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -198,7 +198,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(style.hasBoxes())
 			renderBoxes(matrixStack);
@@ -207,14 +207,14 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			renderTracers(matrixStack, partialTicks);
 	}
 	
-	private void renderBoxes(MatrixStack matrixStack)
+	private void renderBoxes(PoseStack matrixStack)
 	{
 		for(BedEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				continue;
 			
-			List<Box> boxes = group.getBoxes();
+			List<AABB> boxes = group.getBoxes();
 			int quadsColor = group.getColorI(0x40);
 			int linesColor = group.getColorI(0x80);
 			
@@ -224,15 +224,15 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void renderTracers(MatrixStack matrixStack, float partialTicks)
+	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
 		for(BedEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				continue;
 			
-			List<Box> boxes = group.getBoxes();
-			List<Vec3d> ends = boxes.stream().map(Box::getCenter).toList();
+			List<AABB> boxes = group.getBoxes();
+			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = group.getColorI(0x80);
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
@@ -265,7 +265,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	{
 		BlockState state = result.state();
 		if(!(state.getBlock() instanceof BedBlock)
-			|| state.get(BedBlock.PART) == BedPart.FOOT)
+			|| state.getValue(BedBlock.PART) == BedPart.FOOT)
 			return;
 		
 		BlockPos headPos = result.pos();
@@ -294,10 +294,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		
 		if(filterVillageBeds.isChecked())
 		{
-			cachedVillagerPositions =
-				collectEntityPositions(VillagerEntity.class);
-			cachedGolemPositions =
-				collectEntityPositions(IronGolemEntity.class);
+			cachedVillagerPositions = collectEntityPositions(Villager.class);
+			cachedGolemPositions = collectEntityPositions(IronGolem.class);
 		}else
 		{
 			cachedVillagerPositions = List.of();
@@ -321,23 +319,24 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private List<BlockPos> collectTrialSpawnerPositions()
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return List.of();
 		
 		return ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof TrialSpawnerBlockEntity)
-			.map(BlockEntity::getPos).map(BlockPos::toImmutable)
+			.map(BlockEntity::getBlockPos).map(BlockPos::immutable)
 			.collect(Collectors.toList());
 	}
 	
-	private <T extends Entity> List<Vec3d> collectEntityPositions(Class<T> type)
+	private <T extends Entity> List<Vec3> collectEntityPositions(Class<T> type)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return List.of();
 		
-		return StreamSupport.stream(MC.world.getEntities().spliterator(), false)
+		return StreamSupport
+			.stream(MC.level.entitiesForRendering().spliterator(), false)
 			.filter(e -> !e.isRemoved()).filter(type::isInstance)
-			.map(entity -> Vec3d.ofCenter(entity.getBlockPos()))
+			.map(entity -> Vec3.atCenterOf(entity.blockPosition()))
 			.collect(Collectors.toList());
 	}
 	
@@ -355,7 +354,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private boolean isNearWaxedCopper(BlockPos center, int range)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return false;
 		
 		return BlockUtils.getAllInBoxStream(center, range)
@@ -364,10 +363,11 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private boolean isWaxedCopper(BlockState state)
 	{
-		if(state.isIn(WAXED_COPPER_BLOCKS_TAG))
+		if(state.is(WAXED_COPPER_BLOCKS_TAG))
 			return true;
 		
-		String idPath = Registries.BLOCK.getId(state.getBlock()).getPath();
+		String idPath =
+			BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
 		return idPath.contains("waxed") && idPath.contains("copper");
 	}
 	
@@ -377,9 +377,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			return false;
 		
 		double rangeSq = range * range;
-		Vec3d centerVec = Vec3d.ofCenter(center);
+		Vec3 centerVec = Vec3.atCenterOf(center);
 		return cachedTrialSpawners.stream().anyMatch(
-			pos -> Vec3d.ofCenter(pos).squaredDistanceTo(centerVec) <= rangeSq);
+			pos -> Vec3.atCenterOf(pos).distanceToSqr(centerVec) <= rangeSq);
 	}
 	
 	private boolean isLikelyVillageBed(BlockPos headPos)
@@ -398,21 +398,21 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		return hasGlassPaneCluster(headPos, 4, 1);
 	}
 	
-	private boolean isEntityWithinRange(List<Vec3d> positions, BlockPos center,
+	private boolean isEntityWithinRange(List<Vec3> positions, BlockPos center,
 		double range)
 	{
 		if(positions.isEmpty())
 			return false;
 		
 		double rangeSq = range * range;
-		Vec3d centerVec = Vec3d.ofCenter(center);
+		Vec3 centerVec = Vec3.atCenterOf(center);
 		return positions.stream()
-			.anyMatch(pos -> pos.squaredDistanceTo(centerVec) <= rangeSq);
+			.anyMatch(pos -> pos.distanceToSqr(centerVec) <= rangeSq);
 	}
 	
 	private boolean hasHayBaleCluster(BlockPos center, int range)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return false;
 		
 		long count = BlockUtils.getAllInBoxStream(center, range)
@@ -423,7 +423,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private boolean hasDoorNearby(BlockPos center, int range)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return false;
 		
 		return BlockUtils.getAllInBoxStream(center, range)
@@ -433,7 +433,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private boolean hasGlassPaneCluster(BlockPos center, int range,
 		int requiredCount)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return false;
 		
 		long glassCount = BlockUtils.getAllInBoxStream(center, range)
@@ -444,7 +444,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	
 	private boolean isGlassPane(Block block)
 	{
-		String path = Registries.BLOCK.getId(block).getPath();
+		String path = BuiltInRegistries.BLOCK.getKey(block).getPath();
 		return path.contains("glass_pane");
 	}
 }

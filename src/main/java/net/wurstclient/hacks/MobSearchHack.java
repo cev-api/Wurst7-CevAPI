@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -14,13 +15,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -178,8 +177,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 				String raw = s.trim();
 				if(raw.isEmpty())
 					continue;
-				Identifier id = Identifier.tryParse(raw);
-				if(id != null && Registries.ENTITY_TYPE.containsId(id))
+				ResourceLocation id = ResourceLocation.tryParse(raw);
+				if(id != null && BuiltInRegistries.ENTITY_TYPE.containsKey(id))
 					exact.add(id.toString());
 				else
 					kw.add(raw.toLowerCase(Locale.ROOT));
@@ -192,15 +191,16 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		{
 			case LIST:
 			predicate = e -> {
-				Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
+				ResourceLocation id =
+					BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 				String idFull = id == null ? "" : id.toString();
 				if(listExactIds != null && listExactIds.contains(idFull))
 					return true;
 				String local = idFull.contains(":")
 					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
 				String localSpaced = local.replace('_', ' ');
-				String transKey = e.getType().getTranslationKey();
-				String display = e.getType().getName().getString();
+				String transKey = e.getType().getDescriptionId();
+				String display = e.getType().getDescription().getString();
 				if(listKeywords != null)
 					for(String term : listKeywords)
 						if(containsNormalized(idFull, term)
@@ -221,9 +221,9 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		}
 		
 		Stream<LivingEntity> stream = StreamSupport
-			.stream(MC.world.getEntities().spliterator(), false)
+			.stream(MC.level.entitiesForRendering().spliterator(), false)
 			.filter(LivingEntity.class::isInstance).map(e -> (LivingEntity)e)
-			.filter(e -> !(e instanceof PlayerEntity))
+			.filter(e -> !(e instanceof Player))
 			.filter(e -> !e.isRemoved() && e.getHealth() > 0).filter(predicate);
 		
 		// apply above-ground filter if enabled
@@ -251,7 +251,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(matches.isEmpty())
 			return;
@@ -276,12 +276,12 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			
 			for(LivingEntity e : matches)
 			{
-				Box lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
+				AABB lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
 				int outlineColor = getColorI(0.5F);
 				
 				if(drawShape)
 				{
-					Box box = lerpedBox.offset(0, extra, 0).expand(extra);
+					AABB box = lerpedBox.move(0, extra, 0).inflate(extra);
 					outlineShapes.add(new ColoredBox(box, outlineColor));
 					
 					if(filledShapes != null)
@@ -345,7 +345,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	private Predicate<LivingEntity> byExactType(String normalizedType)
 	{
 		return e -> {
-			Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
+			ResourceLocation id =
+				BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 			String s = id == null ? "" : id.toString().toLowerCase(Locale.ROOT);
 			String local =
 				s.contains(":") ? s.substring(s.indexOf(":") + 1) : s;
@@ -359,13 +360,14 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		String[] terms = Stream.of(q.split(",")).map(String::trim)
 			.filter(s -> !s.isEmpty()).toArray(String[]::new);
 		return e -> {
-			Identifier id = Registries.ENTITY_TYPE.getId(e.getType());
+			ResourceLocation id =
+				BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 			String s = id == null ? "" : id.toString();
 			String local =
 				s.contains(":") ? s.substring(s.indexOf(":") + 1) : s;
 			String localSpaced = local.replace('_', ' ');
-			String transKey = e.getType().getTranslationKey();
-			String display = e.getType().getName().getString();
+			String transKey = e.getType().getDescriptionId();
+			String display = e.getType().getDescription().getString();
 			for(String term : terms)
 				if(containsNormalized(s, term)
 					|| containsNormalized(local, term)

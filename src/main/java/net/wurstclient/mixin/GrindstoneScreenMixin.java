@@ -9,26 +9,25 @@ package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
-
-import net.minecraft.client.gui.screen.ingame.GrindstoneScreen;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.screen.GrindstoneScreenHandler;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.GrindstoneScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.GrindstoneMenu;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoDisenchantHack;
 
 @Mixin(GrindstoneScreen.class)
 public abstract class GrindstoneScreenMixin
-	extends HandledScreen<GrindstoneScreenHandler>
+	extends AbstractContainerScreen<GrindstoneMenu>
 {
 	@Unique
 	private final AutoDisenchantHack autoDisenchant =
 		WurstClient.INSTANCE.getHax().autoDisenchantHack;
 	
-	private GrindstoneScreenMixin(WurstClient wurst,
-		GrindstoneScreenHandler handler, PlayerInventory inventory, Text title)
+	private GrindstoneScreenMixin(WurstClient wurst, GrindstoneMenu handler,
+		Inventory inventory, Component title)
 	{
 		super(handler, inventory, title);
 	}
@@ -41,10 +40,10 @@ public abstract class GrindstoneScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("AutoDisenchant"),
+		addRenderableWidget(Button
+			.builder(Component.literal("AutoDisenchant"),
 				b -> autoDisenchant.start((GrindstoneScreen)(Object)this))
-			.dimensions(x + backgroundWidth - 110, y + 4, 106, 12).build());
+			.bounds(leftPos + imageWidth - 110, topPos + 4, 106, 12).build());
 		
 		if(autoDisenchant.isEnabled())
 			autoDisenchant.start((GrindstoneScreen)(Object)this);

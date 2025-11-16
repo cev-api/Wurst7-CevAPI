@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -14,12 +15,11 @@ import java.util.stream.Stream;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.block.Block;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
@@ -108,8 +108,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private String[] oreKeywords;
 	private double lastOpacityVal;
 	private int lastOresHash;
-	private final ThreadLocal<BlockPos.Mutable> mutablePosForExposedCheck =
-		ThreadLocal.withInitial(BlockPos.Mutable::new);
+	private final ThreadLocal<BlockPos.MutableBlockPos> mutablePosForExposedCheck =
+		ThreadLocal.withInitial(BlockPos.MutableBlockPos::new);
 	
 	// Track last selected mode so switching triggers reloads
 	private Mode lastMode = null;
@@ -153,7 +153,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private java.util.List<BlockPos> highlightPositions =
 		new java.util.ArrayList<>();
 	private boolean visibleBoxesUpToDate = false;
-	private java.util.List<Box> visibleBoxes = new java.util.ArrayList<>();
+	private java.util.List<AABB> visibleBoxes = new java.util.ArrayList<>();
 	private int lastMatchesVersion;
 	
 	// Debounce to avoid flashing when coordinator updates rapidly (e.g., on
@@ -263,7 +263,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		EVENTS.add(RenderBlockEntityListener.class, this);
 		
 		// reload chunks
-		MC.worldRenderer.reload();
+		MC.levelRenderer.allChanged();
 		
 		// display warning if OptiFine is detected
 		if(optiFineWarning != null)
@@ -283,12 +283,12 @@ public final class XRayHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderBlockEntityListener.class, this);
 		
 		// reload chunks
-		MC.worldRenderer.reload();
+		MC.levelRenderer.allChanged();
 		
 		// reset gamma
 		FullbrightHack fullbright = WURST.getHax().fullbrightHack;
 		if(!fullbright.isChangingGamma())
-			ISimpleOption.get(MC.options.getGamma())
+			ISimpleOption.get(MC.options.gamma())
 				.forceSetValue(fullbright.getDefaultGamma());
 	}
 	
@@ -313,7 +313,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		}
 		
 		// force gamma to 16 so that ores are bright enough to see
-		ISimpleOption.get(MC.options.getGamma()).forceSetValue(16.0);
+		ISimpleOption.get(MC.options.gamma()).forceSetValue(16.0);
 		// Live-apply changes to list and opacity
 		// Detect mode changes and handle switching
 		Mode curMode = mode.getSelected();
@@ -327,7 +327,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 				rebuildOreCaches();
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.worldRenderer.reload();
+				MC.levelRenderer.allChanged();
 			}else // switched to QUERY
 			{
 				oreNamesCache = null; // avoid fallback to list
@@ -341,7 +341,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 						.filter(s -> !s.isEmpty()).toArray(String[]::new);
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.worldRenderer.reload();
+				MC.levelRenderer.allChanged();
 			}
 		}
 		
@@ -355,7 +355,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 				rebuildOreCaches();
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.worldRenderer.reload();
+				MC.levelRenderer.allChanged();
 			}else
 			{
 				// safety: if caches are missing (e.g., after a reload), rebuild
@@ -390,7 +390,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 				oreExactIds = null; // force keyword path
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.worldRenderer.reload();
+				MC.levelRenderer.allChanged();
 			}
 		}
 		
@@ -398,7 +398,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		if(currentOpacity != lastOpacityVal)
 		{
 			lastOpacityVal = currentOpacity;
-			MC.worldRenderer.reload();
+			MC.levelRenderer.allChanged();
 		}
 		// Detect only-exposed toggle changes and reload chunks so mixins
 		// re-evaluate visibility based on the new setting.
@@ -409,12 +409,12 @@ public final class XRayHack extends Hack implements UpdateListener,
 			// Rebuild visible boxes immediately from known positions so the
 			// ESP updates without waiting for a full coordinator pass.
 			rebuildVisibleBoxes();
-			MC.worldRenderer.reload();
+			MC.levelRenderer.allChanged();
 		}
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrices, float partialTicks)
+	public void onRender(PoseStack matrices, float partialTicks)
 	{
 		long now = System.currentTimeMillis();
 		
@@ -423,9 +423,9 @@ public final class XRayHack extends Hack implements UpdateListener,
 		{
 			highlightPositions.clear();
 			// collect nearest N positions (limit controlled by renderAmount)
-			BlockPos playerPos = MC.player.getBlockPos();
+			BlockPos playerPos = MC.player.blockPosition();
 			java.util.Comparator<BlockPos> comparator = java.util.Comparator
-				.comparingInt(p -> playerPos.getManhattanDistance(p));
+				.comparingInt(p -> playerPos.distManhattan(p));
 			coordinator.getMatches().map(r -> r.pos()).sorted(comparator)
 				.limit(renderAmount.getValueLog())
 				.forEach(highlightPositions::add);
@@ -438,12 +438,12 @@ public final class XRayHack extends Hack implements UpdateListener,
 		// recently, keep existing boxes until debounce expires.
 		if(!visibleBoxesUpToDate)
 		{
-			java.util.List<Box> newBoxes = new java.util.ArrayList<>();
+			java.util.List<AABB> newBoxes = new java.util.ArrayList<>();
 			for(BlockPos p : highlightPositions)
 			{
 				if(onlyExposed.isChecked() && !isExposed(p))
 					continue;
-				newBoxes.add(new Box(p));
+				newBoxes.add(new AABB(p));
 			}
 			
 			// If newBoxes empty but coordinator changed very recently, skip
@@ -483,7 +483,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 		{
 			if(onlyExposed.isChecked() && !isExposed(p))
 				continue;
-			visibleBoxes.add(new Box(p));
+			visibleBoxes.add(new AABB(p));
 		}
 		visibleBoxesUpToDate = true;
 	}
@@ -515,7 +515,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 	@Override
 	public void onRenderBlockEntity(RenderBlockEntityEvent event)
 	{
-		BlockPos pos = event.getState().pos;
+		BlockPos pos = event.getState().blockPos;
 		if(!isVisible(BlockUtils.getBlock(pos), pos))
 			event.cancel();
 	}
@@ -543,7 +543,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 				String localId = idFull.contains(":")
 					? idFull.substring(idFull.indexOf(":") + 1) : idFull;
 				String localSpaced = localId.replace('_', ' ');
-				String transKey = block.getTranslationKey();
+				String transKey = block.getDescriptionId();
 				String display = block.getName().getString();
 				for(String term : oreKeywords)
 					if(containsNormalized(idFull, term)
@@ -566,9 +566,10 @@ public final class XRayHack extends Hack implements UpdateListener,
 	
 	private boolean isExposed(BlockPos pos)
 	{
-		BlockPos.Mutable mutablePos = mutablePosForExposedCheck.get();
+		BlockPos.MutableBlockPos mutablePos = mutablePosForExposedCheck.get();
 		for(Direction direction : Direction.values())
-			if(!BlockUtils.isOpaqueFullCube(mutablePos.set(pos, direction)))
+			if(!BlockUtils
+				.isOpaqueFullCube(mutablePos.setWithOffset(pos, direction)))
 				return true;
 			
 		return false;
@@ -580,8 +581,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 		for(String s : oreNamesCache)
 		{
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(s);
+			net.minecraft.resources.ResourceLocation id =
+				net.minecraft.resources.ResourceLocation.tryParse(s);
 			if(id != null)
 				exact.add(id.toString());
 			else if(s != null && !s.isBlank())

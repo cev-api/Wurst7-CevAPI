@@ -7,23 +7,22 @@
  */
 package net.wurstclient.mixin;
 
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-
-@Mixin(HandledScreen.class)
+@Mixin(AbstractContainerScreen.class)
 public interface HandledScreenAccessor
 {
-	@Accessor("x")
+	@Accessor("leftPos")
 	int getX();
 	
-	@Accessor("y")
+	@Accessor("topPos")
 	int getY();
 	
-	@Accessor("backgroundWidth")
+	@Accessor("imageWidth")
 	int getBackgroundWidth();
 	
-	@Accessor("backgroundHeight")
+	@Accessor("imageHeight")
 	int getBackgroundHeight();
 }

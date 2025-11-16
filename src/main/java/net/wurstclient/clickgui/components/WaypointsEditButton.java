@@ -27,8 +27,7 @@ public final class WaypointsEditButton extends AbstractListEditButton
 	@Override
 	protected void openScreen()
 	{
-		MC.setScreen(
-			new WaypointsScreen(MC.currentScreen, setting.getManager()));
+		MC.setScreen(new WaypointsScreen(MC.screen, setting.getManager()));
 	}
 	
 	@Override

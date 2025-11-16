@@ -18,11 +18,10 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.EntityTypeListEditButton;
@@ -47,10 +46,10 @@ public final class EntityTypeListSetting extends Setting
 		}else
 		{
 			// Default to all non-MISC spawn group entity types (typical mobs)
-			Registries.ENTITY_TYPE.getIds().forEach(id -> {
-				EntityType<?> t = Registries.ENTITY_TYPE.get(id);
-				SpawnGroup g = t.getSpawnGroup();
-				if(g != SpawnGroup.MISC)
+			BuiltInRegistries.ENTITY_TYPE.keySet().forEach(id -> {
+				EntityType<?> t = BuiltInRegistries.ENTITY_TYPE.getValue(id);
+				MobCategory g = t.getCategory();
+				if(g != MobCategory.MISC)
 					typeNames.add(id.toString());
 			});
 			Collections.sort(typeNames);
@@ -76,9 +75,9 @@ public final class EntityTypeListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		Identifier id = Identifier.tryParse(raw);
+		ResourceLocation id = ResourceLocation.tryParse(raw);
 		String name = raw;
-		if(id != null && Registries.ENTITY_TYPE.containsId(id))
+		if(id != null && BuiltInRegistries.ENTITY_TYPE.containsKey(id))
 			name = id.toString();
 		
 		if(Collections.binarySearch(typeNames, name) < 0)
@@ -99,7 +98,7 @@ public final class EntityTypeListSetting extends Setting
 	
 	public void add(EntityType<?> type)
 	{
-		String name = Registries.ENTITY_TYPE.getId(type).toString();
+		String name = BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
 		if(Collections.binarySearch(typeNames, name) >= 0)
 			return;
 		typeNames.add(name);

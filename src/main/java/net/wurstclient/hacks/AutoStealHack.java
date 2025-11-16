@@ -9,11 +9,10 @@ package net.wurstclient.hacks;
 
 import java.util.List;
 import java.util.stream.IntStream;
-
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.item.Item;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -52,18 +51,18 @@ public final class AutoStealHack extends Hack
 		addSetting(stealStoreSame);
 	}
 	
-	public void steal(HandledScreen<?> screen, int rows)
+	public void steal(AbstractContainerScreen<?> screen, int rows)
 	{
 		startClickingSlots(screen, 0, rows * 9, true);
 	}
 	
-	public void store(HandledScreen<?> screen, int rows)
+	public void store(AbstractContainerScreen<?> screen, int rows)
 	{
 		startClickingSlots(screen, rows * 9, rows * 9 + 36, false);
 	}
 	
-	private void startClickingSlots(HandledScreen<?> screen, int from, int to,
-		boolean steal)
+	private void startClickingSlots(AbstractContainerScreen<?> screen, int from,
+		int to, boolean steal)
 	{
 		if(thread != null && thread.isAlive())
 			thread.interrupt();
@@ -73,11 +72,11 @@ public final class AutoStealHack extends Hack
 			.start(() -> shiftClickSlots(screen, from, to, steal));
 	}
 	
-	private void shiftClickSlots(HandledScreen<?> screen, int from, int to,
-		boolean steal)
+	private void shiftClickSlots(AbstractContainerScreen<?> screen, int from,
+		int to, boolean steal)
 	{
 		List<Slot> slots = IntStream.range(from, to)
-			.mapToObj(i -> screen.getScreenHandler().slots.get(i)).toList();
+			.mapToObj(i -> screen.getMenu().slots.get(i)).toList();
 		
 		if(reverseSteal.isChecked() && steal)
 			slots = slots.reversed();
@@ -94,14 +93,14 @@ public final class AutoStealHack extends Hack
 				// hotbar).
 				int rows = to / 9; // when stealing `to` equals rows*9
 				int invStart = rows * 9;
-				int invEnd = Math.min(invStart + 36,
-					screen.getScreenHandler().slots.size());
+				int invEnd =
+					Math.min(invStart + 36, screen.getMenu().slots.size());
 				java.util.Set<Item> typesFromUI = new java.util.HashSet<>();
 				for(int i = invStart; i < invEnd; i++)
 				{
-					Slot s = screen.getScreenHandler().slots.get(i);
-					if(!s.getStack().isEmpty())
-						typesFromUI.add(s.getStack().getItem());
+					Slot s = screen.getMenu().slots.get(i);
+					if(!s.getItem().isEmpty())
+						typesFromUI.add(s.getItem().getItem());
 				}
 				if(!typesFromUI.isEmpty())
 					inventoryTypes = typesFromUI;
@@ -119,9 +118,9 @@ public final class AutoStealHack extends Hack
 				chestTypes = new java.util.HashSet<>();
 				for(int i = 0; i < from; i++)
 				{
-					Slot s = screen.getScreenHandler().slots.get(i);
-					if(!s.getStack().isEmpty())
-						chestTypes.add(s.getStack().getItem());
+					Slot s = screen.getMenu().slots.get(i);
+					if(!s.getItem().isEmpty())
+						chestTypes.add(s.getItem().getItem());
 				}
 			}
 		}
@@ -129,13 +128,14 @@ public final class AutoStealHack extends Hack
 		for(Slot slot : slots)
 			try
 			{
-				if(slot.getStack().isEmpty())
+				if(slot.getItem().isEmpty())
 					continue;
 				
 				// Exact-type filtering (Steal/Store same)
 				if(stealStoreSame.isChecked())
 				{
-					net.minecraft.item.Item item = slot.getStack().getItem();
+					net.minecraft.world.item.Item item =
+						slot.getItem().getItem();
 					if(steal)
 					{
 						if(inventoryTypes != null
@@ -150,11 +150,10 @@ public final class AutoStealHack extends Hack
 				
 				Thread.sleep(delay.getValueI());
 				
-				if(MC.currentScreen == null)
+				if(MC.screen == null)
 					break;
 				
-				screen.onMouseClick(slot, slot.id, 0,
-					SlotActionType.QUICK_MOVE);
+				screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
 				
 			}catch(InterruptedException e)
 			{
@@ -177,10 +176,10 @@ public final class AutoStealHack extends Hack
 			{
 				for(Object o : (java.util.List<?>)main)
 				{
-					if(o instanceof net.minecraft.item.ItemStack)
+					if(o instanceof net.minecraft.world.item.ItemStack)
 					{
-						net.minecraft.item.ItemStack stack =
-							(net.minecraft.item.ItemStack)o;
+						net.minecraft.world.item.ItemStack stack =
+							(net.minecraft.world.item.ItemStack)o;
 						if(stack != null && !stack.isEmpty())
 							types.add(stack.getItem());
 					}
@@ -201,10 +200,10 @@ public final class AutoStealHack extends Hack
 						{
 							for(Object obj : (java.util.List<?>)listObj)
 							{
-								if(obj instanceof net.minecraft.item.ItemStack)
+								if(obj instanceof net.minecraft.world.item.ItemStack)
 								{
-									net.minecraft.item.ItemStack st =
-										(net.minecraft.item.ItemStack)obj;
+									net.minecraft.world.item.ItemStack st =
+										(net.minecraft.world.item.ItemStack)obj;
 									if(st != null && !st.isEmpty())
 										types.add(st.getItem());
 								}
@@ -220,14 +219,15 @@ public final class AutoStealHack extends Hack
 		return types.isEmpty() ? null : types;
 	}
 	
-	private java.util.Set<Item> getInventoryItemTypesUI(HandledScreen<?> screen)
+	private java.util.Set<Item> getInventoryItemTypesUI(
+		AbstractContainerScreen<?> screen)
 	{
 		java.util.Set<Item> types = new java.util.HashSet<>();
 		try
 		{
 			// Access the chest inventory directly from the screen handler
-			Object chestInventory = screen.getScreenHandler().getClass()
-				.getMethod("getInventory").invoke(screen.getScreenHandler());
+			Object chestInventory = screen.getMenu().getClass()
+				.getMethod("getInventory").invoke(screen.getMenu());
 			
 			// Try to read the 'stacks' field directly, which should contain
 			// the items visible in the player's chest GUI
@@ -237,10 +237,10 @@ public final class AutoStealHack extends Hack
 			{
 				for(Object o : (java.util.List<?>)stacksObj)
 				{
-					if(o instanceof net.minecraft.item.ItemStack)
+					if(o instanceof net.minecraft.world.item.ItemStack)
 					{
-						net.minecraft.item.ItemStack stack =
-							(net.minecraft.item.ItemStack)o;
+						net.minecraft.world.item.ItemStack stack =
+							(net.minecraft.world.item.ItemStack)o;
 						if(stack != null && !stack.isEmpty())
 							types.add(stack.getItem());
 					}
@@ -252,9 +252,9 @@ public final class AutoStealHack extends Hack
 			{
 				for(int i = 27; i < 63; i++)
 				{
-					Slot s = screen.getScreenHandler().slots.get(i);
-					if(!s.getStack().isEmpty())
-						types.add(s.getStack().getItem());
+					Slot s = screen.getMenu().slots.get(i);
+					if(!s.getItem().isEmpty())
+						types.add(s.getItem().getItem());
 				}
 			}
 		}catch(Exception ignored)

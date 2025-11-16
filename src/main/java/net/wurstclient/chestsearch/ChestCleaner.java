@@ -8,8 +8,8 @@
 package net.wurstclient.chestsearch;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
 
@@ -42,8 +42,8 @@ public class ChestCleaner
 					return; // check every ~5s (20 ticks/s)
 				tickCounter = 0;
 				
-				MinecraftClient mc = WurstClient.MC;
-				if(mc == null || mc.world == null)
+				Minecraft mc = WurstClient.MC;
+				if(mc == null || mc.level == null)
 					return;
 					
 				// update world/server observation ticks and detect join/world
@@ -51,15 +51,14 @@ public class ChestCleaner
 				String curServer = null;
 				try
 				{
-					if(mc.getCurrentServerEntry() != null)
-						curServer = mc.getCurrentServerEntry().address;
+					if(mc.getCurrentServer() != null)
+						curServer = mc.getCurrentServer().ip;
 				}catch(Throwable ignored)
 				{}
 				String curDimension = null;
 				try
 				{
-					curDimension =
-						mc.world.getRegistryKey().getValue().toString();
+					curDimension = mc.level.dimension().location().toString();
 				}catch(Throwable ignored)
 				{}
 				// reset grace timer on server/dimension change
@@ -80,14 +79,14 @@ public class ChestCleaner
 				String serverIp = null;
 				try
 				{
-					if(mc.getCurrentServerEntry() != null)
-						serverIp = mc.getCurrentServerEntry().address;
+					if(mc.getCurrentServer() != null)
+						serverIp = mc.getCurrentServer().ip;
 				}catch(Throwable ignored)
 				{}
 				String dimension = null;
 				try
 				{
-					dimension = mc.world.getRegistryKey().getValue().toString();
+					dimension = mc.level.dimension().location().toString();
 				}catch(Throwable ignored)
 				{}
 				
@@ -126,7 +125,7 @@ public class ChestCleaner
 						
 						// compute distance from player to nearest point in
 						// bounds
-						BlockPos playerPos = mc.player.getBlockPos();
+						BlockPos playerPos = mc.player.blockPosition();
 						int px = playerPos.getX();
 						int py = playerPos.getY();
 						int pz = playerPos.getZ();
@@ -167,15 +166,14 @@ public class ChestCleaner
 									try
 									{
 										@SuppressWarnings("deprecation")
-										boolean tmp =
-											mc.world.isChunkLoaded(pos);
+										boolean tmp = mc.level.hasChunkAt(pos);
 										chunkLoaded = tmp;
 									}catch(Throwable ignored)
 									{
 										try
 										{
 											Object cm =
-												mc.world.getChunkManager();
+												mc.level.getChunkSource();
 											java.lang.reflect.Method m =
 												cm.getClass().getMethod(
 													"isChunkLoaded", int.class,
@@ -193,18 +191,18 @@ public class ChestCleaner
 														// chunks loaded
 									}
 									
-									var state = mc.world.getBlockState(pos);
+									var state = mc.level.getBlockState(pos);
 									boolean containerBlock =
 										state != null && (state
-											.getBlock() instanceof net.minecraft.block.ChestBlock
+											.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
 											|| state
-												.getBlock() instanceof net.minecraft.block.BarrelBlock
+												.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock
 											|| state
-												.getBlock() instanceof net.minecraft.block.ShulkerBoxBlock
+												.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock
 											|| state
-												.getBlock() instanceof net.minecraft.block.DecoratedPotBlock);
+												.getBlock() instanceof net.minecraft.world.level.block.DecoratedPotBlock);
 									boolean hasBe =
-										mc.world.getBlockEntity(pos) != null;
+										mc.level.getBlockEntity(pos) != null;
 									if(containerBlock && hasBe)
 									{
 										anyContainerPresent = true;

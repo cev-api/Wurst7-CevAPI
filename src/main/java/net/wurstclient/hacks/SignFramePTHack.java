@@ -7,15 +7,15 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.block.AbstractSignBlock;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.RightClickListener;
 import net.wurstclient.hack.Hack;
@@ -62,14 +62,14 @@ public class SignFramePTHack extends Hack implements RightClickListener
 	public void onRightClick(RightClickEvent event)
 	{
 		// Respect vanilla item use cooldown
-		if(MC.itemUseCooldown > 0)
+		if(MC.rightClickDelay > 0)
 			return;
 		
 		// Only when the use key is pressed
-		if(!MC.options.useKey.isPressed())
+		if(!MC.options.keyUse.isDown())
 			return;
 		
-		HitResult hr = MC.crosshairTarget;
+		HitResult hr = MC.hitResult;
 		if(hr == null)
 			return;
 		
@@ -87,19 +87,19 @@ public class SignFramePTHack extends Hack implements RightClickListener
 			// position (if frames are enabled). If not found and signs are
 			// enabled, check whether the block is a sign.
 			bh = (BlockHitResult)hr;
-			Vec3d hitPos = bh.getPos();
+			Vec3 hitPos = bh.getLocation();
 			if(framesEnabled.isChecked())
 			{
-				for(Entity e : MC.world.getEntities())
+				for(Entity e : MC.level.entitiesForRendering())
 				{
-					if(!(e instanceof ItemFrameEntity))
+					if(!(e instanceof ItemFrame))
 						continue;
-					ItemFrameEntity frame = (ItemFrameEntity)e;
+					ItemFrame frame = (ItemFrame)e;
 					// Only consider frames that actually hold an item
-					ItemStack held = frame.getHeldItemStack();
+					ItemStack held = frame.getItem();
 					if(held == null || held.isEmpty())
 						continue;
-					Box box = EntityUtils.getLerpedBox(frame, 0.0f);
+					AABB box = EntityUtils.getLerpedBox(frame, 0.0f);
 					if(box.contains(hitPos))
 					{
 						ehr = new EntityHitResult(frame, hitPos);
@@ -113,8 +113,8 @@ public class SignFramePTHack extends Hack implements RightClickListener
 				if(blockResult != null && blockResult.getBlockPos() != null)
 				{
 					var pos = blockResult.getBlockPos();
-					var state = MC.world.getBlockState(pos);
-					if(state.getBlock() instanceof AbstractSignBlock)
+					var state = MC.level.getBlockState(pos);
+					if(state.getBlock() instanceof SignBlock)
 					{
 						signHit = true;
 					}
@@ -129,39 +129,39 @@ public class SignFramePTHack extends Hack implements RightClickListener
 		// enabled
 		if(ehr != null)
 		{
-			if(!(ehr.getEntity() instanceof ItemFrameEntity frame))
+			if(!(ehr.getEntity() instanceof ItemFrame frame))
 				return;
 			if(!framesEnabled.isChecked())
 				return;
-			ItemStack stack = frame.getHeldItemStack();
+			ItemStack stack = frame.getItem();
 			if(stack == null || stack.isEmpty())
 				return;
 			// If the player is sneaking (sneak key pressed), keep normal
 			// behavior
-			if(MC.options.sneakKey.isPressed())
+			if(MC.options.keyShift.isDown())
 				return;
 		}
 		
 		// For sign hits, also respect sneaking (keep normal interaction)
-		if(signHit && MC.options.sneakKey.isPressed())
+		if(signHit && MC.options.keyShift.isDown())
 			return;
 			
 		// Raycast from the player's eyes past the entity/block hit position to
 		// find the underlying block (the block the frame or sign is attached
 		// to). We extend the ray a bit past the hit so that the block behind
 		// the object is detected.
-		Vec3d eyes = RotationUtils.getEyesPos();
-		Vec3d target = null;
+		Vec3 eyes = RotationUtils.getEyesPos();
+		Vec3 target = null;
 		if(ehr != null)
-			target = ehr.getPos();
+			target = ehr.getLocation();
 		else if(bh != null)
-			target = bh.getPos();
+			target = bh.getLocation();
 		if(target == null)
 			return;
-		Vec3d look = RotationUtils.getServerLookVec();
+		Vec3 look = RotationUtils.getServerLookVec();
 		double dist = eyes.distanceTo(target);
 		double extend = 1.5; // extend beyond the frame/sign
-		Vec3d end = eyes.add(look.multiply(dist + extend));
+		Vec3 end = eyes.add(look.scale(dist + extend));
 		BlockHitResult bhit = BlockUtils.raycast(eyes, end);
 		if(bhit == null || bhit.getType() != HitResult.Type.BLOCK)
 			return;
@@ -172,7 +172,7 @@ public class SignFramePTHack extends Hack implements RightClickListener
 		// carrot) after opening the container.
 		event.cancel();
 		// match vanilla: set item use cooldown before simulating
-		MC.itemUseCooldown = 4;
+		MC.rightClickDelay = 4;
 		net.wurstclient.util.InteractionSimulator.rightClickBlock(bhit);
 	}
 }

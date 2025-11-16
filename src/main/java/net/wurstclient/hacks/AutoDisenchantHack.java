@@ -11,14 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import net.minecraft.client.gui.screen.ingame.GrindstoneScreen;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.registry.tag.EnchantmentTags;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.gui.screens.inventory.GrindstoneScreen;
+import net.minecraft.core.Holder;
+import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -77,12 +77,12 @@ public final class AutoDisenchantHack extends Hack
 			if(!isScreenValid(screen))
 				return;
 			
-			var handler = screen.getScreenHandler();
+			var handler = screen.getMenu();
 			List<Slot> slots = handler.slots;
 			if(slots.size() <= OUTPUT_SLOT)
 				return;
 			
-			if(!handler.getCursorStack().isEmpty())
+			if(!handler.getCarried().isEmpty())
 				return;
 			
 			clearInputSlots(screen);
@@ -95,7 +95,7 @@ public final class AutoDisenchantHack extends Hack
 					break;
 				
 				Slot slot = handler.slots.get(slotIndex);
-				ItemStack stack = slot.getStack();
+				ItemStack stack = slot.getItem();
 				if(stack.isEmpty())
 					continue;
 				
@@ -133,7 +133,7 @@ public final class AutoDisenchantHack extends Hack
 		for(int i = start; i < end; i++)
 		{
 			Slot slot = slots.get(i);
-			if(slot.getStack().isEmpty())
+			if(slot.getItem().isEmpty())
 				continue;
 			targets.add(i);
 		}
@@ -143,24 +143,24 @@ public final class AutoDisenchantHack extends Hack
 	private void disenchantSlot(GrindstoneScreen screen, int slotIndex)
 		throws InterruptedException
 	{
-		var handler = screen.getScreenHandler();
+		var handler = screen.getMenu();
 		Slot inventorySlot = handler.slots.get(slotIndex);
-		if(inventorySlot.getStack().isEmpty())
+		if(inventorySlot.getItem().isEmpty())
 			return;
 		
-		clickAndWait(screen, inventorySlot, SlotActionType.PICKUP);
+		clickAndWait(screen, inventorySlot, ClickType.PICKUP);
 		clickAndWait(screen, handler.slots.get(INPUT_TOP_SLOT),
-			SlotActionType.PICKUP);
+			ClickType.PICKUP);
 		
 		if(waitForOutput(screen))
 		{
 			Slot outputSlot = handler.slots.get(OUTPUT_SLOT);
-			if(outputSlot.hasStack())
-				clickAndWait(screen, outputSlot, SlotActionType.QUICK_MOVE);
+			if(outputSlot.hasItem())
+				clickAndWait(screen, outputSlot, ClickType.QUICK_MOVE);
 		}else
 		{
 			clickAndWait(screen, handler.slots.get(INPUT_TOP_SLOT),
-				SlotActionType.QUICK_MOVE);
+				ClickType.QUICK_MOVE);
 		}
 		
 		clearInputSlots(screen);
@@ -175,12 +175,12 @@ public final class AutoDisenchantHack extends Hack
 		// because the latter returns false for enchanted books.
 		
 		var enchantments =
-			EnchantmentHelper.getEnchantments(stack).getEnchantmentEntries();
+			EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet();
 		if(enchantments.isEmpty())
 			return false;
 		
-		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
-			if(!entry.getKey().isIn(EnchantmentTags.CURSE))
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
+			if(!entry.getKey().is(EnchantmentTags.CURSE))
 				return true;
 			
 		return false;
@@ -189,21 +189,21 @@ public final class AutoDisenchantHack extends Hack
 	private void clearInputSlots(GrindstoneScreen screen)
 		throws InterruptedException
 	{
-		var handler = screen.getScreenHandler();
+		var handler = screen.getMenu();
 		List<Slot> slots = handler.slots;
 		for(int i = INPUT_TOP_SLOT; i <= INPUT_BOTTOM_SLOT
 			&& i < slots.size(); i++)
 		{
 			Slot slot = slots.get(i);
-			if(slot.getStack().isEmpty())
+			if(slot.getItem().isEmpty())
 				continue;
 			
-			clickAndWait(screen, slot, SlotActionType.QUICK_MOVE);
+			clickAndWait(screen, slot, ClickType.QUICK_MOVE);
 		}
 	}
 	
 	private void clickAndWait(GrindstoneScreen screen, Slot slot,
-		SlotActionType action) throws InterruptedException
+		ClickType action) throws InterruptedException
 	{
 		if(slot == null)
 			return;
@@ -211,7 +211,7 @@ public final class AutoDisenchantHack extends Hack
 		if(Thread.currentThread().isInterrupted())
 			throw new InterruptedException();
 		
-		screen.onMouseClick(slot, slot.id, 0, action);
+		screen.slotClicked(slot, slot.index, 0, action);
 		sleep(clickDelay.getValueI());
 	}
 	
@@ -222,21 +222,21 @@ public final class AutoDisenchantHack extends Hack
 		long waited = 0;
 		while(waited < timeout && isScreenValid(screen))
 		{
-			Slot outputSlot = screen.getScreenHandler().slots.get(OUTPUT_SLOT);
-			if(outputSlot.hasStack())
+			Slot outputSlot = screen.getMenu().slots.get(OUTPUT_SLOT);
+			if(outputSlot.hasItem())
 				return true;
 			
 			Thread.sleep(50);
 			waited += 50;
 		}
 		
-		Slot outputSlot = screen.getScreenHandler().slots.get(OUTPUT_SLOT);
-		return outputSlot.hasStack();
+		Slot outputSlot = screen.getMenu().slots.get(OUTPUT_SLOT);
+		return outputSlot.hasItem();
 	}
 	
 	private boolean isScreenValid(GrindstoneScreen screen)
 	{
-		return MC.currentScreen == screen;
+		return MC.screen == screen;
 	}
 	
 	private void sleep(long millis) throws InterruptedException

@@ -17,19 +17,18 @@ import java.util.Set;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.MaceItem;
-import net.minecraft.item.TridentItem;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.TridentItem;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.MobWeaponRuleComponent;
@@ -111,7 +110,7 @@ public final class MobWeaponRuleSetting extends Setting
 		return entity.getType() == selectedMob.type();
 	}
 	
-	public int findPreferredHotbarSlot(ClientPlayerEntity player)
+	public int findPreferredHotbarSlot(LocalPlayer player)
 	{
 		if(player == null)
 			return -1;
@@ -182,12 +181,13 @@ public final class MobWeaponRuleSetting extends Setting
 	{
 		List<MobOption> options = new ArrayList<>();
 		options.add(ANY_OPTION);
-		Registries.ENTITY_TYPE.getIds().stream()
-			.map(Registries.ENTITY_TYPE::get)
-			.filter(type -> type.getSpawnGroup() != SpawnGroup.MISC)
+		BuiltInRegistries.ENTITY_TYPE.keySet().stream()
+			.map(BuiltInRegistries.ENTITY_TYPE::getValue)
+			.filter(type -> type.getCategory() != MobCategory.MISC)
 			.map(type -> {
-				Identifier id = Registries.ENTITY_TYPE.getId(type);
-				String name = type.getName().getString();
+				ResourceLocation id =
+					BuiltInRegistries.ENTITY_TYPE.getKey(type);
+				String name = type.getDescription().getString();
 				return new MobOption(id.toString(), name, type);
 			}).sorted(Comparator.comparing(MobOption::displayName,
 				String.CASE_INSENSITIVE_ORDER))
@@ -196,7 +196,7 @@ public final class MobWeaponRuleSetting extends Setting
 	}
 	
 	public record MobOption(String id, String displayName,
-		net.minecraft.entity.EntityType<?> type)
+		net.minecraft.world.entity.EntityType<?> type)
 	{
 		public boolean isAny()
 		{
@@ -226,7 +226,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.SWORDS);
+				return stack.is(ItemTags.SWORDS);
 			}
 		},
 		
@@ -235,7 +235,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.AXES);
+				return stack.is(ItemTags.AXES);
 			}
 		},
 		
@@ -244,7 +244,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.HOES);
+				return stack.is(ItemTags.HOES);
 			}
 		},
 		
@@ -253,7 +253,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.PICKAXES);
+				return stack.is(ItemTags.PICKAXES);
 			}
 		},
 		
@@ -262,7 +262,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.SHOVELS);
+				return stack.is(ItemTags.SHOVELS);
 			}
 		},
 		
@@ -291,14 +291,14 @@ public final class MobWeaponRuleSetting extends Setting
 			this.displayName = displayName;
 		}
 		
-		public int findBestSlot(PlayerInventory inventory)
+		public int findBestSlot(Inventory inventory)
 		{
 			int bestSlot = -1;
 			float bestScore = Float.NEGATIVE_INFINITY;
 			
 			for(int i = 0; i < 9; i++)
 			{
-				ItemStack stack = inventory.getStack(i);
+				ItemStack stack = inventory.getItem(i);
 				if(stack.isEmpty() || !matches(stack))
 					continue;
 				
@@ -320,8 +320,7 @@ public final class MobWeaponRuleSetting extends Setting
 		
 		protected float getDamageScore(Item item)
 		{
-			return (float)ItemUtils
-				.getAttribute(item, EntityAttributes.ATTACK_DAMAGE)
+			return (float)ItemUtils.getAttribute(item, Attributes.ATTACK_DAMAGE)
 				.orElse(0.0D);
 		}
 		

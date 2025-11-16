@@ -12,13 +12,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
-
-import net.minecraft.block.BedBlock;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.enums.BedPart;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.Setting;
@@ -27,7 +26,7 @@ import net.wurstclient.util.chunk.ChunkSearcher.Result;
 
 public final class BedEspBlockGroup
 {
-	private final ArrayList<Box> boxes = new ArrayList<>();
+	private final ArrayList<AABB> boxes = new ArrayList<>();
 	private final ColorSetting color;
 	private final CheckboxSetting enabled = null;
 	
@@ -45,25 +44,25 @@ public final class BedEspBlockGroup
 		if(!(state.getBlock() instanceof BedBlock))
 			return;
 		
-		if(state.get(BedBlock.PART) == BedPart.FOOT)
+		if(state.getValue(BedBlock.PART) == BedPart.FOOT)
 			return;
 		
 		BlockPos headPos = result.pos();
 		if(!BlockUtils.canBeClicked(headPos))
 			return;
 		
-		Box box = BlockUtils.getBoundingBox(headPos);
-		Direction facing = state.get(BedBlock.FACING);
-		BlockPos footPos = headPos.offset(facing.getOpposite());
+		AABB box = BlockUtils.getBoundingBox(headPos);
+		Direction facing = state.getValue(BedBlock.FACING);
+		BlockPos footPos = headPos.relative(facing.getOpposite());
 		
 		if(BlockUtils.canBeClicked(footPos))
 		{
 			BlockState otherState = BlockUtils.getState(footPos);
 			if(otherState.getBlock() instanceof BedBlock
-				&& otherState.get(BedBlock.PART) == BedPart.FOOT)
+				&& otherState.getValue(BedBlock.PART) == BedPart.FOOT)
 			{
-				Box footBox = BlockUtils.getBoundingBox(footPos);
-				box = box.union(footBox);
+				AABB footBox = BlockUtils.getBoundingBox(footPos);
+				box = box.minmax(footBox);
 			}
 		}
 		
@@ -90,7 +89,7 @@ public final class BedEspBlockGroup
 		return color.getColorI(alpha);
 	}
 	
-	public List<Box> getBoxes()
+	public List<AABB> getBoxes()
 	{
 		return Collections.unmodifiableList(boxes);
 	}
