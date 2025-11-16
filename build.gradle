@@ -189,6 +189,7 @@ tasks.configureEach {
 tasks.withType(JavaCompile).configureEach {
 	// Minecraft 1.20.5 (24w14a) upwards uses Java 21.
 	it.options.release = 21
+	it.options.compilerArgs += "-Xlint:deprecation"
 }
 
 java {

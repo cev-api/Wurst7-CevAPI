@@ -47,6 +47,7 @@
     "indigo.AbstractTerrainRenderContextMixin",
     "indigo.BlockRenderInfoMixin",
     "IngameHudMixin",
+    "ItemHandlerHudLateMixin",
     "InGameOverlayRendererMixin",
     "KeyBindingMixin",
     "KeyboardMixin",

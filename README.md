@@ -43,6 +43,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 I’m pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren’t found in any other clients or mods. Some are even original enough to stand on their own as full concepts. These include:
 
 - EnchantmentHandler
+- ItemHandler
 - ChestSearch
 - AutoDisenchant
 - AntiSocial
@@ -285,6 +286,21 @@ Because so many of these mods are entirely original, I plan to release some of t
 
 ### AntiBlast
 - Prevents push back from TNT, creeper explosions, respawn anchors, crystals, wither skulls, wither spawn explosions, ghast fireballs, breeze gusts (and wind charges) and other custom plugins/entities that use explosion physics.
+
+### ItemHandler
+- Jade-style Popup HUD and full GUI that lists nearby dropped items grouped by item id with aggregated counts (With optional registry IDs).
+- Able to select or reject which item/s to pick up when moving over them:
+  - Pick: reject (drop) everything except the selected types (only selected types will be picked up).
+  - Reject: reject the selected types and drop them.
+- Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
+- Adjustable distance for item detection.
+- Adjustable font scale setting (scales text and popup icon size).
+- Adjustable Popup HUD display offset X/Y
+- Respects ItemESP ignored list (optional) and provides link to edit the list.
+
+![Popup](https://i.imgur.com/W97borj.png)
+![GUI](https://i.imgur.com/eunLgVr.png)
+
 
 ## What’s changed or improved in this fork?
 

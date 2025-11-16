@@ -94,7 +94,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	
 	// Ignored items
 	private final CheckboxSetting useIgnoredItems = new CheckboxSetting(
-		"Use ignored items",
+		"Toggle ignoring items",
 		"When enabled, items from the ignored list will not be highlighted.",
 		false);
 	private final ItemListSetting ignoredList = new ItemListSetting(
@@ -198,6 +198,27 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		foundCount = 0;
 	}
 	
+	// Expose ignored-items configuration for other features (like ItemHandler)
+	public boolean shouldUseIgnoredItems()
+	{
+		return useIgnoredItems.isChecked();
+	}
+	
+	public ItemListSetting getIgnoredListSetting()
+	{
+		return ignoredList;
+	}
+	
+	public boolean isIgnoredId(String id)
+	{
+		if(id == null)
+			return false;
+		for(String s : ignoredList.getItemNames())
+			if(id.equalsIgnoreCase(s.trim()))
+				return true;
+		return false;
+	}
+	
 	@Override
 	public void onUpdate()
 	{
@@ -284,6 +305,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		ArrayList<AABB> specialBoxes = new ArrayList<>();
 		ArrayList<Vec3> normalEnds = new ArrayList<>();
 		ArrayList<Vec3> specialEnds = new ArrayList<>();
+		// traced items from ItemHandler: override and rainbow-highlight
+		ArrayList<AABB> tracedBoxes = new ArrayList<>();
+		ArrayList<Vec3> tracedEnds = new ArrayList<>();
 		
 		double extraSize = boxSize.getExtraSize() / 2;
 		int visibleDrops = 0;
@@ -300,17 +324,29 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			AABB box = EntityUtils.getLerpedBox(e, partialTicks)
 				.move(0, extraSize, 0).inflate(extraSize);
 			boolean isSpecial = isSpecial(stack);
+			// check traced override from ItemHandlerHack
+			String id =
+				BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+			net.wurstclient.hacks.itemhandler.ItemHandlerHack ih =
+				net.wurstclient.WurstClient.INSTANCE.getHax().itemHandlerHack;
+			boolean isTraced = ih != null && ih.isTraced(id);
 			visibleDrops++;
-			if(isSpecial)
+			if(isTraced)
+			{
+				tracedBoxes.add(box);
+				tracedEnds
+					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+			}else if(isSpecial)
+			{
 				specialBoxes.add(box);
-			else
+				specialEnds
+					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+			}else
+			{
 				normalBoxes.add(box);
-			
-			Vec3 center = EntityUtils.getLerpedBox(e, partialTicks).getCenter();
-			if(isSpecial)
-				specialEnds.add(center);
-			else
-				normalEnds.add(center);
+				normalEnds
+					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
+			}
 		}
 		foundCount = Math.min(visibleDrops, 999);
 		
@@ -436,6 +472,18 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 						specialLines, false);
 				}
 			}
+			
+			// Traced items: always rainbow-highlight (override)
+			if(!tracedBoxes.isEmpty())
+			{
+				float[] rf = RenderUtils.getRainbowColor();
+				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
+				int tracedQuads = RenderUtils.toIntColor(rf, 0.4f);
+				RenderUtils.drawSolidBoxes(matrixStack, tracedBoxes,
+					tracedQuads, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, tracedBoxes,
+					tracedLines, false);
+			}
 		}
 		
 		if(style.hasLines())
@@ -446,6 +494,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			if(!specialEnds.isEmpty())
 				RenderUtils.drawTracers(matrixStack, partialTicks, specialEnds,
 					specialLines, false);
+			// draw traced lines last with rainbow color
+			if(!tracedEnds.isEmpty())
+			{
+				float[] rf = RenderUtils.getRainbowColor();
+				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
+				RenderUtils.drawTracers(matrixStack, partialTicks, tracedEnds,
+					tracedLines, false);
+			}
 		}
 	}
 	

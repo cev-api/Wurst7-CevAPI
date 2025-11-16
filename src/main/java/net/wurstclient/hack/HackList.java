@@ -128,6 +128,8 @@ public final class HackList implements UpdateListener
 	public final InvWalkHack invWalkHack = new InvWalkHack();
 	public final ItemEspHack itemEspHack = new ItemEspHack();
 	public final ItemGeneratorHack itemGeneratorHack = new ItemGeneratorHack();
+	public final net.wurstclient.hacks.itemhandler.ItemHandlerHack itemHandlerHack =
+		new net.wurstclient.hacks.itemhandler.ItemHandlerHack();
 	public final SignFramePTHack signFramePTHack = new SignFramePTHack();
 	public final JesusHack jesusHack = new JesusHack();
 	public final JetpackHack jetpackHack = new JetpackHack();
