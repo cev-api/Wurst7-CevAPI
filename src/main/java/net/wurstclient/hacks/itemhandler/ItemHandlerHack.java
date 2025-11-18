@@ -12,6 +12,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ButtonSetting;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,6 +28,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.RenderListener;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.world.phys.AABB;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyBinding;
 import net.wurstclient.settings.Setting;
@@ -39,7 +45,8 @@ import com.google.gson.JsonObject;
 // no screen import needed; we embed ItemESP's editor component directly
 import net.wurstclient.util.InventoryUtils;
 
-public class ItemHandlerHack extends Hack implements UpdateListener
+public class ItemHandlerHack extends Hack
+	implements UpdateListener, RenderListener
 {
 	private static final double SCAN_RADIUS = 2.5;
 	// When the popup is set to "infinite", use this large but finite
@@ -83,7 +90,7 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 	
 	// Adjust popup/UI scale (affects text size and icon size heuristically)
 	private final SliderSetting popupScale = new SliderSetting(
-		"Popup font scale", 0.75, 0.5, 1.5, 0.05, ValueDisplay.DECIMAL);
+		"Popup HUD font scale", 0.75, 0.5, 1.5, 0.05, ValueDisplay.DECIMAL);
 	
 	// Respect ItemESP's ignored items list
 	private final CheckboxSetting respectItemEspIgnores =
@@ -101,6 +108,8 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 		setCategory(Category.ITEMS);
 		addPossibleKeybind("itemhandler gui",
 			"ItemHandler GUI (open manual pickup screen)");
+		// Top-level button to open the ItemHandler GUI from settings
+		addSetting(new ButtonSetting("Open ItemHandler GUI", this::openScreen));
 		addSetting(rejectRadius);
 		addSetting(rejectExpiry);
 		addSetting(hudEnabled);
@@ -118,6 +127,7 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(RenderListener.class, this);
 		trackedItems.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
@@ -127,6 +137,7 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(RenderListener.class, this);
 		trackedItems.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
@@ -202,6 +213,12 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 				continue;
 			
 			int gained = count - prev;
+			// if player gained items of this id, unmark tracing for that id
+			if(gained > 0 && tracedItems.contains(id))
+			{
+				tracedItems.remove(id);
+				ChatUtils.message("Untraced " + id + " after pickup.");
+			}
 			// Total rejected amount for this id (sum across rules that match
 			// player's position)
 			int totalRejected = 0;
@@ -336,7 +353,7 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 			{
 				net.wurstclient.hacks.ItemEspHack esp =
 					net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
-				if(esp != null && esp.shouldUseIgnoredItems())
+				if(esp != null)
 				{
 					String id =
 						net.minecraft.core.registries.BuiltInRegistries.ITEM
@@ -563,6 +580,46 @@ public class ItemHandlerHack extends Hack implements UpdateListener
 		{
 			return String.format(Locale.ROOT, "%.2f m", distance);
 		}
+	}
+	
+	@Override
+	public void onRender(PoseStack matrixStack, float partialTicks)
+	{
+		if(tracedItems.isEmpty())
+			return;
+		// Avoid duplicate rendering if ItemESP is enabled
+		net.wurstclient.hacks.ItemEspHack esp =
+			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+		if(esp != null && esp.isEnabled())
+			return;
+		
+		java.util.ArrayList<AABB> boxes = new java.util.ArrayList<>();
+		java.util.ArrayList<Vec3> ends = new java.util.ArrayList<>();
+		for(GroundItem gi : trackedItems)
+		{
+			String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
+				.getKey(gi.stack().getItem()).toString();
+			if(!isTraced(id))
+				continue;
+			Vec3 p = gi.position();
+			boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18, p.x + 0.18,
+				p.y + 0.18, p.z + 0.18));
+			ends.add(p);
+		}
+		if(boxes.isEmpty() && ends.isEmpty())
+			return;
+		float[] rf = RenderUtils.getRainbowColor();
+		int traceLines = RenderUtils.toIntColor(rf, 0.5f);
+		int traceQuads = RenderUtils.toIntColor(rf, 0.35f);
+		if(!boxes.isEmpty())
+		{
+			RenderUtils.drawSolidBoxes(matrixStack, boxes, traceQuads, false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, traceLines,
+				false);
+		}
+		if(!ends.isEmpty())
+			RenderUtils.drawTracers(matrixStack, partialTicks, ends, traceLines,
+				false);
 	}
 	
 	// Inline ItemESP ignored-items editor in ItemHandler settings

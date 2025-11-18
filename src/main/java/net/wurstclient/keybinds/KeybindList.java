@@ -117,21 +117,29 @@ public final class KeybindList
 	private static Set<Keybind> createDefaultKeybinds()
 	{
 		Set<Keybind> set = new LinkedHashSet<>();
+		addKB(set, "apostrophe", ".waypoints");
 		addKB(set, "b", "fastplace;fastbreak");
 		addKB(set, "c", "fullbright");
+		addKB(set, "comma", ".autosort");
 		addKB(set, "g", "flight");
-		addKB(set, "semicolon", "speednuker");
 		addKB(set, "h", "say /home");
 		addKB(set, "j", "jesus");
 		addKB(set, "k", "multiaura");
+		addKB(set, "keypad.7", "Blink");
+		addKB(set, "keypad.8", "SafeTP");
+		addKB(set, "keypad.add", "Panic");
+		addKB(set, "keypad.decimal", "panic restore");
+		addKB(set, "left.bracket", "ChestSearch");
+		addKB(set, "menu", "clickgui");
 		addKB(set, "n", "nuker");
-		addKB(set, "r", "killaura");
+		addKB(set, "r", "multiaura");
+		addKB(set, "right.alt", "WindChargeKey");
+		addKB(set, "right.bracket", ".setcheckbox breadcrumbs paused toggle");
 		addKB(set, "right.shift", "navigator");
-		addKB(set, "right.control", "clickgui");
+		addKB(set, "semicolon", "itemhandler gui");
 		addKB(set, "u", "freecam");
 		addKB(set, "x", "x-ray");
-		addKB(set, "y", "sneak");
-		// Default shortcut to open the Waypoints manager
+		addKB(set, "y", "ChestESP");
 		addKB(set, "apostrophe", ".waypoints");
 		return Collections.unmodifiableSet(set);
 	}
