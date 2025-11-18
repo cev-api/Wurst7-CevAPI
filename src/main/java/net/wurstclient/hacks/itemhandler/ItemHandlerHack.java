@@ -24,6 +24,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -73,7 +74,7 @@ public class ItemHandlerHack extends Hack
 		"Reject radius", 3.0, 0.5, 8.0, 0.25, ValueDisplay.DECIMAL);
 	
 	private final SliderSetting rejectExpiry = new SliderSetting(
-		"Reject rule expiry (s)", 15, 5, 3600, 1, ValueDisplay.INTEGER);
+		"Pickup/Drop timeout (s)", 15, 5, 120, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting hudEnabled =
 		new CheckboxSetting("Show item popup HUD", true);
 	
@@ -143,6 +144,7 @@ public class ItemHandlerHack extends Hack
 		pickupQueue.clear();
 		stopAutoWalk();
 		rejectedRules.clear();
+		endPickFilterSession();
 		
 		if(MC.screen instanceof ItemHandlerScreen)
 			MC.setScreen(null);
@@ -163,8 +165,23 @@ public class ItemHandlerHack extends Hack
 		updateWhitelist();
 		scanNearbyItems();
 		updateRejectedRules();
+		updatePickFilterTimeout();
 		processRejectedPickup();
 		processPickupQueue();
+	}
+	
+	private void updatePickFilterTimeout()
+	{
+		if(!pickFilterActive)
+			return;
+		if(pickFilterTimeoutMs <= 0)
+			return;
+		long now = System.currentTimeMillis();
+		if(now - pickFilterStartMs > pickFilterTimeoutMs)
+		{
+			endPickFilterSession();
+			ChatUtils.message("Pick filter: timeout reached, stopping.");
+		}
 	}
 	
 	private void updateRejectedRules()
@@ -218,6 +235,43 @@ public class ItemHandlerHack extends Hack
 			{
 				tracedItems.remove(id);
 				ChatUtils.message("Untraced " + id + " after pickup.");
+			}
+			
+			// Pick filter: drop any non-target pickups until a desired item
+			// is picked up, then stop the session.
+			if(pickFilterActive)
+			{
+				if(pickFilterIds.contains(id))
+				{
+					endPickFilterSession();
+					continue;
+				}
+				int remainingToDrop = gained;
+				while(remainingToDrop > 0)
+				{
+					int foundSlot = -1;
+					for(int s = 0; s < 45; s++)
+					{
+						var st = inventory.getItem(s);
+						if(st == null || st.isEmpty())
+							continue;
+						String sid =
+							net.minecraft.core.registries.BuiltInRegistries.ITEM
+								.getKey(st.getItem()).toString();
+						if(sid.equals(id))
+						{
+							foundSlot = s;
+							break;
+						}
+					}
+					if(foundSlot < 0)
+						break;
+					int networkSlot = InventoryUtils.toNetworkSlot(foundSlot);
+					IMC.getInteractionManager().windowClick_THROW(networkSlot);
+					remainingToDrop--;
+				}
+				// skip rejected-rules logic for this id
+				continue;
 			}
 			// Total rejected amount for this id (sum across rules that match
 			// player's position)
@@ -284,6 +338,38 @@ public class ItemHandlerHack extends Hack
 		prevInventoryCounts.putAll(cur);
 	}
 	
+	// Pick filter session: drop non-target pickups until target is picked.
+	private boolean pickFilterActive;
+	private final java.util.Set<String> pickFilterIds =
+		new java.util.HashSet<>();
+	
+	public void beginPickFilterSession(java.util.Set<String> desiredIds)
+	{
+		pickFilterIds.clear();
+		if(desiredIds != null)
+			pickFilterIds.addAll(desiredIds);
+		pickFilterActive = !pickFilterIds.isEmpty();
+		if(pickFilterActive)
+		{
+			pickFilterStartMs = System.currentTimeMillis();
+			pickFilterTimeoutMs = (long)(rejectExpiry.getValueI() * 1000L);
+			ChatUtils.message(
+				"Pick filter: dropping non-target pickups until target or timeout.");
+		}
+	}
+	
+	public void endPickFilterSession()
+	{
+		pickFilterActive = false;
+		pickFilterIds.clear();
+		pickFilterStartMs = 0L;
+		pickFilterTimeoutMs = 0L;
+	}
+	
+	// Timeout tracking for pick filter session
+	private long pickFilterStartMs;
+	private long pickFilterTimeoutMs;
+	
 	private static final class RejectedRule
 	{
 		final String itemId;
@@ -343,6 +429,12 @@ public class ItemHandlerHack extends Hack
 			player.getBoundingBox().inflate((float)scanRadius),
 			this::shouldTrack);
 		
+		// Also include XP orbs in the scan
+		List<ExperienceOrb> foundOrbs =
+			MC.level.getEntitiesOfClass(ExperienceOrb.class,
+				player.getBoundingBox().inflate((float)scanRadius),
+				o -> o != null && o.isAlive() && !o.isRemoved());
+		
 		trackedItems.clear();
 		for(ItemEntity entity : found)
 		{
@@ -356,8 +448,7 @@ public class ItemHandlerHack extends Hack
 				if(esp != null)
 				{
 					String id =
-						net.minecraft.core.registries.BuiltInRegistries.ITEM
-							.getKey(stack.getItem()).toString();
+						net.wurstclient.util.ItemUtils.getStackId(stack);
 					if(esp.isIgnoredId(id))
 						continue;
 				}
@@ -365,6 +456,51 @@ public class ItemHandlerHack extends Hack
 			trackedItems.add(new GroundItem(entity.getId(), entity.getUUID(),
 				stack, distance, entity.position()));
 		}
+		
+		for(ExperienceOrb orb : foundOrbs)
+		{
+			double distance = orb.distanceTo(player);
+			// proxy stack for UI only (contains synthetic id + xp metadata)
+			ItemStack stack =
+				net.wurstclient.util.ItemUtils.createSyntheticXpStack(orb);
+			trackedItems.add(new GroundItem(orb.getId(), orb.getUUID(), stack,
+				distance, orb.position()));
+		}
+		
+		// Auto-untrace: remove traced ids that no longer have tracked items
+		try
+		{
+			java.util.Set<String> present = new java.util.HashSet<>();
+			for(GroundItem gi : trackedItems)
+			{
+				String baseId =
+					net.wurstclient.util.ItemUtils.getStackId(gi.stack());
+				if(baseId == null)
+					baseId =
+						net.minecraft.core.registries.BuiltInRegistries.ITEM
+							.getKey(gi.stack().getItem()).toString();
+				if(net.wurstclient.util.ItemUtils.isSyntheticXp(gi.stack()))
+				{
+					int xp =
+						net.wurstclient.util.ItemUtils.getXpAmount(gi.stack());
+					present.add(baseId + ":xp:" + xp);
+				}else
+				{
+					present.add(baseId);
+				}
+			}
+			for(java.util.Iterator<String> it = tracedItems.iterator(); it
+				.hasNext();)
+			{
+				String t = it.next();
+				if(!present.contains(t))
+				{
+					it.remove();
+					ChatUtils.message("Untraced " + t + " after collection.");
+				}
+			}
+		}catch(Throwable ignored)
+		{}
 	}
 	
 	private boolean shouldTrack(ItemEntity entity)
@@ -597,9 +733,19 @@ public class ItemHandlerHack extends Hack
 		java.util.ArrayList<Vec3> ends = new java.util.ArrayList<>();
 		for(GroundItem gi : trackedItems)
 		{
-			String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
-				.getKey(gi.stack().getItem()).toString();
-			if(!isTraced(id))
+			String baseId =
+				net.wurstclient.util.ItemUtils.getStackId(gi.stack());
+			if(baseId == null)
+				baseId = net.minecraft.core.registries.BuiltInRegistries.ITEM
+					.getKey(gi.stack().getItem()).toString();
+			boolean traced = isTraced(baseId);
+			if(!traced
+				&& net.wurstclient.util.ItemUtils.isSyntheticXp(gi.stack()))
+			{
+				int xp = net.wurstclient.util.ItemUtils.getXpAmount(gi.stack());
+				traced = isTraced(baseId + ":xp:" + xp);
+			}
+			if(!traced)
 				continue;
 			Vec3 p = gi.position();
 			boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18, p.x + 0.18,

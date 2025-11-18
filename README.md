@@ -297,6 +297,7 @@ Because so many of these mods are entirely original, I plan to release some of t
 - Adjustable font scale setting (scales text and popup icon size).
 - Adjustable Popup HUD display offset X/Y
 - Respects ItemESP ignored list (optional) and provides link to edit the list.
+- Detects XP Orbs and shows the exact XP each orb will give
 
 ![Popup](https://i.imgur.com/W97borj.png)
 ![GUI](https://i.imgur.com/eunLgVr.png)
@@ -318,6 +319,7 @@ Highlights dropped, equipped, and framed items with powerful filters and customi
 - Robust parsing: lists accept unknown entries as keywords (safe parsing via `Identifier.tryParse`).  
 - Ignore list: using keywords or specific item names you can exclude items from being highlighted entirely.
 - Entity ignore: Can ignore other players, armor stands etc
+- Detects XP Orbs and allows for different coloring or disabling entirely.
 
 Examples:  
 - Highlight skulls → Item ID: `minecraft:player_head`, special color: magenta, outline-only ON.  
