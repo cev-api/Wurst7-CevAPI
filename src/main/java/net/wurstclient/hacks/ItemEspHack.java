@@ -22,6 +22,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -53,6 +54,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		LIST,
 		ITEM_ID,
 		QUERY
+	}
+	
+	private enum XpMode
+	{
+		OFF,
+		NORMAL,
+		SPECIAL,
+		RAINBOW
 	}
 	
 	private static final int MAX_SPECIAL_TEXT_LENGTH = 256;
@@ -122,6 +131,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Ignore villagers",
 			"Won't highlight equipped special items on villagers.", false);
 	
+	// XP orb handling mode
+	private final net.wurstclient.settings.EnumSetting<XpMode> xpMode =
+		new net.wurstclient.settings.EnumSetting<>("XP orb mode",
+			XpMode.values(), XpMode.NORMAL);
+	
 	// New: include item frames holding special items
 	private final CheckboxSetting includeItemFrames =
 		new CheckboxSetting("Highlight frames with special",
@@ -134,6 +148,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		false);
 	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
+	private final ArrayList<ExperienceOrb> xpOrbs = new ArrayList<>();
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
@@ -164,6 +179,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(specialRainbow);
 		addSetting(specialColor);
 		addSetting(outlineOnly);
+		addSetting(xpMode);
 		// ignored items
 		addSetting(useIgnoredItems);
 		addSetting(ignoredList);
@@ -223,11 +239,16 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	public void onUpdate()
 	{
 		items.clear();
+		xpOrbs.clear();
 		for(Entity entity : MC.level.entitiesForRendering())
-			if(entity instanceof ItemEntity)
-				items.add((ItemEntity)entity);
+		{
+			if(entity instanceof ItemEntity ie)
+				items.add(ie);
+			else if(entity instanceof ExperienceOrb xo)
+				xpOrbs.add(xo);
+		}
 		// update count for HUD (clamped to 999)
-		foundCount = Math.min(items.size(), 999);
+		foundCount = Math.min(items.size() + xpOrbs.size(), 999);
 	}
 	
 	@Override
@@ -324,12 +345,22 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			AABB box = EntityUtils.getLerpedBox(e, partialTicks)
 				.move(0, extraSize, 0).inflate(extraSize);
 			boolean isSpecial = isSpecial(stack);
-			// check traced override from ItemHandlerHack
-			String id =
-				BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+			// check traced override from ItemHandlerHack (use synthetic id if
+			// present)
+			String id = net.wurstclient.util.ItemUtils.getStackId(stack);
 			net.wurstclient.hacks.itemhandler.ItemHandlerHack ih =
 				net.wurstclient.WurstClient.INSTANCE.getHax().itemHandlerHack;
-			boolean isTraced = ih != null && ih.isTraced(id);
+			boolean isTraced = false;
+			if(ih != null && id != null)
+			{
+				isTraced = ih.isTraced(id);
+				if(!isTraced
+					&& net.wurstclient.util.ItemUtils.isSyntheticXp(stack))
+				{
+					int xp = net.wurstclient.util.ItemUtils.getXpAmount(stack);
+					isTraced = ih.isTraced(id + ":xp:" + xp);
+				}
+			}
 			visibleDrops++;
 			if(isTraced)
 			{
@@ -349,6 +380,63 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 		}
 		foundCount = Math.min(visibleDrops, 999);
+		
+		// Integrate XP orbs into boxes/ends as synthetic items
+		for(ExperienceOrb orb : xpOrbs)
+		{
+			if(onlyAboveGround.isChecked()
+				&& orb.getY() < aboveGroundY.getValue())
+				continue;
+			// synthetic proxy stack for rendering and UI
+			net.minecraft.world.item.ItemStack stack =
+				net.wurstclient.util.ItemUtils.createSyntheticXpStack(orb);
+			if(isIgnored(stack))
+				continue;
+			Vec3 center =
+				EntityUtils.getLerpedBox(orb, partialTicks).getCenter();
+			AABB box = smallBoxAt(center);
+			// decide how to render XP orbs based on user setting and trace
+			XpMode mode = xpMode.getSelected();
+			if(mode == XpMode.OFF)
+				continue;
+			String id = "minecraft:experience_orb";
+			net.wurstclient.hacks.itemhandler.ItemHandlerHack ih =
+				net.wurstclient.WurstClient.INSTANCE.getHax().itemHandlerHack;
+			boolean isTraced = false;
+			if(ih != null)
+			{
+				isTraced = ih.isTraced(id);
+				int xp = net.wurstclient.util.ItemUtils.getXpAmount(stack);
+				if(!isTraced)
+					isTraced = ih.isTraced(id + ":xp:" + xp);
+			}
+			visibleDrops++;
+			if(isTraced)
+			{
+				tracedBoxes.add(box);
+				tracedEnds.add(center);
+			}else
+			{
+				switch(mode)
+				{
+					case RAINBOW ->
+					{
+						tracedBoxes.add(box);
+						tracedEnds.add(center);
+					}
+					case SPECIAL ->
+					{
+						specialBoxes.add(box);
+						specialEnds.add(center);
+					}
+					default ->
+					{
+						normalBoxes.add(box);
+						normalEnds.add(center);
+					}
+				}
+			}
+		}
 		
 		// Item frames holding special items
 		if(includeItemFrames.isChecked())
@@ -520,20 +608,28 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return false;
 		if(ignoredExactIds == null || ignoredExactIds.isEmpty())
 			return false;
-		ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+		String id = net.wurstclient.util.ItemUtils.getStackId(stack);
 		if(id == null)
 			return false;
-		return ignoredExactIds.contains(id.toString());
+		if(ignoredExactIds != null && ignoredExactIds.contains(id))
+			return true;
+		// fallback: allow raw ignored list entries (useful for synthetic ids)
+		for(String s : ignoredList.getItemNames())
+			if(id.equalsIgnoreCase(s.trim()))
+				return true;
+		return false;
 	}
 	
 	private boolean isSpecial(ItemStack stack)
 	{
 		Item item = stack.getItem();
+		String stackId = net.wurstclient.util.ItemUtils.getStackId(stack);
 		switch(specialMode.getSelected())
 		{
 			case LIST:
 			{
-				String id = BuiltInRegistries.ITEM.getKey(item).toString();
+				String id = stackId != null ? stackId
+					: BuiltInRegistries.ITEM.getKey(item).toString();
 				if(specialExactIds != null && specialExactIds.contains(id))
 					return true;
 				String localId =
@@ -554,7 +650,13 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				return false;
 			}
 			case ITEM_ID:
-			return itemMatchesId(item, specialItemId.getValue());
+			{
+				if(stackId != null && specialItemId.getValue() != null
+					&& stackId
+						.equalsIgnoreCase(specialItemId.getValue().trim()))
+					return true;
+				return itemMatchesId(item, specialItemId.getValue());
+			}
 			case QUERY:
 			return itemOrStackMatchesQuery(item, stack,
 				normalizeQuery(specialQuery.getValue()));
@@ -590,7 +692,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	{
 		if(normalizedQuery.isEmpty())
 			return false;
-		String fullId = BuiltInRegistries.ITEM.getKey(item).toString();
+		String stackId = net.wurstclient.util.ItemUtils.getStackId(stack);
+		String fullId = stackId != null ? stackId
+			: BuiltInRegistries.ITEM.getKey(item).toString();
 		String localId = fullId.contains(":")
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
 		String localSpaced = localId.replace('_', ' ');
