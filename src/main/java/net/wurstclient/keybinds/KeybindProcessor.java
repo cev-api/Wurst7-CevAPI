@@ -8,6 +8,7 @@
 package net.wurstclient.keybinds;
 
 import org.lwjgl.glfw.GLFW;
+import java.util.Locale;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
@@ -43,7 +44,12 @@ public final class KeybindProcessor implements KeyPressListener
 			return;
 		
 		Screen screen = WurstClient.MC.screen;
-		if(screen != null && !(screen instanceof ClickGuiScreen))
+		// Allow processing when no screen is open, when the Click GUI is open,
+		// or when Waypoints or ItemHandler screens are open so their keybinds
+		// can toggle/close them with the same key.
+		if(screen != null && !(screen instanceof ClickGuiScreen)
+			&& !(screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
+			&& !(screen instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen))
 			return;
 			
 		// if ClickGuiScreen is open and user typed a printable key, open
@@ -109,11 +115,45 @@ public final class KeybindProcessor implements KeyPressListener
 	
 	private void processCmd(String cmd)
 	{
+		String trimmed = cmd.trim();
+		// Special-case: toggle Waypoints manager when bound to ".waypoints"
+		if(trimmed.equalsIgnoreCase(".waypoints"))
+		{
+			// If Waypoints screen is open, close it; otherwise open manager
+			if(net.minecraft.client.Minecraft
+				.getInstance().screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
+			{
+				net.minecraft.client.Minecraft.getInstance().setScreen(null);
+				return;
+			}
+			// open via hack utility
+			WurstClient.INSTANCE.getHax().waypointsHack.openManager();
+			return;
+		}
+		
 		if(cmd.startsWith("."))
 			cmdProcessor.process(cmd.substring(1));
 		else if(cmd.contains(" "))
+		{
+			// special-case: open/close ItemHandler GUI when key bound to
+			// "itemhandler gui"
+			String lower = cmd.toLowerCase(Locale.ROOT).trim();
+			if(lower.equals("itemhandler gui"))
+			{
+				net.minecraft.client.gui.screens.Screen s =
+					net.minecraft.client.Minecraft.getInstance().screen;
+				if(s instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen)
+				{
+					net.minecraft.client.Minecraft.getInstance()
+						.setScreen(null);
+					return;
+				}
+				// Open ItemHandler screen via hack utility when not open
+				WurstClient.INSTANCE.getHax().itemHandlerHack.openScreen();
+				return;
+			}
 			cmdProcessor.process(cmd);
-		else
+		}else
 		{
 			Hack hack = hax.getHackByName(cmd);
 			
