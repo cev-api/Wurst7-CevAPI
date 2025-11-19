@@ -620,7 +620,19 @@ public final class QuickShulkerHack extends Hack
 			if(BlockUtils.getState(pos).isAir())
 				return true;
 			
-			if(!BlockBreaker.breakOneBlock(pos))
+			final BlockPos fpos = pos;
+			final boolean[] started = new boolean[1];
+			WurstClient.MC.execute(() -> {
+				try
+				{
+					started[0] = BlockBreaker.breakOneBlock(fpos);
+				}catch(Throwable ignored)
+				{
+					started[0] = false;
+				}
+			});
+			
+			if(!started[0])
 				safeSleep(50);
 			
 			safeSleep(60);
@@ -632,10 +644,21 @@ public final class QuickShulkerHack extends Hack
 	{
 		for(int attempt = 0; attempt < 3; attempt++)
 		{
-			if(BlockPlacer.placeOneBlock(pos))
-				return true;
+			final BlockPos fpos = pos;
+			final boolean[] placed = new boolean[1];
+			WurstClient.MC.execute(() -> {
+				try
+				{
+					placed[0] = BlockPlacer.placeOneBlock(fpos);
+				}catch(Throwable ignored)
+				{
+					placed[0] = false;
+				}
+			});
 			
 			safeSleep(80);
+			if(placed[0])
+				return true;
 		}
 		return BlockUtils.getBlock(pos) instanceof ShulkerBoxBlock;
 	}
