@@ -58,6 +58,7 @@ public final class ClickGui
 	private int maxHeight;
 	private int maxSettingsHeight;
 	private boolean isolateWindows;
+	private int windowLayers;
 	
 	private String tooltip = "";
 	
@@ -575,6 +576,7 @@ public final class ClickGui
 		float partialTicks)
 	{
 		updateColors();
+		windowLayers = 0;
 		
 		Matrix3x2fStack matrixStack = context.pose();
 		matrixStack.pushMatrix();
@@ -612,7 +614,7 @@ public final class ClickGui
 		else
 			for(Window window : visibleWindows)
 			{
-				context.state.goUpLayer();
+				pushWindowLayer(context);
 				renderWindow(context, window, mouseX, mouseY, partialTicks);
 			}
 		
@@ -622,6 +624,7 @@ public final class ClickGui
 		matrixStack.popMatrix();
 		for(int i = 0; i < windowLayers; i++)
 			context.guiRenderState.down();
+		windowLayers = 0;
 	}
 	
 	public void renderPopups(GuiGraphics context, int mouseX, int mouseY)
@@ -706,15 +709,24 @@ public final class ClickGui
 			return;
 		
 		if(isolateWindows)
+		{
+			int previousLayers = windowLayers;
+			windowLayers = 0;
 			renderWindowsWithIsolation(context, pinnedWindows,
 				Integer.MIN_VALUE, Integer.MIN_VALUE, partialTicks);
-		else
+			for(int i = 0; i < windowLayers; i++)
+				context.guiRenderState.down();
+			windowLayers = previousLayers;
+		}else
+		{
 			for(Window window : pinnedWindows)
 			{
-				context.state.goUpLayer();
+				context.guiRenderState.up();
 				renderWindow(context, window, Integer.MIN_VALUE,
 					Integer.MIN_VALUE, partialTicks);
+				context.guiRenderState.down();
 			}
+		}
 	}
 	
 	public void updateColors()
@@ -968,7 +980,7 @@ public final class ClickGui
 		return isolateWindows;
 	}
 	
-	private void renderWindowsWithIsolation(DrawContext context,
+	private void renderWindowsWithIsolation(GuiGraphics context,
 		List<Window> windowsToRender, int mouseX, int mouseY,
 		float partialTicks)
 	{
@@ -986,11 +998,17 @@ public final class ClickGui
 			for(Rect rect : visibleAreas)
 			{
 				context.enableScissor(rect.x1, rect.y1, rect.x2, rect.y2);
-				context.state.goUpLayer();
+				pushWindowLayer(context);
 				renderWindow(context, window, mouseX, mouseY, partialTicks);
 				context.disableScissor();
 			}
 		}
+	}
+	
+	private void pushWindowLayer(GuiGraphics context)
+	{
+		context.guiRenderState.up();
+		windowLayers++;
 	}
 	
 	private List<List<Rect>> buildOcclusionMasks(List<Window> windowsToRender)

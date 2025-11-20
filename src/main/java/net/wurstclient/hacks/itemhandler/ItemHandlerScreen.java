@@ -382,45 +382,41 @@ public class ItemHandlerScreen extends Screen
 			}
 			
 			@Override
-			public void renderContent(GuiGraphics context, int mouseX,
-				int mouseY, boolean hovered, float tickDelta)
+			public void render(GuiGraphics context, int index, int y, int x,
+				int entryWidth, int entryHeight, int mouseX, int mouseY,
+				boolean hovered, float tickDelta)
 			{
-				int x = getContentX();
-				int y = getContentY();
-				RenderUtils.drawItem(context, group.rep, x + 1, y + 1, true);
+				int contentX = x + 1;
+				int contentY = y + 1;
+				RenderUtils.drawItem(context, group.rep, contentX, contentY,
+					true);
 				
 				Font tr = minecraft.font;
 				context.drawString(tr, group.rep.getHoverName().getString(),
-					x + 36, y + 2, 0xFFFFFFFF, false);
-				// registry ID under the name (use synthetic id when present)
+					contentX + 36, contentY + 2, 0xFFFFFFFF, false);
 				String regId =
 					net.wurstclient.util.ItemUtils.getStackId(group.rep);
 				if(regId == null)
 					regId = net.minecraft.core.registries.BuiltInRegistries.ITEM
 						.getKey(group.rep.getItem()).toString();
-				context.drawString(tr, regId, x + 36, y + 12, 0xFF909090,
-					false);
+				context.drawString(tr, regId, contentX + 36, contentY + 12,
+					0xFF909090, false);
 				
-				// Right-aligned integer distance (slightly smaller)
 				String dist = ((int)Math.round(group.closest)) + " blocks";
-				int distX = getContentX() + parent.getRowWidth()
+				int distX = contentX + parent.getRowWidth()
 					- (int)Math.round(tr.width(dist) * 0.9) - 4;
-				RenderUtils.drawScaledText(context, tr, dist, distX, y + 2,
-					0xFFBBBBBB, false, 0.9);
+				RenderUtils.drawScaledText(context, tr, dist, distX,
+					contentY + 2, 0xFFBBBBBB, false, 0.9);
 				
-				// Count overlay on icon (bottom-right) with shadow
 				String cnt = String.valueOf(group.total);
-				int iconX = x + 1, iconY = y + 1;
+				int iconX = contentX, iconY = contentY;
 				int cW = tr.width(cnt);
-				// Nudge further down and right for better readability
-				int textX = iconX + 24 - cW + 2; // ~3px further right vs
-													// previous
-				int textY = iconY + 24 - 4; // ~3px further down vs previous
+				int textX = iconX + 24 - cW + 2;
+				int textY = iconY + 24 - 4;
 				context.drawString(tr, cnt, textX + 1, textY + 1, 0xFF000000,
 					false);
 				context.drawString(tr, cnt, textX, textY, 0xFFFFFFFF, false);
 				
-				// Traced indicator: thicker rainbow border and label
 				String traceId = group.selectionId != null ? group.selectionId
 					: group.itemId;
 				if(hack.isTraced(traceId))
@@ -431,8 +427,8 @@ public class ItemHandlerScreen extends Screen
 						iconX + 25, iconY + 25, col);
 					RenderUtils.drawBorder2D(context, iconX, iconY, iconX + 24,
 						iconY + 24, col);
-					context.drawString(tr, "TRACED", x + 36, y + 22, 0xFF55FF55,
-						false);
+					context.drawString(tr, "TRACED", contentX + 36,
+						contentY + 22, 0xFF55FF55, false);
 				}
 			}
 			

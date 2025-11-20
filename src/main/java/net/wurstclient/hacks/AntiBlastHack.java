@@ -7,7 +7,7 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -40,16 +40,16 @@ public final class AntiBlastHack extends Hack
 		addSetting(vStrength);
 	}
 	
-	public Vec3d modifyKnockback(double defaultX, double defaultY,
+	public Vec3 modifyKnockback(double defaultX, double defaultY,
 		double defaultZ)
 	{
 		if(!isEnabled())
-			return new Vec3d(defaultX, defaultY, defaultZ);
+			return new Vec3(defaultX, defaultY, defaultZ);
 		
 		double horizontalMultiplier = 1 - hStrength.getValue();
 		double verticalMultiplier = 1 - vStrength.getValue();
 		
-		return new Vec3d(defaultX * horizontalMultiplier,
+		return new Vec3(defaultX * horizontalMultiplier,
 			defaultY * verticalMultiplier, defaultZ * horizontalMultiplier);
 	}
 }

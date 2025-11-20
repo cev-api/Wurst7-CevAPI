@@ -152,7 +152,7 @@ public final class XRayHack extends Hack implements UpdateListener,
 	private java.util.List<BlockPos> highlightPositions =
 		new java.util.ArrayList<>();
 	private boolean visibleBoxesUpToDate = false;
-	private java.util.List<Box> visibleBoxes = new java.util.ArrayList<>();
+	private java.util.List<AABB> visibleBoxes = new java.util.ArrayList<>();
 	private int lastMatchesVersion;
 	
 	// Debounce to avoid flashing when coordinator updates rapidly (e.g., on

@@ -18,15 +18,18 @@ import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.CommonListenerCookie;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.Connection;
 import net.minecraft.network.TickablePacketListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ChatUtils;
 
@@ -99,26 +102,26 @@ public abstract class ClientPlayNetworkHandlerMixin
 	}
 	
 	@Inject(
-		method = "onExplosion(Lnet/minecraft/network/packet/s2c/play/ExplosionS2CPacket;)V",
+		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
 		at = @At(value = "INVOKE",
 			target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"),
 		cancellable = true)
-	private void wurst$handleExplosionKnockback(ExplosionS2CPacket packet,
+	private void wurst$handleExplosionKnockback(ClientboundExplodePacket packet,
 		CallbackInfo ci)
 	{
-		ClientPlayerEntity player = client.player;
+		LocalPlayer player = minecraft.player;
 		if(player == null)
 			return;
 		
-		Optional<Vec3d> knockback = packet.playerKnockback();
+		Optional<Vec3> knockback = packet.playerKnockback();
 		if(knockback.isEmpty())
 			return;
 		
-		Vec3d vec = knockback.get();
-		Vec3d adjusted = WurstClient.INSTANCE.getHax().antiBlastHack
+		Vec3 vec = knockback.get();
+		Vec3 adjusted = WurstClient.INSTANCE.getHax().antiBlastHack
 			.modifyKnockback(vec.x, vec.y, vec.z);
 		
-		player.addVelocity(adjusted.x, adjusted.y, adjusted.z);
+		player.setDeltaMovement(player.getDeltaMovement().add(adjusted));
 		ci.cancel();
 	}
 }

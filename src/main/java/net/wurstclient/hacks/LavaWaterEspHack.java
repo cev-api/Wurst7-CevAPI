@@ -120,7 +120,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);

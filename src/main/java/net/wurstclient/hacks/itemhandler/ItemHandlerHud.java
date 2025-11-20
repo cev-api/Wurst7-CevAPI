@@ -192,7 +192,7 @@ public class ItemHandlerHud
 		boolean overList = mouseX >= ex && mouseX <= ex + boxWidth
 			&& mouseY >= ey && mouseY <= ey + height;
 		Window window = MC.getWindow();
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
+		boolean leftDown = GLFW.glfwGetMouseButton(window.getWindow(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 		if(overList && leftDown && !lastLeftDown)
 			hack.openScreen();
