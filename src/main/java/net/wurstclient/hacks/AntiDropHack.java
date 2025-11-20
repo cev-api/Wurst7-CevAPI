@@ -7,8 +7,8 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -80,7 +80,8 @@ public final class AntiDropHack extends Hack
 		if(stack == null || stack.isEmpty())
 			return false;
 		
-		String itemName = Registries.ITEM.getId(stack.getItem()).toString();
+		String itemName =
+			BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 		return items.getItemNames().contains(itemName);
 	}
 	

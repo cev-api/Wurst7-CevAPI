@@ -8,8 +8,7 @@
 package net.wurstclient.events;
 
 import java.util.ArrayList;
-
-import net.minecraft.block.BlockState;
+import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
 

@@ -17,25 +17,24 @@ import java.util.Set;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.SpawnGroup;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.MaceItem;
-import net.minecraft.item.TridentItem;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.TridentItem;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.components.MobWeaponRuleComponent;
@@ -117,7 +116,7 @@ public final class MobWeaponRuleSetting extends Setting
 		return entity.getType() == selectedMob.type();
 	}
 	
-	public int findPreferredHotbarSlot(ClientPlayerEntity player)
+	public int findPreferredHotbarSlot(LocalPlayer player)
 	{
 		if(player == null)
 			return -1;
@@ -209,13 +208,13 @@ public final class MobWeaponRuleSetting extends Setting
 		options.add(ANY_OPTION);
 		
 		Registry<EntityType<?>> registry = resolveEntityRegistry();
-		for(Identifier id : registry.getIds())
+		for(ResourceLocation id : registry.keySet())
 		{
-			EntityType<?> type = registry.get(id);
-			if(type == null || type.getSpawnGroup() == SpawnGroup.MISC)
+			EntityType<?> type = registry.getValue(id);
+			if(type == null || type.getCategory() == MobCategory.MISC)
 				continue;
 			
-			String name = type.getName().getString();
+			String name = type.getDescription().getString();
 			options.add(new MobOption(id.toString(), name, type));
 		}
 		
@@ -226,41 +225,41 @@ public final class MobWeaponRuleSetting extends Setting
 	
 	private static Registry<EntityType<?>> resolveEntityRegistry()
 	{
-		MinecraftClient mc = WurstClient.MC;
+		Minecraft mc = WurstClient.MC;
 		if(mc != null)
 		{
-			if(mc.world != null)
+			if(mc.level != null)
 			{
 				Registry<EntityType<?>> worldRegistry =
-					getRegistryFromManager(mc.world.getRegistryManager());
+					getRegistryFromManager(mc.level.registryAccess());
 				if(worldRegistry != null)
 					return worldRegistry;
 			}
 			
-			ClientPlayNetworkHandler handler = mc.getNetworkHandler();
+			ClientPacketListener handler = mc.getConnection();
 			if(handler != null)
 			{
 				Registry<EntityType<?>> networkRegistry =
-					getRegistryFromManager(handler.getRegistryManager());
+					getRegistryFromManager(handler.registryAccess());
 				if(networkRegistry != null)
 					return networkRegistry;
 			}
 		}
 		
-		return Registries.ENTITY_TYPE;
+		return BuiltInRegistries.ENTITY_TYPE;
 	}
 	
 	private static Registry<EntityType<?>> getRegistryFromManager(
-		DynamicRegistryManager manager)
+		RegistryAccess manager)
 	{
 		if(manager == null)
 			return null;
 		
-		return manager.getOptional(RegistryKeys.ENTITY_TYPE).orElse(null);
+		return manager.lookup(Registries.ENTITY_TYPE).orElse(null);
 	}
 	
 	public record MobOption(String id, String displayName,
-		net.minecraft.entity.EntityType<?> type)
+		net.minecraft.world.entity.EntityType<?> type)
 	{
 		public boolean isAny()
 		{
@@ -290,7 +289,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.SWORDS);
+				return stack.is(ItemTags.SWORDS);
 			}
 		},
 		
@@ -299,7 +298,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.AXES);
+				return stack.is(ItemTags.AXES);
 			}
 		},
 		
@@ -308,7 +307,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.HOES);
+				return stack.is(ItemTags.HOES);
 			}
 		},
 		
@@ -317,7 +316,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.PICKAXES);
+				return stack.is(ItemTags.PICKAXES);
 			}
 		},
 		
@@ -326,7 +325,7 @@ public final class MobWeaponRuleSetting extends Setting
 			@Override
 			protected boolean matches(ItemStack stack)
 			{
-				return stack.isIn(ItemTags.SHOVELS);
+				return stack.is(ItemTags.SHOVELS);
 			}
 		},
 		
@@ -355,14 +354,14 @@ public final class MobWeaponRuleSetting extends Setting
 			this.displayName = displayName;
 		}
 		
-		public int findBestSlot(PlayerInventory inventory)
+		public int findBestSlot(Inventory inventory)
 		{
 			int bestSlot = -1;
 			float bestScore = Float.NEGATIVE_INFINITY;
 			
 			for(int i = 0; i < 9; i++)
 			{
-				ItemStack stack = inventory.getStack(i);
+				ItemStack stack = inventory.getItem(i);
 				if(stack.isEmpty() || !matches(stack))
 					continue;
 				
@@ -384,8 +383,7 @@ public final class MobWeaponRuleSetting extends Setting
 		
 		protected float getDamageScore(Item item)
 		{
-			return (float)ItemUtils
-				.getAttribute(item, EntityAttributes.ATTACK_DAMAGE)
+			return (float)ItemUtils.getAttribute(item, Attributes.ATTACK_DAMAGE)
 				.orElse(0.0D);
 		}
 		

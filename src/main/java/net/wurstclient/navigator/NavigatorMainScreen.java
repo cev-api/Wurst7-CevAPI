@@ -11,12 +11,11 @@ import java.awt.Rectangle;
 import java.util.ArrayList;
 
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
@@ -29,7 +28,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 {
 	private static final ArrayList<Feature> navigatorDisplayList =
 		new ArrayList<>();
-	private TextFieldWidget searchBar;
+	private EditBox searchBar;
 	private String lastSearchText = "";
 	private String tooltip;
 	private int hoveredFeature = -1;
@@ -63,13 +62,13 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		int txtColor = gui.getTxtColor();
 		
-		TextRenderer tr = WurstClient.MC.textRenderer;
-		searchBar = new TextFieldWidget(tr, 0, 32, 200, 20, Text.literal(""));
-		searchBar.setEditableColor(txtColor);
-		searchBar.setDrawsBackground(false);
+		Font tr = WurstClient.MC.font;
+		searchBar = new EditBox(tr, 0, 32, 200, 20, Component.literal(""));
+		searchBar.setTextColor(txtColor);
+		searchBar.setBordered(false);
 		searchBar.setMaxLength(128);
 		
-		addSelectableChild(searchBar);
+		addWidget(searchBar);
 		setFocused(searchBar);
 		searchBar.setFocused(true);
 		
@@ -78,7 +77,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// if we have an initial search text, populate the search bar
 		if(!initialSearchText.isEmpty())
 		{
-			searchBar.setText(initialSearchText);
+			searchBar.setValue(initialSearchText);
 			lastSearchText = ""; // force update on next tick
 		}
 		setContentHeight(navigatorDisplayList.size() / 3 * 20);
@@ -184,7 +183,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 	@Override
 	protected void onUpdate()
 	{
-		String newText = searchBar.getText();
+		String newText = searchBar.getValue();
 		if(clickTimer == -1 && !newText.equals(lastSearchText))
 		{
 			Navigator navigator = WurstClient.INSTANCE.getNavigator();
@@ -221,7 +220,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 	}
 	
 	@Override
-	protected void onRender(DrawContext context, int mouseX, int mouseY,
+	protected void onRender(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
@@ -233,8 +232,8 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// search bar
 		if(!clickTimerRunning)
 		{
-			context.drawTextWithShadow(WurstClient.MC.textRenderer, "Search: ",
-				middleX - 150, 32, txtColor);
+			context.drawString(WurstClient.MC.font, "Search: ", middleX - 150,
+				32, txtColor);
 			searchBar.render(context, mouseX, mouseY, partialTicks);
 		}
 		
@@ -265,21 +264,21 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// tooltip
 		if(tooltip != null)
 		{
-			context.state.goUpLayer();
+			context.guiRenderState.up();
 			
 			String[] lines = tooltip.split("\n");
-			TextRenderer tr = client.textRenderer;
+			Font tr = minecraft.font;
 			
 			int tw = 0;
-			int th = lines.length * tr.fontHeight;
+			int th = lines.length * tr.lineHeight;
 			for(String line : lines)
 			{
-				int lw = tr.getWidth(line);
+				int lw = tr.width(line);
 				if(lw > tw)
 					tw = lw;
 			}
-			int sw = client.currentScreen.width;
-			int sh = client.currentScreen.height;
+			int sw = minecraft.screen.width;
+			int sh = minecraft.screen.height;
 			
 			int xt1 = mouseX + tw + 11 <= sw ? mouseX + 8 : mouseX - tw - 8;
 			int xt2 = xt1 + tw + 3;
@@ -296,17 +295,17 @@ public final class NavigatorMainScreen extends NavigatorScreen
 			RenderUtils.drawBorder2D(context, xt1, yt1, xt2, yt2, acColor);
 			
 			// text
-			context.state.goUpLayer();
+			context.guiRenderState.up();
 			for(int i = 0; i < lines.length; i++)
-				context.drawText(tr, lines[i], xt1 + 2,
-					yt1 + 2 + i * tr.fontHeight, txtColor, false);
-			context.state.goDownLayer();
+				context.drawString(tr, lines[i], xt1 + 2,
+					yt1 + 2 + i * tr.lineHeight, txtColor, false);
+			context.guiRenderState.down();
 			
-			context.state.goDownLayer();
+			context.guiRenderState.down();
 		}
 	}
 	
-	private void renderFeature(DrawContext context, int mouseX, int mouseY,
+	private void renderFeature(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks, int i, int x, int y)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
@@ -380,7 +379,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		if(hovering)
 			hoveringArrow = mouseX >= bx1;
 		
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		
 		// arrow
 		ClickGuiIcons.drawMinimizeArrow(context, bx1 + 2, area.y + 2.5F,
@@ -389,15 +388,15 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// text
 		if(!clickTimerRunning)
 		{
-			TextRenderer tr = client.textRenderer;
+			Font tr = minecraft.font;
 			String buttonText = feature.getName();
 			int bx = area.x + 4;
 			int by = area.y + 4;
 			int txtColor = gui.getTxtColor();
-			context.drawText(tr, buttonText, bx, by, txtColor, false);
+			context.drawString(tr, buttonText, bx, by, txtColor, false);
 		}
 		
-		context.state.goDownLayer();
+		context.guiRenderState.down();
 	}
 	
 	public void setExpanding(boolean expanding)

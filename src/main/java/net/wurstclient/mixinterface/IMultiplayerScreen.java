@@ -7,12 +7,12 @@
  */
 package net.wurstclient.mixinterface;
 
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerServerListWidget;
-import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
+import net.minecraft.client.multiplayer.ServerData;
 
 public interface IMultiplayerScreen
 {
-	public MultiplayerServerListWidget getServerListSelector();
+	public ServerSelectionList getServerListSelector();
 	
-	public void connectToServer(ServerInfo server);
+	public void connectToServer(ServerData server);
 }

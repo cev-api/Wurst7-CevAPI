@@ -12,31 +12,30 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
 import net.wurstclient.WurstClient;
 import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
 import net.cevapi.config.AntiFingerprintConfigScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
-@Mixin(MultiplayerScreen.class)
+@Mixin(JoinMultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen
 {
-	private ButtonWidget lastServerButton;
+	private Button lastServerButton;
 	@Unique
-	private ButtonWidget antiFingerprintButton;
+	private Button antiFingerprintButton;
 	@Unique
-	private ButtonWidget cornerServerFinderButton;
+	private Button cornerServerFinderButton;
 	@Unique
-	private ButtonWidget cornerCleanUpButton;
+	private Button cornerCleanUpButton;
 	
-	private MultiplayerScreenMixin(WurstClient wurst, Text title)
+	private MultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
 	}
@@ -51,11 +50,13 @@ public class MultiplayerScreenMixin extends Screen
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		lastServerButton = addDrawableChild(ButtonWidget
-			.builder(Text.literal("Last Server"),
-				b -> LastServerRememberer
-					.joinLastServer((MultiplayerScreen)(Object)this))
-			.dimensions(width / 2 - 154, 10, 100, 20).build());
+		lastServerButton =
+			addRenderableWidget(
+				Button
+					.builder(Component.literal("Last Server"),
+						b -> LastServerRememberer.joinLastServer(
+							(JoinMultiplayerScreen)(Object)this))
+					.bounds(width / 2 - 154, 10, 100, 20).build());
 		updateLastServerButton();
 		
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -68,12 +69,12 @@ public class MultiplayerScreenMixin extends Screen
 				antiFingerprintButton = null;
 			}else
 			{
-				antiFingerprintButton = ButtonWidget
-					.builder(Text.literal("Anti-Fingerprint"),
-						b -> client.setScreen(new AntiFingerprintConfigScreen(
-							(MultiplayerScreen)(Object)this)))
-					.dimensions(0, 0, 100, 20).build();
-				addDrawableChild(antiFingerprintButton);
+				antiFingerprintButton = Button.builder(
+					Component.literal("Anti-Fingerprint"),
+					b -> minecraft.setScreen(new AntiFingerprintConfigScreen(
+						(JoinMultiplayerScreen)(Object)this)))
+					.bounds(0, 0, 100, 20).build();
+				addRenderableWidget(antiFingerprintButton);
 			}
 		}
 		
@@ -87,12 +88,12 @@ public class MultiplayerScreenMixin extends Screen
 		
 		if(cornerServerFinderButton == null)
 		{
-			cornerServerFinderButton = ButtonWidget
-				.builder(Text.literal("Server Finder"),
-					b -> client.setScreen(new ServerFinderScreen(
-						(MultiplayerScreen)(Object)this)))
-				.dimensions(0, 0, 100, 20).build();
-			addDrawableChild(cornerServerFinderButton);
+			cornerServerFinderButton = Button
+				.builder(Component.literal("Server Finder"),
+					b -> minecraft.setScreen(new ServerFinderScreen(
+						(JoinMultiplayerScreen)(Object)this)))
+				.bounds(0, 0, 100, 20).build();
+			addRenderableWidget(cornerServerFinderButton);
 		}
 		cornerServerFinderButton.setX(width / 2 + 154 + 4);
 		cornerServerFinderButton.setY(height - 54);
@@ -100,12 +101,13 @@ public class MultiplayerScreenMixin extends Screen
 		
 		if(cornerCleanUpButton == null)
 		{
-			cornerCleanUpButton = ButtonWidget
-				.builder(Text.literal("Clean Up"),
-					b -> client.setScreen(
-						new CleanUpScreen((MultiplayerScreen)(Object)this)))
-				.dimensions(0, 0, 100, 20).build();
-			addDrawableChild(cornerCleanUpButton);
+			cornerCleanUpButton =
+				Button
+					.builder(Component.literal("Clean Up"),
+						b -> minecraft.setScreen(new CleanUpScreen(
+							(JoinMultiplayerScreen)(Object)this)))
+					.bounds(0, 0, 100, 20).build();
+			addRenderableWidget(cornerCleanUpButton);
 		}
 		cornerCleanUpButton.setX(width / 2 + 154 + 4);
 		cornerCleanUpButton.setY(height - 30);
@@ -113,8 +115,8 @@ public class MultiplayerScreenMixin extends Screen
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "connect(Lnet/minecraft/client/network/ServerInfo;)V")
-	private void onConnect(ServerInfo entry, CallbackInfo ci)
+		method = "join(Lnet/minecraft/client/multiplayer/ServerData;)V")
+	private void onConnect(ServerData entry, CallbackInfo ci)
 	{
 		LastServerRememberer.setLastServer(entry);
 		updateLastServerButton();

@@ -15,19 +15,18 @@ import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.registry.Registries;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.CommonColors;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.EntityTypeListSetting;
 
@@ -37,20 +36,20 @@ public final class EditEntityTypeListScreen extends Screen
 	private final EntityTypeListSetting typeList;
 	
 	private ListGui listGui;
-	private TextFieldWidget typeNameField;
-	private ButtonWidget addKeywordButton;
-	private ButtonWidget addButton;
-	private ButtonWidget removeButton;
-	private ButtonWidget doneButton;
+	private EditBox typeNameField;
+	private Button addKeywordButton;
+	private Button addButton;
+	private Button removeButton;
+	private Button doneButton;
 	
-	private net.minecraft.entity.EntityType<?> typeToAdd;
-	private java.util.List<net.minecraft.entity.EntityType<?>> fuzzyMatches =
+	private net.minecraft.world.entity.EntityType<?> typeToAdd;
+	private java.util.List<net.minecraft.world.entity.EntityType<?>> fuzzyMatches =
 		java.util.Collections.emptyList();
 	
 	public EditEntityTypeListScreen(Screen prevScreen,
 		EntityTypeListSetting typeList)
 	{
-		super(Text.literal(""));
+		super(Component.literal(""));
 		this.prevScreen = prevScreen;
 		this.typeList = typeList;
 	}
@@ -58,8 +57,8 @@ public final class EditEntityTypeListScreen extends Screen
 	@Override
 	public void init()
 	{
-		listGui = new ListGui(client, this, typeList.getTypeNames());
-		addSelectableChild(listGui);
+		listGui = new ListGui(minecraft, this, typeList.getTypeNames());
+		addWidget(listGui);
 		
 		int rowY = height - 56;
 		int gap = 8;
@@ -71,18 +70,18 @@ public final class EditEntityTypeListScreen extends Screen
 			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
 		int rowStart = width / 2 - totalWidth / 2;
 		
-		typeNameField = new TextFieldWidget(client.textRenderer, rowStart, rowY,
-			fieldWidth, 20, Text.literal(""));
-		addSelectableChild(typeNameField);
+		typeNameField = new EditBox(minecraft.font, rowStart, rowY, fieldWidth,
+			20, Component.literal(""));
+		addWidget(typeNameField);
 		typeNameField.setMaxLength(256);
 		
 		int keywordX = rowStart + fieldWidth + gap;
 		int addX = keywordX + keywordWidth + gap;
 		int removeX = addX + addWidth + gap;
 		
-		addDrawableChild(addKeywordButton =
-			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
-				String raw = typeNameField.getText();
+		addRenderableWidget(addKeywordButton =
+			Button.builder(Component.literal("Add Keyword"), b -> {
+				String raw = typeNameField.getValue();
 				if(raw != null)
 					raw = raw.trim();
 				if(raw == null || raw.isEmpty())
@@ -95,10 +94,10 @@ public final class EditEntityTypeListScreen extends Screen
 				added.removeAll(before);
 				
 				refreshList(prevState, added, prevState.scrollAmount());
-			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
+			}).bounds(keywordX, rowY, keywordWidth, 20).build());
 		
-		addDrawableChild(
-			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
+		addRenderableWidget(
+			addButton = Button.builder(Component.literal("Add"), b -> {
 				var prevState = listGui.captureState();
 				List<String> before = new ArrayList<>(typeList.getTypeNames());
 				
@@ -107,11 +106,11 @@ public final class EditEntityTypeListScreen extends Screen
 					typeList.add(typeToAdd);
 				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
 				{
-					for(net.minecraft.entity.EntityType<?> et : fuzzyMatches)
+					for(net.minecraft.world.entity.EntityType<?> et : fuzzyMatches)
 						typeList.add(et);
 				}else
 				{
-					String raw = typeNameField.getText();
+					String raw = typeNameField.getValue();
 					if(raw != null)
 						raw = raw.trim();
 					if(raw != null && !raw.isEmpty())
@@ -122,10 +121,10 @@ public final class EditEntityTypeListScreen extends Screen
 				added.removeAll(before);
 				
 				refreshList(prevState, added, prevState.scrollAmount());
-			}).dimensions(addX, rowY, addWidth, 20).build());
+			}).bounds(addX, rowY, addWidth, 20).build());
 		
-		addDrawableChild(removeButton =
-			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
+		addRenderableWidget(removeButton =
+			Button.builder(Component.literal("Remove Selected"), b -> {
 				List<String> selected = listGui.getSelectedTypeNames();
 				if(selected.isEmpty())
 					return;
@@ -140,28 +139,31 @@ public final class EditEntityTypeListScreen extends Screen
 				
 				refreshList(prevState, Collections.emptyList(),
 					prevState.scrollAmount());
-			}).dimensions(removeX, rowY, removeWidth, 20).build());
+			}).bounds(removeX, rowY, removeWidth, 20).build());
 		
 		listGui.setSelectionListener(this::updateButtons);
 		updateButtons();
 		
-		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
-			b -> client.setScreen(new ConfirmScreen(b2 -> {
-				if(b2)
-					typeList.resetToDefaults();
-				client.setScreen(EditEntityTypeListScreen.this);
-			}, Text.literal("Reset to Defaults"),
-				Text.literal("Are you sure?"))))
-			.dimensions(width - 328, 8, 150, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Reset to Defaults"),
+				b -> minecraft.setScreen(new ConfirmScreen(b2 -> {
+					if(b2)
+						typeList.resetToDefaults();
+					minecraft.setScreen(EditEntityTypeListScreen.this);
+				}, Component.literal("Reset to Defaults"),
+					Component.literal("Are you sure?"))))
+				.bounds(width - 328, 8, 150, 20).build());
 		
-		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
-			typeList.clear();
-			client.setScreen(EditEntityTypeListScreen.this);
-		}).dimensions(width - 168, 8, 150, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Clear List"), b -> {
+				typeList.clear();
+				minecraft.setScreen(EditEntityTypeListScreen.this);
+			}).bounds(width - 168, 8, 150, 20).build());
 		
-		addDrawableChild(doneButton = ButtonWidget
-			.builder(Text.literal("Done"), b -> client.setScreen(prevScreen))
-			.dimensions(width / 2 - 100, height - 28, 200, 20).build());
+		addRenderableWidget(doneButton = Button
+			.builder(Component.literal("Done"),
+				b -> minecraft.setScreen(prevScreen))
+			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	
 	@Override
@@ -200,17 +202,19 @@ public final class EditEntityTypeListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String rawInput = typeNameField.getText();
+		String rawInput = typeNameField.getValue();
 		String nameOrId = rawInput == null ? "" : rawInput.toLowerCase();
 		String trimmed = rawInput == null ? "" : rawInput.trim();
 		boolean hasInput = !trimmed.isEmpty();
 		try
 		{
-			Identifier id = Identifier.of(nameOrId);
+			ResourceLocation id = ResourceLocation.parse(nameOrId);
 			typeToAdd =
-				net.minecraft.registry.Registries.ENTITY_TYPE.containsId(id)
-					? net.minecraft.registry.Registries.ENTITY_TYPE.get(id)
-					: null;
+				net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+					.containsKey(id)
+						? net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+							.getValue(id)
+						: null;
 		}catch(IllegalArgumentException e)
 		{
 			typeToAdd = null;
@@ -224,30 +228,32 @@ public final class EditEntityTypeListScreen extends Screen
 				fuzzyMatches = java.util.Collections.emptyList();
 			}else
 			{
-				java.util.ArrayList<net.minecraft.entity.EntityType<?>> list =
+				java.util.ArrayList<net.minecraft.world.entity.EntityType<?>> list =
 					new java.util.ArrayList<>();
-				for(Identifier id : Registries.ENTITY_TYPE.getIds())
+				for(ResourceLocation id : BuiltInRegistries.ENTITY_TYPE
+					.keySet())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
 					if(s.contains(q))
-						list.add(Registries.ENTITY_TYPE.get(id));
+						list.add(BuiltInRegistries.ENTITY_TYPE.getValue(id));
 				}
-				java.util.LinkedHashMap<String, net.minecraft.entity.EntityType<?>> map =
+				java.util.LinkedHashMap<String, net.minecraft.world.entity.EntityType<?>> map =
 					new java.util.LinkedHashMap<>();
-				for(net.minecraft.entity.EntityType<?> et : list)
-					map.put(Registries.ENTITY_TYPE.getId(et).toString(), et);
+				for(net.minecraft.world.entity.EntityType<?> et : list)
+					map.put(BuiltInRegistries.ENTITY_TYPE.getKey(et).toString(),
+						et);
 				fuzzyMatches = new java.util.ArrayList<>(map.values());
 				fuzzyMatches.sort(java.util.Comparator.comparing(
-					t -> Registries.ENTITY_TYPE.getId(t).toString()));
+					t -> BuiltInRegistries.ENTITY_TYPE.getKey(t).toString()));
 			}
 			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
-			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
-				: ("Add Matches (" + fuzzyMatches.size() + ")")));
+			addButton.setMessage(Component.literal(fuzzyMatches.isEmpty()
+				? "Add" : ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
 		{
 			fuzzyMatches = java.util.Collections.emptyList();
 			addButton.active = true;
-			addButton.setMessage(Text.literal("Add"));
+			addButton.setMessage(Component.literal("Add"));
 		}
 		
 		addKeywordButton.active = hasInput;
@@ -255,41 +261,41 @@ public final class EditEntityTypeListScreen extends Screen
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY,
+	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.getMatrices();
+		Matrix3x2fStack matrixStack = context.pose();
 		
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredTextWithShadow(client.textRenderer,
+		context.drawCenteredString(minecraft.font,
 			typeList.getName() + " (" + typeList.getTypeNames().size() + ")",
-			width / 2, 12, Colors.WHITE);
+			width / 2, 12, CommonColors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
 		typeNameField.render(context, mouseX, mouseY, partialTicks);
 		
-		for(Drawable drawable : drawables)
+		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 			
 		// Draw placeholder + decorative left icon frame using ABSOLUTE
 		// coordinates
 		// derived from the actual TextFieldWidget position/size (no matrix
 		// translate).
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		
 		int x0 = typeNameField.getX();
 		int y0 = typeNameField.getY();
 		int y1 = y0 + typeNameField.getHeight();
 		
-		if(typeNameField.getText().isEmpty() && !typeNameField.isFocused())
-			context.drawTextWithShadow(client.textRenderer, "entity type id",
-				x0 + 6, y0 + 6, Colors.GRAY);
+		if(typeNameField.getValue().isEmpty() && !typeNameField.isFocused())
+			context.drawString(minecraft.font, "entity type id", x0 + 6, y0 + 6,
+				CommonColors.GRAY);
 		
-		int border =
-			typeNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
-		int black = Colors.BLACK;
+		int border = typeNameField.isFocused() ? CommonColors.WHITE
+			: CommonColors.LIGHT_GRAY;
+		int black = CommonColors.BLACK;
 		
 		context.fill(x0 - 16, y0, x0, y1, border);
 		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
@@ -298,7 +304,7 @@ public final class EditEntityTypeListScreen extends Screen
 	}
 	
 	@Override
-	public boolean shouldPause()
+	public boolean isPauseScreen()
 	{
 		return false;
 	}
@@ -336,32 +342,34 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		
 		@Override
-		public net.minecraft.text.Text getNarration()
+		public net.minecraft.network.chat.Component getNarration()
 		{
-			return net.minecraft.text.Text.translatable("narrator.select",
-				"Entity " + typeName);
+			return net.minecraft.network.chat.Component
+				.translatable("narrator.select", "Entity " + typeName);
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
+		public void render(GuiGraphics context, int index, int y, int x,
 			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
-			TextRenderer tr = client.textRenderer;
+			Font tr = minecraft.font;
 			
 			String display;
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(typeName);
+			net.minecraft.resources.ResourceLocation id =
+				net.minecraft.resources.ResourceLocation.tryParse(typeName);
 			if(id != null
-				&& net.minecraft.registry.Registries.ENTITY_TYPE.containsId(id))
-				display = net.minecraft.registry.Registries.ENTITY_TYPE.get(id)
-					.getName().getString();
+				&& net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+					.containsKey(id))
+				display =
+					net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+						.getValue(id).getDescription().getString();
 			else
 				display = "\u00a7okeyword\u00a7r";
-			context.drawText(tr, display, x + 8, y,
+			context.drawString(tr, display, x + 8, y,
 				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
-			context.drawText(tr, typeName, x + 8, y + 10, Colors.LIGHT_GRAY,
-				false);
+			context.drawString(tr, typeName, x + 8, y + 10,
+				CommonColors.LIGHT_GRAY, false);
 		}
 		
 		@Override
@@ -374,8 +382,8 @@ public final class EditEntityTypeListScreen extends Screen
 	private final class ListGui
 		extends MultiSelectEntryListWidget<EditEntityTypeListScreen.Entry>
 	{
-		public ListGui(MinecraftClient minecraft,
-			EditEntityTypeListScreen screen, List<String> list)
+		public ListGui(Minecraft minecraft, EditEntityTypeListScreen screen,
+			List<String> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30);
 			reload(list);

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,15 +15,13 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.BiPredicate;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.PacketInputListener;
@@ -118,7 +117,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.getBlockPos());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -157,7 +156,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.getBlockPos());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -172,7 +171,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(style.getSelected().hasBoxes())
 			renderBoxes(matrixStack);
@@ -181,14 +180,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			renderTracers(matrixStack, partialTicks);
 	}
 	
-	private void renderBoxes(MatrixStack matrixStack)
+	private void renderBoxes(PoseStack matrixStack)
 	{
 		for(PortalEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				return;
 			
-			List<Box> boxes = group.getBoxes();
+			List<AABB> boxes = group.getBoxes();
 			int quadsColor = group.getColorI(0x40);
 			int linesColor = group.getColorI(0x80);
 			
@@ -198,14 +197,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void renderTracers(MatrixStack matrixStack, float partialTicks)
+	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
 		for(PortalEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
 				continue;
 			
-			List<Vec3d> ends = getTracerTargets(group);
+			List<Vec3> ends = getTracerTargets(group);
 			if(ends.isEmpty())
 				continue;
 			
@@ -236,10 +235,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			}
 	}
 	
-	private List<Vec3d> getTracerTargets(PortalEspBlockGroup group)
+	private List<Vec3> getTracerTargets(PortalEspBlockGroup group)
 	{
 		if(!usesStructureCenter(group))
-			return group.getBoxes().stream().map(Box::getCenter).toList();
+			return group.getBoxes().stream().map(AABB::getCenter).toList();
 		
 		return getStructureCenters(group.getPositions());
 	}
@@ -250,13 +249,13 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			|| group == endPortal;
 	}
 	
-	private List<Vec3d> getStructureCenters(List<BlockPos> positions)
+	private List<Vec3> getStructureCenters(List<BlockPos> positions)
 	{
 		if(positions.isEmpty())
 			return List.of();
 		
 		HashSet<BlockPos> remaining = new HashSet<>(positions);
-		ArrayList<Vec3d> centers = new ArrayList<>();
+		ArrayList<Vec3> centers = new ArrayList<>();
 		
 		while(!remaining.isEmpty())
 		{
@@ -281,15 +280,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				
 				for(Direction dir : Direction.values())
 				{
-					BlockPos neighbor = current.offset(dir);
+					BlockPos neighbor = current.relative(dir);
 					if(remaining.remove(neighbor))
 						queue.addLast(neighbor);
 				}
 			}
 			
 			if(count > 0)
-				centers
-					.add(new Vec3d(sumX / count, sumY / count, sumZ / count));
+				centers.add(new Vec3(sumX / count, sumY / count, sumZ / count));
 		}
 		
 		return centers;

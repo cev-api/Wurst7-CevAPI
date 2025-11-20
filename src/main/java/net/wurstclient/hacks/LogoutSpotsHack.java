@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -14,14 +15,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import net.minecraft.client.network.PlayerListEntry;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Box;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
@@ -40,11 +39,11 @@ public final class LogoutSpotsHack extends Hack
 	private static final class Entry
 	{
 		final String name;
-		final Box box;
+		final AABB box;
 		final String dimKey;
 		final long createdAtMs;
 		
-		Entry(String n, Box b, String dim, long createdAtMs)
+		Entry(String n, AABB b, String dim, long createdAtMs)
 		{
 			name = n;
 			box = b;
@@ -72,8 +71,8 @@ public final class LogoutSpotsHack extends Hack
 			.withLabel(INFINITE_LIFETIME_MARKER, "Infinite"));
 	
 	private final Map<UUID, Entry> spots = new HashMap<>();
-	private List<PlayerListEntry> lastList = List.of();
-	private Map<UUID, PlayerEntity> lastPlayers = Map.of();
+	private List<PlayerInfo> lastList = List.of();
+	private Map<UUID, Player> lastPlayers = Map.of();
 	private final Map<UUID, java.util.UUID> spotToWaypoint = new HashMap<>();
 	private String lastServerKey = "unknown";
 	
@@ -119,25 +118,25 @@ public final class LogoutSpotsHack extends Hack
 			lastServerKey = serverKeyNow;
 		}
 		
-		if(MC.getNetworkHandler() == null || MC.world == null)
+		if(MC.getConnection() == null || MC.level == null)
 			return;
-		var nowList = MC.getNetworkHandler().getPlayerList();
+		var nowList = MC.getConnection().getOnlinePlayers();
 		if(nowList.size() != lastList.size())
 		{
 			// find missing
-			var lastMap = new HashMap<UUID, PlayerListEntry>();
+			var lastMap = new HashMap<UUID, PlayerInfo>();
 			for(var e : lastList)
 				lastMap.put(e.getProfile().getId(), e);
-			var nowMap = new HashMap<UUID, PlayerListEntry>();
+			var nowMap = new HashMap<UUID, PlayerInfo>();
 			for(var e : nowList)
 				nowMap.put(e.getProfile().getId(), e);
 			for(var id : lastMap.keySet())
 				if(!nowMap.containsKey(id))
 				{
-					PlayerEntity p = lastPlayers.get(id);
+					Player p = lastPlayers.get(id);
 					if(p != null)
 					{
-						Box b = p.getBoundingBox();
+						AABB b = p.getBoundingBox();
 						long now = System.currentTimeMillis();
 						spots.put(id, new Entry(p.getName().getString(), b,
 							currentDimKey(), now));
@@ -152,7 +151,7 @@ public final class LogoutSpotsHack extends Hack
 							w.setName("Logout: " + p.getName().getString());
 							w.setIcon("skull");
 							w.setColor(0xFF88CCFF);
-							w.setPos(new net.minecraft.util.math.BlockPos(
+							w.setPos(new net.minecraft.core.BlockPos(
 								(int)p.getX(), (int)p.getY(), (int)p.getZ()));
 							// set waypoint dimension based on current world
 							w.setDimension(
@@ -170,12 +169,12 @@ public final class LogoutSpotsHack extends Hack
 			snapshot();
 		}
 		// cull rejoined players
-		if(MC.world != null)
+		if(MC.level != null)
 		{
-			for(PlayerEntity p : MC.world.getPlayers())
+			for(Player p : MC.level.players())
 			{
-				spots.remove(p.getUuid());
-				removeTemporaryWaypoint(p.getUuid());
+				spots.remove(p.getUUID());
+				removeTemporaryWaypoint(p.getUUID());
 			}
 		}
 		
@@ -199,38 +198,38 @@ public final class LogoutSpotsHack extends Hack
 	
 	private String currentDimKey()
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return "overworld";
-		return MC.world.getRegistryKey().getValue().getPath();
+		return MC.level.dimension().location().getPath();
 	}
 	
 	private void snapshot()
 	{
-		if(MC.getNetworkHandler() != null)
+		if(MC.getConnection() != null)
 			lastList = new java.util.ArrayList<>(
-				MC.getNetworkHandler().getPlayerList());
-		var map = new HashMap<UUID, PlayerEntity>();
-		if(MC.world != null)
+				MC.getConnection().getOnlinePlayers());
+		var map = new HashMap<UUID, Player>();
+		if(MC.level != null)
 		{
-			for(PlayerEntity p : MC.world.getPlayers())
-				map.put(p.getUuid(), p);
+			for(Player p : MC.level.players())
+				map.put(p.getUUID(), p);
 		}
 		lastPlayers = map;
 	}
 	
 	private String resolveServerKey()
 	{
-		ServerInfo info = MC.getCurrentServerEntry();
+		ServerData info = MC.getCurrentServer();
 		if(info != null)
 		{
-			if(info.address != null && !info.address.isEmpty())
-				return info.address.replace(':', '_');
+			if(info.ip != null && !info.ip.isEmpty())
+				return info.ip.replace(':', '_');
 			if(info.isRealm())
 				return "realms_" + (info.name == null ? "" : info.name);
 			if(info.name != null && !info.name.isEmpty())
 				return "server_" + info.name;
 		}
-		if(MC.isIntegratedServerRunning())
+		if(MC.hasSingleplayerServer())
 			return "singleplayer";
 		return "unknown";
 	}
@@ -254,14 +253,14 @@ public final class LogoutSpotsHack extends Hack
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrices, float partialTicks)
+	public void onRender(PoseStack matrices, float partialTicks)
 	{
 		if(spots.isEmpty())
 			return;
 		String curDim = currentDimKey();
 		int sides = sideColor.getColorI(0x40);
 		int lines = lineColor.getColorI(0xFF);
-		var boxes = new java.util.ArrayList<Box>();
+		var boxes = new java.util.ArrayList<AABB>();
 		for(var e : spots.values())
 			if(e.dimKey.equals(curDim))
 				boxes.add(e.box);
@@ -272,7 +271,7 @@ public final class LogoutSpotsHack extends Hack
 		// (Optional) draw tracers to centers
 		if(showTracers.isChecked())
 		{
-			var ends = boxes.stream().map(Box::getCenter).toList();
+			var ends = boxes.stream().map(AABB::getCenter).toList();
 			RenderUtils.drawTracers(matrices, partialTicks, ends, lines, false);
 		}
 		for(var e : spots.values())
@@ -285,26 +284,26 @@ public final class LogoutSpotsHack extends Hack
 		}
 	}
 	
-	private void drawWorldLabel(MatrixStack matrices, String text, double x,
+	private void drawWorldLabel(PoseStack matrices, String text, double x,
 		double y, double z, int argb, float scale)
 	{
-		matrices.push();
-		net.minecraft.util.math.Vec3d cam =
+		matrices.pushPose();
+		net.minecraft.world.phys.Vec3 cam =
 			net.wurstclient.util.RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		matrices.multiply(MC.getEntityRenderDispatcher().getRotation());
+		matrices.mulPose(MC.getEntityRenderDispatcher().cameraOrientation());
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
-		TextRenderer tr = MC.textRenderer;
-		VertexConsumerProvider.Immediate vcp =
+		Font tr = MC.font;
+		MultiBufferSource.BufferSource vcp =
 			net.wurstclient.util.RenderUtils.getVCP();
-		float w = tr.getWidth(text) / 2F;
-		int bg = (int)(MC.options.getTextBackgroundOpacity(0.25F) * 255) << 24;
-		var matrix = matrices.peek().getPositionMatrix();
-		tr.draw(text, -w, 0, argb, false, matrix, vcp,
-			TextRenderer.TextLayerType.SEE_THROUGH, bg, 0xF000F0);
-		vcp.draw();
-		matrices.pop();
+		float w = tr.width(text) / 2F;
+		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		var matrix = matrices.last().pose();
+		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		vcp.endBatch();
+		matrices.popPose();
 	}
 	
 	private WaypointDimension mapDimKeyToWaypointDim(String dimKey)

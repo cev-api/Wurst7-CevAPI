@@ -13,11 +13,10 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.UpdateListener;
@@ -30,7 +29,7 @@ import net.wurstclient.events.UpdateListener;
 public final class PlayerRangeAlertManager implements UpdateListener
 {
 	private final EventManager events;
-	private final MinecraftClient mc = WurstClient.MC;
+	private final Minecraft mc = WurstClient.MC;
 	private final Set<Listener> listeners = new LinkedHashSet<>();
 	private final Map<UUID, PlayerInfo> knownPlayers = new HashMap<>();
 	private boolean running;
@@ -73,24 +72,24 @@ public final class PlayerRangeAlertManager implements UpdateListener
 		if(!running)
 			return;
 		
-		if(mc.player == null || mc.world == null)
+		if(mc.player == null || mc.level == null)
 		{
 			flushAll();
 			return;
 		}
 		
 		HashSet<UUID> seen = new HashSet<>();
-		for(PlayerEntity player : mc.world.getPlayers())
+		for(Player player : mc.level.players())
 		{
 			if(player == mc.player || player instanceof FakePlayerEntity)
 				continue;
 			
-			UUID id = player.getUuid();
+			UUID id = player.getUUID();
 			seen.add(id);
 			
 			PlayerInfo info = knownPlayers.get(id);
 			boolean npc = isProbablyNpc(id);
-			Vec3d pos = new Vec3d(player.getX(), player.getY(), player.getZ());
+			Vec3 pos = new Vec3(player.getX(), player.getY(), player.getZ());
 			String name = player.getName().getString();
 			
 			if(info == null)
@@ -121,8 +120,8 @@ public final class PlayerRangeAlertManager implements UpdateListener
 	
 	private boolean isProbablyNpc(UUID id)
 	{
-		ClientPlayNetworkHandler handler = mc.getNetworkHandler();
-		return handler != null && handler.getPlayerListEntry(id) == null;
+		ClientPacketListener handler = mc.getConnection();
+		return handler != null && handler.getPlayerInfo(id) == null;
 	}
 	
 	private void flushAll()
@@ -134,7 +133,7 @@ public final class PlayerRangeAlertManager implements UpdateListener
 		knownPlayers.clear();
 	}
 	
-	private void notifyEnter(PlayerEntity player, PlayerInfo info)
+	private void notifyEnter(Player player, PlayerInfo info)
 	{
 		for(Listener listener : snapshotListeners())
 			listener.onPlayerEnter(player, info);
@@ -159,7 +158,7 @@ public final class PlayerRangeAlertManager implements UpdateListener
 	
 	public interface Listener
 	{
-		void onPlayerEnter(PlayerEntity player, PlayerInfo info);
+		void onPlayerEnter(Player player, PlayerInfo info);
 		
 		void onPlayerExit(PlayerInfo info);
 	}
@@ -168,10 +167,10 @@ public final class PlayerRangeAlertManager implements UpdateListener
 	{
 		private final UUID uuid;
 		private String name;
-		private Vec3d lastPos;
+		private Vec3 lastPos;
 		private boolean probablyNpc;
 		
-		private PlayerInfo(UUID uuid, String name, Vec3d lastPos,
+		private PlayerInfo(UUID uuid, String name, Vec3 lastPos,
 			boolean probablyNpc)
 		{
 			this.uuid = uuid;
@@ -180,7 +179,7 @@ public final class PlayerRangeAlertManager implements UpdateListener
 			this.probablyNpc = probablyNpc;
 		}
 		
-		private void update(String name, Vec3d lastPos, boolean probablyNpc)
+		private void update(String name, Vec3 lastPos, boolean probablyNpc)
 		{
 			this.name = name;
 			this.lastPos = lastPos;
@@ -197,7 +196,7 @@ public final class PlayerRangeAlertManager implements UpdateListener
 			return name;
 		}
 		
-		public Vec3d getLastPos()
+		public Vec3 getLastPos()
 		{
 			return lastPos;
 		}

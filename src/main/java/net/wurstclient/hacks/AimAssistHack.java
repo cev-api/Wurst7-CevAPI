@@ -10,11 +10,10 @@ package net.wurstclient.hacks;
 import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Stream;
-
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.MouseUpdateListener;
 import net.wurstclient.events.UpdateListener;
@@ -92,7 +91,7 @@ public final class AimAssistHack extends Hack
 	private Entity target;
 	private float nextYaw;
 	private float nextPitch;
-	private Function<Entity, Vec3d> overrideAimPoint;
+	private Function<Entity, Vec3> overrideAimPoint;
 	private Entity externalTarget;
 	
 	public AimAssistHack()
@@ -145,7 +144,7 @@ public final class AimAssistHack extends Hack
 		target = null;
 		
 		// don't aim when a container/inventory screen is open
-		if(MC.currentScreen instanceof HandledScreen)
+		if(MC.screen instanceof AbstractContainerScreen)
 			return;
 		
 		if(!aimWhileBlocking.isChecked() && MC.player.isUsingItem())
@@ -163,7 +162,7 @@ public final class AimAssistHack extends Hack
 		if(target == null)
 			return;
 		
-		Vec3d hitVec = getAimPoint(target);
+		Vec3 hitVec = getAimPoint(target);
 		if(checkLOS.isChecked() && !BlockUtils.hasLineOfSight(hitVec))
 		{
 			target = null;
@@ -187,7 +186,7 @@ public final class AimAssistHack extends Hack
 		Stream<Entity> stream = EntityUtils.getAttackableEntities();
 		
 		double rangeSq = range.getValueSq();
-		stream = stream.filter(e -> MC.player.squaredDistanceTo(e) <= rangeSq);
+		stream = stream.filter(e -> MC.player.distanceToSqr(e) <= rangeSq);
 		
 		if(fov.getValue() < 360.0)
 			stream = stream.filter(e -> RotationUtils
@@ -207,8 +206,8 @@ public final class AimAssistHack extends Hack
 		if(target == null || MC.player == null)
 			return;
 		
-		float curYaw = MC.player.getYaw();
-		float curPitch = MC.player.getPitch();
+		float curYaw = MC.player.getYRot();
+		float curPitch = MC.player.getXRot();
 		int diffYaw = (int)(nextYaw - curYaw);
 		int diffPitch = (int)(nextPitch - curPitch);
 		
@@ -229,7 +228,7 @@ public final class AimAssistHack extends Hack
 		event.setDeltaY(mouseInputY + diffPitch);
 	}
 	
-	private Vec3d getAimPoint(Entity entity)
+	private Vec3 getAimPoint(Entity entity)
 	{
 		if(overrideAimPoint != null)
 			return overrideAimPoint.apply(entity);
@@ -237,7 +236,7 @@ public final class AimAssistHack extends Hack
 		return aimAt.getAimPoint(entity);
 	}
 	
-	public void setOverrideAimPoint(Function<Entity, Vec3d> override)
+	public void setOverrideAimPoint(Function<Entity, Vec3> override)
 	{
 		overrideAimPoint = override;
 	}

@@ -9,9 +9,8 @@ package net.wurstclient.commands;
 
 import java.util.Collections;
 import java.util.List;
-
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.item.Item;
 import net.wurstclient.DontBlock;
 import net.wurstclient.Feature;
 import net.wurstclient.command.CmdError;
@@ -82,7 +81,7 @@ public final class ItemListCmd extends Command
 		try
 		{
 			Item item = CmdUtils.parseItem(args[3]);
-			String itemName = Registries.ITEM.getId(item).toString();
+			String itemName = BuiltInRegistries.ITEM.getKey(item).toString();
 			int index =
 				Collections.binarySearch(setting.getItemNames(), itemName);
 			if(index >= 0)
@@ -112,7 +111,7 @@ public final class ItemListCmd extends Command
 		
 		Item item = CmdUtils.parseItem(args[3]);
 		
-		String itemName = Registries.ITEM.getId(item).toString();
+		String itemName = BuiltInRegistries.ITEM.getKey(item).toString();
 		int index = Collections.binarySearch(setting.getItemNames(), itemName);
 		if(index < 0)
 			throw new CmdError(feature.getName() + " " + setting.getName()

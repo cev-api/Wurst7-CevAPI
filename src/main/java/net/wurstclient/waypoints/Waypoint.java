@@ -8,8 +8,7 @@
 package net.wurstclient.waypoints;
 
 import java.util.UUID;
-
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 
 public final class Waypoint
 {
@@ -55,7 +54,7 @@ public final class Waypoint
 		this.visible = true;
 		this.maxVisible = 5000;
 		this.scale = 1.5;
-		this.pos = BlockPos.ORIGIN;
+		this.pos = BlockPos.ZERO;
 		this.dimension = WaypointDimension.OVERWORLD;
 		this.opposite = false;
 		this.lines = false;

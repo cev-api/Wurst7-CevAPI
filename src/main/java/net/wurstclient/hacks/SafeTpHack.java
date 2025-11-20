@@ -7,8 +7,8 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.client.network.ClientPlayNetworkHandler;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.core.BlockPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.ChatInputListener;
@@ -87,7 +87,7 @@ public final class SafeTpHack extends Hack
 			return;
 		}
 		
-		ClientPlayNetworkHandler netHandler = MC.getNetworkHandler();
+		ClientPacketListener netHandler = MC.getConnection();
 		if(netHandler == null)
 		{
 			setEnabled(false);
@@ -131,7 +131,7 @@ public final class SafeTpHack extends Hack
 			return;
 		}
 		
-		netHandler.sendChatCommand(commandToSend);
+		netHandler.sendCommand(commandToSend);
 		
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -170,10 +170,10 @@ public final class SafeTpHack extends Hack
 			|| (message.contains("akzeptiert") && message.contains("anfrage")))
 		{
 			ChatUtils.message("SaferTPAHere: TPA acceptance detected.");
-			if(MC.player == null || MC.getNetworkHandler() == null)
+			if(MC.player == null || MC.getConnection() == null)
 				return;
 			
-			trapPos = BlockPos.ofFloored(MC.player.getPos());
+			trapPos = BlockPos.containing(MC.player.position());
 			
 			BlinkHack blinkHack = WURST.getHax().blinkHack;
 			boolean blinkAlready = blinkHack.isEnabled();
@@ -214,18 +214,16 @@ public final class SafeTpHack extends Hack
 	{
 		if(trapPos != null)
 		{
-			for(net.minecraft.entity.player.PlayerEntity p : MC.world
-				.getPlayers())
+			for(net.minecraft.world.entity.player.Player p : MC.level.players())
 			{
 				if(p == MC.player)
 					continue;
 				if(p instanceof net.wurstclient.util.FakePlayerEntity)
 					continue;
 				
-				BlockPos pPos = p.getBlockPos();
-				if(pPos.equals(trapPos)
-					|| p.squaredDistanceTo(trapPos.getX() + 0.5, trapPos.getY(),
-						trapPos.getZ() + 0.5) < 1.5)
+				BlockPos pPos = p.blockPosition();
+				if(pPos.equals(trapPos) || p.distanceToSqr(trapPos.getX() + 0.5,
+					trapPos.getY(), trapPos.getZ() + 0.5) < 1.5)
 				{
 					BlinkHack blinkHack = WURST.getHax().blinkHack;
 					if(weActivatedBlinkForTpa && blinkHack.isEnabled())
@@ -268,7 +266,7 @@ public final class SafeTpHack extends Hack
 			}
 		}
 		
-		if(MC.player == null || MC.getNetworkHandler() == null)
+		if(MC.player == null || MC.getConnection() == null)
 		{
 			setEnabled(false);
 			return;

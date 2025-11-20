@@ -16,33 +16,32 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import com.mojang.blaze3d.platform.Window;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.util.Window;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.component.type.ContainerComponent;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.potion.Potion;
-import net.minecraft.component.type.WeaponComponent;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.screen.GenericContainerScreenHandler;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.item.component.Weapon;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -185,12 +184,12 @@ public final class EnchantmentHandlerHack extends Hack
 		hoverStartMs = 0L;
 	}
 	
-	public void renderOnHandledScreen(HandledScreen<?> screen,
-		DrawContext context, float partialTicks)
+	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
+		GuiGraphics context, float partialTicks)
 	{
 		lastRenderActive = false;
 		
-		if(MC.player == null || MC.interactionManager == null)
+		if(MC.player == null || MC.gameMode == null)
 			return;
 		
 		if(needsRescan)
@@ -207,10 +206,10 @@ public final class EnchantmentHandlerHack extends Hack
 		}
 		
 		HandledScreenAccessor accessor = (HandledScreenAccessor)screen;
-		int windowWidth = context.getScaledWindowWidth();
-		int windowHeight = context.getScaledWindowHeight();
+		int windowWidth = context.guiWidth();
+		int windowHeight = context.guiHeight();
 		
-		panelWidth = MathHelper.clamp(boxWidth.getValueI(), MIN_BOX_WIDTH,
+		panelWidth = Mth.clamp(boxWidth.getValueI(), MIN_BOX_WIDTH,
 			Math.min(MAX_BOX_WIDTH, windowWidth - 10));
 		
 		int configuredHeight = boxHeight.getValueI();
@@ -218,23 +217,23 @@ public final class EnchantmentHandlerHack extends Hack
 			panelHeight =
 				Math.min(accessor.getBackgroundHeight(), windowHeight - 10);
 		else
-			panelHeight = MathHelper.clamp(configuredHeight, 60,
+			panelHeight = Mth.clamp(configuredHeight, 60,
 				Math.max(60, windowHeight - 10));
 		
 		panelY = accessor.getY() + offsetY.getValueI();
 		panelX =
 			accessor.getX() - panelWidth - PANEL_PADDING + offsetX.getValueI();
 		
-		panelX = MathHelper.clamp(panelX, 2 - panelWidth,
-			windowWidth - panelWidth - 2);
-		panelY = MathHelper.clamp(panelY, 2, windowHeight - panelHeight - 2);
+		panelX =
+			Mth.clamp(panelX, 2 - panelWidth, windowWidth - panelWidth - 2);
+		panelY = Mth.clamp(panelY, 2, windowHeight - panelHeight - 2);
 		
 		renderOverlay(context);
 		lastRenderActive = true;
 	}
 	
-	public boolean handleMouseClick(HandledScreen<?> screen, double mouseX,
-		double mouseY, int button)
+	public boolean handleMouseClick(AbstractContainerScreen<?> screen,
+		double mouseX, double mouseY, int button)
 	{
 		if(!lastRenderActive)
 			return false;
@@ -242,7 +241,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(button != 0 && button != 1)
 			return isInsidePanel(mouseX, mouseY);
 		
-		ScreenHandler handler = ((HandledScreen<?>)screen).getScreenHandler();
+		AbstractContainerMenu handler =
+			((AbstractContainerScreen<?>)screen).getMenu();
 		
 		for(Hitbox hitbox : hitboxes)
 		{
@@ -301,8 +301,8 @@ public final class EnchantmentHandlerHack extends Hack
 		return isInsidePanel(mouseX, mouseY);
 	}
 	
-	public boolean handleMouseScroll(HandledScreen<?> screen, double mouseX,
-		double mouseY, double amount)
+	public boolean handleMouseScroll(AbstractContainerScreen<?> screen,
+		double mouseX, double mouseY, double amount)
 	{
 		if(!lastRenderActive)
 			return false;
@@ -313,10 +313,9 @@ public final class EnchantmentHandlerHack extends Hack
 		if(contentHeight <= panelInnerHeight())
 			return true;
 		
-		float scale = MathHelper.clamp(textScale.getValueF(), 0.5F, 1.25F);
-		int step = Math.max(8, Math.round(MC.textRenderer.fontHeight * scale));
-		scrollOffset =
-			MathHelper.clamp(scrollOffset - amount * step, 0, maxScroll);
+		float scale = Mth.clamp(textScale.getValueF(), 0.5F, 1.25F);
+		int step = Math.max(8, Math.round(MC.font.lineHeight * scale));
+		scrollOffset = Mth.clamp(scrollOffset - amount * step, 0, maxScroll);
 		return true;
 	}
 	
@@ -326,13 +325,13 @@ public final class EnchantmentHandlerHack extends Hack
 			&& mouseY >= panelY && mouseY <= panelY + panelHeight;
 	}
 	
-	private void renderOverlay(DrawContext context)
+	private void renderOverlay(GuiGraphics context)
 	{
 		hitboxes.clear();
 		
-		TextRenderer tr = MC.textRenderer;
-		float scale = MathHelper.clamp(textScale.getValueF(), 0.5F, 1.25F);
-		int lineHeight = Math.max(1, Math.round(tr.fontHeight * scale));
+		Font tr = MC.font;
+		float scale = Mth.clamp(textScale.getValueF(), 0.5F, 1.25F);
+		int lineHeight = Math.max(1, Math.round(tr.lineHeight * scale));
 		int headerMargin = Math.max(1, Math.round(HEADER_MARGIN * scale));
 		int entryMargin = Math.max(1, Math.round(ENTRY_MARGIN * scale));
 		
@@ -406,16 +405,15 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		contentHeight = (int)Math.max(0, Math.round(cursorY - contentTop));
 		maxScroll = Math.max(0, contentHeight - innerHeight);
-		scrollOffset = MathHelper.clamp(scrollOffset, 0, maxScroll);
+		scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
 		
 		context.disableScissor();
 	}
 	
-	private double renderGearSection(DrawContext context, TextRenderer tr,
-		float scale, int titleX, double cursorY, double offset,
-		double textAreaWidth, double hoverSpeed, double scaledMouseX,
-		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
-		boolean[] hoverFlag)
+	private double renderGearSection(GuiGraphics context, Font tr, float scale,
+		int titleX, double cursorY, double offset, double textAreaWidth,
+		double hoverSpeed, double scaledMouseX, double scaledMouseY,
+		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
 	{
 		boolean hasEntries = GearCategory.ORDERED.stream().anyMatch(
 			cat -> !gearGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -426,7 +424,7 @@ public final class EnchantmentHandlerHack extends Hack
 		drawSectionHeader(context, tr, titleX, sectionTitleY, "Enchanted Gear",
 			scale);
 		int underlineY = sectionTitleY
-			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+			+ Math.max(1, Math.round(MC.font.lineHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
 			underlineY + 1, 0xFFD0D0D0);
 		cursorY += lineHeight + headerMargin + 4;
@@ -448,7 +446,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderSourceSection(DrawContext context, TextRenderer tr,
+	private double renderSourceSection(GuiGraphics context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -470,7 +468,7 @@ public final class EnchantmentHandlerHack extends Hack
 		drawSectionHeader(context, tr, titleX, sectionTitleY, sourceTitle,
 			scale);
 		int underlineY = sectionTitleY
-			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+			+ Math.max(1, Math.round(MC.font.lineHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
 			underlineY + 1, 0xFFD0D0D0);
 		cursorY += lineHeight + headerMargin + 4;
@@ -521,11 +519,10 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderBookSection(DrawContext context, TextRenderer tr,
-		float scale, int titleX, double cursorY, double offset,
-		double textAreaWidth, double hoverSpeed, double scaledMouseX,
-		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
-		boolean[] hoverFlag)
+	private double renderBookSection(GuiGraphics context, Font tr, float scale,
+		int titleX, double cursorY, double offset, double textAreaWidth,
+		double hoverSpeed, double scaledMouseX, double scaledMouseY,
+		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
 	{
 		boolean hasEntries = BookCategory.ORDERED.stream().anyMatch(
 			cat -> !bookGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -536,7 +533,7 @@ public final class EnchantmentHandlerHack extends Hack
 		drawSectionHeader(context, tr, titleX, sectionTitleY, "Enchanted Books",
 			scale);
 		int underlineY = sectionTitleY
-			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+			+ Math.max(1, Math.round(MC.font.lineHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
 			underlineY + 1, 0xFFD0D0D0);
 		cursorY += lineHeight + headerMargin + 4;
@@ -558,7 +555,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderPotionSection(DrawContext context, TextRenderer tr,
+	private double renderPotionSection(GuiGraphics context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -573,7 +570,7 @@ public final class EnchantmentHandlerHack extends Hack
 		int sectionTitleY = (int)Math.round(cursorY - offset);
 		drawSectionHeader(context, tr, titleX, sectionTitleY, "Potions", scale);
 		int underlineY = sectionTitleY
-			+ Math.max(1, Math.round(MC.textRenderer.fontHeight * scale)) + 2;
+			+ Math.max(1, Math.round(MC.font.lineHeight * scale)) + 2;
 		context.fill(panelX + 2, underlineY, panelX + panelWidth - 2,
 			underlineY + 1, 0xFFD0D0D0);
 		cursorY += lineHeight + headerMargin + 4;
@@ -595,7 +592,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderCategoryEntries(DrawContext context, TextRenderer tr,
+	private double renderCategoryEntries(GuiGraphics context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -610,7 +607,7 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		String takeAllText = "Take All";
 		int takeAllWidth =
-			Math.max(1, Math.round(tr.getWidth(takeAllText) * scale));
+			Math.max(1, Math.round(tr.width(takeAllText) * scale));
 		int takeAllX = panelX + panelWidth - PANEL_PADDING - takeAllWidth;
 		int takeAllY = headerY;
 		boolean actionHovered = scaledMouseX >= takeAllX - 2
@@ -641,7 +638,7 @@ public final class EnchantmentHandlerHack extends Hack
 				context.fill(panelX + 2, entryY - 2, panelX + panelWidth - 2,
 					entryY + lineHeight + 2, 0x802A2A2A);
 			
-			double textWidth = Math.max(1.0, tr.getWidth(entry.line) * scale);
+			double textWidth = Math.max(1.0, tr.width(entry.line) * scale);
 			double travel = textWidth - textAreaWidth;
 			double scrollX = 0.0;
 			
@@ -675,7 +672,7 @@ public final class EnchantmentHandlerHack extends Hack
 						}
 					}
 				}
-				scrollX = MathHelper.clamp(scrollX, 0.0, Math.max(0.0, travel));
+				scrollX = Mth.clamp(scrollX, 0.0, Math.max(0.0, travel));
 			}else if(hoveredSlotId == entry.slotId)
 			{
 				hoveredSlotId = -1;
@@ -696,18 +693,18 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private void rescan(HandledScreen<?> screen)
+	private void rescan(AbstractContainerScreen<?> screen)
 	{
-		refreshEntries(screen.getScreenHandler());
+		refreshEntries(screen.getMenu());
 		needsRescan = false;
 	}
 	
-	private void refreshIfDirty(HandledScreen<?> screen)
+	private void refreshIfDirty(AbstractContainerScreen<?> screen)
 	{
-		refreshEntries(screen.getScreenHandler());
+		refreshEntries(screen.getMenu());
 	}
 	
-	private void refreshEntries(ScreenHandler handler)
+	private void refreshEntries(AbstractContainerMenu handler)
 	{
 		allEntries.clear();
 		gearGroupedEntries.values().forEach(List::clear);
@@ -724,9 +721,10 @@ public final class EnchantmentHandlerHack extends Hack
 		List<Slot> slots = handler.slots;
 		int totalSlots = slots.size();
 		int containerSlots;
-		if(handler instanceof GenericContainerScreenHandler genericHandler)
+		if(handler instanceof ChestMenu genericHandler)
 		{
-			containerSlots = Math.min(genericHandler.getRows() * 9, totalSlots);
+			containerSlots =
+				Math.min(genericHandler.getRowCount() * 9, totalSlots);
 		}else
 		{
 			// For other handlers (shulker, player inventory, etc.) assume the
@@ -734,7 +732,7 @@ public final class EnchantmentHandlerHack extends Hack
 			// slots as total - 36. If this yields 0, fall back to using all
 			// slots so we still show items.
 			int playerInvSlots = 36;
-			if(MC.player != null && handler == MC.player.playerScreenHandler)
+			if(MC.player != null && handler == MC.player.inventoryMenu)
 				containerSlots = totalSlots; // player's own inventory: show all
 			else
 			{
@@ -747,10 +745,10 @@ public final class EnchantmentHandlerHack extends Hack
 		for(int i = 0; i < containerSlots; i++)
 		{
 			Slot slot = slots.get(i);
-			if(slot == null || !slot.hasStack())
+			if(slot == null || !slot.hasItem())
 				continue;
 			
-			ItemStack stack = slot.getStack();
+			ItemStack stack = slot.getItem();
 			if(stack.isEmpty())
 				continue;
 				
@@ -758,19 +756,19 @@ public final class EnchantmentHandlerHack extends Hack
 			// items
 			if(includeShulkerContents.isChecked())
 			{
-				ContainerComponent container =
-					stack.get(DataComponentTypes.CONTAINER);
+				ItemContainerContents container =
+					stack.get(DataComponents.CONTAINER);
 				if(container != null)
 				{
-					int parentSlotNumber = slot.getIndex() + 1;
-					for(ItemStack inner : container.iterateNonEmpty())
+					int parentSlotNumber = slot.getContainerSlot() + 1;
+					for(ItemStack inner : container.nonEmptyItems())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
-						if(inner.isOf(Items.ENCHANTED_BOOK))
+						if(inner.is(Items.ENCHANTED_BOOK))
 						{
-							var ench = EnchantmentHelper.getEnchantments(inner)
-								.getEnchantmentEntries();
+							var ench = EnchantmentHelper
+								.getEnchantmentsForCrafting(inner).entrySet();
 							BookEntry entry = buildBookEntryFromStack(
 								parentSlotNumber, inner, ench);
 							if(entry != null)
@@ -799,8 +797,8 @@ public final class EnchantmentHandlerHack extends Hack
 							}
 							continue;
 						}
-						var enchInner = EnchantmentHelper.getEnchantments(inner)
-							.getEnchantmentEntries();
+						var enchInner = EnchantmentHelper
+							.getEnchantmentsForCrafting(inner).entrySet();
 						if(!enchInner.isEmpty())
 						{
 							GearCategory gCatInner =
@@ -824,11 +822,11 @@ public final class EnchantmentHandlerHack extends Hack
 				}
 			}
 			
-			if(stack.isOf(Items.ENCHANTED_BOOK))
+			if(stack.is(Items.ENCHANTED_BOOK))
 			{
-				Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
-					EnchantmentHelper.getEnchantments(stack)
-						.getEnchantmentEntries();
+				Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments =
+					EnchantmentHelper.getEnchantmentsForCrafting(stack)
+						.entrySet();
 				if(enchantments.isEmpty())
 					continue;
 				
@@ -857,9 +855,8 @@ public final class EnchantmentHandlerHack extends Hack
 				continue;
 			}
 			
-			Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
-				EnchantmentHelper.getEnchantments(stack)
-					.getEnchantmentEntries();
+			Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments =
+				EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet();
 			if(enchantments.isEmpty())
 				continue;
 			
@@ -885,19 +882,19 @@ public final class EnchantmentHandlerHack extends Hack
 		for(int i = containerSlots; i < scanSlots; i++)
 		{
 			Slot slot = slots.get(i);
-			if(slot == null || !slot.hasStack())
+			if(slot == null || !slot.hasItem())
 				continue;
-			ItemStack stack = slot.getStack();
+			ItemStack stack = slot.getItem();
 			if(stack.isEmpty())
 				continue;
 				
 			// First, handle top-level enchanted books, potions and gear in
 			// the player inventory the same way we handle container slots.
-			if(stack.isOf(Items.ENCHANTED_BOOK))
+			if(stack.is(Items.ENCHANTED_BOOK))
 			{
-				Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
-					EnchantmentHelper.getEnchantments(stack)
-						.getEnchantmentEntries();
+				Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments =
+					EnchantmentHelper.getEnchantmentsForCrafting(stack)
+						.entrySet();
 				if(!enchantments.isEmpty())
 				{
 					BookEntry entry = buildBookEntry(slot, enchantments);
@@ -925,9 +922,8 @@ public final class EnchantmentHandlerHack extends Hack
 				continue;
 			}
 			
-			Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments =
-				EnchantmentHelper.getEnchantments(stack)
-					.getEnchantmentEntries();
+			Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments =
+				EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet();
 			if(!enchantments.isEmpty())
 			{
 				GearCategory category = GearCategory.fromStack(stack);
@@ -950,20 +946,20 @@ public final class EnchantmentHandlerHack extends Hack
 			// items
 			if(includeShulkerContents.isChecked())
 			{
-				ContainerComponent container =
-					stack.get(DataComponentTypes.CONTAINER);
+				ItemContainerContents container =
+					stack.get(DataComponents.CONTAINER);
 				if(container != null)
 				{
-					int parentSlotNumber = slot.getIndex() + 1;
-					for(ItemStack inner : container.iterateNonEmpty())
+					int parentSlotNumber = slot.getContainerSlot() + 1;
+					for(ItemStack inner : container.nonEmptyItems())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
 						// Enchanted book inside shulker
-						if(inner.isOf(Items.ENCHANTED_BOOK))
+						if(inner.is(Items.ENCHANTED_BOOK))
 						{
-							var ench = EnchantmentHelper.getEnchantments(inner)
-								.getEnchantmentEntries();
+							var ench = EnchantmentHelper
+								.getEnchantmentsForCrafting(inner).entrySet();
 							BookEntry entry = buildBookEntryFromStack(
 								parentSlotNumber, inner, ench);
 							if(entry != null)
@@ -993,8 +989,8 @@ public final class EnchantmentHandlerHack extends Hack
 							}
 							continue;
 						}
-						var enchInner = EnchantmentHelper.getEnchantments(inner)
-							.getEnchantmentEntries();
+						var enchInner = EnchantmentHelper
+							.getEnchantmentsForCrafting(inner).entrySet();
 						if(!enchInner.isEmpty())
 						{
 							GearCategory gCatInner =
@@ -1079,24 +1075,24 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private GearEntry buildGearEntry(Slot slot, ItemStack stack,
 		GearCategory category,
-		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
 		List<String> parts = new ArrayList<>();
 		
-		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
-			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			Holder<Enchantment> enchantmentEntry = entry.getKey();
 			if(enchantmentEntry == null)
 				continue;
 			
 			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.getKey()
-				.map(registryKey -> registryKey.getValue()).orElse(null);
+			ResourceLocation id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getIdAsString());
+				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
-			String levelText =
-				Text.translatable("enchantment.level." + level).getString();
+			String levelText = Component
+				.translatable("enchantment.level." + level).getString();
 			parts.add(name + " " + levelText);
 		}
 		
@@ -1105,67 +1101,67 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
 		
-		int slotNumber = slot.getIndex() + 1;
-		String itemName = limitLength(stack.getName().getString(), 40);
+		int slotNumber = slot.getContainerSlot() + 1;
+		String itemName = limitLength(stack.getHoverName().getString(), 40);
 		
 		String line = slotNumber + " - " + itemName + " | " + enchantSummary;
 		
-		return new GearEntry(slot.id, slotNumber, category, line);
+		return new GearEntry(slot.index, slotNumber, category, line);
 	}
 	
 	// Build a GearEntry for an item inside a shulker box (no real slot id)
 	private GearEntry buildGearEntryFromStack(int parentSlotNumber,
 		ItemStack stack, GearCategory category,
-		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
 		List<String> parts = new ArrayList<>();
-		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
-			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			Holder<Enchantment> enchantmentEntry = entry.getKey();
 			if(enchantmentEntry == null)
 				continue;
 			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.getKey()
-				.map(registryKey -> registryKey.getValue()).orElse(null);
+			ResourceLocation id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getIdAsString());
+				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
-			String levelText =
-				Text.translatable("enchantment.level." + level).getString();
+			String levelText = Component
+				.translatable("enchantment.level." + level).getString();
 			parts.add(name + " " + levelText);
 		}
 		if(parts.isEmpty())
 			return null;
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
-		String itemName = limitLength(stack.getName().getString(), 40);
+		String itemName = limitLength(stack.getHoverName().getString(), 40);
 		String line = parentSlotNumber + " - " + itemName + " | "
 			+ enchantSummary + " (in shulker)";
 		return new GearEntry(-1, parentSlotNumber, category, line);
 	}
 	
 	private BookEntry buildBookEntry(Slot slot,
-		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
 		List<String> parts = new ArrayList<>();
 		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
 		
-		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
-			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			Holder<Enchantment> enchantmentEntry = entry.getKey();
 			if(enchantmentEntry == null)
 				continue;
 			
 			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.getKey()
-				.map(registryKey -> registryKey.getValue()).orElse(null);
+			ResourceLocation id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getIdAsString());
+				: sanitizePath(enchantmentEntry.getRegisteredName());
 			BookCategory category = BookCategory.fromPath(path);
 			categories.add(category);
 			
 			String name = buildEnchantmentName(id, path);
-			String levelText =
-				Text.translatable("enchantment.level." + level).getString();
+			String levelText = Component
+				.translatable("enchantment.level." + level).getString();
 			parts.add(name + " " + levelText);
 		}
 		
@@ -1178,34 +1174,34 @@ public final class EnchantmentHandlerHack extends Hack
 					.orElse(BookCategory.MISC));
 		
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
-		int slotNumber = slot.getIndex() + 1;
+		int slotNumber = slot.getContainerSlot() + 1;
 		String line = slotNumber + " - " + enchantSummary;
 		
-		return new BookEntry(slot.id, slotNumber, primary, line);
+		return new BookEntry(slot.index, slotNumber, primary, line);
 	}
 	
 	// Build a BookEntry for an item inside a shulker box (no real slot id)
 	private BookEntry buildBookEntryFromStack(int parentSlotNumber,
 		ItemStack stack,
-		Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchantments)
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
 		List<String> parts = new ArrayList<>();
 		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
-		for(Object2IntMap.Entry<RegistryEntry<Enchantment>> entry : enchantments)
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
-			RegistryEntry<Enchantment> enchantmentEntry = entry.getKey();
+			Holder<Enchantment> enchantmentEntry = entry.getKey();
 			if(enchantmentEntry == null)
 				continue;
 			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.getKey()
-				.map(registryKey -> registryKey.getValue()).orElse(null);
+			ResourceLocation id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getIdAsString());
+				: sanitizePath(enchantmentEntry.getRegisteredName());
 			BookCategory category = BookCategory.fromPath(path);
 			categories.add(category);
 			String name = buildEnchantmentName(id, path);
-			String levelText =
-				Text.translatable("enchantment.level." + level).getString();
+			String levelText = Component
+				.translatable("enchantment.level." + level).getString();
 			parts.add(name + " " + levelText);
 		}
 		if(parts.isEmpty())
@@ -1224,19 +1220,17 @@ public final class EnchantmentHandlerHack extends Hack
 		PotionCategory category)
 	{
 		List<String> parts = new ArrayList<>();
-		PotionContentsComponent potionContents = stack.getComponents()
-			.getOrDefault(DataComponentTypes.POTION_CONTENTS,
-				PotionContentsComponent.DEFAULT);
+		PotionContents potionContents = stack.getComponents()
+			.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
 		
 		// First list all actual effects
-		for(StatusEffectInstance effectInstance : potionContents.getEffects())
+		for(MobEffectInstance effectInstance : potionContents.getAllEffects())
 		{
-			RegistryEntry<StatusEffect> effEntry =
-				effectInstance.getEffectType();
-			Identifier id =
-				effEntry.getKey().map(k -> k.getValue()).orElse(null);
+			Holder<MobEffect> effEntry = effectInstance.getEffect();
+			ResourceLocation id =
+				effEntry.unwrapKey().map(k -> k.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(effEntry.getIdAsString());
+				: sanitizePath(effEntry.getRegisteredName());
 			String name = buildEffectName(id, path);
 			String ampText = effectInstance.getAmplifier() > 0
 				? " " + (effectInstance.getAmplifier() + 1) : "";
@@ -1253,10 +1247,11 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				RegistryEntry<Potion> p = basePotion.get();
-				Identifier id = p.getKey().map(k -> k.getValue()).orElse(null);
-				String path =
-					id != null ? id.getPath() : sanitizePath(p.getIdAsString());
+				Holder<Potion> p = basePotion.get();
+				ResourceLocation id =
+					p.unwrapKey().map(k -> k.location()).orElse(null);
+				String path = id != null ? id.getPath()
+					: sanitizePath(p.getRegisteredName());
 				String name = buildPotionName(id, path);
 				parts.add(name);
 			}
@@ -1266,15 +1261,15 @@ public final class EnchantmentHandlerHack extends Hack
 		int primaryLevel = 0;
 		int primaryDuration = 0;
 		
-		Iterable<StatusEffectInstance> effects = potionContents.getEffects();
-		java.util.Iterator<StatusEffectInstance> it = effects.iterator();
+		Iterable<MobEffectInstance> effects = potionContents.getAllEffects();
+		java.util.Iterator<MobEffectInstance> it = effects.iterator();
 		if(it.hasNext())
 		{
-			StatusEffectInstance first = it.next();
-			Identifier id = first.getEffectType().getKey()
-				.map(k -> k.getValue()).orElse(null);
+			MobEffectInstance first = it.next();
+			ResourceLocation id = first.getEffect().unwrapKey()
+				.map(k -> k.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(first.getEffectType().getIdAsString());
+				: sanitizePath(first.getEffect().getRegisteredName());
 			primaryName = buildEffectName(id, path);
 			primaryLevel = first.getAmplifier() + 1;
 			primaryDuration = Math.max(0, first.getDuration());
@@ -1283,10 +1278,10 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				Identifier id = basePotion.get().getKey().map(k -> k.getValue())
-					.orElse(null);
+				ResourceLocation id = basePotion.get().unwrapKey()
+					.map(k -> k.location()).orElse(null);
 				String path = id != null ? id.getPath()
-					: sanitizePath(basePotion.get().getIdAsString());
+					: sanitizePath(basePotion.get().getRegisteredName());
 				primaryName = buildPotionName(id, path);
 			}else
 			{
@@ -1298,29 +1293,27 @@ public final class EnchantmentHandlerHack extends Hack
 			return null;
 		
 		String summary = limitLength(String.join(", ", parts), 90);
-		int slotNumber = slot.getIndex() + 1;
-		String itemName = limitLength(stack.getName().getString(), 40);
+		int slotNumber = slot.getContainerSlot() + 1;
+		String itemName = limitLength(stack.getHoverName().getString(), 40);
 		String line = slotNumber + " - " + itemName + " | " + summary;
 		
-		return new PotionEntry(slot.id, slotNumber, category, line, primaryName,
-			primaryLevel, primaryDuration);
+		return new PotionEntry(slot.index, slotNumber, category, line,
+			primaryName, primaryLevel, primaryDuration);
 	}
 	
 	private PotionEntry buildPotionEntryFromStack(int parentSlotNumber,
 		ItemStack stack, PotionCategory category)
 	{
 		List<String> parts = new ArrayList<>();
-		PotionContentsComponent potionContents = stack.getComponents()
-			.getOrDefault(DataComponentTypes.POTION_CONTENTS,
-				PotionContentsComponent.DEFAULT);
-		for(StatusEffectInstance effectInstance : potionContents.getEffects())
+		PotionContents potionContents = stack.getComponents()
+			.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
+		for(MobEffectInstance effectInstance : potionContents.getAllEffects())
 		{
-			RegistryEntry<StatusEffect> effEntry =
-				effectInstance.getEffectType();
-			Identifier id =
-				effEntry.getKey().map(k -> k.getValue()).orElse(null);
+			Holder<MobEffect> effEntry = effectInstance.getEffect();
+			ResourceLocation id =
+				effEntry.unwrapKey().map(k -> k.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(effEntry.getIdAsString());
+				: sanitizePath(effEntry.getRegisteredName());
 			String name = buildEffectName(id, path);
 			String ampText = effectInstance.getAmplifier() > 0
 				? " " + (effectInstance.getAmplifier() + 1) : "";
@@ -1334,10 +1327,11 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				RegistryEntry<Potion> p = basePotion.get();
-				Identifier id = p.getKey().map(k -> k.getValue()).orElse(null);
-				String path =
-					id != null ? id.getPath() : sanitizePath(p.getIdAsString());
+				Holder<Potion> p = basePotion.get();
+				ResourceLocation id =
+					p.unwrapKey().map(k -> k.location()).orElse(null);
+				String path = id != null ? id.getPath()
+					: sanitizePath(p.getRegisteredName());
 				String name = buildPotionName(id, path);
 				parts.add(name);
 			}
@@ -1345,21 +1339,21 @@ public final class EnchantmentHandlerHack extends Hack
 		if(parts.isEmpty())
 			return null;
 		String summary = limitLength(String.join(", ", parts), 90);
-		String itemName = limitLength(stack.getName().getString(), 40);
+		String itemName = limitLength(stack.getHoverName().getString(), 40);
 		String line = parentSlotNumber + " - " + itemName + " | " + summary
 			+ " (in shulker)";
 		String primaryName = null;
 		int primaryLevel = 0;
 		int primaryDuration = 0;
-		Iterable<StatusEffectInstance> effects = potionContents.getEffects();
-		java.util.Iterator<StatusEffectInstance> it = effects.iterator();
+		Iterable<MobEffectInstance> effects = potionContents.getAllEffects();
+		java.util.Iterator<MobEffectInstance> it = effects.iterator();
 		if(it.hasNext())
 		{
-			StatusEffectInstance first = it.next();
-			Identifier id = first.getEffectType().getKey()
-				.map(k -> k.getValue()).orElse(null);
+			MobEffectInstance first = it.next();
+			ResourceLocation id = first.getEffect().unwrapKey()
+				.map(k -> k.location()).orElse(null);
 			String path = id != null ? id.getPath()
-				: sanitizePath(first.getEffectType().getIdAsString());
+				: sanitizePath(first.getEffect().getRegisteredName());
 			primaryName = buildEffectName(id, path);
 			primaryLevel = first.getAmplifier() + 1;
 			primaryDuration = Math.max(0, first.getDuration());
@@ -1368,10 +1362,10 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				Identifier id = basePotion.get().getKey().map(k -> k.getValue())
-					.orElse(null);
+				ResourceLocation id = basePotion.get().unwrapKey()
+					.map(k -> k.location()).orElse(null);
 				String path = id != null ? id.getPath()
-					: sanitizePath(basePotion.get().getIdAsString());
+					: sanitizePath(basePotion.get().getRegisteredName());
 				primaryName = buildPotionName(id, path);
 			}else
 			{
@@ -1382,9 +1376,9 @@ public final class EnchantmentHandlerHack extends Hack
 			primaryName, primaryLevel, primaryDuration);
 	}
 	
-	private void takeEntry(GearEntry entry, ScreenHandler handler)
+	private void takeEntry(GearEntry entry, AbstractContainerMenu handler)
 	{
-		if(MC.player == null || MC.interactionManager == null || entry == null)
+		if(MC.player == null || MC.gameMode == null || entry == null)
 			return;
 		
 		// slotId < 0 indicates a display-only entry (e.g. shulker-inner)
@@ -1392,52 +1386,52 @@ public final class EnchantmentHandlerHack extends Hack
 			return;
 		
 		Slot slot = getSlotSafe(handler, entry.slotId);
-		if(slot == null || !slot.hasStack())
+		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-			SlotActionType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
+			0, ClickType.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
-	private void takeEntry(BookEntry entry, ScreenHandler handler)
+	private void takeEntry(BookEntry entry, AbstractContainerMenu handler)
 	{
-		if(MC.player == null || MC.interactionManager == null || entry == null)
+		if(MC.player == null || MC.gameMode == null || entry == null)
 			return;
 		
 		if(entry.slotId < 0)
 			return;
 		
 		Slot slot = getSlotSafe(handler, entry.slotId);
-		if(slot == null || !slot.hasStack())
+		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-			SlotActionType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
+			0, ClickType.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
-	private void takeEntry(PotionEntry entry, ScreenHandler handler)
+	private void takeEntry(PotionEntry entry, AbstractContainerMenu handler)
 	{
-		if(MC.player == null || MC.interactionManager == null || entry == null)
+		if(MC.player == null || MC.gameMode == null || entry == null)
 			return;
 		
 		if(entry.slotId < 0)
 			return;
 		
 		Slot slot = getSlotSafe(handler, entry.slotId);
-		if(slot == null || !slot.hasStack())
+		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-			SlotActionType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
+			0, ClickType.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
-	private void takeGearCategory(GearCategory category, ScreenHandler handler,
-		String source)
+	private void takeGearCategory(GearCategory category,
+		AbstractContainerMenu handler, String source)
 	{
-		if(MC.player == null || MC.interactionManager == null)
+		if(MC.player == null || MC.gameMode == null)
 			return;
 		
 		List<GearEntry> list;
@@ -1461,20 +1455,20 @@ public final class EnchantmentHandlerHack extends Hack
 			if(entry.slotId < 0)
 				continue; // display-only (in shulker)
 			Slot slot = getSlotSafe(handler, entry.slotId);
-			if(slot == null || !slot.hasStack())
+			if(slot == null || !slot.hasItem())
 				continue;
 			
-			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-				SlotActionType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
 	}
 	
-	private void takeBookCategory(BookCategory category, ScreenHandler handler,
-		String source)
+	private void takeBookCategory(BookCategory category,
+		AbstractContainerMenu handler, String source)
 	{
-		if(MC.player == null || MC.interactionManager == null)
+		if(MC.player == null || MC.gameMode == null)
 			return;
 		
 		List<BookEntry> list;
@@ -1498,19 +1492,19 @@ public final class EnchantmentHandlerHack extends Hack
 			if(entry.slotId < 0)
 				continue;
 			Slot slot = getSlotSafe(handler, entry.slotId);
-			if(slot == null || !slot.hasStack())
+			if(slot == null || !slot.hasItem())
 				continue;
-			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-				SlotActionType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
 	}
 	
 	private void takePotionCategory(PotionCategory category,
-		ScreenHandler handler, String source)
+		AbstractContainerMenu handler, String source)
 	{
-		if(MC.player == null || MC.interactionManager == null)
+		if(MC.player == null || MC.gameMode == null)
 			return;
 		
 		List<PotionEntry> list;
@@ -1534,16 +1528,16 @@ public final class EnchantmentHandlerHack extends Hack
 			if(entry.slotId < 0)
 				continue;
 			Slot slot = getSlotSafe(handler, entry.slotId);
-			if(slot == null || !slot.hasStack())
+			if(slot == null || !slot.hasItem())
 				continue;
-			MC.interactionManager.clickSlot(handler.syncId, entry.slotId, 0,
-				SlotActionType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
 	}
 	
-	private Slot getSlotSafe(ScreenHandler handler, int slotId)
+	private Slot getSlotSafe(AbstractContainerMenu handler, int slotId)
 	{
 		if(handler == null || slotId < 0)
 			return null;
@@ -1557,9 +1551,9 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private int panelInnerHeight()
 	{
-		float scale = MathHelper.clamp(textScale.getValueF(), 0.5F, 1.25F);
-		TextRenderer tr = MC.textRenderer;
-		int titleHeight = Math.max(1, Math.round(tr.fontHeight * scale));
+		float scale = Mth.clamp(textScale.getValueF(), 0.5F, 1.25F);
+		Font tr = MC.font;
+		int titleHeight = Math.max(1, Math.round(tr.lineHeight * scale));
 		int headerMargin = Math.max(1, Math.round(HEADER_MARGIN * scale));
 		int contentTop =
 			panelY + PANEL_PADDING + titleHeight + headerMargin + 1;
@@ -1567,32 +1561,32 @@ public final class EnchantmentHandlerHack extends Hack
 		return Math.max(0, contentBottom - contentTop);
 	}
 	
-	private static double getScaledMouseX(DrawContext context)
+	private static double getScaledMouseX(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
-		return MC.mouse.getX() * context.getScaledWindowWidth()
-			/ window.getWidth();
+		return MC.mouseHandler.xpos() * context.guiWidth()
+			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(DrawContext context)
+	private static double getScaledMouseY(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
-		return MC.mouse.getY() * context.getScaledWindowHeight()
-			/ window.getHeight();
+		return MC.mouseHandler.ypos() * context.guiHeight()
+			/ window.getScreenHeight();
 	}
 	
-	private static void drawScaledText(DrawContext context, TextRenderer tr,
+	private static void drawScaledText(GuiGraphics context, Font tr,
 		String text, float x, float y, int color, float scale)
 	{
 		RenderUtils.drawScaledText(context, tr, text, Math.round(x),
 			Math.round(y), color, false, scale);
 	}
 	
-	private void drawSectionHeader(DrawContext context, TextRenderer tr, int x,
-		int y, String text, float scale)
+	private void drawSectionHeader(GuiGraphics context, Font tr, int x, int y,
+		String text, float scale)
 	{
-		int textWidth = Math.max(1, Math.round(tr.getWidth(text) * scale));
-		int textHeight = Math.max(1, Math.round(tr.fontHeight * scale));
+		int textWidth = Math.max(1, Math.round(tr.width(text) * scale));
+		int textHeight = Math.max(1, Math.round(tr.lineHeight * scale));
 		int left = Math.round(x - 4);
 		int right = Math.round(x + textWidth + 4);
 		int top = Math.round(y - 4);
@@ -1608,40 +1602,40 @@ public final class EnchantmentHandlerHack extends Hack
 		return text.substring(0, Math.max(0, max - 3)) + "...";
 	}
 	
-	private static String buildEnchantmentName(Identifier id, String path)
+	private static String buildEnchantmentName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Enchant";
 		
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "enchantment." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;
 	}
 	
-	private static String buildEffectName(Identifier id, String path)
+	private static String buildEffectName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Effect";
 		
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "effect." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;
 	}
 	
-	private static String buildPotionName(Identifier id, String path)
+	private static String buildPotionName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Potion";
 		
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "potion." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;
@@ -1816,22 +1810,21 @@ public final class EnchantmentHandlerHack extends Hack
 					case FEET -> BOOTS;
 					case OFFHAND ->
 					{
-						if(stack.isOf(Items.SHIELD))
+						if(stack.is(Items.SHIELD))
 							yield SHIELD;
 						yield null;
 					}
 					default -> null;
 				};
 			
-			if(stack.isOf(Items.SHIELD))
+			if(stack.is(Items.SHIELD))
 				return SHIELD;
 			
-			if(stack.isOf(Items.TRIDENT) || stack.isOf(Items.BOW)
-				|| stack.isOf(Items.CROSSBOW))
+			if(stack.is(Items.TRIDENT) || stack.is(Items.BOW)
+				|| stack.is(Items.CROSSBOW))
 				return WEAPON;
 			
-			WeaponComponent weapon =
-				stack.getComponents().get(DataComponentTypes.WEAPON);
+			Weapon weapon = stack.getComponents().get(DataComponents.WEAPON);
 			if(weapon != null)
 				return WEAPON;
 			

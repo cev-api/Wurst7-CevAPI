@@ -11,23 +11,21 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.screen.MerchantScreenHandler;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.MerchantMenu;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoTraderHack;
 
-import net.minecraft.entity.player.PlayerInventory;
-
 @Mixin(MerchantScreen.class)
 public abstract class MerchantScreenMixin
-	extends HandledScreen<MerchantScreenHandler>
+	extends AbstractContainerScreen<MerchantMenu>
 {
-	private MerchantScreenMixin(WurstClient wurst,
-		MerchantScreenHandler handler, PlayerInventory inventory, Text title)
+	private MerchantScreenMixin(WurstClient wurst, MerchantMenu handler,
+		Inventory inventory, Component title)
 	{
 		super(handler, inventory, title);
 	}
@@ -43,10 +41,10 @@ public abstract class MerchantScreenMixin
 		if(autoTrader == null)
 			return;
 		
-		ButtonWidget button = ButtonWidget
-			.builder(Text.literal("AutoTrader"),
+		Button button = Button
+			.builder(Component.literal("AutoTrader"),
 				b -> autoTrader.triggerFromGui())
-			.dimensions(x + backgroundWidth - 90, y - 20, 80, 16).build();
-		addDrawableChild(button);
+			.bounds(leftPos + imageWidth - 90, topPos - 20, 80, 16).build();
+		addRenderableWidget(button);
 	}
 }

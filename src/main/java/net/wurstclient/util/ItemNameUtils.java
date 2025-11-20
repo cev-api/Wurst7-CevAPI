@@ -9,46 +9,45 @@ package net.wurstclient.util;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
-
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public final class ItemNameUtils
 {
 	private ItemNameUtils()
 	{}
 	
-	public static String buildEnchantmentName(Identifier id, String path)
+	public static String buildEnchantmentName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Enchant";
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "enchantment." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;
 	}
 	
-	public static String buildEffectName(Identifier id, String path)
+	public static String buildEffectName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Effect";
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "effect." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;
 	}
 	
-	public static String buildPotionName(Identifier id, String path)
+	public static String buildPotionName(ResourceLocation id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Potion";
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "potion." + namespace + "." + path;
-		String translated = Text.translatable(key).getString();
+		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
 		return translated;

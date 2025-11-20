@@ -7,7 +7,7 @@
  */
 package net.wurstclient.mixinterface;
 
-import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.KeyMapping;
 
 public interface IKeyBinding
 {
@@ -32,19 +32,19 @@ public interface IKeyBinding
 	
 	public default void setPressed(boolean pressed)
 	{
-		asVanilla().setPressed(pressed);
+		asVanilla().setDown(pressed);
 	}
 	
-	public default KeyBinding asVanilla()
+	public default KeyMapping asVanilla()
 	{
-		return (KeyBinding)this;
+		return (KeyMapping)this;
 	}
 	
 	/**
 	 * Returns the given KeyBinding object as an IKeyBinding, allowing you to
 	 * access the resetPressedState() method.
 	 */
-	public static IKeyBinding get(KeyBinding kb)
+	public static IKeyBinding get(KeyMapping kb)
 	{
 		return (IKeyBinding)kb;
 	}

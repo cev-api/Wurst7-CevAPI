@@ -11,10 +11,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
-
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.font.TextRenderer;
 import net.wurstclient.ui.UiScale;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -36,7 +35,7 @@ public final class HackListHUD implements UpdateListener
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class, this);
 	}
 	
-	public void render(DrawContext context, float partialTicks)
+	public void render(GuiGraphics context, float partialTicks)
 	{
 		if(otf.getMode() == Mode.HIDDEN)
 			return;
@@ -50,7 +49,7 @@ public final class HackListHUD implements UpdateListener
 		int height = count == 0 ? 0
 			: count * lineHeight + Math.max(0, count - 1) * spacing;
 		
-		int baseY = isBottom ? context.getScaledWindowHeight() - height - 2 : 2;
+		int baseY = isBottom ? context.guiHeight() - height - 2 : 2;
 		// Avoid overlapping with Wurst Logo in top-left
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
@@ -74,14 +73,13 @@ public final class HackListHUD implements UpdateListener
 		usePerHackColors = otf.useHackColors() && !rainbowUi;
 		
 		int totalHeight = height + posY;
-		if(otf.getMode() == Mode.COUNT
-			|| totalHeight > context.getScaledWindowHeight())
+		if(otf.getMode() == Mode.COUNT || totalHeight > context.guiHeight())
 			drawCounter(context);
 		else
 			drawHackList(context, partialTicks, lineHeight, spacing);
 	}
 	
-	private void drawCounter(DrawContext context)
+	private void drawCounter(GuiGraphics context)
 	{
 		long size = activeHax.stream().filter(e -> e.hack.isEnabled()).count();
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
@@ -90,7 +88,7 @@ public final class HackListHUD implements UpdateListener
 			/* spacing */0);
 	}
 	
-	private void drawHackList(DrawContext context, float partialTicks,
+	private void drawHackList(GuiGraphics context, float partialTicks,
 		int lineHeight, int spacing)
 	{
 		if(otf.isAnimations())
@@ -150,22 +148,22 @@ public final class HackListHUD implements UpdateListener
 		}
 	}
 	
-	private void drawString(DrawContext context, String s, int lineHeight,
+	private void drawString(GuiGraphics context, String s, int lineHeight,
 		int spacing)
 	{
-		TextRenderer tr = WurstClient.MC.textRenderer;
+		Font tr = WurstClient.MC.font;
 		int posX;
 		int yDraw = posY + otf.getYOffset();
 		double scale = getScale() * otf.getFontSize();
 		// scaled string width
-		int stringWidth = (int)(tr.getWidth(s) * scale);
+		int stringWidth = (int)(tr.width(s) * scale);
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
 			posX = 2 + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.getScaledWindowWidth();
+			int screenWidth = context.guiWidth();
 			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
 		}
 		int alpha = (int)(otf.getTransparency() * 255) << 24;
@@ -200,29 +198,29 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
 				0x04000000 | alpha, false, scale);
 		}
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawString(DrawContext context, Hack hack, String s,
+	private void drawString(GuiGraphics context, Hack hack, String s,
 		int lineHeight, int spacing)
 	{
-		TextRenderer tr = WurstClient.MC.textRenderer;
+		Font tr = WurstClient.MC.font;
 		int posX;
 		int yDraw = posY + otf.getYOffset();
 		double scale = getScale() * otf.getFontSize();
 		// scaled string width
-		int stringWidth = (int)(tr.getWidth(s) * scale);
+		int stringWidth = (int)(tr.width(s) * scale);
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
 			posX = 2 + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.getScaledWindowWidth();
+			int screenWidth = context.guiWidth();
 			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
 		}
 		int alpha = (int)(otf.getTransparency() * 255) << 24;
@@ -262,24 +260,24 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
 				0x04000000 | alpha, false, scale);
 		}
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawWithOffset(DrawContext context, HackListEntry e,
+	private void drawWithOffset(GuiGraphics context, HackListEntry e,
 		float partialTicks, int lineHeight, int spacing)
 	{
-		TextRenderer tr = WurstClient.MC.textRenderer;
+		Font tr = WurstClient.MC.font;
 		String s = e.hack.getRenderName();
 		
 		float offset =
 			e.offset * partialTicks + e.prevOffset * (1 - partialTicks);
 		
 		double scale = getScale() * otf.getFontSize();
-		int stringWidth = (int)(tr.getWidth(s) * scale);
+		int stringWidth = (int)(tr.width(s) * scale);
 		
 		float posX;
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
@@ -288,7 +286,7 @@ public final class HackListHUD implements UpdateListener
 			posX = 2 - (int)(5 * offset * scale) + otf.getXOffset();
 		else
 		{
-			int screenWidth = context.getScaledWindowWidth();
+			int screenWidth = context.guiWidth();
 			posX = screenWidth - stringWidth - 2 + (int)(5 * offset * scale)
 				+ otf.getXOffset();
 		}
@@ -327,7 +325,7 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
 				0x04000000 | alpha, false, scale);
 		}
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
 			(lineColor | alpha), false, scale);
 		

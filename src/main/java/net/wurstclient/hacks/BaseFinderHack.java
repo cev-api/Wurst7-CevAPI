@@ -7,15 +7,13 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
-
-import com.mojang.blaze3d.vertex.VertexFormat.DrawMode;
-
-import net.minecraft.client.render.VertexFormats;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
@@ -249,7 +247,7 @@ public final class BaseFinderHack extends Hack
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		RegionPos region = RenderUtils.getCameraRegion();
 		if(!region.equals(lastRegion))
@@ -258,19 +256,19 @@ public final class BaseFinderHack extends Hack
 		if(vertexBuffer == null)
 			return;
 		
-		matrixStack.push();
+		matrixStack.pushPose();
 		RenderUtils.applyRegionalRenderOffset(matrixStack, region);
 		
 		vertexBuffer.draw(matrixStack, WurstRenderLayers.ESP_QUADS,
 			color.getColorF(), 0.25F);
 		
-		matrixStack.pop();
+		matrixStack.popPose();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		int modulo = MC.player.age % 64;
+		int modulo = MC.player.tickCount % 64;
 		RegionPos region = RenderUtils.getCameraRegion();
 		
 		if(modulo == 0 || !region.equals(lastRegion))
@@ -278,11 +276,11 @@ public final class BaseFinderHack extends Hack
 			if(vertexBuffer != null)
 				vertexBuffer.close();
 			
-			vertexBuffer = EasyVertexBuffer.createAndUpload(DrawMode.QUADS,
-				VertexFormats.POSITION_COLOR, buffer -> {
+			vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+				DefaultVertexFormat.POSITION_COLOR, buffer -> {
 					for(int[] vertex : vertices)
-						buffer.vertex(vertex[0] - region.x(), vertex[1],
-							vertex[2] - region.z()).color(0xFFFFFFFF);
+						buffer.addVertex(vertex[0] - region.x(), vertex[1],
+							vertex[2] - region.z()).setColor(0xFFFFFFFF);
 				});
 			
 			lastRegion = region;
@@ -292,12 +290,12 @@ public final class BaseFinderHack extends Hack
 		if(modulo == 0)
 			matchingBlocks.clear();
 		
-		int stepSize = MC.world.getHeight() / 64;
-		int startY = MC.world.getTopYInclusive() - 1 - modulo * stepSize;
+		int stepSize = MC.level.getHeight() / 64;
+		int startY = MC.level.getMaxY() - 1 - modulo * stepSize;
 		int endY = startY - stepSize;
 		
 		BlockPos playerPos =
-			BlockPos.ofFloored(MC.player.getX(), 0, MC.player.getZ());
+			BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
 		
 		// search matching blocks
 		loop: for(int y = startY; y > endY; y--)
@@ -320,8 +318,9 @@ public final class BaseFinderHack extends Hack
 							? idFull.substring(idFull.indexOf(":") + 1)
 							: idFull;
 						String localSpaced = localId.replace('_', ' ');
-						net.minecraft.block.Block b = BlockUtils.getBlock(pos);
-						String transKey = b.getTranslationKey();
+						net.minecraft.world.level.block.Block b =
+							BlockUtils.getBlock(pos);
+						String transKey = b.getDescriptionId();
 						String display = b.getName().getString();
 						for(String term : naturalKeywords)
 							if(containsNormalized(idFull, term)
@@ -374,8 +373,8 @@ public final class BaseFinderHack extends Hack
 		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 		for(String s : blockNames)
 		{
-			net.minecraft.util.Identifier id =
-				net.minecraft.util.Identifier.tryParse(s);
+			net.minecraft.resources.ResourceLocation id =
+				net.minecraft.resources.ResourceLocation.tryParse(s);
 			if(id != null)
 				exact.add(id.toString());
 			else if(s != null && !s.isBlank())

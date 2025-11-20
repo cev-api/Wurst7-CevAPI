@@ -13,29 +13,28 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.hacks.EnchantmentHandlerHack;
 
-@Mixin(HandledScreen.class)
+@Mixin(AbstractContainerScreen.class)
 public abstract class HandledScreenMixin
 {
 	@Shadow
-	public abstract net.minecraft.screen.ScreenHandler getScreenHandler();
+	public abstract net.minecraft.world.inventory.AbstractContainerMenu getMenu();
 	
 	@Inject(at = @At("HEAD"),
-		method = "onMouseClick(Lnet/minecraft/screen/slot/Slot;IILnet/minecraft/screen/slot/SlotActionType;)V",
+		method = "slotClicked(Lnet/minecraft/world/inventory/Slot;IILnet/minecraft/world/inventory/ClickType;)V",
 		cancellable = true)
 	private void onMouseClick(Slot slot, int slotId, int button,
-		SlotActionType actionType, CallbackInfo ci)
+		ClickType actionType, CallbackInfo ci)
 	{
-		if(actionType != SlotActionType.THROW && slotId != -999)
+		if(actionType != ClickType.THROW && slotId != -999)
 			return;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -48,9 +47,9 @@ public abstract class HandledScreenMixin
 		ItemStack stack = ItemStack.EMPTY;
 		
 		if(slotId == -999)
-			stack = getScreenHandler().getCursorStack();
+			stack = getMenu().getCarried();
 		else if(slot != null)
-			stack = slot.getStack();
+			stack = slot.getItem();
 		
 		if(antiDrop.shouldBlock(stack))
 			ci.cancel();
@@ -66,8 +65,9 @@ public abstract class HandledScreenMixin
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(enchantHack != null && enchantHack.isEnabled()
-			&& enchantHack.handleMouseClick((HandledScreen<?>)(Object)this,
-				mouseX, mouseY, button))
+			&& enchantHack.handleMouseClick(
+				(AbstractContainerScreen<?>)(Object)this, mouseX, mouseY,
+				button))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
@@ -85,8 +85,9 @@ public abstract class HandledScreenMixin
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(enchantHack != null && enchantHack.isEnabled()
-			&& enchantHack.handleMouseScroll((HandledScreen<?>)(Object)this,
-				mouseX, mouseY, verticalAmount))
+			&& enchantHack.handleMouseScroll(
+				(AbstractContainerScreen<?>)(Object)this, mouseX, mouseY,
+				verticalAmount))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
@@ -94,8 +95,8 @@ public abstract class HandledScreenMixin
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/DrawContext;IIF)V")
-	private void wurst$renderOverlay(DrawContext context, int mouseX,
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -105,7 +106,7 @@ public abstract class HandledScreenMixin
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		
 		if(enchantHack != null && enchantHack.isEnabled())
-			enchantHack.renderOnHandledScreen((HandledScreen<?>)(Object)this,
-				context, delta);
+			enchantHack.renderOnHandledScreen(
+				(AbstractContainerScreen<?>)(Object)this, context, delta);
 	}
 }

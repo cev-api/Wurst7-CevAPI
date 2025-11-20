@@ -7,28 +7,27 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.decoration.ArmorStandEntity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Arm;
-import net.minecraft.util.Hand;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -203,7 +202,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	public void onUpdate()
 	{
 		items.clear();
-		for(Entity entity : MC.world.getEntities())
+		for(Entity entity : MC.level.entitiesForRendering())
 			if(entity instanceof ItemEntity)
 				items.add((ItemEntity)entity);
 		// update count for HUD (clamped to 999)
@@ -219,7 +218,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		int baseLines = color.getColorI(0x80);
 		int baseQuads = color.getColorI(0x40);
@@ -242,8 +241,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					String raw = s.trim();
 					if(raw.isEmpty())
 						continue;
-					Identifier id = Identifier.tryParse(raw);
-					if(id != null && Registries.ITEM.containsId(id))
+					ResourceLocation id = ResourceLocation.tryParse(raw);
+					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 						exact.add(id.toString());
 					else
 						kw.add(raw.toLowerCase(Locale.ROOT));
@@ -268,8 +267,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					String raw = s.trim();
 					if(raw.isEmpty())
 						continue;
-					Identifier id = Identifier.tryParse(raw);
-					if(id != null && Registries.ITEM.containsId(id))
+					ResourceLocation id = ResourceLocation.tryParse(raw);
+					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 						exact.add(id.toString());
 				}
 				ignoredExactIds = exact;
@@ -281,10 +280,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		}
 		
 		// Partition items into normal vs special
-		ArrayList<Box> normalBoxes = new ArrayList<>();
-		ArrayList<Box> specialBoxes = new ArrayList<>();
-		ArrayList<Vec3d> normalEnds = new ArrayList<>();
-		ArrayList<Vec3d> specialEnds = new ArrayList<>();
+		ArrayList<AABB> normalBoxes = new ArrayList<>();
+		ArrayList<AABB> specialBoxes = new ArrayList<>();
+		ArrayList<Vec3> normalEnds = new ArrayList<>();
+		ArrayList<Vec3> specialEnds = new ArrayList<>();
 		
 		double extraSize = boxSize.getExtraSize() / 2;
 		int visibleDrops = 0;
@@ -293,13 +292,13 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			if(onlyAboveGround.isChecked()
 				&& e.getY() < aboveGroundY.getValue())
 				continue;
-			ItemStack stack = e.getStack();
+			ItemStack stack = e.getItem();
 			if(stack == null || stack.isEmpty())
 				continue;
 			if(isIgnored(stack))
 				continue;
-			Box box = EntityUtils.getLerpedBox(e, partialTicks)
-				.offset(0, extraSize, 0).expand(extraSize);
+			AABB box = EntityUtils.getLerpedBox(e, partialTicks)
+				.move(0, extraSize, 0).inflate(extraSize);
 			boolean isSpecial = isSpecial(stack);
 			visibleDrops++;
 			if(isSpecial)
@@ -307,8 +306,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			else
 				normalBoxes.add(box);
 			
-			Vec3d center =
-				EntityUtils.getLerpedBox(e, partialTicks).getCenter();
+			Vec3 center = EntityUtils.getLerpedBox(e, partialTicks).getCenter();
 			if(isSpecial)
 				specialEnds.add(center);
 			else
@@ -319,11 +317,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		// Item frames holding special items
 		if(includeItemFrames.isChecked())
 		{
-			for(Entity ent : MC.world.getEntities())
+			for(Entity ent : MC.level.entitiesForRendering())
 			{
-				if(!(ent instanceof ItemFrameEntity frame))
+				if(!(ent instanceof ItemFrame frame))
 					continue;
-				ItemStack fs = frame.getHeldItemStack();
+				ItemStack fs = frame.getItem();
 				if(fs == null || fs.isEmpty())
 					continue;
 				if(isIgnored(fs))
@@ -333,8 +331,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				if(onlyAboveGround.isChecked()
 					&& frame.getY() < aboveGroundY.getValue())
 					continue;
-				Box fbox = EntityUtils.getLerpedBox(frame, partialTicks)
-					.offset(0, extraSize, 0).expand(extraSize);
+				AABB fbox = EntityUtils.getLerpedBox(frame, partialTicks)
+					.move(0, extraSize, 0).inflate(extraSize);
 				specialBoxes.add(fbox);
 				specialEnds.add(fbox.getCenter());
 			}
@@ -343,15 +341,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		// Equipped specials (held or head) on entities
 		if(includeEquippedSpecial.isChecked())
 		{
-			for(Entity ent : MC.world.getEntities())
+			for(Entity ent : MC.level.entitiesForRendering())
 			{
 				if(!(ent instanceof LivingEntity le))
 					continue;
-				if(ignoreArmorStands.isChecked()
-					&& le instanceof ArmorStandEntity)
+				if(ignoreArmorStands.isChecked() && le instanceof ArmorStand)
 					continue;
-				boolean isPlayer = le instanceof PlayerEntity;
-				if(ignoreVillagers.isChecked() && le instanceof VillagerEntity)
+				boolean isPlayer = le instanceof Player;
+				if(ignoreVillagers.isChecked() && le instanceof Villager)
 					continue;
 				if(ignoreOtherPlayers.isChecked() && isPlayer
 					&& le != MC.player)
@@ -359,31 +356,32 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				if(le == MC.player)
 					continue;
 				// hands
-				ItemStack main = le.getMainHandStack();
+				ItemStack main = le.getMainHandItem();
 				if(main != null && !main.isEmpty() && !isIgnored(main)
 					&& isSpecial(main))
 				{
-					Vec3d pos =
-						getHeldItemPos(le, Hand.MAIN_HAND, partialTicks);
+					Vec3 pos = getHeldItemPos(le, InteractionHand.MAIN_HAND,
+						partialTicks);
 					if(onlyAboveGround.isChecked() && pos != null
 						&& pos.y < aboveGroundY.getValue())
 						continue;
-					Box b = smallBoxAt(pos);
+					AABB b = smallBoxAt(pos);
 					if(b != null)
 					{
 						specialBoxes.add(b);
 						specialEnds.add(b.getCenter());
 					}
 				}
-				ItemStack off = le.getOffHandStack();
+				ItemStack off = le.getOffhandItem();
 				if(off != null && !off.isEmpty() && !isIgnored(off)
 					&& isSpecial(off))
 				{
-					Vec3d pos = getHeldItemPos(le, Hand.OFF_HAND, partialTicks);
+					Vec3 pos = getHeldItemPos(le, InteractionHand.OFF_HAND,
+						partialTicks);
 					if(onlyAboveGround.isChecked() && pos != null
 						&& pos.y < aboveGroundY.getValue())
 						continue;
-					Box b = smallBoxAt(pos);
+					AABB b = smallBoxAt(pos);
 					if(b != null)
 					{
 						specialBoxes.add(b);
@@ -391,17 +389,17 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					}
 				}
 				// head worn
-				ItemStack head = le.getEquippedStack(EquipmentSlot.HEAD);
+				ItemStack head = le.getItemBySlot(EquipmentSlot.HEAD);
 				if(head != null && !head.isEmpty() && !isIgnored(head)
 					&& isSpecial(head))
 				{
-					Vec3d hp = getHeadPos(le, partialTicks);
+					Vec3 hp = getHeadPos(le, partialTicks);
 					if(hp != null)
 					{
 						if(onlyAboveGround.isChecked()
 							&& hp.y < aboveGroundY.getValue())
 							continue;
-						Box b = smallBoxAt(hp);
+						AABB b = smallBoxAt(hp);
 						specialBoxes.add(b);
 						specialEnds.add(hp);
 					}
@@ -466,7 +464,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return false;
 		if(ignoredExactIds == null || ignoredExactIds.isEmpty())
 			return false;
-		Identifier id = Registries.ITEM.getId(stack.getItem());
+		ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 		if(id == null)
 			return false;
 		return ignoredExactIds.contains(id.toString());
@@ -479,15 +477,15 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		{
 			case LIST:
 			{
-				String id = Registries.ITEM.getId(item).toString();
+				String id = BuiltInRegistries.ITEM.getKey(item).toString();
 				if(specialExactIds != null && specialExactIds.contains(id))
 					return true;
 				String localId =
 					id.contains(":") ? id.substring(id.indexOf(":") + 1) : id;
 				String localSpaced = localId.replace('_', ' ');
-				String transKey = item.getTranslationKey();
+				String transKey = item.getDescriptionId();
 				String display = item.getName().getString();
-				String stackDisplay = stack.getName().getString();
+				String stackDisplay = stack.getHoverName().getString();
 				if(specialKeywords != null)
 					for(String term : specialKeywords)
 						if(containsNormalized(id, term)
@@ -515,8 +513,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return false;
 		try
 		{
-			Identifier id = Identifier.of(idStr.trim());
-			Item target = Registries.ITEM.get(id);
+			ResourceLocation id = ResourceLocation.parse(idStr.trim());
+			Item target = BuiltInRegistries.ITEM.getValue(id);
 			return target != null && target == item;
 		}catch(IllegalArgumentException e)
 		{
@@ -536,13 +534,14 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	{
 		if(normalizedQuery.isEmpty())
 			return false;
-		String fullId = Registries.ITEM.getId(item).toString();
+		String fullId = BuiltInRegistries.ITEM.getKey(item).toString();
 		String localId = fullId.contains(":")
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
 		String localSpaced = localId.replace('_', ' ');
-		String transKey = item.getTranslationKey();
+		String transKey = item.getDescriptionId();
 		String display = item.getName().getString();
-		String stackDisplay = stack != null ? stack.getName().getString() : "";
+		String stackDisplay =
+			stack != null ? stack.getHoverName().getString() : "";
 		String[] terms = Arrays.stream(normalizedQuery.split(","))
 			.map(String::trim).filter(s -> !s.isEmpty()).toArray(String[]::new);
 		if(terms.length == 0)
@@ -565,17 +564,20 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	}
 	
 	// Helpers to approximate held/head positions and box creation
-	private Vec3d getHeldItemPos(LivingEntity e, Hand hand, float partialTicks)
+	private Vec3 getHeldItemPos(LivingEntity e, InteractionHand hand,
+		float partialTicks)
 	{
 		if(hand == null)
 			return null;
-		Vec3d base = EntityUtils.getLerpedPos(e, partialTicks);
-		double yawRad = Math.toRadians(e.getYaw());
-		Arm mainArm = Arm.RIGHT;
-		if(e instanceof PlayerEntity pe)
+		Vec3 base = EntityUtils.getLerpedPos(e, partialTicks);
+		double yawRad = Math.toRadians(e.getYRot());
+		HumanoidArm mainArm = HumanoidArm.RIGHT;
+		if(e instanceof Player pe)
 			mainArm = pe.getMainArm();
-		boolean rightSide = (mainArm == Arm.RIGHT && hand == Hand.MAIN_HAND)
-			|| (mainArm == Arm.LEFT && hand == Hand.OFF_HAND);
+		boolean rightSide =
+			(mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND)
+				|| (mainArm == HumanoidArm.LEFT
+					&& hand == InteractionHand.OFF_HAND);
 		double side = rightSide ? -1 : 1;
 		double eyeH = e.getEyeHeight(e.getPose());
 		double offX = Math.cos(yawRad) * 0.16 * side;
@@ -584,19 +586,19 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		return base.add(offX, offY, offZ);
 	}
 	
-	private Vec3d getHeadPos(LivingEntity e, float partialTicks)
+	private Vec3 getHeadPos(LivingEntity e, float partialTicks)
 	{
-		Vec3d base = EntityUtils.getLerpedPos(e, partialTicks);
+		Vec3 base = EntityUtils.getLerpedPos(e, partialTicks);
 		double eyeH = e.getEyeHeight(e.getPose());
 		return base.add(0, eyeH + 0.05, 0);
 	}
 	
-	private Box smallBoxAt(Vec3d c)
+	private AABB smallBoxAt(Vec3 c)
 	{
 		if(c == null)
 			return null;
 		double r = 0.18;
-		return new Box(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
+		return new AABB(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
 	}
 	
 	@Override

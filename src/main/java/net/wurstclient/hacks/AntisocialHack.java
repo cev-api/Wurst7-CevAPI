@@ -7,7 +7,7 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -69,7 +69,7 @@ public final class AntisocialHack extends Hack
 	}
 	
 	@Override
-	public void onPlayerEnter(PlayerEntity player,
+	public void onPlayerEnter(Player player,
 		PlayerRangeAlertManager.PlayerInfo info)
 	{
 		if(triggered)

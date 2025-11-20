@@ -20,10 +20,9 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import com.llamalad7.mixinextras.injector.ModifyReceiver;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.NameTagsHack;
 
@@ -43,11 +42,11 @@ public class LabelCommandRendererMixin
 	
 	@WrapOperation(
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/util/math/MatrixStack;scale(FFF)V"),
-		method = "add(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/math/Vec3d;ILnet/minecraft/text/Text;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
-	private void wrapLabelScale(MatrixStack matrices, float x, float y, float z,
-		Operation<Void> original, MatrixStack matrices2, @Nullable Vec3d vec3d,
-		int i, Text text, boolean bl, int j, double d, Object state)
+			target = "Lcom/mojang/blaze3d/vertex/PoseStack;scale(FFF)V"),
+		method = "add(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
+	private void wrapLabelScale(PoseStack matrices, float x, float y, float z,
+		Operation<Void> original, PoseStack matrices2, @Nullable Vec3 vec3d,
+		int i, Component text, boolean bl, int j, double d, Object state)
 	{
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
 		if(!nameTags.isEnabled())
@@ -69,7 +68,7 @@ public class LabelCommandRendererMixin
 	 * is enabled.
 	 */
 	@ModifyVariable(at = @At("HEAD"),
-		method = "add(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/math/Vec3d;ILnet/minecraft/text/Text;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V",
+		method = "add(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V",
 		argsOnly = true)
 	private boolean forceNotSneaking(boolean notSneaking)
 	{
@@ -86,7 +85,7 @@ public class LabelCommandRendererMixin
 		at = @At(value = "INVOKE",
 			target = "Ljava/util/List;add(Ljava/lang/Object;)Z",
 			ordinal = 0),
-		method = "add(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/math/Vec3d;ILnet/minecraft/text/Text;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
+		method = "add(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
 	private List<?> swapFirstList(List<?> originalList, Object labelCommand)
 	{
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
@@ -107,7 +106,7 @@ public class LabelCommandRendererMixin
 		at = @At(value = "INVOKE",
 			target = "Ljava/util/List;add(Ljava/lang/Object;)Z",
 			ordinal = 1),
-		method = "add(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/util/math/Vec3d;ILnet/minecraft/text/Text;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
+		method = "add(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/phys/Vec3;ILnet/minecraft/network/chat/Component;ZIDLnet/minecraft/client/render/state/CameraRenderState;)V")
 	private List<?> swapSecondList(List<?> originalList, Object labelCommand)
 	{
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;

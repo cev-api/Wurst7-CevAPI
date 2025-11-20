@@ -137,7 +137,7 @@ public final class ChestSearchHack extends Hack
 		try
 		{
 			MC.setScreen(new net.wurstclient.clickgui.screens.ChestSearchScreen(
-				MC.currentScreen, Boolean.TRUE));
+				MC.screen, Boolean.TRUE));
 		}catch(Throwable ignored)
 		{}
 		setEnabled(false);

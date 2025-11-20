@@ -7,12 +7,12 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
@@ -105,21 +105,21 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.world == null)
+		if(MC.player == null || MC.level == null)
 			return;
 		
-		if(MC.currentScreen != null)
+		if(MC.screen != null)
 		{
 			keyPressed = false;
 			return;
 		}
 		
-		InputUtil.Key key = getBoundKey();
+		InputConstants.Key key = getBoundKey();
 		if(key == null)
 			return;
 		
-		boolean currentlyPressed =
-			InputUtil.isKeyPressed(MC.getWindow().getHandle(), key.getCode());
+		boolean currentlyPressed = InputConstants
+			.isKeyDown(MC.getWindow().getWindow(), key.getValue());
 		
 		if(currentlyPressed && !keyPressed)
 			handleWindChargeThrow();
@@ -131,14 +131,14 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		{
 			jumpScheduled = false;
 			
-			if(MC.player.isOnGround())
-				MC.player.jump();
+			if(MC.player.onGround())
+				MC.player.jumpFromGround();
 		}
 		
 		if(awaitingLaunch)
 		{
-			boolean airborne = !MC.player.isOnGround();
-			boolean upward = MC.player.getVelocity().y > 0.08;
+			boolean airborne = !MC.player.onGround();
+			boolean upward = MC.player.getDeltaMovement().y > 0.08;
 			boolean ready = upward || (!autoJump.isChecked() && airborne)
 				|| now >= launchDeadline;
 			
@@ -186,7 +186,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		boolean silent = silentMode.isChecked();
 		boolean lookDown = lookDownBeforeThrow.isChecked();
 		
-		if(autoJump.isChecked() && MC.player.isOnGround())
+		if(autoJump.isChecked() && MC.player.onGround())
 		{
 			clearPending();
 			pendingSlot = windChargeSlot;
@@ -206,8 +206,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		long delay = getJumpDelay();
 		if(delay <= 0)
 		{
-			if(MC.player.isOnGround())
-				MC.player.jump();
+			if(MC.player.onGround())
+				MC.player.jumpFromGround();
 			return;
 		}
 		
@@ -259,8 +259,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	{
 		if(preferredSlot >= 0 && preferredSlot < 9)
 		{
-			ItemStack stack = MC.player.getInventory().getStack(preferredSlot);
-			if(stack.isOf(Items.WIND_CHARGE))
+			ItemStack stack = MC.player.getInventory().getItem(preferredSlot);
+			if(stack.is(Items.WIND_CHARGE))
 				return preferredSlot;
 		}
 		
@@ -269,13 +269,12 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	
 	private float applyLookDown()
 	{
-		float oldPitch = MC.player.getPitch();
+		float oldPitch = MC.player.getXRot();
 		float downwardPitch = 90F;
-		MC.player.setPitch(downwardPitch);
-		MC.player.networkHandler.sendPacket(
-			new PlayerMoveC2SPacket.LookAndOnGround(MC.player.getYaw(),
-				downwardPitch, MC.player.isOnGround(),
-				MC.player.horizontalCollision));
+		MC.player.setXRot(downwardPitch);
+		MC.player.connection.send(new ServerboundMovePlayerPacket.Rot(
+			MC.player.getYRot(), downwardPitch, MC.player.onGround(),
+			MC.player.horizontalCollision));
 		return oldPitch;
 	}
 	
@@ -284,10 +283,10 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		if(MC.player == null)
 			return;
 		
-		MC.player.setPitch(pitch);
-		MC.player.networkHandler.sendPacket(
-			new PlayerMoveC2SPacket.LookAndOnGround(MC.player.getYaw(), pitch,
-				MC.player.isOnGround(), MC.player.horizontalCollision));
+		MC.player.setXRot(pitch);
+		MC.player.connection
+			.send(new ServerboundMovePlayerPacket.Rot(MC.player.getYRot(),
+				pitch, MC.player.onGround(), MC.player.horizontalCollision));
 		restorePitch = false;
 		restorePitchAt = 0;
 	}
@@ -333,39 +332,39 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	
 	private boolean useSelectedItem()
 	{
-		if(MC.player == null || MC.interactionManager == null)
+		if(MC.player == null || MC.gameMode == null)
 			return false;
 		
-		ItemStack stack = MC.player.getMainHandStack();
+		ItemStack stack = MC.player.getMainHandItem();
 		if(stack.isEmpty())
 			return false;
 		
-		ActionResult result =
-			MC.interactionManager.interactItem(MC.player, Hand.MAIN_HAND);
+		InteractionResult result =
+			MC.gameMode.useItem(MC.player, InteractionHand.MAIN_HAND);
 		
-		if(result.isAccepted())
-			MC.player.swingHand(Hand.MAIN_HAND);
+		if(result.consumesAction())
+			MC.player.swing(InteractionHand.MAIN_HAND);
 		
-		return result.isAccepted();
+		return result.consumesAction();
 	}
 	
 	private int findWindChargeInHotbar()
 	{
 		for(int i = 0; i < 9; i++)
 		{
-			ItemStack stack = MC.player.getInventory().getStack(i);
-			if(stack.isOf(Items.WIND_CHARGE))
+			ItemStack stack = MC.player.getInventory().getItem(i);
+			if(stack.is(Items.WIND_CHARGE))
 				return i;
 		}
 		
 		return -1;
 	}
 	
-	private InputUtil.Key getBoundKey()
+	private InputConstants.Key getBoundKey()
 	{
 		try
 		{
-			return InputUtil.fromTranslationKey(keybind.getValue());
+			return InputConstants.getKey(keybind.getValue());
 			
 		}catch(IllegalArgumentException e)
 		{
@@ -392,7 +391,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	{
 		try
 		{
-			return InputUtil.fromTranslationKey(translationKey) != null;
+			return InputConstants.getKey(translationKey) != null;
 			
 		}catch(IllegalArgumentException e)
 		{

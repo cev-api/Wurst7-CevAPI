@@ -11,11 +11,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.c2s.play.CloseHandledScreenC2SPacket;
-import net.minecraft.screen.slot.Slot;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketOutputListener;
@@ -75,14 +74,13 @@ public final class XCarryHack extends Hack
 	public void onSentPacket(PacketOutputEvent event)
 	{
 		if(!(event
-			.getPacket() instanceof CloseHandledScreenC2SPacket closeScreenPacket))
+			.getPacket() instanceof ServerboundContainerClosePacket closeScreenPacket))
 			return;
 		
 		if(MC.player == null)
 			return;
 		
-		if(disableInCreative.isChecked()
-			&& MC.player.getAbilities().creativeMode)
+		if(disableInCreative.isChecked() && MC.player.getAbilities().instabuild)
 			return;
 		
 		if(dangerousMode.isChecked())
@@ -91,15 +89,15 @@ public final class XCarryHack extends Hack
 			return;
 		}
 		
-		if(MC.player.playerScreenHandler != null && closeScreenPacket
-			.getSyncId() == MC.player.playerScreenHandler.syncId)
+		if(MC.player.inventoryMenu != null && closeScreenPacket
+			.getContainerId() == MC.player.inventoryMenu.containerId)
 			event.cancel();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.world == null)
+		if(MC.player == null || MC.level == null)
 		{
 			resetTracking();
 			return;
@@ -115,7 +113,7 @@ public final class XCarryHack extends Hack
 	private void monitorCraftingGrid(List<ItemStack> previousInventory,
 		List<ItemStack> currentInventory)
 	{
-		if(MC.player == null || MC.player.playerScreenHandler == null)
+		if(MC.player == null || MC.player.inventoryMenu == null)
 			return;
 		
 		List<ItemStack> removedStacks = new ArrayList<>();
@@ -125,8 +123,7 @@ public final class XCarryHack extends Hack
 			ItemStack previous = trackedCraftingStacks[i];
 			trackedCraftingStacks[i] = current.copy();
 			
-			if(MC.currentScreen != null || previous.isEmpty()
-				|| !current.isEmpty())
+			if(MC.screen != null || previous.isEmpty() || !current.isEmpty())
 				continue;
 			
 			removedStacks.add(previous);
@@ -179,15 +176,15 @@ public final class XCarryHack extends Hack
 	
 	private ItemStack getCraftingSlotStack(int offset)
 	{
-		if(MC.player == null || MC.player.playerScreenHandler == null)
+		if(MC.player == null || MC.player.inventoryMenu == null)
 			return ItemStack.EMPTY;
 		
-		List<Slot> slots = MC.player.playerScreenHandler.slots;
+		List<Slot> slots = MC.player.inventoryMenu.slots;
 		int index = CRAFTING_SLOT_START + offset;
 		if(index < 0 || index >= slots.size())
 			return ItemStack.EMPTY;
 		
-		return slots.get(index).getStack();
+		return slots.get(index).getItem();
 	}
 	
 	private List<ItemStack> captureInventorySnapshot()
@@ -195,10 +192,10 @@ public final class XCarryHack extends Hack
 		if(MC.player == null)
 			return Collections.emptyList();
 		
-		PlayerInventory inv = MC.player.getInventory();
-		List<ItemStack> snapshot = new ArrayList<>(inv.size());
-		for(int i = 0; i < inv.size(); i++)
-			snapshot.add(inv.getStack(i).copy());
+		Inventory inv = MC.player.getInventory();
+		List<ItemStack> snapshot = new ArrayList<>(inv.getContainerSize());
+		for(int i = 0; i < inv.getContainerSize(); i++)
+			snapshot.add(inv.getItem(i).copy());
 		
 		return snapshot;
 	}
@@ -276,7 +273,7 @@ public final class XCarryHack extends Hack
 	
 	private static String formatStack(ItemStack stack, int count)
 	{
-		return count + "x " + stack.getName().getString();
+		return count + "x " + stack.getHoverName().getString();
 	}
 	
 	private void resetTracking()

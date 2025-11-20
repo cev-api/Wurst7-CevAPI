@@ -7,21 +7,20 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.TridentEntity;
-import net.minecraft.item.Items;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Arm;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ThrownTrident;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -71,7 +70,7 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		false);
 	
 	// Cached per-tick results
-	private final ArrayList<TridentEntity> thrown = new ArrayList<>();
+	private final ArrayList<ThrownTrident> thrown = new ArrayList<>();
 	private final ArrayList<LivingEntity> holders = new ArrayList<>();
 	
 	public TridentEspHack()
@@ -113,10 +112,10 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		thrown.clear();
 		holders.clear();
 		
-		for(Entity e : MC.world.getEntities())
+		for(Entity e : MC.level.entitiesForRendering())
 		{
-			if(e instanceof TridentEntity)
-				thrown.add((TridentEntity)e);
+			if(e instanceof ThrownTrident)
+				thrown.add((ThrownTrident)e);
 			if(includeHeld.isChecked() && e instanceof LivingEntity)
 			{
 				LivingEntity le = (LivingEntity)e;
@@ -130,8 +129,8 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 	
 	private boolean isHoldingTrident(LivingEntity e)
 	{
-		ItemStack main = e.getMainHandStack();
-		ItemStack off = e.getOffHandStack();
+		ItemStack main = e.getMainHandItem();
+		ItemStack off = e.getOffhandItem();
 		return (main != null && main.getItem() == Items.TRIDENT)
 			|| (off != null && off.getItem() == Items.TRIDENT);
 	}
@@ -145,7 +144,7 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(!style.hasBoxes() && !style.hasLines())
 			return;
@@ -156,7 +155,7 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 			renderSingleColor(matrixStack, partialTicks);
 	}
 	
-	private void renderSingleColor(MatrixStack matrixStack, float partialTicks)
+	private void renderSingleColor(PoseStack matrixStack, float partialTicks)
 	{
 		int lineColor;
 		if(useFixedColor.isChecked())
@@ -167,13 +166,13 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		
 		if(style.hasBoxes())
 		{
-			List<Box> boxes = new ArrayList<>();
-			for(TridentEntity t : thrown)
+			List<AABB> boxes = new ArrayList<>();
+			for(ThrownTrident t : thrown)
 				boxes.add(
 					applyExtraSize(EntityUtils.getLerpedBox(t, partialTicks)));
 			for(LivingEntity h : holders)
 			{
-				Box handBox = getHeldTridentBox(h, partialTicks);
+				AABB handBox = getHeldTridentBox(h, partialTicks);
 				if(handBox != null)
 					boxes.add(applyExtraSize(handBox));
 			}
@@ -184,12 +183,12 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		
 		if(style.hasLines())
 		{
-			List<Vec3d> ends = new ArrayList<>();
-			for(TridentEntity t : thrown)
+			List<Vec3> ends = new ArrayList<>();
+			for(ThrownTrident t : thrown)
 				ends.add(EntityUtils.getLerpedBox(t, partialTicks).getCenter());
 			for(LivingEntity h : holders)
 			{
-				Vec3d hand = getHeldTridentPos(h, partialTicks);
+				Vec3 hand = getHeldTridentPos(h, partialTicks);
 				if(hand != null)
 					ends.add(hand);
 			}
@@ -199,21 +198,22 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void renderByOwner(MatrixStack matrixStack, float partialTicks)
+	private void renderByOwner(PoseStack matrixStack, float partialTicks)
 	{
-		ArrayList<Box> selfBoxes = new ArrayList<>();
-		ArrayList<Box> playerBoxes = new ArrayList<>();
-		ArrayList<Box> mobBoxes = new ArrayList<>();
-		ArrayList<Vec3d> selfEnds = new ArrayList<>();
-		ArrayList<Vec3d> playerEnds = new ArrayList<>();
-		ArrayList<Vec3d> mobEnds = new ArrayList<>();
+		ArrayList<AABB> selfBoxes = new ArrayList<>();
+		ArrayList<AABB> playerBoxes = new ArrayList<>();
+		ArrayList<AABB> mobBoxes = new ArrayList<>();
+		ArrayList<Vec3> selfEnds = new ArrayList<>();
+		ArrayList<Vec3> playerEnds = new ArrayList<>();
+		ArrayList<Vec3> mobEnds = new ArrayList<>();
 		
-		for(TridentEntity t : thrown)
+		for(ThrownTrident t : thrown)
 		{
 			Entity owner = t.getOwner();
-			Box box = applyExtraSize(EntityUtils.getLerpedBox(t, partialTicks));
-			Vec3d end = box.getCenter();
-			if(owner instanceof PlayerEntity)
+			AABB box =
+				applyExtraSize(EntityUtils.getLerpedBox(t, partialTicks));
+			Vec3 end = box.getCenter();
+			if(owner instanceof Player)
 			{
 				if(owner == MC.player)
 				{
@@ -240,11 +240,11 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		{
 			for(LivingEntity h : holders)
 			{
-				Box handBox = getHeldTridentBox(h, partialTicks);
-				Vec3d end = getHeldTridentPos(h, partialTicks);
+				AABB handBox = getHeldTridentBox(h, partialTicks);
+				Vec3 end = getHeldTridentPos(h, partialTicks);
 				if(handBox == null || end == null)
 					continue;
-				if(h instanceof PlayerEntity)
+				if(h instanceof Player)
 				{
 					playerBoxes.add(applyExtraSize(handBox));
 					playerEnds.add(end);
@@ -288,36 +288,38 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private Box applyExtraSize(Box box)
+	private AABB applyExtraSize(AABB box)
 	{
 		double extra = boxSize.getExtraSize() / 2.0;
-		return box.offset(0, extra, 0).expand(extra);
+		return box.move(0, extra, 0).inflate(extra);
 	}
 	
 	// New helpers: approximate where the held trident is, and make a small box
 	// there
-	private Vec3d getHeldTridentPos(LivingEntity e, float partialTicks)
+	private Vec3 getHeldTridentPos(LivingEntity e, float partialTicks)
 	{
-		Hand hand = null;
-		if(!e.getMainHandStack().isEmpty()
-			&& e.getMainHandStack().isOf(Items.TRIDENT))
-			hand = Hand.MAIN_HAND;
-		else if(!e.getOffHandStack().isEmpty()
-			&& e.getOffHandStack().isOf(Items.TRIDENT))
-			hand = Hand.OFF_HAND;
+		InteractionHand hand = null;
+		if(!e.getMainHandItem().isEmpty()
+			&& e.getMainHandItem().is(Items.TRIDENT))
+			hand = InteractionHand.MAIN_HAND;
+		else if(!e.getOffhandItem().isEmpty()
+			&& e.getOffhandItem().is(Items.TRIDENT))
+			hand = InteractionHand.OFF_HAND;
 		if(hand == null)
 			return null;
 		
 		// Base position at entity feet (lerped), then add eye height - 0.1
-		Vec3d base = EntityUtils.getLerpedPos(e, partialTicks);
-		double yawRad = Math.toRadians(e.getYaw());
+		Vec3 base = EntityUtils.getLerpedPos(e, partialTicks);
+		double yawRad = Math.toRadians(e.getYRot());
 		
 		// Determine which side the given hand is on.
-		Arm mainArm = Arm.RIGHT;
-		if(e instanceof PlayerEntity pe)
+		HumanoidArm mainArm = HumanoidArm.RIGHT;
+		if(e instanceof Player pe)
 			mainArm = pe.getMainArm();
-		boolean rightSide = (mainArm == Arm.RIGHT && hand == Hand.MAIN_HAND)
-			|| (mainArm == Arm.LEFT && hand == Hand.OFF_HAND);
+		boolean rightSide =
+			(mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND)
+				|| (mainArm == HumanoidArm.LEFT
+					&& hand == InteractionHand.OFF_HAND);
 		double side = rightSide ? -1 : 1;
 		
 		double eyeH = e.getEyeHeight(e.getPose());
@@ -327,13 +329,13 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		return base.add(offX, offY, offZ);
 	}
 	
-	private Box getHeldTridentBox(LivingEntity e, float partialTicks)
+	private AABB getHeldTridentBox(LivingEntity e, float partialTicks)
 	{
-		Vec3d c = getHeldTridentPos(e, partialTicks);
+		Vec3 c = getHeldTridentPos(e, partialTicks);
 		if(c == null)
 			return null;
 		// Small cube around hand
 		double r = 0.18; // half-size
-		return new Box(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
+		return new AABB(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
 	}
 }

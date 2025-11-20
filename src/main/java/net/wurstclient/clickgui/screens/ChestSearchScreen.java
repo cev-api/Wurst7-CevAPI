@@ -11,14 +11,13 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
-
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ItemNameUtils;
 import net.wurstclient.util.RenderUtils;
@@ -33,9 +32,9 @@ public final class ChestSearchScreen extends Screen
 	private final Screen prev;
 	private ChestManager chestManager = new ChestManager();
 	
-	private TextFieldWidget searchField;
+	private EditBox searchField;
 	private java.util.List<ChestEntry> results = new ArrayList<>();
-	private final java.util.List<ButtonWidget> rowButtons =
+	private final java.util.List<Button> rowButtons =
 		new java.util.ArrayList<>();
 	private int totalChestsLogged = 0;
 	private long totalItemsLogged = 0;
@@ -46,8 +45,8 @@ public final class ChestSearchScreen extends Screen
 	private int radiusFilteredOut = 0;
 	private boolean limitedResults = false;
 	private double scrollOffset = 0.0;
-	private ButtonWidget scrollUpButton;
-	private ButtonWidget scrollDownButton;
+	private Button scrollUpButton;
+	private Button scrollDownButton;
 	private boolean draggingScrollbar = false;
 	private double scrollbarDragStartY = 0.0;
 	private double scrollbarStartOffset = 0.0;
@@ -166,7 +165,7 @@ public final class ChestSearchScreen extends Screen
 			try
 			{
 				WurstClient.MC.execute(() -> {
-					if(WurstClient.MC.currentScreen instanceof ChestSearchScreen screen)
+					if(WurstClient.MC.screen instanceof ChestSearchScreen screen)
 						screen.refreshPins();
 				});
 			}catch(Throwable ignored)
@@ -196,7 +195,7 @@ public final class ChestSearchScreen extends Screen
 	
 	public ChestSearchScreen(Screen prev, Object ignored)
 	{
-		super(Text.literal("Chest Search"));
+		super(Component.literal("Chest Search"));
 		this.prev = prev;
 		this.openedByKeybind = (ignored instanceof Boolean && (Boolean)ignored);
 	}
@@ -206,16 +205,16 @@ public final class ChestSearchScreen extends Screen
 	{
 		int mid = this.width / 2;
 		int controlsY = 18;
-		searchField = new TextFieldWidget(this.textRenderer, mid - 150,
-			controlsY, 220, 20, Text.literal("Search"));
+		searchField = new EditBox(this.font, mid - 150, controlsY, 220, 20,
+			Component.literal("Search"));
 		searchField.setVisible(true);
 		searchField.setEditable(true);
-		addDrawableChild(searchField);
-		searchField.setChangedListener(this::onSearchChanged);
-		searchField.setTextPredicate(s -> true);
+		addRenderableWidget(searchField);
+		searchField.setResponder(this::onSearchChanged);
+		searchField.setFilter(s -> true);
 		searchField.setMaxLength(100);
 		searchField.setMessage(
-			Text.literal("Type item name or id, e.g. minecraft:stone"));
+			Component.literal("Type item name or id, e.g. minecraft:stone"));
 		if(!openedByKeybind)
 		{
 			this.setInitialFocus(searchField);
@@ -227,37 +226,37 @@ public final class ChestSearchScreen extends Screen
 		// opening.
 		if(openedByKeybind)
 		{
-			searchField.setText("");
+			searchField.setValue("");
 			ignoreNextSearchChange = true;
 		}
-		addDrawableChild(ButtonWidget.builder(Text.literal("Search"), b -> {
-			onSearchChanged(searchField.getText());
+		addRenderableWidget(Button.builder(Component.literal("Search"), b -> {
+			onSearchChanged(searchField.getValue());
 			rebuildRowButtons();
-		}).dimensions(mid + 80, controlsY, 70, 20).build());
+		}).bounds(mid + 80, controlsY, 70, 20).build());
 		// Removed Refresh button (it recreated the ChestManager and re-run the
 		// query which is redundant since Search already does the same).
 		// removed Scan Open button per user request
 		
-		addDrawableChild(ButtonWidget
-			.builder(Text.literal("Back"), b -> client.setScreen(prev))
-			.dimensions(mid - 150, this.height - 28, 300, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
+			.bounds(mid - 150, this.height - 28, 300, 20).build());
 		
 		scrollOffset = 0;
 		draggingScrollbar = false;
 		onSearchChanged("");
 		rebuildRowButtons();
 		scrollUpButton =
-			addDrawableChild(ButtonWidget.builder(Text.literal("▲▲"), b -> {
+			addRenderableWidget(Button.builder(Component.literal("▲▲"), b -> {
 				scrollOffset = 0;
 				clampScroll();
 				rebuildRowButtons();
-			}).dimensions(0, 0, 20, 16).build());
+			}).bounds(0, 0, 20, 16).build());
 		scrollDownButton =
-			addDrawableChild(ButtonWidget.builder(Text.literal("▼▼"), b -> {
+			addRenderableWidget(Button.builder(Component.literal("▼▼"), b -> {
 				scrollOffset = scrollMaxOffset;
 				clampScroll();
 				rebuildRowButtons();
-			}).dimensions(0, 0, 20, 16).build());
+			}).bounds(0, 0, 20, 16).build());
 		scrollUpButton.visible = false;
 		scrollDownButton.visible = false;
 	}
@@ -271,7 +270,7 @@ public final class ChestSearchScreen extends Screen
 			ignoreNextSearchChange = false;
 			if(q != null && q.length() <= 1)
 			{
-				searchField.setText("");
+				searchField.setValue("");
 				q = "";
 			}
 		}
@@ -410,7 +409,7 @@ public final class ChestSearchScreen extends Screen
 		if(entries == null || entries.isEmpty())
 			return entries;
 		
-		net.minecraft.client.MinecraftClient mc = WurstClient.MC;
+		net.minecraft.client.Minecraft mc = WurstClient.MC;
 		if(mc == null || mc.player == null)
 			return entries;
 		
@@ -432,13 +431,13 @@ public final class ChestSearchScreen extends Screen
 		radiusFilterActive = true;
 		radiusLimitBlocks = radiusBlocks;
 		double radiusSq = (double)radiusBlocks * (double)radiusBlocks;
-		Vec3d playerPos =
-			new Vec3d(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+		Vec3 playerPos =
+			new Vec3(mc.player.getX(), mc.player.getY(), mc.player.getZ());
 		String playerDim = "";
 		try
 		{
-			if(mc.world != null)
-				playerDim = mc.world.getRegistryKey().getValue().toString();
+			if(mc.level != null)
+				playerDim = mc.level.dimension().location().toString();
 		}catch(Throwable ignored)
 		{}
 		String playerDimKey = canonicalDimension(playerDim);
@@ -459,8 +458,8 @@ public final class ChestSearchScreen extends Screen
 			if(include)
 			{
 				BlockPos pos = entry.getClickedPos();
-				Vec3d chestPos = Vec3d.ofCenter(pos);
-				if(chestPos.squaredDistanceTo(playerPos) > radiusSq)
+				Vec3 chestPos = Vec3.atCenterOf(pos);
+				if(chestPos.distanceToSqr(playerPos) > radiusSq)
 					include = false;
 			}
 			
@@ -475,9 +474,9 @@ public final class ChestSearchScreen extends Screen
 	
 	private void rebuildRowButtons()
 	{
-		for(ButtonWidget btn : rowButtons)
+		for(Button btn : rowButtons)
 		{
-			this.remove(btn);
+			this.removeWidget(btn);
 		}
 		rowButtons.clear();
 		
@@ -501,7 +500,7 @@ public final class ChestSearchScreen extends Screen
 			boolean espActive = isEspActive(dim, minPos);
 			boolean pinnedEntry = waypointActive || espActive;
 			String query =
-				searchField.getText() == null ? "" : searchField.getText();
+				searchField.getValue() == null ? "" : searchField.getValue();
 			java.util.List<ChestEntry.ItemEntry> matches =
 				collectMatches(e, query);
 			int matchLines = matches.isEmpty() ? 1 : matches.size();
@@ -514,12 +513,13 @@ public final class ChestSearchScreen extends Screen
 			if(y > visibleBottom)
 				break;
 			int btnY = y + 6;
-			Text espLabel = espActive
-				? Text.literal("ESP*")
-					.styled(style -> style
-						.withColor(net.minecraft.util.Formatting.GOLD))
-				: Text.literal("ESP");
-			ButtonWidget espBtn = ButtonWidget.builder(espLabel, b -> {
+			Component espLabel =
+				espActive
+					? Component.literal("ESP*")
+						.withStyle(style -> style
+							.withColor(net.minecraft.ChatFormatting.GOLD))
+					: Component.literal("ESP");
+			Button espBtn = Button.builder(espLabel, b -> {
 				try
 				{
 					String dimLocal = normalizeDimension(e.dimension);
@@ -528,20 +528,20 @@ public final class ChestSearchScreen extends Screen
 					// on the expected chest half.
 					BlockPos useMin = e.getClickedPos();
 					boolean exists = false;
-					if(WurstClient.MC != null && WurstClient.MC.world != null)
+					if(WurstClient.MC != null && WurstClient.MC.level != null)
 					{
-						var world = WurstClient.MC.world;
+						var world = WurstClient.MC.level;
 						var state = world.getBlockState(useMin);
 						boolean container = state != null && (state
-							.getBlock() instanceof net.minecraft.block.ChestBlock
+							.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
 							|| state
-								.getBlock() instanceof net.minecraft.block.BarrelBlock
+								.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock
 							|| state
-								.getBlock() instanceof net.minecraft.block.ShulkerBoxBlock
+								.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock
 							|| state
-								.getBlock() instanceof net.minecraft.block.DecoratedPotBlock
+								.getBlock() instanceof net.minecraft.world.level.block.DecoratedPotBlock
 							|| state
-								.getBlock() instanceof net.minecraft.block.EnderChestBlock);
+								.getBlock() instanceof net.minecraft.world.level.block.EnderChestBlock);
 						boolean hasBe = world.getBlockEntity(useMin) != null;
 						exists = container && hasBe;
 					}
@@ -555,8 +555,8 @@ public final class ChestSearchScreen extends Screen
 						}catch(Throwable ignored)
 						{}
 						this.chestManager = new ChestManager();
-						onSearchChanged(searchField.getText());
-						client.execute(this::refreshPins);
+						onSearchChanged(searchField.getValue());
+						minecraft.execute(this::refreshPins);
 						return;
 					}
 					net.wurstclient.hacks.ChestSearchHack hack =
@@ -568,13 +568,13 @@ public final class ChestSearchScreen extends Screen
 					// position
 					net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
 						.toggle(dimLocal, useMin, useMin, hack.getEspTimeMs());
-					client.execute(this::refreshPins);
+					minecraft.execute(this::refreshPins);
 				}catch(Throwable ignored)
 				{}
-			}).dimensions(0, btnY, 40, 16).build();
+			}).bounds(0, btnY, 40, 16).build();
 			if(espActive)
-				espBtn.setTooltip(net.minecraft.client.gui.tooltip.Tooltip
-					.of(Text.literal("ESP active")));
+				espBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
+					.create(Component.literal("ESP active")));
 			// position esp and wp buttons to the right side of the result box
 			int boxRight = x + 340;
 			int wpWidth = 56;
@@ -587,15 +587,16 @@ public final class ChestSearchScreen extends Screen
 			int stackX = stackRight - stackWidth;
 			// place esp at top, wp below, delete below that
 			espBtn.setPosition(stackX + (stackWidth - espWidth) / 2, btnY);
-			addDrawableChild(espBtn);
+			addRenderableWidget(espBtn);
 			rowButtons.add(espBtn);
 			boolean hasWp = waypointActive;
-			Text wpLabel = hasWp
-				? Text.literal("Remove*")
-					.styled(style -> style
-						.withColor(net.minecraft.util.Formatting.GOLD))
-				: Text.literal("Waypoint");
-			ButtonWidget wpBtn = ButtonWidget.builder(wpLabel, b -> {
+			Component wpLabel =
+				hasWp
+					? Component.literal("Remove*")
+						.withStyle(style -> style
+							.withColor(net.minecraft.ChatFormatting.GOLD))
+					: Component.literal("Waypoint");
+			Button wpBtn = Button.builder(wpLabel, b -> {
 				WaypointsHack wh = WurstClient.INSTANCE.getHax().waypointsHack;
 				if(wh != null)
 				{
@@ -611,7 +612,7 @@ public final class ChestSearchScreen extends Screen
 							wh.removeTemporaryWaypoint(id);
 						}catch(Throwable ignored)
 						{}
-						client.execute(this::refreshPins);
+						minecraft.execute(this::refreshPins);
 						return;
 					}
 					net.wurstclient.hacks.ChestSearchHack hack =
@@ -638,7 +639,7 @@ public final class ChestSearchScreen extends Screen
 					int sleep = hack.getWaypointTimeMs();
 					TEMP_WP_BY_POS.put(posKey,
 						new TempWp(id, System.currentTimeMillis() + sleep));
-					client.execute(this::refreshPins);
+					minecraft.execute(this::refreshPins);
 					Thread.ofPlatform().start(() -> {
 						try
 						{
@@ -651,30 +652,29 @@ public final class ChestSearchScreen extends Screen
 						}catch(Throwable ignored)
 						{}
 						TEMP_WP_BY_POS.remove(posKey);
-						client.execute(this::refreshPins);
+						minecraft.execute(this::refreshPins);
 					});
 				}
-			}).dimensions(0, btnY, 56, 16).build();
+			}).bounds(0, btnY, 56, 16).build();
 			if(hasWp)
-				wpBtn.setTooltip(net.minecraft.client.gui.tooltip.Tooltip
-					.of(Text.literal("Waypoint active")));
+				wpBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
+					.create(Component.literal("Waypoint active")));
 			wpBtn.setPosition(stackX + (stackWidth - wpWidth) / 2, btnY + 18);
-			addDrawableChild(wpBtn);
+			addRenderableWidget(wpBtn);
 			
 			// Delete (X) button to remove the recorded chest entry from disk
-			ButtonWidget delBtn =
-				ButtonWidget.builder(Text.literal("Delete"), b -> {
-					try
-					{
-						BlockPos delPos = e.getClickedPos();
-						new ChestManager().removeChest(e.serverIp, e.dimension,
-							delPos.getX(), delPos.getY(), delPos.getZ());
-					}catch(Throwable ignored)
-					{}
-					this.chestManager = new ChestManager();
-					onSearchChanged(searchField.getText());
-					client.execute(this::refreshPins);
-				}).dimensions(0, btnY, deleteWidth, 16).build();
+			Button delBtn = Button.builder(Component.literal("Delete"), b -> {
+				try
+				{
+					BlockPos delPos = e.getClickedPos();
+					new ChestManager().removeChest(e.serverIp, e.dimension,
+						delPos.getX(), delPos.getY(), delPos.getZ());
+				}catch(Throwable ignored)
+				{}
+				this.chestManager = new ChestManager();
+				onSearchChanged(searchField.getValue());
+				minecraft.execute(this::refreshPins);
+			}).bounds(0, btnY, deleteWidth, 16).build();
 			delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
 				btnY + 36);
 			// hide per-row buttons when their row is outside the visible
@@ -686,9 +686,9 @@ public final class ChestSearchScreen extends Screen
 			espBtn.active = rowVisible;
 			wpBtn.active = rowVisible;
 			delBtn.active = rowVisible;
-			delBtn.setTooltip(net.minecraft.client.gui.tooltip.Tooltip
-				.of(Text.literal("Delete entry")));
-			addDrawableChild(delBtn);
+			delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
+				.create(Component.literal("Delete entry")));
+			addRenderableWidget(delBtn);
 			rowButtons.add(delBtn);
 			rowButtons.add(wpBtn);
 			y += boxHeight + 6;
@@ -709,7 +709,7 @@ public final class ChestSearchScreen extends Screen
 	
 	private void clampScroll()
 	{
-		String query = searchField == null ? "" : searchField.getText();
+		String query = searchField == null ? "" : searchField.getValue();
 		int contentHeight = calculateContentHeight(query);
 		int visibleHeight = Math.max(0, getVisibleBottom() - getResultsTop());
 		double maxScroll = Math.max(0, contentHeight - visibleHeight);
@@ -847,15 +847,15 @@ public final class ChestSearchScreen extends Screen
 	{
 		if(searchField == null)
 			return;
-		onSearchChanged(searchField.getText());
+		onSearchChanged(searchField.getValue());
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		context.drawCenteredTextWithShadow(this.textRenderer,
-			Text.literal("Chest Search"), this.width / 2, 4, 0xFFFFFFFF);
+		context.drawCenteredString(this.font, Component.literal("Chest Search"),
+			this.width / 2, 4, 0xFFFFFFFF);
 		int mid = this.width / 2;
 		int sfX = mid - 150;
 		int sfY = 18;
@@ -866,8 +866,8 @@ public final class ChestSearchScreen extends Screen
 		int visibleTop = getResultsTop();
 		int visibleBottom = getVisibleBottom();
 		int visibleHeight = Math.max(0, visibleBottom - visibleTop);
-		String q = searchField.getText() == null ? ""
-			: searchField.getText().toLowerCase();
+		String q = searchField.getValue() == null ? ""
+			: searchField.getValue().toLowerCase();
 		int contentHeight = calculateContentHeight(q);
 		float scale = 1.0f;
 		try
@@ -996,9 +996,8 @@ public final class ChestSearchScreen extends Screen
 				java.util.List<String> lines =
 					wrapText(header, availWidth, scale);
 				for(int i = 0; i < lines.size(); i++)
-					RenderUtils.drawScaledText(context, this.textRenderer,
-						lines.get(i), x, headerY + i * 12, 0xFFF8D866, false,
-						scale);
+					RenderUtils.drawScaledText(context, this.font, lines.get(i),
+						x, headerY + i * 12, 0xFFF8D866, false, scale);
 				// Omit the small "Active: ESP/Waypoint" status line to
 				// reduce clutter and avoid overlap with the location text.
 			}else
@@ -1008,9 +1007,8 @@ public final class ChestSearchScreen extends Screen
 				java.util.List<String> lines =
 					wrapText(header, availWidth, scale);
 				for(int i = 0; i < lines.size(); i++)
-					RenderUtils.drawScaledText(context, this.textRenderer,
-						lines.get(i), x, headerY + i * 12, 0xFFFFFFFF, false,
-						scale);
+					RenderUtils.drawScaledText(context, this.font, lines.get(i),
+						x, headerY + i * 12, 0xFFFFFFFF, false, scale);
 			}
 			int headerLines = headerLineCount(pinnedEntry);
 			int lineY = headerY + headerLines * 14;
@@ -1021,7 +1019,7 @@ public final class ChestSearchScreen extends Screen
 			{
 				String msg = q.isEmpty() ? "No items recorded."
 					: "No items match this search.";
-				RenderUtils.drawScaledText(context, this.textRenderer, msg, x,
+				RenderUtils.drawScaledText(context, this.font, msg, x,
 					lineY + 2, 0xFFBBBBBB, false, scale);
 				lineY += Math.round(18 * scale);
 			}else
@@ -1030,15 +1028,17 @@ public final class ChestSearchScreen extends Screen
 				{
 					try
 					{
-						net.minecraft.util.Identifier id =
-							net.minecraft.util.Identifier.tryParse(it.itemId);
+						net.minecraft.resources.ResourceLocation id =
+							net.minecraft.resources.ResourceLocation
+								.tryParse(it.itemId);
 						if(id != null)
 						{
-							net.minecraft.item.Item item =
-								net.minecraft.registry.Registries.ITEM.get(id);
-							net.minecraft.item.ItemStack stack =
-								new net.minecraft.item.ItemStack(item, 1);
-							context.drawItem(stack, x + 2, lineY - 2);
+							net.minecraft.world.item.Item item =
+								net.minecraft.core.registries.BuiltInRegistries.ITEM
+									.getValue(id);
+							net.minecraft.world.item.ItemStack stack =
+								new net.minecraft.world.item.ItemStack(item, 1);
+							context.renderItem(stack, x + 2, lineY - 2);
 						}
 					}catch(Throwable ignored)
 					{}
@@ -1057,11 +1057,13 @@ public final class ChestSearchScreen extends Screen
 							for(int ei = 0; ei < it.enchantments.size(); ei++)
 							{
 								String ench = it.enchantments.get(ei);
-								net.minecraft.util.Identifier eid = null;
+								net.minecraft.resources.ResourceLocation eid =
+									null;
 								try
 								{
-									eid = net.minecraft.util.Identifier
-										.tryParse(ench);
+									eid =
+										net.minecraft.resources.ResourceLocation
+											.tryParse(ench);
 								}catch(Throwable ignored)
 								{}
 								String path = eid != null ? eid.getPath()
@@ -1077,7 +1079,7 @@ public final class ChestSearchScreen extends Screen
 										int lvl = it.enchantmentLevels.get(ei)
 											.intValue();
 										if(lvl > 0)
-											levelText = " " + Text
+											levelText = " " + Component
 												.translatable(
 													"enchantment.level." + lvl)
 												.getString();
@@ -1091,10 +1093,10 @@ public final class ChestSearchScreen extends Screen
 						}else if(it.primaryPotion != null
 							&& !it.primaryPotion.isBlank())
 						{
-							net.minecraft.util.Identifier pid = null;
+							net.minecraft.resources.ResourceLocation pid = null;
 							try
 							{
-								pid = net.minecraft.util.Identifier
+								pid = net.minecraft.resources.ResourceLocation
 									.tryParse(it.primaryPotion);
 							}catch(Throwable ignored)
 							{}
@@ -1169,8 +1171,8 @@ public final class ChestSearchScreen extends Screen
 					
 					String line = name + extra + " x" + it.count + " (slot "
 						+ it.slot + ")";
-					RenderUtils.drawScaledText(context, this.textRenderer, line,
-						x + 20, lineY + 2, 0xFFEFEFEF, false, scale);
+					RenderUtils.drawScaledText(context, this.font, line, x + 20,
+						lineY + 2, 0xFFEFEFEF, false, scale);
 					lineY += Math.max(18, Math.round(18 * scale));
 				}
 			}
@@ -1206,8 +1208,7 @@ public final class ChestSearchScreen extends Screen
 				+ matchLabel + ": " + totalMatchingItems + " - Tracking "
 				+ totalChestsLogged + " chests, " + totalItemsLogged + " items";
 		int summaryPadding = 8;
-		int summaryWidth =
-			this.textRenderer.getWidth(summary) + summaryPadding * 2;
+		int summaryWidth = this.font.width(summary) + summaryPadding * 2;
 		if(summaryWidth > this.width - 4)
 			summaryWidth = this.width - 4;
 		int summaryHalf = summaryWidth / 2;
@@ -1216,8 +1217,8 @@ public final class ChestSearchScreen extends Screen
 		int summaryRight = Math.min(this.width, summaryCenter + summaryHalf);
 		context.fill(summaryLeft, summaryY - 2, summaryRight, summaryY + 18,
 			0xFF222222);
-		context.drawCenteredTextWithShadow(this.textRenderer,
-			Text.literal(summary), this.width / 2, summaryY + 2, 0xFFCCCCCC);
+		context.drawCenteredString(this.font, Component.literal(summary),
+			this.width / 2, summaryY + 2, 0xFFCCCCCC);
 		
 		if(shown == 0)
 		{
@@ -1227,8 +1228,8 @@ public final class ChestSearchScreen extends Screen
 						+ totalChestsLogged + " chests with " + totalItemsLogged
 						+ " items." + " Matching items: 0."
 					: "No chests recorded yet.";
-			context.drawCenteredTextWithShadow(this.textRenderer,
-				Text.literal(msg), this.width / 2, this.height / 2, 0xFFAAAAAA);
+			context.drawCenteredString(this.font, Component.literal(msg),
+				this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
 	}
 	
@@ -1422,23 +1423,22 @@ public final class ChestSearchScreen extends Screen
 		String remaining = text;
 		for(int line = 0; line < 2 && !remaining.isEmpty(); line++)
 		{
-			if(this.textRenderer.getWidth(remaining) * scale <= maxWidth)
+			if(this.font.width(remaining) * scale <= maxWidth)
 			{
 				lines.add(remaining);
 				break;
 			}
 			// find split point at last space that fits
 			int cut = remaining.length();
-			while(cut > 0
-				&& this.textRenderer.getWidth(remaining.substring(0, cut))
-					* scale > maxWidth)
+			while(cut > 0 && this.font.width(remaining.substring(0, cut))
+				* scale > maxWidth)
 				cut = remaining.lastIndexOf(' ', Math.max(0, cut - 1));
 			if(cut <= 0)
 			{
 				// can't find space - hard cut
 				int pos = 1;
 				while(pos < remaining.length()
-					&& this.textRenderer.getWidth(remaining.substring(0, pos))
+					&& this.font.width(remaining.substring(0, pos))
 						* scale <= maxWidth)
 					pos++;
 				lines.add(remaining.substring(0, pos - 1));
@@ -1465,7 +1465,7 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public void resize(net.minecraft.client.MinecraftClient client, int width,
+	public void resize(net.minecraft.client.Minecraft client, int width,
 		int height)
 	{
 		super.resize(client, width, height);

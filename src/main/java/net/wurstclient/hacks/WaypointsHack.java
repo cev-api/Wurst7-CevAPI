@@ -7,27 +7,28 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.UUID;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.Locale;
-
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.hud.BossBarHud;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.text.Text;
-import net.minecraft.text.MutableText;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.DeathListener;
@@ -53,6 +54,13 @@ public final class WaypointsHack extends Hack
 	private static final DateTimeFormatter TIME_FMT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
 	private static final double DISTANCE_SLIDER_INFINITE = 10001.0;
+	private static final String[] BOSS_HUD_METHOD_NAMES =
+		{"getBossOverlay", "getBossHud", "getBossBarHud", "getBossBars"};
+	private static final String[] BOSS_BAR_FIELD_NAMES = {"events", "bossBars"};
+	private static Method bossHudMethod;
+	private static boolean bossHudMethodResolved;
+	private static Field bossBarsField;
+	private static boolean bossBarsFieldResolved;
 	
 	private String worldId = "default";
 	private BlockPos lastDeathAt;
@@ -235,16 +243,16 @@ public final class WaypointsHack extends Hack
 			applyDeathWaypointLinesSetting();
 		}
 		// Detect deaths of other players
-		if(trackOtherDeaths.isChecked() && MC.world != null
+		if(trackOtherDeaths.isChecked() && MC.level != null
 			&& MC.player != null)
 		{
 			long now = System.currentTimeMillis();
-			for(var p : MC.world.getPlayers())
+			for(var p : MC.level.players())
 			{
 				if(p == MC.player)
 					continue;
-				UUID id = p.getUuid();
-				boolean deadNow = p.getHealth() <= 0 || p.isDead();
+				UUID id = p.getUUID();
+				boolean deadNow = p.getHealth() <= 0 || p.isDeadOrDying();
 				boolean wasDead = knownDead.contains(id);
 				if(deadNow && !wasDead)
 				{
@@ -252,7 +260,7 @@ public final class WaypointsHack extends Hack
 					long last = otherDeathCooldown.getOrDefault(id, 0L);
 					if(now - last >= 10000)
 					{
-						BlockPos at = p.getBlockPos().up(2);
+						BlockPos at = p.blockPosition().above(2);
 						Waypoint w = new Waypoint(UUID.randomUUID(), now);
 						String name = p.getName().getString();
 						w.setName("Death of " + name + " "
@@ -274,9 +282,10 @@ public final class WaypointsHack extends Hack
 							sendingOwnChat = true;
 							try
 							{
-								MC.player.sendMessage(
-									Text.literal(name + " died at " + at.getX()
-										+ ", " + at.getY() + ", " + at.getZ()),
+								MC.player.displayClientMessage(
+									Component.literal(
+										name + " died at " + at.getX() + ", "
+											+ at.getY() + ", " + at.getZ()),
 									false);
 							}finally
 							{
@@ -299,7 +308,7 @@ public final class WaypointsHack extends Hack
 	{
 		if(sendingOwnChat)
 			return; // don't react to our own injected messages
-		if(!trackOtherDeaths.isChecked() || MC.world == null
+		if(!trackOtherDeaths.isChecked() || MC.level == null
 			|| MC.player == null)
 			return;
 		String msg = event.getComponent().getString();
@@ -329,7 +338,7 @@ public final class WaypointsHack extends Hack
 		
 		long now = System.currentTimeMillis();
 		// Try to match standard death messages: "<name> ..."
-		for(var p : MC.world.getPlayers())
+		for(var p : MC.level.players())
 		{
 			if(p == MC.player)
 				continue;
@@ -338,11 +347,11 @@ public final class WaypointsHack extends Hack
 				continue;
 			if(!msg.startsWith(name + " "))
 				continue;
-			UUID id = p.getUuid();
+			UUID id = p.getUUID();
 			long last = otherDeathCooldown.getOrDefault(id, 0L);
 			if(now - last < 10000)
 				return; // cooldown
-			BlockPos at = p.getBlockPos().up(2);
+			BlockPos at = p.blockPosition().above(2);
 			Waypoint w = new Waypoint(UUID.randomUUID(), now);
 			w.setName(
 				"Death of " + name + " " + TIME_FMT.format(LocalTime.now()));
@@ -363,8 +372,10 @@ public final class WaypointsHack extends Hack
 			if(chatOnDeath.isChecked())
 			{
 				// Safe-append to avoid immutable siblings crash
-				MutableText oldText = (MutableText)event.getComponent();
-				MutableText newText = MutableText.of(oldText.getContent());
+				MutableComponent oldText =
+					(MutableComponent)event.getComponent();
+				MutableComponent newText =
+					MutableComponent.create(oldText.getContents());
 				newText.setStyle(oldText.getStyle());
 				oldText.getSiblings().forEach(newText::append);
 				newText.append(
@@ -376,9 +387,9 @@ public final class WaypointsHack extends Hack
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrices, float partialTicks)
+	public void onRender(PoseStack matrices, float partialTicks)
 	{
-		if(MC.player == null || MC.world == null)
+		if(MC.player == null || MC.level == null)
 			return;
 		
 		var list = new ArrayList<>(manager.all());
@@ -397,7 +408,7 @@ public final class WaypointsHack extends Hack
 			if(wp == null)
 				continue;
 			
-			double distSq = MC.player.squaredDistanceTo(wp.getX() + 0.5,
+			double distSq = MC.player.distanceToSqr(wp.getX() + 0.5,
 				wp.getY() + 0.5, wp.getZ() + 0.5);
 			double dist = Math.sqrt(distSq);
 			double trd = waypointRenderDistance.getValue();
@@ -417,11 +428,10 @@ public final class WaypointsHack extends Hack
 			if(w.isLines())
 			{
 				RenderUtils.drawTracer(matrices, partialTicks,
-					new Vec3d(wp.getX() + 0.5, wp.getY() + 0.5,
-						wp.getZ() + 0.5),
+					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
 					applyFade(w.getColor(), distSq), false);
 				RenderUtils.drawOutlinedBoxes(matrices,
-					java.util.List.of(new Box(wp)),
+					java.util.List.of(new AABB(wp)),
 					applyFade(w.getColor(), distSq), false);
 			}
 			
@@ -470,14 +480,14 @@ public final class WaypointsHack extends Hack
 				boolean needAnchor = infiniteLabels || dist > 256.0;
 				if(needAnchor)
 				{
-					Vec3d cam = RenderUtils.getCameraPos();
-					Vec3d target = new Vec3d(lx, ly, lz);
-					Vec3d dir = target.subtract(cam);
+					Vec3 cam = RenderUtils.getCameraPos();
+					Vec3 target = new Vec3(lx, ly, lz);
+					Vec3 dir = target.subtract(cam);
 					double len = dir.length();
 					if(len > 1e-3)
 					{
 						double anchor = Math.min(len, 12.0);
-						Vec3d anchored = cam.add(dir.multiply(anchor / len));
+						Vec3 anchored = cam.add(dir.scale(anchor / len));
 						lx = anchored.x;
 						ly = anchored.y;
 						lz = anchored.z;
@@ -489,8 +499,8 @@ public final class WaypointsHack extends Hack
 				// remains approximately constant.
 				if(!anchored)
 				{
-					Vec3d cam2 = RenderUtils.getCameraPos();
-					double dLabel = cam2.distanceTo(new Vec3d(lx, ly, lz));
+					Vec3 cam2 = RenderUtils.getCameraPos();
+					double dLabel = cam2.distanceTo(new Vec3(lx, ly, lz));
 					double compensate = Math.max(1.0, dLabel * 0.1);
 					scale *= (float)compensate;
 				}
@@ -510,7 +520,7 @@ public final class WaypointsHack extends Hack
 		if(MC.player == null)
 			return;
 		
-		BlockPos at = MC.player.getBlockPos().up(2);
+		BlockPos at = MC.player.blockPosition().above(2);
 		long now = System.currentTimeMillis();
 		if(lastDeathAt != null && lastDeathAt.equals(at)
 			&& now - lastDeathCreatedMs < 10000)
@@ -518,7 +528,7 @@ public final class WaypointsHack extends Hack
 			
 		// Optional death chat, regardless of creating a waypoint
 		if(chatOnDeath.isChecked())
-			MC.player.sendMessage(Text.literal(
+			MC.player.displayClientMessage(Component.literal(
 				"Died at " + at.getX() + ", " + at.getY() + ", " + at.getZ()),
 				false);
 		
@@ -544,9 +554,9 @@ public final class WaypointsHack extends Hack
 	
 	private WaypointDimension currentDim()
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return WaypointDimension.OVERWORLD;
-		String key = MC.world.getRegistryKey().getValue().getPath();
+		String key = MC.level.dimension().location().getPath();
 		return switch(key)
 		{
 			case "the_nether" -> WaypointDimension.NETHER;
@@ -557,9 +567,9 @@ public final class WaypointsHack extends Hack
 	
 	private String resolveWorldId()
 	{
-		ServerInfo s = MC.getCurrentServerEntry();
-		if(s != null && s.address != null && !s.address.isEmpty())
-			return s.address.replace(':', '_');
+		ServerData s = MC.getCurrentServer();
+		if(s != null && s.ip != null && !s.ip.isEmpty())
+			return s.ip.replace(':', '_');
 		return "singleplayer";
 	}
 	
@@ -620,40 +630,40 @@ public final class WaypointsHack extends Hack
 			saveExcludingTemporaries();
 	}
 	
-	private void drawWorldLabel(MatrixStack matrices, String text, double x,
+	private void drawWorldLabel(PoseStack matrices, String text, double x,
 		double y, double z, int argb, float scale, float offsetPx)
 	{
-		matrices.push();
-		Vec3d cam = RenderUtils.getCameraPos();
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		matrices.multiply(MC.getEntityRenderDispatcher().getRotation());
+		matrices.mulPose(MC.getEntityRenderDispatcher().cameraOrientation());
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		// After scaling, translate by pixel offset to separate lines
 		// consistently.
 		matrices.translate(0, offsetPx, 0);
-		TextRenderer tr = MC.textRenderer;
-		VertexConsumerProvider.Immediate vcp = RenderUtils.getVCP();
-		float w = tr.getWidth(text) / 2F;
-		int bg = (int)(MC.options.getTextBackgroundOpacity(0.25F) * 255) << 24;
-		var matrix = matrices.peek().getPositionMatrix();
-		tr.draw(text, -w, 0, argb, false, matrix, vcp,
-			TextRenderer.TextLayerType.SEE_THROUGH, bg, 0xF000F0);
-		vcp.draw();
-		matrices.pop();
+		Font tr = MC.font;
+		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		float w = tr.width(text) / 2F;
+		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		var matrix = matrices.last().pose();
+		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		vcp.endBatch();
+		matrices.popPose();
 	}
 	
-	private void drawBeaconBeam(MatrixStack matrices, BlockPos pos, int color,
+	private void drawBeaconBeam(PoseStack matrices, BlockPos pos, int color,
 		Waypoint.BeaconMode mode)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return;
 		Waypoint.BeaconMode safeMode =
 			mode == null ? Waypoint.BeaconMode.OFF : mode;
 		if(safeMode == Waypoint.BeaconMode.OFF)
 			return;
-		int minY = MC.world.getBottomY();
-		int maxY = MC.world.getTopYInclusive() + 1;
+		int minY = MC.level.getMinY();
+		int maxY = MC.level.getMaxY() + 1;
 		double baseX = pos.getX();
 		double baseZ = pos.getZ();
 		double centerX = baseX + 0.5;
@@ -667,30 +677,30 @@ public final class WaypointsHack extends Hack
 			new java.util.ArrayList<>();
 		boxes
 			.add(new RenderUtils.ColoredBox(
-				new Box(centerX - 0.18, minY, centerZ - 0.18, centerX + 0.18,
+				new AABB(centerX - 0.18, minY, centerZ - 0.18, centerX + 0.18,
 					maxY, centerZ + 0.18),
 				withAlpha(rgb, Math.min(255, alpha + 100))));
 		boxes
 			.add(
 				new RenderUtils.ColoredBox(
-					new Box(centerX - 0.32, minY, centerZ - 0.05,
+					new AABB(centerX - 0.32, minY, centerZ - 0.05,
 						centerX + 0.32, maxY, centerZ + 0.05),
 					withAlpha(rgb, alpha / 2)));
 		boxes
 			.add(
 				new RenderUtils.ColoredBox(
-					new Box(centerX - 0.05, minY, centerZ - 0.32,
+					new AABB(centerX - 0.05, minY, centerZ - 0.32,
 						centerX + 0.05, maxY, centerZ + 0.32),
 					withAlpha(rgb, alpha / 2)));
 		boxes.add(new RenderUtils.ColoredBox(
-			new Box(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1),
+			new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1),
 			withAlpha(rgb, Math.max(30, alpha / 6))));
 		RenderUtils.drawSolidBoxes(matrices, boxes, depthTest);
 		if(safeMode == Waypoint.BeaconMode.ESP)
 		{
 			RenderUtils.drawOutlinedBoxes(matrices,
 				java.util.List.of(
-					new Box(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
+					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
 				withAlpha(rgb, Math.max(alpha, 120)), false);
 		}
 	}
@@ -763,18 +773,18 @@ public final class WaypointsHack extends Hack
 	public void openManager()
 	{
 		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
-			MC.currentScreen, manager));
+			MC.screen, manager));
 	}
 	
 	@Override
-	public void onRenderGUI(DrawContext context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
-		if(!compassMode.isChecked() || MC.player == null || MC.world == null)
+		if(!compassMode.isChecked() || MC.player == null || MC.level == null)
 			return;
 		
-		TextRenderer tr = MC.textRenderer;
-		int sw = context.getScaledWindowWidth();
-		int sh = context.getScaledWindowHeight();
+		Font tr = MC.font;
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
 		// Position from settings (percent of screen)
 		int centerX =
 			(int)Math.round(sw * (compassXPercent.getValue() / 100.0));
@@ -798,15 +808,15 @@ public final class WaypointsHack extends Hack
 		// Optionally draw player coords above the bar
 		if(showPlayerCoordsAboveCompass.isChecked())
 		{
-			String dir = cardinalFromYaw(MC.player.getYaw());
+			String dir = cardinalFromYaw(MC.player.getYRot());
 			int ix = (int)Math.floor(MC.player.getX());
 			int iy = (int)Math.floor(MC.player.getY());
 			int iz = (int)Math.floor(MC.player.getZ());
 			String coords = dir + ": " + ix + " " + iy + " " + iz;
-			int cw = tr.getWidth(coords);
+			int cw = tr.width(coords);
 			int cx = centerX - cw / 2;
 			int cy = Math.max(2, barY - 13); // was 12, now 13
-			context.drawText(tr, coords, cx, cy, 0xFFFFFFFF, false);
+			context.drawString(tr, coords, cx, cy, 0xFFFFFFFF, false);
 		}
 		
 		var list = new ArrayList<>(manager.all());
@@ -819,7 +829,7 @@ public final class WaypointsHack extends Hack
 		
 		double px = MC.player.getX();
 		double pz = MC.player.getZ();
-		double playerYaw = MC.player.getYaw();
+		double playerYaw = MC.player.getYRot();
 		
 		for(Waypoint w : list)
 		{
@@ -830,7 +840,7 @@ public final class WaypointsHack extends Hack
 				continue;
 			double dx = (wpb.getX() + 0.5) - px;
 			double dz = (wpb.getZ() + 0.5) - pz;
-			double distSq = MC.player.squaredDistanceTo(wpb.getX() + 0.5,
+			double distSq = MC.player.distanceToSqr(wpb.getX() + 0.5,
 				wpb.getY() + 0.5, wpb.getZ() + 0.5);
 			int waypointMax = w.getMaxVisible();
 			double waypointMaxSq = (double)(waypointMax * waypointMax);
@@ -890,10 +900,10 @@ public final class WaypointsHack extends Hack
 			if(icon == null)
 				icon = "";
 			int color = e.w.getColor();
-			int iconW = tr.getWidth(icon);
+			int iconW = tr.width(icon);
 			int iconY =
-				(int)Math.round(barY + barH / 2.0 - tr.fontHeight / 2.0);
-			context.drawText(tr, icon, ix - iconW / 2, iconY, color, false);
+				(int)Math.round(barY + barH / 2.0 - tr.lineHeight / 2.0);
+			context.drawString(tr, icon, ix - iconW / 2, iconY, color, false);
 		}
 		
 		// Draw selected name and distance
@@ -908,12 +918,12 @@ public final class WaypointsHack extends Hack
 			BlockPos wpb = worldSpace(selected.w);
 			int distBlocks = 0;
 			if(wpb != null)
-				distBlocks = (int)Math.round(
-					Math.sqrt(MC.player.squaredDistanceTo(wpb.getX() + 0.5,
+				distBlocks = (int)Math
+					.round(Math.sqrt(MC.player.distanceToSqr(wpb.getX() + 0.5,
 						wpb.getY() + 0.5, wpb.getZ() + 0.5)));
 			String distText = distBlocks + " blocks";
-			int tw = tr.getWidth(title);
-			int dw = tr.getWidth(distText);
+			int tw = tr.width(title);
+			int dw = tr.width(distText);
 			int titleX = centerX - tw / 2;
 			int distX = centerX - dw / 2;
 			int titleY = barY + barH + 2;
@@ -923,12 +933,12 @@ public final class WaypointsHack extends Hack
 				Math.max(0.0, Math.min(1.0, compassOpacity.getValue() / 100.0));
 			int aText = (int)Math.round(255 * opaText);
 			int textColor = (aText << 24) | 0x00FFFFFF;
-			context.drawText(tr, title, titleX, titleY, textColor, false);
-			context.drawText(tr, distText, distX, distY, textColor, false);
+			context.drawString(tr, title, titleX, titleY, textColor, false);
+			context.drawString(tr, distText, distX, distY, textColor, false);
 		}
 	}
 	
-	private int adjustCompassYForOverlays(DrawContext context, int baseY)
+	private int adjustCompassYForOverlays(GuiGraphics context, int baseY)
 	{
 		int adjusted = baseY;
 		int bossBarBottom = getBossBarBottom(context);
@@ -940,18 +950,24 @@ public final class WaypointsHack extends Hack
 		return adjusted;
 	}
 	
-	private int getBossBarBottom(DrawContext context)
+	private int getBossBarBottom(GuiGraphics context)
 	{
-		if(MC.inGameHud == null)
+		if(MC.gui == null)
 			return 0;
-		BossBarHud bossBarHud = MC.inGameHud.getBossBarHud();
-		if(bossBarHud == null || bossBarHud.bossBars.isEmpty())
+		
+		Object bossBarHud = getBossHud();
+		if(bossBarHud == null)
 			return 0;
-		int screenHeight = context.getScaledWindowHeight();
+		
+		int barCount = getBossBarCount(bossBarHud);
+		if(barCount == 0)
+			return 0;
+		
+		int screenHeight = context.guiHeight();
 		int maxY = screenHeight / 3;
 		// Vanilla boss bars start at y=12 and advance by 19px per entry.
 		int y = 12;
-		for(int i = 0; i < bossBarHud.bossBars.size(); i++)
+		for(int i = 0; i < barCount; i++)
 		{
 			if(y >= maxY)
 				return maxY;
@@ -961,6 +977,101 @@ public final class WaypointsHack extends Hack
 			
 		}
 		return Math.min(y, maxY);
+	}
+	
+	private static Object getBossHud()
+	{
+		Method method = getBossHudMethod();
+		if(method == null || MC.gui == null)
+			return null;
+		
+		try
+		{
+			return method.invoke(MC.gui);
+		}catch(Exception e)
+		{
+			return null;
+		}
+	}
+	
+	private static Method getBossHudMethod()
+	{
+		if(bossHudMethodResolved)
+			return bossHudMethod;
+		bossHudMethodResolved = true;
+		
+		if(MC.gui == null)
+			return null;
+		
+		for(String name : BOSS_HUD_METHOD_NAMES)
+		{
+			try
+			{
+				Method method = MC.gui.getClass().getMethod(name);
+				method.setAccessible(true);
+				bossHudMethod = method;
+				return method;
+			}catch(NoSuchMethodException ignored)
+			{}
+		}
+		
+		return null;
+	}
+	
+	private static int getBossBarCount(Object bossHud)
+	{
+		Field field = getBossBarsField(bossHud);
+		if(field == null)
+			return 0;
+		
+		try
+		{
+			Object value = field.get(bossHud);
+			if(value instanceof Map<?, ?> map)
+				return map.size();
+			if(value instanceof Collection<?> collection)
+				return collection.size();
+		}catch(IllegalAccessException ignored)
+		{}
+		
+		return 0;
+	}
+	
+	private static Field getBossBarsField(Object bossHud)
+	{
+		if(bossBarsFieldResolved)
+			return bossBarsField;
+		bossBarsFieldResolved = true;
+		
+		if(bossHud == null)
+			return null;
+		
+		Class<?> cls = bossHud.getClass();
+		for(String name : BOSS_BAR_FIELD_NAMES)
+		{
+			try
+			{
+				Field field = cls.getDeclaredField(name);
+				field.setAccessible(true);
+				bossBarsField = field;
+				return field;
+			}catch(NoSuchFieldException ignored)
+			{}
+		}
+		
+		for(Field field : cls.getDeclaredFields())
+		{
+			Class<?> type = field.getType();
+			if(Map.class.isAssignableFrom(type)
+				|| Collection.class.isAssignableFrom(type))
+			{
+				field.setAccessible(true);
+				bossBarsField = field;
+				return field;
+			}
+		}
+		
+		return null;
 	}
 	
 	private static String cardinalFromYaw(double yaw)

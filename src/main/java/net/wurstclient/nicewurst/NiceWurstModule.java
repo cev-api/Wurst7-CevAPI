@@ -17,16 +17,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-
-import net.minecraft.client.font.TextRenderer.TextLayerType;
-import net.minecraft.client.render.Camera;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.RaycastContext;
+import net.minecraft.client.Camera;
+import net.minecraft.client.gui.Font.DisplayMode;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -168,8 +167,8 @@ public final class NiceWurstModule
 		return originalDepthTest;
 	}
 	
-	public static RenderLayer.MultiPhase enforceDepthTest(
-		RenderLayer.MultiPhase originalLayer)
+	public static RenderType.CompositeRenderType enforceDepthTest(
+		RenderType.CompositeRenderType originalLayer)
 	{
 		if(!isActive() || originalLayer == null)
 			return originalLayer;
@@ -206,29 +205,29 @@ public final class NiceWurstModule
 		return true;
 	}
 	
-	public static boolean shouldRenderTarget(Vec3d target)
+	public static boolean shouldRenderTarget(Vec3 target)
 	{
 		if(!isActive() || target == null)
 			return true;
 		
-		if(WurstClient.MC.world == null || WurstClient.MC.player == null)
+		if(WurstClient.MC.level == null || WurstClient.MC.player == null)
 			return true;
 		
-		Camera camera = WurstClient.MC.gameRenderer.getCamera();
+		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
 		if(camera == null)
 			return true;
 		
-		Vec3d from = camera.getPos();
+		Vec3 from = camera.getPosition();
 		if(from == null)
 			return true;
 		
-		if(from.squaredDistanceTo(target) < 1e-6)
+		if(from.distanceToSqr(target) < 1e-6)
 			return true;
 		
-		RaycastContext context =
-			new RaycastContext(from, target, RaycastContext.ShapeType.COLLIDER,
-				RaycastContext.FluidHandling.NONE, WurstClient.MC.player);
-		HitResult hit = WurstClient.MC.world.raycast(context);
+		ClipContext context =
+			new ClipContext(from, target, ClipContext.Block.COLLIDER,
+				ClipContext.Fluid.NONE, WurstClient.MC.player);
+		HitResult hit = WurstClient.MC.level.clip(context);
 		if(hit == null || hit.getType() == HitResult.Type.MISS)
 			return true;
 		
@@ -236,12 +235,12 @@ public final class NiceWurstModule
 			return true;
 		
 		BlockPos hitPos = ((BlockHitResult)hit).getBlockPos();
-		BlockPos targetPos = BlockPos.ofFloored(target);
+		BlockPos targetPos = BlockPos.containing(target);
 		if(hitPos.equals(targetPos))
 			return true;
 		
-		double targetDistSq = from.squaredDistanceTo(target);
-		double hitDistSq = hit.getPos().squaredDistanceTo(from);
+		double targetDistSq = from.distanceToSqr(target);
+		double hitDistSq = hit.getLocation().distanceToSqr(from);
 		return hitDistSq >= targetDistSq - 1e-3;
 	}
 	
@@ -252,22 +251,22 @@ public final class NiceWurstModule
 		if(entity == null)
 			return color;
 		
-		Vec3d target = entity.getBoundingBox().getCenter();
+		Vec3 target = entity.getBoundingBox().getCenter();
 		return shouldRenderTarget(target) ? color : null;
 	}
 	
-	public static TextLayerType enforceTextLayer(TextLayerType originalLayer)
+	public static DisplayMode enforceTextLayer(DisplayMode originalLayer)
 	{
 		if(originalLayer == null || !isActive())
 			return originalLayer;
 		
-		if(originalLayer != TextLayerType.SEE_THROUGH)
+		if(originalLayer != DisplayMode.SEE_THROUGH)
 			return originalLayer;
 		
 		for(StackTraceElement element : Thread.currentThread().getStackTrace())
 		{
 			if(TEXT_DEPTH_TEST_CALLERS.contains(element.getClassName()))
-				return TextLayerType.NORMAL;
+				return DisplayMode.NORMAL;
 		}
 		
 		return originalLayer;

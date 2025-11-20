@@ -8,23 +8,22 @@
 package net.wurstclient.chestsearch;
 
 import com.google.gson.JsonPrimitive;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ScreenHandlerListener;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerListener;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.enchantment.EnchantmentHelper;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
-import net.minecraft.registry.entry.RegistryEntry;
 import java.util.Set;
-import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffect;
-import net.minecraft.util.Identifier;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -90,14 +89,14 @@ public class ChestRecorder
 	 * Starts recording updates for the given handler.
 	 */
 	public void startListening(final String serverIp, final String dimension,
-		final int x, final int y, final int z, final ScreenHandler handler,
-		final int chestSlots, final List<Integer> chestSlotIndices,
-		final Bounds bounds)
+		final int x, final int y, final int z,
+		final AbstractContainerMenu handler, final int chestSlots,
+		final List<Integer> chestSlotIndices, final Bounds bounds)
 	{
 		if(config != null && !config.enabled)
 			return;
 		
-		final int syncId = handler.syncId;
+		final int syncId = handler.containerId;
 		final List<ItemStack> buf = new ArrayList<>(handler.slots.size());
 		for(int i = 0; i < handler.slots.size(); i++)
 			buf.add(ItemStack.EMPTY);
@@ -119,7 +118,7 @@ public class ChestRecorder
 		{
 			if(idx >= 0 && idx < handler.slots.size())
 			{
-				ItemStack st = handler.slots.get(idx).getStack();
+				ItemStack st = handler.slots.get(idx).getItem();
 				buf.set(idx, st == null ? ItemStack.EMPTY : st.copy());
 			}
 		}
@@ -166,10 +165,10 @@ public class ChestRecorder
 			new Timer(true).schedule(task, 40);
 		};
 		
-		ScreenHandlerListener listener = new ScreenHandlerListener()
+		ContainerListener listener = new ContainerListener()
 		{
 			@Override
-			public void onSlotUpdate(ScreenHandler sh, int slotId,
+			public void slotChanged(AbstractContainerMenu sh, int slotId,
 				ItemStack stack)
 			{
 				if(sh != handler)
@@ -183,14 +182,14 @@ public class ChestRecorder
 			}
 			
 			@Override
-			public void onPropertyUpdate(ScreenHandler handler, int property,
+			public void dataChanged(AbstractContainerMenu handler, int property,
 				int value)
 			{}
 		};
 		
 		try
 		{
-			handler.addListener(listener);
+			handler.addSlotListener(listener);
 		}catch(Throwable t)
 		{
 			t.printStackTrace();
@@ -227,7 +226,7 @@ public class ChestRecorder
 						}
 						try
 						{
-							handler.removeListener(listener);
+							handler.removeSlotListener(listener);
 						}catch(Throwable ignored)
 						{}
 						buffers.remove(syncId);
@@ -241,14 +240,14 @@ public class ChestRecorder
 	}
 	
 	public void onChestOpened(String serverIp, String dimension, int x, int y,
-		int z, ScreenHandler handler, int chestSlots, Bounds bounds)
+		int z, AbstractContainerMenu handler, int chestSlots, Bounds bounds)
 	{
 		startListening(serverIp, dimension, x, y, z, handler, chestSlots,
 			new ArrayList<>(), bounds);
 	}
 	
 	public void onChestOpened(String serverIp, String dimension, int x, int y,
-		int z, ScreenHandler handler, int chestSlots,
+		int z, AbstractContainerMenu handler, int chestSlots,
 		List<Integer> chestSlotIndices, Bounds bounds)
 	{
 		startListening(serverIp, dimension, x, y, z, handler, chestSlots,
@@ -313,14 +312,15 @@ public class ChestRecorder
 			it.count = copy.getCount();
 			try
 			{
-				it.itemId = Registries.ITEM.getId(copy.getItem()).toString();
+				it.itemId =
+					BuiltInRegistries.ITEM.getKey(copy.getItem()).toString();
 			}catch(Throwable t)
 			{
 				it.itemId = copy.getItem().toString();
 			}
 			try
 			{
-				it.displayName = copy.getName().getString();
+				it.displayName = copy.getHoverName().getString();
 			}catch(Throwable ignored)
 			{}
 			try
@@ -362,22 +362,22 @@ public class ChestRecorder
 				// Enchantments (including enchanted books)
 				try
 				{
-					Set<Object2IntMap.Entry<RegistryEntry<Enchantment>>> enchSet =
-						EnchantmentHelper.getEnchantments(copy)
-							.getEnchantmentEntries();
+					Set<Object2IntMap.Entry<Holder<Enchantment>>> enchSet =
+						EnchantmentHelper.getEnchantmentsForCrafting(copy)
+							.entrySet();
 					if(enchSet != null && !enchSet.isEmpty())
 					{
 						it.enchantments = new java.util.ArrayList<>();
 						it.enchantmentLevels = new java.util.ArrayList<>();
-						for(Object2IntMap.Entry<RegistryEntry<Enchantment>> e : enchSet)
+						for(Object2IntMap.Entry<Holder<Enchantment>> e : enchSet)
 						{
-							RegistryEntry<Enchantment> ren = e.getKey();
+							Holder<Enchantment> ren = e.getKey();
 							if(ren == null)
 								continue;
-							Identifier id = ren.getKey().map(k -> k.getValue())
-								.orElse(null);
+							ResourceLocation id = ren.unwrapKey()
+								.map(k -> k.location()).orElse(null);
 							String idStr = id != null ? id.toString()
-								: ren.getIdAsString();
+								: ren.getRegisteredName();
 							int lvl = e.getIntValue();
 							if(idStr != null && !idStr.isBlank())
 							{
@@ -392,22 +392,20 @@ public class ChestRecorder
 				// Potions / effects
 				try
 				{
-					PotionContentsComponent potionContents =
-						copy.getComponents().getOrDefault(
-							DataComponentTypes.POTION_CONTENTS,
-							PotionContentsComponent.DEFAULT);
+					PotionContents potionContents = copy.getComponents()
+						.getOrDefault(DataComponents.POTION_CONTENTS,
+							PotionContents.EMPTY);
 					if(potionContents != null)
 					{
 						java.util.List<String> pe = new java.util.ArrayList<>();
-						for(StatusEffectInstance sei : potionContents
-							.getEffects())
+						for(MobEffectInstance sei : potionContents
+							.getAllEffects())
 						{
-							RegistryEntry<StatusEffect> effEntry =
-								sei.getEffectType();
-							Identifier id = effEntry.getKey()
-								.map(k -> k.getValue()).orElse(null);
+							Holder<MobEffect> effEntry = sei.getEffect();
+							ResourceLocation id = effEntry.unwrapKey()
+								.map(k -> k.location()).orElse(null);
 							String idStr = id != null ? id.toString()
-								: effEntry.getIdAsString();
+								: effEntry.getRegisteredName();
 							if(idStr != null && !idStr.isBlank())
 								pe.add(idStr);
 						}
@@ -418,14 +416,15 @@ public class ChestRecorder
 						}else
 						{
 							// fallback to base potion id
-							java.util.Optional<net.minecraft.registry.entry.RegistryEntry<net.minecraft.potion.Potion>> basePotion =
+							java.util.Optional<net.minecraft.core.Holder<net.minecraft.world.item.alchemy.Potion>> basePotion =
 								potionContents.potion();
 							if(basePotion.isPresent())
 							{
-								Identifier id = basePotion.get().getKey()
-									.map(k -> k.getValue()).orElse(null);
+								ResourceLocation id =
+									basePotion.get().unwrapKey()
+										.map(k -> k.location()).orElse(null);
 								String idStr = id != null ? id.toString()
-									: basePotion.get().getIdAsString();
+									: basePotion.get().getRegisteredName();
 								it.primaryPotion = idStr;
 							}
 						}
@@ -470,7 +469,7 @@ public class ChestRecorder
 		try
 		{
 			Object screen = net.wurstclient.WurstClient.MC == null ? null
-				: net.wurstclient.WurstClient.MC.currentScreen;
+				: net.wurstclient.WurstClient.MC.screen;
 			if(screen != null)
 			{
 				try

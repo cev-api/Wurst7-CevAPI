@@ -7,11 +7,11 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.EntityHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
@@ -125,7 +125,7 @@ public final class TriggerBotHack extends Hack
 	{
 		if(simulatingMouseClick)
 		{
-			IKeyBinding.get(MC.options.attackKey).simulatePress(false);
+			IKeyBinding.get(MC.options.keyAttack).simulatePress(false);
 			simulatingMouseClick = false;
 		}
 		
@@ -142,7 +142,7 @@ public final class TriggerBotHack extends Hack
 		if(!simulatingMouseClick)
 			return;
 		
-		IKeyBinding.get(MC.options.attackKey).simulatePress(false);
+		IKeyBinding.get(MC.options.keyAttack).simulatePress(false);
 		simulatingMouseClick = false;
 	}
 	
@@ -150,7 +150,7 @@ public final class TriggerBotHack extends Hack
 	public void onHandleInput()
 	{
 		speed.updateTimer();
-		ClientPlayerEntity player = MC.player;
+		LocalPlayer player = MC.player;
 		if(player == null)
 		{
 			releaseWeaponRules();
@@ -158,7 +158,7 @@ public final class TriggerBotHack extends Hack
 		}
 		
 		// don't attack when a container/inventory screen is open
-		if(MC.currentScreen instanceof HandledScreen)
+		if(MC.screen instanceof AbstractContainerScreen)
 		{
 			releaseWeaponRules();
 			return;
@@ -183,13 +183,13 @@ public final class TriggerBotHack extends Hack
 		
 		if(simulateMouseClick.isChecked())
 		{
-			IKeyBinding.get(MC.options.attackKey).simulatePress(true);
+			IKeyBinding.get(MC.options.keyAttack).simulatePress(true);
 			simulatingMouseClick = true;
 			
 		}else
 		{
-			MC.interactionManager.attackEntity(player, target);
-			swingHand.swing(Hand.MAIN_HAND);
+			MC.gameMode.attack(player, target);
+			swingHand.swing(InteractionHand.MAIN_HAND);
 		}
 		
 		speed.resetTimer(speedRandMS.getValue());
@@ -200,7 +200,7 @@ public final class TriggerBotHack extends Hack
 		if(!EntityUtils.IS_ATTACKABLE.test(entity))
 			return false;
 		
-		if(MC.player.squaredDistanceTo(entity) > range.getValueSq())
+		if(MC.player.distanceToSqr(entity) > range.getValueSq())
 			return false;
 		
 		return entityFilters.testOne(entity);
@@ -208,8 +208,8 @@ public final class TriggerBotHack extends Hack
 	
 	private Entity getTargetUnderCrosshair()
 	{
-		if(MC.crosshairTarget == null
-			|| !(MC.crosshairTarget instanceof EntityHitResult eResult))
+		if(MC.hitResult == null
+			|| !(MC.hitResult instanceof EntityHitResult eResult))
 			return null;
 		
 		Entity entity = eResult.getEntity();
@@ -255,7 +255,7 @@ public final class TriggerBotHack extends Hack
 			if(target == null || !setting.isActiveFor(target))
 				return false;
 			
-			ClientPlayerEntity player = MC.player;
+			LocalPlayer player = MC.player;
 			if(player == null)
 				return false;
 			

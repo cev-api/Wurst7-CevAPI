@@ -7,14 +7,13 @@
  */
 package net.wurstclient.commands;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import net.minecraft.client.util.InputUtil;
 import net.wurstclient.DontBlock;
 import net.wurstclient.command.CmdError;
 import net.wurstclient.command.CmdException;
@@ -125,7 +124,7 @@ public final class BindsCmd extends Command
 		
 		try
 		{
-			InputUtil.fromTranslationKey(key);
+			InputConstants.getKey(key);
 			return key;
 			
 		}catch(IllegalArgumentException e)

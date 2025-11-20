@@ -14,22 +14,21 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.BoatEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.registry.tag.FluidTags;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -160,7 +159,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	
 	private final Map<UUID, PlayerStats> playerStats = new HashMap<>();
 	private long tickCounter;
-	private ClientWorld lastWorld;
+	private ClientLevel lastWorld;
 	
 	public CheatDetectorHack()
 	{
@@ -216,7 +215,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		tickCounter = 0L;
-		lastWorld = MC.world;
+		lastWorld = MC.level;
 		playerStats.clear();
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -232,28 +231,28 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.world == null || MC.player == null)
+		if(MC.level == null || MC.player == null)
 		{
 			playerStats.clear();
 			lastWorld = null;
 			return;
 		}
 		
-		if(MC.world != lastWorld)
+		if(MC.level != lastWorld)
 		{
 			playerStats.clear();
-			lastWorld = MC.world;
+			lastWorld = MC.level;
 		}
 		
 		tickCounter++;
 		Set<UUID> seen = new HashSet<>();
 		
-		for(PlayerEntity other : MC.world.getPlayers())
+		for(Player other : MC.level.players())
 		{
 			if(other == MC.player || other.isRemoved())
 				continue;
 			
-			UUID id = other.getUuid();
+			UUID id = other.getUUID();
 			seen.add(id);
 			
 			PlayerStats stats =
@@ -264,7 +263,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		playerStats.keySet().removeIf(id -> !seen.contains(id));
 	}
 	
-	private void processPlayer(PlayerEntity player, PlayerStats stats)
+	private void processPlayer(Player player, PlayerStats stats)
 	{
 		if(player.isSpectator() || player.isCreative())
 		{
@@ -308,14 +307,14 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		stats.lastZ = z;
 	}
 	
-	private void checkSpeed(PlayerEntity player, PlayerStats stats,
+	private void checkSpeed(Player player, PlayerStats stats,
 		double horizontalPerSecond)
 	{
 		if(!detectSpeed.isChecked())
 			return;
 		
 		// ignore if elytra or in vehicle or swimming - handle separately
-		if(player.isTouchingWater() || player.isSwimming())
+		if(player.isInWater() || player.isSwimming())
 			return;
 		
 		// compute base allowed speed with buffer
@@ -335,10 +334,10 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			// vehicle
 			try
 			{
-				int bx = MathHelper.floor(vehicle.getX());
-				int bz = MathHelper.floor(vehicle.getZ());
-				int by = MathHelper.floor(vehicle.getY()) - 1;
-				BlockState under = ((ClientWorld)vehicle.getWorld())
+				int bx = Mth.floor(vehicle.getX());
+				int bz = Mth.floor(vehicle.getZ());
+				int by = Mth.floor(vehicle.getY()) - 1;
+				BlockState under = ((ClientLevel)vehicle.level())
 					.getBlockState(new BlockPos(bx, by, bz));
 				String id =
 					under.getBlock().toString().toLowerCase(Locale.ROOT);
@@ -349,7 +348,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		}
 		
 		// status effect speed gives small allowance
-		if(player.hasStatusEffect(StatusEffects.SPEED))
+		if(player.hasEffect(MobEffects.SPEED))
 			allowed *= 1.2;
 		
 		// latency compensation
@@ -385,13 +384,13 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		stats.speedViolationCount = 0;
 	}
 	
-	private void updateFlightPattern(PlayerEntity player, PlayerStats stats,
+	private void updateFlightPattern(Player player, PlayerStats stats,
 		double dy)
 	{
 		double clearance = getClearanceAboveGround(player, 16);
 		
-		if(!player.isOnGround() && !player.isTouchingWater()
-			&& player.getVehicle() == null && !player.isClimbing())
+		if(!player.onGround() && !player.isInWater()
+			&& player.getVehicle() == null && !player.onClimbable())
 		{
 			if(clearance >= flightClearanceThreshold.getValue())
 			{
@@ -415,7 +414,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		stats.lastClearance = clearance;
 	}
 	
-	private void checkFlight(PlayerEntity player, PlayerStats stats, double dy,
+	private void checkFlight(Player player, PlayerStats stats, double dy,
 		double horizontalPerSecond)
 	{
 		if(!detectFlight.isChecked())
@@ -430,10 +429,10 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		boolean airborne = !player.isOnGround() && !player.isTouchingWater()
-			&& player.getVehicle() == null && !player.isClimbing()
-			&& !player.hasStatusEffect(StatusEffects.SLOW_FALLING)
-			&& !player.hasStatusEffect(StatusEffects.LEVITATION);
+		boolean airborne = !player.onGround() && !player.isInWater()
+			&& player.getVehicle() == null && !player.onClimbable()
+			&& !player.hasEffect(MobEffects.SLOW_FALLING)
+			&& !player.hasEffect(MobEffects.LEVITATION);
 		
 		if(airborne)
 		{
@@ -479,7 +478,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		sendAlert(player, "suspected of flying");
 	}
 	
-	private void checkBoatFly(PlayerEntity player, PlayerStats stats)
+	private void checkBoatFly(Player player, PlayerStats stats)
 	{
 		if(!detectBoatFly.isChecked())
 		{
@@ -488,7 +487,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		}
 		
 		Entity vehicle = player.getVehicle();
-		if(!(vehicle instanceof BoatEntity boat))
+		if(!(vehicle instanceof Boat boat))
 		{
 			stats.boatAirTicks = 0;
 			return;
@@ -514,7 +513,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		if(stats.boatAirTicks < boatAirTicks.getValue())
 			return;
 		
-		Vec3d vel = boat.getVelocity();
+		Vec3 vel = boat.getDeltaMovement();
 		double horizontalSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
 		boolean meetsHorizontal =
 			horizontalSpeed >= boatHorizontalSpeed.getValue();
@@ -533,18 +532,18 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		sendAlert(player, "suspected of boat-flying");
 	}
 	
-	private void checkAura(PlayerEntity player, PlayerStats stats)
+	private void checkAura(Player player, PlayerStats stats)
 	{
 		if(!detectAura.isChecked())
 		{
 			stats.swingTicks.clear();
 			stats.swingIntervals.clear();
 			stats.lastSwingTick = 0L;
-			stats.lastSwingProgress = player.getHandSwingProgress(1.0F);
+			stats.lastSwingProgress = player.getAttackAnim(1.0F);
 			return;
 		}
 		
-		float swingProgress = player.getHandSwingProgress(1.0F);
+		float swingProgress = player.getAttackAnim(1.0F);
 		
 		if(stats.lastSwingProgress > 0.6F && swingProgress < 0.2F)
 		{
@@ -609,7 +608,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			"suspected of killaura (%.1f swings/s)", swingsPerSecond));
 	}
 	
-	private void sendAlert(PlayerEntity player, String reason)
+	private void sendAlert(Player player, String reason)
 	{
 		String name = player.getName().getString();
 		ChatUtils.message("CheatDetector: " + name + " " + reason);
@@ -624,14 +623,14 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	 * Try to obtain the player's ping/latency in milliseconds. Returns -1 if
 	 * unavailable.
 	 */
-	private int getPlayerPing(PlayerEntity player)
+	private int getPlayerPing(Player player)
 	{
 		try
 		{
-			var handler = MC.getNetworkHandler();
+			var handler = MC.getConnection();
 			if(handler == null)
 				return -1;
-			var entry = handler.getPlayerListEntry(player.getUuid());
+			var entry = handler.getPlayerInfo(player.getUUID());
 			if(entry == null)
 				return -1;
 				
@@ -723,18 +722,18 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	
 	private double getClearanceAboveGround(Entity entity, int maxDepth)
 	{
-		ClientWorld world = (ClientWorld)entity.getWorld();
-		Box box = entity.getBoundingBox();
+		ClientLevel world = (ClientLevel)entity.level();
+		AABB box = entity.getBoundingBox();
 		double entityBottom = box.minY;
 		
-		int minX = MathHelper.floor(box.minX);
-		int maxX = MathHelper.ceil(box.maxX);
-		int minZ = MathHelper.floor(box.minZ);
-		int maxZ = MathHelper.ceil(box.maxZ);
+		int minX = Mth.floor(box.minX);
+		int maxX = Mth.ceil(box.maxX);
+		int minZ = Mth.floor(box.minZ);
+		int maxZ = Mth.ceil(box.maxZ);
 		
-		int maxY = MathHelper.floor(entityBottom);
-		int minY = Math.max(world.getBottomY(),
-			MathHelper.floor(entityBottom - maxDepth));
+		int maxY = Mth.floor(entityBottom);
+		int minY =
+			Math.max(world.getMinY(), Mth.floor(entityBottom - maxDepth));
 		
 		for(int y = maxY; y >= minY; y--)
 		{
@@ -750,8 +749,8 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 					else
 					{
 						FluidState fluid = world.getFluidState(pos);
-						if(!fluid.isEmpty() && (fluid.isIn(FluidTags.WATER)
-							|| fluid.isIn(FluidTags.LAVA)))
+						if(!fluid.isEmpty() && (fluid.is(FluidTags.WATER)
+							|| fluid.is(FluidTags.LAVA)))
 							foundSupport = true;
 					}
 				}
@@ -766,19 +765,19 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		return maxDepth;
 	}
 	
-	private boolean isBoatSupported(BoatEntity boat)
+	private boolean isBoatSupported(Boat boat)
 	{
-		ClientWorld world = (ClientWorld)boat.getWorld();
-		Box box = boat.getBoundingBox();
+		ClientLevel world = (ClientLevel)boat.level();
+		AABB box = boat.getBoundingBox();
 		double sampleMinY = box.minY - 0.2;
 		double sampleMaxY = box.minY - 0.05;
 		
-		int minX = MathHelper.floor(box.minX);
-		int maxX = MathHelper.floor(box.maxX);
-		int minY = MathHelper.floor(sampleMinY);
-		int maxY = MathHelper.floor(sampleMaxY);
-		int minZ = MathHelper.floor(box.minZ);
-		int maxZ = MathHelper.floor(box.maxZ);
+		int minX = Mth.floor(box.minX);
+		int maxX = Mth.floor(box.maxX);
+		int minY = Mth.floor(sampleMinY);
+		int maxY = Mth.floor(sampleMaxY);
+		int minZ = Mth.floor(box.minZ);
+		int maxZ = Mth.floor(box.maxZ);
 		
 		for(int x = minX; x <= maxX; x++)
 			for(int y = minY; y <= maxY; y++)
@@ -790,7 +789,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 						return true;
 					
 					FluidState fluid = world.getFluidState(pos);
-					if(!fluid.isEmpty() && fluid.isIn(FluidTags.WATER))
+					if(!fluid.isEmpty() && fluid.is(FluidTags.WATER))
 						return true;
 				}
 			
@@ -822,7 +821,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		// consecutive speed violations
 		private int speedViolationCount;
 		
-		private void resetPosition(PlayerEntity player)
+		private void resetPosition(Player player)
 		{
 			lastX = player.getX();
 			lastY = player.getY();
@@ -839,20 +838,20 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			swingTicks.clear();
 			swingIntervals.clear();
 			lastSwingTick = 0L;
-			lastSwingProgress = player.getHandSwingProgress(1.0F);
+			lastSwingProgress = player.getAttackAnim(1.0F);
 			speedViolationCount = 0;
 		}
 	}
 	
-	private boolean isUsingElytra(PlayerEntity player)
+	private boolean isUsingElytra(Player player)
 	{
-		if(player.isGliding())
+		if(player.isFallFlying())
 			return true;
 		
-		if(player.isOnGround())
+		if(player.onGround())
 			return false;
 		
-		ItemStack chest = player.getEquippedStack(EquipmentSlot.CHEST);
-		return !chest.isEmpty() && chest.isOf(Items.ELYTRA);
+		ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
+		return !chest.isEmpty() && chest.is(Items.ELYTRA);
 	}
 }

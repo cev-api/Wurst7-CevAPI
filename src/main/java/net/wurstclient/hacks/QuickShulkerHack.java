@@ -10,30 +10,29 @@ package net.wurstclient.hacks;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.block.ShulkerBoxBlock;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.ContainerComponent;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.tag.ItemTags;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.ShulkerBoxScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ItemContainerContents;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
@@ -119,7 +118,7 @@ public final class QuickShulkerHack extends Hack
 	
 	public boolean hasUsableShulker()
 	{
-		ClientPlayerEntity player = MC.player;
+		LocalPlayer player = MC.player;
 		if(player == null)
 			return false;
 		
@@ -178,14 +177,14 @@ public final class QuickShulkerHack extends Hack
 	
 	private void runTask() throws InterruptedException
 	{
-		ClientPlayerEntity player = MC.player;
-		if(player == null || MC.world == null)
+		LocalPlayer player = MC.player;
+		if(player == null || MC.level == null)
 		{
 			ChatUtils.error("Player not available.");
 			return;
 		}
 		
-		PlayerInventory inv = player.getInventory();
+		Inventory inv = player.getInventory();
 		int originalSlot = inv.getSelectedSlot();
 		int shulkerSlot = findShulkerSlot(inv);
 		if(shulkerSlot == -1)
@@ -199,12 +198,12 @@ public final class QuickShulkerHack extends Hack
 		// inventory and remember which inventory slots increased. This
 		// lets us later only move those items into the placed shulker,
 		// leaving the rest of the player's inventory untouched.
-		ScreenHandler openHandler = player.currentScreenHandler;
+		AbstractContainerMenu openHandler = player.containerMenu;
 		int[] chestOriginSnapshot = null;
 		int[] chestAfterSnapshot = null;
 		Set<Integer> slotsFromChest = null;
 		boolean hadOpenContainer =
-			openHandler != null && openHandler != player.playerScreenHandler
+			openHandler != null && openHandler != player.inventoryMenu
 				&& hasExternalSlots(openHandler, inv);
 		if(hadOpenContainer)
 		{
@@ -264,7 +263,7 @@ public final class QuickShulkerHack extends Hack
 				try
 				{
 					WurstClient.INSTANCE.getRotationFaker()
-						.faceVectorClient(Vec3d.ofCenter(placePos));
+						.faceVectorClient(Vec3.atCenterOf(placePos));
 				}catch(Throwable ignored)
 				{}
 			});
@@ -276,7 +275,7 @@ public final class QuickShulkerHack extends Hack
 				return;
 			}
 			
-			ScreenHandler handler = waitForShulkerHandler(player, 3000);
+			AbstractContainerMenu handler = waitForShulkerHandler(player, 3000);
 			if(handler == null)
 			{
 				ChatUtils.error("Timed out waiting for shulker UI.");
@@ -312,7 +311,7 @@ public final class QuickShulkerHack extends Hack
 				{
 					if(s < 0 || s >= 36)
 						continue;
-					if(!inv.getStack(s).isEmpty())
+					if(!inv.getItem(s).isEmpty())
 					{
 						anyLeft = true;
 						break;
@@ -349,11 +348,12 @@ public final class QuickShulkerHack extends Hack
 		ChatUtils.message("QuickShulker finished.");
 	}
 	
-	private void transferItems(ClientPlayerEntity player, ScreenHandler handler,
-		Set<String> blacklistSet, Set<String> whitelistSet, TransferMode mode,
+	private void transferItems(LocalPlayer player,
+		AbstractContainerMenu handler, Set<String> blacklistSet,
+		Set<String> whitelistSet, TransferMode mode,
 		Set<Integer> protectedSlots) throws InterruptedException
 	{
-		PlayerInventory inv = player.getInventory();
+		Inventory inv = player.getInventory();
 		boolean useBl = useBlacklist.isChecked();
 		boolean useWl = useWhitelist.isChecked();
 		for(int slot = 0; slot < 36; slot++)
@@ -364,7 +364,7 @@ public final class QuickShulkerHack extends Hack
 			if(protectedSlots.contains(slot))
 				continue;
 			
-			ItemStack stack = inv.getStack(slot);
+			ItemStack stack = inv.getItem(slot);
 			if(stack.isEmpty())
 				continue;
 			
@@ -376,7 +376,8 @@ public final class QuickShulkerHack extends Hack
 			if(mode == TransferMode.NON_STACKABLE && stack.isStackable())
 				continue;
 			
-			String id = Registries.ITEM.getId(stack.getItem()).toString();
+			String id =
+				BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 			if(useBl && blacklistSet.contains(id))
 				continue;
 			if(useWl && !whitelistSet.isEmpty() && !whitelistSet.contains(id))
@@ -387,11 +388,11 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.interactionManager.clickSlot(handler.syncId, handlerSlot, 0,
-				SlotActionType.QUICK_MOVE, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				handlerSlot, 0, ClickType.QUICK_MOVE, player);
 			safeSleep(70);
 			
-			ItemStack after = inv.getStack(slot);
+			ItemStack after = inv.getItem(slot);
 			if(after.getCount() == before)
 				continue;
 			
@@ -404,13 +405,13 @@ public final class QuickShulkerHack extends Hack
 	 * Transfer only the specified player inventory slots into the open
 	 * shulker handler.
 	 */
-	private void transferItemsFromSlots(ClientPlayerEntity player,
-		ScreenHandler handler, Set<String> blacklistSet,
+	private void transferItemsFromSlots(LocalPlayer player,
+		AbstractContainerMenu handler, Set<String> blacklistSet,
 		Set<String> whitelistSet, TransferMode mode,
 		Set<Integer> protectedSlots, Set<Integer> slotsToTransfer)
 		throws InterruptedException
 	{
-		PlayerInventory inv = player.getInventory();
+		Inventory inv = player.getInventory();
 		boolean useBl = useBlacklist.isChecked();
 		boolean useWl = useWhitelist.isChecked();
 		for(int slot : slotsToTransfer)
@@ -424,7 +425,7 @@ public final class QuickShulkerHack extends Hack
 			if(slot < 0 || slot >= 36)
 				continue;
 			
-			ItemStack stack = inv.getStack(slot);
+			ItemStack stack = inv.getItem(slot);
 			if(stack.isEmpty())
 				continue;
 			
@@ -436,7 +437,8 @@ public final class QuickShulkerHack extends Hack
 			if(mode == TransferMode.NON_STACKABLE && stack.isStackable())
 				continue;
 			
-			String id = Registries.ITEM.getId(stack.getItem()).toString();
+			String id =
+				BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 			if(useBl && blacklistSet.contains(id))
 				continue;
 			if(useWl && !whitelistSet.isEmpty() && !whitelistSet.contains(id))
@@ -447,11 +449,11 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.interactionManager.clickSlot(handler.syncId, handlerSlot, 0,
-				SlotActionType.QUICK_MOVE, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId,
+				handlerSlot, 0, ClickType.QUICK_MOVE, player);
 			safeSleep(70);
 			
-			ItemStack after = inv.getStack(slot);
+			ItemStack after = inv.getItem(slot);
 			if(after.getCount() == before)
 				continue;
 			
@@ -460,22 +462,23 @@ public final class QuickShulkerHack extends Hack
 		}
 	}
 	
-	private boolean hasExternalSlots(ScreenHandler handler, PlayerInventory inv)
+	private boolean hasExternalSlots(AbstractContainerMenu handler,
+		Inventory inv)
 	{
 		for(Slot slot : handler.slots)
 		{
-			if(slot.inventory != inv)
+			if(slot.container != inv)
 				return true;
 		}
 		return false;
 	}
 	
-	private int[] snapshotInventory(PlayerInventory inv)
+	private int[] snapshotInventory(Inventory inv)
 	{
 		int[] arr = new int[36];
 		for(int i = 0; i < 36; i++)
 		{
-			ItemStack s = inv.getStack(i);
+			ItemStack s = inv.getItem(i);
 			arr[i] = s == null ? 0 : s.getCount();
 		}
 		return arr;
@@ -495,12 +498,12 @@ public final class QuickShulkerHack extends Hack
 		return set;
 	}
 	
-	private void moveItemsFromOpenContainerToPlayer(ClientPlayerEntity player,
-		ScreenHandler handler, TransferMode mode, java.util.List<String> bl,
-		java.util.List<String> wl, boolean useBl, boolean useWl)
-		throws InterruptedException
+	private void moveItemsFromOpenContainerToPlayer(LocalPlayer player,
+		AbstractContainerMenu handler, TransferMode mode,
+		java.util.List<String> bl, java.util.List<String> wl, boolean useBl,
+		boolean useWl) throws InterruptedException
 	{
-		PlayerInventory inv = player.getInventory();
+		Inventory inv = player.getInventory();
 		Set<String> blacklistSet = new HashSet<>(bl);
 		Set<String> whitelistSet = new HashSet<>(wl);
 		for(int i = 0; i < handler.slots.size(); i++)
@@ -509,9 +512,9 @@ public final class QuickShulkerHack extends Hack
 				throw new InterruptedException();
 			
 			Slot slot = handler.slots.get(i);
-			if(slot.inventory == inv)
+			if(slot.container == inv)
 				continue;
-			ItemStack stack = slot.getStack();
+			ItemStack stack = slot.getItem();
 			if(stack.isEmpty())
 				continue;
 			
@@ -523,44 +526,45 @@ public final class QuickShulkerHack extends Hack
 			if(mode == TransferMode.NON_STACKABLE && stack.isStackable())
 				continue;
 			
-			String id = Registries.ITEM.getId(stack.getItem()).toString();
+			String id =
+				BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 			if(useBl && blacklistSet.contains(id))
 				continue;
 			if(useWl && !whitelistSet.isEmpty() && !whitelistSet.contains(id))
 				continue;
 			
-			MC.interactionManager.clickSlot(handler.syncId, i, 0,
-				SlotActionType.QUICK_MOVE, player);
+			MC.gameMode.handleInventoryMouseClick(handler.containerId, i, 0,
+				ClickType.QUICK_MOVE, player);
 			safeSleep(70);
 		}
 	}
 	
-	private boolean hasContainerSpace(ScreenHandler handler,
-		PlayerInventory playerInventory)
+	private boolean hasContainerSpace(AbstractContainerMenu handler,
+		Inventory playerInventory)
 	{
 		for(Slot slot : handler.slots)
 		{
-			if(slot.inventory == playerInventory)
+			if(slot.container == playerInventory)
 				continue;
-			if(!slot.hasStack())
+			if(!slot.hasItem())
 				return true;
 		}
 		return false;
 	}
 	
-	private int toHandlerSlot(ScreenHandler handler, PlayerInventory inv,
+	private int toHandlerSlot(AbstractContainerMenu handler, Inventory inv,
 		int playerSlot)
 	{
 		for(int i = 0; i < handler.slots.size(); i++)
 		{
 			Slot slot = handler.slots.get(i);
-			if(slot.inventory == inv && slot.getIndex() == playerSlot)
+			if(slot.container == inv && slot.getContainerSlot() == playerSlot)
 				return i;
 		}
 		return -1;
 	}
 	
-	private ScreenHandler waitForShulkerHandler(ClientPlayerEntity player,
+	private AbstractContainerMenu waitForShulkerHandler(LocalPlayer player,
 		long timeoutMs) throws InterruptedException
 	{
 		long deadline = System.currentTimeMillis() + timeoutMs;
@@ -569,9 +573,9 @@ public final class QuickShulkerHack extends Hack
 			if(Thread.interrupted())
 				throw new InterruptedException();
 			
-			ScreenHandler current = player.currentScreenHandler;
-			if(current instanceof ShulkerBoxScreenHandler handler
-				&& current != player.playerScreenHandler)
+			AbstractContainerMenu current = player.containerMenu;
+			if(current instanceof ShulkerBoxMenu handler
+				&& current != player.inventoryMenu)
 				return handler;
 			
 			safeSleep(50);
@@ -590,11 +594,11 @@ public final class QuickShulkerHack extends Hack
 				try
 				{
 					BlockHitResult hit = new BlockHitResult(
-						Vec3d.ofCenter(fpos), Direction.UP, fpos, false);
-					ActionResult result =
-						WurstClient.MC.interactionManager.interactBlock(
-							WurstClient.MC.player, Hand.MAIN_HAND, hit);
-					accepted[0] = result.isAccepted();
+						Vec3.atCenterOf(fpos), Direction.UP, fpos, false);
+					InteractionResult result =
+						WurstClient.MC.gameMode.useItemOn(WurstClient.MC.player,
+							InteractionHand.MAIN_HAND, hit);
+					accepted[0] = result.consumesAction();
 				}catch(Throwable ignored)
 				{
 					accepted[0] = false;
@@ -636,7 +640,7 @@ public final class QuickShulkerHack extends Hack
 		return BlockUtils.getBlock(pos) instanceof ShulkerBoxBlock;
 	}
 	
-	private void closeCurrentScreen(ClientPlayerEntity player)
+	private void closeCurrentScreen(LocalPlayer player)
 	{
 		// Close current screen on the client thread and wait for it to be
 		// actually closed. This prevents the mouse/input from staying
@@ -644,14 +648,14 @@ public final class QuickShulkerHack extends Hack
 		if(WurstClient.MC == null)
 			return;
 		
-		if(WurstClient.MC.currentScreen == null)
+		if(WurstClient.MC.screen == null)
 			return;
 		
 		WurstClient.MC.execute(() -> {
 			try
 			{
 				if(WurstClient.MC.player != null)
-					WurstClient.MC.player.closeHandledScreen();
+					WurstClient.MC.player.closeContainer();
 			}catch(Throwable ignored)
 			{}
 		});
@@ -664,7 +668,7 @@ public final class QuickShulkerHack extends Hack
 				Thread.currentThread().interrupt();
 				return;
 			}
-			if(WurstClient.MC.currentScreen == null)
+			if(WurstClient.MC.screen == null)
 				return;
 			try
 			{
@@ -677,7 +681,7 @@ public final class QuickShulkerHack extends Hack
 		}
 	}
 	
-	private ItemSwap bringSlotToHand(PlayerInventory inv, int sourceSlot,
+	private ItemSwap bringSlotToHand(Inventory inv, int sourceSlot,
 		int targetHotbarSlot)
 	{
 		if(sourceSlot == -1)
@@ -696,7 +700,7 @@ public final class QuickShulkerHack extends Hack
 		return new ItemSwap(targetHotbarSlot, sourceSlot, true);
 	}
 	
-	private void restoreSwap(PlayerInventory inv, ItemSwap swap)
+	private void restoreSwap(Inventory inv, ItemSwap swap)
 	{
 		if(!swap.success())
 			return;
@@ -711,27 +715,27 @@ public final class QuickShulkerHack extends Hack
 		inv.setSelectedSlot(swap.restoreSlot);
 	}
 	
-	private BlockPos findPlacementPos(ClientPlayerEntity player)
+	private BlockPos findPlacementPos(LocalPlayer player)
 	{
-		BlockPos base = player.getBlockPos();
-		Direction facing = player.getHorizontalFacing();
-		BlockPos[] candidates = new BlockPos[]{base.offset(facing),
-			base.offset(facing.rotateYClockwise()),
-			base.offset(facing.rotateYCounterclockwise()),
-			base.offset(facing.getOpposite()), base.up(), base.down()};
+		BlockPos base = player.blockPosition();
+		Direction facing = player.getDirection();
+		BlockPos[] candidates = new BlockPos[]{base.relative(facing),
+			base.relative(facing.getClockWise()),
+			base.relative(facing.getCounterClockWise()),
+			base.relative(facing.getOpposite()), base.above(), base.below()};
 		
-		Box playerBox = player.getBoundingBox();
+		AABB playerBox = player.getBoundingBox();
 		for(BlockPos pos : candidates)
 		{
 			BlockState state = BlockUtils.getState(pos);
-			if(!state.isReplaceable())
+			if(!state.canBeReplaced())
 				continue;
 			
-			BlockState below = BlockUtils.getState(pos.down());
+			BlockState below = BlockUtils.getState(pos.below());
 			if(below.isAir())
 				continue;
 			
-			Box blockBox = new Box(pos);
+			AABB blockBox = new AABB(pos);
 			if(blockBox.intersects(playerBox))
 				continue;
 			
@@ -741,11 +745,11 @@ public final class QuickShulkerHack extends Hack
 		return null;
 	}
 	
-	private int findShulkerSlot(PlayerInventory inv)
+	private int findShulkerSlot(Inventory inv)
 	{
-		for(int slot = 0; slot < inv.size(); slot++)
+		for(int slot = 0; slot < inv.getContainerSize(); slot++)
 		{
-			ItemStack stack = inv.getStack(slot);
+			ItemStack stack = inv.getItem(slot);
 			if(stack.isEmpty())
 				continue;
 			if(!isShulkerItem(stack))
@@ -756,14 +760,14 @@ public final class QuickShulkerHack extends Hack
 		return -1;
 	}
 	
-	private int findPickaxeSlot(PlayerInventory inv)
+	private int findPickaxeSlot(Inventory inv)
 	{
 		int bestSlot = -1;
 		int bestPriority = -1;
-		for(int slot = 0; slot < inv.size(); slot++)
+		for(int slot = 0; slot < inv.getContainerSize(); slot++)
 		{
-			ItemStack stack = inv.getStack(slot);
-			if(stack.isEmpty() || !stack.isIn(ItemTags.PICKAXES))
+			ItemStack stack = inv.getItem(slot);
+			if(stack.isEmpty() || !stack.is(ItemTags.PICKAXES))
 				continue;
 			
 			int priority = getPickaxePriority(stack.getItem());
@@ -799,13 +803,12 @@ public final class QuickShulkerHack extends Hack
 	
 	private boolean isShulkerFull(ItemStack shulker)
 	{
-		ContainerComponent container =
-			shulker.get(DataComponentTypes.CONTAINER);
+		ItemContainerContents container = shulker.get(DataComponents.CONTAINER);
 		if(container == null)
 			return false;
 		
 		int occupied = 0;
-		for(ItemStack stack : container.iterateNonEmpty())
+		for(ItemStack stack : container.nonEmptyItems())
 		{
 			if(stack.isEmpty())
 				continue;

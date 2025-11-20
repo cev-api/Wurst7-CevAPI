@@ -10,21 +10,20 @@ package net.wurstclient.hacks;
 import java.util.Comparator;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
-
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.entity.passive.TameableEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.hit.HitResult;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
@@ -105,7 +104,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	private final CheckboxSetting debugLogs = new CheckboxSetting("Debug logs",
 		"Prints status messages that can help diagnose timing issues.", false);
 	
-	private static final Function<Entity, Vec3d> TOP_HITBOX_AIM =
+	private static final Function<Entity, Vec3> TOP_HITBOX_AIM =
 		AutoMaceHack::getTopAimPoint;
 	private static final long POST_SWITCH_ATTACK_BUFFER_MS = 75;
 	
@@ -175,15 +174,15 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.world == null)
+		if(MC.player == null || MC.level == null)
 			return;
 		
 		enforceSliderBounds();
 		updateFallTracking();
 		updateCurrentTarget();
 		
-		boolean airborne = !MC.player.isOnGround();
-		Vec3d velocity = MC.player.getVelocity();
+		boolean airborne = !MC.player.onGround();
+		Vec3 velocity = MC.player.getDeltaMovement();
 		boolean falling = velocity.y < -0.1;
 		double currentFallDistance = getCurrentFallDistance();
 		boolean fallingWindow = airborne && falling
@@ -218,7 +217,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			}else
 				handleNoTarget();
 			
-		}else if(MC.player.isOnGround())
+		}else if(MC.player.onGround())
 			handleLanding();
 		else if(airborne && !falling)
 			handleNotFalling();
@@ -257,10 +256,10 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			return;
 		
 		Entity candidate = null;
-		if(MC.crosshairTarget != null
-			&& MC.crosshairTarget.getType() == HitResult.Type.ENTITY)
+		if(MC.hitResult != null
+			&& MC.hitResult.getType() == HitResult.Type.ENTITY)
 		{
-			candidate = ((EntityHitResult)MC.crosshairTarget).getEntity();
+			candidate = ((EntityHitResult)MC.hitResult).getEntity();
 		}
 		
 		if(!isTargetCandidate(candidate) || !isFallReachable(candidate))
@@ -273,8 +272,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	
 	private void updateFallTracking()
 	{
-		boolean onGround = MC.player.isOnGround();
-		Vec3d velocity = MC.player.getVelocity();
+		boolean onGround = MC.player.onGround();
+		Vec3 velocity = MC.player.getDeltaMovement();
 		boolean falling = velocity.y < -0.1;
 		double currentY = MC.player.getY();
 		
@@ -331,14 +330,14 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(!EntityUtils.IS_ATTACKABLE.test(entity))
 			return false;
 		
-		if(!(entity instanceof LivingEntity living) || living.isDead()
+		if(!(entity instanceof LivingEntity living) || living.isDeadOrDying()
 			|| !living.isAlive())
 			return false;
 		
-		if(MC.player.isTeammate(entity))
+		if(MC.player.isAlliedTo(entity))
 			return false;
 		
-		if(entity instanceof PlayerEntity)
+		if(entity instanceof Player)
 		{
 			if(!targetPlayers.isChecked())
 				return false;
@@ -347,10 +346,10 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			if(!targetMobs.isChecked())
 				return false;
 			
-			if(ignorePassiveMobs.isChecked() && entity instanceof PassiveEntity)
+			if(ignorePassiveMobs.isChecked() && entity instanceof AgeableMob)
 				return false;
 			
-			if(entity instanceof TameableEntity tame && tame.isTamed())
+			if(entity instanceof TamableAnimal tame && tame.isTame())
 				return false;
 		}
 		
@@ -376,10 +375,10 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		}
 		
 		if(respectCooldown.isChecked()
-			&& MC.player.getAttackCooldownProgress(0) < 0.75F)
+			&& MC.player.getAttackStrengthScale(0) < 0.75F)
 		{
-			logSkip("cooldown=" + String.format("%.2f",
-				MC.player.getAttackCooldownProgress(0)));
+			logSkip("cooldown="
+				+ String.format("%.2f", MC.player.getAttackStrengthScale(0)));
 			return false;
 		}
 		
@@ -413,7 +412,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(!cheatMode)
 		{
 			float minCritFall =
-				(float)MathHelper.clamp(minFallDistance.getValue() * 0.8F, 1.2F,
+				(float)Mth.clamp(minFallDistance.getValue() * 0.8F, 1.2F,
 					Math.max(2.0F, minFallDistance.getValue() + 0.4F));
 			if(MC.player.fallDistance < minCritFall)
 			{
@@ -432,13 +431,13 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	
 	private void attackTarget(Entity target)
 	{
-		if(target == null || MC.interactionManager == null)
+		if(target == null || MC.gameMode == null)
 			return;
 		
 		currentTarget = target;
-		MC.interactionManager.attackEntity(MC.player, target);
-		MC.player.swingHand(Hand.MAIN_HAND);
-		MC.player.resetLastAttackedTicks();
+		MC.gameMode.attack(MC.player, target);
+		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.resetAttackStrengthTicker();
 		attackedThisFall = true;
 		double vertical = MC.player.getY() - target.getBoundingBox().maxY;
 		logDebug("Attacked target " + target.getName().getString()
@@ -550,8 +549,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	
 	private boolean isMaceEquipped()
 	{
-		ItemStack mainHand = MC.player.getMainHandStack();
-		return mainHand.isOf(Items.MACE);
+		ItemStack mainHand = MC.player.getMainHandItem();
+		return mainHand.is(Items.MACE);
 	}
 	
 	private void storePreviousSlot()
@@ -573,8 +572,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	{
 		for(int i = 0; i < 9; i++)
 		{
-			ItemStack stack = MC.player.getInventory().getStack(i);
-			if(stack.isOf(Items.MACE))
+			ItemStack stack = MC.player.getInventory().getItem(i);
+			if(stack.is(Items.MACE))
 			{
 				setSelectedHotbarSlot(i);
 				hasSwitchedToMace = true;
@@ -604,9 +603,9 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			return;
 		
 		MC.player.getInventory().setSelectedSlot(slot);
-		if(MC.player.networkHandler != null)
-			MC.player.networkHandler
-				.sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+		if(MC.player.connection != null)
+			MC.player.connection
+				.send(new ServerboundSetCarriedItemPacket(slot));
 	}
 	
 	private void alignToTargetTop(Entity target)
@@ -614,7 +613,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(!useAimAssist.isChecked() || target == null)
 			return;
 		
-		Vec3d topCenter = getTopAimPoint(target);
+		Vec3 topCenter = getTopAimPoint(target);
 		
 		WURST.getRotationFaker().faceVectorClient(topCenter);
 		WURST.getRotationFaker().faceVectorPacket(topCenter);
@@ -625,8 +624,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(entity == null)
 			return false;
 		
-		Box playerBox = MC.player.getBoundingBox();
-		Box targetBox = entity.getBoundingBox();
+		AABB playerBox = MC.player.getBoundingBox();
+		AABB targetBox = entity.getBoundingBox();
 		
 		double playerFeet = playerBox.minY;
 		double playerTop = playerBox.maxY;
@@ -646,7 +645,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		double horizontal = Math.hypot(playerCenterX - targetCenterX,
 			playerCenterZ - targetCenterZ);
 		
-		double maxHorizontal = Math.max(1.4, 0.9 + entity.getWidth() * 0.6);
+		double maxHorizontal = Math.max(1.4, 0.9 + entity.getBbWidth() * 0.6);
 		if(horizontal > maxHorizontal)
 		{
 			logSkip(String.format("horizontal %.2f > %.2f", horizontal,
@@ -654,7 +653,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			return false;
 		}
 		
-		double downwardSpeed = MC.player.getVelocity().y;
+		double downwardSpeed = MC.player.getDeltaMovement().y;
 		if(downwardSpeed > -0.35)
 		{
 			logSkip(String.format("velocity %.3f too slow", downwardSpeed));
@@ -676,9 +675,9 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		if(entity == null)
 			return false;
 		
-		Vec3d playerPos =
-			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
-		Vec3d top = getTopAimPoint(entity);
+		Vec3 playerPos =
+			new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		Vec3 top = getTopAimPoint(entity);
 		
 		if(top.y >= playerPos.y)
 			return false;
@@ -696,23 +695,23 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	
 	private Entity findBestFallTarget()
 	{
-		Vec3d playerPos =
-			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		Vec3 playerPos =
+			new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ());
 		double maxDistanceSq = 36.0; // 6 blocks
 		double maxHorizontal = 5.5;
 		
 		return EntityUtils.getAttackableEntities()
 			.filter(this::isTargetCandidate)
-			.filter(e -> MC.player.squaredDistanceTo(e) <= maxDistanceSq)
+			.filter(e -> MC.player.distanceToSqr(e) <= maxDistanceSq)
 			.filter(e -> getTopAimPoint(e).y < playerPos.y)
 			.filter(this::isFallReachable).filter(e -> {
-				Vec3d top = getTopAimPoint(e);
+				Vec3 top = getTopAimPoint(e);
 				double dx = top.x - playerPos.x;
 				double dz = top.z - playerPos.z;
 				double horizontal = Math.hypot(dx, dz);
 				return horizontal <= maxHorizontal;
 			}).min(Comparator.comparingDouble(e -> {
-				Vec3d top = getTopAimPoint(e);
+				Vec3 top = getTopAimPoint(e);
 				double verticalDiff = Math.max(0, playerPos.y - top.y - 0.05);
 				double dx = top.x - playerPos.x;
 				double dz = top.z - playerPos.z;
@@ -721,13 +720,13 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 			})).orElse(null);
 	}
 	
-	private static Vec3d getTopAimPoint(Entity entity)
+	private static Vec3 getTopAimPoint(Entity entity)
 	{
-		Box box = entity.getBoundingBox();
+		AABB box = entity.getBoundingBox();
 		double x = (box.minX + box.maxX) * 0.5;
 		double y = box.maxY + 0.05;
 		double z = (box.minZ + box.maxZ) * 0.5;
-		return new Vec3d(x, y, z);
+		return new Vec3(x, y, z);
 	}
 	
 	private long nextDelay(double min, double max)
@@ -809,7 +808,7 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		CombinedFormatter formatter = new CombinedFormatter();
 		formatter.add(message);
 		formatter.add("fallDist=%.2f", MC.player.fallDistance);
-		formatter.add("velY=%.3f", MC.player.getVelocity().y);
+		formatter.add("velY=%.3f", MC.player.getDeltaMovement().y);
 		formatter.add("hasMace=%s", isMaceEquipped());
 		formatter.add("target=%s", currentTarget == null ? "none"
 			: currentTarget.getName().getString());

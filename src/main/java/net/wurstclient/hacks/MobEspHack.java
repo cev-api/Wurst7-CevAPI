@@ -7,16 +7,15 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Box;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -135,9 +134,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		mobs.clear();
 		
 		Stream<LivingEntity> stream = StreamSupport
-			.stream(MC.world.getEntities().spliterator(), false)
+			.stream(MC.level.entitiesForRendering().spliterator(), false)
 			.filter(LivingEntity.class::isInstance).map(e -> (LivingEntity)e)
-			.filter(e -> !(e instanceof PlayerEntity))
+			.filter(e -> !(e instanceof Player))
 			.filter(e -> !e.isRemoved() && e.getHealth() > 0);
 		// optionally filter out mobs below the configured Y level
 		if(onlyAboveGround.isChecked())
@@ -168,7 +167,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		MobEspStyleSetting.Shape shape = style.getShape();
 		boolean glowMode = shape == MobEspStyleSetting.Shape.GLOW;
@@ -189,14 +188,14 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			
 			for(LivingEntity e : mobs)
 			{
-				Box lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
+				AABB lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
 				float[] rgb = getColorRgb();
 				int outlineColor = RenderUtils.toIntColor(rgb, 0.5F);
 				
 				if(drawShape)
 				{
-					Box box =
-						lerpedBox.offset(0, extraSize, 0).expand(extraSize);
+					AABB box =
+						lerpedBox.move(0, extraSize, 0).inflate(extraSize);
 					outlineShapes.add(new ColoredBox(box, outlineColor));
 					
 					if(filledShapes != null)

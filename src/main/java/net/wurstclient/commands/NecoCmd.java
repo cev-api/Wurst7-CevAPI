@@ -7,9 +7,9 @@
  */
 package net.wurstclient.commands;
 
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.ResourceLocation;
 import net.wurstclient.Category;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
@@ -21,7 +21,7 @@ import net.wurstclient.util.RenderUtils;
 public final class NecoCmd extends Command
 	implements GUIRenderListener, UpdateListener
 {
-	private final Identifier[] necos = buildNecoFrames();
+	private final ResourceLocation[] necos = buildNecoFrames();
 	
 	private static final int NECO_TEX_W = 200;
 	private static final int NECO_TEX_H = 200;
@@ -84,14 +84,14 @@ public final class NecoCmd extends Command
 	}
 	
 	@Override
-	public void onRenderGUI(DrawContext context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		int color = WURST.getHax().rainbowUiHack.isEnabled()
 			? RenderUtils.toIntColor(WURST.getGui().getAcColor(), 1)
 			: 0xFFFFFFFF;
 		
-		int sw = context.getScaledWindowWidth();
-		int sh = context.getScaledWindowHeight();
+		int sw = context.guiWidth();
+		int sh = context.guiHeight();
 		int hungerBaselineY = sh - HUNGER_ROW_BASELINE;
 		
 		int x = sw - DRAW_W - RIGHT_MARGIN;
@@ -99,15 +99,16 @@ public final class NecoCmd extends Command
 		
 		int frameIndex = (ticks / TICKS_PER_FRAME) % 37;
 		
-		context.drawTexture(RenderPipelines.GUI_TEXTURED, necos[frameIndex], x,
-			y, 0, 0, DRAW_W, DRAW_H, NECO_TEX_W, NECO_TEX_H, color);
+		context.blit(RenderPipelines.GUI_TEXTURED, necos[frameIndex], x, y, 0,
+			0, DRAW_W, DRAW_H, NECO_TEX_W, NECO_TEX_H, color);
 	}
 	
-	private static Identifier[] buildNecoFrames()
+	private static ResourceLocation[] buildNecoFrames()
 	{
-		Identifier[] frames = new Identifier[37];
+		ResourceLocation[] frames = new ResourceLocation[37];
 		for(int i = 0; i < 37; i++)
-			frames[i] = Identifier.of("wurst", "neco" + (i + 1) + ".png");
+			frames[i] = ResourceLocation.fromNamespaceAndPath("wurst",
+				"neco" + (i + 1) + ".png");
 		return frames;
 	}
 }

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -15,10 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
@@ -46,7 +45,7 @@ public final class BreadcrumbsHack extends Hack
 		BOTH
 	}
 	
-	private boolean movedEnough(Vec3d a, Vec3d b, double minDist)
+	private boolean movedEnough(Vec3 a, Vec3 b, double minDist)
 	{
 		double dx = a.x - b.x;
 		double dy = a.y - b.y;
@@ -138,10 +137,10 @@ public final class BreadcrumbsHack extends Hack
 	// per-player colors are managed via PlayerColorRegistry
 	private static final class Point
 	{
-		final Vec3d pos;
+		final Vec3 pos;
 		final DimensionType dim;
 		
-		Point(Vec3d pos, DimensionType dim)
+		Point(Vec3 pos, DimensionType dim)
 		{
 			this.pos = pos;
 			this.dim = dim;
@@ -215,15 +214,15 @@ public final class BreadcrumbsHack extends Hack
 		// Do not add new points while paused
 		if(paused.isChecked())
 			return;
-		Vec3d herePos =
-			new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
-		DimensionType hereDim = MC.world.getDimension();
+		Vec3 herePos =
+			new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		DimensionType hereDim = MC.level.dimensionType();
 		if(points.isEmpty())
 		{
 			points.add(new Point(herePos, hereDim));
 			return;
 		}
-		Vec3d last = points.peekLast().pos;
+		Vec3 last = points.peekLast().pos;
 		if(movedEnough(last, herePos, sectionLen.getValue()))
 		{
 			points.add(new Point(herePos, hereDim));
@@ -236,11 +235,11 @@ public final class BreadcrumbsHack extends Hack
 		// Track other players if enabled
 		if(sel == Target.OTHERS || sel == Target.BOTH)
 		{
-			for(var p : MC.world.getPlayers())
+			for(var p : MC.level.players())
 			{
 				if(p == MC.player)
 					continue;
-				UUID id = p.getUuid();
+				UUID id = p.getUUID();
 				// assign a color if needed via central registry
 				if(randomBrightColors.isChecked())
 				{
@@ -256,14 +255,14 @@ public final class BreadcrumbsHack extends Hack
 				}
 				Deque<Point> dq =
 					otherPoints.computeIfAbsent(id, k -> new ArrayDeque<>());
-				Vec3d pos = new Vec3d(p.getX(), p.getY(), p.getZ());
-				DimensionType pdim = MC.world.getDimension();
+				Vec3 pos = new Vec3(p.getX(), p.getY(), p.getZ());
+				DimensionType pdim = MC.level.dimensionType();
 				if(dq.isEmpty())
 				{
 					dq.add(new Point(pos, pdim));
 					continue;
 				}
-				Vec3d lastp = dq.peekLast().pos;
+				Vec3 lastp = dq.peekLast().pos;
 				if(movedEnough(lastp, pos, sectionLen.getValue()))
 				{
 					dq.add(new Point(pos, pdim));
@@ -277,10 +276,10 @@ public final class BreadcrumbsHack extends Hack
 			if(!keepOthersOnLeave.isChecked())
 			{
 				otherPoints.keySet()
-					.removeIf(uuid -> MC.world.getPlayerByUuid(uuid) == null);
+					.removeIf(uuid -> MC.level.getPlayerByUUID(uuid) == null);
 				// If not keeping trails we also remove registry entries
 				otherPoints.keySet().forEach(uuid -> {
-					if(MC.world.getPlayerByUuid(uuid) == null)
+					if(MC.level.getPlayerByUUID(uuid) == null)
 						net.wurstclient.util.PlayerColorRegistry.remove(uuid);
 				});
 			}
@@ -313,15 +312,15 @@ public final class BreadcrumbsHack extends Hack
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrixStack, float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		double thickness = lineThickness.getValue();
 		Target sel = target.getSelected();
 		// render your trail only when YOU or BOTH selected
 		if((sel == Target.YOU || sel == Target.BOTH))
 		{
-			DimensionType curDim = MC.world.getDimension();
-			List<Vec3d> list = new ArrayList<>();
+			DimensionType curDim = MC.level.dimensionType();
+			List<Vec3> list = new ArrayList<>();
 			for(Point p : points)
 			{
 				if(p.dim == curDim)
@@ -343,13 +342,13 @@ public final class BreadcrumbsHack extends Hack
 		// render other players' trails
 		if(sel == Target.OTHERS || sel == Target.BOTH)
 		{
-			DimensionType curDim = MC.world.getDimension();
+			DimensionType curDim = MC.level.dimensionType();
 			for(var entry : otherPoints.entrySet())
 			{
 				Deque<Point> dq = entry.getValue();
 				UUID id = entry.getKey();
 				
-				List<Vec3d> l = new ArrayList<>();
+				List<Vec3> l = new ArrayList<>();
 				for(Point p : dq)
 					if(p.dim == curDim)
 						l.add(p.pos);

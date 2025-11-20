@@ -19,34 +19,30 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.VaultBlock;
-import net.minecraft.block.entity.TrialSpawnerBlockEntity;
-import net.minecraft.block.entity.VaultBlockEntity;
-import net.minecraft.block.enums.TrialSpawnerState;
-import net.minecraft.block.enums.VaultState;
-import net.minecraft.block.spawner.TrialSpawnerConfig;
-import net.minecraft.block.spawner.TrialSpawnerData;
-import net.minecraft.block.spawner.TrialSpawnerLogic;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.font.TextRenderer.TextLayerType;
-import net.minecraft.client.render.VertexConsumerProvider.Immediate;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Box;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.Vec3d;
-
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Font.DisplayMode;
+import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.VaultBlock;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawner;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerConfig;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerStateData;
+import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
+import net.minecraft.world.level.block.entity.vault.VaultState;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransformViewBobbingEvent;
@@ -66,6 +62,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -207,7 +205,7 @@ public final class TrialSpawnerEspHack extends Hack
 	public void onUpdate()
 	{
 		spawners.clear();
-		if(MC.world == null || MC.player == null)
+		if(MC.level == null || MC.player == null)
 		{
 			vaults.clear();
 			foundCount = 0;
@@ -225,19 +223,19 @@ public final class TrialSpawnerEspHack extends Hack
 		ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof VaultBlockEntity)
 			.map(be -> (VaultBlockEntity)be).forEach(be -> {
-				BlockPos vpos = be.getPos().toImmutable();
+				BlockPos vpos = be.getBlockPos().immutable();
 				vaults.add(new VaultInfo(vpos));
 				// detect ominous vaults that have been opened / ejected
-				if(MC.world != null)
+				if(MC.level != null)
 				{
-					BlockState state = MC.world.getBlockState(vpos);
-					if(state.isOf(Blocks.VAULT)
-						&& state.contains(VaultBlock.OMINOUS)
-						&& state.get(VaultBlock.OMINOUS))
+					BlockState state = MC.level.getBlockState(vpos);
+					if(state.is(Blocks.VAULT)
+						&& state.hasProperty(VaultBlock.OMINOUS)
+						&& state.getValue(VaultBlock.OMINOUS))
 					{
-						if(state.contains(VaultBlock.VAULT_STATE))
+						if(state.hasProperty(VaultBlock.STATE))
 						{
-							VaultState vs = state.get(VaultBlock.VAULT_STATE);
+							VaultState vs = state.getValue(VaultBlock.STATE);
 							// treat any non-INACTIVE /
 							// ejecting/unlocking/active as opened
 							if(vs == VaultState.EJECTING)
@@ -245,9 +243,9 @@ public final class TrialSpawnerEspHack extends Hack
 								String dim = "unknown";
 								try
 								{
-									if(MC != null && MC.world != null)
-										dim = MC.world.getRegistryKey()
-											.getValue().toString();
+									if(MC != null && MC.level != null)
+										dim = MC.level.dimension().location()
+											.toString();
 								}catch(Throwable ignored)
 								{}
 								String key = dim + "|" + vpos.getX() + ","
@@ -274,8 +272,8 @@ public final class TrialSpawnerEspHack extends Hack
 				String dim = "unknown";
 				try
 				{
-					if(MC != null && MC.world != null)
-						dim = MC.world.getRegistryKey().getValue().toString();
+					if(MC != null && MC.level != null)
+						dim = MC.level.dimension().location().toString();
 				}catch(Throwable ignored)
 				{}
 				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
@@ -283,12 +281,12 @@ public final class TrialSpawnerEspHack extends Hack
 				if(openedVaultKeys.contains(key)
 					|| approachScheduledKeys.contains(key))
 					continue;
-				if(MC.player.squaredDistanceTo(vpos.getX() + 0.5,
-					vpos.getY() + 0.5, vpos.getZ() + 0.5) <= rangeSq)
+				if(MC.player.distanceToSqr(vpos.getX() + 0.5, vpos.getY() + 0.5,
+					vpos.getZ() + 0.5) <= rangeSq)
 				{
-					BlockState state = MC.world.getBlockState(vpos);
-					VaultState prev = state.contains(VaultBlock.VAULT_STATE)
-						? state.get(VaultBlock.VAULT_STATE) : null;
+					BlockState state = MC.level.getBlockState(vpos);
+					VaultState prev = state.hasProperty(VaultBlock.STATE)
+						? state.getValue(VaultBlock.STATE) : null;
 					// make final copies for inner class
 					final VaultState prevFinal = prev;
 					final String keyFinal = key;
@@ -301,13 +299,13 @@ public final class TrialSpawnerEspHack extends Hack
 						{
 							try
 							{
-								if(MC == null || MC.world == null)
+								if(MC == null || MC.level == null)
 									return;
 								BlockState after =
-									MC.world.getBlockState(vposFinal);
+									MC.level.getBlockState(vposFinal);
 								VaultState afterState =
-									after.contains(VaultBlock.VAULT_STATE)
-										? after.get(VaultBlock.VAULT_STATE)
+									after.hasProperty(VaultBlock.STATE)
+										? after.getValue(VaultBlock.STATE)
 										: null;
 								boolean prevIdle = prevFinal == null
 									|| prevFinal == VaultState.INACTIVE;
@@ -334,13 +332,13 @@ public final class TrialSpawnerEspHack extends Hack
 		ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof TrialSpawnerBlockEntity)
 			.map(be -> (TrialSpawnerBlockEntity)be).forEach(spawner -> {
-				BlockPos pos = spawner.getPos();
-				double distSq = MC.player.squaredDistanceTo(pos.getX() + 0.5,
+				BlockPos pos = spawner.getBlockPos();
+				double distSq = MC.player.distanceToSqr(pos.getX() + 0.5,
 					pos.getY() + 0.5, pos.getZ() + 0.5);
 				if(limit && distSq > maxDistanceSq)
 					return;
 				
-				BlockPos immutablePos = pos.toImmutable();
+				BlockPos immutablePos = pos.immutable();
 				VaultInfo link = showVaultLink.isChecked()
 					? findLinkedVault(immutablePos) : null;
 				String decorMob = detectMobFromDecor(immutablePos);
@@ -350,20 +348,20 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		foundCount = spawners.size();
 		// detect transitions and predict cooldown end when configured
-		if(MC.world != null && estimateCooldownOnTransition.isChecked())
+		if(MC.level != null && estimateCooldownOnTransition.isChecked())
 		{
-			long worldTime = MC.world.getTime();
+			long worldTime = MC.level.getGameTime();
 			for(TrialSpawnerInfo info : spawners)
 			{
 				var be = info.blockEntity();
-				if(be == null || be.isRemoved() || be.getWorld() != MC.world)
+				if(be == null || be.isRemoved() || be.getLevel() != MC.level)
 					continue;
-				TrialSpawnerLogic logic = be.getSpawner();
+				TrialSpawner logic = be.getTrialSpawner();
 				if(logic == null)
 					continue;
-				TrialSpawnerState state = logic.getSpawnerState() == null
-					? TrialSpawnerState.INACTIVE : logic.getSpawnerState();
-				TrialSpawnerData data = logic.getData();
+				TrialSpawnerState state = logic.getState() == null
+					? TrialSpawnerState.INACTIVE : logic.getState();
+				TrialSpawnerStateData data = logic.getStateData();
 				long cooldownEnd = 0;
 				if(data != null)
 				{
@@ -379,7 +377,8 @@ public final class TrialSpawnerEspHack extends Hack
 					&& state != TrialSpawnerState.ACTIVE
 					&& cooldownEnd <= worldTime)
 				{
-					long predicted = worldTime + logic.getCooldownLength();
+					long predicted =
+						worldTime + logic.getTargetCooldownLength();
 					predictedCooldownEnds.put(pos, predicted);
 				}
 				// if server set a cooldown, prefer that and remove any
@@ -391,7 +390,7 @@ public final class TrialSpawnerEspHack extends Hack
 			}
 			// cleanup expired predictions
 			predictedCooldownEnds.entrySet()
-				.removeIf(e -> e.getValue() <= MC.world.getTime());
+				.removeIf(e -> e.getValue() <= MC.level.getGameTime());
 		}
 	}
 	
@@ -407,23 +406,23 @@ public final class TrialSpawnerEspHack extends Hack
 	public void onRightClick(
 		net.wurstclient.events.RightClickListener.RightClickEvent event)
 	{
-		if(MC == null || MC.world == null || MC.player == null)
+		if(MC == null || MC.level == null || MC.player == null)
 			return;
-		var hit = MC.crosshairTarget;
-		if(!(hit instanceof net.minecraft.util.hit.BlockHitResult bhr))
+		var hit = MC.hitResult;
+		if(!(hit instanceof net.minecraft.world.phys.BlockHitResult bhr))
 			return;
 		BlockPos pos = bhr.getBlockPos();
-		BlockState state = MC.world.getBlockState(pos);
-		if(!state.isOf(Blocks.VAULT))
+		BlockState state = MC.level.getBlockState(pos);
+		if(!state.is(Blocks.VAULT))
 			return;
 		// remember initial state and schedule a check after 1.5s
-		VaultState before = state.contains(VaultBlock.VAULT_STATE)
-			? state.get(VaultBlock.VAULT_STATE) : null;
+		VaultState before = state.hasProperty(VaultBlock.STATE)
+			? state.getValue(VaultBlock.STATE) : null;
 		String dim = "unknown";
 		try
 		{
-			if(MC.world != null)
-				dim = MC.world.getRegistryKey().getValue().toString();
+			if(MC.level != null)
+				dim = MC.level.dimension().location().toString();
 		}catch(Throwable ignored)
 		{}
 		// make final copies for inner class
@@ -437,12 +436,11 @@ public final class TrialSpawnerEspHack extends Hack
 			{
 				try
 				{
-					if(MC == null || MC.world == null)
+					if(MC == null || MC.level == null)
 						return;
-					BlockState after = MC.world.getBlockState(posFinal);
-					VaultState afterState =
-						after.contains(VaultBlock.VAULT_STATE)
-							? after.get(VaultBlock.VAULT_STATE) : null;
+					BlockState after = MC.level.getBlockState(posFinal);
+					VaultState afterState = after.hasProperty(VaultBlock.STATE)
+						? after.getValue(VaultBlock.STATE) : null;
 					// Only mark as opened if the vault was idle/inactive when
 					// we checked and the state stayed unchanged. If it was
 					// ACTIVE (mouth opened) or transitioned to ACTIVE/EJECTING,
@@ -466,9 +464,9 @@ public final class TrialSpawnerEspHack extends Hack
 	}
 	
 	@Override
-	public void onRender(MatrixStack matrices, float partialTicks)
+	public void onRender(PoseStack matrices, float partialTicks)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return;
 		
 		ArrayList<ColoredBox> outlineBoxes = new ArrayList<>();
@@ -483,10 +481,10 @@ public final class TrialSpawnerEspHack extends Hack
 			for(VaultInfo v : vaults)
 			{
 				BlockPos vpos = v.pos();
-				BlockState vstate = MC.world.getBlockState(vpos);
+				BlockState vstate = MC.level.getBlockState(vpos);
 				int vcolor = vaultBoxColor.getColorI();
-				boolean ominous = vstate.contains(VaultBlock.OMINOUS)
-					&& vstate.get(VaultBlock.OMINOUS);
+				boolean ominous = vstate.hasProperty(VaultBlock.OMINOUS)
+					&& vstate.getValue(VaultBlock.OMINOUS);
 				if(ominous)
 					vcolor = ominousVaultBoxColor.getColorI();
 				// if we know this ominous vault was opened before, mark it
@@ -494,8 +492,8 @@ public final class TrialSpawnerEspHack extends Hack
 				String dim = "unknown";
 				try
 				{
-					if(MC != null && MC.world != null)
-						dim = MC.world.getRegistryKey().getValue().toString();
+					if(MC != null && MC.level != null)
+						dim = MC.level.dimension().location().toString();
 				}catch(Throwable ignored)
 				{}
 				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
@@ -505,7 +503,7 @@ public final class TrialSpawnerEspHack extends Hack
 					// darken color to indicate opened
 					vcolor = mixWithWhite(vcolor, 0.6F);
 				}
-				Box vbox = new Box(vpos);
+				AABB vbox = new AABB(vpos);
 				outlineBoxes.add(new ColoredBox(vbox, vcolor));
 				if(filledBoxes != null)
 					filledBoxes
@@ -518,7 +516,7 @@ public final class TrialSpawnerEspHack extends Hack
 				lines.add(new OverlayLine(status, 0xFFFFFFFF));
 				if(ominous && openedVaultKeys.contains(key))
 					lines.add(new OverlayLine("Opened", 0xFFDD4444));
-				Vec3d labelPos = Vec3d.ofCenter(vpos).add(0, 1.0, 0);
+				Vec3 labelPos = Vec3.atCenterOf(vpos).add(0, 1.0, 0);
 				labelPos = resolveLabelPosition(labelPos);
 				drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
 			}
@@ -527,24 +525,24 @@ public final class TrialSpawnerEspHack extends Hack
 		for(TrialSpawnerInfo info : spawners)
 		{
 			TrialSpawnerBlockEntity be = info.blockEntity();
-			if(be == null || be.isRemoved() || be.getWorld() != MC.world)
+			if(be == null || be.isRemoved() || be.getLevel() != MC.level)
 				continue;
 			
-			TrialSpawnerLogic logic = be.getSpawner();
+			TrialSpawner logic = be.getTrialSpawner();
 			if(logic == null)
 				continue;
 			
-			TrialSpawnerState state = logic.getSpawnerState() == null
-				? TrialSpawnerState.INACTIVE : logic.getSpawnerState();
+			TrialSpawnerState state = logic.getState() == null
+				? TrialSpawnerState.INACTIVE : logic.getState();
 			TrialStatus status = TrialStatus.fromState(state);
 			int color = getColorForStatus(status);
-			Box box = new Box(info.pos());
+			AABB box = new AABB(info.pos());
 			outlineBoxes.add(new ColoredBox(box, color));
 			if(filledBoxes != null)
 				filledBoxes.add(new ColoredBox(box, withAlpha(color, 0.18F)));
 			if(tracerTargets != null)
 				tracerTargets
-					.add(new ColoredPoint(Vec3d.ofCenter(info.pos()), color));
+					.add(new ColoredPoint(Vec3.atCenterOf(info.pos()), color));
 			
 			if(showActivationRadius.isChecked())
 				drawActivationRadius(matrices, info, logic, color);
@@ -567,71 +565,71 @@ public final class TrialSpawnerEspHack extends Hack
 				false);
 	}
 	
-	private void drawActivationRadius(MatrixStack matrices,
-		TrialSpawnerInfo info, TrialSpawnerLogic logic, int stateColor)
+	private void drawActivationRadius(PoseStack matrices, TrialSpawnerInfo info,
+		TrialSpawner logic, int stateColor)
 	{
-		int radius = logic.getDetectionRadius();
+		int radius = logic.getRequiredPlayerRange();
 		if(radius <= 0)
 			return;
 		
-		Vec3d center = Vec3d.ofCenter(info.pos()).add(0, 0.05, 0);
+		Vec3 center = Vec3.atCenterOf(info.pos()).add(0, 0.05, 0);
 		double radiusSq = radius * radius;
-		Vec3d playerPos = MC.player == null ? null
-			: new Vec3d(MC.player.getX(), MC.player.getY(), MC.player.getZ());
-		boolean inside = playerPos != null
-			&& playerPos.squaredDistanceTo(center) <= radiusSq;
+		Vec3 playerPos = MC.player == null ? null
+			: new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ());
+		boolean inside =
+			playerPos != null && playerPos.distanceToSqr(center) <= radiusSq;
 		int color = withAlpha(
 			inside ? mixWithWhite(stateColor, 0.35F) : radiusColor.getColorI(),
 			inside ? 0.65F : 0.35F);
 		int segments = Math.max(32, radius * 12);
 		double step = (Math.PI * 2) / segments;
 		
-		Vec3d prev = center.add(radius, 0, 0);
+		Vec3 prev = center.add(radius, 0, 0);
 		for(int i = 1; i <= segments; i++)
 		{
 			double angle = i * step;
-			Vec3d next = center.add(radius * Math.cos(angle), 0,
+			Vec3 next = center.add(radius * Math.cos(angle), 0,
 				radius * Math.sin(angle));
 			RenderUtils.drawLine(matrices, prev, next, color, false);
 			prev = next;
 		}
 	}
 	
-	private void drawVaultLink(MatrixStack matrices, TrialSpawnerInfo info,
+	private void drawVaultLink(PoseStack matrices, TrialSpawnerInfo info,
 		int stateColor)
 	{
-		if(MC.world == null || info.vault() == null)
+		if(MC.level == null || info.vault() == null)
 			return;
 		
 		BlockPos vaultPos = info.vault().pos();
-		Vec3d start = Vec3d.ofCenter(info.pos());
-		Vec3d end = Vec3d.ofCenter(vaultPos).add(0, 0.25, 0);
+		Vec3 start = Vec3.atCenterOf(info.pos());
+		Vec3 end = Vec3.atCenterOf(vaultPos).add(0, 0.25, 0);
 		int color = vaultLinkColor.getColorI();
 		RenderUtils.drawLine(matrices, start, end, color, false);
 		
-		BlockState state = MC.world.getBlockState(vaultPos);
-		if(!state.isOf(Blocks.VAULT))
+		BlockState state = MC.level.getBlockState(vaultPos);
+		if(!state.is(Blocks.VAULT))
 			return;
 		
 		String status = describeVaultState(state);
 		List<OverlayLine> lines = List.of(new OverlayLine("Vault", stateColor),
 			new OverlayLine(status, color));
-		Vec3d labelPos = end.add(0, 0.6, 0);
+		Vec3 labelPos = end.add(0, 0.6, 0);
 		drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
 	}
 	
-	private void drawOverlay(MatrixStack matrices, TrialSpawnerInfo info,
-		TrialSpawnerLogic logic, TrialSpawnerState state, int headerColor)
+	private void drawOverlay(PoseStack matrices, TrialSpawnerInfo info,
+		TrialSpawner logic, TrialSpawnerState state, int headerColor)
 	{
-		if(MC.world == null)
+		if(MC.level == null)
 			return;
 		
-		TrialSpawnerData data = logic.getData();
+		TrialSpawnerStateData data = logic.getStateData();
 		if(data == null)
 			return;
 		
 		TrialSpawnerDataAccessor accessor = (TrialSpawnerDataAccessor)data;
-		long worldTime = MC.world.getTime();
+		long worldTime = MC.level.getGameTime();
 		long cooldownTicks = accessor.getCooldownEnd() - worldTime;
 		double cooldownSeconds = Math.max(0, cooldownTicks / 20.0);
 		boolean cooldownEstimated = false;
@@ -648,20 +646,21 @@ public final class TrialSpawnerEspHack extends Hack
 		long nextSpawnTicks = accessor.getNextMobSpawnsAt() - worldTime;
 		double nextSpawnSeconds = Math.max(0, nextSpawnTicks / 20.0);
 		
-		int additionalPlayers = data.getAdditionalPlayers(info.pos());
-		TrialSpawnerConfig config = logic.getConfig();
-		int totalMobs = Math.max(1, config.getTotalMobs(additionalPlayers));
-		int simultaneous =
-			Math.max(1, config.getSimultaneousMobs(additionalPlayers));
+		int additionalPlayers = data.countAdditionalPlayers(info.pos());
+		TrialSpawnerConfig config = logic.activeConfig();
+		int totalMobs =
+			Math.max(1, config.calculateTargetTotalMobs(additionalPlayers));
+		int simultaneous = Math.max(1,
+			config.calculateTargetSimultaneousMobs(additionalPlayers));
 		int trackedSpawned =
-			MathHelper.clamp(accessor.getTotalSpawnedMobs(), 0, totalMobs);
+			Mth.clamp(accessor.getTotalSpawnedMobs(), 0, totalMobs);
 		Set<UUID> aliveSet = accessor.getSpawnedMobsAlive();
 		int aliveFromData =
 			aliveSet == null ? 0 : Math.min(aliveSet.size(), totalMobs);
 		int totalWaves =
 			Math.max(1, (int)Math.ceil(totalMobs / (double)simultaneous));
 		String decorMob = info.decorMob() == null ? "" : info.decorMob();
-		String spawnId = readMobId(data.getSpawnDataNbt(state));
+		String spawnId = readMobId(data.getUpdateTag(state));
 		String resolvedMob = resolveMobName(spawnId);
 		String mobName = !decorMob.isEmpty() ? decorMob
 			: (resolvedMob == null ? "" : resolvedMob);
@@ -674,8 +673,8 @@ public final class TrialSpawnerEspHack extends Hack
 		if(trackedSpawned <= 0 && alive > 0)
 			trackedSpawned = alive;
 		int mobsProgress =
-			MathHelper.clamp(Math.max(trackedSpawned, alive), 0, totalMobs);
-		int currentWave = MathHelper.clamp(
+			Mth.clamp(Math.max(trackedSpawned, alive), 0, totalMobs);
+		int currentWave = Mth.clamp(
 			(int)Math.ceil(Math.max(1, mobsProgress) / (double)simultaneous),
 			mobsProgress > 0 ? 1 : 0, totalWaves);
 		
@@ -728,72 +727,69 @@ public final class TrialSpawnerEspHack extends Hack
 		if(showVaultLink.isChecked() && info.vault() != null)
 		{
 			String vaultInfo =
-				describeVaultState(MC.world.getBlockState(info.vault().pos()));
+				describeVaultState(MC.level.getBlockState(info.vault().pos()));
 			lines.add(new OverlayLine("Vault: " + vaultInfo, 0xFFFFFFFF));
 		}
 		
-		Vec3d labelPos = Vec3d.ofCenter(info.pos()).add(0, 1.6, 0);
+		Vec3 labelPos = Vec3.atCenterOf(info.pos()).add(0, 1.6, 0);
 		labelPos = resolveLabelPosition(labelPos);
 		drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
 	}
 	
-	private void drawLabel(MatrixStack matrices, Vec3d position,
+	private void drawLabel(PoseStack matrices, Vec3 position,
 		List<OverlayLine> lines, float scale)
 	{
-		if(lines.isEmpty() || MC.textRenderer == null)
+		if(lines.isEmpty() || MC.font == null)
 			return;
 		
-		matrices.push();
-		Vec3d cam = RenderUtils.getCameraPos();
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(position.x - cam.x, position.y - cam.y,
 			position.z - cam.z);
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
 		{
-			matrices.multiply(
-				RotationAxis.POSITIVE_Y.rotationDegrees(-camEntity.getYaw()));
-			matrices.multiply(
-				RotationAxis.POSITIVE_X.rotationDegrees(camEntity.getPitch()));
+			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
+			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180));
+		matrices.mulPose(Axis.YP.rotationDegrees(180));
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		
-		TextRenderer tr = MC.textRenderer;
-		int bg = (int)(MC.options.getTextBackgroundOpacity(0.25F) * 255) << 24;
-		int lineHeight = tr.fontHeight + 2;
-		int maxWidth = lines.stream().mapToInt(line -> tr.getWidth(line.text()))
+		Font tr = MC.font;
+		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		int lineHeight = tr.lineHeight + 2;
+		int maxWidth = lines.stream().mapToInt(line -> tr.width(line.text()))
 			.max().orElse(0);
 		int x = -maxWidth / 2;
 		
-		Immediate vcp = RenderUtils.getVCP();
+		BufferSource vcp = RenderUtils.getVCP();
 		for(int i = 0; i < lines.size(); i++)
 		{
 			OverlayLine line = lines.get(i);
 			int y = i * lineHeight;
-			TextLayerType layerType = TextLayerType.SEE_THROUGH;
-			tr.draw(line.text(), x, y, line.color(), false,
-				matrices.peek().getPositionMatrix(), vcp, layerType, bg,
-				0xF000F0);
+			DisplayMode layerType = DisplayMode.SEE_THROUGH;
+			tr.drawInBatch(line.text(), x, y, line.color(), false,
+				matrices.last().pose(), vcp, layerType, bg, 0xF000F0);
 		}
-		vcp.draw();
-		matrices.pop();
+		vcp.endBatch();
+		matrices.popPose();
 	}
 	
-	private Vec3d resolveLabelPosition(Vec3d target)
+	private Vec3 resolveLabelPosition(Vec3 target)
 	{
-		Vec3d cam = RenderUtils.getCameraPos();
+		Vec3 cam = RenderUtils.getCameraPos();
 		double distance = cam.distanceTo(target);
 		double anchor = 12;
 		if(distance <= anchor)
 			return target;
 		
-		Vec3d dir = target.subtract(cam);
+		Vec3 dir = target.subtract(cam);
 		double len = dir.length();
 		if(len < 1e-4)
 			return target;
 		
-		return cam.add(dir.multiply(anchor / len));
+		return cam.add(dir.scale(anchor / len));
 	}
 	
 	private VaultInfo findLinkedVault(BlockPos spawnerPos)
@@ -807,7 +803,7 @@ public final class TrialSpawnerEspHack extends Hack
 		double best = maxRangeSq;
 		for(VaultInfo info : vaults)
 		{
-			double distSq = info.pos().getSquaredDistance(spawnerPos);
+			double distSq = info.pos().distSqr(spawnerPos);
 			if(distSq <= best)
 			{
 				closest = info;
@@ -822,8 +818,8 @@ public final class TrialSpawnerEspHack extends Hack
 		String server = null;
 		try
 		{
-			if(MC != null && MC.getCurrentServerEntry() != null)
-				server = MC.getCurrentServerEntry().address;
+			if(MC != null && MC.getCurrentServer() != null)
+				server = MC.getCurrentServer().ip;
 		}catch(Throwable ignored)
 		{}
 		String name = sanitizeServer(server);
@@ -854,9 +850,9 @@ public final class TrialSpawnerEspHack extends Hack
 					{
 						try
 						{
-							if(MC != null && MC.world != null)
-								dim = MC.world.getRegistryKey().getValue()
-									.toString();
+							if(MC != null && MC.level != null)
+								dim =
+									MC.level.dimension().location().toString();
 						}catch(Throwable ignored)
 						{}
 						if(dim == null)
@@ -876,8 +872,8 @@ public final class TrialSpawnerEspHack extends Hack
 		String server = null;
 		try
 		{
-			if(MC != null && MC.getCurrentServerEntry() != null)
-				server = MC.getCurrentServerEntry().address;
+			if(MC != null && MC.getCurrentServer() != null)
+				server = MC.getCurrentServer().ip;
 		}catch(Throwable ignored)
 		{}
 		String name = sanitizeServer(server);
@@ -933,10 +929,10 @@ public final class TrialSpawnerEspHack extends Hack
 	
 	private String detectMobFromDecor(BlockPos spawnerPos)
 	{
-		if(MC.world == null || spawnerPos == null)
+		if(MC.level == null || spawnerPos == null)
 			return "";
 		
-		BlockPos base = spawnerPos.down();
+		BlockPos base = spawnerPos.below();
 		boolean hasCobble = false;
 		boolean hasMossyCobble = false;
 		boolean hasStone = false;
@@ -957,33 +953,33 @@ public final class TrialSpawnerEspHack extends Hack
 				if(dx == 0 && dz == 0)
 					continue;
 				
-				BlockPos check = base.add(dx, 0, dz);
-				BlockState state = MC.world.getBlockState(check);
-				BlockState above = MC.world.getBlockState(check.up());
+				BlockPos check = base.offset(dx, 0, dz);
+				BlockState state = MC.level.getBlockState(check);
+				BlockState above = MC.level.getBlockState(check.above());
 				
-				if(state.isOf(Blocks.COBBLESTONE))
+				if(state.is(Blocks.COBBLESTONE))
 					hasCobble = true;
-				if(state.isOf(Blocks.MOSSY_COBBLESTONE))
+				if(state.is(Blocks.MOSSY_COBBLESTONE))
 					hasMossyCobble = true;
-				if(state.isOf(Blocks.STONE))
+				if(state.is(Blocks.STONE))
 					hasStone = true;
-				if(state.isOf(Blocks.COBWEB) || above.isOf(Blocks.COBWEB))
+				if(state.is(Blocks.COBWEB) || above.is(Blocks.COBWEB))
 					hasCobweb = true;
-				if(state.isOf(Blocks.PODZOL))
+				if(state.is(Blocks.PODZOL))
 					hasPodzol = true;
 				if(isMushroom(state) || isMushroom(above))
 					hasMushroom = true;
-				if(state.isOf(Blocks.CHISELED_SANDSTONE))
+				if(state.is(Blocks.CHISELED_SANDSTONE))
 					hasChiseledSandstone = true;
-				if(state.isOf(Blocks.CHISELED_TUFF))
+				if(state.is(Blocks.CHISELED_TUFF))
 					hasChiseledTuff = true;
-				if(state.isOf(Blocks.PACKED_ICE))
+				if(state.is(Blocks.PACKED_ICE))
 					hasPackedIce = true;
-				if(state.isOf(Blocks.STONE_BRICKS))
+				if(state.is(Blocks.STONE_BRICKS))
 					hasStoneBricks = true;
-				if(state.isOf(Blocks.MOSS_BLOCK))
+				if(state.is(Blocks.MOSS_BLOCK))
 					hasMossBlock = true;
-				if(state.isOf(Blocks.BONE_BLOCK))
+				if(state.is(Blocks.BONE_BLOCK))
 					hasBoneBlock = true;
 			}
 		}
@@ -1016,8 +1012,7 @@ public final class TrialSpawnerEspHack extends Hack
 	
 	private boolean isMushroom(BlockState state)
 	{
-		return state.isOf(Blocks.BROWN_MUSHROOM)
-			|| state.isOf(Blocks.RED_MUSHROOM);
+		return state.is(Blocks.BROWN_MUSHROOM) || state.is(Blocks.RED_MUSHROOM);
 	}
 	
 	private int getColorForStatus(TrialStatus status)
@@ -1031,11 +1026,11 @@ public final class TrialSpawnerEspHack extends Hack
 		};
 	}
 	
-	private String readMobId(NbtCompound spawnData)
+	private String readMobId(CompoundTag spawnData)
 	{
 		if(spawnData == null)
 			return "";
-		Optional<NbtCompound> entity = spawnData.getCompound("entity");
+		Optional<CompoundTag> entity = spawnData.getCompound("entity");
 		if(entity.isPresent())
 		{
 			Optional<String> id = entity.get().getString("id");
@@ -1050,12 +1045,12 @@ public final class TrialSpawnerEspHack extends Hack
 		if(mobId == null || mobId.isEmpty())
 			return "Unknown";
 		
-		Identifier id = Identifier.tryParse(mobId);
+		ResourceLocation id = ResourceLocation.tryParse(mobId);
 		if(id != null)
 		{
-			EntityType<?> entity = Registries.ENTITY_TYPE.get(id);
+			EntityType<?> entity = BuiltInRegistries.ENTITY_TYPE.getValue(id);
 			if(entity != null)
-				return entity.getName().getString();
+				return entity.getDescription().getString();
 		}
 		
 		return prettifyId(mobId);
@@ -1117,12 +1112,12 @@ public final class TrialSpawnerEspHack extends Hack
 	{
 		if(mobId == null || mobId.isEmpty())
 			return null;
-		Identifier id = Identifier.tryParse(mobId);
+		ResourceLocation id = ResourceLocation.tryParse(mobId);
 		if(id == null)
 			return null;
-		RegistryKey<EntityType<?>> key =
-			RegistryKey.of(RegistryKeys.ENTITY_TYPE, id);
-		return Registries.ENTITY_TYPE.get(key);
+		ResourceKey<EntityType<?>> key =
+			ResourceKey.create(Registries.ENTITY_TYPE, id);
+		return BuiltInRegistries.ENTITY_TYPE.getValue(key);
 	}
 	
 	private EntityType<?> mapDecorMobToType(String decorMob)
@@ -1146,17 +1141,17 @@ public final class TrialSpawnerEspHack extends Hack
 		};
 	}
 	
-	private int countWorldMobs(BlockPos pos, TrialSpawnerLogic logic,
+	private int countWorldMobs(BlockPos pos, TrialSpawner logic,
 		EntityType<?> mobType, String mobName)
 	{
-		if(MC.world == null || pos == null)
+		if(MC.level == null || pos == null)
 			return 0;
 		
 		double radius =
-			logic == null ? 8 : Math.max(6, logic.getDetectionRadius() + 4);
-		Box box =
-			Box.of(Vec3d.ofCenter(pos), radius * 2, radius * 2, radius * 2);
-		return MC.world.getEntitiesByClass(LivingEntity.class, box,
+			logic == null ? 8 : Math.max(6, logic.getRequiredPlayerRange() + 4);
+		AABB box = AABB.ofSize(Vec3.atCenterOf(pos), radius * 2, radius * 2,
+			radius * 2);
+		return MC.level.getEntitiesOfClass(LivingEntity.class, box,
 			entity -> matchesMob(entity, mobType, mobName)).size();
 	}
 	
@@ -1170,18 +1165,18 @@ public final class TrialSpawnerEspHack extends Hack
 		if(mobName == null || mobName.isEmpty())
 			return false;
 		
-		String typeName = entity.getType().getName().getString();
+		String typeName = entity.getType().getDescription().getString();
 		return typeName.equalsIgnoreCase(mobName);
 	}
 	
 	private String describeVaultState(BlockState state)
 	{
-		if(!state.isOf(Blocks.VAULT) || !state.contains(VaultBlock.VAULT_STATE))
+		if(!state.is(Blocks.VAULT) || !state.hasProperty(VaultBlock.STATE))
 			return "Missing";
 		
-		VaultState vaultState = state.get(VaultBlock.VAULT_STATE);
-		boolean ominous =
-			state.contains(VaultBlock.OMINOUS) && state.get(VaultBlock.OMINOUS);
+		VaultState vaultState = state.getValue(VaultBlock.STATE);
+		boolean ominous = state.hasProperty(VaultBlock.OMINOUS)
+			&& state.getValue(VaultBlock.OMINOUS);
 		String prefix = ominous ? "Ominous " : "";
 		return switch(vaultState)
 		{
@@ -1225,7 +1220,7 @@ public final class TrialSpawnerEspHack extends Hack
 	{
 		final int segments = 10;
 		int filled =
-			MathHelper.clamp((int)Math.round(progress * segments), 0, segments);
+			Mth.clamp((int)Math.round(progress * segments), 0, segments);
 		StringBuilder sb = new StringBuilder("[");
 		for(int i = 0; i < segments; i++)
 			sb.append(i < filled ? "#" : "-");
@@ -1235,7 +1230,7 @@ public final class TrialSpawnerEspHack extends Hack
 	
 	private int withAlpha(int color, float alpha)
 	{
-		int a = MathHelper.clamp((int)(alpha * 255), 0, 255);
+		int a = Mth.clamp((int)(alpha * 255), 0, 255);
 		return (color & 0x00FFFFFF) | (a << 24);
 	}
 	
@@ -1245,9 +1240,9 @@ public final class TrialSpawnerEspHack extends Hack
 		int r = (color >> 16) & 0xFF;
 		int g = (color >> 8) & 0xFF;
 		int b = color & 0xFF;
-		r = MathHelper.clamp((int)MathHelper.lerp(factor, r, 255), 0, 255);
-		g = MathHelper.clamp((int)MathHelper.lerp(factor, g, 255), 0, 255);
-		b = MathHelper.clamp((int)MathHelper.lerp(factor, b, 255), 0, 255);
+		r = Mth.clamp((int)Mth.lerpInt(factor, r, 255), 0, 255);
+		g = Mth.clamp((int)Mth.lerpInt(factor, g, 255), 0, 255);
+		b = Mth.clamp((int)Mth.lerpInt(factor, b, 255), 0, 255);
 		return (a << 24) | (r << 16) | (g << 8) | b;
 	}
 	

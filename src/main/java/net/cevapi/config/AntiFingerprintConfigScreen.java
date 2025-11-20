@@ -7,12 +7,12 @@
  */
 package net.cevapi.config;
 
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public final class AntiFingerprintConfigScreen extends Screen
 {
@@ -32,14 +32,14 @@ public final class AntiFingerprintConfigScreen extends Screen
 	private final Screen parent;
 	private final AntiFingerprintConfig config = AntiFingerprintConfig.INSTANCE;
 	
-	private TextFieldWidget thresholdField;
-	private TextFieldWidget windowField;
-	private TextFieldWidget whitelistField;
+	private EditBox thresholdField;
+	private EditBox windowField;
+	private EditBox whitelistField;
 	private int contentTop;
 	
 	public AntiFingerprintConfigScreen(Screen parent)
 	{
-		super(Text.literal("Anti-Fingerprint"));
+		super(Component.literal("Anti-Fingerprint"));
 		this.parent = parent;
 	}
 	
@@ -51,51 +51,53 @@ public final class AntiFingerprintConfigScreen extends Screen
 		int y = contentTop;
 		int doneButtonY = Math.min(height - 28, y + CONTENT_HEIGHT + 24);
 		
-		addDrawableChild(
-			ButtonWidget.builder(Text.literal("Done"), b -> close())
-				.dimensions(centerX - 100, doneButtonY, 200, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Done"), b -> onClose())
+				.bounds(centerX - 100, doneButtonY, 200, 20).build());
 		
-		addDrawableChild(
-			CyclingButtonWidget.<AntiFingerprintConfig.Policy> builder(
-				policy -> Text.literal(policy.toString()))
-				.values(AntiFingerprintConfig.Policy.values())
-				.initially(config.getPolicy()).build(centerX - 100, y, 200, 20,
-					Text.literal("Policy"), (button, value) -> config
-						.getPolicySetting().setSelected(value)));
+		addRenderableWidget(CycleButton.<AntiFingerprintConfig.Policy> builder(
+			policy -> Component.literal(policy.toString()))
+			.withValues(AntiFingerprintConfig.Policy.values())
+			.withInitialValue(config.getPolicy()).create(centerX - 100, y, 200,
+				20, Component.literal("Policy"), (button, value) -> config
+					.getPolicySetting().setSelected(value)));
 		y += 26;
 		
-		addDrawableChild(
-			CyclingButtonWidget.<AntiFingerprintConfig.ToastVerbosity> builder(
-				level -> Text.literal(level.toString()))
-				.values(AntiFingerprintConfig.ToastVerbosity.values())
-				.initially(config.getToastVerbosity()).build(centerX - 100, y,
-					200, 20, Text.literal("Toast verbosity"),
+		addRenderableWidget(
+			CycleButton.<AntiFingerprintConfig.ToastVerbosity> builder(
+				level -> Component.literal(level.toString()))
+				.withValues(AntiFingerprintConfig.ToastVerbosity.values())
+				.withInitialValue(config.getToastVerbosity())
+				.create(centerX - 100, y, 200, 20,
+					Component.literal("Toast verbosity"),
 					(button, value) -> config.getToastVerbositySetting()
 						.setSelected(value)));
 		y += 26;
 		
-		addDrawableChild(CyclingButtonWidget.onOffBuilder()
-			.initially(config.isAuditLogEnabled()).build(centerX - 100, y, 200,
-				20, Text.literal("Audit logging"), (button, value) -> config
-					.getAuditLogSetting().setChecked(value)));
+		addRenderableWidget(CycleButton.onOffBuilder()
+			.withInitialValue(config.isAuditLogEnabled()).create(centerX - 100,
+				y, 200, 20, Component.literal("Audit logging"), (button,
+					value) -> config.getAuditLogSetting().setChecked(value)));
 		y += 34;
 		
-		addDrawableChild(CyclingButtonWidget.onOffBuilder()
-			.initially(config.shouldClearCache()).build(centerX - 100, y, 200,
-				20, Text.literal("Clear cache before download"), (button,
-					value) -> config.getPurgeCacheSetting().setChecked(value)));
+		addRenderableWidget(CycleButton.onOffBuilder()
+			.withInitialValue(config.shouldClearCache()).create(centerX - 100,
+				y, 200, 20, Component.literal("Clear cache before download"),
+				(button, value) -> config.getPurgeCacheSetting()
+					.setChecked(value)));
 		y += 34;
 		
-		addDrawableChild(CyclingButtonWidget.onOffBuilder()
-			.initially(config.shouldIsolateCache()).build(centerX - 100, y, 200,
-				20, Text.literal("Isolate cached packs"),
+		addRenderableWidget(CycleButton.onOffBuilder()
+			.withInitialValue(config.shouldIsolateCache()).create(centerX - 100,
+				y, 200, 20, Component.literal("Isolate cached packs"),
 				(button, value) -> config.getIsolateCacheSetting()
 					.setChecked(value)));
 		y += 34;
 		
-		addDrawableChild(CyclingButtonWidget.onOffBuilder()
-			.initially(config.shouldExtractSandbox()).build(centerX - 100, y,
-				200, 20, Text.literal("Extract sandbox copy"),
+		addRenderableWidget(CycleButton.onOffBuilder()
+			.withInitialValue(config.shouldExtractSandbox())
+			.create(centerX - 100, y, 200, 20,
+				Component.literal("Extract sandbox copy"),
 				(button, value) -> config.getExtractSandboxSetting()
 					.setChecked(value)));
 		y += 34;
@@ -104,67 +106,67 @@ public final class AntiFingerprintConfigScreen extends Screen
 		y += FIRST_FIELD_TOP_SPACER;
 		
 		// Text fields
-		thresholdField = new TextFieldWidget(textRenderer, centerX - 100, y,
-			200, 20, Text.literal("Threshold"));
+		thresholdField = new EditBox(font, centerX - 100, y, 200, 20,
+			Component.literal("Threshold"));
 		thresholdField
-			.setText(Integer.toString(config.getFingerprintThreshold()));
-		thresholdField.setChangedListener(this::onThresholdChanged);
-		addDrawableChild(thresholdField);
+			.setValue(Integer.toString(config.getFingerprintThreshold()));
+		thresholdField.setResponder(this::onThresholdChanged);
+		addRenderableWidget(thresholdField);
 		y += FIELD_SPACING;
 		
-		windowField = new TextFieldWidget(textRenderer, centerX - 100, y, 200,
-			20, Text.literal("Window"));
-		windowField.setText(Long.toString(config.getFingerprintWindowMs()));
-		windowField.setChangedListener(this::onWindowChanged);
-		addDrawableChild(windowField);
+		windowField = new EditBox(font, centerX - 100, y, 200, 20,
+			Component.literal("Window"));
+		windowField.setValue(Long.toString(config.getFingerprintWindowMs()));
+		windowField.setResponder(this::onWindowChanged);
+		addRenderableWidget(windowField);
 		y += FIELD_SPACING;
 		
-		whitelistField = new TextFieldWidget(textRenderer, centerX - 100, y,
-			200, 20, Text.literal("Whitelist"));
+		whitelistField = new EditBox(font, centerX - 100, y, 200, 20,
+			Component.literal("Whitelist"));
 		whitelistField.setMaxLength(256);
-		whitelistField.setText(config.getWhitelistRaw());
-		whitelistField.setChangedListener(config::setWhitelistRaw);
-		addDrawableChild(whitelistField);
+		whitelistField.setValue(config.getWhitelistRaw());
+		whitelistField.setResponder(config::setWhitelistRaw);
+		addRenderableWidget(whitelistField);
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		super.render(context, mouseX, mouseY, delta);
 		
 		// Title
-		context.drawCenteredTextWithShadow(textRenderer, title, width / 2,
+		context.drawCenteredString(font, title, width / 2,
 			Math.max(20, contentTop - 26), LABEL_COLOR);
 		
 		// Labels above text fields (with extra offset for breathing room)
 		if(thresholdField != null)
-			context.drawTextWithShadow(textRenderer,
-				"Fingerprint threshold (packs)", thresholdField.getX(),
-				thresholdField.getY() - LABEL_Y_OFFSET, LABEL_COLOR);
+			context.drawString(font, "Fingerprint threshold (packs)",
+				thresholdField.getX(), thresholdField.getY() - LABEL_Y_OFFSET,
+				LABEL_COLOR);
 		
 		if(windowField != null)
-			context.drawTextWithShadow(textRenderer, "Detection window (ms)",
+			context.drawString(font, "Detection window (ms)",
 				windowField.getX(), windowField.getY() - LABEL_Y_OFFSET,
 				LABEL_COLOR);
 		
 		if(whitelistField != null)
 		{
-			context.drawTextWithShadow(textRenderer,
-				"Whitelisted hosts (comma separated)", whitelistField.getX(),
-				whitelistField.getY() - LABEL_Y_OFFSET, LABEL_COLOR);
+			context.drawString(font, "Whitelisted hosts (comma separated)",
+				whitelistField.getX(), whitelistField.getY() - LABEL_Y_OFFSET,
+				LABEL_COLOR);
 			
-			if(whitelistField.getText().isBlank()
+			if(whitelistField.getValue().isBlank()
 				&& !whitelistField.isFocused())
-				context.drawTextWithShadow(textRenderer,
-					"example.com, static.server", whitelistField.getX() + 4,
-					whitelistField.getY() + 6, PLACEHOLDER_COLOR);
+				context.drawString(font, "example.com, static.server",
+					whitelistField.getX() + 4, whitelistField.getY() + 6,
+					PLACEHOLDER_COLOR);
 		}
 	}
 	
 	@Override
-	public void close()
+	public void onClose()
 	{
-		client.setScreen(parent);
+		minecraft.setScreen(parent);
 	}
 	
 	private void onThresholdChanged(String text)

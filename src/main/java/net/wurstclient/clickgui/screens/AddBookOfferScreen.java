@@ -14,27 +14,26 @@ import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.enchantment.Enchantment;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.registry.tag.EnchantmentTags;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.util.CommonColors;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.hacks.autolibrarian.BookOffer;
 import net.wurstclient.settings.BookOffersSetting;
@@ -49,17 +48,17 @@ public final class AddBookOfferScreen extends Screen
 	
 	private ListGui listGui;
 	
-	private TextFieldWidget searchField;
-	private TextFieldWidget levelField;
-	private ButtonWidget levelPlusButton;
-	private ButtonWidget levelMinusButton;
+	private EditBox searchField;
+	private EditBox levelField;
+	private Button levelPlusButton;
+	private Button levelMinusButton;
 	
-	private TextFieldWidget priceField;
-	private ButtonWidget pricePlusButton;
-	private ButtonWidget priceMinusButton;
+	private EditBox priceField;
+	private Button pricePlusButton;
+	private Button priceMinusButton;
 	
-	private ButtonWidget addButton;
-	private ButtonWidget cancelButton;
+	private Button addButton;
+	private Button cancelButton;
 	
 	private BookOffer offerToAdd;
 	private boolean alreadyAdded;
@@ -67,7 +66,7 @@ public final class AddBookOfferScreen extends Screen
 	
 	public AddBookOfferScreen(Screen prevScreen, BookOffersSetting bookOffers)
 	{
-		super(Text.literal(""));
+		super(Component.literal(""));
 		this.prevScreen = prevScreen;
 		this.bookOffers = bookOffers;
 	}
@@ -75,23 +74,22 @@ public final class AddBookOfferScreen extends Screen
 	@Override
 	public void init()
 	{
-		listGui = new ListGui(client, this);
-		addSelectableChild(listGui);
+		listGui = new ListGui(minecraft, this);
+		addWidget(listGui);
 		
 		int searchWidth = 200;
 		int searchTop = 44;
-		searchField = new TextFieldWidget(client.textRenderer,
-			width / 2 - searchWidth / 2, searchTop, searchWidth, 18,
-			Text.literal(""));
-		addSelectableChild(searchField);
+		searchField = new EditBox(minecraft.font, width / 2 - searchWidth / 2,
+			searchTop, searchWidth, 18, Component.literal(""));
+		addWidget(searchField);
 		searchField.setMaxLength(256);
-		searchField.setChangedListener(this::onSearchChanged);
+		searchField.setResponder(this::onSearchChanged);
 		
-		levelField = new TextFieldWidget(client.textRenderer, width / 2 - 32,
-			height - 74, 28, 12, Text.literal(""));
-		addSelectableChild(levelField);
+		levelField = new EditBox(minecraft.font, width / 2 - 32, height - 74,
+			28, 12, Component.literal(""));
+		addWidget(levelField);
 		levelField.setMaxLength(2);
-		levelField.setTextPredicate(t -> {
+		levelField.setFilter(t -> {
 			if(t.isEmpty())
 				return true;
 			
@@ -108,7 +106,7 @@ public final class AddBookOfferScreen extends Screen
 			Enchantment enchantment = offerToAdd.getEnchantment();
 			return enchantment == null || level <= enchantment.getMaxLevel();
 		});
-		levelField.setChangedListener(t -> {
+		levelField.setResponder(t -> {
 			if(!MathUtils.isInteger(t))
 				return;
 			
@@ -116,13 +114,13 @@ public final class AddBookOfferScreen extends Screen
 			updateLevel(level, false);
 		});
 		
-		priceField = new TextFieldWidget(client.textRenderer, width / 2 - 32,
-			height - 58, 28, 12, Text.literal(""));
-		addSelectableChild(priceField);
+		priceField = new EditBox(minecraft.font, width / 2 - 32, height - 58,
+			28, 12, Component.literal(""));
+		addWidget(priceField);
 		priceField.setMaxLength(2);
-		priceField.setTextPredicate(t -> t.isEmpty() || MathUtils.isInteger(t)
+		priceField.setFilter(t -> t.isEmpty() || MathUtils.isInteger(t)
 			&& Integer.parseInt(t) >= 1 && Integer.parseInt(t) <= 64);
-		priceField.setChangedListener(t -> {
+		priceField.setResponder(t -> {
 			if(!MathUtils.isInteger(t))
 				return;
 			
@@ -130,52 +128,53 @@ public final class AddBookOfferScreen extends Screen
 			updatePrice(price, false);
 		});
 		
-		addDrawableChild(levelPlusButton =
-			ButtonWidget.builder(Text.literal("+"), b -> updateLevel(1, true))
-				.dimensions(width / 2 + 2, height - 74, 20, 12)
-				.narrationSupplier(sup -> Text
-					.translatable("gui.narrate.button", "increase level")
-					.append(", current value: " + levelField.getText()))
-				.build());
+		addRenderableWidget(levelPlusButton = Button
+			.builder(Component.literal("+"), b -> updateLevel(1, true))
+			.bounds(width / 2 + 2, height - 74, 20, 12)
+			.createNarration(sup -> Component
+				.translatable("gui.narrate.button", "increase level")
+				.append(", current value: " + levelField.getValue()))
+			.build());
 		levelPlusButton.active = false;
 		
-		addDrawableChild(levelMinusButton =
-			ButtonWidget.builder(Text.literal("-"), b -> updateLevel(-1, true))
-				.dimensions(width / 2 + 26, height - 74, 20, 12)
-				.narrationSupplier(sup -> Text
-					.translatable("gui.narrate.button", "decrease level")
-					.append(", current value: " + levelField.getText()))
-				.build());
+		addRenderableWidget(levelMinusButton = Button
+			.builder(Component.literal("-"), b -> updateLevel(-1, true))
+			.bounds(width / 2 + 26, height - 74, 20, 12)
+			.createNarration(sup -> Component
+				.translatable("gui.narrate.button", "decrease level")
+				.append(", current value: " + levelField.getValue()))
+			.build());
 		levelMinusButton.active = false;
 		
-		addDrawableChild(pricePlusButton = ButtonWidget
-			.builder(Text.literal("+"), b -> updatePrice(1, true))
-			.dimensions(width / 2 + 2, height - 58, 20, 12)
-			.narrationSupplier(sup -> Text
+		addRenderableWidget(pricePlusButton = Button
+			.builder(Component.literal("+"), b -> updatePrice(1, true))
+			.bounds(width / 2 + 2, height - 58, 20, 12)
+			.createNarration(sup -> Component
 				.translatable("gui.narrate.button", "increase max price")
-				.append(", current value: " + priceField.getText()))
+				.append(", current value: " + priceField.getValue()))
 			.build());
 		pricePlusButton.active = false;
 		
-		addDrawableChild(priceMinusButton = ButtonWidget
-			.builder(Text.literal("-"), b -> updatePrice(-1, true))
-			.dimensions(width / 2 + 26, height - 58, 20, 12)
-			.narrationSupplier(sup -> Text
+		addRenderableWidget(priceMinusButton = Button
+			.builder(Component.literal("-"), b -> updatePrice(-1, true))
+			.bounds(width / 2 + 26, height - 58, 20, 12)
+			.createNarration(sup -> Component
 				.translatable("gui.narrate.button", "decrease max price")
-				.append(", current value: " + priceField.getText()))
+				.append(", current value: " + priceField.getValue()))
 			.build());
 		priceMinusButton.active = false;
 		
-		addDrawableChild(
-			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
+		addRenderableWidget(
+			addButton = Button.builder(Component.literal("Add"), b -> {
 				bookOffers.add(offerToAdd);
-				client.setScreen(prevScreen);
-			}).dimensions(width / 2 - 102, height - 28, 100, 20).build());
+				minecraft.setScreen(prevScreen);
+			}).bounds(width / 2 - 102, height - 28, 100, 20).build());
 		addButton.active = false;
 		
-		addDrawableChild(cancelButton = ButtonWidget
-			.builder(Text.literal("Cancel"), b -> client.setScreen(prevScreen))
-			.dimensions(width / 2 + 2, height - 28, 100, 20).build());
+		addRenderableWidget(cancelButton = Button
+			.builder(Component.literal("Cancel"),
+				b -> minecraft.setScreen(prevScreen))
+			.bounds(width / 2 + 2, height - 28, 100, 20).build());
 	}
 	
 	private void updateLevel(int i, boolean offset)
@@ -253,16 +252,16 @@ public final class AddBookOfferScreen extends Screen
 			return;
 		}
 		
-		Identifier id = Identifier.tryParse(query);
+		ResourceLocation id = ResourceLocation.tryParse(query);
 		if(id == null)
 		{
 			updateSelectedOffer(null);
 			return;
 		}
 		
-		int level = parseLevel(levelField.getText(),
+		int level = parseLevel(levelField.getValue(),
 			offerToAdd != null ? offerToAdd.level() : 1);
-		int price = parsePrice(priceField.getText(),
+		int price = parsePrice(priceField.getValue(),
 			offerToAdd != null ? offerToAdd.price() : 64);
 		updateSelectedOffer(new BookOffer(query, level, price));
 	}
@@ -287,21 +286,21 @@ public final class AddBookOfferScreen extends Screen
 		
 		if(offer == null)
 		{
-			if(levelField != null && !levelField.getText().isEmpty())
-				levelField.setText("");
+			if(levelField != null && !levelField.getValue().isEmpty())
+				levelField.setValue("");
 			
-			if(priceField != null && !priceField.getText().isEmpty())
-				priceField.setText("");
+			if(priceField != null && !priceField.getValue().isEmpty())
+				priceField.setValue("");
 			
 		}else
 		{
 			String level = "" + offer.level();
-			if(levelField != null && !levelField.getText().equals(level))
-				levelField.setText(level);
+			if(levelField != null && !levelField.getValue().equals(level))
+				levelField.setValue(level);
 			
 			String price = "" + offer.price();
-			if(priceField != null && !priceField.getText().equals(price))
-				priceField.setText(price);
+			if(priceField != null && !priceField.getValue().equals(price))
+				priceField.setValue(price);
 		}
 	}
 	
@@ -361,44 +360,45 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY,
+	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.getMatrices();
+		Matrix3x2fStack matrixStack = context.pose();
 		
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
 		matrixStack.pushMatrix();
 		
-		TextRenderer tr = client.textRenderer;
+		Font tr = minecraft.font;
 		String titleText =
 			"Available Books (" + listGui.children().size() + ")";
-		context.drawCenteredTextWithShadow(tr, titleText, width / 2, 12,
-			Colors.WHITE);
+		context.drawCenteredString(tr, titleText, width / 2, 12,
+			CommonColors.WHITE);
 		
 		searchField.render(context, mouseX, mouseY, partialTicks);
-		if(searchField.getText().isEmpty() && !searchField.isFocused())
-			context.drawTextWithShadow(tr, "search or custom ID",
-				searchField.getX() + 4, searchField.getY() + 5, Colors.GRAY);
+		if(searchField.getValue().isEmpty() && !searchField.isFocused())
+			context.drawString(tr, "search or custom ID",
+				searchField.getX() + 4, searchField.getY() + 5,
+				CommonColors.GRAY);
 		
 		levelField.render(context, mouseX, mouseY, partialTicks);
 		priceField.render(context, mouseX, mouseY, partialTicks);
 		
-		for(Drawable drawable : drawables)
+		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		matrixStack.translate(width / 2 - 100, 0);
 		
-		context.drawTextWithShadow(tr, "Level:", 0, height - 72,
+		context.drawString(tr, "Level:", 0, height - 72,
 			WurstColors.VERY_LIGHT_GRAY);
-		context.drawTextWithShadow(tr, "Max price:", 0, height - 56,
+		context.drawString(tr, "Max price:", 0, height - 56,
 			WurstColors.VERY_LIGHT_GRAY);
 		
 		if(alreadyAdded && offerToAdd != null)
 		{
 			String errorText = offerToAdd.getEnchantmentNameWithLevel()
 				+ " is already on your list!";
-			context.drawTextWithShadow(tr, errorText, 0, height - 40,
+			context.drawString(tr, errorText, 0, height - 40,
 				WurstColors.LIGHT_RED);
 		}
 		
@@ -409,7 +409,7 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public boolean shouldPause()
+	public boolean isPauseScreen()
 	{
 		return false;
 	}
@@ -433,14 +433,14 @@ public final class AddBookOfferScreen extends Screen
 		}
 		
 		@Override
-		public Text getNarration()
+		public Component getNarration()
 		{
 			int maxLevel = bookOffer.getEnchantmentEntry()
 				.map(entry -> entry.value().getMaxLevel())
 				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
 			
-			return Text.translatable("narrator.select",
+			return Component.translatable("narrator.select",
 				"Enchantment " + bookOffer.getEnchantmentName() + ", ID "
 					+ bookOffer.id() + ", " + levels);
 		}
@@ -451,8 +451,8 @@ public final class AddBookOfferScreen extends Screen
 			if(!super.mouseClicked(mouseX, mouseY, button))
 				return false;
 			
-			long timeSinceLastClick = Util.getMeasuringTimeMs() - lastClickTime;
-			lastClickTime = Util.getMeasuringTimeMs();
+			long timeSinceLastClick = Util.getMillis() - lastClickTime;
+			lastClickTime = Util.getMillis();
 			
 			if(timeSinceLastClick < 250 && addButton.active)
 				addButton.onPress();
@@ -461,31 +461,32 @@ public final class AddBookOfferScreen extends Screen
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
+		public void render(GuiGraphics context, int index, int y, int x,
 			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
-			Item item = Registries.ITEM.get(Identifier.of("enchanted_book"));
+			Item item = BuiltInRegistries.ITEM
+				.getValue(ResourceLocation.parse("enchanted_book"));
 			ItemStack stack = new ItemStack(item);
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
 			
-			TextRenderer tr = client.textRenderer;
+			Font tr = minecraft.font;
 			String name = bookOffer.getEnchantmentName();
 			boolean isCurse = bookOffer.getEnchantmentEntry()
-				.map(entry -> entry.isIn(EnchantmentTags.CURSE)).orElse(false);
+				.map(entry -> entry.is(EnchantmentTags.CURSE)).orElse(false);
 			int nameColor =
 				isCurse ? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
-			context.drawText(tr, name, x + 28, y, nameColor, false);
+			context.drawString(tr, name, x + 28, y, nameColor, false);
 			
-			context.drawText(tr, bookOffer.id(), x + 28, y + 9,
-				Colors.LIGHT_GRAY, false);
+			context.drawString(tr, bookOffer.id(), x + 28, y + 9,
+				CommonColors.LIGHT_GRAY, false);
 			
 			int maxLevel = bookOffer.getEnchantmentEntry()
 				.map(entry -> entry.value().getMaxLevel())
 				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
-			context.drawText(tr, levels, x + 28, y + 18, Colors.LIGHT_GRAY,
-				false);
+			context.drawString(tr, levels, x + 28, y + 18,
+				CommonColors.LIGHT_GRAY, false);
 		}
 		
 		@Override
@@ -501,15 +502,15 @@ public final class AddBookOfferScreen extends Screen
 		private final List<BookOffer> allOffers = new ArrayList<>();
 		private String filterText = "";
 		
-		public ListGui(MinecraftClient minecraft, AddBookOfferScreen screen)
+		public ListGui(Minecraft minecraft, AddBookOfferScreen screen)
 		{
 			super(minecraft, screen.width, screen.height - 152, 68, 30);
 			setSelectionListener(
 				() -> updateSelectedOfferFromList(getPrimarySelection()));
 			
-			DynamicRegistryManager drm = client.world.getRegistryManager();
+			RegistryAccess drm = minecraft.level.registryAccess();
 			Registry<Enchantment> registry =
-				drm.getOrThrow(RegistryKeys.ENCHANTMENT);
+				drm.lookupOrThrow(Registries.ENCHANTMENT);
 			
 			registry.stream().map(BookOffer::create)
 				.filter(BookOffer::isMostlyValid).sorted()

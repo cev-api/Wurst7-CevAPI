@@ -8,15 +8,14 @@
 package net.wurstclient.hacks;
 
 import java.util.List;
-
-import net.minecraft.client.gui.screen.ingame.MerchantScreen;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.packet.c2s.play.SelectMerchantTradeC2SPacket;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
+import net.minecraft.client.gui.screens.inventory.MerchantScreen;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
@@ -66,13 +65,13 @@ public final class AutoTraderHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.currentScreen == null)
+		if(MC.player == null || MC.screen == null)
 			return;
 		
-		if(!(MC.currentScreen instanceof MerchantScreen tradeScreen))
+		if(!(MC.screen instanceof MerchantScreen tradeScreen))
 			return;
 		
-		TradeOfferList recipes = tradeScreen.getScreenHandler().getRecipes();
+		MerchantOffers recipes = tradeScreen.getMenu().getOffers();
 		if(recipes == null || recipes.isEmpty())
 			return;
 		
@@ -80,30 +79,30 @@ public final class AutoTraderHack extends Hack implements UpdateListener
 		if(wanted.isEmpty())
 			return;
 		
-		ClientPlayerEntity player = MC.player;
+		LocalPlayer player = MC.player;
 		
 		// do one purchase per update tick to avoid spamming
-		if(MC.itemUseCooldown > 0)
+		if(MC.rightClickDelay > 0)
 			return;
 		
 		for(int i = 0; i < recipes.size(); i++)
 		{
-			TradeOffer offer = recipes.get(i);
+			MerchantOffer offer = recipes.get(i);
 			if(offer == null)
 				continue;
 			
-			ItemStack sell = offer.getSellItem();
+			ItemStack sell = offer.getResult();
 			// we want trades where the villager gives emeralds (we sell items)
 			if(sell == null || sell.isEmpty()
 				|| sell.getItem() != Items.EMERALD)
 				continue;
 			
-			ItemStack firstBuy = offer.getDisplayedFirstBuyItem();
+			ItemStack firstBuy = offer.getCostA();
 			if(firstBuy == null || firstBuy.isEmpty())
 				continue;
 			
-			String req = net.minecraft.registry.Registries.ITEM
-				.getId(firstBuy.getItem()).toString();
+			String req = net.minecraft.core.registries.BuiltInRegistries.ITEM
+				.getKey(firstBuy.getItem()).toString();
 			boolean matches =
 				wanted.stream().anyMatch(s -> s.equalsIgnoreCase(req));
 			if(!matches)
@@ -114,31 +113,30 @@ public final class AutoTraderHack extends Hack implements UpdateListener
 				continue;
 			
 			// select trade
-			tradeScreen.getScreenHandler().setRecipeIndex(i);
-			tradeScreen.getScreenHandler().switchTo(i);
-			MC.getNetworkHandler()
-				.sendPacket(new SelectMerchantTradeC2SPacket(i));
+			tradeScreen.getMenu().setSelectionHint(i);
+			tradeScreen.getMenu().tryMoveItems(i);
+			MC.getConnection().send(new ServerboundSelectTradePacket(i));
 			
 			// click the result slot to perform the trade. Use HandledScreen
 			// mouse clicks so the client's cursor stack is updated and we can
 			// move the result into the inventory if it ends up on the cursor.
-			var handler = tradeScreen.getScreenHandler();
+			var handler = tradeScreen.getMenu();
 			if(handler.slots.size() > 2)
 			{
 				var outputSlot = handler.slots.get(2);
 				// pickup result
-				tradeScreen.onMouseClick(outputSlot, outputSlot.id, 0,
-					SlotActionType.PICKUP);
+				tradeScreen.slotClicked(outputSlot, outputSlot.index, 0,
+					ClickType.PICKUP);
 				
 				// if result ended up on the cursor, quick-move it into the
 				// inventory to avoid stalling.
-				if(!handler.getCursorStack().isEmpty())
-					tradeScreen.onMouseClick(outputSlot, outputSlot.id, 0,
-						SlotActionType.QUICK_MOVE);
+				if(!handler.getCarried().isEmpty())
+					tradeScreen.slotClicked(outputSlot, outputSlot.index, 0,
+						ClickType.QUICK_MOVE);
 			}
 			
 			// set a small cooldown
-			MC.itemUseCooldown = 4;
+			MC.rightClickDelay = 4;
 			return;
 		}
 	}

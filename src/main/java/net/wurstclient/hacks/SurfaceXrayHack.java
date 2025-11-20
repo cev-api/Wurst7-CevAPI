@@ -14,14 +14,13 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
@@ -124,7 +123,7 @@ public final class SurfaceXrayHack extends Hack
 	private final ConcurrentHashMap<Long, CacheEntry> visibilityCache =
 		new ConcurrentHashMap<>();
 	
-	private ClientWorld cachedWorld;
+	private ClientLevel cachedWorld;
 	private long lastCleanupTick;
 	
 	public SurfaceXrayHack()
@@ -166,7 +165,7 @@ public final class SurfaceXrayHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		ClientWorld world = MC.world;
+		ClientLevel world = MC.level;
 		if(world == null || world != cachedWorld)
 		{
 			clearCache();
@@ -175,7 +174,7 @@ public final class SurfaceXrayHack extends Hack
 			return;
 		}
 		
-		long time = world.getTime();
+		long time = world.getGameTime();
 		if(time - lastCleanupTick >= CACHE_CLEAN_INTERVAL)
 		{
 			pruneCache(time);
@@ -231,7 +230,7 @@ public final class SurfaceXrayHack extends Hack
 		if(!isEnabled() || state == null || pos == null)
 			return SurfaceState.NONE;
 		
-		Block block = state.getBlockState().getBlock();
+		Block block = state.createLegacyBlock().getBlock();
 		if(!targetBlocks.matchesBlock(block))
 			return SurfaceState.NONE;
 		
@@ -267,13 +266,13 @@ public final class SurfaceXrayHack extends Hack
 	
 	private SurfaceState classifyPos(BlockPos pos, Block block)
 	{
-		ClientWorld world = MC.world;
+		ClientLevel world = MC.level;
 		if(world == null)
 			return SurfaceState.NONE;
 		
 		long key = pos.asLong();
 		CacheEntry cached = visibilityCache.get(key);
-		long time = world.getTime();
+		long time = world.getGameTime();
 		
 		if(cached != null)
 		{
@@ -294,7 +293,7 @@ public final class SurfaceXrayHack extends Hack
 		return fallback;
 	}
 	
-	private void computeComponent(ClientWorld world, BlockPos start,
+	private void computeComponent(ClientLevel world, BlockPos start,
 		Block block, long time)
 	{
 		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
@@ -324,7 +323,7 @@ public final class SurfaceXrayHack extends Hack
 			
 			for(Direction dir : Direction.values())
 			{
-				BlockPos neighbor = current.offset(dir);
+				BlockPos neighbor = current.relative(dir);
 				long key = neighbor.asLong();
 				if(!visited.add(key))
 					continue;
@@ -357,7 +356,7 @@ public final class SurfaceXrayHack extends Hack
 		}
 	}
 	
-	private void fillWithColumnFallback(ClientWorld world,
+	private void fillWithColumnFallback(ClientLevel world,
 		ArrayList<BlockPos> component, Block block, long time)
 	{
 		for(BlockPos pos : component)
@@ -368,10 +367,10 @@ public final class SurfaceXrayHack extends Hack
 		}
 	}
 	
-	private SurfaceState classifyColumn(ClientWorld world, BlockPos pos,
+	private SurfaceState classifyColumn(ClientLevel world, BlockPos pos,
 		Block block)
 	{
-		BlockPos above = pos.up();
+		BlockPos above = pos.above();
 		if(world.getBlockState(above).getBlock() == block)
 			return SurfaceState.INTERIOR;
 		
@@ -407,8 +406,8 @@ public final class SurfaceXrayHack extends Hack
 			lastCleanupTick = 0;
 		}
 		
-		if(MC.worldRenderer != null)
-			MC.worldRenderer.reload();
+		if(MC.levelRenderer != null)
+			MC.levelRenderer.allChanged();
 	}
 	
 	private static final class CacheEntry

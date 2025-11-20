@@ -7,6 +7,7 @@
  */
 package net.wurstclient.clickgui.widgets;
 
+import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -16,13 +17,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.AlwaysSelectedEntryListWidget;
-import net.minecraft.client.util.Window;
-import net.minecraft.util.Util;
-import net.minecraft.util.math.MathHelper;
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.ObjectSelectionList;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -31,13 +30,13 @@ import org.lwjgl.glfw.GLFW;
  * selection. Subclasses only need to provide entries that expose a stable key.
  */
 public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListWidget.Entry<E>>
-	extends AlwaysSelectedEntryListWidget<E>
+	extends ObjectSelectionList<E>
 {
 	private final LinkedHashSet<String> selectedKeys = new LinkedHashSet<>();
 	private String anchorKey;
 	private Runnable selectionListener = () -> {};
 	
-	protected MultiSelectEntryListWidget(MinecraftClient client, int width,
+	protected MultiSelectEntryListWidget(Minecraft client, int width,
 		int height, int top, int itemHeight)
 	{
 		super(client, width, height, top, itemHeight);
@@ -239,7 +238,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		return byKey.get(firstKey);
 	}
 	
-	protected boolean isSelectedEntry(int index)
+	protected boolean isSelectedItem(int index)
 	{
 		E entry = children().get(index);
 		return selectedKeys.contains(getSelectionKey(entry));
@@ -255,7 +254,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	{
 		boolean control = isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
 			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
-		if(Util.getOperatingSystem() == Util.OperatingSystem.OSX)
+		if(Util.getPlatform() == Util.OS.OSX)
 			control |= isKeyDown(GLFW.GLFW_KEY_LEFT_SUPER)
 				|| isKeyDown(GLFW.GLFW_KEY_RIGHT_SUPER);
 		return control;
@@ -263,8 +262,8 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	
 	private boolean isKeyDown(int keyCode)
 	{
-		Window window = MinecraftClient.getInstance().getWindow();
-		return GLFW.glfwGetKey(window.getHandle(), keyCode) == GLFW.GLFW_PRESS;
+		Window window = Minecraft.getInstance().getWindow();
+		return GLFW.glfwGetKey(window.getWindow(), keyCode) == GLFW.GLFW_PRESS;
 	}
 	
 	public SelectionState captureState()
@@ -275,7 +274,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		int anchorIndex =
 			anchorEntry != null ? children().indexOf(anchorEntry) : -1;
 		return new SelectionState(new ArrayList<>(keys), anchorKey,
-			getScrollY(), anchorIndex);
+			scrollAmount(), anchorIndex);
 	}
 	
 	public void restoreState(SelectionState state)
@@ -294,8 +293,8 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		Map<String, E> byKey = buildEntryMap(entries);
 		
 		double targetScroll = state != null
-			? MathHelper.clamp(state.scrollAmount(), 0, getMaxScrollY())
-			: getScrollY();
+			? Mth.clamp(state.scrollAmount(), 0, maxScrollAmount())
+			: scrollAmount();
 		
 		if(state != null && !state.selectedKeys().isEmpty())
 		{
@@ -319,7 +318,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		if(selectedKeys.isEmpty())
 		{
 			int index = state != null ? state.anchorIndex() : -1;
-			index = MathHelper.clamp(index, 0, entries.size() - 1);
+			index = Mth.clamp(index, 0, entries.size() - 1);
 			E fallback = entries.get(index);
 			String key = getSelectionKey(fallback);
 			selectedKeys.add(key);
@@ -328,7 +327,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		
 		E anchorEntry = resolveAnchorEntry();
 		super.setSelected(anchorEntry);
-		setScrollY(targetScroll);
+		setScrollAmount(targetScroll);
 		notifySelectionChanged();
 	}
 	
@@ -363,8 +362,8 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		double scrollAmount, int anchorIndex)
 	{}
 	
-	public abstract static class Entry<E extends Entry<E>>
-		extends AlwaysSelectedEntryListWidget.Entry<E>
+	public abstract static class Entry<E extends net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget.Entry<E>>
+		extends ObjectSelectionList.Entry<E>
 	{
 		private final MultiSelectEntryListWidget<E> parent;
 		

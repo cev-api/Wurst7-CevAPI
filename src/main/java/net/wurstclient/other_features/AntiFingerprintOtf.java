@@ -12,7 +12,7 @@ import java.util.List;
 import net.cevapi.config.AntiFingerprintConfig;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.Category;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.Setting;
@@ -47,7 +47,7 @@ public final class AntiFingerprintOtf extends OtherFeature
 	@Override
 	public void doPrimaryAction()
 	{
-		Screen parent = MC.currentScreen;
+		Screen parent = MC.screen;
 		MC.setScreen(new AntiFingerprintConfigScreen(parent));
 	}
 }

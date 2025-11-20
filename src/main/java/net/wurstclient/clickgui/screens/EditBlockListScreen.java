@@ -15,19 +15,18 @@ import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.block.Block;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Text;
-import net.minecraft.util.Colors;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.Block;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
@@ -40,19 +39,19 @@ public final class EditBlockListScreen extends Screen
 	private final BlockListSetting blockList;
 	
 	private ListGui listGui;
-	private TextFieldWidget blockNameField;
-	private ButtonWidget addKeywordButton;
-	private ButtonWidget addButton;
-	private ButtonWidget removeButton;
-	private ButtonWidget doneButton;
+	private EditBox blockNameField;
+	private Button addKeywordButton;
+	private Button addButton;
+	private Button removeButton;
+	private Button doneButton;
 	
 	private Block blockToAdd;
-	private java.util.List<net.minecraft.block.Block> fuzzyMatches =
+	private java.util.List<net.minecraft.world.level.block.Block> fuzzyMatches =
 		java.util.Collections.emptyList();
 	
 	public EditBlockListScreen(Screen prevScreen, BlockListSetting blockList)
 	{
-		super(Text.literal(""));
+		super(Component.literal(""));
 		this.prevScreen = prevScreen;
 		this.blockList = blockList;
 	}
@@ -60,8 +59,8 @@ public final class EditBlockListScreen extends Screen
 	@Override
 	public void init()
 	{
-		listGui = new ListGui(client, this, blockList.getBlockNames());
-		addSelectableChild(listGui);
+		listGui = new ListGui(minecraft, this, blockList.getBlockNames());
+		addWidget(listGui);
 		
 		int rowY = height - 56;
 		int gap = 8;
@@ -73,18 +72,18 @@ public final class EditBlockListScreen extends Screen
 			fieldWidth + keywordWidth + addWidth + removeWidth + gap * 3;
 		int rowStart = width / 2 - totalWidth / 2;
 		
-		blockNameField = new TextFieldWidget(client.textRenderer, rowStart,
-			rowY, fieldWidth, 20, Text.literal(""));
-		addSelectableChild(blockNameField);
+		blockNameField = new EditBox(minecraft.font, rowStart, rowY, fieldWidth,
+			20, Component.literal(""));
+		addWidget(blockNameField);
 		blockNameField.setMaxLength(256);
 		
 		int keywordX = rowStart + fieldWidth + gap;
 		int addX = keywordX + keywordWidth + gap;
 		int removeX = addX + addWidth + gap;
 		
-		addDrawableChild(addKeywordButton =
-			ButtonWidget.builder(Text.literal("Add Keyword"), b -> {
-				String raw = blockNameField.getText();
+		addRenderableWidget(addKeywordButton =
+			Button.builder(Component.literal("Add Keyword"), b -> {
+				String raw = blockNameField.getValue();
 				if(raw != null)
 					raw = raw.trim();
 				if(raw == null || raw.isEmpty())
@@ -98,10 +97,10 @@ public final class EditBlockListScreen extends Screen
 				added.removeAll(before);
 				
 				refreshList(prevState, added, prevState.scrollAmount());
-			}).dimensions(keywordX, rowY, keywordWidth, 20).build());
+			}).bounds(keywordX, rowY, keywordWidth, 20).build());
 		
-		addDrawableChild(
-			addButton = ButtonWidget.builder(Text.literal("Add"), b -> {
+		addRenderableWidget(
+			addButton = Button.builder(Component.literal("Add"), b -> {
 				var prevState = listGui.captureState();
 				List<String> before =
 					new ArrayList<>(blockList.getBlockNames());
@@ -111,11 +110,11 @@ public final class EditBlockListScreen extends Screen
 					blockList.add(blockToAdd);
 				}else if(fuzzyMatches != null && !fuzzyMatches.isEmpty())
 				{
-					for(net.minecraft.block.Block bk : fuzzyMatches)
+					for(net.minecraft.world.level.block.Block bk : fuzzyMatches)
 						blockList.add(bk);
 				}else
 				{
-					String raw = blockNameField.getText();
+					String raw = blockNameField.getValue();
 					if(raw != null)
 						raw = raw.trim();
 					if(raw != null && !raw.isEmpty())
@@ -126,10 +125,10 @@ public final class EditBlockListScreen extends Screen
 				added.removeAll(before);
 				
 				refreshList(prevState, added, prevState.scrollAmount());
-			}).dimensions(addX, rowY, addWidth, 20).build());
+			}).bounds(addX, rowY, addWidth, 20).build());
 		
-		addDrawableChild(removeButton =
-			ButtonWidget.builder(Text.literal("Remove Selected"), b -> {
+		addRenderableWidget(removeButton =
+			Button.builder(Component.literal("Remove Selected"), b -> {
 				List<String> selected = listGui.getSelectedBlockNames();
 				if(selected.isEmpty())
 					return;
@@ -144,28 +143,31 @@ public final class EditBlockListScreen extends Screen
 				
 				refreshList(prevState, Collections.emptyList(),
 					prevState.scrollAmount());
-			}).dimensions(removeX, rowY, removeWidth, 20).build());
+			}).bounds(removeX, rowY, removeWidth, 20).build());
 		
 		listGui.setSelectionListener(this::updateButtons);
 		updateButtons();
 		
-		addDrawableChild(ButtonWidget.builder(Text.literal("Reset to Defaults"),
-			b -> client.setScreen(new ConfirmScreen(b2 -> {
-				if(b2)
-					blockList.resetToDefaults();
-				client.setScreen(EditBlockListScreen.this);
-			}, Text.literal("Reset to Defaults"),
-				Text.literal("Are you sure?"))))
-			.dimensions(width - 328, 8, 150, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Reset to Defaults"),
+				b -> minecraft.setScreen(new ConfirmScreen(b2 -> {
+					if(b2)
+						blockList.resetToDefaults();
+					minecraft.setScreen(EditBlockListScreen.this);
+				}, Component.literal("Reset to Defaults"),
+					Component.literal("Are you sure?"))))
+				.bounds(width - 328, 8, 150, 20).build());
 		
-		addDrawableChild(ButtonWidget.builder(Text.literal("Clear List"), b -> {
-			blockList.clear();
-			client.setScreen(EditBlockListScreen.this);
-		}).dimensions(width - 168, 8, 150, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Clear List"), b -> {
+				blockList.clear();
+				minecraft.setScreen(EditBlockListScreen.this);
+			}).bounds(width - 168, 8, 150, 20).build());
 		
-		addDrawableChild(doneButton = ButtonWidget
-			.builder(Text.literal("Done"), b -> client.setScreen(prevScreen))
-			.dimensions(width / 2 - 100, height - 28, 200, 20).build());
+		addRenderableWidget(doneButton = Button
+			.builder(Component.literal("Done"),
+				b -> minecraft.setScreen(prevScreen))
+			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	
 	@Override
@@ -204,7 +206,7 @@ public final class EditBlockListScreen extends Screen
 	@Override
 	public void tick()
 	{
-		String nameOrId = blockNameField.getText();
+		String nameOrId = blockNameField.getValue();
 		String trimmed = nameOrId == null ? "" : nameOrId.trim();
 		boolean hasInput = !trimmed.isEmpty();
 		blockToAdd =
@@ -218,33 +220,34 @@ public final class EditBlockListScreen extends Screen
 				fuzzyMatches = java.util.Collections.emptyList();
 			}else
 			{
-				java.util.ArrayList<net.minecraft.block.Block> list =
+				java.util.ArrayList<net.minecraft.world.level.block.Block> list =
 					new java.util.ArrayList<>();
-				for(net.minecraft.util.Identifier id : net.minecraft.registry.Registries.BLOCK
-					.getIds())
+				for(net.minecraft.resources.ResourceLocation id : net.minecraft.core.registries.BuiltInRegistries.BLOCK
+					.keySet())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
 					if(s.contains(q))
 						list.add(
-							net.minecraft.registry.Registries.BLOCK.get(id));
+							net.minecraft.core.registries.BuiltInRegistries.BLOCK
+								.getValue(id));
 				}
 				// Deduplicate and sort by identifier
-				java.util.LinkedHashMap<String, net.minecraft.block.Block> map =
+				java.util.LinkedHashMap<String, net.minecraft.world.level.block.Block> map =
 					new java.util.LinkedHashMap<>();
-				for(net.minecraft.block.Block b : list)
+				for(net.minecraft.world.level.block.Block b : list)
 					map.put(net.wurstclient.util.BlockUtils.getName(b), b);
 				fuzzyMatches = new java.util.ArrayList<>(map.values());
 				fuzzyMatches.sort(java.util.Comparator
 					.comparing(net.wurstclient.util.BlockUtils::getName));
 			}
 			addButton.active = !fuzzyMatches.isEmpty() || hasInput;
-			addButton.setMessage(Text.literal(fuzzyMatches.isEmpty() ? "Add"
-				: ("Add Matches (" + fuzzyMatches.size() + ")")));
+			addButton.setMessage(Component.literal(fuzzyMatches.isEmpty()
+				? "Add" : ("Add Matches (" + fuzzyMatches.size() + ")")));
 		}else
 		{
 			fuzzyMatches = java.util.Collections.emptyList();
 			addButton.active = true;
-			addButton.setMessage(Text.literal("Add"));
+			addButton.setMessage(Component.literal("Add"));
 		}
 		
 		addKeywordButton.active = hasInput;
@@ -252,41 +255,41 @@ public final class EditBlockListScreen extends Screen
 	}
 	
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY,
+	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.getMatrices();
+		Matrix3x2fStack matrixStack = context.pose();
 		
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredTextWithShadow(client.textRenderer,
+		context.drawCenteredString(minecraft.font,
 			blockList.getName() + " (" + blockList.size() + ")", width / 2, 12,
-			Colors.WHITE);
+			CommonColors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
 		blockNameField.render(context, mouseX, mouseY, partialTicks);
 		
-		for(Drawable drawable : drawables)
+		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 			
 		// Draw placeholder + decorative left icon frame using ABSOLUTE
 		// coordinates
 		// derived from the actual TextFieldWidget position/size (no matrix
 		// translate).
-		context.state.goUpLayer();
+		context.guiRenderState.up();
 		
 		int x0 = blockNameField.getX();
 		int y0 = blockNameField.getY();
 		int y1 = y0 + blockNameField.getHeight();
 		
-		if(blockNameField.getText().isEmpty() && !blockNameField.isFocused())
-			context.drawTextWithShadow(client.textRenderer, "block name or ID",
-				x0 + 6, y0 + 6, Colors.GRAY);
+		if(blockNameField.getValue().isEmpty() && !blockNameField.isFocused())
+			context.drawString(minecraft.font, "block name or ID", x0 + 6,
+				y0 + 6, CommonColors.GRAY);
 		
-		int border =
-			blockNameField.isFocused() ? Colors.WHITE : Colors.LIGHT_GRAY;
-		int black = Colors.BLACK;
+		int border = blockNameField.isFocused() ? CommonColors.WHITE
+			: CommonColors.LIGHT_GRAY;
+		int black = CommonColors.BLACK;
 		int iconBoxLeft = x0 - 20;
 		
 		// Left decoration for the item icon, anchored to the field.
@@ -301,7 +304,7 @@ public final class EditBlockListScreen extends Screen
 	}
 	
 	@Override
-	public boolean shouldPause()
+	public boolean isPauseScreen()
 	{
 		return false;
 	}
@@ -339,43 +342,43 @@ public final class EditBlockListScreen extends Screen
 		}
 		
 		@Override
-		public Text getNarration()
+		public Component getNarration()
 		{
 			Block block = BlockUtils.getBlockFromName(blockName);
 			ItemStack stack = new ItemStack(block);
 			
-			return Text.translatable("narrator.select",
+			return Component.translatable("narrator.select",
 				"Block " + getDisplayName(stack) + ", " + blockName + ", "
 					+ getIdText(block));
 		}
 		
 		@Override
-		public void render(DrawContext context, int index, int y, int x,
+		public void render(GuiGraphics context, int index, int y, int x,
 			int entryWidth, int entryHeight, int mouseX, int mouseY,
 			boolean hovered, float tickDelta)
 		{
 			Block block = BlockUtils.getBlockFromName(blockName);
 			ItemStack stack = new ItemStack(block);
-			TextRenderer tr = client.textRenderer;
+			Font tr = minecraft.font;
 			
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
-			context.drawText(tr, getDisplayName(stack), x + 28, y,
+			context.drawString(tr, getDisplayName(stack), x + 28, y,
 				WurstColors.VERY_LIGHT_GRAY, false);
-			context.drawText(tr, blockName, x + 28, y + 9, Colors.LIGHT_GRAY,
-				false);
-			context.drawText(tr, getIdText(block), x + 28, y + 18,
-				Colors.LIGHT_GRAY, false);
+			context.drawString(tr, blockName, x + 28, y + 9,
+				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, getIdText(block), x + 28, y + 18,
+				CommonColors.LIGHT_GRAY, false);
 		}
 		
 		private String getDisplayName(ItemStack stack)
 		{
 			return stack.isEmpty() ? "\u00a7ounknown block\u00a7r"
-				: stack.getName().getString();
+				: stack.getHoverName().getString();
 		}
 		
 		private String getIdText(Block block)
 		{
-			return "ID: " + Block.getRawIdFromState(block.getDefaultState());
+			return "ID: " + Block.getId(block.defaultBlockState());
 		}
 		
 		@Override
@@ -388,7 +391,7 @@ public final class EditBlockListScreen extends Screen
 	private final class ListGui
 		extends MultiSelectEntryListWidget<EditBlockListScreen.Entry>
 	{
-		public ListGui(MinecraftClient minecraft, EditBlockListScreen screen,
+		public ListGui(Minecraft minecraft, EditBlockListScreen screen,
 			List<String> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30);
