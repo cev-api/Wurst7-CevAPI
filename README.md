@@ -302,6 +302,11 @@ Because so many of these mods are entirely original, I plan to release some of t
 ![Popup](https://i.imgur.com/W97borj.png)
 ![GUI](https://i.imgur.com/eunLgVr.png)
 
+### TargetPlace
+- Select a block by pressing P, when that block is broken or destroyed (turned to air) it is automatically replaced with the block you're holding and it will be orientated down. This works from a distance as well.
+- Deselect by holding SHIFT + P
+- Useful for aiding in the breaking of bedrock with TNT and pistons. New piston can be spawned in the same tick as explosion, breaking bedrock all while just standing near it.
+
 
 ## What’s changed or improved in this fork?
 
