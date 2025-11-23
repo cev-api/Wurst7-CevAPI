@@ -63,6 +63,7 @@ public final class CmdList
 	public final SettingsCmd settingsCmd = new SettingsCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
 	public final TCmd tCmd = new TCmd();
+	public final TargetPlaceCmd targetPlaceCmd = new TargetPlaceCmd();
 	public final net.wurstclient.commands.ItemHandlerCmd itemHandlerCmd =
 		new net.wurstclient.commands.ItemHandlerCmd();
 	public final TooManyHaxCmd tooManyHaxCmd = new TooManyHaxCmd();
