@@ -7,37 +7,75 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.StringUtil;
 import net.wurstclient.WurstClient;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hacks.AutoReconnectHack;
+import net.wurstclient.hacks.OfflineSettingsHack;
+import net.wurstclient.mixinterface.LoginOverlayAccessor;
 import net.wurstclient.nochatreports.ForcedChatReportsScreen;
 import net.wurstclient.nochatreports.NcrModRequiredScreen;
 import net.wurstclient.util.LastServerRememberer;
 
-@Mixin(DisconnectedScreen.class)
+@Mixin(value = DisconnectedScreen.class, remap = false)
 public class DisconnectedScreenMixin extends Screen
+	implements LoginOverlayAccessor
 {
 	private int autoReconnectTimer;
 	private Button autoReconnectButton;
+	private boolean showLoginOverlay;
+	private Button overlayAutoButton;
+	private Button overlayRandomButton;
+	private Button overlayRejoinButton;
+	private Button overlayCommandButton;
+	private OfflineSettingsHack overlayHack;
+	private String overlayReasonText;
+	private List<FormattedCharSequence> overlayLines = Collections.emptyList();
+	private int overlayWidth;
+	private int overlayHeight;
+	private int overlayX;
+	private int overlayY;
+	
+	private Button reconnectButton;
+	
+	private void ensureValidParent()
+	{
+		if(parent != null && !(parent instanceof ClickGuiScreen))
+			return;
+		
+		parent = new JoinMultiplayerScreen(new TitleScreen());
+	}
 	
 	@Shadow
 	@Final
 	private DisconnectionDetails details;
 	@Shadow
 	@Final
+	@Mutable
 	private Screen parent;
 	@Shadow
 	@Final
@@ -69,12 +107,16 @@ public class DisconnectedScreenMixin extends Screen
 			return;
 		}
 		
-		addReconnectButtons();
+		addReconnectButtons(reason);
 	}
 	
-	private void addReconnectButtons()
+	private void addReconnectButtons(Component reason)
 	{
-		Button reconnectButton = layout.addChild(Button
+		ensureValidParent();
+		OfflineSettingsHack offlineSettingsHack =
+			WurstClient.INSTANCE.getHax().offlineSettingsHack;
+		
+		reconnectButton = layout.addChild(Button
 			.builder(Component.literal("Reconnect"),
 				b -> LastServerRememberer.reconnect(parent))
 			.width(200).build());
@@ -98,7 +140,25 @@ public class DisconnectedScreenMixin extends Screen
 		
 		layout.arrangeElements();
 		Stream.of(reconnectButton, autoReconnectButton, copyLocButton)
-			.forEach(this::addRenderableWidget);
+			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
+		
+		offlineSettingsHack.handleDisconnect(reason);
+		boolean loginElsewhere = isLoginElsewhere(reason);
+		boolean crackedServer = offlineSettingsHack.wasLastServerCracked();
+		
+		if(loginElsewhere || crackedServer)
+		{
+			Component overlayReason = reason;
+			if(overlayReason == null)
+				overlayReason = Component.literal(
+					crackedServer ? "Cracked server detected" : "Disconnected");
+			showLoginOverlay(offlineSettingsHack, overlayReason);
+			
+			if(loginElsewhere
+				&& offlineSettingsHack.consumeAutoReconnectRequest())
+				offlineSettingsHack.performAutoReconnect(parent);
+		}else
+			hideLoginOverlay();
 		
 		AutoReconnectHack autoReconnect =
 			WurstClient.INSTANCE.getHax().autoReconnectHack;
@@ -116,6 +176,279 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(autoReconnect.isEnabled())
 			autoReconnectTimer = autoReconnect.getWaitTicks();
+	}
+	
+	private void layoutOverlay()
+	{
+		if(!showLoginOverlay || overlayReasonText == null)
+			return;
+		
+		Font font = minecraft.font;
+		int maxWidth = Math.min(width - 40, 360);
+		overlayLines =
+			font.split(Component.literal(overlayReasonText), maxWidth - 20);
+		int textWidth = overlayLines.stream().mapToInt(font::width).max()
+			.orElse(font.width(Component.literal(overlayReasonText)));
+		overlayWidth = Math.max(textWidth + 20, 260);
+		overlayWidth = Math.min(overlayWidth, width - 40);
+		
+		int padding = 10;
+		int textHeight = overlayLines.size() * (font.lineHeight + 2);
+		int buttonSpacing = 6;
+		int buttonHeightSum = 0;
+		int buttonCount = 0;
+		
+		if(overlayAutoButton != null && overlayAutoButton.visible)
+		{
+			buttonHeightSum += overlayAutoButton.getHeight();
+			buttonCount++;
+		}
+		
+		if(overlayRejoinButton != null && overlayRejoinButton.visible)
+		{
+			buttonHeightSum += overlayRejoinButton.getHeight();
+			buttonCount++;
+		}
+		
+		if(overlayRandomButton != null && overlayRandomButton.visible)
+		{
+			buttonHeightSum += overlayRandomButton.getHeight();
+			buttonCount++;
+		}
+		
+		if(overlayCommandButton != null && overlayCommandButton.visible)
+		{
+			buttonHeightSum += overlayCommandButton.getHeight();
+			buttonCount++;
+		}
+		
+		int totalButtonSpacing = Math.max(0, buttonCount - 1) * buttonSpacing;
+		int textButtonGap = overlayLines.isEmpty() ? 0 : 8;
+		overlayHeight = padding + textHeight + textButtonGap + buttonHeightSum
+			+ totalButtonSpacing + padding;
+		if(overlayHeight < padding * 2 + 20)
+			overlayHeight = padding * 2 + 20;
+		
+		overlayX = (width - overlayWidth) / 2;
+		
+		// place overlay well above the vanilla
+		// "Connection Lost" area by anchoring it near the top.
+		overlayY = 30;
+		if(overlayY + overlayHeight > height - 20)
+			overlayY = Math.max(20, height - overlayHeight - 20);
+		
+		int currentY = overlayY + padding + textHeight;
+		if(!overlayLines.isEmpty())
+			currentY += textButtonGap;
+		
+		int placedButtons = 0;
+		
+		if(overlayAutoButton != null && overlayAutoButton.visible)
+		{
+			int buttonX =
+				overlayX + (overlayWidth - overlayAutoButton.getWidth()) / 2;
+			overlayAutoButton.setPosition(buttonX, currentY);
+			currentY += overlayAutoButton.getHeight();
+			placedButtons++;
+			if(placedButtons < buttonCount)
+				currentY += buttonSpacing;
+		}
+		
+		if(overlayRejoinButton != null && overlayRejoinButton.visible)
+		{
+			int buttonX =
+				overlayX + (overlayWidth - overlayRejoinButton.getWidth()) / 2;
+			overlayRejoinButton.setPosition(buttonX, currentY);
+			currentY += overlayRejoinButton.getHeight();
+			placedButtons++;
+			if(placedButtons < buttonCount)
+				currentY += buttonSpacing;
+		}
+		
+		if(overlayRandomButton != null && overlayRandomButton.visible)
+		{
+			int buttonX =
+				overlayX + (overlayWidth - overlayRandomButton.getWidth()) / 2;
+			overlayRandomButton.setPosition(buttonX, currentY);
+			currentY += overlayRandomButton.getHeight();
+			placedButtons++;
+			if(placedButtons < buttonCount)
+				currentY += buttonSpacing;
+		}
+		
+		if(overlayCommandButton != null && overlayCommandButton.visible)
+		{
+			int buttonX =
+				overlayX + (overlayWidth - overlayCommandButton.getWidth()) / 2;
+			overlayCommandButton.setPosition(buttonX, currentY);
+			placedButtons++;
+		}
+	}
+	
+	@Override
+	public boolean isLoginOverlayVisible()
+	{
+		return showLoginOverlay;
+	}
+	
+	@Override
+	public List<FormattedCharSequence> getOverlayLines()
+	{
+		return overlayLines;
+	}
+	
+	@Override
+	public int getOverlayWidth()
+	{
+		return overlayWidth;
+	}
+	
+	@Override
+	public int getOverlayHeight()
+	{
+		return overlayHeight;
+	}
+	
+	@Override
+	public int getOverlayX()
+	{
+		return overlayX;
+	}
+	
+	@Override
+	public int getOverlayY()
+	{
+		return overlayY;
+	}
+	
+	@Override
+	public void layoutLoginOverlay(Font font, int width, int height)
+	{
+		layoutOverlay();
+	}
+	
+	private Button createOverlayButton(Component text, Runnable action,
+		int width)
+	{
+		return Button.builder(text, b -> action.run()).width(width).build();
+	}
+	
+	private void ensureOverlayButtons(OfflineSettingsHack hack)
+	{
+		overlayHack = hack;
+		if(overlayRandomButton == null)
+		{
+			overlayRandomButton = createOverlayButton(
+				Component.literal("Reconnect as random user"), () -> {
+					hideLoginOverlay();
+					hack.reconnectWithRandomName(parent);
+				}, 220);
+			overlayRandomButton.visible = false;
+			addRenderableWidget(overlayRandomButton);
+		}
+		
+		if(overlayRejoinButton == null)
+		{
+			overlayRejoinButton = createOverlayButton(
+				Component.literal("Reconnect with selected name"), () -> {
+					hideLoginOverlay();
+					hack.reconnectWithSelectedName(parent);
+				}, 220);
+			overlayRejoinButton.visible = false;
+			addRenderableWidget(overlayRejoinButton);
+		}
+		
+		if(overlayAutoButton == null)
+		{
+			overlayAutoButton = createOverlayButton(getAutoReconnectLabel(),
+				this::toggleAutoReconnect, 200);
+			overlayAutoButton.visible = false;
+			addRenderableWidget(overlayAutoButton);
+		}else
+			overlayAutoButton.setMessage(getAutoReconnectLabel());
+		
+		if(overlayCommandButton == null)
+		{
+			overlayCommandButton = createOverlayButton(
+				Component.literal("Reconnect & run command"), () -> {
+					hideLoginOverlay();
+					hack.reconnectAndRunCommand(parent);
+				}, 220);
+			overlayCommandButton.visible = false;
+			addRenderableWidget(overlayCommandButton);
+		}
+	}
+	
+	private void toggleAutoReconnect()
+	{
+		if(overlayHack == null)
+			return;
+		
+		boolean enabled = !overlayHack.isAutoReconnectEnabled();
+		overlayHack.setAutoReconnectEnabled(enabled);
+		
+		if(overlayAutoButton != null)
+			overlayAutoButton.setMessage(getAutoReconnectLabel());
+		
+		if(enabled)
+		{
+			hideLoginOverlay();
+			overlayHack.reconnectWithSelectedName(parent);
+		}
+	}
+	
+	private Component getAutoReconnectLabel()
+	{
+		boolean enabled =
+			overlayHack != null && overlayHack.isAutoReconnectEnabled();
+		String text = enabled ? "AutoReconnect ON" : "AutoReconnect OFF";
+		return Component.literal(text)
+			.withStyle(style -> style.withColor(enabled
+				? TextColor.fromRgb(0x00FF00) : TextColor.fromRgb(0xFF0000)));
+	}
+	
+	private void showLoginOverlay(OfflineSettingsHack hack, Component reason)
+	{
+		showLoginOverlay = true;
+		overlayReasonText = StringUtil.stripColor(reason.getString());
+		overlayLines = Collections.emptyList();
+		ensureOverlayButtons(hack);
+		overlayRandomButton.visible = true;
+		if(overlayAutoButton != null)
+		{
+			overlayAutoButton.visible = true;
+			overlayAutoButton.setMessage(getAutoReconnectLabel());
+		}
+		if(overlayRejoinButton != null)
+			overlayRejoinButton.visible = true;
+		if(overlayCommandButton != null)
+			overlayCommandButton.visible = true;
+		
+		layoutOverlay();
+	}
+	
+	private void hideLoginOverlay()
+	{
+		showLoginOverlay = false;
+		if(overlayRandomButton != null)
+			overlayRandomButton.visible = false;
+		if(overlayRejoinButton != null)
+			overlayRejoinButton.visible = false;
+		if(overlayAutoButton != null)
+			overlayAutoButton.visible = false;
+		if(overlayCommandButton != null)
+			overlayCommandButton.visible = false;
+		overlayReasonText = null;
+		overlayLines = Collections.emptyList();
+	}
+	
+	private static boolean isLoginElsewhere(Component reason)
+	{
+		if(reason == null)
+			return false;
+		
+		String text = StringUtil.stripColor(reason.getString());
+		return "You logged in from another location".equals(text);
 	}
 	
 	@Override

@@ -307,6 +307,12 @@ Because so many of these mods are entirely original, I plan to release some of t
 - Deselect by holding SHIFT + P
 - Useful for aiding in the breaking of bedrock with TNT and pistons. New piston can be spawned in the same tick as explosion, breaking bedrock all while just standing near it.
 
+### OfflineSettings
+- Auto Reconnect without 5 second timer, perfect for when you're logged out from another location
+- Rejoin the current server with a random alt, with an alt with a specific name or with the same name as another player
+- Auto detect cracked/offline servers on connect (even when hack is disabled)
+- Reconnect to server and immediately send a command, such as /op player
+- Adds mixin buttons to disconnect/kick/ban screens for all cracked/offline servers that have the above functions
 
 ## What’s changed or improved in this fork?
 
@@ -443,6 +449,9 @@ Examples:
 - Able to search for enchantments by keywords.
 
 ![Library](https://i.imgur.com/pWqgNz8.png)
+
+### Alt Manager Improved
+- Can now multi-select and delete alt accounts
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  

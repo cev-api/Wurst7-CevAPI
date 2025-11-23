@@ -35,10 +35,9 @@ import net.wurstclient.util.RotationUtils;
 public final class TargetPlaceHack extends Hack
 	implements RenderListener, UpdateListener
 {
-	private static final WurstClient WURST = WurstClient.INSTANCE; 
-																	
-	private static final IMinecraftClient IMC = WurstClient.IMC; 
-																
+	private static final WurstClient WURST = WurstClient.INSTANCE;
+	
+	private static final IMinecraftClient IMC = WurstClient.IMC;
 	
 	private final ColorSetting highlightColor =
 		new ColorSetting("Highlight color", Color.CYAN);
@@ -103,7 +102,7 @@ public final class TargetPlaceHack extends Hack
 		ItemStack stack = MC.player.getMainHandItem();
 		if(stack.isEmpty())
 			return;
-			
+		
 		// Original behavior: once client sees air, attempt a placement.
 		if(BlockUtils.getState(targetBlock).isAir())
 			attemptPlace(targetBlock);
@@ -221,7 +220,7 @@ public final class TargetPlaceHack extends Hack
 		ItemStack stack = MC.player.getMainHandItem();
 		if(stack.isEmpty())
 			return;
-			
+		
 		// Look almost straight up before placing so the piston faces DOWN. //
 		if(MC.player != null)
 		{
