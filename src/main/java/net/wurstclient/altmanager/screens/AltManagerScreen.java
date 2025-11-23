@@ -16,6 +16,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +36,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.AlertScreen;
@@ -49,6 +49,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.*;
+import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMinecraftClient;
 import net.wurstclient.util.MultiProcessingUtils;
 import net.wurstclient.util.json.JsonException;
@@ -74,6 +75,8 @@ public final class AltManagerScreen extends Screen
 	private Button importButton;
 	private Button exportButton;
 	private Button logoutButton;
+	
+	private List<Alt> pendingDeletion = Collections.emptyList();
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -163,6 +166,7 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
 		
+		listGui.ensureSelection();
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
 		importButton.active = windowMode;
@@ -171,11 +175,17 @@ public final class AltManagerScreen extends Screen
 	
 	private void updateAltButtons()
 	{
-		boolean altSelected = listGui.getSelected() != null;
-		useButton.active = altSelected;
-		starButton.active = altSelected;
-		editButton.active = altSelected;
-		deleteButton.active = altSelected;
+		if(useButton == null || starButton == null || editButton == null
+			|| deleteButton == null || logoutButton == null)
+			return;
+		
+		int selectionCount = listGui != null ? listGui.getSelectionCount() : 0;
+		boolean hasSingleSelection = selectionCount == 1;
+		
+		useButton.active = hasSingleSelection;
+		starButton.active = hasSingleSelection;
+		editButton.active = hasSingleSelection;
+		deleteButton.active = selectionCount > 0;
 		
 		logoutButton.active =
 			((IMinecraftClient)minecraft).getWurstSession() != null;
@@ -248,16 +258,27 @@ public final class AltManagerScreen extends Screen
 	
 	private void pressDelete()
 	{
-		Alt alt = listGui.getSelectedAlt();
-		if(alt == null)
+		List<Alt> selected = listGui.getSelectedAlts();
+		if(selected.isEmpty())
 			return;
 		
-		Component text =
-			Component.literal("Are you sure you want to remove this alt?");
+		pendingDeletion = List.copyOf(selected);
+		boolean plural = pendingDeletion.size() > 1;
 		
-		String altName = alt.getDisplayName();
-		Component message = Component.literal(
-			"\"" + altName + "\" will be lost forever! (A long time!)");
+		Component text = plural ? Component.literal("Remove selected alts?")
+			: Component.literal("Remove this alt?");
+		
+		Component message;
+		if(plural)
+		{
+			message = Component.literal(pendingDeletion.size()
+				+ " accounts will be lost forever! (A long time!)");
+		}else
+		{
+			String altName = pendingDeletion.get(0).getDisplayName();
+			message = Component.literal(
+				"\"" + altName + "\" will be lost forever! (A long time!)");
+		}
 		
 		ConfirmScreen screen = new ConfirmScreen(this::confirmRemove, text,
 			message, Component.literal("Delete"), Component.literal("Cancel"));
@@ -396,13 +417,10 @@ public final class AltManagerScreen extends Screen
 	
 	private void confirmRemove(boolean confirmed)
 	{
-		Alt alt = listGui.getSelectedAlt();
-		if(alt == null)
-			return;
-		
 		if(confirmed)
-			altManager.remove(alt);
+			pendingDeletion.forEach(altManager::remove);
 		
+		pendingDeletion = Collections.emptyList();
 		minecraft.setScreen(this);
 	}
 	
@@ -541,14 +559,23 @@ public final class AltManagerScreen extends Screen
 	}
 	
 	private final class Entry
-		extends ObjectSelectionList.Entry<AltManagerScreen.Entry>
+		extends MultiSelectEntryListWidget.Entry<AltManagerScreen.Entry>
 	{
 		private final Alt alt;
 		private long lastClickTime;
+		private final String selectionKey;
 		
-		public Entry(Alt alt)
+		public Entry(ListGui parent, Alt alt)
 		{
+			super(parent);
 			this.alt = Objects.requireNonNull(alt);
+			selectionKey = Integer.toHexString(System.identityHashCode(alt));
+		}
+		
+		@Override
+		public String selectionKey()
+		{
+			return selectionKey;
 		}
 		
 		@Override
@@ -564,6 +591,8 @@ public final class AltManagerScreen extends Screen
 		{
 			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 				return false;
+			
+			super.mouseClicked(context, doubleClick);
 			
 			long timeSinceLastClick = Util.getMillis() - lastClickTime;
 			lastClickTime = Util.getMillis();
@@ -591,8 +620,9 @@ public final class AltManagerScreen extends Screen
 			}
 			
 			// face
+			boolean selected = parent().getSelectedEntries().contains(this);
 			AltRenderer.drawAltFace(context, alt.getName(), x + 1, y + 1, 24,
-				24, listGui.getSelected() == this);
+				24, selected);
 			
 			Font tr = minecraft.font;
 			
@@ -622,15 +652,23 @@ public final class AltManagerScreen extends Screen
 	}
 	
 	private final class ListGui
-		extends ObjectSelectionList<AltManagerScreen.Entry>
+		extends MultiSelectEntryListWidget<AltManagerScreen.Entry>
 	{
 		public ListGui(Minecraft minecraft, AltManagerScreen screen,
 			List<Alt> list)
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30, 0);
 			
-			list.stream().map(AltManagerScreen.Entry::new)
+			list.stream().map(alt -> new AltManagerScreen.Entry(this, alt))
 				.forEach(this::addEntry);
+			
+			setSelectionListener(screen::updateAltButtons);
+		}
+		
+		@Override
+		protected String getSelectionKey(AltManagerScreen.Entry entry)
+		{
+			return entry.selectionKey();
 		}
 		
 		@Override
@@ -653,8 +691,18 @@ public final class AltManagerScreen extends Screen
 		 */
 		public Alt getSelectedAlt()
 		{
-			AltManagerScreen.Entry selected = getSelected();
-			return selected != null ? selected.alt : null;
+			return getSelectedAlts().stream().findFirst().orElse(null);
+		}
+		
+		public List<Alt> getSelectedAlts()
+		{
+			return getSelectedEntries().stream().map(entry -> entry.alt)
+				.toList();
+		}
+		
+		public int getSelectionCount()
+		{
+			return getSelectedEntries().size();
 		}
 		
 		/**
