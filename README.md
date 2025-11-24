@@ -310,6 +310,7 @@ Because so many of these mods are entirely original, I plan to release some of t
 ### OfflineSettings
 - Auto Reconnect without 5 second timer, perfect for when you're logged out from another location
 - Rejoin the current server with a random alt, with an alt with a specific name or with the same name as another player
+- Logout selected players in the current server with an option for auto logouts
 - Auto detect cracked/offline servers on connect (even when hack is disabled)
 - Reconnect to server and immediately send a command, such as /op player
 - Adds mixin buttons to disconnect/kick/ban screens for all cracked/offline servers that have the above functions

@@ -7,7 +7,18 @@
  */
 package net.wurstclient.hacks;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -17,7 +28,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
+import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -52,6 +66,10 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	
 	private static final String NAME_CHARS =
 		"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	private static final int LOGOUT_PROBE_CONNECT_TIMEOUT_MS = 5000;
+	private static final int LOGOUT_PROBE_READ_TIMEOUT_MS = 5000;
+	private static final int LOGOUT_PROBE_DURATION_MS = 10000;
+	private static final long AUTO_LOGOUT_COOLDOWN_MS = 5000L;
 	
 	private static final Method PROFILE_NAME_METHOD =
 		discoverProfileNameMethod();
@@ -88,13 +106,20 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	}
 	
 	private final CheckboxSetting autoReconnect =
-		new CheckboxSetting("Auto reconnect",
+		new CheckboxSetting("Quick reconnect",
 			WText.literal("Immediately reconnect when you are kicked for "
 				+ "logging in elsewhere."),
 			true);
 	
+	private final CheckboxSetting autoLogout =
+		new CheckboxSetting("Auto logout",
+			WText.literal(
+				"Automatically re-run the logout probe whenever the selected "
+					+ "player rejoins."),
+			false);
+	
 	private final CheckboxSetting randomName =
-		new CheckboxSetting("Random name",
+		new CheckboxSetting("Random name on reconnect",
 			WText.literal("Generate a temporary, random offline name (≤ 8 "
 				+ "chars) before reconnecting."),
 			false);
@@ -118,8 +143,14 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		s -> s.isEmpty() || (s.length() <= 16 && s.matches("[A-Za-z0-9_]+")));
 	
 	private final StringDropdownSetting otherPlayerName =
-		new StringDropdownSetting("Other player name",
+		new StringDropdownSetting("Player select",
 			WText.literal("Pick another player's name from the last server."));
+	
+	private final ButtonSetting logoutButton =
+		new ButtonSetting("Logout other player",
+			WText.literal("Attempt to log in as the selected player in a "
+				+ "background probe."),
+			this::startLogoutProbe);
 	
 	private final ButtonSetting reconnectButton =
 		new ButtonSetting("Reconnect to server",
@@ -146,6 +177,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		new AtomicBoolean(false);
 	private final AtomicBoolean autoReconnectRequested =
 		new AtomicBoolean(false);
+	private final AtomicBoolean logoutProbeRunning = new AtomicBoolean(false);
 	private volatile ServerData pendingServer;
 	private volatile boolean pendingForceRandom;
 	private volatile boolean pendingAllowRandomFallback;
@@ -155,6 +187,9 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		this::runCrackedDetectionUpdate;
 	private boolean crackedDetectionRegistered;
 	private int crackedDetectionTicks;
+	private volatile long autoLogoutLastAttempt;
+	private volatile String autoLogoutTarget;
+	private volatile boolean autoLogoutWaitingForLeave;
 	
 	private final Map<String, Boolean> crackedServers =
 		new ConcurrentHashMap<>();
@@ -165,14 +200,16 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	{
 		super("OfflineSettings");
 		setCategory(Category.OTHER);
+		addSetting(crackedDetection);
 		addSetting(autoReconnect);
 		addSetting(randomName);
-		addSetting(crackedDetection);
 		addSetting(specifiedName);
 		addSetting(otherPlayerName);
-		addSetting(reconnectButton);
+		addSetting(autoLogout);
 		addSetting(reconnectCommand);
 		addSetting(reconnectCommandButton);
+		addSetting(reconnectButton);
+		addSetting(logoutButton);
 		updateCrackedDetectionSubscription();
 	}
 	
@@ -207,6 +244,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		cleanupTemporaryAlt();
 		pendingReconnectCommand = null;
 		reconnectCommandDelayTicks = 0;
+		clearAutoLogoutState();
 		updateCrackedDetectionSubscription();
 	}
 	
@@ -454,7 +492,79 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			detectCrackedServerFromSelf(player, server);
 		}
 		
-		otherPlayerName.setOptions(players);
+		Set<String> dropdownOptions = new LinkedHashSet<>(players);
+		String selected = otherPlayerName.getSelected();
+		if(selected != null && !selected.isEmpty()
+			&& !containsIgnoreCase(dropdownOptions, selected))
+			dropdownOptions.add(selected);
+		
+		otherPlayerName.setOptions(dropdownOptions);
+		checkAutoLogout(players, server);
+	}
+	
+	private void checkAutoLogout(Set<String> players, ServerData server)
+	{
+		if(!autoLogout.isChecked())
+		{
+			clearAutoLogoutState();
+			return;
+		}
+		
+		String selected = otherPlayerName.getSelected();
+		if(selected == null || selected.isEmpty())
+		{
+			clearAutoLogoutState();
+			return;
+		}
+		
+		if(autoLogoutTarget == null
+			|| !autoLogoutTarget.equalsIgnoreCase(selected))
+		{
+			autoLogoutTarget = selected;
+			autoLogoutLastAttempt = 0;
+			autoLogoutWaitingForLeave = false;
+		}
+		
+		boolean isOnline =
+			server != null && containsIgnoreCase(players, selected);
+		if(!isOnline)
+		{
+			autoLogoutWaitingForLeave = false;
+			autoLogoutLastAttempt = 0;
+			return;
+		}
+		
+		if(autoLogoutWaitingForLeave)
+			return;
+		
+		long now = System.currentTimeMillis();
+		if(now - autoLogoutLastAttempt < AUTO_LOGOUT_COOLDOWN_MS)
+			return;
+		
+		if(triggerLogoutProbe(selected, server, true, true))
+		{
+			autoLogoutLastAttempt = now;
+			autoLogoutWaitingForLeave = true;
+		}
+	}
+	
+	private void clearAutoLogoutState()
+	{
+		autoLogoutTarget = null;
+		autoLogoutLastAttempt = 0;
+		autoLogoutWaitingForLeave = false;
+	}
+	
+	private boolean containsIgnoreCase(Iterable<String> names, String target)
+	{
+		if(names == null || target == null)
+			return false;
+		
+		for(String name : names)
+			if(name.equalsIgnoreCase(target))
+				return true;
+			
+		return false;
 	}
 	
 	private void detectCrackedServerFromPlayerList(LocalPlayer player,
@@ -728,5 +838,274 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			EVENTS.remove(UpdateListener.class, crackedDetectionUpdate);
 			crackedDetectionRegistered = false;
 		}
+	}
+	
+	private void startLogoutProbe()
+	{
+		triggerLogoutProbe(otherPlayerName.getSelected(), null, false, false);
+	}
+	
+	private void runLogoutProbe(String host, int port, String username)
+	{
+		try(Socket socket = new Socket())
+		{
+			socket.connect(new InetSocketAddress(host, port),
+				LOGOUT_PROBE_CONNECT_TIMEOUT_MS);
+			socket.setSoTimeout(LOGOUT_PROBE_READ_TIMEOUT_MS);
+			DataInputStream input =
+				new DataInputStream(socket.getInputStream());
+			OutputStream output = socket.getOutputStream();
+			byte[] handshakePayload = buildHandshakePayload(host, port);
+			byte[] loginPayload = buildLoginPayload(username);
+			sendProbePacket(output, 0x00, handshakePayload);
+			sendProbePacket(output, 0x00, loginPayload);
+			long deadline =
+				System.currentTimeMillis() + LOGOUT_PROBE_DURATION_MS;
+			int compressionThreshold = -1;
+			while(System.currentTimeMillis() < deadline)
+			{
+				byte[] body = readProbePacket(input, compressionThreshold);
+				if(body == null)
+					break;
+				ByteArrayInputStream packetIn = new ByteArrayInputStream(body);
+				int packetId = readVarInt(packetIn);
+				byte[] payload = packetIn.readAllBytes();
+				if(packetId == 0x00)
+				{
+					String reason =
+						readString(new ByteArrayInputStream(payload));
+					sendLogoutMessage(
+						"Server disconnected login attempt: " + reason);
+					return;
+				}
+				if(packetId == 0x01)
+				{
+					sendLogoutMessage(
+						"Server requested encryption/auth information.");
+					continue;
+				}
+				if(packetId == 0x02)
+				{
+					sendLogoutMessage(
+						"Server accepted the login for " + username + ".");
+					return;
+				}
+				if(packetId == 0x03)
+				{
+					int threshold =
+						readVarInt(new ByteArrayInputStream(payload));
+					compressionThreshold = threshold;
+					sendLogoutMessage("Server enabled compression (threshold "
+						+ threshold + ").");
+					continue;
+				}
+				sendLogoutMessage(String.format(Locale.ROOT,
+					"Unhandled login packet 0x%02X (%d bytes).", packetId,
+					payload.length));
+			}
+			sendLogoutMessage(
+				"Login probe timed out without a clear server response.");
+		}catch(IOException | DataFormatException e)
+		{
+			sendLogoutError("Logout probe failed: " + e.getMessage());
+		}
+	}
+	
+	private boolean triggerLogoutProbe(String username, ServerData server,
+		boolean silentErrors, boolean autoTriggered)
+	{
+		if(username == null || username.isEmpty())
+		{
+			if(!silentErrors)
+				sendLogoutError(
+					"Select another player's name before using logout.");
+			return false;
+		}
+		
+		if(server == null)
+			server = getCurrentOrLastServer();
+		if(server == null)
+		{
+			if(!silentErrors)
+				sendLogoutError("No recent server to probe.");
+			return false;
+		}
+		
+		ServerAddress address = ServerAddress.parseString(server.ip);
+		String host = address.getHost();
+		int port = address.getPort();
+		if(host == null || host.isBlank())
+		{
+			if(!silentErrors)
+				sendLogoutError("Invalid server address.");
+			return false;
+		}
+		
+		if(!logoutProbeRunning.compareAndSet(false, true))
+		{
+			if(!silentErrors)
+				sendLogoutError("Another logout probe is already running.");
+			return false;
+		}
+		
+		String message;
+		if(autoTriggered)
+			message = String.format(Locale.ROOT,
+				"Auto-logging out %s on %s:%d...", username, host, port);
+		else
+			message = String.format(Locale.ROOT, "Probing %s:%d as %s...", host,
+				port, username);
+		sendLogoutMessage(message);
+		
+		Thread thread = new Thread(() -> {
+			try
+			{
+				runLogoutProbe(host, port, username);
+			}finally
+			{
+				logoutProbeRunning.set(false);
+			}
+		}, "OfflineSettings-LogoutProbe");
+		thread.setDaemon(true);
+		thread.start();
+		return true;
+	}
+	
+	private byte[] readProbePacket(DataInputStream input,
+		int compressionThreshold) throws IOException, DataFormatException
+	{
+		int length = readVarInt(input);
+		if(length <= 0)
+			return null;
+		byte[] data = new byte[length];
+		input.readFully(data);
+		if(compressionThreshold < 0)
+			return data;
+		ByteArrayInputStream packetStream = new ByteArrayInputStream(data);
+		int dataLength = readVarInt(packetStream);
+		if(dataLength == 0)
+			return packetStream.readAllBytes();
+		byte[] compressed = packetStream.readAllBytes();
+		Inflater inflater = new Inflater();
+		inflater.setInput(compressed);
+		byte[] buffer = new byte[dataLength];
+		int read = inflater.inflate(buffer);
+		inflater.end();
+		if(read < dataLength)
+			return Arrays.copyOf(buffer, read);
+		return buffer;
+	}
+	
+	private byte[] buildHandshakePayload(String host, int port)
+	{
+		ByteArrayOutputStream payload = new ByteArrayOutputStream();
+		payload.writeBytes(encodeVarInt(
+			SharedConstants.getCurrentVersion().protocolVersion()));
+		writeString(payload, host);
+		payload.write((port >> 8) & 0xFF);
+		payload.write(port & 0xFF);
+		payload.writeBytes(encodeVarInt(2));
+		return payload.toByteArray();
+	}
+	
+	private byte[] buildLoginPayload(String username)
+	{
+		ByteArrayOutputStream payload = new ByteArrayOutputStream();
+		writeString(payload, username);
+		UUID uuid = UUID.nameUUIDFromBytes(
+			("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8));
+		ByteBuffer buffer = ByteBuffer.allocate(16);
+		buffer.putLong(uuid.getMostSignificantBits());
+		buffer.putLong(uuid.getLeastSignificantBits());
+		payload.writeBytes(buffer.array());
+		return payload.toByteArray();
+	}
+	
+	private void sendProbePacket(OutputStream output, int packetId,
+		byte[] payload) throws IOException
+	{
+		ByteArrayOutputStream packet = new ByteArrayOutputStream();
+		packet.writeBytes(encodeVarInt(packetId));
+		packet.writeBytes(payload);
+		byte[] body = packet.toByteArray();
+		output.write(encodeVarInt(body.length));
+		output.write(body);
+		output.flush();
+	}
+	
+	private static byte[] encodeVarInt(int value)
+	{
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		int v = value;
+		do
+		{
+			int temp = v & 0x7F;
+			v >>>= 7;
+			if(v != 0)
+				temp |= 0x80;
+			out.write(temp);
+		}while(v != 0);
+		return out.toByteArray();
+	}
+	
+	private static int readVarInt(InputStream in) throws IOException
+	{
+		int numRead = 0;
+		int result = 0;
+		int read;
+		do
+		{
+			read = in.read();
+			if(read == -1)
+				throw new IOException("Unexpected end of stream");
+			int value = read & 0x7F;
+			result |= value << (7 * numRead);
+			numRead++;
+			if(numRead > 5)
+				throw new IOException("VarInt is too large");
+		}while((read & 0x80) != 0);
+		return result;
+	}
+	
+	private static void writeString(ByteArrayOutputStream out, String value)
+	{
+		byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+		out.writeBytes(encodeVarInt(bytes.length));
+		out.writeBytes(bytes);
+	}
+	
+	private static String readString(ByteArrayInputStream in)
+	{
+		try
+		{
+			int length = readVarInt(in);
+			if(length <= 0)
+				return "";
+			byte[] bytes = in.readNBytes(length);
+			return new String(bytes, StandardCharsets.UTF_8);
+		}catch(IOException e)
+		{
+			return "(invalid disconnect message)";
+		}
+	}
+	
+	private void sendLogoutMessage(String text)
+	{
+		Minecraft client = Minecraft.getInstance();
+		Runnable task = () -> ChatUtils.message("[OfflineSettings] " + text);
+		if(client != null)
+			client.execute(task);
+		else
+			task.run();
+	}
+	
+	private void sendLogoutError(String text)
+	{
+		Minecraft client = Minecraft.getInstance();
+		Runnable task = () -> ChatUtils.error("OfflineSettings: " + text);
+		if(client != null)
+			client.execute(task);
+		else
+			task.run();
 	}
 }
