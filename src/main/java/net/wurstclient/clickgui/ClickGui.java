@@ -258,7 +258,11 @@ public final class ClickGui
 			handlePopupMouseClick(mouseX, mouseY, mouseButton);
 		
 		if(!popupClicked)
-			handleWindowMouseClick(mouseX, mouseY, mouseButton, context);
+		{
+			boolean closedPopups = closeActivePopups();
+			if(!closedPopups)
+				handleWindowMouseClick(mouseX, mouseY, mouseButton, context);
+		}
 		
 		for(Popup popup : popups)
 			if(popup.getOwner().getParent().isClosing())
@@ -266,6 +270,17 @@ public final class ClickGui
 			
 		windows.removeIf(Window::isClosing);
 		popups.removeIf(Popup::isClosing);
+	}
+	
+	private boolean closeActivePopups()
+	{
+		if(popups.isEmpty())
+			return false;
+		
+		for(Popup popup : popups)
+			popup.close();
+		
+		return true;
 	}
 	
 	public void handleMouseRelease(double mouseX, double mouseY,
