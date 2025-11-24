@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.51.1 (MC1.21.8) - Modified by CevAPI 
+﻿# Wurst Client v7.51.2 (MC1.21.8) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
