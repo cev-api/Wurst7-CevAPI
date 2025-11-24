@@ -413,6 +413,7 @@ Examples:
 - Added octahedron shapes.
 - Added glow outlines as an option and set it as the new default.
 - Added box color fill option.
+- Added Shulker projectile ESP
 
 ![Mob](https://i.imgur.com/1LFR8ll.png)
 

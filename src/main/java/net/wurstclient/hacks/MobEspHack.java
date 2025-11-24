@@ -13,8 +13,10 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -80,6 +82,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			FilterArmorStandsSetting.genericVision(true));
 	
 	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
+	private final ArrayList<ShulkerBullet> shulkerBullets = new ArrayList<>();
 	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
@@ -93,6 +96,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			"Only show mobs at or above the configured Y level.", false);
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	
+	private final CheckboxSetting highlightShulkerProjectiles =
+		new CheckboxSetting("Highlight shulker projectiles",
+			"Also outline the tracking projectiles fired by shulkers.", false);
 	
 	private int foundCount;
 	
@@ -108,6 +115,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		entityFilters.forEach(this::addSetting);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(highlightShulkerProjectiles);
 		addSetting(showCountInHackList);
 	}
 	
@@ -126,12 +134,14 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		foundCount = 0;
+		shulkerBullets.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		mobs.clear();
+		shulkerBullets.clear();
 		
 		Stream<LivingEntity> stream = StreamSupport
 			.stream(MC.level.entitiesForRendering().spliterator(), false)
@@ -145,8 +155,20 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		stream = entityFilters.applyTo(stream);
 		
 		mobs.addAll(stream.collect(Collectors.toList()));
+		
+		if(highlightShulkerProjectiles.isChecked())
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+				if(entity instanceof ShulkerBullet bullet
+					&& !bullet.isRemoved())
+					shulkerBullets.add(bullet);
+		}
+		
 		// update count for HUD (clamped to 999)
-		foundCount = Math.min(mobs.size(), 999);
+		int highlighted = mobs.size();
+		if(highlightShulkerProjectiles.isChecked())
+			highlighted += shulkerBullets.size();
+		foundCount = Math.min(highlighted, 999);
 	}
 	
 	@Override
@@ -175,12 +197,16 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		boolean drawLines = style.hasLines();
 		boolean drawFill = drawShape && fillShapes.isChecked();
 		
+		int anticipatedSize = mobs.size();
+		if(highlightShulkerProjectiles.isChecked())
+			anticipatedSize += shulkerBullets.size();
+		
 		ArrayList<ColoredBox> outlineShapes =
-			drawShape ? new ArrayList<>(mobs.size()) : null;
+			drawShape ? new ArrayList<>(anticipatedSize) : null;
 		ArrayList<ColoredBox> filledShapes =
-			drawFill ? new ArrayList<>(mobs.size()) : null;
+			drawFill ? new ArrayList<>(anticipatedSize) : null;
 		ArrayList<ColoredPoint> ends =
-			drawLines ? new ArrayList<>(mobs.size()) : null;
+			drawLines ? new ArrayList<>(anticipatedSize) : null;
 		
 		if(drawShape || drawLines)
 		{
@@ -208,6 +234,34 @@ public final class MobEspHack extends Hack implements UpdateListener,
 				if(drawLines && ends != null)
 					ends.add(
 						new ColoredPoint(lerpedBox.getCenter(), outlineColor));
+			}
+			
+			if(highlightShulkerProjectiles.isChecked())
+			{
+				for(ShulkerBullet bullet : shulkerBullets)
+				{
+					AABB lerpedBox =
+						EntityUtils.getLerpedBox(bullet, partialTicks);
+					float[] rgb = getColorRgb();
+					int outlineColor = RenderUtils.toIntColor(rgb, 0.5F);
+					
+					if(drawShape)
+					{
+						AABB box =
+							lerpedBox.move(0, extraSize, 0).inflate(extraSize);
+						outlineShapes.add(new ColoredBox(box, outlineColor));
+						
+						if(filledShapes != null)
+						{
+							int fillColor = RenderUtils.toIntColor(rgb, 0.15F);
+							filledShapes.add(new ColoredBox(box, fillColor));
+						}
+					}
+					
+					if(drawLines && ends != null)
+						ends.add(new ColoredPoint(lerpedBox.getCenter(),
+							outlineColor));
+				}
 			}
 		}
 		
@@ -244,6 +298,28 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		
 		if(ends != null && !ends.isEmpty())
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+		
+		if(glowMode && highlightShulkerProjectiles.isChecked()
+			&& !shulkerBullets.isEmpty())
+			renderShulkerProjectileFallback(matrixStack, partialTicks);
+	}
+	
+	private void renderShulkerProjectileFallback(PoseStack matrixStack,
+		float partialTicks)
+	{
+		ArrayList<ColoredBox> filledShapes =
+			new ArrayList<>(shulkerBullets.size());
+		double extraSize = boxSize.getExtraSize() / 2D;
+		int fillColor = RenderUtils.toIntColor(getColorRgb(), 0.35F);
+		
+		for(ShulkerBullet bullet : shulkerBullets)
+		{
+			AABB box = EntityUtils.getLerpedBox(bullet, partialTicks)
+				.move(0, extraSize, 0).inflate(extraSize);
+			filledShapes.add(new ColoredBox(box, fillColor));
+		}
+		
+		RenderUtils.drawSolidBoxes(matrixStack, filledShapes, false);
 	}
 	
 	private float[] getColorRgb()
