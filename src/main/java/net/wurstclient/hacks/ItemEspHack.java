@@ -600,6 +600,15 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		return RenderUtils.toIntColor(rgb, alpha / 255f);
 	}
 	
+	/**
+	 * Allows other features (like ItemHandler) to know if ItemESP will render
+	 * tracer lines in the current style configuration.
+	 */
+	public boolean rendersTracerLines()
+	{
+		return style.hasLines();
+	}
+	
 	private boolean isIgnored(ItemStack stack)
 	{
 		if(stack == null || stack.isEmpty())

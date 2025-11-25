@@ -293,6 +293,7 @@ Because so many of these mods are entirely original, I plan to release some of t
   - Pick: reject (drop) everything except the selected types (only selected types will be picked up).
   - Reject: reject the selected types and drop them.
 - Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
+  - Works independantly of ItemESP
 - Adjustable distance for item detection.
 - Adjustable font scale setting (scales text and popup icon size).
 - Adjustable Popup HUD display offset X/Y

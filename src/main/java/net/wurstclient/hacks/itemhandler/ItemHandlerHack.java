@@ -723,14 +723,20 @@ public class ItemHandlerHack extends Hack
 	{
 		if(tracedItems.isEmpty())
 			return;
-		// Avoid duplicate rendering if ItemESP is enabled
+		
 		net.wurstclient.hacks.ItemEspHack esp =
 			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
-		if(esp != null && esp.isEnabled())
+		boolean espEnabled = esp != null && esp.isEnabled();
+		boolean espHasTracerLines = espEnabled && esp.rendersTracerLines();
+		boolean shouldDrawBoxes = !espEnabled;
+		boolean shouldDrawTracers = !espHasTracerLines;
+		if(!shouldDrawBoxes && !shouldDrawTracers)
 			return;
 		
-		java.util.ArrayList<AABB> boxes = new java.util.ArrayList<>();
-		java.util.ArrayList<Vec3> ends = new java.util.ArrayList<>();
+		java.util.ArrayList<AABB> boxes =
+			shouldDrawBoxes ? new java.util.ArrayList<>() : null;
+		java.util.ArrayList<Vec3> ends =
+			shouldDrawTracers ? new java.util.ArrayList<>() : null;
 		for(GroundItem gi : trackedItems)
 		{
 			String baseId =
@@ -748,22 +754,27 @@ public class ItemHandlerHack extends Hack
 			if(!traced)
 				continue;
 			Vec3 p = gi.position();
-			boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18, p.x + 0.18,
-				p.y + 0.18, p.z + 0.18));
-			ends.add(p);
+			if(shouldDrawBoxes)
+				boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18,
+					p.x + 0.18, p.y + 0.18, p.z + 0.18));
+			if(shouldDrawTracers)
+				ends.add(p);
 		}
-		if(boxes.isEmpty() && ends.isEmpty())
+		boolean hasBoxes = shouldDrawBoxes && boxes != null && !boxes.isEmpty();
+		boolean hasTracers =
+			shouldDrawTracers && ends != null && !ends.isEmpty();
+		if(!hasBoxes && !hasTracers)
 			return;
 		float[] rf = RenderUtils.getRainbowColor();
 		int traceLines = RenderUtils.toIntColor(rf, 0.5f);
 		int traceQuads = RenderUtils.toIntColor(rf, 0.35f);
-		if(!boxes.isEmpty())
+		if(hasBoxes)
 		{
 			RenderUtils.drawSolidBoxes(matrixStack, boxes, traceQuads, false);
 			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, traceLines,
 				false);
 		}
-		if(!ends.isEmpty())
+		if(hasTracers)
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, traceLines,
 				false);
 	}
