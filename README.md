@@ -451,6 +451,9 @@ Examples:
 
 ![Library](https://i.imgur.com/pWqgNz8.png)
 
+### NoSlowDown Improved
+- Added no slowdown for lava
+
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
 
