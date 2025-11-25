@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -67,6 +68,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new FilterInvisibleSetting("Won't show invisible players.", false));
 	
 	private final ArrayList<Player> players = new ArrayList<>();
+	private final Map<UUID, PendingEnterAlert> pendingEnterAlerts =
+		new HashMap<>();
 	// Alert settings & tracking for enter/exit notifications
 	private final CheckboxSetting enterAlert = new CheckboxSetting(
 		"Enter alert",
@@ -89,19 +92,31 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				if(!isEnabled() || !enterAlert.isChecked())
 					return;
 				
-				if(ignoreNpcs.isChecked() && info.isProbablyNpc())
-					return;
+				pendingEnterAlerts.remove(info.getUuid());
 				
-				sendEnterMessage(player);
+				if(ignoreNpcs.isChecked())
+				{
+					if(shouldIgnoreNpcCandidate(info))
+						return;
+					
+					pendingEnterAlerts.put(info.getUuid(),
+						new PendingEnterAlert(info, Util.getMillis()));
+					return;
+				}
+				
+				sendEnterMessage(info);
 			}
 			
 			@Override
 			public void onPlayerExit(PlayerRangeAlertManager.PlayerInfo info)
 			{
+				pendingEnterAlerts.remove(info.getUuid());
+				
 				if(!isEnabled() || !exitAlert.isChecked())
 					return;
 				
-				if(ignoreNpcs.isChecked() && info.isProbablyNpc())
+				if(ignoreNpcs.isChecked()
+					&& (info.isProbablyNpc() || isMissingIdentity(info)))
 					return;
 				
 				sendExitMessage(info);
@@ -156,6 +171,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private static final long LOS_FADE_MS = 120;
 	private static final double THREAT_LINE_WIDTH = 4.0; // base thickness of
 															// threat lines
+	private static final long NPC_CONFIRM_DELAY_MS = 400;
 	
 	public PlayerEspHack()
 	{
@@ -197,6 +213,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		alertManager.removeListener(alertListener);
 		losStates.clear();
+		pendingEnterAlerts.clear();
 	}
 	
 	@Override
@@ -225,23 +242,84 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		players.addAll(stream.collect(Collectors.toList()));
 		
+		long now = Util.getMillis();
+		
 		if(losThreatDetection.isChecked())
-			updateLosStates(Util.getMillis());
+			updateLosStates(now);
 		else
 			losStates.clear();
+		
+		processPendingEnterAlerts(now);
 	}
 	
-	private void sendEnterMessage(Player p)
+	private void processPendingEnterAlerts(long now)
+	{
+		if(pendingEnterAlerts.isEmpty())
+			return;
+		
+		if(!enterAlert.isChecked())
+		{
+			pendingEnterAlerts.clear();
+			return;
+		}
+		
+		if(!ignoreNpcs.isChecked())
+		{
+			for(PendingEnterAlert alert : pendingEnterAlerts.values())
+				sendEnterMessage(alert.info);
+			pendingEnterAlerts.clear();
+			return;
+		}
+		
+		if(MC.player == null || MC.level == null)
+		{
+			pendingEnterAlerts.clear();
+			return;
+		}
+		
+		Iterator<Map.Entry<UUID, PendingEnterAlert>> it =
+			pendingEnterAlerts.entrySet().iterator();
+		while(it.hasNext())
+		{
+			PendingEnterAlert alert = it.next().getValue();
+			
+			if(shouldIgnoreNpcCandidate(alert.info))
+			{
+				it.remove();
+				continue;
+			}
+			
+			if(now - alert.createdAt < NPC_CONFIRM_DELAY_MS)
+				continue;
+			
+			sendEnterMessage(alert.info);
+			it.remove();
+		}
+	}
+	
+	private void sendEnterMessage(PlayerRangeAlertManager.PlayerInfo info)
 	{
 		if(MC.player == null)
 			return;
-		UUID id = p.getUUID();
-		double dist = Math.round(MC.player.distanceTo(p) * 10.0) / 10.0;
-		int x = (int)Math.round(p.getX());
-		int y = (int)Math.round(p.getY());
-		int z = (int)Math.round(p.getZ());
+		
+		String rawName = info.getName();
+		if(rawName == null)
+			return;
+		String trimmedName = rawName.trim();
+		if(trimmedName.isEmpty())
+			return;
+		
+		UUID id = info.getUuid();
+		Vec3 pos = info.getLastPos();
+		double dist = pos == null ? -1.0
+			: Math.round(pos.distanceTo(
+				new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
+				* 10.0) / 10.0;
+		int x = pos == null ? 0 : (int)Math.round(pos.x);
+		int y = pos == null ? 0 : (int)Math.round(pos.y);
+		int z = pos == null ? 0 : (int)Math.round(pos.z);
 		MutableComponent nameText = MutableComponent
-			.create(Component.literal(p.getName().getString()).getContents());
+			.create(Component.literal(trimmedName).getContents());
 		if(randomBrightColors.isChecked())
 		{
 			int idx = Math.abs(id.hashCode());
@@ -250,12 +328,41 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
+		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
 		Component msg = nameText.append(Component
-			.literal(" entered range (" + dist + " blocks) at " + x + ", " + y
+			.literal(" entered range (" + distStr + ") at " + x + ", " + y
 				+ ", " + z + ".")
 			.withStyle(s -> s
 				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
 		ChatUtils.component(msg);
+	}
+	
+	private boolean shouldIgnoreNpcCandidate(
+		PlayerRangeAlertManager.PlayerInfo info)
+	{
+		if(info == null)
+			return true;
+		
+		if(info.isProbablyNpc())
+			return true;
+		
+		if(isMissingIdentity(info))
+			return true;
+		
+		if(MC != null && MC.getConnection() != null
+			&& MC.getConnection().getPlayerInfo(info.getUuid()) == null)
+			return true;
+		
+		return false;
+	}
+	
+	private boolean isMissingIdentity(PlayerRangeAlertManager.PlayerInfo info)
+	{
+		if(info == null)
+			return true;
+		
+		String name = info.getName();
+		return name == null || name.trim().isEmpty();
 	}
 	
 	private void sendExitMessage(PlayerRangeAlertManager.PlayerInfo info)
@@ -271,8 +378,15 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		int x = pos == null ? 0 : (int)Math.round(pos.x);
 		int y = pos == null ? 0 : (int)Math.round(pos.y);
 		int z = pos == null ? 0 : (int)Math.round(pos.z);
+		String rawName = info.getName();
+		if(rawName == null)
+			return;
+		String trimmedName = rawName.trim();
+		if(trimmedName.isEmpty())
+			return;
+		
 		MutableComponent nameText = MutableComponent
-			.create(Component.literal(info.getName()).getContents());
+			.create(Component.literal(trimmedName).getContents());
 		if(randomBrightColors.isChecked())
 		{
 			int idx = Math.abs(info.getUuid().hashCode());
@@ -638,6 +752,19 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		double blockDistSq = blockHit.getLocation().distanceToSqr(eyePos);
 		double targetDistSq = hitPos.distanceToSqr(eyePos);
 		return blockDistSq >= targetDistSq - 1e-3;
+	}
+	
+	private static final class PendingEnterAlert
+	{
+		private final PlayerRangeAlertManager.PlayerInfo info;
+		private final long createdAt;
+		
+		private PendingEnterAlert(PlayerRangeAlertManager.PlayerInfo info,
+			long createdAt)
+		{
+			this.info = info;
+			this.createdAt = createdAt;
+		}
 	}
 	
 	private static final class PlayerVisual

@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+import java.util.stream.Collectors;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
@@ -74,6 +76,14 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	private static final Method PROFILE_NAME_METHOD =
 		discoverProfileNameMethod();
 	private static final Method PROFILE_ID_METHOD = discoverProfileIdMethod();
+	
+	public static boolean isValidOfflineNameFormat(String name)
+	{
+		if(name == null)
+			return false;
+		
+		return name.length() <= 16 && name.matches("[A-Za-z0-9_]+");
+	}
 	
 	private static Method discoverProfileNameMethod()
 	{
@@ -137,10 +147,10 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			}
 		};
 	
-	private final TextFieldSetting specifiedName = new TextFieldSetting(
-		"Specified name",
-		WText.literal("Force reconnects to use this offline name."), "",
-		s -> s.isEmpty() || (s.length() <= 16 && s.matches("[A-Za-z0-9_]+")));
+	private final TextFieldSetting specifiedName =
+		new TextFieldSetting("Specified name",
+			WText.literal("Force reconnects to use this offline name."), "",
+			s -> s.isEmpty() || isValidOfflineNameFormat(s));
 	
 	private final StringDropdownSetting otherPlayerName =
 		new StringDropdownSetting("Player select",
@@ -195,6 +205,15 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		new ConcurrentHashMap<>();
 	private final Set<String> announcedCrackedServers =
 		Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final UpdateListener reconnectCommandRunner = new UpdateListener()
+	{
+		@Override
+		public void onUpdate()
+		{
+			tryRunPendingReconnectCommand();
+		}
+	};
+	private boolean reconnectCommandRunnerRegistered;
 	
 	public OfflineSettingsHack()
 	{
@@ -241,6 +260,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		unregisterReconnectCommandRunner();
 		cleanupTemporaryAlt();
 		pendingReconnectCommand = null;
 		reconnectCommandDelayTicks = 0;
@@ -392,10 +412,38 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		else
 			cleanupTemporaryAlt();
 		
-		ServerAddress address = ServerAddress.parseString(server.ip);
-		Screen previous = resolvePrevScreen(prevScreen, client);
-		ConnectScreen.startConnecting(previous, client, address, server, false,
-			null);
+		startConnection(client, prevScreen, server);
+	}
+	
+	public void reconnectWithCustomName(String name)
+	{
+		reconnectWithCustomName(name, null);
+	}
+	
+	public void reconnectWithCustomName(String name, Screen prevScreen)
+	{
+		if(name == null)
+			return;
+		
+		String trimmed = name.trim();
+		if(trimmed.isEmpty() || !isValidOfflineNameFormat(trimmed))
+			return;
+		
+		ServerData lastServer = LastServerRememberer.getLastServer();
+		Minecraft client = Minecraft.getInstance();
+		if(lastServer == null || client == null)
+			return;
+		
+		final Screen prev = resolvePrevScreen(prevScreen, client);
+		client.execute(
+			() -> reconnectWithProvidedName(client, prev, lastServer, trimmed));
+	}
+	
+	private void reconnectWithProvidedName(Minecraft client, Screen prevScreen,
+		ServerData server, String providedName)
+	{
+		applyName(providedName);
+		startConnection(client, prevScreen, server);
 	}
 	
 	private Screen resolvePrevScreen(Screen requested, Minecraft client)
@@ -404,6 +452,15 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			return requested;
 		
 		return client != null ? client.screen : null;
+	}
+	
+	private void startConnection(Minecraft client, Screen prevScreen,
+		ServerData server)
+	{
+		ServerAddress address = ServerAddress.parseString(server.ip);
+		Screen previous = resolvePrevScreen(prevScreen, client);
+		ConnectScreen.startConnecting(previous, client, address, server, false,
+			null);
 	}
 	
 	private String determineName(boolean allowRandomFallback)
@@ -500,6 +557,13 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		
 		otherPlayerName.setOptions(dropdownOptions);
 		checkAutoLogout(players, server);
+	}
+	
+	public List<String> getCapturedPlayerNames()
+	{
+		return otherPlayerName.getValues().stream()
+			.filter(name -> name != null && !name.trim().isEmpty())
+			.collect(Collectors.toList());
 	}
 	
 	private void checkAutoLogout(Set<String> players, ServerData server)
@@ -685,7 +749,10 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	{
 		String command = pendingReconnectCommand;
 		if(command == null || command.isEmpty())
+		{
+			unregisterReconnectCommandRunner();
 			return;
+		}
 		
 		Minecraft client = Minecraft.getInstance();
 		if(client == null || client.getConnection() == null)
@@ -707,6 +774,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			.message("[OfflineSettings] Ran reconnect command: " + command);
 		pendingReconnectCommand = null;
 		reconnectCommandDelayTicks = 0;
+		unregisterReconnectCommandRunner();
 	}
 	
 	public void reconnectAndRunCommand()
@@ -723,11 +791,11 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		scheduleReconnectCommand(command);
+		queueReconnectCommand(command);
 		reconnectWithSelectedName(prevScreen);
 	}
 	
-	private void scheduleReconnectCommand(String command)
+	public void queueReconnectCommand(String command)
 	{
 		String trimmed = command.trim();
 		if(trimmed.isEmpty())
@@ -737,6 +805,25 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		reconnectCommandDelayTicks = 40;
 		ChatUtils
 			.message("[OfflineSettings] Queued reconnect command: " + trimmed);
+		registerReconnectCommandRunner();
+	}
+	
+	private void registerReconnectCommandRunner()
+	{
+		if(reconnectCommandRunnerRegistered)
+			return;
+		
+		EVENTS.add(UpdateListener.class, reconnectCommandRunner);
+		reconnectCommandRunnerRegistered = true;
+	}
+	
+	private void unregisterReconnectCommandRunner()
+	{
+		if(!reconnectCommandRunnerRegistered)
+			return;
+		
+		EVENTS.remove(UpdateListener.class, reconnectCommandRunner);
+		reconnectCommandRunnerRegistered = false;
 	}
 	
 	public boolean wasLastServerCracked()

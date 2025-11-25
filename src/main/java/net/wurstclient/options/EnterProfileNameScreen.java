@@ -8,6 +8,7 @@
 package net.wurstclient.options;
 
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -23,15 +24,28 @@ public final class EnterProfileNameScreen extends Screen
 {
 	private final Screen prevScreen;
 	private final Consumer<String> callback;
+	private final Component promptMessage;
+	private final Predicate<String> validator;
 	
 	private EditBox valueField;
 	private Button doneButton;
 	
 	public EnterProfileNameScreen(Screen prevScreen, Consumer<String> callback)
 	{
+		this(prevScreen, callback, Component.literal("Name your new profile"),
+			value -> !value.isEmpty());
+	}
+	
+	public EnterProfileNameScreen(Screen prevScreen, Consumer<String> callback,
+		Component promptMessage, Predicate<String> validator)
+	{
 		super(Component.literal(""));
 		this.prevScreen = prevScreen;
 		this.callback = callback;
+		this.promptMessage = promptMessage != null ? promptMessage
+			: Component.literal("Name your new profile");
+		this.validator =
+			validator != null ? validator : value -> !value.isEmpty();
 	}
 	
 	@Override
@@ -58,11 +72,17 @@ public final class EnterProfileNameScreen extends Screen
 	
 	private void done()
 	{
-		String value = valueField.getValue();
-		if(!value.isEmpty())
-			callback.accept(value);
+		String value = valueField.getValue().trim();
+		if(value.isEmpty())
+			return;
 		
-		minecraft.setScreen(prevScreen);
+		if(!validator.test(value))
+			return;
+		
+		callback.accept(value);
+		
+		if(minecraft.screen == this)
+			minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -86,7 +106,7 @@ public final class EnterProfileNameScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		context.drawCenteredString(minecraft.font, "Name your new profile",
+		context.drawCenteredString(minecraft.font, promptMessage.getString(),
 			width / 2, 20, CommonColors.WHITE);
 		
 		valueField.render(context, mouseX, mouseY, partialTicks);

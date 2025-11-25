@@ -13,6 +13,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.wurstclient.WurstClient;
+import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.command.CmdProcessor;
 import net.wurstclient.events.KeyPressListener;
@@ -57,6 +58,10 @@ public final class KeybindProcessor implements KeyPressListener
 		// navigator and pass the initial character
 		if(screen instanceof ClickGuiScreen)
 		{
+			ClickGui gui = WurstClient.INSTANCE.getGui();
+			if(gui != null && gui.isKeyboardInputCaptured())
+				return;
+			
 			String ch =
 				mapPrintableChar(event.getKeyCode(), event.getModifiers());
 			if(ch != null)

@@ -10,6 +10,8 @@ package net.wurstclient.clickgui.screens;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.clickgui.ClickGui;
@@ -54,6 +56,24 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
+	public boolean keyPressed(KeyEvent context)
+	{
+		if(gui.handleKeyPressed(context))
+			return true;
+		
+		return super.keyPressed(context);
+	}
+	
+	@Override
+	public boolean charTyped(CharacterEvent event)
+	{
+		if(gui.handleCharTyped(event))
+			return true;
+		
+		return super.charTyped(event);
+	}
+	
+	@Override
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
@@ -68,5 +88,12 @@ public final class ClickGuiScreen extends Screen
 		float deltaTicks)
 	{
 		// Don't blur
+	}
+	
+	@Override
+	public void removed()
+	{
+		gui.clearKeyboardInput();
+		super.removed();
 	}
 }
