@@ -105,6 +105,14 @@ public final class TextFieldSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
+	public boolean isValidValue(String value)
+	{
+		if(value == null)
+			return false;
+		
+		return validator.test(value);
+	}
+	
 	public void resetToDefault()
 	{
 		value = defaultValue;

@@ -28,6 +28,9 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -63,6 +66,7 @@ public final class ClickGui
 	private String tooltip = "";
 	
 	private boolean leftMouseButtonPressed;
+	private KeyboardInput keyboardInput;
 	
 	public ClickGui(Path windowsFile)
 	{
@@ -356,6 +360,57 @@ public final class ClickGui
 		return popupScrolled;
 	}
 	
+	public boolean handleKeyPressed(KeyEvent context)
+	{
+		if(keyboardInput != null && keyboardInput.onKeyPressed(context))
+			return true;
+		
+		if(context.key() == GLFW.GLFW_KEY_ESCAPE && keyboardInput != null)
+		{
+			clearKeyboardInput();
+			return true;
+		}
+		
+		return false;
+	}
+	
+	public boolean handleCharTyped(CharacterEvent event)
+	{
+		return keyboardInput != null && keyboardInput.onCharTyped(event);
+	}
+	
+	public void requestKeyboardInput(KeyboardInput handler)
+	{
+		if(handler == null || keyboardInput == handler)
+			return;
+		
+		if(keyboardInput != null)
+			clearKeyboardInput();
+		
+		keyboardInput = handler;
+	}
+	
+	public void releaseKeyboardInput(KeyboardInput handler)
+	{
+		if(handler != null && keyboardInput == handler)
+			keyboardInput = null;
+	}
+	
+	public void clearKeyboardInput()
+	{
+		if(keyboardInput == null)
+			return;
+		
+		KeyboardInput handler = keyboardInput;
+		keyboardInput = null;
+		handler.onKeyboardFocusLost();
+	}
+	
+	public boolean isKeyboardInputCaptured()
+	{
+		return keyboardInput != null;
+	}
+	
 	public void handleNavigatorMouseClick(double cMouseX, double cMouseY,
 		int mouseButton, Window window)
 	{
@@ -582,7 +637,10 @@ public final class ClickGui
 				|| mouseY >= c.getY() + c.getHeight())
 				continue;
 			
-			c.handleMouseClick(mouseX, mouseY, mouseButton);
+			if(keyboardInput != null && keyboardInput != c)
+				clearKeyboardInput();
+			
+			c.handleMouseClick(mouseX, mouseY, mouseButton, context);
 			break;
 		}
 	}

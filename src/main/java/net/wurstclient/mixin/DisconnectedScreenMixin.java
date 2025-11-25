@@ -7,6 +7,7 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -37,8 +38,10 @@ import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hacks.AutoReconnectHack;
 import net.wurstclient.hacks.OfflineSettingsHack;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
+import net.wurstclient.navigator.NavigatorListScreen;
 import net.wurstclient.nochatreports.ForcedChatReportsScreen;
 import net.wurstclient.nochatreports.NcrModRequiredScreen;
+import net.wurstclient.options.EnterProfileNameScreen;
 import net.wurstclient.util.LastServerRememberer;
 
 @Mixin(value = DisconnectedScreen.class, remap = false)
@@ -51,9 +54,11 @@ public class DisconnectedScreenMixin extends Screen
 	private Button overlayAutoButton;
 	private Button overlayRandomButton;
 	private Button overlayRejoinButton;
+	private Button overlayPickPlayerButton;
 	private Button overlayCommandButton;
 	private OfflineSettingsHack overlayHack;
 	private String overlayReasonText;
+	private Component overlayReasonComponent;
 	private List<FormattedCharSequence> overlayLines = Collections.emptyList();
 	private int overlayWidth;
 	private int overlayHeight;
@@ -222,6 +227,12 @@ public class DisconnectedScreenMixin extends Screen
 			buttonCount++;
 		}
 		
+		if(overlayPickPlayerButton != null && overlayPickPlayerButton.visible)
+		{
+			buttonHeightSum += overlayPickPlayerButton.getHeight();
+			buttonCount++;
+		}
+		
 		int totalButtonSpacing = Math.max(0, buttonCount - 1) * buttonSpacing;
 		int textButtonGap = overlayLines.isEmpty() ? 0 : 8;
 		overlayHeight = padding + textHeight + textButtonGap + buttonHeightSum
@@ -281,7 +292,21 @@ public class DisconnectedScreenMixin extends Screen
 			int buttonX =
 				overlayX + (overlayWidth - overlayCommandButton.getWidth()) / 2;
 			overlayCommandButton.setPosition(buttonX, currentY);
+			currentY += overlayCommandButton.getHeight();
 			placedButtons++;
+			if(placedButtons < buttonCount)
+				currentY += buttonSpacing;
+		}
+		
+		if(overlayPickPlayerButton != null && overlayPickPlayerButton.visible)
+		{
+			int buttonX = overlayX
+				+ (overlayWidth - overlayPickPlayerButton.getWidth()) / 2;
+			overlayPickPlayerButton.setPosition(buttonX, currentY);
+			currentY += overlayPickPlayerButton.getHeight();
+			placedButtons++;
+			if(placedButtons < buttonCount)
+				currentY += buttonSpacing;
 		}
 	}
 	
@@ -351,8 +376,7 @@ public class DisconnectedScreenMixin extends Screen
 		{
 			overlayRejoinButton = createOverlayButton(
 				Component.literal("Reconnect with selected name"), () -> {
-					hideLoginOverlay();
-					hack.reconnectWithSelectedName(parent);
+					promptReconnectWithCustomName(hack);
 				}, 220);
 			overlayRejoinButton.visible = false;
 			addRenderableWidget(overlayRejoinButton);
@@ -371,11 +395,19 @@ public class DisconnectedScreenMixin extends Screen
 		{
 			overlayCommandButton = createOverlayButton(
 				Component.literal("Reconnect & run command"), () -> {
-					hideLoginOverlay();
-					hack.reconnectAndRunCommand(parent);
+					showReconnectCommandPrompt(hack);
 				}, 220);
 			overlayCommandButton.visible = false;
 			addRenderableWidget(overlayCommandButton);
+		}
+		if(overlayPickPlayerButton == null)
+		{
+			overlayPickPlayerButton = createOverlayButton(
+				Component.literal("Reconnect as specific player"), () -> {
+					showPlayerPicker(hack);
+				}, 220);
+			overlayPickPlayerButton.visible = false;
+			addRenderableWidget(overlayPickPlayerButton);
 		}
 	}
 	
@@ -411,6 +443,7 @@ public class DisconnectedScreenMixin extends Screen
 	{
 		showLoginOverlay = true;
 		overlayReasonText = StringUtil.stripColor(reason.getString());
+		overlayReasonComponent = reason;
 		overlayLines = Collections.emptyList();
 		ensureOverlayButtons(hack);
 		overlayRandomButton.visible = true;
@@ -421,6 +454,8 @@ public class DisconnectedScreenMixin extends Screen
 		}
 		if(overlayRejoinButton != null)
 			overlayRejoinButton.visible = true;
+		if(overlayPickPlayerButton != null)
+			overlayPickPlayerButton.visible = true;
 		if(overlayCommandButton != null)
 			overlayCommandButton.visible = true;
 		
@@ -434,6 +469,8 @@ public class DisconnectedScreenMixin extends Screen
 			overlayRandomButton.visible = false;
 		if(overlayRejoinButton != null)
 			overlayRejoinButton.visible = false;
+		if(overlayPickPlayerButton != null)
+			overlayPickPlayerButton.visible = false;
 		if(overlayAutoButton != null)
 			overlayAutoButton.visible = false;
 		if(overlayCommandButton != null)
@@ -449,6 +486,103 @@ public class DisconnectedScreenMixin extends Screen
 		
 		String text = StringUtil.stripColor(reason.getString());
 		return "You logged in from another location".equals(text);
+	}
+	
+	private void promptReconnectWithCustomName(OfflineSettingsHack hack)
+	{
+		if(minecraft == null || hack == null)
+			return;
+		
+		Screen returnScreen = (Screen)(Object)this;
+		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+			if(input == null)
+				return;
+			
+			String trimmed = input.trim();
+			if(trimmed.isEmpty()
+				|| !OfflineSettingsHack.isValidOfflineNameFormat(trimmed))
+				return;
+			
+			hideLoginOverlay();
+			hack.reconnectWithCustomName(trimmed, parent);
+		}, Component.literal("Enter offline name"), value -> {
+			if(value == null)
+				return false;
+			
+			String trimmed = value.trim();
+			return !trimmed.isEmpty()
+				&& OfflineSettingsHack.isValidOfflineNameFormat(trimmed);
+		}));
+	}
+	
+	private void showPlayerPicker(OfflineSettingsHack hack)
+	{
+		if(minecraft == null || hack == null)
+			return;
+		
+		ArrayList<String> names = new ArrayList<>();
+		
+		if(minecraft.player != null && minecraft.player.connection != null)
+		{
+			minecraft.player.connection.getOnlinePlayers().forEach(info -> {
+				if(info == null || info.getProfile() == null
+					|| info.getProfile().name() == null)
+					return;
+				
+				String name = info.getProfile().name().trim();
+				if(!name.isEmpty() && !names.contains(name))
+					names.add(name);
+			});
+		}
+		
+		if(names.isEmpty())
+			names.addAll(hack.getCapturedPlayerNames());
+		
+		if(names.isEmpty())
+			return;
+		
+		Component reason = overlayReasonComponent != null
+			? overlayReasonComponent : Component.literal("Disconnected");
+		Runnable restoreOverlay = () -> {
+			if(overlayHack != null)
+				showLoginOverlay(overlayHack, reason);
+		};
+		
+		hideLoginOverlay();
+		minecraft.setScreen(new NavigatorListScreen(
+			Component.literal("Select player"), names, selected -> {
+				if(selected != null && !selected.trim().isEmpty())
+					hack.reconnectWithCustomName(selected.trim(), parent);
+			}, (player, command) -> {
+				if(player == null || player.trim().isEmpty())
+					return;
+				if(command == null || command.trim().isEmpty())
+					return;
+				
+				hack.queueReconnectCommand(command.trim());
+				hack.reconnectWithCustomName(player.trim(), parent);
+			}, this, restoreOverlay));
+	}
+	
+	private void showReconnectCommandPrompt(OfflineSettingsHack hack)
+	{
+		if(minecraft == null || hack == null)
+			return;
+		
+		Screen returnScreen = (Screen)(Object)this;
+		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+			if(input == null)
+				return;
+			
+			String trimmed = input.trim();
+			if(trimmed.isEmpty())
+				return;
+			
+			hideLoginOverlay();
+			hack.queueReconnectCommand(trimmed);
+			hack.reconnectWithSelectedName(parent);
+		}, Component.literal("Enter reconnect command"),
+			value -> value != null && !value.trim().isEmpty()));
 	}
 	
 	@Override

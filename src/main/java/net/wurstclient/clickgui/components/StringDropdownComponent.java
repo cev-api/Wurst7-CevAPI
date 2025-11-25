@@ -25,6 +25,7 @@ public final class StringDropdownComponent extends Component
 	private static final ClickGui GUI = WurstClient.INSTANCE.getGui();
 	private static final Font TR = WurstClient.MC.font;
 	private static final int ARROW_SIZE = 11;
+	private static final int LABEL_HEIGHT = 11;
 	
 	private final StringDropdownSetting setting;
 	private StringDropdownPopup popup;
@@ -40,10 +41,15 @@ public final class StringDropdownComponent extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		int popupWidth = computePopupWidth();
-		
-		if(mouseX < getX() + getWidth() - popupWidth - ARROW_SIZE - 4)
+		double localX = mouseX - getX();
+		double localY = mouseY - getY();
+		if(localX < 0 || localX >= getWidth())
 			return;
+		
+		if(localY < LABEL_HEIGHT)
+			return;
+		
+		int popupWidth = computePopupWidth();
 		
 		switch(mouseButton)
 		{
@@ -87,35 +93,36 @@ public final class StringDropdownComponent extends Component
 		int popupWidth = computePopupWidth();
 		int x1 = getX();
 		int x2 = x1 + getWidth();
-		int x3 = x2 - ARROW_SIZE;
-		int x4 = x3 - popupWidth - 4;
-		int y1 = getY();
-		int y2 = y1 + getHeight();
+		int boxY1 = getY() + LABEL_HEIGHT;
+		int boxY2 = boxY1 + ARROW_SIZE;
+		int arrowX1 = x2 - ARROW_SIZE;
+		int arrowX2 = x2;
 		
 		boolean hovering = isHovering(mouseX, mouseY);
-		boolean hText = hovering && mouseX < x4;
-		boolean hBox = hovering && mouseX >= x4;
+		boolean hText = hovering && mouseY < boxY1;
+		boolean hBox = hovering && mouseY >= boxY1;
 		
 		if(hText)
 			GUI.setTooltip(setting.getWrappedDescription(200));
 		
-		context.fill(x1, y1, x4, y2, getFillColor(false));
-		context.fill(x4, y1, x2, y2, getFillColor(hBox));
+		context.fill(x1, getY(), x2, boxY1, getFillColor(false));
+		context.fill(x1, boxY1, x2, boxY2, getFillColor(hBox));
 		
 		context.guiRenderState.up();
 		
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
-		RenderUtils.drawBorder2D(context, x4, y1, x2, y2, outlineColor);
-		RenderUtils.drawLine2D(context, x3, y1, x3, y2, outlineColor);
+		RenderUtils.drawBorder2D(context, x1, boxY1, x2, boxY2, outlineColor);
+		RenderUtils.drawLine2D(context, arrowX1, boxY1, arrowX1, boxY2,
+			outlineColor);
 		
-		ClickGuiIcons.drawMinimizeArrow(context, x3, y1 + 0.5F, x2, y2 - 0.5F,
-			hBox, !isPopupOpen());
+		ClickGuiIcons.drawMinimizeArrow(context, arrowX1, boxY1 + 0.5F, arrowX2,
+			boxY2 - 0.5F, hBox, !isPopupOpen());
 		
 		String name = setting.getName();
 		String value = setting.getSelected();
 		int txtColor = GUI.getTxtColor();
-		context.drawString(TR, name, x1, y1 + 2, txtColor, false);
-		context.drawString(TR, value, x4 + 2, y1 + 2, txtColor, false);
+		context.drawString(TR, name, x1, getY() + 2, txtColor, false);
+		context.drawString(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
 	}
 	
 	private int computePopupWidth()
@@ -134,12 +141,14 @@ public final class StringDropdownComponent extends Component
 	public int getDefaultWidth()
 	{
 		int popupWidth = computePopupWidth();
-		return TR.width(setting.getName()) + popupWidth + ARROW_SIZE + 6;
+		int boxWidth = popupWidth + ARROW_SIZE + 6;
+		int labelWidth = TR.width(setting.getName()) + 4;
+		return Math.max(labelWidth, boxWidth);
 	}
 	
 	@Override
 	public int getDefaultHeight()
 	{
-		return ARROW_SIZE;
+		return LABEL_HEIGHT + ARROW_SIZE;
 	}
 }
