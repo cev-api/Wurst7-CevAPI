@@ -89,7 +89,8 @@ public class WurstTest implements FabricClientGameTest
 		world.waitForChunksRender();
 		
 		assertScreenshotEquals(context, "in_game",
-			"https://i.imgur.com/EfzN9Cd.png");
+			IS_MOD_COMPAT_TEST ? "https://i.imgur.com/VxbGFrb.png"
+				: "https://i.imgur.com/2UvurYl.png");
 		
 		LOGGER.info("Recording debug menu");
 		input.pressKey(GLFW.GLFW_KEY_F3);
