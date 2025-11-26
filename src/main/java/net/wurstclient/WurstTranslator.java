@@ -237,12 +237,10 @@ public class WurstTranslator implements ResourceManagerReloadListener
 			
 		if(!"fabric".equals(knownPack.namespace()))
 			return false;
-			
-		// Note: Namespace can be "fabric" or "vanilla" depending on
-		// Fabric API version (changed in 0.139.3+1.21.11).
-		return ("fabric".equals(knownPack.namespace())
-			|| "vanilla".equals(knownPack.namespace()))
-			&& "wurst".equals(knownPack.id()) || "nicewurst".equals(knownPack.id());
+		
+		String id = knownPack.id();
+		return "wurst".equals(id) || "wurst_testmod".equals(id)
+			|| "nicewurst".equals(id);
 	}
 	
 }
