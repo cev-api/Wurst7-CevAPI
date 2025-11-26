@@ -592,7 +592,7 @@ public final class AltManagerScreen extends Screen
 			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 				return false;
 			
-			super.mouseClicked(context, doubleClick);
+			super.mouseClicked(mouseX, mouseY, mouseButton);
 			
 			long timeSinceLastClick = Util.getMillis() - lastClickTime;
 			lastClickTime = Util.getMillis();
@@ -657,7 +657,7 @@ public final class AltManagerScreen extends Screen
 		public ListGui(Minecraft minecraft, AltManagerScreen screen,
 			List<Alt> list)
 		{
-			super(minecraft, screen.width, screen.height - 96, 36, 30, 0);
+			super(minecraft, screen.width, screen.height - 96, 36, 30);
 			
 			list.stream().map(alt -> new AltManagerScreen.Entry(this, alt))
 				.forEach(this::addEntry);

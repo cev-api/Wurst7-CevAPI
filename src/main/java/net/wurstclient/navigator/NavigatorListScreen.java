@@ -15,8 +15,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
@@ -71,15 +69,15 @@ public final class NavigatorListScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent event)
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(keyCode == GLFW.GLFW_KEY_ESCAPE)
 		{
 			cancelSelection();
 			return true;
 		}
 		
-		return super.keyPressed(event);
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 	
 	@Override
@@ -94,12 +92,8 @@ public final class NavigatorListScreen extends Screen
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
+	public boolean mouseClicked(double mouseX, double mouseY, int button)
 	{
-		double mouseX = context.x();
-		double mouseY = context.y();
-		int button = context.button();
-		
 		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 		{
 			if(mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop
@@ -135,7 +129,7 @@ public final class NavigatorListScreen extends Screen
 			}
 		}
 		
-		return super.mouseClicked(context, doubleClick);
+		return super.mouseClicked(mouseX, mouseY, button);
 	}
 	
 	@Override

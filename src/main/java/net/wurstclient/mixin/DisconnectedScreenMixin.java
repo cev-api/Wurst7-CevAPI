@@ -526,10 +526,10 @@ public class DisconnectedScreenMixin extends Screen
 		{
 			minecraft.player.connection.getOnlinePlayers().forEach(info -> {
 				if(info == null || info.getProfile() == null
-					|| info.getProfile().name() == null)
+					|| info.getProfile().getName() == null)
 					return;
 				
-				String name = info.getProfile().name().trim();
+				String name = info.getProfile().getName().trim();
 				if(!name.isEmpty() && !names.contains(name))
 					names.add(name);
 			});

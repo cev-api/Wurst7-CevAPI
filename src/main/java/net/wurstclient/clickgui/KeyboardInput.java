@@ -7,9 +7,6 @@
  */
 package net.wurstclient.clickgui;
 
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-
 /**
  * Minimal interface for ClickGUI components that want to capture keyboard
  * input. Components can request focus through {@link ClickGui} and receive key
@@ -17,9 +14,9 @@ import net.minecraft.client.input.KeyEvent;
  */
 public interface KeyboardInput
 {
-	boolean onKeyPressed(KeyEvent event);
+	boolean onKeyPressed(int keyCode, int scanCode, int modifiers);
 	
-	boolean onCharTyped(CharacterEvent event);
+	boolean onCharTyped(char chr, int modifiers);
 	
 	void onKeyboardFocusLost();
 }

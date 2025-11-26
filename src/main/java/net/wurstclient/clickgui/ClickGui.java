@@ -28,9 +28,6 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -262,7 +259,7 @@ public final class ClickGui
 		{
 			boolean closedPopups = closeActivePopups();
 			if(!closedPopups)
-				handleWindowMouseClick(mouseX, mouseY, mouseButton, context);
+				handleWindowMouseClick(mouseX, mouseY, mouseButton);
 		}
 		
 		for(Popup popup : popups)
@@ -360,12 +357,13 @@ public final class ClickGui
 		return popupScrolled;
 	}
 	
-	public boolean handleKeyPressed(KeyEvent context)
+	public boolean handleKeyPressed(int keyCode, int scanCode, int modifiers)
 	{
-		if(keyboardInput != null && keyboardInput.onKeyPressed(context))
+		if(keyboardInput != null
+			&& keyboardInput.onKeyPressed(keyCode, scanCode, modifiers))
 			return true;
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE && keyboardInput != null)
+		if(keyCode == GLFW.GLFW_KEY_ESCAPE && keyboardInput != null)
 		{
 			clearKeyboardInput();
 			return true;
@@ -374,9 +372,10 @@ public final class ClickGui
 		return false;
 	}
 	
-	public boolean handleCharTyped(CharacterEvent event)
+	public boolean handleCharTyped(char chr, int modifiers)
 	{
-		return keyboardInput != null && keyboardInput.onCharTyped(event);
+		return keyboardInput != null
+			&& keyboardInput.onCharTyped(chr, modifiers);
 	}
 	
 	public void requestKeyboardInput(KeyboardInput handler)
@@ -640,7 +639,7 @@ public final class ClickGui
 			if(keyboardInput != null && keyboardInput != c)
 				clearKeyboardInput();
 			
-			c.handleMouseClick(mouseX, mouseY, mouseButton, context);
+			c.handleMouseClick(mouseX, mouseY, mouseButton);
 			break;
 		}
 	}

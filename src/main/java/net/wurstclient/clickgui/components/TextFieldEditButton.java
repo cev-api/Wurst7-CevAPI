@@ -13,9 +13,6 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.KeyboardInput;
@@ -66,7 +63,8 @@ public final class TextFieldEditButton extends Component
 			{
 				if(!editing)
 					startEditing();
-				inlineField.mouseClicked(context, false);
+				inlineField.mouseClicked(toAbsoluteMouseX(mouseX),
+					toAbsoluteMouseY(mouseY), mouseButton);
 			}else if(editing)
 				finishEditing(true);
 			break;
@@ -182,12 +180,11 @@ public final class TextFieldEditButton extends Component
 	}
 	
 	@Override
-	public boolean onKeyPressed(KeyEvent event)
+	public boolean onKeyPressed(int keyCode, int scanCode, int modifiers)
 	{
 		if(!editing)
 			return false;
 		
-		int keyCode = event.key();
 		if(keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
 		{
 			finishEditing(true);
@@ -200,13 +197,13 @@ public final class TextFieldEditButton extends Component
 			return true;
 		}
 		
-		return inlineField.keyPressed(event);
+		return inlineField.keyPressed(keyCode, scanCode, modifiers);
 	}
 	
 	@Override
-	public boolean onCharTyped(CharacterEvent event)
+	public boolean onCharTyped(char chr, int modifiers)
 	{
-		return editing && inlineField.charTyped(event);
+		return editing && inlineField.charTyped(chr, modifiers);
 	}
 	
 	@Override

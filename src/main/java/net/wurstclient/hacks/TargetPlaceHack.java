@@ -88,8 +88,8 @@ public final class TargetPlaceHack extends Hack
 		InputConstants.Key key = getActivationKey();
 		if(key != null)
 		{
-			boolean currentlyDown =
-				InputConstants.isKeyDown(MC.getWindow(), key.getValue());
+			boolean currentlyDown = InputConstants
+				.isKeyDown(MC.getWindow().getWindow(), key.getValue());
 			if(currentlyDown && !activationKeyDown)
 				handleActivation(MC.options.keyShift.isDown());
 			activationKeyDown = currentlyDown;

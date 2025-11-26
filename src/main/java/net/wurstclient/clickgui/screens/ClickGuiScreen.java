@@ -10,9 +10,6 @@ package net.wurstclient.clickgui.screens;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.clickgui.ClickGui;
 
@@ -56,21 +53,21 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers)
 	{
-		if(gui.handleKeyPressed(context))
+		if(gui.handleKeyPressed(keyCode, scanCode, modifiers))
 			return true;
 		
-		return super.keyPressed(context);
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 	
 	@Override
-	public boolean charTyped(CharacterEvent event)
+	public boolean charTyped(char chr, int modifiers)
 	{
-		if(gui.handleCharTyped(event))
+		if(gui.handleCharTyped(chr, modifiers))
 			return true;
 		
-		return super.charTyped(event);
+		return super.charTyped(chr, modifiers);
 	}
 	
 	@Override
