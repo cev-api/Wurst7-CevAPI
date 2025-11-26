@@ -231,10 +231,16 @@ public class WurstTranslator implements ResourceManagerReloadListener
 	{
 		KnownPack knownPack = Optional.ofNullable(resource)
 			.flatMap(Resource::knownPackInfo).orElse(null);
+		
 		if(knownPack == null)
+			return false; 
+			
+		if(!"fabric".equals(knownPack.namespace()))
 			return false;
 		
-		return "fabric".equals(knownPack.namespace())
-			&& "wurst".equals(knownPack.id());
+		String id = knownPack.id();
+		return "wurst".equals(id) || "wurst_testmod".equals(id)
+			|| "nicewurst".equals(id);
 	}
+	
 }

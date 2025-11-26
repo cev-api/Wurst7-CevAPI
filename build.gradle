@@ -34,6 +34,8 @@ def issuesUrl =
 version = effectiveVersion
 group = project.maven_group
 
+def mainModId = niceWurstEnabled ? "nicewurst" : "wurst"
+
 base {
 	archivesName = effectiveArchiveName
 }
@@ -155,7 +157,7 @@ processResources {
 	
 	filesMatching("fabric.mod.json") {
 		expand([
-			modId: modId,
+			modId: mainModId,
 			version: modVersion,
 			modName: modName,
 			modDescription: modDescription,
