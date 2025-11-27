@@ -233,8 +233,8 @@ public class WurstTranslator implements ResourceManagerReloadListener
 			.flatMap(Resource::knownPackInfo).orElse(null);
 		
 		if(knownPack == null)
-			return false; 
-			
+			return false;
+		
 		if(!"fabric".equals(knownPack.namespace()))
 			return false;
 		

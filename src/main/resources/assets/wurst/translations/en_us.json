@@ -406,5 +406,7 @@
   "gui.wurst.nochatreports.unsafe_server.title": "??4??lWARNING:??r Unsafe Server",
   "key.wurst.zoom": "Zoom",
   "toast.wurst.nochatreports.unsafe_server.message": "Messages sent on this server may be reported to Big Brother Mojang and might get your account banned globally",
-  "toast.wurst.nochatreports.unsafe_server.title": "Chat messages can be reported"
+  "toast.wurst.nochatreports.unsafe_server.title": "Chat messages can be reported",
+  "hack.wurst.coordlogger": "CoordLogger",
+  "description.wurst.hack.coordlogger": "Logs coordinates vanilla world events. World events are grouped so you can filter them in the ClickGUI. Events out of range will give directional advice rather than pinpoint coordinates."
 }
