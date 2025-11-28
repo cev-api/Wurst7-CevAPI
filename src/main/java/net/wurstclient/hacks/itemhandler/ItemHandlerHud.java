@@ -194,8 +194,11 @@ public class ItemHandlerHud
 		Window window = MC.getWindow();
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		if(overList && leftDown && !lastLeftDown)
-			hack.openScreen();
+		// Do not open the ItemHandler GUI from the popup via mouse clicks.
+		// This avoids the popup behind other full-screen GUIs triggering
+		// the ItemHandler screen when clicking in overlapping areas.
+		// (Opening the ItemHandler GUI is available via the dedicated
+		// settings button or a keybind/command.)
 		lastLeftDown = leftDown;
 	}
 	
