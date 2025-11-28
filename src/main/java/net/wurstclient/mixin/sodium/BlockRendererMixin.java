@@ -43,15 +43,24 @@ public class BlockRendererMixin extends AbstractBlockRenderContextMixin
 		{
 			SurfaceState surfaceState = surface.classifyBlock(state, pos);
 			if(surfaceState == SurfaceState.INTERIOR)
-				return original & 0x00FFFFFF;
+				return original & 0x01FFFFFF;
 			if(surfaceState == SurfaceState.SURFACE)
+			{
+				float surf = surface.getSurfaceOpacity();
+				if(surf >= 0.99f)
+					return original; // treat almost-opaque as opaque to avoid
+										// translucent sorting
 				original &= surface.getSurfaceOpacityMask();
+			}
 		}
 		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		if(!xray.isOpacityMode() || xray.isVisible(state.getBlock(), pos))
 			return original;
-		
+		float op = xray.getOpacityFloat();
+		if(op >= 0.99f)
+			return original; // avoid sending quads to Sodium translucent
+								// pipeline
 		return original & xray.getOpacityColorMask();
 	}
 }

@@ -316,6 +316,12 @@ Because so many of these mods are entirely original, I plan to release some of t
 - Reconnect to server and immediately send a command, such as /op player
 - Adds mixin buttons to disconnect/kick/ban screens for all cracked/offline servers that have the above functions
 
+### CoordLogger
+- Detect world and local events and attempt to position it with ESP and chat messages
+- Events that are too far away the direction will be given
+- Toggles for various types of events
+- Toggles for debugging and ESP
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
@@ -373,6 +379,7 @@ Examples:
 ![Search](https://i.imgur.com/jxcn89u.png)
 
 ### X-Ray Improvements
+- Prevent zero-alpha and treat near-opaque as opaque to prevent Sodium translucent BSP crashes
 - Added ESP (Highlight Corners and or Fill Blocks)
     - Uses cached positions for speed
     - Optional transparency slider for ESP

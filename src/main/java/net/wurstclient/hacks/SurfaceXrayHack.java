@@ -256,6 +256,9 @@ public final class SurfaceXrayHack extends Hack
 	{
 		int alpha = Math.max(0,
 			Math.min(255, (int)Math.round(getSurfaceOpacity() * 255)));
+		if(alpha == 0)
+			alpha = 1; // avoid fully-zero alpha mask which can trigger renderer
+						// edge-cases
 		return alpha << 24 | 0x00FFFFFF;
 	}
 	
