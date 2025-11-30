@@ -190,6 +190,8 @@ public final class HackList implements UpdateListener
 	public final SafeWalkHack safeWalkHack = new SafeWalkHack();
 	public final ScaffoldWalkHack scaffoldWalkHack = new ScaffoldWalkHack();
 	public final SearchHack searchHack = new SearchHack();
+	public final SeedMapperHelperHack seedMapperHelperHack =
+		new SeedMapperHelperHack();
 	public final SignEspHack signEspHack = new SignEspHack();
 	public final WorkstationEspHack workstationEspHack =
 		new WorkstationEspHack();

@@ -186,6 +186,9 @@ public enum WurstClient
 	
 	public void saveSettings()
 	{
+		if(settingsFile == null)
+			return;
+		
 		settingsFile.save();
 		// Also persist chest search cleaner config from ChestSearchHack
 		try

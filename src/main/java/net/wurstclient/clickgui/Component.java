@@ -111,6 +111,9 @@ public abstract class Component
 		int y2 = y1 + getHeight();
 		
 		Window parent = getParent();
+		if(parent == null)
+			return mouseX >= x1 && mouseY >= y1 && mouseX < x2 && mouseY < y2;
+		
 		boolean scrollEnabled = parent.isScrollingEnabled();
 		int scroll = scrollEnabled ? parent.getScrollOffset() : 0;
 		

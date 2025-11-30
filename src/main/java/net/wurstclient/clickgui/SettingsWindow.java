@@ -7,6 +7,7 @@
  */
 package net.wurstclient.clickgui;
 
+import java.util.Objects;
 import java.util.stream.Stream;
 import net.minecraft.util.Mth;
 import net.wurstclient.Feature;
@@ -19,8 +20,10 @@ public final class SettingsWindow extends Window
 	{
 		super(feature.getName() + " Settings");
 		
-		Stream<Setting> settings = feature.getSettings().values().stream();
-		settings.map(Setting::getComponent).forEach(this::add);
+		Stream<Setting> settings = feature.getSettings().values().stream()
+			.filter(Setting::isVisibleInGui);
+		settings.map(Setting::getComponent).filter(Objects::nonNull)
+			.forEach(this::add);
 		
 		setClosable(true);
 		setMinimizable(false);
