@@ -55,6 +55,9 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	
 	private Window window = new Window("");
 	private int windowComponentY;
+	private int keybindTextOffset;
+	private String keybindText = "";
+	private int cachedWindowContentHeight = -1;
 	
 	public NavigatorFeatureScreen(Feature feature, NavigatorMainScreen parent)
 	{
@@ -66,7 +69,14 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		
 		for(Setting setting : feature.getSettings().values())
 		{
-			Component c = setting.getComponent();
+			if(!setting.isVisibleInGui())
+				continue;
+			
+			Component c;
+			if(setting instanceof net.wurstclient.settings.SettingGroup group)
+				c = group.getComponent(false);
+			else
+				c = setting.getComponent();
 			
 			if(c != null)
 				window.add(c);
@@ -75,6 +85,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		window.setWidth(308);
 		window.setFixedWidth(true);
 		window.pack();
+		cachedWindowContentHeight = window.getInnerHeight();
 	}
 	
 	@Override
@@ -82,6 +93,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	{
 		buttonDatas.clear();
 		windowComponentY = 0;
+		keybindText = "";
 		
 		// primary button
 		String primaryAction = feature.getPrimaryAction();
@@ -152,19 +164,24 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				text += "\n";
 				textHeight += fontHeight;
 			}
+			cachedWindowContentHeight = window.getInnerHeight();
+			keybindTextOffset = windowComponentY + window.getInnerHeight() + 6;
+		}else
+		{
+			windowComponentY = getStringHeight(text) + 2;
+			keybindTextOffset = windowComponentY + 6;
 		}
 		
 		// keybinds
 		Set<PossibleKeybind> possibleKeybinds = feature.getPossibleKeybinds();
 		if(!possibleKeybinds.isEmpty())
 		{
-			// heading
-			text += "\n\nKeybinds:";
+			StringBuilder kbText = new StringBuilder("Keybinds:");
 			
 			// add keybind button
 			ButtonData addKeybindButton =
 				new ButtonData(area.x + area.width - 16,
-					area.y + getStringHeight(text) - 7, 12, 8, "+", 0x00ff00)
+					area.y + keybindTextOffset - 7, 12, 8, "+", 0x00ff00)
 				{
 					@Override
 					public void press()
@@ -199,9 +216,10 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 					{
 						if(noKeybindsSet)
 							noKeybindsSet = false;
-						text +=
-							"\n" + keybind.getKey().replace("key.keyboard.", "")
-								+ ": " + keybindDescription;
+						kbText.append("\n")
+							.append(
+								keybind.getKey().replace("key.keyboard.", ""))
+							.append(": ").append(keybindDescription);
 						existingKeybinds.put(keybind.getKey(),
 							new PossibleKeybind(command, keybindDescription));
 						
@@ -210,9 +228,10 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 					{
 						if(noKeybindsSet)
 							noKeybindsSet = false;
-						text +=
-							"\n" + keybind.getKey().replace("key.keyboard.", "")
-								+ ": " + "Toggle " + feature.getName();
+						kbText.append("\n")
+							.append(
+								keybind.getKey().replace("key.keyboard.", ""))
+							.append(": ").append("Toggle " + feature.getName());
 						existingKeybinds.put(keybind.getKey(),
 							new PossibleKeybind(command,
 								"Toggle " + feature.getName()));
@@ -220,7 +239,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				}
 			}
 			if(noKeybindsSet)
-				text += "\nNone";
+				kbText.append("\nNone");
 			else
 			{
 				// remove keybind button
@@ -238,11 +257,16 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				});
 				addKeybindButton.x -= 16;
 			}
+			
+			keybindText = kbText.toString();
 		}
 		
 		// text height
 		int windowBottom = windowComponentY + window.getInnerHeight();
-		setContentHeight(Math.max(getStringHeight(text), windowBottom));
+		int keybindHeight =
+			keybindText.isEmpty() ? 0 : getStringHeight(keybindText) + 8;
+		setContentHeight(
+			Math.max(getStringHeight(text), windowBottom) + keybindHeight);
 	}
 	
 	@Override
@@ -358,6 +382,32 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		// settings
 		gui.setTooltip("");
 		window.validate();
+		int innerHeight = window.getInnerHeight();
+		int extraPadding = (primaryButton != null ? 32 : 0)
+			+ buttonDatas.stream().mapToInt(b -> b.height + 6).sum();
+		int keybindHeight =
+			keybindText.isEmpty() ? 0 : getStringHeight(keybindText) + 8;
+		if(innerHeight != cachedWindowContentHeight)
+		{
+			int desiredBottom = windowComponentY + innerHeight;
+			int textHeight = getStringHeight(text);
+			int fontHeight = minecraft.font.lineHeight;
+			if(fontHeight <= 0)
+				fontHeight = 9;
+			while(textHeight < desiredBottom)
+			{
+				text += "\n";
+				textHeight += fontHeight;
+			}
+			
+			keybindTextOffset = windowComponentY + innerHeight + 6;
+			setContentHeight(Math.max(textHeight, desiredBottom) + extraPadding
+				+ keybindHeight);
+			cachedWindowContentHeight = innerHeight;
+		}else
+			setContentHeight(
+				Math.max(getStringHeight(text), windowComponentY + innerHeight)
+					+ extraPadding + keybindHeight);
 		
 		window.setY(windowY1 - 13);
 		matrixStack.pushMatrix();
@@ -465,6 +515,16 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			context.drawString(minecraft.font, line, bgx1 + 2, textY, txtColor,
 				false);
 			textY += minecraft.font.lineHeight;
+		}
+		if(!keybindText.isEmpty())
+		{
+			int keybindY = bgy1 + scroll + keybindTextOffset;
+			for(String line : keybindText.split("\n"))
+			{
+				context.drawString(minecraft.font, line, bgx1 + 2, keybindY,
+					txtColor, false);
+				keybindY += minecraft.font.lineHeight;
+			}
 		}
 		
 		context.disableScissor();

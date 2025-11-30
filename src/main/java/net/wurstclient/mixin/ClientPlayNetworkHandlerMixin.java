@@ -61,7 +61,7 @@ public abstract class ClientPlayNetworkHandlerMixin
 		}
 		
 		// Add an honest warning toast on unsafe servers (if enabled)
-		if(!wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast().isChecked())
+		if(!wurst.getOtfs().noChatReportsOtf.isUnsafeChatToastEnabled())
 			return;
 		
 		MutableComponent title = Component.literal(ChatUtils.WURST_PREFIX

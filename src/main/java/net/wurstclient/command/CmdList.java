@@ -62,6 +62,8 @@ public final class CmdList
 	public final AboveGroundCmd aboveGroundCmd = new AboveGroundCmd();
 	public final SettingsCmd settingsCmd = new SettingsCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
+	public final SeedMapperHelperCmd seedMapperHelperCmd =
+		new SeedMapperHelperCmd();
 	public final TCmd tCmd = new TCmd();
 	public final TargetPlaceCmd targetPlaceCmd = new TargetPlaceCmd();
 	public final net.wurstclient.commands.ItemHandlerCmd itemHandlerCmd =

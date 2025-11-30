@@ -65,6 +65,11 @@ public final class NoChatReportsOtf extends OtherFeature
 		return unsafeChatToast;
 	}
 	
+	public boolean isUnsafeChatToastEnabled()
+	{
+		return unsafeChatToast.isChecked();
+	}
+	
 	@Override
 	public void onUpdate()
 	{

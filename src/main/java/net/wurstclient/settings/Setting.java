@@ -22,6 +22,7 @@ public abstract class Setting
 {
 	private final String name;
 	private final WText description;
+	private boolean visibleInGui = true;
 	
 	public Setting(String name, WText description)
 	{
@@ -64,6 +65,16 @@ public abstract class Setting
 	public void update()
 	{
 		
+	}
+	
+	public final boolean isVisibleInGui()
+	{
+		return visibleInGui;
+	}
+	
+	public final void setVisibleInGui(boolean visibleInGui)
+	{
+		this.visibleInGui = visibleInGui;
 	}
 	
 	public abstract Set<PossibleKeybind> getPossibleKeybinds(

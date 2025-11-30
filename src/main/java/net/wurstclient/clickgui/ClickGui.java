@@ -72,6 +72,26 @@ public final class ClickGui
 		this.windowsFile = windowsFile;
 	}
 	
+	/**
+	 * Find a window by its title, or null if not present.
+	 */
+	public Window findWindowByTitle(String title)
+	{
+		for(Window w : windows)
+			if(w.getTitle().equals(title))
+				return w;
+		return null;
+	}
+	
+	/**
+	 * Bring a window to the front (top of render order).
+	 */
+	public void bringWindowToFront(Window w)
+	{
+		if(windows.remove(w))
+			windows.add(w);
+	}
+	
 	public void init()
 	{
 		// Clear existing windows/popups so repeated init() calls rebuild
@@ -268,9 +288,12 @@ public final class ClickGui
 		}
 		
 		for(Popup popup : popups)
-			if(popup.getOwner().getParent().isClosing())
+		{
+			Window parent = popup.getOwner().getParent();
+			if(parent != null && parent.isClosing())
 				popup.close();
-			
+		}
+		
 		windows.removeIf(Window::isClosing);
 		popups.removeIf(Popup::isClosing);
 	}
@@ -423,9 +446,12 @@ public final class ClickGui
 			context);
 		
 		for(Popup popup : popups)
-			if(popup.getOwner().getParent().isClosing())
+		{
+			Window parent = popup.getOwner().getParent();
+			if(parent != null && parent.isClosing())
 				popup.close();
-			
+		}
+		
 		popups.removeIf(Popup::isClosing);
 	}
 	
@@ -437,6 +463,8 @@ public final class ClickGui
 			Popup popup = popups.get(i);
 			Component owner = popup.getOwner();
 			Window parent = owner.getParent();
+			if(parent == null)
+				continue;
 			
 			int x0 = parent.getX() + owner.getX();
 			int y0 =
@@ -477,6 +505,8 @@ public final class ClickGui
 			
 			Component owner = popup.getOwner();
 			Window parent = owner.getParent();
+			if(parent == null)
+				continue;
 			
 			int x0 = parent.getX() + owner.getX();
 			int y0 =
@@ -707,6 +737,8 @@ public final class ClickGui
 		{
 			Component owner = popup.getOwner();
 			Window parent = owner.getParent();
+			if(parent == null)
+				continue;
 			
 			int x1 = parent.getX() + owner.getX();
 			int y1 =

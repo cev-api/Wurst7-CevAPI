@@ -322,6 +322,13 @@ Because so many of these mods are entirely original, I plan to release some of t
 - Toggles for various types of events
 - Toggles for debugging and ESP
 
+### SeedMapperHelper
+- UI for [my fork](https://github.com/cev-api/SeedMapper-CevAPI) of [SeedMapper](https://github.com/xpple/SeedMapper/) which covers all settings except for debug/dev mode.
+- Supports ESP color settings so long as you're using [my SeedMapper fork](https://github.com/cev-api/SeedMapper-CevAPI)
+- Supports keybinds for all settings
+
+![UI](https://i.imgur.com/4b5IA0u.png)
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
@@ -362,6 +369,7 @@ Examples:
 - Hacklist has the ability show the count of detected ESP items/blocks/entities (BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP, MobsearchESP, MobESP, ItemESP). They're toggled in each hack.
 - UI now has more color options which are also applied to the Navigator UI
 - New Isolate Windows toggle which allows the active window (or sub category/setting) to not display any other windows behind it
+- Hacks can now support multiple pop up windows, or sub pop up windows. In Navigator these pop ups are drop downs instead.
 
 ![HackList](https://i.imgur.com/fzcQdjy.png)
 
