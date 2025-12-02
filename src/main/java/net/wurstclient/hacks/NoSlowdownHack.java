@@ -11,33 +11,42 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.IsPlayerInLavaListener;
 import net.wurstclient.events.IsPlayerInLavaListener.IsPlayerInLavaEvent;
+import net.wurstclient.events.IsPlayerInWaterListener;
+import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
 import net.wurstclient.events.VelocityFromFluidListener;
 import net.wurstclient.events.VelocityFromFluidListener.VelocityFromFluidEvent;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 
 @SearchTags({"no slowdown", "no slow down"})
-public final class NoSlowdownHack extends Hack
-	implements IsPlayerInLavaListener, VelocityFromFluidListener
+public final class NoSlowdownHack extends Hack implements
+	IsPlayerInLavaListener, IsPlayerInWaterListener, VelocityFromFluidListener
 {
 	private final CheckboxSetting lavaSpeed = new CheckboxSetting(
 		"No lava slowdown", "Removes lava movement penalties.\n"
 			+ "Some servers treat this like a speedhack.",
 		false);
+	private final CheckboxSetting waterSpeed = new CheckboxSetting(
+		"No water slowdown", "Removes water movement penalties.\n"
+			+ "Some servers treat this like a speedhack.",
+		false);
 	
 	private boolean bypassingLava;
+	private boolean bypassingWater;
 	
 	public NoSlowdownHack()
 	{
 		super("NoSlowdown");
 		setCategory(Category.MOVEMENT);
 		addSetting(lavaSpeed);
+		addSetting(waterSpeed);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		EVENTS.add(IsPlayerInLavaListener.class, this);
+		EVENTS.add(IsPlayerInWaterListener.class, this);
 		EVENTS.add(VelocityFromFluidListener.class, this);
 	}
 	
@@ -45,8 +54,10 @@ public final class NoSlowdownHack extends Hack
 	protected void onDisable()
 	{
 		EVENTS.remove(IsPlayerInLavaListener.class, this);
+		EVENTS.remove(IsPlayerInWaterListener.class, this);
 		EVENTS.remove(VelocityFromFluidListener.class, this);
 		bypassingLava = false;
+		bypassingWater = false;
 	}
 	
 	@Override
@@ -69,13 +80,37 @@ public final class NoSlowdownHack extends Hack
 	}
 	
 	@Override
+	public void onIsPlayerInWater(IsPlayerInWaterEvent event)
+	{
+		if(!waterSpeed.isChecked())
+		{
+			bypassingWater = false;
+			return;
+		}
+		
+		if(event.isNormallyInWater())
+		{
+			bypassingWater = true;
+			event.setInWater(false);
+			return;
+		}
+		
+		bypassingWater = false;
+	}
+	
+	@Override
 	public void onVelocityFromFluid(VelocityFromFluidEvent event)
 	{
-		if(!lavaSpeed.isChecked() || !bypassingLava)
+		boolean cancelLava = lavaSpeed.isChecked() && bypassingLava;
+		boolean cancelWater = waterSpeed.isChecked() && bypassingWater;
+		
+		if(!cancelLava && !cancelWater)
 			return;
 		
-		if(event.getEntity() == MC.player)
-			event.cancel();
+		if(event.getEntity() != MC.player)
+			return;
+		
+		event.cancel();
 	}
 	
 	// See BlockMixin.onGetVelocityMultiplier() and
