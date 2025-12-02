@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import java.util.Locale;
+
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.BlockPos;
 import net.wurstclient.Category;
@@ -26,6 +28,10 @@ import net.wurstclient.util.ChatUtils;
 public final class SafeTpHack extends Hack
 	implements UpdateListener, ChatInputListener
 {
+	private static final String[][] TPA_ACCEPT_KEYWORDS =
+		{{"accepted", "teleport"}, {"accepted", "request"}, {"accepted", "tpa"},
+			{"accepted", "tpahere"}, {"akzeptiert", "anfrage"}};
+	
 	private final TextFieldSetting command = new TextFieldSetting("Command",
 		"description.wurst.setting.safetp.command", "/t spawn",
 		value -> value != null && !value.trim().isEmpty());
@@ -161,13 +167,12 @@ public final class SafeTpHack extends Hack
 		if(!saferTpaHere.isChecked())
 			return;
 		
-		String message = event.getComponent().getString().toLowerCase();
+		String message =
+			event.getComponent().getString().toLowerCase(Locale.ROOT);
 		if(message.startsWith("\u00a7c[\u00a76wurst\u00a7c]"))
 			return;
 		
-		if((message.contains("accepted") && message.contains("teleport"))
-			|| (message.contains("accepted") && message.contains("request"))
-			|| (message.contains("akzeptiert") && message.contains("anfrage")))
+		if(isTpaAcceptanceMessage(message))
 		{
 			ChatUtils.message("SaferTPAHere: TPA acceptance detected.");
 			if(MC.player == null || MC.getConnection() == null)
@@ -207,6 +212,25 @@ public final class SafeTpHack extends Hack
 				tpaUpdateRegistered = true;
 			}
 		}
+	}
+	
+	private boolean isTpaAcceptanceMessage(String message)
+	{
+		for(String[] keywords : TPA_ACCEPT_KEYWORDS)
+		{
+			boolean matches = true;
+			for(String keyword : keywords)
+				if(!message.contains(keyword))
+				{
+					matches = false;
+					break;
+				}
+			
+			if(matches)
+				return true;
+		}
+		
+		return false;
 	}
 	
 	@Override
