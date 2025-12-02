@@ -109,6 +109,11 @@ public final class SeedMapperHelperHack extends Hack
 		new CheckboxSetting("Ore air check enabled", false);
 	private final ButtonSetting applyOreAirCheckButton =
 		new ButtonSetting("Apply OreAirCheck", this::applyOreAirCheck);
+	private final CheckboxSetting clearSeedMapCachesSetting =
+		new CheckboxSetting("Clear SeedMap caches on close", false);
+	private final ButtonSetting applyClearSeedMapCachesButton =
+		new ButtonSetting("Apply ClearSeedMapCachesOnClose",
+			this::applyClearSeedMapCaches);
 	private final SliderSetting seedMapThreadsSetting = new SliderSetting(
 		"Seed map threads", 4, 1, 32, 1, ValueDisplay.INTEGER);
 	private final ButtonSetting applySeedMapThreadsButton =
@@ -298,6 +303,8 @@ public final class SeedMapperHelperHack extends Hack
 		addSetting(applySeedResolutionOrderButton);
 		addSetting(oreAirCheckSetting);
 		addSetting(applyOreAirCheckButton);
+		addSetting(clearSeedMapCachesSetting);
+		addSetting(applyClearSeedMapCachesButton);
 		addSetting(seedMapThreadsSetting);
 		addSetting(applySeedMapThreadsButton);
 		addSetting(pixelsPerBiomeSetting);
@@ -315,7 +322,9 @@ public final class SeedMapperHelperHack extends Hack
 		addSection("SeedMapper config", "Convenience controls for /sm:config.",
 			savedSeedValueSetting, addSavedSeedButton,
 			seedResolutionOrderSetting, applySeedResolutionOrderButton,
-			oreAirCheckSetting, applyOreAirCheckButton, seedMapThreadsSetting,
+			oreAirCheckSetting, applyOreAirCheckButton,
+			clearSeedMapCachesSetting, applyClearSeedMapCachesButton,
+			seedMapThreadsSetting,
 			applySeedMapThreadsButton, pixelsPerBiomeSetting,
 			applyPixelsPerBiomeButton, toggledFeaturesSetting,
 			applyToggledFeaturesButton, devModeSetting, applyDevModeButton,
@@ -746,6 +755,13 @@ public final class SeedMapperHelperHack extends Hack
 		runSimpleCommand(
 			"sm:config OreAirCheck set " + oreAirCheckSetting.isChecked(),
 			"set OreAirCheck");
+	}
+	
+	private void applyClearSeedMapCaches()
+	{
+		runSimpleCommand("sm:config ClearSeedMapCachesOnClose set "
+			+ clearSeedMapCachesSetting.isChecked(),
+			"set ClearSeedMapCachesOnClose");
 	}
 	
 	private void applySeedMapThreads()
