@@ -324,11 +324,11 @@ public final class SeedMapperHelperHack extends Hack
 			seedResolutionOrderSetting, applySeedResolutionOrderButton,
 			oreAirCheckSetting, applyOreAirCheckButton,
 			clearSeedMapCachesSetting, applyClearSeedMapCachesButton,
-			seedMapThreadsSetting,
-			applySeedMapThreadsButton, pixelsPerBiomeSetting,
-			applyPixelsPerBiomeButton, toggledFeaturesSetting,
-			applyToggledFeaturesButton, devModeSetting, applyDevModeButton,
-			espTimeoutMinutesSetting, applyEspTimeoutMinutesButton);
+			seedMapThreadsSetting, applySeedMapThreadsButton,
+			pixelsPerBiomeSetting, applyPixelsPerBiomeButton,
+			toggledFeaturesSetting, applyToggledFeaturesButton, devModeSetting,
+			applyDevModeButton, espTimeoutMinutesSetting,
+			applyEspTimeoutMinutesButton);
 		
 		addSetting(highlightModeSetting);
 		addSetting(highlightBlockSetting);
@@ -759,8 +759,9 @@ public final class SeedMapperHelperHack extends Hack
 	
 	private void applyClearSeedMapCaches()
 	{
-		runSimpleCommand("sm:config ClearSeedMapCachesOnClose set "
-			+ clearSeedMapCachesSetting.isChecked(),
+		runSimpleCommand(
+			"sm:config ClearSeedMapCachesOnClose set "
+				+ clearSeedMapCachesSetting.isChecked(),
 			"set ClearSeedMapCachesOnClose");
 	}
 	

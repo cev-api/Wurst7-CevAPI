@@ -470,6 +470,12 @@ Examples:
 
 ### NoSlowDown Improved
 - Added no slowdown for lava
+- Added no slowdown for water
+
+### TrueSight Improved
+- Added customisable glow ESP for invisible entities
+
+![UHHHUHOHUHUHHUHOHOHOHHOHH](https://i.imgur.com/TA65cm8.png)
 
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
