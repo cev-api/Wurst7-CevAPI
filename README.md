@@ -54,9 +54,35 @@ I’m pleased to note that many of the features and improvements below are compl
 - AutoTrader
 - AntiBlast
 - [NiceWurst](https://github.com/cev-api/NiceWurst)
-- Custom Waypoint System (not a new idea, but unique in design and functionality)
+- SeedMapperHelper
+- OfflineSettings
+- TargetPlace
+- SurfaceXray
+- Anti-Fingerprint
+- TridentESP
+- MobSearch
+- Redstone, Bed, Sign & Workstation ESP
+- SignFramePassThrough (I didn't know something like this existed as a mod already)
+- Custom Waypoint System (Not a new idea, but unique in design and functionality)
+- The overall changes to existing hacks, many of which greatly improve original functionality!
 
 Because so many of these mods are entirely original, I plan to release some of them as standalone projects in the future.
+
+## Unoriginal
+
+I have taken the following ideas from other clients/mods:
+
+- XCarryHack
+- WindChargeKey
+- BeaconExploit
+- AutoMace
+- CoordLogger
+- AntiDrop
+- LogoutSpots
+- Breadcrumbs
+
+I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
+
 
 ---
 
