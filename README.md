@@ -158,6 +158,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Stored per world/server under `wurst/waypoints/<worldId>.json`.  
 - Xaero's Minimap integration, allows exporting and importing of waypoint data (disconnect & reconnect to update).
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
+- Toggleable automatic portal logging, logs numerically each portal you enter and matches it in the opposite dimension with the same number.
 
 ![WayPoints](https://i.imgur.com/dxFc17N.png) ![Waypoint Manager](https://i.imgur.com/K2xGVqc.png) ![Waypoint Editor](https://i.imgur.com/23i14s1.png)
 

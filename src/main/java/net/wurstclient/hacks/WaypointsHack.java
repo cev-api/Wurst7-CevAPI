@@ -17,6 +17,9 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.awt.Color;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.BossHealthOverlay;
@@ -27,6 +30,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.DeathListener;
@@ -52,8 +56,18 @@ public final class WaypointsHack extends Hack
 	private static final DateTimeFormatter TIME_FMT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
 	private static final double DISTANCE_SLIDER_INFINITE = 10001.0;
+	private static final double PORTAL_DUPLICATE_RADIUS = 5.0;
+	private static final double PORTAL_DUPLICATE_RADIUS_SQ =
+		PORTAL_DUPLICATE_RADIUS * PORTAL_DUPLICATE_RADIUS;
+	private static final long PORTAL_PAIR_TIMEOUT_MS = 30000;
+	private static final Pattern PORTAL_NAME_PATTERN =
+		Pattern.compile("^Portal (\\d+)$", Pattern.CASE_INSENSITIVE);
+	private static final Pattern END_PORTAL_NAME_PATTERN =
+		Pattern.compile("^End Portal (\\d+)$", Pattern.CASE_INSENSITIVE);
+	private static final long PORTAL_RECORD_COOLDOWN_MS = 2000L;
 	
 	private String worldId = "default";
+	private boolean hasLoadedWorldData;
 	private BlockPos lastDeathAt;
 	private long lastDeathCreatedMs;
 	// Track recent death times to avoid duplicates per player
@@ -111,8 +125,21 @@ public final class WaypointsHack extends Hack
 	// Show player XYZ above the compass
 	private final CheckboxSetting showPlayerCoordsAboveCompass =
 		new CheckboxSetting("Show player XYZ above compass", false);
+	private final CheckboxSetting recordPortals = new CheckboxSetting(
+		"Record portals",
+		"Automatically create a waypoint whenever you travel through a portal.",
+		true);
+	private final ColorSetting portalWaypointColor =
+		new ColorSetting("Portal waypoint color", new Color(0xB780FF));
 	
 	private final Set<java.util.UUID> tempWaypoints = new HashSet<>();
+	private BlockPos lastPortalRecordedPos;
+	private long lastPortalRecordedMs;
+	private BlockPos lastPortalDetectionPos;
+	private String pendingPortalName;
+	private PortalKind pendingPortalKind;
+	private WaypointDimension pendingPortalOrigin;
+	private long pendingPortalStartMs;
 	
 	public WaypointsHack()
 	{
@@ -139,14 +166,14 @@ public final class WaypointsHack extends Hack
 		addSetting(trackOtherDeaths);
 		addSetting(maxDeathPositions);
 		addSetting(deathColor);
+		addSetting(recordPortals);
+		addSetting(portalWaypointColor);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
-		worldId = resolveWorldId();
-		manager.load(worldId);
-		applyDeathWaypointLinesSetting();
+		ensureWorldData();
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(net.wurstclient.events.UpdateListener.class, this);
 		EVENTS.add(DeathListener.class, this);
@@ -174,6 +201,7 @@ public final class WaypointsHack extends Hack
 	// created waypoint UUID.
 	public java.util.UUID addTemporaryWaypoint(Waypoint w)
 	{
+		ensureWorldData();
 		manager.addOrUpdate(w);
 		tempWaypoints.add(w.getUuid());
 		// Do not persist permanently; but update file without temporaries
@@ -183,6 +211,7 @@ public final class WaypointsHack extends Hack
 	
 	public void removeTemporaryWaypoint(java.util.UUID uuid)
 	{
+		ensureWorldData();
 		// remove from manager and from temp tracking
 		// find waypoint by uuid
 		Waypoint toRemove = null;
@@ -198,6 +227,15 @@ public final class WaypointsHack extends Hack
 			tempWaypoints.remove(uuid);
 			saveExcludingTemporaries();
 		}
+	}
+	
+	public void addWaypointFromCommand(Waypoint waypoint)
+	{
+		if(waypoint == null)
+			return;
+		ensureWorldData();
+		manager.addOrUpdate(waypoint);
+		saveExcludingTemporaries();
 	}
 	
 	private void saveExcludingTemporaries()
@@ -225,14 +263,8 @@ public final class WaypointsHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		String wid = resolveWorldId();
-		if(!wid.equals(worldId))
-		{
-			saveExcludingTemporaries();
-			worldId = wid;
-			manager.load(worldId);
-			applyDeathWaypointLinesSetting();
-		}
+		ensureWorldData();
+		updatePortalAutoRecording();
 		// Detect deaths of other players
 		if(trackOtherDeaths.isChecked() && MC.level != null
 			&& MC.player != null)
@@ -374,6 +406,142 @@ public final class WaypointsHack extends Hack
 				event.setComponent(newText);
 			}
 			return;
+		}
+	}
+	
+	private void updatePortalAutoRecording()
+	{
+		if(!recordPortals.isChecked())
+		{
+			lastPortalDetectionPos = null;
+			clearPendingPortal();
+			return;
+		}
+		
+		BlockPos portal = detectPortalBlockNearPlayer();
+		if(portal == null)
+		{
+			lastPortalDetectionPos = null;
+			clearPendingPortalIfExpired();
+			return;
+		}
+		
+		if(lastPortalDetectionPos != null
+			&& lastPortalDetectionPos.equals(portal))
+			return;
+		
+		lastPortalDetectionPos = portal;
+		recordPortalWaypoint(portal);
+	}
+	
+	private void clearPendingPortal()
+	{
+		pendingPortalName = null;
+		pendingPortalKind = null;
+		pendingPortalOrigin = null;
+		pendingPortalStartMs = 0L;
+	}
+	
+	private void clearPendingPortalIfExpired()
+	{
+		if(pendingPortalName == null)
+			return;
+		if(System.currentTimeMillis()
+			- pendingPortalStartMs > PORTAL_PAIR_TIMEOUT_MS)
+			clearPendingPortal();
+	}
+	
+	private BlockPos detectPortalBlockNearPlayer()
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		AABB box = MC.player.getBoundingBox().inflate(0.05);
+		int minX = (int)Math.floor(box.minX);
+		int minY = (int)Math.floor(box.minY);
+		int minZ = (int)Math.floor(box.minZ);
+		int maxX = (int)Math.floor(box.maxX);
+		int maxY = (int)Math.floor(box.maxY);
+		int maxZ = (int)Math.floor(box.maxZ);
+		
+		for(int x = minX; x <= maxX; x++)
+			for(int y = minY; y <= maxY; y++)
+				for(int z = minZ; z <= maxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					if(classifyPortal(pos) != null)
+						return pos.immutable();
+					BlockPos below = pos.below();
+					if(classifyPortal(below) != null)
+						return below.immutable();
+				}
+			
+		return null;
+	}
+	
+	private void recordPortalWaypoint(BlockPos portalPos)
+	{
+		if(!recordPortals.isChecked() || portalPos == null)
+			return;
+		if(MC.player == null || MC.level == null)
+			return;
+		PortalKind kind = classifyPortal(portalPos);
+		if(kind == null)
+			return;
+		long now = System.currentTimeMillis();
+		if(lastPortalRecordedPos != null
+			&& lastPortalRecordedPos.distSqr(portalPos) <= 1
+			&& now - lastPortalRecordedMs < PORTAL_RECORD_COOLDOWN_MS)
+			return;
+		
+		ensureWorldData();
+		WaypointDimension dim = currentDim();
+		BlockPos immutable = portalPos.immutable();
+		boolean linkingPending =
+			pendingPortalName != null && pendingPortalKind == kind
+				&& pendingPortalOrigin != null && pendingPortalOrigin != dim
+				&& now - pendingPortalStartMs <= PORTAL_PAIR_TIMEOUT_MS;
+		
+		String prefix = kind == PortalKind.END ? "End Portal" : "Portal";
+		boolean isEndDimension = dim == WaypointDimension.END;
+		String name;
+		if(linkingPending)
+			name = pendingPortalName;
+		else if(kind == PortalKind.END && isEndDimension)
+			name = "End Portal";
+		else
+			name = prefix + " " + nextPortalIndex(prefix, dim);
+		
+		if(hasNearbyPortalWaypoint(immutable, dim))
+		{
+			if(linkingPending)
+				clearPendingPortal();
+			return;
+		}
+		
+		Waypoint waypoint = new Waypoint(UUID.randomUUID(), now);
+		waypoint.setName(name);
+		waypoint.setPos(immutable);
+		waypoint.setDimension(dim);
+		waypoint.setColor(portalWaypointColor.getColorI());
+		waypoint.setOpposite(false);
+		waypoint.setIcon("diamond");
+		waypoint.setLines(false);
+		waypoint.setBeaconMode(Waypoint.BeaconMode.OFF);
+		manager.addOrUpdate(waypoint);
+		saveExcludingTemporaries();
+		
+		lastPortalRecordedPos = immutable;
+		lastPortalRecordedMs = now;
+		
+		if(linkingPending)
+			clearPendingPortal();
+		else if(kind == PortalKind.NETHER)
+		{
+			pendingPortalName = name;
+			pendingPortalKind = kind;
+			pendingPortalOrigin = dim;
+			pendingPortalStartMs = now;
 		}
 	}
 	
@@ -564,6 +732,31 @@ public final class WaypointsHack extends Hack
 		return "singleplayer";
 	}
 	
+	private void ensureWorldData()
+	{
+		String wid = resolveWorldId();
+		if(!hasLoadedWorldData)
+		{
+			worldId = wid;
+			manager.load(worldId);
+			applyDeathWaypointLinesSetting();
+			lastPortalDetectionPos = null;
+			clearPendingPortal();
+			hasLoadedWorldData = true;
+			return;
+		}
+		
+		if(!wid.equals(worldId))
+		{
+			saveExcludingTemporaries();
+			worldId = wid;
+			manager.load(worldId);
+			applyDeathWaypointLinesSetting();
+			lastPortalDetectionPos = null;
+			clearPendingPortal();
+		}
+	}
+	
 	private BlockPos worldSpace(Waypoint w)
 	{
 		WaypointDimension pd = currentDim();
@@ -579,6 +772,58 @@ public final class WaypointsHack extends Hack
 		if(pd == WaypointDimension.NETHER && wd == WaypointDimension.OVERWORLD)
 			return new BlockPos(p.getX() / 8, p.getY(), p.getZ() / 8);
 		return null;
+	}
+	
+	private PortalKind classifyPortal(BlockPos pos)
+	{
+		if(pos == null || MC.level == null)
+			return null;
+		var state = MC.level.getBlockState(pos);
+		if(state.is(Blocks.NETHER_PORTAL))
+			return PortalKind.NETHER;
+		if(state.is(Blocks.END_PORTAL) || state.is(Blocks.END_GATEWAY))
+			return PortalKind.END;
+		return null;
+	}
+	
+	private boolean hasNearbyPortalWaypoint(BlockPos pos, WaypointDimension dim)
+	{
+		double maxSq = PORTAL_DUPLICATE_RADIUS_SQ;
+		for(Waypoint w : manager.all())
+		{
+			if(w.getDimension() != dim)
+				continue;
+			if(pos.distSqr(w.getPos()) <= maxSq)
+				return true;
+		}
+		return false;
+	}
+	
+	private int nextPortalIndex(String prefix, WaypointDimension targetDim)
+	{
+		Pattern pattern = "End Portal".equals(prefix) ? END_PORTAL_NAME_PATTERN
+			: PORTAL_NAME_PATTERN;
+		int max = 0;
+		for(Waypoint w : manager.all())
+		{
+			String name = w.getName();
+			if(name == null)
+				continue;
+			if("End Portal".equals(prefix) && targetDim != WaypointDimension.END
+				&& w.getDimension() == WaypointDimension.END)
+				continue;
+			Matcher matcher = pattern.matcher(name);
+			if(!matcher.matches())
+				continue;
+			try
+			{
+				int num = Integer.parseInt(matcher.group(1));
+				if(num > max)
+					max = num;
+			}catch(NumberFormatException ignored)
+			{}
+		}
+		return max + 1;
 	}
 	
 	private void pruneDeaths()
@@ -774,6 +1019,7 @@ public final class WaypointsHack extends Hack
 	
 	public void openManager()
 	{
+		ensureWorldData();
 		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
 			MC.screen, manager));
 	}
@@ -1017,5 +1263,11 @@ public final class WaypointsHack extends Hack
 			this.x = x;
 			this.delta = delta;
 		}
+	}
+	
+	private enum PortalKind
+	{
+		NETHER,
+		END
 	}
 }
