@@ -81,6 +81,12 @@ public final class SeedMapperHelperHack extends Hack
 		new ButtonSetting("Check SeedMapper status", this::reportStatus);
 	private final ButtonSetting seedMapButton =
 		new ButtonSetting("Open Seed Map UI", this::openSeedMapUi);
+	private final ButtonSetting minimapButton =
+		new ButtonSetting("Open SeedMap minimap", this::openSeedMapMinimap);
+	private final ButtonSetting enableMinimapButton = new ButtonSetting(
+		"Show SeedMap minimap", () -> setMinimapEnabled(true));
+	private final ButtonSetting disableMinimapButton = new ButtonSetting(
+		"Hide SeedMap minimap", () -> setMinimapEnabled(false));
 	private final ButtonSetting clearOverlaysButton =
 		new ButtonSetting("Clear overlays", this::clearOverlays);
 	private final ButtonSetting checkSeedButton =
@@ -118,6 +124,41 @@ public final class SeedMapperHelperHack extends Hack
 		"Seed map threads", 4, 1, 32, 1, ValueDisplay.INTEGER);
 	private final ButtonSetting applySeedMapThreadsButton =
 		new ButtonSetting("Apply SeedMapThreads", this::applySeedMapThreads);
+	private final SliderSetting minimapOffsetXSetting = new SliderSetting(
+		"Minimap X offset", 4, 0, 512, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting applyMinimapOffsetXButton = new ButtonSetting(
+		"Apply SeedMapMinimapOffsetX", this::applyMinimapOffsetX);
+	private final SliderSetting minimapOffsetYSetting = new SliderSetting(
+		"Minimap Y offset", 4, 0, 512, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting applyMinimapOffsetYButton = new ButtonSetting(
+		"Apply SeedMapMinimapOffsetY", this::applyMinimapOffsetY);
+	private final SliderSetting minimapWidthSetting = new SliderSetting(
+		"Minimap width", 205, 64, 512, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting applyMinimapWidthButton =
+		new ButtonSetting("Apply SeedMapMinimapWidth", this::applyMinimapWidth);
+	private final SliderSetting minimapHeightSetting = new SliderSetting(
+		"Minimap height", 205, 64, 512, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting applyMinimapHeightButton = new ButtonSetting(
+		"Apply SeedMapMinimapHeight", this::applyMinimapHeight);
+	private final CheckboxSetting minimapRotateSetting =
+		new CheckboxSetting("Rotate minimap with player", true);
+	private final ButtonSetting applyMinimapRotateButton =
+		new ButtonSetting("Apply SeedMapMinimapRotateWithPlayer",
+			this::applyMinimapRotateWithPlayer);
+	private final SliderSetting minimapPixelsPerBiomeSetting =
+		new SliderSetting("Minimap pixels per biome", 4.0, 0.05, 150.0, 0.05,
+			ValueDisplay.DECIMAL);
+	private final ButtonSetting applyMinimapPixelsPerBiomeButton =
+		new ButtonSetting("Apply SeedMapMinimapPixelsPerBiome",
+			this::applyMinimapPixelsPerBiome);
+	private final SliderSetting minimapIconScaleSetting = new SliderSetting(
+		"Minimap icon scale", 1.0, 0.25, 4.0, 0.05, ValueDisplay.DECIMAL);
+	private final ButtonSetting applyMinimapIconScaleButton = new ButtonSetting(
+		"Apply SeedMapMinimapIconScale", this::applyMinimapIconScale);
+	private final SliderSetting minimapOpacitySetting = new SliderSetting(
+		"Minimap opacity", 1.0, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
+	private final ButtonSetting applyMinimapOpacityButton = new ButtonSetting(
+		"Apply SeedMapMinimapOpacity", this::applyMinimapOpacity);
 	private final SliderSetting pixelsPerBiomeSetting = new SliderSetting(
 		"Pixels per biome", 6.0, 1.0, 32.0, 0.1, ValueDisplay.DECIMAL);
 	private final ButtonSetting applyPixelsPerBiomeButton =
@@ -256,6 +297,10 @@ public final class SeedMapperHelperHack extends Hack
 		addPossibleKeybind(".say /sm:stoptask",
 			"SeedMapper: Stop locator tasks");
 		addPossibleKeybind(".say /sm:seedmap", "SeedMapper: Open Seed Map UI");
+		addPossibleKeybind(".say /sm:minimap on",
+			"SeedMapper: Show minimap overlay");
+		addPossibleKeybind(".say /sm:minimap off",
+			"SeedMapper: Hide minimap overlay");
 		addPossibleKeybind(".say /sm:seedcheck",
 			"SeedMapper: Check current seed");
 		addPossibleKeybind(".seedmapperhelper map",
@@ -291,6 +336,9 @@ public final class SeedMapperHelperHack extends Hack
 		
 		addSetting(statusButton);
 		addSetting(seedMapButton);
+		addSetting(minimapButton);
+		addSetting(enableMinimapButton);
+		addSetting(disableMinimapButton);
 		addSetting(clearOverlaysButton);
 		addSetting(checkSeedButton);
 		addSetting(seedCheckInputSetting);
@@ -307,6 +355,22 @@ public final class SeedMapperHelperHack extends Hack
 		addSetting(applyClearSeedMapCachesButton);
 		addSetting(seedMapThreadsSetting);
 		addSetting(applySeedMapThreadsButton);
+		addSetting(minimapOffsetXSetting);
+		addSetting(applyMinimapOffsetXButton);
+		addSetting(minimapOffsetYSetting);
+		addSetting(applyMinimapOffsetYButton);
+		addSetting(minimapWidthSetting);
+		addSetting(applyMinimapWidthButton);
+		addSetting(minimapHeightSetting);
+		addSetting(applyMinimapHeightButton);
+		addSetting(minimapRotateSetting);
+		addSetting(applyMinimapRotateButton);
+		addSetting(minimapPixelsPerBiomeSetting);
+		addSetting(applyMinimapPixelsPerBiomeButton);
+		addSetting(minimapIconScaleSetting);
+		addSetting(applyMinimapIconScaleButton);
+		addSetting(minimapOpacitySetting);
+		addSetting(applyMinimapOpacityButton);
 		addSetting(pixelsPerBiomeSetting);
 		addSetting(applyPixelsPerBiomeButton);
 		addSetting(toggledFeaturesSetting);
@@ -316,7 +380,8 @@ public final class SeedMapperHelperHack extends Hack
 		addSetting(espTimeoutMinutesSetting);
 		addSetting(applyEspTimeoutMinutesButton);
 		addSection("SeedMapper commands", "General-purpose SeedMapper actions.",
-			statusButton, seedMapButton, clearOverlaysButton, checkSeedButton,
+			statusButton, seedMapButton, minimapButton, enableMinimapButton,
+			disableMinimapButton, clearOverlaysButton, checkSeedButton,
 			seedCheckInputSetting, applySeedInputButton, stopTaskButton,
 			showCommandFeedbackSetting);
 		addSection("SeedMapper config", "Convenience controls for /sm:config.",
@@ -329,6 +394,15 @@ public final class SeedMapperHelperHack extends Hack
 			toggledFeaturesSetting, applyToggledFeaturesButton, devModeSetting,
 			applyDevModeButton, espTimeoutMinutesSetting,
 			applyEspTimeoutMinutesButton);
+		addSection("SeedMap minimap", "Configure the in-game minimap overlay.",
+			minimapOffsetXSetting, applyMinimapOffsetXButton,
+			minimapOffsetYSetting, applyMinimapOffsetYButton,
+			minimapWidthSetting, applyMinimapWidthButton, minimapHeightSetting,
+			applyMinimapHeightButton, minimapRotateSetting,
+			applyMinimapRotateButton, minimapPixelsPerBiomeSetting,
+			applyMinimapPixelsPerBiomeButton, minimapIconScaleSetting,
+			applyMinimapIconScaleButton, minimapOpacitySetting,
+			applyMinimapOpacityButton);
 		
 		addSetting(highlightModeSetting);
 		addSetting(highlightBlockSetting);
@@ -472,6 +546,17 @@ public final class SeedMapperHelperHack extends Hack
 	public void openSeedMapUi()
 	{
 		runSimpleCommand("sm:seedmap", "open the Seed Mapper UI");
+	}
+	
+	public void openSeedMapMinimap()
+	{
+		runSimpleCommand("sm:minimap", "open the SeedMap minimap");
+	}
+	
+	private void setMinimapEnabled(boolean enabled)
+	{
+		runSimpleCommand("sm:minimap " + (enabled ? "on" : "off"),
+			(enabled ? "enable" : "disable") + " the SeedMap minimap");
 	}
 	
 	public void clearOverlays()
@@ -770,6 +855,65 @@ public final class SeedMapperHelperHack extends Hack
 		int threads = Math.max(1, seedMapThreadsSetting.getValueI());
 		runSimpleCommand("sm:config SeedMapThreads set " + threads,
 			"set SeedMapThreads");
+	}
+	
+	private void applyMinimapOffsetX()
+	{
+		int offset = minimapOffsetXSetting.getValueI();
+		runSimpleCommand("sm:config SeedMapMinimapOffsetX set " + offset,
+			"set SeedMapMinimapOffsetX");
+	}
+	
+	private void applyMinimapOffsetY()
+	{
+		int offset = minimapOffsetYSetting.getValueI();
+		runSimpleCommand("sm:config SeedMapMinimapOffsetY set " + offset,
+			"set SeedMapMinimapOffsetY");
+	}
+	
+	private void applyMinimapWidth()
+	{
+		int width = minimapWidthSetting.getValueI();
+		runSimpleCommand("sm:config SeedMapMinimapWidth set " + width,
+			"set SeedMapMinimapWidth");
+	}
+	
+	private void applyMinimapHeight()
+	{
+		int height = minimapHeightSetting.getValueI();
+		runSimpleCommand("sm:config SeedMapMinimapHeight set " + height,
+			"set SeedMapMinimapHeight");
+	}
+	
+	private void applyMinimapRotateWithPlayer()
+	{
+		runSimpleCommand(
+			"sm:config SeedMapMinimapRotateWithPlayer set "
+				+ minimapRotateSetting.isChecked(),
+			"set SeedMapMinimapRotateWithPlayer");
+	}
+	
+	private void applyMinimapPixelsPerBiome()
+	{
+		double pixels = minimapPixelsPerBiomeSetting.getValue();
+		runSimpleCommand("sm:config SeedMapMinimapPixelsPerBiome set "
+			+ formatDouble(pixels), "set SeedMapMinimapPixelsPerBiome");
+	}
+	
+	private void applyMinimapIconScale()
+	{
+		double scale = minimapIconScaleSetting.getValue();
+		runSimpleCommand(
+			"sm:config SeedMapMinimapIconScale set " + formatDouble(scale),
+			"set SeedMapMinimapIconScale");
+	}
+	
+	private void applyMinimapOpacity()
+	{
+		double opacity = minimapOpacitySetting.getValue();
+		runSimpleCommand(
+			"sm:config SeedMapMinimapOpacity set " + formatDouble(opacity),
+			"set SeedMapMinimapOpacity");
 	}
 	
 	private void applyPixelsPerBiome()

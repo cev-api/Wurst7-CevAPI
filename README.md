@@ -353,6 +353,23 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - UI for [my fork](https://github.com/cev-api/SeedMapper-CevAPI) of [SeedMapper](https://github.com/xpple/SeedMapper/) which covers all settings except for debug/dev mode.
 - Supports ESP color settings so long as you're using [my SeedMapper fork](https://github.com/cev-api/SeedMapper-CevAPI)
 - Supports keybinds for all settings
+- Run `/sm:minimap` to open a live SeedMap minimap in the top-left corner of the HUD.
+  - Use `/sm:minimap on/off` to explicitly control whether it is shown.
+- The minimap:
+  - Renders the same features you selected on the main map.
+  - Tracks your current position in real time.
+  - Ideal for overlaying over Xaeros Minimap (See Screenshots).
+- Position & size:
+  - Move it horizontally with `/sm:config SeedMapMinimapOffsetX`
+  - Move it vertically with `/sm:config SeedMapMinimapOffsetY`
+  - Change width with `/sm:config SeedMapMinimapWidth`
+  - Change height with `/sm:config SeedMapMinimapHeight`
+  - Can be resized to cover other minimaps if needed.
+- Display options:
+  - Rotate the map with the player’s facing using `/sm:config SeedMapMinimapRotateWithPlayer`
+  - Adjust zoom independently from the main map via `/sm:config SeedMapMinimapPixelsPerBiome`
+  - Scale feature icons with `/sm:config SeedMapMinimapIconScale`
+  - Fine tune the background opacity with `/sm:config SeedMapMinimapOpacity` without affecting icon readability.
 
 ![UI](https://i.imgur.com/4b5IA0u.png)
 
