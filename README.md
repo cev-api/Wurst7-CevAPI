@@ -176,6 +176,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Adjustable ESP and Waypoint colors
 - Adjustable search radius
 - Adjustable font size
+- Highlight open chests with X with an adjustable color and line thickness
 
 ![ChestSearch](https://i.imgur.com/OXuVeF5.png) 
 

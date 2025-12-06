@@ -13,6 +13,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.CheckboxSetting;
 
 public final class ChestSearchHack extends Hack
 {
@@ -43,6 +44,14 @@ public final class ChestSearchHack extends Hack
 		new ColorSetting("ESP fill", new java.awt.Color(0x22FF88));
 	private final ColorSetting espLineColor =
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
+	private final ColorSetting markXColor =
+		new ColorSetting("Mark X color", new java.awt.Color(0xFF2222));
+	private final SliderSetting markXThickness = new SliderSetting(
+		"Mark X thickness", 2.0, 0.5, 6.0, 0.5, ValueDisplay.DECIMAL);
+	private final CheckboxSetting markOpenedChest = new CheckboxSetting(
+		"Mark opened chest",
+		"Draw an X through chests that appear in your ChestSearch database.",
+		true);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 1.0,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
 	
@@ -64,6 +73,30 @@ public final class ChestSearchHack extends Hack
 		addSetting(waypointColor);
 		addSetting(espFillColor);
 		addSetting(espLineColor);
+		addSetting(markXColor);
+		addSetting(markXThickness);
+		addSetting(markOpenedChest);
+	}
+	
+	public int getMarkXColorARGB()
+	{
+		return (0xFF << 24) | (markXColor.getColor().getRGB() & 0x00FFFFFF);
+	}
+	
+	public double getMarkXThickness()
+	{
+		try
+		{
+			return markXThickness.getValue();
+		}catch(Throwable t)
+		{
+			return 2.0;
+		}
+	}
+	
+	public boolean isMarkOpenedChest()
+	{
+		return markOpenedChest.isChecked();
 	}
 	
 	public int getCleanerGraceTicks()
