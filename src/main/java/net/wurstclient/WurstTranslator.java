@@ -240,6 +240,7 @@ public class WurstTranslator implements ResourceManagerReloadListener
 		
 		String id = knownPack.id();
 		return "wurst".equals(id) || "wurst_testmod".equals(id)
+			|| "vanilla".equals(id)
 			|| "nicewurst".equals(id);
 	}
 	
