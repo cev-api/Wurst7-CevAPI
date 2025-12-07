@@ -104,6 +104,9 @@ public final class SeedMapperData
 	private static final List<String> DEFAULT_DIMENSIONS =
 		List.of("overworld", "the_nether", "the_end");
 	
+	private static final List<String> DEFAULT_WORLD_PRESETS = List.of(
+		"amplified", "superflat", "large_biomes", "single_biome", "default");
+	
 	private static final List<String> DEFAULT_VERSION_SHORTCUTS = List.of(
 		"auto", "latest", "1.21.1", "1.21", "1.20.6", "1.20.4", "1.20.2",
 		"1.20.1", "1.19.4", "1.19.2", "1.18.2", "1.17.1", "1.16.5", "1.12.2");
@@ -124,6 +127,7 @@ public final class SeedMapperData
 	private final List<String> densityFunctions;
 	private final List<String> dimensionShortcuts;
 	private final List<String> versionShortcuts;
+	private final List<String> worldPresets;
 	
 	private SeedMapperData(List<String> highlightBlocks,
 		List<String> canyonCarvers, List<String> caveCarvers,
@@ -132,7 +136,8 @@ public final class SeedMapperData
 		Map<String, List<String>> structureVariants,
 		List<String> variantKeyUnion, List<String> lootItems,
 		List<String> lootEnchantments, List<String> densityFunctions,
-		List<String> dimensionShortcuts, List<String> versionShortcuts)
+		List<String> dimensionShortcuts, List<String> versionShortcuts,
+		List<String> worldPresets)
 	{
 		this.highlightBlocks = highlightBlocks;
 		this.canyonCarvers = canyonCarvers;
@@ -147,6 +152,7 @@ public final class SeedMapperData
 		this.densityFunctions = densityFunctions;
 		this.dimensionShortcuts = dimensionShortcuts;
 		this.versionShortcuts = versionShortcuts;
+		this.worldPresets = worldPresets;
 	}
 	
 	public List<String> getHighlightBlocks()
@@ -230,6 +236,11 @@ public final class SeedMapperData
 		return versionShortcuts;
 	}
 	
+	public List<String> getWorldPresets()
+	{
+		return worldPresets;
+	}
+	
 	public List<String> getOreVeinTargets()
 	{
 		return DEFAULT_ORE_VEINS;
@@ -250,7 +261,8 @@ public final class SeedMapperData
 			limitList(items, 1024), limitList(enchants, 256),
 			copySorted(DEFAULT_DENSITY_FUNCTIONS),
 			copySorted(DEFAULT_DIMENSIONS),
-			copySorted(DEFAULT_VERSION_SHORTCUTS));
+			copySorted(DEFAULT_VERSION_SHORTCUTS),
+			copySorted(DEFAULT_WORLD_PRESETS));
 	}
 	
 	public static SeedMapperData tryLoadFromVendor()
@@ -291,6 +303,9 @@ public final class SeedMapperData
 		List<String> versionShortcuts = tryRead(supplyValueList(
 			"dev.xpple.seedmapper.command.arguments.VersionArgument",
 			"VERSIONS"), DEFAULT_VERSION_SHORTCUTS);
+		List<String> worldPresets = tryRead(supplyValueList(
+			"dev.xpple.seedmapper.command.arguments.PresetArgument", "PRESETS"),
+			DEFAULT_WORLD_PRESETS);
 		
 		return new SeedMapperData(copySorted(highlightBlocks),
 			copySorted(canyonCarvers), copySorted(caveCarvers),
@@ -298,7 +313,8 @@ public final class SeedMapperData
 			copyMap(structurePieces), copyMap(structureVariants),
 			buildVariantUnion(structureVariants), limitList(lootItems, 2048),
 			limitList(lootEnchantments, 512), copySorted(densityFunctions),
-			copySorted(dimensions), copySorted(versionShortcuts));
+			copySorted(dimensions), copySorted(versionShortcuts),
+			copySorted(worldPresets));
 	}
 	
 	private static List<String> fallbackBiomes()

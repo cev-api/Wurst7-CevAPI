@@ -265,6 +265,14 @@ public final class SeedMapperHelperHack extends Hack
 	private final StringDropdownSetting sourceVersionPresetSetting =
 		new StringDropdownSetting("Source version presets",
 			WText.literal("Available /sm:source versioned keys."));
+	private final StringDropdownSetting worldPresetSetting =
+		new StringDropdownSetting("World preset",
+			WText.literal("World generation presets for /sm:preset set."));
+	private final ButtonSetting listWorldPresetsButton =
+		new ButtonSetting("List presets",
+			() -> runSimpleCommand("sm:preset list", "list presets"));
+	private final ButtonSetting applyWorldPresetButton =
+		new ButtonSetting("Set selected preset", this::applyWorldPreset);
 	private final TextFieldSetting sourceVersionSetting =
 		new TextFieldSetting("Source version override", "");
 	private final TextFieldSetting sourceSelectorSetting =
@@ -333,6 +341,8 @@ public final class SeedMapperHelperHack extends Hack
 		
 		sourceDimensionSetting.setOptions(data.getDimensionShortcuts());
 		sourceVersionPresetSetting.setOptions(data.getVersionShortcuts());
+		worldPresetSetting.setOptions(data.getWorldPresets());
+		autoSelectFirst(worldPresetSetting, data.getWorldPresets());
 		
 		addSetting(statusButton);
 		addSetting(seedMapButton);
@@ -353,6 +363,9 @@ public final class SeedMapperHelperHack extends Hack
 		addSetting(applyOreAirCheckButton);
 		addSetting(clearSeedMapCachesSetting);
 		addSetting(applyClearSeedMapCachesButton);
+		addSetting(listWorldPresetsButton);
+		addSetting(worldPresetSetting);
+		addSetting(applyWorldPresetButton);
 		addSetting(seedMapThreadsSetting);
 		addSetting(applySeedMapThreadsButton);
 		addSetting(minimapOffsetXSetting);
@@ -389,6 +402,7 @@ public final class SeedMapperHelperHack extends Hack
 			seedResolutionOrderSetting, applySeedResolutionOrderButton,
 			oreAirCheckSetting, applyOreAirCheckButton,
 			clearSeedMapCachesSetting, applyClearSeedMapCachesButton,
+			listWorldPresetsButton, worldPresetSetting, applyWorldPresetButton,
 			seedMapThreadsSetting, applySeedMapThreadsButton,
 			pixelsPerBiomeSetting, applyPixelsPerBiomeButton,
 			toggledFeaturesSetting, applyToggledFeaturesButton, devModeSetting,
@@ -983,6 +997,18 @@ public final class SeedMapperHelperHack extends Hack
 			return;
 		}
 		sourceVersionSetting.setValue(preset);
+	}
+	
+	private void applyWorldPreset()
+	{
+		String preset = worldPresetSetting.getSelected();
+		if(preset.isEmpty())
+		{
+			ChatUtils.error("Pick a world preset first.");
+			return;
+		}
+		runSimpleCommand("sm:preset set " + preset, "set world preset");
+		worldPresetSetting.setSelected("");
 	}
 	
 	private void resetSourceForm()
