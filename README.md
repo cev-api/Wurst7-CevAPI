@@ -389,14 +389,16 @@ Examples:
 ![ListUI](https://i.imgur.com/elZoUaz.png)
 
 ### ClickGUI Improvements
+- Added Favorites category, middle click a hack for it to be added to Favorites. Middle click when within Favorites to remove it.
 - Accidentally typing in ClickGUI just continues what you typed in the Navigator.
-- Favorites category, middle click a hack for it to be added to Favorites. Middle click when within Favorites to remove it.
 - Hacklist has font scaler, transparency, X & Y position adjustments, adjustable shadow box.
 - Hacklist has the ability to highlight entries pursuant to the selected ESP color.
 - Hacklist has the ability show the count of detected ESP items/blocks/entities (BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP, MobsearchESP, MobESP, ItemESP). They're toggled in each hack.
 - UI now has more color options which are also applied to the Navigator UI
 - New Isolate Windows toggle which allows the active window (or sub category/setting) to not display any other windows behind it
 - Hacks can now support multiple pop up windows, or sub pop up windows. In Navigator these pop ups are drop downs instead.
+- Right-click Area setting resets it to default.  
+- Can now scroll all drop down/pop ups with your mouse.
 
 ![HackList](https://i.imgur.com/fzcQdjy.png)
 
@@ -503,6 +505,9 @@ Examples:
 
 ![UHHHUHOHUHUHHUHOHOHOHHOHH](https://i.imgur.com/TA65cm8.png)
 
+### Keybind Manager Improved
+- Can now clear the entire keybinds instead of just resetting.
+
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
 
@@ -514,10 +519,6 @@ Examples:
 
 ### Replace Taco with Neco
 - Replaced Taco icon with dancing Neco-Arc.  
-
-### Usability
-- Right-click Area setting resets it to default.  
-- Can now scroll all drop down/pop ups with your mouse.
 
 ### Stability
 - Fixed crashes on empty/zero-size shapes.  

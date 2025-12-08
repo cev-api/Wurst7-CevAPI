@@ -76,6 +76,16 @@ public final class KeybindManagerScreen extends Screen
 				Component.literal("This cannot be undone!"))))
 			.bounds(8, 8, 100, 20).build());
 		
+		addRenderableWidget(Button.builder(Component.literal("Clear"),
+			b -> minecraft.setScreen(new ConfirmScreen(confirmed -> {
+				if(confirmed)
+					WurstClient.INSTANCE.getKeybinds().removeAll();
+				minecraft.setScreen(this);
+			}, Component
+				.literal("Are you sure you want to clear all keybinds?"),
+				Component.literal("This cannot be undone!"))))
+			.bounds(112, 8, 100, 20).build());
+		
 		addRenderableWidget(Button
 			.builder(Component.literal("Profiles..."),
 				b -> minecraft.setScreen(new KeybindProfilesScreen(this)))
