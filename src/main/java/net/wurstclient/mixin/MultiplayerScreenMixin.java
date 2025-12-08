@@ -72,22 +72,8 @@ public class MultiplayerScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
-		
-		JoinMultiplayerScreen mpScreen = (JoinMultiplayerScreen)(Object)this;
-		
-		Button serverFinderButton = Button
-			.builder(Component.nullToEmpty("Server Finder"),
-				b -> minecraft.setScreen(new ServerFinderScreen(mpScreen)))
-			.width(100).build();
-		addRenderableWidget(serverFinderButton);
-		footerTopRow.addChild(serverFinderButton);
-		
-		Button cleanUpButton = Button
-			.builder(Component.nullToEmpty("Clean Up"),
-				b -> minecraft.setScreen(new CleanUpScreen(mpScreen)))
-			.width(100).build();
-		addRenderableWidget(cleanUpButton);
-		footerBottomRow.addChild(cleanUpButton);
+		// Footer buttons are not added here to avoid duplicates; corner buttons
+		// are created/positioned in `repositionElements()` instead.
 	}
 	
 	@Inject(at = @At("TAIL"), method = "repositionElements()V")
