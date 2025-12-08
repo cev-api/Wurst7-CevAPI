@@ -344,7 +344,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Adds mixin buttons to disconnect/kick/ban screens for all cracked/offline servers that have the above functions
 
 ### CoordLogger
-- Detect world and local events and attempt to position it with ESP and chat messages
+- Detect world and local events and attempt to position them with ESP and chat messages
 - Events that are too far away the direction will be given
 - Toggles for various types of events
 - Toggles for debugging and ESP
