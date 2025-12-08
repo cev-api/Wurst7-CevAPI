@@ -41,6 +41,8 @@ public class ChestRecorder
 	private final Map<Integer, List<ItemStack>> buffers = new HashMap<>();
 	private final Map<Integer, TimerTask> pendingSnapshots = new HashMap<>();
 	
+	// (notifications are handled by the UI layer)
+	
 	public static class Bounds
 	{
 		public final int minX, minY, minZ;
@@ -461,45 +463,7 @@ public class ChestRecorder
 		manager.upsertChest(serverIp, dimension, minX, minY, minZ, items, maxX,
 			maxY, maxZ, facing, Integer.valueOf(x), Integer.valueOf(y),
 			Integer.valueOf(z));
-		
-		// debug removed
-		
-		// Notify container screen that chest was saved so UI text appears
-		final int nx = minX, ny = minY, nz = minZ;
-		try
-		{
-			Object screen = net.wurstclient.WurstClient.MC == null ? null
-				: net.wurstclient.WurstClient.MC.screen;
-			if(screen != null)
-			{
-				try
-				{
-					java.lang.reflect.Field fMsg =
-						screen.getClass().getDeclaredField("lastRecordMessage");
-					java.lang.reflect.Field fUntil =
-						screen.getClass().getDeclaredField("lastRecordUntilMs");
-					fMsg.setAccessible(true);
-					fUntil.setAccessible(true);
-					java.time.LocalTime t = java.time.LocalTime.now();
-					String ts =
-						t.truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
-							.toString();
-					String msg = "Chest recorded, position " + nx + "," + ny
-						+ "," + nz + " at " + ts;
-					fMsg.set(screen, msg);
-					fUntil.setLong(screen, System.currentTimeMillis() + 4000);
-				}catch(NoSuchFieldException nsf)
-				{
-					// not the expected screen type, ignore
-				}catch(Throwable ignored)
-				{
-					// reflection failed, ignore
-				}
-			}
-		}catch(Throwable ignored)
-		{
-			ignored.printStackTrace();
-		}
+		// Notifications are handled on container close by the UI mixin.
 	}
 	
 	private static String sanitizePath(String raw)

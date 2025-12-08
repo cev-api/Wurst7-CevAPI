@@ -227,6 +227,8 @@ public final class HackList implements UpdateListener
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();
 	public final ChestSearchHack chestSearchHack = new ChestSearchHack();
+	public final net.wurstclient.hacks.LootSearchHack lootSearchHack =
+		new net.wurstclient.hacks.LootSearchHack();
 	public final CoordLoggerHack coordLoggerHack = new CoordLoggerHack();
 	
 	private final TreeMap<String, Hack> hax =
