@@ -31,6 +31,7 @@ public final class ChestSearchScreen extends Screen
 {
 	private final Screen prev;
 	private ChestManager chestManager = new ChestManager();
+	private String screenTitle = "Chest Search";
 	
 	private EditBox searchField;
 	private java.util.List<ChestEntry> results = new ArrayList<>();
@@ -200,6 +201,29 @@ public final class ChestSearchScreen extends Screen
 		this.openedByKeybind = (ignored instanceof Boolean && (Boolean)ignored);
 	}
 	
+	/**
+	 * Construct using a custom ChestManager (for example, lootsearch data).
+	 */
+	public ChestSearchScreen(Screen prev,
+		net.wurstclient.chestsearch.ChestManager manager,
+		boolean openedByKeybind)
+	{
+		super(Component.literal("Chest Search"));
+		this.prev = prev;
+		this.chestManager = manager == null ? new ChestManager() : manager;
+		this.openedByKeybind = openedByKeybind;
+		try
+		{
+			if(this.chestManager != null
+				&& this.chestManager.getClass().getName()
+					.equals("net.wurstclient.lootsearch.LootChestManager"))
+			{
+				this.screenTitle = "Loot Search";
+			}
+		}catch(Throwable ignored)
+		{}
+	}
+	
 	@Override
 	protected void init()
 	{
@@ -278,7 +302,8 @@ public final class ChestSearchScreen extends Screen
 		currentQuery = qq;
 		lastMatchQuery = qq.toLowerCase(Locale.ROOT);
 		matchCache.clear();
-		this.chestManager = new ChestManager();
+		if(this.chestManager == null)
+			this.chestManager = new ChestManager();
 		java.util.List<ChestEntry> raw =
 			qq.isEmpty() ? new java.util.ArrayList<>(chestManager.all())
 				: new java.util.ArrayList<>(chestManager.search(qq));
@@ -333,11 +358,69 @@ public final class ChestSearchScreen extends Screen
 		
 		java.util.List<ChestEntry> working =
 			new java.util.ArrayList<>(dedup.values());
-		java.util.Comparator<ChestEntry> recencyComparator =
-			java.util.Comparator
-				.comparingLong(ChestSearchScreen::extractLastSeenOrder)
-				.reversed();
-		working.sort(recencyComparator);
+		boolean isLootManager = false;
+		try
+		{
+			isLootManager = this.chestManager != null
+				&& this.chestManager.getClass().getName()
+					.equals("net.wurstclient.lootsearch.LootChestManager");
+		}catch(Throwable ignored)
+		{}
+		
+		if(isLootManager)
+		{
+			// Sort by distance to player (closest first). If dimension differs,
+			// prefer entries in the player's current dimension.
+			net.minecraft.client.Minecraft mc = WurstClient.MC;
+			Vec3 playerPos = null;
+			String playerDim = "";
+			if(mc != null && mc.player != null)
+			{
+				playerPos = new Vec3(mc.player.getX(), mc.player.getY(),
+					mc.player.getZ());
+				try
+				{
+					if(mc.level != null)
+						playerDim = mc.level.dimension().location().toString();
+				}catch(Throwable ignored)
+				{}
+			}
+			final Vec3 pPos = playerPos;
+			final String pDimKey = canonicalDimension(playerDim);
+			java.util.Comparator<ChestEntry> distComp = (a, b) -> {
+				if(a == null && b == null)
+					return 0;
+				if(a == null)
+					return 1;
+				if(b == null)
+					return -1;
+				String aDim = canonicalDimension(a.dimension);
+				String bDim = canonicalDimension(b.dimension);
+				if(!aDim.equals(bDim))
+				{
+					if(aDim.equals(pDimKey))
+						return -1;
+					if(bDim.equals(pDimKey))
+						return 1;
+					return aDim.compareTo(bDim);
+				}
+				if(pPos == null)
+					return 0;
+				double da =
+					Vec3.atCenterOf(a.getClickedPos()).distanceToSqr(pPos);
+				double db =
+					Vec3.atCenterOf(b.getClickedPos()).distanceToSqr(pPos);
+				return Double.compare(da, db);
+			};
+			working.sort(distComp);
+		}else
+		{
+			java.util.Comparator<ChestEntry> recencyComparator =
+				java.util.Comparator
+					.comparingLong(ChestSearchScreen::extractLastSeenOrder)
+					.reversed();
+			working.sort(recencyComparator);
+		}
 		java.util.List<ChestEntry> pinned = new java.util.ArrayList<>();
 		java.util.List<ChestEntry> others = new java.util.ArrayList<>();
 		for(ChestEntry e : working)
@@ -412,7 +495,19 @@ public final class ChestSearchScreen extends Screen
 		net.minecraft.client.Minecraft mc = WurstClient.MC;
 		if(mc == null || mc.player == null)
 			return entries;
-		
+			
+		// If displaying LootChestManager data (seedmapper exports), skip
+		// the ChestSearch display radius filter so all loot entries are shown.
+		try
+		{
+			if(this.chestManager != null
+				&& this.chestManager.getClass().getName()
+					.equals("net.wurstclient.lootsearch.LootChestManager"))
+			{
+				return entries;
+			}
+		}catch(Throwable ignored)
+		{}
 		net.wurstclient.hacks.ChestSearchHack hack;
 		try
 		{
@@ -503,6 +598,14 @@ public final class ChestSearchScreen extends Screen
 				searchField.getValue() == null ? "" : searchField.getValue();
 			java.util.List<ChestEntry.ItemEntry> matches =
 				collectMatches(e, query);
+			boolean isLootManager = false;
+			try
+			{
+				isLootManager = this.chestManager != null
+					&& this.chestManager.getClass().getName()
+						.equals("net.wurstclient.lootsearch.LootChestManager");
+			}catch(Throwable ignored)
+			{}
 			int matchLines = matches.isEmpty() ? 1 : matches.size();
 			int boxHeight = computeBoxHeight(pinnedEntry, matchLines);
 			if(y + boxHeight < visibleTop)
@@ -519,66 +622,93 @@ public final class ChestSearchScreen extends Screen
 						.withStyle(style -> style
 							.withColor(net.minecraft.ChatFormatting.GOLD))
 					: Component.literal("ESP");
-			Button espBtn = Button.builder(espLabel, b -> {
-				try
-				{
-					String dimLocal = normalizeDimension(e.dimension);
-					// Use this entry's clicked position (the block the
-					// player actually clicked when recording) so ESP draws
-					// on the expected chest half.
-					BlockPos useMin = e.getClickedPos();
-					boolean exists = false;
-					if(WurstClient.MC != null && WurstClient.MC.level != null)
+			Button espBtn = null;
+			if(!isLootManager)
+			{
+				espBtn = Button.builder(espLabel, b -> {
+					try
 					{
-						var world = WurstClient.MC.level;
-						var state = world.getBlockState(useMin);
-						boolean container = state != null && (state
-							.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
-							|| state
-								.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock
-							|| state
-								.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock
-							|| state
-								.getBlock() instanceof net.minecraft.world.level.block.DecoratedPotBlock
-							|| state
-								.getBlock() instanceof net.minecraft.world.level.block.EnderChestBlock);
-						boolean hasBe = world.getBlockEntity(useMin) != null;
-						exists = container && hasBe;
-					}
-					if(!exists)
-					{
-						try
+						String dimLocal = normalizeDimension(e.dimension);
+						// Use this entry's clicked position (the block the
+						// player actually clicked when recording) so ESP draws
+						// on the expected chest half.
+						BlockPos useMin = e.getClickedPos();
+						boolean exists = false;
+						if(WurstClient.MC != null
+							&& WurstClient.MC.level != null)
 						{
-							new ChestManager().removeChest(e.serverIp,
-								e.dimension, useMin.getX(), useMin.getY(),
-								useMin.getZ());
-						}catch(Throwable ignored)
-						{}
-						this.chestManager = new ChestManager();
-						onSearchChanged(searchField.getValue());
+							boolean isLootManagerInner = false;
+							try
+							{
+								isLootManagerInner = this.chestManager != null
+									&& this.chestManager.getClass().getName()
+										.equals(
+											"net.wurstclient.lootsearch.LootChestManager");
+							}catch(Throwable ignored)
+							{}
+							if(!isLootManagerInner)
+							{
+								var world = WurstClient.MC.level;
+								var state = world.getBlockState(useMin);
+								boolean container = state != null && (state
+									.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+									|| state
+										.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock
+									|| state
+										.getBlock() instanceof net.minecraft.world.level.block.ShulkerBoxBlock
+									|| state
+										.getBlock() instanceof net.minecraft.world.level.block.DecoratedPotBlock
+									|| state
+										.getBlock() instanceof net.minecraft.world.level.block.EnderChestBlock);
+								boolean hasBe =
+									world.getBlockEntity(useMin) != null;
+								exists = container && hasBe;
+							}else
+							{
+								// For loot export entries, they may not exist
+								// as placed blocks in
+								// the world; allow ESP drawing without removing
+								// the entry.
+								exists = true;
+							}
+						}
+						if(!exists)
+						{
+							try
+							{
+								new ChestManager().removeChest(e.serverIp,
+									e.dimension, useMin.getX(), useMin.getY(),
+									useMin.getZ());
+							}catch(Throwable ignored)
+							{}
+							this.chestManager = new ChestManager();
+							onSearchChanged(searchField.getValue());
+							minecraft.execute(this::refreshPins);
+							return;
+						}
+						net.wurstclient.hacks.ChestSearchHack hack =
+							WurstClient.INSTANCE.getHax().chestSearchHack;
+						net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
+							.setColors(hack.getEspFillARGB(),
+								hack.getEspLineARGB());
+						// render a single-block ESP at the canonical primary
+						// position
+						net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
+							.toggle(dimLocal, useMin, useMin,
+								hack.getEspTimeMs());
 						minecraft.execute(this::refreshPins);
-						return;
-					}
-					net.wurstclient.hacks.ChestSearchHack hack =
-						WurstClient.INSTANCE.getHax().chestSearchHack;
-					net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
-						.setColors(hack.getEspFillARGB(),
-							hack.getEspLineARGB());
-					// render a single-block ESP at the canonical primary
-					// position
-					net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
-						.toggle(dimLocal, useMin, useMin, hack.getEspTimeMs());
-					minecraft.execute(this::refreshPins);
-				}catch(Throwable ignored)
-				{}
-			}).bounds(0, btnY, 40, 16).build();
-			if(espActive)
-				espBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
-					.create(Component.literal("ESP active")));
+					}catch(Throwable ignored)
+					{}
+				}).bounds(0, btnY, 40, 16).build();
+				if(espActive)
+					espBtn
+						.setTooltip(net.minecraft.client.gui.components.Tooltip
+							.create(Component.literal("ESP active")));
+			}
 			// position esp and wp buttons to the right side of the result box
 			int boxRight = x + 340;
 			int wpWidth = 56;
-			int espWidth = 40;
+			int espWidth = isLootManager ? 0 : 40;
 			int deleteWidth = 56;
 			// Stack buttons vertically at the right edge (ESP, Waypoint,
 			// Delete)
@@ -586,9 +716,12 @@ public final class ChestSearchScreen extends Screen
 			int stackRight = boxRight - 6; // 6px padding from box edge
 			int stackX = stackRight - stackWidth;
 			// place esp at top, wp below, delete below that
-			espBtn.setPosition(stackX + (stackWidth - espWidth) / 2, btnY);
-			addRenderableWidget(espBtn);
-			rowButtons.add(espBtn);
+			if(!isLootManager && espBtn != null)
+			{
+				espBtn.setPosition(stackX + (stackWidth - espWidth) / 2, btnY);
+				addRenderableWidget(espBtn);
+				rowButtons.add(espBtn);
+			}
 			boolean hasWp = waypointActive;
 			Component wpLabel =
 				hasWp
@@ -680,10 +813,12 @@ public final class ChestSearchScreen extends Screen
 			// hide per-row buttons when their row is outside the visible
 			// scrolling region so they don't overlap header/search UI
 			boolean rowVisible = btnY >= visibleTop && btnY <= visibleBottom;
-			espBtn.visible = rowVisible;
+			if(!isLootManager && espBtn != null)
+				espBtn.visible = rowVisible;
 			wpBtn.visible = rowVisible;
 			delBtn.visible = rowVisible;
-			espBtn.active = rowVisible;
+			if(!isLootManager && espBtn != null)
+				espBtn.active = rowVisible;
 			wpBtn.active = rowVisible;
 			delBtn.active = rowVisible;
 			delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
@@ -854,8 +989,8 @@ public final class ChestSearchScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		context.drawCenteredString(this.font, Component.literal("Chest Search"),
-			this.width / 2, 4, 0xFFFFFFFF);
+		context.drawCenteredString(this.font,
+			Component.literal(this.screenTitle), this.width / 2, 4, 0xFFFFFFFF);
 		int mid = this.width / 2;
 		int sfX = mid - 150;
 		int sfY = 18;

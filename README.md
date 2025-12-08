@@ -55,6 +55,7 @@ I’m pleased to note that many of the features and improvements below are compl
 - AntiBlast
 - [NiceWurst](https://github.com/cev-api/NiceWurst)
 - SeedMapperHelper
+- LootSearch
 - OfflineSettings
 - TargetPlace
 - SurfaceXray
@@ -355,6 +356,14 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Supports keybinds for all settings
 
 ![UI](https://i.imgur.com/4b5IA0u.png)
+
+### LootSearch
+- Using [my fork](https://github.com/cev-api/SeedMapper-CevAPI) of [SeedMapper](https://github.com/xpple/SeedMapper/) you can export loot tables for selected/all structures and then parse that information using the same UI as ChestSearch.
+- Sorted by closest chest.
+- You can search for specific loot and set a waypoint towards it.
+- Will not function without a valid SeedMapper loot export JSON for the server you're in.
+
+![Loot](https://i.imgur.com/7pkTPxW.png)
 
 ## What’s changed or improved in this fork?
 

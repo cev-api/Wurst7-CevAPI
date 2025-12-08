@@ -905,16 +905,8 @@ public abstract class GenericContainerScreenMixin
 		}
 	}
 	
-	@Unique
-	private void showRecordedMessage(int x, int y, int z)
-	{
-		java.time.LocalTime t = java.time.LocalTime.now();
-		String ts =
-			t.truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString();
-		this.lastRecordMessage =
-			"Chest recorded, position " + x + "," + y + "," + z + " at " + ts;
-		this.lastRecordUntilMs = System.currentTimeMillis() + 4000; // show 4s
-	}
+	// Removed on-screen recorded message; notifications are shown in chat on
+	// close.
 	
 	@Unique
 	private void startManualScan()
@@ -1124,7 +1116,6 @@ public abstract class GenericContainerScreenMixin
 						chestRecorder.recordFromStacksWithSlotOrder(serverIp,
 							dimension, bp.getX(), bp.getY(), bp.getZ(), region,
 							slotOrder, wurst$currentBounds());
-						showRecordedMessage(bp.getX(), bp.getY(), bp.getZ());
 					}
 				}catch(Throwable ignored)
 				{}
@@ -1225,6 +1216,76 @@ public abstract class GenericContainerScreenMixin
 			{
 				chestRecorder.recordFromStacksWithSlotOrder(serverIp, dimension,
 					fx, fy, fz, region, slotOrder, wurst$currentBounds());
+				// Notify player in chat that chest was recorded (on close)
+				try
+				{
+					String recordedMsg = "Chest recorded at position " + fx
+						+ "," + fy + "," + fz;
+					if(net.wurstclient.WurstClient.MC != null)
+					{
+						net.wurstclient.WurstClient.MC.execute(() -> {
+							try
+							{
+								if(net.wurstclient.WurstClient.MC.player != null)
+									net.wurstclient.WurstClient.MC.player
+										.displayClientMessage(
+											net.minecraft.network.chat.Component
+												.literal(recordedMsg),
+											false);
+							}catch(Throwable ignored)
+							{}
+						});
+					}
+				}catch(Throwable ignored)
+				{
+					// ignore
+				}
+				// If loot export present, compare now and notify if mismatch
+				try
+				{
+					java.io.File lootFile =
+						net.wurstclient.lootsearch.LootSearchUtil
+							.findFileForServer(serverIp);
+					if(lootFile != null)
+					{
+						boolean match =
+							net.wurstclient.lootsearch.LootSearchUtil
+								.compareStacksWithLoot(serverIp, dimension, fx,
+									fy, fz, region);
+						// Debug log to help diagnose why mismatch messages may
+						// not
+						// appear in chat. Useful during testing.
+						try
+						{
+							System.out.println(
+								"[LootSearch] compare at " + fx + "," + fy + ","
+									+ fz + " server=" + serverIp + " lootFile="
+									+ (lootFile == null ? "null"
+										: lootFile.getAbsolutePath())
+									+ " match=" + match);
+						}catch(Throwable ignored)
+						{}
+						if(!match && net.wurstclient.WurstClient.MC != null)
+						{
+							net.wurstclient.WurstClient.MC.execute(() -> {
+								try
+								{
+									if(net.wurstclient.WurstClient.MC.player != null)
+										net.wurstclient.WurstClient.MC.player
+											.displayClientMessage(
+												net.minecraft.network.chat.Component
+													.literal(
+														"[wurst] Chest does not match loot table."),
+												false);
+								}catch(Throwable ignored)
+								{}
+							});
+						}
+					}
+				}catch(Throwable ignored)
+				{
+					// ignore
+				}
 			}
 		}catch(Throwable ignored)
 		{}
