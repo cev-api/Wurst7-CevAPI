@@ -17,6 +17,8 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -82,6 +84,17 @@ public abstract class TitleScreenMixin extends Screen
 		// adjust AltManager button if Realms button has been moved
 		// happens when ModMenu is installed
 		altsButton.setY(realmsButton.getY());
+	}
+	
+	@Inject(at = @At("TAIL"),
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
+	{
+		Font font = minecraft.font;
+		java.lang.String text = "Wurst 7.51.2 Modified by CevAPI";
+		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
+			4, 4, 0xFFFFFFFF, true);
 	}
 	
 	/**
