@@ -13,16 +13,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.wurstclient.WurstClient;
-import net.wurstclient.serverfinder.CleanUpScreen;
+import net.cevapi.config.AntiFingerprintConfigScreen;
+import net.cevapi.security.ResourcePackProtector;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
-import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.serverfinder.CleanUpScreen;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen
@@ -70,12 +71,13 @@ public class MultiplayerScreenMixin extends Screen
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		if(antiFingerprintButton == null)
+		boolean showAntiFingerprintButton = NiceWurstModule
+			.showAntiFingerprintControls()
+			&& ResourcePackProtector.getConfig().shouldShowMultiplayerButton();
+		
+		if(showAntiFingerprintButton)
 		{
-			if(!NiceWurstModule.showAntiFingerprintControls())
-			{
-				antiFingerprintButton = null;
-			}else
+			if(antiFingerprintButton == null)
 			{
 				antiFingerprintButton = Button.builder(
 					Component.literal("Anti-Fingerprint"),
@@ -84,14 +86,14 @@ public class MultiplayerScreenMixin extends Screen
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(antiFingerprintButton);
 			}
-		}
-		
-		if(antiFingerprintButton != null)
-		{
+			
 			antiFingerprintButton.setX(width / 2 + 54);
 			antiFingerprintButton.setY(10);
 			antiFingerprintButton.setWidth(100);
 			antiFingerprintButton.visible = true;
+		}else if(antiFingerprintButton != null)
+		{
+			antiFingerprintButton.visible = false;
 		}
 		
 		if(cornerServerFinderButton == null)

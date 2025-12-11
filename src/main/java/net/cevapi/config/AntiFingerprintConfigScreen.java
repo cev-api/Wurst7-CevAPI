@@ -102,6 +102,14 @@ public final class AntiFingerprintConfigScreen extends Screen
 					.setChecked(value)));
 		y += 34;
 		
+		addRenderableWidget(CycleButton.onOffBuilder()
+			.withInitialValue(config.shouldShowMultiplayerButton())
+			.create(centerX - 100, y, 200, 20,
+				Component.literal("Show Multiplayer button"),
+				(button, value) -> config.getShowMultiplayerButtonSetting()
+					.setChecked(value)));
+		y += 34;
+		
 		// Extra breathing room before first text field so labels never clip
 		y += FIRST_FIELD_TOP_SPACER;
 		
