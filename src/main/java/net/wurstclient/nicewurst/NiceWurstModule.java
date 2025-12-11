@@ -7,6 +7,7 @@
  */
 package net.wurstclient.nicewurst;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -23,20 +24,27 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
+import net.wurstclient.WurstRenderLayers;
+import net.wurstclient.chestsearch.ChestEntry;
+import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.config.BuildConfig;
+import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
+import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
-import net.wurstclient.events.UpdateListener;
-import net.wurstclient.WurstRenderLayers;
+import net.wurstclient.util.RenderUtils;
 
 public final class NiceWurstModule
 {
@@ -123,6 +131,7 @@ public final class NiceWurstModule
 		filterNavigator(wurst.getNavigator());
 		filterOtherFeatures(wurst.getOtfs());
 		scheduleStateCleanup(wurst);
+		enableOpenedChestMarker(wurst);
 	}
 	
 	public static boolean showAltManager()
@@ -347,6 +356,95 @@ public final class NiceWurstModule
 				wurst.getEventManager().remove(UpdateListener.class, this);
 			}
 		});
+	}
+	
+	private static void enableOpenedChestMarker(WurstClient wurst)
+	{
+		OpenedChestMarker marker = new OpenedChestMarker();
+		wurst.getEventManager().add(UpdateListener.class, marker);
+		wurst.getEventManager().add(RenderListener.class, marker);
+	}
+	
+	private static final class OpenedChestMarker
+		implements UpdateListener, RenderListener
+	{
+		private List<ChestEntry> openedChests = List.of();
+		
+		@Override
+		public void onUpdate()
+		{
+			try
+			{
+				openedChests = new ChestManager().all();
+			}catch(Throwable ignored)
+			{
+				openedChests = List.of();
+			}
+		}
+		
+		@Override
+		public void onRender(PoseStack matrixStack, float partialTicks)
+		{
+			if(matrixStack == null || openedChests.isEmpty())
+				return;
+			
+			if(WurstClient.INSTANCE == null || WurstClient.MC == null)
+				return;
+			
+			ChestSearchHack chestSearch =
+				WurstClient.INSTANCE.getHax().chestSearchHack;
+			if(chestSearch == null || !chestSearch.isMarkOpenedChest())
+				return;
+			
+			Level level = WurstClient.MC.level;
+			if(level == null || level.dimension() == null)
+				return;
+			
+			String curDimFull = level.dimension().location().toString();
+			String curDimPath = level.dimension().location().getPath();
+			
+			ArrayList<AABB> boxes = new ArrayList<>();
+			for(ChestEntry entry : openedChests)
+			{
+				if(entry == null || entry.dimension == null)
+					continue;
+				if(!dimensionMatches(entry.dimension, curDimFull, curDimPath))
+					continue;
+				BlockPos pos = entry.getClickedPos();
+				if(pos == null || !level.isLoaded(pos))
+					continue;
+				boxes.add(entryToBox(entry));
+			}
+			
+			if(boxes.isEmpty())
+				return;
+			
+			int markColor = chestSearch.getMarkXColorARGB();
+			int fillColor = (0x40 << 24) | (markColor & 0x00FFFFFF);
+			boolean depthTest = NiceWurstModule.enforceDepthTest(true);
+			RenderUtils.drawSolidBoxes(matrixStack, boxes, fillColor,
+				depthTest);
+			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, markColor,
+				depthTest);
+		}
+		
+		private static boolean dimensionMatches(String entryDim,
+			String curDimFull, String curDimPath)
+		{
+			return entryDim.equals(curDimFull) || entryDim.equals(curDimPath)
+				|| entryDim.endsWith(":" + curDimPath);
+		}
+		
+		private static AABB entryToBox(ChestEntry entry)
+		{
+			int minX = Math.min(entry.x, entry.maxX);
+			int minY = Math.min(entry.y, entry.maxY);
+			int minZ = Math.min(entry.z, entry.maxZ);
+			int maxX = Math.max(entry.x, entry.maxX) + 1;
+			int maxY = Math.max(entry.y, entry.maxY) + 1;
+			int maxZ = Math.max(entry.z, entry.maxZ) + 1;
+			return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+		}
 	}
 	
 	private static boolean isHackAllowed(Hack hack)
