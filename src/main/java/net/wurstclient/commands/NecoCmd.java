@@ -21,7 +21,7 @@ import net.wurstclient.util.RenderUtils;
 public final class NecoCmd extends Command
 	implements GUIRenderListener, UpdateListener
 {
-	private final ResourceLocation[] necos = buildNecoFrames();
+	private final Identifier[] necos = buildNecoFrames();
 	
 	private static final int NECO_TEX_W = 200;
 	private static final int NECO_TEX_H = 200;
@@ -103,11 +103,11 @@ public final class NecoCmd extends Command
 			0, DRAW_W, DRAW_H, NECO_TEX_W, NECO_TEX_H, color);
 	}
 	
-	private static ResourceLocation[] buildNecoFrames()
+	private static Identifier[] buildNecoFrames()
 	{
-		ResourceLocation[] frames = new ResourceLocation[37];
+		Identifier[] frames = new Identifier[37];
 		for(int i = 0; i < 37; i++)
-			frames[i] = ResourceLocation.fromNamespaceAndPath("wurst",
+			frames[i] = Identifier.fromNamespaceAndPath("wurst",
 				"neco" + (i + 1) + ".png");
 		return frames;
 	}

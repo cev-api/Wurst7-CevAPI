@@ -33,6 +33,7 @@ import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.TextureTransform;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 /**
  * An abstraction of Minecraft 1.21.5's new {@code GpuBuffer} system that makes
@@ -115,8 +116,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 		if(vertexBuffer == null)
 			return;
 		
-		RenderType.CompositeRenderType effectiveLayer =
-			NiceWurstModule.enforceDepthTest(layer);
+		RenderType effectiveLayer = NiceWurstModule.enforceDepthTest(layer);
 		
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 		modelViewStack.pushMatrix();
@@ -129,7 +129,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 		
 		RenderTarget framebuffer =
 			OutputTarget.ITEM_ENTITY_TARGET.getRenderTarget();
-		RenderPipeline pipeline = layer.pipeline();
+		RenderPipeline pipeline = effectiveLayer.pipeline();
 		GpuBuffer indexBuffer = shapeIndexBuffer.getBuffer(indexCount);
 		
 		try(RenderPass renderPass =

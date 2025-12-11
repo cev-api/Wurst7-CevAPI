@@ -24,7 +24,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -1086,8 +1086,8 @@ public final class EnchantmentHandlerHack extends Hack
 				continue;
 			
 			int level = entry.getIntValue();
-			ResourceLocation id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.location()).orElse(null);
+			Identifier id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
@@ -1121,8 +1121,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(enchantmentEntry == null)
 				continue;
 			int level = entry.getIntValue();
-			ResourceLocation id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.location()).orElse(null);
+			Identifier id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
@@ -1152,8 +1152,8 @@ public final class EnchantmentHandlerHack extends Hack
 				continue;
 			
 			int level = entry.getIntValue();
-			ResourceLocation id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.location()).orElse(null);
+			Identifier id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			BookCategory category = BookCategory.fromPath(path);
@@ -1193,8 +1193,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(enchantmentEntry == null)
 				continue;
 			int level = entry.getIntValue();
-			ResourceLocation id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.location()).orElse(null);
+			Identifier id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			BookCategory category = BookCategory.fromPath(path);
@@ -1227,8 +1227,8 @@ public final class EnchantmentHandlerHack extends Hack
 		for(MobEffectInstance effectInstance : potionContents.getAllEffects())
 		{
 			Holder<MobEffect> effEntry = effectInstance.getEffect();
-			ResourceLocation id =
-				effEntry.unwrapKey().map(k -> k.location()).orElse(null);
+			Identifier id =
+				effEntry.unwrapKey().map(k -> k.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(effEntry.getRegisteredName());
 			String name = buildEffectName(id, path);
@@ -1248,8 +1248,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(basePotion.isPresent())
 			{
 				Holder<Potion> p = basePotion.get();
-				ResourceLocation id =
-					p.unwrapKey().map(k -> k.location()).orElse(null);
+				Identifier id =
+					p.unwrapKey().map(k -> k.identifier()).orElse(null);
 				String path = id != null ? id.getPath()
 					: sanitizePath(p.getRegisteredName());
 				String name = buildPotionName(id, path);
@@ -1266,8 +1266,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(it.hasNext())
 		{
 			MobEffectInstance first = it.next();
-			ResourceLocation id = first.getEffect().unwrapKey()
-				.map(k -> k.location()).orElse(null);
+			Identifier id = first.getEffect().unwrapKey()
+				.map(k -> k.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(first.getEffect().getRegisteredName());
 			primaryName = buildEffectName(id, path);
@@ -1278,8 +1278,8 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				ResourceLocation id = basePotion.get().unwrapKey()
-					.map(k -> k.location()).orElse(null);
+				Identifier id = basePotion.get().unwrapKey()
+					.map(k -> k.identifier()).orElse(null);
 				String path = id != null ? id.getPath()
 					: sanitizePath(basePotion.get().getRegisteredName());
 				primaryName = buildPotionName(id, path);
@@ -1310,8 +1310,8 @@ public final class EnchantmentHandlerHack extends Hack
 		for(MobEffectInstance effectInstance : potionContents.getAllEffects())
 		{
 			Holder<MobEffect> effEntry = effectInstance.getEffect();
-			ResourceLocation id =
-				effEntry.unwrapKey().map(k -> k.location()).orElse(null);
+			Identifier id =
+				effEntry.unwrapKey().map(k -> k.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(effEntry.getRegisteredName());
 			String name = buildEffectName(id, path);
@@ -1328,8 +1328,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(basePotion.isPresent())
 			{
 				Holder<Potion> p = basePotion.get();
-				ResourceLocation id =
-					p.unwrapKey().map(k -> k.location()).orElse(null);
+				Identifier id =
+					p.unwrapKey().map(k -> k.identifier()).orElse(null);
 				String path = id != null ? id.getPath()
 					: sanitizePath(p.getRegisteredName());
 				String name = buildPotionName(id, path);
@@ -1350,8 +1350,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(it.hasNext())
 		{
 			MobEffectInstance first = it.next();
-			ResourceLocation id = first.getEffect().unwrapKey()
-				.map(k -> k.location()).orElse(null);
+			Identifier id = first.getEffect().unwrapKey()
+				.map(k -> k.identifier()).orElse(null);
 			String path = id != null ? id.getPath()
 				: sanitizePath(first.getEffect().getRegisteredName());
 			primaryName = buildEffectName(id, path);
@@ -1362,8 +1362,8 @@ public final class EnchantmentHandlerHack extends Hack
 			var basePotion = potionContents.potion();
 			if(basePotion.isPresent())
 			{
-				ResourceLocation id = basePotion.get().unwrapKey()
-					.map(k -> k.location()).orElse(null);
+				Identifier id = basePotion.get().unwrapKey()
+					.map(k -> k.identifier()).orElse(null);
 				String path = id != null ? id.getPath()
 					: sanitizePath(basePotion.get().getRegisteredName());
 				primaryName = buildPotionName(id, path);
@@ -1602,7 +1602,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return text.substring(0, Math.max(0, max - 3)) + "...";
 	}
 	
-	private static String buildEnchantmentName(ResourceLocation id, String path)
+	private static String buildEnchantmentName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Enchant";
@@ -1615,7 +1615,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return translated;
 	}
 	
-	private static String buildEffectName(ResourceLocation id, String path)
+	private static String buildEffectName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Effect";
@@ -1628,7 +1628,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return translated;
 	}
 	
-	private static String buildPotionName(ResourceLocation id, String path)
+	private static String buildPotionName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Potion";

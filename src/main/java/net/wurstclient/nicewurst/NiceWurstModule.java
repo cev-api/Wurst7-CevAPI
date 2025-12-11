@@ -20,7 +20,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font.DisplayMode;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
@@ -176,8 +176,7 @@ public final class NiceWurstModule
 		return originalDepthTest;
 	}
 	
-	public static RenderType.CompositeRenderType enforceDepthTest(
-		RenderType.CompositeRenderType originalLayer)
+	public static RenderType enforceDepthTest(RenderType originalLayer)
 	{
 		if(!isActive() || originalLayer == null)
 			return originalLayer;
@@ -193,9 +192,6 @@ public final class NiceWurstModule
 		
 		if(originalLayer == WurstRenderLayers.ESP_LINES)
 			return WurstRenderLayers.LINES;
-		
-		if(originalLayer == WurstRenderLayers.ESP_LINE_STRIP)
-			return WurstRenderLayers.LINE_STRIP;
 		
 		return originalLayer;
 	}
@@ -226,7 +222,7 @@ public final class NiceWurstModule
 		if(camera == null)
 			return true;
 		
-		Vec3 from = camera.getPosition();
+		Vec3 from = camera.position();
 		if(from == null)
 			return true;
 		
@@ -400,8 +396,8 @@ public final class NiceWurstModule
 			if(level == null || level.dimension() == null)
 				return;
 			
-			String curDimFull = level.dimension().location().toString();
-			String curDimPath = level.dimension().location().getPath();
+			String curDimFull = level.dimension().identifier().toString();
+			String curDimPath = level.dimension().identifier().getPath();
 			
 			ArrayList<AABB> boxes = new ArrayList<>();
 			for(ChestEntry entry : openedChests)

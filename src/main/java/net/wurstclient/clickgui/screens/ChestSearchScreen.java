@@ -382,7 +382,8 @@ public final class ChestSearchScreen extends Screen
 				try
 				{
 					if(mc.level != null)
-						playerDim = mc.level.dimension().location().toString();
+						playerDim =
+							mc.level.dimension().identifier().toString();
 				}catch(Throwable ignored)
 				{}
 			}
@@ -533,7 +534,7 @@ public final class ChestSearchScreen extends Screen
 		try
 		{
 			if(mc.level != null)
-				playerDim = mc.level.dimension().location().toString();
+				playerDim = mc.level.dimension().identifier().toString();
 		}catch(Throwable ignored)
 		{}
 		String playerDimKey = canonicalDimension(playerDim);
@@ -1169,8 +1170,8 @@ public final class ChestSearchScreen extends Screen
 				{
 					try
 					{
-						net.minecraft.resources.ResourceLocation id =
-							net.minecraft.resources.ResourceLocation
+						net.minecraft.resources.Identifier id =
+							net.minecraft.resources.Identifier
 								.tryParse(it.itemId);
 						if(id != null)
 						{
@@ -1198,13 +1199,11 @@ public final class ChestSearchScreen extends Screen
 							for(int ei = 0; ei < it.enchantments.size(); ei++)
 							{
 								String ench = it.enchantments.get(ei);
-								net.minecraft.resources.ResourceLocation eid =
-									null;
+								net.minecraft.resources.Identifier eid = null;
 								try
 								{
-									eid =
-										net.minecraft.resources.ResourceLocation
-											.tryParse(ench);
+									eid = net.minecraft.resources.Identifier
+										.tryParse(ench);
 								}catch(Throwable ignored)
 								{}
 								String path = eid != null ? eid.getPath()
@@ -1234,10 +1233,10 @@ public final class ChestSearchScreen extends Screen
 						}else if(it.primaryPotion != null
 							&& !it.primaryPotion.isBlank())
 						{
-							net.minecraft.resources.ResourceLocation pid = null;
+							net.minecraft.resources.Identifier pid = null;
 							try
 							{
-								pid = net.minecraft.resources.ResourceLocation
+								pid = net.minecraft.resources.Identifier
 									.tryParse(it.primaryPotion);
 							}catch(Throwable ignored)
 							{}
@@ -1606,10 +1605,9 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public void resize(net.minecraft.client.Minecraft client, int width,
-		int height)
+	public void resize(int width, int height)
 	{
-		super.resize(client, width, height);
+		super.resize(width, height);
 		clampScroll();
 		rebuildRowButtons();
 	}

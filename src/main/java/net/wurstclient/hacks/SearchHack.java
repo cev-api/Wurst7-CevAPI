@@ -20,7 +20,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.wurstclient.Category;
@@ -390,7 +390,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				String raw = s.trim();
 				if(raw.isEmpty())
 					continue;
-				ResourceLocation id = ResourceLocation.tryParse(raw);
+				Identifier id = Identifier.tryParse(raw);
 				if(id != null && BuiltInRegistries.BLOCK.containsKey(id))
 					exact.add(id.toString());
 				else

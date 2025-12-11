@@ -224,7 +224,7 @@ public final class EditBlockListScreen extends Screen
 			{
 				java.util.ArrayList<net.minecraft.world.level.block.Block> list =
 					new java.util.ArrayList<>();
-				for(net.minecraft.resources.ResourceLocation id : net.minecraft.core.registries.BuiltInRegistries.BLOCK
+				for(net.minecraft.resources.Identifier id : net.minecraft.core.registries.BuiltInRegistries.BLOCK
 					.keySet())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);

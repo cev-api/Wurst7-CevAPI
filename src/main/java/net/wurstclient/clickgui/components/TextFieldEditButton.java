@@ -16,10 +16,10 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Style;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.KeyboardInput;
-import net.wurstclient.clickgui.Window;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
@@ -67,7 +67,7 @@ public final class TextFieldEditButton extends Component
 			{
 				if(!editing)
 					startEditing();
-				inlineField.mouseClicked(context, false);
+				inlineField.onClick(context, false);
 			}else if(editing)
 				finishEditing(true);
 			break;
@@ -157,7 +157,7 @@ public final class TextFieldEditButton extends Component
 			TR.getSplitter().plainIndexAtWidth(value, maxWidth, Style.EMPTY);
 		if(maxLength < value.length())
 			value = value.substring(0, maxLength) + "...";
-		context.drawString(TR, value, x1 + 2, y3 + 2, txtColor, false);
+		context.drawString(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
 	}
 	
 	@Override
@@ -170,5 +170,40 @@ public final class TextFieldEditButton extends Component
 	public int getDefaultHeight()
 	{
 		return TEXT_HEIGHT * 2;
+	}
+	
+	private void updateInlineFieldBounds()
+	{
+		int x = getX() + 2;
+		int y = getY() + TEXT_HEIGHT + 2;
+		int width = Math.max(0, getWidth() - 4);
+		inlineField.setX(x);
+		inlineField.setY(y);
+		inlineField.setWidth(width);
+		inlineField.setHeight(TEXT_HEIGHT);
+	}
+	
+	@Override
+	public boolean onKeyPressed(KeyEvent event)
+	{
+		if(!editing)
+			return false;
+		
+		return inlineField.keyPressed(event);
+	}
+	
+	@Override
+	public boolean onCharTyped(CharacterEvent event)
+	{
+		if(!editing)
+			return false;
+		
+		return inlineField.charTyped(event);
+	}
+	
+	@Override
+	public void onKeyboardFocusLost()
+	{
+		finishEditing(true);
 	}
 }

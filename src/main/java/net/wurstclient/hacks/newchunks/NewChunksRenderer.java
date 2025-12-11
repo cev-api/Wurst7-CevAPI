@@ -9,7 +9,7 @@ package net.wurstclient.hacks.newchunks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-
+import java.util.function.Consumer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;

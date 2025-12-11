@@ -10,14 +10,14 @@ package net.wurstclient.util;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 public final class ItemNameUtils
 {
 	private ItemNameUtils()
 	{}
 	
-	public static String buildEnchantmentName(ResourceLocation id, String path)
+	public static String buildEnchantmentName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Enchant";
@@ -29,7 +29,7 @@ public final class ItemNameUtils
 		return translated;
 	}
 	
-	public static String buildEffectName(ResourceLocation id, String path)
+	public static String buildEffectName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Effect";
@@ -41,7 +41,7 @@ public final class ItemNameUtils
 		return translated;
 	}
 	
-	public static String buildPotionName(ResourceLocation id, String path)
+	public static String buildPotionName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Potion";

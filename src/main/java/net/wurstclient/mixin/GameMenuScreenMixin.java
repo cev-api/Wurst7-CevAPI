@@ -25,7 +25,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.options.WurstOptionsScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;

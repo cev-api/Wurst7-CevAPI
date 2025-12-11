@@ -27,7 +27,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -244,7 +244,7 @@ public final class TrialSpawnerEspHack extends Hack
 								try
 								{
 									if(MC != null && MC.level != null)
-										dim = MC.level.dimension().location()
+										dim = MC.level.dimension().identifier()
 											.toString();
 								}catch(Throwable ignored)
 								{}
@@ -273,7 +273,7 @@ public final class TrialSpawnerEspHack extends Hack
 				try
 				{
 					if(MC != null && MC.level != null)
-						dim = MC.level.dimension().location().toString();
+						dim = MC.level.dimension().identifier().toString();
 				}catch(Throwable ignored)
 				{}
 				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
@@ -422,7 +422,7 @@ public final class TrialSpawnerEspHack extends Hack
 		try
 		{
 			if(MC.level != null)
-				dim = MC.level.dimension().location().toString();
+				dim = MC.level.dimension().identifier().toString();
 		}catch(Throwable ignored)
 		{}
 		// make final copies for inner class
@@ -493,7 +493,7 @@ public final class TrialSpawnerEspHack extends Hack
 				try
 				{
 					if(MC != null && MC.level != null)
-						dim = MC.level.dimension().location().toString();
+						dim = MC.level.dimension().identifier().toString();
 				}catch(Throwable ignored)
 				{}
 				String key = dim + "|" + vpos.getX() + "," + vpos.getY() + ","
@@ -851,8 +851,8 @@ public final class TrialSpawnerEspHack extends Hack
 						try
 						{
 							if(MC != null && MC.level != null)
-								dim =
-									MC.level.dimension().location().toString();
+								dim = MC.level.dimension().identifier()
+									.toString();
 						}catch(Throwable ignored)
 						{}
 						if(dim == null)
@@ -1045,7 +1045,7 @@ public final class TrialSpawnerEspHack extends Hack
 		if(mobId == null || mobId.isEmpty())
 			return "Unknown";
 		
-		ResourceLocation id = ResourceLocation.tryParse(mobId);
+		Identifier id = Identifier.tryParse(mobId);
 		if(id != null)
 		{
 			EntityType<?> entity = BuiltInRegistries.ENTITY_TYPE.getValue(id);
@@ -1112,7 +1112,7 @@ public final class TrialSpawnerEspHack extends Hack
 	{
 		if(mobId == null || mobId.isEmpty())
 			return null;
-		ResourceLocation id = ResourceLocation.tryParse(mobId);
+		Identifier id = Identifier.tryParse(mobId);
 		if(id == null)
 			return null;
 		ResourceKey<EntityType<?>> key =

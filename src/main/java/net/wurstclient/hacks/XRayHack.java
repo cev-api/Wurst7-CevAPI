@@ -581,8 +581,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 		for(String s : oreNamesCache)
 		{
-			net.minecraft.resources.ResourceLocation id =
-				net.minecraft.resources.ResourceLocation.tryParse(s);
+			net.minecraft.resources.Identifier id =
+				net.minecraft.resources.Identifier.tryParse(s);
 			if(id != null)
 				exact.add(id.toString());
 			else if(s != null && !s.isBlank())

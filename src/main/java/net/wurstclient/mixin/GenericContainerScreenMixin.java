@@ -178,8 +178,8 @@ public abstract class GenericContainerScreenMixin
 			try
 			{
 				if(WurstClient.MC != null && WurstClient.MC.level != null)
-					dimension =
-						WurstClient.MC.level.dimension().location().toString();
+					dimension = WurstClient.MC.level.dimension().identifier()
+						.toString();
 			}catch(Throwable ignored)
 			{}
 			
@@ -913,7 +913,7 @@ public abstract class GenericContainerScreenMixin
 					? WurstClient.MC.getCurrentServer().ip : null;
 			final String dimension =
 				(WurstClient.MC != null && WurstClient.MC.level != null)
-					? WurstClient.MC.level.dimension().location().toString()
+					? WurstClient.MC.level.dimension().identifier().toString()
 					: null;
 			
 			java.util.List<Integer> slotOrder =
@@ -1024,7 +1024,8 @@ public abstract class GenericContainerScreenMixin
 				? WurstClient.MC.getCurrentServer().ip : null;
 		final String dimension =
 			(WurstClient.MC != null && WurstClient.MC.level != null)
-				? WurstClient.MC.level.dimension().location().toString() : null;
+				? WurstClient.MC.level.dimension().identifier().toString()
+				: null;
 		// choose chest position determined on open; fallback to crosshair, then
 		// player
 		BlockPos chosenPos = null;
@@ -1181,7 +1182,7 @@ public abstract class GenericContainerScreenMixin
 				if(net.wurstclient.WurstClient.MC != null
 					&& net.wurstclient.WurstClient.MC.level != null)
 					dimension = net.wurstclient.WurstClient.MC.level.dimension()
-						.location().toString();
+						.identifier().toString();
 			}catch(Throwable ignored)
 			{}
 			int chestSlots = Math.max(0, this.containerRows * 9);

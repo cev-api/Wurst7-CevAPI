@@ -254,7 +254,7 @@ public final class AddBookOfferScreen extends Screen
 			return;
 		}
 		
-		ResourceLocation id = ResourceLocation.tryParse(query);
+		Identifier id = Identifier.tryParse(query);
 		if(id == null)
 		{
 			updateSelectedOffer(null);

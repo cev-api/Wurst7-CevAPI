@@ -101,7 +101,7 @@ public final class TargetHighlighter implements RenderListener
 	{
 		if(WurstClient.MC == null || WurstClient.MC.level == null)
 			return;
-		String dim = WurstClient.MC.level.dimension().location().toString();
+		String dim = WurstClient.MC.level.dimension().identifier().toString();
 		long now = System.currentTimeMillis();
 		List<AABB> boxes = new ArrayList<>();
 		Iterator<Map.Entry<String, Target>> it = targets.entrySet().iterator();

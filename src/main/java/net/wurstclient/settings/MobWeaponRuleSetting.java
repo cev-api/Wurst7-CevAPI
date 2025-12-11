@@ -19,7 +19,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.MobCategory;
@@ -185,8 +185,7 @@ public final class MobWeaponRuleSetting extends Setting
 			.map(BuiltInRegistries.ENTITY_TYPE::getValue)
 			.filter(type -> type.getCategory() != MobCategory.MISC)
 			.map(type -> {
-				ResourceLocation id =
-					BuiltInRegistries.ENTITY_TYPE.getKey(type);
+				Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
 				String name = type.getDescription().getString();
 				return new MobOption(id.toString(), name, type);
 			}).sorted(Comparator.comparing(MobOption::displayName,

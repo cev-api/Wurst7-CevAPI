@@ -12,7 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -376,8 +376,8 @@ public class ChestRecorder
 							Holder<Enchantment> ren = e.getKey();
 							if(ren == null)
 								continue;
-							ResourceLocation id = ren.unwrapKey()
-								.map(k -> k.location()).orElse(null);
+							Identifier id = ren.unwrapKey()
+								.map(k -> k.identifier()).orElse(null);
 							String idStr = id != null ? id.toString()
 								: ren.getRegisteredName();
 							int lvl = e.getIntValue();
@@ -404,8 +404,8 @@ public class ChestRecorder
 							.getAllEffects())
 						{
 							Holder<MobEffect> effEntry = sei.getEffect();
-							ResourceLocation id = effEntry.unwrapKey()
-								.map(k -> k.location()).orElse(null);
+							Identifier id = effEntry.unwrapKey()
+								.map(k -> k.identifier()).orElse(null);
 							String idStr = id != null ? id.toString()
 								: effEntry.getRegisteredName();
 							if(idStr != null && !idStr.isBlank())
@@ -422,9 +422,8 @@ public class ChestRecorder
 								potionContents.potion();
 							if(basePotion.isPresent())
 							{
-								ResourceLocation id =
-									basePotion.get().unwrapKey()
-										.map(k -> k.location()).orElse(null);
+								Identifier id = basePotion.get().unwrapKey()
+									.map(k -> k.identifier()).orElse(null);
 								String idStr = id != null ? id.toString()
 									: basePotion.get().getRegisteredName();
 								it.primaryPotion = idStr;

@@ -17,11 +17,11 @@ import java.util.stream.StreamSupport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
@@ -104,9 +104,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private List<BlockPos> cachedTrialSpawners = List.of();
 	private List<Vec3> cachedVillagerPositions = List.of();
 	private List<Vec3> cachedGolemPositions = List.of();
-	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG =
-		TagKey.create(Registries.BLOCK, ResourceLocation
-			.fromNamespaceAndPath("minecraft", "waxed_copper_blocks"));
+	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG = TagKey.create(
+		Registries.BLOCK,
+		Identifier.fromNamespaceAndPath("minecraft", "waxed_copper_blocks"));
 	private boolean lastTrialFilterState;
 	private boolean lastVillageFilterState;
 	

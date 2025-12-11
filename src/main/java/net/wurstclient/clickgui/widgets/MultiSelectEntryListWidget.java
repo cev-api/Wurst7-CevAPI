@@ -17,13 +17,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.ObjectSelectionList;
-import net.minecraft.client.input.InputQuirks;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -271,9 +270,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	protected boolean isControlDown()
 	{
 		boolean control = isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL)
-			|| isKeyDown(InputQuirks.EDIT_SHORTCUT_KEY_LEFT)
-			|| isKeyDown(InputQuirks.EDIT_SHORTCUT_KEY_RIGHT);
+			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
 		if(Util.getPlatform() == Util.OS.OSX)
 			control |= isKeyDown(GLFW.GLFW_KEY_LEFT_SUPER)
 				|| isKeyDown(GLFW.GLFW_KEY_RIGHT_SUPER);

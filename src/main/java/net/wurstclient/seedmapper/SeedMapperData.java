@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Holds the static option lists needed to build SeedMapper commands.
@@ -350,7 +350,7 @@ public final class SeedMapperData
 				Object value = field.get(null);
 				if(!(value instanceof ResourceKey<?> key))
 					continue;
-				keys.add(key.location().toString());
+				keys.add(key.identifier().toString());
 			}
 			ArrayList<String> list = new ArrayList<>(keys);
 			Collections.sort(list);
@@ -464,7 +464,7 @@ public final class SeedMapperData
 	{
 		if(value == null)
 			return "";
-		if(value instanceof ResourceLocation rl)
+		if(value instanceof Identifier rl)
 			return rl.toString();
 		return value.toString();
 	}
@@ -489,11 +489,10 @@ public final class SeedMapperData
 		}
 	}
 	
-	private static List<String> registryKeys(
-		Iterable<ResourceLocation> registry)
+	private static List<String> registryKeys(Iterable<Identifier> registry)
 	{
 		LinkedHashSet<String> keys = new LinkedHashSet<>();
-		for(ResourceLocation id : registry)
+		for(Identifier id : registry)
 			keys.add(id.toString());
 		ArrayList<String> list = new ArrayList<>(keys);
 		Collections.sort(list);

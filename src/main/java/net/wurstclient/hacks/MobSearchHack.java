@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
@@ -177,7 +177,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 				String raw = s.trim();
 				if(raw.isEmpty())
 					continue;
-				ResourceLocation id = ResourceLocation.tryParse(raw);
+				Identifier id = Identifier.tryParse(raw);
 				if(id != null && BuiltInRegistries.ENTITY_TYPE.containsKey(id))
 					exact.add(id.toString());
 				else
@@ -191,7 +191,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		{
 			case LIST:
 			predicate = e -> {
-				ResourceLocation id =
+				Identifier id =
 					BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 				String idFull = id == null ? "" : id.toString();
 				if(listExactIds != null && listExactIds.contains(idFull))
@@ -345,8 +345,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	private Predicate<LivingEntity> byExactType(String normalizedType)
 	{
 		return e -> {
-			ResourceLocation id =
-				BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
+			Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 			String s = id == null ? "" : id.toString().toLowerCase(Locale.ROOT);
 			String local =
 				s.contains(":") ? s.substring(s.indexOf(":") + 1) : s;
@@ -360,8 +359,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		String[] terms = Stream.of(q.split(",")).map(String::trim)
 			.filter(s -> !s.isEmpty()).toArray(String[]::new);
 		return e -> {
-			ResourceLocation id =
-				BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
+			Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(e.getType());
 			String s = id == null ? "" : id.toString();
 			String local =
 				s.contains(":") ? s.substring(s.indexOf(":") + 1) : s;

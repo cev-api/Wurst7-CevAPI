@@ -19,6 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.wurstclient.WurstClient;
@@ -57,7 +58,7 @@ public class BlockListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		ResourceLocation id = ResourceLocation.tryParse(raw);
+		Identifier id = Identifier.tryParse(raw);
 		String name = raw;
 		
 		if(id != null && BuiltInRegistries.BLOCK.containsKey(id))
@@ -263,8 +264,8 @@ public class BlockListSetting extends Setting
 		String display = block.getName().getString();
 		for(String s : blockNames)
 		{
-			net.minecraft.resources.ResourceLocation id =
-				net.minecraft.resources.ResourceLocation.tryParse(s);
+			net.minecraft.resources.Identifier id =
+				net.minecraft.resources.Identifier.tryParse(s);
 			if(id != null)
 				continue; // already checked exact ID above
 			String term = s.toLowerCase(java.util.Locale.ROOT);

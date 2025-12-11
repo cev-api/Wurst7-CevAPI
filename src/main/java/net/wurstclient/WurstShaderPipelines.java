@@ -65,7 +65,7 @@ public enum WurstShaderPipelines
 	public static final RenderPipeline QUADS_NO_CULLING = RenderPipelines
 		.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
 			.withLocation(
-				ResourceLocation.parse("wurst:pipeline/wurst_quads_no_culling"))
+				Identifier.parse("wurst:pipeline/wurst_quads_no_culling"))
 			.withCull(false)
 			.withDepthTestFunction(DepthTestFunction.LEQUAL_DEPTH_TEST)
 			.build());

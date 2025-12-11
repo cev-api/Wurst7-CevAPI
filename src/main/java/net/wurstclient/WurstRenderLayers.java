@@ -52,6 +52,15 @@ public enum WurstRenderLayers
 			.sortOnUpload().createRenderSetup());
 	
 	/**
+	 * Similar to {@link RenderType#getDebugQuads()}, but without back-face
+	 * culling.
+	 */
+	public static final RenderType QUADS_NO_CULLING =
+		RenderType.create("wurst:quads_no_culling",
+			RenderSetup.builder(WurstShaderPipelines.QUADS_NO_CULLING)
+				.sortOnUpload().useLightmap().createRenderSetup());
+	
+	/**
 	 * Similar to {@link RenderType#getDebugQuads()}, but with no depth test.
 	 */
 	public static final RenderType ESP_QUADS_NO_CULLING =
@@ -75,5 +84,23 @@ public enum WurstRenderLayers
 	public static RenderType getLines(boolean depthTest)
 	{
 		return depthTest ? LINES : ESP_LINES;
+	}
+	
+	/**
+	 * Kept for backwards compatibility. The {@code lineWidth} parameter is
+	 * currently handled per-vertex via {@code setLineWidth()}.
+	 */
+	public static RenderType getLines(boolean depthTest, double lineWidth)
+	{
+		return getLines(depthTest);
+	}
+	
+	/**
+	 * Returns the same RenderType as {@link #getLines(boolean)}. Line strips
+	 * are rendered via explicit segments, so this simply forwards the request.
+	 */
+	public static RenderType getLineStrip(boolean depthTest, double width)
+	{
+		return getLines(depthTest);
 	}
 }

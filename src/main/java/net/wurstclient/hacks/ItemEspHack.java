@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -23,7 +23,7 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
-import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -283,7 +283,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					String raw = s.trim();
 					if(raw.isEmpty())
 						continue;
-					ResourceLocation id = ResourceLocation.tryParse(raw);
+					Identifier id = Identifier.tryParse(raw);
 					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 						exact.add(id.toString());
 					else
@@ -309,7 +309,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					String raw = s.trim();
 					if(raw.isEmpty())
 						continue;
-					ResourceLocation id = ResourceLocation.tryParse(raw);
+					Identifier id = Identifier.tryParse(raw);
 					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 						exact.add(id.toString());
 				}
@@ -680,7 +680,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return false;
 		try
 		{
-			ResourceLocation id = ResourceLocation.parse(idStr.trim());
+			Identifier id = Identifier.parse(idStr.trim());
 			Item target = BuiltInRegistries.ITEM.getValue(id);
 			return target != null && target == item;
 		}catch(IllegalArgumentException e)

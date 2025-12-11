@@ -292,7 +292,7 @@ public final class WaypointCmd extends Command
 	{
 		if(MC.level == null)
 			return WaypointDimension.OVERWORLD;
-		String key = MC.level.dimension().location().getPath();
+		String key = MC.level.dimension().identifier().getPath();
 		return switch(key)
 		{
 			case "the_nether" -> WaypointDimension.NETHER;

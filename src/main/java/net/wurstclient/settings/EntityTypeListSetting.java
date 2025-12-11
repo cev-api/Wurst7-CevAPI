@@ -19,7 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.wurstclient.WurstClient;
@@ -75,7 +75,7 @@ public final class EntityTypeListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		ResourceLocation id = ResourceLocation.tryParse(raw);
+		Identifier id = Identifier.tryParse(raw);
 		String name = raw;
 		if(id != null && BuiltInRegistries.ENTITY_TYPE.containsKey(id))
 			name = id.toString();

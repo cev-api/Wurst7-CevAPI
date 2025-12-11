@@ -47,7 +47,7 @@ public enum ItemUtils
 				.copyTag();
 		if(tag != null && tag.contains("synthetic_id"))
 			return tag.getString("synthetic_id").orElse(null);
-		ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+		Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 		return id != null ? id.toString() : null;
 	}
 	

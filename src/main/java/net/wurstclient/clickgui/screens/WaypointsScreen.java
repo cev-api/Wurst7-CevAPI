@@ -510,7 +510,7 @@ public final class WaypointsScreen extends Screen
 	{
 		if(minecraft.level == null)
 			return WaypointDimension.OVERWORLD;
-		String key = minecraft.level.dimension().location().getPath();
+		String key = minecraft.level.dimension().identifier().getPath();
 		switch(key)
 		{
 			case "the_nether":
@@ -553,7 +553,7 @@ public final class WaypointsScreen extends Screen
 	
 	private void refreshAfterDataChange()
 	{
-		init(minecraft, this.width, this.height);
+		init();
 	}
 	
 	private void sendXaeroMessage(String message)

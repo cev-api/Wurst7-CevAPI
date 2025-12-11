@@ -176,9 +176,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				{
 					// base esp line color retained if needed
 					String curDimFull = MC.level == null ? "overworld"
-						: MC.level.dimension().location().toString();
+						: MC.level.dimension().identifier().toString();
 					String curDim = MC.level == null ? "overworld"
-						: MC.level.dimension().location().getPath();
+						: MC.level.dimension().identifier().getPath();
 					for(AABB box : boxes)
 					{
 						int boxMinX = (int)Math.floor(box.minX + 1e-6);

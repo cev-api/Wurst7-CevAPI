@@ -58,7 +58,7 @@ public class ChestCleaner
 				String curDimension = null;
 				try
 				{
-					curDimension = mc.level.dimension().location().toString();
+					curDimension = mc.level.dimension().identifier().toString();
 				}catch(Throwable ignored)
 				{}
 				// reset grace timer on server/dimension change
@@ -86,7 +86,7 @@ public class ChestCleaner
 				String dimension = null;
 				try
 				{
-					dimension = mc.level.dimension().location().toString();
+					dimension = mc.level.dimension().identifier().toString();
 				}catch(Throwable ignored)
 				{}
 				

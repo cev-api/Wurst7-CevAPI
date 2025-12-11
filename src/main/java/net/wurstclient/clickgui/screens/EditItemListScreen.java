@@ -223,7 +223,7 @@ public final class EditItemListScreen extends Screen
 			{
 				java.util.ArrayList<net.minecraft.world.item.Item> list =
 					new java.util.ArrayList<>();
-				for(net.minecraft.resources.ResourceLocation id : net.minecraft.core.registries.BuiltInRegistries.ITEM
+				for(net.minecraft.resources.Identifier id : net.minecraft.core.registries.BuiltInRegistries.ITEM
 					.keySet())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);

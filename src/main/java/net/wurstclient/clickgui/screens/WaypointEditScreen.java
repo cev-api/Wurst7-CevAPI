@@ -314,8 +314,7 @@ public final class WaypointEditScreen extends Screen
 	}
 	
 	@Override
-	public void resize(net.minecraft.client.Minecraft client, int width,
-		int height)
+	public void resize(int width, int height)
 	{
 		// Preserve current edits before re-initializing layout for new size
 		if(nameField != null)
@@ -327,7 +326,7 @@ public final class WaypointEditScreen extends Screen
 			// Preserve dimension selection across resize/child screens
 			draftDimIndex = dimIndex;
 		}
-		init(client, width, height);
+		super.resize(width, height);
 	}
 	
 	private static String buttonLabel(String name, boolean on)

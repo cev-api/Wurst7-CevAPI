@@ -56,58 +56,55 @@ public final class AntiFingerprintConfigScreen extends Screen
 				.bounds(centerX - 100, doneButtonY, 200, 20).build());
 		
 		addRenderableWidget(CycleButton.<AntiFingerprintConfig.Policy> builder(
-			policy -> Component.literal(policy.toString()))
-			.withValues(AntiFingerprintConfig.Policy.values())
-			.withInitialValue(config.getPolicy()).create(centerX - 100, y, 200,
-				20, Component.literal("Policy"), (button, value) -> config
-					.getPolicySetting().setSelected(value)));
+			policy -> Component.literal(policy.toString()), config::getPolicy)
+			.withValues(AntiFingerprintConfig.Policy.values()).create(
+				centerX - 100, y, 200, 20, Component.literal("Policy"), (button,
+					value) -> config.getPolicySetting().setSelected(value)));
 		y += 26;
 		
 		addRenderableWidget(
 			CycleButton.<AntiFingerprintConfig.ToastVerbosity> builder(
-				level -> Component.literal(level.toString()))
+				level -> Component.literal(level.toString()),
+				config::getToastVerbosity)
 				.withValues(AntiFingerprintConfig.ToastVerbosity.values())
-				.withInitialValue(config.getToastVerbosity())
 				.create(centerX - 100, y, 200, 20,
 					Component.literal("Toast verbosity"),
 					(button, value) -> config.getToastVerbositySetting()
 						.setSelected(value)));
 		y += 26;
 		
-		addRenderableWidget(CycleButton.onOffBuilder()
-			.withInitialValue(config.isAuditLogEnabled()).create(centerX - 100,
-				y, 200, 20, Component.literal("Audit logging"), (button,
-					value) -> config.getAuditLogSetting().setChecked(value)));
+		addRenderableWidget(CycleButton.onOffBuilder(config.isAuditLogEnabled())
+			.create(centerX - 100, y, 200, 20,
+				Component.literal("Audit logging"), (button, value) -> config
+					.getAuditLogSetting().setChecked(value)));
 		y += 34;
 		
-		addRenderableWidget(CycleButton.onOffBuilder()
-			.withInitialValue(config.shouldClearCache()).create(centerX - 100,
-				y, 200, 20, Component.literal("Clear cache before download"),
-				(button, value) -> config.getPurgeCacheSetting()
-					.setChecked(value)));
+		addRenderableWidget(CycleButton.onOffBuilder(config.shouldClearCache())
+			.create(centerX - 100, y, 200, 20,
+				Component.literal("Clear cache before download"), (button,
+					value) -> config.getPurgeCacheSetting().setChecked(value)));
 		y += 34;
 		
-		addRenderableWidget(CycleButton.onOffBuilder()
-			.withInitialValue(config.shouldIsolateCache()).create(centerX - 100,
-				y, 200, 20, Component.literal("Isolate cached packs"),
+		addRenderableWidget(CycleButton
+			.onOffBuilder(config.shouldIsolateCache()).create(centerX - 100, y,
+				200, 20, Component.literal("Isolate cached packs"),
 				(button, value) -> config.getIsolateCacheSetting()
 					.setChecked(value)));
 		y += 34;
 		
-		addRenderableWidget(CycleButton.onOffBuilder()
-			.withInitialValue(config.shouldExtractSandbox())
-			.create(centerX - 100, y, 200, 20,
-				Component.literal("Extract sandbox copy"),
+		addRenderableWidget(CycleButton
+			.onOffBuilder(config.shouldExtractSandbox()).create(centerX - 100,
+				y, 200, 20, Component.literal("Extract sandbox copy"),
 				(button, value) -> config.getExtractSandboxSetting()
 					.setChecked(value)));
 		y += 34;
 		
-		addRenderableWidget(CycleButton.onOffBuilder()
-			.withInitialValue(config.shouldShowMultiplayerButton())
-			.create(centerX - 100, y, 200, 20,
-				Component.literal("Show Multiplayer button"),
-				(button, value) -> config.getShowMultiplayerButtonSetting()
-					.setChecked(value)));
+		addRenderableWidget(
+			CycleButton.onOffBuilder(config.shouldShowMultiplayerButton())
+				.create(centerX - 100, y, 200, 20,
+					Component.literal("Show Multiplayer button"),
+					(button, value) -> config.getShowMultiplayerButtonSetting()
+						.setChecked(value)));
 		y += 34;
 		
 		// Extra breathing room before first text field so labels never clip

@@ -200,7 +200,7 @@ public final class LogoutSpotsHack extends Hack
 	{
 		if(MC.level == null)
 			return "overworld";
-		return MC.level.dimension().location().getPath();
+		return MC.level.dimension().identifier().getPath();
 	}
 	
 	private void snapshot()

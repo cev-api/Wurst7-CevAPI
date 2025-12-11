@@ -27,7 +27,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.CommonColors;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.EntityTypeListSetting;
@@ -211,7 +211,7 @@ public final class EditEntityTypeListScreen extends Screen
 		boolean hasInput = !trimmed.isEmpty();
 		try
 		{
-			ResourceLocation id = ResourceLocation.parse(nameOrId);
+			Identifier id = Identifier.parse(nameOrId);
 			typeToAdd =
 				net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
 					.containsKey(id)
@@ -233,8 +233,7 @@ public final class EditEntityTypeListScreen extends Screen
 			{
 				java.util.ArrayList<net.minecraft.world.entity.EntityType<?>> list =
 					new java.util.ArrayList<>();
-				for(ResourceLocation id : BuiltInRegistries.ENTITY_TYPE
-					.keySet())
+				for(Identifier id : BuiltInRegistries.ENTITY_TYPE.keySet())
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
 					if(s.contains(q))
@@ -358,8 +357,8 @@ public final class EditEntityTypeListScreen extends Screen
 			Font tr = minecraft.font;
 			
 			String display;
-			net.minecraft.resources.ResourceLocation id =
-				net.minecraft.resources.ResourceLocation.tryParse(typeName);
+			net.minecraft.resources.Identifier id =
+				net.minecraft.resources.Identifier.tryParse(typeName);
 			if(id != null
 				&& net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
 					.containsKey(id))

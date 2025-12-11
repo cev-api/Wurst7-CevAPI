@@ -53,7 +53,7 @@ import org.apache.logging.log4j.Logger;
 import net.cevapi.config.AntiFingerprintConfig;
 import net.cevapi.config.AntiFingerprintConfig.Policy;
 import net.cevapi.config.AntiFingerprintConfig.ToastLevel;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.components.toasts.ToastManager;

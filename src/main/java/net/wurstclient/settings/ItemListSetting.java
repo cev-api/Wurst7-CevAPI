@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
@@ -59,7 +60,7 @@ public final class ItemListSetting extends Setting
 		if(raw.isEmpty())
 			return;
 		
-		ResourceLocation id = ResourceLocation.tryParse(raw);
+		Identifier id = Identifier.tryParse(raw);
 		String name = raw;
 		if(id != null && BuiltInRegistries.ITEM.containsKey(id))
 			name = id.toString();
