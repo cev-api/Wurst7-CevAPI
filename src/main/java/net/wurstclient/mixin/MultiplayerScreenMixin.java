@@ -67,6 +67,7 @@ public class MultiplayerScreenMixin extends Screen
 	private void refreshCustomButtons()
 	{
 		updateLastServerButton();
+		positionLastServerButton();
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -130,6 +131,19 @@ public class MultiplayerScreenMixin extends Screen
 	{
 		LastServerRememberer.setLastServer(entry);
 		updateLastServerButton();
+	}
+	
+	@Unique
+	private void positionLastServerButton()
+	{
+		if(lastServerButton == null)
+			return;
+			
+		// Position the button above the left edge of the server list to mirror
+		// the VIA button on the right.
+		lastServerButton.setX(width / 2 - 154);
+		lastServerButton.setY(10);
+		lastServerButton.setWidth(100);
 	}
 	
 	@Unique
