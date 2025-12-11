@@ -41,6 +41,7 @@ import net.wurstclient.chestsearch.ChestConfig;
 import net.wurstclient.chestsearch.ChestRecorder;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
+import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.hacks.QuickShulkerHack;
 
 @Mixin(ContainerScreen.class)
@@ -93,6 +94,7 @@ public abstract class GenericContainerScreenMixin
 		super.init();
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		final ChestSearchHack chestSearchHack = wurst$getChestSearchHack();
 		if(autoSteal.areButtonsVisible())
 		{
 			addRenderableWidget(Button
@@ -130,13 +132,11 @@ public abstract class GenericContainerScreenMixin
 		// ChestSearch hack settings.
 		try
 		{
-			net.wurstclient.hacks.ChestSearchHack csh =
-				WurstClient.INSTANCE.getHax().chestSearchHack;
-			boolean showScan = true;
+			boolean showScan = false;
 			try
 			{
-				if(csh != null)
-					showScan = !csh.isAutomaticMode();
+				if(chestSearchHack != null)
+					showScan = chestSearchHack.isManualMode();
 			}catch(Throwable ignored)
 			{}
 			if(showScan)
@@ -149,6 +149,13 @@ public abstract class GenericContainerScreenMixin
 		// Attempt to record the chest contents when the container screen opens.
 		try
 		{
+			try
+			{
+				if(chestSearchHack != null && chestSearchHack.isOffMode())
+					return;
+			}catch(Throwable ignored)
+			{}
+			
 			ChestConfig cfg = new ChestConfig();
 			if(!cfg.enabled)
 				return;
@@ -628,11 +635,8 @@ public abstract class GenericContainerScreenMixin
 						{
 							try
 							{
-								net.wurstclient.hacks.ChestSearchHack csh =
-									WurstClient.INSTANCE
-										.getHax().chestSearchHack;
-								boolean doAuto =
-									csh == null || csh.isAutomaticMode();
+								boolean doAuto = chestSearchHack == null
+									|| chestSearchHack.isAutomaticMode();
 								if(doAuto)
 								{
 									int px =
@@ -705,11 +709,8 @@ public abstract class GenericContainerScreenMixin
 								}
 								try
 								{
-									net.wurstclient.hacks.ChestSearchHack csh =
-										WurstClient.INSTANCE
-											.getHax().chestSearchHack;
-									boolean doAuto =
-										csh == null || csh.isAutomaticMode();
+									boolean doAuto = chestSearchHack == null
+										|| chestSearchHack.isAutomaticMode();
 									if(doAuto)
 									{
 										int px =
@@ -759,10 +760,8 @@ public abstract class GenericContainerScreenMixin
 								// automatic mode)
 								try
 								{
-									net.wurstclient.hacks.ChestSearchHack csh =
-										WurstClient.INSTANCE
-											.getHax().chestSearchHack;
-									if(csh == null || csh.isAutomaticMode())
+									if(chestSearchHack == null
+										|| chestSearchHack.isAutomaticMode())
 										chestRecorder.onChestOpened(fServerIp,
 											fDimension,
 											GenericContainerScreenMixin.this.clickedX,
@@ -799,9 +798,8 @@ public abstract class GenericContainerScreenMixin
 				this.chestSlotOrder = new java.util.ArrayList<>(slotOrder);
 				try
 				{
-					net.wurstclient.hacks.ChestSearchHack csh =
-						WurstClient.INSTANCE.getHax().chestSearchHack;
-					if(csh == null || csh.isAutomaticMode())
+					if(chestSearchHack == null
+						|| chestSearchHack.isAutomaticMode())
 						chestRecorder.onChestOpened(fServerIp, fDimension,
 							GenericContainerScreenMixin.this.clickedX,
 							GenericContainerScreenMixin.this.clickedY,
@@ -857,11 +855,8 @@ public abstract class GenericContainerScreenMixin
 						{
 							try
 							{
-								net.wurstclient.hacks.ChestSearchHack csh =
-									WurstClient.INSTANCE
-										.getHax().chestSearchHack;
-								boolean doAuto =
-									csh == null || csh.isAutomaticMode();
+								boolean doAuto = chestSearchHack == null
+									|| chestSearchHack.isAutomaticMode();
 								if(doAuto)
 								{
 									int px =
@@ -1289,6 +1284,18 @@ public abstract class GenericContainerScreenMixin
 			}
 		}catch(Throwable ignored)
 		{}
+	}
+	
+	@Unique
+	private ChestSearchHack wurst$getChestSearchHack()
+	{
+		try
+		{
+			return WurstClient.INSTANCE.getHax().chestSearchHack;
+		}catch(Throwable ignored)
+		{
+			return null;
+		}
 	}
 	
 	@Unique

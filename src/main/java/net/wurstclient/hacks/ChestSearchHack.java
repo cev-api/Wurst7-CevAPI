@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.CheckboxSetting;
@@ -18,9 +19,10 @@ public final class ChestSearchHack extends Hack
 {
 	private static final int DISPLAY_RADIUS_UNLIMITED = 2001;
 	
-	private final net.wurstclient.settings.CheckboxSetting automaticMode =
-		new net.wurstclient.settings.CheckboxSetting("Automatic mode",
-			"Automatically scan chests on open.", true);
+	private final EnumSetting<Mode> modeSetting = new EnumSetting<>("Mode",
+		"Automatic scans instantly, Manual requires pressing the Scan button,"
+			+ " and Off disables ChestSearch entirely.",
+		Mode.values(), Mode.AUTOMATIC);
 	private final SliderSetting waypointTimeSec = new SliderSetting(
 		"Waypoint time (s)", 60, 5, 600, 5, ValueDisplay.INTEGER);
 	private final SliderSetting espTimeSec =
@@ -59,7 +61,7 @@ public final class ChestSearchHack extends Hack
 		setCategory(Category.ITEMS);
 		// automatic/manual toggle should appear above the timeouts in the
 		// clickui so add it first
-		addSetting(automaticMode);
+		addSetting(modeSetting);
 		addSetting(waypointTimeSec);
 		addSetting(espTimeSec);
 		// expose cleaner settings in navigator so user can tune them
@@ -130,7 +132,29 @@ public final class ChestSearchHack extends Hack
 	
 	public boolean isAutomaticMode()
 	{
-		return automaticMode.isChecked();
+		return getMode() == Mode.AUTOMATIC;
+	}
+	
+	public boolean isManualMode()
+	{
+		return getMode() == Mode.MANUAL;
+	}
+	
+	public boolean isOffMode()
+	{
+		return getMode() == Mode.OFF;
+	}
+	
+	public Mode getMode()
+	{
+		try
+		{
+			Mode mode = modeSetting.getSelected();
+			return mode != null ? mode : Mode.AUTOMATIC;
+		}catch(Throwable t)
+		{
+			return Mode.AUTOMATIC;
+		}
 	}
 	
 	public int getEspTimeMs()
@@ -174,5 +198,25 @@ public final class ChestSearchHack extends Hack
 		}catch(Throwable ignored)
 		{}
 		setEnabled(false);
+	}
+	
+	public enum Mode
+	{
+		AUTOMATIC("Automatic"),
+		MANUAL("Manual"),
+		OFF("Off");
+		
+		private final String displayName;
+		
+		private Mode(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
 	}
 }
