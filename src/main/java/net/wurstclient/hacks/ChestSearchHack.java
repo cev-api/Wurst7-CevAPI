@@ -45,12 +45,13 @@ public final class ChestSearchHack extends Hack
 	private final ColorSetting espLineColor =
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
 	private final ColorSetting markXColor =
-		new ColorSetting("Mark X color", new java.awt.Color(0xFF2222));
-	private final SliderSetting markXThickness = new SliderSetting(
-		"Mark X thickness", 2.0, 0.5, 6.0, 0.5, ValueDisplay.DECIMAL);
+		new ColorSetting("Opened chest color", new java.awt.Color(0xFF2222));
+	private final SliderSetting markXThickness =
+		new SliderSetting("Opened chest line thickness", 2.0, 0.5, 6.0, 0.5,
+			ValueDisplay.DECIMAL);
 	private final CheckboxSetting markOpenedChest = new CheckboxSetting(
 		"Mark opened chest",
-		"Draw an X through chests that appear in your ChestSearch database.",
+		"Draw ESP/lines through opened chests that appear in your ChestSearch database.",
 		true);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 1.0,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
