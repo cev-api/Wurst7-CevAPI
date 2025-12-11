@@ -96,12 +96,12 @@ public final class NiceWurstModule
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
 				"AutoReconnect", "AutoTrader", "CheatDetector", "ClickGUI",
 				"FeedAura", "Navigator", "Panic", "PortalGUI", "SafeTP",
-				"TooManyHax"));
+				"SeedMapperHelper", "TooManyHax"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
-				"QuickShulker", "SignFramePT", "XCarry"));
+				"QuickShulker", "SignFramePT", "LootSearch", "XCarry"));
 	}
 	
 	private NiceWurstModule()
