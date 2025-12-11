@@ -12,9 +12,8 @@ import java.util.ArrayList;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.ClickGui;
+import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SettingGroup;
@@ -109,15 +108,13 @@ public final class SettingGroupComponent extends Component
 	}
 	
 	@Override
-	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
-		MouseButtonEvent context)
+	public void handleMouseClick(double mouseX, double mouseY, int mouseButton)
 	{
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 		{
 			if(expanded)
 				for(Component child : childComponents)
-					child.handleMouseClick(mouseX, mouseY, mouseButton,
-						context);
+					child.handleMouseClick(mouseX, mouseY, mouseButton);
 			return;
 		}
 		
@@ -162,7 +159,7 @@ public final class SettingGroupComponent extends Component
 			if(mouseX < cx1 || mouseX > cx2 || mouseY < cy1 || mouseY > cy2)
 				continue;
 			
-			child.handleMouseClick(mouseX, mouseY, mouseButton, context);
+			child.handleMouseClick(mouseX, mouseY, mouseButton);
 			break;
 		}
 	}

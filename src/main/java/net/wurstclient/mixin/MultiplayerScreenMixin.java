@@ -58,23 +58,12 @@ public class MultiplayerScreenMixin extends Screen
 				b -> LastServerRememberer.joinLastServer(mpScreen))
 			.width(100).build();
 		addRenderableWidget(lastServerButton);
+		
+		refreshCustomButtons();
 	}
 	
-	@Inject(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/gui/screens/multiplayer/JoinMultiplayerScreen;repositionElements()V",
-		ordinal = 0), method = "init()V")
-	private void afterVanillaButtons(CallbackInfo ci,
-		@Local(ordinal = 1) LinearLayout footerTopRow,
-		@Local(ordinal = 2) LinearLayout footerBottomRow)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		// Footer buttons are not added here to avoid duplicates; corner buttons
-		// are created/positioned in `repositionElements()` instead.
-	}
-	
-	@Inject(at = @At("TAIL"), method = "repositionElements()V")
-	private void onRefreshWidgetPositions(CallbackInfo ci)
+	@Unique
+	private void refreshCustomButtons()
 	{
 		updateLastServerButton();
 		
