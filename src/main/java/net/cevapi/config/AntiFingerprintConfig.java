@@ -60,6 +60,10 @@ public final class AntiFingerprintConfig
 		"After sandboxing a pack, automatically extract it using Minecraft's resource-pack loader so you can inspect the contents.",
 		false);
 	
+	private final CheckboxSetting showMultiplayerButton =
+		new CheckboxSetting("Show multiplayer button",
+			"Adds a shortcut to this panel to the Multiplayer screen.", true);
+	
 	private final SliderSetting fingerprintThreshold = new SliderSetting(
 		"Fingerprint threshold",
 		"Number of packs within the window before a fingerprint attempt is assumed.",
@@ -110,6 +114,11 @@ public final class AntiFingerprintConfig
 		return extractSandbox;
 	}
 	
+	public CheckboxSetting getShowMultiplayerButtonSetting()
+	{
+		return showMultiplayerButton;
+	}
+	
 	public SliderSetting getFingerprintThresholdSetting()
 	{
 		return fingerprintThreshold;
@@ -153,6 +162,11 @@ public final class AntiFingerprintConfig
 	public boolean shouldExtractSandbox()
 	{
 		return extractSandbox.isChecked();
+	}
+	
+	public boolean shouldShowMultiplayerButton()
+	{
+		return showMultiplayerButton.isChecked();
 	}
 	
 	public int getFingerprintThreshold()
@@ -217,8 +231,8 @@ public final class AntiFingerprintConfig
 	public List<Setting> getAllSettings()
 	{
 		return Arrays.asList(policy, toastVerbosity, auditLog, purgeCache,
-			isolateCache, extractSandbox, fingerprintThreshold,
-			fingerprintWindowMs, whitelistedHosts);
+			isolateCache, extractSandbox, showMultiplayerButton,
+			fingerprintThreshold, fingerprintWindowMs, whitelistedHosts);
 	}
 	
 	private static boolean isValidHostList(String value)
