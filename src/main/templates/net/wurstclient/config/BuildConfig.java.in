@@ -5,4 +5,5 @@ public final class BuildConfig
 	private BuildConfig() {}
 	
 	public static final boolean NICE_WURST = ${NICE_WURST};
+	public static final String MOD_VERSION = "${MOD_VERSION}";
 }
