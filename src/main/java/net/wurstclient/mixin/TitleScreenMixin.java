@@ -24,6 +24,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(TitleScreen.class)
@@ -92,7 +93,8 @@ public abstract class TitleScreenMixin extends Screen
 		float partialTicks, CallbackInfo ci)
 	{
 		Font font = minecraft.font;
-		java.lang.String text = "Wurst 7.51.2 Modified by CevAPI";
+		String brand = NiceWurstModule.isActive() ? "NiceWurst" : "Wurst";
+		String text = brand + " " + BuildConfig.MOD_VERSION;
 		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
 			4, 4, 0xFFFFFFFF, true);
 	}
