@@ -15,6 +15,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -419,5 +420,14 @@ public final class NavigatorMainScreen extends NavigatorScreen
 	protected void onMouseRelease(double x, double y, int button)
 	{
 		
+	}
+	
+	@Override
+	public boolean charTyped(CharacterEvent event)
+	{
+		if(searchBar != null && searchBar.charTyped(event))
+			return true;
+		
+		return super.charTyped(event);
 	}
 }

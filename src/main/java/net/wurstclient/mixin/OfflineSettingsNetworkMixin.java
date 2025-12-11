@@ -12,27 +12,14 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
-import net.minecraft.client.multiplayer.CommonListenerCookie;
-import net.minecraft.network.Connection;
-import net.minecraft.network.TickablePacketListener;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.OfflineSettingsHack;
 import net.minecraft.network.DisconnectionDetails;
 
 @Mixin(value = ClientCommonPacketListenerImpl.class, remap = false)
 public abstract class OfflineSettingsNetworkMixin
-	extends ClientCommonPacketListenerImpl
-	implements TickablePacketListener, ClientGamePacketListener
 {
-	private OfflineSettingsNetworkMixin(Minecraft client, Connection connection,
-		CommonListenerCookie connectionState)
-	{
-		super(client, connection, connectionState);
-	}
-	
 	@Inject(at = @At("TAIL"),
 		method = "onDisconnect(Lnet/minecraft/network/DisconnectionDetails;)V",
 		remap = false)

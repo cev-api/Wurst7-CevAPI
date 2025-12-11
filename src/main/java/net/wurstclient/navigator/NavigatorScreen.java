@@ -10,6 +10,7 @@ package net.wurstclient.navigator;
 import java.awt.Rectangle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -44,8 +45,22 @@ public abstract class NavigatorScreen extends Screen
 	@Override
 	public final boolean keyPressed(KeyEvent context)
 	{
+		ClickGui gui = WurstClient.INSTANCE.getGui();
+		if(gui.handleKeyPressed(context))
+			return true;
+		
 		onKeyPress(context);
 		return super.keyPressed(context);
+	}
+	
+	@Override
+	public boolean charTyped(CharacterEvent event)
+	{
+		ClickGui gui = WurstClient.INSTANCE.getGui();
+		if(gui.handleCharTyped(event))
+			return true;
+		
+		return super.charTyped(event);
 	}
 	
 	@Override

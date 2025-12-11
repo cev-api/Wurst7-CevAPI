@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -23,14 +25,19 @@ import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
 
 @Mixin(value = Screen.class, remap = false)
-public abstract class ScreenRenderMixin extends Screen
+public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
+	implements Renderable
 {
 	@Shadow
 	protected Minecraft minecraft;
+	@Shadow
+	protected int width;
+	@Shadow
+	protected int height;
 	
 	protected ScreenRenderMixin(Component title)
 	{
-		super(title);
+		
 	}
 	
 	@Inject(at = @At("TAIL"),

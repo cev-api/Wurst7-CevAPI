@@ -30,7 +30,6 @@ import net.minecraft.server.packs.repository.KnownPack;
 import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
-import com.google.common.collect.Lists;
 
 public class WurstTranslator implements ResourceManagerReloadListener
 {
@@ -235,7 +234,8 @@ public class WurstTranslator implements ResourceManagerReloadListener
 		if(knownPack == null)
 			return false;
 		
-		if(!"fabric".equals(knownPack.namespace()))
+		String namespace = knownPack.namespace();
+		if(!"fabric".equals(namespace) && !"vanilla".equals(namespace))
 			return false;
 		
 		String id = knownPack.id();
