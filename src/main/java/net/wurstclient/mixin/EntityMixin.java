@@ -118,6 +118,11 @@ public abstract class EntityMixin
 			return color;
 		
 		color = NiceWurstModule.filterGlowColor(living,
+			hax.spearAssistHack.getGlowColor(living));
+		if(color != null)
+			return color;
+		
+		color = NiceWurstModule.filterGlowColor(living,
 			hax.mobSearchHack.getGlowColor(living));
 		if(color != null)
 			return color;

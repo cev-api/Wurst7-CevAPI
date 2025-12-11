@@ -322,11 +322,69 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		RenderUtils.drawSolidBoxes(matrixStack, filledShapes, false);
 	}
 	
+	public RenderStyleInfo getRenderStyleInfo()
+	{
+		MobEspStyleSetting.Shape shape = style.getShape();
+		RenderShape renderShape = switch(shape)
+		{
+			case BOX -> RenderShape.BOX;
+			case OCTAHEDRON -> RenderShape.OCTAHEDRON;
+			case GLOW -> RenderShape.GLOW;
+			default -> RenderShape.NONE;
+		};
+		
+		boolean drawShape = renderShape == RenderShape.BOX
+			|| renderShape == RenderShape.OCTAHEDRON;
+		
+		double extra = drawShape ? boxSize.getExtraSize() / 2D : 0;
+		boolean fill = drawShape && fillShapes.isChecked();
+		
+		return new RenderStyleInfo(renderShape, style.hasLines(), fill, extra);
+	}
+	
 	private float[] getColorRgb()
 	{
 		if(useRainbow.isChecked())
 			return RenderUtils.getRainbowColor();
 		return color.getColorF();
+	}
+	
+	public boolean shouldRenderEntity(LivingEntity entity)
+	{
+		if(entity == null || entity instanceof Player)
+			return false;
+		if(entity.isRemoved() || entity.getHealth() <= 0)
+			return false;
+		if(onlyAboveGround.isChecked()
+			&& entity.getY() < aboveGroundY.getValue())
+			return false;
+		
+		return entityFilters.testOne(entity);
+	}
+	
+	public static enum RenderShape
+	{
+		NONE,
+		BOX,
+		OCTAHEDRON,
+		GLOW;
+	}
+	
+	public static final class RenderStyleInfo
+	{
+		public final RenderShape shape;
+		public final boolean drawLines;
+		public final boolean fillShapes;
+		public final double extraSize;
+		
+		public RenderStyleInfo(RenderShape shape, boolean drawLines,
+			boolean fillShapes, double extraSize)
+		{
+			this.shape = shape;
+			this.drawLines = drawLines;
+			this.fillShapes = fillShapes;
+			this.extraSize = extraSize;
+		}
 	}
 	
 	public Integer getGlowColor(LivingEntity entity)

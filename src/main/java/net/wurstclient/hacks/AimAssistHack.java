@@ -93,6 +93,7 @@ public final class AimAssistHack extends Hack
 	private float nextPitch;
 	private Function<Entity, Vec3> overrideAimPoint;
 	private Entity externalTarget;
+	private boolean temporaryAllowBlocking;
 	
 	public AimAssistHack()
 	{
@@ -136,6 +137,7 @@ public final class AimAssistHack extends Hack
 		target = null;
 		overrideAimPoint = null;
 		externalTarget = null;
+		temporaryAllowBlocking = false;
 	}
 	
 	@Override
@@ -147,7 +149,9 @@ public final class AimAssistHack extends Hack
 		if(MC.screen instanceof AbstractContainerScreen)
 			return;
 		
-		if(!aimWhileBlocking.isChecked() && MC.player.isUsingItem())
+		boolean blockingAllowed =
+			aimWhileBlocking.isChecked() || temporaryAllowBlocking;
+		if(!blockingAllowed && MC.player.isUsingItem())
 			return;
 		
 		Entity forced = externalTarget;
@@ -179,6 +183,11 @@ public final class AimAssistHack extends Hack
 			rotationSpeed.getValueI() / 20F);
 		nextYaw = next.yaw();
 		nextPitch = next.pitch();
+	}
+	
+	public void setTemporarilyAllowBlocking(boolean allow)
+	{
+		temporaryAllowBlocking = allow;
 	}
 	
 	private void chooseTarget()

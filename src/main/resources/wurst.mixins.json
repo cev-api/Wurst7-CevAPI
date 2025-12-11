@@ -61,6 +61,7 @@
     "MouseMixin",
     "MultiplayerScreenMixin",
     "PackScreenMixin",
+    "PlayerAttackStrengthAccessor",
     "PlayerSkinProviderMixin",
     "PowderSnowBlockMixin",
     "RenderLayersMixin",

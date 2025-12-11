@@ -796,6 +796,27 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
+	public boolean shouldRenderPlayer(Player player)
+	{
+		if(player == null || MC.player == null)
+			return false;
+		
+		if(player == MC.player || player.isRemoved() || player.getHealth() <= 0)
+			return false;
+		
+		if(player instanceof FakePlayerEntity)
+			return false;
+		
+		if(Math.abs(player.getY() - MC.player.getY()) > 1e6)
+			return false;
+		
+		if(ignoreNpcs.isChecked() && MC.getConnection() != null
+			&& MC.getConnection().getPlayerInfo(player.getUUID()) == null)
+			return false;
+		
+		return entityFilters.testOne(player);
+	}
+	
 	private static final class LosState
 	{
 		private final int checkIntervalMs;

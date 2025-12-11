@@ -120,6 +120,7 @@
   "description.wurst.hack.logoutspots": "Shows the locations where players logged out.",
   "description.wurst.hack.lsd": "Causes hallucinations.",
   "description.wurst.hack.macedmg": "Increases your damage when attacking with a mace.",
+  "description.wurst.hack.spearassist": "Adds configurable spear charge boosts, highlights distant targets, and can keep AimAssist active.",
   "description.wurst.hack.masstpa": "Sends a TPA request to all players.",
   "description.wurst.hack.mileycyrus": "Makes you twerk.",
   "description.wurst.hack.mobesp": "Highlights nearby mobs.",
