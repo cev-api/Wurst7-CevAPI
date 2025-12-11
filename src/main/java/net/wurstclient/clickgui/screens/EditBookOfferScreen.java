@@ -19,7 +19,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.Item;
@@ -276,8 +276,8 @@ public final class EditBookOfferScreen extends Screen
 		int x = width / 2 - 100;
 		int y = 64;
 		
-		Item item = BuiltInRegistries.ITEM
-			.getValue(ResourceLocation.parse("enchanted_book"));
+		Item item =
+			BuiltInRegistries.ITEM.getValue(Identifier.parse("enchanted_book"));
 		ItemStack stack = new ItemStack(item);
 		RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
 		

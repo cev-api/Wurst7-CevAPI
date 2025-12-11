@@ -19,7 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
@@ -38,7 +38,11 @@ public final class ItemListSetting extends Setting
 	{
 		super(name, description);
 		
-		Arrays.stream(items).forEach(this::addFromStringCanonicalizing);
+		Arrays.stream(items).parallel()
+			.map(s -> BuiltInRegistries.ITEM.getValue(Identifier.parse(s)))
+			.filter(Objects::nonNull)
+			.map(i -> BuiltInRegistries.ITEM.getKey(i).toString()).distinct()
+			.sorted().forEachOrdered(s -> itemNames.add(s));
 		defaultNames = itemNames.toArray(new String[0]);
 	}
 	
@@ -133,9 +137,12 @@ public final class ItemListSetting extends Setting
 				return;
 			}
 			
-			// otherwise, load strings; keep unknown as raw keywords
-			for(String s : JsonUtils.getAsArray(json).getAllStrings())
-				addFromStringCanonicalizing(s);
+			// otherwise, load the items in the JSON array
+			JsonUtils.getAsArray(json).getAllStrings().parallelStream()
+				.map(s -> BuiltInRegistries.ITEM.getValue(Identifier.parse(s)))
+				.filter(Objects::nonNull)
+				.map(i -> BuiltInRegistries.ITEM.getKey(i).toString())
+				.distinct().sorted().forEachOrdered(s -> itemNames.add(s));
 			
 		}catch(JsonException e)
 		{

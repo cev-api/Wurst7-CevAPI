@@ -151,69 +151,13 @@ public final class TextFieldEditButton extends Component
 		int txtColor = GUI.getTxtColor();
 		context.guiRenderState.up();
 		context.drawString(TR, setting.getName(), x1, y1 + 2, txtColor, false);
-		inlineField.setTextColor(txtColor);
-		inlineField.setTextColorUneditable(txtColor);
-		inlineField.render(context, toAbsoluteMouseX(mouseX),
-			toAbsoluteMouseY(mouseY), partialTicks);
-	}
-	
-	private void updateInlineFieldBounds()
-	{
-		inlineField.setX(getX() + 2);
-		inlineField.setY(getY() + TEXT_HEIGHT + 2);
-		inlineField.setWidth(Math.max(0, getWidth() - 4));
-		inlineField.setHeight(Math.max(0, getHeight() - TEXT_HEIGHT - 4));
-	}
-	
-	private int toAbsoluteMouseX(double mouseX)
-	{
-		Window parent = getParent();
-		return parent == null ? (int)Math.round(mouseX)
-			: (int)Math.round(mouseX + parent.getX());
-	}
-	
-	private int toAbsoluteMouseY(double mouseY)
-	{
-		Window parent = getParent();
-		if(parent == null)
-			return (int)Math.round(mouseY);
-		
-		return (int)Math
-			.round(mouseY + parent.getY() + 13 + parent.getScrollOffset());
-	}
-	
-	@Override
-	public boolean onKeyPressed(KeyEvent event)
-	{
-		if(!editing)
-			return false;
-		
-		int keyCode = event.key();
-		if(keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)
-		{
-			finishEditing(true);
-			return true;
-		}
-		
-		if(keyCode == GLFW.GLFW_KEY_ESCAPE)
-		{
-			finishEditing(false);
-			return true;
-		}
-		
-		return inlineField.keyPressed(event);
-	}
-	
-	@Override
-	public boolean onCharTyped(CharacterEvent event)
-	{
-		return editing && inlineField.charTyped(event);
-	}
-	
-	@Override
-	public void onKeyboardFocusLost()
-	{
-		finishEditing(true);
+		String value = setting.getValue();
+		int maxWidth = getWidth() - TR.width("...") - 2;
+		int maxLength =
+			TR.getSplitter().plainIndexAtWidth(value, maxWidth, Style.EMPTY);
+		if(maxLength < value.length())
+			value = value.substring(0, maxLength) + "...";
+		context.drawString(TR, value, x1 + 2, y3 + 2, txtColor, false);
 	}
 	
 	@Override

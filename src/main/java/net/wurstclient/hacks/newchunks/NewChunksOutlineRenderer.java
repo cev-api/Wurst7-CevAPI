@@ -8,8 +8,8 @@
 package net.wurstclient.hacks.newchunks;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import java.util.Set;
-import net.minecraft.client.renderer.RenderType;
+
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.wurstclient.WurstRenderLayers;
@@ -46,7 +46,7 @@ public final class NewChunksOutlineRenderer implements NewChunksChunkRenderer
 	}
 	
 	@Override
-	public RenderType.CompositeRenderType getLayer()
+	public RenderType getLayer()
 	{
 		return WurstRenderLayers.ESP_LINES;
 	}

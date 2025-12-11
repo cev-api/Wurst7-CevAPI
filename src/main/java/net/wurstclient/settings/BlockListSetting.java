@@ -18,8 +18,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.Component;
@@ -167,7 +167,26 @@ public class BlockListSetting extends Setting
 			
 			// otherwise, load the strings; keep unknown as raw keywords
 			for(String rawName : JsonUtils.getAsArray(json).getAllStrings())
-				addFromString(rawName);
+			{
+				Identifier id = Identifier.tryParse(rawName);
+				if(id == null)
+				{
+					System.out.println("Discarding BlockList entry \"" + rawName
+						+ "\" as it is not a valid identifier");
+					continue;
+				}
+				
+				String name = id.toString();
+				if(blockNames.contains(name))
+				{
+					System.out.println("Discarding BlockList entry \"" + rawName
+						+ "\" as \"" + name + "\" is already in the list");
+					continue;
+				}
+				
+				blockNames.add(name);
+			}
+			blockNames.sort(null);
 			
 		}catch(JsonException e)
 		{

@@ -9,7 +9,7 @@ package net.wurstclient.commands;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.wurstclient.Category;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
