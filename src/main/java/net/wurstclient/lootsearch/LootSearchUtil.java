@@ -20,8 +20,10 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class LootSearchUtil
 {
@@ -30,6 +32,10 @@ public final class LootSearchUtil
 	
 	public static File getSeedmapperLootDir()
 	{
+		File located = tryLocateSeedmapperLootDir();
+		if(located != null)
+			return located;
+		
 		try
 		{
 			if(WurstClient.MC != null && WurstClient.MC.gameDirectory != null)
@@ -52,6 +58,88 @@ public final class LootSearchUtil
 		}
 		String user = System.getProperty("user.home");
 		return new File(new File(user, ".minecraft"), "seedmapper/loot");
+	}
+	
+	private static File tryLocateSeedmapperLootDir()
+	{
+		Set<File> searchRoots = new LinkedHashSet<>();
+		try
+		{
+			if(WurstClient.MC != null && WurstClient.MC.gameDirectory != null)
+				addRootAndParents(searchRoots, WurstClient.MC.gameDirectory, 4);
+		}catch(Throwable ignored)
+		{}
+		
+		String user = System.getProperty("user.home");
+		if(user != null && !user.isBlank())
+		{
+			File home = new File(user);
+			addRootAndParents(searchRoots, home, 0);
+			addRootAndParents(searchRoots, new File(home, ".minecraft"), 0);
+		}
+		
+		String appdata = System.getenv("APPDATA");
+		if(appdata != null && !appdata.isBlank())
+			addRootAndParents(searchRoots, new File(appdata, ".minecraft"), 0);
+		
+		for(File root : searchRoots)
+		{
+			File resolved = resolveSeedmapperLoot(root);
+			if(resolved != null)
+				return resolved;
+		}
+		
+		// No matches under known roots.
+		return null;
+	}
+	
+	private static void addRootAndParents(Set<File> set, File start,
+		int maxDepth)
+	{
+		File current = start;
+		for(int depth = 0; current != null && depth <= maxDepth; depth++)
+		{
+			set.add(current);
+			current = current.getParentFile();
+		}
+	}
+	
+	private static File resolveSeedmapperLoot(File root)
+	{
+		if(root == null || !root.exists() || !root.isDirectory())
+			return null;
+		
+		if(root.getName().equalsIgnoreCase("loot"))
+			return root;
+		
+		if(root.getName().equalsIgnoreCase("seedmapper"))
+		{
+			File loot = new File(root, "loot");
+			if(loot.exists() && loot.isDirectory())
+				return loot;
+		}
+		
+		String[] folderNames = {"seedmapper", "SeedMapper", "Seedmapper"};
+		for(String folder : folderNames)
+		{
+			File loot = new File(new File(root, folder), "loot");
+			if(loot.exists() && loot.isDirectory())
+				return loot;
+		}
+		
+		File[] matches = root.listFiles(file -> file.isDirectory()
+			&& file.getName().equalsIgnoreCase("seedmapper"));
+		if(matches != null)
+		{
+			for(File match : matches)
+			{
+				File loot = new File(match, "loot");
+				if(loot.exists() && loot.isDirectory())
+					return loot;
+			}
+		}
+		
+		return null;
 	}
 	
 	public static File findFileForServer(String serverIp)
