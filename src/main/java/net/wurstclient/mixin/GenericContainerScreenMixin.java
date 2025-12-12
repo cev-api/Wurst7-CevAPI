@@ -81,6 +81,14 @@ public abstract class GenericContainerScreenMixin
 	private String lastRecordMessage = null;
 	@Unique
 	private long lastRecordUntilMs = 0L;
+	@Unique
+	private boolean chestRecordedNotificationSent = false;
+	@Unique
+	private boolean chestSnapshotFinalized = false;
+	@Unique
+	private static String lastChestRecordedKey = null;
+	@Unique
+	private static long lastChestRecordedTimestamp = 0L;
 	
 	public GenericContainerScreenMixin(WurstClient wurst, ChestMenu container,
 		Inventory playerInventory, Component name)
@@ -92,6 +100,8 @@ public abstract class GenericContainerScreenMixin
 	public void init()
 	{
 		super.init();
+		chestRecordedNotificationSent = false;
+		chestSnapshotFinalized = false;
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		final ChestSearchHack chestSearchHack = wurst$getChestSearchHack();
@@ -1153,6 +1163,9 @@ public abstract class GenericContainerScreenMixin
 	{
 		try
 		{
+			if(chestSnapshotFinalized)
+				return;
+			chestSnapshotFinalized = true;
 			if(this.chestRecorder == null || this.menu == null)
 				return;
 			// Only finalize snapshot automatically if automatic mode is on
@@ -1211,29 +1224,36 @@ public abstract class GenericContainerScreenMixin
 			{
 				chestRecorder.recordFromStacksWithSlotOrder(serverIp, dimension,
 					fx, fy, fz, region, slotOrder, wurst$currentBounds());
-				// Notify player in chat that chest was recorded (on close)
-				try
+				if(!chestRecordedNotificationSent
+					&& wurst$shouldNotifyChestRecorded(serverIp, dimension, fx,
+						fy, fz))
 				{
-					String recordedMsg = "Chest recorded at position " + fx
-						+ "," + fy + "," + fz;
-					if(net.wurstclient.WurstClient.MC != null)
+					chestRecordedNotificationSent = true;
+					// Notify player in chat that chest was recorded (on close)
+					try
 					{
-						net.wurstclient.WurstClient.MC.execute(() -> {
-							try
-							{
-								if(net.wurstclient.WurstClient.MC.player != null)
-									net.wurstclient.WurstClient.MC.player
-										.displayClientMessage(
-											net.minecraft.network.chat.Component
-												.literal(recordedMsg),
-											false);
-							}catch(Throwable ignored)
-							{}
-						});
+						String recordedMsg = "Chest recorded at position " + fx
+							+ "," + fy + "," + fz;
+						if(net.wurstclient.WurstClient.MC != null)
+						{
+							net.wurstclient.WurstClient.MC.execute(() -> {
+								try
+								{
+									if(net.wurstclient.WurstClient.MC.player != null
+										&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
+										net.wurstclient.WurstClient.MC.player
+											.displayClientMessage(
+												net.minecraft.network.chat.Component
+													.literal(recordedMsg),
+												false);
+								}catch(Throwable ignored)
+								{}
+							});
+						}
+					}catch(Throwable ignored)
+					{
+						// ignore
 					}
-				}catch(Throwable ignored)
-				{
-					// ignore
 				}
 				// If loot export present, compare now and notify if mismatch
 				try
@@ -1654,5 +1674,21 @@ public abstract class GenericContainerScreenMixin
 		{
 			t.printStackTrace();
 		}
+	}
+	
+	@Unique
+	private boolean wurst$shouldNotifyChestRecorded(String serverIp,
+		String dimension, int x, int y, int z)
+	{
+		String key = String.valueOf(serverIp) + "|" + String.valueOf(dimension)
+			+ "|" + x + "," + y + "," + z;
+		long now = System.currentTimeMillis();
+		if(key.equals(lastChestRecordedKey)
+			&& now - lastChestRecordedTimestamp < 500L)
+			return false;
+		
+		lastChestRecordedKey = key;
+		lastChestRecordedTimestamp = now;
+		return true;
 	}
 }
