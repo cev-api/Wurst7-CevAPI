@@ -268,11 +268,6 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Novel design where it implements a toggleable modified AimAssist setting whilst falling
 - Adds toggleable MaceDMG hack on impact
 
-### SpearAssist
-- Adds configurable hold and dash boosts (capped at vanilla Flight speeds) whenever you charge a spear and hold attack.
-- Highlights distant spear targets with MobESP's current render style or a glow fallback when MobESP is disabled, using a customizable color and distance.
-- Keeps AimAssist running during spear charges and automatically re-represses right-click whenever the spear drops.
-
 ### WindChargeKey
 - Bind switching then throwing a wind charge to a key
 - Delay, silent and auto jump settings
