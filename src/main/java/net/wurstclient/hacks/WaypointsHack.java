@@ -70,6 +70,9 @@ public final class WaypointsHack extends Hack
 	private boolean hasLoadedWorldData;
 	private BlockPos lastDeathAt;
 	private long lastDeathCreatedMs;
+	// Guard to avoid announcing the same death repeatedly while the
+	// death screen is active (fired every tick).
+	private boolean deathAnnounced = false;
 	// Track recent death times to avoid duplicates per player
 	private final Map<UUID, Long> otherDeathCooldown = new HashMap<>();
 	// Track current dead state for edge detection
@@ -265,6 +268,9 @@ public final class WaypointsHack extends Hack
 	{
 		ensureWorldData();
 		updatePortalAutoRecording();
+		// Reset the death-announced guard once the player is alive again.
+		if(deathAnnounced && MC.player != null && MC.player.getHealth() > 0)
+			deathAnnounced = false;
 		// Detect deaths of other players
 		if(trackOtherDeaths.isChecked() && MC.level != null
 			&& MC.player != null)
@@ -678,6 +684,8 @@ public final class WaypointsHack extends Hack
 	{
 		if(MC.player == null)
 			return;
+		if(deathAnnounced)
+			return;
 		
 		BlockPos at = MC.player.blockPosition().above(2);
 		long now = System.currentTimeMillis();
@@ -687,9 +695,20 @@ public final class WaypointsHack extends Hack
 			
 		// Optional death chat, regardless of creating a waypoint
 		if(chatOnDeath.isChecked())
-			MC.player.displayClientMessage(Component.literal(
-				"Died at " + at.getX() + ", " + at.getY() + ", " + at.getZ()),
-				false);
+		{
+			// Mark that we've announced this death to avoid repeats while
+			// the death screen remains open. Also guard against handling
+			// our own injected chat in onReceivedMessage.
+			sendingOwnChat = true;
+			try
+			{
+				MC.player.displayClientMessage(Component.literal("Died at "
+					+ at.getX() + ", " + at.getY() + ", " + at.getZ()), false);
+			}finally
+			{
+				sendingOwnChat = false;
+			}
+		}
 		
 		if(createDeathWaypoints.isChecked())
 		{
@@ -709,6 +728,7 @@ public final class WaypointsHack extends Hack
 		
 		lastDeathAt = at;
 		lastDeathCreatedMs = now;
+		deathAnnounced = true;
 	}
 	
 	private WaypointDimension currentDim()
