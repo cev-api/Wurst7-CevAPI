@@ -57,6 +57,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.util.chunk.ChunkUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -474,6 +475,7 @@ public final class TrialSpawnerEspHack extends Hack
 			fillShapes.isChecked() ? new ArrayList<>() : null;
 		ArrayList<ColoredPoint> tracerTargets =
 			drawTracers.isChecked() ? new ArrayList<>() : null;
+		ArrayList<OverlayEntry> overlays = new ArrayList<>();
 		
 		// Render vault ESP boxes and simple status labels while hack is enabled
 		if(!vaults.isEmpty())
@@ -516,9 +518,10 @@ public final class TrialSpawnerEspHack extends Hack
 				lines.add(new OverlayLine(status, 0xFFFFFFFF));
 				if(ominous && openedVaultKeys.contains(key))
 					lines.add(new OverlayLine("Opened", 0xFFDD4444));
-				Vec3 labelPos = Vec3.atCenterOf(vpos).add(0, 1.0, 0);
-				labelPos = resolveLabelPosition(labelPos);
-				drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
+				Vec3 original = Vec3.atCenterOf(vpos).add(0, 1.0, 0);
+				Vec3 resolved = resolveLabelPosition(original);
+				overlays.add(new OverlayEntry(original, resolved, lines,
+					overlayScale.getValueF()));
 			}
 		}
 		
@@ -548,12 +551,12 @@ public final class TrialSpawnerEspHack extends Hack
 				drawActivationRadius(matrices, info, logic, color);
 			
 			if(showVaultLink.isChecked() && info.vault() != null)
-				drawVaultLink(matrices, info, color);
+				drawVaultLink(matrices, info, color, overlays);
 			
 			// spawn tracers removed
 			
 			if(showOverlay.isChecked())
-				drawOverlay(matrices, info, logic, state, color);
+				drawOverlay(matrices, info, logic, state, color, overlays);
 		}
 		
 		if(filledBoxes != null && !filledBoxes.isEmpty())
@@ -563,6 +566,19 @@ public final class TrialSpawnerEspHack extends Hack
 		if(tracerTargets != null && !tracerTargets.isEmpty())
 			RenderUtils.drawTracers(matrices, partialTicks, tracerTargets,
 				false);
+		
+		// draw overlays after all ESP geometry so labels are not overwritten
+		java.util.HashSet<BlockPos> drawn = new java.util.HashSet<>();
+		for(OverlayEntry e : overlays)
+		{
+			if(!NiceWurstModule.shouldRenderTarget(e.original()))
+				continue;
+			BlockPos key = BlockPos.containing(e.original());
+			if(drawn.contains(key))
+				continue;
+			drawn.add(key);
+			drawLabel(matrices, e.resolved(), e.lines(), e.scale());
+		}
 	}
 	
 	private void drawActivationRadius(PoseStack matrices, TrialSpawnerInfo info,
@@ -596,7 +612,7 @@ public final class TrialSpawnerEspHack extends Hack
 	}
 	
 	private void drawVaultLink(PoseStack matrices, TrialSpawnerInfo info,
-		int stateColor)
+		int stateColor, ArrayList<OverlayEntry> overlays)
 	{
 		if(MC.level == null || info.vault() == null)
 			return;
@@ -614,12 +630,15 @@ public final class TrialSpawnerEspHack extends Hack
 		String status = describeVaultState(state);
 		List<OverlayLine> lines = List.of(new OverlayLine("Vault", stateColor),
 			new OverlayLine(status, color));
-		Vec3 labelPos = end.add(0, 0.6, 0);
-		drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
+		Vec3 original = end.add(0, 0.6, 0);
+		Vec3 resolved = resolveLabelPosition(original);
+		overlays.add(new OverlayEntry(original, resolved, lines,
+			overlayScale.getValueF()));
 	}
 	
 	private void drawOverlay(PoseStack matrices, TrialSpawnerInfo info,
-		TrialSpawner logic, TrialSpawnerState state, int headerColor)
+		TrialSpawner logic, TrialSpawnerState state, int headerColor,
+		ArrayList<OverlayEntry> overlays)
 	{
 		if(MC.level == null)
 			return;
@@ -731,9 +750,10 @@ public final class TrialSpawnerEspHack extends Hack
 			lines.add(new OverlayLine("Vault: " + vaultInfo, 0xFFFFFFFF));
 		}
 		
-		Vec3 labelPos = Vec3.atCenterOf(info.pos()).add(0, 1.6, 0);
-		labelPos = resolveLabelPosition(labelPos);
-		drawLabel(matrices, labelPos, lines, overlayScale.getValueF());
+		Vec3 original = Vec3.atCenterOf(info.pos()).add(0, 1.6, 0);
+		Vec3 resolved = resolveLabelPosition(original);
+		overlays.add(new OverlayEntry(original, resolved, lines,
+			overlayScale.getValueF()));
 	}
 	
 	private void drawLabel(PoseStack matrices, Vec3 position,
@@ -768,7 +788,8 @@ public final class TrialSpawnerEspHack extends Hack
 		{
 			OverlayLine line = lines.get(i);
 			int y = i * lineHeight;
-			DisplayMode layerType = DisplayMode.SEE_THROUGH;
+			DisplayMode layerType =
+				NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
 			tr.drawInBatch(line.text(), x, y, line.color(), false,
 				matrices.last().pose(), vcp, layerType, bg, 0xF000F0);
 		}
@@ -1262,6 +1283,10 @@ public final class TrialSpawnerEspHack extends Hack
 	{}
 	
 	private record OverlayLine(String text, int color)
+	{}
+	
+	private record OverlayEntry(Vec3 original, Vec3 resolved,
+		List<OverlayLine> lines, float scale)
 	{}
 	
 	private enum TrialStatus
