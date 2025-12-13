@@ -15,7 +15,6 @@ import java.util.List;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import com.mojang.blaze3d.platform.GlConst;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -1336,15 +1335,16 @@ public enum RenderUtils
 		}
 		
 		// push matrix, scale, draw at coordinates adjusted by scale, pop
-		context.pose().pushMatrix();
+		context.pose().pushPose();
 		// scale both axes; Z scale = 1
-		context.pose().scale((float)scale);
+		float scaleF = (float)scale;
+		context.pose().scale(scaleF, scaleF, 1.0F);
 		// When the matrix is scaled by `scale`, coordinates supplied to
 		// drawText
 		// must be divided by `scale` to appear at the intended screen position.
 		int sx = (int)Math.round(x / scale);
 		int sy = (int)Math.round(y / scale);
 		context.drawString(tr, text, sx, sy, color, shadow);
-		context.pose().popMatrix();
+		context.pose().popPose();
 	}
 }

@@ -226,6 +226,24 @@ public enum InventoryUtils
 		return true;
 	}
 	
+	public static int getSelectedSlot(Inventory inventory)
+	{
+		return inventory == null ? -1 : inventory.selected;
+	}
+	
+	public static void setSelectedSlot(Inventory inventory, int slot)
+	{
+		if(inventory == null)
+			return;
+		
+		if(slot < 0)
+			slot = 0;
+		else if(slot > 8)
+			slot = 8;
+		
+		inventory.selected = slot;
+	}
+	
 	public static int toNetworkSlot(int slot)
 	{
 		// hotbar

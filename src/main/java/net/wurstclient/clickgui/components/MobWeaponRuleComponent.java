@@ -23,6 +23,7 @@ import net.wurstclient.clickgui.Popup;
 import net.wurstclient.settings.MobWeaponRuleSetting;
 import net.wurstclient.settings.MobWeaponRuleSetting.MobOption;
 import net.wurstclient.settings.MobWeaponRuleSetting.WeaponCategory;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class MobWeaponRuleComponent extends Component
@@ -163,7 +164,7 @@ public final class MobWeaponRuleComponent extends Component
 			RenderUtils.toIntColor(GUI.getBgColor(),
 				GUI.getOpacity() * (hovering ? 1.5F : 1F)));
 		
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		// outlines
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
@@ -335,7 +336,7 @@ public final class MobWeaponRuleComponent extends Component
 					RenderUtils.toIntColor(GUI.getBgColor(),
 						GUI.getOpacity() * (hovering ? 1.5F : 1F)));
 				
-				context.guiRenderState.up();
+				GuiRenderStateHelper.up(context);
 				context.drawString(TR, labelGetter.apply(option), x1 + 2,
 					currentY + 2, GUI.getTxtColor(), false);
 				

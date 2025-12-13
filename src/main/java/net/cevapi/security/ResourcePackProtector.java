@@ -56,7 +56,7 @@ import net.cevapi.config.AntiFingerprintConfig.ToastLevel;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.client.gui.components.toasts.ToastManager;
+import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -252,7 +252,7 @@ public final class ResourcePackProtector
 				Minecraft target =
 					mcClient != null ? mcClient : Minecraft.getInstance();
 				if(target != null)
-					target.getToastManager().queued.clear();
+					target.getToasts().queued.clear();
 				sendStatus(connection, context,
 					ServerboundResourcePackPacket.Action.DECLINED);
 				noteHandled(context);
@@ -405,7 +405,7 @@ public final class ResourcePackProtector
 			TOAST_QUEUE.clear();
 		}
 		
-		ToastManager manager = client.getToastManager();
+		ToastComponent manager = client.getToasts();
 		for(ToastPayload payload : payloads)
 		{
 			try

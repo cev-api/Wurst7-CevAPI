@@ -7,8 +7,6 @@
  */
 package net.wurstclient.mixin;
 
-import java.util.Optional;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -104,7 +102,7 @@ public abstract class ClientPlayNetworkHandlerMixin
 	@Inject(
 		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
 		at = @At(value = "INVOKE",
-			target = "Ljava/util/Optional;ifPresent(Ljava/util/function/Consumer;)V"),
+			target = "Lnet/minecraft/client/player/LocalPlayer;setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V"),
 		cancellable = true)
 	private void wurst$handleExplosionKnockback(ClientboundExplodePacket packet,
 		CallbackInfo ci)
@@ -113,11 +111,11 @@ public abstract class ClientPlayNetworkHandlerMixin
 		if(player == null)
 			return;
 		
-		Optional<Vec3> knockback = packet.playerKnockback();
-		if(knockback.isEmpty())
+		Vec3 vec = new Vec3(packet.getKnockbackX(), packet.getKnockbackY(),
+			packet.getKnockbackZ());
+		if(vec.lengthSqr() == 0)
 			return;
 		
-		Vec3 vec = knockback.get();
 		Vec3 adjusted = WurstClient.INSTANCE.getHax().antiBlastHack
 			.modifyKnockback(vec.x, vec.y, vec.z);
 		

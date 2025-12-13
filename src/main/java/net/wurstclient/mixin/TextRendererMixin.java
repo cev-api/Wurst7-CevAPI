@@ -18,7 +18,7 @@ import net.wurstclient.nicewurst.NiceWurstModule;
 public abstract class TextRendererMixin
 {
 	@ModifyVariable(
-		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)I",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
@@ -29,7 +29,7 @@ public abstract class TextRendererMixin
 	}
 	
 	@ModifyVariable(
-		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)I",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)

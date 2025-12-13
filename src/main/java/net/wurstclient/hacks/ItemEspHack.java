@@ -645,7 +645,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					id.contains(":") ? id.substring(id.indexOf(":") + 1) : id;
 				String localSpaced = localId.replace('_', ' ');
 				String transKey = item.getDescriptionId();
-				String display = item.getName().getString();
+				String display = item.getDescription().getString();
 				String stackDisplay = stack.getHoverName().getString();
 				if(specialKeywords != null)
 					for(String term : specialKeywords)
@@ -681,7 +681,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		try
 		{
 			ResourceLocation id = ResourceLocation.parse(idStr.trim());
-			Item target = BuiltInRegistries.ITEM.getValue(id);
+			Item target = BuiltInRegistries.ITEM.get(id);
 			return target != null && target == item;
 		}catch(IllegalArgumentException e)
 		{
@@ -708,7 +708,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
 		String localSpaced = localId.replace('_', ' ');
 		String transKey = item.getDescriptionId();
-		String display = item.getName().getString();
+		String display = item.getDescription().getString();
 		String stackDisplay =
 			stack != null ? stack.getHoverName().getString() : "";
 		String[] terms = Arrays.stream(normalizedQuery.split(","))

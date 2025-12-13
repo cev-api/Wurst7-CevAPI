@@ -348,7 +348,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		}
 		
 		// status effect speed gives small allowance
-		if(player.hasEffect(MobEffects.SPEED))
+		if(player.hasEffect(MobEffects.MOVEMENT_SPEED))
 			allowed *= 1.2;
 		
 		// latency compensation
@@ -732,8 +732,8 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 		int maxZ = Mth.ceil(box.maxZ);
 		
 		int maxY = Mth.floor(entityBottom);
-		int minY =
-			Math.max(world.getMinY(), Mth.floor(entityBottom - maxDepth));
+		int minY = Math.max(world.getMinBuildHeight(),
+			Mth.floor(entityBottom - maxDepth));
 		
 		for(int y = maxY; y >= minY; y--)
 		{

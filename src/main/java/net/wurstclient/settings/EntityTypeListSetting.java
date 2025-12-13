@@ -47,7 +47,7 @@ public final class EntityTypeListSetting extends Setting
 		{
 			// Default to all non-MISC spawn group entity types (typical mobs)
 			BuiltInRegistries.ENTITY_TYPE.keySet().forEach(id -> {
-				EntityType<?> t = BuiltInRegistries.ENTITY_TYPE.getValue(id);
+				EntityType<?> t = BuiltInRegistries.ENTITY_TYPE.get(id);
 				MobCategory g = t.getCategory();
 				if(g != MobCategory.MISC)
 					typeNames.add(id.toString());

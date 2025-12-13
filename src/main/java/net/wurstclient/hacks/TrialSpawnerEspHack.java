@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -37,7 +36,7 @@ import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.world.level.block.entity.trialspawner.TrialSpawner;
 import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerConfig;
 import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerState;
-import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerStateData;
+import net.minecraft.world.level.block.entity.trialspawner.TrialSpawnerData;
 import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
 import net.minecraft.world.level.block.entity.vault.VaultState;
 import net.minecraft.world.level.block.state.BlockState;
@@ -361,7 +360,7 @@ public final class TrialSpawnerEspHack extends Hack
 					continue;
 				TrialSpawnerState state = logic.getState() == null
 					? TrialSpawnerState.INACTIVE : logic.getState();
-				TrialSpawnerStateData data = logic.getStateData();
+				TrialSpawnerData data = logic.getData();
 				long cooldownEnd = 0;
 				if(data != null)
 				{
@@ -624,7 +623,7 @@ public final class TrialSpawnerEspHack extends Hack
 		if(MC.level == null)
 			return;
 		
-		TrialSpawnerStateData data = logic.getStateData();
+		TrialSpawnerData data = logic.getData();
 		if(data == null)
 			return;
 		
@@ -647,7 +646,7 @@ public final class TrialSpawnerEspHack extends Hack
 		double nextSpawnSeconds = Math.max(0, nextSpawnTicks / 20.0);
 		
 		int additionalPlayers = data.countAdditionalPlayers(info.pos());
-		TrialSpawnerConfig config = logic.activeConfig();
+		TrialSpawnerConfig config = logic.getConfig();
 		int totalMobs =
 			Math.max(1, config.calculateTargetTotalMobs(additionalPlayers));
 		int simultaneous = Math.max(1,
@@ -1030,14 +1029,14 @@ public final class TrialSpawnerEspHack extends Hack
 	{
 		if(spawnData == null)
 			return "";
-		Optional<CompoundTag> entity = spawnData.getCompound("entity");
-		if(entity.isPresent())
+		CompoundTag entity = spawnData.getCompound("entity");
+		if(entity != null && !entity.isEmpty())
 		{
-			Optional<String> id = entity.get().getString("id");
-			if(id.isPresent())
-				return id.get();
+			String id = entity.getString("id");
+			if(!id.isEmpty())
+				return id;
 		}
-		return spawnData.getString("id").orElse("");
+		return spawnData.contains("id") ? spawnData.getString("id") : "";
 	}
 	
 	private String resolveMobName(String mobId)
@@ -1048,7 +1047,7 @@ public final class TrialSpawnerEspHack extends Hack
 		ResourceLocation id = ResourceLocation.tryParse(mobId);
 		if(id != null)
 		{
-			EntityType<?> entity = BuiltInRegistries.ENTITY_TYPE.getValue(id);
+			EntityType<?> entity = BuiltInRegistries.ENTITY_TYPE.get(id);
 			if(entity != null)
 				return entity.getDescription().getString();
 		}
@@ -1117,7 +1116,7 @@ public final class TrialSpawnerEspHack extends Hack
 			return null;
 		ResourceKey<EntityType<?>> key =
 			ResourceKey.create(Registries.ENTITY_TYPE, id);
-		return BuiltInRegistries.ENTITY_TYPE.getValue(key);
+		return BuiltInRegistries.ENTITY_TYPE.get(key);
 	}
 	
 	private EntityType<?> mapDecorMobToType(String decorMob)

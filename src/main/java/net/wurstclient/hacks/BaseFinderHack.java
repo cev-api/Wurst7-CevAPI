@@ -9,7 +9,6 @@ package net.wurstclient.hacks;
 
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 
 import com.mojang.blaze3d.systems.RenderSystem;

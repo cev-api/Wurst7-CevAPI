@@ -347,7 +347,7 @@ public final class CoordLoggerHack extends Hack
 		if(MC.level == null)
 			return;
 		
-		int entityId = packet.id();
+		int entityId = packet.getId();
 		// ignore our own player teleports (server -> client teleport for our
 		// player can happen frequently)
 		if(MC.player != null && entityId == MC.player.getId())
@@ -359,9 +359,10 @@ public final class CoordLoggerHack extends Hack
 		
 		// Mojmap names
 		Vec3 oldPos = entity.position();
-		if(packet.change() == null || packet.change().position() == null)
-			return;
-		Vec3 newPos = packet.change().position();
+		double newX = packet.getX();
+		double newY = packet.getY();
+		double newZ = packet.getZ();
+		Vec3 newPos = new Vec3(newX, newY, newZ);
 		
 		double dist = oldPos.distanceTo(newPos);
 		if(dist < minDistance.getValue())

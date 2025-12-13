@@ -27,6 +27,7 @@ public final class NavigatorListScreen extends Screen
 	private static final int CONNECT_WIDTH = 70;
 	private static final int COMMAND_WIDTH = 80;
 	private static final int BUTTON_HEIGHT = 16;
+	private static final int DARK_GRAY = 0xFF555555;
 	
 	private final List<String> entries;
 	private final Consumer<String> connectCallback;
@@ -175,7 +176,7 @@ public final class NavigatorListScreen extends Screen
 			boolean connectHover = mouseX >= connectX1 && mouseY >= connectY1
 				&& mouseX < connectX2 && mouseY < connectY2;
 			int connectColor =
-				connectHover ? CommonColors.LIGHT_GRAY : CommonColors.DARK_GRAY;
+				connectHover ? CommonColors.LIGHT_GRAY : DARK_GRAY;
 			context.fill(connectX1, connectY1, connectX2, connectY2,
 				connectColor);
 			context.drawCenteredString(minecraft.font, "Connect",
@@ -189,7 +190,7 @@ public final class NavigatorListScreen extends Screen
 			boolean commandHover = mouseX >= commandX1 && mouseY >= commandY1
 				&& mouseX < commandX2 && mouseY < commandY2;
 			int commandColor =
-				commandHover ? CommonColors.LIGHT_GRAY : CommonColors.DARK_GRAY;
+				commandHover ? CommonColors.LIGHT_GRAY : DARK_GRAY;
 			context.fill(commandX1, commandY1, commandX2, commandY2,
 				commandColor);
 			context.drawCenteredString(minecraft.font, "Command",

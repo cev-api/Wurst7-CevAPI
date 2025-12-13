@@ -36,10 +36,15 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
+import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.ItemContainerContents;
-import net.minecraft.world.item.component.Weapon;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.wurstclient.Category;
@@ -1824,8 +1829,9 @@ public final class EnchantmentHandlerHack extends Hack
 				|| stack.is(Items.CROSSBOW))
 				return WEAPON;
 			
-			Weapon weapon = stack.getComponents().get(DataComponents.WEAPON);
-			if(weapon != null)
+			if(item instanceof SwordItem || item instanceof AxeItem
+				|| item instanceof TridentItem || item instanceof BowItem
+				|| item instanceof CrossbowItem || item instanceof MaceItem)
 				return WEAPON;
 			
 			return null;

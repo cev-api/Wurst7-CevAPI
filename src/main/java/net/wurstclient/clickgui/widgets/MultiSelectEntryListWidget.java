@@ -274,7 +274,7 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		int anchorIndex =
 			anchorEntry != null ? children().indexOf(anchorEntry) : -1;
 		return new SelectionState(new ArrayList<>(keys), anchorKey,
-			scrollAmount(), anchorIndex);
+			getScrollAmount(), anchorIndex);
 	}
 	
 	public void restoreState(SelectionState state)
@@ -292,9 +292,9 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		
 		Map<String, E> byKey = buildEntryMap(entries);
 		
-		double targetScroll = state != null
-			? Mth.clamp(state.scrollAmount(), 0, maxScrollAmount())
-			: scrollAmount();
+		double targetScroll =
+			state != null ? Mth.clamp(state.scrollAmount(), 0, getMaxScroll())
+				: getScrollAmount();
 		
 		if(state != null && !state.selectedKeys().isEmpty())
 		{

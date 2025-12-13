@@ -18,6 +18,7 @@ import net.wurstclient.clickgui.SettingsWindow;
 import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.ui.UiScale;
 import org.lwjgl.glfw.GLFW;
@@ -155,7 +156,7 @@ public final class FeatureButton extends Component
 		RenderUtils.drawScaledText(context, TR, name, tx, ty, GUI.getTxtColor(),
 			false, scale);
 		
-		context.guiRenderState.down();
+		GuiRenderStateHelper.down(context);
 	}
 	
 	private int getButtonColor(boolean enabled, boolean hovering)

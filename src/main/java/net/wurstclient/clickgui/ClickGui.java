@@ -36,6 +36,7 @@ import net.wurstclient.clickgui.components.FeatureButton;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.settings.Setting;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.json.JsonUtils;
 
@@ -724,9 +725,9 @@ public final class ClickGui
 		renderPopups(context, mouseX, mouseY);
 		renderTooltip(context, mouseX, mouseY);
 		
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 		for(int i = 0; i < windowLayers; i++)
-			context.guiRenderState.down();
+			GuiRenderStateHelper.down(context);
 		windowLayers = 0;
 	}
 	
@@ -819,16 +820,16 @@ public final class ClickGui
 			renderWindowsWithIsolation(context, pinnedWindows,
 				Integer.MIN_VALUE, Integer.MIN_VALUE, partialTicks);
 			for(int i = 0; i < windowLayers; i++)
-				context.guiRenderState.down();
+				GuiRenderStateHelper.down(context);
 			windowLayers = previousLayers;
 		}else
 		{
 			for(Window window : pinnedWindows)
 			{
-				context.guiRenderState.up();
+				GuiRenderStateHelper.up(context);
 				renderWindow(context, window, Integer.MIN_VALUE,
 					Integer.MIN_VALUE, partialTicks);
-				context.guiRenderState.down();
+				GuiRenderStateHelper.down(context);
 			}
 		}
 	}
@@ -1109,7 +1110,7 @@ public final class ClickGui
 	
 	private void pushWindowLayer(GuiGraphics context)
 	{
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		windowLayers++;
 	}
 	

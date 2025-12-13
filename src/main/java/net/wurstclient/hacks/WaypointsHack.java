@@ -907,8 +907,8 @@ public final class WaypointsHack extends Hack
 			mode == null ? Waypoint.BeaconMode.OFF : mode;
 		if(safeMode == Waypoint.BeaconMode.OFF)
 			return;
-		int minY = MC.level.getMinY();
-		int maxY = MC.level.getMaxY() + 1;
+		int minY = MC.level.getMinBuildHeight();
+		int maxY = MC.level.getMaxBuildHeight() + 1;
 		double baseX = pos.getX();
 		double baseZ = pos.getZ();
 		double centerX = baseX + 0.5;

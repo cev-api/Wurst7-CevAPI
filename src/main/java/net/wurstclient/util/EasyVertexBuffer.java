@@ -9,6 +9,8 @@ package net.wurstclient.util;
 
 import java.util.function.Consumer;
 
+import org.joml.Matrix4f;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
@@ -19,36 +21,31 @@ import com.mojang.blaze3d.vertex.VertexBuffer.Usage;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
 /**
- * An abstraction of Minecraft 1.21.5's new {@code GpuBuffer} system that makes
- * working with it as easy as {@code VertexBuffer} was.
- *
- * <p>
- * Backported to 1.21.4, where this is just a thin wrapper around
- * {@link VertexBuffer}.
+ * Thin helper around {@link VertexBuffer} that keeps the old 1.21.1 rendering
+ * flow intact.
  */
 public final class EasyVertexBuffer implements AutoCloseable
 {
 	private final VertexBuffer vertexBuffer;
 	
-	/**
-	 * Drop-in replacement for {@code VertexBuffer.createAndUpload()}.
-	 */
 	public static EasyVertexBuffer createAndUpload(Mode drawMode,
 		VertexFormat format, Consumer<VertexConsumer> callback)
 	{
-		BufferBuilder bufferBuilder =
+		BufferBuilder builder =
 			Tesselator.getInstance().begin(drawMode, format);
-		callback.accept(bufferBuilder);
+		callback.accept(builder);
 		
-		MeshData buffer = bufferBuilder.build();
-		if(buffer == null)
+		MeshData data = builder.build();
+		if(data == null)
 			return new EasyVertexBuffer();
 		
-		return new EasyVertexBuffer(buffer);
+		return new EasyVertexBuffer(data);
 	}
 	
 	private EasyVertexBuffer(MeshData buffer)
@@ -64,51 +61,43 @@ public final class EasyVertexBuffer implements AutoCloseable
 		vertexBuffer = null;
 	}
 	
-	/**
-	 * Similar to {@code VertexBuffer.draw(RenderLayer)}, but with a
-	 * customizable view matrix. Use this if you need to translate/scale/rotate
-	 * the buffer.
-	 */
 	public void draw(PoseStack matrixStack, RenderType layer)
+	{
+		draw(matrixStack, layer, 1F, 1F, 1F, 1F);
+	}
+	
+	public void draw(PoseStack matrixStack, RenderType layer, float[] rgb,
+		float alpha)
+	{
+		float red = rgb != null && rgb.length > 0 ? rgb[0] : 1F;
+		float green = rgb != null && rgb.length > 1 ? rgb[1] : 1F;
+		float blue = rgb != null && rgb.length > 2 ? rgb[2] : 1F;
+		draw(matrixStack, layer, red, green, blue, alpha);
+	}
+	
+	public void draw(PoseStack matrixStack, RenderType layer, float red,
+		float green, float blue, float alpha)
 	{
 		if(vertexBuffer == null)
 			return;
 		
-		RenderType.CompositeRenderType effectiveLayer =
-			NiceWurstModule.enforceDepthTest(layer);
+		RenderType renderType = NiceWurstModule.enforceDepthTest(layer);
+		Matrix4f modelMatrix = matrixStack.last().pose();
+		Matrix4f projectionMatrix = RenderSystem.getProjectionMatrix();
 		
-		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
-		modelViewStack.pushMatrix();
-		modelViewStack.mul(matrixStack.last().pose());
+		renderType.setupRenderState();
+		vertexBuffer.bind();
 		
-		effectiveLayer.setupRenderState();
-		GpuBufferSlice gpuBufferSlice = RenderSystem.getDynamicUniforms()
-			.writeTransform(RenderSystem.getModelViewMatrix(),
-				new Vector4f(red, green, blue, alpha),
-				RenderSystem.getModelOffset(), RenderSystem.getTextureMatrix(),
-				RenderSystem.getShaderLineWidth());
-		
-		RenderTarget framebuffer =
-			effectiveLayer.state.outputState.getRenderTarget();
-		RenderPipeline pipeline = effectiveLayer.renderPipeline;
-		GpuBuffer indexBuffer = shapeIndexBuffer.getBuffer(indexCount);
-		
-		try(RenderPass renderPass =
-			RenderSystem.getDevice().createCommandEncoder().createRenderPass(
-				() -> "something from Wurst", framebuffer.getColorTextureView(),
-				OptionalInt.empty(), framebuffer.getDepthTextureView(),
-				OptionalDouble.empty()))
+		ShaderInstance shader = RenderSystem.getShader();
+		if(shader != null)
 		{
-			renderPass.setPipeline(pipeline);
-			RenderSystem.bindDefaultUniforms(renderPass);
-			renderPass.setUniform("DynamicTransforms", gpuBufferSlice);
-			renderPass.setVertexBuffer(0, vertexBuffer);
-			renderPass.setIndexBuffer(indexBuffer, shapeIndexBuffer.type());
-			renderPass.drawIndexed(0, 0, indexCount, 1);
+			RenderSystem.setShaderColor(red, green, blue, alpha);
+			vertexBuffer.drawWithShader(modelMatrix, projectionMatrix, shader);
+			RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
 		}
 		
-		effectiveLayer.clearRenderState();
-		modelViewStack.popMatrix();
+		VertexBuffer.unbind();
+		renderType.clearRenderState();
 	}
 	
 	@Override

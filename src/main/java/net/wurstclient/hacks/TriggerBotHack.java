@@ -27,6 +27,7 @@ import net.wurstclient.settings.SwingHandSetting;
 import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.util.EntityUtils;
+import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"trigger bot", "AutoAttack", "auto attack", "AutoClicker",
 	"auto clicker"})
@@ -264,9 +265,10 @@ public final class TriggerBotHack extends Hack
 				return false;
 			
 			if(previousSlot == -1)
-				previousSlot = player.getInventory().getSelectedSlot();
+				previousSlot =
+					InventoryUtils.getSelectedSlot(player.getInventory());
 			
-			player.getInventory().setSelectedSlot(slot);
+			InventoryUtils.setSelectedSlot(player.getInventory(), slot);
 			active = true;
 			return true;
 		}
@@ -289,7 +291,8 @@ public final class TriggerBotHack extends Hack
 		private void restoreSlot()
 		{
 			if(previousSlot != -1 && MC.player != null)
-				MC.player.getInventory().setSelectedSlot(previousSlot);
+				InventoryUtils.setSelectedSlot(MC.player.getInventory(),
+					previousSlot);
 			previousSlot = -1;
 		}
 	}

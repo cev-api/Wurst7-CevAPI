@@ -166,9 +166,14 @@ public enum WurstRenderLayers
 	 * culling.
 	 */
 	public static final RenderType.CompositeRenderType QUADS_NO_CULLING =
-		RenderType.create("wurst:quads_no_culling", 1536, false, true,
-			WurstShaderPipelines.QUADS_NO_CULLING,
-			RenderType.CompositeState.builder().createCompositeState(false));
+		RenderType.create("wurst:quads_no_culling",
+			DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 1536,
+			false, true,
+			RenderType.CompositeState.builder()
+				.setShaderState(RenderType.POSITION_COLOR_SHADER)
+				.setTransparencyState(RenderType.TRANSLUCENT_TRANSPARENCY)
+				.setDepthTestState(RenderType.LEQUAL_DEPTH_TEST)
+				.setCullState(RenderType.NO_CULL).createCompositeState(false));
 	
 	/**
 	 * Similar to {@link RenderType#debugQuads()}, but with culling enabled
@@ -249,16 +254,25 @@ public enum WurstRenderLayers
 	public static RenderType.CompositeRenderType getLines(boolean depthTest,
 		double width)
 	{
-		return RenderType.create(
-			depthTest ? "wurst:lines_custom" : "wurst:esp_lines_custom", 1536,
-			depthTest ? WurstShaderPipelines.DEPTH_TEST_LINES
-				: WurstShaderPipelines.ESP_LINES,
+		RenderType.CompositeState.CompositeStateBuilder builder =
 			RenderType.CompositeState.builder()
+				.setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
 				.setLineState(new RenderStateShard.LineStateShard(
 					OptionalDouble.of(width)))
 				.setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
 				.setOutputState(RenderType.ITEM_ENTITY_TARGET)
-				.createCompositeState(false));
+				.setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
+				.setCullState(RenderType.NO_CULL);
+		
+		if(depthTest)
+			builder.setDepthTestState(RenderType.LEQUAL_DEPTH_TEST);
+		else
+			builder.setDepthTestState(RenderType.NO_DEPTH_TEST);
+		
+		return RenderType.create(
+			depthTest ? "wurst:lines_custom" : "wurst:esp_lines_custom",
+			DefaultVertexFormat.POSITION_COLOR_NORMAL, VertexFormat.Mode.LINES,
+			1536, false, true, builder.createCompositeState(false));
 	}
 	
 	/**
@@ -283,17 +297,26 @@ public enum WurstRenderLayers
 	public static RenderType.CompositeRenderType getLineStrip(boolean depthTest,
 		double width)
 	{
-		return RenderType.create(
-			depthTest
-				? "wurst:line_strip_custom" : "wurst:esp_line_strip_custom",
-			1536,
-			depthTest ? WurstShaderPipelines.DEPTH_TEST_LINE_STRIP
-				: WurstShaderPipelines.ESP_LINE_STRIP,
+		RenderType.CompositeState.CompositeStateBuilder builder =
 			RenderType.CompositeState.builder()
+				.setShaderState(RenderType.RENDERTYPE_LINES_SHADER)
 				.setLineState(new RenderStateShard.LineStateShard(
-					java.util.OptionalDouble.of(width)))
+					OptionalDouble.of(width)))
 				.setLayeringState(RenderType.VIEW_OFFSET_Z_LAYERING)
 				.setOutputState(RenderType.ITEM_ENTITY_TARGET)
-				.createCompositeState(false));
+				.setWriteMaskState(RenderType.COLOR_DEPTH_WRITE)
+				.setCullState(RenderType.NO_CULL);
+		
+		if(depthTest)
+			builder.setDepthTestState(RenderType.LEQUAL_DEPTH_TEST);
+		else
+			builder.setDepthTestState(RenderType.NO_DEPTH_TEST);
+		
+		return RenderType.create(
+			depthTest ? "wurst:line_strip_custom"
+				: "wurst:esp_line_strip_custom",
+			DefaultVertexFormat.POSITION_COLOR_NORMAL,
+			VertexFormat.Mode.LINE_STRIP, 1536, false, true,
+			builder.createCompositeState(false));
 	}
 }

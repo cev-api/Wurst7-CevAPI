@@ -43,11 +43,11 @@ public record BookOffer(String id, int level, int price)
 			return Optional.empty();
 		
 		Optional<Registry<Enchantment>> registryOpt =
-			drm.lookup(Registries.ENCHANTMENT);
+			drm.registry(Registries.ENCHANTMENT);
 		if(registryOpt.isEmpty())
 			return Optional.empty();
 		
-		return registryOpt.get().get(identifier);
+		return registryOpt.get().getHolder(identifier);
 	}
 	
 	public Enchantment getEnchantment()

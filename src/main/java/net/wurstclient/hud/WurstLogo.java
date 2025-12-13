@@ -7,15 +7,13 @@
  */
 package net.wurstclient.hud;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 import net.wurstclient.WurstClient;
-import net.wurstclient.other_features.WurstLogoOtf;
-import net.wurstclient.util.RenderUtils;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.other_features.WurstLogoOtf;
+import net.wurstclient.util.GuiRenderStateHelper;
+import net.wurstclient.util.RenderUtils;
 
 public final class WurstLogo
 {
@@ -48,7 +46,7 @@ public final class WurstLogo
 			bgColor = otf.getBackgroundColor();
 		context.fill(0, 6, bgWidth, 17, bgColor);
 		
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		// brand and version strings
 		int textY = 8;
@@ -58,7 +56,7 @@ public final class WurstLogo
 		context.drawString(tr, version, versionX, textY, otf.getTextColor(),
 			false);
 		
-		context.guiRenderState.down();
+		GuiRenderStateHelper.down(context);
 	}
 	
 	private String getVersionString()

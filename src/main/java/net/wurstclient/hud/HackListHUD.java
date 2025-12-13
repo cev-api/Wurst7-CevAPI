@@ -20,6 +20,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.other_features.HackListOtf;
 import net.wurstclient.other_features.HackListOtf.Mode;
 import net.wurstclient.other_features.HackListOtf.Position;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class HackListHUD implements UpdateListener
@@ -198,7 +199,7 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
 				0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		
@@ -260,7 +261,7 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
 				0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
 		
@@ -325,7 +326,7 @@ public final class HackListHUD implements UpdateListener
 			RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
 				0x04000000 | alpha, false, scale);
 		}
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
 			(lineColor | alpha), false, scale);
 		

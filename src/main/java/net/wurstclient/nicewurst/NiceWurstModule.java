@@ -200,6 +200,14 @@ public final class NiceWurstModule
 		return originalLayer;
 	}
 	
+	public static RenderType enforceDepthTest(RenderType originalLayer)
+	{
+		if(originalLayer instanceof RenderType.CompositeRenderType composite)
+			return enforceDepthTest(composite);
+		
+		return originalLayer;
+	}
+	
 	public static boolean shouldEnforceTracerVisibility()
 	{
 		if(!isActive())

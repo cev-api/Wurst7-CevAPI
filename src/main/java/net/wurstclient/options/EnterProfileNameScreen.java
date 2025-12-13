@@ -16,6 +16,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.CommonColors;
+import org.lwjgl.glfw.GLFW;
 
 public final class EnterProfileNameScreen extends Screen
 {

@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
 import net.minecraft.network.protocol.login.ClientboundHelloPacket;
-import net.minecraft.network.protocol.login.ClientboundLoginFinishedPacket;
+import net.minecraft.network.protocol.login.ClientboundGameProfilePacket;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.OfflineSettingsHack;
 
@@ -33,8 +33,8 @@ public class OfflineSettingsHandshakeMixin
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "handleLoginFinished(Lnet/minecraft/network/protocol/login/ClientboundLoginFinishedPacket;)V")
-	private void wurst$onLoginFinished(ClientboundLoginFinishedPacket packet,
+		method = "handleGameProfile(Lnet/minecraft/network/protocol/login/ClientboundGameProfilePacket;)V")
+	private void wurst$onLoginFinished(ClientboundGameProfilePacket packet,
 		CallbackInfo ci)
 	{
 		OfflineSettingsHack hack =

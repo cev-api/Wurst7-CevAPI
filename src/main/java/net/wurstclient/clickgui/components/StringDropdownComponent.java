@@ -17,6 +17,7 @@ import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.StringDropdownPopup;
 import net.wurstclient.settings.StringDropdownSetting;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class StringDropdownComponent extends Component
@@ -106,7 +107,7 @@ public final class StringDropdownComponent extends Component
 		context.fill(x1, getY(), x2, boxY1, getFillColor(false));
 		context.fill(x1, boxY1, x2, boxY2, getFillColor(hBox));
 		
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
 		RenderUtils.drawBorder2D(context, x1, boxY1, x2, boxY2, outlineColor);

@@ -13,8 +13,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,6 +29,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.CommonColors;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.EntityTypeListSetting;
+import net.wurstclient.util.GuiRenderStateHelper;
 
 public final class EditEntityTypeListScreen extends Screen
 {
@@ -213,7 +214,7 @@ public final class EditEntityTypeListScreen extends Screen
 				net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
 					.containsKey(id)
 						? net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
-							.getValue(id)
+							.get(id)
 						: null;
 		}catch(IllegalArgumentException e)
 		{
@@ -235,7 +236,7 @@ public final class EditEntityTypeListScreen extends Screen
 				{
 					String s = id.toString().toLowerCase(java.util.Locale.ROOT);
 					if(s.contains(q))
-						list.add(BuiltInRegistries.ENTITY_TYPE.getValue(id));
+						list.add(BuiltInRegistries.ENTITY_TYPE.get(id));
 				}
 				java.util.LinkedHashMap<String, net.minecraft.world.entity.EntityType<?>> map =
 					new java.util.LinkedHashMap<>();
@@ -264,7 +265,7 @@ public final class EditEntityTypeListScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
 		
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
@@ -272,7 +273,7 @@ public final class EditEntityTypeListScreen extends Screen
 			typeList.getName() + " (" + typeList.getTypeNames().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
-		matrixStack.pushMatrix();
+		matrixStack.pushPose();
 		
 		typeNameField.render(context, mouseX, mouseY, partialTicks);
 		
@@ -283,7 +284,7 @@ public final class EditEntityTypeListScreen extends Screen
 		// coordinates
 		// derived from the actual TextFieldWidget position/size (no matrix
 		// translate).
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		int x0 = typeNameField.getX();
 		int y0 = typeNameField.getY();
@@ -300,7 +301,7 @@ public final class EditEntityTypeListScreen extends Screen
 		context.fill(x0 - 16, y0, x0, y1, border);
 		context.fill(x0 - 15, y0 + 1, x0 - 1, y1 - 1, black);
 		
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 	}
 	
 	@Override
@@ -363,7 +364,7 @@ public final class EditEntityTypeListScreen extends Screen
 					.containsKey(id))
 				display =
 					net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
-						.getValue(id).getDescription().getString();
+						.get(id).getDescription().getString();
 			else
 				display = "\u00a7okeyword\u00a7r";
 			context.drawString(tr, display, x + 8, y,

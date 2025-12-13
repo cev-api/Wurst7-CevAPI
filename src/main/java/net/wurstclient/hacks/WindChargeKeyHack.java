@@ -21,6 +21,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"wind charge", "auto wind charge", "windcharge"})
 public final class WindChargeKeyHack extends Hack implements UpdateListener
@@ -97,7 +98,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		EVENTS.remove(UpdateListener.class, this);
 		
 		if(needsSlotRestore && originalSlot != -1 && MC.player != null)
-			MC.player.getInventory().setSelectedSlot(originalSlot);
+			InventoryUtils.setSelectedSlot(MC.player.getInventory(),
+				originalSlot);
 		
 		resetState();
 	}
@@ -158,9 +160,10 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		
 		if(needsSlotRestore && now - switchBackTime >= getSwitchDelay())
 		{
-			if(originalSlot != -1
-				&& originalSlot != MC.player.getInventory().getSelectedSlot())
-				MC.player.getInventory().setSelectedSlot(originalSlot);
+			if(originalSlot != -1 && originalSlot != InventoryUtils
+				.getSelectedSlot(MC.player.getInventory()))
+				InventoryUtils.setSelectedSlot(MC.player.getInventory(),
+					originalSlot);
 			
 			needsSlotRestore = false;
 			originalSlot = -1;
@@ -273,8 +276,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		float downwardPitch = 90F;
 		MC.player.setXRot(downwardPitch);
 		MC.player.connection.send(new ServerboundMovePlayerPacket.Rot(
-			MC.player.getYRot(), downwardPitch, MC.player.onGround(),
-			MC.player.horizontalCollision));
+			MC.player.getYRot(), downwardPitch, MC.player.onGround()));
 		return oldPitch;
 	}
 	
@@ -284,9 +286,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 			return;
 		
 		MC.player.setXRot(pitch);
-		MC.player.connection
-			.send(new ServerboundMovePlayerPacket.Rot(MC.player.getYRot(),
-				pitch, MC.player.onGround(), MC.player.horizontalCollision));
+		MC.player.connection.send(new ServerboundMovePlayerPacket.Rot(
+			MC.player.getYRot(), pitch, MC.player.onGround()));
 		restorePitch = false;
 		restorePitchAt = 0;
 	}
@@ -304,17 +305,18 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	
 	private boolean throwWindChargeSilently(int slot)
 	{
-		int currentSlot = MC.player.getInventory().getSelectedSlot();
-		MC.player.getInventory().setSelectedSlot(slot);
+		int currentSlot =
+			InventoryUtils.getSelectedSlot(MC.player.getInventory());
+		InventoryUtils.setSelectedSlot(MC.player.getInventory(), slot);
 		boolean success = useSelectedItem();
-		MC.player.getInventory().setSelectedSlot(currentSlot);
+		InventoryUtils.setSelectedSlot(MC.player.getInventory(), currentSlot);
 		return success;
 	}
 	
 	private boolean throwWindChargeNormally(int slot, long now)
 	{
-		originalSlot = MC.player.getInventory().getSelectedSlot();
-		MC.player.getInventory().setSelectedSlot(slot);
+		originalSlot = InventoryUtils.getSelectedSlot(MC.player.getInventory());
+		InventoryUtils.setSelectedSlot(MC.player.getInventory(), slot);
 		
 		boolean success = useSelectedItem();
 		
@@ -325,7 +327,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 			return true;
 		}
 		
-		MC.player.getInventory().setSelectedSlot(originalSlot);
+		InventoryUtils.setSelectedSlot(MC.player.getInventory(), originalSlot);
 		originalSlot = -1;
 		return false;
 	}

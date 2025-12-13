@@ -8,23 +8,28 @@
 package net.wurstclient.util;
 
 import java.util.OptionalDouble;
+
 import net.minecraft.ResourceLocationException;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.item.Item;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.item.Equipable;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
+import net.wurstclient.WurstClient;
 
 public enum ItemUtils
 {
@@ -40,7 +45,10 @@ public enum ItemUtils
 			stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY)
 				.copyTag();
 		if(tag != null && tag.contains("synthetic_id"))
-			return tag.getString("synthetic_id").orElse(null);
+		{
+			String syntheticId = tag.getString("synthetic_id");
+			return syntheticId.isEmpty() ? null : syntheticId;
+		}
 		ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 		return id != null ? id.toString() : null;
 	}
@@ -64,8 +72,7 @@ public enum ItemUtils
 				.copyTag();
 		if(tag == null)
 			return 0;
-		return tag.contains("xp_amount") ? tag.getInt("xp_amount").orElse(0)
-			: 0;
+		return tag.contains("xp_amount") ? tag.getInt("xp_amount") : 0;
 	}
 	
 	public static int getXpAge(ItemStack stack)
@@ -77,7 +84,7 @@ public enum ItemUtils
 				.copyTag();
 		if(tag == null)
 			return 0;
-		return tag.contains("xp_age") ? tag.getInt("xp_age").orElse(0) : 0;
+		return tag.contains("xp_age") ? tag.getInt("xp_age") : 0;
 	}
 	
 	public static ItemStack createSyntheticXpStack(ExperienceOrb orb)
@@ -157,5 +164,13 @@ public enum ItemUtils
 				return true;
 			
 		return false;
+	}
+	
+	public static EquipmentSlot getArmorSlot(Item item)
+	{
+		if(item instanceof Equipable equipable)
+			return equipable.getEquipmentSlot();
+		
+		return null;
 	}
 }

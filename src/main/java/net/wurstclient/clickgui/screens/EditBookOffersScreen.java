@@ -34,6 +34,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
+import net.wurstclient.hacks.autolibrarian.BookOffer;
+import net.wurstclient.settings.BookOffersSetting;
+import net.wurstclient.util.WurstColors;
 import net.wurstclient.util.RenderUtils;
 
 public final class EditBookOffersScreen extends Screen

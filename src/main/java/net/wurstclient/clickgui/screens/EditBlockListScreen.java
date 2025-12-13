@@ -31,6 +31,8 @@ import net.minecraft.world.level.block.Block;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
+import net.minecraft.util.CommonColors;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class EditBlockListScreen extends Screen
@@ -229,7 +231,7 @@ public final class EditBlockListScreen extends Screen
 					if(s.contains(q))
 						list.add(
 							net.minecraft.core.registries.BuiltInRegistries.BLOCK
-								.getValue(id));
+								.get(id));
 				}
 				// Deduplicate and sort by identifier
 				java.util.LinkedHashMap<String, net.minecraft.world.level.block.Block> map =
@@ -279,7 +281,7 @@ public final class EditBlockListScreen extends Screen
 		// coordinates
 		// derived from the actual TextFieldWidget position/size (no matrix
 		// translate).
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		int x0 = blockNameField.getX();
 		int y0 = blockNameField.getY();

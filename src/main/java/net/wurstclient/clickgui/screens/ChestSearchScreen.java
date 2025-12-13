@@ -1170,7 +1170,7 @@ public final class ChestSearchScreen extends Screen
 						{
 							net.minecraft.world.item.Item item =
 								net.minecraft.core.registries.BuiltInRegistries.ITEM
-									.getValue(id);
+									.get(id);
 							net.minecraft.world.item.ItemStack stack =
 								new net.minecraft.world.item.ItemStack(item, 1);
 							context.renderItem(stack, x + 2, lineY - 2);
@@ -1366,6 +1366,14 @@ public final class ChestSearchScreen extends Screen
 			context.drawCenteredString(this.font, Component.literal(msg),
 				this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
+	}
+	
+	@Override
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
+		float delta)
+	{
+		// Skip Minecraft's default menu blur; render() already draws our
+		// overlay.
 	}
 	
 	private String formatLocationLabel(ChestEntry entry, String dimension)

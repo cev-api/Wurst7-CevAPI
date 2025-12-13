@@ -20,9 +20,10 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.Window;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public class ItemHandlerHud
@@ -124,7 +125,7 @@ public class ItemHandlerHud
 		int footer = items.size() > maxDisplay ? 1 : 0;
 		int height = maxDisplay * rowHeight + footer * rowHeight + 6;
 		context.fill(ex, ey, ex + boxWidth, ey + height, 0xCC101010);
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		Font tr = MC.font;
 		int i = 0;
@@ -135,7 +136,7 @@ public class ItemHandlerHud
 				break;
 			int iy = ey + 4 + i * rowHeight;
 			RenderUtils.drawItem(context, me.rep, ex + 4, iy, largeIcon);
-			context.guiRenderState.up();
+			GuiRenderStateHelper.up(context);
 			String name = resolveName(me.rep);
 			
 			// draw main name
@@ -178,7 +179,7 @@ public class ItemHandlerHud
 		
 		if(items.size() > maxDisplay)
 		{
-			context.guiRenderState.up();
+			GuiRenderStateHelper.up(context);
 			String more = (items.size() - maxDisplay) + " more";
 			// left aligned with a bit more padding
 			RenderUtils.drawScaledText(context, tr, more, ex + 8,

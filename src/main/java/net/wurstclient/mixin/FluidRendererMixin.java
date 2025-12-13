@@ -17,8 +17,13 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
+import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
+import net.wurstclient.hacks.XRayHack;
+import net.wurstclient.util.BlockOpacityState;
 
 @Mixin(LiquidBlockRenderer.class)
 public class FluidRendererMixin
@@ -45,17 +50,18 @@ public class FluidRendererMixin
 		
 		if(surface.isEnabled())
 		{
-			SurfaceState surfaceState = surface.classifyFluid(fluidState, pos);
+			SurfaceState surfaceState =
+				surface.classifyFluid(state.getFluidState(), pos);
 			if(surfaceState == SurfaceState.INTERIOR)
 				event.setRendered(false);
 			else if(surfaceState == SurfaceState.SURFACE)
 				opacity = surface.getSurfaceOpacity();
 		}
 		
-		if(xray.isOpacityMode() && !xray.isVisible(blockState.getBlock(), pos))
+		if(xray.isOpacityMode() && !xray.isVisible(state.getBlock(), pos))
 			opacity = Math.min(opacity, xray.getOpacityFloat());
 		
-		currentOpacity.set(opacity);
+		BlockOpacityState.set(opacity);
 		
 		if(event.isRendered() != null)
 			cir.setReturnValue(!event.isRendered());

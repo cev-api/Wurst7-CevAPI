@@ -18,20 +18,20 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
 
-@Mixin(value = Screen.class, remap = false)
-public abstract class ScreenRenderMixin extends Screen
+@Mixin(Screen.class)
+public abstract class ScreenRenderMixin
 {
 	@Shadow
 	protected Minecraft minecraft;
 	
-	protected ScreenRenderMixin(Component title)
-	{
-		super(title);
-	}
+	@Shadow
+	protected int width;
+	
+	@Shadow
+	protected int height;
 	
 	@Inject(at = @At("TAIL"),
 		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")

@@ -189,7 +189,7 @@ public class ItemHandlerScreen extends Screen
 		
 		// Tooltip for pick button when inactive
 		if(pickButton.isHoveredOrFocused() && !pickButton.active)
-			context.setComponentTooltipForNextFrame(font,
+			context.renderComponentTooltip(font,
 				java.util.Arrays
 					.asList(Component.literal("Select items to pick.")),
 				mouseX, mouseY);

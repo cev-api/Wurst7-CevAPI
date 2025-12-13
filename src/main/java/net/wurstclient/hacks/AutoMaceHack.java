@@ -33,6 +33,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
+import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"mace", "auto mace", "fall attack"})
 public final class AutoMaceHack extends Hack implements UpdateListener
@@ -563,7 +564,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		
 		if(previousSlot == -1)
 		{
-			previousSlot = MC.player.getInventory().getSelectedSlot();
+			previousSlot =
+				InventoryUtils.getSelectedSlot(MC.player.getInventory());
 			hadMaceEquipped = false;
 		}
 	}
@@ -599,10 +601,10 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 	private void setSelectedHotbarSlot(int slot)
 	{
 		if(MC.player == null
-			|| MC.player.getInventory().getSelectedSlot() == slot)
+			|| InventoryUtils.getSelectedSlot(MC.player.getInventory()) == slot)
 			return;
 		
-		MC.player.getInventory().setSelectedSlot(slot);
+		InventoryUtils.setSelectedSlot(MC.player.getInventory(), slot);
 		if(MC.player.connection != null)
 			MC.player.connection
 				.send(new ServerboundSetCarriedItemPacket(slot));

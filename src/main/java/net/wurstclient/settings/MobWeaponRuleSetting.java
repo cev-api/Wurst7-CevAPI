@@ -210,7 +210,7 @@ public final class MobWeaponRuleSetting extends Setting
 		Registry<EntityType<?>> registry = resolveEntityRegistry();
 		for(ResourceLocation id : registry.keySet())
 		{
-			EntityType<?> type = registry.getValue(id);
+			EntityType<?> type = registry.get(id);
 			if(type == null || type.getCategory() == MobCategory.MISC)
 				continue;
 			
@@ -255,7 +255,7 @@ public final class MobWeaponRuleSetting extends Setting
 		if(manager == null)
 			return null;
 		
-		return manager.lookup(Registries.ENTITY_TYPE).orElse(null);
+		return manager.registry(Registries.ENTITY_TYPE).orElse(null);
 	}
 	
 	public record MobOption(String id, String displayName,

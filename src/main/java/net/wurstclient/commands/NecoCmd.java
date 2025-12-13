@@ -101,8 +101,8 @@ public final class NecoCmd extends Command
 		
 		int frameIndex = (ticks / TICKS_PER_FRAME) % 37;
 		
-		context.blit(RenderPipelines.GUI_TEXTURED, necos[frameIndex], x, y, 0,
-			0, DRAW_W, DRAW_H, NECO_TEX_W, NECO_TEX_H, color);
+		context.blit(necos[frameIndex], x, y, 0, 0, DRAW_W, DRAW_H, NECO_TEX_W,
+			NECO_TEX_H);
 	}
 	
 	private static ResourceLocation[] buildNecoFrames()

@@ -1087,7 +1087,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	{
 		ByteArrayOutputStream payload = new ByteArrayOutputStream();
 		payload.writeBytes(encodeVarInt(
-			SharedConstants.getCurrentVersion().protocolVersion()));
+			SharedConstants.getCurrentVersion().getProtocolVersion()));
 		writeString(payload, host);
 		payload.write((port >> 8) & 0xFF);
 		payload.write(port & 0xFF);

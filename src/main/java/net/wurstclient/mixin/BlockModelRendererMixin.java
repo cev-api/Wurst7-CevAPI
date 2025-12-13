@@ -26,13 +26,11 @@ import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
 import net.wurstclient.hacks.SurfaceXrayHack;
 import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
+import net.wurstclient.util.BlockOpacityState;
 
 @Mixin(ModelBlockRenderer.class)
 public abstract class BlockModelRendererMixin implements ItemLike
 {
-	private static ThreadLocal<Float> currentOpacity =
-		ThreadLocal.withInitial(() -> 1F);
-	
 	/**
 	 * Makes X-Ray work when neither Sodium nor Indigo are running. Also gets
 	 * called while Indigo is running when breaking a block in survival mode or
@@ -67,7 +65,7 @@ public abstract class BlockModelRendererMixin implements ItemLike
 		if(xray.isOpacityMode() && !xray.isVisible(state.getBlock(), pos))
 			opacity = Math.min(opacity, xray.getOpacityFloat());
 		
-		currentOpacity.set(opacity);
+		BlockOpacityState.set(opacity);
 		
 		if(event.isRendered() != null)
 			return event.isRendered();
@@ -84,6 +82,6 @@ public abstract class BlockModelRendererMixin implements ItemLike
 		constant = @Constant(floatValue = 1F))
 	private float modifyOpacity(float original)
 	{
-		return currentOpacity.get();
+		return BlockOpacityState.get();
 	}
 }

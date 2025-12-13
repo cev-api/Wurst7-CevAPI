@@ -28,11 +28,13 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.util.ItemUtils;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class EditItemListScreen extends Screen
@@ -228,7 +230,7 @@ public final class EditItemListScreen extends Screen
 					if(s.contains(q))
 						list.add(
 							net.minecraft.core.registries.BuiltInRegistries.ITEM
-								.getValue(id));
+								.get(id));
 				}
 				// Deduplicate and sort by identifier
 				java.util.LinkedHashMap<String, net.minecraft.world.item.Item> map =
@@ -277,7 +279,7 @@ public final class EditItemListScreen extends Screen
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		// Draw placeholder + decorative left icon frame anchored to the field
-		context.guiRenderState.up();
+		GuiRenderStateHelper.up(context);
 		
 		int x0 = itemNameField.getX();
 		int y0 = itemNameField.getY();

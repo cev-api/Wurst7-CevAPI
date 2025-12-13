@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -32,6 +31,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -39,6 +39,7 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.hacks.autolibrarian.BookOffer;
 import net.wurstclient.settings.BookOffersSetting;
+import net.wurstclient.util.WurstColors;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.RenderUtils;
 

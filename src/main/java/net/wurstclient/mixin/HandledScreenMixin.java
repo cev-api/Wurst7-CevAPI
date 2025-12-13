@@ -74,26 +74,6 @@ public abstract class HandledScreenMixin
 		}
 	}
 	
-	@Inject(at = @At("HEAD"), method = "mouseScrolled", cancellable = true)
-	private void wurst$handleMouseScroll(double mouseX, double mouseY,
-		double horizontalAmount, double verticalAmount,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		
-		EnchantmentHandlerHack enchantHack =
-			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
-		if(enchantHack != null && enchantHack.isEnabled()
-			&& enchantHack.handleMouseScroll(
-				(AbstractContainerScreen<?>)(Object)this, mouseX, mouseY,
-				verticalAmount))
-		{
-			cir.setReturnValue(true);
-			cir.cancel();
-		}
-	}
-	
 	@Inject(at = @At("TAIL"),
 		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
 	private void wurst$renderOverlay(GuiGraphics context, int mouseX,

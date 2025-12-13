@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.SurfaceXrayHack;
 
@@ -32,36 +33,36 @@ public abstract class RenderLayersMixin
 		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
 		if(surface.isEnabled() && surface.isTarget(state))
 		{
-			cir.setReturnValue(ChunkSectionLayer.TRANSLUCENT);
+			cir.setReturnValue(RenderType.translucent());
 			return;
 		}
 		
 		if(!WurstClient.INSTANCE.getHax().xRayHack.isOpacityMode())
 			return;
 		
-		cir.setReturnValue(ChunkSectionLayer.TRANSLUCENT);
+		cir.setReturnValue(RenderType.translucent());
 	}
 	
 	/**
 	 * Puts all fluids on the translucent layer if Opacity X-Ray is enabled.
 	 */
 	@Inject(at = @At("HEAD"),
-		method = "getRenderLayer(Lnet/minecraft/world/level/material/FluidState;)Lnet/minecraft/client/renderer/chunk/ChunkSectionLayer;",
+		method = "getRenderLayer(Lnet/minecraft/world/level/material/FluidState;)Lnet/minecraft/client/renderer/RenderType;",
 		cancellable = true)
 	private static void onGetFluidLayer(FluidState state,
-		CallbackInfoReturnable<ChunkSectionLayer> cir)
+		CallbackInfoReturnable<RenderType> cir)
 	{
 		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
 		if(surface.isEnabled()
 			&& surface.isTarget(state.createLegacyBlock().getBlock()))
 		{
-			cir.setReturnValue(ChunkSectionLayer.TRANSLUCENT);
+			cir.setReturnValue(RenderType.translucent());
 			return;
 		}
 		
 		if(!WurstClient.INSTANCE.getHax().xRayHack.isOpacityMode())
 			return;
 		
-		cir.setReturnValue(ChunkSectionLayer.TRANSLUCENT);
+		cir.setReturnValue(RenderType.translucent());
 	}
 }

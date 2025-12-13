@@ -185,7 +185,7 @@ public final class QuickShulkerHack extends Hack
 		}
 		
 		Inventory inv = player.getInventory();
-		int originalSlot = inv.getSelectedSlot();
+		int originalSlot = InventoryUtils.getSelectedSlot(inv);
 		int shulkerSlot = findShulkerSlot(inv);
 		if(shulkerSlot == -1)
 		{
@@ -712,14 +712,14 @@ public final class QuickShulkerHack extends Hack
 		
 		if(sourceSlot == targetHotbarSlot)
 		{
-			inv.setSelectedSlot(targetHotbarSlot);
+			InventoryUtils.setSelectedSlot(inv, targetHotbarSlot);
 			return ItemSwap.keepSelection(targetHotbarSlot);
 		}
 		
 		IMinecraftClient imc = WurstClient.IMC;
 		imc.getInteractionManager().windowClick_SWAP(
 			InventoryUtils.toNetworkSlot(sourceSlot), targetHotbarSlot);
-		inv.setSelectedSlot(targetHotbarSlot);
+		InventoryUtils.setSelectedSlot(inv, targetHotbarSlot);
 		return new ItemSwap(targetHotbarSlot, sourceSlot, true);
 	}
 	
@@ -735,7 +735,7 @@ public final class QuickShulkerHack extends Hack
 				swap.restoreSlot);
 		}
 		
-		inv.setSelectedSlot(swap.restoreSlot);
+		InventoryUtils.setSelectedSlot(inv, swap.restoreSlot);
 	}
 	
 	private BlockPos findPlacementPos(LocalPlayer player)

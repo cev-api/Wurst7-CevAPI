@@ -13,6 +13,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
 import net.wurstclient.settings.StringDropdownSetting;
+import net.wurstclient.util.GuiRenderStateHelper;
 import net.wurstclient.util.RenderUtils;
 
 public final class StringDropdownPopup extends Popup
@@ -122,7 +123,7 @@ public final class StringDropdownPopup extends Popup
 			context.fill(x1, yi1, x2, yi2, RenderUtils.toIntColor(
 				GUI.getBgColor(), GUI.getOpacity() * (hValue ? 1.5F : 1)));
 			
-			context.guiRenderState.up();
+			GuiRenderStateHelper.up(context);
 			context.drawString(TR, value, x1 + 2, yi1 + 2, GUI.getTxtColor(),
 				false);
 			
