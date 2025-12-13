@@ -12,11 +12,11 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.function.Consumer;
 import net.minecraft.client.renderer.RenderType;
 
-public record BufferWithLayer(EasyVertexBuffer buffer,
-	RenderType.CompositeRenderType layer) implements AutoCloseable
+public record BufferWithLayer(EasyVertexBuffer buffer, RenderType layer)
+	implements AutoCloseable
 {
-	public static BufferWithLayer createAndUpload(
-		RenderType.CompositeRenderType layer, Consumer<VertexConsumer> callback)
+	public static BufferWithLayer createAndUpload(RenderType layer,
+		Consumer<VertexConsumer> callback)
 	{
 		return new BufferWithLayer(EasyVertexBuffer
 			.createAndUpload(layer.mode(), layer.format(), callback), layer);
@@ -25,27 +25,6 @@ public record BufferWithLayer(EasyVertexBuffer buffer,
 	public void draw(PoseStack matrixStack)
 	{
 		buffer.draw(matrixStack, layer);
-	}
-	
-	public void draw(PoseStack matrixStack, float red, float green, float blue,
-		float alpha)
-	{
-		buffer.draw(matrixStack, layer, red, green, blue, alpha);
-	}
-	
-	public void draw(PoseStack matrixStack, float[] rgba)
-	{
-		buffer.draw(matrixStack, layer, rgba);
-	}
-	
-	public void draw(PoseStack matrixStack, float[] rgb, float alpha)
-	{
-		buffer.draw(matrixStack, layer, rgb, alpha);
-	}
-	
-	public void draw(PoseStack matrixStack, int argb)
-	{
-		buffer.draw(matrixStack, layer, argb);
 	}
 	
 	@Override

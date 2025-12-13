@@ -23,7 +23,6 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.util.CommonColors;
 import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.AltRenderer;
@@ -229,6 +228,8 @@ public abstract class AltEditorScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
+		
 		// skin preview
 		AltRenderer.drawAltBack(context, nameOrEmailBox.getValue(),
 			(width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
@@ -239,18 +240,18 @@ public abstract class AltEditorScreen extends Screen
 		
 		// text
 		context.drawString(font, "Name (for cracked alts), or", width / 2 - 100,
-			37, CommonColors.LIGHT_GRAY);
+			37, 10526880);
 		context.drawString(font, "E-Mail (for premium alts)", width / 2 - 100,
-			47, CommonColors.LIGHT_GRAY);
+			47, 10526880);
 		context.drawString(font, "Password (for premium alts)", width / 2 - 100,
-			87, CommonColors.LIGHT_GRAY);
+			87, 10526880);
 		context.drawString(font, "Account type: " + accountType,
-			width / 2 - 100, 127, CommonColors.LIGHT_GRAY);
+			width / 2 - 100, 127, 10526880);
 		
 		String[] lines = message.split("\n");
 		for(int i = 0; i < lines.length; i++)
 			context.drawCenteredString(font, lines[i], width / 2, 142 + 10 * i,
-				CommonColors.WHITE);
+				16777215);
 		
 		// text boxes
 		nameOrEmailBox.render(context, mouseX, mouseY, partialTicks);

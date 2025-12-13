@@ -7,8 +7,10 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -16,14 +18,12 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.settings.BlockSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.WurstColors;
 
 public final class EditBlockScreen extends Screen
 {
@@ -96,20 +96,20 @@ public final class EditBlockScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
 		Font tr = minecraft.font;
 		
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		context.drawCenteredString(tr, setting.getName(), width / 2, 20,
-			CommonColors.WHITE);
+			0xFFFFFF);
 		
 		blockField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
-		context.guiRenderState.up();
-		matrixStack.pushMatrix();
-		matrixStack.translate(-64 + width / 2 - 100, 115);
+		matrixStack.pushPose();
+		matrixStack.translate(-64 + width / 2 - 100, 115, 0);
 		
 		boolean lblAbove =
 			!blockField.getValue().isEmpty() || blockField.isFocused();
@@ -117,20 +117,18 @@ public final class EditBlockScreen extends Screen
 			lblAbove ? "Block ID or number:" : "block ID or number";
 		int lblX = lblAbove ? 50 : 68;
 		int lblY = lblAbove ? -66 : -50;
-		int lblColor =
-			lblAbove ? WurstColors.VERY_LIGHT_GRAY : CommonColors.GRAY;
+		int lblColor = lblAbove ? 0xF0F0F0 : 0x808080;
 		context.drawString(tr, lblText, lblX, lblY, lblColor);
 		
-		int border = blockField.isFocused() ? CommonColors.WHITE
-			: CommonColors.LIGHT_GRAY;
-		int black = CommonColors.BLACK;
+		int border = blockField.isFocused() ? 0xffffffff : 0xffa0a0a0;
+		int black = 0xff000000;
 		
 		context.fill(48, -56, 64, -36, border);
 		context.fill(49, -55, 65, -37, black);
 		context.fill(242, -56, 246, -36, border);
 		context.fill(241, -55, 245, -37, black);
 		
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 		
 		String nameOrId = blockField.getValue();
 		Block blockToAdd = BlockUtils.getBlockFromNameOrID(nameOrId);
@@ -140,7 +138,6 @@ public final class EditBlockScreen extends Screen
 		
 		RenderUtils.drawItem(context, new ItemStack(blockToAdd),
 			-64 + width / 2 - 100 + 52, 115 - 52, false);
-		context.guiRenderState.down();
 	}
 	
 	@Override

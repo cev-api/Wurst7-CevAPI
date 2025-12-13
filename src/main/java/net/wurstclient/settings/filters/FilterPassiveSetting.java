@@ -10,7 +10,6 @@ package net.wurstclient.settings.filters;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.ambient.AmbientCreature;
-import net.minecraft.world.entity.animal.AgeableWaterCreature;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.Pufferfish;
 import net.minecraft.world.entity.animal.WaterAnimal;
@@ -38,7 +37,7 @@ public final class FilterPassiveSetting extends EntityFilterCheckbox
 			return true;
 		
 		return !(e instanceof Animal || e instanceof AmbientCreature
-			|| e instanceof WaterAnimal || e instanceof AgeableWaterCreature);
+			|| e instanceof WaterAnimal);
 	}
 	
 	public static FilterPassiveSetting genericCombat(boolean checked)

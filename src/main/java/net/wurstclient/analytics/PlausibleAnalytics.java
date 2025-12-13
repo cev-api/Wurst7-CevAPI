@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.Version;
@@ -79,9 +78,6 @@ public final class PlausibleAnalytics
 		
 		Thread.ofPlatform().daemon().name("Plausible")
 			.start(this::runBackgroundLoop);
-		
-		ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE
-			.register(this::onWorldChange);
 	}
 	
 	private String getVersion(String modId)
@@ -100,7 +96,7 @@ public final class PlausibleAnalytics
 		return version;
 	}
 	
-	private void onWorldChange(Minecraft client, ClientLevel world)
+	public void onWorldChange(Minecraft client, ClientLevel world)
 	{
 		sessionProp("language", getLanguage(client));
 		sessionProp("game_type", getGameType(client));
@@ -140,7 +136,7 @@ public final class PlausibleAnalytics
 	private boolean isDebugMode()
 	{
 		return FabricLoader.getInstance().isDevelopmentEnvironment()
-			|| System.getProperty("fabric.client.gametest") != null;
+			|| System.getProperty("wurst.e2eTest") != null;
 	}
 	
 	private void runBackgroundLoop()

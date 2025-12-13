@@ -8,9 +8,11 @@
 package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 import net.minecraft.world.effect.MobEffectInstance;
 import net.wurstclient.WurstClient;
 
@@ -18,12 +20,15 @@ import net.wurstclient.WurstClient;
 public abstract class StatusEffectInstanceMixin
 	implements Comparable<MobEffectInstance>
 {
+	@Shadow
+	private int duration;
+	
 	@Inject(at = @At("HEAD"),
-		method = "tickDownDuration()V",
+		method = "tickDownDuration()I",
 		cancellable = true)
-	private void onUpdateDuration(CallbackInfo ci)
+	private void onUpdateDuration(CallbackInfoReturnable<Integer> cir)
 	{
 		if(WurstClient.INSTANCE.getHax().potionSaverHack.isFrozen())
-			ci.cancel();
+			cir.setReturnValue(duration);
 	}
 }

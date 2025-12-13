@@ -15,40 +15,42 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
-import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.llamalad7.mixinextras.sugar.Share;
-import com.llamalad7.mixinextras.sugar.ref.LocalDoubleRef;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityAttachment;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.NameTagsHack;
 
 @Mixin(EntityRenderer.class)
-public abstract class EntityRendererMixin<T extends Entity, S extends EntityRenderState>
+public abstract class EntityRendererMixin<T extends Entity>
 {
 	@Shadow
 	@Final
 	protected EntityRenderDispatcher entityRenderDispatcher;
 	
 	@Inject(at = @At("HEAD"),
-		method = "renderNameTag(Lnet/minecraft/client/renderer/entity/state/EntityRenderState;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
+		method = "renderNameTag(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/network/chat/Component;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;IF)V",
 		cancellable = true)
-	private void onRenderLabelIfPresent(S state, Component text,
-		PoseStack matrices, MultiBufferSource vertexConsumers, int light,
-		CallbackInfo ci)
+	private void onRenderLabelIfPresent(T entity, Component text,
+		PoseStack matrixStack, MultiBufferSource vertexConsumerProvider, int i,
+		float tickDelta, CallbackInfo ci)
 	{
+		// add HealthTags info
+		if(entity instanceof LivingEntity)
+			text = WurstClient.INSTANCE.getHax().healthTagsHack
+				.addHealth((LivingEntity)entity, text);
+		
 		// do NameTags adjustments
-		wurstRenderLabelIfPresent(state, text, matrices, vertexConsumers,
-			light);
+		wurstRenderLabelIfPresent(entity, text, matrixStack,
+			vertexConsumerProvider, i, tickDelta);
 		ci.cancel();
 	}
 	
@@ -56,18 +58,25 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	 * Copy of renderLabelIfPresent() since calling the original would result in
 	 * an infinite loop. Also makes it easier to modify.
 	 */
-	protected void wurstRenderLabelIfPresent(S state, Component text,
-		PoseStack matrices, MultiBufferSource vertexConsumers, int light)
+	protected void wurstRenderLabelIfPresent(T entity, Component text,
+		PoseStack matrices, MultiBufferSource vertexConsumers, int light,
+		float tickDelta)
 	{
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
 		
+		// disable distance limit if configured in NameTags
+		double distanceSq = entityRenderDispatcher.distanceToSqr(entity);
+		if(distanceSq > 4096 && !nameTags.isUnlimitedRange())
+			return;
+		
 		// get attachment point
-		Vec3 attVec = state.nameTagAttachment;
+		Vec3 attVec = entity.getAttachments().getNullable(
+			EntityAttachment.NAME_TAG, 0, entity.getViewYRot(tickDelta));
 		if(attVec == null)
 			return;
 		
 		// disable sneaking changes if NameTags is enabled
-		boolean notSneaky = !state.isDiscrete || nameTags.isEnabled();
+		boolean notSneaky = !entity.isDiscrete() || nameTags.isEnabled();
 		
 		int labelY = "deadmau5".equals(text.getString()) ? -10 : 0;
 		
@@ -79,9 +88,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 		float scale = 0.025F * nameTags.getScale();
 		if(nameTags.isEnabled())
 		{
-			Vec3 entityPos = new Vec3(state.x, state.y, state.z);
-			double distance =
-				WurstClient.MC.player.position().distanceTo(entityPos);
+			double distance = WurstClient.MC.player.distanceTo(entity);
 			if(distance > 10)
 				scale *= distance / 10;
 		}
@@ -109,38 +116,6 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 				vertexConsumers, textLayer, 0, light);
 		
 		matrices.popPose();
-	}
-	
-	/**
-	 * Disables the nametag distance limit if configured in NameTags.
-	 */
-	@WrapOperation(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;distanceToSqr(Lnet/minecraft/world/entity/Entity;)D"),
-		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V")
-	private double fakeSquaredDistanceToCamera(
-		EntityRenderDispatcher dispatcher, Entity entity,
-		Operation<Double> original,
-		@Share("actualDistanceSq") LocalDoubleRef actualDistanceSq)
-	{
-		actualDistanceSq.set(original.call(dispatcher, entity));
-		
-		if(WurstClient.INSTANCE.getHax().nameTagsHack.isUnlimitedRange())
-			return 0;
-		
-		return actualDistanceSq.get();
-	}
-	
-	/**
-	 * Restores the true squared distance so we don't break other code that
-	 * might rely on it.
-	 */
-	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V")
-	private void restoreSquaredDistanceToCamera(T entity, S state,
-		float tickDelta, CallbackInfo ci,
-		@Share("actualDistanceSq") LocalDoubleRef actualDistanceSq)
-	{
-		state.distanceToCameraSq = actualDistanceSq.get();
 	}
 	
 	@Shadow

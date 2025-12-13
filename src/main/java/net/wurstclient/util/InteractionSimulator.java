@@ -20,9 +20,9 @@ import net.wurstclient.settings.SwingHandSetting.SwingHand;
  * without sacrificing anti-cheat resistance or customizability.
  *
  * <p>
- * Accurately replicates {@link Minecraft#startUseItem()} as of 25w02a
- * (1.21.5), while being much easier to read and adding convenient ways to
- * change parts of the behavior.
+ * Accurately replicates {@link Minecraft#startUseItem()} as of 1.20.2, while
+ * being much easier to read and adding convenient ways to change parts of the
+ * behavior.
  */
 public enum InteractionSimulator
 {
@@ -68,9 +68,6 @@ public enum InteractionSimulator
 		for(InteractionHand hand : InteractionHand.values())
 		{
 			ItemStack stack = MC.player.getItemInHand(hand);
-			if(!stack.isItemEnabled(MC.level.enabledFeatures()))
-				return;
-			
 			if(interactBlockAndSwing(hitResult, swing, hand, stack))
 				return;
 			
@@ -123,18 +120,16 @@ public enum InteractionSimulator
 			MC.gameMode.useItemOn(MC.player, hand, hitResult);
 		
 		// swing hand and reset equip animation
-		if(result instanceof InteractionResult.Success success
-			&& success.swingSource() == InteractionResult.SwingSource.CLIENT)
+		if(result.shouldSwing())
 		{
 			swing.swing(hand);
 			
 			if(!stack.isEmpty() && (stack.getCount() != oldCount
-				|| MC.player.hasInfiniteMaterials()))
+				|| MC.gameMode.hasInfiniteItems()))
 				MC.gameRenderer.itemInHandRenderer.itemUsed(hand);
 		}
 		
-		return result instanceof InteractionResult.Success
-			|| result instanceof InteractionResult.Fail;
+		return result != InteractionResult.PASS;
 	}
 	
 	/**
@@ -154,15 +149,17 @@ public enum InteractionSimulator
 		// call interactItem()
 		InteractionResult result = MC.gameMode.useItem(MC.player, hand);
 		
-		if(!(result instanceof InteractionResult.Success success))
-			return false;
-		
 		// swing hand
-		if(success.swingSource() == InteractionResult.SwingSource.CLIENT)
+		if(result.shouldSwing())
 			swing.swing(hand);
 		
 		// reset equip animation
-		MC.gameRenderer.itemInHandRenderer.itemUsed(hand);
-		return true;
+		if(result.consumesAction())
+		{
+			MC.gameRenderer.itemInHandRenderer.itemUsed(hand);
+			return true;
+		}
+		
+		return false;
 	}
 }

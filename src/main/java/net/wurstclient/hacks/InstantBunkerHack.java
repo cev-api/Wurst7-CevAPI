@@ -61,7 +61,7 @@ public final class InstantBunkerHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		ItemStack stack = MC.player.getInventory().getSelectedItem();
+		ItemStack stack = MC.player.getInventory().getSelected();
 		
 		if(!(stack.getItem() instanceof BlockItem))
 		{
@@ -70,7 +70,7 @@ public final class InstantBunkerHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		if(stack.getCount() < 57 && !MC.player.getAbilities().instabuild)
+		if(stack.getCount() < 57 && !MC.player.isCreative())
 			ChatUtils.warning("Not enough blocks. Bunker may be incomplete.");
 		
 		// get start pos and facings
@@ -131,7 +131,7 @@ public final class InstantBunkerHack extends Hack implements UpdateListener
 		Vec3[] hitVecs = new Vec3[sides.length];
 		for(int i = 0; i < sides.length; i++)
 			hitVecs[i] = posVec
-				.add(Vec3.atLowerCornerOf(sides[i].getUnitVec3i()).scale(0.5));
+				.add(Vec3.atLowerCornerOf(sides[i].getNormal()).scale(0.5));
 		
 		for(int i = 0; i < sides.length; i++)
 		{

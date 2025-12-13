@@ -18,7 +18,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.NoChatReportsOtf;
 import net.wurstclient.util.ChatUtils;
@@ -106,12 +105,13 @@ public final class ForcedChatReportsScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
+		
 		int centerX = width / 2;
 		int reasonY = (height - 68) / 2 - reasonHeight / 2;
 		int titleY = reasonY - font.lineHeight * 2;
 		
-		context.drawCenteredString(font, title, centerX, titleY,
-			CommonColors.LIGHT_GRAY);
+		context.drawCenteredString(font, title, centerX, titleY, 0xAAAAAA);
 		reasonFormatted.renderCentered(context, centerX, reasonY);
 		
 		for(Renderable drawable : renderables)

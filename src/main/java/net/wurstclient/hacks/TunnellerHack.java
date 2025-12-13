@@ -216,7 +216,7 @@ public final class TunnellerHack extends Hack
 		
 		AABB nodeBox =
 			new AABB(-0.25, -0.25, -0.25, 0.25, 0.25, 0.25).move(offset);
-		Vec3 dirVec = Vec3.atLowerCornerOf(direction.getUnitVec3i());
+		Vec3 dirVec = Vec3.atLowerCornerOf(direction.getNormal());
 		Vec3 arrowStart = dirVec.scale(0.25).add(offset);
 		Vec3 arrowEnd = dirVec.scale(Math.max(0.5, length)).add(offset);
 		
@@ -506,7 +506,7 @@ public final class TunnellerHack extends Hack
 					&& FallingBlock.isFree(BlockUtils.getState(pos.below())))
 					continue;
 				
-				MC.player.getInventory().setSelectedSlot(slot);
+				MC.player.getInventory().selected = slot;
 				return true;
 			}
 			
@@ -597,7 +597,7 @@ public final class TunnellerHack extends Hack
 			KeyMapping forward = MC.options.keyUp;
 			
 			Vec3 diffVec = Vec3.atLowerCornerOf(player.subtract(start));
-			Vec3 dirVec = Vec3.atLowerCornerOf(direction.getUnitVec3i());
+			Vec3 dirVec = Vec3.atLowerCornerOf(direction.getNormal());
 			double dotProduct = diffVec.dot(dirVec);
 			
 			BlockPos pos1 = start.relative(direction, (int)dotProduct);
@@ -715,7 +715,7 @@ public final class TunnellerHack extends Hack
 				if(!(block instanceof TorchBlock))
 					continue;
 				
-				MC.player.getInventory().setSelectedSlot(slot);
+				MC.player.getInventory().selected = slot;
 				return true;
 			}
 			
@@ -754,7 +754,7 @@ public final class TunnellerHack extends Hack
 		Vec3[] hitVecs = new Vec3[sides.length];
 		for(int i = 0; i < sides.length; i++)
 			hitVecs[i] = posVec
-				.add(Vec3.atLowerCornerOf(sides[i].getUnitVec3i()).scale(0.5));
+				.add(Vec3.atLowerCornerOf(sides[i].getNormal()).scale(0.5));
 		
 		for(int i = 0; i < sides.length; i++)
 		{
@@ -827,7 +827,7 @@ public final class TunnellerHack extends Hack
 		Vec3[] hitVecs = new Vec3[sides.length];
 		for(int i = 0; i < sides.length; i++)
 		{
-			Vec3i dirVec = sides[i].getUnitVec3i();
+			Vec3i dirVec = sides[i].getNormal();
 			Vec3 relHitVec = new Vec3(relCenter.x * dirVec.getX(),
 				relCenter.y * dirVec.getY(), relCenter.z * dirVec.getZ());
 			hitVecs[i] = center.add(relHitVec);

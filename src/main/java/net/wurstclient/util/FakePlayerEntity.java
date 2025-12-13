@@ -95,6 +95,6 @@ public class FakePlayerEntity extends RemotePlayer
 	
 	public void resetPlayerPosition()
 	{
-		player.snapTo(getX(), getY(), getZ(), getYRot(), getXRot());
+		player.moveTo(getX(), getY(), getZ(), getYRot(), getXRot());
 	}
 }

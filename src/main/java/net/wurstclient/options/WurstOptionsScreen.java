@@ -21,7 +21,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.commands.FriendsCmd;
@@ -179,6 +178,7 @@ public class WurstOptionsScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		renderTitles(context);
 		
 		for(Renderable drawable : renderables)
@@ -198,12 +198,9 @@ public class WurstOptionsScreen extends Screen
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
 		context.drawCenteredString(tr, title, middleX, y1, CommonColors.WHITE);
 		
-		context.drawCenteredString(tr, "Settings", middleX - 104, y2,
-			WurstColors.VERY_LIGHT_GRAY);
-		context.drawCenteredString(tr, "Managers", middleX, y2,
-			WurstColors.VERY_LIGHT_GRAY);
-		context.drawCenteredString(tr, "Links", middleX + 104, y2,
-			WurstColors.VERY_LIGHT_GRAY);
+		context.drawCenteredString(tr, "Settings", middleX - 104, y2, 0xcccccc);
+		context.drawCenteredString(tr, "Managers", middleX, y2, 0xcccccc);
+		context.drawCenteredString(tr, "Links", middleX + 104, y2, 0xcccccc);
 	}
 	
 	private void renderButtonTooltip(GuiGraphics context, int mouseX,
@@ -220,8 +217,8 @@ public class WurstOptionsScreen extends Screen
 			if(woButton.tooltip.isEmpty())
 				continue;
 			
-			context.setComponentTooltipForNextFrame(font, woButton.tooltip,
-				mouseX, mouseY);
+			context.renderComponentTooltip(font, woButton.tooltip, mouseX,
+				mouseY);
 			break;
 		}
 	}

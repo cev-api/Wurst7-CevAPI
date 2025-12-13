@@ -20,8 +20,8 @@ import net.wurstclient.hacks.XRayHack;
 
 /**
  * Last updated for <a href=
- * "https://github.com/CaffeineMC/sodium/tree/02253db283e4679228ba5fbc30cfc851d17123c8">Sodium
- * 0.6.13+mc1.21.6</a>
+ * "https://github.com/CaffeineMC/sodium/tree/320aad8b70bf22254452872c7e9443c8b55efbc5">Sodium
+ * 0.6.13+mc1.21.4</a>
  */
 @Pseudo
 @Mixin(targets = {

@@ -44,7 +44,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.Style;
-import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
 import net.wurstclient.WurstClient;
@@ -428,6 +427,7 @@ public final class AltManagerScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
 		// skin preview
@@ -442,14 +442,13 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		// title text
-		context.drawCenteredString(font, "Alt Manager", width / 2, 4,
-			CommonColors.WHITE);
+		context.drawCenteredString(font, "Alt Manager", width / 2, 4, 16777215);
 		context.drawCenteredString(font, "Alts: " + altManager.getList().size(),
-			width / 2, 14, CommonColors.LIGHT_GRAY);
+			width / 2, 14, 10526880);
 		context.drawCenteredString(font,
 			"premium: " + altManager.getNumPremium() + ", cracked: "
 				+ altManager.getNumCracked(),
-			width / 2, 24, CommonColors.LIGHT_GRAY);
+			width / 2, 24, 10526880);
 		
 		// red flash for errors
 		if(errorTimer > 0)
@@ -478,7 +477,8 @@ public final class AltManagerScreen extends Screen
 		
 		int hoveredIndex = listGui.children().indexOf(hoveredEntry);
 		int itemX = mouseX - listGui.getRowLeft();
-		int itemY = mouseY - listGui.getRowTop(hoveredIndex);
+		int itemY = mouseY - 36 + (int)listGui.getScrollAmount() - 4
+			- hoveredIndex * 30;
 		
 		if(itemX < 31 || itemY < 15 || itemY >= 25)
 			return;
@@ -507,7 +507,7 @@ public final class AltManagerScreen extends Screen
 		if(alt.isFavorite())
 			addTooltip(tooltip, "favorite");
 		
-		context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
+		context.renderComponentTooltip(font, tooltip, mouseX, mouseY);
 	}
 	
 	private void renderButtonTooltip(GuiGraphics context, int mouseX,
@@ -529,8 +529,7 @@ public final class AltManagerScreen extends Screen
 			else
 				addTooltip(tooltip, "window_freeze");
 			
-			context.setComponentTooltipForNextFrame(font, tooltip, mouseX,
-				mouseY);
+			context.renderComponentTooltip(font, tooltip, mouseX, mouseY);
 			break;
 		}
 	}
@@ -628,11 +627,11 @@ public final class AltManagerScreen extends Screen
 			
 			// name / email
 			context.drawString(tr, "Name: " + alt.getDisplayName(), x + 31,
-				y + 3, CommonColors.LIGHT_GRAY, false);
+				y + 3, 0xA0A0A0, false);
 			
 			// status
-			context.drawString(tr, getBottomText(), x + 31, y + 15,
-				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, getBottomText(), x + 31, y + 15, 10526880,
+				false);
 		}
 		
 		private String getBottomText()

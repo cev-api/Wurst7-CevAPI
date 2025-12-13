@@ -23,6 +23,7 @@ import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 import com.mojang.blaze3d.platform.WindowEventHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import net.minecraft.client.player.LocalPlayer;
@@ -200,6 +201,23 @@ public abstract class MinecraftClientMixin
 	public IClientPlayerInteractionManager getInteractionManager()
 	{
 		return (IClientPlayerInteractionManager)gameMode;
+	}
+	
+	/**
+	 * Does the same thing as ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE
+	 * but for older Minecraft versions where Fabric API >=0.108.0 is
+	 * not available (or in this case, available but not commonly used by
+	 * Sinytra Connector users).
+	 */
+	@Inject(at = @At("TAIL"),
+		method = "updateLevelInEngines(Lnet/minecraft/client/multiplayer/ClientLevel;)V")
+	private void onSetWorld(ClientLevel world, CallbackInfo ci)
+	{
+		if(world == null)
+			return;
+		
+		Minecraft client = (Minecraft)(Object)this;
+		WurstClient.INSTANCE.getPlausible().onWorldChange(client, world);
 	}
 	
 	@Override

@@ -13,10 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.MouseHandler;
-import net.minecraft.world.entity.player.Inventory;
-import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.MouseScrollListener.MouseScrollEvent;
 import net.wurstclient.events.MouseUpdateListener.MouseUpdateEvent;
@@ -44,14 +41,5 @@ public class MouseMixin
 		EventManager.fire(event);
 		accumulatedDX = event.getDeltaX();
 		accumulatedDY = event.getDeltaY();
-	}
-	
-	@WrapWithCondition(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/world/entity/player/Inventory;setSelectedSlot(I)V"),
-		method = "onScroll(JDD)V")
-	private boolean wrapOnMouseScroll(Inventory inventory, int slot)
-	{
-		return !WurstClient.INSTANCE.getOtfs().zoomOtf
-			.shouldPreventHotbarScrolling();
 	}
 }

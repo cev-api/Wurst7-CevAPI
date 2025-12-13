@@ -27,7 +27,7 @@ public record BookOffer(String id, int level, int price)
 	{
 		RegistryAccess drm = WurstClient.MC.level.registryAccess();
 		Registry<Enchantment> registry =
-			drm.lookupOrThrow(Registries.ENCHANTMENT);
+			drm.registryOrThrow(Registries.ENCHANTMENT);
 		ResourceLocation id = registry.getKey(enchantment);
 		return new BookOffer("" + id, enchantment.getMaxLevel(), 64);
 	}

@@ -13,9 +13,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
-import net.wurstclient.util.WurstColors;
 
 public final class KeybindEditorScreen extends Screen
 	implements PressAKeyCallback
@@ -105,14 +103,16 @@ public final class KeybindEditorScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
+		
 		context.drawCenteredString(font,
 			(oldKey != null ? "Edit" : "Add") + " Keybind", width / 2, 20,
-			CommonColors.WHITE);
+			0xffffff);
 		
 		context.drawString(font, "Key: " + key.replace("key.keyboard.", ""),
-			width / 2 - 100, 47, WurstColors.VERY_LIGHT_GRAY);
+			width / 2 - 100, 47, 0xa0a0a0);
 		context.drawString(font, "Commands (separated by ';')", width / 2 - 100,
-			87, WurstColors.VERY_LIGHT_GRAY);
+			87, 0xa0a0a0);
 		
 		commandField.render(context, mouseX, mouseY, partialTicks);
 		

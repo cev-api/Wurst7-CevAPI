@@ -167,7 +167,7 @@ public class CleanUpScreen extends Screen
 	private boolean isSameProtocol(ServerData server)
 	{
 		return server.protocol == SharedConstants.getCurrentVersion()
-			.protocolVersion();
+			.getProtocolVersion();
 	}
 	
 	private boolean isFailedPing(ServerData server)
@@ -214,6 +214,7 @@ public class CleanUpScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		context.drawCenteredString(font, "Clean Up", width / 2, 20,
 			CommonColors.WHITE);
 		context.drawCenteredString(font,
@@ -240,8 +241,8 @@ public class CleanUpScreen extends Screen
 			if(cuButton.tooltip.isEmpty())
 				continue;
 			
-			context.setComponentTooltipForNextFrame(font, cuButton.tooltip,
-				mouseX, mouseY);
+			context.renderComponentTooltip(font, cuButton.tooltip, mouseX,
+				mouseY);
 			break;
 		}
 	}

@@ -42,9 +42,8 @@ public abstract class TitleScreenMixin extends Screen
 	 * Adds the AltManager button to the title screen. This mixin must not
 	 * run in demo mode, as the Realms button doesn't exist there.
 	 */
-	@Inject(at = @At("RETURN"), method = "createNormalMenuOptions(II)I")
-	private void onAddNormalWidgets(int y, int spacingY,
-		CallbackInfoReturnable<Integer> cir)
+	@Inject(at = @At("RETURN"), method = "createNormalMenuOptions(II)V")
+	private void onInitWidgetsNormal(int y, int spacingY, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;

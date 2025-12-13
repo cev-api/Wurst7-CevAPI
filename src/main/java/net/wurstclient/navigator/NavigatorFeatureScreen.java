@@ -15,8 +15,9 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeMap;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,7 +25,6 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -39,7 +39,6 @@ import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.WurstColors;
 
 public final class NavigatorFeatureScreen extends NavigatorScreen
 {
@@ -342,7 +341,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	protected void onRender(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		int txtColor = gui.getTxtColor();
 		
@@ -400,8 +399,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 					+ extraPadding + keybindHeight);
 		
 		window.setY(windowY1 - 13);
-		matrixStack.pushMatrix();
-		matrixStack.translate(bgx1, windowY1);
+		matrixStack.pushPose();
+		matrixStack.translate(bgx1, windowY1, 0);
 		
 		{
 			int x1 = 0;
@@ -460,7 +459,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			child.render(context, mouseX - bgx1, mouseY - windowY1,
 				partialTicks);
 		}
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 		
 		// buttons
 		activeButton = null;
@@ -490,17 +489,13 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				RenderUtils.toIntColor(rgb, alpha));
 			
 			// text
-			context.guiRenderState.up();
 			context.drawCenteredString(minecraft.font, buttonData.buttonText,
 				(x1 + x2) / 2, y1 + (buttonData.height - 10) / 2 + 1,
-				buttonData.isLocked() ? WurstColors.VERY_LIGHT_GRAY
-					: buttonData.textColor);
-			context.guiRenderState.down();
+				buttonData.isLocked() ? 0xaaaaaa : buttonData.textColor);
 		}
 		
 		// text
 		int textY = bgy1 + scroll + 2;
-		context.guiRenderState.up();
 		for(String line : text.split("\n"))
 		{
 			context.drawString(minecraft.font, line, bgx1 + 2, textY, txtColor,
@@ -543,11 +538,9 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			
 			// text
 			String buttonText = button.getMessage().getString();
-			context.guiRenderState.up();
 			context.drawString(minecraft.font, buttonText,
 				(x1 + x2 - minecraft.font.width(buttonText)) / 2, y1 + 5,
 				txtColor, false);
-			context.guiRenderState.down();
 		}
 		
 		// popups & tooltip
@@ -587,7 +580,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	{
 		public String buttonText;
 		public Color color;
-		public int textColor = CommonColors.WHITE;
+		public int textColor = 0xffffff;
 		
 		public ButtonData(int x, int y, int width, int height,
 			String buttonText, int color)

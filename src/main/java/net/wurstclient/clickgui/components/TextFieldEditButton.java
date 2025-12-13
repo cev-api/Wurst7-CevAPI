@@ -146,7 +146,6 @@ public final class TextFieldEditButton extends Component
 			RenderUtils.toIntColor(GUI.getAcColor(), 0.5F));
 		
 		int txtColor = GUI.getTxtColor();
-		context.guiRenderState.up();
 		context.drawString(TR, setting.getName(), x1, y1 + 2, txtColor, false);
 		inlineField.setTextColor(txtColor);
 		inlineField.setTextColorUneditable(txtColor);

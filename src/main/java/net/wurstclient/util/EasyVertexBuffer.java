@@ -7,24 +7,15 @@
  */
 package net.wurstclient.util;
 
-import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.function.Consumer;
 
-import org.joml.Matrix4fStack;
-import org.joml.Vector4f;
-
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
-import com.mojang.blaze3d.vertex.MeshData.DrawState;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexBuffer;
+import com.mojang.blaze3d.vertex.VertexBuffer.Usage;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
@@ -34,12 +25,14 @@ import net.wurstclient.nicewurst.NiceWurstModule;
 /**
  * An abstraction of Minecraft 1.21.5's new {@code GpuBuffer} system that makes
  * working with it as easy as {@code VertexBuffer} was.
+ *
+ * <p>
+ * Backported to 1.21.4, where this is just a thin wrapper around
+ * {@link VertexBuffer}.
  */
 public final class EasyVertexBuffer implements AutoCloseable
 {
-	private final RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer;
-	private final GpuBuffer vertexBuffer;
-	private final int indexCount;
+	private final VertexBuffer vertexBuffer;
 	
 	/**
 	 * Drop-in replacement for {@code VertexBuffer.createAndUpload()}.
@@ -51,63 +44,32 @@ public final class EasyVertexBuffer implements AutoCloseable
 			Tesselator.getInstance().begin(drawMode, format);
 		callback.accept(bufferBuilder);
 		
-		try(MeshData buffer = bufferBuilder.build())
-		{
-			if(buffer == null)
-				return new EasyVertexBuffer(drawMode);
-			
-			return new EasyVertexBuffer(buffer, drawMode);
-		}
-	}
-	
-	private EasyVertexBuffer(MeshData buffer, Mode drawMode)
-	{
-		DrawState drawParams = buffer.drawState();
-		shapeIndexBuffer = RenderSystem.getSequentialBuffer(drawParams.mode());
-		indexCount = drawParams.indexCount();
+		MeshData buffer = bufferBuilder.build();
+		if(buffer == null)
+			return new EasyVertexBuffer();
 		
-		vertexBuffer = RenderSystem.getDevice().createBuffer(null, 40,
-			buffer.vertexBuffer());
+		return new EasyVertexBuffer(buffer);
 	}
 	
-	private EasyVertexBuffer(Mode drawMode)
+	private EasyVertexBuffer(MeshData buffer)
 	{
-		shapeIndexBuffer = null;
-		indexCount = 0;
+		vertexBuffer = new VertexBuffer(Usage.STATIC);
+		vertexBuffer.bind();
+		vertexBuffer.upload(buffer);
+		VertexBuffer.unbind();
+	}
+	
+	private EasyVertexBuffer()
+	{
 		vertexBuffer = null;
 	}
 	
-	public void draw(PoseStack matrixStack,
-		RenderType.CompositeRenderType layer)
-	{
-		draw(matrixStack, layer, 1, 1, 1, 1);
-	}
-	
-	public void draw(PoseStack matrixStack,
-		RenderType.CompositeRenderType layer, int argb)
-	{
-		float alpha = (argb >> 24 & 0xFF) / 255F;
-		float red = (argb >> 16 & 0xFF) / 255F;
-		float green = (argb >> 8 & 0xFF) / 255F;
-		float blue = (argb & 0xFF) / 255F;
-		draw(matrixStack, layer, red, green, blue, alpha);
-	}
-	
-	public void draw(PoseStack matrixStack,
-		RenderType.CompositeRenderType layer, float[] rgba)
-	{
-		draw(matrixStack, layer, rgba[0], rgba[1], rgba[2], rgba[3]);
-	}
-	
-	public void draw(PoseStack matrixStack,
-		RenderType.CompositeRenderType layer, float[] rgb, float alpha)
-	{
-		draw(matrixStack, layer, rgb[0], rgb[1], rgb[2], alpha);
-	}
-	
-	public void draw(PoseStack matrixStack,
-		RenderType.CompositeRenderType layer, float red, float green,
-		float blue, float alpha)
+	/**
+	 * Similar to {@code VertexBuffer.draw(RenderLayer)}, but with a
+	 * customizable view matrix. Use this if you need to translate/scale/rotate
+	 * the buffer.
+	 */
+	public void draw(PoseStack matrixStack, RenderType layer)
 	{
 		if(vertexBuffer == null)
 			return;

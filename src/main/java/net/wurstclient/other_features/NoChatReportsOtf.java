@@ -7,8 +7,6 @@
  */
 package net.wurstclient.other_features;
 
-import java.net.URI;
-
 import net.fabricmc.fabric.api.client.networking.v1.ClientLoginConnectionEvents;
 import net.minecraft.client.GuiMessageTag;
 import net.minecraft.client.GuiMessageTag.Icon;
@@ -109,9 +107,9 @@ public final class NoChatReportsOtf extends OtherFeature
 		
 		event.cancel();
 		
-		ClickEvent clickEvent = new ClickEvent.OpenUrl(
-			URI.create("https://www.wurstclient.net/chat-disabled-mpk/"));
-		HoverEvent hoverEvent = new HoverEvent.ShowText(
+		ClickEvent clickEvent = new ClickEvent(ClickEvent.Action.OPEN_URL,
+			"https://www.wurstclient.net/chat-disabled-mpk/");
+		HoverEvent hoverEvent = new HoverEvent(HoverEvent.Action.SHOW_TEXT,
 			Component.literal("Original message: ").append(originalText));
 		
 		ChatUtils.component(Component.literal(

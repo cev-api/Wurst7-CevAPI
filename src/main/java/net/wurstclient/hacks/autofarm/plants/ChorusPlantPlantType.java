@@ -66,8 +66,8 @@ public final class ChorusPlantPlantType extends AutoFarmPlantType
 	
 	private boolean isFlowerFullyGrown(BlockPos pos, BlockState state)
 	{
-		return state.getValueOrElse(ChorusFlowerBlock.AGE,
-			0) == ChorusFlowerBlock.DEAD_AGE
+		return state.getOptionalValue(ChorusFlowerBlock.AGE)
+			.orElse(0) == ChorusFlowerBlock.DEAD_AGE
 			|| !BlockUtils.getState(pos.above()).isAir();
 	}
 	
@@ -85,7 +85,7 @@ public final class ChorusPlantPlantType extends AutoFarmPlantType
 		for(Entry<Direction, BooleanProperty> entry : CHORUS_GROWING_DIRECTIONS
 			.entrySet())
 		{
-			if(!state.getValueOrElse(entry.getValue(), false))
+			if(!state.getOptionalValue(entry.getValue()).orElse(false))
 				continue;
 			
 			Direction direction = entry.getKey();
@@ -101,7 +101,7 @@ public final class ChorusPlantPlantType extends AutoFarmPlantType
 			// connected to the stem, so we can ignore any flowers that it
 			// supports.
 			if(direction.getAxis().isHorizontal()
-				&& neighborState.getValueOrElse(PipeBlock.DOWN, false))
+				&& neighborState.getOptionalValue(PipeBlock.DOWN).orElse(false))
 				continue;
 			
 			if(hasAttachedFlowers(neighborPos, neighborState, visited))

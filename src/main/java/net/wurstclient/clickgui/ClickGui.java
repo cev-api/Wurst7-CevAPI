@@ -19,12 +19,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -680,8 +681,8 @@ public final class ClickGui
 		updateColors();
 		windowLayers = 0;
 		
-		Matrix3x2fStack matrixStack = context.pose();
-		matrixStack.pushMatrix();
+		PoseStack matrixStack = context.pose();
+		matrixStack.pushPose();
 		
 		tooltip = "";
 		ArrayList<Window> visibleWindows = new ArrayList<>();
@@ -731,7 +732,7 @@ public final class ClickGui
 	
 	public void renderPopups(GuiGraphics context, int mouseX, int mouseY)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
 		for(Popup popup : popups)
 		{
 			Component owner = popup.getOwner();
@@ -743,21 +744,21 @@ public final class ClickGui
 			int y1 =
 				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
 			
-			matrixStack.pushMatrix();
-			matrixStack.translate(x1, y1);
-			context.guiRenderState.up();
+			matrixStack.pushPose();
+			matrixStack.translate(x1, y1, 300);
 			
 			int cMouseX = mouseX - x1;
 			int cMouseY = mouseY - y1;
 			popup.render(context, cMouseX, cMouseY);
 			
-			context.guiRenderState.down();
-			matrixStack.popMatrix();
+			matrixStack.popPose();
 		}
 	}
 	
 	public void renderTooltip(GuiGraphics context, int mouseX, int mouseY)
 	{
+		PoseStack matrixStack = context.pose();
+		
 		if(tooltip.isEmpty())
 			return;
 		
@@ -780,7 +781,8 @@ public final class ClickGui
 		int yt1 = mouseY + th - 2 <= sh ? mouseY - 4 : mouseY - th - 4;
 		int yt2 = yt1 + th + 2;
 		
-		context.guiRenderState.up();
+		matrixStack.pushPose();
+		matrixStack.translate(0, 0, 300);
 		
 		// background
 		context.fill(xt1, yt1, xt2, yt2,
@@ -791,13 +793,11 @@ public final class ClickGui
 			RenderUtils.toIntColor(acColor, 0.5F));
 		
 		// text
-		context.guiRenderState.up();
 		for(int i = 0; i < lines.length; i++)
 			context.drawString(tr, lines[i], xt1 + 2,
 				yt1 + 2 + i * tr.lineHeight, txtColor, false);
-		context.guiRenderState.down();
 		
-		context.guiRenderState.down();
+		matrixStack.popPose();
 	}
 	
 	public void renderPinnedWindows(GuiGraphics context, float partialTicks)
@@ -866,7 +866,7 @@ public final class ClickGui
 		int windowBgColor = RenderUtils.toIntColor(bgColor, opacity);
 		int outlineColor = RenderUtils.toIntColor(acColor, 0.5F);
 		
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
 		
 		if(window.isMinimized())
 			y2 = y3;
@@ -930,8 +930,8 @@ public final class ClickGui
 			
 			context.enableScissor(x1, y3, x2, y2);
 			
-			matrixStack.pushMatrix();
-			matrixStack.translate(x1, y4);
+			matrixStack.pushPose();
+			matrixStack.translate(x1, y4, 0);
 			
 			// window background
 			// between children
@@ -965,7 +965,7 @@ public final class ClickGui
 				window.getChild(i).render(context, cMouseX, cMouseY,
 					partialTicks);
 			
-			matrixStack.popMatrix();
+			matrixStack.popPose();
 			context.disableScissor();
 		}
 		
@@ -1025,9 +1025,7 @@ public final class ClickGui
 		String title = tr.substrByWidth(
 			net.minecraft.network.chat.Component.literal(window.getTitle()),
 			x3 - x1).getString();
-		context.guiRenderState.up();
 		context.drawString(tr, title, x1 + 2, y1 + 3, txtColor, false);
-		context.guiRenderState.down();
 	}
 	
 	private void renderTitleBarButton(GuiGraphics context, int x1, int y1,

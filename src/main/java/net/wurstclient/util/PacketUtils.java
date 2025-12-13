@@ -27,18 +27,16 @@ public enum PacketUtils
 	{
 		if(packet instanceof Rot)
 			return new PosRot(x, y, z, packet.getYRot(0), packet.getXRot(0),
-				packet.isOnGround(), packet.horizontalCollision());
+				packet.isOnGround());
 		
 		if(packet instanceof StatusOnly)
-			return new Pos(x, y, z, packet.isOnGround(),
-				packet.horizontalCollision());
+			return new Pos(x, y, z, packet.isOnGround());
 		
 		if(packet instanceof PosRot)
 			return new PosRot(x, y, z, packet.getYRot(0), packet.getXRot(0),
-				packet.isOnGround(), packet.horizontalCollision());
+				packet.isOnGround());
 		
-		return new Pos(x, y, z, packet.isOnGround(),
-			packet.horizontalCollision());
+		return new Pos(x, y, z, packet.isOnGround());
 	}
 	
 	/**
@@ -51,18 +49,16 @@ public enum PacketUtils
 	{
 		if(packet instanceof Pos)
 			return new PosRot(packet.getX(0), packet.getY(0), packet.getZ(0),
-				yaw, pitch, packet.isOnGround(), packet.horizontalCollision());
+				yaw, pitch, packet.isOnGround());
 		
 		if(packet instanceof StatusOnly)
-			return new Rot(yaw, pitch, packet.isOnGround(),
-				packet.horizontalCollision());
+			return new Rot(yaw, pitch, packet.isOnGround());
 		
 		if(packet instanceof PosRot)
 			return new PosRot(packet.getX(0), packet.getY(0), packet.getZ(0),
-				yaw, pitch, packet.isOnGround(), packet.horizontalCollision());
+				yaw, pitch, packet.isOnGround());
 		
-		return new Rot(yaw, pitch, packet.isOnGround(),
-			packet.horizontalCollision());
+		return new Rot(yaw, pitch, packet.isOnGround());
 	}
 	
 	/**
@@ -73,40 +69,15 @@ public enum PacketUtils
 	{
 		if(packet instanceof PosRot)
 			return new PosRot(packet.getX(0), packet.getY(0), packet.getZ(0),
-				packet.getYRot(0), packet.getXRot(0), onGround,
-				packet.horizontalCollision());
+				packet.getYRot(0), packet.getXRot(0), onGround);
 		
 		if(packet instanceof Pos)
 			return new Pos(packet.getX(0), packet.getY(0), packet.getZ(0),
-				onGround, packet.horizontalCollision());
+				onGround);
 		
 		if(packet instanceof Rot)
-			return new Rot(packet.getYRot(0), packet.getXRot(0), onGround,
-				packet.horizontalCollision());
+			return new Rot(packet.getYRot(0), packet.getXRot(0), onGround);
 		
-		return new StatusOnly(onGround, packet.horizontalCollision());
-	}
-	
-	/**
-	 * Creates a new PlayerMoveC2SPacket with a modified horizontal collision
-	 * flag.
-	 */
-	public static ServerboundMovePlayerPacket modifyHorizontalCollision(
-		ServerboundMovePlayerPacket packet, boolean horizontalCollision)
-	{
-		if(packet instanceof PosRot)
-			return new PosRot(packet.getX(0), packet.getY(0), packet.getZ(0),
-				packet.getYRot(0), packet.getXRot(0), packet.isOnGround(),
-				horizontalCollision);
-		
-		if(packet instanceof Pos)
-			return new Pos(packet.getX(0), packet.getY(0), packet.getZ(0),
-				packet.isOnGround(), horizontalCollision);
-		
-		if(packet instanceof Rot)
-			return new Rot(packet.getYRot(0), packet.getXRot(0),
-				packet.isOnGround(), horizontalCollision);
-		
-		return new StatusOnly(packet.isOnGround(), horizontalCollision);
+		return new StatusOnly(onGround);
 	}
 }

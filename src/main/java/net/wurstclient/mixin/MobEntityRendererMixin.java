@@ -26,7 +26,7 @@ public abstract class MobEntityRendererMixin
 		target = "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;crosshairPickEntity:Lnet/minecraft/world/entity/Entity;",
 		opcode = Opcodes.GETFIELD,
 		ordinal = 0),
-		method = "shouldShowName(Lnet/minecraft/world/entity/Mob;D)Z",
+		method = "shouldShowName(Lnet/minecraft/world/entity/Mob;)Z",
 		cancellable = true)
 	private void onHasLabel(CallbackInfoReturnable<Boolean> cir)
 	{

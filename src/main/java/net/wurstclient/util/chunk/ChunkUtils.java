@@ -106,7 +106,7 @@ public enum ChunkUtils
 	{
 		int i = chunk.getHighestFilledSectionIndex();
 		if(i == -1)
-			return chunk.getMinY();
+			return chunk.getMinBuildHeight();
 		
 		return SectionPos
 			.sectionToBlockCoord(chunk.getSectionYFromSectionIndex(i));

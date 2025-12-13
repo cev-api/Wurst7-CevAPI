@@ -91,7 +91,7 @@ public enum BlockPlacer
 				box.maxZ - box.minZ).scale(0.5);
 			Vec3 center = Vec3.atLowerCornerOf(neighbor).add(box.getCenter());
 			
-			Vec3i dirVec = sides[i].getOpposite().getUnitVec3i();
+			Vec3i dirVec = sides[i].getOpposite().getNormal();
 			Vec3 relHitVec = new Vec3(halfSize.x * dirVec.getX(),
 				halfSize.y * dirVec.getY(), halfSize.z * dirVec.getZ());
 			hitVecs[i] = center.add(relHitVec);

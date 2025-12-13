@@ -58,7 +58,7 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 		EVENTS.add(MouseScrollListener.class, this);
 	}
 	
-	public float changeFovBasedOnZoom(float fov)
+	public double changeFovBasedOnZoom(double fov)
 	{
 		OptionInstance<Double> mouseSensitivitySetting =
 			MC.options.sensitivity();
@@ -88,7 +88,7 @@ public final class ZoomOtf extends OtherFeature implements MouseScrollListener
 		mouseSensitivitySetting
 			.set(defaultMouseSensitivity * (1.0 / currentLevel));
 		
-		return (float)(fov / currentLevel);
+		return fov / currentLevel;
 	}
 	
 	@Override

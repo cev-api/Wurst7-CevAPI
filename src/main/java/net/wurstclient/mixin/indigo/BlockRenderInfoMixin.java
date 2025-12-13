@@ -36,10 +36,10 @@ public abstract class BlockRenderInfoMixin
 	 * is running and Sodium is not installed.
 	 */
 	@Inject(at = @At("HEAD"),
-		method = "shouldDrawSide",
+		method = "shouldDrawFace",
 		require = 0,
 		cancellable = true)
-	private void onShouldDrawSide(Direction face,
+	private void onShouldDrawFace(Direction face,
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		ShouldDrawSideEvent event =

@@ -27,6 +27,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -344,8 +345,7 @@ public final class AutoLibrarianHack extends Hack
 			MC.gameMode.useItemOn(MC.player, hand, params.toHitResult());
 		
 		// swing hand
-		if(result instanceof InteractionResult.Success success
-			&& success.swingSource() == InteractionResult.SwingSource.CLIENT)
+		if(result.consumesAction() && result.shouldSwing())
 			swingHand.swing(hand);
 		
 		// reset sneak
@@ -387,8 +387,7 @@ public final class AutoLibrarianHack extends Hack
 			im.interact(player, villager, hand);
 		
 		// swing hand
-		if(actionResult instanceof InteractionResult.Success success
-			&& success.swingSource() == InteractionResult.SwingSource.CLIENT)
+		if(actionResult.consumesAction() && actionResult.shouldSwing())
 			swingHand.swing(hand);
 		
 		// set cooldown
@@ -406,7 +405,7 @@ public final class AutoLibrarianHack extends Hack
 		for(MerchantOffer tradeOffer : tradeOffers)
 		{
 			ItemStack stack = tradeOffer.getResult();
-			if(stack.getItem() != Items.ENCHANTED_BOOK)
+			if(!(stack.getItem() instanceof EnchantedBookItem))
 				continue;
 			
 			Set<Entry<Holder<Enchantment>>> enchantmentLevelMap =
@@ -445,9 +444,9 @@ public final class AutoLibrarianHack extends Hack
 			.filter(e -> !e.isRemoved()).filter(Villager.class::isInstance)
 			.map(e -> (Villager)e).filter(e -> e.getHealth() > 0)
 			.filter(e -> player.distanceToSqr(e) <= rangeSq)
-			.filter(e -> e.getVillagerData().profession().unwrapKey()
-				.orElse(null) == VillagerProfession.LIBRARIAN)
-			.filter(e -> e.getVillagerData().level() == 1)
+			.filter(e -> e.getVillagerData()
+				.getProfession() == VillagerProfession.LIBRARIAN)
+			.filter(e -> e.getVillagerData().getLevel() == 1)
 			.filter(e -> !experiencedVillagers.contains(e));
 		
 		villager =

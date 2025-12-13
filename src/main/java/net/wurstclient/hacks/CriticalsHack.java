@@ -94,9 +94,8 @@ public final class CriticalsHack extends Hack
 	
 	private void sendFakeY(double offset, boolean onGround)
 	{
-		MC.player.connection
-			.send(new Pos(MC.player.getX(), MC.player.getY() + offset,
-				MC.player.getZ(), onGround, MC.player.horizontalCollision));
+		MC.player.connection.send(new Pos(MC.player.getX(),
+			MC.player.getY() + offset, MC.player.getZ(), onGround));
 	}
 	
 	private void doMiniJump()

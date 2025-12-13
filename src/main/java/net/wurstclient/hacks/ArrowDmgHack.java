@@ -84,8 +84,7 @@ public final class ArrowDmgHack extends Hack implements StopUsingItemListener
 	private void sendPos(double x, double y, double z, boolean onGround)
 	{
 		ClientPacketListener netHandler = MC.player.connection;
-		netHandler
-			.send(new Pos(x, y, z, onGround, MC.player.horizontalCollision));
+		netHandler.send(new Pos(x, y, z, onGround));
 	}
 	
 	private boolean isValidItem(Item item)

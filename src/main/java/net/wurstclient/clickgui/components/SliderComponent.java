@@ -8,6 +8,9 @@
 package net.wurstclient.clickgui.components;
 
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -113,10 +116,10 @@ public final class SliderComponent extends Component
 		
 		// background (around the rail)
 		int bgColor = RenderUtils.toIntColor(GUI.getBgColor(), opacity);
-		RenderUtils.fill2D(context, x1, y1, x2, y4, bgColor);
-		RenderUtils.fill2D(context, x1, y5, x2, y2, bgColor);
-		RenderUtils.fill2D(context, x1, y4, x3, y5, bgColor);
-		RenderUtils.fill2D(context, x4, y4, x2, y5, bgColor);
+		float[][] bgVertices = {{x1, y1}, {x1, y4}, {x2, y4}, {x2, y1},
+			{x1, y5}, {x1, y2}, {x2, y2}, {x2, y5}, {x1, y4}, {x1, y5},
+			{x3, y5}, {x3, y4}, {x4, y4}, {x4, y5}, {x2, y5}, {x2, y4}};
+		RenderUtils.fillQuads2D(context, bgVertices, bgColor);
 		
 		// limit
 		float xl1 = x3;
@@ -129,17 +132,20 @@ public final class SliderComponent extends Component
 			
 			int limitColor =
 				RenderUtils.toIntColor(new float[]{1, 0, 0}, railOpacity);
-			RenderUtils.fill2D(context, x3, y4, xl1, y5, limitColor);
-			RenderUtils.fill2D(context, xl2, y4, x4, y5, limitColor);
+			float[][] limitVertices = {{x3, y4}, {x3, y5}, {xl1, y5}, {xl1, y4},
+				{xl2, y4}, {xl2, y5}, {x4, y5}, {x4, y4}};
+			RenderUtils.fillQuads2D(context, limitVertices, limitColor);
 		}
 		
 		// rail
 		RenderUtils.fill2D(context, xl1, y4, xl2, y5,
 			RenderUtils.toIntColor(GUI.getBgColor(), railOpacity));
-		RenderUtils.drawBorder2D(context, x3, y4, x4, y5,
+		RenderUtils.drawBorder2D(context, xl1, y4, xl2, y5,
 			RenderUtils.toIntColor(GUI.getAcColor(), 0.5F));
 		
-		context.guiRenderState.up();
+		PoseStack matrices = context.pose();
+		matrices.pushPose();
+		matrices.translate(0, 0, 2);
 		
 		// knob
 		float xk1 = x1 + (x2 - x1 - 8) * (float)setting.getPercentage();
@@ -151,6 +157,8 @@ public final class SliderComponent extends Component
 		RenderUtils.fill2D(context, xk1, yk1, xk2, yk2, knobColor);
 		RenderUtils.drawBorder2D(context, xk1, yk1, xk2, yk2, 0x80101010);
 		
+		matrices.popPose();
+		
 		// text
 		String name = setting.getName();
 		String value = setting.getValueString();
@@ -158,8 +166,6 @@ public final class SliderComponent extends Component
 		int txtColor = GUI.getTxtColor();
 		context.drawString(TR, name, x1, y1 + 2, txtColor, false);
 		context.drawString(TR, value, x2 - valueWidth, y1 + 2, txtColor, false);
-		
-		context.guiRenderState.down();
 	}
 	
 	private String getTextTooltip()

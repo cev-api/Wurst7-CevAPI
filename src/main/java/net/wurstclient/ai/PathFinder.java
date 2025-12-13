@@ -15,6 +15,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
+import com.mojang.blaze3d.platform.GlConst;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
@@ -201,7 +206,7 @@ public class PathFinder
 		}
 		
 		// up
-		if(pos.getY() < MC.level.getMaxY() && canGoThrough(up.above())
+		if(pos.getY() < MC.level.getMaxBuildHeight() && canGoThrough(up.above())
 			&& (flying || onGround || canClimbUpAt(pos))
 			&& (flying || canClimbUpAt(pos) || goal.equals(up)
 				|| canSafelyStandOn(north) || canSafelyStandOn(east)
@@ -211,7 +216,7 @@ public class PathFinder
 			neighbors.add(new PathPos(up, onGround));
 		
 		// down
-		if(pos.getY() > MC.level.getMinY() && canGoThrough(down)
+		if(pos.getY() > MC.level.getMinBuildHeight() && canGoThrough(down)
 			&& canGoAbove(down.below()) && (flying || canFallBelow(pos))
 			&& (divingAllowed || BlockUtils.getBlock(pos) != Blocks.WATER))
 			neighbors.add(new PathPos(down));
@@ -558,6 +563,10 @@ public class PathFinder
 	public void renderPath(PoseStack matrixStack, boolean debugMode,
 		boolean depthTest)
 	{
+		int depthFunc = depthTest ? GlConst.GL_LEQUAL : GlConst.GL_ALWAYS;
+		RenderSystem.enableDepthTest();
+		RenderSystem.depthFunc(depthFunc);
+		
 		MultiBufferSource.BufferSource vcp = MC.renderBuffers().bufferSource();
 		VertexConsumer buffer =
 			vcp.getBuffer(WurstRenderLayers.getLines(depthTest));

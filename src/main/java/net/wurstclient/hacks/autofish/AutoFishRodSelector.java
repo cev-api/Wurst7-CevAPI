@@ -75,7 +75,7 @@ public final class AutoFishRodSelector
 	public boolean update()
 	{
 		Inventory inventory = MC.player.getInventory();
-		int selectedSlot = inventory.getSelectedSlot();
+		int selectedSlot = inventory.selected;
 		ItemStack selectedStack = inventory.getItem(selectedSlot);
 		
 		// evaluate selected rod (or lack thereof)
@@ -136,27 +136,28 @@ public final class AutoFishRodSelector
 		
 		RegistryAccess drm = MC.level.registryAccess();
 		Registry<Enchantment> registry =
-			drm.lookupOrThrow(Registries.ENCHANTMENT);
+			drm.registryOrThrow(Registries.ENCHANTMENT);
 		
 		Optional<Reference<Enchantment>> luckOTS =
-			registry.get(Enchantments.LUCK_OF_THE_SEA);
+			registry.getHolder(Enchantments.LUCK_OF_THE_SEA);
 		int luckOTSLvl = luckOTS.map(
 			entry -> EnchantmentHelper.getItemEnchantmentLevel(entry, stack))
 			.orElse(0);
 		
-		Optional<Reference<Enchantment>> lure = registry.get(Enchantments.LURE);
+		Optional<Reference<Enchantment>> lure =
+			registry.getHolder(Enchantments.LURE);
 		int lureLvl = lure.map(
 			entry -> EnchantmentHelper.getItemEnchantmentLevel(entry, stack))
 			.orElse(0);
 		
 		Optional<Reference<Enchantment>> unbreaking =
-			registry.get(Enchantments.UNBREAKING);
+			registry.getHolder(Enchantments.UNBREAKING);
 		int unbreakingLvl = unbreaking.map(
 			entry -> EnchantmentHelper.getItemEnchantmentLevel(entry, stack))
 			.orElse(0);
 		
 		Optional<Reference<Enchantment>> mending =
-			registry.get(Enchantments.MENDING);
+			registry.getHolder(Enchantments.MENDING);
 		int mendingBonus = mending.map(
 			entry -> EnchantmentHelper.getItemEnchantmentLevel(entry, stack))
 			.orElse(0);

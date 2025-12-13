@@ -9,7 +9,7 @@ package net.wurstclient.hacks.chestesp.groups;
 
 import java.awt.Color;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.vehicle.AbstractChestBoat;
+import net.minecraft.world.entity.vehicle.ChestBoat;
 import net.wurstclient.hacks.chestesp.ChestEspEntityGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -33,6 +33,6 @@ public final class ChestBoatsGroup extends ChestEspEntityGroup
 	@Override
 	protected boolean matches(Entity e)
 	{
-		return e instanceof AbstractChestBoat;
+		return e instanceof ChestBoat;
 	}
 }

@@ -51,7 +51,7 @@ public final class AutoSprintHack extends Hack implements UpdateListener
 		if(player.horizontalCollision || player.isShiftKeyDown())
 			return;
 		
-		if(player.isInWater() || player.isUnderWater())
+		if(player.isInWaterOrBubble() || player.isUnderWater())
 			return;
 		
 		if(!allDirections.isChecked() && player.zza <= 0)

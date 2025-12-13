@@ -46,7 +46,7 @@ public final class PotionCmd extends Command
 		if(!MC.player.getAbilities().instabuild)
 			throw new CmdError("Creative mode only.");
 		
-		ItemStack stack = MC.player.getInventory().getSelectedItem();
+		ItemStack stack = MC.player.getInventory().getSelected();
 		if(!(stack.getItem() instanceof PotionItem))
 			throw new CmdError("You must hold a potion in your main hand.");
 		
@@ -92,8 +92,8 @@ public final class PotionCmd extends Command
 			effects.add(new MobEffectInstance(effect, duration, amplifier));
 		}
 		
-		stack.set(DataComponents.POTION_CONTENTS, new PotionContents(potion,
-			oldContents.customColor(), effects, oldContents.customName()));
+		stack.set(DataComponents.POTION_CONTENTS,
+			new PotionContents(potion, oldContents.customColor(), effects));
 		ChatUtils.message("Potion modified.");
 	}
 	
@@ -122,7 +122,7 @@ public final class PotionCmd extends Command
 		Optional<Holder<Potion>> newPotion = mainPotionContainsTargetEffect
 			? Optional.empty() : oldContents.potion();
 		stack.set(DataComponents.POTION_CONTENTS, new PotionContents(newPotion,
-			oldContents.customColor(), newEffects, oldContents.customName()));
+			oldContents.customColor(), newEffects));
 		
 		ChatUtils.message("Effect removed.");
 	}
@@ -137,7 +137,7 @@ public final class PotionCmd extends Command
 			try
 			{
 				ResourceLocation identifier = ResourceLocation.parse(input);
-				effect = BuiltInRegistries.MOB_EFFECT.getValue(identifier);
+				effect = BuiltInRegistries.MOB_EFFECT.get(identifier);
 				
 			}catch(ResourceLocationException e)
 			{

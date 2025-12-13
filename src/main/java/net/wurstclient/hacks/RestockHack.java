@@ -89,7 +89,7 @@ public final class RestockHack extends Hack implements UpdateListener
 		
 		int hotbarSlot = restockSlot.getValueI();
 		if(hotbarSlot == -1)
-			hotbarSlot = inv.getSelectedSlot();
+			hotbarSlot = inv.selected;
 		else if(hotbarSlot == 9)
 			hotbarSlot = OFFHAND_ID;
 		

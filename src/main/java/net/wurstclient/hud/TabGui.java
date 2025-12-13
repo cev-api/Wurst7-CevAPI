@@ -10,8 +10,10 @@ package net.wurstclient.hud;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -121,18 +123,16 @@ public final class TabGui implements KeyPressListener
 		if(tabGuiOtf.isHidden())
 			return;
 		
-		Matrix3x2fStack matrixStack = context.pose();
-		matrixStack.pushMatrix();
-		matrixStack.translate(2, 23);
-		context.guiRenderState.up();
+		PoseStack matrixStack = context.pose();
+		matrixStack.pushPose();
+		matrixStack.translate(2, 23, 100);
 		
 		drawBox(context, 0, 0, width, height);
-		context.enableScissor(0, 0, width, height);
+		context.enableScissor(2, 23, 2 + width, 23 + height);
 		
 		int textY = 1;
 		int txtColor = WURST.getGui().getTxtColor();
 		Font tr = MC.font;
-		context.guiRenderState.up();
 		for(int i = 0; i < tabs.size(); i++)
 		{
 			String tabName = tabs.get(i).name;
@@ -142,7 +142,6 @@ public final class TabGui implements KeyPressListener
 			context.drawString(tr, tabName, 2, textY, txtColor, false);
 			textY += 10;
 		}
-		context.guiRenderState.down();
 		
 		context.disableScissor();
 		
@@ -150,14 +149,14 @@ public final class TabGui implements KeyPressListener
 		{
 			Tab tab = tabs.get(selected);
 			
-			matrixStack.pushMatrix();
-			matrixStack.translate(width + 2, 0);
+			matrixStack.pushPose();
+			matrixStack.translate(width + 2, 0, 0);
 			
 			drawBox(context, 0, 0, tab.width, tab.height);
-			context.enableScissor(0, 0, tab.width, tab.height);
+			context.enableScissor(width + 4, 23, width + 4 + tab.width,
+				23 + tab.height);
 			
 			int tabTextY = 1;
-			context.guiRenderState.up();
 			for(int i = 0; i < tab.features.size(); i++)
 			{
 				Feature feature = tab.features.get(i);
@@ -172,14 +171,12 @@ public final class TabGui implements KeyPressListener
 				context.drawString(tr, fName, 2, tabTextY, txtColor, false);
 				tabTextY += 10;
 			}
-			context.guiRenderState.down();
 			
 			context.disableScissor();
-			matrixStack.popMatrix();
+			matrixStack.popPose();
 		}
 		
-		context.guiRenderState.down();
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 	}
 	
 	private void drawBox(GuiGraphics context, int x1, int y1, int x2, int y2)

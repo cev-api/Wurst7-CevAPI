@@ -59,8 +59,7 @@ public final class MaceDmgHack extends Hack
 	
 	private void sendFakeY(double offset)
 	{
-		MC.player.connection
-			.send(new Pos(MC.player.getX(), MC.player.getY() + offset,
-				MC.player.getZ(), false, MC.player.horizontalCollision));
+		MC.player.connection.send(new Pos(MC.player.getX(),
+			MC.player.getY() + offset, MC.player.getZ(), false));
 	}
 }

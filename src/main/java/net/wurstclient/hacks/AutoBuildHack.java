@@ -271,7 +271,7 @@ public final class AutoBuildHack extends Hack
 		Inventory inventory = MC.player.getInventory();
 		int slot = inventory.getFreeSlot();
 		if(slot < 0)
-			slot = inventory.getSelectedSlot();
+			slot = inventory.selected;
 		
 		ItemStack stack = new ItemStack(item);
 		InventoryUtils.setCreativeStack(slot, stack);

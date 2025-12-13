@@ -16,10 +16,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
@@ -47,10 +47,8 @@ public abstract class ClientConnectionMixin
 			ci.cancel();
 	}
 	
-	// These mixins target the second "send" method. The one with two arguments.
-	
 	@ModifyVariable(at = @At("HEAD"),
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V")
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V")
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
 		ConnectionPacketOutputEvent event =
@@ -61,10 +59,10 @@ public abstract class ClientConnectionMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;)V",
+		method = "send(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketSendListener;)V",
 		cancellable = true)
-	private void onSend(Packet<?> packet,
-		@Nullable ChannelFutureListener callback, CallbackInfo ci)
+	private void onSend(Packet<?> packet, @Nullable PacketSendListener callback,
+		CallbackInfo ci)
 	{
 		ConnectionPacketOutputEvent event = getEvent(packet);
 		if(event == null)

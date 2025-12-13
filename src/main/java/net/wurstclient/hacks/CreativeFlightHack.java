@@ -70,7 +70,7 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		LocalPlayer player = MC.player;
 		Abilities abilities = player.getAbilities();
 		
-		boolean creative = player.getAbilities().instabuild;
+		boolean creative = player.isCreative();
 		abilities.flying = creative && !player.onGround();
 		abilities.mayfly = creative;
 		

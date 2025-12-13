@@ -14,7 +14,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -97,8 +97,7 @@ public final class InvWalkHack extends Hack implements UpdateListener
 	
 	private boolean isAllowedScreen(Screen screen)
 	{
-		if((screen instanceof InventoryScreen
-			|| screen instanceof CreativeModeInventoryScreen)
+		if(screen instanceof EffectRenderingInventoryScreen
 			&& !isCreativeSearchBarOpen(screen))
 			return true;
 		

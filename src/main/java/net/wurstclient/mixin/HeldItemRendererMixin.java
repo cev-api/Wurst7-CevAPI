@@ -23,14 +23,9 @@ import net.wurstclient.WurstClient;
 @Mixin(ItemInHandRenderer.class)
 public abstract class HeldItemRendererMixin
 {
-	/**
-	 * This mixin is injected into the `BLOCK` case of the `item.getUseAction()`
-	 * switch.
-	 */
-	@Inject(at = @At(value = "INVOKE",
+	@Inject(at = {@At(value = "INVOKE",
 		target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
-		ordinal = 3),
-		method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V")
+		ordinal = 4)}, method = "renderArmWithItem")
 	private void onApplyEquipOffsetBlocking(AbstractClientPlayer player,
 		float tickDelta, float pitch, InteractionHand hand, float swingProgress,
 		ItemStack item, float equipProgress, PoseStack matrices,
@@ -42,14 +37,9 @@ public abstract class HeldItemRendererMixin
 				.adjustShieldPosition(matrices, true);
 	}
 	
-	/**
-	 * This mixin is injected into the last `else` block of
-	 * renderFirstPersonItem(), right after `else if(player.isUsingRiptide())`.
-	 */
-	@Inject(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;swingArm(FFLcom/mojang/blaze3d/vertex/PoseStack;ILnet/minecraft/world/entity/HumanoidArm;)V",
-		ordinal = 2),
-		method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V")
+	@Inject(at = {@At(value = "INVOKE",
+		target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmAttackTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
+		ordinal = 1)}, method = "renderArmWithItem")
 	private void onApplySwingOffsetNotBlocking(AbstractClientPlayer player,
 		float tickDelta, float pitch, InteractionHand hand, float swingProgress,
 		ItemStack item, float equipProgress, PoseStack matrices,

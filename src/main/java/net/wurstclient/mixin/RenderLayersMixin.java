@@ -12,9 +12,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
-import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.SurfaceXrayHack;
 
@@ -25,10 +24,10 @@ public abstract class RenderLayersMixin
 	 * Puts all blocks on the translucent layer if Opacity X-Ray is enabled.
 	 */
 	@Inject(at = @At("HEAD"),
-		method = "getChunkRenderType(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/client/renderer/chunk/ChunkSectionLayer;",
+		method = "getChunkRenderType(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/client/renderer/RenderType;",
 		cancellable = true)
 	private static void onGetBlockLayer(BlockState state,
-		CallbackInfoReturnable<ChunkSectionLayer> cir)
+		CallbackInfoReturnable<RenderType> cir)
 	{
 		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
 		if(surface.isEnabled() && surface.isTarget(state))

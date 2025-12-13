@@ -188,7 +188,7 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 			if(!isClickableNeighbor(neighbor))
 				continue;
 			
-			Vec3 dirVec = Vec3.atLowerCornerOf(side.getUnitVec3i());
+			Vec3 dirVec = Vec3.atLowerCornerOf(side.getNormal());
 			Vec3 hitVec = posVec.add(dirVec.scale(0.5));
 			
 			// check if hitVec is within range

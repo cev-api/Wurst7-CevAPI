@@ -71,8 +71,7 @@ public enum BlockUtils
 	{
 		try
 		{
-			return BuiltInRegistries.BLOCK
-				.getValue(ResourceLocation.parse(name));
+			return BuiltInRegistries.BLOCK.get(ResourceLocation.parse(name));
 			
 		}catch(ResourceLocationException e)
 		{
@@ -105,7 +104,7 @@ public enum BlockUtils
 			if(!BuiltInRegistries.BLOCK.containsKey(id))
 				return null;
 			
-			return BuiltInRegistries.BLOCK.getValue(id);
+			return BuiltInRegistries.BLOCK.get(id);
 			
 		}catch(ResourceLocationException e)
 		{
@@ -140,7 +139,7 @@ public enum BlockUtils
 	
 	public static boolean isOpaqueFullCube(BlockPos pos)
 	{
-		return getState(pos).isSolidRender();
+		return getState(pos).isSolidRender(MC.level, pos);
 	}
 	
 	public static BlockHitResult raycast(Vec3 from, Vec3 to,

@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.DoublePlantBlock;
 import net.minecraft.world.level.block.PitcherCropBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -24,7 +25,7 @@ public final class PitcherPlantPlantType extends AutoFarmPlantType
 	public final boolean isReplantingSpot(BlockPos pos, BlockState state)
 	{
 		return state.is(Blocks.PITCHER_CROP)
-			&& state.getValue(PitcherCropBlock.HALF) == DoubleBlockHalf.LOWER
+			&& state.getValue(DoublePlantBlock.HALF) == DoubleBlockHalf.LOWER
 			&& hasPlantingSurface(pos);
 	}
 	

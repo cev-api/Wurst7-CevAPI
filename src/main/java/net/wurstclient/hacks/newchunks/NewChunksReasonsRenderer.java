@@ -44,7 +44,7 @@ public final class NewChunksReasonsRenderer
 		}
 	}
 	
-	public RenderType.CompositeRenderType getLayer()
+	public RenderType getLayer()
 	{
 		return WurstRenderLayers.ESP_QUADS;
 	}

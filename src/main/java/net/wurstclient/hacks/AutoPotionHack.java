@@ -71,15 +71,15 @@ public final class AutoPotionHack extends Hack implements UpdateListener
 				return;
 			
 			// save old slot
-			int oldSlot = MC.player.getInventory().getSelectedSlot();
+			int oldSlot = MC.player.getInventory().selected;
 			
 			// throw potion in hotbar
-			MC.player.getInventory().setSelectedSlot(potionInHotbar);
+			MC.player.getInventory().selected = potionInHotbar;
 			new Rotation(MC.player.getYRot(), 90).sendPlayerLookPacket();
 			IMC.getInteractionManager().rightClickItem();
 			
 			// reset slot and rotation
-			MC.player.getInventory().setSelectedSlot(oldSlot);
+			MC.player.getInventory().selected = oldSlot;
 			new Rotation(MC.player.getYRot(), MC.player.getXRot())
 				.sendPlayerLookPacket();
 			
@@ -109,7 +109,7 @@ public final class AutoPotionHack extends Hack implements UpdateListener
 				continue;
 			
 			// search for instant health effects
-			if(ItemUtils.hasEffect(stack, MobEffects.INSTANT_HEALTH))
+			if(ItemUtils.hasEffect(stack, MobEffects.HEAL))
 				return i;
 		}
 		

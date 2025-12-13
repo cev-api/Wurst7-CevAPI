@@ -7,13 +7,15 @@
  */
 package net.wurstclient.clickgui.components;
 
-import org.joml.Matrix3x2fStack;
+import org.joml.Quaternionf;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ambient.AmbientCreature;
-import net.minecraft.world.entity.animal.AgeableWaterCreature;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.monster.Enemy;
@@ -60,18 +62,19 @@ public final class RadarComponent extends Component
 		context.fill(x1, y1, x2, y2,
 			RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity()));
 		
-		Matrix3x2fStack matrixStack = context.pose();
-		matrixStack.pushMatrix();
-		matrixStack.translate(middleX, middleY);
+		PoseStack matrixStack = context.pose();
+		matrixStack.pushPose();
+		matrixStack.translate(middleX, middleY, 0);
 		
 		LocalPlayer player = MC.player;
 		if(!hack.isRotateEnabled())
-			matrixStack.rotate((180 + player.getYRot()) * Mth.DEG_TO_RAD);
+			matrixStack.mulPose(new Quaternionf()
+				.rotationZ((180 + player.getYRot()) * Mth.DEG_TO_RAD));
 		
 		// arrow
 		ClickGuiIcons.drawRadarArrow(context, -2, -2, 2, 2);
 		
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 		Vec3 lerpedPlayerPos = EntityUtils.getLerpedPos(player, partialTicks);
 		
 		// points
@@ -112,7 +115,7 @@ public final class RadarComponent extends Component
 		if(e instanceof Enemy)
 			return 0xFFFF8000;
 		if(e instanceof Animal || e instanceof AmbientCreature
-			|| e instanceof WaterAnimal || e instanceof AgeableWaterCreature)
+			|| e instanceof WaterAnimal)
 			return 0xFF00FF00;
 		return 0xFF808080;
 	}

@@ -48,17 +48,6 @@ repositories {
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
 	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
 	// for more information about repositories.
-	exclusiveContent {
-		forRepository {
-			maven {
-				name = "Modrinth"
-				url = "https://api.modrinth.com/maven"
-			}
-		}
-		filter {
-			includeGroup "maven.modrinth"
-		}
-	}
 }
 
 dependencies {
@@ -80,71 +69,53 @@ dependencies {
 	modImplementation "com.google.code.findbugs:jsr305:3.0.2"
 }
 
-fabricApi.configureTests {
-	createSourceSet = true
-	enableGameTests = false
-	enableClientGameTests = true
-	modId = "wurst_testmod"
-	username = "Wurst-Bot"
-}
-
 loom {
 	accessWidenerPath = file("src/main/resources/wurst.accesswidener")
-	
-	runs {
-		clientWithMods {
-			inherit client
-		}
-
-		clientGameTestWithMods {
-			inherit client
-			source = sourceSets.gametest
-			runDir = "build/run/clientGameTestWithMods"
-			vmArgs.add("-Dfabric.client.gametest")
-			vmArgs.add("-Dwurst.test.withMods=true")
-			programArgs.add("--username=Wurst-Bot")
-		}
-	}
 }
 
 configurations {
-	testMods {
-		transitive = false
+	productionRuntime {
+		extendsFrom configurations.minecraftLibraries
+		extendsFrom configurations.loaderLibraries
+		extendsFrom configurations.minecraftRuntimeLibraries
 	}
 }
 
 dependencies {
-	testMods "maven.modrinth:sodium:${project.sodium_version}"
+	productionRuntime "net.fabricmc:fabric-loader:${project.loader_version}"
+	productionRuntime "net.fabricmc:intermediary:${project.minecraft_version}"
 }
 
-def cleanClientWithMods = tasks.register("cleanClientWithMods", Delete) {
-	delete "run/mods"
-}
+import net.fabricmc.loom.util.Platform
+tasks.register('runEndToEndTest', JavaExec) {
+	dependsOn remapJar, downloadAssets
+	classpath.from configurations.productionRuntime
+	mainClass = "net.fabricmc.loader.impl.launch.knot.KnotClient"
+	workingDir = file("run")
 
-def prepareClientWithMods = tasks.register("prepareClientWithMods", Sync) {
-	from configurations.testMods
-	into "run/mods"
-}
+	doFirst {
+		classpath.from loom.minecraftProvider.minecraftClientJar
+		workingDir.mkdirs()
 
-tasks.named("runClientWithMods") {
-	dependsOn prepareClientWithMods
-	finalizedBy cleanClientWithMods
-}
+		args(
+			"--assetIndex", loom.minecraftProvider.versionInfo.assetIndex().fabricId(loom.minecraftProvider.minecraftVersion()),
+			"--assetsDir", new File(loom.files.userCache, "assets").absolutePath,
+			"--gameDir", workingDir.absolutePath
+		)
 
-def cleanClientGameTestWithMods = tasks.register("cleanClientGameTestWithMods", Delete) {
-	delete layout.buildDirectory.dir("run/clientGameTestWithMods")
-}
+		if (Platform.CURRENT.operatingSystem.isMacOS()) {
+			jvmArgs("-XstartOnFirstThread")
+		}
 
-def prepareClientGameTestWithMods = tasks.register("prepareClientGameTestWithMods", Sync) {
-	dependsOn cleanClientGameTestWithMods
-	from configurations.testMods
-	into layout.buildDirectory.dir("run/clientGameTestWithMods/mods")
-}
-
-def doModCompatTest = providers.gradleProperty("do_mod_compat_test").map { it.toBoolean() }.orElse(false)
-tasks.named("runClientGameTestWithMods") {
-	onlyIf { doModCompatTest.get() }
-	dependsOn prepareClientGameTestWithMods
+		jvmArgs(
+			"-Dfabric.addMods=${configurations.modImplementation.find { it.name.contains('fabric-api') }.absolutePath}${File.pathSeparator}${remapJar.archiveFile.get().asFile.absolutePath}",
+			"-Dwurst.e2eTest",
+			"-Dfabric-tag-conventions-v2.missingTagTranslationWarning=fail",
+			"-Dfabric-tag-conventions-v1.legacyTagWarning=fail",
+			"-Dmixin.debug.verify=true",
+			"-Dmixin.debug.countInjections=true"
+		)
+	}
 }
 
 processResources {

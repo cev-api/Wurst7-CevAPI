@@ -7,6 +7,9 @@
  */
 package net.wurstclient.hacks;
 
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PostMotionListener;
@@ -67,7 +70,7 @@ public final class SneakHack extends Hack
 			break;
 			
 			case PACKET:
-			// sendSneakPacket(Mode.RELEASE_SHIFT_KEY);
+			sendSneakPacket(Action.RELEASE_SHIFT_KEY);
 			break;
 		}
 	}
@@ -88,8 +91,8 @@ public final class SneakHack extends Hack
 			
 			case PACKET:
 			sneakKey.resetPressedState();
-			// sendSneakPacket(Mode.PRESS_SHIFT_KEY);
-			// sendSneakPacket(Mode.RELEASE_SHIFT_KEY);
+			sendSneakPacket(Action.PRESS_SHIFT_KEY);
+			sendSneakPacket(Action.RELEASE_SHIFT_KEY);
 			break;
 		}
 	}
@@ -97,11 +100,11 @@ public final class SneakHack extends Hack
 	@Override
 	public void onPostMotion()
 	{
-		// if(mode.getSelected() != SneakMode.PACKET)
-		// return;
-		//
-		// sendSneakPacket(Mode.RELEASE_SHIFT_KEY);
-		// sendSneakPacket(Mode.PRESS_SHIFT_KEY);
+		if(mode.getSelected() != SneakMode.PACKET)
+			return;
+		
+		sendSneakPacket(Action.RELEASE_SHIFT_KEY);
+		sendSneakPacket(Action.PRESS_SHIFT_KEY);
 	}
 	
 	private boolean isFlying()
@@ -118,13 +121,13 @@ public final class SneakHack extends Hack
 		return false;
 	}
 	
-	// private void sendSneakPacket(Mode mode)
-	// {
-	// ClientPlayerEntity player = MC.player;
-	// ClientCommandC2SPacket packet =
-	// new ClientCommandC2SPacket(player, mode);
-	// player.networkHandler.sendPacket(packet);
-	// }
+	private void sendSneakPacket(Action mode)
+	{
+		LocalPlayer player = MC.player;
+		ServerboundPlayerCommandPacket packet =
+			new ServerboundPlayerCommandPacket(player, mode);
+		player.connection.send(packet);
+	}
 	
 	private enum SneakMode
 	{

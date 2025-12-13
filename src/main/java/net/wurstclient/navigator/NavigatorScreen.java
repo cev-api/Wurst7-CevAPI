@@ -8,8 +8,15 @@
 package net.wurstclient.navigator;
 
 import java.awt.Rectangle;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
@@ -166,22 +173,13 @@ public abstract class NavigatorScreen extends Screen
 			y1 += scrollKnobPosition;
 			y2 = y1 + 24;
 			drawBackgroundBox(context, x1, y1, x2, y2);
-			x1++;
-			x2--;
-			y1 += 8;
-			y2 -= 15;
-			for(int i = 0; i < 3; y1 += 4, y2 += 4, i++)
+			int i;
+			for(x1++, x2--, y1 += 8, y2 -= 15, i = 0; i < 3; y1 += 4, y2 +=
+				4, i++)
 				drawDownShadow(context, x1, y1, x2, y2);
 		}
 		
 		onRender(context, mouseX, mouseY, partialTicks);
-	}
-	
-	@Override
-	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
-		float deltaTicks)
-	{
-		// Don't blur
 	}
 	
 	@Override
@@ -235,14 +233,23 @@ public abstract class NavigatorScreen extends Screen
 		float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
 		
 		// line
+		float yi1 = y1 + 0.1F;
 		int lineColor = RenderUtils.toIntColor(acColor, 0.5F);
-		RenderUtils.drawLine2D(context, x1 + 0.1F, y1, x2 + 0.1F, y1,
-			lineColor);
+		RenderUtils.drawLine2D(context, x1, yi1, x2, yi1, lineColor);
 		
 		// shadow
 		int shadowColor1 = RenderUtils.toIntColor(acColor, 0.75F);
 		int shadowColor2 = 0x00000000;
-		context.fillGradient(x1, y1, x2, y2, shadowColor1, shadowColor2);
+		
+		PoseStack matrixStack = context.pose();
+		Matrix4f matrix = matrixStack.last().pose();
+		
+		VertexConsumer buffer =
+			RenderUtils.getVCP().getBuffer(RenderType.gui());
+		buffer.addVertex(matrix, x1, y1, 0).setColor(shadowColor1);
+		buffer.addVertex(matrix, x1, y2, 0).setColor(shadowColor2);
+		buffer.addVertex(matrix, x2, y2, 0).setColor(shadowColor2);
+		buffer.addVertex(matrix, x2, y1, 0).setColor(shadowColor1);
 	}
 	
 	protected final void drawBox(GuiGraphics context, int x1, int y1, int x2,

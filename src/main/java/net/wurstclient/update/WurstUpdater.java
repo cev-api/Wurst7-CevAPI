@@ -7,7 +7,6 @@
  */
 package net.wurstclient.update;
 
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import net.minecraft.network.chat.ClickEvent;
@@ -118,7 +117,7 @@ public final class WurstUpdater implements UpdateListener
 	
 	private void showLink(String text, String url)
 	{
-		ClickEvent event = new ClickEvent.OpenUrl(URI.create(url));
+		ClickEvent event = new ClickEvent(ClickEvent.Action.OPEN_URL, url);
 		component =
 			Component.literal(text).withStyle(s -> s.withClickEvent(event));
 	}

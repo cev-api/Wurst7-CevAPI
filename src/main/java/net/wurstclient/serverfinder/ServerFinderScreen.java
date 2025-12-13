@@ -244,6 +244,8 @@ public class ServerFinderScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderBackground(context, mouseX, mouseY, partialTicks);
+		
 		context.drawCenteredString(font, "Server Finder", width / 2, 20,
 			CommonColors.WHITE);
 		context.drawCenteredString(font,

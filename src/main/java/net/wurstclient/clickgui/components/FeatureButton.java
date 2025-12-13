@@ -135,8 +135,6 @@ public final class FeatureButton extends Component
 		if(hasSettings)
 			context.fill(x3, y1, x2, y2, getButtonColor(false, hSettings));
 		
-		context.guiRenderState.up();
-		
 		// outlines
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
 		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);

@@ -7,13 +7,14 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
+import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
@@ -132,10 +133,10 @@ public final class AutoSwordHack extends Hack implements UpdateListener
 		
 		// save old slot
 		if(oldSlot == -1)
-			oldSlot = MC.player.getInventory().getSelectedSlot();
+			oldSlot = MC.player.getInventory().selected;
 		
 		// set slot
-		MC.player.getInventory().setSelectedSlot(bestSlot);
+		MC.player.getInventory().selected = bestSlot;
 		
 		// start timer
 		timer = releaseTime.getValueI();
@@ -144,8 +145,8 @@ public final class AutoSwordHack extends Hack implements UpdateListener
 	private float getValue(ItemStack stack, Entity entity)
 	{
 		Item item = stack.getItem();
-		if(stack.get(DataComponents.TOOL) == null
-			&& stack.get(DataComponents.WEAPON) == null)
+		if(!(item instanceof TieredItem || item instanceof TridentItem
+			|| item instanceof MaceItem))
 			return Integer.MIN_VALUE;
 		
 		switch(priority.getSelected())
@@ -183,7 +184,7 @@ public final class AutoSwordHack extends Hack implements UpdateListener
 		
 		if(oldSlot != -1)
 		{
-			MC.player.getInventory().setSelectedSlot(oldSlot);
+			MC.player.getInventory().selected = oldSlot;
 			oldSlot = -1;
 		}
 	}

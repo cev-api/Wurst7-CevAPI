@@ -44,7 +44,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(player.isFallFlying() && !allowElytra.isChecked())
 			return getName() + " (paused)";
 		
-		if(player.getAbilities().instabuild)
+		if(player.isCreative())
 			return getName() + " (paused)";
 		
 		if(pauseForMace.isChecked() && isHoldingMace(player))
@@ -71,7 +71,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	{
 		// do nothing in creative mode, since there is no fall damage anyway
 		LocalPlayer player = MC.player;
-		if(player.getAbilities().instabuild)
+		if(player.isCreative())
 			return;
 		
 		// pause when flying with elytra, unless allowed
@@ -89,8 +89,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 			return;
 		
 		// send packet to stop fall damage
-		player.connection
-			.send(new StatusOnly(true, MC.player.horizontalCollision));
+		player.connection.send(new StatusOnly(true));
 	}
 	
 	private boolean isHoldingMace(LocalPlayer player)

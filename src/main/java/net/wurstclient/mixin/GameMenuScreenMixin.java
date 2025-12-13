@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -56,6 +58,17 @@ public abstract class GameMenuScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled() || wurstOptionsButton == null)
 			return;
+		
+		int x = wurstOptionsButton.getX() + 34;
+		int y = wurstOptionsButton.getY() + 2;
+		int w = 63;
+		int h = 16;
+		int fw = 63;
+		int fh = 16;
+		float u = 0;
+		float v = 0;
+		RenderSystem.enableBlend();
+		context.blit(WURST_TEXTURE, x, y, u, v, w, h, fw, fh);
 	}
 	
 	@Unique

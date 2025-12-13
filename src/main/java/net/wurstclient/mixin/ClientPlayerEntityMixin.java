@@ -23,7 +23,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.minecraft.client.player.ClientInput;
+import net.minecraft.client.player.Input;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
@@ -55,6 +55,7 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	protected Minecraft minecraft;
 	
 	private Screen tempCurrentScreen;
+	private boolean hideNextItemUse;
 	
 	public ClientPlayerEntityMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
@@ -73,10 +74,12 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	/**
 	 * This mixin makes AutoSprint's "Omnidirectional Sprint" setting work.
 	 */
-	@WrapOperation(at = @At(value = "INVOKE",
-		target = "Lnet/minecraft/client/player/ClientInput;hasForwardImpulse()Z",
-		ordinal = 0), method = "aiStep()V")
-	private boolean wrapHasForwardMovement(ClientInput input,
+	@WrapOperation(
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/player/Input;hasForwardImpulse()Z",
+			ordinal = 0),
+		method = "aiStep()V")
+	private boolean wrapHasForwardMovement(Input input,
 		Operation<Boolean> original)
 	{
 		if(WurstClient.INSTANCE.getHax().autoSprintHack.shouldOmniSprint())
@@ -86,21 +89,49 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	}
 	
 	/**
-	 * Allows NoSlowdown to intercept the isUsingItem() call in
-	 * tickMovement().
+	 * This mixin runs just before the tickMovement() method calls
+	 * isUsingItem(), so that the onIsUsingItem() mixin knows which
+	 * call to intercept.
 	 */
-	@WrapOperation(
+	@Inject(
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z",
 			ordinal = 0),
 		method = "aiStep()V")
-	private boolean wrapTickMovementItemUse(LocalPlayer instance,
-		Operation<Boolean> original)
+	private void onTickMovementItemUse(CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().noSlowdownHack.isEnabled())
-			return false;
+			hideNextItemUse = true;
+	}
+	
+	/**
+	 * Pretends that the player is not using an item when instructed to do so by
+	 * the onTickMovement() mixin.
+	 */
+	@Inject(at = @At("HEAD"), method = "isUsingItem()Z", cancellable = true)
+	private void onIsUsingItem(CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!hideNextItemUse)
+			return;
 		
-		return original.call(instance);
+		cir.setReturnValue(false);
+		hideNextItemUse = false;
+	}
+	
+	/**
+	 * This mixin is injected into a random field access later in the
+	 * tickMovement() method to ensure that hideNextItemUse is always reset
+	 * after the item use slowdown calculation.
+	 */
+	@Inject(
+		at = @At(value = "FIELD",
+			target = "Lnet/minecraft/client/player/LocalPlayer;autoJumpTime:I",
+			opcode = Opcodes.GETFIELD,
+			ordinal = 0),
+		method = "aiStep()V")
+	private void afterIsUsingItem(CallbackInfo ci)
+	{
+		hideNextItemUse = false;
 	}
 	
 	@Inject(at = @At("HEAD"), method = "sendPosition()V")
@@ -138,7 +169,7 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	@Inject(at = @At(value = "FIELD",
 		target = "Lnet/minecraft/client/Minecraft;screen:Lnet/minecraft/client/gui/screens/Screen;",
 		opcode = Opcodes.GETFIELD,
-		ordinal = 0), method = "handlePortalTransitionEffect(Z)V")
+		ordinal = 0), method = "handleConfusionTransitionEffect(Z)V")
 	private void beforeTickNausea(boolean fromPortalEffect, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.getHax().portalGuiHack.isEnabled())
@@ -153,9 +184,9 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	 * method is done looking at it.
 	 */
 	@Inject(at = @At(value = "FIELD",
-		target = "Lnet/minecraft/client/player/LocalPlayer;portalEffectIntensity:F",
+		target = "Lnet/minecraft/client/player/LocalPlayer;spinningEffectIntensity:F",
 		opcode = Opcodes.GETFIELD,
-		ordinal = 1), method = "handlePortalTransitionEffect(Z)V")
+		ordinal = 1), method = "handleConfusionTransitionEffect(Z)V")
 	private void afterTickNausea(boolean fromPortalEffect, CallbackInfo ci)
 	{
 		if(tempCurrentScreen == null)
@@ -170,7 +201,7 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 	 * too hungry.
 	 */
 	@Inject(at = @At("HEAD"),
-		method = "hasEnoughFoodToSprint()Z",
+		method = "hasEnoughFoodToStartSprinting()Z",
 		cancellable = true)
 	private void onCanSprint(CallbackInfoReturnable<Boolean> cir)
 	{
@@ -293,9 +324,6 @@ public class ClientPlayerEntityMixin extends AbstractClientPlayer
 			return true;
 		
 		if(effect == MobEffects.LEVITATION && hax.noLevitationHack.isEnabled())
-			return false;
-		
-		if(effect == MobEffects.BLINDNESS && hax.antiBlindHack.isEnabled())
 			return false;
 		
 		if(effect == MobEffects.DARKNESS && hax.antiBlindHack.isEnabled())

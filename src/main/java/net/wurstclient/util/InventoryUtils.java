@@ -214,15 +214,14 @@ public enum InventoryUtils
 		
 		// if the item is already in the hotbar, just select it
 		if(slot < 9)
-			inventory.setSelectedSlot(slot);
+			inventory.selected = slot;
 		// if there is an empty slot in the hotbar, shift-click the item there
 		// it will be selected in the next tick
 		else if(inventory.getFreeSlot() > -1 && inventory.getFreeSlot() < 9)
 			im.windowClick_QUICK_MOVE(toNetworkSlot(slot));
 		// otherwise, swap with the currently selected item
 		else
-			im.windowClick_SWAP(toNetworkSlot(slot),
-				inventory.getSelectedSlot());
+			im.windowClick_SWAP(toNetworkSlot(slot), inventory.selected);
 		
 		return true;
 	}

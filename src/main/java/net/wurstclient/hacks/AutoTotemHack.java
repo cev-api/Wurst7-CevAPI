@@ -8,8 +8,7 @@
 package net.wurstclient.hacks;
 
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.EffectRenderingInventoryScreen;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.wurstclient.Category;
@@ -108,8 +107,7 @@ public final class AutoTotemHack extends Hack implements UpdateListener
 		
 		// don't move items while a container is open
 		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen))
+			&& !(MC.screen instanceof EffectRenderingInventoryScreen))
 			return;
 		
 		if(timer > 0)

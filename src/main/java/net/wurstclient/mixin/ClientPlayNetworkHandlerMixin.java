@@ -55,7 +55,7 @@ public abstract class ClientPlayNetworkHandlerMixin
 		// Remove Mojang's dishonest warning toast on safe servers
 		if(!packet.enforcesSecureChat())
 		{
-			minecraft.getToastManager().queued.removeIf(toast -> toast
+			minecraft.getToasts().queued.removeIf(toast -> toast
 				.getToken() == SystemToast.SystemToastId.UNSECURE_SERVER_WARNING);
 			return;
 		}
@@ -71,7 +71,7 @@ public abstract class ClientPlayNetworkHandlerMixin
 		
 		SystemToast systemToast = SystemToast.multiline(minecraft,
 			SystemToast.SystemToastId.UNSECURE_SERVER_WARNING, title, message);
-		minecraft.getToastManager().addToast(systemToast);
+		minecraft.getToasts().addToast(systemToast);
 	}
 	
 	@Inject(at = @At("TAIL"),

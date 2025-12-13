@@ -90,7 +90,7 @@ public enum BlockBreaker
 		Vec3[] hitVecs = new Vec3[sides.length];
 		for(int i = 0; i < sides.length; i++)
 		{
-			Vec3i dirVec = sides[i].getUnitVec3i();
+			Vec3i dirVec = sides[i].getNormal();
 			Vec3 relHitVec = new Vec3(halfSize.x * dirVec.getX(),
 				halfSize.y * dirVec.getY(), halfSize.z * dirVec.getZ());
 			hitVecs[i] = center.add(relHitVec);
@@ -179,7 +179,7 @@ public enum BlockBreaker
 			for(Direction side : Direction.values())
 			{
 				Vec3 hitVec = posVec
-					.add(Vec3.atLowerCornerOf(side.getUnitVec3i()).scale(0.5));
+					.add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.5));
 				
 				// check if side is facing towards player
 				if(eyesPos.distanceToSqr(hitVec) >= distanceSqPosVec)

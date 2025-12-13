@@ -68,10 +68,8 @@ public abstract class AbstractListEditButton extends Component
 		
 		// text
 		int txtColor = GUI.getTxtColor();
-		context.guiRenderState.up();
 		context.drawString(TR, getText(), x1, y1 + 2, txtColor, false);
 		context.drawString(TR, buttonText, x3 + 2, y1 + 2, txtColor, false);
-		context.guiRenderState.down();
 	}
 	
 	private int getFillColor(boolean hovering)

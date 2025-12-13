@@ -284,7 +284,8 @@ public final class TrajectoriesHack extends Hack implements RenderListener
 		public AABB getEndBox()
 		{
 			Vec3 end = path.get(path.size() - 1);
-			return new AABB(end.subtract(0.5), end.add(0.5));
+			return new AABB(end.subtract(0.5, 0.5, 0.5),
+				end.add(0.5, 0.5, 0.5));
 		}
 	}
 }

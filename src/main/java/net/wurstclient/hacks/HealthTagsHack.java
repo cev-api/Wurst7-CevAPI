@@ -24,7 +24,7 @@ public final class HealthTagsHack extends Hack
 		setCategory(Category.RENDER);
 	}
 	
-	public Component addHealth(LivingEntity entity, MutableComponent nametag)
+	public Component addHealth(LivingEntity entity, Component nametag)
 	{
 		if(!isEnabled())
 			return nametag;
@@ -33,7 +33,7 @@ public final class HealthTagsHack extends Hack
 		
 		MutableComponent formattedHealth = Component.literal(" ")
 			.append(Integer.toString(health)).withStyle(getColor(health));
-		return nametag.append(formattedHealth);
+		return ((MutableComponent)nametag).append(formattedHealth);
 	}
 	
 	private ChatFormatting getColor(int health)
@@ -50,5 +50,5 @@ public final class HealthTagsHack extends Hack
 		return ChatFormatting.GREEN;
 	}
 	
-	// See EntityRenderDispatcherMixin
+	// See EntityRendererMixin.onRenderLabelIfPresent()
 }

@@ -7,8 +7,11 @@
  */
 package net.wurstclient.hud;
 
+import com.mojang.blaze3d.systems.RenderSystem;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.WurstLogoOtf;
 import net.wurstclient.util.RenderUtils;

@@ -54,7 +54,7 @@ public final class SavingFileState extends TemplateToolState
 		
 		// Show success message
 		MutableComponent message = Component.literal("Saved template as ");
-		ClickEvent event = new ClickEvent.OpenFile(
+		ClickEvent event = new ClickEvent(ClickEvent.Action.OPEN_FILE,
 			hack.getFile().getParentFile().getAbsolutePath());
 		MutableComponent link = Component.literal(hack.getFile().getName())
 			.withStyle(s -> s.withUnderlined(true).withClickEvent(event));

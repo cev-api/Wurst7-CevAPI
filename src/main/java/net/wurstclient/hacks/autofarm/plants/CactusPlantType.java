@@ -55,7 +55,7 @@ public final class CactusPlantType extends AutoFarmPlantType
 	@Override
 	public boolean shouldHarvestByMining(BlockPos pos, BlockState state)
 	{
-		if(!state.is(Blocks.CACTUS) && !state.is(Blocks.CACTUS_FLOWER))
+		if(!state.is(Blocks.CACTUS))
 			return false;
 		
 		BlockPos below = pos.below();

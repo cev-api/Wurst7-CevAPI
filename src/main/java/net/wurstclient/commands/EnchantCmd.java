@@ -59,7 +59,7 @@ public final class EnchantCmd extends Command
 	{
 		RegistryAccess drm = MC.level.registryAccess();
 		Registry<Enchantment> registry =
-			drm.lookupOrThrow(Registries.ENCHANTMENT);
+			drm.registryOrThrow(Registries.ENCHANTMENT);
 		
 		for(Holder<Enchantment> entry : registry.asHolderIdMap())
 		{

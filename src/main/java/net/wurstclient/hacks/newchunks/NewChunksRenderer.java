@@ -7,6 +7,9 @@
  */
 package net.wurstclient.hacks.newchunks;
 
+import java.util.function.Consumer;
+
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.function.Consumer;
@@ -34,7 +37,7 @@ public final class NewChunksRenderer
 		this.oldChunksColor = oldChunksColor;
 	}
 	
-	public void updateBuffer(int i, RenderType.CompositeRenderType layer,
+	public void updateBuffer(int i, RenderType layer,
 		Consumer<VertexConsumer> callback)
 	{
 		vertexBuffers[i] = BufferWithLayer.createAndUpload(layer, callback);
@@ -70,14 +73,18 @@ public final class NewChunksRenderer
 			if(i == 0 || i == 2)
 				matrixStack.translate(0, altitudeD, 0);
 			
-			float[] rgb =
-				i < 2 ? newChunksColor.getColorF() : oldChunksColor.getColorF();
+			if(i < 2)
+				newChunksColor.setAsShaderColor(alpha);
+			else
+				oldChunksColor.setAsShaderColor(alpha);
 			
-			buffer.draw(matrixStack, rgb, alpha);
+			buffer.draw(matrixStack);
 			
 			matrixStack.popPose();
 		}
 		
 		matrixStack.popPose();
+		
+		RenderSystem.setShaderColor(1, 1, 1, 1);
 	}
 }

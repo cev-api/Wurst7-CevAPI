@@ -13,8 +13,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -24,14 +26,12 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.WurstColors;
 
 public final class EditBlockListScreen extends Screen
 {
@@ -258,15 +258,17 @@ public final class EditBlockListScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		Matrix3x2fStack matrixStack = context.pose();
+		PoseStack matrixStack = context.pose();
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
 		context.drawCenteredString(minecraft.font,
 			blockList.getName() + " (" + blockList.size() + ")", width / 2, 12,
-			CommonColors.WHITE);
+			0xFFFFFF);
 		
-		matrixStack.pushMatrix();
+		matrixStack.pushPose();
+		matrixStack.translate(0, 0, 300);
 		
 		blockNameField.render(context, mouseX, mouseY, partialTicks);
 		
@@ -300,7 +302,7 @@ public final class EditBlockListScreen extends Screen
 			blockToAdd == null ? ItemStack.EMPTY : new ItemStack(blockToAdd),
 			iconBoxLeft + 2, y0 + 2, false);
 		
-		matrixStack.popMatrix();
+		matrixStack.popPose();
 	}
 	
 	@Override
@@ -362,12 +364,11 @@ public final class EditBlockListScreen extends Screen
 			Font tr = minecraft.font;
 			
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
-			context.drawString(tr, getDisplayName(stack), x + 28, y,
-				WurstColors.VERY_LIGHT_GRAY, false);
-			context.drawString(tr, blockName, x + 28, y + 9,
-				CommonColors.LIGHT_GRAY, false);
-			context.drawString(tr, getIdText(block), x + 28, y + 18,
-				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, getDisplayName(stack), x + 28, y, 0xF0F0F0,
+				false);
+			context.drawString(tr, blockName, x + 28, y + 9, 0xA0A0A0, false);
+			context.drawString(tr, getIdText(block), x + 28, y + 18, 0xA0A0A0,
+				false);
 		}
 		
 		private String getDisplayName(ItemStack stack)

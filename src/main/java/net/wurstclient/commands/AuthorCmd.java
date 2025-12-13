@@ -33,7 +33,7 @@ public final class AuthorCmd extends Command
 		if(!MC.player.getAbilities().instabuild)
 			throw new CmdError("Creative mode only.");
 		
-		ItemStack heldStack = MC.player.getInventory().getSelectedItem();
+		ItemStack heldStack = MC.player.getInventory().getSelected();
 		if(!heldStack.is(Items.WRITTEN_BOOK))
 			throw new CmdError(
 				"You must hold a written book in your main hand.");

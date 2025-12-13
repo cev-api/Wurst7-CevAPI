@@ -14,8 +14,9 @@ import java.util.List;
 import java.util.Objects;
 
 import org.lwjgl.glfw.GLFW;
-import net.wurstclient.hacks.autolibrarian.BookOffer;
-import net.wurstclient.settings.BookOffersSetting;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -28,14 +29,12 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.EnchantmentTags;
-import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.util.WurstColors;
 
 public final class EditBookOffersScreen extends Screen
 {
@@ -162,14 +161,22 @@ public final class EditBookOffersScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		PoseStack matrixStack = context.pose();
+		renderBackground(context, mouseX, mouseY, partialTicks);
+		
 		listGui.render(context, mouseX, mouseY, partialTicks);
+		
+		matrixStack.pushPose();
+		matrixStack.translate(0, 0, 300);
 		
 		context.drawCenteredString(minecraft.font,
 			bookOffers.getName() + " (" + bookOffers.getOffers().size() + ")",
-			width / 2, 12, CommonColors.WHITE);
+			width / 2, 12, 0xFFFFFF);
 		
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
+		
+		matrixStack.popPose();
 	}
 	
 	@Override
@@ -235,7 +242,7 @@ public final class EditBookOffersScreen extends Screen
 			boolean hovered, float tickDelta)
 		{
 			Item item = BuiltInRegistries.ITEM
-				.getValue(ResourceLocation.parse("enchanted_book"));
+				.get(ResourceLocation.parse("enchanted_book"));
 			ItemStack stack = new ItemStack(item);
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
 			
@@ -249,12 +256,11 @@ public final class EditBookOffersScreen extends Screen
 					? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
 			context.drawString(tr, name, x + 28, y, nameColor, false);
 			
-			context.drawString(tr, bookOffer.id(), x + 28, y + 9,
-				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, bookOffer.id(), x + 28, y + 9, 0xA0A0A0,
+				false);
 			
 			String price = getPriceText();
-			context.drawString(tr, price, x + 28, y + 18,
-				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, price, x + 28, y + 18, 0xA0A0A0, false);
 			
 			if(bookOffer.price() < 64)
 				RenderUtils.drawItem(context, new ItemStack(Items.EMERALD),

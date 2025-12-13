@@ -12,12 +12,10 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.other_features.ZoomOtf;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
-import net.wurstclient.util.WurstColors;
 
 public class ZoomManagerScreen extends Screen implements PressAKeyCallback
 {
@@ -100,10 +98,11 @@ public class ZoomManagerScreen extends Screen implements PressAKeyCallback
 		ZoomOtf zoom = WurstClient.INSTANCE.getOtfs().zoomOtf;
 		SliderSetting level = zoom.getLevelSetting();
 		
+		renderBackground(context, mouseX, mouseY, partialTicks);
 		context.drawCenteredString(font, "Zoom Manager", width / 2, 40,
-			CommonColors.WHITE);
+			0xffffff);
 		context.drawString(font, "Zoom Level: " + level.getValueString(),
-			width / 2 - 75, height / 4 + 44, WurstColors.VERY_LIGHT_GRAY);
+			width / 2 - 75, height / 4 + 44, 0xcccccc);
 		
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
