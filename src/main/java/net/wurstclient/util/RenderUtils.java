@@ -85,6 +85,40 @@ public enum RenderUtils
 		return RegionPos.of(getCameraBlockPos());
 	}
 	
+	/**
+	 * Returns true if any of several sample points on the given box are visible
+	 * according to NiceWurstModule.shouldRenderTarget(...).
+	 * Samples: center, four top corners, and a point one block above center.
+	 */
+	public static boolean isBoxVisible(AABB box)
+	{
+		if(box == null)
+			return true;
+		
+		Vec3 center = box.getCenter();
+		// sample center
+		if(NiceWurstModule.shouldRenderTarget(center))
+			return true;
+		
+		// point above center
+		if(NiceWurstModule
+			.shouldRenderTarget(new Vec3(center.x, center.y + 1.0, center.z)))
+			return true;
+		
+		// four top corners
+		double y = box.maxY;
+		if(NiceWurstModule.shouldRenderTarget(new Vec3(box.minX, y, box.minZ)))
+			return true;
+		if(NiceWurstModule.shouldRenderTarget(new Vec3(box.maxX, y, box.minZ)))
+			return true;
+		if(NiceWurstModule.shouldRenderTarget(new Vec3(box.minX, y, box.maxZ)))
+			return true;
+		if(NiceWurstModule.shouldRenderTarget(new Vec3(box.maxX, y, box.maxZ)))
+			return true;
+		
+		return false;
+	}
+	
 	public static MultiBufferSource.BufferSource getVCP()
 	{
 		return WurstClient.MC.renderBuffers().bufferSource();
@@ -343,7 +377,7 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
-		if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+		if(overlay && !isBoxVisible(box))
 			return;
 		
 		if(!overlay)
@@ -372,7 +406,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
-			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			if(overlay && !isBoxVisible(box))
 				continue;
 			
 			drawSolidBox(matrices, buffer, box.move(camOffset), color);
@@ -397,8 +431,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
-			if(overlay
-				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+			if(overlay && !isBoxVisible(box.box()))
 				continue;
 			
 			drawSolidBox(matrices, buffer, box.box().move(camOffset),
@@ -471,7 +504,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
-			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			if(overlay && !isBoxVisible(box))
 				continue;
 			
 			drawOutlinedOctahedron(matrices, buffer, box.move(camOffset),
@@ -497,8 +530,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
-			if(overlay
-				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+			if(overlay && !isBoxVisible(box.box()))
 				continue;
 			
 			drawOutlinedOctahedron(matrices, buffer, box.box().move(camOffset),
@@ -524,7 +556,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
-			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			if(overlay && !isBoxVisible(box))
 				continue;
 			
 			drawSolidOctahedron(matrices, buffer, box.move(camOffset), color);
@@ -549,8 +581,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
-			if(overlay
-				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+			if(overlay && !isBoxVisible(box.box()))
 				continue;
 			
 			drawSolidOctahedron(matrices, buffer, box.box().move(camOffset),
@@ -688,7 +719,7 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
-		if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+		if(overlay && !isBoxVisible(box))
 			return;
 		
 		if(!overlay)
@@ -717,7 +748,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
-			if(overlay && !NiceWurstModule.shouldRenderTarget(box.getCenter()))
+			if(overlay && !isBoxVisible(box))
 				continue;
 			
 			drawOutlinedBox(matrices, buffer, box.move(camOffset), color);
@@ -742,8 +773,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
-			if(overlay
-				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+			if(overlay && !isBoxVisible(box.box()))
 				continue;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
@@ -772,8 +802,7 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
-			if(overlay
-				&& !NiceWurstModule.shouldRenderTarget(box.box().getCenter()))
+			if(overlay && !isBoxVisible(box.box()))
 				continue;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
