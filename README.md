@@ -8,6 +8,15 @@
 - Feature list: [https://www.wurstclient.net/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 
+## Supported Versions
+- [1.21.1 - New (Based on 1.21.8)](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
+- [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
+- [1.21.10 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
+- [1.21.11 - Latest (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+
+### Download
+Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). I make changes very often so if you want the latest patches/bug fixes and upgrades you **must** compile it yourself.
+
 ## Relationship to upstream
 
 This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I’m keeping them in a separate fork. I’ll continue to maintain these additions and periodically re-base/sync with the upstream project.
@@ -544,6 +553,7 @@ Examples:
 ## License
 
 This code is licensed under the GNU General Public License v3. 
+
 
 
 
