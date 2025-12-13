@@ -14,7 +14,6 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -50,10 +49,6 @@ public final class ClickGuiHack extends Hack
 	private final SliderSetting ttOpacity = new SliderSetting("Tooltip opacity",
 		0.75, 0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
 	
-	private final CheckboxSetting isolateWindows =
-		new CheckboxSetting("Isolate windows",
-			"Hide overlapping windows behind the front-most window.", false);
-	
 	private final SliderSetting maxHeight = new SliderSetting("Max height",
 		"Maximum window height\n" + "0 = no limit", 200, 0, 1000, 50,
 		ValueDisplay.INTEGER);
@@ -74,7 +69,6 @@ public final class ClickGuiHack extends Hack
 		addSetting(pinButtonColor);
 		addSetting(opacity);
 		addSetting(ttOpacity);
-		addSetting(isolateWindows);
 		addSetting(maxHeight);
 		addSetting(maxSettingsHeight);
 	}
@@ -128,12 +122,7 @@ public final class ClickGuiHack extends Hack
 	
 	public boolean isWindowIsolationEnabled()
 	{
-		return isolateWindows.isChecked();
-	}
-	
-	public CheckboxSetting getIsolateWindowsSetting()
-	{
-		return isolateWindows;
+		return true;
 	}
 	
 	public int getMaxHeight()

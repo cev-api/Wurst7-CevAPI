@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -59,7 +58,7 @@ public final class ClickGui
 	private float ttOpacity;
 	private int maxHeight;
 	private int maxSettingsHeight;
-	private boolean isolateWindows;
+	private boolean isolateWindows = true;
 	private int windowLayers;
 	
 	private String tooltip = "";
@@ -156,11 +155,8 @@ public final class ClickGui
 		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
 		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
-		uiSettings.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
-		Stream<Setting> settings =
-			clickGuiHack.getSettings().values().stream().filter(
-				setting -> setting != clickGuiHack.getIsolateWindowsSetting());
-		settings.map(Setting::getComponent).forEach(c -> uiSettings.add(c));
+		clickGuiHack.getSettings().values().stream().map(Setting::getComponent)
+			.filter(Objects::nonNull).forEach(uiSettings::add);
 		// Removed secondary Chest Search button from UI Settings so Chest
 		// Search
 		// only appears in the ITEMS category via its hack.
