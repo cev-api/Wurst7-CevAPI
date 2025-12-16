@@ -54,6 +54,164 @@ public final class LootSearchUtil
 		return new File(new File(user, ".minecraft"), "seedmapper/loot");
 	}
 	
+	private static File tryLocateSeedmapperLootDir()
+	{
+		Set<File> searchRoots = new LinkedHashSet<>();
+		try
+		{
+			if(WurstClient.MC != null && WurstClient.MC.gameDirectory != null)
+				addRootAndParents(searchRoots, WurstClient.MC.gameDirectory, 4);
+		}catch(Throwable ignored)
+		{}
+		
+		String user = System.getProperty("user.home");
+		if(user != null && !user.isBlank())
+		{
+			File home = new File(user);
+			addRootAndParents(searchRoots, home, 0);
+			addRootAndParents(searchRoots, new File(home, ".minecraft"), 0);
+		}
+		
+		String appdata = System.getenv("APPDATA");
+		if(appdata != null && !appdata.isBlank())
+			addRootAndParents(searchRoots, new File(appdata, ".minecraft"), 0);
+		
+		// Also check common locations used by flatpak / other launchers
+		if(user != null && !user.isBlank())
+		{
+			File varApp = new File(user, ".var/app");
+			if(varApp.exists() && varApp.isDirectory())
+			{
+				File[] vendors = varApp.listFiles(File::isDirectory);
+				if(vendors != null)
+				{
+					for(File vendor : vendors)
+					{
+						// look inside vendor/data and vendor/data/* for
+						// SeedMapper folders
+						File data = new File(vendor, "data");
+						if(data.exists() && data.isDirectory())
+						{
+							File found = searchTreeForSeedmapper(data, 4);
+							if(found != null)
+								return found;
+						}
+					}
+				}
+			}
+			
+			// common user-level locations used by some launchers
+			File localShare = new File(user, ".local/share");
+			if(localShare.exists() && localShare.isDirectory())
+			{
+				File found = searchTreeForSeedmapper(localShare, 3);
+				if(found != null)
+					return found;
+			}
+			
+			File config = new File(user, ".config");
+			if(config.exists() && config.isDirectory())
+			{
+				File found = searchTreeForSeedmapper(config, 3);
+				if(found != null)
+					return found;
+			}
+			
+		}
+		
+		for(File root : searchRoots)
+		{
+			File resolved = resolveSeedmapperLoot(root);
+			if(resolved != null)
+				return resolved;
+		}
+		
+		// No matches under known roots.
+		return null;
+	}
+	
+	private static void addRootAndParents(Set<File> set, File start,
+		int maxDepth)
+	{
+		File current = start;
+		for(int depth = 0; current != null && depth <= maxDepth; depth++)
+		{
+			set.add(current);
+			current = current.getParentFile();
+		}
+	}
+	
+	private static File resolveSeedmapperLoot(File root)
+	{
+		if(root == null || !root.exists() || !root.isDirectory())
+			return null;
+		
+		if(root.getName().equalsIgnoreCase("loot"))
+			return root;
+		
+		if(root.getName().equalsIgnoreCase("seedmapper"))
+		{
+			File loot = new File(root, "loot");
+			if(loot.exists() && loot.isDirectory())
+				return loot;
+		}
+		
+		String[] folderNames = {"seedmapper", "SeedMapper", "Seedmapper"};
+		for(String folder : folderNames)
+		{
+			File loot = new File(new File(root, folder), "loot");
+			if(loot.exists() && loot.isDirectory())
+				return loot;
+		}
+		
+		File[] matches = root.listFiles(file -> file.isDirectory()
+			&& file.getName().equalsIgnoreCase("seedmapper"));
+		if(matches != null)
+		{
+			for(File match : matches)
+			{
+				File loot = new File(match, "loot");
+				if(loot.exists() && loot.isDirectory())
+					return loot;
+			}
+		}
+		
+		return null;
+	}
+	
+	/**
+	 * Search a directory tree up to the given depth for a SeedMapper loot
+	 * folder.
+	 */
+	private static File searchTreeForSeedmapper(File base, int maxDepth)
+	{
+		if(base == null || !base.exists() || !base.isDirectory())
+			return null;
+		java.util.ArrayDeque<File> dq = new java.util.ArrayDeque<>();
+		java.util.ArrayDeque<Integer> depth = new java.util.ArrayDeque<>();
+		dq.add(base);
+		depth.add(0);
+		while(!dq.isEmpty())
+		{
+			File cur = dq.removeFirst();
+			int d = depth.removeFirst();
+			File resolved = resolveSeedmapperLoot(cur);
+			if(resolved != null)
+				return resolved;
+			if(d >= maxDepth)
+				continue;
+			File[] children = cur.listFiles(File::isDirectory);
+			if(children == null)
+				continue;
+			for(File c : children)
+			{
+				dq.addLast(c);
+				depth.addLast(d + 1);
+			}
+		}
+		return null;
+	}
+	
 	public static File findFileForServer(String serverIp)
 	{
 		if(serverIp == null)
@@ -66,24 +224,35 @@ public final class LootSearchUtil
 			dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
 		if(files == null)
 			return null;
-		// Build candidate tokens to try: raw, host-only, and colon->underscore
+		// Build candidate tokens based on SeedMapper's serverId generation
+		// serverId = serverIp with non-alnum/dot/dash/underscore -> '_',
+		// collapse '_' repeats,
+		// trim leading/trailing '-' or '_' and fallback to "local" when blank.
 		java.util.List<String> candidates = new java.util.ArrayList<>();
-		candidates.add(serverIp);
-		if(serverIp.contains(":"))
+		try
 		{
-			candidates.add(serverIp.replace(':', '_'));
-			String host = serverIp.split(":", 2)[0];
-			candidates.add(host);
-		}else
-		{
-			// also add variant without trailing port-like suffix after
-			// underscore
-			int u = serverIp.indexOf('_');
-			if(u > 0)
+			String full = serverIp;
+			if(full == null)
+				full = "";
+			String sanitizedFull = full.replaceAll("[^A-Za-z0-9._-]", "_")
+				.replaceAll("_+", "_").replaceAll("^[-_]+|[-_]+$", "");
+			if(sanitizedFull.isBlank())
+				sanitizedFull = "local";
+			candidates.add(sanitizedFull);
+			
+			// Also add host-only sanitized (strip port) for extra tolerance
+			if(full.contains(":"))
 			{
-				candidates.add(serverIp.substring(0, u));
+				String host = full.split(":", 2)[0];
+				String sanitizedHost = host.replaceAll("[^A-Za-z0-9._-]", "_")
+					.replaceAll("_+", "_").replaceAll("^[-_]+|[-_]+$", "");
+				if(sanitizedHost.isBlank())
+					sanitizedHost = "local";
+				if(!sanitizedHost.equals(sanitizedFull))
+					candidates.add(sanitizedHost);
 			}
-		}
+		}catch(Throwable ignored)
+		{}
 		for(File f : files)
 		{
 			String name = f.getName();
