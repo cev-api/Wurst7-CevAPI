@@ -94,7 +94,13 @@ public final class CmdList
 					continue;
 				
 				Command cmd = (Command)field.get(this);
-				cmds.put(cmd.getName(), cmd);
+				// Store commands by their base name without the leading prefix
+				// (e.g. "help" instead of ".help"). This allows the command
+				// prefix to be configured independently.
+				String baseName = cmd.getName();
+				if(baseName.startsWith("."))
+					baseName = baseName.substring(1);
+				cmds.put(baseName, cmd);
 			}
 			
 		}catch(Exception e)
@@ -107,7 +113,13 @@ public final class CmdList
 	
 	public Command getCmdByName(String name)
 	{
-		return cmds.get("." + name);
+		if(name == null)
+			return null;
+		
+		if(name.startsWith("."))
+			name = name.substring(1);
+		
+		return cmds.get(name);
 	}
 	
 	public Collection<Command> getAllCmds()
