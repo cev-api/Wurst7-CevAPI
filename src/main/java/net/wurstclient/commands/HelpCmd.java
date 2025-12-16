@@ -10,6 +10,7 @@ package net.wurstclient.commands;
 import java.util.ArrayList;
 
 import net.wurstclient.DontBlock;
+import net.wurstclient.WurstClient;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
@@ -57,21 +58,45 @@ public final class HelpCmd extends Command
 		int start = (page - 1) * CMDS_PER_PAGE;
 		int end = Math.min(page * CMDS_PER_PAGE, cmds.size());
 		
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
 		ChatUtils.message("Command list (page " + page + "/" + pages + ")");
 		for(int i = start; i < end; i++)
-			ChatUtils.message("- " + cmds.get(i).getName());
+		{
+			String name = cmds.get(i).getName();
+			if(name.startsWith("."))
+				name = name.substring(1);
+			ChatUtils.message("- " + prefix + name);
+		}
 	}
 	
 	private void help(String cmdName) throws CmdException
 	{
-		if(cmdName.startsWith("."))
-			cmdName = cmdName.substring(1);
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		if(cmdName.startsWith(prefix))
+			cmdName = cmdName.substring(prefix.length());
 		
 		Command cmd = WURST.getCmds().getCmdByName(cmdName);
 		if(cmd == null)
-			throw new CmdSyntaxError("Unknown command: ." + cmdName);
+			throw new CmdSyntaxError("Unknown command: " + prefix + cmdName);
 		
-		ChatUtils.message("Available help for ." + cmdName + ":");
-		cmd.printHelp();
+		ChatUtils.message("Available help for " + prefix + cmdName + ":");
+		
+		String desc = cmd.getDescription().replaceAll("\\.(?=\\w)", prefix);
+		for(String line : desc.split("\n"))
+			ChatUtils.message(line);
 	}
 }
