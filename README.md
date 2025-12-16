@@ -387,6 +387,14 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Auto Attack, your jab attack will continue to auto hit once the cooldown has expired so long as you're hitting an entity.
 - Designed for elytra-free ground PvP/PvE, though may be even more interesting with one.
 
+### Custom Command Prefixes
+- In the Wurst Options menu you can now change your command prefix
+- Cycle through commonly used command prefixes by pressing the Command Prefix button
+
+![CMD](https://i.imgur.com/A79Het4.png)
+![CMD2](https://i.imgur.com/qBhwEUf.png)
+![CMD3](https://i.imgur.com/veagIsN.png)
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)

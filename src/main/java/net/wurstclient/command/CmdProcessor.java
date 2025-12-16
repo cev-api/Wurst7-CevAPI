@@ -32,11 +32,20 @@ public final class CmdProcessor implements ChatOutputListener
 			return;
 		
 		String message = event.getOriginalMessage().trim();
-		if(!message.startsWith("."))
+		// Use the configured command prefix from the Wurst options.
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		if(!message.startsWith(prefix))
 			return;
 		
 		event.cancel();
-		process(message.substring(1));
+		process(message.substring(prefix.length()));
 	}
 	
 	public void process(String input)
@@ -108,19 +117,28 @@ public final class CmdProcessor implements ChatOutputListener
 		public void printToChat()
 		{
 			String cmdName = input.split(" ")[0];
-			ChatUtils.error("Unknown command: ." + cmdName);
+			String prefix = ".";
+			try
+			{
+				prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+					.getPrefixSetting().getSelected().toString();
+			}catch(Throwable ignored)
+			{}
+			
+			ChatUtils.error("Unknown command: " + prefix + cmdName);
 			
 			StringBuilder helpMsg = new StringBuilder();
 			
 			if(input.startsWith("/"))
 			{
-				helpMsg.append("Use \".say " + input + "\"");
+				helpMsg.append("Use \"" + prefix + "say " + input + "\"");
 				helpMsg.append(" to send it as a chat command.");
 				
 			}else
 			{
-				helpMsg.append("Type \".help\" for a list of commands or ");
-				helpMsg.append("\".say ." + input + "\"");
+				helpMsg.append(
+					"Type \"" + prefix + "help\" for a list of commands or ");
+				helpMsg.append("\"" + prefix + "say " + prefix + input + "\"");
 				helpMsg.append(" to send it as a chat message.");
 			}
 			

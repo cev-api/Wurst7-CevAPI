@@ -30,6 +30,8 @@ public final class OtfList
 	public final ServerFinderOtf serverFinderOtf = new ServerFinderOtf();
 	public final TabGuiOtf tabGuiOtf = new TabGuiOtf();
 	public final TranslationsOtf translationsOtf = new TranslationsOtf();
+	public final net.wurstclient.other_features.CommandPrefixOtf commandPrefixOtf =
+		new net.wurstclient.other_features.CommandPrefixOtf();
 	public final VanillaSpoofOtf vanillaSpoofOtf = new VanillaSpoofOtf();
 	public final WikiDataExportOtf wikiDataExportOtf = new WikiDataExportOtf();
 	public final WurstCapesOtf wurstCapesOtf = new WurstCapesOtf();

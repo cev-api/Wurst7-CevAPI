@@ -49,7 +49,7 @@ public class WurstOptionsScreen extends Screen
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
 				b -> minecraft.setScreen(prevScreen))
-			.bounds(width / 2 - 100, height / 4 + 168 - 16, 200, 20).build());
+			.bounds(width / 2 - 100, height / 4 + 192 - 16, 200, 20).build());
 		
 		addSettingButtons();
 		addManagerButtons();
@@ -67,6 +67,8 @@ public class WurstOptionsScreen extends Screen
 			wurst.getOtfs().translationsOtf.getForceEnglish();
 		CheckboxSetting unsafeChatToast =
 			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
+		net.wurstclient.other_features.CommandPrefixOtf commandPrefixOtf =
+			wurst.getOtfs().commandPrefixOtf;
 		
 		new WurstOptionsButton(-154, 24,
 			() -> "Click Friends: "
@@ -104,6 +106,15 @@ public class WurstOptionsScreen extends Screen
 				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
 			"Shows a toast warning when a server enforces insecure chat/reporting.",
 			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
+		
+		new WurstOptionsButton(-154, 168,
+			() -> "Command Prefix: "
+				+ commandPrefixOtf.getPrefixSetting().getSelected().toString(),
+			"Cycle through available command prefixes.", b -> {
+				commandPrefixOtf.getPrefixSetting().selectNext();
+				ChatUtils.message("Command prefix set to " + commandPrefixOtf
+					.getPrefixSetting().getSelected().toString());
+			});
 		
 		if(NiceWurstModule.showAntiFingerprintControls())
 		{
