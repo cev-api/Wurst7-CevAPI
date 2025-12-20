@@ -217,6 +217,7 @@ public final class HackList implements UpdateListener
 	public final TrialSpawnerEspHack trialSpawnerEspHack =
 		new TrialSpawnerEspHack();
 	public final TriggerBotHack triggerBotHack = new TriggerBotHack();
+	public final OutreachHack outreachHack = new OutreachHack();
 	public final TrollPotionHack trollPotionHack = new TrollPotionHack();
 	public final TrueSightHack trueSightHack = new TrueSightHack();
 	public final TunnellerHack tunnellerHack = new TunnellerHack();

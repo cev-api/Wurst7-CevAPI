@@ -395,6 +395,11 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 ![CMD2](https://i.imgur.com/qBhwEUf.png)
 ![CMD3](https://i.imgur.com/veagIsN.png)
 
+### Outreach
+- Works the same as reach, gives you approximately 9 blocks of distance in attacking, but this time its through walls! 
+- Has the same filters and FOV settings as KillAura.
+- Your attacks will spam when going through walls so an auto-cooldown is applied.
+
 ## What’s changed or improved in this fork?
 
 ### ItemESP (Expanded)
