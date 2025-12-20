@@ -190,6 +190,7 @@
   "description.wurst.hack.trajectories": "Predicts the flight path of arrows and throwable items.",
   "description.wurst.hack.treebot": "An experimental bot that automatically walks around and chops down trees.\nLimited to small trees for now.",
   "description.wurst.hack.trialspawneresp": "Highlights trial spawners with ESP boxes, tracer lines, overlays for mob type, waves, cooldowns, activation radius hints, and optional Trial Vault linking.",
+  "description.wurst.hack.outreach": "Attacks the entity under your crosshair even when blocks are in the way, respecting your configured range and FOV.",
   "description.wurst.hack.triggerbot": "Automatically attacks the entity you're looking at.",
   "description.wurst.hack.trollpotion": "Generates a potion with many annoying effects on it.",
   "description.wurst.hack.truesight": "Allows you to see invisible entities.",
