@@ -36,12 +36,17 @@ public enum VendorSeedMapperLoader
 		FabricLoader loader = FabricLoader.getInstance();
 		if(loader.isModLoaded(MOD_ID))
 		{
+			// Do not load vendor classes during early initialization. Loading
+			// can trigger static initializers in the vendor mod which may fail
+			// when Wurst initializes very early and cause hard crashes.
+			// Detect presence and report fallback data instead. A later
+			// call to forceReload() can be used to attempt a full load.
 			available = true;
 			version =
 				loader.getModContainer(MOD_ID).map(ModContainer::getMetadata)
 					.map(meta -> meta.getVersion().getFriendlyString())
 					.orElse("unknown");
-			data = SeedMapperData.tryLoadFromVendor();
+			data = SeedMapperData.createFallback();
 		}else
 		{
 			available = false;

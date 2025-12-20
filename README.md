@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.51.3 (MC1.21.11) - Modified by CevAPI 
+﻿# Wurst Client v7.51.4 (MC1.21.11) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
@@ -544,6 +544,10 @@ Examples:
 - Added customisable glow ESP for invisible entities
 
 ![UHHHUHOHUHUHHUHOHOHOHHOHH](https://i.imgur.com/TA65cm8.png)
+
+### AutoSign Improved
+- Can input sign text directly into ClickUI/Nagivator
+- Can now save and manage a list of presets
 
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.
