@@ -381,6 +381,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
   - Dash - While charging with your right click you can boost yourself forward a specific distance with your left click creating a velocity based attack.
   - Hold - While charging you are constantly boosting forward whenever you press the left click.
 - Your player can optionally stay grounded when boosting as to avoid flying off into the distance on each attack.
+- Allow reverse toggle lets you hold S/back while attacking to flip boosts so they launch you backward instead.
 - Highlighting: You can highlight near and far entities within your attack range. Near meaning the distance you can jab at them and far the distance you can charge at them. Default set to 7 for near and 8.5 blocks for far.
 - Your charge is automatically and constantly resumed (no cooldown) so you can forever hold right click. It will be noisy but even if the spear is pointed down you will still be able to attack. 
 - You can optionally allow aim assist to work whilst holding right click.

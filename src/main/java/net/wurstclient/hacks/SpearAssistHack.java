@@ -54,6 +54,11 @@ public final class SpearAssistHack extends Hack
 			"Extra distance to travel each time you start holding attack.", 4,
 			0, 10, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
 	
+	private final CheckboxSetting allowReverse = new CheckboxSetting(
+		"Allow reverse",
+		"Hold the Back key (default: S) while attacking to boost backwards instead of forwards.",
+		false);
+	
 	private final SliderSetting nearHighlightRange =
 		new SliderSetting("Near highlight range",
 			"Distance where targets switch to the near color.", 7, 4, 10, 0.5,
@@ -97,6 +102,7 @@ public final class SpearAssistHack extends Hack
 	private boolean useGlowFallback = true;
 	private RenderStyleInfo currentStyle;
 	private boolean autoAttackPrimed;
+	private boolean reverseDashActive;
 	
 	public SpearAssistHack()
 	{
@@ -105,6 +111,7 @@ public final class SpearAssistHack extends Hack
 		addSetting(boostMode);
 		addSetting(boostSpeed);
 		addSetting(dashDistance);
+		addSetting(allowReverse);
 		addSetting(stayGrounded);
 		addSetting(nearHighlightRange);
 		addSetting(farHighlightRange);
@@ -156,12 +163,21 @@ public final class SpearAssistHack extends Hack
 			if(direction.lengthSqr() > 1.0E-4)
 			{
 				if(attackPressed)
+				{
+					updateReverseDashState();
 					startDash();
+				}
+				
+				Vec3 reversed = direction.scale(-1);
+				Vec3 holdDirection =
+					shouldReverseHoldBoost(attackHeld) ? reversed : direction;
+				Vec3 dashDirection =
+					shouldReverseDashBoost() ? reversed : direction;
 				
 				if(attackHeld)
-					applyHoldVelocity(direction);
+					applyHoldVelocity(holdDirection);
 				
-				continueDash(direction);
+				continueDash(dashDirection);
 			}
 		}else
 			resetDash();
@@ -327,12 +343,16 @@ public final class SpearAssistHack extends Hack
 	private void continueDash(Vec3 direction)
 	{
 		if(dashDistanceRemaining <= 0 || !getBoostMode().useDash())
+		{
+			reverseDashActive = false;
 			return;
+		}
 		
 		double dashSpeed = Math.max(0, boostSpeed.getValue());
 		if(dashSpeed <= 0)
 		{
 			dashDistanceRemaining = 0;
+			reverseDashActive = false;
 			return;
 		}
 		
@@ -345,6 +365,9 @@ public final class SpearAssistHack extends Hack
 			MC.player.setOnGround(false);
 		MC.player.fallDistance = 0;
 		dashDistanceRemaining -= step;
+		
+		if(dashDistanceRemaining <= 0)
+			reverseDashActive = false;
 	}
 	
 	private void applyHoldVelocity(Vec3 direction)
@@ -367,6 +390,7 @@ public final class SpearAssistHack extends Hack
 	{
 		dashDistanceRemaining = 0;
 		attackKeyDown = false;
+		reverseDashActive = false;
 	}
 	
 	private void resetState()
@@ -377,6 +401,7 @@ public final class SpearAssistHack extends Hack
 		currentStyle = null;
 		aimAssistTemporarilyAllowed = false;
 		autoAttackPrimed = false;
+		reverseDashActive = false;
 	}
 	
 	private void updateHighlights(boolean holdingSpear)
@@ -505,6 +530,28 @@ public final class SpearAssistHack extends Hack
 			return false;
 		
 		return id.getPath().toLowerCase(Locale.ROOT).contains("spear");
+	}
+	
+	private void updateReverseDashState()
+	{
+		if(MC.options == null || !allowReverse.isChecked())
+		{
+			reverseDashActive = false;
+			return;
+		}
+		
+		reverseDashActive = MC.options.keyDown.isDown();
+	}
+	
+	private boolean shouldReverseHoldBoost(boolean attackHeld)
+	{
+		return allowReverse.isChecked() && attackHeld && MC.options != null
+			&& MC.options.keyDown.isDown();
+	}
+	
+	private boolean shouldReverseDashBoost()
+	{
+		return allowReverse.isChecked() && reverseDashActive;
 	}
 	
 	private enum BoostMode
