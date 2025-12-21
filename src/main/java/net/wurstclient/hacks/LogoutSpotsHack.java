@@ -121,53 +121,50 @@ public final class LogoutSpotsHack extends Hack
 		if(MC.getConnection() == null || MC.level == null)
 			return;
 		var nowList = MC.getConnection().getOnlinePlayers();
-		if(nowList.size() != lastList.size())
-		{
-			// find missing
-			var lastMap = new HashMap<UUID, PlayerInfo>();
-			for(var e : lastList)
-				lastMap.put(e.getProfile().id(), e);
-			var nowMap = new HashMap<UUID, PlayerInfo>();
-			for(var e : nowList)
-				nowMap.put(e.getProfile().id(), e);
-			for(var id : lastMap.keySet())
-				if(!nowMap.containsKey(id))
+		// Compare previous and current tab lists so we still catch logouts
+		// when someone else joins during the same tick.
+		var lastMap = new HashMap<UUID, PlayerInfo>();
+		for(var e : lastList)
+			lastMap.put(e.getProfile().id(), e);
+		var nowMap = new HashMap<UUID, PlayerInfo>();
+		for(var e : nowList)
+			nowMap.put(e.getProfile().id(), e);
+		
+		for(var id : lastMap.keySet())
+			if(!nowMap.containsKey(id))
+			{
+				Player p = lastPlayers.get(id);
+				if(p != null)
 				{
-					Player p = lastPlayers.get(id);
-					if(p != null)
+					AABB b = p.getBoundingBox();
+					long now = System.currentTimeMillis();
+					spots.put(id, new Entry(p.getName().getString(), b,
+						currentDimKey(), now));
+					// Optionally add a temporary waypoint for this logout spot
+					if(addAsWaypoint.isChecked()
+						&& WURST.getHax().waypointsHack != null)
 					{
-						AABB b = p.getBoundingBox();
-						long now = System.currentTimeMillis();
-						spots.put(id, new Entry(p.getName().getString(), b,
-							currentDimKey(), now));
-						// Optionally add a temporary waypoint for this logout
-						// spot
-						if(addAsWaypoint.isChecked()
-							&& WURST.getHax().waypointsHack != null
-							&& WURST.getHax().waypointsHack.isEnabled())
-						{
-							Waypoint w =
-								new Waypoint(java.util.UUID.randomUUID(), now);
-							w.setName("Logout: " + p.getName().getString());
-							w.setIcon("skull");
-							w.setColor(0xFF88CCFF);
-							w.setPos(new net.minecraft.core.BlockPos(
-								(int)p.getX(), (int)p.getY(), (int)p.getZ()));
-							// set waypoint dimension based on current world
-							w.setDimension(
-								mapDimKeyToWaypointDim(currentDimKey()));
-							w.setActionWhenNear(Waypoint.ActionWhenNear.DELETE);
-							w.setActionWhenNearDistance(4);
-							w.setLines(showTracers.isChecked());
-							// add as temporary waypoint via WaypointsHack API
-							java.util.UUID wpUuid = WURST.getHax().waypointsHack
-								.addTemporaryWaypoint(w);
-							spotToWaypoint.put(id, wpUuid);
-						}
+						Waypoint w =
+							new Waypoint(java.util.UUID.randomUUID(), now);
+						w.setName("Logout: " + p.getName().getString());
+						w.setIcon("skull");
+						w.setColor(0xFF88CCFF);
+						w.setPos(new net.minecraft.core.BlockPos((int)p.getX(),
+							(int)p.getY(), (int)p.getZ()));
+						// set waypoint dimension based on current world
+						w.setDimension(mapDimKeyToWaypointDim(currentDimKey()));
+						w.setActionWhenNear(Waypoint.ActionWhenNear.DELETE);
+						w.setActionWhenNearDistance(4);
+						w.setLines(showTracers.isChecked());
+						// add as temporary waypoint via WaypointsHack API
+						java.util.UUID wpUuid = WURST.getHax().waypointsHack
+							.addTemporaryWaypoint(w);
+						spotToWaypoint.put(id, wpUuid);
 					}
 				}
-			snapshot();
-		}
+			}
+		
+		snapshot();
 		// cull rejoined players
 		if(MC.level != null)
 		{

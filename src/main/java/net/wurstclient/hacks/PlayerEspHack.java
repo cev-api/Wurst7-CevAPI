@@ -523,6 +523,14 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(!players.contains(player))
 			return null;
 		
+		var spearAssist = WURST.getHax().spearAssistHack;
+		if(spearAssist != null && spearAssist.isEnabled())
+		{
+			Integer spearColor = spearAssist.getGlowColor(player);
+			if(spearColor != null)
+				return spearColor;
+		}
+		
 		return makeOpaque(getBaseColor(player));
 	}
 	
