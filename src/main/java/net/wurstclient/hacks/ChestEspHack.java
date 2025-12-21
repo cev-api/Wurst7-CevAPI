@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
@@ -152,83 +153,145 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void renderBoxes(PoseStack matrixStack)
 	{
+		ChestSearchHack csh = null;
+		boolean canMarkOpened = false;
+		ChestSearchHack.OpenedChestMarker markerMode =
+			ChestSearchHack.OpenedChestMarker.LINE;
+		if(!openedChests.isEmpty())
+		{
+			try
+			{
+				csh = net.wurstclient.WurstClient.INSTANCE
+					.getHax().chestSearchHack;
+				if(csh != null && csh.isMarkOpenedChest())
+				{
+					canMarkOpened = true;
+					ChestSearchHack.OpenedChestMarker selected =
+						csh.getOpenedChestMarker();
+					if(selected != null)
+						markerMode = selected;
+				}
+			}catch(Throwable ignored)
+			{
+				csh = null;
+				canMarkOpened = false;
+			}
+		}
+		
+		String curDimFull = MC.level == null ? "overworld"
+			: MC.level.dimension().identifier().toString();
+		String curDim = MC.level == null ? "overworld"
+			: MC.level.dimension().identifier().getPath();
+		
 		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();
+			if(boxes.isEmpty())
+				continue;
+			
 			int quadsColor = group.getColorI(0x40);
 			int linesColor = group.getColorI(0x80);
 			
-			RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor, false);
-			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
-				false);
-			
-			// If ChestSearch marking is enabled, draw an X through opened
-			// chests that match entries in the ChestSearch DB
-			try
+			List<AABB> openedBoxes = java.util.Collections.emptyList();
+			List<AABB> closedBoxes = boxes;
+			if(canMarkOpened)
 			{
-				var csh = net.wurstclient.WurstClient.INSTANCE
-					.getHax().chestSearchHack;
-				if(csh != null && csh.isMarkOpenedChest()
-					&& !openedChests.isEmpty())
+				List<AABB> opened = new ArrayList<>();
+				List<AABB> closed = new ArrayList<>();
+				for(AABB box : boxes)
 				{
-					// base esp line color retained if needed
-					String curDimFull = MC.level == null ? "overworld"
-						: MC.level.dimension().identifier().toString();
-					String curDim = MC.level == null ? "overworld"
-						: MC.level.dimension().identifier().getPath();
-					for(AABB box : boxes)
+					if(isRecordedChest(box, curDimFull, curDim))
+						opened.add(box);
+					else
+						closed.add(box);
+				}
+				openedBoxes = opened;
+				closedBoxes = closed;
+			}
+			
+			boolean useRecolor = canMarkOpened
+				&& markerMode == ChestSearchHack.OpenedChestMarker.RECOLOR
+				&& !openedBoxes.isEmpty();
+			
+			if(useRecolor && csh != null)
+			{
+				if(!closedBoxes.isEmpty())
+				{
+					RenderUtils.drawSolidBoxes(matrixStack, closedBoxes,
+						quadsColor, false);
+					RenderUtils.drawOutlinedBoxes(matrixStack, closedBoxes,
+						linesColor, false);
+				}
+				
+				int markColor = csh.getMarkXColorARGB();
+				int openedFillColor = (markColor & 0x00FFFFFF) | (0x40 << 24);
+				int openedLineColor = markColor;
+				RenderUtils.drawSolidBoxes(matrixStack, openedBoxes,
+					openedFillColor, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, openedBoxes,
+					openedLineColor, false);
+			}else
+			{
+				RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor,
+					false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
+					false);
+				
+				if(canMarkOpened
+					&& markerMode == ChestSearchHack.OpenedChestMarker.LINE
+					&& csh != null && !openedBoxes.isEmpty())
+				{
+					for(AABB box : openedBoxes)
 					{
-						int boxMinX = (int)Math.floor(box.minX + 1e-6);
-						int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
-						int boxMinY = (int)Math.floor(box.minY + 1e-6);
-						int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
-						int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
-						int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
-						boolean matched = false;
-						for(ChestEntry e : openedChests)
-						{
-							if(e == null || e.dimension == null)
-								continue;
-							// Accept either namespaced ("minecraft:the_nether")
-							// or
-							// plain path ("the_nether") dimension identifiers.
-							String ed = e.dimension;
-							if(!(ed.equals(curDimFull) || ed.equals(curDim)
-								|| ed.endsWith(":" + curDim)))
-								continue;
-							int minX = Math.min(e.x, e.maxX);
-							int maxX = Math.max(e.x, e.maxX);
-							int minY = Math.min(e.y, e.maxY);
-							int maxY = Math.max(e.y, e.maxY);
-							int minZ = Math.min(e.z, e.maxZ);
-							int maxZ = Math.max(e.z, e.maxZ);
-							// check range overlap between the ESP box and
-							// recorded chest bounds
-							boolean overlap = boxMinX <= maxX && boxMaxX >= minX
-								&& boxMinY <= maxY && boxMaxY >= minY
-								&& boxMinZ <= maxZ && boxMaxZ >= minZ;
-							if(overlap)
-							{
-								matched = true;
-								break;
-							}
-						}
-						if(matched)
-						{
-							ChestSearchMarkerRenderer.drawMarker(matrixStack,
-								box, csh.getMarkXColorARGB(),
-								csh.getMarkXThickness(), false);
-						}
+						ChestSearchMarkerRenderer.drawMarker(matrixStack, box,
+							csh.getMarkXColorARGB(), csh.getMarkXThickness(),
+							false);
 					}
 				}
-			}catch(Throwable ignored)
-			{
-				// don't fail rendering if chestsearch isn't available
 			}
 		}
+	}
+	
+	private boolean isRecordedChest(AABB box, String curDimFull, String curDim)
+	{
+		if(openedChests.isEmpty())
+			return false;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		for(ChestEntry e : openedChests)
+		{
+			if(e == null || e.dimension == null)
+				continue;
+			
+			String ed = e.dimension;
+			boolean sameDimension = ed.equals(curDimFull) || ed.equals(curDim)
+				|| ed.endsWith(":" + curDim);
+			if(!sameDimension)
+				continue;
+			
+			int minX = Math.min(e.x, e.maxX);
+			int maxX = Math.max(e.x, e.maxX);
+			int minY = Math.min(e.y, e.maxY);
+			int maxY = Math.max(e.y, e.maxY);
+			int minZ = Math.min(e.z, e.maxZ);
+			int maxZ = Math.max(e.z, e.maxZ);
+			boolean overlap =
+				boxMinX <= maxX && boxMaxX >= minX && boxMinY <= maxY
+					&& boxMaxY >= minY && boxMinZ <= maxZ && boxMaxZ >= minZ;
+			if(overlap)
+				return true;
+		}
+		
+		return false;
 	}
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
