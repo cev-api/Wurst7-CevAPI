@@ -1,0 +1,10 @@
+[33mcommit 5270f60284effc2093f136f25077795fef02766d[m
+Author: cev-api <215493617+cev-api@users.noreply.github.com>
+Date:   Sat Dec 20 23:32:05 2025 +1000
+
+    Added Outreach Hack
+
+M	README.md
+M	src/main/java/net/wurstclient/hack/HackList.java
+A	src/main/java/net/wurstclient/hacks/OutreachHack.java
+M	src/main/resources/assets/wurst/translations/en_us.json
