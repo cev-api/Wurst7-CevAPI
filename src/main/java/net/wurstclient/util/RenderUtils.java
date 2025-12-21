@@ -38,6 +38,10 @@ public enum RenderUtils
 {
 	;
 	
+	private static final float DEFAULT_LINE_WIDTH = 2F;
+	private static final double MIN_LINE_WIDTH = 0.5;
+	private static final double MAX_LINE_WIDTH = 20;
+	
 	public static void applyRegionalRenderOffset(PoseStack matrixStack)
 	{
 		applyRegionalRenderOffset(matrixStack, getCameraRegion());
@@ -153,7 +157,8 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		Vec3 offset = getCameraPos().reverse();
-		drawLine(matrices, buffer, start.add(offset), end.add(offset), color);
+		drawLine(matrices, buffer, start.add(offset), end.add(offset), color,
+			DEFAULT_LINE_WIDTH);
 		
 		vcp.endBatch(layer);
 	}
@@ -184,7 +189,8 @@ public enum RenderUtils
 		
 		Vec3 start = getTracerOrigin(partialTicks);
 		Vec3 offset = getCameraPos().reverse();
-		drawLine(matrices, buffer, start, end.add(offset), color);
+		drawLine(matrices, buffer, start, end.add(offset), color,
+			DEFAULT_LINE_WIDTH);
 		
 		vcp.endBatch(layer);
 	}
@@ -209,7 +215,8 @@ public enum RenderUtils
 		{
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 				continue;
-			drawLine(matrices, buffer, start, end.add(offset), color);
+			drawLine(matrices, buffer, start, end.add(offset), color,
+				DEFAULT_LINE_WIDTH);
 			rendered = true;
 		}
 		
@@ -237,7 +244,8 @@ public enum RenderUtils
 			Vec3 point = end.point();
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
-			drawLine(matrices, buffer, start, point.add(offset), end.color());
+			drawLine(matrices, buffer, start, point.add(offset), end.color(),
+				DEFAULT_LINE_WIDTH);
 			rendered = true;
 		}
 		
@@ -263,12 +271,15 @@ public enum RenderUtils
 		Vec3 start = getTracerOrigin(partialTicks);
 		Vec3 offset = getCameraPos().reverse();
 		boolean rendered = false;
+		float appliedWidth =
+			(float)Mth.clamp(lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
-			drawLine(matrices, buffer, start, point.add(offset), end.color());
+			drawLine(matrices, buffer, start, point.add(offset), end.color(),
+				appliedWidth);
 			rendered = true;
 		}
 		
@@ -279,6 +290,12 @@ public enum RenderUtils
 	public static void drawLine(PoseStack matrices, VertexConsumer buffer,
 		Vec3 start, Vec3 end, int color)
 	{
+		drawLine(matrices, buffer, start, end, color, DEFAULT_LINE_WIDTH);
+	}
+	
+	private static void drawLine(PoseStack matrices, VertexConsumer buffer,
+		Vec3 start, Vec3 end, int color, float lineWidth)
+	{
 		Pose entry = matrices.last();
 		float x1 = (float)start.x;
 		float y1 = (float)start.y;
@@ -286,15 +303,23 @@ public enum RenderUtils
 		float x2 = (float)end.x;
 		float y2 = (float)end.y;
 		float z2 = (float)end.z;
-		drawLine(entry, buffer, x1, y1, z1, x2, y2, z2, color);
+		drawLine(entry, buffer, x1, y1, z1, x2, y2, z2, color, lineWidth);
 	}
 	
 	public static void drawLine(PoseStack.Pose entry, VertexConsumer buffer,
 		float x1, float y1, float z1, float x2, float y2, float z2, int color)
 	{
+		drawLine(entry, buffer, x1, y1, z1, x2, y2, z2, color,
+			DEFAULT_LINE_WIDTH);
+	}
+	
+	private static void drawLine(PoseStack.Pose entry, VertexConsumer buffer,
+		float x1, float y1, float z1, float x2, float y2, float z2, int color,
+		float lineWidth)
+	{
 		Vector3f normal = new Vector3f(x2, y2, z2).sub(x1, y1, z1).normalize();
 		buffer.addVertex(entry, x1, y1, z1).setColor(color)
-			.setNormal(entry, normal).setLineWidth(2);
+			.setNormal(entry, normal).setLineWidth(lineWidth);
 		
 		// If the line goes through the screen, add another vertex there. This
 		// works around a bug in Minecraft's line shader.
@@ -304,13 +329,13 @@ public enum RenderUtils
 		{
 			Vector3f closeToCam = new Vector3f(normal).mul(t).add(x1, y1, z1);
 			buffer.addVertex(entry, closeToCam).setColor(color)
-				.setNormal(entry, normal).setLineWidth(2);
+				.setNormal(entry, normal).setLineWidth(lineWidth);
 			buffer.addVertex(entry, closeToCam).setColor(color)
-				.setNormal(entry, normal).setLineWidth(2);
+				.setNormal(entry, normal).setLineWidth(lineWidth);
 		}
 		
 		buffer.addVertex(entry, x2, y2, z2).setColor(color)
-			.setNormal(entry, normal).setLineWidth(2);
+			.setNormal(entry, normal).setLineWidth(lineWidth);
 	}
 	
 	public static void drawLine(VertexConsumer buffer, float x1, float y1,
@@ -318,9 +343,9 @@ public enum RenderUtils
 	{
 		Vector3f n = new Vector3f(x2, y2, z2).sub(x1, y1, z1).normalize();
 		buffer.addVertex(x1, y1, z1).setColor(color).setNormal(n.x, n.y, n.z)
-			.setLineWidth(2);
+			.setLineWidth(DEFAULT_LINE_WIDTH);
 		buffer.addVertex(x2, y2, z2).setColor(color).setNormal(n.x, n.y, n.z)
-			.setLineWidth(2);
+			.setLineWidth(DEFAULT_LINE_WIDTH);
 	}
 	
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,

@@ -72,6 +72,7 @@ I’m pleased to note that many of the features and improvements below are compl
 - Anti-Fingerprint
 - TridentESP
 - MobSearch
+- Outreach
 - Redstone, Bed, Sign & Workstation ESP
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
 - Custom Waypoint System (Not a new idea, but unique in design and functionality)
@@ -332,7 +333,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
   - Pick: reject (drop) everything except the selected types (only selected types will be picked up).
   - Reject: reject the selected types and drop them.
 - Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
-  - Works independantly of ItemESP
+  - Works independently of ItemESP
 - Adjustable distance for item detection.
 - Adjustable font scale setting (scales text and popup icon size).
 - Adjustable Popup HUD display offset X/Y
