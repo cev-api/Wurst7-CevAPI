@@ -1228,31 +1228,38 @@ public abstract class GenericContainerScreenMixin
 					&& wurst$shouldNotifyChestRecorded(serverIp, dimension, fx,
 						fy, fz))
 				{
-					chestRecordedNotificationSent = true;
-					// Notify player in chat that chest was recorded (on close)
-					try
+					ChestSearchHack csh = wurst$getChestSearchHack();
+					boolean allowNotification =
+						csh == null || csh.isRecordNotificationEnabled();
+					if(allowNotification)
 					{
-						String recordedMsg = "Chest recorded at position " + fx
-							+ "," + fy + "," + fz;
-						if(net.wurstclient.WurstClient.MC != null)
+						chestRecordedNotificationSent = true;
+						// Notify player in chat that chest was recorded (on
+						// close)
+						try
 						{
-							net.wurstclient.WurstClient.MC.execute(() -> {
-								try
-								{
-									if(net.wurstclient.WurstClient.MC.player != null
-										&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
-										net.wurstclient.WurstClient.MC.player
-											.displayClientMessage(
-												net.minecraft.network.chat.Component
-													.literal(recordedMsg),
-												false);
-								}catch(Throwable ignored)
-								{}
-							});
+							String recordedMsg = "Chest recorded at position "
+								+ fx + "," + fy + "," + fz;
+							if(net.wurstclient.WurstClient.MC != null)
+							{
+								net.wurstclient.WurstClient.MC.execute(() -> {
+									try
+									{
+										if(net.wurstclient.WurstClient.MC.player != null
+											&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
+											net.wurstclient.WurstClient.MC.player
+												.displayClientMessage(
+													net.minecraft.network.chat.Component
+														.literal(recordedMsg),
+													false);
+									}catch(Throwable ignored)
+									{}
+								});
+							}
+						}catch(Throwable ignored)
+						{
+							// ignore
 						}
-					}catch(Throwable ignored)
-					{
-						// ignore
 					}
 				}
 				// If loot export present, compare now and notify if mismatch
