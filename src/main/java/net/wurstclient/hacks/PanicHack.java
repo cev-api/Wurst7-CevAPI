@@ -10,10 +10,14 @@ package net.wurstclient.hacks;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import net.wurstclient.Category;
 import net.wurstclient.DontBlock;
@@ -25,13 +29,14 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.json.WsonArray;
+import net.wurstclient.util.json.WsonObject;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"legit", "disable"})
 @DontBlock
 public final class PanicHack extends Hack
 {
-	private final Set<String> savedHackNames = new LinkedHashSet<>();
+	private final Map<String, Boolean> savedHackStates = new LinkedHashMap<>();
 	private final Path snapshotFile =
 		WURST.getWurstFolder().resolve("panic-snapshot.json");
 	private boolean startupRestorePending;
@@ -54,7 +59,7 @@ public final class PanicHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		int saved = snapshotEnabledHacks();
+		int saved = snapshotHackStates();
 		disableOtherHacks();
 		setEnabled(false);
 		
@@ -66,17 +71,26 @@ public final class PanicHack extends Hack
 			ChatUtils.message("No other hacks were enabled.");
 	}
 	
-	private int snapshotEnabledHacks()
+	private int snapshotHackStates()
 	{
-		savedHackNames.clear();
+		savedHackStates.clear();
+		int enabledCount = 0;
 		
 		for(Hack hack : WURST.getHax().getAllHax())
-			if(hack.isEnabled() && hack != this)
-				savedHackNames.add(hack.getName());
+		{
+			if(hack == this)
+				continue;
 			
+			boolean enabled = hack.isEnabled();
+			if(enabled)
+				enabledCount++;
+			
+			savedHackStates.put(hack.getName(), enabled);
+		}
+		
 		persistSavedHacks();
 		startupRestorePending = false;
-		return savedHackNames.size();
+		return enabledCount;
 	}
 	
 	private void disableOtherHacks()
@@ -88,7 +102,7 @@ public final class PanicHack extends Hack
 	
 	public void restoreSavedHacks()
 	{
-		if(savedHackNames.isEmpty())
+		if(savedHackStates.isEmpty())
 		{
 			ChatUtils.error("There is no saved Panic state to restore.");
 			return;
@@ -97,10 +111,16 @@ public final class PanicHack extends Hack
 		HackList hax = WURST.getHax();
 		Set<String> missing = new LinkedHashSet<>();
 		Set<String> blocked = new LinkedHashSet<>();
-		int restored = 0;
+		int enabledRestored = 0;
+		int disabledRestored = 0;
+		Map<String, Boolean> remainingStates = new LinkedHashMap<>();
 		
-		for(String name : new LinkedHashSet<>(savedHackNames))
+		for(Map.Entry<String, Boolean> entry : new LinkedHashMap<>(
+			savedHackStates).entrySet())
 		{
+			String name = entry.getKey();
+			boolean targetEnabled = entry.getValue();
+			
 			Hack hack = hax.getHackByName(name);
 			if(hack == null || hack == this)
 			{
@@ -109,36 +129,80 @@ public final class PanicHack extends Hack
 			}
 			
 			boolean wasEnabled = hack.isEnabled();
-			hack.setEnabled(true);
 			
-			if(!hack.isEnabled())
+			if(targetEnabled)
 			{
-				blocked.add(name);
+				hack.setEnabled(true);
+				
+				if(!hack.isEnabled())
+				{
+					blocked.add(name);
+					remainingStates.put(name, targetEnabled);
+					continue;
+				}
+				
+				if(!wasEnabled && hack.isEnabled())
+					enabledRestored++;
+				
 				continue;
 			}
 			
-			if(!wasEnabled && hack.isEnabled())
-				restored++;
+			hack.setEnabled(false);
+			
+			if(hack.isEnabled())
+			{
+				blocked.add(name);
+				remainingStates.put(name, targetEnabled);
+				continue;
+			}
+			
+			if(wasEnabled)
+				disabledRestored++;
 		}
 		
-		savedHackNames.clear();
-		savedHackNames.addAll(blocked);
+		savedHackStates.clear();
+		savedHackStates.putAll(remainingStates);
 		
-		if(restored > 0)
-			ChatUtils.message("Restored " + restored + " hack"
-				+ (restored == 1 ? "" : "s") + " from Panic.");
-		else if(savedHackNames.isEmpty())
-			ChatUtils.message("All saved Panic hacks are already enabled.");
+		if(enabledRestored > 0 || disabledRestored > 0)
+		{
+			String message =
+				buildRestoreMessage(enabledRestored, disabledRestored);
+			ChatUtils.message(message);
+			
+		}else if(savedHackStates.isEmpty())
+			ChatUtils
+				.message("All hacks already matched the saved Panic state.");
 		
 		if(!missing.isEmpty())
 			ChatUtils
 				.warning("Missing Panic hacks: " + String.join(", ", missing));
 		
-		if(!savedHackNames.isEmpty())
-			ChatUtils
-				.warning("Still blocked: " + String.join(", ", savedHackNames));
+		if(!blocked.isEmpty())
+			ChatUtils.warning("Still blocked: " + String.join(", ", blocked));
 		
 		persistSavedHacks();
+	}
+	
+	private String buildRestoreMessage(int enabledRestored,
+		int disabledRestored)
+	{
+		StringBuilder sb = new StringBuilder("Restored Panic state");
+		
+		if(enabledRestored > 0)
+		{
+			sb.append(": enabled ").append(enabledRestored).append(" hack")
+				.append(enabledRestored == 1 ? "" : "s");
+			
+			if(disabledRestored > 0)
+				sb.append(", ");
+		}
+		
+		if(disabledRestored > 0)
+			sb.append(enabledRestored > 0 ? "" : ": ").append("disabled ")
+				.append(disabledRestored).append(" hack")
+				.append(disabledRestored == 1 ? "" : "s");
+		
+		return sb.append('.').toString();
 	}
 	
 	public void handleStartupRestore()
@@ -148,7 +212,7 @@ public final class PanicHack extends Hack
 		
 		startupRestorePending = false;
 		
-		if(savedHackNames.isEmpty())
+		if(savedHackStates.isEmpty())
 		{
 			deleteSnapshotFile();
 			return;
@@ -160,7 +224,7 @@ public final class PanicHack extends Hack
 	private void loadSnapshotFromDisk()
 	{
 		startupRestorePending = false;
-		savedHackNames.clear();
+		savedHackStates.clear();
 		
 		if(!Files.exists(snapshotFile))
 			return;
@@ -168,9 +232,9 @@ public final class PanicHack extends Hack
 		try
 		{
 			WsonArray wson = JsonUtils.parseFileToArray(snapshotFile);
-			savedHackNames.addAll(wson.getAllStrings());
+			loadSnapshotEntries(wson);
 			
-			if(savedHackNames.isEmpty())
+			if(savedHackStates.isEmpty())
 				deleteSnapshotFile();
 			else
 				startupRestorePending = true;
@@ -183,16 +247,45 @@ public final class PanicHack extends Hack
 		}
 	}
 	
+	private void loadSnapshotEntries(WsonArray wson) throws JsonException
+	{
+		for(int i = 0; i < wson.size(); i++)
+		{
+			JsonElement element = wson.getElement(i);
+			
+			if(element.isJsonObject())
+			{
+				WsonObject obj = new WsonObject(element.getAsJsonObject());
+				String name = obj.getString("name", null);
+				boolean enabled = obj.getBoolean("enabled", true);
+				
+				if(name != null)
+					savedHackStates.put(name, enabled);
+				
+				continue;
+			}
+			
+			if(element.isJsonPrimitive()
+				&& element.getAsJsonPrimitive().isString())
+				savedHackStates.put(element.getAsString(), true);
+		}
+	}
+	
 	private void persistSavedHacks()
 	{
-		if(savedHackNames.isEmpty())
+		if(savedHackStates.isEmpty())
 		{
 			deleteSnapshotFile();
 			return;
 		}
 		
 		JsonArray json = new JsonArray();
-		savedHackNames.forEach(json::add);
+		savedHackStates.forEach((name, enabled) -> {
+			JsonObject obj = new JsonObject();
+			obj.addProperty("name", name);
+			obj.addProperty("enabled", enabled);
+			json.add(obj);
+		});
 		
 		try
 		{
