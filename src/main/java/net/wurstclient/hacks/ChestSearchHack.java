@@ -45,14 +45,22 @@ public final class ChestSearchHack extends Hack
 	private final ColorSetting espLineColor =
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
 	private final ColorSetting markXColor =
-		new ColorSetting("Opened chest color", new java.awt.Color(0xFF2222));
+		new ColorSetting("Opened chest color", new java.awt.Color(0xFF9900));
 	private final SliderSetting markXThickness =
 		new SliderSetting("Opened chest line thickness", 2.0, 0.5, 6.0, 0.5,
 			ValueDisplay.DECIMAL);
+	private final EnumSetting<OpenedChestMarker> openedChestMarker =
+		new EnumSetting<>("Opened chest marker",
+			"Choose how opened chests recorded by ChestSearch should be highlighted.",
+			OpenedChestMarker.values(), OpenedChestMarker.LINE);
 	private final CheckboxSetting markOpenedChest = new CheckboxSetting(
 		"Mark opened chest",
 		"Draw ESP/lines through opened chests that appear in your ChestSearch database.",
 		true);
+	private final CheckboxSetting recordedChestNotifications =
+		new CheckboxSetting("Chat notifications",
+			"Show a chat notification when ChestSearch records a container.",
+			false);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 1.0,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
 	
@@ -74,9 +82,11 @@ public final class ChestSearchHack extends Hack
 		addSetting(waypointColor);
 		addSetting(espFillColor);
 		addSetting(espLineColor);
+		addSetting(markOpenedChest);
+		addSetting(openedChestMarker);
 		addSetting(markXColor);
 		addSetting(markXThickness);
-		addSetting(markOpenedChest);
+		addSetting(recordedChestNotifications);
 	}
 	
 	public int getMarkXColorARGB()
@@ -98,6 +108,23 @@ public final class ChestSearchHack extends Hack
 	public boolean isMarkOpenedChest()
 	{
 		return markOpenedChest.isChecked();
+	}
+	
+	public OpenedChestMarker getOpenedChestMarker()
+	{
+		try
+		{
+			OpenedChestMarker marker = openedChestMarker.getSelected();
+			return marker != null ? marker : OpenedChestMarker.LINE;
+		}catch(Throwable t)
+		{
+			return OpenedChestMarker.LINE;
+		}
+	}
+	
+	public boolean isRecordNotificationEnabled()
+	{
+		return recordedChestNotifications.isChecked();
 	}
 	
 	public int getCleanerGraceTicks()
@@ -210,6 +237,25 @@ public final class ChestSearchHack extends Hack
 		private final String displayName;
 		
 		private Mode(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+	
+	public enum OpenedChestMarker
+	{
+		LINE("Line"),
+		RECOLOR("Recolor");
+		
+		private final String displayName;
+		
+		private OpenedChestMarker(String displayName)
 		{
 			this.displayName = displayName;
 		}
