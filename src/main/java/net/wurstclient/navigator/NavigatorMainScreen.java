@@ -15,6 +15,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -117,6 +118,15 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		}else if(keyCode == GLFW.GLFW_KEY_UP)
 			if(selectedFeature - 3 > -1)
 				selectedFeature -= 3;
+	}
+	
+	@Override
+	protected boolean onCharTyped(CharacterEvent event)
+	{
+		if(clickTimer != -1 || searchBar == null)
+			return false;
+		
+		return searchBar.charTyped(event);
 	}
 	
 	@Override

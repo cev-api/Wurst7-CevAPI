@@ -22,6 +22,7 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
@@ -272,11 +273,20 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	@Override
 	protected void onKeyPress(KeyEvent context)
 	{
+		if(WurstClient.INSTANCE.getGui().handleKeyPressed(context))
+			return;
+		
 		int keyCode = context.key();
 		
 		if(keyCode == GLFW.GLFW_KEY_ESCAPE
 			|| keyCode == GLFW.GLFW_KEY_BACKSPACE)
 			goBack();
+	}
+	
+	@Override
+	protected boolean onCharTyped(CharacterEvent event)
+	{
+		return WurstClient.INSTANCE.getGui().handleCharTyped(event);
 	}
 	
 	@Override
