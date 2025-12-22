@@ -61,6 +61,11 @@ public final class AutoStealHack extends Hack
 		startClickingSlots(screen, rows * 9, rows * 9 + 36, false);
 	}
 	
+	public void dump(AbstractContainerScreen<?> screen, int rows)
+	{
+		startDroppingSlots(screen, 0, rows * 9);
+	}
+	
 	private void startClickingSlots(AbstractContainerScreen<?> screen, int from,
 		int to, boolean steal)
 	{
@@ -72,11 +77,21 @@ public final class AutoStealHack extends Hack
 			.start(() -> shiftClickSlots(screen, from, to, steal));
 	}
 	
+	private void startDroppingSlots(AbstractContainerScreen<?> screen, int from,
+		int to)
+	{
+		if(thread != null && thread.isAlive())
+			thread.interrupt();
+		
+		thread = Thread.ofPlatform().name("AutoSteal")
+			.uncaughtExceptionHandler((t, e) -> e.printStackTrace()).daemon()
+			.start(() -> dropSlots(screen, from, to));
+	}
+	
 	private void shiftClickSlots(AbstractContainerScreen<?> screen, int from,
 		int to, boolean steal)
 	{
-		List<Slot> slots = IntStream.range(from, to)
-			.mapToObj(i -> screen.getMenu().slots.get(i)).toList();
+		List<Slot> slots = collectSlots(screen, from, to);
 		
 		if(reverseSteal.isChecked() && steal)
 			slots = slots.reversed();
@@ -160,6 +175,40 @@ public final class AutoStealHack extends Hack
 				Thread.currentThread().interrupt();
 				break;
 			}
+	}
+	
+	private void dropSlots(AbstractContainerScreen<?> screen, int from, int to)
+	{
+		List<Slot> slots = collectSlots(screen, from, to);
+		
+		for(Slot slot : slots)
+			try
+			{
+				if(slot.getItem().isEmpty())
+					continue;
+				
+				Thread.sleep(delay.getValueI());
+				
+				if(MC.screen == null)
+					break;
+				
+				screen.slotClicked(slot, slot.index, 1, ClickType.THROW);
+				
+			}catch(InterruptedException e)
+			{
+				Thread.currentThread().interrupt();
+				break;
+			}
+	}
+	
+	private List<Slot> collectSlots(AbstractContainerScreen<?> screen, int from,
+		int to)
+	{
+		int totalSlots = screen.getMenu().slots.size();
+		int safeFrom = Math.max(0, Math.min(from, totalSlots));
+		int safeTo = Math.max(safeFrom, Math.min(to, totalSlots));
+		return IntStream.range(safeFrom, safeTo)
+			.mapToObj(i -> screen.getMenu().slots.get(i)).toList();
 	}
 	
 	private java.util.Set<Item> getInventoryItemTypes()
