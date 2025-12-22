@@ -557,6 +557,7 @@ Examples:
 - Fixed crashes on empty/zero-size shapes.  
 - Search tracers now use block centers as fallback.  
 - SignESP skips zero-size entries safely.  
+- ChunkSearcher now snapshots each chunk’s block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
 
 ### Notes
 - Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
