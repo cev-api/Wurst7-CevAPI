@@ -105,17 +105,34 @@ public abstract class GenericContainerScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		final ChestSearchHack chestSearchHack = wurst$getChestSearchHack();
+		boolean autoButtonsPlaced = false;
+		final int autoButtonHeight = 12;
+		final int autoButtonY = topPos - autoButtonHeight - 4;
 		if(autoSteal.areButtonsVisible())
 		{
+			autoButtonsPlaced = true;
+			final int buttonWidth = 44;
+			final int buttonSpacing = 3;
+			final int rightMargin = 6;
+			int dumpX = leftPos + imageWidth - rightMargin - buttonWidth;
+			int storeX = dumpX - buttonSpacing - buttonWidth;
+			int stealX = storeX - buttonSpacing - buttonWidth;
+			
 			addRenderableWidget(Button
 				.builder(Component.literal("Steal"),
 					b -> autoSteal.steal(this, containerRows))
-				.bounds(leftPos + imageWidth - 108, topPos + 4, 50, 12)
+				.bounds(stealX, autoButtonY, buttonWidth, autoButtonHeight)
 				.build());
 			addRenderableWidget(Button
 				.builder(Component.literal("Store"),
 					b -> autoSteal.store(this, containerRows))
-				.bounds(leftPos + imageWidth - 56, topPos + 4, 50, 12).build());
+				.bounds(storeX, autoButtonY, buttonWidth, autoButtonHeight)
+				.build());
+			addRenderableWidget(Button
+				.builder(Component.literal("Dump"),
+					b -> autoSteal.dump(this, containerRows))
+				.bounds(dumpX, autoButtonY, buttonWidth, autoButtonHeight)
+				.build());
 		}
 		if(autoSteal.isEnabled())
 			autoSteal.steal(this, containerRows);
@@ -129,10 +146,13 @@ public abstract class GenericContainerScreenMixin
 			// visually outside the chest/inventory GUI. Use the same
 			// positioning/size as the inventory screen button so it
 			// appears outside the form consistently.
+			int quickButtonY =
+				autoButtonsPlaced ? autoButtonY - 20 : topPos - 20;
 			Button quickButton = Button
 				.builder(Component.literal("QuickShulker"),
 					b -> quickShulker.triggerFromGui())
-				.bounds(leftPos + imageWidth - 90, topPos - 20, 80, 16).build();
+				.bounds(leftPos + imageWidth - 90, quickButtonY, 80, 16)
+				.build();
 			quickButton.active = !quickShulker.isBusy();
 			addRenderableWidget(quickButton);
 		}
