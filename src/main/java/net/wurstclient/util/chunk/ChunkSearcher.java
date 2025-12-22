@@ -11,14 +11,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
+import org.slf4j.Logger;
+import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.MissingPaletteEntryException;
+import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.dimension.DimensionType;
+import net.wurstclient.WurstClient;
 import net.wurstclient.util.MinPriorityThreadFactory;
 
 /**
@@ -26,7 +33,8 @@ import net.wurstclient.util.MinPriorityThreadFactory;
  */
 public final class ChunkSearcher
 {
-	private static final ExecutorService BACKGROUND_THREAD_POOL =
+	private static final Logger LOGGER = LogUtils.getLogger();
+	private static final java.util.concurrent.ExecutorService BACKGROUND_THREAD_POOL =
 		MinPriorityThreadFactory.newFixedThreadPool();
 	
 	private final BiPredicate<BlockPos, BlockState> query;
@@ -51,21 +59,31 @@ public final class ChunkSearcher
 		if(future != null || interrupted)
 			throw new IllegalStateException();
 		
-		future = CompletableFuture.supplyAsync(this::searchNow,
+		ChunkSnapshot snapshot = ChunkSnapshot.capture(chunk);
+		if(snapshot == null)
+		{
+			future = CompletableFuture.completedFuture(new ArrayList<>());
+			return;
+		}
+		
+		future = CompletableFuture.supplyAsync(() -> searchNow(snapshot),
 			BACKGROUND_THREAD_POOL);
 	}
 	
-	private ArrayList<Result> searchNow()
+	private ArrayList<Result> searchNow(ChunkSnapshot snapshot)
 	{
 		ArrayList<Result> results = new ArrayList<>();
-		ChunkPos chunkPos = chunk.getPos();
+		boolean reportedMissingEntry = false;
+		ChunkPos chunkPos = snapshot.chunkPos();
 		
-		int minX = chunkPos.getMinBlockX();
-		int minY = chunk.getMinY();
-		int minZ = chunkPos.getMinBlockZ();
-		int maxX = chunkPos.getMaxBlockX();
-		int maxY = ChunkUtils.getHighestNonEmptySectionYOffset(chunk) + 16;
-		int maxZ = chunkPos.getMaxBlockZ();
+		int minX = snapshot.minX();
+		int minY = snapshot.minY();
+		int minZ = snapshot.minZ();
+		int maxX = snapshot.maxX();
+		int maxY = snapshot.maxY();
+		int maxZ = snapshot.maxZ();
+		
+		BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
 		
 		for(int x = minX; x <= maxX; x++)
 			for(int y = minY; y <= maxY; y++)
@@ -74,12 +92,27 @@ public final class ChunkSearcher
 					if(interrupted)
 						return results;
 					
-					BlockPos pos = new BlockPos(x, y, z);
-					BlockState state = chunk.getBlockState(pos);
-					if(!query.test(pos, state))
+					mutablePos.set(x, y, z);
+					BlockState state;
+					try
+					{
+						state = snapshot.getBlockState(mutablePos);
+						
+					}catch(MissingPaletteEntryException e)
+					{
+						if(!reportedMissingEntry)
+						{
+							reportedMissingEntry = true;
+							LOGGER.warn(
+								"ChunkSearcher skipped palette gap in chunk {}: {}",
+								chunkPos, e.getMessage());
+						}
+						continue;
+					}
+					if(!query.test(mutablePos, state))
 						continue;
 					
-					results.add(new Result(pos.immutable(), state));
+					results.add(new Result(mutablePos.immutable(), state));
 				}
 			
 		return results;
@@ -115,6 +148,9 @@ public final class ChunkSearcher
 			return Stream.empty();
 		
 		ensureResultsLoaded();
+		if(results == null)
+			return Stream.empty();
+		
 		ArrayList<Result> snapshot;
 		synchronized(this)
 		{
@@ -129,6 +165,9 @@ public final class ChunkSearcher
 			return List.of();
 		
 		ensureResultsLoaded();
+		if(results == null)
+			return List.of();
+		
 		synchronized(this)
 		{
 			return Collections.unmodifiableList(new ArrayList<>(results));
@@ -208,6 +247,9 @@ public final class ChunkSearcher
 		if(results != null || future == null || future.isCancelled())
 			return;
 		
+		if(!future.isDone())
+			return;
+		
 		ArrayList<Result> computed = future.join();
 		
 		synchronized(this)
@@ -276,4 +318,61 @@ public final class ChunkSearcher
 	
 	public record BlockUpdate(BlockPos pos, BlockState state)
 	{}
+	
+	private record ChunkSnapshot(ChunkPos chunkPos, int minX, int minY,
+		int minZ, int maxX, int maxY, int maxZ, int minSectionCoord,
+		PalettedContainer<BlockState>[] sections)
+	{
+		static ChunkSnapshot capture(ChunkAccess chunk)
+		{
+			if(WurstClient.MC == null || WurstClient.MC.level == null)
+				return null;
+			
+			ChunkPos chunkPos = chunk.getPos();
+			if(!WurstClient.MC.level.hasChunk(chunkPos.x, chunkPos.z))
+				return null;
+			
+			LevelChunkSection[] chunkSections = chunk.getSections();
+			@SuppressWarnings("unchecked")
+			PalettedContainer<BlockState>[] copies =
+				new PalettedContainer[chunkSections.length];
+			
+			for(int i = 0; i < chunkSections.length; i++)
+			{
+				LevelChunkSection section = chunkSections[i];
+				if(section == null || section.hasOnlyAir())
+					continue;
+				
+				copies[i] = section.getStates().copy();
+			}
+			
+			int minX = chunkPos.getMinBlockX();
+			int minY = chunk.getMinY();
+			int minZ = chunkPos.getMinBlockZ();
+			int maxX = chunkPos.getMaxBlockX();
+			int maxY = ChunkUtils.getHighestNonEmptySectionYOffset(chunk) + 16;
+			int maxZ = chunkPos.getMaxBlockZ();
+			int minSectionCoord = SectionPos.blockToSectionCoord(minY);
+			
+			return new ChunkSnapshot(chunkPos, minX, minY, minZ, maxX, maxY,
+				maxZ, minSectionCoord, copies);
+		}
+		
+		BlockState getBlockState(BlockPos pos)
+		{
+			int ySection = SectionPos.blockToSectionCoord(pos.getY());
+			int sectionIndex = ySection - minSectionCoord;
+			
+			PalettedContainer<BlockState> container = null;
+			
+			if(sectionIndex >= 0 && sectionIndex < sections.length)
+				container = sections[sectionIndex];
+			
+			if(container == null)
+				return Blocks.AIR.defaultBlockState();
+			
+			return container.get(pos.getX() & 15, pos.getY() & 15,
+				pos.getZ() & 15);
+		}
+	}
 }
