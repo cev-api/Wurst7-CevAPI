@@ -179,9 +179,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}
 		
 		String curDimFull = MC.level == null ? "overworld"
-			: MC.level.dimension().identifier().toString();
+			: MC.level.dimension().location().toString();
 		String curDim = MC.level == null ? "overworld"
-			: MC.level.dimension().identifier().getPath();
+			: MC.level.dimension().location().getPath();
 		
 		for(ChestEspGroup group : groups.allGroups)
 		{
