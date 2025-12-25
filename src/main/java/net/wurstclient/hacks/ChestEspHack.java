@@ -10,7 +10,13 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -25,6 +31,8 @@ import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.chestsearch.ChestSearchMarkerRenderer;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
@@ -55,17 +63,28 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private java.util.List<ChestEntry> openedChests = java.util.List.of();
 	
+	// Buried highlighting
+	private final CheckboxSetting highlightBuried = new CheckboxSetting(
+		"Highlight buried separately",
+		"Chests with a non-air block above and shulker boxes whose opening side is blocked will be highlighted in a different color.",
+		false);
+	private final ColorSetting buriedColor = new ColorSetting("Buried color",
+		"Color used for buried chests and shulkers.",
+		new java.awt.Color(0xFF7F00));
+	
 	public ChestEspHack()
 	{
 		super("ChestESP");
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(stickyArea);
-		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
-			.forEach(this::addSetting);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(highlightBuried);
+		addSetting(buriedColor);
 		addSetting(showCountInHackList);
+		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
+			.forEach(this::addSetting);
 	}
 	
 	@Override
@@ -153,6 +172,17 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void renderBoxes(PoseStack matrixStack)
 	{
+		boolean workstationEnabled = false;
+		boolean redstoneEnabled = false;
+		try
+		{
+			var hax = net.wurstclient.WurstClient.INSTANCE.getHax();
+			workstationEnabled = hax.workstationEspHack != null
+				&& hax.workstationEspHack.isEnabled();
+			redstoneEnabled =
+				hax.redstoneEspHack != null && hax.redstoneEspHack.isEnabled();
+		}catch(Throwable ignored)
+		{}
 		ChestSearchHack csh = null;
 		boolean canMarkOpened = false;
 		ChestSearchHack.OpenedChestMarker markerMode =
@@ -188,28 +218,74 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(!group.isEnabled())
 				continue;
 			
+			// Suppress overlapping categories when specialized hacks are active
+			if(workstationEnabled
+				&& (group == groups.crafters || group == groups.furnaces))
+				continue;
+			if(redstoneEnabled && (group == groups.droppers
+				|| group == groups.dispensers || group == groups.hoppers))
+				continue;
+			
 			List<AABB> boxes = group.getBoxes();
-			if(boxes.isEmpty())
+			List<AABB> buriedBoxes = java.util.Collections.emptyList();
+			if(group instanceof ChestEspBlockGroup bg)
+				buriedBoxes = bg.getBuriedBoxes();
+			
+			if(MC.level != null && highlightBuried.isChecked()
+				&& buriedBoxes != null && !buriedBoxes.isEmpty())
+			{
+				buriedBoxes = filterToChestShulkerBarrelBoxes(buriedBoxes);
+			}
+			
+			if(buriedBoxes.isEmpty() && highlightBuried.isChecked()
+				&& MC.level != null && boxes != null && !boxes.isEmpty())
+			{
+				buriedBoxes =
+					computeBuriedBoxesByAboveForChestShulkerBarrel(boxes);
+			}
+			
+			if(boxes.isEmpty() && buriedBoxes.isEmpty())
 				continue;
 			
 			int quadsColor = group.getColorI(0x40);
 			int linesColor = group.getColorI(0x80);
 			
+			// Compute opened/closed across both normal and buried boxes
 			List<AABB> openedBoxes = java.util.Collections.emptyList();
-			List<AABB> closedBoxes = boxes;
+			// Base normal = boxes minus buried (by identity)
+			java.util.Set<AABB> buriedId = java.util.Collections
+				.newSetFromMap(new java.util.IdentityHashMap<>());
+			buriedId.addAll(buriedBoxes);
+			java.util.ArrayList<AABB> baseNormal = new java.util.ArrayList<>();
+			for(AABB b : boxes)
+				if(!buriedId.contains(b))
+					baseNormal.add(b);
+			List<AABB> closedNormal = baseNormal;
+			List<AABB> closedBuried = buriedBoxes;
 			if(canMarkOpened)
 			{
 				List<AABB> opened = new ArrayList<>();
-				List<AABB> closed = new ArrayList<>();
-				for(AABB box : boxes)
+				List<AABB> cNormal = new ArrayList<>();
+				List<AABB> cBuried = new ArrayList<>();
+				// check normal
+				for(AABB box : baseNormal)
 				{
 					if(isRecordedChest(box, curDimFull, curDim))
 						opened.add(box);
 					else
-						closed.add(box);
+						cNormal.add(box);
+				}
+				// check buried as well
+				for(AABB box : buriedBoxes)
+				{
+					if(isRecordedChest(box, curDimFull, curDim))
+						opened.add(box);
+					else
+						cBuried.add(box);
 				}
 				openedBoxes = opened;
-				closedBoxes = closed;
+				closedNormal = cNormal;
+				closedBuried = cBuried;
 			}
 			
 			boolean useRecolor = canMarkOpened
@@ -218,12 +294,26 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			
 			if(useRecolor && csh != null)
 			{
-				if(!closedBoxes.isEmpty())
+				// draw closed normals in group color
+				if(!closedNormal.isEmpty())
 				{
-					RenderUtils.drawSolidBoxes(matrixStack, closedBoxes,
+					RenderUtils.drawSolidBoxes(matrixStack, closedNormal,
 						quadsColor, false);
-					RenderUtils.drawOutlinedBoxes(matrixStack, closedBoxes,
+					RenderUtils.drawOutlinedBoxes(matrixStack, closedNormal,
 						linesColor, false);
+				}
+				// draw closed buried with buried color if enabled, else group
+				// color
+				if(!closedBuried.isEmpty())
+				{
+					int bFill = highlightBuried.isChecked()
+						? buriedColor.getColorI(0x40) : quadsColor;
+					int bLine = highlightBuried.isChecked()
+						? buriedColor.getColorI(0x80) : linesColor;
+					RenderUtils.drawSolidBoxes(matrixStack, closedBuried, bFill,
+						false);
+					RenderUtils.drawOutlinedBoxes(matrixStack, closedBuried,
+						bLine, false);
 				}
 				
 				int markColor = csh.getMarkXColorARGB();
@@ -235,10 +325,38 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					openedLineColor, false);
 			}else
 			{
-				RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor,
-					false);
-				RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
-					false);
+				if(!buriedBoxes.isEmpty())
+				{
+					if(highlightBuried.isChecked())
+					{
+						if(!baseNormal.isEmpty())
+						{
+							RenderUtils.drawSolidBoxes(matrixStack, baseNormal,
+								quadsColor, false);
+							RenderUtils.drawOutlinedBoxes(matrixStack,
+								baseNormal, linesColor, false);
+						}
+						int bFill = buriedColor.getColorI(0x40);
+						int bLine = buriedColor.getColorI(0x80);
+						RenderUtils.drawSolidBoxes(matrixStack, buriedBoxes,
+							bFill, false);
+						RenderUtils.drawOutlinedBoxes(matrixStack, buriedBoxes,
+							bLine, false);
+					}else
+					{
+						// Draw all with default group color
+						RenderUtils.drawSolidBoxes(matrixStack, boxes,
+							quadsColor, false);
+						RenderUtils.drawOutlinedBoxes(matrixStack, boxes,
+							linesColor, false);
+					}
+				}else
+				{
+					RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor,
+						false);
+					RenderUtils.drawOutlinedBoxes(matrixStack, boxes,
+						linesColor, false);
+				}
 				
 				if(canMarkOpened
 					&& markerMode == ChestSearchHack.OpenedChestMarker.LINE
@@ -253,6 +371,101 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				}
 			}
 		}
+	}
+	
+	private boolean isChestShulkerOrBarrelBox(AABB box)
+	{
+		if(MC.level == null || box == null)
+			return false;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		for(int x = boxMinX; x <= boxMaxX; x++)
+		{
+			for(int y = boxMinY; y <= boxMaxY; y++)
+			{
+				for(int z = boxMinZ; z <= boxMaxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					BlockState state = MC.level.getBlockState(pos);
+					if(state == null)
+						continue;
+					
+					var block = state.getBlock();
+					if(block instanceof ChestBlock
+						|| block instanceof ShulkerBoxBlock
+						|| block instanceof BarrelBlock)
+						return true;
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	private List<AABB> filterToChestShulkerBarrelBoxes(List<AABB> boxes)
+	{
+		if(MC.level == null || boxes == null || boxes.isEmpty())
+			return java.util.Collections.emptyList();
+		
+		java.util.ArrayList<AABB> out = new java.util.ArrayList<>();
+		for(AABB box : boxes)
+			if(isChestShulkerOrBarrelBox(box))
+				out.add(box);
+			
+		return out;
+	}
+	
+	private List<AABB> computeBuriedBoxesByAboveForChestShulkerBarrel(
+		List<AABB> boxes)
+	{
+		if(MC.level == null || boxes == null || boxes.isEmpty())
+			return java.util.Collections.emptyList();
+		
+		java.util.ArrayList<AABB> buried = new java.util.ArrayList<>();
+		
+		for(AABB box : boxes)
+		{
+			if(box == null)
+				continue;
+			
+			if(!isChestShulkerOrBarrelBox(box))
+				continue;
+			
+			int boxMinX = (int)Math.floor(box.minX + 1e-6);
+			int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+			int boxMinY = (int)Math.floor(box.minY + 1e-6);
+			int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+			int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+			int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+			
+			boolean isBuried = false;
+			
+			for(int x = boxMinX; x <= boxMaxX && !isBuried; x++)
+			{
+				for(int y = boxMinY; y <= boxMaxY && !isBuried; y++)
+				{
+					for(int z = boxMinZ; z <= boxMaxZ && !isBuried; z++)
+					{
+						BlockPos above = new BlockPos(x, y, z).above();
+						BlockState aboveState = MC.level.getBlockState(above);
+						if(!aboveState.isAir()
+							&& !(aboveState.getBlock() instanceof HopperBlock))
+							isBuried = true;
+					}
+				}
+			}
+			
+			if(isBuried)
+				buried.add(box);
+		}
+		
+		return buried;
 	}
 	
 	private boolean isRecordedChest(AABB box, String curDimFull, String curDim)
@@ -296,9 +509,28 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
+		boolean workstationEnabled = false;
+		boolean redstoneEnabled = false;
+		try
+		{
+			var hax = net.wurstclient.WurstClient.INSTANCE.getHax();
+			workstationEnabled = hax.workstationEspHack != null
+				&& hax.workstationEspHack.isEnabled();
+			redstoneEnabled =
+				hax.redstoneEspHack != null && hax.redstoneEspHack.isEnabled();
+		}catch(Throwable ignored)
+		{}
+		
 		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
+				continue;
+			
+			if(workstationEnabled
+				&& (group == groups.crafters || group == groups.furnaces))
+				continue;
+			if(redstoneEnabled && (group == groups.droppers
+				|| group == groups.dispensers || group == groups.hoppers))
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();

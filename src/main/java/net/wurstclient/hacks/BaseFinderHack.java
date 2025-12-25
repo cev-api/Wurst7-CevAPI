@@ -18,10 +18,13 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.BlockVertexCompiler;
 import net.wurstclient.util.ChatUtils;
@@ -30,8 +33,8 @@ import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"base finder", "factions"})
-public final class BaseFinderHack extends Hack
-	implements UpdateListener, RenderListener
+public final class BaseFinderHack extends Hack implements UpdateListener,
+	RenderListener, CameraTransformViewBobbingListener
 {
 	private final BlockListSetting naturalBlocks = new BlockListSetting(
 		"Natural Blocks",
@@ -180,12 +183,33 @@ public final class BaseFinderHack extends Hack
 	private final ColorSetting color = new ColorSetting("Color",
 		"Man-made blocks will be highlighted in this color.", Color.RED);
 	
+	// Y limit controls
+	private final SliderSetting minY = new SliderSetting("Min Y", 0, -64, 384,
+		1, SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting maxY = new SliderSetting("Max Y", 319, -64, 384,
+		1, SliderSetting.ValueDisplay.INTEGER);
+	
+	// Tracer option
+	private final net.wurstclient.settings.CheckboxSetting showTracers =
+		new net.wurstclient.settings.CheckboxSetting("Tracers",
+			"Draw tracer lines from your view to found blocks.", false);
+	
+	// Static area (sticky) option
+	private final CheckboxSetting stickyArea = new CheckboxSetting(
+		"Sticky area",
+		"Off: Re-centers every scan around your position.\nOn: Keeps results anchored so you can path back to them.",
+		false);
+	private BlockPos scanCenter;
+	private boolean lastSticky;
+	
 	private ArrayList<String> blockNames;
 	private java.util.Set<String> naturalExactIds;
 	private String[] naturalKeywords;
 	
 	private final HashSet<BlockPos> matchingBlocks = new HashSet<>();
 	private ArrayList<int[]> vertices = new ArrayList<>();
+	private java.util.ArrayList<net.minecraft.world.phys.Vec3> tracerEnds =
+		new java.util.ArrayList<>();
 	private EasyVertexBuffer vertexBuffer;
 	
 	private int messageTimer = 0;
@@ -199,6 +223,10 @@ public final class BaseFinderHack extends Hack
 		setCategory(Category.RENDER);
 		addSetting(naturalBlocks);
 		addSetting(color);
+		addSetting(minY);
+		addSetting(maxY);
+		addSetting(showTracers);
+		addSetting(stickyArea);
 	}
 	
 	@Override
@@ -227,9 +255,12 @@ public final class BaseFinderHack extends Hack
 		messageTimer = 0;
 		blockNames = new ArrayList<>(naturalBlocks.getBlockNames());
 		rebuildNaturalCaches();
+		scanCenter = BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
+		lastSticky = stickyArea.isChecked();
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 	}
 	
 	@Override
@@ -237,13 +268,16 @@ public final class BaseFinderHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		matchingBlocks.clear();
 		vertices.clear();
+		tracerEnds.clear();
 		
 		if(vertexBuffer != null)
 			vertexBuffer.close();
 		vertexBuffer = null;
 		lastRegion = null;
+		scanCenter = null;
 	}
 	
 	@Override
@@ -263,11 +297,64 @@ public final class BaseFinderHack extends Hack
 			color.getColorF(), 0.25F);
 		
 		matrixStack.popPose();
+		
+		// Tracers (world-space, no regional offset) using last compiled set
+		if(showTracers.isChecked() && !tracerEnds.isEmpty())
+		{
+			int lineColor = color.getColorI(0x80);
+			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
+				lineColor, false);
+		}
+	}
+	
+	@Override
+	public void onCameraTransformViewBobbing(
+		CameraTransformViewBobbingEvent event)
+	{
+		if(showTracers.isChecked())
+			event.cancel();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		// Detect block list changes without toggling the hack
+		java.util.ArrayList<String> current =
+			new java.util.ArrayList<>(naturalBlocks.getBlockNames());
+		if(!current.equals(blockNames))
+		{
+			blockNames = current;
+			rebuildNaturalCaches();
+			matchingBlocks.clear();
+			vertices.clear();
+			tracerEnds.clear();
+			if(vertexBuffer != null)
+			{
+				vertexBuffer.close();
+				vertexBuffer = null;
+			}
+			lastRegion = null;
+		}
+		
+		// Update scan center based on sticky toggle
+		boolean sticky = stickyArea.isChecked();
+		if(sticky != lastSticky)
+		{
+			matchingBlocks.clear();
+			vertices.clear();
+			tracerEnds.clear();
+			if(vertexBuffer != null)
+			{
+				vertexBuffer.close();
+				vertexBuffer = null;
+			}
+			lastRegion = null;
+			lastSticky = sticky;
+		}
+		if(!sticky || scanCenter == null)
+			scanCenter =
+				BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
+		
 		int modulo = MC.player.tickCount % 64;
 		RegionPos region = RenderUtils.getCameraRegion();
 		
@@ -290,12 +377,18 @@ public final class BaseFinderHack extends Hack
 		if(modulo == 0)
 			matchingBlocks.clear();
 		
-		int stepSize = MC.level.getHeight() / 64;
-		int startY = MC.level.getMaxY() - 1 - modulo * stepSize;
-		int endY = startY - stepSize;
+		int cfgMin = (int)Math.min(minY.getValue(), maxY.getValue());
+		int cfgMax = (int)Math.max(minY.getValue(), maxY.getValue());
+		int worldMin = MC.level.getMinY();
+		int worldMax = MC.level.getMaxY() - 1;
+		int scanMin = Math.max(worldMin, cfgMin);
+		int scanMax = Math.min(worldMax, cfgMax);
+		int heightRange = Math.max(1, scanMax - scanMin + 1);
+		int stepSize = Math.max(1, heightRange / 64);
+		int startY = scanMax - modulo * stepSize;
+		int endY = Math.max(scanMin, startY - stepSize);
 		
-		BlockPos playerPos =
-			BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
+		BlockPos playerPos = scanCenter;
 		
 		// search matching blocks
 		loop: for(int y = startY; y > endY; y--)
@@ -365,6 +458,11 @@ public final class BaseFinderHack extends Hack
 		
 		// calculate vertices
 		vertices = BlockVertexCompiler.compile(matchingBlocks);
+		// update stable tracer end points until next compile
+		tracerEnds = new java.util.ArrayList<>(matchingBlocks.size());
+		for(BlockPos p : matchingBlocks)
+			tracerEnds.add(new net.minecraft.world.phys.Vec3(p.getX() + 0.5,
+				p.getY() + 0.5, p.getZ() + 0.5));
 	}
 	
 	private void rebuildNaturalCaches()

@@ -127,6 +127,9 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Highlights crafting/workstation blocks: Crafting Table, Smithing Table, Anvil, Grindstone, Enchanting Table, Cartography Table, Stonecutter, Loom, Furnace, Blast Furnace, Smoker, Campfire, Soul Campfire, Brewing Stand, Cauldron, Barrel, Composter, Lectern, Fletching Table, Beacon.  
 - Per-block toggles and colors. Defaults: all enabled.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
+- Color override settings option to force all blocks to be a single color.
+- Colors here will superseed ChestESP.
+- Added HackList count.
 
 ![WorkStation](https://i.imgur.com/prsll1D.png)
 
@@ -134,6 +137,9 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Highlights redstone components: Torch/Block, Lever, Tripwire Hook, Target Block, Dust, Repeater, Comparator, Observer, Daylight Detector, Skulk Sensor (+ Calibrated), Pistons, Dispenser, Dropper, Hopper, Trapped Chest, Note Block, Jukebox, Bell, Lectern (redstone), Powered/Detector/Activator Rails.  
 - Buttons and pressure plates are grouped with individual toggles + colors.  
 - Rendering: Boxes, Lines, or Both in a fixed color.
+- Color override settings option to force all blocks to be a single color.
+- Colors here will superseed ChestESP.
+- Added HackList count.
 
 ![RedStone](https://i.imgur.com/VGGq4eU.png)
 
@@ -402,7 +408,19 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Has the same filters and FOV settings as KillAura.
 - Your attacks will spam when going through walls so an auto-cooldown is applied.
 
+### PearlESP
+- Highlight held pearls by other players
+- Shows where other players (including yourself) will be teleported
+- Predict where your pearl will go via a trajectory line
+- Adjustable color, default is purple
+
 ## What’s changed or improved in this fork?
+
+### ChestESP
+- Added sticky area mode which makes the scan anchored instead of re-centering when you move
+- Added ESP Y limit
+- Added HackList count
+- Added Buried chest highlighting
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
@@ -498,7 +516,12 @@ Examples:
 - Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bind-able to a key.
 
 ### BaseFinder Improvements
-- Updated natural blocks list to latest versions.  
+- ESP Y range adjustability
+- Live updates for selected blocks, meaning you can adjust them on the fly without resetting the hack
+- Added tracer option
+- Added sticky area mode which makes the scan anchored instead of re-centering when you move
+- Updated natural blocks list to latest versions
+- Added HackList count
 
 ### MobESP Improvements
 - Added rainbow/fixed color options for boxes/lines.  
@@ -523,7 +546,7 @@ Examples:
 
 ### Sticky Area (New ESP Option)
 - Added to chunk-based ESPs (Search, Portal ESP, BedESP, SignESP, WorkstationESP, RedstoneESP, ChestESP).  
-- Keeps results anchored as you move. Default OFF.  
+- Keeps results anchored as you move instead of re-centering as you move. Default OFF.  
 - Greatly helps with FPS when using things like Search or X-Ray and moving quickly
 - Global toggle accessible via 'GlobalToggle' setting in the Other category within the ClickUI. 
 

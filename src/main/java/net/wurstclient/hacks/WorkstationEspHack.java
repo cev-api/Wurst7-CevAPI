@@ -190,18 +190,28 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	
+	// Global color override
+	private final CheckboxSetting useFixedColor = new CheckboxSetting(
+		"Use fixed color",
+		"When enabled, all workstation ESP boxes use the fixed color below, overriding per-block colors.",
+		false);
+	private final ColorSetting fixedColor = new ColorSetting("Fixed color",
+		"Global override color for workstation ESP.", defaultColor);
+	
 	public WorkstationEspHack()
 	{
 		super("WorkstationESP");
 		setCategory(Category.RENDER);
 		addSetting(style);
-		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
-			.forEach(this::addSetting);
 		addSetting(showCountInHackList);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(useFixedColor);
+		addSetting(fixedColor);
 		addSetting(area);
 		addSetting(stickyArea);
+		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
+			.forEach(this::addSetting);
 	}
 	
 	private boolean isTargetBlock(Block b)
@@ -295,8 +305,10 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			if(!group.isEnabled())
 				continue;
 			List<AABB> boxes = group.getBoxes();
-			int quadsColor = group.getColorI(0x40);
-			int linesColor = group.getColorI(0x80);
+			int quadsColor = useFixedColor.isChecked()
+				? fixedColor.getColorI(0x40) : group.getColorI(0x40);
+			int linesColor = useFixedColor.isChecked()
+				? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 			RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor, false);
 			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
 				false);
@@ -311,7 +323,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 				continue;
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
-			int color = group.getColorI(0x80);
+			int color = useFixedColor.isChecked() ? fixedColor.getColorI(0x80)
+				: group.getColorI(0x80);
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}
