@@ -10,13 +10,26 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.golem.IronGolem;
+import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -34,6 +47,7 @@ import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
@@ -72,6 +86,34 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		"Color used for buried chests and shulkers.",
 		new java.awt.Color(0xFF7F00));
 	
+	private final CheckboxSetting onlyBuried = new CheckboxSetting(
+		"Only buried",
+		"Only show buried containers (non-air above for chests/barrels; blocked opening side for shulkers).",
+		false);
+	
+	private final CheckboxSetting filterNearSpawners = new CheckboxSetting(
+		"Filter spawners",
+		"Hides single chests that are near a mob spawner. Does not affect double chests or shulkers.",
+		false);
+	
+	private final CheckboxSetting filterTrialChambers = new CheckboxSetting(
+		"Filter trial chambers",
+		"Hides single chests that match common trial chamber layouts. Does not affect double chests or shulkers.",
+		false);
+	
+	private final CheckboxSetting filterVillages = new CheckboxSetting(
+		"Filter villages",
+		"Hides single chests that appear to belong to villages. Does not affect double chests or shulkers.",
+		false);
+	
+	private List<BlockPos> cachedTrialSpawners = List.of();
+	private List<Vec3> cachedVillagerPositions = List.of();
+	private List<Vec3> cachedGolemPositions = List.of();
+	
+	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG = TagKey.create(
+		Registries.BLOCK,
+		Identifier.fromNamespaceAndPath("minecraft", "waxed_copper_blocks"));
+	
 	public ChestEspHack()
 	{
 		super("ChestESP");
@@ -82,6 +124,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 		addSetting(highlightBuried);
 		addSetting(buriedColor);
+		addSetting(onlyBuried);
+		addSetting(filterNearSpawners);
+		addSetting(filterTrialChambers);
+		addSetting(filterVillages);
 		addSetting(showCountInHackList);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
@@ -104,6 +150,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		groups.allGroups.forEach(ChestEspGroup::clear);
 		foundCount = 0;
+		cachedTrialSpawners = List.of();
+		cachedVillagerPositions = List.of();
+		cachedGolemPositions = List.of();
 	}
 	
 	@Override
@@ -132,6 +181,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					.forEach(group -> group.addIfMatches(entity));
 			}
 		}
+		
+		refreshEnvironmentalCaches();
 		
 		int total = groups.allGroups.stream().filter(ChestEspGroup::isEnabled)
 			.mapToInt(g -> g.getBoxes().size()).sum();
@@ -213,6 +264,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		String curDim = MC.level == null ? "overworld"
 			: MC.level.dimension().identifier().getPath();
 		
+		boolean applyEnvFilters =
+			MC.level != null && (filterNearSpawners.isChecked()
+				|| filterTrialChambers.isChecked()
+				|| filterVillages.isChecked());
+		
 		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
@@ -231,18 +287,31 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(group instanceof ChestEspBlockGroup bg)
 				buriedBoxes = bg.getBuriedBoxes();
 			
-			if(MC.level != null && highlightBuried.isChecked()
+			if(MC.level != null
+				&& (highlightBuried.isChecked() || onlyBuried.isChecked())
 				&& buriedBoxes != null && !buriedBoxes.isEmpty())
 			{
 				buriedBoxes = filterToChestShulkerBarrelBoxes(buriedBoxes);
 			}
 			
-			if(buriedBoxes.isEmpty() && highlightBuried.isChecked()
+			if((buriedBoxes.isEmpty()
+				&& (highlightBuried.isChecked() || onlyBuried.isChecked()))
 				&& MC.level != null && boxes != null && !boxes.isEmpty())
 			{
 				buriedBoxes =
 					computeBuriedBoxesByAboveForChestShulkerBarrel(boxes);
 			}
+			
+			if(applyEnvFilters)
+			{
+				if(boxes != null && !boxes.isEmpty())
+					boxes = filterBoxesByEnvironment(boxes);
+				if(buriedBoxes != null && !buriedBoxes.isEmpty())
+					buriedBoxes = filterBoxesByEnvironment(buriedBoxes);
+			}
+			
+			if(onlyBuried.isChecked())
+				boxes = buriedBoxes;
 			
 			if(boxes.isEmpty() && buriedBoxes.isEmpty())
 				continue;
@@ -521,6 +590,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}catch(Throwable ignored)
 		{}
 		
+		boolean applyEnvFilters =
+			MC.level != null && (filterNearSpawners.isChecked()
+				|| filterTrialChambers.isChecked()
+				|| filterVillages.isChecked());
+		
 		for(ChestEspGroup group : groups.allGroups)
 		{
 			if(!group.isEnabled())
@@ -534,6 +608,38 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();
+			List<AABB> buriedBoxes = java.util.Collections.emptyList();
+			if(group instanceof ChestEspBlockGroup bg)
+				buriedBoxes = bg.getBuriedBoxes();
+			
+			if(MC.level != null && onlyBuried.isChecked() && buriedBoxes != null
+				&& !buriedBoxes.isEmpty())
+			{
+				buriedBoxes = filterToChestShulkerBarrelBoxes(buriedBoxes);
+			}
+			
+			if(onlyBuried.isChecked() && MC.level != null
+				&& (buriedBoxes == null || buriedBoxes.isEmpty())
+				&& boxes != null && !boxes.isEmpty())
+			{
+				buriedBoxes =
+					computeBuriedBoxesByAboveForChestShulkerBarrel(boxes);
+			}
+			
+			if(applyEnvFilters)
+			{
+				if(boxes != null && !boxes.isEmpty())
+					boxes = filterBoxesByEnvironment(boxes);
+				if(buriedBoxes != null && !buriedBoxes.isEmpty())
+					buriedBoxes = filterBoxesByEnvironment(buriedBoxes);
+			}
+			
+			if(onlyBuried.isChecked())
+				boxes = buriedBoxes;
+			
+			if(boxes == null || boxes.isEmpty())
+				continue;
+			
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = group.getColorI(0x80);
 			
@@ -549,5 +655,263 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		if(showCountInHackList.isChecked() && foundCount > 0)
 			return base + " [" + foundCount + "]";
 		return base;
+	}
+	
+	private void refreshEnvironmentalCaches()
+	{
+		if(MC.level == null)
+		{
+			cachedTrialSpawners = List.of();
+			cachedVillagerPositions = List.of();
+			cachedGolemPositions = List.of();
+			return;
+		}
+		
+		if(filterTrialChambers.isChecked())
+			cachedTrialSpawners = collectTrialSpawnerPositions();
+		else
+			cachedTrialSpawners = List.of();
+		
+		if(filterVillages.isChecked())
+		{
+			cachedVillagerPositions = collectEntityPositions(Villager.class);
+			cachedGolemPositions = collectEntityPositions(IronGolem.class);
+		}else
+		{
+			cachedVillagerPositions = List.of();
+			cachedGolemPositions = List.of();
+		}
+	}
+	
+	private List<BlockPos> collectTrialSpawnerPositions()
+	{
+		return ChunkUtils.getLoadedBlockEntities()
+			.filter(be -> be instanceof TrialSpawnerBlockEntity)
+			.map(BlockEntity::getBlockPos).map(BlockPos::immutable)
+			.collect(Collectors.toList());
+	}
+	
+	private <T extends Entity> List<Vec3> collectEntityPositions(Class<T> type)
+	{
+		if(MC.level == null)
+			return List.of();
+		
+		java.util.ArrayList<Vec3> out = new java.util.ArrayList<>();
+		for(Entity e : MC.level.entitiesForRendering())
+		{
+			if(e == null || e.isRemoved())
+				continue;
+			
+			if(type.isInstance(e))
+				out.add(Vec3.atCenterOf(e.blockPosition()));
+		}
+		
+		return out;
+	}
+	
+	private List<AABB> filterBoxesByEnvironment(List<AABB> boxes)
+	{
+		if(MC.level == null || boxes == null || boxes.isEmpty())
+			return boxes;
+		
+		java.util.ArrayList<AABB> out = new java.util.ArrayList<>(boxes.size());
+		for(AABB box : boxes)
+		{
+			if(box == null)
+				continue;
+			
+			BlockPos singleChestPos = getSingleChestPosIfApplicable(box);
+			if(singleChestPos == null)
+			{
+				out.add(box);
+				continue;
+			}
+			
+			if(filterNearSpawners.isChecked()
+				&& isNearSpawner(singleChestPos, 7))
+				continue;
+			
+			if(filterTrialChambers.isChecked()
+				&& isTrialChamberChest(singleChestPos))
+				continue;
+			
+			if(filterVillages.isChecked()
+				&& isLikelyVillageChest(singleChestPos))
+				continue;
+			
+			out.add(box);
+		}
+		
+		return out;
+	}
+	
+	private BlockPos getSingleChestPosIfApplicable(AABB box)
+	{
+		if(MC.level == null || box == null)
+			return null;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		BlockPos foundChest = null;
+		int chestCount = 0;
+		
+		for(int x = boxMinX; x <= boxMaxX; x++)
+		{
+			for(int y = boxMinY; y <= boxMaxY; y++)
+			{
+				for(int z = boxMinZ; z <= boxMaxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					BlockState state = MC.level.getBlockState(pos);
+					if(state == null)
+						continue;
+					
+					Block b = state.getBlock();
+					if(b instanceof ShulkerBoxBlock)
+						return null;
+					
+					if(b instanceof ChestBlock)
+					{
+						chestCount++;
+						if(foundChest == null)
+							foundChest = pos;
+						
+						if(state.hasProperty(ChestBlock.TYPE))
+						{
+							ChestType t = state.getValue(ChestBlock.TYPE);
+							if(t != ChestType.SINGLE)
+								return null;
+						}
+						
+						if(chestCount > 1)
+							return null;
+					}
+				}
+			}
+		}
+		
+		return foundChest;
+	}
+	
+	private boolean isNearSpawner(BlockPos center, int range)
+	{
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> BlockUtils.getBlock(pos) == Blocks.SPAWNER);
+	}
+	
+	private boolean isTrialChamberChest(BlockPos pos)
+	{
+		int y = pos.getY();
+		if(y < -38 || y > 10)
+			return false;
+		
+		if(!isNearWaxedCopper(pos, 5))
+			return false;
+		
+		return isNearTrialSpawner(pos, 100);
+	}
+	
+	private boolean isNearWaxedCopper(BlockPos center, int range)
+	{
+		if(MC.level == null)
+			return false;
+		
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> isWaxedCopper(MC.level.getBlockState(pos)));
+	}
+	
+	private boolean isWaxedCopper(BlockState state)
+	{
+		if(state == null)
+			return false;
+		
+		if(state.is(WAXED_COPPER_BLOCKS_TAG))
+			return true;
+		
+		String idPath =
+			BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+		return idPath.contains("waxed") && idPath.contains("copper");
+	}
+	
+	private boolean isNearTrialSpawner(BlockPos center, int range)
+	{
+		if(cachedTrialSpawners.isEmpty())
+			return false;
+		
+		double rangeSq = range * range;
+		Vec3 centerVec = Vec3.atCenterOf(center);
+		return cachedTrialSpawners.stream().anyMatch(
+			pos -> Vec3.atCenterOf(pos).distanceToSqr(centerVec) <= rangeSq);
+	}
+	
+	private boolean isLikelyVillageChest(BlockPos pos)
+	{
+		if(!hasDoorNearby(pos, 4))
+			return false;
+		
+		boolean hasVillageEntity =
+			isEntityWithinRange(cachedVillagerPositions, pos, 24)
+				|| isEntityWithinRange(cachedGolemPositions, pos, 24);
+		boolean hayCluster = hasHayBaleCluster(pos, 6);
+		
+		if(hasVillageEntity || hayCluster)
+			return true;
+		
+		return hasGlassPaneCluster(pos, 4, 1);
+	}
+	
+	private boolean isEntityWithinRange(List<Vec3> positions, BlockPos center,
+		double range)
+	{
+		if(positions.isEmpty())
+			return false;
+		
+		double rangeSq = range * range;
+		Vec3 centerVec = Vec3.atCenterOf(center);
+		return positions.stream()
+			.anyMatch(pos -> pos.distanceToSqr(centerVec) <= rangeSq);
+	}
+	
+	private boolean hasHayBaleCluster(BlockPos center, int range)
+	{
+		if(MC.level == null)
+			return false;
+		
+		long count = BlockUtils.getAllInBoxStream(center, range)
+			.filter(pos -> BlockUtils.getBlock(pos) == Blocks.HAY_BLOCK)
+			.limit(16).count();
+		return count >= 4;
+	}
+	
+	private boolean hasDoorNearby(BlockPos center, int range)
+	{
+		if(MC.level == null)
+			return false;
+		
+		return BlockUtils.getAllInBoxStream(center, range)
+			.anyMatch(pos -> BlockUtils.getBlock(pos) instanceof DoorBlock);
+	}
+	
+	private boolean hasGlassPaneCluster(BlockPos center, int range,
+		int requiredCount)
+	{
+		if(MC.level == null)
+			return false;
+		
+		long glassCount = BlockUtils.getAllInBoxStream(center, range)
+			.filter(pos -> isGlassPane(BlockUtils.getBlock(pos)))
+			.limit(requiredCount).count();
+		return glassCount >= requiredCount;
+	}
+	
+	private boolean isGlassPane(Block block)
+	{
+		String path = BuiltInRegistries.BLOCK.getKey(block).getPath();
+		return path.contains("glass_pane");
 	}
 }

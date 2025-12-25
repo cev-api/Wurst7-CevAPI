@@ -420,7 +420,8 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Added sticky area mode which makes the scan anchored instead of re-centering when you move
 - Added ESP Y limit
 - Added HackList count
-- Added Buried chest highlighting
+- Added Buried chest highlighting including a filter to only find buried chests
+- Added filters for chests to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
@@ -520,7 +521,7 @@ Examples:
 - Live updates for selected blocks, meaning you can adjust them on the fly without resetting the hack
 - Added tracer option
 - Added sticky area mode which makes the scan anchored instead of re-centering when you move
-- Updated natural blocks list to latest versions
+- Updated natural blocks list to latest versions (including trial chambers)
 - Added HackList count
 
 ### MobESP Improvements
