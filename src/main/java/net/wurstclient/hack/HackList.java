@@ -228,6 +228,7 @@ public final class HackList implements UpdateListener
 	public final BreadcrumbsHack breadcrumbsHack = new BreadcrumbsHack();
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();
+	public final PearlEspHack pearlEspHack = new PearlEspHack();
 	public final ChestSearchHack chestSearchHack = new ChestSearchHack();
 	public final net.wurstclient.hacks.LootSearchHack lootSearchHack =
 		new net.wurstclient.hacks.LootSearchHack();

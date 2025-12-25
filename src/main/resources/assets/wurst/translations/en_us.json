@@ -413,6 +413,8 @@
   "key.wurst.zoom": "Zoom",
   "toast.wurst.nochatreports.unsafe_server.message": "Messages sent on this server may be reported to Big Brother Mojang and might get your account banned globally",
   "toast.wurst.nochatreports.unsafe_server.title": "Chat messages can be reported",
+  "hack.wurst.pearlesp": "PearlESP",
+  "description.wurst.hack.pearlesp": "Highlights ender pearls thrown by other players, shows predicted landing with a purple box, draws a trajectory line, and highlights when players are holding an ender pearl.",
   "hack.wurst.coordlogger": "CoordLogger",
   "description.wurst.hack.coordlogger": "Logs coordinates vanilla world events. World events are grouped so you can filter them in the ClickGUI. Events out of range will give directional advice rather than pinpoint coordinates."
 }

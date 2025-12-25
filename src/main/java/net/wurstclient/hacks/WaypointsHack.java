@@ -28,6 +28,7 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.Blocks;
@@ -65,6 +66,18 @@ public final class WaypointsHack extends Hack
 	private static final Pattern END_PORTAL_NAME_PATTERN =
 		Pattern.compile("^End Portal (\\d+)$", Pattern.CASE_INSENSITIVE);
 	private static final long PORTAL_RECORD_COOLDOWN_MS = 2000L;
+	private static final String[] DEATH_MESSAGE_PHRASES =
+		{"was slain", "was shot", "was blown", "was killed", "was fireballed",
+			"was roasted", "was doomed", "was squashed", "was pummeled",
+			"was pricked", "was poked", "was impaled", "was stung",
+			"was struck by lightning", "was finished off", "was obliterated",
+			"was killed by magic", "was slain by magic", "burned to death",
+			"burnt to a crisp", "went up in flames", "walked into",
+			"tried to swim", "tried to escape", "drowned", "starved to death",
+			"suffocated", "hit the ground", "experienced kinetic energy",
+			"fell from", "fell off", "fell out of the world", "blew up",
+			"went off with a bang", "froze to death", "withered away",
+			"discovered the floor was lava", "died"};
 	
 	private String worldId = "default";
 	private boolean hasLoadedWorldData;
@@ -340,7 +353,8 @@ public final class WaypointsHack extends Hack
 		if(!trackOtherDeaths.isChecked() || MC.level == null
 			|| MC.player == null)
 			return;
-		String msg = event.getComponent().getString();
+		Component component = event.getComponent();
+		String msg = component.getString();
 		if(msg == null || msg.isEmpty())
 			return;
 		String lower = msg.toLowerCase(Locale.ROOT);
@@ -365,6 +379,10 @@ public final class WaypointsHack extends Hack
 					|| lower.contains("achievement"))))
 			return;
 		
+		boolean vanillaDeath = isVanillaDeathComponent(component);
+		if(!vanillaDeath && !containsDeathPhrase(lower))
+			return;
+		
 		long now = System.currentTimeMillis();
 		// Try to match standard death messages: "<name> ..."
 		for(var p : MC.level.players())
@@ -375,6 +393,8 @@ public final class WaypointsHack extends Hack
 			if(name == null || name.isEmpty())
 				continue;
 			if(!msg.startsWith(name + " "))
+				continue;
+			if(!vanillaDeath && !startsWithDeathPhrase(lower, name))
 				continue;
 			UUID id = p.getUUID();
 			long last = otherDeathCooldown.getOrDefault(id, 0L);
@@ -413,6 +433,39 @@ public final class WaypointsHack extends Hack
 			}
 			return;
 		}
+	}
+	
+	private boolean isVanillaDeathComponent(Component component)
+	{
+		return component != null
+			&& component.getContents() instanceof TranslatableContents tr
+			&& tr.getKey().startsWith("death.");
+	}
+	
+	private boolean containsDeathPhrase(String lower)
+	{
+		for(String phrase : DEATH_MESSAGE_PHRASES)
+			if(lower.contains(phrase))
+				return true;
+		return false;
+	}
+	
+	private boolean startsWithDeathPhrase(String lower, String name)
+	{
+		int idx = name.length();
+		if(idx >= lower.length())
+			return false;
+		while(idx < lower.length() && Character.isWhitespace(lower.charAt(idx)))
+			idx++;
+		if(idx >= lower.length())
+			return false;
+		if(!Character.isLetter(lower.charAt(idx)))
+			return false;
+		String after = lower.substring(idx);
+		for(String phrase : DEATH_MESSAGE_PHRASES)
+			if(after.startsWith(phrase))
+				return true;
+		return false;
 	}
 	
 	private void updatePortalAutoRecording()
