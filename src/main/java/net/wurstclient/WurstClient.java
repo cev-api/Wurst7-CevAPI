@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2025 Wurst-Imperium and contributors.
+ * Copyright (c) 2014-2026 Wurst-Imperium and contributors.
  *
  * This source code is subject to the terms of the GNU General Public
  * License, version 3. If a copy of the GPL was not distributed with this
@@ -41,6 +41,8 @@ import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.WurstUpdater;
 import net.wurstclient.util.PlayerRangeAlertManager;
+import net.wurstclient.util.ServerObserver;
+import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.config.BuildConfig;
@@ -72,6 +74,8 @@ public enum WurstClient
 	private FriendsList friends;
 	private WurstTranslator translator;
 	private PlayerRangeAlertManager playerRangeAlertManager;
+	private ServerObserver serverObserver;
+	private TimerManager timerManager;
 	
 	private boolean enabled = true;
 	private static boolean guiInitialized;
@@ -93,6 +97,11 @@ public enum WurstClient
 		
 		eventManager = new EventManager(this);
 		playerRangeAlertManager = new PlayerRangeAlertManager(eventManager);
+		serverObserver = new ServerObserver(MC);
+		eventManager.add(net.wurstclient.events.PacketInputListener.class,
+			serverObserver);
+		timerManager = new TimerManager();
+		eventManager.add(UpdateListener.class, timerManager);
 		
 		Path enabledHacksFile = wurstFolder.resolve("enabled-hacks.json");
 		Path favoritesHacksFile = wurstFolder.resolve("favourites.json");
@@ -310,6 +319,16 @@ public enum WurstClient
 	public PlayerRangeAlertManager getPlayerRangeAlertManager()
 	{
 		return playerRangeAlertManager;
+	}
+	
+	public ServerObserver getServerObserver()
+	{
+		return serverObserver;
+	}
+	
+	public TimerManager getTimerManager()
+	{
+		return timerManager;
 	}
 	
 	public boolean isEnabled()

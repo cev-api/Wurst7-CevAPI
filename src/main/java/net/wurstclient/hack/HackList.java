@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2025 Wurst-Imperium and contributors.
+ * Copyright (c) 2014-2026 Wurst-Imperium and contributors.
  *
  * This source code is subject to the terms of the GNU General Public
  * License, version 3. If a copy of the GPL was not distributed with this
@@ -33,6 +33,8 @@ public final class HackList implements UpdateListener
 	public final AntiAfkHack antiAfkHack = new AntiAfkHack();
 	public final AntiBlindHack antiBlindHack = new AntiBlindHack();
 	public final AntiCactusHack antiCactusHack = new AntiCactusHack();
+	public final AntiCheatDetectHack antiCheatDetectHack =
+		new AntiCheatDetectHack();
 	public final AntiDropHack antiDropHack = new AntiDropHack();
 	public final AntiBlastHack antiBlastHack = new AntiBlastHack();
 	public final AntiEntityPushHack antiEntityPushHack =
