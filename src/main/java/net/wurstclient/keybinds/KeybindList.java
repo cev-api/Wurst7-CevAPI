@@ -82,6 +82,16 @@ public final class KeybindList
 		keybindsFile.save(this);
 	}
 	
+	public void save()
+	{
+		keybindsFile.save(this);
+	}
+	
+	public void reload()
+	{
+		keybindsFile.load(this);
+	}
+	
 	public Path getProfilesFolder()
 	{
 		return profilesFolder;

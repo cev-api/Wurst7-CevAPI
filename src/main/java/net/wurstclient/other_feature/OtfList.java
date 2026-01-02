@@ -23,6 +23,7 @@ public final class OtfList
 	public final DisableOtf disableOtf = new DisableOtf();
 	public final HackListOtf hackListOtf = new HackListOtf();
 	public final KeybindManagerOtf keybindManagerOtf = new KeybindManagerOtf();
+	public final PresetManagerOtf presetManagerOtf = new PresetManagerOtf();
 	public final LastServerOtf lastServerOtf = new LastServerOtf();
 	public final NoChatReportsOtf noChatReportsOtf = new NoChatReportsOtf();
 	public final NoTelemetryOtf noTelemetryOtf = new NoTelemetryOtf();

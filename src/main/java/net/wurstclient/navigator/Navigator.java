@@ -93,6 +93,12 @@ public final class Navigator
 		preferencesFile.save();
 	}
 	
+	public void reloadPreferences()
+	{
+		preferences.clear();
+		preferencesFile.load();
+	}
+	
 	public List<Feature> getList()
 	{
 		return Collections.unmodifiableList(navigatorList);

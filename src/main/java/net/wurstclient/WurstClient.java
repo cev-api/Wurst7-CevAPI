@@ -37,6 +37,7 @@ import net.wurstclient.mixinterface.IMinecraftClient;
 import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.presets.PresetManager;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.WurstUpdater;
@@ -74,6 +75,7 @@ public enum WurstClient
 	private RotationFaker rotationFaker;
 	private FriendsList friends;
 	private WurstTranslator translator;
+	private PresetManager presetManager;
 	private PlayerRangeAlertManager playerRangeAlertManager;
 	private ServerObserver serverObserver;
 	private SetbackDetector setbackDetector;
@@ -92,6 +94,7 @@ public enum WurstClient
 		MC = Minecraft.getInstance();
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
+		presetManager = new PresetManager(this, wurstFolder);
 		
 		Path analyticsFile = wurstFolder.resolve("analytics.json");
 		plausible = new PlausibleAnalytics(analyticsFile);
@@ -218,6 +221,14 @@ public enum WurstClient
 		{}
 	}
 	
+	public void reloadSettings()
+	{
+		if(settingsFile == null)
+			return;
+		
+		settingsFile.load();
+	}
+	
 	public ArrayList<Path> listSettingsProfiles()
 	{
 		if(!Files.isDirectory(settingsProfileFolder))
@@ -294,6 +305,11 @@ public enum WurstClient
 	public Navigator getNavigator()
 	{
 		return navigator;
+	}
+	
+	public PresetManager getPresetManager()
+	{
+		return presetManager;
 	}
 	
 	public CmdProcessor getCmdProcessor()

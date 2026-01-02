@@ -305,9 +305,19 @@ public final class HackList implements UpdateListener
 		enabledHacksFile.save(this);
 	}
 	
+	public void reloadEnabledHax()
+	{
+		enabledHacksFile.load(this);
+	}
+	
 	public void saveFavoriteHax()
 	{
 		favoriteHacksFile.save(this);
+	}
+	
+	public void reloadFavoriteHax()
+	{
+		favoriteHacksFile.load(this);
 	}
 	
 	public Hack getHackByName(String name)

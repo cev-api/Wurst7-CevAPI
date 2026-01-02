@@ -414,6 +414,18 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Predict where your pearl will go via a trajectory line
 - Adjustable color, default is purple
 
+### Preset Manager
+- Save full setups (enabled hacks, favourites, settings, keybinds, UI layout, navigator preferences etc) as named presets
+- Load a preset to restore which will then reset the client state immediately
+- Lets you delete presets
+- Presets are stored under ```.minecraft/wurst/presets/<name>``` for easy backup or sharing
+- Accessible through UI Settings in the ClickUI/Navigator or through the Wurst Options menu mixin
+
+### Anticheat Detector
+- Watches server behavior and packets to estimate if anti-cheats are present and active
+- Flags the likely protection so you know which hacks might be risky to use
+- Setback Detection, tracks sudden position corrections/teleports that indicate that the server rejected your hack and automatically disables it.
+
 ## What’s changed or improved in this fork?
 
 ### ChestESP

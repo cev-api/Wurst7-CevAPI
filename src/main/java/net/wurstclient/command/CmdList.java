@@ -61,6 +61,7 @@ public final class CmdList
 	public final SetSliderCmd setSliderCmd = new SetSliderCmd();
 	public final AboveGroundCmd aboveGroundCmd = new AboveGroundCmd();
 	public final SettingsCmd settingsCmd = new SettingsCmd();
+	public final PresetCmd presetCmd = new PresetCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
 	public final SeedMapperHelperCmd seedMapperHelperCmd =
 		new SeedMapperHelperCmd();

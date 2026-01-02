@@ -128,6 +128,10 @@ public class WurstOptionsScreen extends Screen
 	private void addManagerButtons()
 	{
 		int row = 0;
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Presets",
+			"Manage full Wurst presets for hacks, UI, keybinds, and more.",
+			b -> minecraft.setScreen(new PresetManagerScreen(this)));
+		
 		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Keybinds",
 			"Keybinds allow you to toggle any hack or command by simply"
 				+ " pressing a button.",
