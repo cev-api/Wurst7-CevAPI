@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.event.CancellableEvent;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface VelocityFromFluidListener extends Listener
 {
@@ -36,6 +37,7 @@ public interface VelocityFromFluidListener extends Listener
 		{
 			for(VelocityFromFluidListener listener : listeners)
 			{
+				HackActivityTracker.markActive(listener);
 				listener.onVelocityFromFluid(this);
 				
 				if(isCancelled())

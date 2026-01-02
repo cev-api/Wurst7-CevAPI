@@ -13,6 +13,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 /**
  * Fired at the beginning of
@@ -44,7 +45,10 @@ public interface PlayerAttacksEntityListener extends Listener
 		public void fire(ArrayList<PlayerAttacksEntityListener> listeners)
 		{
 			for(PlayerAttacksEntityListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onPlayerAttacksEntity(target);
+			}
 		}
 		
 		@Override

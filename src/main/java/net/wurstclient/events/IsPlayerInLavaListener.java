@@ -11,6 +11,7 @@ import java.util.ArrayList;
 
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface IsPlayerInLavaListener extends Listener
 {
@@ -47,7 +48,10 @@ public interface IsPlayerInLavaListener extends Listener
 		public void fire(ArrayList<IsPlayerInLavaListener> listeners)
 		{
 			for(IsPlayerInLavaListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onIsPlayerInLava(this);
+			}
 		}
 		
 		@Override

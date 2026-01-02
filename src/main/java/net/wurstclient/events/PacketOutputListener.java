@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import net.minecraft.network.protocol.Packet;
 import net.wurstclient.event.CancellableEvent;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface PacketOutputListener extends Listener
 {
@@ -41,6 +42,7 @@ public interface PacketOutputListener extends Listener
 		{
 			for(PacketOutputListener listener : listeners)
 			{
+				HackActivityTracker.markActive(listener);
 				listener.onSentPacket(this);
 				
 				if(isCancelled())

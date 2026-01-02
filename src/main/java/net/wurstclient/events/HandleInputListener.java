@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import net.minecraft.client.Minecraft;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 /**
  * Fired at the beginning of {@link Minecraft#handleKeybinds()}.
@@ -36,7 +37,10 @@ public interface HandleInputListener extends Listener
 		public void fire(ArrayList<HandleInputListener> listeners)
 		{
 			for(HandleInputListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onHandleInput();
+			}
 		}
 		
 		@Override

@@ -41,6 +41,7 @@ import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.WurstUpdater;
 import net.wurstclient.util.PlayerRangeAlertManager;
+import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
 import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
@@ -75,6 +76,7 @@ public enum WurstClient
 	private WurstTranslator translator;
 	private PlayerRangeAlertManager playerRangeAlertManager;
 	private ServerObserver serverObserver;
+	private SetbackDetector setbackDetector;
 	private TimerManager timerManager;
 	
 	private boolean enabled = true;
@@ -100,6 +102,9 @@ public enum WurstClient
 		serverObserver = new ServerObserver(MC);
 		eventManager.add(net.wurstclient.events.PacketInputListener.class,
 			serverObserver);
+		setbackDetector = new SetbackDetector();
+		eventManager.add(net.wurstclient.events.PacketInputListener.class,
+			setbackDetector);
 		timerManager = new TimerManager();
 		eventManager.add(UpdateListener.class, timerManager);
 		

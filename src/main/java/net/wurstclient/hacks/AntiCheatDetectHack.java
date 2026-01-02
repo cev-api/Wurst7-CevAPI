@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.ServerObserver;
 
@@ -17,11 +18,15 @@ public final class AntiCheatDetectHack extends Hack
 	private String lastAnnounced;
 	private long lastAnnouncedMs;
 	private static final long ANNOUNCE_COOLDOWN_MS = 3000L;
+	private final CheckboxSetting setbackDetection = new CheckboxSetting(
+		"SetbackDetection",
+		"Disables packet-based hacks when the server sends a setback.", true);
 	
 	public AntiCheatDetectHack()
 	{
 		super("AntiCheatDetect");
 		setCategory(Category.OTHER);
+		addSetting(setbackDetection);
 	}
 	
 	@Override
@@ -45,8 +50,7 @@ public final class AntiCheatDetectHack extends Hack
 		if(antiCheat == null)
 		{
 			ChatUtils.message(
-				WURST.translate("message.wurst.anticheatdetect.not_ready")
-					+ " (" + observer.getDebugStatus() + ")");
+				WURST.translate("message.wurst.anticheatdetect.not_ready"));
 			return;
 		}
 		
@@ -59,5 +63,10 @@ public final class AntiCheatDetectHack extends Hack
 		lastAnnouncedMs = now;
 		ChatUtils.message(WURST
 			.translate("message.wurst.anticheatdetect.detected", antiCheat));
+	}
+	
+	public boolean isSetbackDetectionEnabled()
+	{
+		return setbackDetection.isChecked();
 	}
 }

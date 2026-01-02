@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.Packet;
 import net.wurstclient.event.CancellableEvent;
 import net.wurstclient.event.Listener;
 import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
+import net.wurstclient.util.HackActivityTracker;
 
 /**
  * Similar to {@link PacketOutputListener}, but also captures packets that are
@@ -52,6 +53,7 @@ public interface ConnectionPacketOutputListener extends Listener
 		{
 			for(ConnectionPacketOutputListener listener : listeners)
 			{
+				HackActivityTracker.markActive(listener);
 				listener.onSentConnectionPacket(this);
 				
 				if(isCancelled())

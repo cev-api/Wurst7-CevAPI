@@ -11,6 +11,7 @@ import java.util.ArrayList;
 
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface KnockbackListener extends Listener
 {
@@ -39,7 +40,10 @@ public interface KnockbackListener extends Listener
 		public void fire(ArrayList<KnockbackListener> listeners)
 		{
 			for(KnockbackListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onKnockback(this);
+			}
 		}
 		
 		@Override

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface UpdateListener extends Listener
 {
@@ -24,7 +25,10 @@ public interface UpdateListener extends Listener
 		public void fire(ArrayList<UpdateListener> listeners)
 		{
 			for(UpdateListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onUpdate();
+			}
 		}
 		
 		@Override

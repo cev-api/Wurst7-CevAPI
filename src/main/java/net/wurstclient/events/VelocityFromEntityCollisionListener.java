@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.event.CancellableEvent;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface VelocityFromEntityCollisionListener extends Listener
 {
@@ -38,6 +39,7 @@ public interface VelocityFromEntityCollisionListener extends Listener
 		{
 			for(VelocityFromEntityCollisionListener listener : listeners)
 			{
+				HackActivityTracker.markActive(listener);
 				listener.onVelocityFromEntityCollision(this);
 				
 				if(isCancelled())

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackActivityTracker;
 
 public interface IsPlayerInWaterListener extends Listener
 {
@@ -47,7 +48,10 @@ public interface IsPlayerInWaterListener extends Listener
 		public void fire(ArrayList<IsPlayerInWaterListener> listeners)
 		{
 			for(IsPlayerInWaterListener listener : listeners)
+			{
+				HackActivityTracker.markActive(listener);
 				listener.onIsPlayerInWater(this);
+			}
 		}
 		
 		@Override
