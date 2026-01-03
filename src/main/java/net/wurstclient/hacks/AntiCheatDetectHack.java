@@ -52,11 +52,7 @@ public final class AntiCheatDetectHack extends Hack
 		String antiCheat = observer.guessAntiCheat(observer.getServerAddress());
 		
 		if(antiCheat == null)
-		{
-			MC.execute(() -> ChatUtils.message(
-				WURST.translate("message.wurst.anticheatdetect.not_ready")));
 			return;
-		}
 		
 		if("Unknown".equalsIgnoreCase(antiCheat) && suppressUnknown.isChecked())
 			return;
