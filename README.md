@@ -425,6 +425,14 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Watches server behavior and packets to estimate if anti-cheats are present and active
 - Flags the likely protection so you know which hacks might be risky to use
 - Setback Detection, tracks sudden position corrections/teleports that indicate that the server rejected your hack and automatically disables it.
+  - Works independantly of Anticheat Detector
+
+### Livestream Detector
+- Scans the player list for Youtube, Twitch, Tiktok and Kick for live streams and announces them in chat
+- Supports API keys for large bulk scans without potential rate limiting
+- Option to skip automatic scans if player list exceeds a predefined limit
+- Option to cancel mid scan
+- Available debug command ```.livestream <username>``` to manually check a username
 
 ## What’s changed or improved in this fork?
 

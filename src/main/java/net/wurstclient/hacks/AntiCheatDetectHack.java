@@ -49,8 +49,8 @@ public final class AntiCheatDetectHack extends Hack
 		
 		if(antiCheat == null)
 		{
-			ChatUtils.message(
-				WURST.translate("message.wurst.anticheatdetect.not_ready"));
+			MC.execute(() -> ChatUtils.message(
+				WURST.translate("message.wurst.anticheatdetect.not_ready")));
 			return;
 		}
 		
@@ -61,8 +61,8 @@ public final class AntiCheatDetectHack extends Hack
 		
 		lastAnnounced = antiCheat;
 		lastAnnouncedMs = now;
-		ChatUtils.message(WURST
-			.translate("message.wurst.anticheatdetect.detected", antiCheat));
+		MC.execute(() -> ChatUtils.message(WURST
+			.translate("message.wurst.anticheatdetect.detected", antiCheat)));
 	}
 	
 	public boolean isSetbackDetectionEnabled()
