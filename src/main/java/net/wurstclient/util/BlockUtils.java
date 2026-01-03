@@ -128,7 +128,11 @@ public enum BlockUtils
 	
 	public static AABB getBoundingBox(BlockPos pos)
 	{
-		return getOutlineShape(pos).bounds().move(pos);
+		VoxelShape shape = getOutlineShape(pos);
+		if(shape.isEmpty())
+			return new AABB(pos);
+		
+		return shape.bounds().move(pos);
 	}
 	
 	public static boolean canBeClicked(BlockPos pos)

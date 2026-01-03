@@ -54,6 +54,8 @@ import net.wurstclient.util.chunk.ChunkUtils;
 public class ChestEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
+	private static final double OPENED_MARKER_THICKNESS = 2.0;
+	
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
@@ -434,7 +436,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					for(AABB box : openedBoxes)
 					{
 						ChestSearchMarkerRenderer.drawMarker(matrixStack, box,
-							csh.getMarkXColorARGB(), csh.getMarkXThickness(),
+							csh.getMarkXColorARGB(), OPENED_MARKER_THICKNESS,
 							false);
 					}
 				}
@@ -590,6 +592,33 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}catch(Throwable ignored)
 		{}
 		
+		ChestSearchHack csh = null;
+		boolean hideOpenedTracers = false;
+		if(!openedChests.isEmpty())
+		{
+			try
+			{
+				csh = net.wurstclient.WurstClient.INSTANCE
+					.getHax().chestSearchHack;
+				hideOpenedTracers =
+					csh != null && csh.shouldHideOpenedChestTracers();
+			}catch(Throwable ignored)
+			{
+				csh = null;
+				hideOpenedTracers = false;
+			}
+		}
+		
+		String curDimFull = null;
+		String curDim = null;
+		if(hideOpenedTracers)
+		{
+			curDimFull = MC.level == null ? "overworld"
+				: MC.level.dimension().identifier().toString();
+			curDim = MC.level == null ? "overworld"
+				: MC.level.dimension().identifier().getPath();
+		}
+		
 		boolean applyEnvFilters =
 			MC.level != null && (filterNearSpawners.isChecked()
 				|| filterTrialChambers.isChecked()
@@ -640,7 +669,26 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(boxes == null || boxes.isEmpty())
 				continue;
 			
-			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
+			List<Vec3> ends;
+			if(hideOpenedTracers)
+			{
+				java.util.ArrayList<Vec3> filtered =
+					new java.util.ArrayList<>();
+				for(AABB box : boxes)
+				{
+					if(isRecordedChest(box, curDimFull, curDim))
+						continue;
+					
+					filtered.add(box.getCenter());
+				}
+				if(filtered.isEmpty())
+					continue;
+				
+				ends = filtered;
+			}else
+			{
+				ends = boxes.stream().map(AABB::getCenter).toList();
+			}
 			int color = group.getColorI(0x80);
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,

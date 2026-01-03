@@ -46,9 +46,10 @@ public final class ChestSearchHack extends Hack
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
 	private final ColorSetting markXColor =
 		new ColorSetting("Opened chest color", new java.awt.Color(0xFF9900));
-	private final SliderSetting markXThickness =
-		new SliderSetting("Opened chest line thickness", 2.0, 0.5, 6.0, 0.5,
-			ValueDisplay.DECIMAL);
+	private final CheckboxSetting hideOpenedChestTracers =
+		new CheckboxSetting("Hide opened chest tracers",
+			"Disable tracer lines for opened chests recorded by ChestSearch.",
+			false);
 	private final EnumSetting<OpenedChestMarker> openedChestMarker =
 		new EnumSetting<>("Opened chest marker",
 			"Choose how opened chests recorded by ChestSearch should be highlighted.",
@@ -84,8 +85,8 @@ public final class ChestSearchHack extends Hack
 		addSetting(espLineColor);
 		addSetting(markOpenedChest);
 		addSetting(openedChestMarker);
+		addSetting(hideOpenedChestTracers);
 		addSetting(markXColor);
-		addSetting(markXThickness);
 		addSetting(recordedChestNotifications);
 	}
 	
@@ -94,20 +95,14 @@ public final class ChestSearchHack extends Hack
 		return (0xFF << 24) | (markXColor.getColor().getRGB() & 0x00FFFFFF);
 	}
 	
-	public double getMarkXThickness()
-	{
-		try
-		{
-			return markXThickness.getValue();
-		}catch(Throwable t)
-		{
-			return 2.0;
-		}
-	}
-	
 	public boolean isMarkOpenedChest()
 	{
 		return markOpenedChest.isChecked();
+	}
+	
+	public boolean shouldHideOpenedChestTracers()
+	{
+		return hideOpenedChestTracers.isChecked();
 	}
 	
 	public OpenedChestMarker getOpenedChestMarker()

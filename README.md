@@ -195,6 +195,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Adjustable search radius
 - Adjustable font size
 - Highlight open chests with X or an alternative color
+- Option to remove tracers for opened chests
 
 ![ChestSearch](https://i.imgur.com/OXuVeF5.png) 
 
@@ -601,6 +602,10 @@ Examples:
 - Can input sign text directly into ClickUI/Nagivator
 - Can now save and manage a list of presets
 
+### HandNoClip Improved
+- Now shows a red X over your crosshair to remind you that you cannot place or interact with blocks (in front of you) while the hack is enabled
+- X is removed when using any combat weapon as they still function normally
+
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.
 
@@ -621,6 +626,7 @@ Examples:
 - Search tracers now use block centers as fallback.  
 - SignESP skips zero-size entries safely.  
 - ChunkSearcher now snapshots each chunk’s block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
+- Fixed rare empty outline shape crash (safe bounding box for empty shapes fix)
 
 ### Notes
 - Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
