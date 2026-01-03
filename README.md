@@ -73,6 +73,7 @@ I’m pleased to note that many of the features and improvements below are compl
 - TridentESP
 - MobSearch
 - Outreach
+- LivestreamDetector
 - Redstone, Bed, Sign & Workstation ESP
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
 - Custom Waypoint System (Not a new idea, but unique in design and functionality)
