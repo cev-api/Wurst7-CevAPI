@@ -43,10 +43,16 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 {
 	private static final int TICKS_PER_MINUTE = 20 * 60;
 	
+	private final CheckboxSetting autoScanEnabled =
+		new CheckboxSetting("Auto scan",
+			"description.wurst.setting.livestreamdetector.auto_scan", true);
 	private final SliderSetting scanIntervalMinutes =
 		new SliderSetting("Scan interval (minutes)",
 			"description.wurst.setting.livestreamdetector.scan_interval", 2, 1,
 			30, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting scanOnlyJoin = new CheckboxSetting(
+		"Scan only players who join",
+		"description.wurst.setting.livestreamdetector.scan_only_join", false);
 	private final SliderSetting maxPlayersSetting =
 		new SliderSetting("Skip scan above (players)",
 			"description.wurst.setting.livestreamdetector.skip_above_players",
@@ -59,6 +65,10 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 		"Only show live results",
 		"description.wurst.setting.livestreamdetector.only_show_live_results",
 		true);
+	private final ButtonSetting manualScanAllButton =
+		new ButtonSetting("Manual scan all",
+			"description.wurst.setting.livestreamdetector.manual_scan_all",
+			this::manualScanAll);
 	
 	private final TextFieldSetting youtubeApiKey =
 		new TextFieldSetting("YouTube API key",
@@ -79,19 +89,24 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 	private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
 	private final Map<String, EnumSet<Platform>> lastLiveByPlayer =
 		new HashMap<>();
+	private final Set<String> lastSeenPlayers = new HashSet<>();
 	private final Object stateLock = new Object();
 	
 	private int ticksSinceScan;
 	private boolean warnedLargeServer;
+	private boolean wasConnected;
 	
 	public LivestreamDetectorHack()
 	{
 		super("LivestreamDetector");
 		setCategory(Category.OTHER);
+		addSetting(autoScanEnabled);
 		addSetting(scanIntervalMinutes);
+		addSetting(scanOnlyJoin);
 		addSetting(maxPlayersSetting);
 		addSetting(cancelScanButton);
 		addSetting(onlyShowLiveResults);
+		addSetting(manualScanAllButton);
 		addSetting(youtubeApiKey);
 		addSetting(twitchClientId);
 		addSetting(twitchOAuthToken);
@@ -102,7 +117,9 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 	{
 		ticksSinceScan = 0;
 		lastLiveByPlayer.clear();
+		lastSeenPlayers.clear();
 		warnedLargeServer = false;
+		wasConnected = false;
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -114,6 +131,7 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 		{
 			lastLiveByPlayer.clear();
 		}
+		lastSeenPlayers.clear();
 		scanInProgress.set(false);
 		cancelRequested.set(false);
 	}
@@ -121,8 +139,40 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.getConnection() == null || MC.player == null)
+		boolean connected = MC.getConnection() != null && MC.player != null;
+		if(!connected)
+		{
+			wasConnected = false;
+			lastSeenPlayers.clear();
 			return;
+		}
+		
+		if(!wasConnected)
+		{
+			wasConnected = true;
+			ticksSinceScan = 0;
+			PlayerSnapshot snapshot = snapshotPlayers();
+			lastSeenPlayers.clear();
+			lastSeenPlayers.addAll(snapshot.names);
+			if(autoScanEnabled.isChecked() && !scanOnlyJoin.isChecked())
+				startScanWithSnapshot(snapshot, false);
+			return;
+		}
+		
+		if(!autoScanEnabled.isChecked())
+			return;
+		
+		if(scanOnlyJoin.isChecked())
+		{
+			PlayerSnapshot snapshot = snapshotPlayers();
+			Set<String> newPlayers = new HashSet<>(snapshot.names);
+			newPlayers.removeAll(lastSeenPlayers);
+			lastSeenPlayers.clear();
+			lastSeenPlayers.addAll(snapshot.names);
+			if(!newPlayers.isEmpty())
+				startScanWithNames(newPlayers, snapshot.onlineCount, false);
+			return;
+		}
 		
 		ticksSinceScan++;
 		int intervalTicks =
@@ -131,30 +181,41 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 			return;
 		
 		ticksSinceScan = 0;
-		startScan();
+		PlayerSnapshot snapshot = snapshotPlayers();
+		startScanWithSnapshot(snapshot, false);
 	}
 	
-	private void startScan()
+	private void startScanWithSnapshot(PlayerSnapshot snapshot, boolean manual)
+	{
+		startScanWithNames(snapshot.names, snapshot.onlineCount, manual);
+	}
+	
+	private void startScanWithNames(Set<String> names, int onlineCount,
+		boolean manual)
 	{
 		if(!scanInProgress.compareAndSet(false, true))
-			return;
-		
-		Set<String> names = new HashSet<>();
-		int onlineCount = 0;
-		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
-			onlineCount++;
-			if(info.getProfile() != null && info.getProfile().name() != null)
-				names.add(info.getProfile().name());
+			if(manual)
+				postMessage("LivestreamDetector: scan already running.");
+			return;
 		}
 		
-		String selfName = MC.player.getGameProfile().name();
-		names.remove(selfName);
+		if(names.isEmpty())
+		{
+			scanInProgress.set(false);
+			if(manual)
+				postMessage("LivestreamDetector: no players to scan.");
+			return;
+		}
 		
 		int maxPlayers = maxPlayersSetting.getValueI();
 		if(maxPlayers > 0 && onlineCount > maxPlayers)
 		{
-			if(!warnedLargeServer)
+			if(manual)
+			{
+				postMessage("LivestreamDetector: scan skipped (" + onlineCount
+					+ " players, limit " + maxPlayers + ").");
+			}else if(!warnedLargeServer)
 			{
 				postMessage("LivestreamDetector: scan skipped (" + onlineCount
 					+ " players, limit " + maxPlayers + ").");
@@ -179,6 +240,18 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 			postMessage("LivestreamDetector: cancel requested.");
 		}else
 			postMessage("LivestreamDetector: no active scan.");
+	}
+	
+	private void manualScanAll()
+	{
+		if(MC.getConnection() == null || MC.player == null)
+		{
+			postError("LivestreamDetector: not connected.");
+			return;
+		}
+		
+		PlayerSnapshot snapshot = snapshotPlayers();
+		startScanWithSnapshot(snapshot, true);
 	}
 	
 	public void manualCheck(String rawName)
@@ -224,6 +297,23 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 			scanInProgress.set(false);
 			cancelRequested.set(false);
 		}
+	}
+	
+	private PlayerSnapshot snapshotPlayers()
+	{
+		Set<String> names = new HashSet<>();
+		int onlineCount = 0;
+		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
+		{
+			onlineCount++;
+			if(info.getProfile() != null && info.getProfile().name() != null)
+				names.add(info.getProfile().name());
+		}
+		
+		String selfName = MC.player.getGameProfile().name();
+		names.remove(selfName);
+		
+		return new PlayerSnapshot(names, onlineCount);
 	}
 	
 	private void checkPlayer(String name)
@@ -565,8 +655,8 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 	
 	private void announceOffline(String name, Platform platform)
 	{
-		postMessage("LivestreamDetector: " + name
-			+ " is no longer live on " + platform.label);
+		postMessage("LivestreamDetector: " + name + " is no longer live on "
+			+ platform.label);
 	}
 	
 	private enum Platform
@@ -640,6 +730,18 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 		private static LiveResult unknown()
 		{
 			return new LiveResult(Status.UNKNOWN, null);
+		}
+	}
+	
+	private static final class PlayerSnapshot
+	{
+		private final Set<String> names;
+		private final int onlineCount;
+		
+		private PlayerSnapshot(Set<String> names, int onlineCount)
+		{
+			this.names = names;
+			this.onlineCount = onlineCount;
 		}
 	}
 }

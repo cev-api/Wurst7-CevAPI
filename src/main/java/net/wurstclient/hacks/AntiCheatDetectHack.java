@@ -21,12 +21,16 @@ public final class AntiCheatDetectHack extends Hack
 	private final CheckboxSetting setbackDetection = new CheckboxSetting(
 		"SetbackDetection",
 		"Disables packet-based hacks when the server sends a setback.", true);
+	private final CheckboxSetting suppressUnknown =
+		new CheckboxSetting("Suppress unknown alerts",
+			"description.wurst.setting.anticheatdetect.suppress_unknown", true);
 	
 	public AntiCheatDetectHack()
 	{
 		super("AntiCheatDetect");
 		setCategory(Category.OTHER);
 		addSetting(setbackDetection);
+		addSetting(suppressUnknown);
 	}
 	
 	@Override
@@ -53,6 +57,9 @@ public final class AntiCheatDetectHack extends Hack
 				WURST.translate("message.wurst.anticheatdetect.not_ready")));
 			return;
 		}
+		
+		if("Unknown".equalsIgnoreCase(antiCheat) && suppressUnknown.isChecked())
+			return;
 		
 		long now = System.currentTimeMillis();
 		if(antiCheat.equalsIgnoreCase(lastAnnounced)
