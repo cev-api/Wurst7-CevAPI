@@ -191,7 +191,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 ![WayPoints](https://i.imgur.com/dxFc17N.png) ![Waypoint Manager](https://i.imgur.com/K2xGVqc.png) ![Waypoint Editor](https://i.imgur.com/23i14s1.png)
 
 ### Chest Search
-- Automatically or manually scan each chest you open and store its contents in a JSON file per server (You can also disable entirely)
+- Automatically or manually scan each chest and shulker you open and store its contents in a JSON file per server (You can also disable entirely)
  - Able to detect chest changes that you make, so adding or removing items instantly updates the JSON
  - Unable to detect chest changes that other players make
  - Able to delete entries
