@@ -11,11 +11,14 @@
 ## Supported Versions
 - [1.21.1 - New (Based on 1.21.8)](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
 - [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
-- [1.21.10 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
-- [1.21.11 - Latest (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+- [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
+- [1.21.11 - Latest/Recommended (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 ### Download
-Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). I make changes very often so if you want the latest patches/bug fixes and upgrades you **must** compile it yourself.
+Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). I make changes very often so if you want the latest patches/bug fixes and upgrades you **must** compile it yourself. 
+
+### Wurst7-CevAPI In-Game Screenshot
+![Wurst7Cevapi](https://i.imgur.com/hsayPXH.png)
 
 ## Relationship to upstream
 
@@ -27,6 +30,12 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 - Will try and support at least the latest two Minecraft versions
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
+
+## Security Note
+
+Don't trust binaries? Don't run binaries. Clone the repo, review the diffs, and build it yourself.
+
+Just be consistent: if you're not auditing this, you probably aren't auditing the client/plugins you already run.
 
 ## NiceWurst Variant (Cheat-Free Build)
 
@@ -44,8 +53,6 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 ### NiceWurst In-Game Screenshot
 ![NiceWurst](https://i.imgur.com/86vmxQi.png)
 
-### Wurst7-CevAPI In-Game Screenshot
-![Wurst7Cevapi](https://i.imgur.com/HjOIhzM.png)
 
 ## Novelty
 
@@ -75,6 +82,7 @@ I’m pleased to note that many of the features and improvements below are compl
 - Outreach
 - LivestreamDetector
 - Redstone, Bed, Sign & Workstation ESP
+- PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
 - Custom Waypoint System (Not a new idea, but unique in design and functionality)
 - The overall changes to existing hacks, many of which greatly improve original functionality!
@@ -93,6 +101,7 @@ I have taken the following ideas from other clients/mods:
 - AntiDrop
 - LogoutSpots
 - Breadcrumbs
+- AntiCheatDetector
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
@@ -364,6 +373,8 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Reconnect to server and immediately send a command, such as /op player
 - Adds mixin buttons to disconnect/kick/ban screens for all cracked/offline servers that have the above functions
 
+![Offline](https://i.imgur.com/PfAATSz.png)
+
 ### CoordLogger
 - Detect world and local events and attempt to position them with ESP and chat messages
 - Events that are too far away the direction will be given
@@ -397,12 +408,13 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Auto Attack, your jab attack will continue to auto hit once the cooldown has expired so long as you're hitting an entity.
 - Designed for elytra-free ground PvP/PvE, though may be even more interesting with one.
 
+![Spear](https://i.imgur.com/XVypZML.png)
+
 ### Custom Command Prefixes
 - In the Wurst Options menu you can now change your command prefix
 - Cycle through commonly used command prefixes by pressing the Command Prefix button
 
 ![CMD](https://i.imgur.com/A79Het4.png)
-![CMD2](https://i.imgur.com/qBhwEUf.png)
 ![CMD3](https://i.imgur.com/veagIsN.png)
 
 ### Outreach
@@ -415,6 +427,8 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Shows where other players (including yourself) will be teleported
 - Predict where your pearl will go via a trajectory line
 - Adjustable color, default is purple
+
+![Pearl](https://i.imgur.com/Rng37ws.png)
 
 ### Preset Manager
 - Save full setups (enabled hacks, favourites, settings, keybinds, UI layout, navigator preferences etc) as named presets
@@ -435,6 +449,8 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Option to skip automatic scans if player list exceeds a predefined limit
 - Option to cancel mid scan
 - Available debug command ```.livestream <username>``` to manually check a username
+
+![Live](https://i.imgur.com/38r4wYF.png)
 
 ## What’s changed or improved in this fork?
 
