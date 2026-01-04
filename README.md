@@ -121,6 +121,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 ### BedESP
 - Finds all bed types.  
 - Chunk-based scanning with configurable color and Box/Line style.  
+- Adjustable tracer line thickness
 - Rendering: Boxes, Lines, or Both in a fixed color.
 - Filter for hiding Trial Chamber and or Villager beds.
 
@@ -459,7 +460,8 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Added ESP Y limit
 - Added HackList count
 - Added Buried chest highlighting including a filter to only find buried chests
-- Added filters for chests to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
+- Added filters for chests and barrels to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
+- Option to suppress single chests in favor of double
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.

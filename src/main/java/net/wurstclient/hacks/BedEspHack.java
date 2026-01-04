@@ -78,6 +78,10 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
 	
+	private final SliderSetting tracerThickness =
+		new SliderSetting("Tracer thickness", 2, 0.5, 8, 0.1,
+			SliderSetting.ValueDisplay.DECIMAL.withSuffix("px"));
+	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
 		new net.wurstclient.settings.CheckboxSetting("Above ground only",
@@ -120,6 +124,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(showCountInHackList);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(tracerThickness);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
 		addSetting(filterTrialChambers);
@@ -232,11 +237,14 @@ public final class BedEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();
-			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = group.getColorI(0x80);
+			List<RenderUtils.ColoredPoint> ends = boxes.stream()
+				.map(
+					box -> new RenderUtils.ColoredPoint(box.getCenter(), color))
+				.toList();
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false,
+				tracerThickness.getValue());
 		}
 	}
 	

@@ -29,6 +29,7 @@ import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -100,8 +101,13 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting filterTrialChambers = new CheckboxSetting(
 		"Filter trial chambers",
-		"Hides single chests that match common trial chamber layouts. Does not affect double chests or shulkers.",
+		"Hides single chests and barrels that match common trial chamber layouts. Does not affect double chests or shulkers.",
 		false);
+	
+	private final CheckboxSetting doubleChestsOnly =
+		new CheckboxSetting("Double chests only",
+			"Only highlight/tracer double chests when searching for chests.",
+			false);
 	
 	private final CheckboxSetting filterVillages = new CheckboxSetting(
 		"Filter villages",
@@ -129,6 +135,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(onlyBuried);
 		addSetting(filterNearSpawners);
 		addSetting(filterTrialChambers);
+		addSetting(doubleChestsOnly);
 		addSetting(filterVillages);
 		addSetting(showCountInHackList);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
@@ -167,6 +174,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
 			if(enforceAboveGround && be.getBlockPos().getY() < yLimit)
+				return;
+			
+			if(shouldSkipSingleChest(be))
 				return;
 			
 			groups.blockGroups.forEach(group -> group.addIfMatches(be));
@@ -771,6 +781,17 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			BlockPos singleChestPos = getSingleChestPosIfApplicable(box);
 			if(singleChestPos == null)
 			{
+				BlockPos barrelPos = getSingleBarrelPosIfApplicable(box);
+				if(barrelPos == null)
+				{
+					out.add(box);
+					continue;
+				}
+				
+				if(filterTrialChambers.isChecked()
+					&& isTrialChamberChest(barrelPos))
+					continue;
+				
 				out.add(box);
 				continue;
 			}
@@ -844,6 +865,60 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}
 		
 		return foundChest;
+	}
+	
+	private BlockPos getSingleBarrelPosIfApplicable(AABB box)
+	{
+		if(MC.level == null || box == null)
+			return null;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		BlockPos foundBarrel = null;
+		int barrelCount = 0;
+		
+		for(int x = boxMinX; x <= boxMaxX; x++)
+		{
+			for(int y = boxMinY; y <= boxMaxY; y++)
+			{
+				for(int z = boxMinZ; z <= boxMaxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					BlockState state = MC.level.getBlockState(pos);
+					if(state == null)
+						continue;
+					
+					if(state.getBlock() instanceof BarrelBlock)
+					{
+						barrelCount++;
+						if(foundBarrel == null)
+							foundBarrel = pos;
+						
+						if(barrelCount > 1)
+							return null;
+					}
+				}
+			}
+		}
+		
+		return foundBarrel;
+	}
+	
+	private boolean shouldSkipSingleChest(BlockEntity be)
+	{
+		if(!doubleChestsOnly.isChecked() || !(be instanceof ChestBlockEntity))
+			return false;
+		
+		BlockState state = be.getBlockState();
+		if(!state.hasProperty(ChestBlock.TYPE))
+			return false;
+		
+		return state.getValue(ChestBlock.TYPE) == ChestType.SINGLE;
 	}
 	
 	private boolean isNearSpawner(BlockPos center, int range)
