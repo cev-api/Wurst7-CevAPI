@@ -176,6 +176,20 @@ public final class SeedMapperHelperHack extends Hack
 	private final ButtonSetting applyEspTimeoutMinutesButton =
 		new ButtonSetting("Apply EspTimeoutMinutes",
 			this::applyEspTimeoutMinutes);
+	private final TextFieldSetting worldBorderLimitSetting =
+		new TextFieldSetting("World border limit", "", AMOUNT_VALIDATOR);
+	private final ButtonSetting applyWorldBorderLimitButton =
+		new ButtonSetting("Apply WorldBorder", this::applyWorldBorderLimit);
+	private final CheckboxSetting manualWaypointCompassOverlaySetting =
+		new CheckboxSetting("Compass overlay", false);
+	private final ButtonSetting applyManualWaypointCompassOverlayButton =
+		new ButtonSetting("Apply ManualWaypointCompassOverlay",
+			this::applyManualWaypointCompassOverlay);
+	private final CheckboxSetting autoApplySeedCrackerSeedSetting =
+		new CheckboxSetting("Auto apply SeedCracker seed", false);
+	private final ButtonSetting applyAutoApplySeedCrackerSeedButton =
+		new ButtonSetting("Apply AutoApplySeedCrackerSeed",
+			this::applyAutoApplySeedCrackerSeed);
 	private final List<EspProfile> espProfiles = new ArrayList<>();
 	private boolean connectionPreviouslyNull = true;
 	
@@ -392,6 +406,12 @@ public final class SeedMapperHelperHack extends Hack
 		addSetting(applyDevModeButton);
 		addSetting(espTimeoutMinutesSetting);
 		addSetting(applyEspTimeoutMinutesButton);
+		addSetting(worldBorderLimitSetting);
+		addSetting(applyWorldBorderLimitButton);
+		addSetting(manualWaypointCompassOverlaySetting);
+		addSetting(applyManualWaypointCompassOverlayButton);
+		addSetting(autoApplySeedCrackerSeedSetting);
+		addSetting(applyAutoApplySeedCrackerSeedButton);
 		addSection("SeedMapper commands", "General-purpose SeedMapper actions.",
 			statusButton, seedMapButton, minimapButton, enableMinimapButton,
 			disableMinimapButton, clearOverlaysButton, checkSeedButton,
@@ -407,7 +427,11 @@ public final class SeedMapperHelperHack extends Hack
 			pixelsPerBiomeSetting, applyPixelsPerBiomeButton,
 			toggledFeaturesSetting, applyToggledFeaturesButton, devModeSetting,
 			applyDevModeButton, espTimeoutMinutesSetting,
-			applyEspTimeoutMinutesButton);
+			applyEspTimeoutMinutesButton, worldBorderLimitSetting,
+			applyWorldBorderLimitButton, manualWaypointCompassOverlaySetting,
+			applyManualWaypointCompassOverlayButton,
+			autoApplySeedCrackerSeedSetting,
+			applyAutoApplySeedCrackerSeedButton);
 		addSection("SeedMap minimap", "Configure the in-game minimap overlay.",
 			minimapOffsetXSetting, applyMinimapOffsetXButton,
 			minimapOffsetYSetting, applyMinimapOffsetYButton,
@@ -961,6 +985,39 @@ public final class SeedMapperHelperHack extends Hack
 		int minutes = Math.max(1, espTimeoutMinutesSetting.getValueI());
 		runSimpleCommand("sm:config EspTimeoutMinutes set " + minutes,
 			"set EspTimeoutMinutes");
+	}
+	
+	private void applyWorldBorderLimit()
+	{
+		String limit = worldBorderLimitSetting.getValue().trim();
+		if(limit.isEmpty())
+		{
+			ChatUtils.error("Enter a world border limit.");
+			return;
+		}
+		if(!AMOUNT_VALIDATOR.test(limit))
+		{
+			ChatUtils.error("World border limit must be a whole number.");
+			return;
+		}
+		runSimpleCommand("sm:config WorldBorder set " + limit,
+			"set WorldBorder to " + limit);
+	}
+	
+	private void applyManualWaypointCompassOverlay()
+	{
+		runSimpleCommand(
+			"sm:config ManualWaypointCompassOverlay set "
+				+ manualWaypointCompassOverlaySetting.isChecked(),
+			"set ManualWaypointCompassOverlay");
+	}
+	
+	private void applyAutoApplySeedCrackerSeed()
+	{
+		runSimpleCommand(
+			"sm:config AutoApplySeedCrackerSeed set "
+				+ autoApplySeedCrackerSeedSetting.isChecked(),
+			"set AutoApplySeedCrackerSeed");
 	}
 	
 	private void handleSeedCheckFeedback(String message)
