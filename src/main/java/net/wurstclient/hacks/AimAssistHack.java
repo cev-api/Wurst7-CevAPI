@@ -36,8 +36,11 @@ public final class AimAssistHack extends Hack
 		new SliderSetting("Range", 4.5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
 	private final SliderSetting rotationSpeed =
-		new SliderSetting("Rotation Speed", 600, 10, 3600, 10,
+		new SliderSetting("Rotation Speed", 600, 10, 7200, 10,
 			ValueDisplay.DEGREES.withSuffix("/s"));
+	
+	private final CheckboxSetting lockOn = new CheckboxSetting("Lock-on",
+		"Instantly snaps to targets instead of smoothing rotation.", false);
 	
 	private final SliderSetting fov =
 		new SliderSetting("FOV", "description.wurst.setting.aimassist.fov", 120,
@@ -94,6 +97,8 @@ public final class AimAssistHack extends Hack
 	private Function<Entity, Vec3> overrideAimPoint;
 	private Entity externalTarget;
 	private boolean temporaryAllowBlocking;
+	private Double rangeOverride;
+	private Boolean lockOnOverride;
 	
 	public AimAssistHack()
 	{
@@ -102,6 +107,7 @@ public final class AimAssistHack extends Hack
 		
 		addSetting(range);
 		addSetting(rotationSpeed);
+		addSetting(lockOn);
 		addSetting(fov);
 		addSetting(aimAt);
 		addSetting(ignoreMouseInput);
@@ -138,6 +144,8 @@ public final class AimAssistHack extends Hack
 		overrideAimPoint = null;
 		externalTarget = null;
 		temporaryAllowBlocking = false;
+		rangeOverride = null;
+		lockOnOverride = null;
 	}
 	
 	@Override
@@ -179,6 +187,15 @@ public final class AimAssistHack extends Hack
 		Rotation needed = RotationUtils.getNeededRotations(hitVec);
 		
 		// turn towards center of boundingBox
+		if(isLockOnEnabled())
+		{
+			needed.applyToClientPlayer();
+			needed.sendPlayerLookPacket();
+			nextYaw = needed.yaw();
+			nextPitch = needed.pitch();
+			return;
+		}
+		
 		Rotation next = RotationUtils.slowlyTurnTowards(needed,
 			rotationSpeed.getValueI() / 20F);
 		nextYaw = next.yaw();
@@ -190,11 +207,21 @@ public final class AimAssistHack extends Hack
 		temporaryAllowBlocking = allow;
 	}
 	
+	public void setRangeOverride(Double override)
+	{
+		rangeOverride = override;
+	}
+	
+	public void setLockOnOverride(Boolean override)
+	{
+		lockOnOverride = override;
+	}
+	
 	private void chooseTarget()
 	{
 		Stream<Entity> stream = EntityUtils.getAttackableEntities();
 		
-		double rangeSq = range.getValueSq();
+		double rangeSq = getRangeSq();
 		stream = stream.filter(e -> MC.player.distanceToSqr(e) <= rangeSq);
 		
 		if(fov.getValue() < 360.0)
@@ -215,6 +242,13 @@ public final class AimAssistHack extends Hack
 		if(target == null || MC.player == null)
 			return;
 		
+		if(isLockOnEnabled())
+		{
+			event.setDeltaX(0);
+			event.setDeltaY(0);
+			return;
+		}
+		
 		float curYaw = MC.player.getYRot();
 		float curPitch = MC.player.getXRot();
 		int diffYaw = (int)(nextYaw - curYaw);
@@ -222,8 +256,8 @@ public final class AimAssistHack extends Hack
 		
 		// If we are <1 degree off but still missing the hitbox,
 		// slightly exaggerate the difference to fix that.
-		if(diffYaw == 0 && diffPitch == 0 && !RotationUtils
-			.isFacingBox(target.getBoundingBox(), range.getValue()))
+		if(diffYaw == 0 && diffPitch == 0
+			&& !RotationUtils.isFacingBox(target.getBoundingBox(), getRange()))
 		{
 			diffYaw = nextYaw < curYaw ? -1 : 1;
 			diffPitch = nextPitch < curPitch ? -1 : 1;
@@ -258,6 +292,28 @@ public final class AimAssistHack extends Hack
 	public void clearExternalTarget()
 	{
 		externalTarget = null;
+	}
+	
+	public Entity getCurrentTarget()
+	{
+		return target;
+	}
+	
+	private double getRange()
+	{
+		return rangeOverride != null ? rangeOverride : range.getValue();
+	}
+	
+	private boolean isLockOnEnabled()
+	{
+		return lockOnOverride != null ? lockOnOverride.booleanValue()
+			: lockOn.isChecked();
+	}
+	
+	private double getRangeSq()
+	{
+		double value = getRange();
+		return value * value;
 	}
 	
 	private boolean isValidForcedTarget(Entity entity)

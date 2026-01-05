@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
@@ -28,6 +29,7 @@ public final class KeybindEditorScreen extends Screen
 	private final String oldCommands;
 	
 	private EditBox commandField;
+	private boolean suppressNextInput;
 	
 	public KeybindEditorScreen(Screen prevScreen)
 	{
@@ -131,5 +133,18 @@ public final class KeybindEditorScreen extends Screen
 	public void setKey(String key)
 	{
 		this.key = key;
+		suppressNextInput = true;
+	}
+	
+	@Override
+	public boolean charTyped(CharacterEvent event)
+	{
+		if(suppressNextInput)
+		{
+			suppressNextInput = false;
+			return true;
+		}
+		
+		return super.charTyped(event);
 	}
 }

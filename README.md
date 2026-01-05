@@ -407,6 +407,10 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Your charge is automatically and constantly resumed (no cooldown) so you can forever hold right click. It will be noisy but even if the spear is pointed down you will still be able to attack. 
 - You can optionally allow aim assist to work whilst holding right click.
 - Auto Attack, your jab attack will continue to auto hit once the cooldown has expired so long as you're hitting an entity.
+- Auto alignment flys you up or down to match the level of your target when AimAssist is enabled
+- Extended AimAssist range (Max 100 Blocks) while using SpearAssist
+- Added AimAssist lock-on whilst using spear
+- Spear charging no longer interferes with interactive blocks
 - Designed for elytra-free ground PvP/PvE, though may be even more interesting with one.
 
 ![Spear](https://i.imgur.com/XVypZML.png)
@@ -620,12 +624,16 @@ Examples:
 - Can input sign text directly into ClickUI/Nagivator
 - Can now save and manage a list of presets
 
+### AimAssist Improved
+- Added lock-on targetting
+
 ### HandNoClip Improved
 - Now shows a red X over your crosshair to remind you that you cannot place or interact with blocks (in front of you) while the hack is enabled
 - X is removed when using any combat weapon as they still function normally
 
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.
+- Fixed bug where typing your new key bind resulted in adding that character to the command input
 
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts

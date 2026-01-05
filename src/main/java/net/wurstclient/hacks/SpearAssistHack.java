@@ -24,6 +24,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.MobEspHack.RenderShape;
@@ -40,7 +41,7 @@ import net.wurstclient.util.RenderUtils.ColoredPoint;
 
 @SearchTags({"spear assist", "spear", "spear damage"})
 public final class SpearAssistHack extends Hack
-	implements UpdateListener, RenderListener
+	implements UpdateListener, RenderListener, RightClickListener
 {
 	private final EnumSetting<BoostMode> boostMode = new EnumSetting<>(
 		"Boost mode", BoostMode.values(), BoostMode.HOLD_AND_DASH);
@@ -89,6 +90,19 @@ public final class SpearAssistHack extends Hack
 		new CheckboxSetting("Allow AimAssist while charging",
 			"Temporarily lets AimAssist run while you hold right-click.", true);
 	
+	private final SliderSetting aimAssistRangeOverride = new SliderSetting(
+		"AimAssist range", "Overrides AimAssist range while holding a spear.",
+		6, 1, 100, 0.05, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	
+	private final CheckboxSetting aimAssistLockOnOverride = new CheckboxSetting(
+		"AimAssist lock-on",
+		"Overrides AimAssist's lock-on setting while holding a spear.", false);
+	
+	private final CheckboxSetting autoAlignment = new CheckboxSetting(
+		"Auto alignment",
+		"While flying and charging a spear, aligns your Y-level to the AimAssist target.",
+		false);
+	
 	private final CheckboxSetting autoAttackWhenReady = new CheckboxSetting(
 		"Auto attack when ready",
 		"Automatically swings again as soon as the attack indicator refills while you hold attack.",
@@ -103,6 +117,8 @@ public final class SpearAssistHack extends Hack
 	private RenderStyleInfo currentStyle;
 	private boolean autoAttackPrimed;
 	private boolean reverseDashActive;
+	private boolean aimAssistRangeOverridden;
+	private boolean aimAssistLockOnOverridden;
 	
 	public SpearAssistHack()
 	{
@@ -119,6 +135,9 @@ public final class SpearAssistHack extends Hack
 		addSetting(farHighlightColor);
 		addSetting(autoResumeCharge);
 		addSetting(allowAimAssistWhileCharging);
+		addSetting(aimAssistRangeOverride);
+		addSetting(aimAssistLockOnOverride);
+		addSetting(autoAlignment);
 		addSetting(autoAttackWhenReady);
 	}
 	
@@ -127,6 +146,7 @@ public final class SpearAssistHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(RightClickListener.class, this);
 		resetState();
 		updateAimAssist(false);
 	}
@@ -136,6 +156,9 @@ public final class SpearAssistHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(RightClickListener.class, this);
+		clearAimAssistRangeOverride();
+		clearAimAssistLockOnOverride();
 		resetState();
 		updateAimAssist(false);
 	}
@@ -186,7 +209,10 @@ public final class SpearAssistHack extends Hack
 		
 		updateHighlights(holdingSpear);
 		updateHighlightMode();
+		updateAimAssistRangeOverride(holdingSpear);
+		updateAimAssistLockOnOverride(holdingSpear);
 		updateAimAssist(charging);
+		updateAutoAlignment(charging, holdingSpear);
 		handleAutoAttack(holdingSpear, attackHeld);
 	}
 	
@@ -260,6 +286,21 @@ public final class SpearAssistHack extends Hack
 		
 		if(ends != null && !ends.isEmpty())
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+	}
+	
+	@Override
+	public void onRightClick(RightClickEvent event)
+	{
+		if(!autoResumeCharge.isChecked() || MC.player == null
+			|| MC.gameMode == null)
+			return;
+		
+		if(!isSpear(MC.player.getMainHandItem()))
+			return;
+		
+		MC.rightClickDelay = 4;
+		MC.gameMode.useItem(MC.player, InteractionHand.MAIN_HAND);
+		event.cancel();
 	}
 	
 	private void handleAutoResumeCharge(boolean holdingSpear)
@@ -402,6 +443,8 @@ public final class SpearAssistHack extends Hack
 		aimAssistTemporarilyAllowed = false;
 		autoAttackPrimed = false;
 		reverseDashActive = false;
+		aimAssistRangeOverridden = false;
+		aimAssistLockOnOverridden = false;
 	}
 	
 	private void updateHighlights(boolean holdingSpear)
@@ -501,6 +544,131 @@ public final class SpearAssistHack extends Hack
 			aimAssist.setTemporarilyAllowBlocking(false);
 			aimAssistTemporarilyAllowed = false;
 		}
+	}
+	
+	private void updateAutoAlignment(boolean charging, boolean holdingSpear)
+	{
+		if(WURST.getHax().flightHack.isEnabled())
+			return;
+		
+		Double step =
+			getAutoAlignmentStepInternal(charging, holdingSpear, null);
+		if(step == null || MC.player == null)
+			return;
+		
+		Vec3 motion = MC.player.getDeltaMovement();
+		MC.player.setDeltaMovement(motion.x, motion.y + step, motion.z);
+	}
+	
+	public Double getAutoAlignmentStepForFlight()
+	{
+		return getAutoAlignmentStepInternal(null, null,
+			WURST.getHax().flightHack.verticalSpeed.getValue());
+	}
+	
+	private Double getAutoAlignmentStepInternal(Boolean chargingOverride,
+		Boolean holdingSpearOverride, Double maxStepOverride)
+	{
+		if(MC.player == null || !autoAlignment.isChecked())
+			return null;
+		
+		boolean holdingSpear = holdingSpearOverride != null
+			? holdingSpearOverride : isSpear(MC.player.getMainHandItem());
+		if(!holdingSpear)
+			return null;
+		
+		boolean charging = chargingOverride != null ? chargingOverride
+			: MC.player.isUsingItem() && isSpear(MC.player.getUseItem());
+		if(!charging)
+			return null;
+		
+		boolean flying = MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled();
+		if(!flying)
+			return null;
+		
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist == null || !aimAssist.isEnabled())
+			return null;
+		
+		var target = aimAssist.getCurrentTarget();
+		if(target == null)
+			return null;
+		
+		double maxStep = maxStepOverride != null ? maxStepOverride
+			: MC.player.getAbilities().getFlyingSpeed();
+		if(maxStep <= 0)
+			return null;
+		
+		double targetY = target.getY();
+		double playerY = MC.player.getY();
+		double delta = targetY - playerY;
+		if(Math.abs(delta) < 0.02)
+			return null;
+		
+		return Math.max(-maxStep, Math.min(maxStep, delta));
+	}
+	
+	private void updateAimAssistRangeOverride(boolean holdingSpear)
+	{
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist == null || !aimAssist.isEnabled())
+		{
+			clearAimAssistRangeOverride();
+			return;
+		}
+		
+		if(holdingSpear)
+		{
+			aimAssist.setRangeOverride(aimAssistRangeOverride.getValue());
+			aimAssistRangeOverridden = true;
+			return;
+		}
+		
+		clearAimAssistRangeOverride();
+	}
+	
+	private void updateAimAssistLockOnOverride(boolean holdingSpear)
+	{
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist == null || !aimAssist.isEnabled())
+		{
+			clearAimAssistLockOnOverride();
+			return;
+		}
+		
+		if(holdingSpear)
+		{
+			aimAssist.setLockOnOverride(aimAssistLockOnOverride.isChecked());
+			aimAssistLockOnOverridden = true;
+			return;
+		}
+		
+		clearAimAssistLockOnOverride();
+	}
+	
+	private void clearAimAssistRangeOverride()
+	{
+		if(!aimAssistRangeOverridden)
+			return;
+		
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist != null)
+			aimAssist.setRangeOverride(null);
+		
+		aimAssistRangeOverridden = false;
+	}
+	
+	private void clearAimAssistLockOnOverride()
+	{
+		if(!aimAssistLockOnOverridden)
+			return;
+		
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist != null)
+			aimAssist.setLockOnOverride(null);
+		
+		aimAssistLockOnOverridden = false;
 	}
 	
 	private BoostMode getBoostMode()

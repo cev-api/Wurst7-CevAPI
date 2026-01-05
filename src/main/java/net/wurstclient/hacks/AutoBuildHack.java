@@ -150,7 +150,7 @@ public final class AutoBuildHack extends Hack
 	@Override
 	public void onRightClick(RightClickEvent event)
 	{
-		if(status != Status.IDLE)
+		if(status == Status.NO_TEMPLATE || status == Status.LOADING)
 			return;
 		
 		HitResult hitResult = MC.hitResult;
@@ -159,7 +159,14 @@ public final class AutoBuildHack extends Hack
 			return;
 		
 		BlockPos hitResultPos = blockHitResult.getBlockPos();
-		if(!BlockUtils.canBeClicked(hitResultPos))
+		boolean clickable = BlockUtils.canBeClicked(hitResultPos);
+		if(clickable)
+			event.cancel();
+		
+		if(status != Status.IDLE)
+			return;
+		
+		if(!clickable)
 			return;
 		
 		BlockPos startPos =

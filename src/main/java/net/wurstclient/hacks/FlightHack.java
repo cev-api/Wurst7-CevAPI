@@ -108,6 +108,14 @@ public final class FlightHack extends Hack
 		
 		if(antiKick.isChecked())
 			doAntiKick(velocity);
+		
+		Double alignStep =
+			WURST.getHax().spearAssistHack.getAutoAlignmentStepForFlight();
+		if(alignStep != null)
+		{
+			Vec3 current = player.getDeltaMovement();
+			player.setDeltaMovement(current.x, alignStep, current.z);
+		}
 	}
 	
 	@Override

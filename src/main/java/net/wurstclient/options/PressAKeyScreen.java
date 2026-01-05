@@ -37,7 +37,7 @@ public class PressAKeyScreen extends Screen
 			prevScreen.setKey(getKeyName(context));
 		
 		minecraft.setScreen((Screen)prevScreen);
-		return super.keyPressed(context);
+		return true;
 	}
 	
 	private String getKeyName(KeyEvent context)
