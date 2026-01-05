@@ -442,6 +442,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Lets you delete presets
 - Presets are stored under ```.minecraft/wurst/presets/<name>``` for easy backup or sharing
 - Accessible through UI Settings in the ClickUI/Navigator or through the Wurst Options menu mixin
+- Includes a recommended default if no other preset exists
 
 ### Anticheat Detector
 - Watches server behavior and packets to estimate if anti-cheats are present and active

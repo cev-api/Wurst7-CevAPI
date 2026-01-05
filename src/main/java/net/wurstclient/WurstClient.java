@@ -95,6 +95,14 @@ public enum WurstClient
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
 		presetManager = new PresetManager(this, wurstFolder);
+		try
+		{
+			presetManager.seedBundledPresetIfNone("Recommended Default");
+		}catch(IOException e)
+		{
+			System.out.println("Couldn't seed bundled preset.");
+			e.printStackTrace();
+		}
 		
 		Path analyticsFile = wurstFolder.resolve("analytics.json");
 		plausible = new PlausibleAnalytics(analyticsFile);

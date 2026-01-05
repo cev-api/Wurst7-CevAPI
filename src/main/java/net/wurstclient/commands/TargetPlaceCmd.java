@@ -7,7 +7,6 @@
  */
 package net.wurstclient.commands;
 
-import net.wurstclient.Category;
 import net.wurstclient.WurstClient;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
@@ -21,7 +20,6 @@ public final class TargetPlaceCmd extends Command
 	{
 		super("targetplace", "Selects a block for TargetPlace or unselects it.",
 			".targetplace");
-		setCategory(Category.BLOCKS);
 	}
 	
 	@Override

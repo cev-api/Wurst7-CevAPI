@@ -94,6 +94,7 @@ public final class ClickGuiScreen extends Screen
 	public void removed()
 	{
 		gui.clearKeyboardInput();
+		gui.init();
 		super.removed();
 	}
 }

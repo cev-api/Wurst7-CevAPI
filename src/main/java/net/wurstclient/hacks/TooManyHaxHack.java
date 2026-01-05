@@ -24,6 +24,7 @@ import com.google.gson.JsonObject;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.wurstclient.WurstClient;
 import net.wurstclient.Category;
 import net.wurstclient.DontBlock;
 import net.wurstclient.Feature;
@@ -32,6 +33,7 @@ import net.wurstclient.TooManyHaxFile;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.Component;
+import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.settings.Setting;
@@ -90,15 +92,8 @@ public final class TooManyHaxHack extends Hack
 			
 			((Hack)feature).setEnabled(false);
 		}
-		// Refresh ClickGUI so hacks disabled by TooManyHax are hidden there
-		try
-		{
-			if(WURST.getGui() != null)
-				WURST.getGui().init();
-		}catch(Exception e)
-		{
-			// ignore GUI refresh failures
-		}
+		// Refresh ClickGUI so hacks disabled by TooManyHax are hidden there.
+		refreshClickGui();
 	}
 	
 	public ArrayList<Path> listProfiles()
@@ -148,14 +143,7 @@ public final class TooManyHaxHack extends Hack
 			blockedFeatures.remove(feature);
 		
 		file.save();
-		try
-		{
-			if(WURST.getGui() != null)
-				WURST.getGui().init();
-		}catch(Exception e)
-		{
-			// ignore GUI refresh failures
-		}
+		refreshClickGui();
 	}
 	
 	public void blockAll()
@@ -179,42 +167,21 @@ public final class TooManyHaxHack extends Hack
 			.sort(Comparator.comparing(f -> f.getName().toLowerCase()));
 		
 		file.save();
-		try
-		{
-			if(WURST.getGui() != null)
-				WURST.getGui().init();
-		}catch(Exception e)
-		{
-			// ignore GUI refresh failures
-		}
+		refreshClickGui();
 	}
 	
 	public void unblockAll()
 	{
 		blockedFeatures.clear();
 		file.save();
-		try
-		{
-			if(WURST.getGui() != null)
-				WURST.getGui().init();
-		}catch(Exception e)
-		{
-			// ignore GUI refresh failures
-		}
+		refreshClickGui();
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		// Rebuild ClickGUI so previously hidden hacks reappear
-		try
-		{
-			if(WURST.getGui() != null)
-				WURST.getGui().init();
-		}catch(Exception e)
-		{
-			// ignore GUI refresh failures
-		}
+		refreshClickGui();
 	}
 	
 	public List<Feature> getBlockedFeatures()
@@ -418,6 +385,24 @@ public final class TooManyHaxHack extends Hack
 		public int getDefaultHeight()
 		{
 			return 110;
+		}
+	}
+	
+	private void refreshClickGui()
+	{
+		try
+		{
+			if(WURST.getGui() == null)
+				return;
+			
+			if(WurstClient.MC != null
+				&& WurstClient.MC.screen instanceof ClickGuiScreen)
+				return;
+			
+			WURST.getGui().init();
+		}catch(Exception e)
+		{
+			// ignore GUI refresh failures
 		}
 	}
 }

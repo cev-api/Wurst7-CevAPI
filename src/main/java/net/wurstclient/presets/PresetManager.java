@@ -8,6 +8,7 @@
 package net.wurstclient.presets;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -64,6 +65,46 @@ public final class PresetManager
 		
 		saveCurrentState();
 		copyCurrentFilesToPreset(presetFolder);
+	}
+	
+	public void seedBundledPresetIfNone(String name) throws IOException
+	{
+		if(name == null || name.isBlank())
+			return;
+		
+		if(!listPresets().isEmpty())
+			return;
+		
+		installBundledPreset(name);
+	}
+	
+	public void installBundledPreset(String name) throws IOException
+	{
+		if(name == null || name.isBlank())
+			return;
+		
+		Path presetFolder = getPresetFolder(name);
+		if(Files.isDirectory(presetFolder))
+			return;
+		
+		boolean copiedAny = false;
+		for(String fileName : PRESET_FILES)
+		{
+			String resourcePath = "/wurst/presets/" + name + "/" + fileName;
+			try(InputStream in =
+				PresetManager.class.getResourceAsStream(resourcePath))
+			{
+				if(in == null)
+					continue;
+				
+				if(!copiedAny)
+					Files.createDirectories(presetFolder);
+				
+				Files.copy(in, presetFolder.resolve(fileName),
+					StandardCopyOption.REPLACE_EXISTING);
+				copiedAny = true;
+			}
+		}
 	}
 	
 	public void loadPreset(String name) throws IOException
