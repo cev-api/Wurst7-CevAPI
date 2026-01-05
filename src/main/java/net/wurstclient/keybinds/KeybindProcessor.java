@@ -45,6 +45,11 @@ public final class KeybindProcessor implements KeyPressListener
 			GLFW.GLFW_KEY_F3))
 			return;
 		
+		String keyName = getKeyName(event);
+		String cmds = keybinds.getCommands(keyName);
+		boolean isPacketDelayKeybind =
+			cmds != null && isPacketDelayKeybind(cmds);
+		
 		Screen screen = WurstClient.MC.screen;
 		// Allow processing when no screen is open, when the Click GUI is open,
 		// or when Waypoints or ItemHandler screens are open so their keybinds
@@ -52,11 +57,14 @@ public final class KeybindProcessor implements KeyPressListener
 		if(screen != null && !(screen instanceof ClickGuiScreen)
 			&& !(screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
 			&& !(screen instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen))
-			return;
-			
+		{
+			if(!isPacketDelayKeybind)
+				return;
+		}
+		
 		// if ClickGuiScreen is open and user typed a printable key, open
 		// navigator and pass the initial character
-		if(screen instanceof ClickGuiScreen)
+		if(screen instanceof ClickGuiScreen && !isPacketDelayKeybind)
 		{
 			ClickGui gui = WurstClient.INSTANCE.getGui();
 			if(gui != null && gui.isKeyboardInputCaptured())
@@ -75,9 +83,6 @@ public final class KeybindProcessor implements KeyPressListener
 			}
 		}
 		
-		String keyName = getKeyName(event);
-		
-		String cmds = keybinds.getCommands(keyName);
 		if(cmds == null)
 			return;
 		
@@ -119,6 +124,22 @@ public final class KeybindProcessor implements KeyPressListener
 		
 		for(String cmd : cmds.split("\u00a7"))
 			processCmd(cmd.trim());
+	}
+	
+	private boolean isPacketDelayKeybind(String cmds)
+	{
+		cmds = cmds.replace(";", "\u00a7").replace("\u00a7\u00a7", ";");
+		for(String cmd : cmds.split("\u00a7"))
+		{
+			String trimmed = cmd.trim();
+			if(trimmed.startsWith("."))
+				trimmed = trimmed.substring(1).trim();
+			
+			if(trimmed.equalsIgnoreCase("packetdelay"))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	private void processCmd(String cmd)

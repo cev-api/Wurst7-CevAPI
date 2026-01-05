@@ -22,7 +22,7 @@ Pre-compiled copies are available on the [Release Page](https://github.com/cev-a
 
 ## Relationship to upstream
 
-This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I’m keeping them in a separate fork. I’ll continue to maintain these additions and periodically re-base/sync with the upstream project.
+This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I'm keeping them in a separate fork. I'll continue to maintain these additions and periodically re-base/sync with the upstream project.
 
 - Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
 - This fork: https://github.com/cev-api/Wurst7-CevAPI  
@@ -44,7 +44,7 @@ This fork now ships with [NiceWurst](https://github.com/cev-api/NiceWurst), a no
 ### The NiceWurst profile:
 
 - Keeps only the utility/survival hacks listed in ```src/main/java/net/wurstclient/nicewurst/NiceWurstModule.java``` (edit the allowlist there if you want to add or remove features);
-- Removes combat/duplication/exploit hacks entirely and forces all ESP overlays to respect walls, so you can’t see entities through blocks;
+- Removes combat/duplication/exploit hacks entirely and forces all ESP overlays to respect walls, so you can't see entities through blocks;
 hides the Alt Manager, Anti-Fingerprint UI, X-Ray block editor, and other “grey-area” tools;
 - Rebrands the mod (jar name, mod id, HUD, links) to “NiceWurst 7” and stores data in .minecraft/nicewurst/ so it never touches your regular Wurst profile.
 
@@ -56,7 +56,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ## Novelty
 
-I’m pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren’t found in any other clients or mods. Some are even original enough to stand on their own as full concepts. These include:
+I'm pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren't found in any other clients or mods. Some are even original enough to stand on their own as full concepts. These include:
 
 - EnchantmentHandler
 - ItemHandler
@@ -102,13 +102,14 @@ I have taken the following ideas from other clients/mods:
 - LogoutSpots
 - Breadcrumbs
 - AntiCheatDetector
+- PacketDelay
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
 
 ---
 
-## What’s new in this fork?
+## What's new in this fork?
 
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
@@ -279,7 +280,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - When enabled you cannot press the throw button on the chosen items and you cannot drag the chosen items out of inventory.
 
 ### EnchantmentHandler
-- Displays an inventory overlay for chests containing enchanted items, listing each item’s slot number, enchantments, and providing quick-take options (single or by category).
+- Displays an inventory overlay for chests containing enchanted items, listing each item's slot number, enchantments, and providing quick-take options (single or by category).
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
 - Works with books, potions and gear and will separate them in the list by category and type
 
@@ -457,7 +458,14 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 
 ![Live](https://i.imgur.com/38r4wYF.png)
 
-## What’s changed or improved in this fork?
+### Packet Delay
+- Delays incoming and/or outgoing packets into a queue.
+- Optional tick delay, then releases queued packets all at once.
+- Flushes the queue when disabled.
+- Keybind works even with GUIs open (chests, portals, etc.).
+- Tick count displayed in HackList
+
+## What's changed or improved in this fork?
 
 ### ChestESP
 - Added sticky area mode which makes the scan anchored instead of re-centering when you move
@@ -651,7 +659,7 @@ Examples:
 - Fixed crashes on empty/zero-size shapes.  
 - Search tracers now use block centers as fallback.  
 - SignESP skips zero-size entries safely.  
-- ChunkSearcher now snapshots each chunk’s block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
+- ChunkSearcher now snapshots each chunk's block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
 - Fixed rare empty outline shape crash (safe bounding box for empty shapes fix)
 
 ### Notes

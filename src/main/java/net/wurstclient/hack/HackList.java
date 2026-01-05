@@ -178,6 +178,7 @@ public final class HackList implements UpdateListener
 	public final LavaWaterEspHack lavaWaterEspHack = new LavaWaterEspHack();
 	public final OverlayHack overlayHack = new OverlayHack();
 	public final PanicHack panicHack = new PanicHack();
+	public final PacketDelayHack packetDelayHack = new PacketDelayHack();
 	public final ParkourHack parkourHack = new ParkourHack();
 	public final PlayerEspHack playerEspHack = new PlayerEspHack();
 	public final PortalEspHack portalEspHack = new PortalEspHack();
