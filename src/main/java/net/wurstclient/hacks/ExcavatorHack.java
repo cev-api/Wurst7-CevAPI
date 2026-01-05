@@ -38,9 +38,11 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.OverlayRenderer;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
+import net.wurstclient.util.ShaderUtils;
 
 public final class ExcavatorHack extends Hack
 	implements UpdateListener, RenderListener, GUIRenderListener
@@ -52,6 +54,7 @@ public final class ExcavatorHack extends Hack
 		new EnumSetting<>("Mode", Mode.values(), Mode.FAST);
 	
 	private final OverlayRenderer overlay = new OverlayRenderer();
+	private boolean shaderSafeMode;
 	
 	private Step step;
 	private BlockPos posLookingAt;
@@ -99,7 +102,10 @@ public final class ExcavatorHack extends Hack
 		WURST.getHax().veinMinerHack.setEnabled(false);
 		
 		step = Step.START_POS;
-		
+		shaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(shaderSafeMode)
+			ChatUtils
+				.message("Shaders detected - using safe mode for Excavator.");
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -129,6 +135,18 @@ public final class ExcavatorHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(currentShaderSafeMode != shaderSafeMode)
+		{
+			shaderSafeMode = currentShaderSafeMode;
+			if(shaderSafeMode)
+				ChatUtils.message(
+					"Shaders detected - using safe mode for Excavator.");
+			else
+				ChatUtils.message(
+					"Shaders disabled - returning Excavator to normal mode.");
+		}
+		
 		if(step.selectPos)
 			handlePositionSelection();
 		else if(step == Step.SCAN_AREA)
@@ -374,8 +392,14 @@ public final class ExcavatorHack extends Hack
 		Predicate<BlockPos> pBreakable = MC.player.getAbilities().instabuild
 			? BlockUtils::canBeClicked : pos -> BlockUtils.canBeClicked(pos)
 				&& !BlockUtils.isUnbreakable(pos);
-		area.remainingBlocks =
-			(int)area.blocksList.parallelStream().filter(pBreakable).count();
+		java.util.List<BlockPos> blocksSnapshot =
+			shaderSafeMode ? new ArrayList<>(area.blocksList) : null;
+		if(shaderSafeMode)
+			area.remainingBlocks =
+				(int)blocksSnapshot.stream().filter(pBreakable).count();
+		else
+			area.remainingBlocks = (int)area.blocksList.parallelStream()
+				.filter(pBreakable).count();
 		
 		if(area.remainingBlocks == 0)
 		{
@@ -385,8 +409,10 @@ public final class ExcavatorHack extends Hack
 		
 		if(pathFinder == null)
 		{
-			BlockPos closestBlock = area.blocksList.parallelStream()
-				.filter(pBreakable).min(cNextTargetBlock).get();
+			java.util.stream.Stream<BlockPos> blockStream = shaderSafeMode
+				? blocksSnapshot.stream() : area.blocksList.parallelStream();
+			BlockPos closestBlock =
+				blockStream.filter(pBreakable).min(cNextTargetBlock).get();
 			
 			pathFinder = new ExcavatorPathFinder(closestBlock);
 		}
@@ -554,3 +580,6 @@ public final class ExcavatorHack extends Hack
 		}
 	}
 }
+
+
+

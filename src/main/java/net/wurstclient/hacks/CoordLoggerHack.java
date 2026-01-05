@@ -7,7 +7,6 @@
  */
 package net.wurstclient.hacks;
 
-// ### ADDED IMPORTS ###
 import static net.wurstclient.WurstClient.MC;
 
 import java.util.HashMap;
@@ -34,9 +33,8 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.minecraft.world.phys.AABB;
-import net.wurstclient.events.PacketInputListener; // ### ADDED ###
-import net.wurstclient.events.PacketInputListener.PacketInputEvent; // ### ADDED
-																	// ###
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -128,7 +126,6 @@ public final class CoordLoggerHack extends Hack
 	
 	static
 	{
-		// ########## DIRECT COPY OF WorldEvents IDS (with names) ##########
 		// Doors / trapdoors
 		register(1005, "IRON_DOOR_OPENS", EventCategory.DOORS);
 		register(1011, "IRON_DOOR_CLOSES", EventCategory.DOORS);
@@ -254,10 +251,9 @@ public final class CoordLoggerHack extends Hack
 	
 	public CoordLoggerHack()
 	{
-		super("CoordLogger"); // ### MODIFIED ### (Hack(String) only)
-		setCategory(Category.OTHER); // you can move it to a better category if
-										// you want
-		
+		super("CoordLogger");
+		setCategory(Category.OTHER);
+									
 		// Settings in ClickGUI
 		addSetting(minDistance);
 		addSetting(playerTeleports);

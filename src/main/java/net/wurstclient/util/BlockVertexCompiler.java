@@ -27,14 +27,18 @@ public enum BlockVertexCompiler
 	
 	public static ArrayList<int[]> compile(HashSet<BlockPos> blocks)
 	{
-		return blocks.parallelStream().flatMap(pos -> getVertices(pos, blocks))
+		Stream<BlockPos> stream = ShaderUtils.isShaderSafeMode()
+			? blocks.stream() : blocks.parallelStream();
+		return stream.flatMap(pos -> getVertices(pos, blocks))
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
 	
 	public static ArrayList<int[]> compile(HashSet<BlockPos> blocks,
 		RegionPos region)
 	{
-		return blocks.parallelStream().flatMap(pos -> getVertices(pos, blocks))
+		Stream<BlockPos> stream = ShaderUtils.isShaderSafeMode()
+			? blocks.stream() : blocks.parallelStream();
+		return stream.flatMap(pos -> getVertices(pos, blocks))
 			.map(v -> applyRegionOffset(v, region))
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
@@ -107,3 +111,6 @@ public enum BlockVertexCompiler
 		return new int[]{pos.getX() + x, pos.getY() + y, pos.getZ() + z};
 	}
 }
+
+
+

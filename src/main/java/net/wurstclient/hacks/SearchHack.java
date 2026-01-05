@@ -43,6 +43,7 @@ import net.wurstclient.util.EasyVertexBuffer;
 import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
+import net.wurstclient.util.ShaderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -117,6 +118,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private ForkJoinPool forkJoinPool;
 	private ForkJoinTask<HashSet<BlockPos>> getMatchingBlocksTask;
 	private ForkJoinTask<ArrayList<int[]>> compileVerticesTask;
+	private boolean shaderSafeMode;
+	private int buildGeneration;
+	private int currentBuildGeneration;
 	
 	// Keep a copy of matching positions for tracers
 	private HashSet<BlockPos> lastMatchingBlocks;
@@ -193,6 +197,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 		prevLimit = limit.getValueI();
 		notify = true;
 		forkJoinPool = new ForkJoinPool();
+		shaderSafeMode = ShaderUtils.refreshShadersActive();
+		buildGeneration = 0;
+		currentBuildGeneration = 0;
 		bufferUpToDate = false;
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
@@ -200,6 +207,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastListHash = blockList.getBlockNames().hashCode();
 		applySearchCriteria(block.getBlock(), "");
 		lastMatchesVersion = coordinator.getMatchesVersion();
+		if(shaderSafeMode)
+			ChatUtils
+				.message("Shaders detected - using safe mode for SearchHack.");
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(RenderListener.class, this);
@@ -229,6 +239,19 @@ public final class SearchHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(currentShaderSafeMode != shaderSafeMode)
+		{
+			shaderSafeMode = currentShaderSafeMode;
+			stopBuildingBuffer(true);
+			if(shaderSafeMode)
+				ChatUtils.message(
+					"Shaders detected - using safe mode for SearchHack.");
+			else
+				ChatUtils.message(
+					"Shaders disabled - returning SearchHack to normal mode.");
+		}
+		
 		SearchMode currentMode = mode.getSelected();
 		
 		// Mode/list changes
@@ -298,6 +321,12 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(!coordinator.hasReadyMatches())
 			return;
+		
+		if(shaderSafeMode)
+		{
+			buildBufferSafeMode();
+			return;
+		}
 		
 		if(getMatchingBlocksTask == null)
 			startGetMatchingBlocksTask();
@@ -483,6 +512,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// very large areas.
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		final int limitCount = limit.getValueLog();
+		currentBuildGeneration = buildGeneration;
 		getMatchingBlocksTask = forkJoinPool.submit(() -> {
 			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
 				(a, b) -> Integer.compare(b.distManhattan(eyesPos),
@@ -508,6 +538,12 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void startCompileVerticesTask()
 	{
+		if(currentBuildGeneration != buildGeneration)
+		{
+			stopBuildingBuffer(false);
+			return;
+		}
+		
 		HashSet<BlockPos> matchingBlocks = getMatchingBlocksTask.join();
 		// store for tracers
 		lastMatchingBlocks = matchingBlocks;
@@ -526,9 +562,71 @@ public final class SearchHack extends Hack implements UpdateListener,
 			.submit(() -> BlockVertexCompiler.compile(matchingBlocks));
 	}
 	
+	private void buildBufferSafeMode()
+	{
+		if(bufferUpToDate)
+			return;
+			
+		if(getMatchingBlocksTask != null || compileVerticesTask != null)
+			stopBuildingBuffer(false);
+			
+		// Use a bounded max-heap to keep only the closest N matches without
+		// sorting the entire result set. This avoids long pauses when scanning
+		// very large areas.
+		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
+		final int limitCount = limit.getValueLog();
+		java.util.ArrayList<ChunkSearcher.Result> readyMatches =
+			coordinator.getReadyMatches().collect(
+				java.util.stream.Collectors.toCollection(ArrayList::new));
+		PriorityQueue<BlockPos> heap =
+			new PriorityQueue<>((limitCount + 1), (a, b) -> Integer
+				.compare(b.distManhattan(eyesPos), a.distManhattan(eyesPos)));
+		for(ChunkSearcher.Result r : readyMatches)
+		{
+			BlockPos pos = r.pos();
+			if(heap.size() < limitCount)
+				heap.offer(pos);
+			else if(pos.distManhattan(eyesPos) < heap.peek()
+				.distManhattan(eyesPos))
+			{
+				heap.poll();
+				heap.offer(pos);
+			}
+		}
+		
+		HashSet<BlockPos> matchingBlocks = new HashSet<>(heap);
+		// store for tracers
+		lastMatchingBlocks = matchingBlocks;
+		
+		if(matchingBlocks.size() < limit.getValueLog())
+			notify = true;
+		else if(notify)
+		{
+			ChatUtils.warning("Search found \u00a7lA LOT\u00a7r of blocks!"
+				+ " To prevent lag, it will only show the closest \u00a76"
+				+ limit.getValueString() + "\u00a7r results.");
+			notify = false;
+		}
+		
+		ArrayList<int[]> vertices = BlockVertexCompiler.compile(matchingBlocks);
+		setBufferFromVertices(vertices, matchingBlocks);
+	}
+	
 	private void setBufferFromTask()
 	{
+		if(currentBuildGeneration != buildGeneration)
+		{
+			stopBuildingBuffer(false);
+			return;
+		}
+		
 		ArrayList<int[]> vertices = compileVerticesTask.join();
+		setBufferFromVertices(vertices, lastMatchingBlocks);
+	}
+	
+	private void setBufferFromVertices(ArrayList<int[]> vertices,
+		HashSet<BlockPos> matchingBlocks)
+	{
 		RegionPos region = RenderUtils.getCameraRegion();
 		if(vertexBuffer != null)
 			vertexBuffer.close();
@@ -541,16 +639,16 @@ public final class SearchHack extends Hack implements UpdateListener,
 		bufferUpToDate = true;
 		bufferRegion = region;
 		// build tracer endpoints now that we have matching blocks
-		if(lastMatchingBlocks != null)
+		if(matchingBlocks != null)
 		{
-			tracerEnds = lastMatchingBlocks.stream().map(pos -> {
+			tracerEnds = matchingBlocks.stream().map(pos -> {
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
 				return pos.getCenter();
 			}).collect(java.util.stream.Collectors.toList());
 			// update count for HUD (clamped to 999)
-			foundCount = Math.min(lastMatchingBlocks.size(), 999);
+			foundCount = Math.min(matchingBlocks.size(), 999);
 		}else
 		{
 			foundCount = 0;
@@ -559,6 +657,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void stopBuildingBuffer(boolean discardCurrent)
 	{
+		buildGeneration++;
 		if(getMatchingBlocksTask != null)
 			getMatchingBlocksTask.cancel(true);
 		getMatchingBlocksTask = null;
@@ -580,3 +679,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 	}
 }
+
+
+

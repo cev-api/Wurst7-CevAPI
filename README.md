@@ -663,6 +663,14 @@ Examples:
 - ChunkSearcher now snapshots each chunk's block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
 - Fixed rare empty outline shape crash (safe bounding box for empty shapes fix)
 
+### Shader-Safe Mode
+- Detect shader usage (Iris/OptiFine) safely at runtime and keep a cached toggle state.
+- Automatically switch sensitive hacks to “shader-safe mode” when shaders are active.
+- Avoid render-thread crashes by snapshotting collections, disabling parallel streams, and avoiding unsafe joins.
+- Apply safe-mode behavior dynamically when shaders are toggled on/off.
+- Notify users once per toggle/enable so they know performance/behavior is adjusted.
+- Currently only in these higher risk hacks: Search, CaveFinder, PlayerESP and Excavator as well as in BlockVertexCompiler.
+
 ### Notes
 - Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
 

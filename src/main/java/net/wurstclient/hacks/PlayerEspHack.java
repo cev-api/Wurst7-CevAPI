@@ -51,6 +51,7 @@ import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import net.wurstclient.util.ShaderUtils;
 
 @SearchTags({"player esp", "PlayerTracers", "player tracers"})
 public final class PlayerEspHack extends Hack implements UpdateListener,
@@ -68,6 +69,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new FilterInvisibleSetting("Won't show invisible players.", false));
 	
 	private final ArrayList<Player> players = new ArrayList<>();
+	private boolean shaderSafeMode;
 	private final Map<UUID, PendingEnterAlert> pendingEnterAlerts =
 		new HashMap<>();
 	// Alert settings & tracking for enter/exit notifications
@@ -203,6 +205,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		alertManager.addListener(alertListener);
+		shaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(shaderSafeMode)
+			ChatUtils
+				.message("Shaders detected - using safe mode for PlayerESP.");
 	}
 	
 	@Override
@@ -219,13 +225,28 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(currentShaderSafeMode != shaderSafeMode)
+		{
+			shaderSafeMode = currentShaderSafeMode;
+			if(shaderSafeMode)
+				ChatUtils.message(
+					"Shaders detected - using safe mode for PlayerESP.");
+			else
+				ChatUtils.message(
+					"Shaders disabled - returning PlayerESP to normal mode.");
+		}
+		
 		players.clear();
 		
-		Stream<AbstractClientPlayer> stream = MC.level.players()
-			.parallelStream().filter(e -> !e.isRemoved() && e.getHealth() > 0)
-			.filter(e -> e != MC.player)
-			.filter(e -> !(e instanceof FakePlayerEntity))
-			.filter(e -> Math.abs(e.getY() - MC.player.getY()) <= 1e6);
+		java.util.List<AbstractClientPlayer> playerSnapshot =
+			shaderSafeMode ? new ArrayList<>(MC.level.players()) : null;
+		Stream<AbstractClientPlayer> stream = (shaderSafeMode
+			? playerSnapshot.stream() : MC.level.players().parallelStream())
+				.filter(e -> !e.isRemoved() && e.getHealth() > 0)
+				.filter(e -> e != MC.player)
+				.filter(e -> !(e instanceof FakePlayerEntity))
+				.filter(e -> Math.abs(e.getY() - MC.player.getY()) <= 1e6);
 		
 		// If enabled, filter out players that aren't present on the client's
 		// player list (likely NPCs spawned by server plugins).
@@ -918,3 +939,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		}
 	}
 }
+
+
+

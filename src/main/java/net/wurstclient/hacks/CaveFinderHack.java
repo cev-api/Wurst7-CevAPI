@@ -37,6 +37,7 @@ import net.wurstclient.util.EasyVertexBuffer;
 import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
+import net.wurstclient.util.ShaderUtils;
 import net.wurstclient.util.chunk.ChunkSearcher;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -70,6 +71,9 @@ public final class CaveFinderHack extends Hack
 	private ForkJoinPool forkJoinPool;
 	private ForkJoinTask<HashSet<BlockPos>> getMatchingBlocksTask;
 	private ForkJoinTask<ArrayList<int[]>> compileVerticesTask;
+	private boolean shaderSafeMode;
+	private int buildGeneration;
+	private int currentBuildGeneration;
 	
 	private EasyVertexBuffer vertexBuffer;
 	private RegionPos bufferRegion;
@@ -92,9 +96,14 @@ public final class CaveFinderHack extends Hack
 		notify = true;
 		
 		forkJoinPool = new ForkJoinPool();
+		shaderSafeMode = ShaderUtils.refreshShadersActive();
+		buildGeneration = 0;
+		currentBuildGeneration = 0;
 		
 		bufferUpToDate = false;
-		
+		if(shaderSafeMode)
+			ChatUtils
+				.message("Shaders detected - using safe mode for CaveFinder.");
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(RenderListener.class, this);
@@ -120,6 +129,19 @@ public final class CaveFinderHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
+		if(currentShaderSafeMode != shaderSafeMode)
+		{
+			shaderSafeMode = currentShaderSafeMode;
+			stopBuildingBuffer();
+			if(shaderSafeMode)
+				ChatUtils.message(
+					"Shaders detected - using safe mode for CaveFinder.");
+			else
+				ChatUtils.message(
+					"Shaders disabled - returning CaveFinder to normal mode.");
+		}
+		
 		boolean searchersChanged = coordinator.update();
 		
 		if(searchersChanged)
@@ -134,6 +156,12 @@ public final class CaveFinderHack extends Hack
 			stopBuildingBuffer();
 			prevLimit = limit.getValueI();
 			notify = true;
+		}
+		
+		if(shaderSafeMode)
+		{
+			buildBufferSafeMode();
+			return;
 		}
 		
 		// build the buffer
@@ -176,6 +204,7 @@ public final class CaveFinderHack extends Hack
 	
 	private void stopBuildingBuffer()
 	{
+		buildGeneration++;
 		if(getMatchingBlocksTask != null)
 		{
 			getMatchingBlocksTask.cancel(true);
@@ -196,6 +225,7 @@ public final class CaveFinderHack extends Hack
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		Comparator<BlockPos> comparator =
 			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
+		currentBuildGeneration = buildGeneration;
 		
 		getMatchingBlocksTask = forkJoinPool.submit(() -> coordinator
 			.getMatches().parallel().map(ChunkSearcher.Result::pos)
@@ -205,6 +235,12 @@ public final class CaveFinderHack extends Hack
 	
 	private void startCompileVerticesTask()
 	{
+		if(currentBuildGeneration != buildGeneration)
+		{
+			stopBuildingBuffer();
+			return;
+		}
+		
 		HashSet<BlockPos> matchingBlocks = getMatchingBlocksTask.join();
 		
 		if(matchingBlocks.size() < limit.getValueLog())
@@ -221,9 +257,53 @@ public final class CaveFinderHack extends Hack
 			.submit(() -> BlockVertexCompiler.compile(matchingBlocks));
 	}
 	
+	private void buildBufferSafeMode()
+	{
+		if(bufferUpToDate)
+			return;
+			
+		if(getMatchingBlocksTask != null || compileVerticesTask != null)
+			stopBuildingBuffer();
+			
+		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
+		Comparator<BlockPos> comparator =
+			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
+		java.util.ArrayList<ChunkSearcher.Result> matches =
+			coordinator.getMatches().collect(
+				java.util.stream.Collectors.toCollection(ArrayList::new));
+		HashSet<BlockPos> matchingBlocks =
+			matches.stream().map(ChunkSearcher.Result::pos).sorted(comparator)
+				.limit(limit.getValueLog())
+				.collect(Collectors.toCollection(HashSet::new));
+		
+		if(matchingBlocks.size() < limit.getValueLog())
+			notify = true;
+		else if(notify)
+		{
+			ChatUtils.warning("CaveFinder found \u00a7lA LOT\u00a7r of blocks!"
+				+ " To prevent lag, it will only show the closest \u00a76"
+				+ limit.getValueString() + "\u00a7r results.");
+			notify = false;
+		}
+		
+		ArrayList<int[]> vertices = BlockVertexCompiler.compile(matchingBlocks);
+		setBufferFromVertices(vertices);
+	}
+	
 	private void setBufferFromTask()
 	{
+		if(currentBuildGeneration != buildGeneration)
+		{
+			stopBuildingBuffer();
+			return;
+		}
+		
 		ArrayList<int[]> vertices = compileVerticesTask.join();
+		setBufferFromVertices(vertices);
+	}
+	
+	private void setBufferFromVertices(ArrayList<int[]> vertices)
+	{
 		RegionPos region = RenderUtils.getCameraRegion();
 		
 		if(vertexBuffer != null)
@@ -240,3 +320,6 @@ public final class CaveFinderHack extends Hack
 		bufferRegion = region;
 	}
 }
+
+
+
