@@ -261,10 +261,10 @@ public final class CaveFinderHack extends Hack
 	{
 		if(bufferUpToDate)
 			return;
-			
+		
 		if(getMatchingBlocksTask != null || compileVerticesTask != null)
 			stopBuildingBuffer();
-			
+		
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		Comparator<BlockPos> comparator =
 			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
@@ -320,6 +320,3 @@ public final class CaveFinderHack extends Hack
 		bufferRegion = region;
 	}
 }
-
-
-

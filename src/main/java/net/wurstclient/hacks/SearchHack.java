@@ -566,7 +566,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	{
 		if(bufferUpToDate)
 			return;
-			
+		
 		if(getMatchingBlocksTask != null || compileVerticesTask != null)
 			stopBuildingBuffer(false);
 			
@@ -679,6 +679,3 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 	}
 }
-
-
-

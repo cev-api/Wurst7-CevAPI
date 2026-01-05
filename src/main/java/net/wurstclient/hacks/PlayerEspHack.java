@@ -939,6 +939,3 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		}
 	}
 }
-
-
-

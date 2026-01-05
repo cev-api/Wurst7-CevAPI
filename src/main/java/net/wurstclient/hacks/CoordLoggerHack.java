@@ -253,7 +253,7 @@ public final class CoordLoggerHack extends Hack
 	{
 		super("CoordLogger");
 		setCategory(Category.OTHER);
-									
+		
 		// Settings in ClickGUI
 		addSetting(minDistance);
 		addSetting(playerTeleports);

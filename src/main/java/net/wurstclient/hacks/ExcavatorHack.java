@@ -580,6 +580,3 @@ public final class ExcavatorHack extends Hack
 		}
 	}
 }
-
-
-

@@ -86,9 +86,8 @@ public final class SpearAssistHack extends Hack
 		"Automatically re-presses use to keep the spear raised when it drops.",
 		true);
 	
-	private final CheckboxSetting allowAimAssistWhileCharging =
-		new CheckboxSetting("Allow AimAssist while charging",
-			"Temporarily lets AimAssist run while you hold right-click.", true);
+	private final EnumSetting<AimAssistMode> aimAssistMode = new EnumSetting<>(
+		"AimAssist mode", AimAssistMode.values(), AimAssistMode.OFF);
 	
 	private final SliderSetting aimAssistRangeOverride = new SliderSetting(
 		"AimAssist range", "Overrides AimAssist range while holding a spear.",
@@ -111,6 +110,7 @@ public final class SpearAssistHack extends Hack
 	private boolean attackKeyDown;
 	private double dashDistanceRemaining;
 	private boolean aimAssistTemporarilyAllowed;
+	private boolean aimAssistTemporarilyEnabled;
 	private final ArrayList<TargetHighlight> highlightTargets =
 		new ArrayList<>();
 	private boolean useGlowFallback = true;
@@ -134,7 +134,7 @@ public final class SpearAssistHack extends Hack
 		addSetting(nearHighlightColor);
 		addSetting(farHighlightColor);
 		addSetting(autoResumeCharge);
-		addSetting(allowAimAssistWhileCharging);
+		addSetting(aimAssistMode);
 		addSetting(aimAssistRangeOverride);
 		addSetting(aimAssistLockOnOverride);
 		addSetting(autoAlignment);
@@ -148,7 +148,7 @@ public final class SpearAssistHack extends Hack
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(RightClickListener.class, this);
 		resetState();
-		updateAimAssist(false);
+		updateAimAssist(false, false);
 	}
 	
 	@Override
@@ -159,8 +159,8 @@ public final class SpearAssistHack extends Hack
 		EVENTS.remove(RightClickListener.class, this);
 		clearAimAssistRangeOverride();
 		clearAimAssistLockOnOverride();
+		updateAimAssist(false, false);
 		resetState();
-		updateAimAssist(false);
 	}
 	
 	@Override
@@ -209,9 +209,9 @@ public final class SpearAssistHack extends Hack
 		
 		updateHighlights(holdingSpear);
 		updateHighlightMode();
+		updateAimAssist(charging, holdingSpear);
 		updateAimAssistRangeOverride(holdingSpear);
 		updateAimAssistLockOnOverride(holdingSpear);
-		updateAimAssist(charging);
 		updateAutoAlignment(charging, holdingSpear);
 		handleAutoAttack(holdingSpear, attackHeld);
 	}
@@ -441,6 +441,7 @@ public final class SpearAssistHack extends Hack
 		useGlowFallback = true;
 		currentStyle = null;
 		aimAssistTemporarilyAllowed = false;
+		aimAssistTemporarilyEnabled = false;
 		autoAttackPrimed = false;
 		reverseDashActive = false;
 		aimAssistRangeOverridden = false;
@@ -522,11 +523,35 @@ public final class SpearAssistHack extends Hack
 			MC.player.setSilent(false);
 	}
 	
-	private void updateAimAssist(boolean charging)
+	private void updateAimAssist(boolean charging, boolean holdingSpear)
 	{
 		var aimAssist = WURST.getHax().aimAssistHack;
-		if(aimAssist == null || !aimAssist.isEnabled()
-			|| !allowAimAssistWhileCharging.isChecked())
+		if(aimAssist == null)
+			return;
+		
+		boolean shouldEnable = switch(aimAssistMode.getSelected())
+		{
+			case OFF -> false;
+			case WHILE_HOLDING_SPEAR -> holdingSpear;
+			case WHILE_CHARGING -> charging;
+		};
+		
+		if(shouldEnable)
+		{
+			if(!aimAssist.isEnabled())
+			{
+				aimAssist.setEnabled(true);
+				aimAssistTemporarilyEnabled = true;
+			}
+		}else if(aimAssistTemporarilyEnabled)
+		{
+			if(aimAssist.isEnabled())
+				aimAssist.setEnabled(false);
+			
+			aimAssistTemporarilyEnabled = false;
+		}
+		
+		if(!aimAssist.isEnabled())
 		{
 			if(aimAssistTemporarilyAllowed && aimAssist != null)
 				aimAssist.setTemporarilyAllowBlocking(false);
@@ -747,6 +772,26 @@ public final class SpearAssistHack extends Hack
 		public boolean useDash()
 		{
 			return dash;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private enum AimAssistMode
+	{
+		OFF("Off"),
+		WHILE_HOLDING_SPEAR("While holding spear"),
+		WHILE_CHARGING("While charging");
+		
+		private final String name;
+		
+		private AimAssistMode(String name)
+		{
+			this.name = name;
 		}
 		
 		@Override

@@ -129,6 +129,3 @@ public enum ShaderUtils
 		return refreshShadersActive();
 	}
 }
-
-
-

@@ -406,7 +406,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Allow reverse toggle lets you hold S/back while attacking to flip boosts so they launch you backward instead.
 - Highlighting: You can highlight near and far entities within your attack range. Near meaning the distance you can jab at them and far the distance you can charge at them. Default set to 7 for near and 8.5 blocks for far.
 - Your charge is automatically and constantly resumed (no cooldown) so you can forever hold right click. It will be noisy but even if the spear is pointed down you will still be able to attack. 
-- You can optionally allow aim assist to work whilst holding right click.
+- You can optionally allow aim assist to work whilst holding right click or stay on while spear is being used.
 - Auto Attack, your jab attack will continue to auto hit once the cooldown has expired so long as you're hitting an entity.
 - Auto alignment flys you up or down to match the level of your target when AimAssist is enabled
 - Extended AimAssist range (Max 100 Blocks) while using SpearAssist

@@ -111,6 +111,3 @@ public enum BlockVertexCompiler
 		return new int[]{pos.getX() + x, pos.getY() + y, pos.getZ() + z};
 	}
 }
-
-
-
