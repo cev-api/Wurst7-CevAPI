@@ -583,6 +583,7 @@ Examples:
 - Added glow outlines as an option and set it as the new default.
 - Added box color fill option.
 - Added Shulker projectile ESP
+- Added Wither projectile ESP
 
 ![Mob](https://i.imgur.com/1LFR8ll.png)
 

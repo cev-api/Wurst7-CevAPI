@@ -17,6 +17,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ShulkerBullet;
+import net.minecraft.world.entity.projectile.hurtingprojectile.WitherSkull;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -83,6 +84,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	
 	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
 	private final ArrayList<ShulkerBullet> shulkerBullets = new ArrayList<>();
+	private final ArrayList<WitherSkull> witherSkulls = new ArrayList<>();
 	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
@@ -101,6 +103,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Highlight shulker projectiles",
 			"Also outline the tracking projectiles fired by shulkers.", false);
 	
+	private final CheckboxSetting highlightWitherProjectiles =
+		new CheckboxSetting("Highlight wither projectiles",
+			"Also outline the projectiles fired by withers.", false);
+	
 	private int foundCount;
 	
 	public MobEspHack()
@@ -116,6 +122,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
 		addSetting(highlightShulkerProjectiles);
+		addSetting(highlightWitherProjectiles);
 		addSetting(showCountInHackList);
 	}
 	
@@ -135,6 +142,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		foundCount = 0;
 		shulkerBullets.clear();
+		witherSkulls.clear();
 	}
 	
 	@Override
@@ -142,6 +150,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	{
 		mobs.clear();
 		shulkerBullets.clear();
+		witherSkulls.clear();
 		
 		Stream<LivingEntity> stream = StreamSupport
 			.stream(MC.level.entitiesForRendering().spliterator(), false)
@@ -164,10 +173,19 @@ public final class MobEspHack extends Hack implements UpdateListener,
 					shulkerBullets.add(bullet);
 		}
 		
+		if(highlightWitherProjectiles.isChecked())
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+				if(entity instanceof WitherSkull skull && !skull.isRemoved())
+					witherSkulls.add(skull);
+		}
+		
 		// update count for HUD (clamped to 999)
 		int highlighted = mobs.size();
 		if(highlightShulkerProjectiles.isChecked())
 			highlighted += shulkerBullets.size();
+		if(highlightWitherProjectiles.isChecked())
+			highlighted += witherSkulls.size();
 		foundCount = Math.min(highlighted, 999);
 	}
 	
@@ -196,10 +214,15 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		boolean drawShape = !glowMode && shape != MobEspStyleSetting.Shape.NONE;
 		boolean drawLines = style.hasLines();
 		boolean drawFill = drawShape && fillShapes.isChecked();
+		float projectileOutlineAlpha = 0.85F;
+		float projectileFillAlpha = 0.35F;
+		float projectileGlowFillAlpha = 0.6F;
 		
 		int anticipatedSize = mobs.size();
 		if(highlightShulkerProjectiles.isChecked())
 			anticipatedSize += shulkerBullets.size();
+		if(highlightWitherProjectiles.isChecked())
+			anticipatedSize += witherSkulls.size();
 		
 		ArrayList<ColoredBox> outlineShapes =
 			drawShape ? new ArrayList<>(anticipatedSize) : null;
@@ -243,7 +266,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 					AABB lerpedBox =
 						EntityUtils.getLerpedBox(bullet, partialTicks);
 					float[] rgb = getColorRgb();
-					int outlineColor = RenderUtils.toIntColor(rgb, 0.5F);
+					int outlineColor =
+						RenderUtils.toIntColor(rgb, projectileOutlineAlpha);
 					
 					if(drawShape)
 					{
@@ -253,7 +277,38 @@ public final class MobEspHack extends Hack implements UpdateListener,
 						
 						if(filledShapes != null)
 						{
-							int fillColor = RenderUtils.toIntColor(rgb, 0.15F);
+							int fillColor = RenderUtils.toIntColor(rgb,
+								projectileFillAlpha);
+							filledShapes.add(new ColoredBox(box, fillColor));
+						}
+					}
+					
+					if(drawLines && ends != null)
+						ends.add(new ColoredPoint(lerpedBox.getCenter(),
+							outlineColor));
+				}
+			}
+			
+			if(highlightWitherProjectiles.isChecked())
+			{
+				for(WitherSkull skull : witherSkulls)
+				{
+					AABB lerpedBox =
+						EntityUtils.getLerpedBox(skull, partialTicks);
+					float[] rgb = getColorRgb();
+					int outlineColor =
+						RenderUtils.toIntColor(rgb, projectileOutlineAlpha);
+					
+					if(drawShape)
+					{
+						AABB box =
+							lerpedBox.move(0, extraSize, 0).inflate(extraSize);
+						outlineShapes.add(new ColoredBox(box, outlineColor));
+						
+						if(filledShapes != null)
+						{
+							int fillColor = RenderUtils.toIntColor(rgb,
+								projectileFillAlpha);
 							filledShapes.add(new ColoredBox(box, fillColor));
 						}
 					}
@@ -302,6 +357,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		if(glowMode && highlightShulkerProjectiles.isChecked()
 			&& !shulkerBullets.isEmpty())
 			renderShulkerProjectileFallback(matrixStack, partialTicks);
+		
+		if(glowMode && highlightWitherProjectiles.isChecked()
+			&& !witherSkulls.isEmpty())
+			renderWitherProjectileFallback(matrixStack, partialTicks);
 	}
 	
 	private void renderShulkerProjectileFallback(PoseStack matrixStack,
@@ -310,11 +369,29 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		ArrayList<ColoredBox> filledShapes =
 			new ArrayList<>(shulkerBullets.size());
 		double extraSize = boxSize.getExtraSize() / 2D;
-		int fillColor = RenderUtils.toIntColor(getColorRgb(), 0.35F);
+		int fillColor = RenderUtils.toIntColor(getColorRgb(), 0.6F);
 		
 		for(ShulkerBullet bullet : shulkerBullets)
 		{
 			AABB box = EntityUtils.getLerpedBox(bullet, partialTicks)
+				.move(0, extraSize, 0).inflate(extraSize);
+			filledShapes.add(new ColoredBox(box, fillColor));
+		}
+		
+		RenderUtils.drawSolidBoxes(matrixStack, filledShapes, false);
+	}
+	
+	private void renderWitherProjectileFallback(PoseStack matrixStack,
+		float partialTicks)
+	{
+		ArrayList<ColoredBox> filledShapes =
+			new ArrayList<>(witherSkulls.size());
+		double extraSize = boxSize.getExtraSize() / 2D;
+		int fillColor = RenderUtils.toIntColor(getColorRgb(), 0.6F);
+		
+		for(WitherSkull skull : witherSkulls)
+		{
+			AABB box = EntityUtils.getLerpedBox(skull, partialTicks)
 				.move(0, extraSize, 0).inflate(extraSize);
 			filledShapes.add(new ColoredBox(box, fillColor));
 		}

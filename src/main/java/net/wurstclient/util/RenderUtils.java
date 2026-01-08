@@ -708,8 +708,8 @@ public enum RenderUtils
 		else
 			normal.set(0, 1, 0);
 		
-		putVertex(entry, buffer, from, normal, color);
-		putVertex(entry, buffer, to, normal, color);
+		putLineVertex(entry, buffer, from, normal, color);
+		putLineVertex(entry, buffer, to, normal, color);
 	}
 	
 	private static void putTriangle(PoseStack.Pose entry, VertexConsumer buffer,
@@ -738,6 +738,14 @@ public enum RenderUtils
 	{
 		buffer.addVertex(entry, pos.x(), pos.y(), pos.z()).setColor(color)
 			.setNormal(entry, normal.x(), normal.y(), normal.z());
+	}
+	
+	private static void putLineVertex(PoseStack.Pose entry,
+		VertexConsumer buffer, Vector3f pos, Vector3f normal, int color)
+	{
+		buffer.addVertex(entry, pos.x(), pos.y(), pos.z()).setColor(color)
+			.setNormal(entry, normal.x(), normal.y(), normal.z())
+			.setLineWidth(DEFAULT_LINE_WIDTH);
 	}
 	
 	public static void drawOutlinedBox(PoseStack matrices, AABB box, int color,
