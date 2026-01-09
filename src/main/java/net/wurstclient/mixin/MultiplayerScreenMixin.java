@@ -27,6 +27,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.serverfinder.CleanUpScreen;
+import net.wurstclient.uiutils.UiUtilsState;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen
@@ -38,6 +39,10 @@ public class MultiplayerScreenMixin extends Screen
 	private Button cornerServerFinderButton;
 	@Unique
 	private Button cornerCleanUpButton;
+	@Unique
+	private Button uiUtilsBypassButton;
+	@Unique
+	private Button uiUtilsForceDenyButton;
 	
 	private MultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
@@ -50,6 +55,8 @@ public class MultiplayerScreenMixin extends Screen
 		antiFingerprintButton = null;
 		cornerServerFinderButton = null;
 		cornerCleanUpButton = null;
+		uiUtilsBypassButton = null;
+		uiUtilsForceDenyButton = null;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -136,6 +143,52 @@ public class MultiplayerScreenMixin extends Screen
 		cornerCleanUpButton.setX(width / 2 + 154 + 4);
 		cornerCleanUpButton.setY(height - 30);
 		cornerCleanUpButton.setWidth(100);
+		
+		if(!UiUtilsState.isUiEnabled())
+		{
+			if(uiUtilsBypassButton != null)
+				uiUtilsBypassButton.visible = false;
+			if(uiUtilsForceDenyButton != null)
+				uiUtilsForceDenyButton.visible = false;
+			return;
+		}
+		
+		if(uiUtilsBypassButton == null)
+		{
+			uiUtilsBypassButton = Button
+				.builder(Component.literal("Bypass Resource Pack: OFF"), b -> {
+					UiUtilsState.bypassResourcePack =
+						!UiUtilsState.bypassResourcePack;
+					b.setMessage(Component.literal("Bypass Resource Pack: "
+						+ (UiUtilsState.bypassResourcePack ? "ON" : "OFF")));
+				}).bounds(0, 0, 160, 20).build();
+			addRenderableWidget(uiUtilsBypassButton);
+		}
+		uiUtilsBypassButton
+			.setMessage(Component.literal("Bypass Resource Pack: "
+				+ (UiUtilsState.bypassResourcePack ? "ON" : "OFF")));
+		
+		if(uiUtilsForceDenyButton == null)
+		{
+			uiUtilsForceDenyButton =
+				Button.builder(Component.literal("Force Deny: OFF"), b -> {
+					UiUtilsState.resourcePackForceDeny =
+						!UiUtilsState.resourcePackForceDeny;
+					b.setMessage(Component.literal("Force Deny: "
+						+ (UiUtilsState.resourcePackForceDeny ? "ON" : "OFF")));
+				}).bounds(0, 0, 160, 20).build();
+			addRenderableWidget(uiUtilsForceDenyButton);
+		}
+		uiUtilsForceDenyButton.setMessage(Component.literal("Force Deny: "
+			+ (UiUtilsState.resourcePackForceDeny ? "ON" : "OFF")));
+		
+		uiUtilsBypassButton.setX(width - 170);
+		uiUtilsBypassButton.setY(height - 50);
+		uiUtilsBypassButton.visible = true;
+		
+		uiUtilsForceDenyButton.setX(width - 170);
+		uiUtilsForceDenyButton.setY(height - 25);
+		uiUtilsForceDenyButton.visible = true;
 	}
 	
 	@Inject(at = @At("HEAD"),

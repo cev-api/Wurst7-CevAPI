@@ -216,6 +216,7 @@ public final class HackList implements UpdateListener
 	public final TargetPlaceHack targetPlaceHack = new TargetPlaceHack();
 	public final TiredHack tiredHack = new TiredHack();
 	public final TooManyHaxHack tooManyHaxHack = new TooManyHaxHack();
+	public final UiUtilsHack uiUtilsHack = new UiUtilsHack();
 	public final TpAuraHack tpAuraHack = new TpAuraHack();
 	public final TrajectoriesHack trajectoriesHack = new TrajectoriesHack();
 	public final TreeBotHack treeBotHack = new TreeBotHack();

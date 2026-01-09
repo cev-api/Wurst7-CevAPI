@@ -19,6 +19,8 @@ import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatOutputListener.ChatOutputEvent;
+import net.wurstclient.uiutils.UiUtils;
+import net.wurstclient.uiutils.UiUtilsState;
 
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen
@@ -47,6 +49,26 @@ public abstract class ChatScreenMixin extends Screen
 		// Ignore empty messages just like vanilla
 		if((message = normalizeChatMessage(message)).isEmpty())
 			return;
+		
+		if("^toggleuiutils".equals(message))
+		{
+			UiUtilsState.enabled = !UiUtilsState.enabled;
+			if(minecraft.player != null)
+				minecraft.player
+					.displayClientMessage(Component.literal("UI-Utils is now "
+						+ (UiUtilsState.enabled ? "enabled" : "disabled")
+						+ "."), false);
+			else
+				UiUtils.LOGGER
+					.warn("Minecraft player was null while toggling UI-Utils.");
+			
+			if(addToHistory)
+				minecraft.gui.getChat().addRecentChat(message);
+			
+			minecraft.setScreen(null);
+			ci.cancel();
+			return;
+		}
 		
 		// Create and fire the chat output event
 		ChatOutputEvent event = new ChatOutputEvent(message);

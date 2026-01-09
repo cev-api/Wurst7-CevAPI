@@ -80,6 +80,13 @@
     "TextVisitFactoryMixin",
     "TrialSpawnerDataAccessor",
     "TitleScreenMixin",
+    "ui_utils.ConnectionAccessor",
+    "ui_utils.UiUtilsAbstractContainerScreenMixin",
+    "ui_utils.UiUtilsAbstractSignEditScreenMixin",
+    "ui_utils.UiUtilsBookEditScreenMixin",
+    "ui_utils.UiUtilsBookViewScreenMixin",
+    "ui_utils.UiUtilsConnectionMixin",
+    "ui_utils.UiUtilsInBedChatScreenMixin",
     "WorldEnvironmentAttributeAccessMixin",
     "WorldMixin",
     "WorldRendererMixin"
