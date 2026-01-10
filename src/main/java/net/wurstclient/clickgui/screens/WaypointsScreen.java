@@ -46,6 +46,16 @@ public final class WaypointsScreen extends Screen
 	// Dimension filter (null = show all)
 	private net.wurstclient.waypoints.WaypointDimension filterDim = null;
 	
+	private static enum SortMode
+	{
+		DATE,
+		NEAREST,
+		FURTHEST,
+		NAME
+	}
+	
+	private SortMode sortMode = SortMode.DATE;
+	
 	// One row = 4 buttons. We keep references so we can reposition & toggle
 	// visibility.
 	private static final class RowWidgets
@@ -62,6 +72,7 @@ public final class WaypointsScreen extends Screen
 	// Persisted scroll per-world+dimension so returning keeps the same
 	// position even if a new screen instance was created.
 	private static final Map<String, Integer> savedScrolls = new HashMap<>();
+	private static final Map<String, SortMode> savedSortModes = new HashMap<>();
 	
 	private void saveScrollState()
 	{
@@ -70,6 +81,7 @@ public final class WaypointsScreen extends Screen
 			String key = resolveWorldId() + ":"
 				+ (filterDim == null ? "ALL" : filterDim.name());
 			savedScrolls.put(key, scroll);
+			savedSortModes.put(key, sortMode);
 		}catch(Exception ignored)
 		{}
 	}
@@ -172,6 +184,39 @@ public final class WaypointsScreen extends Screen
 			if(filterDim == null || w.getDimension() == filterDim)
 				cachedList.add(w);
 		}
+		
+		// Apply sorting
+		switch(sortMode)
+		{
+			case DATE -> cachedList.sort(
+				(a, b) -> Long.compare(b.getCreatedAt(), a.getCreatedAt()));
+			case NAME -> cachedList
+				.sort((a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+			case NEAREST ->
+			{
+				if(minecraft.player != null)
+				{
+					BlockPos playerPos =
+						BlockPos.containing(minecraft.player.getX(),
+							minecraft.player.getY(), minecraft.player.getZ());
+					cachedList.sort(
+						(a, b) -> Double.compare(a.getPos().distSqr(playerPos),
+							b.getPos().distSqr(playerPos)));
+				}
+			}
+			case FURTHEST ->
+			{
+				if(minecraft.player != null)
+				{
+					BlockPos playerPos =
+						BlockPos.containing(minecraft.player.getX(),
+							minecraft.player.getY(), minecraft.player.getZ());
+					cachedList.sort(
+						(a, b) -> Double.compare(b.getPos().distSqr(playerPos),
+							a.getPos().distSqr(playerPos)));
+				}
+			}
+		}
 		listStartY = y;
 		
 		// Determine viewport for the list (space until the Back button line)
@@ -186,6 +231,9 @@ public final class WaypointsScreen extends Screen
 			Integer s = savedScrolls.get(key);
 			if(s != null)
 				scroll = s;
+			SortMode sm = savedSortModes.get(key);
+			if(sm != null)
+				sortMode = sm;
 		}catch(Exception ignored)
 		{}
 		
@@ -263,9 +311,26 @@ public final class WaypointsScreen extends Screen
 			scrollToBottom();
 		}).bounds(arrowX + 20, viewportBottom, 20, 20).build());
 		
+		// Back button (smaller) and Sort button on same line
+		int backWidth = 200;
+		int sortWidth = 90;
+		addRenderableWidget(
+			Button.builder(Component.literal("Sort: " + sortMode.name()), b -> {
+				// cycle sort modes
+				sortMode = switch(sortMode)
+				{
+					case DATE -> SortMode.NEAREST;
+					case NEAREST -> SortMode.FURTHEST;
+					case FURTHEST -> SortMode.NAME;
+					default -> SortMode.DATE;
+				};
+				saveScrollState();
+				minecraft.setScreen(this);
+			}).bounds(x, this.height - 28, sortWidth, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
-			.bounds(x, this.height - 28, 300, 20).build());
+			.bounds(x + sortWidth + 10, this.height - 28, backWidth, 20)
+			.build());
 	}
 	
 	private void scrollBy(int dy)
@@ -412,11 +477,57 @@ public final class WaypointsScreen extends Screen
 			rw.copyBtn.visible = visible;
 		}
 		
+		// Hide default button labels for name buttons so we can draw a single
+		// centered/scrolling label later and avoid duplicate text (built-in
+		// rendering + our custom rendering causing two copies).
+		java.util.Map<RowWidgets, Component> _savedLabels =
+			new java.util.HashMap<>();
+		for(RowWidgets _rw : rows)
+		{
+			if(_rw == null || _rw.nameBtn == null || !_rw.nameBtn.visible)
+				continue;
+			_savedLabels.put(_rw, _rw.nameBtn.getMessage());
+			_rw.nameBtn.setMessage(Component.literal(""));
+		}
+		
 		super.render(context, mouseX, mouseY, delta);
+		
+		// Restore messages so our custom drawing can read them
+		for(java.util.Map.Entry<RowWidgets, Component> e : _savedLabels
+			.entrySet())
+		{
+			RowWidgets _rw = e.getKey();
+			if(_rw != null && _rw.nameBtn != null)
+				_rw.nameBtn.setMessage(e.getValue());
+		}
 		
 		// Title
 		context.drawCenteredString(minecraft.font, "Waypoints", this.width / 2,
 			12, 0xFFFFFFFF);
+		
+		// Draw beacon button backgrounds (overlay) and collect line outlines
+		java.util.List<RowWidgets> lineOutlineRows =
+			new java.util.ArrayList<>();
+		for(RowWidgets rw : rows)
+		{
+			if(rw == null || rw.nameBtn == null || !rw.nameBtn.visible)
+				continue;
+			if(rw.w.hasBeacon())
+			{
+				int nameLeft = x; // name button left
+				int nameTop = rw.nameBtn.getY();
+				int nameRight = nameLeft + 140; // name button width
+				int nameBottom = nameTop + 20;
+				int baseColor = rw.w.getColor();
+				// overlay with ~40% opacity so button shading remains visible
+				int overlay = (baseColor & 0x00FFFFFF) | 0x66000000; //
+				context.fill(nameLeft, nameTop, nameRight, nameBottom, overlay);
+				// label will be drawn later (consistent scrolling/clip)
+				{}
+			}
+			if(rw.w.isLines())
+				lineOutlineRows.add(rw);
+		}
 		
 		// Draw small color boxes for each saved waypoint next to the name
 		// Use the same filtered list as the rows to render color boxes and clip
@@ -458,9 +569,89 @@ public final class WaypointsScreen extends Screen
 				0xFF333333);
 			// fill
 			context.fill(boxLeft, boxY, boxLeft + 16, boxY + 16, color);
+			
 		}
 		
 		context.disableScissor();
+		
+		// Draw line outlines collected earlier (use waypoint color and clamp to
+		// screen to avoid cut-off)
+		for(RowWidgets rw : lineOutlineRows)
+		{
+			if(rw == null || rw.nameBtn == null || !rw.nameBtn.visible)
+				continue;
+			int nameLeft = x;
+			int nameTop = rw.nameBtn.getY();
+			int nameRight = nameLeft + 140;
+			int nameBottom = nameTop + 20;
+			int stroke = rw.w.getColor();
+			int top = Math.max(0, nameTop - 1);
+			int bottom = Math.min(this.height, nameBottom + 1);
+			if(top >= bottom)
+				continue;
+			// top
+			context.fill(nameLeft - 1, top, nameRight + 1,
+				Math.min(bottom, nameTop), stroke);
+			// bottom
+			context.fill(nameLeft - 1, Math.max(top, nameBottom), nameRight + 1,
+				bottom, stroke);
+			// left
+			context.fill(nameLeft - 1, top, nameLeft, bottom, stroke);
+			// right
+			context.fill(nameRight, top, nameRight + 1, bottom, stroke);
+		}
+		
+		// Draw labels for all visible name buttons with clipping and centered
+		// scrolling
+		for(RowWidgets rw : rows)
+		{
+			if(rw == null || rw.nameBtn == null || !rw.nameBtn.visible)
+				continue;
+			int nameLeft = x;
+			int nameTop = rw.nameBtn.getY();
+			int nameRight = nameLeft + 140;
+			int nameBottom = nameTop + 20;
+			String label = rw.nameBtn.getMessage().getString();
+			int textWidth = minecraft.font.width(label);
+			int centerX = (nameLeft + nameRight) / 2;
+			int maxTextWidth = nameRight - nameLeft - 8; // padding both sides
+			if(maxTextWidth < 0)
+				maxTextWidth = 0;
+			context.enableScissor(nameLeft, nameTop, nameRight, nameBottom);
+			if(textWidth <= maxTextWidth || maxTextWidth == 0)
+			{
+				// draw centered
+				context.drawCenteredString(minecraft.font, label, centerX,
+					nameTop + 6, 0xFFFFFFFF);
+			}else
+			{
+				int gap = 20;
+				int period = textWidth + gap;
+				long t = System.currentTimeMillis();
+				int speed = 90; // text scroll, ms pixel
+				int offset = (int)((t / (long)speed) % period);
+				int x1 = centerX - textWidth / 2 - offset;
+				context.drawString(minecraft.font, label, x1, nameTop + 6,
+					0xFFFFFFFF);
+				context.drawString(minecraft.font, label, x1 + textWidth + gap,
+					nameTop + 6, 0xFFFFFFFF);
+			}
+			context.disableScissor();
+		}
+		
+		// Darken the "Hide" buttons for hidden waypoints with a 25% black
+		// overlay so they appear darker.
+		for(RowWidgets _rw : rows)
+		{
+			if(_rw == null || _rw.visBtn == null || !_rw.visBtn.visible)
+				continue;
+			if(!_rw.w.isVisible())
+			{
+				int vx = x + 145;
+				int vy = _rw.visBtn.getY();
+				context.fill(vx, vy, vx + 55, vy + 20, 0x66000000);
+			}
+		}
 		
 		// Draw scrollbar track & thumb (to the right of the list area)
 		int contentHeight = rows.size() * ROW_HEIGHT;

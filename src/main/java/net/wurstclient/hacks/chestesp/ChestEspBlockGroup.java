@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
@@ -97,6 +98,19 @@ public abstract class ChestEspBlockGroup extends ChestEspGroup
 			boolean above1 = false;
 			BlockBehaviour.BlockStateBase s1 = BlockUtils.getState(pos.above());
 			above1 = s1 != null && !s1.isAir();
+			// Ignore containers on top (chest, shulker, barrel) — they should
+			// not count as buried
+			if(above1)
+			{
+				try
+				{
+					var b = s1.getBlock();
+					if(b instanceof ChestBlock || b instanceof ShulkerBoxBlock
+						|| b instanceof BarrelBlock)
+						above1 = false;
+				}catch(Throwable ignored)
+				{}
+			}
 			
 			boolean above2 = false;
 			if(state.hasProperty(ChestBlock.TYPE))
@@ -109,6 +123,18 @@ public abstract class ChestEspBlockGroup extends ChestEspGroup
 					BlockBehaviour.BlockStateBase s2 =
 						BlockUtils.getState(pos2.above());
 					above2 = s2 != null && !s2.isAir();
+					if(above2)
+					{
+						try
+						{
+							var b2 = s2.getBlock();
+							if(b2 instanceof ChestBlock
+								|| b2 instanceof ShulkerBoxBlock
+								|| b2 instanceof BarrelBlock)
+								above2 = false;
+						}catch(Throwable ignored)
+						{}
+					}
 				}
 			}
 			return above1 || above2;

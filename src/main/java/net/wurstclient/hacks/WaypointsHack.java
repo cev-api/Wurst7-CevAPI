@@ -130,6 +130,17 @@ public final class WaypointsHack extends Hack
 	// Opacity slider for compass text (0-100%)
 	private final SliderSetting compassOpacity = new SliderSetting(
 		"Compass text opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	// Compass outline/stroke settings
+	private final CheckboxSetting compassOutline =
+		new CheckboxSetting("Compass text outline", true);
+	private final SliderSetting compassOutlineOpacity = new SliderSetting(
+		"Compass outline opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	
+	// Waypoint world-label outline settings
+	private final CheckboxSetting waypointOutline =
+		new CheckboxSetting("Waypoint label outline", true);
+	private final SliderSetting waypointOutlineOpacity = new SliderSetting(
+		"Waypoint outline opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
 	private final SliderSetting beaconRenderDistance = new SliderSetting(
 		"Beacon render distance", 1000, 0, DISTANCE_SLIDER_INFINITE, 1,
 		ValueDisplay.INTEGER.withLabel(DISTANCE_SLIDER_INFINITE, "Infinite"));
@@ -175,6 +186,10 @@ public final class WaypointsHack extends Hack
 		addSetting(compassXPercent);
 		addSetting(compassYPercent);
 		addSetting(compassOpacity);
+		addSetting(compassOutline);
+		addSetting(compassOutlineOpacity);
+		addSetting(waypointOutline);
+		addSetting(waypointOutlineOpacity);
 		addSetting(compassBackgroundOpacity);
 		addSetting(createDeathWaypoints);
 		addSetting(chatOnDeath);
@@ -252,6 +267,138 @@ public final class WaypointsHack extends Hack
 		ensureWorldData();
 		manager.addOrUpdate(waypoint);
 		saveExcludingTemporaries();
+	}
+	
+	/**
+	 * Modify waypoints within radius (blocks) around player according to
+	 * options map. Returns number of waypoints modified/removed.
+	 */
+	public int applyRadiusCommand(int radius, Map<String, String> options)
+	{
+		ensureWorldData();
+		if(MC.player == null)
+			return 0;
+		BlockPos playerPos = BlockPos.containing(MC.player.getX(),
+			MC.player.getY(), MC.player.getZ());
+		double r2 = (double)radius * (double)radius;
+		int changed = 0;
+		for(Waypoint w : new ArrayList<>(manager.all()))
+		{
+			if(w.getDimension() != currentDim())
+				continue;
+			double dsq = w.getPos().distSqr(playerPos);
+			if(dsq > r2)
+				continue;
+			boolean removed = false;
+			// delete flag
+			if(options.containsKey("delete") || options.containsKey("remove"))
+			{
+				String v =
+					options.getOrDefault("delete", options.get("remove"));
+				if(v == null || v.isEmpty() || v.equalsIgnoreCase("true")
+					|| v.equals("1") || v.equalsIgnoreCase("yes"))
+				{
+					manager.remove(w);
+					changed++;
+					removed = true;
+				}
+			}
+			if(removed)
+				continue;
+			// clear lines/beacon
+			if(options.containsKey("clear"))
+			{
+				w.setLines(false);
+				w.setBeaconMode(Waypoint.BeaconMode.OFF);
+				manager.addOrUpdate(w);
+				changed++;
+				continue;
+			}
+			// color
+			if(options.containsKey("color"))
+			{
+				String raw = options.get("color").trim();
+				try
+				{
+					if(raw.startsWith("#"))
+						raw = raw.substring(1);
+					if(raw.startsWith("0x") || raw.startsWith("0X"))
+						raw = raw.substring(2);
+					int col = (int)Long.parseLong(raw, 16);
+					if(raw.length() == 6)
+						col |= 0xFF000000;
+					w.setColor(col);
+				}catch(Exception ignored)
+				{}
+			}
+			// visible
+			if(options.containsKey("visible"))
+			{
+				String v = options.get("visible");
+				if(v == null || v.isEmpty())
+					;
+				else
+				{
+					String vv = v.toLowerCase(Locale.ROOT);
+					w.setVisible(vv.equals("true") || vv.equals("1")
+						|| vv.equals("yes") || vv.equals("on"));
+				}
+			}
+			// lines
+			if(options.containsKey("lines"))
+			{
+				String v = options.get("lines");
+				if(v != null && !v.isEmpty())
+				{
+					String vv = v.toLowerCase(Locale.ROOT);
+					w.setLines(vv.equals("true") || vv.equals("1")
+						|| vv.equals("yes") || vv.equals("on"));
+				}
+			}
+			// beacon
+			if(options.containsKey("beacon"))
+			{
+				String v = options.get("beacon");
+				if(v != null)
+				{
+					switch(v.toLowerCase(Locale.ROOT))
+					{
+						case "off", "none", "false", "disabled" -> w
+							.setBeaconMode(Waypoint.BeaconMode.OFF);
+						case "solid", "on" -> w
+							.setBeaconMode(Waypoint.BeaconMode.SOLID);
+						case "esp", "beam", "true" -> w
+							.setBeaconMode(Waypoint.BeaconMode.ESP);
+						default ->
+							{
+							}
+					}
+				}
+			}
+			// maxvisible
+			if(options.containsKey("maxvisible"))
+			{
+				try
+				{
+					w.setMaxVisible(
+						Integer.parseInt(options.get("maxvisible")));
+				}catch(NumberFormatException ignored)
+				{}
+			}
+			// icon
+			if(options.containsKey("icon"))
+			{
+				String v = options.get("icon");
+				if(v != null && !v.isEmpty())
+					w.setIcon(v);
+			}
+			// persist update
+			manager.addOrUpdate(w);
+			changed++;
+		}
+		if(changed > 0)
+			saveExcludingTemporaries();
+		return changed;
 	}
 	
 	private void saveExcludingTemporaries()
@@ -963,8 +1110,32 @@ public final class WaypointsHack extends Hack
 		Font tr = MC.font;
 		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
-		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		// Background opacity should respect the text alpha (which may be
+		// reduced by fading).
+		int baseAlpha = (argb >>> 24) & 0xFF;
+		int bgAlpha =
+			(int)Math.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+		int bg = (bgAlpha << 24);
 		var matrix = matrices.last().pose();
+		// Optionally draw outline/stroke for legibility using configured
+		// waypoint outline settings. Stroke is always black to avoid
+		// white-stroke-on-white issues.
+		if(waypointOutline.isChecked())
+		{
+			int strokeAlpha = (int)Math
+				.round(baseAlpha * (waypointOutlineOpacity.getValue() / 100.0));
+			int strokeColor =
+				(Math.max(0, Math.min(255, strokeAlpha)) << 24) | 0x000000;
+			tr.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
+				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+			tr.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
+				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+			tr.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
+				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+			tr.drawInBatch(text, -w, +1, strokeColor, false, matrix, vcp,
+				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		}
+		// main text
 		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
 			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		vcp.endBatch();
@@ -1023,6 +1194,30 @@ public final class WaypointsHack extends Hack
 					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
 				withAlpha(rgb, Math.max(alpha, 120)), false);
 		}
+	}
+	
+	// Helper: pick contrasting stroke color (white or black) for given RGB
+	// color
+	private int contrastStrokeFor(int color)
+	{
+		int r = (color >> 16) & 0xFF;
+		int g = (color >> 8) & 0xFF;
+		int b = color & 0xFF;
+		double lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		return lum < 128.0 ? 0xFFFFFFFF : 0xFF000000;
+	}
+	
+	// Draw text with a simple outline (stroke) for legibility
+	private void drawOutlinedString(GuiGraphics context, Font font, String s,
+		int x, int y, int color, int stroke)
+	{
+		// 4-way outline
+		context.drawString(font, s, x - 1, y, stroke, false);
+		context.drawString(font, s, x + 1, y, stroke, false);
+		context.drawString(font, s, x, y - 1, stroke, false);
+		context.drawString(font, s, x, y + 1, stroke, false);
+		// main
+		context.drawString(font, s, x, y, color, false);
 	}
 	
 	private Waypoint.BeaconMode waypointBeaconMode(Waypoint waypoint)
@@ -1224,7 +1419,20 @@ public final class WaypointsHack extends Hack
 			int iconW = tr.width(icon);
 			int iconY =
 				(int)Math.round(barY + barH / 2.0 - tr.lineHeight / 2.0);
-			context.drawString(tr, icon, ix - iconW / 2, iconY, color, false);
+			if(compassOutline.isChecked())
+			{
+				int strokeAlpha = (int)Math
+					.round(255 * (compassOutlineOpacity.getValue() / 100.0));
+				int strokeColor = (strokeAlpha << 24) | 0x000000; // always
+																	// black
+																	// stroke
+				drawOutlinedString(context, tr, icon, ix - iconW / 2, iconY,
+					color, strokeColor);
+			}else
+			{
+				context.drawString(tr, icon, ix - iconW / 2, iconY, color,
+					false);
+			}
 		}
 		
 		// Draw selected name and distance
@@ -1254,8 +1462,23 @@ public final class WaypointsHack extends Hack
 				Math.max(0.0, Math.min(1.0, compassOpacity.getValue() / 100.0));
 			int aText = (int)Math.round(255 * opaText);
 			int textColor = (aText << 24) | 0x00FFFFFF;
-			context.drawString(tr, title, titleX, titleY, textColor, false);
-			context.drawString(tr, distText, distX, distY, textColor, false);
+			if(compassOutline.isChecked())
+			{
+				int strokeAlpha = (int)Math
+					.round(255 * (compassOutlineOpacity.getValue() / 100.0));
+				int strokeColor = (strokeAlpha << 24) | 0x000000; // always
+																	// black
+																	// stroke
+				drawOutlinedString(context, tr, title, titleX, titleY,
+					textColor, strokeColor);
+				drawOutlinedString(context, tr, distText, distX, distY,
+					textColor, strokeColor);
+			}else
+			{
+				context.drawString(tr, title, titleX, titleY, textColor, false);
+				context.drawString(tr, distText, distX, distY, textColor,
+					false);
+			}
 		}
 	}
 	

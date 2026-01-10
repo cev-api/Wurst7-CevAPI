@@ -37,7 +37,8 @@ public final class WaypointCmd extends Command
 				+ ">] [visible=<true|false>] [lines=<true|false>]"
 				+ " [opposite=<true|false>] [beacon=<off|solid|esp>]"
 				+ " [action=<disabled|hide|delete>] [actiondist=<int>]"
-				+ " [maxvisible=<int>] [scale=<decimal>]");
+				+ " [maxvisible=<int>] [scale=<decimal>]"
+				+ "\n.waypoint radius <radius> [key=value ...]  — modify/remove waypoints within radius around player");
 	}
 	
 	@Override
@@ -51,6 +52,11 @@ public final class WaypointCmd extends Command
 		{
 			case "add":
 			handleAdd(Arrays.copyOfRange(args, 1, args.length));
+			break;
+			
+			case "setradius":
+			case "radius":
+			handleSetRadius(Arrays.copyOfRange(args, 1, args.length));
 			break;
 			
 			default:
@@ -140,6 +146,40 @@ public final class WaypointCmd extends Command
 		ChatUtils
 			.message(String.format("Added waypoint \"%s\" at %d, %d, %d in %s.",
 				name, x, y, z, dim.name()));
+	}
+	
+	private void handleSetRadius(String[] args) throws CmdException
+	{
+		if(args.length == 0)
+			throw new CmdSyntaxError("Missing radius.");
+		int radius;
+		try
+		{
+			radius = Integer.parseInt(args[0]);
+			if(radius < 0)
+				throw new NumberFormatException();
+		}catch(NumberFormatException e)
+		{
+			throw new CmdError("Invalid radius: " + args[0]);
+		}
+		Map<String, String> options = new LinkedHashMap<>();
+		for(int i = 1; i < args.length; i++)
+		{
+			String arg = args[i];
+			int eq = arg.indexOf('=');
+			if(eq < 0)
+				options.put(arg.toLowerCase(Locale.ROOT), "");
+			else
+			{
+				String key = arg.substring(0, eq).toLowerCase(Locale.ROOT);
+				String value = arg.substring(eq + 1);
+				options.put(key, value);
+			}
+		}
+		int changed =
+			WURST.getHax().waypointsHack.applyRadiusCommand(radius, options);
+		ChatUtils.message("Modified " + changed + " waypoint(s) within radius "
+			+ radius + ".");
 	}
 	
 	private int parseInt(String raw, String key, Integer fallback)

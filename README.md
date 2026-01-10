@@ -174,7 +174,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 
 ### Waypoints
 - Create and save waypoints, with optional automatic death waypoints for all players.  
-- Manager UI (`.waypoints` or apostrophe key).  
+- Manager UI (`.waypoints` or apostrophe key) which sorts, highlights and filters waypoints.
 - Compass overlay: Show a bar at the top of the screen that shows the waypoint icons in your field of view
     - Shows names of waypoints when you're directly facing them
     - Adjustable position and transparency
@@ -189,6 +189,27 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Xaero's Minimap integration, allows exporting and importing of waypoint data (disconnect & reconnect to update).
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 - Toggleable automatic portal logging, logs numerically each portal you enter and matches it in the opposite dimension with the same number.
+
+
+#### Waypoint Commands
+
+Create a waypoint at the given coords (player position used when coords omitted).
+
+Set color, icon, visibility, line/beacon behavior, auto-action when near, max visible distance and label scale.
+
+```.waypoint add <name> [x=<int>] [y=<int>] [z=<int>] [dim=<overworld|nether|end>] [color=<#RRGGBB|#AARRGGBB>] [icon=<square|circle|triangle|star|diamond|skull|heart|check|x|arrow_down|sun|snowflake>] [visible=<true|false>] [lines=<true|false>] [opposite=<true|false>] [beacon=<off|solid|esp>] [action=<disabled|hide|delete>] [actiondist=<int>] [maxvisible=<int>] [scale=<decimal>]```
+
+#### Radius command
+
+Modify or remove waypoints within <radius> blocks of the player (current dimension only).
+
+```.waypoint radius <radius> [key=value ...] (alias: setradius)```
+
+Common keys: delete/remove, clear, color=<hex>, visible=<bool>, lines=<bool>, beacon=<mode>, maxvisible=<int>, icon=<name>.
+
+Booleans: true/false/1/0/yes/no/on/off. Color accepts leading # or 0x; 6‑digit -> opaque.
+
+Reports number of waypoints changed.
 
 ![WayPoints](https://i.imgur.com/dxFc17N.png) ![Waypoint Manager](https://i.imgur.com/K2xGVqc.png) ![Waypoint Editor](https://i.imgur.com/23i14s1.png)
 
