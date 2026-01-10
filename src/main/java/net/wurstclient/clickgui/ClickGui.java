@@ -239,6 +239,64 @@ public final class ClickGui
 				window.setPinned(jsonPinned.getAsBoolean());
 		}
 		
+		// Recreate any pinned settings windows
+		for(java.util.Map.Entry<String, JsonElement> e : json.entrySet())
+		{
+			String title = e.getKey();
+			boolean exists = false;
+			for(Window w : windows)
+				if(w.getTitle().equals(title))
+				{
+					exists = true;
+					break;
+				}
+			if(exists)
+				continue;
+
+			final String suffix = " Settings";
+			if(!title.endsWith(suffix))
+				continue;
+			String featName =
+				title.substring(0, title.length() - suffix.length());
+			Feature matched = null;
+			for(Feature f : features)
+				if(f.getName().equals(featName))
+				{
+					matched = f;
+					break;
+				}
+			if(matched == null)
+				continue;
+			// Create a SettingsWindow for the feature and apply saved state.
+			try
+			{
+				SettingsWindow sw =
+					new SettingsWindow(matched, windows.get(0), 0);
+				JsonObject jw = e.getValue().getAsJsonObject();
+				JsonElement jx = jw.get("x");
+				if(jx != null && jx.isJsonPrimitive()
+					&& jx.getAsJsonPrimitive().isNumber())
+					sw.setX(jx.getAsInt());
+				JsonElement jy = jw.get("y");
+				if(jy != null && jy.isJsonPrimitive()
+					&& jy.getAsJsonPrimitive().isNumber())
+					sw.setY(jy.getAsInt());
+				JsonElement jm = jw.get("minimized");
+				if(jm != null && jm.isJsonPrimitive()
+					&& jm.getAsJsonPrimitive().isBoolean())
+					sw.setMinimized(jm.getAsBoolean());
+				JsonElement jp = jw.get("pinned");
+				if(jp != null && jp.isJsonPrimitive()
+					&& jp.getAsJsonPrimitive().isBoolean())
+					sw.setPinned(jp.getAsBoolean());
+				windows.add(sw);
+			}catch(Throwable ignored)
+			{
+				// Best-effort: ignore any failure recreating saved settings
+				// windows
+			}
+		}
+		
 		saveWindows();
 	}
 	
@@ -248,7 +306,12 @@ public final class ClickGui
 		
 		for(Window window : windows)
 		{
-			if(window.isClosable())
+			// Persist pinned/position/minimized state for non-closable windows
+			// as before. Also persist closable windows only when they're pinned
+			// so user-constructed settings/popups that they pinned survive UI
+			// reloads. This fixes lost pin state for per-feature settings
+			// windows.
+			if(window.isClosable() && !window.isPinned())
 				continue;
 			
 			JsonObject jsonWindow = new JsonObject();
