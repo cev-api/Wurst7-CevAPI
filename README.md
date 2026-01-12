@@ -349,7 +349,7 @@ Reports number of waypoints changed.
 - When used on an open container, it detects which items were taken (based on inventory slot increases) and transfers only those into the shulker, keeping the rest of your items untouched.
 - When used from your own inventory, it simply transfers eligible items according to your filters and mode.
 - Supports transfer modes (All / Stackable / Non-stackable) and blacklist / whitelist item lists.
-- Protects key hotbar slots (placed shulker and best pickaxe) from being moved or overwritten.
+- Protects key hotbar slots (placed shulker and best pickaxe) from being moved or overwritten and optionally can block entire hotbar from being transferred. 
 - Automatically places a shulker safely nearby, faces it, opens it, deposits items, then breaks and retrieves it.
 - Uses safe placement logic and short, latency-aware waits to sync with server timing.
 - Ideal for rapid looting, cleanup, or personal inventory compression without manual sorting.

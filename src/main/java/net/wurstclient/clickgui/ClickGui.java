@@ -252,7 +252,7 @@ public final class ClickGui
 				}
 			if(exists)
 				continue;
-
+			
 			final String suffix = " Settings";
 			if(!title.endsWith(suffix))
 				continue;

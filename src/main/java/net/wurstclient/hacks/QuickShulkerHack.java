@@ -72,6 +72,10 @@ public final class QuickShulkerHack extends Hack
 			"description.wurst.setting.quickshulker.continue_to_next_shulker",
 			false);
 	
+	private final CheckboxSetting skipHotbar =
+		new CheckboxSetting("Skip hotbar",
+			"description.wurst.setting.quickshulker.skip_hotbar", false);
+	
 	private final Object workerLock = new Object();
 	private Thread worker;
 	
@@ -85,6 +89,7 @@ public final class QuickShulkerHack extends Hack
 		addSetting(blacklist);
 		addSetting(whitelist);
 		addSetting(continueToNextShulker);
+		addSetting(skipHotbar);
 	}
 	
 	@Override
@@ -243,6 +248,7 @@ public final class QuickShulkerHack extends Hack
 		Set<Integer> remainingSlots =
 			slotsFromChest == null ? null : new HashSet<>(slotsFromChest);
 		
+		boolean avoidHotbar = skipHotbar.isChecked();
 		while(true)
 		{
 			ItemSwap shulkerSwap =
@@ -311,6 +317,8 @@ public final class QuickShulkerHack extends Hack
 				{
 					if(s < 0 || s >= 36)
 						continue;
+					if(avoidHotbar && s < 9)
+						continue;
 					if(!inv.getItem(s).isEmpty())
 					{
 						anyLeft = true;
@@ -356,12 +364,15 @@ public final class QuickShulkerHack extends Hack
 		Inventory inv = player.getInventory();
 		boolean useBl = useBlacklist.isChecked();
 		boolean useWl = useWhitelist.isChecked();
+		boolean avoidHotbar = skipHotbar.isChecked();
 		for(int slot = 0; slot < 36; slot++)
 		{
 			if(Thread.interrupted())
 				throw new InterruptedException();
 			
 			if(protectedSlots.contains(slot))
+				continue;
+			if(avoidHotbar && slot < 9)
 				continue;
 			
 			ItemStack stack = inv.getItem(slot);
@@ -414,12 +425,15 @@ public final class QuickShulkerHack extends Hack
 		Inventory inv = player.getInventory();
 		boolean useBl = useBlacklist.isChecked();
 		boolean useWl = useWhitelist.isChecked();
+		boolean avoidHotbar = skipHotbar.isChecked();
 		for(int slot : slotsToTransfer)
 		{
 			if(Thread.interrupted())
 				throw new InterruptedException();
 			
 			if(protectedSlots.contains(slot))
+				continue;
+			if(avoidHotbar && slot < 9)
 				continue;
 			
 			if(slot < 0 || slot >= 36)
