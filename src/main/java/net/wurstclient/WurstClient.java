@@ -44,6 +44,7 @@ import net.wurstclient.update.WurstUpdater;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
+import net.wurstclient.util.HackToggleFeedback;
 import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -118,6 +119,7 @@ public enum WurstClient
 			setbackDetector);
 		timerManager = new TimerManager();
 		eventManager.add(UpdateListener.class, timerManager);
+		eventManager.add(UpdateListener.class, HackToggleFeedback.INSTANCE);
 		
 		Path enabledHacksFile = wurstFolder.resolve("enabled-hacks.json");
 		Path favoritesHacksFile = wurstFolder.resolve("favourites.json");

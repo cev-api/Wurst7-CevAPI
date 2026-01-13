@@ -14,6 +14,7 @@ import net.wurstclient.Feature;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.util.HackToggleFeedback;
 
 public abstract class Hack extends Feature
 {
@@ -120,6 +121,8 @@ public abstract class Hack extends Feature
 		
 		if(stateSaved)
 			WURST.getHax().saveEnabledHax();
+		
+		HackToggleFeedback.INSTANCE.queue(this, enabled);
 	}
 	
 	@Override
