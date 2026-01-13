@@ -239,6 +239,11 @@ public enum WurstClient
 		settingsFile.load();
 	}
 	
+	public void reloadFromDisk()
+	{
+		reloadSettings();
+	}
+	
 	public ArrayList<Path> listSettingsProfiles()
 	{
 		if(!Files.isDirectory(settingsProfileFolder))

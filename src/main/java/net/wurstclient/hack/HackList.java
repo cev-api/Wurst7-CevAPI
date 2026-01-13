@@ -179,6 +179,7 @@ public final class HackList implements UpdateListener
 	public final OverlayHack overlayHack = new OverlayHack();
 	public final PanicHack panicHack = new PanicHack();
 	public final PacketDelayHack packetDelayHack = new PacketDelayHack();
+	public final PacketRateHack packetRateHack = new PacketRateHack();
 	public final ParkourHack parkourHack = new ParkourHack();
 	public final PlayerEspHack playerEspHack = new PlayerEspHack();
 	public final PortalEspHack portalEspHack = new PortalEspHack();
@@ -311,6 +312,11 @@ public final class HackList implements UpdateListener
 	public void reloadEnabledHax()
 	{
 		enabledHacksFile.load(this);
+	}
+	
+	public void reloadEnabledHaxDisableOnly()
+	{
+		enabledHacksFile.load(this, true);
 	}
 	
 	public void saveFavoriteHax()

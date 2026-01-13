@@ -31,10 +31,15 @@ public final class EnabledHacksFile
 	
 	public void load(HackList hackList)
 	{
+		load(hackList, false);
+	}
+	
+	public void load(HackList hackList, boolean disableOnly)
+	{
 		try
 		{
 			WsonArray wson = JsonUtils.parseFileToArray(path);
-			enableHacks(hackList, wson);
+			enableHacks(hackList, wson, disableOnly);
 			
 		}catch(NoSuchFileException e)
 		{
@@ -56,16 +61,34 @@ public final class EnabledHacksFile
 			throw new IllegalArgumentException();
 		
 		WsonArray wson = JsonUtils.parseFileToArray(profilePath);
-		enableHacks(hax, wson);
+		enableHacks(hax, wson, false);
 		
 		save(hax);
 	}
 	
-	private void enableHacks(HackList hax, WsonArray wson)
+	private void enableHacks(HackList hax, WsonArray wson, boolean disableOnly)
 	{
 		try
 		{
 			disableSaving = true;
+			
+			if(disableOnly)
+			{
+				java.util.Set<String> desired = new java.util.HashSet<>();
+				for(String name : wson.getAllStrings())
+					desired.add(name);
+				
+				for(Hack hack : hax.getAllHax())
+				{
+					if(!hack.isStateSaved())
+						continue;
+					
+					boolean shouldEnable = desired.contains(hack.getName());
+					if(!shouldEnable && hack.isEnabled())
+						hack.setEnabled(false);
+				}
+				return;
+			}
 			
 			for(Hack hack : hax.getAllHax())
 				hack.setEnabled(false);

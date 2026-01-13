@@ -23,15 +23,15 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
-import net.wurstclient.altmanager.screens.AltManagerScreen;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.options.WurstOptionsScreen;
 
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen
 {
 	private AbstractWidget realmsButton = null;
-	private Button altsButton;
+	private Button wurstOptionsButton;
 	
 	private TitleScreenMixin(WurstClient wurst, Component title)
 	{
@@ -39,7 +39,7 @@ public abstract class TitleScreenMixin extends Screen
 	}
 	
 	/**
-	 * Adds the AltManager button to the title screen. This mixin must not
+	 * Adds the Wurst Options button to the title screen. This mixin must not
 	 * run in demo mode, as the Realms button doesn't exist there.
 	 */
 	@Inject(at = @At("RETURN"), method = "createNormalMenuOptions(II)I")
@@ -66,25 +66,26 @@ public abstract class TitleScreenMixin extends Screen
 			// make Realms button smaller
 			realmsButton.setWidth(98);
 			
-			// add AltManager button
-			addRenderableWidget(altsButton = Button
-				.builder(Component.literal("Alt Manager"),
-					b -> minecraft.setScreen(new AltManagerScreen(this,
-						WurstClient.INSTANCE.getAltManager())))
+			// add Wurst Options button
+			addRenderableWidget(wurstOptionsButton = Button
+				.builder(
+					Component.literal(
+						NiceWurstModule.getOptionsLabel("Wurst Options")),
+					b -> minecraft.setScreen(new WurstOptionsScreen(this)))
 				.bounds(width / 2 + 2, realmsButton.getY(), 98, 20).build());
 		}else
-			altsButton = null;
+			wurstOptionsButton = null;
 	}
 	
 	@Inject(at = @At("RETURN"), method = "tick()V")
 	private void onTick(CallbackInfo ci)
 	{
-		if(realmsButton == null || altsButton == null)
+		if(realmsButton == null || wurstOptionsButton == null)
 			return;
 			
-		// adjust AltManager button if Realms button has been moved
+		// adjust Wurst Options button if Realms button has been moved
 		// happens when ModMenu is installed
-		altsButton.setY(realmsButton.getY());
+		wurstOptionsButton.setY(realmsButton.getY());
 	}
 	
 	@Inject(at = @At("TAIL"),

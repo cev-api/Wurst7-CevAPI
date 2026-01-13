@@ -487,6 +487,12 @@ Reports number of waypoints changed.
 - Keybind works even with GUIs open (chests, portals, etc.).
 - Tick count displayed in HackList
 
+### Packet Rate (Limiter)
+- Monitors outgoing packets per seconds and shows it in the hack list
+- Token-bucket limiter queues excess packets based on your chosen limit
+- Keep-alive packets bypass the limiter so server still sees you being there
+- Queue flushing runs every tick and sends packets in order while respecting your limit
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -668,6 +674,12 @@ Examples:
 
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
+- Moved to multiplayer screen
+
+### Wurst Options
+- Added to home screen and put in the old spot of Alt Manager
+- Added reload settings button so you can modify the settings.json manually
+- Added open Wurst folder
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  

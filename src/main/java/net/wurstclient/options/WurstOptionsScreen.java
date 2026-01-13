@@ -153,6 +153,19 @@ public class WurstOptionsScreen extends Screen
 		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Waypoints",
 			"Manage your waypoints.",
 			b -> WurstClient.INSTANCE.getHax().waypointsHack.openManager());
+		
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Reload Wurst",
+			"Reloads settings.json from disk so manual edits take effect.",
+			b -> {
+				WurstClient.INSTANCE.reloadFromDisk();
+				if(WurstClient.MC != null && WurstClient.MC.player != null)
+					ChatUtils.message("Reloaded settings from disk.");
+			});
+		
+		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Open Wurst Folder",
+			"Opens the Wurst configuration folder in your file explorer.",
+			b -> Util.getPlatform()
+				.openFile(WurstClient.INSTANCE.getWurstFolder().toFile()));
 	}
 	
 	private void addLinkButtons()

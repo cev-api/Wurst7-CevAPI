@@ -27,6 +27,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.serverfinder.CleanUpScreen;
+import net.wurstclient.altmanager.screens.AltManagerScreen;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class MultiplayerScreenMixin extends Screen
@@ -38,6 +39,8 @@ public class MultiplayerScreenMixin extends Screen
 	private Button cornerServerFinderButton;
 	@Unique
 	private Button cornerCleanUpButton;
+	@Unique
+	private Button cornerAltManagerButton;
 	
 	private MultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
@@ -50,6 +53,7 @@ public class MultiplayerScreenMixin extends Screen
 		antiFingerprintButton = null;
 		cornerServerFinderButton = null;
 		cornerCleanUpButton = null;
+		cornerAltManagerButton = null;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -84,6 +88,28 @@ public class MultiplayerScreenMixin extends Screen
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		
+		if(NiceWurstModule.showAltManager())
+		{
+			if(cornerAltManagerButton == null)
+			{
+				cornerAltManagerButton = Button
+					.builder(Component.literal("Alt Manager"),
+						b -> minecraft.setScreen(new AltManagerScreen(
+							(JoinMultiplayerScreen)(Object)this,
+							WurstClient.INSTANCE.getAltManager())))
+					.bounds(0, 0, 100, 20).build();
+				addRenderableWidget(cornerAltManagerButton);
+			}
+			
+			cornerAltManagerButton.setX(6);
+			cornerAltManagerButton.setY(6);
+			cornerAltManagerButton.setWidth(100);
+			cornerAltManagerButton.visible = true;
+		}else if(cornerAltManagerButton != null)
+		{
+			cornerAltManagerButton.visible = false;
+		}
 		
 		boolean showAntiFingerprintButton = NiceWurstModule
 			.showAntiFingerprintControls()
