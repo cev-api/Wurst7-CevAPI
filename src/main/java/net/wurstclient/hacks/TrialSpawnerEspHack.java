@@ -665,7 +665,8 @@ public final class TrialSpawnerEspHack extends Hack
 		long nextSpawnTicks = accessor.getNextMobSpawnsAt() - worldTime;
 		double nextSpawnSeconds = Math.max(0, nextSpawnTicks / 20.0);
 		
-		int additionalPlayers = data.countAdditionalPlayers(info.pos());
+		// Avoid vanilla spam when the spawner has no detected players.
+		int additionalPlayers = 0;
 		TrialSpawnerConfig config = logic.activeConfig();
 		int totalMobs =
 			Math.max(1, config.calculateTargetTotalMobs(additionalPlayers));
