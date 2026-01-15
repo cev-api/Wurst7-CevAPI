@@ -41,6 +41,9 @@ public final class AntisocialHack extends Hack
 			"Skips players that don't show up on the tab list (matches"
 				+ " PlayerESP's ignore-NPC logic).",
 			true);
+	private final CheckboxSetting ignoreFriends = new CheckboxSetting(
+		"Ignore friends",
+		"Won't leave when the detected player is on your friends list.", true);
 	
 	private final PlayerRangeAlertManager alertManager =
 		WURST.getPlayerRangeAlertManager();
@@ -53,6 +56,7 @@ public final class AntisocialHack extends Hack
 		addSetting(mode);
 		addSetting(disableAutoReconnect);
 		addSetting(ignoreNpcs);
+		addSetting(ignoreFriends);
 	}
 	
 	@Override
@@ -76,6 +80,11 @@ public final class AntisocialHack extends Hack
 			return;
 		
 		if(ignoreNpcs.isChecked() && info.isProbablyNpc())
+			return;
+		
+		if(ignoreFriends.isChecked()
+			&& (player != null && WURST.getFriends().isFriend(player)
+				|| WURST.getFriends().contains(info.getName())))
 			return;
 		
 		triggered = true;

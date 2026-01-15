@@ -31,6 +31,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.VaultBlock;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
@@ -54,6 +55,8 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
@@ -112,6 +115,10 @@ public final class TrialSpawnerEspHack extends Hack
 		new CheckboxSetting("Show vault link", true);
 	private final SliderSetting vaultLinkRange = new SliderSetting(
 		"Vault link range", 48, 8, 96, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting alertOminousKey = new CheckboxSetting(
+		"Ominous key alert",
+		"Alerts in chat when an ominous trial key item appears near a trial spawner.",
+		false);
 	private final CheckboxSetting showCountInHackList =
 		new CheckboxSetting("HackList count", false);
 	
@@ -131,6 +138,7 @@ public final class TrialSpawnerEspHack extends Hack
 	private final ArrayList<TrialSpawnerInfo> spawners = new ArrayList<>();
 	private final ArrayList<VaultInfo> vaults = new ArrayList<>();
 	private final HashSet<String> openedVaultKeys = new HashSet<>();
+	private final HashSet<UUID> alertedOminousKeys = new HashSet<>();
 	private boolean openedVaultsLoaded = false;
 	private final java.util.Set<String> approachScheduledKeys =
 		new java.util.HashSet<>();
@@ -167,6 +175,7 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(showActivationRadius);
 		addSetting(showVaultLink);
 		addSetting(vaultLinkRange);
+		addSetting(alertOminousKey);
 		addSetting(vaultBoxColor);
 		addSetting(ominousVaultBoxColor);
 		addSetting(showCountInHackList);
@@ -200,6 +209,7 @@ public final class TrialSpawnerEspHack extends Hack
 		// reset opened vaults load state so they are reloaded on next world
 		openedVaultsLoaded = false;
 		openedVaultKeys.clear();
+		alertedOminousKeys.clear();
 	}
 	
 	@Override
@@ -348,6 +358,10 @@ public final class TrialSpawnerEspHack extends Hack
 			});
 		
 		foundCount = spawners.size();
+		
+		if(alertOminousKey.isChecked())
+			alertIfOminousKeyNearby();
+		
 		// detect transitions and predict cooldown end when configured
 		if(MC.level != null && estimateCooldownOnTransition.isChecked())
 		{
@@ -1120,6 +1134,77 @@ public final class TrialSpawnerEspHack extends Hack
 			|| lower.contains("silverfish") || lower.contains("baby"))
 			return "Combat";
 		return "Unknown";
+	}
+	
+	private void alertIfOminousKeyNearby()
+	{
+		if(MC.level == null || MC.player == null || spawners.isEmpty())
+			return;
+		
+		double scanRange =
+			maxDistance.getValue() > 0 ? maxDistance.getValue() : 128;
+		AABB scanBox = MC.player.getBoundingBox().inflate(scanRange);
+		List<ItemEntity> items =
+			MC.level.getEntitiesOfClass(ItemEntity.class, scanBox);
+		HashSet<UUID> seen = new HashSet<>();
+		
+		for(ItemEntity item : items)
+		{
+			if(item == null || item.isRemoved())
+				continue;
+			var stack = item.getItem();
+			if(stack == null || stack.isEmpty())
+				continue;
+			
+			String id = ItemUtils.getStackId(stack);
+			if(id == null)
+			{
+				var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
+				id = key != null ? key.toString() : null;
+			}
+			if(!isOminousTrialKeyId(id))
+				continue;
+			
+			if(!isNearAnySpawner(item.position()))
+				continue;
+			
+			UUID uuid = item.getUUID();
+			seen.add(uuid);
+			if(alertedOminousKeys.add(uuid))
+				ChatUtils.message("Ominous Trial Key dispensed at "
+					+ formatBlockPos(item.blockPosition()));
+		}
+		
+		alertedOminousKeys.retainAll(seen);
+	}
+	
+	private boolean isNearAnySpawner(Vec3 pos)
+	{
+		double rangeSq = 12 * 12;
+		for(TrialSpawnerInfo info : spawners)
+		{
+			BlockPos spawnerPos = info.pos();
+			double dx = spawnerPos.getX() + 0.5 - pos.x;
+			double dy = spawnerPos.getY() + 0.5 - pos.y;
+			double dz = spawnerPos.getZ() + 0.5 - pos.z;
+			if(dx * dx + dy * dy + dz * dz <= rangeSq)
+				return true;
+		}
+		return false;
+	}
+	
+	private boolean isOminousTrialKeyId(String id)
+	{
+		if(id == null || id.isBlank())
+			return false;
+		String lower = id.toLowerCase(Locale.ROOT);
+		return lower.endsWith(":ominous_trial_key")
+			|| lower.equals("ominous_trial_key");
+	}
+	
+	private String formatBlockPos(BlockPos pos)
+	{
+		return pos.getX() + " " + pos.getY() + " " + pos.getZ();
 	}
 	
 	private EntityType<?> resolveEntityType(String mobId, String decorMob)

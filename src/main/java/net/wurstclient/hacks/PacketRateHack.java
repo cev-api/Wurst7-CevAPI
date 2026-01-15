@@ -36,6 +36,7 @@ public final class PacketRateHack extends Hack
 	
 	private final ArrayDeque<Packet<?>> queue = new ArrayDeque<>();
 	private final ArrayDeque<Long> sentTimes = new ArrayDeque<>();
+	private final Object sentTimesLock = new Object();
 	private boolean flushing;
 	private double tokens;
 	private long lastRefillMs;
@@ -53,7 +54,11 @@ public final class PacketRateHack extends Hack
 	{
 		long now = System.currentTimeMillis();
 		pruneSentTimes(now);
-		int rate = sentTimes.size();
+		int rate;
+		synchronized(sentTimesLock)
+		{
+			rate = sentTimes.size();
+		}
 		
 		if(!limiterEnabled.isChecked())
 			return getName() + " [" + rate + "/s]";
@@ -216,15 +221,31 @@ public final class PacketRateHack extends Hack
 	
 	private void recordSent(long now)
 	{
-		sentTimes.addLast(now);
-		pruneSentTimes(now);
+		synchronized(sentTimesLock)
+		{
+			sentTimes.addLast(now);
+			pruneSentTimesLocked(now);
+		}
 	}
 	
 	private void pruneSentTimes(long now)
 	{
+		synchronized(sentTimesLock)
+		{
+			pruneSentTimesLocked(now);
+		}
+	}
+	
+	private void pruneSentTimesLocked(long now)
+	{
 		long cutoff = now - 1000;
-		while(!sentTimes.isEmpty() && sentTimes.peekFirst() <= cutoff)
+		while(!sentTimes.isEmpty())
+		{
+			Long first = sentTimes.peekFirst();
+			if(first == null || first > cutoff)
+				break;
 			sentTimes.removeFirst();
+		}
 	}
 	
 	private void refillTokens()

@@ -264,7 +264,8 @@ Reports number of waypoints changed.
 - Hooks into the PlayerESP enter/leave detector (even if ESP itself is off) and logs out the instant someone walks into range.
 - Reuses AutoLeave's Quit/Chars/SelfHurt modes so you can pick the safest disconnect for your server.
 - Toggles AutoReconnect off so you stay gone.
-- Perfect for hiding or protecting yourself while AFK farming
+- Perfect for hiding or protecting yourself while AFK farming.
+- Able to ignore friends.
 
 ### Anti-Fingerprint
 - Detects and stops resource-pack fingerprinting. 
@@ -341,6 +342,7 @@ Reports number of waypoints changed.
 - Highlights and counts Trial/Ominous Vaults
 - Able to record opened Ominous Vaults to avoid re-trying the same ones in the future
 - Congifurable with toggles for all of the above
+- Toggle to alert in chat when Ominous Key was dispensed
 
 ![Trial](https://i.imgur.com/xOL9U3G.png)
 
@@ -618,6 +620,11 @@ Examples:
 - Single centered line for Nether Portals, End Portal Frames, and active End Portals.
 - Radius changes reset scan instantly.  
 
+### Flight Improvement
+- Added "Don't Get Caught" toggle: Immediately rushes you to the floor (stops at water and simply turns off flight if above lava) when another player is in your range.
+  - Able to ignore friends.
+- Added enable NoFall when flight is enabled toggle.
+
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
 
@@ -696,6 +703,7 @@ Examples:
 - SignESP skips zero-size entries safely.  
 - ChunkSearcher now snapshots each chunk's block-state palettes on the client thread and lets the async scan read from that immutable copy, preventing the off-thread palette races that causes rare crashes.
 - Fixed rare empty outline shape crash (safe bounding box for empty shapes fix)
+- Fixed crash between two separate threads touching sentTimes which resulted in null
 
 ### Shader-Safe Mode
 - Detect shader usage (Iris/OptiFine) safely at runtime and keep a cached toggle state.
