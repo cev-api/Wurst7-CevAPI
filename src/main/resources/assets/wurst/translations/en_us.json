@@ -87,6 +87,7 @@
   "description.wurst.hack.crystalaura": "Automatically places (optional) and detonates end crystals to kill entities around you.",
   "description.wurst.hack.derp": "Randomly moves your head around.\nOnly visible to other players.",
   "description.wurst.hack.dolphin": "Makes you bob up in water automatically.\n(just like a dolphin)",
+  "description.wurst.hack.elytraflight": "Hover and fly in any direction while gliding with an elytra.",
   "description.wurst.hack.enchantmenthandler": "Overlays chest GUIs with a breakdown of enchanted armor and weapons inside, grouped by slot or weapon type with quick take and take-all buttons.",
   "description.wurst.hack.excavator": "Automatically breaks all blocks in the selected area.",
   "description.wurst.hack.extraelytra": "Makes the Elytra easier to use.",
