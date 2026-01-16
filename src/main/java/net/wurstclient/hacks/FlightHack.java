@@ -100,6 +100,21 @@ public final class FlightHack extends Hack
 	}
 	
 	@Override
+	public String getRenderName()
+	{
+		LocalPlayer player = MC.player;
+		if(player == null)
+			return getName();
+		
+		Vec3 velocity = player.getDeltaMovement();
+		long blocksPerSecond = Math.round(velocity.length() * 20.0);
+		
+		return getName() + " [" + blocksPerSecond + "b/s | "
+			+ verticalSpeed.getValueString() + "/"
+			+ horizontalSpeed.getValueString() + "]";
+	}
+	
+	@Override
 	protected void onEnable()
 	{
 		tickCounter = 0;

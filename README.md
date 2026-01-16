@@ -637,6 +637,7 @@ Examples:
 - Added "Don't Get Caught" toggle: Immediately rushes you to the floor (stops at water and simply turns off flight if above lava) when another player is in your range.
   - Able to ignore friends.
 - Added enable NoFall when flight is enabled toggle.
+- Added flight speed and velocity (blocks per second) to the hacklist
 
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
