@@ -244,14 +244,6 @@ public final class FlightHack extends Hack
 				|| WURST.getFriends().contains(info.getName())))
 			return;
 		
-		triggered = true;
-		
-		if(!WURST.getHax().noFallHack.isEnabled())
-		{
-			WURST.getHax().noFallHack.setEnabled(true);
-			enabledNoFallByEscape = true;
-		}
-		
 		DropTarget target = findDropTarget();
 		if(target.type == DropTargetType.LAVA)
 		{
@@ -265,6 +257,14 @@ public final class FlightHack extends Hack
 			ChatUtils.message("Flight cancelled: no safe drop target.");
 			setEnabled(false);
 			return;
+		}
+		
+		triggered = true;
+		
+		if(!WURST.getHax().noFallHack.isEnabled())
+		{
+			WURST.getHax().noFallHack.setEnabled(true);
+			enabledNoFallByEscape = true;
 		}
 		
 		escapeTargetY = target.targetY;
