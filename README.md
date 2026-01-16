@@ -501,6 +501,8 @@ Reports number of waypoints changed.
 
 ### AntiVoid
 - Teleports you back to your last safe position when you are falling into the void.
+- Optionally enable air walk to avoid falling.
+- Can also avoid falling into lava.
 
 ### ElytraFlight
 - A static flight mode for elytra. Overrides motion every tick to let you hover, move and fly like the normal flight hack.

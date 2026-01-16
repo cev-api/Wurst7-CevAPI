@@ -56,6 +56,12 @@ public final class AirWalkHack extends Hack
 		if(player == null || MC.level == null)
 			return;
 		
+		if(isFlyingHackEnabled())
+		{
+			setEnabled(false);
+			return;
+		}
+		
 		if(player.onGround() || player.isInWater() || player.isInLava()
 			|| player.onClimbable() || player.isPassenger())
 		{
@@ -94,5 +100,13 @@ public final class AirWalkHack extends Hack
 			return;
 		
 		event.setPacket(PacketUtils.modifyOnGround(packet, true));
+	}
+	
+	private boolean isFlyingHackEnabled()
+	{
+		return WURST.getHax().flightHack.isEnabled()
+			|| WURST.getHax().creativeFlightHack.isEnabled()
+			|| WURST.getHax().elytraFlightHack.isEnabled()
+			|| WURST.getHax().jetpackHack.isEnabled();
 	}
 }
