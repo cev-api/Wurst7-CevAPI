@@ -29,6 +29,7 @@ public final class HackList implements UpdateListener
 {
 	public final AimAssistHack aimAssistHack = new AimAssistHack();
 	public final AirPlaceHack airPlaceHack = new AirPlaceHack();
+	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();
 	public final AntiAfkHack antiAfkHack = new AntiAfkHack();
 	public final AntiBlindHack antiBlindHack = new AntiBlindHack();
@@ -43,6 +44,7 @@ public final class HackList implements UpdateListener
 	public final AntiKnockbackHack antiKnockbackHack = new AntiKnockbackHack();
 	public final AntiSpamHack antiSpamHack = new AntiSpamHack();
 	public final AntisocialHack antisocialHack = new AntisocialHack();
+	public final AntiVoidHack antiVoidHack = new AntiVoidHack();
 	public final AntiWaterPushHack antiWaterPushHack = new AntiWaterPushHack();
 	public final AntiWobbleHack antiWobbleHack = new AntiWobbleHack();
 	public final ArrowDmgHack arrowDmgHack = new ArrowDmgHack();

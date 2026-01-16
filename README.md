@@ -495,6 +495,13 @@ Reports number of waypoints changed.
 - Keep-alive packets bypass the limiter so server still sees you being there
 - Queue flushing runs every tick and sends packets in order while respecting your limit
 
+### AirWalk
+- Lets you walk on air by freezing your vertical motion.
+- Unlike other hacks, this one allows you to also jump and increase your height.
+
+### AntiVoid
+- Teleports you back to your last safe position when you are falling into the void.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
