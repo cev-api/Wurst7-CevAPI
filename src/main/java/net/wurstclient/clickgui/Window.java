@@ -244,6 +244,14 @@ public class Window
 		invalidate();
 	}
 	
+	public final void clearChildren()
+	{
+		for(Component child : children)
+			child.setParent(null);
+		children.clear();
+		invalidate();
+	}
+	
 	public final void remove(int index)
 	{
 		children.get(index).setParent(null);

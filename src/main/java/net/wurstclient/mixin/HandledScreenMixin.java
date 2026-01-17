@@ -65,6 +65,13 @@ public abstract class HandledScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
+		if(WurstClient.INSTANCE.getGui().handlePinnedMouseClick(context))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(enchantHack != null && enchantHack.isEnabled()
@@ -84,6 +91,14 @@ public abstract class HandledScreenMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		
+		if(WurstClient.INSTANCE.getGui().handlePinnedMouseScroll(mouseX, mouseY,
+			verticalAmount))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
 		
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
@@ -112,4 +127,22 @@ public abstract class HandledScreenMixin
 			enchantHack.renderOnHandledScreen(
 				(AbstractContainerScreen<?>)(Object)this, context, delta);
 	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "mouseReleased(Lnet/minecraft/client/input/MouseButtonEvent;)Z",
+		cancellable = true)
+	private void wurst$handleMouseRelease(MouseButtonEvent context,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		if(WurstClient.INSTANCE.getGui().handlePinnedMouseRelease(context.x(),
+			context.y(), context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+		}
+	}
+	
 }

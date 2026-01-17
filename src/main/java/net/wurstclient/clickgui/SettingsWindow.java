@@ -16,21 +16,32 @@ import net.wurstclient.settings.Setting;
 
 public final class SettingsWindow extends Window
 {
+	private final Feature feature;
+	
 	public SettingsWindow(Feature feature, Window parent, int buttonY)
 	{
 		super(feature.getName() + " Settings");
+		this.feature = feature;
+		
+		rebuild();
+		
+		setClosable(true);
+		setMinimizable(false);
+		setMaxHeight(200);
+		
+		setInitialPosition(parent, buttonY);
+	}
+	
+	public void rebuild()
+	{
+		clearChildren();
 		
 		Stream<Setting> settings = feature.getSettings().values().stream()
 			.filter(Setting::isVisibleInGui);
 		settings.map(Setting::getComponent).filter(Objects::nonNull)
 			.forEach(this::add);
 		
-		setClosable(true);
-		setMinimizable(false);
-		setMaxHeight(200);
 		pack();
-		
-		setInitialPosition(parent, buttonY);
 	}
 	
 	private void setInitialPosition(Window parent, int buttonY)

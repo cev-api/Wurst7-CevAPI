@@ -9,11 +9,18 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
@@ -26,14 +33,20 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.MobEspHack.RenderShape;
 import net.wurstclient.hacks.MobEspHack.RenderStyleInfo;
+import net.wurstclient.clickgui.SettingsWindow;
+import net.wurstclient.clickgui.Window;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EntityTypeListSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
@@ -41,8 +54,20 @@ import net.wurstclient.util.RenderUtils.ColoredPoint;
 
 @SearchTags({"spear assist", "spear", "spear damage"})
 public final class SpearAssistHack extends Hack
-	implements UpdateListener, RenderListener, RightClickListener
+	implements UpdateListener, RenderListener, RightClickListener,
+	PacketOutputListener, PacketInputListener
 {
+	private final EnumSetting<AssistMode> assistMode =
+		new EnumSetting<>("Mode", AssistMode.values(), AssistMode.ASSIST)
+		{
+			@Override
+			public void update()
+			{
+				super.update();
+				updateModeVisibility();
+			}
+		};
+	
 	private final EnumSetting<BoostMode> boostMode = new EnumSetting<>(
 		"Boost mode", BoostMode.values(), BoostMode.HOLD_AND_DASH);
 	
@@ -107,6 +132,69 @@ public final class SpearAssistHack extends Hack
 		"Automatically swings again as soon as the attack indicator refills while you hold attack.",
 		false);
 	
+	private final EnumSetting<SpearKillMode> spearKillMode = new EnumSetting<>(
+		"SK mode", SpearKillMode.values(), SpearKillMode.LUNGE);
+	
+	private final SliderSetting spearKillMaxRange = new SliderSetting(
+		"SK max range", "How far away entities can still be targeted.", 256, 0,
+		512, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
+	private final EnumSetting<TargetListMode> spearKillTargetListMode =
+		new EnumSetting<>("SK target list mode", TargetListMode.values(),
+			TargetListMode.BLACKLIST);
+	
+	private final EntityTypeListSetting spearKillTargetEntities =
+		new EntityTypeListSetting("SK target entities",
+			"Entities to whitelist or blacklist for SpearKill.");
+	
+	private final CheckboxSetting spearKillBlinkLunge =
+		new CheckboxSetting("SK blink + lunge",
+			"Combine Blink mode with velocity based lunging.", false);
+	
+	private final SliderSetting spearKillBlinkLungeStrength = new SliderSetting(
+		"SK blink lunge strength", "Velocity applied towards target.", 1.0, 0.1,
+		2.0, 0.1, ValueDisplay.DECIMAL);
+	
+	private final SliderSetting spearKillBlinkLungeTicks = new SliderSetting(
+		"SK blink lunge delay", "Ticks to charge before lunging.", 15, 1, 30, 1,
+		ValueDisplay.INTEGER.withSuffix(" ticks"));
+	
+	private final SliderSetting spearKillFlushRange = new SliderSetting(
+		"SK flush range", "Distance to target when flush occurs.", 3.0, 1.0,
+		10.0, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	
+	private final SliderSetting spearKillMaxFlushRange = new SliderSetting(
+		"SK force flush distance", "Distance to force a flush.", 9.5, 1.0, 20.0,
+		0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	
+	private final CheckboxSetting spearKillBlinkAimbot =
+		new CheckboxSetting("SK blink aimbot", "Lock on to target.", true);
+	
+	private final SliderSetting spearKillBlinkDistanceBoost =
+		new SliderSetting("SK blink distance boost",
+			"Extra blocks added to start position when flushing blink.", 0, 0,
+			10, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	
+	private final SliderSetting spearKillLungeStrength = new SliderSetting(
+		"SK lunge strength", "Velocity applied towards target.", 5, 0, 10, 0.1,
+		ValueDisplay.DECIMAL);
+	
+	private final CheckboxSetting spearKillStopOnTarget =
+		new CheckboxSetting("SK stop on target",
+			"Stops the lunge when you reach the target.", true);
+	
+	private final SliderSetting spearKillStopDistance = new SliderSetting(
+		"SK stop distance", "Distance between hitboxes to attempt to stop at.",
+		2, 0, 10, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	
+	private final SliderSetting spearKillLungeDelayModifier =
+		new SliderSetting("SK lunge delay modifier",
+			"Percent of charge time to wait before lunging.", 100, 0, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
+	
+	private final CheckboxSetting spearKillChatFeedback = new CheckboxSetting(
+		"SK chat feedback", "Prints blink flush distance in chat.", true);
+	
 	private boolean attackKeyDown;
 	private double dashDistanceRemaining;
 	private boolean aimAssistTemporarilyAllowed;
@@ -119,11 +207,24 @@ public final class SpearAssistHack extends Hack
 	private boolean reverseDashActive;
 	private boolean aimAssistRangeOverridden;
 	private boolean aimAssistLockOnOverridden;
+	private final ArrayDeque<ServerboundMovePlayerPacket> spearKillPackets =
+		new ArrayDeque<>();
+	private boolean spearKillBlinking;
+	private boolean spearKillFlushing;
+	private Vec3 spearKillStartPos;
+	private boolean spearKillWasCharging;
+	private double spearKillLastTargetDistance = Double.MAX_VALUE;
+	private boolean spearKillWasApproaching;
+	private Entity spearKillTarget;
+	private int spearKillBlinkChargeTicks;
+	private int spearKillFlushCooldown;
+	private AssistMode lastAssistMode;
 	
 	public SpearAssistHack()
 	{
 		super("SpearAssist");
 		setCategory(Category.COMBAT);
+		addSetting(assistMode);
 		addSetting(boostMode);
 		addSetting(boostSpeed);
 		addSetting(dashDistance);
@@ -139,6 +240,33 @@ public final class SpearAssistHack extends Hack
 		addSetting(aimAssistLockOnOverride);
 		addSetting(autoAlignment);
 		addSetting(autoAttackWhenReady);
+		addSetting(spearKillMode);
+		addSetting(spearKillMaxRange);
+		addSetting(spearKillTargetListMode);
+		addSetting(spearKillTargetEntities);
+		addSetting(spearKillBlinkLunge);
+		addSetting(spearKillBlinkLungeStrength);
+		addSetting(spearKillBlinkLungeTicks);
+		addSetting(spearKillFlushRange);
+		addSetting(spearKillMaxFlushRange);
+		addSetting(spearKillBlinkAimbot);
+		addSetting(spearKillBlinkDistanceBoost);
+		addSetting(spearKillLungeStrength);
+		addSetting(spearKillStopOnTarget);
+		addSetting(spearKillStopDistance);
+		addSetting(spearKillLungeDelayModifier);
+		addSetting(spearKillChatFeedback);
+		
+		spearKillTargetEntities.clear();
+		updateModeVisibility();
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		return assistMode.getSelected() == AssistMode.SPEARKILL
+			? getName() + " [Kill]"
+			: getName();
 	}
 	
 	@Override
@@ -147,7 +275,10 @@ public final class SpearAssistHack extends Hack
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(RightClickListener.class, this);
+		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
 		resetState();
+		updateModeVisibility();
 		updateAimAssist(false, false);
 	}
 	
@@ -157,6 +288,9 @@ public final class SpearAssistHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(RightClickListener.class, this);
+		EVENTS.remove(PacketOutputListener.class, this);
+		EVENTS.remove(PacketInputListener.class, this);
+		stopSpearKillBlink(true);
 		clearAimAssistRangeOverride();
 		clearAimAssistLockOnOverride();
 		updateAimAssist(false, false);
@@ -168,6 +302,14 @@ public final class SpearAssistHack extends Hack
 	{
 		if(MC.player == null || MC.options == null)
 			return;
+		
+		updateModeVisibility();
+		
+		if(assistMode.getSelected() == AssistMode.SPEARKILL)
+		{
+			updateSpearKill();
+			return;
+		}
 		
 		ItemStack main = MC.player.getMainHandItem();
 		boolean holdingSpear = isSpear(main);
@@ -219,6 +361,9 @@ public final class SpearAssistHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		if(assistMode.getSelected() == AssistMode.SPEARKILL)
+			return;
+		
 		if(highlightTargets.isEmpty())
 			return;
 		
@@ -291,6 +436,9 @@ public final class SpearAssistHack extends Hack
 	@Override
 	public void onRightClick(RightClickEvent event)
 	{
+		if(assistMode.getSelected() == AssistMode.SPEARKILL)
+			return;
+		
 		if(!autoResumeCharge.isChecked() || MC.player == null
 			|| MC.gameMode == null)
 			return;
@@ -446,6 +594,16 @@ public final class SpearAssistHack extends Hack
 		reverseDashActive = false;
 		aimAssistRangeOverridden = false;
 		aimAssistLockOnOverridden = false;
+		spearKillPackets.clear();
+		spearKillBlinking = false;
+		spearKillFlushing = false;
+		spearKillStartPos = null;
+		spearKillWasCharging = false;
+		spearKillLastTargetDistance = Double.MAX_VALUE;
+		spearKillWasApproaching = false;
+		spearKillTarget = null;
+		spearKillBlinkChargeTicks = 0;
+		spearKillFlushCooldown = 0;
 	}
 	
 	private void updateHighlights(boolean holdingSpear)
@@ -781,6 +939,93 @@ public final class SpearAssistHack extends Hack
 		}
 	}
 	
+	@Override
+	public void onSentPacket(PacketOutputEvent event)
+	{
+		if(assistMode.getSelected() == AssistMode.SPEARKILL)
+		{
+			onSpearKillPacketOutput(event);
+			return;
+		}
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		if(assistMode.getSelected() != AssistMode.SPEARKILL)
+			return;
+		
+		if(!(event.getPacket() instanceof ClientboundPlayerPositionPacket))
+			return;
+		
+		if(!spearKillBlinking || MC.player == null)
+			return;
+		
+		spearKillPackets.clear();
+		spearKillStartPos = MC.player.position();
+		spearKillLastTargetDistance = spearKillTarget != null
+			? MC.player.distanceTo(spearKillTarget) : Double.MAX_VALUE;
+		spearKillWasApproaching = false;
+	}
+	
+	private void updateModeVisibility()
+	{
+		AssistMode currentMode = assistMode.getSelected();
+		boolean spearKill = currentMode == AssistMode.SPEARKILL;
+		boolean assist = !spearKill;
+		
+		boostMode.setVisibleInGui(assist);
+		boostSpeed.setVisibleInGui(assist);
+		dashDistance.setVisibleInGui(assist);
+		allowReverse.setVisibleInGui(assist);
+		stayGrounded.setVisibleInGui(assist);
+		nearHighlightRange.setVisibleInGui(assist);
+		farHighlightRange.setVisibleInGui(assist);
+		nearHighlightColor.setVisibleInGui(assist);
+		farHighlightColor.setVisibleInGui(assist);
+		autoResumeCharge.setVisibleInGui(assist);
+		aimAssistMode.setVisibleInGui(assist);
+		aimAssistRangeOverride.setVisibleInGui(assist);
+		aimAssistLockOnOverride.setVisibleInGui(assist);
+		autoAlignment.setVisibleInGui(assist);
+		autoAttackWhenReady.setVisibleInGui(assist);
+		
+		spearKillMode.setVisibleInGui(spearKill);
+		spearKillMaxRange.setVisibleInGui(spearKill);
+		spearKillTargetListMode.setVisibleInGui(spearKill);
+		spearKillTargetEntities.setVisibleInGui(spearKill);
+		spearKillBlinkLunge.setVisibleInGui(spearKill);
+		spearKillBlinkLungeStrength.setVisibleInGui(spearKill);
+		spearKillBlinkLungeTicks.setVisibleInGui(spearKill);
+		spearKillFlushRange.setVisibleInGui(spearKill);
+		spearKillMaxFlushRange.setVisibleInGui(spearKill);
+		spearKillBlinkAimbot.setVisibleInGui(spearKill);
+		spearKillBlinkDistanceBoost.setVisibleInGui(spearKill);
+		spearKillLungeStrength.setVisibleInGui(spearKill);
+		spearKillStopOnTarget.setVisibleInGui(spearKill);
+		spearKillStopDistance.setVisibleInGui(spearKill);
+		spearKillLungeDelayModifier.setVisibleInGui(spearKill);
+		spearKillChatFeedback.setVisibleInGui(spearKill);
+		
+		if(currentMode != lastAssistMode)
+		{
+			lastAssistMode = currentMode;
+			refreshSettingsWindow();
+		}
+	}
+	
+	private void refreshSettingsWindow()
+	{
+		String title = getName() + " Settings";
+		var gui = WURST.getGuiIfInitialized();
+		if(gui == null)
+			return;
+		
+		Window window = gui.findWindowByTitle(title);
+		if(window instanceof SettingsWindow settingsWindow)
+			settingsWindow.rebuild();
+	}
+	
 	private enum AimAssistMode
 	{
 		OFF("Off"),
@@ -799,6 +1044,492 @@ public final class SpearAssistHack extends Hack
 		{
 			return name;
 		}
+	}
+	
+	private enum AssistMode
+	{
+		ASSIST("Assist"),
+		SPEARKILL("SpearKill");
+		
+		private final String name;
+		
+		private AssistMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private enum SpearKillMode
+	{
+		LUNGE("Lunge"),
+		BLINK("Blink");
+		
+		private final String name;
+		
+		private SpearKillMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private enum TargetListMode
+	{
+		WHITELIST("Whitelist"),
+		BLACKLIST("Blacklist");
+		
+		private final String name;
+		
+		private TargetListMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private void updateSpearKill()
+	{
+		if(MC.player == null || MC.level == null || MC.options == null)
+			return;
+		
+		boolean currentlyCharging =
+			isSpear(MC.player.getMainHandItem()) && MC.player.isUsingItem();
+		
+		if(spearKillMode.getSelected() == SpearKillMode.LUNGE)
+		{
+			if(spearKillBlinking)
+				stopSpearKillBlink(true);
+			spearKillBlinkChargeTicks = 0;
+			spearKillFlushCooldown = 0;
+			spearKillWasCharging = currentlyCharging;
+			
+			if(currentlyCharging)
+			{
+				if(spearKillTarget == null)
+					spearKillTarget = findSpearKillTarget();
+				if(spearKillTarget != null && !spearKillTarget.isAlive())
+					spearKillTarget = null;
+				if(!(spearKillTarget instanceof LivingEntity))
+					return;
+				if(!isSpearKillValidTarget(spearKillTarget))
+					return;
+				
+				runSpearKillLunge();
+			}else
+				spearKillTarget = null;
+			
+			return;
+		}
+		
+		if(currentlyCharging)
+		{
+			spearKillBlinkChargeTicks++;
+			if(spearKillTarget == null || !spearKillTarget.isAlive()
+				|| !canSeeSpearKillTarget(spearKillTarget))
+			{
+				spearKillTarget = findSpearKillTarget();
+				spearKillLastTargetDistance = spearKillTarget != null
+					? MC.player.distanceTo(spearKillTarget) : Double.MAX_VALUE;
+				spearKillWasApproaching = false;
+			}
+		}else
+		{
+			spearKillBlinkChargeTicks = 0;
+			spearKillTarget = null;
+			spearKillLastTargetDistance = Double.MAX_VALUE;
+			spearKillWasApproaching = false;
+		}
+		
+		if(currentlyCharging && spearKillBlinkAimbot.isChecked()
+			&& spearKillTarget != null)
+		{
+			rotateToSpearKillTarget(spearKillTarget);
+		}
+		
+		if(currentlyCharging && spearKillBlinkLunge.isChecked()
+			&& spearKillTarget != null && spearKillFlushCooldown == 0)
+		{
+			if(spearKillBlinkChargeTicks >= spearKillBlinkLungeTicks
+				.getValueI())
+			{
+				rotateToSpearKillTarget(spearKillTarget);
+				Vec3 viewDir = Vec3.directionFromRotation(MC.player.getXRot(),
+					MC.player.getYRot());
+				MC.player.setSprinting(true);
+				MC.player.setDeltaMovement(
+					viewDir.scale(spearKillBlinkLungeStrength.getValue()));
+			}
+		}
+		
+		if(spearKillFlushCooldown > 0)
+			spearKillFlushCooldown--;
+		
+		if(currentlyCharging && !spearKillWasCharging)
+			startSpearKillBlink();
+		
+		if(!currentlyCharging && spearKillWasCharging)
+		{
+			if(spearKillBlinking)
+			{
+				if(spearKillTarget != null)
+					rotateToSpearKillTarget(spearKillTarget);
+				
+				flushSpearKillPackets();
+				spearKillBlinking = false;
+				spearKillStartPos = null;
+			}
+		}
+		
+		spearKillWasCharging = currentlyCharging;
+		
+		if(spearKillBlinking && spearKillTarget != null && currentlyCharging)
+		{
+			double currentDistance = MC.player.distanceTo(spearKillTarget);
+			boolean isApproaching =
+				currentDistance < spearKillLastTargetDistance;
+			boolean shouldFlush = false;
+			
+			if(currentDistance <= spearKillFlushRange.getValue())
+				shouldFlush = true;
+			else if(spearKillWasApproaching && !isApproaching
+				&& currentDistance < 8.0)
+				shouldFlush = true;
+			else if(!spearKillBlinkLunge.isChecked()
+				&& spearKillStartPos != null && MC.player.position().distanceTo(
+					spearKillStartPos) >= spearKillMaxFlushRange.getValue())
+			{
+				flushSpearKillPackets();
+				startSpearKillBlink();
+			}
+			
+			if(shouldFlush)
+			{
+				rotateToSpearKillTarget(spearKillTarget);
+				flushSpearKillPackets();
+				
+				if(spearKillBlinkLunge.isChecked())
+					spearKillFlushCooldown =
+						spearKillBlinkLungeTicks.getValueI();
+				
+				spearKillBlinking = true;
+				spearKillStartPos = MC.player.position();
+				spearKillPackets.clear();
+				spearKillLastTargetDistance =
+					MC.player.distanceTo(spearKillTarget);
+				spearKillWasApproaching = false;
+			}else
+			{
+				spearKillLastTargetDistance = currentDistance;
+				spearKillWasApproaching = isApproaching;
+			}
+		}
+	}
+	
+	private void runSpearKillLunge()
+	{
+		if(MC.player == null || spearKillTarget == null)
+			return;
+		
+		int readyTicks = getSpearKillReadyTicks(MC.player.getMainHandItem());
+		rotateToSpearKillTarget(spearKillTarget);
+		
+		ItemStack useStack = MC.player.getUseItem();
+		int useTicks = useStack.getUseDuration(MC.player)
+			- MC.player.getUseItemRemainingTicks();
+		if(useTicks <= readyTicks)
+			return;
+		
+		if(spearKillStopOnTarget.isChecked())
+		{
+			AABB playerBox = MC.player.getBoundingBox()
+				.inflate(spearKillStopDistance.getValue());
+			AABB targetBox = spearKillTarget.getBoundingBox();
+			if(!playerBox.intersects(targetBox))
+			{
+				applySpearKillLungeVelocity();
+			}else
+			{
+				spearKillTarget = null;
+				MC.player.setDeltaMovement(Vec3.ZERO);
+				MC.player.setSprinting(false);
+			}
+		}else
+			applySpearKillLungeVelocity();
+	}
+	
+	private void applySpearKillLungeVelocity()
+	{
+		double lungeSpeed = spearKillLungeStrength.getValue();
+		Vec3 viewDir = Vec3.directionFromRotation(MC.player.getXRot(),
+			MC.player.getYRot());
+		MC.player.setSprinting(true);
+		MC.player.setDeltaMovement(viewDir.scale(lungeSpeed));
+	}
+	
+	private void rotateToSpearKillTarget(Entity target)
+	{
+		if(MC.player == null || target == null)
+			return;
+		
+		Vec3 playerPos = MC.player.getEyePosition(1F);
+		AABB box = target.getBoundingBox();
+		double targetCenterY = box.getCenter().y;
+		double heightDiff = targetCenterY - playerPos.y;
+		double targetY;
+		double boxHeight = box.maxY - box.minY;
+		
+		if(Math.abs(heightDiff) < 1.0)
+			targetY = targetCenterY;
+		else if(heightDiff > 0)
+		{
+			double offset = Math.min(heightDiff / 5.0, 0.4);
+			targetY = targetCenterY - (boxHeight * offset);
+		}else
+		{
+			double offset = Math.min(-heightDiff / 5.0, 0.4);
+			targetY = targetCenterY + (boxHeight * offset);
+		}
+		
+		Vec3 targetPos =
+			new Vec3(box.getCenter().x, targetY, box.getCenter().z);
+		Vec3 toTarget = targetPos.subtract(playerPos).normalize();
+		float yaw =
+			(float)(Math.toDegrees(Math.atan2(toTarget.z, toTarget.x)) - 90.0);
+		float pitch = (float)-Math.toDegrees(Math.asin(toTarget.y));
+		MC.player.setYRot(yaw);
+		MC.player.setYHeadRot(yaw);
+		MC.player.setXRot(pitch);
+	}
+	
+	private void startSpearKillBlink()
+	{
+		spearKillBlinking = true;
+		spearKillStartPos = MC.player.position();
+		spearKillPackets.clear();
+		spearKillLastTargetDistance = spearKillTarget != null
+			? MC.player.distanceTo(spearKillTarget) : Double.MAX_VALUE;
+		spearKillWasApproaching = false;
+	}
+	
+	private void stopSpearKillBlink(boolean force)
+	{
+		if(!spearKillBlinking && !force)
+			return;
+		
+		flushSpearKillPackets();
+		spearKillBlinking = false;
+		spearKillStartPos = null;
+	}
+	
+	private void flushSpearKillPackets()
+	{
+		if(MC.player == null || MC.level == null
+			|| MC.player.connection == null)
+		{
+			spearKillPackets.clear();
+			return;
+		}
+		
+		if(spearKillPackets.isEmpty())
+			return;
+		
+		Vec3 currentPos = MC.player.position();
+		double distance = spearKillStartPos != null
+			? spearKillStartPos.distanceTo(currentPos) : 0;
+		if(distance < spearKillFlushRange.getValue())
+		{
+			spearKillPackets.clear();
+			return;
+		}
+		
+		Vec3 sendStartPos = spearKillStartPos;
+		double boost = spearKillBlinkDistanceBoost.getValue();
+		if(boost > 0 && spearKillStartPos != null)
+		{
+			Vec3 direction = currentPos.subtract(spearKillStartPos);
+			Vec3 horizontalDir = new Vec3(direction.x, 0, direction.z);
+			if(horizontalDir.lengthSqr() > 1.0E-4)
+			{
+				Vec3 norm = horizontalDir.normalize();
+				Vec3 targetPos = spearKillStartPos.subtract(norm.scale(boost));
+				
+				HitResult hit = MC.level.clip(new ClipContext(spearKillStartPos,
+					targetPos, ClipContext.Block.COLLIDER,
+					ClipContext.Fluid.NONE, MC.player));
+				
+				if(hit == null || hit.getType() == HitResult.Type.MISS)
+					sendStartPos = targetPos;
+				else
+					sendStartPos = hit.getLocation().add(norm.scale(0.5));
+			}
+		}
+		
+		if(sendStartPos != null)
+		{
+			spearKillFlushing = true;
+			try
+			{
+				ServerboundMovePlayerPacket startPacket =
+					new ServerboundMovePlayerPacket.PosRot(sendStartPos.x,
+						sendStartPos.y, sendStartPos.z, MC.player.getYRot(),
+						MC.player.getXRot(), false, false);
+				MC.player.connection.send(startPacket);
+				
+				if(spearKillChatFeedback.isChecked())
+				{
+					double totalDist = sendStartPos.distanceTo(currentPos);
+					ChatUtils.message(String.format(Locale.ROOT,
+						"SK flush: %.1f blocks (actual=%.1f, boost=%.1f)",
+						totalDist, distance, boost));
+				}
+				
+				ServerboundMovePlayerPacket endPacket =
+					new ServerboundMovePlayerPacket.PosRot(currentPos.x,
+						currentPos.y, currentPos.z, MC.player.getYRot(),
+						MC.player.getXRot(), MC.player.onGround(),
+						MC.player.horizontalCollision);
+				MC.player.connection.send(endPacket);
+			}finally
+			{
+				spearKillFlushing = false;
+			}
+		}
+		
+		spearKillPackets.clear();
+	}
+	
+	private void onSpearKillPacketOutput(PacketOutputEvent event)
+	{
+		if(spearKillFlushing || !spearKillBlinking)
+			return;
+		
+		if(!(event.getPacket() instanceof ServerboundMovePlayerPacket packet))
+			return;
+		
+		event.cancel();
+		
+		ServerboundMovePlayerPacket prevPacket = spearKillPackets.peekLast();
+		if(prevPacket != null && packet.isOnGround() == prevPacket.isOnGround()
+			&& packet.getYRot(-1) == prevPacket.getYRot(-1)
+			&& packet.getXRot(-1) == prevPacket.getXRot(-1)
+			&& packet.getX(-1) == prevPacket.getX(-1)
+			&& packet.getY(-1) == prevPacket.getY(-1)
+			&& packet.getZ(-1) == prevPacket.getZ(-1))
+			return;
+		
+		spearKillPackets.addLast(packet);
+	}
+	
+	private Entity findSpearKillTarget()
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		if(MC.hitResult instanceof EntityHitResult hit)
+			if(isSpearKillValidTarget(hit.getEntity()))
+				return hit.getEntity();
+			
+		double maxRange = spearKillMaxRange.getValue();
+		Vec3 eyePos = MC.player.getEyePosition(1F);
+		Vec3 lookVec = MC.player.getLookAngle();
+		HitResult blockHit = MC.level
+			.clip(new ClipContext(eyePos, eyePos.add(lookVec.scale(maxRange)),
+				ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, MC.player));
+		double rayLength = blockHit.getType() == HitResult.Type.MISS ? maxRange
+			: eyePos.distanceTo(blockHit.getLocation());
+		
+		AABB searchBox =
+			MC.player.getBoundingBox().expandTowards(lookVec.scale(rayLength));
+		List<LivingEntity> candidates = MC.level.getEntitiesOfClass(
+			LivingEntity.class, searchBox, e -> e.isAlive() && e != MC.player);
+		
+		candidates.sort(Comparator.comparingDouble(
+			e -> eyePos.distanceToSqr(e.getBoundingBox().getCenter())));
+		
+		double coneAngle = 0.999;
+		for(LivingEntity e : candidates)
+		{
+			double dist = eyePos.distanceTo(e.getBoundingBox().getCenter());
+			if(dist > maxRange)
+				break;
+			if(!isSpearKillValidTarget(e))
+				continue;
+			if(!canSeeSpearKillTarget(e))
+				continue;
+			Vec3 toEntity =
+				e.getBoundingBox().getCenter().subtract(eyePos).normalize();
+			if(lookVec.dot(toEntity) > coneAngle)
+				return e;
+		}
+		
+		return null;
+	}
+	
+	private boolean canSeeSpearKillTarget(Entity target)
+	{
+		if(MC.player == null || MC.level == null)
+			return false;
+		
+		Vec3 eyePos = MC.player.getEyePosition(1F);
+		Vec3 targetCenter = target.getBoundingBox().getCenter();
+		HitResult result = MC.level.clip(new ClipContext(eyePos, targetCenter,
+			ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, MC.player));
+		if(result.getType() == HitResult.Type.MISS)
+			return true;
+		return eyePos.distanceTo(
+			result.getLocation()) >= eyePos.distanceTo(targetCenter) - 0.5;
+	}
+	
+	private boolean isSpearKillValidTarget(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		EntityType<?> type = entity.getType();
+		Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+		if(id == null)
+			return false;
+		boolean inList =
+			spearKillTargetEntities.getTypeNames().contains(id.toString());
+		if(spearKillTargetListMode.getSelected() == TargetListMode.WHITELIST)
+			return inList || spearKillTargetEntities.getTypeNames().isEmpty();
+		return !inList;
+	}
+	
+	private int getSpearKillReadyTicks(ItemStack stack)
+	{
+		String name = stack.getItem().toString().toLowerCase(Locale.ROOT);
+		int value = 14;
+		if(name.contains("wooden"))
+			value = 14;
+		else if(name.contains("stone") || name.contains("golden"))
+			value = 13;
+		else if(name.contains("copper"))
+			value = 12;
+		else if(name.contains("iron"))
+			value = 11;
+		else if(name.contains("diamond"))
+			value = 9;
+		else if(name.contains("netherite"))
+			value = 7;
+		
+		return Math
+			.round(value * (spearKillLungeDelayModifier.getValueI() / 100F));
 	}
 	
 	private static final class TargetHighlight

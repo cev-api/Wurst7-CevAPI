@@ -65,6 +65,7 @@ public final class ClickGui
 	private String tooltip = "";
 	
 	private boolean leftMouseButtonPressed;
+	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
 	
 	public ClickGui(Path windowsFile)
@@ -362,6 +363,39 @@ public final class ClickGui
 		popups.removeIf(Popup::isClosing);
 	}
 	
+	public boolean handlePinnedMouseClick(MouseButtonEvent context)
+	{
+		int mouseX = (int)context.x();
+		int mouseY = (int)context.y();
+		int mouseButton = context.button();
+		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			leftMouseButtonPressed = true;
+		
+		boolean popupClicked =
+			handlePinnedPopupMouseClick(mouseX, mouseY, mouseButton);
+		boolean windowClicked = false;
+		if(!popupClicked)
+		{
+			boolean closedPopups = closePinnedPopups();
+			if(!closedPopups)
+				windowClicked = handlePinnedWindowMouseClick(mouseX, mouseY,
+					mouseButton, context);
+		}
+		
+		for(Popup popup : popups)
+		{
+			Window parent = popup.getOwner().getParent();
+			if(parent != null && parent.isClosing())
+				popup.close();
+		}
+		
+		windows.removeIf(Window::isClosing);
+		popups.removeIf(Popup::isClosing);
+		
+		pinnedClickActive = popupClicked || windowClicked;
+		return pinnedClickActive;
+	}
+	
 	private boolean closeActivePopups()
 	{
 		if(popups.isEmpty())
@@ -373,11 +407,40 @@ public final class ClickGui
 		return true;
 	}
 	
+	private boolean closePinnedPopups()
+	{
+		boolean closedAny = false;
+		for(Popup popup : popups)
+		{
+			Window parent = popup.getOwner().getParent();
+			if(parent != null && parent.isPinned())
+			{
+				popup.close();
+				closedAny = true;
+			}
+		}
+		
+		return closedAny;
+	}
+	
 	public void handleMouseRelease(double mouseX, double mouseY,
 		int mouseButton)
 	{
 		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = false;
+	}
+	
+	public boolean handlePinnedMouseRelease(double mouseX, double mouseY,
+		int mouseButton)
+	{
+		handleMouseRelease(mouseX, mouseY, mouseButton);
+		if(pinnedClickActive)
+		{
+			pinnedClickActive = false;
+			return true;
+		}
+		
+		return false;
 	}
 	
 	public void handleMouseScroll(double mouseX, double mouseY, double delta)
@@ -413,6 +476,45 @@ public final class ClickGui
 			window.setScrollOffset(scroll);
 			break;
 		}
+	}
+	
+	public boolean handlePinnedMouseScroll(double mouseX, double mouseY,
+		double delta)
+	{
+		if(delta == 0)
+			return false;
+		
+		if(handlePinnedPopupMouseScroll(mouseX, mouseY, delta))
+			return true;
+		
+		int dWheel = (int)delta * 4;
+		if(dWheel == 0)
+			return false;
+		
+		for(int i = windows.size() - 1; i >= 0; i--)
+		{
+			Window window = windows.get(i);
+			if(!window.isPinned() || window.isInvisible())
+				continue;
+			
+			if(!window.isScrollingEnabled() || window.isMinimized())
+				continue;
+			
+			if(mouseX < window.getX() || mouseY < window.getY() + 13)
+				continue;
+			if(mouseX >= window.getX() + window.getWidth()
+				|| mouseY >= window.getY() + window.getHeight())
+				continue;
+			
+			int scroll = window.getScrollOffset() + dWheel;
+			scroll = Math.min(scroll, 0);
+			scroll = Math.max(scroll,
+				-window.getInnerHeight() + window.getHeight() - 13);
+			window.setScrollOffset(scroll);
+			return true;
+		}
+		
+		return false;
 	}
 	
 	public boolean handleNavigatorPopupClick(double mouseX, double mouseY,
@@ -558,6 +660,43 @@ public final class ClickGui
 		return false;
 	}
 	
+	private boolean handlePinnedPopupMouseClick(double mouseX, double mouseY,
+		int mouseButton)
+	{
+		for(int i = popups.size() - 1; i >= 0; i--)
+		{
+			Popup popup = popups.get(i);
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			if(parent == null || !parent.isPinned())
+				continue;
+			
+			int x0 = parent.getX() + owner.getX();
+			int y0 =
+				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			
+			int x1 = x0 + popup.getX();
+			int y1 = y0 + popup.getY();
+			int x2 = x1 + popup.getWidth();
+			int y2 = y1 + popup.getHeight();
+			
+			if(mouseX < x1 || mouseY < y1)
+				continue;
+			if(mouseX >= x2 || mouseY >= y2)
+				continue;
+			
+			int cMouseX = (int)(mouseX - x0);
+			int cMouseY = (int)(mouseY - y0);
+			popup.handleMouseClick(cMouseX, cMouseY, mouseButton);
+			
+			popups.remove(popup);
+			popups.add(popup);
+			return true;
+		}
+		
+		return false;
+	}
+	
 	private boolean handlePopupMouseScroll(double mouseX, double mouseY,
 		double delta)
 	{
@@ -570,6 +709,43 @@ public final class ClickGui
 			Component owner = popup.getOwner();
 			Window parent = owner.getParent();
 			if(parent == null)
+				continue;
+			
+			int x0 = parent.getX() + owner.getX();
+			int y0 =
+				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			
+			int x1 = x0 + popup.getX();
+			int y1 = y0 + popup.getY();
+			int x2 = x1 + popup.getWidth();
+			int y2 = y1 + popup.getHeight();
+			
+			if(mouseX < x1 || mouseY < y1)
+				continue;
+			if(mouseX >= x2 || mouseY >= y2)
+				continue;
+			
+			int cMouseX = (int)(mouseX - x0);
+			int cMouseY = (int)(mouseY - y0);
+			if(popup.handleMouseScroll(cMouseX, cMouseY, delta))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean handlePinnedPopupMouseScroll(double mouseX, double mouseY,
+		double delta)
+	{
+		for(int i = popups.size() - 1; i >= 0; i--)
+		{
+			Popup popup = popups.get(i);
+			if(popup.getWidth() <= 0 || popup.getHeight() <= 0)
+				continue;
+			
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			if(parent == null || !parent.isPinned())
 				continue;
 			
 			int x0 = parent.getX() + owner.getX();
@@ -648,6 +824,61 @@ public final class ClickGui
 			windows.add(window);
 			break;
 		}
+	}
+	
+	private boolean handlePinnedWindowMouseClick(int mouseX, int mouseY,
+		int mouseButton, MouseButtonEvent context)
+	{
+		for(int i = windows.size() - 1; i >= 0; i--)
+		{
+			Window window = windows.get(i);
+			if(window.isInvisible() || !window.isPinned())
+				continue;
+			
+			int x1 = window.getX();
+			int y1 = window.getY();
+			int x2 = x1 + window.getWidth();
+			int y2 = y1 + window.getHeight();
+			int y3 = y1 + 13;
+			
+			if(mouseX < x1 || mouseY < y1)
+				continue;
+			if(mouseX >= x2 || mouseY >= y2)
+				continue;
+			
+			if(mouseY < y3)
+				handleTitleBarMouseClick(window, mouseX, mouseY, mouseButton);
+			else if(!window.isMinimized())
+			{
+				window.validate();
+				
+				int cMouseX = mouseX - x1;
+				int cMouseY = mouseY - y3;
+				
+				if(window.isScrollingEnabled() && mouseX >= x2 - 3)
+					handleScrollbarMouseClick(window, cMouseX, cMouseY,
+						mouseButton);
+				else
+				{
+					if(window.isScrollingEnabled())
+						cMouseY -= window.getScrollOffset();
+					
+					handleComponentMouseClick(window, cMouseX, cMouseY,
+						mouseButton, context);
+				}
+				
+			}else
+				continue;
+			
+			if(!windows.contains(window))
+				break;
+			
+			windows.remove(window);
+			windows.add(window);
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private void handleTitleBarMouseClick(Window window, int mouseX, int mouseY,
@@ -820,6 +1051,32 @@ public final class ClickGui
 		}
 	}
 	
+	private void renderPinnedPopups(GuiGraphics context, int mouseX, int mouseY)
+	{
+		Matrix3x2fStack matrixStack = context.pose();
+		for(Popup popup : popups)
+		{
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			if(parent == null || !parent.isPinned())
+				continue;
+			
+			int x1 = parent.getX() + owner.getX();
+			int y1 =
+				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			
+			matrixStack.pushMatrix();
+			matrixStack.translate(x1, y1);
+			context.guiRenderState.up();
+			
+			int cMouseX = mouseX - x1;
+			int cMouseY = mouseY - y1;
+			popup.render(context, cMouseX, cMouseY);
+			
+			matrixStack.popMatrix();
+		}
+	}
+	
 	public void renderTooltip(GuiGraphics context, int mouseX, int mouseY)
 	{
 		if(tooltip.isEmpty())
@@ -873,16 +1130,43 @@ public final class ClickGui
 		if(pinnedWindows.isEmpty())
 			return;
 		
+		int mouseX =
+			(int)(MC.mouseHandler.xpos() * MC.getWindow().getGuiScaledWidth()
+				/ MC.getWindow().getScreenWidth());
+		int mouseY =
+			(int)(MC.mouseHandler.ypos() * MC.getWindow().getGuiScaledHeight()
+				/ MC.getWindow().getScreenHeight());
+		
+		for(Window window : pinnedWindows)
+		{
+			if(window.isDragging())
+				if(leftMouseButtonPressed)
+					window.dragTo(mouseX, mouseY);
+				else
+				{
+					window.stopDragging();
+					saveWindows();
+				}
+			
+			if(window.isDraggingScrollbar())
+				if(leftMouseButtonPressed)
+					window.dragScrollbarTo(mouseY);
+				else
+					window.stopDraggingScrollbar();
+		}
+		
+		tooltip = "";
 		if(isolateWindows)
-			renderWindowsWithIsolation(context, pinnedWindows,
-				Integer.MIN_VALUE, Integer.MIN_VALUE, partialTicks);
+			renderWindowsWithIsolation(context, pinnedWindows, mouseX, mouseY,
+				partialTicks);
 		else
 			for(Window window : pinnedWindows)
 			{
 				context.guiRenderState.up();
-				renderWindow(context, window, Integer.MIN_VALUE,
-					Integer.MIN_VALUE, partialTicks);
+				renderWindow(context, window, mouseX, mouseY, partialTicks);
 			}
+		
+		renderPinnedPopups(context, mouseX, mouseY);
 	}
 	
 	public void updateColors()

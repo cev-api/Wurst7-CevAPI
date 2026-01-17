@@ -317,6 +317,11 @@ public enum WurstClient
 		return gui;
 	}
 	
+	public ClickGui getGuiIfInitialized()
+	{
+		return guiInitialized ? gui : null;
+	}
+	
 	public Navigator getNavigator()
 	{
 		return navigator;

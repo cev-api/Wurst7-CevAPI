@@ -435,9 +435,21 @@ Reports number of waypoints changed.
 - Extended AimAssist range (Max 100 Blocks) while using SpearAssist
 - Added AimAssist lock-on whilst using spear
 - Spear charging no longer interferes with interactive blocks
-- Designed for elytra-free ground PvP/PvE, though may be even more interesting with one.
 
-![Spear](https://i.imgur.com/XVypZML.png)
+![Spear](https://i.imgur.com/H5cxfDq.png)
+
+#### SpearKill Mode
+
+- Enabled only when Mode = SpearKill; Assist behavior and settings are disabled.
+- Locks a target in a tight aim cone while you’re charging a spear.
+- Lunge mode: waits for charge time, aims at the target, then applies a forward velocity burst.
+- Blink mode: buffers movement packets while charging, then flushes them for a “teleport‑like” burst.
+  - Able to slowly walk at a target and have it deal maximum velocity damage
+- Optional extras: blink distance boost, height‑based aiming, and target list filtering.
+
+Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/SpearKill.java) for the inspiration.
+
+![Spear](https://i.imgur.com/zJlR3Vz.png)
 
 ### Custom Command Prefixes
 - In the Wurst Options menu you can now change your command prefix
@@ -559,6 +571,7 @@ Examples:
 - Hacks can now support multiple pop up windows, or sub pop up windows. In Navigator these pop ups are drop downs instead.
 - Right-click Area setting resets it to default.  
 - Can now scroll all drop down/pop ups with your mouse.
+- Pinned windows/settings now capture mouse input when a container screen is open, meaning you can now adjust settings without opening the ClickGUI.
 
 ![HackList](https://i.imgur.com/fzcQdjy.png)
 
