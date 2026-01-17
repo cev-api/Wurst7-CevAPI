@@ -6,4 +6,8 @@ public final class BuildConfig
 	
 	public static final boolean NICE_WURST = ${NICE_WURST};
 	public static final String MOD_VERSION = "${MOD_VERSION}";
+	public static final String FORK_RELEASE_VERSION = "${FORK_RELEASE_VERSION}";
+	public static final String BUILD_DATE = "${BUILD_DATE}";
+	public static final String GH_REPO_ID = "${GH_REPO_ID}";
+	public static final String GH_REPO_URL = "${GH_REPO_URL}";
 }

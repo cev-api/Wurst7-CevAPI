@@ -265,8 +265,7 @@ public final class SpearAssistHack extends Hack
 	public String getRenderName()
 	{
 		return assistMode.getSelected() == AssistMode.SPEARKILL
-			? getName() + " [Kill]"
-			: getName();
+			? getName() + " [Kill]" : getName();
 	}
 	
 	@Override

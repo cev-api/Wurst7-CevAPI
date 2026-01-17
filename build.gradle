@@ -180,9 +180,18 @@ tasks.register("generateBuildConfig") {
 	def template =
 		file("src/main/templates/net/wurstclient/config/BuildConfig.java.in")
 	def modVersionValue = project.mod_version
+	def forkReleaseVersion =
+		(project.findProperty("fork_release_version") ?: "0.0").toString()
+	def ghRepoId = project.gh_repo_id.toString()
+	def ghRepoUrl = "https://github.com/${ghRepoId}"
+	def buildDate = java.time.Instant.now().toString()
 	
 	inputs.file(template)
 	inputs.property("niceWurstEnabled", niceWurstEnabled)
+	inputs.property("forkReleaseVersion", forkReleaseVersion)
+	inputs.property("ghRepoId", ghRepoId)
+	inputs.property("ghRepoUrl", ghRepoUrl)
+	inputs.property("buildDate", buildDate)
 	outputs.dir(buildConfigOutput)
 	
 	doLast {
@@ -194,6 +203,10 @@ tasks.register("generateBuildConfig") {
 		def content = template.getText("UTF-8")
 			.replace('${NICE_WURST}', String.valueOf(niceWurstEnabled))
 			.replace('${MOD_VERSION}', modVersionValue)
+			.replace('${FORK_RELEASE_VERSION}', forkReleaseVersion)
+			.replace('${BUILD_DATE}', buildDate)
+			.replace('${GH_REPO_ID}', ghRepoId)
+			.replace('${GH_REPO_URL}', ghRepoUrl)
 		
 		def targetFile = new File(targetDir, "BuildConfig.java")
 		targetFile.setText(content, "UTF-8")

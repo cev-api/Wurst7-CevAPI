@@ -40,6 +40,7 @@ import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.presets.PresetManager;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
+import net.wurstclient.update.ForkUpdateChecker;
 import net.wurstclient.update.WurstUpdater;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
@@ -85,6 +86,7 @@ public enum WurstClient
 	private boolean enabled = true;
 	private static boolean guiInitialized;
 	private WurstUpdater updater;
+	private ForkUpdateChecker forkUpdateChecker;
 	private ProblematicResourcePackDetector problematicPackDetector;
 	private Path wurstFolder;
 	
@@ -166,6 +168,9 @@ public enum WurstClient
 		
 		updater = new WurstUpdater();
 		eventManager.add(UpdateListener.class, updater);
+		
+		forkUpdateChecker = new ForkUpdateChecker();
+		eventManager.add(UpdateListener.class, forkUpdateChecker);
 		
 		problematicPackDetector = new ProblematicResourcePackDetector();
 		problematicPackDetector.start();
@@ -390,6 +395,11 @@ public enum WurstClient
 	public WurstUpdater getUpdater()
 	{
 		return updater;
+	}
+	
+	public ForkUpdateChecker getForkUpdateChecker()
+	{
+		return forkUpdateChecker;
 	}
 	
 	public ProblematicResourcePackDetector getProblematicPackDetector()

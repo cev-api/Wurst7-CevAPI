@@ -80,6 +80,9 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(at = @At("RETURN"), method = "tick()V")
 	private void onTick(CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.getForkUpdateChecker() != null)
+			WurstClient.INSTANCE.getForkUpdateChecker().startIfNeeded();
+		
 		if(realmsButton == null || wurstOptionsButton == null)
 			return;
 			
@@ -95,7 +98,11 @@ public abstract class TitleScreenMixin extends Screen
 	{
 		Font font = minecraft.font;
 		String brand = NiceWurstModule.isActive() ? "NiceWurst" : "Wurst";
-		String text = brand + " " + BuildConfig.MOD_VERSION;
+		String baseText = brand + " " + BuildConfig.MOD_VERSION + " v"
+			+ BuildConfig.FORK_RELEASE_VERSION;
+		String suffix = WurstClient.INSTANCE.getForkUpdateChecker() == null ? ""
+			: WurstClient.INSTANCE.getForkUpdateChecker().getStatusSuffix();
+		String text = baseText + suffix;
 		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
 			4, 4, 0xFFFFFFFF, true);
 	}
