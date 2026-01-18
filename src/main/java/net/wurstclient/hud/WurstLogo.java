@@ -10,6 +10,7 @@ package net.wurstclient.hud;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.other_features.WurstLogoOtf;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -63,6 +64,12 @@ public final class WurstLogo
 		
 		if(WURST.getUpdater().isOutdated())
 			version += " (outdated)";
+		
+		// Append fork release version and its update status
+		version += " v" + BuildConfig.FORK_RELEASE_VERSION;
+		if(WurstClient.INSTANCE.getForkUpdateChecker() != null)
+			version +=
+				WurstClient.INSTANCE.getForkUpdateChecker().getStatusSuffix();
 		
 		return version;
 	}

@@ -11,6 +11,7 @@ import java.awt.Color;
 import java.util.function.BooleanSupplier;
 
 import net.wurstclient.DontBlock;
+import net.wurstclient.WurstClient;
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.ColorSetting;
@@ -59,7 +60,10 @@ public final class WurstLogoOtf extends OtherFeature
 		ALWAYS("Always", () -> true),
 		
 		ONLY_OUTDATED("Only when outdated",
-			() -> WURST.getUpdater().isOutdated()),
+			() -> WurstClient.INSTANCE.getUpdater().isOutdated()
+				|| (WurstClient.INSTANCE.getForkUpdateChecker() != null
+					&& !WurstClient.INSTANCE.getForkUpdateChecker()
+						.getStatusSuffix().isEmpty())),
 		
 		// Never show the logo
 		NEVER("Never", () -> false);
