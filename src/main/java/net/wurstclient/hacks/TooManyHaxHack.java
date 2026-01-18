@@ -397,7 +397,10 @@ public final class TooManyHaxHack extends Hack
 			
 			if(WurstClient.MC != null
 				&& WurstClient.MC.screen instanceof ClickGuiScreen)
+			{
+				WURST.getGui().requestRefresh();
 				return;
+			}
 			
 			WURST.getGui().init();
 		}catch(Exception e)

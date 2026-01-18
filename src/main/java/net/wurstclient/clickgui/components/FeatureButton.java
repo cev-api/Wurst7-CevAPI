@@ -83,7 +83,17 @@ public final class FeatureButton extends Component
 	
 	private boolean isSettingsWindowOpen()
 	{
-		return settingsWindow != null && !settingsWindow.isClosing();
+		if(settingsWindow != null && !settingsWindow.isClosing())
+			return true;
+		
+		SettingsWindow existing = findExistingSettingsWindow();
+		if(existing != null && !existing.isClosing())
+		{
+			settingsWindow = existing;
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private void toggleSettingsWindow()
@@ -95,9 +105,19 @@ public final class FeatureButton extends Component
 			
 		}else
 		{
-			settingsWindow.close();
+			if(settingsWindow == null)
+				settingsWindow = findExistingSettingsWindow();
+			if(settingsWindow != null)
+				settingsWindow.close();
 			settingsWindow = null;
 		}
+	}
+	
+	private SettingsWindow findExistingSettingsWindow()
+	{
+		String title = feature.getName() + " Settings";
+		Window window = GUI.findWindowByTitle(title);
+		return window instanceof SettingsWindow ? (SettingsWindow)window : null;
 	}
 	
 	@Override

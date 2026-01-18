@@ -67,6 +67,7 @@ public final class ClickGui
 	private boolean leftMouseButtonPressed;
 	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
+	private boolean refreshPending;
 	
 	public ClickGui(Path windowsFile)
 	{
@@ -95,6 +96,9 @@ public final class ClickGui
 	
 	public void init()
 	{
+		LinkedHashMap<String, WindowState> reopenSettingsWindows =
+			captureOpenSettingsWindows();
+		
 		// Clear existing windows/popups so repeated init() calls rebuild
 		// the UI instead of duplicating entries.
 		windows.clear();
@@ -298,7 +302,102 @@ public final class ClickGui
 			}
 		}
 		
+		// Reopen settings windows that were open when the GUI was closed.
+		reopenTransientSettingsWindows(reopenSettingsWindows, features);
+		
 		saveWindows();
+	}
+	
+	public void requestRefresh()
+	{
+		refreshPending = true;
+	}
+	
+	private LinkedHashMap<String, WindowState> captureOpenSettingsWindows()
+	{
+		LinkedHashMap<String, WindowState> reopenSettingsWindows =
+			new LinkedHashMap<>();
+		
+		for(Window window : windows)
+		{
+			if(!(window instanceof SettingsWindow))
+				continue;
+			if(window.isClosing())
+				continue;
+			
+			reopenSettingsWindows.put(window.getTitle(),
+				new WindowState(window));
+		}
+		
+		return reopenSettingsWindows;
+	}
+	
+	private void reopenTransientSettingsWindows(
+		LinkedHashMap<String, WindowState> reopenSettingsWindows,
+		ArrayList<Feature> features)
+	{
+		if(reopenSettingsWindows.isEmpty())
+			return;
+		
+		for(WindowState state : reopenSettingsWindows.values())
+		{
+			if(findWindowByTitle(state.title) != null)
+				continue;
+			
+			final String suffix = " Settings";
+			if(!state.title.endsWith(suffix))
+				continue;
+			
+			String featName = state.title.substring(0,
+				state.title.length() - suffix.length());
+			Feature matched = null;
+			for(Feature f : features)
+				if(f.getName().equals(featName))
+				{
+					matched = f;
+					break;
+				}
+			
+			if(matched == null)
+				continue;
+			
+			try
+			{
+				SettingsWindow sw =
+					new SettingsWindow(matched, windows.get(0), 0);
+				state.apply(sw);
+				windows.add(sw);
+			}catch(Throwable ignored)
+			{
+				// Best-effort: ignore any failure recreating windows
+			}
+		}
+	}
+	
+	private static final class WindowState
+	{
+		final String title;
+		final int x;
+		final int y;
+		final boolean minimized;
+		final boolean pinned;
+		
+		WindowState(Window window)
+		{
+			title = window.getTitle();
+			x = window.getActualX();
+			y = window.getActualY();
+			minimized = window.isMinimized();
+			pinned = window.isPinned();
+		}
+		
+		void apply(Window window)
+		{
+			window.setX(x);
+			window.setY(y);
+			window.setMinimized(minimized);
+			window.setPinned(pinned);
+		}
 	}
 	
 	private void saveWindows()
@@ -977,6 +1076,12 @@ public final class ClickGui
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		if(refreshPending)
+		{
+			refreshPending = false;
+			init();
+		}
+		
 		updateColors();
 		
 		Matrix3x2fStack matrixStack = context.pose();
@@ -1120,6 +1225,12 @@ public final class ClickGui
 	
 	public void renderPinnedWindows(GuiGraphics context, float partialTicks)
 	{
+		if(refreshPending)
+		{
+			refreshPending = false;
+			init();
+		}
+		
 		ArrayList<Window> pinnedWindows = new ArrayList<>();
 		for(Window window : windows)
 		{
