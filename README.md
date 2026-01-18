@@ -380,10 +380,11 @@ Reports number of waypoints changed.
   - Reject: reject the selected types and drop them.
 - Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
   - Works independently of ItemESP
+- Ignore Selected Items: adds the item/s you selected to the ItemESP ignore list
+- Toggle to adhere to the ItemESP ignored list (Including a link to edit the list)
 - Adjustable distance for item detection.
 - Adjustable font scale setting (scales text and popup icon size).
 - Adjustable Popup HUD display offset X/Y
-- Respects ItemESP ignored list (optional) and provides link to edit the list.
 - Detects XP Orbs and shows the exact XP each orb will give
 - Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
   - Can also filter out default mob items to prevent spam

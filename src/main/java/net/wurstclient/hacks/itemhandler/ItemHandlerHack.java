@@ -781,6 +781,34 @@ public class ItemHandlerHack extends Hack
 		}
 	}
 	
+	public void addIgnoredItemsFromItems(Collection<GroundItem> items)
+	{
+		if(items == null || items.isEmpty())
+			return;
+		
+		net.wurstclient.hacks.ItemEspHack esp =
+			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+		if(esp == null)
+			return;
+		
+		net.wurstclient.settings.ItemListSetting list =
+			esp.getIgnoredListSetting();
+		java.util.Set<String> added = new java.util.HashSet<>();
+		for(GroundItem gi : items)
+		{
+			if(gi.sourceType() != SourceType.GROUND
+				&& gi.sourceType() != SourceType.XP_ORB)
+				continue;
+			String id = gi.traceId();
+			if(id == null)
+				continue;
+			if(added.contains(id))
+				continue;
+			added.add(id);
+			list.addRawName(id);
+		}
+	}
+	
 	public void toggleTracedItem(String itemId)
 	{
 		if(itemId == null)

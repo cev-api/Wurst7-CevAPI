@@ -35,6 +35,7 @@ public class ItemHandlerScreen extends Screen
 	private ListGui listGui;
 	private Button pickButton;
 	private Button closeButton;
+	private Button ignoreButton;
 	
 	public ItemHandlerScreen(Screen prev, ItemHandlerHack hack)
 	{
@@ -54,33 +55,42 @@ public class ItemHandlerScreen extends Screen
 		addWidget(listGui);
 		
 		int gap = 10;
-		int wReject = 140, wPick = 140, wTrace = 140, wClose = 100;
-		int total = wReject + wPick + wTrace + wClose + gap * 3;
+		int wIgnore = 140, wReject = 140, wPick = 140, wTrace = 140,
+			wClose = 100;
+		int total = wIgnore + wReject + wPick + wTrace + wClose + gap * 4;
 		int startX = (width - total) / 2;
+		
+		ignoreButton = Button
+			.builder(Component.literal("Ignore Selected Items"),
+				b -> ignoreSelected())
+			.bounds(startX, height - 40, wIgnore, 20).build();
+		addRenderableWidget(ignoreButton);
 		
 		rejectButton = Button
 			.builder(Component.literal("Reject Selected Items"),
 				b -> rejectSelected())
-			.bounds(startX, height - 40, wReject, 20).build();
+			.bounds(startX + wIgnore + gap, height - 40, wReject, 20).build();
 		addRenderableWidget(rejectButton);
 		
 		pickButton = Button
 			.builder(Component.literal("Pick Selected Items"),
 				b -> pickSelected())
-			.bounds(startX + wReject + gap, height - 40, wPick, 20).build();
+			.bounds(startX + wIgnore + gap + wReject + gap, height - 40, wPick,
+				20)
+			.build();
 		addRenderableWidget(pickButton);
 		
 		traceButton = Button
 			.builder(Component.literal("Trace Selected Items"),
 				b -> traceSelected())
-			.bounds(startX + wReject + gap + wPick + gap, height - 40, wTrace,
-				20)
+			.bounds(startX + wIgnore + gap + wReject + gap + wPick + gap,
+				height - 40, wTrace, 20)
 			.build();
 		addRenderableWidget(traceButton);
 		
 		closeButton = Button.builder(Component.literal("Close"), b -> onClose())
-			.bounds(startX + wReject + gap + wPick + gap + wTrace + gap,
-				height - 40, wClose, 20)
+			.bounds(startX + wIgnore + gap + wReject + gap + wPick + gap
+				+ wTrace + gap, height - 40, wClose, 20)
 			.build();
 		addRenderableWidget(closeButton);
 		
@@ -125,6 +135,24 @@ public class ItemHandlerScreen extends Screen
 		hack.addRejectedRulesFromItems(items);
 		ChatUtils
 			.message("Reject rules added for " + items.size() + " stacks.");
+		onClose();
+	}
+	
+	private void ignoreSelected()
+	{
+		List<ListGui.Entry> selected = listGui.getSelectedEntries();
+		if(selected.isEmpty())
+			return;
+		
+		List<ItemHandlerHack.GroundItem> items =
+			selected.stream().flatMap(e -> e.groundItems().stream())
+				.collect(Collectors.toList());
+		if(items.isEmpty())
+			return;
+		
+		hack.addIgnoredItemsFromItems(items);
+		ChatUtils.message(
+			"ItemESP ignore entries added for " + items.size() + " stacks.");
 		onClose();
 	}
 	
@@ -175,6 +203,7 @@ public class ItemHandlerScreen extends Screen
 		boolean has = listGui.hasSelection();
 		pickButton.active = has;
 		rejectButton.active = has;
+		ignoreButton.active = has;
 	}
 	
 	@Override
