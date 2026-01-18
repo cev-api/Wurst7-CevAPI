@@ -381,9 +381,10 @@ Reports number of waypoints changed.
 - Adjustable Popup HUD display offset X/Y
 - Respects ItemESP ignored list (optional) and provides link to edit the list.
 - Detects XP Orbs and shows the exact XP each orb will give
+- Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
 
-![Popup](https://i.imgur.com/W97borj.png)
-![GUI](https://i.imgur.com/eunLgVr.png)
+![Popup](https://i.imgur.com/VQw20x0.png)
+![GUI](https://i.imgur.com/oZFLufE.png)
 
 ### TargetPlace
 - Select a block by pressing P, when that block is broken or destroyed (turned to air) it is automatically replaced with the block you're holding and it will be orientated down. This works from a distance as well.

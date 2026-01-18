@@ -25,6 +25,12 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.HumanoidArm;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -97,6 +103,11 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting respectItemEspIgnores =
 		new CheckboxSetting("Respect ItemESP ignored items", true);
 	
+	// Include items held or worn by mobs
+	private final CheckboxSetting includeMobEquipment =
+		new CheckboxSetting("Detect mob equipment",
+			"Also detect items held or worn by mobs.", false);
+	
 	// Reduce extremes so offsets cannot go off-screen entirely.
 	private final SliderSetting hudOffsetX = new SliderSetting(
 		"Popup HUD offset X", -105, -300, 300, 1, ValueDisplay.INTEGER);
@@ -111,15 +122,16 @@ public class ItemHandlerHack extends Hack
 			"ItemHandler GUI (open manual pickup screen)");
 		// Top-level button to open the ItemHandler GUI from settings
 		addSetting(new ButtonSetting("Open ItemHandler GUI", this::openScreen));
-		addSetting(rejectRadius);
-		addSetting(rejectExpiry);
 		addSetting(hudEnabled);
 		addSetting(showRegistryName);
+		addSetting(includeMobEquipment);
+		addSetting(respectItemEspIgnores);
+		addSetting(itemEspIgnoredListSetting);
+		addSetting(rejectRadius);
+		addSetting(rejectExpiry);
 		addSetting(popupRange);
 		addSetting(popupScale);
 		addSetting(popupMaxItems);
-		addSetting(respectItemEspIgnores);
-		addSetting(itemEspIgnoredListSetting);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
 	}
@@ -441,20 +453,10 @@ public class ItemHandlerHack extends Hack
 			ItemStack stack = entity.getItem().copy();
 			double distance = entity.distanceTo(player);
 			// optional filter: respect ItemESP ignored items
-			if(respectItemEspIgnores.isChecked())
-			{
-				net.wurstclient.hacks.ItemEspHack esp =
-					net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
-				if(esp != null)
-				{
-					String id =
-						net.wurstclient.util.ItemUtils.getStackId(stack);
-					if(esp.isIgnoredId(id))
-						continue;
-				}
-			}
+			if(isIgnoredByItemEsp(stack))
+				continue;
 			trackedItems.add(new GroundItem(entity.getId(), entity.getUUID(),
-				stack, distance, entity.position()));
+				stack, distance, entity.position(), SourceType.GROUND, null));
 		}
 		
 		for(ExperienceOrb orb : foundOrbs)
@@ -464,8 +466,11 @@ public class ItemHandlerHack extends Hack
 			ItemStack stack =
 				net.wurstclient.util.ItemUtils.createSyntheticXpStack(orb);
 			trackedItems.add(new GroundItem(orb.getId(), orb.getUUID(), stack,
-				distance, orb.position()));
+				distance, orb.position(), SourceType.XP_ORB, null));
 		}
+		
+		if(includeMobEquipment.isChecked())
+			addMobEquipmentItems(player, scanRadius);
 		
 		// Auto-untrace: remove traced ids that no longer have tracked items
 		try
@@ -473,21 +478,9 @@ public class ItemHandlerHack extends Hack
 			java.util.Set<String> present = new java.util.HashSet<>();
 			for(GroundItem gi : trackedItems)
 			{
-				String baseId =
-					net.wurstclient.util.ItemUtils.getStackId(gi.stack());
-				if(baseId == null)
-					baseId =
-						net.minecraft.core.registries.BuiltInRegistries.ITEM
-							.getKey(gi.stack().getItem()).toString();
-				if(net.wurstclient.util.ItemUtils.isSyntheticXp(gi.stack()))
-				{
-					int xp =
-						net.wurstclient.util.ItemUtils.getXpAmount(gi.stack());
-					present.add(baseId + ":xp:" + xp);
-				}else
-				{
-					present.add(baseId);
-				}
+				String traceId = gi.traceId();
+				if(traceId != null)
+					present.add(traceId);
 			}
 			for(java.util.Iterator<String> it = tracedItems.iterator(); it
 				.hasNext();)
@@ -507,6 +500,103 @@ public class ItemHandlerHack extends Hack
 	{
 		return entity != null && entity.isAlive() && !entity.isRemoved()
 			&& !entity.getItem().isEmpty();
+	}
+	
+	private void addMobEquipmentItems(LocalPlayer player, double scanRadius)
+	{
+		if(player == null || MC.level == null)
+			return;
+		
+		List<LivingEntity> living =
+			MC.level.getEntitiesOfClass(LivingEntity.class,
+				player.getBoundingBox().inflate((float)scanRadius),
+				e -> e != null && e.isAlive() && !e.isRemoved() && e != player);
+		
+		for(LivingEntity le : living)
+		{
+			if(le instanceof Player)
+				continue;
+			if(le instanceof ArmorStand)
+				continue;
+			
+			String mobName = le.getName().getString();
+			
+			ItemStack main = le.getMainHandItem();
+			if(main != null && !main.isEmpty() && !isIgnoredByItemEsp(main))
+			{
+				Vec3 pos = getHeldItemPos(le, InteractionHand.MAIN_HAND);
+				addMobTrackedItem(le, main, pos, SourceType.MOB_HELD, mobName);
+			}
+			
+			ItemStack off = le.getOffhandItem();
+			if(off != null && !off.isEmpty() && !isIgnoredByItemEsp(off))
+			{
+				Vec3 pos = getHeldItemPos(le, InteractionHand.OFF_HAND);
+				addMobTrackedItem(le, off, pos, SourceType.MOB_HELD, mobName);
+			}
+			
+			for(EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD,
+				EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET})
+			{
+				ItemStack armor = le.getItemBySlot(slot);
+				if(armor == null || armor.isEmpty()
+					|| isIgnoredByItemEsp(armor))
+					continue;
+				Vec3 pos = getArmorPos(le, slot);
+				addMobTrackedItem(le, armor, pos, SourceType.MOB_WORN, mobName);
+			}
+		}
+	}
+	
+	private void addMobTrackedItem(LivingEntity le, ItemStack stack, Vec3 pos,
+		SourceType sourceType, String mobName)
+	{
+		if(le == null || stack == null || stack.isEmpty())
+			return;
+		Vec3 position = pos != null ? pos : le.position();
+		double distance =
+			MC.player != null ? MC.player.position().distanceTo(position) : 0.0;
+		trackedItems.add(new GroundItem(le.getId(), le.getUUID(), stack.copy(),
+			distance, position, sourceType, mobName));
+	}
+	
+	private Vec3 getHeldItemPos(LivingEntity e, InteractionHand hand)
+	{
+		if(e == null || hand == null)
+			return null;
+		Vec3 base = e.position();
+		double yawRad = Math.toRadians(e.getYRot());
+		HumanoidArm mainArm = HumanoidArm.RIGHT;
+		if(e instanceof Player pe)
+			mainArm = pe.getMainArm();
+		boolean rightSide =
+			(mainArm == HumanoidArm.RIGHT && hand == InteractionHand.MAIN_HAND)
+				|| (mainArm == HumanoidArm.LEFT
+					&& hand == InteractionHand.OFF_HAND);
+		double side = rightSide ? -1 : 1;
+		double eyeH = e.getEyeHeight(e.getPose());
+		double offX = Math.cos(yawRad) * 0.16 * side;
+		double offY = eyeH - 0.1;
+		double offZ = Math.sin(yawRad) * 0.16 * side;
+		return base.add(offX, offY, offZ);
+	}
+	
+	private Vec3 getArmorPos(LivingEntity e, EquipmentSlot slot)
+	{
+		if(e == null)
+			return null;
+		Vec3 base = e.position();
+		double height = e.getBbHeight();
+		double y;
+		switch(slot)
+		{
+			case HEAD -> y = e.getEyeHeight(e.getPose()) + 0.05;
+			case CHEST -> y = height * 0.75;
+			case LEGS -> y = height * 0.5;
+			case FEET -> y = height * 0.25;
+			default -> y = height * 0.5;
+		}
+		return base.add(0, y, 0);
 	}
 	
 	private void processPickupQueue()
@@ -618,6 +708,9 @@ public class ItemHandlerHack extends Hack
 		
 		for(GroundItem gi : items)
 		{
+			if(gi.sourceType() != SourceType.GROUND
+				&& gi.sourceType() != SourceType.XP_ORB)
+				continue;
 			String itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM
 				.getKey(gi.stack().getItem()).toString();
 			int amt = gi.stack().getCount();
@@ -695,8 +788,50 @@ public class ItemHandlerHack extends Hack
 	}
 	
 	public record GroundItem(int entityId, UUID uuid, ItemStack stack,
-		double distance, Vec3 position)
+		double distance, Vec3 position, SourceType sourceType,
+		String sourceName)
 	{
+		public String baseId()
+		{
+			String id = net.wurstclient.util.ItemUtils.getStackId(stack);
+			if(id != null)
+				return id;
+			return net.minecraft.core.registries.BuiltInRegistries.ITEM
+				.getKey(stack.getItem()).toString();
+		}
+		
+		public String traceId()
+		{
+			String baseId = baseId();
+			if(net.wurstclient.util.ItemUtils.isSyntheticXp(stack))
+			{
+				int xp = net.wurstclient.util.ItemUtils.getXpAmount(stack);
+				return baseId + ":xp:" + xp;
+			}
+			return baseId;
+		}
+		
+		public String sourceLabel()
+		{
+			if(sourceType == SourceType.MOB_HELD)
+				return "held by " + (sourceName != null ? sourceName : "mob");
+			if(sourceType == SourceType.MOB_WORN)
+				return "worn by " + (sourceName != null ? sourceName : "mob");
+			return "";
+		}
+		
+		public String displayName()
+		{
+			String name = stack.getHoverName().getString();
+			if(name == null || name.isBlank())
+				name = net.minecraft.core.registries.BuiltInRegistries.ITEM
+					.getKey(stack.getItem()).getPath();
+			String label = sourceLabel();
+			if(label == null || label.isBlank())
+				return name;
+			return name + " (" + label + ")";
+		}
+		
 		public String key()
 		{
 			return uuid.toString();
@@ -704,8 +839,8 @@ public class ItemHandlerHack extends Hack
 		
 		public ComponentSummary summary()
 		{
-			return new ComponentSummary(stack.getHoverName().getString(),
-				stack.getCount(), distance);
+			return new ComponentSummary(displayName(), stack.getCount(),
+				distance);
 		}
 	}
 	
@@ -739,18 +874,8 @@ public class ItemHandlerHack extends Hack
 			shouldDrawTracers ? new java.util.ArrayList<>() : null;
 		for(GroundItem gi : trackedItems)
 		{
-			String baseId =
-				net.wurstclient.util.ItemUtils.getStackId(gi.stack());
-			if(baseId == null)
-				baseId = net.minecraft.core.registries.BuiltInRegistries.ITEM
-					.getKey(gi.stack().getItem()).toString();
-			boolean traced = isTraced(baseId);
-			if(!traced
-				&& net.wurstclient.util.ItemUtils.isSyntheticXp(gi.stack()))
-			{
-				int xp = net.wurstclient.util.ItemUtils.getXpAmount(gi.stack());
-				traced = isTraced(baseId + ":xp:" + xp);
-			}
+			String traceId = gi.traceId();
+			boolean traced = traceId != null && isTraced(traceId);
 			if(!traced)
 				continue;
 			Vec3 p = gi.position();
@@ -777,6 +902,26 @@ public class ItemHandlerHack extends Hack
 		if(hasTracers)
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, traceLines,
 				false);
+	}
+	
+	private boolean isIgnoredByItemEsp(ItemStack stack)
+	{
+		if(!respectItemEspIgnores.isChecked())
+			return false;
+		net.wurstclient.hacks.ItemEspHack esp =
+			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+		if(esp == null)
+			return false;
+		String id = net.wurstclient.util.ItemUtils.getStackId(stack);
+		return esp.isIgnoredId(id);
+	}
+	
+	public enum SourceType
+	{
+		GROUND,
+		XP_ORB,
+		MOB_HELD,
+		MOB_WORN
 	}
 	
 	// Inline ItemESP ignored-items editor in ItemHandler settings

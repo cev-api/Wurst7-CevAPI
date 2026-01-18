@@ -48,12 +48,15 @@ public class ItemHandlerHud
 		class MergeEntry
 		{
 			ItemStack rep;
+			String displayName;
 			int total;
 			double closest;
 			
-			MergeEntry(ItemStack rep, int total, double closest)
+			MergeEntry(ItemStack rep, String displayName, int total,
+				double closest)
 			{
 				this.rep = rep;
+				this.displayName = displayName;
 				this.total = total;
 				this.closest = closest;
 			}
@@ -63,14 +66,12 @@ public class ItemHandlerHud
 		for(ItemHandlerHack.GroundItem gi : rawItems)
 		{
 			ItemStack stack = gi.stack();
-			String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
-				.getKey(stack.getItem()).toString();
-			String key = id;
+			String key = buildHudKey(gi);
 			MergeEntry me = map.get(key);
 			if(me == null)
 			{
-				map.put(key, new MergeEntry(stack.copy(), stack.getCount(),
-					gi.distance()));
+				map.put(key, new MergeEntry(stack.copy(), gi.displayName(),
+					stack.getCount(), gi.distance()));
 			}else
 			{
 				me.total += stack.getCount();
@@ -106,7 +107,7 @@ public class ItemHandlerHud
 		for(int ii = 0; ii < maxDisplay; ii++)
 		{
 			MergeEntry me = items.get(ii);
-			String name = resolveName(me.rep);
+			String name = me.displayName;
 			int wName = (int)Math.round(font.width(name) * scale);
 			String dist = ((int)Math.round(me.closest)) + " blocks";
 			int wDist = (int)Math.round(font.width(dist) * scale);
@@ -136,7 +137,7 @@ public class ItemHandlerHud
 			int iy = ey + 4 + i * rowHeight;
 			RenderUtils.drawItem(context, me.rep, ex + 4, iy, largeIcon);
 			context.guiRenderState.up();
-			String name = resolveName(me.rep);
+			String name = me.displayName;
 			
 			// draw main name
 			int nameX = ex + iconSpace + 2;
@@ -216,19 +217,12 @@ public class ItemHandlerHud
 			/ window.getScreenHeight();
 	}
 	
-	private static String resolveName(ItemStack stack)
+	private static String buildHudKey(ItemHandlerHack.GroundItem gi)
 	{
-		try
-		{
-			String n = stack.getHoverName().getString();
-			if(n == null || n.isBlank())
-				return net.minecraft.core.registries.BuiltInRegistries.ITEM
-					.getKey(stack.getItem()).getPath();
-			return n;
-		}catch(Throwable t)
-		{
-			return net.minecraft.core.registries.BuiltInRegistries.ITEM
-				.getKey(stack.getItem()).getPath();
-		}
+		String id = gi.baseId();
+		String label = gi.sourceLabel();
+		if(label == null || label.isBlank())
+			return id;
+		return id + "|" + label;
 	}
 }

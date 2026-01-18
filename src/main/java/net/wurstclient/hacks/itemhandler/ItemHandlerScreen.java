@@ -98,10 +98,12 @@ public class ItemHandlerScreen extends Screen
 		java.util.Set<String> desired = new java.util.LinkedHashSet<>();
 		for(ListGui.Entry e : selected)
 		{
-			String k = e.selectionKey();
-			if(k != null)
-				desired.add(k);
+			String id = e.itemId();
+			if(id != null)
+				desired.add(id);
 		}
+		if(desired.isEmpty())
+			return;
 		hack.beginPickFilterSession(desired);
 		ChatUtils
 			.message("Pick filter: drop non-targets until selected is picked.");
@@ -117,6 +119,8 @@ public class ItemHandlerScreen extends Screen
 		List<ItemHandlerHack.GroundItem> items =
 			selected.stream().flatMap(e -> e.groundItems().stream())
 				.collect(Collectors.toList());
+		if(items.isEmpty())
+			return;
 		
 		hack.addRejectedRulesFromItems(items);
 		ChatUtils
@@ -134,7 +138,7 @@ public class ItemHandlerScreen extends Screen
 		int enabled = 0, disabled = 0;
 		for(ListGui.Entry e : selected)
 		{
-			String id = e.selectionKey();
+			String id = e.traceId();
 			if(id == null)
 				continue;
 			boolean was = hack.isTraced(id);
@@ -228,12 +232,7 @@ public class ItemHandlerScreen extends Screen
 			int syntheticIndex = 0;
 			for(ItemHandlerHack.GroundItem gi : raw)
 			{
-				String baseId =
-					net.wurstclient.util.ItemUtils.getStackId(gi.stack());
-				if(baseId == null)
-					baseId =
-						net.minecraft.core.registries.BuiltInRegistries.ITEM
-							.getKey(gi.stack().getItem()).toString();
+				String baseId = gi.baseId();
 				
 				// detect synthetic XP metadata
 				boolean isXp = false;
@@ -251,28 +250,29 @@ public class ItemHandlerScreen extends Screen
 				
 				if(!isXp)
 				{
-					Aggregated a = groups.get(baseId);
+					String key = baseId;
+					String label = gi.sourceLabel();
+					if(label != null && !label.isBlank())
+						key = key + "|" + label;
+					Aggregated a = groups.get(key);
 					if(a == null)
 					{
-						a = new Aggregated(baseId, baseId, gi.stack().copy());
-						groups.put(baseId, a);
+						a = new Aggregated(baseId, key, baseId,
+							gi.stack().copy(), gi.displayName());
+						groups.put(key, a);
 					}
 					a.add(gi);
 				}else
 				{
 					// try to merge into an existing synthetic group with same
 					// xp and within 5 blocks of any item in that group
+					String traceId = baseId + ":xp:" + xpAmount;
 					Aggregated match = null;
 					for(Aggregated a : groups.values())
 					{
 						if(!a.itemId.equals(baseId))
 							continue;
-						// compare rep's xp
-						int repXp = -1;
-						if(!a.items.isEmpty())
-							repXp = net.wurstclient.util.ItemUtils
-								.getXpAmount(a.items.get(0).stack());
-						if(repXp != xpAmount)
+						if(!traceId.equals(a.traceId))
 							continue;
 						// proximity check (<= 5.0 blocks) against any item in
 						// the group
@@ -297,9 +297,9 @@ public class ItemHandlerScreen extends Screen
 					{
 						String key = baseId + ":xp:" + xpAmount + ":"
 							+ (syntheticIndex++);
-						String selId = baseId + ":xp:" + xpAmount;
-						Aggregated a =
-							new Aggregated(baseId, selId, gi.stack().copy());
+						String selId = key;
+						Aggregated a = new Aggregated(baseId, selId, traceId,
+							gi.stack().copy(), gi.displayName());
 						groups.put(key, a);
 						a.add(gi);
 					}
@@ -317,6 +317,12 @@ public class ItemHandlerScreen extends Screen
 		}
 		
 		@Override
+		public int getRowWidth()
+		{
+			return Math.max(300, width / 2);
+		}
+		
+		@Override
 		protected String getSelectionKey(Entry entry)
 		{
 			return entry.selectionKey();
@@ -326,16 +332,21 @@ public class ItemHandlerScreen extends Screen
 		{
 			final String itemId;
 			final String selectionId;
+			final String traceId;
 			final ItemStack rep;
+			final String displayName;
 			final List<ItemHandlerHack.GroundItem> items = new ArrayList<>();
 			int total;
 			double closest = Double.MAX_VALUE;
 			
-			Aggregated(String itemId, String selectionId, ItemStack rep)
+			Aggregated(String itemId, String selectionId, String traceId,
+				ItemStack rep, String displayName)
 			{
 				this.itemId = itemId;
 				this.selectionId = selectionId;
+				this.traceId = traceId;
 				this.rep = rep;
+				this.displayName = displayName;
 				this.total = 0;
 			}
 			
@@ -376,7 +387,7 @@ public class ItemHandlerScreen extends Screen
 			@Override
 			public Component getNarration()
 			{
-				String name = group.rep.getHoverName().getString();
+				String name = group.displayName;
 				return Component.translatable("narrator.select",
 					name + " x" + group.total);
 			}
@@ -390,8 +401,8 @@ public class ItemHandlerScreen extends Screen
 				RenderUtils.drawItem(context, group.rep, x + 1, y + 1, true);
 				
 				Font tr = minecraft.font;
-				context.drawString(tr, group.rep.getHoverName().getString(),
-					x + 36, y + 2, 0xFFFFFFFF, false);
+				context.drawString(tr, group.displayName, x + 36, y + 2,
+					0xFFFFFFFF, false);
 				// registry ID under the name (use synthetic id when present)
 				String regId =
 					net.wurstclient.util.ItemUtils.getStackId(group.rep);
@@ -421,9 +432,7 @@ public class ItemHandlerScreen extends Screen
 				context.drawString(tr, cnt, textX, textY, 0xFFFFFFFF, false);
 				
 				// Traced indicator: thicker rainbow border and label
-				String traceId = group.selectionId != null ? group.selectionId
-					: group.itemId;
-				if(hack.isTraced(traceId))
+				if(hack.isTraced(group.traceId))
 				{
 					float[] r = RenderUtils.getRainbowColor();
 					int col = RenderUtils.toIntColor(r, 1.0f);
@@ -445,7 +454,22 @@ public class ItemHandlerScreen extends Screen
 			
 			List<ItemHandlerHack.GroundItem> groundItems()
 			{
-				return group.items;
+				return group.items.stream().filter(
+					g -> g.sourceType() == ItemHandlerHack.SourceType.GROUND
+						|| g.sourceType() == ItemHandlerHack.SourceType.XP_ORB)
+					.collect(Collectors.toList());
+			}
+			
+			String itemId()
+			{
+				if(net.wurstclient.util.ItemUtils.isSyntheticXp(group.rep))
+					return null;
+				return group.itemId;
+			}
+			
+			String traceId()
+			{
+				return group.traceId;
 			}
 		}
 	}
