@@ -79,6 +79,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - Anti-Fingerprint
 - TridentESP
 - MobSearch
+- PacketRate
 - Outreach
 - LivestreamDetector
 - Redstone, Bed, Sign & Workstation ESP
@@ -103,6 +104,9 @@ I have taken the following ideas from other clients/mods:
 - Breadcrumbs
 - AntiCheatDetector
 - PacketDelay
+- ElytraFlight
+- AntiVoid
+- SpearKill
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
@@ -613,6 +617,7 @@ Examples:
 - Improved coloring for default distance based rendering, close (red) to far (green) (when all above off)
 - Able to ignore NPCs
 - Enter/Leave area notification option in chat with name, co-ordinates and block distance
+- Enter sound notifications with 7 different selectable sounds with optional cooldown
 
 ![ESP](https://i.imgur.com/ydpYuOm.png)
 

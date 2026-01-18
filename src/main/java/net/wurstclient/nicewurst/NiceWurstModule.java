@@ -104,8 +104,8 @@ public final class NiceWurstModule
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
 				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
-				"Panic", "PortalGUI", "SafeTP", "SeedMapperHelper",
-				"TooManyHax"));
+				"PacketRate", "Panic", "PortalGUI", "SafeTP",
+				"SeedMapperHelper", "TooManyHax"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",

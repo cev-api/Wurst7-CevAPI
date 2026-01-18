@@ -20,9 +20,13 @@ import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -78,12 +82,25 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		"When enabled, notifies in chat when a player first becomes visible\n"
 			+ "to PlayerESP, showing distance and XYZ.",
 		false);
+	private final CheckboxSetting enterSoundAlert = new CheckboxSetting(
+		"Enter sound",
+		"When enabled, plays a sound when a player first becomes visible to\n"
+			+ "PlayerESP.",
+		false);
+	private final SliderSetting enterAlertCooldown =
+		new SliderSetting("Enter alert cooldown",
+			"Minimum time between enter alerts (sound or chat).", 0, 0, 60, 1,
+			SliderSetting.ValueDisplay.INTEGER.withSuffix("s"));
+	private final EnumSetting<DetectionSound> enterSound =
+		new EnumSetting<>("Enter sound type", DetectionSound.values(),
+			DetectionSound.NOTE_BLOCK_BELL);
 	private final CheckboxSetting exitAlert = new CheckboxSetting("Exit alert",
 		"When enabled, notifies in chat when a player leaves PlayerESP\n"
 			+ "visibility, showing distance and XYZ at which they left.",
 		false);
 	private final PlayerRangeAlertManager alertManager =
 		WURST.getPlayerRangeAlertManager();
+	private long lastEnterAlertAt;
 	private final PlayerRangeAlertManager.Listener alertListener =
 		new PlayerRangeAlertManager.Listener()
 		{
@@ -91,7 +108,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			public void onPlayerEnter(Player player,
 				PlayerRangeAlertManager.PlayerInfo info)
 			{
-				if(!isEnabled() || !enterAlert.isChecked())
+				if(!isEnabled())
+					return;
+				if(!enterAlert.isChecked() && !enterSoundAlert.isChecked())
 					return;
 				
 				pendingEnterAlerts.remove(info.getUuid());
@@ -106,7 +125,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 					return;
 				}
 				
-				sendEnterMessage(info);
+				triggerEnterAlert(info);
 			}
 			
 			@Override
@@ -193,6 +212,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		// Alerts when players enter/leave PlayerESP visibility
 		addSetting(enterAlert);
+		addSetting(enterSoundAlert);
+		addSetting(enterAlertCooldown);
+		addSetting(enterSound);
 		addSetting(exitAlert);
 		entityFilters.forEach(this::addSetting);
 		addSetting(ignoreNpcs);
@@ -220,6 +242,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		alertManager.removeListener(alertListener);
 		losStates.clear();
 		pendingEnterAlerts.clear();
+		lastEnterAlertAt = 0L;
 	}
 	
 	@Override
@@ -278,7 +301,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(pendingEnterAlerts.isEmpty())
 			return;
 		
-		if(!enterAlert.isChecked())
+		if(!enterAlert.isChecked() && !enterSoundAlert.isChecked())
 		{
 			pendingEnterAlerts.clear();
 			return;
@@ -287,7 +310,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(!ignoreNpcs.isChecked())
 		{
 			for(PendingEnterAlert alert : pendingEnterAlerts.values())
-				sendEnterMessage(alert.info);
+				triggerEnterAlert(alert.info);
 			pendingEnterAlerts.clear();
 			return;
 		}
@@ -313,9 +336,37 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			if(now - alert.createdAt < NPC_CONFIRM_DELAY_MS)
 				continue;
 			
-			sendEnterMessage(alert.info);
+			triggerEnterAlert(alert.info);
 			it.remove();
 		}
+	}
+	
+	private void triggerEnterAlert(PlayerRangeAlertManager.PlayerInfo info)
+	{
+		long now = Util.getMillis();
+		long cooldownMs = (long)enterAlertCooldown.getValue() * 1000L;
+		if(cooldownMs > 0 && now - lastEnterAlertAt < cooldownMs)
+			return;
+		lastEnterAlertAt = now;
+		
+		if(enterSoundAlert.isChecked())
+			playEnterSound();
+		
+		if(enterAlert.isChecked())
+			sendEnterMessage(info);
+	}
+	
+	private void playEnterSound()
+	{
+		if(MC.player == null || MC.level == null)
+			return;
+		
+		SoundEvent soundEvent = enterSound.getSelected().resolve();
+		if(soundEvent == null)
+			return;
+		
+		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+			MC.player.getZ(), soundEvent, SoundSource.PLAYERS, 1F, 1F, false);
 	}
 	
 	private void sendEnterMessage(PlayerRangeAlertManager.PlayerInfo info)
@@ -936,6 +987,39 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			{
 				return name;
 			}
+		}
+	}
+	
+	private enum DetectionSound
+	{
+		NOTE_BLOCK_BELL("minecraft:block.note_block.bell"),
+		TRIAL_SPAWNER_DETECT_PLAYER1(
+			"minecraft:block.trial_spawner.detect_player1"),
+		TRIAL_SPAWNER_DETECT_PLAYER2(
+			"minecraft:block.trial_spawner.detect_player2"),
+		TRIAL_SPAWNER_OPEN_SHUTTER(
+			"minecraft:block.trial_spawner.open_shutter"),
+		TRIAL_SPAWNER_SPAWN_ITEM1("minecraft:block.trial_spawner.spawn_item1"),
+		TRIAL_SPAWNER_SPAWN2("minecraft:block.trial_spawner.spawn2"),
+		TRIAL_SPAWNER_EJECT_ITEM1("minecraft:block.trial_spawner.eject_item1");
+		
+		private final String id;
+		
+		private DetectionSound(String id)
+		{
+			this.id = id;
+		}
+		
+		public SoundEvent resolve()
+		{
+			Identifier identifier = Identifier.parse(id);
+			return BuiltInRegistries.SOUND_EVENT.getValue(identifier);
+		}
+		
+		@Override
+		public String toString()
+		{
+			return id;
 		}
 	}
 }
