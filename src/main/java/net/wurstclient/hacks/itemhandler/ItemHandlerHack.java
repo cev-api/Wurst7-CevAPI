@@ -19,6 +19,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
@@ -62,6 +63,30 @@ public class ItemHandlerHack extends Hack
 	// and avoids pathological behavior.
 	private static final double INFINITE_SCAN_RADIUS = 1024.0;
 	private static final int WHITELIST_TICKS = 3;
+	private static final Set<String> DEFAULT_MOB_EQUIPMENT_IDS =
+		Set.of("minecraft:bow", "minecraft:crossbow", "minecraft:trident",
+			"minecraft:wooden_sword", "minecraft:stone_sword",
+			"minecraft:iron_sword", "minecraft:golden_sword",
+			"minecraft:wooden_axe", "minecraft:stone_axe", "minecraft:iron_axe",
+			"minecraft:golden_axe", "minecraft:wooden_pickaxe",
+			"minecraft:stone_pickaxe", "minecraft:iron_pickaxe",
+			"minecraft:golden_pickaxe", "minecraft:wooden_shovel",
+			"minecraft:stone_shovel", "minecraft:iron_shovel",
+			"minecraft:golden_shovel", "minecraft:wooden_hoe",
+			"minecraft:stone_hoe", "minecraft:iron_hoe", "minecraft:golden_hoe",
+			"minecraft:leather_helmet", "minecraft:leather_chestplate",
+			"minecraft:leather_leggings", "minecraft:leather_boots",
+			"minecraft:chainmail_helmet", "minecraft:chainmail_chestplate",
+			"minecraft:chainmail_leggings", "minecraft:chainmail_boots",
+			"minecraft:iron_helmet", "minecraft:iron_chestplate",
+			"minecraft:iron_leggings", "minecraft:iron_boots",
+			"minecraft:golden_helmet", "minecraft:golden_chestplate",
+			"minecraft:golden_leggings", "minecraft:golden_boots");
+	private static final String[] DEFAULT_MOB_EQUIPMENT_MATERIALS =
+		{"copper", "steel", "gold", "golden"};
+	private static final String[] DEFAULT_MOB_EQUIPMENT_SUFFIXES =
+		{"_helmet", "_chestplate", "_leggings", "_boots", "_sword", "_axe",
+			"_pickaxe", "_shovel", "_hoe", "_spear"};
 	
 	private final List<GroundItem> trackedItems = new ArrayList<>();
 	private final Int2IntOpenHashMap pickupWhitelist = new Int2IntOpenHashMap();
@@ -105,8 +130,12 @@ public class ItemHandlerHack extends Hack
 	
 	// Include items held or worn by mobs
 	private final CheckboxSetting includeMobEquipment =
-		new CheckboxSetting("Detect mob equipment",
+		new CheckboxSetting("Detect held/worn mob items",
 			"Also detect items held or worn by mobs.", false);
+	
+	private final CheckboxSetting filterDefaultMobEquipment =
+		new CheckboxSetting("Filter default mob items",
+			"Hide common mob gear (gold/iron/stone/chain/etc).", false);
 	
 	// Reduce extremes so offsets cannot go off-screen entirely.
 	private final SliderSetting hudOffsetX = new SliderSetting(
@@ -125,6 +154,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(hudEnabled);
 		addSetting(showRegistryName);
 		addSetting(includeMobEquipment);
+		addSetting(filterDefaultMobEquipment);
 		addSetting(respectItemEspIgnores);
 		addSetting(itemEspIgnoredListSetting);
 		addSetting(rejectRadius);
@@ -502,6 +532,39 @@ public class ItemHandlerHack extends Hack
 			&& !entity.getItem().isEmpty();
 	}
 	
+	private boolean shouldTrackMobEquipment(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return false;
+		if(isIgnoredByItemEsp(stack))
+			return false;
+		return !filterDefaultMobEquipment.isChecked()
+			|| !isDefaultMobEquipment(stack);
+	}
+	
+	private boolean isDefaultMobEquipment(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return false;
+		String id = net.minecraft.core.registries.BuiltInRegistries.ITEM
+			.getKey(stack.getItem()).toString();
+		if(DEFAULT_MOB_EQUIPMENT_IDS.contains(id))
+			return true;
+		String path = net.minecraft.core.registries.BuiltInRegistries.ITEM
+			.getKey(stack.getItem()).getPath();
+		for(String material : DEFAULT_MOB_EQUIPMENT_MATERIALS)
+		{
+			if(!path.contains(material))
+				continue;
+			for(String suffix : DEFAULT_MOB_EQUIPMENT_SUFFIXES)
+			{
+				if(path.endsWith(suffix))
+					return true;
+			}
+		}
+		return false;
+	}
+	
 	private void addMobEquipmentItems(LocalPlayer player, double scanRadius)
 	{
 		if(player == null || MC.level == null)
@@ -522,14 +585,14 @@ public class ItemHandlerHack extends Hack
 			String mobName = le.getName().getString();
 			
 			ItemStack main = le.getMainHandItem();
-			if(main != null && !main.isEmpty() && !isIgnoredByItemEsp(main))
+			if(shouldTrackMobEquipment(main))
 			{
 				Vec3 pos = getHeldItemPos(le, InteractionHand.MAIN_HAND);
 				addMobTrackedItem(le, main, pos, SourceType.MOB_HELD, mobName);
 			}
 			
 			ItemStack off = le.getOffhandItem();
-			if(off != null && !off.isEmpty() && !isIgnoredByItemEsp(off))
+			if(shouldTrackMobEquipment(off))
 			{
 				Vec3 pos = getHeldItemPos(le, InteractionHand.OFF_HAND);
 				addMobTrackedItem(le, off, pos, SourceType.MOB_HELD, mobName);
@@ -539,8 +602,7 @@ public class ItemHandlerHack extends Hack
 				EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET})
 			{
 				ItemStack armor = le.getItemBySlot(slot);
-				if(armor == null || armor.isEmpty()
-					|| isIgnoredByItemEsp(armor))
+				if(!shouldTrackMobEquipment(armor))
 					continue;
 				Vec3 pos = getArmorPos(le, slot);
 				addMobTrackedItem(le, armor, pos, SourceType.MOB_WORN, mobName);

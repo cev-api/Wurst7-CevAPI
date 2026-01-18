@@ -382,6 +382,7 @@ Reports number of waypoints changed.
 - Respects ItemESP ignored list (optional) and provides link to edit the list.
 - Detects XP Orbs and shows the exact XP each orb will give
 - Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
+  - Can also filter out default mob items to prevent spam
 
 ![Popup](https://i.imgur.com/VQw20x0.png)
 ![GUI](https://i.imgur.com/oZFLufE.png)
