@@ -70,6 +70,8 @@ public final class CmdList
 	public final TargetPlaceCmd targetPlaceCmd = new TargetPlaceCmd();
 	public final net.wurstclient.commands.ItemHandlerCmd itemHandlerCmd =
 		new net.wurstclient.commands.ItemHandlerCmd();
+	public final net.wurstclient.commands.MeasurementEspCmd measurementespCmd =
+		new net.wurstclient.commands.MeasurementEspCmd();
 	public final TooManyHaxCmd tooManyHaxCmd = new TooManyHaxCmd();
 	public final TpCmd tpCmd = new TpCmd();
 	public final UnbindCmd unbindCmd = new UnbindCmd();

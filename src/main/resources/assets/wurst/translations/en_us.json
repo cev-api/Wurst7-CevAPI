@@ -130,6 +130,8 @@
   "description.wurst.hack.masstpa": "Sends a TPA request to all players.",
   "description.wurst.hack.mileycyrus": "Makes you twerk.",
   "description.wurst.hack.mobesp": "Highlights nearby mobs.",
+  "hack.wurst.wardenesp": "WardenESP",
+  "description.wurst.hack.wardenesp": "Highlights Wardens with color-coded states (CALM, SEARCHING, AGITATED, LOCKED). Shows sniffing pulses, digging/leaving indicators, and a simple anger trend.",
   "description.wurst.hack.mobsearch": "Helps you to find specific mobs by highlighting them in rainbow or fixed color. Use the Query input to search for partial keywords or create a list of mobs to highlight.",
   "description.wurst.hack.mobspawnesp": "Highlights areas where mobs can spawn.",
   "description.wurst.hack.multiaura": "Faster Killaura that attacks multiple entities at once.",

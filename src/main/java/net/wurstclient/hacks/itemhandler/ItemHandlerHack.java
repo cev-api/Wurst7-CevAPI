@@ -76,8 +76,6 @@ public class ItemHandlerHack extends Hack
 			"minecraft:stone_hoe", "minecraft:iron_hoe", "minecraft:golden_hoe",
 			"minecraft:leather_helmet", "minecraft:leather_chestplate",
 			"minecraft:leather_leggings", "minecraft:leather_boots",
-			"minecraft:chainmail_helmet", "minecraft:chainmail_chestplate",
-			"minecraft:chainmail_leggings", "minecraft:chainmail_boots",
 			"minecraft:iron_helmet", "minecraft:iron_chestplate",
 			"minecraft:iron_leggings", "minecraft:iron_boots",
 			"minecraft:golden_helmet", "minecraft:golden_chestplate",

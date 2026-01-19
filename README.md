@@ -527,6 +527,21 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - A static flight mode for elytra. Overrides motion every tick to let you hover, move and fly like the normal flight hack.
 - Optionally retain vanilla momentum.
 
+### WardenESP
+- Highlights Wardens with clear state labels (CALM/SEARCHING/AGITATED/LOCKED), attack warning, sniffing, and digging/emerging status.
+- Color‑coded ESP shapes (box/octahedron/glow), optional fill, and on/off tracers.
+- Target info and lock status, with pulsing danger flash on attacks.
+- Adjustable label scale for readability.
+
+![Warden](https://i.imgur.com/ZBYXxmH.png)
+
+### MeasurementESP
+- Command-only ESP tool that draws a 1x1 box at a specified distance along your look direction
+- Box color shows air vs solid: green (air + above air), yellow (air), red (solid). Basically, can I fit in there?
+- Commands are: ```.measurementesp <distance>``` to enable and ```.measurementesp off``` to disable
+- You can also mark the target, so keep a fixed box by running the command ```.measurementesp mark```, which can then be cleared with ```.measurementesp clear```.
+- Usecase? Custom mods/datapacks that allow teleportation or weapons and tools that only work at a specific distance, or perhaps just literally measuring.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
