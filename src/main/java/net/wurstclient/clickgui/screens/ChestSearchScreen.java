@@ -801,9 +801,10 @@ public final class ChestSearchScreen extends Screen
 			Button delBtn = Button.builder(Component.literal("Delete"), b -> {
 				try
 				{
-					BlockPos delPos = e.getClickedPos();
-					new ChestManager().removeChest(e.serverIp, e.dimension,
-						delPos.getX(), delPos.getY(), delPos.getZ());
+					// Remove by canonical primary coords so entries with
+					// clickedPos != min bounds can still be deleted.
+					new ChestManager().removeChest(e.serverIp, e.dimension, e.x,
+						e.y, e.z);
 				}catch(Throwable ignored)
 				{}
 				this.chestManager = new ChestManager();
@@ -1377,6 +1378,8 @@ public final class ChestSearchScreen extends Screen
 	{
 		BlockPos min = entry.getMinPos();
 		BlockPos max = entry.getMaxPos();
+		BlockPos clicked = entry.getClickedPos();
+		BlockPos primary = clicked != null ? clicked : min;
 		StringBuilder sb = new StringBuilder();
 		if(dimension != null && !dimension.isEmpty())
 		{
@@ -1386,12 +1389,21 @@ public final class ChestSearchScreen extends Screen
 				dimLabel = dimLabel.substring(colon + 1);
 			sb.append(dimLabel).append(" @ ");
 		}
-		sb.append(min.getX()).append(",").append(min.getY()).append(",")
-			.append(min.getZ());
+		sb.append(primary.getX()).append(",").append(primary.getY()).append(",")
+			.append(primary.getZ());
 		if(!min.equals(max))
 		{
-			sb.append(" - ").append(max.getX()).append(",").append(max.getY())
-				.append(",").append(max.getZ());
+			if(clicked != null && !clicked.equals(min))
+			{
+				sb.append(" bounds ").append(min.getX()).append(",")
+					.append(min.getY()).append(",").append(min.getZ())
+					.append(" - ").append(max.getX()).append(",")
+					.append(max.getY()).append(",").append(max.getZ());
+			}else
+			{
+				sb.append(" - ").append(max.getX()).append(",")
+					.append(max.getY()).append(",").append(max.getZ());
+			}
 			int sizeX = Math.abs(max.getX() - min.getX()) + 1;
 			int sizeY = Math.abs(max.getY() - min.getY()) + 1;
 			int sizeZ = Math.abs(max.getZ() - min.getZ()) + 1;

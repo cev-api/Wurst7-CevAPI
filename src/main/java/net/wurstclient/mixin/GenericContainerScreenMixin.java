@@ -1653,36 +1653,56 @@ public abstract class GenericContainerScreenMixin
 			return null;
 		try
 		{
-			for(Direction d : new Direction[]{Direction.NORTH, Direction.SOUTH,
-				Direction.WEST, Direction.EAST})
+			if(state == null || !(state.getBlock() instanceof ChestBlock))
+				return null;
+			ChestType type = null;
+			try
 			{
-				BlockPos candidate = current.relative(d);
-				BlockState other =
-					WurstClient.MC.level.getBlockState(candidate);
-				if(!(other.getBlock() instanceof ChestBlock))
-					continue;
+				type = state.getValue(ChestBlock.TYPE);
+			}catch(Throwable ignored)
+			{}
+			if(type == null || type == ChestType.SINGLE)
+				return null;
+			Direction face = facing;
+			if(face == null)
+			{
 				try
 				{
-					Direction of = null;
-					try
-					{
-						of = other.getValue(ChestBlock.FACING);
-					}catch(Throwable ignored)
-					{}
-					ChestType ot = null;
-					try
-					{
-						ot = other.getValue(ChestBlock.TYPE);
-					}catch(Throwable ignored)
-					{}
-					if(ot != ChestType.SINGLE)
-					{
-						if(facing == null || of == facing)
-							return candidate;
-					}
+					face = state.getValue(ChestBlock.FACING);
 				}catch(Throwable ignored)
 				{}
 			}
+			if(face == null)
+				return null;
+			Direction offset = (type == ChestType.LEFT) ? face.getClockWise()
+				: (type == ChestType.RIGHT ? face.getCounterClockWise() : null);
+			if(offset == null)
+				return null;
+			BlockPos candidate = current.relative(offset);
+			BlockState other = WurstClient.MC.level.getBlockState(candidate);
+			if(!(other.getBlock() instanceof ChestBlock))
+				return null;
+			ChestType otherType = null;
+			Direction otherFacing = null;
+			try
+			{
+				otherType = other.getValue(ChestBlock.TYPE);
+			}catch(Throwable ignored)
+			{}
+			try
+			{
+				otherFacing = other.getValue(ChestBlock.FACING);
+			}catch(Throwable ignored)
+			{}
+			if(otherType == null || otherType == ChestType.SINGLE)
+				return null;
+			if(otherFacing != null && otherFacing != face)
+				return null;
+			if(type == ChestType.LEFT && otherType != ChestType.RIGHT)
+				return null;
+			if(type == ChestType.RIGHT && otherType != ChestType.LEFT)
+				return null;
+			return candidate;
 		}catch(Throwable ignored)
 		{}
 		return null;
