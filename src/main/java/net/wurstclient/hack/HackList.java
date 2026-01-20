@@ -76,6 +76,7 @@ public final class HackList implements UpdateListener
 	public final AutoSwordHack autoSwordHack = new AutoSwordHack();
 	public final AutoToolHack autoToolHack = new AutoToolHack();
 	public final AutoTotemHack autoTotemHack = new AutoTotemHack();
+	public final SoulChaliceHack soulChaliceHack = new SoulChaliceHack();
 	public final AutoWalkHack autoWalkHack = new AutoWalkHack();
 	public final WindChargeKeyHack windChargeKeyHack = new WindChargeKeyHack();
 	public final XCarryHack xCarryHack = new XCarryHack();
@@ -152,6 +153,8 @@ public final class HackList implements UpdateListener
 	public final SpearAssistHack spearAssistHack = new SpearAssistHack();
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final MileyCyrusHack mileyCyrusHack = new MileyCyrusHack();
+	public final MeasurementEspHack measurementEspHack =
+		new MeasurementEspHack();
 	public final MobEspHack mobEspHack = new MobEspHack();
 	public final WardenEspHack wardenEspHack = new WardenEspHack();
 	public final MobSearchHack mobSearchHack = new MobSearchHack();
