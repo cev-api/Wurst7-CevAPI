@@ -39,7 +39,7 @@ public final class SetSliderCmd extends Command
 		Feature feature = CmdUtils.findFeature(args[0]);
 		Setting setting = CmdUtils.findSetting(feature, args[1]);
 		SliderSetting slider = getAsSlider(feature, setting);
-		setValue(args[2], slider);
+		setValue(args[2], feature, setting, slider);
 	}
 	
 	private SliderSetting getAsSlider(Feature feature, Setting setting)
@@ -52,17 +52,19 @@ public final class SetSliderCmd extends Command
 		return (SliderSetting)setting;
 	}
 	
-	private void setValue(String value, SliderSetting slider)
-		throws CmdSyntaxError
+	private void setValue(String value, Feature feature, Setting setting,
+		SliderSetting slider) throws CmdSyntaxError
 	{
 		switch(value.toLowerCase())
 		{
 			case "more":
-			slider.increaseValue();
+			slider.setValue(
+				slider.getValue() + getKeybindStep(feature, setting, slider));
 			break;
 			
 			case "less":
-			slider.decreaseValue();
+			slider.setValue(
+				slider.getValue() - getKeybindStep(feature, setting, slider));
 			break;
 			
 			default:
@@ -71,5 +73,19 @@ public final class SetSliderCmd extends Command
 			slider.setValue(Double.parseDouble(value));
 			break;
 		}
+	}
+	
+	private double getKeybindStep(Feature feature, Setting setting,
+		SliderSetting slider)
+	{
+		if(feature.getName().equalsIgnoreCase("Flight"))
+		{
+			String name = setting.getName();
+			if(name.equalsIgnoreCase("Horizontal Speed")
+				|| name.equalsIgnoreCase("Vertical Speed"))
+				return 1.0;
+		}
+		
+		return slider.getIncrement();
 	}
 }

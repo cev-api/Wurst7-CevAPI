@@ -38,8 +38,11 @@ public final class KeybindProcessor implements KeyPressListener
 	@Override
 	public void onKeyPress(KeyPressEvent event)
 	{
-		if(event.getAction() != GLFW.GLFW_PRESS)
+		if(event.getAction() != GLFW.GLFW_PRESS
+			&& event.getAction() != GLFW.GLFW_REPEAT)
 			return;
+		
+		boolean isRepeat = event.getAction() == GLFW.GLFW_REPEAT;
 		
 		if(InputConstants.isKeyDown(WurstClient.MC.getWindow(),
 			GLFW.GLFW_KEY_F3))
@@ -86,7 +89,7 @@ public final class KeybindProcessor implements KeyPressListener
 		if(cmds == null)
 			return;
 		
-		processCmds(cmds);
+		processCmds(cmds, isRepeat);
 	}
 	
 	private String mapPrintableChar(int keyCode, int modifiers)
@@ -118,12 +121,34 @@ public final class KeybindProcessor implements KeyPressListener
 			.getName();
 	}
 	
-	private void processCmds(String cmds)
+	private void processCmds(String cmds, boolean repeatOnly)
 	{
 		cmds = cmds.replace(";", "\u00a7").replace("\u00a7\u00a7", ";");
 		
 		for(String cmd : cmds.split("\u00a7"))
+		{
+			if(repeatOnly && !isRepeatableCommand(cmd))
+				continue;
+			
 			processCmd(cmd.trim());
+		}
+	}
+	
+	private boolean isRepeatableCommand(String cmd)
+	{
+		String trimmed = cmd.trim();
+		if(trimmed.startsWith("."))
+			trimmed = trimmed.substring(1).trim();
+		
+		String[] parts = trimmed.split("\\s+");
+		if(parts.length < 4)
+			return false;
+		
+		if(!parts[0].equalsIgnoreCase("setslider"))
+			return false;
+		
+		String last = parts[parts.length - 1];
+		return last.equalsIgnoreCase("more") || last.equalsIgnoreCase("less");
 	}
 	
 	private boolean isPacketDelayKeybind(String cmds)
