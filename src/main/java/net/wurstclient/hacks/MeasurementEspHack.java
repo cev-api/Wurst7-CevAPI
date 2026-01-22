@@ -12,6 +12,15 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CraftingTableBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.PressurePlateBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -35,6 +44,11 @@ public final class MeasurementEspHack extends Hack implements RenderListener
 	private final CheckboxSetting lockWhileFreecam =
 		new CheckboxSetting("Lock while Freecam",
 			"Keep the last target when Freecam is enabled.", true);
+	private final CheckboxSetting blockMode = new CheckboxSetting("Block mode",
+		"Use the current block-based color scheme.", true);
+	private final CheckboxSetting reachMode = new CheckboxSetting("Reach mode",
+		"Use reach-based colors (white default, red on entities, yellow on interactive blocks). Overrides Block mode.",
+		false);
 	private final ButtonSetting markButton =
 		new ButtonSetting("Mark current", this::markCurrent);
 	private final ButtonSetting clearButton =
@@ -48,6 +62,8 @@ public final class MeasurementEspHack extends Hack implements RenderListener
 		super("MeasurementESP");
 		addSetting(distance);
 		addSetting(lockWhileFreecam);
+		addSetting(blockMode);
+		addSetting(reachMode);
 		addSetting(markButton);
 		addSetting(clearButton);
 	}
@@ -70,6 +86,11 @@ public final class MeasurementEspHack extends Hack implements RenderListener
 		if(MC == null || MC.level == null || MC.player == null)
 			return;
 		
+		boolean useReachMode = reachMode.isChecked();
+		boolean useBlockMode = blockMode.isChecked();
+		if(!useReachMode && !useBlockMode)
+			return;
+		
 		boolean freecam = WURST.getHax().freecamHack.isEnabled();
 		Vec3 target;
 		if(freecam && lockWhileFreecam.isChecked() && lastPos != null)
@@ -89,7 +110,44 @@ public final class MeasurementEspHack extends Hack implements RenderListener
 		
 		int lineColor;
 		int fillColor;
+		AABB box;
 		
+		if(useReachMode)
+		{
+			ReachVisual reach = getReachVisuals(pos);
+			lineColor = reach.lineColor;
+			fillColor = reach.fillColor;
+			box = reach.box;
+		}else
+		{
+			BlockColors colors = getBlockModeColors(pos, state);
+			lineColor = colors.lineColor;
+			fillColor = colors.fillColor;
+			box = new AABB(pos.getX(), pos.getY(), pos.getZ(), pos.getX() + 1.0,
+				pos.getY() + 1.0, pos.getZ() + 1.0);
+		}
+		
+		boolean depthTest = NiceWurstModule.enforceDepthTest(false);
+		RenderUtils.drawSolidBox(matrixStack, box, fillColor, depthTest);
+		RenderUtils.drawOutlinedBox(matrixStack, box, lineColor, depthTest);
+		
+		for(BlockPos mpos : marked)
+		{
+			BlockState mstate = MC.level.getBlockState(mpos);
+			BlockColors mcolors = useReachMode ? getReachBlockColors(mstate)
+				: getBlockModeColors(mpos, mstate);
+			
+			AABB mb = new AABB(mpos.getX(), mpos.getY(), mpos.getZ(),
+				mpos.getX() + 1.0, mpos.getY() + 1.0, mpos.getZ() + 1.0);
+			RenderUtils.drawSolidBox(matrixStack, mb, mcolors.fillColor,
+				depthTest);
+			RenderUtils.drawOutlinedBox(matrixStack, mb, mcolors.lineColor,
+				depthTest);
+		}
+	}
+	
+	private BlockColors getBlockModeColors(BlockPos pos, BlockState state)
+	{
 		boolean isAir = state.isAir();
 		boolean aboveAir = false;
 		try
@@ -100,59 +158,60 @@ public final class MeasurementEspHack extends Hack implements RenderListener
 		{}
 		
 		if(isAir && aboveAir)
-		{
-			lineColor = 0xFF00FF00;
-			fillColor = 0x4000FF00;
-		}else if(isAir)
-		{
-			lineColor = 0xFFFFFF00;
-			fillColor = 0x40FFFF00;
-		}else
-		{
-			lineColor = 0xFFFF0000;
-			fillColor = 0x40FF0000;
-		}
+			return new BlockColors(0xFF00FF00, 0x4000FF00);
 		
-		AABB box = new AABB(pos.getX(), pos.getY(), pos.getZ(),
-			pos.getX() + 1.0, pos.getY() + 1.0, pos.getZ() + 1.0);
+		if(isAir)
+			return new BlockColors(0xFFFFFF00, 0x40FFFF00);
 		
-		boolean depthTest = NiceWurstModule.enforceDepthTest(false);
-		RenderUtils.drawSolidBox(matrixStack, box, fillColor, depthTest);
-		RenderUtils.drawOutlinedBox(matrixStack, box, lineColor, depthTest);
-		
-		for(BlockPos mpos : marked)
-		{
-			BlockState mstate = MC.level.getBlockState(mpos);
-			boolean misAir = mstate.isAir();
-			boolean maboveAir = false;
-			try
-			{
-				maboveAir = MC.level.getBlockState(mpos.above()).isAir();
-			}catch(Throwable ignored)
-			{}
-			
-			int mline;
-			int mfill;
-			if(misAir && maboveAir)
-			{
-				mline = 0xFF00FF00;
-				mfill = 0x4000FF00;
-			}else if(misAir)
-			{
-				mline = 0xFFFFFF00;
-				mfill = 0x40FFFF00;
-			}else
-			{
-				mline = 0xFFFF0000;
-				mfill = 0x40FF0000;
-			}
-			
-			AABB mb = new AABB(mpos.getX(), mpos.getY(), mpos.getZ(),
-				mpos.getX() + 1.0, mpos.getY() + 1.0, mpos.getZ() + 1.0);
-			RenderUtils.drawSolidBox(matrixStack, mb, mfill, depthTest);
-			RenderUtils.drawOutlinedBox(matrixStack, mb, mline, depthTest);
-		}
+		return new BlockColors(0xFFFF0000, 0x40FF0000);
 	}
+	
+	private ReachVisual getReachVisuals(BlockPos fallbackPos)
+	{
+		AABB box = new AABB(fallbackPos.getX(), fallbackPos.getY(),
+			fallbackPos.getZ(), fallbackPos.getX() + 1.0,
+			fallbackPos.getY() + 1.0, fallbackPos.getZ() + 1.0);
+		
+		if(hasEntityAt(box))
+			return new ReachVisual(box, 0xFFFF0000, 0x20FF0000);
+		
+		BlockState state = MC.level.getBlockState(fallbackPos);
+		BlockColors colors = getReachBlockColors(state);
+		return new ReachVisual(box, colors.lineColor, colors.fillColor);
+	}
+	
+	private BlockColors getReachBlockColors(BlockState state)
+	{
+		if(isReachInteractive(state))
+			return new BlockColors(0xFFFFFF00, 0x20FFFF00);
+		
+		return new BlockColors(0xFFFFFFFF, 0x20FFFFFF);
+	}
+	
+	private boolean isReachInteractive(BlockState state)
+	{
+		return state.getBlock() instanceof BaseEntityBlock
+			|| state.getBlock() instanceof CraftingTableBlock
+			|| state.getBlock() instanceof DoorBlock
+			|| state.getBlock() instanceof TrapDoorBlock
+			|| state.getBlock() instanceof FenceGateBlock
+			|| state.getBlock() instanceof ButtonBlock
+			|| state.getBlock() instanceof LeverBlock
+			|| state.getBlock() instanceof PressurePlateBlock;
+	}
+	
+	private boolean hasEntityAt(AABB box)
+	{
+		List<Entity> entities =
+			MC.level.getEntities(MC.player, box, Entity::isAlive);
+		return !entities.isEmpty();
+	}
+	
+	private record BlockColors(int lineColor, int fillColor)
+	{}
+	
+	private record ReachVisual(AABB box, int lineColor, int fillColor)
+	{}
 	
 	public void setDistance(int value)
 	{
