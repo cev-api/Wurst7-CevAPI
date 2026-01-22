@@ -73,6 +73,7 @@
   "description.wurst.hack.cavefinder": "Helps you to find caves by highlighting them in the selected color.",
   "description.wurst.hack.chattranslator": "Translates chat messages using Google Translate.",
   "description.wurst.hack.cheatdetector": "Monitors nearby players and reports suspicious movement or combat patterns in chat.",
+  "description.wurst.hack.chorusfruit": "Consumes a chorus fruit item when the selected trigger happens and your health is low.",
   "hack.wurst.livestreamdetector": "LivestreamDetector",
   "description.wurst.hack.livestreamdetector": "Scans the tab list for live streamers on YouTube, Twitch, TikTok, and Kick and announces streams in chat.",
   "description.wurst.hack.chestesp": "Highlights nearby chests.",

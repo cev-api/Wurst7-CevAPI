@@ -94,6 +94,7 @@ public final class HackList implements UpdateListener
 	public final CameraNoClipHack cameraNoClipHack = new CameraNoClipHack();
 	public final CaveFinderHack caveFinderHack = new CaveFinderHack();
 	public final CheatDetectorHack cheatDetectorHack = new CheatDetectorHack();
+	public final ChorusFruitHack chorusFruitHack = new ChorusFruitHack();
 	public final LivestreamDetectorHack livestreamDetectorHack =
 		new LivestreamDetectorHack();
 	public final ChatTranslatorHack chatTranslatorHack =

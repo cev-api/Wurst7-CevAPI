@@ -10,15 +10,18 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -75,10 +78,27 @@ public final class AutoBuildHack extends Hack
 			+ " template. This is slower, but provides more consistent results.",
 		false);
 	
+	private final CheckboxSetting previewTemplate =
+		new CheckboxSetting("Preview template",
+			"Shows a visual preview before starting the build.", true);
+	
+	private final SliderSetting confirmTicks =
+		new SliderSetting("Confirm ticks",
+			"How many ticks a placed block must stay visible before it is"
+				+ " removed from the remaining list.",
+			2, 1, 10, 1, ValueDisplay.INTEGER.withSuffix(" ticks"));
+	
 	private Status status = Status.NO_TEMPLATE;
 	private AutoBuildTemplate template;
 	private LinkedHashMap<BlockPos, Item> remainingBlocks =
 		new LinkedHashMap<>();
+	private LinkedHashMap<BlockPos, Item> previewBlocks = new LinkedHashMap<>();
+	private BlockPos previewStartPos;
+	private Direction previewDirection;
+	private long lastProgressMs;
+	private final Map<BlockPos, Integer> placedConfirmations = new HashMap<>();
+	
+	private static final long STUCK_TIMEOUT_MS = 1250L;
 	
 	public AutoBuildHack()
 	{
@@ -90,6 +110,8 @@ public final class AutoBuildHack extends Hack
 		addSetting(useSavedBlocks);
 		addSetting(fastPlace);
 		addSetting(strictBuildOrder);
+		addSetting(previewTemplate);
+		addSetting(confirmTicks);
 	}
 	
 	@Override
@@ -140,6 +162,8 @@ public final class AutoBuildHack extends Hack
 		EVENTS.remove(RenderListener.class, this);
 		
 		remainingBlocks.clear();
+		previewBlocks.clear();
+		placedConfirmations.clear();
 		
 		if(template == null)
 			status = Status.NO_TEMPLATE;
@@ -153,26 +177,29 @@ public final class AutoBuildHack extends Hack
 		if(status == Status.NO_TEMPLATE || status == Status.LOADING)
 			return;
 		
-		HitResult hitResult = MC.hitResult;
-		if(hitResult == null || hitResult.getType() != HitResult.Type.BLOCK
-			|| !(hitResult instanceof BlockHitResult blockHitResult))
+		if(MC.options.keySprint.isDown())
 			return;
-		
-		BlockPos hitResultPos = blockHitResult.getBlockPos();
-		boolean clickable = BlockUtils.canBeClicked(hitResultPos);
-		if(clickable)
-			event.cancel();
 		
 		if(status != Status.IDLE)
 			return;
 		
-		if(!clickable)
+		BlockHitResult blockHitResult = getStartHitResult();
+		if(blockHitResult == null)
 			return;
 		
-		BlockPos startPos =
-			hitResultPos.relative(blockHitResult.getDirection());
+		boolean airStart = blockHitResult.getType() == HitResult.Type.MISS;
+		BlockPos hitResultPos = blockHitResult.getBlockPos();
+		boolean clickable = BlockUtils.canBeClicked(hitResultPos);
+		if(!airStart && !clickable)
+			return;
+		
+		event.cancel();
+		
+		BlockPos startPos = airStart ? hitResultPos
+			: hitResultPos.relative(blockHitResult.getDirection());
 		Direction direction = MC.player.getDirection();
 		remainingBlocks = template.getBlocksToPlace(startPos, direction);
+		lastProgressMs = System.currentTimeMillis();
 		
 		status = Status.BUILDING;
 	}
@@ -192,6 +219,7 @@ public final class AutoBuildHack extends Hack
 			case IDLE:
 			if(!template.isSelected(templateSetting))
 				loadSelectedTemplate();
+			updatePreview();
 			break;
 			
 			case BUILDING:
@@ -203,31 +231,43 @@ public final class AutoBuildHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		if(status != Status.BUILDING)
+		if(status == Status.BUILDING)
+		{
+			renderBlocks(matrixStack, remainingBlocks, 0x2600FF00);
 			return;
+		}
 		
-		List<BlockPos> blocksToDraw = remainingBlocks.keySet().stream()
-			.filter(pos -> BlockUtils.getState(pos).canBeReplaced()).limit(1024)
-			.toList();
-		
-		int black = 0x80000000;
-		List<AABB> outlineBoxes =
-			blocksToDraw.stream().map(pos -> BLOCK_BOX.move(pos)).toList();
-		RenderUtils.drawOutlinedBoxes(matrixStack, outlineBoxes, black, true);
-		
-		int green = 0x2600FF00;
-		Vec3 eyesPos = RotationUtils.getEyesPos();
-		double rangeSq = range.getValueSq();
-		List<AABB> greenBoxes = blocksToDraw.stream()
-			.filter(pos -> pos.distToCenterSqr(eyesPos) <= rangeSq)
-			.map(pos -> BLOCK_BOX.move(pos)).toList();
-		RenderUtils.drawSolidBoxes(matrixStack, greenBoxes, green, true);
+		if(status == Status.IDLE && previewTemplate.isChecked())
+			renderBlocks(matrixStack, previewBlocks, 0x2600A0FF);
 	}
 	
 	private void buildNormally()
 	{
-		remainingBlocks.keySet()
-			.removeIf(pos -> !BlockUtils.getState(pos).canBeReplaced());
+		int beforeSize = remainingBlocks.size();
+		remainingBlocks.entrySet().removeIf(entry -> {
+			BlockPos pos = entry.getKey();
+			if(!isBlockPlaced(pos, entry.getValue()))
+			{
+				placedConfirmations.remove(pos);
+				return false;
+			}
+			
+			int count = placedConfirmations.getOrDefault(pos, 0) + 1;
+			int required = Math.max(1, confirmTicks.getValueI());
+			if(count < required)
+			{
+				placedConfirmations.put(pos, count);
+				return false;
+			}
+			
+			placedConfirmations.remove(pos);
+			return true;
+		});
+		if(remainingBlocks.size() != beforeSize)
+			lastProgressMs = System.currentTimeMillis();
+		
+		if(!placedConfirmations.isEmpty())
+			return;
 		
 		if(remainingBlocks.isEmpty())
 		{
@@ -239,15 +279,16 @@ public final class AutoBuildHack extends Hack
 			return;
 		
 		double rangeSq = range.getValueSq();
+		boolean stuck = isStuck();
 		for(Map.Entry<BlockPos, Item> entry : remainingBlocks.entrySet())
 		{
 			BlockPos pos = entry.getKey();
 			Item item = entry.getValue();
 			
-			BlockPlacingParams params = BlockPlacer.getBlockPlacingParams(pos);
+			BlockPlacingParams params = getPlacingParams(pos);
 			if(params == null || params.distanceSq() > rangeSq
 				|| checkLOS.isChecked() && !params.lineOfSight())
-				if(strictBuildOrder.isChecked())
+				if(strictBuildOrder.isChecked() && !stuck)
 					return;
 				else
 					continue;
@@ -293,6 +334,11 @@ public final class AutoBuildHack extends Hack
 		{
 			template = AutoBuildTemplate.load(path);
 			status = Status.IDLE;
+			previewBlocks.clear();
+			previewStartPos = null;
+			previewDirection = null;
+			placedConfirmations.clear();
+			lastProgressMs = System.currentTimeMillis();
 			
 		}catch(IOException | JsonException e)
 		{
@@ -311,6 +357,122 @@ public final class AutoBuildHack extends Hack
 	public Path getFolder()
 	{
 		return templateSetting.getFolder();
+	}
+	
+	private void updatePreview()
+	{
+		if(!previewTemplate.isChecked() || template == null)
+		{
+			previewBlocks.clear();
+			return;
+		}
+		
+		if(WURST.getHax().freecamHack.isEnabled() && !previewBlocks.isEmpty())
+			return;
+		
+		BlockHitResult blockHitResult = getStartHitResult();
+		if(blockHitResult == null)
+		{
+			if(!WURST.getHax().freecamHack.isEnabled())
+				previewBlocks.clear();
+			return;
+		}
+		
+		boolean airStart = blockHitResult.getType() == HitResult.Type.MISS;
+		BlockPos hitResultPos = blockHitResult.getBlockPos();
+		if(!airStart && !BlockUtils.canBeClicked(hitResultPos))
+		{
+			previewBlocks.clear();
+			return;
+		}
+		
+		BlockPos startPos = airStart ? hitResultPos
+			: hitResultPos.relative(blockHitResult.getDirection());
+		Direction direction = MC.player.getDirection();
+		
+		if(startPos.equals(previewStartPos) && direction == previewDirection
+			&& !previewBlocks.isEmpty())
+			return;
+		
+		previewStartPos = startPos;
+		previewDirection = direction;
+		previewBlocks = template.getBlocksToPlace(startPos, direction);
+	}
+	
+	private void renderBlocks(PoseStack matrixStack,
+		LinkedHashMap<BlockPos, Item> blocks, int solidColor)
+	{
+		if(blocks.isEmpty())
+			return;
+		
+		List<BlockPos> blocksToDraw = blocks.keySet().stream()
+			.filter(pos -> BlockUtils.getState(pos).canBeReplaced()).limit(1024)
+			.toList();
+		
+		int black = 0x80000000;
+		List<AABB> outlineBoxes =
+			blocksToDraw.stream().map(pos -> BLOCK_BOX.move(pos)).toList();
+		RenderUtils.drawOutlinedBoxes(matrixStack, outlineBoxes, black, true);
+		
+		Vec3 eyesPos = RotationUtils.getEyesPos();
+		double rangeSq = range.getValueSq();
+		List<AABB> solidBoxes = blocksToDraw.stream()
+			.filter(pos -> pos.distToCenterSqr(eyesPos) <= rangeSq)
+			.map(pos -> BLOCK_BOX.move(pos)).toList();
+		RenderUtils.drawSolidBoxes(matrixStack, solidBoxes, solidColor, true);
+	}
+	
+	private BlockPlacingParams getPlacingParams(BlockPos pos)
+	{
+		BlockPlacingParams params = BlockPlacer.getBlockPlacingParams(pos);
+		if(params != null)
+			return params;
+		
+		Vec3 hitVec = Vec3.atCenterOf(pos);
+		double distanceSq = RotationUtils.getEyesPos().distanceToSqr(hitVec);
+		boolean lineOfSight =
+			BlockUtils.hasLineOfSight(RotationUtils.getEyesPos(), hitVec);
+		
+		return new BlockPlacingParams(pos, Direction.UP, hitVec, distanceSq,
+			lineOfSight);
+	}
+	
+	private boolean isStuck()
+	{
+		if(lastProgressMs <= 0)
+			return false;
+		
+		return System.currentTimeMillis() - lastProgressMs > STUCK_TIMEOUT_MS;
+	}
+	
+	private BlockHitResult getStartHitResult()
+	{
+		HitResult hitResult = MC.hitResult;
+		if(hitResult instanceof BlockHitResult blockHitResult
+			&& hitResult.getType() == HitResult.Type.BLOCK)
+			return blockHitResult;
+		
+		HitResult airResult = MC.player.pick(range.getValue(), 0, false);
+		if(airResult instanceof BlockHitResult airBlock
+			&& airResult.getType() == HitResult.Type.MISS)
+			return airBlock;
+		
+		return null;
+	}
+	
+	private boolean isBlockPlaced(BlockPos pos, Item item)
+	{
+		BlockState state = BlockUtils.getState(pos);
+		if(state.canBeReplaced())
+			return false;
+		
+		if(!useSavedBlocks.isChecked() || item == Items.AIR)
+			return true;
+		
+		if(!(item instanceof BlockItem blockItem))
+			return true;
+		
+		return state.is(blockItem.getBlock());
 	}
 	
 	private enum Status

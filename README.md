@@ -536,11 +536,20 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 ![Warden](https://i.imgur.com/ZBYXxmH.png)
 
 ### MeasurementESP
-- Command-only ESP tool that draws a 1x1 box at a specified distance along your look direction
+- Navigator/Command-only ESP tool that draws a 1x1 box at a specified distance along your look direction
 - Box color shows air vs solid: green (air + above air), yellow (air), red (solid). Basically, can I fit in there?
 - Commands are: ```.measurementesp <distance>``` to enable and ```.measurementesp off``` to disable
 - You can also mark the target, so keep a fixed box by running the command ```.measurementesp mark```, which can then be cleared with ```.measurementesp clear```.
 - Usecase? Custom mods/datapacks that allow teleportation or weapons and tools that only work at a specific distance, or perhaps just literally measuring.
+
+### ChorusFruit
+- Navigator only hack that allows you to consume chorus fruit when a selected trigger happens and or your health is low
+  - On player enter
+  - On damage from player
+  - On damage from all
+- Packet spam to help aid in the speed of consumtion
+- Silent switching and returning to previous item upon consumption
+- This hack is mostly designed for a specific datapack that allows a much greater range/distance of teleportation with these fruits
 
 ## What's changed or improved in this fork?
 
@@ -732,6 +741,14 @@ Examples:
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
 - Moved to multiplayer screen
+
+### AutoBuild Improved
+- Air-start position support and continued air place for gaps in build
+- Template preview shows a ghost of the template which locks in position when freecam is activated
+- Placement validation, blocks are only considered done when the world has a non-replaceable block in that position
+- Stuck handling, if the strict build order fails it temporarily relaxes the order so it can resume easier
+- CTRL (Sprint) bypass, by holding it you can add your own blocks at any time, before during or after the build
+- Adjustable confirmation ticks
 
 ### Wurst Options
 - Added to home screen and put in the old spot of Alt Manager

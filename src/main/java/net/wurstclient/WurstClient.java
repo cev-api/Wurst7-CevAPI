@@ -247,6 +247,22 @@ public enum WurstClient
 	public void reloadFromDisk()
 	{
 		reloadSettings();
+		
+		if(hax != null)
+		{
+			hax.tooManyHaxHack.loadBlockedHacksFile();
+			hax.reloadEnabledHax();
+			hax.reloadFavoriteHax();
+		}
+		
+		if(keybinds != null)
+			keybinds.reload();
+		
+		if(navigator != null)
+			navigator.reloadPreferences();
+		
+		if(gui != null)
+			gui.init();
 	}
 	
 	public ArrayList<Path> listSettingsProfiles()
