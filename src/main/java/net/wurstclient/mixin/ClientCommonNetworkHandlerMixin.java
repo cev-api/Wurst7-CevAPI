@@ -25,9 +25,6 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientCommonPacketListener;
 import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
-import net.minecraft.network.protocol.common.ServerboundResourcePackPacket;
-import net.wurstclient.uiutils.UiUtils;
-import net.wurstclient.uiutils.UiUtilsState;
 
 @Mixin(ClientCommonPacketListenerImpl.class)
 public abstract class ClientCommonNetworkHandlerMixin
@@ -58,23 +55,6 @@ public abstract class ClientCommonNetworkHandlerMixin
 	private void onResourcePackSend(ClientboundResourcePackPushPacket packet,
 		CallbackInfo ci)
 	{
-		if(UiUtilsState.isUiEnabled() && UiUtilsState.bypassResourcePack
-			&& (packet.required() || UiUtilsState.resourcePackForceDeny))
-		{
-			connection.send(new ServerboundResourcePackPacket(packet.id(),
-				ServerboundResourcePackPacket.Action.ACCEPTED));
-			connection.send(new ServerboundResourcePackPacket(packet.id(),
-				ServerboundResourcePackPacket.Action.SUCCESSFULLY_LOADED));
-			UiUtils.LOGGER.info(
-				"[UI Utils] Required resource pack bypassed, " + "message: "
-					+ (packet.prompt().isEmpty() ? "<no message>"
-						: packet.prompt().toString())
-					+ ", url: "
-					+ (packet.url() == null ? "<no url>" : packet.url()));
-			ci.cancel();
-			return;
-		}
-		
 		try
 		{
 			PolicyResult result = ResourcePackProtector.evaluate(packet);

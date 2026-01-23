@@ -7,23 +7,13 @@
  */
 package net.wurstclient.uiutils;
 
-import java.awt.Color;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.Vector;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JTextField;
-import com.google.common.collect.ImmutableList;
+
 import com.google.gson.Gson;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.blaze3d.platform.MacosUtil;
 import com.mojang.serialization.JsonOps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -34,8 +24,12 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.HashedPatchMap;
 import net.minecraft.network.HashedStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
@@ -47,17 +41,15 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
-import net.wurstclient.mixin.ui_utils.ConnectionAccessor;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import net.minecraft.util.Mth;
 
 public final class UiUtils
 {
 	public static final String VERSION = "2.4.0";
-	public static java.awt.Font monospace;
-	public static Color darkWhite;
 	public static KeyMapping restoreScreenKey;
 	public static final Logger LOGGER = LoggerFactory.getLogger("ui-utils");
 	
@@ -79,15 +71,25 @@ public final class UiUtils
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class,
 			new RestoreScreenHandler());
 		
-		if(!MacosUtil.IS_MACOS)
-		{
-			System.setProperty("java.awt.headless", "false");
-			monospace = new java.awt.Font(java.awt.Font.MONOSPACED,
-				java.awt.Font.PLAIN, 10);
-			darkWhite = new Color(220, 220, 220);
-		}
-		
 		initialized = true;
+	}
+	
+	public static void chatIfEnabled(String msg)
+	{
+		try
+		{
+			if(!UiUtilsState.isUiEnabled())
+				return;
+			net.wurstclient.hacks.UiUtilsHack hack =
+				WurstClient.INSTANCE.getHax().uiUtilsHack;
+			Minecraft mc = Minecraft.getInstance();
+			if(hack != null && hack.isLogToChat() && mc.player != null)
+				mc.player.displayClientMessage(
+					Component.literal("[UI-Utils] " + msg), false);
+		}catch(Throwable t)
+		{
+			// ignore if GUI/hack not available
+		}
 	}
 	
 	public static void renderSyncInfo(Minecraft mc, GuiGraphics graphics,
@@ -105,11 +107,11 @@ public final class UiUtils
 	public static int addUiWidgets(Minecraft mc, int baseX, int baseY,
 		int spacing, Consumer<AbstractWidget> adder)
 	{
-		adder
-			.accept(Button
-				.builder(Component.literal("Close without packet"),
-					b -> mc.setScreen(null))
-				.bounds(baseX, baseY, 115, 20).build());
+		adder.accept(
+			Button.builder(Component.literal("Close without packet"), b -> {
+				mc.setScreen(null);
+				chatIfEnabled("Closed GUI without packet");
+			}).bounds(baseX, baseY, 115, 20).build());
 		int y = baseY + 20 + spacing;
 		
 		adder.accept(Button.builder(Component.literal("De-sync"), b -> {
@@ -119,6 +121,7 @@ public final class UiUtils
 			else
 				LOGGER.warn(
 					"Minecraft connection or player was null while using 'De-sync'.");
+			chatIfEnabled("De-synced (sent close packet)");
 		}).bounds(baseX, y, 115, 20).build());
 		y += 20 + spacing;
 		
@@ -128,6 +131,7 @@ public final class UiUtils
 				UiUtilsState.sendUiPackets = !UiUtilsState.sendUiPackets;
 				b.setMessage(Component
 					.literal("Send packets: " + UiUtilsState.sendUiPackets));
+				chatIfEnabled("Send packets: " + UiUtilsState.sendUiPackets);
 			}).bounds(baseX, y, 115, 20).build());
 		y += 20 + spacing;
 		
@@ -150,6 +154,7 @@ public final class UiUtils
 							false);
 					UiUtilsState.delayedUiPackets.clear();
 				}
+				chatIfEnabled("Delay packets: " + UiUtilsState.delayUiPackets);
 			}).bounds(baseX, y, 115, 20).build());
 		y += 20 + spacing;
 		
@@ -158,6 +163,15 @@ public final class UiUtils
 			{
 				UiUtilsState.storedScreen = mc.screen;
 				UiUtilsState.storedMenu = mc.player.containerMenu;
+				String title = mc.screen != null
+					? mc.screen.getTitle().getString() : "<none>";
+				AbstractContainerMenu m = mc.player.containerMenu;
+				int sid = m != null ? m.containerId : -1;
+				int rev = m != null ? m.getStateId() : -1;
+				String screenName = mc.screen != null
+					? mc.screen.getClass().getSimpleName() : "<none>";
+				chatIfEnabled("Saved GUI: title=\"" + title + "\", syncId="
+					+ sid + ", revision=" + rev + ", screen=" + screenName);
 			}
 		}).bounds(baseX, y, 115, 20).build());
 		y += 20 + spacing;
@@ -175,303 +189,30 @@ public final class UiUtils
 					LOGGER.warn(
 						"Minecraft connection was null while disconnecting.");
 				UiUtilsState.delayedUiPackets.clear();
+				chatIfEnabled("Disconnected and sent queued packets");
 			}).bounds(baseX, y, 160, 20).build());
 		y += 20 + spacing;
 		
-		Button fabricatePacketButton =
-			Button.builder(Component.literal("Fabricate packet"), b -> {
-				JFrame frame = new JFrame("Choose Packet");
-				frame.setBounds(0, 0, 450, 100);
-				frame.setResizable(false);
-				frame.setLocationRelativeTo(null);
-				frame.setLayout(null);
-				
-				JButton clickSlotButton = getPacketOptionButton("Click Slot");
-				clickSlotButton.setBounds(100, 25, 110, 20);
-				clickSlotButton.addActionListener(event -> {
-					frame.setVisible(false);
-					
-					JFrame clickSlotFrame = new JFrame("Click Slot Packet");
-					clickSlotFrame.setBounds(0, 0, 450, 300);
-					clickSlotFrame.setResizable(false);
-					clickSlotFrame.setLocationRelativeTo(null);
-					clickSlotFrame.setLayout(null);
-					
-					JLabel syncIdLabel = new JLabel("Sync Id:");
-					syncIdLabel.setFocusable(false);
-					syncIdLabel.setFont(monospace);
-					syncIdLabel.setBounds(25, 25, 100, 20);
-					
-					JLabel revisionLabel = new JLabel("Revision:");
-					revisionLabel.setFocusable(false);
-					revisionLabel.setFont(monospace);
-					revisionLabel.setBounds(25, 50, 100, 20);
-					
-					JLabel slotLabel = new JLabel("Slot:");
-					slotLabel.setFocusable(false);
-					slotLabel.setFont(monospace);
-					slotLabel.setBounds(25, 75, 100, 20);
-					
-					JLabel buttonLabel = new JLabel("Button:");
-					buttonLabel.setFocusable(false);
-					buttonLabel.setFont(monospace);
-					buttonLabel.setBounds(25, 100, 100, 20);
-					
-					JLabel actionLabel = new JLabel("Action:");
-					actionLabel.setFocusable(false);
-					actionLabel.setFont(monospace);
-					actionLabel.setBounds(25, 125, 100, 20);
-					
-					JLabel timesToSendLabel = new JLabel("Times to send:");
-					timesToSendLabel.setFocusable(false);
-					timesToSendLabel.setFont(monospace);
-					timesToSendLabel.setBounds(25, 190, 100, 20);
-					
-					JTextField syncIdField = new JTextField(1);
-					syncIdField.setFont(monospace);
-					syncIdField.setBounds(125, 25, 100, 20);
-					
-					JTextField revisionField = new JTextField(1);
-					revisionField.setFont(monospace);
-					revisionField.setBounds(125, 50, 100, 20);
-					
-					JTextField slotField = new JTextField(1);
-					slotField.setFont(monospace);
-					slotField.setBounds(125, 75, 100, 20);
-					
-					JTextField buttonField = new JTextField(1);
-					buttonField.setFont(monospace);
-					buttonField.setBounds(125, 100, 100, 20);
-					
-					JComboBox<String> actionField =
-						new JComboBox<>(new Vector<>(ImmutableList.of("PICKUP",
-							"QUICK_MOVE", "SWAP", "CLONE", "THROW",
-							"QUICK_CRAFT", "PICKUP_ALL")));
-					actionField.setFocusable(false);
-					actionField.setEditable(false);
-					actionField.setBorder(BorderFactory.createEmptyBorder());
-					actionField.setBackground(darkWhite);
-					actionField.setFont(monospace);
-					actionField.setBounds(125, 125, 100, 20);
-					
-					JLabel statusLabel = new JLabel();
-					statusLabel.setVisible(false);
-					statusLabel.setFocusable(false);
-					statusLabel.setFont(monospace);
-					statusLabel.setBounds(210, 150, 190, 20);
-					
-					JCheckBox delayBox = new JCheckBox("Delay");
-					delayBox.setBounds(115, 150, 85, 20);
-					delayBox.setSelected(false);
-					delayBox.setFont(monospace);
-					delayBox.setFocusable(false);
-					
-					JTextField timesToSendField = new JTextField("1");
-					timesToSendField.setFont(monospace);
-					timesToSendField.setBounds(125, 190, 100, 20);
-					
-					JButton sendButton = new JButton("Send");
-					sendButton.setFocusable(false);
-					sendButton.setBounds(25, 150, 75, 20);
-					sendButton.setBorder(BorderFactory.createEtchedBorder());
-					sendButton.setBackground(darkWhite);
-					sendButton.setFont(monospace);
-					sendButton.addActionListener(event0 -> {
-						if(isInteger(syncIdField.getText())
-							&& isInteger(revisionField.getText())
-							&& isInteger(slotField.getText())
-							&& isInteger(buttonField.getText())
-							&& isInteger(timesToSendField.getText())
-							&& actionField.getSelectedItem() != null)
-						{
-							int syncId =
-								Integer.parseInt(syncIdField.getText());
-							int revision =
-								Integer.parseInt(revisionField.getText());
-							short slot = Short.parseShort(slotField.getText());
-							byte button0 =
-								Byte.parseByte(buttonField.getText());
-							ClickType action = stringToClickType(
-								actionField.getSelectedItem().toString());
-							int timesToSend =
-								Integer.parseInt(timesToSendField.getText());
-							
-							if(action != null)
-							{
-								Int2ObjectMap<HashedStack> changedSlots =
-									new Int2ObjectArrayMap<>();
-								ServerboundContainerClickPacket packet =
-									new ServerboundContainerClickPacket(syncId,
-										revision, slot, button0, action,
-										changedSlots, HashedStack.EMPTY);
-								try
-								{
-									Runnable toRun = getFabricatePacketRunnable(
-										mc, delayBox.isSelected(), packet);
-									for(int i = 0; i < timesToSend; i++)
-										toRun.run();
-								}catch(Exception e)
-								{
-									statusLabel
-										.setForeground(Color.RED.darker());
-									statusLabel.setText(
-										"You must be connected to a server!");
-									queueTask(() -> {
-										statusLabel.setVisible(false);
-										statusLabel.setText("");
-									}, 1500L);
-									return;
-								}
-								statusLabel.setVisible(true);
-								statusLabel.setForeground(Color.GREEN.darker());
-								statusLabel.setText("Sent successfully!");
-								queueTask(() -> {
-									statusLabel.setVisible(false);
-									statusLabel.setText("");
-								}, 1500L);
-							}else
-								showInvalidArgs(statusLabel);
-						}else
-							showInvalidArgs(statusLabel);
-					});
-					
-					clickSlotFrame.add(syncIdLabel);
-					clickSlotFrame.add(revisionLabel);
-					clickSlotFrame.add(slotLabel);
-					clickSlotFrame.add(buttonLabel);
-					clickSlotFrame.add(actionLabel);
-					clickSlotFrame.add(timesToSendLabel);
-					clickSlotFrame.add(syncIdField);
-					clickSlotFrame.add(revisionField);
-					clickSlotFrame.add(slotField);
-					clickSlotFrame.add(buttonField);
-					clickSlotFrame.add(actionField);
-					clickSlotFrame.add(sendButton);
-					clickSlotFrame.add(statusLabel);
-					clickSlotFrame.add(delayBox);
-					clickSlotFrame.add(timesToSendField);
-					clickSlotFrame.setVisible(true);
-				});
-				
-				JButton buttonClickButton =
-					getPacketOptionButton("Button Click");
-				buttonClickButton.setBounds(250, 25, 110, 20);
-				buttonClickButton.addActionListener(event -> {
-					frame.setVisible(false);
-					
-					JFrame buttonClickFrame = new JFrame("Button Click Packet");
-					buttonClickFrame.setBounds(0, 0, 450, 250);
-					buttonClickFrame.setResizable(false);
-					buttonClickFrame.setLocationRelativeTo(null);
-					buttonClickFrame.setLayout(null);
-					
-					JLabel syncIdLabel = new JLabel("Sync Id:");
-					syncIdLabel.setFocusable(false);
-					syncIdLabel.setFont(monospace);
-					syncIdLabel.setBounds(25, 25, 100, 20);
-					
-					JLabel buttonIdLabel = new JLabel("Button Id:");
-					buttonIdLabel.setFocusable(false);
-					buttonIdLabel.setFont(monospace);
-					buttonIdLabel.setBounds(25, 50, 100, 20);
-					
-					JTextField syncIdField = new JTextField(1);
-					syncIdField.setFont(monospace);
-					syncIdField.setBounds(125, 25, 100, 20);
-					
-					JTextField buttonIdField = new JTextField(1);
-					buttonIdField.setFont(monospace);
-					buttonIdField.setBounds(125, 50, 100, 20);
-					
-					JLabel statusLabel = new JLabel();
-					statusLabel.setVisible(false);
-					statusLabel.setFocusable(false);
-					statusLabel.setFont(monospace);
-					statusLabel.setBounds(210, 95, 190, 20);
-					
-					JCheckBox delayBox = new JCheckBox("Delay");
-					delayBox.setBounds(115, 95, 85, 20);
-					delayBox.setSelected(false);
-					delayBox.setFont(monospace);
-					delayBox.setFocusable(false);
-					
-					JLabel timesToSendLabel = new JLabel("Times to send:");
-					timesToSendLabel.setFocusable(false);
-					timesToSendLabel.setFont(monospace);
-					timesToSendLabel.setBounds(25, 130, 100, 20);
-					
-					JTextField timesToSendField = new JTextField("1");
-					timesToSendField.setFont(monospace);
-					timesToSendField.setBounds(125, 130, 100, 20);
-					
-					JButton sendButton = new JButton("Send");
-					sendButton.setFocusable(false);
-					sendButton.setBounds(25, 95, 75, 20);
-					sendButton.setBorder(BorderFactory.createEtchedBorder());
-					sendButton.setBackground(darkWhite);
-					sendButton.setFont(monospace);
-					sendButton.addActionListener(event0 -> {
-						if(isInteger(syncIdField.getText())
-							&& isInteger(buttonIdField.getText())
-							&& isInteger(timesToSendField.getText()))
-						{
-							int syncId =
-								Integer.parseInt(syncIdField.getText());
-							int buttonId =
-								Integer.parseInt(buttonIdField.getText());
-							int timesToSend =
-								Integer.parseInt(timesToSendField.getText());
-							
-							ServerboundContainerButtonClickPacket packet =
-								new ServerboundContainerButtonClickPacket(
-									syncId, buttonId);
-							try
-							{
-								Runnable toRun = getFabricatePacketRunnable(mc,
-									delayBox.isSelected(), packet);
-								for(int i = 0; i < timesToSend; i++)
-									toRun.run();
-							}catch(Exception e)
-							{
-								statusLabel.setVisible(true);
-								statusLabel.setForeground(Color.RED.darker());
-								statusLabel.setText(
-									"You must be connected to a server!");
-								queueTask(() -> {
-									statusLabel.setVisible(false);
-									statusLabel.setText("");
-								}, 1500L);
-								return;
-							}
-							statusLabel.setVisible(true);
-							statusLabel.setForeground(Color.GREEN.darker());
-							statusLabel.setText("Sent successfully!");
-							queueTask(() -> {
-								statusLabel.setVisible(false);
-								statusLabel.setText("");
-							}, 1500L);
-						}else
-							showInvalidArgs(statusLabel);
-					});
-					
-					buttonClickFrame.add(syncIdLabel);
-					buttonClickFrame.add(buttonIdLabel);
-					buttonClickFrame.add(syncIdField);
-					buttonClickFrame.add(timesToSendLabel);
-					buttonClickFrame.add(buttonIdField);
-					buttonClickFrame.add(sendButton);
-					buttonClickFrame.add(statusLabel);
-					buttonClickFrame.add(delayBox);
-					buttonClickFrame.add(timesToSendField);
-					buttonClickFrame.setVisible(true);
-				});
-				
-				frame.add(clickSlotButton);
-				frame.add(buttonClickButton);
-				frame.setVisible(true);
-			}).bounds(baseX, y, 115, 20).build();
-		fabricatePacketButton.active = !MacosUtil.IS_MACOS;
-		adder.accept(fabricatePacketButton);
+		adder
+			.accept(Button.builder(Component.literal("Fabricate packet"), b -> {
+				AbstractContainerMenu menu =
+					mc.player != null ? mc.player.containerMenu : null;
+				int syncId = menu != null ? menu.containerId : 0;
+				int revision = menu != null ? menu.getStateId() : 0;
+				if(mc.screen instanceof AbstractContainerScreen)
+				{
+					UiUtilsState.fabricateOverlayOpen =
+						!UiUtilsState.fabricateOverlayOpen;
+					chatIfEnabled("Fabricate overlay: "
+						+ (UiUtilsState.fabricateOverlayOpen ? "opened"
+							: "closed"));
+				}else
+				{
+					UiUtilsState.skipNextContainerRemoval = true;
+					mc.setScreen(
+						new FabricatePacketScreen(mc.screen, syncId, revision));
+				}
+			}).bounds(baseX, y, 115, 20).build());
 		y += 20 + spacing;
 		
 		adder.accept(
@@ -485,10 +226,12 @@ public final class UiUtils
 						.encodeStart(JsonOps.INSTANCE, mc.screen.getTitle())
 						.getOrThrow());
 					mc.keyboardHandler.setClipboard(json);
+					chatIfEnabled("Copied GUI title JSON to clipboard");
 				}catch(IllegalStateException e)
 				{
 					LOGGER.error("Error while copying title JSON to clipboard",
 						e);
+					chatIfEnabled("Failed to copy GUI title JSON");
 				}
 			}).bounds(baseX, y, 115, 20).build());
 		return y + 20;
@@ -542,18 +285,7 @@ public final class UiUtils
 	}
 	
 	@NotNull
-	private static JButton getPacketOptionButton(String label)
-	{
-		JButton button = new JButton(label);
-		button.setFocusable(false);
-		button.setBorder(BorderFactory.createEtchedBorder());
-		button.setBackground(darkWhite);
-		button.setFont(monospace);
-		return button;
-	}
-	
-	@NotNull
-	private static Runnable getFabricatePacketRunnable(Minecraft mc,
+	public static Runnable getFabricatePacketRunnable(Minecraft mc,
 		boolean delay, Packet<?> packet)
 	{
 		Runnable toRun;
@@ -577,9 +309,9 @@ public final class UiUtils
 						"Minecraft connection was null while sending packets.");
 					return;
 				}
+				// Connection.send already writes to the Netty channel; avoid
+				// double-send
 				mc.getConnection().send(packet);
-				((ConnectionAccessor)mc.getConnection().getConnection())
-					.getChannel().writeAndFlush(packet);
 			};
 		}
 		return toRun;
@@ -597,21 +329,6 @@ public final class UiUtils
 		}
 	}
 	
-	public static ClickType stringToClickType(String string)
-	{
-		return switch(string)
-		{
-			case "PICKUP" -> ClickType.PICKUP;
-			case "QUICK_MOVE" -> ClickType.QUICK_MOVE;
-			case "SWAP" -> ClickType.SWAP;
-			case "CLONE" -> ClickType.CLONE;
-			case "THROW" -> ClickType.THROW;
-			case "QUICK_CRAFT" -> ClickType.QUICK_CRAFT;
-			case "PICKUP_ALL" -> ClickType.PICKUP_ALL;
-			default -> null;
-		};
-	}
-	
 	public static void queueTask(Runnable runnable, long delayMs)
 	{
 		Timer timer = new Timer();
@@ -626,19 +343,548 @@ public final class UiUtils
 		timer.schedule(task, delayMs);
 	}
 	
-	private static void showInvalidArgs(JLabel statusLabel)
+	private static final class FabricatePacketScreen extends Screen
 	{
-		statusLabel.setVisible(true);
-		statusLabel.setForeground(Color.RED.darker());
-		statusLabel.setText("Invalid arguments!");
-		queueTask(() -> {
-			statusLabel.setVisible(false);
-			statusLabel.setText("");
-		}, 1500L);
+		private static final int FIELD_WIDTH = 110;
+		private static final int ROW_SPACING = 36;
+		private static final int LABEL_OFFSET = 10;
+		private static final int CONTENT_TOP_OFFSET = 12;
+		private static final int PANEL_WIDTH = 260;
+		private static final int PANEL_HEIGHT = 320;
+		private static final int PANEL_PADDING = 16;
+		private static final int PANEL_BORDER = 4;
+		private static final int MODE_BUTTON_WIDTH = 110;
+		private static final int MODE_BUTTON_GAP = 10;
+		private static final int DELAY_BUTTON_WIDTH = 90;
+		private static final int TIMES_FIELD_WIDTH = 50;
+		private static final int STATUS_DURATION_MS = 1500;
+		private static final int STATUS_SUCCESS = 0xFF55FF55;
+		private static final int STATUS_ERROR = 0xFFFF5555;
+		
+		private final Screen parent;
+		private PacketMode selectedMode = PacketMode.CLICK_SLOT;
+		private final int initialSyncId;
+		private final int initialRevision;
+		private int panelX;
+		private int panelY;
+		
+		private Button clickSlotModeButton;
+		private Button buttonClickModeButton;
+		
+		private EditBox clickSyncIdField;
+		private EditBox clickRevisionField;
+		private EditBox clickSlotField;
+		private EditBox clickButtonField;
+		private CycleButton<ClickType> clickActionButton;
+		private CycleButton<Boolean> clickDelayToggle;
+		private EditBox clickTimesField;
+		private Button clickSendButton;
+		
+		private EditBox buttonSyncIdField;
+		private EditBox buttonIdField;
+		private CycleButton<Boolean> buttonDelayToggle;
+		private EditBox buttonTimesField;
+		private Button buttonSendButton;
+		
+		private Component statusMessage;
+		private int statusColor;
+		
+		private enum PacketMode
+		{
+			CLICK_SLOT,
+			BUTTON_CLICK
+		}
+		
+		private FabricatePacketScreen(Screen parent, int syncId, int revision)
+		{
+			super(Component.literal("Fabricate Packet"));
+			this.parent = parent;
+			this.initialSyncId = syncId;
+			this.initialRevision = revision;
+		}
+		
+		@Override
+		protected void init()
+		{
+			super.init();
+			panelX = (width - PANEL_WIDTH) / 2;
+			panelY = (height - PANEL_HEIGHT) / 2;
+			clampPanelPosition();
+			
+			clickSlotModeButton = Button
+				.builder(Component.literal("Click Slot"),
+					b -> switchMode(PacketMode.CLICK_SLOT))
+				.bounds(0, 0, MODE_BUTTON_WIDTH, 20).build();
+			buttonClickModeButton = Button
+				.builder(Component.literal("Button Click"),
+					b -> switchMode(PacketMode.BUTTON_CLICK))
+				.bounds(0, 0, MODE_BUTTON_WIDTH, 20).build();
+			addRenderableWidget(clickSlotModeButton);
+			addRenderableWidget(buttonClickModeButton);
+			
+			clickSyncIdField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Sync Id"));
+			clickSyncIdField.setValue(String.valueOf(initialSyncId));
+			addRenderableWidget(clickSyncIdField);
+			
+			clickRevisionField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Revision"));
+			clickRevisionField.setValue(String.valueOf(initialRevision));
+			addRenderableWidget(clickRevisionField);
+			
+			clickSlotField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Slot"));
+			clickSlotField.setValue("0");
+			addRenderableWidget(clickSlotField);
+			
+			clickButtonField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Button"));
+			clickButtonField.setValue("0");
+			addRenderableWidget(clickButtonField);
+			
+			clickActionButton = CycleButton
+				.<ClickType> builder(action -> Component.literal(action.name()),
+					() -> ClickType.PICKUP)
+				.withValues(ClickType.values()).create(0, 0, FIELD_WIDTH, 20,
+					Component.literal("Action"), (button, value) -> {});
+			addRenderableWidget(clickActionButton);
+			
+			clickDelayToggle =
+				CycleButton.onOffBuilder(false).create(0, 0, DELAY_BUTTON_WIDTH,
+					20, Component.literal("Delay"), (button, value) -> {});
+			addRenderableWidget(clickDelayToggle);
+			
+			clickTimesField = new EditBox(font, 0, 0, TIMES_FIELD_WIDTH, 20,
+				Component.literal("Times to send"));
+			clickTimesField.setValue("1");
+			addRenderableWidget(clickTimesField);
+			
+			clickSendButton =
+				Button.builder(Component.literal("Send"), b -> sendClickSlot())
+					.bounds(0, 0, 90, 20).build();
+			addRenderableWidget(clickSendButton);
+			
+			buttonSyncIdField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Sync Id"));
+			buttonSyncIdField.setValue(String.valueOf(initialSyncId));
+			addRenderableWidget(buttonSyncIdField);
+			
+			buttonIdField = new EditBox(font, 0, 0, FIELD_WIDTH, 20,
+				Component.literal("Button Id"));
+			buttonIdField.setValue("0");
+			addRenderableWidget(buttonIdField);
+			
+			buttonDelayToggle =
+				CycleButton.onOffBuilder(false).create(0, 0, DELAY_BUTTON_WIDTH,
+					20, Component.literal("Delay"), (button, value) -> {});
+			addRenderableWidget(buttonDelayToggle);
+			
+			buttonTimesField = new EditBox(font, 0, 0, TIMES_FIELD_WIDTH, 20,
+				Component.literal("Times to send"));
+			buttonTimesField.setValue("1");
+			addRenderableWidget(buttonTimesField);
+			
+			buttonSendButton = Button
+				.builder(Component.literal("Send"), b -> sendButtonClick())
+				.bounds(0, 0, 90, 20).build();
+			addRenderableWidget(buttonSendButton);
+			
+			layoutWidgets();
+			switchMode(PacketMode.CLICK_SLOT);
+		}
+		
+		@Override
+		public void render(GuiGraphics graphics, int mouseX, int mouseY,
+			float partialTicks)
+		{
+			super.render(graphics, mouseX, mouseY, partialTicks);
+			drawFieldLabels(graphics);
+			graphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFFFF);
+			if(statusMessage != null)
+				graphics.drawCenteredString(font, statusMessage, width / 2,
+					height - 25, statusColor);
+		}
+		
+		@Override
+		public void renderBackground(GuiGraphics graphics, int mouseX,
+			int mouseY, float partialTicks)
+		{
+			super.renderBackground(graphics, mouseX, mouseY, partialTicks);
+			drawPanel(graphics);
+		}
+		
+		private void drawFieldLabels(GuiGraphics graphics)
+		{
+			int labelColor = 0xFFAAAAAA;
+			if(selectedMode == PacketMode.CLICK_SLOT)
+			{
+				drawFieldLabel(graphics, "Sync Id", clickSyncIdField.getX(),
+					clickSyncIdField.getY(), labelColor);
+				drawFieldLabel(graphics, "Revision", clickRevisionField.getX(),
+					clickRevisionField.getY(), labelColor);
+				drawFieldLabel(graphics, "Slot", clickSlotField.getX(),
+					clickSlotField.getY(), labelColor);
+				drawFieldLabel(graphics, "Button", clickButtonField.getX(),
+					clickButtonField.getY(), labelColor);
+			}else
+			{
+				drawFieldLabel(graphics, "Sync Id", buttonSyncIdField.getX(),
+					buttonSyncIdField.getY(), labelColor);
+				drawFieldLabel(graphics, "Button Id", buttonIdField.getX(),
+					buttonIdField.getY(), labelColor);
+			}
+		}
+		
+		private void drawFieldLabel(GuiGraphics graphics, String text, int x,
+			int y, int color)
+		{
+			graphics.drawString(font, text, x, y - LABEL_OFFSET, color, false);
+		}
+		
+		private void drawPanel(GuiGraphics graphics)
+		{
+			int x0 = panelX - PANEL_BORDER;
+			int y0 = panelY - PANEL_BORDER;
+			int x1 = panelX + PANEL_WIDTH + PANEL_BORDER;
+			int y1 = panelY + PANEL_HEIGHT + PANEL_BORDER;
+			graphics.fill(x0, y0, x1, y1, 0x90000000);
+			graphics.fill(panelX, panelY, panelX + PANEL_WIDTH,
+				panelY + PANEL_HEIGHT, 0xE0202030);
+		}
+		
+		@Override
+		public void onClose()
+		{
+			minecraft.setScreen(parent);
+		}
+		
+		@Override
+		public boolean isPauseScreen()
+		{
+			return false;
+		}
+		
+		private void switchMode(PacketMode mode)
+		{
+			selectedMode = mode;
+			updateModeButtons();
+			updateFieldVisibility();
+		}
+		
+		private void updateModeButtons()
+		{
+			clickSlotModeButton.setMessage(Component.literal("Click Slot"
+				+ (selectedMode == PacketMode.CLICK_SLOT ? " ✓" : "")));
+			buttonClickModeButton.setMessage(Component.literal("Button Click"
+				+ (selectedMode == PacketMode.BUTTON_CLICK ? " ✓" : "")));
+		}
+		
+		private void updateFieldVisibility()
+		{
+			boolean showClick = selectedMode == PacketMode.CLICK_SLOT;
+			clickSyncIdField.visible = showClick;
+			clickRevisionField.visible = showClick;
+			clickSlotField.visible = showClick;
+			clickButtonField.visible = showClick;
+			clickActionButton.visible = showClick;
+			clickDelayToggle.visible = showClick;
+			clickTimesField.visible = showClick;
+			clickSendButton.visible = showClick;
+			if(!showClick)
+			{
+				clickSyncIdField.setFocused(false);
+				clickRevisionField.setFocused(false);
+				clickSlotField.setFocused(false);
+				clickButtonField.setFocused(false);
+				clickActionButton.setFocused(false);
+				clickDelayToggle.setFocused(false);
+				clickTimesField.setFocused(false);
+			}
+			
+			boolean showButton = selectedMode == PacketMode.BUTTON_CLICK;
+			buttonSyncIdField.visible = showButton;
+			buttonIdField.visible = showButton;
+			buttonDelayToggle.visible = showButton;
+			buttonTimesField.visible = showButton;
+			buttonSendButton.visible = showButton;
+			if(!showButton)
+			{
+				buttonSyncIdField.setFocused(false);
+				buttonIdField.setFocused(false);
+				buttonDelayToggle.setFocused(false);
+				buttonTimesField.setFocused(false);
+			}
+		}
+		
+		private void layoutWidgets()
+		{
+			clampPanelPosition();
+			int modeGroupWidth = MODE_BUTTON_WIDTH * 2 + MODE_BUTTON_GAP;
+			int modeStartX = panelX + (PANEL_WIDTH - modeGroupWidth) / 2;
+			int modeY = panelY + 22;
+			clickSlotModeButton.setX(modeStartX);
+			clickSlotModeButton.setY(modeY);
+			buttonClickModeButton
+				.setX(modeStartX + MODE_BUTTON_WIDTH + MODE_BUTTON_GAP);
+			buttonClickModeButton.setY(modeY);
+			
+			int inputX = panelX + (PANEL_WIDTH - FIELD_WIDTH) / 2;
+			int y = modeY + 32 + CONTENT_TOP_OFFSET;
+			clickSyncIdField.setX(inputX);
+			clickSyncIdField.setY(y);
+			y += ROW_SPACING;
+			clickRevisionField.setX(inputX);
+			clickRevisionField.setY(y);
+			y += ROW_SPACING;
+			clickSlotField.setX(inputX);
+			clickSlotField.setY(y);
+			y += ROW_SPACING;
+			clickButtonField.setX(inputX);
+			clickButtonField.setY(y);
+			y += ROW_SPACING;
+			clickActionButton.setX(inputX);
+			clickActionButton.setY(y);
+			y += ROW_SPACING;
+			int delayTotal = DELAY_BUTTON_WIDTH + 8 + TIMES_FIELD_WIDTH;
+			int delayX = panelX + (PANEL_WIDTH - delayTotal) / 2;
+			clickDelayToggle.setX(delayX);
+			clickDelayToggle.setY(y);
+			clickTimesField.setX(delayX + DELAY_BUTTON_WIDTH + 8);
+			clickTimesField.setY(y);
+			y += ROW_SPACING;
+			clickSendButton.setX(panelX + (PANEL_WIDTH - 90) / 2);
+			clickSendButton.setY(y);
+			
+			int buttonY = modeY + 32 + CONTENT_TOP_OFFSET;
+			buttonSyncIdField.setX(inputX);
+			buttonSyncIdField.setY(buttonY);
+			buttonY += ROW_SPACING;
+			buttonIdField.setX(inputX);
+			buttonIdField.setY(buttonY);
+			buttonY += ROW_SPACING;
+			buttonDelayToggle.setX(delayX);
+			buttonDelayToggle.setY(buttonY);
+			buttonTimesField.setX(delayX + DELAY_BUTTON_WIDTH + 8);
+			buttonTimesField.setY(buttonY);
+			buttonY += ROW_SPACING;
+			buttonSendButton.setX(panelX + (PANEL_WIDTH - 90) / 2);
+			buttonSendButton.setY(buttonY);
+		}
+		
+		private void clampPanelPosition()
+		{
+			panelX = Mth.clamp(panelX, 8, Math.max(width - PANEL_WIDTH - 8, 8));
+			panelY =
+				Mth.clamp(panelY, 8, Math.max(height - PANEL_HEIGHT - 8, 8));
+		}
+		
+		private void sendClickSlot()
+		{
+			if(!UiUtils.isInteger(clickSyncIdField.getValue())
+				|| !UiUtils.isInteger(clickRevisionField.getValue())
+				|| !UiUtils.isInteger(clickSlotField.getValue())
+				|| !UiUtils.isInteger(clickButtonField.getValue())
+				|| !UiUtils.isInteger(clickTimesField.getValue()))
+			{
+				showStatus(Component.literal("Invalid arguments!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			int syncId = Integer.parseInt(clickSyncIdField.getValue());
+			short slot = Short.parseShort(clickSlotField.getValue());
+			byte button = Byte.parseByte(clickButtonField.getValue());
+			int timesToSend = Integer.parseInt(clickTimesField.getValue());
+			if(timesToSend < 1)
+			{
+				showStatus(Component.literal("Invalid arguments!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			ClickType action = clickActionButton.getValue();
+			if(action == null)
+			{
+				showStatus(Component.literal("Invalid arguments!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			if(minecraft.getConnection() == null || minecraft.player == null)
+			{
+				showStatus(
+					Component.literal("You must be connected to a server!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			AbstractContainerMenu menu = minecraft.player.containerMenu;
+			if(menu == null)
+			{
+				showStatus(Component.literal("No open container!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			HashedPatchMap.HashGenerator hashGenerator =
+				minecraft.getConnection().decoratedHashOpsGenenerator();
+			// Capture slot contents before simulating the click
+			java.util.List<net.minecraft.world.item.ItemStack> beforeStacks =
+				new java.util.ArrayList<>(menu.slots.size());
+			for(int i = 0; i < menu.slots.size(); i++)
+				beforeStacks.add(menu.slots.get(i).getItem().copy());
+			net.minecraft.world.item.ItemStack carriedBeforeStack =
+				menu.getCarried().copy();
+			
+			// Locally simulate the click
+			menu.clicked(slot, button, action, minecraft.player);
+			
+			// Use current revision after local simulation (matches vanilla
+			// client behavior)
+			int revision = menu.getStateId();
+			
+			// Build diff by comparing ItemStacks (item + count) to avoid
+			// over-reporting
+			Int2ObjectMap<HashedStack> diffSlots = new Int2ObjectArrayMap<>();
+			StringBuilder diffLog = new StringBuilder();
+			for(int i = 0; i < menu.slots.size(); i++)
+			{
+				net.minecraft.world.item.ItemStack beforeStack =
+					beforeStacks.get(i);
+				net.minecraft.world.item.ItemStack afterStack =
+					menu.slots.get(i).getItem();
+				boolean changed;
+				if(beforeStack.isEmpty() && afterStack.isEmpty())
+					changed = false;
+				else if(beforeStack.isEmpty() != afterStack.isEmpty())
+					changed = true;
+				else
+					changed = beforeStack.getItem() != afterStack.getItem()
+						|| beforeStack.getCount() != afterStack.getCount();
+				if(changed)
+				{
+					HashedStack afterHashed =
+						HashedStack.create(afterStack, hashGenerator);
+					diffSlots.put(i, afterHashed);
+					diffLog.append("[").append(i).append(": ")
+						.append(beforeStack.isEmpty() ? "empty"
+							: beforeStack.getItem().toString() + "x"
+								+ beforeStack.getCount())
+						.append(" -> ")
+						.append(afterStack.isEmpty() ? "empty"
+							: afterStack.getItem().toString() + "x"
+								+ afterStack.getCount())
+						.append("] ");
+				}
+			}
+			
+			HashedStack cursor =
+				HashedStack.create(menu.getCarried(), hashGenerator);
+			HashedStack carriedBefore =
+				HashedStack.create(carriedBeforeStack, hashGenerator); // for
+																		// logging
+																		// only;
+																		// not
+																		// used
+																		// in
+																		// packet
+			
+			ServerboundContainerClickPacket packet =
+				new ServerboundContainerClickPacket(syncId, revision, slot,
+					button, action, diffSlots, cursor);
+			
+			try
+			{
+				LOGGER.info(
+					"Fabricate ClickSlot: syncId={}, revision={}, slot={}, button={}, action={}, times={}, diffSlots={}, carriedBefore={}, carriedAfter={}",
+					syncId, revision, slot, button, action, timesToSend,
+					diffSlots.size(), carriedBefore, cursor);
+				LOGGER.info(
+					"Fabricate ClickSlot: menu.containerId={}, syncIdMatch={}, diffDetail={}",
+					menu.containerId, (menu.containerId == syncId),
+					diffLog.toString());
+				chatIfEnabled("ClickSlot: slot=" + slot + ", action=" + action
+					+ ", diff=" + diffSlots.size());
+				Runnable toRun = getFabricatePacketRunnable(minecraft,
+					clickDelayToggle.getValue(), packet);
+				for(int i = 0; i < timesToSend; i++)
+					toRun.run();
+			}catch(Exception e)
+			{
+				showStatus(
+					Component.literal("You must be connected to a server!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			showStatus(Component.literal("Sent successfully!"), STATUS_SUCCESS);
+		}
+		
+		private void sendButtonClick()
+		{
+			if(!UiUtils.isInteger(buttonSyncIdField.getValue())
+				|| !UiUtils.isInteger(buttonIdField.getValue())
+				|| !UiUtils.isInteger(buttonTimesField.getValue()))
+			{
+				showStatus(Component.literal("Invalid arguments!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			int syncId = Integer.parseInt(buttonSyncIdField.getValue());
+			int buttonId = Integer.parseInt(buttonIdField.getValue());
+			int timesToSend = Integer.parseInt(buttonTimesField.getValue());
+			if(timesToSend < 1)
+			{
+				showStatus(Component.literal("Invalid arguments!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			ServerboundContainerButtonClickPacket packet =
+				new ServerboundContainerButtonClickPacket(syncId, buttonId);
+			
+			try
+			{
+				LOGGER.info(
+					"Fabricate ButtonClick: syncId={}, buttonId={}, times={}",
+					syncId, buttonId, timesToSend);
+				chatIfEnabled("ButtonClick: buttonId=" + buttonId + ", times="
+					+ timesToSend);
+				Runnable toRun = getFabricatePacketRunnable(minecraft,
+					buttonDelayToggle.getValue(), packet);
+				for(int i = 0; i < timesToSend; i++)
+					toRun.run();
+			}catch(Exception e)
+			{
+				showStatus(
+					Component.literal("You must be connected to a server!"),
+					STATUS_ERROR);
+				return;
+			}
+			
+			showStatus(Component.literal("Sent successfully!"), STATUS_SUCCESS);
+		}
+		
+		private void showStatus(Component message, int color)
+		{
+			statusMessage = message;
+			statusColor = color;
+			queueTask(() -> {
+				if(minecraft.screen == this)
+				{
+					statusMessage = null;
+					statusColor = 0;
+				}
+			}, STATUS_DURATION_MS);
+		}
+		
 	}
 	
 	private static final class RestoreScreenHandler implements UpdateListener
 	{
+		private boolean customKeyDown;
+		
 		@Override
 		public void onUpdate()
 		{
@@ -646,14 +892,48 @@ public final class UiUtils
 				return;
 			
 			Minecraft mc = Minecraft.getInstance();
-			while(restoreScreenKey.consumeClick())
+			InputConstants.Key customKey = null;
+			try
 			{
-				if(UiUtilsState.storedScreen != null
-					&& UiUtilsState.storedMenu != null && mc.player != null)
+				customKey =
+					WurstClient.INSTANCE.getHax().uiUtilsHack.getRestoreKey();
+			}catch(Throwable t)
+			{
+				customKey = null;
+			}
+			
+			if(customKey != null)
+			{
+				boolean down = InputConstants.isKeyDown(mc.getWindow(),
+					customKey.getValue());
+				if(down && !customKeyDown)
+					restoreScreen(mc);
+				customKeyDown = down;
+				return;
+			}
+			
+			customKeyDown = false;
+			while(restoreScreenKey.consumeClick())
+				restoreScreen(mc);
+		}
+		
+		private void restoreScreen(Minecraft mc)
+		{
+			if(UiUtilsState.storedScreen != null
+				&& UiUtilsState.storedMenu != null && mc.player != null)
+			{
+				mc.setScreen(UiUtilsState.storedScreen);
+				mc.player.containerMenu = UiUtilsState.storedMenu;
+				try
 				{
-					mc.setScreen(UiUtilsState.storedScreen);
-					mc.player.containerMenu = UiUtilsState.storedMenu;
-				}
+					String title =
+						UiUtilsState.storedScreen.getTitle().getString();
+					int sid = UiUtilsState.storedMenu.containerId;
+					int rev = UiUtilsState.storedMenu.getStateId();
+					chatIfEnabled("Loaded GUI: title=\"" + title + "\", syncId="
+						+ sid + ", revision=" + rev);
+				}catch(Throwable ignored)
+				{}
 			}
 		}
 	}

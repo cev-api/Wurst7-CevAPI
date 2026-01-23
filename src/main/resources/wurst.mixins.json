@@ -80,6 +80,7 @@
     "TextVisitFactoryMixin",
     "TrialSpawnerDataAccessor",
     "TitleScreenMixin",
+    "ui_utils.ChestSlotOverlayMixin",
     "ui_utils.ConnectionAccessor",
     "ui_utils.UiUtilsAbstractContainerScreenMixin",
     "ui_utils.UiUtilsAbstractSignEditScreenMixin",

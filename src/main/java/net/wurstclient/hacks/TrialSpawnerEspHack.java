@@ -113,6 +113,8 @@ public final class TrialSpawnerEspHack extends Hack
 		new CheckboxSetting("Show activation radius", true);
 	private final CheckboxSetting showVaultLink =
 		new CheckboxSetting("Show vault link", true);
+	private final CheckboxSetting onlyVaults =
+		new CheckboxSetting("Only vaults", false);
 	private final SliderSetting vaultLinkRange = new SliderSetting(
 		"Vault link range", 48, 8, 96, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting alertOminousKey = new CheckboxSetting(
@@ -174,6 +176,7 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(showTrialType);
 		addSetting(showActivationRadius);
 		addSetting(showVaultLink);
+		addSetting(onlyVaults);
 		addSetting(vaultLinkRange);
 		addSetting(alertOminousKey);
 		addSetting(vaultBoxColor);
@@ -340,24 +343,26 @@ public final class TrialSpawnerEspHack extends Hack
 			}
 		}
 		
-		ChunkUtils.getLoadedBlockEntities()
-			.filter(be -> be instanceof TrialSpawnerBlockEntity)
-			.map(be -> (TrialSpawnerBlockEntity)be).forEach(spawner -> {
-				BlockPos pos = spawner.getBlockPos();
-				double distSq = MC.player.distanceToSqr(pos.getX() + 0.5,
-					pos.getY() + 0.5, pos.getZ() + 0.5);
-				if(limit && distSq > maxDistanceSq)
-					return;
-				
-				BlockPos immutablePos = pos.immutable();
-				VaultInfo link = showVaultLink.isChecked()
-					? findLinkedVault(immutablePos) : null;
-				String decorMob = detectMobFromDecor(immutablePos);
-				spawners.add(new TrialSpawnerInfo(spawner, immutablePos, distSq,
-					link, decorMob));
-			});
+		// When only-vaults is enabled, skip scanning spawners entirely
+		if(!onlyVaults.isChecked())
+			ChunkUtils.getLoadedBlockEntities()
+				.filter(be -> be instanceof TrialSpawnerBlockEntity)
+				.map(be -> (TrialSpawnerBlockEntity)be).forEach(spawner -> {
+					BlockPos pos = spawner.getBlockPos();
+					double distSq = MC.player.distanceToSqr(pos.getX() + 0.5,
+						pos.getY() + 0.5, pos.getZ() + 0.5);
+					if(limit && distSq > maxDistanceSq)
+						return;
+					
+					BlockPos immutablePos = pos.immutable();
+					VaultInfo link = showVaultLink.isChecked()
+						? findLinkedVault(immutablePos) : null;
+					String decorMob = detectMobFromDecor(immutablePos);
+					spawners.add(new TrialSpawnerInfo(spawner, immutablePos,
+						distSq, link, decorMob));
+				});
 		
-		foundCount = spawners.size();
+		foundCount = onlyVaults.isChecked() ? vaults.size() : spawners.size();
 		
 		if(alertOminousKey.isChecked())
 			alertIfOminousKeyNearby();
@@ -539,39 +544,41 @@ public final class TrialSpawnerEspHack extends Hack
 			}
 		}
 		
-		for(TrialSpawnerInfo info : spawners)
-		{
-			TrialSpawnerBlockEntity be = info.blockEntity();
-			if(be == null || be.isRemoved() || be.getLevel() != MC.level)
-				continue;
-			
-			TrialSpawner logic = be.getTrialSpawner();
-			if(logic == null)
-				continue;
-			
-			TrialSpawnerState state = logic.getState() == null
-				? TrialSpawnerState.INACTIVE : logic.getState();
-			TrialStatus status = TrialStatus.fromState(state);
-			int color = getColorForStatus(status);
-			AABB box = new AABB(info.pos());
-			outlineBoxes.add(new ColoredBox(box, color));
-			if(filledBoxes != null)
-				filledBoxes.add(new ColoredBox(box, withAlpha(color, 0.18F)));
-			if(tracerTargets != null)
-				tracerTargets
-					.add(new ColoredPoint(Vec3.atCenterOf(info.pos()), color));
-			
-			if(showActivationRadius.isChecked())
-				drawActivationRadius(matrices, info, logic, color);
-			
-			if(showVaultLink.isChecked() && info.vault() != null)
-				drawVaultLink(matrices, info, color, overlays);
-			
-			// spawn tracers removed
-			
-			if(showOverlay.isChecked())
-				drawOverlay(matrices, info, logic, state, color, overlays);
-		}
+		if(!onlyVaults.isChecked())
+			for(TrialSpawnerInfo info : spawners)
+			{
+				TrialSpawnerBlockEntity be = info.blockEntity();
+				if(be == null || be.isRemoved() || be.getLevel() != MC.level)
+					continue;
+				
+				TrialSpawner logic = be.getTrialSpawner();
+				if(logic == null)
+					continue;
+				
+				TrialSpawnerState state = logic.getState() == null
+					? TrialSpawnerState.INACTIVE : logic.getState();
+				TrialStatus status = TrialStatus.fromState(state);
+				int color = getColorForStatus(status);
+				AABB box = new AABB(info.pos());
+				outlineBoxes.add(new ColoredBox(box, color));
+				if(filledBoxes != null)
+					filledBoxes
+						.add(new ColoredBox(box, withAlpha(color, 0.18F)));
+				if(tracerTargets != null)
+					tracerTargets.add(
+						new ColoredPoint(Vec3.atCenterOf(info.pos()), color));
+				
+				if(showActivationRadius.isChecked())
+					drawActivationRadius(matrices, info, logic, color);
+				
+				if(showVaultLink.isChecked() && info.vault() != null)
+					drawVaultLink(matrices, info, color, overlays);
+				
+				// spawn tracers removed
+				
+				if(showOverlay.isChecked())
+					drawOverlay(matrices, info, logic, state, color, overlays);
+			}
 		
 		if(filledBoxes != null && !filledBoxes.isEmpty())
 			RenderUtils.drawSolidBoxes(matrices, filledBoxes, false);

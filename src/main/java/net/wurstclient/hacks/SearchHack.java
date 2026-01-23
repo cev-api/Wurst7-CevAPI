@@ -23,6 +23,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
@@ -32,6 +33,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockSetting;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -73,6 +75,16 @@ public final class SearchHack extends Hack implements UpdateListener,
 	// New: style setting for boxes/lines like ChestESP
 	private final net.wurstclient.settings.EspStyleSetting style =
 		new net.wurstclient.settings.EspStyleSetting();
+	private final CheckboxSetting highlightCorners = new CheckboxSetting(
+		"Highlight corners",
+		"Partial ESP for blocks, will cause lag if there are too many!", false);
+	private final CheckboxSetting highlightFill = new CheckboxSetting(
+		"Fill blocks (outline + fill)",
+		"Adds filled boxes for matched blocks. Will cause lag if there are too many!",
+		false);
+	private final SliderSetting highlightAlpha =
+		new SliderSetting("Highlight transparency", 80, 1, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
 			"Off: Re-centers the scan every chunk to match ESP drop-off.\n"
@@ -124,6 +136,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	// Keep a copy of matching positions for tracers
 	private HashSet<BlockPos> lastMatchingBlocks;
+	private java.util.List<AABB> highlightBoxes;
 	
 	private EasyVertexBuffer vertexBuffer;
 	private RegionPos bufferRegion;
@@ -150,6 +163,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(query);
 		addSetting(block);
 		addSetting(style);
+		addSetting(highlightCorners);
+		addSetting(highlightFill);
+		addSetting(highlightAlpha);
 		addSetting(stickyArea);
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
@@ -231,6 +247,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		vertexBuffer = null;
 		bufferRegion = null;
 		lastMatchingBlocks = null;
+		highlightBoxes = null;
 		tracerEnds = null;
 		lastPlayerChunk = null;
 		foundCount = 0; // reset count
@@ -367,7 +384,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		float[] rgb = useFixedColor.isChecked() ? fixedColor.getColorF()
 			: RenderUtils.getRainbowColor();
 		
-		if(drawBoxes)
+		if(drawBoxes && highlightFill.isChecked())
 		{
 			matrixStack.pushPose();
 			RenderUtils.applyRegionalRenderOffset(matrixStack, bufferRegion);
@@ -381,6 +398,22 @@ public final class SearchHack extends Hack implements UpdateListener,
 			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
 			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
 				tracerColor, false);
+		}
+		
+		if(highlightBoxes != null && !highlightBoxes.isEmpty())
+		{
+			float alpha = getHighlightAlphaFloat();
+			int color = RenderUtils.toIntColor(rgb, alpha);
+			if(highlightFill.isChecked() && !drawBoxes)
+			{
+				float halfAlpha = Math.max(1F / 255F, alpha / 2F);
+				int solidColor = RenderUtils.toIntColor(rgb, halfAlpha);
+				RenderUtils.drawSolidBoxes(matrixStack, highlightBoxes,
+					solidColor, false);
+			}
+			if(highlightCorners.isChecked())
+				RenderUtils.drawOutlinedBoxes(matrixStack, highlightBoxes,
+					color, false);
 		}
 	}
 	
@@ -641,6 +674,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// build tracer endpoints now that we have matching blocks
 		if(matchingBlocks != null)
 		{
+			highlightBoxes = matchingBlocks.stream().map(AABB::new)
+				.collect(java.util.stream.Collectors.toList());
 			tracerEnds = matchingBlocks.stream().map(pos -> {
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
@@ -651,6 +686,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 			foundCount = Math.min(matchingBlocks.size(), 999);
 		}else
 		{
+			highlightBoxes = null;
 			foundCount = 0;
 		}
 	}
@@ -669,6 +705,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		{
 			tracerEnds = null;
 			lastMatchingBlocks = null;
+			highlightBoxes = null;
 			foundCount = 0;
 			if(vertexBuffer != null)
 			{
@@ -677,5 +714,12 @@ public final class SearchHack extends Hack implements UpdateListener,
 			}
 			bufferRegion = null;
 		}
+	}
+	
+	private float getHighlightAlphaFloat()
+	{
+		int v = (int)Math.round(highlightAlpha.getValue());
+		v = Math.max(1, Math.min(100, v));
+		return v / 100F;
 	}
 }

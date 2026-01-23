@@ -465,10 +465,8 @@ public final class XRayHack extends Hack implements UpdateListener,
 		int color = getHighlightColorWithAlpha();
 		if(highlightFill.isChecked())
 		{
-			int fullAlpha = (color >>> 24) & 0xFF;
-			int halfAlpha = Math.max(1, fullAlpha / 2);
-			int rgb = color & 0x00FFFFFF;
-			int solidColor = (halfAlpha << 24) | rgb;
+			int rgb = highlightColor.getColorI() & 0x00FFFFFF;
+			int solidColor = (0x40 << 24) | rgb;
 			RenderUtils.drawSolidBoxes(matrices, visibleBoxes, solidColor,
 				false);
 		}

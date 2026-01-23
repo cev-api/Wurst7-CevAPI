@@ -18,6 +18,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.wurstclient.uiutils.UiUtils;
 import net.wurstclient.uiutils.UiUtilsState;
 
 @Mixin(Connection.class)
@@ -34,9 +35,21 @@ public class UiUtilsConnectionMixin
 		
 		boolean isUiPacket = packet instanceof ServerboundContainerClickPacket
 			|| packet instanceof ServerboundContainerButtonClickPacket;
+		if(isUiPacket)
+		{
+			UiUtils.LOGGER.info(
+				"UiUtilsConnectionMixin: attempting to send UI packet {} (sendUiPackets={}, delayUiPackets={})",
+				packet.getClass().getSimpleName(), UiUtilsState.sendUiPackets,
+				UiUtilsState.delayUiPackets);
+			UiUtils.chatIfEnabled(
+				"Sending UI packet: " + packet.getClass().getSimpleName());
+		}
 		
 		if(!UiUtilsState.sendUiPackets && isUiPacket)
 		{
+			UiUtils.LOGGER.info(
+				"UiUtilsConnectionMixin: canceled UI packet send because sendUiPackets=false");
+			UiUtils.chatIfEnabled("Canceled UI packet (sendUiPackets=false)");
 			ci.cancel();
 			return;
 		}
@@ -44,6 +57,11 @@ public class UiUtilsConnectionMixin
 		if(UiUtilsState.delayUiPackets && isUiPacket)
 		{
 			UiUtilsState.delayedUiPackets.add(packet);
+			UiUtils.LOGGER.info(
+				"UiUtilsConnectionMixin: delayed UI packet (queued {} packets)",
+				UiUtilsState.delayedUiPackets.size());
+			UiUtils.chatIfEnabled("Delayed UI packet (queued "
+				+ UiUtilsState.delayedUiPackets.size() + ")");
 			ci.cancel();
 			return;
 		}

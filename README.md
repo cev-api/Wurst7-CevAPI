@@ -82,6 +82,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - PacketRate
 - Outreach
 - LivestreamDetector
+- WardenESP
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -347,6 +348,7 @@ Reports number of waypoints changed.
 - Able to record opened Ominous Vaults to avoid re-trying the same ones in the future
 - Congifurable with toggles for all of the above
 - Toggle to alert in chat when Ominous Key was dispensed
+- Toggle to only display vaults
 
 ![Trial](https://i.imgur.com/xOL9U3G.png)
 
@@ -551,6 +553,32 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Silent switching and returning to previous item upon consumption
 - This hack is mostly designed for a specific datapack that allows a much greater range/distance of teleportation with these fruits
 
+### UI-Utils
+- Plugin debugging mod/hack.
+- Integrated into Wurst as a hack with an in-game, draggable Fabricate Packets overlay (remembers position; optional translucent background).
+- An alternative to and reworked version of my 1.21.11 fork of [UI-Utils v2.4.0](https://github.com/cev-api/UI-Utils-CevAPI).
+- Started as a mojmap port of the original [UI-Utils v2.4.0](https://github.com/Coderx-Gamer/ui-utils) by MrBreakNFix and Coderx-Gamer.
+- Vanilla-compatible packet simulation (minimal slot diffs, post-click revision, single-send) to avoid server resyncs.
+- Auto-filled Sync ID and Revision in Fabricate Packets.
+- Extra diagnostics and Wurst toggles (send/delay) wired into Wurst’s packet pipeline.
+- Toggleable chat logs.
+- Added customisable slot number overlay for containers.
+- Published with permission from MrBreakNFix. 
+
+#### Log Example
+```
+[12:52:54]: Fabricate ClickSlot: syncId=6, revision=1, slot=2, button=0, action=PICKUP, times=1, diffSlots=1, carriedBefore=<empty>, carriedAfter=class_10939[item=Reference{ResourceKey[minecraft:item / minecraft:oak_slab]=minecraft:oak_slab}, count=11, components=class_10936[addedComponents={}, removedComponents=[]]]
+[12:52:54]: Fabricate ClickSlot: menu.containerId=6, syncIdMatch=true, diffDetail=[2: minecraft:oak_slabx11 -> empty] 
+[12:52:54]: UiUtilsConnectionMixin: attempting to send UI packet class_2813 (sendUiPackets=true, delayUiPackets=false)
+```
+
+![UI](https://i.imgur.com/pyHBl9T.png)
+
+### Towny
+- A very petty hack that simply enables/disables Towny PVP whilst you're attacking
+- Customisable command and tick delay
+- Only visible in the Navigator
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -616,6 +644,7 @@ Examples:
 - Replaced full-sort approach to bounded max-heap (PriorityQueue) that keeps the closest N matches. This avoids sorting entire result and keeps search as fast as X-Ray.
 - Safer rescans and better crash handling.
 - Improved search speed.
+- Added highlight corners (lines) and fill settings (Same as X-Ray)
 
 ![Search](https://i.imgur.com/jxcn89u.png)
 
@@ -732,7 +761,6 @@ Examples:
 
 ### HandNoClip Improved
 - Now shows a red X over your crosshair to remind you that you cannot place or interact with blocks (in front of you) while the hack is enabled
-- X is removed when using any combat weapon as they still function normally
 
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.

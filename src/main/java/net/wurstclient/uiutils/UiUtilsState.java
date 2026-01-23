@@ -27,8 +27,10 @@ public final class UiUtilsState
 	public static AbstractContainerMenu storedMenu;
 	
 	public static boolean enabled = true;
-	public static boolean bypassResourcePack = false;
-	public static boolean resourcePackForceDeny = false;
+	public static boolean skipNextContainerRemoval = false;
+	public static boolean fabricateOverlayOpen = false;
+	public static int fabricateOverlayX = -1;
+	public static int fabricateOverlayY = -1;
 	
 	private UiUtilsState()
 	{

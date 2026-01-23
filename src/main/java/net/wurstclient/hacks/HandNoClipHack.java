@@ -75,7 +75,7 @@ public final class HandNoClipHack extends Hack implements GUIRenderListener
 	@Override
 	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
-		if(MC.player == null || isHoldingCombatWeapon())
+		if(MC.player == null)
 			return;
 		
 		drawWarningCrosshair(context);

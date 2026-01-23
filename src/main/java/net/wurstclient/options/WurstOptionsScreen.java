@@ -123,6 +123,7 @@ public class WurstOptionsScreen extends Screen
 				b -> minecraft.setScreen(
 					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
 		}
+		
 	}
 	
 	private void addManagerButtons()
@@ -155,7 +156,7 @@ public class WurstOptionsScreen extends Screen
 			b -> WurstClient.INSTANCE.getHax().waypointsHack.openManager());
 		
 		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Reload Wurst",
-			"Reloads settings.json from disk so manual edits take effect.",
+			"Reloads settings.json, enabled/favorite hacks, keybinds, navigator preferences, blocked-hax list, and the ClickGUI windows layout from disk.",
 			b -> {
 				WurstClient.INSTANCE.reloadFromDisk();
 				if(WurstClient.MC != null && WurstClient.MC.player != null)

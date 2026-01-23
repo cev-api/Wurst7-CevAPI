@@ -56,8 +56,8 @@ public final class NiceWurstModule
 	
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
-	private static final Set<String> ALLOWED_NAME_ONLY =
-		Set.of("ClickGUI", "Navigator");
+	private static final Set<String> ALLOWED_NAME_ONLY = Set.of("ClickGUI",
+		"Navigator", "ChorusFruit", "MeasurementESP", "Towny");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -84,7 +84,8 @@ public final class NiceWurstModule
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
-				"Excavator", "InstantBunker", "ScaffoldWalk", "TemplateTool"));
+				"Excavator", "InstantBunker", "ScaffoldWalk", "TemplateTool",
+				"TargetPlace"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT, Set.of("BunnyHop", "AutoSprint",
 			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
@@ -98,13 +99,13 @@ public final class NiceWurstModule
 				"MobSpawnESP", "NewChunks", "NoBackground", "NoFireOverlay",
 				"NoVignette", "NoWeather", "Freecam", "OpenWaterESP",
 				"PearlESP", "PlayerESP", "PortalESP", "Radar", "Search",
-				"TrialSpawnerESP", "TridentESP", "Waypoints"));
+				"TrialSpawnerESP", "TridentESP", "Waypoints", "WardenESP"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
 				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
-				"PacketRate", "Panic", "PortalGUI", "SafeTP",
+				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
 				"SeedMapperHelper", "TooManyHax"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
