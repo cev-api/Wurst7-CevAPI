@@ -11,6 +11,7 @@ import net.fabricmc.api.ModInitializer;
 import net.wurstclient.chestsearch.ChestCleaner;
 import net.wurstclient.chestsearch.TargetHighlighter;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.uiutils.UiUtils;
 
 public final class WurstInitializer implements ModInitializer
 {
@@ -28,6 +29,11 @@ public final class WurstInitializer implements ModInitializer
 				"WurstInitializer.onInitialize() ran twice!");
 		
 		WurstClient.INSTANCE.initialize();
+		try
+		{
+			UiUtils.init();
+		}catch(Throwable ignored)
+		{}
 		// Register chest cleaner
 		try
 		{
