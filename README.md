@@ -579,6 +579,17 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Customisable command and tick delay
 - Only visible in the Navigator
 
+### InfiniteReach
+
+- Packet-based reach extender that blinks you into position, hits the target (entity or block), then optionally teleports you back so the server never sees you stay at distance.
+- Supports vanilla (22 block) and Paper (up to ~59 block) modes with configurable spam packet counts, max distance, and offsets for added stealth.
+- Clip Up adds a short vertical teleport to trigger extra Mace damage and bypass obstacles; optional “Clip Up When Mace” makes that only happen while holding a mace to avoid fall damage when flying.
+- The rendered entity/block boxes honor the “Through Blocks” toggle and hide the block box whenever a red entity highlight is shown, preventing misleading visuals.
+- Delay settings throttle mining, item use, and entity hits; there are dedicated controls for only using the hack when wielding a mace and for skipping collision when BoatNoclip is active.
+- Block breaking and long-range item-use are supported via the same teleport-and-act cycle, making it behave like a remote InstaMine/interaction handler.
+
+Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/InfiniteReach.java). The difference between mine and theirs is that I have added through block toggle, clip up toggle for mace, and better ESP highlighting.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
