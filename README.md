@@ -83,6 +83,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - Outreach
 - LivestreamDetector
 - WardenESP
+- SusNoMore
 - Towny Hack, ChorusFruit and MeasurementESP (Unlisted Hacks)
 - BedrockEscape
 - Redstone, Bed, Sign & Workstation ESP
@@ -589,7 +590,8 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Supports vanilla (22 block) and Paper (up to ~59 block) modes with configurable spam packet counts, max distance, and offsets for added stealth.
 - Clip Up adds a short vertical teleport to trigger extra Mace damage and bypass obstacles; optional “Clip Up When Mace” makes that only happen while holding a mace to avoid fall damage when flying.
 - The rendered entity/block boxes honor the “Through Blocks” toggle and hide the block box whenever a red entity highlight is shown, preventing misleading visuals.
-- Delay settings throttle mining, item use, and entity hits; there are dedicated controls for only using the hack when wielding a mace and for skipping collision when BoatNoclip is active.
+- Delay settings throttle mining, item use, and entity hits
+- Toggles for only using the hack when wielding a mace and for skipping collision when BoatNoclip is active.
 - Block breaking and long-range item-use are supported via the same teleport-and-act cycle, making it behave like a remote InstaMine/interaction handler.
 
 Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/InfiniteReach.java). The difference between mine and theirs is that I have added through block toggle, clip up toggle for mace, and better ESP highlighting.
@@ -602,9 +604,17 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Will only let you land on a safe spot or an area that has liquids (lava or water).
 - A green tick will appear when all teleport conditions are met: can reach, won't die and able to pass through.
 - Able to adjust packet rate throttle to avoid spam or detection.
+- Holding shift above bedrock will attempt to break blocks under you to find a cheaper (less damage) route. Will auto switch to pickaxe if available. 
 - Only works on PaperMC
 
 ![Bedrock](https://i.imgur.com/4mEuHL8.png)
+
+### SusNoMore
+
+- Listens to brushable block entity updates and reports instantly revealed loot in chat within the first brush.
+- Based on an auto-break/ignore list it will auto-switch to a shovel and break the block so you can avoid wasting brush durability and time.
+- Nuker and NukerLegit now supports a skip blocks covered by suspicious dust flag which stops breaking any columns that contain suspicious sand or gravel.
+- Able to detect custom items from datapacks.
 
 ## What's changed or improved in this fork?
 
@@ -708,6 +718,7 @@ Examples:
 
 ### Nuker Improvements
 - Auto toggle AutoTool option (If it wasn't on already, it will be enabled when using Nuker then turned off with Nuker)
+- Now supports a skip blocks covered by suspicious dust flag which stops breaking any columns that contain suspicious sand or gravel.
 
 ### AutoSteal Improvements
 - Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bind-able to a key.
@@ -809,6 +820,9 @@ Examples:
 - Added to home screen and put in the old spot of Alt Manager
 - Added reload settings button so you can modify the settings.json manually
 - Added open Wurst folder
+
+### Connection Log Overlay
+- When connecting to a server you can optionally show the connection log on the joining screen
 
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  

@@ -28,6 +28,7 @@ public final class AntiFingerprintConfigScreen extends Screen
 													// text fields
 	private static final int FIRST_FIELD_TOP_SPACER = 8; // extra gap before the
 															// first field
+	private static final int BUTTON_SPACING = 28; // tighter spacing for toggles
 	
 	private final Screen parent;
 	private final AntiFingerprintConfig config = AntiFingerprintConfig.INSTANCE;
@@ -49,18 +50,13 @@ public final class AntiFingerprintConfigScreen extends Screen
 		int centerX = width / 2;
 		contentTop = Math.max(MIN_TOP_MARGIN, (height - CONTENT_HEIGHT) / 2);
 		int y = contentTop;
-		int doneButtonY = Math.min(height - 28, y + CONTENT_HEIGHT + 24);
-		
-		addRenderableWidget(
-			Button.builder(Component.literal("Done"), b -> onClose())
-				.bounds(centerX - 100, doneButtonY, 200, 20).build());
 		
 		addRenderableWidget(CycleButton.<AntiFingerprintConfig.Policy> builder(
 			policy -> Component.literal(policy.toString()), config::getPolicy)
 			.withValues(AntiFingerprintConfig.Policy.values()).create(
 				centerX - 100, y, 200, 20, Component.literal("Policy"), (button,
 					value) -> config.getPolicySetting().setSelected(value)));
-		y += 26;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(
 			CycleButton.<AntiFingerprintConfig.ToastVerbosity> builder(
@@ -71,33 +67,33 @@ public final class AntiFingerprintConfigScreen extends Screen
 					Component.literal("Toast verbosity"),
 					(button, value) -> config.getToastVerbositySetting()
 						.setSelected(value)));
-		y += 26;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(CycleButton.onOffBuilder(config.isAuditLogEnabled())
 			.create(centerX - 100, y, 200, 20,
 				Component.literal("Audit logging"), (button, value) -> config
 					.getAuditLogSetting().setChecked(value)));
-		y += 34;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(CycleButton.onOffBuilder(config.shouldClearCache())
 			.create(centerX - 100, y, 200, 20,
 				Component.literal("Clear cache before download"), (button,
 					value) -> config.getPurgeCacheSetting().setChecked(value)));
-		y += 34;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(CycleButton
 			.onOffBuilder(config.shouldIsolateCache()).create(centerX - 100, y,
 				200, 20, Component.literal("Isolate cached packs"),
 				(button, value) -> config.getIsolateCacheSetting()
 					.setChecked(value)));
-		y += 34;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(CycleButton
 			.onOffBuilder(config.shouldExtractSandbox()).create(centerX - 100,
 				y, 200, 20, Component.literal("Extract sandbox copy"),
 				(button, value) -> config.getExtractSandboxSetting()
 					.setChecked(value)));
-		y += 34;
+		y += BUTTON_SPACING;
 		
 		addRenderableWidget(
 			CycleButton.onOffBuilder(config.shouldShowMultiplayerButton())
@@ -105,7 +101,7 @@ public final class AntiFingerprintConfigScreen extends Screen
 					Component.literal("Show Multiplayer button"),
 					(button, value) -> config.getShowMultiplayerButtonSetting()
 						.setChecked(value)));
-		y += 34;
+		y += BUTTON_SPACING;
 		
 		// Extra breathing room before first text field so labels never clip
 		y += FIRST_FIELD_TOP_SPACER;
@@ -132,6 +128,17 @@ public final class AntiFingerprintConfigScreen extends Screen
 		whitelistField.setValue(config.getWhitelistRaw());
 		whitelistField.setResponder(config::setWhitelistRaw);
 		addRenderableWidget(whitelistField);
+		
+		int baselineDoneY =
+			Math.min(height - 28, contentTop + CONTENT_HEIGHT + 24);
+		int afterFieldsY =
+			whitelistField.getY() + whitelistField.getHeight() + 12;
+		int doneButtonY =
+			Math.min(height - 28, Math.max(afterFieldsY, baselineDoneY));
+		
+		addRenderableWidget(
+			Button.builder(Component.literal("Done"), b -> onClose())
+				.bounds(centerX - 100, doneButtonY, 200, 20).build());
 	}
 	
 	@Override

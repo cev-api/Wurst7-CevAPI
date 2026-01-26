@@ -11,6 +11,7 @@ import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.WurstClient;
@@ -44,9 +45,15 @@ public final class CommonNukerSettings implements LeftClickListener
 	private final NukerMultiIdListSetting multiIdList =
 		new NukerMultiIdListSetting();
 	
+	private final CheckboxSetting avoidSuspicious = new CheckboxSetting(
+		"Skip blocks covered by suspicious dust",
+		"Stops breaking any block that has suspicious sand or gravel at or above it (blocks beneath the dust).",
+		false);
+	
 	public Stream<Setting> getSettings()
 	{
-		return Stream.of(shape, flat, mode, id, lockId, multiIdList);
+		return Stream.of(shape, flat, mode, id, lockId, multiIdList,
+			avoidSuspicious);
 	}
 	
 	public void reset()
@@ -82,6 +89,9 @@ public final class CommonNukerSettings implements LeftClickListener
 		if(flat.isChecked() && pos.getY() < MC.player.getY())
 			return false;
 		
+		if(avoidSuspicious.isChecked() && hasSuspiciousAbove(pos))
+			return false;
+		
 		switch(mode.getSelected())
 		{
 			default:
@@ -97,6 +107,27 @@ public final class CommonNukerSettings implements LeftClickListener
 			case SMASH:
 			return BlockUtils.getHardness(pos) >= 1;
 		}
+	}
+	
+	private boolean hasSuspiciousAbove(BlockPos pos)
+	{
+		if(MC.level == null)
+			return false;
+		
+		BlockPos check = pos;
+		for(int i = 0; i < 32; i++)
+		{
+			BlockState state = MC.level.getBlockState(check);
+			if(state.is(Blocks.SUSPICIOUS_SAND)
+				|| state.is(Blocks.SUSPICIOUS_GRAVEL))
+			{
+				return true;
+			}
+			
+			check = check.above();
+		}
+		
+		return false;
 	}
 	
 	@Override

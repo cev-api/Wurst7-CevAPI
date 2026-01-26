@@ -20,6 +20,8 @@ public final class OtfList
 		new AntiFingerprintOtf();
 	public final ChangelogOtf changelogOtf = new ChangelogOtf();
 	public final CleanUpOtf cleanUpOtf = new CleanUpOtf();
+	public final ConnectionLogOverlayOtf connectionLogOverlayOtf =
+		new ConnectionLogOverlayOtf();
 	public final DisableOtf disableOtf = new DisableOtf();
 	public final HackListOtf hackListOtf = new HackListOtf();
 	public final KeybindManagerOtf keybindManagerOtf = new KeybindManagerOtf();

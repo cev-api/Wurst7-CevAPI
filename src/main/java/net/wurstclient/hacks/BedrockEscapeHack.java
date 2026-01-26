@@ -8,6 +8,8 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
@@ -29,6 +31,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"bedrock", "void", "bedrock escape"})
@@ -66,6 +69,9 @@ public final class BedrockEscapeHack extends Hack
 	private boolean isValidTarget;
 	private boolean teleportedThisPress;
 	private boolean showSafeTick;
+	private final List<BlockPos> blocksBelowBedrock = new ArrayList<>();
+	private static final int SHIFT_BREAK_COOLDOWN_TICKS = 6;
+	private int shiftBreakCooldown;
 	
 	public BedrockEscapeHack()
 	{
@@ -100,12 +106,33 @@ public final class BedrockEscapeHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
 			return;
 		
 		updateTarget();
+		boolean breakingBelowBedrock =
+			isValidTarget && MC.options.keyShift.isDown();
+		if(breakingBelowBedrock)
+		{
+			if(shiftBreakCooldown <= 0)
+			{
+				breakBlocksBelowBedrock();
+				shiftBreakCooldown = SHIFT_BREAK_COOLDOWN_TICKS;
+			}else
+			{
+				shiftBreakCooldown--;
+			}
+			
+			return;
+		}
+		
+		shiftBreakCooldown = 0;
 		
 		if(!isValidTarget)
+			return;
+		
+		if(!showSafeTick)
 			return;
 		
 		if(MC.options.keyAttack.isDown())
@@ -163,6 +190,7 @@ public final class BedrockEscapeHack extends Hack
 		{
 			context.drawString(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
 		}
+		
 	}
 	
 	private void updateTarget()
@@ -184,6 +212,8 @@ public final class BedrockEscapeHack extends Hack
 		double traveled = step;
 		boolean inBedrock = false;
 		Vec3 fallback = null;
+		BlockPos lastBreakable = null;
+		blocksBelowBedrock.clear();
 		
 		while(traveled <= maxReach)
 		{
@@ -193,8 +223,20 @@ public final class BedrockEscapeHack extends Hack
 			if(state.is(Blocks.BEDROCK))
 			{
 				inBedrock = true;
+				blocksBelowBedrock.clear();
+				lastBreakable = null;
 			}else if(inBedrock)
 			{
+				if(!state.isAir() && !state.is(Blocks.BEDROCK))
+				{
+					if(lastBreakable == null
+						|| !lastBreakable.equals(candidate))
+					{
+						blocksBelowBedrock.add(candidate);
+						lastBreakable = candidate;
+					}
+				}
+				
 				if(isSafeLanding(candidate))
 				{
 					teleportTarget = getAirTarget(candidate);
@@ -283,6 +325,29 @@ public final class BedrockEscapeHack extends Hack
 	private Vec3 getAirTarget(BlockPos pos)
 	{
 		return new Vec3(pos.getX() + 0.5, pos.getY() + 0.1, pos.getZ() + 0.5);
+	}
+	
+	private void breakBlocksBelowBedrock()
+	{
+		if(blocksBelowBedrock.isEmpty() || MC.player == null
+			|| MC.player.connection == null)
+		{
+			return;
+		}
+		
+		BlockBreaker.breakBlocksWithPacketSpam(blocksBelowBedrock);
+		
+		if(MC.level == null)
+			return;
+		
+		int total = blocksBelowBedrock.size();
+		int air = 0;
+		for(BlockPos pos : blocksBelowBedrock)
+		{
+			if(MC.level.getBlockState(pos).isAir())
+				air++;
+		}
+		
 	}
 	
 	private void performTeleport(Vec3 destination)

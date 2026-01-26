@@ -23,6 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
+import net.wurstclient.util.ConnectionLogOverlay;
 
 @Mixin(value = Screen.class, remap = false)
 public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
@@ -85,5 +86,7 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 				0xFFFFFFFF, false);
 			textY += font.lineHeight + 2;
 		}
+		
+		ConnectionLogOverlay.getInstance().render(graphics);
 	}
 }

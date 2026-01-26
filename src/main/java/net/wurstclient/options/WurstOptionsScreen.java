@@ -27,6 +27,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.commands.FriendsCmd;
 import net.wurstclient.hacks.XRayHack;
+import net.wurstclient.other_features.ConnectionLogOverlayOtf;
 import net.wurstclient.other_features.VanillaSpoofOtf;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ChatUtils;
@@ -46,10 +47,11 @@ public class WurstOptionsScreen extends Screen
 	@Override
 	public void init()
 	{
+		int backButtonY = height / 4 + 244;
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
 				b -> minecraft.setScreen(prevScreen))
-			.bounds(width / 2 - 100, height / 4 + 192 - 16, 200, 20).build());
+			.bounds(width / 2 - 100, backButtonY, 200, 20).build());
 		
 		addSettingButtons();
 		addManagerButtons();
@@ -69,6 +71,10 @@ public class WurstOptionsScreen extends Screen
 			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
 		net.wurstclient.other_features.CommandPrefixOtf commandPrefixOtf =
 			wurst.getOtfs().commandPrefixOtf;
+		ConnectionLogOverlayOtf connectionLogOtf =
+			wurst.getOtfs().connectionLogOverlayOtf;
+		CheckboxSetting connectionLogSetting =
+			connectionLogOtf.getConnectionLogSetting();
 		
 		new WurstOptionsButton(-154, 24,
 			() -> "Click Friends: "
@@ -106,8 +112,24 @@ public class WurstOptionsScreen extends Screen
 				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
 			"Shows a toast warning when a server enforces insecure chat/reporting.",
 			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
+		int optionY = 144;
+		if(NiceWurstModule.showAntiFingerprintControls())
+		{
+			new WurstOptionsButton(-154, optionY, () -> "Anti-Fingerprint",
+				"Open the Anti-Fingerprint controls for resource-pack handling.",
+				b -> minecraft.setScreen(
+					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
+			optionY += 24;
+		}
 		
-		new WurstOptionsButton(-154, 168,
+		new WurstOptionsButton(-154, optionY,
+			() -> "Connection log overlay: "
+				+ (connectionLogSetting.isChecked() ? "ON" : "OFF"),
+			connectionLogOtf.getDescription(), b -> connectionLogSetting
+				.setChecked(!connectionLogSetting.isChecked()));
+		optionY += 24;
+		
+		new WurstOptionsButton(-154, optionY,
 			() -> "Command Prefix: "
 				+ commandPrefixOtf.getPrefixSetting().getSelected().toString(),
 			"Cycle through available command prefixes.", b -> {
@@ -115,14 +137,6 @@ public class WurstOptionsScreen extends Screen
 				ChatUtils.message("Command prefix set to " + commandPrefixOtf
 					.getPrefixSetting().getSelected().toString());
 			});
-		
-		if(NiceWurstModule.showAntiFingerprintControls())
-		{
-			new WurstOptionsButton(-154, 144, () -> "Anti-Fingerprint",
-				"Open the Anti-Fingerprint controls for resource-pack handling.",
-				b -> minecraft.setScreen(
-					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
-		}
 		
 	}
 	

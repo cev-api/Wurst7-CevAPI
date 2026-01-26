@@ -248,6 +248,13 @@ public final class InfiniteReachHack extends Hack
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
 			return;
 		
+		if(!isMaceAllowed())
+		{
+			hoveredTarget = null;
+			blockHit = null;
+			return;
+		}
+		
 		if(MC.player.getVehicle() != null)
 			return;
 		
@@ -298,6 +305,9 @@ public final class InfiniteReachHack extends Hack
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		if(MC.player == null || MC.level == null)
+			return;
+		
+		if(!isMaceAllowed())
 			return;
 		
 		if(renderEntity.isChecked() && hoveredTarget != null)
@@ -664,6 +674,22 @@ public final class InfiniteReachHack extends Hack
 		MC.player.connection
 			.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
 		MC.player.swing(InteractionHand.MAIN_HAND);
+	}
+	
+	private boolean isHoldingMace()
+	{
+		if(MC.player == null)
+			return false;
+		
+		return MC.player.getMainHandItem().getItem() == Items.MACE;
+	}
+	
+	private boolean isMaceAllowed()
+	{
+		if(!onlyMace.isChecked())
+			return true;
+		
+		return isHoldingMace();
 	}
 	
 	private Vec3 findNearestPos(Vec3 desired)

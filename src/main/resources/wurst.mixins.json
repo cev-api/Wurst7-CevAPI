@@ -19,6 +19,7 @@
     "ChunkOcclusionGraphBuilderMixin",
     "ClientCommonNetworkHandlerMixin",
     "ClientConnectionMixin",
+    "ConnectScreenMixin",
     "ClientPlayerEntityMixin",
     "ClientPlayerInteractionManagerMixin",
     "OfflineSettingsHandshakeMixin",
