@@ -83,6 +83,8 @@ I'm pleased to note that many of the features and improvements below are complet
 - Outreach
 - LivestreamDetector
 - WardenESP
+- Towny Hack, ChorusFruit and MeasurementESP (Unlisted Hacks)
+- BedrockEscape
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -108,6 +110,8 @@ I have taken the following ideas from other clients/mods:
 - ElytraFlight
 - AntiVoid
 - SpearKill
+- InfiniteReach
+- UI-Utils
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
@@ -589,6 +593,18 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Block breaking and long-range item-use are supported via the same teleport-and-act cycle, making it behave like a remote InstaMine/interaction handler.
 
 Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/InfiniteReach.java). The difference between mine and theirs is that I have added through block toggle, clip up toggle for mace, and better ESP highlighting.
+
+### BedrockEscape
+
+- Sends you up and down through bedrock instantly and from approx 50 blocks distance.
+- Gives you a readout of how many hearts of damage you will take going through the bedrock based on its thickness.
+- Only renders the ESP box when it's a valid pass through.
+- Will only let you land on a safe spot or an area that has liquids (lava or water).
+- A green tick will appear when all teleport conditions are met: can reach, won't die and able to pass through.
+- Able to adjust packet rate throttle to avoid spam or detection.
+- Only works on PaperMC
+
+![Bedrock](https://i.imgur.com/4mEuHL8.png)
 
 ## What's changed or improved in this fork?
 
