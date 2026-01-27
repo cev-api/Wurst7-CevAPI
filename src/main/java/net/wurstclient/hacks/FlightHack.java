@@ -70,6 +70,11 @@ public final class FlightHack extends Hack
 	private final CheckboxSetting ignoreFriends = new CheckboxSetting(
 		"Ignore friends",
 		"Won't trigger if the detected player is on your friends list.", true);
+	private final SliderSetting escapeDropSpeed =
+		new SliderSetting("Escape Drop Speed",
+			"Controls how quickly Don't Get Caught drops you.\n"
+				+ "Lower values reduce fall distance so NoFall can keep up.",
+			0.5, 0.05, 2.5, 0.05, ValueDisplay.DECIMAL);
 	private final CheckboxSetting enableNoFallOnFlight =
 		new CheckboxSetting("Enable NoFall with Flight",
 			"Automatically enables NoFall while Flight is enabled.", false);
@@ -94,6 +99,7 @@ public final class FlightHack extends Hack
 		addSetting(antiKickInterval);
 		addSetting(antiKickDistance);
 		addSetting(dontGetCaught);
+		addSetting(escapeDropSpeed);
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
@@ -296,7 +302,11 @@ public final class FlightHack extends Hack
 		}
 		
 		// Drop as fast as possible without teleporting.
-		double step = Math.min(10.0, currentY - escapeTargetY);
+		double maxDrop = escapeDropSpeed.getValue();
+		double remaining = currentY - escapeTargetY;
+		double step = Math.min(Math.max(remaining, 0.0), maxDrop);
+		if(step <= 0.0)
+			step = remaining;
 		player.setDeltaMovement(0, -step, 0);
 	}
 	

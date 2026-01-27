@@ -621,6 +621,16 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Simply draws a circle around regular mob spawners to show the radius in which they'll spawn.
 - Changes from white to green when you're within the radius.
 
+### Durability HUD
+
+- Compact HUD overlay showing armor + held/offhand durability with icons and optional %/bar.
+- Shows you your armor and weapon durability %.
+- Customisable display: Percent Only, Bar Only, Boss Bar Style, Show Offhand, Icon Size, Font Scale.
+- Moveable with your mouse whenever an inventory menu is open.
+- Auto centres itself whenever items are removed.
+
+![HUD](https://i.imgur.com/IZ4lFCx.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

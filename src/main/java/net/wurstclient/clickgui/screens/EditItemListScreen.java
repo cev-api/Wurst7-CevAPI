@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;
@@ -31,6 +32,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.CommonColors;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.util.ItemUtils;
@@ -333,18 +335,21 @@ public final class EditItemListScreen extends Screen
 		extends MultiSelectEntryListWidget.Entry<EditItemListScreen.Entry>
 	{
 		private final String itemName;
+		private final Identifier itemId;
 		
 		public Entry(ListGui parent, String itemName)
 		{
 			super(parent);
 			this.itemName = Objects.requireNonNull(itemName);
+			this.itemId = sanitizeIdentifier(itemName);
 		}
 		
 		@Override
 		public Component getNarration()
 		{
-			Item item =
-				BuiltInRegistries.ITEM.getValue(Identifier.parse(itemName));
+			Item item = BuiltInRegistries.ITEM.getValue(itemId);
+			if(item == null)
+				item = Items.AIR;
 			ItemStack stack = new ItemStack(item);
 			
 			return Component.translatable("narrator.select",
@@ -359,8 +364,9 @@ public final class EditItemListScreen extends Screen
 			int x = getContentX();
 			int y = getContentY();
 			
-			Item item =
-				BuiltInRegistries.ITEM.getValue(Identifier.parse(itemName));
+			Item item = BuiltInRegistries.ITEM.getValue(itemId);
+			if(item == null)
+				item = Items.AIR;
 			ItemStack stack = new ItemStack(item);
 			Font tr = minecraft.font;
 			
@@ -388,6 +394,32 @@ public final class EditItemListScreen extends Screen
 		public String selectionKey()
 		{
 			return itemName;
+		}
+		
+		private static Identifier sanitizeIdentifier(String raw)
+		{
+			Identifier id = tryParse(raw);
+			if(id != null)
+				return id;
+			
+			if(raw != null)
+			{
+				String candidate =
+					raw.replace(' ', '_').toLowerCase(Locale.ROOT);
+				id = tryParse(candidate);
+				if(id != null)
+					return id;
+			}
+			
+			return Identifier.fromNamespaceAndPath("minecraft", "air");
+		}
+		
+		private static Identifier tryParse(String raw)
+		{
+			if(raw == null)
+				return null;
+			
+			return Identifier.tryParse(raw);
 		}
 	}
 	

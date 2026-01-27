@@ -36,6 +36,8 @@ public final class EnabledHacksFile
 	
 	public void load(HackList hackList, boolean disableOnly)
 	{
+		boolean shouldSave = true;
+		
 		try
 		{
 			WsonArray wson = JsonUtils.parseFileToArray(path);
@@ -43,7 +45,7 @@ public final class EnabledHacksFile
 			
 		}catch(NoSuchFileException e)
 		{
-			// The file doesn't exist yet. No problem, we'll create it later.
+			shouldSave = false;
 			
 		}catch(IOException | JsonException e)
 		{
@@ -51,7 +53,8 @@ public final class EnabledHacksFile
 			e.printStackTrace();
 		}
 		
-		save(hackList);
+		if(shouldSave)
+			save(hackList);
 	}
 	
 	public void loadProfile(HackList hax, Path profilePath)

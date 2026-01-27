@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -140,7 +141,9 @@ public final class ItemListSetting extends Setting
 			
 			// otherwise, load the items in the JSON array
 			JsonUtils.getAsArray(json).getAllStrings().parallelStream()
-				.map(s -> BuiltInRegistries.ITEM.getValue(Identifier.parse(s)))
+				.map(ItemListSetting::sanitizeIdentifier)
+				.filter(Objects::nonNull)
+				.map(id -> BuiltInRegistries.ITEM.getValue(id))
 				.filter(Objects::nonNull)
 				.map(i -> BuiltInRegistries.ITEM.getKey(i).toString())
 				.distinct().sorted().forEachOrdered(s -> itemNames.add(s));
@@ -191,5 +194,27 @@ public final class ItemListSetting extends Setting
 		pkb.add(new PossibleKeybind(command + "reset", "Reset " + fullName));
 		
 		return pkb;
+	}
+	
+	private static Identifier sanitizeIdentifier(String raw)
+	{
+		Identifier id = tryParse(raw);
+		if(id != null)
+			return id;
+		
+		if(raw != null)
+		{
+			String candidate = raw.replace(' ', '_').toLowerCase(Locale.ROOT);
+			id = tryParse(candidate);
+			if(id != null)
+				return id;
+		}
+		
+		return null;
+	}
+	
+	private static Identifier tryParse(String raw)
+	{
+		return raw == null ? null : Identifier.tryParse(raw);
 	}
 }
