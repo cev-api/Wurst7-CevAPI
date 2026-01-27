@@ -23,6 +23,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hacks.*;
+import net.wurstclient.hacks.spawnradius.SpawnRadiusHack;
 import net.wurstclient.util.json.JsonException;
 
 public final class HackList implements UpdateListener
@@ -208,6 +209,7 @@ public final class HackList implements UpdateListener
 	public final SafeWalkHack safeWalkHack = new SafeWalkHack();
 	public final ScaffoldWalkHack scaffoldWalkHack = new ScaffoldWalkHack();
 	public final SearchHack searchHack = new SearchHack();
+	public final SpawnRadiusHack spawnRadiusHack = new SpawnRadiusHack();
 	public final SeedMapperHelperHack seedMapperHelperHack =
 		new SeedMapperHelperHack();
 	public final SignEspHack signEspHack = new SignEspHack();

@@ -616,6 +616,11 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Nuker and NukerLegit now supports a skip blocks covered by suspicious dust flag which stops breaking any columns that contain suspicious sand or gravel.
 - Able to detect custom items from datapacks.
 
+### SpawnRadius
+
+- Simply draws a circle around regular mob spawners to show the radius in which they'll spawn.
+- Changes from white to green when you're within the radius.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
