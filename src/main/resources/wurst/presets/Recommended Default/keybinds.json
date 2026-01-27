@@ -8,6 +8,7 @@
   "key.keyboard.k": "multiaura",
   "key.keyboard.keypad.0": "HandNoClip",
   "key.keyboard.keypad.1": "PacketDelay",
+  "key.keyboard.keypad.4": "AutoMine",
   "key.keyboard.keypad.5": ".say /sm:seedmap",
   "key.keyboard.keypad.7": "Blink",
   "key.keyboard.keypad.8": "SafeTP",

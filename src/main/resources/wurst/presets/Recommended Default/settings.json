@@ -88,7 +88,13 @@
   "Antisocial": {
     "Mode": "Quit",
     "Disable AutoReconnect": true,
-    "Ignore NPCs": true
+    "Ignore NPCs": true,
+    "Ignore friends": true
+  },
+  "AntiVoid": {
+    "Void level": 0.0,
+    "Use AirWalk": false,
+    "Detect lava": true
   },
   "AntiWaterPush": {
     "Prevent slowdown": false
@@ -103,12 +109,14 @@
     "Delay": 2.0
   },
   "AutoBuild": {
-    "Template": "neco.json",
-    "Range": 6.4,
+    "Template": "Wither.json",
+    "Range": 10.0,
     "Check line of sight": false,
     "Use saved blocks": false,
     "Always FastPlace": true,
-    "Strict build order": true
+    "Strict build order": false,
+    "Preview template": true,
+    "Confirm ticks": 6.0
   },
   "AutoComplete": {
     "OpenAI model": "gpt-4o-2024-08-06",
@@ -141,22 +149,18 @@
       "minecraft:beetroot_seeds",
       "minecraft:blue_orchid",
       "minecraft:cactus_flower",
-      "minecraft:chest",
       "minecraft:chicken",
       "minecraft:copper_horse_armor",
       "minecraft:cornflower",
       "minecraft:dandelion",
       "minecraft:diamond_horse_armor",
-      "minecraft:end_portal_frame",
       "minecraft:flower_banner_pattern",
       "minecraft:flower_pot",
       "minecraft:flowering_azalea",
       "minecraft:flowering_azalea_leaves",
-      "minecraft:glow_item_frame",
       "minecraft:golden_horse_armor",
       "minecraft:horse_spawn_egg",
       "minecraft:iron_horse_armor",
-      "minecraft:item_frame",
       "minecraft:leather_horse_armor",
       "minecraft:lilac",
       "minecraft:lily_of_the_valley",
@@ -165,13 +169,8 @@
       "minecraft:oxeye_daisy",
       "minecraft:peony",
       "minecraft:pink_tulip",
-      "minecraft:poisonous_potato",
       "minecraft:poppy",
       "minecraft:pumpkin_seeds",
-      "minecraft:purpur_block",
-      "minecraft:purpur_pillar",
-      "minecraft:purpur_slab",
-      "minecraft:purpur_stairs",
       "minecraft:red_tulip",
       "minecraft:rose_bush",
       "minecraft:rotten_flesh",
@@ -277,7 +276,7 @@
     "Debug logs": false
   },
   "AutoMine": {
-    "Super fast mode": true
+    "Super fast mode": false
   },
   "AutoPotion": {
     "Health": 6.0
@@ -707,6 +706,13 @@
     "Filter trial chambers": true,
     "Filter village beds": true
   },
+  "BedrockEscape": {
+    "Reach": 50.0,
+    "Allow Liquids": false,
+    "Teleport Packets": 4.0,
+    "Render Target": true,
+    "Bedrock Color": "#8000FF"
+  },
   "Blink": {
     "Limit": 0.0
   },
@@ -763,7 +769,7 @@
     "Max sections": 48.0,
     "Section length": 0.1,
     "Line thickness": 7.0,
-    "Paused": true
+    "Paused": false
   },
   "BuildRandom": {
     "Range": 6.0,
@@ -853,7 +859,7 @@
     "Only buried": false,
     "Filter spawners": true,
     "Filter trial chambers": true,
-    "Double chests only": true,
+    "Double chests only": false,
     "Filter villages": true,
     "HackList count": true,
     "Include normal chests": true,
@@ -903,6 +909,16 @@
     "Opened chest color": "#FF9900",
     "Chat notifications": false
   },
+  "ChorusFruit": {
+    "On player enter": false,
+    "On damage from player": false,
+    "On damage from all": true,
+    "Health": 9.5,
+    "Turn off on activation": false,
+    "Item": "Enchanted Golden Chorus Fruit",
+    "Packet spam": true,
+    "Silent switching": true
+  },
   "ClickAura": {
     "Range": 5.0,
     "Speed": 0.0,
@@ -934,6 +950,7 @@
     "Filter end crystals": false
   },
   "ClickGUI": {
+    "Hack toggle chat feedback": true,
     "Background": "#404040",
     "Accent": "#000000",
     "Text": "#FFCCFF",
@@ -992,6 +1009,12 @@
     "Filter invisible": false,
     "Filter named": false,
     "Filter armor stands": true
+  },
+  "ElytraFlight": {
+    "Horizontal speed": 1.7,
+    "Vertical speed": 0.5,
+    "Auto start": true,
+    "Vanilla momentum": false
   },
   "EnchantmentHandler": {
     "Box width": 200.0,
@@ -1056,12 +1079,16 @@
     "Filter end crystals": false
   },
   "Flight": {
-    "Horizontal Speed": 10.0,
-    "Vertical Speed": 1.7,
+    "Horizontal Speed": 4.55,
+    "Vertical Speed": 1.75,
     "Slow sneaking": true,
     "Anti-Kick": true,
     "Anti-Kick Interval": 10.0,
-    "Anti-Kick Distance": 0.035
+    "Anti-Kick Distance": 0.035,
+    "Don't get caught": true,
+    "Ignore NPCs": true,
+    "Ignore friends": true,
+    "Enable NoFall with Flight": true
   },
   "Follow": {
     "Distance": 1.0,
@@ -1157,6 +1184,30 @@
   "HighJump": {
     "Height": 6.0
   },
+  "Infinite Reach": {
+    "Swing Arm": true,
+    "Home Teleport": true,
+    "Compatibility Mode": "Vanilla",
+    "Clip Up": true,
+    "# Spam Packets (Vanilla)": 4.0,
+    "Max Distance (Vanilla)": 22.0,
+    "# Spam Packets (Paper)": 7.0,
+    "Max Distance (Paper)": 59.0,
+    "Horizontal Offset": 0.05,
+    "Y Offset": 0.01,
+    "Only When Mace": true,
+    "Boat Collision Skip": true,
+    "Through Blocks": true,
+    "Render Entity Box": true,
+    "Entity Side Color": "#FF0000",
+    "Entity Line Color": "#FF0000",
+    "Render Block Box": true,
+    "Block Side Color": "#FF00FF",
+    "Block Line Color": "#FF00FF",
+    "Mining Packet Delay": 5.0,
+    "Item Use Delay": 5.0,
+    "Attack Delay": 5.0
+  },
   "InstaBuild": {
     "Template": "ass.json",
     "Range": 6.0,
@@ -1185,9 +1236,11 @@
       "minecraft:brown_shulker_box",
       "minecraft:bundle",
       "minecraft:carved_pumpkin",
+      "minecraft:copper_spear",
       "minecraft:creeper_head",
       "minecraft:cyan_shulker_box",
       "minecraft:diamond",
+      "minecraft:diamond_spear",
       "minecraft:dragon_head",
       "minecraft:dried_ghast",
       "minecraft:elytra",
@@ -1202,9 +1255,11 @@
       "minecraft:endermite_spawn_egg",
       "minecraft:ghast_spawn_egg",
       "minecraft:ghast_tear",
+      "minecraft:golden_spear",
       "minecraft:gray_shulker_box",
       "minecraft:green_shulker_box",
       "minecraft:happy_ghast_spawn_egg",
+      "minecraft:iron_spear",
       "minecraft:light_blue_shulker_box",
       "minecraft:light_gray_shulker_box",
       "minecraft:lime_shulker_box",
@@ -1222,6 +1277,7 @@
       "minecraft:netherite_pickaxe",
       "minecraft:netherite_scrap",
       "minecraft:netherite_shovel",
+      "minecraft:netherite_spear",
       "minecraft:netherite_sword",
       "minecraft:netherite_upgrade_smithing_template",
       "minecraft:ominous_bottle",
@@ -1241,11 +1297,13 @@
       "minecraft:skeleton_skull",
       "minecraft:skull_banner_pattern",
       "minecraft:skull_pottery_sherd",
+      "minecraft:stone_spear",
       "minecraft:totem_of_undying",
       "minecraft:trial_key",
       "minecraft:trident",
       "minecraft:white_shulker_box",
       "minecraft:wither_skeleton_skull",
+      "minecraft:wooden_spear",
       "minecraft:yellow_shulker_box",
       "minecraft:zombie_head"
     ],
@@ -1294,14 +1352,16 @@
     "Stack size": 1.0
   },
   "ItemHandler": {
-    "Reject radius": 3.0,
-    "Pickup/Drop timeout (s)": 15.0,
     "Show item popup HUD": true,
     "Show registry names": true,
+    "Detect held/worn mob items": true,
+    "Filter default mob items": true,
+    "Respect ItemESP ignored items": true,
+    "Reject radius": 3.0,
+    "Pickup/Drop timeout (s)": 15.0,
     "Item detection range": 1024.0,
     "Popup HUD font scale": 0.65,
     "Popup HUD max items": 6.0,
-    "Respect ItemESP ignored items": true,
     "Popup HUD offset X": -105.0,
     "Popup HUD offset Y": -15.0
   },
@@ -1336,7 +1396,7 @@
     "Filter pets": false,
     "Filter villagers": true,
     "Filter zombie villagers": false,
-    "Filter golems": false,
+    "Filter golems": true,
     "Filter piglins": "Off",
     "Filter zombie piglins": "Off",
     "Filter endermen": "Off",
@@ -1391,7 +1451,7 @@
     "Lava color": "#FF8C00",
     "Include water": false,
     "Water color": "#3F76E4",
-    "Area": "3x3 chunks",
+    "Area": "5x5 chunks",
     "Sticky area": true,
     "Lava transparency": 31.0,
     "Water transparency": 23.0,
@@ -1402,7 +1462,7 @@
     "Scan interval (minutes)": 2.0,
     "Scan only players who join": false,
     "Skip scan above (players)": 80.0,
-    "Only show live results": false,
+    "Only show live results": true,
     "YouTube API key": "",
     "Twitch client ID": "",
     "Twitch OAuth token": ""
@@ -1420,6 +1480,12 @@
     "Delay": 20.0,
     "Ignore errors": false,
     "Stop when accepted": true
+  },
+  "MeasurementESP": {
+    "Distance": 50.0,
+    "Lock while Freecam": true,
+    "Block mode": false,
+    "Reach mode": true
   },
   "MileyCyrus": {
     "Twerk speed": 5.0
@@ -1451,6 +1517,7 @@
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
     "Highlight shulker projectiles": true,
+    "Highlight wither projectiles": true,
     "HackList count": true
   },
   "MobSearch": {
@@ -1487,7 +1554,7 @@
     "Filter sleeping": false,
     "Filter flying": 0.0,
     "Filter hostile mobs": false,
-    "Filter neutral mobs": "Off",
+    "Filter neutral mobs": "On",
     "Filter passive mobs": false,
     "Filter passive water mobs": false,
     "Filter babies": false,
@@ -1553,26 +1620,32 @@
     "Moon Phase": 0.0
   },
   "Nuker": {
-    "Range": 5.0,
+    "Range": 4.65,
     "Shape": "Cube",
-    "Flat mode": true,
+    "Flat mode": false,
     "Mode": "Normal",
+    "ID": "minecraft:air",
+    "Lock ID": false,
+    "MultiID List": [
+      "minecraft:sculk",
+      "minecraft:sculk_shrieker",
+      "minecraft:sculk_vein"
+    ],
+    "Skip blocks covered by suspicious dust": true,
+    "Swing hand": "Server-side",
+    "Auto switch tool": true
+  },
+  "NukerLegit": {
+    "Range": 4.5,
+    "Shape": "Sphere",
+    "Flat mode": false,
+    "Mode": "MultiID",
     "ID": "minecraft:air",
     "Lock ID": false,
     "MultiID List": [
       "minecraft:sculk"
     ],
-    "Swing hand": "Server-side",
-    "Auto switch tool": true
-  },
-  "NukerLegit": {
-    "Range": 4.25,
-    "Shape": "Sphere",
-    "Flat mode": false,
-    "Mode": "Normal",
-    "ID": "minecraft:air",
-    "Lock ID": false,
-    "MultiID List": "default",
+    "Skip blocks covered by suspicious dust": false,
     "Swing hand": "Client-side",
     "Auto switch tool": false
   },
@@ -1621,6 +1694,10 @@
     "Time delay": false,
     "Delay": 41.0
   },
+  "PacketRate": {
+    "Enable limiter": false,
+    "Limit": 1000.0
+  },
   "Panic": {},
   "Parkour": {
     "Min depth": 0.5,
@@ -1645,6 +1722,9 @@
     "Player color": "#FF00FF",
     "Box size": "Fancy",
     "Enter alert": true,
+    "Enter sound": true,
+    "Enter alert cooldown": 0.0,
+    "Enter sound type": "minecraft:block.note_block.bell",
     "Exit alert": true,
     "Filter sleeping": false,
     "Filter invisible": false,
@@ -1701,7 +1781,8 @@
     "Use whitelist": true,
     "Blacklist": "default",
     "Whitelist": "default",
-    "Continue to next shulker": false
+    "Continue to next shulker": true,
+    "Skip hotbar": true
   },
   "Radar": {
     "Radius": 100.0,
@@ -1847,9 +1928,12 @@
       "minecraft:zombie_head",
       "minecraft:zombie_wall_head"
     ],
-    "Query": "obsidian",
+    "Query": "suspicious",
     "Block": "minecraft:soul_soil",
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
+    "Highlight corners": true,
+    "Fill blocks (outline + fill)": true,
+    "Highlight transparency": 100.0,
     "Sticky area": true,
     "Use fixed color": false,
     "Fixed color": "#9900FF",
@@ -1967,10 +2051,18 @@
     "Signs": true
   },
   "Sneak": {
-    "Mode": "Legit",
-    "Turn off while flying": false
+    "Mode": "Packet",
+    "Turn off while flying": true
+  },
+  "SoulChalice": {
+    "Chalice name": "Soul Chalice",
+    "Full text": "20/20",
+    "Check numeric NBT": true,
+    "Enable AutoTotem when full": true,
+    "Disable AutoTotem on empty": true
   },
   "SpearAssist": {
+    "Mode": "SpearKill",
     "Boost mode": "Dash only",
     "Boost speed": 10.0,
     "Dash distance": 7.0,
@@ -1981,11 +2073,27 @@
     "Near highlight color": "#FFFF00",
     "Far highlight color": "#00FF00",
     "Auto resume charge": true,
-    "Allow AimAssist while charging": true,
+    "AimAssist mode": "While charging",
     "AimAssist range": 100.0,
     "AimAssist lock-on": true,
     "Auto alignment": true,
-    "Auto attack when ready": true
+    "Auto attack when ready": true,
+    "SK mode": "Blink",
+    "SK max range": 256.0,
+    "SK target list mode": "Blacklist",
+    "SK target entities": [],
+    "SK blink + lunge": false,
+    "SK blink lunge strength": 2.0,
+    "SK blink lunge delay": 15.0,
+    "SK flush range": 3.0,
+    "SK force flush distance": 9.5,
+    "SK blink aimbot": true,
+    "SK blink distance boost": 0.0,
+    "SK lunge strength": 10.0,
+    "SK stop on target": true,
+    "SK stop distance": 2.0,
+    "SK lunge delay modifier": 100.0,
+    "SK chat feedback": true
   },
   "SpeedNuker": {
     "Range": 6.0,
@@ -1995,6 +2103,7 @@
     "ID": "minecraft:air",
     "Lock ID": false,
     "MultiID List": "default",
+    "Skip blocks covered by suspicious dust": false,
     "Swing hand": "Off",
     "Auto switch tool": false
   },
@@ -2005,6 +2114,102 @@
   "SurfaceXray": {
     "Surface opacity": 0.5,
     "Tracked blocks": "default"
+  },
+  "SusNoMore": {
+    "Auto-break list": [
+      "minecraft:angler_pottery_sherd",
+      "minecraft:archer_pottery_sherd",
+      "minecraft:arms_up_pottery_sherd",
+      "minecraft:beetroot_seeds",
+      "minecraft:black_candle",
+      "minecraft:black_stained_glass",
+      "minecraft:black_stained_glass_pane",
+      "minecraft:blade_pottery_sherd",
+      "minecraft:blue_candle",
+      "minecraft:blue_stained_glass",
+      "minecraft:blue_stained_glass_pane",
+      "minecraft:brewer_pottery_sherd",
+      "minecraft:brick",
+      "minecraft:brown_candle",
+      "minecraft:brown_stained_glass",
+      "minecraft:brown_stained_glass_pane",
+      "minecraft:burn_pottery_sherd",
+      "minecraft:candle",
+      "minecraft:cyan_candle",
+      "minecraft:cyan_stained_glass",
+      "minecraft:cyan_stained_glass_pane",
+      "minecraft:danger_pottery_sherd",
+      "minecraft:dead_bush",
+      "minecraft:explorer_pottery_sherd",
+      "minecraft:flow_pottery_sherd",
+      "minecraft:friend_pottery_sherd",
+      "minecraft:glass",
+      "minecraft:glass_bottle",
+      "minecraft:glass_pane",
+      "minecraft:gravel",
+      "minecraft:gray_candle",
+      "minecraft:gray_stained_glass",
+      "minecraft:gray_stained_glass_pane",
+      "minecraft:green_candle",
+      "minecraft:green_stained_glass",
+      "minecraft:green_stained_glass_pane",
+      "minecraft:guster_pottery_sherd",
+      "minecraft:heart_pottery_sherd",
+      "minecraft:heartbreak_pottery_sherd",
+      "minecraft:howl_pottery_sherd",
+      "minecraft:light_blue_candle",
+      "minecraft:light_blue_stained_glass",
+      "minecraft:light_blue_stained_glass_pane",
+      "minecraft:light_gray_candle",
+      "minecraft:light_gray_stained_glass",
+      "minecraft:light_gray_stained_glass_pane",
+      "minecraft:lime_candle",
+      "minecraft:lime_stained_glass",
+      "minecraft:lime_stained_glass_pane",
+      "minecraft:magenta_candle",
+      "minecraft:magenta_stained_glass",
+      "minecraft:magenta_stained_glass_pane",
+      "minecraft:melon_seeds",
+      "minecraft:miner_pottery_sherd",
+      "minecraft:mourner_pottery_sherd",
+      "minecraft:orange_candle",
+      "minecraft:orange_stained_glass",
+      "minecraft:orange_stained_glass_pane",
+      "minecraft:pink_candle",
+      "minecraft:pink_stained_glass",
+      "minecraft:pink_stained_glass_pane",
+      "minecraft:plenty_pottery_sherd",
+      "minecraft:prize_pottery_sherd",
+      "minecraft:pumpkin_seeds",
+      "minecraft:purple_candle",
+      "minecraft:purple_stained_glass",
+      "minecraft:purple_stained_glass_pane",
+      "minecraft:red_candle",
+      "minecraft:red_stained_glass",
+      "minecraft:red_stained_glass_pane",
+      "minecraft:scrape_pottery_sherd",
+      "minecraft:sheaf_pottery_sherd",
+      "minecraft:shelter_pottery_sherd",
+      "minecraft:skull_pottery_sherd",
+      "minecraft:snort_pottery_sherd",
+      "minecraft:spyglass",
+      "minecraft:tinted_glass",
+      "minecraft:torchflower_seeds",
+      "minecraft:wheat",
+      "minecraft:wheat_seeds",
+      "minecraft:white_candle",
+      "minecraft:white_stained_glass",
+      "minecraft:white_stained_glass_pane",
+      "minecraft:wooden_axe",
+      "minecraft:wooden_hoe",
+      "minecraft:wooden_pickaxe",
+      "minecraft:wooden_shovel",
+      "minecraft:wooden_spear",
+      "minecraft:wooden_sword",
+      "minecraft:yellow_candle",
+      "minecraft:yellow_stained_glass",
+      "minecraft:yellow_stained_glass_pane"
+    ]
   },
   "TargetPlace": {
     "Highlight color": "#00FFFF",
@@ -2022,6 +2227,10 @@
     "Speed": 3.5
   },
   "TooManyHax": {},
+  "Towny": {
+    "Command": "t toggle pvp",
+    "End delay": 1.0
+  },
   "TP-Aura": {
     "Range": 6.0,
     "Speed": 0.0,
@@ -2065,7 +2274,7 @@
   },
   "TrialSpawnerESP": {
     "Max distance": 160.0,
-    "Show tracer": true,
+    "Show tracer": false,
     "Fill boxes": true,
     "Text overlay": true,
     "Overlay scale": 1.0,
@@ -2078,9 +2287,11 @@
     "Estimate cooldown when observed": true,
     "Show distance": true,
     "Show trial type": true,
-    "Show activation radius": true,
-    "Show vault link": true,
+    "Show activation radius": false,
+    "Show vault link": false,
+    "Only vaults": false,
     "Vault link range": 48.0,
+    "Ominous key alert": false,
     "Vault box color": "#7CF2C9",
     "Ominous vault color": "#9B59B6",
     "HackList count": false,
@@ -2175,6 +2386,17 @@
     "Limit": 0.0,
     "Place torches": false
   },
+  "UI-Utils": {
+    "Slot overlay": true,
+    "Slot overlay color": "#FF00FF",
+    "Slot overlay alpha": 255.0,
+    "Slot overlay offset X": 0.0,
+    "Slot overlay offset Y": 0.0,
+    "Slot overlay on hover": true,
+    "Load GUI key": "key.keyboard.v",
+    "Log to chat": true,
+    "Fabricate overlay background alpha": 175.0
+  },
   "VeinMiner": {
     "Range": 5.0,
     "Flat mode": false,
@@ -2183,19 +2405,33 @@
     "Max vein size": 64.0,
     "Check line of sight": false
   },
+  "WardenESP": {
+    "ESP type": "Glow",
+    "Fill shapes": true,
+    "Tracers": "When targeting",
+    "Target label": true,
+    "Sniff pulse": true,
+    "Combat imminence": true,
+    "Anger trend": true,
+    "Label scale": 5.0
+  },
   "Waypoints": {
     "Manage waypoints": {},
-    "Waypoint render distance": 10001.0,
-    "Waypoint fade distance": 0.0,
+    "Waypoint render distance": 7401.0,
+    "Waypoint fade distance": 64.0,
     "Beacon render distance": 407.0,
-    "Label scale": 1.4,
+    "Label scale": 1.3,
     "Compass mode (top bar)": true,
     "Show player XYZ above compass": true,
     "Compass icon range": 10001.0,
     "Compass X %": 50.0,
     "Compass Y %": 3.0,
     "Compass text opacity": 100.0,
-    "Compass background opacity": 9.0,
+    "Compass text outline": true,
+    "Compass outline opacity": 100.0,
+    "Waypoint label outline": true,
+    "Waypoint outline opacity": 100.0,
+    "Compass background opacity": 0.0,
     "Create death waypoints": true,
     "Say death position in chat": true,
     "Death waypoint lines": false,
@@ -2275,7 +2511,7 @@
     "Mode": "QUERY",
     "Query": "diamond",
     "Highlight corners": false,
-    "Fill blocks (outline + fill)": false,
+    "Fill blocks (outline + fill)": true,
     "Highlight color": "#FF00FF",
     "Highlight transparency": 57.0,
     "Render amount": 2.0
@@ -2311,6 +2547,9 @@
   },
   "Command Prefix": {
     "Command Prefix": "."
+  },
+  "ConnectionLogOverlay": {
+    "Connection log overlay": true
   },
   "Disable Wurst": {
     "Hide enable button": false
