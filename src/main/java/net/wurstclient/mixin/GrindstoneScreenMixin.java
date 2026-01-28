@@ -40,12 +40,18 @@ public abstract class GrindstoneScreenMixin
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
-		addRenderableWidget(Button
-			.builder(Component.literal("AutoDisenchant"),
-				b -> autoDisenchant.start((GrindstoneScreen)(Object)this))
-			.bounds(leftPos + imageWidth - 110, topPos + 4, 106, 12).build());
-		
-		if(autoDisenchant.isEnabled())
+		if(autoDisenchant.shouldShowButton())
+		{
+			addRenderableWidget(
+				Button
+					.builder(Component.literal("AutoDisenchant"),
+						b -> autoDisenchant
+							.start((GrindstoneScreen)(Object)this))
+					.bounds(leftPos + imageWidth - 110, topPos + 4, 106, 12)
+					.build());
+		}else if(autoDisenchant.shouldAutoRun() && autoDisenchant.isEnabled())
+		{
 			autoDisenchant.start((GrindstoneScreen)(Object)this);
+		}
 	}
 }

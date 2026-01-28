@@ -85,7 +85,7 @@ public abstract class AbstractBlockStateMixin
 			return;
 		
 		HandNoClipHack handNoClipHack = hax.handNoClipHack;
-		if(!handNoClipHack.isEnabled() || handNoClipHack.isBlockInList(pos))
+		if(!handNoClipHack.isEnabled() || !handNoClipHack.shouldClearBlock(pos))
 			return;
 		
 		cir.setReturnValue(Shapes.empty());

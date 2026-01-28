@@ -137,7 +137,8 @@
     "Max suggestions shown": 5.0
   },
   "AutoDisenchant": {
-    "Include hotbar": true,
+    "Include hotbar": false,
+    "Show button": true,
     "Click delay": 150.0,
     "Output wait": 600.0
   },
@@ -307,7 +308,65 @@
     "Steal/Store buttons": true,
     "Delay": 100.0,
     "Reverse steal order": false,
-    "Steal/Store same": false
+    "Steal/Store same": false,
+    "List only": true,
+    "Item list": [
+      "minecraft:ancient_debris",
+      "minecraft:bolt_armor_trim_smithing_template",
+      "minecraft:coast_armor_trim_smithing_template",
+      "minecraft:deepslate_diamond_ore",
+      "minecraft:deepslate_emerald_ore",
+      "minecraft:diamond",
+      "minecraft:diamond_axe",
+      "minecraft:diamond_block",
+      "minecraft:diamond_boots",
+      "minecraft:diamond_chestplate",
+      "minecraft:diamond_helmet",
+      "minecraft:diamond_hoe",
+      "minecraft:diamond_horse_armor",
+      "minecraft:diamond_leggings",
+      "minecraft:diamond_nautilus_armor",
+      "minecraft:diamond_ore",
+      "minecraft:diamond_pickaxe",
+      "minecraft:diamond_shovel",
+      "minecraft:diamond_spear",
+      "minecraft:diamond_sword",
+      "minecraft:dune_armor_trim_smithing_template",
+      "minecraft:emerald",
+      "minecraft:emerald_block",
+      "minecraft:emerald_ore",
+      "minecraft:eye_armor_trim_smithing_template",
+      "minecraft:flow_armor_trim_smithing_template",
+      "minecraft:host_armor_trim_smithing_template",
+      "minecraft:netherite_axe",
+      "minecraft:netherite_block",
+      "minecraft:netherite_boots",
+      "minecraft:netherite_chestplate",
+      "minecraft:netherite_helmet",
+      "minecraft:netherite_hoe",
+      "minecraft:netherite_horse_armor",
+      "minecraft:netherite_ingot",
+      "minecraft:netherite_leggings",
+      "minecraft:netherite_nautilus_armor",
+      "minecraft:netherite_pickaxe",
+      "minecraft:netherite_scrap",
+      "minecraft:netherite_shovel",
+      "minecraft:netherite_spear",
+      "minecraft:netherite_sword",
+      "minecraft:netherite_upgrade_smithing_template",
+      "minecraft:raiser_armor_trim_smithing_template",
+      "minecraft:rib_armor_trim_smithing_template",
+      "minecraft:sentry_armor_trim_smithing_template",
+      "minecraft:shaper_armor_trim_smithing_template",
+      "minecraft:silence_armor_trim_smithing_template",
+      "minecraft:snout_armor_trim_smithing_template",
+      "minecraft:spire_armor_trim_smithing_template",
+      "minecraft:tide_armor_trim_smithing_template",
+      "minecraft:vex_armor_trim_smithing_template",
+      "minecraft:ward_armor_trim_smithing_template",
+      "minecraft:wayfinder_armor_trim_smithing_template",
+      "minecraft:wild_armor_trim_smithing_template"
+    ]
   },
   "AutoSword": {
     "Priority": "Speed (swords)",
@@ -711,7 +770,8 @@
     "Allow Liquids": false,
     "Teleport Packets": 4.0,
     "Render Target": true,
-    "Bedrock Color": "#CC0099"
+    "Bedrock Color": "#CC0099",
+    "Teleport without Tick": false
   },
   "Blink": {
     "Limit": 0.0
@@ -1088,14 +1148,14 @@
     "Filter end crystals": false
   },
   "Flight": {
-    "Horizontal Speed": 5.55,
-    "Vertical Speed": 4.05,
+    "Horizontal Speed": 5.0,
+    "Vertical Speed": 2.0,
     "Slow sneaking": true,
     "Anti-Kick": true,
     "Anti-Kick Interval": 10.0,
     "Anti-Kick Distance": 0.035,
     "Don\u0027t get caught": true,
-    "Escape Drop Speed": 2.5,
+    "Escape Drop Speed": 3.9,
     "Ignore NPCs": true,
     "Ignore friends": true,
     "Enable NoFall with Flight": true
@@ -1170,6 +1230,7 @@
       "minecraft:green_shulker_box",
       "minecraft:hopper",
       "minecraft:jungle_button",
+      "minecraft:lever",
       "minecraft:light_blue_shulker_box",
       "minecraft:light_gray_shulker_box",
       "minecraft:lime_shulker_box",
@@ -1189,7 +1250,8 @@
       "minecraft:warped_button",
       "minecraft:white_shulker_box",
       "minecraft:yellow_shulker_box"
-    ]
+    ],
+    "Enable On Target": true
   },
   "HighJump": {
     "Height": 6.0
@@ -2127,8 +2189,6 @@
   },
   "SusNoMore": {
     "Auto-break list": [
-      "dead bush",
-      "flower pot",
       "minecraft:acacia_hanging_sign",
       "minecraft:bamboo_hanging_sign",
       "minecraft:beetroot_seeds",
@@ -2147,6 +2207,8 @@
       "minecraft:cyan_candle",
       "minecraft:cyan_stained_glass_pane",
       "minecraft:dark_oak_hanging_sign",
+      "minecraft:dead_bush",
+      "minecraft:flower_pot",
       "minecraft:glass_pane",
       "minecraft:gray_candle",
       "minecraft:gray_stained_glass_pane",

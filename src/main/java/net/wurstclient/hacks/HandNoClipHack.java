@@ -7,10 +7,15 @@
  */
 package net.wurstclient.hacks;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.Locale;
+
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.core.BlockPos;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
@@ -18,19 +23,26 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
-import java.util.Locale;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.RotationUtils;
+import net.wurstclient.util.text.WText;
 
 @SearchTags({"hand noclip", "hand no clip"})
-public final class HandNoClipHack extends Hack implements GUIRenderListener
+public final class HandNoClipHack extends Hack
+	implements GUIRenderListener, UpdateListener
 {
 	private static final int WARNING_COLOR = 0xFFFF0000;
 	private static final int WARNING_SIZE = 5;
+	private static final double TARGET_RANGE = 6.0;
+	private static final double TARGET_INCREMENT = 0.1;
 	
 	private final BlockListSetting blocks = new BlockListSetting("Blocks",
 		"The blocks you want to reach through walls.", "minecraft:barrel",
@@ -46,6 +58,12 @@ public final class HandNoClipHack extends Hack implements GUIRenderListener
 		"minecraft:red_shulker_box", "minecraft:shulker_box",
 		"minecraft:trapped_chest", "minecraft:white_shulker_box",
 		"minecraft:yellow_shulker_box");
+	private final CheckboxSetting enableOnTarget = new CheckboxSetting(
+		"Enable On Target",
+		WText.literal("Only noclip while aiming at a listed block."), false);
+	
+	private BlockPos targetBlock;
+	private Set<BlockPos> occludingBlocks = Collections.emptySet();
 	
 	public HandNoClipHack()
 	{
@@ -53,18 +71,22 @@ public final class HandNoClipHack extends Hack implements GUIRenderListener
 		
 		setCategory(Category.BLOCKS);
 		addSetting(blocks);
+		addSetting(enableOnTarget);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		EVENTS.add(GUIRenderListener.class, this);
+		EVENTS.add(UpdateListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		EVENTS.remove(GUIRenderListener.class, this);
+		EVENTS.remove(UpdateListener.class, this);
+		clearTarget();
 	}
 	
 	public boolean isBlockInList(BlockPos pos)
@@ -72,13 +94,90 @@ public final class HandNoClipHack extends Hack implements GUIRenderListener
 		return blocks.matchesBlock(BlockUtils.getBlock(pos));
 	}
 	
+	public boolean shouldClearBlock(BlockPos pos)
+	{
+		if(enableOnTarget.isChecked())
+			return occludingBlocks.contains(pos);
+		
+		return !isBlockInList(pos);
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(!enableOnTarget.isChecked() || MC.player == null || MC.level == null)
+		{
+			clearTarget();
+			return;
+		}
+		
+		updateTargeting();
+	}
+	
+	private void clearTarget()
+	{
+		targetBlock = null;
+		occludingBlocks = Collections.emptySet();
+	}
+	
+	private void updateTargeting()
+	{
+		Vec3 eyes = RotationUtils.getEyesPos();
+		Vec3 look = RotationUtils.getServerLookVec();
+		
+		BlockPos prev = null;
+		Set<BlockPos> path = new HashSet<>();
+		BlockPos found = null;
+		
+		for(double distance = 0; distance <= TARGET_RANGE; distance +=
+			TARGET_INCREMENT)
+		{
+			Vec3 point = eyes.add(look.scale(distance));
+			BlockPos pos = BlockPos.containing(point);
+			
+			if(pos.equals(prev))
+				continue;
+			
+			prev = pos;
+			
+			if(MC.level.isEmptyBlock(pos))
+				continue;
+			
+			if(isBlockInList(pos))
+			{
+				found = pos;
+				break;
+			}
+			
+			path.add(pos);
+		}
+		
+		if(found == null)
+		{
+			clearTarget();
+			return;
+		}
+		
+		targetBlock = found;
+		occludingBlocks = path.isEmpty() ? Collections.emptySet()
+			: Collections.unmodifiableSet(path);
+	}
+	
 	@Override
 	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
-		if(MC.player == null)
+		if(MC.player == null || !shouldDrawWarningCrosshair())
 			return;
 		
 		drawWarningCrosshair(context);
+	}
+	
+	private boolean shouldDrawWarningCrosshair()
+	{
+		if(!enableOnTarget.isChecked())
+			return true;
+		
+		return targetBlock != null;
 	}
 	
 	private boolean isHoldingCombatWeapon()

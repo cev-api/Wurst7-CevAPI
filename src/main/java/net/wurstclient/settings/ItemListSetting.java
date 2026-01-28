@@ -78,6 +78,20 @@ public final class ItemListSetting extends Setting
 		return Collections.unmodifiableList(itemNames);
 	}
 	
+	public boolean contains(String name)
+	{
+		return name != null && Collections.binarySearch(itemNames, name) >= 0;
+	}
+	
+	public boolean contains(net.minecraft.world.item.Item item)
+	{
+		if(item == null)
+			return false;
+		net.minecraft.resources.Identifier id =
+			BuiltInRegistries.ITEM.getKey(item);
+		return id != null && contains(id.toString());
+	}
+	
 	public void add(Item item)
 	{
 		String name = BuiltInRegistries.ITEM.getKey(item).toString();

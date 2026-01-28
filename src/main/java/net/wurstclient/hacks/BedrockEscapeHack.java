@@ -53,6 +53,11 @@ public final class BedrockEscapeHack extends Hack
 	private final CheckboxSetting render = new CheckboxSetting("Render Target",
 		"Render a box around the landing zone.", true);
 	
+	private final CheckboxSetting ignoreSafeTickRequirement =
+		new CheckboxSetting("Teleport without Tick",
+			"Allow teleporting even when the safe-tick indicator isn't showing.",
+			false);
+	
 	private final ColorSetting boxColor =
 		new ColorSetting("Bedrock Color", new Color(128, 0, 255));
 	
@@ -83,6 +88,7 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(packetSpam);
 		addSetting(render);
 		addSetting(boxColor);
+		addSetting(ignoreSafeTickRequirement);
 	}
 	
 	@Override
@@ -132,7 +138,7 @@ public final class BedrockEscapeHack extends Hack
 		if(!isValidTarget)
 			return;
 		
-		if(!showSafeTick)
+		if(!showSafeTick && !ignoreSafeTickRequirement.isChecked())
 			return;
 		
 		if(MC.options.keyAttack.isDown())

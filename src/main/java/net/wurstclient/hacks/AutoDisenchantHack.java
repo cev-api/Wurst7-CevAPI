@@ -24,6 +24,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.text.WText;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
 @SearchTags({"auto disenchant", "grindstone", "repair and disenchant",
@@ -47,6 +48,11 @@ public final class AutoDisenchantHack extends Hack
 		"Maximum time to wait for the grindstone to produce an output.", 600,
 		100, 2000, 50, ValueDisplay.INTEGER.withSuffix("ms"));
 	
+	private final CheckboxSetting showButton = new CheckboxSetting(
+		"Show button",
+		WText.literal("Show the AutoDisenchant button inside the grindstone."),
+		true);
+	
 	private volatile Thread worker;
 	
 	public AutoDisenchantHack()
@@ -54,6 +60,7 @@ public final class AutoDisenchantHack extends Hack
 		super("AutoDisenchant");
 		setCategory(Category.ITEMS);
 		addSetting(includeHotbar);
+		addSetting(showButton);
 		addSetting(clickDelay);
 		addSetting(outputWait);
 	}
@@ -237,6 +244,16 @@ public final class AutoDisenchantHack extends Hack
 	private boolean isScreenValid(GrindstoneScreen screen)
 	{
 		return MC.screen == screen;
+	}
+	
+	public boolean shouldShowButton()
+	{
+		return showButton.isChecked();
+	}
+	
+	public boolean shouldAutoRun()
+	{
+		return !showButton.isChecked();
 	}
 	
 	private void sleep(long millis) throws InterruptedException

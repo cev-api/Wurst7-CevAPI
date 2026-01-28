@@ -74,7 +74,7 @@ public final class FlightHack extends Hack
 		new SliderSetting("Escape Drop Speed",
 			"Controls how quickly Don't Get Caught drops you.\n"
 				+ "Lower values reduce fall distance so NoFall can keep up.",
-			0.5, 0.05, 2.5, 0.05, ValueDisplay.DECIMAL);
+			3.9, 0.05, 3.9, 0.05, ValueDisplay.DECIMAL);
 	private final CheckboxSetting enableNoFallOnFlight =
 		new CheckboxSetting("Enable NoFall with Flight",
 			"Automatically enables NoFall while Flight is enabled.", false);

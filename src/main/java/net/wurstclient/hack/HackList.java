@@ -97,6 +97,7 @@ public final class HackList implements UpdateListener
 	public final CaveFinderHack caveFinderHack = new CaveFinderHack();
 	public final CheatDetectorHack cheatDetectorHack = new CheatDetectorHack();
 	public final ChorusFruitHack chorusFruitHack = new ChorusFruitHack();
+	public final DamageDetectHack damageDetectHack = new DamageDetectHack();
 	public final LivestreamDetectorHack livestreamDetectorHack =
 		new LivestreamDetectorHack();
 	public final ChatTranslatorHack chatTranslatorHack =

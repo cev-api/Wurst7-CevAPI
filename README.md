@@ -259,6 +259,7 @@ Reports number of waypoints changed.
 
 ### AutoDisenchant
 - Feeds items from your inventory (and or hotbar) that can be disenchanted into the grindstone automatically.
+- Show button toggle lets you hide the grindstone button so the hack auto-runs whenever it’s enabled; show the button and you must press it inside the container.
 
 ### SignFramePassThrough
 - You can now open chests that have item frames or signs in the way!
@@ -605,6 +606,7 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - A green tick will appear when all teleport conditions are met: can reach, won't die and able to pass through.
 - Able to adjust packet rate throttle to avoid spam or detection.
 - Holding shift above bedrock will attempt to break blocks under you to find a cheaper (less damage) route. Will auto switch to pickaxe if available. 
+- You are able to override safeguards in the settings
 - Only works on PaperMC
 
 ![Bedrock](https://i.imgur.com/4mEuHL8.png)
@@ -630,6 +632,10 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Auto centres itself whenever items are removed.
 
 ![HUD](https://i.imgur.com/IZ4lFCx.png)
+
+### DamageDetect
+
+- Navigator only hack that simply tells you who or what caused you damage and where in chat
 
 ## What's changed or improved in this fork?
 
@@ -737,6 +743,12 @@ Examples:
 
 ### AutoSteal Improvements
 - Toggle 'Steal/Store Same' to move items that match the same ones in the players inventory or chest. Bind-able to a key.
+- Added 'Auto' button which can enable and disable Auto stealing on the fly.
+- Added 'Dump' button which throws everything out of the container.
+- Buttons (Auto, Steal, Store, Dump) are toggled within the hack's settings and persist even if AutoSteal is disabled.
+- Added Item List and 'List Only' toggle to only auto steal items on the list.
+
+![Thief](https://i.imgur.com/Dejk1Jd.png)
 
 ### BaseFinder Improvements
 - ESP Y range adjustability
@@ -813,7 +825,8 @@ Examples:
 - Added lock-on targetting
 
 ### HandNoClip Improved
-- Now shows a red X over your crosshair to remind you that you cannot place or interact with blocks (in front of you) while the hack is enabled
+- Displays a red X on the crosshair when block placement or interaction is blocked while the hack is enabled.
+- The red X can also indicate blocks that can be interacted with when On-Target Mode is enabled; in this mode, HandNoClip remains disabled until you are within range of a valid block.
 
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.

@@ -57,7 +57,7 @@ public final class NiceWurstModule
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
 	private static final Set<String> ALLOWED_NAME_ONLY = Set.of("ClickGUI",
-		"Navigator", "ChorusFruit", "MeasurementESP", "Towny");
+		"Navigator", "ChorusFruit", "MeasurementESP", "Towny", "DamageDetect");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");

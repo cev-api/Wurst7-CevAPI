@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.core.BlockPos;
@@ -55,6 +56,8 @@ public abstract class GenericContainerScreenMixin
 	@Unique
 	private final AutoStealHack autoSteal =
 		WurstClient.INSTANCE.getHax().autoStealHack;
+	@Unique
+	private Button autoToggleButton;
 	
 	@Unique
 	private ChestRecorder chestRecorder;
@@ -108,33 +111,47 @@ public abstract class GenericContainerScreenMixin
 		boolean autoButtonsPlaced = false;
 		final int autoButtonHeight = 12;
 		final int autoButtonY = topPos - autoButtonHeight - 4;
-		if(autoSteal.areButtonsVisible())
+		autoToggleButton = null;
+		if(autoSteal.areButtonsVisible() && AutoStealHack
+			.isSupportedScreen((AbstractContainerScreen<?>)this))
 		{
 			autoButtonsPlaced = true;
 			final int buttonWidth = 44;
 			final int buttonSpacing = 3;
+			final int buttonHeight = autoButtonHeight;
 			final int rightMargin = 6;
-			int dumpX = leftPos + imageWidth - rightMargin - buttonWidth;
-			int storeX = dumpX - buttonSpacing - buttonWidth;
-			int stealX = storeX - buttonSpacing - buttonWidth;
+			final int totalWidth = buttonWidth * 4 + buttonSpacing * 3;
+			final int startX = leftPos + (imageWidth - totalWidth) / 2;
+			final int autoX = startX;
+			final int stealX = autoX + buttonWidth + buttonSpacing;
+			final int storeX = stealX + buttonWidth + buttonSpacing;
+			final int dumpX = storeX + buttonWidth + buttonSpacing;
 			
+			autoToggleButton = Button
+				.builder(getAutoButtonLabel(), b -> toggleAutoMode())
+				.bounds(autoX, autoButtonY, buttonWidth, buttonHeight).build();
+			addRenderableWidget(autoToggleButton);
 			addRenderableWidget(Button
 				.builder(Component.literal("Steal"),
 					b -> autoSteal.steal(this, containerRows))
-				.bounds(stealX, autoButtonY, buttonWidth, autoButtonHeight)
+				.bounds(stealX, autoButtonY, buttonWidth, buttonHeight)
 				.build());
 			addRenderableWidget(Button
 				.builder(Component.literal("Store"),
 					b -> autoSteal.store(this, containerRows))
-				.bounds(storeX, autoButtonY, buttonWidth, autoButtonHeight)
+				.bounds(storeX, autoButtonY, buttonWidth, buttonHeight)
 				.build());
 			addRenderableWidget(Button
 				.builder(Component.literal("Dump"),
 					b -> autoSteal.dump(this, containerRows))
-				.bounds(dumpX, autoButtonY, buttonWidth, autoButtonHeight)
-				.build());
+				.bounds(dumpX, autoButtonY, buttonWidth, buttonHeight).build());
+			updateAutoButtonLabel();
+		}else
+		{
+			autoToggleButton = null;
 		}
-		if(autoSteal.isEnabled())
+		if(autoSteal.isEnabled() && AutoStealHack
+			.isSupportedScreen((AbstractContainerScreen<?>)this))
 			autoSteal.steal(this, containerRows);
 		
 		QuickShulkerHack quickShulker =
@@ -1169,6 +1186,9 @@ public abstract class GenericContainerScreenMixin
 			context.drawString(this.font, Component.literal(hint), textX, textY,
 				0xFFFFFF00, false);
 		}
+		
+		if(autoToggleButton != null)
+			updateAutoButtonLabel();
 	}
 	
 	@Override
@@ -1706,6 +1726,24 @@ public abstract class GenericContainerScreenMixin
 		}catch(Throwable ignored)
 		{}
 		return null;
+	}
+	
+	private void updateAutoButtonLabel()
+	{
+		if(autoToggleButton != null)
+			autoToggleButton.setMessage(getAutoButtonLabel());
+	}
+	
+	private Component getAutoButtonLabel()
+	{
+		return Component.literal("Auto").withStyle(
+			autoSteal.isEnabled() ? ChatFormatting.GREEN : ChatFormatting.RED);
+	}
+	
+	private void toggleAutoMode()
+	{
+		autoSteal.setEnabled(!autoSteal.isEnabled());
+		updateAutoButtonLabel();
 	}
 	
 	@Unique

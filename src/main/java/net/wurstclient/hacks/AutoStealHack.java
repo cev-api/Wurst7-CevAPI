@@ -10,19 +10,26 @@ package net.wurstclient.hacks;
 import java.util.List;
 import java.util.stream.IntStream;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.text.WText;
 
 @SearchTags({"auto steal", "ChestStealer", "chest stealer",
 	"steal store buttons", "Steal/Store buttons"})
-public final class AutoStealHack extends Hack
+public final class AutoStealHack extends Hack implements UpdateListener
 {
 	private final SliderSetting delay = new SliderSetting("Delay",
 		"Delay between moving stacks of items.\n"
@@ -39,7 +46,20 @@ public final class AutoStealHack extends Hack
 		"Steal/Store same",
 		"Only move exact matching item types present in the source.", false);
 	
+	private final CheckboxSetting listOnly =
+		new CheckboxSetting("List only",
+			WText.literal(
+				"Only move the items that are in the adjacent item list."),
+			false);
+	
+	private final ItemListSetting itemList =
+		new ItemListSetting("Item list", WText.literal(
+			"Items that AutoSteal is allowed to move when \"List only\" is on."));
+	
 	private Thread thread;
+	private AbstractContainerScreen<?> lastContainerScreen;
+	private long lastAutoStealAttemptMs;
+	private static final long AUTO_STEAL_COOLDOWN_MS = 500L;
 	
 	public AutoStealHack()
 	{
@@ -49,6 +69,26 @@ public final class AutoStealHack extends Hack
 		addSetting(delay);
 		addSetting(reverseSteal);
 		addSetting(stealStoreSame);
+		addSetting(listOnly);
+		addSetting(itemList);
+	}
+	
+	@Override
+	protected void onEnable()
+	{
+		super.onEnable();
+		EVENTS.add(UpdateListener.class, this);
+		maybeStealCurrentChest();
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		super.onDisable();
+		stopThread();
+		EVENTS.remove(UpdateListener.class, this);
+		lastContainerScreen = null;
+		lastAutoStealAttemptMs = 0L;
 	}
 	
 	public void steal(AbstractContainerScreen<?> screen, int rows)
@@ -69,8 +109,11 @@ public final class AutoStealHack extends Hack
 	private void startClickingSlots(AbstractContainerScreen<?> screen, int from,
 		int to, boolean steal)
 	{
-		if(thread != null && thread.isAlive())
-			thread.interrupt();
+		if(isCreativeScreen(screen))
+			return;
+		if(!isSupportedScreen(screen))
+			return;
+		stopThread();
 		
 		thread = Thread.ofPlatform().name("AutoSteal")
 			.uncaughtExceptionHandler((t, e) -> e.printStackTrace()).daemon()
@@ -80,12 +123,29 @@ public final class AutoStealHack extends Hack
 	private void startDroppingSlots(AbstractContainerScreen<?> screen, int from,
 		int to)
 	{
-		if(thread != null && thread.isAlive())
-			thread.interrupt();
+		if(isCreativeScreen(screen))
+			return;
+		if(!isSupportedScreen(screen))
+			return;
+		stopThread();
 		
 		thread = Thread.ofPlatform().name("AutoSteal")
 			.uncaughtExceptionHandler((t, e) -> e.printStackTrace()).daemon()
 			.start(() -> dropSlots(screen, from, to));
+	}
+	
+	private void stopThread()
+	{
+		if(thread != null)
+		{
+			thread.interrupt();
+			thread = null;
+		}
+	}
+	
+	private boolean isThreadAlive()
+	{
+		return thread != null && thread.isAlive();
 	}
 	
 	private void shiftClickSlots(AbstractContainerScreen<?> screen, int from,
@@ -146,6 +206,11 @@ public final class AutoStealHack extends Hack
 				if(slot.getItem().isEmpty())
 					continue;
 				
+				net.minecraft.world.item.Item slotItem =
+					slot.getItem().getItem();
+				if(listOnly.isChecked() && !itemList.contains(slotItem))
+					continue;
+				
 				// Exact-type filtering (Steal/Store same)
 				if(stealStoreSame.isChecked())
 				{
@@ -199,6 +264,35 @@ public final class AutoStealHack extends Hack
 				Thread.currentThread().interrupt();
 				break;
 			}
+	}
+	
+	private void maybeStealCurrentChest()
+	{
+		if(!(MC.screen instanceof AbstractContainerScreen<?> screen))
+			return;
+		
+		if(isCreativeScreen(screen))
+			return;
+		if(!isSupportedScreen(screen))
+			return;
+		
+		int rows = getChestRows(screen);
+		if(rows <= 0)
+			return;
+		
+		steal(screen, rows);
+	}
+	
+	private static int getChestRows(AbstractContainerScreen<?> screen)
+	{
+		int totalSlots = screen.getMenu().slots.size();
+		int chestSlots = Math.max(0, totalSlots - 36);
+		return chestSlots / 9;
+	}
+	
+	private static boolean isCreativeScreen(AbstractContainerScreen<?> screen)
+	{
+		return screen instanceof CreativeModeInventoryScreen;
 	}
 	
 	private List<Slot> collectSlots(AbstractContainerScreen<?> screen, int from,
@@ -316,6 +410,58 @@ public final class AutoStealHack extends Hack
 	public boolean areButtonsVisible()
 	{
 		return buttons.isChecked();
+	}
+	
+	public static boolean isSupportedScreen(AbstractContainerScreen<?> screen)
+	{
+		return screen.getMenu() instanceof ChestMenu
+			|| screen.getMenu() instanceof ShulkerBoxMenu;
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(!isEnabled())
+			return;
+		
+		AbstractContainerScreen<?> screen =
+			MC.screen instanceof AbstractContainerScreen<?> s ? s : null;
+		if(screen == null || screen instanceof InventoryScreen
+			|| isCreativeScreen(screen))
+		{
+			lastContainerScreen = null;
+			stopThread();
+			return;
+		}
+		
+		if(!isSupportedScreen(screen))
+		{
+			lastContainerScreen = null;
+			stopThread();
+			return;
+		}
+		
+		if(screen != lastContainerScreen)
+		{
+			lastContainerScreen = screen;
+			lastAutoStealAttemptMs = 0L;
+		}
+		
+		if(isThreadAlive())
+			return;
+		
+		if(System.currentTimeMillis()
+			- lastAutoStealAttemptMs < AUTO_STEAL_COOLDOWN_MS)
+		{
+			return;
+		}
+		
+		int rows = getChestRows(screen);
+		if(rows <= 0)
+			return;
+		
+		lastAutoStealAttemptMs = System.currentTimeMillis();
+		steal(screen, rows);
 	}
 	
 	// See GenericContainerScreenMixin and ShulkerBoxScreenMixin
