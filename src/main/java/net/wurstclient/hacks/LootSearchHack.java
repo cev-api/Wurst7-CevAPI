@@ -7,7 +7,6 @@
  */
 package net.wurstclient.hacks;
 
-import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.WurstClient;
 import net.wurstclient.lootsearch.LootChestManager;
@@ -20,7 +19,7 @@ public final class LootSearchHack extends Hack
 	public LootSearchHack()
 	{
 		super("LootSearch");
-		setCategory(Category.ITEMS);
+		// No category -> Navigator-only
 	}
 	
 	@Override

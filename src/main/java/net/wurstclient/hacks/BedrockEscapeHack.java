@@ -58,6 +58,17 @@ public final class BedrockEscapeHack extends Hack
 			"Allow teleporting even when the safe-tick indicator isn't showing.",
 			false);
 	
+	private final CheckboxSetting shiftClickActivation = new CheckboxSetting(
+		"Shift Click Activation",
+		"Require holding shift to teleport when going down through bedrock.",
+		false);
+	
+	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
+		"Auto Switch Tool",
+		"Automatically switches to the best tool (pickaxe) when breaking blocks"
+			+ " below bedrock.",
+		true);
+	
 	private final ColorSetting boxColor =
 		new ColorSetting("Bedrock Color", new Color(128, 0, 255));
 	
@@ -74,6 +85,7 @@ public final class BedrockEscapeHack extends Hack
 	private boolean isValidTarget;
 	private boolean teleportedThisPress;
 	private boolean showSafeTick;
+	private boolean targetBelow;
 	private final List<BlockPos> blocksBelowBedrock = new ArrayList<>();
 	private static final int SHIFT_BREAK_COOLDOWN_TICKS = 6;
 	private int shiftBreakCooldown;
@@ -89,6 +101,8 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(render);
 		addSetting(boxColor);
 		addSetting(ignoreSafeTickRequirement);
+		addSetting(shiftClickActivation);
+		addSetting(autoSwitchTool);
 	}
 	
 	@Override
@@ -117,6 +131,27 @@ public final class BedrockEscapeHack extends Hack
 			return;
 		
 		updateTarget();
+		if(!isValidTarget)
+			return;
+		
+		if(!showSafeTick && !ignoreSafeTickRequirement.isChecked())
+			return;
+		
+		boolean shiftOk = !targetBelow || !shiftClickActivation.isChecked()
+			|| MC.options.keyShift.isDown();
+		boolean wantsTeleport = MC.options.keyAttack.isDown() && shiftOk;
+		if(wantsTeleport)
+		{
+			if(!teleportedThisPress)
+			{
+				performTeleport(teleportTarget);
+				teleportedThisPress = true;
+			}
+			return;
+		}
+		
+		teleportedThisPress = false;
+		
 		boolean breakingBelowBedrock =
 			isValidTarget && MC.options.keyShift.isDown();
 		if(breakingBelowBedrock)
@@ -134,24 +169,6 @@ public final class BedrockEscapeHack extends Hack
 		}
 		
 		shiftBreakCooldown = 0;
-		
-		if(!isValidTarget)
-			return;
-		
-		if(!showSafeTick && !ignoreSafeTickRequirement.isChecked())
-			return;
-		
-		if(MC.options.keyAttack.isDown())
-		{
-			if(!teleportedThisPress)
-			{
-				performTeleport(teleportTarget);
-				teleportedThisPress = true;
-			}
-		}else
-		{
-			teleportedThisPress = false;
-		}
 	}
 	
 	@Override
@@ -289,6 +306,7 @@ public final class BedrockEscapeHack extends Hack
 		boolean correctOrientation = dropDistance > 0 ? facingDown : facingUp;
 		showSafeTick =
 			isValidTarget && safeFromDamage && isVertical && correctOrientation;
+		targetBelow = dropDistance > 0;
 		
 		targetBox = new AABB(teleportTarget.x - 0.5, teleportTarget.y,
 			teleportTarget.z - 0.5, teleportTarget.x + 0.5,
@@ -339,6 +357,31 @@ public final class BedrockEscapeHack extends Hack
 			|| MC.player.connection == null)
 		{
 			return;
+		}
+		
+		if(autoSwitchTool.isChecked())
+		{
+			BlockPos target = null;
+			for(BlockPos pos : blocksBelowBedrock)
+			{
+				if(MC.level != null && !MC.level.getBlockState(pos).isAir())
+				{
+					target = pos;
+					break;
+				}
+			}
+			if(target != null)
+			{
+				net.wurstclient.hacks.AutoToolHack autoTool =
+					WURST.getHax().autoToolHack;
+				if(autoTool != null)
+				{
+					if(autoTool.isEnabled())
+						autoTool.equipIfEnabled(target);
+					else
+						autoTool.equipBestTool(target, true, true, 0);
+				}
+			}
 		}
 		
 		BlockBreaker.breakBlocksWithPacketSpam(blocksBelowBedrock);
