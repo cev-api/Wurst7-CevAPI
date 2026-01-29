@@ -39,8 +39,14 @@ public final class LootSearchUtil
 		try
 		{
 			if(WurstClient.MC != null && WurstClient.MC.gameDirectory != null)
+			{
+				File resolved =
+					resolveSeedmapperLoot(WurstClient.MC.gameDirectory);
+				if(resolved != null)
+					return resolved;
 				return new File(WurstClient.MC.gameDirectory,
 					"seedmapper/loot");
+			}
 		}catch(Throwable ignored)
 		{}
 		String os = System.getProperty("os.name").toLowerCase();
@@ -182,6 +188,18 @@ public final class LootSearchUtil
 			}
 		}
 		
+		String[] mcFolderNames = {"minecraft", ".minecraft"};
+		for(String mcFolder : mcFolderNames)
+		{
+			File mc = new File(root, mcFolder);
+			if(mc.exists() && mc.isDirectory())
+			{
+				File resolved = resolveSeedmapperLoot(mc);
+				if(resolved != null)
+					return resolved;
+			}
+		}
+		
 		return null;
 	}
 	
@@ -221,7 +239,7 @@ public final class LootSearchUtil
 	public static File findFileForServer(String serverIp)
 	{
 		if(serverIp == null)
-			return null;
+			serverIp = "";
 		File dir = getSeedmapperLootDir();
 		if(dir == null || !dir.exists() || !dir.isDirectory())
 			return null;
@@ -277,6 +295,15 @@ public final class LootSearchUtil
 				}
 			}
 		}
+		// Fallback: if nothing matched, use the most recently modified file.
+		if(best == null && files.length > 0)
+		{
+			for(File f : files)
+			{
+				if(best == null || f.lastModified() > best.lastModified())
+					best = f;
+			}
+		}
 		return best;
 	}
 	
@@ -295,63 +322,152 @@ public final class LootSearchUtil
 				? obj.get("dimension").getAsString() : null;
 			JsonArray structs =
 				obj.has("structures") ? obj.getAsJsonArray("structures") : null;
+			if(structs == null && obj.has("items"))
+			{
+				structs = new JsonArray();
+				structs.add(obj);
+			}
 			if(structs == null)
 				return out;
 			for(JsonElement se : structs)
 			{
 				if(!se.isJsonObject())
 					continue;
-				JsonObject s = se.getAsJsonObject();
-				int x = s.has("x") ? s.get("x").getAsInt() : 0;
-				int y = s.has("y") ? s.get("y").getAsInt() : 0;
-				int z = s.has("z") ? s.get("z").getAsInt() : 0;
-				ChestEntry ce = new ChestEntry();
-				ce.serverIp = serverIp;
-				ce.dimension = dimension;
-				ce.x = x;
-				ce.y = y;
-				ce.z = z;
-				ce.maxX = x;
-				ce.maxY = y;
-				ce.maxZ = z;
-				ce.items = new ArrayList<>();
-				JsonArray items =
-					s.has("items") ? s.getAsJsonArray("items") : null;
-				if(items != null)
-				{
-					Map<String, Integer> sums = new HashMap<>();
-					for(JsonElement ie : items)
-					{
-						if(!ie.isJsonObject())
-							continue;
-						JsonObject it = ie.getAsJsonObject();
-						String id =
-							it.has("id") ? it.get("id").getAsString() : null;
-						int count =
-							it.has("count") ? it.get("count").getAsInt() : 1;
-						if(id == null)
-							continue;
-						sums.put(id, sums.getOrDefault(id, 0) + count);
-					}
-					int slot = 0;
-					for(Map.Entry<String, Integer> e : sums.entrySet())
-					{
-						ChestEntry.ItemEntry ie = new ChestEntry.ItemEntry();
-						ie.slot = slot++;
-						ie.count = e.getValue();
-						ie.itemId = e.getKey();
-						ie.displayName = null;
-						ie.nbt = null;
-						ce.items.add(ie);
-					}
-				}
-				out.add(ce);
+				ChestEntry ce = parseStructureEntry(se.getAsJsonObject(),
+					serverIp, dimension);
+				if(ce != null)
+					out.add(ce);
 			}
 		}catch(Throwable t)
 		{
 			t.printStackTrace();
 		}
 		return out;
+	}
+	
+	private static ChestEntry parseStructureEntry(JsonObject s, String serverIp,
+		String dimension)
+	{
+		int x = s.has("x") ? s.get("x").getAsInt() : 0;
+		int y = s.has("y") ? s.get("y").getAsInt() : 0;
+		int z = s.has("z") ? s.get("z").getAsInt() : 0;
+		ChestEntry ce = new ChestEntry();
+		ce.serverIp = serverIp;
+		ce.dimension = dimension;
+		ce.x = x;
+		ce.y = y;
+		ce.z = z;
+		ce.maxX = x;
+		ce.maxY = y;
+		ce.maxZ = z;
+		ce.items = new ArrayList<>();
+		
+		JsonArray items = s.has("items") ? s.getAsJsonArray("items") : null;
+		if(items == null)
+			return ce;
+		
+		boolean detailedItems = false;
+		for(JsonElement ie : items)
+		{
+			if(!ie.isJsonObject())
+				continue;
+			JsonObject it = ie.getAsJsonObject();
+			if(it.has("slot") || it.has("displayName") || it.has("nbt")
+				|| it.has("enchantments") || it.has("enchantmentLevels")
+				|| it.has("itemId"))
+			{
+				detailedItems = true;
+				break;
+			}
+		}
+		
+		if(detailedItems)
+		{
+			int fallbackSlot = 0;
+			for(JsonElement ie : items)
+			{
+				if(!ie.isJsonObject())
+					continue;
+				JsonObject it = ie.getAsJsonObject();
+				String id = null;
+				if(it.has("itemId"))
+					id = it.get("itemId").getAsString();
+				else if(it.has("id"))
+					id = it.get("id").getAsString();
+				if(id == null)
+					continue;
+				
+				ChestEntry.ItemEntry item = new ChestEntry.ItemEntry();
+				item.slot =
+					it.has("slot") ? it.get("slot").getAsInt() : fallbackSlot++;
+				item.count = it.has("count") ? it.get("count").getAsInt() : 1;
+				item.itemId = id;
+				item.displayName = it.has("displayName")
+					? it.get("displayName").getAsString() : null;
+				if(it.has("nbt"))
+				{
+					JsonElement nbt = it.get("nbt");
+					item.nbt = nbt.isJsonPrimitive() ? nbt : nbt.deepCopy();
+				}
+				
+				if(it.has("enchantments")
+					&& it.get("enchantments").isJsonArray())
+				{
+					JsonArray ench = it.getAsJsonArray("enchantments");
+					java.util.List<String> list = new java.util.ArrayList<>();
+					for(JsonElement e : ench)
+					{
+						if(e != null && e.isJsonPrimitive())
+							list.add(e.getAsString());
+					}
+					if(!list.isEmpty())
+						item.enchantments = list;
+				}
+				
+				if(it.has("enchantmentLevels")
+					&& it.get("enchantmentLevels").isJsonArray())
+				{
+					JsonArray lv = it.getAsJsonArray("enchantmentLevels");
+					java.util.List<Integer> list = new java.util.ArrayList<>();
+					for(JsonElement e : lv)
+					{
+						if(e != null && e.isJsonPrimitive())
+							list.add(Integer.valueOf(e.getAsInt()));
+					}
+					if(!list.isEmpty())
+						item.enchantmentLevels = list;
+				}
+				
+				ce.items.add(item);
+			}
+		}else
+		{
+			Map<String, Integer> sums = new HashMap<>();
+			for(JsonElement ie : items)
+			{
+				if(!ie.isJsonObject())
+					continue;
+				JsonObject it = ie.getAsJsonObject();
+				String id = it.has("id") ? it.get("id").getAsString() : null;
+				int count = it.has("count") ? it.get("count").getAsInt() : 1;
+				if(id == null)
+					continue;
+				sums.put(id, sums.getOrDefault(id, 0) + count);
+			}
+			int slot = 0;
+			for(Map.Entry<String, Integer> e : sums.entrySet())
+			{
+				ChestEntry.ItemEntry ie = new ChestEntry.ItemEntry();
+				ie.slot = slot++;
+				ie.count = e.getValue();
+				ie.itemId = e.getKey();
+				ie.displayName = null;
+				ie.nbt = null;
+				ce.items.add(ie);
+			}
+		}
+		
+		return ce;
 	}
 	
 	public static ChestEntry findEntryByPos(List<ChestEntry> entries, int x,

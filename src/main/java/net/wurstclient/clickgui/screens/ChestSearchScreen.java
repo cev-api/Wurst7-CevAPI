@@ -59,6 +59,7 @@ public final class ChestSearchScreen extends Screen
 	private int scrollThumbTop = 0;
 	private int scrollThumbHeight = 0;
 	private double scrollMaxOffset = 0.0;
+	private int contentWidth = 340;
 	
 	// persist temp waypoints across screen instances
 	private static final class TempWp
@@ -120,6 +121,23 @@ public final class ChestSearchScreen extends Screen
 		BlockPos max = entry.getMaxPos();
 		return server + "|" + dim + "|" + formatBlockPos(min) + ">"
 			+ formatBlockPos(max);
+	}
+	
+	private int getContentWidth()
+	{
+		int max = Math.max(0, this.width - 4);
+		int width = contentWidth;
+		if(width < 340)
+			width = 340;
+		if(width > max)
+			width = max;
+		return width;
+	}
+	
+	private int getContentLeft()
+	{
+		int width = getContentWidth();
+		return (this.width - width) / 2;
 	}
 	
 	public static boolean isWaypointActive(String dimension, BlockPos pos)
@@ -577,7 +595,7 @@ public final class ChestSearchScreen extends Screen
 		}
 		rowButtons.clear();
 		
-		int x = this.width / 2 - 150;
+		int x = getContentLeft();
 		int resultsTop = getResultsTop();
 		int y = resultsTop - (int)Math.round(scrollOffset);
 		int visibleTop = resultsTop;
@@ -708,7 +726,7 @@ public final class ChestSearchScreen extends Screen
 							.create(Component.literal("ESP active")));
 			}
 			// position esp and wp buttons to the right side of the result box
-			int boxRight = x + 340;
+			int boxRight = x + getContentWidth();
 			int wpWidth = 56;
 			int espWidth = isLootManager ? 0 : 40;
 			int deleteWidth = 56;
@@ -1004,8 +1022,37 @@ public final class ChestSearchScreen extends Screen
 		int sfY = 18;
 		context.fill(sfX - 2, sfY - 2, sfX + 222, sfY + 22, 0xFF333333);
 		int summaryY = sfY + 24;
+		int shown = results == null ? 0 : results.size();
+		String limiter = limitedResults
+			? " (showing first " + WurstClient.INSTANCE.getHax().chestSearchHack
+				.getMaxSearchResults() + ")"
+			: "";
+		java.util.ArrayList<String> summaryExtras = new java.util.ArrayList<>();
+		if(radiusFilterActive && radiusLimitBlocks < Integer.MAX_VALUE)
+			summaryExtras.add("radius <= " + radiusLimitBlocks + " blocks");
+		if(radiusFilterActive && radiusFilteredOut > 0)
+			summaryExtras.add(radiusFilteredOut + " outside radius");
+		String summaryExtra = summaryExtras.isEmpty() ? ""
+			: " (" + String.join(", ", summaryExtras) + ")";
+		String matchLabel =
+			currentQuery.isEmpty() ? "Listed items" : "Matching items";
+		String summary = "Showing " + shown + "/" + totalMatches + limiter
+			+ summaryExtra + " - " + matchLabel + ": " + totalMatchingItems
+			+ " - Tracking " + totalChestsLogged + " chests, "
+			+ totalItemsLogged + " items";
+		int summaryPadding = 8;
+		int summaryWidth = this.font.width(summary) + summaryPadding * 2;
+		if(summaryWidth > this.width - 4)
+			summaryWidth = this.width - 4;
+		int desiredWidth = Math.max(340, summaryWidth);
+		if(desiredWidth != contentWidth)
+		{
+			contentWidth = desiredWidth;
+			clampScroll();
+			rebuildRowButtons();
+		}
 		// draw result panels BEFORE super.render so buttons draw on top
-		int x = this.width / 2 - 150;
+		int x = getContentLeft();
 		int visibleTop = getResultsTop();
 		int visibleBottom = getVisibleBottom();
 		int visibleHeight = Math.max(0, visibleBottom - visibleTop);
@@ -1032,7 +1079,7 @@ public final class ChestSearchScreen extends Screen
 		int y = visibleTop - (int)Math.round(scrollOffset);
 		
 		int trackWidth = 8;
-		int trackX = x + 340 + 6;
+		int trackX = x + getContentWidth() + 6;
 		int buttonWidth =
 			scrollUpButton != null ? scrollUpButton.getWidth() : 44;
 		int buttonHeight =
@@ -1118,10 +1165,11 @@ public final class ChestSearchScreen extends Screen
 			if(y > visibleBottom)
 				break;
 			int bgColor = pinnedEntry ? 0x80423210 : 0x80202020;
-			context.fill(x - 6, y, x + 340, y + boxHeight, bgColor);
+			context.fill(x - 6, y, x + getContentWidth(), y + boxHeight,
+				bgColor);
 			int headerY = y + 6;
 			String locationLabel = formatLocationLabel(e, dim);
-			int boxRight = x + 340;
+			int boxRight = x + getContentWidth();
 			// compute available width for location text (leave space for
 			// buttons)
 			int wpWidth = 56;
@@ -1330,28 +1378,6 @@ public final class ChestSearchScreen extends Screen
 		}
 		// now draw children (buttons etc.) on top
 		super.render(context, mouseX, mouseY, delta);
-		int shown = results == null ? 0 : results.size();
-		String limiter = limitedResults
-			? " (showing first " + WurstClient.INSTANCE.getHax().chestSearchHack
-				.getMaxSearchResults() + ")"
-			: "";
-		java.util.ArrayList<String> summaryExtras = new java.util.ArrayList<>();
-		if(radiusFilterActive && radiusLimitBlocks < Integer.MAX_VALUE)
-			summaryExtras.add("radius <= " + radiusLimitBlocks + " blocks");
-		if(radiusFilterActive && radiusFilteredOut > 0)
-			summaryExtras.add(radiusFilteredOut + " outside radius");
-		String extra = summaryExtras.isEmpty() ? ""
-			: " (" + String.join(", ", summaryExtras) + ")";
-		String matchLabel =
-			currentQuery.isEmpty() ? "Listed items" : "Matching items";
-		String summary =
-			"Showing " + shown + "/" + totalMatches + limiter + extra + " - "
-				+ matchLabel + ": " + totalMatchingItems + " - Tracking "
-				+ totalChestsLogged + " chests, " + totalItemsLogged + " items";
-		int summaryPadding = 8;
-		int summaryWidth = this.font.width(summary) + summaryPadding * 2;
-		if(summaryWidth > this.width - 4)
-			summaryWidth = this.width - 4;
 		int summaryHalf = summaryWidth / 2;
 		int summaryCenter = this.width / 2;
 		int summaryLeft = Math.max(0, summaryCenter - summaryHalf);

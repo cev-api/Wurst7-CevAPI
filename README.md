@@ -432,9 +432,10 @@ Reports number of waypoints changed.
 - Using [my fork](https://github.com/cev-api/SeedMapper-CevAPI) of [SeedMapper](https://github.com/xpple/SeedMapper/) you can export loot tables for selected/all structures and then parse that information using the same UI as ChestSearch.
 - Sorted by closest chest.
 - You can search for specific loot and set a waypoint towards it.
+- Supports enchantments.
 - Will not function without a valid SeedMapper loot export JSON for the server you're in.
 
-![Loot](https://i.imgur.com/7pkTPxW.png)
+![Loot](https://i.imgur.com/pe7bbAB.png)
 
 ### SpearAssist
 - Boost Modes:

@@ -53,11 +53,14 @@ public final class LootSearchHack extends Hack
 			if(f == null)
 			{
 				if(WurstClient.MC != null && WurstClient.MC.player != null)
+				{
 					WurstClient.MC.player
 						.displayClientMessage(
 							net.minecraft.network.chat.Component.literal(
 								"No loot export found for this server."),
 							false);
+					sendLootSearchDebug(serverIp, dir);
+				}
 				setEnabled(false);
 				return;
 			}
@@ -71,5 +74,48 @@ public final class LootSearchHack extends Hack
 			t.printStackTrace();
 		}
 		setEnabled(false);
+	}
+	
+	private void sendLootSearchDebug(String serverIp, File dir)
+	{
+		if(WurstClient.MC == null || WurstClient.MC.player == null)
+			return;
+		
+		String ip = serverIp == null ? "<null>" : serverIp;
+		String dirPath = dir == null ? "<null>" : dir.getAbsolutePath();
+		WurstClient.MC.player
+			.displayClientMessage(net.minecraft.network.chat.Component
+				.literal("LootSearch debug: serverIp=" + ip), false);
+		WurstClient.MC.player
+			.displayClientMessage(net.minecraft.network.chat.Component
+				.literal("LootSearch debug: lootDir=" + dirPath), false);
+		
+		if(dir == null || !dir.exists() || !dir.isDirectory())
+			return;
+		
+		File[] files =
+			dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
+		if(files == null || files.length == 0)
+		{
+			WurstClient.MC.player.displayClientMessage(
+				net.minecraft.network.chat.Component.literal(
+					"LootSearch debug: no .json files in lootDir"),
+				false);
+			return;
+		}
+		
+		StringBuilder names = new StringBuilder();
+		for(int i = 0; i < files.length && i < 10; i++)
+		{
+			if(i > 0)
+				names.append(", ");
+			names.append(files[i].getName());
+		}
+		if(files.length > 10)
+			names.append(" ... (").append(files.length).append(" total)");
+		
+		WurstClient.MC.player
+			.displayClientMessage(net.minecraft.network.chat.Component
+				.literal("LootSearch debug: files=" + names), false);
 	}
 }
