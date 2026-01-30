@@ -158,6 +158,7 @@ public final class HackList implements UpdateListener
 	public final SpearAssistHack spearAssistHack = new SpearAssistHack();
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final BedrockEscapeHack bedrockEscapeHack = new BedrockEscapeHack();
+	public final TeleportHack teleportHack = new TeleportHack();
 	public final MileyCyrusHack mileyCyrusHack = new MileyCyrusHack();
 	public final MeasurementEspHack measurementEspHack =
 		new MeasurementEspHack();

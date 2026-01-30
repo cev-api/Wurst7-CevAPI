@@ -7,25 +7,45 @@
  */
 package net.wurstclient.hacks;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.stream.Collectors;
-import net.wurstclient.settings.TextFieldSetting;
-import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.settings.ButtonSetting;
-import net.wurstclient.clickgui.components.SpacerComponent;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.StringDropdownSetting;
+import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.InteractionSimulator;
 import net.wurstclient.clickgui.Component;
+import net.wurstclient.clickgui.components.SpacerComponent;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 @SearchTags({"auto sign"})
 @DontSaveState
-public final class AutoSignHack extends Hack
+public final class AutoSignHack extends Hack implements UpdateListener
 {
 	private static final int MAX_LINES = 4;
 	private static final int MAX_CHARS_PER_LINE = 15;
@@ -35,6 +55,21 @@ public final class AutoSignHack extends Hack
 		"Preset sign text",
 		"Type the text to write on signs. It will be wrapped to 4 lines with up to 15 characters each.",
 		"", AutoSignHack::canFitOnSign);
+	private final CheckboxSetting signAura = new CheckboxSetting("Sign Aura",
+		"Automatically edit any nearby sign with the preset text.", false);
+	private final SliderSetting auraRange = new SliderSetting("Aura Range",
+		"Max reach in blocks to scan for signs.", 4, 1, 6, 0.5,
+		ValueDisplay.DECIMAL);
+	private final SliderSetting auraDelay = new SliderSetting("Aura Delay",
+		"Ticks to wait between each auto-edit attempt.", 1, 1, 40, 1,
+		ValueDisplay.INTEGER);
+	private final CheckboxSetting auraFeedback =
+		new CheckboxSetting("Chat Feedback",
+			"Log sign edits (old text → new text + coordinates).", false);
+	private final CheckboxSetting auraThroughWalls = new CheckboxSetting(
+		"HandNoClip reach",
+		"Allow the aura to target signs through walls when HandNoClip is on.",
+		false);
 	
 	// Preset management
 	private final TextFieldSetting presetName = new TextFieldSetting(
@@ -48,6 +83,9 @@ public final class AutoSignHack extends Hack
 	
 	// Hidden persistence backing for presets
 	private final PresetsSetting presetsSetting = new PresetsSetting();
+	
+	private int auraTimer;
+	private int auraRotation;
 	
 	public AutoSignHack()
 	{
@@ -99,15 +137,31 @@ public final class AutoSignHack extends Hack
 		addSetting(loadPresetButton);
 		addSetting(deletePresetButton);
 		addSetting(applyNowButton);
+		addSetting(signAura);
+		addSetting(auraRange);
+		addSetting(auraDelay);
+		addSetting(auraThroughWalls);
+		addSetting(auraFeedback);
 		addSetting(presetsSetting);
 		presetsSetting.setVisibleInGui(false);
 		updatePresetDropdown();
 	}
 	
 	@Override
+	protected void onEnable()
+	{
+		auraRotation = 0;
+		auraTimer = 0;
+		EVENTS.add(UpdateListener.class, this);
+	}
+	
+	@Override
 	protected void onDisable()
 	{
+		EVENTS.remove(UpdateListener.class, this);
 		signText = null;
+		auraRotation = 0;
+		auraTimer = 0;
 	}
 	
 	public String[] getSignText()
@@ -316,6 +370,175 @@ public final class AutoSignHack extends Hack
 		// Clear captured template so the new preset/text becomes effective on
 		// next sign
 		signText = null;
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(!signAura.isChecked() || MC.player == null || MC.level == null
+			|| MC.screen != null)
+			return;
+		
+		String[] newText = getSignText();
+		if(newText == null)
+			return;
+		
+		if(auraTimer > 0)
+		{
+			auraTimer--;
+			return;
+		}
+		
+		List<BlockPos> candidates = findNearbySigns();
+		if(candidates.isEmpty())
+			return;
+		
+		int index = Math.floorMod(auraRotation, candidates.size());
+		auraRotation++;
+		BlockPos target = candidates.get(index);
+		
+		SignBlockEntity signEntity =
+			(SignBlockEntity)MC.level.getBlockEntity(target);
+		
+		if(signEntity == null)
+		{
+			auraTimer = Math.max(1, auraDelay.getValueI());
+			return;
+		}
+		
+		String[] oldText = readSign(signEntity);
+		if(linesMatch(oldText, newText))
+		{
+			auraTimer = Math.max(1, auraDelay.getValueI());
+			return;
+		}
+		
+		Vec3 hitVec = Vec3.atCenterOf(target);
+		BlockHitResult hitResult =
+			new BlockHitResult(hitVec, Direction.UP, target, false);
+		InteractionSimulator.rightClickBlock(hitResult,
+			InteractionHand.MAIN_HAND);
+		auraTimer = Math.max(1, auraDelay.getValueI());
+		
+		reportSignEdit(target, oldText, newText);
+	}
+	
+	private List<BlockPos> findNearbySigns()
+	{
+		List<BlockPos> results = new ArrayList<>();
+		if(MC.player == null || MC.level == null)
+			return results;
+		
+		double range = auraRange.getValue();
+		double rangeSq = range * range;
+		Vec3 playerPos = MC.player.getEyePosition(1.0F);
+		BlockPos playerBlock = MC.player.blockPosition();
+		int radius = (int)Math.ceil(range);
+		
+		for(int dx = -radius; dx <= radius; dx++)
+		{
+			for(int dy = -radius; dy <= radius; dy++)
+			{
+				for(int dz = -radius; dz <= radius; dz++)
+				{
+					BlockPos candidate = playerBlock.offset(dx, dy, dz);
+					Vec3 center = Vec3.atCenterOf(candidate);
+					double distSq = playerPos.distanceToSqr(center);
+					if(distSq > rangeSq)
+						continue;
+					
+					BlockState state = MC.level.getBlockState(candidate);
+					if(!(state.getBlock() instanceof SignBlock))
+						continue;
+					
+					boolean visible = BlockUtils.hasLineOfSight(center);
+					if(!visible && canUseHandNoClip())
+						visible = true;
+					if(!visible)
+						continue;
+					
+					results.add(candidate);
+				}
+			}
+		}
+		
+		return results;
+	}
+	
+	private boolean linesMatch(String[] current, String[] desired)
+	{
+		if(current == null || desired == null)
+			return current == desired;
+		
+		for(int i = 0; i < MAX_LINES; i++)
+		{
+			String existing = i < current.length ? current[i] : "";
+			String wanted = i < desired.length ? desired[i] : "";
+			if(!Objects.equals(existing, wanted))
+				return false;
+		}
+		
+		return true;
+	}
+	
+	private boolean canUseHandNoClip()
+	{
+		if(!auraThroughWalls.isChecked())
+			return false;
+		
+		HandNoClipHack handNoClip = WURST.getHax().handNoClipHack;
+		return handNoClip != null && handNoClip.isEnabled();
+	}
+	
+	private String[] readSign(SignBlockEntity sign)
+	{
+		String[] lines = new String[MAX_LINES];
+		if(sign == null)
+		{
+			for(int i = 0; i < MAX_LINES; i++)
+				lines[i] = "";
+			return lines;
+		}
+		
+		SignText signText = sign.getFrontText();
+		for(int i = 0; i < MAX_LINES; i++)
+		{
+			net.minecraft.network.chat.Component component =
+				signText == null ? null : signText.getMessage(i, false);
+			lines[i] = component == null ? "" : component.getString();
+		}
+		
+		return lines;
+	}
+	
+	private void reportSignEdit(BlockPos pos, String[] oldLines,
+		String[] newLines)
+	{
+		if(!auraFeedback.isChecked() || pos == null)
+			return;
+		
+		String oldText = formatLines(oldLines);
+		String newText = formatLines(newLines);
+		String message = String.format("Sign Aura: %s -> %s at %d %d %d",
+			oldText, newText, pos.getX(), pos.getY(), pos.getZ());
+		ChatUtils.message(message);
+	}
+	
+	private String formatLines(String[] lines)
+	{
+		if(lines == null)
+			return "<empty>";
+		
+		StringJoiner joiner = new StringJoiner(" | ");
+		for(String line : lines)
+		{
+			if(line == null || line.isEmpty())
+				continue;
+			joiner.add(line);
+		}
+		
+		String text = joiner.toString();
+		return text.isEmpty() ? "<empty>" : text;
 	}
 	
 	// Hidden Setting that persists name->text presets

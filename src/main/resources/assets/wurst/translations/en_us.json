@@ -64,6 +64,7 @@
   "description.wurst.hack.beaconexploit": "Intercepts beacon packets and spoofs your chosen primary and secondary effects so you can request buffs like Regen II even without upgrading the beacon properly.",
   "description.wurst.hack.bedesp": "Highlights nearby beds",
   "description.wurst.hack.bedrockescape": "Lets you teleport through bedrock when looking straight up or down. Shows a safe-tick indicator and can break blocks below bedrock while sneaking.",
+  "description.wurst.hack.teleport": "Teleports you along a visible path with damage/safe-tick readouts and an optional phase-through-walls mode.",
   "description.wurst.hack.blink": "Suspends all motion updates while enabled.",
   "description.wurst.hack.boatfly": "Allows you to fly with boats and other vehicles.\nPress the sprint key to go down faster.",
   "description.wurst.hack.bonemealaura": "Automatically uses bone meal on specific types of plants.\nUse the checkboxes to specify the types of plants.",

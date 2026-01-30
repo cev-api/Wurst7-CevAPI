@@ -638,6 +638,16 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 
 - Navigator only hack that simply tells you who or what caused you damage and where in chat
 
+
+### Teleport
+
+- Teleports you along a visible path 
+- You can move at angles while going upward with little to no damage, but note that any upward travel can still hurt if you overshoot.
+- Going downhill always shows the approximate damage in the HUD and may not be 100 % accurate, and diagonal downward teleports usually fail.
+- Phasing through walls horizontally generally doesn't work unless going on an angle.
+- There are toggles for Allow Liquids, Render Path, and separate colours for the regular and phasing boxes so you can adjust the visuals without clutter.
+
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -822,6 +832,7 @@ Examples:
 ### AutoSign Improved
 - Can input sign text directly into ClickUI/Nagivator
 - Can now save and manage a list of presets
+- Added sign aura which supports HandNoClip and chat logging
 
 ### AimAssist Improved
 - Added lock-on targetting
