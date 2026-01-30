@@ -116,6 +116,15 @@ public final class EnabledHacksFile
 		if(disableSaving)
 			return;
 		
+		try
+		{
+			net.minecraft.client.Minecraft mc = net.wurstclient.WurstClient.MC;
+			if(mc != null
+				&& mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
+				return;
+		}catch(Throwable ignored)
+		{}
+		
 		JsonArray json = createJson(hax);
 		
 		try

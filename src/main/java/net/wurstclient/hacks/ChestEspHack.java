@@ -70,6 +70,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		"HackList count",
 		"Appends the number of detected chests/containers to this hack's entry in the HackList.",
 		false);
+	private final SliderSetting boxAlpha = new SliderSetting("Box opacity",
+		"Opacity for filled boxes (0 = fully transparent, 255 = opaque).", 64,
+		0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting lineAlpha = new SliderSetting("Line opacity",
+		"Opacity for outlines and tracers (0 = fully transparent, 255 = opaque).",
+		128, 0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting tracerAlpha =
+		new SliderSetting("Tracer opacity",
+			"Opacity for tracers (0 = fully transparent, 255 = opaque).", 128,
+			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private int foundCount;
 	
 	private final CheckboxSetting onlyAboveGround =
@@ -138,6 +148,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(doubleChestsOnly);
 		addSetting(filterVillages);
 		addSetting(showCountInHackList);
+		addSetting(boxAlpha);
+		addSetting(lineAlpha);
+		addSetting(tracerAlpha);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
 	}
@@ -328,8 +341,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(boxes.isEmpty() && buriedBoxes.isEmpty())
 				continue;
 			
-			int quadsColor = group.getColorI(0x40);
-			int linesColor = group.getColorI(0x80);
+			int quadAlpha = boxAlpha.getValueI();
+			int lineAlphaI = lineAlpha.getValueI();
+			int quadsColor = group.getColorI(quadAlpha);
+			int linesColor = group.getColorI(lineAlphaI);
 			
 			// Compute opened/closed across both normal and buried boxes
 			List<AABB> openedBoxes = java.util.Collections.emptyList();
@@ -388,9 +403,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				if(!closedBuried.isEmpty())
 				{
 					int bFill = highlightBuried.isChecked()
-						? buriedColor.getColorI(0x40) : quadsColor;
+						? buriedColor.getColorI(quadAlpha) : quadsColor;
 					int bLine = highlightBuried.isChecked()
-						? buriedColor.getColorI(0x80) : linesColor;
+						? buriedColor.getColorI(lineAlphaI) : linesColor;
 					RenderUtils.drawSolidBoxes(matrixStack, closedBuried, bFill,
 						false);
 					RenderUtils.drawOutlinedBoxes(matrixStack, closedBuried,
@@ -398,8 +413,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				}
 				
 				int markColor = csh.getMarkXColorARGB();
-				int openedFillColor = (markColor & 0x00FFFFFF) | (0x40 << 24);
-				int openedLineColor = markColor;
+				int openedFillColor =
+					(markColor & 0x00FFFFFF) | (quadAlpha << 24);
+				int openedLineColor =
+					(markColor & 0x00FFFFFF) | (lineAlphaI << 24);
 				RenderUtils.drawSolidBoxes(matrixStack, openedBoxes,
 					openedFillColor, false);
 				RenderUtils.drawOutlinedBoxes(matrixStack, openedBoxes,
@@ -417,8 +434,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 							RenderUtils.drawOutlinedBoxes(matrixStack,
 								baseNormal, linesColor, false);
 						}
-						int bFill = buriedColor.getColorI(0x40);
-						int bLine = buriedColor.getColorI(0x80);
+						int bFill = buriedColor.getColorI(quadAlpha);
+						int bLine = buriedColor.getColorI(lineAlphaI);
 						RenderUtils.drawSolidBoxes(matrixStack, buriedBoxes,
 							bFill, false);
 						RenderUtils.drawOutlinedBoxes(matrixStack, buriedBoxes,
@@ -443,11 +460,12 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					&& markerMode == ChestSearchHack.OpenedChestMarker.LINE
 					&& csh != null && !openedBoxes.isEmpty())
 				{
+					int markerColor = (csh.getMarkXColorARGB() & 0x00FFFFFF)
+						| (lineAlphaI << 24);
 					for(AABB box : openedBoxes)
 					{
 						ChestSearchMarkerRenderer.drawMarker(matrixStack, box,
-							csh.getMarkXColorARGB(), OPENED_MARKER_THICKNESS,
-							false);
+							markerColor, OPENED_MARKER_THICKNESS, false);
 					}
 				}
 			}
@@ -699,7 +717,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			{
 				ends = boxes.stream().map(AABB::getCenter).toList();
 			}
-			int color = group.getColorI(0x80);
+			int color = group.getColorI(tracerAlpha.getValueI());
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);

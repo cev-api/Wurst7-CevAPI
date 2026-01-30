@@ -646,6 +646,7 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Added HackList count
 - Added Buried chest highlighting including a filter to only find buried chests
 - Added filters for chests and barrels to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
+- Added opacity settings
 - Option to suppress single chests in favor of double
 
 ### ItemESP (Expanded)
