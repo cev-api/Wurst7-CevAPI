@@ -14,12 +14,14 @@ import java.lang.reflect.Method;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BaseSpawner;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
@@ -28,6 +30,7 @@ public final class SpawnRadiusHack extends Hack
 {
 	private static final int COLOR_IDLE = 0xFFFFFFFF;
 	private static final int COLOR_DETECTED = 0xFF00FF00;
+	private static final int SPAWNER_BOX_COLOR = 0xFFFFFFFF;
 	private static final float HEIGHT_OFFSET = 0.05F;
 	private static final int DEFAULT_RADIUS = 16;
 	private static final Method GET_REQUIRED_PLAYER_RANGE;
@@ -110,6 +113,12 @@ public final class SpawnRadiusHack extends Hack
 				continue;
 			
 			drawCircle(matrices, center, info.radius(), info.detected());
+			// Draw a simple white ESP box on the spawner block itself
+			AABB box = BlockUtils.getBoundingBox(info.pos());
+			if(box != null)
+				RenderUtils.drawOutlinedBoxes(matrices,
+					java.util.Collections.singletonList(box), SPAWNER_BOX_COLOR,
+					false);
 		}
 	}
 	

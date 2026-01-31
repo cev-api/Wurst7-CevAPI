@@ -281,7 +281,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			&& headPos.getY() < aboveGroundY.getValue())
 			return;
 		
-		if(filterTrialChambers.isChecked() && isTrialChamberBed(headPos))
+		if(filterTrialChambers.isChecked() && isInTrialChamberArea(headPos))
 			return;
 		
 		if(filterVillageBeds.isChecked() && isLikelyVillageBed(headPos))
@@ -348,16 +348,15 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			.collect(Collectors.toList());
 	}
 	
-	private boolean isTrialChamberBed(BlockPos headPos)
+	private boolean isInTrialChamberArea(BlockPos pos)
 	{
-		int y = headPos.getY();
-		if(y < -38 || y > 10)
+		int y = pos.getY();
+		// Trial chambers are underground; keep broad window to prevent misses
+		if(y < -64 || y > 48)
 			return false;
 		
-		if(!isNearWaxedCopper(headPos, 5))
-			return false;
-		
-		return isNearTrialSpawner(headPos, 100);
+		// Rely on proximity to Trial Spawners (unique to Trial Chambers)
+		return isNearTrialSpawner(pos, 128);
 	}
 	
 	private boolean isNearWaxedCopper(BlockPos center, int range)

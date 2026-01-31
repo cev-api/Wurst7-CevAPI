@@ -25,11 +25,15 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.DispenserBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.BarrelBlockEntity;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
+import net.minecraft.world.level.block.entity.DispenserBlockEntity;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -81,6 +85,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			"Opacity for tracers (0 = fully transparent, 255 = opaque).", 128,
 			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private int foundCount;
+	private boolean preFilteredEnv;
 	
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
@@ -111,7 +116,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting filterTrialChambers = new CheckboxSetting(
 		"Filter trial chambers",
-		"Hides single chests and barrels that match common trial chamber layouts. Does not affect double chests or shulkers.",
+		"Hides single chests, barrels, hoppers, and dispensers that match common trial chamber layouts. Does not affect double chests or shulkers.",
 		false);
 	
 	private final CheckboxSetting doubleChestsOnly =
@@ -175,12 +180,18 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		cachedTrialSpawners = List.of();
 		cachedVillagerPositions = List.of();
 		cachedGolemPositions = List.of();
+		preFilteredEnv = false;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		groups.allGroups.forEach(ChestEspGroup::clear);
+		
+		// Build environmental caches first so we can pre-filter before adding
+		refreshEnvironmentalCaches();
+		preFilteredEnv = MC.level != null && (filterNearSpawners.isChecked()
+			|| filterTrialChambers.isChecked() || filterVillages.isChecked());
 		
 		double yLimit = aboveGroundY.getValue();
 		boolean enforceAboveGround = onlyAboveGround.isChecked();
@@ -189,6 +200,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(enforceAboveGround && be.getBlockPos().getY() < yLimit)
 				return;
 			
+			// Pre-filter by environment to avoid flicker and wasted work
+			if(preFilteredEnv && shouldFilterBlockEntityByEnvironment(be))
+				return;
+			
+			// Respect double-chest-only suppression
 			if(shouldSkipSingleChest(be))
 				return;
 			
@@ -206,8 +222,6 @@ public class ChestEspHack extends Hack implements UpdateListener,
 					.forEach(group -> group.addIfMatches(entity));
 			}
 		}
-		
-		refreshEnvironmentalCaches();
 		
 		int total = groups.allGroups.stream().filter(ChestEspGroup::isEnabled)
 			.mapToInt(g -> g.getBoxes().size()).sum();
@@ -289,8 +303,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		String curDim = MC.level == null ? "overworld"
 			: MC.level.dimension().identifier().getPath();
 		
-		boolean applyEnvFilters =
-			MC.level != null && (filterNearSpawners.isChecked()
+		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
+			&& (filterNearSpawners.isChecked()
 				|| filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
@@ -647,8 +661,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				: MC.level.dimension().identifier().getPath();
 		}
 		
-		boolean applyEnvFilters =
-			MC.level != null && (filterNearSpawners.isChecked()
+		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
+			&& (filterNearSpawners.isChecked()
 				|| filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
@@ -802,12 +816,35 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				BlockPos barrelPos = getSingleBarrelPosIfApplicable(box);
 				if(barrelPos == null)
 				{
+					// Trial chamber ignore for hoppers
+					BlockPos hopperPos = getSingleHopperPosIfApplicable(box);
+					if(hopperPos != null)
+					{
+						if(filterTrialChambers.isChecked()
+							&& isInTrialChamberArea(hopperPos))
+							continue;
+						out.add(box);
+						continue;
+					}
+					
+					// Trial chamber ignore for dispensers
+					BlockPos dispenserPos =
+						getSingleDispenserPosIfApplicable(box);
+					if(dispenserPos != null)
+					{
+						if(filterTrialChambers.isChecked()
+							&& isInTrialChamberArea(dispenserPos))
+							continue;
+						out.add(box);
+						continue;
+					}
+					
 					out.add(box);
 					continue;
 				}
 				
 				if(filterTrialChambers.isChecked()
-					&& isTrialChamberChest(barrelPos))
+					&& isInTrialChamberArea(barrelPos))
 					continue;
 				
 				out.add(box);
@@ -819,7 +856,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			if(filterTrialChambers.isChecked()
-				&& isTrialChamberChest(singleChestPos))
+				&& isInTrialChamberArea(singleChestPos))
 				continue;
 			
 			if(filterVillages.isChecked()
@@ -830,6 +867,63 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}
 		
 		return out;
+	}
+	
+	// Fast pre-filter used in onUpdate() to keep filtered blocks from ever
+	// entering render lists. Mirrors the logic of filterBoxesByEnvironment
+	// but operates directly on BlockEntity types for speed.
+	private boolean shouldFilterBlockEntityByEnvironment(BlockEntity be)
+	{
+		if(MC.level == null)
+			return false;
+		
+		BlockPos pos = be.getBlockPos();
+		BlockState state = be.getBlockState();
+		
+		// Chest-specific single/double handling
+		if(be instanceof ChestBlockEntity)
+		{
+			boolean isSingle = true;
+			if(state != null && state.hasProperty(ChestBlock.TYPE))
+				isSingle = state.getValue(ChestBlock.TYPE) == ChestType.SINGLE;
+			
+			if(isSingle)
+			{
+				if(filterNearSpawners.isChecked() && isNearSpawner(pos, 7))
+					return true;
+				if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+					return true;
+				if(filterVillages.isChecked() && isLikelyVillageChest(pos))
+					return true;
+			}
+			return false;
+		}
+		
+		// Barrels in Trial Chambers
+		if(be instanceof BarrelBlockEntity)
+		{
+			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+				return true;
+			return false;
+		}
+		
+		// Hoppers in Trial Chambers
+		if(be instanceof HopperBlockEntity)
+		{
+			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+				return true;
+			return false;
+		}
+		
+		// Dispensers in Trial Chambers
+		if(be instanceof DispenserBlockEntity)
+		{
+			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+				return true;
+			return false;
+		}
+		
+		return false;
 	}
 	
 	private BlockPos getSingleChestPosIfApplicable(AABB box)
@@ -945,16 +1039,121 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			.anyMatch(pos -> BlockUtils.getBlock(pos) == Blocks.SPAWNER);
 	}
 	
-	private boolean isTrialChamberChest(BlockPos pos)
+	private boolean isInTrialChamberArea(BlockPos pos)
 	{
 		int y = pos.getY();
-		if(y < -38 || y > 10)
+		// Trial chambers typically generate underground; keep a broad sanity
+		// window
+		if(y < -64 || y > 48)
 			return false;
 		
-		if(!isNearWaxedCopper(pos, 5))
+		// Rely on proximity to Trial Spawners when available
+		if(isNearTrialSpawner(pos, 128))
+			return true;
+			
+		// Fallback heuristic: look for characteristic Trial Chamber blocks
+		// nearby
+		return isNearLikelyTrialBlocks(pos, 6);
+	}
+	
+	private boolean isNearLikelyTrialBlocks(BlockPos center, int range)
+	{
+		if(MC.level == null)
 			return false;
 		
-		return isNearTrialSpawner(pos, 100);
+		return BlockUtils.getAllInBoxStream(center, range).anyMatch(pos -> {
+			Block b = BlockUtils.getBlock(pos);
+			if(b == null)
+				return false;
+			String path = BuiltInRegistries.BLOCK.getKey(b).getPath();
+			// Strong signals of Trial Chambers
+			if(path.contains("trial_spawner") || path.contains("vault"))
+				return true;
+			// Common building blocks in Trial Chambers (heuristic)
+			return path.contains("tuff_bricks")
+				|| path.contains("chiseled_tuff")
+				|| path.contains("polished_tuff")
+				|| path.contains("copper_bulb");
+		});
+	}
+	
+	// Backward-compatibility alias for any callers still using the old name
+	@Deprecated
+	private boolean isTrialChamberChest(BlockPos pos)
+	{
+		return isInTrialChamberArea(pos);
+	}
+	
+	private BlockPos getSingleHopperPosIfApplicable(AABB box)
+	{
+		if(MC.level == null || box == null)
+			return null;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		BlockPos found = null;
+		int count = 0;
+		
+		for(int x = boxMinX; x <= boxMaxX; x++)
+			for(int y = boxMinY; y <= boxMaxY; y++)
+				for(int z = boxMinZ; z <= boxMaxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					BlockState state = MC.level.getBlockState(pos);
+					if(state == null)
+						continue;
+					if(state.getBlock() instanceof HopperBlock)
+					{
+						count++;
+						if(found == null)
+							found = pos;
+						if(count > 1)
+							return null;
+					}
+				}
+			
+		return found;
+	}
+	
+	private BlockPos getSingleDispenserPosIfApplicable(AABB box)
+	{
+		if(MC.level == null || box == null)
+			return null;
+		
+		int boxMinX = (int)Math.floor(box.minX + 1e-6);
+		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
+		int boxMinY = (int)Math.floor(box.minY + 1e-6);
+		int boxMaxY = (int)Math.floor(box.maxY - 1e-6);
+		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
+		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
+		
+		BlockPos found = null;
+		int count = 0;
+		
+		for(int x = boxMinX; x <= boxMaxX; x++)
+			for(int y = boxMinY; y <= boxMaxY; y++)
+				for(int z = boxMinZ; z <= boxMaxZ; z++)
+				{
+					BlockPos pos = new BlockPos(x, y, z);
+					BlockState state = MC.level.getBlockState(pos);
+					if(state == null)
+						continue;
+					if(state.getBlock() instanceof DispenserBlock)
+					{
+						count++;
+						if(found == null)
+							found = pos;
+						if(count > 1)
+							return null;
+					}
+				}
+			
+		return found;
 	}
 	
 	private boolean isNearWaxedCopper(BlockPos center, int range)
