@@ -1,8 +1,9 @@
 {
   "AutoBuild": 12,
   "TunnelDetector": 11,
+  "UI-Utils": 2,
   "Flight": 43,
-  "ItemGenerator": 2,
+  "ItemGenerator": 3,
   "PortalGUI": 2,
   "BeaconExploit": 1,
   "AutoSteal": 9,
@@ -98,6 +99,7 @@
   "Panic": 6,
   "RemoteView": 2,
   "AutoDrop": 2,
+  "AntiVoid": 22,
   "NoWeb": 3,
   "TemplateTool": 2,
   "OpenWaterESP": 2,

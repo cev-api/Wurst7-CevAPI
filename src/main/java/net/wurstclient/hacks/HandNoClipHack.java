@@ -23,6 +23,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -62,7 +64,15 @@ public final class HandNoClipHack extends Hack
 		"Enable On Target",
 		WText.literal("Only noclip while aiming at a listed block."), false);
 	
+	private final CheckboxSetting villagerThroughWalls = new CheckboxSetting(
+		"Villagers Through Walls",
+		WText.literal(
+			"Allows interacting with villagers through walls when aiming at them."
+				+ " Only works with Enable On Target."),
+		false);
+	
 	private BlockPos targetBlock;
+	private boolean targetVillager;
 	private Set<BlockPos> occludingBlocks = Collections.emptySet();
 	
 	public HandNoClipHack()
@@ -72,6 +82,7 @@ public final class HandNoClipHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(blocks);
 		addSetting(enableOnTarget);
+		addSetting(villagerThroughWalls);
 	}
 	
 	@Override
@@ -117,6 +128,7 @@ public final class HandNoClipHack extends Hack
 	private void clearTarget()
 	{
 		targetBlock = null;
+		targetVillager = false;
 		occludingBlocks = Collections.emptySet();
 	}
 	
@@ -127,7 +139,15 @@ public final class HandNoClipHack extends Hack
 		
 		BlockPos prev = null;
 		Set<BlockPos> path = new HashSet<>();
-		BlockPos found = null;
+		BlockPos foundBlock = null;
+		boolean foundVillager = false;
+		
+		double villagerHitDist = Double.NaN;
+		if(villagerThroughWalls.isChecked())
+		{
+			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
+			villagerHitDist = getClosestVillagerHitDistance(eyes, end);
+		}
 		
 		for(double distance = 0; distance <= TARGET_RANGE; distance +=
 			TARGET_INCREMENT)
@@ -145,20 +165,28 @@ public final class HandNoClipHack extends Hack
 			
 			if(isBlockInList(pos))
 			{
-				found = pos;
+				foundBlock = pos;
+				break;
+			}
+			
+			// If aiming at a villager and we have reached it, stop here
+			if(!Double.isNaN(villagerHitDist) && distance >= villagerHitDist)
+			{
+				foundVillager = true;
 				break;
 			}
 			
 			path.add(pos);
 		}
 		
-		if(found == null)
+		if(foundBlock == null && !foundVillager)
 		{
 			clearTarget();
 			return;
 		}
 		
-		targetBlock = found;
+		targetBlock = foundBlock;
+		targetVillager = foundVillager;
 		occludingBlocks = path.isEmpty() ? Collections.emptySet()
 			: Collections.unmodifiableSet(path);
 	}
@@ -177,7 +205,7 @@ public final class HandNoClipHack extends Hack
 		if(!enableOnTarget.isChecked())
 			return true;
 		
-		return targetBlock != null;
+		return targetBlock != null || targetVillager;
 	}
 	
 	private boolean isHoldingCombatWeapon()
@@ -223,4 +251,41 @@ public final class HandNoClipHack extends Hack
 	}
 	
 	// See AbstractBlockStateMixin.onGetOutlineShape()
+	
+	private double getClosestVillagerHitDistance(Vec3 start, Vec3 end)
+	{
+		if(MC.level == null)
+			return Double.NaN;
+		
+		Vec3 dir = end.subtract(start);
+		double maxDist = dir.length();
+		if(maxDist <= 0)
+			return Double.NaN;
+		
+		// Normalize for distance computation along the ray
+		Vec3 dirNorm = dir.scale(1.0 / maxDist);
+		
+		double closest = Double.NaN;
+		for(var e : MC.level.entitiesForRendering())
+		{
+			if(!(e instanceof Villager vil) || vil.isRemoved()
+				|| vil.getHealth() <= 0)
+				continue;
+			
+			AABB box = vil.getBoundingBox();
+			var opt = box.clip(start, end);
+			if(opt.isEmpty())
+				continue;
+			
+			Vec3 hit = opt.get();
+			double dist = hit.subtract(start).dot(dirNorm);
+			if(dist < 0 || dist > maxDist)
+				continue;
+			
+			if(Double.isNaN(closest) || dist < closest)
+				closest = dist;
+		}
+		
+		return closest;
+	}
 }

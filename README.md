@@ -199,6 +199,7 @@ I did not, nor could I copy their code directly as most are Meteor based mods. S
 - Xaero's Minimap integration, allows exporting and importing of waypoint data (disconnect & reconnect to update).
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 - Toggleable automatic portal logging, logs numerically each portal you enter and matches it in the opposite dimension with the same number.
+- Optional distance based label scaling
 
 
 #### Waypoint Commands
@@ -529,8 +530,10 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 
 ### AntiVoid
 - Teleports you back to your last safe position when you are falling into the void.
-- Optionally enable air walk to avoid falling.
+- Optionally enable air walk or flight to avoid falling.
 - Can also avoid falling into lava.
+- Able to respond only at void level
+- Auto-enabling on conditions
 
 ### ElytraFlight
 - A static flight mode for elytra. Overrides motion every tick to let you hover, move and fly like the normal flight hack.
@@ -840,6 +843,7 @@ Examples:
 ### HandNoClip Improved
 - Displays a red X on the crosshair when block placement or interaction is blocked while the hack is enabled.
 - The red X can also indicate blocks that can be interacted with when On-Target Mode is enabled; in this mode, HandNoClip remains disabled until you are within range of a valid block.
+- Toggle to enable villager intraction through blocks
 
 ### Keybind Manager Improved
 - Can now clear the entire keybinds instead of just resetting.

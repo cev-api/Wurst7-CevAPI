@@ -102,6 +102,12 @@ public final class WaypointsHack extends Hack
 		"Max death positions", 4, 0, 20, 1, ValueDisplay.INTEGER);
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
 		1.0, 0.5, 5.0, 0.1, ValueDisplay.DECIMAL);
+	private final CheckboxSetting distanceScaleLabels =
+		new CheckboxSetting("Distance-based label scaling",
+			"Makes nearby waypoint labels larger and far ones smaller.", false);
+	private final CheckboxSetting invertDistanceScaleLabels =
+		new CheckboxSetting("Invert distance scaling",
+			"Makes far waypoint labels larger and near ones smaller.", false);
 	private final CheckboxSetting chatOnDeath =
 		new CheckboxSetting("Say death position in chat", true);
 	private final CheckboxSetting createDeathWaypoints =
@@ -180,6 +186,8 @@ public final class WaypointsHack extends Hack
 		addSetting(fadeDistance);
 		addSetting(beaconRenderDistance);
 		addSetting(labelScale);
+		addSetting(distanceScaleLabels);
+		addSetting(invertDistanceScaleLabels);
 		addSetting(compassMode);
 		addSetting(showPlayerCoordsAboveCompass);
 		addSetting(compassIconRange);
@@ -860,10 +868,50 @@ public final class WaypointsHack extends Hack
 				}
 				float scale = (float)labelScale.getValue();
 				boolean anchored = needAnchor;
-				// When not anchored, compensate by distance so on-screen size
-				// remains approximately constant.
-				if(!anchored)
+				if(distanceScaleLabels.isChecked())
 				{
+					if(!anchored)
+					{
+						Vec3 cam2 = RenderUtils.getCameraPos();
+						double dLabel = cam2.distanceTo(new Vec3(lx, ly, lz));
+						double compensate = Math.max(1.0, dLabel * 0.1);
+						scale *= (float)compensate;
+					}
+					
+					double maxRef = waypointRenderDistance.getValue();
+					if(maxRef <= 0 || maxRef >= DISTANCE_SLIDER_INFINITE)
+						maxRef = 256.0;
+					
+					double nearRef = 6.0;
+					if(maxRef < nearRef + 1.0)
+						maxRef = nearRef + 1.0;
+					
+					double t = (dist - nearRef) / (maxRef - nearRef);
+					t = Math.max(0.0, Math.min(1.0, t));
+					
+					t = t * t * (3.0 - 2.0 * t);
+					
+					double nearFactor = 1.80;
+					double farFactor = 0.90;
+					
+					if(invertDistanceScaleLabels.isChecked())
+					{
+						double tmp = nearFactor;
+						nearFactor = farFactor;
+						farFactor = tmp;
+					}
+					
+					double factor = nearFactor + (farFactor - nearFactor) * t;
+					
+					double minFactor = 0.75;
+					double maxFactor = 2.50;
+					factor = Math.max(minFactor, Math.min(maxFactor, factor));
+					
+					scale *= (float)factor;
+				}else if(!anchored)
+				{
+					// Default behavior: compensate so on-screen size remains
+					// ~constant
 					Vec3 cam2 = RenderUtils.getCameraPos();
 					double dLabel = cam2.distanceTo(new Vec3(lx, ly, lz));
 					double compensate = Math.max(1.0, dLabel * 0.1);

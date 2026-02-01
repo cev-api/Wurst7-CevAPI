@@ -92,9 +92,13 @@
     "Ignore friends": true
   },
   "AntiVoid": {
-    "Void level": 0.0,
     "Use AirWalk": false,
-    "Detect lava": true
+    "Detect lava": true,
+    "Respond only at void level": true,
+    "Use Flight": true,
+    "Auto-enable on out_of_world": true,
+    "Auto-enable by height": true,
+    "Lava buffer (blocks)": 2.0
   },
   "AntiWaterPush": {
     "Prevent slowdown": false
@@ -289,12 +293,17 @@
     "Death screen button": true
   },
   "AutoSign": {
-    "Preset sign text": "أشهد أن لا إله إلا الله، وأشهد أن محمدًا رسولُ الله.",
-    "Preset name": "",
+    "Preset sign text": "Wurst7-CevAPI \u003c3",
+    "Preset name": "wurst",
     "Saved presets": "",
+    "Sign Aura": true,
+    "Aura Range": 6.0,
+    "Aura Delay": 1.0,
+    "HandNoClip reach": true,
+    "Chat Feedback": true,
     "Sign presets (internal)": {
       "Shahada": "أشهد أن لا إله إلا الله، وأشهد أن محمدًا رسولُ الله.",
-      "nandos": "i like nandos"
+      "wurst": "Wurst7-CevAPI \u003c3"
     }
   },
   "AutoSoup": {
@@ -771,7 +780,9 @@
     "Teleport Packets": 4.0,
     "Render Target": true,
     "Bedrock Color": "#CC0099",
-    "Teleport without Tick": false
+    "Teleport without Tick": false,
+    "Shift Click Activation": true,
+    "Auto Switch Tool": true
   },
   "Blink": {
     "Limit": 0.0
@@ -922,6 +933,9 @@
     "Double chests only": false,
     "Filter villages": true,
     "HackList count": true,
+    "Box opacity": 64.0,
+    "Line opacity": 128.0,
+    "Tracer opacity": 128.0,
     "Include normal chests": true,
     "Chest color": "#00FF00",
     "Include trap chests": true,
@@ -958,7 +972,7 @@
     "Cleaner grace (s)": 10.0,
     "Cleaner scan radius": 64.0,
     "Max search results": 170.0,
-    "Display radius": 557.0,
+    "Display radius": 680.0,
     "Text scale": 1.0,
     "Waypoint color": "#FFFF00",
     "ESP fill": "#FFFF00",
@@ -1148,13 +1162,13 @@
     "Filter end crystals": false
   },
   "Flight": {
-    "Horizontal Speed": 5.0,
-    "Vertical Speed": 2.0,
+    "Horizontal Speed": 8.0,
+    "Vertical Speed": 3.0,
     "Slow sneaking": true,
     "Anti-Kick": true,
     "Anti-Kick Interval": 10.0,
     "Anti-Kick Distance": 0.035,
-    "Don't get caught": true,
+    "Don\u0027t get caught": true,
     "Escape Drop Speed": 3.9,
     "Ignore NPCs": true,
     "Ignore friends": true,
@@ -1251,7 +1265,8 @@
       "minecraft:white_shulker_box",
       "minecraft:yellow_shulker_box"
     ],
-    "Enable On Target": true
+    "Enable On Target": true,
+    "Villagers Through Walls": true
   },
   "HighJump": {
     "Height": 6.0
@@ -2134,7 +2149,7 @@
     "Disable AutoTotem on empty": true
   },
   "SpearAssist": {
-    "Mode": "SpearKill",
+    "Mode": "Assist",
     "Boost mode": "Dash only",
     "Boost speed": 10.0,
     "Dash distance": 7.0,
@@ -2259,6 +2274,21 @@
   "TargetPlace": {
     "Highlight color": "#00FFFF",
     "Activation key": "key.keyboard.p"
+  },
+  "Teleport": {
+    "Reach": 8.0,
+    "Timer Speed": 2.0,
+    "Teleport Packets": 4.0,
+    "Allow Liquids": true,
+    "Phase Through Walls": true,
+    "Shift Click Activation": false,
+    "Render Target": true,
+    "Render Path": true,
+    "Teleport without Tick": false,
+    "Target Fill": "#8000FF",
+    "Phasing Fill": "#00FFFF",
+    "Outline Color": "#FFFFFF",
+    "Path Color": "#00FFFF"
   },
   "Throw": {
     "Amount": 16.0
@@ -2433,7 +2463,7 @@
   },
   "UI-Utils": {
     "Slot overlay": true,
-    "Slot overlay color": "#FF00FF",
+    "Slot overlay color": "#FFFFFF",
     "Slot overlay alpha": 255.0,
     "Slot overlay offset X": 0.0,
     "Slot overlay offset Y": 0.0,
@@ -2465,7 +2495,9 @@
     "Waypoint render distance": 7401.0,
     "Waypoint fade distance": 64.0,
     "Beacon render distance": 407.0,
-    "Label scale": 1.3,
+    "Label scale": 1.1,
+    "Distance-based label scaling": true,
+    "Invert distance scaling": true,
     "Compass mode (top bar)": true,
     "Show player XYZ above compass": true,
     "Compass icon range": 10001.0,
@@ -2480,11 +2512,11 @@
     "Create death waypoints": true,
     "Say death position in chat": true,
     "Death waypoint lines": false,
-    "Track other players' deaths": true,
+    "Track other players\u0027 deaths": true,
     "Max death positions": 2.0,
     "Death waypoint color": "#FF4444",
     "Record portals": true,
-    "Portal waypoint color": "#B780FF"
+    "Portal waypoint color": "#6600FF"
   },
   "WindChargeKey": {
     "Keybind": "key.keyboard.g",
