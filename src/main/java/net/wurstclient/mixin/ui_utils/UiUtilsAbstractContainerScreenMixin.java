@@ -703,11 +703,14 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	@Inject(at = @At("HEAD"), method = "removed()V", cancellable = true)
 	private void onRemoved(CallbackInfo ci)
 	{
-		if(!UiUtilsState.skipNextContainerRemoval)
+		if(UiUtilsState.skipNextContainerRemoval)
+		{
+			UiUtilsState.skipNextContainerRemoval = false;
+			ci.cancel();
 			return;
+		}
 		
-		UiUtilsState.skipNextContainerRemoval = false;
-		ci.cancel();
+		fabricateOverlayInitialized = false;
 	}
 	
 }

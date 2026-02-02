@@ -316,6 +316,7 @@ Reports number of waypoints changed.
 ### EnchantmentHandler
 - Displays an inventory overlay for chests containing enchanted items, listing each item's slot number, enchantments, and providing quick-take options (single or by category).
 - Renders on top of the vanilla screen darkening, stays aligned beside the container and has an adjustable size and font scaling
+- Draggable position with mouse
 - Works with books, potions and gear and will separate them in the list by category and type
 
 ![Chest](https://i.imgur.com/0TdpYkM.png)

@@ -68,6 +68,7 @@ public final class EnchantmentHandlerHack extends Hack
 	private static final int ACTION_HOVER_COLOR = 0xFFB6E1FF;
 	private static final long HOVER_SCROLL_DELAY_MS = 400;
 	private static final double HOVER_SCROLL_PAUSE = 32.0;
+	private static final int DRAG_BAR_HEIGHT = 28;
 	
 	private final List<AbstractEntry> allEntries = new ArrayList<>();
 	private final Map<GearCategory, List<GearEntry>> gearGroupedEntries =
@@ -97,12 +98,6 @@ public final class EnchantmentHandlerHack extends Hack
 	private final SliderSetting boxHeight = new SliderSetting("Box height",
 		"Panel height in pixels.\n0 = match the container height.", 0, 0, 320,
 		2, ValueDisplay.INTEGER);
-	private final SliderSetting offsetX = new SliderSetting("Horizontal offset",
-		"Moves the panel left/right relative to the container.", 0, -300, 300,
-		2, ValueDisplay.INTEGER);
-	private final SliderSetting offsetY = new SliderSetting("Vertical offset",
-		"Moves the panel up/down relative to the container.", 0, -200, 200, 2,
-		ValueDisplay.INTEGER);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 0.7,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
 	private final SliderSetting hoverScrollSpeed = new SliderSetting(
@@ -120,6 +115,10 @@ public final class EnchantmentHandlerHack extends Hack
 	private int panelY;
 	private int panelWidth;
 	private int panelHeight;
+	private boolean customPosition;
+	private boolean panelDragging;
+	private int dragOffsetX;
+	private int dragOffsetY;
 	private boolean lastRenderActive;
 	private boolean needsRescan = true;
 	private int contentHeight;
@@ -133,8 +132,6 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		addSetting(boxWidth);
 		addSetting(boxHeight);
-		addSetting(offsetX);
-		addSetting(offsetY);
 		addSetting(textScale);
 		addSetting(hoverScrollSpeed);
 		addSetting(includePlayerInventory);
@@ -182,6 +179,10 @@ public final class EnchantmentHandlerHack extends Hack
 		hitboxes.clear();
 		hoveredSlotId = -1;
 		hoverStartMs = 0L;
+		customPosition = false;
+		panelDragging = false;
+		dragOffsetX = 0;
+		dragOffsetY = 0;
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
@@ -220,9 +221,22 @@ public final class EnchantmentHandlerHack extends Hack
 			panelHeight = Mth.clamp(configuredHeight, 60,
 				Math.max(60, windowHeight - 10));
 		
-		panelY = accessor.getY() + offsetY.getValueI();
-		panelX =
-			accessor.getX() - panelWidth - PANEL_PADDING + offsetX.getValueI();
+		int defaultX = accessor.getX() - panelWidth - PANEL_PADDING;
+		int defaultY = accessor.getY();
+		if(!customPosition)
+		{
+			panelX = defaultX;
+			panelY = defaultY;
+		}
+		
+		if(panelDragging)
+		{
+			double scaledMouseX = getScaledMouseX(context);
+			double scaledMouseY = getScaledMouseY(context);
+			panelX = (int)Math.round(scaledMouseX - dragOffsetX);
+			panelY = (int)Math.round(scaledMouseY - dragOffsetY);
+			customPosition = true;
+		}
 		
 		panelX =
 			Mth.clamp(panelX, 2 - panelWidth, windowWidth - panelWidth - 2);
@@ -237,6 +251,12 @@ public final class EnchantmentHandlerHack extends Hack
 	{
 		if(!lastRenderActive)
 			return false;
+		
+		if(button == 0 && isInsideDragBar(mouseX, mouseY))
+		{
+			startPanelDrag(mouseX, mouseY);
+			return true;
+		}
 		
 		if(button != 0 && button != 1)
 			return isInsidePanel(mouseX, mouseY);
@@ -301,6 +321,18 @@ public final class EnchantmentHandlerHack extends Hack
 		return isInsidePanel(mouseX, mouseY);
 	}
 	
+	public boolean handleMouseRelease(AbstractContainerScreen<?> screen,
+		double mouseX, double mouseY, int button)
+	{
+		if(panelDragging && button == 0)
+		{
+			panelDragging = false;
+			return true;
+		}
+		
+		return false;
+	}
+	
 	public boolean handleMouseScroll(AbstractContainerScreen<?> screen,
 		double mouseX, double mouseY, double amount)
 	{
@@ -323,6 +355,20 @@ public final class EnchantmentHandlerHack extends Hack
 	{
 		return mouseX >= panelX && mouseX <= panelX + panelWidth
 			&& mouseY >= panelY && mouseY <= panelY + panelHeight;
+	}
+	
+	private boolean isInsideDragBar(double mouseX, double mouseY)
+	{
+		return mouseX >= panelX && mouseX <= panelX + panelWidth
+			&& mouseY >= panelY && mouseY <= panelY + DRAG_BAR_HEIGHT;
+	}
+	
+	private void startPanelDrag(double mouseX, double mouseY)
+	{
+		panelDragging = true;
+		dragOffsetX = (int)Math.round(mouseX - panelX);
+		dragOffsetY = (int)Math.round(mouseY - panelY);
+		customPosition = true;
 	}
 	
 	private void renderOverlay(GuiGraphics context)

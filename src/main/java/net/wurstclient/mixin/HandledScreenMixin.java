@@ -142,6 +142,18 @@ public abstract class HandledScreenMixin
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
+			return;
+		}
+		
+		EnchantmentHandlerHack enchantHack =
+			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
+		if(enchantHack != null && enchantHack.isEnabled()
+			&& enchantHack.handleMouseRelease(
+				(AbstractContainerScreen<?>)(Object)this, context.x(),
+				context.y(), context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
 		}
 	}
 	

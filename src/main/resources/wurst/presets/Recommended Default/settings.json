@@ -293,7 +293,7 @@
     "Death screen button": true
   },
   "AutoSign": {
-    "Preset sign text": "Wurst7-CevAPI \u003c3",
+    "Preset sign text": "Wurst7-CevAPI <3",
     "Preset name": "wurst",
     "Saved presets": "",
     "Sign Aura": true,
@@ -303,7 +303,7 @@
     "Chat Feedback": true,
     "Sign presets (internal)": {
       "Shahada": "أشهد أن لا إله إلا الله، وأشهد أن محمدًا رسولُ الله.",
-      "wurst": "Wurst7-CevAPI \u003c3"
+      "wurst": "Wurst7-CevAPI <3"
     }
   },
   "AutoSoup": {
@@ -1168,7 +1168,7 @@
     "Anti-Kick": true,
     "Anti-Kick Interval": 10.0,
     "Anti-Kick Distance": 0.035,
-    "Don\u0027t get caught": true,
+    "Don't get caught": true,
     "Escape Drop Speed": 3.9,
     "Ignore NPCs": true,
     "Ignore friends": true,
@@ -2512,7 +2512,7 @@
     "Create death waypoints": true,
     "Say death position in chat": true,
     "Death waypoint lines": false,
-    "Track other players\u0027 deaths": true,
+    "Track other players' deaths": true,
     "Max death positions": 2.0,
     "Death waypoint color": "#FF4444",
     "Record portals": true,
