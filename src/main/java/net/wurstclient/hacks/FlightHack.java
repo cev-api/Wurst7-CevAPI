@@ -79,6 +79,9 @@ public final class FlightHack extends Hack
 		new CheckboxSetting("Enable NoFall with Flight",
 			"Automatically enables NoFall while Flight is enabled.", false);
 	
+	private Boolean antiKickOverride;
+	private Boolean slowSneakingOverride;
+	
 	private int tickCounter = 0;
 	private final PlayerRangeAlertManager alertManager =
 		WURST.getPlayerRangeAlertManager();
@@ -183,7 +186,7 @@ public final class FlightHack extends Hack
 			player.setDeltaMovement(velocity.x, -verticalSpeed.getValue(),
 				velocity.z);
 		
-		if(antiKick.isChecked())
+		if(isAntiKickEnabled())
 			doAntiKick(velocity);
 		
 		Double alignStep =
@@ -200,7 +203,7 @@ public final class FlightHack extends Hack
 	{
 		float speed = horizontalSpeed.getValueF();
 		
-		if(MC.options.keyShift.isDown() && slowSneaking.isChecked())
+		if(MC.options.keyShift.isDown() && isSlowSneakingEnabled())
 			speed = Math.min(speed, 0.85F);
 		
 		event.setSpeed(speed);
@@ -227,6 +230,28 @@ public final class FlightHack extends Hack
 		}
 		
 		tickCounter++;
+	}
+	
+	boolean isAntiKickEnabled()
+	{
+		return antiKickOverride != null ? antiKickOverride
+			: antiKick.isChecked();
+	}
+	
+	boolean isSlowSneakingEnabled()
+	{
+		return slowSneakingOverride != null ? slowSneakingOverride
+			: slowSneaking.isChecked();
+	}
+	
+	void setAntiKickOverride(Boolean override)
+	{
+		antiKickOverride = override;
+	}
+	
+	void setSlowSneakingOverride(Boolean override)
+	{
+		slowSneakingOverride = override;
 	}
 	
 	@Override

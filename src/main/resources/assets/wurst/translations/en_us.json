@@ -84,6 +84,7 @@
   "description.wurst.hack.chestsearch": "Scans opened chests for items and highlights matching chests with waypoints and ESP.",
   "hack.wurst.lootsearch": "LootSearch",
   "description.wurst.hack.lootsearch": "DEPRECIATED - SEEDMAPPER-CEVAPI HAS THIS BUILT IN!\nLoads SeedMapper loot export files for the current server and displays the discovered chest locations and contents in a searchable list. Adds temporary waypoints to track loot positions. Use SeedMapper to export loot into the \"seedmapper/loot\" folder before using this feature.",
+  "description.wurst.hack.lootrunner": "Uses Baritone to visit SeedMapper export coordinates, find nearby chests, loot selected items, and log results.",
   "description.wurst.hack.clickaura": "Automatically attacks the closest valid entity whenever you click.\n\nWARNING: ClickAuras generally look more suspicious than Killauras and are easier for plugins to detect. It is recommended to use Killaura or TriggerBot instead.",
   "description.wurst.hack.clickgui": "Window-based ClickGUI.",
   "description.wurst.hack.crashchest": "Generates a chest that essentially bans people from the server if they have too many copies of it in their inventory. WARNING: ??cThis cannot be undone. Use with caution!??r\n\nIf copies are instead placed in a chest, anyone who opens the chest will be kicked from the server (just once).",

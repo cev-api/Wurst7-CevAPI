@@ -651,6 +651,15 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Phasing through walls horizontally generally doesn't work unless going on an angle.
 - There are toggles for Allow Liquids, Render Path, and separate colours for the regular and phasing boxes so you can adjust the visuals without clutter.
 
+### LootRunner
+
+This hack is still undergoing development and has only been tested in the end. A fork of [Baritone](https://github.com/wagyourtail/baritone) may be implemented to ensure better movement, additional structure support and reduce settings clutter.
+
+- Automatically loads SeedMapper export waypoints and runs the nearest valid target first.
+- Travels with Baritone or Flight, scans for nearby chests/barrels/shulkers, then opens and loots them.
+- Loot filters support All, List, Item ID, or Query mode (for example `diamond`).
+- Handles full inventory with optional QuickShulker support, with stop/quit behaviour if needed.
+- Saves progress per server (completed targets, logs, and resume position) so runs can continue later.
 
 ## What's changed or improved in this fork?
 

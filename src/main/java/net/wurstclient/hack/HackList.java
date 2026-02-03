@@ -255,6 +255,8 @@ public final class HackList implements UpdateListener
 	public final ChestSearchHack chestSearchHack = new ChestSearchHack();
 	public final net.wurstclient.hacks.LootSearchHack lootSearchHack =
 		new net.wurstclient.hacks.LootSearchHack();
+	public final net.wurstclient.hacks.LootRunnerHack lootRunnerHack =
+		new net.wurstclient.hacks.LootRunnerHack();
 	public final CoordLoggerHack coordLoggerHack = new CoordLoggerHack();
 	public final TownyHack townyHack = new TownyHack();
 	
