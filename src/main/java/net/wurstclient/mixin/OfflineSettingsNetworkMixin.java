@@ -26,6 +26,8 @@ public abstract class OfflineSettingsNetworkMixin
 	private void wurst$handleDisconnect(DisconnectionDetails details,
 		CallbackInfo ci)
 	{
+		WurstClient.INSTANCE.getHax().kickForensicsHack
+			.onDisconnected(details.reason());
 		OfflineSettingsHack hack =
 			WurstClient.INSTANCE.getHax().offlineSettingsHack;
 		

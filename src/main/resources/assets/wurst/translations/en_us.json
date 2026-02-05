@@ -82,6 +82,8 @@
   "description.wurst.hack.livestreamdetector": "Scans the tab list for live streamers on YouTube, Twitch, TikTok, and Kick and announces streams in chat.",
   "description.wurst.hack.chestesp": "Highlights nearby chests.",
   "description.wurst.hack.chestsearch": "Scans opened chests for items and highlights matching chests with waypoints and ESP.",
+  "hack.wurst.kickforensics": "KickForensics",
+  "description.wurst.hack.kickforensics": "Logs the last few seconds of packets and player state when you get kicked, writing a report to kick-forensics.log.",
   "hack.wurst.lootsearch": "LootSearch",
   "description.wurst.hack.lootsearch": "DEPRECIATED - SEEDMAPPER-CEVAPI HAS THIS BUILT IN!\nLoads SeedMapper loot export files for the current server and displays the discovered chest locations and contents in a searchable list. Adds temporary waypoints to track loot positions. Use SeedMapper to export loot into the \"seedmapper/loot\" folder before using this feature.",
   "description.wurst.hack.lootrunner": "Uses Baritone to visit SeedMapper export coordinates, find nearby chests, loot selected items, and log results.",

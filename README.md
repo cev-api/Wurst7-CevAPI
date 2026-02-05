@@ -661,6 +661,11 @@ This hack is still undergoing development and has only been tested in the end. A
 - Handles full inventory with optional QuickShulker support, with stop/quit behaviour if needed.
 - Saves progress per server (completed targets, logs, and resume position) so runs can continue later.
 
+### KickForensics
+
+- Captures a short window of packets and player state on disconnect and saves a report to `kick-forensics.log`.
+- Great for understanding anti-cheats and player states.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

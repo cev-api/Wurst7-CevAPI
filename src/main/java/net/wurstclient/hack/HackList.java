@@ -149,6 +149,8 @@ public final class HackList implements UpdateListener
 	public final JesusHack jesusHack = new JesusHack();
 	public final JetpackHack jetpackHack = new JetpackHack();
 	public final KaboomHack kaboomHack = new KaboomHack();
+	public final KickForensicsHack kickForensicsHack =
+		new KickForensicsHack();
 	public final KillauraLegitHack killauraLegitHack = new KillauraLegitHack();
 	public final KillauraHack killauraHack = new KillauraHack();
 	public final KillPotionHack killPotionHack = new KillPotionHack();
