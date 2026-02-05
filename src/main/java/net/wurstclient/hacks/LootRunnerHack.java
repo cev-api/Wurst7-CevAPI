@@ -131,8 +131,8 @@ public final class LootRunnerHack extends Hack
 			"Distance to interact with the chest once baritone arrives.", 3.0,
 			2.0, 6.0, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
 	private final SliderSetting chestOpenTimeoutSec = new SliderSetting(
-		"Chest open timeout", "Max seconds to open a chest before skipping.",
-		7, 3, 30, 1, ValueDisplay.INTEGER.withSuffix("s"));
+		"Chest open timeout", "Max seconds to open a chest before skipping.", 7,
+		3, 30, 1, ValueDisplay.INTEGER.withSuffix("s"));
 	private final SliderSetting lootDelay = new SliderSetting("Loot delay",
 		"Delay between shift-clicking item stacks in the chest.", 200, 0, 500,
 		10, ValueDisplay.INTEGER.withSuffix("ms"));
@@ -342,6 +342,10 @@ public final class LootRunnerHack extends Hack
 	private double savedFlightVSpeed = -1;
 	private double lastTravelDist = Double.NaN;
 	private int ticksWithoutProgress;
+	private int targetStuckTicks;
+	private int targetRepathAttempts;
+	private double lastTargetDist = Double.NaN;
+	private long lastTargetProgressMs;
 	private int flightBobbingTicks;
 	private int flightIdleTicks;
 	private int flightEvadeTicks;
@@ -453,6 +457,10 @@ public final class LootRunnerHack extends Hack
 		savedFlightVSpeed = -1;
 		lastTravelDist = Double.NaN;
 		ticksWithoutProgress = 0;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		flightBobbingTicks = 0;
 		flightIdleTicks = 0;
 		flightTemporarilyDisabled = false;
@@ -514,7 +522,7 @@ public final class LootRunnerHack extends Hack
 		EVENTS.remove(GUIRenderListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		log("Disabled.");
-		baritone.cancelAll();
+		cancelBaritone("Disabled");
 		restoreAuxHacksOnDisable();
 		baritone.applyFlightHints(false);
 		useWurstPathingForTarget = false;
@@ -526,6 +534,10 @@ public final class LootRunnerHack extends Hack
 		savedFlightVSpeed = -1;
 		lastTravelDist = Double.NaN;
 		ticksWithoutProgress = 0;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		flightBobbingTicks = 0;
 		flightIdleTicks = 0;
 		exitAttempts = 0;
@@ -638,8 +650,10 @@ public final class LootRunnerHack extends Hack
 		
 		if(currentTarget != null && !isTargetEligible(currentTarget))
 		{
-			log("Current target no longer matches filters; selecting next.");
-			baritone.cancelAll();
+			log("Current target no longer matches filters ("
+				+ getTargetIneligibilityReason(currentTarget)
+				+ "); selecting next.");
+			cancelBaritone("Target invalidated by filters");
 			PathProcessor.releaseControls();
 			setFlightForTravel(false);
 			currentTarget = null;
@@ -656,7 +670,9 @@ public final class LootRunnerHack extends Hack
 			selectNextTarget();
 			if(currentTarget == null)
 			{
-				log("No remaining targets; stopping.");
+				log("No remaining targets; stopping (minTargetY="
+					+ minTargetY.getValueI() + ", onlyCurrentDimension="
+					+ onlyCurrentDimension.isChecked() + ")");
 				finishRun();
 				return;
 			}
@@ -685,17 +701,26 @@ public final class LootRunnerHack extends Hack
 		
 		clearSneak();
 		flightBobbingTicks = 0;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		
 		useWurstPathingForTarget = useWurstPathing.isChecked();
 		log("Pathing to target: " + currentTarget.describe()
-			+ (useWurstPathingForTarget ? " (flight)" : " (baritone)"));
+			+ (useWurstPathingForTarget ? " (flight)" : " (baritone)")
+			+ " | useFlight=" + useFlight.isChecked() + " targetRadius="
+			+ targetRadius.getValue() + " travelTimeout="
+			+ travelTimeoutSec.getValueI() + "s");
 		if(useWurstPathingForTarget)
 		{
-			baritone.cancelAll();
+			cancelBaritone(
+				"Switching to Wurst flight pathing (Use Wurst pathing on)");
 			setFlightForTravel(true);
 		}else
 		{
-			baritone.setGoal(currentTarget.pos);
+			setBaritoneGoal(currentTarget.pos,
+				"Path to target (Use Wurst pathing off)");
 		}
 		state = State.PATHING_TO_TARGET;
 		stateStartMs = System.currentTimeMillis();
@@ -716,12 +741,75 @@ public final class LootRunnerHack extends Hack
 		
 		double dist =
 			MC.player.position().distanceTo(Vec3.atCenterOf(currentTarget.pos));
-		long elapsed = System.currentTimeMillis() - stateStartMs;
+		long now = System.currentTimeMillis();
+		long elapsed = now - stateStartMs;
 		if(maybeRetargetToNearest(dist))
 		{
 			dist = MC.player.position()
 				.distanceTo(Vec3.atCenterOf(currentTarget.pos));
-			elapsed = System.currentTimeMillis() - stateStartMs;
+			now = System.currentTimeMillis();
+			elapsed = now - stateStartMs;
+		}
+		
+		if(lastTargetProgressMs == 0L)
+			lastTargetProgressMs = now;
+		
+		boolean madeProgress =
+			Double.isNaN(lastTargetDist) || dist + 0.75 < lastTargetDist;
+		if(madeProgress)
+		{
+			lastTargetDist = dist;
+			lastTargetProgressMs = now;
+			targetStuckTicks = 0;
+		}else
+		{
+			long stuckMs = now - lastTargetProgressMs;
+			targetStuckTicks = (int)Math.min(999, stuckMs / 1000L);
+			if(stuckMs > 8000L)
+			{
+				double nearRadius = Math.max(targetRadius.getValue() * 2.5,
+					chestSearchRadius.getValue());
+				if(dist <= nearRadius)
+				{
+					log("No progress near target; switching to chest search (stuckMs="
+						+ (stuckMs / 1000L) + "s, dist="
+						+ String.format(Locale.ROOT, "%.1f", dist)
+						+ ", nearRadius="
+						+ String.format(Locale.ROOT, "%.1f", nearRadius) + ")");
+					state = State.SEARCHING_CHEST;
+					stateStartMs = now;
+					nearTargetStartMs = 0L;
+					lastTargetProgressMs = now;
+					targetStuckTicks = 0;
+					return;
+				}
+				
+				targetRepathAttempts++;
+				if(targetRepathAttempts <= 3)
+				{
+					cancelBaritone(
+						"Target path no progress for " + (stuckMs / 1000L)
+							+ "s; repath attempt " + targetRepathAttempts);
+					setBaritoneGoal(currentTarget.pos,
+						"Target repath (attempt=" + targetRepathAttempts + ")");
+					lastTargetProgressMs = now;
+				}else
+				{
+					log("Target path stuck; resetting pathing (attempts="
+						+ targetRepathAttempts + ")");
+					cancelBaritone("Target path reset");
+					PathProcessor.releaseControls();
+					clearSneak();
+					setFlightForTravel(false);
+					useWurstPathingForTarget = false;
+					targetRepathAttempts = 0;
+					lastTargetDist = Double.NaN;
+					lastTargetProgressMs = 0L;
+					state = State.IDLE;
+					stateStartMs = now;
+					return;
+				}
+			}
 		}
 		
 		if(dist <= targetRadius.getValue() * 2.0)
@@ -740,7 +828,8 @@ public final class LootRunnerHack extends Hack
 					chestSearchRadius.getValueI());
 			if(nearby != null)
 			{
-				log("Chest nearby while traveling; switching to chest search.");
+				log("Chest nearby while traveling; switching to chest search (radius="
+					+ chestSearchRadius.getValueI() + ")");
 				currentChestPos = nearby;
 				chestStuckTicks = 0;
 				lastChestDist = Double.NaN;
@@ -750,7 +839,9 @@ public final class LootRunnerHack extends Hack
 					state = State.FLIGHTING_TO_CHEST;
 				}else
 				{
-					baritone.setGoal(nearby);
+					setBaritoneGoal(nearby,
+						"Chest detected during travel (radius="
+							+ chestSearchRadius.getValueI() + ")");
 					state = State.PATHING_TO_CHEST;
 				}
 				stateStartMs = System.currentTimeMillis();
@@ -760,8 +851,10 @@ public final class LootRunnerHack extends Hack
 		if(dist <= targetRadius.getValue()
 			|| (elapsed > 6000 && dist <= targetRadius.getValue() * 2.0))
 		{
-			baritone.cancelAll();
-			log("Target reached; searching for chest.");
+			cancelBaritone(
+				"Target reached (radius=" + targetRadius.getValue() + ")");
+			log("Target reached; searching for chest (targetRadius="
+				+ targetRadius.getValue() + ")");
 			state = State.SEARCHING_CHEST;
 			stateStartMs = System.currentTimeMillis();
 			nearTargetStartMs = 0L;
@@ -771,7 +864,8 @@ public final class LootRunnerHack extends Hack
 		if(nearTargetStartMs > 0L && System.currentTimeMillis()
 			- nearTargetStartMs > searchTimeoutSec.getValueF() * 1000L)
 		{
-			log("Near target too long; switching to chest search.");
+			log("Near target too long; switching to chest search (searchTimeout="
+				+ searchTimeoutSec.getValueI() + "s)");
 			state = State.SEARCHING_CHEST;
 			stateStartMs = System.currentTimeMillis();
 			nearTargetStartMs = 0L;
@@ -780,7 +874,8 @@ public final class LootRunnerHack extends Hack
 		
 		if(elapsed > travelTimeoutSec.getValueF() * 1000L)
 		{
-			log("Target path timeout; marking missing.");
+			log("Target path timeout; marking missing (travelTimeout="
+				+ travelTimeoutSec.getValueI() + "s)");
 			markTargetComplete("missing", null, null, null);
 			moveToNextTarget();
 		}
@@ -791,7 +886,8 @@ public final class LootRunnerHack extends Hack
 		if(!useFlight.isChecked())
 		{
 			useWurstPathingForTarget = false;
-			baritone.setGoal(currentTarget.pos);
+			setBaritoneGoal(currentTarget.pos,
+				"Flight disabled; switching to Baritone pathing");
 			state = State.PATHING_TO_TARGET;
 			stateStartMs = System.currentTimeMillis();
 			return;
@@ -903,13 +999,15 @@ public final class LootRunnerHack extends Hack
 			flightIdleTicks = 0;
 			if(horizDist <= radius * 2.0)
 			{
-				log("Flight idle near target; switching to chest search.");
+				log("Flight idle near target; switching to chest search (idleTimeout="
+					+ flightIdleTimeoutSec.getValueI() + "s)");
 				state = State.SEARCHING_CHEST;
 				stateStartMs = System.currentTimeMillis();
 				return;
 			}
 			
-			log("Flight idle; running exit search to resume.");
+			log("Flight idle; running exit search to resume (idleTimeout="
+				+ flightIdleTimeoutSec.getValueI() + "s)");
 			startExitForTravel();
 			return;
 		}
@@ -923,7 +1021,8 @@ public final class LootRunnerHack extends Hack
 			setFlightForTravel(false);
 			useWurstPathingForTarget = false;
 			landingPos = BlockPos.containing(MC.player.position());
-			baritone.setGoal(currentTarget.pos);
+			setBaritoneGoal(currentTarget.pos,
+				"Landed near target; switching to Baritone pathing");
 			state = State.PATHING_TO_TARGET;
 			stateStartMs = System.currentTimeMillis();
 			nearTargetStartMs = 0L;
@@ -948,7 +1047,8 @@ public final class LootRunnerHack extends Hack
 			if(dist > targetRadius.getValue() * 2.0
 				&& now - lastTravelRecoverMs > 5000L)
 			{
-				log("Flight stuck en route; running exit search to resume.");
+				log("Flight stuck en route; running exit search to resume (noProgress="
+					+ ticksWithoutProgress + ")");
 				lastTravelRecoverMs = now;
 				ticksWithoutProgress = 0;
 				startExitForTravel();
@@ -1026,7 +1126,8 @@ public final class LootRunnerHack extends Hack
 		long timeoutMs = (long)searchTimeoutSec.getValueF() * 1000L;
 		if(now - stateStartMs > timeoutMs)
 		{
-			log("Chest search timed out; marking missing.");
+			log("Chest search timed out; marking missing (searchTimeout="
+				+ searchTimeoutSec.getValueI() + "s)");
 			markTargetComplete("missing", null, null, null);
 			moveToNextTarget();
 			return;
@@ -1038,7 +1139,7 @@ public final class LootRunnerHack extends Hack
 			return;
 		
 		log("Chest found at " + found.getX() + ", " + found.getY() + ", "
-			+ found.getZ());
+			+ found.getZ() + " (radius=" + chestSearchRadius.getValueI() + ")");
 		currentChestPos = found;
 		chestStuckTicks = 0;
 		lastChestDist = Double.NaN;
@@ -1050,7 +1151,8 @@ public final class LootRunnerHack extends Hack
 			state = State.FLIGHTING_TO_CHEST;
 		}else
 		{
-			baritone.setGoal(found);
+			setBaritoneGoal(found, "Pathing to chest (preferFlightToChest="
+				+ preferFlightToChest.isChecked() + ")");
 			state = State.PATHING_TO_CHEST;
 		}
 		stateStartMs = now;
@@ -1080,16 +1182,18 @@ public final class LootRunnerHack extends Hack
 		if(chestStuckTicks > 80)
 		{
 			chestStuckTicks = 0;
-			baritone.cancelAll();
+			cancelBaritone("Chest path stuck (stuckTicks>80)");
 			if(useFlight.isChecked())
 			{
-				log("Chest path stuck; switching to flight-to-chest.");
+				log("Chest path stuck; switching to flight-to-chest (useFlight="
+					+ useFlight.isChecked() + ")");
 				state = State.FLIGHTING_TO_CHEST;
 				stateStartMs = System.currentTimeMillis();
 				return;
 			}
 			
-			log("Chest path stuck; marking missing.");
+			log("Chest path stuck; marking missing (useFlight="
+				+ useFlight.isChecked() + ")");
 			markTargetComplete("missing", null, null, null);
 			moveToNextTarget();
 			return;
@@ -1097,7 +1201,8 @@ public final class LootRunnerHack extends Hack
 		
 		if(dist <= chestInteractRange.getValue())
 		{
-			baritone.cancelAll();
+			cancelBaritone("Chest interact range reached (range="
+				+ chestInteractRange.getValue() + ")");
 			state = State.OPENING_CHEST;
 			stateStartMs = System.currentTimeMillis();
 			lastOpenAttemptMs = 0L;
@@ -1107,15 +1212,18 @@ public final class LootRunnerHack extends Hack
 		long elapsed = System.currentTimeMillis() - stateStartMs;
 		if(elapsed > chestPathTimeoutSec.getValueF() * 1000L)
 		{
-			baritone.cancelAll();
+			cancelBaritone("Chest path timeout (timeout="
+				+ chestPathTimeoutSec.getValueI() + "s)");
 			if(useFlight.isChecked())
 			{
-				log("Chest path timeout; switching to flight-to-chest.");
+				log("Chest path timeout; switching to flight-to-chest (timeout="
+					+ chestPathTimeoutSec.getValueI() + "s)");
 				state = State.FLIGHTING_TO_CHEST;
 				stateStartMs = System.currentTimeMillis();
 			}else
 			{
-				log("Chest path timeout; marking missing.");
+				log("Chest path timeout; marking missing (timeout="
+					+ chestPathTimeoutSec.getValueI() + "s)");
 				markTargetComplete("missing", null, null, null);
 				moveToNextTarget();
 			}
@@ -1170,13 +1278,17 @@ public final class LootRunnerHack extends Hack
 			flightChestAttempts++;
 			if(flightChestAttempts >= 2)
 			{
-				log("Flight-to-chest failed; marking missing.");
+				log("Flight-to-chest failed; marking missing (timeout="
+					+ chestPathTimeoutSec.getValueI() + "s, attempts="
+					+ flightChestAttempts + ")");
 				markTargetComplete("missing", null, null, null);
 				moveToNextTarget();
 				return;
 			}
 			
-			log("Flight-to-chest retry; re-scanning for chest.");
+			log("Flight-to-chest retry; re-scanning for chest (timeout="
+				+ chestPathTimeoutSec.getValueI() + "s, attempt="
+				+ flightChestAttempts + ")");
 			state = State.SEARCHING_CHEST;
 			stateStartMs = System.currentTimeMillis();
 			return;
@@ -1238,7 +1350,8 @@ public final class LootRunnerHack extends Hack
 		if(currentTarget == null)
 			return;
 		
-		log(reason);
+		log(reason + " (useWurstPathing=" + useWurstPathing.isChecked()
+			+ ", useFlight=" + useFlight.isChecked() + ")");
 		PathProcessor.releaseControls();
 		clearSneak();
 		setFlightForTravel(false);
@@ -1247,7 +1360,11 @@ public final class LootRunnerHack extends Hack
 		ticksWithoutProgress = 0;
 		lastTravelDist = Double.NaN;
 		flightIdleTicks = 0;
-		baritone.setGoal(currentTarget.pos);
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
+		setBaritoneGoal(currentTarget.pos, "Switching to Baritone pathing");
 		state = State.PATHING_TO_TARGET;
 		stateStartMs = System.currentTimeMillis();
 	}
@@ -1261,11 +1378,11 @@ public final class LootRunnerHack extends Hack
 			return;
 		}
 		
-		log(reason);
+		log(reason + " (useFlight=" + useFlight.isChecked() + ")");
 		PathProcessor.releaseControls();
 		clearSneak();
 		setFlightForTravel(false);
-		baritone.setGoal(currentChestPos);
+		setBaritoneGoal(currentChestPos, "Switching to chest pathing");
 		state = State.PATHING_TO_CHEST;
 		stateStartMs = System.currentTimeMillis();
 	}
@@ -1281,7 +1398,7 @@ public final class LootRunnerHack extends Hack
 	private void resetTravelAfterExitStall(String reason)
 	{
 		log(reason);
-		baritone.cancelAll();
+		cancelBaritone("Exit stall reset");
 		PathProcessor.releaseControls();
 		clearSneak();
 		setFlightForTravel(false);
@@ -1301,6 +1418,10 @@ public final class LootRunnerHack extends Hack
 		flightBobbingTicks = 0;
 		flightIdleTicks = 0;
 		useWurstPathingForTarget = false;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		state = State.IDLE;
 		stateStartMs = System.currentTimeMillis();
 	}
@@ -1328,7 +1449,8 @@ public final class LootRunnerHack extends Hack
 				long elapsed = System.currentTimeMillis() - chestBreakStartMs;
 				if(elapsed > obstructionBreakTimeoutSec.getValueF() * 1000L)
 				{
-					log("Chest obstruction break timed out; marking missing.");
+					log("Chest obstruction break timed out; marking missing (timeout="
+						+ obstructionBreakTimeoutSec.getValueI() + "s)");
 					markTargetComplete("missing", null, null, null);
 					moveToNextTarget();
 					return;
@@ -1354,7 +1476,8 @@ public final class LootRunnerHack extends Hack
 		if(System.currentTimeMillis()
 			- stateStartMs > chestOpenTimeoutSec.getValueF() * 1000L)
 		{
-			log("Chest open timeout; marking missing.");
+			log("Chest open timeout; marking missing (timeout="
+				+ chestOpenTimeoutSec.getValueI() + "s)");
 			markTargetComplete("missing", null, null, null);
 			moveToNextTarget();
 			return;
@@ -1448,8 +1571,8 @@ public final class LootRunnerHack extends Hack
 		PathProcessor.releaseControls();
 		clearSneak();
 		setFlightForTravel(false);
-		baritone.cancelAll();
-		baritone.setGoal(resumePos);
+		cancelBaritone("Resume position start");
+		setBaritoneGoal(resumePos, "Resume saved position");
 		state = State.RESUMING_POSITION;
 		stateStartMs = System.currentTimeMillis();
 		log("Resuming from saved position: " + resumePos.getX() + ", "
@@ -1469,7 +1592,7 @@ public final class LootRunnerHack extends Hack
 			MC.player.position().distanceTo(Vec3.atCenterOf(resumePos));
 		if(dist <= 2.0)
 		{
-			baritone.cancelAll();
+			cancelBaritone("Resume position reached");
 			resumePending = false;
 			applyResumeTarget();
 			ChatUtils.message("LootRunner resumed at saved position.");
@@ -1481,13 +1604,14 @@ public final class LootRunnerHack extends Hack
 		long now = System.currentTimeMillis();
 		if(now - lastExitGoalMs > 1000L)
 		{
-			baritone.setGoal(resumePos);
+			setBaritoneGoal(resumePos, "Resume goal refresh");
 			lastExitGoalMs = now;
 		}
 		
 		if(now - stateStartMs > travelTimeoutSec.getValueF() * 1000L)
 		{
-			baritone.cancelAll();
+			cancelBaritone("Resume timeout (travelTimeout="
+				+ travelTimeoutSec.getValueI() + "s)");
 			resumePending = false;
 			ChatUtils.error("Couldn't reach saved position; continuing route.");
 			state = State.IDLE;
@@ -1539,6 +1663,10 @@ public final class LootRunnerHack extends Hack
 		useWurstPathingForTarget = false;
 		lastTravelDist = Double.NaN;
 		ticksWithoutProgress = 0;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		flightBobbingTicks = 0;
 		flightIdleTicks = 0;
 		flightEvadeTicks = 0;
@@ -1620,6 +1748,9 @@ public final class LootRunnerHack extends Hack
 	
 	private void handleInventoryFullStop()
 	{
+		log("Inventory full; stopping (useQuickShulkerOnFull="
+			+ useQuickShulkerOnFull.isChecked() + ", quitOnInventoryFull="
+			+ quitOnInventoryFull.isChecked() + ")");
 		ChatUtils.message("LootRunner stopped: inventory full.");
 		setEnabled(false);
 		
@@ -1637,7 +1768,9 @@ public final class LootRunnerHack extends Hack
 		
 		setFlightForTravel(false);
 		exitToResumeTarget = false;
-		log("Exit search after looting.");
+		log("Exit search after looting (radius=" + exitSearchRadius.getValueI()
+			+ ", clearHeight=" + exitClearHeight.getValueI() + ", timeout="
+			+ exitTimeoutSec.getValueI() + "s)");
 		
 		exitAttempts = 0;
 		flightChestAttempts = 0;
@@ -1669,7 +1802,7 @@ public final class LootRunnerHack extends Hack
 		}
 		
 		exitPos = found;
-		baritone.setGoal(found);
+		setBaritoneGoal(found, "Exit search after looting");
 		state = State.EXITING;
 		stateStartMs = System.currentTimeMillis();
 	}
@@ -1689,7 +1822,10 @@ public final class LootRunnerHack extends Hack
 		lastExitRepathMs = 0L;
 		exitStartedMs = System.currentTimeMillis();
 		exitStartTargetDist = getCurrentTargetDistance();
-		log("Travel stuck; exit search to resume flight.");
+		log("Travel stuck; exit search to resume flight (radius="
+			+ exitSearchRadius.getValueI() + ", clearHeight="
+			+ exitClearHeight.getValueI() + ", timeout="
+			+ exitTimeoutSec.getValueI() + "s)");
 		
 		BlockPos center = BlockPos.containing(MC.player.position());
 		BlockPos found = findExitSpot(center, exitSearchRadius.getValueI());
@@ -1710,7 +1846,7 @@ public final class LootRunnerHack extends Hack
 		}
 		
 		exitPos = found;
-		baritone.setGoal(found);
+		setBaritoneGoal(found, "Exit search to resume flight");
 		lastExitGoalMs = System.currentTimeMillis();
 		state = State.EXITING;
 		stateStartMs = System.currentTimeMillis();
@@ -1803,12 +1939,18 @@ public final class LootRunnerHack extends Hack
 			double targetDist = getCurrentTargetDistance();
 			double driftBudget =
 				Math.max(96.0, exitSearchRadius.getValue() * 12.0);
-			if(!Double.isNaN(exitStartTargetDist)
-				&& !Double.isNaN(targetDist)
+			if(!Double.isNaN(exitStartTargetDist) && !Double.isNaN(targetDist)
 				&& targetDist > exitStartTargetDist + driftBudget)
 			{
 				resetTravelAfterExitStall(
-					"Exit drifted too far from target; resetting travel.");
+					"Exit drifted too far from target (startDist="
+						+ String.format(Locale.ROOT, "%.1f",
+							exitStartTargetDist)
+						+ ", now="
+						+ String.format(Locale.ROOT, "%.1f", targetDist)
+						+ ", budget="
+						+ String.format(Locale.ROOT, "%.1f", driftBudget)
+						+ "); resetting travel.");
 				return;
 			}
 			
@@ -1817,23 +1959,26 @@ public final class LootRunnerHack extends Hack
 			if(now - exitStartedMs > hardTimeoutMs)
 			{
 				resetTravelAfterExitStall(
-					"Exit recovery took too long; resetting travel.");
+					"Exit recovery took too long (hardTimeout="
+						+ (hardTimeoutMs / 1000L) + "s); resetting travel.");
 				return;
 			}
 		}
 		
 		if(now - lastExitGoalMs > 1000L)
 		{
-			baritone.setGoal(exitPos);
+			setBaritoneGoal(exitPos, "Exit goal refresh");
 			lastExitGoalMs = now;
 		}
 		long timeoutMs = (long)exitTimeoutSec.getValueF() * 1000L;
 		if(now - stateStartMs > timeoutMs)
 		{
-			baritone.cancelAll();
+			cancelBaritone(
+				"Exit timeout (timeout=" + exitTimeoutSec.getValueI() + "s)");
 			if(landingPos != null && !landingPos.equals(exitPos))
 			{
-				log("Exit timeout; retrying from landing spot.");
+				log("Exit timeout; retrying from landing spot (timeout="
+					+ exitTimeoutSec.getValueI() + "s)");
 				exitPos = landingPos;
 				stateStartMs = System.currentTimeMillis();
 				return;
@@ -1877,8 +2022,9 @@ public final class LootRunnerHack extends Hack
 			}
 			
 			exitPos = found;
-			baritone.setGoal(found);
-			log("Exit re-search set new goal.");
+			setBaritoneGoal(found, "Exit re-search attempt " + exitAttempts
+				+ " (radius=" + exitSearchRadius.getValueI() + ")");
+			log("Exit re-search set new goal (attempt=" + exitAttempts + ").");
 			stateStartMs = System.currentTimeMillis();
 			return;
 		}
@@ -1910,7 +2056,7 @@ public final class LootRunnerHack extends Hack
 		}
 		if(dist <= Math.max(3.0, targetRadius.getValue() / 2.0))
 		{
-			baritone.cancelAll();
+			cancelBaritone("Exit reached");
 			exitAttempts = 0;
 			if(exitToResumeTarget)
 			{
@@ -2014,14 +2160,22 @@ public final class LootRunnerHack extends Hack
 			return false;
 		
 		lastRetargetMs = now;
-		log("Switching to nearer target: " + best.describe());
+		log("Switching to nearer target: " + best.describe() + " (current="
+			+ String.format(Locale.ROOT, "%.1f", currentDist) + ", best="
+			+ String.format(Locale.ROOT, "%.1f", bestDist) + ", minGain="
+			+ String.format(Locale.ROOT, "%.1f", minGain) + ", retargetNearest="
+			+ retargetNearest.isChecked() + ")");
 		currentTarget = best;
 		nearTargetStartMs = 0L;
 		ticksWithoutProgress = 0;
 		lastTravelDist = Double.NaN;
+		targetStuckTicks = 0;
+		targetRepathAttempts = 0;
+		lastTargetDist = Double.NaN;
+		lastTargetProgressMs = 0L;
 		stateStartMs = now;
 		if(state == State.PATHING_TO_TARGET && !useWurstPathingForTarget)
-			baritone.setGoal(best.pos);
+			setBaritoneGoal(best.pos, "Retarget to nearer target");
 		return true;
 	}
 	
@@ -2042,7 +2196,12 @@ public final class LootRunnerHack extends Hack
 		LootTarget best = findNearestEligibleTarget();
 		currentTarget = best;
 		if(best != null)
+		{
+			log("Selected next target: " + best.describe() + " (minTargetY="
+				+ minTargetY.getValueI() + ", onlyCurrentDimension="
+				+ onlyCurrentDimension.isChecked() + ")");
 			ChatUtils.message("LootRunner target: " + best.describe());
+		}
 	}
 	
 	private boolean isCompleted(LootTarget target)
@@ -2077,7 +2236,7 @@ public final class LootRunnerHack extends Hack
 	private void finishRun()
 	{
 		ChatUtils.message("LootRunner complete.");
-		baritone.cancelAll();
+		cancelBaritone("Run complete");
 		setEnabled(false);
 		
 		if(quitOnComplete.isChecked() && MC.level != null)
@@ -2881,6 +3040,50 @@ public final class LootRunnerHack extends Hack
 			ChatUtils.message("[LootRunner] " + msg);
 	}
 	
+	private static String formatPos(BlockPos pos)
+	{
+		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+	}
+	
+	private void setBaritoneGoal(BlockPos pos, String reason)
+	{
+		if(pos == null)
+			return;
+		baritone.setGoal(pos);
+		log("Baritone goal -> " + formatPos(pos)
+			+ (reason == null || reason.isBlank() ? "" : " (" + reason + ")"));
+	}
+	
+	private void cancelBaritone(String reason)
+	{
+		baritone.cancelAll();
+		log("Baritone cancel"
+			+ (reason == null || reason.isBlank() ? "" : " (" + reason + ")"));
+	}
+	
+	private String getTargetIneligibilityReason(LootTarget target)
+	{
+		if(target == null)
+			return "null target";
+		if(isCompleted(target))
+			return "already completed";
+		if(isFailed(target))
+			return "failed this run";
+		int minY = minTargetY.getValueI();
+		if(target.pos.getY() < minY)
+			return "below Min target Y (" + target.pos.getY() + " < " + minY
+				+ ")";
+		if(onlyCurrentDimension.isChecked())
+		{
+			String curDim = MC.level != null
+				? MC.level.dimension().identifier().toString() : "unknown";
+			if(!curDim.equalsIgnoreCase(target.dimension))
+				return "dimension mismatch (" + target.dimension + " != "
+					+ curDim + ")";
+		}
+		return "unknown";
+	}
+	
 	private void clearSneak()
 	{
 		if(MC == null || MC.options == null)
@@ -2910,9 +3113,16 @@ public final class LootRunnerHack extends Hack
 				.distanceTo(Vec3.atCenterOf(currentTarget.pos));
 			distInfo = " dist=" + String.format(Locale.ROOT, "%.1f", d);
 		}
+		long stateAge = Math.max(0L, now - stateStartMs);
 		log("State=" + state + " target=" + target + " chest=" + chest
 			+ " exit=" + exit + " exitAttempts=" + exitAttempts
-			+ " flightChestAttempts=" + flightChestAttempts + distInfo);
+			+ " flightChestAttempts=" + flightChestAttempts + distInfo
+			+ " stateMs=" + stateAge + " useWurstPathing="
+			+ useWurstPathingForTarget + " useFlight=" + useFlight.isChecked()
+			+ " waitingQS=" + waitingForQuickShulker + " noProgress="
+			+ ticksWithoutProgress + " bobbing=" + flightBobbingTicks
+			+ " targetStuck=" + targetStuckTicks + " repaths="
+			+ targetRepathAttempts + " exitToResume=" + exitToResumeTarget);
 	}
 	
 	private void tryRepathExit(String reason)
@@ -2923,7 +3133,7 @@ public final class LootRunnerHack extends Hack
 		lastExitRepathMs = now;
 		
 		log(reason);
-		baritone.cancelAll();
+		cancelBaritone("Exit repath");
 		exitAttempts = Math.min(exitAttempts + 1, 3);
 		BlockPos center = BlockPos.containing(MC.player.position());
 		BlockPos attemptCenter = switch(exitAttempts)
@@ -2938,7 +3148,8 @@ public final class LootRunnerHack extends Hack
 		if(found != null)
 		{
 			exitPos = found;
-			baritone.setGoal(found);
+			setBaritoneGoal(found, "Exit repath attempt " + exitAttempts
+				+ " (radius=" + exitSearchRadius.getValueI() + ")");
 			lastExitGoalMs = now;
 		}
 	}
