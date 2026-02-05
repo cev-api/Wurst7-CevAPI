@@ -111,6 +111,8 @@ public abstract class EntityMixin
 	private Integer getEspGlowColor(LivingEntity living)
 	{
 		var hax = WurstClient.INSTANCE.getHax();
+		if(hax != null && hax.hideWurstHack.isEnabled())
+			return null;
 		
 		Integer color = NiceWurstModule.filterGlowColor(living,
 			hax.playerEspHack.getGlowColor(living));

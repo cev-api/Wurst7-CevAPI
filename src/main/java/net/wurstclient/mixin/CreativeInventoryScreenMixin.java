@@ -35,6 +35,9 @@ public abstract class CreativeInventoryScreenMixin
 	private void onShouldShowOperatorTab(Player player,
 		CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(WurstClient.INSTANCE.isEnabled())
 			cir.setReturnValue(true);
 	}

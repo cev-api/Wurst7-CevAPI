@@ -46,6 +46,9 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	private void renderLoginOverlay(GuiGraphics graphics, int mouseX,
 		int mouseY, float partialTicks, CallbackInfo ci)
 	{
+		if(net.wurstclient.WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!(((Object)this) instanceof DisconnectedScreen))
 			return;
 		

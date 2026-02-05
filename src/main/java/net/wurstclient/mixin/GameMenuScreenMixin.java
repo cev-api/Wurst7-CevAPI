@@ -45,6 +45,8 @@ public abstract class GameMenuScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		addWurstOptionsButton();
 	}
@@ -56,11 +58,16 @@ public abstract class GameMenuScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled() || wurstOptionsButton == null)
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 	}
 	
 	@Unique
 	private void addWurstOptionsButton()
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		List<AbstractWidget> buttons = Screens.getButtons(this);
 		
 		// Fallback position

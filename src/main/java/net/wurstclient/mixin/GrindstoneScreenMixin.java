@@ -39,6 +39,8 @@ public abstract class GrindstoneScreenMixin
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		if(autoDisenchant.shouldShowButton())
 		{

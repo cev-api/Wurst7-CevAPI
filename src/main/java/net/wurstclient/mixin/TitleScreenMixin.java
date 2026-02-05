@@ -48,6 +48,8 @@ public abstract class TitleScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		for(AbstractWidget button : Screens.getButtons(this))
 		{
@@ -80,6 +82,9 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(at = @At("RETURN"), method = "tick()V")
 	private void onTick(CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(WurstClient.INSTANCE.getForkUpdateChecker() != null)
 			WurstClient.INSTANCE.getForkUpdateChecker().startIfNeeded();
 		
@@ -96,6 +101,9 @@ public abstract class TitleScreenMixin extends Screen
 	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		Font font = minecraft.font;
 		String brand = NiceWurstModule.isActive() ? "NiceWurst" : "Wurst";
 		String baseText = brand + " " + BuildConfig.MOD_VERSION + " v"
@@ -117,6 +125,9 @@ public abstract class TitleScreenMixin extends Screen
 	private void onGetMultiplayerDisabledText(
 		CallbackInfoReturnable<Component> cir)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		cir.setReturnValue(null);
 	}
 }

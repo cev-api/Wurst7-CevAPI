@@ -31,6 +31,9 @@ public class PackScreenMixin extends Screen
 	@Inject(at = @At("HEAD"), method = "onClose()V")
 	public void onClose(CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		WurstClient.INSTANCE.getProblematicPackDetector().start();
 	}
 }

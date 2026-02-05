@@ -64,6 +64,8 @@ public abstract class HandledScreenMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseClick(context))
 		{
@@ -90,6 +92,8 @@ public abstract class HandledScreenMixin
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseScroll(mouseX, mouseY,
@@ -119,6 +123,8 @@ public abstract class HandledScreenMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
@@ -135,6 +141,8 @@ public abstract class HandledScreenMixin
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseRelease(context.x(),

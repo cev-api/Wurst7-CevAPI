@@ -96,6 +96,8 @@ public class DisconnectedScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		Component reason = details.reason();
 		System.out.println("Disconnected: " + reason);
@@ -589,6 +591,8 @@ public class DisconnectedScreenMixin extends Screen
 	public void tick()
 	{
 		if(!WurstClient.INSTANCE.isEnabled() || autoReconnectButton == null)
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
 		AutoReconnectHack autoReconnect =

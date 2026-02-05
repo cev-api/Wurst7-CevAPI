@@ -97,6 +97,10 @@ public enum HackToggleFeedback implements UpdateListener
 		if(wurst == null || wurst.getHax() == null)
 			return false;
 		
+		if(wurst.getHax().hideWurstHack != null
+			&& wurst.getHax().hideWurstHack.shouldHideToggleChatFeedback())
+			return false;
+		
 		ClickGuiHack clickGuiHack = wurst.getHax().clickGuiHack;
 		return clickGuiHack != null
 			&& clickGuiHack.isHackToggleChatFeedbackEnabled();

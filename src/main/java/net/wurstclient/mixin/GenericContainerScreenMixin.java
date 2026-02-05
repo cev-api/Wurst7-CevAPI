@@ -107,6 +107,8 @@ public abstract class GenericContainerScreenMixin
 		chestSnapshotFinalized = false;
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		final ChestSearchHack chestSearchHack = wurst$getChestSearchHack();
 		boolean autoButtonsPlaced = false;
 		final int autoButtonHeight = 12;
@@ -1171,6 +1173,9 @@ public abstract class GenericContainerScreenMixin
 	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		long now = System.currentTimeMillis();
 		if(lastRecordMessage != null && now <= lastRecordUntilMs)
 		{

@@ -57,6 +57,8 @@ public class MultiplayerScreenMixin extends Screen
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		JoinMultiplayerScreen mpScreen = (JoinMultiplayerScreen)(Object)this;
 		
@@ -77,6 +79,8 @@ public class MultiplayerScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		// Footer buttons are not added here to avoid duplicates; corner buttons
 		// are created/positioned in `repositionElements()` instead.
 	}
@@ -87,6 +91,8 @@ public class MultiplayerScreenMixin extends Screen
 		updateLastServerButton();
 		
 		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
 		if(NiceWurstModule.showAltManager())

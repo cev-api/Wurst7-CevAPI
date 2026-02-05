@@ -86,6 +86,10 @@ I'm pleased to note that many of the features and improvements below are complet
 - SusNoMore
 - Towny Hack, ChorusFruit and MeasurementESP (Unlisted Hacks)
 - BedrockEscape
+- PacketFirewall
+- KickForensics
+- HideWurst
+- LootRunner
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -642,7 +646,6 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 
 - Navigator only hack that simply tells you who or what caused you damage and where in chat
 
-
 ### Teleport
 
 - Teleports you along a visible path 
@@ -672,6 +675,14 @@ This hack is still undergoing development and has only been tested in the end. A
 - Can optionally drop invalid packets and deduplicate movement within a tick.
 - Disabled by default; enable in ClickGUI > Other > Packet Firewall.
 - Great for understanding and potentially evading some anti-cheats.
+
+### HideWurst
+
+- Disables all Wurst rendering (ESP, HackList, HUD, overlays, glow outlines) while keeping hacks enabled.
+- Can hide Wurst's UI mixins (menus, containers, overlays) without disabling the hacks.
+- Can hide Wurst from ModMenu's mod list.
+- Use HideModMenu to hide additional mods by keyword (comma-separated list).
+- Useful for recording/streaming or just hiding visuals without turning off your active hacks.
 
 ## What's changed or improved in this fork?
 

@@ -26,6 +26,9 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		cancellable = true)
 	public void onRenderInGameBackground(GuiGraphics context, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(WurstClient.INSTANCE.getHax().noBackgroundHack
 			.shouldCancelBackground((Screen)(Object)this))
 			ci.cancel();

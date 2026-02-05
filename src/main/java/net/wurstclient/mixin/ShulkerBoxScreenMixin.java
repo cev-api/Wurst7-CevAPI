@@ -65,6 +65,8 @@ public abstract class ShulkerBoxScreenMixin
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		boolean autoButtonsPlaced = false;
 		final int autoButtonHeight = 12;

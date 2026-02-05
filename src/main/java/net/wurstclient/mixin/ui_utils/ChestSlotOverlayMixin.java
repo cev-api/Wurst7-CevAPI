@@ -50,6 +50,9 @@ public abstract class ChestSlotOverlayMixin extends Screen
 	private void wurst$renderSlotOverlay(GuiGraphics graphics, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		

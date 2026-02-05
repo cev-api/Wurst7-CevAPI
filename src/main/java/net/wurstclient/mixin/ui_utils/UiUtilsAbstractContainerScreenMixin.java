@@ -163,6 +163,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	@Inject(at = @At("TAIL"), method = "init()V")
 	private void onInit(CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		
@@ -189,6 +192,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		
@@ -222,6 +228,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private void wurst$renderFabricateOverlayBackground(GuiGraphics graphics,
 		int mouseX, int mouseY, float partialTicks, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		if(!UiUtilsState.fabricateOverlayOpen)
@@ -245,6 +254,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private void onKeyPressed(KeyEvent keyEvent,
 		CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		
@@ -514,6 +526,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		net.minecraft.client.input.MouseButtonEvent context,
 		boolean doubleClick, CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled() || !UiUtilsState.fabricateOverlayOpen)
 			return;
 		double mx = context.x();
@@ -542,6 +557,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		net.minecraft.client.input.MouseButtonEvent context,
 		CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!overlayDragging)
 			return;
 		overlayDragging = false;
@@ -703,6 +721,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	@Inject(at = @At("HEAD"), method = "removed()V", cancellable = true)
 	private void onRemoved(CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(UiUtilsState.skipNextContainerRemoval)
 		{
 			UiUtilsState.skipNextContainerRemoval = false;

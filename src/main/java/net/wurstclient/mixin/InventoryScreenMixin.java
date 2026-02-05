@@ -35,6 +35,8 @@ public abstract class InventoryScreenMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		QuickShulkerHack quickShulker =
 			WurstClient.INSTANCE.getHax().quickShulkerHack;

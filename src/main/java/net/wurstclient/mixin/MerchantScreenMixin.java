@@ -35,6 +35,8 @@ public abstract class MerchantScreenMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		
 		AutoTraderHack autoTrader =
 			WurstClient.INSTANCE.getHax().autoTraderHack;

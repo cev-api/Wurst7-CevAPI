@@ -40,6 +40,9 @@ public abstract class ControlsListWidgetMixin
 	private int dontAddZoomEntry(KeyBindsList instance,
 		AbstractSelectionList.Entry<?> entry, Operation<Integer> original)
 	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return original.call(instance, entry);
+		
 		if(!(entry instanceof KeyBindsList.KeyEntry kbEntry))
 			return original.call(instance, entry);
 		

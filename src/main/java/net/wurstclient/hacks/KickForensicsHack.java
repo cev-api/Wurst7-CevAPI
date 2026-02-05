@@ -261,8 +261,10 @@ public final class KickForensicsHack extends Hack
 			if(first == null)
 				return;
 			if(now - first.getTimeMs() > windowMs)
-				deque.removeFirst();
-			else
+			{
+				if(deque.pollFirst() == null)
+					return;
+			}else
 				return;
 		}
 	}
@@ -270,8 +272,16 @@ public final class KickForensicsHack extends Hack
 	private static void pruneTimes(ArrayDeque<Long> deque, long now,
 		long windowMs)
 	{
-		while(!deque.isEmpty() && now - deque.peekFirst() > windowMs)
-			deque.removeFirst();
+		while(true)
+		{
+			Long first = deque.peekFirst();
+			if(first == null)
+				return;
+			if(now - first > windowMs)
+				deque.pollFirst();
+			else
+				return;
+		}
 	}
 	
 	private String buildPacketSummary(String dir, Packet<?> packet)

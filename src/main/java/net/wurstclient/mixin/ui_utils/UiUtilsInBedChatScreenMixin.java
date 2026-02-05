@@ -29,6 +29,9 @@ public abstract class UiUtilsInBedChatScreenMixin extends Screen
 	@Inject(at = @At("TAIL"), method = "init()V")
 	private void onInit(CallbackInfo ci)
 	{
+		if(net.wurstclient.WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
 		if(!UiUtilsState.isUiEnabled())
 			return;
 		

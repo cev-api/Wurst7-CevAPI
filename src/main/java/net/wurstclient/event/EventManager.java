@@ -15,6 +15,9 @@ import net.minecraft.CrashReport;
 import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportedException;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hack.HackList;
+import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
+import net.wurstclient.events.RenderListener.RenderEvent;
 
 public final class EventManager
 {
@@ -44,6 +47,9 @@ public final class EventManager
 	private <L extends Listener, E extends Event<L>> void fireImpl(E event)
 	{
 		if(!wurst.isEnabled())
+			return;
+		
+		if(isWurstRenderEvent(event) && isHideWurstEnabled())
 			return;
 		
 		try
@@ -78,6 +84,18 @@ public final class EventManager
 			
 			throw new ReportedException(report);
 		}
+	}
+	
+	private <L extends Listener, E extends Event<L>> boolean isWurstRenderEvent(
+		E event)
+	{
+		return event instanceof RenderEvent || event instanceof GUIRenderEvent;
+	}
+	
+	private boolean isHideWurstEnabled()
+	{
+		HackList hax = wurst.getHax();
+		return hax != null && hax.hideWurstHack.isEnabled();
 	}
 	
 	public <L extends Listener> void add(Class<L> type, L listener)

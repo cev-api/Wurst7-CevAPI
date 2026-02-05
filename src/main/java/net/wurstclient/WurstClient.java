@@ -398,6 +398,25 @@ public enum WurstClient
 		return enabled;
 	}
 	
+	public boolean shouldHideWurstUiMixins()
+	{
+		if(hax == null)
+			return false;
+		return hax.hideWurstHack.shouldHideUiMixins();
+	}
+	
+	public boolean shouldHideModMenuEntries()
+	{
+		if(hax == null)
+			return false;
+		
+		if(hax.hideWurstHack != null
+			&& hax.hideWurstHack.shouldHideFromModMenu())
+			return true;
+		
+		return hax.hideModMenuHack != null && hax.hideModMenuHack.isEnabled();
+	}
+	
 	public void setEnabled(boolean enabled)
 	{
 		this.enabled = enabled;
