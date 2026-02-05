@@ -666,6 +666,13 @@ This hack is still undergoing development and has only been tested in the end. A
 - Captures a short window of packets and player state on disconnect and saves a report to `kick-forensics.log`.
 - Great for understanding anti-cheats and player states.
 
+### PacketFirewall
+
+- Validates outbound movement packets for protocol correctness (NaN/Infinity checks, pitch clamp, optional yaw wrapping).
+- Can optionally drop invalid packets and deduplicate movement within a tick.
+- Disabled by default; enable in ClickGUI > Other > Packet Firewall.
+- Great for understanding and potentially evading some anti-cheats.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

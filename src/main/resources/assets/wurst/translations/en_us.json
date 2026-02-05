@@ -228,6 +228,7 @@
   "description.wurst.nochatreports.message_is_reportable": "This message has a valid signature and is thus vulnerable to fraudulent chat reports.",
   "description.wurst.other_feature.connection_log_overlay": "Shows a lightweight console log in the top-left corner while you're connecting to a server.",
   "description.wurst.other_feature.nochatreports": "Disables the cryptographic signatures that since 1.19 are attached to your chat messages.\n\n??c??lWARNING: ??cIf ??cyou ??csend ??cchat ??cmessages ??cwith ??csignatures, ??cyour ??cMinecraft ??caccount ??ccan ??cget ??creported ??cand ??cglobally ??cbanned ??cfrom ??cmultiplayer!??r\n\nEven if you only say harmless things in chat, your signed messages can be abused to create a fake chat report that gets your account banned unfairly.\n\nIf you have to re-enable chat signatures to chat on a server, consider playing on an alt account that you don't mind losing.",
+  "description.wurst.other_feature.packet_firewall": "Validates outbound movement packets (NaN/Infinity checks, pitch clamp, optional yaw wrapping) to keep packets protocol-safe. Can optionally drop invalid packets and deduplicate movement within a tick. Disabled by default.",
   "description.wurst.setting.aimassist.aim_while_blocking": "Keeps aiming at entities while you're blocking with a shield or using items.",
   "hack.wurst.item_handler": "Item Handler",
   "hack.wurst.item_handler.description": "UI for manually selecting dropped items to collect. Blocks automatic pickup.",
