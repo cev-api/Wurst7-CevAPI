@@ -26,20 +26,13 @@ import net.minecraft.client.gui.components.AbstractSelectionList;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.HackList;
 
-@Mixin(
-	targets = {"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry",
-		"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModEntry",
-		"com.terraformersmc.modmenu.gui.widget.ModListWidget$Entry",
-		"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModListEntry"},
+@Mixin(targets = {"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry"},
 	remap = false)
 public abstract class ModMenuEntryMixin
 {
 	private static final String[] WURST_MOD_IDS = {"wurst", "nicewurst"};
 	private static final String[] ENTRY_CLASS_NAMES =
-		{"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModEntry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$Entry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModListEntry"};
+		{"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry"};
 	@Unique
 	private static volatile Class<?> detectedEntryClass;
 	@Unique

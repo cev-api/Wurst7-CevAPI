@@ -28,10 +28,7 @@ public abstract class ModMenuScreenMixin
 {
 	private static final String[] WURST_MOD_IDS = {"wurst", "nicewurst"};
 	private static final String[] ENTRY_CLASS_NAMES =
-		{"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModEntry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$Entry",
-			"com.terraformersmc.modmenu.gui.widget.ModListWidget$ModListEntry"};
+		{"com.terraformersmc.modmenu.gui.widget.entries.ModListEntry"};
 	private static volatile Class<?> detectedEntryClass;
 	private static final int MAX_REFILTER_ATTEMPTS = 40;
 	private boolean wurst$needsRefilter = true;

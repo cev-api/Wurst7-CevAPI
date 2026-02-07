@@ -40,7 +40,7 @@ public final class ModMenuTextUtils
 		return matcher.replaceFirst(replacement);
 	}
 	
-		public static boolean shouldHideModMenuCount()
+	public static boolean shouldHideModMenuCount()
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
 		if(hax == null)
@@ -57,8 +57,8 @@ public final class ModMenuTextUtils
 		
 		boolean hideWurstModMenu = hax.hideWurstHack != null
 			&& hax.hideWurstHack.shouldHideFromModMenu();
-		boolean hideModMenu = hax.hideModMenuHack != null
-			&& hax.hideModMenuHack.isEnabled();
+		boolean hideModMenu =
+			hax.hideModMenuHack != null && hax.hideModMenuHack.isEnabled();
 		return hideWurstModMenu || hideModMenu;
 	}
 }

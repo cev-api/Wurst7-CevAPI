@@ -684,6 +684,15 @@ This hack is still undergoing development and has only been tested in the end. A
 - Use HideModMenu to hide additional mods by keyword (comma-separated list).
 - Useful for recording/streaming or just hiding visuals without turning off your active hacks.
 
+### AutoFly
+
+- AutoFly follows SeedMapper exports or manually entered coordinates, automatically tuning Flight height/speed and showing a crosshair status.
+- Able to adjust mid flight so you can get yourself unstuck if it failed to do it itself.
+- Auto lands and turns off flight when complete.
+- Comes with custom commands:
+  - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries).
+  - `.autofly next`/`.autofly prev(ious)` cycles the SeedMapper export list, while `.autofly stop|off|disable` turns off AutoFly.
+ 
 ## What's changed or improved in this fork?
 
 ### ChestESP

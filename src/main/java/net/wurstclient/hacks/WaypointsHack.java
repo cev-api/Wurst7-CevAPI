@@ -1042,6 +1042,23 @@ public final class WaypointsHack extends Hack
 		return null;
 	}
 	
+	public boolean hasWaypointNear(BlockPos pos, double radius)
+	{
+		if(pos == null)
+			return false;
+		ensureWorldData();
+		double r2 = radius * radius;
+		for(Waypoint w : manager.all())
+		{
+			BlockPos ws = worldSpace(w);
+			if(ws == null)
+				continue;
+			if(ws.distSqr(pos) <= r2)
+				return true;
+		}
+		return false;
+	}
+	
 	private PortalKind classifyPortal(BlockPos pos)
 	{
 		if(pos == null || MC.level == null)
