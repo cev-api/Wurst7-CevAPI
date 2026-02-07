@@ -1564,13 +1564,19 @@ public final class WaypointsHack extends Hack
 		if(MC.gui == null)
 			return 0;
 		BossHealthOverlay bossBarHud = MC.gui.getBossOverlay();
-		if(bossBarHud == null || bossBarHud.events.isEmpty())
+		if(bossBarHud == null)
+			return 0;
+		
+		java.util.Map<?, ?> bossEvents =
+			((net.wurstclient.mixin.BossHealthOverlayAccessor)bossBarHud)
+				.getEvents();
+		if(bossEvents == null || bossEvents.isEmpty())
 			return 0;
 		int screenHeight = context.guiHeight();
 		int maxY = screenHeight / 3;
 		// Vanilla boss bars start at y=12 and advance by 19px per entry.
 		int y = 12;
-		for(int i = 0; i < bossBarHud.events.size(); i++)
+		for(int i = 0; i < bossEvents.size(); i++)
 		{
 			if(y >= maxY)
 				return maxY;

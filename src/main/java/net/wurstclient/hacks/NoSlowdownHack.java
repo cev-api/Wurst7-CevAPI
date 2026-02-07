@@ -31,6 +31,12 @@ public final class NoSlowdownHack extends Hack implements
 			+ "Some servers treat this like a speedhack.",
 		false);
 	
+	private final CheckboxSetting allowSwimming = new CheckboxSetting(
+		"Allow swimming",
+		"Allows normal swimming while \"No water slowdown\" is enabled.\n"
+			+ "When enabled, water slowdown is only bypassed while walking on the ground in water.",
+		false);
+	
 	private boolean bypassingLava;
 	private boolean bypassingWater;
 	
@@ -40,6 +46,7 @@ public final class NoSlowdownHack extends Hack implements
 		setCategory(Category.MOVEMENT);
 		addSetting(lavaSpeed);
 		addSetting(waterSpeed);
+		addSetting(allowSwimming);
 	}
 	
 	@Override
@@ -90,8 +97,22 @@ public final class NoSlowdownHack extends Hack implements
 		
 		if(event.isNormallyInWater())
 		{
-			bypassingWater = true;
-			event.setInWater(false);
+			if(allowSwimming.isChecked())
+			{
+				// Let the game see that we're in water while swimming, but
+				// bypass horizontal slowdown while walking on the ground.
+				if(MC.player != null && MC.player.onGround())
+				{
+					bypassingWater = true;
+					event.setInWater(false);
+				}else
+					bypassingWater = false;
+				
+			}else
+			{
+				bypassingWater = true;
+				event.setInWater(false);
+			}
 			return;
 		}
 		

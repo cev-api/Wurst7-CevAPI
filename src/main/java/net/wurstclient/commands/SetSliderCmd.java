@@ -78,12 +78,17 @@ public final class SetSliderCmd extends Command
 	private double getKeybindStep(Feature feature, Setting setting,
 		SliderSetting slider)
 	{
-		if(feature.getName().equalsIgnoreCase("Flight"))
+		String name = setting.getName();
+		boolean isFlightOrFreecamSpeed =
+			name.equalsIgnoreCase("Horizontal Speed")
+				|| name.equalsIgnoreCase("Vertical Speed");
+		
+		if(isFlightOrFreecamSpeed)
 		{
-			String name = setting.getName();
-			if(name.equalsIgnoreCase("Horizontal Speed")
-				|| name.equalsIgnoreCase("Vertical Speed"))
-				return 1.0;
+			if(feature instanceof net.wurstclient.hacks.FlightHack flight)
+				return flight.getSpeedStep();
+			if(feature instanceof net.wurstclient.hacks.FreecamHack freecam)
+				return freecam.getSpeedStep();
 		}
 		
 		return slider.getIncrement();

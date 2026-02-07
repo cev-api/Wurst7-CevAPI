@@ -45,6 +45,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.EspBoxSizeSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.FilterInvisibleSetting;
 import net.wurstclient.settings.filters.FilterSleepingSetting;
@@ -93,7 +94,14 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			SliderSetting.ValueDisplay.INTEGER.withSuffix("s"));
 	private final EnumSetting<DetectionSound> enterSound =
 		new EnumSetting<>("Enter sound type", DetectionSound.values(),
-			DetectionSound.NOTE_BLOCK_BELL);
+			DetectionSound.NOTE_BLOCK_CHIME);
+	private final SliderSetting enterSoundVolume = new SliderSetting(
+		"Enter sound volume", "Controls how loud the enter sound plays.", 100,
+		0, 200, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix("%"));
+	private final TextFieldSetting customEnterSoundId = new TextFieldSetting(
+		"Custom enter sound ID",
+		"Enter a namespaced sound ID like 'minecraft:block.note_block.bell'.",
+		"");
 	private final CheckboxSetting exitAlert = new CheckboxSetting("Exit alert",
 		"When enabled, notifies in chat when a player leaves PlayerESP\n"
 			+ "visibility, showing distance and XYZ at which they left.",
@@ -215,6 +223,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(enterSoundAlert);
 		addSetting(enterAlertCooldown);
 		addSetting(enterSound);
+		addSetting(enterSoundVolume);
+		addSetting(customEnterSoundId);
 		addSetting(exitAlert);
 		entityFilters.forEach(this::addSetting);
 		addSetting(ignoreNpcs);
@@ -361,12 +371,53 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		SoundEvent soundEvent = enterSound.getSelected().resolve();
+		SoundEvent soundEvent = null;
+		if(enterSound.getSelected() == DetectionSound.CUSTOM)
+		{
+			String idStr = customEnterSoundId.getValue();
+			if(idStr != null)
+			{
+				idStr = idStr.trim();
+				if(!idStr.isEmpty())
+				{
+					try
+					{
+						Identifier id = Identifier.parse(idStr);
+						soundEvent = BuiltInRegistries.SOUND_EVENT.getValue(id);
+					}catch(Exception e)
+					{
+						// ignore invalid id
+					}
+				}
+			}
+		}else
+		{
+			soundEvent = enterSound.getSelected().resolve();
+		}
 		if(soundEvent == null)
 			return;
 		
-		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
-			MC.player.getZ(), soundEvent, SoundSource.PLAYERS, 1F, 1F, false);
+		float target = (float)(enterSoundVolume.getValue() / 100.0);
+		if(target <= 0f)
+			return;
+		
+		int whole = (int)target; // number of full-volume layers
+		float remainder = target - whole; // final partial layer
+		
+		double x = MC.player.getX();
+		double y = MC.player.getY();
+		double z = MC.player.getZ();
+		
+		for(int i = 0; i < whole; i++)
+		{
+			MC.level.playLocalSound(x, y, z, soundEvent, SoundSource.PLAYERS,
+				1F, 1F, false);
+		}
+		if(remainder > 0f)
+		{
+			MC.level.playLocalSound(x, y, z, soundEvent, SoundSource.PLAYERS,
+				remainder, 1F, false);
+		}
 	}
 	
 	private void sendEnterMessage(PlayerRangeAlertManager.PlayerInfo info)
@@ -992,16 +1043,23 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	
 	private enum DetectionSound
 	{
+		NOTE_BLOCK_HARP("minecraft:block.note_block.harp"),
+		NOTE_BLOCK_BASS("minecraft:block.note_block.bass"),
+		NOTE_BLOCK_BASEDRUM("minecraft:block.note_block.basedrum"),
+		NOTE_BLOCK_SNARE("minecraft:block.note_block.snare"),
+		NOTE_BLOCK_HAT("minecraft:block.note_block.hat"),
+		NOTE_BLOCK_GUITAR("minecraft:block.note_block.guitar"),
+		NOTE_BLOCK_FLUTE("minecraft:block.note_block.flute"),
 		NOTE_BLOCK_BELL("minecraft:block.note_block.bell"),
-		TRIAL_SPAWNER_DETECT_PLAYER1(
-			"minecraft:block.trial_spawner.detect_player1"),
-		TRIAL_SPAWNER_DETECT_PLAYER2(
-			"minecraft:block.trial_spawner.detect_player2"),
-		TRIAL_SPAWNER_OPEN_SHUTTER(
-			"minecraft:block.trial_spawner.open_shutter"),
-		TRIAL_SPAWNER_SPAWN_ITEM1("minecraft:block.trial_spawner.spawn_item1"),
-		TRIAL_SPAWNER_SPAWN2("minecraft:block.trial_spawner.spawn2"),
-		TRIAL_SPAWNER_EJECT_ITEM1("minecraft:block.trial_spawner.eject_item1");
+		NOTE_BLOCK_CHIME("minecraft:block.note_block.chime"),
+		NOTE_BLOCK_XYLOPHONE("minecraft:block.note_block.xylophone"),
+		NOTE_BLOCK_IRON_XYLOPHONE("minecraft:block.note_block.iron_xylophone"),
+		NOTE_BLOCK_COW_BELL("minecraft:block.note_block.cow_bell"),
+		NOTE_BLOCK_DIDGERIDOO("minecraft:block.note_block.didgeridoo"),
+		NOTE_BLOCK_BIT("minecraft:block.note_block.bit"),
+		NOTE_BLOCK_BANJO("minecraft:block.note_block.banjo"),
+		NOTE_BLOCK_PLING("minecraft:block.note_block.pling"),
+		CUSTOM("Custom");
 		
 		private final String id;
 		
@@ -1012,6 +1070,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		public SoundEvent resolve()
 		{
+			if(this == CUSTOM)
+				return null;
 			Identifier identifier = Identifier.parse(id);
 			return BuiltInRegistries.SOUND_EVENT.getValue(identifier);
 		}
@@ -1019,7 +1079,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		@Override
 		public String toString()
 		{
-			return id;
+			return this == CUSTOM ? "Custom" : id;
 		}
 	}
 }

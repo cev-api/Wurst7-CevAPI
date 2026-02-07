@@ -170,6 +170,19 @@ public final class KeybindProcessor implements KeyPressListener
 	private void processCmd(String cmd)
 	{
 		String trimmed = cmd.trim();
+		
+		// Special-case: toggle ClickGUI when bound to "clickgui".
+		// ClickGuiHack immediately disables itself after opening the screen, so
+		// using the regular hack toggle logic won't close an already open GUI.
+		if(trimmed.equalsIgnoreCase("clickgui"))
+		{
+			if(WurstClient.MC.screen instanceof ClickGuiScreen)
+				WurstClient.MC.setScreen(null);
+			else
+				WurstClient.INSTANCE.getHax().clickGuiHack.setEnabled(true);
+			return;
+		}
+		
 		// Special-case: toggle Waypoints manager when bound to ".waypoints"
 		if(trimmed.equalsIgnoreCase(".waypoints"))
 		{

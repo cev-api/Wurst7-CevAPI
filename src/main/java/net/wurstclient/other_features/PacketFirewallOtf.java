@@ -70,7 +70,7 @@ public final class PacketFirewallOtf extends OtherFeature
 	
 	public PacketFirewallOtf()
 	{
-		super("Packet Firewall",
+		super("PacketFirewall",
 			"description.wurst.other_feature.packet_firewall");
 		
 		SettingGroup group = new SettingGroup("Packet Firewall", WText.literal(

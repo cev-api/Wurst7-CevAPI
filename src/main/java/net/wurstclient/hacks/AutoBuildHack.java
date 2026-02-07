@@ -8,6 +8,8 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -28,6 +30,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -39,8 +42,8 @@ import net.wurstclient.util.*;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.json.JsonException;
 
-public final class AutoBuildHack extends Hack
-	implements UpdateListener, RightClickListener, RenderListener
+public final class AutoBuildHack extends Hack implements UpdateListener,
+	RightClickListener, RenderListener, GUIRenderListener
 {
 	private static final AABB BLOCK_BOX =
 		new AABB(1 / 16.0, 1 / 16.0, 1 / 16.0, 15 / 16.0, 15 / 16.0, 15 / 16.0);
@@ -152,6 +155,7 @@ public final class AutoBuildHack extends Hack
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RightClickListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(GUIRenderListener.class, this);
 	}
 	
 	@Override
@@ -160,6 +164,7 @@ public final class AutoBuildHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RightClickListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(GUIRenderListener.class, this);
 		
 		remainingBlocks.clear();
 		previewBlocks.clear();
@@ -169,6 +174,50 @@ public final class AutoBuildHack extends Hack
 			status = Status.NO_TEMPLATE;
 		else
 			status = Status.IDLE;
+	}
+	
+	@Override
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	{
+		if(MC.player == null)
+			return;
+		
+		int count = getCrosshairBlockCount();
+		if(count <= 0)
+			return;
+		
+		String text = Integer.toString(count);
+		Font font = MC.font;
+		int centerX = context.guiWidth() / 2;
+		int y = context.guiHeight() / 2 + 10;
+		int textWidth = font.width(text);
+		int x = centerX - textWidth / 2;
+		context.drawString(font, text, x, y, 0xFFFFFFFF, true);
+	}
+	
+	private int getCrosshairBlockCount()
+	{
+		switch(status)
+		{
+			case BUILDING:
+			return remainingBlocks.size();
+			
+			case IDLE:
+			if(previewTemplate.isChecked() && !previewBlocks.isEmpty())
+			{
+				int needed = 0;
+				for(Map.Entry<BlockPos, Item> e : previewBlocks.entrySet())
+				{
+					if(!isBlockPlaced(e.getKey(), e.getValue()))
+						needed++;
+				}
+				return needed;
+			}
+			return 0;
+			
+			default:
+			return 0;
+		}
 	}
 	
 	@Override

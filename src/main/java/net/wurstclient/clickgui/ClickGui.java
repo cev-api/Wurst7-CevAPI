@@ -14,8 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -68,6 +70,7 @@ public final class ClickGui
 	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
 	private boolean refreshPending;
+	private final Map<String, Integer> rememberedScroll = new HashMap<>();
 	
 	public ClickGui(Path windowsFile)
 	{
@@ -130,6 +133,11 @@ public final class ClickGui
 			if(f.getCategory() != null)
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
 		}
+		// Keep the "Other" category usable: it contains a mixed bag of hacks,
+		// commands and other-features, so insertion order is not meaningful.
+		Window otherWindow = windowMap.get(net.wurstclient.Category.OTHER);
+		if(otherWindow != null)
+			sortWindowByFeatureName(otherWindow);
 		// add favorites window entries (show favorites in the Favorites
 		// category). Respect TooManyHax hiding behaviour here as well so
 		// favorite hacks disabled by TooManyHax don't appear in ClickGUI.
@@ -161,6 +169,7 @@ public final class ClickGui
 		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().presetManagerOtf));
+		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstOptionsOtf));
 		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
 		uiSettings.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
 		Stream<Setting> settings =
@@ -242,6 +251,10 @@ public final class ClickGui
 			if(jsonPinned.isJsonPrimitive()
 				&& jsonPinned.getAsJsonPrimitive().isBoolean())
 				window.setPinned(jsonPinned.getAsBoolean());
+			
+			JsonElement scrollElement =
+				jsonWindow.getAsJsonObject().get("scrollOffset");
+			applySavedScroll(window, scrollElement);
 		}
 		
 		// Recreate any pinned settings windows
@@ -294,6 +307,8 @@ public final class ClickGui
 				if(jp != null && jp.isJsonPrimitive()
 					&& jp.getAsJsonPrimitive().isBoolean())
 					sw.setPinned(jp.getAsBoolean());
+				JsonElement scrollElement = jw.get("scrollOffset");
+				applySavedScroll(sw, scrollElement);
 				windows.add(sw);
 			}catch(Throwable ignored)
 			{
@@ -305,6 +320,15 @@ public final class ClickGui
 		// Reopen settings windows that were open when the GUI was closed.
 		reopenTransientSettingsWindows(reopenSettingsWindows, features);
 		
+	}
+	
+	/**
+	 * Saves the current window layout (positions, minimized state, scroll
+	 * offsets, pinned state) so it can be restored next time ClickGUI opens.
+	 */
+	public void persistWindowLayout()
+	{
+		rememberScrollOffsets();
 		saveWindows();
 	}
 	
@@ -366,12 +390,43 @@ public final class ClickGui
 				SettingsWindow sw =
 					new SettingsWindow(matched, windows.get(0), 0);
 				state.apply(sw);
+				rememberedScroll.put(sw.getTitle(), sw.getScrollOffset());
 				windows.add(sw);
 			}catch(Throwable ignored)
 			{
 				// Best-effort: ignore any failure recreating windows
 			}
 		}
+	}
+	
+	private void rememberScrollOffsets()
+	{
+		for(Window window : windows)
+			rememberedScroll.put(window.getTitle(), window.getScrollOffset());
+	}
+	
+	private void applySavedScroll(Window window, JsonElement scrollElement)
+	{
+		int scroll = rememberedScroll.getOrDefault(window.getTitle(),
+			window.getScrollOffset());
+		
+		if(scrollElement != null && scrollElement.isJsonPrimitive()
+			&& scrollElement.getAsJsonPrimitive().isNumber())
+		{
+			scroll = scrollElement.getAsInt();
+		}
+		
+		// Ensure validation uses the same height constraints as rendering,
+		// otherwise the clamp below would force scroll=0 when max height
+		// limits are applied only later during render.
+		window.setMaxHeight(
+			window instanceof SettingsWindow ? maxSettingsHeight : maxHeight);
+		window.validate();
+		scroll = Math.min(scroll, 0);
+		scroll = Math.max(scroll,
+			-window.getInnerHeight() + window.getHeight() - 13);
+		window.setScrollOffset(scroll);
+		rememberedScroll.put(window.getTitle(), scroll);
 	}
 	
 	private static final class WindowState
@@ -381,6 +436,7 @@ public final class ClickGui
 		final int y;
 		final boolean minimized;
 		final boolean pinned;
+		final int scrollOffset;
 		
 		WindowState(Window window)
 		{
@@ -389,6 +445,7 @@ public final class ClickGui
 			y = window.getActualY();
 			minimized = window.isMinimized();
 			pinned = window.isPinned();
+			scrollOffset = window.getScrollOffset();
 		}
 		
 		void apply(Window window)
@@ -397,6 +454,13 @@ public final class ClickGui
 			window.setY(y);
 			window.setMinimized(minimized);
 			window.setPinned(pinned);
+			
+			window.validate();
+			int scroll = scrollOffset;
+			scroll = Math.min(scroll, 0);
+			scroll = Math.max(scroll,
+				-window.getInnerHeight() + window.getHeight() - 13);
+			window.setScrollOffset(scroll);
 		}
 	}
 	
@@ -419,13 +483,21 @@ public final class ClickGui
 			jsonWindow.addProperty("y", window.getActualY());
 			jsonWindow.addProperty("minimized", window.isMinimized());
 			jsonWindow.addProperty("pinned", window.isPinned());
+			int savedScroll = rememberedScroll.getOrDefault(window.getTitle(),
+				window.getScrollOffset());
+			jsonWindow.addProperty("scrollOffset", savedScroll);
 			json.add(window.getTitle(), jsonWindow);
 		}
 		
-		try(BufferedWriter writer = Files.newBufferedWriter(windowsFile))
+		try
 		{
-			JsonUtils.PRETTY_GSON.toJson(json, writer);
-			
+			Path parent = windowsFile.getParent();
+			if(parent != null)
+				Files.createDirectories(parent);
+			try(BufferedWriter writer = Files.newBufferedWriter(windowsFile))
+			{
+				JsonUtils.PRETTY_GSON.toJson(json, writer);
+			}
 		}catch(IOException e)
 		{
 			System.out.println("Failed to save " + windowsFile.getFileName());
@@ -573,6 +645,7 @@ public final class ClickGui
 			scroll = Math.max(scroll,
 				-window.getInnerHeight() + window.getHeight() - 13);
 			window.setScrollOffset(scroll);
+			rememberedScroll.put(window.getTitle(), scroll);
 			break;
 		}
 	}
@@ -610,6 +683,7 @@ public final class ClickGui
 			scroll = Math.max(scroll,
 				-window.getInnerHeight() + window.getHeight() - 13);
 			window.setScrollOffset(scroll);
+			rememberedScroll.put(window.getTitle(), scroll);
 			return true;
 		}
 		
@@ -1773,6 +1847,37 @@ public final class ClickGui
 			window.remove(i);
 		for(net.wurstclient.clickgui.Component c : all)
 			window.add(c);
+		window.pack();
+	}
+	
+	/**
+	 * Sort a window's children alphabetically by feature name when possible.
+	 * Falls back to component class name for non-feature children.
+	 */
+	private void sortWindowByFeatureName(Window window)
+	{
+		if(window == null)
+			return;
+		
+		ArrayList<net.wurstclient.clickgui.Component> all = new ArrayList<>();
+		for(int i = 0; i < window.countChildren(); i++)
+			all.add(window.getChild(i));
+		
+		all.sort((c1, c2) -> {
+			String n1 = c1 instanceof FeatureButton
+				? ((FeatureButton)c1).getFeature().getName()
+				: c1.getClass().getName();
+			String n2 = c2 instanceof FeatureButton
+				? ((FeatureButton)c2).getFeature().getName()
+				: c2.getClass().getName();
+			return n1.compareToIgnoreCase(n2);
+		});
+		
+		for(int i = window.countChildren() - 1; i >= 0; i--)
+			window.remove(i);
+		for(net.wurstclient.clickgui.Component c : all)
+			window.add(c);
+		
 		window.pack();
 	}
 }

@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.xray;
 
 import java.util.List;
 
@@ -28,8 +28,6 @@ import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.WurstClient;
-import net.wurstclient.event.EventManager;
-import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
 import net.wurstclient.hacks.SurfaceXrayHack;
 import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
@@ -53,31 +51,37 @@ public abstract class BlockModelRendererMixin implements ItemLike
 		BlockAndTintGetter world, BlockState stateButFromTheOtherMethod,
 		boolean cull, Direction sideButFromTheOtherMethod, BlockPos neighborPos)
 	{
-		BlockPos pos = neighborPos.relative(side.getOpposite());
-		ShouldDrawSideEvent event = new ShouldDrawSideEvent(state, pos);
-		EventManager.fire(event);
-		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
 		
+		// BlockPos of the block being rendered (neighborPos is the adjacent
+		// block
+		// for the face check).
+		BlockPos pos = neighborPos.relative(side.getOpposite());
+		
 		float opacity = 1F;
+		boolean forceHideFace = false;
 		
 		if(surface.isEnabled())
 		{
 			SurfaceState surfaceState = surface.classifyBlock(state, pos);
 			if(surfaceState == SurfaceState.INTERIOR)
-				event.setRendered(false);
+				forceHideFace = true;
 			else if(surfaceState == SurfaceState.SURFACE)
-				opacity = surface.getSurfaceOpacity();
+				opacity = Math.min(opacity, surface.getSurfaceOpacity());
 		}
 		
 		if(xray.isOpacityMode() && !xray.isVisible(state.getBlock(), pos))
 			opacity = Math.min(opacity, xray.getOpacityFloat());
 		
 		currentOpacity.set(opacity);
+		if(forceHideFace)
+			return false;
 		
-		if(event.isRendered() != null)
-			return event.isRendered();
+		Boolean shouldDrawSide = xray.shouldDrawSide(state, pos);
+		
+		if(shouldDrawSide != null)
+			return shouldDrawSide;
 		
 		return original.call(state, otherState, side);
 	}
@@ -111,10 +115,10 @@ public abstract class BlockModelRendererMixin implements ItemLike
 		BlockPos pos, PoseStack poseStack, VertexConsumer vertexConsumer,
 		boolean cull, int light)
 	{
-		ShouldDrawSideEvent event = new ShouldDrawSideEvent(state, pos);
-		EventManager.fire(event);
+		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
+		Boolean shouldDrawSide = xray.shouldDrawSide(state, pos);
 		
-		if(Boolean.FALSE.equals(event.isRendered()))
+		if(Boolean.FALSE.equals(shouldDrawSide))
 			return true;
 		
 		return original.call(instance);

@@ -467,16 +467,9 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		if(modulo == 0)
 			matchingBlocks.clear();
 		
-		int cfgMin = (int)Math.min(minY.getValue(), maxY.getValue());
-		int cfgMax = (int)Math.max(minY.getValue(), maxY.getValue());
-		int worldMin = MC.level.getMinY();
-		int worldMax = MC.level.getMaxY() - 1;
-		int scanMin = Math.max(worldMin, cfgMin);
-		int scanMax = Math.min(worldMax, cfgMax);
-		int heightRange = Math.max(1, scanMax - scanMin + 1);
-		int stepSize = Math.max(1, heightRange / 64);
-		int startY = scanMax - modulo * stepSize;
-		int endY = Math.max(scanMin, startY - stepSize);
+		int stepSize = MC.level.getHeight() / 64;
+		int startY = MC.level.getMaxY() - 1 - modulo * stepSize;
+		int endY = Math.max(startY - stepSize, MC.level.getMinY());
 		
 		BlockPos playerPos = scanCenter;
 		

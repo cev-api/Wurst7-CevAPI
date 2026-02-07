@@ -93,6 +93,8 @@ public final class ClickGuiScreen extends Screen
 	@Override
 	public void removed()
 	{
+		// Persist scroll offsets and window states before rebuilding the UI.
+		gui.persistWindowLayout();
 		gui.clearKeyboardInput();
 		gui.init();
 		super.removed();

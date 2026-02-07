@@ -49,8 +49,8 @@ public final class CommandPrefixOtf extends OtherFeature
 	
 	public CommandPrefixOtf()
 	{
-		super("Command Prefix",
-			"Change the command prefix used to trigger Wurst commands.");
+		super("CommandPrefix",
+			"description.wurst.other_feature.command_prefix");
 		addSetting(prefixSetting);
 	}
 	

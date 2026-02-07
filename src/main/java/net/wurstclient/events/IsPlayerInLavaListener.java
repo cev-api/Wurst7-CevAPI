@@ -15,7 +15,7 @@ import net.wurstclient.util.HackActivityTracker;
 
 public interface IsPlayerInLavaListener extends Listener
 {
-	public void onIsPlayerInLava(IsPlayerInLavaEvent event);
+	void onIsPlayerInLava(IsPlayerInLavaEvent event);
 	
 	public static class IsPlayerInLavaEvent
 		extends Event<IsPlayerInLavaListener>

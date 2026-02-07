@@ -13,49 +13,89 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.layouts.LayoutElement;
 import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.achievement.StatsScreen;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
+import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.options.WurstOptionsScreen;
 
 @Mixin(StatsScreen.class)
-public class StatsScreenMixin
+public abstract class StatsScreenMixin extends Screen
 {
+	@Unique
+	private Button wurstOptionsButton;
+	
+	public StatsScreenMixin(WurstClient wurst, Component title)
+	{
+		super(title);
+	}
+	
 	@WrapOperation(at = @At(value = "INVOKE",
 		target = "Lnet/minecraft/client/gui/layouts/HeaderAndFooterLayout;addToFooter(Lnet/minecraft/client/gui/layouts/LayoutElement;)Lnet/minecraft/client/gui/layouts/LayoutElement;",
 		ordinal = 0), method = "init()V")
-	private <T extends LayoutElement> T onAddFooter(
+	private <T extends LayoutElement> T onAddToFooter(
 		HeaderAndFooterLayout layout, T doneWidget, Operation<T> original)
 	{
 		if(!(doneWidget instanceof Button doneButton))
 			throw new IllegalStateException(
 				"The done button in the statistics screen somehow isn't a button");
 		
-		if(WurstClient.INSTANCE.getOtfs().disableOtf.shouldHideEnableButton())
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(wurst.getOtfs().disableOtf.shouldHideEnableButton())
 			return original.call(layout, doneButton);
 		
-		doneButton.setWidth(150);
+		LinearLayout vLayout = LinearLayout.vertical().spacing(5);
+		LinearLayout hLayout = LinearLayout.horizontal().spacing(5);
 		
-		LinearLayout subLayout = LinearLayout.horizontal().spacing(5);
-		subLayout.addChild(Button.builder(getButtonText(), this::toggleWurst)
-			.width(150).build());
-		subLayout.addChild(doneButton);
-		return original.call(layout, subLayout);
+		Button toggleButton =
+			Button.builder(getToggleButtonText(), this::toggleWurst).width(100)
+				.build();
+		hLayout.addChild(toggleButton);
+		
+		doneButton.setWidth(100);
+		hLayout.addChild(doneButton);
+		
+		if(!wurst.shouldHideWurstUiMixins()
+			&& wurst.getOtfs().wurstOptionsOtf.isVisibleInStatistics())
+		{
+			layout.setFooterHeight(58);
+			
+			String label =
+				NiceWurstModule.getOptionsLabel("Wurst 7 CevAPI Options");
+			wurstOptionsButton =
+				Button.builder(Component.literal(label), this::openWurstOptions)
+					.width(205).build();
+			vLayout.addChild(wurstOptionsButton);
+		}
+		
+		vLayout.addChild(hLayout);
+		return original.call(layout, vLayout);
 	}
 	
 	@Unique
-	private void toggleWurst(Button button)
+	private void openWurstOptions(Button button)
+	{
+		minecraft.setScreen(new WurstOptionsScreen(this));
+	}
+	
+	@Unique
+	private void toggleWurst(Button toggleButton)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
 		wurst.setEnabled(!wurst.isEnabled());
-		button.setMessage(getButtonText());
+		toggleButton.setMessage(getToggleButtonText());
+		if(wurstOptionsButton != null)
+			wurstOptionsButton.active = wurst.isEnabled();
 	}
 	
 	@Unique
-	private Component getButtonText()
+	private Component getToggleButtonText()
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
 		String text = (wurst.isEnabled() ? "Disable" : "Enable") + " Wurst";

@@ -70,9 +70,16 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting crosshairInfo =
 		new CheckboxSetting("Crosshair info",
 			"Shows AutoFly status near the crosshair while active.", true);
+	private final CheckboxSetting useAntisocial =
+		new CheckboxSetting("Enable Antisocial",
+			"Enables Antisocial while AutoFly is active.", true);
+	private final CheckboxSetting useAutoEat = new CheckboxSetting(
+		"Enable AutoEat", "Enables AutoEat while AutoFly is active.", true);
+	private final CheckboxSetting useAutoLeave = new CheckboxSetting(
+		"Enable AutoLeave", "Enables AutoLeave while AutoFly is active.", true);
 	private final CheckboxSetting ignoreWaypointList = new CheckboxSetting(
 		"Ignore Waypoints list",
-		"When loading JSON, skip targets within 50 blocks of existing Waypoints.",
+		"When loading JSON, skip targets within 150 blocks of existing Waypoints.",
 		true);
 	private final CheckboxSetting allowManualAdjust = new CheckboxSetting(
 		"Allow manual adjust",
@@ -81,6 +88,9 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting disableFlightOnArrival =
 		new CheckboxSetting("Disable Flight on arrival",
 			"Turns off Flight when AutoFly reaches a waypoint.", false);
+	private final CheckboxSetting disableAutoFlyOnArrival =
+		new CheckboxSetting("Disable AutoFly on arrival",
+			"Turns off AutoFly when it reaches a waypoint.", false);
 	
 	private final List<AutoFlyTarget> targets = new ArrayList<>();
 	private AutoFlyTarget currentTarget;
@@ -122,6 +132,12 @@ public final class AutoFlyHack extends Hack
 	
 	private boolean flightWasEnabled;
 	private double savedFlightSpeed = -1;
+	private double savedFlightVSpeed = -1;
+	private double lastYForProgress = Double.NaN;
+	private long lastVerticalProgressMs;
+	private boolean verticalAssistActive;
+	
+	private boolean closeHorizLatched;
 	
 	public AutoFlyHack()
 	{
@@ -137,9 +153,13 @@ public final class AutoFlyHack extends Hack
 		addSetting(targetRadius);
 		addSetting(skipReached);
 		addSetting(crosshairInfo);
+		addSetting(useAntisocial);
+		addSetting(useAutoEat);
+		addSetting(useAutoLeave);
 		addSetting(ignoreWaypointList);
 		addSetting(allowManualAdjust);
 		addSetting(disableFlightOnArrival);
+		addSetting(disableAutoFlyOnArrival);
 	}
 	
 	@Override
@@ -197,10 +217,23 @@ public final class AutoFlyHack extends Hack
 		climbTargetY = 0.0;
 		currentIndex = -1;
 		currentTarget = null;
+		closeHorizLatched = false;
 		selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		savedFlightSpeed = -1;
+		savedFlightVSpeed = -1;
+		lastYForProgress = Double.NaN;
+		lastVerticalProgressMs = System.currentTimeMillis();
+		verticalAssistActive = false;
 		applyFlightSettings();
+		
+		var hax = WURST.getHax();
+		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
+			hax.antisocialHack.setEnabled(true);
+		if(useAutoEat.isChecked() && !hax.autoEatHack.isEnabled())
+			hax.autoEatHack.setEnabled(true);
+		if(useAutoLeave.isChecked() && !hax.autoLeaveHack.isEnabled())
+			hax.autoLeaveHack.setEnabled(true);
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -245,6 +278,8 @@ public final class AutoFlyHack extends Hack
 		climbTargetY = 0.0;
 		currentTarget = null;
 		currentIndex = -1;
+		savedFlightVSpeed = -1;
+		closeHorizLatched = false;
 	}
 	
 	@Override
@@ -298,6 +333,7 @@ public final class AutoFlyHack extends Hack
 			applyFlightSpeed();
 			resetAutoKeyFlags();
 			PathProcessor.lockControls();
+			clearMovementKeys();
 			autoSetKey(MC.options.keyJump, true);
 			lastAutoControlMs = now;
 			return;
@@ -323,60 +359,93 @@ public final class AutoFlyHack extends Hack
 		double dx = targetX - playerPos.x;
 		double dz = targetZ - playerPos.z;
 		double distHoriz = Math.hypot(dx, dz);
-		boolean closeHoriz = distHoriz <= radius;
+		
+		double exitRadius = radius + 3.0;
+		if(!closeHorizLatched)
+		{
+			if(distHoriz <= radius)
+				closeHorizLatched = true;
+		}else
+		{
+			if(distHoriz > exitRadius)
+				closeHorizLatched = false;
+		}
+		boolean closeHoriz = closeHorizLatched;
+		
 		double cruiseY = getCruiseY(currentTarget);
 		double desiredY;
+		double landingYNoY = Double.NaN;
+		// Begin descent early to avoid cruiseY interfering; always at least 20b
+		double descentStartRadius =
+			Math.max(20.0, Math.max(radius * 2.0, radius + 6.0));
+		
 		if(currentTarget.hasY)
-			desiredY = closeHoriz ? currentTarget.pos.getY() : cruiseY;
-		else
-			desiredY = closeHoriz ? playerPos.y : cruiseY;
+		{
+			boolean approachHoriz = distHoriz <= descentStartRadius;
+			desiredY = (closeHoriz || approachHoriz)
+				? getEffectiveTargetY(currentTarget, playerPos, true) : cruiseY;
+		}else
+		{
+			if(closeHoriz)
+			{
+				BlockPos lp = resolveLandingPosition(
+					new BlockPos(currentTarget.pos.getX(),
+						MC.level.getMaxY() - 2, currentTarget.pos.getZ()));
+				landingYNoY = lp != null ? lp.getY() : playerPos.y;
+				desiredY = landingYNoY;
+			}else
+				desiredY = cruiseY;
+		}
+		
 		double yDiff = desiredY - playerPos.y;
-		if(closeHoriz && currentTarget.hasY && Math.abs(yDiff) <= 1.0)
+		
+		if(isTargetReached(currentTarget, playerPos, radius))
 		{
 			handleTargetReached();
-			return;
-		}
-		if(closeHoriz && currentTarget.hasY && MC.player.onGround()
-			&& yDiff < -2.0)
-		{
-			handleTargetReached();
-			return;
-		}
-		if(closeHoriz && currentTarget.hasY && MC.player.onGround()
-			&& Math.abs(yDiff) <= 2.0)
-		{
-			handleTargetReached();
-			return;
-		}
-		if(closeHoriz && currentTarget.hasY
-			&& isBedrockCeilingAbove(MC.player.position())
-			&& playerPos.y < currentTarget.pos.getY())
-		{
-			handleCeilingArrival();
-			return;
-		}
-		if(closeHoriz && currentTarget.hasY && isVoidTarget(currentTarget.pos)
-			&& Math.abs(yDiff) <= 1.5)
-		{
-			handleVoidArrival();
 			return;
 		}
 		
 		now = System.currentTimeMillis();
 		resetAutoKeyFlags();
 		PathProcessor.lockControls();
+		clearMovementKeys();
+		
+		boolean approachHoriz = distHoriz <= descentStartRadius;
+		boolean nearTargetY =
+			(closeHoriz || (currentTarget.hasY && approachHoriz))
+				&& (currentTarget.hasY || !Double.isNaN(landingYNoY));
+		double innerForwardRadius = Math.max(0.6, Math.min(1.5, radius * 0.6));
+		double innerYawStopRadius = Math.max(0.5, Math.min(1.0, radius * 0.4));
+		boolean needForward = distHoriz > innerForwardRadius;
+		boolean adjustYaw = distHoriz > innerYawStopRadius;
+		
 		if(!closeHoriz || !currentTarget.hasY)
 		{
-			WURST.getRotationFaker().faceVectorClientIgnorePitch(
-				new Vec3(targetX, playerPos.y, targetZ));
-			autoSetKey(MC.options.keyUp, !closeHoriz);
+			if(adjustYaw)
+				WURST.getRotationFaker().faceVectorClientIgnorePitch(
+					new Vec3(targetX, playerPos.y, targetZ));
+			autoSetKey(MC.options.keyUp, needForward);
+		}else
+		{
+			if(adjustYaw)
+				WURST.getRotationFaker().faceVectorClientIgnorePitch(
+					new Vec3(targetX, playerPos.y, targetZ));
+			autoSetKey(MC.options.keyUp, needForward);
 		}
-		updateVerticalControls(yDiff, closeHoriz && currentTarget.hasY);
+		
+		// Force a final descend near center to ensure landing completes
+		boolean finalLanding = distHoriz <= Math.max(radius, 1.0) + 0.5;
+		if(finalLanding)
+			autoSetKey(MC.options.keyShift, true);
+		
+		applyVerticalAssist(playerPos, yDiff, nearTargetY);
+		updateVerticalControls(yDiff, nearTargetY);
 		if(anyAutoKeyDown())
 			lastAutoControlMs = now;
 		
 		updateProgressTracking(playerPos);
 		updateMovementTracking(playerPos);
+		updateVerticalProgress(playerPos);
 		if(shouldRepath(playerPos, distHoriz))
 		{
 			if(allowManualAdjust.isChecked() && isManualInputActive())
@@ -384,11 +453,6 @@ public final class AutoFlyHack extends Hack
 			else
 				startRecoveryPath(playerPos);
 			return;
-		}
-		
-		if(isTargetReached(currentTarget, playerPos, radius))
-		{
-			handleTargetReached();
 		}
 	}
 	
@@ -428,7 +492,6 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		
-		// Do not auto-load JSON on enable; use Reload JSON button instead.
 	}
 	
 	private void loadTargetsFromText(String text)
@@ -508,7 +571,11 @@ public final class AutoFlyHack extends Hack
 				
 				BlockPos pos = new BlockPos(x, y, z);
 				if(ignoreWaypointList.isChecked()
-					&& WURST.getHax().waypointsHack.hasWaypointNear(pos, 50.0))
+					&& WURST.getHax().waypointsHack.hasWaypointNear(pos, 150.0)) // Was
+																					// 50,
+																					// was
+																					// not
+																					// effective.
 					continue;
 				
 				targets.add(new AutoFlyTarget(pos, hasY));
@@ -587,6 +654,7 @@ public final class AutoFlyHack extends Hack
 		climbAttemptUntilMs = 0L;
 		lastClimbAttemptMs = 0L;
 		climbTargetY = 0.0;
+		closeHorizLatched = false;
 		clearPathingState();
 	}
 	
@@ -663,6 +731,7 @@ public final class AutoFlyHack extends Hack
 		climbTargetY = 0.0;
 		lastProgressMs = System.currentTimeMillis();
 		lastProgressDist = Double.NaN;
+		closeHorizLatched = false;
 		clearPathingState();
 	}
 	
@@ -719,6 +788,7 @@ public final class AutoFlyHack extends Hack
 			climbTargetY = 0.0;
 			lastProgressMs = System.currentTimeMillis();
 			lastProgressDist = Double.NaN;
+			closeHorizLatched = false;
 			clearPathingState();
 			return;
 		}
@@ -753,50 +823,19 @@ public final class AutoFlyHack extends Hack
 			&& WURST.getHax().flightHack.isEnabled())
 			WURST.getHax().flightHack.setEnabled(false);
 		
+		if(disableAutoFlyOnArrival.isChecked())
+		{
+			setEnabled(false);
+			return;
+		}
+		
 		if(!currentTarget.hasY)
 		{
-			pausedNoY = true;
+			pausedNoY = false;
 			PathProcessor.releaseControls();
 			return;
 		}
 		
-		// stay at current waypoint until user clicks Next
-	}
-	
-	private void handleCeilingArrival()
-	{
-		if(currentTarget == null)
-			return;
-		
-		manualAdjustHold = false;
-		manualAdjustStartMs = 0L;
-		manualAdjustStartPos = null;
-		
-		if(!arrivedMessageSent)
-		{
-			ChatUtils.message("AutoFly arrived at " + currentTarget.pos.getX()
-				+ ", " + currentTarget.pos.getY() + ", "
-				+ currentTarget.pos.getZ());
-			arrivedMessageSent = true;
-		}
-		
-		arrivalPause = true;
-		arrivalPauseUntilMs = System.currentTimeMillis() + 1000L;
-		PathProcessor.releaseControls();
-		clearPathingState();
-		arrivedHold = true;
-	}
-	
-	private void handleVoidArrival()
-	{
-		manualAdjustHold = false;
-		manualAdjustStartMs = 0L;
-		manualAdjustStartPos = null;
-		arrivedHold = true;
-		arrivalPause = false;
-		arrivalPauseUntilMs = 0L;
-		PathProcessor.releaseControls();
-		clearPathingState();
 	}
 	
 	private boolean isTargetReached(AutoFlyTarget target, Vec3 playerPos,
@@ -807,13 +846,27 @@ public final class AutoFlyHack extends Hack
 		
 		double dx = target.pos.getX() + 0.5 - playerPos.x;
 		double dz = target.pos.getZ() + 0.5 - playerPos.z;
-		if(Math.hypot(dx, dz) > radius)
+		double distHoriz = Math.hypot(dx, dz);
+		if(distHoriz > radius)
 			return false;
 		
 		if(target.hasY)
-			return Math.abs(playerPos.y - target.pos.getY()) <= 0.7;
+		{
+			return true;
+		}
 		
-		return true;
+		if(MC.level != null)
+		{
+			BlockPos lp = resolveLandingPosition(new BlockPos(target.pos.getX(),
+				MC.level.getMaxY() - 2, target.pos.getZ()));
+			if(lp != null)
+			{
+				if(MC.player.onGround())
+					return true;
+				return Math.abs(playerPos.y - lp.getY()) <= 0.7;
+			}
+		}
+		return MC.player.onGround();
 	}
 	
 	private double getCruiseY(AutoFlyTarget target)
@@ -839,6 +892,8 @@ public final class AutoFlyHack extends Hack
 		var flight = WURST.getHax().flightHack;
 		if(savedFlightSpeed < 0)
 			savedFlightSpeed = flight.horizontalSpeed.getValue();
+		if(savedFlightVSpeed < 0)
+			savedFlightVSpeed = flight.verticalSpeed.getValue();
 		applyFlightSpeed();
 	}
 	
@@ -855,7 +910,10 @@ public final class AutoFlyHack extends Hack
 		var flight = WURST.getHax().flightHack;
 		if(savedFlightSpeed >= 0)
 			flight.horizontalSpeed.setValue(savedFlightSpeed);
+		if(savedFlightVSpeed >= 0)
+			flight.verticalSpeed.setValue(savedFlightVSpeed);
 		savedFlightSpeed = -1;
+		savedFlightVSpeed = -1;
 		if(!flightWasEnabled && flight.isEnabled())
 			flight.setEnabled(false);
 		flightWasEnabled = false;
@@ -897,11 +955,11 @@ public final class AutoFlyHack extends Hack
 			return "Pathing";
 		if(manualAdjustHold)
 			return "Adjust";
+		if(arrivedHold)
+			return "Arrived";
 		if(pausedNoY)
 			return "Paused";
 		if(arrivalPause)
-			return "Arrived";
-		if(arrivedHold)
 			return "Arrived";
 		return currentTarget != null ? "Flying" : "Idle";
 	}
@@ -912,13 +970,15 @@ public final class AutoFlyHack extends Hack
 		if(pos == null)
 			return;
 		
+		BlockPos landingPos = pos;
+		
 		if(overrideHeight != null)
 			flightHeight.setValue(overrideHeight);
 		if(overrideSpeed != null)
 			flightSpeed.setValue(overrideSpeed);
 		
 		targets.clear();
-		targets.add(new AutoFlyTarget(pos, hasY));
+		targets.add(new AutoFlyTarget(landingPos, hasY));
 		currentIndex = 0;
 		currentTarget = targets.get(0);
 		pausedNoY = false;
@@ -948,6 +1008,7 @@ public final class AutoFlyHack extends Hack
 		climbTargetY = 0.0;
 		lastProgressMs = System.currentTimeMillis();
 		lastProgressDist = Double.NaN;
+		closeHorizLatched = false;
 		clearPathingState();
 		
 		if(!isEnabled())
@@ -1013,6 +1074,70 @@ public final class AutoFlyHack extends Hack
 		{
 			lastHorizPos = playerPos;
 			lastHorizMoveMs = System.currentTimeMillis();
+		}
+	}
+	
+	private void updateVerticalProgress(Vec3 playerPos)
+	{
+		if(playerPos == null)
+			return;
+		if(Double.isNaN(lastYForProgress))
+		{
+			lastYForProgress = playerPos.y;
+			lastVerticalProgressMs = System.currentTimeMillis();
+			return;
+		}
+		if(Math.abs(playerPos.y - lastYForProgress) > 0.15)
+		{
+			lastYForProgress = playerPos.y;
+			lastVerticalProgressMs = System.currentTimeMillis();
+		}
+	}
+	
+	private void applyVerticalAssist(Vec3 playerPos, double yDiff,
+		boolean nearTargetHoriz)
+	{
+		if(!nearTargetHoriz || currentTarget == null)
+		{
+			restoreVerticalIfBoosted();
+			verticalAssistActive = false;
+			return;
+		}
+		if(yDiff < -1.0)
+		{
+			long now = System.currentTimeMillis();
+			if(now - lastVerticalProgressMs > 1500L)
+			{
+				var flight = WURST.getHax().flightHack;
+				if(savedFlightVSpeed < 0)
+					savedFlightVSpeed = flight.verticalSpeed.getValue();
+				double minAssist = 0.8;
+				double desired =
+					Math.max(flight.verticalSpeed.getValue(), minAssist);
+				flight.verticalSpeed.setValue(
+					Math.min(flight.verticalSpeed.getMaximum(), desired));
+				autoSetKey(MC.options.keyShift, true);
+				lastAutoControlMs = now;
+				verticalAssistActive = true;
+				if(now - lastVerticalProgressMs > 3500L)
+				{
+					autoSetKey(MC.options.keyUp, true);
+					lastAutoControlMs = now;
+				}
+				return;
+			}
+		}
+		restoreVerticalIfBoosted();
+		verticalAssistActive = false;
+	}
+	
+	private void restoreVerticalIfBoosted()
+	{
+		if(savedFlightVSpeed >= 0)
+		{
+			var flight = WURST.getHax().flightHack;
+			flight.verticalSpeed.setValue(savedFlightVSpeed);
+			savedFlightVSpeed = -1;
 		}
 	}
 	
@@ -1175,6 +1300,12 @@ public final class AutoFlyHack extends Hack
 	
 	private void updateVerticalControls(double yDiff, boolean nearTargetY)
 	{
+		if(verticalAssistActive)
+		{
+			autoSetKey(MC.options.keyJump, false);
+			autoSetKey(MC.options.keyShift, true);
+			return;
+		}
 		double start = nearTargetY ? 1.5 : 2.0;
 		double stop = 0.6;
 		
@@ -1264,6 +1395,19 @@ public final class AutoFlyHack extends Hack
 			|| autoKeyRightDown || autoKeyJumpDown || autoKeyShiftDown;
 	}
 	
+	private void clearMovementKeys()
+	{
+		if(MC == null || MC.options == null)
+			return;
+		
+		autoSetKey(MC.options.keyUp, false);
+		autoSetKey(MC.options.keyDown, false);
+		autoSetKey(MC.options.keyLeft, false);
+		autoSetKey(MC.options.keyRight, false);
+		autoSetKey(MC.options.keyJump, false);
+		autoSetKey(MC.options.keyShift, false);
+	}
+	
 	private boolean isBlockedAhead(double distance)
 	{
 		if(MC.level == null || MC.player == null)
@@ -1350,6 +1494,27 @@ public final class AutoFlyHack extends Hack
 			.isEmpty();
 	}
 	
+	private BlockPos resolveLandingPosition(BlockPos pos)
+	{
+		if(MC.level == null || pos == null)
+			return pos;
+		int startY = Math.min(pos.getY(), MC.level.getMaxY() - 2);
+		int minY = MC.level.getMinY();
+		BlockPos fallback = null;
+		for(int y = startY; y >= minY; y--)
+		{
+			BlockPos check = new BlockPos(pos.getX(), y, pos.getZ());
+			if(!isStandable(check))
+				continue;
+			if(MC.level.getBlockState(check).is(Blocks.BEDROCK))
+				continue;
+			fallback = check;
+			if(!isBedrockCeilingAbove(Vec3.atCenterOf(check)))
+				break;
+		}
+		return fallback != null ? fallback : pos;
+	}
+	
 	private boolean isVoidTarget(BlockPos pos)
 	{
 		if(MC.level == null || pos == null)
@@ -1383,6 +1548,36 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		return false;
+	}
+	
+	private double getGroundYAtXZ(BlockPos xz)
+	{
+		if(MC.level == null || xz == null)
+			return Double.NaN;
+		
+		BlockPos lp = resolveLandingPosition(
+			new BlockPos(xz.getX(), MC.level.getMaxY() - 2, xz.getZ()));
+		return lp != null ? lp.getY() : Double.NaN;
+	}
+	
+	private double getEffectiveTargetY(AutoFlyTarget target, Vec3 playerPos,
+		boolean closeHoriz)
+	{
+		if(target == null || playerPos == null)
+			return playerPos != null ? playerPos.y : 0.0;
+		
+		if(!target.hasY)
+			return Double.NaN;
+		
+		if(closeHoriz && isBedrockCeilingAbove(playerPos)
+			&& playerPos.y < target.pos.getY())
+			return playerPos.y;
+		
+		double groundY = getGroundYAtXZ(target.pos);
+		if(!Double.isNaN(groundY))
+			return Math.max(target.pos.getY(), groundY);
+		
+		return target.pos.getY();
 	}
 	
 	private enum VerticalMode

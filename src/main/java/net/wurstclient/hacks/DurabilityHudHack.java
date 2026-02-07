@@ -58,7 +58,7 @@ public final class DurabilityHudHack extends Hack
 	
 	public DurabilityHudHack()
 	{
-		super("Durability HUD");
+		super("DurabilityHUD");
 		setCategory(Category.RENDER);
 		addSetting(displayMode);
 		addSetting(bossBarStyle);

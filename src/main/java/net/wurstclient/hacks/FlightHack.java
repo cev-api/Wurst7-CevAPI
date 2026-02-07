@@ -16,9 +16,13 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.AirStrafingSpeedListener;
+import net.wurstclient.events.AirStrafingSpeedListener.AirStrafingSpeedEvent;
 import net.wurstclient.events.IsPlayerInWaterListener;
+import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
+import net.wurstclient.events.MouseScrollListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -26,58 +30,73 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 
 @SearchTags({"FlyHack", "fly hack", "flying"})
-public final class FlightHack extends Hack
-	implements UpdateListener, IsPlayerInWaterListener,
-	AirStrafingSpeedListener, PlayerRangeAlertManager.Listener
+public final class FlightHack extends Hack implements UpdateListener,
+	IsPlayerInWaterListener, AirStrafingSpeedListener,
+	PlayerRangeAlertManager.Listener, MouseScrollListener
 {
-	public final SliderSetting horizontalSpeed = new SliderSetting(
-		"Horizontal Speed", 1, 0.05, 10, 0.05, ValueDisplay.DECIMAL);
+	private static final double DEFAULT_SPEED_STEP = 0.5;
 	
-	public final SliderSetting verticalSpeed = new SliderSetting(
-		"Vertical Speed",
-		"\u00a7c\u00a7lWARNING:\u00a7r Setting this too high can cause fall damage, even with NoFall.",
-		1, 0.05, 5, 0.05, ValueDisplay.DECIMAL);
+	final SliderSetting horizontalSpeed = new SliderSetting("Horizontal speed",
+		"description.wurst.setting.flight.horizontal_speed", 1, 0.05, 10, 0.05,
+		ValueDisplay.DECIMAL);
 	
-	private final CheckboxSetting slowSneaking = new CheckboxSetting(
-		"Slow sneaking",
-		"Reduces your horizontal speed while you are sneaking to prevent you from glitching out.",
-		true);
+	final SliderSetting verticalSpeed = new SliderSetting("Vertical speed",
+		"description.wurst.setting.flight.vertical_speed", 1, 0.05, 10, 0.05,
+		v -> ValueDisplay.DECIMAL.getValueString(getActualVerticalSpeed()));
+	
+	private final CheckboxSetting tieVerticalToHorizontal = new CheckboxSetting(
+		"Tie vertical to horizontal",
+		"description.wurst.setting.flight.tie_vertical_to_horizontal", false);
+	
+	private final SliderSetting speedStep = new SliderSetting("Speed step",
+		"description.wurst.setting.flight.speed_step", DEFAULT_SPEED_STEP, 0.05,
+		5.0, 0.05, ValueDisplay.DECIMAL);
+	
+	private final CheckboxSetting allowUnsafeVerticalSpeed =
+		new CheckboxSetting("Allow unsafe vertical speed",
+			"description.wurst.setting.flight.allow_unsafe_vertical_speed",
+			false);
+	
+	private final CheckboxSetting scrollToChangeSpeed =
+		new CheckboxSetting("Scroll to change speed",
+			"description.wurst.setting.flight.scroll_to_change_speed", true);
+	
+	private final CheckboxSetting renderSpeed =
+		new CheckboxSetting("Show speed in HackList",
+			"description.wurst.setting.flight.show_speed_in_hacklist", true);
 	
 	private final CheckboxSetting antiKick = new CheckboxSetting("Anti-Kick",
-		"Makes you fall a little bit every now and then to prevent you from getting kicked.",
-		false);
+		"description.wurst.setting.flight.anti-kick", false);
 	
 	private final SliderSetting antiKickInterval =
 		new SliderSetting("Anti-Kick Interval",
-			"How often Anti-Kick should prevent you from getting kicked.\n"
-				+ "Most servers will kick you after 80 ticks.",
-			30, 5, 80, 1,
+			"description.wurst.setting.flight.anti-kick_interval", 70, 5, 80, 1,
 			ValueDisplay.INTEGER.withSuffix(" ticks").withLabel(1, "1 tick"));
 	
-	private final SliderSetting antiKickDistance = new SliderSetting(
-		"Anti-Kick Distance",
-		"How far Anti-Kick should make you fall.\n"
-			+ "Most servers require at least 0.032m to stop you from getting kicked.",
-		0.07, 0.01, 0.2, 0.001, ValueDisplay.DECIMAL.withSuffix("m"));
+	private final SliderSetting antiKickDistance =
+		new SliderSetting("Anti-Kick Distance",
+			"description.wurst.setting.flight.anti-kick_distance", 0.035, 0.01,
+			0.2, 0.001, ValueDisplay.DECIMAL.withSuffix("m"));
 	
-	private final CheckboxSetting dontGetCaught = new CheckboxSetting(
-		"Don't get caught",
-		"If another player is detected, drops you to the ground and disables Flight.",
-		false);
-	private final CheckboxSetting ignoreNpcs =
-		new CheckboxSetting("Ignore NPCs",
-			"Skips players that don't show up on the tab list.", true);
-	private final CheckboxSetting ignoreFriends = new CheckboxSetting(
-		"Ignore friends",
-		"Won't trigger if the detected player is on your friends list.", true);
+	private final CheckboxSetting dontGetCaught =
+		new CheckboxSetting("Don't get caught",
+			"description.wurst.setting.flight.dont_get_caught", false);
+	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
+		"Ignore NPCs", "description.wurst.setting.flight.ignore_npcs", true);
+	private final CheckboxSetting ignoreFriends =
+		new CheckboxSetting("Ignore friends",
+			"description.wurst.setting.flight.ignore_friends", true);
 	private final SliderSetting escapeDropSpeed =
 		new SliderSetting("Escape Drop Speed",
-			"Controls how quickly Don't Get Caught drops you.\n"
-				+ "Lower values reduce fall distance so NoFall can keep up.",
-			3.9, 0.05, 3.9, 0.05, ValueDisplay.DECIMAL);
-	private final CheckboxSetting enableNoFallOnFlight =
-		new CheckboxSetting("Enable NoFall with Flight",
-			"Automatically enables NoFall while Flight is enabled.", false);
+			"description.wurst.setting.flight.escape_drop_speed", 3.9, 0.05,
+			3.9, 0.05, ValueDisplay.DECIMAL);
+	private final CheckboxSetting enableNoFallOnFlight = new CheckboxSetting(
+		"Enable NoFall with Flight",
+		"description.wurst.setting.flight.enable_nofall_with_flight", false);
+	
+	private final CheckboxSetting slowSneaking =
+		new CheckboxSetting("Slow sneaking",
+			"description.wurst.setting.flight.slow_sneaking", false);
 	
 	private Boolean antiKickOverride;
 	private Boolean slowSneakingOverride;
@@ -97,7 +116,11 @@ public final class FlightHack extends Hack
 		setCategory(Category.MOVEMENT);
 		addSetting(horizontalSpeed);
 		addSetting(verticalSpeed);
-		addSetting(slowSneaking);
+		addSetting(tieVerticalToHorizontal);
+		addSetting(speedStep);
+		addSetting(allowUnsafeVerticalSpeed);
+		addSetting(scrollToChangeSpeed);
+		addSetting(renderSpeed);
 		addSetting(antiKick);
 		addSetting(antiKickInterval);
 		addSetting(antiKickDistance);
@@ -106,11 +129,15 @@ public final class FlightHack extends Hack
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
+		addSetting(slowSneaking);
 	}
 	
 	@Override
 	public String getRenderName()
 	{
+		if(!renderSpeed.isChecked())
+			return getName();
+		
 		LocalPlayer player = MC.player;
 		if(player == null)
 			return getName();
@@ -144,6 +171,7 @@ public final class FlightHack extends Hack
 		EVENTS.add(IsPlayerInWaterListener.class, this);
 		EVENTS.add(AirStrafingSpeedListener.class, this);
 		alertManager.addListener(this);
+		EVENTS.add(MouseScrollListener.class, this);
 	}
 	
 	@Override
@@ -153,6 +181,7 @@ public final class FlightHack extends Hack
 		EVENTS.remove(IsPlayerInWaterListener.class, this);
 		EVENTS.remove(AirStrafingSpeedListener.class, this);
 		alertManager.removeListener(this);
+		EVENTS.remove(MouseScrollListener.class, this);
 	}
 	
 	@Override
@@ -173,21 +202,25 @@ public final class FlightHack extends Hack
 			return;
 		}
 		
+		player.setDeltaMovement(Vec3.ZERO);
 		player.getAbilities().flying = false;
 		
-		player.setDeltaMovement(0, 0, 0);
-		Vec3 velocity = player.getDeltaMovement();
+		if(WURST.getHax().freecamHack.isMovingCamera())
+			return;
+		
+		double vSpeed = getActualVerticalSpeed();
 		
 		if(MC.options.keyJump.isDown())
-			player.setDeltaMovement(velocity.x, verticalSpeed.getValue(),
-				velocity.z);
+			player.addDeltaMovement(new Vec3(0, vSpeed, 0));
 		
-		if(MC.options.keyShift.isDown())
-			player.setDeltaMovement(velocity.x, -verticalSpeed.getValue(),
-				velocity.z);
+		if(IKeyMapping.get(MC.options.keyShift).isActuallyDown())
+		{
+			MC.options.keyShift.setDown(false);
+			player.addDeltaMovement(new Vec3(0, -vSpeed, 0));
+		}
 		
 		if(isAntiKickEnabled())
-			doAntiKick(velocity);
+			doAntiKick();
 		
 		Double alignStep =
 			WURST.getHax().spearAssistHack.getAutoAlignmentStepForFlight();
@@ -201,24 +234,45 @@ public final class FlightHack extends Hack
 	@Override
 	public void onGetAirStrafingSpeed(AirStrafingSpeedEvent event)
 	{
-		float speed = horizontalSpeed.getValueF();
+		if(WURST.getHax().freecamHack.isMovingCamera())
+			return;
 		
-		if(MC.options.keyShift.isDown() && isSlowSneakingEnabled())
-			speed = Math.min(speed, 0.85F);
-		
-		event.setSpeed(speed);
+		event.setSpeed(horizontalSpeed.getValueF());
 	}
 	
-	private void doAntiKick(Vec3 velocity)
+	@Override
+	public void onMouseScroll(double amount)
+	{
+		if(!isControllingScrollEvents())
+			return;
+		
+		double step = speedStep.getValue();
+		if(amount > 0)
+			horizontalSpeed.setValue(horizontalSpeed.getValue() + step);
+		else if(amount < 0)
+			horizontalSpeed.setValue(horizontalSpeed.getValue() - step);
+	}
+	
+	public boolean isControllingScrollEvents()
+	{
+		return isEnabled() && scrollToChangeSpeed.isChecked()
+			&& MC.screen == null
+			&& !WURST.getOtfs().zoomOtf.isControllingScrollEvents()
+			&& !WURST.getHax().freecamHack.isMovingCamera();
+	}
+	
+	private void doAntiKick()
 	{
 		if(tickCounter > antiKickInterval.getValueI() + 1)
 			tickCounter = 0;
+		
+		Vec3 velocity = MC.player.getDeltaMovement();
 		
 		switch(tickCounter)
 		{
 			case 0 ->
 			{
-				if(MC.options.keyShift.isDown())
+				if(velocity.y <= -antiKickDistance.getValue())
 					tickCounter = 2;
 				else
 					MC.player.setDeltaMovement(velocity.x,
@@ -376,4 +430,35 @@ public final class FlightHack extends Hack
 	
 	private record DropTarget(DropTargetType type, double targetY)
 	{}
+	
+	public double getHorizontalSpeed()
+	{
+		return horizontalSpeed.getValue();
+	}
+	
+	public double getActualVerticalSpeed()
+	{
+		// Can be called for UI/rendering while not in-world.
+		if(MC.player == null)
+			return Mth.clamp(getRawVerticalSpeed(), 0.05, 10);
+		
+		boolean limitVerticalSpeed = !allowUnsafeVerticalSpeed.isChecked()
+			&& !MC.player.getAbilities().invulnerable;
+		
+		return Mth.clamp(getRawVerticalSpeed(), 0.05,
+			limitVerticalSpeed ? 3.95 : 10);
+	}
+	
+	private double getRawVerticalSpeed()
+	{
+		if(tieVerticalToHorizontal.isChecked())
+			return horizontalSpeed.getValue() * verticalSpeed.getValue();
+		
+		return verticalSpeed.getValue();
+	}
+	
+	public double getSpeedStep()
+	{
+		return speedStep.getValue();
+	}
 }

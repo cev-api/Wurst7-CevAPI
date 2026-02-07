@@ -40,6 +40,14 @@ public final class AnnoyCmd extends Command implements ChatInputListener
 	{
 		if(args.length > 0)
 		{
+			String newTarget = String.join(" ", args);
+			
+			if(enabled && target != null && target.equalsIgnoreCase(newTarget))
+			{
+				disable();
+				return;
+			}
+			
 			if(enabled)
 				disable();
 			
@@ -70,7 +78,7 @@ public final class AnnoyCmd extends Command implements ChatInputListener
 		enabled = true;
 	}
 	
-	private void disable() throws CmdException
+	private void disable()
 	{
 		EVENTS.remove(ChatInputListener.class, this);
 		

@@ -14,6 +14,7 @@ import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
 import net.wurstclient.util.MathUtils;
+import net.wurstclient.util.ChatUtils;
 
 public final class AutoFlyCmd extends Command
 {
@@ -75,6 +76,9 @@ public final class AutoFlyCmd extends Command
 		if(normalized.length > idxHeight + 1)
 			speed = parseDouble(normalized[idxHeight + 1], "speed");
 		
+		ChatUtils.message(String.format(java.util.Locale.ROOT,
+			"AutoFly command target: %d, %d, %d%s", pos.getX(), pos.getY(),
+			pos.getZ(), hasY ? " (with Y)" : " (no Y)"));
 		WURST.getHax().autoFlyHack.setTargetFromCommand(pos, hasY, height,
 			speed);
 	}

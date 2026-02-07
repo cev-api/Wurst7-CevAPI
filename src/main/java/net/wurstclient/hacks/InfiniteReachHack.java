@@ -186,7 +186,7 @@ public final class InfiniteReachHack extends Hack
 	
 	public InfiniteReachHack()
 	{
-		super("Infinite Reach");
+		super("InfiniteReach");
 		setCategory(Category.COMBAT);
 		
 		addSetting(swingArm);

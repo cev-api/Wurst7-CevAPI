@@ -94,7 +94,7 @@ public final class NiceWurstModule
 			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "WindChargeKey"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
-			Set.of("Breadcrumbs", "Durability HUD", "Fullbright", "HealthTags",
+			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
 				"ItemESP", "LavaWaterESP", "LogoutSpots", "MobESP", "MobSearch",
 				"MobSpawnESP", "NewChunks", "NoBackground", "NoFireOverlay",
 				"NoVignette", "NoWeather", "Freecam", "OpenWaterESP",

@@ -17,7 +17,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.PreMotionListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.IKeyBinding;
+import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.MobWeaponRuleSetting;
@@ -125,7 +125,7 @@ public final class TriggerBotHack extends Hack
 	{
 		if(simulatingMouseClick)
 		{
-			IKeyBinding.get(MC.options.keyAttack).simulatePress(false);
+			IKeyMapping.get(MC.options.keyAttack).simulatePress(false);
 			simulatingMouseClick = false;
 		}
 		
@@ -142,7 +142,7 @@ public final class TriggerBotHack extends Hack
 		if(!simulatingMouseClick)
 			return;
 		
-		IKeyBinding.get(MC.options.keyAttack).simulatePress(false);
+		IKeyMapping.get(MC.options.keyAttack).simulatePress(false);
 		simulatingMouseClick = false;
 	}
 	
@@ -183,7 +183,7 @@ public final class TriggerBotHack extends Hack
 		
 		if(simulateMouseClick.isChecked())
 		{
-			IKeyBinding.get(MC.options.keyAttack).simulatePress(true);
+			IKeyMapping.get(MC.options.keyAttack).simulatePress(true);
 			simulatingMouseClick = true;
 			
 		}else

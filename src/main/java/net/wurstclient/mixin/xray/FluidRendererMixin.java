@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin;
+package net.wurstclient.mixin.xray;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,8 +23,6 @@ import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.WurstClient;
-import net.wurstclient.event.EventManager;
-import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
 import net.wurstclient.hacks.SurfaceXrayHack;
 import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
@@ -47,31 +45,28 @@ public class FluidRendererMixin
 		BlockAndTintGetter world, BlockPos pos, VertexConsumer vertexConsumer,
 		BlockState blockState, FluidState fluidState)
 	{
-		// Note: the null BlockPos is here to skip the "exposed only" check
-		ShouldDrawSideEvent event = new ShouldDrawSideEvent(blockState, null);
-		EventManager.fire(event);
-		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
 		
 		float opacity = 1F;
+		boolean forceHideFace = false;
 		
 		if(surface.isEnabled())
 		{
 			SurfaceState surfaceState = surface.classifyFluid(fluidState, pos);
 			if(surfaceState == SurfaceState.INTERIOR)
-				event.setRendered(false);
+				forceHideFace = true;
 			else if(surfaceState == SurfaceState.SURFACE)
-				opacity = surface.getSurfaceOpacity();
+				opacity = Math.min(opacity, surface.getSurfaceOpacity());
 		}
 		
 		if(xray.isOpacityMode() && !xray.isVisible(blockState.getBlock(), pos))
 			opacity = Math.min(opacity, xray.getOpacityFloat());
 		
 		currentOpacity.set(opacity);
-		
-		if(event.isRendered() != null)
-			return !event.isRendered();
+		// Note: the null BlockPos is here to skip the "exposed only" check
+		if(forceHideFace)
+			return true;
 		
 		return original.call(side, height, neighborState);
 	}

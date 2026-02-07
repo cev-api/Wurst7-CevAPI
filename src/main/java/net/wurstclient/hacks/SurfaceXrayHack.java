@@ -24,12 +24,6 @@ import net.minecraft.world.level.material.FluidState;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
-import net.wurstclient.events.GetAmbientOcclusionLightLevelListener;
-import net.wurstclient.events.GetAmbientOcclusionLightLevelListener.GetAmbientOcclusionLightLevelEvent;
-import net.wurstclient.events.SetOpaqueCubeListener;
-import net.wurstclient.events.SetOpaqueCubeListener.SetOpaqueCubeEvent;
-import net.wurstclient.events.ShouldDrawSideListener;
-import net.wurstclient.events.ShouldDrawSideListener.ShouldDrawSideEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
@@ -38,9 +32,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
 @SearchTags({"SurfaceXray", "Surface X-Ray", "SurfaceX-Ray", "surface xray",
 	"surface x ray"})
-public final class SurfaceXrayHack extends Hack
-	implements ShouldDrawSideListener, UpdateListener, SetOpaqueCubeListener,
-	GetAmbientOcclusionLightLevelListener
+public final class SurfaceXrayHack extends Hack implements UpdateListener
 {
 	private static final int MAX_COMPONENT_SIZE = 4096;
 	private static final long CACHE_TTL = 200;
@@ -140,11 +132,7 @@ public final class SurfaceXrayHack extends Hack
 		clearCache();
 		cachedWorld = null;
 		lastCleanupTick = 0;
-		
-		EVENTS.add(ShouldDrawSideListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
-		EVENTS.add(SetOpaqueCubeListener.class, this);
-		EVENTS.add(GetAmbientOcclusionLightLevelListener.class, this);
 		
 		onSettingsChanged(true);
 	}
@@ -152,10 +140,7 @@ public final class SurfaceXrayHack extends Hack
 	@Override
 	protected void onDisable()
 	{
-		EVENTS.remove(ShouldDrawSideListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
-		EVENTS.remove(SetOpaqueCubeListener.class, this);
-		EVENTS.remove(GetAmbientOcclusionLightLevelListener.class, this);
 		
 		clearCache();
 		cachedWorld = null;
@@ -180,38 +165,6 @@ public final class SurfaceXrayHack extends Hack
 			pruneCache(time);
 			lastCleanupTick = time;
 		}
-	}
-	
-	@Override
-	public void onShouldDrawSide(ShouldDrawSideEvent event)
-	{
-		if(!isEnabled())
-			return;
-		
-		BlockPos pos = event.getPos();
-		if(pos == null)
-			return;
-		
-		SurfaceState state = classifyBlock(event.getState(), pos);
-		if(state == SurfaceState.INTERIOR)
-			event.setRendered(false);
-		else if(state == SurfaceState.SURFACE)
-			event.setRendered(true);
-	}
-	
-	@Override
-	public void onSetOpaqueCube(SetOpaqueCubeEvent event)
-	{
-		if(isEnabled())
-			event.cancel();
-	}
-	
-	@Override
-	public void onGetAmbientOcclusionLightLevel(
-		GetAmbientOcclusionLightLevelEvent event)
-	{
-		if(isEnabled())
-			event.setLightLevel(1);
 	}
 	
 	public SurfaceState classifyBlock(BlockState state, BlockPos pos)

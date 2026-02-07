@@ -9,39 +9,84 @@ package net.wurstclient.mixinterface;
 
 import net.minecraft.client.KeyMapping;
 
+/**
+ * Backwards-compatible keybinding mixinterface.
+ *
+ * Historically, Wurst used an {@code IKeyBinding} mixinterface. Some hacks and
+ * modules still refer to it. Newer code also uses {@code IKeyMapping}.
+ */
 public interface IKeyBinding
 {
-	static IKeyBinding get(KeyMapping key)
+	/**
+	 * @deprecated Use {@link #isActuallyDown()} instead.
+	 */
+	@Deprecated
+	boolean wurst_isActuallyDown();
+	
+	/**
+	 * @deprecated Use {@link #resetPressedState()} instead.
+	 */
+	@Deprecated
+	void wurst_resetPressedState();
+	
+	/**
+	 * @deprecated Use {@link #simulatePress(boolean)} instead.
+	 */
+	@Deprecated
+	void wurst_simulatePress(boolean pressed);
+	
+	/*
+	 * Returns whether the user is actually pressing this key on their keyboard
+	 * or mouse.
+	 */
+	default boolean isActuallyDown()
 	{
-		return (IKeyBinding)key;
+		return wurst_isActuallyDown();
 	}
 	
-	default KeyMapping asVanilla()
+	/**
+	 * Resets the pressed state to whether or not the user is actually pressing
+	 * this key on their keyboard.
+	 */
+	default void resetPressedState()
 	{
-		return (KeyMapping)this;
+		wurst_resetPressedState();
 	}
 	
-	default void setPressed(boolean value)
+	/**
+	 * Simulates a key press/release for this binding.
+	 */
+	default void simulatePress(boolean pressed)
 	{
-		asVanilla().setDown(value);
+		wurst_simulatePress(pressed);
 	}
 	
+	/**
+	 * Compatibility layer for older call sites.
+	 */
+	default void setPressed(boolean pressed)
+	{
+		asVanilla().setDown(pressed);
+	}
+	
+	/**
+	 * Compatibility layer for older call sites.
+	 */
 	default boolean isPressed()
 	{
 		return asVanilla().isDown();
 	}
 	
-	default void setDown(boolean value)
+	default KeyMapping asVanilla()
 	{
-		setPressed(value);
+		return (KeyMapping)(Object)this;
 	}
 	
-	default boolean isDown()
+	/**
+	 * Returns the given KeyMapping object as an IKeyBinding.
+	 */
+	static IKeyBinding get(KeyMapping kb)
 	{
-		return isPressed();
+		return (IKeyBinding)(Object)kb;
 	}
-	
-	void resetPressedState();
-	
-	void simulatePress(boolean pressed);
 }

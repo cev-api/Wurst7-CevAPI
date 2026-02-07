@@ -31,8 +31,8 @@ public final class AboveGroundFilterOtf extends OtherFeature
 	
 	public AboveGroundFilterOtf()
 	{
-		super("Above-ground ESP filter",
-			"Global toggle + Y for per-hack above-ground filters.");
+		super("AboveGroundFilter",
+			"description.wurst.other_feature.above_ground_filter");
 		addSetting(enabled);
 		addSetting(yLevel);
 		EVENTS.add(UpdateListener.class, this);

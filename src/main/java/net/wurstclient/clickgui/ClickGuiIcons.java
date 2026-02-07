@@ -43,7 +43,7 @@ public enum ClickGuiIcons
 		{
 			ya1 = y2 - 3;
 			ya2 = y1 + 2.5F;
-			arrowColor = hovering ? 0xFFFF0000 : 0xFFD90000;
+			arrowColor = hovering ? collapsedHoverColor : collapsedColor;
 			arrowVertices = new float[][]{{xa1, ya1}, {xa3, ya1}, {xa2, ya2}};
 		}
 		RenderUtils.fillTriangle2D(context, arrowVertices, arrowColor);

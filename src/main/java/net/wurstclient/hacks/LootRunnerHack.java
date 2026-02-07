@@ -3375,14 +3375,8 @@ public final class LootRunnerHack extends Hack
 			if(savedFlightVSpeed >= 0)
 				hax.flightHack.verticalSpeed.setValue(savedFlightVSpeed);
 		}
-		if(useAntisocial.isChecked() && !antisocialWasEnabled)
-			hax.antisocialHack.setEnabled(false);
-		if(useAutoEat.isChecked() && !autoEatWasEnabled)
-			hax.autoEatHack.setEnabled(false);
-		if(useAutoLeave.isChecked() && !autoLeaveWasEnabled)
-			hax.autoLeaveHack.setEnabled(false);
-		if(useQuickShulkerOnFull.isChecked() && !quickShulkerWasEnabled)
-			hax.quickShulkerHack.setEnabled(false);
+		// Do not auto-disable Antisocial/AutoEat/AutoLeave/QuickShulker on
+		// exit.
 	}
 	
 	private record LootTarget(BlockPos pos, String feature, int number,

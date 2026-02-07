@@ -30,12 +30,12 @@ import net.wurstclient.options.WurstOptionsScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
 @Mixin(PauseScreen.class)
-public abstract class GameMenuScreenMixin extends Screen
+public abstract class PauseScreenMixin extends Screen
 {
 	@Unique
 	private Button wurstOptionsButton;
 	
-	private GameMenuScreenMixin(WurstClient wurst, Component title)
+	private PauseScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
 	}
@@ -43,9 +43,12 @@ public abstract class GameMenuScreenMixin extends Screen
 	@Inject(at = @At("TAIL"), method = "createPauseMenu()V")
 	private void onInitWidgets(CallbackInfo ci)
 	{
-		if(!WurstClient.INSTANCE.isEnabled())
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(!wurst.isEnabled())
 			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+		if(wurst.shouldHideWurstUiMixins())
+			return;
+		if(!wurst.getOtfs().wurstOptionsOtf.isVisibleInGameMenu())
 			return;
 		
 		addWurstOptionsButton();
@@ -56,7 +59,8 @@ public abstract class GameMenuScreenMixin extends Screen
 	private void onRender(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
-		if(!WurstClient.INSTANCE.isEnabled() || wurstOptionsButton == null)
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(!wurst.isEnabled())
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
@@ -102,7 +106,7 @@ public abstract class GameMenuScreenMixin extends Screen
 		String label =
 			NiceWurstModule.getOptionsLabel("Wurst 7 CevAPI Options");
 		MutableComponent buttonText = Component.literal(label);
-		wurstOptionsButton = Button.builder(buttonText, b -> openWurstOptions())
+		wurstOptionsButton = Button.builder(buttonText, this::openWurstOptions)
 			.bounds(buttonX, buttonY, buttonWidth, buttonHeight).build();
 		buttons.add(wurstOptionsButton);
 	}
@@ -146,7 +150,7 @@ public abstract class GameMenuScreenMixin extends Screen
 	}
 	
 	@Unique
-	private void openWurstOptions()
+	private void openWurstOptions(Button button)
 	{
 		minecraft.setScreen(new WurstOptionsScreen(this));
 	}

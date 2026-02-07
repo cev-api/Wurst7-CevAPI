@@ -90,6 +90,8 @@ I'm pleased to note that many of the features and improvements below are complet
 - KickForensics
 - HideWurst
 - LootRunner
+- AutoFly
+- HideModMenu
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -686,11 +688,12 @@ This hack is still undergoing development and has only been tested in the end. A
 
 ### AutoFly
 
-- AutoFly follows SeedMapper exports or manually entered coordinates, automatically tuning Flight height/speed and showing a crosshair status.
+- AutoFly follows SeedMapper exports or manually entered coordinates, automatically tuning flight height/speed and showing a crosshair status.
 - Able to adjust mid flight so you can get yourself unstuck if it failed to do it itself.
+- Able to somewhat path around blocks it crashes into either by moving around it or flying above it.
 - Auto lands and turns off flight when complete.
 - Comes with custom commands:
-  - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries).
+  - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries). Omitting Y causes it to simply land at the waypoint.
   - `.autofly next`/`.autofly prev(ious)` cycles the SeedMapper export list, while `.autofly stop|off|disable` turns off AutoFly.
  
 ## What's changed or improved in this fork?
@@ -746,6 +749,7 @@ Examples:
 - Right-click Area setting resets it to default.  
 - Can now scroll all drop down/pop ups with your mouse.
 - Pinned windows/settings now capture mouse input when a container screen is open, meaning you can now adjust settings without opening the ClickGUI.
+- Remembers scroll positions in categories
 
 ![HackList](https://i.imgur.com/fzcQdjy.png)
 
@@ -786,7 +790,8 @@ Examples:
 - Improved coloring for default distance based rendering, close (red) to far (green) (when all above off)
 - Able to ignore NPCs
 - Enter/Leave area notification option in chat with name, co-ordinates and block distance
-- Enter sound notifications with 7 different selectable sounds with optional cooldown
+- Enter sound notifications with multiple different selectable note block sounds with optional cooldown
+- Customise the enter sound with any minecraft sound by entering its name and selecting custom in the dropdown
 
 ![ESP](https://i.imgur.com/ydpYuOm.png)
 
@@ -834,6 +839,8 @@ Examples:
   - Able to ignore friends.
 - Added enable NoFall when flight is enabled toggle.
 - Added flight speed and velocity (blocks per second) to the hacklist
+- Optionally tie horizontal and vertical speeds together
+- Adjustable step for both speeds
 
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
@@ -868,6 +875,7 @@ Examples:
 ### NoSlowDown Improved
 - Added no slowdown for lava
 - Added no slowdown for water
+  - Added a toggle to allow swimming
 
 ### TrueSight Improved
 - Added customisable glow ESP for invisible entities
@@ -895,6 +903,11 @@ Examples:
 - Can now multi-select and delete alt accounts
 - Moved to multiplayer screen
 
+### FreeCam Improved
+- Optionally tie horizontal and vertical speeds together
+- Adjustable step for both speeds
+- Option to allow older Wurst method of FreeCam which allowed interaction with the world
+
 ### AutoBuild Improved
 - Air-start position support and continued air place for gaps in build
 - Template preview shows a ghost of the template which locks in position when freecam is activated
@@ -902,6 +915,7 @@ Examples:
 - Stuck handling, if the strict build order fails it temporarily relaxes the order so it can resume easier
 - CTRL (Sprint) bypass, by holding it you can add your own blocks at any time, before during or after the build
 - Adjustable confirmation ticks
+- Shows block count on crosshair
 
 ### Wurst Options
 - Added to home screen and put in the old spot of Alt Manager
