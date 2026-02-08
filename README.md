@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.51.4 (MC1.21.11) - Modified by CevAPI 
+﻿# Wurst Client v7.52 (MC1.21.11) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
@@ -9,9 +9,9 @@
 - Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 
 ## Supported Versions
-- [1.21.1 - New (Based on 1.21.8)](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
-- [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
-- [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
+- [1.21.1 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
+- [1.21.8 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
+- [1.21.10 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
 - [1.21.11 - Latest/Recommended (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 ### Download
@@ -696,6 +696,36 @@ This hack is still undergoing development and has only been tested in the end. A
   - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries). Omitting Y causes it to simply land at the waypoint.
   - `.autofly next`/`.autofly prev(ious)` cycles the SeedMapper export list, while `.autofly stop|off|disable` turns off AutoFly.
  
+### BundleDupe
+
+- One-click bundle dupe inspired by the work of Numbers/Autism Inc. Works on Paper 1.21.11 pre-[v111](https://github.com/PaperMC/Paper/commit/302c47c0dda6251fd5eb6bf7130345e9dcb988fc).
+- Prep: 100-page high-entropy book in inv + bundle with ~63 target items + 1 filler.
+- Modes
+  - TIMEOUT: wait KeepAlive → block KAs → after Ns use bundle → lag → off
+  - KICK: lag → use bundle → disconnect
+- Kick
+  - HURT / QUIT / CHARS / CLIENTSETTINGS
+  - MOVE_NAN / MOVE_INF / MOVE_OOB
+  - CLICK_INVALID / UPDATESLOT / CUSTOM
+- Lag
+  - CUSTOM / BOAT_NBT (chest boat/minecart) / CLICKSLOT (needs NBT book) / ENTITY_NBT (crosshair target)
+- Settings
+  - TIMEOUT: seconds + interact delay (ms)
+  - Lag: packet counts
+- Notes
+  - Not all kicks suit all servers; BoatNBT needs riding; EntityNBT needs looking at entity.
+
+### BookBot
+- Based on the hack of the same name in Meteor. Needed for BundleDupe.
+- Auto-writes (optional sign) writable Books for high-entropy NBT or spam purposes.
+- Modes
+  - Random: random chars
+  - File: from .txt (word-wrap)
+- Settings
+  - Pages / ASCII-only / delay
+  - Sign + title + append count
+  - File + word-wrap
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

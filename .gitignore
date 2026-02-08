@@ -34,5 +34,6 @@ hs_err_pid*
 *.pyc
 *.py
 
+Thumbs.db
 desktop.ini
 *.rar

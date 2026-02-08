@@ -31,6 +31,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.FileSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
@@ -49,6 +50,20 @@ public final class AutoFlyHack extends Hack
 		"Import file",
 		"SeedMapper export JSON filename. Leave empty to use the latest file in seedmapper/exports.",
 		"");
+	private final FileSetting exportJsonPicker =
+		new FileSetting("Export JSON", "", "../seedmapper/exports", folder -> {
+			try
+			{
+				java.nio.file.Files.createDirectories(folder);
+				java.nio.file.Path p =
+					folder.resolve("autofly-placeholder.json");
+				if(!java.nio.file.Files.exists(p))
+					java.nio.file.Files.writeString(p, "[]\n");
+			}catch(java.io.IOException e)
+			{
+				throw new RuntimeException(e);
+			}
+		});
 	private final ButtonSetting reloadJsonButton =
 		new ButtonSetting("Reload JSON", this::reloadJsonTargets);
 	private final ButtonSetting previousButton =
@@ -145,6 +160,7 @@ public final class AutoFlyHack extends Hack
 		setCategory(Category.MOVEMENT);
 		addSetting(waypointText);
 		addSetting(importFile);
+		addSetting(exportJsonPicker);
 		addSetting(reloadJsonButton);
 		addSetting(previousButton);
 		addSetting(nextButton);
@@ -605,6 +621,24 @@ public final class AutoFlyHack extends Hack
 			return f.exists() ? f : null;
 		}
 		
+		// Prefer a file selected via the picker if it looks valid
+		try
+		{
+			java.nio.file.Path selected = exportJsonPicker.getSelectedFile();
+			if(selected != null)
+			{
+				File f = selected.toFile();
+				String name = f.getName().toLowerCase(Locale.ROOT);
+				if(f.exists() && name.endsWith(".json")
+					&& !name.equals("autofly-placeholder.json"))
+					return f;
+			}
+		}catch(Throwable ignored)
+		{
+			// Fall through to latest-file logic
+		}
+		
+		// Fallback: use the latest JSON in the exports folder
 		File[] files = exportDir.listFiles(
 			(d, name) -> name.toLowerCase(Locale.ROOT).endsWith(".json"));
 		if(files == null || files.length == 0)

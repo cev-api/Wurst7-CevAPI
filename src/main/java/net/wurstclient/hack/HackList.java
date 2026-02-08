@@ -111,6 +111,7 @@ public final class HackList implements UpdateListener
 	public final ClickAuraHack clickAuraHack = new ClickAuraHack();
 	public final ClickGuiHack clickGuiHack = new ClickGuiHack();
 	public final CrashChestHack crashChestHack = new CrashChestHack();
+	public final BundleDupeHack bundleDupeHack = new BundleDupeHack();
 	public final CreativeFlightHack creativeFlightHack =
 		new CreativeFlightHack();
 	public final CriticalsHack criticalsHack = new CriticalsHack();
@@ -153,6 +154,7 @@ public final class HackList implements UpdateListener
 	public final JetpackHack jetpackHack = new JetpackHack();
 	public final KaboomHack kaboomHack = new KaboomHack();
 	public final KickForensicsHack kickForensicsHack = new KickForensicsHack();
+	public final BookBotHack bookBotHack = new BookBotHack();
 	public final KillauraLegitHack killauraLegitHack = new KillauraLegitHack();
 	public final KillauraHack killauraHack = new KillauraHack();
 	public final KillPotionHack killPotionHack = new KillPotionHack();
