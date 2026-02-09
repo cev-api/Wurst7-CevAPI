@@ -99,9 +99,10 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 			"Amount of container click packets to send.", 200, 1, 1000, 1,
 			ValueDisplay.INTEGER);
 	
-	private final SliderSetting lagPackets = new SliderSetting("Other Lag packets",
-		"Amount of lag packets to spam for ALL methods (except custom).", 300,
-		100, 2000, 50, ValueDisplay.INTEGER);
+	private final SliderSetting lagPackets =
+		new SliderSetting("Other Lag packets",
+			"Amount of lag packets to spam for ALL methods (except custom).",
+			300, 100, 2000, 50, ValueDisplay.INTEGER);
 	
 	private boolean cancelKeepAlive;
 	private boolean dupeActivated;

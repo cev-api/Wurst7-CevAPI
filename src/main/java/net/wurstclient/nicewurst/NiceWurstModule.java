@@ -99,14 +99,15 @@ public final class NiceWurstModule
 				"MobSpawnESP", "NewChunks", "NoBackground", "NoFireOverlay",
 				"NoVignette", "NoWeather", "Freecam", "OpenWaterESP",
 				"PearlESP", "PlayerESP", "PortalESP", "Radar", "Search",
-				"TrialSpawnerESP", "TridentESP", "Waypoints", "WardenESP"));
+				"TrialSpawnerESP", "TridentESP", "Waypoints", "WardenESP",
+				"HideWurst"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
 				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
-				"SeedMapperHelper", "TooManyHax"));
+				"SeedMapperHelper", "TooManyHax", "HideModMenu"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
