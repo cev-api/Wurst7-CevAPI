@@ -701,17 +701,15 @@ This hack is still undergoing development and has only been tested in the end. A
 - One-click bundle dupe inspired by the work of Numbers/Autism Inc. Works on Paper 1.21.11 pre-[v111](https://github.com/PaperMC/Paper/commit/302c47c0dda6251fd5eb6bf7130345e9dcb988fc).
 - Prep: 100-page high-entropy book in inv + bundle with ~63 target items + 1 filler.
 - Modes
-  - TIMEOUT: wait KeepAlive → block KAs → after Ns use bundle → lag → off
-  - KICK: lag → use bundle → disconnect
+  - TIMEOUT: wait KeepAlive, block KAs, after Ns use bundle, lag, off
+  - KICK: lag, use bundle, disconnect
 - Kick
-  - HURT / QUIT / CHARS / CLIENTSETTINGS
-  - MOVE_NAN / MOVE_INF / MOVE_OOB
-  - CLICK_INVALID / UPDATESLOT / CUSTOM
+  - Hurt, Quit, Chars, Client Settings, Move NaN, Move Inf, Move OOB, Click Invalid, Update Slot, Custom Command
 - Lag
-  - CUSTOM / BOAT_NBT (chest boat/minecart) / CLICKSLOT (needs NBT book) / ENTITY_NBT (crosshair target)
+  - Boat NBT (Chest Boat/Minecart), Click Slot (Needs NBT Book (Or Similar)), Entity NBT (Crosshair Target), Inventory Spam, Chat Flood, Swing Spam, Dig Spam, Slot Spam, Custom Command.
 - Settings
-  - TIMEOUT: seconds + interact delay (ms)
-  - Lag: packet counts
+  - TIMEOUT: Seconds + Interact delay (ms)
+  - Lag: Packet Counts
 - Notes
   - Not all kicks suit all servers; BoatNBT needs riding; EntityNBT needs looking at entity.
 
