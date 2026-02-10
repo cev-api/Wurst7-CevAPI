@@ -40,6 +40,7 @@ import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgres
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
+import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 
 @Mixin(MultiPlayerGameMode.class)
@@ -51,6 +52,56 @@ public abstract class ClientPlayerInteractionManagerMixin
 	private Minecraft minecraft;
 	
 	private boolean antiDropBypassingPlacement;
+	
+	@Inject(at = @At("HEAD"),
+		method = "startDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		cancellable = true)
+	private void wurst$silkOnly_startDestroyBlock(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(pos == null || minecraft.player == null || minecraft.level == null)
+			return;
+		
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		SilkOnlyHack silkOnly = WurstClient.INSTANCE.getHax().silkOnlyHack;
+		if(silkOnly == null || !silkOnly.isEnabled())
+			return;
+		
+		var state = minecraft.level.getBlockState(pos);
+		var tool = minecraft.player.getMainHandItem();
+		if(silkOnly.shouldRefuseBreak(pos, state, tool))
+		{
+			cir.setReturnValue(false);
+			cir.cancel();
+		}
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		cancellable = true)
+	private void wurst$silkOnly_continueDestroyBlock(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(pos == null || minecraft.player == null || minecraft.level == null)
+			return;
+		
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		SilkOnlyHack silkOnly = WurstClient.INSTANCE.getHax().silkOnlyHack;
+		if(silkOnly == null || !silkOnly.isEnabled())
+			return;
+		
+		var state = minecraft.level.getBlockState(pos);
+		var tool = minecraft.player.getMainHandItem();
+		if(silkOnly.shouldRefuseBreak(pos, state, tool))
+		{
+			cir.setReturnValue(false);
+			cir.cancel();
+		}
+	}
 	
 	@Inject(
 		at = @At(value = "INVOKE",

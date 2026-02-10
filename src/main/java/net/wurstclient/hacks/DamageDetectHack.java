@@ -11,6 +11,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -23,7 +24,7 @@ public final class DamageDetectHack extends Hack implements UpdateListener
 	public DamageDetectHack()
 	{
 		super("DamageDetect");
-		// No category -> Navigator-only
+		setCategory(Category.OTHER);
 	}
 	
 	@Override

@@ -226,6 +226,7 @@ public final class HackList implements UpdateListener
 		new WorkstationEspHack();
 	public final RedstoneEspHack redstoneEspHack = new RedstoneEspHack();
 	public final SkinDerpHack skinDerpHack = new SkinDerpHack();
+	public final SilkOnlyHack silkOnlyHack = new SilkOnlyHack();
 	public final SneakHack sneakHack = new SneakHack();
 	public final SnowShoeHack snowShoeHack = new SnowShoeHack();
 	public final SpeedHackHack speedHackHack = new SpeedHackHack();

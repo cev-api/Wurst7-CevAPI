@@ -57,7 +57,7 @@ public final class NiceWurstModule
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
 	private static final Set<String> ALLOWED_NAME_ONLY = Set.of("ClickGUI",
-		"Navigator", "ChorusFruit", "MeasurementESP", "Towny", "DamageDetect");
+		"Navigator", "ChorusFruit", "MeasurementESP", "Towny");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -85,7 +85,7 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
 				"Excavator", "InstantBunker", "ScaffoldWalk", "TemplateTool",
-				"TargetPlace"));
+				"TargetPlace", "SilkOnly"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT, Set.of("BunnyHop", "AutoSprint",
 			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
@@ -107,7 +107,8 @@ public final class NiceWurstModule
 				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
-				"SeedMapperHelper", "TooManyHax", "HideModMenu"));
+				"SeedMapperHelper", "TooManyHax", "HideModMenu",
+				"DamageDetect"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",

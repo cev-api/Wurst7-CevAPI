@@ -650,7 +650,8 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 
 ### DamageDetect
 
-- Navigator only hack that simply tells you who or what caused you damage and where in chat
+- A simple hack that tells you in chat what damaged you (or who) and where.
+- Great for determining strange damage from unknown effects (unexpected fall damage etc).
 
 ### Teleport
 
@@ -728,6 +729,10 @@ This hack is still undergoing development and has only been tested in the end. A
   - Pages / ASCII-only / delay
   - Sign + title + append count
   - File + word-wrap
+
+### SilkOnly
+- Allows you to setup a list of blocks that can only be broken by the player using a tool that has Silk Touch. 
+- Perfect for avoiding accidental breakage of Ender Chests and Amethyst Clusters.
 
 ## What's changed or improved in this fork?
 
