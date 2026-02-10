@@ -13,6 +13,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 
@@ -20,8 +21,28 @@ import net.wurstclient.util.PlayerRangeAlertManager;
 public final class AntisocialHack extends Hack
 	implements PlayerRangeAlertManager.Listener
 {
-	private final EnumSetting<AutoLeaveHack.Mode> mode = new EnumSetting<>(
-		"Mode",
+	public static enum Mode
+	{
+		QUIT("Quit"),
+		CHARS("Chars"),
+		SELFHURT("SelfHurt"),
+		COMMAND("Command");
+		
+		private final String name;
+		
+		private Mode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private final EnumSetting<Mode> mode = new EnumSetting<>("Mode",
 		"\u00a7lQuit\u00a7r mode just quits the game normally.\n"
 			+ "Bypasses NoCheat+ but not CombatLog.\n\n"
 			+ "\u00a7lChars\u00a7r mode sends a special chat message that"
@@ -30,8 +51,9 @@ public final class AntisocialHack extends Hack
 			+ "\u00a7lSelfHurt\u00a7r mode sends the packet for attacking"
 			+ " another player, but with yourself as both the attacker and the"
 			+ " target, causing the server to kick you.\n"
-			+ "Bypasses both CombatLog and NoCheat+.",
-		AutoLeaveHack.Mode.values(), AutoLeaveHack.Mode.QUIT);
+			+ "Bypasses both CombatLog and NoCheat+.\n\n"
+			+ "\u00a7lCommand\u00a7r mode runs a custom command of your choice.",
+		Mode.values(), Mode.QUIT);
 	private final CheckboxSetting disableAutoReconnect = new CheckboxSetting(
 		"Disable AutoReconnect", "Turns off AutoReconnect after Antisocial"
 			+ " disconnects you so you stay hidden.",
@@ -45,6 +67,10 @@ public final class AntisocialHack extends Hack
 		"Ignore friends",
 		"Won't leave when the detected player is on your friends list.", true);
 	
+	private final TextFieldSetting command = new TextFieldSetting("Command",
+		"Used in Command mode. If it starts with '/', it will be sent as a command.",
+		"");
+	
 	private final PlayerRangeAlertManager alertManager =
 		WURST.getPlayerRangeAlertManager();
 	private boolean triggered;
@@ -54,6 +80,7 @@ public final class AntisocialHack extends Hack
 		super("Antisocial");
 		setCategory(Category.OTHER);
 		addSetting(mode);
+		addSetting(command);
 		addSetting(disableAutoReconnect);
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
@@ -91,16 +118,57 @@ public final class AntisocialHack extends Hack
 		
 		String intruder =
 			player == null ? info.getName() : player.getName().getString();
-		ChatUtils.message("\u00a76Antisocial:\u00a7r " + intruder
-			+ " entered your range. Leaving via "
-			+ mode.getSelected().toString() + " mode.");
 		
-		mode.getSelected().leave();
+		Mode selectedMode = mode.getSelected();
+		ChatUtils.message("\u00a76Antisocial:\u00a7r " + intruder
+			+ " entered your range. Leaving via " + selectedMode + " mode.");
+		
+		leave(selectedMode);
+	}
+	
+	private void leave(Mode selectedMode)
+	{
+		switch(selectedMode)
+		{
+			case QUIT -> AutoLeaveHack.Mode.QUIT.leave();
+			case CHARS -> AutoLeaveHack.Mode.CHARS.leave();
+			case SELFHURT -> AutoLeaveHack.Mode.SELFHURT.leave();
+			case COMMAND ->
+			{
+				if(!runLeaveCommand())
+				{
+					ChatUtils.error(
+						"Antisocial: Command mode selected but command is empty. Falling back to Quit mode.");
+					AutoLeaveHack.Mode.QUIT.leave();
+				}
+			}
+		}
 		
 		if(disableAutoReconnect.isChecked())
 			WURST.getHax().autoReconnectHack.setEnabled(false);
 		
 		setEnabled(false);
+	}
+	
+	private boolean runLeaveCommand()
+	{
+		if(MC == null || MC.getConnection() == null)
+			return false;
+		
+		String value = command.getValue();
+		if(value == null)
+			return false;
+		
+		String trimmed = value.trim();
+		if(trimmed.isEmpty())
+			return false;
+		
+		if(trimmed.startsWith("/"))
+			MC.getConnection().sendCommand(trimmed.substring(1));
+		else
+			MC.getConnection().sendChat(trimmed);
+		
+		return true;
 	}
 	
 	@Override

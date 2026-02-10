@@ -23,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -33,6 +34,9 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.UpdateListener;
@@ -52,6 +56,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 // no screen import needed; we embed ItemESP's editor component directly
 import net.wurstclient.util.InventoryUtils;
+import net.wurstclient.util.chunk.ChunkUtils;
 
 public class ItemHandlerHack extends Hack
 	implements UpdateListener, RenderListener
@@ -87,6 +92,8 @@ public class ItemHandlerHack extends Hack
 			"_pickaxe", "_shovel", "_hoe", "_spear"};
 	
 	private final List<GroundItem> trackedItems = new ArrayList<>();
+	private final List<NearbySign> trackedSigns = new ArrayList<>();
+	private int signScanCooldown;
 	private final Int2IntOpenHashMap pickupWhitelist = new Int2IntOpenHashMap();
 	private final Deque<Integer> pickupQueue = new ArrayDeque<>();
 	private boolean autoWalking;
@@ -113,6 +120,21 @@ public class ItemHandlerHack extends Hack
 	// How many items to show in the popup HUD
 	private final SliderSetting popupMaxItems = new SliderSetting(
 		"Popup HUD max items", 8, 1, 10, 1, ValueDisplay.INTEGER);
+	
+	private final CheckboxSetting showSignsInHud =
+		new CheckboxSetting("Show nearby signs",
+			"Adds nearby sign text to the ItemHandler popup HUD.", false);
+	
+	private final SliderSetting signRange = new SliderSetting("Sign range",
+		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
+			+ "∞ = all loaded chunks around you (limited by render distance).",
+		INFINITE_SCAN_RADIUS, 2.0, INFINITE_SCAN_RADIUS, 1.0,
+		ValueDisplay.DECIMAL.withLabel(INFINITE_SCAN_RADIUS, "∞")
+			.withSuffix(" blocks"));
+	
+	private final SliderSetting signMax = new SliderSetting("Max signs",
+		"Maximum number of signs to show in the popup HUD.", 4, 1, 10, 1,
+		ValueDisplay.INTEGER);
 	
 	private final SliderSetting popupRange = new SliderSetting(
 		"Item detection range", 6.0, 1.0, INFINITE_SCAN_RADIUS, 0.5,
@@ -160,6 +182,9 @@ public class ItemHandlerHack extends Hack
 		addSetting(popupRange);
 		addSetting(popupScale);
 		addSetting(popupMaxItems);
+		addSetting(showSignsInHud);
+		addSetting(signRange);
+		addSetting(signMax);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
 	}
@@ -170,6 +195,7 @@ public class ItemHandlerHack extends Hack
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		trackedItems.clear();
+		trackedSigns.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
 	}
@@ -180,6 +206,7 @@ public class ItemHandlerHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		trackedItems.clear();
+		trackedSigns.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
 		stopAutoWalk();
@@ -196,6 +223,7 @@ public class ItemHandlerHack extends Hack
 		if(MC.level == null || MC.player == null)
 		{
 			trackedItems.clear();
+			trackedSigns.clear();
 			pickupWhitelist.clear();
 			pickupQueue.clear();
 			stopAutoWalk();
@@ -204,6 +232,7 @@ public class ItemHandlerHack extends Hack
 		
 		updateWhitelist();
 		scanNearbyItems();
+		scanNearbySigns();
 		updateRejectedRules();
 		updatePickFilterTimeout();
 		processRejectedPickup();
@@ -499,29 +528,109 @@ public class ItemHandlerHack extends Hack
 		
 		if(includeMobEquipment.isChecked())
 			addMobEquipmentItems(player, scanRadius);
+			
+		// Traced items intentionally persist even if they are temporarily out
+		// of
+		// range or not currently tracked. (Only explicit pickup detection or
+		// manual toggling should untrace.)
+	}
+	
+	private void scanNearbySigns()
+	{
+		if(!showSignsInHud.isChecked())
+		{
+			trackedSigns.clear();
+			return;
+		}
 		
-		// Auto-untrace: remove traced ids that no longer have tracked items
+		if(MC.level == null || MC.player == null)
+		{
+			trackedSigns.clear();
+			return;
+		}
+		
+		// Don't scan every tick; this can get expensive in sign-heavy areas.
+		if(signScanCooldown-- > 0)
+			return;
+		signScanCooldown = 10;
+		
+		trackedSigns.clear();
+		
+		double range = signRange.getValue();
+		boolean infinite = range >= INFINITE_SCAN_RADIUS;
+		double rangeSq = range * range;
+		Vec3 centerVec = MC.player.position();
+		
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(!(be instanceof SignBlockEntity sign))
+				return;
+			
+			BlockPos pos = sign.getBlockPos();
+			if(pos == null)
+				return;
+			
+			Vec3 p = Vec3.atCenterOf(pos);
+			double distSq = p.distanceToSqr(centerVec);
+			if(!infinite && distSq > rangeSq)
+				return;
+			
+			String text = readSignText(sign);
+			if(text.isEmpty())
+				return;
+			
+			ItemStack icon =
+				new ItemStack(MC.level.getBlockState(pos).getBlock().asItem());
+			if(icon.isEmpty())
+				icon = new ItemStack(Items.OAK_SIGN);
+			
+			trackedSigns
+				.add(new NearbySign(pos, icon, text, Math.sqrt(distSq)));
+		});
+		
+		trackedSigns
+			.sort(java.util.Comparator.comparingDouble(NearbySign::distance));
+		
+		int max = signMax.getValueI();
+		if(trackedSigns.size() > max)
+			trackedSigns.subList(max, trackedSigns.size()).clear();
+	}
+	
+	private static String readSignText(SignBlockEntity sign)
+	{
+		if(sign == null)
+			return "";
+		
 		try
 		{
-			java.util.Set<String> present = new java.util.HashSet<>();
-			for(GroundItem gi : trackedItems)
+			SignText signText = sign.getFrontText();
+			if(signText == null)
+				return "";
+			
+			java.util.StringJoiner joiner = new java.util.StringJoiner(" | ");
+			for(int i = 0; i < 4; i++)
 			{
-				String traceId = gi.traceId();
-				if(traceId != null)
-					present.add(traceId);
+				net.minecraft.network.chat.Component c =
+					signText.getMessage(i, false);
+				if(c == null)
+					continue;
+				String s = c.getString();
+				if(s == null)
+					continue;
+				String trimmed = s.trim();
+				if(trimmed.isEmpty())
+					continue;
+				joiner.add(trimmed);
 			}
-			for(java.util.Iterator<String> it = tracedItems.iterator(); it
-				.hasNext();)
-			{
-				String t = it.next();
-				if(!present.contains(t))
-				{
-					it.remove();
-					ChatUtils.message("Untraced " + t + " after collection.");
-				}
-			}
-		}catch(Throwable ignored)
-		{}
+			
+			String out = joiner.toString();
+			if(out.length() > 80)
+				out = out.substring(0, 77) + "...";
+			return out;
+			
+		}catch(Throwable t)
+		{
+			return "";
+		}
 	}
 	
 	private boolean shouldTrack(ItemEntity entity)
@@ -836,6 +945,20 @@ public class ItemHandlerHack extends Hack
 	{
 		return java.util.Set.copyOf(tracedItems);
 	}
+	
+	public List<NearbySign> getTrackedSigns()
+	{
+		return List.copyOf(trackedSigns);
+	}
+	
+	public boolean isShowSignsInHud()
+	{
+		return showSignsInHud.isChecked();
+	}
+	
+	public record NearbySign(BlockPos pos, ItemStack icon, String text,
+		double distance)
+	{}
 	
 	public boolean isHudEnabled()
 	{

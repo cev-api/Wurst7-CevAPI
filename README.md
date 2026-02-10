@@ -281,6 +281,7 @@ Reports number of waypoints changed.
 ### Antisocial
 - Hooks into the PlayerESP enter/leave detector (even if ESP itself is off) and logs out the instant someone walks into range.
 - Reuses AutoLeave's Quit/Chars/SelfHurt modes so you can pick the safest disconnect for your server.
+- Can also issue a command instead of the above.
 - Toggles AutoReconnect off so you stay gone.
 - Perfect for hiding or protecting yourself while AFK farming.
 - Able to ignore friends.
@@ -390,20 +391,22 @@ Reports number of waypoints changed.
 - Prevents push back from TNT, creeper explosions, respawn anchors, crystals, wither skulls, wither spawn explosions, ghast fireballs, breeze gusts (and wind charges) and other custom plugins/entities that use explosion physics.
 
 ### ItemHandler
-- Jade-style Popup HUD and full GUI that lists nearby dropped items grouped by item id with aggregated counts (With optional registry IDs).
+- Jade-style Popup HUD and full GUI that lists nearby dropped items grouped by item ID with aggregated counts (With optional registry IDs).
 - Able to select or reject which item/s to pick up when moving over them:
   - Pick: reject (drop) everything except the selected types (only selected types will be picked up).
   - Reject: reject the selected types and drop them.
 - Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
   - Works independently of ItemESP
+  - Can SHIFT select multiple items
 - Ignore Selected Items: adds the item/s you selected to the ItemESP ignore list
 - Toggle to adhere to the ItemESP ignored list (Including a link to edit the list)
-- Adjustable distance for item detection.
-- Adjustable font scale setting (scales text and popup icon size).
+- Adjustable distance for item detection
+- Adjustable font scale setting (scales text and popup icon size)
 - Adjustable Popup HUD display offset X/Y
 - Detects XP Orbs and shows the exact XP each orb will give
 - Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
   - Can also filter out default mob items to prevent spam
+- Optionally can read the contents of signs in the popup HUD
 
 ![Popup](https://i.imgur.com/VQw20x0.png)
 ![GUI](https://i.imgur.com/oZFLufE.png)
@@ -869,6 +872,7 @@ Examples:
 - Added flight speed and velocity (blocks per second) to the hacklist
 - Optionally tie horizontal and vertical speeds together
 - Adjustable step for both speeds
+- Prevent dropping when holding SHIFT whilst in inventory
 
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  

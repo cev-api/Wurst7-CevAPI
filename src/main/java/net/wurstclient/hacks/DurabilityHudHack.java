@@ -46,6 +46,10 @@ public final class DurabilityHudHack extends Hack
 		new CheckboxSetting("Boss bar style", false);
 	private final CheckboxSetting showOffhand =
 		new CheckboxSetting("Show offhand", true);
+	private final CheckboxSetting avoidActionbarText = new CheckboxSetting(
+		"Avoid actionbar text",
+		"Moves the HUD up when Minecraft shows actionbar/overlay messages (e.g. sleeping).",
+		true);
 	private final ColorSetting fontColor =
 		new ColorSetting("Font color", new Color(0xFF, 0xFF, 0xFF, 0xFF));
 	private final CheckboxSetting gradientFontColor =
@@ -63,6 +67,7 @@ public final class DurabilityHudHack extends Hack
 		addSetting(displayMode);
 		addSetting(bossBarStyle);
 		addSetting(showOffhand);
+		addSetting(avoidActionbarText);
 		addSetting(fontColor);
 		addSetting(gradientFontColor);
 		addSetting(iconSize);
@@ -82,6 +87,11 @@ public final class DurabilityHudHack extends Hack
 	public boolean isShowOffhand()
 	{
 		return showOffhand.isChecked();
+	}
+	
+	public boolean avoidActionbarText()
+	{
+		return avoidActionbarText.isChecked();
 	}
 	
 	public int getFontColorI()

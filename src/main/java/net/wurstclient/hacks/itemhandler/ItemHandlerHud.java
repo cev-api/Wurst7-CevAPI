@@ -42,7 +42,11 @@ public class ItemHandlerHud
 		List<ItemHandlerHack.GroundItem> rawItems =
 			hack.getTrackedItems().stream()
 				.filter(g -> g.distance() <= hack.getPopupRange()).toList();
-		if(rawItems.isEmpty())
+		
+		List<ItemHandlerHack.NearbySign> rawSigns = hack.isShowSignsInHud()
+			? hack.getTrackedSigns() : java.util.List.of();
+		
+		if(rawItems.isEmpty() && rawSigns.isEmpty())
 			return;
 		
 		class MergeEntry
@@ -51,14 +55,16 @@ public class ItemHandlerHud
 			String displayName;
 			int total;
 			double closest;
+			boolean isSign;
 			
 			MergeEntry(ItemStack rep, String displayName, int total,
-				double closest)
+				double closest, boolean isSign)
 			{
 				this.rep = rep;
 				this.displayName = displayName;
 				this.total = total;
 				this.closest = closest;
+				this.isSign = isSign;
 			}
 		}
 		
@@ -71,7 +77,7 @@ public class ItemHandlerHud
 			if(me == null)
 			{
 				map.put(key, new MergeEntry(stack.copy(), gi.displayName(),
-					stack.getCount(), gi.distance()));
+					stack.getCount(), gi.distance(), false));
 			}else
 			{
 				me.total += stack.getCount();
@@ -81,6 +87,16 @@ public class ItemHandlerHud
 		}
 		
 		List<MergeEntry> items = new ArrayList<>(map.values());
+		
+		for(ItemHandlerHack.NearbySign s : rawSigns)
+		{
+			if(s == null || s.icon() == null || s.text() == null)
+				continue;
+			String label = "Sign: " + s.text();
+			items.add(
+				new MergeEntry(s.icon().copy(), label, 1, s.distance(), true));
+		}
+		
 		items.sort(Comparator.comparingDouble(m -> m.closest));
 		
 		int guiW = context.guiWidth();
@@ -153,17 +169,20 @@ public class ItemHandlerHud
 			RenderUtils.drawScaledText(context, tr, dist, distX, iy + 2,
 				0xFFBBBBBB, false, distScale);
 			
-			// draw count overlay in icon bottom-right (16x16 icon)
-			String cnt = String.valueOf(me.total);
-			double countScale = 0.75 * uiScale;
-			int cW = (int)Math.round(tr.width(cnt) * countScale);
-			int iconBX = ex + 4; // icon draw origin
-			int iconBY = iy; // icon draw origin
-			int iconSize = largeIcon ? 24 : 16;
-			int countX = iconBX + iconSize - 2 - cW;
-			int countY = iconBY + iconSize - (largeIcon ? 10 : 8);
-			RenderUtils.drawScaledText(context, tr, cnt, countX, countY,
-				0xFFFFFFFF, false, countScale);
+			if(!me.isSign)
+			{
+				// draw count overlay in icon bottom-right (16x16 icon)
+				String cnt = String.valueOf(me.total);
+				double countScale = 0.75 * uiScale;
+				int cW = (int)Math.round(tr.width(cnt) * countScale);
+				int iconBX = ex + 4; // icon draw origin
+				int iconBY = iy; // icon draw origin
+				int iconSize = largeIcon ? 24 : 16;
+				int countX = iconBX + iconSize - 2 - cW;
+				int countY = iconBY + iconSize - (largeIcon ? 10 : 8);
+				RenderUtils.drawScaledText(context, tr, cnt, countX, countY,
+					0xFFFFFFFF, false, countScale);
+			}
 			
 			// optionally show registry id as subtitle
 			if(hack != null && hack.isShowRegistryName())

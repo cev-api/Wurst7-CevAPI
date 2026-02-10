@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hud;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,8 +16,10 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -37,6 +40,12 @@ public final class DurabilityHud
 	private static final float TEXT_GAP = 2F;
 	private static final float BASE_MARGIN = 6F;
 	private static final float DRAG_PADDING = 4F;
+	private static final float ACTIONBAR_AVOID_ZONE_HEIGHT = 120F;
+	private static final float ACTIONBAR_AVOID_EXTRA_MARGIN = 10F;
+	
+	private static boolean overlayFieldsChecked;
+	private static Field overlayMessageStringField;
+	private static Field overlayMessageTimeField;
 	
 	private final DurabilityHudHack hack;
 	
@@ -118,6 +127,12 @@ public final class DurabilityHud
 		handleDrag(context, startX, iconY, totalWidth, rowHeight);
 		startX = baseStartX + offsetX;
 		iconY = baseIconY + offsetY;
+		
+		if(hack.avoidActionbarText())
+		{
+			float avoid = getActionbarAvoidOffset(context, iconY);
+			iconY = Math.max(iconY - avoid, BASE_MARGIN);
+		}
 		
 		float barY = showBar ? iconY + iconSize + TEXT_GAP : 0F;
 		float textY = 0F;
@@ -249,6 +264,86 @@ public final class DurabilityHud
 		
 		if(!leftDown)
 			dragging = false;
+	}
+	
+	private static float getActionbarAvoidOffset(GuiGraphics context,
+		float hudY)
+	{
+		// Only shift if the HUD is actually near the bottom where the actionbar
+		// message renders. This avoids surprising movement when the HUD is
+		// dragged
+		// elsewhere.
+		if(hudY < context.guiHeight() - ACTIONBAR_AVOID_ZONE_HEIGHT)
+			return 0F;
+		
+		if(!isOverlayMessageVisible())
+			return 0F;
+		
+		if(MC == null || MC.font == null)
+			return 0F;
+		
+		return MC.font.lineHeight + ACTIONBAR_AVOID_EXTRA_MARGIN;
+	}
+	
+	private static boolean isOverlayMessageVisible()
+	{
+		if(MC == null)
+			return false;
+		
+		Gui gui = MC.gui;
+		if(gui == null)
+			return false;
+		
+		initOverlayReflection();
+		if(overlayMessageTimeField == null || overlayMessageStringField == null)
+			return false;
+		
+		try
+		{
+			int time = overlayMessageTimeField.getInt(gui);
+			if(time <= 0)
+				return false;
+			
+			Object c = overlayMessageStringField.get(gui);
+			if(!(c instanceof Component comp))
+				return false;
+			
+			return !comp.getString().isEmpty();
+			
+		}catch(IllegalAccessException e)
+		{
+			return false;
+		}
+	}
+	
+	private static void initOverlayReflection()
+	{
+		if(overlayFieldsChecked)
+			return;
+		
+		overlayFieldsChecked = true;
+		
+		// Mojang-mapped field names in modern versions. If they ever change,
+		// the
+		// feature will gracefully disable itself.
+		overlayMessageStringField =
+			getFieldOrNull(Gui.class, "overlayMessageString");
+		overlayMessageTimeField =
+			getFieldOrNull(Gui.class, "overlayMessageTime");
+	}
+	
+	private static Field getFieldOrNull(Class<?> owner, String name)
+	{
+		try
+		{
+			Field f = owner.getDeclaredField(name);
+			f.setAccessible(true);
+			return f;
+			
+		}catch(ReflectiveOperationException e)
+		{
+			return null;
+		}
 	}
 	
 	private static boolean isMouseOverHud(double mouseX, double mouseY,

@@ -98,6 +98,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Slow sneaking",
 			"description.wurst.setting.flight.slow_sneaking", false);
 	
+	private final CheckboxSetting ignoreShiftInGuis = new CheckboxSetting(
+		"Ignore shift in GUIs",
+		"Prevents Flight from descending when you hold Shift while a GUI is open (e.g. shift-clicking items in your inventory).",
+		true);
+	
 	private Boolean antiKickOverride;
 	private Boolean slowSneakingOverride;
 	
@@ -130,6 +135,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
 		addSetting(slowSneaking);
+		addSetting(ignoreShiftInGuis);
 	}
 	
 	@Override
@@ -213,7 +219,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		if(MC.options.keyJump.isDown())
 			player.addDeltaMovement(new Vec3(0, vSpeed, 0));
 		
-		if(IKeyMapping.get(MC.options.keyShift).isActuallyDown())
+		boolean shiftActuallyDown =
+			IKeyMapping.get(MC.options.keyShift).isActuallyDown();
+		boolean allowShiftInThisContext =
+			!ignoreShiftInGuis.isChecked() || MC.screen == null;
+		if(shiftActuallyDown && allowShiftInThisContext)
 		{
 			MC.options.keyShift.setDown(false);
 			player.addDeltaMovement(new Vec3(0, -vSpeed, 0));
