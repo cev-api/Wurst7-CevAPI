@@ -54,6 +54,25 @@ public final class AutoFlyHack extends Hack
 	private static final ChunkAreaSetting.ChunkArea STOP_BLOCK_AREA =
 		ChunkAreaSetting.ChunkArea.A65;
 	
+	public static enum RouteType
+	{
+		WAYPOINTS("Waypoints"),
+		GRID("Grid");
+		
+		private final String name;
+		
+		RouteType(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
 	public static enum StopOnType
 	{
 		OFF("Off"),
@@ -81,6 +100,29 @@ public final class AutoFlyHack extends Hack
 		"Waypoints",
 		"Waypoints list. Format: x y z or x z (no Y). Separate by ';' or new lines.",
 		"");
+	
+	private final EnumSetting<RouteType> routeType = new EnumSetting<>(
+		"Route type",
+		"Where AutoFly gets its targets from.\n\n"
+			+ "Waypoints: Use the Waypoints list above (or JSON if empty).\n"
+			+ "Grid: Generate a square search grid from your current position.",
+		RouteType.values(), RouteType.WAYPOINTS);
+	
+	private final SliderSetting gridSideLength =
+		new SliderSetting("Grid side length",
+			"Side length of the square search area (in blocks).\n\n"
+				+ "The grid starts at your position and extends in +X and +Z.",
+			500, 10, 50000, 10, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
+	private final SliderSetting gridPassSize =
+		new SliderSetting("Grid pass size",
+			"Distance between each back-and-forth pass (in blocks).", 50, 1,
+			1000, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
+	private final ButtonSetting startGridButton = new ButtonSetting(
+		"Start grid",
+		"Generate grid targets from your current position and start flying.",
+		this::startGridFromPlayer);
 	private final TextFieldSetting importFile = new TextFieldSetting(
 		"Import file",
 		"SeedMapper export JSON filename. Leave empty to use the latest file in seedmapper/exports.",
@@ -201,12 +243,18 @@ public final class AutoFlyHack extends Hack
 	private ChunkSearcherCoordinator stopBlockCoordinator;
 	private StopOnType stopBlockCoordinatorType;
 	private String stopBlockCoordinatorKeyword;
+	private boolean stopHold;
+	private int stopIgnoreTicks;
 	
 	public AutoFlyHack()
 	{
 		super("AutoFly");
 		setCategory(Category.MOVEMENT);
 		addSetting(waypointText);
+		addSetting(routeType);
+		addSetting(gridSideLength);
+		addSetting(gridPassSize);
+		addSetting(startGridButton);
 		addSetting(importFile);
 		addSetting(exportJsonPicker);
 		addSetting(reloadJsonButton);
@@ -241,7 +289,12 @@ public final class AutoFlyHack extends Hack
 		if(useExistingTargetsOnEnable)
 			useExistingTargetsOnEnable = false;
 		else
-			loadTargetsFromSettings();
+		{
+			if(routeType.getSelected() == RouteType.GRID)
+				loadTargetsFromGrid(MC.player.blockPosition());
+			else
+				loadTargetsFromSettings();
+		}
 		if(targets.isEmpty())
 		{
 			ChatUtils.error("No AutoFly waypoints loaded.");
@@ -288,6 +341,8 @@ public final class AutoFlyHack extends Hack
 		stopBlockCoordinator = null;
 		stopBlockCoordinatorType = null;
 		stopBlockCoordinatorKeyword = null;
+		stopHold = false;
+		stopIgnoreTicks = 0;
 		selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		savedFlightSpeed = -1;
@@ -350,6 +405,8 @@ public final class AutoFlyHack extends Hack
 		currentIndex = -1;
 		savedFlightVSpeed = -1;
 		closeHorizLatched = false;
+		stopHold = false;
+		stopIgnoreTicks = 0;
 	}
 	
 	@Override
@@ -358,6 +415,18 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 		{
 			setEnabled(false);
+			return;
+		}
+		
+		if(stopIgnoreTicks > 0)
+			stopIgnoreTicks--;
+		
+		if(stopHold)
+		{
+			// Allow player to decide what to do next (e.g. cycle waypoint).
+			PathProcessor.releaseControls();
+			resetAutoKeyFlags();
+			clearMovementKeys();
 			return;
 		}
 		
@@ -531,6 +600,9 @@ public final class AutoFlyHack extends Hack
 	
 	private boolean checkStopOn()
 	{
+		if(stopIgnoreTicks > 0)
+			return false;
+		
 		StopOnType type = stopOn.getSelected();
 		if(type == null || type == StopOnType.OFF)
 			return false;
@@ -695,8 +767,14 @@ public final class AutoFlyHack extends Hack
 	
 	private void stopAutoFly(String message)
 	{
-		ChatUtils.message(message);
-		setEnabled(false);
+		ChatUtils.message(message + " (use Next waypoint to continue)");
+		stopHold = true;
+		stopIgnoreTicks = 0;
+		
+		// Stop immediately, even if keys were held from the previous tick.
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+		clearMovementKeys();
 	}
 	
 	private String getStopKeyword()
@@ -756,6 +834,132 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		
+		loadTargetsFromJson();
+	}
+	
+	private void startGridFromPlayer()
+	{
+		if(MC.player == null)
+		{
+			ChatUtils.error("Join a world before starting a grid.");
+			return;
+		}
+		
+		routeType.setSelected(RouteType.GRID);
+		loadTargetsFromGrid(MC.player.blockPosition());
+		if(targets.isEmpty())
+			return;
+		
+		restartWithExistingTargets();
+	}
+	
+	private void loadTargetsFromGrid(BlockPos start)
+	{
+		targets.clear();
+		if(start == null)
+			return;
+		
+		int side = (int)Math.round(gridSideLength.getValue());
+		int pass = (int)Math.round(gridPassSize.getValue());
+		
+		if(side < 1)
+		{
+			ChatUtils.error("Grid side length must be at least 1 block.");
+			return;
+		}
+		if(pass < 1)
+			pass = 1;
+		
+		int passes = (int)Math.ceil(side / (double)pass);
+		long estTargets = 2L * passes + 1L;
+		if(estTargets > 20000L)
+		{
+			ChatUtils.error("Grid is too dense (" + estTargets
+				+ " targets). Increase pass size or decrease side length.");
+			return;
+		}
+		
+		int x0 = start.getX();
+		int z0 = start.getZ();
+		int x1 = x0 + side;
+		int z1 = z0 + side;
+		int y = 0; // Not used when hasY=false
+		
+		boolean toEnd = true;
+		int z = z0;
+		while(true)
+		{
+			int xEnd = toEnd ? x1 : x0;
+			targets.add(new AutoFlyTarget(new BlockPos(xEnd, y, z), false));
+			
+			if(z == z1)
+				break;
+			
+			int nextZ = z + pass;
+			if(nextZ > z1)
+				nextZ = z1;
+			
+			// Shift over to the next pass while staying at the current X end.
+			targets.add(new AutoFlyTarget(new BlockPos(xEnd, y, nextZ), false));
+			
+			z = nextZ;
+			toEnd = !toEnd;
+		}
+		
+		ChatUtils.message(String.format(Locale.ROOT,
+			"AutoFly grid: side=%d, pass=%d, targets=%d (%d,%d -> %d,%d)", side,
+			pass, targets.size(), x0, z0, x1, z1));
+	}
+	
+	private void restartWithExistingTargets()
+	{
+		currentTarget = null;
+		currentIndex = -1;
+		pausedNoY = false;
+		stopHold = false;
+		stopIgnoreTicks = 0;
+		arrivalPause = false;
+		arrivalPauseUntilMs = 0L;
+		arrivedMessageSent = false;
+		arrivedHold = false;
+		manualAdjustHold = false;
+		manualAdjustStartMs = 0L;
+		manualAdjustStartPos = null;
+		lastManualInputMs = 0L;
+		lastAutoControlMs = 0L;
+		lastManualAdjustExitMs = 0L;
+		verticalMode = VerticalMode.NONE;
+		recoveryGoal = null;
+		pathFinder = null;
+		pathProcessor = null;
+		lastProgressMs = System.currentTimeMillis();
+		lastProgressDist = Double.NaN;
+		lastRepathMs = 0L;
+		stuckRepathCount = 0;
+		lastMovePos = MC.player != null ? MC.player.position() : null;
+		lastMoveMs = System.currentTimeMillis();
+		lastHorizPos = lastMovePos;
+		lastHorizMoveMs = lastMoveMs;
+		autoKeyUpDown = false;
+		autoKeyDownDown = false;
+		autoKeyLeftDown = false;
+		autoKeyRightDown = false;
+		autoKeyJumpDown = false;
+		autoKeyShiftDown = false;
+		climbAttemptUntilMs = 0L;
+		lastClimbAttemptMs = 0L;
+		climbTargetY = 0.0;
+		closeHorizLatched = false;
+		clearPathingState();
+		
+		if(!isEnabled())
+		{
+			useExistingTargetsOnEnable = true;
+			setEnabled(true);
+			return;
+		}
+		
+		selectNextTarget(false);
 	}
 	
 	private void loadTargetsFromText(String text)
@@ -912,6 +1116,8 @@ public final class AutoFlyHack extends Hack
 		currentTarget = null;
 		currentIndex = -1;
 		pausedNoY = false;
+		stopHold = false;
+		stopIgnoreTicks = 0;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
 		arrivedMessageSent = false;
@@ -984,6 +1190,9 @@ public final class AutoFlyHack extends Hack
 	{
 		if(index < 0 || index >= targets.size())
 			return;
+		if(stopHold)
+			stopIgnoreTicks = 60;
+		stopHold = false;
 		currentIndex = index;
 		currentTarget = targets.get(index);
 		pausedNoY = false;
@@ -1041,6 +1250,9 @@ public final class AutoFlyHack extends Hack
 				MC.player.position(), targetRadius.getValue()))
 				continue;
 			
+			if(stopHold)
+				stopIgnoreTicks = 60;
+			stopHold = false;
 			currentIndex = idx;
 			currentTarget = candidate;
 			pausedNoY = false;
@@ -1235,6 +1447,8 @@ public final class AutoFlyHack extends Hack
 	{
 		if(pathFinder != null)
 			return "Pathing";
+		if(stopHold)
+			return "Stopped";
 		if(manualAdjustHold)
 			return "Adjust";
 		if(arrivedHold)
@@ -1264,6 +1478,8 @@ public final class AutoFlyHack extends Hack
 		currentIndex = 0;
 		currentTarget = targets.get(0);
 		pausedNoY = false;
+		stopHold = false;
+		stopIgnoreTicks = 0;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
 		arrivedMessageSent = false;
