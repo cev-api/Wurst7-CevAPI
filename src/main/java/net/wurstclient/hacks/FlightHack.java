@@ -59,7 +59,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting scrollToChangeSpeed =
 		new CheckboxSetting("Scroll to change speed",
-			"description.wurst.setting.flight.scroll_to_change_speed", true);
+			"description.wurst.setting.flight.scroll_to_change_speed", false);
 	
 	private final CheckboxSetting renderSpeed =
 		new CheckboxSetting("Show speed in HackList",

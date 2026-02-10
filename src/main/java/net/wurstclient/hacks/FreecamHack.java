@@ -72,11 +72,11 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		0.05, 5.0, 0.05, ValueDisplay.DECIMAL);
 	
 	private final CheckboxSetting legacyMode = new CheckboxSetting(
-		"Legacy mode", "description.wurst.setting.freecam.legacy_mode", false);
+		"Legacy mode", "description.wurst.setting.freecam.legacy_mode", true);
 	
 	private final CheckboxSetting scrollToChangeSpeed =
 		new CheckboxSetting("Scroll to change speed",
-			"description.wurst.setting.freecam.scroll_to_change_speed", true);
+			"description.wurst.setting.freecam.scroll_to_change_speed", false);
 	
 	private final CheckboxSetting renderSpeed =
 		new CheckboxSetting("Show speed in HackList",

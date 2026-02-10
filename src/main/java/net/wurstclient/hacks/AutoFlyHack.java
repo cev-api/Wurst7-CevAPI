@@ -31,17 +31,52 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.FileSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MathUtils;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
+import net.wurstclient.util.chunk.ChunkSearcher.Result;
 
 @SearchTags({"auto fly", "autofly", "waypoint fly", "auto flight"})
 public final class AutoFlyHack extends Hack
 	implements UpdateListener, GUIRenderListener, RenderListener
 {
+	private static final int STOP_SCAN_COOLDOWN_TICKS = 10;
+	private static final ChunkAreaSetting.ChunkArea STOP_BLOCK_AREA =
+		ChunkAreaSetting.ChunkArea.A65;
+	
+	public static enum StopOnType
+	{
+		OFF("Off"),
+		MOBS("Mobs"),
+		BLOCKS("Blocks"),
+		ITEMS("Items"),
+		END_PORTAL("End portal"),
+		NETHER_PORTAL("Nether portal");
+		
+		private final String name;
+		
+		StopOnType(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
 	private final TextFieldSetting waypointText = new TextFieldSetting(
 		"Waypoints",
 		"Waypoints list. Format: x y z or x z (no Y). Separate by ';' or new lines.",
@@ -107,6 +142,15 @@ public final class AutoFlyHack extends Hack
 		new CheckboxSetting("Disable AutoFly on arrival",
 			"Turns off AutoFly when it reaches a waypoint.", false);
 	
+	private final EnumSetting<StopOnType> stopOn = new EnumSetting<>("Stop on",
+		"Stop AutoFly if it detects something while flying.",
+		StopOnType.values(), StopOnType.OFF);
+	
+	private final TextFieldSetting stopKeyword = new TextFieldSetting(
+		"Stop keyword",
+		"Keyword to match against the selected Stop on type (ignored for portals).",
+		"");
+	
 	private final List<AutoFlyTarget> targets = new ArrayList<>();
 	private AutoFlyTarget currentTarget;
 	private int currentIndex = -1;
@@ -153,6 +197,10 @@ public final class AutoFlyHack extends Hack
 	private boolean verticalAssistActive;
 	
 	private boolean closeHorizLatched;
+	private int stopScanCooldown;
+	private ChunkSearcherCoordinator stopBlockCoordinator;
+	private StopOnType stopBlockCoordinatorType;
+	private String stopBlockCoordinatorKeyword;
 	
 	public AutoFlyHack()
 	{
@@ -176,6 +224,8 @@ public final class AutoFlyHack extends Hack
 		addSetting(allowManualAdjust);
 		addSetting(disableFlightOnArrival);
 		addSetting(disableAutoFlyOnArrival);
+		addSetting(stopOn);
+		addSetting(stopKeyword);
 	}
 	
 	@Override
@@ -234,6 +284,10 @@ public final class AutoFlyHack extends Hack
 		currentIndex = -1;
 		currentTarget = null;
 		closeHorizLatched = false;
+		stopScanCooldown = 0;
+		stopBlockCoordinator = null;
+		stopBlockCoordinatorType = null;
+		stopBlockCoordinatorKeyword = null;
 		selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		savedFlightSpeed = -1;
@@ -316,6 +370,9 @@ public final class AutoFlyHack extends Hack
 				return;
 			}
 		}
+		
+		if(checkStopOn())
+			return;
 		
 		if(allowManualAdjust.isChecked() && isManualInputActive())
 		{
@@ -470,6 +527,197 @@ public final class AutoFlyHack extends Hack
 				startRecoveryPath(playerPos);
 			return;
 		}
+	}
+	
+	private boolean checkStopOn()
+	{
+		StopOnType type = stopOn.getSelected();
+		if(type == null || type == StopOnType.OFF)
+			return false;
+		
+		if(MC.player == null || MC.level == null)
+			return false;
+		
+		switch(type)
+		{
+			case MOBS ->
+			{
+				String kw = getStopKeyword();
+				if(kw.isEmpty())
+					return false;
+					
+				// No explicit range cap: scan what the client has loaded
+				// (entitiesForRendering).
+				for(var e : MC.level.entitiesForRendering())
+				{
+					if(!(e instanceof Mob m) || !m.isAlive() || m.isRemoved())
+						continue;
+					
+					String name = safeString(m.getName().getString());
+					String id = safeString(BuiltInRegistries.ENTITY_TYPE
+						.getKey(m.getType()).toString());
+					if(containsIgnoreCase(name, kw)
+						|| containsIgnoreCase(id, kw))
+					{
+						stopAutoFly("Stopped: Found " + name);
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			case ITEMS ->
+			{
+				String kw = getStopKeyword();
+				if(kw.isEmpty())
+					return false;
+				
+				// No explicit range cap: scan what the client has loaded.
+				for(var ent : MC.level.entitiesForRendering())
+				{
+					if(!(ent instanceof ItemEntity e) || !e.isAlive()
+						|| e.isRemoved())
+						continue;
+					if(e.getItem() == null || e.getItem().isEmpty())
+						continue;
+					
+					var stack = e.getItem();
+					String name = safeString(stack.getHoverName().getString());
+					String id = safeString(BuiltInRegistries.ITEM
+						.getKey(stack.getItem()).toString());
+					if(containsIgnoreCase(name, kw)
+						|| containsIgnoreCase(id, kw))
+					{
+						stopAutoFly("Stopped: Found " + name);
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			case BLOCKS ->
+			{
+				String kw = getStopKeyword();
+				if(kw.isEmpty())
+					return false;
+				
+				return scanBlocksForKeyword(kw, null);
+			}
+			
+			case END_PORTAL ->
+			{
+				return scanBlocksForKeyword("", Blocks.END_PORTAL);
+			}
+			
+			case NETHER_PORTAL ->
+			{
+				return scanBlocksForKeyword("", Blocks.NETHER_PORTAL);
+			}
+			
+			case OFF ->
+			{
+				return false;
+			}
+		}
+		
+		return false;
+	}
+	
+	private boolean scanBlocksForKeyword(String keyword,
+		net.minecraft.world.level.block.Block mustMatch)
+	{
+		// Throttle block scanning/update.
+		if(stopScanCooldown-- > 0)
+			return false;
+		stopScanCooldown = STOP_SCAN_COOLDOWN_TICKS;
+		
+		ensureStopBlockCoordinatorConfigured(keyword, mustMatch);
+		if(stopBlockCoordinator == null)
+			return false;
+		
+		stopBlockCoordinator.update();
+		
+		Result hit =
+			stopBlockCoordinator.getReadyMatches().findFirst().orElse(null);
+		if(hit == null)
+			return false;
+		
+		if(mustMatch != null)
+		{
+			stopAutoFly("Stopped: Found " + (mustMatch == Blocks.END_PORTAL
+				? "End Portal" : "Nether Portal"));
+			return true;
+		}
+		
+		String id = safeString(
+			BuiltInRegistries.BLOCK.getKey(hit.state().getBlock()).toString());
+		stopAutoFly("Stopped: Found " + id);
+		return true;
+	}
+	
+	private void ensureStopBlockCoordinatorConfigured(String keyword,
+		net.minecraft.world.level.block.Block mustMatch)
+	{
+		StopOnType type = stopOn.getSelected();
+		if(type == null)
+			return;
+		
+		String kw = keyword == null ? "" : keyword.trim();
+		
+		boolean needsReset =
+			stopBlockCoordinator == null || stopBlockCoordinatorType != type
+				|| !java.util.Objects.equals(stopBlockCoordinatorKeyword, kw);
+		
+		if(!needsReset)
+			return;
+		
+		stopBlockCoordinatorType = type;
+		stopBlockCoordinatorKeyword = kw;
+		
+		ChunkAreaSetting area = new ChunkAreaSetting(
+			"Stop scan area (internal)", "", STOP_BLOCK_AREA);
+		stopBlockCoordinator = new ChunkSearcherCoordinator(area);
+		
+		if(mustMatch != null)
+		{
+			stopBlockCoordinator.setTargetBlock(mustMatch);
+			return;
+		}
+		
+		stopBlockCoordinator.setQuery((pos, state) -> {
+			BlockState s = state;
+			if(s == null)
+				return false;
+			String id = BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString();
+			return containsIgnoreCase(id, kw);
+		});
+	}
+	
+	private void stopAutoFly(String message)
+	{
+		ChatUtils.message(message);
+		setEnabled(false);
+	}
+	
+	private String getStopKeyword()
+	{
+		String v = stopKeyword.getValue();
+		return v == null ? "" : v.trim();
+	}
+	
+	private static boolean containsIgnoreCase(String haystack, String needle)
+	{
+		if(haystack == null || needle == null)
+			return false;
+		if(needle.isEmpty())
+			return false;
+		return haystack.toLowerCase(Locale.ROOT)
+			.contains(needle.toLowerCase(Locale.ROOT));
+	}
+	
+	private static String safeString(String s)
+	{
+		return s == null ? "" : s;
 	}
 	
 	@Override

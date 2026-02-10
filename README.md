@@ -644,6 +644,7 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Customisable display: Percent Only, Bar Only, Boss Bar Style, Show Offhand, Icon Size, Font Scale.
 - Moveable with your mouse whenever an inventory menu is open.
 - Auto centres itself whenever items are removed.
+- Auto moves when action bar messages are shown (such as sleeping) behind the HUD.
 
 ![HUD](https://i.imgur.com/IZ4lFCx.png)
 
@@ -695,6 +696,7 @@ This hack is still undergoing development and has only been tested in the end. A
 - Able to adjust mid flight so you can get yourself unstuck if it failed to do it itself.
 - Able to somewhat path around blocks it crashes into either by moving around it or flying above it.
 - Auto lands and turns off flight when complete.
+- Optionally stop on discovery of portals or specific blocks or mobs.
 - Comes with custom commands:
   - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries). Omitting Y causes it to simply land at the waypoint.
   - `.autofly next`/`.autofly prev(ious)` cycles the SeedMapper export list, while `.autofly stop|off|disable` turns off AutoFly.
