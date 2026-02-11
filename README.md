@@ -362,7 +362,7 @@ Reports number of waypoints changed.
 - Highlights and counts Trial/Ominous Vaults
 - Able to record opened Ominous Vaults to avoid re-trying the same ones in the future
 - Congifurable with toggles for all of the above
-- Toggle to alert in chat when Ominous Key was dispensed
+- Toggle to alert in chat or via sound when Ominous Key was dispensed
 - Toggle to only display vaults
 
 ![Trial](https://i.imgur.com/xOL9U3G.png)
@@ -407,6 +407,7 @@ Reports number of waypoints changed.
 - Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
   - Can also filter out default mob items to prevent spam
 - Optionally can read the contents of signs in the popup HUD
+- Optionally pin special items (from ItemESP list) to the top of the popup HUD
 
 ![Popup](https://i.imgur.com/VQw20x0.png)
 ![GUI](https://i.imgur.com/oZFLufE.png)
@@ -698,6 +699,8 @@ This hack is still undergoing development and has only been tested in the end. A
 - Able to somewhat path around blocks it crashes into either by moving around it or flying above it.
 - Auto lands and turns off flight when complete.
 - Optionally stop on discovery of portals or specific blocks or mobs.
+- Able to fly in a specified grid pattern with optional breadcrumb style pathing.
+- Optionally turns on Antisocial, AutoEat or AutoLeave whilst enabled and auto turns off when disabled.
 - Comes with custom commands:
   - `.autofly <x> <y> <z> [height] [speed]` or `.autofly <x> <z> [height] [speed]` to AutoFly to a given waypoint (relative `~` values are supported as well as comma separated entries). Omitting Y causes it to simply land at the waypoint.
   - `.autofly next`/`.autofly prev(ious)` cycles the SeedMapper export list, while `.autofly stop|off|disable` turns off AutoFly.
@@ -871,6 +874,8 @@ Examples:
 ### Portal ESP Improvement
 - Single centered line for Nether Portals, End Portal Frames, and active End Portals.
 - Radius changes reset scan instantly.  
+- Optional sound or chat alerts when portal is found.
+- Adjustable tracer line thickness.
 
 ### Flight Improvement
 - Added "Don't Get Caught" toggle: Immediately rushes you to the floor (stops at water and simply turns off flight if above lava) when another player is in your range.
@@ -955,6 +960,7 @@ Examples:
 - CTRL (Sprint) bypass, by holding it you can add your own blocks at any time, before during or after the build
 - Adjustable confirmation ticks
 - Shows block count on crosshair
+- Prevents interaction with chests etc
 
 ### Wurst Options
 - Added to home screen and put in the old spot of Alt Manager

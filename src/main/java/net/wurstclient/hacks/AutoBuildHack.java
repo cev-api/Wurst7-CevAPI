@@ -19,6 +19,7 @@ import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -225,6 +226,14 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	{
 		if(status == Status.NO_TEMPLATE || status == Status.LOADING)
 			return;
+			
+		// While actively building, suppress regular right-click interactions
+		// (opening chests, toggling buttons/doors, etc.).
+		if(status == Status.BUILDING)
+		{
+			event.cancel();
+			return;
+		}
 		
 		if(MC.options.keySprint.isDown())
 			return;
@@ -349,11 +358,33 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				return;
 			}
 			
+			// AutoBuild should only place blocks (no generic item/block
+			// interactions).
+			ItemStack held = MC.player.getMainHandItem();
+			if(held.isEmpty() || !(held.getItem() instanceof BlockItem))
+				return;
+			
 			MC.rightClickDelay = 4;
 			RotationUtils.getNeededRotations(params.hitVec())
 				.sendPlayerLookPacket();
-			InteractionSimulator.rightClickBlock(params.toHitResult());
+			placeWithoutInteraction(params);
 			return;
+		}
+	}
+	
+	private void placeWithoutInteraction(BlockPlacingParams params)
+	{
+		// Hold sneak during placement attempts so interactive blocks are not
+		// activated (e.g. chests), only block placement is attempted.
+		boolean wasSneaking = MC.options.keyShift.isDown();
+		MC.options.keyShift.setDown(true);
+		try
+		{
+			InteractionSimulator.rightClickBlock(params.toHitResult(),
+				InteractionHand.MAIN_HAND);
+		}finally
+		{
+			MC.options.keyShift.setDown(wasSneaking);
 		}
 	}
 	

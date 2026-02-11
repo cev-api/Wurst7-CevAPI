@@ -235,6 +235,47 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
+	/**
+	 * Allows other features (like ItemHandler popup) to reuse ItemESP's
+	 * "special item" definition.
+	 */
+	public boolean isSpecialStack(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return false;
+		ensureSpecialListCacheUpToDate();
+		return isSpecial(stack);
+	}
+	
+	private void ensureSpecialListCacheUpToDate()
+	{
+		if(specialMode.getSelected() != SpecialMode.LIST)
+			return;
+		
+		int h = specialList.getItemNames().hashCode();
+		if(h == lastSpecialListHash && specialExactIds != null)
+			return;
+		
+		lastSpecialListHash = h;
+		java.util.HashSet<String> exact = new java.util.HashSet<>();
+		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
+		for(String s : specialList.getItemNames())
+		{
+			if(s == null)
+				continue;
+			String raw = s.trim();
+			if(raw.isEmpty())
+				continue;
+			Identifier id = Identifier.tryParse(raw);
+			if(id != null && BuiltInRegistries.ITEM.containsKey(id))
+				exact.add(id.toString());
+			else
+				kw.add(raw.toLowerCase(Locale.ROOT));
+		}
+		specialExactIds = exact;
+		specialKeywords = kw.toArray(new String[0]);
+	}
+	
 	@Override
 	public void onUpdate()
 	{
@@ -267,32 +308,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		int specialLines = getSpecialARGB(0x80);
 		int specialQuads = getSpecialARGB(0x40);
 		
-		// Update cached special list parsing when needed
-		if(specialMode.getSelected() == SpecialMode.LIST)
-		{
-			int h = specialList.getItemNames().hashCode();
-			if(h != lastSpecialListHash || specialExactIds == null)
-			{
-				lastSpecialListHash = h;
-				java.util.HashSet<String> exact = new java.util.HashSet<>();
-				java.util.ArrayList<String> kw = new java.util.ArrayList<>();
-				for(String s : specialList.getItemNames())
-				{
-					if(s == null)
-						continue;
-					String raw = s.trim();
-					if(raw.isEmpty())
-						continue;
-					Identifier id = Identifier.tryParse(raw);
-					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
-						exact.add(id.toString());
-					else
-						kw.add(raw.toLowerCase(Locale.ROOT));
-				}
-				specialExactIds = exact;
-				specialKeywords = kw.toArray(new String[0]);
-			}
-		}
+		// Update cached special list parsing when needed.
+		ensureSpecialListCacheUpToDate();
 		
 		// Update ignored list cache when needed
 		if(useIgnoredItems.isChecked())

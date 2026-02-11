@@ -56,15 +56,17 @@ public class ItemHandlerHud
 			int total;
 			double closest;
 			boolean isSign;
+			boolean isSpecial;
 			
 			MergeEntry(ItemStack rep, String displayName, int total,
-				double closest, boolean isSign)
+				double closest, boolean isSign, boolean isSpecial)
 			{
 				this.rep = rep;
 				this.displayName = displayName;
 				this.total = total;
 				this.closest = closest;
 				this.isSign = isSign;
+				this.isSpecial = isSpecial;
 			}
 		}
 		
@@ -76,13 +78,16 @@ public class ItemHandlerHud
 			MergeEntry me = map.get(key);
 			if(me == null)
 			{
-				map.put(key, new MergeEntry(stack.copy(), gi.displayName(),
-					stack.getCount(), gi.distance(), false));
+				map.put(key,
+					new MergeEntry(stack.copy(), gi.displayName(),
+						stack.getCount(), gi.distance(), false,
+						hack.isSpecialByItemEsp(stack)));
 			}else
 			{
 				me.total += stack.getCount();
 				if(gi.distance() < me.closest)
 					me.closest = gi.distance();
+				me.isSpecial = me.isSpecial || hack.isSpecialByItemEsp(stack);
 			}
 		}
 		
@@ -93,11 +98,19 @@ public class ItemHandlerHud
 			if(s == null || s.icon() == null || s.text() == null)
 				continue;
 			String label = "Sign: " + s.text();
-			items.add(
-				new MergeEntry(s.icon().copy(), label, 1, s.distance(), true));
+			items.add(new MergeEntry(s.icon().copy(), label, 1, s.distance(),
+				true, false));
 		}
 		
-		items.sort(Comparator.comparingDouble(m -> m.closest));
+		if(hack.isPinSpecialItemsTop())
+		{
+			items.sort(
+				Comparator.comparing((MergeEntry m) -> m.isSpecial ? 0 : 1)
+					.thenComparingDouble(m -> m.closest));
+		}else
+		{
+			items.sort(Comparator.comparingDouble(m -> m.closest));
+		}
 		
 		int guiW = context.guiWidth();
 		int x = guiW + hack.getHudOffsetX();

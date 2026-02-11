@@ -121,6 +121,11 @@ public class ItemHandlerHack extends Hack
 	private final SliderSetting popupMaxItems = new SliderSetting(
 		"Popup HUD max items", 8, 1, 10, 1, ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting pinSpecialItemsTop = new CheckboxSetting(
+		"Pin ItemESP special to top",
+		"In popup HUD sorting, show items marked as special by ItemESP first.",
+		false);
+	
 	private final CheckboxSetting showSignsInHud =
 		new CheckboxSetting("Show nearby signs",
 			"Adds nearby sign text to the ItemHandler popup HUD.", false);
@@ -182,6 +187,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(popupRange);
 		addSetting(popupScale);
 		addSetting(popupMaxItems);
+		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
 		addSetting(signRange);
 		addSetting(signMax);
@@ -983,6 +989,11 @@ public class ItemHandlerHack extends Hack
 		return popupMaxItems.getValueI();
 	}
 	
+	public boolean isPinSpecialItemsTop()
+	{
+		return pinSpecialItemsTop.isChecked();
+	}
+	
 	public int getHudOffsetX()
 	{
 		return hudOffsetX.getValueI();
@@ -1125,6 +1136,15 @@ public class ItemHandlerHack extends Hack
 			return false;
 		String id = net.wurstclient.util.ItemUtils.getStackId(stack);
 		return esp.isIgnoredId(id);
+	}
+	
+	public boolean isSpecialByItemEsp(ItemStack stack)
+	{
+		net.wurstclient.hacks.ItemEspHack esp =
+			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+		if(esp == null)
+			return false;
+		return esp.isSpecialStack(stack);
 	}
 	
 	public enum SourceType

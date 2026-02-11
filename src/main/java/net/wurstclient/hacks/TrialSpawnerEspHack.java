@@ -28,6 +28,8 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -121,6 +123,13 @@ public final class TrialSpawnerEspHack extends Hack
 		"Ominous key alert",
 		"Alerts in chat when an ominous trial key item appears near a trial spawner.",
 		false);
+	private final CheckboxSetting alertOminousKeySound = new CheckboxSetting(
+		"Ominous key sound",
+		"Plays a sound when an ominous trial key item is detected near a trial spawner.",
+		false);
+	private final SliderSetting ominousKeySoundVolume =
+		new SliderSetting("Ominous key sound volume", 100, 0, 200, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting showCountInHackList =
 		new CheckboxSetting("HackList count", false);
 	
@@ -179,6 +188,8 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(onlyVaults);
 		addSetting(vaultLinkRange);
 		addSetting(alertOminousKey);
+		addSetting(alertOminousKeySound);
+		addSetting(ominousKeySoundVolume);
 		addSetting(vaultBoxColor);
 		addSetting(ominousVaultBoxColor);
 		addSetting(showCountInHackList);
@@ -1178,11 +1189,33 @@ public final class TrialSpawnerEspHack extends Hack
 			UUID uuid = item.getUUID();
 			seen.add(uuid);
 			if(alertedOminousKeys.add(uuid))
+			{
 				ChatUtils.message("Ominous Trial Key dispensed at "
 					+ formatBlockPos(item.blockPosition()));
+				if(alertOminousKeySound.isChecked())
+					playOminousKeyAlertSound();
+			}
 		}
 		
 		alertedOminousKeys.retainAll(seen);
+	}
+	
+	private void playOminousKeyAlertSound()
+	{
+		if(MC.player == null || MC.level == null)
+			return;
+		
+		SoundEvent sound = BuiltInRegistries.SOUND_EVENT
+			.getValue(Identifier.parse("minecraft:block.note_block.chime"));
+		if(sound == null)
+			return;
+		
+		float volume = (float)(ominousKeySoundVolume.getValue() / 100.0);
+		if(volume <= 0f)
+			return;
+		
+		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+			MC.player.getZ(), sound, SoundSource.PLAYERS, volume, 1.0F, false);
 	}
 	
 	private boolean isNearAnySpawner(Vec3 pos)

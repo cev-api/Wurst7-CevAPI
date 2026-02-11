@@ -11,6 +11,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.vertex.PoseStack;
+import java.awt.Color;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
@@ -31,6 +33,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.FileSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -39,6 +42,7 @@ import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MathUtils;
+import net.wurstclient.util.RenderUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -118,6 +122,21 @@ public final class AutoFlyHack extends Hack
 		new SliderSetting("Grid pass size",
 			"Distance between each back-and-forth pass (in blocks).", 50, 1,
 			1000, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
+	private final CheckboxSetting showGridPath = new CheckboxSetting(
+		"Show grid path",
+		"Draw the planned grid route in the world (similar to Breadcrumbs).",
+		true);
+	private final ColorSetting gridPathColor =
+		new ColorSetting("Grid path color",
+			"Color used for the grid path overlay.", new Color(64, 196, 255));
+	private final SliderSetting gridPathThickness =
+		new SliderSetting("Grid path thickness", 2.0, 1.0, 10.0, 1.0,
+			ValueDisplay.INTEGER.withSuffix(" px"));
+	private final SliderSetting gridPathMaxPoints =
+		new SliderSetting("Grid path points",
+			"How many upcoming grid points to draw (higher = more CPU/GPU).",
+			800, 50, 5000, 50, ValueDisplay.INTEGER.withSuffix(" points"));
 	
 	private final ButtonSetting startGridButton = new ButtonSetting(
 		"Start grid",
@@ -237,6 +256,9 @@ public final class AutoFlyHack extends Hack
 	private double lastYForProgress = Double.NaN;
 	private long lastVerticalProgressMs;
 	private boolean verticalAssistActive;
+	private boolean enabledAntisocialForAutoFly;
+	private boolean enabledAutoEatForAutoFly;
+	private boolean enabledAutoLeaveForAutoFly;
 	
 	private boolean closeHorizLatched;
 	private int stopScanCooldown;
@@ -254,6 +276,10 @@ public final class AutoFlyHack extends Hack
 		addSetting(routeType);
 		addSetting(gridSideLength);
 		addSetting(gridPassSize);
+		addSetting(showGridPath);
+		addSetting(gridPathColor);
+		addSetting(gridPathThickness);
+		addSetting(gridPathMaxPoints);
 		addSetting(startGridButton);
 		addSetting(importFile);
 		addSetting(exportJsonPicker);
@@ -351,14 +377,26 @@ public final class AutoFlyHack extends Hack
 		lastVerticalProgressMs = System.currentTimeMillis();
 		verticalAssistActive = false;
 		applyFlightSettings();
+		enabledAntisocialForAutoFly = false;
+		enabledAutoEatForAutoFly = false;
+		enabledAutoLeaveForAutoFly = false;
 		
 		var hax = WURST.getHax();
 		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
+		{
 			hax.antisocialHack.setEnabled(true);
+			enabledAntisocialForAutoFly = true;
+		}
 		if(useAutoEat.isChecked() && !hax.autoEatHack.isEnabled())
+		{
 			hax.autoEatHack.setEnabled(true);
+			enabledAutoEatForAutoFly = true;
+		}
 		if(useAutoLeave.isChecked() && !hax.autoLeaveHack.isEnabled())
+		{
 			hax.autoLeaveHack.setEnabled(true);
+			enabledAutoLeaveForAutoFly = true;
+		}
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -373,6 +411,16 @@ public final class AutoFlyHack extends Hack
 		EVENTS.remove(RenderListener.class, this);
 		PathProcessor.releaseControls();
 		restoreFlightSettings();
+		var hax = WURST.getHax();
+		if(enabledAntisocialForAutoFly && hax.antisocialHack.isEnabled())
+			hax.antisocialHack.setEnabled(false);
+		if(enabledAutoEatForAutoFly && hax.autoEatHack.isEnabled())
+			hax.autoEatHack.setEnabled(false);
+		if(enabledAutoLeaveForAutoFly && hax.autoLeaveHack.isEnabled())
+			hax.autoLeaveHack.setEnabled(false);
+		enabledAntisocialForAutoFly = false;
+		enabledAutoEatForAutoFly = false;
+		enabledAutoLeaveForAutoFly = false;
 		pausedNoY = false;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
@@ -429,6 +477,8 @@ public final class AutoFlyHack extends Hack
 			clearMovementKeys();
 			return;
 		}
+		
+		boolean gridRoute = routeType.getSelected() == RouteType.GRID;
 		
 		if(currentTarget == null)
 		{
@@ -489,6 +539,14 @@ public final class AutoFlyHack extends Hack
 		
 		if(pathFinder != null)
 		{
+			// Ground path recovery is unreliable while airborne (e.g. nether
+			// roof cruise). Fall back to direct flight controls.
+			if(MC.player != null && !MC.player.onGround())
+			{
+				PathProcessor.releaseControls();
+				clearPathingState();
+			}
+			
 			if(processPathFinder())
 				return;
 			clearPathingState();
@@ -521,7 +579,13 @@ public final class AutoFlyHack extends Hack
 		double descentStartRadius =
 			Math.max(20.0, Math.max(radius * 2.0, radius + 6.0));
 		
-		if(currentTarget.hasY)
+		// Grid route is meant for scanning, not landing at each point.
+		// Keep a constant cruise altitude and treat targets as reached based on
+		// horizontal distance only.
+		if(gridRoute)
+		{
+			desiredY = cruiseY;
+		}else if(currentTarget.hasY)
 		{
 			boolean approachHoriz = distHoriz <= descentStartRadius;
 			desiredY = (closeHoriz || approachHoriz)
@@ -541,8 +605,17 @@ public final class AutoFlyHack extends Hack
 		
 		double yDiff = desiredY - playerPos.y;
 		
-		if(isTargetReached(currentTarget, playerPos, radius))
+		boolean reached = gridRoute ? (distHoriz <= radius)
+			: isTargetReached(currentTarget, playerPos, radius);
+		
+		if(reached)
 		{
+			if(gridRoute)
+			{
+				advanceGridTarget();
+				return;
+			}
+			
 			handleTargetReached();
 			return;
 		}
@@ -595,6 +668,24 @@ public final class AutoFlyHack extends Hack
 			else
 				startRecoveryPath(playerPos);
 			return;
+		}
+	}
+	
+	private void advanceGridTarget()
+	{
+		// Stop immediately to avoid overshooting and oscillation at pass turns.
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+		clearMovementKeys();
+		clearPathingState();
+		closeHorizLatched = false;
+		verticalMode = VerticalMode.NONE;
+		
+		selectNextTarget(false);
+		if(currentTarget == null)
+		{
+			ChatUtils.message("AutoFly grid completed.");
+			setEnabled(false);
 		}
 	}
 	
@@ -817,12 +908,49 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	@Override
-	public void onRender(com.mojang.blaze3d.vertex.PoseStack matrixStack,
-		float partialTicks)
+	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		renderGridPath(matrixStack);
+		
 		if(pathFinder == null || pathProcessor == null)
 			return;
 		pathFinder.renderPath(matrixStack, false, false);
+	}
+	
+	private void renderGridPath(PoseStack matrixStack)
+	{
+		if(!showGridPath.isChecked())
+			return;
+		if(routeType.getSelected() != RouteType.GRID)
+			return;
+		if(MC.player == null || MC.level == null)
+			return;
+		if(targets.isEmpty())
+			return;
+		
+		double y = getCruiseY(currentTarget);
+		Vec3 playerPos = MC.player.position();
+		
+		int max = gridPathMaxPoints.getValueI();
+		int startIdx = Math.max(0, currentIndex);
+		int endIdx = Math.min(targets.size(), startIdx + Math.max(2, max));
+		
+		List<Vec3> pts = new ArrayList<>(endIdx - startIdx + 1);
+		pts.add(new Vec3(playerPos.x, y, playerPos.z));
+		for(int i = startIdx; i < endIdx; i++)
+		{
+			AutoFlyTarget t = targets.get(i);
+			pts.add(new Vec3(t.pos.getX() + 0.5, y, t.pos.getZ() + 0.5));
+		}
+		
+		if(pts.size() < 2)
+			return;
+		
+		float[] rgb = gridPathColor.getColorF();
+		int c =
+			RenderUtils.toIntColor(new float[]{rgb[0], rgb[1], rgb[2]}, 0.9F);
+		RenderUtils.drawCurvedLine(matrixStack, pts, c, false,
+			gridPathThickness.getValue());
 	}
 	
 	private void loadTargetsFromSettings()
@@ -1295,6 +1423,11 @@ public final class AutoFlyHack extends Hack
 		if(currentTarget == null)
 			return;
 		
+		// Ensure no keys are left pressed when switching to arrived-hold.
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+		clearMovementKeys();
+		
 		manualAdjustHold = false;
 		manualAdjustStartMs = 0L;
 		manualAdjustStartPos = null;
@@ -1309,7 +1442,6 @@ public final class AutoFlyHack extends Hack
 		
 		arrivalPause = true;
 		arrivalPauseUntilMs = System.currentTimeMillis() + 1000L;
-		PathProcessor.releaseControls();
 		clearPathingState();
 		arrivedHold = true;
 		if(!isVoidTarget(currentTarget.pos)
@@ -1641,6 +1773,11 @@ public final class AutoFlyHack extends Hack
 	
 	private boolean shouldRepath(Vec3 playerPos, double distHoriz)
 	{
+		// Recovery pathing is designed for ground navigation. In mid-air it can
+		// cause oscillation/stalls, so keep using direct flight controls.
+		if(MC.player != null && !MC.player.onGround())
+			return false;
+		
 		long now = System.currentTimeMillis();
 		if(now - lastManualAdjustExitMs < 2000L)
 			return false;

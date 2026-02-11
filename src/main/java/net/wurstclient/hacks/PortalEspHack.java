@@ -12,11 +12,17 @@ import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiPredicate;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -32,9 +38,13 @@ import net.wurstclient.hacks.portalesp.PortalEspBlockGroup;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RenderUtils.ColoredPoint;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -78,6 +88,26 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
+	private final SliderSetting lineThickness =
+		new SliderSetting("Line thickness", 2.0, 1.0, 10.0, 1.0,
+			SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting discoverySound = new CheckboxSetting(
+		"Sound on discovery",
+		"Plays a sound when PortalESP discovers a new portal block.", false);
+	private final EnumSetting<DetectionSound> discoverySoundType =
+		new EnumSetting<>("Discovery sound type", DetectionSound.values(),
+			DetectionSound.NOTE_BLOCK_CHIME);
+	private final SliderSetting discoverySoundVolume = new SliderSetting(
+		"Discovery sound volume", "Controls how loud the discovery sound is.",
+		100, 0, 200, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix("%"));
+	private final TextFieldSetting customDiscoverySoundId =
+		new TextFieldSetting("Custom discovery sound ID",
+			"Enter a namespaced sound ID like 'minecraft:block.note_block.bell'.",
+			"");
+	private final CheckboxSetting discoveryChat =
+		new CheckboxSetting("Chat message on discovery",
+			"Sends a chat message when PortalESP discovers a new portal block.",
+			false);
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
@@ -98,6 +128,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private final HashSet<BlockPos> discoveredPositions = new HashSet<>();
 	
 	public PortalEspHack()
 	{
@@ -107,6 +138,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(area);
+		addSetting(lineThickness);
+		addSetting(discoverySound);
+		addSetting(discoverySoundType);
+		addSetting(discoverySoundVolume);
+		addSetting(customDiscoverySoundId);
+		addSetting(discoveryChat);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
@@ -116,6 +153,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	protected void onEnable()
 	{
 		groupsUpToDate = false;
+		discoveredPositions.clear();
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		EVENTS.add(UpdateListener.class, this);
@@ -135,6 +173,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		
 		coordinator.reset();
 		groups.forEach(PortalEspBlockGroup::clear);
+		discoveredPositions.clear();
 	}
 	
 	@Override
@@ -209,20 +248,103 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			int color = group.getColorI(0x80);
+			double width = lineThickness.getValue();
+			List<ColoredPoint> points =
+				ends.stream().map(v -> new ColoredPoint(v, color)).toList();
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, points, false,
+				width);
 		}
 	}
 	
 	private void updateGroupBoxes()
 	{
 		groups.forEach(PortalEspBlockGroup::clear);
-		coordinator.getMatches().forEach(this::addToGroupBoxes);
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
+			new HashMap<>();
+		coordinator.getMatches()
+			.forEach(result -> addToGroupBoxes(result, newBlocksByGroup));
+		
+		ArrayList<DiscoveryHit> discoveries =
+			buildDiscoveries(newBlocksByGroup);
+		
+		if(!discoveries.isEmpty())
+		{
+			if(discoverySound.isChecked())
+				playDiscoverySound();
+			if(discoveryChat.isChecked())
+				sendDiscoveryMessage(discoveries);
+		}
+		
 		groupsUpToDate = true;
 	}
 	
-	private void addToGroupBoxes(Result result)
+	private ArrayList<DiscoveryHit> buildDiscoveries(
+		Map<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup)
+	{
+		ArrayList<DiscoveryHit> discoveries = new ArrayList<>();
+		for(PortalEspBlockGroup group : groups)
+		{
+			ArrayList<BlockPos> newBlocks = newBlocksByGroup.get(group);
+			if(newBlocks == null || newBlocks.isEmpty())
+				continue;
+			
+			if(!usesStructureCenter(group))
+			{
+				for(BlockPos pos : newBlocks)
+					discoveries.add(new DiscoveryHit(getDiscoveryLabel(group),
+						new Vec3(pos.getX() + 0.5, pos.getY() + 0.5,
+							pos.getZ() + 0.5)));
+				continue;
+			}
+			
+			// For grouped portal types, count one discovery per connected
+			// structure, matching tracer behavior.
+			HashSet<BlockPos> remaining = new HashSet<>(group.getPositions());
+			HashSet<BlockPos> newSet = new HashSet<>(newBlocks);
+			while(!remaining.isEmpty())
+			{
+				BlockPos start = remaining.iterator().next();
+				remaining.remove(start);
+				
+				ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+				queue.add(start);
+				
+				boolean hasNewBlock = false;
+				int count = 0;
+				double sumX = 0;
+				double sumY = 0;
+				double sumZ = 0;
+				
+				while(!queue.isEmpty())
+				{
+					BlockPos current = queue.removeFirst();
+					count++;
+					sumX += current.getX() + 0.5;
+					sumY += current.getY() + 0.5;
+					sumZ += current.getZ() + 0.5;
+					if(newSet.contains(current))
+						hasNewBlock = true;
+					
+					for(Direction dir : Direction.values())
+					{
+						BlockPos neighbor = current.relative(dir);
+						if(remaining.remove(neighbor))
+							queue.addLast(neighbor);
+					}
+				}
+				
+				if(hasNewBlock && count > 0)
+					discoveries.add(new DiscoveryHit(getDiscoveryLabel(group),
+						new Vec3(sumX / count, sumY / count, sumZ / count)));
+			}
+		}
+		
+		return discoveries;
+	}
+	
+	private void addToGroupBoxes(Result result,
+		Map<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup)
 	{
 		if(onlyAboveGround.isChecked()
 			&& result.pos().getY() < aboveGroundY.getValue())
@@ -230,9 +352,106 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{
-				group.add(result.pos());
+				BlockPos pos = result.pos().immutable();
+				group.add(pos);
+				if(discoveredPositions.add(pos))
+					newBlocksByGroup
+						.computeIfAbsent(group, g -> new ArrayList<>())
+						.add(pos);
 				break;
 			}
+	}
+	
+	private String getDiscoveryLabel(PortalEspBlockGroup group)
+	{
+		if(group == null)
+			return "Portal";
+		if(group == netherPortal)
+			return "Nether portal";
+		if(group == endPortal)
+			return "End portal";
+		if(group == endPortalFrame)
+			return "End portal frame";
+		if(group == endGateway)
+			return "End gateway";
+		return "Portal";
+	}
+	
+	private void playDiscoverySound()
+	{
+		if(MC.player == null || MC.level == null)
+			return;
+		
+		SoundEvent soundEvent = null;
+		if(discoverySoundType.getSelected() == DetectionSound.CUSTOM)
+		{
+			String idStr = customDiscoverySoundId.getValue();
+			if(idStr != null)
+			{
+				idStr = idStr.trim();
+				if(!idStr.isEmpty())
+				{
+					try
+					{
+						Identifier id = Identifier.parse(idStr);
+						soundEvent = BuiltInRegistries.SOUND_EVENT.getValue(id);
+					}catch(Exception e)
+					{
+						// ignore invalid id
+					}
+				}
+			}
+		}else
+		{
+			soundEvent = discoverySoundType.getSelected().resolve();
+		}
+		
+		if(soundEvent == null)
+			return;
+		
+		float target = (float)(discoverySoundVolume.getValue() / 100.0);
+		if(target <= 0f)
+			return;
+		
+		int whole = (int)target;
+		float remainder = target - whole;
+		
+		double x = MC.player.getX();
+		double y = MC.player.getY();
+		double z = MC.player.getZ();
+		
+		for(int i = 0; i < whole; i++)
+		{
+			MC.level.playLocalSound(x, y, z, soundEvent, SoundSource.PLAYERS,
+				1F, 1F, false);
+		}
+		
+		if(remainder > 0f)
+		{
+			MC.level.playLocalSound(x, y, z, soundEvent, SoundSource.PLAYERS,
+				remainder, 1F, false);
+		}
+	}
+	
+	private void sendDiscoveryMessage(List<DiscoveryHit> discoveries)
+	{
+		if(discoveries == null || discoveries.isEmpty())
+			return;
+		
+		if(discoveries.size() == 1)
+		{
+			DiscoveryHit d = discoveries.get(0);
+			ChatUtils.message(String.format("%s discovered at %d, %d, %d.",
+				d.label(), (int)Math.round(d.pos().x),
+				(int)Math.round(d.pos().y), (int)Math.round(d.pos().z)));
+			return;
+		}
+		
+		DiscoveryHit d = discoveries.get(0);
+		ChatUtils.message(String.format(
+			"PortalESP discovered %d new portals (first: %s at %d, %d, %d).",
+			discoveries.size(), d.label(), (int)Math.round(d.pos().x),
+			(int)Math.round(d.pos().y), (int)Math.round(d.pos().z)));
 	}
 	
 	private List<Vec3> getTracerTargets(PortalEspBlockGroup group)
@@ -291,5 +510,49 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 		
 		return centers;
+	}
+	
+	private record DiscoveryHit(String label, Vec3 pos)
+	{}
+	
+	private enum DetectionSound
+	{
+		NOTE_BLOCK_CHIME("Note Block Chime",
+			"minecraft:block.note_block.chime"),
+		EXPERIENCE_ORB_PICKUP("XP Pickup",
+			"minecraft:entity.experience_orb.pickup"),
+		AMETHYST_CHIME("Amethyst Chime",
+			"minecraft:block.amethyst_block.chime"),
+		BELL("Bell", "minecraft:block.bell.use"),
+		CUSTOM("Custom", null);
+		
+		private final String name;
+		private final String id;
+		
+		DetectionSound(String name, String id)
+		{
+			this.name = name;
+			this.id = id;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+		
+		private SoundEvent resolve()
+		{
+			if(id == null)
+				return null;
+			try
+			{
+				return BuiltInRegistries.SOUND_EVENT
+					.getValue(Identifier.parse(id));
+			}catch(Exception e)
+			{
+				return null;
+			}
+		}
 	}
 }
