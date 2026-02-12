@@ -303,7 +303,10 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			lastMatchesVersion = matchesVersion;
 			groupsUpToDate = false;
 		}
-		if(!groupsUpToDate && coordinator.isDone())
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
+			: coordinator.isDone()))
 			updateGroupBoxes();
 	}
 	
@@ -359,7 +362,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		renderGroups.forEach(RenderGroup::clear);
-		coordinator.getMatches().forEach(this::addToGroupBoxes);
+		coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 		int total =
 			renderGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();

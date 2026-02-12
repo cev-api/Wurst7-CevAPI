@@ -34,8 +34,10 @@ import net.wurstclient.util.MinPriorityThreadFactory;
 public final class ChunkSearcher
 {
 	private static final Logger LOGGER = LogUtils.getLogger();
-	private static final java.util.concurrent.ExecutorService BACKGROUND_THREAD_POOL =
+	private static volatile java.util.concurrent.ExecutorService backgroundThreadPool =
 		MinPriorityThreadFactory.newFixedThreadPool();
+	private static volatile int backgroundThreadPriority =
+		MinPriorityThreadFactory.getConfiguredThreadPriority();
 	
 	private final BiPredicate<BlockPos, BlockState> query;
 	private final ChunkAccess chunk;
@@ -67,7 +69,25 @@ public final class ChunkSearcher
 		}
 		
 		future = CompletableFuture.supplyAsync(() -> searchNow(snapshot),
-			BACKGROUND_THREAD_POOL);
+			backgroundThreadPool);
+	}
+	
+	public static int getBackgroundThreadPriority()
+	{
+		return backgroundThreadPriority;
+	}
+	
+	public static synchronized void setBackgroundThreadPriority(int priority)
+	{
+		int clamped = MinPriorityThreadFactory.clampThreadPriority(priority);
+		if(clamped == backgroundThreadPriority)
+			return;
+		
+		java.util.concurrent.ExecutorService oldPool = backgroundThreadPool;
+		backgroundThreadPool =
+			MinPriorityThreadFactory.newFixedThreadPool(clamped);
+		backgroundThreadPriority = clamped;
+		oldPool.shutdownNow();
 	}
 	
 	private ArrayList<Result> searchNow(ChunkSnapshot snapshot)

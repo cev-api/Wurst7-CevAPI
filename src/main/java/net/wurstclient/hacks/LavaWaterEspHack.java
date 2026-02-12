@@ -10,10 +10,9 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
-import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
@@ -169,7 +168,10 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			lastMatchesVersion = matchesVersion;
 			groupsUpToDate = false;
 		}
-		if(!groupsUpToDate && coordinator.isDone())
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
+			: coordinator.isDone()))
 			updateGroupBoxes();
 	}
 	
@@ -227,11 +229,21 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	{
 		groups.forEach(LiquidEspBlockGroup::clear);
 		int limit = renderAmount.getValueI();
-		java.util.List<Result> matches = coordinator.getMatches()
-			.sorted(Comparator.comparingDouble(
-				r -> r.pos().distToCenterSqr(RotationUtils.getEyesPos())))
-			.limit(limit).collect(Collectors.toList());
-		matches.forEach(this::addToGroupBoxes);
+		var eyesPos = RotationUtils.getEyesPos();
+		PriorityQueue<Result> heap = new PriorityQueue<>((limit + 1),
+			(a, b) -> Double.compare(b.pos().distToCenterSqr(eyesPos),
+				a.pos().distToCenterSqr(eyesPos)));
+		coordinator.getReadyMatches().forEach(result -> {
+			if(heap.size() < limit)
+				heap.offer(result);
+			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
+				.distToCenterSqr(eyesPos))
+			{
+				heap.poll();
+				heap.offer(result);
+			}
+		});
+		heap.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 	}
 	

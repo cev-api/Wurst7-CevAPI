@@ -128,6 +128,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private boolean groupsUpToDate;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
+	private int lastMatchesVersion;
 	private final HashSet<BlockPos> discoveredPositions = new HashSet<>();
 	
 	public PortalEspHack()
@@ -156,6 +157,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		discoveredPositions.clear();
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -172,6 +174,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		
 		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(PortalEspBlockGroup::clear);
 		discoveredPositions.clear();
 	}
@@ -205,7 +208,16 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
-		if(!groupsUpToDate && coordinator.isDone())
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion != lastMatchesVersion)
+		{
+			lastMatchesVersion = matchesVersion;
+			groupsUpToDate = false;
+		}
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
+			: coordinator.isDone()))
 			updateGroupBoxes();
 	}
 	
@@ -262,7 +274,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		groups.forEach(PortalEspBlockGroup::clear);
 		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
 			new HashMap<>();
-		coordinator.getMatches()
+		coordinator.getReadyMatches()
 			.forEach(result -> addToGroupBoxes(result, newBlocksByGroup));
 		
 		ArrayList<DiscoveryHit> discoveries =

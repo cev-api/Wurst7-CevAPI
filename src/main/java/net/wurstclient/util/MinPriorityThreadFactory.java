@@ -14,15 +14,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MinPriorityThreadFactory implements ThreadFactory
 {
+	private static final int DEFAULT_PRIORITY = Thread.NORM_PRIORITY;
+	private static final String PRIORITY_PROPERTY =
+		"wurst.searchThreadPriority";
 	private static final AtomicInteger poolNumber = new AtomicInteger(1);
 	private final ThreadGroup group;
 	private final AtomicInteger threadNumber = new AtomicInteger(1);
 	private final String namePrefix;
+	private final int threadPriority;
 	
 	public MinPriorityThreadFactory()
 	{
+		this(getConfiguredThreadPriority());
+	}
+	
+	public MinPriorityThreadFactory(int threadPriority)
+	{
 		group = Thread.currentThread().getThreadGroup();
 		namePrefix = "pool-min-" + poolNumber.getAndIncrement() + "-thread-";
+		this.threadPriority = clampThreadPriority(threadPriority);
 	}
 	
 	@Override
@@ -31,14 +41,42 @@ public class MinPriorityThreadFactory implements ThreadFactory
 		String name = namePrefix + threadNumber.getAndIncrement();
 		Thread t = new Thread(group, r, name);
 		t.setDaemon(true);
-		t.setPriority(Thread.MIN_PRIORITY);
+		t.setPriority(threadPriority);
 		return t;
+	}
+	
+	public static int getConfiguredThreadPriority()
+	{
+		String raw = System.getProperty(PRIORITY_PROPERTY);
+		if(raw == null || raw.isBlank())
+			return DEFAULT_PRIORITY;
+		
+		try
+		{
+			int parsed = Integer.parseInt(raw.trim());
+			return clampThreadPriority(parsed);
+			
+		}catch(NumberFormatException e)
+		{
+			return DEFAULT_PRIORITY;
+		}
+	}
+	
+	public static int clampThreadPriority(int priority)
+	{
+		return Math.max(Thread.MIN_PRIORITY,
+			Math.min(Thread.MAX_PRIORITY, priority));
 	}
 	
 	public static ExecutorService newFixedThreadPool()
 	{
+		return newFixedThreadPool(getConfiguredThreadPriority());
+	}
+	
+	public static ExecutorService newFixedThreadPool(int threadPriority)
+	{
 		return Executors.newFixedThreadPool(
 			Runtime.getRuntime().availableProcessors(),
-			new MinPriorityThreadFactory());
+			new MinPriorityThreadFactory(threadPriority));
 	}
 }

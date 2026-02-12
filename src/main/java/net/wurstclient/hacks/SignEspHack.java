@@ -166,7 +166,10 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			lastMatchesVersion = matchesVersion;
 			groupsUpToDate = false;
 		}
-		if(!groupsUpToDate && coordinator.isDone())
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
+			: coordinator.isDone()))
 			updateGroupBoxes();
 	}
 	
@@ -245,7 +248,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(SignEspGroup::clear);
-		coordinator.getMatches().forEach(this::addToGroupBoxes);
+		coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 		// compute count from both sign boxes and frame boxes
 		int signs = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();

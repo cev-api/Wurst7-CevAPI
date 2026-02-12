@@ -9,6 +9,8 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.PriorityQueue;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -410,17 +412,33 @@ public final class XRayHack extends Hack
 	{
 		long now = System.currentTimeMillis();
 		
-		// If coordinator finished, refresh highlight positions immediately.
-		if(!highlightPositionsUpToDate && coordinator.isDone())
+		// Refresh as soon as there are ready matches, without waiting for the
+		// full area scan to complete.
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!highlightPositionsUpToDate && (partialScan
+			? coordinator.hasReadyMatches() : coordinator.isDone()))
 		{
 			highlightPositions.clear();
-			// collect nearest N positions (limit controlled by renderAmount)
+			// Collect nearest N positions using bounded heap to avoid sorting
+			// the full result set on every incremental update.
 			BlockPos playerPos = MC.player.blockPosition();
-			java.util.Comparator<BlockPos> comparator = java.util.Comparator
-				.comparingInt(p -> playerPos.distManhattan(p));
-			coordinator.getMatches().map(r -> r.pos()).sorted(comparator)
-				.limit(renderAmount.getValueLog())
-				.forEach(highlightPositions::add);
+			int limit = renderAmount.getValueLog();
+			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limit + 1),
+				Comparator
+					.comparingInt((BlockPos p) -> playerPos.distManhattan(p))
+					.reversed());
+			coordinator.getReadyMatches().map(r -> r.pos()).forEach(pos -> {
+				if(heap.size() < limit)
+					heap.offer(pos);
+				else if(playerPos.distManhattan(pos) < playerPos
+					.distManhattan(heap.peek()))
+				{
+					heap.poll();
+					heap.offer(pos);
+				}
+			});
+			highlightPositions.addAll(heap);
 			highlightPositionsUpToDate = true;
 			visibleBoxesUpToDate = false;
 		}

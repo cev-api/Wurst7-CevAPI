@@ -16,9 +16,11 @@ import net.wurstclient.hack.AboveGroundFilterManager;
 import net.wurstclient.hack.CheckboxOverrideManager;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.chunk.ChunkSearcher;
 
 @SearchTags({"global toggle", "render global toggle"})
 public final class GlobalToggleHack extends Hack implements UpdateListener
@@ -38,6 +40,16 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Forces the above-ground filter off for all supported hacks.", false);
 	private final SliderSetting yLimitValue = new SliderSetting(
 		"Global Y limit", 62, 0, 255, 1, ValueDisplay.INTEGER);
+	private final SliderSetting searchThreadPriority = new SliderSetting(
+		"Search thread priority",
+		"Global background thread priority for Search/ESP/X-Ray chunk scanning.",
+		ChunkSearcher.getBackgroundThreadPriority(), Thread.MIN_PRIORITY,
+		Thread.MAX_PRIORITY, 1, ValueDisplay.INTEGER);
+	private final EnumSetting<ChunkScanMode> chunkScanMode = new EnumSetting<>(
+		"Chunk scan mode",
+		"FULL: Update only when full area scan is done (old behavior).\n"
+			+ "PARTIAL: Update from ready chunks immediately (faster detection).",
+		ChunkScanMode.values(), ChunkScanMode.FULL);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
@@ -45,6 +57,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private OverrideState lastStickyState = OverrideState.NONE;
 	private OverrideState lastYState = OverrideState.NONE;
 	private int lastYLimitValue = 62;
+	private int lastSearchThreadPriority =
+		ChunkSearcher.getBackgroundThreadPriority();
 	private boolean stickyAnnouncementsReady;
 	private boolean yLimitAnnouncementsReady;
 	
@@ -58,8 +72,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(yLimitForceOn);
 		addSetting(yLimitForceOff);
 		addSetting(yLimitValue);
+		addSetting(searchThreadPriority);
+		addSetting(chunkScanMode);
 		
 		lastYLimitValue = yLimitValue.getValueI();
+		lastSearchThreadPriority = searchThreadPriority.getValueI();
 		
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -170,6 +187,13 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			stickyAnnouncementsReady = true;
 		if(!yLimitAnnouncementsReady)
 			yLimitAnnouncementsReady = true;
+		
+		int priority = searchThreadPriority.getValueI();
+		if(priority != lastSearchThreadPriority)
+		{
+			ChunkSearcher.setBackgroundThreadPriority(priority);
+			lastSearchThreadPriority = priority;
+		}
 	}
 	
 	private void announceSticky(boolean forcingOn)
@@ -198,10 +222,21 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return OverrideState.NONE;
 	}
 	
+	public boolean usePartialChunkScan()
+	{
+		return chunkScanMode.getSelected() == ChunkScanMode.PARTIAL;
+	}
+	
 	private enum OverrideState
 	{
 		NONE,
 		FORCE_ON,
 		FORCE_OFF;
+	}
+	
+	private enum ChunkScanMode
+	{
+		FULL,
+		PARTIAL;
 	}
 }

@@ -995,6 +995,13 @@ Examples:
 - Notify users once per toggle/enable so they know performance/behavior is adjusted.
 - Currently only in these higher risk hacks: Search, CaveFinder, PlayerESP and Excavator as well as in BlockVertexCompiler.
 
+### Performance Improvements
+- Improved chunk-scan responsiveness across Search, X-ray and other ESP hacks while moving quickly.
+- Added Chunk Scan Mode to GlobalToggle which allows for incremental updates rather than full.
+- Added search thread priority slider for tuning background scan speed vs CPU usage.
+- Optimized Search when using corners only ESP to avoid unnecessary heavy mesh work making detection faster.
+- Reduced lag spikes on large scans by using cheaper nearest-result selection paths.
+
 ### Notes
 - Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
 

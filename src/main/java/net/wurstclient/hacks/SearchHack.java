@@ -145,6 +145,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private java.util.List<net.minecraft.world.phys.Vec3> tracerEnds;
 	private ChunkPos lastPlayerChunk;
 	private int lastMatchesVersion;
+	private boolean lastNeedsVertexBuffer;
 	
 	private SearchMode lastMode;
 	private int lastListHash;
@@ -221,6 +222,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMode = mode.getSelected();
 		lastListHash = blockList.getBlockNames().hashCode();
+		lastNeedsVertexBuffer = needsVertexBuffer();
 		applySearchCriteria(block.getBlock(), "");
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		if(shaderSafeMode)
@@ -336,6 +338,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 			notify = true;
 		}
 		
+		boolean needsVertexBuffer = needsVertexBuffer();
+		if(needsVertexBuffer != lastNeedsVertexBuffer)
+		{
+			lastNeedsVertexBuffer = needsVertexBuffer;
+			stopBuildingBuffer(true);
+		}
+		
 		if(!coordinator.hasReadyMatches())
 			return;
 		
@@ -350,6 +359,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(!getMatchingBlocksTask.isDone())
 			return;
+		
+		if(!needsVertexBuffer)
+		{
+			if(!bufferUpToDate)
+				setSimpleBufferFromTask();
+			return;
+		}
 		
 		if(compileVerticesTask == null)
 			startCompileVerticesTask();
@@ -377,8 +393,10 @@ public final class SearchHack extends Hack implements UpdateListener,
 			style.hasBoxes() && vertexBuffer != null && bufferRegion != null;
 		boolean drawTracers =
 			style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty();
+		boolean drawHighlights =
+			highlightBoxes != null && !highlightBoxes.isEmpty();
 		
-		if(!drawBoxes && !drawTracers)
+		if(!drawBoxes && !drawTracers && !drawHighlights)
 			return;
 		
 		float[] rgb = useFixedColor.isChecked() ? fixedColor.getColorF()
@@ -400,7 +418,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				tracerColor, false);
 		}
 		
-		if(highlightBoxes != null && !highlightBoxes.isEmpty())
+		if(drawHighlights)
 		{
 			float alpha = getHighlightAlphaFloat();
 			int color = RenderUtils.toIntColor(rgb, alpha);
@@ -641,6 +659,12 @@ public final class SearchHack extends Hack implements UpdateListener,
 			notify = false;
 		}
 		
+		if(!needsVertexBuffer())
+		{
+			setSimpleBufferFromMatches(matchingBlocks);
+			return;
+		}
+		
 		ArrayList<int[]> vertices = BlockVertexCompiler.compile(matchingBlocks);
 		setBufferFromVertices(vertices, matchingBlocks);
 	}
@@ -655,6 +679,44 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		ArrayList<int[]> vertices = compileVerticesTask.join();
 		setBufferFromVertices(vertices, lastMatchingBlocks);
+	}
+	
+	private void setSimpleBufferFromTask()
+	{
+		HashSet<BlockPos> matchingBlocks = getMatchingBlocksTask.join();
+		lastMatchingBlocks = matchingBlocks;
+		setSimpleBufferFromMatches(matchingBlocks);
+	}
+	
+	private void setSimpleBufferFromMatches(HashSet<BlockPos> matchingBlocks)
+	{
+		if(vertexBuffer != null)
+		{
+			vertexBuffer.close();
+			vertexBuffer = null;
+		}
+		
+		bufferRegion = null;
+		bufferUpToDate = true;
+		
+		if(matchingBlocks != null)
+		{
+			highlightBoxes = matchingBlocks.stream().map(AABB::new)
+				.collect(java.util.stream.Collectors.toList());
+			tracerEnds = matchingBlocks.stream().map(pos -> {
+				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
+					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
+						.getCenter();
+				return pos.getCenter();
+			}).collect(java.util.stream.Collectors.toList());
+			foundCount = Math.min(matchingBlocks.size(), 999);
+			
+		}else
+		{
+			highlightBoxes = null;
+			tracerEnds = null;
+			foundCount = 0;
+		}
 	}
 	
 	private void setBufferFromVertices(ArrayList<int[]> vertices,
@@ -714,6 +776,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 			}
 			bufferRegion = null;
 		}
+	}
+	
+	private boolean needsVertexBuffer()
+	{
+		return highlightFill.isChecked();
 	}
 	
 	private float getHighlightAlphaFloat()

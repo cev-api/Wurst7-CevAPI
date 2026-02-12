@@ -190,7 +190,10 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		if(didFiltersChange())
 			groupsUpToDate = false;
 		
-		if(!groupsUpToDate && coordinator.isDone())
+		boolean partialScan =
+			WURST.getHax().globalToggleHack.usePartialChunkScan();
+		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
+			: coordinator.isDone()))
 			updateGroupBoxes();
 	}
 	
@@ -251,7 +254,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(BedEspBlockGroup::clear);
-		java.util.List<Result> results = coordinator.getMatches().toList();
+		java.util.List<Result> results = coordinator.getReadyMatches().toList();
 		refreshEnvironmentalCaches();
 		results.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
