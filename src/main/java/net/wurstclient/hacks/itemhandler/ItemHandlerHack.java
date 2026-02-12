@@ -31,6 +31,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -510,6 +511,10 @@ public class ItemHandlerHack extends Hack
 				player.getBoundingBox().inflate((float)scanRadius),
 				o -> o != null && o.isAlive() && !o.isRemoved());
 		
+		List<ItemFrame> foundFrames = MC.level.getEntitiesOfClass(
+			ItemFrame.class, player.getBoundingBox().inflate((float)scanRadius),
+			this::shouldTrackItemFrame);
+		
 		trackedItems.clear();
 		for(ItemEntity entity : found)
 		{
@@ -530,6 +535,15 @@ public class ItemHandlerHack extends Hack
 				net.wurstclient.util.ItemUtils.createSyntheticXpStack(orb);
 			trackedItems.add(new GroundItem(orb.getId(), orb.getUUID(), stack,
 				distance, orb.position(), SourceType.XP_ORB, null));
+		}
+		
+		for(ItemFrame frame : foundFrames)
+		{
+			ItemStack stack = frame.getItem().copy();
+			double distance = frame.distanceTo(player);
+			trackedItems
+				.add(new GroundItem(frame.getId(), frame.getUUID(), stack,
+					distance, frame.position(), SourceType.ITEM_FRAME, null));
 		}
 		
 		if(includeMobEquipment.isChecked())
@@ -643,6 +657,16 @@ public class ItemHandlerHack extends Hack
 	{
 		return entity != null && entity.isAlive() && !entity.isRemoved()
 			&& !entity.getItem().isEmpty();
+	}
+	
+	private boolean shouldTrackItemFrame(ItemFrame frame)
+	{
+		if(frame == null || !frame.isAlive() || frame.isRemoved())
+			return false;
+		ItemStack stack = frame.getItem();
+		if(stack == null || stack.isEmpty())
+			return false;
+		return !isIgnoredByItemEsp(stack);
 	}
 	
 	private boolean shouldTrackMobEquipment(ItemStack stack)
@@ -1004,6 +1028,32 @@ public class ItemHandlerHack extends Hack
 		return hudOffsetY.getValueI();
 	}
 	
+	public int getHudOffsetMinX()
+	{
+		return (int)hudOffsetX.getMinimum();
+	}
+	
+	public int getHudOffsetMaxX()
+	{
+		return (int)hudOffsetX.getMaximum();
+	}
+	
+	public int getHudOffsetMinY()
+	{
+		return (int)hudOffsetY.getMinimum();
+	}
+	
+	public int getHudOffsetMaxY()
+	{
+		return (int)hudOffsetY.getMaximum();
+	}
+	
+	public void setHudOffsets(int x, int y)
+	{
+		hudOffsetX.setValue(x);
+		hudOffsetY.setValue(y);
+	}
+	
 	public boolean isShowRegistryName()
 	{
 		return showRegistryName.isChecked();
@@ -1039,6 +1089,8 @@ public class ItemHandlerHack extends Hack
 				return "held by " + (sourceName != null ? sourceName : "mob");
 			if(sourceType == SourceType.MOB_WORN)
 				return "worn by " + (sourceName != null ? sourceName : "mob");
+			if(sourceType == SourceType.ITEM_FRAME)
+				return "in item frame";
 			return "";
 		}
 		
@@ -1151,6 +1203,7 @@ public class ItemHandlerHack extends Hack
 	{
 		GROUND,
 		XP_ORB,
+		ITEM_FRAME,
 		MOB_HELD,
 		MOB_WORN
 	}

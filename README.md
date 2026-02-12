@@ -391,7 +391,7 @@ Reports number of waypoints changed.
 - Prevents push back from TNT, creeper explosions, respawn anchors, crystals, wither skulls, wither spawn explosions, ghast fireballs, breeze gusts (and wind charges) and other custom plugins/entities that use explosion physics.
 
 ### ItemHandler
-- Jade-style Popup HUD and full GUI that lists nearby dropped items grouped by item ID with aggregated counts (With optional registry IDs).
+- Jade-style Popup HUD and full GUI that lists nearby dropped items, items in item frames or worn by mobs grouped by item ID with aggregated counts (with optional registry IDs).
 - Able to select or reject which item/s to pick up when moving over them:
   - Pick: reject (drop) everything except the selected types (only selected types will be picked up).
   - Reject: reject the selected types and drop them.
@@ -402,7 +402,7 @@ Reports number of waypoints changed.
 - Toggle to adhere to the ItemESP ignored list (Including a link to edit the list)
 - Adjustable distance for item detection
 - Adjustable font scale setting (scales text and popup icon size)
-- Adjustable Popup HUD display offset X/Y
+- Adjustable popup HUD display offset X/Y or simply click and drag to reposition (when in inventory or chest)
 - Detects XP Orbs and shows the exact XP each orb will give
 - Optionally detects items held or worn by mobs (Item count will be for all mobs in the area)
   - Can also filter out default mob items to prevent spam

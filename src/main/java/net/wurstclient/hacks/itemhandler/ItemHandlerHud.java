@@ -22,13 +22,20 @@ import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.RenderUtils;
 
 public class ItemHandlerHud
 {
 	private static final Minecraft MC = WurstClient.MC;
-	// rendering per-frame guard removed: was causing flicker
+	private boolean dragging;
+	private double dragStartMouseX;
+	private double dragStartMouseY;
+	private int dragStartOffsetX;
+	private int dragStartOffsetY;
+	private int dragOffsetX;
+	private int dragOffsetY;
 	private boolean lastLeftDown = false;
 	
 	public void render(GuiGraphics context, float partialTicks)
@@ -113,8 +120,6 @@ public class ItemHandlerHud
 		}
 		
 		int guiW = context.guiWidth();
-		int x = guiW + hack.getHudOffsetX();
-		int y = hack.getHudOffsetY();
 		
 		// Render only one popup (expanded list). The previous header
 		// duplicate is removed to avoid showing two linked popups.
@@ -148,11 +153,26 @@ public class ItemHandlerHud
 			iconSpace + padding + maxNameW + gap + maxDistW + padding;
 		if(boxWidth < 120)
 			boxWidth = 120;
+		
+		int hudOffsetX = dragging ? dragOffsetX : hack.getHudOffsetX();
+		int hudOffsetY = dragging ? dragOffsetY : hack.getHudOffsetY();
+		int x = guiW + hudOffsetX;
+		int y = hudOffsetY;
 		int ex = x - boxWidth;
 		int ey = y + headerHeight;
 		int rowHeight = 16;
 		int footer = items.size() > maxDisplay ? 1 : 0;
 		int height = maxDisplay * rowHeight + footer * rowHeight + 6;
+		
+		handleDrag(context, hack, ex, ey, boxWidth, height);
+		
+		hudOffsetX = dragging ? dragOffsetX : hack.getHudOffsetX();
+		hudOffsetY = dragging ? dragOffsetY : hack.getHudOffsetY();
+		x = guiW + hudOffsetX;
+		y = hudOffsetY;
+		ex = x - boxWidth;
+		ey = y + headerHeight;
+		
 		context.fill(ex, ey, ex + boxWidth, ey + height, 0xCC101010);
 		context.guiRenderState.up();
 		
@@ -219,20 +239,77 @@ public class ItemHandlerHud
 				scale * 0.95);
 		}
 		
-		double mouseX = getScaledMouseX(context);
-		double mouseY = getScaledMouseY(context);
-		// hitbox covers the single list popup
-		boolean overList = mouseX >= ex && mouseX <= ex + boxWidth
-			&& mouseY >= ey && mouseY <= ey + height;
+		// Do not open the ItemHandler GUI from the popup via mouse clicks.
+		// Opening the ItemHandler GUI remains available via keybind/command
+		// and the settings button.
+	}
+	
+	private void handleDrag(GuiGraphics context, ItemHandlerHack hack, int ex,
+		int ey, int boxWidth, int height)
+	{
 		Window window = MC.getWindow();
+		if(window == null)
+		{
+			dragging = false;
+			lastLeftDown = false;
+			return;
+		}
+		
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		// Do not open the ItemHandler GUI from the popup via mouse clicks.
-		// This avoids the popup behind other full-screen GUIs triggering
-		// the ItemHandler screen when clicking in overlapping areas.
-		// (Opening the ItemHandler GUI is available via the dedicated
-		// settings button or a keybind/command.)
+		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
+		if(!containerOpen)
+		{
+			if(dragging)
+			{
+				hack.setHudOffsets(dragOffsetX, dragOffsetY);
+				dragging = false;
+			}
+			lastLeftDown = leftDown;
+			return;
+		}
+		
+		double mouseX = getScaledMouseX(context);
+		double mouseY = getScaledMouseY(context);
+		boolean overList = mouseX >= ex && mouseX <= ex + boxWidth
+			&& mouseY >= ey && mouseY <= ey + height;
+		
+		if(!dragging && leftDown && !lastLeftDown && overList)
+		{
+			dragging = true;
+			dragStartMouseX = mouseX;
+			dragStartMouseY = mouseY;
+			dragStartOffsetX = hack.getHudOffsetX();
+			dragStartOffsetY = hack.getHudOffsetY();
+			dragOffsetX = dragStartOffsetX;
+			dragOffsetY = dragStartOffsetY;
+		}
+		
+		if(dragging)
+		{
+			if(leftDown)
+			{
+				int dx = (int)Math.round(mouseX - dragStartMouseX);
+				int dy = (int)Math.round(mouseY - dragStartMouseY);
+				int minX = hack.getHudOffsetMinX();
+				int maxX = hack.getHudOffsetMaxX();
+				int minY = hack.getHudOffsetMinY();
+				int maxY = hack.getHudOffsetMaxY();
+				dragOffsetX = clamp(dragStartOffsetX + dx, minX, maxX);
+				dragOffsetY = clamp(dragStartOffsetY + dy, minY, maxY);
+			}else
+			{
+				hack.setHudOffsets(dragOffsetX, dragOffsetY);
+				dragging = false;
+			}
+		}
+		
 		lastLeftDown = leftDown;
+	}
+	
+	private static int clamp(int value, int min, int max)
+	{
+		return Math.max(min, Math.min(max, value));
 	}
 	
 	private static double getScaledMouseX(GuiGraphics context)
