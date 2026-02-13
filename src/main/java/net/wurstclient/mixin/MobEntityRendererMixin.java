@@ -13,11 +13,23 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.renderer.entity.MobRenderer;
+import net.minecraft.world.entity.Mob;
 import net.wurstclient.WurstClient;
 
 @Mixin(MobRenderer.class)
 public abstract class MobEntityRendererMixin
 {
+	@Inject(at = @At("HEAD"),
+		method = "shouldShowName(Lnet/minecraft/world/entity/Mob;D)Z",
+		cancellable = true)
+	private void onShouldShowName(Mob mob, double distanceSq,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(WurstClient.INSTANCE.getHax().mobHealthHack
+			.shouldForceMobNametags(mob))
+			cir.setReturnValue(true);
+	}
+	
 	/**
 	 * Makes name-tagged mobs always show their name tags if configured in
 	 * NameTags.

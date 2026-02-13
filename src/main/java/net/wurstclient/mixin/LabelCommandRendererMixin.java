@@ -119,4 +119,5 @@ public class LabelCommandRendererMixin
 			
 		return originalList;
 	}
+	
 }

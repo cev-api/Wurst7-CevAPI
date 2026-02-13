@@ -21,8 +21,10 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.HealthTagsHack;
+import net.wurstclient.hacks.MobHealthHack;
 
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin<T extends Entity, S extends EntityRenderState>
@@ -70,15 +72,31 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	private void addHealthToDisplayName(T entity, S state, float tickProgress,
 		CallbackInfo ci)
 	{
-		if(state.nameTag == null)
-			return;
 		if(!(entity instanceof LivingEntity le))
+			return;
+		
+		MobHealthHack mobHealth = WurstClient.INSTANCE.getHax().mobHealthHack;
+		if(entity instanceof Mob mob && mobHealth.isEnabled()
+			&& mobHealth.shouldDisplayForMob(mob))
+		{
+			if(mobHealth.shouldShowAsNumber())
+				state.nameTag = mobHealth.getDisplayText(mob);
+			else if(!mobHealth.shouldShowNames())
+				state.nameTag = null;
+			
+			return;
+		}
+		
+		if(state.nameTag == null)
 			return;
 		
 		HealthTagsHack healthTags =
 			WurstClient.INSTANCE.getHax().healthTagsHack;
 		if(!healthTags.isEnabled())
 			return;
+		
+		if(healthTags.shouldRenderHeartsBelowName())
+			healthTags.markForHeartRender(le);
 		
 		state.nameTag = healthTags.addHealth(le, state.nameTag.copy());
 	}

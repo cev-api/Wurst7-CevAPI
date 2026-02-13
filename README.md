@@ -739,6 +739,16 @@ This hack is still undergoing development and has only been tested in the end. A
 - Allows you to setup a list of blocks that can only be broken by the player using a tool that has Silk Touch. 
 - Perfect for avoiding accidental breakage of Ender Chests and Amethyst Clusters.
 
+### MobHealth
+- Two dipslay modes; heart bar or a colored number. 
+- Uses ```hud/heart/*``` sprite IDs so it will change along with your resource pack.
+- Toggles for showing number, names or hostile mobs only.
+- Normalised to 10 max hearts.
+- Compatible with HealthTags so names don't conflict.
+- Conforms to vanilla health status effects (poison, wither, frozen, absorption, hardcore, low health jittering).
+
+![Hearts](https://i.imgur.com/FZ8Z0TK.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -938,6 +948,9 @@ Examples:
 
 ### AimAssist Improved
 - Added lock-on targetting
+
+### HealthTags Improved
+- Now optionally uses the same hearts as the new MobHealth hack
 
 ### HandNoClip Improved
 - Displays a red X on the crosshair when block placement or interaction is blocked while the hack is enabled.
