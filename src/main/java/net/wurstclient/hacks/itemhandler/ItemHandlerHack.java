@@ -21,9 +21,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.LinkedHashSet;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -36,6 +39,8 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.phys.Vec3;
@@ -55,6 +60,7 @@ import net.wurstclient.util.text.WText;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 // no screen import needed; we embed ItemESP's editor component directly
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
@@ -117,6 +123,11 @@ public class ItemHandlerHack extends Hack
 	
 	private final CheckboxSetting showRegistryName =
 		new CheckboxSetting("Show registry names", false);
+	
+	private final CheckboxSetting showEnchantmentsInNames =
+		new CheckboxSetting("Show enchantments in names",
+			"Shows enchantments on the second line in ItemHandler HUD and GUI.",
+			false);
 	
 	// How many items to show in the popup HUD
 	private final SliderSetting popupMaxItems = new SliderSetting(
@@ -182,6 +193,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(new ButtonSetting("Open ItemHandler GUI", this::openScreen));
 		addSetting(hudEnabled);
 		addSetting(showRegistryName);
+		addSetting(showEnchantmentsInNames);
 		addSetting(includeMobEquipment);
 		addSetting(filterDefaultMobEquipment);
 		addSetting(respectItemEspIgnores);
@@ -561,7 +573,8 @@ public class ItemHandlerHack extends Hack
 	
 	private void scanNearbySigns()
 	{
-		if(!showSignsInHud.isChecked())
+		boolean guiOpen = MC.screen instanceof ItemHandlerScreen;
+		if(!showSignsInHud.isChecked() && !guiOpen)
 		{
 			trackedSigns.clear();
 			return;
@@ -985,6 +998,13 @@ public class ItemHandlerHack extends Hack
 		return List.copyOf(trackedSigns);
 	}
 	
+	public static String getSignTraceId(BlockPos pos)
+	{
+		if(pos == null)
+			return null;
+		return "sign:" + pos.asLong();
+	}
+	
 	public boolean isShowSignsInHud()
 	{
 		return showSignsInHud.isChecked();
@@ -992,7 +1012,12 @@ public class ItemHandlerHack extends Hack
 	
 	public record NearbySign(BlockPos pos, ItemStack icon, String text,
 		double distance)
-	{}
+	{
+		public String traceId()
+		{
+			return getSignTraceId(pos);
+		}
+	}
 	
 	public boolean isHudEnabled()
 	{
@@ -1063,6 +1088,11 @@ public class ItemHandlerHack extends Hack
 		return showRegistryName.isChecked();
 	}
 	
+	public boolean isShowEnchantmentsInNames()
+	{
+		return showEnchantmentsInNames.isChecked();
+	}
+	
 	public record GroundItem(int entityId, UUID uuid, ItemStack stack,
 		double distance, Vec3 position, SourceType sourceType,
 		String sourceName)
@@ -1084,6 +1114,8 @@ public class ItemHandlerHack extends Hack
 				int xp = net.wurstclient.util.ItemUtils.getXpAmount(stack);
 				return baseId + ":xp:" + xp;
 			}
+			if(sourceType == SourceType.ITEM_FRAME)
+				return baseId + ":item_frame";
 			return baseId;
 		}
 		
@@ -1104,6 +1136,7 @@ public class ItemHandlerHack extends Hack
 			if(name == null || name.isBlank())
 				name = net.minecraft.core.registries.BuiltInRegistries.ITEM
 					.getKey(stack.getItem()).getPath();
+			
 			String label = sourceLabel();
 			if(label == null || label.isBlank())
 				return name;
@@ -1160,6 +1193,22 @@ public class ItemHandlerHack extends Hack
 			if(shouldDrawBoxes)
 				boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18,
 					p.x + 0.18, p.y + 0.18, p.z + 0.18));
+			if(shouldDrawTracers)
+				ends.add(new RenderUtils.ColoredPoint(p, 0));
+		}
+		
+		for(NearbySign sign : trackedSigns)
+		{
+			if(sign == null || sign.pos() == null)
+				continue;
+			String traceId = sign.traceId();
+			boolean traced = traceId != null && isTraced(traceId);
+			if(!traced)
+				continue;
+			BlockPos pos = sign.pos();
+			Vec3 p = Vec3.atCenterOf(pos);
+			if(shouldDrawBoxes)
+				boxes.add(new AABB(pos));
 			if(shouldDrawTracers)
 				ends.add(new RenderUtils.ColoredPoint(p, 0));
 		}
@@ -1263,4 +1312,35 @@ public class ItemHandlerHack extends Hack
 				return java.util.Collections.emptySet();
 			}
 		};
+	
+	public String getEnchantmentSummary(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return "";
+		
+		ArrayList<String> parts = new ArrayList<>();
+		LinkedHashSet<String> seen = new LinkedHashSet<>();
+		appendEnchantmentParts(parts, seen, stack
+			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY));
+		appendEnchantmentParts(parts, seen, stack.getOrDefault(
+			DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY));
+		if(parts.isEmpty())
+			return "";
+		return String.join(", ", parts);
+	}
+	
+	private static void appendEnchantmentParts(List<String> out,
+		Set<String> seen, ItemEnchantments enchantments)
+	{
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments
+			.entrySet())
+		{
+			Holder<Enchantment> holder = entry.getKey();
+			int level = entry.getIntValue();
+			String key = holder.getRegisteredName() + "#" + level;
+			if(!seen.add(key))
+				continue;
+			out.add(Enchantment.getFullname(holder, level).getString());
+		}
+	}
 }

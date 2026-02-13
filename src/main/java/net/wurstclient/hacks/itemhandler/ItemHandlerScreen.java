@@ -255,6 +255,7 @@ public class ItemHandlerScreen extends Screen
 			List<ItemHandlerHack.GroundItem> raw =
 				hack.getTrackedItems().stream()
 					.filter(g -> g.distance() <= hack.getPopupRange()).toList();
+			List<ItemHandlerHack.NearbySign> signs = hack.getTrackedSigns();
 			// Group by registry ID and aggregate counts and items. XP orbs
 			// are merged only when xp amount matches and items are close.
 			Map<String, Aggregated> groups = new LinkedHashMap<>();
@@ -279,14 +280,19 @@ public class ItemHandlerScreen extends Screen
 				
 				if(!isXp)
 				{
+					String traceId = gi.traceId();
 					String key = baseId;
 					String label = gi.sourceLabel();
 					if(label != null && !label.isBlank())
 						key = key + "|" + label;
+					if(traceId != null && !traceId.isBlank()
+						&& !traceId.equals(baseId))
+						key = key + "|" + traceId;
 					Aggregated a = groups.get(key);
 					if(a == null)
 					{
-						a = new Aggregated(baseId, key, baseId,
+						a = new Aggregated(baseId, key,
+							traceId != null ? traceId : baseId,
 							gi.stack().copy(), gi.displayName());
 						groups.put(key, a);
 					}
@@ -334,6 +340,19 @@ public class ItemHandlerScreen extends Screen
 					}
 				}
 			}
+			
+			for(ItemHandlerHack.NearbySign sign : signs)
+			{
+				if(sign == null || sign.icon() == null || sign.text() == null)
+					continue;
+				String key = "sign:" + sign.pos().asLong();
+				Aggregated a = new Aggregated(key, key,
+					ItemHandlerHack.getSignTraceId(sign.pos()),
+					sign.icon().copy(), "Sign: " + sign.text());
+				a.closest = sign.distance();
+				a.isSign = true;
+				groups.put(key, a);
+			}
 			// Preserve insertion order; add entries sorted by closest distance
 			groups.values().stream()
 				.sorted(java.util.Comparator
@@ -367,6 +386,7 @@ public class ItemHandlerScreen extends Screen
 			final List<ItemHandlerHack.GroundItem> items = new ArrayList<>();
 			int total;
 			double closest = Double.MAX_VALUE;
+			boolean isSign;
 			
 			Aggregated(String itemId, String selectionId, String traceId,
 				ItemStack rep, String displayName)
@@ -377,6 +397,7 @@ public class ItemHandlerScreen extends Screen
 				this.rep = rep;
 				this.displayName = displayName;
 				this.total = 0;
+				this.isSign = false;
 			}
 			
 			void add(ItemHandlerHack.GroundItem gi)
@@ -432,14 +453,22 @@ public class ItemHandlerScreen extends Screen
 				Font tr = minecraft.font;
 				context.drawString(tr, group.displayName, x + 36, y + 2,
 					0xFFFFFFFF, false);
-				// registry ID under the name (use synthetic id when present)
-				String regId =
-					net.wurstclient.util.ItemUtils.getStackId(group.rep);
-				if(regId == null)
-					regId = net.minecraft.core.registries.BuiltInRegistries.ITEM
-						.getKey(group.rep.getItem()).toString();
-				context.drawString(tr, regId, x + 36, y + 12, 0xFF909090,
-					false);
+				// Optional subtitle line: enchantments or registry ID.
+				String subtitle = "";
+				if(hack.isShowEnchantmentsInNames())
+					subtitle = hack.getEnchantmentSummary(group.rep);
+				if(subtitle.isBlank() && hack.isShowRegistryName())
+				{
+					subtitle =
+						net.wurstclient.util.ItemUtils.getStackId(group.rep);
+					if(subtitle == null)
+						subtitle =
+							net.minecraft.core.registries.BuiltInRegistries.ITEM
+								.getKey(group.rep.getItem()).toString();
+				}
+				if(!subtitle.isBlank())
+					context.drawString(tr, subtitle, x + 36, y + 12, 0xFF909090,
+						false);
 				
 				// Right-aligned integer distance (slightly smaller)
 				String dist = ((int)Math.round(group.closest)) + " blocks";
@@ -483,6 +512,9 @@ public class ItemHandlerScreen extends Screen
 			
 			List<ItemHandlerHack.GroundItem> groundItems()
 			{
+				if(group.isSign)
+					return java.util.Collections.emptyList();
+				
 				return group.items.stream().filter(
 					g -> g.sourceType() == ItemHandlerHack.SourceType.GROUND
 						|| g.sourceType() == ItemHandlerHack.SourceType.XP_ORB)
@@ -491,6 +523,8 @@ public class ItemHandlerScreen extends Screen
 			
 			String itemId()
 			{
+				if(group.isSign)
+					return null;
 				if(net.wurstclient.util.ItemUtils.isSyntheticXp(group.rep))
 					return null;
 				return group.itemId;

@@ -8,6 +8,9 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -20,17 +23,14 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.TextFieldSetting;
 
 @SearchTags({"wind charge", "auto wind charge", "windcharge"})
 public final class WindChargeKeyHack extends Hack implements UpdateListener
 {
-	private final TextFieldSetting keybind = new TextFieldSetting("Keybind",
-		"Determines the activation key.\n\n"
-			+ "Use translation keys such as \u00a7lkey.keyboard.g\u00a7r.\n"
-			+ "You can find these by looking at the F3 debug screen or by\n"
-			+ "checking vanilla keybind configuration files.",
-		"key.keyboard.g", this::isValidKey);
+	private static final KeyMapping activationKey =
+		KeyBindingHelper.registerKeyBinding(new KeyMapping(
+			"key.wurst.windchargekey", InputConstants.Type.KEYSYM,
+			GLFW.GLFW_KEY_SPACE, KeyMapping.Category.MISC));
 	
 	private final SliderSetting switchDelayMs = new SliderSetting(
 		"Switch delay", 50, 0, 500, 5, ValueDisplay.INTEGER.withSuffix("ms"));
@@ -53,7 +53,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	private final SliderSetting jumpDelayMs = new SliderSetting("Jump delay",
 		10, 0, 200, 5, ValueDisplay.INTEGER.withSuffix("ms"));
 	
-	private boolean keyPressed;
 	private int originalSlot = -1;
 	private boolean needsSlotRestore;
 	private boolean firstThrow = true;
@@ -75,7 +74,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		super("WindChargeKey");
 		setCategory(Category.COMBAT);
 		
-		addSetting(keybind);
 		addSetting(switchDelayMs);
 		addSetting(throwDelayMs);
 		addSetting(silentMode);
@@ -109,19 +107,9 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 			return;
 		
 		if(MC.screen != null)
-		{
-			keyPressed = false;
-			return;
-		}
-		
-		InputConstants.Key key = getBoundKey();
-		if(key == null)
 			return;
 		
-		boolean currentlyPressed =
-			InputConstants.isKeyDown(MC.getWindow(), key.getValue());
-		
-		if(currentlyPressed && !keyPressed)
+		while(activationKey.consumeClick())
 			handleWindChargeThrow();
 		
 		long now = System.currentTimeMillis();
@@ -166,7 +154,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 			originalSlot = -1;
 		}
 		
-		keyPressed = currentlyPressed;
 	}
 	
 	private void handleWindChargeThrow()
@@ -360,18 +347,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		return -1;
 	}
 	
-	private InputConstants.Key getBoundKey()
-	{
-		try
-		{
-			return InputConstants.getKey(keybind.getValue());
-			
-		}catch(IllegalArgumentException e)
-		{
-			return null;
-		}
-	}
-	
 	private long getSwitchDelay()
 	{
 		return Math.max(0L, Math.round(switchDelayMs.getValue()));
@@ -387,18 +362,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		return Math.max(0L, Math.round(jumpDelayMs.getValue()));
 	}
 	
-	private boolean isValidKey(String translationKey)
-	{
-		try
-		{
-			return InputConstants.getKey(translationKey) != null;
-			
-		}catch(IllegalArgumentException e)
-		{
-			return false;
-		}
-	}
-	
 	private void resetState()
 	{
 		clearPending();
@@ -406,7 +369,6 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		if(restorePitch && MC.player != null)
 			restorePitchImmediate(savedPitch);
 		
-		keyPressed = false;
 		originalSlot = -1;
 		needsSlotRestore = false;
 		firstThrow = true;

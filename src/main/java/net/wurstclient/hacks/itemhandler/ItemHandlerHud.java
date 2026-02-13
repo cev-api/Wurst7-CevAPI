@@ -143,6 +143,19 @@ public class ItemHandlerHud
 			MergeEntry me = items.get(ii);
 			String name = me.displayName;
 			int wName = (int)Math.round(font.width(name) * scale);
+			String subtitle = "";
+			if(hack != null)
+			{
+				if(hack.isShowEnchantmentsInNames())
+					subtitle = hack.getEnchantmentSummary(me.rep);
+				if(subtitle.isBlank() && hack.isShowRegistryName())
+					subtitle =
+						net.minecraft.core.registries.BuiltInRegistries.ITEM
+							.getKey(me.rep.getItem()).toString();
+			}
+			if(!subtitle.isBlank())
+				wName = Math.max(wName,
+					(int)Math.round(font.width(subtitle) * (scale * 0.6)));
 			String dist = ((int)Math.round(me.closest)) + " blocks";
 			int wDist = (int)Math.round(font.width(dist) * scale);
 			maxNameW = Math.max(maxNameW, wName);
@@ -217,14 +230,19 @@ public class ItemHandlerHud
 					0xFFFFFFFF, false, countScale);
 			}
 			
-			// optionally show registry id as subtitle
-			if(hack != null && hack.isShowRegistryName())
+			// Optional subtitle line: enchantments or registry id.
+			if(hack != null)
 			{
-				String reg =
-					net.minecraft.core.registries.BuiltInRegistries.ITEM
-						.getKey(me.rep.getItem()).toString();
-				RenderUtils.drawScaledText(context, tr, reg, ex + 22, iy + 9,
-					0xFF909090, false, 0.6);
+				String subtitle = "";
+				if(hack.isShowEnchantmentsInNames())
+					subtitle = hack.getEnchantmentSummary(me.rep);
+				if(subtitle.isBlank() && hack.isShowRegistryName())
+					subtitle =
+						net.minecraft.core.registries.BuiltInRegistries.ITEM
+							.getKey(me.rep.getItem()).toString();
+				if(!subtitle.isBlank())
+					RenderUtils.drawScaledText(context, tr, subtitle, ex + 22,
+						iy + 9, 0xFF909090, false, 0.6);
 			}
 			i++;
 		}

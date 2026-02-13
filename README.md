@@ -409,6 +409,7 @@ Reports number of waypoints changed.
   - Can also filter out default mob items to prevent spam
 - Optionally can read the contents of signs in the popup HUD
 - Optionally pin special items (from ItemESP list) to the top of the popup HUD
+- Optionally display enchantments of gear in lieu of the registry name
 
 ![Popup](https://i.imgur.com/VQw20x0.png)
 ![GUI](https://i.imgur.com/oZFLufE.png)
