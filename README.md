@@ -648,8 +648,12 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Moveable with your mouse whenever an inventory menu is open.
 - Auto centres itself whenever items are removed.
 - Auto moves when action bar messages are shown (such as sleeping) behind the HUD.
+- Adjustable spacing between icons.
+- Optionally set the icons to be stacked vertically with durability either below or to the side of the icons.
+- Optionally allow showing of item enchantments in the action bar when scrolling through the hotbar (Compatible with resource packs).
 
-![HUD](https://i.imgur.com/IZ4lFCx.png)
+![HUD](https://i.imgur.com/24mha4j.png)
+![Vertical](https://i.imgur.com/rqEV8Xx.png)
 
 ### DamageDetect
 

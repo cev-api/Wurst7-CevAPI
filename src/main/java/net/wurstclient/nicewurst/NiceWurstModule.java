@@ -95,12 +95,12 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
-				"ItemESP", "LavaWaterESP", "LogoutSpots", "MobESP", "MobSearch",
-				"MobSpawnESP", "NewChunks", "NoBackground", "NoFireOverlay",
-				"NoVignette", "NoWeather", "Freecam", "OpenWaterESP",
-				"PearlESP", "PlayerESP", "PortalESP", "Radar", "Search",
-				"TrialSpawnerESP", "TridentESP", "Waypoints", "WardenESP",
-				"HideWurst"));
+				"ItemESP", "LavaWaterESP", "LogoutSpots", "MobESP", "MobHealth",
+				"MobSearch", "MobSpawnESP", "NameTags", "NewChunks",
+				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
+				"Freecam", "OpenWaterESP", "PearlESP", "PlayerESP", "PortalESP",
+				"Radar", "Search", "TrialSpawnerESP", "TridentESP", "Waypoints",
+				"WardenESP", "HideWurst"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",

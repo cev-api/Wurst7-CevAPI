@@ -7,25 +7,35 @@
  */
 package net.wurstclient.hud;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.mojang.blaze3d.platform.Window;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.DurabilityHudHack;
+import net.wurstclient.mixin.GuiAccessor;
 import net.wurstclient.util.RenderUtils;
 
 public final class DurabilityHud
@@ -34,18 +44,19 @@ public final class DurabilityHud
 	private static final EquipmentSlot[] ARMOR_SLOTS =
 		new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST,
 			EquipmentSlot.LEGS, EquipmentSlot.FEET};
-	private static final float ICON_SPACING = 6F;
 	private static final float BAR_HEIGHT = 4F;
 	private static final float BOSS_BAR_HEIGHT = 6F;
 	private static final float TEXT_GAP = 2F;
 	private static final float BASE_MARGIN = 6F;
 	private static final float DRAG_PADDING = 4F;
 	private static final float ACTIONBAR_AVOID_ZONE_HEIGHT = 120F;
-	private static final float ACTIONBAR_AVOID_EXTRA_MARGIN = 10F;
-	
-	private static boolean overlayFieldsChecked;
-	private static Field overlayMessageStringField;
-	private static Field overlayMessageTimeField;
+	private static final float ACTIONBAR_AVOID_EXTRA_MARGIN = 4F;
+	private static final float SELECTED_ITEM_Y_OFFSET = 59F;
+	private static final float SELECTED_ITEM_CREATIVE_Y_BONUS = 14F;
+	private static final float OVERLAY_MESSAGE_Y_OFFSET = 72F;
+	private static final float TEXT_BLOCK_CLEARANCE = 4F;
+	private static final float TEXT_LINE_SPACING = 1F;
+	private static final float TEXT_BACKDROP_PADDING = 2F;
 	
 	private final DurabilityHudHack hack;
 	
@@ -95,9 +106,17 @@ public final class DurabilityHud
 			return;
 		
 		Font font = MC.font;
+		if(font == null)
+			return;
+		
 		boolean hasArmor = !armorStacks.isEmpty();
 		float iconSize = (float)hack.getIconSize();
+		float iconSpacing = (float)hack.getIconSpacing();
 		float fontScale = (float)hack.getFontScale();
+		boolean verticalLayout =
+			hack.getIconLayout() == DurabilityHudHack.IconLayout.VERTICAL;
+		boolean sideInfo = hack
+			.getVerticalInfoPosition() == DurabilityHudHack.VerticalInfoPosition.SIDE;
 		DurabilityHudHack.DisplayMode displayMode = hack.getDisplayMode();
 		boolean showBar =
 			displayMode != DurabilityHudHack.DisplayMode.PERCENT_ONLY;
@@ -106,89 +125,132 @@ public final class DurabilityHud
 		boolean bossBar = hack.isBossBarStyle();
 		float barHeight =
 			showBar ? (bossBar ? BOSS_BAR_HEIGHT : BAR_HEIGHT) : 0F;
-		float textHeight = showPercent ? font.lineHeight * fontScale : 0F;
+		float scaledTextHeight = showPercent ? font.lineHeight * fontScale : 0F;
 		
-		float rowHeight = iconSize;
+		float infoHeight = 0F;
 		if(showBar)
-			rowHeight += TEXT_GAP + barHeight;
+			infoHeight += barHeight;
 		if(showPercent)
-			rowHeight += TEXT_GAP + textHeight;
+			infoHeight += (infoHeight > 0 ? TEXT_GAP : 0F) + scaledTextHeight;
+		
+		float slotHeight = iconSize;
+		float slotWidth = iconSize;
+		float infoWidth = iconSize;
+		if(sideInfo)
+		{
+			infoWidth = iconSize;
+			slotWidth += TEXT_GAP + infoWidth;
+			slotHeight = Math.max(slotHeight, infoHeight);
+		}else
+		{
+			if(showBar)
+				slotHeight += TEXT_GAP + barHeight;
+			if(showPercent)
+				slotHeight += TEXT_GAP + scaledTextHeight;
+		}
 		
 		float anchorY = context.guiHeight() - (hasArmor ? 49 : 39);
-		float baseIconY = anchorY - rowHeight - BASE_MARGIN;
+		float totalHeight =
+			verticalLayout ? iconCount * slotHeight : slotHeight;
+		if(iconCount > 1 && verticalLayout)
+			totalHeight += iconSpacing * (iconCount - 1);
+		float baseIconY = anchorY - totalHeight - BASE_MARGIN;
 		baseIconY = Math.max(baseIconY, BASE_MARGIN);
-		float totalWidth = iconCount * iconSize;
-		if(iconCount > 1)
-			totalWidth += ICON_SPACING * (iconCount - 1);
+		float totalWidth = verticalLayout ? slotWidth : iconCount * slotWidth;
+		if(iconCount > 1 && !verticalLayout)
+			totalWidth += iconSpacing * (iconCount - 1);
 		float baseStartX = context.guiWidth() / 2F - totalWidth / 2F;
 		float startX = baseStartX + offsetX;
 		float iconY = baseIconY + offsetY;
 		
-		handleDrag(context, startX, iconY, totalWidth, rowHeight);
+		handleDrag(context, startX, iconY, totalWidth, totalHeight);
 		startX = baseStartX + offsetX;
 		iconY = baseIconY + offsetY;
 		
 		if(hack.avoidActionbarText())
 		{
-			float avoid = getActionbarAvoidOffset(context, iconY);
+			float avoid = getBottomTextAvoidOffset(context, iconY, totalHeight);
 			iconY = Math.max(iconY - avoid, BASE_MARGIN);
-		}
-		
-		float barY = showBar ? iconY + iconSize + TEXT_GAP : 0F;
-		float textY = 0F;
-		if(showPercent)
-		{
-			if(showBar)
-				textY = barY + barHeight + TEXT_GAP;
-			else
-				textY = iconY + iconSize + TEXT_GAP;
 		}
 		
 		List<ItemStack> combined = new ArrayList<>(iconCount);
 		combined.addAll(armorStacks);
 		combined.addAll(handStacks);
 		
-		float x = startX;
 		boolean gradientColor = hack.useGradientFontColor();
 		int fontColor = hack.getFontColorI();
 		for(int i = 0; i < combined.size(); i++)
 		{
 			ItemStack stack = combined.get(i);
-			renderSlot(context, font, stack, x, iconY, iconSize, showBar,
-				showPercent, barY, barHeight, textY, fontScale, bossBar,
-				fontColor, gradientColor);
-			if(i < combined.size() - 1)
-				x += iconSize + ICON_SPACING;
+			float x = verticalLayout ? startX
+				: startX + i * (slotWidth + iconSpacing);
+			float y =
+				verticalLayout ? iconY + i * (slotHeight + iconSpacing) : iconY;
+			renderSlot(context, font, stack, x, y, iconSize, showBar,
+				showPercent, barHeight, fontScale, bossBar, fontColor,
+				gradientColor, sideInfo, infoWidth);
 		}
 	}
 	
 	private void renderSlot(GuiGraphics context, Font font, ItemStack stack,
-		float x, float iconY, float iconSize, boolean showBar,
-		boolean showPercent, float barY, float barHeight, float textY,
-		float fontScale, boolean bossBar, int baseTextColor,
-		boolean useGradientText)
+		float x, float y, float iconSize, boolean showBar, boolean showPercent,
+		float barHeight, float fontScale, boolean bossBar, int baseTextColor,
+		boolean useGradientText, boolean infoToSide, float infoWidth)
 	{
 		double fraction = getDurabilityFraction(stack);
 		float fillWidth = (float)(fraction * iconSize);
 		float clampedWidth = Mth.clamp(fillWidth, 0F, iconSize);
 		int fillColor = getDurabilityColor(fraction);
 		
-		drawItem(context, stack, x, iconY, iconSize);
+		drawItem(context, stack, x, y, iconSize);
+		float barY = 0F;
+		float textY = 0F;
+		float barX = x;
+		float textX = x;
+		if(infoToSide)
+		{
+			float infoX = x + iconSize + TEXT_GAP;
+			float scaledTextHeight =
+				showPercent ? font.lineHeight * fontScale : 0F;
+			float infoBlockHeight = 0F;
+			if(showBar)
+				infoBlockHeight += barHeight;
+			if(showPercent)
+				infoBlockHeight +=
+					(infoBlockHeight > 0 ? TEXT_GAP : 0F) + scaledTextHeight;
+			float cursorY = y + (iconSize - infoBlockHeight) / 2F;
+			barX = infoX + (infoWidth - iconSize) / 2F;
+			textX = infoX;
+			if(showBar)
+			{
+				barY = cursorY;
+				cursorY += barHeight + TEXT_GAP;
+			}
+			if(showPercent)
+				textY = cursorY;
+		}else
+		{
+			if(showBar)
+				barY = y + iconSize + TEXT_GAP;
+			if(showPercent)
+				textY = showBar ? barY + barHeight + TEXT_GAP
+					: y + iconSize + TEXT_GAP;
+		}
 		
 		if(showBar && barHeight > 0F)
 		{
 			int background = bossBar ? 0xFF101820 : 0xFF202020;
-			RenderUtils.fill2D(context, x, barY, x + iconSize, barY + barHeight,
-				background);
+			RenderUtils.fill2D(context, barX, barY, barX + iconSize,
+				barY + barHeight, background);
 			if(clampedWidth > 0F)
-				RenderUtils.fill2D(context, x, barY, x + clampedWidth,
+				RenderUtils.fill2D(context, barX, barY, barX + clampedWidth,
 					barY + barHeight, fillColor);
 			if(bossBar)
 			{
-				RenderUtils.drawBorder2D(context, x, barY, x + iconSize,
+				RenderUtils.drawBorder2D(context, barX, barY, barX + iconSize,
 					barY + barHeight, 0xFF909090);
 				float highlightHeight = Math.min(2F, barHeight);
-				RenderUtils.fill2D(context, x, barY, x + iconSize,
+				RenderUtils.fill2D(context, barX, barY, barX + iconSize,
 					barY + highlightHeight, 0x30FFFFFF);
 			}
 		}
@@ -197,11 +259,15 @@ public final class DurabilityHud
 		{
 			String label = Math.round(fraction * 100) + "%";
 			double textWidth = font.width(label) * fontScale;
-			float textX = x + (iconSize - (float)textWidth) / 2F;
+			float drawX;
+			if(infoToSide)
+				drawX = textX + (infoWidth - (float)textWidth) / 2F;
+			else
+				drawX = x + (iconSize - (float)textWidth) / 2F;
 			int actualColor = baseTextColor;
 			if(useGradientText)
 				actualColor = colorForFraction(fraction);
-			RenderUtils.drawScaledText(context, font, label, Math.round(textX),
+			RenderUtils.drawScaledText(context, font, label, Math.round(drawX),
 				Math.round(textY), actualColor, true, fontScale);
 		}
 	}
@@ -266,84 +332,188 @@ public final class DurabilityHud
 			dragging = false;
 	}
 	
-	private static float getActionbarAvoidOffset(GuiGraphics context,
-		float hudY)
+	private static float getBottomTextAvoidOffset(GuiGraphics context,
+		float hudY, float hudHeight)
 	{
-		// Only shift if the HUD is actually near the bottom where the actionbar
-		// message renders. This avoids surprising movement when the HUD is
-		// dragged
-		// elsewhere.
+		if(MC == null || MC.font == null || MC.gui == null
+			|| !(MC.gui instanceof GuiAccessor accessor))
+			return 0F;
+		
 		if(hudY < context.guiHeight() - ACTIONBAR_AVOID_ZONE_HEIGHT)
 			return 0F;
 		
-		if(!isOverlayMessageVisible())
-			return 0F;
+		float hudBottom = hudY + hudHeight;
+		float requiredShift = 0F;
 		
-		if(MC == null || MC.font == null)
-			return 0F;
+		HotbarHighlightState hotbar = getHotbarHighlightState(accessor);
+		if(hotbar.isVisible())
+		{
+			DurabilityHudHack hack = WurstClient.INSTANCE != null
+				? WurstClient.INSTANCE.getHax().durabilityHudHack : null;
+			boolean includeEnchantments = hack != null && hack.isEnabled()
+				&& hack.isShowHotbarEnchantments();
+			float top =
+				getHotbarTextTop(context, MC.font, hotbar, includeEnchantments);
+			requiredShift = Math.max(requiredShift,
+				hudBottom + ACTIONBAR_AVOID_EXTRA_MARGIN - top);
+		}
 		
-		return MC.font.lineHeight + ACTIONBAR_AVOID_EXTRA_MARGIN;
+		if(isOverlayMessageVisible())
+		{
+			float overlayTop = context.guiHeight() - OVERLAY_MESSAGE_Y_OFFSET;
+			requiredShift = Math.max(requiredShift,
+				hudBottom + ACTIONBAR_AVOID_EXTRA_MARGIN - overlayTop);
+		}
+		
+		return Math.max(0F, requiredShift);
+	}
+	
+	public static boolean renderSelectedItemNameWithEnchantments(
+		GuiGraphics context)
+	{
+		if(MC == null || MC.gui == null
+			|| !(MC.gui instanceof GuiAccessor accessor))
+			return false;
+		
+		DurabilityHudHack hack = WurstClient.INSTANCE != null
+			? WurstClient.INSTANCE.getHax().durabilityHudHack : null;
+		if(hack == null || !hack.isEnabled()
+			|| !hack.isShowHotbarEnchantments())
+			return false;
+		
+		HotbarHighlightState state = getHotbarHighlightState(accessor);
+		if(!state.isVisible() || state.stack().isEmpty() || MC == null
+			|| MC.gameMode == null
+			|| MC.gameMode.getPlayerMode() == GameType.SPECTATOR)
+			return false;
+		
+		List<Component> lines = getEnchantmentLines(state.stack());
+		
+		int alpha = getHotbarHighlightAlpha(state.timer());
+		if(alpha <= 0)
+			return true;
+		
+		Font font = MC.font;
+		if(font == null)
+			return true;
+		
+		MutableComponent nameComponent =
+			Component.empty().append(state.stack().getHoverName())
+				.withStyle(state.stack().getRarity().color());
+		if(state.stack().has(DataComponents.CUSTOM_NAME))
+			nameComponent.withStyle(ChatFormatting.ITALIC);
+		
+		int y = Math.round(getHotbarTextTop(context, font, state, true));
+		
+		int alphaColor = ARGB.white(alpha);
+		int nameWidth = font.width(nameComponent);
+		int nameX = (context.guiWidth() - nameWidth) / 2;
+		context.drawStringWithBackdrop(font, nameComponent, nameX, y, nameWidth,
+			alphaColor);
+		
+		if(lines.isEmpty())
+			return true;
+		
+		y += font.lineHeight + 1;
+		for(Component line : lines)
+		{
+			int width = font.width(line);
+			int x = (context.guiWidth() - width) / 2;
+			context.drawStringWithBackdrop(font, line, x, y, width, alphaColor);
+			y += font.lineHeight;
+		}
+		
+		return true;
+	}
+	
+	private static List<Component> getEnchantmentLines(ItemStack stack)
+	{
+		List<Component> lines = new ArrayList<>();
+		LinkedHashSet<String> seen = new LinkedHashSet<>();
+		appendEnchantmentLines(lines, seen, stack
+			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY));
+		appendEnchantmentLines(lines, seen, stack.getOrDefault(
+			DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY));
+		return lines;
+	}
+	
+	private static void appendEnchantmentLines(List<Component> out,
+		Set<String> seen, ItemEnchantments enchantments)
+	{
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments
+			.entrySet())
+		{
+			Holder<Enchantment> holder = entry.getKey();
+			int level = entry.getIntValue();
+			String key = holder.getRegisteredName() + "#" + level;
+			if(!seen.add(key))
+				continue;
+			out.add(Enchantment.getFullname(holder, level));
+		}
+	}
+	
+	private static int getHotbarHighlightAlpha(int timer)
+	{
+		int alpha = (int)(timer * 256.0F / 10.0F);
+		return Math.min(alpha, 255);
+	}
+	
+	private static float getHotbarTextTop(GuiGraphics context, Font font,
+		HotbarHighlightState state, boolean includeEnchantments)
+	{
+		float y = context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
+		if(MC.gameMode != null && !MC.gameMode.canHurtPlayer())
+			y += SELECTED_ITEM_CREATIVE_Y_BONUS;
+		
+		int lines = 1;
+		if(includeEnchantments)
+			lines += getEnchantmentLines(state.stack()).size();
+		
+		float textHeight = lines * font.lineHeight;
+		if(lines > 1)
+			textHeight += (lines - 1) * TEXT_LINE_SPACING;
+		// drawStringWithBackdrop renders a small padded backdrop around text.
+		textHeight += TEXT_BACKDROP_PADDING * 2F;
+		float textBottom = y + textHeight;
+		float barsTop = getStatusBarsTopY(context);
+		float overlap = textBottom + TEXT_BLOCK_CLEARANCE - barsTop;
+		if(overlap > 0F)
+			y -= overlap;
+		
+		return Math.max(BASE_MARGIN, y);
+	}
+	
+	private static float getStatusBarsTopY(GuiGraphics context)
+	{
+		if(MC == null || MC.player == null)
+			return context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
+		
+		boolean hasArmor = MC.player.getArmorValue() > 0;
+		return context.guiHeight() - (hasArmor ? 49F : 39F);
 	}
 	
 	private static boolean isOverlayMessageVisible()
 	{
-		if(MC == null)
+		if(MC == null || MC.gui == null
+			|| !(MC.gui instanceof GuiAccessor accessor))
 			return false;
 		
-		Gui gui = MC.gui;
-		if(gui == null)
+		int time = accessor.getOverlayMessageTime();
+		if(time <= 0)
 			return false;
 		
-		initOverlayReflection();
-		if(overlayMessageTimeField == null || overlayMessageStringField == null)
-			return false;
-		
-		try
-		{
-			int time = overlayMessageTimeField.getInt(gui);
-			if(time <= 0)
-				return false;
-			
-			Object c = overlayMessageStringField.get(gui);
-			if(!(c instanceof Component comp))
-				return false;
-			
-			return !comp.getString().isEmpty();
-			
-		}catch(IllegalAccessException e)
-		{
-			return false;
-		}
+		Component msg = accessor.getOverlayMessageString();
+		return msg != null && !msg.getString().isEmpty();
 	}
 	
-	private static void initOverlayReflection()
+	private static HotbarHighlightState getHotbarHighlightState(
+		GuiAccessor accessor)
 	{
-		if(overlayFieldsChecked)
-			return;
-		
-		overlayFieldsChecked = true;
-		
-		// Mojang-mapped field names in modern versions. If they ever change,
-		// the
-		// feature will gracefully disable itself.
-		overlayMessageStringField =
-			getFieldOrNull(Gui.class, "overlayMessageString");
-		overlayMessageTimeField =
-			getFieldOrNull(Gui.class, "overlayMessageTime");
-	}
-	
-	private static Field getFieldOrNull(Class<?> owner, String name)
-	{
-		try
-		{
-			Field f = owner.getDeclaredField(name);
-			f.setAccessible(true);
-			return f;
-			
-		}catch(ReflectiveOperationException e)
-		{
-			return null;
-		}
+		int timer = accessor.getToolHighlightTimer();
+		ItemStack stack = accessor.getLastToolHighlight();
+		if(stack == null)
+			stack = ItemStack.EMPTY;
+		return new HotbarHighlightState(timer, stack);
 	}
 	
 	private static boolean isMouseOverHud(double mouseX, double mouseY,
@@ -380,6 +550,14 @@ public final class DurabilityHud
 	{
 		return stack != null && !stack.isEmpty() && stack.isDamageableItem()
 			&& stack.getMaxDamage() > 0;
+	}
+	
+	private record HotbarHighlightState(int timer, ItemStack stack)
+	{
+		private boolean isVisible()
+		{
+			return timer > 0 && stack != null && !stack.isEmpty();
+		}
 	}
 	
 	private static double getDurabilityFraction(ItemStack stack)
