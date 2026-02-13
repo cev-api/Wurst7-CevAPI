@@ -398,6 +398,7 @@ Reports number of waypoints changed.
 - Trace Selected Items: toggles tracing for selected types (uses ItemESP world render pass to draw rainbow tracer lines and ESP boxes).
   - Works independently of ItemESP
   - Can SHIFT select multiple items
+  - Adjustable tracer line thickness
 - Ignore Selected Items: adds the item/s you selected to the ItemESP ignore list
 - Toggle to adhere to the ItemESP ignored list (Including a link to edit the list)
 - Adjustable distance for item detection
@@ -609,6 +610,7 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Delay settings throttle mining, item use, and entity hits
 - Toggles for only using the hack when wielding a mace and for skipping collision when BoatNoclip is active.
 - Block breaking and long-range item-use are supported via the same teleport-and-act cycle, making it behave like a remote InstaMine/interaction handler.
+- Lock-on (vertically) mode for Mace attacks which applies through walls approx 50 blocks.
 
 Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/InfiniteReach.java). The difference between mine and theirs is that I have added through block toggle, clip up toggle for mace, and better ESP highlighting.
 
@@ -747,6 +749,7 @@ This hack is still undergoing development and has only been tested in the end. A
 - Added filters for chests and barrels to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
 - Added opacity settings
 - Option to suppress single chests in favor of double
+- Optional alert for shulkerboxes in chat
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
@@ -885,6 +888,7 @@ Examples:
 - Optionally tie horizontal and vertical speeds together
 - Adjustable step for both speeds
 - Prevent dropping when holding SHIFT whilst in inventory
+- Prevent being slowed down by vines
 
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  
@@ -920,6 +924,7 @@ Examples:
 - Added no slowdown for lava
 - Added no slowdown for water
   - Added a toggle to allow swimming
+- Added no slowdown for vines (cannot climb)
 
 ### TrueSight Improved
 - Added customisable glow ESP for invisible entities

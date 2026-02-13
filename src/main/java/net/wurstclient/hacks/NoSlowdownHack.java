@@ -37,6 +37,11 @@ public final class NoSlowdownHack extends Hack implements
 			+ "When enabled, water slowdown is only bypassed while walking on the ground in water.",
 		false);
 	
+	private final CheckboxSetting ignoreVines = new CheckboxSetting(
+		"Ignore vines",
+		"Prevents vines from applying slowdown or climb behavior, effectively treating them like air.",
+		false);
+	
 	private boolean bypassingLava;
 	private boolean bypassingWater;
 	
@@ -47,6 +52,7 @@ public final class NoSlowdownHack extends Hack implements
 		addSetting(lavaSpeed);
 		addSetting(waterSpeed);
 		addSetting(allowSwimming);
+		addSetting(ignoreVines);
 	}
 	
 	@Override
@@ -132,6 +138,16 @@ public final class NoSlowdownHack extends Hack implements
 			return;
 		
 		event.cancel();
+	}
+	
+	public boolean shouldIgnoreVines()
+	{
+		return ignoreVines.isChecked();
+	}
+	
+	public void setIgnoreVines(boolean ignore)
+	{
+		ignoreVines.setChecked(ignore);
 	}
 	
 	// See BlockMixin.onGetVelocityMultiplier() and

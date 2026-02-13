@@ -52,6 +52,9 @@ import net.wurstclient.util.RenderUtils;
 public final class InfiniteReachHack extends Hack
 	implements UpdateListener, RenderListener
 {
+	private static final double MACE_VERTICAL_LOCK_RANGE = 50.0;
+	private static final double MACE_VERTICAL_LOCK_MIN_DOT = 0.6;
+	
 	private enum Mode
 	{
 		VANILLA("Vanilla"),
@@ -119,6 +122,11 @@ public final class InfiniteReachHack extends Hack
 	private final CheckboxSetting onlyMace = new CheckboxSetting(
 		"Only When Mace",
 		"Only perform Infinite Reach when you are holding a mace and the player target is not blocking.",
+		false);
+	
+	private final CheckboxSetting maceVerticalLock = new CheckboxSetting(
+		"Mace Vertical Lock",
+		"While holding right click with a mace, match your vertical movement to the locked player target.",
 		false);
 	
 	private final CheckboxSetting skipCollisionCheck = new CheckboxSetting(
@@ -200,6 +208,7 @@ public final class InfiniteReachHack extends Hack
 		addSetting(horizontalOffset);
 		addSetting(verticalOffset);
 		addSetting(onlyMace);
+		addSetting(maceVerticalLock);
 		addSetting(skipCollisionCheck);
 		addSetting(throughBlocks);
 		
@@ -263,6 +272,7 @@ public final class InfiniteReachHack extends Hack
 		maxDistance = mode.getSelected() == Mode.VANILLA
 			? vanillaDistance.getValue() : paperDistance.getValue();
 		updateTargets();
+		updateMaceVerticalLock();
 		
 		boolean attackPressed = MC.options.keyAttack.isDown();
 		boolean usePressed = MC.options.keyUse.isDown();
@@ -690,6 +700,93 @@ public final class InfiniteReachHack extends Hack
 			return true;
 		
 		return isHoldingMace();
+	}
+	
+	private void updateMaceVerticalLock()
+	{
+		if(MC.player == null || MC.options == null
+			|| !maceVerticalLock.isChecked() || !MC.options.keyUse.isDown()
+			|| !isHoldingMace())
+		{
+			return;
+		}
+		
+		Entity target = null;
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist != null && aimAssist.isEnabled()
+			&& aimAssist.getCurrentTarget() instanceof Player playerTarget
+			&& playerTarget != MC.player && playerTarget.isAlive()
+			&& MC.player.distanceToSqr(playerTarget) <= MACE_VERTICAL_LOCK_RANGE
+				* MACE_VERTICAL_LOCK_RANGE)
+		{
+			target = playerTarget;
+		}
+		
+		if(target == null)
+			target = findMaceVerticalLockTarget();
+		
+		if(target == null)
+			return;
+		
+		double maxStep =
+			Math.max(0.05, MC.player.getAbilities().getFlyingSpeed());
+		double delta = target.getY() - MC.player.getY();
+		if(Math.abs(delta) < 0.02)
+			return;
+		
+		double step = Math.max(-maxStep, Math.min(maxStep, delta));
+		Vec3 motion = MC.player.getDeltaMovement();
+		MC.player.setDeltaMovement(motion.x, motion.y + step, motion.z);
+	}
+	
+	private Player findMaceVerticalLockTarget()
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		Vec3 eyePos = MC.player.getEyePosition(1.0F);
+		Vec3 lookVec = MC.player.getLookAngle().normalize();
+		double maxRangeSq = MACE_VERTICAL_LOCK_RANGE * MACE_VERTICAL_LOCK_RANGE;
+		
+		Player best = null;
+		double bestDot = -1;
+		double bestDistSq = Double.MAX_VALUE;
+		Player nearest = null;
+		double nearestDistSq = Double.MAX_VALUE;
+		
+		for(Player player : MC.level.players())
+		{
+			if(player == MC.player || !player.isAlive() || player.isSpectator())
+				continue;
+			
+			Vec3 targetPos = player.getBoundingBox().getCenter();
+			double distSq = eyePos.distanceToSqr(targetPos);
+			if(distSq > maxRangeSq)
+				continue;
+			
+			if(distSq < nearestDistSq)
+			{
+				nearest = player;
+				nearestDistSq = distSq;
+			}
+			
+			Vec3 toTarget = targetPos.subtract(eyePos);
+			if(toTarget.lengthSqr() < 1.0E-6)
+				continue;
+			
+			double dot = lookVec.dot(toTarget.normalize());
+			if(dot < MACE_VERTICAL_LOCK_MIN_DOT)
+				continue;
+			
+			if(dot > bestDot || (dot == bestDot && distSq < bestDistSq))
+			{
+				best = player;
+				bestDot = dot;
+				bestDistSq = distSq;
+			}
+		}
+		
+		return best != null ? best : nearest;
 	}
 	
 	private Vec3 findNearestPos(Vec3 desired)

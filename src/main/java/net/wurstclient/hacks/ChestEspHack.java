@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
@@ -53,6 +54,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
@@ -129,9 +131,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		"Hides single chests that appear to belong to villages. Does not affect double chests or shulkers.",
 		false);
 	
+	private final CheckboxSetting shulkerChatAlerts =
+		new CheckboxSetting("Shulker chat alerts",
+			"Sends a chat alert when ChestESP detects a shulker box.", false);
+	
 	private List<BlockPos> cachedTrialSpawners = List.of();
 	private List<Vec3> cachedVillagerPositions = List.of();
 	private List<Vec3> cachedGolemPositions = List.of();
+	private final HashSet<BlockPos> alertedShulkers = new HashSet<>();
 	
 	private static final TagKey<Block> WAXED_COPPER_BLOCKS_TAG = TagKey.create(
 		Registries.BLOCK,
@@ -152,6 +159,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(filterTrialChambers);
 		addSetting(doubleChestsOnly);
 		addSetting(filterVillages);
+		addSetting(shulkerChatAlerts);
 		addSetting(showCountInHackList);
 		addSetting(boxAlpha);
 		addSetting(lineAlpha);
@@ -181,6 +189,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		cachedVillagerPositions = List.of();
 		cachedGolemPositions = List.of();
 		preFilteredEnv = false;
+		alertedShulkers.clear();
 	}
 	
 	@Override
@@ -195,10 +204,21 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		double yLimit = aboveGroundY.getValue();
 		boolean enforceAboveGround = onlyAboveGround.isChecked();
+		HashSet<BlockPos> seenShulkers =
+			shulkerChatAlerts.isChecked() ? new HashSet<>() : null;
 		
 		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
 			if(enforceAboveGround && be.getBlockPos().getY() < yLimit)
 				return;
+			
+			if(seenShulkers != null && isShulkerBlockEntity(be))
+			{
+				BlockPos pos = be.getBlockPos().immutable();
+				seenShulkers.add(pos);
+				if(alertedShulkers.add(pos))
+					ChatUtils.message("ChestESP: Shulker box at " + pos.getX()
+						+ ", " + pos.getY() + ", " + pos.getZ());
+			}
 			
 			// Pre-filter by environment to avoid flicker and wasted work
 			if(preFilteredEnv && shouldFilterBlockEntityByEnvironment(be))
@@ -210,6 +230,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			
 			groups.blockGroups.forEach(group -> group.addIfMatches(be));
 		});
+		
+		if(seenShulkers != null)
+			alertedShulkers.retainAll(seenShulkers);
+		else
+			alertedShulkers.clear();
 		
 		if(MC.level != null)
 		{
@@ -779,6 +804,18 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			.filter(be -> be instanceof TrialSpawnerBlockEntity)
 			.map(BlockEntity::getBlockPos).map(BlockPos::immutable)
 			.collect(Collectors.toList());
+	}
+	
+	private boolean isShulkerBlockEntity(BlockEntity be)
+	{
+		if(be == null)
+			return false;
+		
+		if(be instanceof net.minecraft.world.level.block.entity.ShulkerBoxBlockEntity)
+			return true;
+		
+		BlockState state = be.getBlockState();
+		return state != null && state.getBlock() instanceof ShulkerBoxBlock;
 	}
 	
 	private <T extends Entity> List<Vec3> collectEntityPositions(Class<T> type)

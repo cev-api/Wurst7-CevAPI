@@ -94,6 +94,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		"Enable NoFall with Flight",
 		"description.wurst.setting.flight.enable_nofall_with_flight", false);
 	
+	private final CheckboxSetting ignoreVinesWithFlight = new CheckboxSetting(
+		"Ignore vines with Flight",
+		"Temporarily enables NoSlowdown's \"Ignore vines\" while Flight is enabled.",
+		false);
+	
 	private final CheckboxSetting slowSneaking =
 		new CheckboxSetting("Slow sneaking",
 			"description.wurst.setting.flight.slow_sneaking", false);
@@ -114,6 +119,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	private boolean triggered;
 	private boolean enabledNoFallByFlight;
 	private boolean enabledNoFallByEscape;
+	private boolean managedNoSlowdownVineIgnore;
 	
 	public FlightHack()
 	{
@@ -134,6 +140,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
+		addSetting(ignoreVinesWithFlight);
 		addSetting(slowSneaking);
 		addSetting(ignoreShiftInGuis);
 	}
@@ -162,9 +169,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		tickCounter = 0;
 		escapeDropActive = false;
 		triggered = false;
+		managedNoSlowdownVineIgnore = false;
 		
 		WURST.getHax().creativeFlightHack.setEnabled(false);
 		WURST.getHax().jetpackHack.setEnabled(false);
+		syncNoSlowdownVineIgnore();
 		
 		if(enableNoFallOnFlight.isChecked()
 			&& !WURST.getHax().noFallHack.isEnabled())
@@ -183,6 +192,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onDisable()
 	{
+		restoreNoSlowdownVineIgnore();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(IsPlayerInWaterListener.class, this);
 		EVENTS.remove(AirStrafingSpeedListener.class, this);
@@ -194,6 +204,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	public void onUpdate()
 	{
 		LocalPlayer player = MC.player;
+		syncNoSlowdownVineIgnore();
 		
 		if(enableNoFallOnFlight.isChecked()
 			&& !WURST.getHax().noFallHack.isEnabled())
@@ -239,6 +250,48 @@ public final class FlightHack extends Hack implements UpdateListener,
 			Vec3 current = player.getDeltaMovement();
 			player.setDeltaMovement(current.x, alignStep, current.z);
 		}
+	}
+	
+	private void syncNoSlowdownVineIgnore()
+	{
+		NoSlowdownHack noSlowdown = WURST.getHax().noSlowdownHack;
+		if(noSlowdown == null)
+			return;
+		
+		if(!ignoreVinesWithFlight.isChecked())
+		{
+			if(managedNoSlowdownVineIgnore)
+			{
+				noSlowdown.setIgnoreVines(false);
+				managedNoSlowdownVineIgnore = false;
+			}
+			return;
+		}
+		
+		if(!managedNoSlowdownVineIgnore)
+		{
+			if(noSlowdown.shouldIgnoreVines())
+				return;
+			
+			noSlowdown.setIgnoreVines(true);
+			managedNoSlowdownVineIgnore = true;
+			return;
+		}
+		
+		if(!noSlowdown.shouldIgnoreVines())
+			noSlowdown.setIgnoreVines(true);
+	}
+	
+	private void restoreNoSlowdownVineIgnore()
+	{
+		if(!managedNoSlowdownVineIgnore)
+			return;
+		
+		NoSlowdownHack noSlowdown = WURST.getHax().noSlowdownHack;
+		if(noSlowdown != null)
+			noSlowdown.setIgnoreVines(false);
+		
+		managedNoSlowdownVineIgnore = false;
 	}
 	
 	@Override

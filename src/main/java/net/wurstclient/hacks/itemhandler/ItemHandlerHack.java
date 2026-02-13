@@ -150,6 +150,9 @@ public class ItemHandlerHack extends Hack
 	private final SliderSetting popupScale = new SliderSetting(
 		"Popup HUD font scale", 0.75, 0.5, 1.5, 0.05, ValueDisplay.DECIMAL);
 	
+	private final SliderSetting tracerThickness = new SliderSetting(
+		"Tracer thickness", 2, 0.5, 8, 0.1, ValueDisplay.DECIMAL);
+	
 	// Respect ItemESP's ignored items list
 	private final CheckboxSetting respectItemEspIgnores =
 		new CheckboxSetting("Respect ItemESP ignored items", true);
@@ -187,6 +190,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(rejectExpiry);
 		addSetting(popupRange);
 		addSetting(popupScale);
+		addSetting(tracerThickness);
 		addSetting(popupMaxItems);
 		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
@@ -1144,7 +1148,7 @@ public class ItemHandlerHack extends Hack
 		
 		java.util.ArrayList<AABB> boxes =
 			shouldDrawBoxes ? new java.util.ArrayList<>() : null;
-		java.util.ArrayList<Vec3> ends =
+		java.util.ArrayList<RenderUtils.ColoredPoint> ends =
 			shouldDrawTracers ? new java.util.ArrayList<>() : null;
 		for(GroundItem gi : trackedItems)
 		{
@@ -1157,7 +1161,7 @@ public class ItemHandlerHack extends Hack
 				boxes.add(new AABB(p.x - 0.18, p.y - 0.18, p.z - 0.18,
 					p.x + 0.18, p.y + 0.18, p.z + 0.18));
 			if(shouldDrawTracers)
-				ends.add(p);
+				ends.add(new RenderUtils.ColoredPoint(p, 0));
 		}
 		boolean hasBoxes = shouldDrawBoxes && boxes != null && !boxes.isEmpty();
 		boolean hasTracers =
@@ -1167,6 +1171,12 @@ public class ItemHandlerHack extends Hack
 		float[] rf = RenderUtils.getRainbowColor();
 		int traceLines = RenderUtils.toIntColor(rf, 0.5f);
 		int traceQuads = RenderUtils.toIntColor(rf, 0.35f);
+		if(hasTracers)
+			for(int i = 0; i < ends.size(); i++)
+			{
+				Vec3 p = ends.get(i).point();
+				ends.set(i, new RenderUtils.ColoredPoint(p, traceLines));
+			}
 		if(hasBoxes)
 		{
 			RenderUtils.drawSolidBoxes(matrixStack, boxes, traceQuads, false);
@@ -1174,8 +1184,8 @@ public class ItemHandlerHack extends Hack
 				false);
 		}
 		if(hasTracers)
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, traceLines,
-				false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false,
+				tracerThickness.getValue());
 	}
 	
 	private boolean isIgnoredByItemEsp(ItemStack stack)
