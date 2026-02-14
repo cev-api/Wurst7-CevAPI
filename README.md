@@ -27,7 +27,6 @@ This project is a friendly, independent fork of Wurst 7. I originally proposed t
 - Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
 - This fork: https://github.com/cev-api/Wurst7-CevAPI  
 - Status: actively maintained and re-based as upstream evolves  
-- Will try and support at least the latest two Minecraft versions
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
@@ -119,6 +118,8 @@ I have taken the following ideas from other clients/mods:
 - SpearKill
 - InfiniteReach
 - UI-Utils
+- Bundle Dupe
+- BookBot
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
@@ -751,8 +752,19 @@ This hack is still undergoing development and has only been tested in the end. A
 - Normalised to 10 max hearts.
 - Compatible with HealthTags so names don't conflict.
 - Conforms to vanilla health status effects (poison, wither, frozen, absorption, hardcore, low health jittering).
+- Ignore NPCs and Armor Stands
+- Optionally can work through walls
 
 ![Hearts](https://i.imgur.com/FZ8Z0TK.png)
+
+### GameStats
+- On-screen HUD with configurable stats: FPS, TPS, Ping, Play Time, Time, Packet Rate (in/out), Distance, Mob Kills, Player Kills, and XP Gained
+- Draggable/repositionable while inventory or chests screens are open
+- FPS/TPS/Ping show running averages in brackets (e.g. `Ping: 30 (21)`)
+- Style settings: font size, font opacity, font color, font stroke, background box toggle, background color, and background opacity
+- Per-stat visibility toggles plus a universal `Show Prefixes` and `Show Averages` toggle for labels
+
+![FPS](https://i.imgur.com/MhmAno5.png)
 
 ## What's changed or improved in this fork?
 
@@ -1025,8 +1037,14 @@ Examples:
 - Optimized Search when using corners only ESP to avoid unnecessary heavy mesh work making detection faster.
 - Reduced lag spikes on large scans by using cheaper nearest-result selection paths.
 
-### Notes
-- Scanning only includes server-loaded chunks. Larger radii work best in single-player or on high view distance servers.  
+### Easier/Quicker ESP Commands
+- ```.search <query>``` -> query mode + set query + enable
+- ```.search off``` / ```.search on```
+- ```.mobsearch <query>``` -> query mode + set query + enable
+- ```.mobsearch off``` / ```.mobsearch on```
+- ```.xray <query>``` -> query mode + set query + enable
+- ```.xray off``` / ```.xray on```
+- Existing ```.xray add/remove/list/reset``` still works
 
 ---
 

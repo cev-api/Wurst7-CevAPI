@@ -219,6 +219,13 @@ public final class KeybindProcessor implements KeyPressListener
 				WurstClient.INSTANCE.getHax().itemHandlerHack.openScreen();
 				return;
 			}
+			// Special-case: use WindCharge via WindChargeKey hack action.
+			if(lower.equals("windchargekey use"))
+			{
+				WurstClient.INSTANCE.getHax().windChargeKeyHack
+					.useFromKeybind();
+				return;
+			}
 			cmdProcessor.process(cmd);
 		}else
 		{

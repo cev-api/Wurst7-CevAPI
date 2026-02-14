@@ -408,6 +408,13 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		return getColorI(1F);
 	}
 	
+	public void enableQuerySearch(String rawQuery)
+	{
+		mode.setSelected(SearchMode.QUERY);
+		query.setValue(rawQuery == null ? "" : rawQuery.trim());
+		setEnabled(true);
+	}
+	
 	// Local style setting that mirrors MobEsp's style but for MobSearch
 	private static final class MobSearchStyleSetting extends
 		net.wurstclient.settings.EnumSetting<MobSearchStyleSetting.Style>

@@ -10,25 +10,25 @@ package net.wurstclient.commands;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
-import net.wurstclient.hacks.XRayHack;
+import net.wurstclient.hacks.SearchHack;
 
-public final class XrayCmd extends Command
+public final class SearchCmd extends Command
 {
-	public XrayCmd()
+	public SearchCmd()
 	{
-		super("xray", "Controls X-Ray list operations and query mode.",
-			".xray <query>", ".xray query <query>", ".xray [on|off]",
-			".xray add <block>", ".xray remove <block>", ".xray list [<page>]",
-			".xray reset", "Example: .xray add gravel");
+		super("search",
+			"Sets Search to query mode and enables/disables it from chat.",
+			".search <query>", ".search query <query>", ".search [on|off]");
 	}
 	
 	@Override
 	public void call(String[] args) throws CmdException
 	{
-		XRayHack xray = WURST.getHax().xRayHack;
+		SearchHack search = WURST.getHax().searchHack;
+		
 		if(args.length == 0)
 		{
-			xray.setEnabled(!xray.isEnabled());
+			search.setEnabled(!search.isEnabled());
 			return;
 		}
 		
@@ -36,30 +36,22 @@ public final class XrayCmd extends Command
 		switch(action)
 		{
 			case "on":
-			xray.setEnabled(true);
+			search.setEnabled(true);
 			return;
 			
 			case "off":
-			xray.setEnabled(false);
+			search.setEnabled(false);
 			return;
 			
 			case "query":
 			if(args.length < 2)
 				throw new CmdSyntaxError();
 			
-			xray.enableQuerySearch(joinArgs(args, 1));
-			return;
-			
-			case "add":
-			case "remove":
-			case "list":
-			case "reset":
-			WURST.getCmdProcessor()
-				.process("blocklist X-Ray Ores " + String.join(" ", args));
+			search.enableQuerySearch(joinArgs(args, 1));
 			return;
 			
 			default:
-			xray.enableQuerySearch(joinArgs(args, 0));
+			search.enableQuerySearch(joinArgs(args, 0));
 			return;
 		}
 	}

@@ -1083,14 +1083,20 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// window
 		if(y < -64 || y > 48)
 			return false;
-		
-		// Rely on proximity to Trial Spawners when available
-		if(isNearTrialSpawner(pos, 128))
-			return true;
 			
-		// Fallback heuristic: look for characteristic Trial Chamber blocks
-		// nearby
-		return isNearLikelyTrialBlocks(pos, 6);
+		// Primary signal: container is anchored on characteristic Trial
+		// Chamber blocks (prevents unrelated underground chest false
+		// positives).
+		boolean anchoredOnTrialBlock = isOnLikelyTrialSupportBlock(pos);
+		if(!anchoredOnTrialBlock)
+			return false;
+			
+		// Secondary signals: nearby spawner or compact local block palette.
+		// Keep ranges conservative to avoid bleeding into nearby structures.
+		if(isNearTrialSpawner(pos, 96))
+			return true;
+		
+		return isNearLikelyTrialBlocks(pos, 4);
 	}
 	
 	private boolean isNearLikelyTrialBlocks(BlockPos center, int range)
@@ -1100,18 +1106,66 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		return BlockUtils.getAllInBoxStream(center, range).anyMatch(pos -> {
 			Block b = BlockUtils.getBlock(pos);
-			if(b == null)
-				return false;
-			String path = BuiltInRegistries.BLOCK.getKey(b).getPath();
-			// Strong signals of Trial Chambers
-			if(path.contains("trial_spawner") || path.contains("vault"))
-				return true;
-			// Common building blocks in Trial Chambers (heuristic)
-			return path.contains("tuff_bricks")
-				|| path.contains("chiseled_tuff")
-				|| path.contains("polished_tuff")
-				|| path.contains("copper_bulb");
+			return isLikelyTrialBlock(b);
 		});
+	}
+	
+	private boolean isOnLikelyTrialSupportBlock(BlockPos pos)
+	{
+		if(MC.level == null)
+			return false;
+		
+		// Primary check: the supporting block directly below.
+		BlockState supportState = MC.level.getBlockState(pos.below());
+		if(isLikelyTrialSupportBlock(supportState))
+			return true;
+		
+		// Some trial containers can be embedded against trial palette blocks.
+		for(BlockPos nearby : new BlockPos[]{pos.north(), pos.south(),
+			pos.east(), pos.west()})
+		{
+			if(isLikelyTrialSupportBlock(MC.level.getBlockState(nearby)))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isLikelyTrialBlock(Block block)
+	{
+		if(block == null)
+			return false;
+		
+		String path = BuiltInRegistries.BLOCK.getKey(block).getPath();
+		if(path.contains("trial_spawner") || path.contains("vault"))
+			return true;
+		
+		return isLikelyTrialSupportPath(path);
+	}
+	
+	private boolean isLikelyTrialSupportBlock(BlockState state)
+	{
+		if(state == null)
+			return false;
+		
+		if(isWaxedCopper(state))
+			return true;
+		
+		String path =
+			BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
+		return isLikelyTrialSupportPath(path);
+	}
+	
+	private boolean isLikelyTrialSupportPath(String path)
+	{
+		if(path == null || path.isEmpty())
+			return false;
+		
+		// Common Trial Chamber palette and copper fixtures.
+		return path.contains("tuff_bricks") || path.contains("chiseled_tuff")
+			|| path.contains("polished_tuff") || path.contains("tuff_stairs")
+			|| path.contains("tuff_slab") || path.contains("tuff_wall")
+			|| path.contains("copper_bulb") || path.contains("waxed_copper");
 	}
 	
 	// Backward-compatibility alias for any callers still using the old name

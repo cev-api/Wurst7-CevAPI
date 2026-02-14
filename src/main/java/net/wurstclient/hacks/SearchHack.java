@@ -789,4 +789,11 @@ public final class SearchHack extends Hack implements UpdateListener,
 		v = Math.max(1, Math.min(100, v));
 		return v / 100F;
 	}
+	
+	public void enableQuerySearch(String rawQuery)
+	{
+		mode.setSelected(SearchMode.QUERY);
+		query.setValue(rawQuery == null ? "" : rawQuery.trim());
+		setEnabled(true);
+	}
 }

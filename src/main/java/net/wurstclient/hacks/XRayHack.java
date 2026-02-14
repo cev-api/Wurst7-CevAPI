@@ -669,6 +669,13 @@ public final class XRayHack extends Hack
 		MC.setScreen(new EditBlockListScreen(prevScreen, ores));
 	}
 	
+	public void enableQuerySearch(String rawQuery)
+	{
+		mode.setSelected(Mode.QUERY);
+		query.setValue(rawQuery == null ? "" : rawQuery.trim());
+		setEnabled(true);
+	}
+	
 	// See AbstractBlockRenderContextMixin, RenderLayersMixin
 	
 	private void resetCoordinatorAndHighlights()

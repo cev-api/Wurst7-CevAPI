@@ -10,25 +10,26 @@ package net.wurstclient.commands;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
-import net.wurstclient.hacks.XRayHack;
+import net.wurstclient.hacks.MobSearchHack;
 
-public final class XrayCmd extends Command
+public final class MobSearchCmd extends Command
 {
-	public XrayCmd()
+	public MobSearchCmd()
 	{
-		super("xray", "Controls X-Ray list operations and query mode.",
-			".xray <query>", ".xray query <query>", ".xray [on|off]",
-			".xray add <block>", ".xray remove <block>", ".xray list [<page>]",
-			".xray reset", "Example: .xray add gravel");
+		super("mobsearch",
+			"Sets MobSearch to query mode and enables/disables it from chat.",
+			".mobsearch <query>", ".mobsearch query <query>",
+			".mobsearch [on|off]");
 	}
 	
 	@Override
 	public void call(String[] args) throws CmdException
 	{
-		XRayHack xray = WURST.getHax().xRayHack;
+		MobSearchHack mobSearch = WURST.getHax().mobSearchHack;
+		
 		if(args.length == 0)
 		{
-			xray.setEnabled(!xray.isEnabled());
+			mobSearch.setEnabled(!mobSearch.isEnabled());
 			return;
 		}
 		
@@ -36,30 +37,22 @@ public final class XrayCmd extends Command
 		switch(action)
 		{
 			case "on":
-			xray.setEnabled(true);
+			mobSearch.setEnabled(true);
 			return;
 			
 			case "off":
-			xray.setEnabled(false);
+			mobSearch.setEnabled(false);
 			return;
 			
 			case "query":
 			if(args.length < 2)
 				throw new CmdSyntaxError();
 			
-			xray.enableQuerySearch(joinArgs(args, 1));
-			return;
-			
-			case "add":
-			case "remove":
-			case "list":
-			case "reset":
-			WURST.getCmdProcessor()
-				.process("blocklist X-Ray Ores " + String.join(" ", args));
+			mobSearch.enableQuerySearch(joinArgs(args, 1));
 			return;
 			
 			default:
-			xray.enableQuerySearch(joinArgs(args, 0));
+			mobSearch.enableQuerySearch(joinArgs(args, 0));
 			return;
 		}
 	}

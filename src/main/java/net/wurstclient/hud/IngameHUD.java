@@ -19,6 +19,8 @@ public final class IngameHUD implements GUIRenderListener
 	private final HackListHUD hackList = new HackListHUD();
 	private final DurabilityHud durabilityHud =
 		new DurabilityHud(WurstClient.INSTANCE.getHax().durabilityHudHack);
+	private final GameStatsHud gameStatsHud =
+		new GameStatsHud(WurstClient.INSTANCE.getHax().gameStatsHack);
 	private TabGui tabGui;
 	private net.wurstclient.hacks.itemhandler.ItemHandlerHud itemHandlerHud;
 	
@@ -39,6 +41,7 @@ public final class IngameHUD implements GUIRenderListener
 		hackList.render(context, partialTicks);
 		tabGui.render(context, partialTicks);
 		durabilityHud.render(context);
+		gameStatsHud.render(context);
 		
 		if(itemHandlerHud == null)
 			itemHandlerHud =

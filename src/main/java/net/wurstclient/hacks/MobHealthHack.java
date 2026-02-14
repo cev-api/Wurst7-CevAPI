@@ -12,7 +12,12 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
@@ -35,6 +40,16 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 			"Only shows health for hostile mobs (zombies, skeletons, etc.).",
 			false);
 	
+	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
+		"Ignore NPCs",
+		"Ignores likely scripted server NPC mobs (for example no-AI showcase NPCs).",
+		true);
+	
+	private final CheckboxSetting throughWalls = new CheckboxSetting(
+		"Through walls",
+		"Detects the looked-at mob through walls instead of requiring direct line of sight.",
+		false);
+	
 	private final CheckboxSetting showNames = new CheckboxSetting("Show names",
 		"When enabled, keeps the mob's name and adds health next to it.", true);
 	
@@ -44,6 +59,8 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		setCategory(Category.RENDER);
 		addSetting(showAsNumber);
 		addSetting(hostileOnly);
+		addSetting(ignoreNpcs);
+		addSetting(throughWalls);
 		addSetting(showNames);
 	}
 	
@@ -80,7 +97,10 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		if(mob == null)
 			return false;
 		
-		if(MC.crosshairPickEntity != mob)
+		if(isExcludedMob(mob))
+			return false;
+		
+		if(getLookedAtMob() != mob)
 			return false;
 		
 		if(hostileOnly.isChecked() && !(mob instanceof Enemy))
@@ -129,8 +149,8 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		if(showAsNumber.isChecked())
 			return;
 		
-		Entity target = MC.crosshairPickEntity;
-		if(!(target instanceof Mob mob))
+		Mob mob = getLookedAtMob();
+		if(mob == null)
 			return;
 		
 		if(!shouldDisplayForMob(mob) || !mob.isAlive())
@@ -140,5 +160,52 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 			? HEARTS_Y_WITH_NAMETAG : HEARTS_Y_NO_NAMETAG;
 		EntityHealthRenderer.drawHeartsAtEntity(context, mob, partialTicks,
 			yOffset);
+	}
+	
+	private Mob getLookedAtMob()
+	{
+		if(!throughWalls.isChecked())
+		{
+			Entity target = MC.crosshairPickEntity;
+			return target instanceof Mob mob ? mob : null;
+		}
+		
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		double range = MC.player.entityInteractionRange();
+		Vec3 cameraPos = MC.player.getEyePosition(1.0F);
+		Vec3 look = MC.player.getViewVector(1.0F);
+		Vec3 end = cameraPos.add(look.scale(range));
+		AABB searchBox = MC.player.getBoundingBox()
+			.expandTowards(look.scale(range)).inflate(1.0);
+		
+		EntityHitResult hit = ProjectileUtil.getEntityHitResult(MC.player,
+			cameraPos, end, searchBox,
+			e -> e instanceof Mob && !isExcludedMob(e) && e.isAlive(),
+			range * range);
+		
+		if(hit == null)
+			return null;
+		
+		Entity entity = hit.getEntity();
+		return entity instanceof Mob mob ? mob : null;
+	}
+	
+	private boolean isExcludedMob(Entity entity)
+	{
+		if(entity instanceof ArmorStand)
+			return true;
+		
+		return ignoreNpcs.isChecked() && isLikelyNpc(entity);
+	}
+	
+	private boolean isLikelyNpc(Entity entity)
+	{
+		if(!(entity instanceof Mob mob))
+			return false;
+		
+		// Common pattern for server-side scripted NPCs.
+		return mob.isNoAi();
 	}
 }

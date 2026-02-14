@@ -73,6 +73,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	{
 		super("WindChargeKey");
 		setCategory(Category.COMBAT);
+		addPossibleKeybind("windchargekey use",
+			"Use WindCharge (while WindChargeKey is enabled)");
 		
 		addSetting(switchDelayMs);
 		addSetting(throwDelayMs);
@@ -186,6 +188,15 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		}
 		
 		performThrow(windChargeSlot, silent, lookDown);
+	}
+	
+	public void useFromKeybind()
+	{
+		if(MC.player == null || MC.level == null || MC.screen != null)
+			return;
+		if(!isEnabled())
+			return;
+		handleWindChargeThrow();
 	}
 	
 	private void scheduleJump(long now)

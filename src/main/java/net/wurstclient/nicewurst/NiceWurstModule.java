@@ -107,7 +107,7 @@ public final class NiceWurstModule
 				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
-				"SeedMapperHelper", "TooManyHax", "HideModMenu",
+				"SeedMapperHelper", "TooManyHax", "HideModMenu", "GameStats",
 				"DamageDetect"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
