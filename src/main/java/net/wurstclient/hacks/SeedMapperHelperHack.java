@@ -983,7 +983,7 @@ public final class SeedMapperHelperHack extends Hack
 	private void applyEspTimeoutMinutes()
 	{
 		int minutes = Math.max(1, espTimeoutMinutesSetting.getValueI());
-		runSimpleCommand("sm:config EspTimeoutMinutes set " + minutes,
+		runSimpleCommand("sm:config ESP TimeOut set " + minutes,
 			"set EspTimeoutMinutes");
 	}
 	
@@ -1516,11 +1516,11 @@ public final class SeedMapperHelperHack extends Hack
 	
 	private enum EspBucket
 	{
-		BLOCK("Block highlight ESP", "blockhighlightesp"),
-		ORE_VEIN("Ore vein ESP", "oreveinesp"),
-		TERRAIN("Terrain ESP", "terrainesp"),
-		CANYON("Canyon ESP", "canyonesp"),
-		CAVE("Cave ESP", "caveesp");
+		BLOCK("Block highlight ESP", "ESP blockhighlightesp"),
+		ORE_VEIN("Ore vein ESP", "ESP oreveinesp"),
+		TERRAIN("Terrain ESP", "ESP terrainesp"),
+		CANYON("Canyon ESP", "ESP canyonesp"),
+		CAVE("Cave ESP", "ESP caveesp");
 		
 		private final String label;
 		private final String literal;
