@@ -255,9 +255,8 @@ public final class TeleportHack extends Hack
 		landingBlock = landing;
 		teleportTarget = new Vec3(landing.getX() + 0.5, landing.getY() + 1.1,
 			landing.getZ() + 0.5);
-		targetBox = new AABB(landing.getX() - 0.5, landing.getY(),
-			landing.getZ() - 0.5, landing.getX() + 0.5, landing.getY() + 1.9,
-			landing.getZ() + 0.5);
+		targetBox = new AABB(landing.getX(), landing.getY(), landing.getZ(),
+			landing.getX() + 1.0, landing.getY() + 1.9, landing.getZ() + 1.0);
 		isValidTarget = true;
 		
 		double dropDistance = MC.player.getY() - teleportTarget.y;

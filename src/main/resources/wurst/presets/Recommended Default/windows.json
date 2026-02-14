@@ -1,38 +1,10 @@
 {
-  "Favorites": {
-    "x": 277,
-    "y": 128,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": 0
-  },
-  "Blocks": {
-    "x": 2,
-    "y": 22,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": 0
-  },
-  "Movement": {
-    "x": 93,
-    "y": 28,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": -26
-  },
-  "Combat": {
-    "x": 185,
-    "y": 41,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": -92
-  },
   "Render": {
     "x": 374,
     "y": 35,
     "minimized": false,
     "pinned": false,
-    "scrollOffset": -256
+    "scrollOffset": -430
   },
   "Chat": {
     "x": 0,
@@ -48,9 +20,16 @@
     "pinned": false,
     "scrollOffset": 0
   },
-  "Items": {
-    "x": 597,
-    "y": 64,
+  "Radar": {
+    "x": 405,
+    "y": 23,
+    "minimized": false,
+    "pinned": true,
+    "scrollOffset": 0
+  },
+  "UI Settings": {
+    "x": 723,
+    "y": 118,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
@@ -62,18 +41,39 @@
     "pinned": false,
     "scrollOffset": 0
   },
-  "UI Settings": {
-    "x": 719,
-    "y": 78,
+  "Items": {
+    "x": 598,
+    "y": 59,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
   },
-  "Radar": {
-    "x": 405,
-    "y": 23,
+  "Favorites": {
+    "x": 277,
+    "y": 128,
     "minimized": false,
-    "pinned": true,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Combat": {
+    "x": 185,
+    "y": 41,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Movement": {
+    "x": 92,
+    "y": 63,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Blocks": {
+    "x": 2,
+    "y": 22,
+    "minimized": false,
+    "pinned": false,
     "scrollOffset": 0
   }
 }

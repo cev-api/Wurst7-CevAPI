@@ -12,7 +12,7 @@
   "key.keyboard.keypad.1": "PacketDelay",
   "key.keyboard.keypad.4": "AutoMine",
   "key.keyboard.keypad.5": ".say /sm:seedmap",
-  "key.keyboard.keypad.6": "HideRender",
+  "key.keyboard.keypad.6": "HideWurst",
   "key.keyboard.keypad.7": "Blink",
   "key.keyboard.keypad.8": "SafeTP",
   "key.keyboard.keypad.9": ".setcheckbox noslowdown no_water_slowdown toggle",
@@ -27,6 +27,7 @@
   "key.keyboard.right.bracket": ".setcheckbox breadcrumbs paused toggle",
   "key.keyboard.right.shift": "navigator",
   "key.keyboard.semicolon": "itemhandler gui",
+  "key.keyboard.space": "windchargekey use",
   "key.keyboard.u": "freecam",
   "key.keyboard.x": "x-ray",
   "key.keyboard.y": "chestesp"

@@ -87,6 +87,7 @@
   },
   "Antisocial": {
     "Mode": "Quit",
+    "Command": "",
     "Disable AutoReconnect": true,
     "Ignore NPCs": true,
     "Ignore friends": true
@@ -192,8 +193,8 @@
   },
   "AutoEat": {
     "Target hunger": 10.0,
-    "Min hunger": 8.0,
-    "Injured hunger": 10.0,
+    "Min hunger": 5.0,
+    "Injured hunger": 7.5,
     "Injury threshold": 1.5,
     "Take items from": "Hotbar",
     "Allow offhand": true,
@@ -250,11 +251,18 @@
   },
   "AutoFly": {
     "Waypoints": "",
+    "Route type": "Grid",
+    "Grid side length": 9670.0,
+    "Grid pass size": 354.0,
+    "Show grid path": true,
+    "Grid path color": "#40C4FF",
+    "Grid path thickness": 2.0,
+    "Grid path points": 800.0,
     "Import file": "",
     "Export JSON": "192.168.1.10_31337_-7649949940957896961-20260204-215943.json",
-    "Flight height": 109.0,
+    "Flight height": 111.0,
     "Flight speed": 8.5,
-    "Target radius": 1.0,
+    "Target radius": 6.5,
     "Skip reached": true,
     "Crosshair info": true,
     "Enable Antisocial": true,
@@ -263,7 +271,9 @@
     "Ignore Waypoints list": true,
     "Allow manual adjust": true,
     "Disable Flight on arrival": true,
-    "Disable AutoFly on arrival": true
+    "Disable AutoFly on arrival": true,
+    "Stop on": "Nether portal",
+    "Stop keyword": ""
   },
   "AutoLeave": {
     "Health": 9.5,
@@ -272,7 +282,48 @@
     "Totems": 11.0
   },
   "AutoLibrarian": {
-    "Wanted books": "default",
+    "Wanted books": [
+      {
+        "id": "minecraft:depth_strider",
+        "level": 3
+      },
+      {
+        "id": "minecraft:efficiency",
+        "level": 5
+      },
+      {
+        "id": "minecraft:feather_falling",
+        "level": 4
+      },
+      {
+        "id": "minecraft:fortune",
+        "level": 3
+      },
+      {
+        "id": "minecraft:looting",
+        "level": 3
+      },
+      {
+        "id": "minecraft:mending",
+        "level": 1
+      },
+      {
+        "id": "minecraft:protection",
+        "level": 4
+      },
+      {
+        "id": "minecraft:respiration",
+        "level": 3
+      },
+      {
+        "id": "minecraft:sharpness",
+        "level": 5
+      },
+      {
+        "id": "minecraft:unbreaking",
+        "level": 3
+      }
+    ],
     "Lock in trade": false,
     "Update books": "Remove",
     "Range": 5.0,
@@ -311,8 +362,8 @@
     "Death screen button": true
   },
   "AutoSign": {
-    "Preset sign text": "Wurst7-CevAPI <3",
-    "Preset name": "wurst",
+    "Preset sign text": "NECOCONNECO WAS HERE",
+    "Preset name": "NECOCONNECO",
     "Saved presets": "",
     "Sign Aura": true,
     "Aura Range": 6.0,
@@ -321,7 +372,8 @@
     "Chat Feedback": true,
     "Sign presets (internal)": {
       "Shahada": "أشهد أن لا إله إلا الله، وأشهد أن محمدًا رسولُ الله.",
-      "wurst": "Wurst7-CevAPI <3"
+      "wurst": "Wurst7-CevAPI <3",
+      "NECOCONNECO": "NECOCONNECO WAS HERE"
     }
   },
   "AutoSoup": {
@@ -833,7 +885,7 @@
     "ASCII only": false,
     "Delay (ticks)": 20.0,
     "Sign": true,
-    "Name": "Book",
+    "Name": "I LOVE CEVAPS",
     "Append count": true,
     "Word wrap": true,
     "File": "bookbot.txt"
@@ -876,7 +928,7 @@
     "Max sections": 48.0,
     "Section length": 0.1,
     "Line thickness": 7.0,
-    "Paused": false
+    "Paused": true
   },
   "BuildRandom": {
     "Range": 6.0,
@@ -891,7 +943,7 @@
     "Indicator": true
   },
   "BundleDupe": {
-    "Dupe method": "KICK",
+    "Dupe method": "TIMEOUT",
     "Timeout seconds": 30.0,
     "Interact delay (ms)": 650.0,
     "Kick method": "HURT",
@@ -900,7 +952,8 @@
     "Custom lag command": ".t custom-lag-module",
     "Boat NBT packets": 200.0,
     "Entity NBT packets": 200.0,
-    "ClickSlot packets (needs NBT book in inv)": 200.0
+    "ClickSlot packets (needs NBT book in inv)": 200.0,
+    "Other Lag packets": 300.0
   },
   "BunnyHop": {
     "Jump if": "Sprinting"
@@ -980,6 +1033,7 @@
     "Filter trial chambers": true,
     "Double chests only": false,
     "Filter villages": true,
+    "Shulker chat alerts": true,
     "HackList count": true,
     "Box opacity": 64.0,
     "Line opacity": 128.0,
@@ -1134,11 +1188,16 @@
   },
   "DurabilityHUD": {
     "Display mode": "Percent only",
+    "Icon layout": "Horizontal",
+    "Info position": "Below icon",
     "Boss bar style": false,
     "Show offhand": true,
+    "Show hotbar enchantments": true,
+    "Avoid bottom text": true,
     "Font color": "#FFFFFF",
     "Durability gradient font": true,
     "Icon size": 16.0,
+    "Icon spacing": 5.5,
     "Font scale": 0.6
   },
   "ElytraFlight": {
@@ -1208,8 +1267,8 @@
     "Filter end crystals": false
   },
   "Flight": {
-    "Horizontal speed": 3.1,
-    "Vertical speed": 2.55,
+    "Horizontal speed": 3.5,
+    "Vertical speed": 3.05,
     "Tie vertical to horizontal": false,
     "Speed step": 0.5,
     "Allow unsafe vertical speed": false,
@@ -1223,7 +1282,9 @@
     "Ignore NPCs": true,
     "Ignore friends": true,
     "Enable NoFall with Flight": true,
-    "Slow sneaking": true
+    "Ignore vines with Flight": true,
+    "Slow sneaking": true,
+    "Ignore shift in GUIs": true
   },
   "Follow": {
     "Distance": 1.0,
@@ -1271,6 +1332,29 @@
     "Fade": true,
     "Default brightness": 0.5
   },
+  "GameStats": {
+    "Show FPS": true,
+    "Show TPS": true,
+    "Show Ping": true,
+    "Show Play Time": true,
+    "Show Time": false,
+    "Show Packet Rate": true,
+    "Show Distance": true,
+    "Show Mob Kills": false,
+    "Show Player Kills": false,
+    "Show XP Gained": false,
+    "Font size": 0.65,
+    "Font opacity": 255.0,
+    "Font color": "#FFFFFF",
+    "Font stroke": false,
+    "Background box": true,
+    "Background color": "#000000",
+    "Background opacity": 108.0,
+    "HUD X offset": 114.0,
+    "HUD Y offset": -8.0,
+    "Show Prefixes": true,
+    "Show Averages": true
+  },
   "Glide": {
     "Fall speed": 0.125,
     "Move speed": 1.2,
@@ -1282,7 +1366,9 @@
     "Sticky area off": false,
     "Y limit on": false,
     "Y limit off": false,
-    "Global Y limit": 62.0
+    "Global Y limit": 62.0,
+    "Search thread priority": 10.0,
+    "Chunk scan mode": "PARTIAL"
   },
   "HandNoClip": {
     "Blocks": [
@@ -1329,6 +1415,9 @@
     "Enable On Target": true,
     "Villagers Through Walls": true
   },
+  "HealthTags": {
+    "Hearts below name": true
+  },
   "HideModMenu": {
     "Hide keywords": "Wurst, Seed, Simple, Baritone"
   },
@@ -1343,7 +1432,7 @@
   "InfiniteReach": {
     "Swing Arm": true,
     "Home Teleport": true,
-    "Compatibility Mode": "Vanilla",
+    "Compatibility Mode": "Paper",
     "Clip Up": true,
     "# Spam Packets (Vanilla)": 4.0,
     "Max Distance (Vanilla)": 22.0,
@@ -1351,9 +1440,10 @@
     "Max Distance (Paper)": 59.0,
     "Horizontal Offset": 0.05,
     "Y Offset": 0.01,
-    "Only When Mace": false,
+    "Only When Mace": true,
+    "Mace Vertical Lock": true,
     "Boat Collision Skip": true,
-    "Through Blocks": false,
+    "Through Blocks": true,
     "Render Entity Box": true,
     "Entity Side Color": "#FF0000",
     "Entity Line Color": "#FF0000",
@@ -1382,7 +1472,6 @@
     "Color": "#FFFF00",
     "Special mode": "LIST",
     "Special items": [
-      "minecraft:air",
       "minecraft:ancient_debris",
       "minecraft:black_shulker_box",
       "minecraft:blaze_powder",
@@ -1392,7 +1481,9 @@
       "minecraft:brown_shulker_box",
       "minecraft:bundle",
       "minecraft:carved_pumpkin",
-      "minecraft:copper_spear",
+      "minecraft:chain_command_block",
+      "minecraft:command_block",
+      "minecraft:command_block_minecart",
       "minecraft:creeper_head",
       "minecraft:cyan_shulker_box",
       "minecraft:diamond",
@@ -1411,16 +1502,15 @@
       "minecraft:endermite_spawn_egg",
       "minecraft:ghast_spawn_egg",
       "minecraft:ghast_tear",
-      "minecraft:golden_spear",
       "minecraft:gray_shulker_box",
       "minecraft:green_shulker_box",
       "minecraft:happy_ghast_spawn_egg",
-      "minecraft:iron_spear",
+      "minecraft:heavy_core",
       "minecraft:light_blue_shulker_box",
       "minecraft:light_gray_shulker_box",
       "minecraft:lime_shulker_box",
+      "minecraft:mace",
       "minecraft:magenta_shulker_box",
-      "minecraft:nautilus_shell",
       "minecraft:nether_star",
       "minecraft:netherite_axe",
       "minecraft:netherite_block",
@@ -1447,19 +1537,17 @@
       "minecraft:player_head",
       "minecraft:purple_shulker_box",
       "minecraft:red_shulker_box",
+      "minecraft:repeating_command_block",
       "minecraft:shulker_box",
       "minecraft:shulker_shell",
       "minecraft:shulker_spawn_egg",
       "minecraft:skeleton_skull",
-      "minecraft:skull_banner_pattern",
-      "minecraft:skull_pottery_sherd",
-      "minecraft:stone_spear",
+      "minecraft:structure_block",
+      "minecraft:structure_void",
       "minecraft:totem_of_undying",
       "minecraft:trial_key",
-      "minecraft:trident",
       "minecraft:white_shulker_box",
       "minecraft:wither_skeleton_skull",
-      "minecraft:wooden_spear",
       "minecraft:yellow_shulker_box",
       "minecraft:zombie_head"
     ],
@@ -1477,6 +1565,10 @@
       "minecraft:bone",
       "minecraft:brown_mushroom",
       "minecraft:brown_mushroom_block",
+      "minecraft:chainmail_boots",
+      "minecraft:chainmail_chestplate",
+      "minecraft:chainmail_helmet",
+      "minecraft:chainmail_leggings",
       "minecraft:egg",
       "minecraft:flowering_azalea",
       "minecraft:flowering_azalea_leaves",
@@ -1510,6 +1602,7 @@
   "ItemHandler": {
     "Show item popup HUD": true,
     "Show registry names": true,
+    "Show enchantments in names": true,
     "Detect held/worn mob items": true,
     "Filter default mob items": true,
     "Respect ItemESP ignored items": true,
@@ -1517,9 +1610,14 @@
     "Pickup/Drop timeout (s)": 15.0,
     "Item detection range": 1024.0,
     "Popup HUD font scale": 0.65,
+    "Tracer thickness": 8.0,
     "Popup HUD max items": 6.0,
-    "Popup HUD offset X": -105.0,
-    "Popup HUD offset Y": -15.0
+    "Pin ItemESP special to top": true,
+    "Show nearby signs": true,
+    "Sign range": 1024.0,
+    "Max signs": 10.0,
+    "Popup HUD offset X": -83.0,
+    "Popup HUD offset Y": -19.0
   },
   "Jesus": {
     "NoCheat+ bypass": false
@@ -1711,12 +1809,12 @@
     "Color": "#FF0000",
     "Filter hostile mobs": false,
     "Filter neutral mobs": "Off",
-    "Filter passive mobs": true,
+    "Filter passive mobs": false,
     "Filter passive water mobs": false,
     "Filter bats": false,
     "Filter slimes": false,
-    "Filter pets": true,
-    "Filter villagers": true,
+    "Filter pets": false,
+    "Filter villagers": false,
     "Filter zombie villagers": false,
     "Filter golems": false,
     "Filter piglins": "Off",
@@ -1733,6 +1831,13 @@
     "Highlight wither projectiles": true,
     "HackList count": true
   },
+  "MobHealth": {
+    "Show as number": false,
+    "Hostile mobs only": false,
+    "Ignore NPCs": true,
+    "Through walls": true,
+    "Show names": true
+  },
   "MobSearch": {
     "Mode": "QUERY",
     "Entity List": [
@@ -1742,7 +1847,7 @@
     "Box size": "Accurate",
     "Fill shapes": true,
     "Type": "minecraft:zombie",
-    "Query": "squid",
+    "Query": "vindicator",
     "Rainbow colors": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -1826,7 +1931,8 @@
   "NoSlowdown": {
     "No lava slowdown": true,
     "No water slowdown": true,
-    "Allow swimming": true
+    "Allow swimming": true,
+    "Ignore vines": true
   },
   "NoWeather": {
     "Disable Rain": true,
@@ -1869,7 +1975,7 @@
     "Cracked server detection": true,
     "Quick reconnect": false,
     "Random name on reconnect": false,
-    "Specified name": "mbyzhang",
+    "Specified name": "SirKushy",
     "Player select": "",
     "Auto logout": false,
     "Reconnect command": "/op lol"
@@ -1958,7 +2064,13 @@
     "End portal frame color": "#0000FF",
     "Include end gateways": true,
     "End gateway color": "#FFFF00",
-    "Area": "61x61 chunks",
+    "Area": "65x65 chunks",
+    "Line thickness": 10.0,
+    "Sound on discovery": false,
+    "Discovery sound type": "Bell",
+    "Discovery sound volume": 200.0,
+    "Custom discovery sound ID": "",
+    "Chat message on discovery": false,
     "Sticky area": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0
@@ -2146,11 +2258,11 @@
       "minecraft:zombie_head",
       "minecraft:zombie_wall_head"
     ],
-    "Query": "spawner",
+    "Query": "obsidian",
     "Block": "minecraft:soul_soil",
     "Style": "Lines and boxes",
     "Highlight corners": true,
-    "Fill blocks (outline + fill)": true,
+    "Fill blocks (outline + fill)": false,
     "Highlight transparency": 100.0,
     "Sticky area": true,
     "Use fixed color": false,
@@ -2268,6 +2380,10 @@
     "Frames": true,
     "Signs": true
   },
+  "SilkOnly": {
+    "Block List": "default",
+    "Chat message": true
+  },
   "Sneak": {
     "Mode": "Packet",
     "Turn off while flying": true
@@ -2283,7 +2399,7 @@
     "Mode": "Assist",
     "Boost mode": "Dash only",
     "Boost speed": 10.0,
-    "Dash distance": 7.0,
+    "Dash distance": 10.0,
     "Allow reverse": true,
     "Stay grounded": true,
     "Near highlight range": 7.0,
@@ -2497,10 +2613,12 @@
     "Show vault link": false,
     "Only vaults": false,
     "Vault link range": 48.0,
-    "Ominous key alert": false,
+    "Ominous key alert": true,
+    "Ominous key sound": true,
+    "Ominous key sound volume": 200.0,
     "Vault box color": "#7CF2C9",
     "Ominous vault color": "#9B59B6",
-    "HackList count": false,
+    "HackList count": true,
     "Idle color": "#AAAAAA",
     "Charging color": "#F4C542",
     "Active color": "#E5534B",
@@ -2650,9 +2768,8 @@
     "Portal waypoint color": "#6600FF"
   },
   "WindChargeKey": {
-    "Keybind": "key.keyboard.g",
     "Switch delay": 50.0,
-    "Throw delay": 200.0,
+    "Throw delay": 100.0,
     "Silent": false,
     "Auto jump": true,
     "Look down": true,
@@ -2798,7 +2915,7 @@
   "WurstLogo": {
     "Background": "#FFFFFF",
     "Text": "#000000",
-    "Visibility": "Always"
+    "Visibility": "Never"
   },
   "WurstOptions": {
     "Location": "Game Menu"
