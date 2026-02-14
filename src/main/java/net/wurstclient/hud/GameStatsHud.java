@@ -59,13 +59,13 @@ public final class GameStatsHud
 	private int playerKillsBaseline = -1;
 	private int xpBaseline = -1;
 	
-	private float offsetX;
-	private float offsetY;
 	private boolean dragging;
 	private double dragStartMouseX;
 	private double dragStartMouseY;
-	private float dragStartOffsetX;
-	private float dragStartOffsetY;
+	private int dragStartOffsetX;
+	private int dragStartOffsetY;
+	private int dragOffsetX;
+	private int dragOffsetY;
 	
 	public GameStatsHud(GameStatsHack hack)
 	{
@@ -109,13 +109,13 @@ public final class GameStatsHud
 		float boxWidth = maxTextWidth + PADDING * 2F;
 		float boxHeight = textHeight + PADDING * 2F;
 		
-		float x = BASE_X + offsetX;
-		float y = BASE_Y + offsetY;
+		float x = BASE_X + getCurrentOffsetX();
+		float y = BASE_Y + getCurrentOffsetY();
 		
 		handleDrag(context, x, y, boxWidth, boxHeight);
 		
-		x = BASE_X + offsetX;
-		y = BASE_Y + offsetY;
+		x = BASE_X + getCurrentOffsetX();
+		y = BASE_Y + getCurrentOffsetY();
 		
 		if(hack.hasBackgroundBox())
 		{
@@ -501,6 +501,8 @@ public final class GameStatsHud
 		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)
 		{
+			if(dragging)
+				commitDraggedOffset();
 			dragging = false;
 			return;
 		}
@@ -508,6 +510,8 @@ public final class GameStatsHud
 		Window window = MC.getWindow();
 		if(window == null)
 		{
+			if(dragging)
+				commitDraggedOffset();
 			dragging = false;
 			return;
 		}
@@ -526,17 +530,52 @@ public final class GameStatsHud
 				dragging = true;
 				dragStartMouseX = mouseX;
 				dragStartMouseY = mouseY;
-				dragStartOffsetX = offsetX;
-				dragStartOffsetY = offsetY;
+				dragStartOffsetX = hack.getHudOffsetX();
+				dragStartOffsetY = hack.getHudOffsetY();
+				dragOffsetX = dragStartOffsetX;
+				dragOffsetY = dragStartOffsetY;
 			}
 			
-			offsetX = dragStartOffsetX + (float)(mouseX - dragStartMouseX);
-			offsetY = dragStartOffsetY + (float)(mouseY - dragStartMouseY);
+			dragOffsetX = clampHudOffsetX(
+				dragStartOffsetX + (int)Math.round(mouseX - dragStartMouseX));
+			dragOffsetY = clampHudOffsetY(
+				dragStartOffsetY + (int)Math.round(mouseY - dragStartMouseY));
 			return;
 		}
 		
 		if(!leftDown)
+		{
+			if(dragging)
+				commitDraggedOffset();
 			dragging = false;
+		}
+	}
+	
+	private int getCurrentOffsetX()
+	{
+		return dragging ? dragOffsetX : hack.getHudOffsetX();
+	}
+	
+	private int getCurrentOffsetY()
+	{
+		return dragging ? dragOffsetY : hack.getHudOffsetY();
+	}
+	
+	private int clampHudOffsetX(int x)
+	{
+		return Math.max(hack.getHudOffsetMinX(),
+			Math.min(hack.getHudOffsetMaxX(), x));
+	}
+	
+	private int clampHudOffsetY(int y)
+	{
+		return Math.max(hack.getHudOffsetMinY(),
+			Math.min(hack.getHudOffsetMaxY(), y));
+	}
+	
+	private void commitDraggedOffset()
+	{
+		hack.setHudOffsets(dragOffsetX, dragOffsetY);
 	}
 	
 	private static double getScaledMouseX(GuiGraphics context)

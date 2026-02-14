@@ -87,6 +87,12 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final SliderSetting backgroundOpacity = new SliderSetting(
 		"Background opacity", 120, 0, 255, 1, ValueDisplay.INTEGER);
 	
+	private final SliderSetting hudOffsetX = new SliderSetting("HUD X offset",
+		0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting hudOffsetY = new SliderSetting("HUD Y offset",
+		0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	
 	private final CheckboxSetting showPrefixes =
 		new CheckboxSetting("Show Prefixes", true);
 	
@@ -121,6 +127,8 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		addSetting(backgroundBox);
 		addSetting(backgroundColor);
 		addSetting(backgroundOpacity);
+		addSetting(hudOffsetX);
+		addSetting(hudOffsetY);
 		addSetting(showPrefixes);
 		addSetting(showAverages);
 	}
@@ -324,6 +332,42 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showAverages()
 	{
 		return showAverages.isChecked();
+	}
+	
+	public int getHudOffsetX()
+	{
+		return hudOffsetX.getValueI();
+	}
+	
+	public int getHudOffsetY()
+	{
+		return hudOffsetY.getValueI();
+	}
+	
+	public int getHudOffsetMinX()
+	{
+		return (int)hudOffsetX.getMinimum();
+	}
+	
+	public int getHudOffsetMaxX()
+	{
+		return (int)hudOffsetX.getMaximum();
+	}
+	
+	public int getHudOffsetMinY()
+	{
+		return (int)hudOffsetY.getMinimum();
+	}
+	
+	public int getHudOffsetMaxY()
+	{
+		return (int)hudOffsetY.getMaximum();
+	}
+	
+	public void setHudOffsets(int x, int y)
+	{
+		hudOffsetX.setValue(x);
+		hudOffsetY.setValue(y);
 	}
 	
 	public int getIncomingPacketRate()
