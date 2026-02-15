@@ -190,6 +190,10 @@ public final class GameStatsHud
 			lines.add(withPrefix(showPrefixes, "Time",
 				LocalTime.now().format(TIME_FORMAT)));
 		
+		if(hack.showWorldTime())
+			lines
+				.add(withPrefix(showPrefixes, "World Time", getWorldTime24h()));
+		
 		if(hack.showPacketRate())
 			lines.add(
 				withPrefix(showPrefixes, "Packets", hack.getIncomingPacketRate()
@@ -328,6 +332,17 @@ public final class GameStatsHud
 	private static String formatDistance(double meters)
 	{
 		return String.format(Locale.ROOT, "%.1f", meters);
+	}
+	
+	private static String getWorldTime24h()
+	{
+		if(MC.level == null)
+			return "--:--";
+		
+		long dayTime = Math.floorMod(MC.level.getDayTime(), 24000L);
+		int hour = (int)(dayTime / 1000L);
+		int minute = (int)Math.floor((dayTime % 1000L) * 60D / 1000D);
+		return String.format(Locale.ROOT, "%02d:%02d", hour, minute);
 	}
 	
 	private static String withPrefix(boolean showPrefix, String prefix,

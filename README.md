@@ -764,7 +764,7 @@ This hack is still undergoing development and has only been tested in the end. A
 ![Hearts](https://i.imgur.com/FZ8Z0TK.png)
 
 ### GameStats
-- On-screen HUD with configurable stats: FPS, TPS, Ping, Play Time, Time, Packet Rate (in/out), Distance, Mob Kills, Player Kills, and XP Gained
+- On-screen HUD with configurable stats: FPS, TPS, Ping, Play Time, Time, MC World Time, Packet Rate (in/out), Distance, Mob Kills, Player Kills, and XP Gained
 - Draggable/repositionable while inventory or chests screens are open
 - FPS/TPS/Ping show running averages in brackets (e.g. `Ping: 30 (21)`)
 - Style settings: font size, font opacity, font color, font stroke, background box toggle, background color, and background opacity
@@ -950,6 +950,8 @@ Examples:
 ### AutoLibrarian Improved
 - Can now discover enchantments provided by data packs.
 - Able to search for enchantments by keywords.
+- Reasons for failure indicated in chat.
+- Will auto-break lecturn if they refuse the job.
 
 ![Library](https://i.imgur.com/pWqgNz8.png)
 

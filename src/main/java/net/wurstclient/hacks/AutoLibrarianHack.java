@@ -20,10 +20,13 @@ import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
 import net.minecraft.world.inventory.ClickType;
@@ -109,9 +112,13 @@ public final class AutoLibrarianHack extends Hack
 	
 	private Villager villager;
 	private BlockPos jobSite;
+	private BlockPos blockingJobSite;
 	
 	private boolean placingJobSite;
 	private boolean breakingJobSite;
+	private int professionRetryDelay;
+	private int reasonMessageCooldown;
+	private String lastReasonMessage = "";
 	
 	public AutoLibrarianHack()
 	{
@@ -149,8 +156,12 @@ public final class AutoLibrarianHack extends Hack
 		overlay.resetProgress();
 		villager = null;
 		jobSite = null;
+		blockingJobSite = null;
 		placingJobSite = false;
 		breakingJobSite = false;
+		professionRetryDelay = 0;
+		reasonMessageCooldown = 0;
+		lastReasonMessage = "";
 		experiencedVillagers.clear();
 	}
 	
@@ -184,6 +195,38 @@ public final class AutoLibrarianHack extends Hack
 			breakJobSite();
 			return;
 		}
+		
+		// If the villager still hasn't taken the librarian job, keep cycling
+		// the lectern until it does. This avoids getting stuck probing forever.
+		if(!isLibrarian(villager))
+		{
+			updateBlockingJobSite();
+			chatNoLibrarianReason();
+			if(professionRetryDelay > 0)
+			{
+				professionRetryDelay--;
+				return;
+			}
+			
+			if(BlockUtils.getBlock(jobSite) == Blocks.LECTERN)
+			{
+				breakingJobSite = true;
+				ChatUtils.message(
+					"Villager is not a librarian yet. Replacing lectern...");
+				
+			}else
+			{
+				placingJobSite = true;
+				ChatUtils.message(
+					"Villager is not a librarian yet. Placing lectern...");
+			}
+			
+			return;
+		}
+		
+		blockingJobSite = null;
+		lastReasonMessage = "";
+		reasonMessageCooldown = 0;
 		
 		if(!(MC.screen instanceof MerchantScreen tradeScreen))
 		{
@@ -257,6 +300,13 @@ public final class AutoLibrarianHack extends Hack
 		setEnabled(false);
 	}
 	
+	@Override
+	public String getRenderName()
+	{
+		int remaining = wantedBooks.getOffers().size();
+		return getName() + " [" + remaining + " books]";
+	}
+	
 	private void breakJobSite()
 	{
 		if(jobSite == null)
@@ -299,6 +349,7 @@ public final class AutoLibrarianHack extends Hack
 			{
 				System.out.println("Job site has been placed.");
 				placingJobSite = false;
+				professionRetryDelay = 40;
 				
 			}else
 			{
@@ -445,8 +496,7 @@ public final class AutoLibrarianHack extends Hack
 			.filter(e -> !e.isRemoved()).filter(Villager.class::isInstance)
 			.map(e -> (Villager)e).filter(e -> e.getHealth() > 0)
 			.filter(e -> player.distanceToSqr(e) <= rangeSq)
-			.filter(e -> e.getVillagerData().profession().unwrapKey()
-				.orElse(null) == VillagerProfession.LIBRARIAN)
+			.filter(this::isLibrarian)
 			.filter(e -> e.getVillagerData().level() == 1)
 			.filter(e -> !experiencedVillagers.contains(e));
 		
@@ -502,11 +552,108 @@ public final class AutoLibrarianHack extends Hack
 		System.out.println("Found lectern at " + jobSite);
 	}
 	
+	private boolean isLibrarian(Villager villager)
+	{
+		return villager.getVillagerData().profession().unwrapKey()
+			.orElse(null) == VillagerProfession.LIBRARIAN;
+	}
+	
+	private void updateBlockingJobSite()
+	{
+		BlockPos found = getVillagerMemoryPos(MemoryModuleType.JOB_SITE);
+		if(found != null && !found.equals(jobSite))
+		{
+			blockingJobSite = found;
+			return;
+		}
+		
+		found = getVillagerMemoryPos(MemoryModuleType.POTENTIAL_JOB_SITE);
+		if(found != null && !found.equals(jobSite))
+		{
+			blockingJobSite = found;
+			return;
+		}
+		
+		blockingJobSite = null;
+	}
+	
+	private void chatNoLibrarianReason()
+	{
+		if(villager == null || jobSite == null || MC.level == null)
+			return;
+		
+		if(reasonMessageCooldown > 0)
+		{
+			reasonMessageCooldown--;
+			return;
+		}
+		
+		ResourceKey<VillagerProfession> profession =
+			villager.getVillagerData().profession().unwrapKey().orElse(null);
+		String reason;
+		
+		if(profession == VillagerProfession.NITWIT)
+		{
+			reason = "Reason: villager is a nitwit and cannot take jobs.";
+			
+		}else if(profession != VillagerProfession.NONE
+			&& profession != VillagerProfession.LIBRARIAN)
+		{
+			String profName = String.valueOf(profession);
+			reason = "Reason: villager already has a different profession ("
+				+ profName + ").";
+			
+		}else if(villager.getVillagerData().level() > 1)
+		{
+			reason =
+				"Reason: villager level is above novice and profession is locked.";
+			
+		}else if(villager.getVillagerXp() > 0)
+		{
+			reason =
+				"Reason: villager has XP, so profession/trades are already locked.";
+			
+		}else if(blockingJobSite != null)
+		{
+			reason = "Reason: villager remembers another workstation at "
+				+ blockingJobSite.toShortString()
+				+ " (yellow ESP/tracer). Break it.";
+			
+		}else
+		{
+			reason =
+				"Reason: likely pathing issue. Make sure villager can walk to the lectern.";
+		}
+		
+		if(!reason.equals(lastReasonMessage))
+		{
+			ChatUtils.message(reason);
+			lastReasonMessage = reason;
+			reasonMessageCooldown = 20;
+			return;
+		}
+		
+		reasonMessageCooldown = 100;
+	}
+	
+	private BlockPos getVillagerMemoryPos(MemoryModuleType<GlobalPos> memory)
+	{
+		if(villager == null || MC.level == null)
+			return null;
+		
+		GlobalPos pos = villager.getBrain().getMemory(memory).orElse(null);
+		if(pos == null || pos.dimension() != MC.level.dimension())
+			return null;
+		
+		return pos.pos();
+	}
+	
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		int green = 0xC000FF00;
 		int red = 0xC0FF0000;
+		int yellow = 0xC0FFFF00;
 		
 		if(villager != null)
 			RenderUtils.drawOutlinedBox(matrixStack, villager.getBoundingBox(),
@@ -520,6 +667,15 @@ public final class AutoLibrarianHack extends Hack
 			.map(Villager::getBoundingBox).toList();
 		RenderUtils.drawOutlinedBoxes(matrixStack, expVilBoxes, red, false);
 		RenderUtils.drawCrossBoxes(matrixStack, expVilBoxes, red, false);
+		
+		if(blockingJobSite != null)
+		{
+			AABB box = new AABB(blockingJobSite);
+			RenderUtils.drawOutlinedBox(matrixStack, box, yellow, false);
+			RenderUtils.drawCrossBox(matrixStack, box, yellow, false);
+			RenderUtils.drawTracer(matrixStack, partialTicks,
+				Vec3.atCenterOf(blockingJobSite), yellow, false);
+		}
 		
 		if(breakingJobSite)
 			overlay.render(matrixStack, partialTicks, jobSite);

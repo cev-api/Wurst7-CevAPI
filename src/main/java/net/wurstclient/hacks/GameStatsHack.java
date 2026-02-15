@@ -54,6 +54,9 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final CheckboxSetting showCurrentTime =
 		new CheckboxSetting("Show Time", true);
 	
+	private final CheckboxSetting showWorldTime =
+		new CheckboxSetting("Show World Time", true);
+	
 	private final CheckboxSetting showPacketRate =
 		new CheckboxSetting("Show Packet Rate", true);
 	
@@ -115,6 +118,7 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		addSetting(showPing);
 		addSetting(showPlayTime);
 		addSetting(showCurrentTime);
+		addSetting(showWorldTime);
 		addSetting(showPacketRate);
 		addSetting(showDistanceTravelled);
 		addSetting(showMobKills);
@@ -267,6 +271,11 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showCurrentTime()
 	{
 		return showCurrentTime.isChecked();
+	}
+	
+	public boolean showWorldTime()
+	{
+		return showWorldTime.isChecked();
 	}
 	
 	public boolean showPacketRate()
