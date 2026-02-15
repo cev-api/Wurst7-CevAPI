@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -172,7 +173,7 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		Minecraft mc = Minecraft.getInstance();
 		int spacing = 4;
 		int buttonHeight = 20;
-		int buttonCount = 8;
+		int buttonCount = UiUtils.getUiWidgetRows();
 		int chatHeight = 20;
 		int blockHeight = buttonCount * buttonHeight
 			+ (buttonCount - 1) * spacing + spacing + chatHeight;
@@ -377,48 +378,95 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 			"Button Click" + (fabricateMode == MODE_BUTTON_CLICK ? " ✓" : "")));
 		
 		boolean showClick = fabricateMode == MODE_CLICK_SLOT;
-		overlayClickSyncIdField.visible = showClick;
-		overlayClickRevisionField.visible = showClick;
-		overlayClickSlotField.visible = showClick;
-		overlayClickButtonField.visible = showClick;
-		overlayClickActionButton.visible = showClick;
-		overlayClickDelayToggle.visible = showClick;
-		overlayClickTimesField.visible = showClick;
-		overlayClickSendButton.visible = showClick;
+		setWidgetVisibleAndActive(overlayClickSyncIdField, showClick);
+		setWidgetVisibleAndActive(overlayClickRevisionField, showClick);
+		setWidgetVisibleAndActive(overlayClickSlotField, showClick);
+		setWidgetVisibleAndActive(overlayClickButtonField, showClick);
+		setWidgetVisibleAndActive(overlayClickActionButton, showClick);
+		setWidgetVisibleAndActive(overlayClickDelayToggle, showClick);
+		setWidgetVisibleAndActive(overlayClickTimesField, showClick);
+		setWidgetVisibleAndActive(overlayClickSendButton, showClick);
 		
 		boolean showButton = fabricateMode == MODE_BUTTON_CLICK;
-		overlayButtonSyncIdField.visible = showButton;
-		overlayButtonIdField.visible = showButton;
-		overlayButtonDelayToggle.visible = showButton;
-		overlayButtonTimesField.visible = showButton;
-		overlayButtonSendButton.visible = showButton;
+		setWidgetVisibleAndActive(overlayButtonSyncIdField, showButton);
+		setWidgetVisibleAndActive(overlayButtonIdField, showButton);
+		setWidgetVisibleAndActive(overlayButtonDelayToggle, showButton);
+		setWidgetVisibleAndActive(overlayButtonTimesField, showButton);
+		setWidgetVisibleAndActive(overlayButtonSendButton, showButton);
 	}
 	
 	@Unique
 	private void updateOverlayVisibility()
 	{
+		if(!fabricateOverlayInitialized)
+			return;
+		
 		boolean visible = UiUtilsState.fabricateOverlayOpen;
-		overlayClickSlotModeButton.visible = visible;
-		overlayButtonClickModeButton.visible = visible;
+		setWidgetVisibleAndActive(overlayClickSlotModeButton, visible);
+		setWidgetVisibleAndActive(overlayButtonClickModeButton, visible);
 		if(!visible)
 		{
-			overlayClickSyncIdField.visible = false;
-			overlayClickRevisionField.visible = false;
-			overlayClickSlotField.visible = false;
-			overlayClickButtonField.visible = false;
-			overlayClickActionButton.visible = false;
-			overlayClickDelayToggle.visible = false;
-			overlayClickTimesField.visible = false;
-			overlayClickSendButton.visible = false;
-			overlayButtonSyncIdField.visible = false;
-			overlayButtonIdField.visible = false;
-			overlayButtonDelayToggle.visible = false;
-			overlayButtonTimesField.visible = false;
-			overlayButtonSendButton.visible = false;
+			// Force-hide and disable every overlay widget to prevent controls
+			// from leaking at (0,0) on inventory/recipe-book init cycles.
+			hideAndParkOverlayWidgets();
 			return;
 		}
 		
 		switchFabricateMode(fabricateMode);
+	}
+	
+	@Unique
+	private void setWidgetVisibleAndActive(AbstractWidget widget,
+		boolean visible)
+	{
+		if(widget == null)
+			return;
+		widget.visible = visible;
+		widget.active = visible;
+	}
+	
+	@Unique
+	private void hideAndParkOverlayWidgets()
+	{
+		setWidgetVisibleAndActive(overlayClickSyncIdField, false);
+		setWidgetVisibleAndActive(overlayClickRevisionField, false);
+		setWidgetVisibleAndActive(overlayClickSlotField, false);
+		setWidgetVisibleAndActive(overlayClickButtonField, false);
+		setWidgetVisibleAndActive(overlayClickActionButton, false);
+		setWidgetVisibleAndActive(overlayClickDelayToggle, false);
+		setWidgetVisibleAndActive(overlayClickTimesField, false);
+		setWidgetVisibleAndActive(overlayClickSendButton, false);
+		setWidgetVisibleAndActive(overlayButtonSyncIdField, false);
+		setWidgetVisibleAndActive(overlayButtonIdField, false);
+		setWidgetVisibleAndActive(overlayButtonDelayToggle, false);
+		setWidgetVisibleAndActive(overlayButtonTimesField, false);
+		setWidgetVisibleAndActive(overlayButtonSendButton, false);
+		
+		final int offscreen = -2000;
+		parkWidget(overlayClickSlotModeButton, offscreen);
+		parkWidget(overlayButtonClickModeButton, offscreen);
+		parkWidget(overlayClickSyncIdField, offscreen);
+		parkWidget(overlayClickRevisionField, offscreen);
+		parkWidget(overlayClickSlotField, offscreen);
+		parkWidget(overlayClickButtonField, offscreen);
+		parkWidget(overlayClickActionButton, offscreen);
+		parkWidget(overlayClickDelayToggle, offscreen);
+		parkWidget(overlayClickTimesField, offscreen);
+		parkWidget(overlayClickSendButton, offscreen);
+		parkWidget(overlayButtonSyncIdField, offscreen);
+		parkWidget(overlayButtonIdField, offscreen);
+		parkWidget(overlayButtonDelayToggle, offscreen);
+		parkWidget(overlayButtonTimesField, offscreen);
+		parkWidget(overlayButtonSendButton, offscreen);
+	}
+	
+	@Unique
+	private void parkWidget(AbstractWidget widget, int offscreen)
+	{
+		if(widget == null)
+			return;
+		widget.setX(offscreen);
+		widget.setY(offscreen);
 	}
 	
 	@Unique

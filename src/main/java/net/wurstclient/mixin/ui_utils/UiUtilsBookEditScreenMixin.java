@@ -45,7 +45,7 @@ public abstract class UiUtilsBookEditScreenMixin extends Screen
 		Minecraft mc = Minecraft.getInstance();
 		int spacing = 4;
 		int buttonHeight = 20;
-		int buttonCount = 8;
+		int buttonCount = UiUtils.getUiWidgetRows();
 		int chatHeight = 20;
 		int blockHeight = buttonCount * buttonHeight
 			+ (buttonCount - 1) * spacing + spacing + chatHeight;

@@ -587,6 +587,12 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Extra diagnostics and Wurst toggles (send/delay) wired into Wurst’s packet pipeline.
 - Toggleable chat logs.
 - Added customisable slot number overlay for containers.
+- Added extra tools from [FrannnnDev's fork](https://github.com/FrannnnDev/ui-utils-advanced/) of UI-Utils
+  - Leave & send, Disconnect & send, Save/Load GUI, Clear Queue, Queue, Resync Inv, Disconnect, Spam +/-, Send One, Pop Last
+  - Queue helper and counter
+  - ```.uiutils``` commands
+  - Named GUI slot maps
+  - Plugin scanner
 - Published with permission from MrBreakNFix. 
 
 #### Log Example
@@ -596,7 +602,7 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 [12:52:54]: UiUtilsConnectionMixin: attempting to send UI packet class_2813 (sendUiPackets=true, delayUiPackets=false)
 ```
 
-![UI](https://i.imgur.com/pyHBl9T.png)
+![UI](https://i.imgur.com/xz52jyN.png)
 
 ### Towny
 - A very petty hack that simply enables/disables Towny PVP whilst you're attacking

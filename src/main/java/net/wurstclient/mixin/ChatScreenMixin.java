@@ -19,8 +19,7 @@ import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatOutputListener.ChatOutputEvent;
-import net.wurstclient.uiutils.UiUtils;
-import net.wurstclient.uiutils.UiUtilsState;
+import net.wurstclient.uiutils.UiUtilsCommandSystem;
 
 @Mixin(ChatScreen.class)
 public abstract class ChatScreenMixin extends Screen
@@ -50,21 +49,19 @@ public abstract class ChatScreenMixin extends Screen
 		if((message = normalizeChatMessage(message)).isEmpty())
 			return;
 		
-		if("^toggleuiutils".equals(message))
+		if(UiUtilsCommandSystem.isUiUtilsCommand(message))
 		{
-			UiUtilsState.enabled = !UiUtilsState.enabled;
-			if(minecraft.player != null)
-				minecraft.player
-					.displayClientMessage(Component.literal("UI-Utils is now "
-						+ (UiUtilsState.enabled ? "enabled" : "disabled")
-						+ "."), false);
-			else
-				UiUtils.LOGGER
-					.warn("Minecraft player was null while toggling UI-Utils.");
+			String command = UiUtilsCommandSystem.extractCommandBody(message);
+			String result = UiUtilsCommandSystem.execute(command);
 			
 			if(addToHistory)
 				minecraft.gui.getChat().addRecentChat(message);
 			
+			if(minecraft.player != null && !result.isEmpty())
+				for(String line : result.split("\n"))
+					minecraft.player
+						.displayClientMessage(Component.literal(line), false);
+				
 			minecraft.setScreen(null);
 			ci.cancel();
 			return;

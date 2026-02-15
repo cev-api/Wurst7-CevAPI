@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
@@ -56,6 +57,9 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		if(!isEnabled())
 			return nametag;
 		
+		if(shouldSkipEntity(entity))
+			return nametag;
+		
 		if(heartsBelowName.isChecked())
 			return nametag;
 		
@@ -73,8 +77,13 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 	
 	public void markForHeartRender(LivingEntity entity)
 	{
-		if(shouldRenderHeartsBelowName())
+		if(shouldRenderHeartsBelowName() && !shouldSkipEntity(entity))
 			entitiesToRender.add(entity);
+	}
+	
+	private boolean shouldSkipEntity(LivingEntity entity)
+	{
+		return entity instanceof ArmorStand && entity.isInvisible();
 	}
 	
 	private ChatFormatting getColor(int health)
