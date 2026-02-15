@@ -950,6 +950,8 @@ Examples:
 ### AutoLibrarian Improved
 - Can now discover enchantments provided by data packs.
 - Able to search for enchantments by keywords.
+- Reasons for failure indicated in chat.
+- Will auto-break lecturn if they refuse the job.
 
 ![Library](https://i.imgur.com/pWqgNz8.png)
 
