@@ -299,6 +299,7 @@
   "description.wurst.other_feature.command_prefix": "Changes the prefix used to trigger Wurst commands (e.g. '.' -> ';').",
   "description.wurst.other_feature.above_ground_filter": "Global toggle + Y level for ESP/search hacks that support the above-ground filter.",
   "description.wurst.other_feature.packet_firewall": "Validates outbound movement packets (NaN/Infinity checks, pitch clamp, optional yaw wrapping) to keep packets protocol-safe. Can optionally drop invalid packets and deduplicate movement within a tick. Disabled by default.",
+  "description.wurst.other_feature.packet_tools": "Packet logger / filter toolbox. Lets you select packet types for logging, denying, and delaying independently for C2S and S2C.",
   "other_feature.wurst.packetfirewall": "Packet Firewall",
   "description.wurst.setting.aimassist.aim_while_blocking": "Keeps aiming at entities while you're blocking with a shield or using items.",
   "hack.wurst.item_handler": "Item Handler",

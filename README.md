@@ -772,6 +772,19 @@ This hack is still undergoing development and has only been tested in the end. A
 
 ![FPS](https://i.imgur.com/MhmAno5.png)
 
+### AdvancedPacketTool
+- Lets you manage packet behavior per packet type (S2C & C2S)
+- Supports 3 independent modes: Log, Deny and Delay
+- Modes can overlap (Log & Deny Packet A but also Log & Delay Packet B)
+- Toggles for enabling modes as well as cycling through packet edit list
+- Delay is tick based
+- Searchable dual-list UI with select all/none controls
+- Setting toggles are key bindable
+- Optional ```Show Unknown Packets``` feature to allow ```class_####``` packets
+- Inspired by [HelixCraft's Packet Logger](https://github.com/HelixCraft/Fabric-Packet-Logger)
+
+![PacketTool](https://i.imgur.com/kBEhpuO.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
