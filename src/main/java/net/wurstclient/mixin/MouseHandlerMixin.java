@@ -20,6 +20,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.MouseScrollListener.MouseScrollEvent;
 import net.wurstclient.events.MouseUpdateListener.MouseUpdateEvent;
+import net.wurstclient.hud.ClientMessageOverlay;
 
 @Mixin(MouseHandler.class)
 public abstract class MouseHandlerMixin
@@ -33,6 +34,7 @@ public abstract class MouseHandlerMixin
 	private void onOnScroll(long window, double horizontal, double vertical,
 		CallbackInfo ci)
 	{
+		ClientMessageOverlay.getInstance().onMouseScroll(vertical);
 		EventManager.fire(new MouseScrollEvent(vertical));
 	}
 	
@@ -54,6 +56,7 @@ public abstract class MouseHandlerMixin
 		WurstClient wurst = WurstClient.INSTANCE;
 		return !wurst.getOtfs().zoomOtf.isControllingScrollEvents()
 			&& !wurst.getHax().freecamHack.isControllingScrollEvents()
-			&& !wurst.getHax().flightHack.isControllingScrollEvents();
+			&& !wurst.getHax().flightHack.isControllingScrollEvents()
+			&& !ClientMessageOverlay.getInstance().isControllingScrollEvents();
 	}
 }

@@ -27,6 +27,7 @@ import net.minecraft.network.chat.MessageSignature;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatInputListener.ChatInputEvent;
+import net.wurstclient.hud.ClientMessageOverlay;
 
 @Mixin(ChatComponent.class)
 public class ChatHudMixin
@@ -34,6 +35,20 @@ public class ChatHudMixin
 	@Shadow
 	@Final
 	private List<GuiMessage.Line> trimmedMessages;
+	
+	@Inject(at = @At("HEAD"),
+		method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
+		cancellable = true)
+	private void onAddMessage(Component message, CallbackInfo ci)
+	{
+		if(ClientMessageOverlay.getInstance().captureSingleArgMessage(message))
+		{
+			ci.cancel();
+			return;
+		}
+		
+		ClientMessageOverlay.getInstance().notifyVanillaChatMessage(message);
+	}
 	
 	@Inject(at = @At("HEAD"),
 		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
@@ -44,6 +59,13 @@ public class ChatHudMixin
 		@Local(argsOnly = true) LocalRef<Component> message,
 		@Local(argsOnly = true) LocalRef<GuiMessageTag> indicator)
 	{
+		if(ClientMessageOverlay.getInstance()
+			.captureIfNonPlayerMessage(message.get(), signature))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		
@@ -57,5 +79,7 @@ public class ChatHudMixin
 		message.set(event.getComponent());
 		indicator.set(WurstClient.INSTANCE.getOtfs().noChatReportsOtf
 			.modifyIndicator(message.get(), signature, indicator.get()));
+		ClientMessageOverlay.getInstance()
+			.notifyVanillaChatMessage(message.get());
 	}
 }

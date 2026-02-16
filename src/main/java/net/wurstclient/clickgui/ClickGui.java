@@ -132,9 +132,10 @@ public final class ClickGui
 			
 			if(f.getCategory() != null)
 			{
-				// GameStats is intentionally shown only in the dedicated
-				// "UI Settings" window, not in category windows.
-				if(f == WURST.getHax().gameStatsHack)
+				// Some HUD/UI hacks are intentionally shown only in the
+				// dedicated "UI Settings" window, not in category windows.
+				if(f == WURST.getHax().gameStatsHack
+					|| f == WURST.getHax().clientChatOverlayHack)
 					continue;
 				
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
@@ -175,6 +176,7 @@ public final class ClickGui
 		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstLogoOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
 		uiSettings.add(new FeatureButton(WURST.getHax().gameStatsHack));
+		uiSettings.add(new FeatureButton(WURST.getHax().clientChatOverlayHack));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().presetManagerOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstOptionsOtf));

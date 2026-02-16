@@ -570,6 +570,12 @@ public final class SeedMapperHelperHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+		{
+			connectionPreviouslyNull = MC.getConnection() == null;
+			return;
+		}
+		
 		boolean connected = MC.getConnection() != null;
 		if(connected && connectionPreviouslyNull)
 		{

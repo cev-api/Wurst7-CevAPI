@@ -797,6 +797,13 @@ This hack is still undergoing development and has only been tested in the end. A
 
 ![ChunkyDunky](https://i.imgur.com/ndNfFUD.png)
 
+### ClientChatOverlay
+- Adds a separate chat overlay that captures non-player/client/mod outputs and keeps normal player chat in the bottom vanilla chat
+- Optional transparancy, fade-out time, route to game console, Wurst only mode, max lines and X/Y offset
+- Can adjust its position by moving it with mouse when in inventory or container
+- Auto avoids vanilla chat messages if positioned above it
+- Is scrollable when chat is opened
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
