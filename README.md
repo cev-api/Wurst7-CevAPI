@@ -785,6 +785,18 @@ This hack is still undergoing development and has only been tested in the end. A
 
 ![PacketTool](https://i.imgur.com/kBEhpuO.png)
 
+### NewerNewChunks
+- Detects likely new vs old chunks using packet and fluid heuristics while you explore.
+- Color layers: New (red), Old (green), Block-exploit (blue), with adjustable render height and distance.
+- Modes: `Normal`, `IgnoreBlockExploit`, and `BlockExploitMode` to control how block-update signals are interpreted.
+- Optional alarms for newly detected chunks (rings, delay, volume, pitch).
+- Can save/load cached chunk detections per server + dimension, with optional auto-reload.
+- Includes one-click chunk cache delete (double-press confirm).
+- Note: Nether results are heuristic and can produce false positives/negatives.
+- Inspired by [Trouser-Streak's NewerNewChunks](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/NewerNewChunks.java)
+
+![ChunkyDunky](https://i.imgur.com/ndNfFUD.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

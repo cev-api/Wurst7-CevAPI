@@ -80,6 +80,7 @@ public abstract class ClientPlayNetworkHandlerMixin
 		ClientboundLevelChunkPacketData chunkData, CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().newChunksHack.afterLoadChunk(x, z);
+		WurstClient.INSTANCE.getHax().newerNewChunksHack.afterLoadChunk(x, z);
 	}
 	
 	@Inject(at = @At("TAIL"),
@@ -89,6 +90,8 @@ public abstract class ClientPlayNetworkHandlerMixin
 	{
 		WurstClient.INSTANCE.getHax().newChunksHack
 			.afterUpdateBlock(packet.getPos());
+		WurstClient.INSTANCE.getHax().newerNewChunksHack
+			.afterUpdateBlock(packet.getPos());
 	}
 	
 	@Inject(at = @At("TAIL"),
@@ -96,9 +99,11 @@ public abstract class ClientPlayNetworkHandlerMixin
 	private void onOnChunkDeltaUpdate(
 		ClientboundSectionBlocksUpdatePacket packet, CallbackInfo ci)
 	{
-		packet.runUpdates(
-			(pos, state) -> WurstClient.INSTANCE.getHax().newChunksHack
-				.afterUpdateBlock(pos));
+		packet.runUpdates((pos, state) -> {
+			WurstClient.INSTANCE.getHax().newChunksHack.afterUpdateBlock(pos);
+			WurstClient.INSTANCE.getHax().newerNewChunksHack
+				.afterUpdateBlock(pos);
+		});
 	}
 	
 	@Inject(

@@ -179,6 +179,8 @@ public final class HackList implements UpdateListener
 	public final NameTagsHack nameTagsHack = new NameTagsHack();
 	public final NavigatorHack navigatorHack = new NavigatorHack();
 	public final NewChunksHack newChunksHack = new NewChunksHack();
+	public final NewerNewChunksHack newerNewChunksHack =
+		new NewerNewChunksHack();
 	public final NoBackgroundHack noBackgroundHack = new NoBackgroundHack();
 	public final NoClipHack noClipHack = new NoClipHack();
 	public final NoFallHack noFallHack = new NoFallHack();
