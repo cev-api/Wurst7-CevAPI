@@ -51,6 +51,7 @@ public final class HackList implements UpdateListener
 	public final ArrowDmgHack arrowDmgHack = new ArrowDmgHack();
 	public final AutoArmorHack autoArmorHack = new AutoArmorHack();
 	public final AutoBuildHack autoBuildHack = new AutoBuildHack();
+	public final AutoChatHack autoChatHack = new AutoChatHack();
 	public final AutoCompleteHack autoCompleteHack = new AutoCompleteHack();
 	public final AutoDisenchantHack autoDisenchantHack =
 		new AutoDisenchantHack();
@@ -164,6 +165,7 @@ public final class HackList implements UpdateListener
 	public final LiquidsHack liquidsHack = new LiquidsHack();
 	public final LsdHack lsdHack = new LsdHack();
 	public final MaceDmgHack maceDmgHack = new MaceDmgHack();
+	public final MentionHack mentionHack = new MentionHack();
 	public final SpearAssistHack spearAssistHack = new SpearAssistHack();
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final BedrockEscapeHack bedrockEscapeHack = new BedrockEscapeHack();

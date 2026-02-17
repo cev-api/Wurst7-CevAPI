@@ -8,13 +8,13 @@
 package net.wurstclient.hacks;
 
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"damage detect", "damage source", "hit warning"})
 public final class DamageDetectHack extends Hack implements UpdateListener
@@ -58,8 +58,7 @@ public final class DamageDetectHack extends Hack implements UpdateListener
 	private void announceDamage(DamageSource source, LocalPlayer player)
 	{
 		String cause = formatDamageSource(source);
-		player.displayClientMessage(Component.literal("DamageDetect: " + cause),
-			false);
+		ChatUtils.message("DamageDetect: " + cause);
 	}
 	
 	private String formatDamageSource(DamageSource source)

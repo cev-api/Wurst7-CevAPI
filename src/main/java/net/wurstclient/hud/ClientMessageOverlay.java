@@ -41,12 +41,14 @@ public final class ClientMessageOverlay
 	private static final int VANILLA_CHAT_VISIBLE_TICKS = 200;
 	private static final Pattern PLAYER_CHAT_PATTERN =
 		Pattern.compile("^<[^>]{1,32}>\\s+.+$");
+	private static final String CHAT_PREFIX_PATTERN =
+		"(?:(?:\\[[^\\]]{1,32}\\]|‹[^›]{1,32}›)\\s*)*";
 	private static final Pattern DECORATED_PLAYER_CHAT_PATTERN =
-		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s*<[^>]{1,32}>\\s+.+$");
+		Pattern.compile("^" + CHAT_PREFIX_PATTERN + "<[^>]{1,32}>\\s+.+$");
 	private static final Pattern COLON_PLAYER_CHAT_PATTERN = Pattern
-		.compile("^(?:\\[[^\\]]{1,32}\\]\\s*)?[A-Za-z0-9_]{1,16}:\\s+.+$");
+		.compile("^" + CHAT_PREFIX_PATTERN + "[A-Za-z0-9_\\-*.]{1,24}:\\s+.+$");
 	private static final Pattern ARROW_PLAYER_CHAT_PATTERN = Pattern.compile(
-		"^(?:\\[[^\\]]{1,32}\\]\\s*)?[A-Za-z0-9_]{1,16}\\s*[»>]\\s+.+$");
+		"^" + CHAT_PREFIX_PATTERN + "[A-Za-z0-9_\\-*.]{1,24}\\s*[»>]\\s+.+$");
 	private static final Pattern BRACKETED_PLAYER_CHAT_PATTERN =
 		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s+\\[[^\\]]{1,32}\\]\\s+.+$");
 	private static final Pattern JOIN_LEAVE_PATTERN =
@@ -144,6 +146,11 @@ public final class ClientMessageOverlay
 			logToConsoleIfEnabled(message);
 			return true;
 		}
+		
+		// Signed messages are usually player chat. Keep them in vanilla chat
+		// unless explicitly forced into client chat via keyword.
+		if(signature != null)
+			return false;
 		
 		if(looksLikePlayerChat(plain))
 			return false;

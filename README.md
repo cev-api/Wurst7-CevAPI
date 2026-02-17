@@ -804,6 +804,30 @@ This hack is still undergoing development and has only been tested in the end. A
 - Auto avoids vanilla chat messages if positioned above it
 - Is scrollable when chat is opened
 
+### AutoChat
+- AutoChat watches incoming chat and keeps a rolling context history (configurable size).
+- API key source: setting or `WURST_OPENAI_KEY` (set in Java/Minecraft, not your PC).
+- Replies when directly addressed, in clear 1-on-1 chat, or freely based on configurable butt-in chance.
+- Can prioritize the newest message while keeping older lines as secondary context.
+- Mention detection supports your username plus nickname/derivative variants.
+- Optional `Always reply when mentioned` bypasses reply-gap timers for direct mentions.
+- Persona is configurable via text field.
+- Model is selectable, including:
+  `chatgpt-4o-latest`, `gpt-5.2-chat-latest`, `gpt-5.2`, `gpt-4o`,
+  `gpt-5.1-chat-latest`, `gpt-5-chat-latest`, `gpt-5.1`, `gpt-5`,
+  `gpt-4.1`, `gpt-5-mini`, `gpt-4.1-mini`, `gpt-4o-mini`,
+  `gpt-4.1-nano`, `gpt-5-nano`.
+- Generation controls: max tokens, temperature, max output chars.
+- Timing controls: min reply gap, min unsolicited gap, optional queued scheduling for gap-blocked replies, WPM pacing (toggle + words-per-minute), and max concurrent requests.
+- Debug mode can print raw OpenAI request/response JSON in the console.
+- Safety/sanitization: filters likely prompt-injection attempts, strips leading `<Name>`/`[Name]` style prefixes, prevents slash-command output, enforces single-line replies, and normalizes output to ASCII-safe chat text.
+
+![AI](https://i.imgur.com/3vblHDI.png)
+
+### Mention
+- Plays a sound when your username or a nickname/derivative is detected in chat
+- Choose from any of the note blocks and adjust the volume
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
