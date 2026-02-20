@@ -1445,6 +1445,7 @@ public final class ChestSearchScreen extends Screen
 		ChestEntry entry, String query)
 	{
 		String q = (query == null ? "" : query.trim()).toLowerCase(Locale.ROOT);
+		String[] tokens = tokenizeQuery(q);
 		if(q.equals(lastMatchQuery))
 		{
 			java.util.List<ChestEntry.ItemEntry> cached = matchCache.get(entry);
@@ -1465,52 +1466,7 @@ public final class ChestSearchScreen extends Screen
 		{
 			if(it == null)
 				continue;
-			boolean matched = false;
-			if(q.isEmpty())
-				matched = true;
-			if(!matched && it.itemId != null
-				&& it.itemId.toLowerCase(Locale.ROOT).contains(q))
-				matched = true;
-			if(!matched && it.displayName != null
-				&& it.displayName.toLowerCase(Locale.ROOT).contains(q))
-				matched = true;
-			// Also search NBT (full ItemStack data) so enchantments on
-			// books/gear
-			// are searchable if full NBT was recorded.
-			if(!matched && it.nbt != null)
-			{
-				String n = it.nbt.toString().toLowerCase(Locale.ROOT);
-				if(n.contains(q))
-					matched = true;
-			}
-			// Also match extracted enchantment/potion ids collected by the
-			// recorder so queries like "sharpness" or "speed" match items.
-			if(!matched && it.enchantments != null)
-			{
-				for(String en : it.enchantments)
-				{
-					if(en != null && en.toLowerCase(Locale.ROOT).contains(q))
-					{
-						matched = true;
-						break;
-					}
-				}
-			}
-			if(!matched && it.potionEffects != null)
-			{
-				for(String pe : it.potionEffects)
-				{
-					if(pe != null && pe.toLowerCase(Locale.ROOT).contains(q))
-					{
-						matched = true;
-						break;
-					}
-				}
-			}
-			if(!matched && it.primaryPotion != null
-				&& it.primaryPotion.toLowerCase(Locale.ROOT).contains(q))
-				matched = true;
-			if(matched)
+			if(itemMatchesQuery(it, q, tokens))
 				matches.add(it);
 		}
 		java.util.List<ChestEntry.ItemEntry> immutable = java.util.Collections
@@ -1518,6 +1474,84 @@ public final class ChestSearchScreen extends Screen
 		if(q.equals(lastMatchQuery))
 			matchCache.put(entry, immutable);
 		return immutable;
+	}
+	
+	private static boolean itemMatchesQuery(ChestEntry.ItemEntry item, String q,
+		String[] tokens)
+	{
+		if(item == null)
+			return false;
+		if(q.isEmpty())
+			return true;
+		
+		StringBuilder sb = new StringBuilder(256);
+		appendSearchPart(sb, item.itemId);
+		appendSearchPart(sb, item.displayName);
+		if(item.nbt != null)
+			appendSearchPart(sb, item.nbt.toString());
+		if(item.enchantments != null)
+			for(String en : item.enchantments)
+				appendSearchPart(sb, en);
+		if(item.potionEffects != null)
+			for(String pe : item.potionEffects)
+				appendSearchPart(sb, pe);
+		appendSearchPart(sb, item.primaryPotion);
+		
+		return containsQueryTokens(sb.toString(), q, tokens);
+	}
+	
+	private static void appendSearchPart(StringBuilder sb, String part)
+	{
+		if(part == null || part.isBlank())
+			return;
+		if(sb.length() > 0)
+			sb.append(' ');
+		sb.append(part.toLowerCase(Locale.ROOT));
+	}
+	
+	private static String[] tokenizeQuery(String query)
+	{
+		if(query == null || query.isBlank())
+			return new String[0];
+		String normalized = normalizeForTokenSearch(query);
+		if(normalized.isEmpty())
+			return new String[0];
+		return normalized.split(" ");
+	}
+	
+	private static boolean containsQueryTokens(String haystack, String rawQuery,
+		String[] tokens)
+	{
+		if(rawQuery == null || rawQuery.isEmpty())
+			return true;
+		if(haystack == null || haystack.isEmpty())
+			return false;
+		
+		String lowerHaystack = haystack.toLowerCase(Locale.ROOT);
+		if(lowerHaystack.contains(rawQuery))
+			return true;
+		
+		if(tokens == null || tokens.length == 0)
+			return false;
+		
+		String normalizedHaystack = normalizeForTokenSearch(lowerHaystack);
+		for(String token : tokens)
+		{
+			if(token == null || token.isEmpty())
+				continue;
+			if(!lowerHaystack.contains(token)
+				&& !normalizedHaystack.contains(token))
+				return false;
+		}
+		return true;
+	}
+	
+	private static String normalizeForTokenSearch(String value)
+	{
+		if(value == null || value.isBlank())
+			return "";
+		return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ")
+			.trim();
 	}
 	
 	/*

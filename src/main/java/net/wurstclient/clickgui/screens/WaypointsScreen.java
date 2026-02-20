@@ -269,8 +269,8 @@ public final class WaypointsScreen extends Screen
 			
 			Button copyBtn = addRenderableWidget(
 				Button.builder(Component.literal("Copy"), b -> {
-					String s = w.getPos().getX() + " " + w.getPos().getY()
-						+ " " + w.getPos().getZ();
+					String s = w.getPos().getX() + " " + w.getPos().getY() + " "
+						+ w.getPos().getZ();
 					minecraft.keyboardHandler.setClipboard(s);
 				}).bounds(x + 265, rowY, 35, 20).build());
 			

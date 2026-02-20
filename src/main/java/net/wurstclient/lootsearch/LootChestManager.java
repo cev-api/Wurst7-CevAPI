@@ -36,71 +36,23 @@ public class LootChestManager extends ChestManager
 	{
 		if(q == null || q.isBlank())
 			return new ArrayList<>(entries);
-		String qq = q.toLowerCase(Locale.ROOT);
+		String qq = q.toLowerCase(Locale.ROOT).trim();
+		String[] tokens = tokenizeQuery(qq);
 		List<ChestEntry> out = new ArrayList<>();
 		for(ChestEntry e : entries)
 		{
 			boolean matched = false;
-			if(e.serverIp != null
-				&& e.serverIp.toLowerCase(Locale.ROOT).contains(qq))
+			if(e.serverIp != null && containsQueryTokens(
+				e.serverIp.toLowerCase(Locale.ROOT), qq, tokens))
 				matched = true;
-			if(e.dimension != null
-				&& e.dimension.toLowerCase(Locale.ROOT).contains(qq))
+			if(e.dimension != null && containsQueryTokens(
+				e.dimension.toLowerCase(Locale.ROOT), qq, tokens))
 				matched = true;
 			if(!matched && e.items != null)
 			{
 				for(ChestEntry.ItemEntry it : e.items)
 				{
-					if(it == null)
-						continue;
-					if(it.itemId != null
-						&& it.itemId.toLowerCase(Locale.ROOT).contains(qq))
-					{
-						matched = true;
-						break;
-					}
-					if(it.displayName != null
-						&& it.displayName.toLowerCase(Locale.ROOT).contains(qq))
-					{
-						matched = true;
-						break;
-					}
-					if(it.nbt != null && it.nbt.toString()
-						.toLowerCase(Locale.ROOT).contains(qq))
-					{
-						matched = true;
-						break;
-					}
-					if(it.enchantments != null)
-					{
-						for(String en : it.enchantments)
-						{
-							if(en != null
-								&& en.toLowerCase(Locale.ROOT).contains(qq))
-							{
-								matched = true;
-								break;
-							}
-						}
-						if(matched)
-							break;
-					}
-					if(it.potionEffects != null)
-					{
-						for(String pe : it.potionEffects)
-						{
-							if(pe != null
-								&& pe.toLowerCase(Locale.ROOT).contains(qq))
-							{
-								matched = true;
-								break;
-							}
-						}
-						if(matched)
-							break;
-					}
-					if(it.primaryPotion != null && it.primaryPotion
-						.toLowerCase(Locale.ROOT).contains(qq))
+					if(itemMatchesQuery(it, qq, tokens))
 					{
 						matched = true;
 						break;
@@ -174,5 +126,83 @@ public class LootChestManager extends ChestManager
 		if(colon >= 0 && colon < lower.length() - 1)
 			return lower.substring(colon + 1);
 		return lower;
+	}
+	
+	private static boolean itemMatchesQuery(ChestEntry.ItemEntry item, String q,
+		String[] tokens)
+	{
+		if(item == null)
+			return false;
+		if(q.isEmpty())
+			return true;
+		
+		StringBuilder sb = new StringBuilder(256);
+		appendSearchPart(sb, item.itemId);
+		appendSearchPart(sb, item.displayName);
+		if(item.nbt != null)
+			appendSearchPart(sb, item.nbt.toString());
+		if(item.enchantments != null)
+			for(String en : item.enchantments)
+				appendSearchPart(sb, en);
+		if(item.potionEffects != null)
+			for(String pe : item.potionEffects)
+				appendSearchPart(sb, pe);
+		appendSearchPart(sb, item.primaryPotion);
+		
+		return containsQueryTokens(sb.toString(), q, tokens);
+	}
+	
+	private static void appendSearchPart(StringBuilder sb, String part)
+	{
+		if(part == null || part.isBlank())
+			return;
+		if(sb.length() > 0)
+			sb.append(' ');
+		sb.append(part.toLowerCase(Locale.ROOT));
+	}
+	
+	private static String[] tokenizeQuery(String query)
+	{
+		if(query == null || query.isBlank())
+			return new String[0];
+		String normalized = normalizeForTokenSearch(query);
+		if(normalized.isEmpty())
+			return new String[0];
+		return normalized.split(" ");
+	}
+	
+	private static boolean containsQueryTokens(String haystack, String rawQuery,
+		String[] tokens)
+	{
+		if(rawQuery == null || rawQuery.isEmpty())
+			return true;
+		if(haystack == null || haystack.isEmpty())
+			return false;
+		
+		String lowerHaystack = haystack.toLowerCase(Locale.ROOT);
+		if(lowerHaystack.contains(rawQuery))
+			return true;
+		
+		if(tokens == null || tokens.length == 0)
+			return false;
+		
+		String normalizedHaystack = normalizeForTokenSearch(lowerHaystack);
+		for(String token : tokens)
+		{
+			if(token == null || token.isEmpty())
+				continue;
+			if(!lowerHaystack.contains(token)
+				&& !normalizedHaystack.contains(token))
+				return false;
+		}
+		return true;
+	}
+	
+	private static String normalizeForTokenSearch(String value)
+	{
+		if(value == null || value.isBlank())
+			return "";
+		return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ")
+			.trim();
 	}
 }

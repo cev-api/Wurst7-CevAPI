@@ -19,6 +19,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class ChestDatabase
@@ -180,58 +181,113 @@ public class ChestDatabase
 	
 	public synchronized List<ChestEntry> search(String query)
 	{
-		String q = query.toLowerCase();
+		String q = query == null ? "" : query.toLowerCase(Locale.ROOT).trim();
+		String[] tokens = tokenizeQuery(q);
 		List<ChestEntry> res = new ArrayList<>();
 		for(ChestEntry e : entries)
 		{
 			boolean matched = false;
-			if(e.serverIp != null && e.serverIp.toLowerCase().contains(q))
+			if(e.serverIp != null && containsQueryTokens(
+				e.serverIp.toLowerCase(Locale.ROOT), q, tokens))
 				matched = true;
-			if(e.dimension != null && e.dimension.toLowerCase().contains(q))
+			if(e.dimension != null && containsQueryTokens(
+				e.dimension.toLowerCase(Locale.ROOT), q, tokens))
 				matched = true;
-			for(ChestEntry.ItemEntry item : e.items)
+			if(!matched && e.items != null)
 			{
-				if(item.itemId != null && item.itemId.toLowerCase().contains(q))
-					matched = true;
-				if(item.displayName != null
-					&& item.displayName.toLowerCase().contains(q))
-					matched = true;
-				if(!matched && item.nbt != null
-					&& item.nbt.toString().toLowerCase().contains(q))
-					matched = true;
-				// Also match extracted enchantment and potion ids collected
-				// by the recorder so searches like "sharpness" or "speed"
-				// will find chests containing those effects.
-				if(!matched && item.enchantments != null)
+				for(ChestEntry.ItemEntry item : e.items)
 				{
-					for(String en : item.enchantments)
+					if(itemMatchesQuery(item, q, tokens))
 					{
-						if(en != null && en.toLowerCase().contains(q))
-						{
-							matched = true;
-							break;
-						}
+						matched = true;
+						break;
 					}
 				}
-				if(!matched && item.potionEffects != null)
-				{
-					for(String pe : item.potionEffects)
-					{
-						if(pe != null && pe.toLowerCase().contains(q))
-						{
-							matched = true;
-							break;
-						}
-					}
-				}
-				if(!matched && item.primaryPotion != null
-					&& item.primaryPotion.toLowerCase().contains(q))
-					matched = true;
 			}
 			if(matched)
 				res.add(e);
 		}
 		return res;
+	}
+	
+	private static boolean itemMatchesQuery(ChestEntry.ItemEntry item, String q,
+		String[] tokens)
+	{
+		if(item == null)
+			return false;
+		if(q.isEmpty())
+			return true;
+		
+		StringBuilder sb = new StringBuilder(256);
+		appendSearchPart(sb, item.itemId);
+		appendSearchPart(sb, item.displayName);
+		if(item.nbt != null)
+			appendSearchPart(sb, item.nbt.toString());
+		if(item.enchantments != null)
+			for(String en : item.enchantments)
+				appendSearchPart(sb, en);
+		if(item.potionEffects != null)
+			for(String pe : item.potionEffects)
+				appendSearchPart(sb, pe);
+		appendSearchPart(sb, item.primaryPotion);
+		
+		return containsQueryTokens(sb.toString(), q, tokens);
+	}
+	
+	private static void appendSearchPart(StringBuilder sb, String part)
+	{
+		if(part == null || part.isBlank())
+			return;
+		if(sb.length() > 0)
+			sb.append(' ');
+		sb.append(part.toLowerCase(Locale.ROOT));
+	}
+	
+	private static String[] tokenizeQuery(String query)
+	{
+		if(query == null || query.isBlank())
+			return new String[0];
+		String normalized = normalizeForTokenSearch(query);
+		if(normalized.isEmpty())
+			return new String[0];
+		return normalized.split(" ");
+	}
+	
+	private static boolean containsQueryTokens(String haystack, String rawQuery,
+		String[] tokens)
+	{
+		if(rawQuery == null || rawQuery.isEmpty())
+			return true;
+		if(haystack == null || haystack.isEmpty())
+			return false;
+		
+		String lowerHaystack = haystack.toLowerCase(Locale.ROOT);
+		if(lowerHaystack.contains(rawQuery))
+			return true;
+		
+		if(tokens == null || tokens.length == 0)
+			return false;
+		
+		String normalizedHaystack = normalizeForTokenSearch(lowerHaystack);
+		for(String token : tokens)
+		{
+			if(token == null || token.isEmpty())
+				continue;
+			if(!lowerHaystack.contains(token)
+				&& !normalizedHaystack.contains(token))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	private static String normalizeForTokenSearch(String value)
+	{
+		if(value == null || value.isBlank())
+			return "";
+		return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ")
+			.trim();
 	}
 	
 	private boolean equalsPos(ChestEntry a, ChestEntry b)
