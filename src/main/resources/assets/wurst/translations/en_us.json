@@ -103,7 +103,7 @@
   "hack.wurst.lootsearch": "LootSearch",
   "hack.wurst.hidemodmenu": "HideModMenu",
   "hack.wurst.hidewurst": "HideWurst",
-  "description.wurst.hack.lootsearch": "DEPRECIATED - SEEDMAPPER-CEVAPI HAS THIS BUILT IN!\nLoads SeedMapper loot export files for the current server and displays the discovered chest locations and contents in a searchable list. Adds temporary waypoints to track loot positions. Use SeedMapper to export loot into the \"seedmapper/loot\" folder before using this feature.",
+  "description.wurst.hack.lootsearch": "Loads SeedMapper or LootProbe's loot export files for the current server and displays the discovered chest locations and contents in a searchable list. Adds temporary waypoints to track loot positions. Hack will NOT work without a valid loot export file. Tries SeedMapper first then LootProbe. You're able to manually choose or enter a path.",
   "description.wurst.hack.hidemodmenu": "Hides mods from ModMenu's mod list based on a comma-separated keyword list.",
   "description.wurst.hack.lootrunner": "Uses Baritone to visit SeedMapper export coordinates, find nearby chests, loot selected items, and log results.",
   "description.wurst.hack.clickaura": "Automatically attacks the closest valid entity whenever you click.\n\nWARNING: ClickAuras generally look more suspicious than Killauras and are easier for plugins to detect. It is recommended to use Killaura or TriggerBot instead.",

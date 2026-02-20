@@ -14,19 +14,37 @@ import com.google.gson.JsonParser;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.chestsearch.ChestEntry;
+import net.wurstclient.util.ItemNameUtils;
 import net.wurstclient.WurstClient;
 
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class LootSearchUtil
 {
+	private static final Pattern TRANSLATE_KEY_PATTERN = Pattern
+		.compile("item[-_]name=\\{\\\"translate\\\":\\\"([^\\\"]+)\\\"\\}");
+	private static final Pattern TEXT_KEY_PATTERN =
+		Pattern.compile("item[-_]name=\\{\\\"text\\\":\\\"([^\\\"]+)\\\"\\}");
+	private static final Set<String> OVERWORLD_STRUCTURE_TYPES =
+		setOf("ancient_city", "buried_treasure", "desert_pyramid", "igloo",
+			"jungle_temple", "mansion", "mineshaft", "monument", "ocean_ruin",
+			"pillager_outpost", "shipwreck", "stronghold", "swamp_hut",
+			"trail_ruins", "trial_chambers", "village");
+	private static final Set<String> NETHER_STRUCTURE_TYPES =
+		setOf("bastion_remnant", "nether_fortress");
+	private static final Set<String> END_STRUCTURE_TYPES = setOf("end_city");
+	
 	private LootSearchUtil()
 	{}
 	
@@ -307,6 +325,36 @@ public final class LootSearchUtil
 		return best;
 	}
 	
+	public static File normalizeJsonFile(File file)
+	{
+		if(file == null)
+			return null;
+		if(file.exists() && file.isFile()
+			&& file.getName().toLowerCase().endsWith(".json"))
+			return file;
+		return null;
+	}
+	
+	public static boolean isMixedDimensionFile(File file)
+	{
+		if(file == null || !file.exists() || !file.isFile())
+			return false;
+		try(FileReader r = new FileReader(file))
+		{
+			JsonElement root = JsonParser.parseReader(r);
+			if(root == null || !root.isJsonObject())
+				return false;
+			JsonObject obj = root.getAsJsonObject();
+			if(!obj.has("dimension"))
+				return false;
+			String dim = obj.get("dimension").getAsString();
+			return dim != null && dim.equalsIgnoreCase("mixed");
+		}catch(Throwable ignored)
+		{
+			return false;
+		}
+	}
+	
 	public static List<ChestEntry> parseLootFile(File file, String serverIp)
 	{
 		List<ChestEntry> out = new ArrayList<>();
@@ -353,7 +401,11 @@ public final class LootSearchUtil
 		int z = s.has("z") ? s.get("z").getAsInt() : 0;
 		ChestEntry ce = new ChestEntry();
 		ce.serverIp = serverIp;
-		ce.dimension = dimension;
+		String structureType = s.has("type") ? s.get("type").getAsString() : "";
+		String structureDimension =
+			s.has("dimension") ? s.get("dimension").getAsString() : dimension;
+		ce.dimension =
+			normalizeLootDimension(structureDimension, structureType);
 		ce.x = x;
 		ce.y = y;
 		ce.z = z;
@@ -402,13 +454,15 @@ public final class LootSearchUtil
 					it.has("slot") ? it.get("slot").getAsInt() : fallbackSlot++;
 				item.count = it.has("count") ? it.get("count").getAsInt() : 1;
 				item.itemId = id;
-				item.displayName = it.has("displayName")
+				String rawDisplayName = it.has("displayName")
 					? it.get("displayName").getAsString() : null;
 				if(it.has("nbt"))
 				{
 					JsonElement nbt = it.get("nbt");
 					item.nbt = nbt.isJsonPrimitive() ? nbt : nbt.deepCopy();
 				}
+				item.displayName = normalizeItemDisplayName(item.itemId,
+					rawDisplayName, item.nbt);
 				
 				if(it.has("enchantments")
 					&& it.get("enchantments").isJsonArray())
@@ -468,6 +522,118 @@ public final class LootSearchUtil
 		}
 		
 		return ce;
+	}
+	
+	private static String normalizeItemDisplayName(String itemId,
+		String rawDisplayName, JsonElement nbt)
+	{
+		String fromNbt = parseDisplayNameFromNbt(nbt);
+		if(fromNbt != null && !fromNbt.isBlank())
+			return fromNbt;
+		
+		String displayName = normalizeBasicName(rawDisplayName);
+		if(displayName != null && !displayName.isBlank())
+			return displayName;
+		
+		return normalizeBasicName(itemId);
+	}
+	
+	private static String parseDisplayNameFromNbt(JsonElement nbt)
+	{
+		if(nbt == null)
+			return null;
+		String nbtText = nbt.toString();
+		if(nbtText == null || nbtText.isBlank())
+			return null;
+		
+		Matcher textMatcher = TEXT_KEY_PATTERN.matcher(nbtText);
+		if(textMatcher.find())
+		{
+			String text = textMatcher.group(1);
+			if(text != null && !text.isBlank())
+				return text;
+		}
+		
+		Matcher translateMatcher = TRANSLATE_KEY_PATTERN.matcher(nbtText);
+		if(!translateMatcher.find())
+			return null;
+		
+		String translateKey = translateMatcher.group(1);
+		if(translateKey == null || translateKey.isBlank())
+			return null;
+		
+		String key = translateKey;
+		int colon = key.lastIndexOf(':');
+		if(colon >= 0 && colon + 1 < key.length())
+			key = key.substring(colon + 1);
+		int dot = key.lastIndexOf('.');
+		if(dot >= 0 && dot + 1 < key.length())
+			key = key.substring(dot + 1);
+		
+		return ItemNameUtils.humanize(key);
+	}
+	
+	private static String normalizeBasicName(String raw)
+	{
+		if(raw == null || raw.isBlank())
+			return null;
+		String value = raw.trim();
+		int colon = value.indexOf(':');
+		if(colon >= 0 && colon + 1 < value.length())
+			value = value.substring(colon + 1);
+		if(value.contains("_"))
+			return ItemNameUtils.humanize(value.toLowerCase());
+		return value;
+	}
+	
+	private static String normalizeLootDimension(String rawDimension,
+		String structureType)
+	{
+		if(rawDimension == null || rawDimension.isBlank())
+			return inferDimensionFromStructureType(structureType);
+		
+		String dim = rawDimension.trim().toLowerCase();
+		if(dim.equals("minecraft:overworld") || dim.equals("overworld"))
+			return "minecraft:overworld";
+		if(dim.equals("minecraft:the_nether") || dim.equals("the_nether")
+			|| dim.equals("nether"))
+			return "minecraft:the_nether";
+		if(dim.equals("minecraft:the_end") || dim.equals("the_end")
+			|| dim.equals("end"))
+			return "minecraft:the_end";
+		if(dim.equals("mixed"))
+		{
+			String inferred = inferDimensionFromStructureType(structureType);
+			return inferred != null ? inferred : "mixed";
+		}
+		
+		return rawDimension;
+	}
+	
+	private static String inferDimensionFromStructureType(String structureType)
+	{
+		if(structureType == null || structureType.isBlank())
+			return null;
+		String type = structureType.trim().toLowerCase();
+		int colon = type.indexOf(':');
+		if(colon >= 0 && colon + 1 < type.length())
+			type = type.substring(colon + 1);
+		
+		if(OVERWORLD_STRUCTURE_TYPES.contains(type))
+			return "minecraft:overworld";
+		if(NETHER_STRUCTURE_TYPES.contains(type))
+			return "minecraft:the_nether";
+		if(END_STRUCTURE_TYPES.contains(type))
+			return "minecraft:the_end";
+		
+		return null;
+	}
+	
+	private static Set<String> setOf(String... values)
+	{
+		HashSet<String> set = new HashSet<>();
+		Collections.addAll(set, values);
+		return Collections.unmodifiableSet(set);
 	}
 	
 	public static ChestEntry findEntryByPos(List<ChestEntry> entries, int x,
