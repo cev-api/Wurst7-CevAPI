@@ -18,13 +18,16 @@ import net.wurstclient.settings.CheckboxSetting;
 public final class ChestSearchHack extends Hack
 {
 	private static final int DISPLAY_RADIUS_UNLIMITED = 2001;
+	private static final int WAYPOINT_TIME_MINUTES_INFINITE = 241;
 	
 	private final EnumSetting<Mode> modeSetting = new EnumSetting<>("Mode",
 		"Automatic scans instantly, Manual requires pressing the Scan button,"
 			+ " and Off disables ChestSearch entirely.",
 		Mode.values(), Mode.AUTOMATIC);
-	private final SliderSetting waypointTimeSec = new SliderSetting(
-		"Waypoint time (s)", 60, 5, 600, 5, ValueDisplay.INTEGER);
+	private final SliderSetting waypointTimeMinutes = new SliderSetting(
+		"Waypoint time (min)", 1, 1, WAYPOINT_TIME_MINUTES_INFINITE, 1,
+		ValueDisplay.INTEGER.withSuffix(" min")
+			.withLabel(WAYPOINT_TIME_MINUTES_INFINITE, "Infinite"));
 	private final SliderSetting espTimeSec =
 		new SliderSetting("ESP time (s)", 60, 5, 600, 5, ValueDisplay.INTEGER);
 	// controls for cleaner behaviour (exposed in navigator)
@@ -72,7 +75,7 @@ public final class ChestSearchHack extends Hack
 		// automatic/manual toggle should appear above the timeouts in the
 		// clickui so add it first
 		addSetting(modeSetting);
-		addSetting(waypointTimeSec);
+		addSetting(waypointTimeMinutes);
 		addSetting(espTimeSec);
 		// expose cleaner settings in navigator so user can tune them
 		addSetting(gracePeriodSec);
@@ -150,7 +153,10 @@ public final class ChestSearchHack extends Hack
 	
 	public int getWaypointTimeMs()
 	{
-		return (int)(waypointTimeSec.getValue() * 1000);
+		int minutes = waypointTimeMinutes.getValueI();
+		if(minutes >= WAYPOINT_TIME_MINUTES_INFINITE)
+			return -1;
+		return minutes * 60 * 1000;
 	}
 	
 	public boolean isAutomaticMode()

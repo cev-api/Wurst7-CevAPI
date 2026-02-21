@@ -55,24 +55,43 @@ public final class SetSliderCmd extends Command
 	private void setValue(String value, Feature feature, Setting setting,
 		SliderSetting slider) throws CmdSyntaxError
 	{
+		boolean allowOverride = false;
+		try
+		{
+			allowOverride = WURST.getHax().globalToggleHack
+				.isSetSliderLimitOverrideAllowed();
+		}catch(Throwable ignored)
+		{}
+		
 		switch(value.toLowerCase())
 		{
 			case "more":
-			slider.setValue(
-				slider.getValue() + getKeybindStep(feature, setting, slider));
+			setSliderValue(slider,
+				slider.getValue() + getKeybindStep(feature, setting, slider),
+				allowOverride);
 			break;
 			
 			case "less":
-			slider.setValue(
-				slider.getValue() - getKeybindStep(feature, setting, slider));
+			setSliderValue(slider,
+				slider.getValue() - getKeybindStep(feature, setting, slider),
+				allowOverride);
 			break;
 			
 			default:
 			if(!MathUtils.isDouble(value))
 				throw new CmdSyntaxError("Value must be a number.");
-			slider.setValue(Double.parseDouble(value));
+			setSliderValue(slider, Double.parseDouble(value), allowOverride);
 			break;
 		}
+	}
+	
+	private void setSliderValue(SliderSetting slider, double value,
+		boolean allowOverride)
+	{
+		if(allowOverride)
+			slider.setValueFromCommand(value);
+		else
+			slider.setValue(value);
 	}
 	
 	private double getKeybindStep(Feature feature, Setting setting,

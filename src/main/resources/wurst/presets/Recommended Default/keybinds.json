@@ -4,7 +4,7 @@
   "key.keyboard.c": "fullbright",
   "key.keyboard.end": ".setslider flight vertical_speed less",
   "key.keyboard.g": "flight",
-  "key.keyboard.h": "say /home",
+  "key.keyboard.h": "speedhack",
   "key.keyboard.home": ".setslider flight vertical_speed more",
   "key.keyboard.j": "jesus",
   "key.keyboard.k": "multiaura",

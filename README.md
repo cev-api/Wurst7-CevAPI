@@ -448,7 +448,7 @@ Reports number of waypoints changed.
 - Also compatible with LootProbe's exports.
 - Sorted by closest chest.
 - You can search for specific loot and set a waypoint towards it.
-- Supports enchantments.d
+- Supports enchantments.
 - Will not function without a valid SeedMapper or LootProbe loot export JSON for the server you're in.
 
 ![Loot](https://i.imgur.com/pe7bbAB.png)
@@ -1061,6 +1061,23 @@ Examples:
 - Adjustable confirmation ticks
 - Shows block count on crosshair
 - Prevents interaction with chests etc
+
+### SpeedHack Improved
+- Added 4 tunable settings (max speed, ground accel, air accel, sideways damping) instead of hardcoded values.
+- Switched from multiplying existing velocity + mini-hop (*1.8 and +0.1y) to a target-velocity approach based on player input + yaw.
+- Added sideways inertia control (projects current velocity into forward/side components and damps the sideways part) to stop the “ice” feel when turning.
+- Replaced the fixed aging NoCheat+ clamp with a configurable speed cap applied after steering/accel.
+- Made acceleration context-aware (separate ground vs air acceleration) instead of only boosting when grounded.
+- Added toggle for auto sprint.
+- Added auto normalise mode: If anything in game effects your speed, you will return back to vanilla speeds automatically. Overrides speed settings.
+- Added safety/compat guards: null player check, skip while flying, and skip in water/lava.
+- Speed is showin blocks per second (like Flight) in the HackList.
+
+### Slider Override
+- When running ```.setslider``` commands you can now exceed the limit of sliders in all hacks.
+- Should only be used experimentally, will likely break the game or cause rubberbanding in a lot of hacks.
+- May not be compatible with all hacks as some have their own internal limiting logic.
+- Enable or disable this in the GlobalSettings.
 
 ### Wurst Options
 - Added to home screen and put in the old spot of Alt Manager

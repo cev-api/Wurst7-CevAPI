@@ -25,6 +25,7 @@ import net.wurstclient.util.text.WText;
 public class SliderSetting extends Setting implements SliderLock
 {
 	private double value;
+	private boolean commandOverrideOutOfRange;
 	private final double defaultValue;
 	private final double minimum;
 	private final double maximum;
@@ -69,8 +70,10 @@ public class SliderSetting extends Setting implements SliderLock
 	@Override
 	public final double getValue()
 	{
-		double value = isLocked() ? lock.getValue() : this.value;
-		return MathUtils.clamp(value, usableMin, usableMax);
+		double currentValue = isLocked() ? lock.getValue() : this.value;
+		if(commandOverrideOutOfRange && !isLocked())
+			return currentValue;
+		return MathUtils.clamp(currentValue, usableMin, usableMax);
 	}
 	
 	public final double getValueSq()
@@ -126,6 +129,24 @@ public class SliderSetting extends Setting implements SliderLock
 		value = MathUtils.clamp(value, usableMin, usableMax);
 		
 		this.value = value;
+		commandOverrideOutOfRange = false;
+		update();
+		
+		WurstClient.INSTANCE.saveSettings();
+	}
+	
+	/**
+	 * Experimental command-only setter. Unlike {@link #setValue(double)}, this
+	 * allows values outside the slider's configured min/max range.
+	 */
+	public final void setValueFromCommand(double value)
+	{
+		if(disabled || isLocked())
+			return;
+		
+		this.value = (int)Math.round(value / increment) * increment;
+		commandOverrideOutOfRange =
+			this.value < usableMin || this.value > usableMax;
 		update();
 		
 		WurstClient.INSTANCE.saveSettings();
@@ -163,7 +184,8 @@ public class SliderSetting extends Setting implements SliderLock
 	
 	public final double getPercentage()
 	{
-		return (getValue() - minimum) / getRange();
+		double valueForUi = MathUtils.clamp(getValue(), minimum, maximum);
+		return (valueForUi - minimum) / getRange();
 	}
 	
 	public float[] getKnobColor()
@@ -261,11 +283,17 @@ public class SliderSetting extends Setting implements SliderLock
 		if(!JsonUtils.isNumber(json))
 			return;
 		
-		double value = json.getAsDouble();
-		if(value > maximum || value < minimum)
+		double loadedValue = json.getAsDouble();
+		if(loadedValue > maximum || loadedValue < minimum)
+		{
+			this.value = loadedValue;
+			commandOverrideOutOfRange =
+				loadedValue < usableMin || loadedValue > usableMax;
+			update();
 			return;
+		}
 		
-		setValueIgnoreLock(value);
+		setValueIgnoreLock(loadedValue);
 	}
 	
 	@Override

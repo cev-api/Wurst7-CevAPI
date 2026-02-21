@@ -789,24 +789,28 @@ public final class ChestSearchScreen extends Screen
 					}
 					w.setDimension(wdim);
 					java.util.UUID id = wh.addTemporaryWaypoint(w);
-					int sleep = hack.getWaypointTimeMs();
-					TEMP_WP_BY_POS.put(posKey,
-						new TempWp(id, System.currentTimeMillis() + sleep));
+					int sleep = getWaypointTimeMsForActiveManager();
+					long expiresAt =
+						sleep > 0 ? System.currentTimeMillis() + sleep : -1L;
+					TEMP_WP_BY_POS.put(posKey, new TempWp(id, expiresAt));
 					minecraft.execute(this::refreshPins);
-					Thread.ofPlatform().start(() -> {
-						try
-						{
-							Thread.sleep(sleep);
-						}catch(Exception ignored)
-						{}
-						try
-						{
-							wh.removeTemporaryWaypoint(id);
-						}catch(Throwable ignored)
-						{}
-						TEMP_WP_BY_POS.remove(posKey);
-						minecraft.execute(this::refreshPins);
-					});
+					if(sleep > 0)
+					{
+						Thread.ofPlatform().start(() -> {
+							try
+							{
+								Thread.sleep(sleep);
+							}catch(Exception ignored)
+							{}
+							try
+							{
+								wh.removeTemporaryWaypoint(id);
+							}catch(Throwable ignored)
+							{}
+							TEMP_WP_BY_POS.remove(posKey);
+							minecraft.execute(this::refreshPins);
+						});
+					}
 				}
 			}).bounds(0, btnY, 56, 16).build();
 			if(hasWp)
@@ -1438,7 +1442,56 @@ public final class ChestSearchScreen extends Screen
 		}
 		if(entry.facing != null && !entry.facing.isBlank())
 			sb.append(" facing ").append(entry.facing);
+		String distance = formatDistance(entry, dimension);
+		if(!distance.isEmpty())
+			sb.append(" ").append(distance);
 		return sb.toString();
+	}
+	
+	private int getWaypointTimeMsForActiveManager()
+	{
+		try
+		{
+			if(this.chestManager != null
+				&& this.chestManager.getClass().getName()
+					.equals("net.wurstclient.lootsearch.LootChestManager"))
+				return WurstClient.INSTANCE.getHax().lootSearchHack
+					.getWaypointTimeMs();
+		}catch(Throwable ignored)
+		{}
+		
+		try
+		{
+			return WurstClient.INSTANCE.getHax().chestSearchHack
+				.getWaypointTimeMs();
+		}catch(Throwable ignored)
+		{
+			return 60000;
+		}
+	}
+	
+	private String formatDistance(ChestEntry entry, String dimension)
+	{
+		try
+		{
+			if(WurstClient.MC == null || WurstClient.MC.player == null)
+				return "";
+			String playerDim = "";
+			if(WurstClient.MC.level != null)
+				playerDim =
+					WurstClient.MC.level.dimension().identifier().toString();
+			if(!canonicalDimension(playerDim)
+				.equals(canonicalDimension(dimension)))
+				return "[cross-dim]";
+			
+			Vec3 player = WurstClient.MC.player.position();
+			Vec3 chest = Vec3.atCenterOf(entry.getClickedPos());
+			int blocks = (int)Math.round(chest.distanceTo(player));
+			return "[" + blocks + "m]";
+		}catch(Throwable ignored)
+		{
+			return "";
+		}
 	}
 	
 	private java.util.List<ChestEntry.ItemEntry> collectMatches(

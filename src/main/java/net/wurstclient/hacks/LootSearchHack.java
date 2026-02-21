@@ -16,10 +16,14 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.lootsearch.LootChestManager;
 import net.wurstclient.lootsearch.LootSearchUtil;
 import net.wurstclient.settings.FileSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
 
 public final class LootSearchHack extends Hack
 {
+	private static final int WAYPOINT_TIME_MINUTES_INFINITE = 241;
+	
 	private final FileSetting lootJsonPicker =
 		new FileSetting("Loot JSON", "", "lootprobe", folder -> {
 			try
@@ -39,12 +43,26 @@ public final class LootSearchHack extends Hack
 		"Literal path to a loot export JSON file. If set, this path is used instead of auto-detection.",
 		"");
 	
+	private final SliderSetting waypointTimeMinutes = new SliderSetting(
+		"Waypoint time (min)", 1, 1, WAYPOINT_TIME_MINUTES_INFINITE, 1,
+		ValueDisplay.INTEGER.withSuffix(" min")
+			.withLabel(WAYPOINT_TIME_MINUTES_INFINITE, "Infinite"));
+	
 	public LootSearchHack()
 	{
 		super("LootSearch");
 		setCategory(Category.ITEMS);
 		addSetting(lootJsonPicker);
 		addSetting(literalJsonPath);
+		addSetting(waypointTimeMinutes);
+	}
+	
+	public int getWaypointTimeMs()
+	{
+		int minutes = waypointTimeMinutes.getValueI();
+		if(minutes >= WAYPOINT_TIME_MINUTES_INFINITE)
+			return -1;
+		return minutes * 60 * 1000;
 	}
 	
 	@Override

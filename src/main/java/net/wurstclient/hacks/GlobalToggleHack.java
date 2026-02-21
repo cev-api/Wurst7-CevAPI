@@ -45,6 +45,10 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Global background thread priority for Search/ESP/X-Ray chunk scanning.",
 		ChunkSearcher.getBackgroundThreadPriority(), Thread.MIN_PRIORITY,
 		Thread.MAX_PRIORITY, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting setSliderLimitOverride = new CheckboxSetting(
+		".setslider limit override",
+		"Allows .setslider to set values beyond slider min/max limits. UI sliders stay clamped.",
+		false);
 	private final EnumSetting<ChunkScanMode> chunkScanMode = new EnumSetting<>(
 		"Chunk scan mode",
 		"FULL: Update only when full area scan is done (old behavior).\n"
@@ -73,6 +77,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(yLimitForceOff);
 		addSetting(yLimitValue);
 		addSetting(searchThreadPriority);
+		addSetting(setSliderLimitOverride);
 		addSetting(chunkScanMode);
 		
 		lastYLimitValue = yLimitValue.getValueI();
@@ -225,6 +230,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean usePartialChunkScan()
 	{
 		return chunkScanMode.getSelected() == ChunkScanMode.PARTIAL;
+	}
+	
+	public boolean isSetSliderLimitOverrideAllowed()
+	{
+		return setSliderLimitOverride.isChecked();
 	}
 	
 	private enum OverrideState
