@@ -50,10 +50,9 @@ public class ItemHandlerHud
 			hack.getTrackedItems().stream()
 				.filter(g -> g.distance() <= hack.getPopupRange()).toList();
 		
-		List<ItemHandlerHack.NearbySign> rawSigns = hack.isShowSignsInHud()
-			? hack.getTrackedSigns() : java.util.List.of();
+		List<ItemHandlerHack.NearbyLabel> rawLabels = hack.getTrackedLabels();
 		
-		if(rawItems.isEmpty() && rawSigns.isEmpty())
+		if(rawItems.isEmpty() && rawLabels.isEmpty())
 			return;
 		
 		class MergeEntry
@@ -62,17 +61,17 @@ public class ItemHandlerHud
 			String displayName;
 			int total;
 			double closest;
-			boolean isSign;
+			boolean isLabel;
 			boolean isSpecial;
 			
 			MergeEntry(ItemStack rep, String displayName, int total,
-				double closest, boolean isSign, boolean isSpecial)
+				double closest, boolean isLabel, boolean isSpecial)
 			{
 				this.rep = rep;
 				this.displayName = displayName;
 				this.total = total;
 				this.closest = closest;
-				this.isSign = isSign;
+				this.isLabel = isLabel;
 				this.isSpecial = isSpecial;
 			}
 		}
@@ -100,13 +99,12 @@ public class ItemHandlerHud
 		
 		List<MergeEntry> items = new ArrayList<>(map.values());
 		
-		for(ItemHandlerHack.NearbySign s : rawSigns)
+		for(ItemHandlerHack.NearbyLabel label : rawLabels)
 		{
-			if(s == null || s.icon() == null || s.text() == null)
+			if(label == null || label.icon() == null || label.text() == null)
 				continue;
-			String label = "Sign: " + s.text();
-			items.add(new MergeEntry(s.icon().copy(), label, 1, s.distance(),
-				true, false));
+			items.add(new MergeEntry(label.icon().copy(), label.text(), 1,
+				label.distance(), true, false));
 		}
 		
 		if(hack.isPinSpecialItemsTop())
@@ -215,7 +213,7 @@ public class ItemHandlerHud
 			RenderUtils.drawScaledText(context, tr, dist, distX, iy + 2,
 				0xFFBBBBBB, false, distScale);
 			
-			if(!me.isSign)
+			if(!me.isLabel)
 			{
 				// draw count overlay in icon bottom-right (16x16 icon)
 				String cnt = String.valueOf(me.total);

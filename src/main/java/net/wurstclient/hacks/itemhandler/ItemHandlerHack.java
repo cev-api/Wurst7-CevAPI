@@ -27,6 +27,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -41,6 +42,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.phys.Vec3;
@@ -99,7 +101,7 @@ public class ItemHandlerHack extends Hack
 			"_pickaxe", "_shovel", "_hoe", "_spear"};
 	
 	private final List<GroundItem> trackedItems = new ArrayList<>();
-	private final List<NearbySign> trackedSigns = new ArrayList<>();
+	private final List<NearbyLabel> trackedLabels = new ArrayList<>();
 	private int signScanCooldown;
 	private final Int2IntOpenHashMap pickupWhitelist = new Int2IntOpenHashMap();
 	private final Deque<Integer> pickupQueue = new ArrayDeque<>();
@@ -141,6 +143,10 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting showSignsInHud =
 		new CheckboxSetting("Show nearby signs",
 			"Adds nearby sign text to the ItemHandler popup HUD.", false);
+	
+	private final CheckboxSetting detectNamedEntities =
+		new CheckboxSetting("Detect named entities",
+			"Detects custom-named entities (e.g. pets and mobs).", false);
 	
 	private final SliderSetting signRange = new SliderSetting("Sign range",
 		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
@@ -206,6 +212,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(popupMaxItems);
 		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
+		addSetting(detectNamedEntities);
 		addSetting(signRange);
 		addSetting(signMax);
 		addSetting(hudOffsetX);
@@ -218,7 +225,7 @@ public class ItemHandlerHack extends Hack
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		trackedItems.clear();
-		trackedSigns.clear();
+		trackedLabels.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
 	}
@@ -229,7 +236,7 @@ public class ItemHandlerHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		trackedItems.clear();
-		trackedSigns.clear();
+		trackedLabels.clear();
 		pickupWhitelist.clear();
 		pickupQueue.clear();
 		stopAutoWalk();
@@ -246,7 +253,7 @@ public class ItemHandlerHack extends Hack
 		if(MC.level == null || MC.player == null)
 		{
 			trackedItems.clear();
-			trackedSigns.clear();
+			trackedLabels.clear();
 			pickupWhitelist.clear();
 			pickupQueue.clear();
 			stopAutoWalk();
@@ -574,15 +581,17 @@ public class ItemHandlerHack extends Hack
 	private void scanNearbySigns()
 	{
 		boolean guiOpen = MC.screen instanceof ItemHandlerScreen;
-		if(!showSignsInHud.isChecked() && !guiOpen)
+		boolean detectSigns = showSignsInHud.isChecked() || guiOpen;
+		boolean detectNamed = detectNamedEntities.isChecked() || guiOpen;
+		if(!detectSigns && !detectNamed)
 		{
-			trackedSigns.clear();
+			trackedLabels.clear();
 			return;
 		}
 		
 		if(MC.level == null || MC.player == null)
 		{
-			trackedSigns.clear();
+			trackedLabels.clear();
 			return;
 		}
 		
@@ -591,45 +600,120 @@ public class ItemHandlerHack extends Hack
 			return;
 		signScanCooldown = 10;
 		
-		trackedSigns.clear();
+		trackedLabels.clear();
 		
 		double range = signRange.getValue();
 		boolean infinite = range >= INFINITE_SCAN_RADIUS;
 		double rangeSq = range * range;
 		Vec3 centerVec = MC.player.position();
 		
-		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
-			if(!(be instanceof SignBlockEntity sign))
-				return;
-			
-			BlockPos pos = sign.getBlockPos();
-			if(pos == null)
-				return;
-			
-			Vec3 p = Vec3.atCenterOf(pos);
-			double distSq = p.distanceToSqr(centerVec);
-			if(!infinite && distSq > rangeSq)
-				return;
-			
-			String text = readSignText(sign);
-			if(text.isEmpty())
-				return;
-			
-			ItemStack icon =
-				new ItemStack(MC.level.getBlockState(pos).getBlock().asItem());
-			if(icon.isEmpty())
-				icon = new ItemStack(Items.OAK_SIGN);
-			
-			trackedSigns
-				.add(new NearbySign(pos, icon, text, Math.sqrt(distSq)));
-		});
+		if(detectSigns)
+			ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+				if(!(be instanceof SignBlockEntity sign))
+					return;
+				BlockPos pos = sign.getBlockPos();
+				if(pos == null)
+					return;
+				Vec3 p = Vec3.atCenterOf(pos);
+				double distSq = p.distanceToSqr(centerVec);
+				if(!infinite && distSq > rangeSq)
+					return;
+				
+				String text = readSignText(sign);
+				if(text.isEmpty())
+					return;
+				ItemStack icon =
+					iconForBlockEntity(be, new ItemStack(Items.OAK_SIGN));
+				trackedLabels.add(new NearbyLabel(p, new AABB(pos), icon,
+					"Sign: " + text, Math.sqrt(distSq), getSignTraceId(pos)));
+			});
 		
-		trackedSigns
-			.sort(java.util.Comparator.comparingDouble(NearbySign::distance));
+		if(detectNamed)
+		{
+			AABB scanBox = MC.player.getBoundingBox().inflate(range);
+			List<Entity> namedEntities =
+				MC.level.getEntities(MC.player, scanBox, e -> e != null
+					&& e.isAlive() && !e.isRemoved() && e.hasCustomName());
+			
+			for(Entity entity : namedEntities)
+			{
+				String customName = readCustomName(entity);
+				if(customName.isEmpty())
+					continue;
+				if(isIgnoredNamedEntityByItemEsp(customName))
+					continue;
+				Vec3 p = entity.position();
+				double distSq = p.distanceToSqr(centerVec);
+				if(!infinite && distSq > rangeSq)
+					continue;
+				
+				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
+					new ItemStack(Items.NAME_TAG),
+					"Named entity: " + customName, Math.sqrt(distSq),
+					getNamedEntityTraceId(entity.getUUID())));
+			}
+		}
+		
+		trackedLabels
+			.sort(java.util.Comparator.comparingDouble(NearbyLabel::distance));
 		
 		int max = signMax.getValueI();
-		if(trackedSigns.size() > max)
-			trackedSigns.subList(max, trackedSigns.size()).clear();
+		if(trackedLabels.size() > max)
+			trackedLabels.subList(max, trackedLabels.size()).clear();
+	}
+	
+	private ItemStack iconForBlockEntity(BlockEntity be, ItemStack fallback)
+	{
+		try
+		{
+			BlockPos pos = be.getBlockPos();
+			if(pos != null)
+			{
+				ItemStack icon = new ItemStack(
+					MC.level.getBlockState(pos).getBlock().asItem());
+				if(!icon.isEmpty())
+					return icon;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		return fallback.copy();
+	}
+	
+	private static String readCustomName(Object object)
+	{
+		if(!(object instanceof Nameable nameable))
+			return "";
+		
+		try
+		{
+			if(!nameable.hasCustomName())
+				return "";
+			net.minecraft.network.chat.Component customName =
+				nameable.getCustomName();
+			if(customName == null)
+				return "";
+			return readNameText(customName);
+		}catch(Throwable ignored)
+		{
+			return "";
+		}
+	}
+	
+	private static String readNameText(
+		net.minecraft.network.chat.Component customName)
+	{
+		if(customName == null)
+			return "";
+		String text = customName.getString();
+		if(text == null)
+			return "";
+		String trimmed = text.trim();
+		if(trimmed.isEmpty())
+			return "";
+		if(trimmed.length() > 80)
+			return trimmed.substring(0, 77) + "...";
+		return trimmed;
 	}
 	
 	private static String readSignText(SignBlockEntity sign)
@@ -993,9 +1077,9 @@ public class ItemHandlerHack extends Hack
 		return java.util.Set.copyOf(tracedItems);
 	}
 	
-	public List<NearbySign> getTrackedSigns()
+	public List<NearbyLabel> getTrackedLabels()
 	{
-		return List.copyOf(trackedSigns);
+		return List.copyOf(trackedLabels);
 	}
 	
 	public static String getSignTraceId(BlockPos pos)
@@ -1005,19 +1089,21 @@ public class ItemHandlerHack extends Hack
 		return "sign:" + pos.asLong();
 	}
 	
+	public static String getNamedEntityTraceId(UUID uuid)
+	{
+		if(uuid == null)
+			return null;
+		return "named_entity:" + uuid;
+	}
+	
 	public boolean isShowSignsInHud()
 	{
 		return showSignsInHud.isChecked();
 	}
 	
-	public record NearbySign(BlockPos pos, ItemStack icon, String text,
-		double distance)
-	{
-		public String traceId()
-		{
-			return getSignTraceId(pos);
-		}
-	}
+	public record NearbyLabel(Vec3 position, AABB box, ItemStack icon,
+		String text, double distance, String traceId)
+	{}
 	
 	public boolean isHudEnabled()
 	{
@@ -1197,18 +1283,17 @@ public class ItemHandlerHack extends Hack
 				ends.add(new RenderUtils.ColoredPoint(p, 0));
 		}
 		
-		for(NearbySign sign : trackedSigns)
+		for(NearbyLabel label : trackedLabels)
 		{
-			if(sign == null || sign.pos() == null)
+			if(label == null || label.box() == null)
 				continue;
-			String traceId = sign.traceId();
+			String traceId = label.traceId();
 			boolean traced = traceId != null && isTraced(traceId);
 			if(!traced)
 				continue;
-			BlockPos pos = sign.pos();
-			Vec3 p = Vec3.atCenterOf(pos);
+			Vec3 p = label.position();
 			if(shouldDrawBoxes)
-				boxes.add(new AABB(pos));
+				boxes.add(label.box());
 			if(shouldDrawTracers)
 				ends.add(new RenderUtils.ColoredPoint(p, 0));
 		}
@@ -1247,6 +1332,53 @@ public class ItemHandlerHack extends Hack
 			return false;
 		String id = net.wurstclient.util.ItemUtils.getStackId(stack);
 		return esp.isIgnoredId(id);
+	}
+	
+	private boolean isIgnoredNamedEntityByItemEsp(String customName)
+	{
+		if(!respectItemEspIgnores.isChecked())
+			return false;
+		if(customName == null || customName.isBlank())
+			return false;
+		
+		net.wurstclient.hacks.ItemEspHack esp =
+			net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+		if(esp == null)
+			return false;
+		
+		net.wurstclient.settings.ItemListSetting list =
+			esp.getIgnoredListSetting();
+		if(list == null)
+			return false;
+		
+		String normalizedName = normalizeForContains(customName);
+		if(normalizedName.isEmpty())
+			return false;
+		
+		for(String entry : list.getItemNames())
+		{
+			if(entry == null)
+				continue;
+			String trimmed = entry.trim();
+			if(trimmed.isEmpty())
+				continue;
+			String normalizedEntry = normalizeForContains(trimmed);
+			if(normalizedEntry.isEmpty())
+				continue;
+			if(normalizedName.equals(normalizedEntry)
+				|| normalizedName.contains(normalizedEntry))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private static String normalizeForContains(String value)
+	{
+		if(value == null)
+			return "";
+		return value.toLowerCase(Locale.ROOT).replace('_', ' ')
+			.replaceAll("\\s+", " ").trim();
 	}
 	
 	public boolean isSpecialByItemEsp(ItemStack stack)

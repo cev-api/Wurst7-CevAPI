@@ -255,7 +255,7 @@ public class ItemHandlerScreen extends Screen
 			List<ItemHandlerHack.GroundItem> raw =
 				hack.getTrackedItems().stream()
 					.filter(g -> g.distance() <= hack.getPopupRange()).toList();
-			List<ItemHandlerHack.NearbySign> signs = hack.getTrackedSigns();
+			List<ItemHandlerHack.NearbyLabel> labels = hack.getTrackedLabels();
 			// Group by registry ID and aggregate counts and items. XP orbs
 			// are merged only when xp amount matches and items are close.
 			Map<String, Aggregated> groups = new LinkedHashMap<>();
@@ -341,17 +341,20 @@ public class ItemHandlerScreen extends Screen
 				}
 			}
 			
-			for(ItemHandlerHack.NearbySign sign : signs)
+			for(ItemHandlerHack.NearbyLabel label : labels)
 			{
-				if(sign == null || sign.icon() == null || sign.text() == null)
+				if(label == null || label.icon() == null
+					|| label.text() == null)
 					continue;
-				String key = "sign:" + sign.pos().asLong();
-				Aggregated a = new Aggregated(key, key,
-					ItemHandlerHack.getSignTraceId(sign.pos()),
-					sign.icon().copy(), "Sign: " + sign.text());
-				a.closest = sign.distance();
-				a.isSign = true;
-				groups.put(key, a);
+				String traceId = label.traceId();
+				if(traceId == null || traceId.isBlank())
+					continue;
+				Aggregated a = new Aggregated(traceId, traceId, traceId,
+					label.icon().copy(), label.text());
+				a.closest = label.distance();
+				a.total = 1;
+				a.isLabel = true;
+				groups.put(traceId, a);
 			}
 			// Preserve insertion order; add entries sorted by closest distance
 			groups.values().stream()
@@ -386,7 +389,7 @@ public class ItemHandlerScreen extends Screen
 			final List<ItemHandlerHack.GroundItem> items = new ArrayList<>();
 			int total;
 			double closest = Double.MAX_VALUE;
-			boolean isSign;
+			boolean isLabel;
 			
 			Aggregated(String itemId, String selectionId, String traceId,
 				ItemStack rep, String displayName)
@@ -397,7 +400,7 @@ public class ItemHandlerScreen extends Screen
 				this.rep = rep;
 				this.displayName = displayName;
 				this.total = 0;
-				this.isSign = false;
+				this.isLabel = false;
 			}
 			
 			void add(ItemHandlerHack.GroundItem gi)
@@ -512,7 +515,7 @@ public class ItemHandlerScreen extends Screen
 			
 			List<ItemHandlerHack.GroundItem> groundItems()
 			{
-				if(group.isSign)
+				if(group.isLabel)
 					return java.util.Collections.emptyList();
 				
 				return group.items.stream().filter(
@@ -523,7 +526,7 @@ public class ItemHandlerScreen extends Screen
 			
 			String itemId()
 			{
-				if(group.isSign)
+				if(group.isLabel)
 					return null;
 				if(net.wurstclient.util.ItemUtils.isSyntheticXp(group.rep))
 					return null;
