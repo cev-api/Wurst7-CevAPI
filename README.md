@@ -829,6 +829,14 @@ This hack is still undergoing development and has only been tested in the end. A
 - Plays a sound when your username or a nickname/derivative is detected in chat
 - Choose from any of the note blocks and adjust the volume
 
+### Force Allow Chats
+- When on it forces Mojang account properties to follow:
+  - Chat Allowed
+  - Realms Allowed
+  - Servers Allowed
+- Intercepts ```YggdrasilUserApiService.fetchProperties() ```
+- Accessible before game via Wurst Options or in-game via Chat category hack.
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

@@ -87,6 +87,7 @@
     "WorldEnvironmentAttributeAccessMixin",
     "WorldMixin",
     "WorldRendererMixin",
+    "YggdrasilUserApiServiceMixin",
     "freecam.CameraMixin",
     "freecam.ItemInHandRendererMixin",
     "freecam.LocalPlayerMixin",

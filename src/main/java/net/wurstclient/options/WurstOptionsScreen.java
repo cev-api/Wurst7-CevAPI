@@ -69,6 +69,8 @@ public class WurstOptionsScreen extends Screen
 			wurst.getOtfs().translationsOtf.getForceEnglish();
 		CheckboxSetting unsafeChatToast =
 			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
+		CheckboxSetting forceAllowChats =
+			wurst.getOtfs().forceAllowChatsOtf.getForceAllowChatsSetting();
 		net.wurstclient.other_features.CommandPrefixOtf commandPrefixOtf =
 			wurst.getOtfs().commandPrefixOtf;
 		ConnectionLogOverlayOtf connectionLogOtf =
@@ -112,7 +114,14 @@ public class WurstOptionsScreen extends Screen
 				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
 			"Shows a toast warning when a server enforces insecure chat/reporting.",
 			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
-		int optionY = 144;
+		
+		new WurstOptionsButton(-154, 144,
+			() -> "Force Allow Chats: "
+				+ (forceAllowChats.isChecked() ? "ON" : "OFF"),
+			"Forces Mojang user properties to allow chat, Realms, and servers.",
+			b -> forceAllowChats.setChecked(!forceAllowChats.isChecked()));
+		
+		int optionY = 168;
 		if(NiceWurstModule.showAntiFingerprintControls())
 		{
 			new WurstOptionsButton(-154, optionY, () -> "Anti-Fingerprint",
