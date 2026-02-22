@@ -22,6 +22,7 @@ import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.HashedPatchMap;
 import net.minecraft.network.HashedStack;
@@ -127,6 +128,9 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private static final int CONTENT_TOP_OFFSET = 12;
 	
 	@Unique
+	private static final int OVERLAY_DRAG_BAR_HEIGHT = 10;
+	
+	@Unique
 	private static final int DELAY_BUTTON_WIDTH = 90;
 	
 	@Unique
@@ -169,6 +173,11 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		
 		if(!UiUtilsState.isUiEnabled())
 			return;
+			
+		// Don't carry the fabricate overlay over to the player inventory.
+		// It can momentarily leak controls in the top-left during init/layout.
+		if((Object)this instanceof InventoryScreen)
+			UiUtilsState.fabricateOverlayOpen = false;
 		
 		Minecraft mc = Minecraft.getInstance();
 		int spacing = 4;
@@ -586,7 +595,7 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 			return;
 		// Drag bar: top area of overlay
 		int dragBarTop = overlayYPos;
-		int dragBarBottom = overlayYPos + 28;
+		int dragBarBottom = overlayYPos + OVERLAY_DRAG_BAR_HEIGHT;
 		if(mx >= overlayXPos && mx <= overlayXPos + OVERLAY_WIDTH
 			&& my >= dragBarTop && my <= dragBarBottom)
 		{

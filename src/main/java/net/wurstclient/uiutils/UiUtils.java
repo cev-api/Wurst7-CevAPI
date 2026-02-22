@@ -28,6 +28,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.KeyEvent;
@@ -1101,6 +1102,23 @@ public final class UiUtils
 			}catch(Throwable t)
 			{
 				customKey = null;
+			}
+			
+			// Never restore saved GUIs while chat is open, regardless of what
+			// key UiUtils is currently bound to.
+			if(mc.screen instanceof ChatScreen)
+			{
+				if(customKey != null)
+				{
+					customKeyDown = InputConstants.isKeyDown(mc.getWindow(),
+						customKey.getValue());
+				}else
+				{
+					customKeyDown = false;
+					while(restoreScreenKey.consumeClick())
+					{}
+				}
+				return;
 			}
 			
 			if(customKey != null)
