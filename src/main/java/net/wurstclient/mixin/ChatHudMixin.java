@@ -43,6 +43,8 @@ public class ChatHudMixin
 	{
 		if(ClientMessageOverlay.getInstance().captureSingleArgMessage(message))
 		{
+			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			EventManager.fire(event);
 			ci.cancel();
 			return;
 		}
@@ -59,13 +61,6 @@ public class ChatHudMixin
 		@Local(argsOnly = true) LocalRef<Component> message,
 		@Local(argsOnly = true) LocalRef<GuiMessageTag> indicator)
 	{
-		if(ClientMessageOverlay.getInstance()
-			.captureIfNonPlayerMessage(message.get(), signature))
-		{
-			ci.cancel();
-			return;
-		}
-		
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		
@@ -77,6 +72,13 @@ public class ChatHudMixin
 		}
 		
 		message.set(event.getComponent());
+		if(ClientMessageOverlay.getInstance()
+			.captureIfNonPlayerMessage(message.get(), signature))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		indicator.set(WurstClient.INSTANCE.getOtfs().noChatReportsOtf
 			.modifyIndicator(message.get(), signature, indicator.get()));
 		ClientMessageOverlay.getInstance()
