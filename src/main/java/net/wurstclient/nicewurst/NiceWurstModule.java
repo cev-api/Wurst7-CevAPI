@@ -97,10 +97,12 @@ public final class NiceWurstModule
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
 				"ItemESP", "LavaWaterESP", "LogoutSpots", "MobESP", "MobHealth",
 				"MobSearch", "MobSpawnESP", "NameTags", "NewChunks",
-				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
-				"Freecam", "OpenWaterESP", "PearlESP", "PlayerESP", "PortalESP",
-				"Radar", "Search", "TrialSpawnerESP", "TridentESP", "Waypoints",
-				"WardenESP", "HideWurst"));
+				"NewerNewChunks", "NoBackground", "NoFireOverlay", "NoVignette",
+				"NoWeather", "Freecam", "OpenWaterESP", "PearlESP", "PlayerESP",
+				"PortalESP", "Radar", "Search", "TrialSpawnerESP", "TridentESP",
+				"Waypoints", "WardenESP", "HideWurst"));
+		
+		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
@@ -108,7 +110,7 @@ public final class NiceWurstModule
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
 				"SeedMapperHelper", "TooManyHax", "HideModMenu", "GameStats",
-				"DamageDetect"));
+				"DamageDetect", "ClientChatOverlay"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",

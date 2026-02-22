@@ -33,6 +33,7 @@ public final class MentionHack extends Hack
 	implements ChatInputListener, ChatOutputListener
 {
 	private static final long SELF_ECHO_WINDOW_MS = 5000L;
+	private static final int JOIN_GRACE_TICKS = 200;
 	
 	private static final String CHAT_PREFIX_PATTERN =
 		"(?:(?:\\[[^\\]]{1,32}\\]|‹[^›]{1,32}›)\\s*)*";
@@ -126,6 +127,8 @@ public final class MentionHack extends Hack
 		ChatLine line = parseChatLine(plain);
 		if(line.sender().equalsIgnoreCase(ownName))
 			return;
+		if(isLikelyJoinLeaveAnnouncement(line, ownName))
+			return;
 		if(line.sender().equals("System") && isLikelyOwnEcho(line.text()))
 			return;
 		
@@ -146,6 +149,45 @@ public final class MentionHack extends Hack
 		}
 		
 		return false;
+	}
+	
+	private boolean containsNameVariant(String text, String ownName)
+	{
+		if(text == null || text.isBlank())
+			return false;
+		
+		for(String variant : getNameVariants(ownName))
+		{
+			Pattern namePattern = Pattern
+				.compile("(?i)(^|\\W)" + Pattern.quote(variant) + "(\\W|$)");
+			if(namePattern.matcher(text).find())
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isLikelyJoinLeaveAnnouncement(ChatLine line, String ownName)
+	{
+		if(line == null || ownName == null || ownName.isBlank())
+			return false;
+		if(!"System".equals(line.sender()))
+			return false;
+		
+		String text = line.text();
+		if(!containsNameVariant(text, ownName))
+			return false;
+		
+		String lower = text.toLowerCase(Locale.ROOT);
+		boolean joinLeaveKeywords = lower.contains(" joined")
+			|| lower.contains(" left") || lower.contains(" disconnected")
+			|| lower.contains(" logged in") || lower.contains(" logged out")
+			|| lower.contains("welcome");
+		
+		// Also ignore unnamed join banners shortly after connecting.
+		boolean withinJoinGrace =
+			MC.player != null && MC.player.tickCount <= JOIN_GRACE_TICKS;
+		return joinLeaveKeywords || withinJoinGrace;
 	}
 	
 	private Set<String> getNameVariants(String ownName)
