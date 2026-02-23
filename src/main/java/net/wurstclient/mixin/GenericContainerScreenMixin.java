@@ -44,6 +44,7 @@ import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
 import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.hacks.QuickShulkerHack;
+import net.wurstclient.util.ChatUtils;
 
 @Mixin(ContainerScreen.class)
 public abstract class GenericContainerScreenMixin
@@ -1333,18 +1334,18 @@ public abstract class GenericContainerScreenMixin
 									+ " match=" + match);
 						}catch(Throwable ignored)
 						{}
-						if(!match && net.wurstclient.WurstClient.MC != null)
+						ChestSearchHack csh = wurst$getChestSearchHack();
+						boolean allowMismatchNotification = csh == null
+							|| csh.isLootMismatchNotificationEnabled();
+						if(!match && allowMismatchNotification
+							&& net.wurstclient.WurstClient.MC != null)
 						{
 							net.wurstclient.WurstClient.MC.execute(() -> {
 								try
 								{
 									if(net.wurstclient.WurstClient.MC.player != null)
-										net.wurstclient.WurstClient.MC.player
-											.displayClientMessage(
-												net.minecraft.network.chat.Component
-													.literal(
-														"[wurst] Chest does not match loot table."),
-												false);
+										ChatUtils.message(
+											"Chest does not match loot table.");
 								}catch(Throwable ignored)
 								{}
 							});

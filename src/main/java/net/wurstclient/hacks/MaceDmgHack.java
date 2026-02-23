@@ -15,15 +15,24 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PlayerAttacksEntityListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
 @SearchTags({"mace dmg", "MaceDamage", "mace damage"})
 public final class MaceDmgHack extends Hack
 	implements PlayerAttacksEntityListener
 {
+	private static final double DEFAULT_HEIGHT = Math.sqrt(500);
+	
+	private final SliderSetting height = new SliderSetting("Height",
+		"How high to fake before slamming. Height determines the damage boost.",
+		DEFAULT_HEIGHT, 1.6, 50, 0.1, ValueDisplay.DECIMAL);
+	
 	public MaceDmgHack()
 	{
 		super("MaceDMG");
 		setCategory(Category.COMBAT);
+		addSetting(height);
 	}
 	
 	@Override
@@ -53,7 +62,7 @@ public final class MaceDmgHack extends Hack
 		// Also, let me know if you find a way to bypass that check.
 		for(int i = 0; i < 4; i++)
 			sendFakeY(0);
-		sendFakeY(Math.sqrt(500));
+		sendFakeY(height.getValue());
 		sendFakeY(0);
 	}
 	

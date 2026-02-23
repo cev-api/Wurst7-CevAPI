@@ -1081,6 +1081,11 @@ Examples:
 - Added safety/compat guards: null player check, skip while flying, and skip in water/lava.
 - Speed is showin blocks per second (like Flight) in the HackList.
 
+### MaceDMG Improved
+- Now has a height slider which goes from 1.7 to 50, the default being 22.23
+  - In testing this made the Mace go from ~148 damage to ~295
+- Can be used to reduce damage to be less suspicious or bypass anti-cheats
+
 ### Slider Override
 - When running ```.setslider``` commands you can now exceed the limit of sliders in all hacks.
 - Should only be used experimentally, will likely break the game or cause rubberbanding in a lot of hacks.
