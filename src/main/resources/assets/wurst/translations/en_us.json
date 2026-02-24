@@ -203,6 +203,7 @@
   "description.wurst.hack.wardenesp": "Highlights Wardens with color-coded states (CALM, SEARCHING, AGITATED, LOCKED). Shows sniffing pulses, digging/leaving indicators, and a simple anger trend.",
   "description.wurst.hack.mobsearch": "Helps you to find specific mobs by highlighting them in rainbow or fixed color. Use the Query input to search for partial keywords or create a list of mobs to highlight.",
   "description.wurst.hack.mobspawnesp": "Highlights areas where mobs can spawn.",
+  "description.wurst.hack.musicaura": "Randomly tunes nearby note blocks within 6 blocks, even through walls.",
   "description.wurst.hack.multiaura": "Faster Killaura that attacks multiple entities at once.",
   "description.wurst.hack.nameprotect": "Hides all player names.",
   "description.wurst.hack.nametags": "Changes the scale of the nametags so you can always read them. Also allows you to see the nametags of sneaking players.",

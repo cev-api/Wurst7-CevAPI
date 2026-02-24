@@ -837,6 +837,10 @@ This hack is still undergoing development and has only been tested in the end. A
 - Intercepts ```YggdrasilUserApiService.fetchProperties() ```
 - Accessible before game via Wurst Options or in-game via Chat category hack.
 
+### MusicAura
+- Randomly alter music blocks around you, even through walls
+- Totally pointless
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

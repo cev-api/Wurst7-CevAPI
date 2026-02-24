@@ -178,6 +178,7 @@ public final class HackList implements UpdateListener
 	public final WardenEspHack wardenEspHack = new WardenEspHack();
 	public final MobSearchHack mobSearchHack = new MobSearchHack();
 	public final MobSpawnEspHack mobSpawnEspHack = new MobSpawnEspHack();
+	public final MusicAuraHack musicAuraHack = new MusicAuraHack();
 	public final MultiAuraHack multiAuraHack = new MultiAuraHack();
 	public final NameProtectHack nameProtectHack = new NameProtectHack();
 	public final NameTagsHack nameTagsHack = new NameTagsHack();

@@ -29,8 +29,10 @@ import com.google.gson.JsonParser;
 
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.clickgui.screens.AutoChatSystemPromptScreen;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -61,12 +63,12 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private static final Pattern ARROW_CHAT = Pattern.compile("^"
 		+ CHAT_PREFIX_PATTERN + "([A-Za-z0-9_\\-*.]{1,24})\\s*[»>]\\s+(.+)$");
 	private static final Pattern REPORTABLE_CHAT = Pattern.compile(
-		"^\\[Reportable\\]\\s+\\[CHAT\\](?:\\s+\\[[^\\]]{1,32}\\])*\\s+\\[([A-Za-z0-9_\\-*.]{1,24})\\]\\s+(.+)$");
-	private static final Pattern BRACKET_NAME_CHAT = Pattern.compile(
-		"^(?:\\[[^\\]]{1,32}\\]\\s+)*\\[([A-Za-z0-9_\\-*.]{1,24})\\]\\s+(.+)$");
+		"^\\[Reportable\\]\\s+\\[CHAT\\](?:\\s+\\[[^\\]]{1,32}\\])*\\s+(?:<|\\[)([A-Za-z0-9_]{1,16})(?:>|\\])\\s+(.+)$");
 	private static final Pattern WHISPER_TO_YOU_CHAT = Pattern.compile(
 		"^([A-Za-z0-9_]{1,16})\\s+whispers\\s+to\\s+you:\\s+(.+)$",
 		Pattern.CASE_INSENSITIVE);
+	private static final Pattern VALID_PLAYER_NAME =
+		Pattern.compile("^[A-Za-z0-9_]{1,16}$");
 	
 	private static final String[] INJECTION_MARKERS =
 		{"ignore previous", "ignore all previous", "system prompt",
@@ -86,6 +88,14 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		"Nickname aliases", "Optional comma-separated nicknames that should"
 			+ " count as addressing you (e.g. neco, conneco).",
 		"");
+	
+	private final TextFieldSetting customSystemPrompt = new TextFieldSetting(
+		"Custom system prompt",
+		"Custom system prompt text used by AutoChat. Leave empty to use the generated default.",
+		"");
+	
+	private final ButtonSetting editSystemPromptButton =
+		new ButtonSetting("Edit system prompt", this::openSystemPromptEditor);
 	
 	private final EnumSetting<Model> model =
 		new EnumSetting<>("Model", "OpenAI model used for chat replies.",
@@ -189,6 +199,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(apiKey);
 		addSetting(persona);
 		addSetting(nicknameAliases);
+		addSetting(editSystemPromptButton);
+		customSystemPrompt.setVisibleInGui(false);
+		addSetting(customSystemPrompt);
 		addSetting(model);
 		addSetting(maxTokens);
 		addSetting(temperature);
@@ -273,9 +286,13 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			stripLegacyFormatting(event.getComponent().getString()).trim();
 		if(plain.isEmpty() || plain.regionMatches(true, 0, "[Wurst]", 0, 7))
 			return;
+		if(plain.contains("[ClientChatOverlay]"))
+			return;
 		
 		ChatLine line = parsePlayerChatLine(plain);
 		if(line == null)
+			return;
+		if(!isRealPlayerSender(line.sender()))
 			return;
 		
 		if(line.sender().equalsIgnoreCase(ownName))
@@ -807,6 +824,15 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private String buildSystemPrompt()
 	{
+		String custom = customSystemPrompt.getValue();
+		if(!custom.isBlank())
+			return custom;
+		
+		return buildDefaultSystemPrompt();
+	}
+	
+	private String buildDefaultSystemPrompt()
+	{
 		String ownName = MC.getUser().getName();
 		return "You are an in-game Minecraft chat participant controlled by the"
 			+ " local user.\n" + "Your username: " + ownName + "\n"
@@ -827,6 +853,36 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			+ " moderation, or AI identity.\n"
 			+ "- Output exactly one plain chat line, no markdown, no quotes, no"
 			+ " command prefixes.\n" + "- Use ASCII characters only.";
+	}
+	
+	public void openSystemPromptEditor()
+	{
+		if(MC == null)
+			return;
+		
+		MC.setScreen(new AutoChatSystemPromptScreen(MC.screen, this));
+	}
+	
+	public String getSystemPromptEditorText()
+	{
+		String custom = customSystemPrompt.getValue();
+		if(!custom.isBlank())
+			return custom;
+		
+		return buildDefaultSystemPrompt();
+	}
+	
+	public String getGeneratedDefaultSystemPrompt()
+	{
+		return buildDefaultSystemPrompt();
+	}
+	
+	public void setCustomSystemPrompt(String prompt)
+	{
+		if(prompt == null)
+			return;
+		
+		customSystemPrompt.setValue(prompt);
 	}
 	
 	private String buildUserPrompt(List<ChatLine> snapshot, ChatLine latest,
@@ -1243,15 +1299,43 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(arrow.matches())
 			return new ChatLine(arrow.group(1), arrow.group(2));
 		
-		Matcher bracketName = BRACKET_NAME_CHAT.matcher(plain);
-		if(bracketName.matches())
-			return new ChatLine(bracketName.group(1), bracketName.group(2));
-		
 		Matcher whisper = WHISPER_TO_YOU_CHAT.matcher(plain);
 		if(whisper.matches())
 			return new ChatLine(whisper.group(1), whisper.group(2));
 		
 		return null;
+	}
+	
+	private boolean isRealPlayerSender(String sender)
+	{
+		if(sender == null)
+			return false;
+		
+		String trimmed = sender.trim();
+		if(!VALID_PLAYER_NAME.matcher(trimmed).matches())
+			return false;
+		if(MC.getConnection() == null)
+			return false;
+		
+		for(var info : MC.getConnection().getOnlinePlayers())
+		{
+			if(info.getProfile() == null || info.getProfile().name() == null)
+				continue;
+			if(trimmed.equalsIgnoreCase(info.getProfile().name()))
+				return true;
+		}
+		
+		if(MC.level == null)
+			return false;
+		
+		for(var player : MC.level.players())
+		{
+			String name = player.getName().getString();
+			if(trimmed.equalsIgnoreCase(name))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	private boolean isDirectlyAddressed(ChatLine line, String ownName)
@@ -1371,13 +1455,6 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		return model.getSelected().modelName.startsWith("gpt-5");
 	}
 	
-	private static boolean modelSupportsReasoningNone(Model selectedModel)
-	{
-		return selectedModel == Model.GPT_5_1 || selectedModel == Model.GPT_5_2
-			|| selectedModel == Model.GPT_5_1_CHAT_LATEST
-			|| selectedModel == Model.GPT_5_2_CHAT_LATEST;
-	}
-	
 	private static boolean modelSupportsTemperature(Model selectedModel)
 	{
 		if(!selectedModel.modelName.startsWith("gpt-5"))
@@ -1414,10 +1491,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private static String getReasoningEffortForModel(Model selectedModel)
 	{
-		if(modelSupportsReasoningNone(selectedModel))
-			return "none";
+		if(selectedModel.modelName.endsWith("-chat-latest"))
+			return null;
 		
-		if(shouldApplyGpt5TokenFloor(selectedModel))
+		if(selectedModel.modelName.startsWith("gpt-5"))
 			return "minimal";
 		
 		return null;
