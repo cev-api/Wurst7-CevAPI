@@ -75,6 +75,11 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			"developer message", "reveal prompt", "show prompt", "jailbreak",
 			"dan mode", "forget your instructions", "new instructions"};
 	
+	private static final Pattern DEFAULT_PROMPT_USERNAME_LINE =
+		Pattern.compile("(?m)^Your username: .*$");
+	private static final Pattern DEFAULT_PROMPT_PERSONA_LINE =
+		Pattern.compile("(?m)^Persona: .*$");
+	
 	private final TextFieldSetting apiKey =
 		new TextFieldSetting("OpenAI API key",
 			"Used for AutoChat requests. Leave blank to use WURST_OPENAI_KEY.",
@@ -824,8 +829,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private String buildSystemPrompt()
 	{
-		String custom = customSystemPrompt.getValue();
-		if(!custom.isBlank())
+		String custom = normalizePromptText(customSystemPrompt.getValue());
+		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
 			return custom;
 		
 		return buildDefaultSystemPrompt();
@@ -865,8 +870,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	public String getSystemPromptEditorText()
 	{
-		String custom = customSystemPrompt.getValue();
-		if(!custom.isBlank())
+		String custom = normalizePromptText(customSystemPrompt.getValue());
+		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
 			return custom;
 		
 		return buildDefaultSystemPrompt();
@@ -882,7 +887,44 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(prompt == null)
 			return;
 		
+		String normalized = normalizePromptText(prompt);
+		if(normalized.isBlank() || isGeneratedDefaultPromptSnapshot(normalized))
+		{
+			customSystemPrompt.setValue("");
+			return;
+		}
+		
 		customSystemPrompt.setValue(prompt);
+	}
+	
+	private static String normalizePromptText(String prompt)
+	{
+		if(prompt == null)
+			return "";
+		
+		return prompt.replace("\r\n", "\n").strip();
+	}
+	
+	private boolean isGeneratedDefaultPromptSnapshot(String prompt)
+	{
+		String normalizedPrompt = normalizePromptText(prompt);
+		if(normalizedPrompt.isBlank())
+			return false;
+		
+		String customSignature = toDefaultPromptSignature(normalizedPrompt);
+		String defaultSignature =
+			toDefaultPromptSignature(buildDefaultSystemPrompt());
+		return customSignature.equals(defaultSignature);
+	}
+	
+	private static String toDefaultPromptSignature(String prompt)
+	{
+		String signature = normalizePromptText(prompt);
+		signature = DEFAULT_PROMPT_USERNAME_LINE.matcher(signature)
+			.replaceFirst("Your username: <dynamic>");
+		signature = DEFAULT_PROMPT_PERSONA_LINE.matcher(signature)
+			.replaceFirst("Persona: <dynamic>");
+		return signature;
 	}
 	
 	private String buildUserPrompt(List<ChatLine> snapshot, ChatLine latest,
