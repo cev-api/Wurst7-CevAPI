@@ -120,6 +120,7 @@ public final class HackList implements UpdateListener
 	public final DerpHack derpHack = new DerpHack();
 	public final DolphinHack dolphinHack = new DolphinHack();
 	public final ElytraFlightHack elytraFlightHack = new ElytraFlightHack();
+	public final ElytraInfoHack elytraInfoHack = new ElytraInfoHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
