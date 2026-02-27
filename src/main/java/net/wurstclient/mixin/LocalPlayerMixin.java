@@ -96,7 +96,9 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	private boolean wrapTickMovementItemUse(LocalPlayer instance,
 		Operation<Boolean> original)
 	{
-		if(WurstClient.INSTANCE.getHax().noSlowdownHack.isEnabled())
+		if(WurstClient.INSTANCE.getHax().noSlowdownHack.isEnabled()
+			|| WurstClient.INSTANCE.getHax().speedHackHack
+				.shouldIgnoreSlowdownsForPotionMode())
 			return false;
 		
 		return original.call(instance);
@@ -276,6 +278,10 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		if(effect == MobEffects.DARKNESS && hax.antiBlindHack.isEnabled())
 			return false;
 		
+		if(effect == MobEffects.SLOWNESS
+			&& hax.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
+			return false;
+		
 		return super.hasEffect(effect);
 	}
 	
@@ -285,6 +291,10 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		HackList hax = WurstClient.INSTANCE.getHax();
 		
 		if(effect == MobEffects.LEVITATION && hax.noLevitationHack.isEnabled())
+			return null;
+		
+		if(effect == MobEffects.SLOWNESS
+			&& hax.speedHackHack.shouldIgnoreSlowdownsForPotionMode())
 			return null;
 		
 		return super.getEffect(effect);

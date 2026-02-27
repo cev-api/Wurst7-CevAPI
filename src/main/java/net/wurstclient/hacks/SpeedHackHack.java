@@ -14,6 +14,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
@@ -22,11 +23,16 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 {
 	private static final double AUTO_NORMALISE_BASE_BPS = 5.6;
 	private static final double AUTO_NORMALISE_WALK_BPS = 4.317;
-	private static final double AUTO_NORMALISE_SPRINT_BPS = 5.612;
+	private static final double AUTO_NORMALISE_SPRINT_BPS = 5.6112;
+	private static final double SPEED_I_WALK_BPS = 5.180;
+	private static final double SPEED_I_SPRINT_BPS = 6.734;
+	private static final double SPEED_II_WALK_BPS = 6.044;
+	private static final double SPEED_II_SPRINT_BPS = 7.857;
 	private static final double AUTO_NORMALISE_GROUND_ACCEL = 0.35;
 	private static final double AUTO_NORMALISE_AIR_ACCEL = 0.02;
 	private static final double AUTO_NORMALISE_SIDEWAYS_DAMPING = 0.15;
 	private static final double AUTO_NORMALISE_MAX_BOOST = 2.0;
+	private static final double POTION_MODE_MAX_BOOST = 4.0;
 	private static final double AUTO_NORMALISE_STEP_UP = 0.05;
 	private static final double AUTO_NORMALISE_STEP_DOWN = 0.02;
 	
@@ -51,6 +57,10 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		"Auto normalise",
 		"Overrides regular SpeedHack tuning and automatically compensates persistent non-environmental slowdown to maintain a normal walking speed.",
 		false);
+	private final EnumSetting<PotionMode> potionMode =
+		new EnumSetting<>("Potion mode",
+			"Vanilla-like Speed effect presets with slowdown compensation.",
+			PotionMode.values(), PotionMode.OFF);
 	private final CheckboxSetting renderSpeed =
 		new CheckboxSetting("Show speed in HackList", true);
 	
@@ -66,6 +76,7 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		addSetting(sidewaysDamping);
 		addSetting(autoSprint);
 		addSetting(autoNormalise);
+		addSetting(potionMode);
 		addSetting(renderSpeed);
 	}
 	
@@ -81,8 +92,7 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		
 		Vec3 velocity = player.getDeltaMovement();
 		long blocksPerSecond = Math.round(velocity.length() * 20.0);
-		String speedSetting =
-			autoNormalise.isChecked() ? "vanilla" : maxSpeed.getValueString();
+		String speedSetting = getModeLabel();
 		return getName() + " [" + blocksPerSecond + "b/s | " + speedSetting
 			+ "]";
 	}
@@ -119,9 +129,15 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 			|| MC.player.isInLava())
 			return;
 		
+		boolean potionPresetEnabled =
+			potionMode.getSelected() != PotionMode.OFF;
+		if(potionPresetEnabled)
+			MC.player.stuckSpeedMultiplier = Vec3.ZERO;
+		
 		// activate sprint if walking forward
-		if(!autoNormalise.isChecked() && autoSprint.isChecked()
-			&& MC.player.zza > 0 && !MC.player.horizontalCollision)
+		boolean vanillaProfile = isVanillaProfileMode();
+		if(!vanillaProfile && autoSprint.isChecked() && MC.player.zza > 0
+			&& !MC.player.horizontalCollision)
 			MC.player.setSprinting(true);
 			
 		// New approach: set a *target* horizontal velocity based on input +
@@ -139,28 +155,27 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		Vec3 velH = new Vec3(v.x, 0, v.z);
 		double currentHorizontalSpeed =
 			Math.sqrt(velH.x * velH.x + velH.z * velH.z);
-		boolean useAutoNormalise = autoNormalise.isChecked();
 		
 		// Dampen sideways inertia so turning doesn't feel like ice.
 		double alongSpeed = velH.dot(dir);
 		Vec3 along = dir.scale(alongSpeed);
 		Vec3 side = velH.subtract(along);
-		double damping = useAutoNormalise ? AUTO_NORMALISE_SIDEWAYS_DAMPING
+		double damping = vanillaProfile ? AUTO_NORMALISE_SIDEWAYS_DAMPING
 			: sidewaysDamping.getValue();
 		velH = along.add(side.scale(damping));
 		
 		// Accelerate towards target speed (strong on ground, weak in air).
 		double accel = MC.player.onGround()
-			? (useAutoNormalise ? AUTO_NORMALISE_GROUND_ACCEL
+			? (vanillaProfile ? AUTO_NORMALISE_GROUND_ACCEL
 				: groundAccel.getValue())
-			: (useAutoNormalise ? AUTO_NORMALISE_AIR_ACCEL
-				: airAccel.getValue());
-		double maxSpeedValue = useAutoNormalise
-			? getAutoNormaliseBaseSpeedPerTick() : maxSpeed.getValue();
+			: (vanillaProfile ? AUTO_NORMALISE_AIR_ACCEL : airAccel.getValue());
+		double maxSpeedValue = vanillaProfile
+			? getVanillaProfileBaseSpeedPerTick() : maxSpeed.getValue();
 		double compensatedTargetSpeed = maxSpeedValue;
-		if(useAutoNormalise)
-			compensatedTargetSpeed =
-				updateNormaliseTarget(maxSpeedValue, currentHorizontalSpeed);
+		if(vanillaProfile)
+			compensatedTargetSpeed = updateCompensatedTarget(maxSpeedValue,
+				currentHorizontalSpeed, potionPresetEnabled
+					? POTION_MODE_MAX_BOOST : AUTO_NORMALISE_MAX_BOOST);
 		else
 			currentNormaliseBoost = 1.0;
 		Vec3 targetH = dir.scale(compensatedTargetSpeed);
@@ -213,8 +228,8 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		return new Vec3(x / len, 0, z / len);
 	}
 	
-	private double updateNormaliseTarget(double baseTargetSpeed,
-		double currentHorizontalSpeed)
+	private double updateCompensatedTarget(double baseTargetSpeed,
+		double currentHorizontalSpeed, double maxBoost)
 	{
 		// Only push compensation while we should have stable ground movement.
 		boolean candidate = MC.player != null && MC.player.onGround()
@@ -228,7 +243,7 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		if(candidate && currentHorizontalSpeed > 0.08
 			&& currentHorizontalSpeed < underperformThreshold)
 		{
-			double cap = AUTO_NORMALISE_MAX_BOOST;
+			double cap = Math.max(1.0, maxBoost);
 			currentNormaliseBoost =
 				Math.min(cap, currentNormaliseBoost + AUTO_NORMALISE_STEP_UP);
 		}else if(currentNormaliseBoost > 1.0)
@@ -243,7 +258,23 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		return baseTargetSpeed * currentNormaliseBoost;
 	}
 	
-	private double getAutoNormaliseBaseSpeedPerTick()
+	private boolean isVanillaProfileMode()
+	{
+		return autoNormalise.isChecked()
+			|| potionMode.getSelected() != PotionMode.OFF;
+	}
+	
+	private String getModeLabel()
+	{
+		PotionMode preset = potionMode.getSelected();
+		if(preset != PotionMode.OFF)
+			return preset.toString();
+		
+		return autoNormalise.isChecked() ? "vanilla"
+			: maxSpeed.getValueString();
+	}
+	
+	private double getVanillaProfileBaseSpeedPerTick()
 	{
 		if(MC.player == null)
 			return AUTO_NORMALISE_WALK_BPS / 20.0;
@@ -251,8 +282,44 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 		boolean movingForward = MC.player.zza > 0;
 		boolean sprintRequested = movingForward
 			&& (MC.options.keySprint.isDown() || MC.player.isSprinting());
-		double bps = sprintRequested ? AUTO_NORMALISE_SPRINT_BPS
-			: AUTO_NORMALISE_WALK_BPS;
+		double bps = getBpsForCurrentMode(sprintRequested);
 		return bps / 20.0;
+	}
+	
+	private double getBpsForCurrentMode(boolean sprinting)
+	{
+		return switch(potionMode.getSelected())
+		{
+			case SPEED_I -> sprinting ? SPEED_I_SPRINT_BPS : SPEED_I_WALK_BPS;
+			case SPEED_II -> sprinting ? SPEED_II_SPRINT_BPS
+				: SPEED_II_WALK_BPS;
+			case OFF -> sprinting ? AUTO_NORMALISE_SPRINT_BPS
+				: AUTO_NORMALISE_WALK_BPS;
+		};
+	}
+	
+	public boolean shouldIgnoreSlowdownsForPotionMode()
+	{
+		return isEnabled() && potionMode.getSelected() != PotionMode.OFF;
+	}
+	
+	private enum PotionMode
+	{
+		OFF("Off"),
+		SPEED_I("Speed I"),
+		SPEED_II("Speed II");
+		
+		private final String name;
+		
+		private PotionMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
 	}
 }
