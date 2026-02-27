@@ -79,6 +79,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		Pattern.compile("(?m)^Your username: .*$");
 	private static final Pattern DEFAULT_PROMPT_PERSONA_LINE =
 		Pattern.compile("(?m)^Persona: .*$");
+	private static final Pattern SYSTEM_PROMPT_PERSONA_CAPTURE =
+		Pattern.compile("(?m)^Persona:\\s*(.*)$");
 	
 	private final TextFieldSetting apiKey =
 		new TextFieldSetting("OpenAI API key",
@@ -196,6 +198,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private int inFlightRequests;
 	private volatile long lastReplyTime;
 	private volatile long lastUnsolicitedReplyTime;
+	private String lastPersonaSnapshot = "";
+	private String lastCustomPromptSnapshot = "";
 	
 	public AutoChatHack()
 	{
@@ -223,6 +227,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(wordsPerMinute);
 		addSetting(maxConcurrentRequests);
 		addSetting(debugMode);
+		lastPersonaSnapshot = persona.getValue();
+		lastCustomPromptSnapshot =
+			normalizePromptText(customSystemPrompt.getValue());
 		
 	}
 	
@@ -829,6 +836,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private String buildSystemPrompt()
 	{
+		syncPersonaAndPrompt();
+		
 		String custom = normalizePromptText(customSystemPrompt.getValue());
 		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
 			return custom;
@@ -870,6 +879,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	public String getSystemPromptEditorText()
 	{
+		syncPersonaAndPrompt();
+		
 		String custom = normalizePromptText(customSystemPrompt.getValue());
 		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
 			return custom;
@@ -891,10 +902,76 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(normalized.isBlank() || isGeneratedDefaultPromptSnapshot(normalized))
 		{
 			customSystemPrompt.setValue("");
+			syncPersonaAndPrompt();
 			return;
 		}
 		
 		customSystemPrompt.setValue(prompt);
+		syncPersonaAndPrompt();
+	}
+	
+	private void syncPersonaAndPrompt()
+	{
+		String currentPersona = persona.getValue();
+		String currentPrompt =
+			normalizePromptText(customSystemPrompt.getValue());
+		if(currentPrompt.isBlank())
+		{
+			lastPersonaSnapshot = currentPersona;
+			lastCustomPromptSnapshot = currentPrompt;
+			return;
+		}
+		
+		String promptPersona = extractPersonaFromPrompt(currentPrompt);
+		if(promptPersona == null)
+		{
+			lastPersonaSnapshot = currentPersona;
+			lastCustomPromptSnapshot = currentPrompt;
+			return;
+		}
+		
+		boolean personaChanged = !currentPersona.equals(lastPersonaSnapshot);
+		boolean promptChanged = !currentPrompt.equals(lastCustomPromptSnapshot);
+		
+		if(promptChanged && !personaChanged)
+		{
+			if(!currentPersona.equals(promptPersona))
+				persona.setValue(promptPersona);
+		}else if(personaChanged && !promptChanged)
+		{
+			if(!promptPersona.equals(currentPersona))
+			{
+				String synced =
+					replacePersonaInPrompt(currentPrompt, currentPersona);
+				customSystemPrompt.setValue(synced);
+			}
+		}else if(promptChanged && personaChanged)
+		{
+			if(!currentPersona.equals(promptPersona))
+				persona.setValue(promptPersona);
+		}else if(!currentPersona.equals(promptPersona))
+			persona.setValue(promptPersona);
+		
+		lastPersonaSnapshot = persona.getValue();
+		lastCustomPromptSnapshot =
+			normalizePromptText(customSystemPrompt.getValue());
+	}
+	
+	private static String extractPersonaFromPrompt(String prompt)
+	{
+		Matcher matcher =
+			SYSTEM_PROMPT_PERSONA_CAPTURE.matcher(normalizePromptText(prompt));
+		if(!matcher.find())
+			return null;
+		
+		return matcher.group(1).strip();
+	}
+	
+	private static String replacePersonaInPrompt(String prompt, String persona)
+	{
+		return SYSTEM_PROMPT_PERSONA_CAPTURE
+			.matcher(normalizePromptText(prompt))
+			.replaceFirst("Persona: " + Matcher.quoteReplacement(persona));
 	}
 	
 	private static String normalizePromptText(String prompt)

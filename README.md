@@ -91,6 +91,16 @@ I'm pleased to note that many of the features and improvements below are complet
 - LootRunner
 - AutoFly
 - HideModMenu
+- SilkOnly
+- MobHealth (Inspired By Another Mod)
+- GameStats
+- AdvancedPacketTool
+- ClientChatOverlay
+- AutoChat
+- Mention
+- Force Allow Chats
+- MusicAura 
+- ElytraInfo (Inspired By Another Mod)
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -120,6 +130,7 @@ I have taken the following ideas from other clients/mods:
 - UI-Utils
 - Bundle Dupe
 - BookBot
+- NewerNewChunks
 
 I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
 
@@ -812,7 +823,8 @@ This hack is still undergoing development and has only been tested in the end. A
 - Can prioritize the newest message while keeping older lines as secondary context.
 - Mention detection supports your username plus nickname/derivative variants.
 - Optional `Always reply when mentioned` bypasses reply-gap timers for direct mentions.
-- Persona is configurable via text field.
+- Editable system prompt in-game.
+- Persona is configurable via text field and overrides whatever is in the system prompt.
 - Model is selectable, including:
   `chatgpt-4o-latest`, `gpt-5.2-chat-latest`, `gpt-5.2`, `gpt-4o`,
   `gpt-5.1-chat-latest`, `gpt-5-chat-latest`, `gpt-5.1`, `gpt-5`,
@@ -840,6 +852,17 @@ This hack is still undergoing development and has only been tested in the end. A
 ### MusicAura
 - Randomly alter music blocks around you, even through walls
 - Totally pointless
+
+### ElytraInfo
+- HUD under crosshair for elytra info: yaw, pitch, altitude, speed, direction, durability%.
+- Draggable when chat/inventory is open.
+- Custom text color/opacity/size, optional background color/opacity, optional prefix hiding.
+- Optional durability gradient (green -> red).
+- Keybindable swap: .elytrainfo swap (elytra <-> best chestplate, skips Binding-cursed items).
+- Optional auto-switch back to chestplate on landing.
+- Optional auto-switch to new elytra on <= 5% durability.
+
+![Ely](https://i.imgur.com/9yPOfUH.png)
 
 ## What's changed or improved in this fork?
 

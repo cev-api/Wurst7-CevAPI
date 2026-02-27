@@ -19,6 +19,8 @@ public final class IngameHUD implements GUIRenderListener
 	private final HackListHUD hackList = new HackListHUD();
 	private final DurabilityHud durabilityHud =
 		new DurabilityHud(WurstClient.INSTANCE.getHax().durabilityHudHack);
+	private final ElytraInfoHud elytraInfoHud =
+		new ElytraInfoHud(WurstClient.INSTANCE.getHax().elytraInfoHack);
 	private final GameStatsHud gameStatsHud =
 		new GameStatsHud(WurstClient.INSTANCE.getHax().gameStatsHack);
 	private final ClientMessageOverlay clientMessageOverlay =
@@ -43,6 +45,7 @@ public final class IngameHUD implements GUIRenderListener
 		hackList.render(context, partialTicks);
 		tabGui.render(context, partialTicks);
 		durabilityHud.render(context);
+		elytraInfoHud.render(context);
 		gameStatsHud.render(context);
 		clientMessageOverlay.render(context);
 		
