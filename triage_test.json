@@ -1,0 +1,2036 @@
+{
+  "root": "\\\\NAS\\Applications\\Programmin\\Minecraft\\Wurst7-master\\Wurst7-master\\src\\main\\java\\net\\wurstclient",
+  "summary": {
+    "total_findings": 108,
+    "unique_decoded_strings": 87,
+    "category_counts": {
+      "credential_or_identity_field": 50,
+      "url": 44,
+      "path": 10,
+      "string": 3,
+      "hex_decoded_binary": 1
+    },
+    "high_risk_count": 104,
+    "behavior_findings": 182,
+    "artifact_findings": 0,
+    "assessment_counts": {
+      "benign": 6,
+      "needs_review": 0,
+      "suspicious": 0
+    }
+  },
+  "assessment_summary": {
+    "counts": {
+      "benign": 6,
+      "needs_review": 0,
+      "suspicious": 0
+    },
+    "findings": {
+      "benign": [
+        {
+          "file": "altmanager\\MicrosoftLoginManager.java",
+          "line": 118,
+          "behavior": "assessment_benign_token_use_minecraft_auth_chain",
+          "evidence": "Benign context: bearer token usage appears limited to Microsoft/Minecraft auth endpoints"
+        },
+        {
+          "file": "altmanager\\MinecraftProfile.java",
+          "line": 37,
+          "behavior": "assessment_benign_token_getter_passthrough",
+          "evidence": "Benign context: token access is a local data-holder getter with no outbound network sink in this file"
+        },
+        {
+          "file": "hacks\\LivestreamDetectorHack.java",
+          "line": 313,
+          "behavior": "assessment_benign_self_name_filtering",
+          "evidence": "Benign context: own username is removed from scanned player sets to avoid self-matches"
+        },
+        {
+          "file": "mixin\\MinecraftClientMixin.java",
+          "line": 159,
+          "behavior": "assessment_benign_session_override_for_alt_switching",
+          "evidence": "Benign context: profile override is tied to explicit local session switching (alt/account management behavior)"
+        },
+        {
+          "file": "mixin\\MinecraftClientMixin.java",
+          "line": 236,
+          "behavior": "assessment_benign_token_use_local_profilekey_setup",
+          "evidence": "Benign context: token is consumed by Minecraft auth/profile-key services for local session functionality"
+        },
+        {
+          "file": "util\\FakePlayerEntity.java",
+          "line": 29,
+          "behavior": "assessment_benign_fake_player_clone",
+          "evidence": "Benign context: GameProfile is used to build a local fake-player clone entity, not for credential exfiltration"
+        }
+      ],
+      "needs_review": [],
+      "suspicious": []
+    }
+  },
+  "runtime_c2": {
+    "attempted": false,
+    "resolved": false
+  },
+  "findings": [
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 45,
+      "function": "<unknown>",
+      "decoded": "<binary 8 bytes>",
+      "category": "hex_decoded_binary",
+      "note": "decoded_bytes=8 entropy=2.000 hex_preview=00000000402B5328"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 57,
+      "function": "<unknown>",
+      "decoded": "https://login.live.com/oauth20_authorize.srf?client_id=",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 62,
+      "function": "<unknown>",
+      "decoded": "https://login.live.com/oauth20_token.srf",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 65,
+      "function": "<unknown>",
+      "decoded": "https://user.auth.xboxlive.com/user/authenticate",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 68,
+      "function": "<unknown>",
+      "decoded": "https://xsts.auth.xboxlive.com/xsts/authorize",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 71,
+      "function": "<unknown>",
+      "decoded": "https://api.minecraftservices.com/authentication/login_with_xbox",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 74,
+      "function": "<unknown>",
+      "decoded": "https://api.minecraftservices.com/minecraft/profile",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 168,
+      "function": "<unknown>",
+      "decoded": "Downloading login page...",
+      "category": "string",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 221,
+      "function": "<unknown>",
+      "decoded": "Getting authorization code...",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 259,
+      "function": "<unknown>",
+      "decoded": "authorization_code",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 261,
+      "function": "<unknown>",
+      "decoded": "https://login.live.com/oauth20_desktop.srf",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 278,
+      "function": "<unknown>",
+      "decoded": "Getting Microsoft access token...",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 286,
+      "function": "<unknown>",
+      "decoded": "access_token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 307,
+      "function": "<unknown>",
+      "decoded": "http://auth.xboxlive.com",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 308,
+      "function": "<unknown>",
+      "decoded": "TokenType",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 322,
+      "function": "<unknown>",
+      "decoded": "Getting X-Box Live token...",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 331,
+      "function": "<unknown>",
+      "decoded": "Token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 354,
+      "function": "<unknown>",
+      "decoded": "UserTokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 358,
+      "function": "<unknown>",
+      "decoded": "TokenType",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 372,
+      "function": "<unknown>",
+      "decoded": "Getting XSTS token...",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 380,
+      "function": "<unknown>",
+      "decoded": "Token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 396,
+      "function": "<unknown>",
+      "decoded": "identityToken",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 410,
+      "function": "<unknown>",
+      "decoded": "Getting Minecraft access token...",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 418,
+      "function": "<unknown>",
+      "decoded": "access_token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 436,
+      "function": "<unknown>",
+      "decoded": "Authorization",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "altmanager\\SkinStealer.java",
+      "line": 57,
+      "function": "<unknown>",
+      "decoded": "http://textures.minecraft.net/texture/&lt;texture ID&gt;",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\SkinStealer.java",
+      "line": 101,
+      "function": "<unknown>",
+      "decoded": "https://sessionserver.mojang.com/session/minecraft/profile/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "altmanager\\SkinStealer.java",
+      "line": 118,
+      "function": "<unknown>",
+      "decoded": "https://api.mojang.com/users/profiles/minecraft/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "analytics\\PlausibleAnalytics.java",
+      "line": 52,
+      "function": "<unknown>",
+      "decoded": "https://plausible.wurstclient.net/api/event",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "analytics\\PlausibleAnalytics.java",
+      "line": 107,
+      "function": "<unknown>",
+      "decoded": "/in-game",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "commands\\FeaturesCmd.java",
+      "line": 35,
+      "function": "<unknown>",
+      "decoded": "This is just a pre-release! It doesn't (yet) have all of the features of Wurst 7.0! See download page for details.",
+      "category": "string",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 49,
+      "function": "<unknown>",
+      "decoded": "https://api.openai.com/v1/responses",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 51,
+      "function": "<unknown>",
+      "decoded": "https://api.openai.com/v1/chat/completions",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 104,
+      "function": "<unknown>",
+      "decoded": "Max tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 105,
+      "function": "<unknown>",
+      "decoded": "Maximum output tokens used for each reply.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 184,
+      "function": "<unknown>",
+      "decoded": "max_output_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 185,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 250,
+      "function": "<unknown>",
+      "decoded": "max_output_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 251,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 668,
+      "function": "<unknown>",
+      "decoded": "max_output_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 670,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 671,
+      "function": "<unknown>",
+      "decoded": "AutoChat: Retrying with max_tokens for this",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 676,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 677,
+      "function": "<unknown>",
+      "decoded": "max_completion_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 680,
+      "function": "<unknown>",
+      "decoded": "AutoChat: Retrying without explicit token limit",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 693,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 695,
+      "function": "<unknown>",
+      "decoded": "max_completion_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 696,
+      "function": "<unknown>",
+      "decoded": "AutoChat: Retrying with max_completion_tokens.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 700,
+      "function": "<unknown>",
+      "decoded": "max_completion_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 704,
+      "function": "<unknown>",
+      "decoded": "AutoChat: Retrying chat/completions without explicit token limit.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 727,
+      "function": "<unknown>",
+      "decoded": "AutoChat: Increased max tokens to",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 729,
+      "function": "<unknown>",
+      "decoded": "empty responses caused by reasoning token usage.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 934,
+      "function": "<unknown>",
+      "decoded": "Authorization",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 1132,
+      "function": "<unknown>",
+      "decoded": "max_output_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\ForceOpHack.java",
+      "line": 280,
+      "function": "<unknown>",
+      "decoded": "/help",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 75,
+      "function": "<unknown>",
+      "decoded": "description.wurst.setting.livestreamdetector.youtube_api_key",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 82,
+      "function": "<unknown>",
+      "decoded": "Twitch OAuth token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 83,
+      "function": "<unknown>",
+      "decoded": "description.wurst.setting.livestreamdetector.twitch_oauth_token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 405,
+      "function": "<unknown>",
+      "decoded": "https://www.googleapis.com/youtube/v3/search?part=",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 421,
+      "function": "<unknown>",
+      "decoded": "https://www.youtube.com",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 425,
+      "function": "<unknown>",
+      "decoded": "https://www.youtube.com/watch?v=",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 435,
+      "function": "<unknown>",
+      "decoded": "/live",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 435,
+      "function": "<unknown>",
+      "decoded": "https://www.youtube.com/@",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 470,
+      "function": "<unknown>",
+      "decoded": "https://api.twitch.tv/helix/streams?user_login=",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 477,
+      "function": "<unknown>",
+      "decoded": "Authorization",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 489,
+      "function": "<unknown>",
+      "decoded": "https://www.twitch.tv/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 499,
+      "function": "<unknown>",
+      "decoded": "https://www.twitch.tv/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 525,
+      "function": "<unknown>",
+      "decoded": "/live",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 525,
+      "function": "<unknown>",
+      "decoded": "https://www.tiktok.com/@",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 557,
+      "function": "<unknown>",
+      "decoded": "https://kick.com/api/v2/channels/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 579,
+      "function": "<unknown>",
+      "decoded": "https://kick.com/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\MassTpaHack.java",
+      "line": 40,
+      "function": "<unknown>",
+      "decoded": "/tpa",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\MassTpaHack.java",
+      "line": 147,
+      "function": "<unknown>",
+      "decoded": "/help",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\SafeTpHack.java",
+      "line": 36,
+      "function": "<unknown>",
+      "decoded": "/t spawn",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 64,
+      "function": "<unknown>",
+      "decoded": "Max tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 65,
+      "function": "<unknown>",
+      "decoded": "The maximum number of tokens that the model can generate.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 79,
+      "function": "<unknown>",
+      "decoded": "letting it choose from the most likely tokens.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 81,
+      "function": "<unknown>",
+      "decoded": "choose from all tokens.",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 86,
+      "function": "<unknown>",
+      "decoded": "Penalty for choosing tokens that already appear in the chat",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 95,
+      "function": "<unknown>",
+      "decoded": "Similar to presence penalty, but based on how often the token",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 150,
+      "function": "<unknown>",
+      "decoded": "This can help you save tokens and get more out of a low",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 199,
+      "function": "<unknown>",
+      "decoded": "https://api.openai.com/v1/chat/completions",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\autocomplete\\ModelSettings.java",
+      "line": 204,
+      "function": "<unknown>",
+      "decoded": "https://api.openai.com/v1/completions",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hacks\\autocomplete\\OpenAiMessageCompleter.java",
+      "line": 38,
+      "function": "<unknown>",
+      "decoded": "max_tokens",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\autocomplete\\OpenAiMessageCompleter.java",
+      "line": 94,
+      "function": "<unknown>",
+      "decoded": "Authorization",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "hacks\\chattranslator\\GoogleTranslate.java",
+      "line": 105,
+      "function": "<unknown>",
+      "decoded": "https://translate.google.com/m?hl=en&sl=%s&tl=%s&ie=UTF-8&prev=_m&q=%s",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "hud\\ClientMessageOverlay.java",
+      "line": 58,
+      "function": "<unknown>",
+      "decoded": "^\\[Discord\\]\\s+.+$",
+      "category": "string",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 234,
+      "function": "<unknown>",
+      "decoded": ") || accessToken.equals(",
+      "category": "credential_or_identity_field",
+      "note": "source=string_scanner signal=literal_keyword_hit"
+    },
+    {
+      "file": "mixin\\PlayerSkinProviderMixin.java",
+      "line": 97,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/api/v1/capes.json",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "mixin\\xray\\sodium\\AbstractBlockRenderContextMixin.java",
+      "line": 25,
+      "function": "<unknown>",
+      "decoded": "https://github.com/CaffeineMC/sodium/blob/1ddf7faacbf7be60aff3f00b49d90d199fdd706a/common/src/main/java/net/caffeinemc/mods/sodium/client/render/model/AbstractBlockRenderContext.java",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "mixin\\xray\\sodium\\BlockRendererMixin.java",
+      "line": 23,
+      "function": "<unknown>",
+      "decoded": "https://github.com/CaffeineMC/sodium/blob/1ddf7faacbf7be60aff3f00b49d90d199fdd706a/common/src/main/java/net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderer.java",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "mixin\\xray\\sodium\\DefaultFluidRendererMixin.java",
+      "line": 30,
+      "function": "<unknown>",
+      "decoded": "https://github.com/CaffeineMC/sodium/tree/02253db283e4679228ba5fbc30cfc851d17123c8",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 204,
+      "function": "<unknown>",
+      "decoded": "https://github.com/cev-api/NiceWurst",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 205,
+      "function": "<unknown>",
+      "decoded": "https://github.com/cev-api/Wurst7-CevAPI",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 212,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/options-website/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 215,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/options-wiki/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 218,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/options-forum/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "options\\WurstOptionsScreen.java",
+      "line": 221,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/options-twitter/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "other_features\\NoChatReportsOtf.java",
+      "line": 113,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/chat-disabled-mpk/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "presets\\PresetManager.java",
+      "line": 93,
+      "function": "<unknown>",
+      "decoded": "/wurst/presets/",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "serverfinder\\ServerFinderScreen.java",
+      "line": 63,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/serverfinder-tutorial/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "serverfinder\\ServerFinderScreen.java",
+      "line": 260,
+      "function": "<unknown>",
+      "decoded": "/ 1792",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "update\\ForkUpdateChecker.java",
+      "line": 92,
+      "function": "<unknown>",
+      "decoded": "https://api.github.com/repos/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "update\\ForkUpdateChecker.java",
+      "line": 93,
+      "function": "<unknown>",
+      "decoded": "/releases",
+      "category": "path",
+      "note": "source=string_scanner signal=literal_path_or_payload_name"
+    },
+    {
+      "file": "update\\Version.java",
+      "line": 149,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/updates/wurst-",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "update\\WurstUpdater.java",
+      "line": 60,
+      "function": "<unknown>",
+      "decoded": "https://api.github.com/repos/Wurst-Imperium/Wurst-MCX2/releases",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "update\\WurstUpdater.java",
+      "line": 93,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/download/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    },
+    {
+      "file": "util\\ForceOpDialog.java",
+      "line": 181,
+      "function": "<unknown>",
+      "decoded": "https://www.wurstclient.net/forceop-tutorial/",
+      "category": "url",
+      "note": "source=string_scanner signal=literal_url"
+    }
+  ],
+  "behavior_findings": [
+    {
+      "file": "Feature.java",
+      "line": 74,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "FriendsList.java",
+      "line": 62,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "TooManyHaxFile.java",
+      "line": 78,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\AltManager.java",
+      "line": 34,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\Encryption.java",
+      "line": 135,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\LoginManager.java",
+      "line": 25,
+      "behavior": "username_or_session_switching",
+      "evidence": "Constructs replacement User session and switches the active client identity"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 104,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 105,
+      "behavior": "minecraft_access_token_access",
+      "evidence": "Reads Minecraft session access token (method_1674/getAccessToken)"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 107,
+      "behavior": "username_or_session_switching",
+      "evidence": "Constructs replacement User session and switches the active client identity"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 118,
+      "behavior": "assessment_benign_token_use_minecraft_auth_chain",
+      "evidence": "Benign context: bearer token usage appears limited to Microsoft/Minecraft auth endpoints"
+    },
+    {
+      "file": "altmanager\\MicrosoftLoginManager.java",
+      "line": 118,
+      "behavior": "token_sent_to_minecraft_auth_chain",
+      "evidence": "Bearer token appears limited to trusted Microsoft/Minecraft auth hosts: api.minecraftservices.com, auth.xboxlive.com, login.live.com, user.auth.xboxlive.com, xsts.auth.xboxlive.com"
+    },
+    {
+      "file": "altmanager\\MinecraftProfile.java",
+      "line": 35,
+      "behavior": "minecraft_access_token_access",
+      "evidence": "Reads Minecraft session access token (method_1674/getAccessToken)"
+    },
+    {
+      "file": "altmanager\\MinecraftProfile.java",
+      "line": 37,
+      "behavior": "assessment_benign_token_getter_passthrough",
+      "evidence": "Benign context: token access is a local data-holder getter with no outbound network sink in this file"
+    },
+    {
+      "file": "altmanager\\MinecraftProfile.java",
+      "line": 37,
+      "behavior": "token_field_getter_passthrough",
+      "evidence": "Access token is returned as a plain DTO/profile field accessor"
+    },
+    {
+      "file": "altmanager\\MojangAlt.java",
+      "line": 70,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "altmanager\\MojangAlt.java",
+      "line": 70,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\screens\\AltEditorScreen.java",
+      "line": 154,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "altmanager\\screens\\AltEditorScreen.java",
+      "line": 154,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\screens\\AltManagerScreen.java",
+      "line": 439,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "altmanager\\screens\\AltManagerScreen.java",
+      "line": 616,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "altmanager\\screens\\EditAltScreen.java",
+      "line": 33,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "chestsearch\\ChestManager.java",
+      "line": 42,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\ClickGui.java",
+      "line": 113,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\SettingsWindow.java",
+      "line": 23,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\BlockComponent.java",
+      "line": 87,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\BlockListEditButton.java",
+      "line": 36,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\BookOffersEditButton.java",
+      "line": 36,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\CheckboxComponent.java",
+      "line": 86,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\ColorComponent.java",
+      "line": 87,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\ComboBoxComponent.java",
+      "line": 126,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\EntityTypeListEditButton.java",
+      "line": 37,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\FeatureButton.java",
+      "line": 77,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\FileComponent.java",
+      "line": 77,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\ItemListEditButton.java",
+      "line": 36,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\MobWeaponRuleComponent.java",
+      "line": 129,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\PlantTypeComponent.java",
+      "line": 126,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\SettingGroupComponent.java",
+      "line": 80,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\SliderComponent.java",
+      "line": 158,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\StringDropdownComponent.java",
+      "line": 121,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\TextFieldEditButton.java",
+      "line": 153,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\ToggleAllPlantTypesComponent.java",
+      "line": 130,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\components\\WaypointsEditButton.java",
+      "line": 36,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\ChestSearchScreen.java",
+      "line": 237,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditBlockListScreen.java",
+      "line": 268,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditBlockScreen.java",
+      "line": 103,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditBookOffersScreen.java",
+      "line": 170,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditColorScreen.java",
+      "line": 168,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditEntityTypeListScreen.java",
+      "line": 274,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditItemListScreen.java",
+      "line": 271,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditSliderScreen.java",
+      "line": 94,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\EditTextFieldScreen.java",
+      "line": 89,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\SelectFileScreen.java",
+      "line": 136,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\WaypointEditScreen.java",
+      "line": 109,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "clickgui\\screens\\WaypointsScreen.java",
+      "line": 194,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "command\\CmdList.java",
+      "line": 100,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "command\\CmdProcessor.java",
+      "line": 61,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\AddAltCmd.java",
+      "line": 60,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "commands\\AddAltCmd.java",
+      "line": 60,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\AnnoyCmd.java",
+      "line": 74,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\BlockListCmd.java",
+      "line": 90,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\CopyItemCmd.java",
+      "line": 51,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\FollowCmd.java",
+      "line": 45,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\HelpCmd.java",
+      "line": 72,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\InvseeCmd.java",
+      "line": 59,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\ItemListCmd.java",
+      "line": 88,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\ProtectCmd.java",
+      "line": 46,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\SetBlockCmd.java",
+      "line": 51,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\SetCheckboxCmd.java",
+      "line": 48,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\SetColorCmd.java",
+      "line": 50,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\SetModeCmd.java",
+      "line": 48,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\SetSliderCmd.java",
+      "line": 49,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\TCmd.java",
+      "line": 62,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "commands\\TooManyHaxCmd.java",
+      "line": 196,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "event\\EventManager.java",
+      "line": 83,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hack\\EnabledHacksFile.java",
+      "line": 89,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hack\\HackList.java",
+      "line": 299,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AnchorAuraHack.java",
+      "line": 337,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AntisocialHack.java",
+      "line": 114,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AutoBuildHack.java",
+      "line": 136,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 284,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\AutoChatHack.java",
+      "line": 284,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AutoFlyHack.java",
+      "line": 719,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\AutoMaceHack.java",
+      "line": 212,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\BaseFinderHack.java",
+      "line": 500,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\BeaconExploitHack.java",
+      "line": 89,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\CheatDetectorHack.java",
+      "line": 613,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\CoordLoggerHack.java",
+      "line": 389,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\CrystalAuraHack.java",
+      "line": 255,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\DamageDetectHack.java",
+      "line": 78,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\FlightHack.java",
+      "line": 392,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\FollowHack.java",
+      "line": 70,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\ForceOpHack.java",
+      "line": 64,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\ForceOpHack.java",
+      "line": 64,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\InstaBuildHack.java",
+      "line": 90,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\ItemEspHack.java",
+      "line": 665,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\KickForensicsHack.java",
+      "line": 291,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 313,
+      "behavior": "assessment_benign_self_name_filtering",
+      "evidence": "Benign context: own username is removed from scanned player sets to avoid self-matches"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 313,
+      "behavior": "minecraft_gameprofile_access",
+      "evidence": "Reads player GameProfile (method_7334/getGameProfile)"
+    },
+    {
+      "file": "hacks\\LivestreamDetectorHack.java",
+      "line": 313,
+      "behavior": "profile_use_self_name_filtering",
+      "evidence": "Reads own GameProfile name and removes it from scanned player set"
+    },
+    {
+      "file": "hacks\\LogoutSpotsHack.java",
+      "line": 141,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\LootRunnerHack.java",
+      "line": 2310,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\LootSearchHack.java",
+      "line": 120,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\MassTpaHack.java",
+      "line": 88,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\MassTpaHack.java",
+      "line": 88,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\MentionHack.java",
+      "line": 121,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\MentionHack.java",
+      "line": 121,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\MobHealthHack.java",
+      "line": 115,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\NameProtectHack.java",
+      "line": 30,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\NameProtectHack.java",
+      "line": 30,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\OfflineSettingsHack.java",
+      "line": 532,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\OfflineSettingsHack.java",
+      "line": 532,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\PanicHack.java",
+      "line": 88,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\PlayerEspHack.java",
+      "line": 428,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\ProtectHack.java",
+      "line": 112,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\RemoteViewHack.java",
+      "line": 88,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\SafeTpHack.java",
+      "line": 257,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\SearchHack.java",
+      "line": 492,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\TooManyHaxHack.java",
+      "line": 140,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\WaypointsHack.java",
+      "line": 462,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\XRayHack.java",
+      "line": 554,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\autocomplete\\MessageCompleter.java",
+      "line": 92,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\autocomplete\\MessageCompleter.java",
+      "line": 92,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\chattranslator\\FilterOwnMessagesSetting.java",
+      "line": 35,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "hacks\\chattranslator\\FilterOwnMessagesSetting.java",
+      "line": 35,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\itemhandler\\ItemHandlerHack.java",
+      "line": 823,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hacks\\templatetool\\states\\SavingFileState.java",
+      "line": 59,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "hud\\TabGui.java",
+      "line": 48,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "keybinds\\KeybindProcessor.java",
+      "line": 121,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "locator\\LocatorBarMixin.java",
+      "line": 66,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "lootsearch\\LootSearchUtil.java",
+      "line": 179,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\DownloaderMixin.java",
+      "line": 59,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "mixin\\DownloaderMixin.java",
+      "line": 60,
+      "behavior": "minecraft_uuid_access",
+      "evidence": "Reads Minecraft session UUID (method_44717/getProfileId)"
+    },
+    {
+      "file": "mixin\\DownloaderMixin.java",
+      "line": 62,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\GenericContainerScreenMixin.java",
+      "line": 576,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\InGameHudLocatorProbeMixin.java",
+      "line": 72,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 150,
+      "behavior": "minecraft_session_access",
+      "evidence": "Accesses Minecraft session/user object (method_1548/getSession/getUser)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 159,
+      "behavior": "assessment_benign_session_override_for_alt_switching",
+      "evidence": "Benign context: profile override is tied to explicit local session switching (alt/account management behavior)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 159,
+      "behavior": "minecraft_gameprofile_access",
+      "evidence": "Reads player GameProfile (method_7334/getGameProfile)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 159,
+      "behavior": "session_profile_override",
+      "evidence": "Intercepts getGameProfile and returns profile id/name derived from the active replacement session"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 167,
+      "behavior": "minecraft_uuid_access",
+      "evidence": "Reads Minecraft session UUID (method_44717/getProfileId)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 168,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 187,
+      "behavior": "telemetry_or_beaconing",
+      "evidence": "Contains telemetry initialization or transport routines"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 232,
+      "behavior": "minecraft_access_token_access",
+      "evidence": "Reads Minecraft session access token (method_1674/getAccessToken)"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 236,
+      "behavior": "assessment_benign_token_use_local_profilekey_setup",
+      "evidence": "Benign context: token is consumed by Minecraft auth/profile-key services for local session functionality"
+    },
+    {
+      "file": "mixin\\MinecraftClientMixin.java",
+      "line": 236,
+      "behavior": "token_use_profile_key_or_user_api_setup",
+      "evidence": "Uses access token for local profile-key/user-api initialization rather than outbound exfiltration flow"
+    },
+    {
+      "file": "mixin\\ModMenuEntryMixin.java",
+      "line": 105,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\ModMenuListWidgetMixin.java",
+      "line": 331,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\ModMenuScreenMixin.java",
+      "line": 114,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "mixin\\TelemetryManagerMixin.java",
+      "line": 14,
+      "behavior": "telemetry_or_beaconing",
+      "evidence": "Contains telemetry initialization or transport routines"
+    },
+    {
+      "file": "navigator\\Navigator.java",
+      "line": 54,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "navigator\\NavigatorFeatureScreen.java",
+      "line": 111,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "navigator\\NavigatorMainScreen.java",
+      "line": 184,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "navigator\\NavigatorNewKeybindScreen.java",
+      "line": 67,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "navigator\\NavigatorRemoveKeybindScreen.java",
+      "line": 89,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "nicewurst\\NiceWurstModule.java",
+      "line": 327,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "options\\PressAKeyScreen.java",
+      "line": 45,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "other_feature\\OtfList.java",
+      "line": 33,
+      "behavior": "telemetry_or_beaconing",
+      "evidence": "Contains telemetry initialization or transport routines"
+    },
+    {
+      "file": "other_feature\\OtfList.java",
+      "line": 58,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "other_features\\HackListOtf.java",
+      "line": 267,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "other_features\\NoTelemetryOtf.java",
+      "line": 17,
+      "behavior": "telemetry_or_beaconing",
+      "evidence": "Contains telemetry initialization or transport routines"
+    },
+    {
+      "file": "other_features\\PacketFirewallOtf.java",
+      "line": 544,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "other_features\\WikiDataExportOtf.java",
+      "line": 50,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\BlockListSetting.java",
+      "line": 264,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\FaceTargetSetting.java",
+      "line": 64,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\SettingGroup.java",
+      "line": 125,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\SettingsFile.java",
+      "line": 53,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\SwingHandSetting.java",
+      "line": 62,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "settings\\TakeItemsFromSetting.java",
+      "line": 59,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\CmdUtils.java",
+      "line": 31,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\FakePlayerEntity.java",
+      "line": 29,
+      "behavior": "assessment_benign_fake_player_clone",
+      "evidence": "Benign context: GameProfile is used to build a local fake-player clone entity, not for credential exfiltration"
+    },
+    {
+      "file": "util\\FakePlayerEntity.java",
+      "line": 29,
+      "behavior": "minecraft_gameprofile_access",
+      "evidence": "Reads player GameProfile (method_7334/getGameProfile)"
+    },
+    {
+      "file": "util\\FakePlayerEntity.java",
+      "line": 29,
+      "behavior": "profile_use_fake_player_clone",
+      "evidence": "Uses local GameProfile when constructing a fake/remote player clone"
+    },
+    {
+      "file": "util\\ForceOpDialog.java",
+      "line": 170,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\HackToggleFeedback.java",
+      "line": 36,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\ModMenuTextUtils.java",
+      "line": 53,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\MultiProcessingUtils.java",
+      "line": 28,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\MultiProcessingUtils.java",
+      "line": 31,
+      "behavior": "command_execution_capability",
+      "evidence": "Contains command execution primitives"
+    },
+    {
+      "file": "util\\PlayerRangeAlertManager.java",
+      "line": 93,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\ServerObserver.java",
+      "line": 92,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "util\\SetbackDetector.java",
+      "line": 111,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "waypoints\\WaypointsManager.java",
+      "line": 58,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    },
+    {
+      "file": "waypoints\\XaeroWaypointIO.java",
+      "line": 164,
+      "behavior": "minecraft_username_access",
+      "evidence": "Reads Minecraft session username (method_1676/getName)"
+    }
+  ],
+  "artifact_findings": []
+}

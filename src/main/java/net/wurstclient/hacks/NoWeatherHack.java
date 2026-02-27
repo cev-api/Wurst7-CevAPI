@@ -9,15 +9,20 @@ package net.wurstclient.hacks;
 
 import net.minecraft.world.level.MoonPhase;
 import net.wurstclient.Category;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 
-public final class NoWeatherHack extends Hack
+public final class NoWeatherHack extends Hack implements UpdateListener
 {
 	private final CheckboxSetting disableRain =
 		new CheckboxSetting("Disable Rain", true);
+	
+	private final CheckboxSetting announceWeatherChanges =
+		new CheckboxSetting("Announce Weather Changes", false);
 	
 	private final CheckboxSetting changeTime =
 		new CheckboxSetting("Change World Time", false);
@@ -31,16 +36,60 @@ public final class NoWeatherHack extends Hack
 	private final SliderSetting moonPhase =
 		new SliderSetting("Moon Phase", 0, 0, 7, 1, ValueDisplay.INTEGER);
 	
+	private WeatherState lastKnownWeather;
+	
 	public NoWeatherHack()
 	{
 		super("NoWeather");
 		setCategory(Category.RENDER);
 		
 		addSetting(disableRain);
+		addSetting(announceWeatherChanges);
 		addSetting(changeTime);
 		addSetting(time);
 		addSetting(changeMoonPhase);
 		addSetting(moonPhase);
+	}
+	
+	@Override
+	protected void onEnable()
+	{
+		lastKnownWeather = null;
+		EVENTS.add(UpdateListener.class, this);
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		EVENTS.remove(UpdateListener.class, this);
+		lastKnownWeather = null;
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(MC.level == null)
+		{
+			lastKnownWeather = null;
+			return;
+		}
+		
+		WeatherState currentWeather = WeatherState
+			.fromLevel(MC.level.isRaining(), MC.level.isThundering());
+		if(lastKnownWeather == null)
+		{
+			lastKnownWeather = currentWeather;
+			return;
+		}
+		
+		if(currentWeather == lastKnownWeather)
+			return;
+		
+		if(announceWeatherChanges.isChecked())
+			ChatUtils.message("NoWeather: Weather is now "
+				+ currentWeather.getDisplayName() + ".");
+		
+		lastKnownWeather = currentWeather;
 	}
 	
 	public boolean isRainDisabled()
@@ -66,5 +115,36 @@ public final class NoWeatherHack extends Hack
 	public MoonPhase getChangedMoonPhase()
 	{
 		return MoonPhase.values()[moonPhase.getValueI()];
+	}
+	
+	private enum WeatherState
+	{
+		CLEAR("clear"),
+		RAIN("rain"),
+		THUNDER("thunder");
+		
+		private final String displayName;
+		
+		private WeatherState(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		public String getDisplayName()
+		{
+			return displayName;
+		}
+		
+		private static WeatherState fromLevel(boolean raining,
+			boolean thundering)
+		{
+			if(thundering)
+				return THUNDER;
+			
+			if(raining)
+				return RAIN;
+			
+			return CLEAR;
+		}
 	}
 }
