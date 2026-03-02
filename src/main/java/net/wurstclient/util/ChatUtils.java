@@ -45,10 +45,17 @@ public enum ChatUtils
 	{
 		if(!enabled)
 			return;
+		if(MC == null)
+			return;
 		
-		ChatComponent chatHud = MC.gui.getChat();
-		MutableComponent prefix = Component.literal(WURST_PREFIX);
-		chatHud.addMessage(prefix.append(component));
+		MC.execute(() -> {
+			if(!enabled || MC.gui == null)
+				return;
+			
+			ChatComponent chatHud = MC.gui.getChat();
+			MutableComponent prefix = Component.literal(WURST_PREFIX);
+			chatHud.addMessage(prefix.append(component));
+		});
 	}
 	
 	public static void message(String message)

@@ -67,7 +67,9 @@ public final class SetbackDetector implements PacketInputListener
 {
 	private static final long COOLDOWN_MS = 500L;
 	private static final long ACTIVE_WINDOW_MS = 3000L;
+	private static final long JOIN_TELEPORT_GRACE_MS = 3000L;
 	private long lastSetbackMs;
+	private long suppressUntilMs;
 	
 	private static final Set<Class<? extends Hack>> SETBACK_HACK_TYPES = Set.of(
 		AnchorAuraHack.class, AntiEntityPushHack.class, AntiKnockbackHack.class,
@@ -95,20 +97,41 @@ public final class SetbackDetector implements PacketInputListener
 			.isSetbackDetectionEnabled())
 			return;
 		
+		// Suppress during server join/respawn/dimension change
+		String simpleName = event.getPacket().getClass().getSimpleName();
+		if(isJoinOrRespawnPacket(simpleName))
+		{
+			suppressUntilMs =
+				System.currentTimeMillis() + JOIN_TELEPORT_GRACE_MS;
+			return;
+		}
+		
 		if(!(event.getPacket() instanceof ClientboundPlayerPositionPacket))
 			return;
 		
 		long now = System.currentTimeMillis();
+		if(now < suppressUntilMs)
+			return;
+		
 		if(now - lastSetbackMs < COOLDOWN_MS)
 			return;
 		
-		lastSetbackMs = now;
-		Hack culprit = findMostRecentHack();
-		if(culprit == null)
+		// Only warn if a relevant hack was recently active
+		Hack recent = findMostRecentHack();
+		if(recent == null)
 			return;
 		
-		culprit.setEnabled(false);
-		ChatUtils.error("Setback detected. Disabled: " + culprit.getName());
+		lastSetbackMs = now;
+		ChatUtils.warning("Setback detected.");
+	}
+	
+	private boolean isJoinOrRespawnPacket(String simpleName)
+	{
+		if(simpleName == null || simpleName.isEmpty())
+			return false;
+		// Mappings can vary across MC versions; check common names
+		return simpleName.contains("Login") || simpleName.contains("GameJoin")
+			|| simpleName.contains("Respawn");
 	}
 	
 	private Hack findMostRecentHack()

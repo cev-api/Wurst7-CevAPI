@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +25,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
@@ -45,15 +47,23 @@ public final class ClientMessageOverlay
 		"(?:(?:\\[[^\\]]{1,32}\\]|‹[^›]{1,32}›)\\s*)*";
 	private static final Pattern DECORATED_PLAYER_CHAT_PATTERN =
 		Pattern.compile("^" + CHAT_PREFIX_PATTERN + "<[^>]{1,32}>\\s+.+$");
+	private static final String PLAYER_NAME_TOKEN = "[+A-Za-z0-9_\\-*.]{1,32}";
 	private static final Pattern COLON_PLAYER_CHAT_PATTERN = Pattern
-		.compile("^" + CHAT_PREFIX_PATTERN + "[A-Za-z0-9_\\-*.]{1,24}:\\s+.+$");
+		.compile("^" + CHAT_PREFIX_PATTERN + PLAYER_NAME_TOKEN + ":\\s+.+$");
 	private static final Pattern ARROW_PLAYER_CHAT_PATTERN = Pattern.compile(
-		"^" + CHAT_PREFIX_PATTERN + "[A-Za-z0-9_\\-*.]{1,24}\\s*[»>]\\s+.+$");
+		"^" + CHAT_PREFIX_PATTERN + PLAYER_NAME_TOKEN + "\\s*[»>]\\s+.+$");
 	private static final Pattern BRACKETED_PLAYER_CHAT_PATTERN =
 		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s+\\[[^\\]]{1,32}\\]\\s+.+$");
 	private static final Pattern JOIN_LEAVE_PATTERN =
 		Pattern.compile("^[A-Za-z0-9_]{1,16}\\s+(joined|left)\\s+the\\s+game$",
 			Pattern.CASE_INSENSITIVE);
+	private static final Pattern DECORATED_JOIN_LEAVE_PATTERN = Pattern.compile(
+		"^" + CHAT_PREFIX_PATTERN
+			+ "[A-Za-z0-9_]{1,16}\\s+(joined|left)\\s+the\\s+game$",
+		Pattern.CASE_INSENSITIVE);
+	private static final Pattern PLAYER_EVENT_SUFFIX_PATTERN = Pattern.compile(
+		"^(joined\\b|left\\b|disconnected\\b|logged\\s+in\\b|logged\\s+out\\b|was\\b|died\\b|drowned\\b|starved\\b|suffocated\\b|burned\\b|burnt\\b|froze\\b|withered\\b|fell\\b|tried\\b).*$",
+		Pattern.CASE_INSENSITIVE);
 	private static final Pattern DISCORD_PREFIX_PATTERN =
 		Pattern.compile("^\\[Discord\\]\\s+.+$", Pattern.CASE_INSENSITIVE);
 	private static final ClientMessageOverlay INSTANCE =
@@ -109,6 +119,9 @@ public final class ClientMessageOverlay
 			return true;
 		}
 		
+		if(isVanillaPlayerEventComponent(message))
+			return false;
+		
 		if(looksLikePlayerChat(plain))
 			return false;
 		
@@ -147,6 +160,9 @@ public final class ClientMessageOverlay
 			return true;
 		}
 		
+		if(isVanillaPlayerEventComponent(message))
+			return false;
+			
 		// Signed messages are usually player chat. Keep them in vanilla chat
 		// unless explicitly forced into client chat via keyword.
 		if(signature != null)
@@ -411,12 +427,169 @@ public final class ClientMessageOverlay
 		if(JOIN_LEAVE_PATTERN.matcher(plain).matches())
 			return true;
 		
+		if(DECORATED_JOIN_LEAVE_PATTERN.matcher(plain).matches())
+			return true;
+		
 		if(DISCORD_PREFIX_PATTERN.matcher(plain).matches())
+			return true;
+		
+		if(looksLikeOnlinePlayerEventMessage(plain))
+			return true;
+		
+		if(matchesOnlinePlayerSender(plain))
 			return true;
 		
 		String lower = plain.toLowerCase();
 		return lower.contains(" whispers to you:")
 			|| lower.startsWith("to ") && plain.contains(": ");
+	}
+	
+	private static boolean isVanillaPlayerEventComponent(Component component)
+	{
+		if(component == null
+			|| !(component.getContents() instanceof TranslatableContents tr))
+			return false;
+		
+		String key = tr.getKey();
+		return key.startsWith("death.")
+			|| key.equals("multiplayer.player.joined")
+			|| key.equals("multiplayer.player.left");
+	}
+	
+	private static boolean matchesOnlinePlayerSender(String plain)
+	{
+		String sender = extractSenderToken(plain);
+		if(sender == null || sender.isEmpty())
+			return false;
+		
+		String normalizedSender = normalizeSenderToken(sender);
+		if(normalizedSender.isEmpty())
+			return false;
+		
+		var connection = WurstClient.MC.getConnection();
+		if(connection == null)
+			return false;
+		
+		for(var info : connection.getOnlinePlayers())
+		{
+			if(info == null || info.getProfile() == null)
+				continue;
+			
+			String name = info.getProfile().name();
+			if(name == null || name.isEmpty())
+				continue;
+			
+			if(normalizedSender.equalsIgnoreCase(name))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private static boolean looksLikeOnlinePlayerEventMessage(String plain)
+	{
+		if(plain == null || plain.isEmpty())
+			return false;
+		
+		String trimmed = plain.trim();
+		if(trimmed.isEmpty())
+			return false;
+		
+		String withoutPrefix =
+			trimmed.replaceFirst("^" + CHAT_PREFIX_PATTERN, "");
+		int space = withoutPrefix.indexOf(' ');
+		if(space <= 0)
+			return false;
+		
+		String firstToken = withoutPrefix.substring(0, space);
+		String playerName = normalizeSenderToken(firstToken);
+		if(playerName.isEmpty() || !isOnlinePlayerName(playerName))
+			return false;
+		
+		String suffix = withoutPrefix.substring(space + 1).trim();
+		if(suffix.isEmpty())
+			return false;
+		
+		if(PLAYER_EVENT_SUFFIX_PATTERN.matcher(suffix).matches())
+			return true;
+		
+		String lowerSuffix = suffix.toLowerCase(Locale.ROOT);
+		return lowerSuffix.contains("joined the game")
+			|| lowerSuffix.contains("left the game")
+			|| lowerSuffix.contains("disconnected");
+	}
+	
+	private static boolean isOnlinePlayerName(String name)
+	{
+		if(name == null || name.isEmpty())
+			return false;
+		
+		var connection = WurstClient.MC.getConnection();
+		if(connection == null)
+			return false;
+		
+		for(var info : connection.getOnlinePlayers())
+		{
+			if(info == null || info.getProfile() == null)
+				continue;
+			
+			String onlineName = info.getProfile().name();
+			if(onlineName == null || onlineName.isEmpty())
+				continue;
+			
+			if(name.equalsIgnoreCase(onlineName))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private static String extractSenderToken(String plain)
+	{
+		if(plain == null || plain.isEmpty())
+			return null;
+		
+		String trimmed = plain.trim();
+		if(trimmed.isEmpty())
+			return null;
+		
+		if(trimmed.startsWith("<"))
+		{
+			int end = trimmed.indexOf('>');
+			if(end > 1)
+				return trimmed.substring(1, end);
+		}
+		
+		int colon = trimmed.indexOf(": ");
+		if(colon > 0)
+			return trimmed.substring(0, colon);
+		
+		int arrow = trimmed.indexOf(" > ");
+		if(arrow > 0)
+			return trimmed.substring(0, arrow);
+		
+		int fancyArrow = trimmed.indexOf(" » ");
+		if(fancyArrow > 0)
+			return trimmed.substring(0, fancyArrow);
+		
+		return null;
+	}
+	
+	private static String normalizeSenderToken(String sender)
+	{
+		String s = sender.trim();
+		if(s.isEmpty())
+			return "";
+		
+		s = s.replaceFirst("^" + CHAT_PREFIX_PATTERN, "");
+		s = s.replaceFirst("^[^A-Za-z0-9_]+", "");
+		s = s.replaceFirst("[^A-Za-z0-9_]+$", "");
+		
+		int space = s.lastIndexOf(' ');
+		if(space >= 0 && space + 1 < s.length())
+			s = s.substring(space + 1);
+		
+		return s;
 	}
 	
 	private List<RenderLine> buildAllLines(int maxWidth, boolean fullOpacity)

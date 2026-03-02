@@ -10,13 +10,16 @@ package net.wurstclient.hacks;
 import java.awt.Color;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.uiutils.UiUtilsPluginScanner;
 import net.wurstclient.uiutils.UiUtilsState;
 
 public final class UiUtilsHack extends Hack
@@ -51,6 +54,9 @@ public final class UiUtilsHack extends Hack
 	private final CheckboxSetting logToChat = new CheckboxSetting("Log to chat",
 		"Echo UI-Utils actions and diagnostics to chat.", false);
 	
+	private final ButtonSetting pluginScanButton =
+		new ButtonSetting("Plugin scan", this::runPluginScan);
+	
 	private final SliderSetting fabricateOverlayBgAlpha =
 		new SliderSetting("Fabricate overlay background alpha", 120, 0, 255, 1,
 			ValueDisplay.INTEGER);
@@ -59,7 +65,7 @@ public final class UiUtilsHack extends Hack
 	{
 		super("UI-Utils");
 		setCategory(Category.OTHER);
-		
+		addSetting(pluginScanButton);
 		addSetting(slotOverlayEnabled);
 		addSetting(slotOverlayColor);
 		addSetting(slotOverlayAlpha);
@@ -141,5 +147,13 @@ public final class UiUtilsHack extends Hack
 	public int getFabricateOverlayBgAlpha()
 	{
 		return (int)Math.round(fabricateOverlayBgAlpha.getValue());
+	}
+	
+	private void runPluginScan()
+	{
+		String result = UiUtilsPluginScanner.startScan();
+		if(MC.player != null && !result.isEmpty())
+			for(String line : result.split("\n"))
+				MC.player.displayClientMessage(Component.literal(line), false);
 	}
 }

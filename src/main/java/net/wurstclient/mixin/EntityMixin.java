@@ -27,6 +27,7 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.VelocityFromEntityCollisionListener.VelocityFromEntityCollisionEvent;
 import net.wurstclient.events.VelocityFromFluidListener.VelocityFromFluidEvent;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.util.MovementMutationTracker;
 
 @Mixin(Entity.class)
 public abstract class EntityMixin
@@ -61,6 +62,22 @@ public abstract class EntityMixin
 		
 		if(event.isCancelled())
 			ci.cancel();
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V")
+	private void onSetDeltaMovement(Vec3 velocity, CallbackInfo ci)
+	{
+		MovementMutationTracker.markLocalPlayerVelocityMutation(
+			(Entity)(Object)this, "Entity#setDeltaMovement(Vec3)");
+	}
+	
+	@Inject(at = @At("HEAD"), method = "setDeltaMovement(DDD)V")
+	private void onSetDeltaMovement(double x, double y, double z,
+		CallbackInfo ci)
+	{
+		MovementMutationTracker.markLocalPlayerVelocityMutation(
+			(Entity)(Object)this, "Entity#setDeltaMovement(DDD)");
 	}
 	
 	/**

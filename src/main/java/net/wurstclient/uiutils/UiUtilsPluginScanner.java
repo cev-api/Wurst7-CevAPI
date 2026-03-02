@@ -7,8 +7,6 @@
  */
 package net.wurstclient.uiutils;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +18,8 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
+import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
@@ -67,7 +67,8 @@ public final class UiUtilsPluginScanner
 		try
 		{
 			requestId = RANDOM.nextInt(100000);
-			Packet<?> packet = createSuggestionPacket(requestId, "ver ");
+			Packet<?> packet =
+				new ServerboundCommandSuggestionPacket(requestId, "ver ");
 			mc.getConnection().send(packet);
 		}catch(Exception e)
 		{
@@ -80,25 +81,6 @@ public final class UiUtilsPluginScanner
 		scanning = true;
 		ticksWaiting = 0;
 		return "[UI-Utils] Scanning plugins...";
-	}
-	
-	private static Packet<?> createSuggestionPacket(int id, String text)
-		throws ReflectiveOperationException
-	{
-		Class<?> clazz = Class.forName(
-			"net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket");
-		for(Constructor<?> constructor : clazz.getDeclaredConstructors())
-		{
-			Class<?>[] params = constructor.getParameterTypes();
-			if(params.length == 2 && params[0] == int.class
-				&& params[1] == String.class)
-			{
-				constructor.setAccessible(true);
-				return (Packet<?>)constructor.newInstance(id, text);
-			}
-		}
-		throw new NoSuchMethodException(
-			"ServerboundCommandSuggestionPacket(int, String) not found.");
 	}
 	
 	private static void onTick()
@@ -117,17 +99,16 @@ public final class UiUtilsPluginScanner
 			return;
 		
 		Packet<?> packet = event.getPacket();
-		if(packet == null || !packet.getClass().getSimpleName()
-			.equals("ClientboundCommandSuggestionsPacket"))
+		if(!(packet instanceof ClientboundCommandSuggestionsPacket suggestionsPacket))
 			return;
 		
 		try
 		{
-			int responseId = extractPacketId(packet);
+			int responseId = suggestionsPacket.id();
 			if(responseId != requestId)
 				return;
 			
-			Suggestions suggestions = extractSuggestions(packet);
+			Suggestions suggestions = suggestionsPacket.toSuggestions();
 			if(suggestions != null)
 				for(Suggestion suggestion : suggestions.getList())
 					addPluginName(suggestion.getText());
@@ -154,40 +135,6 @@ public final class UiUtilsPluginScanner
 			return;
 		
 		foundPlugins.add(text);
-	}
-	
-	private static int extractPacketId(Packet<?> packet)
-		throws ReflectiveOperationException
-	{
-		for(String name : new String[]{"id", "getId", "completionId",
-			"transactionId"})
-			try
-			{
-				Method method = packet.getClass().getMethod(name);
-				Object value = method.invoke(packet);
-				if(value instanceof Integer i)
-					return i;
-			}catch(NoSuchMethodException ignored)
-			{}
-		
-		throw new NoSuchMethodException(
-			"No id method found on suggestions packet.");
-	}
-	
-	private static Suggestions extractSuggestions(Packet<?> packet)
-		throws ReflectiveOperationException
-	{
-		for(String name : new String[]{"suggestions", "getSuggestions"})
-			try
-			{
-				Method method = packet.getClass().getMethod(name);
-				Object value = method.invoke(packet);
-				if(value instanceof Suggestions suggestions)
-					return suggestions;
-			}catch(NoSuchMethodException ignored)
-			{}
-		
-		return null;
 	}
 	
 	private static void finishAndPrint()

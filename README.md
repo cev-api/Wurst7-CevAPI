@@ -705,10 +705,16 @@ This hack is still undergoing development and has only been tested in the end. A
 
 ### PacketFirewall
 
-- Validates outbound movement packets for protocol correctness (NaN/Infinity checks, pitch clamp, optional yaw wrapping).
-- Can optionally drop invalid packets and deduplicate movement within a tick.
-- Disabled by default; enable in ClickGUI > Other > Packet Firewall.
-- Great for understanding and potentially evading some anti-cheats.
+Purpose: helps you avoid and debug anticheat flags by cleaning risky movement packets and, if the server “rubberbands” you, quickly turning off the hack that most likely caused it.
+
+- Cleans outgoing movement packets: drops broken coords (NaN/Infinity), keeps pitch/yaw in safe ranges, and can combine duplicate movement sends to reduce spam/jitter.
+- Tracks what caused your movement (about the last 1.5 seconds):
+  - MovementMutationTracker: remembers what last changed your velocity, and links later movement packets to that source.
+  - Grim surface trail: tags other sensitive packet types (movement, vehicle move, entity interact, block place/dig, animations, item swap) to the hack that sent them.
+- When a setback happens (server teleports you back):
+  - Waits ~500ms to avoid repeat spam, then looks back ~1.5s, picks the most likely offender(s), and temporarily disables them.
+  - Shows the reason in a “Temporarily disabled” list, and lets you re-enable or whitelist a hack so it won’t get auto-disabled again.
+- Turning PacketFirewall off restores anything it disabled and clears all stored evidence.
 
 ### HideWurst
 
@@ -863,6 +869,9 @@ This hack is still undergoing development and has only been tested in the end. A
 - Optional auto-switch to new elytra on <= 5% durability.
 
 ![Ely](https://i.imgur.com/9yPOfUH.png)
+
+### NoPlayerChat
+- Allows you to disable or filter game chats
 
 ## What's changed or improved in this fork?
 
