@@ -13,6 +13,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LiquidBlock;
@@ -24,12 +25,61 @@ import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockUtils;
 
-@SearchTags({"WaterWalking", "water walking"})
+@SearchTags({"WaterWalking", "water walking", "lava walking", "lava walking"})
 public final class JesusHack extends Hack
 	implements UpdateListener, PacketOutputListener
 {
+	// Water
+	public enum Mode
+	{
+		Solid,
+		Bob,
+		Ignore
+	}
+	
+	private final EnumSetting<Mode> waterMode = new EnumSetting<>("Water Mode",
+		new Mode[]{Mode.Solid, Mode.Bob, Mode.Ignore}, Mode.Solid);
+	
+	private final CheckboxSetting dipIfBurning =
+		new CheckboxSetting("Dip if burning",
+			"Lets you go into the water when you are burning.", true);
+	
+	private final CheckboxSetting dipOnSneakWater =
+		new CheckboxSetting("Dip on sneak (water)",
+			"Lets you go into the water when your sneak key is held.", true);
+	
+	private final CheckboxSetting dipOnFallWater =
+		new CheckboxSetting("Dip on fall (water)",
+			"Lets you go into the water when you fall over a certain height.",
+			true);
+	
+	private final SliderSetting dipFallHeightWater = new SliderSetting(
+		"Dip fall height (water)", 4, 1, 255, 1, ValueDisplay.INTEGER);
+	
+	// Lava
+	private final EnumSetting<Mode> lavaMode = new EnumSetting<>("Lava Mode",
+		new Mode[]{Mode.Solid, Mode.Bob, Mode.Ignore}, Mode.Solid);
+	
+	private final CheckboxSetting dipIfFireResistant = new CheckboxSetting(
+		"Dip if fire resistant",
+		"Lets you go into the lava if you have Fire Resistance effect.", true);
+	
+	private final CheckboxSetting dipOnSneakLava =
+		new CheckboxSetting("Dip on sneak (lava)",
+			"Lets you go into the lava when your sneak key is held.", true);
+	
+	private final CheckboxSetting dipOnFallLava = new CheckboxSetting(
+		"Dip on fall (lava)",
+		"Lets you go into the lava when you fall over a certain height.", true);
+	
+	private final SliderSetting dipFallHeightLava = new SliderSetting(
+		"Dip fall height (lava)", 4, 1, 255, 1, ValueDisplay.INTEGER);
+	
 	private final CheckboxSetting bypass =
 		new CheckboxSetting("NoCheat+ bypass",
 			"Bypasses NoCheat+ but slows down your movement.", false);
@@ -41,6 +91,18 @@ public final class JesusHack extends Hack
 	{
 		super("Jesus");
 		setCategory(Category.MOVEMENT);
+		addSetting(waterMode);
+		addSetting(dipIfBurning);
+		addSetting(dipOnSneakWater);
+		addSetting(dipOnFallWater);
+		addSetting(dipFallHeightWater);
+		
+		addSetting(lavaMode);
+		addSetting(dipIfFireResistant);
+		addSetting(dipOnSneakLava);
+		addSetting(dipOnFallLava);
+		addSetting(dipFallHeightLava);
+		
 		addSetting(bypass);
 	}
 	
@@ -66,6 +128,21 @@ public final class JesusHack extends Hack
 			return;
 		
 		LocalPlayer player = MC.player;
+		
+		// Bob mode handling (simple): gently bob in water/lava
+		if((waterMode.getSelected() == Mode.Bob && player.isInWater())
+			|| (lavaMode.getSelected() == Mode.Bob && player.isInLava()))
+		{
+			Vec3 velocity = player.getDeltaMovement();
+			player.setDeltaMovement(velocity.x, 0.11, velocity.z);
+			tickTimer = 0;
+			return;
+		}
+		
+		if(player.isInWater() && !waterShouldBeSolid())
+			return;
+		if(player.isInLava() && !lavaShouldBeSolid())
+			return;
 		
 		// move up in liquid
 		if(player.isInWater() || player.isInLava())
@@ -102,8 +179,10 @@ public final class JesusHack extends Hack
 			|| packet instanceof ServerboundMovePlayerPacket.PosRot))
 			return;
 		
-		// check inWater
-		if(MC.player.isInWater())
+		// check inWater/lava and whether it should be solid
+		if(MC.player.isInWater() && !waterShouldBeSolid())
+			return;
+		if(MC.player.isInLava() && !lavaShouldBeSolid())
 			return;
 		
 		// check fall distance
@@ -179,4 +258,46 @@ public final class JesusHack extends Hack
 			&& !MC.options.keyShift.isDown() && !MC.player.isInWater()
 			&& !MC.player.isInLava();
 	}
+	
+	private boolean waterShouldBeSolid()
+	{
+		if(!isEnabled() || MC.player == null)
+			return false;
+		if(MC.player.isCreative() || MC.player.getAbilities().flying)
+			return false;
+		if(WURST.getHax().flightHack.isEnabled())
+			return false;
+		if(dipIfBurning.isChecked() && MC.player.isOnFire())
+			return false;
+		if(dipOnSneakWater.isChecked() && MC.options.keyShift.isDown())
+			return false;
+		if(dipOnFallWater.isChecked()
+			&& MC.player.fallDistance > dipFallHeightWater.getValueI())
+			return false;
+		return waterMode.getSelected() == Mode.Solid;
+	}
+	
+	private boolean lavaShouldBeSolid()
+	{
+		if(!isEnabled() || MC.player == null)
+			return false;
+		if(MC.player.isCreative() || MC.player.getAbilities().flying)
+			return false;
+		if(lavaMode.getSelected() == Mode.Solid && !lavaIsSafe())
+			return true;
+		if(dipOnSneakLava.isChecked() && MC.options.keyShift.isDown())
+			return false;
+		if(dipOnFallLava.isChecked()
+			&& MC.player.fallDistance > dipFallHeightLava.getValueI())
+			return false;
+		return lavaMode.getSelected() == Mode.Solid;
+	}
+	
+	private boolean lavaIsSafe()
+	{
+		if(!dipIfFireResistant.isChecked())
+			return false;
+		return MC.player.hasEffect(MobEffects.FIRE_RESISTANCE);
+	}
+
 }

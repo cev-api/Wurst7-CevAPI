@@ -1122,6 +1122,10 @@ Examples:
   - In testing this made the Mace go from ~148 damage to ~295
 - Can be used to reduce damage to be less suspicious or bypass anti-cheats
 
+### Jesus Improved
+- Adjustable conditions added
+- Added lava walking
+
 ### Slider Override
 - When running ```.setslider``` commands you can now exceed the limit of sliders in all hacks.
 - Should only be used experimentally, will likely break the game or cause rubberbanding in a lot of hacks.
