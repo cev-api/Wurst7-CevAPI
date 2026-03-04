@@ -57,32 +57,29 @@ public final class EntityHealthRenderer
 		int rawBaseHalfHearts = Math.max(1, Math.round(maxHealth * 2));
 		int rawHealthHalfHearts = Math.round(currentHealth * 2);
 		int rawAbsorptionHalfHearts = Math.round(absorption * 2);
-		int rawTotalHalfHearts = rawBaseHalfHearts + rawAbsorptionHalfHearts;
 		
-		int slots = Math.max(1, Mth.ceil(rawTotalHalfHearts / 2.0F));
+		int baseSlots = Math.max(1, Mth.ceil(rawBaseHalfHearts / 2.0F));
 		int displayedHealthHalfHearts;
-		int displayedAbsorptionHalfHearts;
-		if(rawTotalHalfHearts > 20)
+		if(rawBaseHalfHearts > 20)
 		{
-			float ratio = 20F / rawTotalHalfHearts;
-			slots = 10;
+			float baseRatio = 20F / rawBaseHalfHearts;
+			baseSlots = 10;
 			displayedHealthHalfHearts =
-				Mth.clamp(Math.round(rawHealthHalfHearts * ratio), 0, 20);
-			displayedAbsorptionHalfHearts =
-				Mth.clamp(Math.round(rawAbsorptionHalfHearts * ratio), 0,
-					20 - displayedHealthHalfHearts);
+				Mth.clamp(Math.round(rawHealthHalfHearts * baseRatio), 0, 20);
 		}else
-		{
 			displayedHealthHalfHearts =
 				Mth.clamp(rawHealthHalfHearts, 0, rawBaseHalfHearts);
-			displayedAbsorptionHalfHearts = Mth.clamp(rawAbsorptionHalfHearts,
-				0, Math.max(0, rawTotalHalfHearts - displayedHealthHalfHearts));
+		
+		int displayedAbsorptionHalfHearts = 0;
+		int absorptionSlots = 0;
+		if(rawAbsorptionHalfHearts > 0)
+		{
+			displayedAbsorptionHalfHearts =
+				Mth.clamp(rawAbsorptionHalfHearts, 0, 20);
+			absorptionSlots =
+				Math.max(1, Mth.ceil(displayedAbsorptionHalfHearts / 2.0F));
 		}
 		
-		float heartSize = 9F;
-		float spacing = 8F;
-		float rowWidth = ((slots - 1) * spacing + heartSize) * scale;
-		float x0 = centerX - rowWidth / 2F;
 		boolean blink = entity.hurtTime > 0;
 		boolean hardcore = WurstClient.MC.level != null
 			&& WurstClient.MC.level.getLevelData().isHardcore();
@@ -91,8 +88,30 @@ public final class EntityHealthRenderer
 			? HeartType.WITHERED : HeartType.ABSORBING;
 		int regenIndex = -1;
 		if(entity.hasEffect(MobEffects.REGENERATION))
-			regenIndex = (entity.tickCount
-				% Mth.ceil(Math.max(1F, rawBaseHalfHearts / 2F) + 5F));
+			regenIndex = entity.tickCount % (baseSlots + 5);
+		
+		drawHeartLayer(context, centerX, y, scale, baseSlots,
+			displayedHealthHalfHearts, heartType, hardcore, blink, regenIndex,
+			displayedHealthHalfHearts + displayedAbsorptionHalfHearts <= 4);
+		
+		if(displayedAbsorptionHalfHearts > 0)
+		{
+			float rowSpacingPx = 10F * scale;
+			drawHeartLayer(context, centerX, y - rowSpacingPx, scale,
+				absorptionSlots, displayedAbsorptionHalfHearts, absorptionType,
+				hardcore, blink, -1, false);
+		}
+	}
+	
+	private static void drawHeartLayer(GuiGraphics context, float centerX,
+		float y, float scale, int slots, int filledHalfHearts,
+		HeartType heartType, boolean hardcore, boolean blink, int regenIndex,
+		boolean jitter)
+	{
+		float heartSize = 9F;
+		float spacing = 8F;
+		float rowWidth = ((slots - 1) * spacing + heartSize) * scale;
+		float x0 = centerX - rowWidth / 2F;
 		
 		context.pose().pushMatrix();
 		context.pose().translate(x0, y);
@@ -102,8 +121,7 @@ public final class EntityHealthRenderer
 		{
 			int x = Math.round(i * spacing);
 			int yOffset = 0;
-			int halfIndex = i * 2;
-			if(displayedHealthHalfHearts + displayedAbsorptionHalfHearts <= 4)
+			if(jitter)
 				yOffset += RANDOM.nextInt(2);
 			if(i == regenIndex)
 				yOffset -= 2;
@@ -112,28 +130,15 @@ public final class EntityHealthRenderer
 				HeartType.CONTAINER.getSprite(hardcore, false, blink), x,
 				yOffset, 9, 9);
 			
-			if(displayedHealthHalfHearts >= halfIndex + 2)
+			int halfIndex = i * 2;
+			if(filledHalfHearts >= halfIndex + 2)
 				context.blitSprite(RenderPipelines.GUI_TEXTURED,
 					heartType.getSprite(hardcore, false, blink), x, yOffset, 9,
 					9);
-			else if(displayedHealthHalfHearts == halfIndex + 1)
+			else if(filledHalfHearts == halfIndex + 1)
 				context.blitSprite(RenderPipelines.GUI_TEXTURED,
 					heartType.getSprite(hardcore, true, blink), x, yOffset, 9,
 					9);
-			else
-			{
-				int absorptionIndex = halfIndex - displayedHealthHalfHearts;
-				if(absorptionIndex >= 0
-					&& displayedAbsorptionHalfHearts >= absorptionIndex + 2)
-					context.blitSprite(RenderPipelines.GUI_TEXTURED,
-						absorptionType.getSprite(hardcore, false, blink), x,
-						yOffset, 9, 9);
-				else if(absorptionIndex >= 0
-					&& displayedAbsorptionHalfHearts == absorptionIndex + 1)
-					context.blitSprite(RenderPipelines.GUI_TEXTURED,
-						absorptionType.getSprite(hardcore, true, blink), x,
-						yOffset, 9, 9);
-			}
 		}
 		
 		context.pose().popMatrix();

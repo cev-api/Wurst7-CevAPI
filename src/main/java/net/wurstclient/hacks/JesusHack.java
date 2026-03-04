@@ -128,10 +128,13 @@ public final class JesusHack extends Hack
 			return;
 		
 		LocalPlayer player = MC.player;
+		boolean inWater = IMC.getPlayer().isTouchingWaterBypass();
+		boolean inLava = player.isInLava();
 		
 		// Bob mode handling (simple): gently bob in water/lava
-		if((waterMode.getSelected() == Mode.Bob && player.isInWater())
-			|| (lavaMode.getSelected() == Mode.Bob && player.isInLava()))
+		if((waterMode.getSelected() == Mode.Bob && inWater
+			&& !WURST.getHax().flightHack.isEnabled())
+			|| (lavaMode.getSelected() == Mode.Bob && inLava))
 		{
 			Vec3 velocity = player.getDeltaMovement();
 			player.setDeltaMovement(velocity.x, 0.11, velocity.z);
@@ -139,13 +142,13 @@ public final class JesusHack extends Hack
 			return;
 		}
 		
-		if(player.isInWater() && !waterShouldBeSolid())
+		if(inWater && !waterShouldBeSolid())
 			return;
-		if(player.isInLava() && !lavaShouldBeSolid())
+		if(inLava && !lavaShouldBeSolid())
 			return;
 		
 		// move up in liquid
-		if(player.isInWater() || player.isInLava())
+		if(inWater || inLava)
 		{
 			Vec3 velocity = player.getDeltaMovement();
 			player.setDeltaMovement(velocity.x, 0.11, velocity.z);
@@ -180,7 +183,7 @@ public final class JesusHack extends Hack
 			return;
 		
 		// check inWater/lava and whether it should be solid
-		if(MC.player.isInWater() && !waterShouldBeSolid())
+		if(IMC.getPlayer().isTouchingWaterBypass() && !waterShouldBeSolid())
 			return;
 		if(MC.player.isInLava() && !lavaShouldBeSolid())
 			return;
@@ -255,8 +258,10 @@ public final class JesusHack extends Hack
 	public boolean shouldBeSolid()
 	{
 		return isEnabled() && MC.player != null && MC.player.fallDistance <= 3
-			&& !MC.options.keyShift.isDown() && !MC.player.isInWater()
-			&& !MC.player.isInLava();
+			&& !MC.options.keyShift.isDown()
+			&& !IMC.getPlayer().isTouchingWaterBypass() && !MC.player.isInLava()
+			&& !WURST.getHax().flightHack.isEnabled()
+			&& !MC.player.getAbilities().flying;
 	}
 	
 	private boolean waterShouldBeSolid()
@@ -299,5 +304,5 @@ public final class JesusHack extends Hack
 			return false;
 		return MC.player.hasEffect(MobEffects.FIRE_RESISTANCE);
 	}
-
+	
 }
