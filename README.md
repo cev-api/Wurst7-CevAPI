@@ -873,6 +873,31 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 ### NoPlayerChat
 - Allows you to disable or filter game chats
 
+### CommandScanner
+- Enumerate server side commands that are typically unavailable to the player by sending specialised packets
+- Optionally elicit only 'unknown' commands. Scans via packets then compares via client commands, whichever isn't available to the user is shown.
+- Your command list probing won't appear in server side logs
+- Can also run each command, run specific commands via packets or enumerate via client side commands 
+
+#### Example Output
+```
+[STDOUT]: Unknown or incomplete command. See below for error
+[STDOUT]: c2me<--[HERE]
+[STDOUT]: Unknown or incomplete command. See below for error
+[STDOUT]: panda-anti-exploit<--[HERE]
+[STDOUT]: Unknown or incomplete command. See below for error
+[STDOUT]: test<--[HERE]
+[STDOUT]: Unknown or incomplete command. See below for error
+[STDOUT]: version<--[HERE]
+[STDOUT]: [Wurst] CommandScanner started.
+[STDOUT]: [Wurst] Enabled: CommandScanner
+[STDOUT]: [Wurst] Found 20 non-vanilla commands:
+[STDOUT]: [Wurst] /c2me, /dialog, /discord, /dmcc, /fetchprofile, /melius-commands, /panda-anti-exploit, /plstyle
+[STDOUT]: [Wurst] /rotate, /spark, /stopwatch, /styledchat, /styledplayerlist, /suicide, /tellform, /test
+[STDOUT]: [Wurst] /version, /voicechat, /vote, /waypoint
+[STDOUT]: [Wurst] Disabled: CommandScanner
+```
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
