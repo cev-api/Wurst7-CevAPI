@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -301,6 +302,14 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	
 	private void buildNormally()
 	{
+		if(MC.screen instanceof AbstractContainerScreen)
+		{
+			ChatUtils
+				.error("AutoBuild disabled: container opened during build.");
+			setEnabled(false);
+			return;
+		}
+		
 		int beforeSize = remainingBlocks.size();
 		remainingBlocks.entrySet().removeIf(entry -> {
 			BlockPos pos = entry.getKey();
@@ -376,7 +385,11 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	{
 		// Hold sneak during placement attempts so interactive blocks are not
 		// activated (e.g. chests), only block placement is attempted.
+		boolean wasPlayerSneaking =
+			MC.player != null && MC.player.isShiftKeyDown();
 		boolean wasSneaking = MC.options.keyShift.isDown();
+		if(MC.player != null)
+			MC.player.setShiftKeyDown(true);
 		MC.options.keyShift.setDown(true);
 		try
 		{
@@ -384,6 +397,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				InteractionHand.MAIN_HAND);
 		}finally
 		{
+			if(MC.player != null)
+				MC.player.setShiftKeyDown(wasPlayerSneaking);
 			MC.options.keyShift.setDown(wasSneaking);
 		}
 	}

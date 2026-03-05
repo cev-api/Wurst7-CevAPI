@@ -11,9 +11,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonPrimitive;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -203,6 +206,32 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	public float getSurfaceOpacity()
 	{
 		return transparency.getValueF();
+	}
+	
+	public double getConfiguredSurfaceOpacity()
+	{
+		return transparency.getValue();
+	}
+	
+	public List<String> getTrackedBlockNamesSnapshot()
+	{
+		return new ArrayList<>(targetBlocks.getBlockNames());
+	}
+	
+	public void setSurfaceOpacityTemporarily(double opacity)
+	{
+		transparency.fromJson(new JsonPrimitive(opacity));
+	}
+	
+	public void setTrackedBlocksTemporarily(List<String> blockNames)
+	{
+		JsonArray json = new JsonArray();
+		if(blockNames != null)
+			for(String blockName : blockNames)
+				if(blockName != null && !blockName.isBlank())
+					json.add(blockName.trim());
+				
+		targetBlocks.fromJson(json);
 	}
 	
 	public int getSurfaceOpacityMask()

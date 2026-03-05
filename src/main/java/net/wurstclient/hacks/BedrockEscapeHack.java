@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -69,6 +70,12 @@ public final class BedrockEscapeHack extends Hack
 			+ " below bedrock.",
 		true);
 	
+	private final CheckboxSetting shiftSurfaceXray =
+		new CheckboxSetting("Shift SurfaceXray",
+			"Holding shift (or targeting bedrock above) temporarily enables"
+				+ " SurfaceXray for bedrock only with 30% opacity.",
+			false);
+	
 	private final ColorSetting boxColor =
 		new ColorSetting("Bedrock Color", new Color(128, 0, 255));
 	
@@ -88,7 +95,13 @@ public final class BedrockEscapeHack extends Hack
 	private boolean targetBelow;
 	private final List<BlockPos> blocksBelowBedrock = new ArrayList<>();
 	private static final int SHIFT_BREAK_COOLDOWN_TICKS = 6;
+	private static final String BEDROCK_BLOCK_ID = "minecraft:bedrock";
+	private static final double SHIFT_SURFACE_XRAY_OPACITY = 0.3;
 	private int shiftBreakCooldown;
+	private boolean shiftSurfaceXrayApplied;
+	private boolean surfaceXrayWasEnabled;
+	private double surfaceXrayPreviousOpacity;
+	private List<String> surfaceXrayPreviousBlocks = Collections.emptyList();
 	
 	public BedrockEscapeHack()
 	{
@@ -103,12 +116,14 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(ignoreSafeTickRequirement);
 		addSetting(shiftClickActivation);
 		addSetting(autoSwitchTool);
+		addSetting(shiftSurfaceXray);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		teleportedThisPress = false;
+		shiftSurfaceXrayApplied = false;
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -117,6 +132,7 @@ public final class BedrockEscapeHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		restoreShiftSurfaceXrayOverride();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
@@ -128,9 +144,14 @@ public final class BedrockEscapeHack extends Hack
 	{
 		
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
+		{
+			restoreShiftSurfaceXrayOverride();
 			return;
+		}
 		
 		updateTarget();
+		updateShiftSurfaceXrayOverride();
+		
 		if(!isValidTarget)
 			return;
 		
@@ -169,6 +190,78 @@ public final class BedrockEscapeHack extends Hack
 		}
 		
 		shiftBreakCooldown = 0;
+	}
+	
+	private void updateShiftSurfaceXrayOverride()
+	{
+		boolean shiftInBedrockContext =
+			MC.options.keyShift.isDown() && isInBedrockContext();
+		boolean autoWhenTargetAbove = isValidTarget && !targetBelow;
+		boolean shouldApply = shiftSurfaceXray.isChecked()
+			&& (shiftInBedrockContext || autoWhenTargetAbove);
+		
+		if(shouldApply)
+			applyShiftSurfaceXrayOverride();
+		else
+			restoreShiftSurfaceXrayOverride();
+	}
+	
+	private boolean isInBedrockContext()
+	{
+		if(MC.player == null || MC.level == null)
+			return false;
+		
+		BlockPos playerPos = MC.player.blockPosition();
+		if(MC.level.getBlockState(playerPos.below()).is(Blocks.BEDROCK))
+			return true;
+		
+		for(int y = 0; y <= 3; y++)
+			if(MC.level.getBlockState(playerPos.above(y)).is(Blocks.BEDROCK))
+				return true;
+			
+		return false;
+	}
+	
+	private void applyShiftSurfaceXrayOverride()
+	{
+		if(shiftSurfaceXrayApplied)
+			return;
+		
+		SurfaceXrayHack surfaceXray = WURST.getHax().surfaceXrayHack;
+		if(surfaceXray == null)
+			return;
+		
+		shiftSurfaceXrayApplied = true;
+		surfaceXrayWasEnabled = surfaceXray.isEnabled();
+		surfaceXrayPreviousOpacity = surfaceXray.getConfiguredSurfaceOpacity();
+		surfaceXrayPreviousBlocks = surfaceXray.getTrackedBlockNamesSnapshot();
+		
+		surfaceXray.setTrackedBlocksTemporarily(
+			Collections.singletonList(BEDROCK_BLOCK_ID));
+		surfaceXray.setSurfaceOpacityTemporarily(SHIFT_SURFACE_XRAY_OPACITY);
+		
+		if(!surfaceXrayWasEnabled)
+			surfaceXray.setEnabled(true);
+	}
+	
+	private void restoreShiftSurfaceXrayOverride()
+	{
+		if(!shiftSurfaceXrayApplied)
+			return;
+		
+		SurfaceXrayHack surfaceXray = WURST.getHax().surfaceXrayHack;
+		if(surfaceXray != null)
+		{
+			surfaceXray.setTrackedBlocksTemporarily(surfaceXrayPreviousBlocks);
+			surfaceXray
+				.setSurfaceOpacityTemporarily(surfaceXrayPreviousOpacity);
+			
+			if(!surfaceXrayWasEnabled && surfaceXray.isEnabled())
+				surfaceXray.setEnabled(false);
+		}
+		
+		shiftSurfaceXrayApplied = false;
+		surfaceXrayPreviousBlocks = Collections.emptyList();
 	}
 	
 	@Override
