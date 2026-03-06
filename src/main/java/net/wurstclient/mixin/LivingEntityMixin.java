@@ -49,8 +49,15 @@ public class LivingEntityMixin
 		if(!(entity instanceof Player player) || !player.isLocalPlayer())
 			return;
 		
-		var noSlowdown = WurstClient.INSTANCE.getHax().noSlowdownHack;
-		if(!noSlowdown.isEnabled() || !noSlowdown.shouldIgnoreVines())
+		var hax = WurstClient.INSTANCE.getHax();
+		if(hax == null)
+			return;
+		
+		var noSlowdown = hax.noSlowdownHack;
+		boolean ignoreViaNoSlowdown =
+			noSlowdown.isEnabled() && noSlowdown.shouldIgnoreVines();
+		boolean ignoreViaFlight = hax.flightHack.shouldIgnoreVinesWithFlight();
+		if(!ignoreViaNoSlowdown && !ignoreViaFlight)
 			return;
 		
 		if(isTouchingVines(entity))

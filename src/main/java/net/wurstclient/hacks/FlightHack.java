@@ -294,6 +294,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		managedNoSlowdownVineIgnore = false;
 	}
 	
+	public boolean shouldIgnoreVinesWithFlight()
+	{
+		return isEnabled() && ignoreVinesWithFlight.isChecked();
+	}
+	
 	@Override
 	public void onGetAirStrafingSpeed(AirStrafingSpeedEvent event)
 	{

@@ -508,9 +508,12 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 
 ### PearlESP
 - Highlight held pearls by other players
+- Highlights stasis chamber pearls
 - Shows where other players (including yourself) will be teleported
 - Predict where your pearl will go via a trajectory line
 - Adjustable color, default is purple
+- Optional tracer line with custom thickness
+- Optional sound or chat alerts on detection
 
 ![Pearl](https://i.imgur.com/Rng37ws.png)
 
@@ -643,8 +646,9 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - A green tick will appear when all teleport conditions are met: can reach, won't die and able to pass through.
 - Able to adjust packet rate throttle to avoid spam or detection.
 - Holding shift above bedrock will attempt to break blocks under you to find a cheaper (less damage) route. Will auto switch to pickaxe if available. 
+- Optionally holding shift above bedrock will make the bedrock layer transparent. If underneath it, looking up will make it transparent.
 - You are able to override safeguards in the settings
-- Only works on PaperMC
+- Tested on Fabric and Paper servers
 
 ![Bedrock](https://i.imgur.com/4mEuHL8.png)
 
@@ -1047,7 +1051,7 @@ Examples:
 - Optionally tie horizontal and vertical speeds together
 - Adjustable step for both speeds
 - Prevent dropping when holding SHIFT whilst in inventory
-- Prevent being slowed down by vines
+- Prevent being slowed down by vines (Even if NoSlowDown is turned off)
 
 ### Larger Scan Radius
 - Extended up to 65×65 chunks for all chunk-based features.  

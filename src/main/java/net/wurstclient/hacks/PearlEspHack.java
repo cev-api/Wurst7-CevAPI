@@ -10,7 +10,13 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
@@ -26,6 +32,9 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransformViewBobbingEvent;
 import java.lang.reflect.Method;
@@ -33,6 +42,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 
@@ -53,9 +63,25 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		"Show player prediction",
 		"Show predicted trajectory while the local player is holding a pearl.",
 		true);
+	private final CheckboxSetting showTracerLine =
+		new CheckboxSetting("Show tracer line",
+			"Draw trajectory lines for pearl predictions.", true);
+	private final SliderSetting tracerThickness = new SliderSetting(
+		"Tracer thickness", 2, 0.5, 8, 0.1, ValueDisplay.DECIMAL);
+	private final CheckboxSetting chatAlerts =
+		new CheckboxSetting("Chat alerts",
+			"Show a chat alert when a new ender pearl is detected.", false);
+	private final CheckboxSetting soundAlerts =
+		new CheckboxSetting("Sound alerts",
+			"Play a sound alert when a new ender pearl is detected.", false);
+	private final EnumSetting<AlertSound> alertSound =
+		new EnumSetting<>("Alert sound",
+			"Sound used for PearlESP alerts (includes all note-block sounds).",
+			AlertSound.values(), AlertSound.NOTE_BLOCK_CHIME);
 	
 	private final ArrayList<TrackedPearl> pearls = new ArrayList<>();
 	private final ArrayList<HeldPearl> holders = new ArrayList<>();
+	private final HashSet<UUID> alertedPearls = new HashSet<>();
 	private boolean hasOwnPearl;
 	private long ownPearlSuppressUntilMs;
 	
@@ -66,6 +92,11 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		addSetting(color);
 		addSetting(highlightHeld);
 		addSetting(showPlayerPrediction);
+		addSetting(showTracerLine);
+		addSetting(tracerThickness);
+		addSetting(chatAlerts);
+		addSetting(soundAlerts);
+		addSetting(alertSound);
 	}
 	
 	@Override
@@ -84,6 +115,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		pearls.clear();
 		holders.clear();
+		alertedPearls.clear();
 		hasOwnPearl = false;
 		ownPearlSuppressUntilMs = 0L;
 	}
@@ -94,6 +126,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		pearls.clear();
 		holders.clear();
 		hasOwnPearl = false;
+		HashSet<UUID> seenPearls = new HashSet<>();
 		
 		if(MC.level == null)
 			return;
@@ -103,8 +136,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			if(entity.getType() == EntityType.ENDER_PEARL)
 			{
 				Entity pearl = entity;
+				seenPearls.add(pearl.getUUID());
 				PearlPrediction prediction = buildPrediction(pearl);
 				pearls.add(new TrackedPearl(pearl, prediction));
+				boolean ownPearl = false;
 				// Detect ownership via reflection and set suppression window
 				try
 				{
@@ -112,6 +147,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 					Object owner = m.invoke(pearl);
 					if(owner == MC.player)
 					{
+						ownPearl = true;
 						hasOwnPearl = true;
 						ownPearlSuppressUntilMs =
 							System.currentTimeMillis() + 4000; // suppress
@@ -120,12 +156,42 @@ public class PearlEspHack extends Hack implements UpdateListener,
 					}
 				}catch(Exception ignored)
 				{}
+				
+				if(!ownPearl && alertedPearls.add(pearl.getUUID()))
+					triggerPearlAlert(pearl);
 				continue;
 			}
 			
 			if(entity instanceof Player player)
 				handleHolder(player);
 		}
+		
+		alertedPearls.retainAll(seenPearls);
+	}
+	
+	private void triggerPearlAlert(Entity pearl)
+	{
+		if(!chatAlerts.isChecked() && !soundAlerts.isChecked())
+			return;
+		
+		if(chatAlerts.isChecked())
+		{
+			int x = (int)Math.floor(pearl.getX());
+			int y = (int)Math.floor(pearl.getY());
+			int z = (int)Math.floor(pearl.getZ());
+			ChatUtils.message("PearlESP: Ender pearl detected at " + x + ", "
+				+ y + ", " + z + ".");
+		}
+		
+		if(!soundAlerts.isChecked() || MC.level == null || MC.player == null)
+			return;
+		
+		SoundEvent sound = alertSound.getSelected().resolve();
+		if(sound == null)
+			return;
+		
+		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+			MC.player.getZ(), sound, SoundSource.PLAYERS, 1.0F, 1.0F, false);
 	}
 	
 	private void handleHolder(Player player)
@@ -157,6 +223,9 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
+		if(!showTracerLine.isChecked())
+			return;
+		
 		for(TrackedPearl t : pearls)
 		{
 			PearlPrediction p = t.prediction();
@@ -266,8 +335,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 					{
 						landingBoxes.add(createLandingBox(pred.landing(),
 							LANDING_BOX_RADIUS));
-						RenderUtils.drawCurvedLine(matrixStack, pred.path(),
-							lineColor, false);
+						renderTrajectory(matrixStack, pred.path(), lineColor);
 					}
 				}
 			}
@@ -297,10 +365,11 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private void renderTrajectory(PoseStack matrixStack, List<Vec3> path,
 		int lineColor)
 	{
-		if(path == null || path.size() < 2)
+		if(!showTracerLine.isChecked() || path == null || path.size() < 2)
 			return;
 		
-		RenderUtils.drawCurvedLine(matrixStack, path, lineColor, false);
+		RenderUtils.drawCurvedLine(matrixStack, path, lineColor, false,
+			tracerThickness.getValue());
 	}
 	
 	private PearlPrediction buildPrediction(Entity pearl)
@@ -440,4 +509,68 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	
 	private record HeldPearl(Player player, InteractionHand hand)
 	{}
+	
+	private enum AlertSound
+	{
+		NOTE_BLOCK_HARP("Note Block Harp", "minecraft:block.note_block.harp"),
+		NOTE_BLOCK_BASS("Note Block Bass", "minecraft:block.note_block.bass"),
+		NOTE_BLOCK_BASEDRUM("Note Block Basedrum",
+			"minecraft:block.note_block.basedrum"),
+		NOTE_BLOCK_SNARE("Note Block Snare",
+			"minecraft:block.note_block.snare"),
+		NOTE_BLOCK_HAT("Note Block Hat", "minecraft:block.note_block.hat"),
+		NOTE_BLOCK_GUITAR("Note Block Guitar",
+			"minecraft:block.note_block.guitar"),
+		NOTE_BLOCK_FLUTE("Note Block Flute",
+			"minecraft:block.note_block.flute"),
+		NOTE_BLOCK_BELL("Note Block Bell", "minecraft:block.note_block.bell"),
+		NOTE_BLOCK_CHIME("Note Block Chime",
+			"minecraft:block.note_block.chime"),
+		NOTE_BLOCK_XYLOPHONE("Note Block Xylophone",
+			"minecraft:block.note_block.xylophone"),
+		NOTE_BLOCK_IRON_XYLOPHONE("Note Block Iron Xylophone",
+			"minecraft:block.note_block.iron_xylophone"),
+		NOTE_BLOCK_COW_BELL("Note Block Cow Bell",
+			"minecraft:block.note_block.cow_bell"),
+		NOTE_BLOCK_DIDGERIDOO("Note Block Didgeridoo",
+			"minecraft:block.note_block.didgeridoo"),
+		NOTE_BLOCK_BIT("Note Block Bit", "minecraft:block.note_block.bit"),
+		NOTE_BLOCK_BANJO("Note Block Banjo",
+			"minecraft:block.note_block.banjo"),
+		NOTE_BLOCK_PLING("Note Block Pling",
+			"minecraft:block.note_block.pling"),
+		XP_PICKUP("XP Pickup", "minecraft:entity.experience_orb.pickup"),
+		UI_BUTTON_CLICK("UI Button Click", "minecraft:ui.button.click"),
+		AMETHYST_CHIME("Amethyst Chime",
+			"minecraft:block.amethyst_block.chime"),
+		BELL_USE("Bell Use", "minecraft:block.bell.use"),
+		ITEM_PICKUP("Item Pickup", "minecraft:entity.item.pickup");
+		
+		private final String displayName;
+		private final String id;
+		
+		private AlertSound(String displayName, String id)
+		{
+			this.displayName = displayName;
+			this.id = id;
+		}
+		
+		private SoundEvent resolve()
+		{
+			try
+			{
+				return BuiltInRegistries.SOUND_EVENT
+					.getValue(Identifier.parse(id));
+			}catch(Exception e)
+			{
+				return null;
+			}
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
 }

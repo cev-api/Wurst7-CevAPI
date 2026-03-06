@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.HackList;
 
@@ -23,10 +24,27 @@ public abstract class BlockMixin implements ItemLike
 	private void onGetVelocityMultiplier(CallbackInfoReturnable<Float> cir)
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
-		if(hax == null || !hax.noSlowdownHack.isEnabled())
+		if(hax == null)
+			return;
+		
+		boolean ignoreViaNoSlowdown = hax.noSlowdownHack.isEnabled();
+		boolean ignoreVinesViaFlight =
+			hax.flightHack.shouldIgnoreVinesWithFlight()
+				&& isVineBlock((Block)(Object)this);
+		
+		if(!ignoreViaNoSlowdown && !ignoreVinesViaFlight)
 			return;
 		
 		if(cir.getReturnValueF() < 1)
 			cir.setReturnValue(1F);
+	}
+	
+	private boolean isVineBlock(Block block)
+	{
+		return block == Blocks.VINE || block == Blocks.CAVE_VINES
+			|| block == Blocks.CAVE_VINES_PLANT || block == Blocks.WEEPING_VINES
+			|| block == Blocks.WEEPING_VINES_PLANT
+			|| block == Blocks.TWISTING_VINES
+			|| block == Blocks.TWISTING_VINES_PLANT;
 	}
 }
