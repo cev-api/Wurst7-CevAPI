@@ -11,7 +11,9 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.awt.Color;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Arrays;
@@ -19,15 +21,31 @@ import java.util.PriorityQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
@@ -46,12 +64,13 @@ import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.ShaderUtils;
+import net.wurstclient.util.chunk.ChunkUtils;
 import net.wurstclient.util.chunk.ChunkSearcher;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
 @SearchTags({"BlockESP", "block esp"})
 public final class SearchHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+	CameraTransformViewBobbingListener, RenderListener, PacketInputListener
 {
 	private enum SearchMode
 	{
@@ -61,6 +80,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 	}
 	
 	private static final int MAX_QUERY_LENGTH = 256;
+	private static final long BLOCK_UPDATE_GRACE_MS = 750L;
+	private static final long CHUNK_SCAN_EXPIRY_MS = 30000L;
+	private static final long REVEAL_SAMPLE_EXPIRY_MS = 120000L;
+	private static final long BURST_WINDOW_MS = 2000L;
+	private static final long BURST_QUIET_MS = 10000L;
+	private static final int BURST_THRESHOLD = 40;
+	private static final int REVEAL_MIN_SAMPLES = 12;
 	private final net.wurstclient.settings.EnumSetting<SearchMode> mode =
 		new net.wurstclient.settings.EnumSetting<>("Mode", SearchMode.values(),
 			SearchMode.BLOCK_ID);
@@ -101,6 +127,14 @@ public final class SearchHack extends Hack implements UpdateListener,
 		new net.wurstclient.settings.CheckboxSetting("HackList count",
 			"Appends the number of found blocks to this hack's entry in the HackList.",
 			false);
+	private final CheckboxSetting antiEspDetection = new CheckboxSetting(
+		"Anti-ESP detection",
+		"Detects suspicious packet patterns for the currently searched blocks (missing block entities, delayed reveals, fake replacements, and packet bursts).",
+		true);
+	private final CheckboxSetting antiEspAlerts = new CheckboxSetting(
+		"Anti-ESP alerts",
+		"Sends chat warnings when Search detects suspicious anti-ESP behavior.",
+		true);
 	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
@@ -154,6 +188,27 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private String[] listKeywords;
 	
 	private int foundCount; // number of currently displayed matches (clamped)
+	private final HashMap<BlockPos, Long> pendingContainerUpdates =
+		new HashMap<>();
+	private final HashMap<BlockPos, Long> recentBlockUpdates = new HashMap<>();
+	private final HashMap<BlockPos, Long> missingContainerAt = new HashMap<>();
+	private final HashMap<BlockPos, Long> lastContainerBlockUpdateAt =
+		new HashMap<>();
+	private final HashSet<BlockPos> discoveredContainers = new HashSet<>();
+	private final ArrayDeque<RevealSample> revealSamples = new ArrayDeque<>();
+	private final HashSet<BlockPos> seenContainerBlockEntities =
+		new HashSet<>();
+	private final ArrayDeque<Long> containerBeBurstTimes = new ArrayDeque<>();
+	private final ArrayDeque<ChunkScanRequest> chunkScanQueue =
+		new ArrayDeque<>();
+	private final HashSet<Long> queuedChunkScans = new HashSet<>();
+	private final HashMap<String, Long> antiEspCooldowns = new HashMap<>();
+	private final Object antiEspLock = new Object();
+	private long lastContainerBePacketMs;
+	private long burstStartMs = -1L;
+	private boolean antiEspSuspicious;
+	private int antiEspSignals;
+	private boolean antiEspPreviouslyEnabled;
 	
 	public SearchHack()
 	{
@@ -174,6 +229,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(limit);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(antiEspDetection);
+		addSetting(antiEspAlerts);
 		// new setting
 		addSetting(showCountInHackList);
 	}
@@ -225,11 +282,14 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastNeedsVertexBuffer = needsVertexBuffer();
 		applySearchCriteria(block.getBlock(), "");
 		lastMatchesVersion = coordinator.getMatchesVersion();
+		resetAntiEspState();
+		antiEspPreviouslyEnabled = antiEspDetection.isChecked();
 		if(shaderSafeMode)
 			ChatUtils
 				.message("Shaders detected - using safe mode for SearchHack.");
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
+		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 	}
@@ -239,6 +299,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(PacketInputListener.class, coordinator);
+		EVENTS.remove(PacketInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		stopBuildingBuffer(true);
@@ -253,11 +314,32 @@ public final class SearchHack extends Hack implements UpdateListener,
 		tracerEnds = null;
 		lastPlayerChunk = null;
 		foundCount = 0; // reset count
+		resetAntiEspState();
+		antiEspPreviouslyEnabled = false;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		boolean antiEspNow = antiEspDetection.isChecked();
+		if(antiEspNow != antiEspPreviouslyEnabled)
+		{
+			resetAntiEspState();
+			antiEspPreviouslyEnabled = antiEspNow;
+		}
+		
+		if(antiEspNow)
+		{
+			processContainerAntiEspChecks();
+			if(isContainerSearchActive())
+			{
+				recordVisibleContainerDiscoveries();
+				processQueuedChunkScans(2);
+				checkRevealPattern();
+				pruneContainerAntiEspState();
+			}
+		}
+		
 		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
 		if(currentShaderSafeMode != shaderSafeMode)
 		{
@@ -375,6 +457,47 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(!bufferUpToDate)
 			setBufferFromTask();
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		if(!antiEspDetection.isChecked() || MC.level == null)
+			return;
+		
+		Packet<?> packet = event.getPacket();
+		if(isContainerSearchActive())
+		{
+			ChunkPos affected = ChunkUtils.getAffectedChunk(packet);
+			if(affected != null)
+				queueChunkScan(affected);
+		}
+		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
+		{
+			handleContainerBlockUpdate(blockUpdate.getPos(),
+				blockUpdate.getBlockState());
+			if(isContainerSearchActive())
+				handleContainerSpecificBlockUpdate(blockUpdate.getPos(),
+					blockUpdate.getBlockState());
+			return;
+		}
+		
+		if(packet instanceof ClientboundSectionBlocksUpdatePacket deltaUpdate)
+		{
+			deltaUpdate.runUpdates((pos, state) -> {
+				handleContainerBlockUpdate(pos, state);
+				if(isContainerSearchActive())
+					handleContainerSpecificBlockUpdate(pos, state);
+			});
+			return;
+		}
+		
+		if(packet instanceof ClientboundBlockEntityDataPacket bePacket)
+		{
+			handleContainerBlockEntityPacket(bePacket);
+			if(isContainerSearchActive())
+				handleContainerSpecificBePacket(bePacket);
+		}
 	}
 	
 	// New: cancel view bobbing if drawing lines
@@ -796,4 +919,537 @@ public final class SearchHack extends Hack implements UpdateListener,
 		query.setValue(rawQuery == null ? "" : rawQuery.trim());
 		setEnabled(true);
 	}
+	
+	private void processContainerAntiEspChecks()
+	{
+		if(MC.level == null)
+		{
+			synchronized(antiEspLock)
+			{
+				pendingContainerUpdates.clear();
+			}
+			return;
+		}
+		
+		long now = System.currentTimeMillis();
+		synchronized(antiEspLock)
+		{
+			java.util.Iterator<java.util.Map.Entry<BlockPos, Long>> it =
+				pendingContainerUpdates.entrySet().iterator();
+			while(it.hasNext())
+			{
+				java.util.Map.Entry<BlockPos, Long> entry = it.next();
+				if(now - entry.getValue() <= BLOCK_UPDATE_GRACE_MS)
+					continue;
+				
+				BlockPos pos = entry.getKey();
+				net.minecraft.world.level.block.state.BlockState state =
+					MC.level.getBlockState(pos);
+				if(isTrackedBlock(state.getBlock()) && state.hasBlockEntity()
+					&& MC.level.getBlockEntity(pos) == null)
+					flagAntiEsp("missing-be", "Searched block at "
+						+ formatPos(pos) + " has no block entity after update");
+				
+				it.remove();
+			}
+			
+			while(!containerBeBurstTimes.isEmpty()
+				&& now - containerBeBurstTimes.peekFirst() > BURST_WINDOW_MS)
+				containerBeBurstTimes.removeFirst();
+			recentBlockUpdates.entrySet()
+				.removeIf(e -> now - e.getValue() > BLOCK_UPDATE_GRACE_MS * 4L);
+		}
+	}
+	
+	private void handleContainerBlockUpdate(BlockPos pos,
+		net.minecraft.world.level.block.state.BlockState state)
+	{
+		if(pos == null || state == null)
+			return;
+		
+		BlockState oldState =
+			MC.level == null ? null : MC.level.getBlockState(pos);
+		boolean newTracked = isTrackedBlock(state.getBlock());
+		if(newTracked && oldState != null
+			&& oldState.getBlock() != state.getBlock())
+		{
+			double distance = MC.player == null ? 0
+				: MC.player.position().distanceTo(Vec3.atCenterOf(pos));
+			if(distance > 5)
+				flagAntiEsp("fake-replacement",
+					"Searched block changed via block update at "
+						+ formatPos(pos) + " (" + formatBlock(oldState) + " -> "
+						+ formatBlock(state) + ")");
+		}
+		
+		BlockPos immutablePos = pos.immutable();
+		synchronized(antiEspLock)
+		{
+			recentBlockUpdates.put(immutablePos, System.currentTimeMillis());
+			if(newTracked)
+			{
+				pendingContainerUpdates.put(immutablePos,
+					System.currentTimeMillis());
+				return;
+			}
+			
+			boolean hadPending =
+				pendingContainerUpdates.remove(immutablePos) != null;
+			boolean hadSeenBe = seenContainerBlockEntities.remove(immutablePos);
+			if(hadPending || hadSeenBe)
+				flagAntiEsp("fake-replacement",
+					"Searched block at " + formatPos(immutablePos)
+						+ " changed into " + formatBlock(state));
+		}
+	}
+	
+	private void handleContainerBlockEntityPacket(
+		ClientboundBlockEntityDataPacket bePacket)
+	{
+		BlockPos pos = bePacket.getPos().immutable();
+		net.minecraft.world.level.block.state.BlockState state =
+			MC.level.getBlockState(pos);
+		
+		long now = System.currentTimeMillis();
+		synchronized(antiEspLock)
+		{
+			containerBeBurstTimes.addLast(now);
+			while(!containerBeBurstTimes.isEmpty()
+				&& now - containerBeBurstTimes.peekFirst() > BURST_WINDOW_MS)
+				containerBeBurstTimes.removeFirst();
+			
+			if(now - lastContainerBePacketMs > BURST_QUIET_MS)
+				burstStartMs = now;
+			lastContainerBePacketMs = now;
+			
+			if(containerBeBurstTimes.size() >= BURST_THRESHOLD
+				&& burstStartMs > 0 && now - burstStartMs <= BURST_WINDOW_MS)
+				flagAntiEsp("be-burst",
+					"Received " + containerBeBurstTimes.size()
+						+ " searched block-entity packets in "
+						+ (now - burstStartMs) + "ms");
+		}
+		
+		if(state == null || !isTrackedBlock(state.getBlock())
+			|| !state.hasBlockEntity())
+			return;
+		
+		synchronized(antiEspLock)
+		{
+			seenContainerBlockEntities.add(pos);
+			Long lastUpdate = pendingContainerUpdates.remove(pos);
+			if(lastUpdate == null)
+				lastUpdate = recentBlockUpdates.get(pos);
+			if(lastUpdate == null || now - lastUpdate > BLOCK_UPDATE_GRACE_MS)
+				flagAntiEsp("late-block-entity",
+					"Block entity for searched block at " + formatPos(pos)
+						+ " arrived without recent block update");
+		}
+	}
+	
+	private void flagAntiEsp(String key, String message)
+	{
+		synchronized(antiEspLock)
+		{
+			long now = System.currentTimeMillis();
+			Long cooldown = antiEspCooldowns.get(key);
+			if(cooldown != null && now - cooldown < 8000L)
+				return;
+			
+			antiEspCooldowns.put(key, now);
+			antiEspSuspicious = true;
+			antiEspSignals = Math.min(antiEspSignals + 1, 999);
+			if(antiEspAlerts.isChecked())
+				ChatUtils.warning("Search Anti-ESP: " + message);
+		}
+	}
+	
+	private void resetAntiEspState()
+	{
+		synchronized(antiEspLock)
+		{
+			pendingContainerUpdates.clear();
+			recentBlockUpdates.clear();
+			missingContainerAt.clear();
+			lastContainerBlockUpdateAt.clear();
+			discoveredContainers.clear();
+			revealSamples.clear();
+			seenContainerBlockEntities.clear();
+			containerBeBurstTimes.clear();
+			chunkScanQueue.clear();
+			queuedChunkScans.clear();
+			antiEspCooldowns.clear();
+			lastContainerBePacketMs = 0L;
+			burstStartMs = -1L;
+			antiEspSuspicious = false;
+			antiEspSignals = 0;
+		}
+	}
+	
+	private boolean isContainerSearchActive()
+	{
+		SearchMode currentMode = mode.getSelected();
+		if(currentMode == SearchMode.BLOCK_ID)
+			return isContainerBlock(block.getBlock());
+		
+		if(currentMode == SearchMode.QUERY)
+		{
+			String q = normalizeQuery(query.getValue());
+			return q.contains("chest") || q.contains("barrel")
+				|| q.contains("shulker") || q.contains("hopper")
+				|| q.contains("dispenser") || q.contains("dropper")
+				|| q.contains("furnace") || q.contains("beacon")
+				|| q.contains("crafter");
+		}
+		
+		for(String name : blockList.getBlockNames())
+		{
+			if(name == null)
+				continue;
+			String normalized = name.trim().toLowerCase(Locale.ROOT);
+			if(normalized.isEmpty())
+				continue;
+			Identifier id = Identifier.tryParse(normalized);
+			if(id != null && BuiltInRegistries.BLOCK.containsKey(id)
+				&& isContainerId(id.toString()))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private void handleContainerSpecificBlockUpdate(BlockPos pos,
+		BlockState newState)
+	{
+		if(MC.level == null || pos == null || newState == null)
+			return;
+		
+		long now = System.currentTimeMillis();
+		BlockState oldState = MC.level.getBlockState(pos);
+		boolean oldContainer = isContainerBlock(oldState);
+		boolean newContainer = isContainerBlock(newState);
+		
+		if(oldContainer || newContainer)
+			synchronized(antiEspLock)
+			{
+				lastContainerBlockUpdateAt.put(pos.immutable(), now);
+			}
+		
+		if(!oldContainer && newContainer)
+		{
+			double distance = MC.player == null ? 0
+				: MC.player.position().distanceTo(Vec3.atCenterOf(pos));
+			if(distance > 5)
+				flagAntiEsp("fake-replacement",
+					"Container block appeared via block update at "
+						+ formatPos(pos) + " (" + formatBlock(oldState) + " -> "
+						+ formatBlock(newState) + ")");
+		}
+	}
+	
+	private void handleContainerSpecificBePacket(
+		ClientboundBlockEntityDataPacket p)
+	{
+		if(MC.level == null)
+			return;
+		
+		long now = System.currentTimeMillis();
+		BlockPos pos = p.getPos().immutable();
+		BlockState state = MC.level.getBlockState(pos);
+		if(!isContainerBlock(state))
+			return;
+		
+		Long missingAt;
+		Long updatedAt;
+		synchronized(antiEspLock)
+		{
+			missingAt = missingContainerAt.get(pos);
+			updatedAt = lastContainerBlockUpdateAt.get(pos);
+		}
+		boolean missingRecently =
+			missingAt != null && now - missingAt <= CHUNK_SCAN_EXPIRY_MS;
+		boolean noRecentUpdate =
+			updatedAt == null || now - updatedAt > BLOCK_UPDATE_GRACE_MS;
+		if(missingRecently && noRecentUpdate)
+			flagAntiEsp("late-block-entity", "Block entity for container at "
+				+ formatPos(pos) + " arrived later without a block change");
+	}
+	
+	private void queueChunkScan(ChunkPos chunkPos)
+	{
+		if(chunkPos == null)
+			return;
+		
+		long key = chunkKey(chunkPos);
+		synchronized(antiEspLock)
+		{
+			if(!queuedChunkScans.add(key))
+				return;
+			
+			chunkScanQueue.addLast(new ChunkScanRequest(chunkPos, key,
+				System.currentTimeMillis()));
+		}
+	}
+	
+	private void processQueuedChunkScans(int maxPerTick)
+	{
+		if(MC.level == null || maxPerTick <= 0)
+			return;
+		
+		long now = System.currentTimeMillis();
+		for(int i = 0; i < maxPerTick; i++)
+		{
+			ChunkScanRequest request;
+			synchronized(antiEspLock)
+			{
+				request = chunkScanQueue.pollFirst();
+			}
+			if(request == null)
+				return;
+			
+			synchronized(antiEspLock)
+			{
+				queuedChunkScans.remove(request.key());
+			}
+			if(now - request.queuedAt() > CHUNK_SCAN_EXPIRY_MS)
+				continue;
+			
+			scanChunkForContainers(request.chunkPos());
+		}
+	}
+	
+	private void scanChunkForContainers(ChunkPos chunkPos)
+	{
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+			return;
+		
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
+		if(chunk == null)
+			return;
+		
+		int minY = chunk.getMinY();
+		int minSectionY = minY >> 4;
+		int containerBlocks = 0;
+		int withBlockEntity = 0;
+		int withoutBlockEntity = 0;
+		
+		LevelChunkSection[] sections = chunk.getSections();
+		for(int sectionIndex =
+			0; sectionIndex < sections.length; sectionIndex++)
+		{
+			LevelChunkSection section = sections[sectionIndex];
+			if(section == null || section.hasOnlyAir())
+				continue;
+			
+			int sectionY = minSectionY + sectionIndex;
+			int baseY = sectionY << 4;
+			for(int lx = 0; lx < 16; lx++)
+				for(int ly = 0; ly < 16; ly++)
+					for(int lz = 0; lz < 16; lz++)
+					{
+						BlockState state = section.getStates().get(lx, ly, lz);
+						if(!isContainerBlock(state))
+							continue;
+						
+						containerBlocks++;
+						BlockPos pos =
+							new BlockPos(chunkPos.getMinBlockX() + lx,
+								baseY + ly, chunkPos.getMinBlockZ() + lz);
+						BlockEntity be = chunk.getBlockEntity(pos);
+						if(be == null)
+						{
+							withoutBlockEntity++;
+							synchronized(antiEspLock)
+							{
+								missingContainerAt.put(pos.immutable(),
+									System.currentTimeMillis());
+							}
+						}else
+							withBlockEntity++;
+					}
+		}
+		
+		if(withoutBlockEntity > 0)
+			flagAntiEsp("missing-be",
+				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+					+ withoutBlockEntity
+					+ " container blocks without block entities");
+		
+		if(containerBlocks >= 8 && withBlockEntity == 0)
+			flagAntiEsp("chunk-te-mismatch",
+				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+					+ containerBlocks
+					+ " container blocks but 0 block entities");
+	}
+	
+	private void pruneContainerAntiEspState()
+	{
+		long now = System.currentTimeMillis();
+		synchronized(antiEspLock)
+		{
+			missingContainerAt.entrySet()
+				.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
+			lastContainerBlockUpdateAt.entrySet()
+				.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
+			revealSamples.removeIf(
+				sample -> now - sample.timestamp() > REVEAL_SAMPLE_EXPIRY_MS);
+		}
+	}
+	
+	private void recordVisibleContainerDiscoveries()
+	{
+		if(MC.level == null || MC.player == null)
+			return;
+		
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(!isContainerBlockEntity(be))
+				return;
+			
+			BlockPos pos = be.getBlockPos().immutable();
+			synchronized(antiEspLock)
+			{
+				if(!discoveredContainers.add(pos))
+					return;
+				
+				double distance =
+					MC.player.position().distanceTo(Vec3.atCenterOf(pos));
+				revealSamples.addLast(
+					new RevealSample(distance, System.currentTimeMillis()));
+				while(revealSamples.size() > 64)
+					revealSamples.removeFirst();
+			}
+		});
+	}
+	
+	private void checkRevealPattern()
+	{
+		synchronized(antiEspLock)
+		{
+			if(revealSamples.size() < REVEAL_MIN_SAMPLES)
+				return;
+			
+			double sum = 0;
+			for(RevealSample sample : revealSamples)
+				sum += sample.distance();
+			
+			double mean = sum / revealSamples.size();
+			double variance = 0;
+			for(RevealSample sample : revealSamples)
+			{
+				double d = sample.distance() - mean;
+				variance += d * d;
+			}
+			double stddev = Math.sqrt(variance / revealSamples.size());
+			
+			boolean suspiciousRadius =
+				mean >= 12 && mean <= 32 && stddev <= 2.8;
+			if(suspiciousRadius)
+				flagAntiEsp("reveal-radius",
+					"Containers are consistently discovered at ~"
+						+ String.format(java.util.Locale.ROOT, "%.1f", mean)
+						+ " blocks (stddev "
+						+ String.format(java.util.Locale.ROOT, "%.1f", stddev)
+						+ ")");
+		}
+	}
+	
+	private boolean isContainerBlock(BlockState state)
+	{
+		return state != null && isContainerBlock(state.getBlock());
+	}
+	
+	private boolean isContainerBlock(Block candidate)
+	{
+		if(candidate == null)
+			return false;
+		
+		return candidate instanceof ChestBlock
+			|| candidate instanceof BarrelBlock
+			|| candidate instanceof ShulkerBoxBlock
+			|| candidate instanceof HopperBlock
+			|| candidate instanceof DispenserBlock
+			|| candidate == Blocks.DROPPER || candidate == Blocks.FURNACE
+			|| candidate == Blocks.BLAST_FURNACE || candidate == Blocks.SMOKER
+			|| candidate == Blocks.BEACON || candidate == Blocks.ENDER_CHEST
+			|| candidate == Blocks.CRAFTER;
+	}
+	
+	private boolean isContainerBlockEntity(BlockEntity be)
+	{
+		if(be == null)
+			return false;
+		
+		return isContainerBlock(be.getBlockState());
+	}
+	
+	private boolean isContainerId(String id)
+	{
+		if(id == null || id.isEmpty())
+			return false;
+		
+		return id.endsWith("chest") || id.endsWith("barrel")
+			|| id.contains("shulker_box") || id.endsWith("hopper")
+			|| id.endsWith("dispenser") || id.endsWith("dropper")
+			|| id.endsWith("furnace") || id.endsWith("blast_furnace")
+			|| id.endsWith("smoker") || id.endsWith("beacon")
+			|| id.endsWith("crafter");
+	}
+	
+	private static long chunkKey(ChunkPos pos)
+	{
+		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
+	}
+	
+	private boolean isTrackedBlock(Block candidate)
+	{
+		if(candidate == null)
+			return false;
+		
+		SearchMode currentMode = mode.getSelected();
+		if(currentMode == SearchMode.BLOCK_ID)
+			return candidate == block.getBlock();
+		
+		if(currentMode == SearchMode.QUERY)
+			return blockMatchesQuery(candidate,
+				normalizeQuery(query.getValue()));
+		
+		String idFull = BlockUtils.getName(candidate);
+		if(listExactIds != null && listExactIds.contains(idFull))
+			return true;
+		
+		String[] terms = listKeywords == null ? new String[0] : listKeywords;
+		String localId = idFull.contains(":")
+			? idFull.substring(idFull.indexOf(":") + 1) : idFull;
+		String localSpaced = localId.replace('_', ' ');
+		String transKey = candidate.getDescriptionId();
+		String display = candidate.getName().getString();
+		for(String term : terms)
+		{
+			if(containsNormalized(idFull, term)
+				|| containsNormalized(localId, term)
+				|| containsNormalized(localSpaced, term)
+				|| containsNormalized(transKey, term)
+				|| containsNormalized(display, term))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private static String formatPos(BlockPos pos)
+	{
+		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+	}
+	
+	private static String formatBlock(
+		net.minecraft.world.level.block.state.BlockState state)
+	{
+		return BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+	}
+	
+	private record ChunkScanRequest(ChunkPos chunkPos, long key, long queuedAt)
+	{}
+	
+	private record RevealSample(double distance, long timestamp)
+	{}
 }

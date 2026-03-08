@@ -26,14 +26,15 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 {
 	private static final String CHAT_PREFIX_PATTERN =
 		"(?:(?:\\[[^\\]]{1,32}\\]|‹[^›]{1,32}›)\\s*)*";
-	private static final String CHAT_NAME_PATTERN =
-		"(?:[\\p{S}\\p{P}]{0,6}\\s*)?[A-Za-z0-9_\\-*.]{1,24}";
+	private static final String CHAT_COLON_NAME_PATTERN = "[^:]{1,64}";
+	private static final String CHAT_ARROW_NAME_PATTERN = "[^»>]{1,64}";
 	private static final Pattern DECORATED_ANGLE_CHAT =
 		Pattern.compile("^" + CHAT_PREFIX_PATTERN + "<([^>]{1,32})>\\s+(.+)$");
-	private static final Pattern COLON_CHAT = Pattern.compile(
-		"^" + CHAT_PREFIX_PATTERN + "(" + CHAT_NAME_PATTERN + "):\\s+(.+)$");
-	private static final Pattern ARROW_CHAT = Pattern.compile("^"
-		+ CHAT_PREFIX_PATTERN + "(" + CHAT_NAME_PATTERN + ")\\s*[»>]\\s+(.+)$");
+	private static final Pattern COLON_CHAT = Pattern.compile("^"
+		+ CHAT_PREFIX_PATTERN + "(" + CHAT_COLON_NAME_PATTERN + "):\\s+(.+)$");
+	private static final Pattern ARROW_CHAT =
+		Pattern.compile("^" + CHAT_PREFIX_PATTERN + "("
+			+ CHAT_ARROW_NAME_PATTERN + ")\\s*[»>]\\s+(.+)$");
 	private static final Pattern WHISPER_TO_YOU_CHAT = Pattern.compile(
 		"^([A-Za-z0-9_\\-*.]{1,24})\\s+whispers\\s+to\\s+you:\\s+(.+)$",
 		Pattern.CASE_INSENSITIVE);

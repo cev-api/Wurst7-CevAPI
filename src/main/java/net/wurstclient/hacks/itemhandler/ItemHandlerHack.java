@@ -179,6 +179,11 @@ public class ItemHandlerHack extends Hack
 		new CheckboxSetting("Detect held/worn mob items",
 			"Also detect items held or worn by mobs.", false);
 	
+	private final CheckboxSetting detectArmorStandEquipment =
+		new CheckboxSetting("Detect armor stand equipment",
+			"Includes armor worn by armor stands when mob equipment detection is enabled.",
+			true);
+	
 	private final CheckboxSetting filterDefaultMobEquipment =
 		new CheckboxSetting("Filter default mob items",
 			"Hide common mob gear (gold/iron/stone/chain/etc).", false);
@@ -201,7 +206,11 @@ public class ItemHandlerHack extends Hack
 		addSetting(showRegistryName);
 		addSetting(showEnchantmentsInNames);
 		addSetting(includeMobEquipment);
+		addSetting(detectArmorStandEquipment);
 		addSetting(filterDefaultMobEquipment);
+		addSetting(pinSpecialItemsTop);
+		addSetting(showSignsInHud);
+		addSetting(detectNamedEntities);
 		addSetting(respectItemEspIgnores);
 		addSetting(itemEspIgnoredListSetting);
 		addSetting(rejectRadius);
@@ -210,9 +219,6 @@ public class ItemHandlerHack extends Hack
 		addSetting(popupScale);
 		addSetting(tracerThickness);
 		addSetting(popupMaxItems);
-		addSetting(pinSpecialItemsTop);
-		addSetting(showSignsInHud);
-		addSetting(detectNamedEntities);
 		addSetting(signRange);
 		addSetting(signMax);
 		addSetting(hudOffsetX);
@@ -817,8 +823,12 @@ public class ItemHandlerHack extends Hack
 		{
 			if(le instanceof Player)
 				continue;
-			if(le instanceof ArmorStand)
+			if(le instanceof ArmorStand stand)
+			{
+				if(detectArmorStandEquipment.isChecked())
+					addArmorStandEquipmentItems(stand);
 				continue;
+			}
 			
 			String mobName = le.getName().getString();
 			
@@ -846,6 +856,55 @@ public class ItemHandlerHack extends Hack
 				addMobTrackedItem(le, armor, pos, SourceType.MOB_WORN, mobName);
 			}
 		}
+	}
+	
+	private void addArmorStandEquipmentItems(ArmorStand stand)
+	{
+		if(stand == null)
+			return;
+		
+		String standName = getArmorStandDisplayName(stand);
+		for(EquipmentSlot slot : new EquipmentSlot[]{EquipmentSlot.HEAD,
+			EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET})
+		{
+			ItemStack armor = stand.getItemBySlot(slot);
+			if(!shouldTrackMobEquipment(armor))
+				continue;
+			
+			Vec3 pos = getArmorPos(stand, slot);
+			String sourceName = standName + " " + armorSlotLabel(slot);
+			String enchants = getEnchantmentSummary(armor);
+			if(!enchants.isEmpty())
+				sourceName += " - " + enchants;
+			
+			addMobTrackedItem(stand, armor, pos, SourceType.MOB_WORN,
+				sourceName);
+		}
+	}
+	
+	private String getArmorStandDisplayName(ArmorStand stand)
+	{
+		if(stand == null)
+			return "armor stand";
+		
+		String custom =
+			stand.getName() != null ? stand.getName().getString() : "";
+		if(custom != null && !custom.isBlank())
+			return custom.trim();
+		
+		return "armor stand";
+	}
+	
+	private String armorSlotLabel(EquipmentSlot slot)
+	{
+		return switch(slot)
+		{
+			case HEAD -> "(head)";
+			case CHEST -> "(chest)";
+			case LEGS -> "(legs)";
+			case FEET -> "(feet)";
+			default -> "";
+		};
 	}
 	
 	private void addMobTrackedItem(LivingEntity le, ItemStack stack, Vec3 pos,

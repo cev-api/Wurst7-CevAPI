@@ -422,6 +422,7 @@ Reports number of waypoints changed.
 - Optionally can read the contents of signs in the popup HUD
 - Optionally pin special items (from ItemESP list) to the top of the popup HUD
 - Optionally display enchantments of gear in lieu of the registry name
+- Optionally detect and display armor stands and their associated enchantments
 
 ![Popup](https://i.imgur.com/VQw20x0.png)
 ![GUI](https://i.imgur.com/oZFLufE.png)
@@ -530,6 +531,11 @@ Credits to [Trouser-Streak](https://github.com/etianl/Trouser-Streak/blob/main/s
 - Flags the likely protection so you know which hacks might be risky to use
 - Setback Detection, tracks sudden position corrections/teleports that indicate that the server rejected your hack and automatically disables it.
   - Works independantly of Anticheat Detector
+- Anti-ESP Detection:
+  - Detects suspicious anti-ESP behavior world-wide based on packet patterns (rapid block swaps, high update bursts and delayed block-entity reveals)
+  - Noise handling for fluid/air transitions
+  - Will be able to detect anti-xray traffic as well but will likely trigger burst signals
+  - Added Anti-ESP detection specifically to ChestESP and Search in addition to global detection to avoid any false positives
 
 ### Livestream Detector
 - Scans the player list for Youtube, Twitch, Tiktok and Kick for live streams and announces them in chat
@@ -911,6 +917,7 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Added Buried chest highlighting including a filter to only find buried chests
 - Added filters for chests and barrels to not highlight them if near spawners, trial chambers and villages (Excluding double chests and shulkers)
 - Added opacity settings
+- Added anti-ESP detection
 - Option to suppress single chests in favor of double
 - Optional alert for shulkerboxes in chat
 
@@ -970,7 +977,8 @@ Examples:
 - Replaced full-sort approach to bounded max-heap (PriorityQueue) that keeps the closest N matches. This avoids sorting entire result and keeps search as fast as X-Ray.
 - Safer rescans and better crash handling.
 - Improved search speed.
-- Added highlight corners (lines) and fill settings (Same as X-Ray)
+- Added highlight corners (lines) and fill settings (Same as X-Ray).
+- Added anti-ESP detection.
 
 ![Search](https://i.imgur.com/jxcn89u.png)
 
