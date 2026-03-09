@@ -141,6 +141,12 @@ public final class ClickGui
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
 			}
 		}
+		
+		// Bridge selected category-less "Other Features" into Other so they
+		// remain discoverable in the hack-style category layout.
+		windowMap.get(net.wurstclient.Category.OTHER)
+			.add(new FeatureButton(WURST.getOtfs().performanceOverlayOtf));
+		
 		// Keep the "Other" category usable: it contains a mixed bag of hacks,
 		// commands and other-features, so insertion order is not meaningful.
 		Window otherWindow = windowMap.get(net.wurstclient.Category.OTHER);

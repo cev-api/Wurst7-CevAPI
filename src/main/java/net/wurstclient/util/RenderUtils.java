@@ -32,6 +32,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 
 public enum RenderUtils
 {
@@ -160,11 +161,16 @@ public enum RenderUtils
 		int color, boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		Vec3 offset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitLine(matrices, start.add(offset), end.add(offset),
+			color, depthTest, DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 offset = getCameraPos().reverse();
 		drawLine(matrices, buffer, start.add(offset), end.add(offset), color,
 			DEFAULT_LINE_WIDTH);
 		
@@ -186,12 +192,18 @@ public enum RenderUtils
 		
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 start = getTracerOrigin(partialTicks);
+		Vec3 offset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitLine(matrices, start, end.add(offset), color,
+			depthTest, DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 start = getTracerOrigin(partialTicks);
-		Vec3 offset = getCameraPos().reverse();
 		drawLine(matrices, buffer, start, end.add(offset), color,
 			DEFAULT_LINE_WIDTH);
 		
@@ -206,12 +218,27 @@ public enum RenderUtils
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		
+		Vec3 start = getTracerOrigin(partialTicks);
+		Vec3 offset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(Vec3 end : ends)
+			{
+				if(enforceVisibility
+					&& !NiceWurstModule.shouldRenderTarget(end))
+					continue;
+				
+				globalEsp.submitLine(matrices, start, end.add(offset), color,
+					depthTest, DEFAULT_LINE_WIDTH);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
-		
-		Vec3 start = getTracerOrigin(partialTicks);
-		Vec3 offset = getCameraPos().reverse();
 		
 		boolean rendered = false;
 		for(Vec3 end : ends)
@@ -235,12 +262,29 @@ public enum RenderUtils
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		
+		Vec3 start = getTracerOrigin(partialTicks);
+		Vec3 offset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredPoint end : ends)
+			{
+				Vec3 point = end.point();
+				if(enforceVisibility
+					&& !NiceWurstModule.shouldRenderTarget(point))
+					continue;
+				
+				globalEsp.submitLine(matrices, start, point.add(offset),
+					end.color(), depthTest, DEFAULT_LINE_WIDTH);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 start = getTracerOrigin(partialTicks);
-		Vec3 offset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(ColoredPoint end : ends)
 		{
@@ -267,15 +311,33 @@ public enum RenderUtils
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		
+		Vec3 start = getTracerOrigin(partialTicks);
+		Vec3 offset = getCameraPos().reverse();
+		float appliedWidth =
+			(float)Mth.clamp(lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
+		
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredPoint end : ends)
+			{
+				Vec3 point = end.point();
+				if(enforceVisibility
+					&& !NiceWurstModule.shouldRenderTarget(point))
+					continue;
+				
+				globalEsp.submitLine(matrices, start, point.add(offset),
+					end.color(), depthTest, appliedWidth);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 start = getTracerOrigin(partialTicks);
-		Vec3 offset = getCameraPos().reverse();
 		boolean rendered = false;
-		float appliedWidth =
-			(float)Mth.clamp(lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
@@ -293,6 +355,12 @@ public enum RenderUtils
 	public static void drawLine(PoseStack matrices, VertexConsumer buffer,
 		Vec3 start, Vec3 end, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls()
+			&& globalEsp.submitLine(matrices, start, end, color,
+				globalEsp.getRequestedLineDepth(), DEFAULT_LINE_WIDTH))
+			return;
+		
 		drawLine(matrices, buffer, start, end, color, DEFAULT_LINE_WIDTH);
 	}
 	
@@ -312,6 +380,12 @@ public enum RenderUtils
 	public static void drawLine(PoseStack.Pose entry, VertexConsumer buffer,
 		float x1, float y1, float z1, float x2, float y2, float z2, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls()
+			&& globalEsp.submitBufferedLine(entry, x1, y1, z1, x2, y2, z2,
+				color, DEFAULT_LINE_WIDTH))
+			return;
+		
 		drawLine(entry, buffer, x1, y1, z1, x2, y2, z2, color,
 			DEFAULT_LINE_WIDTH);
 	}
@@ -355,12 +429,17 @@ public enum RenderUtils
 		int color, boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		Vec3 offset = getCameraPos().reverse();
+		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitCurvedLine(matrices, points2, color, depthTest,
+			DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 offset = getCameraPos().reverse();
-		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
 		drawCurvedLine(matrices, buffer, points2, color);
 		
 		vcp.endBatch(layer);
@@ -370,12 +449,19 @@ public enum RenderUtils
 		int color, boolean depthTest, double width)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		float appliedWidth =
+			(float)Mth.clamp(width, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
+		Vec3 offset = getCameraPos().reverse();
+		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitCurvedLine(matrices, points2, color, depthTest,
+			appliedWidth))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLineStrip(depthTest, width);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 offset = getCameraPos().reverse();
-		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
 		drawCurvedLine(matrices, buffer, points2, color);
 		
 		vcp.endBatch(layer);
@@ -384,6 +470,12 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls()
+			&& globalEsp.submitCurvedLine(matrices, points, color,
+				globalEsp.getRequestedLineDepth(), DEFAULT_LINE_WIDTH))
+			return;
+		
 		if(points.size() < 2)
 			return;
 		
@@ -410,12 +502,16 @@ public enum RenderUtils
 		
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		AABB shiftedBox = box.move(getCameraPos().reverse());
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitSolidBox(matrices, shiftedBox, color, depthTest))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawSolidBox(matrices, buffer, box.move(getCameraPos().reverse()),
-			color);
+		drawSolidBox(matrices, buffer, shiftedBox, color);
 		
 		vcp.endBatch(layer);
 	}
@@ -426,11 +522,34 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			if(!overlay)
+			{
+				globalEsp.submitSolidBoxes(matrices, boxes, camOffset.x,
+					camOffset.y, camOffset.z, color, depthTest);
+				return;
+			}
+			
+			for(AABB box : boxes)
+			{
+				if(!isBoxVisible(box))
+					continue;
+				
+				globalEsp.submitSolidBox(matrices, box.move(camOffset), color,
+					depthTest);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
@@ -451,11 +570,27 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredBox box : boxes)
+			{
+				if(overlay && !isBoxVisible(box.box()))
+					continue;
+				
+				globalEsp.submitSolidBox(matrices, box.box().move(camOffset),
+					box.color(), depthTest);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
@@ -479,6 +614,11 @@ public enum RenderUtils
 	public static void drawSolidBox(PoseStack matrices, VertexConsumer buffer,
 		AABB box, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedQuadCalls()
+			&& globalEsp.submitBufferedSolidBox(matrices, box, color))
+			return;
+		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
 		float y1 = (float)box.minY;
@@ -760,12 +900,17 @@ public enum RenderUtils
 		
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		AABB shiftedBox = box.move(getCameraPos().reverse());
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitOutlinedBox(matrices, shiftedBox, color, depthTest,
+			DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawOutlinedBox(matrices, buffer, box.move(getCameraPos().reverse()),
-			color);
+		drawOutlinedBox(matrices, buffer, shiftedBox, color);
 		
 		vcp.endBatch(layer);
 	}
@@ -776,11 +921,35 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			if(!overlay)
+			{
+				globalEsp.submitOutlinedBoxes(matrices, boxes, camOffset.x,
+					camOffset.y, camOffset.z, color, depthTest,
+					DEFAULT_LINE_WIDTH);
+				return;
+			}
+			
+			for(AABB box : boxes)
+			{
+				if(!isBoxVisible(box))
+					continue;
+				
+				globalEsp.submitOutlinedBox(matrices, box.move(camOffset),
+					color, depthTest, DEFAULT_LINE_WIDTH);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(AABB box : boxes)
 		{
@@ -801,11 +970,27 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredBox box : boxes)
+			{
+				if(overlay && !isBoxVisible(box.box()))
+					continue;
+				
+				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
+					box.color(), depthTest, DEFAULT_LINE_WIDTH);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
@@ -830,11 +1015,29 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		float appliedWidth =
+			(float)Mth.clamp(lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredBox box : boxes)
+			{
+				if(overlay && !isBoxVisible(box.box()))
+					continue;
+				
+				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
+					box.color(), depthTest, appliedWidth);
+			}
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		boolean rendered = false;
 		for(ColoredBox box : boxes)
 		{
@@ -859,6 +1062,12 @@ public enum RenderUtils
 	public static void drawOutlinedBox(PoseStack matrices,
 		VertexConsumer buffer, AABB box, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls()
+			&& globalEsp.submitBufferedOutlinedBox(matrices, box, color,
+				DEFAULT_LINE_WIDTH))
+			return;
+		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
 		float y1 = (float)box.minY;
@@ -926,12 +1135,17 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		AABB shiftedBox = box.move(getCameraPos().reverse());
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitCrossBox(matrices, shiftedBox, color, depthTest,
+			DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawCrossBox(matrices, buffer, box.move(getCameraPos().reverse()),
-			color);
+		drawCrossBox(matrices, buffer, shiftedBox, color);
 		
 		vcp.endBatch(layer);
 	}
@@ -940,11 +1154,22 @@ public enum RenderUtils
 		int color, boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(AABB box : boxes)
+				globalEsp.submitCrossBox(matrices, box.move(camOffset), color,
+					depthTest, DEFAULT_LINE_WIDTH);
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		for(AABB box : boxes)
 			drawCrossBox(matrices, buffer, box.move(camOffset), color);
 		
@@ -955,11 +1180,22 @@ public enum RenderUtils
 		List<ColoredBox> boxes, boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredBox box : boxes)
+				globalEsp.submitCrossBox(matrices, box.box().move(camOffset),
+					box.color(), depthTest, DEFAULT_LINE_WIDTH);
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		for(ColoredBox box : boxes)
 			drawCrossBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
@@ -975,6 +1211,11 @@ public enum RenderUtils
 	public static void drawCrossBox(PoseStack matrices, VertexConsumer buffer,
 		AABB box, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls() && globalEsp
+			.submitBufferedCrossBox(matrices, box, color, DEFAULT_LINE_WIDTH))
+			return;
+		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
 		float y1 = (float)box.minY;
@@ -1048,11 +1289,17 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		AABB shiftedBox = box.move(getCameraPos().reverse());
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitNode(matrices, shiftedBox, color, depthTest,
+			DEFAULT_LINE_WIDTH))
+			return;
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawNode(matrices, buffer, box.move(getCameraPos().reverse()), color);
+		drawNode(matrices, buffer, shiftedBox, color);
 		
 		vcp.endBatch(layer);
 	}
@@ -1061,11 +1308,22 @@ public enum RenderUtils
 		int color, boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(AABB box : boxes)
+				globalEsp.submitNode(matrices, box.move(camOffset), color,
+					depthTest, DEFAULT_LINE_WIDTH);
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		for(AABB box : boxes)
 			drawNode(matrices, buffer, box.move(camOffset), color);
 		
@@ -1075,11 +1333,21 @@ public enum RenderUtils
 	public static void drawNodes(PoseStack matrices, List<ColoredBox> boxes,
 		boolean depthTest)
 	{
+		Vec3 camOffset = getCameraPos().reverse();
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			for(ColoredBox box : boxes)
+				globalEsp.submitNode(matrices, box.box().move(camOffset),
+					box.color(), depthTest, DEFAULT_LINE_WIDTH);
+			
+			return;
+		}
+		
 		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		Vec3 camOffset = getCameraPos().reverse();
 		for(ColoredBox box : boxes)
 			drawNode(matrices, buffer, box.box().move(camOffset), box.color());
 		
@@ -1094,6 +1362,11 @@ public enum RenderUtils
 	public static void drawNode(PoseStack matrices, VertexConsumer buffer,
 		AABB box, int color)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls() && globalEsp
+			.submitBufferedNode(matrices, box, color, DEFAULT_LINE_WIDTH))
+			return;
+		
 		PoseStack.Pose entry = matrices.last();
 		float x1 = (float)box.minX;
 		float y1 = (float)box.minY;
@@ -1141,6 +1414,12 @@ public enum RenderUtils
 	public static void drawArrow(PoseStack matrices, VertexConsumer buffer,
 		Vec3 from, Vec3 to, int color, float headSize)
 	{
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverBufferedLineCalls()
+			&& globalEsp.submitBufferedArrow(matrices, from, to, color,
+				DEFAULT_LINE_WIDTH, headSize))
+			return;
+		
 		matrices.pushPose();
 		PoseStack.Pose entry = matrices.last();
 		Matrix4f matrix = entry.pose();

@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 
 @Mixin(LevelRenderer.class)
 public class WorldRendererMixin
@@ -36,6 +37,17 @@ public class WorldRendererMixin
 	{
 		if(WurstClient.INSTANCE.getHax().antiBlindHack.isEnabled())
 			ci.setReturnValue(false);
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V")
+	private void onRenderHead(GraphicsResourceAllocator allocator,
+		DeltaTracker tickCounter, boolean renderBlockOutline, Camera camera,
+		Matrix4f positionMatrix, Matrix4f projectionMatrix, Matrix4f matrix4f2,
+		GpuBufferSlice gpuBufferSlice, Vector4f vector4f, boolean bl,
+		CallbackInfo ci)
+	{
+		GlobalEspManager.getInstance().beginFrame();
 	}
 	
 	@Inject(at = @At("RETURN"),
@@ -51,5 +63,6 @@ public class WorldRendererMixin
 		float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
 		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
 		EventManager.fire(event);
+		GlobalEspManager.getInstance().endFrame(matrixStack);
 	}
 }

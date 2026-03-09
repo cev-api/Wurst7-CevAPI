@@ -15,6 +15,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.AboveGroundFilterManager;
 import net.wurstclient.hack.CheckboxOverrideManager;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.render.globalesp.GlobalEspRenderMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -54,6 +55,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"FULL: Update only when full area scan is done (old behavior).\n"
 			+ "PARTIAL: Update from ready chunks immediately (faster detection).",
 		ChunkScanMode.values(), ChunkScanMode.FULL);
+	private final EnumSetting<GlobalEspRenderMode> globalEspRenderMode =
+		new EnumSetting<>("Global ESP render mode",
+			"LEGACY: existing per-hack draw path.\n"
+				+ "SHADER_OUTLINE: centralized global ESP pipeline.",
+			GlobalEspRenderMode.values(), GlobalEspRenderMode.LEGACY);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
@@ -79,6 +85,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(searchThreadPriority);
 		addSetting(setSliderLimitOverride);
 		addSetting(chunkScanMode);
+		addSetting(globalEspRenderMode);
 		
 		lastYLimitValue = yLimitValue.getValueI();
 		lastSearchThreadPriority = searchThreadPriority.getValueI();
@@ -235,6 +242,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean isSetSliderLimitOverrideAllowed()
 	{
 		return setSliderLimitOverride.isChecked();
+	}
+	
+	public GlobalEspRenderMode getGlobalEspRenderMode()
+	{
+		return globalEspRenderMode.getSelected();
 	}
 	
 	private enum OverrideState

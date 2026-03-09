@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackPerformanceTracker;
 
 public interface GUIRenderListener extends Listener
 {
@@ -30,8 +31,27 @@ public interface GUIRenderListener extends Listener
 		@Override
 		public void fire(ArrayList<GUIRenderListener> listeners)
 		{
+			boolean profile = HackPerformanceTracker.shouldProfile();
 			for(GUIRenderListener listener : listeners)
-				listener.onRenderGUI(context, partialTicks);
+			{
+				if(!profile)
+				{
+					listener.onRenderGUI(context, partialTicks);
+					continue;
+				}
+				
+				long start = System.nanoTime();
+				try
+				{
+					listener.onRenderGUI(context, partialTicks);
+					
+				}finally
+				{
+					HackPerformanceTracker.record(listener,
+						HackPerformanceTracker.Phase.GUI,
+						System.nanoTime() - start);
+				}
+			}
 		}
 		
 		@Override

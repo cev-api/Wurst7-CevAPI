@@ -42,6 +42,7 @@ import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.ForkUpdateChecker;
 import net.wurstclient.update.WurstUpdater;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
@@ -246,6 +247,7 @@ public enum WurstClient
 	
 	public void reloadFromDisk()
 	{
+		GlobalEspManager.getInstance().cleanup();
 		reloadSettings();
 		
 		if(hax != null)

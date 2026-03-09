@@ -38,6 +38,7 @@ import net.wurstclient.events.HandleBlockBreakingListener.HandleBlockBreakingEve
 import net.wurstclient.events.HandleInputListener.HandleInputEvent;
 import net.wurstclient.events.LeftClickListener.LeftClickEvent;
 import net.wurstclient.events.RightClickListener.RightClickEvent;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.mixinterface.ILocalPlayer;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.mixinterface.IMinecraftClient;
@@ -199,6 +200,12 @@ public abstract class MinecraftClientMixin
 	{
 		cir.setReturnValue(
 			!WurstClient.INSTANCE.getOtfs().noTelemetryOtf.isEnabled());
+	}
+	
+	@Inject(at = @At("HEAD"), method = "close()V")
+	private void onClose(CallbackInfo ci)
+	{
+		GlobalEspManager.getInstance().cleanup();
 	}
 	
 	@Override

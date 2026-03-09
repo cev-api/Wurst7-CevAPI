@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
 import net.wurstclient.util.HackActivityTracker;
+import net.wurstclient.util.HackPerformanceTracker;
 
 public interface UpdateListener extends Listener
 {
@@ -24,10 +25,27 @@ public interface UpdateListener extends Listener
 		@Override
 		public void fire(ArrayList<UpdateListener> listeners)
 		{
+			boolean profile = HackPerformanceTracker.shouldProfile();
 			for(UpdateListener listener : listeners)
 			{
 				HackActivityTracker.markActive(listener);
-				listener.onUpdate();
+				if(!profile)
+				{
+					listener.onUpdate();
+					continue;
+				}
+				
+				long start = System.nanoTime();
+				try
+				{
+					listener.onUpdate();
+					
+				}finally
+				{
+					HackPerformanceTracker.record(listener,
+						HackPerformanceTracker.Phase.UPDATE,
+						System.nanoTime() - start);
+				}
 			}
 		}
 		

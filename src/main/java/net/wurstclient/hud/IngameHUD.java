@@ -12,6 +12,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.events.GUIRenderListener;
+import net.wurstclient.util.HackPerformanceOverlay;
 
 public final class IngameHUD implements GUIRenderListener
 {
@@ -25,6 +26,8 @@ public final class IngameHUD implements GUIRenderListener
 		new GameStatsHud(WurstClient.INSTANCE.getHax().gameStatsHack);
 	private final ClientMessageOverlay clientMessageOverlay =
 		ClientMessageOverlay.getInstance();
+	private final HackPerformanceOverlay performanceOverlay =
+		HackPerformanceOverlay.getInstance();
 	private TabGui tabGui;
 	private net.wurstclient.hacks.itemhandler.ItemHandlerHud itemHandlerHud;
 	
@@ -53,6 +56,7 @@ public final class IngameHUD implements GUIRenderListener
 			itemHandlerHud =
 				new net.wurstclient.hacks.itemhandler.ItemHandlerHud();
 		itemHandlerHud.render(context, partialTicks);
+		performanceOverlay.render(context);
 		
 		// pinned windows
 		if(!(WurstClient.MC.screen instanceof ClickGuiScreen))

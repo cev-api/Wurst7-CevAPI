@@ -128,8 +128,8 @@ public final class AutoFishDebugDraw
 				playerPos.z - camPos.z);
 			matrices.mulPose(spot.input().rotation().toQuaternion());
 			
-			VertexConsumer lineBuffer =
-				vcp.getBuffer(WurstRenderLayers.ESP_LINES);
+			var lineLayer = WurstRenderLayers.getLines(false);
+			VertexConsumer lineBuffer = vcp.getBuffer(lineLayer);
 			
 			RenderUtils.drawOutlinedBox(matrices, lineBuffer, headBox, color);
 			RenderUtils.drawOutlinedBox(matrices, lineBuffer, noseBox, color);
@@ -142,7 +142,7 @@ public final class AutoFishDebugDraw
 				playerPos.subtract(camPos), bobberPos.subtract(camPos), color,
 				0.1F);
 			
-			vcp.endBatch(WurstRenderLayers.ESP_LINES);
+			vcp.endBatch(lineLayer);
 		}
 	}
 	

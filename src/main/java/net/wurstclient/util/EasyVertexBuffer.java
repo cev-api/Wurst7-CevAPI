@@ -34,6 +34,7 @@ import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.TextureTransform;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 
 /**
  * An abstraction of Minecraft 1.21.5's new {@code GpuBuffer} system that makes
@@ -117,6 +118,10 @@ public final class EasyVertexBuffer implements AutoCloseable
 			return;
 		
 		RenderType effectiveLayer = NiceWurstModule.enforceDepthTest(layer);
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.submitMeshDraw(matrixStack, this, effectiveLayer, red,
+			green, blue, alpha))
+			return;
 		
 		Matrix4fStack modelViewStack = RenderSystem.getModelViewStack();
 		modelViewStack.pushMatrix();
@@ -147,6 +152,21 @@ public final class EasyVertexBuffer implements AutoCloseable
 		}
 		
 		modelViewStack.popMatrix();
+	}
+	
+	public GpuBuffer getVertexBufferForGlobalEsp()
+	{
+		return vertexBuffer;
+	}
+	
+	public RenderSystem.AutoStorageIndexBuffer getIndexBufferForGlobalEsp()
+	{
+		return shapeIndexBuffer;
+	}
+	
+	public int getIndexCountForGlobalEsp()
+	{
+		return indexCount;
 	}
 	
 	@Override

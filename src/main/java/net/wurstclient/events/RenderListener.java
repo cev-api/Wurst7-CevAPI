@@ -11,6 +11,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
+import net.wurstclient.util.HackPerformanceTracker;
 
 public interface RenderListener extends Listener
 {
@@ -30,8 +31,27 @@ public interface RenderListener extends Listener
 		@Override
 		public void fire(ArrayList<RenderListener> listeners)
 		{
+			boolean profile = HackPerformanceTracker.shouldProfile();
 			for(RenderListener listener : listeners)
-				listener.onRender(matrixStack, partialTicks);
+			{
+				if(!profile)
+				{
+					listener.onRender(matrixStack, partialTicks);
+					continue;
+				}
+				
+				long start = System.nanoTime();
+				try
+				{
+					listener.onRender(matrixStack, partialTicks);
+					
+				}finally
+				{
+					HackPerformanceTracker.record(listener,
+						HackPerformanceTracker.Phase.RENDER,
+						System.nanoTime() - start);
+				}
+			}
 		}
 		
 		@Override

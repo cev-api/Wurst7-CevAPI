@@ -11,6 +11,7 @@ import net.minecraft.client.renderer.rendertype.LayeringTransform;
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.wurstclient.render.globalesp.GlobalEspManager;
 
 public enum WurstRenderLayers
 {
@@ -74,6 +75,7 @@ public enum WurstRenderLayers
 	 */
 	public static RenderType getQuads(boolean depthTest)
 	{
+		GlobalEspManager.getInstance().noteQuadLayerRequest(depthTest);
 		return depthTest ? QUADS : ESP_QUADS;
 	}
 	
@@ -83,6 +85,7 @@ public enum WurstRenderLayers
 	 */
 	public static RenderType getLines(boolean depthTest)
 	{
+		GlobalEspManager.getInstance().noteLineLayerRequest(depthTest);
 		return depthTest ? LINES : ESP_LINES;
 	}
 	

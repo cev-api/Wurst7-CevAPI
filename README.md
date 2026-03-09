@@ -101,6 +101,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - Mention
 - Force Allow Chats
 - MusicAura 
+- Performance Overlay
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -890,6 +891,19 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 
 ![Scan](https://i.imgur.com/Zwf22jU.png)
 
+### Performance Overlay (Per-Hack Profiler)
+- Added a new PerformanceOverlay feature to help find lag sources across enabled hacks.
+- It shows per-hack timing in HUD with 1s window stats and sorting modes (total / peak), including:
+  - T: total time
+  - U: update time
+  - R: world render time
+  - G: GUI render time
+  - P: peak callback time
+- Use it to identify which specific hacks are causing sustained load (total) vs stutters (peak).
+- You're able to drag the overlay with your mouse when a container is open
+
+![Perfmon](https://i.imgur.com/XKDvPQf.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -1190,6 +1204,18 @@ Examples:
 - Added search thread priority slider for tuning background scan speed vs CPU usage.
 - Optimized Search when using corners only ESP to avoid unnecessary heavy mesh work making detection faster.
 - Reduced lag spikes on large scans by using cheaper nearest-result selection paths.
+
+### Global ESP Render Modes
+- Added a global ESP pipeline toggle in GlobalToggle:
+- LEGACY: keeps the original per-hack ESP rendering path.
+- SHADER_OUTLINE: redirects supported RenderUtils ESP draws into a centralized global collector/renderer for batched rendering.
+
+  - Why use SHADER_OUTLINE:
+    - Scales better when many ESP hacks are active (reduces per-hack draw overhead).
+    - Produces more consistent ESP rendering across hacks.
+    - Makes global ESP improvements easier (one pipeline to optimize/extend).
+    - Keeps hack compatibility without rewriting each ESP hack manually.
+
 
 ### Easier/Quicker ESP Commands
 - ```.search <query>``` -> query mode + set query + enable
