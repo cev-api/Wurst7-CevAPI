@@ -55,7 +55,7 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ## Novelty
 
-I'm pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren't found in any other clients or mods. Some are even original enough to stand on their own as full concepts. These include:
+I'm pleased to note that many of the features and improvements below are completely unique to this Wurst fork and aren't found in any other clients or mods. Some are even original enough to stand on their own as full concepts. While some hacks may share some functionalities or names as others, they likely do not have the same features as my own.
 
 - EnchantmentHandler
 - ItemHandler
@@ -75,7 +75,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - OfflineSettings
 - TargetPlace
 - SurfaceXray
-- Anti-Fingerprint
+- Anti-Fingerprint (A novel implementation)
 - TridentESP
 - MobSearch
 - PacketRate
@@ -96,18 +96,16 @@ I'm pleased to note that many of the features and improvements below are complet
 - GameStats
 - AdvancedPacketTool
 - ClientChatOverlay
+- CommandScanner
 - AutoChat
 - Mention
 - Force Allow Chats
 - MusicAura 
-- ElytraInfo (Inspired By Another Mod)
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
 - Custom Waypoint System (Not a new idea, but unique in design and functionality)
 - The overall changes to existing hacks, many of which greatly improve original functionality!
-
-Because so many of these mods are entirely original, I plan to release some of them as standalone projects in the future.
 
 ## Unoriginal
 
@@ -131,9 +129,9 @@ I have taken the following ideas from other clients/mods:
 - Bundle Dupe
 - BookBot
 - NewerNewChunks
+- ElytraInfo
 
-I did not, nor could I copy their code directly as most are Meteor based mods. So these are considered my interpretation of the functionality of those hacks.
-
+I did not, and could not, copy any code directly since most implementations are Meteor-based mods or standalone projects. These are my own implementations of the concepts, rewritten for Mojmap and often improved or expanded upon.
 
 ---
 
@@ -888,25 +886,9 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Optionally elicit only 'unknown' commands. Scans via packets then compares via client commands, whichever isn't available to the user is shown.
 - Your command list probing won't appear in server side logs
 - Can also run each command, run specific commands via packets or enumerate via client side commands 
+- Great replacement for when plugin scanners like UI-Utils returns no results
 
-#### Example Output
-```
-[STDOUT]: Unknown or incomplete command. See below for error
-[STDOUT]: c2me<--[HERE]
-[STDOUT]: Unknown or incomplete command. See below for error
-[STDOUT]: panda-anti-exploit<--[HERE]
-[STDOUT]: Unknown or incomplete command. See below for error
-[STDOUT]: test<--[HERE]
-[STDOUT]: Unknown or incomplete command. See below for error
-[STDOUT]: version<--[HERE]
-[STDOUT]: [Wurst] CommandScanner started.
-[STDOUT]: [Wurst] Enabled: CommandScanner
-[STDOUT]: [Wurst] Found 20 non-vanilla commands:
-[STDOUT]: [Wurst] /c2me, /dialog, /discord, /dmcc, /fetchprofile, /melius-commands, /panda-anti-exploit, /plstyle
-[STDOUT]: [Wurst] /rotate, /spark, /stopwatch, /styledchat, /styledplayerlist, /suicide, /tellform, /test
-[STDOUT]: [Wurst] /version, /voicechat, /vote, /waypoint
-[STDOUT]: [Wurst] Disabled: CommandScanner
-```
+![Scan](https://i.imgur.com/Zwf22jU.png)
 
 ## What's changed or improved in this fork?
 
