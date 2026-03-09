@@ -830,6 +830,7 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Can adjust its position by moving it with mouse when in inventory or container
 - Auto avoids vanilla chat messages if positioned above it
 - Is scrollable when chat is opened
+- Able to adjust font size of chat
 
 ### AutoChat
 - AutoChat watches incoming chat and keeps a rolling context history (configurable size).

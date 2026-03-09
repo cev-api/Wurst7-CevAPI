@@ -93,6 +93,7 @@
   "hack.wurst.clientchatoverlay": "Client Chat Overlay",
   "description.wurst.hack.gamestats": "Shows customizable game/session stats on your HUD, including FPS/TPS/Ping, play time, time, packet rate, distance, kills, and XP gained.",
   "description.wurst.hack.clientchatoverlay": "Splits client/mod/system messages into a separate overlay above chat. Supports drag-to-move, scroll-on-hover, fade-out timing, transparency, optional routing to the game console, and Wurst-only filtering.",
+  "description.wurst.setting.clientchatoverlay.chat_font_scale": "Extra multiplier for in-game chat text size. Affects vanilla chat and Client Chat Overlay.",
   "description.wurst.hack.chorusfruit": "Consumes a chorus fruit item when the selected trigger happens and your health is low.",
   "hack.wurst.livestreamdetector": "LivestreamDetector",
   "description.wurst.hack.livestreamdetector": "Scans the tab list for live streamers on YouTube, Twitch, TikTok, and Kick and announces streams in chat.",

@@ -39,6 +39,10 @@ public final class ClientChatOverlayHack extends Hack
 		"Comma-separated keywords that force a message into normal chat.", "");
 	private final SliderSetting maxLines =
 		new SliderSetting("Max lines", 10, 3, 30, 1, ValueDisplay.INTEGER);
+	private final SliderSetting chatFontScale =
+		new SliderSetting("Chat font size",
+			"description.wurst.setting.clientchatoverlay.chat_font_scale", 1,
+			0.5, 2, 0.05, ValueDisplay.DECIMAL.withSuffix("x"));
 	private final SliderSetting hudOffsetX = new SliderSetting("HUD X offset",
 		0, -320, 320, 1, ValueDisplay.INTEGER);
 	private final SliderSetting hudOffsetY = new SliderSetting("HUD Y offset",
@@ -55,6 +59,7 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(forceClientKeywords);
 		addSetting(forceNormalKeywords);
 		addSetting(maxLines);
+		addSetting(chatFontScale);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
 	}
@@ -92,6 +97,11 @@ public final class ClientChatOverlayHack extends Hack
 	public int getMaxLines()
 	{
 		return maxLines.getValueI();
+	}
+	
+	public double getChatFontScale()
+	{
+		return chatFontScale.getValue();
 	}
 	
 	public int getHudOffsetX()
