@@ -138,6 +138,21 @@ I did not, and could not, copy any code directly since most implementations are 
 
 ## What's new in this fork?
 
+### New GUI
+- Added a new alternative GUI which you can initially access from the navigator menu and bind to a key
+- Totally separate from ClickGUI and Navigator
+- Customisable coloring, opacities and sizing with consistancy based on font scaling to prevent clipping
+- Changeable fonts, though pixel fonts are preferred unless you want performance hit
+  - Non-pixel fonts benefit from smoothing; 2x for 4 alpha levels and 3x for 6 alpha levels
+- Global search function
+- Session persistent "Recently Disabled" entries within the Enabled category
+- Middle click favourite toggle with optional star icons
+- TooManyHax support to hide excess hacks from the UI
+- Configurable open behavior: Open on Favorites, Enabled or restore last category/scroll state
+- Replaced old color editor with HSV Color Picker giving access to a greater color spectrum
+
+![AltGUI](https://i.imgur.com/bzmhJ8t.png)
+
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
 - Added list mode with visual list of mobs.  
@@ -905,6 +920,13 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 
 ![Perfmon](https://i.imgur.com/XKDvPQf.png)
 
+### PearlIntercept
+- Auto counters thrown ender pearls by throwing your own towards or at the same landing area
+- Has safety checks to avoid hazards
+- Throws only when within configured tolerances
+- Cooldown settings
+- Switch back to previous item
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -1164,7 +1186,7 @@ Examples:
 - When running ```.setslider``` commands you can now exceed the limit of sliders in all hacks.
 - Should only be used experimentally, will likely break the game or cause rubberbanding in a lot of hacks.
 - May not be compatible with all hacks as some have their own internal limiting logic.
-- Enable or disable this in the GlobalSettings.
+- Enable or disable this in the GlobalToggle.
 
 ### Wurst Options
 - Added to home screen and put in the old spot of Alt Manager

@@ -14,6 +14,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.screens.EditSliderScreen;
+import net.wurstclient.hacks.ClientChatOverlayHack;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.text.WText;
@@ -53,6 +54,10 @@ public final class SliderComponent extends Component
 			
 			case GLFW.GLFW_MOUSE_BUTTON_RIGHT:
 			setting.setValue(setting.getDefaultValue());
+			ClientChatOverlayHack chatHack =
+				WURST.getHax().clientChatOverlayHack;
+			if(setting == chatHack.getChatFontScaleSetting())
+				chatHack.resetVanillaChatScale();
 			break;
 		}
 	}

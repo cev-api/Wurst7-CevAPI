@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.ISimpleOption;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.TextFieldSetting;
@@ -51,7 +52,7 @@ public final class ClientChatOverlayHack extends Hack
 	public ClientChatOverlayHack()
 	{
 		super("ClientChatOverlay");
-		setCategory(Category.OTHER);
+		setCategory(Category.CHAT);
 		addSetting(transparency);
 		addSetting(fadeOutTimeSeconds);
 		addSetting(routeToConsole);
@@ -102,6 +103,19 @@ public final class ClientChatOverlayHack extends Hack
 	public double getChatFontScale()
 	{
 		return chatFontScale.getValue();
+	}
+	
+	public SliderSetting getChatFontScaleSetting()
+	{
+		return chatFontScale;
+	}
+	
+	public void resetVanillaChatScale()
+	{
+		if(MC == null || MC.options == null)
+			return;
+		
+		ISimpleOption.get(MC.options.chatScale()).forceSetValue(1.0);
 	}
 	
 	public int getHudOffsetX()

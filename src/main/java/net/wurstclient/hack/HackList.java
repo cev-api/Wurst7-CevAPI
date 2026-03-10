@@ -113,6 +113,7 @@ public final class HackList implements UpdateListener
 		new EnchantmentHandlerHack();
 	public final ClickAuraHack clickAuraHack = new ClickAuraHack();
 	public final ClickGuiHack clickGuiHack = new ClickGuiHack();
+	public final AltGuiHack altGuiHack = new AltGuiHack();
 	public final CrashChestHack crashChestHack = new CrashChestHack();
 	public final BundleDupeHack bundleDupeHack = new BundleDupeHack();
 	public final CreativeFlightHack creativeFlightHack =
@@ -272,6 +273,8 @@ public final class HackList implements UpdateListener
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();
 	public final PearlEspHack pearlEspHack = new PearlEspHack();
+	public final PearlInterceptHack pearlInterceptHack =
+		new PearlInterceptHack();
 	public final ChestSearchHack chestSearchHack = new ChestSearchHack();
 	public final net.wurstclient.hacks.LootSearchHack lootSearchHack =
 		new net.wurstclient.hacks.LootSearchHack();

@@ -143,7 +143,7 @@ public final class KeybindList
 		addKB(set, "menu", "clickgui");
 		addKB(set, "n", "nuker");
 		addKB(set, "r", "multiaura");
-		addKB(set, "right.alt", "WindChargeKey");
+		addKB(set, "right.alt", "altgui");
 		addKB(set, "right.bracket", ".setcheckbox breadcrumbs paused toggle");
 		addKB(set, "right.shift", "navigator");
 		addKB(set, "semicolon", "itemhandler gui");

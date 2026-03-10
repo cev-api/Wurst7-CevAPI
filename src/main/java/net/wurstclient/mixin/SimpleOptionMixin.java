@@ -65,8 +65,13 @@ public class SimpleOptionMixin<T> implements ISimpleOption<T>
 		{
 			WurstClient wurst = WurstClient.INSTANCE;
 			if(wurst != null && wurst.getHax() != null)
-				chatFontScale =
-					wurst.getHax().clientChatOverlayHack.getChatFontScale();
+			{
+				var chatHack = wurst.getHax().clientChatOverlayHack;
+				if(chatHack == null || !chatHack.isEnabled())
+					return;
+				
+				chatFontScale = chatHack.getChatFontScale();
+			}
 			
 		}catch(RuntimeException ignored)
 		{

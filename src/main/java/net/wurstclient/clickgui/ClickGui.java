@@ -120,6 +120,9 @@ public final class ClickGui
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
 		for(Feature f : features)
 		{
+			if(f == WURST.getHax().globalToggleHack)
+				continue;
+				
 			// When TooManyHax is enabled, hide hacks that it disabled from
 			// the ClickGUI to avoid cluttering the UI. The Navigator should
 			// keep showing all features, so we only apply this filter here.
@@ -131,15 +134,7 @@ public final class ClickGui
 			}
 			
 			if(f.getCategory() != null)
-			{
-				// Some HUD/UI hacks are intentionally shown only in the
-				// dedicated "UI Settings" window, not in category windows.
-				if(f == WURST.getHax().gameStatsHack
-					|| f == WURST.getHax().clientChatOverlayHack)
-					continue;
-				
 				windowMap.get(f.getCategory()).add(new FeatureButton(f));
-			}
 		}
 		
 		// Bridge selected category-less "Other Features" into Other so they
@@ -178,14 +173,13 @@ public final class ClickGui
 		
 		windows.addAll(windowMap.values());
 		
-		Window uiSettings = new Window("UI Settings");
+		Window uiSettings = new Window("Client Settings");
 		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstLogoOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
-		uiSettings.add(new FeatureButton(WURST.getHax().gameStatsHack));
-		uiSettings.add(new FeatureButton(WURST.getHax().clientChatOverlayHack));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().presetManagerOtf));
 		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstOptionsOtf));
+		uiSettings.add(new FeatureButton(WURST.getHax().globalToggleHack));
 		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
 		uiSettings.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
 		Stream<Setting> settings =

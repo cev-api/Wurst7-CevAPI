@@ -40,6 +40,11 @@ public final class ButtonSetting extends Setting
 		this(name, WText.empty(), action);
 	}
 	
+	public void runAction()
+	{
+		action.run();
+	}
+	
 	@Override
 	public Component getComponent()
 	{

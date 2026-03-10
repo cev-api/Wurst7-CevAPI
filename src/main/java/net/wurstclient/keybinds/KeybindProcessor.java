@@ -13,6 +13,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.wurstclient.WurstClient;
+import net.wurstclient.altgui.AltGuiScreen;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.command.CmdProcessor;
@@ -180,6 +181,18 @@ public final class KeybindProcessor implements KeyPressListener
 				WurstClient.MC.setScreen(null);
 			else
 				WurstClient.INSTANCE.getHax().clickGuiHack.setEnabled(true);
+			return;
+		}
+		
+		// Special-case: toggle AltGUI when bound to "altgui" (or legacy
+		// "meteorgui"). AltGuiHack auto-disables itself after opening.
+		if(trimmed.equalsIgnoreCase("altgui")
+			|| trimmed.equalsIgnoreCase("meteorgui"))
+		{
+			if(WurstClient.MC.screen instanceof AltGuiScreen)
+				WurstClient.MC.setScreen(null);
+			else
+				WurstClient.INSTANCE.getHax().altGuiHack.setEnabled(true);
 			return;
 		}
 		

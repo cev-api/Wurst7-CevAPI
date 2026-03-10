@@ -64,6 +64,12 @@ public final class FeatureButton extends Component
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
 		
+		if(isMenuOnlyFeature() && hasSettings)
+		{
+			toggleSettingsWindow();
+			return;
+		}
+		
 		if(hasSettings && (mouseX > getX() + getWidth() - 12
 			|| feature.getPrimaryAction().isEmpty()))
 		{
@@ -79,6 +85,16 @@ public final class FeatureButton extends Component
 		}
 		
 		feature.doPrimaryAction();
+	}
+	
+	private boolean isMenuOnlyFeature()
+	{
+		String name = feature.getName();
+		return name != null && (name.equalsIgnoreCase("GlobalSettings")
+			|| name.equalsIgnoreCase("GlobalToggle")
+			|| name.equalsIgnoreCase("HackList")
+			|| name.equalsIgnoreCase("WurstOptions")
+			|| name.equalsIgnoreCase("WurstLogo"));
 	}
 	
 	private boolean isSettingsWindowOpen()
