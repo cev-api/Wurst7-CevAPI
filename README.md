@@ -1146,6 +1146,8 @@ Examples:
 ### Alt Manager Improved
 - Can now multi-select and delete alt accounts
 - Moved to multiplayer screen
+- Can now accept alternative login methods
+- Updated import and export to suit new method
 
 ### FreeCam Improved
 - Optionally tie horizontal and vertical speeds together

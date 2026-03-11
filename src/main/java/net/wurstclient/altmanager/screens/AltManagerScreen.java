@@ -18,7 +18,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -31,6 +33,7 @@ import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.User;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -79,6 +82,7 @@ public final class AltManagerScreen extends Screen
 	private Button logoutButton;
 	
 	private List<Alt> pendingDeletion = Collections.emptyList();
+	private boolean autoCheckStarted;
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -173,6 +177,8 @@ public final class AltManagerScreen extends Screen
 		boolean windowMode = !minecraft.options.fullscreen().get();
 		importButton.active = windowMode;
 		exportButton.active = windowMode;
+		
+		startAutoCheckAndDedupe();
 	}
 	
 	private void updateAltButtons()
@@ -183,10 +189,12 @@ public final class AltManagerScreen extends Screen
 		
 		int selectionCount = listGui != null ? listGui.getSelectionCount() : 0;
 		boolean hasSingleSelection = selectionCount == 1;
+		Alt selectedAlt = listGui != null ? listGui.getSelectedAlt() : null;
 		
 		useButton.active = hasSingleSelection;
 		starButton.active = hasSingleSelection;
-		editButton.active = hasSingleSelection;
+		editButton.active =
+			hasSingleSelection && !(selectedAlt instanceof TokenAlt);
 		deleteButton.active = selectionCount > 0;
 		
 		logoutButton.active =
@@ -303,6 +311,9 @@ public final class AltManagerScreen extends Screen
 			else
 				importAsTXT(path);
 			
+			altManager.dedupeByUsernamePreferRefreshToken();
+			reloadScreen();
+			
 		}catch(IOException | InterruptedException | JsonException e)
 		{
 			e.printStackTrace();
@@ -320,10 +331,33 @@ public final class AltManagerScreen extends Screen
 	{
 		List<String> lines = Files.readAllLines(path);
 		ArrayList<Alt> alts = new ArrayList<>();
+		ArrayList<String> rawTokenLines = new ArrayList<>();
 		
 		for(String line : lines)
 		{
-			String[] data = line.split(":");
+			String trimmed = line.trim();
+			if(trimmed.isEmpty())
+				continue;
+			
+			if(isRawTokenLine(trimmed))
+			{
+				rawTokenLines.add(trimmed);
+				continue;
+			}
+			
+			String[] data = trimmed.split(":", -1);
+			
+			if(data.length >= 4 && data[0].equalsIgnoreCase("token"))
+			{
+				String token = data[1];
+				String refreshToken = data[2];
+				String name = data[3];
+				
+				if(!token.isEmpty() || !refreshToken.isEmpty())
+					alts.add(new TokenAlt(token, refreshToken, name, false));
+				
+				continue;
+			}
 			
 			switch(data.length)
 			{
@@ -337,7 +371,143 @@ public final class AltManagerScreen extends Screen
 			}
 		}
 		
+		alts.addAll(resolveRawTokenLines(rawTokenLines));
+		
 		altManager.addAll(alts);
+	}
+	
+	private boolean isRawTokenLine(String line)
+	{
+		if(line.contains(":"))
+			return false;
+		
+		if(line.startsWith("M.") && line.length() > 20)
+			return true;
+		
+		return line.startsWith("e") && line.length() > 80;
+	}
+	
+	private List<Alt> resolveRawTokenLines(List<String> lines)
+	{
+		if(lines.isEmpty())
+			return Collections.emptyList();
+		
+		IMinecraftClient imc = (IMinecraftClient)minecraft;
+		User previousSession = imc.getWurstSession();
+		LinkedHashMap<String, TokenAlt> byName = new LinkedHashMap<>();
+		ArrayList<Alt> unresolved = new ArrayList<>();
+		
+		try
+		{
+			for(String tokenLine : lines)
+			{
+				boolean isRefreshToken = tokenLine.startsWith("M.");
+				
+				try
+				{
+					if(isRefreshToken)
+						MicrosoftLoginManager.loginWithRefreshToken(tokenLine);
+					else
+						MicrosoftLoginManager.loginWithToken(tokenLine);
+					
+					String name = minecraft.getUser().getName();
+					if(name == null || name.isEmpty())
+					{
+						unresolved.add(isRefreshToken
+							? new TokenAlt("", tokenLine, "", false)
+							: new TokenAlt(tokenLine, "", "", false));
+						continue;
+					}
+					
+					String key = name.toLowerCase(Locale.ROOT);
+					TokenAlt importedAlt = isRefreshToken
+						? new TokenAlt("", tokenLine, name, false)
+						: new TokenAlt(tokenLine, "", name, false);
+					
+					TokenAlt existing = byName.get(key);
+					if(existing == null || (existing.getRefreshToken().isEmpty()
+						&& isRefreshToken))
+						byName.put(key, importedAlt);
+					
+				}catch(LoginException e)
+				{
+					unresolved.add(
+						isRefreshToken ? new TokenAlt("", tokenLine, "", false)
+							: new TokenAlt(tokenLine, "", "", false));
+				}
+			}
+			
+		}finally
+		{
+			imc.setWurstSession(previousSession);
+		}
+		
+		ArrayList<Alt> result = new ArrayList<>();
+		result.addAll(byName.values());
+		result.addAll(unresolved);
+		return result;
+	}
+	
+	private void startAutoCheckAndDedupe()
+	{
+		if(autoCheckStarted)
+			return;
+		
+		List<Alt> unchecked = altManager.getList().stream()
+			.filter(alt -> !alt.isCracked() && alt.isUncheckedPremium())
+			.toList();
+		
+		if(unchecked.isEmpty())
+		{
+			if(altManager.dedupeByUsernamePreferRefreshToken())
+				reloadScreen();
+			return;
+		}
+		
+		autoCheckStarted = true;
+		Thread thread = new Thread(() -> runAutoCheckAndDedupe(unchecked),
+			"Wurst Alt Auto-Check");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void runAutoCheckAndDedupe(List<Alt> unchecked)
+	{
+		IMinecraftClient imc = (IMinecraftClient)minecraft;
+		User previousSession = imc.getWurstSession();
+		boolean changed = false;
+		
+		try
+		{
+			for(Alt alt : unchecked)
+				try
+				{
+					altManager.login(alt);
+					failedLogins.remove(alt);
+					changed = true;
+					
+				}catch(LoginException e)
+				{
+					failedLogins.add(alt);
+				}
+			
+			changed |= altManager.dedupeByUsernamePreferRefreshToken();
+			
+		}finally
+		{
+			imc.setWurstSession(previousSession);
+		}
+		
+		if(changed)
+			minecraft.execute(() -> {
+				if(minecraft.screen == this)
+					reloadScreen();
+			});
+	}
+	
+	private void reloadScreen()
+	{
+		minecraft.setScreen(new AltManagerScreen(prevScreen, altManager));
 	}
 	
 	private void pressExportAlts()
@@ -452,6 +622,11 @@ public final class AltManagerScreen extends Screen
 			"premium: " + altManager.getNumPremium() + ", cracked: "
 				+ altManager.getNumCracked(),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
+		
+		if(((IMinecraftClient)minecraft).getWurstSession() != null)
+			context.drawCenteredString(font,
+				"Logged in as " + minecraft.getUser().getName(), width / 2, 32,
+				0x55FF55);
 		
 		// red flash for errors
 		if(errorTimer > 0)
@@ -647,7 +822,7 @@ public final class AltManagerScreen extends Screen
 				text += "\u00a7r, \u00a7efavorite";
 			
 			if(failedLogins.contains(alt))
-				text += "\u00a7r, \u00a7cwrong password?";
+				text += "\u00a7r, \u00a7clogin failed";
 			else if(alt.isUncheckedPremium())
 				text += "\u00a7r, \u00a7cunchecked";
 			

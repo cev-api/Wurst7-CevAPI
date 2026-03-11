@@ -121,8 +121,23 @@ public final class AltsFile
 	
 	private static Alt loadAlt(String nameOrEmail, JsonObject jsonAlt)
 	{
-		String password = JsonUtils.getAsString(jsonAlt.get("password"), "");
+		String type = JsonUtils.getAsString(jsonAlt.get("type"), "");
 		boolean starred = JsonUtils.getAsBoolean(jsonAlt.get("starred"), false);
+		
+		if("token".equalsIgnoreCase(type))
+		{
+			String token = JsonUtils.getAsString(jsonAlt.get("token"), "");
+			String refreshToken =
+				JsonUtils.getAsString(jsonAlt.get("refresh_token"), "");
+			String name = JsonUtils.getAsString(jsonAlt.get("name"), "");
+			
+			if(!token.isEmpty() || !refreshToken.isEmpty())
+				return new TokenAlt(token, refreshToken, name, starred);
+			
+			return new CrackedAlt(nameOrEmail, starred);
+		}
+		
+		String password = JsonUtils.getAsString(jsonAlt.get("password"), "");
 		
 		if(password.isEmpty())
 			return new CrackedAlt(nameOrEmail, starred);

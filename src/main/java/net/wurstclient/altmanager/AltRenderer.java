@@ -42,7 +42,7 @@ public final class AltRenderer
 	private static Identifier getSkinTexture(String name)
 	{
 		if(name.isEmpty())
-			name = "Steve";
+			name = "Astrollyn";
 		
 		Identifier offlineSkin = offlineSkins.get(name);
 		if(offlineSkin == null)

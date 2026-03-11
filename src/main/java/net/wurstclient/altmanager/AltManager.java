@@ -12,7 +12,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public final class AltManager
@@ -136,6 +138,59 @@ public final class AltManager
 			numPremium--;
 		
 		altsFile.save(this);
+	}
+	
+	public boolean dedupeByUsernamePreferRefreshToken()
+	{
+		LinkedHashMap<String, Alt> bestByName = new LinkedHashMap<>();
+		ArrayList<Alt> removeList = new ArrayList<>();
+		
+		for(Alt alt : alts)
+		{
+			if(alt.isCracked() || alt.getName().isEmpty())
+				continue;
+			
+			String key = alt.getName().toLowerCase(Locale.ROOT);
+			Alt existing = bestByName.get(key);
+			
+			if(existing == null)
+			{
+				bestByName.put(key, alt);
+				continue;
+			}
+			
+			if(duplicatePriority(alt) > duplicatePriority(existing))
+			{
+				bestByName.put(key, alt);
+				removeList.add(existing);
+			}else
+				removeList.add(alt);
+		}
+		
+		if(removeList.isEmpty())
+			return false;
+		
+		alts.removeAll(removeList);
+		sortAlts();
+		altsFile.save(this);
+		return true;
+	}
+	
+	private int duplicatePriority(Alt alt)
+	{
+		int score = 0;
+		
+		if(alt instanceof TokenAlt
+			&& !((TokenAlt)alt).getRefreshToken().isEmpty())
+			score += 100;
+		
+		if(alt.isFavorite())
+			score += 10;
+		
+		if(alt.isCheckedPremium())
+			score += 1;
+		
+		return score;
 	}
 	
 	private void sortAlts()

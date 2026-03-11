@@ -100,11 +100,74 @@ public enum MicrosoftLoginManager
 		throws LoginException
 	{
 		MinecraftProfile mcProfile = getAccount(email, password);
+		setSession(mcProfile);
+	}
+	
+	public static void loginWithToken(String token) throws LoginException
+	{
+		if(token == null || token.isBlank())
+			throw new LoginException("Token cannot be empty.");
 		
-		User session = new User(mcProfile.getName(), mcProfile.getUUID(),
-			mcProfile.getAccessToken(), Optional.empty(), Optional.empty());
+		String trimmedToken = token.trim();
+		System.out.println("Logging in with token...");
+		long startTime = System.nanoTime();
 		
-		WurstClient.IMC.setWurstSession(session);
+		try
+		{
+			try
+			{
+				MinecraftProfile mcProfile = getMinecraftProfile(trimmedToken);
+				setSession(mcProfile);
+				System.out.println("Token login successful after "
+					+ (System.nanoTime() - startTime) / 1e6D + " ms");
+				return;
+				
+			}catch(LoginException ignored)
+			{
+				// Token may be a Microsoft token instead of a Minecraft token.
+			}
+			
+			MinecraftProfile mcProfile =
+				getAccountFromMicrosoftAccessToken(trimmedToken);
+			setSession(mcProfile);
+			System.out.println("Token login successful after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			
+		}catch(LoginException e)
+		{
+			System.out.println("Token login failed after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			throw e;
+		}
+	}
+	
+	public static void loginWithRefreshToken(String refreshToken)
+		throws LoginException
+	{
+		if(refreshToken == null || refreshToken.isBlank())
+			throw new LoginException("Refresh token cannot be empty.");
+		
+		System.out.println("Logging in with refresh token...");
+		long startTime = System.nanoTime();
+		
+		try
+		{
+			String msftAccessToken =
+				getMicrosoftAccessTokenFromRefreshToken(refreshToken.trim());
+			
+			MinecraftProfile mcProfile =
+				getAccountFromMicrosoftAccessToken(msftAccessToken);
+			setSession(mcProfile);
+			
+			System.out.println("Refresh-token login successful after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			
+		}catch(LoginException e)
+		{
+			System.out.println("Refresh-token login failed after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			throw e;
+		}
 	}
 	
 	private static MinecraftProfile getAccount(String email, String password)
@@ -117,14 +180,8 @@ public enum MicrosoftLoginManager
 		{
 			String authCode = getAuthorizationCode(email, password);
 			String msftAccessToken = getMicrosoftAccessToken(authCode);
-			
-			XBoxLiveToken xblToken = getXBLToken(msftAccessToken);
-			String xstsToken = getXSTSToken(xblToken.getToken());
-			
-			String mcAccessToken =
-				getMinecraftAccessToken(xblToken.getUHS(), xstsToken);
-			
-			MinecraftProfile mcProfile = getMinecraftProfile(mcAccessToken);
+			MinecraftProfile mcProfile =
+				getAccountFromMicrosoftAccessToken(msftAccessToken);
 			
 			System.out.println("Login successful after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
@@ -139,6 +196,18 @@ public enum MicrosoftLoginManager
 			e.printStackTrace();
 			throw e;
 		}
+	}
+	
+	private static MinecraftProfile getAccountFromMicrosoftAccessToken(
+		String msftAccessToken) throws LoginException
+	{
+		XBoxLiveToken xblToken = getXBLToken(msftAccessToken);
+		String xstsToken = getXSTSToken(xblToken.getToken());
+		
+		String mcAccessToken =
+			getMinecraftAccessToken(xblToken.getUHS(), xstsToken);
+		
+		return getMinecraftProfile(mcAccessToken);
 	}
 	
 	private static String getAuthorizationCode(String email, String password)
@@ -276,6 +345,50 @@ public enum MicrosoftLoginManager
 			connection.setDoOutput(true);
 			
 			System.out.println("Getting Microsoft access token...");
+			
+			try(OutputStream out = connection.getOutputStream())
+			{
+				out.write(encodedDataBytes);
+			}
+			
+			WsonObject json = JsonUtils.parseConnectionToObject(connection);
+			return json.getString("access_token");
+			
+		}catch(IOException e)
+		{
+			throw new LoginException("Connection failed: " + e, e);
+			
+		}catch(JsonException e)
+		{
+			throw new LoginException("Server sent invalid JSON.", e);
+		}
+	}
+	
+	private static String getMicrosoftAccessTokenFromRefreshToken(
+		String refreshToken) throws LoginException
+	{
+		Map<String, String> postData = new HashMap<>();
+		postData.put("client_id", CLIENT_ID);
+		postData.put("refresh_token", refreshToken);
+		postData.put("grant_type", "refresh_token");
+		postData.put("redirect_uri",
+			"https://login.live.com/oauth20_desktop.srf");
+		postData.put("scope", SCOPE_UNENCODED);
+		
+		byte[] encodedDataBytes =
+			urlEncodeMap(postData).getBytes(StandardCharsets.UTF_8);
+		
+		try
+		{
+			HttpURLConnection connection =
+				(HttpURLConnection)AUTH_TOKEN_URL.openConnection();
+			
+			connection.setRequestMethod("POST");
+			connection.setRequestProperty("Content-Type",
+				"application/x-www-form-urlencoded; charset=UTF-8");
+			connection.setDoOutput(true);
+			
+			System.out.println("Refreshing Microsoft access token...");
 			
 			try(OutputStream out = connection.getOutputStream())
 			{
@@ -517,5 +630,13 @@ public enum MicrosoftLoginManager
 		{
 			throw new IllegalArgumentException(e);
 		}
+	}
+	
+	private static void setSession(MinecraftProfile mcProfile)
+	{
+		User session = new User(mcProfile.getName(), mcProfile.getUUID(),
+			mcProfile.getAccessToken(), Optional.empty(), Optional.empty());
+		
+		WurstClient.IMC.setWurstSession(session);
 	}
 }

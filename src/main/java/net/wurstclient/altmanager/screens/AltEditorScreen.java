@@ -43,7 +43,10 @@ public abstract class AltEditorScreen extends Screen
 	private EditBox passwordBox;
 	
 	private Button doneButton;
+	private Button cancelButton;
+	private Button randomNameButton;
 	private Button stealSkinButton;
+	private Button openSkinFolderButton;
 	
 	protected String message = "";
 	private int errorTimer;
@@ -57,45 +60,53 @@ public abstract class AltEditorScreen extends Screen
 	@Override
 	public final void init()
 	{
-		nameOrEmailBox = new EditBox(font, width / 2 - 100, 60, 200, 20,
-			Component.literal(""));
-		nameOrEmailBox.setMaxLength(48);
+		nameOrEmailBox = new EditBox(font, width / 2 - 100,
+			getNameOrEmailBoxY(), 200, 20, Component.literal(""));
+		nameOrEmailBox.setMaxLength(4096);
 		nameOrEmailBox.setFocused(true);
 		nameOrEmailBox.setValue(getDefaultNameOrEmail());
 		addWidget(nameOrEmailBox);
 		
-		passwordBox = new EditBox(font, width / 2 - 100, 100, 200, 20,
-			Component.literal(""));
+		passwordBox = new EditBox(font, width / 2 - 100, getPasswordBoxY(), 200,
+			20, Component.literal(""));
 		passwordBox.setValue(getDefaultPassword());
 		passwordBox.addFormatter((text, startIndex) -> FormattedCharSequence
 			.forward("*".repeat(text.length()), Style.EMPTY));
-		passwordBox.setMaxLength(256);
+		passwordBox.setMaxLength(4096);
 		addWidget(passwordBox);
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal(getDoneButtonText()),
 				b -> pressDoneButton())
-			.bounds(width / 2 - 100, height / 4 + 72 + 12, 200, 20).build());
+			.bounds(width / 2 - 100, getDoneButtonY(), 200, 20).build());
 		
-		addRenderableWidget(Button
-			.builder(Component.literal("Cancel"), b -> onClose())
-			.bounds(width / 2 - 100, height / 4 + 120 + 12, 200, 20).build());
+		addRenderableWidget(cancelButton =
+			Button.builder(Component.literal("Cancel"), b -> onClose())
+				.bounds(width / 2 - 100, getCancelButtonY(), 200, 20).build());
 		
-		addRenderableWidget(Button
-			.builder(Component.literal("Random Name"),
-				b -> nameOrEmailBox.setValue(NameGenerator.generateName()))
-			.bounds(width / 2 - 100, height / 4 + 96 + 12, 200, 20).build());
+		addRenderableWidget(
+			randomNameButton =
+				Button
+					.builder(Component.literal("Random Name"),
+						b -> nameOrEmailBox
+							.setValue(NameGenerator.generateName()))
+					.bounds(width / 2 - 100, getRandomNameButtonY(), 200, 20)
+					.build());
 		
 		addRenderableWidget(stealSkinButton = Button
 			.builder(Component.literal("Steal Skin"),
 				b -> message = stealSkin(getNameOrEmail()))
-			.bounds(width - (width / 2 - 100) / 2 - 64, height - 32, 128, 20)
+			.bounds(width - (width / 2 - 100) / 2 - 64, getBottomButtonsY(),
+				128, 20)
 			.build());
 		
-		addRenderableWidget(Button
+		addRenderableWidget(openSkinFolderButton = Button
 			.builder(Component.literal("Open Skin Folder"),
 				b -> openSkinFolder())
-			.bounds((width / 2 - 100) / 2 - 64, height - 32, 128, 20).build());
+			.bounds((width / 2 - 100) / 2 - 64, getBottomButtonsY(), 128, 20)
+			.build());
+		
+		addExtraWidgets();
 		
 		setFocused(nameOrEmailBox);
 	}
@@ -123,13 +134,110 @@ public abstract class AltEditorScreen extends Screen
 	public final void tick()
 	{
 		String nameOrEmail = nameOrEmailBox.getValue().trim();
-		boolean alex = nameOrEmail.equalsIgnoreCase("Alexander01998");
-		
-		doneButton.active = !nameOrEmail.isEmpty()
-			&& !(alex && passwordBox.getValue().isEmpty());
+		doneButton.active =
+			isDoneButtonActive(nameOrEmail, passwordBox.getValue().trim());
 		doneButton.setMessage(Component.literal(getDoneButtonText()));
+		onTick();
+		applyDynamicLayout();
 		
-		stealSkinButton.active = !alex;
+		randomNameButton.visible = shouldShowRandomNameButton();
+		randomNameButton.active = randomNameButton.visible;
+		
+		boolean alex = nameOrEmail.equalsIgnoreCase("Alexander01998");
+		stealSkinButton.visible = shouldShowStealSkinButton();
+		stealSkinButton.active = stealSkinButton.visible && !alex;
+		
+		openSkinFolderButton.visible = shouldShowOpenSkinFolderButton();
+		openSkinFolderButton.active = openSkinFolderButton.visible;
+	}
+	
+	private void applyDynamicLayout()
+	{
+		nameOrEmailBox.setY(getNameOrEmailBoxY());
+		passwordBox.setY(getPasswordBoxY());
+		doneButton.setY(getDoneButtonY());
+		randomNameButton.setY(getRandomNameButtonY());
+		cancelButton.setY(getCancelButtonY());
+		
+		int bottomY = getBottomButtonsY();
+		stealSkinButton.setY(bottomY);
+		openSkinFolderButton.setY(bottomY);
+	}
+	
+	protected boolean isDoneButtonActive(String nameOrEmail, String password)
+	{
+		boolean alex = nameOrEmail.equalsIgnoreCase("Alexander01998");
+		return !nameOrEmail.isEmpty() && !(alex && password.isEmpty());
+	}
+	
+	protected void onTick()
+	{
+		
+	}
+	
+	protected void addExtraWidgets()
+	{
+		
+	}
+	
+	protected boolean shouldShowRandomNameButton()
+	{
+		return true;
+	}
+	
+	protected boolean shouldShowStealSkinButton()
+	{
+		return true;
+	}
+	
+	protected boolean shouldShowOpenSkinFolderButton()
+	{
+		return true;
+	}
+	
+	protected boolean shouldRenderSkinPreview()
+	{
+		return true;
+	}
+	
+	protected String getSkinPreviewName()
+	{
+		return getNameOrEmail();
+	}
+	
+	protected int getNameOrEmailBoxY()
+	{
+		return 60;
+	}
+	
+	protected int getPasswordBoxY()
+	{
+		return 100;
+	}
+	
+	protected int getDoneButtonY()
+	{
+		return height / 4 + 72 + 12;
+	}
+	
+	protected int getRandomNameButtonY()
+	{
+		return height / 4 + 96 + 12;
+	}
+	
+	protected int getCancelButtonY()
+	{
+		return height / 4 + 120 + 12;
+	}
+	
+	protected int getBottomButtonsY()
+	{
+		return height - 32;
+	}
+	
+	protected String getTopInfoLabel()
+	{
+		return "";
 	}
 	
 	/**
@@ -141,12 +249,22 @@ public abstract class AltEditorScreen extends Screen
 		return nameOrEmailBox.getValue();
 	}
 	
+	protected final void setNameOrEmail(String value)
+	{
+		nameOrEmailBox.setValue(value);
+	}
+	
 	/**
 	 * @return the user-entered password. Can be empty. Cannot be null.
 	 */
 	protected final String getPassword()
 	{
 		return passwordBox.getValue();
+	}
+	
+	protected final void setPassword(String value)
+	{
+		passwordBox.setValue(value);
 	}
 	
 	protected String getDefaultNameOrEmail()
@@ -157,6 +275,26 @@ public abstract class AltEditorScreen extends Screen
 	protected String getDefaultPassword()
 	{
 		return "";
+	}
+	
+	protected String getNameOrEmailLabelLine1()
+	{
+		return "Name (for cracked alts), or";
+	}
+	
+	protected String getNameOrEmailLabelLine2()
+	{
+		return "E-Mail (for premium alts)";
+	}
+	
+	protected String getPasswordLabel()
+	{
+		return "Password (for premium alts)";
+	}
+	
+	protected String getAccountTypeLabel()
+	{
+		return getPassword().isEmpty() ? "cracked" : "premium";
 	}
 	
 	protected abstract String getDoneButtonText();
@@ -227,28 +365,35 @@ public abstract class AltEditorScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		// skin preview
-		AltRenderer.drawAltBack(context, nameOrEmailBox.getValue(),
-			(width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
-		AltRenderer.drawAltBody(context, nameOrEmailBox.getValue(),
-			width - (width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
+		if(shouldRenderSkinPreview())
+		{
+			String previewName = getSkinPreviewName();
+			
+			AltRenderer.drawAltBack(context, previewName,
+				(width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
+			AltRenderer.drawAltBody(context, previewName,
+				width - (width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
+		}
 		
-		String accountType = getPassword().isEmpty() ? "cracked" : "premium";
+		String topInfo = getTopInfoLabel();
+		if(!topInfo.isEmpty())
+			context.drawString(font, topInfo, width / 2 - 100,
+				getNameOrEmailBoxY() - 58, CommonColors.LIGHT_GRAY);
 		
 		// text
-		context.drawString(font, "Name (for cracked alts), or", width / 2 - 100,
-			37, CommonColors.LIGHT_GRAY);
-		context.drawString(font, "E-Mail (for premium alts)", width / 2 - 100,
-			47, CommonColors.LIGHT_GRAY);
-		context.drawString(font, "Password (for premium alts)", width / 2 - 100,
-			87, CommonColors.LIGHT_GRAY);
-		context.drawString(font, "Account type: " + accountType,
-			width / 2 - 100, 127, CommonColors.LIGHT_GRAY);
+		context.drawString(font, getNameOrEmailLabelLine1(), width / 2 - 100,
+			getNameOrEmailBoxY() - 23, CommonColors.LIGHT_GRAY);
+		context.drawString(font, getNameOrEmailLabelLine2(), width / 2 - 100,
+			getNameOrEmailBoxY() - 13, CommonColors.LIGHT_GRAY);
+		context.drawString(font, getPasswordLabel(), width / 2 - 100,
+			getPasswordBoxY() - 13, CommonColors.LIGHT_GRAY);
+		context.drawString(font, "Account type: " + getAccountTypeLabel(),
+			width / 2 - 100, getPasswordBoxY() + 27, CommonColors.LIGHT_GRAY);
 		
 		String[] lines = message.split("\n");
 		for(int i = 0; i < lines.length; i++)
-			context.drawCenteredString(font, lines[i], width / 2, 142 + 10 * i,
-				CommonColors.WHITE);
+			context.drawCenteredString(font, lines[i], width / 2,
+				getPasswordBoxY() + 42 + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
 		nameOrEmailBox.render(context, mouseX, mouseY, partialTicks);
