@@ -18,4 +18,8 @@ public interface IMinecraftClient
 	public User getWurstSession();
 	
 	public void setWurstSession(User session);
+	
+	public User getOriginalSession();
+	
+	public boolean restoreOriginalSession();
 }

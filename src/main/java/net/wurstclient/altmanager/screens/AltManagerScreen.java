@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
 
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -79,10 +80,16 @@ public final class AltManagerScreen extends Screen
 	
 	private Button importButton;
 	private Button exportButton;
+	private Button checkButton;
 	private Button logoutButton;
 	
 	private List<Alt> pendingDeletion = Collections.emptyList();
-	private boolean autoCheckStarted;
+	private Alt pendingLogin;
+	private volatile boolean autoCheckCancelled;
+	private volatile boolean autoCheckInProgress;
+	private final HashSet<Alt> checkingAlts = new HashSet<>();
+	private volatile boolean importInProgress;
+	private volatile String importStatus = "";
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -94,6 +101,7 @@ public final class AltManagerScreen extends Screen
 	@Override
 	public void init()
 	{
+		autoCheckCancelled = false;
 		listGui = new ListGui(minecraft, this, altManager.getList());
 		addWidget(listGui);
 		
@@ -168,6 +176,10 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Export"), b -> pressExportAlts())
 				.bounds(58, 8, 50, 20).build());
 		
+		addRenderableWidget(checkButton =
+			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
+				.bounds(width - 50 - 8 - 52, 8, 50, 20).build());
+		
 		addRenderableWidget(logoutButton =
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
@@ -177,14 +189,13 @@ public final class AltManagerScreen extends Screen
 		boolean windowMode = !minecraft.options.fullscreen().get();
 		importButton.active = windowMode;
 		exportButton.active = windowMode;
-		
-		startAutoCheckAndDedupe();
 	}
 	
 	private void updateAltButtons()
 	{
 		if(useButton == null || starButton == null || editButton == null
-			|| deleteButton == null || logoutButton == null)
+			|| deleteButton == null || logoutButton == null
+			|| checkButton == null)
 			return;
 		
 		int selectionCount = listGui != null ? listGui.getSelectionCount() : 0;
@@ -199,6 +210,16 @@ public final class AltManagerScreen extends Screen
 		
 		logoutButton.active =
 			((IMinecraftClient)minecraft).getWurstSession() != null;
+		
+		checkButton.active = !autoCheckInProgress && hasUncheckedPremiumAlts();
+		
+		if(importButton != null)
+			importButton.active =
+				!importInProgress && !minecraft.options.fullscreen().get();
+		
+		if(exportButton != null)
+			exportButton.active =
+				!importInProgress && !minecraft.options.fullscreen().get();
 	}
 	
 	@Override
@@ -228,23 +249,83 @@ public final class AltManagerScreen extends Screen
 		if(alt == null)
 			return;
 		
+		pendingLogin = alt;
+		Component text = Component.literal("Login as this alt?");
+		Component message =
+			Component.literal("Log in as \"" + alt.getDisplayName() + "\"?");
+		ConfirmScreen screen = new ConfirmScreen(this::confirmLogin, text,
+			message, Component.literal("Login"), Component.literal("Cancel"));
+		minecraft.setScreen(screen);
+	}
+	
+	private void confirmLogin(boolean confirmed)
+	{
+		Alt alt = pendingLogin;
+		pendingLogin = null;
+		
+		if(!confirmed || alt == null)
+		{
+			minecraft.setScreen(this);
+			return;
+		}
+		
 		try
 		{
 			altManager.login(alt);
 			failedLogins.remove(alt);
-			minecraft.setScreen(prevScreen);
+			minecraft.setScreen(new AltLoginSuccessScreen(prevScreen,
+				minecraft.getUser().getName()));
 			
 		}catch(LoginException e)
 		{
 			errorTimer = 8;
 			failedLogins.add(alt);
+			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
 	}
 	
 	private void pressLogout()
 	{
-		((IMinecraftClient)minecraft).setWurstSession(null);
+		IMinecraftClient imc = (IMinecraftClient)minecraft;
+		User original = imc.getOriginalSession();
+		boolean restored = imc.restoreOriginalSession();
+		String currentName = minecraft.getUser().getName();
+		String expectedName =
+			original == null ? currentName : original.getName();
+		boolean matchesOriginal =
+			expectedName.equalsIgnoreCase(minecraft.getUser().getName());
+		restored = restored && matchesOriginal;
+		
 		updateAltButtons();
+		minecraft
+			.setScreen(new AltLogoutResultScreen(this, restored, currentName));
+	}
+	
+	private void pressCheckAlts()
+	{
+		if(autoCheckInProgress)
+			return;
+		
+		List<Alt> unchecked = altManager.getList().stream()
+			.filter(alt -> !alt.isCracked() && alt.isUncheckedPremium())
+			.toList();
+		
+		if(unchecked.isEmpty())
+		{
+			if(altManager.dedupeByUsernamePreferRefreshToken())
+				reloadScreen();
+			else
+				updateAltButtons();
+			return;
+		}
+		
+		autoCheckInProgress = true;
+		updateAltButtons();
+		
+		Thread thread = new Thread(() -> runAutoCheckAndDedupe(unchecked),
+			"Wurst Alt Auto-Check");
+		thread.setDaemon(true);
+		thread.start();
 	}
 	
 	private void pressFavorite()
@@ -297,6 +378,9 @@ public final class AltManagerScreen extends Screen
 	
 	private void pressImportAlts()
 	{
+		if(importInProgress)
+			return;
+		
 		try
 		{
 			Process process = MultiProcessingUtils.startProcessWithIO(
@@ -305,36 +389,107 @@ public final class AltManagerScreen extends Screen
 			
 			Path path = getFileChooserPath(process);
 			process.waitFor();
+			startImport(path);
 			
-			if(path.getFileName().toString().endsWith(".json"))
-				importAsJSON(path);
-			else
-				importAsTXT(path);
-			
-			altManager.dedupeByUsernamePreferRefreshToken();
-			reloadScreen();
-			
-		}catch(IOException | InterruptedException | JsonException e)
+		}catch(IOException | InterruptedException e)
 		{
+			importStatus = "Import failed: " + e.getClass().getSimpleName();
 			e.printStackTrace();
 		}
 	}
 	
-	private void importAsJSON(Path path) throws IOException, JsonException
+	private void startImport(Path path)
 	{
-		WsonObject wson = JsonUtils.parseFileToObject(path);
-		ArrayList<Alt> alts = AltsFile.parseJson(wson);
-		altManager.addAll(alts);
+		importInProgress = true;
+		importStatus = "Starting import...";
+		updateAltButtons();
+		
+		List<Alt> existing = new ArrayList<>(altManager.getList());
+		
+		Thread thread =
+			new Thread(() -> runImport(path, existing), "Wurst Alt Import");
+		thread.setDaemon(true);
+		thread.start();
 	}
 	
-	private void importAsTXT(Path path) throws IOException
+	private void runImport(Path path, List<Alt> existing)
 	{
+		try
+		{
+			importStatus = "Reading file...";
+			ArrayList<Alt> imported = importAlts(path, this::setImportProgress);
+			
+			importStatus = "Filtering duplicates...";
+			ImportResult result = filterDuplicates(imported, existing);
+			int totalImported = imported.size();
+			
+			minecraft.execute(() -> {
+				try
+				{
+					if(result.addedCount > 0)
+						altManager.addAll(result.toAdd);
+					
+					altManager.dedupeByUsernamePreferRefreshToken();
+					if(minecraft.screen == this)
+						reloadScreen();
+					
+					importStatus = "Imported " + result.addedCount + " of "
+						+ totalImported + " accounts (" + result.duplicateCount
+						+ " duplicates skipped).";
+					
+				}finally
+				{
+					importInProgress = false;
+					updateAltButtons();
+				}
+			});
+			
+		}catch(Exception e)
+		{
+			minecraft.execute(() -> {
+				importStatus = "Import failed: " + e.getClass().getSimpleName();
+				importInProgress = false;
+				updateAltButtons();
+			});
+			e.printStackTrace();
+		}
+	}
+	
+	private ArrayList<Alt> importAlts(Path path, Consumer<String> progress)
+		throws IOException, JsonException
+	{
+		if(path.getFileName().toString().endsWith(".json"))
+			return importAsJSON(path, progress);
+		
+		return importAsTXT(path, progress);
+	}
+	
+	private ArrayList<Alt> importAsJSON(Path path, Consumer<String> progress)
+		throws IOException, JsonException
+	{
+		progress.accept("Parsing JSON...");
+		WsonObject wson = JsonUtils.parseFileToObject(path);
+		return AltsFile.parseJson(wson);
+	}
+	
+	private ArrayList<Alt> importAsTXT(Path path, Consumer<String> progress)
+		throws IOException
+	{
+		progress.accept("Reading text lines...");
 		List<String> lines = Files.readAllLines(path);
 		ArrayList<Alt> alts = new ArrayList<>();
 		ArrayList<String> rawTokenLines = new ArrayList<>();
+		int totalLines = lines.size();
+		int lineIndex = 0;
 		
 		for(String line : lines)
 		{
+			lineIndex++;
+			if(lineIndex == 1 || lineIndex == totalLines
+				|| lineIndex % 100 == 0)
+				progress
+					.accept("Parsing lines... " + lineIndex + "/" + totalLines);
+			
 			String trimmed = line.trim();
 			if(trimmed.isEmpty())
 				continue;
@@ -371,9 +526,9 @@ public final class AltManagerScreen extends Screen
 			}
 		}
 		
-		alts.addAll(resolveRawTokenLines(rawTokenLines));
+		alts.addAll(resolveRawTokenLines(rawTokenLines, progress));
 		
-		altManager.addAll(alts);
+		return alts;
 	}
 	
 	private boolean isRawTokenLine(String line)
@@ -387,7 +542,8 @@ public final class AltManagerScreen extends Screen
 		return line.startsWith("e") && line.length() > 80;
 	}
 	
-	private List<Alt> resolveRawTokenLines(List<String> lines)
+	private List<Alt> resolveRawTokenLines(List<String> lines,
+		Consumer<String> progress)
 	{
 		if(lines.isEmpty())
 			return Collections.emptyList();
@@ -399,8 +555,14 @@ public final class AltManagerScreen extends Screen
 		
 		try
 		{
+			int total = lines.size();
+			int done = 0;
+			
 			for(String tokenLine : lines)
 			{
+				done++;
+				progress.accept("Resolving tokens... " + done + "/" + total);
+				
 				boolean isRefreshToken = tokenLine.startsWith("M.");
 				
 				try
@@ -448,27 +610,82 @@ public final class AltManagerScreen extends Screen
 		return result;
 	}
 	
-	private void startAutoCheckAndDedupe()
+	private void setImportProgress(String status)
 	{
-		if(autoCheckStarted)
-			return;
+		importStatus = status;
+	}
+	
+	private ImportResult filterDuplicates(List<Alt> imported,
+		List<Alt> existing)
+	{
+		HashSet<String> seen = new HashSet<>();
+		for(Alt alt : existing)
+			registerKeys(seen, alt);
 		
-		List<Alt> unchecked = altManager.getList().stream()
-			.filter(alt -> !alt.isCracked() && alt.isUncheckedPremium())
-			.toList();
+		ArrayList<Alt> toAdd = new ArrayList<>();
+		int duplicateCount = 0;
 		
-		if(unchecked.isEmpty())
+		for(Alt alt : imported)
 		{
-			if(altManager.dedupeByUsernamePreferRefreshToken())
-				reloadScreen();
-			return;
+			if(isDuplicate(seen, alt))
+			{
+				duplicateCount++;
+				continue;
+			}
+			
+			registerKeys(seen, alt);
+			toAdd.add(alt);
 		}
 		
-		autoCheckStarted = true;
-		Thread thread = new Thread(() -> runAutoCheckAndDedupe(unchecked),
-			"Wurst Alt Auto-Check");
-		thread.setDaemon(true);
-		thread.start();
+		return new ImportResult(toAdd, duplicateCount);
+	}
+	
+	private boolean isDuplicate(HashSet<String> seen, Alt alt)
+	{
+		String credentialKey = getCredentialKey(alt);
+		if(credentialKey != null && seen.contains(credentialKey))
+			return true;
+		
+		String name = alt.getName();
+		if(name != null && !name.isEmpty())
+		{
+			String nameKey = "name:" + name.toLowerCase(Locale.ROOT);
+			if(seen.contains(nameKey))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private void registerKeys(HashSet<String> seen, Alt alt)
+	{
+		String credentialKey = getCredentialKey(alt);
+		if(credentialKey != null)
+			seen.add(credentialKey);
+		
+		String name = alt.getName();
+		if(name != null && !name.isEmpty())
+			seen.add("name:" + name.toLowerCase(Locale.ROOT));
+	}
+	
+	private String getCredentialKey(Alt alt)
+	{
+		if(alt instanceof CrackedAlt cracked)
+			return "cracked:" + cracked.getName().toLowerCase(Locale.ROOT);
+		
+		if(alt instanceof MojangAlt mojang)
+			return "mojang:" + mojang.getEmail().toLowerCase(Locale.ROOT);
+		
+		if(alt instanceof TokenAlt token)
+		{
+			String refreshToken = token.getRefreshToken();
+			if(!refreshToken.isEmpty())
+				return "refresh:" + refreshToken;
+			
+			return "token:" + token.getToken();
+		}
+		
+		return null;
 	}
 	
 	private void runAutoCheckAndDedupe(List<Alt> unchecked)
@@ -480,6 +697,11 @@ public final class AltManagerScreen extends Screen
 		try
 		{
 			for(Alt alt : unchecked)
+			{
+				if(!isOpenScreen())
+					return;
+				
+				setChecking(alt, true);
 				try
 				{
 					altManager.login(alt);
@@ -489,13 +711,25 @@ public final class AltManagerScreen extends Screen
 				}catch(LoginException e)
 				{
 					failedLogins.add(alt);
+				}finally
+				{
+					setChecking(alt, false);
 				}
+			}
+			
+			if(!isOpenScreen())
+				return;
 			
 			changed |= altManager.dedupeByUsernamePreferRefreshToken();
 			
 		}finally
 		{
 			imc.setWurstSession(previousSession);
+			autoCheckInProgress = false;
+			minecraft.execute(() -> {
+				if(minecraft.screen == this)
+					updateAltButtons();
+			});
 		}
 		
 		if(changed)
@@ -505,9 +739,40 @@ public final class AltManagerScreen extends Screen
 			});
 	}
 	
+	private void setChecking(Alt alt, boolean checking)
+	{
+		synchronized(checkingAlts)
+		{
+			if(checking)
+				checkingAlts.add(alt);
+			else
+				checkingAlts.remove(alt);
+		}
+	}
+	
+	private boolean isChecking(Alt alt)
+	{
+		synchronized(checkingAlts)
+		{
+			return checkingAlts.contains(alt);
+		}
+	}
+	
 	private void reloadScreen()
 	{
 		minecraft.setScreen(new AltManagerScreen(prevScreen, altManager));
+	}
+	
+	private boolean isOpenScreen()
+	{
+		return !autoCheckCancelled && minecraft != null
+			&& minecraft.screen == this;
+	}
+	
+	private boolean hasUncheckedPremiumAlts()
+	{
+		return altManager.getList().stream()
+			.anyMatch(alt -> !alt.isCracked() && alt.isUncheckedPremium());
 	}
 	
 	private void pressExportAlts()
@@ -623,9 +888,13 @@ public final class AltManagerScreen extends Screen
 				+ altManager.getNumCracked(),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
 		
+		if(!importStatus.isEmpty())
+			context.drawCenteredString(font, importStatus, width / 2, 42,
+				importInProgress ? 0xFFFF55 : CommonColors.LIGHT_GRAY);
+		
 		if(((IMinecraftClient)minecraft).getWurstSession() != null)
 			context.drawCenteredString(font,
-				"Logged in as " + minecraft.getUser().getName(), width / 2, 32,
+				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);
 		
 		// red flash for errors
@@ -732,7 +1001,42 @@ public final class AltManagerScreen extends Screen
 	@Override
 	public void onClose()
 	{
+		autoCheckCancelled = true;
 		minecraft.setScreen(prevScreen);
+	}
+	
+	@Override
+	public void removed()
+	{
+		autoCheckCancelled = true;
+		super.removed();
+	}
+	
+	private List<Alt> getDisplayedAlts(List<Alt> list)
+	{
+		ArrayList<Alt> displayed = new ArrayList<>(list);
+		String loggedInName =
+			minecraft != null ? minecraft.getUser().getName() : null;
+		
+		if(loggedInName == null || loggedInName.isBlank())
+			return displayed;
+		
+		for(int i = 0; i < displayed.size(); i++)
+		{
+			Alt alt = displayed.get(i);
+			if(!alt.getName().equalsIgnoreCase(loggedInName))
+				continue;
+			
+			if(i > 0)
+			{
+				displayed.remove(i);
+				displayed.add(0, alt);
+			}
+			
+			break;
+		}
+		
+		return displayed;
 	}
 	
 	private final class Entry
@@ -823,10 +1127,26 @@ public final class AltManagerScreen extends Screen
 			
 			if(failedLogins.contains(alt))
 				text += "\u00a7r, \u00a7clogin failed";
+			else if(isChecking(alt))
+				text += "\u00a7r, \u00a7echecking...";
 			else if(alt.isUncheckedPremium())
 				text += "\u00a7r, \u00a7cunchecked";
 			
 			return text;
+		}
+	}
+	
+	private static final class ImportResult
+	{
+		private final ArrayList<Alt> toAdd;
+		private final int addedCount;
+		private final int duplicateCount;
+		
+		private ImportResult(ArrayList<Alt> toAdd, int duplicateCount)
+		{
+			this.toAdd = toAdd;
+			addedCount = toAdd.size();
+			this.duplicateCount = duplicateCount;
 		}
 	}
 	
@@ -838,7 +1158,8 @@ public final class AltManagerScreen extends Screen
 		{
 			super(minecraft, screen.width, screen.height - 96, 36, 30);
 			
-			list.stream().map(alt -> new AltManagerScreen.Entry(this, alt))
+			screen.getDisplayedAlts(list).stream()
+				.map(alt -> new AltManagerScreen.Entry(this, alt))
 				.forEach(this::addEntry);
 			
 			setSelectionListener(screen::updateAltButtons);

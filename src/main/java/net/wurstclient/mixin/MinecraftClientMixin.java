@@ -58,6 +58,8 @@ public abstract class MinecraftClientMixin
 	
 	@Unique
 	private YggdrasilAuthenticationService wurstAuthenticationService;
+	@Unique
+	private User wurstOriginalSession;
 	
 	private User wurstSession;
 	private ProfileKeyPairManager wurstProfileKeys;
@@ -229,6 +231,9 @@ public abstract class MinecraftClientMixin
 	@Override
 	public void setWurstSession(User session)
 	{
+		if(session != null && wurstOriginalSession == null)
+			wurstOriginalSession = ((Minecraft)(Object)this).getUser();
+		
 		wurstSession = session;
 		if(session == null)
 		{
@@ -243,5 +248,25 @@ public abstract class MinecraftClientMixin
 			: wurstAuthenticationService.createUserApiService(accessToken);
 		wurstProfileKeys = ProfileKeyPairManager.create(userApiService, session,
 			gameDirectory.toPath());
+	}
+	
+	@Override
+	public User getOriginalSession()
+	{
+		return wurstOriginalSession;
+	}
+	
+	@Override
+	public boolean restoreOriginalSession()
+	{
+		User original = wurstOriginalSession;
+		setWurstSession(null);
+		
+		if(original == null)
+			return true;
+		
+		User current = ((Minecraft)(Object)this).getUser();
+		return current != null
+			&& current.getProfileId().equals(original.getProfileId());
 	}
 }
