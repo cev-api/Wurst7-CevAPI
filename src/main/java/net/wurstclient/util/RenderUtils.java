@@ -42,6 +42,12 @@ public enum RenderUtils
 	private static final double MIN_LINE_WIDTH = 0.5;
 	private static final double MAX_LINE_WIDTH = 20;
 	
+	private static boolean tryReserveEspRenderSlot()
+	{
+		return GlobalEspManager.getInstance()
+			.reserveGlobalEspRenderSlots(1) > 0;
+	}
+	
 	public static void applyRegionalRenderOffset(PoseStack matrixStack)
 	{
 		applyRegionalRenderOffset(matrixStack, getCameraRegion());
@@ -189,6 +195,8 @@ public enum RenderUtils
 			NiceWurstModule.shouldEnforceTracerVisibility();
 		if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 			return;
+		if(!tryReserveEspRenderSlot())
+			return;
 		
 		if(!enforceVisibility)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -228,6 +236,8 @@ public enum RenderUtils
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(end))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitLine(matrices, start, end.add(offset), color,
 					depthTest, DEFAULT_LINE_WIDTH);
@@ -245,6 +255,8 @@ public enum RenderUtils
 		{
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawLine(matrices, buffer, start, end.add(offset), color,
 				DEFAULT_LINE_WIDTH);
 			rendered = true;
@@ -273,6 +285,8 @@ public enum RenderUtils
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitLine(matrices, start, point.add(offset),
 					end.color(), depthTest, DEFAULT_LINE_WIDTH);
@@ -291,6 +305,8 @@ public enum RenderUtils
 			Vec3 point = end.point();
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawLine(matrices, buffer, start, point.add(offset), end.color(),
 				DEFAULT_LINE_WIDTH);
 			rendered = true;
@@ -325,6 +341,8 @@ public enum RenderUtils
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitLine(matrices, start, point.add(offset),
 					end.color(), depthTest, appliedWidth);
@@ -343,6 +361,8 @@ public enum RenderUtils
 			Vec3 point = end.point();
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawLine(matrices, buffer, start, point.add(offset), end.color(),
 				appliedWidth);
 			rendered = true;
@@ -499,6 +519,8 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
+		if(!tryReserveEspRenderSlot())
+			return;
 		
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -527,17 +549,12 @@ public enum RenderUtils
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
-			if(!overlay)
-			{
-				globalEsp.submitSolidBoxes(matrices, boxes, camOffset.x,
-					camOffset.y, camOffset.z, color, depthTest);
-				return;
-			}
-			
 			for(AABB box : boxes)
 			{
-				if(!isBoxVisible(box))
+				if(overlay && !isBoxVisible(box))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitSolidBox(matrices, box.move(camOffset), color,
 					depthTest);
@@ -555,6 +572,8 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			
 			drawSolidBox(matrices, buffer, box.move(camOffset), color);
 			rendered = true;
@@ -579,6 +598,8 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitSolidBox(matrices, box.box().move(camOffset),
 					box.color(), depthTest);
@@ -596,6 +617,8 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			
 			drawSolidBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
@@ -897,6 +920,8 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(overlay && !isBoxVisible(box))
 			return;
+		if(!tryReserveEspRenderSlot())
+			return;
 		
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
@@ -926,18 +951,12 @@ public enum RenderUtils
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
-			if(!overlay)
-			{
-				globalEsp.submitOutlinedBoxes(matrices, boxes, camOffset.x,
-					camOffset.y, camOffset.z, color, depthTest,
-					DEFAULT_LINE_WIDTH);
-				return;
-			}
-			
 			for(AABB box : boxes)
 			{
-				if(!isBoxVisible(box))
+				if(overlay && !isBoxVisible(box))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.move(camOffset),
 					color, depthTest, DEFAULT_LINE_WIDTH);
@@ -955,6 +974,8 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			
 			drawOutlinedBox(matrices, buffer, box.move(camOffset), color);
 			rendered = true;
@@ -979,6 +1000,8 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
 					box.color(), depthTest, DEFAULT_LINE_WIDTH);
@@ -996,6 +1019,8 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
@@ -1026,6 +1051,8 @@ public enum RenderUtils
 			{
 				if(overlay && !isBoxVisible(box.box()))
 					continue;
+				if(!tryReserveEspRenderSlot())
+					break;
 				
 				globalEsp.submitOutlinedBox(matrices, box.box().move(camOffset),
 					box.color(), depthTest, appliedWidth);
@@ -1043,6 +1070,8 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
+			if(!tryReserveEspRenderSlot())
+				break;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
@@ -1135,6 +1164,8 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		if(!tryReserveEspRenderSlot())
+			return;
 		AABB shiftedBox = box.move(getCameraPos().reverse());
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.submitCrossBox(matrices, shiftedBox, color, depthTest,
@@ -1160,8 +1191,12 @@ public enum RenderUtils
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
 			for(AABB box : boxes)
+			{
+				if(!tryReserveEspRenderSlot())
+					break;
 				globalEsp.submitCrossBox(matrices, box.move(camOffset), color,
 					depthTest, DEFAULT_LINE_WIDTH);
+			}
 			
 			return;
 		}
@@ -1171,7 +1206,11 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		for(AABB box : boxes)
+		{
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawCrossBox(matrices, buffer, box.move(camOffset), color);
+		}
 		
 		vcp.endBatch(layer);
 	}
@@ -1186,8 +1225,12 @@ public enum RenderUtils
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
 			for(ColoredBox box : boxes)
+			{
+				if(!tryReserveEspRenderSlot())
+					break;
 				globalEsp.submitCrossBox(matrices, box.box().move(camOffset),
 					box.color(), depthTest, DEFAULT_LINE_WIDTH);
+			}
 			
 			return;
 		}
@@ -1197,8 +1240,12 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		for(ColoredBox box : boxes)
+		{
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawCrossBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
+		}
 		
 		vcp.endBatch(layer);
 	}
@@ -1289,6 +1336,8 @@ public enum RenderUtils
 		boolean depthTest)
 	{
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		if(!tryReserveEspRenderSlot())
+			return;
 		AABB shiftedBox = box.move(getCameraPos().reverse());
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.submitNode(matrices, shiftedBox, color, depthTest,
@@ -1314,8 +1363,12 @@ public enum RenderUtils
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
 			for(AABB box : boxes)
+			{
+				if(!tryReserveEspRenderSlot())
+					break;
 				globalEsp.submitNode(matrices, box.move(camOffset), color,
 					depthTest, DEFAULT_LINE_WIDTH);
+			}
 			
 			return;
 		}
@@ -1325,7 +1378,11 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		for(AABB box : boxes)
+		{
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawNode(matrices, buffer, box.move(camOffset), color);
+		}
 		
 		vcp.endBatch(layer);
 	}
@@ -1338,8 +1395,12 @@ public enum RenderUtils
 		if(globalEsp.shouldTakeOverRenderCalls())
 		{
 			for(ColoredBox box : boxes)
+			{
+				if(!tryReserveEspRenderSlot())
+					break;
 				globalEsp.submitNode(matrices, box.box().move(camOffset),
 					box.color(), depthTest, DEFAULT_LINE_WIDTH);
+			}
 			
 			return;
 		}
@@ -1349,7 +1410,11 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		for(ColoredBox box : boxes)
+		{
+			if(!tryReserveEspRenderSlot())
+				break;
 			drawNode(matrices, buffer, box.box().move(camOffset), box.color());
+		}
 		
 		vcp.endBatch(layer);
 	}

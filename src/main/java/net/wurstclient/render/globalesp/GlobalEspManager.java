@@ -30,6 +30,7 @@ public final class GlobalEspManager
 	private final ThreadLocal<Boolean> requestedQuadDepth =
 		ThreadLocal.withInitial(() -> true);
 	
+	private int renderedEspItemsThisFrame;
 	private boolean frameOpen;
 	
 	private GlobalEspManager()
@@ -43,6 +44,7 @@ public final class GlobalEspManager
 	public synchronized void beginFrame()
 	{
 		collector.clear();
+		renderedEspItemsThisFrame = 0;
 		frameOpen = true;
 	}
 	
@@ -62,7 +64,26 @@ public final class GlobalEspManager
 	{
 		collector.clear();
 		renderer.cleanup();
+		renderedEspItemsThisFrame = 0;
 		frameOpen = false;
+	}
+	
+	public synchronized int reserveGlobalEspRenderSlots(int requested)
+	{
+		if(requested <= 0)
+			return 0;
+		
+		int limit = getGlobalEspRenderLimit();
+		if(limit <= 0)
+			return requested;
+		
+		int remaining = limit - renderedEspItemsThisFrame;
+		if(remaining <= 0)
+			return 0;
+		
+		int granted = Math.min(requested, remaining);
+		renderedEspItemsThisFrame += granted;
+		return granted;
 	}
 	
 	public synchronized boolean shouldTakeOverRenderCalls()
@@ -293,5 +314,16 @@ public final class GlobalEspManager
 			|| layer == WurstRenderLayers.ESP_QUADS
 			|| layer == WurstRenderLayers.QUADS_NO_CULLING
 			|| layer == WurstRenderLayers.ESP_QUADS_NO_CULLING;
+	}
+	
+	private int getGlobalEspRenderLimit()
+	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		if(hax == null || hax.globalToggleHack == null)
+			return 0;
+		if(!hax.globalToggleHack.isGlobalEspRenderLimitEnabled())
+			return 0;
+		
+		return Math.max(0, hax.globalToggleHack.getGlobalEspRenderLimit());
 	}
 }

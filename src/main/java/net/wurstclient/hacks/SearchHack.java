@@ -685,7 +685,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// sorting the entire result set. This avoids long pauses when scanning
 		// very large areas.
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
-		final int limitCount = limit.getValueLog();
+		final int limitCount = getEffectiveRenderLimit();
 		currentBuildGeneration = buildGeneration;
 		getMatchingBlocksTask = forkJoinPool.submit(() -> {
 			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
@@ -722,13 +722,14 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// store for tracers
 		lastMatchingBlocks = matchingBlocks;
 		
-		if(matchingBlocks.size() < limit.getValueLog())
+		int effectiveLimit = getEffectiveRenderLimit();
+		if(matchingBlocks.size() < effectiveLimit)
 			notify = true;
 		else if(notify)
 		{
 			ChatUtils.warning("Search found \u00a7lA LOT\u00a7r of blocks!"
 				+ " To prevent lag, it will only show the closest \u00a76"
-				+ limit.getValueString() + "\u00a7r results.");
+				+ effectiveLimit + "\u00a7r results.");
 			notify = false;
 		}
 		
@@ -748,7 +749,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// sorting the entire result set. This avoids long pauses when scanning
 		// very large areas.
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
-		final int limitCount = limit.getValueLog();
+		final int limitCount = getEffectiveRenderLimit();
 		java.util.ArrayList<ChunkSearcher.Result> readyMatches =
 			coordinator.getReadyMatches().collect(
 				java.util.stream.Collectors.toCollection(ArrayList::new));
@@ -772,13 +773,14 @@ public final class SearchHack extends Hack implements UpdateListener,
 		// store for tracers
 		lastMatchingBlocks = matchingBlocks;
 		
-		if(matchingBlocks.size() < limit.getValueLog())
+		int effectiveLimit = getEffectiveRenderLimit();
+		if(matchingBlocks.size() < effectiveLimit)
 			notify = true;
 		else if(notify)
 		{
 			ChatUtils.warning("Search found \u00a7lA LOT\u00a7r of blocks!"
 				+ " To prevent lag, it will only show the closest \u00a76"
-				+ limit.getValueString() + "\u00a7r results.");
+				+ effectiveLimit + "\u00a7r results.");
 			notify = false;
 		}
 		
@@ -899,6 +901,14 @@ public final class SearchHack extends Hack implements UpdateListener,
 			}
 			bufferRegion = null;
 		}
+	}
+	
+	private int getEffectiveRenderLimit()
+	{
+		int localLimit = limit.getValueLog();
+		int effective = WURST.getHax().globalToggleHack
+			.applyGlobalEspRenderLimit(localLimit);
+		return Math.max(1, effective);
 	}
 	
 	private boolean needsVertexBuffer()

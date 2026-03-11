@@ -26,19 +26,14 @@ import net.wurstclient.util.chunk.ChunkSearcher;
 @SearchTags({"global toggle", "render global toggle"})
 public final class GlobalToggleHack extends Hack implements UpdateListener
 {
-	private final CheckboxSetting stickyForceOn =
-		new CheckboxSetting("Sticky area on",
-			"Forces sticky area on for all supported hacks.", false);
-	private final CheckboxSetting stickyForceOff =
-		new CheckboxSetting("Sticky area off",
-			"Forces sticky area off for all supported hacks.", false);
+	private final CheckboxSetting stickyAreaOverride = new CheckboxSetting(
+		"Sticky area override",
+		"Forces sticky area on for all supported hacks while enabled.", false);
 	
-	private final CheckboxSetting yLimitForceOn = new CheckboxSetting(
-		"Y limit on",
-		"Forces the above-ground filter on for all supported hacks.", false);
-	private final CheckboxSetting yLimitForceOff = new CheckboxSetting(
-		"Y limit off",
-		"Forces the above-ground filter off for all supported hacks.", false);
+	private final CheckboxSetting yLimitOverride = new CheckboxSetting(
+		"Y limit override",
+		"Forces the above-ground filter on for all supported hacks while enabled.",
+		false);
 	private final SliderSetting yLimitValue = new SliderSetting(
 		"Global Y limit", 62, 0, 255, 1, ValueDisplay.INTEGER);
 	private final SliderSetting searchThreadPriority = new SliderSetting(
@@ -60,32 +55,39 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			"LEGACY: existing per-hack draw path.\n"
 				+ "SHADER_OUTLINE: centralized global ESP pipeline.",
 			GlobalEspRenderMode.values(), GlobalEspRenderMode.LEGACY);
+	private final SliderSetting globalEspRenderLimit = new SliderSetting(
+		"Global ESP render limit",
+		"Max ESP targets rendered per frame across supported ESP features.\n"
+			+ "0 = unlimited",
+		0, 0, 2000, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting globalEspRenderLimitEnabled =
+		new CheckboxSetting("Enable global ESP render limit",
+			"When disabled, the global ESP render-limit slider is ignored.",
+			false);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
 	
-	private OverrideState lastStickyState = OverrideState.NONE;
-	private OverrideState lastYState = OverrideState.NONE;
+	private boolean lastStickyOverride;
+	private boolean lastYLimitOverride;
 	private int lastYLimitValue = 62;
 	private int lastSearchThreadPriority =
 		ChunkSearcher.getBackgroundThreadPriority();
-	private boolean stickyAnnouncementsReady;
-	private boolean yLimitAnnouncementsReady;
 	
 	public GlobalToggleHack()
 	{
 		super("GlobalToggle");
 		setCategory(Category.OTHER);
 		
-		addSetting(stickyForceOn);
-		addSetting(stickyForceOff);
-		addSetting(yLimitForceOn);
-		addSetting(yLimitForceOff);
+		addSetting(stickyAreaOverride);
+		addSetting(yLimitOverride);
 		addSetting(yLimitValue);
 		addSetting(searchThreadPriority);
 		addSetting(setSliderLimitOverride);
 		addSetting(chunkScanMode);
 		addSetting(globalEspRenderMode);
+		addSetting(globalEspRenderLimitEnabled);
+		addSetting(globalEspRenderLimit);
 		
 		lastYLimitValue = yLimitValue.getValueI();
 		lastSearchThreadPriority = searchThreadPriority.getValueI();
@@ -105,88 +107,53 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		var hacks = WURST.getHax();
 		
 		// Sticky override --------------------------------------------------
-		if(stickyForceOn.isChecked() && stickyForceOff.isChecked())
+		boolean stickyOverride = stickyAreaOverride.isChecked();
+		if(stickyOverride != lastStickyOverride)
 		{
-			if(lastStickyState == OverrideState.FORCE_ON)
-				stickyForceOff.setChecked(false);
-			else
-				stickyForceOn.setChecked(false);
-			stickyAnnouncementsReady = true;
-			return;
-		}
-		
-		OverrideState stickyState =
-			getOverrideState(stickyForceOn, stickyForceOff);
-		if(stickyState != lastStickyState)
-		{
-			if(lastStickyState != OverrideState.NONE)
+			if(lastStickyOverride)
 				CheckboxOverrideManager.restore(stickySnapshot);
 			
-			if(stickyState == OverrideState.NONE)
+			if(stickyOverride)
+			{
+				stickySnapshot =
+					CheckboxOverrideManager.capture(hacks, "stickyArea");
+				CheckboxOverrideManager.apply(hacks, "stickyArea", true);
+				ChatUtils.message("Global sticky area override forcing ON.");
+			}else
 			{
 				stickySnapshot = Map.of();
 				ChatUtils.message("Global sticky area override disabled.");
-			}else
-			{
-				if(lastStickyState == OverrideState.NONE)
-					stickySnapshot =
-						CheckboxOverrideManager.capture(hacks, "stickyArea");
-				CheckboxOverrideManager.apply(hacks, "stickyArea",
-					stickyState == OverrideState.FORCE_ON);
-				if(stickyAnnouncementsReady)
-					announceSticky(stickyState == OverrideState.FORCE_ON);
 			}
 			
-			lastStickyState = stickyState;
-			stickyAnnouncementsReady = true;
+			lastStickyOverride = stickyOverride;
 		}
 		
 		// Y limit override -------------------------------------------------
-		if(yLimitForceOn.isChecked() && yLimitForceOff.isChecked())
-		{
-			if(lastYState == OverrideState.FORCE_ON)
-				yLimitForceOff.setChecked(false);
-			else
-				yLimitForceOn.setChecked(false);
-			yLimitAnnouncementsReady = true;
-			return;
-		}
-		
-		OverrideState yState = getOverrideState(yLimitForceOn, yLimitForceOff);
+		boolean yOverride = yLimitOverride.isChecked();
 		int yValue = yLimitValue.getValueI();
 		
-		if(yState != lastYState)
+		if(yOverride != lastYLimitOverride)
 		{
-			if(lastYState != OverrideState.NONE)
-			{
+			if(lastYLimitOverride)
 				CheckboxOverrideManager.restore(yLimitSnapshot);
-				if(lastYState == OverrideState.FORCE_ON)
-					AboveGroundFilterManager.setY(hacks, lastYLimitValue);
-			}else
-				lastYLimitValue = yValue;
 			
-			if(yState == OverrideState.NONE)
+			if(yOverride)
+			{
+				yLimitSnapshot =
+					CheckboxOverrideManager.capture(hacks, "onlyAboveGround");
+				CheckboxOverrideManager.apply(hacks, "onlyAboveGround", true);
+				AboveGroundFilterManager.setY(hacks, yValue);
+				ChatUtils.message("Global Y limit override forcing ON.");
+			}else
 			{
 				yLimitSnapshot = Map.of();
 				ChatUtils.message("Global Y limit override disabled.");
-			}else
-			{
-				if(lastYState == OverrideState.NONE)
-					yLimitSnapshot = CheckboxOverrideManager.capture(hacks,
-						"onlyAboveGround");
-				CheckboxOverrideManager.apply(hacks, "onlyAboveGround",
-					yState == OverrideState.FORCE_ON);
-				if(yState == OverrideState.FORCE_ON)
-					AboveGroundFilterManager.setY(hacks, yValue);
-				if(yLimitAnnouncementsReady)
-					announceYLimit(yState == OverrideState.FORCE_ON);
 			}
 			
-			lastYState = yState;
-			yLimitAnnouncementsReady = true;
+			lastYLimitOverride = yOverride;
 		}
 		
-		if(yState == OverrideState.FORCE_ON && yValue != lastYLimitValue)
+		if(yOverride && yValue != lastYLimitValue)
 		{
 			AboveGroundFilterManager.setY(hacks, yValue);
 			lastYLimitValue = yValue;
@@ -195,43 +162,12 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			lastYLimitValue = yValue;
 		}
 		
-		if(!stickyAnnouncementsReady)
-			stickyAnnouncementsReady = true;
-		if(!yLimitAnnouncementsReady)
-			yLimitAnnouncementsReady = true;
-		
 		int priority = searchThreadPriority.getValueI();
 		if(priority != lastSearchThreadPriority)
 		{
 			ChunkSearcher.setBackgroundThreadPriority(priority);
 			lastSearchThreadPriority = priority;
 		}
-	}
-	
-	private void announceSticky(boolean forcingOn)
-	{
-		if(forcingOn)
-			ChatUtils.message("Global sticky area override forcing ON.");
-		else
-			ChatUtils.message("Global sticky area override forcing OFF.");
-	}
-	
-	private void announceYLimit(boolean forcingOn)
-	{
-		if(forcingOn)
-			ChatUtils.message("Global Y limit override forcing ON.");
-		else
-			ChatUtils.message("Global Y limit override forcing OFF.");
-	}
-	
-	private OverrideState getOverrideState(CheckboxSetting forceOn,
-		CheckboxSetting forceOff)
-	{
-		if(forceOn.isChecked())
-			return OverrideState.FORCE_ON;
-		if(forceOff.isChecked())
-			return OverrideState.FORCE_OFF;
-		return OverrideState.NONE;
 	}
 	
 	public boolean usePartialChunkScan()
@@ -249,11 +185,31 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return globalEspRenderMode.getSelected();
 	}
 	
-	private enum OverrideState
+	public int getGlobalEspRenderLimit()
 	{
-		NONE,
-		FORCE_ON,
-		FORCE_OFF;
+		return globalEspRenderLimit.getValueI();
+	}
+	
+	public int getEffectiveGlobalEspRenderLimit()
+	{
+		if(!globalEspRenderLimitEnabled.isChecked())
+			return 0;
+		
+		return Math.max(0, getGlobalEspRenderLimit());
+	}
+	
+	public int applyGlobalEspRenderLimit(int localLimit)
+	{
+		int globalLimit = getEffectiveGlobalEspRenderLimit();
+		if(localLimit <= 0 || globalLimit <= 0)
+			return localLimit;
+		
+		return Math.min(localLimit, globalLimit);
+	}
+	
+	public boolean isGlobalEspRenderLimitEnabled()
+	{
+		return globalEspRenderLimitEnabled.isChecked();
 	}
 	
 	private enum ChunkScanMode

@@ -423,7 +423,7 @@ public final class XRayHack extends Hack
 			// Collect nearest N positions using bounded heap to avoid sorting
 			// the full result set on every incremental update.
 			BlockPos playerPos = MC.player.blockPosition();
-			int limit = renderAmount.getValueLog();
+			int limit = getEffectiveRenderAmount();
 			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limit + 1),
 				Comparator
 					.comparingInt((BlockPos p) -> playerPos.distManhattan(p))
@@ -494,6 +494,14 @@ public final class XRayHack extends Hack
 			visibleBoxes.add(new AABB(p));
 		}
 		visibleBoxesUpToDate = true;
+	}
+	
+	private int getEffectiveRenderAmount()
+	{
+		int localLimit = renderAmount.getValueLog();
+		int effective = WURST.getHax().globalToggleHack
+			.applyGlobalEspRenderLimit(localLimit);
+		return Math.max(1, effective);
 	}
 	
 	@Override

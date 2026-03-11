@@ -226,10 +226,11 @@ public final class CaveFinderHack extends Hack
 		Comparator<BlockPos> comparator =
 			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
 		currentBuildGeneration = buildGeneration;
+		int effectiveLimit = getEffectiveRenderLimit();
 		
 		getMatchingBlocksTask = forkJoinPool.submit(() -> coordinator
 			.getMatches().parallel().map(ChunkSearcher.Result::pos)
-			.sorted(comparator).limit(limit.getValueLog())
+			.sorted(comparator).limit(effectiveLimit)
 			.collect(Collectors.toCollection(HashSet::new)));
 	}
 	
@@ -243,13 +244,14 @@ public final class CaveFinderHack extends Hack
 		
 		HashSet<BlockPos> matchingBlocks = getMatchingBlocksTask.join();
 		
-		if(matchingBlocks.size() < limit.getValueLog())
+		int effectiveLimit = getEffectiveRenderLimit();
+		if(matchingBlocks.size() < effectiveLimit)
 			notify = true;
 		else if(notify)
 		{
 			ChatUtils.warning("CaveFinder found \u00a7lA LOT\u00a7r of blocks!"
 				+ " To prevent lag, it will only show the closest \u00a76"
-				+ limit.getValueString() + "\u00a7r results.");
+				+ effectiveLimit + "\u00a7r results.");
 			notify = false;
 		}
 		
@@ -268,21 +270,22 @@ public final class CaveFinderHack extends Hack
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		Comparator<BlockPos> comparator =
 			Comparator.comparingInt(pos -> eyesPos.distManhattan(pos));
+		int effectiveLimit = getEffectiveRenderLimit();
 		java.util.ArrayList<ChunkSearcher.Result> matches =
 			coordinator.getMatches().collect(
 				java.util.stream.Collectors.toCollection(ArrayList::new));
 		HashSet<BlockPos> matchingBlocks =
 			matches.stream().map(ChunkSearcher.Result::pos).sorted(comparator)
-				.limit(limit.getValueLog())
+				.limit(effectiveLimit)
 				.collect(Collectors.toCollection(HashSet::new));
 		
-		if(matchingBlocks.size() < limit.getValueLog())
+		if(matchingBlocks.size() < effectiveLimit)
 			notify = true;
 		else if(notify)
 		{
 			ChatUtils.warning("CaveFinder found \u00a7lA LOT\u00a7r of blocks!"
 				+ " To prevent lag, it will only show the closest \u00a76"
-				+ limit.getValueString() + "\u00a7r results.");
+				+ effectiveLimit + "\u00a7r results.");
 			notify = false;
 		}
 		
@@ -318,5 +321,13 @@ public final class CaveFinderHack extends Hack
 		
 		bufferUpToDate = true;
 		bufferRegion = region;
+	}
+	
+	private int getEffectiveRenderLimit()
+	{
+		int localLimit = limit.getValueLog();
+		int effective = WURST.getHax().globalToggleHack
+			.applyGlobalEspRenderLimit(localLimit);
+		return Math.max(1, effective);
 	}
 }

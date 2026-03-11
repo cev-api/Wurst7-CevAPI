@@ -33,6 +33,7 @@ import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.TextureTransform;
+import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 
@@ -44,6 +45,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 {
 	private final RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer;
 	private final GpuBuffer vertexBuffer;
+	private final Mode drawMode;
 	private final int indexCount;
 	
 	/**
@@ -68,6 +70,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 	private EasyVertexBuffer(MeshData buffer, Mode drawMode)
 	{
 		DrawState drawParams = buffer.drawState();
+		this.drawMode = drawMode;
 		shapeIndexBuffer = RenderSystem.getSequentialBuffer(drawParams.mode());
 		indexCount = drawParams.indexCount();
 		
@@ -78,6 +81,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 	
 	private EasyVertexBuffer(Mode drawMode)
 	{
+		this.drawMode = drawMode;
 		shapeIndexBuffer = null;
 		indexCount = 0;
 		vertexBuffer = null;
@@ -119,6 +123,29 @@ public final class EasyVertexBuffer implements AutoCloseable
 		
 		RenderType effectiveLayer = NiceWurstModule.enforceDepthTest(layer);
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		int indexCountToDraw = indexCount;
+		if(isEspLayer(effectiveLayer))
+		{
+			int requestedSlots = estimateEspSlotCost();
+			int grantedSlots =
+				globalEsp.reserveGlobalEspRenderSlots(requestedSlots);
+			if(grantedSlots <= 0)
+				return;
+			
+			if(grantedSlots < requestedSlots)
+			{
+				// GlobalEspManager currently stores the full mesh in shader
+				// mode,
+				// so partial index draws are only possible in legacy mode.
+				if(globalEsp.shouldTakeOverRenderCalls())
+					return;
+				
+				if(drawMode == Mode.QUADS)
+					indexCountToDraw = Math.min(indexCount, grantedSlots * 36);
+				else
+					return;
+			}
+		}
 		if(globalEsp.submitMeshDraw(matrixStack, this, effectiveLayer, red,
 			green, blue, alpha))
 			return;
@@ -135,7 +162,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 		RenderTarget framebuffer =
 			OutputTarget.ITEM_ENTITY_TARGET.getRenderTarget();
 		RenderPipeline pipeline = effectiveLayer.pipeline();
-		GpuBuffer indexBuffer = shapeIndexBuffer.getBuffer(indexCount);
+		GpuBuffer indexBuffer = shapeIndexBuffer.getBuffer(indexCountToDraw);
 		
 		try(RenderPass renderPass =
 			RenderSystem.getDevice().createCommandEncoder().createRenderPass(
@@ -148,7 +175,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 			renderPass.setUniform("DynamicTransforms", gpuBufferSlice);
 			renderPass.setVertexBuffer(0, vertexBuffer);
 			renderPass.setIndexBuffer(indexBuffer, shapeIndexBuffer.type());
-			renderPass.drawIndexed(0, 0, indexCount, 1);
+			renderPass.drawIndexed(0, 0, indexCountToDraw, 1);
 		}
 		
 		modelViewStack.popMatrix();
@@ -167,6 +194,28 @@ public final class EasyVertexBuffer implements AutoCloseable
 	public int getIndexCountForGlobalEsp()
 	{
 		return indexCount;
+	}
+	
+	private boolean isEspLayer(RenderType layer)
+	{
+		return layer == WurstRenderLayers.LINES
+			|| layer == WurstRenderLayers.ESP_LINES
+			|| layer == WurstRenderLayers.QUADS
+			|| layer == WurstRenderLayers.ESP_QUADS
+			|| layer == WurstRenderLayers.QUADS_NO_CULLING
+			|| layer == WurstRenderLayers.ESP_QUADS_NO_CULLING;
+	}
+	
+	private int estimateEspSlotCost()
+	{
+		if(indexCount <= 0)
+			return 1;
+		
+		// Most ESP buffers here encode cuboids using six quad faces per box.
+		if(drawMode == Mode.QUADS)
+			return Math.max(1, (indexCount + 35) / 36);
+		
+		return 1;
 	}
 	
 	@Override

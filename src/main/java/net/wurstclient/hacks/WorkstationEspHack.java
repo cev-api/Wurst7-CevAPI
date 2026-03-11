@@ -9,8 +9,11 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
@@ -32,6 +35,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -336,10 +340,44 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(PortalEspBlockGroup::clear);
-		coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
+		int globalLimit = getEffectiveGlobalEspLimit();
+		if(globalLimit > 0)
+		{
+			for(Result result : getNearestReadyMatches(globalLimit))
+				addToGroupBoxes(result);
+		}else
+			coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 		int total = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
 		foundCount = Math.min(total, 999);
+	}
+	
+	private List<Result> getNearestReadyMatches(int limit)
+	{
+		var eyesPos = RotationUtils.getEyesPos();
+		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
+			Comparator
+				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
+				.reversed());
+		
+		coordinator.getReadyMatches().forEach(result -> {
+			if(heap.size() < limit)
+				heap.offer(result);
+			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
+				.distToCenterSqr(eyesPos))
+			{
+				heap.poll();
+				heap.offer(result);
+			}
+		});
+		
+		return new ArrayList<>(heap);
+	}
+	
+	private int getEffectiveGlobalEspLimit()
+	{
+		return WURST.getHax().globalToggleHack
+			.getEffectiveGlobalEspRenderLimit();
 	}
 	
 	private void addToGroupBoxes(Result result)

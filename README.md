@@ -939,6 +939,8 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Added anti-ESP detection
 - Option to suppress single chests in favor of double
 - Optional alert for shulkerboxes in chat
+- Added render limit which helps reduce update overhead by throttling DB refresh and how it selects and updates targets.
+  - Prioritises rendering by closest to user
 
 ### ItemESP (Expanded)
 Highlights dropped, equipped, and framed items with powerful filters and customization.
@@ -1229,6 +1231,9 @@ Examples:
 - Added search thread priority slider for tuning background scan speed vs CPU usage.
 - Optimized Search when using corners only ESP to avoid unnecessary heavy mesh work making detection faster.
 - Reduced lag spikes on large scans by using cheaper nearest-result selection paths.
+- Added global ESP limiter in GlobalToggle which takes over the shared ESP render and mesh paths
+  - Extends update/selection work in ESP hacks not just pure rendering
+  - Capped selection is based on nearest-first
 
 ### Global ESP Render Modes
 - Added a global ESP pipeline toggle in GlobalToggle:

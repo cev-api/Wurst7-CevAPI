@@ -11,8 +11,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -38,6 +40,7 @@ import net.wurstclient.settings.Setting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -248,13 +251,47 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(SignEspGroup::clear);
-		coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
+		int globalLimit = getEffectiveGlobalEspLimit();
+		if(globalLimit > 0)
+		{
+			for(Result result : getNearestReadyMatches(globalLimit))
+				addToGroupBoxes(result);
+		}else
+			coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
 		// compute count from both sign boxes and frame boxes
 		int signs = groups.stream().mapToInt(g -> g.getBoxes().size()).sum();
 		int framesCount =
 			entityGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
 		foundCount = Math.min(signs + framesCount, 999);
+	}
+	
+	private int getEffectiveGlobalEspLimit()
+	{
+		return WURST.getHax().globalToggleHack
+			.getEffectiveGlobalEspRenderLimit();
+	}
+	
+	private List<Result> getNearestReadyMatches(int limit)
+	{
+		var eyesPos = RotationUtils.getEyesPos();
+		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
+			Comparator
+				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
+				.reversed());
+		
+		coordinator.getReadyMatches().forEach(result -> {
+			if(heap.size() < limit)
+				heap.offer(result);
+			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
+				.distToCenterSqr(eyesPos))
+			{
+				heap.poll();
+				heap.offer(result);
+			}
+		});
+		
+		return new ArrayList<>(heap);
 	}
 	
 	private void addToGroupBoxes(Result result)
@@ -345,6 +382,30 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			boxes.clear();
 			if(!isEnabled())
 				return;
+			int globalLimit = getEffectiveGlobalEspLimit();
+			if(globalLimit <= 0)
+			{
+				for(var e : net.wurstclient.WurstClient.MC.level
+					.entitiesForRendering())
+				{
+					if(e instanceof ItemFrame || e instanceof GlowItemFrame)
+					{
+						if(onlyAboveGround.isChecked()
+							&& e.getY() < aboveGroundY.getValue())
+							continue;
+						AABB b = EntityUtils.getLerpedBox(e, partialTicks);
+						boxes.add(b);
+					}
+				}
+				return;
+			}
+			
+			var eyesPos = RotationUtils.getEyesPos();
+			PriorityQueue<AABB> heap = new PriorityQueue<>(globalLimit + 1,
+				Comparator
+					.comparingDouble(
+						(AABB b) -> b.getCenter().distanceToSqr(eyesPos))
+					.reversed());
 			for(var e : net.wurstclient.WurstClient.MC.level
 				.entitiesForRendering())
 			{
@@ -354,9 +415,17 @@ public final class SignEspHack extends Hack implements UpdateListener,
 						&& e.getY() < aboveGroundY.getValue())
 						continue;
 					AABB b = EntityUtils.getLerpedBox(e, partialTicks);
-					boxes.add(b);
+					if(heap.size() < globalLimit)
+						heap.offer(b);
+					else if(b.getCenter().distanceToSqr(eyesPos) < heap.peek()
+						.getCenter().distanceToSqr(eyesPos))
+					{
+						heap.poll();
+						heap.offer(b);
+					}
 				}
 			}
+			boxes.addAll(heap);
 		}
 		
 		public void clear()

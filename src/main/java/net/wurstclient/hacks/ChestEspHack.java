@@ -10,9 +10,11 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -42,6 +44,7 @@ import net.minecraft.world.level.block.entity.BarrelBlockEntity;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.entity.DispenserBlockEntity;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.ChunkPos;
@@ -67,6 +70,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
 public class ChestEspHack extends Hack implements UpdateListener,
@@ -78,6 +82,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	private static final long REVEAL_SAMPLE_EXPIRY_MS = 120000L;
 	private static final long BURST_WINDOW_MS = 2000L;
 	private static final long BURST_QUIET_MS = 10000L;
+	private static final long OPENED_CHESTS_REFRESH_MS = 1000L;
+	private static final long ENVIRONMENT_CACHE_REFRESH_MS = 125L;
+	private static final long ENV_FILTER_CACHE_TTL_MS = 250L;
 	private static final int BURST_THRESHOLD = 40;
 	private static final int REVEAL_MIN_SAMPLES = 12;
 	
@@ -104,6 +111,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		new SliderSetting("Tracer opacity",
 			"Opacity for tracers (0 = fully transparent, 255 = opaque).", 128,
 			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting chestEspRenderLimitEnabled =
+		new CheckboxSetting("Enable ChestESP render limit",
+			"Limits how many ChestESP targets are processed per update.",
+			false);
+	private final SliderSetting chestEspRenderLimit =
+		new SliderSetting("ChestESP render limit",
+			"Max ChestESP targets processed per update.\n0 = unlimited", 0, 0,
+			2000, 1, SliderSetting.ValueDisplay.INTEGER);
 	private int foundCount;
 	private boolean preFilteredEnv;
 	
@@ -114,6 +129,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private java.util.List<ChestEntry> openedChests = java.util.List.of();
+	private long lastOpenedChestsRefreshMs;
 	
 	// Buried highlighting
 	private final CheckboxSetting highlightBuried = new CheckboxSetting(
@@ -162,8 +178,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		true);
 	
 	private List<BlockPos> cachedTrialSpawners = List.of();
+	private List<BlockPos> cachedSpawners = List.of();
 	private List<Vec3> cachedVillagerPositions = List.of();
 	private List<Vec3> cachedGolemPositions = List.of();
+	private final HashMap<BlockPos, EnvFilterCacheEntry> envFilterCache =
+		new HashMap<>();
+	private int lastEnvFilterSignature;
+	private long lastEnvironmentalRefreshMs;
+	private BlockPos lastEnvironmentRefreshAnchor;
+	private String lastEnvironmentRefreshDimension;
+	private boolean environmentalCachesDirty = true;
 	private final HashSet<BlockPos> alertedShulkers = new HashSet<>();
 	private final HashMap<BlockPos, Long> missingContainerAt = new HashMap<>();
 	private final HashMap<BlockPos, Long> lastBlockUpdateAt = new HashMap<>();
@@ -206,6 +230,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(boxAlpha);
 		addSetting(lineAlpha);
 		addSetting(tracerAlpha);
+		addSetting(chestEspRenderLimitEnabled);
+		addSetting(chestEspRenderLimit);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
 			.forEach(this::addSetting);
 	}
@@ -219,6 +245,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		EVENTS.add(PacketInputListener.class, this);
 		resetAntiEspState();
 		antiEspPreviouslyEnabled = antiEspDetection.isChecked();
+		lastOpenedChestsRefreshMs = 0L;
+		lastEnvironmentalRefreshMs = 0L;
+		lastEnvironmentRefreshAnchor = null;
+		lastEnvironmentRefreshDimension = null;
+		environmentalCachesDirty = true;
 	}
 	
 	@Override
@@ -232,8 +263,15 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		groups.allGroups.forEach(ChestEspGroup::clear);
 		foundCount = 0;
 		cachedTrialSpawners = List.of();
+		cachedSpawners = List.of();
 		cachedVillagerPositions = List.of();
 		cachedGolemPositions = List.of();
+		envFilterCache.clear();
+		lastEnvFilterSignature = 0;
+		lastEnvironmentalRefreshMs = 0L;
+		lastEnvironmentRefreshAnchor = null;
+		lastEnvironmentRefreshDimension = null;
+		environmentalCachesDirty = true;
 		preFilteredEnv = false;
 		alertedShulkers.clear();
 		resetAntiEspState();
@@ -260,16 +298,22 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		groups.allGroups.forEach(ChestEspGroup::clear);
 		
 		// Build environmental caches first so we can pre-filter before adding
+		invalidateEnvFilterCacheIfNeeded();
 		refreshEnvironmentalCaches();
 		preFilteredEnv = MC.level != null && (filterNearSpawners.isChecked()
 			|| filterTrialChambers.isChecked() || filterVillages.isChecked());
 		
 		double yLimit = aboveGroundY.getValue();
 		boolean enforceAboveGround = onlyAboveGround.isChecked();
+		int effectiveLimit = getEffectiveEspLimit();
 		HashSet<BlockPos> seenShulkers =
 			shulkerChatAlerts.isChecked() ? new HashSet<>() : null;
 		
-		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+		java.util.stream.Stream<BlockEntity> blockEntityStream =
+			effectiveLimit > 0
+				? getNearestLoadedBlockEntities(effectiveLimit).stream()
+				: ChunkUtils.getLoadedBlockEntities();
+		blockEntityStream.forEach(be -> {
 			if(enforceAboveGround && be.getBlockPos().getY() < yLimit)
 				return;
 			
@@ -303,7 +347,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		if(MC.level != null)
 		{
-			for(Entity entity : MC.level.entitiesForRendering())
+			Iterable<Entity> entities = effectiveLimit > 0
+				? getNearestEntitiesForRendering(effectiveLimit)
+				: MC.level.entitiesForRendering();
+			for(Entity entity : entities)
 			{
 				if(enforceAboveGround && entity.getY() < yLimit)
 					continue;
@@ -317,8 +364,34 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			.mapToInt(g -> g.getBoxes().size()).sum();
 		foundCount = Math.min(total, 999);
 		
-		// Always load recorded chests from ChestSearch DB so ChestESP can
-		// mark them even if the ChestSearch UI/hack isn't "enabled".
+		refreshOpenedChestCacheIfNeeded();
+	}
+	
+	private int getEffectiveEspLimit()
+	{
+		int localLimit = chestEspRenderLimitEnabled.isChecked()
+			? chestEspRenderLimit.getValueI() : 0;
+		int globalLimit =
+			WURST.getHax().globalToggleHack.getEffectiveGlobalEspRenderLimit();
+		
+		if(localLimit <= 0)
+			return globalLimit;
+		if(globalLimit <= 0)
+			return localLimit;
+		
+		return Math.min(localLimit, globalLimit);
+	}
+	
+	private void refreshOpenedChestCacheIfNeeded()
+	{
+		long now = System.currentTimeMillis();
+		if(now - lastOpenedChestsRefreshMs < OPENED_CHESTS_REFRESH_MS)
+			return;
+		
+		lastOpenedChestsRefreshMs = now;
+		
+		// Keep ChestESP markers available without requiring ChestSearch to be
+		// enabled, but avoid expensive DB reads every tick.
 		try
 		{
 			ChestManager mgr = new ChestManager();
@@ -327,6 +400,49 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		{
 			openedChests = java.util.List.of();
 		}
+	}
+	
+	private List<BlockEntity> getNearestLoadedBlockEntities(int limit)
+	{
+		var eyesPos = RotationUtils.getEyesPos();
+		PriorityQueue<BlockEntity> heap = new PriorityQueue<>(limit + 1,
+			Comparator.comparingDouble(
+				(BlockEntity be) -> be.getBlockPos().distToCenterSqr(eyesPos))
+				.reversed());
+		
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(heap.size() < limit)
+				heap.offer(be);
+			else if(be.getBlockPos().distToCenterSqr(eyesPos) < heap.peek()
+				.getBlockPos().distToCenterSqr(eyesPos))
+			{
+				heap.poll();
+				heap.offer(be);
+			}
+		});
+		
+		return new ArrayList<>(heap);
+	}
+	
+	private List<Entity> getNearestEntitiesForRendering(int limit)
+	{
+		PriorityQueue<Entity> heap = new PriorityQueue<>(limit + 1,
+			Comparator.comparingDouble((Entity e) -> e.distanceToSqr(MC.player))
+				.reversed());
+		
+		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(heap.size() < limit)
+				heap.offer(entity);
+			else if(entity.distanceToSqr(MC.player) < heap.peek()
+				.distanceToSqr(MC.player))
+			{
+				heap.poll();
+				heap.offer(entity);
+			}
+		}
+		
+		return new ArrayList<>(heap);
 	}
 	
 	@Override
@@ -346,10 +462,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		Packet<?> packet = event.getPacket();
 		ChunkPos affected = ChunkUtils.getAffectedChunk(packet);
 		if(affected != null)
+		{
 			queueChunkScan(affected);
+			environmentalCachesDirty = true;
+		}
 		
 		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
 		{
+			environmentalCachesDirty = true;
 			handleBlockUpdate(blockUpdate.getPos(),
 				blockUpdate.getBlockState());
 			return;
@@ -357,12 +477,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		if(packet instanceof ClientboundSectionBlocksUpdatePacket deltaUpdate)
 		{
+			environmentalCachesDirty = true;
 			deltaUpdate.runUpdates(this::handleBlockUpdate);
 			return;
 		}
 		
 		if(packet instanceof ClientboundBlockEntityDataPacket bePacket)
+		{
+			environmentalCachesDirty = true;
 			handleBlockEntityDataPacket(bePacket);
+		}
 	}
 	
 	@Override
@@ -1160,13 +1284,44 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void refreshEnvironmentalCaches()
 	{
+		long now = System.currentTimeMillis();
+		
 		if(MC.level == null)
 		{
 			cachedTrialSpawners = List.of();
+			cachedSpawners = List.of();
 			cachedVillagerPositions = List.of();
 			cachedGolemPositions = List.of();
+			lastEnvironmentRefreshAnchor = null;
+			lastEnvironmentRefreshDimension = null;
+			environmentalCachesDirty = true;
 			return;
 		}
+		
+		BlockPos currentAnchor =
+			MC.player != null ? MC.player.blockPosition() : BlockPos.ZERO;
+		String currentDimension = MC.level.dimension().identifier().toString();
+		boolean dimensionChanged = lastEnvironmentRefreshDimension == null
+			|| !lastEnvironmentRefreshDimension.equals(currentDimension);
+		boolean movedSignificantly = lastEnvironmentRefreshAnchor == null
+			|| lastEnvironmentRefreshAnchor.distSqr(currentAnchor) >= 4.0;
+		boolean refreshByTime =
+			now - lastEnvironmentalRefreshMs >= ENVIRONMENT_CACHE_REFRESH_MS;
+		
+		// Refresh immediately when environment context changes around the
+		// player, otherwise keep periodic refresh to avoid unnecessary scans.
+		if(!environmentalCachesDirty && !dimensionChanged && !movedSignificantly
+			&& !refreshByTime)
+			return;
+		
+		lastEnvironmentalRefreshMs = now;
+		lastEnvironmentRefreshAnchor = currentAnchor.immutable();
+		lastEnvironmentRefreshDimension = currentDimension;
+		
+		if(filterNearSpawners.isChecked())
+			cachedSpawners = collectSpawnerPositions();
+		else
+			cachedSpawners = List.of();
 		
 		if(filterTrialChambers.isChecked())
 			cachedTrialSpawners = collectTrialSpawnerPositions();
@@ -1182,12 +1337,25 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			cachedVillagerPositions = List.of();
 			cachedGolemPositions = List.of();
 		}
+		
+		// Environmental context changes as chunks/entities stream in. Reset
+		// per-position filter cache so stale "visible" entries don't linger.
+		envFilterCache.clear();
+		environmentalCachesDirty = false;
 	}
 	
 	private List<BlockPos> collectTrialSpawnerPositions()
 	{
 		return ChunkUtils.getLoadedBlockEntities()
 			.filter(be -> be instanceof TrialSpawnerBlockEntity)
+			.map(BlockEntity::getBlockPos).map(BlockPos::immutable)
+			.collect(Collectors.toList());
+	}
+	
+	private List<BlockPos> collectSpawnerPositions()
+	{
+		return ChunkUtils.getLoadedBlockEntities()
+			.filter(be -> be instanceof SpawnerBlockEntity)
 			.map(BlockEntity::getBlockPos).map(BlockPos::immutable)
 			.collect(Collectors.toList());
 	}
@@ -1296,6 +1464,20 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	// entering render lists. Mirrors the logic of filterBoxesByEnvironment
 	// but operates directly on BlockEntity types for speed.
 	private boolean shouldFilterBlockEntityByEnvironment(BlockEntity be)
+	{
+		BlockPos key = be.getBlockPos().immutable();
+		long now = System.currentTimeMillis();
+		EnvFilterCacheEntry cached = envFilterCache.get(key);
+		if(cached != null
+			&& now - cached.timestampMs() <= ENV_FILTER_CACHE_TTL_MS)
+			return cached.filtered();
+		
+		boolean filtered = computeShouldFilterBlockEntityByEnvironment(be);
+		envFilterCache.put(key, new EnvFilterCacheEntry(filtered, now));
+		return filtered;
+	}
+	
+	private boolean computeShouldFilterBlockEntityByEnvironment(BlockEntity be)
 	{
 		if(MC.level == null)
 			return false;
@@ -1458,8 +1640,65 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private boolean isNearSpawner(BlockPos center, int range)
 	{
-		return BlockUtils.getAllInBoxStream(center, range)
-			.anyMatch(pos -> BlockUtils.getBlock(pos) == Blocks.SPAWNER);
+		if(isNearCachedSpawner(center, range))
+			return true;
+			
+		// If we already have a stable non-empty spawner cache and no nearby
+		// hit,
+		// trust it to avoid expensive per-chest block scans.
+		if(!environmentalCachesDirty && !cachedSpawners.isEmpty())
+			return false;
+			
+		// Fallback to block-state scan so newly streamed areas don't briefly
+		// render near-spawner chests before block-entity caches catch up.
+		return isNearSpawnerBlock(center, range);
+	}
+	
+	private boolean isNearCachedSpawner(BlockPos center, int range)
+	{
+		if(cachedSpawners.isEmpty())
+			return false;
+		
+		double rangeSq = range * range;
+		Vec3 centerVec = Vec3.atCenterOf(center);
+		for(BlockPos pos : cachedSpawners)
+		{
+			if(Vec3.atCenterOf(pos).distanceToSqr(centerVec) <= rangeSq)
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isNearSpawnerBlock(BlockPos center, int range)
+	{
+		if(MC.level == null)
+			return false;
+		
+		int minX = center.getX() - range;
+		int maxX = center.getX() + range;
+		int minY = center.getY() - range;
+		int maxY = center.getY() + range;
+		int minZ = center.getZ() - range;
+		int maxZ = center.getZ() + range;
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		
+		for(int x = minX; x <= maxX; x++)
+			for(int y = minY; y <= maxY; y++)
+				for(int z = minZ; z <= maxZ; z++)
+				{
+					cursor.set(x, y, z);
+					var state = MC.level.getBlockState(cursor);
+					if(state.is(Blocks.SPAWNER))
+						return true;
+					
+					String idPath = BuiltInRegistries.BLOCK
+						.getKey(state.getBlock()).getPath();
+					if(idPath.contains("trial_spawner"))
+						return true;
+				}
+			
+		return false;
 	}
 	
 	private boolean isInTrialChamberArea(BlockPos pos)
@@ -1668,18 +1907,23 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private boolean isLikelyVillageChest(BlockPos pos)
 	{
+		// Use static structure signals first so village chests are filtered
+		// even before villagers/golems are tracked on the client.
 		if(!hasDoorNearby(pos, 4))
 			return false;
 		
-		boolean hasVillageEntity =
-			isEntityWithinRange(cachedVillagerPositions, pos, 24)
-				|| isEntityWithinRange(cachedGolemPositions, pos, 24);
 		boolean hayCluster = hasHayBaleCluster(pos, 6);
 		
-		if(hasVillageEntity || hayCluster)
+		if(hayCluster)
 			return true;
 		
-		return hasGlassPaneCluster(pos, 4, 1);
+		if(hasGlassPaneCluster(pos, 4, 1))
+			return true;
+			
+		// Dynamic hints for less common village layouts that do not match the
+		// above static block signatures.
+		return isEntityWithinRange(cachedVillagerPositions, pos, 24)
+			|| isEntityWithinRange(cachedGolemPositions, pos, 24);
 	}
 	
 	private boolean isEntityWithinRange(List<Vec3> positions, BlockPos center,
@@ -1732,7 +1976,30 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		return path.contains("glass_pane");
 	}
 	
+	private void invalidateEnvFilterCacheIfNeeded()
+	{
+		int signature = 0;
+		signature = 31 * signature + (filterNearSpawners.isChecked() ? 1 : 0);
+		signature = 31 * signature + (filterTrialChambers.isChecked() ? 1 : 0);
+		signature = 31 * signature + (filterVillages.isChecked() ? 1 : 0);
+		signature = 31 * signature + (onlyAboveGround.isChecked() ? 1 : 0);
+		signature = 31 * signature + aboveGroundY.getValueI();
+		
+		if(signature != lastEnvFilterSignature)
+		{
+			envFilterCache.clear();
+			lastEnvironmentalRefreshMs = 0L;
+			lastEnvironmentRefreshAnchor = null;
+			lastEnvironmentRefreshDimension = null;
+			environmentalCachesDirty = true;
+			lastEnvFilterSignature = signature;
+		}
+	}
+	
 	private record RevealSample(double distance, long timestamp)
+	{}
+	
+	private record EnvFilterCacheEntry(boolean filtered, long timestampMs)
 	{}
 	
 	private record ChunkScanRequest(ChunkPos chunkPos, long key, long queuedAt)

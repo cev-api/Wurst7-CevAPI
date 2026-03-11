@@ -12,10 +12,12 @@ import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
@@ -45,6 +47,7 @@ import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
@@ -274,8 +277,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		groups.forEach(PortalEspBlockGroup::clear);
 		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
 			new HashMap<>();
-		coordinator.getReadyMatches()
-			.forEach(result -> addToGroupBoxes(result, newBlocksByGroup));
+		int globalLimit = getEffectiveGlobalEspLimit();
+		if(globalLimit > 0)
+		{
+			for(Result result : getNearestReadyMatches(globalLimit))
+				addToGroupBoxes(result, newBlocksByGroup);
+		}else
+			coordinator.getReadyMatches()
+				.forEach(result -> addToGroupBoxes(result, newBlocksByGroup));
 		
 		ArrayList<DiscoveryHit> discoveries =
 			buildDiscoveries(newBlocksByGroup);
@@ -289,6 +298,34 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 		
 		groupsUpToDate = true;
+	}
+	
+	private List<Result> getNearestReadyMatches(int limit)
+	{
+		var eyesPos = RotationUtils.getEyesPos();
+		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
+			Comparator
+				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
+				.reversed());
+		
+		coordinator.getReadyMatches().forEach(result -> {
+			if(heap.size() < limit)
+				heap.offer(result);
+			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
+				.distToCenterSqr(eyesPos))
+			{
+				heap.poll();
+				heap.offer(result);
+			}
+		});
+		
+		return new ArrayList<>(heap);
+	}
+	
+	private int getEffectiveGlobalEspLimit()
+	{
+		return WURST.getHax().globalToggleHack
+			.getEffectiveGlobalEspRenderLimit();
 	}
 	
 	private ArrayList<DiscoveryHit> buildDiscoveries(

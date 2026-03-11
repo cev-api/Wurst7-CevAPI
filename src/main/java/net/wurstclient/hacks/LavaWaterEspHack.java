@@ -228,7 +228,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(LiquidEspBlockGroup::clear);
-		int limit = renderAmount.getValueI();
+		int limit = getEffectiveRenderLimit();
 		var eyesPos = RotationUtils.getEyesPos();
 		PriorityQueue<Result> heap = new PriorityQueue<>((limit + 1),
 			(a, b) -> Double.compare(b.pos().distToCenterSqr(eyesPos),
@@ -245,6 +245,14 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		});
 		heap.forEach(this::addToGroupBoxes);
 		groupsUpToDate = true;
+	}
+	
+	private int getEffectiveRenderLimit()
+	{
+		int localLimit = renderAmount.getValueI();
+		int effective = WURST.getHax().globalToggleHack
+			.applyGlobalEspRenderLimit(localLimit);
+		return Math.max(1, effective);
 	}
 	
 	private void addToGroupBoxes(Result result)

@@ -11,7 +11,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Locale;
+import java.util.PriorityQueue;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
@@ -281,7 +283,33 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	{
 		items.clear();
 		xpOrbs.clear();
+		int limit = getEffectiveGlobalEspLimit();
+		if(limit <= 0)
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+			{
+				if(entity instanceof ItemEntity ie)
+					items.add(ie);
+				else if(entity instanceof ExperienceOrb xo)
+					xpOrbs.add(xo);
+			}
+			
+			foundCount = Math.min(items.size() + xpOrbs.size(), 999);
+			return;
+		}
+		
+		PriorityQueue<Entity> heap = new PriorityQueue<>(limit + 1,
+			Comparator.comparingDouble((Entity e) -> e.distanceToSqr(MC.player))
+				.reversed());
 		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(entity instanceof ItemEntity ie)
+				addNearestEntity(heap, ie, limit);
+			else if(entity instanceof ExperienceOrb xo)
+				addNearestEntity(heap, xo, limit);
+		}
+		
+		for(Entity entity : heap)
 		{
 			if(entity instanceof ItemEntity ie)
 				items.add(ie);
@@ -290,6 +318,25 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		}
 		// update count for HUD (clamped to 999)
 		foundCount = Math.min(items.size() + xpOrbs.size(), 999);
+	}
+	
+	private void addNearestEntity(PriorityQueue<Entity> heap, Entity entity,
+		int limit)
+	{
+		if(heap.size() < limit)
+			heap.offer(entity);
+		else if(entity.distanceToSqr(MC.player) < heap.peek()
+			.distanceToSqr(MC.player))
+		{
+			heap.poll();
+			heap.offer(entity);
+		}
+	}
+	
+	private int getEffectiveGlobalEspLimit()
+	{
+		return WURST.getHax().globalToggleHack
+			.getEffectiveGlobalEspRenderLimit();
 	}
 	
 	@Override

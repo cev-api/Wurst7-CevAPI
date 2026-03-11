@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -294,6 +295,13 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		stream = entityFilters.applyTo(stream);
 		
+		int globalLimit = getEffectiveGlobalEspLimit();
+		if(globalLimit > 0)
+			stream = stream
+				.sorted(
+					Comparator.comparingDouble(p -> p.distanceToSqr(MC.player)))
+				.limit(globalLimit);
+		
 		players.addAll(stream.collect(Collectors.toList()));
 		
 		long now = Util.getMillis();
@@ -304,6 +312,12 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			losStates.clear();
 		
 		processPendingEnterAlerts(now);
+	}
+	
+	private int getEffectiveGlobalEspLimit()
+	{
+		return WURST.getHax().globalToggleHack
+			.getEffectiveGlobalEspRenderLimit();
 	}
 	
 	private void processPendingEnterAlerts(long now)
