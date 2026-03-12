@@ -16,6 +16,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
+import net.wurstclient.other_features.WurstOptionsOtf;
 
 public enum HackToggleFeedback implements UpdateListener
 {
@@ -101,9 +102,9 @@ public enum HackToggleFeedback implements UpdateListener
 			&& wurst.getHax().hideWurstHack.shouldHideToggleChatFeedback())
 			return false;
 		
-		ClickGuiHack clickGuiHack = wurst.getHax().clickGuiHack;
-		return clickGuiHack != null
-			&& clickGuiHack.isHackToggleChatFeedbackEnabled();
+		WurstOptionsOtf wurstOptions = wurst.getOtfs().wurstOptionsOtf;
+		return wurstOptions != null
+			&& wurstOptions.isHackToggleChatFeedbackEnabled();
 	}
 	
 	private boolean isPlayerReady()

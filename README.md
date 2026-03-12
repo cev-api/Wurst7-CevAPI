@@ -15,7 +15,11 @@
 - [1.21.11 - Latest/Recommended (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 ### Download
-Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). I make changes very often so if you want the latest patches/bug fixes and upgrades you **must** compile it yourself. 
+Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
+
+![Release](https://i.imgur.com/Ym1GFs5.png)
+
+I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
 ### Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/hsayPXH.png)
@@ -151,7 +155,7 @@ I did not, and could not, copy any code directly since most implementations are 
 - Configurable open behavior: Open on Favorites, Enabled or restore last category/scroll state
 - Replaced old color editor with HSV Color Picker giving access to a greater color spectrum
 
-![AltGUI](https://i.imgur.com/bzmhJ8t.png)
+![AltGUI](https://i.imgur.com/f9ebKYj.png)
 
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  

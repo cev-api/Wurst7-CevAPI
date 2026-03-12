@@ -40,6 +40,7 @@ import net.wurstclient.hacks.ClientChatOverlayHack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.BlockSetting;
 import net.wurstclient.settings.BookOffersSetting;
@@ -65,7 +66,6 @@ import net.wurstclient.util.ColorUtils;
 
 public final class AltGuiScreen extends Screen
 {
-	private static final int SEARCH_HEIGHT = 14;
 	private static final int MAX_RECENTLY_DISABLED = 64;
 	private static final ArrayList<String> RECENTLY_DISABLED_HACKS =
 		new ArrayList<>();
@@ -126,8 +126,9 @@ public final class AltGuiScreen extends Screen
 		rebuildLayout();
 		
 		Font font = minecraft.font;
-		searchBox = new EditBox(font, moduleX + 10, panelY + 10, moduleW - 20,
-			SEARCH_HEIGHT, Component.literal("Search"));
+		int searchHeight = getSearchHeight();
+		searchBox = new EditBox(font, moduleX + 14, panelY + 12, moduleW - 24,
+			searchHeight, Component.literal("Search"));
 		searchBox.setBordered(false);
 		searchBox.setMaxLength(128);
 		searchBox.setTextColor(cfg().getTextColor());
@@ -149,6 +150,8 @@ public final class AltGuiScreen extends Screen
 				moduleScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
+				if(cfg().isKeepHackSettingsOpenEnabled())
+					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
 			}
 			case LAST_POSITION ->
 			{
@@ -158,7 +161,8 @@ public final class AltGuiScreen extends Screen
 				moduleScroll = 0;
 				pendingScrollRestore = Math.max(0, LAST_MODULE_SCROLL);
 				expandedFeatures.clear();
-				expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
+				if(cfg().isKeepHackSettingsOpenEnabled())
+					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
 			}
 			case FAVORITES ->
 			{
@@ -168,6 +172,8 @@ public final class AltGuiScreen extends Screen
 				moduleScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
+				if(cfg().isKeepHackSettingsOpenEnabled())
+					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
 			}
 		}
 	}
@@ -177,21 +183,64 @@ public final class AltGuiScreen extends Screen
 		return WurstClient.INSTANCE.getHax().altGuiHack;
 	}
 	
+	private int getCategoryRowHeight()
+	{
+		return cfg().getCategoryHeight();
+	}
+	
+	private int getCategoryRowGap()
+	{
+		return Math.max(2, Math.round(getCategoryRowHeight() * 0.25F));
+	}
+	
+	private int getSearchHeight()
+	{
+		return 12;
+	}
+	
+	private float getRightSettingsWidthScale()
+	{
+		return Math.max(0.2F, cfg().getSettingsWidth());
+	}
+	
+	private float getRightSettingsHeightScale()
+	{
+		return Math.max(0.2F, cfg().getSettingsHeight());
+	}
+	
+	private int scaleRightSettingWidth(int value)
+	{
+		return Math.max(1, Math.round(value * getRightSettingsWidthScale()));
+	}
+	
+	private int scaleRightSettingHeight(int value)
+	{
+		return Math.max(1, Math.round(value * getRightSettingsHeightScale()));
+	}
+	
+	private int getSettingsValueColumnWidth(int rowX1, int rowX2)
+	{
+		int min = scaleRightSettingWidth(120);
+		int max = scaleRightSettingWidth(180);
+		return Math.min(max, Math.max(min, (rowX2 - rowX1) / 4));
+	}
+	
 	private void rebuildLayout()
 	{
-		int margin = cfg().getMargin();
 		int targetW = (int)(width * cfg().getWidthPercent());
 		int targetH = (int)(height * cfg().getHeightPercent());
-		panelW = Math.max(320, Math.min(width - margin * 2, targetW));
-		panelH = Math.max(220, Math.min(height - margin * 2, targetH));
+		int searchHeight = getSearchHeight();
+		int edgePadding = 8;
+		panelW = Math.max(320, Math.min(width - edgePadding * 2, targetW));
+		panelH = Math.max(220, Math.min(height - edgePadding * 2, targetH));
 		panelX = (width - panelW) / 2;
 		panelY = (height - panelH) / 2;
 		categoryW = Math.min(cfg().getCategoryWidth(), panelW - 150);
 		
 		moduleX = panelX + categoryW + 8;
-		moduleY = panelY + SEARCH_HEIGHT + 22;
+		moduleY = panelY + searchHeight + 22;
 		moduleW = panelW - categoryW - 16;
-		moduleH = panelH - SEARCH_HEIGHT - 28;
+		moduleH = panelH - searchHeight - 28;
 		
 		uiMenuX = moduleX + 8;
 		uiMenuY = moduleY;
@@ -212,9 +261,10 @@ public final class AltGuiScreen extends Screen
 		rebuildLayout();
 		if(searchBox != null)
 		{
-			searchBox.setX(moduleX + 10);
-			searchBox.setY(panelY + 10);
-			searchBox.setWidth(moduleW - 20);
+			searchBox.setX(moduleX + 14);
+			searchBox.setY(panelY + 12);
+			searchBox.setHeight(getSearchHeight());
+			searchBox.setWidth(moduleW - 24);
 		}
 		clampScroll();
 	}
@@ -333,7 +383,7 @@ public final class AltGuiScreen extends Screen
 			muted, false);
 		
 		context.fill(moduleX + 8, panelY + 8, moduleX + moduleW - 8,
-			panelY + 10 + SEARCH_HEIGHT + 4, panelLight);
+			panelY + 10 + getSearchHeight() + 4, panelLight);
 	}
 	
 	private void renderTooltip(GuiGraphics context)
@@ -354,26 +404,28 @@ public final class AltGuiScreen extends Screen
 	private void renderCategories(GuiGraphics context, int mouseX, int mouseY)
 	{
 		Font font = minecraft.font;
-		int y = panelY + SEARCH_HEIGHT + 30;
+		int rowH = getCategoryRowHeight();
+		int rowGap = getCategoryRowGap();
+		int y = panelY + getSearchHeight() + 30;
 		int accentFill = withAlpha(cfg().getAccentColor(), 0.35F);
 		int accentHover = withAlpha(cfg().getAccentColor(), 0.2F);
 		
-		int enabledRowH = 16;
+		int enabledRowH = rowH;
 		boolean enabledHovered = isInside(mouseX, mouseY, panelX + 6, y,
 			panelX + categoryW - 8, y + enabledRowH);
 		if(enabledCategorySelected || enabledHovered)
 			context.fill(panelX + 6, y, panelX + categoryW - 8, y + enabledRowH,
 				enabledCategorySelected ? accentFill : accentHover);
 		
-		drawStringScaled(context, font, "Enabled", panelX + 12, y + 4,
+		int enabledTextY = centeredTextY(font, y, y + enabledRowH) + 1;
+		drawStringScaled(context, font, "Enabled", panelX + 12, enabledTextY,
 			enabledCategorySelected ? cfg().getTextColor()
 				: cfg().getMutedTextColor(),
 			false);
-		y += enabledRowH + 4;
+		y += enabledRowH + rowGap;
 		
 		for(Category category : Category.values())
 		{
-			int rowH = 16;
 			boolean hovered = isInside(mouseX, mouseY, panelX + 6, y,
 				panelX + categoryW - 8, y + rowH);
 			boolean selected = !styleCategorySelected
@@ -383,22 +435,24 @@ public final class AltGuiScreen extends Screen
 				context.fill(panelX + 6, y, panelX + categoryW - 8, y + rowH,
 					selected ? accentFill : accentHover);
 			
+			int catTextY = centeredTextY(font, y, y + rowH) + 1;
 			drawStringScaled(context, font, category.getName(), panelX + 12,
-				y + 4,
+				catTextY,
 				selected ? cfg().getTextColor() : cfg().getMutedTextColor(),
 				false);
-			y += rowH + 4;
+			y += rowH + rowGap;
 		}
 		
-		int styleRowH = 16;
+		int styleRowH = rowH;
 		boolean styleHovered = isInside(mouseX, mouseY, panelX + 6, y,
 			panelX + categoryW - 8, y + styleRowH);
 		if(styleCategorySelected || styleHovered)
 			context.fill(panelX + 6, y, panelX + categoryW - 8, y + styleRowH,
 				styleCategorySelected ? accentFill : accentHover);
 		
-		drawStringScaled(context, font, "Client Settings", panelX + 12, y + 4,
-			styleCategorySelected ? cfg().getTextColor()
+		int styleTextY = centeredTextY(font, y, y + styleRowH) + 1;
+		drawStringScaled(context, font, "Client Settings", panelX + 12,
+			styleTextY, styleCategorySelected ? cfg().getTextColor()
 				: cfg().getMutedTextColor(),
 			false);
 	}
@@ -424,6 +478,7 @@ public final class AltGuiScreen extends Screen
 		for(DisplayEntry entry : entries)
 		{
 			Feature feature = entry.feature();
+			boolean expanded = expandedFeatures.contains(feature.getName());
 			int rowTop = contentY;
 			int rowBottom = rowTop + rowH;
 			boolean visible = rowBottom >= viewTop && rowTop <= viewBottom;
@@ -437,8 +492,20 @@ public final class AltGuiScreen extends Screen
 					? withAlpha(cfg().getEnabledColor(), 0.28F)
 					: hovered ? withAlpha(cfg().getAccentColor(), 0.2F)
 						: withAlpha(cfg().getPanelLightColor(), 0.55F);
+				if(expanded && !hovered)
+					bgColor = withAlpha(cfg().getAccentColor(),
+						feature.isEnabled() ? 0.33F : 0.24F);
 				context.fill(moduleX + 8, rowTop, contentBottomX, rowBottom,
 					bgColor);
+				if(expanded)
+				{
+					context.fill(moduleX + 8, rowTop, moduleX + 10, rowBottom,
+						withAlpha(cfg().getAccentColor(), 0.96F));
+					context.fill(moduleX + 8, rowTop, contentBottomX,
+						rowTop + 1, withAlpha(cfg().getAccentColor(), 0.62F));
+					context.fill(moduleX + 8, rowBottom - 1, contentBottomX,
+						rowBottom, withAlpha(cfg().getAccentColor(), 0.45F));
+				}
 				int nameX = moduleX + 14;
 				int rowTextY = centeredTextY(font, rowTop, rowBottom);
 				if(feature instanceof Hack hack
@@ -472,9 +539,8 @@ public final class AltGuiScreen extends Screen
 						feature.isEnabled()
 							? withAlpha(cfg().getEnabledColor(), 0.9F)
 							: withAlpha(cfg().getDisabledColor(), 0.92F));
-					int pillTextY = centeredTextY(font, pillY1, pillY2);
-					drawCenteredStringScaled(context, font, stateLabel,
-						(toggleX1 + toggleX2) / 2, pillTextY,
+					drawCenteredStringScaledInBox(context, font, stateLabel,
+						toggleX1, pillY1, toggleX2, pillY2,
 						cfg().getTextColor());
 				}
 			}
@@ -482,7 +548,7 @@ public final class AltGuiScreen extends Screen
 			contentY += rowH;
 			totalContentHeight += rowH;
 			
-			if(!expandedFeatures.contains(feature.getName()))
+			if(!expanded)
 				continue;
 			
 			List<SettingRow> settingRows = getSettingRows(feature);
@@ -536,7 +602,7 @@ public final class AltGuiScreen extends Screen
 		
 		int depth = row.depth();
 		int baseX1 = moduleX + 20;
-		int rowX1 = baseX1 + depth * 10;
+		int rowX1 = baseX1 + depth * scaleRightSettingWidth(10);
 		int rowX2 = moduleX + moduleW - 12;
 		boolean hovered = isInside(mouseX, mouseY, rowX1, y1, rowX2, y2);
 		if(hovered && row.setting().getDescription() != null
@@ -554,24 +620,29 @@ public final class AltGuiScreen extends Screen
 		
 		for(int i = 0; i < depth; i++)
 		{
-			int guideX = baseX1 + i * 10 + 4;
+			int guideX = baseX1 + i * scaleRightSettingWidth(10)
+				+ scaleRightSettingWidth(4);
 			context.fill(guideX, y1, guideX + 1, y2,
 				withAlpha(cfg().getMutedTextColor(), 0.28F));
 		}
 		
 		int markerColor = getSettingMarkerColor(row.setting());
-		context.fill(rowX1, y1, rowX1 + 3, y2, markerColor);
+		context.fill(rowX1, y1, rowX1 + scaleRightSettingWidth(3), y2,
+			markerColor);
 		
-		int tagX2 = rowX1 + 6;
+		int tagX2 = rowX1 + scaleRightSettingWidth(6);
 		if(cfg().isTypeBadgesEnabled())
 		{
 			String typeTag = getSettingTypeTag(row.setting());
-			int tagX1 = rowX1 + 6;
-			int tagW = Math.max(22, scaledFontWidth(font, typeTag) + 8);
+			int tagX1 = rowX1 + scaleRightSettingWidth(6);
+			int tagW = Math.max(scaleRightSettingWidth(22),
+				scaledFontWidth(font, typeTag) + scaleRightSettingWidth(8));
 			tagX2 = tagX1 + tagW;
-			context.fill(tagX1, y1 + 2, tagX2, y2 - 2,
+			context.fill(tagX1, y1 + scaleRightSettingHeight(2), tagX2,
+				y2 - scaleRightSettingHeight(2),
 				withAlpha(cfg().getPanelColor(), 0.92F));
-			int tagTextY = centeredTextY(font, y1 + 2, y2 - 2);
+			int tagTextY = centeredTextY(font, y1 + scaleRightSettingHeight(2),
+				y2 - scaleRightSettingHeight(2));
 			drawCenteredStringScaled(context, font, typeTag,
 				(tagX1 + tagX2) / 2, tagTextY,
 				withAlpha(cfg().getMutedTextColor(), 0.95F));
@@ -580,17 +651,19 @@ public final class AltGuiScreen extends Screen
 		String nameText = getSettingName(row.setting());
 		String valueText = getSettingValue(row.setting());
 		
-		int valuePad = 6;
-		int fixedValueColW = Math.min(180, Math.max(120, (rowX2 - rowX1) / 4));
+		int valuePad = scaleRightSettingWidth(6);
+		int fixedValueColW = getSettingsValueColumnWidth(rowX1, rowX2);
 		int valueBoxW = valueText.isEmpty() ? 0 : fixedValueColW;
-		int valueX2 = rowX2 - 6;
+		int valueX2 = rowX2 - scaleRightSettingWidth(6);
 		int valueX1 = valueX2 - valueBoxW;
 		int nameMaxW =
-			valueText.isEmpty() ? rowX2 - tagX2 - 12 : valueX1 - tagX2 - 10;
+			valueText.isEmpty() ? rowX2 - tagX2 - scaleRightSettingWidth(12)
+				: valueX1 - tagX2 - scaleRightSettingWidth(10);
 		
 		nameText = trimToWidth(font, nameText, Math.max(30, nameMaxW));
 		int settingTextY = centeredTextY(font, y1, y2);
-		drawStringScaled(context, font, nameText, tagX2 + 6, settingTextY,
+		drawStringScaled(context, font, nameText,
+			tagX2 + scaleRightSettingWidth(6), settingTextY,
 			cfg().getTextColor(), false);
 		
 		if(!valueText.isEmpty())
@@ -604,14 +677,21 @@ public final class AltGuiScreen extends Screen
 				valueY1 = y1 + 1;
 				valueY2 = y2 - 1;
 			}
-			if(row.setting() instanceof SliderSetting slider)
+			int valueTextColor = cfg().getTextColor();
+			if(row.setting() instanceof ColorSetting color
+				&& cfg().isFillColorValuesEnabled())
+			{
+				context.fill(valueX1, valueY1, valueX2, valueY2,
+					color.getColorI());
+				valueTextColor = getReadableTextColor(color.getColorI());
+			}else if(row.setting() instanceof SliderSetting slider)
 			{
 				context.fill(valueX1, valueY1, valueX2, valueY2,
 					withAlpha(cfg().getPanelLightColor(), 0.9F));
-				int innerX1 = valueX1 + 2;
-				int innerX2 = valueX2 - 2;
-				int innerY1 = valueY1 + 1;
-				int innerY2 = valueY2 - 1;
+				int innerX1 = valueX1 + scaleRightSettingWidth(2);
+				int innerX2 = valueX2 - scaleRightSettingWidth(2);
+				int innerY1 = valueY1 + scaleRightSettingHeight(1);
+				int innerY2 = valueY2 - scaleRightSettingHeight(1);
 				if(innerY2 <= innerY1)
 				{
 					innerY1 = valueY1;
@@ -625,11 +705,11 @@ public final class AltGuiScreen extends Screen
 				context.fill(valueX1, valueY1, valueX2, valueY2,
 					getValueBadgeColor(row.setting(), valueText));
 			}
-			int valueTextY = centeredTextY(font, valueY1, valueY2);
-			drawCenteredStringScaled(context, font, valueText,
-				(valueX1 + valueX2) / 2, valueTextY, cfg().getTextColor());
+			drawCenteredStringScaledInBox(context, font, valueText, valueX1,
+				valueY1, valueX2, valueY2, valueTextColor);
 			
-			if(row.setting() instanceof ColorSetting color)
+			if(row.setting() instanceof ColorSetting color
+				&& !cfg().isFillColorValuesEnabled())
 			{
 				drawRectBorder(context, valueX1, valueY1, valueX2, valueY2,
 					color.getColorI());
@@ -663,12 +743,16 @@ public final class AltGuiScreen extends Screen
 		int y = uiMenuY + 24;
 		y = renderUiSlider(context, font, "UI opacity",
 			cfg().getUiOpacitySetting(), y, mouseX, mouseY);
-		y = renderUiSlider(context, font, "Window margin",
-			cfg().getMarginSetting(), y, mouseX, mouseY);
+		y = renderUiSlider(context, font, "Settings width",
+			cfg().getSettingsWidthSetting(), y, mouseX, mouseY);
+		y = renderUiSlider(context, font, "Settings height",
+			cfg().getSettingsHeightSetting(), y, mouseX, mouseY);
 		y = renderUiSlider(context, font, "Window width",
 			cfg().getWidthPercentSetting(), y, mouseX, mouseY);
 		y = renderUiSlider(context, font, "Window height",
 			cfg().getHeightPercentSetting(), y, mouseX, mouseY);
+		y = renderUiSlider(context, font, "Category height",
+			cfg().getCategoryHeightSetting(), y, mouseX, mouseY);
 		y = renderUiSlider(context, font, "Category width",
 			cfg().getCategoryWidthSetting(), y, mouseX, mouseY);
 		y = renderUiSlider(context, font, "Row height",
@@ -677,6 +761,8 @@ public final class AltGuiScreen extends Screen
 			cfg().getFontScaleSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Type badges",
 			cfg().getTypeBadgesSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Fill color values",
+			cfg().getFillColorValuesSetting(), y, mouseX, mouseY);
 		y += 4;
 		
 		y = renderUiColor(context, font, "Background",
@@ -710,66 +796,72 @@ public final class AltGuiScreen extends Screen
 	private int renderUiSlider(GuiGraphics context, Font font, String label,
 		SliderSetting slider, int y, int mouseX, int mouseY)
 	{
-		int rowH = 14;
+		int rowH = scaleRightSettingHeight(14);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
-		int trackX1 = uiMenuX + 144;
+		int trackX1 = uiMenuX + scaleRightSettingWidth(144);
 		int trackX2 = uiMenuX + uiMenuW - 12;
 		boolean hovered = isInside(mouseX, mouseY, x1, y, x2, y + rowH);
 		context.fill(x1, y, x2, y + rowH,
 			hovered ? withAlpha(cfg().getAccentColor(), 0.14F)
 				: withAlpha(cfg().getPanelLightColor(), 0.58F));
 		drawStringScaled(context, font, label + ": " + slider.getValueString(),
-			x1 + 4, y + 3, cfg().getMutedTextColor(), false);
-		context.fill(trackX1, y + 4, trackX2, y + 10,
+			x1 + scaleRightSettingWidth(4), y + scaleRightSettingHeight(3),
+			cfg().getMutedTextColor(), false);
+		context.fill(trackX1, y + scaleRightSettingHeight(4), trackX2,
+			y + scaleRightSettingHeight(10),
 			withAlpha(cfg().getPanelLightColor(), 0.9F));
 		int fill = (int)((trackX2 - trackX1) * slider.getPercentage());
-		context.fill(trackX1, y + 4, trackX1 + fill, y + 10,
-			cfg().getAccentColor());
-		return y + rowH + 2;
+		context.fill(trackX1, y + scaleRightSettingHeight(4), trackX1 + fill,
+			y + scaleRightSettingHeight(10), cfg().getAccentColor());
+		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
 	private int renderUiToggle(GuiGraphics context, Font font, String label,
 		CheckboxSetting setting, int y, int mouseX, int mouseY)
 	{
-		int rowH = 14;
+		int rowH = scaleRightSettingHeight(14);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		boolean hovered = isInside(mouseX, mouseY, x1, y, x2, y + rowH);
 		context.fill(x1, y, x2, y + rowH,
 			hovered ? withAlpha(cfg().getAccentColor(), 0.14F)
 				: withAlpha(cfg().getPanelLightColor(), 0.58F));
-		drawStringScaled(context, font, label, x1 + 4, y + 3,
-			cfg().getMutedTextColor(), false);
+		drawStringScaled(context, font, label, x1 + scaleRightSettingWidth(4),
+			y + scaleRightSettingHeight(3), cfg().getMutedTextColor(), false);
 		
 		String state = setting.isChecked() ? "ON" : "OFF";
-		int pillW = 36;
-		int pillX2 = x2 - 4;
+		int pillW = scaleRightSettingWidth(36);
+		int pillX2 = x2 - scaleRightSettingWidth(4);
 		int pillX1 = pillX2 - pillW;
-		context.fill(pillX1, y + 2, pillX2, y + rowH - 2,
+		context.fill(pillX1, y + scaleRightSettingHeight(2), pillX2,
+			y + rowH - scaleRightSettingHeight(2),
 			setting.isChecked() ? withAlpha(cfg().getEnabledColor(), 0.86F)
 				: withAlpha(cfg().getDisabledColor(), 0.9F));
 		drawCenteredStringScaled(context, font, state, (pillX1 + pillX2) / 2,
-			y + 3, cfg().getTextColor());
-		return y + rowH + 2;
+			y + scaleRightSettingHeight(3), cfg().getTextColor());
+		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
 	private int renderUiColor(GuiGraphics context, Font font, String label,
 		ColorSetting color, int y, int mouseX, int mouseY)
 	{
-		int rowH = 13;
+		int rowH = scaleRightSettingHeight(13);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		boolean hovered = isInside(mouseX, mouseY, x1, y, x2, y + rowH);
 		context.fill(x1, y, x2, y + rowH,
 			hovered ? withAlpha(cfg().getAccentColor(), 0.14F)
 				: withAlpha(cfg().getPanelLightColor(), 0.58F));
-		drawStringScaled(context, font, label, x1 + 4, y + 2,
-			cfg().getMutedTextColor(), false);
-		context.fill(x2 - 44, y + 2, x2 - 30, y + rowH - 2, color.getColorI());
+		drawStringScaled(context, font, label, x1 + scaleRightSettingWidth(4),
+			y + scaleRightSettingHeight(2), cfg().getMutedTextColor(), false);
+		context.fill(x2 - scaleRightSettingWidth(44),
+			y + scaleRightSettingHeight(2), x2 - scaleRightSettingWidth(30),
+			y + rowH - scaleRightSettingHeight(2), color.getColorI());
 		drawStringScaled(context, font, ColorUtils.toHex(color.getColor()),
-			x2 - 26, y + 2, cfg().getTextColor(), false);
-		return y + rowH + 1;
+			x2 - scaleRightSettingWidth(26), y + scaleRightSettingHeight(2),
+			cfg().getTextColor(), false);
+		return y + rowH + scaleRightSettingHeight(1);
 	}
 	
 	private boolean handleUiSettingsClick(double mouseX, double mouseY,
@@ -782,12 +874,16 @@ public final class AltGuiScreen extends Screen
 		int y = uiMenuY + 24;
 		y = handleUiSliderClick(cfg().getUiOpacitySetting(), mouseX, mouseY, y,
 			button);
-		y = handleUiSliderClick(cfg().getMarginSetting(), mouseX, mouseY, y,
-			button);
+		y = handleUiSliderClick(cfg().getSettingsWidthSetting(), mouseX, mouseY,
+			y, button);
+		y = handleUiSliderClick(cfg().getSettingsHeightSetting(), mouseX,
+			mouseY, y, button);
 		y = handleUiSliderClick(cfg().getWidthPercentSetting(), mouseX, mouseY,
 			y, button);
 		y = handleUiSliderClick(cfg().getHeightPercentSetting(), mouseX, mouseY,
 			y, button);
+		y = handleUiSliderClick(cfg().getCategoryHeightSetting(), mouseX,
+			mouseY, y, button);
 		y = handleUiSliderClick(cfg().getCategoryWidthSetting(), mouseX, mouseY,
 			y, button);
 		y = handleUiSliderClick(cfg().getRowHeightSetting(), mouseX, mouseY, y,
@@ -796,6 +892,8 @@ public final class AltGuiScreen extends Screen
 			button);
 		y = handleUiToggleClick(cfg().getTypeBadgesSetting(), mouseX, mouseY,
 			y);
+		y = handleUiToggleClick(cfg().getFillColorValuesSetting(), mouseX,
+			mouseY, y);
 		y += 4;
 		
 		y = handleUiColorClick(cfg().getBgColorSetting(), mouseX, mouseY, y);
@@ -829,10 +927,10 @@ public final class AltGuiScreen extends Screen
 	private int handleUiSliderClick(SliderSetting slider, double mouseX,
 		double mouseY, int y, int button)
 	{
-		int rowH = 14;
+		int rowH = scaleRightSettingHeight(14);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
-		int trackX1 = uiMenuX + 144;
+		int trackX1 = uiMenuX + scaleRightSettingWidth(144);
 		int trackX2 = uiMenuX + uiMenuW - 12;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 		{
@@ -846,72 +944,80 @@ public final class AltGuiScreen extends Screen
 			}
 			applyLiveLayout();
 		}
-		return y + rowH + 2;
+		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
 	private int handleUiColorClick(ColorSetting setting, double mouseX,
 		double mouseY, int y)
 	{
-		int rowH = 13;
+		int rowH = scaleRightSettingHeight(13);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 			minecraft.setScreen(new EditColorScreen(this, setting));
-		return y + rowH + 1;
+		return y + rowH + scaleRightSettingHeight(1);
 	}
 	
 	private int handleUiToggleClick(CheckboxSetting setting, double mouseX,
 		double mouseY, int y)
 	{
-		int rowH = 14;
+		int rowH = scaleRightSettingHeight(14);
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 			setting.setChecked(!setting.isChecked());
-		return y + rowH + 2;
+		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
 	private boolean handleCategoryClick(double mouseX, double mouseY)
 	{
-		int y = panelY + SEARCH_HEIGHT + 30;
+		int rowH = getCategoryRowHeight();
+		int rowGap = getCategoryRowGap();
+		int y = panelY + getSearchHeight() + 30;
 		if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-			y + 16))
+			y + rowH))
 		{
+			clearSearch();
 			enabledCategorySelected = true;
 			styleCategorySelected = false;
 			moduleScroll = 0;
 			return true;
 		}
-		y += 20;
+		y += rowH + rowGap;
 		
 		for(Category category : Category.values())
 		{
 			if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-				y + 16))
+				y + rowH))
 			{
+				clearSearch();
 				selectedCategory = category;
 				enabledCategorySelected = false;
 				styleCategorySelected = false;
 				moduleScroll = 0;
 				return true;
 			}
-			y += 20;
+			y += rowH + rowGap;
 		}
 		
 		if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-			y + 16))
+			y + rowH))
 		{
+			clearSearch();
 			enabledCategorySelected = false;
 			styleCategorySelected = true;
-			expandedFeatures
-				.add(WurstClient.INSTANCE.getHax().clickGuiHack.getName());
-			expandedFeatures
-				.add(WurstClient.INSTANCE.getHax().altGuiHack.getName());
 			moduleScroll = 0;
 			return true;
 		}
 		
 		return false;
+	}
+	
+	private void clearSearch()
+	{
+		searchText = "";
+		if(searchBox != null)
+			searchBox.setValue("");
 	}
 	
 	private boolean handleModuleClick(double mouseX, double mouseY, int button)
@@ -1013,14 +1119,13 @@ public final class AltGuiScreen extends Screen
 				return true;
 			}
 			
-			int rowX1 = moduleX + 20 + row.depth() * 10;
+			int rowX1 = moduleX + 20 + row.depth() * scaleRightSettingWidth(10);
 			int rowX2 = moduleX + moduleW - 12;
-			int fixedValueColW =
-				Math.min(180, Math.max(120, (rowX2 - rowX1) / 4));
-			int valueX2 = rowX2 - 6;
+			int fixedValueColW = getSettingsValueColumnWidth(rowX1, rowX2);
+			int valueX2 = rowX2 - scaleRightSettingWidth(6);
 			int valueX1 = valueX2 - fixedValueColW;
-			int x1 = valueX1 + 2;
-			int x2 = valueX2 - 2;
+			int x1 = valueX1 + scaleRightSettingWidth(2);
+			int x2 = valueX2 - scaleRightSettingWidth(2);
 			draggingSlider = new SliderDrag(slider, x1, x2);
 			setSliderValueFromMouse(draggingSlider, mouseX);
 			if(isStyleSlider(slider))
@@ -1235,6 +1340,9 @@ public final class AltGuiScreen extends Screen
 			: searchText.toLowerCase(Locale.ROOT).trim();
 		boolean globalSearch = !query.isEmpty();
 		ArrayList<Feature> features = new ArrayList<>();
+		Feature performanceOverlay =
+			WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
+		List<Feature> clientSettingsFeatures = getClientSettingsFeatures();
 		
 		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
 		{
@@ -1264,10 +1372,33 @@ public final class AltGuiScreen extends Screen
 			features.add(hack);
 		}
 		
+		for(OtherFeature otf : WurstClient.INSTANCE.getOtfs().getAllOtfs())
+		{
+			if(otf == null || otf == performanceOverlay)
+				continue;
+			
+			if(clientSettingsFeatures.contains(otf))
+				continue;
+			
+			if(isHiddenByTooManyHax(otf))
+				continue;
+			
+			if(!globalSearch)
+			{
+				if(styleCategorySelected || enabledCategorySelected)
+					continue;
+				if(selectedCategory != Category.OTHER)
+					continue;
+			}
+			
+			if(globalSearch && !matchesSearch(otf, query))
+				continue;
+			
+			features.add(otf);
+		}
+		
 		if(!styleCategorySelected && !enabledCategorySelected)
 		{
-			Feature performanceOverlay =
-				WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
 			boolean include =
 				globalSearch ? matchesSearch(performanceOverlay, query)
 					: selectedCategory == Category.OTHER;
@@ -1282,6 +1413,11 @@ public final class AltGuiScreen extends Screen
 	
 	private List<DisplayEntry> getDisplayedEntries()
 	{
+		String query = searchText == null ? ""
+			: searchText.toLowerCase(Locale.ROOT).trim();
+		if(!query.isEmpty())
+			return getUniversalSearchEntries(query);
+		
 		ArrayList<DisplayEntry> entries = new ArrayList<>();
 		if(!styleCategorySelected && !enabledCategorySelected)
 		{
@@ -1293,14 +1429,49 @@ public final class AltGuiScreen extends Screen
 		if(enabledCategorySelected)
 			return getEnabledCategoryEntries();
 		
-		String query = searchText == null ? ""
-			: searchText.toLowerCase(Locale.ROOT).trim();
 		ArrayList<Feature> features =
 			new ArrayList<>(getClientSettingsFeatures());
-		if(!query.isEmpty())
-			features.removeIf(feature -> !matchesSearch(feature, query));
 		for(Feature feature : features)
 			entries.add(new DisplayEntry(feature, false));
+		return entries;
+	}
+	
+	private List<DisplayEntry> getUniversalSearchEntries(String query)
+	{
+		ArrayList<DisplayEntry> entries = new ArrayList<>();
+		HashSet<String> added = new HashSet<>();
+		
+		for(Feature feature : getFilteredFeatures())
+		{
+			String key = feature.getName().toLowerCase(Locale.ROOT);
+			if(!added.add(key))
+				continue;
+			entries.add(new DisplayEntry(feature, false));
+		}
+		
+		for(Feature feature : getClientSettingsFeatures())
+		{
+			if(!matchesSearch(feature, query))
+				continue;
+			
+			String key = feature.getName().toLowerCase(Locale.ROOT);
+			if(!added.add(key))
+				continue;
+			entries.add(new DisplayEntry(feature, false));
+		}
+		
+		Feature performanceOverlay =
+			WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
+		if(!isHiddenByTooManyHax(performanceOverlay)
+			&& matchesSearch(performanceOverlay, query))
+		{
+			String key = performanceOverlay.getName().toLowerCase(Locale.ROOT);
+			if(added.add(key))
+				entries.add(new DisplayEntry(performanceOverlay, false));
+		}
+		
+		entries.sort(Comparator.comparing(entry -> entry.feature().getName(),
+			String.CASE_INSENSITIVE_ORDER));
 		return entries;
 	}
 	
@@ -1369,6 +1540,7 @@ public final class AltGuiScreen extends Screen
 		features.add(WurstClient.INSTANCE.getOtfs().presetManagerOtf);
 		features.add(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf);
 		features.add(WurstClient.INSTANCE.getHax().globalToggleHack);
+		features.add(WurstClient.INSTANCE.getHax().navigatorHack);
 		features.add(WurstClient.INSTANCE.getHax().clickGuiHack);
 		features.add(WurstClient.INSTANCE.getHax().altGuiHack);
 		return features;
@@ -1394,7 +1566,38 @@ public final class AltGuiScreen extends Screen
 		if(feature.getDescription().toLowerCase(Locale.ROOT).contains(query))
 			return true;
 		
-		return feature.getSearchTags().toLowerCase(Locale.ROOT).contains(query);
+		if(feature.getSearchTags().toLowerCase(Locale.ROOT).contains(query))
+			return true;
+		
+		if(!cfg().isSearchSettingsEnabled())
+			return false;
+		
+		return matchesSettingsSearch(feature, query);
+	}
+	
+	private boolean matchesSettingsSearch(Feature feature, String query)
+	{
+		for(Setting setting : feature.getSettings().values())
+			if(matchesSettingSearch(setting, query))
+				return true;
+			
+		return false;
+	}
+	
+	private boolean matchesSettingSearch(Setting setting, String query)
+	{
+		if(!(setting instanceof SettingGroup) && !setting.isVisibleInGui())
+			return false;
+		
+		if(setting.getName().toLowerCase(Locale.ROOT).contains(query))
+			return true;
+		
+		if(setting instanceof SettingGroup group)
+			for(Setting child : group.getChildren())
+				if(matchesSettingSearch(child, query))
+					return true;
+				
+		return false;
 	}
 	
 	private List<SettingRow> getSettingRows(Feature feature)
@@ -1412,8 +1615,13 @@ public final class AltGuiScreen extends Screen
 			&& !setting.isVisibleInGui())
 			return;
 		
-		int h = setting instanceof SpacerSetting
-			? Math.max(4, cfg().getRowHeight() / 2) : cfg().getRowHeight();
+		int h =
+			setting instanceof SpacerSetting
+				? Math.max(4,
+					Math.round(cfg().getRowHeight()
+						* getRightSettingsHeightScale() / 2F))
+				: Math.max(12, Math.round(
+					cfg().getRowHeight() * getRightSettingsHeightScale()));
 		rows.add(new SettingRow(owner, setting, depth, h));
 		
 		if(setting instanceof SettingGroup group)
@@ -1591,16 +1799,18 @@ public final class AltGuiScreen extends Screen
 		if(trimmed.equalsIgnoreCase("on"))
 			return "ON";
 		
-		return value;
+		return trimmed;
 	}
 	
 	private boolean isStyleSlider(SliderSetting slider)
 	{
 		return slider == cfg().getUiOpacitySetting()
 			|| slider == cfg().getTooltipOpacitySetting()
-			|| slider == cfg().getMarginSetting()
+			|| slider == cfg().getSettingsWidthSetting()
+			|| slider == cfg().getSettingsHeightSetting()
 			|| slider == cfg().getWidthPercentSetting()
 			|| slider == cfg().getHeightPercentSetting()
+			|| slider == cfg().getCategoryHeightSetting()
 			|| slider == cfg().getCategoryWidthSetting()
 			|| slider == cfg().getRowHeightSetting()
 			|| slider == cfg().getFontScaleSetting();
@@ -1669,7 +1879,9 @@ public final class AltGuiScreen extends Screen
 			|| name.equalsIgnoreCase("GlobalToggle")
 			|| name.equalsIgnoreCase("HackList")
 			|| name.equalsIgnoreCase("WurstOptions")
-			|| name.equalsIgnoreCase("WurstLogo"));
+			|| name.equalsIgnoreCase("WurstLogo")
+			|| name.equalsIgnoreCase("ClickGUI")
+			|| name.equalsIgnoreCase("AltGUI"));
 	}
 	
 	private boolean isHiddenByTooManyHax(Feature feature)
@@ -1697,6 +1909,15 @@ public final class AltGuiScreen extends Screen
 	{
 		int a = Math.max(0, Math.min(255, (int)(alpha * 255)));
 		return (color & 0x00FFFFFF) | (a << 24);
+	}
+	
+	private static int getReadableTextColor(int bgColor)
+	{
+		int r = (bgColor >> 16) & 0xFF;
+		int g = (bgColor >> 8) & 0xFF;
+		int b = bgColor & 0xFF;
+		double luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+		return luminance > 0.55 ? 0xFF000000 : 0xFFFFFFFF;
 	}
 	
 	private void drawRectBorder(GuiGraphics context, int x1, int y1, int x2,
@@ -1770,6 +1991,18 @@ public final class AltGuiScreen extends Screen
 		String text, int centerX, int y, int color)
 	{
 		int x = centerX - scaledFontWidth(font, text) / 2;
+		drawStringScaled(context, font, text, x, y, color, false);
+	}
+	
+	private void drawCenteredStringScaledInBox(GuiGraphics context, Font font,
+		String text, int x1, int y1, int x2, int y2, int color)
+	{
+		float textW = scaledFontWidth(font, text);
+		float textH = Math.max(1, scaledFontHeight(font));
+		float centerX = (x1 + x2) * 0.5F;
+		float centerY = (y1 + y2) * 0.5F;
+		int x = Math.round(centerX - textW * 0.5F);
+		int y = Math.round(centerY - textH * 0.5F);
 		drawStringScaled(context, font, text, x, y, color, false);
 	}
 	

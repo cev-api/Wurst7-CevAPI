@@ -54,10 +54,6 @@ public final class ClickGuiHack extends Hack
 		new CheckboxSetting("Isolate windows",
 			"Hide overlapping windows behind the front-most window.", false);
 	
-	private final CheckboxSetting hackToggleChatFeedback =
-		new CheckboxSetting("Hack toggle chat feedback",
-			"Show a chat message when hacks are enabled or disabled.", false);
-	
 	private final SliderSetting maxHeight = new SliderSetting("Max height",
 		"Maximum window height\n" + "0 = no limit", 200, 0, 1000, 50,
 		ValueDisplay.INTEGER);
@@ -70,7 +66,6 @@ public final class ClickGuiHack extends Hack
 	public ClickGuiHack()
 	{
 		super("ClickGUI");
-		addSetting(hackToggleChatFeedback);
 		addSetting(bgColor);
 		addSetting(acColor);
 		addSetting(txtColor);
@@ -139,11 +134,6 @@ public final class ClickGuiHack extends Hack
 	public CheckboxSetting getIsolateWindowsSetting()
 	{
 		return isolateWindows;
-	}
-	
-	public boolean isHackToggleChatFeedbackEnabled()
-	{
-		return hackToggleChatFeedback.isChecked();
 	}
 	
 	public int getMaxHeight()

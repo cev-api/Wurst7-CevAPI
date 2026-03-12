@@ -52,12 +52,16 @@ public final class AltGuiHack extends Hack
 		0.82, 0.25, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting tooltipOpacity = new SliderSetting(
 		"Tooltip opacity", 0.86, 0.1, 1, 0.01, ValueDisplay.PERCENTAGE);
-	private final SliderSetting margin =
-		new SliderSetting("Window margin", 18, 4, 80, 1, ValueDisplay.INTEGER);
+	private final SliderSetting settingsWidth = new SliderSetting(
+		"Settings width", 0.7, 0.2, 1.0, 0.02, ValueDisplay.DECIMAL);
+	private final SliderSetting settingsHeight = new SliderSetting(
+		"Settings height", 0.7, 0.2, 1.0, 0.02, ValueDisplay.DECIMAL);
 	private final SliderSetting widthPercent = new SliderSetting("Window width",
 		0.96, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting heightPercent = new SliderSetting(
 		"Window height", 0.92, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
+	private final SliderSetting categoryHeight = new SliderSetting(
+		"Category height", 16, 12, 32, 1, ValueDisplay.INTEGER);
 	private final SliderSetting categoryWidth = new SliderSetting(
 		"Category width", 110, 70, 240, 1, ValueDisplay.INTEGER);
 	private final SliderSetting rowHeight =
@@ -82,6 +86,17 @@ public final class AltGuiHack extends Hack
 		new CheckboxSetting("Type badges", false);
 	private final CheckboxSetting favoriteStars =
 		new CheckboxSetting("Favorite stars", true);
+	private final CheckboxSetting fillColorValues = new CheckboxSetting(
+		"Fill color values",
+		"Show color settings as filled value boxes instead of colored outlines.",
+		true);
+	private final CheckboxSetting searchSettings =
+		new CheckboxSetting("Search settings/toggles",
+			"Include setting names and values in AltGUI search results.", true);
+	private final CheckboxSetting keepHackSettingsOpen = new CheckboxSetting(
+		"Keep hack settings open",
+		"Keep expanded hack settings open when AltGUI is closed and reopened.",
+		false);
 	private final EnumSetting<OpenBehavior> openBehavior = new EnumSetting<>(
 		"On open", OpenBehavior.values(), OpenBehavior.FAVORITES);
 	
@@ -103,9 +118,11 @@ public final class AltGuiHack extends Hack
 		addSetting(disabledColor);
 		addSetting(uiOpacity);
 		addSetting(tooltipOpacity);
-		addSetting(margin);
+		addSetting(settingsWidth);
+		addSetting(settingsHeight);
 		addSetting(widthPercent);
 		addSetting(heightPercent);
+		addSetting(categoryHeight);
 		addSetting(categoryWidth);
 		addSetting(rowHeight);
 		addSetting(fontScale);
@@ -116,6 +133,9 @@ public final class AltGuiHack extends Hack
 		addSetting(fontGroup);
 		addSetting(typeBadges);
 		addSetting(favoriteStars);
+		addSetting(fillColorValues);
+		addSetting(searchSettings);
+		addSetting(keepHackSettingsOpen);
 		addSetting(openBehavior);
 		refreshFontOptions();
 	}
@@ -192,9 +212,14 @@ public final class AltGuiHack extends Hack
 		return tooltipOpacity.getValueF();
 	}
 	
-	public int getMargin()
+	public float getSettingsWidth()
 	{
-		return margin.getValueI();
+		return (float)settingsWidth.getValue();
+	}
+	
+	public float getSettingsHeight()
+	{
+		return (float)settingsHeight.getValue();
 	}
 	
 	public double getWidthPercent()
@@ -210,6 +235,11 @@ public final class AltGuiHack extends Hack
 	public int getCategoryWidth()
 	{
 		return categoryWidth.getValueI();
+	}
+	
+	public int getCategoryHeight()
+	{
+		return categoryHeight.getValueI();
 	}
 	
 	public int getRowHeight()
@@ -272,9 +302,14 @@ public final class AltGuiHack extends Hack
 		return tooltipOpacity;
 	}
 	
-	public SliderSetting getMarginSetting()
+	public SliderSetting getSettingsWidthSetting()
 	{
-		return margin;
+		return settingsWidth;
+	}
+	
+	public SliderSetting getSettingsHeightSetting()
+	{
+		return settingsHeight;
 	}
 	
 	public SliderSetting getWidthPercentSetting()
@@ -290,6 +325,11 @@ public final class AltGuiHack extends Hack
 	public SliderSetting getCategoryWidthSetting()
 	{
 		return categoryWidth;
+	}
+	
+	public SliderSetting getCategoryHeightSetting()
+	{
+		return categoryHeight;
 	}
 	
 	public SliderSetting getRowHeightSetting()
@@ -338,6 +378,11 @@ public final class AltGuiHack extends Hack
 		return favoriteStars;
 	}
 	
+	public CheckboxSetting getFillColorValuesSetting()
+	{
+		return fillColorValues;
+	}
+	
 	public EnumSetting<OpenBehavior> getOpenBehaviorSetting()
 	{
 		return openBehavior;
@@ -351,6 +396,21 @@ public final class AltGuiHack extends Hack
 	public boolean isFavoriteStarsEnabled()
 	{
 		return favoriteStars.isChecked();
+	}
+	
+	public boolean isFillColorValuesEnabled()
+	{
+		return fillColorValues.isChecked();
+	}
+	
+	public boolean isSearchSettingsEnabled()
+	{
+		return searchSettings.isChecked();
+	}
+	
+	public boolean isKeepHackSettingsOpenEnabled()
+	{
+		return keepHackSettingsOpen.isChecked();
 	}
 	
 	public OpenBehavior getOpenBehavior()
@@ -399,9 +459,11 @@ public final class AltGuiHack extends Hack
 		disabledColor.setColor(disabledColor.getDefaultColor());
 		uiOpacity.setValue(uiOpacity.getDefaultValue());
 		tooltipOpacity.setValue(tooltipOpacity.getDefaultValue());
-		margin.setValue(margin.getDefaultValue());
+		settingsWidth.setValue(settingsWidth.getDefaultValue());
+		settingsHeight.setValue(settingsHeight.getDefaultValue());
 		widthPercent.setValue(widthPercent.getDefaultValue());
 		heightPercent.setValue(heightPercent.getDefaultValue());
+		categoryHeight.setValue(categoryHeight.getDefaultValue());
 		categoryWidth.setValue(categoryWidth.getDefaultValue());
 		rowHeight.setValue(rowHeight.getDefaultValue());
 		fontScale.setValue(fontScale.getDefaultValue());
@@ -412,6 +474,7 @@ public final class AltGuiHack extends Hack
 		AltGuiFontManager.getInstance().setActiveFont("Minecraft");
 		typeBadges.setChecked(typeBadges.isCheckedByDefault());
 		favoriteStars.setChecked(favoriteStars.isCheckedByDefault());
+		fillColorValues.setChecked(fillColorValues.isCheckedByDefault());
 	}
 	
 	public enum FontSmoothing

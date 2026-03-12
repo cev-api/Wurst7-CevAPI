@@ -18,6 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 
 @SearchTags({"wurst options", "settings"})
@@ -31,10 +32,20 @@ public final class WurstOptionsOtf extends OtherFeature
 		"description.wurst.setting.wurstoptions.location", Location.values(),
 		Location.GAME_MENU);
 	
+	private final CheckboxSetting hackToggleChatFeedback =
+		new CheckboxSetting("Hack toggle chat feedback",
+			"Show a chat message when hacks are enabled or disabled.", false);
+	
 	public WurstOptionsOtf()
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
+		addSetting(hackToggleChatFeedback);
+	}
+	
+	public boolean isHackToggleChatFeedbackEnabled()
+	{
+		return hackToggleChatFeedback.isChecked();
 	}
 	
 	public boolean isVisibleInGameMenu()
