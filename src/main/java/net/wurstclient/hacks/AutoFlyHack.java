@@ -46,6 +46,7 @@ import net.wurstclient.util.RenderUtils;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
@@ -211,6 +212,13 @@ public final class AutoFlyHack extends Hack
 		"Stop keyword",
 		"Keyword to match against the selected Stop on type (ignored for portals).",
 		"");
+	private final CheckboxSetting disableOnPlayers = new CheckboxSetting(
+		"Disable on players",
+		"Disable AutoFly entirely if another player entity is detected nearby.",
+		false);
+	private final CheckboxSetting disableOnDamage =
+		new CheckboxSetting("Disable on damage",
+			"Disable AutoFly entirely when you take damage.", false);
 	
 	private final List<AutoFlyTarget> targets = new ArrayList<>();
 	private AutoFlyTarget currentTarget;
@@ -300,6 +308,8 @@ public final class AutoFlyHack extends Hack
 		addSetting(disableAutoFlyOnArrival);
 		addSetting(stopOn);
 		addSetting(stopKeyword);
+		addSetting(disableOnPlayers);
+		addSetting(disableOnDamage);
 	}
 	
 	@Override
@@ -491,6 +501,12 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		if(checkStopOn())
+			return;
+		
+		if(checkStopOnPlayers())
+			return;
+		
+		if(checkDisableOnDamage())
 			return;
 		
 		if(allowManualAdjust.isChecked() && isManualInputActive())
@@ -815,6 +831,44 @@ public final class AutoFlyHack extends Hack
 		String id = safeString(
 			BuiltInRegistries.BLOCK.getKey(hit.state().getBlock()).toString());
 		stopAutoFly("Stopped: Found " + id);
+		return true;
+	}
+	
+	private boolean checkStopOnPlayers()
+	{
+		if(!disableOnPlayers.isChecked() || MC.player == null
+			|| MC.level == null)
+			return false;
+		
+		for(var entity : MC.level.entitiesForRendering())
+		{
+			if(!(entity instanceof Player p))
+				continue;
+			
+			if(p == MC.player || p.isRemoved() || !p.isAlive()
+				|| p.isSpectator())
+				continue;
+			
+			String name = safeString(p.getName().getString());
+			ChatUtils.message("Disabled: Player detected"
+				+ (name.isBlank() ? "" : " (" + name + ")"));
+			setEnabled(false);
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean checkDisableOnDamage()
+	{
+		if(!disableOnDamage.isChecked() || MC.player == null)
+			return false;
+		
+		if(MC.player.hurtTime <= 0)
+			return false;
+		
+		ChatUtils.message("Disabled: You took damage.");
+		setEnabled(false);
 		return true;
 	}
 	

@@ -545,11 +545,12 @@ public final class SpearAssistHack extends Hack
 		}
 		
 		double step = Math.min(dashSpeed, dashDistanceRemaining);
-		Vec3 boost = direction.normalize().scale(step);
-		if(stayGrounded.isChecked())
-			boost = new Vec3(boost.x, 0, boost.z);
+		boolean flying = isPlayerFlyingForBoost();
+		Vec3 boost = (stayGrounded.isChecked() || flying)
+			? normalizedHorizontal(direction).scale(step)
+			: direction.normalize().scale(step);
 		MC.player.setDeltaMovement(MC.player.getDeltaMovement().add(boost));
-		if(!stayGrounded.isChecked())
+		if(!stayGrounded.isChecked() && !flying)
 			MC.player.setOnGround(false);
 		MC.player.fallDistance = 0;
 		dashDistanceRemaining -= step;
@@ -567,11 +568,38 @@ public final class SpearAssistHack extends Hack
 		if(perTick <= 0)
 			return;
 		
-		Vec3 target = direction.normalize().scale(perTick);
-		double newY = stayGrounded.isChecked() ? 0 : target.y;
+		Vec3 currentMotion = MC.player.getDeltaMovement();
+		boolean flying = isPlayerFlyingForBoost();
+		Vec3 target = (stayGrounded.isChecked() || flying)
+			? normalizedHorizontal(direction).scale(perTick)
+			: direction.normalize().scale(perTick);
+		double newY =
+			stayGrounded.isChecked() ? 0 : flying ? currentMotion.y : target.y;
 		MC.player.setDeltaMovement(target.x, newY, target.z);
 		MC.player.fallDistance = 0;
-		MC.player.setOnGround(false);
+		if(!flying)
+			MC.player.setOnGround(false);
+	}
+	
+	private boolean isPlayerFlyingForBoost()
+	{
+		if(MC.player == null)
+			return false;
+		
+		return MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled();
+	}
+	
+	private Vec3 normalizedHorizontal(Vec3 direction)
+	{
+		if(direction == null)
+			return Vec3.ZERO;
+		
+		Vec3 horizontal = new Vec3(direction.x, 0, direction.z);
+		if(horizontal.lengthSqr() <= 1.0E-6)
+			return Vec3.ZERO;
+		
+		return horizontal.normalize();
 	}
 	
 	private void resetDash()
@@ -777,6 +805,13 @@ public final class SpearAssistHack extends Hack
 		if(target == null)
 			return null;
 		
+		if(target.onGround() && !MC.options.keyShift.isDown())
+		{
+			double feetDelta = target.getY() - MC.player.getY();
+			if(feetDelta < 0)
+				return null;
+		}
+		
 		double maxStep = maxStepOverride != null ? maxStepOverride
 			: MC.player.getAbilities().getFlyingSpeed();
 		if(maxStep <= 0)
@@ -785,6 +820,13 @@ public final class SpearAssistHack extends Hack
 		double targetY = target.getY();
 		double playerY = MC.player.getY();
 		double delta = targetY - playerY;
+		
+		// Never push downward while the player is grounded; you can't go lower
+		// than the floor and this causes sticky movement when targets are
+		// below.
+		if(MC.player.onGround() && delta < 0 && !MC.options.keyShift.isDown())
+			return null;
+		
 		if(Math.abs(delta) < 0.02)
 			return null;
 		

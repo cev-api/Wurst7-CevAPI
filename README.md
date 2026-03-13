@@ -1023,6 +1023,8 @@ Examples:
 - Added toggle for unique colors for each player (shared with Breadcrumbs)
 - Added box fill with transparency slider
 - Added static color option
+- Added rainbow color option
+- Added much thicker tracer lines (max 10px)
 - Added glow outlines as an option 
 - Added Line of Sight Detection (LOS)
     - When you're spotted ESP and tracer will turn a bold red regardless of distance or color settings

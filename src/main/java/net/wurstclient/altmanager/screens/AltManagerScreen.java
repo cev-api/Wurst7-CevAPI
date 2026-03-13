@@ -24,7 +24,11 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -65,6 +69,8 @@ import net.wurstclient.util.json.WsonObject;
 public final class AltManagerScreen extends Screen
 {
 	private static final HashSet<Alt> failedLogins = new HashSet<>();
+	private static final LinkedHashMap<Alt, String> failedLoginReasons =
+		new LinkedHashMap<>();
 	
 	private final Screen prevScreen;
 	private final AltManager altManager;
@@ -90,6 +96,9 @@ public final class AltManagerScreen extends Screen
 	private final HashSet<Alt> checkingAlts = new HashSet<>();
 	private volatile boolean importInProgress;
 	private volatile String importStatus = "";
+	private volatile int importDone;
+	private volatile int importTotal;
+	private volatile boolean importHasCounts;
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -198,6 +207,21 @@ public final class AltManagerScreen extends Screen
 			|| checkButton == null)
 			return;
 		
+		if(importInProgress)
+		{
+			useButton.active = false;
+			starButton.active = false;
+			editButton.active = false;
+			deleteButton.active = false;
+			logoutButton.active = false;
+			checkButton.active = false;
+			if(importButton != null)
+				importButton.active = false;
+			if(exportButton != null)
+				exportButton.active = false;
+			return;
+		}
+		
 		int selectionCount = listGui != null ? listGui.getSelectionCount() : 0;
 		boolean hasSingleSelection = selectionCount == 1;
 		Alt selectedAlt = listGui != null ? listGui.getSelectedAlt() : null;
@@ -272,14 +296,14 @@ public final class AltManagerScreen extends Screen
 		try
 		{
 			altManager.login(alt);
-			failedLogins.remove(alt);
+			clearLoginFailure(alt);
 			minecraft.setScreen(new AltLoginSuccessScreen(prevScreen,
 				minecraft.getUser().getName()));
 			
 		}catch(LoginException e)
 		{
 			errorTimer = 8;
-			failedLogins.add(alt);
+			recordLoginFailure(alt, e);
 			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
 	}
@@ -306,26 +330,79 @@ public final class AltManagerScreen extends Screen
 		if(autoCheckInProgress)
 			return;
 		
-		List<Alt> unchecked = altManager.getList().stream()
-			.filter(alt -> !alt.isCracked() && alt.isUncheckedPremium())
-			.toList();
+		List<Alt> allPremium = altManager.getList().stream()
+			.filter(alt -> !alt.isCracked()).toList();
+		List<Alt> unchecked =
+			allPremium.stream().filter(Alt::isUncheckedPremium).toList();
+		List<Alt> failed =
+			allPremium.stream().filter(alt -> failedLogins.contains(alt))
+				.filter(alt -> !unchecked.contains(alt)).toList();
+		List<Alt> remaining =
+			allPremium.stream().filter(alt -> !unchecked.contains(alt))
+				.filter(alt -> !failed.contains(alt)).toList();
 		
-		if(unchecked.isEmpty())
+		if(unchecked.isEmpty() && failed.isEmpty() && remaining.isEmpty())
 		{
-			if(altManager.dedupeByUsernamePreferRefreshToken())
-				reloadScreen();
-			else
-				updateAltButtons();
+			updateAltButtons();
 			return;
 		}
+		
+		List<Alt> prioritized = new ArrayList<>();
+		prioritized.addAll(unchecked);
+		prioritized.addAll(failed);
 		
 		autoCheckInProgress = true;
 		updateAltButtons();
 		
-		Thread thread = new Thread(() -> runAutoCheckAndDedupe(unchecked),
-			"Wurst Alt Auto-Check");
+		List<Alt> firstPhase = List.copyOf(prioritized);
+		List<Alt> secondPhase = List.copyOf(remaining);
+		Thread thread =
+			new Thread(() -> runAutoCheckAndDedupe(firstPhase, secondPhase),
+				"Wurst Alt Auto-Check");
 		thread.setDaemon(true);
 		thread.start();
+	}
+	
+	private boolean promptContinueWithRemaining(int remainingCount)
+	{
+		if(minecraft == null)
+			return false;
+		
+		AtomicBoolean result = new AtomicBoolean(false);
+		CountDownLatch latch = new CountDownLatch(1);
+		
+		minecraft.execute(() -> {
+			if(minecraft.screen != this)
+			{
+				latch.countDown();
+				return;
+			}
+			
+			Component title =
+				Component.literal("Continue checking remaining accounts?");
+			Component message =
+				Component.literal("Checked prioritized accounts. Continue with "
+					+ remainingCount + " already-checked account"
+					+ (remainingCount == 1 ? "?" : "s?"));
+			ConfirmScreen screen = new ConfirmScreen(confirmed -> {
+				result.set(confirmed);
+				minecraft.setScreen(this);
+				latch.countDown();
+			}, title, message, Component.literal("Continue"),
+				Component.literal("Stop"));
+			minecraft.setScreen(screen);
+		});
+		
+		try
+		{
+			latch.await();
+		}catch(InterruptedException e)
+		{
+			Thread.currentThread().interrupt();
+			return false;
+		}
+		
+		return result.get();
 	}
 	
 	private void pressFavorite()
@@ -402,6 +479,9 @@ public final class AltManagerScreen extends Screen
 	{
 		importInProgress = true;
 		importStatus = "Starting import...";
+		importDone = 0;
+		importTotal = 0;
+		importHasCounts = false;
 		updateAltButtons();
 		
 		List<Alt> existing = new ArrayList<>(altManager.getList());
@@ -440,6 +520,7 @@ public final class AltManagerScreen extends Screen
 				}finally
 				{
 					importInProgress = false;
+					importHasCounts = false;
 					updateAltButtons();
 				}
 			});
@@ -449,6 +530,7 @@ public final class AltManagerScreen extends Screen
 			minecraft.execute(() -> {
 				importStatus = "Import failed: " + e.getClass().getSimpleName();
 				importInProgress = false;
+				importHasCounts = false;
 				updateAltButtons();
 			});
 			e.printStackTrace();
@@ -468,6 +550,7 @@ public final class AltManagerScreen extends Screen
 		throws IOException, JsonException
 	{
 		progress.accept("Parsing JSON...");
+		importHasCounts = false;
 		WsonObject wson = JsonUtils.parseFileToObject(path);
 		return AltsFile.parseJson(wson);
 	}
@@ -480,15 +563,14 @@ public final class AltManagerScreen extends Screen
 		ArrayList<Alt> alts = new ArrayList<>();
 		ArrayList<String> rawTokenLines = new ArrayList<>();
 		int totalLines = lines.size();
+		setImportProgressCounts("Parsing lines", 0, totalLines);
 		int lineIndex = 0;
 		
 		for(String line : lines)
 		{
 			lineIndex++;
-			if(lineIndex == 1 || lineIndex == totalLines
-				|| lineIndex % 100 == 0)
-				progress
-					.accept("Parsing lines... " + lineIndex + "/" + totalLines);
+			if(lineIndex == 1 || lineIndex == totalLines || lineIndex % 25 == 0)
+				setImportProgressCounts("Parsing lines", lineIndex, totalLines);
 			
 			String trimmed = line.trim();
 			if(trimmed.isEmpty())
@@ -557,11 +639,12 @@ public final class AltManagerScreen extends Screen
 		{
 			int total = lines.size();
 			int done = 0;
+			setImportProgressCounts("Resolving tokens", done, total);
 			
 			for(String tokenLine : lines)
 			{
 				done++;
-				progress.accept("Resolving tokens... " + done + "/" + total);
+				setImportProgressCounts("Resolving tokens", done, total);
 				
 				boolean isRefreshToken = tokenLine.startsWith("M.");
 				
@@ -613,6 +696,15 @@ public final class AltManagerScreen extends Screen
 	private void setImportProgress(String status)
 	{
 		importStatus = status;
+		importHasCounts = false;
+	}
+	
+	private void setImportProgressCounts(String phase, int done, int total)
+	{
+		importStatus = phase + "... " + done + "/" + total;
+		importDone = Math.max(0, done);
+		importTotal = Math.max(0, total);
+		importHasCounts = total > 0;
 	}
 	
 	private ImportResult filterDuplicates(List<Alt> imported,
@@ -688,7 +780,8 @@ public final class AltManagerScreen extends Screen
 		return null;
 	}
 	
-	private void runAutoCheckAndDedupe(List<Alt> unchecked)
+	private void runAutoCheckAndDedupe(List<Alt> prioritized,
+		List<Alt> remaining)
 	{
 		IMinecraftClient imc = (IMinecraftClient)minecraft;
 		User previousSession = imc.getWurstSession();
@@ -696,7 +789,7 @@ public final class AltManagerScreen extends Screen
 		
 		try
 		{
-			for(Alt alt : unchecked)
+			for(Alt alt : prioritized)
 			{
 				if(!isOpenScreen())
 					return;
@@ -705,15 +798,47 @@ public final class AltManagerScreen extends Screen
 				try
 				{
 					altManager.login(alt);
-					failedLogins.remove(alt);
+					clearLoginFailure(alt);
 					changed = true;
 					
 				}catch(LoginException e)
 				{
-					failedLogins.add(alt);
+					recordLoginFailure(alt, e);
 				}finally
 				{
 					setChecking(alt, false);
+				}
+			}
+			
+			if(!isOpenScreen())
+				return;
+			
+			if(!remaining.isEmpty())
+			{
+				boolean continueWithRemaining =
+					promptContinueWithRemaining(remaining.size());
+				if(continueWithRemaining)
+				{
+					for(Alt alt : remaining)
+					{
+						if(!isOpenScreen())
+							return;
+						
+						setChecking(alt, true);
+						try
+						{
+							altManager.login(alt);
+							clearLoginFailure(alt);
+							changed = true;
+							
+						}catch(LoginException e)
+						{
+							recordLoginFailure(alt, e);
+						}finally
+						{
+							setChecking(alt, false);
+						}
+					}
 				}
 			}
 			
@@ -748,6 +873,66 @@ public final class AltManagerScreen extends Screen
 			else
 				checkingAlts.remove(alt);
 		}
+	}
+	
+	private void recordLoginFailure(Alt alt, LoginException exception)
+	{
+		if(alt == null)
+			return;
+		
+		failedLogins.add(alt);
+		String reason = shortenLoginFailureReason(
+			exception != null ? exception.getMessage() : null);
+		failedLoginReasons.put(alt, reason);
+	}
+	
+	private void clearLoginFailure(Alt alt)
+	{
+		if(alt == null)
+			return;
+		
+		failedLogins.remove(alt);
+		failedLoginReasons.remove(alt);
+	}
+	
+	private String getFailedReason(Alt alt)
+	{
+		String reason = failedLoginReasons.get(alt);
+		return reason == null ? "" : reason;
+	}
+	
+	private String shortenLoginFailureReason(String message)
+	{
+		if(message == null || message.isBlank())
+			return "error";
+		
+		String lower = message.toLowerCase(Locale.ROOT);
+		if(lower.contains("banned"))
+			return "banned";
+		if(lower.contains("restricted"))
+			return "restricted";
+		if(lower.contains("suspended"))
+			return "suspended";
+		if(lower.contains("expired"))
+			return "expired";
+		if(lower.contains("timeout") || lower.contains("timed out"))
+			return "timeout";
+		if(lower.contains("rate limit") || lower.contains("too many requests")
+			|| lower.contains("too many") || lower.contains("429"))
+			return "rate-limited";
+		if(lower.contains("forbidden") || lower.contains("unauthorized")
+			|| lower.contains("invalid token") || lower.contains("invalid")
+			|| lower.contains("credentials"))
+			return "invalid";
+		if(lower.contains("connection") || lower.contains("network"))
+			return "network";
+		
+		Matcher matcher =
+			Pattern.compile("\\b([45][0-9]{2})\\b").matcher(message);
+		if(matcher.find())
+			return matcher.group(1);
+		
+		return "error";
 	}
 	
 	private boolean isChecking(Alt alt)
@@ -855,7 +1040,10 @@ public final class AltManagerScreen extends Screen
 	private void confirmRemove(boolean confirmed)
 	{
 		if(confirmed)
-			pendingDeletion.forEach(altManager::remove);
+			pendingDeletion.forEach(alt -> {
+				clearLoginFailure(alt);
+				altManager.remove(alt);
+			});
 		
 		pendingDeletion = Collections.emptyList();
 		minecraft.setScreen(this);
@@ -909,8 +1097,53 @@ public final class AltManagerScreen extends Screen
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
+		renderImportOverlay(context);
 		renderButtonTooltip(context, mouseX, mouseY);
 		renderAltTooltip(context, mouseX, mouseY);
+	}
+	
+	private void renderImportOverlay(GuiGraphics context)
+	{
+		if(!importInProgress)
+			return;
+		
+		int now = (int)(Util.getMillis() / 450L);
+		String dots = ".".repeat(Math.max(1, (now % 3) + 1));
+		String headline = "Loading accounts" + dots;
+		String status = importStatus == null || importStatus.isBlank()
+			? "Please wait..." : importStatus;
+		String counts = "";
+		if(importHasCounts && importTotal > 0)
+		{
+			int left = Math.max(0, importTotal - importDone);
+			counts = "Processed: " + importDone + " / " + importTotal
+				+ "   Left: " + left;
+		}
+		
+		context.fill(0, 0, width, height, 0x8A000000);
+		
+		int panelW = Math.min(430, width - 40);
+		int panelH = importHasCounts ? 102 : 88;
+		int x1 = (width - panelW) / 2;
+		int y1 = (height - panelH) / 2;
+		int x2 = x1 + panelW;
+		int y2 = y1 + panelH;
+		
+		context.fill(x1, y1, x2, y2, 0xF0181A22);
+		context.fill(x1, y1, x2, y1 + 1, 0xFF5FA3FF);
+		context.fill(x1, y2 - 1, x2, y2, 0xFF5FA3FF);
+		context.fill(x1, y1, x1 + 1, y2, 0xFF5FA3FF);
+		context.fill(x2 - 1, y1, x2, y2, 0xFF5FA3FF);
+		
+		context.drawCenteredString(font, headline, width / 2, y1 + 16,
+			CommonColors.WHITE);
+		context.drawCenteredString(font, status, width / 2, y1 + 34, 0xFFFFAA);
+		if(!counts.isBlank())
+			context.drawCenteredString(font, counts, width / 2, y1 + 50,
+				0xFFA8D0FF);
+		context.drawCenteredString(font,
+			"Import/Export/Login controls are temporarily disabled.", width / 2,
+			importHasCounts ? y1 + 68 : y1 + 54, CommonColors.LIGHT_GRAY);
 	}
 	
 	private void renderAltTooltip(GuiGraphics context, int mouseX, int mouseY)
@@ -942,7 +1175,12 @@ public final class AltManagerScreen extends Screen
 			addTooltip(tooltip, "premium");
 			
 			if(failedLogins.contains(alt))
+			{
 				addTooltip(tooltip, "failed");
+				String reason = getFailedReason(alt);
+				if(!reason.isBlank())
+					tooltip.add(Component.literal("Reason: " + reason));
+			}
 			
 			if(alt.isCheckedPremium())
 				addTooltip(tooltip, "checked");
@@ -1126,8 +1364,12 @@ public final class AltManagerScreen extends Screen
 				text += "\u00a7r, \u00a7efavorite";
 			
 			if(failedLogins.contains(alt))
+			{
+				String reason = getFailedReason(alt);
 				text += "\u00a7r, \u00a7clogin failed";
-			else if(isChecking(alt))
+				if(!reason.isBlank())
+					text += "\u00a7r \u00a76(" + reason + ")\u00a7c";
+			}else if(isChecking(alt))
 				text += "\u00a7r, \u00a7echecking...";
 			else if(alt.isUncheckedPremium())
 				text += "\u00a7r, \u00a7cunchecked";

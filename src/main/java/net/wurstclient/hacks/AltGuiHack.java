@@ -11,6 +11,7 @@ import java.awt.Color;
 
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
+import net.wurstclient.Category;
 import net.wurstclient.altgui.AltGuiFontManager;
 import net.wurstclient.altgui.AltGuiScreen;
 import net.wurstclient.hack.DontSaveState;
@@ -50,22 +51,24 @@ public final class AltGuiHack extends Hack
 	
 	private final SliderSetting uiOpacity = new SliderSetting("UI opacity",
 		0.82, 0.25, 1, 0.01, ValueDisplay.PERCENTAGE);
+	private final SliderSetting backgroundOpacity = new SliderSetting(
+		"Background opacity", 0.70, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting tooltipOpacity = new SliderSetting(
 		"Tooltip opacity", 0.86, 0.1, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting settingsWidth = new SliderSetting(
-		"Settings width", 0.7, 0.2, 1.0, 0.02, ValueDisplay.DECIMAL);
+		"Settings width", 0.7, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
 	private final SliderSetting settingsHeight = new SliderSetting(
-		"Settings height", 0.7, 0.2, 1.0, 0.02, ValueDisplay.DECIMAL);
+		"Settings height", 0.7, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
 	private final SliderSetting widthPercent = new SliderSetting("Window width",
 		0.96, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting heightPercent = new SliderSetting(
 		"Window height", 0.92, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting categoryHeight = new SliderSetting(
-		"Category height", 16, 12, 32, 1, ValueDisplay.INTEGER);
+		"Category height", 16, 8, 32, 1, ValueDisplay.INTEGER);
 	private final SliderSetting categoryWidth = new SliderSetting(
-		"Category width", 110, 70, 240, 1, ValueDisplay.INTEGER);
+		"Category width", 110, 40, 240, 1, ValueDisplay.INTEGER);
 	private final SliderSetting rowHeight =
-		new SliderSetting("Row height", 18, 14, 30, 1, ValueDisplay.INTEGER);
+		new SliderSetting("Row height", 18, 8, 30, 1, ValueDisplay.INTEGER);
 	private final SliderSetting fontScale = new SliderSetting("Font scale", 1.0,
 		0.3, 1.8, 0.05, ValueDisplay.DECIMAL);
 	private final EnumSetting<FontSmoothing> fontSmoothing = new EnumSetting<>(
@@ -117,6 +120,7 @@ public final class AltGuiHack extends Hack
 		addSetting(enabledColor);
 		addSetting(disabledColor);
 		addSetting(uiOpacity);
+		addSetting(backgroundOpacity);
 		addSetting(tooltipOpacity);
 		addSetting(settingsWidth);
 		addSetting(settingsHeight);
@@ -207,6 +211,11 @@ public final class AltGuiHack extends Hack
 		return uiOpacity.getValueF();
 	}
 	
+	public float getBackgroundOpacity()
+	{
+		return backgroundOpacity.getValueF();
+	}
+	
 	public float getTooltipOpacity()
 	{
 		return tooltipOpacity.getValueF();
@@ -234,12 +243,12 @@ public final class AltGuiHack extends Hack
 	
 	public int getCategoryWidth()
 	{
-		return categoryWidth.getValueI();
+		return Math.max(categoryWidth.getValueI(), getMinimumCategoryWidth());
 	}
 	
 	public int getCategoryHeight()
 	{
-		return categoryHeight.getValueI();
+		return Math.max(categoryHeight.getValueI(), getMinimumCategoryHeight());
 	}
 	
 	public int getRowHeight()
@@ -295,6 +304,11 @@ public final class AltGuiHack extends Hack
 	public SliderSetting getUiOpacitySetting()
 	{
 		return uiOpacity;
+	}
+	
+	public SliderSetting getBackgroundOpacitySetting()
+	{
+		return backgroundOpacity;
 	}
 	
 	public SliderSetting getTooltipOpacitySetting()
@@ -436,8 +450,33 @@ public final class AltGuiHack extends Hack
 		cachedMinScale = scale;
 		cachedMinSmoothing = smoothing;
 		cachedMinFamily = family;
-		cachedMinRowHeight = Math.max(14, scaledTextHeight + 4);
+		cachedMinRowHeight = Math.max(10, scaledTextHeight + 4);
 		return cachedMinRowHeight;
+	}
+	
+	public int getMinimumCategoryHeight()
+	{
+		AltGuiFontManager manager = AltGuiFontManager.getInstance();
+		manager.setSmoothingFactor(getFontSmoothingFactor());
+		manager.setActiveFont(getSelectedFontFamily());
+		int lineHeight =
+			MC != null && MC.font != null ? manager.getLineHeight(MC.font) : 9;
+		int scaledTextHeight = (int)Math.ceil(lineHeight * getFontScale());
+		return Math.max(10, scaledTextHeight + 4);
+	}
+	
+	public int getMinimumCategoryWidth()
+	{
+		AltGuiFontManager manager = AltGuiFontManager.getInstance();
+		manager.setSmoothingFactor(getFontSmoothingFactor());
+		manager.setActiveFont(getSelectedFontFamily());
+		int maxTextWidth = manager.getTextWidth(MC.font, "Client Settings");
+		maxTextWidth =
+			Math.max(maxTextWidth, manager.getTextWidth(MC.font, "Enabled"));
+		for(Category category : Category.values())
+			maxTextWidth = Math.max(maxTextWidth,
+				manager.getTextWidth(MC.font, category.getName()));
+		return Math.max(40, (int)Math.ceil(maxTextWidth * getFontScale()) + 20);
 	}
 	
 	public void enforceNoClipLayout()
@@ -445,6 +484,12 @@ public final class AltGuiHack extends Hack
 		int minRowHeight = getMinimumRowHeight();
 		if(rowHeight.getValueI() < minRowHeight)
 			rowHeight.setValue(minRowHeight);
+		int minCategoryHeight = getMinimumCategoryHeight();
+		if(categoryHeight.getValueI() < minCategoryHeight)
+			categoryHeight.setValue(minCategoryHeight);
+		int minCategoryWidth = getMinimumCategoryWidth();
+		if(categoryWidth.getValueI() < minCategoryWidth)
+			categoryWidth.setValue(minCategoryWidth);
 	}
 	
 	public void resetStyle()
@@ -458,6 +503,7 @@ public final class AltGuiHack extends Hack
 		enabledColor.setColor(enabledColor.getDefaultColor());
 		disabledColor.setColor(disabledColor.getDefaultColor());
 		uiOpacity.setValue(uiOpacity.getDefaultValue());
+		backgroundOpacity.setValue(backgroundOpacity.getDefaultValue());
 		tooltipOpacity.setValue(tooltipOpacity.getDefaultValue());
 		settingsWidth.setValue(settingsWidth.getDefaultValue());
 		settingsHeight.setValue(settingsHeight.getDefaultValue());

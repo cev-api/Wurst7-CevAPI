@@ -177,20 +177,17 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "hidden from the tab-list.",
 		true);
 	private final SliderSetting tracerThickness =
-		new SliderSetting("Tracer thickness", 2, 0.5, 8, 0.1,
+		new SliderSetting("Tracer thickness", 2, 0.5, 10, 0.1,
 			SliderSetting.ValueDisplay.DECIMAL.withSuffix("px"));
 	private final CheckboxSetting filledBoxes = new CheckboxSetting(
 		"Filled boxes",
 		"When enabled, renders solid filled boxes instead of outlined boxes.",
 		false);
-	private final CheckboxSetting useStaticPlayerColor = new CheckboxSetting(
-		"Use static player color",
-		"When enabled, uses the selected static color for all players and\n"
-			+ "forces it into the shared color registry. PlayerESP owns the\n"
-			+ "assignment while this is enabled (will override Breadcrumbs).",
-		false);
+	private final EnumSetting<StaticPlayerColorMode> staticPlayerColorMode =
+		new EnumSetting<>("Use static player color",
+			StaticPlayerColorMode.values(), StaticPlayerColorMode.OFF);
 	private final ColorSetting playerColor = new ColorSetting("Player color",
-		"Static color used when 'Use static player color' is enabled.",
+		"Static color used when 'Use static player color' is set to Static.",
 		new Color(255, 196, 64));
 	private final net.wurstclient.settings.SliderSetting filledAlpha =
 		new net.wurstclient.settings.SliderSetting("Filled box alpha", 35, 0,
@@ -215,7 +212,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(tracerThickness);
 		addSetting(filledBoxes);
 		addSetting(filledAlpha);
-		addSetting(useStaticPlayerColor);
+		addSetting(staticPlayerColorMode);
 		addSetting(playerColor);
 		addSetting(boxSize);
 		
@@ -259,6 +256,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		playerColor.setVisibleInGui(staticPlayerColorMode
+			.getSelected() == StaticPlayerColorMode.STATIC);
+		
 		boolean currentShaderSafeMode = ShaderUtils.refreshShadersActive();
 		if(currentShaderSafeMode != shaderSafeMode)
 		{
@@ -675,9 +675,18 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	{
 		if(WURST.getFriends().contains(e.getName().getString()))
 			return 0x800000FF;
+		
+		StaticPlayerColorMode colorMode = staticPlayerColorMode.getSelected();
+		
+		if(colorMode == StaticPlayerColorMode.RAINBOW)
+		{
+			net.wurstclient.util.PlayerColorRegistry.removeByOwner("PlayerESP");
+			return RenderUtils.toIntColor(RenderUtils.getRainbowColor(), 0.9F);
+		}
+		
 		// If PlayerESP enforces a static color, force it into the registry so
 		// PlayerESP always overrides Breadcrumbs. Return that color.
-		if(useStaticPlayerColor.isChecked())
+		if(colorMode == StaticPlayerColorMode.STATIC)
 		{
 			java.awt.Color pc = playerColor.getColor();
 			net.wurstclient.util.PlayerColorRegistry.forceAssign(e.getUUID(),
@@ -703,7 +712,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// If neither static nor random are enabled, remove any PlayerESP-owned
 		// registry entries so other hacks' colors can show. Then fall back to
 		// dynamic distance-based coloring.
-		if(!useStaticPlayerColor.isChecked() && !randomBrightColors.isChecked())
+		if(colorMode == StaticPlayerColorMode.OFF
+			&& !randomBrightColors.isChecked())
 		{
 			// remove all registry assignments owned by PlayerESP
 			net.wurstclient.util.PlayerColorRegistry.removeByOwner("PlayerESP");
@@ -713,7 +723,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// Only consult the shared registry when PlayerESP has explicitly opted
 		// into owning colors. This prevents Breadcrumbs (or other hacks)
 		// changing PlayerESP colors unexpectedly.
-		if(useStaticPlayerColor.isChecked() || randomBrightColors.isChecked())
+		if(colorMode == StaticPlayerColorMode.STATIC
+			|| randomBrightColors.isChecked())
 		{
 			java.awt.Color reg2 =
 				net.wurstclient.util.PlayerColorRegistry.get(e.getUUID());
@@ -1052,6 +1063,26 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			{
 				return name;
 			}
+		}
+	}
+	
+	private enum StaticPlayerColorMode
+	{
+		OFF("Off"),
+		STATIC("Static"),
+		RAINBOW("Rainbow");
+		
+		private final String name;
+		
+		private StaticPlayerColorMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
 		}
 	}
 	
