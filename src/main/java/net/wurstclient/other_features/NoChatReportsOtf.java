@@ -65,6 +65,11 @@ public final class NoChatReportsOtf extends OtherFeature
 		return unsafeChatToast;
 	}
 	
+	public CheckboxSetting getDisableSignaturesSetting()
+	{
+		return disableSignatures;
+	}
+	
 	public boolean isUnsafeChatToastEnabled()
 	{
 		return unsafeChatToast.isChecked();

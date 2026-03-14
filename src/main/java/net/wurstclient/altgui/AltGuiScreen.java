@@ -10,8 +10,11 @@ package net.wurstclient.altgui;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -40,6 +43,8 @@ import net.wurstclient.hacks.ClientChatOverlayHack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.keybinds.Keybind;
+import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.BlockSetting;
@@ -75,6 +80,17 @@ public final class AltGuiScreen extends Screen
 	private static int LAST_MODULE_SCROLL;
 	private static final HashSet<String> LAST_EXPANDED_FEATURES =
 		new HashSet<>();
+	private static final Set<String> HIDDEN_OTHER_FEATURES =
+		Set.of("CleanUp", "LastServer", "Reconnect", "ServerFinder",
+			"WikiDataExport", "WurstCapes");
+	private static final Set<String> MOVE_TO_CLIENT_SETTINGS =
+		Set.of("DisableWurst", "CommandPrefix", "Changelog",
+			"ConnectionLogOverlay", "NoTelemetry", "NoChatReports",
+			"ForceAllowChats", "VanillaSpoof", "Translations");
+	private static final Set<String> KEYBINDS_HIDDEN_FOR =
+		Set.of("WurstOptions", "Translations", "WurstLogo", "CommandPrefix",
+			"ConnectionLogOverlay", "DisableWurst", "ForceAllowChats",
+			"HideModMenu", "NoTelemetry");
 	
 	private final Screen prevScreen;
 	
@@ -697,6 +713,42 @@ public final class AltGuiScreen extends Screen
 	private void renderSettingRow(GuiGraphics context, Font font, int mouseX,
 		int mouseY, SettingRow row, int y1, int y2)
 	{
+		if(row.isKeybindRow())
+		{
+			int rowX1 = moduleX + 20 + row.depth() * scaleRightSettingWidth(10);
+			int rowX2 = moduleX + moduleW - 12;
+			boolean hovered = isInside(mouseX, mouseY, rowX1, y1, rowX2, y2);
+			
+			context.fill(rowX1, y1, rowX2, y2,
+				hovered ? withAlpha(cfg().getAccentColor(), 0.28F)
+					: withAlpha(cfg().getPanelLightColor(), 0.72F));
+			context.fill(rowX1, y1, rowX1 + scaleRightSettingWidth(3), y2,
+				withAlpha(cfg().getAccentColor(), 0.95F));
+			
+			String label = "Keybinds";
+			int count = getExistingKeybindsForFeature(row.owner(),
+				getPossibleKeybindsForFeature(row.owner())).size();
+			String value = count == 0 ? "Open" : count + " bound";
+			
+			int valueW = getSettingsValueColumnWidth(rowX1, rowX2);
+			int valueX2 = rowX2 - scaleRightSettingWidth(6);
+			int valueX1 = valueX2 - valueW;
+			int valuePad = getPillPadding(font, y2 - y1);
+			int valueY1 = y1 + valuePad;
+			int valueY2 = y2 - valuePad;
+			
+			drawStringScaled(context, font, label,
+				rowX1 + scaleRightSettingWidth(10), centeredTextY(font, y1, y2),
+				cfg().getTextColor(), false);
+			
+			context.fill(valueX1, valueY1, valueX2, valueY2,
+				withAlpha(cfg().getPanelColor(), 0.92F));
+			drawMarqueeStringScaledInBox(context, font, value, valueX1, valueY1,
+				valueX2, valueY2, cfg().getTextColor(),
+				scaleRightSettingWidth(6));
+			return;
+		}
+		
 		if(row.setting() instanceof SpacerSetting)
 			return;
 		
@@ -1209,6 +1261,13 @@ public final class AltGuiScreen extends Screen
 		double mouseY, int button, int y1, int y2)
 	{
 		Feature owner = row.owner();
+		if(row.isKeybindRow())
+		{
+			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+				minecraft.setScreen(new AltGuiKeybindScreen(this, owner));
+			return true;
+		}
+		
 		Setting setting = row.setting();
 		if(setting instanceof SpacerSetting)
 			return false;
@@ -1447,6 +1506,65 @@ public final class AltGuiScreen extends Screen
 			expandedGroups.add(group);
 	}
 	
+	private Set<PossibleKeybind> getPossibleKeybindsForFeature(Feature feature)
+	{
+		LinkedHashSet<PossibleKeybind> possible =
+			new LinkedHashSet<>(feature.getPossibleKeybinds());
+		
+		if(feature instanceof Hack)
+			possible.add(new PossibleKeybind(feature.getName(),
+				"Toggle " + feature.getName()));
+		
+		return possible;
+	}
+	
+	private boolean featureSupportsKeybinds(Feature feature)
+	{
+		if(feature == null)
+			return false;
+		
+		if(KEYBINDS_HIDDEN_FOR.stream()
+			.anyMatch(name -> name.equalsIgnoreCase(feature.getName())))
+			return false;
+		
+		return !getPossibleKeybindsForFeature(feature).isEmpty();
+	}
+	
+	private TreeMap<String, PossibleKeybind> getExistingKeybindsForFeature(
+		Feature feature, Set<PossibleKeybind> possibleKeybinds)
+	{
+		TreeMap<String, PossibleKeybind> existing = new TreeMap<>();
+		TreeMap<String, String> possibleByCommand =
+			new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+		for(PossibleKeybind pkb : possibleKeybinds)
+			possibleByCommand.put(pkb.getCommand(), pkb.getDescription());
+		
+		for(Keybind keybind : WurstClient.INSTANCE.getKeybinds()
+			.getAllKeybinds())
+		{
+			String commands = keybind.getCommands().replace(";", "\u00a7")
+				.replace("\u00a7\u00a7", ";");
+			for(String commandRaw : commands.split("\u00a7"))
+			{
+				String command = commandRaw.trim();
+				String description = possibleByCommand.get(command);
+				if(description != null)
+				{
+					existing.put(keybind.getKey(),
+						new PossibleKeybind(command, description));
+					continue;
+				}
+				
+				if(feature instanceof Hack
+					&& command.equalsIgnoreCase(feature.getName()))
+					existing.put(keybind.getKey(), new PossibleKeybind(command,
+						"Toggle " + feature.getName()));
+			}
+		}
+		
+		return existing;
+	}
+	
 	private List<Feature> getFilteredFeatures()
 	{
 		String query = searchText == null ? ""
@@ -1488,6 +1606,13 @@ public final class AltGuiScreen extends Screen
 		for(OtherFeature otf : WurstClient.INSTANCE.getOtfs().getAllOtfs())
 		{
 			if(otf == null || otf == performanceOverlay)
+				continue;
+			
+			if(HIDDEN_OTHER_FEATURES.contains(otf.getName()))
+				continue;
+			
+			if(MOVE_TO_CLIENT_SETTINGS.stream()
+				.anyMatch(name -> name.equalsIgnoreCase(otf.getName())))
 				continue;
 			
 			if(clientSettingsFeatures.contains(otf))
@@ -1776,6 +1901,14 @@ public final class AltGuiScreen extends Screen
 		ArrayList<SettingRow> rows = new ArrayList<>();
 		for(Setting setting : feature.getSettings().values())
 			appendSettingRows(rows, feature, setting, 0, false);
+		
+		if(featureSupportsKeybinds(feature))
+		{
+			int h = Math.max(cfg().getMinimumRowHeight(), Math
+				.round(cfg().getRowHeight() * getRightSettingsHeightScale()));
+			rows.add(new SettingRow(feature, null, 0, h, true));
+		}
+		
 		return rows;
 	}
 	
@@ -1793,7 +1926,7 @@ public final class AltGuiScreen extends Screen
 						* getRightSettingsHeightScale() / 2F))
 				: Math.max(cfg().getMinimumRowHeight(), Math.round(
 					cfg().getRowHeight() * getRightSettingsHeightScale()));
-		rows.add(new SettingRow(owner, setting, depth, h));
+		rows.add(new SettingRow(owner, setting, depth, h, false));
 		
 		if(setting instanceof SettingGroup group)
 		{
@@ -2258,7 +2391,7 @@ public final class AltGuiScreen extends Screen
 	{}
 	
 	private record SettingRow(Feature owner, Setting setting, int depth,
-		int height)
+		int height, boolean isKeybindRow)
 	{}
 	
 	private record SliderDrag(SliderSetting slider, int x1, int x2)

@@ -4,10 +4,10 @@
     "Rotation Speed": 7200.0,
     "Lock-on": true,
     "FOV": 360.0,
-    "Aim at": "Center",
+    "Aim at": "Auto",
     "Ignore mouse input": 0.0,
     "Check line of sight": true,
-    "Aim while blocking": false,
+    "Aim while blocking": true,
     "Filter players": false,
     "Filter sleeping": false,
     "Filter flying": 0.0,
@@ -36,6 +36,35 @@
     "Range": 5.0,
     "Guide": true,
     "Guide color": "#FF0000"
+  },
+  "AltGUI": {
+    "Background": "#0D0F13",
+    "Panel": "#151A22",
+    "Panel light": "#1B212C",
+    "Text": "#E9EDF5",
+    "Muted text": "#97A2B5",
+    "Accent": "#2E9AFE",
+    "Enabled": "#23D18B",
+    "Disabled": "#5F6C82",
+    "UI opacity": 0.84,
+    "Background opacity": 0.0,
+    "Tooltip opacity": 1.0,
+    "Settings width": 0.44,
+    "Settings height": 0.7,
+    "Window width": 0.57,
+    "Window height": 0.58,
+    "Category height": 11.0,
+    "Category width": 80.0,
+    "Row height": 11.0,
+    "Font scale": 0.7,
+    "Font smoothing": "Off",
+    "Font family": "Minecraft",
+    "Type badges": false,
+    "Favorite stars": true,
+    "Fill color values": true,
+    "Search settings/toggles": false,
+    "Keep hack settings open": true,
+    "On open": "Last position"
   },
   "AnchorAura": {
     "Range": 6.0,
@@ -75,8 +104,11 @@
     "Vertical Strength": 1.0
   },
   "AntiCheatDetect": {
-    "SetbackDetection": false,
-    "Suppress unknown alerts": true
+    "SetbackDetection": true,
+    "Suppress unknown alerts": true,
+    "Detect global anti-esp": true,
+    "Global anti-esp alerts": true,
+    "Global block burst threshold": 400.0
   },
   "AntiDrop": {
     "Items": "default"
@@ -97,8 +129,8 @@
     "Detect lava": true,
     "Respond only at void level": true,
     "Use Flight": true,
-    "Auto-enable on out_of_world": true,
-    "Auto-enable by height": true,
+    "Auto-enable on out_of_world": false,
+    "Auto-enable by height": false,
     "Lava buffer (blocks)": 2.0
   },
   "AntiWaterPush": {
@@ -114,7 +146,7 @@
     "Delay": 2.0
   },
   "AutoBuild": {
-    "Template": "neco.json",
+    "Template": "",
     "Range": 10.0,
     "Check line of sight": false,
     "Use saved blocks": false,
@@ -122,6 +154,28 @@
     "Strict build order": false,
     "Preview template": true,
     "Confirm ticks": 6.0
+  },
+  "AutoChat": {
+    "OpenAI API key": "",
+    "Persona": "you're a minecraft player",
+    "Nickname aliases": "",
+    "Custom system prompt": "",
+    "Model": "gpt-5",
+    "Max tokens": 1024.0,
+    "Temperature": 0.8,
+    "Max chars": 140.0,
+    "Only when spoken to": false,
+    "Butt-in chance": 100.0,
+    "Context history size": 94.0,
+    "Prioritize latest message": true,
+    "Min reply gap": 3.0,
+    "Min unsolicited gap": 6.0,
+    "Schedule queued replies": true,
+    "Always reply when mentioned": true,
+    "WPM mode": true,
+    "Words per minute": 113.0,
+    "Max concurrent requests": 1.0,
+    "Debug mode": true
   },
   "AutoComplete": {
     "OpenAI model": "gpt-4o-2024-08-06",
@@ -192,7 +246,7 @@
     ]
   },
   "AutoEat": {
-    "Target hunger": 10.0,
+    "Target hunger": 5.0,
     "Min hunger": 5.0,
     "Injured hunger": 7.5,
     "Injury threshold": 1.5,
@@ -251,7 +305,7 @@
   },
   "AutoFly": {
     "Waypoints": "",
-    "Route type": "Grid",
+    "Route type": "Waypoints",
     "Grid side length": 9670.0,
     "Grid pass size": 354.0,
     "Show grid path": true,
@@ -259,21 +313,23 @@
     "Grid path thickness": 2.0,
     "Grid path points": 800.0,
     "Import file": "",
-    "Export JSON": "192.168.1.10_31337_-7649949940957896961-20260204-215943.json",
-    "Flight height": 111.0,
-    "Flight speed": 8.5,
-    "Target radius": 6.5,
+    "Export JSON": "",
+    "Flight height": 194.0,
+    "Flight speed": 20.0,
+    "Target radius": 5.5,
     "Skip reached": true,
     "Crosshair info": true,
-    "Enable Antisocial": true,
+    "Enable Antisocial": false,
     "Enable AutoEat": true,
-    "Enable AutoLeave": true,
+    "Enable AutoLeave": false,
     "Ignore Waypoints list": true,
     "Allow manual adjust": true,
     "Disable Flight on arrival": true,
-    "Disable AutoFly on arrival": true,
+    "Disable AutoFly on arrival": false,
     "Stop on": "Nether portal",
-    "Stop keyword": ""
+    "Stop keyword": "",
+    "Disable on players": true,
+    "Disable on damage": false
   },
   "AutoLeave": {
     "Health": 9.5,
@@ -284,44 +340,8 @@
   "AutoLibrarian": {
     "Wanted books": [
       {
-        "id": "minecraft:depth_strider",
-        "level": 3
-      },
-      {
-        "id": "minecraft:efficiency",
-        "level": 5
-      },
-      {
-        "id": "minecraft:feather_falling",
-        "level": 4
-      },
-      {
-        "id": "minecraft:fortune",
-        "level": 3
-      },
-      {
-        "id": "minecraft:looting",
-        "level": 3
-      },
-      {
-        "id": "minecraft:mending",
+        "id": "vb:mountain_climber",
         "level": 1
-      },
-      {
-        "id": "minecraft:protection",
-        "level": 4
-      },
-      {
-        "id": "minecraft:respiration",
-        "level": 3
-      },
-      {
-        "id": "minecraft:sharpness",
-        "level": 5
-      },
-      {
-        "id": "minecraft:unbreaking",
-        "level": 3
       }
     ],
     "Lock in trade": false,
@@ -362,8 +382,8 @@
     "Death screen button": true
   },
   "AutoSign": {
-    "Preset sign text": "NECOCONNECO WAS HERE",
-    "Preset name": "NECOCONNECO",
+    "Preset sign text": "Wurst7-CevAPI <3",
+    "Preset name": "Wurst",
     "Saved presets": "",
     "Sign Aura": true,
     "Aura Range": 6.0,
@@ -372,8 +392,7 @@
     "Chat Feedback": true,
     "Sign presets (internal)": {
       "Shahada": "أشهد أن لا إله إلا الله، وأشهد أن محمدًا رسولُ الله.",
-      "wurst": "Wurst7-CevAPI <3",
-      "NECOCONNECO": "NECOCONNECO WAS HERE"
+      "wurst": "Wurst7-CevAPI <3"
     }
   },
   "AutoSoup": {
@@ -852,7 +871,8 @@
     "Bedrock Color": "#CC0099",
     "Teleport without Tick": false,
     "Shift Click Activation": true,
-    "Auto Switch Tool": true
+    "Auto Switch Tool": true,
+    "Shift SurfaceXray": true
   },
   "Blink": {
     "Limit": 0.0
@@ -925,10 +945,10 @@
     "Other color": "#40A0FF",
     "Unique colors for others": true,
     "Keep trails when out of view/logout": true,
-    "Max sections": 48.0,
+    "Max sections": 135.0,
     "Section length": 0.1,
     "Line thickness": 7.0,
-    "Paused": true
+    "Paused": false
   },
   "BuildRandom": {
     "Range": 6.0,
@@ -1034,10 +1054,14 @@
     "Double chests only": false,
     "Filter villages": true,
     "Shulker chat alerts": true,
+    "Anti-ESP detection": true,
+    "Anti-ESP alerts": true,
     "HackList count": true,
     "Box opacity": 64.0,
     "Line opacity": 128.0,
     "Tracer opacity": 128.0,
+    "Enable ChestESP render limit": false,
+    "ChestESP render limit": 0.0,
     "Include normal chests": true,
     "Chest color": "#00FF00",
     "Include trap chests": true,
@@ -1069,7 +1093,7 @@
   },
   "ChestSearch": {
     "Mode": "Automatic",
-    "Waypoint time (s)": 60.0,
+    "Waypoint time (min)": 1.0,
     "ESP time (s)": 90.0,
     "Cleaner grace (s)": 10.0,
     "Cleaner scan radius": 64.0,
@@ -1083,7 +1107,8 @@
     "Opened chest marker": "Recolor",
     "Hide opened chest tracers": true,
     "Opened chest color": "#FF9900",
-    "Chat notifications": false
+    "Chat notifications": false,
+    "Loot mismatch notifications": false
   },
   "ChorusFruit": {
     "On player enter": false,
@@ -1126,18 +1151,36 @@
     "Filter end crystals": false
   },
   "ClickGUI": {
-    "Hack toggle chat feedback": true,
-    "Background": "#404040",
+    "Background": "#344354",
     "Accent": "#000000",
-    "Text": "#FFCCFF",
-    "Enabled hacks": "#9933FF",
-    "Dropdown button": "#FF00FF",
-    "Pin button": "#FFFFFF",
-    "Opacity": 0.9,
+    "Text": "#F0F0F0",
+    "Enabled hacks": "#10D7D7",
+    "Dropdown button": "#006666",
+    "Pin button": "#00CCCC",
+    "Opacity": 0.7,
     "Tooltip opacity": 0.67,
     "Isolate windows": true,
     "Max height": 300.0,
     "Max settings height": 350.0
+  },
+  "ClientChatOverlay": {
+    "Transparency": 0.0,
+    "Fade-out time": 10.0,
+    "Route to game console": true,
+    "Only Wurst messages": false,
+    "Force client chat keywords": "",
+    "Force normal chat keywords": "[Discord]",
+    "Max lines": 10.0,
+    "Chat font size": 1.0,
+    "HUD X offset": -3.0,
+    "HUD Y offset": 3.0
+  },
+  "CommandScanner": {
+    "Scan mode": "Unknown only",
+    "Debug probe": false,
+    "Run found commands (packet)": false,
+    "Don't send filter": "",
+    "Packet commands": "plugins"
   },
   "CoordLogger": {
     "Minimum distance": 125.0,
@@ -1149,7 +1192,7 @@
     "Misc": true,
     "Unknown events": true,
     "Only global events": true,
-    "Debug level events": false,
+    "Debug level events": true,
     "Draw tracers": true,
     "ESP color": "#9900CC"
   },
@@ -1206,8 +1249,28 @@
     "Auto start": true,
     "Vanilla momentum": false
   },
+  "ElytraInfo": {
+    "Show yaw": true,
+    "Show pitch": true,
+    "Show altitude": true,
+    "Show speed": true,
+    "Show direction": true,
+    "Show durability": true,
+    "Durability gradient": true,
+    "Text color": "#FFFFFF",
+    "Text opacity": 255.0,
+    "Font size": 0.65,
+    "Hide prefixes": true,
+    "Background": true,
+    "Background color": "#000000",
+    "Background opacity": 67.0,
+    "HUD X offset": 0.0,
+    "HUD Y offset": 18.0,
+    "Auto switch on landing": true,
+    "Auto swap low durability": true
+  },
   "EnchantmentHandler": {
-    "Box width": 200.0,
+    "Box width": 210.0,
     "Box height": 220.0,
     "Text scale": 0.7,
     "Hover scroll speed": 40.0,
@@ -1267,8 +1330,8 @@
     "Filter end crystals": false
   },
   "Flight": {
-    "Horizontal speed": 3.5,
-    "Vertical speed": 3.05,
+    "Horizontal speed": 9.5,
+    "Vertical speed": 2.05,
     "Tie vertical to horizontal": false,
     "Speed step": 0.5,
     "Allow unsafe vertical speed": false,
@@ -1314,7 +1377,7 @@
   },
   "Freecam": {
     "Apply input to": "Camera",
-    "Horizontal speed": 2.55,
+    "Horizontal speed": 4.25,
     "Vertical speed": 1.0,
     "Tie vertical to horizontal": true,
     "Speed step": 0.5,
@@ -1338,6 +1401,7 @@
     "Show Ping": true,
     "Show Play Time": true,
     "Show Time": false,
+    "Show World Time": true,
     "Show Packet Rate": true,
     "Show Distance": true,
     "Show Mob Kills": false,
@@ -1350,8 +1414,8 @@
     "Background box": true,
     "Background color": "#000000",
     "Background opacity": 108.0,
-    "HUD X offset": 114.0,
-    "HUD Y offset": -8.0,
+    "HUD X offset": 108.0,
+    "HUD Y offset": 13.0,
     "Show Prefixes": true,
     "Show Averages": true
   },
@@ -1362,13 +1426,15 @@
     "Pause when sneaking": true
   },
   "GlobalToggle": {
-    "Sticky area on": true,
-    "Sticky area off": false,
-    "Y limit on": false,
-    "Y limit off": false,
+    "Sticky area override": false,
+    "Y limit override": false,
     "Global Y limit": 62.0,
     "Search thread priority": 10.0,
-    "Chunk scan mode": "PARTIAL"
+    ".setslider limit override": true,
+    "Chunk scan mode": "PARTIAL",
+    "Global ESP render mode": "Legacy",
+    "Enable global ESP render limit": false,
+    "Global ESP render limit": 0.0
   },
   "HandNoClip": {
     "Blocks": [
@@ -1440,8 +1506,8 @@
     "Max Distance (Paper)": 59.0,
     "Horizontal Offset": 0.05,
     "Y Offset": 0.01,
-    "Only When Mace": true,
-    "Mace Vertical Lock": true,
+    "Only When Mace": false,
+    "Mace Vertical Lock": false,
     "Boat Collision Skip": true,
     "Through Blocks": true,
     "Render Entity Box": true,
@@ -1552,38 +1618,57 @@
       "minecraft:zombie_head"
     ],
     "Item ID": "golden",
-    "Query": "ink, dye",
+    "Query": "ink",
     "Special rainbow": false,
     "Special color": "#FF00FF",
     "Outline-only for special": false,
     "XP orb mode": "SPECIAL",
-    "Toggle ignoring items": false,
+    "Toggle ignoring items": true,
     "Ignored items": [
+      "minecraft:air",
       "minecraft:azalea",
       "minecraft:azalea_leaves",
       "minecraft:big_dripleaf",
       "minecraft:bone",
       "minecraft:brown_mushroom",
       "minecraft:brown_mushroom_block",
+      "minecraft:cactus_flower",
       "minecraft:chainmail_boots",
       "minecraft:chainmail_chestplate",
       "minecraft:chainmail_helmet",
       "minecraft:chainmail_leggings",
+      "minecraft:chorus_flower",
+      "minecraft:copper_nautilus_armor",
+      "minecraft:cornflower",
+      "minecraft:diamond_nautilus_armor",
       "minecraft:egg",
+      "minecraft:flower_banner_pattern",
+      "minecraft:flower_pot",
       "minecraft:flowering_azalea",
       "minecraft:flowering_azalea_leaves",
       "minecraft:glow_berries",
+      "minecraft:golden_nautilus_armor",
+      "minecraft:iron_nautilus_armor",
       "minecraft:kelp",
       "minecraft:leaf_litter",
       "minecraft:moss_block",
       "minecraft:moss_carpet",
       "minecraft:mushroom_stem",
       "minecraft:mushroom_stew",
+      "minecraft:nautilus_shell",
+      "minecraft:nautilus_spawn_egg",
+      "minecraft:netherite_nautilus_armor",
       "minecraft:pointed_dripstone",
       "minecraft:red_mushroom",
       "minecraft:red_mushroom_block",
       "minecraft:small_dripleaf",
-      "minecraft:wheat_seeds"
+      "minecraft:string",
+      "minecraft:sunflower",
+      "minecraft:torchflower",
+      "minecraft:torchflower_seeds",
+      "minecraft:wheat_seeds",
+      "minecraft:wildflowers",
+      "minecraft:zombie_nautilus_spawn_egg"
     ],
     "Lines only for special": false,
     "Highlight equipped special": true,
@@ -1604,7 +1689,11 @@
     "Show registry names": true,
     "Show enchantments in names": true,
     "Detect held/worn mob items": true,
+    "Detect armor stand equipment": false,
     "Filter default mob items": true,
+    "Pin ItemESP special to top": true,
+    "Show nearby signs": true,
+    "Detect named entities": true,
     "Respect ItemESP ignored items": true,
     "Reject radius": 3.0,
     "Pickup/Drop timeout (s)": 15.0,
@@ -1612,14 +1701,22 @@
     "Popup HUD font scale": 0.65,
     "Tracer thickness": 8.0,
     "Popup HUD max items": 6.0,
-    "Pin ItemESP special to top": true,
-    "Show nearby signs": true,
     "Sign range": 1024.0,
     "Max signs": 10.0,
     "Popup HUD offset X": -83.0,
     "Popup HUD offset Y": -19.0
   },
   "Jesus": {
+    "Water Mode": "Solid",
+    "Dip if burning": true,
+    "Dip on sneak (water)": true,
+    "Dip on fall (water)": true,
+    "Dip fall height (water)": 4.0,
+    "Lava Mode": "Ignore",
+    "Dip if fire resistant": true,
+    "Dip on sneak (lava)": true,
+    "Dip on fall (lava)": true,
+    "Dip fall height (lava)": 4.0,
     "NoCheat+ bypass": false
   },
   "Kaboom": {
@@ -1733,7 +1830,7 @@
     "Add logout spot as waypoint": true
   },
   "LootRunner": {
-    "Export file": "",
+    "Export file": "lootrunner-export.json",
     "Only current dimension": true,
     "Target radius": 9.0,
     "Chest search radius": 10.0,
@@ -1753,7 +1850,7 @@
     "Enable HandNoClip": true,
     "Enable Flight": true,
     "Use Wurst pathing": true,
-    "Flight cruise height": 73.0,
+    "Flight cruise height": 60.0,
     "Flight travel speed": 5.6,
     "Flight vertical speed": 2.0,
     "Smooth flight": false,
@@ -1786,6 +1883,14 @@
     "Render path": true,
     "Path color": "#00FFC8"
   },
+  "LootSearch": {
+    "Loot JSON": "simplified-results.json",
+    "JSON Path": "",
+    "Waypoint time (min)": 241.0
+  },
+  "MaceDMG": {
+    "Height": 53.6
+  },
   "MassTPA": {
     "Command": "/tpa",
     "Delay": 20.0,
@@ -1793,10 +1898,15 @@
     "Stop when accepted": true
   },
   "MeasurementESP": {
-    "Distance": 50.0,
+    "Distance": 6.0,
     "Lock while Freecam": true,
     "Block mode": false,
     "Reach mode": true
+  },
+  "Mention": {
+    "Nickname aliases": "",
+    "Sound": "Note Block Guitar",
+    "Volume": 200.0
   },
   "MileyCyrus": {
     "Twerk speed": 5.0
@@ -1847,7 +1957,7 @@
     "Box size": "Accurate",
     "Fill shapes": true,
     "Type": "minecraft:zombie",
-    "Query": "vindicator",
+    "Query": "evoker",
     "Rainbow colors": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -1873,12 +1983,12 @@
     "Filter flying": 0.0,
     "Filter hostile mobs": false,
     "Filter neutral mobs": "Off",
-    "Filter passive mobs": false,
+    "Filter passive mobs": true,
     "Filter passive water mobs": false,
     "Filter babies": false,
     "Filter bats": false,
     "Filter slimes": false,
-    "Filter pets": false,
+    "Filter pets": true,
     "Filter villagers": true,
     "Filter zombie villagers": false,
     "Filter golems": true,
@@ -1892,6 +2002,10 @@
     "Filter shulker bullets": false,
     "Filter armor stands": false,
     "Filter end crystals": false
+  },
+  "MusicAura": {
+    "Delay": 1.0,
+    "Swing hand": "Client-side"
   },
   "NameTags": {
     "Scale": 1.0,
@@ -1912,6 +2026,27 @@
     "Old chunks color": "#0000FF",
     "Log chunks": true
   },
+  "NewerNewChunks": {
+    "Chunk Detection Mode": "BlockExploitMode",
+    "LiquidExploit": true,
+    "BlockUpdateExploit": true,
+    "RemoveOnModuleDisabled": true,
+    "RemoveOutsideRenderDistance": false,
+    "SaveChunkData": true,
+    "LoadChunkData": true,
+    "AutoReloadChunks": true,
+    "AutoReloadDelayInSeconds": 60.0,
+    "Enable Alarms for NewChunks": false,
+    "Amount Of Rings": 10.0,
+    "Delay Between Rings (ticks)": 20.0,
+    "Volume": 0.15,
+    "Pitch": 1.0,
+    "Render-Distance(Chunks)": 1024.0,
+    "Render-Height": 106.0,
+    "New Chunks Color": "#FF0000",
+    "BlockExploit Chunks Color": "#0050FF",
+    "Old Chunks Color": "#00FF00"
+  },
   "NoBackground": {
     "All GUIs": true
   },
@@ -1923,6 +2058,13 @@
   },
   "NoFireOverlay": {
     "Offset": 0.6
+  },
+  "NoPlayerChat": {
+    "Allow join/leave": true,
+    "Allow whispers": true,
+    "Allow death messages": true,
+    "Filter-only (remove matching)": false,
+    "Keyword filter": ""
   },
   "NoShieldOverlay": {
     "Blocking offset": 0.5,
@@ -1936,13 +2078,14 @@
   },
   "NoWeather": {
     "Disable Rain": true,
+    "Announce Weather Changes": true,
     "Change World Time": false,
     "Time": 6000.0,
     "Change Moon Phase": false,
     "Moon Phase": 0.0
   },
   "Nuker": {
-    "Range": 2.95,
+    "Range": 3.5,
     "Shape": "Cube",
     "Flat mode": true,
     "Mode": "Normal",
@@ -1975,7 +2118,7 @@
     "Cracked server detection": true,
     "Quick reconnect": false,
     "Random name on reconnect": false,
-    "Specified name": "SirKushy",
+    "Specified name": "bingbong",
     "Player select": "",
     "Auto logout": false,
     "Reconnect command": "/op lol"
@@ -2029,7 +2172,18 @@
   "PearlESP": {
     "Color": "#FF00FF",
     "Highlight held pearls": true,
-    "Show player prediction": true
+    "Show player prediction": true,
+    "Show tracer line": true,
+    "Tracer thickness": 3.1,
+    "Chat alerts": true,
+    "Sound alerts": true,
+    "Alert sound": "Note Block Flute"
+  },
+  "PearlIntercept": {
+    "Max horizontal error": 8.0,
+    "Plane tolerance": 4.0,
+    "Cooldown": 10.0,
+    "Switch back": true
   },
   "PlayerESP": {
     "Style": "Lines and glow",
@@ -2037,18 +2191,18 @@
     "Line-of-sight detection": true,
     "LOS FOV (degrees)": 140.0,
     "LOS detection range": 64.0,
-    "Tracer thickness": 8.0,
+    "Tracer thickness": 10.0,
     "Filled boxes": true,
     "Filled box alpha": 24.0,
-    "Use static player color": false,
+    "Use static player color": "Rainbow",
     "Player color": "#FF00FF",
     "Box size": "Fancy",
     "Enter alert": true,
     "Enter sound": true,
     "Enter alert cooldown": 0.0,
-    "Enter sound type": "Custom",
+    "Enter sound type": "minecraft:block.note_block.guitar",
     "Enter sound volume": 200.0,
-    "Custom enter sound ID": "minecraft:block.note_block.banjo",
+    "Custom enter sound ID": "minecraft:block.note_block.guitar",
     "Exit alert": true,
     "Filter sleeping": false,
     "Filter invisible": false,
@@ -2130,7 +2284,7 @@
     "Range": 10.0
   },
   "RedstoneESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "HackList count": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -2258,7 +2412,7 @@
       "minecraft:zombie_head",
       "minecraft:zombie_wall_head"
     ],
-    "Query": "obsidian",
+    "Query": "cobble",
     "Block": "minecraft:soul_soil",
     "Style": "Lines and boxes",
     "Highlight corners": true,
@@ -2268,9 +2422,11 @@
     "Use fixed color": false,
     "Fixed color": "#9900FF",
     "Area": "65x65 chunks",
-    "Limit": 2.0,
+    "Limit": 4.0,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
+    "Anti-ESP detection": true,
+    "Anti-ESP alerts": true,
     "HackList count": true
   },
   "SeedMapperHelper": {
@@ -2429,6 +2585,16 @@
     "SK lunge delay modifier": 100.0,
     "SK chat feedback": true
   },
+  "SpeedHack": {
+    "Max speed": 2.2,
+    "Ground accel": 0.3,
+    "Air accel": 0.0,
+    "Sideways damping": 0.15,
+    "Auto sprint": false,
+    "Auto normalise": false,
+    "Potion mode": "Off",
+    "Show speed in HackList": true
+  },
   "SpeedNuker": {
     "Range": 6.0,
     "Shape": "Sphere",
@@ -2446,8 +2612,10 @@
     "Height": 1.0
   },
   "SurfaceXray": {
-    "Surface opacity": 0.5,
-    "Tracked blocks": "default"
+    "Surface opacity": 0.3,
+    "Tracked blocks": [
+      "minecraft:bedrock"
+    ]
   },
   "SusNoMore": {
     "Auto-break list": [
@@ -2523,7 +2691,7 @@
     "Activation key": "key.keyboard.p"
   },
   "Teleport": {
-    "Reach": 8.0,
+    "Reach": 48.0,
     "Timer Speed": 2.0,
     "Teleport Packets": 4.0,
     "Allow Liquids": true,
@@ -2536,6 +2704,9 @@
     "Phasing Fill": "#00FFFF",
     "Outline Color": "#FFFFFF",
     "Path Color": "#00FFFF"
+  },
+  "TemplateHack": {
+    "Announce toggle": true
   },
   "Throw": {
     "Amount": 16.0
@@ -2776,7 +2947,7 @@
     "Jump delay": 10.0
   },
   "WorkstationESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "HackList count": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -2834,7 +3005,7 @@
     "Only show exposed": false,
     "Opacity": 0.48,
     "Mode": "QUERY",
-    "Query": "diamond",
+    "Query": "iron",
     "Highlight corners": false,
     "Fill blocks (outline + fill)": true,
     "Highlight color": "#FF00FF",
@@ -2858,6 +3029,14 @@
   ".tp": {
     "Disable Freecam": true
   },
+  "AdvancedPacketTool": {
+    "Logging enabled": false,
+    "Deny enabled": false,
+    "Delay enabled": false,
+    "Log to file": true,
+    "Show unknown packets": true,
+    "Delay ticks": 5.0
+  },
   "Anti-Fingerprint": {
     "Policy": "Observe",
     "Toast verbosity": "Important",
@@ -2878,6 +3057,9 @@
   },
   "DisableWurst": {
     "Hide enable button": false
+  },
+  "ForceAllowChats": {
+    "Force Allow Chats": true
   },
   "HackList": {
     "Mode": "Auto",
@@ -2902,7 +3084,28 @@
   "NoTelemetry": {
     "Disable telemetry": true
   },
-  "PacketFirewall": {},
+  "PacketFirewall": {
+    "Drop invalid": false,
+    "Clamp pitch": false,
+    "Wrap yaw": false,
+    "Dedup movement": false,
+    "Debug logging": true,
+    "Temporarily disabled": "",
+    "Temporary whitelist": ""
+  },
+  "PerformanceOverlay": {
+    "Enabled": false,
+    "Rows": 20.0,
+    "Font size": 0.65,
+    "Sort by": "Total time (1s)",
+    "Show update time": true,
+    "Show world render time": true,
+    "Show GUI render time": true,
+    "Show graph": true,
+    "Background opacity": 75.0,
+    "HUD X offset": -7.0,
+    "HUD Y offset": -179.0
+  },
   "TabGUI": {
     "Status": "Disabled"
   },
@@ -2913,12 +3116,13 @@
     "Spoof Vanilla": true
   },
   "WurstLogo": {
-    "Background": "#FFFFFF",
-    "Text": "#000000",
-    "Visibility": "Never"
+    "Background": "#000000",
+    "Text": "#FFFFFF",
+    "Visibility": "Always"
   },
   "WurstOptions": {
-    "Location": "Game Menu"
+    "Location": "Game Menu",
+    "Hack toggle chat feedback": true
   },
   "Zoom": {
     "Zoom level": 3.0,

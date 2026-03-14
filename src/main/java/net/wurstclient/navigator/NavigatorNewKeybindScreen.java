@@ -13,8 +13,6 @@ import java.util.function.Supplier;
 
 import org.lwjgl.glfw.GLFW;
 
-import com.mojang.blaze3d.platform.InputConstants;
-
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -23,6 +21,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.keybinds.PossibleKeybind;
@@ -30,7 +29,8 @@ import net.wurstclient.keybinds.PossibleKeybind;
 public class NavigatorNewKeybindScreen extends NavigatorScreen
 {
 	private Set<PossibleKeybind> possibleKeybinds;
-	private NavigatorFeatureScreen parent;
+	private Screen returnScreen;
+	private String preferenceName;
 	private PossibleKeybind hoveredCommand;
 	private PossibleKeybind selectedCommand;
 	private String selectedKey = "key.keyboard.unknown";
@@ -41,8 +41,15 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 	public NavigatorNewKeybindScreen(Set<PossibleKeybind> possibleKeybinds,
 		NavigatorFeatureScreen parent)
 	{
+		this(possibleKeybinds, parent, parent.getFeature().getName());
+	}
+	
+	public NavigatorNewKeybindScreen(Set<PossibleKeybind> possibleKeybinds,
+		Screen returnScreen, String preferenceName)
+	{
 		this.possibleKeybinds = possibleKeybinds;
-		this.parent = parent;
+		this.returnScreen = returnScreen;
+		this.preferenceName = preferenceName == null ? "" : preferenceName;
 	}
 	
 	@Override
@@ -64,8 +71,8 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 						newCommands);
 					
 					WurstClient.INSTANCE.getNavigator()
-						.addPreference(parent.getFeature().getName());
-					minecraft.setScreen(parent);
+						.addPreference(preferenceName);
+					minecraft.setScreen(returnScreen);
 				}else
 				{
 					choosingKey = true;
@@ -95,7 +102,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 		// cancel button
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> WurstClient.MC.setScreen(parent))
+				b -> WurstClient.MC.setScreen(returnScreen))
 			.bounds(width / 2 + 2, height - 65, 149, 18).build());
 	}
 	
@@ -109,7 +116,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 			
 		}else if(context.key() == GLFW.GLFW_KEY_ESCAPE
 			|| context.key() == GLFW.GLFW_KEY_BACKSPACE)
-			minecraft.setScreen(parent);
+			minecraft.setScreen(returnScreen);
 	}
 	
 	@Override
@@ -120,7 +127,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 		// back button
 		if(button == GLFW.GLFW_MOUSE_BUTTON_4)
 		{
-			minecraft.setScreen(parent);
+			minecraft.setScreen(returnScreen);
 			return;
 		}
 		

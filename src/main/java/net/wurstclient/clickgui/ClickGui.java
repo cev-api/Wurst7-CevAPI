@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.joml.Matrix3x2fStack;
@@ -47,6 +48,10 @@ public final class ClickGui
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	private static final Minecraft MC = WurstClient.MC;
+	private static final Set<String> MOVE_TO_CLIENT_SETTINGS =
+		Set.of("DisableWurst", "CommandPrefix", "Changelog",
+			"ConnectionLogOverlay", "NoTelemetry", "NoChatReports",
+			"ForceAllowChats", "VanillaSpoof", "Translations");
 	
 	private final ArrayList<Window> windows = new ArrayList<>();
 	private final ArrayList<Popup> popups = new ArrayList<>();
@@ -121,6 +126,10 @@ public final class ClickGui
 		for(Feature f : features)
 		{
 			if(f == WURST.getHax().globalToggleHack)
+				continue;
+			
+			if(MOVE_TO_CLIENT_SETTINGS.stream()
+				.anyMatch(name -> name.equalsIgnoreCase(f.getName())))
 				continue;
 				
 			// When TooManyHax is enabled, hide hacks that it disabled from

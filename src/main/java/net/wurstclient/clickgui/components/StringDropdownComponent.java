@@ -24,8 +24,6 @@ public final class StringDropdownComponent extends Component
 {
 	private static final ClickGui GUI = WurstClient.INSTANCE.getGui();
 	private static final Font TR = WurstClient.MC.font;
-	private static final int ARROW_SIZE = 11;
-	private static final int LABEL_HEIGHT = 11;
 	
 	private final StringDropdownSetting setting;
 	private StringDropdownPopup popup;
@@ -46,7 +44,7 @@ public final class StringDropdownComponent extends Component
 		if(localX < 0 || localX >= getWidth())
 			return;
 		
-		if(localY < LABEL_HEIGHT)
+		if(localY < getLabelHeight())
 			return;
 		
 		int popupWidth = computePopupWidth();
@@ -93,9 +91,11 @@ public final class StringDropdownComponent extends Component
 		int popupWidth = computePopupWidth();
 		int x1 = getX();
 		int x2 = x1 + getWidth();
-		int boxY1 = getY() + LABEL_HEIGHT;
-		int boxY2 = boxY1 + ARROW_SIZE;
-		int arrowX1 = x2 - ARROW_SIZE;
+		int labelHeight = getLabelHeight();
+		int boxHeight = getBoxHeight();
+		int boxY1 = getY() + labelHeight;
+		int boxY2 = boxY1 + boxHeight;
+		int arrowX1 = x2 - boxHeight;
 		int arrowX2 = x2;
 		
 		boolean hovering = isHovering(mouseX, mouseY);
@@ -121,8 +121,10 @@ public final class StringDropdownComponent extends Component
 		String name = setting.getName();
 		String value = setting.getSelected();
 		int txtColor = GUI.getTxtColor();
-		context.drawString(TR, name, x1, getY() + 2, txtColor, false);
-		context.drawString(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
+		int nameY = getY() + (labelHeight - TR.lineHeight) / 2;
+		int valueY = boxY1 + (boxHeight - TR.lineHeight) / 2;
+		context.drawString(TR, name, x1, nameY, txtColor, false);
+		context.drawString(TR, value, x1 + 2, valueY, txtColor, false);
 	}
 	
 	private int computePopupWidth()
@@ -141,7 +143,7 @@ public final class StringDropdownComponent extends Component
 	public int getDefaultWidth()
 	{
 		int popupWidth = computePopupWidth();
-		int boxWidth = popupWidth + ARROW_SIZE + 6;
+		int boxWidth = popupWidth + getBoxHeight() + 6;
 		int labelWidth = TR.width(setting.getName()) + 4;
 		return Math.max(labelWidth, boxWidth);
 	}
@@ -149,6 +151,16 @@ public final class StringDropdownComponent extends Component
 	@Override
 	public int getDefaultHeight()
 	{
-		return LABEL_HEIGHT + ARROW_SIZE;
+		return getLabelHeight() + getBoxHeight();
+	}
+	
+	private static int getLabelHeight()
+	{
+		return Math.max(11, TR.lineHeight + 2);
+	}
+	
+	private static int getBoxHeight()
+	{
+		return Math.max(11, TR.lineHeight + 2);
 	}
 }

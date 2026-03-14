@@ -44,5 +44,10 @@ public final class NoTelemetryOtf extends OtherFeature
 		disableTelemetry.setChecked(!disableTelemetry.isChecked());
 	}
 	
+	public CheckboxSetting getDisableTelemetrySetting()
+	{
+		return disableTelemetry;
+	}
+	
 	// See TelemetrySenderMixin
 }

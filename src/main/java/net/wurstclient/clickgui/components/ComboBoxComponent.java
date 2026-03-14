@@ -24,7 +24,6 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 {
 	private static final ClickGui GUI = WURST.getGui();
 	private static final Font TR = MC.font;
-	private static final int ARROW_SIZE = 11;
 	
 	private final EnumSetting<T> setting;
 	private final int popupWidth;
@@ -45,7 +44,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		if(mouseX < getX() + getWidth() - popupWidth - ARROW_SIZE - 4)
+		if(mouseX < getX() + getWidth() - popupWidth - getBoxHeight() - 4)
 			return;
 		
 		switch(mouseButton)
@@ -92,7 +91,8 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	{
 		int x1 = getX();
 		int x2 = x1 + getWidth();
-		int x3 = x2 - ARROW_SIZE;
+		int boxHeight = getBoxHeight();
+		int x3 = x2 - boxHeight;
 		int x4 = x3 - popupWidth - 4;
 		int y1 = getY();
 		int y2 = y1 + getHeight();
@@ -126,8 +126,9 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		String name = setting.getName();
 		String value = "" + setting.getSelected();
 		int txtColor = GUI.getTxtColor();
-		context.drawString(TR, name, x1, y1 + 2, txtColor, false);
-		context.drawString(TR, value, x4 + 2, y1 + 2, txtColor, false);
+		int textY = y1 + (getHeight() - TR.lineHeight) / 2;
+		context.drawString(TR, name, x1, textY, txtColor, false);
+		context.drawString(TR, value, x4 + 2, textY, txtColor, false);
 	}
 	
 	private int getFillColor(boolean hovering)
@@ -139,12 +140,17 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	@Override
 	public int getDefaultWidth()
 	{
-		return TR.width(setting.getName()) + popupWidth + ARROW_SIZE + 6;
+		return TR.width(setting.getName()) + popupWidth + getBoxHeight() + 6;
 	}
 	
 	@Override
 	public int getDefaultHeight()
 	{
-		return ARROW_SIZE;
+		return getBoxHeight();
+	}
+	
+	private static int getBoxHeight()
+	{
+		return Math.max(11, TR.lineHeight + 2);
 	}
 }

@@ -76,4 +76,9 @@ public final class VanillaSpoofOtf extends OtherFeature
 	{
 		spoof.setChecked(!spoof.isChecked());
 	}
+	
+	public CheckboxSetting getSpoofSetting()
+	{
+		return spoof;
+	}
 }

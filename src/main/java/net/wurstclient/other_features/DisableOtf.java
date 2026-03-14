@@ -35,4 +35,9 @@ public final class DisableOtf extends OtherFeature
 	{
 		return !WURST.isEnabled() && hideEnableButton.isChecked();
 	}
+	
+	public CheckboxSetting getHideEnableButtonSetting()
+	{
+		return hideEnableButton;
+	}
 }

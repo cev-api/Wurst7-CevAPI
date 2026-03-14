@@ -18,7 +18,6 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 {
 	private static final ClickGui GUI = WurstClient.INSTANCE.getGui();
 	private static final Font TR = WurstClient.MC.font;
-	private static final int ROW_HEIGHT = 11;
 	private static final int MAX_VISIBLE_ROWS = 8;
 	
 	private final EnumSetting<T> setting;
@@ -121,8 +120,9 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 			context.fill(x1, yi1, x2, yi2, RenderUtils.toIntColor(
 				GUI.getBgColor(), GUI.getOpacity() * (hValue ? 1.5F : 1)));
 			
+			int textY = yi1 + (ROW_HEIGHT - TR.lineHeight) / 2;
 			context.guiRenderState.up();
-			context.drawString(TR, value.toString(), x1 + 2, yi1 + 2,
+			context.drawString(TR, value.toString(), x1 + 2, textY,
 				GUI.getTxtColor(), false);
 			
 			drawn++;
@@ -175,4 +175,11 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 	{
 		return visibleRows * ROW_HEIGHT;
 	}
+	
+	private static int getRowHeight()
+	{
+		return Math.max(11, TR.lineHeight + 2);
+	}
+	
+	private static final int ROW_HEIGHT = getRowHeight();
 }

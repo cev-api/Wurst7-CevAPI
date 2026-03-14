@@ -18,6 +18,7 @@ import net.minecraft.resources.Identifier;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 
@@ -36,11 +37,38 @@ public final class WurstOptionsOtf extends OtherFeature
 		new CheckboxSetting("Hack toggle chat feedback",
 			"Show a chat message when hacks are enabled or disabled.", false);
 	
+	private boolean linkedExtraSettings;
+	
 	public WurstOptionsOtf()
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
 		addSetting(hackToggleChatFeedback);
+	}
+	
+	public void linkAdditionalSettings(DisableOtf disableOtf,
+		CommandPrefixOtf commandPrefixOtf, ChangelogOtf changelogOtf,
+		ConnectionLogOverlayOtf connectionLogOverlayOtf,
+		NoTelemetryOtf noTelemetryOtf, NoChatReportsOtf noChatReportsOtf,
+		ForceAllowChatsOtf forceAllowChatsOtf, VanillaSpoofOtf vanillaSpoofOtf,
+		TranslationsOtf translationsOtf)
+	{
+		if(linkedExtraSettings)
+			return;
+		
+		addSetting(disableOtf.getHideEnableButtonSetting());
+		addSetting(commandPrefixOtf.getPrefixSetting());
+		addSetting(new ButtonSetting("Changelog",
+			"Open the latest Wurst changelog in your browser.",
+			changelogOtf::doPrimaryAction));
+		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
+		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
+		addSetting(noChatReportsOtf.getDisableSignaturesSetting());
+		addSetting(forceAllowChatsOtf.getForceAllowChatsSetting());
+		addSetting(vanillaSpoofOtf.getSpoofSetting());
+		addSetting(translationsOtf.getForceEnglish());
+		
+		linkedExtraSettings = true;
 	}
 	
 	public boolean isHackToggleChatFeedbackEnabled()

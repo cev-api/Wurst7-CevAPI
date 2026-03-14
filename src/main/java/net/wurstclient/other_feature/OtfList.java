@@ -56,6 +56,11 @@ public final class OtfList
 	{
 		try
 		{
+			wurstOptionsOtf.linkAdditionalSettings(disableOtf, commandPrefixOtf,
+				changelogOtf, connectionLogOverlayOtf, noTelemetryOtf,
+				noChatReportsOtf, forceAllowChatsOtf, vanillaSpoofOtf,
+				translationsOtf);
+			
 			for(Field field : OtfList.class.getDeclaredFields())
 			{
 				if(!field.getName().endsWith("Otf"))

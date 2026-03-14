@@ -22,7 +22,8 @@ Pre-compiled copies are available on the [Release Page](https://github.com/cev-a
 I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
 ### Wurst7-CevAPI In-Game Screenshot
-![Wurst7Cevapi](https://i.imgur.com/hsayPXH.png)
+![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
+![AltGUI](https://i.imgur.com/gzAVbru.png)
 
 ## Relationship to upstream
 
@@ -54,7 +55,7 @@ hides the Alt Manager, Anti-Fingerprint UI, X-Ray block editor, and other “gre
 Build without the flag to get the full CevAPI experience; build with the flag for a genuinely cheat-free alternative.
 
 ### NiceWurst In-Game Screenshot
-![NiceWurst](https://i.imgur.com/86vmxQi.png)
+![NiceWurst](https://i.imgur.com/DhhqLX9.png)
 
 
 ## Novelty
@@ -192,6 +193,7 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - TooManyHax support to hide excess hacks from the UI
 - Configurable open behavior: Open on Favorites, Enabled or restore last category/scroll state
 - Replaced old color editor with HSV Color Picker giving access to a greater color spectrum
+- Supports keybind adding and removing
 
 ![AltGUI](https://i.imgur.com/0PpYJm4.png)
 
