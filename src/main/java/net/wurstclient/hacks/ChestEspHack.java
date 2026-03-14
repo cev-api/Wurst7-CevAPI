@@ -48,6 +48,7 @@ import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -147,7 +148,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting filterNearSpawners = new CheckboxSetting(
 		"Filter spawners",
-		"Hides single chests that are near a mob spawner. Does not affect double chests or shulkers.",
+		"Hides single chests that are near a mob spawner in the Overworld. Does not affect double chests or shulkers.",
 		false);
 	
 	private final CheckboxSetting filterTrialChambers = new CheckboxSetting(
@@ -301,7 +302,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Build environmental caches first so we can pre-filter before adding
 		invalidateEnvFilterCacheIfNeeded();
 		refreshEnvironmentalCaches();
-		preFilteredEnv = MC.level != null && (filterNearSpawners.isChecked()
+		preFilteredEnv = MC.level != null && (isSpawnerFilterActive()
 			|| filterTrialChambers.isChecked() || filterVillages.isChecked());
 		
 		double yLimit = aboveGroundY.getValue();
@@ -547,7 +548,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			: MC.level.dimension().identifier().getPath();
 		
 		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (filterNearSpawners.isChecked()
+			&& (isSpawnerFilterActive()
 				|| filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
@@ -905,7 +906,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}
 		
 		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (filterNearSpawners.isChecked()
+			&& (isSpawnerFilterActive()
 				|| filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
@@ -1376,7 +1377,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		lastEnvironmentRefreshAnchor = currentAnchor.immutable();
 		lastEnvironmentRefreshDimension = currentDimension;
 		
-		if(filterNearSpawners.isChecked())
+		if(isSpawnerFilterActive())
 			cachedSpawners = collectSpawnerPositions();
 		else
 			cachedSpawners = List.of();
@@ -1500,7 +1501,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				continue;
 			}
 			
-			if(filterNearSpawners.isChecked()
+			if(isSpawnerFilterActive()
 				&& isNearSpawner(singleChestPos, 7))
 				continue;
 			
@@ -1546,19 +1547,21 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Chest-specific single/double handling
 		if(be instanceof ChestBlockEntity)
 		{
-			boolean isSingle = true;
-			if(state != null && state.hasProperty(ChestBlock.TYPE))
-				isSingle = state.getValue(ChestBlock.TYPE) == ChestType.SINGLE;
+			// Be strict: environment filters apply only to confirmed single
+			// chests. If chest type can't be read, don't filter it.
+			if(state == null || !state.hasProperty(ChestBlock.TYPE))
+				return false;
 			
-			if(isSingle)
-			{
-				if(filterNearSpawners.isChecked() && isNearSpawner(pos, 7))
-					return true;
-				if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
-					return true;
-				if(filterVillages.isChecked() && isLikelyVillageChest(pos))
-					return true;
-			}
+			if(state.getValue(ChestBlock.TYPE) != ChestType.SINGLE)
+				return false;
+			
+			if(isSpawnerFilterActive() && isNearSpawner(pos, 7))
+				return true;
+			if(filterTrialChambers.isChecked() && isInTrialChamberArea(pos))
+				return true;
+			if(filterVillages.isChecked() && isLikelyVillageChest(pos))
+				return true;
+			
 			return false;
 		}
 		
@@ -1625,12 +1628,12 @@ public class ChestEspHack extends Hack implements UpdateListener,
 						if(foundChest == null)
 							foundChest = pos;
 						
-						if(state.hasProperty(ChestBlock.TYPE))
-						{
-							ChestType t = state.getValue(ChestBlock.TYPE);
-							if(t != ChestType.SINGLE)
-								return null;
-						}
+						if(!state.hasProperty(ChestBlock.TYPE))
+							return null;
+						
+						ChestType t = state.getValue(ChestBlock.TYPE);
+						if(t != ChestType.SINGLE)
+							return null;
 						
 						if(chestCount > 1)
 							return null;
@@ -1698,6 +1701,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private boolean isNearSpawner(BlockPos center, int range)
 	{
+		if(!isSpawnerFilterActive())
+			return false;
+		
 		if(isNearCachedSpawner(center, range))
 			return true;
 			
@@ -1710,6 +1716,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		// Fallback to block-state scan so newly streamed areas don't briefly
 		// render near-spawner chests before block-entity caches catch up.
 		return isNearSpawnerBlock(center, range);
+	}
+	
+	private boolean isSpawnerFilterActive()
+	{
+		return filterNearSpawners.isChecked() && isInOverworld();
+	}
+	
+	private boolean isInOverworld()
+	{
+		return MC.level != null && MC.level.dimension().equals(Level.OVERWORLD);
 	}
 	
 	private boolean isNearCachedSpawner(BlockPos center, int range)
