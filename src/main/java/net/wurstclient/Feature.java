@@ -52,6 +52,12 @@ public abstract class Feature
 		return null;
 	}
 	
+	public String getCategoryName()
+	{
+		Category category = getCategory();
+		return category != null ? category.getName() : null;
+	}
+	
 	public abstract String getPrimaryAction();
 	
 	public void doPrimaryAction()

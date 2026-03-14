@@ -9,6 +9,7 @@ package net.wurstclient.command;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.TreeMap;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
@@ -102,13 +103,7 @@ public final class CmdList
 					continue;
 				
 				Command cmd = (Command)field.get(this);
-				// Store commands by their base name without the leading prefix
-				// (e.g. "help" instead of ".help"). This allows the command
-				// prefix to be configured independently.
-				String baseName = cmd.getName();
-				if(baseName.startsWith("."))
-					baseName = baseName.substring(1);
-				cmds.put(baseName, cmd);
+				addCmdInternal(cmd);
 			}
 			
 		}catch(Exception e)
@@ -117,6 +112,26 @@ public final class CmdList
 			CrashReport report = CrashReport.forThrowable(e, message);
 			throw new ReportedException(report);
 		}
+	}
+	
+	public void addCmd(Command command)
+	{
+		addCmdInternal(command);
+	}
+	
+	private void addCmdInternal(Command command)
+	{
+		Objects.requireNonNull(command, "command");
+		
+		String baseName = command.getName();
+		if(baseName.startsWith("."))
+			baseName = baseName.substring(1);
+		
+		if(cmds.containsKey(baseName))
+			throw new IllegalArgumentException(
+				"Duplicate command: ." + baseName);
+		
+		cmds.put(baseName, command);
 	}
 	
 	public Command getCmdByName(String name)

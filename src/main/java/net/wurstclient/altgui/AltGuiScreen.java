@@ -69,7 +69,7 @@ public final class AltGuiScreen extends Screen
 	private static final int MAX_RECENTLY_DISABLED = 64;
 	private static final ArrayList<String> RECENTLY_DISABLED_HACKS =
 		new ArrayList<>();
-	private static Category LAST_SELECTED_CATEGORY = Category.FAVORITES;
+	private static String LAST_SELECTED_CATEGORY = Category.FAVORITES.getName();
 	private static boolean LAST_ENABLED_CATEGORY_SELECTED;
 	private static boolean LAST_STYLE_CATEGORY_SELECTED;
 	private static int LAST_MODULE_SCROLL;
@@ -80,7 +80,7 @@ public final class AltGuiScreen extends Screen
 	
 	private EditBox searchBox;
 	private String searchText = "";
-	private Category selectedCategory = Category.FAVORITES;
+	private String selectedCategory = Category.FAVORITES.getName();
 	private boolean enabledCategorySelected;
 	private boolean styleCategorySelected;
 	
@@ -96,6 +96,8 @@ public final class AltGuiScreen extends Screen
 	
 	private int moduleScroll;
 	private int maxModuleScroll;
+	private int categoryScroll;
+	private int maxCategoryScroll;
 	
 	private int uiMenuX;
 	private int uiMenuY;
@@ -144,10 +146,11 @@ public final class AltGuiScreen extends Screen
 		{
 			case ENABLED ->
 			{
-				selectedCategory = Category.FAVORITES;
+				selectedCategory = Category.FAVORITES.getName();
 				enabledCategorySelected = true;
 				styleCategorySelected = false;
 				moduleScroll = 0;
+				categoryScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
 				if(cfg().isKeepHackSettingsOpenEnabled())
@@ -159,6 +162,7 @@ public final class AltGuiScreen extends Screen
 				enabledCategorySelected = LAST_ENABLED_CATEGORY_SELECTED;
 				styleCategorySelected = LAST_STYLE_CATEGORY_SELECTED;
 				moduleScroll = 0;
+				categoryScroll = 0;
 				pendingScrollRestore = Math.max(0, LAST_MODULE_SCROLL);
 				expandedFeatures.clear();
 				if(cfg().isKeepHackSettingsOpenEnabled())
@@ -166,10 +170,11 @@ public final class AltGuiScreen extends Screen
 			}
 			case FAVORITES ->
 			{
-				selectedCategory = Category.FAVORITES;
+				selectedCategory = Category.FAVORITES.getName();
 				enabledCategorySelected = false;
 				styleCategorySelected = false;
 				moduleScroll = 0;
+				categoryScroll = 0;
 				pendingScrollRestore = -1;
 				expandedFeatures.clear();
 				if(cfg().isKeepHackSettingsOpenEnabled())
@@ -331,14 +336,23 @@ public final class AltGuiScreen extends Screen
 	public boolean mouseScrolled(double mouseX, double mouseY,
 		double horizontalAmount, double verticalAmount)
 	{
-		if(mouseX < moduleX || mouseX > moduleX + moduleW || mouseY < moduleY
-			|| mouseY > moduleY + moduleH)
-			return super.mouseScrolled(mouseX, mouseY, horizontalAmount,
-				verticalAmount);
+		if(mouseX >= moduleX && mouseX <= moduleX + moduleW && mouseY >= moduleY
+			&& mouseY <= moduleY + moduleH)
+		{
+			moduleScroll -= (int)(verticalAmount * cfg().getRowHeight());
+			clampScroll();
+			return true;
+		}
 		
-		moduleScroll -= (int)(verticalAmount * cfg().getRowHeight());
-		clampScroll();
-		return true;
+		if(isInsideCategoryArea(mouseX, mouseY))
+		{
+			categoryScroll -= (int)(verticalAmount * getCategoryRowHeight());
+			clampScroll();
+			return true;
+		}
+		
+		return super.mouseScrolled(mouseX, mouseY, horizontalAmount,
+			verticalAmount);
 	}
 	
 	@Override
@@ -449,15 +463,29 @@ public final class AltGuiScreen extends Screen
 		Font font = minecraft.font;
 		int rowH = getCategoryRowHeight();
 		int rowGap = getCategoryRowGap();
-		int y = panelY + getSearchHeight() + 30;
+		int areaX1 = panelX + 6;
+		int areaX2 = panelX + categoryW - 8;
+		int areaY1 = panelY + getSearchHeight() + 30;
+		int areaY2 = panelY + panelH - 20;
+		int y = areaY1 - categoryScroll;
 		int accentFill = withAlpha(cfg().getAccentColor(), 0.35F);
 		int accentHover = withAlpha(cfg().getAccentColor(), 0.2F);
+		List<String> categories = getDisplayCategories();
+		
+		int rows = 2 + categories.size();
+		int totalHeight = rows * rowH + (rows - 1) * rowGap;
+		int viewportHeight = Math.max(0, areaY2 - areaY1);
+		maxCategoryScroll = Math.max(0, totalHeight - viewportHeight);
+		clampScroll();
+		y = areaY1 - categoryScroll;
+		
+		context.enableScissor(areaX1, areaY1, areaX2, areaY2);
 		
 		int enabledRowH = rowH;
-		boolean enabledHovered = isInside(mouseX, mouseY, panelX + 6, y,
-			panelX + categoryW - 8, y + enabledRowH);
+		boolean enabledHovered =
+			isInside(mouseX, mouseY, areaX1, y, areaX2, y + enabledRowH);
 		if(enabledCategorySelected || enabledHovered)
-			context.fill(panelX + 6, y, panelX + categoryW - 8, y + enabledRowH,
+			context.fill(areaX1, y, areaX2, y + enabledRowH,
 				enabledCategorySelected ? accentFill : accentHover);
 		
 		int enabledTextY = centeredTextY(font, y, y + enabledRowH) + 1;
@@ -467,30 +495,30 @@ public final class AltGuiScreen extends Screen
 			false);
 		y += enabledRowH + rowGap;
 		
-		for(Category category : Category.values())
+		for(String categoryName : categories)
 		{
-			boolean hovered = isInside(mouseX, mouseY, panelX + 6, y,
-				panelX + categoryW - 8, y + rowH);
-			boolean selected = !styleCategorySelected
-				&& !enabledCategorySelected && selectedCategory == category;
+			boolean hovered =
+				isInside(mouseX, mouseY, areaX1, y, areaX2, y + rowH);
+			boolean selected =
+				!styleCategorySelected && !enabledCategorySelected
+					&& selectedCategory.equalsIgnoreCase(categoryName);
 			
 			if(selected || hovered)
-				context.fill(panelX + 6, y, panelX + categoryW - 8, y + rowH,
+				context.fill(areaX1, y, areaX2, y + rowH,
 					selected ? accentFill : accentHover);
 			
 			int catTextY = centeredTextY(font, y, y + rowH) + 1;
-			drawStringScaled(context, font, category.getName(), panelX + 12,
-				catTextY,
+			drawStringScaled(context, font, categoryName, panelX + 12, catTextY,
 				selected ? cfg().getTextColor() : cfg().getMutedTextColor(),
 				false);
 			y += rowH + rowGap;
 		}
 		
 		int styleRowH = rowH;
-		boolean styleHovered = isInside(mouseX, mouseY, panelX + 6, y,
-			panelX + categoryW - 8, y + styleRowH);
+		boolean styleHovered =
+			isInside(mouseX, mouseY, areaX1, y, areaX2, y + styleRowH);
 		if(styleCategorySelected || styleHovered)
-			context.fill(panelX + 6, y, panelX + categoryW - 8, y + styleRowH,
+			context.fill(areaX1, y, areaX2, y + styleRowH,
 				styleCategorySelected ? accentFill : accentHover);
 		
 		int styleTextY = centeredTextY(font, y, y + styleRowH) + 1;
@@ -498,6 +526,35 @@ public final class AltGuiScreen extends Screen
 			styleTextY, styleCategorySelected ? cfg().getTextColor()
 				: cfg().getMutedTextColor(),
 			false);
+		context.disableScissor();
+		
+		if(maxCategoryScroll > 0)
+			renderCategoryScrollbar(context, areaX1, areaY1, areaX2, areaY2);
+	}
+	
+	private void renderCategoryScrollbar(GuiGraphics context, int areaX1,
+		int areaY1, int areaX2, int areaY2)
+	{
+		int trackX2 = areaX2 - 1;
+		int trackX1 = trackX2 - 2;
+		int trackY1 = areaY1;
+		int trackY2 = areaY2;
+		
+		int trackColor = withAlpha(cfg().getPanelLightColor(), 0.7F);
+		context.fill(trackX1, trackY1, trackX2, trackY2, trackColor);
+		
+		double trackH = Math.max(1, trackY2 - trackY1);
+		double knobRatio = trackH / (trackH + Math.max(1, maxCategoryScroll));
+		int knobH = Math.max(10, (int)Math.round(trackH * knobRatio));
+		int maxKnobY = (int)(trackH - knobH);
+		double scrollRatio = maxCategoryScroll == 0 ? 0
+			: categoryScroll / (double)maxCategoryScroll;
+		int knobOffset = (int)Math.round(maxKnobY * scrollRatio);
+		
+		int knobY1 = trackY1 + knobOffset;
+		int knobY2 = Math.min(trackY2, knobY1 + knobH);
+		int knobColor = withAlpha(cfg().getAccentColor(), 0.95F);
+		context.fill(trackX1, knobY1, trackX2, knobY2, knobColor);
 	}
 	
 	private void renderModules(GuiGraphics context, int mouseX, int mouseY)
@@ -1025,9 +1082,15 @@ public final class AltGuiScreen extends Screen
 	{
 		int rowH = getCategoryRowHeight();
 		int rowGap = getCategoryRowGap();
-		int y = panelY + getSearchHeight() + 30;
-		if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-			y + rowH))
+		int areaX1 = panelX + 6;
+		int areaX2 = panelX + categoryW - 8;
+		int areaY1 = panelY + getSearchHeight() + 30;
+		int y = areaY1 - categoryScroll;
+		
+		if(!isInsideCategoryArea(mouseX, mouseY))
+			return false;
+		
+		if(isInside(mouseX, mouseY, areaX1, y, areaX2, y + rowH))
 		{
 			clearSearch();
 			enabledCategorySelected = true;
@@ -1037,13 +1100,12 @@ public final class AltGuiScreen extends Screen
 		}
 		y += rowH + rowGap;
 		
-		for(Category category : Category.values())
+		for(String categoryName : getDisplayCategories())
 		{
-			if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-				y + rowH))
+			if(isInside(mouseX, mouseY, areaX1, y, areaX2, y + rowH))
 			{
 				clearSearch();
-				selectedCategory = category;
+				selectedCategory = categoryName;
 				enabledCategorySelected = false;
 				styleCategorySelected = false;
 				moduleScroll = 0;
@@ -1052,8 +1114,7 @@ public final class AltGuiScreen extends Screen
 			y += rowH + rowGap;
 		}
 		
-		if(isInside(mouseX, mouseY, panelX + 6, y, panelX + categoryW - 8,
-			y + rowH))
+		if(isInside(mouseX, mouseY, areaX1, y, areaX2, y + rowH))
 		{
 			clearSearch();
 			enabledCategorySelected = false;
@@ -1439,7 +1500,7 @@ public final class AltGuiScreen extends Screen
 			{
 				if(styleCategorySelected || enabledCategorySelected)
 					continue;
-				if(selectedCategory != Category.OTHER)
+				if(!selectedCategory.equalsIgnoreCase(Category.OTHER.getName()))
 					continue;
 			}
 			
@@ -1451,9 +1512,9 @@ public final class AltGuiScreen extends Screen
 		
 		if(!styleCategorySelected && !enabledCategorySelected)
 		{
-			boolean include =
-				globalSearch ? matchesSearch(performanceOverlay, query)
-					: selectedCategory == Category.OTHER;
+			boolean include = globalSearch
+				? matchesSearch(performanceOverlay, query)
+				: selectedCategory.equalsIgnoreCase(Category.OTHER.getName());
 			if(include && !isHiddenByTooManyHax(performanceOverlay))
 				features.add(performanceOverlay);
 		}
@@ -1629,16 +1690,43 @@ public final class AltGuiScreen extends Screen
 		return features;
 	}
 	
-	private boolean matchesCategory(Hack hack, Category category)
+	private boolean matchesCategory(Hack hack, String categoryName)
 	{
-		if(category == Category.FAVORITES)
+		if(categoryName.equalsIgnoreCase(Category.FAVORITES.getName()))
 			return hack.isFavorite();
 		
-		Category hackCategory = hack.getCategory();
-		if(hackCategory == null)
-			return category == Category.OTHER;
+		String hackCategory = hack.getCategoryName();
+		if(hackCategory == null || hackCategory.isBlank())
+			hackCategory = Category.OTHER.getName();
 		
-		return hackCategory == category;
+		return hackCategory.equalsIgnoreCase(categoryName);
+	}
+	
+	private List<String> getDisplayCategories()
+	{
+		ArrayList<String> categories = new ArrayList<>();
+		for(Category category : Category.values())
+			categories.add(category.getName());
+		
+		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
+		{
+			String categoryName = hack.getCategoryName();
+			if(categoryName == null || categoryName.isBlank())
+				continue;
+			
+			if(!containsIgnoreCase(categories, categoryName))
+				categories.add(categoryName);
+		}
+		
+		return categories;
+	}
+	
+	private boolean containsIgnoreCase(List<String> values, String needle)
+	{
+		for(String value : values)
+			if(value.equalsIgnoreCase(needle))
+				return true;
+		return false;
 	}
 	
 	private boolean matchesSearch(Feature feature, String query)
@@ -1981,6 +2069,20 @@ public final class AltGuiScreen extends Screen
 			moduleScroll = 0;
 		if(moduleScroll > maxModuleScroll)
 			moduleScroll = maxModuleScroll;
+		
+		if(categoryScroll < 0)
+			categoryScroll = 0;
+		if(categoryScroll > maxCategoryScroll)
+			categoryScroll = maxCategoryScroll;
+	}
+	
+	private boolean isInsideCategoryArea(double mouseX, double mouseY)
+	{
+		int x1 = panelX + 6;
+		int x2 = panelX + categoryW - 8;
+		int y1 = panelY + getSearchHeight() + 30;
+		int y2 = panelY + panelH - 20;
+		return isInside(mouseX, mouseY, x1, y1, x2, y2);
 	}
 	
 	private boolean isInside(double mouseX, double mouseY, int x1, int y1,

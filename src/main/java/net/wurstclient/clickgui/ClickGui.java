@@ -108,9 +108,9 @@ public final class ClickGui
 		popups.clear();
 		updateColors();
 		
-		LinkedHashMap<Category, Window> windowMap = new LinkedHashMap<>();
+		LinkedHashMap<String, Window> windowMap = new LinkedHashMap<>();
 		for(Category category : Category.values())
-			windowMap.put(category, new Window(category.getName()));
+			windowMap.put(category.getName(), new Window(category.getName()));
 		
 		ArrayList<Feature> features = new ArrayList<>();
 		features.addAll(WURST.getHax().getAllHax());
@@ -133,18 +133,28 @@ public final class ClickGui
 				continue;
 			}
 			
-			if(f.getCategory() != null)
-				windowMap.get(f.getCategory()).add(new FeatureButton(f));
+			String categoryName = f.getCategoryName();
+			if(categoryName == null || categoryName.isBlank())
+				continue;
+			
+			Window window = windowMap.get(categoryName);
+			if(window == null)
+			{
+				window = new Window(categoryName);
+				windowMap.put(categoryName, window);
+			}
+			window.add(new FeatureButton(f));
 		}
 		
 		// Bridge selected category-less "Other Features" into Other so they
 		// remain discoverable in the hack-style category layout.
-		windowMap.get(net.wurstclient.Category.OTHER)
+		windowMap.get(net.wurstclient.Category.OTHER.getName())
 			.add(new FeatureButton(WURST.getOtfs().performanceOverlayOtf));
 		
 		// Keep the "Other" category usable: it contains a mixed bag of hacks,
 		// commands and other-features, so insertion order is not meaningful.
-		Window otherWindow = windowMap.get(net.wurstclient.Category.OTHER);
+		Window otherWindow =
+			windowMap.get(net.wurstclient.Category.OTHER.getName());
 		if(otherWindow != null)
 			sortWindowByFeatureName(otherWindow);
 		// add favorites window entries (show favorites in the Favorites
@@ -163,11 +173,12 @@ public final class ClickGui
 				continue;
 			}
 			
-			windowMap.get(net.wurstclient.Category.FAVORITES)
+			windowMap.get(net.wurstclient.Category.FAVORITES.getName())
 				.add(new FeatureButton(f));
 		}
 		// ensure favourites window is sorted alphabetically
-		Window favWindow = windowMap.get(net.wurstclient.Category.FAVORITES);
+		Window favWindow =
+			windowMap.get(net.wurstclient.Category.FAVORITES.getName());
 		if(favWindow != null)
 			sortFavoritesWindow(favWindow);
 		

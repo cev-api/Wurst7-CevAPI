@@ -43,9 +43,9 @@ public final class TabGui implements KeyPressListener
 	{
 		WURST.getEventManager().add(KeyPressListener.class, this);
 		
-		LinkedHashMap<Category, Tab> tabMap = new LinkedHashMap<>();
+		LinkedHashMap<String, Tab> tabMap = new LinkedHashMap<>();
 		for(Category category : Category.values())
-			tabMap.put(category, new Tab(category.getName()));
+			tabMap.put(category.getName(), new Tab(category.getName()));
 		
 		ArrayList<Feature> features = new ArrayList<>();
 		features.addAll(WURST.getHax().getAllHax());
@@ -53,9 +53,20 @@ public final class TabGui implements KeyPressListener
 		features.addAll(WURST.getOtfs().getAllOtfs());
 		
 		for(Feature feature : features)
-			if(feature.getCategory() != null)
-				tabMap.get(feature.getCategory()).add(feature);
+		{
+			String categoryName = feature.getCategoryName();
+			if(categoryName == null || categoryName.isBlank())
+				continue;
 			
+			Tab tab = tabMap.get(categoryName);
+			if(tab == null)
+			{
+				tab = new Tab(categoryName);
+				tabMap.put(categoryName, tab);
+			}
+			tab.add(feature);
+		}
+		
 		tabs.addAll(tabMap.values());
 		tabs.forEach(Tab::updateSize);
 		updateSize();

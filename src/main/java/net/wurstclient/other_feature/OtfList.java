@@ -9,6 +9,7 @@ package net.wurstclient.other_feature;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.TreeMap;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
@@ -61,7 +62,7 @@ public final class OtfList
 					continue;
 				
 				OtherFeature otf = (OtherFeature)field.get(this);
-				otfs.put(otf.getName(), otf);
+				addOtfInternal(otf);
 			}
 			
 		}catch(Exception e)
@@ -70,6 +71,23 @@ public final class OtfList
 			CrashReport report = CrashReport.forThrowable(e, message);
 			throw new ReportedException(report);
 		}
+	}
+	
+	public void addOtf(OtherFeature otherFeature)
+	{
+		addOtfInternal(otherFeature);
+	}
+	
+	private void addOtfInternal(OtherFeature otherFeature)
+	{
+		Objects.requireNonNull(otherFeature, "otherFeature");
+		
+		String name = otherFeature.getName();
+		if(otfs.containsKey(name))
+			throw new IllegalArgumentException(
+				"Duplicate other feature: " + name);
+		
+		otfs.put(name, otherFeature);
 	}
 	
 	public OtherFeature getOtfByName(String name)

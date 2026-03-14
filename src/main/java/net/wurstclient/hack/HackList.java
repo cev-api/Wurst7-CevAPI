@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -307,7 +308,7 @@ public final class HackList implements UpdateListener
 					continue;
 				
 				Hack hack = (Hack)field.get(this);
-				hax.put(hack.getName(), hack);
+				addHackInternal(hack);
 			}
 			
 		}catch(Exception e)
@@ -318,6 +319,22 @@ public final class HackList implements UpdateListener
 		}
 		
 		eventManager.add(UpdateListener.class, this);
+	}
+	
+	public void addHack(Hack hack)
+	{
+		addHackInternal(hack);
+	}
+	
+	private void addHackInternal(Hack hack)
+	{
+		Objects.requireNonNull(hack, "hack");
+		
+		String name = hack.getName();
+		if(hax.containsKey(name))
+			throw new IllegalArgumentException("Duplicate hack: " + name);
+		
+		hax.put(name, hack);
 	}
 	
 	/**

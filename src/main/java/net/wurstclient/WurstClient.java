@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
+import net.wurstclient.addons.AddonManager;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
 import net.wurstclient.analytics.PlausibleAnalytics;
@@ -131,6 +132,8 @@ public enum WurstClient
 		cmds = new CmdList();
 		
 		otfs = new OtfList();
+		
+		AddonManager.init();
 		
 		Path settingsFile = wurstFolder.resolve("settings.json");
 		settingsProfileFolder = wurstFolder.resolve("settings");

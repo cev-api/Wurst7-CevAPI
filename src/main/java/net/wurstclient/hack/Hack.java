@@ -21,7 +21,9 @@ public abstract class Hack extends Feature
 {
 	private final String name;
 	private final String description;
+	private final boolean descriptionIsTranslationKey;
 	private Category category;
+	private String customCategoryName;
 	
 	private boolean enabled;
 	private final boolean stateSaved =
@@ -32,8 +34,15 @@ public abstract class Hack extends Feature
 	
 	public Hack(String name)
 	{
+		this(name, "description.wurst.hack." + name.toLowerCase(), true);
+	}
+	
+	protected Hack(String name, String description,
+		boolean descriptionIsTranslationKey)
+	{
 		this.name = Objects.requireNonNull(name);
-		description = "description.wurst.hack." + name.toLowerCase();
+		this.description = Objects.requireNonNull(description);
+		this.descriptionIsTranslationKey = descriptionIsTranslationKey;
 		addPossibleKeybind(name, "Toggle " + name);
 		
 		if(name.contains(" "))
@@ -80,7 +89,10 @@ public abstract class Hack extends Feature
 	@Override
 	public final String getDescription()
 	{
-		return WURST.translate(description);
+		if(descriptionIsTranslationKey)
+			return WURST.translate(description);
+		
+		return description;
 	}
 	
 	public final String getDescriptionKey()
@@ -94,9 +106,29 @@ public abstract class Hack extends Feature
 		return category;
 	}
 	
+	@Override
+	public final String getCategoryName()
+	{
+		if(customCategoryName != null && !customCategoryName.isBlank())
+			return customCategoryName;
+		
+		return category != null ? category.getName() : null;
+	}
+	
 	protected final void setCategory(Category category)
 	{
 		this.category = category;
+		customCategoryName = null;
+	}
+	
+	protected final void setCategory(String categoryName)
+	{
+		if(categoryName == null || categoryName.isBlank())
+			throw new IllegalArgumentException(
+				"Category name must not be blank.");
+		
+		category = null;
+		customCategoryName = categoryName;
 	}
 	
 	@Override
@@ -117,7 +149,7 @@ public abstract class Hack extends Feature
 		this.enabled = enabled;
 		
 		if(!(this instanceof NavigatorHack || this instanceof ClickGuiHack
-			|| this instanceof AltGuiHack))
+			|| this instanceof AltGuiHack) && WURST.getHud() != null)
 			WURST.getHud().getHackList().updateState(this);
 		
 		if(enabled)

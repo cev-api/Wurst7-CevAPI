@@ -133,8 +133,9 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			text += "Other Feature";
 		
 		// category
-		if(feature.getCategory() != null)
-			text += ", Category: " + feature.getCategory().getName();
+		String categoryName = feature.getCategoryName();
+		if(categoryName != null && !categoryName.isBlank())
+			text += ", Category: " + categoryName;
 		
 		// description
 		String description = feature.getWrappedDescription(300);
