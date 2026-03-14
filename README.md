@@ -138,6 +138,43 @@ I have taken the following ideas from other clients/mods:
 
 I did not, and could not, copy any code directly since most implementations are Meteor-based mods or standalone projects. These are my own implementations of the concepts, rewritten for Mojmap and often improved or expanded upon.
 
+
+## Wurst Addon API
+
+This Wurst fork now supports Meteor-style addons through a custom entrypoint using Fabric.
+
+- Entrypoint key: `wurst`
+- Entrypoint class type: `net.wurstclient.addons.WurstAddon`
+- Registration API:
+  - `addHack(Hack hack)`
+  - `addCommand(Command command)`
+  - `addOtherFeature(OtherFeature feature)`
+
+Minimal example:
+
+```java
+public final class MyAddon extends WurstAddon
+{
+	@Override
+	public void onInitialize()
+	{
+		addHack(new MyHack());
+		addCommand(new MyCommand());
+	}
+}
+```
+
+`fabric.mod.json` entrypoint example:
+
+```json
+"entrypoints": {
+  "wurst": ["com.example.addon.MyAddon"]
+}
+```
+
+A ready-to-publish starter project is included here: [https://github.com/cev-api/Wurst-Addon-Template](https://github.com/cev-api/Wurst-Addon-Template)
+
+
 ---
 
 ## What's new in this fork?
@@ -1263,43 +1300,6 @@ Examples:
 - Existing ```.xray add/remove/list/reset``` still works
 
 ---
-
-## Wurst Addon API
-
-This fork now supports Fabric-style Wurst addons through a custom entrypoint.
-
-- Entrypoint key: `wurst`
-- Entrypoint class type: `net.wurstclient.addons.WurstAddon`
-- Registration API:
-  - `addHack(Hack hack)`
-  - `addCommand(Command command)`
-  - `addOtherFeature(OtherFeature feature)`
-
-Minimal example:
-
-```java
-public final class MyAddon extends WurstAddon
-{
-	@Override
-	public void onInitialize()
-	{
-		addHack(new MyHack());
-		addCommand(new MyCommand());
-	}
-}
-```
-
-`fabric.mod.json` entrypoint example:
-
-```json
-"entrypoints": {
-  "wurst": ["com.example.addon.MyAddon"]
-}
-```
-
-A ready-to-publish starter project is included in this repository at:
-
-- `wurst-addon-template/`
 
 ## License
 
