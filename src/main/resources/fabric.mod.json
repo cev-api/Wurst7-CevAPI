@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "${modId}",
+  "provides": [
+    "wurst-cevapi"
+  ],
   "version": "${version}",
   "name": "${modName}",
   "description": "${modDescription}",
