@@ -7,8 +7,12 @@
  */
 package net.wurstclient.hacks;
 
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundGameEventPacket;
 import net.minecraft.world.level.MoonPhase;
 import net.wurstclient.Category;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
@@ -16,7 +20,8 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 
-public final class NoWeatherHack extends Hack implements UpdateListener
+public final class NoWeatherHack extends Hack
+	implements UpdateListener, PacketInputListener
 {
 	private final CheckboxSetting disableRain =
 		new CheckboxSetting("Disable Rain", true);
@@ -37,6 +42,8 @@ public final class NoWeatherHack extends Hack implements UpdateListener
 		new SliderSetting("Moon Phase", 0, 0, 7, 1, ValueDisplay.INTEGER);
 	
 	private WeatherState lastKnownWeather;
+	private Boolean packetRaining;
+	private Boolean packetThundering;
 	
 	public NoWeatherHack()
 	{
@@ -55,14 +62,20 @@ public final class NoWeatherHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		lastKnownWeather = null;
+		packetRaining = null;
+		packetThundering = null;
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
+		EVENTS.remove(PacketInputListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
 		lastKnownWeather = null;
+		packetRaining = null;
+		packetThundering = null;
 	}
 	
 	@Override
@@ -71,11 +84,17 @@ public final class NoWeatherHack extends Hack implements UpdateListener
 		if(MC.level == null)
 		{
 			lastKnownWeather = null;
+			packetRaining = null;
+			packetThundering = null;
 			return;
 		}
 		
-		WeatherState currentWeather = WeatherState
-			.fromLevel(MC.level.isRaining(), MC.level.isThundering());
+		boolean raining =
+			packetRaining != null ? packetRaining : getActualRaining();
+		boolean thundering =
+			packetThundering != null ? packetThundering : getActualThundering();
+		WeatherState currentWeather =
+			WeatherState.fromLevel(raining, thundering);
 		if(lastKnownWeather == null)
 		{
 			lastKnownWeather = currentWeather;
@@ -90,6 +109,62 @@ public final class NoWeatherHack extends Hack implements UpdateListener
 				+ currentWeather.getDisplayName() + ".");
 		
 		lastKnownWeather = currentWeather;
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		Packet<?> packet = event.getPacket();
+		if(!(packet instanceof ClientboundGameEventPacket gameEvent))
+			return;
+		
+		var type = gameEvent.getEvent();
+		float value = gameEvent.getParam();
+		
+		if(type == ClientboundGameEventPacket.START_RAINING)
+		{
+			packetRaining = true;
+			return;
+		}
+		
+		if(type == ClientboundGameEventPacket.STOP_RAINING)
+		{
+			packetRaining = false;
+			packetThundering = false;
+			return;
+		}
+		
+		if(type == ClientboundGameEventPacket.RAIN_LEVEL_CHANGE)
+		{
+			packetRaining = value > 0.2F;
+			return;
+		}
+		
+		if(type == ClientboundGameEventPacket.THUNDER_LEVEL_CHANGE)
+		{
+			packetThundering = value > 0.2F;
+			if(packetThundering)
+				packetRaining = true;
+		}
+	}
+	
+	private boolean getActualRaining()
+	{
+		if(MC.level == null)
+			return false;
+			
+		// Read server-synced weather flags directly so alerts still work when
+		// NoWeather suppresses visual rain rendering.
+		return MC.level.getLevelData().isRaining();
+	}
+	
+	private boolean getActualThundering()
+	{
+		if(MC.level == null)
+			return false;
+		
+		// Same as above: avoid relying on rendered rain/thunder state.
+		return MC.level.getLevelData().isThundering();
 	}
 	
 	public boolean isRainDisabled()

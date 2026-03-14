@@ -548,8 +548,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			: MC.level.dimension().identifier().getPath();
 		
 		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (isSpawnerFilterActive()
-				|| filterTrialChambers.isChecked()
+			&& (isSpawnerFilterActive() || filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
 		for(ChestEspGroup group : groups.allGroups)
@@ -906,8 +905,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		}
 		
 		boolean applyEnvFilters = MC.level != null && !preFilteredEnv
-			&& (isSpawnerFilterActive()
-				|| filterTrialChambers.isChecked()
+			&& (isSpawnerFilterActive() || filterTrialChambers.isChecked()
 				|| filterVillages.isChecked());
 		
 		for(ChestEspGroup group : groups.allGroups)
@@ -1501,8 +1499,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				continue;
 			}
 			
-			if(isSpawnerFilterActive()
-				&& isNearSpawner(singleChestPos, 7))
+			if(isSpawnerFilterActive() && isNearSpawner(singleChestPos, 7))
 				continue;
 			
 			if(filterTrialChambers.isChecked()

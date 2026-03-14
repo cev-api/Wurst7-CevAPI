@@ -57,7 +57,7 @@ public final class NiceWurstModule
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
 	private static final Set<String> ALLOWED_NAME_ONLY = Set.of("ClickGUI",
-		"Navigator", "ChorusFruit", "MeasurementESP", "Towny");
+		"Navigator", "AltGUI", "ChorusFruit", "MeasurementESP", "Towny");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -85,13 +85,13 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
 				"Excavator", "InstantBunker", "ScaffoldWalk", "TemplateTool",
-				"TargetPlace", "SilkOnly"));
+				"TargetPlace", "SilkOnly", "MusicAura"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT, Set.of("BunnyHop", "AutoSprint",
 			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
 		
-		ALLOWED_HACKS.put(Category.COMBAT,
-			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "WindChargeKey"));
+		ALLOWED_HACKS.put(Category.COMBAT, Set.of("AutoRespawn", "AutoTotem",
+			"AutoLeave", "WindChargeKey", "PearlIntercept"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
@@ -100,9 +100,10 @@ public final class NiceWurstModule
 				"NewerNewChunks", "NoBackground", "NoFireOverlay", "NoVignette",
 				"NoWeather", "Freecam", "OpenWaterESP", "PearlESP", "PlayerESP",
 				"PortalESP", "Radar", "Search", "TrialSpawnerESP", "TridentESP",
-				"Waypoints", "WardenESP", "HideWurst"));
+				"Waypoints", "WardenESP", "HideWurst", "ElytraInfo"));
 		
-		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention"));
+		ALLOWED_HACKS.put(Category.CHAT,
+			Set.of("AutoChat", "Mention", "NoPlayerChat"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
@@ -110,7 +111,8 @@ public final class NiceWurstModule
 				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
 				"SeedMapperHelper", "TooManyHax", "HideModMenu", "GameStats",
-				"DamageDetect", "ClientChatOverlay"));
+				"DamageDetect", "ClientChatOverlay", "CommandScanner",
+				"GlobalToggle"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
@@ -452,6 +454,9 @@ public final class NiceWurstModule
 	
 	private static boolean isHackAllowed(Hack hack)
 	{
+		if(isAddonHack(hack))
+			return true;
+		
 		Category category = hack.getCategory();
 		String name = hack.getName();
 		if(ALLOWED_NAME_ONLY.contains(name))
@@ -464,6 +469,16 @@ public final class NiceWurstModule
 			: ALLOWED_HACKS.getOrDefault(category, Set.of());
 		
 		return allowed.contains(name);
+	}
+	
+	private static boolean isAddonHack(Hack hack)
+	{
+		if(hack == null)
+			return false;
+		
+		// NiceWurst should not hide hacks added by external addons.
+		String className = hack.getClass().getName();
+		return !className.startsWith("net.wurstclient.hacks.");
 	}
 	
 	@SuppressWarnings("unchecked")

@@ -17,7 +17,7 @@
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
-![Release](https://i.imgur.com/Ym1GFs5.png)
+![Release](https://i.imgur.com/a7UQGuI.png)
 
 I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
@@ -106,6 +106,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - Force Allow Chats
 - MusicAura 
 - Performance Overlay
+- PearlIntercept
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -192,7 +193,7 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - Configurable open behavior: Open on Favorites, Enabled or restore last category/scroll state
 - Replaced old color editor with HSV Color Picker giving access to a greater color spectrum
 
-![AltGUI](https://i.imgur.com/f9ebKYj.png)
+![AltGUI](https://i.imgur.com/0PpYJm4.png)
 
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
