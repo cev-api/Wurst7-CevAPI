@@ -33,6 +33,7 @@ import net.wurstclient.util.text.WText;
 
 public class BlockListSetting extends Setting
 {
+	private final Object blockNamesLock = new Object();
 	private final ArrayList<String> blockNames = new ArrayList<>();
 	private final String[] defaultNames;
 	
@@ -50,13 +51,13 @@ public class BlockListSetting extends Setting
 		this(name, WText.translated(descriptionKey), blocks);
 	}
 	
-	private void addFromString(String s)
+	private boolean addFromString(String s)
 	{
 		if(s == null)
-			return;
+			return false;
 		String raw = s.trim();
 		if(raw.isEmpty())
-			return;
+			return false;
 		
 		Identifier id = Identifier.tryParse(raw);
 		String name = raw;
@@ -64,16 +65,28 @@ public class BlockListSetting extends Setting
 		if(id != null && BuiltInRegistries.BLOCK.containsKey(id))
 			name = id.toString();
 		
-		if(Collections.binarySearch(blockNames, name) < 0)
+		synchronized(blockNamesLock)
 		{
+			if(Collections.binarySearch(blockNames, name) >= 0)
+				return false;
+			
 			blockNames.add(name);
 			Collections.sort(blockNames);
+			return true;
 		}
 	}
 	
 	public List<String> getBlockNames()
 	{
-		return Collections.unmodifiableList(blockNames);
+		return Collections.unmodifiableList(getBlockNamesSnapshot());
+	}
+	
+	private ArrayList<String> getBlockNamesSnapshot()
+	{
+		synchronized(blockNamesLock)
+		{
+			return new ArrayList<>(blockNames);
+		}
 	}
 	
 	public int indexOf(String name)
@@ -81,7 +94,10 @@ public class BlockListSetting extends Setting
 		if(name == null)
 			return -1;
 		
-		return Collections.binarySearch(blockNames, name);
+		synchronized(blockNamesLock)
+		{
+			return Collections.binarySearch(blockNames, name);
+		}
 	}
 	
 	public int indexOf(Block block)
@@ -101,48 +117,69 @@ public class BlockListSetting extends Setting
 	
 	public int size()
 	{
-		return blockNames.size();
+		synchronized(blockNamesLock)
+		{
+			return blockNames.size();
+		}
 	}
 	
 	public void add(Block block)
 	{
 		String name = BlockUtils.getName(block);
-		if(Collections.binarySearch(blockNames, name) >= 0)
-			return;
+		boolean changed;
+		synchronized(blockNamesLock)
+		{
+			if(Collections.binarySearch(blockNames, name) >= 0)
+				return;
+			
+			blockNames.add(name);
+			Collections.sort(blockNames);
+			changed = true;
+		}
 		
-		blockNames.add(name);
-		Collections.sort(blockNames);
-		WurstClient.INSTANCE.saveSettings();
+		if(changed)
+			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	// New: allow adding raw keyword entries
 	public void addRawName(String raw)
 	{
-		int before = blockNames.size();
-		addFromString(raw);
-		if(blockNames.size() != before)
+		if(addFromString(raw))
 			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void remove(int index)
 	{
-		if(index < 0 || index >= blockNames.size())
-			return;
+		boolean changed;
+		synchronized(blockNamesLock)
+		{
+			if(index < 0 || index >= blockNames.size())
+				return;
+			
+			blockNames.remove(index);
+			changed = true;
+		}
 		
-		blockNames.remove(index);
-		WurstClient.INSTANCE.saveSettings();
+		if(changed)
+			WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void resetToDefaults()
 	{
-		blockNames.clear();
-		blockNames.addAll(Arrays.asList(defaultNames));
+		synchronized(blockNamesLock)
+		{
+			blockNames.clear();
+			blockNames.addAll(Arrays.asList(defaultNames));
+		}
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public void clear()
 	{
-		blockNames.clear();
+		synchronized(blockNamesLock)
+		{
+			blockNames.clear();
+		}
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
@@ -157,12 +194,17 @@ public class BlockListSetting extends Setting
 	{
 		try
 		{
-			blockNames.clear();
+			ArrayList<String> parsedNames = new ArrayList<>();
 			
 			// if string "default", load default blocks
 			if(JsonUtils.getAsString(json, "nope").equals("default"))
 			{
-				blockNames.addAll(Arrays.asList(defaultNames));
+				parsedNames.addAll(Arrays.asList(defaultNames));
+				synchronized(blockNamesLock)
+				{
+					blockNames.clear();
+					blockNames.addAll(parsedNames);
+				}
 				return;
 			}
 			
@@ -178,16 +220,22 @@ public class BlockListSetting extends Setting
 				}
 				
 				String name = id.toString();
-				if(blockNames.contains(name))
+				if(parsedNames.contains(name))
 				{
 					System.out.println("Discarding BlockList entry \"" + rawName
 						+ "\" as \"" + name + "\" is already in the list");
 					continue;
 				}
 				
-				blockNames.add(name);
+				parsedNames.add(name);
 			}
-			blockNames.sort(null);
+			parsedNames.sort(null);
+			
+			synchronized(blockNamesLock)
+			{
+				blockNames.clear();
+				blockNames.addAll(parsedNames);
+			}
 			
 		}catch(JsonException e)
 		{
@@ -199,12 +247,14 @@ public class BlockListSetting extends Setting
 	@Override
 	public JsonElement toJson()
 	{
+		List<String> snapshot = getBlockNamesSnapshot();
+		
 		// if blockNames is the same as defaultNames, save string "default"
-		if(blockNames.equals(Arrays.asList(defaultNames)))
+		if(snapshot.equals(Arrays.asList(defaultNames)))
 			return new JsonPrimitive("default");
 		
 		JsonArray json = new JsonArray();
-		blockNames.forEach(s -> json.add(s));
+		snapshot.forEach(s -> json.add(s));
 		return json;
 	}
 	
@@ -257,12 +307,13 @@ public class BlockListSetting extends Setting
 		String idFull = net.wurstclient.util.BlockUtils.getName(block);
 		if(contains(idFull))
 			return true;
+		List<String> names = getBlockNamesSnapshot();
 		String localId = idFull.contains(":")
 			? idFull.substring(idFull.indexOf(":") + 1) : idFull;
 		String localSpaced = localId.replace('_', ' ');
 		String transKey = block.getDescriptionId();
 		String display = block.getName().getString();
-		for(String s : blockNames)
+		for(String s : names)
 		{
 			net.minecraft.resources.Identifier id =
 				net.minecraft.resources.Identifier.tryParse(s);
