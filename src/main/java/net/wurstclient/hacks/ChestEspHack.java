@@ -198,6 +198,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		new ArrayDeque<>();
 	private final HashSet<Long> queuedChunkScans = new HashSet<>();
 	private final HashMap<String, Long> antiEspCooldowns = new HashMap<>();
+	private final Object antiEspLock = new Object();
 	private long lastContainerBePacketMs;
 	private long burstStartMs = -1L;
 	private boolean antiEspSuspicious;
@@ -991,7 +992,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		boolean newContainer = isContainerBlock(newState);
 		
 		if(oldContainer || newContainer)
-			lastBlockUpdateAt.put(pos.immutable(), now);
+			synchronized(antiEspLock)
+			{
+				lastBlockUpdateAt.put(pos.immutable(), now);
+			}
 		
 		if(!oldContainer && newContainer)
 		{
@@ -1016,35 +1020,46 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		if(!isContainerBlock(state))
 			return;
 		
-		Long missingAt = missingContainerAt.get(pos);
-		Long updatedAt = lastBlockUpdateAt.get(pos);
-		boolean missingRecently =
-			missingAt != null && now - missingAt <= CHUNK_SCAN_EXPIRY_MS;
-		boolean noRecentUpdate =
-			updatedAt == null || now - updatedAt > BLOCK_UPDATE_GRACE_MS;
-		if(missingRecently && noRecentUpdate)
+		boolean lateWithoutUpdate;
+		boolean burstDetected;
+		int burstSize;
+		synchronized(antiEspLock)
+		{
+			Long missingAt = missingContainerAt.get(pos);
+			Long updatedAt = lastBlockUpdateAt.get(pos);
+			boolean missingRecently =
+				missingAt != null && now - missingAt <= CHUNK_SCAN_EXPIRY_MS;
+			boolean noRecentUpdate =
+				updatedAt == null || now - updatedAt > BLOCK_UPDATE_GRACE_MS;
+			lateWithoutUpdate = missingRecently && noRecentUpdate;
+			
+			long sinceLast = now - lastContainerBePacketMs;
+			if(lastContainerBePacketMs > 0 && sinceLast > BURST_QUIET_MS)
+			{
+				burstStartMs = now;
+				blockEntityBurstTimes.clear();
+			}
+			lastContainerBePacketMs = now;
+			
+			blockEntityBurstTimes.addLast(now);
+			while(!blockEntityBurstTimes.isEmpty()
+				&& now - blockEntityBurstTimes.peekFirst() > BURST_WINDOW_MS)
+				blockEntityBurstTimes.removeFirst();
+			
+			burstSize = blockEntityBurstTimes.size();
+			burstDetected =
+				burstStartMs > 0 && now - burstStartMs <= BURST_WINDOW_MS
+					&& burstSize >= BURST_THRESHOLD;
+		}
+		
+		if(lateWithoutUpdate)
 			flagAntiEsp("late-block-entity", "Block entity for container at "
 				+ formatPos(pos) + " arrived later without a block change");
 		
-		long sinceLast = now - lastContainerBePacketMs;
-		if(lastContainerBePacketMs > 0 && sinceLast > BURST_QUIET_MS)
-		{
-			burstStartMs = now;
-			blockEntityBurstTimes.clear();
-		}
-		lastContainerBePacketMs = now;
-		
-		blockEntityBurstTimes.addLast(now);
-		while(!blockEntityBurstTimes.isEmpty()
-			&& now - blockEntityBurstTimes.peekFirst() > BURST_WINDOW_MS)
-			blockEntityBurstTimes.removeFirst();
-		
-		if(burstStartMs > 0 && now - burstStartMs <= BURST_WINDOW_MS
-			&& blockEntityBurstTimes.size() >= BURST_THRESHOLD)
+		if(burstDetected)
 			flagAntiEsp("be-burst",
-				"Burst of " + blockEntityBurstTimes.size()
-					+ " block-entity packets in " + (BURST_WINDOW_MS / 1000)
-					+ "s after a quiet period");
+				"Burst of " + burstSize + " block-entity packets in "
+					+ (BURST_WINDOW_MS / 1000) + "s after a quiet period");
 	}
 	
 	private void queueChunkScan(ChunkPos chunkPos)
@@ -1053,11 +1068,14 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			return;
 		
 		long key = chunkKey(chunkPos);
-		if(!queuedChunkScans.add(key))
-			return;
-		
-		chunkScanQueue.addLast(
-			new ChunkScanRequest(chunkPos, key, System.currentTimeMillis()));
+		synchronized(antiEspLock)
+		{
+			if(!queuedChunkScans.add(key))
+				return;
+			
+			chunkScanQueue.addLast(new ChunkScanRequest(chunkPos, key,
+				System.currentTimeMillis()));
+		}
 	}
 	
 	private void processQueuedChunkScans(int maxPerTick)
@@ -1068,11 +1086,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		long now = System.currentTimeMillis();
 		for(int i = 0; i < maxPerTick; i++)
 		{
-			ChunkScanRequest request = chunkScanQueue.pollFirst();
+			ChunkScanRequest request;
+			synchronized(antiEspLock)
+			{
+				request = chunkScanQueue.pollFirst();
+				if(request != null)
+					queuedChunkScans.remove(request.key());
+			}
 			if(request == null)
 				return;
 			
-			queuedChunkScans.remove(request.key());
 			if(now - request.queuedAt() > CHUNK_SCAN_EXPIRY_MS)
 				continue;
 			
@@ -1089,6 +1112,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		if(chunk == null)
 			return;
 		
+		long now = System.currentTimeMillis();
 		int minY = chunk.getMinY();
 		int minSectionY = minY >> 4;
 		int containerBlocks = 0;
@@ -1121,8 +1145,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 						if(be == null)
 						{
 							withoutBlockEntity++;
-							missingContainerAt.put(pos.immutable(),
-								System.currentTimeMillis());
+							synchronized(antiEspLock)
+							{
+								missingContainerAt.put(pos.immutable(), now);
+							}
 						}else
 							withBlockEntity++;
 					}
@@ -1147,33 +1173,42 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			return;
 		
 		BlockPos pos = be.getBlockPos().immutable();
-		if(!discoveredContainers.add(pos))
-			return;
-		
 		double distance = MC.player.position().distanceTo(Vec3.atCenterOf(pos));
-		revealSamples
-			.addLast(new RevealSample(distance, System.currentTimeMillis()));
-		while(revealSamples.size() > 64)
-			revealSamples.removeFirst();
+		synchronized(antiEspLock)
+		{
+			if(!discoveredContainers.add(pos))
+				return;
+			
+			revealSamples.addLast(
+				new RevealSample(distance, System.currentTimeMillis()));
+			while(revealSamples.size() > 64)
+				revealSamples.removeFirst();
+		}
 	}
 	
 	private void checkRevealPattern()
 	{
-		if(revealSamples.size() < REVEAL_MIN_SAMPLES)
-			return;
+		ArrayList<RevealSample> samples;
+		synchronized(antiEspLock)
+		{
+			if(revealSamples.size() < REVEAL_MIN_SAMPLES)
+				return;
+			
+			samples = new ArrayList<>(revealSamples);
+		}
 		
 		double sum = 0;
-		for(RevealSample sample : revealSamples)
+		for(RevealSample sample : samples)
 			sum += sample.distance();
 		
-		double mean = sum / revealSamples.size();
+		double mean = sum / samples.size();
 		double variance = 0;
-		for(RevealSample sample : revealSamples)
+		for(RevealSample sample : samples)
 		{
 			double d = sample.distance() - mean;
 			variance += d * d;
 		}
-		double stddev = Math.sqrt(variance / revealSamples.size());
+		double stddev = Math.sqrt(variance / samples.size());
 		
 		boolean suspiciousRadius = mean >= 12 && mean <= 32 && stddev <= 2.8;
 		if(suspiciousRadius)
@@ -1188,42 +1223,54 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	private void pruneAntiEspState()
 	{
 		long now = System.currentTimeMillis();
-		missingContainerAt.entrySet()
-			.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
-		lastBlockUpdateAt.entrySet()
-			.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
-		revealSamples.removeIf(
-			sample -> now - sample.timestamp() > REVEAL_SAMPLE_EXPIRY_MS);
+		synchronized(antiEspLock)
+		{
+			missingContainerAt.entrySet()
+				.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
+			lastBlockUpdateAt.entrySet()
+				.removeIf(e -> now - e.getValue() > CHUNK_SCAN_EXPIRY_MS);
+			revealSamples.removeIf(
+				sample -> now - sample.timestamp() > REVEAL_SAMPLE_EXPIRY_MS);
+		}
 	}
 	
 	private void flagAntiEsp(String key, String message)
 	{
-		long now = System.currentTimeMillis();
-		Long cooldown = antiEspCooldowns.get(key);
-		if(cooldown != null && now - cooldown < 8000)
-			return;
+		boolean showAlert;
+		synchronized(antiEspLock)
+		{
+			long now = System.currentTimeMillis();
+			Long cooldown = antiEspCooldowns.get(key);
+			if(cooldown != null && now - cooldown < 8000)
+				return;
+			
+			antiEspCooldowns.put(key, now);
+			antiEspSuspicious = true;
+			antiEspSignals = Math.min(antiEspSignals + 1, 999);
+			showAlert = antiEspAlerts.isChecked();
+		}
 		
-		antiEspCooldowns.put(key, now);
-		antiEspSuspicious = true;
-		antiEspSignals = Math.min(antiEspSignals + 1, 999);
-		if(antiEspAlerts.isChecked())
+		if(showAlert)
 			ChatUtils.warning("ChestESP Anti-ESP: " + message);
 	}
 	
 	private void resetAntiEspState()
 	{
-		missingContainerAt.clear();
-		lastBlockUpdateAt.clear();
-		discoveredContainers.clear();
-		revealSamples.clear();
-		blockEntityBurstTimes.clear();
-		chunkScanQueue.clear();
-		queuedChunkScans.clear();
-		antiEspCooldowns.clear();
-		lastContainerBePacketMs = 0L;
-		burstStartMs = -1L;
-		antiEspSuspicious = false;
-		antiEspSignals = 0;
+		synchronized(antiEspLock)
+		{
+			missingContainerAt.clear();
+			lastBlockUpdateAt.clear();
+			discoveredContainers.clear();
+			revealSamples.clear();
+			blockEntityBurstTimes.clear();
+			chunkScanQueue.clear();
+			queuedChunkScans.clear();
+			antiEspCooldowns.clear();
+			lastContainerBePacketMs = 0L;
+			burstStartMs = -1L;
+			antiEspSuspicious = false;
+			antiEspSignals = 0;
+		}
 	}
 	
 	private boolean isContainerBlockEntity(BlockEntity be)
@@ -1275,8 +1322,19 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	public String getRenderName()
 	{
 		String base = getName();
-		if(antiEspDetection.isChecked() && antiEspSuspicious)
-			base += " [AntiESP:" + antiEspSignals + "]";
+		if(antiEspDetection.isChecked())
+		{
+			boolean suspicious;
+			int signals;
+			synchronized(antiEspLock)
+			{
+				suspicious = antiEspSuspicious;
+				signals = antiEspSignals;
+			}
+			
+			if(suspicious)
+				base += " [AntiESP:" + signals + "]";
+		}
 		if(showCountInHackList.isChecked() && foundCount > 0)
 			return base + " [" + foundCount + "]";
 		return base;

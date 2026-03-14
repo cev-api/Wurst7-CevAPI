@@ -321,6 +321,10 @@ public final class AntiCheatDetectHack extends Hack
 		if(oldId == null || newId == null || oldId.equals(newId))
 			return true;
 		
+		// Fire spread and burning are common natural updates.
+		if(isFireId(oldId) || isFireId(newId))
+			return true;
+		
 		if(isAirOrFluidId(oldId) || isAirOrFluidId(newId))
 			return true;
 		
@@ -340,6 +344,11 @@ public final class AntiCheatDetectHack extends Hack
 			return true;
 		
 		return false;
+	}
+	
+	private boolean isFireId(String id)
+	{
+		return "minecraft:fire".equals(id) || "minecraft:soul_fire".equals(id);
 	}
 	
 	private boolean isAirOrFluidId(String id)
