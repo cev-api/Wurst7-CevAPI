@@ -101,6 +101,11 @@ public final class TokenAlt extends Alt
 		return refreshToken;
 	}
 	
+	void setName(String name)
+	{
+		this.name = name == null ? "" : name;
+	}
+	
 	@Override
 	public int hashCode()
 	{

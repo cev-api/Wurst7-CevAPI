@@ -64,6 +64,23 @@ public final class AltManager
 				oldAlt.isFavorite()));
 	}
 	
+	public void updateTokenAltName(TokenAlt tokenAlt, String newName)
+	{
+		if(tokenAlt == null)
+			return;
+		
+		for(Alt alt : alts)
+		{
+			if(alt != tokenAlt)
+				continue;
+			
+			tokenAlt.setName(newName);
+			sortAlts();
+			altsFile.save(this);
+			return;
+		}
+	}
+	
 	/**
 	 * Logs the user in with this Alt. Also updates the counter for checked alts
 	 * and saves the alt list file as necessary.

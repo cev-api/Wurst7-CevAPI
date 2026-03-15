@@ -99,6 +99,8 @@ public final class AltManagerScreen extends Screen
 	private volatile int importDone;
 	private volatile int importTotal;
 	private volatile boolean importHasCounts;
+	private volatile boolean editValidationInProgress;
+	private volatile String editValidationStatus = "";
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -222,14 +224,27 @@ public final class AltManagerScreen extends Screen
 			return;
 		}
 		
+		if(editValidationInProgress)
+		{
+			useButton.active = false;
+			starButton.active = false;
+			editButton.active = false;
+			deleteButton.active = false;
+			logoutButton.active = false;
+			checkButton.active = false;
+			if(importButton != null)
+				importButton.active = false;
+			if(exportButton != null)
+				exportButton.active = false;
+			return;
+		}
+		
 		int selectionCount = listGui != null ? listGui.getSelectionCount() : 0;
 		boolean hasSingleSelection = selectionCount == 1;
-		Alt selectedAlt = listGui != null ? listGui.getSelectedAlt() : null;
 		
 		useButton.active = hasSingleSelection;
 		starButton.active = hasSingleSelection;
-		editButton.active =
-			hasSingleSelection && !(selectedAlt instanceof TokenAlt);
+		editButton.active = hasSingleSelection;
 		deleteButton.active = selectionCount > 0;
 		
 		logoutButton.active =
@@ -421,7 +436,66 @@ public final class AltManagerScreen extends Screen
 		if(alt == null)
 			return;
 		
+		if(alt instanceof TokenAlt tokenAlt)
+		{
+			validateTokenAltBeforeEditing(tokenAlt);
+			return;
+		}
+		
 		minecraft.setScreen(new EditAltScreen(this, altManager, alt));
+	}
+	
+	private void validateTokenAltBeforeEditing(TokenAlt tokenAlt)
+	{
+		if(editValidationInProgress)
+			return;
+		
+		editValidationInProgress = true;
+		editValidationStatus = "Validating token account...";
+		updateAltButtons();
+		
+		Thread thread = new Thread(() -> {
+			try
+			{
+				MinecraftProfile profile =
+					MicrosoftLoginManager.authenticateTokenAltWithoutSession(
+						tokenAlt.getToken(), tokenAlt.getRefreshToken());
+				
+				minecraft.execute(() -> {
+					editValidationInProgress = false;
+					editValidationStatus = "";
+					
+					String resolvedName = profile.getName();
+					if(resolvedName != null && !resolvedName.isBlank())
+					{
+						altManager.updateTokenAltName(tokenAlt, resolvedName);
+						AltRenderer.refreshSkin(resolvedName);
+					}
+					
+					if(minecraft.screen == this)
+						minecraft.setScreen(
+							new EditTokenAltScreen(this, altManager, tokenAlt));
+				});
+				
+			}catch(LoginException e)
+			{
+				minecraft.execute(() -> {
+					editValidationInProgress = false;
+					editValidationStatus = "";
+					errorTimer = 8;
+					updateAltButtons();
+					
+					String details =
+						e.getMessage() == null || e.getMessage().isBlank()
+							? "Unknown error" : e.getMessage();
+					minecraft.setScreen(new AltLoginFailedScreen(this,
+						"Token validation failed: " + details));
+				});
+			}
+		}, "Wurst Edit Token Validation");
+		
+		thread.setDaemon(true);
+		thread.start();
 	}
 	
 	private void pressDelete()
@@ -909,6 +983,14 @@ public final class AltManagerScreen extends Screen
 		String lower = message.toLowerCase(Locale.ROOT);
 		if(lower.contains("banned"))
 			return "banned";
+		if(lower.contains("deleted") || lower.contains("deactivated")
+			|| lower.contains("closed")
+			|| lower.contains("account does not exist")
+			|| lower.contains("no account")
+			|| lower.contains("cannot find account"))
+			return "deleted";
+		if(lower.contains("blocked") || lower.contains("block"))
+			return "blocked";
 		if(lower.contains("restricted"))
 			return "restricted";
 		if(lower.contains("suspended"))
@@ -1080,6 +1162,10 @@ public final class AltManagerScreen extends Screen
 			context.drawCenteredString(font, importStatus, width / 2, 42,
 				importInProgress ? 0xFFFF55 : CommonColors.LIGHT_GRAY);
 		
+		if(editValidationInProgress && !editValidationStatus.isBlank())
+			context.drawCenteredString(font, editValidationStatus, width / 2,
+				58, 0xFFFF55);
+		
 		if(((IMinecraftClient)minecraft).getWurstSession() != null)
 			context.drawCenteredString(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
@@ -1098,7 +1184,6 @@ public final class AltManagerScreen extends Screen
 			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		renderImportOverlay(context);
-		renderButtonTooltip(context, mouseX, mouseY);
 		renderAltTooltip(context, mouseX, mouseY);
 	}
 	
@@ -1192,31 +1277,6 @@ public final class AltManagerScreen extends Screen
 			addTooltip(tooltip, "favorite");
 		
 		context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
-	}
-	
-	private void renderButtonTooltip(GuiGraphics context, int mouseX,
-		int mouseY)
-	{
-		for(AbstractWidget button : Screens.getButtons(this))
-		{
-			if(!button.isHoveredOrFocused())
-				continue;
-			
-			if(button != importButton && button != exportButton)
-				continue;
-			
-			ArrayList<Component> tooltip = new ArrayList<>();
-			addTooltip(tooltip, "window");
-			
-			if(minecraft.options.fullscreen().get())
-				addTooltip(tooltip, "fullscreen");
-			else
-				addTooltip(tooltip, "window_freeze");
-			
-			context.setComponentTooltipForNextFrame(font, tooltip, mouseX,
-				mouseY);
-			break;
-		}
 	}
 	
 	private void addTooltip(ArrayList<Component> tooltip, String trKey)

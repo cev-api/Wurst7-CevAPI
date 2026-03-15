@@ -36,6 +36,12 @@ public final class AltRenderer
 	private static final ConcurrentHashMap<String, Identifier> onlineSkins =
 		new ConcurrentHashMap<>();
 	
+	private static final ConcurrentHashMap<String, PlayerModelType> onlineModels =
+		new ConcurrentHashMap<>();
+	
+	private static final ConcurrentHashMap.KeySetView<String, Boolean> loadingSkins =
+		ConcurrentHashMap.newKeySet();
+	
 	private static final HashMap<String, Identifier> offlineSkins =
 		new HashMap<>();
 	
@@ -46,13 +52,32 @@ public final class AltRenderer
 		
 		Identifier offlineSkin = offlineSkins.get(name);
 		if(offlineSkin == null)
-		{
-			queueOnlineSkinLoading(name);
 			offlineSkin = loadOfflineSkin(name);
-		}
 		
 		Identifier onlineSkin = onlineSkins.get(name);
+		if(onlineSkin == null)
+			queueOnlineSkinLoading(name);
+		
 		return onlineSkin != null ? onlineSkin : offlineSkin;
+	}
+	
+	public static void refreshSkin(String name)
+	{
+		if(name == null || name.isBlank())
+			return;
+		
+		onlineSkins.remove(name);
+		onlineModels.remove(name);
+		loadingSkins.remove(name);
+		queueOnlineSkinLoading(name);
+	}
+	
+	public static boolean isSkinLoading(String name)
+	{
+		if(name == null || name.isBlank())
+			return false;
+		
+		return loadingSkins.contains(name);
 	}
 	
 	private static Identifier loadOfflineSkin(String name)
@@ -67,6 +92,12 @@ public final class AltRenderer
 	
 	private static void queueOnlineSkinLoading(String name)
 	{
+		if(name == null || name.isBlank())
+			return;
+		
+		if(!loadingSkins.add(name))
+			return;
+		
 		Minecraft mc = WurstClient.MC;
 		
 		CompletableFuture.supplyAsync(() -> {
@@ -90,9 +121,17 @@ public final class AltRenderer
 		}, BACKGROUND_THREAD).thenAcceptAsync(skinTextures -> {
 			
 			if(skinTextures != null)
+			{
 				onlineSkins.put(name, skinTextures.body().texturePath());
+				onlineModels.put(name, skinTextures.model());
+			}
 			
-		}, BACKGROUND_THREAD);
+			loadingSkins.remove(name);
+			
+		}, BACKGROUND_THREAD).exceptionally(error -> {
+			loadingSkins.remove(name);
+			return null;
+		});
 	}
 	
 	public static void drawAltFace(GuiGraphics context, String name, int x,
@@ -132,9 +171,7 @@ public final class AltRenderer
 		{
 			Identifier texture = getSkinTexture(name);
 			
-			boolean slim =
-				DefaultPlayerSkin.get(UUIDUtil.createOfflinePlayerUUID(name))
-					.model() == PlayerModelType.SLIM;
+			boolean slim = getModelType(name) == PlayerModelType.SLIM;
 			
 			// Face
 			x = x + width / 4;
@@ -271,9 +308,7 @@ public final class AltRenderer
 		{
 			Identifier texture = getSkinTexture(name);
 			
-			boolean slim =
-				DefaultPlayerSkin.get(UUIDUtil.createOfflinePlayerUUID(name))
-					.model() == PlayerModelType.SLIM;
+			boolean slim = getModelType(name) == PlayerModelType.SLIM;
 			
 			// Face
 			x = x + width / 4;
@@ -401,5 +436,15 @@ public final class AltRenderer
 		{
 			e.printStackTrace();
 		}
+	}
+	
+	private static PlayerModelType getModelType(String name)
+	{
+		PlayerModelType onlineModel = onlineModels.get(name);
+		if(onlineModel != null)
+			return onlineModel;
+		
+		return DefaultPlayerSkin.get(UUIDUtil.createOfflinePlayerUUID(name))
+			.model();
 	}
 }

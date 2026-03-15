@@ -105,30 +105,12 @@ public enum MicrosoftLoginManager
 	
 	public static void loginWithToken(String token) throws LoginException
 	{
-		if(token == null || token.isBlank())
-			throw new LoginException("Token cannot be empty.");
-		
-		String trimmedToken = token.trim();
 		System.out.println("Logging in with token...");
 		long startTime = System.nanoTime();
 		
 		try
 		{
-			try
-			{
-				MinecraftProfile mcProfile = getMinecraftProfile(trimmedToken);
-				setSession(mcProfile);
-				System.out.println("Token login successful after "
-					+ (System.nanoTime() - startTime) / 1e6D + " ms");
-				return;
-				
-			}catch(LoginException ignored)
-			{
-				// Token may be a Microsoft token instead of a Minecraft token.
-			}
-			
-			MinecraftProfile mcProfile =
-				getAccountFromMicrosoftAccessToken(trimmedToken);
+			MinecraftProfile mcProfile = authenticateTokenWithoutSession(token);
 			setSession(mcProfile);
 			System.out.println("Token login successful after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
@@ -144,19 +126,13 @@ public enum MicrosoftLoginManager
 	public static void loginWithRefreshToken(String refreshToken)
 		throws LoginException
 	{
-		if(refreshToken == null || refreshToken.isBlank())
-			throw new LoginException("Refresh token cannot be empty.");
-		
 		System.out.println("Logging in with refresh token...");
 		long startTime = System.nanoTime();
 		
 		try
 		{
-			String msftAccessToken =
-				getMicrosoftAccessTokenFromRefreshToken(refreshToken.trim());
-			
 			MinecraftProfile mcProfile =
-				getAccountFromMicrosoftAccessToken(msftAccessToken);
+				authenticateRefreshTokenWithoutSession(refreshToken);
 			setSession(mcProfile);
 			
 			System.out.println("Refresh-token login successful after "
@@ -168,6 +144,54 @@ public enum MicrosoftLoginManager
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
 			throw e;
 		}
+	}
+	
+	public static MinecraftProfile authenticateTokenWithoutSession(String token)
+		throws LoginException
+	{
+		if(token == null || token.isBlank())
+			throw new LoginException("Token cannot be empty.");
+		
+		String trimmedToken = token.trim();
+		
+		try
+		{
+			return getMinecraftProfile(trimmedToken);
+			
+		}catch(LoginException ignored)
+		{
+			// Token may be a Microsoft token instead of a Minecraft token.
+		}
+		
+		return getAccountFromMicrosoftAccessToken(trimmedToken);
+	}
+	
+	public static MinecraftProfile authenticateRefreshTokenWithoutSession(
+		String refreshToken) throws LoginException
+	{
+		if(refreshToken == null || refreshToken.isBlank())
+			throw new LoginException("Refresh token cannot be empty.");
+		
+		String msftAccessToken =
+			getMicrosoftAccessTokenFromRefreshToken(refreshToken.trim());
+		return getAccountFromMicrosoftAccessToken(msftAccessToken);
+	}
+	
+	public static MinecraftProfile authenticateTokenAltWithoutSession(
+		String token, String refreshToken) throws LoginException
+	{
+		String trimmedRefresh = refreshToken == null ? "" : refreshToken.trim();
+		
+		if(!trimmedRefresh.isEmpty())
+			return authenticateRefreshTokenWithoutSession(trimmedRefresh);
+		
+		return authenticateTokenWithoutSession(token);
+	}
+	
+	public static MinecraftProfile getMinecraftProfileByAccessToken(
+		String mcAccessToken) throws LoginException
+	{
+		return getMinecraftProfile(mcAccessToken);
 	}
 	
 	private static MinecraftProfile getAccount(String email, String password)
