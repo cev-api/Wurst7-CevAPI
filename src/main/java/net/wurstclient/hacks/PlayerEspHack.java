@@ -16,11 +16,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.util.StringUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -199,6 +201,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private static final double THREAT_LINE_WIDTH = 4.0; // base thickness of
 															// threat lines
 	private static final long NPC_CONFIRM_DELAY_MS = 400;
+	private static final Pattern VALID_MC_USERNAME =
+		Pattern.compile("^[A-Za-z0-9_]{3,16}$");
+	private static final Pattern NPC_STYLE_NAME =
+		Pattern.compile("(?i)^npc[0-9a-f-]{6,}$");
 	
 	public PlayerEspHack()
 	{
@@ -286,11 +292,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		// player list (likely NPCs spawned by server plugins).
 		if(ignoreNpcs.isChecked())
 		{
-			stream = stream.filter(e -> {
-				if(MC.getConnection() == null)
-					return true;
-				return MC.getConnection().getPlayerInfo(e.getUUID()) != null;
-			});
+			stream = stream.filter(e -> !isLikelyNpcPlayer(e));
 		}
 		
 		stream = entityFilters.applyTo(stream);
@@ -477,20 +479,75 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private boolean shouldIgnoreNpcCandidate(
 		PlayerRangeAlertManager.PlayerInfo info)
 	{
-		if(info == null)
+		return isLikelyNpc(info == null ? null : info.getUuid(),
+			info == null ? null : info.getName(),
+			info != null && info.isProbablyNpc());
+	}
+	
+	private boolean isLikelyNpcPlayer(Player player)
+	{
+		if(player == null)
 			return true;
 		
-		if(info.isProbablyNpc())
+		return isLikelyNpc(player.getUUID(), player.getName().getString(),
+			false);
+	}
+	
+	private boolean isLikelyNpc(UUID uuid, String rawName, boolean flaggedNpc)
+	{
+		if(uuid == null)
 			return true;
 		
-		if(isMissingIdentity(info))
+		if(flaggedNpc)
 			return true;
 		
-		if(MC != null && MC.getConnection() != null
-			&& MC.getConnection().getPlayerInfo(info.getUuid()) == null)
+		String normalizedName = normalizeIdentityName(rawName);
+		if(normalizedName == null || normalizedName.isEmpty())
+			return true;
+		if(!VALID_MC_USERNAME.matcher(normalizedName).matches())
 			return true;
 		
-		return false;
+		// Many NPC plugins generate names like NPC7facdc7b-679c.
+		if(NPC_STYLE_NAME.matcher(normalizedName).matches())
+			return true;
+		
+		return !hasValidTabListIdentity(uuid, normalizedName);
+	}
+	
+	private String normalizeIdentityName(String rawName)
+	{
+		if(rawName == null)
+			return null;
+		
+		String stripped = StringUtil.stripColor(rawName).trim();
+		return stripped.isEmpty() ? null : stripped;
+	}
+	
+	private boolean hasValidTabListIdentity(UUID uuid, String entityName)
+	{
+		if(uuid == null)
+			return false;
+		
+		if(MC == null || MC.getConnection() == null)
+			return true;
+		
+		var tabInfo = MC.getConnection().getPlayerInfo(uuid);
+		if(tabInfo == null || tabInfo.getProfile() == null)
+			return false;
+		
+		String tabName = tabInfo.getProfile().name();
+		if(tabName == null)
+			return false;
+		
+		String normalizedTabName = normalizeIdentityName(tabName);
+		if(normalizedTabName == null)
+			return false;
+		
+		String normalizedEntityName = normalizeIdentityName(entityName);
+		if(normalizedEntityName == null)
+			return false;
+		
+		return normalizedEntityName.equalsIgnoreCase(normalizedTabName);
 	}
 	
 	private boolean isMissingIdentity(PlayerRangeAlertManager.PlayerInfo info)
@@ -498,8 +555,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(info == null)
 			return true;
 		
-		String name = info.getName();
-		return name == null || name.trim().isEmpty();
+		return normalizeIdentityName(info.getName()) == null;
 	}
 	
 	private void sendExitMessage(PlayerRangeAlertManager.PlayerInfo info)
@@ -966,8 +1022,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(Math.abs(player.getY() - MC.player.getY()) > 1e6)
 			return false;
 		
-		if(ignoreNpcs.isChecked() && MC.getConnection() != null
-			&& MC.getConnection().getPlayerInfo(player.getUUID()) == null)
+		if(ignoreNpcs.isChecked() && isLikelyNpcPlayer(player))
 			return false;
 		
 		return entityFilters.testOne(player);
