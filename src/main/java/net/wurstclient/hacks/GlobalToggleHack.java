@@ -80,6 +80,10 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new CheckboxSetting("Whitelist PortalESP tracers",
 			"When 'Disable all tracers' is on, still allow PortalESP tracers.",
 			true);
+	private final CheckboxSetting whitelistPlayerSonarTracers =
+		new CheckboxSetting("Whitelist PlayerSonar tracers",
+			"When 'Disable all tracers' is on, still allow PlayerSonar tracers.",
+			true);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
@@ -109,6 +113,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(whitelistChestEspTracers);
 		addSetting(whitelistPlayerEspTracers);
 		addSetting(whitelistPortalEspTracers);
+		addSetting(whitelistPlayerSonarTracers);
 		
 		addPossibleKeybind(".globaltoggle tracers",
 			"Toggle GlobalToggle's tracer suppression");
@@ -269,6 +274,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			case "chestesp" -> whitelistChestEspTracers.isChecked();
 			case "playeresp" -> whitelistPlayerEspTracers.isChecked();
 			case "portalesp" -> whitelistPortalEspTracers.isChecked();
+			case "playersonar" -> whitelistPlayerSonarTracers.isChecked();
 			default -> false;
 		};
 	}

@@ -971,6 +971,20 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Cooldown settings
 - Switch back to previous item
 
+### PlayerSonar
+- Detects player activities outside normal PlayerESP range
+- Specifically detects:
+  - Block placement
+  - Block breaking
+  - Redstone interaction
+- Will show ESP and or tracer lines towards the target
+- ESP/Tracer expires after specified seconds
+- Customisable colors and tracer line thickness
+- Optional chat alerts
+- Works on servers with Anti-ESP
+
+![Sonar](https://i.imgur.com/F2EPbvT.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP
@@ -1292,6 +1306,16 @@ Examples:
     - Makes global ESP improvements easier (one pipeline to optimize/extend).
     - Keeps hack compatibility without rewriting each ESP hack manually.
 
+### Global Toggle
+- Applies to all hacks
+  - Sticky area overrides
+  - Y limit overrides
+  - Search thread priority
+  - .setslider limit override
+  - Chunk scan mode
+  - Global ESP render mode and limiter
+  - Tracer disabler and whitelist
+- Compatible with keybinds
 
 ### Easier/Quicker ESP Commands
 - ```.search <query>``` -> query mode + set query + enable
