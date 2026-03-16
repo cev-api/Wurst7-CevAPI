@@ -94,6 +94,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private int lastSearchThreadPriority =
 		ChunkSearcher.getBackgroundThreadPriority();
 	private boolean lastDisableAllTracers;
+	private boolean tracerStateInitialized;
 	
 	public GlobalToggleHack()
 	{
@@ -199,7 +200,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		}
 		
 		boolean suppressTracers = disableAllTracers.isChecked();
-		if(suppressTracers != lastDisableAllTracers)
+		if(!tracerStateInitialized)
+		{
+			lastDisableAllTracers = suppressTracers;
+			tracerStateInitialized = true;
+		}else if(suppressTracers != lastDisableAllTracers)
 		{
 			ChatUtils.message(suppressTracers ? "All tracers disabled globally."
 				: "Global tracer suppression disabled.");

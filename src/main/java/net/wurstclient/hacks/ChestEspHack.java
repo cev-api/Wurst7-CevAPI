@@ -508,6 +508,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	{
 		boolean workstationEnabled = false;
 		boolean redstoneEnabled = false;
+		boolean redstoneActiveOnly = false;
 		try
 		{
 			var hax = net.wurstclient.WurstClient.INSTANCE.getHax();
@@ -515,6 +516,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				&& hax.workstationEspHack.isEnabled();
 			redstoneEnabled =
 				hax.redstoneEspHack != null && hax.redstoneEspHack.isEnabled();
+			redstoneActiveOnly = hax.redstoneEspHack != null
+				&& hax.redstoneEspHack.isActiveOnlyMode();
 		}catch(Throwable ignored)
 		{}
 		ChestSearchHack csh = null;
@@ -560,8 +563,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(workstationEnabled
 				&& (group == groups.crafters || group == groups.furnaces))
 				continue;
-			if(redstoneEnabled && (group == groups.droppers
-				|| group == groups.dispensers || group == groups.hoppers))
+			if(redstoneEnabled && !redstoneActiveOnly
+				&& (group == groups.droppers || group == groups.dispensers
+					|| group == groups.hoppers))
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();
@@ -867,6 +871,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	{
 		boolean workstationEnabled = false;
 		boolean redstoneEnabled = false;
+		boolean redstoneActiveOnly = false;
 		try
 		{
 			var hax = net.wurstclient.WurstClient.INSTANCE.getHax();
@@ -874,6 +879,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				&& hax.workstationEspHack.isEnabled();
 			redstoneEnabled =
 				hax.redstoneEspHack != null && hax.redstoneEspHack.isEnabled();
+			redstoneActiveOnly = hax.redstoneEspHack != null
+				&& hax.redstoneEspHack.isActiveOnlyMode();
 		}catch(Throwable ignored)
 		{}
 		
@@ -916,8 +923,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(workstationEnabled
 				&& (group == groups.crafters || group == groups.furnaces))
 				continue;
-			if(redstoneEnabled && (group == groups.droppers
-				|| group == groups.dispensers || group == groups.hoppers))
+			if(redstoneEnabled && !redstoneActiveOnly
+				&& (group == groups.droppers || group == groups.dispensers
+					|| group == groups.hoppers))
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();

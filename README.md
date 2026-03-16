@@ -238,8 +238,10 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - Color override settings option to force all blocks to be a single color.
 - Colors here will superseed ChestESP.
 - Added HackList count.
+- Active redstone circuit detection modes.
 
 ![RedStone](https://i.imgur.com/VGGq4eU.png)
+![ActiveOnly](https://i.imgur.com/lgajrpi.png)
 
 ### TridentESP
 - Highlights thrown tridents, plus held tridents by players/mobs.  

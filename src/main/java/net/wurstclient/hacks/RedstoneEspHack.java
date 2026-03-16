@@ -21,7 +21,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -35,6 +37,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
@@ -204,6 +207,12 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		"HackList count",
 		"Appends the number of found redstone components to this hack's entry in the HackList.",
 		false);
+	private final EnumSetting<ActiveMode> activeMode =
+		new EnumSetting<>("Active mode",
+			"ON: Show all redstone and flash active ones.\n"
+				+ "OFF: Show all redstone without flashing.\n"
+				+ "ONLY_ACTIVE: Show only active redstone and flash it.",
+			ActiveMode.values(), ActiveMode.OFF);
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
@@ -220,6 +229,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		false);
 	private final ColorSetting fixedColor = new ColorSetting("Fixed color",
 		"Global override color for RedstoneESP.", defaultColor);
+	private ActiveMode lastActiveMode;
+	private final Set<Long> activeRenderPositions = new HashSet<>();
 	
 	public RedstoneEspHack()
 	{
@@ -227,6 +238,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(showCountInHackList);
+		addSetting(activeMode);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
 		addSetting(useFixedColor);
@@ -258,6 +270,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
+		lastActiveMode = activeMode.getSelected();
+		activeRenderPositions.clear();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -276,6 +290,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		coordinator.reset();
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		renderGroups.forEach(RenderGroup::clear);
+		activeRenderPositions.clear();
 		foundCount = 0;
 	}
 	
@@ -300,6 +315,12 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		boolean searchersChanged = coordinator.update();
 		if(searchersChanged)
 			groupsUpToDate = false;
+		ActiveMode currentMode = activeMode.getSelected();
+		if(currentMode != lastActiveMode)
+		{
+			lastActiveMode = currentMode;
+			groupsUpToDate = false;
+		}
 		int matchesVersion = coordinator.getMatchesVersion();
 		if(matchesVersion != lastMatchesVersion)
 		{
@@ -332,46 +353,128 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	
 	private void renderBoxes(PoseStack matrixStack)
 	{
+		ActiveMode mode = activeMode.getSelected();
+		boolean flashActive = mode != ActiveMode.OFF;
+		boolean flashOn = isFlashOn();
 		for(RenderGroup group : renderGroups)
 		{
 			if(!group.isEnabled())
 				continue;
 			List<AABB> boxes = group.getBoxes();
-			int quadsColor = useFixedColor.isChecked()
-				? fixedColor.getColorI(0x40) : group.getColorI(0x40);
-			int linesColor = useFixedColor.isChecked()
-				? fixedColor.getColorI(0x80) : group.getColorI(0x80);
-			RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor, false);
-			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
-				false);
+			List<BlockPos> positions = group.getPositions();
+			if(!flashActive || positions.size() != boxes.size())
+			{
+				int quadsColor = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x40) : group.getColorI(0x40);
+				int linesColor = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor,
+					false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
+					false);
+				continue;
+			}
+			
+			ArrayList<AABB> activeBoxes = new ArrayList<>();
+			ArrayList<AABB> inactiveBoxes = new ArrayList<>();
+			for(int i = 0; i < boxes.size(); i++)
+				if(activeRenderPositions.contains(positions.get(i).asLong()))
+					activeBoxes.add(boxes.get(i));
+				else
+					inactiveBoxes.add(boxes.get(i));
+				
+			if(!inactiveBoxes.isEmpty())
+			{
+				int quadsColor = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x40) : group.getColorI(0x40);
+				int linesColor = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				RenderUtils.drawSolidBoxes(matrixStack, inactiveBoxes,
+					quadsColor, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, inactiveBoxes,
+					linesColor, false);
+			}
+			
+			if(!activeBoxes.isEmpty())
+			{
+				if(flashOn)
+				{
+					int quadsColor = useFixedColor.isChecked()
+						? fixedColor.getColorI(0x40) : group.getColorI(0x40);
+					int linesColor = useFixedColor.isChecked()
+						? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+					RenderUtils.drawSolidBoxes(matrixStack, activeBoxes,
+						quadsColor, false);
+					RenderUtils.drawOutlinedBoxes(matrixStack, activeBoxes,
+						linesColor, false);
+				}
+			}
 		}
 	}
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
+		ActiveMode mode = activeMode.getSelected();
+		boolean flashActive = mode != ActiveMode.OFF;
+		boolean flashOn = isFlashOn();
 		for(RenderGroup group : renderGroups)
 		{
 			if(!group.isEnabled())
 				continue;
 			List<AABB> boxes = group.getBoxes();
-			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
-			int color = useFixedColor.isChecked() ? fixedColor.getColorI(0x80)
-				: group.getColorI(0x80);
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			List<BlockPos> positions = group.getPositions();
+			if(!flashActive || positions.size() != boxes.size())
+			{
+				List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
+				int color = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
+					false);
+				continue;
+			}
+			
+			ArrayList<Vec3> activeEnds = new ArrayList<>();
+			ArrayList<Vec3> inactiveEnds = new ArrayList<>();
+			for(int i = 0; i < boxes.size(); i++)
+				if(activeRenderPositions.contains(positions.get(i).asLong()))
+					activeEnds.add(boxes.get(i).getCenter());
+				else
+					inactiveEnds.add(boxes.get(i).getCenter());
+				
+			if(!inactiveEnds.isEmpty())
+			{
+				int inactiveColor = useFixedColor.isChecked()
+					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				RenderUtils.drawTracers(matrixStack, partialTicks, inactiveEnds,
+					inactiveColor, false);
+			}
+			
+			if(!activeEnds.isEmpty())
+			{
+				if(flashOn)
+				{
+					int activeColor = useFixedColor.isChecked()
+						? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+					RenderUtils.drawTracers(matrixStack, partialTicks,
+						activeEnds, activeColor, false);
+				}
+			}
 		}
 	}
 	
 	private void updateGroupBoxes()
 	{
 		renderGroups.forEach(RenderGroup::clear);
+		activeRenderPositions.clear();
+		Set<Long> addedPositions = new HashSet<>();
 		int globalLimit = getEffectiveGlobalEspLimit();
 		if(globalLimit > 0)
 		{
 			for(Result result : getNearestReadyMatches(globalLimit))
-				addToGroupBoxes(result);
+				addToGroupBoxes(result, addedPositions);
 		}else
-			coordinator.getReadyMatches().forEach(this::addToGroupBoxes);
+			coordinator.getReadyMatches()
+				.forEach(result -> addToGroupBoxes(result, addedPositions));
 		groupsUpToDate = true;
 		int total =
 			renderGroups.stream().mapToInt(g -> g.getBoxes().size()).sum();
@@ -406,18 +509,119 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			.getEffectiveGlobalEspRenderLimit();
 	}
 	
-	private void addToGroupBoxes(Result result)
+	private void addToGroupBoxes(Result result, Set<Long> addedPositions)
 	{
-		if(onlyAboveGround.isChecked()
-			&& result.pos().getY() < aboveGroundY.getValue())
+		addToGroupBoxes(result.pos(), result.state(), addedPositions);
+	}
+	
+	private void addToGroupBoxes(BlockPos pos, BlockState state,
+		Set<Long> addedPositions)
+	{
+		if(pos == null || state == null)
 			return;
-		Block b = result.state().getBlock();
+		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+			return;
+		boolean active = isActiveState(pos, state);
+		if(activeMode.getSelected() == ActiveMode.ONLY_ACTIVE && !active)
+			return;
+		long key = pos.asLong();
+		if(!addedPositions.add(key))
+			return;
+		if(active)
+			activeRenderPositions.add(key);
+		Block b = state.getBlock();
 		for(RenderGroup group : renderGroups)
 			if(group.matches(b))
 			{
-				group.add(result.pos());
+				group.add(pos);
 				break;
 			}
+	}
+	
+	private boolean isActiveState(BlockPos pos, BlockState state)
+	{
+		if(state == null)
+			return false;
+		
+		Block block = state.getBlock();
+		if(block == Blocks.REDSTONE_BLOCK)
+			return true;
+		if(block == Blocks.HOPPER && isLoadedHopperMovingItems(pos))
+			return true;
+		
+		boolean hasActivityProperty = false;
+		for(Property<?> property : state.getProperties())
+		{
+			String name = property.getName();
+			Object value = state.getValue(property);
+			
+			if(value instanceof Boolean bool)
+			{
+				switch(name)
+				{
+					case "powered", "triggered", "lit", "open", "extended" ->
+					{
+						hasActivityProperty = true;
+						if(bool)
+							return true;
+					}
+					case "enabled" ->
+					{
+						hasActivityProperty = true;
+						if(!bool)
+							return true;
+					}
+				}
+				continue;
+			}
+			
+			if(value instanceof Number number
+				&& ("power".equals(name) || "signal".equals(name)))
+			{
+				hasActivityProperty = true;
+				if(number.intValue() > 0)
+					return true;
+				continue;
+			}
+			
+			if(("sculk_sensor_phase".equals(name) || "phase".equals(name))
+				&& value != null)
+			{
+				hasActivityProperty = true;
+				String phase = value.toString();
+				if("active".equals(phase) || "cooldown".equals(phase))
+					return true;
+			}
+		}
+		
+		return !hasActivityProperty && isAlwaysActiveRedstoneSource(block);
+	}
+	
+	private boolean isLoadedHopperMovingItems(BlockPos pos)
+	{
+		if(pos == null || MC.level == null)
+			return false;
+		
+		var blockEntity = MC.level.getBlockEntity(pos);
+		if(!(blockEntity instanceof HopperBlockEntity hopper))
+			return false;
+		
+		return !hopper.isEmpty();
+	}
+	
+	private boolean isAlwaysActiveRedstoneSource(Block block)
+	{
+		return block == Blocks.REDSTONE_BLOCK;
+	}
+	
+	public boolean isActiveOnlyMode()
+	{
+		return activeMode.getSelected() == ActiveMode.ONLY_ACTIVE;
+	}
+	
+	private boolean isFlashOn()
+	{
+		return (System.currentTimeMillis() / 220L) % 2L == 0L;
 	}
 	
 	@Override
@@ -441,6 +645,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		void clear();
 		
 		List<AABB> getBoxes();
+		
+		List<BlockPos> getPositions();
 		
 		int getColorI(int alpha);
 		
@@ -483,6 +689,12 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			}
 			
 			@Override
+			public List<BlockPos> getPositions()
+			{
+				return g.getPositions();
+			}
+			
+			@Override
 			public int getColorI(int alpha)
 			{
 				return g.getColorI(alpha);
@@ -500,6 +712,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	private static final class MultiBlockEspGroup implements RenderGroup
 	{
 		private final ArrayList<AABB> boxes = new ArrayList<>();
+		private final ArrayList<BlockPos> positions = new ArrayList<>();
 		private final Set<Block> blocks;
 		private final ColorSetting color;
 		private final CheckboxSetting enabled;
@@ -535,18 +748,26 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			if(box.getSize() == 0)
 				return;
 			boxes.add(box);
+			positions.add(pos.immutable());
 		}
 		
 		@Override
 		public void clear()
 		{
 			boxes.clear();
+			positions.clear();
 		}
 		
 		@Override
 		public List<AABB> getBoxes()
 		{
 			return java.util.Collections.unmodifiableList(boxes);
+		}
+		
+		@Override
+		public List<BlockPos> getPositions()
+		{
+			return java.util.Collections.unmodifiableList(positions);
 		}
 		
 		@Override
@@ -560,5 +781,12 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		{
 			return Stream.of(enabled, color).filter(java.util.Objects::nonNull);
 		}
+	}
+	
+	private enum ActiveMode
+	{
+		ON,
+		OFF,
+		ONLY_ACTIVE;
 	}
 }
