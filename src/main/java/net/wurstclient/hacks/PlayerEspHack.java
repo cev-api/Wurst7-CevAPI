@@ -697,11 +697,11 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			double threatLineWidth = normalLineWidth + Math.max(0,
 				THREAT_LINE_WIDTH - tracerThickness.getDefaultValue());
 			if(!normalEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
-					false, normalLineWidth);
+				RenderUtils.drawTracers("playeresp", matrixStack, partialTicks,
+					normalEnds, false, normalLineWidth);
 			if(!threatEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, threatEnds,
-					false, threatLineWidth);
+				RenderUtils.drawTracers("playeresp", matrixStack, partialTicks,
+					threatEnds, false, threatLineWidth);
 		}
 	}
 	

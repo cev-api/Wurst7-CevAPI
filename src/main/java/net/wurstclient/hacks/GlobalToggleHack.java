@@ -64,6 +64,22 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new CheckboxSetting("Enable global ESP render limit",
 			"When disabled, the global ESP render-limit slider is ignored.",
 			false);
+	private final CheckboxSetting disableAllTracers = new CheckboxSetting(
+		"Disable all tracers",
+		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
+		false);
+	private final CheckboxSetting whitelistChestEspTracers =
+		new CheckboxSetting("Whitelist ChestESP tracers",
+			"When 'Disable all tracers' is on, still allow ChestESP tracers.",
+			true);
+	private final CheckboxSetting whitelistPlayerEspTracers =
+		new CheckboxSetting("Whitelist PlayerESP tracers",
+			"When 'Disable all tracers' is on, still allow PlayerESP tracers.",
+			true);
+	private final CheckboxSetting whitelistPortalEspTracers =
+		new CheckboxSetting("Whitelist PortalESP tracers",
+			"When 'Disable all tracers' is on, still allow PortalESP tracers.",
+			true);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
@@ -73,6 +89,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private int lastYLimitValue = 62;
 	private int lastSearchThreadPriority =
 		ChunkSearcher.getBackgroundThreadPriority();
+	private boolean lastDisableAllTracers;
 	
 	public GlobalToggleHack()
 	{
@@ -88,6 +105,13 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderMode);
 		addSetting(globalEspRenderLimitEnabled);
 		addSetting(globalEspRenderLimit);
+		addSetting(disableAllTracers);
+		addSetting(whitelistChestEspTracers);
+		addSetting(whitelistPlayerEspTracers);
+		addSetting(whitelistPortalEspTracers);
+		
+		addPossibleKeybind(".globaltoggle tracers",
+			"Toggle GlobalToggle's tracer suppression");
 		
 		lastYLimitValue = yLimitValue.getValueI();
 		lastSearchThreadPriority = searchThreadPriority.getValueI();
@@ -168,6 +192,14 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			ChunkSearcher.setBackgroundThreadPriority(priority);
 			lastSearchThreadPriority = priority;
 		}
+		
+		boolean suppressTracers = disableAllTracers.isChecked();
+		if(suppressTracers != lastDisableAllTracers)
+		{
+			ChatUtils.message(suppressTracers ? "All tracers disabled globally."
+				: "Global tracer suppression disabled.");
+			lastDisableAllTracers = suppressTracers;
+		}
 	}
 	
 	public boolean usePartialChunkScan()
@@ -210,6 +242,35 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean isGlobalEspRenderLimitEnabled()
 	{
 		return globalEspRenderLimitEnabled.isChecked();
+	}
+	
+	public boolean areAllTracersDisabled()
+	{
+		return disableAllTracers.isChecked();
+	}
+	
+	public void toggleAllTracers()
+	{
+		disableAllTracers.setChecked(!disableAllTracers.isChecked());
+	}
+	
+	public void setAllTracersDisabled(boolean disabled)
+	{
+		disableAllTracers.setChecked(disabled);
+	}
+	
+	public boolean isTracerSourceWhitelisted(String source)
+	{
+		if(source == null)
+			return false;
+		
+		return switch(source.toLowerCase())
+		{
+			case "chestesp" -> whitelistChestEspTracers.isChecked();
+			case "playeresp" -> whitelistPlayerEspTracers.isChecked();
+			case "portalesp" -> whitelistPortalEspTracers.isChecked();
+			default -> false;
+		};
 	}
 	
 	private enum ChunkScanMode

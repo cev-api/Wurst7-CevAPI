@@ -267,8 +267,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			List<ColoredPoint> points =
 				ends.stream().map(v -> new ColoredPoint(v, color)).toList();
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, points, false,
-				width);
+			RenderUtils.drawTracers("portalesp", matrixStack, partialTicks,
+				points, false, width);
 		}
 	}
 	

@@ -41,11 +41,52 @@ public enum RenderUtils
 	private static final float DEFAULT_LINE_WIDTH = 2F;
 	private static final double MIN_LINE_WIDTH = 0.5;
 	private static final double MAX_LINE_WIDTH = 20;
+	private static final ThreadLocal<String> TRACER_SOURCE =
+		ThreadLocal.withInitial(() -> null);
 	
 	private static boolean tryReserveEspRenderSlot()
 	{
 		return GlobalEspManager.getInstance()
 			.reserveGlobalEspRenderSlots(1) > 0;
+	}
+	
+	private static boolean shouldSuppressAllTracers()
+	{
+		try
+		{
+			if(WurstClient.INSTANCE == null
+				|| WurstClient.INSTANCE.getHax() == null
+				|| WurstClient.INSTANCE.getHax().globalToggleHack == null)
+				return false;
+			
+			boolean disabled = WurstClient.INSTANCE.getHax().globalToggleHack
+				.areAllTracersDisabled();
+			if(!disabled)
+				return false;
+			
+			String source = TRACER_SOURCE.get();
+			if(source == null)
+				return true;
+			
+			return !WurstClient.INSTANCE.getHax().globalToggleHack
+				.isTracerSourceWhitelisted(source);
+		}catch(Exception ignored)
+		{
+			return false;
+		}
+	}
+	
+	private static void withTracerSource(String source, Runnable action)
+	{
+		String previous = TRACER_SOURCE.get();
+		try
+		{
+			TRACER_SOURCE.set(source);
+			action.run();
+		}finally
+		{
+			TRACER_SOURCE.set(previous);
+		}
 	}
 	
 	public static void applyRegionalRenderOffset(PoseStack matrixStack)
@@ -191,6 +232,9 @@ public enum RenderUtils
 	public static void drawTracer(PoseStack matrices, float partialTicks,
 		Vec3 end, int color, boolean depthTest)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
 		if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
@@ -218,9 +262,19 @@ public enum RenderUtils
 		vcp.endBatch(layer);
 	}
 	
+	public static void drawTracer(String source, PoseStack matrices,
+		float partialTicks, Vec3 end, int color, boolean depthTest)
+	{
+		withTracerSource(source,
+			() -> drawTracer(matrices, partialTicks, end, color, depthTest));
+	}
+	
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<Vec3> ends, int color, boolean depthTest)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
 		if(!enforceVisibility)
@@ -266,9 +320,19 @@ public enum RenderUtils
 			vcp.endBatch(layer);
 	}
 	
+	public static void drawTracers(String source, PoseStack matrices,
+		float partialTicks, List<Vec3> ends, int color, boolean depthTest)
+	{
+		withTracerSource(source,
+			() -> drawTracers(matrices, partialTicks, ends, color, depthTest));
+	}
+	
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
 		if(!enforceVisibility)
@@ -316,9 +380,19 @@ public enum RenderUtils
 			vcp.endBatch(layer);
 	}
 	
+	public static void drawTracers(String source, PoseStack matrices,
+		float partialTicks, List<ColoredPoint> ends, boolean depthTest)
+	{
+		withTracerSource(source,
+			() -> drawTracers(matrices, partialTicks, ends, depthTest));
+	}
+	
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest, double lineWidth)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		if(ends == null || ends.isEmpty())
 			return;
 		
@@ -370,6 +444,14 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+	}
+	
+	public static void drawTracers(String source, PoseStack matrices,
+		float partialTicks, List<ColoredPoint> ends, boolean depthTest,
+		double lineWidth)
+	{
+		withTracerSource(source, () -> drawTracers(matrices, partialTicks, ends,
+			depthTest, lineWidth));
 	}
 	
 	public static void drawLine(PoseStack matrices, VertexConsumer buffer,

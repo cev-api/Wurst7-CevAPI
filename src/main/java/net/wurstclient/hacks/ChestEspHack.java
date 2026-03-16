@@ -975,8 +975,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			}
 			int color = group.getColorI(tracerAlpha.getValueI());
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers("chestesp", matrixStack, partialTicks, ends,
+				color, false);
 		}
 	}
 	

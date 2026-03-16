@@ -347,12 +347,71 @@ public final class AltGuiKeybindScreen extends Screen
 				right = entry.keybind().getCommand();
 			}
 			
-			context.drawString(font, left, listX1 + 6, y1 + 4,
-				cfg.getTextColor(), false);
-			context.drawString(font, right,
-				listX1 + 6 + Math.min(180, font.width(left) + 8), y1 + 4,
-				cfg.getMutedTextColor(), false);
+			int rowX1 = listX1 + 6;
+			int rowX2 = listX2 - 6;
+			int rowW = Math.max(1, rowX2 - rowX1);
+			int columnGap = 10;
+			int leftW = Math.max(80, (int)(rowW * 0.56));
+			int leftX1 = rowX1;
+			int leftX2 = Math.min(rowX2 - columnGap, leftX1 + leftW);
+			int rightX1 = Math.min(rowX2, leftX2 + columnGap);
+			int rightX2 = rowX2;
+			
+			drawStaticStringInBox(context, font, left, leftX1, y1, leftX2, y2,
+				cfg.getTextColor(), 0);
+			drawMarqueeStringInBox(context, font, right, rightX1, y1, rightX2,
+				y2, cfg.getMutedTextColor(), 0);
 		}
+	}
+	
+	private void drawStaticStringInBox(GuiGraphics context, Font font,
+		String text, int x1, int y1, int x2, int y2, int color, int padX)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		
+		int innerX1 = x1 + Math.max(0, padX);
+		int innerX2 = x2 - Math.max(0, padX);
+		if(innerX2 <= innerX1)
+			return;
+		
+		int textY = y1 + Math.max(0, ((y2 - y1) - font.lineHeight) / 2);
+		context.enableScissor(innerX1, y1, innerX2, y2);
+		context.drawString(font, text, innerX1, textY, color, false);
+		context.disableScissor();
+	}
+	
+	private void drawMarqueeStringInBox(GuiGraphics context, Font font,
+		String text, int x1, int y1, int x2, int y2, int color, int padX)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		
+		int innerX1 = x1 + Math.max(0, padX);
+		int innerX2 = x2 - Math.max(0, padX);
+		if(innerX2 <= innerX1)
+			return;
+		
+		int innerW = innerX2 - innerX1;
+		int textW = Math.max(1, font.width(text));
+		int textY = y1 + Math.max(0, ((y2 - y1) - font.lineHeight) / 2);
+		int textX = innerX1;
+		
+		if(textW > innerW)
+		{
+			int overflow = textW - innerW;
+			int ticks = minecraft != null && minecraft.gui != null
+				? minecraft.gui.getGuiTicks()
+				: (int)(System.currentTimeMillis() / 50L);
+			float cycle = 220F;
+			float phase = (ticks % (int)cycle) / cycle;
+			float pingPong = phase <= 0.5F ? phase * 2F : (1F - phase) * 2F;
+			textX = innerX1 - Math.round(overflow * pingPong);
+		}
+		
+		context.enableScissor(innerX1, y1, innerX2, y2);
+		context.drawString(font, text, textX, textY, color, false);
+		context.disableScissor();
 	}
 	
 	private void renderFooter(GuiGraphics context, Font font, int mouseX,

@@ -40,6 +40,7 @@ public final class CmdList
 	public final GetPosCmd getPosCmd = new GetPosCmd();
 	public final GiveCmd giveCmd = new GiveCmd();
 	public final GmCmd gmCmd = new GmCmd();
+	public final GlobalToggleCmd globalToggleCmd = new GlobalToggleCmd();
 	public final GoToCmd goToCmd = new GoToCmd();
 	public final HelpCmd helpCmd = new HelpCmd();
 	public final InvseeCmd invseeCmd = new InvseeCmd();
