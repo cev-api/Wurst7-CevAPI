@@ -15,6 +15,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
+import net.wurstclient.WurstClient;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointsManager;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -148,9 +150,9 @@ public final class WaypointsScreen extends Screen
 				Waypoint w = new Waypoint(java.util.UUID.randomUUID(),
 					System.currentTimeMillis());
 				w.setName("New Waypoint");
-				if(minecraft.player != null)
-					w.setPos(BlockPos.containing(minecraft.player.getX(),
-						minecraft.player.getY(), minecraft.player.getZ()));
+				BlockPos currentPos = getCurrentReferencePos();
+				if(currentPos != null)
+					w.setPos(currentPos);
 				else
 					w.setPos(BlockPos.ZERO);
 				w.setDimension(currentDim());
@@ -711,6 +713,23 @@ public final class WaypointsScreen extends Screen
 			default:
 			return WaypointDimension.OVERWORLD;
 		}
+	}
+	
+	private BlockPos getCurrentReferencePos()
+	{
+		var freecam = WurstClient.INSTANCE.getHax().freecamHack;
+		if(freecam != null && freecam.isMovingCamera())
+		{
+			Vec3 cam = freecam.getCamPos(1.0F);
+			if(cam != null)
+				return BlockPos.containing(cam);
+		}
+		
+		if(minecraft.player == null)
+			return null;
+		
+		return BlockPos.containing(minecraft.player.getX(),
+			minecraft.player.getY(), minecraft.player.getZ());
 	}
 	
 	private String resolveWorldId()

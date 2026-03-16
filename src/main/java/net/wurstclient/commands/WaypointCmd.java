@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.command.CmdError;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
@@ -94,8 +95,7 @@ public final class WaypointCmd extends Command
 			throw new CmdError("Waypoint name is required.");
 		name = name.replace('_', ' ');
 		
-		BlockPos playerPos = MC.player == null ? null
-			: BlockPos.containing(MC.player.position());
+		BlockPos playerPos = getCurrentReferencePos();
 		Integer px = playerPos == null ? null : playerPos.getX();
 		Integer py = playerPos == null ? null : playerPos.getY();
 		Integer pz = playerPos == null ? null : playerPos.getZ();
@@ -190,6 +190,20 @@ public final class WaypointCmd extends Command
 		if(fallback != null)
 			return fallback;
 		throw new CmdError("Missing value for " + key + ".");
+	}
+	
+	private BlockPos getCurrentReferencePos()
+	{
+		var freecam = WURST.getHax().freecamHack;
+		if(freecam != null && freecam.isMovingCamera())
+		{
+			Vec3 cam = freecam.getCamPos(1.0F);
+			if(cam != null)
+				return BlockPos.containing(cam);
+		}
+		
+		return MC.player == null ? null
+			: BlockPos.containing(MC.player.position());
 	}
 	
 	private int parseMandatoryInt(String raw, String key) throws CmdException
