@@ -64,7 +64,10 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+	// Use Fabric Loader JUnit only for gametests, not for plain unit tests
+	// Standard JUnit for unit tests
+	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.2"
 	
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
@@ -81,7 +84,7 @@ dependencies {
 fabricApi.configureTests {
 	createSourceSet = true
 	enableGameTests = false
-	enableClientGameTests = true
+	enableClientGameTests = false
 	modId = "wurst_testmod"
 	username = "Wurst-Bot"
 }
@@ -118,6 +121,8 @@ configurations {
 
 dependencies {
 	testMods "maven.modrinth:sodium:${project.sodium_version}"
+	// Ensure gametest source set has Fabric JUnit engine
+	gametestImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
 }
 
 def cleanClientWithMods = tasks.register("cleanClientWithMods", Delete) {
@@ -275,6 +280,9 @@ spotless {
 
 test {
 	useJUnitPlatform()
+	// Ensure Fabric Loader JUnit can see the test classes as a classpath group
+	// to avoid "hasn't been exposed to the game" errors in-dev.
+	systemProperty "fabric.classPathGroups", "default,test"
 }
 
 def getGhVersion() {

@@ -1212,6 +1212,7 @@ Examples:
 - Moved to multiplayer screen
 - Can now accept alternative login methods
 - Updated import and export to suit new method
+- Added random button to randomly choose an account and attempt to join it, won't stop until it finds a valid one.
 
 ### FreeCam Improved
 - Optionally tie horizontal and vertical speeds together

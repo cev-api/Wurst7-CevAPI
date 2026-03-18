@@ -69,6 +69,7 @@ public final class AltManagerScreen extends Screen
 	private static final HashSet<Alt> failedLogins = new HashSet<>();
 	private static final LinkedHashMap<Alt, String> failedLoginReasons =
 		new LinkedHashMap<>();
+	private static net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget.SelectionState lastListState;
 	
 	private final Screen prevScreen;
 	private final AltManager altManager;
@@ -78,6 +79,7 @@ public final class AltManagerScreen extends Screen
 	private int errorTimer;
 	
 	private Button useButton;
+	private Button randomButton;
 	private Button starButton;
 	private Button editButton;
 	private Button deleteButton;
@@ -99,6 +101,7 @@ public final class AltManagerScreen extends Screen
 	private volatile boolean importHasCounts;
 	private volatile boolean editValidationInProgress;
 	private volatile String editValidationStatus = "";
+	private volatile boolean randomLoginInProgress;
 	
 	public AltManagerScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -113,6 +116,10 @@ public final class AltManagerScreen extends Screen
 		autoCheckCancelled = false;
 		listGui = new ListGui(minecraft, this, altManager.getList());
 		addWidget(listGui);
+		if(lastListState != null)
+			listGui.restoreState(lastListState);
+		else
+			listGui.ensureSelection();
 		
 		WurstClient wurst = WurstClient.INSTANCE;
 		
@@ -147,6 +154,10 @@ public final class AltManagerScreen extends Screen
 		addRenderableWidget(useButton =
 			Button.builder(Component.literal("Login"), b -> pressLogin())
 				.bounds(width / 2 - 154, height - 52, 100, 20).build());
+		
+		addRenderableWidget(randomButton = Button
+			.builder(Component.literal("Login Random"), b -> pressLoginRandom())
+			.bounds(width / 2 + 158, height - 52, 100, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
@@ -193,7 +204,6 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
 		
-		listGui.ensureSelection();
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
 		importButton.active = windowMode;
@@ -210,6 +220,8 @@ public final class AltManagerScreen extends Screen
 		if(importInProgress)
 		{
 			useButton.active = false;
+			if(randomButton != null)
+				randomButton.active = false;
 			starButton.active = false;
 			editButton.active = false;
 			deleteButton.active = false;
@@ -225,6 +237,8 @@ public final class AltManagerScreen extends Screen
 		if(editValidationInProgress)
 		{
 			useButton.active = false;
+			if(randomButton != null)
+				randomButton.active = false;
 			starButton.active = false;
 			editButton.active = false;
 			deleteButton.active = false;
@@ -241,6 +255,9 @@ public final class AltManagerScreen extends Screen
 		boolean hasSingleSelection = selectionCount == 1;
 		
 		useButton.active = hasSingleSelection;
+		if(randomButton != null)
+			randomButton.active =
+				!randomLoginInProgress && !altManager.getList().isEmpty();
 		starButton.active = hasSingleSelection;
 		editButton.active = hasSingleSelection;
 		deleteButton.active = selectionCount > 0;
@@ -318,6 +335,87 @@ public final class AltManagerScreen extends Screen
 			errorTimer = 8;
 			recordLoginFailure(alt, e);
 			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
+		}
+	}
+	
+	private void pressLoginRandom()
+	{
+		if(randomLoginInProgress)
+			return;
+		
+		randomLoginInProgress = true;
+		updateAltButtons();
+		
+		Thread thread =
+			new Thread(this::runRandomLogin, "Wurst Alt Random Login");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void runRandomLogin()
+	{
+		IMinecraftClient imc = (IMinecraftClient)minecraft;
+		User previousSession = imc.getWurstSession();
+		
+		try
+		{
+			List<Alt> list = new ArrayList<>(altManager.getList());
+			if(list.isEmpty())
+			{
+				minecraft.execute(() -> {
+					randomLoginInProgress = false;
+					updateAltButtons();
+				});
+				return;
+			}
+			
+			Collections.shuffle(list);
+			
+			for(Alt alt : list)
+			{
+				if(!isOpenScreen())
+					return;
+				
+				setChecking(alt, true);
+				try
+				{
+					altManager.login(alt);
+					clearLoginFailure(alt);
+					String name = minecraft.getUser().getName();
+					minecraft.execute(() -> {
+						randomLoginInProgress = false;
+						updateAltButtons();
+						if(minecraft.screen == this)
+							minecraft.setScreen(
+								new AltLoginSuccessScreen(prevScreen, name));
+					});
+					return;
+					
+				}catch(LoginException e)
+				{
+					recordLoginFailure(alt, e);
+					
+				}finally
+				{
+					setChecking(alt, false);
+				}
+			}
+			
+			if(!isOpenScreen())
+				return;
+			
+			errorTimer = 8;
+			minecraft.execute(() -> {
+				randomLoginInProgress = false;
+				updateAltButtons();
+				if(minecraft.screen == this)
+					minecraft.setScreen(new AltLoginFailedScreen(this,
+						"Random login failed for all accounts."));
+			});
+			
+		}finally
+		{
+			imc.setWurstSession(previousSession);
 		}
 	}
 	
@@ -1305,6 +1403,8 @@ public final class AltManagerScreen extends Screen
 	public void removed()
 	{
 		autoCheckCancelled = true;
+		if(listGui != null)
+			lastListState = listGui.captureState();
 		super.removed();
 	}
 	
