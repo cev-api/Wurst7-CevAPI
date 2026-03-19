@@ -50,8 +50,9 @@ import net.wurstclient.util.chunk.ChunkUtils;
 
 @SearchTags({"dig spot esp", "digspot esp", "hole esp", "tunnel esp",
 	"stairs esp"})
-public final class TunnelHoleStairEspHack extends Hack implements UpdateListener,
-	RenderListener, CameraTransformViewBobbingListener, PacketInputListener
+public final class TunnelHoleStairEspHack extends Hack
+	implements UpdateListener, RenderListener,
+	CameraTransformViewBobbingListener, PacketInputListener
 {
 	private static final Direction[] CARDINALS =
 		{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST};
@@ -335,16 +336,19 @@ public final class TunnelHoleStairEspHack extends Hack implements UpdateListener
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
 		if(!holeBoxes.isEmpty())
-			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack, partialTicks,
-				getCenters(holeBoxes), holeColor.getColorI(0x95), false);
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(holeBoxes), holeColor.getColorI(0x95),
+				false);
 		
 		if(!tunnelBoxes.isEmpty())
-			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack, partialTicks,
-				getCenters(tunnelBoxes), tunnelColor.getColorI(0x95), false);
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(tunnelBoxes),
+				tunnelColor.getColorI(0x95), false);
 		
 		if(!stairBoxes.isEmpty())
-			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack, partialTicks,
-				getCenters(stairBoxes), stairColor.getColorI(0x95), false);
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(stairBoxes),
+				stairColor.getColorI(0x95), false);
 	}
 	
 	private ArrayList<Vec3> getCenters(ArrayList<AABB> boxes)

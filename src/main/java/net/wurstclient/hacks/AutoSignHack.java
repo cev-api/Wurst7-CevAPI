@@ -181,16 +181,15 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			}
 		}
 		
-		// If we already captured a template from the first edited sign while
-		// the
-		// hack is enabled, use that for subsequent signs.
-		if(signText != null)
-			return signText;
-		
-		// Otherwise fall back to the persisted preset, if any.
+		// Next, prefer the persisted preset text from the GUI text box.
+		// This lets text changes apply immediately without toggling the hack.
 		String preset = presetText.getValue();
 		if(preset == null || preset.isEmpty())
-			return null;
+		{
+			// If no preset text is configured, use the first manually edited
+			// sign as a temporary template while the hack stays enabled.
+			return signText;
+		}
 		
 		String[] wrapped = wrapToSign(preset);
 		return wrapped == null ? null : wrapped;
@@ -407,7 +406,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		}
 		
 		String[] oldText = readSign(signEntity);
-		if(linesMatch(oldText, newText))
+		if(signHasDesiredText(signEntity, newText))
 		{
 			auraTimer = Math.max(1, auraDelay.getValueI());
 			return;
@@ -481,6 +480,19 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		return true;
 	}
 	
+	private boolean signHasDesiredText(SignBlockEntity sign, String[] desired)
+	{
+		if(sign == null || desired == null)
+			return false;
+		
+		String[] front = readSign(sign.getFrontText());
+		if(linesMatch(front, desired))
+			return true;
+		
+		String[] back = readSign(sign.getBackText());
+		return linesMatch(back, desired);
+	}
+	
 	private boolean canUseHandNoClip()
 	{
 		if(!auraThroughWalls.isChecked())
@@ -492,15 +504,15 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	
 	private String[] readSign(SignBlockEntity sign)
 	{
-		String[] lines = new String[MAX_LINES];
 		if(sign == null)
-		{
-			for(int i = 0; i < MAX_LINES; i++)
-				lines[i] = "";
-			return lines;
-		}
+			return readSign((SignText)null);
 		
-		SignText signText = sign.getFrontText();
+		return readSign(sign.getFrontText());
+	}
+	
+	private String[] readSign(SignText signText)
+	{
+		String[] lines = new String[MAX_LINES];
 		for(int i = 0; i < MAX_LINES; i++)
 		{
 			net.minecraft.network.chat.Component component =

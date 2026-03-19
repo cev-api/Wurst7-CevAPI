@@ -34,6 +34,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minecraft.client.User;
 import net.wurstclient.WurstClient;
+import net.wurstclient.mixinterface.IMinecraftClient;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.json.WsonObject;
@@ -133,6 +134,8 @@ public enum MicrosoftLoginManager
 		{
 			MinecraftProfile mcProfile =
 				authenticateRefreshTokenWithoutSession(refreshToken);
+			System.out.println("Refresh-token auth resolved profile: "
+				+ mcProfile.getName() + " (" + mcProfile.getUUID() + ")");
 			setSession(mcProfile);
 			
 			System.out.println("Refresh-token login successful after "
@@ -658,9 +661,20 @@ public enum MicrosoftLoginManager
 	
 	private static void setSession(MinecraftProfile mcProfile)
 	{
+		IMinecraftClient imc = WurstClient.IMC;
+		User before = imc.getWurstSession();
+		String beforeName = before == null ? "<original>"
+			: before.getName() + " (" + before.getProfileId() + ")";
+		System.out.println("Applying alt session. Previous: " + beforeName);
+		
 		User session = new User(mcProfile.getName(), mcProfile.getUUID(),
 			mcProfile.getAccessToken(), Optional.empty(), Optional.empty());
 		
-		WurstClient.IMC.setWurstSession(session);
+		imc.setWurstSession(session);
+		
+		User after = imc.getWurstSession();
+		String afterName = after == null ? "<original>"
+			: after.getName() + " (" + after.getProfileId() + ")";
+		System.out.println("Alt session applied. Current: " + afterName);
 	}
 }

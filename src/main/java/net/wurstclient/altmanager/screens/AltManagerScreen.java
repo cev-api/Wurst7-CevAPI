@@ -386,6 +386,7 @@ public final class AltManagerScreen extends Screen
 	{
 		IMinecraftClient imc = (IMinecraftClient)minecraft;
 		User previousSession = imc.getWurstSession();
+		boolean keepNewSession = false;
 		
 		try
 		{
@@ -410,6 +411,7 @@ public final class AltManagerScreen extends Screen
 				try
 				{
 					altManager.login(alt);
+					keepNewSession = true;
 					clearLoginFailure(alt);
 					String name = minecraft.getUser().getName();
 					minecraft.execute(() -> {
@@ -445,7 +447,8 @@ public final class AltManagerScreen extends Screen
 			
 		}finally
 		{
-			imc.setWurstSession(previousSession);
+			if(!keepNewSession)
+				imc.setWurstSession(previousSession);
 		}
 	}
 	
