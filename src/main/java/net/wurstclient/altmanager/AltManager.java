@@ -23,6 +23,7 @@ public final class AltManager
 	private final ArrayList<Alt> alts = new ArrayList<>();
 	private int numPremium;
 	private int numCracked;
+	private boolean disconnectRandomAltReconnectEnabled = true;
 	
 	public AltManager(Path altsFile, Path encFolder)
 	{
@@ -103,6 +104,33 @@ public final class AltManager
 		
 		if(!alt.isCracked())
 			altsFile.save(this);
+	}
+	
+	public Alt loginRandomUntilSuccess() throws LoginException
+	{
+		ArrayList<Alt> shuffled = new ArrayList<>(alts);
+		if(shuffled.isEmpty())
+			throw new LoginException("No accounts available.");
+		
+		Collections.shuffle(shuffled);
+		LoginException lastException = null;
+		
+		for(Alt alt : shuffled)
+			try
+			{
+				login(alt);
+				return alt;
+				
+			}catch(LoginException e)
+			{
+				lastException = e;
+			}
+		
+		if(lastException != null)
+			throw new LoginException("Random login failed for all accounts.",
+				lastException);
+		
+		throw new LoginException("Random login failed for all accounts.");
 	}
 	
 	/**
@@ -229,6 +257,25 @@ public final class AltManager
 	public List<Alt> getList()
 	{
 		return Collections.unmodifiableList(alts);
+	}
+	
+	public boolean isDisconnectRandomAltReconnectEnabled()
+	{
+		return disconnectRandomAltReconnectEnabled;
+	}
+	
+	public void setDisconnectRandomAltReconnectEnabled(boolean enabled)
+	{
+		if(disconnectRandomAltReconnectEnabled == enabled)
+			return;
+		
+		disconnectRandomAltReconnectEnabled = enabled;
+		altsFile.save(this);
+	}
+	
+	void setDisconnectRandomAltReconnectEnabledSilently(boolean enabled)
+	{
+		disconnectRandomAltReconnectEnabled = enabled;
 	}
 	
 	public int getNumPremium()

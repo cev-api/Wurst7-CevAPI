@@ -17,6 +17,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -194,9 +195,26 @@ public final class BedrockEscapeHack extends Hack
 	
 	private void updateShiftSurfaceXrayOverride()
 	{
+		// Shift SurfaceXray is intended for bedrock roof/floor workflows, not
+		// End traversal where bedrock structures are common and can cause
+		// noisy auto-triggering.
+		if(MC.level != null && MC.level.dimension() == Level.END)
+		{
+			restoreShiftSurfaceXrayOverride();
+			return;
+		}
+		
+		boolean nearVerticalLook = false;
+		if(MC.player != null)
+		{
+			double lookY = MC.player.getViewVector(1.0F).normalize().y;
+			nearVerticalLook = Math.abs(lookY) >= VERTICAL_LOOK_THRESHOLD;
+		}
+		
 		boolean shiftInBedrockContext =
 			MC.options.keyShift.isDown() && isInBedrockContext();
-		boolean autoWhenTargetAbove = isValidTarget && !targetBelow;
+		boolean autoWhenTargetAbove =
+			isValidTarget && !targetBelow && nearVerticalLook;
 		boolean shouldApply = shiftSurfaceXray.isChecked()
 			&& (shiftInBedrockContext || autoWhenTargetAbove);
 		

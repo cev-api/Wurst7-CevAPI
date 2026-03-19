@@ -84,7 +84,7 @@ dependencies {
 fabricApi.configureTests {
 	createSourceSet = true
 	enableGameTests = false
-	enableClientGameTests = false
+	enableClientGameTests = true
 	modId = "wurst_testmod"
 	username = "Wurst-Bot"
 }
@@ -94,16 +94,18 @@ loom {
 	
 	runs {
 		clientGameTest {
+			environment = "client"
 			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
 		}
 		
 		clientWithMods {
+			environment = "client"
 			inherit client
 		}
 		
 		clientGameTestWithMods {
+			environment = "client"
 			inherit client
-			source = sourceSets.gametest
 			runDir = "build/run/clientGameTestWithMods"
 			vmArgs.add("-Dfabric.client.gametest")
 			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")

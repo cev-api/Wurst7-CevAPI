@@ -86,6 +86,7 @@ public final class AltManagerScreen extends Screen
 	
 	private Button importButton;
 	private Button exportButton;
+	private Button disconnectRandomReconnectToggleButton;
 	private Button checkButton;
 	private Button logoutButton;
 	
@@ -157,7 +158,7 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(randomButton = Button
 			.builder(Component.literal("Login Random"), b -> pressLoginRandom())
-			.bounds(width / 2 + 158, height - 52, 100, 20).build());
+			.bounds(width - 50 - 8 - 52 - 52 - 100 - 6, 8, 100, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
@@ -196,6 +197,11 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Export"), b -> pressExportAlts())
 				.bounds(58, 8, 50, 20).build());
 		
+		addRenderableWidget(disconnectRandomReconnectToggleButton = Button
+			.builder(getDisconnectRandomReconnectLabel(),
+				b -> pressToggleDisconnectRandomReconnect())
+			.bounds(114, 8, 170, 20).build());
+		
 		addRenderableWidget(checkButton =
 			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
 				.bounds(width - 50 - 8 - 52, 8, 50, 20).build());
@@ -231,6 +237,8 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
+			if(disconnectRandomReconnectToggleButton != null)
+				disconnectRandomReconnectToggleButton.active = false;
 			return;
 		}
 		
@@ -248,6 +256,8 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
+			if(disconnectRandomReconnectToggleButton != null)
+				disconnectRandomReconnectToggleButton.active = false;
 			return;
 		}
 		
@@ -274,6 +284,26 @@ public final class AltManagerScreen extends Screen
 		if(exportButton != null)
 			exportButton.active =
 				!importInProgress && !minecraft.options.fullscreen().get();
+		
+		if(disconnectRandomReconnectToggleButton != null)
+			disconnectRandomReconnectToggleButton.active = true;
+	}
+	
+	private void pressToggleDisconnectRandomReconnect()
+	{
+		boolean enabled = !altManager.isDisconnectRandomAltReconnectEnabled();
+		altManager.setDisconnectRandomAltReconnectEnabled(enabled);
+		
+		if(disconnectRandomReconnectToggleButton != null)
+			disconnectRandomReconnectToggleButton
+				.setMessage(getDisconnectRandomReconnectLabel());
+	}
+	
+	private Component getDisconnectRandomReconnectLabel()
+	{
+		return Component.literal("Toggle Random Reconnect: "
+			+ (altManager.isDisconnectRandomAltReconnectEnabled() ? "ON"
+				: "OFF"));
 	}
 	
 	@Override

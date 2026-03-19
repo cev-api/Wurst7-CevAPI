@@ -16,6 +16,7 @@
   "ClientChatOverlay",
   "CoordLogger",
   "DamageDetect",
+  "TunnelHoleStairESP",
   "DurabilityHUD",
   "ElytraInfo",
   "EnchantmentHandler",

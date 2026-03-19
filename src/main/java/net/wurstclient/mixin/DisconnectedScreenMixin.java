@@ -33,6 +33,8 @@ import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.StringUtil;
 import net.wurstclient.WurstClient;
+import net.wurstclient.altmanager.Alt;
+import net.wurstclient.altmanager.LoginException;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hacks.AutoReconnectHack;
@@ -66,6 +68,8 @@ public class DisconnectedScreenMixin extends Screen
 	private int overlayY;
 	
 	private Button reconnectButton;
+	private Button reconnectRandomAltButton;
+	private volatile boolean randomAltReconnectInProgress;
 	
 	private void ensureValidParent()
 	{
@@ -128,6 +132,17 @@ public class DisconnectedScreenMixin extends Screen
 				b -> LastServerRememberer.reconnect(parent))
 			.width(200).build());
 		
+		if(WurstClient.INSTANCE.getAltManager()
+			.isDisconnectRandomAltReconnectEnabled()
+			&& !WurstClient.INSTANCE.getAltManager().getList().isEmpty())
+			reconnectRandomAltButton =
+				layout
+					.addChild(
+						Button
+							.builder(getRandomAltReconnectLabel(),
+								b -> pressRandomAltReconnect())
+							.width(200).build());
+		
 		autoReconnectButton =
 			layout.addChild(Button.builder(Component.literal("AutoReconnect"),
 				b -> pressAutoReconnect()).width(200).build());
@@ -146,7 +161,9 @@ public class DisconnectedScreenMixin extends Screen
 			}).width(200).build());
 		
 		layout.arrangeElements();
-		Stream.of(reconnectButton, autoReconnectButton, copyLocButton)
+		Stream
+			.of(reconnectButton, reconnectRandomAltButton, autoReconnectButton,
+				copyLocButton)
 			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
 		
 		offlineSettingsHack.handleDisconnect(reason);
@@ -183,6 +200,63 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(autoReconnect.isEnabled())
 			autoReconnectTimer = autoReconnect.getWaitTicks();
+	}
+	
+	private void pressRandomAltReconnect()
+	{
+		if(randomAltReconnectInProgress)
+			return;
+		
+		randomAltReconnectInProgress = true;
+		if(reconnectRandomAltButton != null)
+		{
+			reconnectRandomAltButton.active = false;
+			reconnectRandomAltButton.setMessage(getRandomAltReconnectLabel());
+		}
+		
+		Thread thread = new Thread(() -> {
+			Alt selectedAlt = null;
+			LoginException failure = null;
+			
+			try
+			{
+				selectedAlt = WurstClient.INSTANCE.getAltManager()
+					.loginRandomUntilSuccess();
+				
+			}catch(LoginException e)
+			{
+				failure = e;
+			}
+			
+			Alt alt = selectedAlt;
+			LoginException error = failure;
+			minecraft.execute(() -> {
+				randomAltReconnectInProgress = false;
+				if(reconnectRandomAltButton != null)
+				{
+					reconnectRandomAltButton.active = true;
+					reconnectRandomAltButton
+						.setMessage(error == null ? getRandomAltReconnectLabel()
+							: Component.literal("Random alt login failed"));
+				}
+				
+				if(error != null)
+					return;
+				
+				System.out.println(
+					"Reconnect random alt selected: " + alt.getDisplayName());
+				LastServerRememberer.reconnect(parent);
+			});
+		}, "Wurst Random Alt Reconnect");
+		
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private Component getRandomAltReconnectLabel()
+	{
+		return Component.literal(randomAltReconnectInProgress
+			? "Trying random alts..." : "Reconnect as random alt");
 	}
 	
 	private void layoutOverlay()

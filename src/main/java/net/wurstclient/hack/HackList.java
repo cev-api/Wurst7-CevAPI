@@ -122,6 +122,7 @@ public final class HackList implements UpdateListener
 	public final CriticalsHack criticalsHack = new CriticalsHack();
 	public final CrystalAuraHack crystalAuraHack = new CrystalAuraHack();
 	public final DerpHack derpHack = new DerpHack();
+	public final TunnelHoleStairEspHack tunnelHoleStairEspHack = new TunnelHoleStairEspHack();
 	public final DolphinHack dolphinHack = new DolphinHack();
 	public final ElytraFlightHack elytraFlightHack = new ElytraFlightHack();
 	public final ElytraInfoHack elytraInfoHack = new ElytraInfoHack();
@@ -311,6 +312,11 @@ public final class HackList implements UpdateListener
 				Hack hack = (Hack)field.get(this);
 				addHackInternal(hack);
 			}
+			
+			// Explicit guard to ensure new hacks remain visible in GUI lists
+			// even if reflection ordering/name filtering changes.
+			if(getHackByName(tunnelHoleStairEspHack.getName()) == null)
+				addHackInternal(tunnelHoleStairEspHack);
 			
 		}catch(Exception e)
 		{

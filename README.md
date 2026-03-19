@@ -987,6 +987,27 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 
 ![Sonar](https://i.imgur.com/F2EPbvT.png)
 
+### TunnelHoleStairESP
+- Finds likely player-dug paths and highlights:
+  - Vertical shafts
+  - Straight tunnels
+  - Stair mines
+- `Detection mode` lets you scan all types or only selected ones.
+- `Area` + `Sticky area` control coverage:
+  - `Area` = scan radius
+  - `Sticky area` = keep results anchored while moving
+- Performance controls:
+  - `Chunks per tick` = scan speed
+  - `Scan time budget` = hard CPU cap per tick (main FPS stabilizer)
+- Accuracy controls:
+  - `Air only` for stricter detection
+  - Min/max depth/length/height settings for shape filtering
+  - `Natural wall filter` + `ratio` to reduce cave/worldgen false positives
+- Includes per-dimension toggles and separate render colors/styles for holes, tunnels, and stairs.
+- Heuristic system: strong for route/base hunting, not perfect.
+
+![DigDig](https://i.imgur.com/CODK0xp.png)
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

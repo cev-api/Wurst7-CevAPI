@@ -23,6 +23,10 @@ import net.wurstclient.util.json.WsonObject;
 
 public final class AltsFile
 {
+	private static final String SETTINGS_KEY = "__wurst_altmanager_settings";
+	private static final String DISCONNECT_RANDOM_ALT_RECONNECT_KEY =
+		"disconnect_random_alt_reconnect";
+	
 	private final Path path;
 	private final Path encFolder;
 	private boolean disableSaving;
@@ -90,15 +94,34 @@ public final class AltsFile
 	private void loadAlts(WsonObject wson, AltManager altManager)
 	{
 		ArrayList<Alt> alts = parseJson(wson);
+		boolean disconnectRandomAltReconnect = readDisconnectSetting(wson);
 		
 		try
 		{
 			disableSaving = true;
+			altManager.setDisconnectRandomAltReconnectEnabledSilently(
+				disconnectRandomAltReconnect);
 			altManager.addAll(alts);
 			
 		}finally
 		{
 			disableSaving = false;
+		}
+	}
+	
+	private boolean readDisconnectSetting(WsonObject wson)
+	{
+		if(!wson.has(SETTINGS_KEY))
+			return true;
+		
+		try
+		{
+			return wson.getObject(SETTINGS_KEY)
+				.getBoolean(DISCONNECT_RANDOM_ALT_RECONNECT_KEY, true);
+			
+		}catch(JsonException e)
+		{
+			return true;
 		}
 	}
 	
@@ -110,6 +133,8 @@ public final class AltsFile
 		{
 			String nameOrEmail = e.getKey();
 			if(nameOrEmail.isEmpty())
+				continue;
+			if(SETTINGS_KEY.equals(nameOrEmail))
 				continue;
 			
 			JsonObject jsonAlt = e.getValue();
@@ -180,6 +205,10 @@ public final class AltsFile
 	public static JsonObject createJson(AltManager alts)
 	{
 		JsonObject json = new JsonObject();
+		JsonObject settings = new JsonObject();
+		settings.addProperty(DISCONNECT_RANDOM_ALT_RECONNECT_KEY,
+			alts.isDisconnectRandomAltReconnectEnabled());
+		json.add(SETTINGS_KEY, settings);
 		
 		for(Alt alt : alts.getList())
 			alt.exportAsJson(json);

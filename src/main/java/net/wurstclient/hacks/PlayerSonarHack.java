@@ -290,9 +290,13 @@ public final class PlayerSonarHack extends Hack
 		
 		if(chatAlerts.isChecked() && now - ping.lastAlertMs >= 300L)
 		{
+			int distanceBlocks =
+				(int)Math.round(Math.sqrt(ping.pos.distToCenterSqr(
+					MC.player.getX(), MC.player.getY(), MC.player.getZ())));
 			String rangeSuffix = onlyBeyondPlayerEspRange.isChecked()
-				? String.format(" (outside %.0fb).", PLAYER_ESP_LIMIT_BLOCKS)
-				: ".";
+				? String.format(" (%db away, outside %.0fb).", distanceBlocks,
+					PLAYER_ESP_LIMIT_BLOCKS)
+				: String.format(" (%db away).", distanceBlocks);
 			ChatUtils.message(String.format(
 				"PlayerSonar: %s %s -> %s at %d, %d, %d%s", ping.lastKind,
 				ping.lastOldId, ping.lastNewId, ping.pos.getX(),

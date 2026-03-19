@@ -118,6 +118,8 @@
   "description.wurst.setting.crystalaura.swing_hand": "How CrystalAura should swing your hand when placing and detonating end crystals.",
   "description.wurst.setting.crystalaura.take_items_from": "Where to look for end crystals.",
   "description.wurst.hack.derp": "Randomly moves your head around.\nOnly visible to other players.",
+  "hack.wurst.tunnelholestairesp": "TunnelHoleStairESP",
+  "description.wurst.hack.tunnelholestairesp": "Finds likely player-dug 1x1 holes, straight tunnels, and staircases.\nUses shape checks and a natural-wall filter to reduce worldgen false positives.",
   "description.wurst.hack.durabilityhud": "Shows item and armor durability on your HUD with configurable styles, colors, and scaling.",
   "description.wurst.hack.dolphin": "Makes you bob up in water automatically.\n(just like a dolphin)",
   "description.wurst.hack.elytraflight": "Hover and fly in any direction while gliding with an elytra.",
