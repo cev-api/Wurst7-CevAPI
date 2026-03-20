@@ -93,6 +93,20 @@ public final class AltGuiHack extends Hack
 		"Fill color values",
 		"Show color settings as filled value boxes instead of colored outlines.",
 		true);
+	private final CheckboxSetting settingRowDividers = new CheckboxSetting(
+		"Setting row dividers",
+		"Show horizontal divider lines between expanded setting rows.", true);
+	private final CheckboxSetting hackExpandIcons = new CheckboxSetting(
+		"Hack expand icons",
+		"Show triangle icons before hacks to indicate collapsed/expanded settings.",
+		true);
+	private final CheckboxSetting autoSizeTopTabs = new CheckboxSetting(
+		"Auto-size top tabs",
+		"Automatically size category tabs in top-tab mode to fit their text.",
+		true);
+	private final CheckboxSetting searchOnlyWhileTyping =
+		new CheckboxSetting("Show search while typing",
+			"Hide the search bar until you start typing a query.", false);
 	private final CheckboxSetting searchSettings =
 		new CheckboxSetting("Search settings/toggles",
 			"Include setting names and values in AltGUI search results.", true);
@@ -102,6 +116,9 @@ public final class AltGuiHack extends Hack
 		false);
 	private final EnumSetting<OpenBehavior> openBehavior = new EnumSetting<>(
 		"On open", OpenBehavior.values(), OpenBehavior.FAVORITES);
+	private final EnumSetting<CategoryLayout> categoryLayout =
+		new EnumSetting<>("Category layout", CategoryLayout.values(),
+			CategoryLayout.SIDEBAR);
 	
 	private float cachedMinScale = Float.NaN;
 	private int cachedMinSmoothing = -1;
@@ -138,9 +155,14 @@ public final class AltGuiHack extends Hack
 		addSetting(typeBadges);
 		addSetting(favoriteStars);
 		addSetting(fillColorValues);
+		addSetting(settingRowDividers);
+		addSetting(hackExpandIcons);
+		addSetting(autoSizeTopTabs);
+		addSetting(searchOnlyWhileTyping);
 		addSetting(searchSettings);
 		addSetting(keepHackSettingsOpen);
 		addSetting(openBehavior);
+		addSetting(categoryLayout);
 		refreshFontOptions();
 	}
 	
@@ -397,9 +419,34 @@ public final class AltGuiHack extends Hack
 		return fillColorValues;
 	}
 	
+	public CheckboxSetting getSettingRowDividersSetting()
+	{
+		return settingRowDividers;
+	}
+	
+	public CheckboxSetting getHackExpandIconsSetting()
+	{
+		return hackExpandIcons;
+	}
+	
+	public CheckboxSetting getAutoSizeTopTabsSetting()
+	{
+		return autoSizeTopTabs;
+	}
+	
+	public CheckboxSetting getSearchOnlyWhileTypingSetting()
+	{
+		return searchOnlyWhileTyping;
+	}
+	
 	public EnumSetting<OpenBehavior> getOpenBehaviorSetting()
 	{
 		return openBehavior;
+	}
+	
+	public EnumSetting<CategoryLayout> getCategoryLayoutSetting()
+	{
+		return categoryLayout;
 	}
 	
 	public boolean isTypeBadgesEnabled()
@@ -417,6 +464,26 @@ public final class AltGuiHack extends Hack
 		return fillColorValues.isChecked();
 	}
 	
+	public boolean isSettingRowDividersEnabled()
+	{
+		return settingRowDividers.isChecked();
+	}
+	
+	public boolean isHackExpandIconsEnabled()
+	{
+		return hackExpandIcons.isChecked();
+	}
+	
+	public boolean isAutoSizeTopTabsEnabled()
+	{
+		return autoSizeTopTabs.isChecked();
+	}
+	
+	public boolean isSearchOnlyWhileTypingEnabled()
+	{
+		return searchOnlyWhileTyping.isChecked();
+	}
+	
 	public boolean isSearchSettingsEnabled()
 	{
 		return searchSettings.isChecked();
@@ -430,6 +497,11 @@ public final class AltGuiHack extends Hack
 	public OpenBehavior getOpenBehavior()
 	{
 		return openBehavior.getSelected();
+	}
+	
+	public CategoryLayout getCategoryLayout()
+	{
+		return categoryLayout.getSelected();
 	}
 	
 	public int getMinimumRowHeight()
@@ -521,6 +593,12 @@ public final class AltGuiHack extends Hack
 		typeBadges.setChecked(typeBadges.isCheckedByDefault());
 		favoriteStars.setChecked(favoriteStars.isCheckedByDefault());
 		fillColorValues.setChecked(fillColorValues.isCheckedByDefault());
+		settingRowDividers.setChecked(settingRowDividers.isCheckedByDefault());
+		hackExpandIcons.setChecked(hackExpandIcons.isCheckedByDefault());
+		autoSizeTopTabs.setChecked(autoSizeTopTabs.isCheckedByDefault());
+		searchOnlyWhileTyping
+			.setChecked(searchOnlyWhileTyping.isCheckedByDefault());
+		categoryLayout.setSelected(categoryLayout.getDefaultSelected());
 	}
 	
 	public enum FontSmoothing
@@ -559,6 +637,25 @@ public final class AltGuiHack extends Hack
 		private final String label;
 		
 		OpenBehavior(String label)
+		{
+			this.label = label;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return label;
+		}
+	}
+	
+	public enum CategoryLayout
+	{
+		SIDEBAR("Sidebar"),
+		TOP_TABS("Top tabs");
+		
+		private final String label;
+		
+		CategoryLayout(String label)
 		{
 			this.label = label;
 		}

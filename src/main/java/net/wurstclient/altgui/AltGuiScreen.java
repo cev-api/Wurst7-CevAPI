@@ -22,6 +22,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -145,15 +146,24 @@ public final class AltGuiScreen extends Screen
 		
 		Font font = minecraft.font;
 		int searchHeight = getSearchHeight();
-		searchBox = new EditBox(font, moduleX + 14, panelY + 12, moduleW - 24,
-			searchHeight, Component.literal("Search"));
+		searchBox = new EditBox(font, getSearchBoxX(), getSearchBoxY(),
+			getSearchBoxWidth(), searchHeight, Component.literal("Search"));
 		searchBox.setBordered(false);
 		searchBox.setMaxLength(128);
 		searchBox.setTextColor(cfg().getTextColor());
 		searchBox.setValue(searchText);
 		addRenderableWidget(searchBox);
-		setFocused(searchBox);
-		searchBox.setFocused(true);
+		if(cfg().isSearchOnlyWhileTypingEnabled())
+		{
+			setFocused(null);
+			searchBox.setFocused(false);
+			searchBox.setVisible(false);
+		}else
+		{
+			setFocused(searchBox);
+			searchBox.setFocused(true);
+			searchBox.setVisible(true);
+		}
 	}
 	
 	private void applyOpenBehavior()
@@ -214,6 +224,88 @@ public final class AltGuiScreen extends Screen
 		return Math.max(2, Math.round(getCategoryRowHeight() * 0.25F));
 	}
 	
+	private boolean isTopTabsLayout()
+	{
+		return cfg().getCategoryLayout() == AltGuiHack.CategoryLayout.TOP_TABS;
+	}
+	
+	private int getCategoryAreaX1()
+	{
+		if(isTopTabsLayout())
+			return panelX + 8;
+		
+		return panelX + 6;
+	}
+	
+	private int getCategoryAreaX2()
+	{
+		if(isTopTabsLayout())
+			return panelX + panelW - 8;
+		
+		return panelX + categoryW - 8;
+	}
+	
+	private int getCategoryAreaY1()
+	{
+		if(isTopTabsLayout())
+			return panelY + 34;
+		
+		return panelY + getSearchHeight() + 30;
+	}
+	
+	private int getCategoryAreaY2()
+	{
+		if(isTopTabsLayout())
+			return getCategoryAreaY1() + getCategoryRowHeight();
+		
+		return panelY + panelH - 20;
+	}
+	
+	private int getTopTabGap()
+	{
+		return Math.max(2, Math.round(getCategoryRowGap() * 0.75F));
+	}
+	
+	private int getSearchBoxX()
+	{
+		if(isTopTabsLayout())
+			return getCategoryAreaX2() - getSearchBoxWidth() - 4;
+		
+		return moduleX + 14;
+	}
+	
+	private int getSearchBoxY()
+	{
+		if(isTopTabsLayout())
+			return panelY + 10;
+		
+		return panelY + 12;
+	}
+	
+	private int getSearchBoxWidth()
+	{
+		if(isTopTabsLayout())
+		{
+			int desired = Math.max(160, Math.min(320, panelW / 3));
+			int maxW = Math.max(120, getCategoryAreaX2() - (panelX + 210));
+			return Math.min(desired, maxW);
+		}
+		
+		return moduleW - 24;
+	}
+	
+	private boolean shouldRenderSearchBox()
+	{
+		if(searchBox == null)
+			return false;
+		
+		if(!cfg().isSearchOnlyWhileTypingEnabled())
+			return true;
+		
+		String value = searchBox.getValue();
+		return searchBox.isFocused() || (value != null && !value.isBlank());
+	}
+	
 	private int getSearchHeight()
 	{
 		return 12;
@@ -264,11 +356,20 @@ public final class AltGuiScreen extends Screen
 		panelX = (width - panelW) / 2;
 		panelY = (height - panelH) / 2;
 		categoryW = Math.min(cfg().getCategoryWidth(), panelW - 150);
-		
-		moduleX = panelX + categoryW + 8;
-		moduleY = panelY + searchHeight + 22;
-		moduleW = panelW - categoryW - 16;
-		moduleH = panelH - searchHeight - 28;
+		if(isTopTabsLayout())
+		{
+			moduleX = panelX + 6;
+			moduleW = panelW - 12;
+			moduleY = getCategoryAreaY2() + getCategoryRowGap() + 8;
+			int moduleBottomY = panelY + panelH - 6;
+			moduleH = Math.max(40, moduleBottomY - moduleY);
+		}else
+		{
+			moduleX = panelX + categoryW + 8;
+			moduleY = panelY + searchHeight + 22;
+			moduleW = panelW - categoryW - 16;
+			moduleH = panelH - searchHeight - 28;
+		}
 		
 		uiMenuX = moduleX + 8;
 		uiMenuY = moduleY;
@@ -280,7 +381,10 @@ public final class AltGuiScreen extends Screen
 	public void tick()
 	{
 		if(searchBox != null)
+		{
 			searchText = searchBox.getValue();
+			searchBox.setVisible(shouldRenderSearchBox());
+		}
 	}
 	
 	private void applyLiveLayout()
@@ -289,10 +393,11 @@ public final class AltGuiScreen extends Screen
 		rebuildLayout();
 		if(searchBox != null)
 		{
-			searchBox.setX(moduleX + 14);
-			searchBox.setY(panelY + 12);
+			searchBox.setX(getSearchBoxX());
+			searchBox.setY(getSearchBoxY());
 			searchBox.setHeight(getSearchHeight());
-			searchBox.setWidth(moduleW - 24);
+			searchBox.setWidth(getSearchBoxWidth());
+			searchBox.setVisible(shouldRenderSearchBox());
 		}
 		clampScroll();
 	}
@@ -307,6 +412,23 @@ public final class AltGuiScreen extends Screen
 		}
 		
 		return super.keyPressed(context);
+	}
+	
+	@Override
+	public boolean charTyped(CharacterEvent event)
+	{
+		if(searchBox != null && cfg().isSearchOnlyWhileTypingEnabled()
+			&& !searchBox.isFocused())
+		{
+			setFocused(searchBox);
+			searchBox.setFocused(true);
+			searchBox.setVisible(true);
+		}
+		
+		if(searchBox != null && searchBox.charTyped(event))
+			return true;
+		
+		return super.charTyped(event);
 	}
 	
 	@Override
@@ -362,9 +484,13 @@ public final class AltGuiScreen extends Screen
 		
 		if(isInsideCategoryArea(mouseX, mouseY))
 		{
-			categoryScroll -= (int)(verticalAmount * getCategoryRowHeight());
-			clampScroll();
-			return true;
+			if(!isTopTabsLayout())
+			{
+				categoryScroll -=
+					(int)(verticalAmount * getCategoryRowHeight());
+				clampScroll();
+				return true;
+			}
 		}
 		
 		return super.mouseScrolled(mouseX, mouseY, horizontalAmount,
@@ -390,14 +516,15 @@ public final class AltGuiScreen extends Screen
 		
 		context.fill(0, 0, width, height, bg);
 		context.fill(panelX, panelY, panelX + panelW, panelY + panelH, panel);
-		context.fill(panelX + categoryW, panelY, panelX + categoryW + 1,
-			panelY + panelH, withAlpha(cfg().getPanelLightColor(), 0.8F));
+		if(!isTopTabsLayout())
+			context.fill(panelX + categoryW, panelY, panelX + categoryW + 1,
+				panelY + panelH, withAlpha(cfg().getPanelLightColor(), 0.8F));
 		
 		renderHeader(context);
 		renderCategories(context, mouseX, mouseY);
 		renderModules(context, mouseX, mouseY);
 		
-		if(searchBox != null)
+		if(shouldRenderSearchBox())
 		{
 			renderSearchBoxText(context);
 		}
@@ -455,8 +582,19 @@ public final class AltGuiScreen extends Screen
 		drawStringScaled(context, font, "Alt GUI", panelX + 12, panelY + 22,
 			muted, false);
 		
-		context.fill(moduleX + 8, panelY + 8, moduleX + moduleW - 8,
-			panelY + 10 + getSearchHeight() + 4, panelLight);
+		if(shouldRenderSearchBox())
+		{
+			int sx1 = getSearchBoxX() - 4;
+			int sx2 = getSearchBoxX() + getSearchBoxWidth() + 4;
+			if(isTopTabsLayout())
+			{
+				sx1 = Math.max(getCategoryAreaX1(), sx1);
+				sx2 = Math.min(getCategoryAreaX2(), sx2);
+			}
+			int sy1 = getSearchBoxY() - 2;
+			int sy2 = getSearchBoxY() + getSearchHeight() + 2;
+			context.fill(sx1, sy1, sx2, sy2, panelLight);
+		}
 	}
 	
 	private void renderTooltip(GuiGraphics context)
@@ -476,13 +614,25 @@ public final class AltGuiScreen extends Screen
 	
 	private void renderCategories(GuiGraphics context, int mouseX, int mouseY)
 	{
+		if(isTopTabsLayout())
+		{
+			renderTopTabCategories(context, mouseX, mouseY);
+			return;
+		}
+		
+		renderSidebarCategories(context, mouseX, mouseY);
+	}
+	
+	private void renderSidebarCategories(GuiGraphics context, int mouseX,
+		int mouseY)
+	{
 		Font font = minecraft.font;
 		int rowH = getCategoryRowHeight();
 		int rowGap = getCategoryRowGap();
-		int areaX1 = panelX + 6;
-		int areaX2 = panelX + categoryW - 8;
-		int areaY1 = panelY + getSearchHeight() + 30;
-		int areaY2 = panelY + panelH - 20;
+		int areaX1 = getCategoryAreaX1();
+		int areaX2 = getCategoryAreaX2();
+		int areaY1 = getCategoryAreaY1();
+		int areaY2 = getCategoryAreaY2();
 		int y = areaY1 - categoryScroll;
 		int accentFill = withAlpha(cfg().getAccentColor(), 0.35F);
 		int accentHover = withAlpha(cfg().getAccentColor(), 0.2F);
@@ -548,6 +698,152 @@ public final class AltGuiScreen extends Screen
 			renderCategoryScrollbar(context, areaX1, areaY1, areaX2, areaY2);
 	}
 	
+	private void renderTopTabCategories(GuiGraphics context, int mouseX,
+		int mouseY)
+	{
+		Font font = minecraft.font;
+		int areaY1 = getCategoryAreaY1();
+		int areaY2 = getCategoryAreaY2();
+		int accentFill = withAlpha(cfg().getAccentColor(), 0.35F);
+		int accentHover = withAlpha(cfg().getAccentColor(), 0.2F);
+		int areaX1 = getCategoryAreaX1();
+		int areaX2 = getCategoryAreaX2();
+		List<TopCategoryTab> tabs = getTopCategoryTabs(font);
+		
+		maxCategoryScroll = 0;
+		categoryScroll = 0;
+		
+		context.fill(areaX1, areaY1, areaX2, areaY2,
+			withAlpha(cfg().getPanelLightColor(), 0.58F));
+		context.fill(areaX1, areaY2, areaX2, areaY2 + 1,
+			withAlpha(cfg().getPanelLightColor(), 0.85F));
+		
+		for(TopCategoryTab tab : tabs)
+		{
+			boolean selected = switch(tab.kind())
+			{
+				case ENABLED -> enabledCategorySelected;
+				case STYLE -> styleCategorySelected;
+				case CATEGORY -> !styleCategorySelected
+					&& !enabledCategorySelected
+					&& selectedCategory.equalsIgnoreCase(tab.categoryName());
+			};
+			drawTopCategoryTab(context, font, tab.label(), selected,
+				isInside(mouseX, mouseY, tab.x1(), areaY1, tab.x2(), areaY2),
+				tab.x1(), areaY1, tab.x2(), areaY2, accentFill, accentHover);
+		}
+	}
+	
+	private List<TopCategoryTab> getTopCategoryTabs(Font font)
+	{
+		int areaX1 = getCategoryAreaX1();
+		int areaX2 = getCategoryAreaX2();
+		int areaW = Math.max(1, areaX2 - areaX1);
+		int gap = getTopTabGap();
+		
+		ArrayList<String> labels = new ArrayList<>();
+		labels.add("Enabled");
+		List<String> categories = getDisplayCategories();
+		labels.addAll(categories);
+		labels.add("Client Settings");
+		int tabCount = labels.size();
+		if(tabCount == 0)
+			return List.of();
+		
+		int[] widths = new int[tabCount];
+		int availableW = Math.max(1, areaW - Math.max(0, tabCount - 1) * gap);
+		
+		if(cfg().isAutoSizeTopTabsEnabled())
+		{
+			int minW = 24;
+			int sum = 0;
+			for(int i = 0; i < tabCount; i++)
+			{
+				widths[i] =
+					Math.max(minW, scaledFontWidth(font, labels.get(i)) + 14);
+				sum += widths[i];
+			}
+			
+			if(sum > availableW)
+			{
+				double scale = availableW / (double)sum;
+				sum = 0;
+				for(int i = 0; i < tabCount; i++)
+				{
+					widths[i] =
+						Math.max(minW, (int)Math.floor(widths[i] * scale));
+					sum += widths[i];
+				}
+				
+				for(int i = 0; sum > availableW && i < tabCount * 6; i++)
+				{
+					int idx = i % tabCount;
+					if(widths[idx] > minW)
+					{
+						widths[idx]--;
+						sum--;
+					}
+				}
+			}
+		}else
+		{
+			int tabW = Math.max(1, availableW / tabCount);
+			for(int i = 0; i < tabCount; i++)
+				widths[i] = tabW;
+			int remainder = Math.max(0, availableW - tabW * tabCount);
+			for(int i = 0; i < remainder; i++)
+				widths[i % tabCount]++;
+		}
+		
+		int usedW = Math.max(0, (tabCount - 1) * gap);
+		for(int w : widths)
+			usedW += w;
+		int x = areaX1 + Math.max(0, (areaW - usedW) / 2);
+		
+		ArrayList<TopCategoryTab> tabs = new ArrayList<>(tabCount);
+		int labelIndex = 0;
+		int x1 = x;
+		int x2 = Math.min(areaX2, x1 + widths[labelIndex]);
+		tabs.add(new TopCategoryTab(TopTabKind.ENABLED, labels.get(labelIndex),
+			null, x1, x2));
+		x = x2 + gap;
+		labelIndex++;
+		
+		for(String categoryName : categories)
+		{
+			x1 = x;
+			x2 = Math.min(areaX2, x1 + widths[labelIndex]);
+			tabs.add(new TopCategoryTab(TopTabKind.CATEGORY,
+				labels.get(labelIndex), categoryName, x1, x2));
+			x = x2 + gap;
+			labelIndex++;
+		}
+		
+		x1 = x;
+		x2 = Math.min(areaX2, x1 + widths[labelIndex]);
+		tabs.add(new TopCategoryTab(TopTabKind.STYLE, labels.get(labelIndex),
+			null, x1, x2));
+		return tabs;
+	}
+	
+	private void drawTopCategoryTab(GuiGraphics context, Font font,
+		String label, boolean selected, boolean hovered, int x1, int y1, int x2,
+		int y2, int accentFill, int accentHover)
+	{
+		if(x2 <= x1)
+			return;
+		
+		if(selected || hovered)
+			context.fill(x1, y1, x2, y2, selected ? accentFill : accentHover);
+		
+		String text = trimToWidth(font, label, Math.max(1, x2 - x1 - 6));
+		drawCenteredStringScaledInBox(context, font, text, x1, y1, x2, y2,
+			selected ? cfg().getTextColor() : cfg().getMutedTextColor());
+		if(selected)
+			context.fill(x1, y2 - 1, x2, y2,
+				withAlpha(cfg().getAccentColor(), 0.95F));
+	}
+	
 	private void renderCategoryScrollbar(GuiGraphics context, int areaX1,
 		int areaY1, int areaX2, int areaY2)
 	{
@@ -590,11 +886,19 @@ public final class AltGuiScreen extends Screen
 		context.enableScissor(clipX1, clipY1, clipX2, clipY2);
 		
 		List<DisplayEntry> entries = getDisplayedEntries();
+		int entryIndex = 0;
 		
 		for(DisplayEntry entry : entries)
 		{
 			Feature feature = entry.feature();
 			boolean expanded = expandedFeatures.contains(feature.getName());
+			List<SettingRow> settingRows = null;
+			boolean hasExpandableRows = false;
+			if(expanded || cfg().isHackExpandIconsEnabled())
+			{
+				settingRows = getSettingRows(feature);
+				hasExpandableRows = !settingRows.isEmpty();
+			}
 			int rowTop = contentY;
 			int rowBottom = rowTop + rowH;
 			boolean visible = rowBottom >= viewTop && rowTop <= viewBottom;
@@ -608,6 +912,8 @@ public final class AltGuiScreen extends Screen
 					? withAlpha(cfg().getEnabledColor(), 0.28F)
 					: hovered ? withAlpha(cfg().getAccentColor(), 0.2F)
 						: withAlpha(cfg().getPanelLightColor(), 0.55F);
+				if(!feature.isEnabled() && !hovered && !expanded)
+					bgColor = withAlpha(cfg().getPanelLightColor(), 0.55F);
 				if(expanded && !hovered)
 					bgColor = withAlpha(cfg().getAccentColor(),
 						feature.isEnabled() ? 0.33F : 0.24F);
@@ -624,6 +930,13 @@ public final class AltGuiScreen extends Screen
 				}
 				int nameX = moduleX + 14;
 				int rowTextY = centeredTextY(font, rowTop, rowBottom);
+				if(cfg().isHackExpandIconsEnabled() && hasExpandableRows)
+				{
+					String icon = expanded ? "▼" : "▶";
+					drawStringScaled(context, font, icon, nameX, rowTextY,
+						cfg().getMutedTextColor(), false);
+					nameX += Math.max(11, scaledFontWidth(font, icon) + 4);
+				}
 				if(feature instanceof Hack hack
 					&& cfg().isFavoriteStarsEnabled() && hack.isFavorite())
 				{
@@ -667,7 +980,8 @@ public final class AltGuiScreen extends Screen
 			if(!expanded)
 				continue;
 			
-			List<SettingRow> settingRows = getSettingRows(feature);
+			if(settingRows == null)
+				settingRows = getSettingRows(feature);
 			for(SettingRow row : settingRows)
 			{
 				int h = row.height();
@@ -679,6 +993,8 @@ public final class AltGuiScreen extends Screen
 				contentY += h;
 				totalContentHeight += h;
 			}
+			
+			entryIndex++;
 		}
 		context.disableScissor();
 		
@@ -765,10 +1081,13 @@ public final class AltGuiScreen extends Screen
 			: oddStripe ? withAlpha(cfg().getPanelLightColor(), 0.78F)
 				: withAlpha(cfg().getPanelLightColor(), 0.62F);
 		context.fill(rowX1, y1, rowX2, y2, rowColor);
-		context.fill(rowX1, y1, rowX2, y1 + 1,
-			withAlpha(cfg().getTextColor(), 0.12F));
-		context.fill(rowX1, y2 - 1, rowX2, y2,
-			withAlpha(cfg().getTextColor(), 0.06F));
+		if(cfg().isSettingRowDividersEnabled())
+		{
+			context.fill(rowX1, y1, rowX2, y1 + 1,
+				withAlpha(cfg().getTextColor(), 0.12F));
+			context.fill(rowX1, y2 - 1, rowX2, y2,
+				withAlpha(cfg().getTextColor(), 0.06F));
+		}
 		
 		for(int i = 0; i < depth; i++)
 		{
@@ -912,10 +1231,20 @@ public final class AltGuiScreen extends Screen
 			cfg().getRowHeightSetting(), y, mouseX, mouseY);
 		y = renderUiSlider(context, font, "Font scale",
 			cfg().getFontScaleSetting(), y, mouseX, mouseY);
+		y = renderUiEnum(context, font, "Category layout",
+			cfg().getCategoryLayoutSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Type badges",
 			cfg().getTypeBadgesSetting(), y, mouseX, mouseY);
 		y = renderUiToggle(context, font, "Fill color values",
 			cfg().getFillColorValuesSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Setting row dividers",
+			cfg().getSettingRowDividersSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Hack expand icons",
+			cfg().getHackExpandIconsSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Auto-size top tabs",
+			cfg().getAutoSizeTopTabsSetting(), y, mouseX, mouseY);
+		y = renderUiToggle(context, font, "Search while typing",
+			cfg().getSearchOnlyWhileTypingSetting(), y, mouseX, mouseY);
 		y += 4;
 		
 		y = renderUiColor(context, font, "Background",
@@ -998,6 +1327,33 @@ public final class AltGuiScreen extends Screen
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
+	private int renderUiEnum(GuiGraphics context, Font font, String label,
+		EnumSetting<?> setting, int y, int mouseX, int mouseY)
+	{
+		int rowH = Math.max(getMinimumReadableUiRowHeight(),
+			scaleRightSettingHeight(14));
+		int x1 = uiMenuX + 8;
+		int x2 = uiMenuX + uiMenuW - 8;
+		boolean hovered = isInside(mouseX, mouseY, x1, y, x2, y + rowH);
+		context.fill(x1, y, x2, y + rowH,
+			hovered ? withAlpha(cfg().getAccentColor(), 0.14F)
+				: withAlpha(cfg().getPanelLightColor(), 0.58F));
+		drawStringScaled(context, font, label, x1 + scaleRightSettingWidth(4),
+			y + scaleRightSettingHeight(3), cfg().getMutedTextColor(), false);
+		
+		String value = normalizeDisplayValue("" + setting.getSelected());
+		int pillW = scaleRightSettingWidth(96);
+		int pillX2 = x2 - scaleRightSettingWidth(4);
+		int pillX1 = pillX2 - pillW;
+		int pillY1 = y + scaleRightSettingHeight(2);
+		int pillY2 = y + rowH - scaleRightSettingHeight(2);
+		context.fill(pillX1, pillY1, pillX2, pillY2,
+			withAlpha(cfg().getPanelColor(), 0.92F));
+		drawMarqueeStringScaledInBox(context, font, value, pillX1, pillY1,
+			pillX2, pillY2, cfg().getTextColor(), scaleRightSettingWidth(3));
+		return y + rowH + scaleRightSettingHeight(2);
+	}
+	
 	private int renderUiColor(GuiGraphics context, Font font, String label,
 		ColorSetting color, int y, int mouseX, int mouseY)
 	{
@@ -1048,9 +1404,19 @@ public final class AltGuiScreen extends Screen
 			button);
 		y = handleUiSliderClick(cfg().getFontScaleSetting(), mouseX, mouseY, y,
 			button);
+		y = handleUiEnumClick(cfg().getCategoryLayoutSetting(), mouseX, mouseY,
+			y, button);
 		y = handleUiToggleClick(cfg().getTypeBadgesSetting(), mouseX, mouseY,
 			y);
 		y = handleUiToggleClick(cfg().getFillColorValuesSetting(), mouseX,
+			mouseY, y);
+		y = handleUiToggleClick(cfg().getSettingRowDividersSetting(), mouseX,
+			mouseY, y);
+		y = handleUiToggleClick(cfg().getHackExpandIconsSetting(), mouseX,
+			mouseY, y);
+		y = handleUiToggleClick(cfg().getAutoSizeTopTabsSetting(), mouseX,
+			mouseY, y);
+		y = handleUiToggleClick(cfg().getSearchOnlyWhileTypingSetting(), mouseX,
 			mouseY, y);
 		y += 4;
 		
@@ -1126,17 +1492,58 @@ public final class AltGuiScreen extends Screen
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
+		{
 			setting.setChecked(!setting.isChecked());
+			if(setting == cfg().getSearchOnlyWhileTypingSetting()
+				&& searchBox != null)
+			{
+				if(setting.isChecked())
+				{
+					if(searchBox.getValue().isBlank())
+					{
+						setFocused(null);
+						searchBox.setFocused(false);
+						searchBox.setVisible(false);
+					}
+				}else
+				{
+					searchBox.setVisible(true);
+				}
+			}
+			if(setting == cfg().getAutoSizeTopTabsSetting())
+				applyLiveLayout();
+		}
+		return y + rowH + scaleRightSettingHeight(2);
+	}
+	
+	private int handleUiEnumClick(EnumSetting<?> setting, double mouseX,
+		double mouseY, int y, int button)
+	{
+		int rowH = Math.max(getMinimumReadableUiRowHeight(),
+			scaleRightSettingHeight(14));
+		int x1 = uiMenuX + 8;
+		int x2 = uiMenuX + uiMenuW - 8;
+		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
+		{
+			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+				setting.selectPrev();
+			else
+				setting.selectNext();
+			applyLiveLayout();
+		}
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
 	private boolean handleCategoryClick(double mouseX, double mouseY)
 	{
+		if(isTopTabsLayout())
+			return handleTopTabCategoryClick(mouseX, mouseY);
+		
 		int rowH = getCategoryRowHeight();
 		int rowGap = getCategoryRowGap();
-		int areaX1 = panelX + 6;
-		int areaX2 = panelX + categoryW - 8;
-		int areaY1 = panelY + getSearchHeight() + 30;
+		int areaX1 = getCategoryAreaX1();
+		int areaX2 = getCategoryAreaX2();
+		int areaY1 = getCategoryAreaY1();
 		int y = areaY1 - categoryScroll;
 		
 		if(!isInsideCategoryArea(mouseX, mouseY))
@@ -1178,11 +1585,58 @@ public final class AltGuiScreen extends Screen
 		return false;
 	}
 	
+	private boolean handleTopTabCategoryClick(double mouseX, double mouseY)
+	{
+		if(!isInsideCategoryArea(mouseX, mouseY))
+			return false;
+		
+		int areaY1 = getCategoryAreaY1();
+		int areaY2 = getCategoryAreaY2();
+		for(TopCategoryTab tab : getTopCategoryTabs(minecraft.font))
+		{
+			if(!isInside(mouseX, mouseY, tab.x1(), areaY1, tab.x2(), areaY2))
+				continue;
+			
+			clearSearch();
+			switch(tab.kind())
+			{
+				case ENABLED ->
+				{
+					enabledCategorySelected = true;
+					styleCategorySelected = false;
+				}
+				case CATEGORY ->
+				{
+					selectedCategory = tab.categoryName();
+					enabledCategorySelected = false;
+					styleCategorySelected = false;
+				}
+				case STYLE ->
+				{
+					enabledCategorySelected = false;
+					styleCategorySelected = true;
+				}
+			}
+			moduleScroll = 0;
+			return true;
+		}
+		
+		return false;
+	}
+	
 	private void clearSearch()
 	{
 		searchText = "";
 		if(searchBox != null)
+		{
 			searchBox.setValue("");
+			if(cfg().isSearchOnlyWhileTypingEnabled())
+			{
+				setFocused(null);
+				searchBox.setFocused(false);
+				searchBox.setVisible(false);
+			}
+		}
 	}
 	
 	private boolean handleModuleClick(double mouseX, double mouseY, int button)
@@ -1275,6 +1729,24 @@ public final class AltGuiScreen extends Screen
 		if(setting instanceof CheckboxSetting checkbox)
 		{
 			checkbox.setChecked(!checkbox.isChecked());
+			if(checkbox == cfg().getSearchOnlyWhileTypingSetting()
+				&& searchBox != null)
+			{
+				if(checkbox.isChecked())
+				{
+					if(searchBox.getValue().isBlank())
+					{
+						setFocused(null);
+						searchBox.setFocused(false);
+						searchBox.setVisible(false);
+					}
+				}else
+				{
+					searchBox.setVisible(true);
+				}
+			}
+			if(checkbox == cfg().getAutoSizeTopTabsSetting())
+				applyLiveLayout();
 			return true;
 		}
 		
@@ -1311,6 +1783,8 @@ public final class AltGuiScreen extends Screen
 				enumSetting.selectPrev();
 			else
 				enumSetting.selectNext();
+			if(enumSetting == cfg().getCategoryLayoutSetting())
+				applyLiveLayout();
 			return true;
 		}
 		
@@ -2211,10 +2685,10 @@ public final class AltGuiScreen extends Screen
 	
 	private boolean isInsideCategoryArea(double mouseX, double mouseY)
 	{
-		int x1 = panelX + 6;
-		int x2 = panelX + categoryW - 8;
-		int y1 = panelY + getSearchHeight() + 30;
-		int y2 = panelY + panelH - 20;
+		int x1 = getCategoryAreaX1();
+		int x2 = getCategoryAreaX2();
+		int y1 = getCategoryAreaY1();
+		int y2 = getCategoryAreaY2();
 		return isInside(mouseX, mouseY, x1, y1, x2, y2);
 	}
 	
@@ -2395,5 +2869,16 @@ public final class AltGuiScreen extends Screen
 	{}
 	
 	private record SliderDrag(SliderSetting slider, int x1, int x2)
+	{}
+	
+	private enum TopTabKind
+	{
+		ENABLED,
+		CATEGORY,
+		STYLE
+	}
+	
+	private record TopCategoryTab(TopTabKind kind, String label,
+		String categoryName, int x1, int x2)
 	{}
 }

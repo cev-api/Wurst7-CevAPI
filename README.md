@@ -108,6 +108,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - MusicAura 
 - Performance Overlay
 - PearlIntercept
+- PlayerSonar
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -137,6 +138,7 @@ I have taken the following ideas from other clients/mods:
 - BookBot
 - NewerNewChunks
 - ElytraInfo
+- TunnelHoleStairESP
 
 I did not, and could not, copy any code directly since most implementations are Meteor-based mods or standalone projects. These are my own implementations of the concepts, rewritten for Mojmap and often improved or expanded upon.
 
@@ -181,8 +183,8 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 
 ## What's new in this fork?
 
-### New GUI
-- Added a new alternative GUI which you can initially access from the navigator menu and bind to a key
+### New GUI (AltGUI)
+- Added a new alternative GUI which you can initially access from the navigator menu and bind to a key (Default Left ALT)
 - Totally separate from ClickGUI and Navigator
 - Customisable coloring, opacities and sizing with consistancy based on font scaling to prevent clipping
 - Changeable fonts, though pixel fonts are preferred unless you want performance hit
@@ -194,8 +196,10 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - Configurable open behavior: Open on Favorites, Enabled or restore last category/scroll state
 - Replaced old color editor with HSV Color Picker giving access to a greater color spectrum
 - Supports keybind adding and removing
+- Optional top or side category modes
 
 ![AltGUI](https://i.imgur.com/0PpYJm4.png)
+![AltGUI2](https://i.imgur.com/7twFGgG.png)
 
 ### MobSearch
 - Search mobs by fuzzy name/ID or exact type (e.g., `minecraft:zombie` or `zombie`).  
@@ -1015,6 +1019,8 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Tunnel detection treats torches as passable so lit tunnels don't split.
 - Includes per-dimension toggles and separate render colors/styles for holes, tunnels, stairs, ladders, bubble columns, and water holes.
 - Heuristic system: strong for route/base hunting, not perfect.
+
+- Inspired by [Trouser-Streak's](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/HoleAndTunnelAndStairsESP.java) implementation, but heavily improved upon.
 
 ![DigDig](https://i.imgur.com/CODK0xp.png)
 
