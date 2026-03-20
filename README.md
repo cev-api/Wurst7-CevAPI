@@ -992,18 +992,28 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
   - Vertical shafts
   - Straight tunnels
   - Stair mines
-- `Detection mode` lets you scan all types or only selected ones.
+- Additional independent detections:
+  - Ladder columns
+  - Bubble-column holes
+  - Water-filled holes (non-bubble)
+- `Detection mode` controls holes/tunnels/stairs; ladder/bubble/water detection has separate toggles.
 - `Area` + `Sticky area` control coverage:
   - `Area` = scan radius
-  - `Sticky area` = keep results anchored while moving
+  - `Sticky area` = keep previously found results anchored while active scanning still follows your current position
 - Performance controls:
   - `Chunks per tick` = scan speed
   - `Scan time budget` = hard CPU cap per tick (main FPS stabilizer)
+  - `Refresh interval` = periodic full re-queue of in-range chunks to refresh stale detections
+  - Scan order prioritizes top-down passes to surface detections sooner
 - Accuracy controls:
-  - `Air only` for stricter detection
-  - Min/max depth/length/height settings for shape filtering
+  - `Air only` for stricter shape detection
+  - Min/max hole width and depth
+  - Min/max tunnel width, height, and minimum tunnel length
+  - Stair height/length limits
+  - Minimum ladder/bubble/water column heights
   - `Natural wall filter` + `ratio` to reduce cave/worldgen false positives
-- Includes per-dimension toggles and separate render colors/styles for holes, tunnels, and stairs.
+- Tunnel detection treats torches as passable so lit tunnels don't split.
+- Includes per-dimension toggles and separate render colors/styles for holes, tunnels, stairs, ladders, bubble columns, and water holes.
 - Heuristic system: strong for route/base hunting, not perfect.
 
 ![DigDig](https://i.imgur.com/CODK0xp.png)

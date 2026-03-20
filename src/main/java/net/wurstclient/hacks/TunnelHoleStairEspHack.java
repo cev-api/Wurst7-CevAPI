@@ -22,9 +22,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BubbleColumnBlock;
+import net.minecraft.world.level.block.LadderBlock;
+import net.minecraft.world.level.block.TorchBlock;
+import net.minecraft.world.level.block.WallTorchBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -80,6 +85,11 @@ public final class TunnelHoleStairEspHack extends Hack
 		"Hard CPU budget for scanning each tick. Lower values = smoother FPS,\n"
 			+ "higher values = faster detection updates.",
 		2, 1, 20, 1, ValueDisplay.INTEGER.withSuffix(" ms"));
+	private final SliderSetting refreshInterval = new SliderSetting(
+		"Refresh interval",
+		"Periodically re-queue all chunks in range so stale detections refresh\n"
+			+ "without toggling the hack.",
+		10, 0, 60, 1, ValueDisplay.INTEGER.withSuffix(" s"));
 	private final CheckboxSetting airOnly = new CheckboxSetting("Air only",
 		"Only treat pure air as passable. Turning this off will also treat\n"
 			+ "other non-solid blocks as passable.",
@@ -93,9 +103,21 @@ public final class TunnelHoleStairEspHack extends Hack
 	private final SliderSetting minHoleDepth = new SliderSetting(
 		"Min hole depth", "Minimum depth for a vertical 1x1 hole.", 4, 1, 20, 1,
 		ValueDisplay.INTEGER);
+	private final SliderSetting minHoleWidth =
+		new SliderSetting("Min hole width", "Minimum hole interior width.", 1,
+			1, 8, 1, ValueDisplay.INTEGER);
+	private final SliderSetting maxHoleWidth =
+		new SliderSetting("Max hole width", "Maximum hole interior width.", 2,
+			1, 8, 1, ValueDisplay.INTEGER);
 	private final SliderSetting minTunnelLength = new SliderSetting(
 		"Min tunnel length", "Minimum length for a straight tunnel.", 4, 2, 30,
 		1, ValueDisplay.INTEGER);
+	private final SliderSetting minTunnelWidth =
+		new SliderSetting("Min tunnel width", "Minimum tunnel interior width.",
+			1, 1, 8, 1, ValueDisplay.INTEGER);
+	private final SliderSetting maxTunnelWidth =
+		new SliderSetting("Max tunnel width", "Maximum tunnel interior width.",
+			3, 1, 8, 1, ValueDisplay.INTEGER);
 	private final SliderSetting minTunnelHeight = new SliderSetting(
 		"Min tunnel height", "Minimum tunnel interior height.", 2, 1, 6, 1,
 		ValueDisplay.INTEGER);
@@ -111,10 +133,28 @@ public final class TunnelHoleStairEspHack extends Hack
 	private final SliderSetting maxStairHeight = new SliderSetting(
 		"Max stair height", "Maximum staircase interior height.", 4, 2, 8, 1,
 		ValueDisplay.INTEGER);
+	private final CheckboxSetting detectLadders =
+		new CheckboxSetting("Detect ladders",
+			"Detect vertical ladder columns in this ESP module.", true);
+	private final SliderSetting minLadderHeight =
+		new SliderSetting("Min ladder height", "Minimum ladder column height.",
+			5, 1, 64, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting detectBubbleColumns =
+		new CheckboxSetting("Detect bubble columns",
+			"Detect bubble columns in this ESP module.", true);
+	private final SliderSetting minBubbleColumnHeight =
+		new SliderSetting("Min bubble column height",
+			"Minimum bubble-column height.", 4, 1, 64, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting detectWaterColumns =
+		new CheckboxSetting("Detect water holes",
+			"Detect enclosed water-filled holes without bubble columns.", true);
+	private final SliderSetting minWaterColumnHeight = new SliderSetting(
+		"Min water hole height", "Minimum water-hole column height.", 4, 1, 64,
+		1, ValueDisplay.INTEGER);
 	private final SliderSetting maxPerChunk =
 		new SliderSetting("Max spots per chunk",
-			"Maximum amount of holes/tunnels/stair spots to keep per chunk.",
-			24, 4, 256, 1, ValueDisplay.INTEGER);
+			"Maximum amount of spots to keep per chunk for each type.", 24, 4,
+			256, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting naturalWallsOnly = new CheckboxSetting(
 		"Natural wall filter",
 		"Reject shapes where too many surrounding wall blocks look"
@@ -131,6 +171,14 @@ public final class TunnelHoleStairEspHack extends Hack
 		"Render color for detected tunnels.", new Color(70, 140, 255));
 	private final ColorSetting stairColor = new ColorSetting("Stair color",
 		"Render color for detected staircases.", new Color(255, 90, 220));
+	private final ColorSetting ladderColor = new ColorSetting("Ladder color",
+		"Render color for detected ladder columns.", new Color(255, 190, 40));
+	private final ColorSetting bubbleColumnColor = new ColorSetting(
+		"Bubble column color", "Render color for detected bubble columns.",
+		new Color(60, 220, 255));
+	private final ColorSetting waterColumnColor = new ColorSetting(
+		"Water hole color", "Render color for detected water-filled holes.",
+		new Color(40, 120, 255));
 	
 	private final CheckboxSetting overworld =
 		new CheckboxSetting("Overworld", true);
@@ -150,15 +198,17 @@ public final class TunnelHoleStairEspHack extends Hack
 	private ChunkPos cachedAreaCenter;
 	private ChunkAreaSetting.ChunkArea cachedAreaSelection;
 	private ResourceKey<Level> cachedAreaDimension;
-	private ChunkPos stickyCenterChunk;
-	private boolean lastStickyArea;
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	
 	private final ArrayList<AABB> holeBoxes = new ArrayList<>();
 	private final ArrayList<AABB> tunnelBoxes = new ArrayList<>();
 	private final ArrayList<AABB> stairBoxes = new ArrayList<>();
+	private final ArrayList<AABB> ladderBoxes = new ArrayList<>();
+	private final ArrayList<AABB> bubbleColumnBoxes = new ArrayList<>();
+	private final ArrayList<AABB> waterColumnBoxes = new ArrayList<>();
 	
 	private int scanConfigHash;
+	private int refreshTimerTicks;
 	
 	public TunnelHoleStairEspHack()
 	{
@@ -170,22 +220,36 @@ public final class TunnelHoleStairEspHack extends Hack
 		addSetting(area);
 		addSetting(chunksPerTick);
 		addSetting(scanTimeBudgetMs);
+		addSetting(refreshInterval);
 		addSetting(airOnly);
 		addSetting(minYOffset);
 		addSetting(maxYOffset);
 		addSetting(minHoleDepth);
+		addSetting(minHoleWidth);
+		addSetting(maxHoleWidth);
 		addSetting(minTunnelLength);
+		addSetting(minTunnelWidth);
+		addSetting(maxTunnelWidth);
 		addSetting(minTunnelHeight);
 		addSetting(maxTunnelHeight);
 		addSetting(minStairLength);
 		addSetting(minStairHeight);
 		addSetting(maxStairHeight);
+		addSetting(detectLadders);
+		addSetting(minLadderHeight);
+		addSetting(detectBubbleColumns);
+		addSetting(minBubbleColumnHeight);
+		addSetting(detectWaterColumns);
+		addSetting(minWaterColumnHeight);
 		addSetting(maxPerChunk);
 		addSetting(naturalWallsOnly);
 		addSetting(naturalWallRatio);
 		addSetting(holeColor);
 		addSetting(tunnelColor);
 		addSetting(stairColor);
+		addSetting(ladderColor);
+		addSetting(bubbleColumnColor);
+		addSetting(waterColumnColor);
 		addSetting(overworld);
 		addSetting(nether);
 		addSetting(end);
@@ -197,19 +261,21 @@ public final class TunnelHoleStairEspHack extends Hack
 		int holes = holeBoxes.size();
 		int tunnels = tunnelBoxes.size();
 		int stairs = stairBoxes.size();
-		if(holes + tunnels + stairs == 0)
+		int ladders = ladderBoxes.size();
+		int bubbles = bubbleColumnBoxes.size();
+		int waters = waterColumnBoxes.size();
+		if(holes + tunnels + stairs + ladders + bubbles + waters == 0)
 			return getName();
 		
-		return getName() + " [" + holes + "H " + tunnels + "T " + stairs + "S]";
+		return getName() + " [" + holes + "H " + tunnels + "T " + stairs + "S "
+			+ ladders + "L " + bubbles + "B " + waters + "W]";
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		scanConfigHash = getScanConfigHash();
-		stickyCenterChunk =
-			MC.player == null ? null : MC.player.chunkPosition();
-		lastStickyArea = stickyArea.isChecked();
+		refreshTimerTicks = 0;
 		lastAreaSelection = area.getSelected();
 		clearRuntimeState();
 		EVENTS.add(UpdateListener.class, this);
@@ -234,8 +300,6 @@ public final class TunnelHoleStairEspHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		boolean sticky = stickyArea.isChecked();
-		ChunkPos playerChunk = MC.player.chunkPosition();
 		ChunkAreaSetting.ChunkArea currentAreaSelection = area.getSelected();
 		
 		if(currentAreaSelection != lastAreaSelection)
@@ -243,16 +307,6 @@ public final class TunnelHoleStairEspHack extends Hack
 			lastAreaSelection = currentAreaSelection;
 			clearRuntimeState();
 		}
-		
-		if(sticky != lastStickyArea)
-		{
-			lastStickyArea = sticky;
-			stickyCenterChunk = playerChunk;
-			clearRuntimeState();
-		}else if(!sticky)
-			stickyCenterChunk = playerChunk;
-		else if(stickyCenterChunk == null)
-			stickyCenterChunk = playerChunk;
 		
 		if(!isEnabledInCurrentDimension())
 		{
@@ -271,6 +325,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		HashSet<ChunkPos> areaChunks = getAreaChunks();
 		boolean changed = syncToArea(areaChunks);
 		enqueueDirtyChunks(areaChunks);
+		enqueuePeriodicRefresh(areaChunks);
 		changed |= processQueuedScans(areaChunks);
 		
 		if(changed)
@@ -331,6 +386,30 @@ public final class TunnelHoleStairEspHack extends Hack
 			RenderUtils.drawOutlinedBoxes(matrixStack, stairBoxes,
 				stairColor.getColorI(0x95), false);
 		}
+		
+		if(!ladderBoxes.isEmpty())
+		{
+			RenderUtils.drawSolidBoxes(matrixStack, ladderBoxes,
+				ladderColor.getColorI(0x30), false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, ladderBoxes,
+				ladderColor.getColorI(0x95), false);
+		}
+		
+		if(!bubbleColumnBoxes.isEmpty())
+		{
+			RenderUtils.drawSolidBoxes(matrixStack, bubbleColumnBoxes,
+				bubbleColumnColor.getColorI(0x30), false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, bubbleColumnBoxes,
+				bubbleColumnColor.getColorI(0x95), false);
+		}
+		
+		if(!waterColumnBoxes.isEmpty())
+		{
+			RenderUtils.drawSolidBoxes(matrixStack, waterColumnBoxes,
+				waterColumnColor.getColorI(0x30), false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, waterColumnBoxes,
+				waterColumnColor.getColorI(0x95), false);
+		}
 	}
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
@@ -349,6 +428,21 @@ public final class TunnelHoleStairEspHack extends Hack
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
 				partialTicks, getCenters(stairBoxes),
 				stairColor.getColorI(0x95), false);
+		
+		if(!ladderBoxes.isEmpty())
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(ladderBoxes),
+				ladderColor.getColorI(0x95), false);
+		
+		if(!bubbleColumnBoxes.isEmpty())
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(bubbleColumnBoxes),
+				bubbleColumnColor.getColorI(0x95), false);
+		
+		if(!waterColumnBoxes.isEmpty())
+			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
+				partialTicks, getCenters(waterColumnBoxes),
+				waterColumnColor.getColorI(0x95), false);
 	}
 	
 	private ArrayList<Vec3> getCenters(ArrayList<AABB> boxes)
@@ -378,21 +472,19 @@ public final class TunnelHoleStairEspHack extends Hack
 		ChunkAreaSetting.ChunkArea selection = area.getSelected();
 		ResourceKey<Level> dimension = MC.level.dimension();
 		
-		if(!center.equals(cachedAreaCenter) || selection != cachedAreaSelection
-			|| dimension != cachedAreaDimension)
-		{
-			areaChunkCache.clear();
-			int chunkRange = getChunkRange(selection);
-			for(int x = center.x - chunkRange; x <= center.x + chunkRange; x++)
-				for(int z = center.z - chunkRange; z <= center.z
-					+ chunkRange; z++)
-					if(MC.level.hasChunk(x, z))
-						areaChunkCache.add(new ChunkPos(x, z));
-					
-			cachedAreaCenter = center;
-			cachedAreaSelection = selection;
-			cachedAreaDimension = dimension;
-		}
+		// Rebuild every tick so newly loaded chunks get scanned without
+		// requiring
+		// a hack toggle or area change.
+		areaChunkCache.clear();
+		int chunkRange = getChunkRange(selection);
+		for(int x = center.x - chunkRange; x <= center.x + chunkRange; x++)
+			for(int z = center.z - chunkRange; z <= center.z + chunkRange; z++)
+				if(MC.level.hasChunk(x, z))
+					areaChunkCache.add(new ChunkPos(x, z));
+				
+		cachedAreaCenter = center;
+		cachedAreaSelection = selection;
+		cachedAreaDimension = dimension;
 		
 		return areaChunkCache;
 	}
@@ -401,7 +493,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	{
 		boolean changed = false;
 		
-		if(detectionsByChunk.keySet()
+		if(!stickyArea.isChecked() && detectionsByChunk.keySet()
 			.removeIf(pos -> !areaChunks.contains(pos)))
 			changed = true;
 		
@@ -491,6 +583,9 @@ public final class TunnelHoleStairEspHack extends Hack
 		boolean detectHoles = shouldDetectHoles();
 		boolean detectTunnels = shouldDetectTunnels();
 		boolean detectStairs = shouldDetectStairs();
+		boolean laddersEnabled = detectLadders.isChecked();
+		boolean bubbleColumnsEnabled = detectBubbleColumns.isChecked();
+		boolean waterColumnsEnabled = detectWaterColumns.isChecked();
 		int chunkLimit = Math.max(1, maxPerChunk.getValueI());
 		
 		BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
@@ -498,7 +593,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		int minSectionY = chunk.getMinY() >> 4;
 		
 		for(int sectionIndex =
-			0; sectionIndex < sections.length; sectionIndex++)
+			sections.length - 1; sectionIndex >= 0; sectionIndex--)
 		{
 			LevelChunkSection section = sections[sectionIndex];
 			if(section == null || section.hasOnlyAir())
@@ -512,7 +607,7 @@ public final class TunnelHoleStairEspHack extends Hack
 			int startY = Math.max(minY, sectionBaseY);
 			int endY = Math.min(maxY, sectionTopY);
 			
-			for(int y = startY; y <= endY; y++)
+			for(int y = endY; y >= startY; y--)
 				for(int lx = 0; lx < 16; lx++)
 					for(int lz = 0; lz < 16; lz++)
 					{
@@ -520,7 +615,13 @@ public final class TunnelHoleStairEspHack extends Hack
 							&& (!detectTunnels
 								|| result.tunnels.size() >= chunkLimit)
 							&& (!detectStairs
-								|| result.stairs.size() >= chunkLimit))
+								|| result.stairs.size() >= chunkLimit)
+							&& (!laddersEnabled
+								|| result.ladders.size() >= chunkLimit)
+							&& (!bubbleColumnsEnabled
+								|| result.bubbleColumns.size() >= chunkLimit)
+							&& (!waterColumnsEnabled
+								|| result.waterColumns.size() >= chunkLimit))
 							return result;
 						
 						int localY = y - sectionBaseY;
@@ -529,25 +630,44 @@ public final class TunnelHoleStairEspHack extends Hack
 						
 						mutablePos.set(chunkPos.getMinBlockX() + lx, y,
 							chunkPos.getMinBlockZ() + lz);
-						if(!isPassable(mutablePos, state))
+						BlockPos pos = mutablePos.immutable();
+						
+						if(laddersEnabled && result.ladders.size() < chunkLimit)
+							tryAddLadderColumn(pos, state, minY, maxY, result);
+						
+						if(bubbleColumnsEnabled
+							&& result.bubbleColumns.size() < chunkLimit)
+							tryAddBubbleColumn(pos, state, minY, maxY, result);
+						
+						if(waterColumnsEnabled
+							&& result.waterColumns.size() < chunkLimit)
+							tryAddWaterColumn(pos, state, minY, maxY, result);
+						
+						boolean passable = isPassable(mutablePos, state);
+						boolean holePassable =
+							detectHoles && isHolePassable(mutablePos, state);
+						boolean tunnelPassable = detectTunnels
+							&& isTunnelPassable(mutablePos, state);
+						if(!passable && !holePassable && !tunnelPassable)
 							continue;
 						
-						BlockPos pos = mutablePos.immutable();
 						boolean hasSolidBelow = false;
-						if((detectTunnels && result.tunnels.size() < chunkLimit)
-							|| (detectStairs
+						if((detectTunnels && tunnelPassable
+							&& result.tunnels.size() < chunkLimit)
+							|| (detectStairs && passable
 								&& result.stairs.size() < chunkLimit))
 							hasSolidBelow = isSolid(pos.below());
 						
-						if(detectHoles && result.holes.size() < chunkLimit)
+						if(detectHoles && holePassable
+							&& result.holes.size() < chunkLimit)
 							tryAddHole(pos, maxY, result);
 						
-						if(detectTunnels && hasSolidBelow
+						if(detectTunnels && tunnelPassable && hasSolidBelow
 							&& result.tunnels.size() < chunkLimit)
 							for(Direction dir : TUNNEL_DIRECTIONS)
 								tryAddTunnel(pos, dir, result);
 							
-						if(detectStairs && hasSolidBelow
+						if(detectStairs && passable && hasSolidBelow
 							&& result.stairs.size() < chunkLimit)
 							for(Direction dir : CARDINALS)
 								tryAddStaircase(pos, dir, result);
@@ -559,9 +679,21 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private void tryAddHole(BlockPos start, int maxY, ChunkDetections result)
 	{
-		if(!isHoleSection(start))
+		int width = -1;
+		for(int w = maxHoleWidth.getValueI(); w >= minHoleWidth
+			.getValueI(); w--)
+			if(isHoleSection(start, w))
+			{
+				width = w;
+				break;
+			}
+		
+		if(width < 1)
 			return;
-		if(isHoleSection(start.below()))
+		if(isHoleSection(start.west(), width)
+			|| isHoleSection(start.north(), width))
+			return;
+		if(isHoleSection(start.below(), width))
 			return;
 		
 		BlockPos.MutableBlockPos cursor = start.mutable();
@@ -569,14 +701,25 @@ public final class TunnelHoleStairEspHack extends Hack
 		int totalWalls = 0;
 		int naturalWalls = 0;
 		
-		while(cursor.getY() <= maxY && isHoleSection(cursor))
+		while(cursor.getY() <= maxY && isHoleSection(cursor, width))
 		{
 			if(naturalWallsOnly.isChecked())
 			{
-				for(Direction dir : CARDINALS)
+				for(int i = 0; i < width; i++)
 				{
-					totalWalls++;
-					if(isLikelyNaturalWall(cursor.relative(dir)))
+					BlockPos west = cursor.offset(-1, 0, i);
+					BlockPos east = cursor.offset(width, 0, i);
+					BlockPos north = cursor.offset(i, 0, -1);
+					BlockPos south = cursor.offset(i, 0, width);
+					
+					totalWalls += 4;
+					if(isLikelyNaturalWall(west))
+						naturalWalls++;
+					if(isLikelyNaturalWall(east))
+						naturalWalls++;
+					if(isLikelyNaturalWall(north))
+						naturalWalls++;
+					if(isLikelyNaturalWall(south))
 						naturalWalls++;
 				}
 			}
@@ -596,9 +739,27 @@ public final class TunnelHoleStairEspHack extends Hack
 		}
 		
 		AABB box = new AABB(start.getX(), start.getY(), start.getZ(),
-			start.getX() + 1, cursor.getY(), start.getZ() + 1);
+			start.getX() + width, cursor.getY(), start.getZ() + width);
 		if(!intersectsAny(result.holes, box))
 			result.holes.add(box);
+	}
+	
+	private void enqueuePeriodicRefresh(HashSet<ChunkPos> areaChunks)
+	{
+		int intervalTicks = refreshInterval.getValueI() * 20;
+		if(intervalTicks <= 0)
+			return;
+		
+		if(refreshTimerTicks > 0)
+		{
+			refreshTimerTicks--;
+			return;
+		}
+		
+		refreshTimerTicks = intervalTicks;
+		for(ChunkPos pos : areaChunks)
+			if(queuedChunks.add(pos))
+				scanQueue.addLast(pos);
 	}
 	
 	private void tryAddTunnel(BlockPos start, Direction dir,
@@ -614,12 +775,18 @@ public final class TunnelHoleStairEspHack extends Hack
 		int length = 0;
 		int minHeight = Integer.MAX_VALUE;
 		int maxHeight = Integer.MIN_VALUE;
+		int minWidth = Integer.MAX_VALUE;
+		int maxWidth = Integer.MIN_VALUE;
 		
 		while(isTunnelSection(cursor, dir))
 		{
-			int height = getClearHeight(cursor, maxTunnelHeight.getValueI());
+			int height =
+				getTunnelClearHeight(cursor, maxTunnelHeight.getValueI());
+			int width = getTunnelWidth(cursor, dir, height);
 			minHeight = Math.min(minHeight, height);
 			maxHeight = Math.max(maxHeight, height);
+			minWidth = Math.min(minWidth, width);
+			maxWidth = Math.max(maxWidth, width);
 			end = cursor.immutable();
 			cursor.move(dir);
 			length++;
@@ -629,14 +796,134 @@ public final class TunnelHoleStairEspHack extends Hack
 			return;
 		if(maxHeight - minHeight > 1)
 			return;
+		if(minWidth < minTunnelWidth.getValueI()
+			|| maxWidth > maxTunnelWidth.getValueI())
+			return;
+		if(maxWidth - minWidth > 1)
+			return;
 		
-		AABB box = new AABB(Math.min(start.getX(), end.getX()), start.getY(),
-			Math.min(start.getZ(), end.getZ()),
-			Math.max(start.getX(), end.getX()) + 1, start.getY() + maxHeight,
-			Math.max(start.getZ(), end.getZ()) + 1);
+		Direction side = dir.getClockWise();
+		BlockPos sideEnd = end.relative(side, maxWidth - 1);
+		AABB box = new AABB(
+			Math.min(Math.min(start.getX(), end.getX()), sideEnd.getX()),
+			start.getY(),
+			Math.min(Math.min(start.getZ(), end.getZ()), sideEnd.getZ()),
+			Math.max(Math.max(start.getX(), end.getX()), sideEnd.getX()) + 1,
+			start.getY() + maxHeight,
+			Math.max(Math.max(start.getZ(), end.getZ()), sideEnd.getZ()) + 1);
 		
 		if(!intersectsAny(result.tunnels, box))
 			result.tunnels.add(box);
+	}
+	
+	private void tryAddLadderColumn(BlockPos start, BlockState startState,
+		int minY, int maxY, ChunkDetections result)
+	{
+		if(!(startState.getBlock() instanceof LadderBlock))
+			return;
+		if(start.getY() > minY && MC.level.getBlockState(start.below())
+			.getBlock() instanceof LadderBlock)
+			return;
+		
+		BlockPos.MutableBlockPos cursor = start.mutable();
+		int height = 0;
+		while(cursor.getY() <= maxY
+			&& MC.level.getBlockState(cursor).getBlock() instanceof LadderBlock)
+		{
+			height++;
+			cursor.move(Direction.UP);
+		}
+		
+		if(height < minLadderHeight.getValueI())
+			return;
+		
+		AABB box = new AABB(start.getX(), start.getY(), start.getZ(),
+			start.getX() + 1, start.getY() + height, start.getZ() + 1);
+		if(!intersectsAny(result.ladders, box))
+			result.ladders.add(box);
+	}
+	
+	private void tryAddBubbleColumn(BlockPos start, BlockState startState,
+		int minY, int maxY, ChunkDetections result)
+	{
+		if(!(startState.getBlock() instanceof BubbleColumnBlock))
+			return;
+		if(start.getY() > minY)
+		{
+			BlockPos belowPos = start.below();
+			if(MC.level.getBlockState(belowPos)
+				.getBlock() instanceof BubbleColumnBlock
+				&& isBubbleColumnSectionInHole(belowPos))
+				return;
+		}
+		
+		BlockPos.MutableBlockPos cursor = start.mutable();
+		int height = 0;
+		while(cursor.getY() <= maxY
+			&& MC.level.getBlockState(cursor)
+				.getBlock() instanceof BubbleColumnBlock
+			&& isBubbleColumnSectionInHole(cursor))
+		{
+			height++;
+			cursor.move(Direction.UP);
+		}
+		
+		if(height < minBubbleColumnHeight.getValueI())
+			return;
+		
+		AABB box = new AABB(start.getX(), start.getY(), start.getZ(),
+			start.getX() + 1, start.getY() + height, start.getZ() + 1);
+		if(!intersectsAny(result.bubbleColumns, box))
+			result.bubbleColumns.add(box);
+	}
+	
+	private void tryAddWaterColumn(BlockPos start, BlockState startState,
+		int minY, int maxY, ChunkDetections result)
+	{
+		if(!startState.getFluidState().is(FluidTags.WATER)
+			|| startState.getBlock() instanceof BubbleColumnBlock)
+			return;
+		
+		if(start.getY() > minY)
+		{
+			BlockPos belowPos = start.below();
+			BlockState below = MC.level.getBlockState(belowPos);
+			if(below.getFluidState().is(FluidTags.WATER)
+				&& !(below.getBlock() instanceof BubbleColumnBlock)
+				&& isBubbleColumnSectionInHole(belowPos))
+				return;
+		}
+		
+		BlockPos.MutableBlockPos cursor = start.mutable();
+		int height = 0;
+		while(cursor.getY() <= maxY)
+		{
+			BlockState state = MC.level.getBlockState(cursor);
+			if(!state.getFluidState().is(FluidTags.WATER)
+				|| state.getBlock() instanceof BubbleColumnBlock
+				|| !isBubbleColumnSectionInHole(cursor))
+				break;
+			
+			height++;
+			cursor.move(Direction.UP);
+		}
+		
+		if(height < minWaterColumnHeight.getValueI())
+			return;
+		
+		AABB box = new AABB(start.getX(), start.getY(), start.getZ(),
+			start.getX() + 1, start.getY() + height, start.getZ() + 1);
+		if(!intersectsAny(result.waterColumns, box))
+			result.waterColumns.add(box);
+	}
+	
+	private boolean isBubbleColumnSectionInHole(BlockPos pos)
+	{
+		for(Direction dir : CARDINALS)
+			if(!isSolid(pos.relative(dir)))
+				return false;
+			
+		return true;
 	}
 	
 	private void tryAddStaircase(BlockPos start, Direction dir,
@@ -679,46 +966,83 @@ public final class TunnelHoleStairEspHack extends Hack
 				result.stairs.add(box);
 	}
 	
-	private boolean isHoleSection(BlockPos pos)
+	private boolean isHoleSection(BlockPos pos, int width)
 	{
-		if(!isPassable(pos))
-			return false;
-		
-		for(Direction dir : CARDINALS)
-			if(!isSolid(pos.relative(dir)))
+		for(int x = 0; x < width; x++)
+			for(int z = 0; z < width; z++)
+				if(!isHolePassable(pos.offset(x, 0, z)))
+					return false;
+				
+		for(int i = 0; i < width; i++)
+		{
+			if(!isSolid(pos.offset(-1, 0, i)))
 				return false;
-			
+			if(!isSolid(pos.offset(width, 0, i)))
+				return false;
+			if(!isSolid(pos.offset(i, 0, -1)))
+				return false;
+			if(!isSolid(pos.offset(i, 0, width)))
+				return false;
+		}
+		
 		return true;
+	}
+	
+	private boolean isHolePassable(BlockPos pos)
+	{
+		BlockState state = MC.level.getBlockState(pos);
+		return isHolePassable(pos, state);
+	}
+	
+	private boolean isHolePassable(BlockPos pos, BlockState state)
+	{
+		return isPassable(pos, state)
+			|| state.getBlock() instanceof LadderBlock;
 	}
 	
 	private boolean isTunnelSection(BlockPos pos, Direction dir)
 	{
 		int minHeight = minTunnelHeight.getValueI();
 		int maxHeight = maxTunnelHeight.getValueI();
-		int height = getClearHeight(pos, maxHeight);
+		int height = getTunnelClearHeight(pos, maxHeight);
 		
 		if(height < minHeight || height > maxHeight)
 			return false;
-		if(!isSolid(pos.below()) || !isSolid(pos.above(height)))
+		
+		int width = getTunnelWidth(pos, dir, height);
+		if(width < minTunnelWidth.getValueI()
+			|| width > maxTunnelWidth.getValueI())
 			return false;
 		
 		Direction left = dir.getCounterClockWise();
 		Direction right = dir.getClockWise();
+		Direction side = dir.getClockWise();
+		BlockPos rightEdge = pos.relative(side, width - 1);
 		int naturalWalls = 0;
-		int totalWalls = 2;
+		int totalWalls = 0;
 		
-		if(naturalWallsOnly.isChecked())
+		for(int w = 0; w < width; w++)
 		{
-			if(isLikelyNaturalWall(pos.below()))
-				naturalWalls++;
-			if(isLikelyNaturalWall(pos.above(height)))
-				naturalWalls++;
+			BlockPos lane = pos.relative(side, w);
+			BlockPos floor = lane.below();
+			BlockPos ceiling = lane.above(height);
+			if(!isSolid(floor) || !isSolid(ceiling))
+				return false;
+			
+			if(naturalWallsOnly.isChecked())
+			{
+				totalWalls += 2;
+				if(isLikelyNaturalWall(floor))
+					naturalWalls++;
+				if(isLikelyNaturalWall(ceiling))
+					naturalWalls++;
+			}
 		}
 		
 		for(int i = 0; i < height; i++)
 		{
 			BlockPos leftPos = pos.above(i).relative(left);
-			BlockPos rightPos = pos.above(i).relative(right);
+			BlockPos rightPos = rightEdge.above(i).relative(right);
 			
 			if(!isSolid(leftPos) || !isSolid(rightPos))
 				return false;
@@ -738,6 +1062,42 @@ public final class TunnelHoleStairEspHack extends Hack
 		
 		double ratio = naturalWalls / (double)Math.max(1, totalWalls);
 		return ratio >= naturalWallRatio.getValue();
+	}
+	
+	private int getTunnelWidth(BlockPos pos, Direction dir, int height)
+	{
+		int maxWidth = maxTunnelWidth.getValueI();
+		Direction side = dir.getClockWise();
+		int width = 0;
+		
+		while(width < maxWidth
+			&& isTunnelLaneAtHeight(pos.relative(side, width), height))
+			width++;
+		
+		return width;
+	}
+	
+	private boolean isTunnelLaneAtHeight(BlockPos pos, int height)
+	{
+		if(!isSolid(pos.below()) || !isSolid(pos.above(height)))
+			return false;
+		
+		for(int i = 0; i < height; i++)
+			if(!isTunnelPassable(pos.above(i)))
+				return false;
+			
+		return true;
+	}
+	
+	private boolean isTunnelPassable(BlockPos pos)
+	{
+		return isTunnelPassable(pos, MC.level.getBlockState(pos));
+	}
+	
+	private boolean isTunnelPassable(BlockPos pos, BlockState state)
+	{
+		return isPassable(pos, state) || state.getBlock() instanceof TorchBlock
+			|| state.getBlock() instanceof WallTorchBlock;
 	}
 	
 	private boolean isStairSection(BlockPos pos, Direction dir)
@@ -823,6 +1183,15 @@ public final class TunnelHoleStairEspHack extends Hack
 		return height;
 	}
 	
+	private int getTunnelClearHeight(BlockPos pos, int maxHeight)
+	{
+		int height = 0;
+		while(height < maxHeight && isTunnelPassable(pos.above(height)))
+			height++;
+		
+		return height;
+	}
+	
 	private boolean isLikelyNaturalWall(BlockPos pos)
 	{
 		BlockState state = MC.level.getBlockState(pos);
@@ -876,12 +1245,18 @@ public final class TunnelHoleStairEspHack extends Hack
 		holeBoxes.clear();
 		tunnelBoxes.clear();
 		stairBoxes.clear();
+		ladderBoxes.clear();
+		bubbleColumnBoxes.clear();
+		waterColumnBoxes.clear();
 		
 		for(ChunkDetections detections : detectionsByChunk.values())
 		{
 			holeBoxes.addAll(detections.holes);
 			tunnelBoxes.addAll(detections.tunnels);
 			stairBoxes.addAll(detections.stairs);
+			ladderBoxes.addAll(detections.ladders);
+			bubbleColumnBoxes.addAll(detections.bubbleColumns);
+			waterColumnBoxes.addAll(detections.waterColumns);
 		}
 	}
 	
@@ -900,14 +1275,13 @@ public final class TunnelHoleStairEspHack extends Hack
 		holeBoxes.clear();
 		tunnelBoxes.clear();
 		stairBoxes.clear();
+		ladderBoxes.clear();
+		bubbleColumnBoxes.clear();
+		waterColumnBoxes.clear();
 	}
 	
 	private ChunkPos getAreaCenterChunk()
 	{
-		if(stickyArea.isChecked())
-			return stickyCenterChunk == null ? MC.player.chunkPosition()
-				: stickyCenterChunk;
-		
 		return MC.player.chunkPosition();
 	}
 	
@@ -925,12 +1299,18 @@ public final class TunnelHoleStairEspHack extends Hack
 	{
 		return Objects.hash(detectionMode.getSelected(), airOnly.isChecked(),
 			minYOffset.getValueI(), maxYOffset.getValueI(),
-			minHoleDepth.getValueI(), minTunnelLength.getValueI(),
+			minHoleDepth.getValueI(), minHoleWidth.getValueI(),
+			maxHoleWidth.getValueI(), minTunnelLength.getValueI(),
+			minTunnelWidth.getValueI(), maxTunnelWidth.getValueI(),
 			minTunnelHeight.getValueI(), maxTunnelHeight.getValueI(),
 			minStairLength.getValueI(), minStairHeight.getValueI(),
-			maxStairHeight.getValueI(), maxPerChunk.getValueI(),
-			naturalWallsOnly.isChecked(), naturalWallRatio.getValue(),
-			overworld.isChecked(), nether.isChecked(), end.isChecked());
+			maxStairHeight.getValueI(), detectLadders.isChecked(),
+			minLadderHeight.getValueI(), detectBubbleColumns.isChecked(),
+			minBubbleColumnHeight.getValueI(), detectWaterColumns.isChecked(),
+			minWaterColumnHeight.getValueI(), maxPerChunk.getValueI(),
+			refreshInterval.getValueI(), naturalWallsOnly.isChecked(),
+			naturalWallRatio.getValue(), overworld.isChecked(),
+			nether.isChecked(), end.isChecked());
 	}
 	
 	private boolean shouldDetectHoles()
@@ -971,6 +1351,9 @@ public final class TunnelHoleStairEspHack extends Hack
 		private final ArrayList<AABB> holes = new ArrayList<>();
 		private final ArrayList<AABB> tunnels = new ArrayList<>();
 		private final ArrayList<AABB> stairs = new ArrayList<>();
+		private final ArrayList<AABB> ladders = new ArrayList<>();
+		private final ArrayList<AABB> bubbleColumns = new ArrayList<>();
+		private final ArrayList<AABB> waterColumns = new ArrayList<>();
 	}
 	
 	private enum DetectionMode
