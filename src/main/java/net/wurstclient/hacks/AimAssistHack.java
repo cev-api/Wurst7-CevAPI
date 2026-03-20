@@ -11,13 +11,16 @@ import java.util.Comparator;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.MouseUpdateListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.AttackSpeedSliderSetting;
 import net.wurstclient.settings.AimAtSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -33,7 +36,7 @@ public final class AimAssistHack extends Hack
 	implements UpdateListener, MouseUpdateListener
 {
 	private final SliderSetting range =
-		new SliderSetting("Range", 4.5, 1, 6, 0.05, ValueDisplay.DECIMAL);
+		new SliderSetting("Range", 4.5, 1, 128, 0.05, ValueDisplay.DECIMAL);
 	
 	private final SliderSetting rotationSpeed =
 		new SliderSetting("Rotation Speed", 600, 10, 7200, 10,
@@ -61,6 +64,28 @@ public final class AimAssistHack extends Hack
 	private final CheckboxSetting aimWhileBlocking =
 		new CheckboxSetting("Aim while blocking",
 			"description.wurst.setting.aimassist.aim_while_blocking", false);
+	
+	private final CheckboxSetting rightClickLockOn = new CheckboxSetting(
+		"Right-click lock-on",
+		"While holding right-click, maintain full horizontal + vertical lock-on to the current target.",
+		false);
+	
+	private final CheckboxSetting rightClickLockOnRangeOverride =
+		new CheckboxSetting("Right-click range override",
+			"While holding right-click lock-on, use a separate range instead of AimAssist's normal range.",
+			false);
+	
+	private final SliderSetting rightClickLockOnRange = new SliderSetting(
+		"Right-click range", "Range used while right-click lock-on is active.",
+		12, 1, 128, 0.05, ValueDisplay.DECIMAL);
+	
+	private final CheckboxSetting rightClickAutoAttack = new CheckboxSetting(
+		"Right-click auto-attack",
+		"Automatically attack while right-click lock-on is active. Uses crosshair target first, then AimAssist target.",
+		false);
+	
+	private final AttackSpeedSliderSetting rightClickAttackSpeed =
+		new AttackSpeedSliderSetting();
 	
 	private final EntityFilterList entityFilters =
 		new EntityFilterList(FilterPlayersSetting.genericCombat(false),
@@ -113,6 +138,11 @@ public final class AimAssistHack extends Hack
 		addSetting(ignoreMouseInput);
 		addSetting(checkLOS);
 		addSetting(aimWhileBlocking);
+		addSetting(rightClickLockOn);
+		addSetting(rightClickLockOnRangeOverride);
+		addSetting(rightClickLockOnRange);
+		addSetting(rightClickAutoAttack);
+		addSetting(rightClickAttackSpeed);
 		
 		entityFilters.forEach(this::addSetting);
 	}
@@ -131,6 +161,7 @@ public final class AimAssistHack extends Hack
 		WURST.getHax().protectHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
 		
+		rightClickAttackSpeed.resetTimer();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(MouseUpdateListener.class, this);
 	}
@@ -152,13 +183,15 @@ public final class AimAssistHack extends Hack
 	public void onUpdate()
 	{
 		target = null;
+		rightClickAttackSpeed.updateTimer();
 		
 		// don't aim when a container/inventory screen is open
 		if(MC.screen instanceof AbstractContainerScreen)
 			return;
 		
+		boolean useHeld = isUseKeyHeld();
 		boolean blockingAllowed =
-			aimWhileBlocking.isChecked() || temporaryAllowBlocking;
+			aimWhileBlocking.isChecked() || temporaryAllowBlocking || useHeld;
 		if(!blockingAllowed && MC.player.isUsingItem())
 			return;
 		
@@ -180,6 +213,9 @@ public final class AimAssistHack extends Hack
 			target = null;
 			return;
 		}
+		
+		updateRightClickVerticalAlignment();
+		updateRightClickAutoAttack();
 		
 		WURST.getHax().autoSwordHack.setSlot(target);
 		
@@ -301,13 +337,31 @@ public final class AimAssistHack extends Hack
 	
 	private double getRange()
 	{
+		if(isRightClickLockOnActive()
+			&& rightClickLockOnRangeOverride.isChecked())
+			return rightClickLockOnRange.getValue();
+		
 		return rangeOverride != null ? rangeOverride : range.getValue();
 	}
 	
 	private boolean isLockOnEnabled()
 	{
+		if(isRightClickLockOnActive())
+			return true;
+		
 		return lockOnOverride != null ? lockOnOverride.booleanValue()
 			: lockOn.isChecked();
+	}
+	
+	private boolean isRightClickLockOnActive()
+	{
+		return rightClickLockOn.isChecked() && isUseKeyHeld();
+	}
+	
+	private boolean isUseKeyHeld()
+	{
+		return MC.options != null && MC.options.keyUse != null
+			&& MC.options.keyUse.isDown();
 	}
 	
 	private double getRangeSq()
@@ -331,5 +385,92 @@ public final class AimAssistHack extends Hack
 			return false;
 		
 		return true;
+	}
+	
+	private void updateRightClickAutoAttack()
+	{
+		if(!rightClickAutoAttack.isChecked() || !isRightClickLockOnActive()
+			|| target == null || MC.player == null || MC.gameMode == null)
+			return;
+		
+		if(!rightClickAttackSpeed.isTimeToAttack())
+			return;
+		
+		Entity attackTarget = resolveRightClickAttackTarget();
+		if(attackTarget == null)
+			return;
+		
+		WURST.getHax().autoSwordHack.setSlot(attackTarget);
+		MC.gameMode.attack(MC.player, attackTarget);
+		MC.player.swing(InteractionHand.MAIN_HAND);
+		rightClickAttackSpeed.resetTimer();
+	}
+	
+	private Entity resolveRightClickAttackTarget()
+	{
+		if(MC.hitResult instanceof EntityHitResult hit)
+		{
+			Entity hitEntity = hit.getEntity();
+			if(hitEntity != null && isValidForcedTarget(hitEntity)
+				&& MC.player.distanceToSqr(hitEntity) <= getRangeSq())
+				return hitEntity;
+		}
+		
+		return target;
+	}
+	
+	private void updateRightClickVerticalAlignment()
+	{
+		if(WURST.getHax().flightHack.isEnabled())
+			return;
+		
+		Double step = getRightClickVerticalAlignmentStepInternal(null);
+		if(step == null || MC.player == null)
+			return;
+		
+		Vec3 motion = MC.player.getDeltaMovement();
+		MC.player.setDeltaMovement(motion.x, motion.y + step, motion.z);
+	}
+	
+	public Double getRightClickVerticalAlignmentStepForFlight()
+	{
+		return getRightClickVerticalAlignmentStepInternal(
+			WURST.getHax().flightHack.verticalSpeed.getValue());
+	}
+	
+	private Double getRightClickVerticalAlignmentStepInternal(
+		Double maxStepOverride)
+	{
+		if(MC.player == null || target == null || !isRightClickLockOnActive())
+			return null;
+		
+		boolean flying = MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled();
+		if(!flying)
+			return null;
+		
+		if(target.onGround() && !MC.options.keyShift.isDown())
+		{
+			double feetDelta = target.getY() - MC.player.getY();
+			if(feetDelta < 0)
+				return null;
+		}
+		
+		double maxStep = maxStepOverride != null ? maxStepOverride
+			: MC.player.getAbilities().getFlyingSpeed();
+		if(maxStep <= 0)
+			return null;
+		
+		double targetY = target.getY();
+		double playerY = MC.player.getY();
+		double delta = targetY - playerY;
+		
+		if(MC.player.onGround() && delta < 0 && !MC.options.keyShift.isDown())
+			return null;
+		
+		if(Math.abs(delta) < 0.02)
+			return null;
+		
+		return Math.max(-maxStep, Math.min(maxStep, delta));
 	}
 }

@@ -536,7 +536,7 @@ Reports number of waypoints changed.
 - You can optionally allow aim assist to work whilst holding right click or stay on while spear is being used.
 - Auto Attack, your jab attack will continue to auto hit once the cooldown has expired so long as you're hitting an entity.
 - Auto alignment flys you up or down to match the level of your target when AimAssist is enabled
-- Extended AimAssist range (Max 100 Blocks) while using SpearAssist
+- Extended AimAssist range (Max 128 Blocks) while using SpearAssist
 - Added AimAssist lock-on whilst using spear
 - Spear charging no longer interferes with interactive blocks
 
@@ -1215,6 +1215,10 @@ Examples:
 
 ### AimAssist Improved
 - Added lock-on targetting
+- Added right-click lock-on targetting with added vertical matching when in flight
+  - Optional auto-attack in the same method as MultiAura 
+  - Optional range override
+- Allowed new maximum 128 block range 
 
 ### HealthTags Improved
 - Now optionally uses the same hearts as the new MobHealth hack

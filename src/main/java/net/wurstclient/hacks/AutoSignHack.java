@@ -450,7 +450,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 					if(!(state.getBlock() instanceof SignBlock))
 						continue;
 					
-					boolean visible = BlockUtils.hasLineOfSight(center);
+					boolean visible = hasLineOfSightToSign(candidate, center);
 					if(!visible && canUseHandNoClip())
 						visible = true;
 					if(!visible)
@@ -462,6 +462,15 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		}
 		
 		return results;
+	}
+	
+	private boolean hasLineOfSightToSign(BlockPos signPos, Vec3 signCenter)
+	{
+		BlockHitResult hit =
+			BlockUtils.raycast(MC.player.getEyePosition(1.0F), signCenter);
+		
+		return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS
+			|| signPos.equals(hit.getBlockPos());
 	}
 	
 	private boolean linesMatch(String[] current, String[] desired)

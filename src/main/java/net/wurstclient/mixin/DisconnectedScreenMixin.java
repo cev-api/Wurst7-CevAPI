@@ -237,14 +237,14 @@ public class DisconnectedScreenMixin extends Screen
 					reconnectRandomAltButton.active = true;
 					reconnectRandomAltButton
 						.setMessage(error == null ? getRandomAltReconnectLabel()
-							: Component.literal("Random alt login failed"));
+							: Component.literal("Random Alt Login Failed"));
 				}
 				
 				if(error != null)
 					return;
 				
 				System.out.println(
-					"Reconnect random alt selected: " + alt.getDisplayName());
+					"Reconnect Random Alt Selected: " + alt.getDisplayName());
 				LastServerRememberer.reconnect(parent);
 			});
 		}, "Wurst Random Alt Reconnect");
@@ -256,7 +256,7 @@ public class DisconnectedScreenMixin extends Screen
 	private Component getRandomAltReconnectLabel()
 	{
 		return Component.literal(randomAltReconnectInProgress
-			? "Trying random alts..." : "Reconnect as random alt");
+			? "Trying Random Alts..." : "Reconnect as Random Alt");
 	}
 	
 	private void layoutOverlay()

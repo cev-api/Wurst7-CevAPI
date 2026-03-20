@@ -116,7 +116,7 @@ public final class SpearAssistHack extends Hack
 	
 	private final SliderSetting aimAssistRangeOverride = new SliderSetting(
 		"AimAssist range", "Overrides AimAssist range while holding a spear.",
-		6, 1, 100, 0.05, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+		6, 1, 128, 0.05, ValueDisplay.DECIMAL.withSuffix(" blocks"));
 	
 	private final CheckboxSetting aimAssistLockOnOverride = new CheckboxSetting(
 		"AimAssist lock-on",

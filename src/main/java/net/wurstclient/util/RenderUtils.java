@@ -542,7 +542,7 @@ public enum RenderUtils
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawCurvedLine(matrices, buffer, points2, color);
+		drawCurvedLine(matrices, buffer, points2, color, DEFAULT_LINE_WIDTH);
 		
 		vcp.endBatch(layer);
 	}
@@ -564,7 +564,7 @@ public enum RenderUtils
 		RenderType layer = WurstRenderLayers.getLineStrip(depthTest, width);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
-		drawCurvedLine(matrices, buffer, points2, color);
+		drawCurvedLine(matrices, buffer, points2, color, appliedWidth);
 		
 		vcp.endBatch(layer);
 	}
@@ -572,10 +572,16 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color)
 	{
+		drawCurvedLine(matrices, buffer, points, color, DEFAULT_LINE_WIDTH);
+	}
+	
+	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
+		List<Vec3> points, int color, float lineWidth)
+	{
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverBufferedLineCalls()
 			&& globalEsp.submitCurvedLine(matrices, points, color,
-				globalEsp.getRequestedLineDepth(), DEFAULT_LINE_WIDTH))
+				globalEsp.getRequestedLineDepth(), lineWidth))
 			return;
 		
 		if(points.size() < 2)
@@ -589,9 +595,9 @@ public enum RenderUtils
 			Vector3f current = points.get(i).toVector3f();
 			Vector3f normal = new Vector3f(current).sub(prev).normalize();
 			buffer.addVertex(entry, prev).setColor(color)
-				.setNormal(entry, normal).setLineWidth(2);
+				.setNormal(entry, normal).setLineWidth(lineWidth);
 			buffer.addVertex(entry, current).setColor(color)
-				.setNormal(entry, normal).setLineWidth(2);
+				.setNormal(entry, normal).setLineWidth(lineWidth);
 		}
 	}
 	

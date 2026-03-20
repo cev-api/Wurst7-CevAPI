@@ -245,6 +245,9 @@ public final class FlightHack extends Hack implements UpdateListener,
 		
 		Double alignStep =
 			WURST.getHax().spearAssistHack.getAutoAlignmentStepForFlight();
+		if(alignStep == null)
+			alignStep = WURST.getHax().aimAssistHack
+				.getRightClickVerticalAlignmentStepForFlight();
 		if(alignStep != null)
 		{
 			Vec3 current = player.getDeltaMovement();
