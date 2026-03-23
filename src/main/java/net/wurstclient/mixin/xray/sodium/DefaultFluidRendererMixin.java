@@ -39,8 +39,9 @@ public class DefaultFluidRendererMixin
 	 * Hides and shows the top side of fluids when using X-Ray with Sodium
 	 * installed.
 	 */
-	@Inject(at = @At("HEAD"),
+	@Inject(
 		method = "isFullBlockFluidOccluded(Lnet/minecraft/class_1920;Lnet/minecraft/class_2338;Lnet/minecraft/class_2350;Lnet/minecraft/class_2680;Lnet/minecraft/class_3610;)Z",
+		at = @At("HEAD"),
 		cancellable = true,
 		remap = false,
 		require = 0)
@@ -61,8 +62,9 @@ public class DefaultFluidRendererMixin
 	 * Hides and shows all other sides of fluids when using X-Ray with Sodium
 	 * installed.
 	 */
-	@Inject(at = @At("HEAD"),
+	@Inject(
 		method = "isSideExposed(Lnet/minecraft/class_1920;IIILnet/minecraft/class_2350;F)Z",
+		at = @At("HEAD"),
 		cancellable = true,
 		remap = false,
 		require = 0)
@@ -89,9 +91,9 @@ public class DefaultFluidRendererMixin
 	/**
 	 * Modifies opacity of fluids when using X-Ray with Sodium installed.
 	 */
-	@ModifyExpressionValue(at = @At(value = "INVOKE",
-		target = "Lnet/caffeinemc/mods/sodium/api/util/ColorARGB;toABGR(I)I"),
-		method = "updateQuad",
+	@ModifyExpressionValue(method = "updateQuad",
+		at = @At(value = "INVOKE",
+			target = "Lnet/caffeinemc/mods/sodium/api/util/ColorARGB;toABGR(I)I"),
 		remap = false,
 		require = 0)
 	private int onUpdateQuad(int original, @Local(argsOnly = true) BlockPos pos,

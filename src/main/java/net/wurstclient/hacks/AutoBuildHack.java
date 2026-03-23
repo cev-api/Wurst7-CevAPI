@@ -37,9 +37,13 @@ import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.FaceTargetSetting;
+import net.wurstclient.settings.FaceTargetSetting.FaceTarget;
 import net.wurstclient.settings.FileSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.SwingHandSetting;
+import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.*;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.json.JsonException;
@@ -72,6 +76,12 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			+ "If the template does not specify block types, it will be built"
 			+ " from whatever block you are holding.",
 		true);
+	
+	private final FaceTargetSetting faceTarget =
+		FaceTargetSetting.withoutPacketSpam(this, FaceTarget.SERVER);
+	
+	private final SwingHandSetting swingHand =
+		new SwingHandSetting(this, SwingHand.SERVER);
 	
 	private final CheckboxSetting fastPlace =
 		new CheckboxSetting("Always FastPlace",
@@ -113,6 +123,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(range);
 		addSetting(checkLOS);
 		addSetting(useSavedBlocks);
+		addSetting(faceTarget);
+		addSetting(swingHand);
 		addSetting(fastPlace);
 		addSetting(strictBuildOrder);
 		addSetting(previewTemplate);
@@ -354,6 +366,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			
 			BlockPlacingParams params = getPlacingParams(pos);
 			if(params == null || params.distanceSq() > rangeSq
+				|| params.requiresSneaking()
 				|| checkLOS.isChecked() && !params.lineOfSight())
 				if(strictBuildOrder.isChecked() && !stuck)
 					return;
@@ -374,8 +387,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				return;
 			
 			MC.rightClickDelay = 4;
-			RotationUtils.getNeededRotations(params.hitVec())
-				.sendPlayerLookPacket();
+			faceTarget.face(params.hitVec());
 			placeWithoutInteraction(params);
 			return;
 		}
@@ -394,7 +406,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		try
 		{
 			InteractionSimulator.rightClickBlock(params.toHitResult(),
-				InteractionHand.MAIN_HAND);
+				InteractionHand.MAIN_HAND, swingHand.getSelected());
 		}finally
 		{
 			if(MC.player != null)
@@ -529,7 +541,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			BlockUtils.hasLineOfSight(RotationUtils.getEyesPos(), hitVec);
 		
 		return new BlockPlacingParams(pos, Direction.UP, hitVec, distanceSq,
-			lineOfSight);
+			lineOfSight, false);
 	}
 	
 	private boolean isStuck()

@@ -28,7 +28,7 @@ public class PackScreenMixin extends Screen
 	 * Scans for problematic resource packs (currently just VanillaTweaks
 	 * Twinkling Stars) whenever the resource pack screen is closed.
 	 */
-	@Inject(at = @At("HEAD"), method = "onClose()V")
+	@Inject(method = "onClose()V", at = @At("HEAD"))
 	public void onClose(CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())

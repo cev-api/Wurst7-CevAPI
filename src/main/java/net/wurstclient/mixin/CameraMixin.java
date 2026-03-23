@@ -20,8 +20,8 @@ import net.wurstclient.hacks.CameraDistanceHack;
 @Mixin(Camera.class)
 public abstract class CameraMixin
 {
-	@ModifyVariable(at = @At("HEAD"),
-		method = "getMaxZoom(F)F",
+	@ModifyVariable(method = "getMaxZoom(F)F",
+		at = @At("HEAD"),
 		argsOnly = true)
 	private float changeClipToSpaceDistance(float desiredCameraDistance)
 	{
@@ -33,7 +33,7 @@ public abstract class CameraMixin
 		return desiredCameraDistance;
 	}
 	
-	@Inject(at = @At("HEAD"), method = "getMaxZoom(F)F", cancellable = true)
+	@Inject(method = "getMaxZoom(F)F", at = @At("HEAD"), cancellable = true)
 	private void onClipToSpace(float desiredCameraDistance,
 		CallbackInfoReturnable<Float> cir)
 	{
@@ -41,8 +41,9 @@ public abstract class CameraMixin
 			cir.setReturnValue(desiredCameraDistance);
 	}
 	
-	@Inject(at = @At("HEAD"),
+	@Inject(
 		method = "getFluidInCamera()Lnet/minecraft/world/level/material/FogType;",
+		at = @At("HEAD"),
 		cancellable = true)
 	private void onGetSubmersionType(CallbackInfoReturnable<FogType> cir)
 	{

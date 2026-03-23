@@ -150,6 +150,5 @@ public final class NoSlowdownHack extends Hack implements
 		ignoreVines.setChecked(ignore);
 	}
 	
-	// See BlockMixin.onGetVelocityMultiplier() and
-	// ClientPlayerEntityMixin.wurstIsUsingItem()
+	// See BlockMixin, LocalPlayerMixin
 }

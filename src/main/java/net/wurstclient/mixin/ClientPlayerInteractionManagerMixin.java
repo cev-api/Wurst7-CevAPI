@@ -104,18 +104,19 @@ public abstract class ClientPlayerInteractionManagerMixin
 	}
 	
 	@Inject(
+		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/player/LocalPlayer;getId()I",
-			ordinal = 0),
-		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z")
+			ordinal = 0))
 	private void onPlayerDamageBlock(BlockPos pos, Direction direction,
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		EventManager.fire(new BlockBreakingProgressEvent(pos, direction));
 	}
 	
-	@Inject(at = @At("HEAD"),
-		method = "releaseUsingItem(Lnet/minecraft/world/entity/player/Player;)V")
+	@Inject(
+		method = "releaseUsingItem(Lnet/minecraft/world/entity/player/Player;)V",
+		at = @At("HEAD"))
 	private void onStopUsingItem(Player player, CallbackInfo ci)
 	{
 		EventManager.fire(StopUsingItemEvent.INSTANCE);

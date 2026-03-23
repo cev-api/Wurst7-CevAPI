@@ -553,15 +553,8 @@ public final class ClickGui
 				handleWindowMouseClick(mouseX, mouseY, mouseButton, context);
 		}
 		
-		for(Popup popup : popups)
-		{
-			Window parent = popup.getOwner().getParent();
-			if(parent != null && parent.isClosing())
-				popup.close();
-		}
-		
+		closeInvalidPopups();
 		windows.removeIf(Window::isClosing);
-		popups.removeIf(Popup::isClosing);
 	}
 	
 	public boolean handlePinnedMouseClick(MouseButtonEvent context)
@@ -676,6 +669,7 @@ public final class ClickGui
 				-window.getInnerHeight() + window.getHeight() - 13);
 			window.setScrollOffset(scroll);
 			rememberedScroll.put(window.getTitle(), scroll);
+			closeInvalidPopups();
 			break;
 		}
 	}
@@ -714,6 +708,7 @@ public final class ClickGui
 				-window.getInnerHeight() + window.getHeight() - 13);
 			window.setScrollOffset(scroll);
 			rememberedScroll.put(window.getTitle(), scroll);
+			closeInvalidPopups();
 			return true;
 		}
 		
@@ -727,13 +722,7 @@ public final class ClickGui
 			handlePopupMouseClick(mouseX, mouseY, mouseButton);
 		
 		if(popupClicked)
-		{
-			for(Popup popup : popups)
-				if(popup.getOwner().getParent().isClosing())
-					popup.close();
-				
-			popups.removeIf(Popup::isClosing);
-		}
+			closeInvalidPopups();
 		
 		return popupClicked;
 	}
@@ -743,13 +732,7 @@ public final class ClickGui
 	{
 		boolean popupScrolled = handlePopupMouseScroll(mouseX, mouseY, delta);
 		if(popupScrolled)
-		{
-			for(Popup popup : popups)
-				if(popup.getOwner().getParent().isClosing())
-					popup.close();
-				
-			popups.removeIf(Popup::isClosing);
-		}
+			closeInvalidPopups();
 		
 		return popupScrolled;
 	}
@@ -814,19 +797,35 @@ public final class ClickGui
 		handleComponentMouseClick(window, cMouseX, cMouseY, mouseButton,
 			context);
 		
+		closeInvalidPopups();
+	}
+	
+	public void closePopupsOutsideArea(Window window, int x1, int y1, int x2,
+		int y2)
+	{
 		for(Popup popup : popups)
 		{
-			Window parent = popup.getOwner().getParent();
-			if(parent != null && parent.isClosing())
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			if(parent == null || parent.isClosing())
+			{
+				popup.close();
+				continue;
+			}
+			
+			if(parent == window
+				&& !isComponentVisibleWithinBounds(owner, x1, y1, x2, y2))
 				popup.close();
 		}
 		
 		popups.removeIf(Popup::isClosing);
 	}
 	
-	private boolean handlePopupMouseClick(double mouseX, double mouseY,
+	public boolean handlePopupMouseClick(double mouseX, double mouseY,
 		int mouseButton)
 	{
+		closeInvalidPopups();
+		
 		for(int i = popups.size() - 1; i >= 0; i--)
 		{
 			Popup popup = popups.get(i);
@@ -857,6 +856,7 @@ public final class ClickGui
 			// list was modified concurrently
 			popups.remove(popup);
 			popups.add(popup);
+			closeInvalidPopups();
 			return true;
 		}
 		
@@ -894,6 +894,7 @@ public final class ClickGui
 			
 			popups.remove(popup);
 			popups.add(popup);
+			closeInvalidPopups();
 			return true;
 		}
 		
@@ -931,7 +932,10 @@ public final class ClickGui
 			int cMouseX = (int)(mouseX - x0);
 			int cMouseY = (int)(mouseY - y0);
 			if(popup.handleMouseScroll(cMouseX, cMouseY, delta))
+			{
+				closeInvalidPopups();
 				return true;
+			}
 		}
 		
 		return false;
@@ -968,10 +972,51 @@ public final class ClickGui
 			int cMouseX = (int)(mouseX - x0);
 			int cMouseY = (int)(mouseY - y0);
 			if(popup.handleMouseScroll(cMouseX, cMouseY, delta))
+			{
+				closeInvalidPopups();
 				return true;
+			}
 		}
 		
 		return false;
+	}
+	
+	private void closeInvalidPopups()
+	{
+		for(Popup popup : popups)
+		{
+			Window parent = popup.getOwner().getParent();
+			if(parent == null || parent.isClosing()
+				|| !isPopupOwnerVisible(popup))
+				popup.close();
+		}
+		
+		popups.removeIf(Popup::isClosing);
+	}
+	
+	private boolean isPopupOwnerVisible(Popup popup)
+	{
+		Component owner = popup.getOwner();
+		Window parent = owner.getParent();
+		if(parent == null || parent.isInvisible() || parent.isMinimized())
+			return false;
+		
+		int x1 = parent.getX();
+		int y1 = parent.getY() + 13;
+		int x2 = x1 + parent.getWidth();
+		int y2 = parent.getY() + parent.getHeight();
+		return isComponentVisibleWithinBounds(owner, x1, y1, x2, y2);
+	}
+	
+	private boolean isComponentVisibleWithinBounds(Component c, int x1, int y1,
+		int x2, int y2)
+	{
+		Window parent = c.getParent();
+		int cx1 = parent.getX() + c.getX();
+		int cy1 = parent.getY() + 13 + parent.getScrollOffset() + c.getY();
+		int cx2 = cx1 + c.getWidth();
+		int cy2 = cy1 + c.getHeight();
+		return cx2 > x1 && cx1 < x2 && cy2 > y1 && cy1 < y2;
 	}
 	
 	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
@@ -1236,6 +1281,8 @@ public final class ClickGui
 	
 	public void renderPopups(GuiGraphics context, int mouseX, int mouseY)
 	{
+		closeInvalidPopups();
+		
 		Matrix3x2fStack matrixStack = context.pose();
 		for(Popup popup : popups)
 		{

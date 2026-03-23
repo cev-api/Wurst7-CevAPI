@@ -37,8 +37,9 @@ public abstract class PlayerSkinProviderMixin
 	@Unique
 	private MinecraftProfileTexture currentCape;
 	
-	@Inject(at = @At("HEAD"),
-		method = "registerTextures(Ljava/util/UUID;Lcom/mojang/authlib/minecraft/MinecraftProfileTextures;)Ljava/util/concurrent/CompletableFuture;")
+	@Inject(
+		method = "registerTextures(Ljava/util/UUID;Lcom/mojang/authlib/minecraft/MinecraftProfileTextures;)Ljava/util/concurrent/CompletableFuture;",
+		at = @At("HEAD"))
 	private void onFetchSkinTextures(UUID uuid,
 		MinecraftProfileTextures textures,
 		CallbackInfoReturnable<CompletableFuture<PlayerSkin>> cir)
@@ -67,8 +68,9 @@ public abstract class PlayerSkinProviderMixin
 		}
 	}
 	
-	@ModifyVariable(at = @At("STORE"),
+	@ModifyVariable(
 		method = "registerTextures(Ljava/util/UUID;Lcom/mojang/authlib/minecraft/MinecraftProfileTextures;)Ljava/util/concurrent/CompletableFuture;",
+		at = @At("STORE"),
 		ordinal = 1,
 		name = "minecraftProfileTexture2")
 	private MinecraftProfileTexture modifyCapeTexture(

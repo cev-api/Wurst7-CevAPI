@@ -6,7 +6,7 @@ buildscript {
 
 plugins {
 	id "fabric-loom" version "${loom_version}"
-	id "com.diffplug.spotless" version "8.3.0"
+	id "com.diffplug.spotless" version "8.4.0"
 }
 
 def ENV = System.getenv()
@@ -33,6 +33,8 @@ def issuesUrl =
 
 version = effectiveVersion
 group = project.maven_group
+def forkReleaseVersion =
+	(project.findProperty("fork_release_version") ?: "0.0").toString()
 
 def mainModId = niceWurstEnabled ? "nicewurst" : "wurst"
 
@@ -187,8 +189,6 @@ tasks.register("generateBuildConfig") {
 	def template =
 		file("src/main/templates/net/wurstclient/config/BuildConfig.java.in")
 	def modVersionValue = project.mod_version
-	def forkReleaseVersion =
-		(project.findProperty("fork_release_version") ?: "0.0").toString()
 	def ghRepoId = project.gh_repo_id.toString()
 	def ghRepoUrl = "https://github.com/${ghRepoId}"
 	def buildDate = java.time.Instant.now().toString()
@@ -250,12 +250,17 @@ java {
 jar {
 	def archivesName = project.base.archivesName
 	inputs.property("archivesName", archivesName)
+	archiveVersion = "${project.version}_v${forkReleaseVersion}"
 	
 	from("LICENSE.txt") {
 		rename { "LICENSE-${archivesName.get()}.txt" }
 	}
 	
 	exclude("intentionally_untranslated.json")
+}
+
+tasks.named("remapJar") {
+	archiveVersion = "${project.version}_v${forkReleaseVersion}"
 }
 
 import com.diffplug.spotless.generic.LicenseHeaderStep

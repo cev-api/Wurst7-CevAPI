@@ -29,8 +29,8 @@ import net.wurstclient.render.globalesp.GlobalEspManager;
 @Mixin(LevelRenderer.class)
 public class WorldRendererMixin
 {
-	@Inject(at = @At("HEAD"),
-		method = "doesMobEffectBlockSky(Lnet/minecraft/client/Camera;)Z",
+	@Inject(method = "doesMobEffectBlockSky(Lnet/minecraft/client/Camera;)Z",
+		at = @At("HEAD"),
 		cancellable = true)
 	private void onHasBlindnessOrDarkness(Camera camera,
 		CallbackInfoReturnable<Boolean> ci)

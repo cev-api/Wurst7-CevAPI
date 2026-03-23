@@ -12,6 +12,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 import org.lwjgl.glfw.GLFW;
@@ -31,18 +32,22 @@ public class PressAKeyScreen extends Screen
 	}
 	
 	@Override
-	public boolean keyPressed(KeyEvent context)
+	public boolean keyPressed(KeyEvent event)
 	{
-		if(context.key() != GLFW.GLFW_KEY_ESCAPE)
-			prevScreen.setKey(getKeyName(context));
+		if(event.key() != GLFW.GLFW_KEY_ESCAPE)
+			prevScreen.setKey(InputConstants.getKey(event).getName());
 		
 		minecraft.setScreen((Screen)prevScreen);
 		return true;
 	}
 	
-	private String getKeyName(KeyEvent context)
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
 	{
-		return InputConstants.getKey(context).getName();
+		prevScreen.setKey(
+			InputConstants.Type.MOUSE.getOrCreate(event.button()).getName());
+		minecraft.setScreen((Screen)prevScreen);
+		return true;
 	}
 	
 	@Override
@@ -55,8 +60,8 @@ public class PressAKeyScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
-		context.drawCenteredString(font, "Press a key", width / 2,
-			height / 4 + 48, CommonColors.WHITE);
+		context.drawCenteredString(font, "Press a key or mouse button",
+			width / 2, height / 4 + 48, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);

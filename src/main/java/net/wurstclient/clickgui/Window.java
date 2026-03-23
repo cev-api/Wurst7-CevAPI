@@ -38,6 +38,7 @@ public class Window
 	private boolean closing;
 	
 	private boolean invisible;
+	private boolean positionClampingEnabled = true;
 	
 	private boolean fixedWidth;
 	private int innerHeight;
@@ -68,7 +69,7 @@ public class Window
 	 */
 	public final int getX()
 	{
-		if(!clampPosition)
+		if(!positionClampingEnabled)
 			return x;
 		
 		int scaledWidth = WurstClient.MC.getWindow().getGuiScaledWidth();
@@ -95,7 +96,7 @@ public class Window
 	 */
 	public final int getY()
 	{
-		if(!clampPosition)
+		if(!positionClampingEnabled)
 			return y;
 		
 		int scaledHeight = WurstClient.MC.getWindow().getGuiScaledHeight();
@@ -359,6 +360,17 @@ public class Window
 	public final void setInvisible(boolean invisible)
 	{
 		this.invisible = invisible;
+	}
+	
+	public final boolean isPositionClampingEnabled()
+	{
+		return positionClampingEnabled;
+	}
+	
+	public final void setPositionClampingEnabled(
+		boolean positionClampingEnabled)
+	{
+		this.positionClampingEnabled = positionClampingEnabled;
 	}
 	
 	public final boolean isFixedWidth()
