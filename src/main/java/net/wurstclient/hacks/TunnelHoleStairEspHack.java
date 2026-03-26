@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -509,10 +510,15 @@ public final class TunnelHoleStairEspHack extends Hack
 			
 		missingChunks.sort(Comparator
 			.comparingInt(pos -> getChunkDistance(pos, priorityCenter)));
-		for(ChunkPos pos : missingChunks)
+		// Prioritize nearby chunks so stale long-range detections are corrected
+		// quickly when the player moves toward them.
+		for(int i = missingChunks.size() - 1; i >= 0; i--)
+		{
+			ChunkPos pos = missingChunks.get(i);
 			if(queuedChunks.add(pos))
-				scanQueue.addLast(pos);
-			
+				scanQueue.addFirst(pos);
+		}
+		
 		return changed;
 	}
 	
@@ -533,7 +539,7 @@ public final class TunnelHoleStairEspHack extends Hack
 				continue;
 			
 			if(queuedChunks.add(pos))
-				scanQueue.addLast(pos);
+				scanQueue.addFirst(pos);
 			
 			promoted++;
 		}
@@ -1249,8 +1255,14 @@ public final class TunnelHoleStairEspHack extends Hack
 		bubbleColumnBoxes.clear();
 		waterColumnBoxes.clear();
 		
-		for(ChunkDetections detections : detectionsByChunk.values())
+		for(Map.Entry<ChunkPos, ChunkDetections> entry : detectionsByChunk
+			.entrySet())
 		{
+			ChunkPos chunkPos = entry.getKey();
+			if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+				continue;
+			
+			ChunkDetections detections = entry.getValue();
 			holeBoxes.addAll(detections.holes);
 			tunnelBoxes.addAll(detections.tunnels);
 			stairBoxes.addAll(detections.stairs);
