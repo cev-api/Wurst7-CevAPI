@@ -17,7 +17,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
@@ -73,7 +73,7 @@ public final class DurabilityHud
 		this.hack = hack;
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		if(MC == null || hack == null || !hack.isEnabled())
 			return;
@@ -192,10 +192,11 @@ public final class DurabilityHud
 		}
 	}
 	
-	private void renderSlot(GuiGraphics context, Font font, ItemStack stack,
-		float x, float y, float iconSize, boolean showBar, boolean showPercent,
-		float barHeight, float fontScale, boolean bossBar, int baseTextColor,
-		boolean useGradientText, boolean infoToSide, float infoWidth)
+	private void renderSlot(GuiGraphicsExtractor context, Font font,
+		ItemStack stack, float x, float y, float iconSize, boolean showBar,
+		boolean showPercent, float barHeight, float fontScale, boolean bossBar,
+		int baseTextColor, boolean useGradientText, boolean infoToSide,
+		float infoWidth)
 	{
 		double fraction = getDurabilityFraction(stack);
 		float fillWidth = (float)(fraction * iconSize);
@@ -272,19 +273,19 @@ public final class DurabilityHud
 		}
 	}
 	
-	private void drawItem(GuiGraphics context, ItemStack stack, float x,
-		float y, float size)
+	private void drawItem(GuiGraphicsExtractor context, ItemStack stack,
+		float x, float y, float size)
 	{
 		context.pose().pushMatrix();
 		context.pose().translate(x, y);
 		float scale = size / 16F;
 		context.pose().scale(scale, scale);
-		context.renderItem(stack, 0, 0);
+		context.item(stack, 0, 0);
 		context.pose().popMatrix();
 	}
 	
-	private void handleDrag(GuiGraphics context, float startX, float iconY,
-		float totalWidth, float rowHeight)
+	private void handleDrag(GuiGraphicsExtractor context, float startX,
+		float iconY, float totalWidth, float rowHeight)
 	{
 		if(MC == null)
 			return;
@@ -332,7 +333,7 @@ public final class DurabilityHud
 			dragging = false;
 	}
 	
-	private static float getBottomTextAvoidOffset(GuiGraphics context,
+	private static float getBottomTextAvoidOffset(GuiGraphicsExtractor context,
 		float hudY, float hudHeight)
 	{
 		if(MC == null || MC.font == null || MC.gui == null
@@ -369,7 +370,7 @@ public final class DurabilityHud
 	}
 	
 	public static boolean renderSelectedItemNameWithEnchantments(
-		GuiGraphics context)
+		GuiGraphicsExtractor context)
 	{
 		if(MC == null || MC.gui == null
 			|| !(MC.gui instanceof GuiAccessor accessor))
@@ -408,7 +409,7 @@ public final class DurabilityHud
 		int alphaColor = ARGB.white(alpha);
 		int nameWidth = font.width(nameComponent);
 		int nameX = (context.guiWidth() - nameWidth) / 2;
-		context.drawStringWithBackdrop(font, nameComponent, nameX, y, nameWidth,
+		context.textWithBackdrop(font, nameComponent, nameX, y, nameWidth,
 			alphaColor);
 		
 		if(lines.isEmpty())
@@ -419,7 +420,7 @@ public final class DurabilityHud
 		{
 			int width = font.width(line);
 			int x = (context.guiWidth() - width) / 2;
-			context.drawStringWithBackdrop(font, line, x, y, width, alphaColor);
+			context.textWithBackdrop(font, line, x, y, width, alphaColor);
 			y += font.lineHeight;
 		}
 		
@@ -458,8 +459,8 @@ public final class DurabilityHud
 		return Math.min(alpha, 255);
 	}
 	
-	private static float getHotbarTextTop(GuiGraphics context, Font font,
-		HotbarHighlightState state, boolean includeEnchantments)
+	private static float getHotbarTextTop(GuiGraphicsExtractor context,
+		Font font, HotbarHighlightState state, boolean includeEnchantments)
 	{
 		float y = context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
 		if(MC.gameMode != null && !MC.gameMode.canHurtPlayer())
@@ -483,7 +484,7 @@ public final class DurabilityHud
 		return Math.max(BASE_MARGIN, y);
 	}
 	
-	private static float getStatusBarsTopY(GuiGraphics context)
+	private static float getStatusBarsTopY(GuiGraphicsExtractor context)
 	{
 		if(MC == null || MC.player == null)
 			return context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
@@ -528,7 +529,7 @@ public final class DurabilityHud
 			&& mouseY <= bottom;
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -537,7 +538,7 @@ public final class DurabilityHud
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

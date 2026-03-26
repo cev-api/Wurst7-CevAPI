@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Set;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -246,8 +246,8 @@ public final class AltGuiKeybindScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		Font font = minecraft.font;
 		AltGuiHack cfg = cfg();
@@ -260,7 +260,7 @@ public final class AltGuiKeybindScreen extends Screen
 		context.fill(panelX, panelY, panelX + panelW, panelY + panelH, panel);
 		context.fill(panelX, panelY, panelX + panelW, panelY + 26, header);
 		
-		context.drawString(font, "Keybinds: " + feature.getName(), panelX + 10,
+		context.text(font, "Keybinds: " + feature.getName(), panelX + 10,
 			panelY + 9, cfg.getTextColor(), false);
 		
 		String subtitle = switch(mode)
@@ -270,15 +270,15 @@ public final class AltGuiKeybindScreen extends Screen
 			case ADD_PRESS_KEY -> "Press the key that should trigger this command.";
 			case REMOVE_SELECT -> "Select a keybind to remove.";
 		};
-		context.drawString(font, subtitle, panelX + 10, panelY + 30,
+		context.text(font, subtitle, panelX + 10, panelY + 30,
 			cfg.getMutedTextColor(), false);
 		
 		renderEntries(context, font, mouseX, mouseY);
 		renderFooter(context, font, mouseX, mouseY);
 	}
 	
-	private void renderEntries(GuiGraphics context, Font font, int mouseX,
-		int mouseY)
+	private void renderEntries(GuiGraphicsExtractor context, Font font,
+		int mouseX, int mouseY)
 	{
 		AltGuiHack cfg = cfg();
 		context.fill(listX1, listY1, listX2, listY2,
@@ -296,9 +296,9 @@ public final class AltGuiKeybindScreen extends Screen
 			String selected = selectedAddCommand == null ? "(none)"
 				: selectedAddCommand.getDescription() + " ["
 					+ selectedAddCommand.getCommand() + "]";
-			context.drawCenteredString(font, "Selected: " + selected,
+			context.centeredText(font, "Selected: " + selected,
 				(listX1 + listX2) / 2, listY1 + 12, cfg.getTextColor());
-			context.drawCenteredString(font,
+			context.centeredText(font,
 				"Press a key now (Esc to cancel add mode).",
 				(listX1 + listX2) / 2, listY1 + 28, cfg.getMutedTextColor());
 			return;
@@ -309,7 +309,7 @@ public final class AltGuiKeybindScreen extends Screen
 			String emptyText =
 				mode == Mode.ADD_SELECT ? "No keybind actions available."
 					: "No keybinds bound for this feature.";
-			context.drawCenteredString(font, emptyText, (listX1 + listX2) / 2,
+			context.centeredText(font, emptyText, (listX1 + listX2) / 2,
 				listY1 + 12, cfg.getMutedTextColor());
 			return;
 		}
@@ -364,7 +364,7 @@ public final class AltGuiKeybindScreen extends Screen
 		}
 	}
 	
-	private void drawStaticStringInBox(GuiGraphics context, Font font,
+	private void drawStaticStringInBox(GuiGraphicsExtractor context, Font font,
 		String text, int x1, int y1, int x2, int y2, int color, int padX)
 	{
 		if(text == null || text.isEmpty())
@@ -377,11 +377,11 @@ public final class AltGuiKeybindScreen extends Screen
 		
 		int textY = y1 + Math.max(0, ((y2 - y1) - font.lineHeight) / 2);
 		context.enableScissor(innerX1, y1, innerX2, y2);
-		context.drawString(font, text, innerX1, textY, color, false);
+		context.text(font, text, innerX1, textY, color, false);
 		context.disableScissor();
 	}
 	
-	private void drawMarqueeStringInBox(GuiGraphics context, Font font,
+	private void drawMarqueeStringInBox(GuiGraphicsExtractor context, Font font,
 		String text, int x1, int y1, int x2, int y2, int color, int padX)
 	{
 		if(text == null || text.isEmpty())
@@ -410,12 +410,12 @@ public final class AltGuiKeybindScreen extends Screen
 		}
 		
 		context.enableScissor(innerX1, y1, innerX2, y2);
-		context.drawString(font, text, textX, textY, color, false);
+		context.text(font, text, textX, textY, color, false);
 		context.disableScissor();
 	}
 	
-	private void renderFooter(GuiGraphics context, Font font, int mouseX,
-		int mouseY)
+	private void renderFooter(GuiGraphicsExtractor context, Font font,
+		int mouseX, int mouseY)
 	{
 		AltGuiHack cfg = cfg();
 		
@@ -451,20 +451,21 @@ public final class AltGuiKeybindScreen extends Screen
 				case REMOVE_SELECT -> "Remove Mode";
 				default -> "";
 			};
-			context.drawCenteredString(font, modeLabel, (removeX1 + addX2) / 2,
+			context.centeredText(font, modeLabel, (removeX1 + addX2) / 2,
 				backY1 + 3, cfg.getMutedTextColor());
 		}
 	}
 	
-	private void drawFooterButton(GuiGraphics context, Font font, String label,
-		int x1, int y1, int x2, int y2, boolean hovered, boolean active)
+	private void drawFooterButton(GuiGraphicsExtractor context, Font font,
+		String label, int x1, int y1, int x2, int y2, boolean hovered,
+		boolean active)
 	{
 		AltGuiHack cfg = cfg();
 		int base = active ? cfg.getAccentColor() : cfg.getDisabledColor();
 		int fill = hovered && active ? withAlpha(base, 0.45F)
 			: withAlpha(base, active ? 0.33F : 0.2F);
 		context.fill(x1, y1, x2, y2, fill);
-		context.drawCenteredString(font, label, (x1 + x2) / 2, y1 + 3,
+		context.centeredText(font, label, (x1 + x2) / 2, y1 + 3,
 			active ? cfg.getTextColor() : cfg.getMutedTextColor());
 	}
 	

@@ -9,7 +9,7 @@ package net.wurstclient.clickgui.components;
 
 import java.util.Objects;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Feature;
 import net.wurstclient.clickgui.ClickGui;
@@ -137,8 +137,8 @@ public final class FeatureButton extends Component
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
 		int x2 = x1 + getWidth();
@@ -176,7 +176,7 @@ public final class FeatureButton extends Component
 		String name = feature.getName();
 		int tx = x1 + (x3 - x1 - TR.width(name)) / 2;
 		int ty = y1 + 2;
-		context.drawString(TR, name, tx, ty, GUI.getTxtColor(), false);
+		context.text(TR, name, tx, ty, GUI.getTxtColor(), false);
 	}
 	
 	private int getButtonColor(boolean enabled, boolean hovering)

@@ -22,7 +22,7 @@ public abstract class TextRendererMixin
 {
 	
 	@ModifyVariable(
-		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
@@ -32,7 +32,7 @@ public abstract class TextRendererMixin
 	}
 	
 	@ModifyVariable(
-		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
@@ -49,7 +49,7 @@ public abstract class TextRendererMixin
 	}
 	
 	@ModifyVariable(
-		method = "drawInBatch(Lnet/minecraft/util/FormattedCharSequence;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Lnet/minecraft/util/FormattedCharSequence;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0,
@@ -100,7 +100,7 @@ public abstract class TextRendererMixin
 	}
 	
 	@ModifyVariable(
-		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Ljava/lang/String;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)
@@ -111,7 +111,7 @@ public abstract class TextRendererMixin
 	}
 	
 	@ModifyVariable(
-		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4f;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
+		method = "drawInBatch(Lnet/minecraft/network/chat/Component;FFIZLorg/joml/Matrix4fc;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/gui/Font$DisplayMode;II)V",
 		at = @At("HEAD"),
 		argsOnly = true,
 		ordinal = 0)

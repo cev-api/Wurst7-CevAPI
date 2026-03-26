@@ -16,7 +16,7 @@ import java.time.format.DateTimeFormatter;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.stats.Stats;
@@ -72,7 +72,7 @@ public final class GameStatsHud
 		this.hack = hack;
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		if(MC == null || hack == null)
 			return;
@@ -339,7 +339,7 @@ public final class GameStatsHud
 		if(MC.level == null)
 			return "--:--";
 		
-		long dayTime = Math.floorMod(MC.level.getDayTime(), 24000L);
+		long dayTime = Math.floorMod(MC.level.getOverworldClockTime(), 24000L);
 		int hour = (int)(dayTime / 1000L);
 		int minute = (int)Math.floor((dayTime % 1000L) * 60D / 1000D);
 		return String.format(Locale.ROOT, "%02d:%02d", hour, minute);
@@ -497,8 +497,8 @@ public final class GameStatsHud
 		return -1;
 	}
 	
-	private void drawStrokeText(GuiGraphics context, Font font, String text,
-		int x, int y, int strokeColor, double scale)
+	private void drawStrokeText(GuiGraphicsExtractor context, Font font,
+		String text, int x, int y, int strokeColor, double scale)
 	{
 		RenderUtils.drawScaledText(context, font, text, x - 1, y, strokeColor,
 			false, scale);
@@ -510,8 +510,8 @@ public final class GameStatsHud
 			false, scale);
 	}
 	
-	private void handleDrag(GuiGraphics context, float x, float y, float width,
-		float height)
+	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
+		float width, float height)
 	{
 		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)
@@ -593,7 +593,7 @@ public final class GameStatsHud
 		hack.setHudOffsets(dragOffsetX, dragOffsetY);
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -603,7 +603,7 @@ public final class GameStatsHud
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

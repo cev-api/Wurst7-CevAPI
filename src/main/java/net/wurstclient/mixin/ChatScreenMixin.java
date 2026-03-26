@@ -59,8 +59,7 @@ public abstract class ChatScreenMixin extends Screen
 			
 			if(minecraft.player != null && !result.isEmpty())
 				for(String line : result.split("\n"))
-					minecraft.player
-						.displayClientMessage(Component.literal(line), false);
+					minecraft.player.sendSystemMessage(Component.literal(line));
 				
 			minecraft.setScreen(null);
 			ci.cancel();

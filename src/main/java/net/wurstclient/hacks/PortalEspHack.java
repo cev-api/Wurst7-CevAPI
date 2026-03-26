@@ -159,7 +159,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		groupsUpToDate = false;
 		discoveredPositions.clear();
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -201,7 +201,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;

@@ -18,10 +18,10 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.Window;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
@@ -204,7 +204,7 @@ public final class ClientMessageOverlay
 		// No-op. Kept for ChatHudMixin compatibility.
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -286,15 +286,15 @@ public final class ClientMessageOverlay
 			int textColor = (alpha << 24) | 0x00FFFFFF;
 			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
 				y + WurstClient.MC.font.lineHeight, bgColor);
-			context.drawString(WurstClient.MC.font, line.text(),
-				HORIZONTAL_PADDING, y, textColor, false);
+			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,
+				y, textColor, false);
 			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
 		}
 		
 		context.pose().popMatrix();
 	}
 	
-	private void handleDrag(GuiGraphics context, int drawX, int drawY,
+	private void handleDrag(GuiGraphicsExtractor context, int drawX, int drawY,
 		float width, float height)
 	{
 		hovered = isMouseOverOverlay(context);
@@ -745,7 +745,7 @@ public final class ClientMessageOverlay
 		return sb.toString();
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -755,7 +755,7 @@ public final class ClientMessageOverlay
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -765,7 +765,7 @@ public final class ClientMessageOverlay
 			/ window.getScreenHeight();
 	}
 	
-	private void updateHoverBounds(GuiGraphics context, int x, int y,
+	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
 		float width, float height)
 	{
 		lastX1 = x;
@@ -775,7 +775,7 @@ public final class ClientMessageOverlay
 		hovered = isMouseOverOverlay(context);
 	}
 	
-	private boolean isMouseOverOverlay(GuiGraphics context)
+	private boolean isMouseOverOverlay(GuiGraphicsExtractor context)
 	{
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);

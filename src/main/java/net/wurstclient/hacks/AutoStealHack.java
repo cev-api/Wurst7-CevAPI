@@ -14,7 +14,8 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.wurstclient.Category;
@@ -233,7 +234,8 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				if(MC.screen == null)
 					break;
 				
-				screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
+				screen.slotClicked(slot, slot.index, 0,
+					ContainerInput.QUICK_MOVE);
 				
 			}catch(InterruptedException e)
 			{
@@ -257,7 +259,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				if(MC.screen == null)
 					break;
 				
-				screen.slotClicked(slot, slot.index, 1, ClickType.THROW);
+				screen.slotClicked(slot, slot.index, 1, ContainerInput.THROW);
 				
 			}catch(InterruptedException e)
 			{

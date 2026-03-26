@@ -155,7 +155,7 @@ public final class NoWeatherHack extends Hack
 			
 		// Read server-synced weather flags directly so alerts still work when
 		// NoWeather suppresses visual rain rendering.
-		return MC.level.getLevelData().isRaining();
+		return MC.level.isRaining();
 	}
 	
 	private boolean getActualThundering()
@@ -164,7 +164,7 @@ public final class NoWeatherHack extends Hack
 			return false;
 		
 		// Same as above: avoid relying on rendered rain/thunder state.
-		return MC.level.getLevelData().isThundering();
+		return MC.level.isThundering();
 	}
 	
 	public boolean isRainDisabled()

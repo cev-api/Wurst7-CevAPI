@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Locale;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -192,7 +192,7 @@ public final class HandNoClipHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(MC.player == null || !shouldDrawWarningCrosshair())
 			return;
@@ -233,7 +233,7 @@ public final class HandNoClipHack extends Hack
 		return id.getPath().toLowerCase(Locale.ROOT).contains("spear");
 	}
 	
-	private void drawWarningCrosshair(GuiGraphics context)
+	private void drawWarningCrosshair(GuiGraphicsExtractor context)
 	{
 		int centerX = context.guiWidth() / 2;
 		int centerY = context.guiHeight() / 2;

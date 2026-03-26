@@ -13,7 +13,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import net.wurstclient.ui.UiScale;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -35,7 +36,7 @@ public final class HackListHUD implements UpdateListener
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class, this);
 	}
 	
-	public void render(GuiGraphics context, float partialTicks)
+	public void render(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(otf.getMode() == Mode.HIDDEN)
 			return;
@@ -79,7 +80,7 @@ public final class HackListHUD implements UpdateListener
 			drawHackList(context, partialTicks, lineHeight, spacing);
 	}
 	
-	private void drawCounter(GuiGraphics context)
+	private void drawCounter(GuiGraphicsExtractor context)
 	{
 		long size = activeHax.stream().filter(e -> e.hack.isEnabled()).count();
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
@@ -88,7 +89,7 @@ public final class HackListHUD implements UpdateListener
 			/* spacing */0);
 	}
 	
-	private void drawHackList(GuiGraphics context, float partialTicks,
+	private void drawHackList(GuiGraphicsExtractor context, float partialTicks,
 		int lineHeight, int spacing)
 	{
 		if(otf.isAnimations())
@@ -148,8 +149,8 @@ public final class HackListHUD implements UpdateListener
 		}
 	}
 	
-	private void drawString(GuiGraphics context, String s, int lineHeight,
-		int spacing)
+	private void drawString(GuiGraphicsExtractor context, String s,
+		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
 		int posX;
@@ -205,7 +206,7 @@ public final class HackListHUD implements UpdateListener
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawString(GuiGraphics context, Hack hack, String s,
+	private void drawString(GuiGraphicsExtractor context, Hack hack, String s,
 		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
@@ -267,7 +268,7 @@ public final class HackListHUD implements UpdateListener
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawWithOffset(GuiGraphics context, HackListEntry e,
+	private void drawWithOffset(GuiGraphicsExtractor context, HackListEntry e,
 		float partialTicks, int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;

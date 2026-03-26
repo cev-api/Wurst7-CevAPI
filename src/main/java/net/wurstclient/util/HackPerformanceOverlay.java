@@ -13,7 +13,7 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.util.Mth;
@@ -54,7 +54,7 @@ public final class HackPerformanceOverlay
 		return INSTANCE;
 	}
 	
-	public void render(GuiGraphics graphics)
+	public void render(GuiGraphicsExtractor graphics)
 	{
 		PerformanceOverlayOtf otf = getSettings();
 		if(otf == null || !otf.isEnabled())
@@ -235,8 +235,8 @@ public final class HackPerformanceOverlay
 		return max;
 	}
 	
-	private void drawGraph(GuiGraphics graphics, Font font, int boxX, int boxY,
-		int boxWidth, int graphHeight, double fontScale)
+	private void drawGraph(GuiGraphicsExtractor graphics, Font font, int boxX,
+		int boxY, int boxWidth, int graphHeight, double fontScale)
 	{
 		int graphX = boxX + BOX_PADDING;
 		int graphWidth = Math.max(30, boxWidth - BOX_PADDING * 2);
@@ -288,9 +288,9 @@ public final class HackPerformanceOverlay
 		}
 	}
 	
-	private void drawGuideLine(GuiGraphics graphics, int graphX, int plotY,
-		int graphWidth, double value, double scaleMax, int graphHeight,
-		int color)
+	private void drawGuideLine(GuiGraphicsExtractor graphics, int graphX,
+		int plotY, int graphWidth, double value, double scaleMax,
+		int graphHeight, int color)
 	{
 		if(value > scaleMax)
 			return;
@@ -319,8 +319,8 @@ public final class HackPerformanceOverlay
 		return 0xFFF25A5A;
 	}
 	
-	private void handleDrag(GuiGraphics context, PerformanceOverlayOtf otf,
-		int x, int y, int width, int height)
+	private void handleDrag(GuiGraphicsExtractor context,
+		PerformanceOverlayOtf otf, int x, int y, int width, int height)
 	{
 		boolean canDrag = MC.screen instanceof ChatScreen
 			|| MC.screen instanceof AbstractContainerScreen<?>;
@@ -393,7 +393,7 @@ public final class HackPerformanceOverlay
 		otf.setHudOffsets(dragOffsetX, dragOffsetY);
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -403,7 +403,7 @@ public final class HackPerformanceOverlay
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

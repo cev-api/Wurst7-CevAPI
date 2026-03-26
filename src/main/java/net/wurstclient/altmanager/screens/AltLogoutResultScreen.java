@@ -9,7 +9,7 @@ package net.wurstclient.altmanager.screens;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -46,25 +46,25 @@ public final class AltLogoutResultScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		if(restored)
 		{
-			context.drawCenteredString(font, "Logged out of alt session",
-				width / 2, height / 2 - 34, GREEN);
-			context.drawCenteredString(font, "Current account: " + accountName,
+			context.centeredText(font, "Logged out of alt session", width / 2,
+				height / 2 - 34, GREEN);
+			context.centeredText(font, "Current account: " + accountName,
 				width / 2, height / 2 - 20, GREEN);
 		}else
 		{
-			context.drawCenteredString(font, "Logout verification failed",
-				width / 2, height / 2 - 34, RED);
-			context.drawCenteredString(font, "Current account: " + accountName,
+			context.centeredText(font, "Logout verification failed", width / 2,
+				height / 2 - 34, RED);
+			context.centeredText(font, "Current account: " + accountName,
 				width / 2, height / 2 - 20, RED);
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

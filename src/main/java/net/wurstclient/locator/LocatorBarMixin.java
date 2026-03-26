@@ -13,7 +13,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.contextualbar.LocatorBarRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +33,9 @@ public class LocatorBarMixin
 	// Inject after vanilla finishes rendering addons to snapshot entries for
 	// this frame
 	@Inject(
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("TAIL"))
-	private void onRenderAddons(GuiGraphics ctx, DeltaTracker rtc,
+	private void onRenderAddons(GuiGraphicsExtractor ctx, DeltaTracker rtc,
 		CallbackInfo ci)
 	{
 		// Log once to confirm mixin was executed in-game
@@ -249,9 +249,10 @@ public class LocatorBarMixin
 	
 	// Also hook the main bar render as a fallback point each frame
 	@Inject(
-		method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("TAIL"))
-	private void onRenderBar(GuiGraphics ctx, DeltaTracker rtc, CallbackInfo ci)
+	private void onRenderBar(GuiGraphicsExtractor ctx, DeltaTracker rtc,
+		CallbackInfo ci)
 	{
 		// Keep data store from going stale until we map exact fields
 		// LocatorDataStore may not be present in this build; guard usage

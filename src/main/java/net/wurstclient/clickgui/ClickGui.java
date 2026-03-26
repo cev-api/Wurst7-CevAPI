@@ -30,9 +30,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
@@ -1222,8 +1223,8 @@ public final class ClickGui
 		}
 	}
 	
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		if(refreshPending)
 		{
@@ -1279,7 +1280,8 @@ public final class ClickGui
 		matrixStack.popMatrix();
 	}
 	
-	public void renderPopups(GuiGraphics context, int mouseX, int mouseY)
+	public void renderPopups(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		closeInvalidPopups();
 		
@@ -1307,7 +1309,8 @@ public final class ClickGui
 		}
 	}
 	
-	private void renderPinnedPopups(GuiGraphics context, int mouseX, int mouseY)
+	private void renderPinnedPopups(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		for(Popup popup : popups)
@@ -1333,7 +1336,8 @@ public final class ClickGui
 		}
 	}
 	
-	public void renderTooltip(GuiGraphics context, int mouseX, int mouseY)
+	public void renderTooltip(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		if(tooltip.isEmpty())
 			return;
@@ -1370,11 +1374,12 @@ public final class ClickGui
 		// text
 		context.guiRenderState.up();
 		for(int i = 0; i < lines.length; i++)
-			context.drawString(tr, lines[i], xt1 + 2,
-				yt1 + 2 + i * tr.lineHeight, txtColor, false);
+			context.text(tr, lines[i], xt1 + 2, yt1 + 2 + i * tr.lineHeight,
+				txtColor, false);
 	}
 	
-	public void renderPinnedWindows(GuiGraphics context, float partialTicks)
+	public void renderPinnedWindows(GuiGraphicsExtractor context,
+		float partialTicks)
 	{
 		if(refreshPending)
 		{
@@ -1452,8 +1457,8 @@ public final class ClickGui
 			acColor = clickGui.getAccentColor();
 	}
 	
-	private void renderWindow(GuiGraphics context, Window window, int mouseX,
-		int mouseY, float partialTicks)
+	private void renderWindow(GuiGraphicsExtractor context, Window window,
+		int mouseX, int mouseY, float partialTicks)
 	{
 		int x1 = window.getX();
 		int y1 = window.getY();
@@ -1560,7 +1565,7 @@ public final class ClickGui
 			int cMouseX = mouseX - x1;
 			int cMouseY = mouseY - y4;
 			for(int i = 0; i < window.countChildren(); i++)
-				window.getChild(i).render(context, cMouseX, cMouseY,
+				window.getChild(i).extractRenderState(context, cMouseX, cMouseY,
 					partialTicks);
 			
 			matrixStack.popMatrix();
@@ -1624,11 +1629,11 @@ public final class ClickGui
 			net.minecraft.network.chat.Component.literal(window.getTitle()),
 			x3 - x1).getString();
 		context.guiRenderState.up();
-		context.drawString(tr, title, x1 + 2, y1 + 3, txtColor, false);
+		context.text(tr, title, x1 + 2, y1 + 3, txtColor, false);
 	}
 	
-	private void renderTitleBarButton(GuiGraphics context, int x1, int y1,
-		int x2, int y2, boolean hovering)
+	private void renderTitleBarButton(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2, boolean hovering)
 	{
 		int x3 = x2 + 2;
 		
@@ -1681,7 +1686,7 @@ public final class ClickGui
 		return isolateWindows;
 	}
 	
-	private void renderWindowsWithIsolation(GuiGraphics context,
+	private void renderWindowsWithIsolation(GuiGraphicsExtractor context,
 		List<Window> windowsToRender, int mouseX, int mouseY,
 		float partialTicks)
 	{

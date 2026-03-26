@@ -8,7 +8,9 @@
 package net.wurstclient.navigator;
 
 import java.awt.Rectangle;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -158,8 +160,8 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public final void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public final void extractRenderState(GuiGraphicsExtractor context,
+		int mouseX, int mouseY, float partialTicks)
 	{
 		// background
 		int bgx1 = middleX - 154;
@@ -197,8 +199,8 @@ public abstract class NavigatorScreen extends Screen
 	}
 	
 	@Override
-	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
-		float deltaTicks)
+	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float deltaTicks)
 	{
 		// Don't blur
 	}
@@ -222,7 +224,7 @@ public abstract class NavigatorScreen extends Screen
 	
 	protected abstract void onUpdate();
 	
-	protected abstract void onRender(GuiGraphics context, int mouseX,
+	protected abstract void onRender(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float partialTicks);
 	
 	protected final int getStringHeight(String s)
@@ -248,8 +250,8 @@ public abstract class NavigatorScreen extends Screen
 			scroll = maxScroll;
 	}
 	
-	protected final void drawDownShadow(GuiGraphics context, int x1, int y1,
-		int x2, int y2)
+	protected final void drawDownShadow(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2)
 	{
 		float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
 		
@@ -264,8 +266,8 @@ public abstract class NavigatorScreen extends Screen
 		context.fillGradient(x1, y1, x2, y2, shadowColor1, shadowColor2);
 	}
 	
-	protected final void drawBox(GuiGraphics context, int x1, int y1, int x2,
-		int y2, int color)
+	protected final void drawBox(GuiGraphicsExtractor context, int x1, int y1,
+		int x2, int y2, int color)
 	{
 		context.fill(x1, y1, x2, y2, color);
 		RenderUtils.drawBoxShadow2D(context, x1, y1, x2, y2);
@@ -278,8 +280,8 @@ public abstract class NavigatorScreen extends Screen
 		return RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity());
 	}
 	
-	protected final void drawBackgroundBox(GuiGraphics context, int x1, int y1,
-		int x2, int y2)
+	protected final void drawBackgroundBox(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2)
 	{
 		drawBox(context, x1, y1, x2, y2, getBackgroundColor());
 	}

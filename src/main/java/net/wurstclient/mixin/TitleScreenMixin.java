@@ -17,7 +17,7 @@ import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.resources.language.I18n;
@@ -51,7 +51,7 @@ public abstract class TitleScreenMixin extends Screen
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
-		for(AbstractWidget button : Screens.getButtons(this))
+		for(AbstractWidget button : Screens.getWidgets(this))
 		{
 			if(!button.getMessage().getString().equals(I18n.get("menu.online")))
 				continue;
@@ -97,8 +97,8 @@ public abstract class TitleScreenMixin extends Screen
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void onRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -111,8 +111,8 @@ public abstract class TitleScreenMixin extends Screen
 		String suffix = WurstClient.INSTANCE.getForkUpdateChecker() == null ? ""
 			: WurstClient.INSTANCE.getForkUpdateChecker().getStatusSuffix();
 		String text = baseText + suffix;
-		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
-			4, 4, 0xFFFFFFFF, true);
+		graphics.text(font, Component.literal(text).getVisualOrderText(), 4, 4,
+			0xFFFFFFFF, true);
 	}
 	
 	/**

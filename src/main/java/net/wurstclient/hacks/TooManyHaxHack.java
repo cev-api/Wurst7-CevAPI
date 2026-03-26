@@ -22,7 +22,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.WurstClient;
 import net.wurstclient.Category;
@@ -299,15 +299,15 @@ public final class TooManyHaxHack extends Hack
 		}
 		
 		@Override
-		public void render(GuiGraphics context, int mouseX, int mouseY,
-			float partialTicks)
+		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
 			refreshSize(hacks);
 			
 			if(hacks.isEmpty())
 			{
-				context.drawString(MC.font, "No hacks available.", getX() + 2,
+				context.text(MC.font, "No hacks available.", getX() + 2,
 					getY() + 2, WURST.getGui().getTxtColor(), false);
 				return;
 			}
@@ -363,7 +363,7 @@ public final class TooManyHaxHack extends Hack
 				if(!hack.isSafeToBlock())
 					textColor = (textColor & 0x00FFFFFF) | 0x55000000;
 				
-				context.drawString(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+				context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
 					textColor, false);
 			}
 		}

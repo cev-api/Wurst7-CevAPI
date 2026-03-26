@@ -153,9 +153,8 @@ public final class UiUtilsPluginScanner
 		
 		if(foundPlugins.isEmpty())
 		{
-			mc.player.displayClientMessage(
-				Component.literal("[UI-Utils] No plugins found or blocked."),
-				false);
+			mc.player.sendSystemMessage(
+				Component.literal("[UI-Utils] No plugins found or blocked."));
 			return;
 		}
 		
@@ -173,8 +172,7 @@ public final class UiUtilsPluginScanner
 				line.append(", ");
 		}
 		
-		mc.player.displayClientMessage(Component.literal(line.toString()),
-			false);
+		mc.player.sendSystemMessage(Component.literal(line.toString()));
 		foundPlugins.clear();
 		dedupe.clear();
 	}

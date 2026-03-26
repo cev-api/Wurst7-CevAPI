@@ -142,7 +142,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastTrialFilterState = filterTrialChambers.isChecked();
 		lastVillageFilterState = filterVillageBeds.isChecked();
@@ -179,7 +179,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;

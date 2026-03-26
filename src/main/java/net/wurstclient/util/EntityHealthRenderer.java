@@ -8,7 +8,7 @@
 package net.wurstclient.util;
 
 import java.util.Random;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -24,7 +24,7 @@ public final class EntityHealthRenderer
 	private EntityHealthRenderer()
 	{}
 	
-	public static void drawHeartsAtEntity(GuiGraphics context,
+	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
 		LivingEntity entity, float partialTicks, float yOffsetPx)
 	{
 		Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks).add(0,
@@ -48,8 +48,8 @@ public final class EntityHealthRenderer
 		drawHeartRow(context, screenX, screenY + yOffsetPx, scale, entity);
 	}
 	
-	private static void drawHeartRow(GuiGraphics context, float centerX,
-		float y, float scale, LivingEntity entity)
+	private static void drawHeartRow(GuiGraphicsExtractor context,
+		float centerX, float y, float scale, LivingEntity entity)
 	{
 		float currentHealth = Math.max(0, entity.getHealth());
 		float maxHealth = Math.max(1, entity.getMaxHealth());
@@ -103,8 +103,8 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	private static void drawHeartLayer(GuiGraphics context, float centerX,
-		float y, float scale, int slots, int filledHalfHearts,
+	private static void drawHeartLayer(GuiGraphicsExtractor context,
+		float centerX, float y, float scale, int slots, int filledHalfHearts,
 		HeartType heartType, boolean hardcore, boolean blink, int regenIndex,
 		boolean jitter)
 	{

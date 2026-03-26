@@ -13,7 +13,7 @@ import java.util.List;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -101,13 +101,13 @@ public final class TooManyHaxEditorScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xC0101010, 0xD0101010);
-		context.drawCenteredString(minecraft.font, "TooManyHax - Blocked Hacks",
+		context.centeredText(minecraft.font, "TooManyHax - Blocked Hacks",
 			width / 2, 12, 0xFFFFFFFF);
-		context.drawCenteredString(minecraft.font,
+		context.centeredText(minecraft.font,
 			"Left-click to block/unblock. ESC to return.", width / 2, 22,
 			0xFFAAAAAA);
 		
@@ -145,8 +145,8 @@ public final class TooManyHaxEditorScreen extends Screen
 				
 				String state = blocked ? "[X] " : "[ ] ";
 				int color = !hack.isSafeToBlock() ? 0xFF777777 : 0xFFFFFFFF;
-				context.drawString(minecraft.font, state + hack.getName(),
-					x1 + 6, top + 3, color, false);
+				context.text(minecraft.font, state + hack.getName(), x1 + 6,
+					top + 3, color, false);
 			}
 			contentY += rowH;
 		}

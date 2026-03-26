@@ -11,7 +11,7 @@ import java.awt.Color;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -175,31 +175,33 @@ public final class EditColorScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		Font tr = minecraft.font;
 		
-		context.drawCenteredString(minecraft.font, "HSV Color Picker",
-			width / 2, 16, WurstColors.VERY_LIGHT_GRAY);
+		context.centeredText(minecraft.font, "HSV Color Picker", width / 2, 16,
+			WurstColors.VERY_LIGHT_GRAY);
 		
 		renderSvPicker(context);
 		renderHueSlider(context);
 		renderPickerHandles(context);
 		
 		// RGB letters
-		context.drawString(tr, "#", fieldsX, fieldsY + 6,
-			WurstColors.VERY_LIGHT_GRAY, false);
-		context.drawString(tr, "R:", fieldsX, fieldsY + 6 + 35,
-			CommonColors.RED, false);
-		context.drawString(tr, "G:", fieldsX + 75, fieldsY + 6 + 35,
+		context.text(tr, "#", fieldsX, fieldsY + 6, WurstColors.VERY_LIGHT_GRAY,
+			false);
+		context.text(tr, "R:", fieldsX, fieldsY + 6 + 35, CommonColors.RED,
+			false);
+		context.text(tr, "G:", fieldsX + 75, fieldsY + 6 + 35,
 			CommonColors.GREEN, false);
-		context.drawString(tr, "B:", fieldsX + 150, fieldsY + 6 + 35,
+		context.text(tr, "B:", fieldsX + 150, fieldsY + 6 + 35,
 			CommonColors.BLUE, false);
-		hexValueField.render(context, mouseX, mouseY, partialTicks);
-		redValueField.render(context, mouseX, mouseY, partialTicks);
-		greenValueField.render(context, mouseX, mouseY, partialTicks);
-		blueValueField.render(context, mouseX, mouseY, partialTicks);
+		hexValueField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		redValueField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		greenValueField.extractRenderState(context, mouseX, mouseY,
+			partialTicks);
+		blueValueField.extractRenderState(context, mouseX, mouseY,
+			partialTicks);
 		
 		// Centered long preview bar below RGB row.
 		int boxWidth = 200;
@@ -212,10 +214,10 @@ public final class EditColorScreen extends Screen
 			color.getRGB());
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
-	private void renderSvPicker(GuiGraphics context)
+	private void renderSvPicker(GuiGraphicsExtractor context)
 	{
 		context.fill(svX - 1, svY - 1, svX + svW + 1, svY + svH + 1,
 			CommonColors.LIGHT_GRAY);
@@ -230,7 +232,7 @@ public final class EditColorScreen extends Screen
 		}
 	}
 	
-	private void renderHueSlider(GuiGraphics context)
+	private void renderHueSlider(GuiGraphicsExtractor context)
 	{
 		context.fill(hueX - 1, hueY - 1, hueX + hueW + 1, hueY + hueH + 1,
 			CommonColors.LIGHT_GRAY);
@@ -242,7 +244,7 @@ public final class EditColorScreen extends Screen
 		}
 	}
 	
-	private void renderPickerHandles(GuiGraphics context)
+	private void renderPickerHandles(GuiGraphicsExtractor context)
 	{
 		int cx = svX + Math.round(saturation * (svW - 1));
 		int cy = svY + Math.round((1F - brightness) * (svH - 1));

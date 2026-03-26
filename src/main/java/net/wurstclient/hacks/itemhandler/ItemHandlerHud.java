@@ -20,7 +20,7 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.Window;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.wurstclient.WurstClient;
@@ -38,7 +38,7 @@ public class ItemHandlerHud
 	private int dragOffsetY;
 	private boolean lastLeftDown = false;
 	
-	public void render(GuiGraphics context, float partialTicks)
+	public void render(GuiGraphicsExtractor context, float partialTicks)
 	{
 		// no per-tick short-circuit; draw every GUI render call
 		
@@ -260,8 +260,8 @@ public class ItemHandlerHud
 		// and the settings button.
 	}
 	
-	private void handleDrag(GuiGraphics context, ItemHandlerHack hack, int ex,
-		int ey, int boxWidth, int height)
+	private void handleDrag(GuiGraphicsExtractor context, ItemHandlerHack hack,
+		int ex, int ey, int boxWidth, int height)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -328,14 +328,14 @@ public class ItemHandlerHud
 		return Math.max(min, Math.min(max, value));
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.xpos() * context.guiWidth()
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.ypos() * context.guiHeight()

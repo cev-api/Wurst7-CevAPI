@@ -8,7 +8,7 @@
 package net.wurstclient.hacks;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
@@ -144,7 +144,7 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(showAsNumber.isChecked())
 			return;

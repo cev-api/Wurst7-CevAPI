@@ -10,7 +10,7 @@ package net.wurstclient.clickgui.screens;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -448,7 +448,8 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float delta)
 	{
 		// No blur - just a translucent background
 		context.fill(0, 0, this.width, this.height, 0x88000000);
@@ -492,7 +493,7 @@ public final class WaypointsScreen extends Screen
 			_rw.nameBtn.setMessage(Component.literal(""));
 		}
 		
-		super.render(context, mouseX, mouseY, delta);
+		super.extractRenderState(context, mouseX, mouseY, delta);
 		
 		// Restore messages so our custom drawing can read them
 		for(java.util.Map.Entry<RowWidgets, Component> e : _savedLabels
@@ -504,8 +505,8 @@ public final class WaypointsScreen extends Screen
 		}
 		
 		// Title
-		context.drawCenteredString(minecraft.font, "Waypoints", this.width / 2,
-			12, 0xFFFFFFFF);
+		context.centeredText(minecraft.font, "Waypoints", this.width / 2, 12,
+			0xFFFFFFFF);
 		
 		// Draw beacon button backgrounds (overlay) and collect line outlines
 		java.util.List<RowWidgets> lineOutlineRows =
@@ -623,7 +624,7 @@ public final class WaypointsScreen extends Screen
 			if(textWidth <= maxTextWidth || maxTextWidth == 0)
 			{
 				// draw centered
-				context.drawCenteredString(minecraft.font, label, centerX,
+				context.centeredText(minecraft.font, label, centerX,
 					nameTop + 6, 0xFFFFFFFF);
 			}else
 			{
@@ -633,9 +634,9 @@ public final class WaypointsScreen extends Screen
 				int speed = 90; // text scroll, ms pixel
 				int offset = (int)((t / (long)speed) % period);
 				int x1 = centerX - textWidth / 2 - offset;
-				context.drawString(minecraft.font, label, x1, nameTop + 6,
+				context.text(minecraft.font, label, x1, nameTop + 6,
 					0xFFFFFFFF);
-				context.drawString(minecraft.font, label, x1 + textWidth + gap,
+				context.text(minecraft.font, label, x1 + textWidth + gap,
 					nameTop + 6, 0xFFFFFFFF);
 			}
 			context.disableScissor();
@@ -772,9 +773,9 @@ public final class WaypointsScreen extends Screen
 			return;
 		Component text = Component.literal(message);
 		if(minecraft.player != null)
-			minecraft.player.displayClientMessage(text, false);
+			minecraft.player.sendSystemMessage(text);
 		else if(minecraft.gui != null)
-			minecraft.gui.getChat().addMessage(text);
+			minecraft.gui.getChat().addClientSystemMessage(text);
 	}
 	
 	private String importSummary(WaypointsManager.XaeroSyncStats stats)

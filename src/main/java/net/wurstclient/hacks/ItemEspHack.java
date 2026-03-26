@@ -709,7 +709,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					id.contains(":") ? id.substring(id.indexOf(":") + 1) : id;
 				String localSpaced = localId.replace('_', ' ');
 				String transKey = item.getDescriptionId();
-				String display = item.getName().getString();
+				String display = item.getName(new ItemStack(item)).getString();
 				String stackDisplay = stack.getHoverName().getString();
 				if(specialKeywords != null)
 					for(String term : specialKeywords)
@@ -772,7 +772,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
 		String localSpaced = localId.replace('_', ' ');
 		String transKey = item.getDescriptionId();
-		String display = item.getName().getString();
+		String display = item.getName(new ItemStack(item)).getString();
 		String stackDisplay =
 			stack != null ? stack.getHoverName().getString() : "";
 		String[] terms = Arrays.stream(normalizedQuery.split(","))

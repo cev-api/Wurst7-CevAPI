@@ -10,7 +10,7 @@ package net.wurstclient.hacks;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.StringUtil;
@@ -158,7 +158,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		for(LivingEntity entity : entitiesToRender)
 		{

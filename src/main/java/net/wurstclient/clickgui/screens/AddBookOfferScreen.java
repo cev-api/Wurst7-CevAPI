@@ -16,7 +16,7 @@ import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -91,43 +91,32 @@ public final class AddBookOfferScreen extends Screen
 			28, 12, Component.literal(""));
 		addWidget(levelField);
 		levelField.setMaxLength(2);
-		levelField.setFilter(t -> {
-			if(t.isEmpty())
-				return true;
-			
-			if(!MathUtils.isInteger(t))
-				return false;
-			
-			int level = Integer.parseInt(t);
-			if(level < 1 || level > 10)
-				return false;
-			
-			if(offerToAdd == null)
-				return true;
-			
-			Enchantment enchantment = offerToAdd.getEnchantment();
-			return enchantment == null || level <= enchantment.getMaxLevel();
-		});
 		levelField.setResponder(t -> {
-			if(!MathUtils.isInteger(t))
+			if(!isValidLevel(t))
+			{
+				levelField.setTextColor(WurstColors.LIGHT_RED);
 				return;
+			}
 			
-			int level = Integer.parseInt(t);
-			updateLevel(level, false);
+			levelField.setTextColor(EditBox.DEFAULT_TEXT_COLOR);
+			if(!t.isEmpty())
+				updateLevel(Integer.parseInt(t), false);
 		});
 		
 		priceField = new EditBox(minecraft.font, width / 2 - 32, height - 58,
 			28, 12, Component.literal(""));
 		addWidget(priceField);
 		priceField.setMaxLength(2);
-		priceField.setFilter(t -> t.isEmpty() || MathUtils.isInteger(t)
-			&& Integer.parseInt(t) >= 1 && Integer.parseInt(t) <= 64);
 		priceField.setResponder(t -> {
-			if(!MathUtils.isInteger(t))
+			if(!isValidPrice(t))
+			{
+				priceField.setTextColor(WurstColors.LIGHT_RED);
 				return;
+			}
 			
-			int price = Integer.parseInt(t);
-			updatePrice(price, false);
+			priceField.setTextColor(EditBox.DEFAULT_TEXT_COLOR);
+			if(!t.isEmpty())
+				updatePrice(Integer.parseInt(t), false);
 		});
 		
 		addRenderableWidget(levelPlusButton = Button
@@ -239,7 +228,6 @@ public final class AddBookOfferScreen extends Screen
 			return;
 		
 		String query = value == null ? "" : value.trim();
-		listGui.setFilter(query);
 		
 		if(query.isEmpty())
 		{
@@ -306,6 +294,31 @@ public final class AddBookOfferScreen extends Screen
 		}
 	}
 	
+	private boolean isValidLevel(String t)
+	{
+		if(t.isEmpty())
+			return true;
+		
+		if(!MathUtils.isInteger(t))
+			return false;
+		
+		int level = Integer.parseInt(t);
+		if(level < 1 || level > 10)
+			return false;
+		
+		if(offerToAdd == null)
+			return true;
+		
+		Enchantment enchantment = offerToAdd.getEnchantment();
+		return level <= enchantment.getMaxLevel();
+	}
+	
+	private boolean isValidPrice(String t)
+	{
+		return t.isEmpty() || MathUtils.isInteger(t) && Integer.parseInt(t) >= 1
+			&& Integer.parseInt(t) <= 64;
+	}
+	
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
@@ -362,46 +375,42 @@ public final class AddBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		matrixStack.pushMatrix();
 		
 		Font tr = minecraft.font;
 		String titleText =
 			"Available Books (" + listGui.children().size() + ")";
-		context.drawCenteredString(tr, titleText, width / 2, 12,
-			CommonColors.WHITE);
+		context.centeredText(tr, titleText, width / 2, 12, CommonColors.WHITE);
 		
-		searchField.render(context, mouseX, mouseY, partialTicks);
+		searchField.extractRenderState(context, mouseX, mouseY, partialTicks);
 		if(searchField.getValue().isEmpty() && !searchField.isFocused())
-			context.drawString(tr, "search or custom ID",
-				searchField.getX() + 4, searchField.getY() + 5,
-				CommonColors.GRAY);
+			context.text(tr, "search or custom ID", searchField.getX() + 4,
+				searchField.getY() + 5, CommonColors.GRAY);
 		
-		levelField.render(context, mouseX, mouseY, partialTicks);
-		priceField.render(context, mouseX, mouseY, partialTicks);
+		levelField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		priceField.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		matrixStack.translate(width / 2 - 100, 0);
 		
-		context.drawString(tr, "Level:", 0, height - 72,
-			WurstColors.VERY_LIGHT_GRAY);
-		context.drawString(tr, "Max price:", 0, height - 56,
+		context.text(tr, "Level:", 0, height - 72, WurstColors.VERY_LIGHT_GRAY);
+		context.text(tr, "Max price:", 0, height - 56,
 			WurstColors.VERY_LIGHT_GRAY);
 		
 		if(alreadyAdded && offerToAdd != null)
 		{
 			String errorText = offerToAdd.getEnchantmentNameWithLevel()
 				+ " is already on your list!";
-			context.drawString(tr, errorText, 0, height - 40,
-				WurstColors.LIGHT_RED);
+			context.text(tr, errorText, 0, height - 40, WurstColors.LIGHT_RED);
 		}
 		
 		matrixStack.popMatrix();
@@ -464,8 +473,8 @@ public final class AddBookOfferScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -481,17 +490,17 @@ public final class AddBookOfferScreen extends Screen
 				.map(entry -> entry.is(EnchantmentTags.CURSE)).orElse(false);
 			int nameColor =
 				isCurse ? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
-			context.drawString(tr, name, x + 28, y, nameColor, false);
+			context.text(tr, name, x + 28, y, nameColor, false);
 			
-			context.drawString(tr, bookOffer.id(), x + 28, y + 9,
+			context.text(tr, bookOffer.id(), x + 28, y + 9,
 				CommonColors.LIGHT_GRAY, false);
 			
 			int maxLevel = bookOffer.getEnchantmentEntry()
 				.map(entry -> entry.value().getMaxLevel())
 				.orElse(bookOffer.level());
 			String levels = maxLevel + (maxLevel == 1 ? " level" : " levels");
-			context.drawString(tr, levels, x + 28, y + 18,
-				CommonColors.LIGHT_GRAY, false);
+			context.text(tr, levels, x + 28, y + 18, CommonColors.LIGHT_GRAY,
+				false);
 		}
 		
 		@Override

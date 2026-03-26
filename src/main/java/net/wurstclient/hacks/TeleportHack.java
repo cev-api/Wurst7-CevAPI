@@ -11,7 +11,7 @@ import java.awt.Color;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.level.ClipContext;
@@ -197,7 +197,7 @@ public final class TeleportHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!isValidTarget || teleportTarget == null || MC.player == null)
 			return;
@@ -214,13 +214,13 @@ public final class TeleportHack extends Hack
 			String text = String.format("≈%.1f♥", damageHearts);
 			int textWidth = font.width(text);
 			int x = centerX - textWidth / 2;
-			context.drawString(font, text, x, y, damageColor, true);
+			context.text(font, text, x, y, damageColor, true);
 			if(showSafeTick)
-				context.drawString(font, "✔", x + textWidth + 6, y,
-					SAFE_TICK_COLOR, true);
+				context.text(font, "✔", x + textWidth + 6, y, SAFE_TICK_COLOR,
+					true);
 		}else if(showSafeTick)
 		{
-			context.drawString(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
+			context.text(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
 		}
 	}
 	

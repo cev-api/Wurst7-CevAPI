@@ -14,7 +14,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.gui.screens.inventory.GrindstoneScreen;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.EnchantmentTags;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -155,19 +155,19 @@ public final class AutoDisenchantHack extends Hack
 		if(inventorySlot.getItem().isEmpty())
 			return;
 		
-		clickAndWait(screen, inventorySlot, ClickType.PICKUP);
+		clickAndWait(screen, inventorySlot, ContainerInput.PICKUP);
 		clickAndWait(screen, handler.slots.get(INPUT_TOP_SLOT),
-			ClickType.PICKUP);
+			ContainerInput.PICKUP);
 		
 		if(waitForOutput(screen))
 		{
 			Slot outputSlot = handler.slots.get(OUTPUT_SLOT);
 			if(outputSlot.hasItem())
-				clickAndWait(screen, outputSlot, ClickType.QUICK_MOVE);
+				clickAndWait(screen, outputSlot, ContainerInput.QUICK_MOVE);
 		}else
 		{
 			clickAndWait(screen, handler.slots.get(INPUT_TOP_SLOT),
-				ClickType.QUICK_MOVE);
+				ContainerInput.QUICK_MOVE);
 		}
 		
 		clearInputSlots(screen);
@@ -205,12 +205,12 @@ public final class AutoDisenchantHack extends Hack
 			if(slot.getItem().isEmpty())
 				continue;
 			
-			clickAndWait(screen, slot, ClickType.QUICK_MOVE);
+			clickAndWait(screen, slot, ContainerInput.QUICK_MOVE);
 		}
 	}
 	
 	private void clickAndWait(GrindstoneScreen screen, Slot slot,
-		ClickType action) throws InterruptedException
+		ContainerInput action) throws InterruptedException
 	{
 		if(slot == null)
 			return;

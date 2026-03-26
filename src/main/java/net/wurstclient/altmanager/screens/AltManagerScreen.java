@@ -39,7 +39,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -1261,10 +1261,10 @@ public final class AltManagerScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		// skin preview
 		Alt alt = listGui.getSelectedAlt();
@@ -1278,25 +1278,25 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		// title text
-		context.drawCenteredString(font, "Alt Manager", width / 2, 4,
+		context.centeredText(font, "Alt Manager", width / 2, 4,
 			CommonColors.WHITE);
-		context.drawCenteredString(font, "Alts: " + altManager.getList().size(),
+		context.centeredText(font, "Alts: " + altManager.getList().size(),
 			width / 2, 14, CommonColors.LIGHT_GRAY);
-		context.drawCenteredString(font,
+		context.centeredText(font,
 			"premium: " + altManager.getNumPremium() + ", cracked: "
 				+ altManager.getNumCracked(),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
 		
 		if(!importStatus.isEmpty())
-			context.drawCenteredString(font, importStatus, width / 2, 42,
+			context.centeredText(font, importStatus, width / 2, 42,
 				importInProgress ? 0xFFFF55 : CommonColors.LIGHT_GRAY);
 		
 		if(editValidationInProgress && !editValidationStatus.isBlank())
-			context.drawCenteredString(font, editValidationStatus, width / 2,
-				58, 0xFFFF55);
+			context.centeredText(font, editValidationStatus, width / 2, 58,
+				0xFFFF55);
 		
 		if(((IMinecraftClient)minecraft).getWurstSession() != null)
-			context.drawCenteredString(font,
+			context.centeredText(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);
 		
@@ -1310,13 +1310,13 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		renderImportOverlay(context);
 		renderAltTooltip(context, mouseX, mouseY);
 	}
 	
-	private void renderImportOverlay(GuiGraphics context)
+	private void renderImportOverlay(GuiGraphicsExtractor context)
 	{
 		if(!importInProgress)
 			return;
@@ -1349,18 +1349,18 @@ public final class AltManagerScreen extends Screen
 		context.fill(x1, y1, x1 + 1, y2, 0xFF5FA3FF);
 		context.fill(x2 - 1, y1, x2, y2, 0xFF5FA3FF);
 		
-		context.drawCenteredString(font, headline, width / 2, y1 + 16,
+		context.centeredText(font, headline, width / 2, y1 + 16,
 			CommonColors.WHITE);
-		context.drawCenteredString(font, status, width / 2, y1 + 34, 0xFFFFAA);
+		context.centeredText(font, status, width / 2, y1 + 34, 0xFFFFAA);
 		if(!counts.isBlank())
-			context.drawCenteredString(font, counts, width / 2, y1 + 50,
-				0xFFA8D0FF);
-		context.drawCenteredString(font,
+			context.centeredText(font, counts, width / 2, y1 + 50, 0xFFA8D0FF);
+		context.centeredText(font,
 			"Import/Export/Login controls are temporarily disabled.", width / 2,
 			importHasCounts ? y1 + 68 : y1 + 54, CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderAltTooltip(GuiGraphics context, int mouseX, int mouseY)
+	private void renderAltTooltip(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		if(!listGui.isMouseOver(mouseX, mouseY))
 			return;
@@ -1514,8 +1514,8 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -1539,11 +1539,11 @@ public final class AltManagerScreen extends Screen
 			Font tr = minecraft.font;
 			
 			// name / email
-			context.drawString(tr, "Name: " + alt.getDisplayName(), x + 31,
-				y + 3, CommonColors.LIGHT_GRAY, false);
+			context.text(tr, "Name: " + alt.getDisplayName(), x + 31, y + 3,
+				CommonColors.LIGHT_GRAY, false);
 			
 			// status
-			context.drawString(tr, getBottomText(), x + 31, y + 15,
+			context.text(tr, getBottomText(), x + 31, y + 15,
 				CommonColors.LIGHT_GRAY, false);
 		}
 		

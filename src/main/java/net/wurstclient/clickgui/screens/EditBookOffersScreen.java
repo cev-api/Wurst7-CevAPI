@@ -18,7 +18,7 @@ import net.wurstclient.hacks.autolibrarian.BookOffer;
 import net.wurstclient.settings.BookOffersSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -161,17 +161,17 @@ public final class EditBookOffersScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(minecraft.font,
+		context.centeredText(minecraft.font,
 			bookOffers.getName() + " (" + bookOffers.getOffers().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -232,8 +232,8 @@ public final class EditBookOffersScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -251,14 +251,14 @@ public final class EditBookOffersScreen extends Screen
 			int nameColor =
 				enchantment != null && enchantment.is(EnchantmentTags.CURSE)
 					? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
-			context.drawString(tr, name, x + 28, y, nameColor, false);
+			context.text(tr, name, x + 28, y, nameColor, false);
 			
-			context.drawString(tr, bookOffer.id(), x + 28, y + 9,
+			context.text(tr, bookOffer.id(), x + 28, y + 9,
 				CommonColors.LIGHT_GRAY, false);
 			
 			String price = getPriceText();
-			context.drawString(tr, price, x + 28, y + 18,
-				CommonColors.LIGHT_GRAY, false);
+			context.text(tr, price, x + 28, y + 18, CommonColors.LIGHT_GRAY,
+				false);
 			
 			if(bookOffer.price() < 64)
 				RenderUtils.drawItem(context, new ItemStack(Items.EMERALD),

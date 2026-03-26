@@ -40,11 +40,11 @@ import net.wurstclient.events.LeftClickListener.LeftClickEvent;
 import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.mixinterface.ILocalPlayer;
-import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
 @Mixin(Minecraft.class)
-public abstract class MinecraftClientMixin
+public abstract class MinecraftMixin
 	extends ReentrantBlockableEventLoop<Runnable>
 	implements WindowEventHandler, IMinecraftClient
 {
@@ -64,9 +64,10 @@ public abstract class MinecraftClientMixin
 	private User wurstSession;
 	private ProfileKeyPairManager wurstProfileKeys;
 	
-	private MinecraftClientMixin(WurstClient wurst, String name)
+	private MinecraftMixin(WurstClient wurst, String name,
+		boolean propagatesCrashes)
 	{
-		super(name);
+		super(name, propagatesCrashes);
 	}
 	
 	@Inject(method = "<init>",
@@ -125,7 +126,7 @@ public abstract class MinecraftClientMixin
 			ci.cancel();
 	}
 	
-	@Inject(method = "pickBlock()V", at = @At("HEAD"))
+	@Inject(method = "pickBlockOrEntity()V", at = @At("HEAD"))
 	private void onDoItemPick(CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -221,9 +222,9 @@ public abstract class MinecraftClientMixin
 	}
 	
 	@Override
-	public IClientPlayerInteractionManager getInteractionManager()
+	public IMultiPlayerGameMode getInteractionManager()
 	{
-		return (IClientPlayerInteractionManager)gameMode;
+		return (IMultiPlayerGameMode)gameMode;
 	}
 	
 	@Override

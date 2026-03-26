@@ -23,7 +23,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -41,7 +41,7 @@ import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import org.jetbrains.annotations.NotNull;
@@ -90,24 +90,24 @@ public final class UiUtils
 				WurstClient.INSTANCE.getHax().uiUtilsHack;
 			Minecraft mc = Minecraft.getInstance();
 			if(hack != null && hack.isLogToChat() && mc.player != null)
-				mc.player.displayClientMessage(
-					Component.literal("[UI-Utils] " + msg), false);
+				mc.player
+					.sendSystemMessage(Component.literal("[UI-Utils] " + msg));
 		}catch(Throwable t)
 		{
 			// ignore if GUI/hack not available
 		}
 	}
 	
-	public static void renderSyncInfo(Minecraft mc, GuiGraphics graphics,
-		AbstractContainerMenu menu)
+	public static void renderSyncInfo(Minecraft mc,
+		GuiGraphicsExtractor graphics, AbstractContainerMenu menu)
 	{
 		if(menu == null)
 			return;
 		
-		graphics.drawString(mc.font, "Sync Id: " + menu.containerId, 200, 5,
-			0xFFFFFF, false);
-		graphics.drawString(mc.font, "Revision: " + menu.getStateId(), 200, 35,
-			0xFFFFFF, false);
+		graphics.text(mc.font, "Sync Id: " + menu.containerId, 200, 5,
+			0xFFFFFF);
+		graphics.text(mc.font, "Revision: " + menu.getStateId(), 200, 35,
+			0xFFFFFF);
 	}
 	
 	public static int getUiWidgetRows()
@@ -119,10 +119,8 @@ public final class UiUtils
 	{
 		UiUtilsState.enabled = !UiUtilsState.enabled;
 		if(mc.player != null)
-			mc.player.displayClientMessage(
-				Component.literal("UI-Utils is now "
-					+ (UiUtilsState.enabled ? "enabled" : "disabled") + "."),
-				false);
+			mc.player.sendSystemMessage(Component.literal("UI-Utils is now "
+				+ (UiUtilsState.enabled ? "enabled" : "disabled") + "."));
 	}
 	
 	public static boolean saveCurrentGuiToSlot(Minecraft mc, String slot)
@@ -279,10 +277,9 @@ public final class UiUtils
 					for(Packet<?> packet : UiUtilsState.delayedUiPackets)
 						mc.getConnection().send(packet);
 					if(mc.player != null)
-						mc.player.displayClientMessage(Component.literal(
+						mc.player.sendSystemMessage(Component.literal(
 							"Sent " + UiUtilsState.delayedUiPackets.size()
-								+ " packets."),
-							false);
+								+ " packets."));
 					UiUtilsState.delayedUiPackets.clear();
 				}
 				chatIfEnabled("Delay packets: " + UiUtilsState.delayUiPackets);
@@ -457,8 +454,8 @@ public final class UiUtils
 								UiUtilsCommandSystem.execute(command);
 							if(mc.player != null && !result.isEmpty())
 								for(String line : result.split("\n"))
-									mc.player.displayClientMessage(
-										Component.literal(line), false);
+									mc.player.sendSystemMessage(
+										Component.literal(line));
 							setValue("");
 							return false;
 						}
@@ -575,7 +572,7 @@ public final class UiUtils
 		private EditBox clickRevisionField;
 		private EditBox clickSlotField;
 		private EditBox clickButtonField;
-		private CycleButton<ClickType> clickActionButton;
+		private CycleButton<ContainerInput> clickActionButton;
 		private CycleButton<Boolean> clickDelayToggle;
 		private EditBox clickTimesField;
 		private Button clickSendButton;
@@ -643,10 +640,11 @@ public final class UiUtils
 			addRenderableWidget(clickButtonField);
 			
 			clickActionButton = CycleButton
-				.<ClickType> builder(action -> Component.literal(action.name()),
-					() -> ClickType.PICKUP)
-				.withValues(ClickType.values()).create(0, 0, FIELD_WIDTH, 20,
-					Component.literal("Action"), (button, value) -> {});
+				.<ContainerInput> builder(
+					action -> Component.literal(action.name()),
+					() -> ContainerInput.PICKUP)
+				.withValues(ContainerInput.values()).create(0, 0, FIELD_WIDTH,
+					20, Component.literal("Action"), (button, value) -> {});
 			addRenderableWidget(clickActionButton);
 			
 			clickDelayToggle =
@@ -694,26 +692,26 @@ public final class UiUtils
 		}
 		
 		@Override
-		public void render(GuiGraphics graphics, int mouseX, int mouseY,
-			float partialTicks)
+		public void extractRenderState(GuiGraphicsExtractor graphics,
+			int mouseX, int mouseY, float partialTicks)
 		{
-			super.render(graphics, mouseX, mouseY, partialTicks);
+			super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
 			drawFieldLabels(graphics);
-			graphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFFFF);
+			graphics.centeredText(font, title, width / 2, 20, 0xFFFFFFFF);
 			if(statusMessage != null)
-				graphics.drawCenteredString(font, statusMessage, width / 2,
+				graphics.centeredText(font, statusMessage, width / 2,
 					height - 25, statusColor);
 		}
 		
 		@Override
-		public void renderBackground(GuiGraphics graphics, int mouseX,
+		public void extractBackground(GuiGraphicsExtractor graphics, int mouseX,
 			int mouseY, float partialTicks)
 		{
-			super.renderBackground(graphics, mouseX, mouseY, partialTicks);
+			super.extractBackground(graphics, mouseX, mouseY, partialTicks);
 			drawPanel(graphics);
 		}
 		
-		private void drawFieldLabels(GuiGraphics graphics)
+		private void drawFieldLabels(GuiGraphicsExtractor graphics)
 		{
 			int labelColor = 0xFFAAAAAA;
 			if(selectedMode == PacketMode.CLICK_SLOT)
@@ -735,13 +733,13 @@ public final class UiUtils
 			}
 		}
 		
-		private void drawFieldLabel(GuiGraphics graphics, String text, int x,
-			int y, int color)
+		private void drawFieldLabel(GuiGraphicsExtractor graphics, String text,
+			int x, int y, int color)
 		{
-			graphics.drawString(font, text, x, y - LABEL_OFFSET, color, false);
+			graphics.text(font, text, x, y - LABEL_OFFSET, color);
 		}
 		
-		private void drawPanel(GuiGraphics graphics)
+		private void drawPanel(GuiGraphicsExtractor graphics)
 		{
 			int x0 = panelX - PANEL_BORDER;
 			int y0 = panelY - PANEL_BORDER;
@@ -902,7 +900,7 @@ public final class UiUtils
 				return;
 			}
 			
-			ClickType action = clickActionButton.getValue();
+			ContainerInput action = clickActionButton.getValue();
 			if(action == null)
 			{
 				showStatus(Component.literal("Invalid arguments!"),

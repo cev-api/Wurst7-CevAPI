@@ -10,7 +10,7 @@ package net.wurstclient.clickgui;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.WurstClient;
 import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.util.RenderUtils;
@@ -81,7 +81,7 @@ public final class StringDropdownPopup extends Popup
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY)
+	public void render(GuiGraphicsExtractor context, int mouseX, int mouseY)
 	{
 		if(visibleRows <= 0)
 			return;
@@ -123,8 +123,7 @@ public final class StringDropdownPopup extends Popup
 			
 			int textY = yi1 + (ROW_HEIGHT - TR.lineHeight) / 2;
 			context.guiRenderState.up();
-			context.drawString(TR, value, x1 + 2, textY, GUI.getTxtColor(),
-				false);
+			context.text(TR, value, x1 + 2, textY, GUI.getTxtColor(), false);
 			
 			drawn++;
 		}

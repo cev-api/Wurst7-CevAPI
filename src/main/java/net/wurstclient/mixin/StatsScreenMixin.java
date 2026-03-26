@@ -10,10 +10,13 @@ package net.wurstclient.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.layouts.LayoutElement;
@@ -77,6 +80,16 @@ public abstract class StatsScreenMixin extends Screen
 		
 		vLayout.addChild(hLayout);
 		return original.call(layout, vLayout);
+	}
+	
+	@Inject(
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+		at = @At("TAIL"))
+	private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.drawWurstLogoOnButton(context, wurstOptionsButton);
 	}
 	
 	@Unique

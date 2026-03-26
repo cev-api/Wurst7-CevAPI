@@ -17,7 +17,7 @@ import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -263,23 +263,23 @@ public final class EditEntityTypeListScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(minecraft.font,
+		context.centeredText(minecraft.font,
 			typeList.getName() + " (" + typeList.getTypeNames().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
-		typeNameField.render(context, mouseX, mouseY, partialTicks);
+		typeNameField.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 			
 		// Draw placeholder + decorative left icon frame using ABSOLUTE
 		// coordinates
@@ -292,7 +292,7 @@ public final class EditEntityTypeListScreen extends Screen
 		int y1 = y0 + typeNameField.getHeight();
 		
 		if(typeNameField.getValue().isEmpty() && !typeNameField.isFocused())
-			context.drawString(minecraft.font, "entity type id", x0 + 6, y0 + 6,
+			context.text(minecraft.font, "entity type id", x0 + 6, y0 + 6,
 				CommonColors.GRAY);
 		
 		int border = typeNameField.isFocused() ? CommonColors.WHITE
@@ -351,8 +351,8 @@ public final class EditEntityTypeListScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			Font tr = minecraft.font;
 			
@@ -369,10 +369,10 @@ public final class EditEntityTypeListScreen extends Screen
 				display = "\u00a7okeyword\u00a7r";
 			int x = getContentX();
 			int y = getContentY();
-			context.drawString(tr, display, x + 8, y,
+			context.text(tr, display, x + 8, y,
 				net.wurstclient.util.WurstColors.VERY_LIGHT_GRAY, false);
-			context.drawString(tr, typeName, x + 8, y + 10,
-				CommonColors.LIGHT_GRAY, false);
+			context.text(tr, typeName, x + 8, y + 10, CommonColors.LIGHT_GRAY,
+				false);
 		}
 		
 		@Override

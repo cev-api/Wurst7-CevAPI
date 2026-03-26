@@ -14,7 +14,7 @@ import java.util.Locale;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.util.Mth;
@@ -47,7 +47,7 @@ public final class ElytraInfoHud
 		this.hack = hack;
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		if(MC == null || MC.player == null || hack == null || !hack.isEnabled())
 			return;
@@ -167,8 +167,8 @@ public final class ElytraInfoHud
 		return segments;
 	}
 	
-	private void handleDrag(GuiGraphics context, float x, float y, int width,
-		int height)
+	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
+		int width, int height)
 	{
 		boolean canDrag = MC.screen instanceof ChatScreen
 			|| MC.screen instanceof AbstractContainerScreen<?>;
@@ -252,7 +252,7 @@ public final class ElytraInfoHud
 		hack.setHudOffsets(dragOffsetX, dragOffsetY);
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -262,7 +262,7 @@ public final class ElytraInfoHud
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

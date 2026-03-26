@@ -9,7 +9,7 @@ package net.wurstclient.altmanager.screens;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -44,16 +44,14 @@ public final class AltLoginFailedScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		context.drawCenteredString(font, titleText, width / 2, height / 2 - 34,
-			RED);
-		context.drawCenteredString(font, detailText, width / 2, height / 2 - 20,
-			RED);
+		context.centeredText(font, titleText, width / 2, height / 2 - 34, RED);
+		context.centeredText(font, detailText, width / 2, height / 2 - 20, RED);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

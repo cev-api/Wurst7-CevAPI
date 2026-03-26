@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -191,7 +191,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(MC.player == null)
 			return;
@@ -206,7 +206,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(text);
 		int x = centerX - textWidth / 2;
-		context.drawString(font, text, x, y, 0xFFFFFFFF, true);
+		context.text(font, text, x, y, 0xFFFFFFFF, true);
 	}
 	
 	private int getCrosshairBlockCount()

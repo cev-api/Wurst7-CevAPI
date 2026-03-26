@@ -25,7 +25,7 @@ import org.apache.logging.log4j.core.LogEvent;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.WurstClient;
@@ -57,7 +57,7 @@ public final class ConnectionLogOverlay
 		return INSTANCE;
 	}
 	
-	public void render(GuiGraphics graphics)
+	public void render(GuiGraphicsExtractor graphics)
 	{
 		if(!shouldRender())
 			return;
@@ -113,7 +113,7 @@ public final class ConnectionLogOverlay
 		int textY = y + BOX_PADDING;
 		for(FormattedCharSequence line : split)
 		{
-			graphics.drawString(font, line, textX, textY, 0xFFFFFFFF, false);
+			graphics.text(font, line, textX, textY, 0xFFFFFFFF, false);
 			textY += font.lineHeight + LINE_SPACING;
 		}
 	}

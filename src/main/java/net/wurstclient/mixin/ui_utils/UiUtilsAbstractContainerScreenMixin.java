@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -33,7 +33,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.UiUtilsHack;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.wurstclient.uiutils.UiUtils;
 import net.wurstclient.uiutils.UiUtilsState;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
@@ -80,7 +80,7 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	private EditBox overlayClickButtonField;
 	
 	@Unique
-	private CycleButton<ClickType> overlayClickActionButton;
+	private CycleButton<ContainerInput> overlayClickActionButton;
 	
 	@Unique
 	private CycleButton<Boolean> overlayClickDelayToggle;
@@ -198,8 +198,8 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void onRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -234,9 +234,10 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void wurst$renderFabricateOverlayBackground(GuiGraphics graphics,
-		int mouseX, int mouseY, float partialTicks, CallbackInfo ci)
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void wurst$renderFabricateOverlayBackground(
+		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
@@ -325,12 +326,12 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		overlayClickButtonField.setValue("0");
 		addRenderableWidget(overlayClickButtonField);
 		
-		overlayClickActionButton =
-			CycleButton
-				.<ClickType> builder(action -> Component.literal(action.name()),
-					() -> ClickType.PICKUP)
-				.withValues(ClickType.values()).create(0, 0, FIELD_WIDTH, 20,
-					Component.literal("Action"), (button, value) -> {});
+		overlayClickActionButton = CycleButton
+			.<ContainerInput> builder(
+				action -> Component.literal(action.name()),
+				() -> ContainerInput.PICKUP)
+			.withValues(ContainerInput.values()).create(0, 0, FIELD_WIDTH, 20,
+				Component.literal("Action"), (button, value) -> {});
 		addRenderableWidget(overlayClickActionButton);
 		
 		overlayClickDelayToggle =
@@ -554,7 +555,7 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	}
 	
 	@Unique
-	private void drawFabricateLabels(GuiGraphics graphics)
+	private void drawFabricateLabels(GuiGraphicsExtractor graphics)
 	{
 		if(fabricateMode == MODE_CLICK_SLOT)
 		{
@@ -570,10 +571,11 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 	}
 	
 	@Unique
-	private void drawLabel(GuiGraphics graphics, String text, EditBox field)
+	private void drawLabel(GuiGraphicsExtractor graphics, String text,
+		EditBox field)
 	{
-		graphics.drawString(font, text, field.getX(),
-			field.getY() - LABEL_OFFSET, 0xFFAAAAAA, false);
+		graphics.text(font, text, field.getX(), field.getY() - LABEL_OFFSET,
+			0xFFAAAAAA, false);
 	}
 	
 	@Inject(at = @At("HEAD"),
@@ -659,7 +661,7 @@ public abstract class UiUtilsAbstractContainerScreenMixin<T extends AbstractCont
 		if(timesToSend < 1)
 			return;
 		
-		ClickType action = overlayClickActionButton.getValue();
+		ContainerInput action = overlayClickActionButton.getValue();
 		if(action == null)
 			return;
 		

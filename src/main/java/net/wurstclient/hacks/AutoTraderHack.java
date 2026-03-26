@@ -11,7 +11,7 @@ import java.util.List;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundSelectTradePacket;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.MerchantOffer;
@@ -126,13 +126,13 @@ public final class AutoTraderHack extends Hack implements UpdateListener
 				var outputSlot = handler.slots.get(2);
 				// pickup result
 				tradeScreen.slotClicked(outputSlot, outputSlot.index, 0,
-					ClickType.PICKUP);
+					ContainerInput.PICKUP);
 				
 				// if result ended up on the cursor, quick-move it into the
 				// inventory to avoid stalling.
 				if(!handler.getCarried().isEmpty())
 					tradeScreen.slotClicked(outputSlot, outputSlot.index, 0,
-						ClickType.QUICK_MOVE);
+						ContainerInput.QUICK_MOVE);
 			}
 			
 			// set a small cooldown

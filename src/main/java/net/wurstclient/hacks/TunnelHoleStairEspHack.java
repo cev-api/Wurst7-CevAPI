@@ -478,8 +478,9 @@ public final class TunnelHoleStairEspHack extends Hack
 		// a hack toggle or area change.
 		areaChunkCache.clear();
 		int chunkRange = getChunkRange(selection);
-		for(int x = center.x - chunkRange; x <= center.x + chunkRange; x++)
-			for(int z = center.z - chunkRange; z <= center.z + chunkRange; z++)
+		for(int x = center.x() - chunkRange; x <= center.x() + chunkRange; x++)
+			for(int z = center.z() - chunkRange; z <= center.z()
+				+ chunkRange; z++)
 				if(MC.level.hasChunk(x, z))
 					areaChunkCache.add(new ChunkPos(x, z));
 				
@@ -574,10 +575,10 @@ public final class TunnelHoleStairEspHack extends Hack
 	private ChunkDetections scanChunk(ChunkPos chunkPos)
 	{
 		ChunkDetections result = new ChunkDetections();
-		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 			return result;
 		
-		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
 		if(chunk == null)
 			return result;
 		
@@ -1259,7 +1260,8 @@ public final class TunnelHoleStairEspHack extends Hack
 			.entrySet())
 		{
 			ChunkPos chunkPos = entry.getKey();
-			if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+			if(MC.level == null
+				|| !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 				continue;
 			
 			ChunkDetections detections = entry.getValue();
@@ -1304,7 +1306,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private int getChunkDistance(ChunkPos a, ChunkPos b)
 	{
-		return Math.abs(a.x - b.x) + Math.abs(a.z - b.z);
+		return Math.abs(a.x() - b.x()) + Math.abs(a.z() - b.z());
 	}
 	
 	private int getScanConfigHash()

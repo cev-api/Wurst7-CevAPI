@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.53 (MC1.21.11) - Modified by CevAPI 
+﻿# Wurst Client v7.53 (MC26.1) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
@@ -12,7 +12,9 @@
 - [1.21.1 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
 - [1.21.8 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
 - [1.21.10 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
-- [1.21.11 - Latest/Recommended (Based on 1.21.10)](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+- [1.21.11 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11)
+- [26.1 - Latest](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+
 
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 

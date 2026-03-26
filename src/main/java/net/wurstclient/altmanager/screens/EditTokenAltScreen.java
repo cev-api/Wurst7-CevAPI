@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -486,8 +486,8 @@ public final class EditTokenAltScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		if(!previewName.isBlank())
 		{
@@ -497,23 +497,23 @@ public final class EditTokenAltScreen extends Screen
 				width - (width / 2 - 100) / 2 - 64, height / 2 - 128, 128, 256);
 		}
 		
-		context.drawCenteredString(font, "Edit Token Account", width / 2, 12,
+		context.centeredText(font, "Edit Token Account", width / 2, 12,
 			CommonColors.WHITE);
-		context.drawCenteredString(font,
+		context.centeredText(font,
 			previewName.isBlank() ? "Current profile: unknown"
 				: "Current profile: " + previewName,
 			width / 2, 24, CommonColors.LIGHT_GRAY);
 		
-		context.drawString(font, "New account name", width / 2 - 100, 66,
+		context.text(font, "New account name", width / 2 - 100, 66,
 			CommonColors.LIGHT_GRAY);
-		context.drawString(font, "Skin URL (http/https)", width / 2 - 100, 114,
+		context.text(font, "Skin URL (http/https)", width / 2 - 100, 114,
 			CommonColors.LIGHT_GRAY);
-		context.drawCenteredString(font, nameChangeStatus, width / 2, 226,
+		context.centeredText(font, nameChangeStatus, width / 2, 226,
 			CommonColors.LIGHT_GRAY);
 		
 		String[] lines = message.split("\n");
 		for(int i = 0; i < lines.length; i++)
-			context.drawCenteredString(font, lines[i], width / 2, 238 + i * 10,
+			context.centeredText(font, lines[i], width / 2, 238 + i * 10,
 				CommonColors.WHITE);
 		
 		if(!previewName.isBlank() && (skinRefreshBurstsRemaining > 0
@@ -521,12 +521,12 @@ public final class EditTokenAltScreen extends Screen
 		{
 			String dots =
 				".".repeat(Math.max(1, (int)(Util.getMillis() / 350L % 3) + 1));
-			context.drawCenteredString(font, "Loading skin preview" + dots,
-				width / 2, height - 12, 0xFFFFAA);
+			context.centeredText(font, "Loading skin preview" + dots, width / 2,
+				height - 12, 0xFFFFAA);
 		}
 		
-		nameBox.render(context, mouseX, mouseY, partialTicks);
-		skinUrlBox.render(context, mouseX, mouseY, partialTicks);
+		nameBox.extractRenderState(context, mouseX, mouseY, partialTicks);
+		skinUrlBox.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		if(errorTimer > 0)
 		{
@@ -537,7 +537,7 @@ public final class EditTokenAltScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

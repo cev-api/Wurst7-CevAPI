@@ -16,7 +16,7 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -586,7 +586,7 @@ public final class LootRunnerHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!crosshairInfo.isChecked() || MC.player == null)
 			return;
@@ -600,7 +600,7 @@ public final class LootRunnerHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
-		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
+		context.text(font, info, x, y, 0xFFFFFFFF, true);
 	}
 	
 	@Override
@@ -1539,7 +1539,7 @@ public final class LootRunnerHack extends Hack
 		
 		Slot slot = slots.get(slotIdx);
 		sc.slotClicked(slot, slot.index, 0,
-			net.minecraft.world.inventory.ClickType.QUICK_MOVE);
+			net.minecraft.world.inventory.ContainerInput.QUICK_MOVE);
 	}
 	
 	private void tickCooldown()
@@ -2946,7 +2946,7 @@ public final class LootRunnerHack extends Hack
 			: BuiltInRegistries.ITEM.getKey(item).toString();
 		String localId = fullId.contains(":")
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
-		String display = item.getName().getString();
+		String display = item.getName(new ItemStack(item)).getString();
 		String stackDisplay = stack.getHoverName().getString();
 		
 		String[] terms = normalized.split(",");

@@ -349,7 +349,7 @@ public final class ChunkSearcher
 				return null;
 			
 			ChunkPos chunkPos = chunk.getPos();
-			if(!WurstClient.MC.level.hasChunk(chunkPos.x, chunkPos.z))
+			if(!WurstClient.MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 				return null;
 			
 			LevelChunkSection[] chunkSections = chunk.getSections();

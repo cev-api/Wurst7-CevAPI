@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.Color;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -479,11 +479,9 @@ public final class WaypointsHack extends Hack
 							sendingOwnChat = true;
 							try
 							{
-								MC.player.displayClientMessage(
-									Component.literal(
-										name + " died at " + at.getX() + ", "
-											+ at.getY() + ", " + at.getZ()),
-									false);
+								MC.player.sendSystemMessage(Component
+									.literal(name + " died at " + at.getX()
+										+ ", " + at.getY() + ", " + at.getZ()));
 							}finally
 							{
 								sendingOwnChat = false;
@@ -803,9 +801,11 @@ public final class WaypointsHack extends Hack
 				RenderUtils.drawTracer(matrices, partialTicks,
 					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
 					applyFade(w.getColor(), distSq), false);
-				RenderUtils.drawOutlinedBoxes(matrices,
-					java.util.List.of(new AABB(wp)),
-					applyFade(w.getColor(), distSq), false);
+				RenderUtils
+					.drawOutlinedBoxes(matrices,
+						java.util.List.of(new RenderUtils.ColoredBox(
+							new AABB(wp), applyFade(w.getColor(), distSq))),
+						false);
 			}
 			
 			if(!beyondMaxVisible)
@@ -950,8 +950,8 @@ public final class WaypointsHack extends Hack
 			sendingOwnChat = true;
 			try
 			{
-				MC.player.displayClientMessage(Component.literal("Died at "
-					+ at.getX() + ", " + at.getY() + ", " + at.getZ()), false);
+				MC.player.sendSystemMessage(Component.literal("Died at "
+					+ at.getX() + ", " + at.getY() + ", " + at.getZ()));
 			}finally
 			{
 				sendingOwnChat = false;
@@ -1255,9 +1255,10 @@ public final class WaypointsHack extends Hack
 		if(safeMode == Waypoint.BeaconMode.ESP)
 		{
 			RenderUtils.drawOutlinedBoxes(matrices,
-				java.util.List.of(
-					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
-				withAlpha(rgb, Math.max(alpha, 120)), false);
+				java.util.List.of(new RenderUtils.ColoredBox(
+					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1),
+					withAlpha(rgb, Math.max(alpha, 120)))),
+				false);
 		}
 	}
 	
@@ -1273,16 +1274,16 @@ public final class WaypointsHack extends Hack
 	}
 	
 	// Draw text with a simple outline (stroke) for legibility
-	private void drawOutlinedString(GuiGraphics context, Font font, String s,
-		int x, int y, int color, int stroke)
+	private void drawOutlinedString(GuiGraphicsExtractor context, Font font,
+		String s, int x, int y, int color, int stroke)
 	{
 		// 4-way outline
-		context.drawString(font, s, x - 1, y, stroke, false);
-		context.drawString(font, s, x + 1, y, stroke, false);
-		context.drawString(font, s, x, y - 1, stroke, false);
-		context.drawString(font, s, x, y + 1, stroke, false);
+		context.text(font, s, x - 1, y, stroke);
+		context.text(font, s, x + 1, y, stroke);
+		context.text(font, s, x, y - 1, stroke);
+		context.text(font, s, x, y + 1, stroke);
 		// main
-		context.drawString(font, s, x, y, color, false);
+		context.text(font, s, x, y, color);
 	}
 	
 	private Waypoint.BeaconMode waypointBeaconMode(Waypoint waypoint)
@@ -1358,7 +1359,7 @@ public final class WaypointsHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!compassMode.isChecked() || MC.player == null || MC.level == null)
 			return;
@@ -1397,7 +1398,7 @@ public final class WaypointsHack extends Hack
 			int cw = tr.width(coords);
 			int cx = centerX - cw / 2;
 			int cy = Math.max(2, barY - 13); // was 12, now 13
-			context.drawString(tr, coords, cx, cy, 0xFFFFFFFF, false);
+			context.text(tr, coords, cx, cy, 0xFFFFFFFF);
 		}
 		
 		var list = new ArrayList<>(manager.all());
@@ -1495,8 +1496,7 @@ public final class WaypointsHack extends Hack
 					color, strokeColor);
 			}else
 			{
-				context.drawString(tr, icon, ix - iconW / 2, iconY, color,
-					false);
+				context.text(tr, icon, ix - iconW / 2, iconY, color);
 			}
 		}
 		
@@ -1540,14 +1540,14 @@ public final class WaypointsHack extends Hack
 					textColor, strokeColor);
 			}else
 			{
-				context.drawString(tr, title, titleX, titleY, textColor, false);
-				context.drawString(tr, distText, distX, distY, textColor,
-					false);
+				context.text(tr, title, titleX, titleY, textColor);
+				context.text(tr, distText, distX, distY, textColor);
 			}
 		}
 	}
 	
-	private int adjustCompassYForOverlays(GuiGraphics context, int baseY)
+	private int adjustCompassYForOverlays(GuiGraphicsExtractor context,
+		int baseY)
 	{
 		int adjusted = baseY;
 		int bossBarBottom = getBossBarBottom(context);
@@ -1559,7 +1559,7 @@ public final class WaypointsHack extends Hack
 		return adjusted;
 	}
 	
-	private int getBossBarBottom(GuiGraphics context)
+	private int getBossBarBottom(GuiGraphicsExtractor context)
 	{
 		if(MC.gui == null)
 			return 0;

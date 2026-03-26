@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -139,20 +139,22 @@ public final class NavigatorListScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xC0101010, 0xD0101010);
-		context.drawCenteredString(minecraft.font, title.getString(), width / 2,
-			15, CommonColors.WHITE);
+		context.centeredText(minecraft.font, title.getString(), width / 2, 15,
+			CommonColors.WHITE);
 		
 		renderList(context, mouseX, mouseY);
 		
 		for(Renderable renderable : renderables)
-			renderable.render(context, mouseX, mouseY, partialTicks);
+			renderable.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
 	}
 	
-	private void renderList(GuiGraphics context, int mouseX, int mouseY)
+	private void renderList(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		context.fill(listLeft - 2, listTop - 2, listRight + 2, listBottom + 2,
 			0xFF000000);
@@ -171,7 +173,7 @@ public final class NavigatorListScreen extends Screen
 				continue;
 			
 			String name = entries.get(i);
-			context.drawString(minecraft.font, name, listLeft + 6, rowY + 4,
+			context.text(minecraft.font, name, listLeft + 6, rowY + 4,
 				CommonColors.WHITE);
 			
 			int connectX1 = listRight - CONNECT_WIDTH - 6;
@@ -184,7 +186,7 @@ public final class NavigatorListScreen extends Screen
 				connectHover ? CommonColors.LIGHT_GRAY : CommonColors.DARK_GRAY;
 			context.fill(connectX1, connectY1, connectX2, connectY2,
 				connectColor);
-			context.drawCenteredString(minecraft.font, "Connect",
+			context.centeredText(minecraft.font, "Connect",
 				connectX1 + CONNECT_WIDTH / 2, connectY1 + 4,
 				CommonColors.WHITE);
 			
@@ -198,7 +200,7 @@ public final class NavigatorListScreen extends Screen
 				commandHover ? CommonColors.LIGHT_GRAY : CommonColors.DARK_GRAY;
 			context.fill(commandX1, commandY1, commandX2, commandY2,
 				commandColor);
-			context.drawCenteredString(minecraft.font, "Command",
+			context.centeredText(minecraft.font, "Command",
 				commandX1 + COMMAND_WIDTH / 2, commandY1 + 4,
 				CommonColors.WHITE);
 		}

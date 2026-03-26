@@ -1112,10 +1112,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void scanChunk(ChunkPos chunkPos)
 	{
-		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 			return;
 		
-		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
 		if(chunk == null)
 			return;
 		
@@ -1163,13 +1163,13 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		if(withoutBlockEntity > 0)
 			flagAntiEsp("missing-be",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ withoutBlockEntity
 					+ " container blocks without block entities");
 		
 		if(containerBlocks >= 8 && withBlockEntity == 0)
 			flagAntiEsp("chunk-te-mismatch",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ containerBlocks
 					+ " container blocks but 0 block entities");
 	}
@@ -1309,7 +1309,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private static long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
+		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
 	}
 	
 	private static String formatPos(BlockPos pos)

@@ -20,7 +20,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.BlockItem;
@@ -399,8 +399,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSlot, 0, ClickType.QUICK_MOVE, player);
+			MC.gameMode.handleContainerInput(handler.containerId, handlerSlot,
+				0, ContainerInput.QUICK_MOVE, player);
 			safeSleep(70);
 			
 			ItemStack after = inv.getItem(slot);
@@ -463,8 +463,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSlot, 0, ClickType.QUICK_MOVE, player);
+			MC.gameMode.handleContainerInput(handler.containerId, handlerSlot,
+				0, ContainerInput.QUICK_MOVE, player);
 			safeSleep(70);
 			
 			ItemStack after = inv.getItem(slot);
@@ -547,8 +547,8 @@ public final class QuickShulkerHack extends Hack
 			if(useWl && !whitelistSet.isEmpty() && !whitelistSet.contains(id))
 				continue;
 			
-			MC.gameMode.handleInventoryMouseClick(handler.containerId, i, 0,
-				ClickType.QUICK_MOVE, player);
+			MC.gameMode.handleContainerInput(handler.containerId, i, 0,
+				ContainerInput.QUICK_MOVE, player);
 			safeSleep(70);
 		}
 	}
@@ -845,7 +845,7 @@ public final class QuickShulkerHack extends Hack
 			return false;
 		
 		int occupied = 0;
-		for(ItemStack stack : container.nonEmptyItems())
+		for(ItemStack stack : container.nonEmptyItemCopyStream().toList())
 		{
 			if(stack.isEmpty())
 				continue;

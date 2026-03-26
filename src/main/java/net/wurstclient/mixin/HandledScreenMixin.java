@@ -13,10 +13,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.WurstClient;
@@ -30,12 +30,12 @@ public abstract class HandledScreenMixin
 	public abstract net.minecraft.world.inventory.AbstractContainerMenu getMenu();
 	
 	@Inject(at = @At("HEAD"),
-		method = "slotClicked(Lnet/minecraft/world/inventory/Slot;IILnet/minecraft/world/inventory/ClickType;)V",
+		method = "slotClicked(Lnet/minecraft/world/inventory/Slot;IILnet/minecraft/world/inventory/ContainerInput;)V",
 		cancellable = true)
 	private void onMouseClick(Slot slot, int slotId, int button,
-		ClickType actionType, CallbackInfo ci)
+		ContainerInput actionType, CallbackInfo ci)
 	{
-		if(actionType != ClickType.THROW && slotId != -999)
+		if(actionType != ContainerInput.THROW && slotId != -999)
 			return;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -117,8 +117,8 @@ public abstract class HandledScreenMixin
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void wurst$renderOverlay(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())

@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import com.mojang.blaze3d.platform.Window;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
@@ -31,7 +31,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -186,7 +186,7 @@ public final class EnchantmentHandlerHack extends Hack
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
-		GuiGraphics context, float partialTicks)
+		GuiGraphicsExtractor context, float partialTicks)
 	{
 		lastRenderActive = false;
 		
@@ -371,7 +371,7 @@ public final class EnchantmentHandlerHack extends Hack
 		customPosition = true;
 	}
 	
-	private void renderOverlay(GuiGraphics context)
+	private void renderOverlay(GuiGraphicsExtractor context)
 	{
 		hitboxes.clear();
 		
@@ -456,10 +456,11 @@ public final class EnchantmentHandlerHack extends Hack
 		context.disableScissor();
 	}
 	
-	private double renderGearSection(GuiGraphics context, Font tr, float scale,
-		int titleX, double cursorY, double offset, double textAreaWidth,
-		double hoverSpeed, double scaledMouseX, double scaledMouseY,
-		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
+	private double renderGearSection(GuiGraphicsExtractor context, Font tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
 	{
 		boolean hasEntries = GearCategory.ORDERED.stream().anyMatch(
 			cat -> !gearGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -492,7 +493,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderSourceSection(GuiGraphics context, Font tr,
+	private double renderSourceSection(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -565,10 +566,11 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderBookSection(GuiGraphics context, Font tr, float scale,
-		int titleX, double cursorY, double offset, double textAreaWidth,
-		double hoverSpeed, double scaledMouseX, double scaledMouseY,
-		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
+	private double renderBookSection(GuiGraphicsExtractor context, Font tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
 	{
 		boolean hasEntries = BookCategory.ORDERED.stream().anyMatch(
 			cat -> !bookGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -601,7 +603,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderPotionSection(GuiGraphics context, Font tr,
+	private double renderPotionSection(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -638,7 +640,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderCategoryEntries(GuiGraphics context, Font tr,
+	private double renderCategoryEntries(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -807,7 +809,8 @@ public final class EnchantmentHandlerHack extends Hack
 				if(container != null)
 				{
 					int parentSlotNumber = slot.getContainerSlot() + 1;
-					for(ItemStack inner : container.nonEmptyItems())
+					for(ItemStack inner : container.nonEmptyItemCopyStream()
+						.toList())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
@@ -997,7 +1000,8 @@ public final class EnchantmentHandlerHack extends Hack
 				if(container != null)
 				{
 					int parentSlotNumber = slot.getContainerSlot() + 1;
-					for(ItemStack inner : container.nonEmptyItems())
+					for(ItemStack inner : container.nonEmptyItemCopyStream()
+						.toList())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
@@ -1435,8 +1439,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1452,8 +1456,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1469,8 +1473,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1504,8 +1508,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(slot == null || !slot.hasItem())
 				continue;
 			
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1540,8 +1544,8 @@ public final class EnchantmentHandlerHack extends Hack
 			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasItem())
 				continue;
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1576,8 +1580,8 @@ public final class EnchantmentHandlerHack extends Hack
 			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasItem())
 				continue;
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1607,29 +1611,29 @@ public final class EnchantmentHandlerHack extends Hack
 		return Math.max(0, contentBottom - contentTop);
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.xpos() * context.guiWidth()
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.ypos() * context.guiHeight()
 			/ window.getScreenHeight();
 	}
 	
-	private static void drawScaledText(GuiGraphics context, Font tr,
+	private static void drawScaledText(GuiGraphicsExtractor context, Font tr,
 		String text, float x, float y, int color, float scale)
 	{
 		RenderUtils.drawScaledText(context, tr, text, Math.round(x),
 			Math.round(y), color, false, scale);
 	}
 	
-	private void drawSectionHeader(GuiGraphics context, Font tr, int x, int y,
-		String text, float scale)
+	private void drawSectionHeader(GuiGraphicsExtractor context, Font tr, int x,
+		int y, String text, float scale)
 	{
 		int textWidth = Math.max(1, Math.round(tr.width(text) * scale));
 		int textHeight = Math.max(1, Math.round(tr.lineHeight * scale));

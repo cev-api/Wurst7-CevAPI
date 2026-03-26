@@ -347,7 +347,7 @@ public final class NewerNewChunksHack extends Hack
 		if(!isEnabled() || MC.level == null)
 			return;
 		
-		ChunkPos chunkPos = new ChunkPos(pos);
+		ChunkPos chunkPos = ChunkPos.containing(pos);
 		if(blockUpdateExploit.isChecked() && !containsAny(chunkPos))
 			markTickExploit(chunkPos);
 		

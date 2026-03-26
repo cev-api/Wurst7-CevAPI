@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -944,7 +944,7 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!crosshairInfo.isChecked() || MC.player == null)
 			return;
@@ -958,7 +958,7 @@ public final class AutoFlyHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
-		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
+		context.text(font, info, x, y, 0xFFFFFFFF, true);
 	}
 	
 	@Override

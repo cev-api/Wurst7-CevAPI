@@ -499,7 +499,7 @@ public final class PacketToolsOtf extends OtherFeature
 			MC.execute(() -> {
 				MutableComponent msg = Component.literal("[PacketTools] ")
 					.withColor(0x55FFFF).append(Component.literal(line));
-				MC.gui.getChat().addMessage(msg);
+				MC.gui.getChat().addClientSystemMessage(msg);
 			});
 		}
 	}

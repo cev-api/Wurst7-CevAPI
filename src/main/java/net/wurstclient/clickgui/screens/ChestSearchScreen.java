@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -254,7 +254,6 @@ public final class ChestSearchScreen extends Screen
 		searchField.setEditable(true);
 		addRenderableWidget(searchField);
 		searchField.setResponder(this::onSearchChanged);
-		searchField.setFilter(s -> true);
 		searchField.setMaxLength(100);
 		searchField.setMessage(
 			Component.literal("Type item name or id, e.g. minecraft:stone"));
@@ -1016,11 +1015,12 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		context.drawCenteredString(this.font,
-			Component.literal(this.screenTitle), this.width / 2, 4, 0xFFFFFFFF);
+		context.centeredText(this.font, Component.literal(this.screenTitle),
+			this.width / 2, 4, 0xFFFFFFFF);
 		int mid = this.width / 2;
 		int sfX = mid - 150;
 		int sfY = 18;
@@ -1233,7 +1233,7 @@ public final class ChestSearchScreen extends Screen
 									.getValue(id);
 							net.minecraft.world.item.ItemStack stack =
 								new net.minecraft.world.item.ItemStack(item, 1);
-							context.renderItem(stack, x + 2, lineY - 2);
+							context.item(stack, x + 2, lineY - 2);
 						}
 					}catch(Throwable ignored)
 					{}
@@ -1381,14 +1381,14 @@ public final class ChestSearchScreen extends Screen
 			// ignore scissor underflow if scissor wasn't enabled
 		}
 		// now draw children (buttons etc.) on top
-		super.render(context, mouseX, mouseY, delta);
+		super.extractRenderState(context, mouseX, mouseY, delta);
 		int summaryHalf = summaryWidth / 2;
 		int summaryCenter = this.width / 2;
 		int summaryLeft = Math.max(0, summaryCenter - summaryHalf);
 		int summaryRight = Math.min(this.width, summaryCenter + summaryHalf);
 		context.fill(summaryLeft, summaryY - 2, summaryRight, summaryY + 18,
 			0xFF222222);
-		context.drawCenteredString(this.font, Component.literal(summary),
+		context.centeredText(this.font, Component.literal(summary),
 			this.width / 2, summaryY + 2, 0xFFCCCCCC);
 		
 		if(shown == 0)
@@ -1399,7 +1399,7 @@ public final class ChestSearchScreen extends Screen
 						+ totalChestsLogged + " chests with " + totalItemsLogged
 						+ " items." + " Matching items: 0."
 					: "No chests recorded yet.";
-			context.drawCenteredString(this.font, Component.literal(msg),
+			context.centeredText(this.font, Component.literal(msg),
 				this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
 	}

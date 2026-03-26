@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.Minecraft;
@@ -207,18 +207,17 @@ public class ItemHandlerScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		// Render list first so it appears behind buttons
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(font, "Item Handler", width / 2, 12,
-			0xFFFFFFFF);
+		context.centeredText(font, "Item Handler", width / 2, 12, 0xFFFFFFFF);
 		
 		// Render children/widgets (buttons, etc.) like other screens
 		for(net.minecraft.client.gui.components.Renderable r : renderables)
-			r.render(context, mouseX, mouseY, partialTicks);
+			r.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		// Tooltip for pick button when inactive
 		if(pickButton.isHoveredOrFocused() && !pickButton.active)
@@ -446,7 +445,7 @@ public class ItemHandlerScreen extends Screen
 			}
 			
 			@Override
-			public void renderContent(GuiGraphics context, int mouseX,
+			public void extractContent(GuiGraphicsExtractor context, int mouseX,
 				int mouseY, boolean hovered, float tickDelta)
 			{
 				int x = getContentX();
@@ -454,8 +453,8 @@ public class ItemHandlerScreen extends Screen
 				RenderUtils.drawItem(context, group.rep, x + 1, y + 1, true);
 				
 				Font tr = minecraft.font;
-				context.drawString(tr, group.displayName, x + 36, y + 2,
-					0xFFFFFFFF, false);
+				context.text(tr, group.displayName, x + 36, y + 2, 0xFFFFFFFF,
+					false);
 				// Optional subtitle line: enchantments or registry ID.
 				String subtitle = "";
 				if(hack.isShowEnchantmentsInNames())
@@ -470,7 +469,7 @@ public class ItemHandlerScreen extends Screen
 								.getKey(group.rep.getItem()).toString();
 				}
 				if(!subtitle.isBlank())
-					context.drawString(tr, subtitle, x + 36, y + 12, 0xFF909090,
+					context.text(tr, subtitle, x + 36, y + 12, 0xFF909090,
 						false);
 				
 				// Right-aligned integer distance (slightly smaller)
@@ -488,9 +487,8 @@ public class ItemHandlerScreen extends Screen
 				int textX = iconX + 24 - cW + 2; // ~3px further right vs
 													// previous
 				int textY = iconY + 24 - 4; // ~3px further down vs previous
-				context.drawString(tr, cnt, textX + 1, textY + 1, 0xFF000000,
-					false);
-				context.drawString(tr, cnt, textX, textY, 0xFFFFFFFF, false);
+				context.text(tr, cnt, textX + 1, textY + 1, 0xFF000000, false);
+				context.text(tr, cnt, textX, textY, 0xFFFFFFFF, false);
 				
 				// Traced indicator: thicker rainbow border and label
 				if(hack.isTraced(group.traceId))
@@ -501,7 +499,7 @@ public class ItemHandlerScreen extends Screen
 						iconX + 25, iconY + 25, col);
 					RenderUtils.drawBorder2D(context, iconX, iconY, iconX + 24,
 						iconY + 24, col);
-					context.drawString(tr, "TRACED", x + 36, y + 22, 0xFF55FF55,
+					context.text(tr, "TRACED", x + 36, y + 22, 0xFF55FF55,
 						false);
 				}
 			}

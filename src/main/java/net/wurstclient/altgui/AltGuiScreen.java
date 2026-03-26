@@ -19,7 +19,7 @@ import java.util.TreeMap;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -505,8 +505,8 @@ public final class AltGuiScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		hoverTooltip = "";
 		syncFontManager();
@@ -532,7 +532,7 @@ public final class AltGuiScreen extends Screen
 		renderTooltip(context);
 	}
 	
-	private void renderSearchBoxText(GuiGraphics context)
+	private void renderSearchBoxText(GuiGraphicsExtractor context)
 	{
 		if(searchBox == null)
 			return;
@@ -569,7 +569,7 @@ public final class AltGuiScreen extends Screen
 		}
 	}
 	
-	private void renderHeader(GuiGraphics context)
+	private void renderHeader(GuiGraphicsExtractor context)
 	{
 		Font font = minecraft.font;
 		int accent = cfg().getAccentColor();
@@ -597,7 +597,7 @@ public final class AltGuiScreen extends Screen
 		}
 	}
 	
-	private void renderTooltip(GuiGraphics context)
+	private void renderTooltip(GuiGraphicsExtractor context)
 	{
 		if(hoverTooltip == null || hoverTooltip.isBlank())
 			return;
@@ -612,7 +612,8 @@ public final class AltGuiScreen extends Screen
 			cfg().getMutedTextColor(), false);
 	}
 	
-	private void renderCategories(GuiGraphics context, int mouseX, int mouseY)
+	private void renderCategories(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		if(isTopTabsLayout())
 		{
@@ -623,8 +624,8 @@ public final class AltGuiScreen extends Screen
 		renderSidebarCategories(context, mouseX, mouseY);
 	}
 	
-	private void renderSidebarCategories(GuiGraphics context, int mouseX,
-		int mouseY)
+	private void renderSidebarCategories(GuiGraphicsExtractor context,
+		int mouseX, int mouseY)
 	{
 		Font font = minecraft.font;
 		int rowH = getCategoryRowHeight();
@@ -698,8 +699,8 @@ public final class AltGuiScreen extends Screen
 			renderCategoryScrollbar(context, areaX1, areaY1, areaX2, areaY2);
 	}
 	
-	private void renderTopTabCategories(GuiGraphics context, int mouseX,
-		int mouseY)
+	private void renderTopTabCategories(GuiGraphicsExtractor context,
+		int mouseX, int mouseY)
 	{
 		Font font = minecraft.font;
 		int areaY1 = getCategoryAreaY1();
@@ -826,7 +827,7 @@ public final class AltGuiScreen extends Screen
 		return tabs;
 	}
 	
-	private void drawTopCategoryTab(GuiGraphics context, Font font,
+	private void drawTopCategoryTab(GuiGraphicsExtractor context, Font font,
 		String label, boolean selected, boolean hovered, int x1, int y1, int x2,
 		int y2, int accentFill, int accentHover)
 	{
@@ -844,8 +845,8 @@ public final class AltGuiScreen extends Screen
 				withAlpha(cfg().getAccentColor(), 0.95F));
 	}
 	
-	private void renderCategoryScrollbar(GuiGraphics context, int areaX1,
-		int areaY1, int areaX2, int areaY2)
+	private void renderCategoryScrollbar(GuiGraphicsExtractor context,
+		int areaX1, int areaY1, int areaX2, int areaY2)
 	{
 		int trackX2 = areaX2 - 1;
 		int trackX1 = trackX2 - 2;
@@ -869,7 +870,8 @@ public final class AltGuiScreen extends Screen
 		context.fill(trackX1, knobY1, trackX2, knobY2, knobColor);
 	}
 	
-	private void renderModules(GuiGraphics context, int mouseX, int mouseY)
+	private void renderModules(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		Font font = minecraft.font;
 		int contentY = moduleY - moduleScroll;
@@ -1011,7 +1013,7 @@ public final class AltGuiScreen extends Screen
 			renderScrollbar(context);
 	}
 	
-	private void renderScrollbar(GuiGraphics context)
+	private void renderScrollbar(GuiGraphicsExtractor context)
 	{
 		int x1 = moduleX + moduleW - 11;
 		int x2 = x1 + 3;
@@ -1026,8 +1028,8 @@ public final class AltGuiScreen extends Screen
 		context.fill(x1, knobY, x2, knobY + knobH, cfg().getAccentColor());
 	}
 	
-	private void renderSettingRow(GuiGraphics context, Font font, int mouseX,
-		int mouseY, SettingRow row, int y1, int y2)
+	private void renderSettingRow(GuiGraphicsExtractor context, Font font,
+		int mouseX, int mouseY, SettingRow row, int y1, int y2)
 	{
 		if(row.isKeybindRow())
 		{
@@ -1187,8 +1189,8 @@ public final class AltGuiScreen extends Screen
 		}
 	}
 	
-	private void renderSliderPreview(GuiGraphics context, SliderSetting slider,
-		int y1, int y2, int fillColor, int bx1, int bx2)
+	private void renderSliderPreview(GuiGraphicsExtractor context,
+		SliderSetting slider, int y1, int y2, int fillColor, int bx1, int bx2)
 	{
 		int by1 = y1 + 6;
 		int by2 = y2 - 6;
@@ -1199,7 +1201,7 @@ public final class AltGuiScreen extends Screen
 		context.fill(bx1, by1, bx1 + fill, by2, fillColor);
 	}
 	
-	private void renderUiSettingsPanel(GuiGraphics context, int mouseX,
+	private void renderUiSettingsPanel(GuiGraphicsExtractor context, int mouseX,
 		int mouseY)
 	{
 		Font font = minecraft.font;
@@ -1275,8 +1277,8 @@ public final class AltGuiScreen extends Screen
 		
 	}
 	
-	private int renderUiSlider(GuiGraphics context, Font font, String label,
-		SliderSetting slider, int y, int mouseX, int mouseY)
+	private int renderUiSlider(GuiGraphicsExtractor context, Font font,
+		String label, SliderSetting slider, int y, int mouseX, int mouseY)
 	{
 		int rowH = Math.max(getMinimumReadableUiRowHeight(),
 			scaleRightSettingHeight(14));
@@ -1300,8 +1302,8 @@ public final class AltGuiScreen extends Screen
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
-	private int renderUiToggle(GuiGraphics context, Font font, String label,
-		CheckboxSetting setting, int y, int mouseX, int mouseY)
+	private int renderUiToggle(GuiGraphicsExtractor context, Font font,
+		String label, CheckboxSetting setting, int y, int mouseX, int mouseY)
 	{
 		int rowH = Math.max(getMinimumReadableUiRowHeight(),
 			scaleRightSettingHeight(14));
@@ -1327,8 +1329,8 @@ public final class AltGuiScreen extends Screen
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
-	private int renderUiEnum(GuiGraphics context, Font font, String label,
-		EnumSetting<?> setting, int y, int mouseX, int mouseY)
+	private int renderUiEnum(GuiGraphicsExtractor context, Font font,
+		String label, EnumSetting<?> setting, int y, int mouseX, int mouseY)
 	{
 		int rowH = Math.max(getMinimumReadableUiRowHeight(),
 			scaleRightSettingHeight(14));
@@ -1354,8 +1356,8 @@ public final class AltGuiScreen extends Screen
 		return y + rowH + scaleRightSettingHeight(2);
 	}
 	
-	private int renderUiColor(GuiGraphics context, Font font, String label,
-		ColorSetting color, int y, int mouseX, int mouseY)
+	private int renderUiColor(GuiGraphicsExtractor context, Font font,
+		String label, ColorSetting color, int y, int mouseX, int mouseY)
 	{
 		int rowH = Math.max(getMinimumReadableUiRowHeight(),
 			scaleRightSettingHeight(13));
@@ -2713,8 +2715,8 @@ public final class AltGuiScreen extends Screen
 		return luminance > 0.55 ? 0xFF000000 : 0xFFFFFFFF;
 	}
 	
-	private void drawRectBorder(GuiGraphics context, int x1, int y1, int x2,
-		int y2, int color)
+	private void drawRectBorder(GuiGraphicsExtractor context, int x1, int y1,
+		int x2, int y2, int color)
 	{
 		context.fill(x1, y1, x2, y1 + 1, color);
 		context.fill(x1, y2 - 1, x2, y2, color);
@@ -2745,8 +2747,8 @@ public final class AltGuiScreen extends Screen
 		return Math.min(4, maxPad);
 	}
 	
-	private void drawStringScaled(GuiGraphics context, Font font, String text,
-		int x, int y, int color, boolean shadow)
+	private void drawStringScaled(GuiGraphicsExtractor context, Font font,
+		String text, int x, int y, int color, boolean shadow)
 	{
 		float scale = Math.max(0.01F, cfg().getFontScale());
 		fontManager.drawString(context, font, text, x, y, color, shadow, scale);
@@ -2780,15 +2782,15 @@ public final class AltGuiScreen extends Screen
 		}
 	}
 	
-	private void drawCenteredStringScaled(GuiGraphics context, Font font,
-		String text, int centerX, int y, int color)
+	private void drawCenteredStringScaled(GuiGraphicsExtractor context,
+		Font font, String text, int centerX, int y, int color)
 	{
 		int x = centerX - scaledFontWidth(font, text) / 2;
 		drawStringScaled(context, font, text, x, y, color, false);
 	}
 	
-	private void drawCenteredStringScaledInBox(GuiGraphics context, Font font,
-		String text, int x1, int y1, int x2, int y2, int color)
+	private void drawCenteredStringScaledInBox(GuiGraphicsExtractor context,
+		Font font, String text, int x1, int y1, int x2, int y2, int color)
 	{
 		float textW = scaledFontWidth(font, text);
 		float textH = Math.max(1, scaledFontHeight(font));
@@ -2799,8 +2801,9 @@ public final class AltGuiScreen extends Screen
 		drawStringScaled(context, font, text, x, y, color, false);
 	}
 	
-	private void drawMarqueeStringScaledInBox(GuiGraphics context, Font font,
-		String text, int x1, int y1, int x2, int y2, int color, int padX)
+	private void drawMarqueeStringScaledInBox(GuiGraphicsExtractor context,
+		Font font, String text, int x1, int y1, int x2, int y2, int color,
+		int padX)
 	{
 		if(text == null || text.isEmpty())
 			return;
@@ -2837,8 +2840,8 @@ public final class AltGuiScreen extends Screen
 	}
 	
 	@Override
-	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
-		float deltaTicks)
+	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float deltaTicks)
 	{
 		// custom background above
 	}

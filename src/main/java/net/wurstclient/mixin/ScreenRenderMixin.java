@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
@@ -42,8 +42,8 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void renderLoginOverlay(GuiGraphics graphics, int mouseX,
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void renderLoginOverlay(GuiGraphicsExtractor graphics, int mouseX,
 		int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(net.wurstclient.WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -85,7 +85,7 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 		int textY = overlay.getOverlayY() + 10;
 		for(FormattedCharSequence line : overlay.getOverlayLines())
 		{
-			graphics.drawString(font, line, overlay.getOverlayX() + 10, textY,
+			graphics.text(font, line, overlay.getOverlayX() + 10, textY,
 				0xFFFFFFFF, false);
 			textY += font.lineHeight + 2;
 		}

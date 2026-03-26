@@ -268,7 +268,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastActiveMode = activeMode.getSelected();
 		activeRenderPositions.clear();
@@ -305,7 +305,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;

@@ -11,8 +11,9 @@ import java.io.IOException;
 import java.util.List;
 
 import com.google.gson.JsonObject;
-import net.minecraft.client.GuiMessage;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.json.JsonException;

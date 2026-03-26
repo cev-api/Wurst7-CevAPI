@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
@@ -114,8 +114,8 @@ public final class DualPacketListWidget
 		selectionChanged.accept(getSelection());
 	}
 	
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		int listWidth = (width - GAP) / 2;
 		int listY = y + HEADER_HEIGHT;
@@ -130,7 +130,7 @@ public final class DualPacketListWidget
 		context.fill(x, y, x + 1, y + height, 0xFF3A3A3A);
 		context.fill(x + width - 1, y, x + width, y + height, 0xFF3A3A3A);
 		
-		context.drawString(font, title, x + PADDING, y + 3, 0xFFFFFFFF, false);
+		context.text(font, title, x + PADDING, y + 3, 0xFFFFFFFF, false);
 		
 		renderList(context, leftX, listY, panelListWidth, listHeight,
 			"Available", filteredAvailable, leftScroll, mouseX, mouseY, true);
@@ -139,9 +139,9 @@ public final class DualPacketListWidget
 			rightScroll, mouseX, mouseY, false);
 	}
 	
-	private void renderList(GuiGraphics context, int px, int py, int pw, int ph,
-		String label, List<String> entries, int scroll, int mouseX, int mouseY,
-		boolean isAvailable)
+	private void renderList(GuiGraphicsExtractor context, int px, int py,
+		int pw, int ph, String label, List<String> entries, int scroll,
+		int mouseX, int mouseY, boolean isAvailable)
 	{
 		context.fill(px, py, px + pw, py + ph, 0xFF1A1A1A);
 		context.fill(px, py, px + pw, py + 1, 0xFF4A4A4A);
@@ -149,7 +149,7 @@ public final class DualPacketListWidget
 		context.fill(px, py, px + 1, py + ph, 0xFF4A4A4A);
 		context.fill(px + pw - 1, py, px + pw, py + ph, 0xFF4A4A4A);
 		
-		context.drawString(font, label, px + 2, py - 10, 0xFFAAAAAA, false);
+		context.text(font, label, px + 2, py - 10, 0xFFAAAAAA, false);
 		
 		int contentHeight = Math.max(0, ph - SEARCH_TO_LIST_GAP);
 		int visible = Math.max(1, contentHeight / ITEM_HEIGHT);
@@ -168,12 +168,12 @@ public final class DualPacketListWidget
 					isAvailable ? 0xFF2A4A2A : 0xFF4A2A2A);
 			
 			int iconColor = isAvailable ? 0xFF55FF55 : 0xFFFF5555;
-			context.drawString(font, isAvailable ? "+" : "-", px + 4,
+			context.text(font, isAvailable ? "+" : "-", px + 4,
 				iy + (ITEM_HEIGHT - 9) / 2, iconColor, false);
 			
 			String clipped = trimToWidth(packet, pw - 18);
-			context.drawString(font, clipped, px + 14,
-				iy + (ITEM_HEIGHT - 9) / 2, 0xFFDDDDDD, false);
+			context.text(font, clipped, px + 14, iy + (ITEM_HEIGHT - 9) / 2,
+				0xFFDDDDDD, false);
 		}
 		
 		if(entries.size() > visible && visible > 0)

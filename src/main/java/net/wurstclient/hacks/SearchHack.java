@@ -276,7 +276,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		currentBuildGeneration = 0;
 		bufferUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMode = mode.getSelected();
 		lastListHash = blockList.getBlockNames().hashCode();
 		lastNeedsVertexBuffer = needsVertexBuffer();
@@ -372,7 +372,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 		
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -1230,10 +1230,10 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void scanChunkForContainers(ChunkPos chunkPos)
 	{
-		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 			return;
 		
-		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
 		if(chunk == null)
 			return;
 		
@@ -1281,13 +1281,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(withoutBlockEntity > 0)
 			flagAntiEsp("missing-be",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ withoutBlockEntity
 					+ " container blocks without block entities");
 		
 		if(containerBlocks >= 8 && withBlockEntity == 0)
 			flagAntiEsp("chunk-te-mismatch",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ containerBlocks
 					+ " container blocks but 0 block entities");
 	}
@@ -1407,7 +1407,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private static long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
+		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
 	}
 	
 	private boolean isTrackedBlock(Block candidate)

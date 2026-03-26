@@ -8,7 +8,7 @@
 package net.wurstclient.clickgui.components;
 
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.util.RenderUtils;
@@ -37,8 +37,8 @@ public final class ButtonComponent extends Component
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		int x1 = getX();
 		int y1 = getY();
@@ -48,7 +48,7 @@ public final class ButtonComponent extends Component
 		int color = RenderUtils.toIntColor(WURST.getGui().getBgColor(),
 			WURST.getGui().getOpacity() * (hover ? 1.2F : 1.0F));
 		context.fill(x1, y1, x2, y2, color);
-		context.drawCenteredString(MC.font, text, (x1 + x2) / 2, y1 + 2,
+		context.centeredText(MC.font, text, (x1 + x2) / 2, y1 + 2,
 			WURST.getGui().getTxtColor());
 	}
 	

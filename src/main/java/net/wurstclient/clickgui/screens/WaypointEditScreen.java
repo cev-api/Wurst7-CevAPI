@@ -7,7 +7,7 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -460,10 +460,11 @@ public final class WaypointEditScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		super.render(context, mouseX, mouseY, delta);
+		super.extractRenderState(context, mouseX, mouseY, delta);
 		
 		// Update color button label in case it changed in child screen
 		if(colorButton != null && colorSetting != null)
@@ -472,15 +473,15 @@ public final class WaypointEditScreen extends Screen
 		
 		// Labels
 		int x = fieldsBaseX;
-		context.drawString(minecraft.font, "Name", x, yName - 18,
+		context.text(minecraft.font, "Name", x, yName - 18,
 			CommonColors.LIGHT_GRAY, false);
 		if(xField != null)
 		{
-			context.drawString(minecraft.font, "X", xXYZ1, yXYZ - 18,
+			context.text(minecraft.font, "X", xXYZ1, yXYZ - 18,
 				CommonColors.LIGHT_GRAY, false);
-			context.drawString(minecraft.font, "Y", xXYZ2,
+			context.text(minecraft.font, "Y", xXYZ2,
 				(narrow ? yYField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
-			context.drawString(minecraft.font, "Z", xXYZ3,
+			context.text(minecraft.font, "Z", xXYZ3,
 				(narrow ? yZField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
 		}
 		// removed explicit "Color" text label to avoid redundancy and crowding
@@ -498,7 +499,7 @@ public final class WaypointEditScreen extends Screen
 		// Opposite preview text – render below the toggles and lines rows
 		String opp = oppositePreview();
 		if(!opp.isEmpty())
-			context.drawString(minecraft.font, opp, fieldsBaseX,
+			context.text(minecraft.font, opp, fieldsBaseX,
 				/* directly below the opposite/visible row */
 				yToggles + 28 + 8, 0xFFCCCCCC, false);
 	}

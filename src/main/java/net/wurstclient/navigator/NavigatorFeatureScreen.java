@@ -19,7 +19,7 @@ import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.KeyEvent;
@@ -299,7 +299,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			return;
 		}
 		
-		boolean noButtons = Screens.getButtons(this).isEmpty();
+		boolean noButtons = Screens.getWidgets(this).isEmpty();
 		Rectangle area = new Rectangle(width / 2 - 154, 60, 308,
 			height - 60 - (noButtons ? 43 : 67));
 		if(!area.contains(x, y))
@@ -350,16 +350,16 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	}
 	
 	@Override
-	protected void onRender(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	protected void onRender(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		int txtColor = gui.getTxtColor();
 		
 		// title bar
-		context.drawCenteredString(minecraft.font, feature.getName(), middleX,
-			32, txtColor);
+		context.centeredText(minecraft.font, feature.getName(), middleX, 32,
+			txtColor);
 		
 		// background
 		int bgx1 = middleX - 154;
@@ -367,7 +367,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		int bgx2 = middleX + 154;
 		int bgy1 = 60;
 		int bgy2 = height - 43;
-		boolean noButtons = Screens.getButtons(this).isEmpty();
+		boolean noButtons = Screens.getWidgets(this).isEmpty();
 		int bgy3 = bgy2 - (noButtons ? 0 : 24);
 		int windowY1 = bgy1 + scroll + windowComponentY;
 		int windowY2 = windowY1 + window.getInnerHeight();
@@ -468,7 +468,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			if(child.getY() > bgy3 - windowY1)
 				break;
 			
-			child.render(context, mouseX - bgx1, mouseY - windowY1,
+			child.extractRenderState(context, mouseX - bgx1, mouseY - windowY1,
 				partialTicks);
 		}
 		matrixStack.popMatrix();
@@ -502,7 +502,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			
 			// text
 			context.guiRenderState.up();
-			context.drawCenteredString(minecraft.font, buttonData.buttonText,
+			context.centeredText(minecraft.font, buttonData.buttonText,
 				(x1 + x2) / 2, y1 + (buttonData.height - 10) / 2 + 1,
 				buttonData.isLocked() ? WurstColors.VERY_LIGHT_GRAY
 					: buttonData.textColor);
@@ -513,7 +513,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		context.guiRenderState.up();
 		for(String line : text.split("\n"))
 		{
-			context.drawString(minecraft.font, line, bgx1 + 2, textY, txtColor,
+			context.text(minecraft.font, line, bgx1 + 2, textY, txtColor,
 				false);
 			textY += minecraft.font.lineHeight;
 		}
@@ -522,8 +522,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			int keybindY = bgy1 + scroll + keybindTextOffset;
 			for(String line : keybindText.split("\n"))
 			{
-				context.drawString(minecraft.font, line, bgx1 + 2, keybindY,
-					txtColor, false);
+				context.text(minecraft.font, line, bgx1 + 2, keybindY, txtColor,
+					false);
 				keybindY += minecraft.font.lineHeight;
 			}
 		}
@@ -531,7 +531,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		context.disableScissor();
 		
 		// buttons below scissor box
-		for(AbstractWidget button : Screens.getButtons(this))
+		for(AbstractWidget button : Screens.getWidgets(this))
 		{
 			// positions
 			int x1 = button.getX();
@@ -554,7 +554,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			// text
 			String buttonText = button.getMessage().getString();
 			context.guiRenderState.up();
-			context.drawString(minecraft.font, buttonText,
+			context.text(minecraft.font, buttonText,
 				(x1 + x2 - minecraft.font.width(buttonText)) / 2, y1 + 5,
 				txtColor, false);
 		}
