@@ -294,7 +294,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					xpOrbs.add(xo);
 			}
 			
-			foundCount = Math.min(items.size() + xpOrbs.size(), 999);
 			return;
 		}
 		
@@ -316,8 +315,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			else if(entity instanceof ExperienceOrb xo)
 				xpOrbs.add(xo);
 		}
-		// update count for HUD (clamped to 999)
-		foundCount = Math.min(items.size() + xpOrbs.size(), 999);
 	}
 	
 	private void addNearestEntity(PriorityQueue<Entity> heap, Entity entity,
@@ -443,8 +440,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					.add(EntityUtils.getLerpedBox(e, partialTicks).getCenter());
 			}
 		}
-		foundCount = Math.min(visibleDrops, 999);
-		
 		// Integrate XP orbs into boxes/ends as synthetic items
 		for(ExperienceOrb orb : xpOrbs)
 		{
@@ -501,6 +496,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				}
 			}
 		}
+		
+		// update count for HackList from final filtered/drawn data only
+		int displayedCount =
+			normalBoxes.size() + specialBoxes.size() + tracedBoxes.size();
+		foundCount = Math.min(displayedCount, 999);
 		
 		// Item frames holding special items
 		if(includeItemFrames.isChecked())
