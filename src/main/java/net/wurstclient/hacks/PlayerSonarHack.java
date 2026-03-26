@@ -130,6 +130,11 @@ public final class PlayerSonarHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 			return;
+			
+		// In local singleplayer worlds there are no remote players, so block
+		// updates are almost always natural/server-simulated changes.
+		if(MC.isLocalServer())
+			return;
 		
 		Packet<?> packet = event.getPacket();
 		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
@@ -180,6 +185,8 @@ public final class PlayerSonarHack extends Hack
 		boolean newFluid = !newState.getFluidState().isEmpty();
 		String oldId = getBlockId(oldState);
 		String newId = getBlockId(newState);
+		if(isLikelyNaturalTransition(oldId, newId))
+			return DetectionResult.NONE;
 		
 		if(isFluidOrFireState(oldState) || isFluidOrFireState(newState))
 			return DetectionResult.NONE;
@@ -203,6 +210,31 @@ public final class PlayerSonarHack extends Hack
 		}
 		
 		return DetectionResult.NONE;
+	}
+	
+	private boolean isLikelyNaturalTransition(String oldId, String newId)
+	{
+		return isLikelyNaturalBlock(oldId) || isLikelyNaturalBlock(newId);
+	}
+	
+	private boolean isLikelyNaturalBlock(String blockId)
+	{
+		if(blockId == null)
+			return false;
+		
+		if("minecraft:air".equals(blockId))
+			return false;
+		
+		return blockId.contains("vine") || blockId.contains("amethyst_bud")
+			|| blockId.contains("mushroom") || blockId.contains("short_grass")
+			|| blockId.contains("tall_grass") || blockId.contains("fern")
+			|| blockId.contains("lichen") || blockId.contains("moss")
+			|| blockId.contains("seagrass") || blockId.contains("kelp")
+			|| blockId.contains("sugar_cane") || blockId.contains("cactus")
+			|| blockId.contains("bamboo") || blockId.contains("dripleaf")
+			|| blockId.contains("dripstone") || blockId.contains("cocoa")
+			|| blockId.contains("nether_wart") || blockId.contains("crop")
+			|| blockId.contains("sweet_berry_bush");
 	}
 	
 	private boolean hasInteractiveFlip(BlockState oldState, BlockState newState)
