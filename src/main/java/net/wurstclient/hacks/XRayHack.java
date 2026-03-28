@@ -100,8 +100,9 @@ public final class XRayHack extends Hack
 		0, 0, 0.99, 0.01, ValueDisplay.PERCENTAGE.withLabel(0, "off"));
 	
 	private final String optiFineWarning;
-	private final String renderName =
-		Math.random() < 0.01 ? "X-Wurst" : getName();
+	private final String renderName = Math.random() < 0.01
+		&& System.getProperty("fabric.client.gametest") == null ? "X-Wurst"
+			: getName();
 	
 	private ArrayList<String> oreNamesCache;
 	private java.util.Set<String> oreExactIds;
