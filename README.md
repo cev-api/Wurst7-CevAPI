@@ -12,8 +12,8 @@
 - [1.21.1 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
 - [1.21.8 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
 - [1.21.10 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
-- [1.21.11 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
-- [26.1 - Latest](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1)
+- [1.21.11 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11)
+- [26.1 - Latest](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 
 ### Download
@@ -1220,6 +1220,7 @@ Examples:
 - Added no slowdown for water
   - Added a toggle to allow swimming
 - Added no slowdown for vines (cannot climb)
+- Added no slowdown for sculk vines on the floor
 
 ### TrueSight Improved
 - Added customisable glow ESP for invisible entities

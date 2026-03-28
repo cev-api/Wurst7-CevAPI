@@ -98,6 +98,7 @@ public class LivingEntityMixin
 			|| state.is(Blocks.WEEPING_VINES)
 			|| state.is(Blocks.WEEPING_VINES_PLANT)
 			|| state.is(Blocks.TWISTING_VINES)
-			|| state.is(Blocks.TWISTING_VINES_PLANT);
+			|| state.is(Blocks.TWISTING_VINES_PLANT)
+			|| state.is(Blocks.SCULK_VEIN);
 	}
 }
