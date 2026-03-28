@@ -45,6 +45,7 @@ public abstract class BlockMixin implements ItemLike
 			|| block == Blocks.CAVE_VINES_PLANT || block == Blocks.WEEPING_VINES
 			|| block == Blocks.WEEPING_VINES_PLANT
 			|| block == Blocks.TWISTING_VINES
-			|| block == Blocks.TWISTING_VINES_PLANT;
+			|| block == Blocks.TWISTING_VINES_PLANT
+			|| block == Blocks.SCULK_VEIN;
 	}
 }

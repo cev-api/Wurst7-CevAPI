@@ -1220,6 +1220,7 @@ Examples:
 - Added no slowdown for water
   - Added a toggle to allow swimming
 - Added no slowdown for vines (cannot climb)
+- Added no slowdown for sculk vines on the floor
 
 ### TrueSight Improved
 - Added customisable glow ESP for invisible entities
