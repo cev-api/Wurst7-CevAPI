@@ -33,10 +33,6 @@ public abstract class CameraMixin implements TrackedWaypoint.Camera
 	private void onUpdate(DeltaTracker deltaTracker, CallbackInfo ci)
 	{
 		FreecamHack freecam = WurstClient.INSTANCE.getHax().freecamHack;
-		// In legacy interact mode, Freecam moves the real client player and
-		// cancels movement packets. To prevent rendering your own player model
-		// over the camera in first-person, keep the camera ATTACHED in legacy
-		// mode and detach it otherwise.
 		if(!freecam.isMovingCamera())
 			return;
 		

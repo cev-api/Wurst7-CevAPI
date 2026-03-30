@@ -90,6 +90,7 @@
     "WorldMixin",
     "YggdrasilUserApiServiceMixin",
     "freecam.CameraMixin",
+    "freecam.EntityRenderDispatcherMixin",
     "freecam.ItemInHandRendererMixin",
     "freecam.LocalPlayerMixin",
     "sodium.OcclusionCullerMixin",
