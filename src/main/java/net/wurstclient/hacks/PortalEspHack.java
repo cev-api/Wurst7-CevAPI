@@ -113,11 +113,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Chat message on discovery",
 			"Sends a chat message when PortalESP discovers a new portal block.",
 			false);
-	private final CheckboxSetting ignoreUndersizedPortals =
-		new CheckboxSetting("Ignore undersized portals",
-			"Ignores portal detections that are smaller than valid structures.\n"
-				+ "Nether portals must be at least 2x3 interior, end portals 3x3, and end portal frames must form a full ring.",
-			true);
+	private final CheckboxSetting ignoreUndersizedPortals = new CheckboxSetting(
+		"Ignore undersized portals",
+		"Ignores portal detections that are smaller than valid structures.\n"
+			+ "Nether portals must be at least 2x3 interior, end portals 3x3, and end portal frames must form a full ring.",
+		true);
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
@@ -515,11 +515,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			int xSpan = maxX - minX + 1;
 			int ySpan = maxY - minY + 1;
 			int zSpan = maxZ - minZ + 1;
-			boolean strict3x3 = component.size() == 9 && xSpan == 3 && ySpan == 1
-				&& zSpan == 3;
+			boolean strict3x3 =
+				component.size() == 9 && xSpan == 3 && ySpan == 1 && zSpan == 3;
 			int centerX = minX + 1;
 			int centerZ = minZ + 1;
-			if(strict3x3 && isOrientedEndPortalFrameRing(centerX, minY, centerZ))
+			if(strict3x3
+				&& isOrientedEndPortalFrameRing(centerX, minY, centerZ))
 				valid.addAll(component);
 		}
 		
@@ -551,30 +552,30 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private boolean isCompleteEndPortalFrameRing(HashSet<BlockPos> frameSet,
 		int centerX, int y, int centerZ)
 	{
-		return hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ - 2, centerX,
-			centerZ)
+		return hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ - 2,
+			centerX, centerZ)
 			&& hasOrientedFrameAt(frameSet, centerX, y, centerZ - 2, centerX,
 				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ - 2, centerX,
-				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ + 2, centerX,
-				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ - 2,
+				centerX, centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ + 2,
+				centerX, centerZ)
 			&& hasOrientedFrameAt(frameSet, centerX, y, centerZ + 2, centerX,
 				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ + 2, centerX,
-				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ - 1, centerX,
-				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ + 2,
+				centerX, centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ - 1,
+				centerX, centerZ)
 			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ, centerX,
 				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ + 1, centerX,
-				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ - 1, centerX,
-				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ + 1,
+				centerX, centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ - 1,
+				centerX, centerZ)
 			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ, centerX,
 				centerZ)
-			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ + 1, centerX,
-				centerZ);
+			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ + 1,
+				centerX, centerZ);
 	}
 	
 	private boolean isOrientedEndPortalFrameRing(int centerX, int y,

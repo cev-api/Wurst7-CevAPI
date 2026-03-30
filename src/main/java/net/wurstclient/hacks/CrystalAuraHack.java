@@ -12,7 +12,6 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -40,6 +39,7 @@ import net.wurstclient.settings.TakeItemsFromSetting.TakeItemsFrom;
 import net.wurstclient.settings.filterlists.CrystalAuraFilterList;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.RotationUtils;
@@ -222,17 +222,16 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 	
 	private ArrayList<Entity> getNearbyCrystals()
 	{
-		LocalPlayer player = MC.player;
 		double rangeSq = Math.pow(range.getValue(), 2);
 		
 		Comparator<Entity> furthestFromPlayer =
-			Comparator.<Entity> comparingDouble(e -> MC.player.distanceToSqr(e))
+			Comparator.<Entity> comparingDouble(EntityUtils::distanceToHitboxSq)
 				.reversed();
 		
 		return StreamSupport
 			.stream(MC.level.entitiesForRendering().spliterator(), true)
 			.filter(EndCrystal.class::isInstance).filter(e -> !e.isRemoved())
-			.filter(e -> player.distanceToSqr(e) <= rangeSq)
+			.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq)
 			.sorted(furthestFromPlayer)
 			.collect(Collectors.toCollection(ArrayList::new));
 	}
@@ -242,7 +241,7 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 		double rangeSq = Math.pow(range.getValue(), 2);
 		
 		Comparator<Entity> furthestFromPlayer =
-			Comparator.<Entity> comparingDouble(e -> MC.player.distanceToSqr(e))
+			Comparator.<Entity> comparingDouble(EntityUtils::distanceToHitboxSq)
 				.reversed();
 		
 		Stream<Entity> stream = StreamSupport
@@ -253,7 +252,7 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 			.filter(e -> e != MC.player)
 			.filter(e -> !(e instanceof FakePlayerEntity))
 			.filter(e -> !WURST.getFriends().contains(e.getName().getString()))
-			.filter(e -> MC.player.distanceToSqr(e) <= rangeSq);
+			.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq);
 		
 		stream = entityFilters.applyTo(stream);
 		
