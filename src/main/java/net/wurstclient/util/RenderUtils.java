@@ -41,6 +41,17 @@ public enum RenderUtils
 	private static final float DEFAULT_LINE_WIDTH = 2F;
 	private static final double MIN_LINE_WIDTH = 0.5;
 	private static final double MAX_LINE_WIDTH = 20;
+	// Keep batches intentionally small so they stay safe even when the same
+	// BufferBuilder already contains vertices from earlier calls in the frame.
+	private static final int SOLID_BOX_VERTICES = 24;
+	private static final int OUTLINED_BOX_VERTICES = 24;
+	// Originally this effectively rode the full BufferBuilder cap (16,777,215),
+	// then we reduced it to 750,000; now it's 100,000 due to 0 FPS spikes.
+	private static final int TARGET_BATCH_VERTICES = 100_000;
+	private static final int MAX_SOLID_BOXES_PER_BATCH =
+		TARGET_BATCH_VERTICES / SOLID_BOX_VERTICES;
+	private static final int MAX_OUTLINED_BOXES_PER_BATCH =
+		TARGET_BATCH_VERTICES / OUTLINED_BOX_VERTICES;
 	private static final ThreadLocal<String> TRACER_SOURCE =
 		ThreadLocal.withInitial(() -> null);
 	
@@ -656,6 +667,7 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		boolean rendered = false;
+		int boxesInBatch = 0;
 		for(AABB box : boxes)
 		{
 			if(overlay && !isBoxVisible(box))
@@ -665,9 +677,16 @@ public enum RenderUtils
 			
 			drawSolidBox(matrices, buffer, box.move(camOffset), color);
 			rendered = true;
+			boxesInBatch++;
+			if(boxesInBatch >= MAX_SOLID_BOXES_PER_BATCH)
+			{
+				vcp.endBatch(layer);
+				buffer = vcp.getBuffer(layer);
+				boxesInBatch = 0;
+			}
 		}
 		
-		if(rendered)
+		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
 	}
 	
@@ -701,6 +720,7 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		boolean rendered = false;
+		int boxesInBatch = 0;
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
@@ -711,9 +731,16 @@ public enum RenderUtils
 			drawSolidBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
 			rendered = true;
+			boxesInBatch++;
+			if(boxesInBatch >= MAX_SOLID_BOXES_PER_BATCH)
+			{
+				vcp.endBatch(layer);
+				buffer = vcp.getBuffer(layer);
+				boxesInBatch = 0;
+			}
 		}
 		
-		if(rendered)
+		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
 	}
 	
@@ -1058,6 +1085,7 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		boolean rendered = false;
+		int boxesInBatch = 0;
 		for(AABB box : boxes)
 		{
 			if(overlay && !isBoxVisible(box))
@@ -1067,9 +1095,16 @@ public enum RenderUtils
 			
 			drawOutlinedBox(matrices, buffer, box.move(camOffset), color);
 			rendered = true;
+			boxesInBatch++;
+			if(boxesInBatch >= MAX_OUTLINED_BOXES_PER_BATCH)
+			{
+				vcp.endBatch(layer);
+				buffer = vcp.getBuffer(layer);
+				boxesInBatch = 0;
+			}
 		}
 		
-		if(rendered)
+		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
 	}
 	
@@ -1103,6 +1138,7 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		boolean rendered = false;
+		int boxesInBatch = 0;
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
@@ -1113,9 +1149,16 @@ public enum RenderUtils
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
 			rendered = true;
+			boxesInBatch++;
+			if(boxesInBatch >= MAX_OUTLINED_BOXES_PER_BATCH)
+			{
+				vcp.endBatch(layer);
+				buffer = vcp.getBuffer(layer);
+				boxesInBatch = 0;
+			}
 		}
 		
-		if(rendered)
+		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
 	}
 	
@@ -1154,6 +1197,7 @@ public enum RenderUtils
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
 		boolean rendered = false;
+		int boxesInBatch = 0;
 		for(ColoredBox box : boxes)
 		{
 			if(overlay && !isBoxVisible(box.box()))
@@ -1164,9 +1208,16 @@ public enum RenderUtils
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
 				box.color());
 			rendered = true;
+			boxesInBatch++;
+			if(boxesInBatch >= MAX_OUTLINED_BOXES_PER_BATCH)
+			{
+				vcp.endBatch(layer);
+				buffer = vcp.getBuffer(layer);
+				boxesInBatch = 0;
+			}
 		}
 		
-		if(rendered)
+		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
 	}
 	

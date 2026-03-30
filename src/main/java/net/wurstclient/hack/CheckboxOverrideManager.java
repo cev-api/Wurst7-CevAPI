@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.Setting;
 
 /**
  * Utility to capture, apply, and restore {@link CheckboxSetting} values across
@@ -81,7 +82,43 @@ public enum CheckboxOverrideManager
 		}catch(IllegalAccessException ignored)
 		{}
 		
+		String targetName = normalizeSettingName(fieldName);
+		for(Setting setting : hack.getSettings().values())
+		{
+			if(!(setting instanceof CheckboxSetting cs))
+				continue;
+			if(normalizeSettingName(setting.getName()).equals(targetName))
+				return cs;
+		}
+		
+		// Backward-compatible fallback for the global Y-limit override.
+		if("onlyaboveground".equals(targetName))
+			for(Setting setting : hack.getSettings().values())
+			{
+				if(!(setting instanceof CheckboxSetting cs))
+					continue;
+				if("abovegroundonly"
+					.equals(normalizeSettingName(setting.getName())))
+					return cs;
+			}
+		
 		return null;
+	}
+	
+	private static String normalizeSettingName(String value)
+	{
+		if(value == null)
+			return "";
+		
+		StringBuilder normalized = new StringBuilder(value.length());
+		for(int i = 0; i < value.length(); i++)
+		{
+			char c = value.charAt(i);
+			if(Character.isLetterOrDigit(c))
+				normalized.append(Character.toLowerCase(c));
+		}
+		
+		return normalized.toString();
 	}
 	
 	private static Field findField(Class<?> cls, String name)

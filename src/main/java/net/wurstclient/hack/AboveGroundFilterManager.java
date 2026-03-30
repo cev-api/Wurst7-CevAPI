@@ -10,6 +10,7 @@ package net.wurstclient.hack;
 import java.lang.reflect.Field;
 
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SliderSetting;
 
 /**
@@ -24,13 +25,11 @@ public final class AboveGroundFilterManager
 		{
 			try
 			{
-				Field f = findField(h.getClass(), "onlyAboveGround");
-				if(f != null)
+				CheckboxSetting setting = getCheckbox(h, "onlyAboveGround");
+				if(setting != null)
 				{
-					f.setAccessible(true);
-					Object val = f.get(h);
-					if(val instanceof CheckboxSetting cs)
-						cs.setChecked(enabled);
+					setting.setChecked(enabled);
+					invalidateCachedEspResults(h);
 				}
 			}catch(Throwable ignored)
 			{}
@@ -43,17 +42,126 @@ public final class AboveGroundFilterManager
 		{
 			try
 			{
-				Field f = findField(h.getClass(), "aboveGroundY");
-				if(f != null)
+				SliderSetting setting = getSlider(h, "aboveGroundY");
+				if(setting != null)
 				{
-					f.setAccessible(true);
-					Object val = f.get(h);
-					if(val instanceof SliderSetting ss)
-						ss.setValue(y);
+					setting.setValue(y);
+					invalidateCachedEspResults(h);
 				}
 			}catch(Throwable ignored)
 			{}
 		}
+	}
+	
+	private static void invalidateCachedEspResults(Hack hack)
+	{
+		setBooleanField(hack, "groupsUpToDate", false);
+		setBooleanField(hack, "bufferUpToDate", false);
+		setBooleanField(hack, "highlightPositionsUpToDate", false);
+		setBooleanField(hack, "visibleBoxesUpToDate", false);
+	}
+	
+	private static void setBooleanField(Hack hack, String fieldName,
+		boolean value)
+	{
+		try
+		{
+			Field field = findField(hack.getClass(), fieldName);
+			if(field == null || field.getType() != boolean.class)
+				return;
+			
+			field.setAccessible(true);
+			field.setBoolean(hack, value);
+		}catch(Throwable ignored)
+		{}
+	}
+	
+	private static CheckboxSetting getCheckbox(Hack hack, String fieldName)
+	{
+		try
+		{
+			Field f = findField(hack.getClass(), fieldName);
+			if(f != null)
+			{
+				f.setAccessible(true);
+				Object val = f.get(hack);
+				if(val instanceof CheckboxSetting cs)
+					return cs;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		String wanted = normalize(fieldName);
+		for(Setting setting : hack.getSettings().values())
+		{
+			if(!(setting instanceof CheckboxSetting cs))
+				continue;
+			if(normalize(setting.getName()).equals(wanted))
+				return cs;
+		}
+		
+		if("onlyaboveground".equals(wanted))
+			for(Setting setting : hack.getSettings().values())
+			{
+				if(!(setting instanceof CheckboxSetting cs))
+					continue;
+				if("abovegroundonly".equals(normalize(setting.getName())))
+					return cs;
+			}
+		
+		return null;
+	}
+	
+	private static SliderSetting getSlider(Hack hack, String fieldName)
+	{
+		try
+		{
+			Field f = findField(hack.getClass(), fieldName);
+			if(f != null)
+			{
+				f.setAccessible(true);
+				Object val = f.get(hack);
+				if(val instanceof SliderSetting ss)
+					return ss;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		String wanted = normalize(fieldName);
+		for(Setting setting : hack.getSettings().values())
+		{
+			if(!(setting instanceof SliderSetting ss))
+				continue;
+			if(normalize(setting.getName()).equals(wanted))
+				return ss;
+		}
+		
+		if("abovegroundy".equals(wanted))
+			for(Setting setting : hack.getSettings().values())
+			{
+				if(!(setting instanceof SliderSetting ss))
+					continue;
+				if("setespylimit".equals(normalize(setting.getName())))
+					return ss;
+			}
+		
+		return null;
+	}
+	
+	private static String normalize(String name)
+	{
+		if(name == null)
+			return "";
+		
+		StringBuilder normalized = new StringBuilder(name.length());
+		for(int i = 0; i < name.length(); i++)
+		{
+			char c = name.charAt(i);
+			if(Character.isLetterOrDigit(c))
+				normalized.append(Character.toLowerCase(c));
+		}
+		
+		return normalized.toString();
 	}
 	
 	private static Field findField(Class<?> cls, String name)

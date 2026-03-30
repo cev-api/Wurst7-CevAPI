@@ -26,6 +26,8 @@ import net.wurstclient.util.chunk.ChunkSearcher;
 @SearchTags({"global toggle", "render global toggle"})
 public final class GlobalToggleHack extends Hack implements UpdateListener
 {
+	private static final int HARD_GLOBAL_ESP_RENDER_LIMIT = 100_000;
+	
 	private final CheckboxSetting stickyAreaOverride = new CheckboxSetting(
 		"Sticky area override",
 		"Forces sticky area on for all supported hacks while enabled.", false);
@@ -35,7 +37,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Forces the above-ground filter on for all supported hacks while enabled.",
 		false);
 	private final SliderSetting yLimitValue = new SliderSetting(
-		"Global Y limit", 62, 0, 255, 1, ValueDisplay.INTEGER);
+		"Global Y limit", 62, -65, 255, 1, ValueDisplay.INTEGER);
 	private final SliderSetting searchThreadPriority = new SliderSetting(
 		"Search thread priority",
 		"Global background thread priority for Search/ESP/X-Ray chunk scanning.",
@@ -59,7 +61,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Global ESP render limit",
 		"Max ESP targets rendered per frame across supported ESP features.\n"
 			+ "0 = unlimited",
-		0, 0, 2000, 1, ValueDisplay.INTEGER);
+		0, 0, 100_000, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting globalEspRenderLimitEnabled =
 		new CheckboxSetting("Enable global ESP render limit",
 			"When disabled, the global ESP render-limit slider is ignored.",
@@ -86,7 +88,6 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			true);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
-	private Map<CheckboxSetting, Boolean> yLimitSnapshot = Map.of();
 	
 	private boolean lastStickyOverride;
 	private boolean lastYLimitOverride;
@@ -164,19 +165,14 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		
 		if(yOverride != lastYLimitOverride)
 		{
-			if(lastYLimitOverride)
-				CheckboxOverrideManager.restore(yLimitSnapshot);
-			
 			if(yOverride)
 			{
-				yLimitSnapshot =
-					CheckboxOverrideManager.capture(hacks, "onlyAboveGround");
 				CheckboxOverrideManager.apply(hacks, "onlyAboveGround", true);
 				AboveGroundFilterManager.setY(hacks, yValue);
 				ChatUtils.message("Global Y limit override forcing ON.");
 			}else
 			{
-				yLimitSnapshot = Map.of();
+				AboveGroundFilterManager.toggle(hacks, false);
 				ChatUtils.message("Global Y limit override disabled.");
 			}
 			
@@ -237,7 +233,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		if(!globalEspRenderLimitEnabled.isChecked())
 			return 0;
 		
-		return Math.max(0, getGlobalEspRenderLimit());
+		return Math.min(HARD_GLOBAL_ESP_RENDER_LIMIT,
+			Math.max(0, getGlobalEspRenderLimit()));
 	}
 	
 	public int applyGlobalEspRenderLimit(int localLimit)

@@ -26,6 +26,8 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.EndPortalFrameBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -111,6 +113,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Chat message on discovery",
 			"Sends a chat message when PortalESP discovers a new portal block.",
 			false);
+	private final CheckboxSetting ignoreUndersizedPortals =
+		new CheckboxSetting("Ignore undersized portals",
+			"Ignores portal detections that are smaller than valid structures.\n"
+				+ "Nether portals must be at least 2x3 interior, end portals 3x3, and end portal frames must form a full ring.",
+			true);
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
@@ -148,6 +155,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(discoverySoundVolume);
 		addSetting(customDiscoverySoundId);
 		addSetting(discoveryChat);
+		addSetting(ignoreUndersizedPortals);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
@@ -275,16 +283,27 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private void updateGroupBoxes()
 	{
 		groups.forEach(PortalEspBlockGroup::clear);
-		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> candidatesByGroup =
 			new HashMap<>();
 		int globalLimit = getEffectiveGlobalEspLimit();
 		if(globalLimit > 0)
 		{
 			for(Result result : getNearestReadyMatches(globalLimit))
-				addToGroupBoxes(result, newBlocksByGroup);
+				addCandidate(result, candidatesByGroup);
 		}else
 			coordinator.getReadyMatches()
-				.forEach(result -> addToGroupBoxes(result, newBlocksByGroup));
+				.forEach(result -> addCandidate(result, candidatesByGroup));
+		
+		// End-related structures are always strict to avoid false positives.
+		filterUndersizedPortals(candidatesByGroup, endPortal);
+		filterUndersizedPortals(candidatesByGroup, endPortalFrame);
+		if(ignoreUndersizedPortals.isChecked())
+		{
+			filterUndersizedPortals(candidatesByGroup, netherPortal);
+		}
+		
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
+			commitCandidates(candidatesByGroup);
 		
 		ArrayList<DiscoveryHit> discoveries =
 			buildDiscoveries(newBlocksByGroup);
@@ -326,6 +345,299 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		return WURST.getHax().globalToggleHack
 			.getEffectiveGlobalEspRenderLimit();
+	}
+	
+	private void addCandidate(Result result,
+		Map<PortalEspBlockGroup, ArrayList<BlockPos>> candidatesByGroup)
+	{
+		if(result == null)
+			return;
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return;
+		
+		for(PortalEspBlockGroup group : groups)
+			if(result.state().getBlock() == group.getBlock())
+			{
+				if(group == endGateway && !isInEndDimension())
+					return;
+				
+				candidatesByGroup.computeIfAbsent(group, g -> new ArrayList<>())
+					.add(result.pos().immutable());
+				break;
+			}
+	}
+	
+	private HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> commitCandidates(
+		Map<PortalEspBlockGroup, ArrayList<BlockPos>> candidatesByGroup)
+	{
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
+			new HashMap<>();
+		
+		for(PortalEspBlockGroup group : groups)
+		{
+			ArrayList<BlockPos> candidates = candidatesByGroup.get(group);
+			if(candidates == null || candidates.isEmpty())
+				continue;
+			
+			for(BlockPos pos : candidates)
+			{
+				group.add(pos);
+				if(discoveredPositions.add(pos))
+					newBlocksByGroup
+						.computeIfAbsent(group, g -> new ArrayList<>())
+						.add(pos);
+			}
+		}
+		
+		return newBlocksByGroup;
+	}
+	
+	private void filterUndersizedPortals(
+		Map<PortalEspBlockGroup, ArrayList<BlockPos>> candidatesByGroup,
+		PortalEspBlockGroup group)
+	{
+		ArrayList<BlockPos> candidates = candidatesByGroup.get(group);
+		if(candidates == null || candidates.isEmpty())
+			return;
+		
+		ArrayList<BlockPos> filtered;
+		if(group == netherPortal)
+			filtered = filterValidNetherPortalBlocks(candidates);
+		else if(group == endPortal)
+			filtered = filterValidEndPortalBlocks(candidates);
+		else if(group == endPortalFrame)
+			filtered = filterValidEndPortalFrameBlocks(candidates);
+		else
+			filtered = candidates;
+		
+		candidatesByGroup.put(group, filtered);
+	}
+	
+	private boolean isInEndDimension()
+	{
+		return MC.level != null && MC.level.dimension() == Level.END;
+	}
+	
+	private ArrayList<BlockPos> filterValidNetherPortalBlocks(
+		List<BlockPos> candidates)
+	{
+		HashSet<BlockPos> remaining = new HashSet<>(candidates);
+		HashSet<BlockPos> valid = new HashSet<>();
+		
+		while(!remaining.isEmpty())
+		{
+			BlockPos start = remaining.iterator().next();
+			remaining.remove(start);
+			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+			queue.add(start);
+			ArrayList<BlockPos> component = new ArrayList<>();
+			
+			int minX = start.getX();
+			int maxX = start.getX();
+			int minY = start.getY();
+			int maxY = start.getY();
+			int minZ = start.getZ();
+			int maxZ = start.getZ();
+			
+			while(!queue.isEmpty())
+			{
+				BlockPos current = queue.removeFirst();
+				component.add(current);
+				minX = Math.min(minX, current.getX());
+				maxX = Math.max(maxX, current.getX());
+				minY = Math.min(minY, current.getY());
+				maxY = Math.max(maxY, current.getY());
+				minZ = Math.min(minZ, current.getZ());
+				maxZ = Math.max(maxZ, current.getZ());
+				
+				for(Direction dir : Direction.values())
+				{
+					BlockPos neighbor = current.relative(dir);
+					if(remaining.remove(neighbor))
+						queue.addLast(neighbor);
+				}
+			}
+			
+			int xSpan = maxX - minX + 1;
+			int ySpan = maxY - minY + 1;
+			int zSpan = maxZ - minZ + 1;
+			boolean validPortal = (xSpan == 1 && zSpan >= 2 && ySpan >= 3)
+				|| (zSpan == 1 && xSpan >= 2 && ySpan >= 3);
+			if(validPortal)
+				valid.addAll(component);
+		}
+		
+		return candidates.stream().filter(valid::contains)
+			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+	}
+	
+	private ArrayList<BlockPos> filterValidEndPortalBlocks(
+		List<BlockPos> candidates)
+	{
+		HashSet<BlockPos> remaining = new HashSet<>(candidates);
+		HashSet<BlockPos> valid = new HashSet<>();
+		
+		while(!remaining.isEmpty())
+		{
+			BlockPos start = remaining.iterator().next();
+			remaining.remove(start);
+			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+			queue.add(start);
+			ArrayList<BlockPos> component = new ArrayList<>();
+			
+			int minX = start.getX();
+			int maxX = start.getX();
+			int minY = start.getY();
+			int maxY = start.getY();
+			int minZ = start.getZ();
+			int maxZ = start.getZ();
+			
+			while(!queue.isEmpty())
+			{
+				BlockPos current = queue.removeFirst();
+				component.add(current);
+				minX = Math.min(minX, current.getX());
+				maxX = Math.max(maxX, current.getX());
+				minY = Math.min(minY, current.getY());
+				maxY = Math.max(maxY, current.getY());
+				minZ = Math.min(minZ, current.getZ());
+				maxZ = Math.max(maxZ, current.getZ());
+				
+				for(Direction dir : Direction.values())
+				{
+					BlockPos neighbor = current.relative(dir);
+					if(remaining.remove(neighbor))
+						queue.addLast(neighbor);
+				}
+			}
+			
+			int xSpan = maxX - minX + 1;
+			int ySpan = maxY - minY + 1;
+			int zSpan = maxZ - minZ + 1;
+			boolean strict3x3 = component.size() == 9 && xSpan == 3 && ySpan == 1
+				&& zSpan == 3;
+			int centerX = minX + 1;
+			int centerZ = minZ + 1;
+			if(strict3x3 && isOrientedEndPortalFrameRing(centerX, minY, centerZ))
+				valid.addAll(component);
+		}
+		
+		return candidates.stream().filter(valid::contains)
+			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+	}
+	
+	private ArrayList<BlockPos> filterValidEndPortalFrameBlocks(
+		List<BlockPos> candidates)
+	{
+		HashSet<BlockPos> frameSet = new HashSet<>(candidates);
+		HashSet<BlockPos> valid = new HashSet<>();
+		for(BlockPos pos : candidates)
+		{
+			int y = pos.getY();
+			for(int cx = pos.getX() - 2; cx <= pos.getX() + 2; cx++)
+				for(int cz = pos.getZ() - 2; cz <= pos.getZ() + 2; cz++)
+				{
+					if(!isCompleteEndPortalFrameRing(frameSet, cx, y, cz))
+						continue;
+					addEndPortalFrameRing(valid, cx, y, cz);
+				}
+		}
+		
+		return candidates.stream().filter(valid::contains)
+			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+	}
+	
+	private boolean isCompleteEndPortalFrameRing(HashSet<BlockPos> frameSet,
+		int centerX, int y, int centerZ)
+	{
+		return hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ - 2, centerX,
+			centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX, y, centerZ - 2, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ - 2, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 1, y, centerZ + 2, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX, y, centerZ + 2, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 1, y, centerZ + 2, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ - 1, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX - 2, y, centerZ + 1, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ - 1, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ, centerX,
+				centerZ)
+			&& hasOrientedFrameAt(frameSet, centerX + 2, y, centerZ + 1, centerX,
+				centerZ);
+	}
+	
+	private boolean isOrientedEndPortalFrameRing(int centerX, int y,
+		int centerZ)
+	{
+		HashSet<BlockPos> frameSet = new HashSet<>();
+		for(int dx = -1; dx <= 1; dx++)
+		{
+			frameSet.add(new BlockPos(centerX + dx, y, centerZ - 2));
+			frameSet.add(new BlockPos(centerX + dx, y, centerZ + 2));
+		}
+		
+		for(int dz = -1; dz <= 1; dz++)
+		{
+			frameSet.add(new BlockPos(centerX - 2, y, centerZ + dz));
+			frameSet.add(new BlockPos(centerX + 2, y, centerZ + dz));
+		}
+		
+		return isCompleteEndPortalFrameRing(frameSet, centerX, y, centerZ);
+	}
+	
+	private boolean hasOrientedFrameAt(HashSet<BlockPos> frameSet, int x, int y,
+		int z, int centerX, int centerZ)
+	{
+		BlockPos pos = new BlockPos(x, y, z);
+		if(!frameSet.contains(pos) || MC.level == null)
+			return false;
+		
+		BlockState state = MC.level.getBlockState(pos);
+		if(state.getBlock() != Blocks.END_PORTAL_FRAME)
+			return false;
+		
+		Direction facing = state.getValue(EndPortalFrameBlock.FACING);
+		Direction expected = expectedFrameFacing(x, z, centerX, centerZ);
+		return facing == expected;
+	}
+	
+	private Direction expectedFrameFacing(int x, int z, int centerX,
+		int centerZ)
+	{
+		if(z == centerZ - 2)
+			return Direction.SOUTH;
+		if(z == centerZ + 2)
+			return Direction.NORTH;
+		if(x == centerX - 2)
+			return Direction.EAST;
+		return Direction.WEST;
+	}
+	
+	private void addEndPortalFrameRing(HashSet<BlockPos> valid, int centerX,
+		int y, int centerZ)
+	{
+		for(int dx = -1; dx <= 1; dx++)
+		{
+			valid.add(new BlockPos(centerX + dx, y, centerZ - 2));
+			valid.add(new BlockPos(centerX + dx, y, centerZ + 2));
+		}
+		
+		for(int dz = -1; dz <= 1; dz++)
+		{
+			valid.add(new BlockPos(centerX - 2, y, centerZ + dz));
+			valid.add(new BlockPos(centerX + 2, y, centerZ + dz));
+		}
 	}
 	
 	private ArrayList<DiscoveryHit> buildDiscoveries(
@@ -390,25 +702,6 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 		
 		return discoveries;
-	}
-	
-	private void addToGroupBoxes(Result result,
-		Map<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup)
-	{
-		if(onlyAboveGround.isChecked()
-			&& result.pos().getY() < aboveGroundY.getValue())
-			return;
-		for(PortalEspBlockGroup group : groups)
-			if(result.state().getBlock() == group.getBlock())
-			{
-				BlockPos pos = result.pos().immutable();
-				group.add(pos);
-				if(discoveredPositions.add(pos))
-					newBlocksByGroup
-						.computeIfAbsent(group, g -> new ArrayList<>())
-						.add(pos);
-				break;
-			}
 	}
 	
 	private String getDiscoveryLabel(PortalEspBlockGroup group)
