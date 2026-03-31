@@ -151,13 +151,23 @@ public final class TextFieldEditButton extends Component
 		int txtColor = GUI.getTxtColor();
 		context.guiRenderState.up();
 		context.text(TR, setting.getName(), x1, y1 + 2, txtColor, false);
-		String value = setting.getValue();
-		int maxWidth = getWidth() - TR.width("...") - 2;
-		int maxLength =
-			TR.getSplitter().plainIndexAtWidth(value, maxWidth, Style.EMPTY);
-		if(maxLength < value.length())
-			value = value.substring(0, maxLength) + "...";
-		context.text(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
+		
+		if(editing)
+		{
+			inlineField.setTextColor(txtColor);
+			inlineField.setTextColorUneditable(txtColor);
+			inlineField.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
+		}else
+		{
+			String value = setting.getValue();
+			int maxWidth = getWidth() - TR.width("...") - 2;
+			int maxLength = TR.getSplitter().plainIndexAtWidth(value, maxWidth,
+				Style.EMPTY);
+			if(maxLength < value.length())
+				value = value.substring(0, maxLength) + "...";
+			context.text(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
+		}
 	}
 	
 	@Override
