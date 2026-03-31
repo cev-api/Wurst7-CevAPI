@@ -210,6 +210,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private int scanConfigHash;
 	private int refreshTimerTicks;
+	private Level activeLevel;
 	
 	public TunnelHoleStairEspHack()
 	{
@@ -278,6 +279,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		scanConfigHash = getScanConfigHash();
 		refreshTimerTicks = 0;
 		lastAreaSelection = area.getSelected();
+		activeLevel = null;
 		clearRuntimeState();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -292,6 +294,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
+		activeLevel = null;
 		clearRuntimeState();
 	}
 	
@@ -299,7 +302,28 @@ public final class TunnelHoleStairEspHack extends Hack
 	public void onUpdate()
 	{
 		if(MC.player == null || MC.level == null)
+		{
+			// Clear stale detections while disconnecting or switching worlds.
+			if(activeLevel != null || !detectionsByChunk.isEmpty()
+				|| !holeBoxes.isEmpty() || !tunnelBoxes.isEmpty()
+				|| !stairBoxes.isEmpty() || !ladderBoxes.isEmpty()
+				|| !bubbleColumnBoxes.isEmpty()
+				|| !waterColumnBoxes.isEmpty())
+			{
+				activeLevel = null;
+				clearRuntimeState();
+			}
 			return;
+		}
+		
+		if(activeLevel != MC.level)
+		{
+			activeLevel = MC.level;
+			refreshTimerTicks = 0;
+			lastAreaSelection = area.getSelected();
+			scanConfigHash = getScanConfigHash();
+			clearRuntimeState();
+		}
 		
 		ChunkAreaSetting.ChunkArea currentAreaSelection = area.getSelected();
 		
