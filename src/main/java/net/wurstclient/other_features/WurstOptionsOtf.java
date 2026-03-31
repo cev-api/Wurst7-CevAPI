@@ -62,6 +62,7 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Open the latest Wurst changelog in your browser.",
 			changelogOtf::doPrimaryAction));
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
+		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
 		addSetting(noChatReportsOtf.getDisableSignaturesSetting());
 		addSetting(forceAllowChatsOtf.getForceAllowChatsSetting());

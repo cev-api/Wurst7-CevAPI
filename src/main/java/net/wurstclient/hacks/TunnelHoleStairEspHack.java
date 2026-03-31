@@ -307,8 +307,7 @@ public final class TunnelHoleStairEspHack extends Hack
 			if(activeLevel != null || !detectionsByChunk.isEmpty()
 				|| !holeBoxes.isEmpty() || !tunnelBoxes.isEmpty()
 				|| !stairBoxes.isEmpty() || !ladderBoxes.isEmpty()
-				|| !bubbleColumnBoxes.isEmpty()
-				|| !waterColumnBoxes.isEmpty())
+				|| !bubbleColumnBoxes.isEmpty() || !waterColumnBoxes.isEmpty())
 			{
 				activeLevel = null;
 				clearRuntimeState();
