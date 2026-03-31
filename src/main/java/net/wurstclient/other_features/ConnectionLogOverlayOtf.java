@@ -8,18 +8,23 @@
 package net.wurstclient.other_features;
 
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.other_feature.OtherFeature;
 
 public final class ConnectionLogOverlayOtf extends OtherFeature
 {
 	private final CheckboxSetting showConnectionLog =
 		new CheckboxSetting("Connection log overlay", true);
+	private final SliderSetting fontScale = new SliderSetting("Font size", 0.7,
+		0.5, 3.0, 0.05, ValueDisplay.DECIMAL);
 	
 	public ConnectionLogOverlayOtf()
 	{
 		super("ConnectionLogOverlay",
 			"description.wurst.other_feature.connection_log_overlay");
 		addSetting(showConnectionLog);
+		addSetting(fontScale);
 	}
 	
 	public CheckboxSetting getConnectionLogSetting()
@@ -30,5 +35,15 @@ public final class ConnectionLogOverlayOtf extends OtherFeature
 	public boolean isConnectionLogEnabled()
 	{
 		return showConnectionLog.isChecked();
+	}
+	
+	public double getFontScale()
+	{
+		return fontScale.getValue();
+	}
+	
+	public SliderSetting getFontScaleSetting()
+	{
+		return fontScale;
 	}
 }

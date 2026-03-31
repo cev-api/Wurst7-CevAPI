@@ -59,14 +59,16 @@ public final class ConnectionLogOverlay
 	
 	public void render(GuiGraphicsExtractor graphics)
 	{
-		if(!shouldRender())
-			return;
-		
 		Minecraft mc = WurstClient.MC;
 		if(mc == null)
 			return;
 		
+		ConnectionLogOverlayOtf otf = getSettings();
+		if(otf == null || !otf.isConnectionLogEnabled())
+			return;
+		
 		Font font = mc.font;
+		double fontScale = otf.getFontScale();
 		int scaledWidth = mc.getWindow().getGuiScaledWidth();
 		List<String> visibleLines = getVisibleLines();
 		if(visibleLines.isEmpty())
@@ -74,13 +76,15 @@ public final class ConnectionLogOverlay
 		
 		int availableWidth =
 			Math.max(64, scaledWidth - HORIZONTAL_MARGIN * 2 - BOX_PADDING * 2);
+		int availableUnscaledWidth =
+			Math.max(60, (int)Math.floor(availableWidth / fontScale));
 		List<FormattedCharSequence> split = new ArrayList<>();
 		for(String line : visibleLines)
 		{
 			if(line == null)
 				continue;
 			List<FormattedCharSequence> fragments =
-				font.split(Component.literal(line), availableWidth);
+				font.split(Component.literal(line), availableUnscaledWidth);
 			if(fragments.isEmpty())
 				continue;
 			split.addAll(fragments);
@@ -89,7 +93,9 @@ public final class ConnectionLogOverlay
 		if(split.isEmpty())
 			return;
 		
-		int maxLineWidth = split.stream().mapToInt(font::width).max().orElse(0);
+		int maxLineWidth = split.stream()
+			.mapToInt(line -> (int)Math.round(font.width(line) * fontScale))
+			.max().orElse(0);
 		if(maxLineWidth <= 0)
 			return;
 		
@@ -98,8 +104,12 @@ public final class ConnectionLogOverlay
 		if(boxWidth <= 0)
 			return;
 		
-		int textHeight = split.size() * font.lineHeight
-			+ Math.max(0, split.size() - 1) * LINE_SPACING;
+		int scaledLineHeight =
+			Math.max(1, (int)Math.round(font.lineHeight * fontScale));
+		int scaledLineSpacing =
+			Math.max(0, (int)Math.round(LINE_SPACING * fontScale));
+		int textHeight = split.size() * scaledLineHeight
+			+ Math.max(0, split.size() - 1) * scaledLineSpacing;
 		int boxHeight = textHeight + BOX_PADDING * 2;
 		if(boxHeight <= 0)
 			return;
@@ -113,19 +123,35 @@ public final class ConnectionLogOverlay
 		int textY = y + BOX_PADDING;
 		for(FormattedCharSequence line : split)
 		{
-			graphics.text(font, line, textX, textY, 0xFFFFFFFF, false);
-			textY += font.lineHeight + LINE_SPACING;
+			drawScaledLine(graphics, font, line, textX, textY, 0xFFFFFFFF,
+				fontScale);
+			textY += scaledLineHeight + scaledLineSpacing;
 		}
 	}
 	
-	private boolean shouldRender()
+	private ConnectionLogOverlayOtf getSettings()
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
-			return false;
+			return null;
 		
-		ConnectionLogOverlayOtf otf =
-			WurstClient.INSTANCE.getOtfs().connectionLogOverlayOtf;
-		return otf != null && otf.isConnectionLogEnabled();
+		return WurstClient.INSTANCE.getOtfs().connectionLogOverlayOtf;
+	}
+	
+	private void drawScaledLine(GuiGraphicsExtractor graphics, Font font,
+		FormattedCharSequence line, int x, int y, int color, double scale)
+	{
+		if(Math.abs(scale - 1.0) < 1e-6)
+		{
+			graphics.text(font, line, x, y, color, false);
+			return;
+		}
+		
+		graphics.pose().pushMatrix();
+		graphics.pose().scale((float)scale);
+		int sx = (int)Math.round(x / scale);
+		int sy = (int)Math.round(y / scale);
+		graphics.text(font, line, sx, sy, color, false);
+		graphics.pose().popMatrix();
 	}
 	
 	private void registerAppender()
