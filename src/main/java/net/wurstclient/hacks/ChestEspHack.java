@@ -10,11 +10,9 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,10 +26,14 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.animal.golem.IronGolem;
 import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat;
+import net.minecraft.world.entity.vehicle.minecart.MinecartChest;
+import net.minecraft.world.entity.vehicle.minecart.MinecartHopper;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.DecoratedPotBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.DispenserBlock;
@@ -41,6 +43,10 @@ import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.entity.BarrelBlockEntity;
+import net.minecraft.world.level.block.entity.CrafterBlockEntity;
+import net.minecraft.world.level.block.entity.DecoratedPotBlockEntity;
+import net.minecraft.world.level.block.entity.DropperBlockEntity;
+import net.minecraft.world.level.block.entity.EnderChestBlockEntity;
 import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraft.world.level.block.entity.DispenserBlockEntity;
 import net.minecraft.world.level.block.entity.TrialSpawnerBlockEntity;
@@ -70,6 +76,8 @@ import net.wurstclient.hacks.chestesp.ChestEspBlockGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.EspLimitUtils;
+import net.wurstclient.util.LootrModCompat;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
@@ -407,44 +415,109 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	private List<BlockEntity> getNearestLoadedBlockEntities(int limit)
 	{
 		var eyesPos = RotationUtils.getEyesPos();
-		PriorityQueue<BlockEntity> heap = new PriorityQueue<>(limit + 1,
-			Comparator.comparingDouble(
-				(BlockEntity be) -> be.getBlockPos().distToCenterSqr(eyesPos))
-				.reversed());
-		
-		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
-			if(heap.size() < limit)
-				heap.offer(be);
-			else if(be.getBlockPos().distToCenterSqr(eyesPos) < heap.peek()
-				.getBlockPos().distToCenterSqr(eyesPos))
-			{
-				heap.poll();
-				heap.offer(be);
-			}
-		});
-		
-		return new ArrayList<>(heap);
+		return EspLimitUtils.collectNearest(ChunkUtils.getLoadedBlockEntities(),
+			limit, be -> be.getBlockPos().distToCenterSqr(eyesPos),
+			this::isRelevantBlockEntityTarget);
 	}
 	
 	private List<Entity> getNearestEntitiesForRendering(int limit)
 	{
-		PriorityQueue<Entity> heap = new PriorityQueue<>(limit + 1,
-			Comparator.comparingDouble((Entity e) -> e.distanceToSqr(MC.player))
-				.reversed());
+		return EspLimitUtils.collectNearest(MC.level.entitiesForRendering(),
+			limit, e -> e.distanceToSqr(MC.player),
+			this::isRelevantEntityTarget);
+	}
+	
+	private boolean isRelevantBlockEntityTarget(BlockEntity be)
+	{
+		if(be == null)
+			return false;
 		
-		for(Entity entity : MC.level.entitiesForRendering())
-		{
-			if(heap.size() < limit)
-				heap.offer(entity);
-			else if(entity.distanceToSqr(MC.player) < heap.peek()
-				.distanceToSqr(MC.player))
-			{
-				heap.poll();
-				heap.offer(entity);
-			}
-		}
+		if(groups.pots.isEnabled() && be instanceof DecoratedPotBlockEntity)
+			return true;
 		
-		return new ArrayList<>(heap);
+		if(groups.furnaces.isEnabled()
+			&& be instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity)
+			return true;
+		
+		if(groups.crafters.isEnabled() && be instanceof CrafterBlockEntity)
+			return true;
+		
+		if(groups.barrels.isEnabled() && LootrModCompat.isLootrBarrel(be))
+			return true;
+		if(groups.shulkerBoxes.isEnabled()
+			&& LootrModCompat.isLootrShulkerBox(be))
+			return true;
+		if(groups.trapChests.isEnabled()
+			&& LootrModCompat.isLootrTrappedChest(be))
+			return true;
+		
+		BlockState state = be.getBlockState();
+		if(state == null)
+			return false;
+		
+		Block block = state.getBlock();
+		if(block instanceof ChestBlock)
+			return groups.normalChests.isEnabled()
+				|| groups.trapChests.isEnabled();
+		
+		if(block == Blocks.ENDER_CHEST)
+			return groups.enderChests.isEnabled();
+		
+		if(block instanceof BarrelBlock)
+			return groups.barrels.isEnabled();
+		
+		if(block instanceof ShulkerBoxBlock)
+			return groups.shulkerBoxes.isEnabled();
+		
+		if(block instanceof HopperBlock)
+			return groups.hoppers.isEnabled();
+		
+		if(block == Blocks.DROPPER)
+			return groups.droppers.isEnabled();
+		
+		if(block instanceof DispenserBlock)
+			return groups.dispensers.isEnabled();
+		
+		if(block == Blocks.CRAFTER)
+			return groups.crafters.isEnabled();
+		
+		if(block == Blocks.FURNACE || block == Blocks.BLAST_FURNACE
+			|| block == Blocks.SMOKER)
+			return groups.furnaces.isEnabled();
+		
+		if(block instanceof DecoratedPotBlock)
+			return groups.pots.isEnabled();
+		
+		// Fallbacks for odd states/modded cases.
+		if(be instanceof EnderChestBlockEntity)
+			return groups.enderChests.isEnabled();
+		if(be instanceof BarrelBlockEntity)
+			return groups.barrels.isEnabled();
+		if(be instanceof HopperBlockEntity)
+			return groups.hoppers.isEnabled();
+		if(be instanceof DropperBlockEntity)
+			return groups.droppers.isEnabled();
+		if(be instanceof DispenserBlockEntity)
+			return groups.dispensers.isEnabled();
+		
+		return false;
+	}
+	
+	private boolean isRelevantEntityTarget(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		
+		if(groups.chestCarts.isEnabled() && entity instanceof MinecartChest)
+			return true;
+		
+		if(groups.chestBoats.isEnabled() && entity instanceof AbstractChestBoat)
+			return true;
+		
+		if(groups.hopperCarts.isEnabled() && entity instanceof MinecartHopper)
+			return true;
+		
+		return false;
 	}
 	
 	@Override

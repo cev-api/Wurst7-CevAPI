@@ -24,10 +24,25 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
 import net.wurstclient.render.globalesp.GlobalEspManager;
+import net.wurstclient.util.RenderUtils;
 
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin
 {
+	@Inject(
+		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+		at = @At("HEAD"))
+	private void onRenderStart(GraphicsResourceAllocator allocator,
+		DeltaTracker tickCounter, boolean renderBlockOutline,
+		CameraRenderState cameraState, Matrix4fc positionMatrix,
+		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
+		boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
+		CallbackInfo ci)
+	{
+		RenderUtils.beginEspFrame();
+		GlobalEspManager.getInstance().beginFrame();
+	}
+	
 	@Inject(
 		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
 		at = @At("RETURN"))

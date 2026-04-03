@@ -9,11 +9,8 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
@@ -34,6 +31,8 @@ import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
@@ -355,23 +354,32 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private List<Result> getNearestReadyMatches(int limit)
 	{
 		var eyesPos = RotationUtils.getEyesPos();
-		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
-			Comparator
-				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
-				.reversed());
+		return EspLimitUtils.collectNearest(coordinator.getReadyMatches(),
+			limit, r -> r.pos().distToCenterSqr(eyesPos),
+			this::isRenderableResult);
+	}
+	
+	private boolean isRenderableResult(Result result)
+	{
+		if(result == null)
+			return false;
 		
-		coordinator.getReadyMatches().forEach(result -> {
-			if(heap.size() < limit)
-				heap.offer(result);
-			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
-				.distToCenterSqr(eyesPos))
+		if(onlyAboveGround.isChecked()
+			&& result.pos().getY() < aboveGroundY.getValue())
+			return false;
+		
+		Block block = result.state().getBlock();
+		for(PortalEspBlockGroup group : groups)
+			if(group.isEnabled() && block == group.getBlock())
 			{
-				heap.poll();
-				heap.offer(result);
+				if(!BlockUtils.canBeClicked(result.pos()))
+					return false;
+				
+				AABB box = BlockUtils.getBoundingBox(result.pos());
+				return box != null && box.getSize() > 0;
 			}
-		});
 		
-		return new ArrayList<>(heap);
+		return false;
 	}
 	
 	private int getEffectiveGlobalEspLimit()
@@ -388,6 +396,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{
+				if(!group.isEnabled())
+					return;
 				group.add(result.pos());
 				break;
 			}

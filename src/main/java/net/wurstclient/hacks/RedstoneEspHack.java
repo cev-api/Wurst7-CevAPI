@@ -10,10 +10,8 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
@@ -39,6 +37,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
@@ -484,23 +483,32 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	private List<Result> getNearestReadyMatches(int limit)
 	{
 		var eyesPos = RotationUtils.getEyesPos();
-		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
-			Comparator
-				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
-				.reversed());
+		return EspLimitUtils.collectNearest(coordinator.getReadyMatches(),
+			limit, r -> r.pos().distToCenterSqr(eyesPos),
+			this::isRenderableResult);
+	}
+	
+	private boolean isRenderableResult(Result result)
+	{
+		if(result == null)
+			return false;
 		
-		coordinator.getReadyMatches().forEach(result -> {
-			if(heap.size() < limit)
-				heap.offer(result);
-			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
-				.distToCenterSqr(eyesPos))
-			{
-				heap.poll();
-				heap.offer(result);
-			}
-		});
+		BlockPos pos = result.pos();
+		BlockState state = result.state();
 		
-		return new ArrayList<>(heap);
+		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+			return false;
+		
+		boolean active = isActiveState(pos, state);
+		if(activeMode.getSelected() == ActiveMode.ONLY_ACTIVE && !active)
+			return false;
+		
+		Block block = state.getBlock();
+		for(RenderGroup group : renderGroups)
+			if(group.isEnabled() && group.matches(block))
+				return true;
+			
+		return false;
 	}
 	
 	private int getEffectiveGlobalEspLimit()
@@ -533,6 +541,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		for(RenderGroup group : renderGroups)
 			if(group.matches(b))
 			{
+				if(!group.isEnabled())
+					return;
 				group.add(pos);
 				break;
 			}

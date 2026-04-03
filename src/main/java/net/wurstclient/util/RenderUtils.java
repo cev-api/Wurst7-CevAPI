@@ -10,6 +10,7 @@ package net.wurstclient.util;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.IdentityHashMap;
 import java.util.List;
 
 import org.joml.Matrix3x2f;
@@ -54,11 +55,37 @@ public enum RenderUtils
 		TARGET_BATCH_VERTICES / OUTLINED_BOX_VERTICES;
 	private static final ThreadLocal<String> TRACER_SOURCE =
 		ThreadLocal.withInitial(() -> null);
+	private static final ThreadLocal<IdentityHashMap<AABB, Boolean>> BOX_BUDGET =
+		ThreadLocal.withInitial(IdentityHashMap::new);
+	
+	public static void beginEspFrame()
+	{
+		BOX_BUDGET.get().clear();
+	}
 	
 	private static boolean tryReserveEspRenderSlot()
 	{
 		return GlobalEspManager.getInstance()
 			.reserveGlobalEspRenderSlots(1) > 0;
+	}
+	
+	private static boolean tryReserveEspRenderSlot(AABB box)
+	{
+		if(box == null)
+			return tryReserveEspRenderSlot();
+		
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.isShaderOutlineMode())
+			return tryReserveEspRenderSlot();
+		
+		IdentityHashMap<AABB, Boolean> frameBudget = BOX_BUDGET.get();
+		Boolean allowed = frameBudget.get(box);
+		if(allowed != null)
+			return allowed;
+		
+		boolean granted = tryReserveEspRenderSlot();
+		frameBudget.put(box, granted);
+		return granted;
 	}
 	
 	private static boolean shouldSuppressAllTracers()
@@ -672,7 +699,7 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box))
 				continue;
-			if(!tryReserveEspRenderSlot())
+			if(!tryReserveEspRenderSlot(box))
 				break;
 			
 			drawSolidBox(matrices, buffer, box.move(camOffset), color);
@@ -725,7 +752,7 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
-			if(!tryReserveEspRenderSlot())
+			if(!tryReserveEspRenderSlot(box.box()))
 				break;
 			
 			drawSolidBox(matrices, buffer, box.box().move(camOffset),
@@ -1090,7 +1117,7 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box))
 				continue;
-			if(!tryReserveEspRenderSlot())
+			if(!tryReserveEspRenderSlot(box))
 				break;
 			
 			drawOutlinedBox(matrices, buffer, box.move(camOffset), color);
@@ -1143,7 +1170,7 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
-			if(!tryReserveEspRenderSlot())
+			if(!tryReserveEspRenderSlot(box.box()))
 				break;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),
@@ -1202,7 +1229,7 @@ public enum RenderUtils
 		{
 			if(overlay && !isBoxVisible(box.box()))
 				continue;
-			if(!tryReserveEspRenderSlot())
+			if(!tryReserveEspRenderSlot(box.box()))
 				break;
 			
 			drawOutlinedBox(matrices, buffer, box.box().move(camOffset),

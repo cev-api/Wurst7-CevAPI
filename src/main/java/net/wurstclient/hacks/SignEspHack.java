@@ -11,10 +11,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
@@ -39,6 +37,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.EntityUtils;
+import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
@@ -275,23 +274,13 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	private List<Result> getNearestReadyMatches(int limit)
 	{
 		var eyesPos = RotationUtils.getEyesPos();
-		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
-			Comparator
-				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
-				.reversed());
-		
-		coordinator.getReadyMatches().forEach(result -> {
-			if(heap.size() < limit)
-				heap.offer(result);
-			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
-				.distToCenterSqr(eyesPos))
-			{
-				heap.poll();
-				heap.offer(result);
-			}
-		});
-		
-		return new ArrayList<>(heap);
+		return EspLimitUtils.collectNearest(coordinator.getReadyMatches(),
+			limit, r -> r.pos().distToCenterSqr(eyesPos), result -> {
+				if(onlyAboveGround.isChecked()
+					&& result.pos().getY() < aboveGroundY.getValue())
+					return false;
+				return true;
+			});
 	}
 	
 	private void addToGroupBoxes(Result result)
@@ -401,31 +390,21 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			}
 			
 			var eyesPos = RotationUtils.getEyesPos();
-			PriorityQueue<AABB> heap = new PriorityQueue<>(globalLimit + 1,
-				Comparator
-					.comparingDouble(
-						(AABB b) -> b.getCenter().distanceToSqr(eyesPos))
-					.reversed());
-			for(var e : net.wurstclient.WurstClient.MC.level
-				.entitiesForRendering())
-			{
-				if(e instanceof ItemFrame || e instanceof GlowItemFrame)
-				{
+			var nearest = EspLimitUtils.collectNearest(
+				net.wurstclient.WurstClient.MC.level.entitiesForRendering(),
+				globalLimit, e -> e.distanceToSqr(eyesPos), e -> {
+					if(!(e instanceof ItemFrame || e instanceof GlowItemFrame))
+						return false;
 					if(onlyAboveGround.isChecked()
 						&& e.getY() < aboveGroundY.getValue())
-						continue;
-					AABB b = EntityUtils.getLerpedBox(e, partialTicks);
-					if(heap.size() < globalLimit)
-						heap.offer(b);
-					else if(b.getCenter().distanceToSqr(eyesPos) < heap.peek()
-						.getCenter().distanceToSqr(eyesPos))
-					{
-						heap.poll();
-						heap.offer(b);
-					}
-				}
+						return false;
+					return true;
+				});
+			for(var e : nearest)
+			{
+				AABB b = EntityUtils.getLerpedBox(e, partialTicks);
+				boxes.add(b);
 			}
-			boxes.addAll(heap);
 		}
 		
 		public void clear()

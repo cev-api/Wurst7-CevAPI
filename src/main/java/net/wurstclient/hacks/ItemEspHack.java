@@ -11,9 +11,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Locale;
-import java.util.PriorityQueue;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
@@ -45,6 +43,7 @@ import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityUtils;
+import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"item esp", "ItemTracers", "item tracers"})
@@ -278,11 +277,41 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		specialKeywords = kw.toArray(new String[0]);
 	}
 	
+	private void updateIgnoredListCacheIfNeeded()
+	{
+		if(!useIgnoredItems.isChecked())
+		{
+			ignoredExactIds = null;
+			lastIgnoredListHash = 0;
+			return;
+		}
+		
+		int h = ignoredList.getItemNames().hashCode();
+		if(h == lastIgnoredListHash && ignoredExactIds != null)
+			return;
+		
+		lastIgnoredListHash = h;
+		java.util.HashSet<String> exact = new java.util.HashSet<>();
+		for(String s : ignoredList.getItemNames())
+		{
+			if(s == null)
+				continue;
+			String raw = s.trim();
+			if(raw.isEmpty())
+				continue;
+			Identifier id = Identifier.tryParse(raw);
+			if(id != null && BuiltInRegistries.ITEM.containsKey(id))
+				exact.add(id.toString());
+		}
+		ignoredExactIds = exact;
+	}
+	
 	@Override
 	public void onUpdate()
 	{
 		items.clear();
 		xpOrbs.clear();
+		updateIgnoredListCacheIfNeeded();
 		int limit = getEffectiveGlobalEspLimit();
 		if(limit <= 0)
 		{
@@ -297,18 +326,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return;
 		}
 		
-		PriorityQueue<Entity> heap = new PriorityQueue<>(limit + 1,
-			Comparator.comparingDouble((Entity e) -> e.distanceToSqr(MC.player))
-				.reversed());
-		for(Entity entity : MC.level.entitiesForRendering())
-		{
-			if(entity instanceof ItemEntity ie)
-				addNearestEntity(heap, ie, limit);
-			else if(entity instanceof ExperienceOrb xo)
-				addNearestEntity(heap, xo, limit);
-		}
+		ArrayList<Entity> nearest = EspLimitUtils.collectNearest(
+			MC.level.entitiesForRendering(), limit,
+			e -> e.distanceToSqr(MC.player), this::isRenderableLimitedEntity);
 		
-		for(Entity entity : heap)
+		for(Entity entity : nearest)
 		{
 			if(entity instanceof ItemEntity ie)
 				items.add(ie);
@@ -317,17 +339,33 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void addNearestEntity(PriorityQueue<Entity> heap, Entity entity,
-		int limit)
+	private boolean isRenderableLimitedEntity(Entity entity)
 	{
-		if(heap.size() < limit)
-			heap.offer(entity);
-		else if(entity.distanceToSqr(MC.player) < heap.peek()
-			.distanceToSqr(MC.player))
+		if(entity instanceof ItemEntity ie)
 		{
-			heap.poll();
-			heap.offer(entity);
+			if(onlyAboveGround.isChecked()
+				&& ie.getY() < aboveGroundY.getValue())
+				return false;
+			
+			ItemStack stack = ie.getItem();
+			return stack != null && !stack.isEmpty() && !isIgnored(stack);
 		}
+		
+		if(entity instanceof ExperienceOrb xo)
+		{
+			if(xpMode.getSelected() == XpMode.OFF)
+				return false;
+			
+			if(onlyAboveGround.isChecked()
+				&& xo.getY() < aboveGroundY.getValue())
+				return false;
+			
+			ItemStack stack =
+				net.wurstclient.util.ItemUtils.createSyntheticXpStack(xo);
+			return !isIgnored(stack);
+		}
+		
+		return false;
 	}
 	
 	private int getEffectiveGlobalEspLimit()
@@ -356,31 +394,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		ensureSpecialListCacheUpToDate();
 		
 		// Update ignored list cache when needed
-		if(useIgnoredItems.isChecked())
-		{
-			int h = ignoredList.getItemNames().hashCode();
-			if(h != lastIgnoredListHash || ignoredExactIds == null)
-			{
-				lastIgnoredListHash = h;
-				java.util.HashSet<String> exact = new java.util.HashSet<>();
-				for(String s : ignoredList.getItemNames())
-				{
-					if(s == null)
-						continue;
-					String raw = s.trim();
-					if(raw.isEmpty())
-						continue;
-					Identifier id = Identifier.tryParse(raw);
-					if(id != null && BuiltInRegistries.ITEM.containsKey(id))
-						exact.add(id.toString());
-				}
-				ignoredExactIds = exact;
-			}
-		}else
-		{
-			ignoredExactIds = null;
-			lastIgnoredListHash = 0;
-		}
+		updateIgnoredListCacheIfNeeded();
 		
 		// Partition items into normal vs special
 		ArrayList<AABB> normalBoxes = new ArrayList<>();
