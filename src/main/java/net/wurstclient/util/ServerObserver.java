@@ -30,6 +30,7 @@ public final class ServerObserver implements PacketInputListener
 	private static final int AVERAGE_OF = 15;
 	private static final int REQUIRED_TRANSACTIONS = 5;
 	
+	private final Object lock = new Object();
 	private final Minecraft mc;
 	private final List<Integer> transactions = new ArrayList<>();
 	private boolean isCapturingTransactions;
@@ -67,11 +68,14 @@ public final class ServerObserver implements PacketInputListener
 		
 		if(isLogin)
 		{
-			resetTransactions();
-			lastLoginPacketName = simpleName;
-			lastServerAddress = getCurrentServerAddress();
-			isCapturingTransactions = true;
-			notifiedAntiCheat = false;
+			synchronized(lock)
+			{
+				resetTransactionsLocked();
+				lastLoginPacketName = simpleName;
+				lastServerAddress = getCurrentServerAddress();
+				isCapturingTransactions = true;
+				notifiedAntiCheat = false;
+			}
 			return;
 		}
 		
@@ -103,16 +107,19 @@ public final class ServerObserver implements PacketInputListener
 			if(id == null)
 				return;
 			
-			isCapturingTransactions = true;
-			transactions.add(id);
-			if(transactions.size() >= REQUIRED_TRANSACTIONS)
+			synchronized(lock)
 			{
-				isCapturingTransactions = false;
-				if(!notifiedAntiCheat)
+				isCapturingTransactions = true;
+				transactions.add(id);
+				if(transactions.size() >= REQUIRED_TRANSACTIONS)
 				{
-					notifiedAntiCheat = true;
-					WurstClient.INSTANCE.getHax().antiCheatDetectHack
-						.completed();
+					isCapturingTransactions = false;
+					if(!notifiedAntiCheat)
+					{
+						notifiedAntiCheat = true;
+						WurstClient.INSTANCE.getHax().antiCheatDetectHack
+							.completed();
+					}
 				}
 			}
 		}
@@ -125,16 +132,22 @@ public final class ServerObserver implements PacketInputListener
 	
 	public void requestCaptureIfNeeded()
 	{
-		if(transactions.size() < REQUIRED_TRANSACTIONS)
-			isCapturingTransactions = true;
+		synchronized(lock)
+		{
+			if(transactions.size() < REQUIRED_TRANSACTIONS)
+				isCapturingTransactions = true;
+		}
 	}
 	
 	public String getDebugStatus()
 	{
-		return "login=" + safe(lastLoginPacketName) + ", ping="
-			+ safe(lastPingPacketName) + ", id="
-			+ (lastPingId == null ? "null" : lastPingId) + ", count="
-			+ transactions.size();
+		synchronized(lock)
+		{
+			return "login=" + safe(lastLoginPacketName) + ", ping="
+				+ safe(lastPingPacketName) + ", id="
+				+ (lastPingId == null ? "null" : lastPingId) + ", count="
+				+ transactions.size();
+		}
 	}
 	
 	public String getServerAddress()
@@ -145,18 +158,27 @@ public final class ServerObserver implements PacketInputListener
 	
 	public double getTps()
 	{
-		return tps;
+		synchronized(lock)
+		{
+			return tps;
+		}
 	}
 	
 	public String guessAntiCheat(String address)
 	{
-		if(transactions.size() < REQUIRED_TRANSACTIONS)
-			return null;
+		List<Integer> snapshot;
+		synchronized(lock)
+		{
+			if(transactions.size() < REQUIRED_TRANSACTIONS)
+				return null;
+			
+			snapshot = new ArrayList<>(transactions);
+		}
 		
-		int first = transactions.get(0);
+		int first = snapshot.get(0);
 		List<Integer> diffs = new ArrayList<>();
-		for(int i = 1; i < transactions.size(); i++)
-			diffs.add(transactions.get(i) - transactions.get(i - 1));
+		for(int i = 1; i < snapshot.size(); i++)
+			diffs.add(snapshot.get(i) - snapshot.get(i - 1));
 		
 		boolean allSame = diffs.stream().allMatch(d -> d.equals(diffs.get(0)));
 		
@@ -192,10 +214,10 @@ public final class ServerObserver implements PacketInputListener
 			}
 		}
 		
-		boolean twoEqual = transactions.get(0).equals(transactions.get(1));
+		boolean twoEqual = snapshot.get(0).equals(snapshot.get(1));
 		boolean restIncremental = true;
-		for(int i = 2; i < transactions.size(); i++)
-			if(transactions.get(i) - transactions.get(i - 1) != 1)
+		for(int i = 2; i < snapshot.size(); i++)
+			if(snapshot.get(i) - snapshot.get(i - 1) != 1)
 			{
 				restIncremental = false;
 				break;
@@ -214,15 +236,15 @@ public final class ServerObserver implements PacketInputListener
 				return "Polar";
 		}
 		
-		if(first < -3000 && transactions.contains(0))
+		if(first < -3000 && snapshot.contains(0))
 			return "Intave";
 		
-		if(transactions.size() >= 5 && transactions.get(0) == -30767
-			&& transactions.get(1) == -30766 && transactions.get(2) == -25767)
+		if(snapshot.size() >= 5 && snapshot.get(0) == -30767
+			&& snapshot.get(1) == -30766 && snapshot.get(2) == -25767)
 		{
 			boolean oldVulcan = true;
-			for(int i = 3; i < transactions.size() && oldVulcan; i++)
-				if(transactions.get(i) - transactions.get(i - 1) != 1)
+			for(int i = 3; i < snapshot.size() && oldVulcan; i++)
+				if(snapshot.get(i) - snapshot.get(i - 1) != 1)
 					oldVulcan = false;
 				
 			if(oldVulcan)
@@ -234,16 +256,27 @@ public final class ServerObserver implements PacketInputListener
 	
 	private void reset()
 	{
-		resetTransactions();
-		timeIntervals.clear();
-		lastTimeUpdateMs = -1L;
-		tps = Double.NaN;
-		lastPingPacketName = null;
-		lastPingId = null;
-		lastLoginPacketName = null;
+		synchronized(lock)
+		{
+			resetTransactionsLocked();
+			timeIntervals.clear();
+			lastTimeUpdateMs = -1L;
+			tps = Double.NaN;
+			lastPingPacketName = null;
+			lastPingId = null;
+			lastLoginPacketName = null;
+		}
 	}
 	
 	private void resetTransactions()
+	{
+		synchronized(lock)
+		{
+			resetTransactionsLocked();
+		}
+	}
+	
+	private void resetTransactionsLocked()
 	{
 		transactions.clear();
 		isCapturingTransactions = false;
@@ -260,21 +293,25 @@ public final class ServerObserver implements PacketInputListener
 	
 	private void trackTimeUpdate()
 	{
-		long now = System.currentTimeMillis();
-		if(lastTimeUpdateMs >= 0)
+		synchronized(lock)
 		{
-			double elapsed = now - lastTimeUpdateMs;
-			timeIntervals.addLast(elapsed);
-			while(timeIntervals.size() > AVERAGE_OF)
-				timeIntervals.removeFirst();
+			long now = System.currentTimeMillis();
+			if(lastTimeUpdateMs >= 0)
+			{
+				double elapsed = now - lastTimeUpdateMs;
+				timeIntervals.addLast(elapsed);
+				while(timeIntervals.size() > AVERAGE_OF)
+					timeIntervals.removeFirst();
+				
+				double average = timeIntervals.stream().mapToDouble(d -> d)
+					.average().orElse(Double.NaN);
+				if(!Double.isNaN(average) && average > 0)
+					tps = Math.max(0.0,
+						Math.min(20.0, 20.0 / (average / 1000.0)));
+			}
 			
-			double average = timeIntervals.stream().mapToDouble(d -> d)
-				.average().orElse(Double.NaN);
-			if(!Double.isNaN(average) && average > 0)
-				tps = Math.max(0.0, Math.min(20.0, 20.0 / (average / 1000.0)));
+			lastTimeUpdateMs = now;
 		}
-		
-		lastTimeUpdateMs = now;
 	}
 	
 	private boolean isLoginPacket(String simpleName)
