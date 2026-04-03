@@ -12,12 +12,10 @@ import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.function.BiPredicate;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
@@ -47,6 +45,7 @@ import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
 import net.wurstclient.util.RotationUtils;
@@ -322,23 +321,32 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private List<Result> getNearestReadyMatches(int limit)
 	{
 		var eyesPos = RotationUtils.getEyesPos();
-		PriorityQueue<Result> heap = new PriorityQueue<>(limit + 1,
-			Comparator
-				.comparingDouble((Result r) -> r.pos().distToCenterSqr(eyesPos))
-				.reversed());
+		return EspLimitUtils.collectNearest(coordinator.getReadyMatches(),
+			limit, r -> r.pos().distToCenterSqr(eyesPos),
+			this::isRenderableResult);
+	}
+	
+	private boolean isRenderableResult(Result result)
+	{
+		if(result == null)
+			return false;
 		
-		coordinator.getReadyMatches().forEach(result -> {
-			if(heap.size() < limit)
-				heap.offer(result);
-			else if(result.pos().distToCenterSqr(eyesPos) < heap.peek().pos()
-				.distToCenterSqr(eyesPos))
-			{
-				heap.poll();
-				heap.offer(result);
-			}
-		});
+		BlockPos pos = result.pos();
+		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
+			return false;
 		
-		return new ArrayList<>(heap);
+		for(PortalEspBlockGroup group : groups)
+		{
+			if(result.state().getBlock() != group.getBlock())
+				continue;
+			if(!group.isEnabled())
+				return false;
+			if(group == endGateway && !isInEndDimension())
+				return false;
+			return true;
+		}
+		
+		return false;
 	}
 	
 	private int getEffectiveGlobalEspLimit()
@@ -359,6 +367,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 			if(result.state().getBlock() == group.getBlock())
 			{
+				if(!group.isEnabled())
+					return;
+				
 				if(group == endGateway && !isInEndDimension())
 					return;
 				

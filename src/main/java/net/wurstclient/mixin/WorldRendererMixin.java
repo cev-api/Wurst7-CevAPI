@@ -25,6 +25,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
 import net.wurstclient.render.globalesp.GlobalEspManager;
+import net.wurstclient.util.RenderUtils;
 
 @Mixin(LevelRenderer.class)
 public class WorldRendererMixin
@@ -47,6 +48,7 @@ public class WorldRendererMixin
 		GpuBufferSlice gpuBufferSlice, Vector4f vector4f, boolean bl,
 		CallbackInfo ci)
 	{
+		RenderUtils.beginEspFrame();
 		GlobalEspManager.getInstance().beginFrame();
 	}
 	
