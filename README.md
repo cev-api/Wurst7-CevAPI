@@ -284,6 +284,7 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 - Toggleable automatic portal logging, logs numerically each portal you enter and matches it in the opposite dimension with the same number.
 - Optional distance based label scaling
+- Optional dimming or hiding of on-screen waypoints unless looking directly at them
 
 
 #### Waypoint Commands
@@ -863,6 +864,10 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - FPS/TPS/Ping show running averages in brackets (e.g. `Ping: 30 (21)`)
 - Style settings: font size, font opacity, font color, font stroke, background box toggle, background color, and background opacity
 - Per-stat visibility toggles plus a universal `Show Prefixes` and `Show Averages` toggle for labels
+- FPS and TPS graph
+  - Can be embedded into GameStats or detached
+  - When detached can be resizable via settings or dragging bottom right corner
+  - Adjustable colors
 
 ![FPS](https://i.imgur.com/MhmAno5.png)
 

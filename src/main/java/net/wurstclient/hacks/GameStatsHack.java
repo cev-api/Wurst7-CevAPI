@@ -102,6 +102,30 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final CheckboxSetting showAverages =
 		new CheckboxSetting("Show Averages", true);
 	
+	private final CheckboxSetting showGraph =
+		new CheckboxSetting("Show graph", false);
+	
+	private final CheckboxSetting separateGraphWindow =
+		new CheckboxSetting("Separate graph window", false);
+	
+	private final ColorSetting fpsGraphColor =
+		new ColorSetting("FPS graph color", new Color(0x53, 0xC7, 0xFF, 0xFF));
+	
+	private final ColorSetting tpsGraphColor =
+		new ColorSetting("TPS graph color", new Color(0xFF, 0xB3, 0x47, 0xFF));
+	
+	private final SliderSetting graphWindowWidth = new SliderSetting(
+		"Graph width", 220, 120, 1000, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting graphWindowHeight = new SliderSetting(
+		"Graph height", 120, 70, 800, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting graphWindowOffsetX = new SliderSetting(
+		"Graph X offset", 180, -2000, 2000, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting graphWindowOffsetY = new SliderSetting(
+		"Graph Y offset", 0, -2000, 2000, 1, ValueDisplay.INTEGER);
+	
 	private final ArrayDeque<Long> incomingPacketTimes = new ArrayDeque<>();
 	private final ArrayDeque<Long> outgoingPacketTimes = new ArrayDeque<>();
 	private final Object packetTimesLock = new Object();
@@ -135,6 +159,14 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		addSetting(hudOffsetY);
 		addSetting(showPrefixes);
 		addSetting(showAverages);
+		addSetting(showGraph);
+		addSetting(separateGraphWindow);
+		addSetting(fpsGraphColor);
+		addSetting(tpsGraphColor);
+		addSetting(graphWindowWidth);
+		addSetting(graphWindowHeight);
+		addSetting(graphWindowOffsetX);
+		addSetting(graphWindowOffsetY);
 	}
 	
 	@Override
@@ -341,6 +373,98 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showAverages()
 	{
 		return showAverages.isChecked();
+	}
+	
+	public boolean showGraph()
+	{
+		return showGraph.isChecked();
+	}
+	
+	public boolean separateGraphWindow()
+	{
+		return separateGraphWindow.isChecked();
+	}
+	
+	public int getFpsGraphColorI()
+	{
+		return fpsGraphColor.getColorI();
+	}
+	
+	public int getTpsGraphColorI()
+	{
+		return tpsGraphColor.getColorI();
+	}
+	
+	public int getGraphWindowWidth()
+	{
+		return graphWindowWidth.getValueI();
+	}
+	
+	public int getGraphWindowHeight()
+	{
+		return graphWindowHeight.getValueI();
+	}
+	
+	public int getGraphWindowOffsetX()
+	{
+		return graphWindowOffsetX.getValueI();
+	}
+	
+	public int getGraphWindowOffsetY()
+	{
+		return graphWindowOffsetY.getValueI();
+	}
+	
+	public int getGraphWindowMinWidth()
+	{
+		return (int)graphWindowWidth.getMinimum();
+	}
+	
+	public int getGraphWindowMaxWidth()
+	{
+		return (int)graphWindowWidth.getMaximum();
+	}
+	
+	public int getGraphWindowMinHeight()
+	{
+		return (int)graphWindowHeight.getMinimum();
+	}
+	
+	public int getGraphWindowMaxHeight()
+	{
+		return (int)graphWindowHeight.getMaximum();
+	}
+	
+	public int getGraphWindowMinOffsetX()
+	{
+		return (int)graphWindowOffsetX.getMinimum();
+	}
+	
+	public int getGraphWindowMaxOffsetX()
+	{
+		return (int)graphWindowOffsetX.getMaximum();
+	}
+	
+	public int getGraphWindowMinOffsetY()
+	{
+		return (int)graphWindowOffsetY.getMinimum();
+	}
+	
+	public int getGraphWindowMaxOffsetY()
+	{
+		return (int)graphWindowOffsetY.getMaximum();
+	}
+	
+	public void setGraphWindowOffsets(int x, int y)
+	{
+		graphWindowOffsetX.setValue(x);
+		graphWindowOffsetY.setValue(y);
+	}
+	
+	public void setGraphWindowSize(int width, int height)
+	{
+		graphWindowWidth.setValue(width);
+		graphWindowHeight.setValue(height);
 	}
 	
 	public int getHudOffsetX()

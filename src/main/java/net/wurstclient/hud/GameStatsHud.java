@@ -17,6 +17,7 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.stats.Stats;
@@ -34,6 +35,16 @@ public final class GameStatsHud
 	private static final float PADDING = 4F;
 	private static final float LINE_GAP = 2F;
 	private static final long SAMPLE_INTERVAL_MS = 1000L;
+	private static final float GRAPH_GAP = 4F;
+	private static final float GRAPH_TO_TEXT_GAP = 2F;
+	private static final float GRAPH_HEIGHT = 34F;
+	private static final long GRAPH_SAMPLE_INTERVAL_MS = 200L;
+	private static final int GRAPH_MAX_SAMPLES = 240;
+	private static final double FPS_GRAPH_TARGET = 120.0;
+	private static final double TPS_GRAPH_TARGET = 20.0;
+	private static final float GRAPH_WINDOW_BASE_X = 8F;
+	private static final float GRAPH_WINDOW_BASE_Y = 8F;
+	private static final int GRAPH_RESIZE_MARGIN = 8;
 	private static final DateTimeFormatter TIME_FORMAT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
 	
@@ -66,6 +77,23 @@ public final class GameStatsHud
 	private int dragStartOffsetY;
 	private int dragOffsetX;
 	private int dragOffsetY;
+	private final double[] fpsGraphSamples = new double[GRAPH_MAX_SAMPLES];
+	private final double[] tpsGraphSamples = new double[GRAPH_MAX_SAMPLES];
+	private int graphStart;
+	private int graphSize;
+	private long lastGraphSampleMs;
+	private boolean graphDragging;
+	private boolean graphResizing;
+	private double graphDragStartMouseX;
+	private double graphDragStartMouseY;
+	private int graphDragStartOffsetX;
+	private int graphDragStartOffsetY;
+	private int graphDragOffsetX;
+	private int graphDragOffsetY;
+	private int graphResizeStartWidth;
+	private int graphResizeStartHeight;
+	private int graphResizeWidth;
+	private int graphResizeHeight;
 	
 	public GameStatsHud(GameStatsHack hack)
 	{
@@ -91,11 +119,15 @@ public final class GameStatsHud
 		
 		updateSessionTracking();
 		updateAverages();
+		updateGraphSamples();
 		
 		double scale = hack.getFontScale();
 		List<String> lines = buildLines();
 		if(lines.isEmpty())
 			return;
+		
+		boolean renderGraph = shouldRenderGraph();
+		boolean separateGraphWindow = renderGraph && hack.separateGraphWindow();
 		
 		float maxTextWidth = 0F;
 		for(String line : lines)
@@ -105,9 +137,18 @@ public final class GameStatsHud
 		float lineHeight = (float)(font.lineHeight * scale);
 		float textHeight = lines.size() * lineHeight
 			+ Math.max(0, lines.size() - 1) * LINE_GAP;
+		float graphBlockHeight = 0F;
+		if(renderGraph && !separateGraphWindow)
+		{
+			float graphGap = Math.max(2F, GRAPH_GAP * (float)scale);
+			float graphToTextGap =
+				Math.max(1F, GRAPH_TO_TEXT_GAP * (float)scale);
+			float graphHeight = Math.max(12F, GRAPH_HEIGHT * (float)scale);
+			graphBlockHeight = graphGap + graphToTextGap + graphHeight;
+		}
 		
 		float boxWidth = maxTextWidth + PADDING * 2F;
-		float boxHeight = textHeight + PADDING * 2F;
+		float boxHeight = textHeight + PADDING * 2F + graphBlockHeight;
 		
 		float x = BASE_X + getCurrentOffsetX();
 		float y = BASE_Y + getCurrentOffsetY();
@@ -130,6 +171,18 @@ public final class GameStatsHud
 			Math.min(255, (int)Math.round(hack.getFontOpacity() * 0.9)));
 		
 		float drawY = y + PADDING;
+		if(renderGraph && !separateGraphWindow)
+		{
+			float drawX = x + PADDING;
+			float graphGap = Math.max(2F, GRAPH_GAP * (float)scale);
+			float graphToTextGap =
+				Math.max(1F, GRAPH_TO_TEXT_GAP * (float)scale);
+			float graphHeight = Math.max(12F, GRAPH_HEIGHT * (float)scale);
+			drawFpsTpsGraph(context, drawX, drawY, boxWidth - PADDING * 2F,
+				graphHeight);
+			drawY += graphHeight + graphToTextGap + graphGap;
+		}
+		
 		for(String line : lines)
 		{
 			float drawX = x + PADDING;
@@ -143,6 +196,9 @@ public final class GameStatsHud
 				false, scale);
 			drawY += lineHeight + LINE_GAP;
 		}
+		
+		if(separateGraphWindow)
+			renderSeparateGraphWindow(context);
 	}
 	
 	private List<String> buildLines()
@@ -287,6 +343,7 @@ public final class GameStatsHud
 		long now = System.currentTimeMillis();
 		sessionStartMs = now;
 		lastSampleMs = now - SAMPLE_INTERVAL_MS;
+		lastGraphSampleMs = now - GRAPH_SAMPLE_INTERVAL_MS;
 		
 		fpsSampleCount = 0L;
 		pingSampleCount = 0L;
@@ -304,6 +361,10 @@ public final class GameStatsHud
 		mobKillsBaseline = -1;
 		playerKillsBaseline = -1;
 		xpBaseline = -1;
+		graphStart = 0;
+		graphSize = 0;
+		graphDragging = false;
+		graphResizing = false;
 	}
 	
 	private long elapsedSessionMs()
@@ -508,6 +569,289 @@ public final class GameStatsHud
 			false, scale);
 		RenderUtils.drawScaledText(context, font, text, x, y + 1, strokeColor,
 			false, scale);
+	}
+	
+	private boolean shouldRenderGraph()
+	{
+		return hack.showGraph() && (hack.showFps() || hack.showTps());
+	}
+	
+	private void updateGraphSamples()
+	{
+		if(!hack.showFps() && !hack.showTps())
+			return;
+		
+		long now = System.currentTimeMillis();
+		if(now - lastGraphSampleMs < GRAPH_SAMPLE_INTERVAL_MS)
+			return;
+		
+		lastGraphSampleMs = now;
+		
+		double fps = hack.showFps() ? Math.max(0, MC.getFps()) : Double.NaN;
+		double tps = hack.showTps() ? getServerTps() : Double.NaN;
+		pushGraphSample(fps, tps);
+	}
+	
+	private void pushGraphSample(double fps, double tps)
+	{
+		if(graphSize < GRAPH_MAX_SAMPLES)
+		{
+			int idx = (graphStart + graphSize) % GRAPH_MAX_SAMPLES;
+			fpsGraphSamples[idx] = fps;
+			tpsGraphSamples[idx] = tps;
+			graphSize++;
+			return;
+		}
+		
+		fpsGraphSamples[graphStart] = fps;
+		tpsGraphSamples[graphStart] = tps;
+		graphStart = (graphStart + 1) % GRAPH_MAX_SAMPLES;
+	}
+	
+	private double getGraphSample(double[] samples, int idx)
+	{
+		if(idx < 0 || idx >= graphSize)
+			return Double.NaN;
+		
+		return samples[(graphStart + idx) % GRAPH_MAX_SAMPLES];
+	}
+	
+	private void drawFpsTpsGraph(GuiGraphicsExtractor context, float x, float y,
+		float width, float height)
+	{
+		float safeWidth = Math.max(30F, width);
+		float safeHeight = Math.max(12F, height);
+		RenderUtils.fill2D(context, x, y, x + safeWidth, y + safeHeight,
+			0x40000000);
+		RenderUtils.drawBorder2D(context, x, y, x + safeWidth, y + safeHeight,
+			0x70FFFFFF);
+		drawGuideLine(context, x, y, safeWidth, safeHeight, 0.5, 0x40FFFFFF);
+		
+		if(graphSize < 2 || safeWidth < 2F)
+			return;
+		
+		if(hack.showFps())
+		{
+			int fpsColor = withAlpha(hack.getFpsGraphColorI(), 255);
+			drawGraphSeries(context, fpsGraphSamples, x, y, safeWidth,
+				safeHeight, FPS_GRAPH_TARGET, fpsColor);
+		}
+		
+		if(hack.showTps())
+		{
+			int tpsColor = withAlpha(hack.getTpsGraphColorI(), 255);
+			drawGraphSeries(context, tpsGraphSamples, x, y, safeWidth,
+				safeHeight, TPS_GRAPH_TARGET, tpsColor);
+		}
+	}
+	
+	private void drawGuideLine(GuiGraphicsExtractor context, float x, float y,
+		float width, float height, double normalizedValue, int color)
+	{
+		float lineY = valueToGraphY(normalizedValue, y, height);
+		RenderUtils.drawLine2D(context, x, lineY, x + width - 1F, lineY, color);
+	}
+	
+	private void drawGraphSeries(GuiGraphicsExtractor context, double[] samples,
+		float x, float y, float width, float height, double target, int color)
+	{
+		int pointCount = Math.max(2, Math.min((int)width, graphSize));
+		boolean hasPrev = false;
+		float prevX = 0F;
+		float prevY = 0F;
+		
+		for(int i = 0; i < pointCount; i++)
+		{
+			double t = i / (double)(pointCount - 1);
+			int sampleIndex = (int)Math.round(t * (graphSize - 1));
+			double sample = getGraphSample(samples, sampleIndex);
+			if(!Double.isFinite(sample))
+			{
+				hasPrev = false;
+				continue;
+			}
+			
+			double normalized = Math.max(0.0, Math.min(1.0, sample / target));
+			float sx = (float)(x + t * (width - 1F));
+			float sy = valueToGraphY(normalized, y, height);
+			
+			if(hasPrev)
+				RenderUtils.drawLine2D(context, prevX, prevY, sx, sy, color);
+			
+			prevX = sx;
+			prevY = sy;
+			hasPrev = true;
+		}
+	}
+	
+	private float valueToGraphY(double normalizedValue, float y, float height)
+	{
+		double clamped = Math.max(0.0, Math.min(1.0, normalizedValue));
+		return (float)(y + height - 1F - clamped * (height - 1F));
+	}
+	
+	private void renderSeparateGraphWindow(GuiGraphicsExtractor context)
+	{
+		float x = GRAPH_WINDOW_BASE_X + getCurrentGraphOffsetX();
+		float y = GRAPH_WINDOW_BASE_Y + getCurrentGraphOffsetY();
+		float width = getCurrentGraphWidth();
+		float height = getCurrentGraphHeight();
+		
+		handleGraphWindowInteraction(context, x, y, width, height);
+		
+		x = GRAPH_WINDOW_BASE_X + getCurrentGraphOffsetX();
+		y = GRAPH_WINDOW_BASE_Y + getCurrentGraphOffsetY();
+		width = getCurrentGraphWidth();
+		height = getCurrentGraphHeight();
+		
+		int bgColor =
+			withAlpha(hack.getBackgroundColorI(), hack.getBackgroundOpacity());
+		RenderUtils.fill2D(context, x, y, x + width, y + height, bgColor);
+		drawFpsTpsGraph(context, x + PADDING, y + PADDING, width - PADDING * 2F,
+			height - PADDING * 2F);
+	}
+	
+	private void handleGraphWindowInteraction(GuiGraphicsExtractor context,
+		float x, float y, float width, float height)
+	{
+		boolean canEdit = MC.screen instanceof ChatScreen
+			|| MC.screen instanceof AbstractContainerScreen<?>;
+		if(!canEdit)
+		{
+			if(graphDragging)
+				commitGraphDrag();
+			if(graphResizing)
+				commitGraphResize();
+			graphDragging = false;
+			graphResizing = false;
+			return;
+		}
+		
+		Window window = MC.getWindow();
+		if(window == null)
+		{
+			if(graphDragging)
+				commitGraphDrag();
+			if(graphResizing)
+				commitGraphResize();
+			graphDragging = false;
+			graphResizing = false;
+			return;
+		}
+		
+		double mouseX = getScaledMouseX(context);
+		double mouseY = getScaledMouseY(context);
+		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
+			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean overWindow = mouseX >= x && mouseX <= x + width && mouseY >= y
+			&& mouseY <= y + height;
+		boolean overResizeHandle = mouseX >= x + width - GRAPH_RESIZE_MARGIN
+			&& mouseX <= x + width && mouseY >= y + height - GRAPH_RESIZE_MARGIN
+			&& mouseY <= y + height;
+		
+		if(leftDown)
+		{
+			if(!graphDragging && !graphResizing && overResizeHandle)
+			{
+				graphResizing = true;
+				graphDragStartMouseX = mouseX;
+				graphDragStartMouseY = mouseY;
+				graphResizeStartWidth = hack.getGraphWindowWidth();
+				graphResizeStartHeight = hack.getGraphWindowHeight();
+				graphResizeWidth = graphResizeStartWidth;
+				graphResizeHeight = graphResizeStartHeight;
+			}
+			
+			if(graphResizing)
+			{
+				graphResizeWidth = clampGraphWidth(graphResizeStartWidth
+					+ (int)Math.round(mouseX - graphDragStartMouseX));
+				graphResizeHeight = clampGraphHeight(graphResizeStartHeight
+					+ (int)Math.round(mouseY - graphDragStartMouseY));
+				return;
+			}
+			
+			if(!graphDragging && overWindow)
+			{
+				graphDragging = true;
+				graphDragStartMouseX = mouseX;
+				graphDragStartMouseY = mouseY;
+				graphDragStartOffsetX = hack.getGraphWindowOffsetX();
+				graphDragStartOffsetY = hack.getGraphWindowOffsetY();
+				graphDragOffsetX = graphDragStartOffsetX;
+				graphDragOffsetY = graphDragStartOffsetY;
+			}
+			
+			if(graphDragging)
+			{
+				graphDragOffsetX = clampGraphOffsetX(graphDragStartOffsetX
+					+ (int)Math.round(mouseX - graphDragStartMouseX));
+				graphDragOffsetY = clampGraphOffsetY(graphDragStartOffsetY
+					+ (int)Math.round(mouseY - graphDragStartMouseY));
+			}
+			return;
+		}
+		
+		if(graphDragging)
+			commitGraphDrag();
+		if(graphResizing)
+			commitGraphResize();
+		graphDragging = false;
+		graphResizing = false;
+	}
+	
+	private int getCurrentGraphOffsetX()
+	{
+		return graphDragging ? graphDragOffsetX : hack.getGraphWindowOffsetX();
+	}
+	
+	private int getCurrentGraphOffsetY()
+	{
+		return graphDragging ? graphDragOffsetY : hack.getGraphWindowOffsetY();
+	}
+	
+	private int getCurrentGraphWidth()
+	{
+		return graphResizing ? graphResizeWidth : hack.getGraphWindowWidth();
+	}
+	
+	private int getCurrentGraphHeight()
+	{
+		return graphResizing ? graphResizeHeight : hack.getGraphWindowHeight();
+	}
+	
+	private int clampGraphOffsetX(int x)
+	{
+		return Math.max(hack.getGraphWindowMinOffsetX(),
+			Math.min(hack.getGraphWindowMaxOffsetX(), x));
+	}
+	
+	private int clampGraphOffsetY(int y)
+	{
+		return Math.max(hack.getGraphWindowMinOffsetY(),
+			Math.min(hack.getGraphWindowMaxOffsetY(), y));
+	}
+	
+	private int clampGraphWidth(int width)
+	{
+		return Math.max(hack.getGraphWindowMinWidth(),
+			Math.min(hack.getGraphWindowMaxWidth(), width));
+	}
+	
+	private int clampGraphHeight(int height)
+	{
+		return Math.max(hack.getGraphWindowMinHeight(),
+			Math.min(hack.getGraphWindowMaxHeight(), height));
+	}
+	
+	private void commitGraphDrag()
+	{
+		hack.setGraphWindowOffsets(graphDragOffsetX, graphDragOffsetY);
+	}
+	
+	private void commitGraphResize()
+	{
+		hack.setGraphWindowSize(graphResizeWidth, graphResizeHeight);
 	}
 	
 	private void handleDrag(GuiGraphicsExtractor context, float x, float y,

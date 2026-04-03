@@ -43,6 +43,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -141,6 +142,14 @@ public final class WaypointsHack extends Hack
 		new CheckboxSetting("Compass text outline", true);
 	private final SliderSetting compassOutlineOpacity = new SliderSetting(
 		"Compass outline opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting dimObscuredOnScreenWaypoints =
+		new CheckboxSetting("Dim obscured on-screen waypoints",
+			"When a waypoint is hidden behind blocks, greatly dim its on-screen compass marker unless you're looking directly at it.",
+			false);
+	private final CheckboxSetting iconOnlyForObscuredOnScreenWaypoints =
+		new CheckboxSetting("Icon-only when obscured",
+			"When a waypoint is hidden behind blocks, only show its icon on the on-screen compass unless you're looking directly at it.",
+			false);
 	
 	// Waypoint world-label outline settings
 	private final CheckboxSetting waypointOutline =
@@ -196,6 +205,8 @@ public final class WaypointsHack extends Hack
 		addSetting(compassOpacity);
 		addSetting(compassOutline);
 		addSetting(compassOutlineOpacity);
+		addSetting(dimObscuredOnScreenWaypoints);
+		addSetting(iconOnlyForObscuredOnScreenWaypoints);
 		addSetting(waypointOutline);
 		addSetting(waypointOutlineOpacity);
 		addSetting(compassBackgroundOpacity);
@@ -781,6 +792,20 @@ public final class WaypointsHack extends Hack
 			
 			double distSq = MC.player.distanceToSqr(wp.getX() + 0.5,
 				wp.getY() + 0.5, wp.getZ() + 0.5);
+			boolean applyObscuredRules =
+				dimObscuredOnScreenWaypoints.isChecked()
+					|| iconOnlyForObscuredOnScreenWaypoints.isChecked();
+			boolean obscured = applyObscuredRules && isWaypointObscured(wp);
+			boolean directlyLooked =
+				obscured && isDirectlyLookingAtWaypoint(wp, 5.0);
+			boolean suppressDetails = obscured && !directlyLooked
+				&& iconOnlyForObscuredOnScreenWaypoints.isChecked();
+			int waypointColor = applyFade(w.getColor(), distSq);
+			if(obscured && !directlyLooked
+				&& dimObscuredOnScreenWaypoints.isChecked())
+			{
+				waypointColor = dimForObscured(waypointColor);
+			}
 			double dist = Math.sqrt(distSq);
 			double trd = waypointRenderDistance.getValue();
 			boolean infiniteLabels = trd >= DISTANCE_SLIDER_INFINITE;
@@ -800,12 +825,10 @@ public final class WaypointsHack extends Hack
 			{
 				RenderUtils.drawTracer(matrices, partialTicks,
 					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
-					applyFade(w.getColor(), distSq), false);
-				RenderUtils
-					.drawOutlinedBoxes(matrices,
-						java.util.List.of(new RenderUtils.ColoredBox(
-							new AABB(wp), applyFade(w.getColor(), distSq))),
-						false);
+					waypointColor, false);
+				RenderUtils.drawOutlinedBoxes(matrices, java.util.List.of(
+					new RenderUtils.ColoredBox(new AABB(wp), waypointColor)),
+					false);
 			}
 			
 			if(!beyondMaxVisible)
@@ -829,8 +852,7 @@ public final class WaypointsHack extends Hack
 				if(beaconsEnabled && beaconMode != Waypoint.BeaconMode.OFF)
 				{
 					if(beaconInfinite || distSq <= beaconRangeSq)
-						drawBeaconBeam(matrices, wp,
-							applyFade(w.getColor(), distSq), beaconMode);
+						drawBeaconBeam(matrices, wp, waypointColor, beaconMode);
 				}
 			}
 			
@@ -838,7 +860,10 @@ public final class WaypointsHack extends Hack
 			{
 				String title = w.getName() == null ? "" : w.getName();
 				String icon = iconChar(w.getIcon());
-				if(!icon.isEmpty())
+				if(suppressDetails)
+				{
+					title = icon.isEmpty() ? "●" : icon;
+				}else if(!icon.isEmpty())
 					title = icon + (title.isEmpty() ? "" : " " + title);
 				String distanceText = (int)dist + " blocks";
 				double baseY = wp.getY() + 1.2;
@@ -919,10 +944,11 @@ public final class WaypointsHack extends Hack
 				}
 				// Keep a constant 10px separation using local pixel offset
 				float sepPx = 10.0f;
-				drawWorldLabel(matrices, title, lx, ly, lz,
-					applyFade(w.getColor(), distSq), scale, -sepPx);
-				drawWorldLabel(matrices, distanceText, lx, ly, lz,
-					applyFade(w.getColor(), distSq), (float)(scale * 0.9f), 0f);
+				drawWorldLabel(matrices, title, lx, ly, lz, waypointColor,
+					scale, -sepPx);
+				if(!suppressDetails)
+					drawWorldLabel(matrices, distanceText, lx, ly, lz,
+						waypointColor, (float)(scale * 0.9f), 0f);
 			}
 		}
 	}
@@ -1476,7 +1502,9 @@ public final class WaypointsHack extends Hack
 		for(WaypointEntry e : entries)
 		{
 			int ix = (int)Math.round(e.x);
-			if(selected != null && e.w.getUuid().equals(selected.w.getUuid()))
+			boolean directlyLooked =
+				selected != null && e.w.getUuid().equals(selected.w.getUuid());
+			if(directlyLooked)
 				ix = centerX; // center selected
 			String icon = iconChar(e.w.getIcon());
 			if(icon == null)
@@ -1616,6 +1644,48 @@ public final class WaypointsHack extends Hack
 			default:
 			return "?";
 		}
+	}
+	
+	private boolean isWaypointObscured(BlockPos waypointPos)
+	{
+		if(MC.player == null || MC.level == null || waypointPos == null)
+			return false;
+		
+		Vec3 eyes = MC.player.getEyePosition(1.0F);
+		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
+			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
+		return !BlockUtils.hasLineOfSight(eyes, target);
+	}
+	
+	private boolean isDirectlyLookingAtWaypoint(BlockPos waypointPos,
+		double maxAngleDeg)
+	{
+		if(MC.player == null || waypointPos == null)
+			return false;
+		
+		Vec3 eyes = MC.player.getEyePosition(1.0F);
+		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
+			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
+		Vec3 toWp = target.subtract(eyes);
+		double len = toWp.length();
+		if(len < 1.0E-6)
+			return true;
+		
+		Vec3 dir = toWp.scale(1.0 / len);
+		Vec3 look = MC.player.getLookAngle();
+		double dot = look.dot(dir);
+		dot = Math.max(-1.0, Math.min(1.0, dot));
+		double angle = Math.toDegrees(Math.acos(dot));
+		return angle <= maxAngleDeg;
+	}
+	
+	private int dimForObscured(int argb)
+	{
+		int a = (argb >>> 24) & 0xFF;
+		if(a <= 0)
+			a = 0xFF;
+		int dimmedAlpha = Math.max(14, (int)Math.round(a * 0.2));
+		return withAlpha(argb, dimmedAlpha);
 	}
 	
 	private static final class WaypointEntry
