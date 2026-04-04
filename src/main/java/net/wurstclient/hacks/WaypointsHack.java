@@ -43,6 +43,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
@@ -66,6 +67,7 @@ public final class WaypointsHack extends Hack
 	private static final Pattern END_PORTAL_NAME_PATTERN =
 		Pattern.compile("^End Portal (\\d+)$", Pattern.CASE_INSENSITIVE);
 	private static final long PORTAL_RECORD_COOLDOWN_MS = 2000L;
+	private static final long OCCLUSION_CACHE_MS = 250L;
 	private static final String[] DEATH_MESSAGE_PHRASES =
 		{"was slain", "was shot", "was blown", "was killed", "was fireballed",
 			"was roasted", "was doomed", "was squashed", "was pummeled",
@@ -92,6 +94,7 @@ public final class WaypointsHack extends Hack
 	private final Set<UUID> knownDead = new HashSet<>();
 	// Guard to avoid handling our own injected chat messages
 	private boolean sendingOwnChat = false;
+	private final Map<UUID, OcclusionSample> occlusionCache = new HashMap<>();
 	
 	private final SliderSetting waypointRenderDistance = new SliderSetting(
 		"Waypoint render distance", 127, 0, DISTANCE_SLIDER_INFINITE, 1,
@@ -141,6 +144,14 @@ public final class WaypointsHack extends Hack
 		new CheckboxSetting("Compass text outline", true);
 	private final SliderSetting compassOutlineOpacity = new SliderSetting(
 		"Compass outline opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting dimObscuredOnScreenWaypoints =
+		new CheckboxSetting("Dim obscured on-screen waypoints",
+			"When a waypoint is hidden behind blocks, greatly dim its world label unless you're looking directly at it.",
+			false);
+	private final CheckboxSetting iconOnlyForObscuredOnScreenWaypoints =
+		new CheckboxSetting("Icon-only when obscured",
+			"When a waypoint is hidden behind blocks, only show its icon unless you're looking directly at it.",
+			false);
 	
 	// Waypoint world-label outline settings
 	private final CheckboxSetting waypointOutline =
@@ -196,6 +207,8 @@ public final class WaypointsHack extends Hack
 		addSetting(compassOpacity);
 		addSetting(compassOutline);
 		addSetting(compassOutlineOpacity);
+		addSetting(dimObscuredOnScreenWaypoints);
+		addSetting(iconOnlyForObscuredOnScreenWaypoints);
 		addSetting(waypointOutline);
 		addSetting(waypointOutlineOpacity);
 		addSetting(compassBackgroundOpacity);
@@ -221,6 +234,7 @@ public final class WaypointsHack extends Hack
 		EVENTS.add(GUIRenderListener.class, this);
 		otherDeathCooldown.clear();
 		knownDead.clear();
+		occlusionCache.clear();
 	}
 	
 	@Override
@@ -234,6 +248,7 @@ public final class WaypointsHack extends Hack
 		EVENTS.remove(GUIRenderListener.class, this);
 		otherDeathCooldown.clear();
 		knownDead.clear();
+		occlusionCache.clear();
 	}
 	
 	// Add a temporary waypoint that should not be persisted. Returns the
@@ -766,6 +781,13 @@ public final class WaypointsHack extends Hack
 			return;
 		
 		var list = new ArrayList<>(manager.all());
+		long nowMs = System.currentTimeMillis();
+		double configuredLabelRange = waypointRenderDistance.getValue();
+		boolean configuredInfiniteLabels =
+			configuredLabelRange >= DISTANCE_SLIDER_INFINITE;
+		double occlusionMaxDistSq =
+			configuredInfiniteLabels ? Double.POSITIVE_INFINITY
+				: Math.max(0.0, configuredLabelRange * configuredLabelRange);
 		double beaconRange = beaconRenderDistance.getValue();
 		boolean beaconInfinite = beaconRange >= DISTANCE_SLIDER_INFINITE;
 		boolean beaconsEnabled = beaconInfinite || beaconRange > 0.0;
@@ -783,6 +805,7 @@ public final class WaypointsHack extends Hack
 			
 			double distSq = MC.player.distanceToSqr(wp.getX() + 0.5,
 				wp.getY() + 0.5, wp.getZ() + 0.5);
+			int waypointColor = applyFade(w.getColor(), distSq);
 			double dist = Math.sqrt(distSq);
 			double trd = waypointRenderDistance.getValue();
 			boolean infiniteLabels = trd >= DISTANCE_SLIDER_INFINITE;
@@ -836,6 +859,24 @@ public final class WaypointsHack extends Hack
 			
 			if(renderLabel)
 			{
+				boolean applyObscuredRules =
+					dimObscuredOnScreenWaypoints.isChecked()
+						|| iconOnlyForObscuredOnScreenWaypoints.isChecked();
+				int labelColor = waypointColor;
+				boolean suppressDetails = false;
+				if(applyObscuredRules)
+				{
+					boolean directlyLooked =
+						isDirectlyLookingAtWaypoint(wp, 5.0);
+					boolean obscured =
+						!directlyLooked && isWaypointObscuredCached(w, wp,
+							distSq, occlusionMaxDistSq, nowMs);
+					suppressDetails = obscured
+						&& iconOnlyForObscuredOnScreenWaypoints.isChecked();
+					if(obscured && dimObscuredOnScreenWaypoints.isChecked())
+						labelColor = dimForObscured(labelColor);
+				}
+				
 				String title = w.getName() == null ? "" : w.getName();
 				String icon = iconChar(w.getIcon());
 				if(!icon.isEmpty())
@@ -919,10 +960,11 @@ public final class WaypointsHack extends Hack
 				}
 				// Keep a constant 10px separation using local pixel offset
 				float sepPx = 10.0f;
-				drawWorldLabel(matrices, title, lx, ly, lz,
-					applyFade(w.getColor(), distSq), scale, -sepPx);
-				drawWorldLabel(matrices, distanceText, lx, ly, lz,
-					applyFade(w.getColor(), distSq), (float)(scale * 0.9f), 0f);
+				drawWorldLabel(matrices, title, lx, ly, lz, labelColor, scale,
+					-sepPx);
+				if(!suppressDetails)
+					drawWorldLabel(matrices, distanceText, lx, ly, lz,
+						labelColor, (float)(scale * 0.9f), 0f);
 			}
 		}
 	}
@@ -1618,6 +1660,75 @@ public final class WaypointsHack extends Hack
 		}
 	}
 	
+	private boolean isWaypointObscured(BlockPos waypointPos)
+	{
+		if(MC.player == null || MC.level == null || waypointPos == null)
+			return false;
+			
+		// If the waypoint's chunk isn't loaded, LOS is unknown. Treat it as
+		// obscured to avoid far waypoints popping back to full text.
+		if(!MC.level.hasChunkAt(waypointPos))
+			return true;
+		
+		Vec3 eyes = MC.player.getEyePosition(1.0F);
+		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
+			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
+		return !BlockUtils.hasLineOfSight(eyes, target);
+	}
+	
+	private boolean isWaypointObscuredCached(Waypoint waypoint,
+		BlockPos waypointPos, double distSq, double maxOcclusionDistSq,
+		long nowMs)
+	{
+		if(waypoint == null || waypointPos == null)
+			return false;
+		
+		// Respect user's waypoint render distance setting.
+		if(distSq > maxOcclusionDistSq)
+			return false;
+		
+		OcclusionSample cached = occlusionCache.get(waypoint.getUuid());
+		if(cached != null && cached.pos.equals(waypointPos)
+			&& nowMs - cached.timestampMs <= OCCLUSION_CACHE_MS)
+			return cached.obscured;
+		
+		boolean obscured = isWaypointObscured(waypointPos);
+		occlusionCache.put(waypoint.getUuid(),
+			new OcclusionSample(waypointPos.immutable(), obscured, nowMs));
+		return obscured;
+	}
+	
+	private boolean isDirectlyLookingAtWaypoint(BlockPos waypointPos,
+		double maxAngleDeg)
+	{
+		if(MC.player == null || waypointPos == null)
+			return false;
+		
+		Vec3 eyes = MC.player.getEyePosition(1.0F);
+		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
+			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
+		Vec3 toWp = target.subtract(eyes);
+		double len = toWp.length();
+		if(len < 1.0E-6)
+			return true;
+		
+		Vec3 dir = toWp.scale(1.0 / len);
+		Vec3 look = MC.player.getLookAngle();
+		double dot = look.dot(dir);
+		dot = Math.max(-1.0, Math.min(1.0, dot));
+		double angle = Math.toDegrees(Math.acos(dot));
+		return angle <= maxAngleDeg;
+	}
+	
+	private int dimForObscured(int argb)
+	{
+		int a = (argb >>> 24) & 0xFF;
+		if(a <= 0)
+			a = 0xFF;
+		int dimmedAlpha = Math.max(14, (int)Math.round(a * 0.2));
+		return withAlpha(argb, dimmedAlpha);
+	}
+	
 	private static final class WaypointEntry
 	{
 		final Waypoint w;
@@ -1629,6 +1740,20 @@ public final class WaypointsHack extends Hack
 			this.w = w;
 			this.x = x;
 			this.delta = delta;
+		}
+	}
+	
+	private static final class OcclusionSample
+	{
+		final BlockPos pos;
+		final boolean obscured;
+		final long timestampMs;
+		
+		OcclusionSample(BlockPos pos, boolean obscured, long timestampMs)
+		{
+			this.pos = pos;
+			this.obscured = obscured;
+			this.timestampMs = timestampMs;
 		}
 	}
 	
