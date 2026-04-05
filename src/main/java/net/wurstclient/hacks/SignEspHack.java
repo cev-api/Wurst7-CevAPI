@@ -112,6 +112,31 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 	}
 	
+	public List<AABB> getMapaSignBoxes()
+	{
+		return groups.stream().flatMap(group -> group.getBoxes().stream())
+			.toList();
+	}
+	
+	public List<AABB> getMapaFrameBoxes(float partialTicks)
+	{
+		entityGroups.stream().filter(FrameEspEntityGroup::isEnabled)
+			.forEach(group -> group.updateBoxes(partialTicks));
+		return entityGroups.stream().flatMap(group -> group.getBoxes().stream())
+			.toList();
+	}
+	
+	public int getMapaSignColor()
+	{
+		return groups.isEmpty() ? 0xFFFFFFFF : groups.get(0).getColorI(0xFF);
+	}
+	
+	public int getMapaFrameColor()
+	{
+		return entityGroups.isEmpty() ? 0xFFFFFFFF
+			: entityGroups.get(0).getColorI(0xFF);
+	}
+	
 	@Override
 	protected void onEnable()
 	{

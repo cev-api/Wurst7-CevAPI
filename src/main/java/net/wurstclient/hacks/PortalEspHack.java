@@ -160,6 +160,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 	}
 	
+	public List<PortalEspBlockGroup> getMapaGroups()
+	{
+		return groups;
+	}
+	
 	@Override
 	protected void onEnable()
 	{

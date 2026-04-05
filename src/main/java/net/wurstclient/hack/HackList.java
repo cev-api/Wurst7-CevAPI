@@ -213,6 +213,7 @@ public final class HackList implements UpdateListener
 	public final NukerLegitHack nukerLegitHack = new NukerLegitHack();
 	public final OpenWaterEspHack openWaterEspHack = new OpenWaterEspHack();
 	public final LavaWaterEspHack lavaWaterEspHack = new LavaWaterEspHack();
+	public final MapaHack mapaHack = new MapaHack();
 	public final OverlayHack overlayHack = new OverlayHack();
 	public final PanicHack panicHack = new PanicHack();
 	public final PacketDelayHack packetDelayHack = new PacketDelayHack();

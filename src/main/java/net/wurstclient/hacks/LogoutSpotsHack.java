@@ -36,6 +36,9 @@ import net.wurstclient.waypoints.WaypointDimension;
 public final class LogoutSpotsHack extends Hack
 	implements UpdateListener, RenderListener
 {
+	public static record MapSpot(AABB box, String dimKey)
+	{}
+	
 	private static final class Entry
 	{
 		final String name;
@@ -86,6 +89,17 @@ public final class LogoutSpotsHack extends Hack
 		addSetting(showTracers);
 		addSetting(spotLifetimeMinutes);
 		addSetting(addAsWaypoint);
+	}
+	
+	public List<MapSpot> getMapaSpots()
+	{
+		return spots.values().stream().map(e -> new MapSpot(e.box, e.dimKey))
+			.toList();
+	}
+	
+	public int getMapaLineColor()
+	{
+		return lineColor.getColorI(0xFF);
 	}
 	
 	@Override
