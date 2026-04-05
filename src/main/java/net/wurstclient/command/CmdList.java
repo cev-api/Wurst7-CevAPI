@@ -49,6 +49,7 @@ public final class CmdList
 	public final JumpCmd jumpCmd = new JumpCmd();
 	public final LeaveCmd leaveCmd = new LeaveCmd();
 	public final LivestreamCmd livestreamCmd = new LivestreamCmd();
+	public final MapaCmd mapaCmd = new MapaCmd();
 	public final ModifyCmd modifyCmd = new ModifyCmd();
 	public final PathCmd pathCmd = new PathCmd();
 	public final PanicCmd panicCmd = new PanicCmd();

@@ -134,6 +134,17 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		lastVillageFilterState = filterVillageBeds.isChecked();
 	}
 	
+	public List<AABB> getMapaBoxes()
+	{
+		return groups.stream().flatMap(group -> group.getBoxes().stream())
+			.toList();
+	}
+	
+	public int getMapaColor()
+	{
+		return groups.isEmpty() ? 0xFFFFFFFF : groups.get(0).getColorI(0xFF);
+	}
+	
 	@Override
 	protected void onEnable()
 	{

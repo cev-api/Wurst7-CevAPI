@@ -234,6 +234,17 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(ignoreNpcs);
 	}
 	
+	public java.util.List<Player> getMapaPlayers()
+	{
+		return java.util.List.copyOf(players);
+	}
+	
+	public int getMapaPlayerColor(Player player)
+	{
+		return player == null ? 0xFFFFFFFF : makeOpaque(
+			getVisual(player, System.currentTimeMillis()).boxColor());
+	}
+	
 	@Override
 	protected void onEnable()
 	{

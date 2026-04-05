@@ -217,6 +217,11 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 	}
 	
+	public List<PortalEspBlockGroup> getMapaGroups()
+	{
+		return groups;
+	}
+	
 	private boolean isTargetBlock(Block b)
 	{
 		for(PortalEspBlockGroup g : groups)

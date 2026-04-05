@@ -246,6 +246,16 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 	}
 	
+	public ChestEspGroupManager getMapaGroupManager()
+	{
+		return groups;
+	}
+	
+	public void updateMapaEntityBoxes(float partialTicks)
+	{
+		groups.entityGroups.forEach(group -> group.updateBoxes(partialTicks));
+	}
+	
 	@Override
 	protected void onEnable()
 	{

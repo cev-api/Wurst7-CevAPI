@@ -283,8 +283,8 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 - Xaero's Minimap integration, allows exporting and importing of waypoint data (disconnect & reconnect to update).
 - Adjustable Tri-state Beacon Mode on waypoints (On/Off/ESP) that matches the waypoint's color.
 - Toggleable automatic portal logging, logs numerically each portal you enter and matches it in the opposite dimension with the same number.
-- Optional distance based label scaling
-- Optional dimming or hiding of on-screen waypoints unless looking directly at them
+- Optional distance based label scaling.
+- Optional dimming or hiding of on-screen waypoints unless looking directly at them.
 
 
 #### Waypoint Commands
@@ -1030,6 +1030,21 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - Inspired by [Trouser-Streak's](https://github.com/etianl/Trouser-Streak/blob/main/src/main/java/pwn/noobs/trouserstreak/modules/HoleAndTunnelAndStairsESP.java) implementation, but heavily improved upon.
 
 ![DigDig](https://i.imgur.com/CODK0xp.png)
+
+### Mapa (Minimap/ESP Combo)
+- Adds a Voxelmap/Xaero style real world minimap and world map (1st Image)
+- Map has customisable color filters, modes, display rules and render tweaks
+- Minimap can be dragged around with mouse and resized
+- Shows ESP results on the map, including chest, workstation, sign, portal, player, logout spot and beds.
+  - ESP icons can be resized or highlighted according to their ESP color
+  - Can turn on/off specific ESP
+- No Map mode allows you to only show ESP markers so you can use it as an overlay for a different map provider (2nd Image)
+- PlayerESP markers use player heads and or names
+- Full screen mode allows you to view areas youve discovered and better see ESP markers
+- Map data is cached per server/dimension so explored terrain can be remembered instead of rebuilt every time
+
+![1](https://i.imgur.com/Kuj4NT6.png)
+![2](https://i.imgur.com/1Z50eSC.png)
 
 ## What's changed or improved in this fork?
 
