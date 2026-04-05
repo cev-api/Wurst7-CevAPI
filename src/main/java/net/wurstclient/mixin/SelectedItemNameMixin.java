@@ -18,10 +18,10 @@ import net.wurstclient.hud.DurabilityHud;
 @Mixin(Gui.class)
 public class SelectedItemNameMixin
 {
-	@Inject(method = "renderSelectedItemName",
+	@Inject(method = "extractSelectedItemName",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onRenderSelectedItemName(GuiGraphicsExtractor context,
+	private void onExtractSelectedItemName(GuiGraphicsExtractor context,
 		CallbackInfo ci)
 	{
 		if(DurabilityHud.renderSelectedItemNameWithEnchantments(context))
