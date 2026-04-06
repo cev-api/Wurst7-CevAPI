@@ -1,20 +1,19 @@
-﻿# Wurst Client v7.53.1 (MC26.1) - Modified by CevAPI 
+﻿# Wurst Client v7.53.1 (MC26.1.1) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
-- Downloads: [https://www.wurstclient.net/download/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Fdownload%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
-- Feature list: [https://www.wurstclient.net/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
-- Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
+- Original Wurst Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 
 ## Supported Versions
-- [1.21.1 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
-- [1.21.8 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
-- [1.21.10 - Not Updated](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
-- [1.21.11 - Recommended](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11)
-- [26.1 - Latest](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+- [1.21.1 - Not Updated/Discontinued](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1)
+- [1.21.8 - Not Updated/Discontinued](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8)
+- [1.21.10 - Not Updated/Discontinued](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10)
+- [1.21.11 - Not Updated/Discontinued](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11)
+- [26.1.1 - Latest](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
+Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus)
 
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
@@ -29,11 +28,11 @@ I make changes very often but I publish releases sparingly, so if you want the l
 
 ## Relationship to upstream
 
-This project is a friendly, independent fork of Wurst 7. I originally proposed these features upstream and the maintainers kindly declined, so I'm keeping them in a separate fork. I'll continue to maintain these additions and periodically re-base/sync with the upstream project.
+This project is a friendly, independent fork of Wurst 7. I originally proposed some features upstream and the maintainers kindly declined, so I decided on a separate fork. I'll continue to maintain my additions and constantly re-base/sync with the upstream project. 
 
 - Upstream repository: https://github.com/Wurst-Imperium/Wurst7  
 - This fork: https://github.com/cev-api/Wurst7-CevAPI  
-- Status: actively maintained and re-based as upstream evolves  
+- Status: actively maintaining only the latest release and re-basing as upstream evolves  
 
 All credit for the original client goes to Wurst-Imperium and its contributors. This fork is not affiliated with or endorsed by Wurst-Imperium. This fork maintains the original GPLv3 licensing.
 
@@ -58,7 +57,6 @@ Build without the flag to get the full CevAPI experience; build with the flag fo
 
 ### NiceWurst In-Game Screenshot
 ![NiceWurst](https://i.imgur.com/DhhqLX9.png)
-
 
 ## Novelty
 
@@ -111,6 +109,7 @@ I'm pleased to note that many of the features and improvements below are complet
 - Performance Overlay
 - PearlIntercept
 - PlayerSonar
+- Mapa (ESP Minimap)
 - Redstone, Bed, Sign & Workstation ESP
 - PearlESP (Not a simple trajectory hack)
 - SignFramePassThrough (I didn't know something like this existed as a mod already)
@@ -183,7 +182,7 @@ A ready-to-publish starter project is included here: [https://github.com/cev-api
 
 ---
 
-## What's new in this fork?
+## What's new in this fork? 
 
 ### New GUI (AltGUI)
 - Added a new alternative GUI which you can initially access from the navigator menu and bind to a key (Default Left ALT)

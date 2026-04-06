@@ -689,12 +689,9 @@ public abstract class ContainerScreenMixin
 									|| chestSearchHack.isAutomaticMode();
 								if(doAuto)
 								{
-									int px =
-										GenericContainerScreenMixin.this.clickedX;
-									int py =
-										GenericContainerScreenMixin.this.clickedY;
-									int pz =
-										GenericContainerScreenMixin.this.clickedZ;
+									int px = ContainerScreenMixin.this.clickedX;
+									int py = ContainerScreenMixin.this.clickedY;
+									int pz = ContainerScreenMixin.this.clickedZ;
 									try
 									{
 										var hr = WurstClient.MC.hitResult;
@@ -764,11 +761,11 @@ public abstract class ContainerScreenMixin
 									if(doAuto)
 									{
 										int px =
-											GenericContainerScreenMixin.this.clickedX;
+											ContainerScreenMixin.this.clickedX;
 										int py =
-											GenericContainerScreenMixin.this.clickedY;
+											ContainerScreenMixin.this.clickedY;
 										int pz =
-											GenericContainerScreenMixin.this.clickedZ;
+											ContainerScreenMixin.this.clickedZ;
 										try
 										{
 											var hr = WurstClient.MC.hitResult;
@@ -814,9 +811,9 @@ public abstract class ContainerScreenMixin
 										|| chestSearchHack.isAutomaticMode())
 										chestRecorder.onChestOpened(fServerIp,
 											fDimension,
-											GenericContainerScreenMixin.this.clickedX,
-											GenericContainerScreenMixin.this.clickedY,
-											GenericContainerScreenMixin.this.clickedZ,
+											ContainerScreenMixin.this.clickedX,
+											ContainerScreenMixin.this.clickedY,
+											ContainerScreenMixin.this.clickedZ,
 											menu, chestSlotIndices.size(),
 											chestSlotIndices,
 											wurst$currentBounds());
@@ -851,9 +848,9 @@ public abstract class ContainerScreenMixin
 					if(chestSearchHack == null
 						|| chestSearchHack.isAutomaticMode())
 						chestRecorder.onChestOpened(fServerIp, fDimension,
-							GenericContainerScreenMixin.this.clickedX,
-							GenericContainerScreenMixin.this.clickedY,
-							GenericContainerScreenMixin.this.clickedZ, menu,
+							ContainerScreenMixin.this.clickedX,
+							ContainerScreenMixin.this.clickedY,
+							ContainerScreenMixin.this.clickedZ, menu,
 							slotOrder.size(), slotOrder, wurst$currentBounds());
 				}catch(Throwable ignored)
 				{}
@@ -878,7 +875,7 @@ public abstract class ContainerScreenMixin
 						int total = all.size();
 						java.util.List<Integer> slotOrder =
 							new java.util.ArrayList<>(
-								GenericContainerScreenMixin.this.chestSlotOrder);
+								ContainerScreenMixin.this.chestSlotOrder);
 						if(slotOrder.isEmpty())
 						{
 							int fallbackWindow = Math.min(chestSlots,
@@ -909,12 +906,9 @@ public abstract class ContainerScreenMixin
 									|| chestSearchHack.isAutomaticMode();
 								if(doAuto)
 								{
-									int px =
-										GenericContainerScreenMixin.this.clickedX;
-									int py =
-										GenericContainerScreenMixin.this.clickedY;
-									int pz =
-										GenericContainerScreenMixin.this.clickedZ;
+									int px = ContainerScreenMixin.this.clickedX;
+									int py = ContainerScreenMixin.this.clickedY;
+									int pz = ContainerScreenMixin.this.clickedZ;
 									try
 									{
 										var hr = WurstClient.MC.hitResult;
@@ -1109,7 +1103,7 @@ public abstract class ContainerScreenMixin
 				try
 				{
 					if(WurstClient.MC == null
-						|| WurstClient.MC.screen != GenericContainerScreenMixin.this
+						|| WurstClient.MC.screen != ContainerScreenMixin.this
 						|| !manualScanActive
 						|| System.currentTimeMillis() > manualScanUntil)
 					{
