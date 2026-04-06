@@ -30,7 +30,7 @@ import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
 
 @Mixin(JoinMultiplayerScreen.class)
-public class MultiplayerScreenMixin extends Screen
+public class JoinMultiplayerScreenMixin extends Screen
 {
 	private Button lastServerButton;
 	@Unique
@@ -42,7 +42,7 @@ public class MultiplayerScreenMixin extends Screen
 	@Unique
 	private Button cornerAltManagerButton;
 	
-	private MultiplayerScreenMixin(WurstClient wurst, Component title)
+	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
 	}

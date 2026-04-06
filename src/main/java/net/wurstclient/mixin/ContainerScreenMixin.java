@@ -47,7 +47,7 @@ import net.wurstclient.hacks.QuickShulkerHack;
 import net.wurstclient.util.ChatUtils;
 
 @Mixin(ContainerScreen.class)
-public abstract class GenericContainerScreenMixin
+public abstract class ContainerScreenMixin
 	extends AbstractContainerScreen<ChestMenu>
 {
 	@Shadow
@@ -94,7 +94,7 @@ public abstract class GenericContainerScreenMixin
 	@Unique
 	private static long lastChestRecordedTimestamp = 0L;
 	
-	public GenericContainerScreenMixin(WurstClient wurst, ChestMenu container,
+	public ContainerScreenMixin(WurstClient wurst, ChestMenu container,
 		Inventory playerInventory, Component name)
 	{
 		super(container, playerInventory, name);

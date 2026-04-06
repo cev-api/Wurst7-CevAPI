@@ -32,7 +32,7 @@ import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 @Mixin(ModelBlockRenderer.class)
-public abstract class BlockModelRendererMixin implements ItemLike
+public abstract class ModelBlockRendererMixin implements ItemLike
 {
 	private static ThreadLocal<Float> currentOpacity =
 		ThreadLocal.withInitial(() -> 1F);

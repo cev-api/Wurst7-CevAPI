@@ -27,7 +27,7 @@ import net.minecraft.network.protocol.common.ClientCommonPacketListener;
 import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
 
 @Mixin(ClientCommonPacketListenerImpl.class)
-public abstract class ClientCommonNetworkHandlerMixin
+public abstract class ClientCommonPacketListenerImplMixin
 	implements ClientCommonPacketListener
 {
 	@Shadow

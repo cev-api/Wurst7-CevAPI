@@ -28,7 +28,7 @@ import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 @Mixin(FluidRenderer.class)
-public class LiquidBlockRendererMixin
+public class FluidRendererMixin
 {
 	@Unique
 	private static final ThreadLocal<Float> currentOpacity =
