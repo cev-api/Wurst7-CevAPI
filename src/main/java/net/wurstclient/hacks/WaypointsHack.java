@@ -1667,7 +1667,7 @@ public final class WaypointsHack extends Hack
 			
 		// If the waypoint's chunk isn't loaded, LOS is unknown. Treat it as
 		// obscured to avoid far waypoints popping back to full text.
-		if(!MC.level.hasChunkAt(waypointPos))
+		if(!MC.level.isLoaded(waypointPos))
 			return true;
 		
 		Vec3 eyes = MC.player.getEyePosition(1.0F);

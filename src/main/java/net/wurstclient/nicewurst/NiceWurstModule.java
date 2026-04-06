@@ -95,12 +95,9 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
-				"ItemESP", "LavaWaterESP", "LogoutSpots", "MobESP", "MobHealth",
-				"MobSearch", "MobSpawnESP", "NameTags", "NewChunks",
-				"NewerNewChunks", "NoBackground", "NoFireOverlay", "NoVignette",
-				"NoWeather", "Freecam", "OpenWaterESP", "PearlESP", "PlayerESP",
-				"PortalESP", "Radar", "Search", "TrialSpawnerESP", "TridentESP",
-				"Waypoints", "WardenESP", "HideWurst", "ElytraInfo"));
+				"MobHealth", "NameTags", "NewChunks", "NewerNewChunks",
+				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
+				"Freecam", "Waypoints", "HideWurst", "ElytraInfo", "Mapa"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "Mention", "NoPlayerChat"));
