@@ -59,6 +59,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.nicewurst.NiceWurstModule;
 
 @SearchTags({"map", "minimap", "world map", "mapa"})
 public final class MapaHack extends Hack
@@ -79,7 +80,7 @@ public final class MapaHack extends Hack
 	private final CheckboxSetting noMap = new CheckboxSetting("No map",
 		"Disables terrain rendering and cache writes while keeping ESP icons positioned inside the map box.",
 		false);
-	private final SettingGroup espGroup = new SettingGroup("ESP icons",
+	private final SettingGroup mapEspGroup = new SettingGroup("ESP icons",
 		net.wurstclient.util.text.WText.literal(
 			"Controls which enabled ESP hacks are mirrored onto the map."),
 		false, true);
@@ -177,9 +178,17 @@ public final class MapaHack extends Hack
 		setCategory(Category.RENDER);
 		addSetting(openWorldMapButton);
 		addSetting(noMap);
-		espGroup.addChildren(chestEspOnMap, workstationEspOnMap, signEspOnMap,
-			portalEspOnMap, playerEspOnMap, logoutSpotsOnMap, bedEspOnMap);
-		addSetting(espGroup);
+		if(NiceWurstModule.isActive())
+		{
+			mapEspGroup.addChildren(portalEspOnMap, playerEspOnMap,
+				logoutSpotsOnMap);
+		}else
+		{
+			mapEspGroup.addChildren(chestEspOnMap, workstationEspOnMap,
+				signEspOnMap, portalEspOnMap, playerEspOnMap, logoutSpotsOnMap,
+				bedEspOnMap);
+		}
+		addSetting(mapEspGroup);
 		addSetting(minimapIconSize);
 		addSetting(worldMapIconSize);
 		addSetting(iconOutline);
@@ -248,7 +257,16 @@ public final class MapaHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		renderMapEsp(context, partialTicks, cfg);
+		context.enableScissor(cfg.minimapPosX, cfg.minimapPosY,
+			cfg.minimapPosX + cfg.minimapSize,
+			cfg.minimapPosY + cfg.minimapSize);
+		try
+		{
+			renderMapEsp(context, partialTicks, cfg);
+		}finally
+		{
+			context.disableScissor();
+		}
 		renderMinimapOverlay(context, cfg);
 		
 		if(!isEditorScreen(MC.screen))
@@ -850,6 +868,7 @@ public final class MapaHack extends Hack
 	private void updateMapSettingVisibility()
 	{
 		boolean mapVisible = !noMap.isChecked();
+		boolean niceWurst = NiceWurstModule.isActive();
 		minimapSamples.setVisibleInGui(mapVisible);
 		rotateWithPlayer.setVisibleInGui(mapVisible);
 		undergroundMode.setVisibleInGui(mapVisible);
@@ -878,6 +897,13 @@ public final class MapaHack extends Hack
 		waterDetail.setVisibleInGui(mapVisible);
 		waterOpacity.setVisibleInGui(mapVisible);
 		chunkRefreshAggression.setVisibleInGui(mapVisible);
+		chestEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
+		workstationEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
+		signEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
+		portalEspOnMap.setVisibleInGui(mapVisible);
+		playerEspOnMap.setVisibleInGui(mapVisible);
+		logoutSpotsOnMap.setVisibleInGui(mapVisible);
+		bedEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
 	}
 	
 	private static boolean isEditorScreen(Screen screen)
@@ -912,46 +938,55 @@ public final class MapaHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		if(chestEspOnMap.isChecked() && WURST.getHax().chestEspHack.isEnabled())
-			renderFullscreenChestMarkers(context, mapX, mapY, drawWidth,
-				drawHeight, centerX, centerZ, blocksPerPixel);
-		if(workstationEspOnMap.isChecked()
-			&& WURST.getHax().workstationEspHack.isEnabled())
-			renderFullscreenBlockGroups(context, mapX, mapY, drawWidth,
-				drawHeight, centerX, centerZ, blocksPerPixel,
-				WURST.getHax().workstationEspHack.getMapaGroups());
-		if(signEspOnMap.isChecked() && WURST.getHax().signEspHack.isEnabled())
+		context.enableScissor(mapX, mapY, mapX + drawWidth, mapY + drawHeight);
+		try
 		{
-			renderFullscreenAabbs(context, mapX, mapY, drawWidth, drawHeight,
-				centerX, centerZ, blocksPerPixel,
-				WURST.getHax().signEspHack.getMapaSignBoxes(),
-				iconForItem(Items.OAK_SIGN),
-				WURST.getHax().signEspHack.getMapaSignColor());
-			renderFullscreenAabbs(context, mapX, mapY, drawWidth, drawHeight,
-				centerX, centerZ, blocksPerPixel,
-				WURST.getHax().signEspHack.getMapaFrameBoxes(1.0f),
-				iconForItem(Items.ITEM_FRAME),
-				WURST.getHax().signEspHack.getMapaFrameColor());
+			if(chestEspOnMap.isChecked()
+				&& WURST.getHax().chestEspHack.isEnabled())
+				renderFullscreenChestMarkers(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel);
+			if(workstationEspOnMap.isChecked()
+				&& WURST.getHax().workstationEspHack.isEnabled())
+				renderFullscreenBlockGroups(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel,
+					WURST.getHax().workstationEspHack.getMapaGroups());
+			if(signEspOnMap.isChecked()
+				&& WURST.getHax().signEspHack.isEnabled())
+			{
+				renderFullscreenAabbs(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel,
+					WURST.getHax().signEspHack.getMapaSignBoxes(),
+					iconForItem(Items.OAK_SIGN),
+					WURST.getHax().signEspHack.getMapaSignColor());
+				renderFullscreenAabbs(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel,
+					WURST.getHax().signEspHack.getMapaFrameBoxes(1.0f),
+					iconForItem(Items.ITEM_FRAME),
+					WURST.getHax().signEspHack.getMapaFrameColor());
+			}
+			if(portalEspOnMap.isChecked()
+				&& WURST.getHax().portalEspHack.isEnabled())
+				renderFullscreenBlockGroups(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel,
+					WURST.getHax().portalEspHack.getMapaGroups());
+			if(playerEspOnMap.isChecked()
+				&& WURST.getHax().playerEspHack.isEnabled())
+				renderFullscreenPlayers(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel);
+			if(logoutSpotsOnMap.isChecked()
+				&& WURST.getHax().logoutSpotsHack.isEnabled())
+				renderFullscreenLogoutSpots(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel);
+			if(bedEspOnMap.isChecked() && WURST.getHax().bedEspHack.isEnabled())
+				renderFullscreenAabbs(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel,
+					WURST.getHax().bedEspHack.getMapaBoxes(),
+					iconForItem(Items.RED_BED),
+					WURST.getHax().bedEspHack.getMapaColor());
+		}finally
+		{
+			context.disableScissor();
 		}
-		if(portalEspOnMap.isChecked()
-			&& WURST.getHax().portalEspHack.isEnabled())
-			renderFullscreenBlockGroups(context, mapX, mapY, drawWidth,
-				drawHeight, centerX, centerZ, blocksPerPixel,
-				WURST.getHax().portalEspHack.getMapaGroups());
-		if(playerEspOnMap.isChecked()
-			&& WURST.getHax().playerEspHack.isEnabled())
-			renderFullscreenPlayers(context, mapX, mapY, drawWidth, drawHeight,
-				centerX, centerZ, blocksPerPixel);
-		if(logoutSpotsOnMap.isChecked()
-			&& WURST.getHax().logoutSpotsHack.isEnabled())
-			renderFullscreenLogoutSpots(context, mapX, mapY, drawWidth,
-				drawHeight, centerX, centerZ, blocksPerPixel);
-		if(bedEspOnMap.isChecked() && WURST.getHax().bedEspHack.isEnabled())
-			renderFullscreenAabbs(context, mapX, mapY, drawWidth, drawHeight,
-				centerX, centerZ, blocksPerPixel,
-				WURST.getHax().bedEspHack.getMapaBoxes(),
-				iconForItem(Items.RED_BED),
-				WURST.getHax().bedEspHack.getMapaColor());
 	}
 	
 	private void renderFullscreenChestMarkers(GuiGraphicsExtractor context,

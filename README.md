@@ -1329,6 +1329,9 @@ Examples:
 ### Unsafe Chat Toast
 - Optional; toggle via NoChatReports or Wurst Options.  
 
+### NoChatReports
+- Defaults to off
+
 ### Removed Wurst Logo
 - Removed from UI and Options.  
 

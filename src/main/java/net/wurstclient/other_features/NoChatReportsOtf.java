@@ -38,7 +38,7 @@ public final class NoChatReportsOtf extends OtherFeature
 	implements UpdateListener, ChatInputListener
 {
 	private final CheckboxSetting disableSignatures =
-		new CheckboxSetting("Disable signatures", true)
+		new CheckboxSetting("Disable signatures", false)
 		{
 			@Override
 			public void update()
@@ -48,7 +48,7 @@ public final class NoChatReportsOtf extends OtherFeature
 		};
 	// Controls whether to show the Wurst unsafe chat toast when joining servers
 	private final CheckboxSetting unsafeChatToast =
-		new CheckboxSetting("Unsafe Chat Toast", true);
+		new CheckboxSetting("Unsafe Chat Toast", false);
 	
 	public NoChatReportsOtf()
 	{
