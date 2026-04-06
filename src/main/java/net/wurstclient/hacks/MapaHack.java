@@ -80,6 +80,8 @@ public final class MapaHack extends Hack
 	private final CheckboxSetting noMap = new CheckboxSetting("No map",
 		"Disables terrain rendering and cache writes while keeping ESP icons positioned inside the map box.",
 		false);
+	private final CheckboxSetting espIconsEnabled =
+		new CheckboxSetting("Enable ESP icons", true);
 	private final SettingGroup mapEspGroup = new SettingGroup("ESP icons",
 		net.wurstclient.util.text.WText.literal(
 			"Controls which enabled ESP hacks are mirrored onto the map."),
@@ -178,6 +180,7 @@ public final class MapaHack extends Hack
 		setCategory(Category.RENDER);
 		addSetting(openWorldMapButton);
 		addSetting(noMap);
+		addSetting(espIconsEnabled);
 		if(NiceWurstModule.isActive())
 		{
 			mapEspGroup.addChildren(portalEspOnMap, playerEspOnMap,
@@ -314,6 +317,9 @@ public final class MapaHack extends Hack
 	private void renderMapEsp(GuiGraphicsExtractor context, float partialTicks,
 		XMapConfig cfg)
 	{
+		if(!espIconsEnabled.isChecked())
+			return;
+		
 		if(chestEspOnMap.isChecked() && WURST.getHax().chestEspHack.isEnabled())
 			renderChestMarkers(context, cfg, partialTicks);
 		if(workstationEspOnMap.isChecked()
@@ -620,6 +626,7 @@ public final class MapaHack extends Hack
 	public void resetToDefaults()
 	{
 		noMap.setChecked(false);
+		espIconsEnabled.setChecked(true);
 		minimapSize.setValue(220);
 		minimapZoom.setValue(2.0);
 		minimapIconSize.setValue(8);
@@ -869,6 +876,7 @@ public final class MapaHack extends Hack
 	{
 		boolean mapVisible = !noMap.isChecked();
 		boolean niceWurst = NiceWurstModule.isActive();
+		boolean espVisible = mapVisible && espIconsEnabled.isChecked();
 		minimapSamples.setVisibleInGui(mapVisible);
 		rotateWithPlayer.setVisibleInGui(mapVisible);
 		undergroundMode.setVisibleInGui(mapVisible);
@@ -897,13 +905,14 @@ public final class MapaHack extends Hack
 		waterDetail.setVisibleInGui(mapVisible);
 		waterOpacity.setVisibleInGui(mapVisible);
 		chunkRefreshAggression.setVisibleInGui(mapVisible);
-		chestEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
-		workstationEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
-		signEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
-		portalEspOnMap.setVisibleInGui(mapVisible);
-		playerEspOnMap.setVisibleInGui(mapVisible);
-		logoutSpotsOnMap.setVisibleInGui(mapVisible);
-		bedEspOnMap.setVisibleInGui(mapVisible && !niceWurst);
+		mapEspGroup.setVisibleInGui(espVisible);
+		chestEspOnMap.setVisibleInGui(espVisible && !niceWurst);
+		workstationEspOnMap.setVisibleInGui(espVisible && !niceWurst);
+		signEspOnMap.setVisibleInGui(espVisible && !niceWurst);
+		portalEspOnMap.setVisibleInGui(espVisible);
+		playerEspOnMap.setVisibleInGui(espVisible);
+		logoutSpotsOnMap.setVisibleInGui(espVisible);
+		bedEspOnMap.setVisibleInGui(espVisible && !niceWurst);
 	}
 	
 	private static boolean isEditorScreen(Screen screen)
@@ -936,6 +945,8 @@ public final class MapaHack extends Hack
 		double blocksPerPixel)
 	{
 		if(MC.player == null || MC.level == null)
+			return;
+		if(!espIconsEnabled.isChecked())
 			return;
 		
 		context.enableScissor(mapX, mapY, mapX + drawWidth, mapY + drawHeight);
