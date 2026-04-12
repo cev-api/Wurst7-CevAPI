@@ -43,6 +43,10 @@ public final class XMapConfig
 	public double waterDetail = 2.5;
 	public double waterOpacity = 1.2;
 	public double chunkRefreshAggression = 3.0;
+	public boolean showNewerNewChunks = false;
+	public boolean showExploredChunks = false;
+	public int exploredChunksColor = 0x3F76E4;
+	public double exploredChunksOpacity = 0.35;
 	
 	public void sanitize()
 	{
@@ -70,5 +74,8 @@ public final class XMapConfig
 		waterOpacity = Math.max(0.4, Math.min(2.0, waterOpacity));
 		chunkRefreshAggression =
 			Math.max(0.5, Math.min(4.0, chunkRefreshAggression));
+		exploredChunksColor = Mth.clamp(exploredChunksColor, -1, 0xFFFFFF);
+		exploredChunksOpacity =
+			Math.max(0.0, Math.min(1.0, exploredChunksOpacity));
 	}
 }
