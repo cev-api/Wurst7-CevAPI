@@ -8,7 +8,11 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,6 +24,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -77,6 +82,8 @@ public final class MapaHack extends Hack
 		new SliderSetting("Position Y", 80, 0, 10000, 1, ValueDisplay.INTEGER);
 	private final ButtonSetting openWorldMapButton =
 		new ButtonSetting("Open world map", this::openWorldMap);
+	private final ButtonSetting clearExploredChunksButton =
+		new ButtonSetting("Clear explored chunks", this::clearExploredChunks);
 	private final CheckboxSetting noMap = new CheckboxSetting("No map",
 		"Disables terrain rendering and cache writes while keeping ESP icons positioned inside the map box.",
 		false);
@@ -90,6 +97,8 @@ public final class MapaHack extends Hack
 		"Minimap icon size", 8, 4, 24, 1, ValueDisplay.INTEGER);
 	private final SliderSetting worldMapIconSize = new SliderSetting(
 		"World map icon size", 12, 4, 32, 1, ValueDisplay.INTEGER);
+	private final SliderSetting playerIconSize = new SliderSetting(
+		"Player icon size", 8, 4, 24, 1, ValueDisplay.INTEGER);
 	private final SliderSetting playerNameScale = new SliderSetting(
 		"Player name scale", 1.0, 0.5, 4.0, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting iconOutline =
@@ -106,6 +115,16 @@ public final class MapaHack extends Hack
 		new CheckboxSetting("Rotate with player", true);
 	private final CheckboxSetting undergroundMode =
 		new CheckboxSetting("Underground mode", false);
+	private final CheckboxSetting showNewerNewChunks =
+		new CheckboxSetting("Show newer new chunks", false);
+	private final CheckboxSetting showExploredChunks = new CheckboxSetting(
+		"Show explored chunks",
+		"Colors chunks you've visited this session. Clears when the game session ends.",
+		false);
+	private final ColorSetting exploredChunksColor =
+		new ColorSetting("Explored chunks color", new Color(0x3F76E4));
+	private final SliderSetting exploredChunksOpacity = new SliderSetting(
+		"Explored chunks opacity", 35, 0, 100, 1, ValueDisplay.PERCENTAGE);
 	private final CheckboxSetting invertRotation =
 		new CheckboxSetting("Invert rotation", false);
 	private final CheckboxSetting showSmallPlants =
@@ -175,6 +194,16 @@ public final class MapaHack extends Hack
 	private boolean dragging;
 	private int dragOffsetX;
 	private int dragOffsetY;
+	private final Map<String, Map<String, Set<ChunkPos>>> exploredChunksByServer =
+		new HashMap<>();
+	private boolean hadLoadedWorld;
+	private boolean lastMapVisibleState;
+	private boolean lastEspVisibleState;
+	
+	public boolean isNewerNewChunksMapModeActive()
+	{
+		return isEnabled() && showNewerNewChunks.isChecked();
+	}
 	
 	public MapaHack()
 	{
@@ -186,21 +215,21 @@ public final class MapaHack extends Hack
 		if(NiceWurstModule.isActive())
 		{
 			mapEspGroup.addChildren(portalEspOnMap, playerEspOnMap,
-				logoutSpotsOnMap);
+				logoutSpotsOnMap, showPlayerNames);
 		}else
 		{
 			mapEspGroup.addChildren(chestEspOnMap, workstationEspOnMap,
 				signEspOnMap, portalEspOnMap, playerEspOnMap, logoutSpotsOnMap,
-				bedEspOnMap);
+				showPlayerNames, bedEspOnMap);
 		}
 		addSetting(mapEspGroup);
 		addSetting(minimapIconSize);
 		addSetting(worldMapIconSize);
+		addSetting(playerIconSize);
 		addSetting(playerNameScale);
 		addSetting(iconOutline);
 		addSetting(showCenterCross);
 		addSetting(showFrame);
-		addSetting(showPlayerNames);
 		addSetting(minimapSize);
 		addSetting(minimapZoom);
 		addSetting(minimapPosX);
@@ -208,6 +237,11 @@ public final class MapaHack extends Hack
 		addSetting(minimapSamples);
 		addSetting(rotateWithPlayer);
 		addSetting(undergroundMode);
+		addSetting(showNewerNewChunks);
+		addSetting(showExploredChunks);
+		addSetting(clearExploredChunksButton);
+		addSetting(exploredChunksColor);
+		addSetting(exploredChunksOpacity);
 		addSetting(invertRotation);
 		addSetting(showSmallPlants);
 		addSetting(showTreeCanopies);
@@ -257,17 +291,33 @@ public final class MapaHack extends Hack
 	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		updateMapSettingVisibility();
+		WURST.getHax().newerNewChunksHack
+			.syncMapaTrackingState(isNewerNewChunksMapModeActive());
 		XMapConfig cfg = createConfig();
 		if(cfg.enabled)
 			renderService.drawMinimap(context, MC, cfg);
 		if(MC.player == null || MC.level == null)
+		{
+			// Explored data is intentionally session-only. Disconnecting/quit
+			// clears all per-server/per-dimension buckets.
+			if(hadLoadedWorld)
+			{
+				exploredChunksByServer.clear();
+				hadLoadedWorld = false;
+			}
 			return;
+		}
+		hadLoadedWorld = true;
+		BlockPos playerPos = MC.player.blockPosition();
+		getCurrentExploredChunks()
+			.add(new ChunkPos(playerPos.getX() >> 4, playerPos.getZ() >> 4));
 		
 		context.enableScissor(cfg.minimapPosX, cfg.minimapPosY,
 			cfg.minimapPosX + cfg.minimapSize,
 			cfg.minimapPosY + cfg.minimapSize);
 		try
 		{
+			renderChunkOverlays(context, cfg);
 			renderMapEsp(context, partialTicks, cfg);
 		}finally
 		{
@@ -343,9 +393,6 @@ public final class MapaHack extends Hack
 			&& WURST.getHax().portalEspHack.isEnabled())
 			renderBlockGroupMarkers(context, cfg,
 				WURST.getHax().portalEspHack.getMapaGroups());
-		if(playerEspOnMap.isChecked()
-			&& WURST.getHax().playerEspHack.isEnabled())
-			renderPlayerMarkers(context, cfg);
 		if(logoutSpotsOnMap.isChecked()
 			&& WURST.getHax().logoutSpotsHack.isEnabled())
 			renderLogoutSpots(context, cfg);
@@ -354,6 +401,40 @@ public final class MapaHack extends Hack
 				WURST.getHax().bedEspHack.getMapaBoxes(),
 				iconForItem(Items.RED_BED),
 				WURST.getHax().bedEspHack.getMapaColor());
+		if(playerEspOnMap.isChecked()
+			&& WURST.getHax().playerEspHack.isEnabled())
+			renderPlayerMarkers(context, cfg);
+	}
+	
+	private void renderChunkOverlays(GuiGraphicsExtractor context,
+		XMapConfig cfg)
+	{
+		if(showNewerNewChunks.isChecked())
+			renderNewerNewChunksOverlay(context, cfg);
+		if(showExploredChunks.isChecked())
+			renderExploredChunksOverlay(context, cfg);
+	}
+	
+	private void renderNewerNewChunksOverlay(GuiGraphicsExtractor context,
+		XMapConfig cfg)
+	{
+		NewerNewChunksHack hack = WURST.getHax().newerNewChunksHack;
+		
+		int newColor = rgba(hack.getNewChunksColorI(), 36);
+		int oldColor = rgba(hack.getOldChunksColorI(), 30);
+		int blockColor = rgba(hack.getBlockExploitChunksColorI(), 32);
+		
+		renderChunkSet(context, cfg, hack.getOldChunks(), oldColor);
+		renderChunkSet(context, cfg, hack.getNewChunks(), newColor);
+		renderChunkSet(context, cfg, hack.getBlockExploitChunks(), blockColor);
+	}
+	
+	private void renderExploredChunksOverlay(GuiGraphicsExtractor context,
+		XMapConfig cfg)
+	{
+		int argb = rgba(exploredChunksColor.getColorI(),
+			exploredChunksOpacity.getValueI());
+		renderChunkSet(context, cfg, getCurrentExploredChunks(), argb);
 	}
 	
 	private void renderChestMarkers(GuiGraphicsExtractor context,
@@ -394,7 +475,7 @@ public final class MapaHack extends Hack
 	private void renderPlayerMarkers(GuiGraphicsExtractor context,
 		XMapConfig cfg)
 	{
-		int markerSize = getMarkerSize(cfg);
+		int markerSize = getPlayerMarkerSize();
 		for(Player player : WURST.getHax().playerEspHack.getMapaPlayers())
 		{
 			if(player == MC.player)
@@ -487,10 +568,51 @@ public final class MapaHack extends Hack
 	
 	private MapPoint projectToMinimap(XMapConfig cfg, Vec3 worldPos)
 	{
+		double[] point = projectPoint(cfg, worldPos.x, worldPos.z);
+		double px = point[0];
+		double py = point[1];
+		if(px < cfg.minimapPosX || py < cfg.minimapPosY
+			|| px >= cfg.minimapPosX + cfg.minimapSize
+			|| py >= cfg.minimapPosY + cfg.minimapSize)
+			return null;
+		return new MapPoint((float)px, (float)py);
+	}
+	
+	private void renderChunkSet(GuiGraphicsExtractor context, XMapConfig cfg,
+		Set<ChunkPos> chunks, int color)
+	{
+		if(chunks.isEmpty() || MC.player == null)
+			return;
+		
+		double angle = rotationAngleRad(cfg.rotateWithPlayer,
+			MC.player.getYRot(), cfg.invertRotation);
+		float pivotX = cfg.minimapPosX + cfg.minimapSize / 2.0f;
+		float pivotY = cfg.minimapPosY + cfg.minimapSize / 2.0f;
+		context.pose().pushMatrix();
+		if(Math.abs(angle) > 0.0001)
+			context.pose().rotateAbout((float)-angle, pivotX, pivotY);
+		
+		for(ChunkPos chunk : chunks)
+		{
+			double[] min = projectPointFixed(cfg, chunk.getMinBlockX(),
+				chunk.getMinBlockZ());
+			double[] max = projectPointFixed(cfg, chunk.getMaxBlockX() + 1,
+				chunk.getMaxBlockZ() + 1);
+			int x1 = (int)Math.floor(Math.min(min[0], max[0]));
+			int y1 = (int)Math.floor(Math.min(min[1], max[1]));
+			int x2 = (int)Math.ceil(Math.max(min[0], max[0]));
+			int y2 = (int)Math.ceil(Math.max(min[1], max[1]));
+			context.fill(x1, y1, x2, y2, color);
+		}
+		context.pose().popMatrix();
+	}
+	
+	private double[] projectPoint(XMapConfig cfg, double worldX, double worldZ)
+	{
 		double zoomBlocks =
 			MapRenderService.zoomToBlocksPerPixel(cfg.minimapZoom);
-		double dx = worldPos.x - MC.player.getX();
-		double dz = worldPos.z - MC.player.getZ();
+		double dx = worldX - MC.player.getX();
+		double dz = worldZ - MC.player.getZ();
 		double angle = rotationAngleRad(cfg.rotateWithPlayer,
 			MC.player.getYRot(), cfg.invertRotation);
 		double cos = Math.cos(-angle);
@@ -499,11 +621,25 @@ public final class MapaHack extends Hack
 		double rz = dx * sin + dz * cos;
 		double px = cfg.minimapPosX + cfg.minimapSize / 2.0 + rx / zoomBlocks;
 		double py = cfg.minimapPosY + cfg.minimapSize / 2.0 + rz / zoomBlocks;
-		if(px < cfg.minimapPosX || py < cfg.minimapPosY
-			|| px >= cfg.minimapPosX + cfg.minimapSize
-			|| py >= cfg.minimapPosY + cfg.minimapSize)
-			return null;
-		return new MapPoint((float)px, (float)py);
+		return new double[]{px, py};
+	}
+	
+	private double[] projectPointFixed(XMapConfig cfg, double worldX,
+		double worldZ)
+	{
+		double zoomBlocks =
+			MapRenderService.zoomToBlocksPerPixel(cfg.minimapZoom);
+		double dx = worldX - MC.player.getX();
+		double dz = worldZ - MC.player.getZ();
+		double px = cfg.minimapPosX + cfg.minimapSize / 2.0 + dx / zoomBlocks;
+		double py = cfg.minimapPosY + cfg.minimapSize / 2.0 + dz / zoomBlocks;
+		return new double[]{px, py};
+	}
+	
+	private static int rgba(int rgb, int alphaPercent)
+	{
+		int alpha = Mth.clamp((int)Math.round(alphaPercent * 2.55), 0, 255);
+		return (alpha << 24) | (rgb & 0x00FFFFFF);
 	}
 	
 	private static double rotationAngleRad(boolean rotateWithPlayer,
@@ -513,6 +649,51 @@ public final class MapaHack extends Hack
 			return 0.0;
 		double yaw = Math.toRadians(yawDeg + 180.0f);
 		return invertRotation ? -yaw : yaw;
+	}
+	
+	private Set<ChunkPos> getCurrentExploredChunks()
+	{
+		String serverKey = getCurrentServerKey();
+		String dimensionKey = getCurrentDimensionKey();
+		Map<String, Set<ChunkPos>> byDimension = exploredChunksByServer
+			.computeIfAbsent(serverKey, k -> new HashMap<>());
+		return byDimension.computeIfAbsent(dimensionKey,
+			k -> ConcurrentHashMap.newKeySet());
+	}
+	
+	private String getCurrentServerKey()
+	{
+		var server = MC.getCurrentServer();
+		if(server != null && server.ip != null && !server.ip.isBlank())
+			return server.ip;
+		if(MC.hasSingleplayerServer())
+			return "singleplayer";
+		return "unknown";
+	}
+	
+	private String getCurrentDimensionKey()
+	{
+		if(MC.level == null)
+			return "unknown";
+		return MC.level.dimension().identifier().toString();
+	}
+	
+	private void clearExploredChunks()
+	{
+		if(MC.level == null)
+		{
+			exploredChunksByServer.clear();
+			return;
+		}
+		String serverKey = getCurrentServerKey();
+		String dimensionKey = getCurrentDimensionKey();
+		Map<String, Set<ChunkPos>> byDimension =
+			exploredChunksByServer.get(serverKey);
+		if(byDimension == null)
+			return;
+		byDimension.remove(dimensionKey);
+		if(byDimension.isEmpty())
+			exploredChunksByServer.remove(serverKey);
 	}
 	
 	private static ItemStack iconForChestGroup(ChestEspBlockGroup group)
@@ -634,6 +815,7 @@ public final class MapaHack extends Hack
 		minimapZoom.setValue(2.0);
 		minimapIconSize.setValue(8);
 		worldMapIconSize.setValue(12);
+		playerIconSize.setValue(8);
 		playerNameScale.setValue(1.0);
 		iconOutline.setChecked(true);
 		showCenterCross.setChecked(true);
@@ -669,6 +851,10 @@ public final class MapaHack extends Hack
 		waterDetail.setValue(2.5);
 		waterOpacity.setValue(1.2);
 		chunkRefreshAggression.setValue(3.0);
+		showNewerNewChunks.setChecked(false);
+		showExploredChunks.setChecked(false);
+		exploredChunksColor.setColor(new Color(0x3F76E4));
+		exploredChunksOpacity.setValue(35);
 		chestEspOnMap.setChecked(true);
 		workstationEspOnMap.setChecked(true);
 		signEspOnMap.setChecked(true);
@@ -878,6 +1064,11 @@ public final class MapaHack extends Hack
 		cfg.waterDetail = waterDetail.getValue();
 		cfg.waterOpacity = waterOpacity.getValue();
 		cfg.chunkRefreshAggression = chunkRefreshAggression.getValue();
+		cfg.showNewerNewChunks = showNewerNewChunks.isChecked();
+		cfg.showExploredChunks = showExploredChunks.isChecked();
+		cfg.exploredChunksColor =
+			exploredChunksColor.getColor().getRGB() & 0xFFFFFF;
+		cfg.exploredChunksOpacity = exploredChunksOpacity.getValue() / 100.0;
 		cfg.sanitize();
 		return cfg;
 	}
@@ -886,13 +1077,25 @@ public final class MapaHack extends Hack
 	{
 		boolean mapVisible = !noMap.isChecked();
 		boolean niceWurst = NiceWurstModule.isActive();
-		boolean espVisible = mapVisible && espIconsEnabled.isChecked();
+		boolean espVisible = espIconsEnabled.isChecked();
+		if(mapVisible != lastMapVisibleState
+			|| espVisible != lastEspVisibleState)
+		{
+			lastMapVisibleState = mapVisible;
+			lastEspVisibleState = espVisible;
+			if(WURST.getGuiIfInitialized() != null)
+				WURST.getGuiIfInitialized().requestRefresh();
+		}
 		minimapSamples.setVisibleInGui(mapVisible);
 		rotateWithPlayer.setVisibleInGui(mapVisible);
 		undergroundMode.setVisibleInGui(mapVisible);
 		invertRotation.setVisibleInGui(mapVisible);
 		showSmallPlants.setVisibleInGui(mapVisible);
 		showTreeCanopies.setVisibleInGui(mapVisible);
+		showNewerNewChunks.setVisibleInGui(true);
+		showExploredChunks.setVisibleInGui(true);
+		exploredChunksColor.setVisibleInGui(true);
+		exploredChunksOpacity.setVisibleInGui(true);
 		basicPaletteMode.setVisibleInGui(mapVisible);
 		surfaceDynamicLighting.setVisibleInGui(mapVisible);
 		undergroundDynamicLighting.setVisibleInGui(mapVisible);
@@ -915,6 +1118,12 @@ public final class MapaHack extends Hack
 		waterDetail.setVisibleInGui(mapVisible);
 		waterOpacity.setVisibleInGui(mapVisible);
 		chunkRefreshAggression.setVisibleInGui(mapVisible);
+		minimapIconSize.setVisibleInGui(espVisible);
+		worldMapIconSize.setVisibleInGui(espVisible);
+		playerIconSize.setVisibleInGui(espVisible);
+		playerNameScale.setVisibleInGui(espVisible);
+		iconOutline.setVisibleInGui(espVisible);
+		showPlayerNames.setVisibleInGui(espVisible);
 		mapEspGroup.setVisibleInGui(espVisible);
 		chestEspOnMap.setVisibleInGui(espVisible && !niceWurst);
 		workstationEspOnMap.setVisibleInGui(espVisible && !niceWurst);
@@ -935,6 +1144,11 @@ public final class MapaHack extends Hack
 	private int getMarkerSize(XMapConfig cfg)
 	{
 		return minimapIconSize.getValueI();
+	}
+	
+	private int getPlayerMarkerSize()
+	{
+		return playerIconSize.getValueI();
 	}
 	
 	private int getFullscreenMarkerSize(int drawSize)
@@ -990,10 +1204,6 @@ public final class MapaHack extends Hack
 				renderFullscreenBlockGroups(context, mapX, mapY, drawWidth,
 					drawHeight, centerX, centerZ, blocksPerPixel,
 					WURST.getHax().portalEspHack.getMapaGroups());
-			if(playerEspOnMap.isChecked()
-				&& WURST.getHax().playerEspHack.isEnabled())
-				renderFullscreenPlayers(context, mapX, mapY, drawWidth,
-					drawHeight, centerX, centerZ, blocksPerPixel);
 			if(logoutSpotsOnMap.isChecked()
 				&& WURST.getHax().logoutSpotsHack.isEnabled())
 				renderFullscreenLogoutSpots(context, mapX, mapY, drawWidth,
@@ -1004,6 +1214,10 @@ public final class MapaHack extends Hack
 					WURST.getHax().bedEspHack.getMapaBoxes(),
 					iconForItem(Items.RED_BED),
 					WURST.getHax().bedEspHack.getMapaColor());
+			if(playerEspOnMap.isChecked()
+				&& WURST.getHax().playerEspHack.isEnabled())
+				renderFullscreenPlayers(context, mapX, mapY, drawWidth,
+					drawHeight, centerX, centerZ, blocksPerPixel);
 		}finally
 		{
 			context.disableScissor();
@@ -1067,8 +1281,7 @@ public final class MapaHack extends Hack
 		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
 		double blocksPerPixel)
 	{
-		int markerSize =
-			getFullscreenMarkerSize(Math.max(drawWidth, drawHeight));
+		int markerSize = getPlayerMarkerSize();
 		for(Player player : WURST.getHax().playerEspHack.getMapaPlayers())
 		{
 			if(player == MC.player)

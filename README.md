@@ -1041,9 +1041,15 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 - PlayerESP markers use player heads and or names
 - Full screen mode allows you to view areas youve discovered and better see ESP markers
 - Map data is cached per server/dimension so explored terrain can be remembered instead of rebuilt every time
+- Supports rendering of NewerNewChunks with or without map or NewerNewChunks being enabled
+- Optionally can show an explored chunk path (breadcrumb) which persists across dimensions but is wiped on server quit or manually
 
 ![1](https://i.imgur.com/Kuj4NT6.png)
 ![2](https://i.imgur.com/1Z50eSC.png)
+
+#### NewerNewChunk Support & Chunk Breadcrumbs
+![3](https://i.imgur.com/GdWfaAQ.png)
+![4](https://i.imgur.com/6Qzll3W.png)
 
 ### MiningEvidence
 

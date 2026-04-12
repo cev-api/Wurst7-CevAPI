@@ -18,11 +18,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.material.FluidState;
@@ -138,6 +140,8 @@ public final class NewerNewChunksHack extends Hack
 	
 	private int deleteWarningTicks = 200;
 	private int deleteWarningPresses;
+	private ClientLevel trackedLevel;
+	private boolean mapaTrackingActiveLastTick;
 	
 	private static final class Paths
 	{
@@ -199,7 +203,7 @@ public final class NewerNewChunksHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
-		if(removeOnDisable.isChecked())
+		if(removeOnDisable.isChecked() && !isMapaTrackingActive())
 			clearChunkData();
 	}
 	
@@ -309,8 +313,9 @@ public final class NewerNewChunksHack extends Hack
 	
 	public void afterLoadChunk(int x, int z)
 	{
-		if(!isEnabled() || MC.level == null)
+		if(!isTrackingActive() || MC.level == null)
 			return;
+		ensureTrackingWorld();
 		
 		ChunkPos chunkPos = new ChunkPos(x, z);
 		if(containsAny(chunkPos))
@@ -344,8 +349,9 @@ public final class NewerNewChunksHack extends Hack
 	
 	public void afterUpdateBlock(BlockPos pos)
 	{
-		if(!isEnabled() || MC.level == null)
+		if(!isTrackingActive() || MC.level == null)
 			return;
+		ensureTrackingWorld();
 		
 		ChunkPos chunkPos = ChunkPos.containing(pos);
 		if(blockUpdateExploit.isChecked() && !containsAny(chunkPos))
@@ -373,10 +379,100 @@ public final class NewerNewChunksHack extends Hack
 		}
 	}
 	
+	public Set<ChunkPos> getNewChunks()
+	{
+		return Set.copyOf(newChunks);
+	}
+	
+	public Set<ChunkPos> getOldChunks()
+	{
+		return Set.copyOf(oldChunks);
+	}
+	
+	public Set<ChunkPos> getBlockExploitChunks()
+	{
+		return Set.copyOf(tickExploitChunks);
+	}
+	
+	public int getNewChunksColorI()
+	{
+		return newChunksColor.getColorI();
+	}
+	
+	public int getOldChunksColorI()
+	{
+		return oldChunksColor.getColorI();
+	}
+	
+	public int getBlockExploitChunksColorI()
+	{
+		return blockExploitChunksColor.getColorI();
+	}
+	
+	public void syncMapaTrackingState(boolean mapaTrackingActive)
+	{
+		if(mapaTrackingActive == mapaTrackingActiveLastTick)
+			return;
+		
+		mapaTrackingActiveLastTick = mapaTrackingActive;
+		if(!mapaTrackingActive || MC.level == null || MC.player == null)
+			return;
+			
+		// Prime map-only mode immediately so users don't have to toggle this
+		// hack on/off first. We only inspect already loaded chunks.
+		ensureTrackingWorld();
+		scanLoadedChunksAroundPlayer();
+	}
+	
 	private boolean containsAny(ChunkPos chunkPos)
 	{
 		return newChunks.contains(chunkPos) || oldChunks.contains(chunkPos)
 			|| tickExploitChunks.contains(chunkPos);
+	}
+	
+	private boolean isTrackingActive()
+	{
+		return isEnabled() || isMapaTrackingActive();
+	}
+	
+	private boolean isMapaTrackingActive()
+	{
+		return WURST != null && WURST.getHax().mapaHack != null
+			&& WURST.getHax().mapaHack.isNewerNewChunksMapModeActive();
+	}
+	
+	private void ensureTrackingWorld()
+	{
+		if(MC.level == null)
+			return;
+		if(MC.level != trackedLevel)
+		{
+			clearChunkData();
+			trackedLevel = MC.level;
+		}
+	}
+	
+	private void scanLoadedChunksAroundPlayer()
+	{
+		if(MC.level == null || MC.player == null)
+			return;
+		
+		int px = MC.player.chunkPosition().x();
+		int pz = MC.player.chunkPosition().z();
+		int radius = Math.max(2, MC.options.getEffectiveRenderDistance()) + 1;
+		for(int x = px - radius; x <= px + radius; x++)
+			for(int z = pz - radius; z <= pz + radius; z++)
+			{
+				if(!MC.level.hasChunk(x, z))
+					continue;
+				
+				LevelChunk chunk = MC.level.getChunkSource().getChunk(x, z,
+					ChunkStatus.FULL, false);
+				if(chunk == null || chunk.isEmpty())
+					continue;
+				
+				afterLoadChunk(x, z);
+			}
 	}
 	
 	private boolean containsFinalChunkType(ChunkPos chunkPos)
