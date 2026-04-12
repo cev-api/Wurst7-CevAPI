@@ -19,6 +19,8 @@ import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.SurfaceXrayHack;
+import net.wurstclient.hacks.SurfaceXrayHack.SurfaceState;
 import net.wurstclient.hacks.XRayHack;
 
 /**
@@ -45,6 +47,29 @@ public abstract class AbstractTerrainRenderContextMixin
 	{
 		if(!cir.getReturnValueZ())
 			return;
+		
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled())
+		{
+			SurfaceState surfaceState = surface.classifyBlock(blockState, pos);
+			if(surfaceState == SurfaceState.INTERIOR)
+			{
+				quad.chunkLayer(ChunkSectionLayer.TRANSLUCENT);
+				for(int i = 0; i < 4; i++)
+					quad.color(i, quad.color(i) & 0x01FFFFFF);
+				return;
+			}
+			
+			if(surfaceState == SurfaceState.SURFACE
+				&& surface.getSurfaceOpacity() < 0.99f)
+			{
+				quad.chunkLayer(ChunkSectionLayer.TRANSLUCENT);
+				for(int i = 0; i < 4; i++)
+					quad.color(i,
+						quad.color(i) & surface.getSurfaceOpacityMask());
+				return;
+			}
+		}
 		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		if(!xray.isOpacityMode() || xray.isVisible(blockState.getBlock(), pos))

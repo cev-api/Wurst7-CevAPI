@@ -113,16 +113,17 @@ public final class AutoFlyHack extends Hack
 			+ "Grid: Generate a square search grid from your current position.",
 		RouteType.values(), RouteType.WAYPOINTS);
 	
-	private final SliderSetting gridSideLength =
-		new SliderSetting("Grid side length",
-			"Side length of the square search area (in blocks).\n\n"
-				+ "The grid starts at your position and extends in +X and +Z.",
-			500, 10, 50000, 10, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final SliderSetting gridWidthChunks =
+		new SliderSetting("Grid width",
+			"How many chunks wide the search area should be.\n\n"
+				+ "AutoFly flies through the center of each chunk column.",
+			2, 1, 512, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	
-	private final SliderSetting gridPassSize =
-		new SliderSetting("Grid pass size",
-			"Distance between each back-and-forth pass (in blocks).", 50, 1,
-			1000, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final SliderSetting gridDepthChunks = new SliderSetting(
+		"Grid depth",
+		"How many chunks deep the search area should be.\n\n"
+			+ "At the end of each column, AutoFly turns and flies back down the next one.",
+		2, 1, 512, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	
 	private final CheckboxSetting showGridPath = new CheckboxSetting(
 		"Show grid path",
@@ -282,8 +283,8 @@ public final class AutoFlyHack extends Hack
 		setCategory(Category.MOVEMENT);
 		addSetting(waypointText);
 		addSetting(routeType);
-		addSetting(gridSideLength);
-		addSetting(gridPassSize);
+		addSetting(gridWidthChunks);
+		addSetting(gridDepthChunks);
 		addSetting(showGridPath);
 		addSetting(gridPathColor);
 		addSetting(gridPathThickness);
@@ -1041,56 +1042,50 @@ public final class AutoFlyHack extends Hack
 		if(start == null)
 			return;
 		
-		int side = (int)Math.round(gridSideLength.getValue());
-		int pass = (int)Math.round(gridPassSize.getValue());
-		
-		if(side < 1)
+		int widthChunks = gridWidthChunks.getValueI();
+		int depthChunks = gridDepthChunks.getValueI();
+		if(widthChunks < 1 || depthChunks < 1)
 		{
-			ChatUtils.error("Grid side length must be at least 1 block.");
+			ChatUtils
+				.error("Grid width and depth must both be at least 1 chunk.");
 			return;
 		}
-		if(pass < 1)
-			pass = 1;
 		
-		int passes = (int)Math.ceil(side / (double)pass);
-		long estTargets = 2L * passes + 1L;
+		long estTargets = (long)widthChunks * depthChunks;
 		if(estTargets > 20000L)
 		{
-			ChatUtils.error("Grid is too dense (" + estTargets
-				+ " targets). Increase pass size or decrease side length.");
+			ChatUtils.error("Grid is too large (" + estTargets
+				+ " chunk centers). Reduce width or depth.");
 			return;
 		}
 		
-		int x0 = start.getX();
-		int z0 = start.getZ();
-		int x1 = x0 + side;
-		int z1 = z0 + side;
+		int startChunkX = start.getX() >> 4;
+		int startChunkZ = start.getZ() >> 4;
 		int y = 0; // Not used when hasY=false
 		
-		boolean toEnd = true;
-		int z = z0;
-		while(true)
+		for(int dx = 0; dx < widthChunks; dx++)
 		{
-			int xEnd = toEnd ? x1 : x0;
-			targets.add(new AutoFlyTarget(new BlockPos(xEnd, y, z), false));
-			
-			if(z == z1)
-				break;
-			
-			int nextZ = z + pass;
-			if(nextZ > z1)
-				nextZ = z1;
-			
-			// Shift over to the next pass while staying at the current X end.
-			targets.add(new AutoFlyTarget(new BlockPos(xEnd, y, nextZ), false));
-			
-			z = nextZ;
-			toEnd = !toEnd;
+			int chunkX = startChunkX + dx;
+			boolean ascending = (dx & 1) == 0;
+			for(int dz = 0; dz < depthChunks; dz++)
+			{
+				int depthIndex = ascending ? dz : depthChunks - 1 - dz;
+				int chunkZ = startChunkZ + depthIndex;
+				int centerX = (chunkX << 4) + 8;
+				int centerZ = (chunkZ << 4) + 8;
+				targets.add(new AutoFlyTarget(new BlockPos(centerX, y, centerZ),
+					false));
+			}
 		}
 		
+		int minBlockX = (startChunkX << 4) + 8;
+		int minBlockZ = (startChunkZ << 4) + 8;
+		int maxBlockX = ((startChunkX + widthChunks - 1) << 4) + 8;
+		int maxBlockZ = ((startChunkZ + depthChunks - 1) << 4) + 8;
 		ChatUtils.message(String.format(Locale.ROOT,
-			"AutoFly grid: side=%d, pass=%d, targets=%d (%d,%d -> %d,%d)", side,
-			pass, targets.size(), x0, z0, x1, z1));
+			"AutoFly grid: %dx%d chunks, targets=%d (%d,%d -> %d,%d)",
+			widthChunks, depthChunks, targets.size(), minBlockX, minBlockZ,
+			maxBlockX, maxBlockZ));
 	}
 	
 	private void restartWithExistingTargets()

@@ -14,12 +14,14 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.renderer.chunk.SectionCompiler;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.SurfaceXrayHack;
 
 @Mixin(SectionCompiler.class)
 public class SectionCompilerMixin
 {
 	/**
-	 * Puts all quads on the translucent layer if Opacity X-Ray is enabled.
+	 * Puts quads on the translucent layer when opacity-based X-Ray rendering is
+	 * active.
 	 */
 	@ModifyVariable(method = "getOrBeginLayer",
 		at = @At("HEAD"),
@@ -29,6 +31,11 @@ public class SectionCompilerMixin
 		ChunkSectionLayer renderType)
 	{
 		if(WurstClient.INSTANCE.getHax().xRayHack.isOpacityMode())
+			return ChunkSectionLayer.TRANSLUCENT;
+		
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface != null && surface.isEnabled()
+			&& surface.getSurfaceOpacity() < 0.99f)
 			return ChunkSectionLayer.TRANSLUCENT;
 		
 		return renderType;

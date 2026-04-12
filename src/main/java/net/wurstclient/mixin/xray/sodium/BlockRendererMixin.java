@@ -41,6 +41,17 @@ public class BlockRendererMixin extends AbstractBlockRenderContextMixin
 	private ChunkSectionLayer onProcessQuadRenderType(
 		ChunkSectionLayer original)
 	{
+		SurfaceXrayHack surface = WurstClient.INSTANCE.getHax().surfaceXrayHack;
+		if(surface.isEnabled())
+		{
+			SurfaceState surfaceState = surface.classifyBlock(state, pos);
+			if(surfaceState == SurfaceState.INTERIOR)
+				return ChunkSectionLayer.TRANSLUCENT;
+			if(surfaceState == SurfaceState.SURFACE
+				&& surface.getSurfaceOpacity() < 0.99f)
+				return ChunkSectionLayer.TRANSLUCENT;
+		}
+		
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
 		if(!xray.isOpacityMode() || xray.isVisible(state.getBlock(), pos))
 			return original;

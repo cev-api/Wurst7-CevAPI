@@ -1045,6 +1045,21 @@ Purpose: helps you avoid and debug anticheat flags by cleaning risky movement pa
 ![1](https://i.imgur.com/Kuj4NT6.png)
 ![2](https://i.imgur.com/1Z50eSC.png)
 
+### MiningEvidence
+
+- Designed to compliment the TunnelHoleStairESP
+- Will highlight lines between dropped blocks which indicate recent mining activity
+- Designed to work even after blocks disappear
+- Fully adjustable to avoid false positives
+- Adjustable ESP timeout 
+
+![Evidenza](https://i.imgur.com/NrOsEfa.png)
+
+### SpectatorMonitor
+
+- Actively checks if and when another player enters Specator Mode
+- Will alert via chat and or sounds
+
 ## What's changed or improved in this fork?
 
 ### ChestESP

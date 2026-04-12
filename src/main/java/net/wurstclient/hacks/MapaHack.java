@@ -90,6 +90,8 @@ public final class MapaHack extends Hack
 		"Minimap icon size", 8, 4, 24, 1, ValueDisplay.INTEGER);
 	private final SliderSetting worldMapIconSize = new SliderSetting(
 		"World map icon size", 12, 4, 32, 1, ValueDisplay.INTEGER);
+	private final SliderSetting playerNameScale = new SliderSetting(
+		"Player name scale", 1.0, 0.5, 4.0, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting iconOutline =
 		new CheckboxSetting("ESP icon outlines", true);
 	private final CheckboxSetting showCenterCross =
@@ -194,6 +196,7 @@ public final class MapaHack extends Hack
 		addSetting(mapEspGroup);
 		addSetting(minimapIconSize);
 		addSetting(worldMapIconSize);
+		addSetting(playerNameScale);
 		addSetting(iconOutline);
 		addSetting(showCenterCross);
 		addSetting(showFrame);
@@ -445,29 +448,29 @@ public final class MapaHack extends Hack
 		if(point == null)
 			return;
 		renderPlayerHeadMarker(context, point, skin, name, size, outlineColor,
-			cfg.showPlayerNames);
+			cfg.showPlayerNames, (float)cfg.playerNameScale);
 	}
 	
 	private void renderPlayerHeadMarker(GuiGraphicsExtractor context,
 		MapPoint point, Identifier skin, String name, int size,
-		int outlineColor, boolean drawName)
+		int outlineColor, boolean drawName, float nameScale)
 	{
 		int x = Math.round(point.x()) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 8, 8, size, size,
-			64, 64, 0xFFFFFFFF);
+			8, 8, 64, 64, 0xFFFFFFFF);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 40, 8, size,
-			size, 64, 64, 0xFFFFFFFF);
+			size, 8, 8, 64, 64, 0xFFFFFFFF);
 		if(drawName && !name.isEmpty())
 			drawMarkerLabel(context, name, x + size / 2, y + size + 2,
-				outlineColor, size);
+				outlineColor, size, nameScale);
 	}
 	
 	private void drawMarkerLabel(GuiGraphicsExtractor context, String label,
-		int centerX, int y, int color, int iconSize)
+		int centerX, int y, int color, int iconSize, float nameScale)
 	{
-		float scale = Mth.clamp(iconSize / 8.0F, 0.5F, 2.0F);
+		float scale = Mth.clamp(iconSize / 8.0F * nameScale, 0.5F, 6.0F);
 		int width = Math.round(MC.font.width(label) * scale);
 		int x = centerX - width / 2;
 		int stroke = 0xFF000000;
@@ -631,6 +634,7 @@ public final class MapaHack extends Hack
 		minimapZoom.setValue(2.0);
 		minimapIconSize.setValue(8);
 		worldMapIconSize.setValue(12);
+		playerNameScale.setValue(1.0);
 		iconOutline.setChecked(true);
 		showCenterCross.setChecked(true);
 		showFrame.setChecked(true);
@@ -687,6 +691,11 @@ public final class MapaHack extends Hack
 	public void setMapSamples(int value)
 	{
 		minimapSamples.setValue(value);
+	}
+	
+	public void setPlayerNameScale(double value)
+	{
+		playerNameScale.setValue(value);
 	}
 	
 	public void setMapPosition(int x, int y)
@@ -836,6 +845,7 @@ public final class MapaHack extends Hack
 		cfg.enabled = !noMap.isChecked();
 		cfg.showCenterCross = showCenterCross.isChecked();
 		cfg.showPlayerNames = showPlayerNames.isChecked();
+		cfg.playerNameScale = playerNameScale.getValue();
 		cfg.minimapSize = minimapSize.getValueI();
 		cfg.minimapZoom = minimapZoom.getValue();
 		cfg.minimapPosX = minimapPosX.getValueI();
@@ -1076,7 +1086,8 @@ public final class MapaHack extends Hack
 				renderPlayerHeadMarker(context, point, skin,
 					player.getName().getString(), markerSize,
 					WURST.getHax().playerEspHack.getMapaPlayerColor(player),
-					createConfig().showPlayerNames);
+					createConfig().showPlayerNames,
+					(float)createConfig().playerNameScale);
 		}
 	}
 	
