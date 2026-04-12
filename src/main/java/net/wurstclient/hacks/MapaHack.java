@@ -222,12 +222,12 @@ public final class MapaHack extends Hack
 				signEspOnMap, portalEspOnMap, playerEspOnMap, logoutSpotsOnMap,
 				showPlayerNames, bedEspOnMap);
 		}
-	addSetting(mapEspGroup);
-	addSetting(minimapIconSize);
-	addSetting(worldMapIconSize);
-	addSetting(playerIconSize);
-	addSetting(playerNameScale);
-	addSetting(iconOutline);
+		addSetting(mapEspGroup);
+		addSetting(minimapIconSize);
+		addSetting(worldMapIconSize);
+		addSetting(playerIconSize);
+		addSetting(playerNameScale);
+		addSetting(iconOutline);
 		addSetting(showCenterCross);
 		addSetting(showFrame);
 		addSetting(minimapSize);
@@ -529,29 +529,29 @@ public final class MapaHack extends Hack
 		if(point == null)
 			return;
 		renderPlayerHeadMarker(context, point, skin, name, size, outlineColor,
-			cfg.showPlayerNames);
+			cfg.showPlayerNames, (float)cfg.playerNameScale);
 	}
 	
 	private void renderPlayerHeadMarker(GuiGraphicsExtractor context,
 		MapPoint point, Identifier skin, String name, int size,
-		int outlineColor, boolean drawName)
+		int outlineColor, boolean drawName, float nameScale)
 	{
 		int x = Math.round(point.x()) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 8, 8, size, size,
-			64, 64, 0xFFFFFFFF);
+			8, 8, 64, 64, 0xFFFFFFFF);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 40, 8, size,
-			size, 64, 64, 0xFFFFFFFF);
+			size, 8, 8, 64, 64, 0xFFFFFFFF);
 		if(drawName && !name.isEmpty())
 			drawMarkerLabel(context, name, x + size / 2, y + size + 2,
-				outlineColor, size);
+				outlineColor, size, nameScale);
 	}
 	
 	private void drawMarkerLabel(GuiGraphicsExtractor context, String label,
-		int centerX, int y, int color, int iconSize)
+		int centerX, int y, int color, int iconSize, float nameScale)
 	{
-		float scale = Mth.clamp(iconSize / 8.0F, 0.5F, 2.0F);
+		float scale = Mth.clamp(iconSize / 8.0F * nameScale, 0.5F, 6.0F);
 		int width = Math.round(MC.font.width(label) * scale);
 		int x = centerX - width / 2;
 		int stroke = 0xFF000000;
@@ -879,6 +879,11 @@ public final class MapaHack extends Hack
 		minimapSamples.setValue(value);
 	}
 	
+	public void setPlayerNameScale(double value)
+	{
+		playerNameScale.setValue(value);
+	}
+	
 	public void setMapPosition(int x, int y)
 	{
 		minimapPosX.setValue(x);
@@ -1026,6 +1031,7 @@ public final class MapaHack extends Hack
 		cfg.enabled = !noMap.isChecked();
 		cfg.showCenterCross = showCenterCross.isChecked();
 		cfg.showPlayerNames = showPlayerNames.isChecked();
+		cfg.playerNameScale = playerNameScale.getValue();
 		cfg.minimapSize = minimapSize.getValueI();
 		cfg.minimapZoom = minimapZoom.getValue();
 		cfg.minimapPosX = minimapPosX.getValueI();
@@ -1293,7 +1299,8 @@ public final class MapaHack extends Hack
 				renderPlayerHeadMarker(context, point, skin,
 					player.getName().getString(), markerSize,
 					WURST.getHax().playerEspHack.getMapaPlayerColor(player),
-					createConfig().showPlayerNames);
+					createConfig().showPlayerNames,
+					(float)createConfig().playerNameScale);
 		}
 	}
 	

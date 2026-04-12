@@ -26,10 +26,11 @@ public final class MapaCmd extends Command
 			".mapa open", ".mapa reset", ".mapa toggle",
 			".mapa enabled <true|false>", ".mapa size <72-256>",
 			".mapa zoom <0.25-10>", ".mapa samples <32-512>",
-			".mapa pos <x> <y>", ".mapa rotate <true|false>",
-			".mapa underground <true|false>", ".mapa invert <true|false>",
-			".mapa smallplants <true|false>", ".mapa trees <true|false>",
-			".mapa palette <true|false>", ".mapa surfaceLighting <true|false>",
+			".mapa textScale <0.5-4>", ".mapa pos <x> <y>",
+			".mapa rotate <true|false>", ".mapa underground <true|false>",
+			".mapa invert <true|false>", ".mapa smallplants <true|false>",
+			".mapa trees <true|false>", ".mapa palette <true|false>",
+			".mapa surfaceLighting <true|false>",
 			".mapa undergroundLighting <true|false>", ".mapa sharpness <0-3>",
 			".mapa relief <0.1-3>", ".mapa brightness <0.7-1.3>",
 			".mapa contrast <0.5-1.8>", ".mapa saturation <0.5-1.5>",
@@ -101,6 +102,14 @@ public final class MapaCmd extends Command
 			mapa.setMapSamples(parseInt(args[1], 32, 512));
 			ChatUtils.message("Mapa samples set to "
 				+ mapa.createConfig().minimapSamples + ".");
+			return;
+			
+			case "textscale":
+			requireLength(args, 2);
+			mapa.setPlayerNameScale(parseDouble(args[1], 0.5, 4.0));
+			ChatUtils.message(String.format(Locale.ROOT,
+				"Mapa player_name_scale set to %.2f.",
+				mapa.createConfig().playerNameScale));
 			return;
 			
 			case "pos":
@@ -352,6 +361,7 @@ public final class MapaCmd extends Command
 			+ String.format(Locale.ROOT, " waterAlpha=%.2f", cfg.waterOpacity)
 			+ String.format(Locale.ROOT, " chunk=%.2f",
 				cfg.chunkRefreshAggression)
+			+ String.format(Locale.ROOT, " textScale=%.2f", cfg.playerNameScale)
 			+ " samples=" + cfg.minimapSamples;
 	}
 	

@@ -173,6 +173,8 @@ public final class HackList implements UpdateListener
 	public final LsdHack lsdHack = new LsdHack();
 	public final MaceDmgHack maceDmgHack = new MaceDmgHack();
 	public final MentionHack mentionHack = new MentionHack();
+	public final MiningEvidenceHack miningEvidenceHack =
+		new MiningEvidenceHack();
 	public final SpearAssistHack spearAssistHack = new SpearAssistHack();
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final BedrockEscapeHack bedrockEscapeHack = new BedrockEscapeHack();
@@ -271,6 +273,8 @@ public final class HackList implements UpdateListener
 	public final TrueSightHack trueSightHack = new TrueSightHack();
 	public final TunnellerHack tunnellerHack = new TunnellerHack();
 	public final SurfaceXrayHack surfaceXrayHack = new SurfaceXrayHack();
+	public final SpectatorMonitorHack spectatorMonitorHack =
+		new SpectatorMonitorHack();
 	public final VeinMinerHack veinMinerHack = new VeinMinerHack();
 	public final XRayHack xRayHack = new XRayHack();
 	public final WaypointsHack waypointsHack = new WaypointsHack();

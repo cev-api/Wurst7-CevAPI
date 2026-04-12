@@ -18,6 +18,7 @@ public final class XMapConfig
 	public boolean enabled = true;
 	public boolean showCenterCross = true;
 	public boolean showPlayerNames = false;
+	public double playerNameScale = 1.0;
 	public boolean rotateWithPlayer = true;
 	public int minimapSamples = 512;
 	public boolean undergroundMode = false;
@@ -54,6 +55,7 @@ public final class XMapConfig
 		minimapZoom = Math.max(0.25, Math.min(10.0, minimapZoom));
 		minimapPosX = Math.max(0, minimapPosX);
 		minimapPosY = Math.max(0, minimapPosY);
+		playerNameScale = Math.max(0.5, Math.min(4.0, playerNameScale));
 		minimapSamples = Math.max(32, Math.min(512, minimapSamples));
 		textureSharpness = Math.max(0.0, Math.min(3.0, textureSharpness));
 		surfaceRelief = Math.max(0.1, Math.min(3.0, surfaceRelief));

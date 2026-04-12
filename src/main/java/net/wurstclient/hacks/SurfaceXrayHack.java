@@ -9,11 +9,9 @@ package net.wurstclient.hacks;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonPrimitive;
@@ -321,22 +319,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 		if(component.isEmpty())
 			return;
 		
-		HashMap<ColumnKey, Integer> topYByColumn = new HashMap<>();
-		for(BlockPos pos : component)
-		{
-			ColumnKey columnKey = new ColumnKey(pos.getX(), pos.getZ(), block);
-			topYByColumn.merge(columnKey, pos.getY(), Math::max);
-		}
-		
 		for(BlockPos pos : component)
 		{
 			long posKey = pos.asLong();
-			ColumnKey columnKey = new ColumnKey(pos.getX(), pos.getZ(), block);
-			int topY = topYByColumn.get(columnKey);
-			
-			SurfaceState state = pos.getY() == topY ? SurfaceState.SURFACE
-				: SurfaceState.INTERIOR;
-			
+			SurfaceState state = classifyColumn(world, pos, block);
 			visibilityCache.put(posKey, new CacheEntry(block, state, time));
 		}
 	}
@@ -355,11 +341,14 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	private SurfaceState classifyColumn(ClientLevel world, BlockPos pos,
 		Block block)
 	{
-		BlockPos above = pos.above();
-		if(world.getBlockState(above).getBlock() == block)
-			return SurfaceState.INTERIOR;
+		for(Direction dir : Direction.values())
+		{
+			BlockPos neighbor = pos.relative(dir);
+			if(world.getBlockState(neighbor).getBlock() != block)
+				return SurfaceState.SURFACE;
+		}
 		
-		return SurfaceState.SURFACE;
+		return SurfaceState.INTERIOR;
 	}
 	
 	private void pruneCache(long time)
@@ -416,33 +405,4 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 		INTERIOR;
 	}
 	
-	private static final class ColumnKey
-	{
-		private final int x;
-		private final int z;
-		private final Block block;
-		
-		private ColumnKey(int x, int z, Block block)
-		{
-			this.x = x;
-			this.z = z;
-			this.block = block;
-		}
-		
-		@Override
-		public boolean equals(Object obj)
-		{
-			if(this == obj)
-				return true;
-			if(!(obj instanceof ColumnKey other))
-				return false;
-			return x == other.x && z == other.z && block == other.block;
-		}
-		
-		@Override
-		public int hashCode()
-		{
-			return Objects.hash(x, z, block);
-		}
-	}
 }

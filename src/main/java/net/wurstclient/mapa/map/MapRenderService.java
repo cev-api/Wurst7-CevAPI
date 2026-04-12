@@ -1591,10 +1591,9 @@ public final class MapRenderService
 		
 		if(!undergroundMode)
 		{
-			Heightmap.Types topHeightmap =
-				showTreeCanopies ? Heightmap.Types.MOTION_BLOCKING
-					: Heightmap.Types.MOTION_BLOCKING_NO_LEAVES;
-			int topHeight = chunk.getHeight(topHeightmap, x & 15, z & 15) + 1;
+			int topHeight =
+				chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x & 15, z & 15)
+					+ 1;
 			BlockState topState = blockStateAtHeight(level, x, z, topHeight);
 			transparentHeight = topHeight;
 			transparentState = topState;
@@ -2970,18 +2969,17 @@ public final class MapRenderService
 		{
 			return null;
 		}
+		
 		LevelChunk chunk = level.getChunkSource().getChunk(chunkX, chunkZ,
 			ChunkStatus.FULL, false);
 		if(chunk != null && !chunk.isEmpty())
 		{
 			return chunk;
 		}
-		chunk = level.getChunkSource().getChunk(chunkX, chunkZ,
-			ChunkStatus.EMPTY, false);
-		if(chunk != null && !chunk.isEmpty())
-		{
-			return chunk;
-		}
+		
+		// Don't fall back to partially-ready/empty client chunks here.
+		// Their heightmaps can be incomplete and cause mountains to appear cut
+		// open depending on renderer visibility and camera direction.
 		return null;
 	}
 	
