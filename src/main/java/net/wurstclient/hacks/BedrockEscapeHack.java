@@ -8,13 +8,18 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -30,11 +35,13 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RenderUtils.ColoredBox;
 
 @SearchTags({"bedrock", "void", "bedrock escape"})
 public final class BedrockEscapeHack extends Hack
@@ -54,6 +61,48 @@ public final class BedrockEscapeHack extends Hack
 	
 	private final CheckboxSetting render = new CheckboxSetting("Render Target",
 		"Render a box around the landing zone.", true);
+	
+	private final CheckboxSetting renderEscapeShafts = new CheckboxSetting(
+		"Render Escape Shafts",
+		"Highlights bedrock columns that can be escaped by breaking blocks below.\n"
+			+ "Green = no damage, Yellow = low survivable damage.",
+		true);
+	
+	private final CheckboxSetting shaftFillBoxes = new CheckboxSetting(
+		"Shaft fill boxes",
+		"Render solid fills for shaft ESP. Disable for wireframe-only mode.",
+		false);
+	private final CheckboxSetting shaftSurfaceOnly = new CheckboxSetting(
+		"Shaft surface-only markers",
+		"Render a thin marker on the top surface of bedrock instead of full block markers.",
+		true);
+	
+	private final ChunkAreaSetting shaftArea = new ChunkAreaSetting(
+		"Shaft area", "Chunk range to scan for bedrock escape shafts.",
+		ChunkAreaSetting.ChunkArea.A3);
+	
+	private final SliderSetting shaftChunksPerTick = new SliderSetting(
+		"Shaft chunks per tick",
+		"How many chunks are scanned each tick for shaft ESP. Lower = better FPS.",
+		1, 1, 8, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting shaftRenderLimit = new SliderSetting(
+		"Shaft render limit", "Maximum number of shaft ESP boxes to render.",
+		300, 50, 5000, 10, ValueDisplay.INTEGER);
+	
+	private final SliderSetting shaftDepth = new SliderSetting("Shaft depth",
+		"How far below bedrock to scan when looking for escape paths.", 16, 4,
+		64, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting lowDamageLimit =
+		new SliderSetting("Low damage limit",
+			"Maximum estimated damage (in hearts) for yellow escape shafts.",
+			3.0, 0.5, 10.0, 0.5, ValueDisplay.DECIMAL.withSuffix(" hearts"));
+	
+	private final ColorSetting safeShaftColor =
+		new ColorSetting("Safe shaft color", new Color(60, 255, 100));
+	private final ColorSetting lowDamageShaftColor =
+		new ColorSetting("Low damage color", new Color(255, 235, 80));
 	
 	private final CheckboxSetting ignoreSafeTickRequirement =
 		new CheckboxSetting("Teleport without Tick",
@@ -103,6 +152,19 @@ public final class BedrockEscapeHack extends Hack
 	private boolean surfaceXrayWasEnabled;
 	private double surfaceXrayPreviousOpacity;
 	private List<String> surfaceXrayPreviousBlocks = Collections.emptyList();
+	private final ArrayDeque<ChunkPos> shaftScanQueue = new ArrayDeque<>();
+	private final HashSet<ChunkPos> queuedShaftChunks = new HashSet<>();
+	private final HashMap<ChunkPos, ArrayList<ShaftCandidate>> shaftsByChunk =
+		new HashMap<>();
+	private final ArrayList<ColoredBox> safeShaftBoxes = new ArrayList<>();
+	private final ArrayList<ColoredBox> lowDamageShaftBoxes = new ArrayList<>();
+	private ChunkPos lastShaftPlayerChunk;
+	private ChunkAreaSetting.ChunkArea lastShaftAreaSelection;
+	private int sideBoundaryY = Integer.MIN_VALUE;
+	private boolean playerAboveSideBoundary;
+	private boolean hasSideBoundary;
+	private int foundSafeShafts;
+	private int foundLowDamageShafts;
 	
 	public BedrockEscapeHack()
 	{
@@ -113,6 +175,16 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(allowLiquids);
 		addSetting(packetSpam);
 		addSetting(render);
+		addSetting(renderEscapeShafts);
+		addSetting(shaftFillBoxes);
+		addSetting(shaftSurfaceOnly);
+		addSetting(shaftArea);
+		addSetting(shaftChunksPerTick);
+		addSetting(shaftRenderLimit);
+		addSetting(shaftDepth);
+		addSetting(lowDamageLimit);
+		addSetting(safeShaftColor);
+		addSetting(lowDamageShaftColor);
 		addSetting(boxColor);
 		addSetting(ignoreSafeTickRequirement);
 		addSetting(shiftClickActivation);
@@ -125,6 +197,7 @@ public final class BedrockEscapeHack extends Hack
 	{
 		teleportedThisPress = false;
 		shiftSurfaceXrayApplied = false;
+		clearShaftScanState();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -138,6 +211,7 @@ public final class BedrockEscapeHack extends Hack
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
 		teleportedThisPress = false;
+		clearShaftScanState();
 	}
 	
 	@Override
@@ -152,6 +226,7 @@ public final class BedrockEscapeHack extends Hack
 		
 		updateTarget();
 		updateShiftSurfaceXrayOverride();
+		updateEscapeShafts();
 		
 		if(!isValidTarget)
 			return;
@@ -285,6 +360,8 @@ public final class BedrockEscapeHack extends Hack
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		renderEscapeShaftHighlights(matrices);
+		
 		if(!render.isChecked() || !isValidTarget || targetBox == null)
 			return;
 		
@@ -577,4 +654,443 @@ public final class BedrockEscapeHack extends Hack
 		int b = (int)(from.getBlue() + (to.getBlue() - from.getBlue()) * t);
 		return (255 << 24) | (r << 16) | (g << 8) | b;
 	}
+	
+	private void updateEscapeShafts()
+	{
+		if(!renderEscapeShafts.isChecked() || MC.player == null
+			|| MC.level == null)
+		{
+			clearShaftScanState();
+			return;
+		}
+		
+		ChunkPos currentChunk = MC.player.chunkPosition();
+		ChunkAreaSetting.ChunkArea currentArea = shaftArea.getSelected();
+		updateSideBoundary();
+		if(lastShaftPlayerChunk == null
+			|| !lastShaftPlayerChunk.equals(currentChunk)
+			|| lastShaftAreaSelection != currentArea)
+		{
+			lastShaftPlayerChunk = currentChunk;
+			lastShaftAreaSelection = currentArea;
+			rebuildShaftScanQueue();
+		}
+		
+		if(shaftScanQueue.isEmpty())
+			rebuildShaftScanQueue();
+		
+		for(int i = 0; i < shaftChunksPerTick.getValueI()
+			&& !shaftScanQueue.isEmpty(); i++)
+			scanShaftChunk(shaftScanQueue.removeFirst());
+		
+		rebuildShaftRenderCache();
+	}
+	
+	private void renderEscapeShaftHighlights(PoseStack matrices)
+	{
+		if(!renderEscapeShafts.isChecked())
+			return;
+		if(safeShaftBoxes.isEmpty() && lowDamageShaftBoxes.isEmpty())
+			return;
+		
+		List<ColoredBox> limitedSafe = limitBoxes(safeShaftBoxes);
+		List<ColoredBox> limitedLow = limitBoxes(lowDamageShaftBoxes);
+		
+		if(!limitedSafe.isEmpty())
+		{
+			if(shaftFillBoxes.isChecked())
+				RenderUtils.drawSolidBoxes(matrices, limitedSafe, false);
+			RenderUtils.drawOutlinedBoxes(matrices, limitedSafe, false, 2.0);
+		}
+		
+		if(!limitedLow.isEmpty())
+		{
+			if(shaftFillBoxes.isChecked())
+				RenderUtils.drawSolidBoxes(matrices, limitedLow, false);
+			RenderUtils.drawOutlinedBoxes(matrices, limitedLow, false, 2.0);
+		}
+	}
+	
+	private void rebuildShaftScanQueue()
+	{
+		shaftScanQueue.clear();
+		queuedShaftChunks.clear();
+		
+		HashSet<ChunkPos> currentArea = new HashSet<>();
+		for(var chunk : shaftArea.getChunksInRange())
+		{
+			ChunkPos pos = chunk.getPos();
+			currentArea.add(pos);
+			shaftScanQueue.addLast(pos);
+			queuedShaftChunks.add(pos);
+		}
+		
+		shaftsByChunk.keySet().removeIf(pos -> !currentArea.contains(pos));
+	}
+	
+	private void scanShaftChunk(ChunkPos chunkPos)
+	{
+		if(MC.level == null || MC.player == null)
+			return;
+		
+		ArrayList<ShaftCandidate> candidates = new ArrayList<>();
+		int minY = MC.level.getMinY();
+		int maxY = minY + MC.level.getHeight() - 1;
+		int depthLimit = shaftDepth.getValueI();
+		float playerHearts = getPlayerHearts();
+		
+		BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+		for(int x = chunkPos.getMinBlockX(); x <= chunkPos.getMaxBlockX(); x++)
+			for(int z = chunkPos.getMinBlockZ(); z <= chunkPos
+				.getMaxBlockZ(); z++)
+			{
+				for(int y = maxY - 1; y >= minY + 1; y--)
+				{
+					cursor.set(x, y, z);
+					if(!MC.level.getBlockState(cursor).is(Blocks.BEDROCK))
+						continue;
+					tryAddShaftCandidate(candidates, x, y, z, minY, maxY,
+						depthLimit, playerHearts, true);
+					tryAddShaftCandidate(candidates, x, y, z, minY, maxY,
+						depthLimit, playerHearts, false);
+				}
+			}
+		
+		shaftsByChunk.put(chunkPos, candidates);
+	}
+	
+	private boolean hasBedrockWithinDepth(int x, int z, int startY, int minY,
+		int depthLimit)
+	{
+		if(MC.level == null)
+			return true;
+		
+		int endY = Math.max(minY, startY - depthLimit);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = startY; y >= endY; y--)
+		{
+			pos.set(x, y, z);
+			if(!MC.level.hasChunkAt(pos))
+				return true;
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isBreakableEscapeBlock(BlockState state)
+	{
+		if(state.is(Blocks.BEDROCK))
+			return false;
+		return state.getFluidState().isEmpty();
+	}
+	
+	private void rebuildShaftRenderCache()
+	{
+		safeShaftBoxes.clear();
+		lowDamageShaftBoxes.clear();
+		foundSafeShafts = 0;
+		foundLowDamageShafts = 0;
+		
+		ArrayList<ShaftCandidate> safeCandidates = new ArrayList<>();
+		ArrayList<ShaftCandidate> lowCandidates = new ArrayList<>();
+		
+		for(ArrayList<ShaftCandidate> candidates : shaftsByChunk.values())
+			for(ShaftCandidate candidate : candidates)
+			{
+				if(!isSideAllowed(candidate.fromAbove()))
+					continue;
+				
+				if(candidate.safe())
+				{
+					safeCandidates.add(candidate);
+				}else
+				{
+					lowCandidates.add(candidate);
+				}
+			}
+		
+		Comparator<ShaftCandidate> byDistance =
+			Comparator.comparingDouble(this::distanceSqToPlayer)
+				.thenComparingInt(c -> c.surfacePos().getX())
+				.thenComparingInt(c -> c.surfacePos().getY())
+				.thenComparingInt(c -> c.surfacePos().getZ());
+		safeCandidates.sort(byDistance);
+		lowCandidates.sort(byDistance);
+		
+		for(ShaftCandidate candidate : safeCandidates)
+		{
+			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
+				candidate.fromAbove());
+			safeShaftBoxes
+				.add(new ColoredBox(markerBox, safeShaftColor.getColorI(0xC0)));
+			foundSafeShafts++;
+		}
+		
+		for(ShaftCandidate candidate : lowCandidates)
+		{
+			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
+				candidate.fromAbove());
+			lowDamageShaftBoxes.add(
+				new ColoredBox(markerBox, lowDamageShaftColor.getColorI(0xB8)));
+			foundLowDamageShafts++;
+		}
+	}
+	
+	private double distanceSqToPlayer(ShaftCandidate candidate)
+	{
+		if(MC.player == null)
+			return Double.MAX_VALUE;
+		
+		double cx = candidate.surfacePos().getX() + 0.5;
+		double cy = candidate.surfacePos().getY() + 0.5;
+		double cz = candidate.surfacePos().getZ() + 0.5;
+		return MC.player.distanceToSqr(cx, cy, cz);
+	}
+	
+	private AABB getShaftMarkerBox(BlockPos surfacePos, boolean fromAbove)
+	{
+		double x1 = surfacePos.getX();
+		double y1 = surfacePos.getY();
+		double z1 = surfacePos.getZ();
+		
+		if(!shaftSurfaceOnly.isChecked())
+			return new AABB(x1, y1, z1, x1 + 1, y1 + 1, z1 + 1);
+		
+		if(fromAbove)
+		{
+			// Thin top-face tile marker when escaping downward.
+			return new AABB(x1 + 0.05, y1 + 0.98, z1 + 0.05, x1 + 0.95,
+				y1 + 1.02, z1 + 0.95);
+		}
+		
+		// Thin bottom-face tile marker when escaping upward from below bedrock.
+		return new AABB(x1 + 0.05, y1 - 0.02, z1 + 0.05, x1 + 0.95, y1 + 0.02,
+			z1 + 0.95);
+	}
+	
+	private void clearShaftScanState()
+	{
+		shaftScanQueue.clear();
+		queuedShaftChunks.clear();
+		shaftsByChunk.clear();
+		safeShaftBoxes.clear();
+		lowDamageShaftBoxes.clear();
+		lastShaftPlayerChunk = null;
+		lastShaftAreaSelection = null;
+		sideBoundaryY = Integer.MIN_VALUE;
+		playerAboveSideBoundary = false;
+		hasSideBoundary = false;
+		foundSafeShafts = 0;
+		foundLowDamageShafts = 0;
+	}
+	
+	private List<ColoredBox> limitBoxes(ArrayList<ColoredBox> boxes)
+	{
+		int max = shaftRenderLimit.getValueI();
+		if(boxes.size() <= max)
+			return boxes;
+		
+		return boxes.subList(0, max);
+	}
+	
+	private void tryAddShaftCandidate(ArrayList<ShaftCandidate> candidates,
+		int x, int y, int z, int minY, int maxY, int depthLimit,
+		float playerHearts, boolean fromAbove)
+	{
+		if(MC.level == null || MC.player == null)
+			return;
+		if(!isSideAllowed(fromAbove))
+			return;
+		
+		BlockPos above = new BlockPos(x, y + 1, z);
+		BlockPos below = new BlockPos(x, y - 1, z);
+		boolean hasAbove = MC.level.hasChunkAt(above);
+		boolean hasBelow = MC.level.hasChunkAt(below);
+		if(!hasAbove)
+			return;
+		if(fromAbove && !hasBelow)
+			return;
+		
+		int landingY;
+		if(fromAbove)
+		{
+			if(!isAirLike(MC.level.getBlockState(above)))
+				return;
+			if(MC.level.getBlockState(below).is(Blocks.BEDROCK))
+				return;
+			if(hasBedrockWithinDepth(x, z, y - 1, minY, depthLimit))
+				return;
+			landingY =
+				findBreakableTwoHighLandingYDown(x, y - 1, z, minY, depthLimit);
+		}else
+		{
+			// Allow undersides at the build-limit boundary where "below" may
+			// be outside loaded world space.
+			if(hasBelow && !isAirLike(MC.level.getBlockState(below)))
+				return;
+			if(MC.level.getBlockState(above).is(Blocks.BEDROCK))
+				return;
+			if(hasBedrockWithinDepthUp(x, z, y + 1, maxY, depthLimit))
+				return;
+			landingY =
+				findBreakableTwoHighLandingYUp(x, y + 1, z, maxY, depthLimit);
+		}
+		
+		if(landingY == Integer.MIN_VALUE)
+			return;
+		
+		double targetY = landingY + 0.1;
+		double dropDistance = MC.player.getY() - targetY;
+		double damage = 0;
+		if(dropDistance > 0)
+			damage = Math.floor(Math.max(0, dropDistance - 3.0)) / 2.0;
+		
+		if(playerHearts <= 0 || damage > playerHearts)
+			return;
+		
+		boolean safe = damage <= 0;
+		boolean low = !safe && damage <= lowDamageLimit.getValue();
+		if(!safe && !low)
+			return;
+		
+		candidates
+			.add(new ShaftCandidate(new BlockPos(x, y, z), safe, fromAbove));
+	}
+	
+	private int findBreakableTwoHighLandingYDown(int x, int startY, int z,
+		int minY, int depthLimit)
+	{
+		if(MC.level == null)
+			return Integer.MIN_VALUE;
+		
+		int endY = Math.max(minY, startY - depthLimit);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = startY - 1; y >= endY; y--)
+		{
+			pos.set(x, y, z);
+			BlockState first = MC.level.getBlockState(pos);
+			BlockState second = MC.level.getBlockState(pos.above());
+			if(isBreakableEscapeBlock(first) && isBreakableEscapeBlock(second))
+				return y;
+		}
+		
+		return Integer.MIN_VALUE;
+	}
+	
+	private int findBreakableTwoHighLandingYUp(int x, int startY, int z,
+		int maxY, int depthLimit)
+	{
+		if(MC.level == null)
+			return Integer.MIN_VALUE;
+		
+		int endY = Math.min(maxY - 1, startY + depthLimit);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = startY; y <= endY; y++)
+		{
+			pos.set(x, y, z);
+			BlockState first = MC.level.getBlockState(pos);
+			BlockState second = MC.level.getBlockState(pos.above());
+			if(isBreakableEscapeBlock(first) && isBreakableEscapeBlock(second))
+				return y;
+		}
+		
+		return Integer.MIN_VALUE;
+	}
+	
+	private boolean hasBedrockWithinDepthUp(int x, int z, int startY, int maxY,
+		int depthLimit)
+	{
+		if(MC.level == null)
+			return true;
+		
+		int endY = Math.min(maxY, startY + depthLimit);
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = startY; y <= endY; y++)
+		{
+			pos.set(x, y, z);
+			if(!MC.level.hasChunkAt(pos))
+				return true;
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private void updateSideBoundary()
+	{
+		hasSideBoundary = false;
+		if(MC.level == null || MC.player == null)
+			return;
+		
+		int px = MC.player.getBlockX();
+		int py = MC.player.getBlockY();
+		int pz = MC.player.getBlockZ();
+		int minY = MC.level.getMinY();
+		int maxY = minY + MC.level.getHeight() - 1;
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		
+		int aboveY = Integer.MIN_VALUE;
+		for(int y = py; y <= maxY; y++)
+		{
+			pos.set(px, y, pz);
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			{
+				aboveY = y;
+				break;
+			}
+		}
+		
+		int belowY = Integer.MIN_VALUE;
+		for(int y = py; y >= minY; y--)
+		{
+			pos.set(px, y, pz);
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			{
+				belowY = y;
+				break;
+			}
+		}
+		
+		boolean hasAbove = aboveY != Integer.MIN_VALUE;
+		boolean hasBelow = belowY != Integer.MIN_VALUE;
+		if(!hasAbove && !hasBelow)
+			return;
+		
+		if(hasBelow && (!hasAbove || py - belowY <= aboveY - py))
+		{
+			sideBoundaryY = belowY;
+			playerAboveSideBoundary = true;
+		}else
+		{
+			sideBoundaryY = aboveY;
+			playerAboveSideBoundary = false;
+		}
+		
+		hasSideBoundary = true;
+	}
+	
+	private boolean isSideAllowed(boolean fromAbove)
+	{
+		if(MC.level != null && MC.player != null
+			&& MC.level.dimension() == Level.NETHER)
+		{
+			boolean onRoofSide = MC.player.getBlockY() >= 123;
+			return fromAbove == onRoofSide;
+		}
+		
+		if(!hasSideBoundary || MC.player == null)
+			return true;
+		
+		if(fromAbove)
+			return playerAboveSideBoundary;
+		
+		return !playerAboveSideBoundary;
+	}
+	
+	private record ShaftCandidate(BlockPos surfacePos, boolean safe,
+		boolean fromAbove)
+	{}
 }

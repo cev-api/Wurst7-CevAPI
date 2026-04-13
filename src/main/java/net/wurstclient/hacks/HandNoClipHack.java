@@ -24,6 +24,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -71,6 +73,12 @@ public final class HandNoClipHack extends Hack
 				+ " Only works with Enable On Target."),
 		false);
 	
+	private final CheckboxSetting bedrockPassthrough = new CheckboxSetting(
+		"Bedrock Passthrough",
+		WText.literal("When enabled, aiming through bedrock can target"
+			+ " blocks behind it for breaking, interacting, and placement."),
+		false);
+	
 	private BlockPos targetBlock;
 	private boolean targetVillager;
 	private Set<BlockPos> occludingBlocks = Collections.emptySet();
@@ -83,6 +91,7 @@ public final class HandNoClipHack extends Hack
 		addSetting(blocks);
 		addSetting(enableOnTarget);
 		addSetting(villagerThroughWalls);
+		addSetting(bedrockPassthrough);
 	}
 	
 	@Override
@@ -141,6 +150,7 @@ public final class HandNoClipHack extends Hack
 		Set<BlockPos> path = new HashSet<>();
 		BlockPos foundBlock = null;
 		boolean foundVillager = false;
+		boolean passedBedrock = false;
 		
 		double villagerHitDist = Double.NaN;
 		if(villagerThroughWalls.isChecked())
@@ -163,7 +173,18 @@ public final class HandNoClipHack extends Hack
 			if(MC.level.isEmptyBlock(pos))
 				continue;
 			
+			BlockState state = MC.level.getBlockState(pos);
+			if(state.is(Blocks.BEDROCK))
+				passedBedrock = true;
+			
 			if(isBlockInList(pos))
+			{
+				foundBlock = pos;
+				break;
+			}
+			
+			if(bedrockPassthrough.isChecked() && passedBedrock
+				&& isPassthroughTarget(state))
 			{
 				foundBlock = pos;
 				break;
@@ -287,5 +308,10 @@ public final class HandNoClipHack extends Hack
 		}
 		
 		return closest;
+	}
+	
+	private boolean isPassthroughTarget(BlockState state)
+	{
+		return state != null && !state.isAir() && !state.is(Blocks.BEDROCK);
 	}
 }
