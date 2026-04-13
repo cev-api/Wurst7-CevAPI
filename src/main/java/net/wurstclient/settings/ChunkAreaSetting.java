@@ -41,6 +41,7 @@ public final class ChunkAreaSetting
 	
 	public enum ChunkArea
 	{
+		A1("1x1 chunks", 0),
 		A3("3x3 chunks", 1),
 		A5("5x5 chunks", 2),
 		A7("7x7 chunks", 3),
