@@ -19,6 +19,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -44,6 +45,9 @@ public final class PlayerSonarHack extends Hack
 	private static final double PLAYER_ESP_LIMIT_BLOCKS = 128.0;
 	private static final double PLAYER_ESP_LIMIT_SQ =
 		PLAYER_ESP_LIMIT_BLOCKS * PLAYER_ESP_LIMIT_BLOCKS;
+	private static final double CONFIRM_PLAYER_RADIUS_BLOCKS = 12.0;
+	private static final double CONFIRM_PLAYER_RADIUS_SQ =
+		CONFIRM_PLAYER_RADIUS_BLOCKS * CONFIRM_PLAYER_RADIUS_BLOCKS;
 	private static final long RECENT_EVENT_WINDOW_MS = 2500L;
 	private static final long STATE_CACHE_TTL_MS = 120000L;
 	
@@ -191,11 +195,9 @@ public final class PlayerSonarHack extends Hack
 		if(isFluidOrFireState(oldState) || isFluidOrFireState(newState))
 			return DetectionResult.NONE;
 		
-		// Strong player signal: block placement.
 		if(oldAir && !newAir && !newFluid)
 			return new DetectionResult(4.0, "PLACE", oldId, newId);
 		
-		// Strong player signal: block break.
 		if(!oldAir && !oldFluid && newAir)
 			return new DetectionResult(4.0, "BREAK", oldId, newId);
 		
@@ -377,7 +379,8 @@ public final class PlayerSonarHack extends Hack
 		long lifetimeMs = markerLifetimeSec.getValueI() * 1000L;
 		pings.entrySet().removeIf(entry -> {
 			SonarPing ping = entry.getValue();
-			return now - ping.lastUpdateMs > lifetimeMs;
+			return now - ping.lastUpdateMs > lifetimeMs
+				|| shouldRevokePing(ping);
 		});
 		
 		while(!recentEvents.isEmpty())
@@ -398,7 +401,6 @@ public final class PlayerSonarHack extends Hack
 		if(MC.player == null || pings.isEmpty())
 			return;
 		
-		// Snapshot first to avoid concurrent modification during render.
 		List<SonarPing> sorted = new ArrayList<>(pings.values()).stream()
 			.filter(p -> isInAllowedRange(p.pos)).sorted(Comparator
 				.comparingLong((SonarPing p) -> p.lastUpdateMs).reversed())
@@ -453,6 +455,37 @@ public final class PlayerSonarHack extends Hack
 			return true;
 		
 		return isBeyondPlayerEspRange(pos);
+	}
+	
+	private boolean shouldRevokePing(SonarPing ping)
+	{
+		if(ping == null || ping.pos == null || MC.player == null
+			|| MC.level == null)
+			return false;
+		
+		if(!onlyBeyondPlayerEspRange.isChecked())
+			return false;
+		
+		if(isBeyondPlayerEspRange(ping.pos))
+			return false;
+		
+		return !hasTrackedPlayerNear(ping.pos);
+	}
+	
+	private boolean hasTrackedPlayerNear(BlockPos pos)
+	{
+		Vec3 center = Vec3.atCenterOf(pos);
+		for(Player player : MC.level.players())
+		{
+			if(player == null || player == MC.player || player.isRemoved())
+				continue;
+			
+			if(player.position()
+				.distanceToSqr(center) <= CONFIRM_PLAYER_RADIUS_SQ)
+				return true;
+		}
+		
+		return false;
 	}
 	
 	private static final class SonarPing
