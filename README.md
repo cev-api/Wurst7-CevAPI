@@ -1,6 +1,6 @@
 ﻿# Wurst Client v7.53.1 (MC26.1.1) - Modified by CevAPI 
 
-![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
+![CevAPI Logo](https://i.imgur.com/4x8fvbp.jpeg)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
