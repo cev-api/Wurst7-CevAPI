@@ -133,6 +133,13 @@ public final class AutoFlyHack extends Hack
 			+ "At the end of each column, AutoFly turns and flies back down the next one.",
 		2, 1, 512, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	
+	private final SliderSetting gridPathWidthChunks = new SliderSetting(
+		"Path width",
+		"How many chunks AutoFly should skip sideways before starting the next pass.\n\n"
+			+ "1 = every chunk column.\n" + "2 = every second chunk column.\n"
+			+ "3 = every third chunk column, etc.",
+		1, 1, 64, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
+	
 	private final CheckboxSetting showGridPath = new CheckboxSetting(
 		"Show grid path",
 		"Draw the planned grid route in the world (similar to Breadcrumbs).",
@@ -313,6 +320,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(routeType);
 		addSetting(gridWidthChunks);
 		addSetting(gridDepthChunks);
+		addSetting(gridPathWidthChunks);
 		addSetting(showGridPath);
 		addSetting(gridPathColor);
 		addSetting(gridPathThickness);
@@ -1162,29 +1170,32 @@ public final class AutoFlyHack extends Hack
 		
 		int widthChunks = gridWidthChunks.getValueI();
 		int depthChunks = gridDepthChunks.getValueI();
-		if(widthChunks < 1 || depthChunks < 1)
+		int pathWidthChunks = gridPathWidthChunks.getValueI();
+		if(widthChunks < 1 || depthChunks < 1 || pathWidthChunks < 1)
 		{
-			ChatUtils
-				.error("Grid width and depth must both be at least 1 chunk.");
+			ChatUtils.error(
+				"Grid width, depth and path width must all be at least 1 chunk.");
 			return;
 		}
 		
-		long estTargets = (long)widthChunks * depthChunks;
+		int passCount = (widthChunks + pathWidthChunks - 1) / pathWidthChunks;
+		long estTargets = (long)passCount * depthChunks;
 		if(estTargets > 20000L)
 		{
 			ChatUtils.error("Grid is too large (" + estTargets
-				+ " chunk centers). Reduce width or depth.");
+				+ " chunk centers). Reduce width, depth or path width.");
 			return;
 		}
 		
 		int startChunkX = start.getX() >> 4;
 		int startChunkZ = start.getZ() >> 4;
-		int y = 0; // Not used when hasY=false
+		int y = 0;
 		
-		for(int dx = 0; dx < widthChunks; dx++)
+		for(int pass = 0; pass < passCount; pass++)
 		{
-			int chunkX = startChunkX + dx;
-			boolean ascending = (dx & 1) == 0;
+			int chunkX = startChunkX + pass * pathWidthChunks;
+			boolean ascending = (pass & 1) == 0;
+			
 			for(int dz = 0; dz < depthChunks; dz++)
 			{
 				int depthIndex = ascending ? dz : depthChunks - 1 - dz;
@@ -1198,12 +1209,15 @@ public final class AutoFlyHack extends Hack
 		
 		int minBlockX = (startChunkX << 4) + 8;
 		int minBlockZ = (startChunkZ << 4) + 8;
-		int maxBlockX = ((startChunkX + widthChunks - 1) << 4) + 8;
-		int maxBlockZ = ((startChunkZ + depthChunks - 1) << 4) + 8;
+		int maxCoveredChunkX = startChunkX + widthChunks - 1;
+		int maxCoveredChunkZ = startChunkZ + depthChunks - 1;
+		int maxBlockX = (maxCoveredChunkX << 4) + 8;
+		int maxBlockZ = (maxCoveredChunkZ << 4) + 8;
+		
 		ChatUtils.message(String.format(Locale.ROOT,
-			"AutoFly grid: %dx%d chunks, targets=%d (%d,%d -> %d,%d)",
-			widthChunks, depthChunks, targets.size(), minBlockX, minBlockZ,
-			maxBlockX, maxBlockZ));
+			"AutoFly grid: %dx%d chunks, path width=%d, passes=%d, targets=%d (%d,%d -> %d,%d)",
+			widthChunks, depthChunks, pathWidthChunks, passCount,
+			targets.size(), minBlockX, minBlockZ, maxBlockX, maxBlockZ));
 	}
 	
 	private void restartWithExistingTargets()

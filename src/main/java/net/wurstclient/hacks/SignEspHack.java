@@ -79,6 +79,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		"HackList count",
 		"Appends the number of found signs/frames to this hack's entry in the HackList.",
 		false);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof SignBlock;
 	private final ChunkSearcherCoordinator coordinator =
@@ -106,6 +108,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		entityGroups.stream().flatMap(FrameEspEntityGroup::getSettings)
 			.forEach(this::addSetting);
 		addSetting(showCountInHackList);
+		addSetting(tracerFlash);
 		addSetting(area);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
@@ -256,6 +259,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = group.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}
@@ -267,6 +272,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = group.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}

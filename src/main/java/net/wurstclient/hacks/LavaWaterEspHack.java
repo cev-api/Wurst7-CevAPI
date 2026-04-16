@@ -81,6 +81,8 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 	private final SliderSetting renderAmount = new SliderSetting(
 		"Render amount", "Maximum number of blocks to render at once.", 100,
 		100, 1000, 10, ValueDisplay.INTEGER);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> isTargetBlock(state.getBlock());
@@ -104,6 +106,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		addSetting(lavaAlpha);
 		addSetting(waterAlpha);
 		addSetting(renderAmount);
+		addSetting(tracerFlash);
 	}
 	
 	private boolean isTargetBlock(Block b)
@@ -220,6 +223,8 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			int alpha = group == lavaGroup ? lavaAlpha.getValueI()
 				: waterAlpha.getValueI();
 			int color = group.getColorI(alpha);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}

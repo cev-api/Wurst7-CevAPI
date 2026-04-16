@@ -81,6 +81,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private final SliderSetting tracerThickness =
 		new SliderSetting("Tracer thickness", 2, 0.5, 8, 0.1,
 			SliderSetting.ValueDisplay.DECIMAL.withSuffix("px"));
+	private final net.wurstclient.settings.CheckboxSetting tracerFlash =
+		new net.wurstclient.settings.CheckboxSetting("Tracer flash",
+			"Make tracers pulse with a smooth fade.", false);
 	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
@@ -125,6 +128,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(area);
 		addSetting(stickyArea);
 		addSetting(tracerThickness);
+		addSetting(tracerFlash);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
 		addSetting(filterTrialChambers);
@@ -251,10 +255,13 @@ public final class BedEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			List<AABB> boxes = group.getBoxes();
-			int color = group.getColorI(0x80);
+			int tracerColor = group.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				tracerColor = RenderUtils.flashColor(tracerColor);
+			final int finalTracerColor = tracerColor;
 			List<RenderUtils.ColoredPoint> ends = boxes.stream()
-				.map(
-					box -> new RenderUtils.ColoredPoint(box.getCenter(), color))
+				.map(box -> new RenderUtils.ColoredPoint(box.getCenter(),
+					finalTracerColor))
 				.toList();
 			
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false,

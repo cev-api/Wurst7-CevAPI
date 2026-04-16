@@ -283,6 +283,8 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	private final net.wurstclient.settings.CheckboxSetting showTracers =
 		new net.wurstclient.settings.CheckboxSetting("Tracers",
 			"Draw tracer lines from your view to found blocks.", false);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	// Static area (sticky) option
 	private final CheckboxSetting stickyArea = new CheckboxSetting(
@@ -316,6 +318,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		addSetting(minY);
 		addSetting(maxY);
 		addSetting(showTracers);
+		addSetting(tracerFlash);
 		addSetting(stickyArea);
 	}
 	
@@ -392,6 +395,8 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		if(showTracers.isChecked() && !tracerEnds.isEmpty())
 		{
 			int lineColor = color.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				lineColor = RenderUtils.flashColor(lineColor);
 			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
 				lineColor, false);
 		}

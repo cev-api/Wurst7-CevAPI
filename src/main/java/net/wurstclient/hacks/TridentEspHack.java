@@ -68,6 +68,8 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		"Highlight held tridents",
 		"Also highlight when a trident is currently held by another player or mob.",
 		false);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	// Cached per-tick results
 	private final ArrayList<ThrownTrident> thrown = new ArrayList<>();
@@ -86,6 +88,7 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		addSetting(otherPlayerColor);
 		addSetting(mobColor);
 		addSetting(includeHeld);
+		addSetting(tracerFlash);
 	}
 	
 	@Override
@@ -260,6 +263,12 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		int selfCol = selfColor.getColorI(0x80);
 		int playerCol = otherPlayerColor.getColorI(0x80);
 		int mobCol = mobColor.getColorI(0x80);
+		if(tracerFlash.isChecked())
+		{
+			selfCol = RenderUtils.flashColor(selfCol);
+			playerCol = RenderUtils.flashColor(playerCol);
+			mobCol = RenderUtils.flashColor(mobCol);
+		}
 		
 		if(style.hasBoxes())
 		{

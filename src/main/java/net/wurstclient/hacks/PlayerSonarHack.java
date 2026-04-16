@@ -62,6 +62,8 @@ public final class PlayerSonarHack extends Hack
 	private final SliderSetting tracerThickness =
 		new SliderSetting("Tracer thickness", 2, 0.5, 10, 0.1,
 			ValueDisplay.DECIMAL.withSuffix("px"));
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting detectRedstoneInteraction =
 		new CheckboxSetting("Detect redstone interaction",
 			"Also score powered/open/triggered/lit toggles as weaker hints.",
@@ -99,6 +101,7 @@ public final class PlayerSonarHack extends Hack
 		addSetting(onlyBeyondPlayerEspRange);
 		addSetting(showTracers);
 		addSetting(tracerThickness);
+		addSetting(tracerFlash);
 		addSetting(detectRedstoneInteraction);
 		addSetting(chatAlerts);
 		addSetting(markerLifetimeSec);
@@ -412,6 +415,8 @@ public final class PlayerSonarHack extends Hack
 		for(SonarPing ping : sorted)
 		{
 			int color = getColorForKind(ping.lastKind);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			AABB box = new AABB(ping.pos);
 			
 			if(showBoxes.isChecked())

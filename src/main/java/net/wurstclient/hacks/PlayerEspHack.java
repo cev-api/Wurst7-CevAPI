@@ -181,6 +181,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private final SliderSetting tracerThickness =
 		new SliderSetting("Tracer thickness", 2, 0.5, 10, 0.1,
 			SliderSetting.ValueDisplay.DECIMAL.withSuffix("px"));
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting filledBoxes = new CheckboxSetting(
 		"Filled boxes",
 		"When enabled, renders solid filled boxes instead of outlined boxes.",
@@ -216,6 +218,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(losThreatFov);
 		addSetting(losThreatRange);
 		addSetting(tracerThickness);
+		addSetting(tracerFlash);
 		addSetting(filledBoxes);
 		addSetting(filledAlpha);
 		addSetting(staticPlayerColorMode);
@@ -696,8 +699,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 					id -> getVisual(e, now));
 				Vec3 point =
 					EntityUtils.getLerpedBox(e, partialTicks).getCenter();
-				ColoredPoint colored =
-					new ColoredPoint(point, visual.tracerColor());
+				int tracerColor = visual.tracerColor();
+				if(tracerFlash.isChecked())
+					tracerColor = RenderUtils.flashColor(tracerColor);
+				ColoredPoint colored = new ColoredPoint(point, tracerColor);
 				if(visual.isThreat())
 					threatEnds.add(colored);
 				else

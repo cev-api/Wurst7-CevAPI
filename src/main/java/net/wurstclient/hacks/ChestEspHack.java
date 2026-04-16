@@ -120,6 +120,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		new SliderSetting("Tracer opacity",
 			"Opacity for tracers (0 = fully transparent, 255 = opaque).", 128,
 			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting chestEspRenderLimitEnabled =
 		new CheckboxSetting("Enable ChestESP render limit",
 			"Limits how many ChestESP targets are processed per update.",
@@ -168,6 +170,12 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Double chests only",
 			"Only highlight/tracer double chests when searching for chests.",
 			false);
+	private final CheckboxSetting shulkersOnly = new CheckboxSetting(
+		"Shulkers only",
+		"Only highlight shulker boxes (including Lootr shulkers) in ChestESP.",
+		false);
+	private final CheckboxSetting enderChestsOnly = new CheckboxSetting(
+		"Ender chests only", "Only highlight ender chests in ChestESP.", false);
 	
 	private final CheckboxSetting filterVillages = new CheckboxSetting(
 		"Filter villages",
@@ -232,6 +240,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(filterNearSpawners);
 		addSetting(filterTrialChambers);
 		addSetting(doubleChestsOnly);
+		addSetting(shulkersOnly);
+		addSetting(enderChestsOnly);
 		addSetting(filterVillages);
 		addSetting(shulkerChatAlerts);
 		addSetting(antiEspDetection);
@@ -240,6 +250,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(boxAlpha);
 		addSetting(lineAlpha);
 		addSetting(tracerAlpha);
+		addSetting(tracerFlash);
 		addSetting(chestEspRenderLimitEnabled);
 		addSetting(chestEspRenderLimit);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
@@ -353,8 +364,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(preFilteredEnv && shouldFilterBlockEntityByEnvironment(be))
 				return;
 			
-			// Respect double-chest-only suppression
-			if(shouldSkipSingleChest(be))
+			if(shouldSkipByExclusiveContainerFilters(be))
 				return;
 			
 			groups.blockGroups.forEach(group -> group.addIfMatches(be));
@@ -516,6 +526,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	private boolean isRelevantEntityTarget(Entity entity)
 	{
 		if(entity == null)
+			return false;
+		
+		if(doubleChestsOnly.isChecked() || shulkersOnly.isChecked()
+			|| enderChestsOnly.isChecked())
 			return false;
 		
 		if(groups.chestCarts.isEnabled() && entity instanceof MinecartChest)
@@ -1065,6 +1079,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				ends = boxes.stream().map(AABB::getCenter).toList();
 			}
 			int color = group.getColorI(tracerAlpha.getValueI());
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			
 			RenderUtils.drawTracers("chestesp", matrixStack, partialTicks, ends,
 				color, false);
@@ -1775,16 +1791,32 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		return foundBarrel;
 	}
 	
-	private boolean shouldSkipSingleChest(BlockEntity be)
+	private boolean shouldSkipByExclusiveContainerFilters(BlockEntity be)
 	{
-		if(!doubleChestsOnly.isChecked() || !(be instanceof ChestBlockEntity))
+		boolean restrictToSelectedFamilies = doubleChestsOnly.isChecked()
+			|| shulkersOnly.isChecked() || enderChestsOnly.isChecked();
+		if(!restrictToSelectedFamilies)
 			return false;
 		
-		BlockState state = be.getBlockState();
-		if(!state.hasProperty(ChestBlock.TYPE))
+		if(be == null)
+			return true;
+		
+		if(shulkersOnly.isChecked() && isShulkerBlockEntity(be))
+			return false;
+		if(enderChestsOnly.isChecked() && (be instanceof EnderChestBlockEntity
+			|| be.getBlockState() != null
+				&& be.getBlockState().getBlock() == Blocks.ENDER_CHEST))
 			return false;
 		
-		return state.getValue(ChestBlock.TYPE) == ChestType.SINGLE;
+		if(doubleChestsOnly.isChecked() && be instanceof ChestBlockEntity)
+		{
+			BlockState state = be.getBlockState();
+			if(state != null && state.hasProperty(ChestBlock.TYPE)
+				&& state.getValue(ChestBlock.TYPE) != ChestType.SINGLE)
+				return false;
+		}
+		
+		return true;
 	}
 	
 	private boolean isNearSpawner(BlockPos center, int range)

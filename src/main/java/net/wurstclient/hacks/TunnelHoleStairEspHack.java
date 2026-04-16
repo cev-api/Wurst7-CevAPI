@@ -156,6 +156,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		new SliderSetting("Max spots per chunk",
 			"Maximum amount of spots to keep per chunk for each type.", 24, 4,
 			256, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting naturalWallsOnly = new CheckboxSetting(
 		"Natural wall filter",
 		"Reject shapes where too many surrounding wall blocks look"
@@ -244,6 +246,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		addSetting(detectWaterColumns);
 		addSetting(minWaterColumnHeight);
 		addSetting(maxPerChunk);
+		addSetting(tracerFlash);
 		addSetting(naturalWallsOnly);
 		addSetting(naturalWallRatio);
 		addSetting(holeColor);
@@ -438,35 +441,60 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
 	{
+		boolean flash = tracerFlash.isChecked();
 		if(!holeBoxes.isEmpty())
+		{
+			int color = holeColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(holeBoxes), holeColor.getColorI(0x95),
-				false);
+				partialTicks, getCenters(holeBoxes), color, false);
+		}
 		
 		if(!tunnelBoxes.isEmpty())
+		{
+			int color = tunnelColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(tunnelBoxes),
-				tunnelColor.getColorI(0x95), false);
+				partialTicks, getCenters(tunnelBoxes), color, false);
+		}
 		
 		if(!stairBoxes.isEmpty())
+		{
+			int color = stairColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(stairBoxes),
-				stairColor.getColorI(0x95), false);
+				partialTicks, getCenters(stairBoxes), color, false);
+		}
 		
 		if(!ladderBoxes.isEmpty())
+		{
+			int color = ladderColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(ladderBoxes),
-				ladderColor.getColorI(0x95), false);
+				partialTicks, getCenters(ladderBoxes), color, false);
+		}
 		
 		if(!bubbleColumnBoxes.isEmpty())
+		{
+			int color = bubbleColumnColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(bubbleColumnBoxes),
-				bubbleColumnColor.getColorI(0x95), false);
+				partialTicks, getCenters(bubbleColumnBoxes), color, false);
+		}
 		
 		if(!waterColumnBoxes.isEmpty())
+		{
+			int color = waterColumnColor.getColorI(0x95);
+			if(flash)
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers("TunnelHoleStairESP", matrixStack,
-				partialTicks, getCenters(waterColumnBoxes),
-				waterColumnColor.getColorI(0x95), false);
+				partialTicks, getCenters(waterColumnBoxes), color, false);
+		}
 	}
 	
 	private ArrayList<Vec3> getCenters(ArrayList<AABB> boxes)

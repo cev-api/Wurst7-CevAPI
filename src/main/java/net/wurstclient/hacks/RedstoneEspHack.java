@@ -228,6 +228,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		false);
 	private final ColorSetting fixedColor = new ColorSetting("Fixed color",
 		"Global override color for RedstoneESP.", defaultColor);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private ActiveMode lastActiveMode;
 	private final Set<Long> activeRenderPositions = new HashSet<>();
 	
@@ -242,6 +244,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
+		addSetting(tracerFlash);
 		addSetting(area);
 		addSetting(stickyArea);
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
@@ -427,6 +430,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 				int color = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				if(tracerFlash.isChecked())
+					color = RenderUtils.flashColor(color);
 				RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 					false);
 				continue;
@@ -444,6 +449,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			{
 				int inactiveColor = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+				if(tracerFlash.isChecked())
+					inactiveColor = RenderUtils.flashColor(inactiveColor);
 				RenderUtils.drawTracers(matrixStack, partialTicks, inactiveEnds,
 					inactiveColor, false);
 			}
@@ -454,6 +461,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				{
 					int activeColor = useFixedColor.isChecked()
 						? fixedColor.getColorI(0x80) : group.getColorI(0x80);
+					if(tracerFlash.isChecked())
+						activeColor = RenderUtils.flashColor(activeColor);
 					RenderUtils.drawTracers(matrixStack, partialTicks,
 						activeEnds, activeColor, false);
 				}
