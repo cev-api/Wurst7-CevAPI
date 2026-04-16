@@ -64,6 +64,9 @@ public final class LogoutSpotsHack extends Hack
 			net.wurstclient.settings.SliderSetting.ValueDisplay.DECIMAL);
 	private final net.wurstclient.settings.CheckboxSetting showTracers =
 		new net.wurstclient.settings.CheckboxSetting("Show tracers", true);
+	private final net.wurstclient.settings.CheckboxSetting tracerFlash =
+		new net.wurstclient.settings.CheckboxSetting("Tracer flash",
+			"Make tracers pulse with a smooth fade.", false);
 	private final net.wurstclient.settings.CheckboxSetting addAsWaypoint =
 		new net.wurstclient.settings.CheckboxSetting(
 			"Add logout spot as waypoint", false);
@@ -87,6 +90,7 @@ public final class LogoutSpotsHack extends Hack
 		addSetting(lineColor);
 		addSetting(scale);
 		addSetting(showTracers);
+		addSetting(tracerFlash);
 		addSetting(spotLifetimeMinutes);
 		addSetting(addAsWaypoint);
 	}
@@ -283,7 +287,11 @@ public final class LogoutSpotsHack extends Hack
 		if(showTracers.isChecked())
 		{
 			var ends = boxes.stream().map(AABB::getCenter).toList();
-			RenderUtils.drawTracers(matrices, partialTicks, ends, lines, false);
+			int tracerColor = lines;
+			if(tracerFlash.isChecked())
+				tracerColor = RenderUtils.flashColor(tracerColor);
+			RenderUtils.drawTracers(matrices, partialTicks, ends, tracerColor,
+				false);
 		}
 		for(var e : spots.values())
 		{

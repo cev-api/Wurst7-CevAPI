@@ -115,6 +115,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Lines only for special",
 			"When enabled, tracers (lines) are drawn only for special items.",
 			false);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	// New: include special items when equipped by entities (held or worn on
 	// head)
@@ -185,6 +187,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(useIgnoredItems);
 		addSetting(ignoredList);
 		addSetting(linesOnlyForSpecial);
+		addSetting(tracerFlash);
 		addSetting(includeEquippedSpecial);
 		addSetting(ignoreArmorStands);
 		addSetting(ignoreOtherPlayers);
@@ -654,17 +657,26 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		
 		if(style.hasLines())
 		{
+			int normalTracerColor = baseLines;
+			int specialTracerColor = specialLines;
+			if(tracerFlash.isChecked())
+			{
+				normalTracerColor = RenderUtils.flashColor(normalTracerColor);
+				specialTracerColor = RenderUtils.flashColor(specialTracerColor);
+			}
 			if(!linesOnlyForSpecial.isChecked() && !normalEnds.isEmpty())
 				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
-					baseLines, false);
+					normalTracerColor, false);
 			if(!specialEnds.isEmpty())
 				RenderUtils.drawTracers(matrixStack, partialTicks, specialEnds,
-					specialLines, false);
+					specialTracerColor, false);
 			// draw traced lines last with rainbow color
 			if(!tracedEnds.isEmpty())
 			{
 				float[] rf = RenderUtils.getRainbowColor();
 				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
+				if(tracerFlash.isChecked())
+					tracedLines = RenderUtils.flashColor(tracedLines);
 				RenderUtils.drawTracers(matrixStack, partialTicks, tracedEnds,
 					tracedLines, false);
 			}

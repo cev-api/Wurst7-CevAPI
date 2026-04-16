@@ -52,6 +52,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		"The area around the player to search in.\n"
 			+ "Higher values require a faster computer.");
 	private final Color defaultColor = new Color(0x7FC97F);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	// Per-block groups with individual color & toggle (default enabled)
 	private final PortalEspBlockGroup craftingTable = new PortalEspBlockGroup(
 		Blocks.CRAFTING_TABLE,
@@ -213,6 +215,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		addSetting(fixedColor);
 		addSetting(area);
 		addSetting(stickyArea);
+		addSetting(tracerFlash);
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
 	}
@@ -336,6 +339,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
 			int color = useFixedColor.isChecked() ? fixedColor.getColorI(0x80)
 				: group.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
 				false);
 		}

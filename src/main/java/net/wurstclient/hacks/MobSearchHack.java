@@ -62,6 +62,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting fillShapes = new CheckboxSetting(
 		"Fill shapes", "Render filled versions of the ESP shapes.", true);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final TextFieldSetting typeId = new TextFieldSetting("Type",
 		"The entity type to match when Query is empty (e.g. minecraft:zombie or zombie).",
 		"minecraft:zombie", v -> v.length() <= MAX_TEXT_LENGTH);
@@ -103,6 +105,7 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		addSetting(style);
 		addSetting(boxSize);
 		addSetting(fillShapes);
+		addSetting(tracerFlash);
 		addSetting(typeId);
 		addSetting(query);
 		addSetting(useRainbow);
@@ -292,8 +295,13 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 				}
 				
 				if(drawLines && ends != null)
+				{
+					int tracerColor = outlineColor;
+					if(tracerFlash.isChecked())
+						tracerColor = RenderUtils.flashColor(tracerColor);
 					ends.add(
-						new ColoredPoint(lerpedBox.getCenter(), outlineColor));
+						new ColoredPoint(lerpedBox.getCenter(), tracerColor));
+				}
 			}
 		}
 		

@@ -68,6 +68,8 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			"Draw trajectory lines for pearl predictions.", true);
 	private final SliderSetting tracerThickness = new SliderSetting(
 		"Tracer thickness", 2, 0.5, 8, 0.1, ValueDisplay.DECIMAL);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting chatAlerts =
 		new CheckboxSetting("Chat alerts",
 			"Show a chat alert when a new ender pearl is detected.", false);
@@ -94,6 +96,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		addSetting(showPlayerPrediction);
 		addSetting(showTracerLine);
 		addSetting(tracerThickness);
+		addSetting(tracerFlash);
 		addSetting(chatAlerts);
 		addSetting(soundAlerts);
 		addSetting(alertSound);
@@ -368,6 +371,8 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(!showTracerLine.isChecked() || path == null || path.size() < 2)
 			return;
 		
+		if(tracerFlash.isChecked())
+			lineColor = RenderUtils.flashColor(lineColor);
 		RenderUtils.drawCurvedLine(matrixStack, path, lineColor, false,
 			tracerThickness.getValue());
 	}

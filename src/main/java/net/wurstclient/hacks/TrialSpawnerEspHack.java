@@ -83,6 +83,8 @@ public final class TrialSpawnerEspHack extends Hack
 		new SliderSetting("Max distance", 160, 0, 256, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting drawTracers =
 		new CheckboxSetting("Show tracer", true);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting fillShapes =
 		new CheckboxSetting("Fill boxes", true);
 	private final CheckboxSetting showOverlay =
@@ -170,6 +172,7 @@ public final class TrialSpawnerEspHack extends Hack
 		setCategory(Category.RENDER);
 		addSetting(maxDistance);
 		addSetting(drawTracers);
+		addSetting(tracerFlash);
 		addSetting(fillShapes);
 		addSetting(showOverlay);
 		addSetting(overlayScale);
@@ -576,8 +579,13 @@ public final class TrialSpawnerEspHack extends Hack
 					filledBoxes
 						.add(new ColoredBox(box, withAlpha(color, 0.18F)));
 				if(tracerTargets != null)
-					tracerTargets.add(
-						new ColoredPoint(Vec3.atCenterOf(info.pos()), color));
+				{
+					int tracerColor = color;
+					if(tracerFlash.isChecked())
+						tracerColor = RenderUtils.flashColor(tracerColor);
+					tracerTargets.add(new ColoredPoint(
+						Vec3.atCenterOf(info.pos()), tracerColor));
+				}
 				
 				if(showActivationRadius.isChecked())
 					drawActivationRadius(matrices, info, logic, color);

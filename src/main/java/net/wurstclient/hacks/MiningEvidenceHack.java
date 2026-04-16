@@ -118,6 +118,8 @@ public final class MiningEvidenceHack extends Hack
 		new CheckboxSetting("Show lines", true);
 	private final CheckboxSetting showTracers =
 		new CheckboxSetting("Show tracers", false);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	private final ArrayDeque<EvidenceTrail> evidence = new ArrayDeque<>();
 	private final ArrayDeque<RecentBreak> recentBreaks = new ArrayDeque<>();
@@ -137,6 +139,7 @@ public final class MiningEvidenceHack extends Hack
 		addSetting(tracerColor);
 		addSetting(lineWidth);
 		addSetting(tracerWidth);
+		addSetting(tracerFlash);
 		addSetting(maxSegmentLength);
 		addSetting(minPoints);
 		addSetting(maxDetectY);
@@ -312,6 +315,8 @@ public final class MiningEvidenceHack extends Hack
 					tracerPoints.add(tracerStart);
 					tracerPoints.add(tracerStart.lerp(tracerTarget, 0.5));
 					tracerPoints.add(tracerTarget);
+					if(tracerFlash.isChecked())
+						tracerArgb = RenderUtils.flashColor(tracerArgb);
 					RenderUtils.drawCurvedLine(matrices, tracerPoints,
 						tracerArgb, false, tracerWidth.getValue());
 				}

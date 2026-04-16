@@ -111,6 +111,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private final SliderSetting highlightAlpha =
 		new SliderSetting("Highlight transparency", 80, 1, 100, 1,
 			ValueDisplay.INTEGER.withSuffix("%"));
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
 			"Off: Re-centers the scan every chunk to match ESP drop-off.\n"
@@ -222,6 +224,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(highlightCorners);
 		addSetting(highlightFill);
 		addSetting(highlightAlpha);
+		addSetting(tracerFlash);
 		addSetting(stickyArea);
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
@@ -537,6 +540,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 		if(drawTracers)
 		{
 			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
+			if(tracerFlash.isChecked())
+				tracerColor = RenderUtils.flashColor(tracerColor);
 			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
 				tracerColor, false);
 		}

@@ -58,6 +58,8 @@ public final class WardenEspHack extends Hack
 		"Fill shapes", "Render filled versions of the ESP shapes.", false);
 	private final EnumSetting<TracerMode> tracerMode =
 		new EnumSetting<>("Tracers", TracerMode.values(), TracerMode.TARGETING);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting showTargetLabel = new CheckboxSetting(
 		"Target label", "Show TARGET: YOU/OTHER label.", true);
 	private final CheckboxSetting showSniffingPulse =
@@ -79,6 +81,7 @@ public final class WardenEspHack extends Hack
 		addSetting(style);
 		addSetting(fillShapes);
 		addSetting(tracerMode);
+		addSetting(tracerFlash);
 		addSetting(showTargetLabel);
 		addSetting(showSniffingPulse);
 		addSetting(showImminentIndicator);
@@ -247,6 +250,8 @@ public final class WardenEspHack extends Hack
 							tracerColor = getPulseColor(0xFFFF5555, 0.55F);
 						else
 							tracerColor = color;
+						if(tracerFlash.isChecked())
+							tracerColor = RenderUtils.flashColor(tracerColor);
 						
 						tracerPoints.add(
 							new ColoredPoint(lerped.getCenter(), tracerColor));

@@ -50,6 +50,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	
 	private final CheckboxSetting fillShapes = new CheckboxSetting(
 		"Fill shapes", "Render filled versions of the ESP shapes.", true);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	// New color options to match MobSearch
 	private final CheckboxSetting useRainbow =
@@ -116,6 +118,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(style);
 		addSetting(boxSize);
 		addSetting(fillShapes);
+		addSetting(tracerFlash);
 		addSetting(useRainbow);
 		addSetting(color);
 		entityFilters.forEach(this::addSetting);
@@ -284,8 +287,13 @@ public final class MobEspHack extends Hack implements UpdateListener,
 					}
 					
 					if(drawLines && ends != null)
+					{
+						int tracerColor = outlineColor;
+						if(tracerFlash.isChecked())
+							tracerColor = RenderUtils.flashColor(tracerColor);
 						ends.add(new ColoredPoint(lerpedBox.getCenter(),
-							outlineColor));
+							tracerColor));
+					}
 				}
 			}
 			
@@ -352,7 +360,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		}
 		
 		if(ends != null && !ends.isEmpty())
+		{
 			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+		}
 		
 		if(glowMode && highlightShulkerProjectiles.isChecked()
 			&& !shulkerBullets.isEmpty())

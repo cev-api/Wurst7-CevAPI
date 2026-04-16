@@ -242,6 +242,38 @@ public enum RenderUtils
 			| (int)(Mth.clamp(rgb[2], 0, 1) * 255);
 	}
 	
+	private static final long TRACER_FLASH_PERIOD_MS = 700L;
+	private static final float TRACER_FLASH_MIN_ALPHA = 0.2F;
+	
+	public static int flashColor(int color)
+	{
+		return flashColor(color, System.currentTimeMillis());
+	}
+	
+	public static int flashColor(int color, long nowMs)
+	{
+		return setAlpha(color, getTracerFlashAlpha(nowMs));
+	}
+	
+	public static float getTracerFlashAlpha()
+	{
+		return getTracerFlashAlpha(System.currentTimeMillis());
+	}
+	
+	public static float getTracerFlashAlpha(long nowMs)
+	{
+		float cycle =
+			(nowMs % TRACER_FLASH_PERIOD_MS) / (float)TRACER_FLASH_PERIOD_MS;
+		float pulse = 0.5F - 0.5F * Mth.cos((float)(cycle * Math.PI * 2.0));
+		return TRACER_FLASH_MIN_ALPHA + (1.0F - TRACER_FLASH_MIN_ALPHA) * pulse;
+	}
+	
+	public static int setAlpha(int color, float alpha)
+	{
+		int a = (int)(Mth.clamp(alpha, 0F, 1F) * 255F);
+		return (color & 0x00FFFFFF) | (a << 24);
+	}
+	
 	public static void drawLine(PoseStack matrices, Vec3 start, Vec3 end,
 		int color, boolean depthTest)
 	{

@@ -95,6 +95,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private final SliderSetting lineThickness =
 		new SliderSetting("Line thickness", 2.0, 1.0, 10.0, 1.0,
 			SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting tracerFlash = new CheckboxSetting(
+		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting discoverySound = new CheckboxSetting(
 		"Sound on discovery",
 		"Plays a sound when PortalESP discovers a new portal block.", false);
@@ -149,6 +151,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 		addSetting(area);
 		addSetting(lineThickness);
+		addSetting(tracerFlash);
 		addSetting(discoverySound);
 		addSetting(discoverySoundType);
 		addSetting(discoverySoundVolume);
@@ -275,9 +278,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			int color = group.getColorI(0x80);
+			if(tracerFlash.isChecked())
+				color = RenderUtils.flashColor(color);
 			double width = lineThickness.getValue();
-			List<ColoredPoint> points =
-				ends.stream().map(v -> new ColoredPoint(v, color)).toList();
+			final int finalColor = color;
+			List<ColoredPoint> points = ends.stream()
+				.map(v -> new ColoredPoint(v, finalColor)).toList();
 			
 			RenderUtils.drawTracers("portalesp", matrixStack, partialTicks,
 				points, false, width);
