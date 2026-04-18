@@ -16,6 +16,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
+import net.wurstclient.hacks.XpGuiHack;
 import net.wurstclient.other_features.WurstOptionsOtf;
 
 public enum HackToggleFeedback implements UpdateListener
@@ -89,7 +90,8 @@ public enum HackToggleFeedback implements UpdateListener
 	
 	private boolean shouldReport(Hack hack)
 	{
-		return !(hack instanceof NavigatorHack || hack instanceof ClickGuiHack);
+		return !(hack instanceof NavigatorHack || hack instanceof ClickGuiHack
+			|| hack instanceof XpGuiHack);
 	}
 	
 	private boolean isChatFeedbackEnabled()

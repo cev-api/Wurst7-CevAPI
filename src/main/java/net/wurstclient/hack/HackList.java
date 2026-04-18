@@ -115,6 +115,7 @@ public final class HackList implements UpdateListener
 	public final ClickAuraHack clickAuraHack = new ClickAuraHack();
 	public final ClickGuiHack clickGuiHack = new ClickGuiHack();
 	public final AltGuiHack altGuiHack = new AltGuiHack();
+	public final XpGuiHack xpGuiHack = new XpGuiHack();
 	public final CrashChestHack crashChestHack = new CrashChestHack();
 	public final BundleDupeHack bundleDupeHack = new BundleDupeHack();
 	public final CreativeFlightHack creativeFlightHack =

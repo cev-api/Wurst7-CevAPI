@@ -106,7 +106,7 @@ public abstract class ClientPacketListenerMixin
 		packet.runUpdates((pos, state) -> {
 			WurstClient.INSTANCE.getHax().newChunksHack.afterUpdateBlock(pos);
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
-				.afterUpdateBlock(pos);
+				.afterChunkDeltaUpdate(pos, state);
 		});
 	}
 	

@@ -15,6 +15,7 @@ import net.wurstclient.hacks.AltGuiHack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.hacks.XpGuiHack;
 import net.wurstclient.util.HackToggleFeedback;
 
 public abstract class Hack extends Feature
@@ -149,7 +150,8 @@ public abstract class Hack extends Feature
 		this.enabled = enabled;
 		
 		if(!(this instanceof NavigatorHack || this instanceof ClickGuiHack
-			|| this instanceof AltGuiHack) && WURST.getHud() != null)
+			|| this instanceof AltGuiHack || this instanceof XpGuiHack)
+			&& WURST.getHud() != null)
 			WURST.getHud().getHackList().updateState(this);
 		
 		if(enabled)
