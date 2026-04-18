@@ -76,7 +76,7 @@ public final class MapaHack extends Hack
 	private final SliderSetting minimapSize =
 		new SliderSetting("Size", 220, 72, 256, 1, ValueDisplay.INTEGER);
 	private final SliderSetting minimapZoom =
-		new SliderSetting("Zoom", 2.0, 0.25, 10.0, 0.05, ValueDisplay.DECIMAL);
+		new SliderSetting("Zoom", 2.0, 0.25, 64.0, 0.05, ValueDisplay.DECIMAL);
 	private final SliderSetting minimapPosX =
 		new SliderSetting("Position X", 10, 0, 10000, 1, ValueDisplay.INTEGER);
 	private final SliderSetting minimapPosY =

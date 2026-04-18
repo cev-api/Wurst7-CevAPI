@@ -16,8 +16,8 @@ public final class ConnectionLogOverlayOtf extends OtherFeature
 {
 	private final CheckboxSetting showConnectionLog =
 		new CheckboxSetting("Connection log overlay", true);
-	private final SliderSetting fontScale = new SliderSetting("Font size", 0.7,
-		0.5, 3.0, 0.05, ValueDisplay.DECIMAL);
+	private final SliderSetting fontScale = new SliderSetting(
+		"Overlay Font Size", 0.7, 0.5, 3.0, 0.05, ValueDisplay.DECIMAL);
 	
 	public ConnectionLogOverlayOtf()
 	{

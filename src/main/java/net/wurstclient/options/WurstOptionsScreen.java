@@ -207,17 +207,22 @@ public class WurstOptionsScreen extends Screen
 		new WurstOptionsButton(54, 24, () -> primaryLabel, primaryTooltip,
 			b -> os.openUri(primaryUrl));
 		
-		new WurstOptionsButton(54, 48, () -> "Wurst Website",
+		new WurstOptionsButton(54, 48, () -> "CevAPI Discord",
+			"§n§ldiscord.gg/wDgqxkAKFQ",
+			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
+		
+		new WurstOptionsButton(54, 72, () -> "Wurst Website",
 			"§n§lWurstClient.net",
 			b -> os.openUri("https://www.wurstclient.net/options-website/"));
 		
-		new WurstOptionsButton(54, 72, () -> "Wurst Wiki", "§n§lWurst.Wiki",
+		new WurstOptionsButton(54, 96, () -> "Wurst Wiki", "§n§lWurst.Wiki",
 			b -> os.openUri("https://www.wurstclient.net/options-wiki/"));
 		
-		new WurstOptionsButton(54, 96, () -> "WurstForum", "§n§lWurstForum.net",
+		new WurstOptionsButton(54, 120, () -> "WurstForum",
+			"§n§lWurstForum.net",
 			b -> os.openUri("https://www.wurstclient.net/options-forum/"));
 		
-		new WurstOptionsButton(54, 120, () -> "Twitter", "@Wurst_Imperium",
+		new WurstOptionsButton(54, 144, () -> "Twitter", "@Wurst_Imperium",
 			b -> os.openUri("https://www.wurstclient.net/options-twitter/"));
 		
 	}

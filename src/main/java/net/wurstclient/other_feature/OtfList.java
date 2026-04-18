@@ -23,6 +23,7 @@ public final class OtfList
 	public final CleanUpOtf cleanUpOtf = new CleanUpOtf();
 	public final ConnectionLogOverlayOtf connectionLogOverlayOtf =
 		new ConnectionLogOverlayOtf();
+	public final DiscordRpcOtf discordRpcOtf = new DiscordRpcOtf();
 	public final ForceAllowChatsOtf forceAllowChatsOtf =
 		new ForceAllowChatsOtf();
 	public final DisableOtf disableOtf = new DisableOtf();
@@ -59,7 +60,7 @@ public final class OtfList
 			wurstOptionsOtf.linkAdditionalSettings(disableOtf, commandPrefixOtf,
 				changelogOtf, connectionLogOverlayOtf, noTelemetryOtf,
 				noChatReportsOtf, forceAllowChatsOtf, vanillaSpoofOtf,
-				translationsOtf);
+				translationsOtf, wurstCapesOtf, discordRpcOtf);
 			
 			for(Field field : OtfList.class.getDeclaredFields())
 			{
