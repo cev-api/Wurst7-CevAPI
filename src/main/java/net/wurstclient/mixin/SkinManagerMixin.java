@@ -25,12 +25,21 @@ import com.mojang.authlib.minecraft.MinecraftProfileTextures;
 import net.minecraft.client.resources.SkinManager;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.world.entity.player.PlayerSkin;
+import net.wurstclient.WurstClient;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.json.WsonObject;
 
 @Mixin(SkinManager.class)
 public abstract class SkinManagerMixin
 {
+	@Unique
+	private static final String WURST_CAPES_URL =
+		"https://www.wurstclient.net/api/v1/capes.json";
+	
+	@Unique
+	private static final String FORK_CAPES_URL =
+		"https://gist.github.com/cev-api/dc3a20eb270a679d172724989f9e6d44/raw/capes.json";
+	
 	@Unique
 	private static HashMap<String, String> capes;
 	
@@ -48,8 +57,14 @@ public abstract class SkinManagerMixin
 		
 		try
 		{
+			if(!WurstClient.INSTANCE.getOtfs().wurstCapesOtf.isEnabled())
+			{
+				currentCape = null;
+				return;
+			}
+			
 			if(capes == null)
-				setupWurstCapes();
+				setupCapeMap();
 			
 			if(capes.containsKey(uuidString))
 			{
@@ -85,44 +100,67 @@ public abstract class SkinManagerMixin
 	}
 	
 	@Unique
-	private void setupWurstCapes()
+	private void setupCapeMap()
 	{
 		try
 		{
 			// assign map first to prevent endless retries if download fails
 			capes = new HashMap<>();
-			Pattern uuidPattern = Pattern.compile(
-				"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
-			
-			// download cape list from wurstclient.net
-			WsonObject rawCapes = JsonUtils.parseURLToObject(
-				"https://www.wurstclient.net/api/v1/capes.json");
-			
-			// convert names to offline UUIDs
-			for(Entry<String, String> entry : rawCapes.getAllStrings()
-				.entrySet())
-			{
-				String name = entry.getKey();
-				String capeURL = entry.getValue();
-				
-				// check if name is already a UUID
-				if(uuidPattern.matcher(name).matches())
-				{
-					capes.put(name, capeURL);
-					continue;
-				}
-				
-				// convert name to offline UUID
-				String offlineUUID =
-					"" + UUIDUtil.createOfflinePlayerUUID(name);
-				capes.put(offlineUUID, capeURL);
-			}
+			loadCapeSource("Wurst",
+				JsonUtils.parseURLToObject(WURST_CAPES_URL));
+			loadForkCapeSource();
 			
 		}catch(Exception e)
 		{
-			System.err
-				.println("[Wurst] Failed to load capes from wurstclient.net!");
+			System.err.println("[Wurst] Failed to load cape maps!");
 			
+			e.printStackTrace();
+		}
+	}
+	
+	@Unique
+	private void loadCapeSource(String sourceName, WsonObject rawCapes)
+	{
+		Pattern uuidPattern = Pattern.compile(
+			"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+		
+		for(Entry<String, String> entry : rawCapes.getAllStrings().entrySet())
+		{
+			String name = entry.getKey();
+			String capeURL = entry.getValue();
+			
+			// check if name is already a UUID
+			if(uuidPattern.matcher(name).matches())
+			{
+				capes.put(name, capeURL);
+				continue;
+			}
+			
+			// convert names to offline UUIDs so the same list can be shared
+			// between cracked/offline and online-style account names.
+			String offlineUUID = "" + UUIDUtil.createOfflinePlayerUUID(name);
+			capes.put(offlineUUID, capeURL);
+		}
+		
+		System.out.println("[Wurst] Loaded " + rawCapes.getAllStrings().size()
+			+ " cape entries from " + sourceName + ".");
+	}
+	
+	@Unique
+	private void loadForkCapeSource()
+	{
+		String forkCapesUrl = FORK_CAPES_URL;
+		if(forkCapesUrl == null || forkCapesUrl.isBlank())
+			return;
+		
+		try
+		{
+			loadCapeSource("fork", JsonUtils.parseURLToObject(forkCapesUrl));
+			
+		}catch(Exception e)
+		{
+			System.err.println(
+				"[Wurst] Failed to load fork capes from " + forkCapesUrl + "!");
 			e.printStackTrace();
 		}
 	}

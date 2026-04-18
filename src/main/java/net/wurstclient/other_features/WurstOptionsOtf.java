@@ -21,6 +21,8 @@ import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.SettingGroup;
+import net.wurstclient.util.text.WText;
 
 @SearchTags({"wurst options", "settings"})
 @DontBlock
@@ -37,13 +39,18 @@ public final class WurstOptionsOtf extends OtherFeature
 		new CheckboxSetting("Hack toggle chat feedback",
 			"Show a chat message when hacks are enabled or disabled.", false);
 	
+	private final SettingGroup discordPresenceGroup =
+		new SettingGroup("Discord Presence",
+			WText.translated(
+				"description.wurst.setting.wurstoptions.discord_presence"),
+			false, true);
+	
 	private boolean linkedExtraSettings;
 	
 	public WurstOptionsOtf()
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
-		addSetting(hackToggleChatFeedback);
 	}
 	
 	public void linkAdditionalSettings(DisableOtf disableOtf,
@@ -51,23 +58,31 @@ public final class WurstOptionsOtf extends OtherFeature
 		ConnectionLogOverlayOtf connectionLogOverlayOtf,
 		NoTelemetryOtf noTelemetryOtf, NoChatReportsOtf noChatReportsOtf,
 		ForceAllowChatsOtf forceAllowChatsOtf, VanillaSpoofOtf vanillaSpoofOtf,
-		TranslationsOtf translationsOtf)
+		TranslationsOtf translationsOtf, WurstCapesOtf wurstCapesOtf,
+		DiscordRpcOtf discordRpcOtf)
 	{
 		if(linkedExtraSettings)
 			return;
 		
-		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(commandPrefixOtf.getPrefixSetting());
+		addSetting(discordPresenceGroup);
 		addSetting(new ButtonSetting("Changelog",
 			"Open the latest Wurst changelog in your browser.",
 			changelogOtf::doPrimaryAction));
-		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
-		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
+		addSetting(hackToggleChatFeedback);
+		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
 		addSetting(noChatReportsOtf.getDisableSignaturesSetting());
 		addSetting(forceAllowChatsOtf.getForceAllowChatsSetting());
 		addSetting(vanillaSpoofOtf.getSpoofSetting());
 		addSetting(translationsOtf.getForceEnglish());
+		addSetting(wurstCapesOtf.getCapesSetting());
+		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
+		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
+		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
+			discordRpcOtf.getStatusMessageSetting(),
+			discordRpcOtf.getShowServerIpSetting(),
+			discordRpcOtf.getShowUsernameSetting());
 		
 		linkedExtraSettings = true;
 	}

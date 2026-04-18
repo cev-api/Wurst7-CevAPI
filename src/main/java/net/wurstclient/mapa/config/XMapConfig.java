@@ -52,7 +52,7 @@ public final class XMapConfig
 	public void sanitize()
 	{
 		minimapSize = Math.max(72, Math.min(256, minimapSize));
-		minimapZoom = Math.max(0.25, Math.min(10.0, minimapZoom));
+		minimapZoom = Math.max(0.25, Math.min(64.0, minimapZoom));
 		minimapPosX = Math.max(0, minimapPosX);
 		minimapPosY = Math.max(0, minimapPosY);
 		playerNameScale = Math.max(0.5, Math.min(4.0, playerNameScale));

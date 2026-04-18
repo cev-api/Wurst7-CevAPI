@@ -56,8 +56,9 @@ public final class NiceWurstModule
 	
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
-	private static final Set<String> ALLOWED_NAME_ONLY = Set.of("ClickGUI",
-		"Navigator", "AltGUI", "ChorusFruit", "MeasurementESP", "Towny");
+	private static final Set<String> ALLOWED_NAME_ONLY =
+		Set.of("ClickGUI", "Navigator", "AltGUI", "XPGUI", "ChorusFruit",
+			"MeasurementESP", "Towny");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -84,8 +85,8 @@ public final class NiceWurstModule
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
-				"Excavator", "InstantBunker", "ScaffoldWalk", "TemplateTool",
-				"TargetPlace", "SilkOnly", "MusicAura"));
+				"Excavator", "HandNoClip", "InstantBunker", "ScaffoldWalk",
+				"TemplateTool", "TargetPlace", "SilkOnly", "MusicAura"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT, Set.of("BunnyHop", "AutoSprint",
 			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
@@ -97,7 +98,8 @@ public final class NiceWurstModule
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
 				"MobHealth", "NameTags", "NewChunks", "NewerNewChunks",
 				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
-				"Freecam", "Waypoints", "HideWurst", "ElytraInfo", "Mapa"));
+				"Freecam", "Waypoints", "HideWurst", "ElytraInfo", "Mapa",
+				"BedrockStash"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "Mention", "NoPlayerChat"));
@@ -109,7 +111,7 @@ public final class NiceWurstModule
 				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
 				"SeedMapperHelper", "TooManyHax", "HideModMenu", "GameStats",
 				"DamageDetect", "ClientChatOverlay", "CommandScanner",
-				"GlobalToggle"));
+				"GlobalToggle", "SpectatorMonitor"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",

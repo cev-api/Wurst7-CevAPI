@@ -43,6 +43,8 @@ base {
 }
 
 repositories {
+	mavenCentral()
+	
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -78,6 +80,7 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	implementation "com.google.code.findbugs:jsr305:3.0.2"
+	
 }
 
 fabricApi.configureTests {
