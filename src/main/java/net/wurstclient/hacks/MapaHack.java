@@ -65,6 +65,7 @@ import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.xpgui.XpGuiScreen;
 
 @SearchTags({"map", "minimap", "world map", "mapa"})
 public final class MapaHack extends Hack
@@ -423,10 +424,16 @@ public final class MapaHack extends Hack
 		int newColor = rgba(hack.getNewChunksColorI(), 36);
 		int oldColor = rgba(hack.getOldChunksColorI(), 30);
 		int blockColor = rgba(hack.getBlockExploitChunksColorI(), 32);
+		int beingUpdatedColor = rgba(hack.getBeingUpdatedChunksColorI(), 34);
+		int oldVersionColor = rgba(hack.getOldGenerationChunksColorI(), 32);
 		
 		renderChunkSet(context, cfg, hack.getOldChunks(), oldColor);
 		renderChunkSet(context, cfg, hack.getNewChunks(), newColor);
 		renderChunkSet(context, cfg, hack.getBlockExploitChunks(), blockColor);
+		renderChunkSet(context, cfg, hack.getBeingUpdatedChunks(),
+			beingUpdatedColor);
+		renderChunkSet(context, cfg, hack.getOldGenerationChunks(),
+			oldVersionColor);
 	}
 	
 	private void renderExploredChunksOverlay(GuiGraphicsExtractor context,
@@ -1138,7 +1145,8 @@ public final class MapaHack extends Hack
 	{
 		return screen instanceof ClickGuiScreen
 			|| screen instanceof AltGuiScreen
-			|| screen instanceof NavigatorScreen;
+			|| screen instanceof NavigatorScreen
+			|| screen instanceof XpGuiScreen;
 	}
 	
 	private int getMarkerSize(XMapConfig cfg)

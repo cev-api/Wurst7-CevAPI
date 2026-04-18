@@ -22,6 +22,7 @@ import net.wurstclient.events.MouseButtonPressListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.xpgui.XpGuiScreen;
 
 public final class KeybindProcessor
 	implements KeyPressListener, MouseButtonPressListener
@@ -61,6 +62,7 @@ public final class KeybindProcessor
 		// or when Waypoints or ItemHandler screens are open so their keybinds
 		// can toggle/close them with the same key.
 		if(screen != null && !(screen instanceof ClickGuiScreen)
+			&& !(screen instanceof XpGuiScreen)
 			&& !(screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
 			&& !(screen instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen))
 		{
@@ -70,6 +72,9 @@ public final class KeybindProcessor
 		
 		// if ClickGuiScreen is open and user typed a printable key, open
 		// navigator and pass the initial character
+		if(screen instanceof XpGuiScreen xp && xp.isKeyboardInputCaptured())
+			return;
+		
 		if(screen instanceof ClickGuiScreen && !isPacketDelayKeybind)
 		{
 			ClickGui gui = WurstClient.INSTANCE.getGui();
@@ -140,7 +145,8 @@ public final class KeybindProcessor
 			return false;
 		
 		Screen screen = WurstClient.MC.screen;
-		return screen == null || screen instanceof ClickGuiScreen;
+		return screen == null || screen instanceof ClickGuiScreen
+			|| screen instanceof XpGuiScreen;
 	}
 	
 	private String getKeyName(KeyPressEvent event)
@@ -234,6 +240,17 @@ public final class KeybindProcessor
 				WurstClient.MC.setScreen(null);
 			else
 				WurstClient.INSTANCE.getHax().altGuiHack.setEnabled(true);
+			return;
+		}
+		
+		// Special-case: toggle XPGUI when bound to "xpgui". XpGuiHack
+		// auto-disables itself after opening.
+		if(trimmed.equalsIgnoreCase("xpgui"))
+		{
+			if(WurstClient.MC.screen instanceof XpGuiScreen)
+				WurstClient.MC.setScreen(null);
+			else
+				WurstClient.INSTANCE.getHax().xpGuiHack.setEnabled(true);
 			return;
 		}
 		

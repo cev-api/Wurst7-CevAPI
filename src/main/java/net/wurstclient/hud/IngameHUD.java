@@ -13,6 +13,7 @@ import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.util.HackPerformanceOverlay;
+import net.wurstclient.xpgui.XpGuiScreen;
 
 public final class IngameHUD implements GUIRenderListener
 {
@@ -59,7 +60,8 @@ public final class IngameHUD implements GUIRenderListener
 		performanceOverlay.render(context);
 		
 		// pinned windows
-		if(!(WurstClient.MC.screen instanceof ClickGuiScreen))
+		if(!(WurstClient.MC.screen instanceof ClickGuiScreen)
+			&& !(WurstClient.MC.screen instanceof XpGuiScreen))
 			clickGui.renderPinnedWindows(context, partialTicks);
 	}
 	

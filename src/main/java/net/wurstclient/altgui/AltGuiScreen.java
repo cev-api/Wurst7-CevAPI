@@ -44,6 +44,7 @@ import net.wurstclient.hacks.ClientChatOverlayHack;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.NavigatorHack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.hacks.XpGuiHack;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
@@ -2052,7 +2053,7 @@ public final class AltGuiScreen extends Screen
 		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
 		{
 			if(hack instanceof ClickGuiHack || hack instanceof NavigatorHack
-				|| hack instanceof AltGuiHack)
+				|| hack instanceof AltGuiHack || hack instanceof XpGuiHack)
 				continue;
 			if(hack == WurstClient.INSTANCE.getHax().globalToggleHack)
 				continue;
@@ -2228,7 +2229,7 @@ public final class AltGuiScreen extends Screen
 		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
 		{
 			if(hack instanceof ClickGuiHack || hack instanceof NavigatorHack
-				|| hack instanceof AltGuiHack)
+				|| hack instanceof AltGuiHack || hack instanceof XpGuiHack)
 				continue;
 			if(isHiddenByTooManyHax(hack))
 				continue;
@@ -2286,6 +2287,7 @@ public final class AltGuiScreen extends Screen
 		features.add(WurstClient.INSTANCE.getHax().navigatorHack);
 		features.add(WurstClient.INSTANCE.getHax().clickGuiHack);
 		features.add(WurstClient.INSTANCE.getHax().altGuiHack);
+		features.add(WurstClient.INSTANCE.getHax().xpGuiHack);
 		return features;
 	}
 	
@@ -2634,7 +2636,8 @@ public final class AltGuiScreen extends Screen
 		if(isMenuOnlyFeature(feature))
 			return false;
 		
-		if(feature instanceof ClickGuiHack || feature instanceof AltGuiHack)
+		if(feature instanceof ClickGuiHack || feature instanceof AltGuiHack
+			|| feature instanceof XpGuiHack)
 			return false;
 		
 		String action = feature.getPrimaryAction();
@@ -2660,7 +2663,8 @@ public final class AltGuiScreen extends Screen
 			|| name.equalsIgnoreCase("WurstOptions")
 			|| name.equalsIgnoreCase("WurstLogo")
 			|| name.equalsIgnoreCase("ClickGUI")
-			|| name.equalsIgnoreCase("AltGUI"));
+			|| name.equalsIgnoreCase("AltGUI")
+			|| name.equalsIgnoreCase("XPGUI"));
 	}
 	
 	private boolean isHiddenByTooManyHax(Feature feature)

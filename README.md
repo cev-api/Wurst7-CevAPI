@@ -26,6 +26,7 @@ I make changes very often but I publish releases sparingly, so if you want the l
 ### Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
 ![AltGUI](https://i.imgur.com/gzAVbru.png)
+![XPGUI](https://i.imgur.com/d5iDhwj.png)
 
 ## Relationship to upstream
 

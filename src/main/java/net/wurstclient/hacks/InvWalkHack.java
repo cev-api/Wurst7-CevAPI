@@ -23,6 +23,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.xpgui.XpGuiScreen;
 
 @SearchTags({"inv walk", "inventory walk", "InvMove", "inv move",
 	"inventory move", "MenuWalk", "menu walk"})
@@ -102,7 +103,8 @@ public final class InvWalkHack extends Hack implements UpdateListener
 			&& !isCreativeSearchBarOpen(screen))
 			return true;
 		
-		if(allowClickGUI.isChecked() && screen instanceof ClickGuiScreen)
+		if(allowClickGUI.isChecked() && (screen instanceof ClickGuiScreen
+			|| screen instanceof XpGuiScreen))
 			return true;
 		
 		if(allowOther.isChecked() && screen instanceof AbstractContainerScreen
