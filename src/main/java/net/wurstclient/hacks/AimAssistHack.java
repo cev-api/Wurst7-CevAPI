@@ -257,7 +257,7 @@ public final class AimAssistHack extends Hack
 	{
 		Stream<Entity> stream = EntityUtils.getAttackableEntities();
 		
-		double rangeSq = range.getValueSq();
+		double rangeSq = getRangeSq();
 		stream =
 			stream.filter(e -> EntityUtils.distanceToHitboxSq(e) <= rangeSq);
 		
@@ -338,6 +338,14 @@ public final class AimAssistHack extends Hack
 	
 	private double getRange()
 	{
+		var spearAssist = WURST.getHax().spearAssistHack;
+		if(spearAssist != null)
+		{
+			Double spearRange = spearAssist.getAimAssistRangeOverride();
+			if(spearRange != null)
+				return spearRange;
+		}
+		
 		if(isRightClickLockOnActive()
 			&& rightClickLockOnRangeOverride.isChecked())
 			return rightClickLockOnRange.getValue();

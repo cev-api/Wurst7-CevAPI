@@ -18,6 +18,7 @@ public final class ReachHack extends Hack
 {
 	private final SliderSetting range =
 		new SliderSetting("Range", 6, 1, 10, 0.05, ValueDisplay.DECIMAL);
+	private Double rangeOverride;
 	
 	public ReachHack()
 	{
@@ -26,9 +27,20 @@ public final class ReachHack extends Hack
 		addSetting(range);
 	}
 	
+	@Override
+	protected void onDisable()
+	{
+		rangeOverride = null;
+	}
+	
 	public double getReachDistance()
 	{
-		return range.getValue();
+		return rangeOverride != null ? rangeOverride : range.getValue();
+	}
+	
+	public void setRangeOverride(Double override)
+	{
+		rangeOverride = override;
 	}
 	
 	// See LocalPlayerMixin.blockInteractionRange() and

@@ -86,6 +86,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	
 	private int auraTimer;
 	private int auraRotation;
+	private BlockPos pausedTarget;
+	private double pausedTargetDistanceSq = Double.NaN;
 	
 	public AutoSignHack()
 	{
@@ -152,6 +154,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	{
 		auraRotation = 0;
 		auraTimer = 0;
+		pausedTarget = null;
+		pausedTargetDistanceSq = Double.NaN;
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -162,6 +166,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		signText = null;
 		auraRotation = 0;
 		auraTimer = 0;
+		pausedTarget = null;
+		pausedTargetDistanceSq = Double.NaN;
 	}
 	
 	public String[] getSignText()
@@ -395,6 +401,18 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		int index = Math.floorMod(auraRotation, candidates.size());
 		auraRotation++;
 		BlockPos target = candidates.get(index);
+		Vec3 playerEyes = MC.player.getEyePosition(1.0F);
+		double targetDistanceSq =
+			playerEyes.distanceToSqr(Vec3.atCenterOf(target));
+		
+		if(pausedTarget != null && pausedTarget.equals(target))
+		{
+			if(targetDistanceSq >= pausedTargetDistanceSq - 0.25)
+				return;
+			
+			pausedTarget = null;
+			pausedTargetDistanceSq = Double.NaN;
+		}
 		
 		SignBlockEntity signEntity =
 			(SignBlockEntity)MC.level.getBlockEntity(target);
@@ -408,6 +426,12 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		String[] oldText = readSign(signEntity);
 		if(signHasDesiredText(signEntity, newText))
 		{
+			if(pausedTarget != null && pausedTarget.equals(target))
+			{
+				pausedTarget = null;
+				pausedTargetDistanceSq = Double.NaN;
+			}
+			
 			auraTimer = Math.max(1, auraDelay.getValueI());
 			return;
 		}
@@ -418,6 +442,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		InteractionSimulator.rightClickBlock(hitResult,
 			InteractionHand.MAIN_HAND);
 		auraTimer = Math.max(1, auraDelay.getValueI());
+		pausedTarget = target;
+		pausedTargetDistanceSq = targetDistanceSq;
 		
 		reportSignEdit(target, oldText, newText);
 	}
