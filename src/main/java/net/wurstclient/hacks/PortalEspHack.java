@@ -12,10 +12,12 @@ import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
@@ -23,8 +25,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.EndPortalFrameBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -86,8 +91,53 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			"End gateways will be highlighted in this color.", Color.YELLOW),
 		new CheckboxSetting("Include end gateways", true));
 	
-	private final List<PortalEspBlockGroup> groups =
-		Arrays.asList(netherPortal, endPortal, endPortalFrame, endGateway);
+	private final PortalEspBlockGroup brokenNetherPortal =
+		new PortalEspBlockGroup(Blocks.OBSIDIAN, new ColorSetting(
+			"Broken portal ESP color",
+			"Broken nether portal frames will be highlighted in this ESP color.",
+			new Color(0xFF8A00)),
+			new CheckboxSetting("Find broken nether portals",
+				"Find obsidian structures that strongly resemble broken nether portal frames.",
+				false));
+	
+	private final CheckboxSetting brokenNetherPortalTracer =
+		new CheckboxSetting("Broken portal tracer",
+			"Draw tracers to detected broken nether portal frames.", true);
+	private final SliderSetting brokenPortalMinConfidence =
+		new SliderSetting("Broken portal min confidence",
+			"Only render candidates with score at or above this value.", 35, 0,
+			100, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting brokenPortalMaxInteriorSize = new SliderSetting(
+		"Broken portal max interior size",
+		"Maximum interior width/height considered for broken portal matching.",
+		21, 3, 30, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting allowCompleteUnlitPortals =
+		new CheckboxSetting("Allow complete unlit portals",
+			"Allow complete but unlit obsidian portal frames in broken portal detections.",
+			false);
+	private final CheckboxSetting excludeCryingObsidian =
+		new CheckboxSetting("Exclude crying obsidian",
+			"Reject candidates with crying obsidian inside or near the frame.",
+			true);
+	private final CheckboxSetting excludeChests = new CheckboxSetting(
+		"Exclude chests",
+		"Reject candidates with nearby chests (typical ruined portal loot).",
+		true);
+	private final CheckboxSetting excludeMagma = new CheckboxSetting(
+		"Exclude magma", "Reject candidates with nearby magma blocks.", true);
+	private final CheckboxSetting excludeLava = new CheckboxSetting(
+		"Exclude lava", "Reject candidates with nearby lava.", true);
+	private final CheckboxSetting excludeNetherrack = new CheckboxSetting(
+		"Exclude netherrack",
+		"Penalize/reject candidates with netherrack around or under the frame.",
+		true);
+	private final CheckboxSetting excludeGoldBlocks = new CheckboxSetting(
+		"Exclude gold blocks",
+		"Penalize candidates with nearby gold blocks (ruined portal signal).",
+		true);
+	
+	private final List<PortalEspBlockGroup> groups = Arrays.asList(netherPortal,
+		endPortal, endPortalFrame, endGateway, brokenNetherPortal);
 	
 	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
 		"The area around the player to search in.\n"
@@ -129,7 +179,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		(pos, state) -> state.getBlock() == Blocks.NETHER_PORTAL
 			|| state.getBlock() == Blocks.END_PORTAL
 			|| state.getBlock() == Blocks.END_PORTAL_FRAME
-			|| state.getBlock() == Blocks.END_GATEWAY;
+			|| state.getBlock() == Blocks.END_GATEWAY
+			|| state.getBlock() == Blocks.OBSIDIAN;
 	
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(query, area);
@@ -138,6 +189,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	private ChunkPos lastPlayerChunk;
 	private int lastMatchesVersion;
+	private long lastBrokenPortalSettingsFingerprint = Long.MIN_VALUE;
 	private final HashSet<BlockPos> discoveredPositions = new HashSet<>();
 	
 	public PortalEspHack()
@@ -155,6 +207,16 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(customDiscoverySoundId);
 		addSetting(discoveryChat);
 		addSetting(ignoreUndersizedPortals);
+		addSetting(brokenNetherPortalTracer);
+		addSetting(brokenPortalMinConfidence);
+		addSetting(brokenPortalMaxInteriorSize);
+		addSetting(allowCompleteUnlitPortals);
+		addSetting(excludeCryingObsidian);
+		addSetting(excludeChests);
+		addSetting(excludeMagma);
+		addSetting(excludeLava);
+		addSetting(excludeNetherrack);
+		addSetting(excludeGoldBlocks);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
@@ -173,6 +235,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
+		lastBrokenPortalSettingsFingerprint =
+			computeBrokenPortalSettingsFingerprint();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -205,6 +269,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		long brokenSettingsFingerprint =
+			computeBrokenPortalSettingsFingerprint();
+		if(brokenSettingsFingerprint != lastBrokenPortalSettingsFingerprint)
+		{
+			lastBrokenPortalSettingsFingerprint = brokenSettingsFingerprint;
+			groupsUpToDate = false;
+		}
+		
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -251,7 +323,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
-				return;
+				continue;
 			
 			List<AABB> boxes = group.getBoxes();
 			int quadsColor = group.getColorI(0x40);
@@ -268,6 +340,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		for(PortalEspBlockGroup group : groups)
 		{
 			if(!group.isEnabled())
+				continue;
+			if(group == brokenNetherPortal
+				&& !brokenNetherPortalTracer.isChecked())
 				continue;
 			
 			List<Vec3> ends = getTracerTargets(group);
@@ -305,6 +380,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		{
 			filterUndersizedPortals(candidatesByGroup, netherPortal);
 		}
+		if(isBrokenPortalSearchEnabled())
+			filterUndersizedPortals(candidatesByGroup, brokenNetherPortal);
+		else
+			candidatesByGroup.remove(brokenNetherPortal);
 		
 		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
 			commitCandidates(candidatesByGroup);
@@ -339,6 +418,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		BlockPos pos = result.pos();
 		if(onlyAboveGround.isChecked() && pos.getY() < aboveGroundY.getValue())
 			return false;
+		if(result.state().getBlock() == Blocks.OBSIDIAN)
+			return isBrokenPortalSearchEnabled();
 		
 		for(PortalEspBlockGroup group : groups)
 		{
@@ -374,6 +455,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			{
 				if(!group.isEnabled())
 					return;
+				
+				if(group == brokenNetherPortal)
+				{
+					if(!isBrokenPortalSearchEnabled())
+						return;
+				}
 				
 				if(group == endGateway && !isInEndDimension())
 					return;
@@ -424,6 +511,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			filtered = filterValidEndPortalBlocks(candidates);
 		else if(group == endPortalFrame)
 			filtered = filterValidEndPortalFrameBlocks(candidates);
+		else if(group == brokenNetherPortal)
+			filtered = filterBrokenNetherPortalFrames(candidates);
 		else
 			filtered = candidates;
 		
@@ -657,6 +746,665 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
+	private ArrayList<BlockPos> filterBrokenNetherPortalFrames(
+		List<BlockPos> candidates)
+	{
+		if(candidates.isEmpty() || MC.level == null)
+			return new ArrayList<>();
+		HashSet<BlockPos> nearbyObsidian = new HashSet<>(candidates);
+		if(nearbyObsidian.isEmpty())
+			return new ArrayList<>();
+		
+		int minScore = brokenPortalMinConfidence.getValueI();
+		int maxInterior = brokenPortalMaxInteriorSize.getValueI();
+		int maxOuter = maxInterior + 2;
+		
+		ArrayList<BrokenPortalCandidate> scored = new ArrayList<>();
+		HashSet<BlockPos> remaining = new HashSet<>(nearbyObsidian);
+		while(!remaining.isEmpty())
+		{
+			BlockPos start = remaining.iterator().next();
+			remaining.remove(start);
+			
+			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+			queue.add(start);
+			ArrayList<BlockPos> component = new ArrayList<>();
+			
+			int minX = start.getX();
+			int maxX = start.getX();
+			int minY = start.getY();
+			int maxY = start.getY();
+			int minZ = start.getZ();
+			int maxZ = start.getZ();
+			
+			while(!queue.isEmpty())
+			{
+				BlockPos current = queue.removeFirst();
+				component.add(current);
+				minX = Math.min(minX, current.getX());
+				maxX = Math.max(maxX, current.getX());
+				minY = Math.min(minY, current.getY());
+				maxY = Math.max(maxY, current.getY());
+				minZ = Math.min(minZ, current.getZ());
+				maxZ = Math.max(maxZ, current.getZ());
+				
+				for(int dx = -1; dx <= 1; dx++)
+					for(int dy = -1; dy <= 1; dy++)
+						for(int dz = -1; dz <= 1; dz++)
+						{
+							if(dx == 0 && dy == 0 && dz == 0)
+								continue;
+							BlockPos neighbor = current.offset(dx, dy, dz);
+							if(remaining.remove(neighbor))
+								queue.addLast(neighbor);
+						}
+			}
+			
+			// Big blobs are usually lava noise and expensive to fit.
+			if(component.size() > 400)
+				continue;
+			
+			HashSet<Integer> xPlanes = new HashSet<>();
+			HashSet<Integer> zPlanes = new HashSet<>();
+			HashSet<BlockPos> componentSet = new HashSet<>(component);
+			for(BlockPos pos : component)
+			{
+				xPlanes.add(pos.getX());
+				zPlanes.add(pos.getZ());
+			}
+			
+			for(int z : zPlanes)
+			{
+				scoreRectanglesInPlane(scored, nearbyObsidian, minScore,
+					maxOuter, RectangleAxis.X, z, minX, maxX, minY, maxY);
+				scoreRemnantsInPlane(scored, nearbyObsidian, componentSet,
+					minScore, RectangleAxis.X, z);
+			}
+			for(int x : xPlanes)
+			{
+				scoreRectanglesInPlane(scored, nearbyObsidian, minScore,
+					maxOuter, RectangleAxis.Z, x, minZ, maxZ, minY, maxY);
+				scoreRemnantsInPlane(scored, nearbyObsidian, componentSet,
+					minScore, RectangleAxis.Z, x);
+			}
+		}
+		
+		if(scored.isEmpty())
+			return new ArrayList<>();
+		
+		scored.sort(
+			Comparator.comparingInt(BrokenPortalCandidate::score).reversed());
+		ArrayList<BrokenPortalCandidate> selected = new ArrayList<>();
+		for(BrokenPortalCandidate candidate : scored)
+		{
+			boolean overlaps = false;
+			for(BrokenPortalCandidate existing : selected)
+			{
+				int overlap = 0;
+				for(BlockPos pos : candidate.detectedFrame())
+					if(existing.detectedFrame().contains(pos))
+						overlap++;
+					
+				int minSize = Math.min(candidate.detectedFrame().size(),
+					existing.detectedFrame().size());
+				if(minSize > 0 && overlap >= minSize / 2)
+				{
+					overlaps = true;
+					break;
+				}
+			}
+			if(!overlaps)
+				selected.add(candidate);
+		}
+		
+		HashSet<BlockPos> accepted = new HashSet<>();
+		for(BrokenPortalCandidate candidate : selected)
+		{
+			accepted.addAll(candidate.detectedFrame());
+			accepted.addAll(getBaseRowExtensions(candidate, nearbyObsidian));
+		}
+		
+		return candidates.stream().filter(accepted::contains)
+			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+	}
+	
+	private void scoreRectanglesInPlane(ArrayList<BrokenPortalCandidate> scored,
+		Set<BlockPos> obsidian, int minScore, int maxOuter, RectangleAxis axis,
+		int planeCoord, int minPrimary, int maxPrimary, int minY, int maxY)
+	{
+		int startPrimary = minPrimary - 1;
+		int endPrimary = maxPrimary + 1;
+		int startY = minY - 1;
+		int endY = maxY + 1;
+		for(int primary0 = startPrimary; primary0 <= endPrimary; primary0++)
+			for(int outerWidth = 4; outerWidth <= maxOuter; outerWidth++)
+			{
+				int primary1 = primary0 + outerWidth - 1;
+				if(primary1 > endPrimary)
+					break;
+				
+				for(int y0 = startY; y0 <= endY; y0++)
+					for(int outerHeight =
+						5; outerHeight <= maxOuter; outerHeight++)
+					{
+						int y1 = y0 + outerHeight - 1;
+						if(y1 > endY)
+							break;
+						
+						BrokenPortalCandidate candidate =
+							scoreBrokenPortalRectangle(obsidian, axis,
+								planeCoord, primary0, primary1, y0, y1,
+								minScore);
+						if(candidate != null)
+							scored.add(candidate);
+					}
+			}
+	}
+	
+	private void scoreRemnantsInPlane(ArrayList<BrokenPortalCandidate> scored,
+		Set<BlockPos> obsidian, Set<BlockPos> component, int minScore,
+		RectangleAxis axis, int planeCoord)
+	{
+		if(MC.level == null)
+			return;
+		
+		HashSet<BlockPos> plane = new HashSet<>();
+		for(BlockPos pos : component)
+		{
+			int planeValue = axis == RectangleAxis.X ? pos.getZ() : pos.getX();
+			if(planeValue == planeCoord)
+				plane.add(pos);
+		}
+		
+		if(plane.size() < 3)
+			return;
+		
+		for(BlockPos corner : plane)
+		{
+			int cornerPrimary =
+				axis == RectangleAxis.X ? corner.getX() : corner.getZ();
+			int cornerY = corner.getY();
+			
+			for(int horizontalDir : new int[]{-1, 1})
+			{
+				int horizontalLen = contiguousLength(plane, axis, planeCoord,
+					cornerPrimary, cornerY, horizontalDir);
+				if(horizontalLen < 2)
+					continue;
+				
+				for(int verticalDir : new int[]{-1, 1})
+				{
+					int verticalLen = contiguousVerticalLength(plane, axis,
+						planeCoord, cornerPrimary, cornerY, verticalDir);
+					if(verticalLen < 2)
+						continue;
+					
+					HashSet<BlockPos> detected = new HashSet<>();
+					for(int i = 0; i < horizontalLen; i++)
+					{
+						int primary = cornerPrimary + horizontalDir * i;
+						detected.add(axis.toPos(primary, cornerY, planeCoord));
+					}
+					for(int i = 0; i < verticalLen; i++)
+					{
+						int y = cornerY + verticalDir * i;
+						detected.add(axis.toPos(cornerPrimary, y, planeCoord));
+					}
+					
+					if(detected.size() < 4)
+						continue;
+					
+					int minPrimary = Integer.MAX_VALUE;
+					int maxPrimary = Integer.MIN_VALUE;
+					int minY = Integer.MAX_VALUE;
+					int maxY = Integer.MIN_VALUE;
+					for(BlockPos pos : detected)
+					{
+						int primary =
+							axis == RectangleAxis.X ? pos.getX() : pos.getZ();
+						minPrimary = Math.min(minPrimary, primary);
+						maxPrimary = Math.max(maxPrimary, primary);
+						minY = Math.min(minY, pos.getY());
+						maxY = Math.max(maxY, pos.getY());
+					}
+					
+					int support =
+						countSupportEvidence(obsidian, axis, planeCoord,
+							minPrimary, maxPrimary, minY, maxY, detected);
+					
+					int score = 4 + horizontalLen * 5 + verticalLen * 6
+						+ Math.min(support * 3, 24);
+					if(horizontalLen >= 3 && verticalLen >= 4)
+						score += 8;
+					RuinedPortalSignals ruinedSignals = scanRuinedPortalSignals(
+						axis, planeCoord, minPrimary, maxPrimary, minY, maxY);
+					if(isHardRuinedPortalReject(ruinedSignals))
+						continue;
+					
+					score += scoreRuinedPortalExclusion(ruinedSignals);
+					
+					if(score < minScore)
+						continue;
+					
+					scored.add(new BrokenPortalCandidate(score, detected, axis,
+						planeCoord, minPrimary, maxPrimary, minY, maxY));
+				}
+			}
+		}
+	}
+	
+	private int contiguousLength(Set<BlockPos> plane, RectangleAxis axis,
+		int planeCoord, int startPrimary, int y, int dir)
+	{
+		int len = 0;
+		for(int step = 0; step < 30; step++)
+		{
+			int primary = startPrimary + dir * step;
+			BlockPos pos = axis.toPos(primary, y, planeCoord);
+			if(!plane.contains(pos))
+				break;
+			len++;
+		}
+		return len;
+	}
+	
+	private int contiguousVerticalLength(Set<BlockPos> plane,
+		RectangleAxis axis, int planeCoord, int primary, int startY, int dir)
+	{
+		int len = 0;
+		for(int step = 0; step < 40; step++)
+		{
+			int y = startY + dir * step;
+			BlockPos pos = axis.toPos(primary, y, planeCoord);
+			if(!plane.contains(pos))
+				break;
+			len++;
+		}
+		return len;
+	}
+	
+	private int countSupportEvidence(Set<BlockPos> obsidian, RectangleAxis axis,
+		int planeCoord, int minPrimary, int maxPrimary, int minY, int maxY,
+		Set<BlockPos> detected)
+	{
+		int support = 0;
+		for(int primary = minPrimary - 1; primary <= maxPrimary + 1; primary++)
+			for(int y = minY - 2; y <= maxY + 1; y++)
+				for(int planeOffset = -1; planeOffset <= 1; planeOffset++)
+				{
+					BlockPos pos =
+						axis.toPos(primary, y, planeCoord + planeOffset);
+					if(!obsidian.contains(pos) || detected.contains(pos))
+						continue;
+					
+					for(Direction dir : Direction.values())
+					{
+						if(detected.contains(pos.relative(dir)))
+						{
+							support++;
+							break;
+						}
+					}
+				}
+		return support;
+	}
+	
+	private BrokenPortalCandidate scoreBrokenPortalRectangle(
+		Set<BlockPos> obsidian, RectangleAxis axis, int planeCoord,
+		int primary0, int primary1, int y0, int y1, int minScore)
+	{
+		if(MC.level == null)
+			return null;
+		
+		int outerWidth = primary1 - primary0 + 1;
+		int outerHeight = y1 - y0 + 1;
+		int interiorWidth = outerWidth - 2;
+		int interiorHeight = outerHeight - 2;
+		if(interiorWidth < 2 || interiorHeight < 3)
+			return null;
+		
+		HashSet<BlockPos> nonCornerBorder = new HashSet<>();
+		HashSet<BlockPos> corners = new HashSet<>();
+		HashSet<BlockPos> sideA = new HashSet<>();
+		HashSet<BlockPos> sideB = new HashSet<>();
+		HashSet<BlockPos> topEdge = new HashSet<>();
+		HashSet<BlockPos> bottomEdge = new HashSet<>();
+		HashSet<BlockPos> interior = new HashSet<>();
+		
+		for(int primary = primary0; primary <= primary1; primary++)
+			for(int y = y0; y <= y1; y++)
+			{
+				BlockPos pos = axis.toPos(primary, y, planeCoord);
+				boolean border = primary == primary0 || primary == primary1
+					|| y == y0 || y == y1;
+				if(border)
+				{
+					boolean corner =
+						(primary == primary0 || primary == primary1)
+							&& (y == y0 || y == y1);
+					if(corner)
+						corners.add(pos);
+					else
+						nonCornerBorder.add(pos);
+					
+					if(primary == primary0 && y > y0 && y < y1)
+						sideA.add(pos);
+					if(primary == primary1 && y > y0 && y < y1)
+						sideB.add(pos);
+					if(y == y0 && primary > primary0 && primary < primary1)
+						bottomEdge.add(pos);
+					if(y == y1 && primary > primary0 && primary < primary1)
+						topEdge.add(pos);
+				}else
+					interior.add(pos);
+			}
+		
+		if(nonCornerBorder.isEmpty() || sideA.isEmpty() || sideB.isEmpty()
+			|| interior.isEmpty())
+			return null;
+		
+		int nonCornerHit = countHits(obsidian, nonCornerBorder);
+		int cornerHit = countHits(obsidian, corners);
+		int sideAHit = countHits(obsidian, sideA);
+		int sideBHit = countHits(obsidian, sideB);
+		int topHit = countHits(obsidian, topEdge);
+		int bottomHit = countHits(obsidian, bottomEdge);
+		
+		double borderRatio = nonCornerHit / (double)nonCornerBorder.size();
+		double sideARatio = sideAHit / (double)sideA.size();
+		double sideBRatio = sideBHit / (double)sideB.size();
+		double topRatio =
+			topEdge.isEmpty() ? 0 : topHit / (double)topEdge.size();
+		double bottomRatio =
+			bottomEdge.isEmpty() ? 0 : bottomHit / (double)bottomEdge.size();
+		double strongSideRatio = Math.max(sideARatio, sideBRatio);
+		double weakSideRatio = Math.min(sideARatio, sideBRatio);
+		
+		// Allow heavily damaged frames as long as one side is strong and the
+		// opposite side still has meaningful evidence.
+		if(strongSideRatio < 0.6 || weakSideRatio < 0.2)
+			return null;
+		if(Math.max(topRatio, bottomRatio) < 0.1)
+			return null;
+		if(borderRatio < 0.42)
+			return null;
+		
+		int interiorObsidian = 0;
+		int interiorEmpty = 0;
+		int interiorPortalBlocks = 0;
+		for(BlockPos pos : interior)
+		{
+			BlockState state = MC.level.getBlockState(pos);
+			if(state.getBlock() == Blocks.OBSIDIAN)
+				interiorObsidian++;
+			if(state.getBlock() == Blocks.NETHER_PORTAL)
+				interiorPortalBlocks++;
+			if(isPortalInteriorReplaceable(state))
+				interiorEmpty++;
+		}
+		
+		double interiorEmptyRatio = interiorEmpty / (double)interior.size();
+		double interiorObsidianRatio =
+			interiorObsidian / (double)interior.size();
+		if(interiorEmptyRatio < 0.35 || interiorObsidianRatio > 0.45)
+			return null;
+		
+		boolean completeWithoutCorners = nonCornerHit == nonCornerBorder.size();
+		int missingNonCorner = nonCornerBorder.size() - nonCornerHit;
+		boolean activePortal = interiorPortalBlocks > 0;
+		if(activePortal)
+			return null;
+		if(!allowCompleteUnlitPortals.isChecked() && completeWithoutCorners)
+			return null;
+		
+		int score = 0;
+		score += 20;
+		score += (int)Math.round(borderRatio * 35);
+		score += (int)Math.round(strongSideRatio * 18);
+		score += (int)Math.round(weakSideRatio * 10);
+		score += (int)Math.round(Math.max(topRatio, bottomRatio) * 15);
+		score += (int)Math.round(interiorEmptyRatio * 22);
+		score += Math.min(cornerHit * 2, 8);
+		if(missingNonCorner > 0 && missingNonCorner <= 4)
+			score += 8;
+		
+		// Extra obsidian within the frame footprint usually means blobs/walls.
+		score -= Math.min(interiorObsidian * 8, 40);
+		
+		int irregularObs = countIrregularObsidian(obsidian, axis, planeCoord,
+			primary0, primary1, y0, y1, nonCornerBorder, corners);
+		score -= Math.min(irregularObs * 3, 36);
+		
+		RuinedPortalSignals ruinedSignals = scanRuinedPortalSignals(axis,
+			planeCoord, primary0, primary1, y0, y1);
+		if(isHardRuinedPortalReject(ruinedSignals))
+			return null;
+		score += scoreRuinedPortalExclusion(ruinedSignals);
+		
+		if(score < minScore)
+			return null;
+		
+		HashSet<BlockPos> detectedFrame = new HashSet<>();
+		for(BlockPos pos : nonCornerBorder)
+			if(obsidian.contains(pos))
+				detectedFrame.add(pos);
+		for(BlockPos pos : corners)
+			if(obsidian.contains(pos))
+				detectedFrame.add(pos);
+			
+		if(detectedFrame.isEmpty())
+			return null;
+		
+		return new BrokenPortalCandidate(score, detectedFrame, axis, planeCoord,
+			primary0, primary1, y0, y1);
+	}
+	
+	private int countHits(Set<BlockPos> haystack, Set<BlockPos> needles)
+	{
+		int hits = 0;
+		for(BlockPos pos : needles)
+			if(haystack.contains(pos))
+				hits++;
+		return hits;
+	}
+	
+	private Set<BlockPos> getBaseRowExtensions(BrokenPortalCandidate candidate,
+		Set<BlockPos> obsidian)
+	{
+		HashSet<BlockPos> extensions = new HashSet<>();
+		int y = candidate.y0() - 1;
+		for(int primary = candidate.primary0(); primary <= candidate
+			.primary1(); primary++)
+		{
+			BlockPos pos =
+				candidate.axis().toPos(primary, y, candidate.planeCoord());
+			if(!obsidian.contains(pos))
+				continue;
+			if(hasAdjacentFrameBlock(pos, candidate.detectedFrame()))
+				extensions.add(pos);
+		}
+		return extensions;
+	}
+	
+	private boolean hasAdjacentFrameBlock(BlockPos pos, Set<BlockPos> frame)
+	{
+		for(Direction dir : Direction.values())
+			if(frame.contains(pos.relative(dir)))
+				return true;
+		return false;
+	}
+	
+	private boolean isPortalInteriorReplaceable(BlockState state)
+	{
+		Block block = state.getBlock();
+		return state.isAir() || block == Blocks.NETHER_PORTAL
+			|| block == Blocks.FIRE || block == Blocks.SOUL_FIRE
+			|| state.canBeReplaced();
+	}
+	
+	private int countIrregularObsidian(Set<BlockPos> obsidian,
+		RectangleAxis axis, int planeCoord, int primary0, int primary1, int y0,
+		int y1, Set<BlockPos> nonCornerBorder, Set<BlockPos> corners)
+	{
+		int irregular = 0;
+		for(int primary = primary0 - 1; primary <= primary1 + 1; primary++)
+			for(int y = y0 - 1; y <= y1 + 1; y++)
+				for(int planeOffset = -1; planeOffset <= 1; planeOffset++)
+				{
+					int plane = planeCoord + planeOffset;
+					BlockPos pos = axis.toPos(primary, y, plane);
+					if(!obsidian.contains(pos))
+						continue;
+					if(planeOffset == 0 && (nonCornerBorder.contains(pos)
+						|| corners.contains(pos)))
+						continue;
+					irregular++;
+				}
+		return irregular;
+	}
+	
+	private RuinedPortalSignals scanRuinedPortalSignals(RectangleAxis axis,
+		int planeCoord, int primary0, int primary1, int y0, int y1)
+	{
+		if(MC.level == null)
+			return new RuinedPortalSignals(false, false, false, false, 0, 0, 0);
+		
+		int netherrackCount = 0;
+		int netherrackUnder = 0;
+		int goldCount = 0;
+		int goldTopCapCount = 0;
+		boolean hasCrying = false;
+		boolean hasChest = false;
+		boolean hasMagma = false;
+		boolean hasLava = false;
+		for(int primary = primary0 - 1; primary <= primary1 + 1; primary++)
+			for(int y = y0 - 1; y <= y1 + 1; y++)
+				for(int planeOffset = -1; planeOffset <= 1; planeOffset++)
+				{
+					BlockPos pos =
+						axis.toPos(primary, y, planeCoord + planeOffset);
+					BlockState state = MC.level.getBlockState(pos);
+					Block block = state.getBlock();
+					
+					if(block == Blocks.CRYING_OBSIDIAN)
+						hasCrying = true;
+					
+					if(block instanceof ChestBlock)
+						hasChest = true;
+					
+					if(block == Blocks.MAGMA_BLOCK)
+						hasMagma = true;
+					
+					if(state.getFluidState().is(FluidTags.LAVA))
+						hasLava = true;
+					
+					if(block == Blocks.GOLD_BLOCK
+						|| block == Blocks.GILDED_BLACKSTONE)
+					{
+						goldCount++;
+						boolean onTopOfFrame = planeOffset == 0 && y >= y1 + 1
+							&& primary >= primary0 && primary <= primary1;
+						if(onTopOfFrame)
+							goldTopCapCount++;
+					}
+					
+					if(block == Blocks.NETHERRACK)
+					{
+						netherrackCount++;
+						if(y == y0 - 1 && planeOffset == 0
+							&& primary >= primary0 && primary <= primary1)
+							netherrackUnder++;
+					}
+				}
+			
+		int effectiveGoldCount = Math.max(0, goldCount - goldTopCapCount);
+		return new RuinedPortalSignals(hasCrying, hasChest, hasMagma, hasLava,
+			netherrackCount, netherrackUnder, effectiveGoldCount);
+	}
+	
+	private boolean isHardRuinedPortalReject(RuinedPortalSignals s)
+	{
+		if(excludeCryingObsidian.isChecked() && s.hasCrying())
+			return true;
+		if(excludeChests.isChecked() && s.hasChest())
+			return true;
+		if(excludeMagma.isChecked() && s.hasMagma())
+			return true;
+		if(excludeLava.isChecked() && s.hasLava())
+			return true;
+		if(excludeNetherrack.isChecked()
+			&& (s.netherrackUnder() >= 2 || s.netherrackCount() >= 18))
+			return true;
+		if(excludeGoldBlocks.isChecked() && s.effectiveGoldCount() > 0)
+		{
+			boolean ruinedContext = s.hasCrying() || s.hasChest()
+				|| s.hasMagma() || s.hasLava()
+				|| (excludeNetherrack.isChecked() && s.netherrackUnder() > 0);
+			if(ruinedContext)
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private int scoreRuinedPortalExclusion(RuinedPortalSignals s)
+	{
+		int score = 0;
+		
+		if(excludeCryingObsidian.isChecked() && s.hasCrying())
+			score -= 90;
+		
+		if(excludeChests.isChecked() && s.hasChest())
+			score -= 110;
+		
+		if(excludeMagma.isChecked() && s.hasMagma())
+			score -= 40;
+		
+		if(excludeLava.isChecked() && s.hasLava())
+			score -= 40;
+		
+		if(excludeNetherrack.isChecked())
+		{
+			score -= Math.min(s.netherrackCount(), 20);
+			score -= Math.min(s.netherrackUnder() * 3, 30);
+		}
+		
+		if(excludeGoldBlocks.isChecked() && s.effectiveGoldCount() > 0)
+		{
+			boolean ruinedContext = s.hasCrying() || s.hasChest()
+				|| s.hasMagma() || s.hasLava()
+				|| (excludeNetherrack.isChecked() && s.netherrackUnder() > 0);
+			if(ruinedContext)
+				score -= 24 + Math.min(8, s.effectiveGoldCount() * 2);
+			else
+				score -= Math.min(8, s.effectiveGoldCount());
+		}
+		
+		return score;
+	}
+	
+	private boolean isBrokenPortalSearchEnabled()
+	{
+		return brokenNetherPortal.isEnabled();
+	}
+	
+	private long computeBrokenPortalSettingsFingerprint()
+	{
+		long hash = 17;
+		hash = 31 * hash + (brokenNetherPortal.isEnabled() ? 1 : 0);
+		hash = 31 * hash + (brokenNetherPortalTracer.isChecked() ? 1 : 0);
+		hash = 31 * hash + brokenPortalMinConfidence.getValueI();
+		hash = 31 * hash + brokenPortalMaxInteriorSize.getValueI();
+		hash = 31 * hash + (allowCompleteUnlitPortals.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeCryingObsidian.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeChests.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeMagma.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeLava.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeNetherrack.isChecked() ? 1 : 0);
+		hash = 31 * hash + (excludeGoldBlocks.isChecked() ? 1 : 0);
+		return hash;
+	}
+	
 	private ArrayList<DiscoveryHit> buildDiscoveries(
 		Map<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup)
 	{
@@ -733,6 +1481,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			return "End portal frame";
 		if(group == endGateway)
 			return "End gateway";
+		if(group == brokenNetherPortal)
+			return "Broken nether portal";
 		return "Portal";
 	}
 	
@@ -824,7 +1574,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private boolean usesStructureCenter(PortalEspBlockGroup group)
 	{
 		return group == netherPortal || group == endPortalFrame
-			|| group == endPortal;
+			|| group == endPortal || group == brokenNetherPortal;
 	}
 	
 	private List<Vec3> getStructureCenters(List<BlockPos> positions)
@@ -869,6 +1619,38 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 		
 		return centers;
+	}
+	
+	private record BrokenPortalCandidate(int score,
+		HashSet<BlockPos> detectedFrame, RectangleAxis axis, int planeCoord,
+		int primary0, int primary1, int y0, int y1)
+	{}
+	
+	private record RuinedPortalSignals(boolean hasCrying, boolean hasChest,
+		boolean hasMagma, boolean hasLava, int netherrackCount,
+		int netherrackUnder, int effectiveGoldCount)
+	{}
+	
+	private enum RectangleAxis
+	{
+		X
+		{
+			@Override
+			BlockPos toPos(int primary, int y, int plane)
+			{
+				return new BlockPos(primary, y, plane);
+			}
+		},
+		Z
+		{
+			@Override
+			BlockPos toPos(int primary, int y, int plane)
+			{
+				return new BlockPos(plane, y, primary);
+			}
+		};
+		
+		abstract BlockPos toPos(int primary, int y, int plane);
 	}
 	
 	private record DiscoveryHit(String label, Vec3 pos)
