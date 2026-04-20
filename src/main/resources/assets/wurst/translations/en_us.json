@@ -66,6 +66,7 @@
   "description.wurst.hack.barrieresp": "Allows you to see nearby barrier blocks.",
   "description.wurst.hack.basefinder": "Finds player bases by searching for man-made blocks.\nThe blocks that it finds will be highlighted in the selected color.\nGood for finding faction bases.",
   "description.wurst.hack.beaconexploit": "Intercepts beacon packets and spoofs your chosen primary and secondary effects so you can request buffs like Regen II even without upgrading the beacon properly.",
+  "description.wurst.hack.bedbreakaura": "Automatically finds and breaks nearby beds through walls, optionally switching to your best tool and switching back afterward.",
   "description.wurst.hack.bedesp": "Highlights nearby beds",
   "description.wurst.hack.bedrockescape": "Lets you teleport through bedrock when looking straight up or down. Shows a safe-tick indicator and can break blocks below bedrock while sneaking.",
   "description.wurst.hack.bedrockstash": "Highlights enclosed bedrock pockets and stash spaces near your current bedrock layer, with separate colors for air and breakable interiors.",

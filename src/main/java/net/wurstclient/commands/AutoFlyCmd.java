@@ -9,7 +9,6 @@ package net.wurstclient.commands;
 
 import net.minecraft.core.BlockPos;
 import net.wurstclient.command.CmdError;
-import net.wurstclient.command.CmdError;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
@@ -20,7 +19,9 @@ public final class AutoFlyCmd extends Command
 {
 	public AutoFlyCmd()
 	{
-		super("autofly", "Fly to a waypoint using AutoFly.",
+		super("autofly",
+			"Fly to a waypoint, straight ahead, or follow NewerNewChunks trails.",
+			".autofly", ".autofly chunk",
 			".autofly <x> <y> <z> [height] [speed]",
 			".autofly <x> <z> [height] [speed]");
 	}
@@ -31,9 +32,24 @@ public final class AutoFlyCmd extends Command
 		if(MC.player == null)
 			throw new CmdError("Join a world before using .autofly.");
 		String[] normalized = normalizeArgs(args);
+		if(normalized.length == 0)
+		{
+			ChatUtils.message(
+				"AutoFly command target: forward from your current facing direction");
+			WURST.getHax().autoFlyHack.setWaypointRouteFromCommand();
+			WURST.getHax().autoFlyHack.setForwardFromCommand(null, null);
+			return;
+		}
 		if(normalized.length == 1)
 		{
 			String cmd = normalized[0];
+			if(cmd.equalsIgnoreCase("chunk") || cmd.equalsIgnoreCase("chunks"))
+			{
+				ensureChunkTrailAvailable();
+				WURST.getHax().autoFlyHack.setChunkTrailFromCommand();
+				return;
+			}
+			
 			if(cmd.equalsIgnoreCase("next"))
 			{
 				ensureAutoFlyEnabled();
@@ -79,6 +95,7 @@ public final class AutoFlyCmd extends Command
 		ChatUtils.message(String.format(java.util.Locale.ROOT,
 			"AutoFly command target: %d, %d, %d%s", pos.getX(), pos.getY(),
 			pos.getZ(), hasY ? " (with Y)" : " (no Y)"));
+		WURST.getHax().autoFlyHack.setWaypointRouteFromCommand();
 		WURST.getHax().autoFlyHack.setTargetFromCommand(pos, hasY, height,
 			speed);
 	}
@@ -141,5 +158,14 @@ public final class AutoFlyCmd extends Command
 	{
 		if(!WURST.getHax().autoFlyHack.isEnabled())
 			throw new CmdError("AutoFly must be enabled to cycle waypoints.");
+	}
+	
+	private void ensureChunkTrailAvailable() throws CmdError
+	{
+		if(MC.level == null)
+			throw new CmdError("Join a world before using .autofly chunk.");
+		if(WURST.getHax().newerNewChunksHack.getOldChunks().isEmpty())
+			throw new CmdError(
+				"No NewerNewChunks trail loaded. Enable NewerNewChunks or Mapa's 'Show newer new chunks' first.");
 	}
 }

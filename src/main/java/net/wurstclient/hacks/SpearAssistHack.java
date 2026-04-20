@@ -350,9 +350,9 @@ public final class SpearAssistHack extends Hack
 		
 		updateHighlights(holdingSpear);
 		updateHighlightMode();
-		updateAimAssist(charging, holdingSpear);
 		updateAimAssistRangeOverride(holdingSpear);
 		updateAimAssistLockOnOverride(holdingSpear);
+		updateAimAssist(charging, holdingSpear);
 		updateAutoAlignment(charging, holdingSpear);
 		handleAutoAttack(holdingSpear, attackHeld);
 	}
@@ -716,7 +716,7 @@ public final class SpearAssistHack extends Hack
 		
 		boolean shouldEnable = switch(aimAssistMode.getSelected())
 		{
-			case OFF -> false;
+			case OFF -> holdingSpear;
 			case WHILE_HOLDING_SPEAR -> holdingSpear;
 			case WHILE_CHARGING -> charging;
 		};
@@ -774,6 +774,20 @@ public final class SpearAssistHack extends Hack
 	{
 		return getAutoAlignmentStepInternal(null, null,
 			WURST.getHax().flightHack.verticalSpeed.getValue());
+	}
+	
+	public Double getAimAssistRangeOverride()
+	{
+		if(!isEnabled() || MC.player == null)
+			return null;
+		
+		if(assistMode.getSelected() == AssistMode.SPEARKILL)
+			return null;
+		
+		if(!isSpear(MC.player.getMainHandItem()))
+			return null;
+		
+		return aimAssistRangeOverride.getValue();
 	}
 	
 	private Double getAutoAlignmentStepInternal(Boolean chargingOverride,
