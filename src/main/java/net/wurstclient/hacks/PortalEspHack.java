@@ -807,6 +807,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			HashSet<Integer> xPlanes = new HashSet<>();
 			HashSet<Integer> zPlanes = new HashSet<>();
 			HashSet<BlockPos> componentSet = new HashSet<>(component);
+			if(componentTouchesActivePortal(componentSet))
+				continue;
 			for(BlockPos pos : component)
 			{
 				xPlanes.add(pos.getX());
@@ -863,6 +865,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			accepted.addAll(candidate.detectedFrame());
 			accepted.addAll(getBaseRowExtensions(candidate, nearbyObsidian));
 		}
+		rejectActivePortalComponents(accepted);
 		
 		return candidates.stream().filter(accepted::contains)
 			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
@@ -971,13 +974,17 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 					int support =
 						countSupportEvidence(obsidian, axis, planeCoord,
 							minPrimary, maxPrimary, minY, maxY, detected);
+					if(hasActiveNetherPortal(axis, planeCoord, minPrimary,
+						maxPrimary, minY, maxY))
+						continue;
 					
 					int score = 4 + horizontalLen * 5 + verticalLen * 6
 						+ Math.min(support * 3, 24);
 					if(horizontalLen >= 3 && verticalLen >= 4)
 						score += 8;
-					RuinedPortalSignals ruinedSignals = scanRuinedPortalSignals(
-						axis, planeCoord, minPrimary, maxPrimary, minY, maxY);
+					RuinedPortalSignals ruinedSignals =
+						scanRuinedPortalSignals(obsidian, axis, planeCoord,
+							minPrimary, maxPrimary, minY, maxY);
 					if(isHardRuinedPortalReject(ruinedSignals))
 						continue;
 					
@@ -1047,6 +1054,78 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 					}
 				}
 		return support;
+	}
+	
+	private boolean componentTouchesActivePortal(Set<BlockPos> component)
+	{
+		if(MC.level == null || component.isEmpty())
+			return false;
+		
+		for(BlockPos pos : component)
+			for(Direction dir : Direction.values())
+				if(MC.level.getBlockState(pos.relative(dir))
+					.getBlock() == Blocks.NETHER_PORTAL)
+					return true;
+				
+		return false;
+	}
+	
+	private void rejectActivePortalComponents(Set<BlockPos> accepted)
+	{
+		if(accepted.isEmpty())
+			return;
+		
+		HashSet<BlockPos> remaining = new HashSet<>(accepted);
+		HashSet<BlockPos> toRemove = new HashSet<>();
+		
+		while(!remaining.isEmpty())
+		{
+			BlockPos start = remaining.iterator().next();
+			remaining.remove(start);
+			
+			ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+			queue.add(start);
+			HashSet<BlockPos> component = new HashSet<>();
+			component.add(start);
+			
+			while(!queue.isEmpty())
+			{
+				BlockPos current = queue.removeFirst();
+				for(Direction dir : Direction.values())
+				{
+					BlockPos neighbor = current.relative(dir);
+					if(remaining.remove(neighbor))
+					{
+						component.add(neighbor);
+						queue.addLast(neighbor);
+					}
+				}
+			}
+			
+			if(componentTouchesActivePortal(component))
+				toRemove.addAll(component);
+		}
+		
+		if(!toRemove.isEmpty())
+			accepted.removeAll(toRemove);
+	}
+	
+	private boolean hasActiveNetherPortal(RectangleAxis axis, int planeCoord,
+		int minPrimary, int maxPrimary, int minY, int maxY)
+	{
+		if(MC.level == null)
+			return false;
+		
+		for(int primary = minPrimary; primary <= maxPrimary; primary++)
+			for(int y = minY; y <= maxY; y++)
+			{
+				BlockPos pos = axis.toPos(primary, y, planeCoord);
+				if(MC.level.getBlockState(pos)
+					.getBlock() == Blocks.NETHER_PORTAL)
+					return true;
+			}
+		
+		return false;
 	}
 	
 	private BrokenPortalCandidate scoreBrokenPortalRectangle(
@@ -1175,8 +1254,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			primary0, primary1, y0, y1, nonCornerBorder, corners);
 		score -= Math.min(irregularObs * 3, 36);
 		
-		RuinedPortalSignals ruinedSignals = scanRuinedPortalSignals(axis,
-			planeCoord, primary0, primary1, y0, y1);
+		RuinedPortalSignals ruinedSignals = scanRuinedPortalSignals(obsidian,
+			axis, planeCoord, primary0, primary1, y0, y1);
 		if(isHardRuinedPortalReject(ruinedSignals))
 			return null;
 		score += scoreRuinedPortalExclusion(ruinedSignals);
@@ -1263,49 +1342,50 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		return irregular;
 	}
 	
-	private RuinedPortalSignals scanRuinedPortalSignals(RectangleAxis axis,
-		int planeCoord, int primary0, int primary1, int y0, int y1)
+	private RuinedPortalSignals scanRuinedPortalSignals(Set<BlockPos> obsidian,
+		RectangleAxis axis, int planeCoord, int primary0, int primary1, int y0,
+		int y1)
 	{
-		if(MC.level == null)
+		if(MC.level == null || obsidian == null || obsidian.isEmpty())
 			return new RuinedPortalSignals(false, false, false, false, 0, 0, 0);
 		
 		int netherrackCount = 0;
 		int netherrackUnder = 0;
 		int goldCount = 0;
-		int goldTopCapCount = 0;
 		boolean hasCrying = false;
 		boolean hasChest = false;
 		boolean hasMagma = false;
 		boolean hasLava = false;
-		for(int primary = primary0 - 1; primary <= primary1 + 1; primary++)
-			for(int y = y0 - 1; y <= y1 + 1; y++)
-				for(int planeOffset = -1; planeOffset <= 1; planeOffset++)
+		for(int primary = primary0 - 2; primary <= primary1 + 2; primary++)
+			for(int y = y0 - 8; y <= y1 + 3; y++)
+				for(int planeOffset = -2; planeOffset <= 2; planeOffset++)
 				{
 					BlockPos pos =
 						axis.toPos(primary, y, planeCoord + planeOffset);
 					BlockState state = MC.level.getBlockState(pos);
 					Block block = state.getBlock();
 					
-					if(block == Blocks.CRYING_OBSIDIAN)
+					if(block == Blocks.CRYING_OBSIDIAN
+						&& isNearObsidianEvidence(obsidian, pos, 2, 3))
 						hasCrying = true;
 					
-					if(block instanceof ChestBlock)
+					if(block instanceof ChestBlock && isChestRuinedPortalSignal(
+						axis, planeCoord, primary0, primary1, y0, y1, pos))
 						hasChest = true;
 					
-					if(block == Blocks.MAGMA_BLOCK)
+					if(block == Blocks.MAGMA_BLOCK
+						&& isNearObsidianEvidence(obsidian, pos, 2, 2))
 						hasMagma = true;
 					
-					if(state.getFluidState().is(FluidTags.LAVA))
+					if(state.getFluidState().is(FluidTags.LAVA)
+						&& isNearObsidianEvidence(obsidian, pos, 2, 2))
 						hasLava = true;
 					
 					if(block == Blocks.GOLD_BLOCK
 						|| block == Blocks.GILDED_BLACKSTONE)
 					{
-						goldCount++;
-						boolean onTopOfFrame = planeOffset == 0 && y >= y1 + 1
-							&& primary >= primary0 && primary <= primary1;
-						if(onTopOfFrame)
-							goldTopCapCount++;
+						if(isNearObsidianEvidence(obsidian, pos, 3, 4))
+							goldCount++;
 					}
 					
 					if(block == Blocks.NETHERRACK)
@@ -1317,9 +1397,47 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 					}
 				}
 			
-		int effectiveGoldCount = Math.max(0, goldCount - goldTopCapCount);
 		return new RuinedPortalSignals(hasCrying, hasChest, hasMagma, hasLava,
-			netherrackCount, netherrackUnder, effectiveGoldCount);
+			netherrackCount, netherrackUnder, goldCount);
+	}
+	
+	private boolean isNearObsidianEvidence(Set<BlockPos> obsidian, BlockPos pos,
+		int horizontalRadius, int verticalRadius)
+	{
+		for(BlockPos framePos : obsidian)
+		{
+			if(Math.abs(framePos.getY() - pos.getY()) > verticalRadius)
+				continue;
+			if(Math.abs(framePos.getX() - pos.getX()) > horizontalRadius)
+				continue;
+			if(Math.abs(framePos.getZ() - pos.getZ()) > horizontalRadius)
+				continue;
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isChestRuinedPortalSignal(RectangleAxis axis,
+		int planeCoord, int primary0, int primary1, int y0, int y1,
+		BlockPos chestPos)
+	{
+		int chestPrimary =
+			axis == RectangleAxis.X ? chestPos.getX() : chestPos.getZ();
+		int chestNormal =
+			axis == RectangleAxis.X ? chestPos.getZ() : chestPos.getX();
+		int normalDistance = Math.abs(chestNormal - planeCoord);
+		
+		// Ruined portal chests are typically in front/behind the frame.
+		if(normalDistance < 1 || normalDistance > 4)
+			return false;
+		
+		// Exclude chests clearly to the side of the frame span.
+		if(chestPrimary < primary0 - 1 || chestPrimary > primary1 + 1)
+			return false;
+		
+		// Allow a small vertical band around the frame base/height.
+		return chestPos.getY() >= y0 - 4 && chestPos.getY() <= y1 + 2;
 	}
 	
 	private boolean isHardRuinedPortalReject(RuinedPortalSignals s)
@@ -1568,7 +1686,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		if(!usesStructureCenter(group))
 			return group.getBoxes().stream().map(AABB::getCenter).toList();
 		
-		return getStructureCenters(group.getPositions());
+		List<Vec3> centers = getStructureCenters(group.getPositions());
+		if(group == brokenNetherPortal)
+			return mergeNearbyTracerTargets(centers, 6.0);
+		return centers;
 	}
 	
 	private boolean usesStructureCenter(PortalEspBlockGroup group)
@@ -1619,6 +1740,61 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		}
 		
 		return centers;
+	}
+	
+	private List<Vec3> mergeNearbyTracerTargets(List<Vec3> centers,
+		double maxDistance)
+	{
+		if(centers.isEmpty())
+			return List.of();
+		
+		double maxDistanceSq = maxDistance * maxDistance;
+		ArrayList<Vec3> merged = new ArrayList<>();
+		HashSet<Integer> remaining = new HashSet<>();
+		for(int i = 0; i < centers.size(); i++)
+			remaining.add(i);
+		
+		while(!remaining.isEmpty())
+		{
+			int start = remaining.iterator().next();
+			remaining.remove(start);
+			
+			ArrayDeque<Integer> queue = new ArrayDeque<>();
+			queue.add(start);
+			int count = 0;
+			double sumX = 0;
+			double sumY = 0;
+			double sumZ = 0;
+			
+			while(!queue.isEmpty())
+			{
+				int current = queue.removeFirst();
+				Vec3 v = centers.get(current);
+				count++;
+				sumX += v.x;
+				sumY += v.y;
+				sumZ += v.z;
+				
+				ArrayList<Integer> toConnect = new ArrayList<>();
+				for(int idx : remaining)
+				{
+					Vec3 other = centers.get(idx);
+					if(v.distanceToSqr(other) <= maxDistanceSq)
+						toConnect.add(idx);
+				}
+				
+				for(int idx : toConnect)
+				{
+					remaining.remove(idx);
+					queue.addLast(idx);
+				}
+			}
+			
+			if(count > 0)
+				merged.add(new Vec3(sumX / count, sumY / count, sumZ / count));
+		}
+		
+		return merged;
 	}
 	
 	private record BrokenPortalCandidate(int score,
