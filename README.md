@@ -6,11 +6,12 @@
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Original Wurst Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Wurst 7 CevAPI Wiki: https://github.com/cev-api/Wurst7-CevAPI/wiki
+- CevAPI Discord: https://discord.gg/5fddQNST84
 
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
-I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11) but I only update and maintain the latest; [26.1.1.](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11) but I only update and maintain the latest; [26.1.x.](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus)
 

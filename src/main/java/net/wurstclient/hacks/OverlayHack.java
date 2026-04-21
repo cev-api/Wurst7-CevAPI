@@ -45,7 +45,7 @@ public final class OverlayHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(MC.gameMode.isDestroying())
+		if(shouldRenderOverlay())
 			renderer.updateProgress();
 		else
 			renderer.resetProgress();
@@ -54,7 +54,7 @@ public final class OverlayHack extends Hack
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		if(!MC.gameMode.isDestroying())
+		if(!shouldRenderOverlay())
 			return;
 		
 		if(!(MC.hitResult instanceof BlockHitResult blockHitResult)
@@ -63,5 +63,20 @@ public final class OverlayHack extends Hack
 		
 		renderer.render(matrixStack, partialTicks,
 			blockHitResult.getBlockPos());
+	}
+	
+	private boolean shouldRenderOverlay()
+	{
+		if(MC.gameMode == null || MC.player == null)
+			return false;
+		
+		if(MC.gameMode.isDestroying())
+			return true;
+		
+		// Fallback for hacks/modes that bypass vanilla destroy state.
+		return MC.options.keyAttack.isDown()
+			&& MC.hitResult instanceof BlockHitResult blockHitResult
+			&& blockHitResult.getType() == HitResult.Type.BLOCK
+			&& MC.screen == null;
 	}
 }
