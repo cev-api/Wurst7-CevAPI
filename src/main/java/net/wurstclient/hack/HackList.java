@@ -247,6 +247,7 @@ public final class HackList implements UpdateListener
 	public final SeedMapperHelperHack seedMapperHelperHack =
 		new SeedMapperHelperHack();
 	public final SignEspHack signEspHack = new SignEspHack();
+	public final ShieldSwingHack shieldSwingHack = new ShieldSwingHack();
 	public final WorkstationEspHack workstationEspHack =
 		new WorkstationEspHack();
 	public final RedstoneEspHack redstoneEspHack = new RedstoneEspHack();

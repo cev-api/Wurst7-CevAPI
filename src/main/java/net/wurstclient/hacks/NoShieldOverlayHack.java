@@ -35,13 +35,23 @@ public final class NoShieldOverlayHack extends Hack
 	
 	public void adjustShieldPosition(PoseStack matrixStack, boolean blocking)
 	{
-		if(!isEnabled())
+		if(!shouldAdjustShieldPosition())
 			return;
 		
 		if(blocking)
 			matrixStack.translate(0, -blockingOffset.getValue(), 0);
 		else
 			matrixStack.translate(0, -nonBlockingOffset.getValue(), 0);
+	}
+	
+	private boolean shouldAdjustShieldPosition()
+	{
+		if(isEnabled())
+			return true;
+		
+		ShieldSwingHack shieldSwingHack = WURST.getHax().shieldSwingHack;
+		return shieldSwingHack != null
+			&& shieldSwingHack.shouldUseNoShieldOverlay();
 	}
 	
 	// See ItemInHandRendererMixin
