@@ -302,6 +302,8 @@
   "description.wurst.hack.search": "Helps you to find specific blocks by highlighting them in rainbow or fixed color. Use the Query input to search for partial keywords or create your own list of blocks to highlight.",
   "description.wurst.hack.seedmapperhelper": "Builds and runs SeedMapper sm:* commands from a button-based interface whenever the SeedMapper mod is installed, including highlight, locate, sample, and source helpers.",
   "description.wurst.hack.signesp": "Highlights nearby signs",
+  "hack.wurst.shieldswing": "ShieldSwing",
+  "description.wurst.hack.shieldswing": "Lets you attack entities while actively blocking with a shield.",
   "description.wurst.hack.signframept": "Right-clicking item frames (with items in them) or signs forwards the interaction to the block behind them. Use the hack settings to enable Frames, Signs, or both. Hold sneak to interact with the frame or sign normally.",
   "hack.wurst.silkonly": "SilkOnly",
   "description.wurst.hack.silkonly": "Prevents you from breaking selected blocks unless your held tool has Silk Touch.",

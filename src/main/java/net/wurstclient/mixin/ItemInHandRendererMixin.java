@@ -24,24 +24,25 @@ import net.wurstclient.WurstClient;
 public abstract class ItemInHandRendererMixin
 {
 	/**
-	 * This mixin is injected into the `BLOCK` case of the `item.getUseAction()`
-	 * switch.
+	 * Apply blocking offset from a guaranteed entry point. Some game versions
+	 * change internal call order/ordinals for the BLOCK branch.
 	 */
 	@Inject(
 		method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/renderer/ItemInHandRenderer;applyItemArmTransform(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/world/entity/HumanoidArm;F)V",
-			ordinal = 3))
+		at = @At("HEAD"))
 	private void onApplyEquipOffsetBlocking(AbstractClientPlayer player,
 		float tickProgress, float pitch, InteractionHand hand,
 		float swingProgress, ItemStack item, float equipProgress,
 		PoseStack matrices, SubmitNodeCollector entityRenderCommandQueue,
 		int light, CallbackInfo ci)
 	{
-		// lower shield when blocking
+		boolean blocking = player.isUsingItem()
+			&& player.getUseItem().getItem() == Items.SHIELD;
+		
+		// lower shield using the live blocking state
 		if(item.getItem() == Items.SHIELD)
 			WurstClient.INSTANCE.getHax().noShieldOverlayHack
-				.adjustShieldPosition(matrices, true);
+				.adjustShieldPosition(matrices, blocking);
 	}
 	
 	/**
@@ -59,9 +60,15 @@ public abstract class ItemInHandRendererMixin
 		PoseStack matrices, SubmitNodeCollector entityRenderCommandQueue,
 		int light, CallbackInfo ci)
 	{
-		// lower shield when not blocking
+		// Keep non-blocking adjustment near the original vanilla swing
+		// transform.
 		if(item.getItem() == Items.SHIELD)
-			WurstClient.INSTANCE.getHax().noShieldOverlayHack
-				.adjustShieldPosition(matrices, false);
+		{
+			boolean blocking = player.isUsingItem()
+				&& player.getUseItem().getItem() == Items.SHIELD;
+			if(!blocking)
+				WurstClient.INSTANCE.getHax().noShieldOverlayHack
+					.adjustShieldPosition(matrices, false);
+		}
 	}
 }

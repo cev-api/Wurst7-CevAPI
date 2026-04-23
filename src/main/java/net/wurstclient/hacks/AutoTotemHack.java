@@ -20,6 +20,7 @@ import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"auto totem", "offhand", "off-hand"})
@@ -42,6 +43,7 @@ public final class AutoTotemHack extends Hack implements UpdateListener
 	private int totems;
 	private int timer;
 	private boolean wasTotemInOffhand;
+	private boolean shieldSwingWasEnabledBeforeAutoTotem;
 	
 	public AutoTotemHack()
 	{
@@ -67,6 +69,17 @@ public final class AutoTotemHack extends Hack implements UpdateListener
 	@Override
 	protected void onEnable()
 	{
+		if(WURST.getHax().shieldSwingHack.isEnabled())
+		{
+			shieldSwingWasEnabledBeforeAutoTotem = true;
+			WURST.getHax().shieldSwingHack.setEnabled(false);
+			ChatUtils
+				.warning("ShieldSwing disabled because AutoTotem is enabled.");
+		}else
+		{
+			shieldSwingWasEnabledBeforeAutoTotem = false;
+		}
+		
 		nextTickSlot = -1;
 		totems = 0;
 		timer = 0;
@@ -78,6 +91,14 @@ public final class AutoTotemHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		
+		if(shieldSwingWasEnabledBeforeAutoTotem
+			&& !WURST.getHax().shieldSwingHack.isEnabled())
+		{
+			shieldSwingWasEnabledBeforeAutoTotem = false;
+			WURST.getHax().shieldSwingHack.setEnabled(true);
+			ChatUtils.message("ShieldSwing restored.");
+		}
 	}
 	
 	@Override
