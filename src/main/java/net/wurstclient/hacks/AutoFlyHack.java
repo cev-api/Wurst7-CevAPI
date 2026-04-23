@@ -855,16 +855,12 @@ public final class AutoFlyHack extends Hack
 			
 			case OLD_CHUNKS ->
 			{
-				return checkStopOnChunkSet(
-					WURST.getHax().newerNewChunksHack.getOldChunks(),
-					"old chunk");
+				return checkStopOnChunkType(true, "old chunk");
 			}
 			
 			case NEW_CHUNKS ->
 			{
-				return checkStopOnChunkSet(
-					WURST.getHax().newerNewChunksHack.getNewChunks(),
-					"new chunk");
+				return checkStopOnChunkType(false, "new chunk");
 			}
 			
 			case END_PORTAL ->
@@ -958,17 +954,16 @@ public final class AutoFlyHack extends Hack
 		return true;
 	}
 	
-	private boolean checkStopOnChunkSet(java.util.Set<ChunkPos> chunks,
-		String stopName)
+	private boolean checkStopOnChunkType(boolean oldChunks, String stopName)
 	{
 		if(MC.player == null || MC.level == null)
 			return false;
 		
-		if(chunks == null || chunks.isEmpty())
-			return false;
-		
 		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
-		if(!chunks.contains(playerChunk))
+		boolean containsChunk = oldChunks
+			? WURST.getHax().newerNewChunksHack.isOldChunk(playerChunk)
+			: WURST.getHax().newerNewChunksHack.isNewChunk(playerChunk);
+		if(!containsChunk)
 			return false;
 		
 		stopAutoFly("Stopped: Reached " + stopName);
@@ -1878,7 +1873,7 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		var trail = WURST.getHax().newerNewChunksHack.getOldChunks();
+		var trail = WURST.getHax().newerNewChunksHack.getOldChunksLiveView();
 		if(trail.isEmpty())
 			return;
 		

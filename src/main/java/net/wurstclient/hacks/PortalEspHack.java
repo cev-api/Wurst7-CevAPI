@@ -103,6 +103,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private final CheckboxSetting brokenNetherPortalTracer =
 		new CheckboxSetting("Broken portal tracer",
 			"Draw tracers to detected broken nether portal frames.", true);
+	private final CheckboxSetting brokenPortalsNetherOnly =
+		new CheckboxSetting("Broken portals in Nether only",
+			"Only detect broken nether portals while in the Nether dimension.",
+			false);
 	private final SliderSetting brokenPortalMinConfidence =
 		new SliderSetting("Broken portal min confidence",
 			"Only render candidates with score at or above this value.", 35, 0,
@@ -193,6 +197,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private int lastMatchesVersion;
 	private long lastBrokenPortalSettingsFingerprint = Long.MIN_VALUE;
 	private final HashSet<BlockPos> discoveredPositions = new HashSet<>();
+	private final HashSet<BlockPos> brokenPortalAcceptedCache = new HashSet<>();
+	private long lastBrokenPortalRecomputeMs;
+	private static final long BROKEN_PORTAL_RECOMPUTE_COOLDOWN_MS = 500L;
+	private static final int BROKEN_PORTAL_SCAN_CANDIDATE_CAP = 500;
 	
 	public PortalEspHack()
 	{
@@ -211,6 +219,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(discoveryChat);
 		addSetting(ignoreUndersizedPortals);
 		addSetting(brokenNetherPortalTracer);
+		addSetting(brokenPortalsNetherOnly);
 		addSetting(brokenPortalMinConfidence);
 		addSetting(brokenPortalMaxInteriorSize);
 		addSetting(allowCompleteUnlitPortals);
@@ -235,6 +244,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		discoveredPositions.clear();
+		resetBrokenPortalCache();
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
@@ -259,6 +269,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(PortalEspBlockGroup::clear);
 		discoveredPositions.clear();
+		resetBrokenPortalCache();
 	}
 	
 	@Override
@@ -277,6 +288,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		if(brokenSettingsFingerprint != lastBrokenPortalSettingsFingerprint)
 		{
 			lastBrokenPortalSettingsFingerprint = brokenSettingsFingerprint;
+			resetBrokenPortalCache();
 			groupsUpToDate = false;
 		}
 		
@@ -285,6 +297,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		{
 			lastAreaSelection = currentArea;
 			coordinator.reset();
+			resetBrokenPortalCache();
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
@@ -309,6 +322,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
 			: coordinator.isDone()))
 			updateGroupBoxes();
+		
+		if(!isBrokenPortalSearchEnabled()
+			&& !brokenPortalAcceptedCache.isEmpty())
+			resetBrokenPortalCache();
 	}
 	
 	@Override
@@ -528,6 +545,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private boolean isInEndDimension()
 	{
 		return MC.level != null && MC.level.dimension() == Level.END;
+	}
+	
+	private boolean isInNetherDimension()
+	{
+		return MC.level != null && MC.level.dimension() == Level.NETHER;
 	}
 	
 	private ArrayList<BlockPos> filterValidNetherPortalBlocks(
@@ -755,6 +777,38 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private ArrayList<BlockPos> filterBrokenNetherPortalFrames(
 		List<BlockPos> candidates)
 	{
+		if(candidates.isEmpty())
+			return new ArrayList<>();
+		
+		long now = System.currentTimeMillis();
+		boolean shouldRecompute = brokenPortalAcceptedCache.isEmpty() || now
+			- lastBrokenPortalRecomputeMs >= BROKEN_PORTAL_RECOMPUTE_COOLDOWN_MS;
+		
+		if(shouldRecompute)
+		{
+			List<BlockPos> sampled = candidates;
+			if(candidates.size() > BROKEN_PORTAL_SCAN_CANDIDATE_CAP)
+			{
+				Vec3 eyesPos = RotationUtils.getEyesPos();
+				sampled = EspLimitUtils.collectNearest(candidates,
+					BROKEN_PORTAL_SCAN_CANDIDATE_CAP,
+					p -> p.distToCenterSqr(eyesPos), p -> true);
+			}
+			
+			ArrayList<BlockPos> fresh =
+				filterBrokenNetherPortalFramesRaw(sampled);
+			brokenPortalAcceptedCache.clear();
+			brokenPortalAcceptedCache.addAll(fresh);
+			lastBrokenPortalRecomputeMs = now;
+		}
+		
+		return candidates.stream().filter(brokenPortalAcceptedCache::contains)
+			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+	}
+	
+	private ArrayList<BlockPos> filterBrokenNetherPortalFramesRaw(
+		List<BlockPos> candidates)
+	{
 		if(candidates.isEmpty() || MC.level == null)
 			return new ArrayList<>();
 		HashSet<BlockPos> nearbyObsidian = new HashSet<>(candidates);
@@ -877,6 +931,12 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			.collect(java.util.stream.Collectors.toCollection(ArrayList::new));
 	}
 	
+	private void resetBrokenPortalCache()
+	{
+		brokenPortalAcceptedCache.clear();
+		lastBrokenPortalRecomputeMs = 0L;
+	}
+	
 	private void scoreRectanglesInPlane(ArrayList<BrokenPortalCandidate> scored,
 		Set<BlockPos> obsidian, int minScore, int maxOuter, RectangleAxis axis,
 		int planeCoord, int minPrimary, int maxPrimary, int minY, int maxY)
@@ -938,14 +998,14 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			{
 				int horizontalLen = contiguousLength(plane, axis, planeCoord,
 					cornerPrimary, cornerY, horizontalDir);
-				if(horizontalLen < 2)
+				if(horizontalLen < 3)
 					continue;
 				
 				for(int verticalDir : new int[]{-1, 1})
 				{
 					int verticalLen = contiguousVerticalLength(plane, axis,
 						planeCoord, cornerPrimary, cornerY, verticalDir);
-					if(verticalLen < 2)
+					if(verticalLen < 3)
 						continue;
 					
 					HashSet<BlockPos> detected = new HashSet<>();
@@ -976,10 +1036,20 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 						minY = Math.min(minY, pos.getY());
 						maxY = Math.max(maxY, pos.getY());
 					}
+					int spanWidth = maxPrimary - minPrimary + 1;
+					int spanHeight = maxY - minY + 1;
+					if(spanWidth < 3 || spanHeight < 3)
+						continue;
+					
+					// Very small L-shapes are usually random obsidian noise.
+					if(horizontalLen < 4 && verticalLen < 4)
+						continue;
 					
 					int support =
 						countSupportEvidence(obsidian, axis, planeCoord,
 							minPrimary, maxPrimary, minY, maxY, detected);
+					if(support < 2)
+						continue;
 					if(hasActiveNetherPortal(axis, planeCoord, minPrimary,
 						maxPrimary, minY, maxY))
 						continue;
@@ -1355,6 +1425,33 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		if(MC.level == null || obsidian == null || obsidian.isEmpty())
 			return new RuinedPortalSignals(false, false, false, false, 0, 0, 0);
 		
+		int obsMinPrimary = Integer.MAX_VALUE;
+		int obsMaxPrimary = Integer.MIN_VALUE;
+		int obsMinY = Integer.MAX_VALUE;
+		int obsMaxY = Integer.MIN_VALUE;
+		int obsMinPlane = Integer.MAX_VALUE;
+		int obsMaxPlane = Integer.MIN_VALUE;
+		for(BlockPos framePos : obsidian)
+		{
+			int primary =
+				axis == RectangleAxis.X ? framePos.getX() : framePos.getZ();
+			int plane =
+				axis == RectangleAxis.X ? framePos.getZ() : framePos.getX();
+			obsMinPrimary = Math.min(obsMinPrimary, primary);
+			obsMaxPrimary = Math.max(obsMaxPrimary, primary);
+			obsMinY = Math.min(obsMinY, framePos.getY());
+			obsMaxY = Math.max(obsMaxY, framePos.getY());
+			obsMinPlane = Math.min(obsMinPlane, plane);
+			obsMaxPlane = Math.max(obsMaxPlane, plane);
+		}
+		
+		int primaryStart = Math.min(primary0 - 2, obsMinPrimary - 3);
+		int primaryEnd = Math.max(primary1 + 2, obsMaxPrimary + 3);
+		int yStart = Math.min(y0 - 8, obsMinY - 5);
+		int yEnd = Math.max(y1 + 3, obsMaxY + 4);
+		int planeStart = Math.min(planeCoord - 2, obsMinPlane - 3);
+		int planeEnd = Math.max(planeCoord + 2, obsMaxPlane + 3);
+		
 		int netherrackCount = 0;
 		int netherrackUnder = 0;
 		int goldCount = 0;
@@ -1362,12 +1459,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		boolean hasChest = false;
 		boolean hasMagma = false;
 		boolean hasLava = false;
-		for(int primary = primary0 - 2; primary <= primary1 + 2; primary++)
-			for(int y = y0 - 8; y <= y1 + 3; y++)
-				for(int planeOffset = -2; planeOffset <= 2; planeOffset++)
+		for(int primary = primaryStart; primary <= primaryEnd; primary++)
+			for(int y = yStart; y <= yEnd; y++)
+				for(int plane = planeStart; plane <= planeEnd; plane++)
 				{
-					BlockPos pos =
-						axis.toPos(primary, y, planeCoord + planeOffset);
+					BlockPos pos = axis.toPos(primary, y, plane);
 					BlockState state = MC.level.getBlockState(pos);
 					Block block = state.getBlock();
 					
@@ -1375,8 +1471,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 						&& isNearObsidianEvidence(obsidian, pos, 2, 3))
 						hasCrying = true;
 					
-					if(block instanceof ChestBlock && isChestRuinedPortalSignal(
-						axis, planeCoord, primary0, primary1, y0, y1, pos))
+					if(block instanceof ChestBlock
+						&& (isChestRuinedPortalSignal(axis, planeCoord,
+							primary0, primary1, y0, y1, pos)
+							|| isNearObsidianEvidence(obsidian, pos, 5, 4)))
 						hasChest = true;
 					
 					if(block == Blocks.MAGMA_BLOCK
@@ -1397,7 +1495,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 					if(block == Blocks.NETHERRACK)
 					{
 						netherrackCount++;
-						if(y == y0 - 1 && planeOffset == 0
+						if(y == y0 - 1 && plane == planeCoord
 							&& primary >= primary0 && primary <= primary1)
 							netherrackUnder++;
 					}
@@ -1509,7 +1607,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	
 	private boolean isBrokenPortalSearchEnabled()
 	{
-		return brokenNetherPortal.isEnabled();
+		return brokenNetherPortal.isEnabled()
+			&& (!brokenPortalsNetherOnly.isChecked() || isInNetherDimension());
 	}
 	
 	private long computeBrokenPortalSettingsFingerprint()
@@ -1517,6 +1616,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		long hash = 17;
 		hash = 31 * hash + (brokenNetherPortal.isEnabled() ? 1 : 0);
 		hash = 31 * hash + (brokenNetherPortalTracer.isChecked() ? 1 : 0);
+		hash = 31 * hash + (brokenPortalsNetherOnly.isChecked() ? 1 : 0);
 		hash = 31 * hash + brokenPortalMinConfidence.getValueI();
 		hash = 31 * hash + brokenPortalMaxInteriorSize.getValueI();
 		hash = 31 * hash + (allowCompleteUnlitPortals.isChecked() ? 1 : 0);

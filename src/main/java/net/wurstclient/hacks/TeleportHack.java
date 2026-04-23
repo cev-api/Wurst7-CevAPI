@@ -334,13 +334,27 @@ public final class TeleportHack extends Hack
 		if(MC.level == null)
 			return false;
 		
+		BlockPos abovePos = pos.above();
+		BlockPos belowPos = pos.below();
 		BlockState base = MC.level.getBlockState(pos);
-		BlockState above = MC.level.getBlockState(pos.above());
+		BlockState above = MC.level.getBlockState(abovePos);
 		
-		if(!allowLiquids.isChecked() && (!base.getFluidState().isEmpty()
-			|| !above.getFluidState().isEmpty()))
+		if(!allowLiquids.isChecked())
 		{
-			return false;
+			// Don't trust unknown chunk data for liquid safety checks.
+			if(!MC.level.hasChunkAt(pos) || !MC.level.hasChunkAt(abovePos)
+				|| !MC.level.hasChunkAt(belowPos))
+			{
+				return false;
+			}
+			
+			BlockState below = MC.level.getBlockState(belowPos);
+			if(!base.getFluidState().isEmpty()
+				|| !above.getFluidState().isEmpty()
+				|| !below.getFluidState().isEmpty())
+			{
+				return false;
+			}
 		}
 		
 		return isAirLike(base) && isAirLike(above);

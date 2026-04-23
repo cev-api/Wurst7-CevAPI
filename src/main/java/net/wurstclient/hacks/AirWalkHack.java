@@ -16,6 +16,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.PacketUtils;
 
 @SearchTags({"air walk", "airwalker"})
@@ -24,6 +25,7 @@ public final class AirWalkHack extends Hack
 {
 	private double hoverY = Double.NaN;
 	private boolean jumpWasDown;
+	private boolean shiftWasDown;
 	
 	public AirWalkHack()
 	{
@@ -36,6 +38,7 @@ public final class AirWalkHack extends Hack
 	{
 		hoverY = Double.NaN;
 		jumpWasDown = false;
+		shiftWasDown = false;
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
 	}
@@ -47,6 +50,7 @@ public final class AirWalkHack extends Hack
 		EVENTS.remove(PacketOutputListener.class, this);
 		hoverY = Double.NaN;
 		jumpWasDown = false;
+		shiftWasDown = false;
 	}
 	
 	@Override
@@ -56,8 +60,11 @@ public final class AirWalkHack extends Hack
 		if(player == null || MC.level == null)
 			return;
 		
-		if(isFlyingHackEnabled())
+		String conflictingHack = getConflictingFlightHackName();
+		if(conflictingHack != null)
 		{
+			ChatUtils.message(
+				"AirWalk disabled: incompatible with " + conflictingHack + ".");
 			setEnabled(false);
 			return;
 		}
@@ -84,6 +91,18 @@ public final class AirWalkHack extends Hack
 		}
 		jumpWasDown = jumpDown;
 		
+		boolean shiftDown = MC.options.keyShift.isDown();
+		if(shiftDown && !shiftWasDown)
+		{
+			double targetY = hoverY - 1.0;
+			AABB box =
+				player.getBoundingBox().move(0, targetY - player.getY(), 0);
+			
+			if(MC.level.noCollision(player, box))
+				hoverY = targetY;
+		}
+		shiftWasDown = shiftDown;
+		
 		Vec3 v = player.getDeltaMovement();
 		player.setDeltaMovement(v.x, 0, v.z);
 		player.setOnGround(true);
@@ -102,11 +121,17 @@ public final class AirWalkHack extends Hack
 		event.setPacket(PacketUtils.modifyOnGround(packet, true));
 	}
 	
-	private boolean isFlyingHackEnabled()
+	private String getConflictingFlightHackName()
 	{
-		return WURST.getHax().flightHack.isEnabled()
-			|| WURST.getHax().creativeFlightHack.isEnabled()
-			|| WURST.getHax().elytraFlightHack.isEnabled()
-			|| WURST.getHax().jetpackHack.isEnabled();
+		if(WURST.getHax().flightHack.isEnabled())
+			return WURST.getHax().flightHack.getName();
+		if(WURST.getHax().creativeFlightHack.isEnabled())
+			return WURST.getHax().creativeFlightHack.getName();
+		if(WURST.getHax().elytraFlightHack.isEnabled())
+			return WURST.getHax().elytraFlightHack.getName();
+		if(WURST.getHax().jetpackHack.isEnabled())
+			return WURST.getHax().jetpackHack.getName();
+		
+		return null;
 	}
 }

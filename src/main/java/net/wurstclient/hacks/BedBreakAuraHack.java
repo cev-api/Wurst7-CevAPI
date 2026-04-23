@@ -38,6 +38,11 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		new CheckboxSetting("Auto switch tool",
 			"Switches to the best hotbar tool for the bed before breaking it.",
 			true);
+	private final CheckboxSetting keepHandNoClipEnabled = new CheckboxSetting(
+		"Keep HandNoClip enabled",
+		"When enabled, BedBreakAura will re-enable HandNoClip if you disable it.\n"
+			+ "Disable this if you want HandNoClip fully manual.",
+		true);
 	private final CheckboxSetting switchBack = new CheckboxSetting(
 		"Switch back",
 		"Returns to your previous hotbar slot after the bed is broken.", true);
@@ -54,6 +59,7 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	private int restoreSlot = -1;
 	private boolean prevReachEnabled;
 	private boolean prevHandNoClipEnabled;
+	private int handNoClipWarningCooldown;
 	
 	public BedBreakAuraHack()
 	{
@@ -61,6 +67,7 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		setCategory(Category.BLOCKS);
 		addSetting(range);
 		addSetting(autoSwitchTool);
+		addSetting(keepHandNoClipEnabled);
 		addSetting(switchBack);
 	}
 	
@@ -81,8 +88,10 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		WURST.getHax().reachHack.setRangeOverride(range.getValue());
 		
 		prevHandNoClipEnabled = WURST.getHax().handNoClipHack.isEnabled();
-		if(!prevHandNoClipEnabled)
+		if(keepHandNoClipEnabled.isChecked() && !prevHandNoClipEnabled)
 			WURST.getHax().handNoClipHack.setEnabled(true);
+		
+		handNoClipWarningCooldown = 0;
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
@@ -102,7 +111,7 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		WURST.getHax().reachHack.setRangeOverride(null);
 		if(!prevReachEnabled)
 			WURST.getHax().reachHack.setEnabled(false);
-		if(!prevHandNoClipEnabled)
+		if(keepHandNoClipEnabled.isChecked() && !prevHandNoClipEnabled)
 			WURST.getHax().handNoClipHack.setEnabled(false);
 		coordinator.reset();
 		pausedTarget = null;
@@ -127,8 +136,20 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		if(!WURST.getHax().reachHack.isEnabled())
 			WURST.getHax().reachHack.setEnabled(true);
 		WURST.getHax().reachHack.setRangeOverride(range.getValue());
-		if(!WURST.getHax().handNoClipHack.isEnabled())
+		if(keepHandNoClipEnabled.isChecked()
+			&& !WURST.getHax().handNoClipHack.isEnabled())
+		{
 			WURST.getHax().handNoClipHack.setEnabled(true);
+			if(handNoClipWarningCooldown <= 0)
+			{
+				net.wurstclient.util.ChatUtils.warning(
+					"HandNoClip was re-enabled by BedBreakAura. Disable \"Keep HandNoClip enabled\" in BedBreakAura settings if you want to turn HandNoClip off.");
+				handNoClipWarningCooldown = 40;
+			}
+		}
+		
+		if(handNoClipWarningCooldown > 0)
+			handNoClipWarningCooldown--;
 		
 		coordinator.update();
 		BlockBreakingParams target = findTarget();

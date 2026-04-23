@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -130,8 +131,11 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 			.collect(Collectors.toCollection(ArrayList::new));
 		
 		if(blocks.isEmpty())
+		{
+			attackOneEntity(eyesVec, rangeSq);
 			return;
-			
+		}
+		
 		// Prefer global AutoTool when enabled, otherwise use per-hack auto
 		// switch
 		if(WURST.getHax().autoToolHack.isEnabled())
@@ -145,5 +149,28 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		
 		BlockBreaker.breakBlocksWithPacketSpam(blocks);
 		swingHand.swing(InteractionHand.MAIN_HAND);
+	}
+	
+	private boolean attackOneEntity(Vec3 eyesVec, double rangeSq)
+	{
+		if(MC.level == null)
+			return false;
+		
+		Entity target = MC.level
+			.getEntities(MC.player,
+				MC.player.getBoundingBox().inflate(range.getValue()),
+				commonSettings::shouldAttackEntity)
+			.stream().filter(e -> e.distanceToSqr(eyesVec) <= rangeSq)
+			.min(Comparator.comparingDouble(e -> e.distanceToSqr(eyesVec)))
+			.orElse(null);
+		
+		if(target == null)
+			return false;
+		
+		WURST.getRotationFaker()
+			.faceVectorPacket(target.getBoundingBox().getCenter());
+		MC.gameMode.attack(MC.player, target);
+		swingHand.swing(InteractionHand.MAIN_HAND);
+		return true;
 	}
 }

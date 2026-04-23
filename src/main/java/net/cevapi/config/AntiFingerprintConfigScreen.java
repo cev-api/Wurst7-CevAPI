@@ -145,6 +145,7 @@ public final class AntiFingerprintConfigScreen extends Screen
 	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float delta)
 	{
+		super.extractRenderState(context, mouseX, mouseY, delta);
 		
 		// Title
 		context.centeredText(font, title, width / 2,
