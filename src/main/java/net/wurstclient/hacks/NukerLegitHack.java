@@ -15,6 +15,7 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -171,6 +172,7 @@ public final class NukerLegitHack extends Hack
 		{
 			IKeyMapping.get(MC.options.keyAttack).resetPressedState();
 			overlay.resetProgress();
+			attackOneEntity(eyesVec, rangeSq);
 		}
 		
 		overlay.updateProgress();
@@ -224,6 +226,29 @@ public final class NukerLegitHack extends Hack
 			MC.options.keyAttack.setDown(true);
 		}
 		
+		return true;
+	}
+	
+	private boolean attackOneEntity(Vec3 eyesVec, double rangeSq)
+	{
+		if(MC.level == null || MC.player.isUsingItem())
+			return false;
+		
+		Entity target = MC.level
+			.getEntities(MC.player,
+				MC.player.getBoundingBox().inflate(range.getValue()),
+				commonSettings::shouldAttackEntity)
+			.stream().filter(e -> e.distanceToSqr(eyesVec) <= rangeSq)
+			.min(Comparator.comparingDouble(e -> e.distanceToSqr(eyesVec)))
+			.orElse(null);
+		
+		if(target == null)
+			return false;
+		
+		WURST.getRotationFaker()
+			.faceVectorClient(target.getBoundingBox().getCenter());
+		MC.gameMode.attack(MC.player, target);
+		swingHand.swing(InteractionHand.MAIN_HAND);
 		return true;
 	}
 	

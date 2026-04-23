@@ -42,7 +42,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			+ "They will NOT be highlighted as player bases.",
 		// Air/fluids/gases
 		"minecraft:air", "minecraft:cave_air", "minecraft:bubble_column",
-		"minecraft:water", "minecraft:lava",
+		"minecraft:void_air", "minecraft:water", "minecraft:lava",
 		
 		// Terrain (Overworld stone & dirt family)
 		"minecraft:stone", "minecraft:dirt", "minecraft:coarse_dirt",
@@ -467,14 +467,29 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		if(modulo == 0)
 			matchingBlocks.clear();
 		
-		int stepSize = MC.level.getHeight() / 64;
-		int startY = MC.level.getMaxY() - 1 - modulo * stepSize;
-		int endY = Math.max(startY - stepSize, MC.level.getMinY());
+		int worldMinY = MC.level.getMinY();
+		int worldMaxY = MC.level.getMaxY() - 1;
+		int clampedMinY = Math.max(worldMinY, minY.getValueI());
+		int clampedMaxY = Math.min(worldMaxY, maxY.getValueI());
+		if(clampedMinY > clampedMaxY)
+		{
+			// Auto-recover invalid user range ordering.
+			int t = clampedMinY;
+			clampedMinY = clampedMaxY;
+			clampedMaxY = t;
+		}
+		
+		int totalY = Math.max(1, clampedMaxY - clampedMinY + 1);
+		int stepSize = Math.max(1, (int)Math.ceil(totalY / 64.0));
+		int startY = clampedMaxY - modulo * stepSize;
+		if(startY < clampedMinY)
+			return;
+		int endY = Math.max(startY - stepSize + 1, clampedMinY);
 		
 		BlockPos playerPos = scanCenter;
 		
 		// search matching blocks
-		loop: for(int y = startY; y > endY; y--)
+		loop: for(int y = startY; y >= endY; y--)
 			for(int x = 64; x > -64; x--)
 				for(int z = 64; z > -64; z--)
 				{
@@ -483,6 +498,11 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 					
 					BlockPos pos = new BlockPos(playerPos.getX() + x, y,
 						playerPos.getZ() + z);
+					
+					// Unloaded chunks can return placeholder states and cause
+					// large false positives in the air/void.
+					if(!MC.level.hasChunkAt(pos))
+						continue;
 					
 					String idFull = BlockUtils.getName(pos);
 					boolean isNatural = naturalExactIds != null

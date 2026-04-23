@@ -334,6 +334,7 @@
   "description.wurst.hack.veinminer": "Automatically mines ore veins for you.",
   "description.wurst.hack.waypoints": "Allows you to set waypoints in the world and see them on screen. Includes player death locations.",
   "description.wurst.hack.windchargekey": "Throws wind charges when you press a chosen key. Supports silent switching, custom delays, and optional auto-jump for extra momentum.",
+  "description.wurst.hack.placenbreak": "Navigator-only helper that repeatedly places and breaks the configured block at your crosshair. While running, it auto-enables FastPlace and FastBreak.",
   "description.wurst.hack.workstationesp": "Highlights nearby workstation blocks",
   "description.wurst.hack.x-ray": "Allows you to see ores through walls.",
   "description.wurst.hack.xcarry": "Keeps the 2x2 crafting grid items from being cleared when you close your inventory. Enable dangerous mode to cancel every close packet for more aggressive desyncs.",

@@ -528,10 +528,21 @@ public final class BedrockEscapeHack extends Hack
 		if(MC.level == null)
 			return false;
 		
+		BlockPos below = pos.below();
+		BlockPos above = pos.above();
+		// Don't trust unknown chunk data for liquid safety checks.
+		if(!MC.level.hasChunkAt(pos) || !MC.level.hasChunkAt(above)
+			|| !MC.level.hasChunkAt(below))
+		{
+			return false;
+		}
+		
 		BlockState first = MC.level.getBlockState(pos);
-		BlockState second = MC.level.getBlockState(pos.above());
+		BlockState second = MC.level.getBlockState(above);
+		BlockState third = MC.level.getBlockState(below);
 		return first.getFluidState().isEmpty()
-			&& second.getFluidState().isEmpty();
+			&& second.getFluidState().isEmpty()
+			&& third.getFluidState().isEmpty();
 	}
 	
 	private Vec3 getAirTarget(BlockPos pos)

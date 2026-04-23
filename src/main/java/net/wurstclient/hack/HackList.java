@@ -224,6 +224,7 @@ public final class HackList implements UpdateListener
 	public final PacketDelayHack packetDelayHack = new PacketDelayHack();
 	public final PacketRateHack packetRateHack = new PacketRateHack();
 	public final ParkourHack parkourHack = new ParkourHack();
+	public final PlaceNBreakHack placeNBreakHack = new PlaceNBreakHack();
 	public final PlayerEspHack playerEspHack = new PlayerEspHack();
 	public final PlayerSonarHack playerSonarHack = new PlayerSonarHack();
 	public final PortalEspHack portalEspHack = new PortalEspHack();

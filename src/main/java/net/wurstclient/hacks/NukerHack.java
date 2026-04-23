@@ -9,10 +9,12 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.LeftClickListener;
@@ -152,7 +154,10 @@ public final class NukerHack extends Hack
 			ArrayList<BlockPos> blocks = cache
 				.filterOutRecentBlocks(stream.map(BlockBreakingParams::pos));
 			if(blocks.isEmpty())
+			{
+				attackOneEntity(eyesVec, rangeSq);
 				return;
+			}
 			
 			currentBlock = blocks.get(0);
 			BlockBreaker.breakBlocksWithPacketSpam(blocks);
@@ -168,6 +173,7 @@ public final class NukerHack extends Hack
 		{
 			MC.gameMode.stopDestroyBlock();
 			overlay.resetProgress();
+			attackOneEntity(eyesVec, rangeSq);
 			return;
 		}
 		
@@ -195,6 +201,29 @@ public final class NukerHack extends Hack
 		if(!MC.gameMode.continueDestroyBlock(params.pos(), params.side()))
 			return false;
 		
+		swingHand.swing(InteractionHand.MAIN_HAND);
+		return true;
+	}
+	
+	private boolean attackOneEntity(Vec3 eyesVec, double rangeSq)
+	{
+		if(MC.level == null)
+			return false;
+		
+		Entity target = MC.level
+			.getEntities(MC.player,
+				MC.player.getBoundingBox().inflate(range.getValue()),
+				commonSettings::shouldAttackEntity)
+			.stream().filter(e -> e.distanceToSqr(eyesVec) <= rangeSq)
+			.min(Comparator.comparingDouble(e -> e.distanceToSqr(eyesVec)))
+			.orElse(null);
+		
+		if(target == null)
+			return false;
+		
+		WURST.getRotationFaker()
+			.faceVectorPacket(target.getBoundingBox().getCenter());
+		MC.gameMode.attack(MC.player, target);
 		swingHand.swing(InteractionHand.MAIN_HAND);
 		return true;
 	}

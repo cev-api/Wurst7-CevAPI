@@ -10,6 +10,10 @@ package net.wurstclient.hacks.nukers;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.GlowItemFrame;
+import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -107,6 +111,46 @@ public final class CommonNukerSettings implements LeftClickListener
 			case SMASH:
 			return BlockUtils.getHardness(pos) >= 1;
 		}
+	}
+	
+	public boolean shouldAttackEntity(Entity entity)
+	{
+		if(entity == null || mode.getSelected() != NukerMode.MULTI_ID)
+			return false;
+		
+		if(entity instanceof GlowItemFrame)
+			return hasEntityId("glow_item_frame");
+		
+		if(entity instanceof ItemFrame)
+			return hasEntityId("item_frame");
+		
+		if(entity.getType() == EntityType.PAINTING)
+			return hasEntityId("painting");
+		
+		return false;
+	}
+	
+	private boolean hasEntityId(String idPath)
+	{
+		String canonical = "minecraft:" + idPath;
+		String plural = idPath + "s";
+		String spaced = idPath.replace('_', ' ');
+		String spacedPlural = spaced + "s";
+		
+		return multiIdList.getBlockNames().stream()
+			.map(CommonNukerSettings::normalizeEntityToken)
+			.anyMatch(token -> token.equals(idPath) || token.equals(canonical)
+				|| token.equals(plural) || token.equals(spaced)
+				|| token.equals(spacedPlural));
+	}
+	
+	private static String normalizeEntityToken(String token)
+	{
+		if(token == null)
+			return "";
+		
+		return token.trim().toLowerCase(java.util.Locale.ROOT).replace('-',
+			'_');
 	}
 	
 	private boolean hasSuspiciousAbove(BlockPos pos)

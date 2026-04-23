@@ -252,6 +252,8 @@ public final class NewerNewChunksHack extends Hack
 		ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldGenerationChunks =
 		ConcurrentHashMap.newKeySet();
+	private final Set<ChunkPos> oldChunksView =
+		Collections.unmodifiableSet(oldChunks);
 	
 	private final Set<Path> filePaths = Set.of(Paths.NewChunkData,
 		Paths.OldChunkData, Paths.BlockExploitChunkData,
@@ -262,6 +264,7 @@ public final class NewerNewChunksHack extends Hack
 	private boolean loadedThisSession;
 	private int autoReloadTicks;
 	private long lastMapaRescanTick = Long.MIN_VALUE;
+	private boolean autoFlyRenderSuppressed;
 	
 	private int newChunkAlarmTicks;
 	private int newChunkAlarmRingsLeft;
@@ -596,6 +599,9 @@ public final class NewerNewChunksHack extends Hack
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
+		if(autoFlyRenderSuppressed)
+			return;
+		
 		if(MC.player == null)
 			return;
 		
@@ -659,6 +665,11 @@ public final class NewerNewChunksHack extends Hack
 			}
 			renderBoxes(matrices, tickBoxes, side, line);
 		}
+	}
+	
+	public void setAutoFlyRenderSuppressed(boolean suppressed)
+	{
+		autoFlyRenderSuppressed = suppressed;
 	}
 	
 	public void afterLoadChunk(int x, int z)
@@ -885,6 +896,21 @@ public final class NewerNewChunksHack extends Hack
 	public Set<ChunkPos> getOldChunks()
 	{
 		return Set.copyOf(oldChunks);
+	}
+	
+	public Set<ChunkPos> getOldChunksLiveView()
+	{
+		return oldChunksView;
+	}
+	
+	public boolean isNewChunk(ChunkPos chunkPos)
+	{
+		return chunkPos != null && newChunks.contains(chunkPos);
+	}
+	
+	public boolean isOldChunk(ChunkPos chunkPos)
+	{
+		return chunkPos != null && oldChunks.contains(chunkPos);
 	}
 	
 	public Set<ChunkPos> getBlockExploitChunks()
