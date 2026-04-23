@@ -92,6 +92,21 @@ public final class WurstOptionsOtf extends OtherFeature
 		return hackToggleChatFeedback.isChecked();
 	}
 	
+	public CheckboxSetting getHackToggleChatFeedbackSetting()
+	{
+		return hackToggleChatFeedback;
+	}
+	
+	public String getLocationName()
+	{
+		return location.getSelected().toString();
+	}
+	
+	public void cycleLocation()
+	{
+		location.selectNext();
+	}
+	
 	public boolean isVisibleInGameMenu()
 	{
 		return WURST.isEnabled()
