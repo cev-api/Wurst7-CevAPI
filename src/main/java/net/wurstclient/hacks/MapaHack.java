@@ -1085,6 +1085,7 @@ public final class MapaHack extends Hack
 		boolean mapVisible = !noMap.isChecked();
 		boolean niceWurst = NiceWurstModule.isActive();
 		boolean espVisible = espIconsEnabled.isChecked();
+		boolean showEspControls = espVisible && !niceWurst;
 		if(mapVisible != lastMapVisibleState
 			|| espVisible != lastEspVisibleState)
 		{
@@ -1125,20 +1126,21 @@ public final class MapaHack extends Hack
 		waterDetail.setVisibleInGui(mapVisible);
 		waterOpacity.setVisibleInGui(mapVisible);
 		chunkRefreshAggression.setVisibleInGui(mapVisible);
-		minimapIconSize.setVisibleInGui(espVisible);
-		worldMapIconSize.setVisibleInGui(espVisible);
-		playerIconSize.setVisibleInGui(espVisible);
-		playerNameScale.setVisibleInGui(espVisible);
-		iconOutline.setVisibleInGui(espVisible);
-		showPlayerNames.setVisibleInGui(espVisible);
-		mapEspGroup.setVisibleInGui(espVisible);
-		chestEspOnMap.setVisibleInGui(espVisible && !niceWurst);
-		workstationEspOnMap.setVisibleInGui(espVisible && !niceWurst);
-		signEspOnMap.setVisibleInGui(espVisible && !niceWurst);
-		portalEspOnMap.setVisibleInGui(espVisible);
-		playerEspOnMap.setVisibleInGui(espVisible);
-		logoutSpotsOnMap.setVisibleInGui(espVisible);
-		bedEspOnMap.setVisibleInGui(espVisible && !niceWurst);
+		espIconsEnabled.setVisibleInGui(!niceWurst);
+		minimapIconSize.setVisibleInGui(showEspControls);
+		worldMapIconSize.setVisibleInGui(showEspControls);
+		playerIconSize.setVisibleInGui(showEspControls);
+		playerNameScale.setVisibleInGui(showEspControls);
+		iconOutline.setVisibleInGui(showEspControls);
+		showPlayerNames.setVisibleInGui(showEspControls);
+		mapEspGroup.setVisibleInGui(showEspControls);
+		chestEspOnMap.setVisibleInGui(showEspControls);
+		workstationEspOnMap.setVisibleInGui(showEspControls);
+		signEspOnMap.setVisibleInGui(showEspControls);
+		portalEspOnMap.setVisibleInGui(showEspControls);
+		playerEspOnMap.setVisibleInGui(showEspControls);
+		logoutSpotsOnMap.setVisibleInGui(showEspControls);
+		bedEspOnMap.setVisibleInGui(showEspControls);
 	}
 	
 	private static boolean isEditorScreen(Screen screen)

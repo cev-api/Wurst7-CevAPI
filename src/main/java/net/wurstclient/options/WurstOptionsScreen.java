@@ -283,38 +283,43 @@ public final class WurstOptionsScreen extends Screen
 		addButton(column, () -> "Keybinds", "Open Keybind Manager.",
 			b -> minecraft.setScreen(new KeybindManagerScreen(this)));
 		
-		addButton(column, () -> "Alt Manager",
-			"Open Alt Manager and account tools.", b -> minecraft
-				.setScreen(new AltManagerScreen(this, wurst.getAltManager())));
-		
-		addButton(column,
-			() -> "Toggle Random Reconnect: " + onOff(
-				wurst.getAltManager().isDisconnectRandomAltReconnectEnabled()),
-			"Controls whether Disconnected screen shows \"Reconnect as Random Alt\".",
-			b -> wurst.getAltManager()
-				.setDisconnectRandomAltReconnectEnabled(!wurst.getAltManager()
-					.isDisconnectRandomAltReconnectEnabled()));
-		
-		addButton(column, this::getRandomAltReconnectLabel,
-			"Log into a random saved alt, then reconnect to the last server.",
-			b -> reconnectAsRandomAlt());
+		if(!NiceWurstModule.isActive())
+		{
+			addButton(column, () -> "Alt Manager",
+				"Open Alt Manager and account tools.", b -> minecraft.setScreen(
+					new AltManagerScreen(this, wurst.getAltManager())));
+			
+			addButton(column,
+				() -> "Toggle Random Reconnect: " + onOff(wurst.getAltManager()
+					.isDisconnectRandomAltReconnectEnabled()),
+				"Controls whether Disconnected screen shows \"Reconnect as Random Alt\".",
+				b -> wurst.getAltManager()
+					.setDisconnectRandomAltReconnectEnabled(
+						!wurst.getAltManager()
+							.isDisconnectRandomAltReconnectEnabled()));
+			
+			addButton(column, this::getRandomAltReconnectLabel,
+				"Log into a random saved alt, then reconnect to the last server.",
+				b -> reconnectAsRandomAlt());
+		}
 		
 		addButton(column, () -> "Reconnect Last Server",
 			"Reconnect immediately to the last remembered multiplayer server.",
 			b -> LastServerRememberer.reconnect(this));
 		
-		addButton(column, () -> "Reconnect as Random Name",
-			"Use OfflineSettings to reconnect with a random offline-style player name.",
-			b -> wurst.getHax().offlineSettingsHack
-				.reconnectWithRandomName(this));
+		if(!NiceWurstModule.isActive())
+			addButton(column, () -> "Reconnect as Random Name",
+				"Use OfflineSettings to reconnect with a random offline-style player name.",
+				b -> wurst.getHax().offlineSettingsHack
+					.reconnectWithRandomName(this));
 		
 		addButton(column, () -> "Advanced Packet Tools",
 			"Open packet logging/deny/delay UI.",
 			b -> wurst.getOtfs().packetToolsOtf.openScreen());
 		
 		addButton(column, () -> "Hack Debugger",
-			"Open Navigator with a quick search to toggle hacks/settings while out of game.",
-			b -> minecraft.setScreen(new NavigatorMainScreen("hack")));
+			"Open Navigator to toggle hacks/settings while out of game.",
+			b -> minecraft.setScreen(new NavigatorMainScreen()));
 		
 		addButton(column, () -> "Blocked Hacks Editor",
 			"Open TooManyHax blocklist editor (safe outside game).",
