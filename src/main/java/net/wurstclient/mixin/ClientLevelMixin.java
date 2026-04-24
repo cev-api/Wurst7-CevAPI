@@ -22,7 +22,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.wurstclient.WurstClient;
 
 @Mixin(ClientLevel.class)
-public class ClientWorldMixin
+public class ClientLevelMixin
 {
 	@Shadow
 	@Final

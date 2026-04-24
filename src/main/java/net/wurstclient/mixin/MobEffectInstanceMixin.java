@@ -15,7 +15,7 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.wurstclient.WurstClient;
 
 @Mixin(MobEffectInstance.class)
-public abstract class StatusEffectInstanceMixin
+public abstract class MobEffectInstanceMixin
 	implements Comparable<MobEffectInstance>
 {
 	@Inject(method = "tickDownDuration()V",

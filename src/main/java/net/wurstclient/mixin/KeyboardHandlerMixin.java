@@ -17,7 +17,7 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.KeyPressListener.KeyPressEvent;
 
 @Mixin(KeyboardHandler.class)
-public class KeyboardMixin
+public class KeyboardHandlerMixin
 {
 	@Inject(method = "keyPress(JILnet/minecraft/client/input/KeyEvent;)V",
 		at = @At("HEAD"))

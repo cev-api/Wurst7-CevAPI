@@ -28,7 +28,7 @@ import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.RenderUtils;
 
 @Mixin(LevelRenderer.class)
-public class WorldRendererMixin
+public class LevelRendererMixin
 {
 	@Inject(method = "doesMobEffectBlockSky(Lnet/minecraft/client/Camera;)Z",
 		at = @At("HEAD"),

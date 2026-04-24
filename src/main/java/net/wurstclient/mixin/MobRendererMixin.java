@@ -17,7 +17,7 @@ import net.minecraft.world.entity.Mob;
 import net.wurstclient.WurstClient;
 
 @Mixin(MobRenderer.class)
-public abstract class MobEntityRendererMixin
+public abstract class MobRendererMixin
 {
 	@Inject(at = @At("HEAD"),
 		method = "shouldShowName(Lnet/minecraft/world/entity/Mob;D)Z",

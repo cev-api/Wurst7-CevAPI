@@ -464,5 +464,5 @@ public final class AutoStealHack extends Hack implements UpdateListener
 		steal(screen, rows);
 	}
 	
-	// See GenericContainerScreenMixin and ShulkerBoxScreenMixin
+	// See ContainerScreenMixin and ShulkerBoxScreenMixin
 }

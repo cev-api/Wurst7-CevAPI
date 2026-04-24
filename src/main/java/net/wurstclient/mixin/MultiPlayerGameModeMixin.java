@@ -44,7 +44,7 @@ import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 
 @Mixin(MultiPlayerGameMode.class)
-public abstract class ClientPlayerInteractionManagerMixin
+public abstract class MultiPlayerGameModeMixin
 	implements IClientPlayerInteractionManager
 {
 	@Shadow
