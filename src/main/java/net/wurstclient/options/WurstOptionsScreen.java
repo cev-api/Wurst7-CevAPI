@@ -7,8 +7,10 @@
  */
 package net.wurstclient.options;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
@@ -24,19 +26,40 @@ import net.minecraft.util.CommonColors;
 import net.minecraft.util.Util;
 import net.minecraft.util.Util.OS;
 import net.wurstclient.WurstClient;
+import net.wurstclient.altgui.TooManyHaxEditorScreen;
+import net.wurstclient.altmanager.LoginException;
+import net.wurstclient.altmanager.screens.AltManagerScreen;
 import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.commands.FriendsCmd;
-import net.wurstclient.hacks.XRayHack;
-import net.wurstclient.other_features.ConnectionLogOverlayOtf;
-import net.wurstclient.other_features.VanillaSpoofOtf;
-import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.util.ChatUtils;
-import net.wurstclient.util.WurstColors;
+import net.wurstclient.navigator.NavigatorMainScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
+import net.wurstclient.other_features.ConnectionLogOverlayOtf;
+import net.wurstclient.other_features.DiscordRpcOtf;
+import net.wurstclient.other_features.VanillaSpoofOtf;
+import net.wurstclient.other_features.WurstOptionsOtf;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.LastServerRememberer;
+import net.wurstclient.util.WurstColors;
 
-public class WurstOptionsScreen extends Screen
+public final class WurstOptionsScreen extends Screen
 {
-	private Screen prevScreen;
+	private static final int BUTTON_HEIGHT = 20;
+	private static final int ROW_GAP = 2;
+	private static final int COLUMN_GAP = 10;
+	
+	private final Screen prevScreen;
+	private final List<SectionHeader> sectionHeaders = new ArrayList<>();
+	
+	private int columnCount;
+	private int buttonWidth;
+	private int[] columnX;
+	private int[] nextRowByColumn;
+	private int contentTop;
+	private int contentBottom;
+	private int backButtonY;
+	private boolean randomAltReconnectInProgress;
 	
 	public WurstOptionsScreen(Screen prevScreen)
 	{
@@ -47,179 +70,401 @@ public class WurstOptionsScreen extends Screen
 	@Override
 	public void init()
 	{
-		int backButtonY = height / 4 + 244;
-		addRenderableWidget(Button
-			.builder(Component.literal("Back"),
-				b -> minecraft.setScreen(prevScreen))
-			.bounds(width / 2 - 100, backButtonY, 200, 20).build());
+		sectionHeaders.clear();
+		layoutColumns();
 		
-		addSettingButtons();
-		addManagerButtons();
-		addLinkButtons();
+		addCoreSection();
+		addPrivacySection();
+		addToolsSection();
+		addLinksSection();
+		
+		backButtonY = Math.max(contentBottom + 10, height - 28);
+		new WurstOptionsButton(width / 2 - 110, backButtonY, 220, 20,
+			() -> "Back", "Return to the previous screen.",
+			b -> minecraft.setScreen(prevScreen));
 	}
 	
-	private void addSettingButtons()
+	private void layoutColumns()
+	{
+		columnCount = width >= 700 ? 4 : 3;
+		buttonWidth = columnCount >= 4 ? 156 : 178;
+		
+		int totalWidth =
+			columnCount * buttonWidth + (columnCount - 1) * COLUMN_GAP;
+		int left = Math.max(8, (width - totalWidth) / 2);
+		contentTop = height / 4 + 4;
+		contentBottom = contentTop;
+		
+		columnX = new int[columnCount];
+		nextRowByColumn = new int[columnCount];
+		for(int i = 0; i < columnCount; i++)
+		{
+			columnX[i] = left + i * (buttonWidth + COLUMN_GAP);
+			nextRowByColumn[i] = contentTop + 16;
+		}
+	}
+	
+	private int beginSection(String title, int preferredColumn)
+	{
+		int column = Math.min(preferredColumn, columnCount - 1);
+		int sectionY = nextRowByColumn[column] - 12;
+		sectionHeaders.add(new SectionHeader(title,
+			columnX[column] + buttonWidth / 2, sectionY));
+		nextRowByColumn[column] += 2;
+		return column;
+	}
+	
+	private void addCoreSection()
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
 		FriendsCmd friendsCmd = wurst.getCmds().friendsCmd;
 		CheckboxSetting middleClickFriends = friendsCmd.getMiddleClickFriends();
 		PlausibleAnalytics plausible = wurst.getPlausible();
-		VanillaSpoofOtf vanillaSpoofOtf = wurst.getOtfs().vanillaSpoofOtf;
+		WurstOptionsOtf options = wurst.getOtfs().wurstOptionsOtf;
+		VanillaSpoofOtf vanillaSpoof = wurst.getOtfs().vanillaSpoofOtf;
 		CheckboxSetting forceEnglish =
 			wurst.getOtfs().translationsOtf.getForceEnglish();
-		CheckboxSetting unsafeChatToast =
-			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
+		CheckboxSetting capes = wurst.getOtfs().wurstCapesOtf.getCapesSetting();
 		CheckboxSetting forceAllowChats =
 			wurst.getOtfs().forceAllowChatsOtf.getForceAllowChatsSetting();
-		net.wurstclient.other_features.CommandPrefixOtf commandPrefixOtf =
-			wurst.getOtfs().commandPrefixOtf;
-		ConnectionLogOverlayOtf connectionLogOtf =
-			wurst.getOtfs().connectionLogOverlayOtf;
-		CheckboxSetting connectionLogSetting =
-			connectionLogOtf.getConnectionLogSetting();
+		CheckboxSetting hackToggleFeedback =
+			options.getHackToggleChatFeedbackSetting();
+		CheckboxSetting hideEnableButton =
+			wurst.getOtfs().disableOtf.getHideEnableButtonSetting();
+		var hideWurstHack = wurst.getHax().hideWurstHack;
 		
-		new WurstOptionsButton(-154, 24,
-			() -> "Click Friends: "
-				+ (middleClickFriends.isChecked() ? "ON" : "OFF"),
-			middleClickFriends.getWrappedDescription(200),
+		int column = beginSection("Core", 0);
+		
+		addButton(column,
+			() -> "Options Location: " + options.getLocationName(),
+			"Choose where the Wurst Options button appears (Game Menu or Statistics).",
+			b -> options.cycleLocation());
+		
+		addButton(column,
+			() -> "Click Friends: " + onOff(middleClickFriends.isChecked()),
+			middleClickFriends.getWrappedDescription(220),
 			b -> middleClickFriends
 				.setChecked(!middleClickFriends.isChecked()));
 		
-		new WurstOptionsButton(-154, 48,
-			() -> "Count Users: " + (plausible.isEnabled() ? "ON" : "OFF"),
-			"Counts how many people are using Wurst and which versions are the"
-				+ " most popular. This data helps me to decide when I can stop"
-				+ " supporting old versions.\n\n"
-				+ "These statistics are completely anonymous, never sold, and"
-				+ " stay in the EU (I'm self-hosting Plausible in Germany)."
-				+ " There are no cookies or persistent identifiers"
-				+ " (see plausible.io).",
+		addButton(column, () -> "Count Users: " + onOff(plausible.isEnabled()),
+			"Anonymous usage analytics to help prioritize support and version compatibility.",
 			b -> plausible.setEnabled(!plausible.isEnabled()));
 		
-		new WurstOptionsButton(-154, 72,
-			() -> "Spoof Vanilla: "
-				+ (vanillaSpoofOtf.isEnabled() ? "ON" : "OFF"),
-			vanillaSpoofOtf.getDescription(),
-			b -> vanillaSpoofOtf.doPrimaryAction());
+		addButton(column,
+			() -> "Hack Toggle Chat: " + onOff(hackToggleFeedback.isChecked()),
+			"Show chat feedback when hacks are enabled or disabled.",
+			b -> hackToggleFeedback
+				.setChecked(!hackToggleFeedback.isChecked()));
 		
-		new WurstOptionsButton(-154, 96,
-			() -> "Translations: " + (!forceEnglish.isChecked() ? "ON" : "OFF"),
-			"Allows text in Wurst to be displayed in other languages than"
-				+ " English. It will use the same language that Minecraft is"
-				+ " set to.\n\n" + "This is an experimental feature!",
+		addButton(column,
+			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
+			hideEnableButton.getDescription(),
+			b -> hideEnableButton.setChecked(!hideEnableButton.isChecked()));
+		
+		addButton(column,
+			() -> "HideWurst: " + onOff(hideWurstHack.isEnabled()),
+			"Quick toggle for HideWurst (stealth rendering behavior).",
+			b -> hideWurstHack.setEnabled(!hideWurstHack.isEnabled()));
+		
+		addButton(column,
+			() -> "Command Prefix: " + wurst.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString(),
+			"Cycle through available command prefixes.",
+			b -> wurst.getOtfs().commandPrefixOtf.getPrefixSetting()
+				.selectNext());
+		
+		addButton(column,
+			() -> "Spoof Vanilla: " + onOff(vanillaSpoof.isEnabled()),
+			vanillaSpoof.getDescription(), b -> vanillaSpoof.doPrimaryAction());
+		
+		addButton(column,
+			() -> "Force English: " + onOff(forceEnglish.isChecked()),
+			forceEnglish.getDescription(),
 			b -> forceEnglish.setChecked(!forceEnglish.isChecked()));
 		
-		new WurstOptionsButton(-154, 120,
-			() -> "Unsafe Chat Toast: "
-				+ (unsafeChatToast.isChecked() ? "ON" : "OFF"),
-			"Shows a toast warning when a server enforces insecure chat/reporting.",
-			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
+		addButton(column, () -> "Custom Capes: " + onOff(capes.isChecked()),
+			capes.getDescription(), b -> capes.setChecked(!capes.isChecked()));
 		
-		new WurstOptionsButton(-154, 144,
-			() -> "Force Allow Chats: "
-				+ (forceAllowChats.isChecked() ? "ON" : "OFF"),
-			"Forces Mojang user properties to allow chat, Realms, and servers.",
+		addButton(column,
+			() -> "Force Allow Chats: " + onOff(forceAllowChats.isChecked()),
+			forceAllowChats.getDescription(),
 			b -> forceAllowChats.setChecked(!forceAllowChats.isChecked()));
-		
-		int optionY = 168;
-		if(NiceWurstModule.showAntiFingerprintControls())
-		{
-			new WurstOptionsButton(-154, optionY, () -> "Anti-Fingerprint",
-				"Open the Anti-Fingerprint controls for resource-pack handling.",
-				b -> minecraft.setScreen(
-					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
-			optionY += 24;
-		}
-		
-		new WurstOptionsButton(-154, optionY,
-			() -> "Connection log overlay: "
-				+ (connectionLogSetting.isChecked() ? "ON" : "OFF"),
-			connectionLogOtf.getDescription(), b -> connectionLogSetting
-				.setChecked(!connectionLogSetting.isChecked()));
-		optionY += 24;
-		
-		new WurstOptionsButton(-154, optionY,
-			() -> "Command Prefix: "
-				+ commandPrefixOtf.getPrefixSetting().getSelected().toString(),
-			"Cycle through available command prefixes.", b -> {
-				commandPrefixOtf.getPrefixSetting().selectNext();
-				ChatUtils.message("Command prefix set to " + commandPrefixOtf
-					.getPrefixSetting().getSelected().toString());
-			});
-		
 	}
 	
-	private void addManagerButtons()
+	private void addPrivacySection()
 	{
-		int row = 0;
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Presets",
+		WurstClient wurst = WurstClient.INSTANCE;
+		CheckboxSetting disableTelemetry =
+			wurst.getOtfs().noTelemetryOtf.getDisableTelemetrySetting();
+		CheckboxSetting disableSignatures =
+			wurst.getOtfs().noChatReportsOtf.getDisableSignaturesSetting();
+		CheckboxSetting unsafeChatToast =
+			wurst.getOtfs().noChatReportsOtf.getUnsafeChatToast();
+		ConnectionLogOverlayOtf connectionLogOtf =
+			wurst.getOtfs().connectionLogOverlayOtf;
+		CheckboxSetting connectionLog =
+			connectionLogOtf.getConnectionLogSetting();
+		SliderSetting connectionFontScale =
+			connectionLogOtf.getFontScaleSetting();
+		DiscordRpcOtf discord = wurst.getOtfs().discordRpcOtf;
+		
+		int column = beginSection("Presence & Privacy", 1);
+		
+		addButton(column,
+			() -> "Discord Presence: "
+				+ onOff(discord.getEnabledSetting().isChecked()),
+			discord.getEnabledSetting().getDescription(),
+			b -> discord.getEnabledSetting()
+				.setChecked(!discord.getEnabledSetting().isChecked()));
+		
+		addButton(column,
+			() -> "Discord Status: " + shorten(
+				discord.getStatusMessageSetting().getSelected().toString(), 22),
+			"Cycle Discord status message preset.",
+			b -> discord.getStatusMessageSetting().selectNext());
+		
+		addButton(column,
+			() -> "Discord Show Server: "
+				+ onOff(discord.getShowServerIpSetting().isChecked()),
+			discord.getShowServerIpSetting().getDescription(),
+			b -> discord.getShowServerIpSetting()
+				.setChecked(!discord.getShowServerIpSetting().isChecked()));
+		
+		addButton(column,
+			() -> "Discord Show Username: "
+				+ onOff(discord.getShowUsernameSetting().isChecked()),
+			discord.getShowUsernameSetting().getDescription(),
+			b -> discord.getShowUsernameSetting()
+				.setChecked(!discord.getShowUsernameSetting().isChecked()));
+		
+		addButton(column,
+			() -> "Disable Telemetry: " + onOff(disableTelemetry.isChecked()),
+			disableTelemetry.getDescription(),
+			b -> disableTelemetry.setChecked(!disableTelemetry.isChecked()));
+		
+		addButton(column,
+			() -> "Disable Signatures: " + onOff(disableSignatures.isChecked()),
+			disableSignatures.getDescription(),
+			b -> disableSignatures.setChecked(!disableSignatures.isChecked()));
+		
+		addButton(column,
+			() -> "Unsafe Chat Toast: " + onOff(unsafeChatToast.isChecked()),
+			unsafeChatToast.getDescription(),
+			b -> unsafeChatToast.setChecked(!unsafeChatToast.isChecked()));
+		
+		addButton(column,
+			() -> "Connection Log: " + onOff(connectionLog.isChecked()),
+			connectionLogOtf.getDescription(),
+			b -> connectionLog.setChecked(!connectionLog.isChecked()));
+		
+		addButton(column,
+			() -> "Connection Font: " + String.format(Locale.ROOT, "%.2fx",
+				connectionFontScale.getValue()),
+			"Cycle connection log overlay font size.",
+			b -> cycleSlider(connectionFontScale));
+		
+		if(NiceWurstModule.showAntiFingerprintControls())
+			addButton(column, () -> "Anti-Fingerprint",
+				"Open Anti-Fingerprint controls for resource-pack handling.",
+				b -> minecraft.setScreen(
+					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
+	}
+	
+	private void addToolsSection()
+	{
+		WurstClient wurst = WurstClient.INSTANCE;
+		
+		int column = beginSection("Tools & Recovery", 2);
+		
+		addButton(column, () -> "Presets",
 			"Manage full Wurst presets for hacks, UI, keybinds, and more.",
 			b -> minecraft.setScreen(new PresetManagerScreen(this)));
 		
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Keybinds",
-			"Keybinds allow you to toggle any hack or command by simply"
-				+ " pressing a button.",
+		addButton(column, () -> "Keybinds", "Open Keybind Manager.",
 			b -> minecraft.setScreen(new KeybindManagerScreen(this)));
 		
-		if(NiceWurstModule.showXrayBlocksManager())
-		{
-			XRayHack xRayHack = WurstClient.INSTANCE.getHax().xRayHack;
-			new WurstOptionsButton(-50, 24 + row++ * 24, () -> "X-Ray Blocks",
-				"Manager for the blocks that X-Ray will show.",
-				b -> xRayHack.openBlockListEditor(this));
-		}
+		addButton(column, () -> "Alt Manager",
+			"Open Alt Manager and account tools.", b -> minecraft
+				.setScreen(new AltManagerScreen(this, wurst.getAltManager())));
 		
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Zoom",
-			"The Zoom Manager allows you to change the zoom key and how far it"
-				+ " will zoom in.",
-			b -> minecraft.setScreen(new ZoomManagerScreen(this)));
+		addButton(column,
+			() -> "Toggle Random Reconnect: " + onOff(
+				wurst.getAltManager().isDisconnectRandomAltReconnectEnabled()),
+			"Controls whether Disconnected screen shows \"Reconnect as Random Alt\".",
+			b -> wurst.getAltManager()
+				.setDisconnectRandomAltReconnectEnabled(!wurst.getAltManager()
+					.isDisconnectRandomAltReconnectEnabled()));
 		
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Waypoints",
-			"Manage your waypoints.",
-			b -> WurstClient.INSTANCE.getHax().waypointsHack.openManager());
+		addButton(column, this::getRandomAltReconnectLabel,
+			"Log into a random saved alt, then reconnect to the last server.",
+			b -> reconnectAsRandomAlt());
 		
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Reload Wurst",
-			"Reloads settings.json, enabled/favorite hacks, keybinds, navigator preferences, blocked-hax list, and the ClickGUI windows layout from disk.",
+		addButton(column, () -> "Reconnect Last Server",
+			"Reconnect immediately to the last remembered multiplayer server.",
+			b -> LastServerRememberer.reconnect(this));
+		
+		addButton(column, () -> "Reconnect as Random Name",
+			"Use OfflineSettings to reconnect with a random offline-style player name.",
+			b -> wurst.getHax().offlineSettingsHack
+				.reconnectWithRandomName(this));
+		
+		addButton(column, () -> "Advanced Packet Tools",
+			"Open packet logging/deny/delay UI.",
+			b -> wurst.getOtfs().packetToolsOtf.openScreen());
+		
+		addButton(column, () -> "Hack Debugger",
+			"Open Navigator with a quick search to toggle hacks/settings while out of game.",
+			b -> minecraft.setScreen(new NavigatorMainScreen("hack")));
+		
+		addButton(column, () -> "Blocked Hacks Editor",
+			"Open TooManyHax blocklist editor (safe outside game).",
+			b -> minecraft.setScreen(new TooManyHaxEditorScreen(this,
+				wurst.getHax().tooManyHaxHack)));
+		
+		addButton(column, () -> "Panic: Disable All Hacks",
+			"Immediately disable all hacks and store a snapshot.",
+			b -> wurst.getHax().panicHack.setEnabled(true));
+		
+		addButton(column, () -> "Panic: Restore Snapshot",
+			"Restore hacks saved by Panic.",
+			b -> wurst.getHax().panicHack.restoreSavedHacks());
+		
+		addButton(column, () -> "Reload Wurst",
+			"Reload settings, enabled/favorites, keybinds, navigator preferences, blocked hax, and ClickGUI window layout from disk.",
 			b -> {
-				WurstClient.INSTANCE.reloadFromDisk();
+				wurst.reloadFromDisk();
 				if(WurstClient.MC != null && WurstClient.MC.player != null)
 					ChatUtils.message("Reloaded settings from disk.");
 			});
 		
-		new WurstOptionsButton(-50, 24 + row++ * 24, () -> "Open Wurst Folder",
-			"Opens the Wurst configuration folder in your file explorer.",
-			b -> Util.getPlatform()
-				.openFile(WurstClient.INSTANCE.getWurstFolder().toFile()));
+		addButton(column, () -> "Open Wurst Folder",
+			"Open the Wurst configuration folder in your file explorer.",
+			b -> Util.getPlatform().openFile(wurst.getWurstFolder().toFile()));
 	}
 	
-	private void addLinkButtons()
+	private void addLinksSection()
 	{
 		OS os = Util.getPlatform();
+		int column = beginSection("Links", 3);
+		
 		String primaryLabel =
-			NiceWurstModule.isActive() ? "NiceWurst Github" : "CevAPI Github";
-		String primaryTooltip = NiceWurstModule.isActive()
-			? "§n§lGitHub page for NiceWurst, the curated build of this fork"
-			: "§n§lGitHub page for CevAPI, the maker of this Wurst Client fork";
+			NiceWurstModule.isActive() ? "NiceWurst GitHub" : "CevAPI GitHub";
 		String primaryUrl =
 			NiceWurstModule.isActive() ? "https://github.com/cev-api/NiceWurst"
 				: "https://github.com/cev-api/Wurst7-CevAPI";
 		
-		new WurstOptionsButton(54, 24, () -> primaryLabel, primaryTooltip,
+		addButton(column, () -> primaryLabel, "Open the main fork repository.",
 			b -> os.openUri(primaryUrl));
 		
-		new WurstOptionsButton(54, 48, () -> "Wurst Website",
-			"§n§lWurstClient.net",
+		addButton(column, () -> "CevAPI Discord", "discord.gg/wDgqxkAKFQ",
+			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
+		
+		addButton(column, () -> "Wurst Website", "WurstClient.net",
 			b -> os.openUri("https://www.wurstclient.net/options-website/"));
 		
-		new WurstOptionsButton(54, 72, () -> "Wurst Wiki", "§n§lWurst.Wiki",
+		addButton(column, () -> "Wurst Wiki", "Wurst.Wiki",
 			b -> os.openUri("https://www.wurstclient.net/options-wiki/"));
 		
-		new WurstOptionsButton(54, 96, () -> "WurstForum", "§n§lWurstForum.net",
+		addButton(column, () -> "WurstForum", "WurstForum.net",
 			b -> os.openUri("https://www.wurstclient.net/options-forum/"));
 		
-		new WurstOptionsButton(54, 120, () -> "Twitter", "@Wurst_Imperium",
+		addButton(column, () -> "Twitter", "@Wurst_Imperium",
 			b -> os.openUri("https://www.wurstclient.net/options-twitter/"));
 		
+		addButton(column, () -> "Changelog",
+			"Open latest release notes/changelog.",
+			b -> WurstClient.INSTANCE.getOtfs().changelogOtf.doPrimaryAction());
+	}
+	
+	private void addButton(int column, Supplier<String> messageSupplier,
+		String tooltip, Button.OnPress pressAction)
+	{
+		int y = nextRowByColumn[column];
+		new WurstOptionsButton(columnX[column], y, buttonWidth, BUTTON_HEIGHT,
+			messageSupplier, tooltip, pressAction);
+		nextRowByColumn[column] += BUTTON_HEIGHT + ROW_GAP;
+		contentBottom = Math.max(contentBottom, y + BUTTON_HEIGHT);
+	}
+	
+	private static void cycleSlider(SliderSetting slider)
+	{
+		double next = slider.getValue() + slider.getIncrement();
+		if(next > slider.getMaximum() + 1e-9)
+			next = slider.getMinimum();
+		slider.setValue(next);
+	}
+	
+	private String getRandomAltReconnectLabel()
+	{
+		return randomAltReconnectInProgress ? "Random Alt Reconnect: Working..."
+			: "Reconnect as Random Alt";
+	}
+	
+	private void reconnectAsRandomAlt()
+	{
+		if(randomAltReconnectInProgress)
+			return;
+		
+		if(WurstClient.INSTANCE.getAltManager().getList().isEmpty())
+		{
+			ChatUtils.error("No alts available in Alt Manager.");
+			return;
+		}
+		
+		if(LastServerRememberer.getLastServer() == null)
+		{
+			ChatUtils.error("No last server remembered yet.");
+			return;
+		}
+		
+		randomAltReconnectInProgress = true;
+		Thread worker = new Thread(() -> {
+			LoginException error = null;
+			String altName = "";
+			
+			try
+			{
+				var alt = WurstClient.INSTANCE.getAltManager()
+					.loginRandomUntilSuccess();
+				altName = alt.getDisplayName();
+				
+			}catch(LoginException e)
+			{
+				error = e;
+			}
+			
+			String selectedAltName = altName;
+			LoginException reconnectError = error;
+			minecraft.execute(() -> {
+				randomAltReconnectInProgress = false;
+				
+				if(reconnectError != null)
+				{
+					ChatUtils.error("Random alt login failed: "
+						+ reconnectError.getMessage());
+					return;
+				}
+				
+				ChatUtils.message(
+					"Logged in as " + selectedAltName + ", reconnecting...");
+				LastServerRememberer.reconnect(this);
+			});
+		}, "Wurst Options Random Alt Reconnect");
+		
+		worker.setDaemon(true);
+		worker.start();
+	}
+	
+	private static String onOff(boolean enabled)
+	{
+		return enabled ? "ON" : "OFF";
+	}
+	
+	private static String shorten(String text, int maxLen)
+	{
+		if(text == null || text.length() <= maxLen)
+			return text == null ? "" : text;
+		return text.substring(0, Math.max(0, maxLen - 3)) + "...";
 	}
 	
 	@Override
@@ -232,6 +477,7 @@ public class WurstOptionsScreen extends Screen
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
+		renderOptionsBackground(context, mouseX, mouseY, partialTicks);
 		renderTitles(context);
 		
 		for(Renderable drawable : renderables)
@@ -240,23 +486,42 @@ public class WurstOptionsScreen extends Screen
 		renderButtonTooltip(context, mouseX, mouseY);
 	}
 	
+	private void renderOptionsBackground(GuiGraphics context, int mouseX,
+		int mouseY, float partialTicks)
+	{
+		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
+		
+		for(int i = 0; i < columnCount; i++)
+		{
+			int x1 = columnX[i] - 4;
+			int x2 = columnX[i] + buttonWidth + 4;
+			int y1 = contentTop - 2;
+			int y2 = backButtonY - 8;
+			context.fill(x1, y1, x2, y2, 0x66111111);
+			context.fill(x1, y1, x2, y1 + 1, 0x884A4A4A);
+			context.fill(x1, y2 - 1, x2, y2, 0x884A4A4A);
+			context.fill(x1, y1, x1 + 1, y2, 0x884A4A4A);
+			context.fill(x2 - 1, y1, x2, y2, 0x884A4A4A);
+		}
+	}
+	
 	private void renderTitles(GuiGraphics context)
 	{
 		Font tr = minecraft.font;
 		int middleX = width / 2;
-		int y1 = 40;
-		int y2 = height / 4 + 24 - 28;
+		int titleY = 32;
 		
 		String title =
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
-		context.drawCenteredString(tr, title, middleX, y1, CommonColors.WHITE);
+		context.drawCenteredString(tr, title, middleX, titleY,
+			CommonColors.WHITE);
+		context.drawCenteredString(tr,
+			"Feature-rich controls and recovery tools", middleX, titleY + 12,
+			CommonColors.LIGHT_GRAY);
 		
-		context.drawCenteredString(tr, "Settings", middleX - 104, y2,
-			WurstColors.VERY_LIGHT_GRAY);
-		context.drawCenteredString(tr, "Managers", middleX, y2,
-			WurstColors.VERY_LIGHT_GRAY);
-		context.drawCenteredString(tr, "Links", middleX + 104, y2,
-			WurstColors.VERY_LIGHT_GRAY);
+		for(SectionHeader header : sectionHeaders)
+			context.drawCenteredString(tr, header.title(), header.centerX(),
+				header.y(), WurstColors.VERY_LIGHT_GRAY);
 	}
 	
 	private void renderButtonTooltip(GuiGraphics context, int mouseX,
@@ -264,12 +529,17 @@ public class WurstOptionsScreen extends Screen
 	{
 		for(AbstractWidget button : Screens.getButtons(this))
 		{
-			if(!button.isHoveredOrFocused()
-				|| !(button instanceof WurstOptionsButton))
+			if(!(button instanceof WurstOptionsButton))
+				continue;
+			
+			boolean hovered = button.visible && mouseX >= button.getX()
+				&& mouseX < button.getX() + button.getWidth()
+				&& mouseY >= button.getY()
+				&& mouseY < button.getY() + button.getHeight();
+			if(!hovered)
 				continue;
 			
 			WurstOptionsButton woButton = (WurstOptionsButton)button;
-			
 			if(woButton.tooltip.isEmpty())
 				continue;
 			
@@ -279,33 +549,37 @@ public class WurstOptionsScreen extends Screen
 		}
 	}
 	
+	private record SectionHeader(String title, int centerX, int y)
+	{}
+	
 	private final class WurstOptionsButton extends Button
 	{
 		private final Supplier<String> messageSupplier;
 		private final List<Component> tooltip;
 		
-		public WurstOptionsButton(int xOffset, int yOffset,
+		private WurstOptionsButton(int x, int y, int w, int h,
 			Supplier<String> messageSupplier, String tooltip,
 			OnPress pressAction)
 		{
-			super(WurstOptionsScreen.this.width / 2 + xOffset,
-				WurstOptionsScreen.this.height / 4 - 16 + yOffset, 100, 20,
-				Component.literal(messageSupplier.get()), pressAction,
-				Button.DEFAULT_NARRATION);
-			
+			super(x, y, w, h, Component.literal(messageSupplier.get()),
+				pressAction, Button.DEFAULT_NARRATION);
 			this.messageSupplier = messageSupplier;
 			
-			if(tooltip.isEmpty())
-				this.tooltip = Arrays.asList();
-			else
+			String normalizedTooltip = tooltip == null ? "" : tooltip.trim();
+			if(normalizedTooltip.isEmpty())
+				normalizedTooltip = buildFallbackTooltip(messageSupplier.get());
+			
+			if(normalizedTooltip.isEmpty())
 			{
-				String[] lines = ChatUtils.wrapText(tooltip, 200).split("\n");
-				
-				Component[] lines2 = new Component[lines.length];
+				this.tooltip = Arrays.asList();
+			}else
+			{
+				String[] lines =
+					ChatUtils.wrapText(normalizedTooltip, 220).split("\n");
+				Component[] wrapped = new Component[lines.length];
 				for(int i = 0; i < lines.length; i++)
-					lines2[i] = Component.literal(lines[i]);
-				
-				this.tooltip = Arrays.asList(lines2);
+					wrapped[i] = Component.literal(lines[i]);
+				this.tooltip = Arrays.asList(wrapped);
 			}
 			
 			addRenderableWidget(this);
@@ -325,6 +599,25 @@ public class WurstOptionsScreen extends Screen
 			renderDefaultSprite(drawContext);
 			renderDefaultLabel(drawContext.textRendererForWidget(this,
 				GuiGraphics.HoveredTextEffects.NONE));
+		}
+		
+		private static String buildFallbackTooltip(String label)
+		{
+			if(label == null)
+				return "Open this option.";
+			
+			String clean = label.replace('\n', ' ').trim();
+			if(clean.isEmpty())
+				return "Open this option.";
+			
+			int colon = clean.indexOf(':');
+			if(colon > 0)
+				clean = clean.substring(0, colon).trim();
+			
+			if(clean.isEmpty())
+				return "Open this option.";
+			
+			return "Configure " + clean + ".";
 		}
 	}
 }
