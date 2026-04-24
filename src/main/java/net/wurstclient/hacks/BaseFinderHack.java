@@ -14,6 +14,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
@@ -506,7 +507,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 					
 					// Unloaded chunks can return placeholder states and cause
 					// large false positives in the air/void.
-					if(!MC.level.hasChunkAt(pos))
+					if(!hasLoadedChunk(pos))
 						continue;
 					
 					String idFull = BlockUtils.getName(pos);
@@ -594,5 +595,11 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	{
 		return haystack != null
 			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
+	}
+	
+	private static boolean hasLoadedChunk(BlockPos pos)
+	{
+		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
+			SectionPos.blockToSectionCoord(pos.getZ()));
 	}
 }

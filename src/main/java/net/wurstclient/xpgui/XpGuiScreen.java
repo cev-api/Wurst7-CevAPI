@@ -20,7 +20,6 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -3245,7 +3244,7 @@ public final class XpGuiScreen extends Screen
 			// Fallback below.
 		}
 		
-		var conn = new URL(url).openConnection();
+		var conn = java.net.URI.create(url).toURL().openConnection();
 		conn.setConnectTimeout(15_000);
 		conn.setReadTimeout(30_000);
 		conn.setRequestProperty("User-Agent",

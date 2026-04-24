@@ -13,6 +13,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
@@ -342,8 +343,8 @@ public final class TeleportHack extends Hack
 		if(!allowLiquids.isChecked())
 		{
 			// Don't trust unknown chunk data for liquid safety checks.
-			if(!MC.level.hasChunkAt(pos) || !MC.level.hasChunkAt(abovePos)
-				|| !MC.level.hasChunkAt(belowPos))
+			if(!hasLoadedChunk(pos) || !hasLoadedChunk(abovePos)
+				|| !hasLoadedChunk(belowPos))
 			{
 				return false;
 			}
@@ -475,5 +476,11 @@ public final class TeleportHack extends Hack
 		int g = (int)(from.getGreen() + (to.getGreen() - from.getGreen()) * t);
 		int b = (int)(from.getBlue() + (to.getBlue() - from.getBlue()) * t);
 		return (255 << 24) | (r << 16) | (g << 8) | b;
+	}
+	
+	private static boolean hasLoadedChunk(BlockPos pos)
+	{
+		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
+			SectionPos.blockToSectionCoord(pos.getZ()));
 	}
 }

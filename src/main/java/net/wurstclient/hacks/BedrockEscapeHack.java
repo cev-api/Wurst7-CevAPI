@@ -19,6 +19,7 @@ import java.util.List;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
@@ -531,8 +532,8 @@ public final class BedrockEscapeHack extends Hack
 		BlockPos below = pos.below();
 		BlockPos above = pos.above();
 		// Don't trust unknown chunk data for liquid safety checks.
-		if(!MC.level.hasChunkAt(pos) || !MC.level.hasChunkAt(above)
-			|| !MC.level.hasChunkAt(below))
+		if(!hasLoadedChunk(pos) || !hasLoadedChunk(above)
+			|| !hasLoadedChunk(below))
 		{
 			return false;
 		}
@@ -781,7 +782,7 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y >= endY; y--)
 		{
 			pos.set(x, y, z);
-			if(!MC.level.hasChunkAt(pos))
+			if(!hasLoadedChunk(pos))
 				return true;
 			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 				return true;
@@ -917,8 +918,8 @@ public final class BedrockEscapeHack extends Hack
 		
 		BlockPos above = new BlockPos(x, y + 1, z);
 		BlockPos below = new BlockPos(x, y - 1, z);
-		boolean hasAbove = MC.level.hasChunkAt(above);
-		boolean hasBelow = MC.level.hasChunkAt(below);
+		boolean hasAbove = hasLoadedChunk(above);
+		boolean hasBelow = hasLoadedChunk(below);
 		if(!hasAbove)
 			return;
 		if(fromAbove && !hasBelow)
@@ -1021,7 +1022,7 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y <= endY; y++)
 		{
 			pos.set(x, y, z);
-			if(!MC.level.hasChunkAt(pos))
+			if(!hasLoadedChunk(pos))
 				return true;
 			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 				return true;
@@ -1099,6 +1100,12 @@ public final class BedrockEscapeHack extends Hack
 			return playerAboveSideBoundary;
 		
 		return !playerAboveSideBoundary;
+	}
+	
+	private static boolean hasLoadedChunk(BlockPos pos)
+	{
+		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
+			SectionPos.blockToSectionCoord(pos.getZ()));
 	}
 	
 	private record ShaftCandidate(BlockPos surfacePos, boolean safe,
