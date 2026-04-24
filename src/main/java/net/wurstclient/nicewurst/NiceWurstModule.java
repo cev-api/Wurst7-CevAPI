@@ -85,21 +85,23 @@ public final class NiceWurstModule
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
-				"Excavator", "HandNoClip", "InstantBunker", "ScaffoldWalk",
-				"TemplateTool", "TargetPlace", "SilkOnly", "MusicAura"));
+				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
+				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
+				"TemplateTool"));
 		
-		ALLOWED_HACKS.put(Category.MOVEMENT, Set.of("BunnyHop", "AutoSprint",
-			"AutoWalk", "AutoSwim", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
+		ALLOWED_HACKS.put(Category.MOVEMENT,
+			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
+				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT, Set.of("AutoRespawn", "AutoTotem",
-			"AutoLeave", "WindChargeKey", "PearlIntercept"));
+			"AutoLeave", "PearlIntercept", "ShieldSwing", "WindChargeKey"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
 				"MobHealth", "NameTags", "NewChunks", "NewerNewChunks",
 				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
-				"Freecam", "Waypoints", "HideWurst", "ElytraInfo", "Mapa",
-				"BedrockStash"));
+				"NoShieldOverlay", "Freecam", "Waypoints", "HideWurst",
+				"ElytraInfo", "Mapa", "BedrockStash"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "Mention", "NoPlayerChat"));
