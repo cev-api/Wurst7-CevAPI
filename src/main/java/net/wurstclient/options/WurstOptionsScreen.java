@@ -313,8 +313,8 @@ public final class WurstOptionsScreen extends Screen
 			b -> wurst.getOtfs().packetToolsOtf.openScreen());
 		
 		addButton(column, () -> "Hack Debugger",
-			"Open Navigator with a quick search to toggle hacks/settings while out of game.",
-			b -> minecraft.setScreen(new NavigatorMainScreen("hack")));
+			"Open Navigator to toggle hacks/settings while out of game.",
+			b -> minecraft.setScreen(new NavigatorMainScreen()));
 		
 		addButton(column, () -> "Blocked Hacks Editor",
 			"Open TooManyHax blocklist editor (safe outside game).",
