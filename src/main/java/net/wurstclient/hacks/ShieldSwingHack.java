@@ -21,7 +21,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyMapping;
-import net.wurstclient.mixinterface.IMultiPlayerGameMode;
+import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.InventoryUtils;
@@ -195,7 +195,8 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 	private void moveToOffhand(int itemSlot)
 	{
 		boolean offhandEmpty = MC.player.getOffhandItem().isEmpty();
-		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
+		IClientPlayerInteractionManager interactionManager =
+			IMC.getInteractionManager();
 		interactionManager.windowClick_PICKUP(itemSlot);
 		interactionManager.windowClick_PICKUP(45);
 		
@@ -208,7 +209,8 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 		if(nextTickSlot == -1 || MC.player == null)
 			return;
 		
-		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
+		IClientPlayerInteractionManager interactionManager =
+			IMC.getInteractionManager();
 		interactionManager.windowClick_PICKUP(nextTickSlot);
 		nextTickSlot = -1;
 	}

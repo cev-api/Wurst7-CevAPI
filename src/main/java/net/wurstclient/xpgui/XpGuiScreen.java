@@ -37,7 +37,7 @@ import org.lwjgl.glfw.GLFW;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.input.KeyEvent;
@@ -791,15 +791,15 @@ public final class XpGuiScreen extends Screen
 	}
 	
 	@Override
-	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float deltaTicks)
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
+		float deltaTicks)
 	{
 		// Disable blur to preserve XP desktop look.
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		renderDesktop(context);
 		
@@ -829,7 +829,7 @@ public final class XpGuiScreen extends Screen
 		renderTaskbar(context, mouseX, mouseY);
 	}
 	
-	private void renderDesktop(GuiGraphicsExtractor context)
+	private void renderDesktop(GuiGraphics context)
 	{
 		ensureXpguiSettingsLoaded();
 		uploadPendingDesktopTexture();
@@ -855,8 +855,7 @@ public final class XpGuiScreen extends Screen
 			withAlpha(0x26000000, alpha), 0x00000000);
 	}
 	
-	private void renderTaskbar(GuiGraphicsExtractor context, int mouseX,
-		int mouseY)
+	private void renderTaskbar(GuiGraphics context, int mouseX, int mouseY)
 	{
 		int barH = taskbarHeight();
 		int y1 = height - barH;
@@ -933,10 +932,11 @@ public final class XpGuiScreen extends Screen
 		}
 		int startIconY = startY + (startH - 16) / 2;
 		int startIconX = startX + 7;
-		context.item(new ItemStack(startIconBlock), startIconX, startIconY);
+		context.renderItem(new ItemStack(startIconBlock), startIconX,
+			startIconY);
 		int startTextX = startX + 32;
 		int startTextY = startY + (startH - 8) / 2;
-		context.text(minecraft.font, "Start", startTextX, startTextY,
+		context.drawString(minecraft.font, "Start", startTextX, startTextY,
 			0xFFFFFFFF, false);
 		if(!win2000Theme)
 		{
@@ -962,17 +962,17 @@ public final class XpGuiScreen extends Screen
 		XpGuiTheme.drawBevelRect(context, cogX - 2, cogY - 2, cogX + 18,
 			cogY + 18, hoverCog ? 0xFF7AA9EB : 0xFF5A8CD9, 0x90FFFFFF,
 			0xFF2C57A7);
-		context.item(new ItemStack(Items.WRITABLE_BOOK), cogX, cogY);
+		context.renderItem(new ItemStack(Items.WRITABLE_BOOK), cogX, cogY);
 		
 		String time = java.time.LocalTime.now()
 			.format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"));
 		int timeW = minecraft.font.width(time);
 		int timeColor = win2000Theme ? 0xFF10243F : 0xFFFFFFFF;
-		context.text(minecraft.font, time, width - 10 - timeW,
+		context.drawString(minecraft.font, time, width - 10 - timeW,
 			y1 + (barH - 8) / 2, timeColor, false);
 	}
 	
-	private void renderTaskbarButtons(GuiGraphicsExtractor context, int mouseX,
+	private void renderTaskbarButtons(GuiGraphics context, int mouseX,
 		int mouseY)
 	{
 		List<XpModuleWindow> windows = windowManager.getWindows();
@@ -1032,7 +1032,7 @@ public final class XpGuiScreen extends Screen
 			renderHackStatusIcon(context, x + 4, y + (h - 14) / 2,
 				window.getHack());
 			String clipped = clipText(title, buttonW - 36);
-			context.text(minecraft.font, clipped, x + 22, y + (h - 8) / 2,
+			context.drawString(minecraft.font, clipped, x + 22, y + (h - 8) / 2,
 				win2000Theme ? 0xFF10243F : 0xFFFFFFFF, false);
 		}
 		
@@ -1074,17 +1074,16 @@ public final class XpGuiScreen extends Screen
 					context.fill(x, y + h - 1, x + buttonW - 4, y + h,
 						win2000Theme ? 0xFF777777 : 0xA0184B95);
 				}
-				context.item(new ItemStack(Items.COMPASS), x + 4,
+				context.renderItem(new ItemStack(Items.COMPASS), x + 4,
 					y + (h - 16) / 2);
-				context.text(minecraft.font, clipText("Search", buttonW - 36),
-					x + 22, y + (h - 8) / 2,
+				context.drawString(minecraft.font,
+					clipText("Search", buttonW - 36), x + 22, y + (h - 8) / 2,
 					win2000Theme ? 0xFF10243F : 0xFFFFFFFF, false);
 			}
 		}
 	}
 	
-	private void renderStartMenu(GuiGraphicsExtractor context, int mouseX,
-		int mouseY)
+	private void renderStartMenu(GuiGraphics context, int mouseX, int mouseY)
 	{
 		StartMenuRects rects = getStartMenuRects();
 		context.fill(rects.x + 3, rects.y + 4, rects.x + rects.width + 7,
@@ -1107,8 +1106,8 @@ public final class XpGuiScreen extends Screen
 		
 		String playerName = minecraft.getUser().getName();
 		drawPlayerHead(context, rects.x + 9, rects.y + 11, 32);
-		context.text(minecraft.font, playerName, rects.x + 48, rects.y + 24,
-			0xFFFFFFFF, false);
+		context.drawString(minecraft.font, playerName, rects.x + 48,
+			rects.y + 24, 0xFFFFFFFF, false);
 		
 		int bodyTop = rects.y + rects.headerHeight;
 		int leftColor = win2000Theme ? 0xFFECECEC : XpGuiTheme.MENU_LEFT;
@@ -1142,7 +1141,7 @@ public final class XpGuiScreen extends Screen
 			renderAllProgramsMenus(context, rects, mouseX, mouseY);
 	}
 	
-	private void renderStartMenuFavorites(GuiGraphicsExtractor context,
+	private void renderStartMenuFavorites(GuiGraphics context,
 		StartMenuRects rects, int mouseX, int mouseY)
 	{
 		List<Hack> favorites = getFavoriteHacks();
@@ -1158,7 +1157,7 @@ public final class XpGuiScreen extends Screen
 			int rowY = contentTop - favoritesScroll;
 			if(favorites.isEmpty())
 			{
-				context.text(minecraft.font, "No favorites yet.", x1 + 6,
+				context.drawString(minecraft.font, "No favorites yet.", x1 + 6,
 					rowY + 8, 0xFF4C6892, false);
 			}else
 				for(Hack hack : favorites)
@@ -1179,7 +1178,7 @@ public final class XpGuiScreen extends Screen
 							rowY + rowH, 0xFFCCE2FF);
 					
 					renderHackStatusIcon(context, x1 + 5, rowY + 5, hack);
-					context.text(minecraft.font, hack.getName(), x1 + 22,
+					context.drawString(minecraft.font, hack.getName(), x1 + 22,
 						rowY + 7, 0xFF103B76, false);
 					rowY += rowH + 1;
 				}
@@ -1205,13 +1204,13 @@ public final class XpGuiScreen extends Screen
 			x1 + rects.leftWidth - 12, allProgramsY + 22, allProgramsFill,
 			hoverAllPrograms ? 0xFFAFCCF1 : 0xFFFFFFFF,
 			hoverAllPrograms ? 0xFF1F5EA8 : 0xFF90ADD4);
-		context.text(minecraft.font, "All Programs", x1 + 8, allProgramsY + 7,
-			allProgramsText, false);
-		context.text(minecraft.font, "\u25B6", x1 + rects.leftWidth - 26,
+		context.drawString(minecraft.font, "All Programs", x1 + 8,
+			allProgramsY + 7, allProgramsText, false);
+		context.drawString(minecraft.font, "\u25B6", x1 + rects.leftWidth - 26,
 			allProgramsY + 7, allProgramsText, false);
 	}
 	
-	private void renderStartMenuRightPanel(GuiGraphicsExtractor context,
+	private void renderStartMenuRightPanel(GuiGraphics context,
 		StartMenuRects rects, int mouseX, int mouseY)
 	{
 		String[] entries = {"Wurst Options", "Preset Manager",
@@ -1232,14 +1231,14 @@ public final class XpGuiScreen extends Screen
 					0x80C4DAF6);
 			ItemStack icon =
 				i == 4 ? new ItemStack(Items.COMPASS) : new ItemStack(icons[i]);
-			context.item(icon, x, y + 1);
-			context.text(minecraft.font, entry, x + 22, y + 5, 0xFF163B70,
+			context.renderItem(icon, x, y + 1);
+			context.drawString(minecraft.font, entry, x + 22, y + 5, 0xFF163B70,
 				false);
 			y += rowH;
 		}
 	}
 	
-	private void renderStartMenuFooterActions(GuiGraphicsExtractor context,
+	private void renderStartMenuFooterActions(GuiGraphics context,
 		StartMenuRects rects, int mouseX, int mouseY)
 	{
 		int buttonW = 102;
@@ -1261,12 +1260,13 @@ public final class XpGuiScreen extends Screen
 			0x80FFFFFF);
 		context.fill(buttonX, buttonY + buttonH - 1, buttonX + buttonW,
 			buttonY + buttonH, 0x7016336C);
-		context.item(new ItemStack(Blocks.RED_WOOL), buttonX + 4, buttonY + 3);
-		context.text(minecraft.font, "Disconnect", buttonX + 24, buttonY + 7,
-			0xFFFFFFFF, false);
+		context.renderItem(new ItemStack(Blocks.RED_WOOL), buttonX + 4,
+			buttonY + 3);
+		context.drawString(minecraft.font, "Disconnect", buttonX + 24,
+			buttonY + 7, 0xFFFFFFFF, false);
 	}
 	
-	private void renderAllProgramsMenus(GuiGraphicsExtractor context,
+	private void renderAllProgramsMenus(GuiGraphics context,
 		StartMenuRects rects, int mouseX, int mouseY)
 	{
 		Map<String, List<Hack>> byCategory = getHacksByCategory();
@@ -1292,11 +1292,11 @@ public final class XpGuiScreen extends Screen
 			if(hovered || category.equals(hoveredCategory))
 				context.fill(ap.categoryX + 2, rowY,
 					ap.categoryX + ap.categoryW - 2, rowY + 18, 0xFF2E73CC);
-			context.text(minecraft.font, category, ap.categoryX + 10, rowY + 5,
-				hovered || category.equals(hoveredCategory) ? 0xFFFFFFFF
-					: 0xFF143A71,
+			context.drawString(minecraft.font, category, ap.categoryX + 10,
+				rowY + 5, hovered || category.equals(hoveredCategory)
+					? 0xFFFFFFFF : 0xFF143A71,
 				false);
-			context.text(minecraft.font, "\u25B6",
+			context.drawString(minecraft.font, "\u25B6",
 				ap.categoryX + ap.categoryW - 14, rowY + 5,
 				hovered || category.equals(hoveredCategory) ? 0xFFFFFFFF
 					: 0xFF143A71,
@@ -1351,8 +1351,9 @@ public final class XpGuiScreen extends Screen
 					context.fill(ap.moduleX + 2, listY,
 						ap.moduleX + ap.moduleW - 12, listY + 18, 0xFF2E73CC);
 				renderHackStatusIcon(context, ap.moduleX + 5, listY + 4, hack);
-				context.text(minecraft.font, hack.getName(), ap.moduleX + 22,
-					listY + 5, hovered ? 0xFFFFFFFF : 0xFF143A71, false);
+				context.drawString(minecraft.font, hack.getName(),
+					ap.moduleX + 22, listY + 5,
+					hovered ? 0xFFFFFFFF : 0xFF143A71, false);
 				listY += 20;
 			}
 		}finally
@@ -1366,8 +1367,8 @@ public final class XpGuiScreen extends Screen
 				moduleMaxScroll);
 	}
 	
-	private void renderWindow(GuiGraphicsExtractor context,
-		XpModuleWindow window, int mouseX, int mouseY)
+	private void renderWindow(GuiGraphics context, XpModuleWindow window,
+		int mouseX, int mouseY)
 	{
 		WindowRects rects = computeWindowRects(window);
 		boolean focused =
@@ -1382,16 +1383,16 @@ public final class XpGuiScreen extends Screen
 		
 		renderHackStatusIcon(context, window.getX() + 6, window.getY() + 4,
 			window.getHack());
-		context.text(minecraft.font, window.getTitle(), window.getX() + 24,
-			window.getY() + 7, 0xFFFFFFFF, false);
+		context.drawString(minecraft.font, window.getTitle(),
+			window.getX() + 24, window.getY() + 7, 0xFFFFFFFF, false);
 		
 		renderWindowButtons(context, window, mouseX, mouseY);
 		renderWindowToggleRow(context, window, rects, mouseX, mouseY);
 		renderWindowSettings(context, window, rects, mouseX, mouseY);
 	}
 	
-	private void renderWindowButtons(GuiGraphicsExtractor context,
-		XpModuleWindow window, int mouseX, int mouseY)
+	private void renderWindowButtons(GuiGraphics context, XpModuleWindow window,
+		int mouseX, int mouseY)
 	{
 		int buttonSize = 14;
 		int btnY = window.getY() + 4;
@@ -1412,11 +1413,11 @@ public final class XpGuiScreen extends Screen
 		XpGuiTheme.drawBevelRect(context, closeX, btnY, closeX + buttonSize,
 			btnY + buttonSize, hoverClose ? 0xFFE56E58 : 0xFFDA4E39, 0xA0FFFFFF,
 			0xFF8C2A1E);
-		context.text(minecraft.font, "x", closeX + 4, btnY + 3, 0xFFFFFFFF,
-			false);
+		context.drawString(minecraft.font, "x", closeX + 4, btnY + 3,
+			0xFFFFFFFF, false);
 	}
 	
-	private void renderWindowToggleRow(GuiGraphicsExtractor context,
+	private void renderWindowToggleRow(GuiGraphics context,
 		XpModuleWindow window, WindowRects rects, int mouseX, int mouseY)
 	{
 		Hack hack = window.getHack();
@@ -1433,13 +1434,14 @@ public final class XpGuiScreen extends Screen
 			fill, 0xFFFFFFFF, 0xFF8EA5C1);
 		
 		String state = hack.isEnabled() ? "Enabled" : "Disabled";
-		context.text(minecraft.font, "State:", rowX + 8, rowY + 8, 0xFF20426F,
+		context.drawString(minecraft.font, "State:", rowX + 8, rowY + 8,
+			0xFF20426F, false);
+		context.drawString(minecraft.font, state + " (click to toggle)",
+			rowX + 60, rowY + 8, hack.isEnabled() ? 0xFF187A25 : 0xFF9D1D1D,
 			false);
-		context.text(minecraft.font, state + " (click to toggle)", rowX + 60,
-			rowY + 8, hack.isEnabled() ? 0xFF187A25 : 0xFF9D1D1D, false);
 	}
 	
-	private void renderWindowSettings(GuiGraphicsExtractor context,
+	private void renderWindowSettings(GuiGraphics context,
 		XpModuleWindow window, WindowRects rects, int mouseX, int mouseY)
 	{
 		List<SettingNode> nodes = collectSettings(window);
@@ -1485,9 +1487,8 @@ public final class XpGuiScreen extends Screen
 				10, rects.settingsHeight, window.getScrollOffset(), maxScroll);
 	}
 	
-	private void renderSettingRow(GuiGraphicsExtractor context,
-		SettingNode node, int x, int y, int width, int mouseX, int mouseY,
-		int rowIndex)
+	private void renderSettingRow(GuiGraphics context, SettingNode node, int x,
+		int y, int width, int mouseX, int mouseY, int rowIndex)
 	{
 		Setting setting = node.setting();
 		int rowH = getRowHeight(setting);
@@ -1508,7 +1509,7 @@ public final class XpGuiScreen extends Screen
 			String arrow = node.expanded() ? "\u25BC " : "\u25B6 ";
 			label = arrow + label;
 		}
-		context.text(minecraft.font, label, labelX, y + (rowH - 8) / 2,
+		context.drawString(minecraft.font, label, labelX, y + (rowH - 8) / 2,
 			0xFF1A3E73, false);
 		
 		int controlX = x + width / 2;
@@ -1517,8 +1518,8 @@ public final class XpGuiScreen extends Screen
 			rowH - 6, hovered);
 	}
 	
-	private void renderSettingControl(GuiGraphicsExtractor context,
-		Setting setting, int x, int y, int width, int height, boolean hovered)
+	private void renderSettingControl(GuiGraphics context, Setting setting,
+		int x, int y, int width, int height, boolean hovered)
 	{
 		if(setting instanceof CheckboxSetting checkbox)
 		{
@@ -1528,7 +1529,7 @@ public final class XpGuiScreen extends Screen
 			XpGuiTheme.drawBevelRect(context, boxX, boxY, boxX + boxSize,
 				boxY + boxSize, 0xFFFFFFFF, 0xFFFFFFFF, 0xFF5E7FAE);
 			if(checkbox.isChecked())
-				context.text(minecraft.font, "\u2713", boxX + 3, boxY + 2,
+				context.drawString(minecraft.font, "\u2713", boxX + 3, boxY + 2,
 					0xFF1D5F12, false);
 			return;
 		}
@@ -1549,7 +1550,7 @@ public final class XpGuiScreen extends Screen
 			
 			String value = slider.getValueString();
 			int valueW = minecraft.font.width(value);
-			context.text(minecraft.font, value, x + width - valueW - 6,
+			context.drawString(minecraft.font, value, x + width - valueW - 6,
 				y + (height - 8) / 2, 0xFF234B7E, false);
 			return;
 		}
@@ -1559,8 +1560,8 @@ public final class XpGuiScreen extends Screen
 			XpGuiTheme.drawBevelRect(context, x + 4, y, x + width - 4,
 				y + height, 0xFFFFFFFF, 0xFFFFFFFF, 0xFF6E8BB4);
 			String shown = clipText(text.getValue(), width - 18);
-			context.text(minecraft.font, shown, x + 8, y + (height - 8) / 2,
-				0xFF10315F, false);
+			context.drawString(minecraft.font, shown, x + 8,
+				y + (height - 8) / 2, 0xFF10315F, false);
 			if(textSettingEditSession != null
 				&& textSettingEditSession.setting == text)
 			{
@@ -2387,8 +2388,7 @@ public final class XpGuiScreen extends Screen
 		return isInsideSettingsDialog(mouseX, mouseY);
 	}
 	
-	private void renderSearchDialog(GuiGraphicsExtractor context, int mouseX,
-		int mouseY)
+	private void renderSearchDialog(GuiGraphics context, int mouseX, int mouseY)
 	{
 		SearchDialogRects rects = getSearchDialogRects();
 		context.fill(rects.x - 2, rects.y - 2, rects.x + rects.w + 2,
@@ -2397,8 +2397,9 @@ public final class XpGuiScreen extends Screen
 			rects.y + rects.h);
 		XpGuiTheme.drawTitleBar(context, rects.x + 1, rects.y + 1,
 			rects.x + rects.w - 1, rects.y + 23, searchDialogFocused);
-		context.item(new ItemStack(Items.COMPASS), rects.x + 6, rects.y + 4);
-		context.text(minecraft.font, "Search", rects.x + 26, rects.y + 8,
+		context.renderItem(new ItemStack(Items.COMPASS), rects.x + 6,
+			rects.y + 4);
+		context.drawString(minecraft.font, "Search", rects.x + 26, rects.y + 8,
 			0xFFFFFFFF, false);
 		int closeX = rects.x + rects.w - 24;
 		int closeY = rects.y + 6;
@@ -2412,8 +2413,8 @@ public final class XpGuiScreen extends Screen
 		XpGuiTheme.drawBevelRect(context, closeX, closeY, closeX + 14,
 			closeY + 14, hoverClose ? 0xFFE56E58 : 0xFFDA4E39, 0xA0FFFFFF,
 			0xFF8C2A1E);
-		context.text(minecraft.font, "x", closeX + 4, closeY + 3, 0xFFFFFFFF,
-			false);
+		context.drawString(minecraft.font, "x", closeX + 4, closeY + 3,
+			0xFFFFFFFF, false);
 		
 		context.fill(rects.leftX, rects.leftY, rects.leftX + rects.leftW,
 			rects.leftY + rects.leftH, 0xFF018CA8);
@@ -2421,8 +2422,8 @@ public final class XpGuiScreen extends Screen
 			rects.inputX + rects.inputW + 1, rects.inputY + 19, 0xFFFFFFFF,
 			0xFFFFFFFF, 0xFF6888B9);
 		String query = searchQuery;
-		context.text(minecraft.font, query, rects.inputX + 4, rects.inputY + 5,
-			0xFF1A3868, false);
+		context.drawString(minecraft.font, query, rects.inputX + 4,
+			rects.inputY + 5, 0xFF1A3868, false);
 		if(searchFieldFocused)
 			context.fill(rects.inputX + 4 + minecraft.font.width(query),
 				rects.inputY + 4,
@@ -2433,13 +2434,13 @@ public final class XpGuiScreen extends Screen
 			context.fill(rects.inputX + 4, rects.inputY + 4,
 				rects.inputX + 4 + minecraft.font.width(query),
 				rects.inputY + 15, 0x55367CD6);
-			context.text(minecraft.font, query, rects.inputX + 4,
+			context.drawString(minecraft.font, query, rects.inputX + 4,
 				rects.inputY + 5, 0xFFFFFFFF, false);
 		}
 		
-		context.text(minecraft.font, "Search Companion", rects.leftX + 8,
+		context.drawString(minecraft.font, "Search Companion", rects.leftX + 8,
 			rects.leftY + 8, 0xFFE8F6FF, false);
-		context.text(minecraft.font, "Find hacks by name or description.",
+		context.drawString(minecraft.font, "Find hacks by name or description.",
 			rects.leftX + 8, rects.leftY + 26, 0xFFD8EDFF, false);
 		
 		int dogX = rects.leftX + 16;
@@ -2454,10 +2455,10 @@ public final class XpGuiScreen extends Screen
 		int bubbleY = dogY - bubbleH - 12;
 		XpGuiTheme.drawBevelRect(context, bubbleX, bubbleY, bubbleX + bubbleW,
 			bubbleY + bubbleH, 0xFF9FD3E1, 0xFFCDEAF1, 0xFF4F94A6);
-		context.text(minecraft.font, "what do you want to", bubbleX + 10,
+		context.drawString(minecraft.font, "what do you want to", bubbleX + 10,
 			bubbleY + 19, 0xFF0F1B1D, false);
-		context.text(minecraft.font, "search for?", bubbleX + 10, bubbleY + 33,
-			0xFF0F1B1D, false);
+		context.drawString(minecraft.font, "search for?", bubbleX + 10,
+			bubbleY + 33, 0xFF0F1B1D, false);
 		
 		context.fill(rects.resultsX, rects.resultsY,
 			rects.resultsX + rects.resultsW, rects.resultsY + rects.resultsH,
@@ -2495,8 +2496,8 @@ public final class XpGuiScreen extends Screen
 				
 				renderFeatureStatusIcon(context, x + 4, y + 3, feature);
 				String name = clipText(feature.getName(), itemW - 28);
-				context.text(minecraft.font, name, x + 22, y + 7, 0xFF153A70,
-					false);
+				context.drawString(minecraft.font, name, x + 22, y + 7,
+					0xFF153A70, false);
 			}
 		}finally
 		{
@@ -2509,7 +2510,7 @@ public final class XpGuiScreen extends Screen
 				max);
 	}
 	
-	private void renderSettingsDialog(GuiGraphicsExtractor context, int mouseX,
+	private void renderSettingsDialog(GuiGraphics context, int mouseX,
 		int mouseY)
 	{
 		SettingsDialogRects rects = getSettingsDialogRects();
@@ -2519,9 +2520,9 @@ public final class XpGuiScreen extends Screen
 			rects.y + rects.h);
 		XpGuiTheme.drawTitleBar(context, rects.x + 1, rects.y + 1,
 			rects.x + rects.w - 1, rects.y + 23, true);
-		context.item(new ItemStack(Items.WRITABLE_BOOK), rects.x + 6,
+		context.renderItem(new ItemStack(Items.WRITABLE_BOOK), rects.x + 6,
 			rects.y + 4);
-		context.text(minecraft.font, "XPGUI Settings", rects.x + 26,
+		context.drawString(minecraft.font, "XPGUI Settings", rects.x + 26,
 			rects.y + 8, 0xFFFFFFFF, false);
 		
 		int closeX = rects.x + rects.w - 22;
@@ -2538,7 +2539,7 @@ public final class XpGuiScreen extends Screen
 		context.fill(rects.x + 10, sep3Y, rects.x + rects.w - 10, sep3Y + 1,
 			0x9093ADD6);
 		
-		context.text(minecraft.font, "Background mode:", rects.x + 10,
+		context.drawString(minecraft.font, "Background mode:", rects.x + 10,
 			rects.y + 36, 0xFF173A6E, false);
 		
 		XpGuiTheme.drawXpButton(context, minecraft.font, "Image",
@@ -2560,7 +2561,7 @@ public final class XpGuiScreen extends Screen
 				rects.modeW, 20),
 			desktopBackgroundMode == DesktopBackgroundMode.NONE);
 		
-		context.text(minecraft.font, "Opacity:", rects.x + 10,
+		context.drawString(minecraft.font, "Opacity:", rects.x + 10,
 			rects.opacityY - 11, 0xFF173A6E, false);
 		context.fill(rects.opacityX, rects.opacityY,
 			rects.opacityX + rects.opacityW, rects.opacityY + 10, 0xFFCCE0FB);
@@ -2573,24 +2574,24 @@ public final class XpGuiScreen extends Screen
 		XpGuiTheme.drawBevelRect(context, knobX - 4, rects.opacityY - 4,
 			knobX + 4, rects.opacityY + 14, 0xFFEDF5FF, 0xFFFFFFFF, 0xFF5E7FAE);
 		String opacityText = Integer.toString(desktopOpacity);
-		context.text(minecraft.font, opacityText,
+		context.drawString(minecraft.font, opacityText,
 			rects.opacityX + rects.opacityW + 8, rects.opacityY + 1, 0xFF244A7D,
 			false);
 		
-		context.text(minecraft.font, "Image URL:", rects.x + 10,
+		context.drawString(minecraft.font, "Image URL:", rects.x + 10,
 			rects.urlY - 11, 0xFF173A6E, false);
 		XpGuiTheme.drawBevelRect(context, rects.urlX - 1, rects.urlY - 1,
 			rects.urlX + rects.urlW + 1, rects.urlY + 19, 0xFFFFFFFF,
 			0xFFFFFFFF, 0xFF6888B9);
 		String shownUrl = clipText(desktopImageUrl, rects.urlW - 8);
-		context.text(minecraft.font, shownUrl, rects.urlX + 4, rects.urlY + 5,
-			0xFF1A3868, false);
+		context.drawString(minecraft.font, shownUrl, rects.urlX + 4,
+			rects.urlY + 5, 0xFF1A3868, false);
 		if(settingsUrlFocused && settingsUrlSelectAll && !shownUrl.isEmpty())
 		{
 			context.fill(rects.urlX + 4, rects.urlY + 4,
 				rects.urlX + 4 + minecraft.font.width(shownUrl),
 				rects.urlY + 15, 0x55367CD6);
-			context.text(minecraft.font, shownUrl, rects.urlX + 4,
+			context.drawString(minecraft.font, shownUrl, rects.urlX + 4,
 				rects.urlY + 5, 0xFFFFFFFF, false);
 		}
 		if(settingsUrlFocused)
@@ -2609,13 +2610,13 @@ public final class XpGuiScreen extends Screen
 				rects.defaultY, rects.defaultW, 20),
 			false);
 		
-		context.text(minecraft.font, "Start icon block:", rects.x + 10,
+		context.drawString(minecraft.font, "Start icon block:", rects.x + 10,
 			rects.startIconY - 15, 0xFF173A6E, false);
 		XpGuiTheme.drawBevelRect(context, rects.startIconX - 1,
 			rects.startIconY - 1, rects.startIconX + rects.startIconW + 1,
 			rects.startIconY + 19, 0xFFFFFFFF, 0xFFFFFFFF, 0xFF6888B9);
 		String shownStart = clipText(startIconBlockName, rects.startIconW - 8);
-		context.text(minecraft.font, shownStart, rects.startIconX + 4,
+		context.drawString(minecraft.font, shownStart, rects.startIconX + 4,
 			rects.startIconY + 5, 0xFF1A3868, false);
 		if(settingsStartIconFocused && settingsStartIconSelectAll
 			&& !shownStart.isEmpty())
@@ -2623,7 +2624,7 @@ public final class XpGuiScreen extends Screen
 			context.fill(rects.startIconX + 4, rects.startIconY + 4,
 				rects.startIconX + 4 + minecraft.font.width(shownStart),
 				rects.startIconY + 15, 0x55367CD6);
-			context.text(minecraft.font, shownStart, rects.startIconX + 4,
+			context.drawString(minecraft.font, shownStart, rects.startIconX + 4,
 				rects.startIconY + 5, 0xFFFFFFFF, false);
 		}
 		if(settingsStartIconFocused)
@@ -2640,7 +2641,7 @@ public final class XpGuiScreen extends Screen
 				rects.startApplyX, rects.startApplyY, rects.startApplyW, 20),
 			false);
 		
-		context.text(minecraft.font, "Hack list size:", rects.x + 10,
+		context.drawString(minecraft.font, "Hack list size:", rects.x + 10,
 			rects.listItemsY - 11, 0xFF173A6E, false);
 		context.fill(rects.listItemsX, rects.listItemsY,
 			rects.listItemsX + rects.listItemsW, rects.listItemsY + 10,
@@ -2656,13 +2657,13 @@ public final class XpGuiScreen extends Screen
 		XpGuiTheme.drawBevelRect(context, listKnobX - 4, rects.listItemsY - 4,
 			listKnobX + 4, rects.listItemsY + 14, 0xFFEDF5FF, 0xFFFFFFFF,
 			0xFF5E7FAE);
-		context.text(minecraft.font,
+		context.drawString(minecraft.font,
 			Integer.toString(allProgramsVisibleItems.getValueI()),
 			rects.listItemsX + rects.listItemsW + 8, rects.listItemsY + 1,
 			0xFF244A7D, false);
 		
-		context.text(minecraft.font, "Theme:", rects.x + 10, rects.themeY - 10,
-			0xFF173A6E, false);
+		context.drawString(minecraft.font, "Theme:", rects.x + 10,
+			rects.themeY - 10, 0xFF173A6E, false);
 		XpGuiTheme.drawXpButton(context, minecraft.font, "XP", rects.themeXpX,
 			rects.themeY, rects.themeXpX + rects.themeW, rects.themeY + 20,
 			isInsideRect(mouseX, mouseY, rects.themeXpX, rects.themeY,
@@ -2675,16 +2676,17 @@ public final class XpGuiScreen extends Screen
 			win2000Theme);
 	}
 	
-	private void renderCloseButton(GuiGraphicsExtractor context, int x, int y,
+	private void renderCloseButton(GuiGraphics context, int x, int y,
 		boolean hovered)
 	{
 		XpGuiTheme.drawBevelRect(context, x, y, x + 14, y + 14,
 			hovered ? 0xFFE56E58 : 0xFFDA4E39, 0xA0FFFFFF, 0xFF8C2A1E);
-		context.text(minecraft.font, "x", x + 4, y + 3, 0xFFFFFFFF, false);
+		context.drawString(minecraft.font, "x", x + 4, y + 3, 0xFFFFFFFF,
+			false);
 	}
 	
-	private void renderHackStatusIcon(GuiGraphicsExtractor context, int x,
-		int y, Hack hack)
+	private void renderHackStatusIcon(GuiGraphics context, int x, int y,
+		Hack hack)
 	{
 		int size = 14;
 		int fill = hack.isEnabled() ? 0xFF4CD36A : 0xFFB4BEC8;
@@ -2695,8 +2697,8 @@ public final class XpGuiScreen extends Screen
 			context.fill(x + 4, y + 4, x + 10, y + 10, 0xAAFFFFFF);
 	}
 	
-	private void renderFeatureStatusIcon(GuiGraphicsExtractor context, int x,
-		int y, Feature feature)
+	private void renderFeatureStatusIcon(GuiGraphics context, int x, int y,
+		Feature feature)
 	{
 		if(feature instanceof Hack hack)
 		{
@@ -2853,8 +2855,7 @@ public final class XpGuiScreen extends Screen
 		return (filtered.size() + 2) / 3;
 	}
 	
-	private void drawPlayerHead(GuiGraphicsExtractor context, int x, int y,
-		int size)
+	private void drawPlayerHead(GuiGraphics context, int x, int y, int size)
 	{
 		XpGuiTheme.drawBevelRect(context, x - 2, y - 2, x + size + 2,
 			y + size + 2, 0xFFEAF3FF, 0xFFFFFFFF, 0xFF406AA3);
@@ -2874,8 +2875,8 @@ public final class XpGuiScreen extends Screen
 			size, 8, 8, 64, 64, 0xFFFFFFFF);
 	}
 	
-	private void renderSearchDog(GuiGraphicsExtractor context, int x, int y,
-		int w, int h)
+	private void renderSearchDog(GuiGraphics context, int x, int y, int w,
+		int h)
 	{
 		ensureDogFramesLoaded();
 		context.fill(x, y, x + w, y + h, 0xFF018CA8);
@@ -2895,7 +2896,7 @@ public final class XpGuiScreen extends Screen
 		
 		// Fallback if texture load fails.
 		context.fill(x + 10, y + 10, x + w - 10, y + h - 10, 0xFF000000);
-		context.text(minecraft.font, "!", x + w / 2 - 2, y + h / 2 - 4,
+		context.drawString(minecraft.font, "!", x + w / 2 - 2, y + h / 2 - 4,
 			0xFFFFFFFF, false);
 	}
 	
@@ -3430,8 +3431,8 @@ public final class XpGuiScreen extends Screen
 		}
 	}
 	
-	private void renderXpScrollbar(GuiGraphicsExtractor context, int x, int y,
-		int w, int h, int scroll, int maxScroll)
+	private void renderXpScrollbar(GuiGraphics context, int x, int y, int w,
+		int h, int scroll, int maxScroll)
 	{
 		XpGuiTheme.drawBevelRect(context, x, y, x + w, y + h, 0xFFE3ECFA,
 			0xFFFFFFFF, 0xFF6C8EBE);

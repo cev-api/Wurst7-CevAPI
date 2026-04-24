@@ -20,8 +20,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.color.block.BlockTintSource;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.BiomeColors;
@@ -31,7 +30,6 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
-import net.minecraft.world.level.CardinalLighting;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.AirBlock;
 import net.minecraft.world.level.block.Blocks;
@@ -44,6 +42,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.dimension.DimensionType.CardinalLightType;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -58,7 +57,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.net.SocketAddress;
 import java.lang.reflect.Field;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -237,8 +235,7 @@ public final class MapRenderService
 		return (key & 1L) != 0L;
 	}
 	
-	public void drawMinimap(GuiGraphicsExtractor gfx, Minecraft mc,
-		XMapConfig cfg)
+	public void drawMinimap(GuiGraphics gfx, Minecraft mc, XMapConfig cfg)
 	{
 		if(mc.level == null || mc.player == null)
 		{
@@ -397,9 +394,9 @@ public final class MapRenderService
 		}
 	}
 	
-	public void drawWorldMap(GuiGraphicsExtractor gfx, Minecraft mc,
-		XMapConfig cfg, int drawX, int drawY, int drawWidth, int drawHeight,
-		double centerX, double centerZ, double blocksPerPixel)
+	public void drawWorldMap(GuiGraphics gfx, Minecraft mc, XMapConfig cfg,
+		int drawX, int drawY, int drawWidth, int drawHeight, double centerX,
+		double centerZ, double blocksPerPixel)
 	{
 		if(mc.level == null || mc.player == null || !cfg.enabled)
 			return;
@@ -1460,7 +1457,7 @@ public final class MapRenderService
 		}
 	}
 	
-	private void drawTexture(GuiGraphicsExtractor gfx, int drawX, int drawY,
+	private void drawTexture(GuiGraphics gfx, int drawX, int drawY,
 		int drawSize, double centerX, double centerZ, boolean rotateWithPlayer,
 		float yawDeg, boolean invertRotation)
 	{
@@ -1511,7 +1508,7 @@ public final class MapRenderService
 		blitMinimap(gfx, renderX, renderY, renderSize, sourceSamples, u, v);
 	}
 	
-	private void drawTextureRect(GuiGraphicsExtractor gfx, int drawX, int drawY,
+	private void drawTextureRect(GuiGraphics gfx, int drawX, int drawY,
 		int drawWidth, int drawHeight, double centerX, double centerZ)
 	{
 		if(minimapTexture == null || textureSize <= 0 || cachedSamples <= 0)
@@ -1540,7 +1537,7 @@ public final class MapRenderService
 			textureSize, textureSize, -1);
 	}
 	
-	private void blitMinimap(GuiGraphicsExtractor gfx, int renderX, int renderY,
+	private void blitMinimap(GuiGraphics gfx, int renderX, int renderY,
 		int renderSize, int sourceSamples, float u, float v)
 	{
 		gfx.blit(RenderPipelines.GUI_TEXTURED, MINIMAP_TEX_ID, renderX, renderY,
@@ -1670,7 +1667,7 @@ public final class MapRenderService
 				seafloorHeight = surfaceHeight;
 				seafloorState = blockStateAtHeight(level, x, z, seafloorHeight);
 				while(seafloorHeight > minY + 1
-					&& seafloorState.getLightDampening() < 5
+					&& seafloorState.getLightBlock() < 5
 					&& !(seafloorState.getBlock() instanceof LeavesBlock))
 				{
 					material = seafloorState.getBlock();
@@ -1959,9 +1956,9 @@ public final class MapRenderService
 			return applyOptionalColorOverride(rgb, grassTintColor,
 				grassTintStrength);
 		}
-		List<BlockTintSource> tintSources =
-			Minecraft.getInstance().getBlockColors().getTintSources(state);
-		if(!tintSources.isEmpty() && prefersMapColorBase(state))
+		int biomeTint = Minecraft.getInstance().getBlockColors().getColor(state,
+			level, pos, 0);
+		if(biomeTint != -1 && biomeTint != 0 && prefersMapColorBase(state))
 		{
 			MapColor mapColor = state.getMapColor(level, pos);
 			if(mapColor != null && mapColor.col != 0)
@@ -1969,11 +1966,11 @@ public final class MapRenderService
 				base = mapColor.col;
 			}
 		}
-		if(!tintSources.isEmpty())
+		if(biomeTint != -1 && biomeTint != 0)
 		{
 			try
 			{
-				int tint = fastBiomeTint(level, state, pos, tintSources.get(0));
+				int tint = fastBiomeTint(level, state, pos);
 				if(tint != -1 && tint != 0)
 				{
 					if(state.is(Blocks.CHERRY_LEAVES))
@@ -2031,8 +2028,7 @@ public final class MapRenderService
 			|| state.getBlock() instanceof LeavesBlock;
 	}
 	
-	private int fastBiomeTint(ClientLevel level, BlockState state, BlockPos pos,
-		BlockTintSource tintSource)
+	private int fastBiomeTint(ClientLevel level, BlockState state, BlockPos pos)
 	{
 		int radius = 1;
 		int y = Mth.clamp(pos.getY(), level.getMinY(), level.getMaxY() - 1);
@@ -2045,7 +2041,8 @@ public final class MapRenderService
 			for(int dz = -radius; dz <= radius; dz++)
 			{
 				tintProbe.set(pos.getX() + dx, y, pos.getZ() + dz);
-				int tint = tintSource.colorInWorld(state, level, tintProbe);
+				int tint = Minecraft.getInstance().getBlockColors()
+					.getColor(state, level, tintProbe, 0);
 				if(tint == 0)
 				{
 					continue;
@@ -2122,8 +2119,7 @@ public final class MapRenderService
 		try
 		{
 			TextureAtlasSprite sprite = Minecraft.getInstance()
-				.getModelManager().getBlockStateModelSet()
-				.getParticleMaterial(state).sprite();
+				.getModelManager().getBlockModelShaper().getParticleIcon(state);
 			if(sprite != null)
 			{
 				NativeImage image = spriteImage(sprite.contents());
@@ -2258,7 +2254,7 @@ public final class MapRenderService
 			// terrain can blend in.
 			return true;
 		}
-		if(state.getLightDampening() > 0)
+		if(state.getLightBlock() > 0)
 		{
 			return true;
 		}
@@ -2383,7 +2379,7 @@ public final class MapRenderService
 	
 	private static boolean isMapOpenBlock(BlockState state)
 	{
-		return state.getLightDampening() == 0 && !state.is(Blocks.LAVA);
+		return state.getLightBlock() == 0 && !state.is(Blocks.LAVA);
 	}
 	
 	private int applyDynamicLight(ClientLevel level, BlockState state, int x,
@@ -2540,8 +2536,7 @@ public final class MapRenderService
 			boolean playerInOpen = motionBlocking <= clampedY;
 			return clampedY < 126 || !playerInOpen;
 		}
-		if(level.dimensionType()
-			.cardinalLightType() == CardinalLighting.Type.NETHER
+		if(level.dimensionType().cardinalLightType() == CardinalLightType.NETHER
 			&& !level.dimensionType().hasSkyLight())
 		{
 			boolean playerInOpen = motionBlocking <= clampedY;

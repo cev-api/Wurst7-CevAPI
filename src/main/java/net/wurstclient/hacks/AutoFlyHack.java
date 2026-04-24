@@ -951,7 +951,7 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return false;
 		
-		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos playerChunk = new ChunkPos(MC.player.blockPosition());
 		boolean containsChunk = oldChunks
 			? WURST.getHax().newerNewChunksHack.isOldChunk(playerChunk)
 			: WURST.getHax().newerNewChunksHack.isNewChunk(playerChunk);
@@ -1880,7 +1880,7 @@ public final class AutoFlyHack extends Hack
 			return;
 		
 		chunkCorridorTargetPos = targetPos;
-		ChunkPos anchor = ChunkPos.containing(BlockPos.containing(targetPos));
+		ChunkPos anchor = new ChunkPos(BlockPos.containing(targetPos));
 		chunkCorridorAnchor = anchor;
 		WURST.getRotationFaker().faceVectorClientIgnorePitch(targetPos);
 		autoSetKey(MC.options.keyUp, true);
@@ -1919,8 +1919,8 @@ public final class AutoFlyHack extends Hack
 		Vec3 lookaheadPoint =
 			origin.add(flatHeading.scale(playerProgress + lookaheadBlocks));
 		ChunkPos centerChunk =
-			ChunkPos.containing(BlockPos.containing(lookaheadPoint));
-		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
+			new ChunkPos(BlockPos.containing(lookaheadPoint));
+		ChunkPos playerChunk = new ChunkPos(MC.player.blockPosition());
 		
 		Vec3 weightedSum = Vec3.ZERO;
 		double totalWeight = 0.0;
@@ -1931,8 +1931,8 @@ public final class AutoFlyHack extends Hack
 			{
 				for(int dz = -radius; dz <= radius; dz++)
 				{
-					ChunkPos candidate = new ChunkPos(centerChunk.x() + dx,
-						centerChunk.z() + dz);
+					ChunkPos candidate =
+						new ChunkPos(centerChunk.x + dx, centerChunk.z + dz);
 					if(!trail.contains(candidate))
 						continue;
 					
@@ -1951,8 +1951,8 @@ public final class AutoFlyHack extends Hack
 						- lateral * 0.05 - alongError * 0.02);
 					if(candidate.equals(centerChunk))
 						weight += 0.75;
-					if(Math.abs(candidate.x() - playerChunk.x()) <= 1
-						&& Math.abs(candidate.z() - playerChunk.z()) <= 1)
+					if(Math.abs(candidate.x - playerChunk.x) <= 1
+						&& Math.abs(candidate.z - playerChunk.z) <= 1)
 						weight += 0.25;
 					
 					weightedSum = weightedSum.add(center.scale(weight));
@@ -1981,8 +1981,7 @@ public final class AutoFlyHack extends Hack
 			{
 				if(dx == 0 && dz == 0)
 					continue;
-				if(trail
-					.contains(new ChunkPos(center.x() + dx, center.z() + dz)))
+				if(trail.contains(new ChunkPos(center.x + dx, center.z + dz)))
 					count++;
 			}
 		}
@@ -2007,7 +2006,7 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		
-		ChunkPos startChunk = ChunkPos.containing(start);
+		ChunkPos startChunk = new ChunkPos(start);
 		ChunkPos seed = findClosestChunk(trail, startChunk);
 		if(seed == null)
 		{
@@ -2021,8 +2020,8 @@ public final class AutoFlyHack extends Hack
 			targets.add(new AutoFlyTarget(chunkCenter(chunk), false));
 		
 		ChatUtils.message(String.format(Locale.ROOT,
-			"AutoFly chunk trail: %d chunks from %d,%d", targets.size(),
-			seed.x(), seed.z()));
+			"AutoFly chunk trail: %d chunks from %d,%d", targets.size(), seed.x,
+			seed.z));
 	}
 	
 	private void prepareChunkTrailTarget()
@@ -2152,8 +2151,7 @@ public final class AutoFlyHack extends Hack
 		
 		ChunkPos best = null;
 		double bestScore = Double.NEGATIVE_INFINITY;
-		ChunkPos playerChunk =
-			ChunkPos.containing(BlockPos.containing(playerPos));
+		ChunkPos playerChunk = new ChunkPos(BlockPos.containing(playerPos));
 		
 		for(int radius = 1; radius <= 4; radius++)
 		{
@@ -2161,8 +2159,7 @@ public final class AutoFlyHack extends Hack
 			{
 				for(int dz = -radius; dz <= radius; dz++)
 				{
-					ChunkPos candidate =
-						new ChunkPos(seed.x() + dx, seed.z() + dz);
+					ChunkPos candidate = new ChunkPos(seed.x + dx, seed.z + dz);
 					if(!trail.contains(candidate))
 						continue;
 					
@@ -2174,8 +2171,8 @@ public final class AutoFlyHack extends Hack
 					double score = dir.dot(forward) * 6.0 - dist * 0.08;
 					if(candidate.equals(seed))
 						score += 2.0;
-					if(Math.abs(candidate.x() - playerChunk.x()) <= 1
-						&& Math.abs(candidate.z() - playerChunk.z()) <= 1)
+					if(Math.abs(candidate.x - playerChunk.x) <= 1
+						&& Math.abs(candidate.z - playerChunk.z) <= 1)
 						score += 1.0;
 					
 					if(score > bestScore)
@@ -2222,7 +2219,7 @@ public final class AutoFlyHack extends Hack
 					continue;
 				
 				ChunkPos candidate =
-					new ChunkPos(current.x() + dx, current.z() + dz);
+					new ChunkPos(current.x + dx, current.z + dz);
 				if(!remaining.contains(candidate))
 					continue;
 				
@@ -2241,13 +2238,13 @@ public final class AutoFlyHack extends Hack
 	
 	private static BlockPos chunkCenter(ChunkPos chunk)
 	{
-		return new BlockPos((chunk.x() << 4) + 8, 0, (chunk.z() << 4) + 8);
+		return new BlockPos((chunk.x << 4) + 8, 0, (chunk.z << 4) + 8);
 	}
 	
 	private static Vec3 chunkDirection(ChunkPos from, ChunkPos to)
 	{
-		double dx = to.x() - from.x();
-		double dz = to.z() - from.z();
+		double dx = to.x - from.x;
+		double dz = to.z - from.z;
 		double len = Math.hypot(dx, dz);
 		if(len < 1.0E-6)
 			return new Vec3(0.0, 0.0, 0.0);
@@ -2256,8 +2253,8 @@ public final class AutoFlyHack extends Hack
 	
 	private static long chunkDistanceSq(ChunkPos a, ChunkPos b)
 	{
-		long dx = (long)a.x() - b.x();
-		long dz = (long)a.z() - b.z();
+		long dx = (long)a.x - b.x;
+		long dz = (long)a.z - b.z;
 		return dx * dx + dz * dz;
 	}
 	

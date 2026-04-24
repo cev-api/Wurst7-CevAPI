@@ -864,7 +864,7 @@ public final class NewerNewChunksHack extends Hack
 	private void handleBlockLikeUpdate(BlockPos pos, BlockState state,
 		boolean allowTickExploit)
 	{
-		ChunkPos chunkPos = ChunkPos.containing(pos);
+		ChunkPos chunkPos = new ChunkPos(pos);
 		if(allowTickExploit && blockUpdateExploit.isChecked()
 			&& !containsAny(chunkPos))
 			markTickExploit(chunkPos);
@@ -1029,8 +1029,8 @@ public final class NewerNewChunksHack extends Hack
 		if(MC.level == null || MC.player == null)
 			return;
 		
-		int px = MC.player.chunkPosition().x();
-		int pz = MC.player.chunkPosition().z();
+		int px = MC.player.chunkPosition().x;
+		int pz = MC.player.chunkPosition().z;
 		int radius = Math.max(2, MC.options.getEffectiveRenderDistance()) + 1;
 		for(int x = px - radius; x <= px + radius; x++)
 			for(int z = pz - radius; z <= pz + radius; z++)
@@ -1416,8 +1416,7 @@ public final class NewerNewChunksHack extends Hack
 	{
 		ensureDataFiles();
 		Path file = getBaseDir().resolve(fileName);
-		String line =
-			chunkPos.x() + "," + chunkPos.z() + System.lineSeparator();
+		String line = chunkPos.x + "," + chunkPos.z + System.lineSeparator();
 		try
 		{
 			Files.writeString(file, line, StandardCharsets.UTF_8,

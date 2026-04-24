@@ -18,7 +18,7 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
@@ -373,7 +373,7 @@ public final class BedrockEscapeHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(!isValidTarget || teleportTarget == null
 			|| (!showSafeTick && damageHearts <= 0))
@@ -390,16 +390,16 @@ public final class BedrockEscapeHack extends Hack
 			String text = String.format("≈%.1f♥", damageHearts);
 			int textWidth = font.width(text);
 			int x = centerX - textWidth / 2;
-			context.text(font, text, x, y, damageColor, true);
+			context.drawString(font, text, x, y, damageColor, true);
 			
 			if(showSafeTick)
 			{
-				context.text(font, "✔", x + textWidth + 6, y, SAFE_TICK_COLOR,
-					true);
+				context.drawString(font, "✔", x + textWidth + 6, y,
+					SAFE_TICK_COLOR, true);
 			}
 		}else if(showSafeTick)
 		{
-			context.text(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
+			context.drawString(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
 		}
 		
 	}

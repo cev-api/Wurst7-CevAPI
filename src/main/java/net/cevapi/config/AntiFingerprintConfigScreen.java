@@ -7,7 +7,7 @@
  */
 package net.cevapi.config;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -142,34 +142,34 @@ public final class AntiFingerprintConfigScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
-		super.extractRenderState(context, mouseX, mouseY, delta);
+		super.render(context, mouseX, mouseY, delta);
 		
 		// Title
-		context.centeredText(font, title, width / 2,
+		context.drawCenteredString(font, title, width / 2,
 			Math.max(20, contentTop - 26), LABEL_COLOR);
 		
 		// Labels above text fields (with extra offset for breathing room)
 		if(thresholdField != null)
-			context.text(font, "Fingerprint threshold (packs)",
+			context.drawString(font, "Fingerprint threshold (packs)",
 				thresholdField.getX(), thresholdField.getY() - LABEL_Y_OFFSET,
 				LABEL_COLOR);
 		
 		if(windowField != null)
-			context.text(font, "Detection window (ms)", windowField.getX(),
-				windowField.getY() - LABEL_Y_OFFSET, LABEL_COLOR);
+			context.drawString(font, "Detection window (ms)",
+				windowField.getX(), windowField.getY() - LABEL_Y_OFFSET,
+				LABEL_COLOR);
 		
 		if(whitelistField != null)
 		{
-			context.text(font, "Whitelisted hosts (comma separated)",
+			context.drawString(font, "Whitelisted hosts (comma separated)",
 				whitelistField.getX(), whitelistField.getY() - LABEL_Y_OFFSET,
 				LABEL_COLOR);
 			
 			if(whitelistField.getValue().isBlank()
 				&& !whitelistField.isFocused())
-				context.text(font, "example.com, static.server",
+				context.drawString(font, "example.com, static.server",
 					whitelistField.getX() + 4, whitelistField.getY() + 6,
 					PLACEHOLDER_COLOR);
 		}
