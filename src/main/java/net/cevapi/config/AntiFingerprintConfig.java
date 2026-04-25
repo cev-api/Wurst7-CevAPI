@@ -64,6 +64,20 @@ public final class AntiFingerprintConfig
 		new CheckboxSetting("Show multiplayer button",
 			"Adds a shortcut to this panel to the Multiplayer screen.", true);
 	
+	private final CheckboxSetting bypassResourcePack = new CheckboxSetting(
+		"Bypass resource pack",
+		"Accepts required server resource packs without loading them.", false);
+	
+	private final CheckboxSetting resourcePackForceDeny =
+		new CheckboxSetting("Force deny resource pack",
+			"Declines server resource-pack requests instead of bypassing them.",
+			false);
+	
+	private final CheckboxSetting showResourcePackBypassButtons =
+		new CheckboxSetting("Show resource-pack bypass buttons",
+			"Adds Bypass Resource Pack and Force Deny buttons to the Multiplayer screen.",
+			true);
+	
 	private final SliderSetting fingerprintThreshold = new SliderSetting(
 		"Fingerprint threshold",
 		"Number of packs within the window before a fingerprint attempt is assumed.",
@@ -119,6 +133,21 @@ public final class AntiFingerprintConfig
 		return showMultiplayerButton;
 	}
 	
+	public CheckboxSetting getBypassResourcePackSetting()
+	{
+		return bypassResourcePack;
+	}
+	
+	public CheckboxSetting getResourcePackForceDenySetting()
+	{
+		return resourcePackForceDeny;
+	}
+	
+	public CheckboxSetting getShowResourcePackBypassButtonsSetting()
+	{
+		return showResourcePackBypassButtons;
+	}
+	
 	public SliderSetting getFingerprintThresholdSetting()
 	{
 		return fingerprintThreshold;
@@ -167,6 +196,21 @@ public final class AntiFingerprintConfig
 	public boolean shouldShowMultiplayerButton()
 	{
 		return showMultiplayerButton.isChecked();
+	}
+	
+	public boolean shouldBypassResourcePack()
+	{
+		return bypassResourcePack.isChecked();
+	}
+	
+	public boolean shouldForceDenyResourcePack()
+	{
+		return resourcePackForceDeny.isChecked();
+	}
+	
+	public boolean shouldShowResourcePackBypassButtons()
+	{
+		return showResourcePackBypassButtons.isChecked();
 	}
 	
 	public int getFingerprintThreshold()
@@ -232,7 +276,9 @@ public final class AntiFingerprintConfig
 	{
 		return Arrays.asList(policy, toastVerbosity, auditLog, purgeCache,
 			isolateCache, extractSandbox, showMultiplayerButton,
-			fingerprintThreshold, fingerprintWindowMs, whitelistedHosts);
+			bypassResourcePack, resourcePackForceDeny,
+			showResourcePackBypassButtons, fingerprintThreshold,
+			fingerprintWindowMs, whitelistedHosts);
 	}
 	
 	private static boolean isValidHostList(String value)

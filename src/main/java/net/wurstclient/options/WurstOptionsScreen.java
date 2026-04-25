@@ -207,6 +207,8 @@ public final class WurstOptionsScreen extends Screen
 		SliderSetting connectionFontScale =
 			connectionLogOtf.getFontScaleSetting();
 		DiscordRpcOtf discord = wurst.getOtfs().discordRpcOtf;
+		var antiFingerprintConfig =
+			net.cevapi.security.ResourcePackProtector.getConfig();
 		
 		int column = beginSection("Presence & Privacy", 1);
 		
@@ -262,6 +264,14 @@ public final class WurstOptionsScreen extends Screen
 				connectionFontScale.getValue()),
 			"Cycle connection log overlay font size.",
 			b -> cycleSlider(connectionFontScale));
+		
+		addButton(column,
+			() -> "Show RP Buttons: " + onOff(
+				antiFingerprintConfig.shouldShowResourcePackBypassButtons()),
+			"Show Bypass Resource Pack and Force Deny on the Multiplayer screen.",
+			b -> antiFingerprintConfig.getShowResourcePackBypassButtonsSetting()
+				.setChecked(!antiFingerprintConfig
+					.shouldShowResourcePackBypassButtons()));
 		
 		if(NiceWurstModule.showAntiFingerprintControls())
 			addButton(column, () -> "Anti-Fingerprint",

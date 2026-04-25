@@ -53,6 +53,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private static final int DEFAULT_MIN_REPLY_GAP_SEC = 3;
 	private static final int DEFAULT_MIN_UNSOLICITED_GAP_SEC = 10;
 	private static final int GPT5_MIN_OUTPUT_TOKENS = 256;
+	private static final int HARD_REPLY_CHAR_LIMIT = 256;
 	
 	private static final String CHAT_PREFIX_PATTERN =
 		"(?:(?:\\[[^\\]]{1,32}\\]|‹[^›]{1,32}›)\\s*)*";
@@ -81,6 +82,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		Pattern.compile("(?m)^Persona: .*$");
 	private static final Pattern SYSTEM_PROMPT_PERSONA_CAPTURE =
 		Pattern.compile("(?m)^Persona:\\s*(.*)$");
+	private static final String HARD_LENGTH_CONSTRAINT =
+		"Non-negotiable constraint: the final reply must be 256 characters"
+			+ " or fewer. If the draft is longer, rewrite it shorter before"
+			+ " responding.";
 	
 	private final TextFieldSetting apiKey =
 		new TextFieldSetting("OpenAI API key",
@@ -163,6 +168,25 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		new CheckboxSetting("Always reply when mentioned",
 			"When enabled, direct mentions bypass reply-gap limits.", true);
 	
+	private final CheckboxSetting readDiscordRelayMessages =
+		new CheckboxSetting("Read Discord relay messages",
+			"Allows AutoChat to read Discord-to-chat relay messages even when"
+				+ " they use player-like chat formatting.",
+			false);
+	
+	private final EnumSetting<DiscordRelayDetectionMode> discordRelayDetection =
+		new EnumSetting<>("Discord relay detection",
+			"Pick how AutoChat detects Discord relay messages in client/system"
+				+ " chat.",
+			DiscordRelayDetectionMode.values(),
+			DiscordRelayDetectionMode.SYSTEM_CHAT_PREFIX);
+	
+	private final TextFieldSetting discordRelayMarker =
+		new TextFieldSetting("Discord relay marker",
+			"Used only when detection mode is set to Custom marker. Example:"
+				+ " [Bridge] or [DC].",
+			"");
+	
 	private final CheckboxSetting wpmMode = new CheckboxSetting("WPM mode",
 		"When enabled, AutoChat waits between replies based on words per"
 			+ " minute.",
@@ -223,6 +247,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(minUnsolicitedGap);
 		addSetting(scheduleQueuedReplies);
 		addSetting(alwaysReplyWhenMentioned);
+		addSetting(readDiscordRelayMessages);
+		addSetting(discordRelayDetection);
+		addSetting(discordRelayMarker);
 		addSetting(wpmMode);
 		addSetting(wordsPerMinute);
 		addSetting(maxConcurrentRequests);
@@ -304,7 +331,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		ChatLine line = parsePlayerChatLine(plain);
 		if(line == null)
 			return;
-		if(!isRealPlayerSender(line.sender()))
+		if(!readDiscordRelayMessages.isChecked()
+			&& !isRealPlayerSender(line.sender()))
 			return;
 		
 		if(line.sender().equalsIgnoreCase(ownName))
@@ -380,6 +408,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 					waitForWpmWindow(reply);
 					if(MC.getConnection() != null && isEnabled())
 					{
+						reply = hardCapReply(reply, Math
+							.min(maxChars.getValueI(), HARD_REPLY_CHAR_LIMIT));
 						MC.getConnection().sendChat(reply);
 						long sentAt = System.currentTimeMillis();
 						lastReplyTime = sentAt;
@@ -840,9 +870,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		String custom = normalizePromptText(customSystemPrompt.getValue());
 		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
-			return custom;
+			return custom + "\n\n" + HARD_LENGTH_CONSTRAINT;
 		
-		return buildDefaultSystemPrompt();
+		return buildDefaultSystemPrompt() + "\n" + HARD_LENGTH_CONSTRAINT;
 	}
 	
 	private String buildDefaultSystemPrompt()
@@ -1050,6 +1080,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		}
 		
 		sb.append("Reply now with one short in-character chat message.");
+		sb.append("\nHard limit: 256 characters or fewer.");
 		return sb.toString();
 	}
 	
@@ -1305,10 +1336,21 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		reply = rewriteBotSafetyTone(reply);
 		
-		if(reply.length() > maxChars)
-			reply = reply.substring(0, maxChars).trim();
+		reply = hardCapReply(reply, Math.min(maxChars, HARD_REPLY_CHAR_LIMIT));
 		
 		return reply;
+	}
+	
+	private static String hardCapReply(String reply, int maxChars)
+	{
+		if(reply == null || reply.isEmpty() || maxChars <= 0)
+			return "";
+		
+		if(reply.codePointCount(0, reply.length()) <= maxChars)
+			return reply.trim();
+		
+		int end = reply.offsetByCodePoints(0, maxChars);
+		return reply.substring(0, end).trim();
 	}
 	
 	private static String rewriteBotSafetyTone(String reply)
@@ -1704,6 +1746,93 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		}
 		
 		return sb.toString();
+	}
+	
+	public boolean isReadDiscordRelayMessagesEnabled()
+	{
+		return readDiscordRelayMessages.isChecked();
+	}
+	
+	public boolean matchesDiscordRelayMessage(String plain)
+	{
+		if(plain == null || plain.isBlank())
+			return false;
+		
+		return discordRelayDetection.getSelected().matches(plain,
+			discordRelayMarker.getValue());
+	}
+	
+	private enum DiscordRelayDetectionMode
+	{
+		SYSTEM_CHAT_PREFIX("[System] [CHAT] prefix")
+		{
+			@Override
+			public boolean matches(String plain, String marker)
+			{
+				return startsWithIgnoreCase(plain, "[System] [CHAT]");
+			}
+		},
+		REPORTABLE_CHAT_PREFIX("[Reportable] [CHAT] prefix")
+		{
+			@Override
+			public boolean matches(String plain, String marker)
+			{
+				return startsWithIgnoreCase(plain, "[Reportable] [CHAT]");
+			}
+		},
+		DISCORD_PREFIX("[Discord] prefix")
+		{
+			@Override
+			public boolean matches(String plain, String marker)
+			{
+				return startsWithIgnoreCase(plain, "[Discord]");
+			}
+		},
+		COMMON_PREFIXES("Common prefixes")
+		{
+			@Override
+			public boolean matches(String plain, String marker)
+			{
+				return startsWithIgnoreCase(plain, "[System] [CHAT]")
+					|| startsWithIgnoreCase(plain, "[Reportable] [CHAT]")
+					|| startsWithIgnoreCase(plain, "[Discord]");
+			}
+		},
+		CUSTOM_MARKER("Custom marker")
+		{
+			@Override
+			public boolean matches(String plain, String marker)
+			{
+				if(marker == null || marker.isBlank())
+					return false;
+				
+				return plain.toLowerCase(Locale.ROOT)
+					.contains(marker.toLowerCase(Locale.ROOT).trim());
+			}
+		};
+		
+		private final String displayName;
+		
+		private DiscordRelayDetectionMode(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		public abstract boolean matches(String plain, String marker);
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+	
+	private static boolean startsWithIgnoreCase(String text, String prefix)
+	{
+		if(text == null || prefix == null || text.length() < prefix.length())
+			return false;
+		
+		return text.regionMatches(true, 0, prefix, 0, prefix.length());
 	}
 	
 	private enum Model

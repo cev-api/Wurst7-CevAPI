@@ -17,6 +17,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
+import net.cevapi.config.AntiFingerprintConfig;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
 import net.minecraft.client.gui.components.Button;
@@ -41,6 +42,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private Button cornerCleanUpButton;
 	@Unique
 	private Button cornerAltManagerButton;
+	@Unique
+	private Button bypassResourcePackButton;
+	@Unique
+	private Button forceDenyResourcePackButton;
 	
 	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
@@ -54,6 +59,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 		cornerServerFinderButton = null;
 		cornerCleanUpButton = null;
 		cornerAltManagerButton = null;
+		bypassResourcePackButton = null;
+		forceDenyResourcePackButton = null;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -143,6 +150,52 @@ public class JoinMultiplayerScreenMixin extends Screen
 			antiFingerprintButton.visible = false;
 		}
 		
+		AntiFingerprintConfig config = ResourcePackProtector.getConfig();
+		boolean showResourcePackButtons =
+			config.shouldShowResourcePackBypassButtons();
+		if(showResourcePackButtons)
+		{
+			if(bypassResourcePackButton == null)
+			{
+				bypassResourcePackButton =
+					Button.builder(getBypassResourcePackLabel(), b -> {
+						config.getBypassResourcePackSetting()
+							.setChecked(!config.shouldBypassResourcePack());
+						b.setMessage(getBypassResourcePackLabel());
+					}).bounds(0, 0, 200, 20).build();
+				addRenderableWidget(bypassResourcePackButton);
+			}
+			if(forceDenyResourcePackButton == null)
+			{
+				forceDenyResourcePackButton =
+					Button.builder(getForceDenyResourcePackLabel(), b -> {
+						config.getResourcePackForceDenySetting()
+							.setChecked(!config.shouldForceDenyResourcePack());
+						b.setMessage(getForceDenyResourcePackLabel());
+					}).bounds(0, 0, 200, 20).build();
+				addRenderableWidget(forceDenyResourcePackButton);
+			}
+			
+			bypassResourcePackButton.setX(6);
+			bypassResourcePackButton.setY(height - 54);
+			bypassResourcePackButton.setWidth(200);
+			bypassResourcePackButton.visible = true;
+			bypassResourcePackButton.setMessage(getBypassResourcePackLabel());
+			
+			forceDenyResourcePackButton.setX(6);
+			forceDenyResourcePackButton.setY(height - 30);
+			forceDenyResourcePackButton.setWidth(200);
+			forceDenyResourcePackButton.visible = true;
+			forceDenyResourcePackButton
+				.setMessage(getForceDenyResourcePackLabel());
+		}else
+		{
+			if(bypassResourcePackButton != null)
+				bypassResourcePackButton.visible = false;
+			if(forceDenyResourcePackButton != null)
+				forceDenyResourcePackButton.visible = false;
+		}
+		
 		if(cornerServerFinderButton == null)
 		{
 			cornerServerFinderButton = Button
@@ -188,5 +241,21 @@ public class JoinMultiplayerScreenMixin extends Screen
 		lastServerButton.active = LastServerRememberer.getLastServer() != null;
 		lastServerButton.setX(width / 2 - 154);
 		lastServerButton.setY(6);
+	}
+	
+	@Unique
+	private Component getBypassResourcePackLabel()
+	{
+		return Component.literal("Bypass Resource Pack: "
+			+ (ResourcePackProtector.getConfig().shouldBypassResourcePack()
+				? "ON" : "OFF"));
+	}
+	
+	@Unique
+	private Component getForceDenyResourcePackLabel()
+	{
+		return Component.literal("Force Deny: "
+			+ (ResourcePackProtector.getConfig().shouldForceDenyResourcePack()
+				? "ON" : "OFF"));
 	}
 }

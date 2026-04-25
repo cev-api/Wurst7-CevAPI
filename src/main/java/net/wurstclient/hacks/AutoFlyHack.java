@@ -59,6 +59,7 @@ public final class AutoFlyHack extends Hack
 {
 	private static final int STOP_SCAN_COOLDOWN_TICKS = 10;
 	private static final double COMMAND_FORWARD_DISTANCE = 100000.0;
+	private static final double COMMAND_FORWARD_LEAD_DISTANCE = 512.0;
 	private static final int CHUNK_TRAIL_LOOKAHEAD = 5;
 	private static final ChunkAreaSetting.ChunkArea STOP_BLOCK_AREA =
 		ChunkAreaSetting.ChunkArea.A65;
@@ -213,6 +214,10 @@ public final class AutoFlyHack extends Hack
 		"Allow manual adjust",
 		"When stuck, release controls so you can move; AutoFly resumes once you move.",
 		true);
+	private final CheckboxSetting smoothFlight = new CheckboxSetting(
+		"Smooth Flight",
+		"Temporarily disables Flight's anti-kick bobbing and slow sneaking while AutoFly is active to reduce rubberbanding.",
+		true);
 	private final CheckboxSetting disableFlightOnArrival =
 		new CheckboxSetting("Disable Flight on arrival",
 			"Turns off Flight when AutoFly reaches a waypoint.", false);
@@ -235,6 +240,12 @@ public final class AutoFlyHack extends Hack
 		"Stop keyword 2",
 		"Keyword to match against the second Stop on type (ignored for portals).",
 		"");
+	private final SliderSetting stopChunkThickness = new SliderSetting(
+		"Chunk stop thickness",
+		"For Old/New chunk stop modes, require this many contiguous matching"
+			+ " chunks in both X and Z around your current chunk before"
+			+ " stopping. Higher values reduce 1-chunk false positives.",
+		2, 1, 8, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	private final CheckboxSetting disableAutoFlyOnStop = new CheckboxSetting(
 		"Disable on stop",
 		"When AutoFly stops due to a Stop on event, fully disable AutoFly (equivalent to .autofly stop) instead of holding position.",
@@ -257,6 +268,8 @@ public final class AutoFlyHack extends Hack
 	private Vec3 chunkCorridorTargetPos;
 	private boolean chunkAssistActive;
 	private boolean pausedNoY;
+	private boolean commandForwardUnlimited;
+	private Vec3 commandForwardDirection;
 	private boolean useExistingTargetsOnEnable;
 	private boolean arrivalPause;
 	private long arrivalPauseUntilMs;
@@ -268,6 +281,7 @@ public final class AutoFlyHack extends Hack
 	private long lastManualInputMs;
 	private long lastManualAdjustExitMs;
 	private VerticalMode verticalMode = VerticalMode.NONE;
+	private long lastUpdateMs;
 	private long lastAutoControlMs;
 	
 	private PathFinder pathFinder;
@@ -294,6 +308,7 @@ public final class AutoFlyHack extends Hack
 	private boolean flightWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
+	private boolean flightOverridesApplied;
 	private double lastYForProgress = Double.NaN;
 	private long lastVerticalProgressMs;
 	private boolean verticalAssistActive;
@@ -341,12 +356,14 @@ public final class AutoFlyHack extends Hack
 		addSetting(useAutoLeave);
 		addSetting(ignoreWaypointList);
 		addSetting(allowManualAdjust);
+		addSetting(smoothFlight);
 		addSetting(disableFlightOnArrival);
 		addSetting(disableAutoFlyOnArrival);
 		addSetting(stopOn);
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
 		addSetting(stopKeyword2);
+		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
 		addSetting(disableOnPlayers);
 		addSetting(disableOnDamage);
@@ -389,10 +406,13 @@ public final class AutoFlyHack extends Hack
 		arrivalPauseUntilMs = 0L;
 		arrivedMessageSent = false;
 		arrivedHold = false;
+		commandForwardUnlimited = false;
+		commandForwardDirection = null;
 		manualAdjustHold = false;
 		manualAdjustStartMs = 0L;
 		manualAdjustStartPos = null;
 		lastManualInputMs = 0L;
+		lastUpdateMs = System.currentTimeMillis();
 		lastAutoControlMs = 0L;
 		lastManualAdjustExitMs = 0L;
 		verticalMode = VerticalMode.NONE;
@@ -433,6 +453,7 @@ public final class AutoFlyHack extends Hack
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
+		flightOverridesApplied = false;
 		lastYForProgress = Double.NaN;
 		lastVerticalProgressMs = System.currentTimeMillis();
 		verticalAssistActive = false;
@@ -490,6 +511,7 @@ public final class AutoFlyHack extends Hack
 		manualAdjustStartMs = 0L;
 		manualAdjustStartPos = null;
 		lastManualInputMs = 0L;
+		lastUpdateMs = 0L;
 		lastAutoControlMs = 0L;
 		lastManualAdjustExitMs = 0L;
 		verticalMode = VerticalMode.NONE;
@@ -512,8 +534,11 @@ public final class AutoFlyHack extends Hack
 		climbTargetY = 0.0;
 		currentTarget = null;
 		currentIndex = -1;
+		commandForwardUnlimited = false;
+		commandForwardDirection = null;
 		clearChunkCorridorAssist();
 		savedFlightVSpeed = -1;
+		flightOverridesApplied = false;
 		closeHorizLatched = false;
 		stopHold = false;
 		stopIgnoreTicks = 0;
@@ -527,6 +552,11 @@ public final class AutoFlyHack extends Hack
 			setEnabled(false);
 			return;
 		}
+		
+		long updateNow = System.currentTimeMillis();
+		if(lastUpdateMs > 0L && updateNow - lastUpdateMs > 1000L)
+			resetAfterTickGap(updateNow);
+		lastUpdateMs = updateNow;
 		
 		if(stopIgnoreTicks > 0)
 			stopIgnoreTicks--;
@@ -612,6 +642,9 @@ public final class AutoFlyHack extends Hack
 		if(pausedNoY)
 			return;
 		
+		if(commandForwardUnlimited)
+			refreshUnlimitedForwardTarget();
+		
 		if(pathFinder != null)
 		{
 			// Ground path recovery is unreliable while airborne (e.g. nether
@@ -691,6 +724,12 @@ public final class AutoFlyHack extends Hack
 		
 		if(reached)
 		{
+			if(commandForwardUnlimited)
+			{
+				refreshUnlimitedForwardTarget();
+				return;
+			}
+			
 			if(cruisingRoute)
 			{
 				if(chunkRoute)
@@ -960,14 +999,51 @@ public final class AutoFlyHack extends Hack
 			return false;
 		
 		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
-		boolean containsChunk = oldChunks
-			? WURST.getHax().newerNewChunksHack.isOldChunk(playerChunk)
-			: WURST.getHax().newerNewChunksHack.isNewChunk(playerChunk);
+		boolean containsChunk = isMatchingChunkType(playerChunk, oldChunks);
 		if(!containsChunk)
 			return false;
 		
+		int requiredThickness = Math.max(1, stopChunkThickness.getValueI());
+		if(requiredThickness > 1)
+		{
+			int runX = getChunkRunLength(playerChunk, 1, 0, oldChunks,
+				requiredThickness);
+			int runZ = getChunkRunLength(playerChunk, 0, 1, oldChunks,
+				requiredThickness);
+			if(runX < requiredThickness || runZ < requiredThickness)
+				return false;
+		}
+		
 		stopAutoFly("Stopped: Reached " + stopName);
 		return true;
+	}
+	
+	private boolean isMatchingChunkType(ChunkPos chunk, boolean oldChunks)
+	{
+		return oldChunks ? WURST.getHax().newerNewChunksHack.isOldChunk(chunk)
+			: WURST.getHax().newerNewChunksHack.isNewChunk(chunk);
+	}
+	
+	private int getChunkRunLength(ChunkPos center, int stepX, int stepZ,
+		boolean oldChunks, int limit)
+	{
+		int run = 1;
+		for(int dir : new int[]{-1, 1})
+		{
+			for(int i = 1; i < limit; i++)
+			{
+				ChunkPos candidate = new ChunkPos(center.x() + stepX * i * dir,
+					center.z() + stepZ * i * dir);
+				if(!isMatchingChunkType(candidate, oldChunks))
+					break;
+				
+				run++;
+				if(run >= limit)
+					return run;
+			}
+		}
+		
+		return run;
 	}
 	
 	private void ensureStopBlockCoordinatorConfigured(boolean secondary,
@@ -1692,6 +1768,7 @@ public final class AutoFlyHack extends Hack
 		var flight = WURST.getHax().flightHack;
 		if(!flight.isEnabled())
 			flight.setEnabled(true);
+		applyFlightOverrides();
 	}
 	
 	private void applyFlightSettings()
@@ -1702,6 +1779,7 @@ public final class AutoFlyHack extends Hack
 		if(savedFlightVSpeed < 0)
 			savedFlightVSpeed = flight.verticalSpeed.getValue();
 		applyFlightSpeed();
+		applyFlightOverrides();
 	}
 	
 	private void applyFlightSpeed()
@@ -1715,6 +1793,7 @@ public final class AutoFlyHack extends Hack
 	private void restoreFlightSettings()
 	{
 		var flight = WURST.getHax().flightHack;
+		clearFlightOverrides();
 		if(savedFlightSpeed >= 0)
 			flight.horizontalSpeed.setValue(savedFlightSpeed);
 		if(savedFlightVSpeed >= 0)
@@ -1724,6 +1803,31 @@ public final class AutoFlyHack extends Hack
 		if(!flightWasEnabled && flight.isEnabled())
 			flight.setEnabled(false);
 		flightWasEnabled = false;
+	}
+	
+	private void applyFlightOverrides()
+	{
+		var flight = WURST.getHax().flightHack;
+		if(!smoothFlight.isChecked())
+		{
+			clearFlightOverrides();
+			return;
+		}
+		
+		flight.setAntiKickOverride(false);
+		flight.setSlowSneakingOverride(false);
+		flightOverridesApplied = true;
+	}
+	
+	private void clearFlightOverrides()
+	{
+		if(!flightOverridesApplied)
+			return;
+		
+		var flight = WURST.getHax().flightHack;
+		flight.setAntiKickOverride(null);
+		flight.setSlowSneakingOverride(null);
+		flightOverridesApplied = false;
 	}
 	
 	private String buildCrosshairInfo()
@@ -1750,6 +1854,10 @@ public final class AutoFlyHack extends Hack
 		double speed = MC.player.getDeltaMovement().length() * 20.0;
 		int total = targets.isEmpty() ? 1 : targets.size();
 		int index = Math.max(1, Math.min(total, currentIndex + 1));
+		if(commandForwardUnlimited)
+			return String.format(Locale.ROOT,
+				"AutoFly %d/%d | inf | %.1fb/s | %s", index, total, speed,
+				getStateLabel());
 		
 		return String.format(Locale.ROOT,
 			"AutoFly %d/%d | %.1fm | %.1fb/s | %s", index, total, dist, speed,
@@ -1778,6 +1886,9 @@ public final class AutoFlyHack extends Hack
 	{
 		if(pos == null)
 			return;
+		
+		commandForwardUnlimited = false;
+		commandForwardDirection = null;
 		
 		if(routeType.getSelected() != RouteType.CHUNKS)
 		{
@@ -1837,17 +1948,29 @@ public final class AutoFlyHack extends Hack
 	public void setForwardFromCommand(Double overrideHeight,
 		Double overrideSpeed)
 	{
+		setForwardFromCommand(overrideHeight, overrideSpeed, true);
+	}
+	
+	private void setForwardFromCommand(Double overrideHeight,
+		Double overrideSpeed, boolean unlimitedMode)
+	{
 		if(MC.player == null)
 			return;
 		
 		Vec3 look = MC.player.getLookAngle();
 		if(look.lengthSqr() < 1.0E-6)
 			look = new Vec3(0.0, 0.0, 1.0);
+		commandForwardDirection = look.normalize();
+		commandForwardUnlimited = unlimitedMode;
 		
 		Vec3 target = MC.player.position()
-			.add(look.normalize().scale(COMMAND_FORWARD_DISTANCE));
+			.add(commandForwardDirection.scale(commandForwardUnlimited
+				? COMMAND_FORWARD_LEAD_DISTANCE : COMMAND_FORWARD_DISTANCE));
 		setTargetFromCommand(BlockPos.containing(target), true, overrideHeight,
 			overrideSpeed);
+		commandForwardUnlimited = unlimitedMode;
+		if(!commandForwardUnlimited)
+			commandForwardDirection = null;
 	}
 	
 	public void setChunkTrailFromCommand()
@@ -1865,7 +1988,24 @@ public final class AutoFlyHack extends Hack
 		currentTarget = null;
 		chunkTrailPath.clear();
 		chunkCorridorAnchor = null;
-		setForwardFromCommand(null, null);
+		setForwardFromCommand(null, null, false);
+	}
+	
+	private void refreshUnlimitedForwardTarget()
+	{
+		if(!commandForwardUnlimited || MC.player == null)
+			return;
+		
+		Vec3 dir = commandForwardDirection;
+		if(dir == null || dir.lengthSqr() < 1.0E-6)
+			dir = getHorizontalLookDirection();
+		
+		Vec3 target = MC.player.position()
+			.add(dir.normalize().scale(COMMAND_FORWARD_LEAD_DISTANCE));
+		targets.clear();
+		targets.add(new AutoFlyTarget(BlockPos.containing(target), true));
+		currentIndex = 0;
+		currentTarget = targets.get(0);
 	}
 	
 	private void applyChunkCorridorAssist()
@@ -2516,6 +2656,26 @@ public final class AutoFlyHack extends Hack
 		stuckRepathCount = 0;
 		lastProgressMs = System.currentTimeMillis();
 		lastProgressDist = Double.NaN;
+	}
+	
+	private void resetAfterTickGap(long now)
+	{
+		Vec3 playerPos = MC.player.position();
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+		clearMovementKeys();
+		clearPathingState();
+		verticalMode = VerticalMode.NONE;
+		verticalAssistActive = false;
+		lastProgressMs = now;
+		lastProgressDist = Double.NaN;
+		lastMovePos = playerPos;
+		lastMoveMs = now;
+		lastHorizPos = playerPos;
+		lastHorizMoveMs = now;
+		lastYForProgress = playerPos.y;
+		lastVerticalProgressMs = now;
+		lastAutoControlMs = 0L;
 	}
 	
 	private void beginManualAdjust(Vec3 playerPos)
