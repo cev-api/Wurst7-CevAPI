@@ -41,6 +41,21 @@ public class ChatComponentMixin
 		cancellable = true)
 	private void onAddMessage(Component message, CallbackInfo ci)
 	{
+		String plain = message.getString().trim();
+		if(WurstClient.INSTANCE.getHax().autoChatHack
+			.isReadDiscordRelayMessagesEnabled()
+			&& WurstClient.INSTANCE.getHax().autoChatHack
+				.matchesDiscordRelayMessage(plain))
+		{
+			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			EventManager.fire(event);
+			
+			if(event.isCancelled())
+				ci.cancel();
+			
+			return;
+		}
+		
 		if(ClientMessageOverlay.getInstance().captureSingleArgMessage(message))
 		{
 			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);

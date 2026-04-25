@@ -215,6 +215,14 @@ public final class ResourcePackProtector
 			clearServerCacheIfEnabled();
 			
 			PackContext context = PackContext.from(packet);
+			if(CONFIG.shouldBypassResourcePack()
+				&& (context.required || CONFIG.shouldForceDenyResourcePack()))
+			{
+				if(CONFIG.shouldForceDenyResourcePack())
+					return block(context, "Force Deny resource pack enabled");
+				return bypass(context, "Bypass resource pack enabled");
+			}
+			
 			if(context.cacheKey != null)
 			{
 				Decision cached = SESSION_CACHE.get(context.cacheKey);
@@ -268,6 +276,16 @@ public final class ResourcePackProtector
 					mcClient != null ? mcClient : Minecraft.getInstance();
 				if(target != null)
 					target.execute(() -> sandboxDownload(context));
+				return true;
+			}
+			
+			case BYPASS ->
+			{
+				sendStatus(connection, context,
+					ServerboundResourcePackPacket.Action.ACCEPTED);
+				sendStatus(connection, context,
+					ServerboundResourcePackPacket.Action.SUCCESSFULLY_LOADED);
+				noteHandled(context);
 				return true;
 			}
 			
@@ -423,6 +441,14 @@ public final class ResourcePackProtector
 	{
 		recordFingerprint(context);
 		
+		if(CONFIG.shouldBypassResourcePack()
+			&& (context.required || CONFIG.shouldForceDenyResourcePack()))
+		{
+			if(CONFIG.shouldForceDenyResourcePack())
+				return block(context, "Force Deny resource pack enabled");
+			return bypass(context, "Bypass resource pack enabled");
+		}
+		
 		Policy policy = CONFIG.getPolicy();
 		boolean whitelisted = isWhitelisted(context);
 		boolean local = context.host.local;
@@ -452,6 +478,13 @@ public final class ResourcePackProtector
 		pushToast(ToastLevel.WARN, context, "Resource pack blocked", reason);
 		logAudit("BLOCK", context, reason);
 		return new PolicyResult(Decision.BLOCK, reason, context);
+	}
+	
+	private static PolicyResult bypass(PackContext context, String reason)
+	{
+		pushToast(ToastLevel.INFO, context, "Resource pack bypassed", reason);
+		logAudit("BYPASS", context, reason);
+		return new PolicyResult(Decision.BYPASS, reason, context);
 	}
 	
 	private static PolicyResult sandbox(PackContext context, String reason)
@@ -1632,7 +1665,8 @@ public final class ResourcePackProtector
 	{
 		ALLOW,
 		BLOCK,
-		SANDBOX
+		SANDBOX,
+		BYPASS
 	}
 	
 	public static record PolicyResult(Decision decision, String reason,
