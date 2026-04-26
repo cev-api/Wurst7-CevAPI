@@ -39,6 +39,9 @@ public class ClientLevelMixin
 	{
 		if(!WurstClient.INSTANCE.getHax().barrierEspHack.isEnabled())
 			return;
+		if(!WurstClient.INSTANCE.getHax().barrierEspHack
+			.shouldRenderVanillaIcons())
+			return;
 			
 		// Pause BarrierESP when holding a light in Creative Mode, since it
 		// would otherwise prevent the player from seeing light blocks.
