@@ -41,8 +41,8 @@ import net.wurstclient.options.WurstOptionsScreen;
 @Mixin(TitleScreen.class)
 public abstract class TitleScreenMixin extends Screen
 {
-	private static final Identifier CEVAPI_TITLE =
-		Identifier.fromNamespaceAndPath("wurst", "cevapi_title.png");
+	// Current title texture (randomly chosen among available variations).
+	private static Identifier CURRENT_TITLE_TEXTURE = null;
 	private static final int TARGET_LOGO_WIDTH = 256;
 	private static final int TARGET_LOGO_TOP = 30;
 	
@@ -55,6 +55,15 @@ public abstract class TitleScreenMixin extends Screen
 	private TitleScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
+	}
+	
+	// Pick a new random title texture each time the Title Screen initializes
+	@Inject(method = "init()V", at = @At("HEAD"))
+	private void onInit(CallbackInfo ci)
+	{
+		CURRENT_TITLE_TEXTURE = null;
+		titleWidth = -1;
+		titleHeight = -1;
 	}
 	
 	/**
@@ -157,9 +166,13 @@ public abstract class TitleScreenMixin extends Screen
 		int y = Math.round(TARGET_LOGO_TOP / scale);
 		graphics.pose().pushMatrix();
 		graphics.pose().scale(scale);
-		graphics.blit(RenderPipelines.GUI_TEXTURED, CEVAPI_TITLE, x, y, 0.0F,
-			0.0F, titleWidth, titleHeight, titleWidth, titleHeight,
-			ARGB.white(fade));
+		// Use the current title texture (randomly chosen among variations)
+		Identifier tex = CURRENT_TITLE_TEXTURE != null ? CURRENT_TITLE_TEXTURE
+			: Identifier.fromNamespaceAndPath("wurst",
+				(NiceWurstModule.isActive() ? "nicewurst_title.png"
+					: "cevapi_title.png"));
+		graphics.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0.0F, 0.0F,
+			titleWidth, titleHeight, titleWidth, titleHeight, ARGB.white(fade));
 		graphics.pose().popMatrix();
 	}
 	
@@ -169,7 +182,20 @@ public abstract class TitleScreenMixin extends Screen
 	private static void onRegisterTextures(TextureManager textureManager,
 		CallbackInfo ci)
 	{
-		textureManager.registerForNextReload(CEVAPI_TITLE);
+		// Register a broad set of possible title textures for reloads so they
+		// are
+		// available when randomly selected.
+		String[] bases = new String[]{"nicewurst_title", "cevapi_title"};
+		for(String base : bases)
+		{
+			textureManager.registerForNextReload(
+				Identifier.fromNamespaceAndPath("wurst", base + ".png"));
+			for(int i = 1; i <= 99; i++)
+			{
+				textureManager.registerForNextReload(Identifier
+					.fromNamespaceAndPath("wurst", base + "_" + i + ".png"));
+			}
+		}
 	}
 	
 	/**
@@ -191,32 +217,51 @@ public abstract class TitleScreenMixin extends Screen
 	
 	private static void ensureTitleDimensions()
 	{
-		if(titleWidth > 0 && titleHeight > 0)
+		// If we already know the dimensions and have a current texture, nothing
+		// to do
+		if(titleWidth > 0 && titleHeight > 0 && CURRENT_TITLE_TEXTURE != null)
 			return;
-		
 		if(WurstClient.MC == null
 			|| WurstClient.MC.getResourceManager() == null)
 			return;
+		// Build a list of candidate title textures (randomized)
+		String base =
+			NiceWurstModule.isActive() ? "nicewurst_title" : "cevapi_title";
+		java.util.List<Identifier> candidates = new java.util.ArrayList<>();
+		candidates.add(Identifier.fromNamespaceAndPath("wurst", base + ".png"));
+		for(int i = 1; i <= 99; i++)
+			candidates.add(Identifier.fromNamespaceAndPath("wurst",
+				base + "_" + i + ".png"));
 		
-		for(Resource resource : WurstClient.MC.getResourceManager()
-			.getResourceStack(CEVAPI_TITLE))
+		java.util.Random rnd = new java.util.Random();
+		java.util.Collections.shuffle(candidates, rnd);
+		
+		for(Identifier id : candidates)
 		{
-			try(InputStream input = resource.open();
-				NativeImage image = NativeImage.read(input))
+			try
 			{
-				titleWidth = image.getWidth();
-				titleHeight = image.getHeight();
-				return;
-			}catch(IOException e)
-			{
-				// Try the next resource source, then fall back to the default.
-			}
+				for(Resource resource : WurstClient.MC.getResourceManager()
+					.getResourceStack(id))
+				{
+					try(InputStream input = resource.open();
+						NativeImage image = NativeImage.read(input))
+					{
+						titleWidth = image.getWidth();
+						titleHeight = image.getHeight();
+						CURRENT_TITLE_TEXTURE = id;
+						return;
+					}
+				}
+			}catch(IOException ignored)
+			{}
 		}
-		
+		// Fallback if nothing loaded
 		if(titleWidth <= 0 || titleHeight <= 0)
 		{
 			titleWidth = TARGET_LOGO_WIDTH;
 			titleHeight = 64;
+			CURRENT_TITLE_TEXTURE =
+				Identifier.fromNamespaceAndPath("wurst", base + ".png");
 		}
 	}
 }

@@ -182,6 +182,23 @@ public final class WurstOptionsScreen extends Screen
 			forceEnglish.getDescription(),
 			b -> forceEnglish.setChecked(!forceEnglish.isChecked()));
 		
+		// Vanilla splash text toggle (default OFF = hidden)
+		addButton(column, () -> {
+			boolean showSplash =
+				minecraft.options.hideSplashTexts().get() ? false : true;
+			return "Vanilla Splash Text: " + onOff(showSplash);
+		}, "Show or hide the vanilla yellow splash text on the title screen.",
+			b -> {
+				boolean hide = minecraft.options.hideSplashTexts().get();
+				minecraft.options.hideSplashTexts().set(!hide);
+				// Persist the change immediately
+				try
+				{
+					minecraft.options.save();
+				}catch(Exception ignored)
+				{}
+			});
+		
 		addButton(column, () -> "Custom Capes: " + onOff(capes.isChecked()),
 			capes.getDescription(), b -> capes.setChecked(!capes.isChecked()));
 		
