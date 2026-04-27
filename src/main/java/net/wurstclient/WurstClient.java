@@ -100,6 +100,27 @@ public enum WurstClient
 		MC = Minecraft.getInstance();
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
+		// Default the vanilla splash text (yellow logo splash) to OFF once
+		try
+		{
+			Path flag = wurstFolder.resolve("splash_default_set.flag");
+			if(!Files.exists(flag))
+			{
+				if(MC != null && MC.options != null
+					&& MC.options.hideSplashTexts() != null)
+				{
+					// hideSplashTexts = true means hide the vanilla splash text
+					MC.options.hideSplashTexts().set(true);
+					try
+					{
+						MC.options.save();
+					}catch(Exception ignored)
+					{}
+				}
+				Files.createFile(flag);
+			}
+		}catch(Exception ignored)
+		{}
 		presetManager = new PresetManager(this, wurstFolder);
 		try
 		{
