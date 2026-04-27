@@ -13,26 +13,33 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.llamalad7.mixinextras.sugar.Local;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.config.AntiFingerprintConfig;
-import net.wurstclient.serverfinder.ServerFinderScreen;
-import net.wurstclient.util.LastServerRememberer;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.CommonComponents;
 import net.wurstclient.nicewurst.NiceWurstModule;
-import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
+import net.wurstclient.serverfinder.CleanUpScreen;
+import net.wurstclient.serverfinder.ServerFinderScreen;
+import net.wurstclient.util.LastServerRememberer;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
 {
+	private static final int TOP_ROW_BUTTON_WIDTH = 100;
+	private static final int TOP_ROW_BUTTON_SPACING = 4;
+	private static final int BOTTOM_ROW_BUTTON_WIDTH = 74;
+	private static final int BOTTOM_ROW_BUTTON_SPACING = 4;
+	
 	private Button lastServerButton;
 	@Unique
 	private Button antiFingerprintButton;
@@ -75,22 +82,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 				b -> LastServerRememberer.joinLastServer(mpScreen))
 			.width(100).build();
 		addRenderableWidget(lastServerButton);
-	}
-	
-	@Inject(method = "init()V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/screens/multiplayer/JoinMultiplayerScreen;repositionElements()V",
-			ordinal = 0))
-	private void afterVanillaButtons(CallbackInfo ci,
-		@Local(ordinal = 1) LinearLayout footerTopRow,
-		@Local(ordinal = 2) LinearLayout footerBottomRow)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
-		// Footer buttons are not added here to avoid duplicates; corner buttons
-		// are created/positioned in `repositionElements()` instead.
 	}
 	
 	@Inject(method = "repositionElements()V", at = @At("TAIL"))
@@ -196,32 +187,65 @@ public class JoinMultiplayerScreenMixin extends Screen
 				forceDenyResourcePackButton.visible = false;
 		}
 		
-		if(cornerServerFinderButton == null)
+		AbstractWidget addServerButton =
+			findWidget(I18n.get("selectServer.add"));
+		if(addServerButton != null)
 		{
-			cornerServerFinderButton = Button
-				.builder(Component.literal("Server Finder"),
-					b -> minecraft.setScreen(new ServerFinderScreen(
-						(JoinMultiplayerScreen)(Object)this)))
-				.bounds(0, 0, 100, 20).build();
-			addRenderableWidget(cornerServerFinderButton);
+			if(cornerServerFinderButton == null)
+			{
+				cornerServerFinderButton = Button
+					.builder(Component.literal("Server Finder"),
+						b -> minecraft.setScreen(new ServerFinderScreen(
+							(JoinMultiplayerScreen)(Object)this)))
+					.bounds(0, 0, 100, 20).build();
+				addRenderableWidget(cornerServerFinderButton);
+			}
+			cornerServerFinderButton
+				.setX(addServerButton.getX() + addServerButton.getWidth() + 4);
+			cornerServerFinderButton.setY(addServerButton.getY());
+			cornerServerFinderButton.setWidth(100);
+			cornerServerFinderButton.visible = true;
+		}else if(cornerServerFinderButton != null)
+		{
+			cornerServerFinderButton.visible = false;
 		}
-		cornerServerFinderButton.setX(width / 2 + 154 + 4);
-		cornerServerFinderButton.setY(height - 54);
-		cornerServerFinderButton.setWidth(100);
 		
-		if(cornerCleanUpButton == null)
+		AbstractWidget backButton =
+			findWidget(CommonComponents.GUI_BACK.getString());
+		if(backButton != null)
 		{
-			cornerCleanUpButton =
-				Button
+			if(cornerCleanUpButton == null)
+			{
+				cornerCleanUpButton = Button
 					.builder(Component.literal("Clean Up"),
 						b -> minecraft.setScreen(new CleanUpScreen(
 							(JoinMultiplayerScreen)(Object)this)))
-					.bounds(0, 0, 100, 20).build();
-			addRenderableWidget(cornerCleanUpButton);
+					.bounds(0, 0, 74, 20).build();
+				addRenderableWidget(cornerCleanUpButton);
+			}
+			cornerCleanUpButton
+				.setX(backButton.getX() + backButton.getWidth() + 4);
+			cornerCleanUpButton.setY(backButton.getY());
+			cornerCleanUpButton.setWidth(74);
+			cornerCleanUpButton.visible = true;
+		}else if(cornerCleanUpButton != null)
+		{
+			cornerCleanUpButton.visible = false;
 		}
-		cornerCleanUpButton.setX(width / 2 + 154 + 4);
-		cornerCleanUpButton.setY(height - 30);
-		cornerCleanUpButton.setWidth(100);
+		
+		if(showResourcePackButtons)
+		{
+			int resourcePackButtonWidth =
+				Math.max(font.width(getBypassResourcePackLabel().getString()),
+					font.width(getForceDenyResourcePackLabel().getString()))
+					+ 20;
+			
+			bypassResourcePackButton.setWidth(resourcePackButtonWidth);
+			forceDenyResourcePackButton.setWidth(resourcePackButtonWidth);
+			bypassResourcePackButton.setMessage(getBypassResourcePackLabel());
+			forceDenyResourcePackButton
+				.setMessage(getForceDenyResourcePackLabel());
+		}
 	}
 	
 	@Inject(method = "join(Lnet/minecraft/client/multiplayer/ServerData;)V",
@@ -257,5 +281,17 @@ public class JoinMultiplayerScreenMixin extends Screen
 		return Component.literal("Force Deny: "
 			+ (ResourcePackProtector.getConfig().shouldForceDenyResourcePack()
 				? "ON" : "OFF"));
+	}
+	
+	@Unique
+	private AbstractWidget findWidget(String label)
+	{
+		for(AbstractWidget button : Screens.getWidgets(this))
+		{
+			if(button.getMessage().getString().equals(label))
+				return button;
+		}
+		
+		return null;
 	}
 }

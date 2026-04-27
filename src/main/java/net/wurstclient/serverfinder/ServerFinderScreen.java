@@ -12,9 +12,6 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 
 import org.lwjgl.glfw.GLFW;
-import net.cevapi.config.AntiFingerprintConfigScreen;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -30,7 +27,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Util;
 import net.wurstclient.util.MathUtils;
-import net.wurstclient.nicewurst.NiceWurstModule;
 
 public class ServerFinderScreen extends Screen
 {
@@ -64,19 +60,7 @@ public class ServerFinderScreen extends Screen
 				b -> Util.getPlatform().openUri(
 					"https://www.wurstclient.net/serverfinder-tutorial/"))
 			.bounds(width / 2 - 100, height / 4 + 120 + 12, 200, 20).build());
-		
-		if(NiceWurstModule.showAntiFingerprintControls())
-		{
-			addRenderableWidget(Button
-				.builder(Component.literal("Anti-Fingerprint"),
-					b -> minecraft
-						.setScreen(new AntiFingerprintConfigScreen(this)))
-				.bounds(width / 2 - 100, height / 4 + 144 + 12, 200, 20)
-				.build());
-		}
-		
-		int backButtonY = height / 4
-			+ (NiceWurstModule.showAntiFingerprintControls() ? 168 : 144) + 12;
+		int backButtonY = height / 4 + 144 + 12;
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
 				.bounds(width / 2 - 100, backButtonY, 200, 20).build());
