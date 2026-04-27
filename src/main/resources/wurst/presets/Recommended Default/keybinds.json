@@ -18,6 +18,7 @@
   "key.keyboard.keypad.9": ".setcheckbox noslowdown no_water_slowdown toggle",
   "key.keyboard.keypad.add": "Panic",
   "key.keyboard.keypad.decimal": "panic restore",
+  "key.keyboard.keypad.multiply": ".setcheckbox globaltoggle disable_all_tracers toggle",
   "key.keyboard.left.bracket": "ChestSearch",
   "key.keyboard.menu": "clickgui",
   "key.keyboard.n": "nuker",
