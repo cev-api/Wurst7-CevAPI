@@ -381,22 +381,24 @@ public abstract class AltEditorScreen extends Screen
 			context.text(font, topInfo, width / 2 - 100,
 				getNameOrEmailBoxY() - 58, CommonColors.LIGHT_GRAY);
 		
-		// text
-		context.text(font, "Name (for cracked alts), or", width / 2 - 100, 37,
+		// dynamic labels next to inputs
+		int nameBoxY = getNameOrEmailBoxY();
+		int passBoxY = getPasswordBoxY();
+		context.text(font, getNameOrEmailLabelLine1(), width / 2 - 100,
+			nameBoxY - 23, CommonColors.LIGHT_GRAY);
+		context.text(font, getNameOrEmailLabelLine2(), width / 2 - 100,
+			nameBoxY - 13, CommonColors.LIGHT_GRAY);
+		context.text(font, getPasswordLabel(), width / 2 - 100, passBoxY - 13,
 			CommonColors.LIGHT_GRAY);
-		context.text(font, "E-Mail (for premium alts)", width / 2 - 100, 47,
-			CommonColors.LIGHT_GRAY);
-		context.text(font, "Password (for premium alts)", width / 2 - 100, 87,
-			CommonColors.LIGHT_GRAY);
-		String accountType =
-			passwordBox.getValue().trim().isEmpty() ? "Cracked" : "Premium";
-		context.text(font, "Account type: " + accountType, width / 2 - 100, 127,
-			CommonColors.LIGHT_GRAY);
+		context.text(font, "Account type: " + getAccountTypeLabel(),
+			width / 2 - 100, passBoxY + 27, CommonColors.LIGHT_GRAY);
 		
+		// status / error message below account type, adapts with layout
 		String[] lines = message.split("\n");
+		int messageBaseY = passBoxY + 42; // below account type label
 		for(int i = 0; i < lines.length; i++)
-			context.centeredText(font, lines[i], width / 2, 142 + 10 * i,
-				CommonColors.WHITE);
+			context.centeredText(font, lines[i], width / 2,
+				messageBaseY + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
 		nameOrEmailBox.extractRenderState(context, mouseX, mouseY,
