@@ -61,7 +61,6 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 		Font font = minecraft.font;
 		overlay.layoutLoginOverlay(font, width, height);
 		
-		graphics.fill(0, 0, width, height, 0x97000000);
 		graphics.fill(overlay.getOverlayX(), overlay.getOverlayY(),
 			overlay.getOverlayX() + overlay.getOverlayWidth(),
 			overlay.getOverlayY() + overlay.getOverlayHeight(), 0xFF1E1E1E);
