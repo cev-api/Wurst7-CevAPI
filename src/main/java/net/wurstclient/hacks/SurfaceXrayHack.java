@@ -374,6 +374,12 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	private void onSettingsChanged(boolean clearCache)
 	{
+		if(!MC.isSameThread())
+		{
+			MC.execute(() -> onSettingsChanged(clearCache));
+			return;
+		}
+		
 		if(clearCache)
 		{
 			clearCache();

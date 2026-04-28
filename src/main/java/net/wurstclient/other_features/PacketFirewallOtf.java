@@ -207,6 +207,11 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(!(event.getPacket() instanceof ClientboundPlayerPositionPacket))
 			return;
 		
+		MC.execute(this::handleSetbackOnClientThread);
+	}
+	
+	private void handleSetbackOnClientThread()
+	{
 		long now = System.currentTimeMillis();
 		if(now - lastSetbackMs < SETBACK_COOLDOWN_MS)
 			return;
