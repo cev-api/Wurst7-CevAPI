@@ -7,11 +7,19 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.wurstclient.WurstClient;
@@ -20,12 +28,18 @@ import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.config.AntiFingerprintConfig;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
+import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
 import net.wurstclient.serverfinder.CleanUpScreen;
@@ -34,11 +48,26 @@ import net.wurstclient.util.LastServerRememberer;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
+	implements IMultiplayerMultiSelect
 {
 	private static final int TOP_ROW_BUTTON_WIDTH = 100;
 	private static final int TOP_ROW_BUTTON_SPACING = 4;
 	private static final int BOTTOM_ROW_BUTTON_WIDTH = 74;
 	private static final int BOTTOM_ROW_BUTTON_SPACING = 4;
+	
+	@Shadow
+	protected ServerSelectionList serverSelectionList;
+	@Shadow
+	private ServerList servers;
+	@Shadow
+	private Button editButton;
+	@Shadow
+	private Button selectButton;
+	@Shadow
+	private Button deleteButton;
+	
+	@Shadow
+	protected native void onSelectedChange();
 	
 	private Button lastServerButton;
 	@Unique
@@ -53,6 +82,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private Button bypassResourcePackButton;
 	@Unique
 	private Button forceDenyResourcePackButton;
+	@Unique
+	private final Set<ServerData> wurst$multiSelectedServers =
+		new LinkedHashSet<>();
+	@Unique
+	private ServerData wurst$selectionAnchor;
 	
 	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
@@ -256,6 +290,105 @@ public class JoinMultiplayerScreenMixin extends Screen
 		updateLastServerButton();
 	}
 	
+	@Inject(method = "onSelectedChange()V", at = @At("TAIL"))
+	private void afterSelectedChange(CallbackInfo ci)
+	{
+		wurst$syncMultiSelectButtons();
+	}
+	
+	@Inject(method = "keyPressed(Lnet/minecraft/client/input/KeyEvent;)Z",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onBulkDeleteKey(KeyEvent event,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(event.key() != GLFW.GLFW_KEY_DELETE
+			|| wurst$multiSelectedServers.size() <= 1)
+			return;
+		
+		wurst$showBulkDeleteConfirm();
+		cir.setReturnValue(true);
+	}
+	
+	@Inject(method = "lambda$init$4", at = @At("HEAD"), cancellable = true)
+	private void onDeleteButton(Button button, CallbackInfo ci)
+	{
+		if(wurst$multiSelectedServers.size() <= 1)
+			return;
+		
+		wurst$showBulkDeleteConfirm();
+		ci.cancel();
+	}
+	
+	@Override
+	public boolean wurst$handleServerClick(
+		ServerSelectionList.OnlineServerEntry entry, MouseButtonEvent event,
+		boolean doubleClick)
+	{
+		if(event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			return false;
+		
+		if(!event.hasControlDown() && !event.hasShiftDown())
+		{
+			wurst$multiSelectedServers.clear();
+			wurst$selectionAnchor = entry.getServerData();
+			wurst$syncMultiSelectButtons();
+			return false;
+		}
+		
+		ServerData serverData = entry.getServerData();
+		if(event.hasShiftDown())
+			wurst$selectRange(serverData);
+		else if(wurst$multiSelectedServers.remove(serverData))
+			wurst$selectionAnchor = serverData;
+		else
+		{
+			wurst$multiSelectedServers.add(serverData);
+			wurst$selectionAnchor = serverData;
+		}
+		
+		serverSelectionList.setSelected(entry);
+		onSelectedChange();
+		return true;
+	}
+	
+	@Override
+	public boolean wurst$isMultiSelected(ServerData serverData)
+	{
+		return wurst$multiSelectedServers.contains(serverData);
+	}
+	
+	@Override
+	public int wurst$getMultiSelectedCount()
+	{
+		return wurst$multiSelectedServers.size();
+	}
+	
+	@Override
+	public void wurst$clearMultiSelection()
+	{
+		wurst$multiSelectedServers.clear();
+		wurst$selectionAnchor = null;
+		wurst$syncMultiSelectButtons();
+	}
+	
+	@Override
+	public boolean wurst$bulkDeleteSelected()
+	{
+		if(wurst$multiSelectedServers.isEmpty())
+			return false;
+		
+		List<ServerData> toDelete = new ArrayList<>(wurst$multiSelectedServers);
+		for(ServerData serverData : toDelete)
+			servers.remove(serverData);
+		
+		servers.save();
+		wurst$clearMultiSelection();
+		serverSelectionList.setSelected(null);
+		serverSelectionList.updateOnlineServers(servers);
+		return true;
+	}
+	
 	@Unique
 	private void updateLastServerButton()
 	{
@@ -281,6 +414,77 @@ public class JoinMultiplayerScreenMixin extends Screen
 		return Component.literal("Force Deny: "
 			+ (ResourcePackProtector.getConfig().shouldForceDenyResourcePack()
 				? "ON" : "OFF"));
+	}
+	
+	@Unique
+	private void wurst$selectRange(ServerData serverData)
+	{
+		if(wurst$selectionAnchor == null)
+			wurst$selectionAnchor = serverData;
+		
+		List<ServerSelectionList.Entry> entries =
+			serverSelectionList.children();
+		int anchorIndex = wurst$getServerEntryIndex(wurst$selectionAnchor);
+		int clickedIndex = wurst$getServerEntryIndex(serverData);
+		if(anchorIndex < 0 || clickedIndex < 0)
+		{
+			wurst$multiSelectedServers.clear();
+			wurst$multiSelectedServers.add(serverData);
+			wurst$selectionAnchor = serverData;
+			return;
+		}
+		
+		wurst$multiSelectedServers.clear();
+		int start = Math.min(anchorIndex, clickedIndex);
+		int end = Math.max(anchorIndex, clickedIndex);
+		for(int i = start; i <= end && i < entries.size(); i++)
+			if(entries
+				.get(i) instanceof ServerSelectionList.OnlineServerEntry e)
+				wurst$multiSelectedServers.add(e.getServerData());
+	}
+	
+	@Unique
+	private int wurst$getServerEntryIndex(ServerData serverData)
+	{
+		List<ServerSelectionList.Entry> entries =
+			serverSelectionList.children();
+		for(int i = 0; i < entries.size(); i++)
+			if(entries.get(i) instanceof ServerSelectionList.OnlineServerEntry e
+				&& e.getServerData() == serverData)
+				return i;
+			
+		return -1;
+	}
+	
+	@Unique
+	private void wurst$showBulkDeleteConfirm()
+	{
+		int count = wurst$multiSelectedServers.size();
+		if(count <= 0)
+			return;
+		
+		Component title = Component.translatable("selectServer.deleteQuestion");
+		Component message = Component.literal(
+			"Are you sure you want to delete " + count + " selected servers?");
+		Component delete = Component.translatable("selectServer.deleteButton");
+		minecraft.setScreen(new ConfirmScreen(confirmed -> {
+			if(confirmed)
+				wurst$bulkDeleteSelected();
+			minecraft.setScreen((JoinMultiplayerScreen)(Object)this);
+		}, title, message, delete, CommonComponents.GUI_CANCEL));
+	}
+	
+	@Unique
+	private void wurst$syncMultiSelectButtons()
+	{
+		int count = wurst$multiSelectedServers.size();
+		if(count <= 1 || editButton == null || selectButton == null
+			|| deleteButton == null)
+			return;
+		
+		selectButton.active = false;
+		editButton.active = false;
+		deleteButton.active = true;
 	}
 	
 	@Unique

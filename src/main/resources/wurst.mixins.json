@@ -73,6 +73,7 @@
     "MouseHandlerMixin",
     "MultiPlayerGameModeMixin",
     "OptionInstanceMixin",
+    "OnlineServerEntryMixin",
     "PackSelectionScreenMixin",
     "PauseScreenMixin",
     "PowderSnowBlockMixin",
