@@ -83,12 +83,12 @@ public class CleanUpScreen extends Screen
 					+ "all servers are done refreshing.",
 				b -> cleanupFailed = !cleanupFailed));
 		
-		addRenderableWidget(
-			new CleanUpButton(width / 2 - 100, height / 4 + 48 + 12,
-				() -> "\"Grief me\" Servers: " + removeOrKeep(cleanupGriefMe),
-				"All servers where the name starts with \"Grief me\"\n"
-					+ "Useful for removing servers found by ServerFinder.",
-				b -> cleanupGriefMe = !cleanupGriefMe));
+		addRenderableWidget(new CleanUpButton(width / 2 - 100,
+			height / 4 + 48 + 12,
+			() -> "\"Found Server\" Servers: " + removeOrKeep(cleanupGriefMe),
+			"All servers where the name starts with \"Found Server\"\n"
+				+ "Useful for removing servers found by ServerFinder.",
+			b -> cleanupGriefMe = !cleanupGriefMe));
 		
 		addRenderableWidget(
 			new CleanUpButton(width / 2 - 100, height / 4 + 72 + 12,
@@ -100,8 +100,8 @@ public class CleanUpScreen extends Screen
 		addRenderableWidget(
 			new CleanUpButton(width / 2 - 100, height / 4 + 96 + 12,
 				() -> "Rename all Servers: " + yesOrNo(cleanupRename),
-				"Renames your servers to \"Grief me #1\",\n"
-					+ "\"Grief me #2\", etc.",
+				"Renames your servers to \"Found Server #1\",\n"
+					+ "\"Found Server #2\", etc.",
 				b -> cleanupRename = !cleanupRename));
 	}
 	
@@ -129,7 +129,7 @@ public class CleanUpScreen extends Screen
 			for(int i = 0; i < prevScreen.getServers().size(); i++)
 			{
 				ServerData server = prevScreen.getServers().get(i);
-				server.name = "Grief me #" + (i + 1);
+				server.name = "Found Server #" + (i + 1);
 			}
 		
 		saveServerList();
@@ -180,7 +180,8 @@ public class CleanUpScreen extends Screen
 	
 	private boolean isGriefMeServer(ServerData server)
 	{
-		return server.name != null && server.name.startsWith("Grief me");
+		return server.name != null && (server.name.startsWith("Grief me")
+			|| server.name.startsWith("Found Server"));
 	}
 	
 	private void saveServerList()

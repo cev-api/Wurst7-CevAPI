@@ -28,6 +28,8 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.HexFormat;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -382,7 +385,17 @@ public final class ResourcePackProtector
 					int status = response.statusCode();
 					if(status >= 200 && status < 300)
 					{
-						Path absolute = sandboxTarget.toAbsolutePath();
+						Path absolute;
+						try
+						{
+							absolute = storeServerPack(sandboxTarget, context)
+								.toAbsolutePath();
+						}catch(IOException e)
+						{
+							handleSandboxFailure(context, sandboxTarget, e,
+								sandboxRequest, dedupeKey);
+							return;
+						}
 						if(dedupeKey != null)
 							PROMPT_SNAPSHOTS.remove(dedupeKey);
 						handleSandboxSuccess(absolute, context, sandboxRequest,
@@ -675,8 +688,17 @@ public final class ResourcePackProtector
 				
 				if(dedupeKey != null)
 					PROMPT_SNAPSHOTS.remove(dedupeKey);
-				handleSandboxSuccess(absolute, context, sandboxRequest,
-					"source=CACHE path=" + absolute);
+				try
+				{
+					Path stored =
+						storeServerPack(absolute, context).toAbsolutePath();
+					handleSandboxSuccess(stored, context, sandboxRequest,
+						"source=CACHE path=" + stored);
+				}catch(IOException e)
+				{
+					handleSandboxFailure(context, absolute, e, sandboxRequest,
+						dedupeKey);
+				}
 			});
 	}
 	
@@ -745,6 +767,125 @@ public final class ResourcePackProtector
 		if(lastError != null)
 			throw new UncheckedIOException(lastError);
 		return null;
+	}
+	
+	private static Path storeServerPack(Path source, PackContext context)
+		throws IOException
+	{
+		if(source == null || !Files.exists(source))
+			return source;
+		
+		String md5 = md5(source);
+		Path serverDir = WurstClient.INSTANCE.getWurstFolder()
+			.resolve("sandbox-packs").resolve(serverFolderName(context))
+			.resolve(resourceUrlFolderName(context));
+		Files.createDirectories(serverDir);
+		
+		Path target = serverDir.resolve(md5 + extensionOrZip(source));
+		removeDuplicatePacks(serverDir, md5, target);
+		
+		if(Files.exists(target))
+		{
+			if(!Files.isSameFile(source, target))
+				Files.deleteIfExists(source);
+			return target;
+		}
+		
+		Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+		return target;
+	}
+	
+	private static void removeDuplicatePacks(Path serverDir, String md5,
+		Path keep) throws IOException
+	{
+		try(var stream = Files.list(serverDir))
+		{
+			for(Path candidate : stream.toList())
+			{
+				if(Files.isDirectory(candidate) || candidate.equals(keep))
+					continue;
+				String name = candidate.getFileName().toString();
+				if(name.startsWith(md5 + "."))
+					Files.deleteIfExists(candidate);
+			}
+		}
+	}
+	
+	private static String md5(Path file) throws IOException
+	{
+		try
+		{
+			MessageDigest digest = MessageDigest.getInstance("MD5");
+			try(var in = Files.newInputStream(file))
+			{
+				byte[] buffer = new byte[8192];
+				int read;
+				while((read = in.read(buffer)) >= 0)
+					if(read > 0)
+						digest.update(buffer, 0, read);
+			}
+			return HexFormat.of().formatHex(digest.digest());
+		}catch(NoSuchAlgorithmException e)
+		{
+			throw new IOException("MD5 is unavailable", e);
+		}
+	}
+	
+	private static String serverFolderName(PackContext context)
+	{
+		String server = "";
+		if(context != null && context.host != null)
+		{
+			// Prefer actual remote server endpoint first, then URL host.
+			String remote = context.host.remote();
+			if(remote != null && !remote.isBlank())
+				server = remote;
+			else
+				server = context.host.canonicalOrFallback();
+		}
+		if(server == null || server.isBlank() || server.equals("<unknown>"))
+			server = "unknown-server";
+		server = server.replace(':', '_').replaceAll("[^A-Za-z0-9._-]", "_");
+		if(server.length() > 80)
+			server = server.substring(0, 80);
+		return server.isBlank() ? "unknown-server" : server;
+	}
+	
+	private static String resourceUrlFolderName(PackContext context)
+	{
+		String url = context == null ? "" : context.url;
+		if(url == null || url.isBlank())
+			return "unknown-resource-host";
+		
+		try
+		{
+			URI uri = URI.create(url);
+			String host = uri.getHost();
+			if(host == null || host.isBlank())
+				return "unknown-resource-host";
+			String ip = InetAddress.getByName(host).getHostAddress();
+			return ip.replace(':', '_').replaceAll("[^A-Za-z0-9._-]", "_");
+		}catch(Exception ignored)
+		{
+			String raw =
+				url.replace(':', '_').replaceAll("[^A-Za-z0-9._-]", "_");
+			if(raw.length() > 80)
+				raw = raw.substring(0, 80);
+			return raw.isBlank() ? "unknown-resource-host" : raw;
+		}
+	}
+	
+	private static String extensionOrZip(Path source)
+	{
+		String name = source.getFileName().toString();
+		int dot = name.lastIndexOf('.');
+		if(dot > 0 && name.length() - dot <= 6)
+		{
+			String ext = name.substring(dot);
+			if(ext.matches("\\.[A-Za-z0-9]+"))
+				return ext;
+		}
+		return ".zip";
 	}
 	
 	private static String shortMessage(Throwable throwable)
@@ -920,10 +1061,6 @@ public final class ResourcePackProtector
 			baseName = "resource-pack";
 		
 		Path candidate = parent.resolve(baseName + "-extracted");
-		int index = 1;
-		while(Files.exists(candidate))
-			candidate = parent.resolve(baseName + "-extracted-" + index++);
-		
 		Files.createDirectories(candidate);
 		return candidate;
 	}

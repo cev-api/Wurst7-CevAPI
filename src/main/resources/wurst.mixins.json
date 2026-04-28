@@ -60,6 +60,7 @@
     "OfflineSettingsHandshakeMixin",
     "OfflineSettingsNetworkMixin",
     "OptionInstanceMixin",
+    "OnlineServerEntryMixin",
     "PackSelectionScreenMixin",
     "PauseScreenMixin",
     "PlayerAttackStrengthAccessor",
