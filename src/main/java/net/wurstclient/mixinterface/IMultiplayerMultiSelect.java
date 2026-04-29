@@ -19,6 +19,8 @@ public interface IMultiplayerMultiSelect
 	
 	public boolean wurst$isMultiSelected(ServerData serverData);
 	
+	public boolean wurst$isServerHighlighted(ServerData serverData);
+	
 	public int wurst$getMultiSelectedCount();
 	
 	public void wurst$clearMultiSelection();

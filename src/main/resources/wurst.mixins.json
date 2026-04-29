@@ -69,6 +69,7 @@
     "ScreenMixin",
     "ScreenRenderMixin",
     "SelectedItemNameMixin",
+    "ServerSelectionListMixin",
     "SectionOcclusionGraphMixin",
     "ServerNameResolverMixin",
     "ShulkerBoxScreenMixin",
