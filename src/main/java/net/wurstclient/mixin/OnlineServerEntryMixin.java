@@ -46,7 +46,8 @@ public abstract class OnlineServerEntryMixin extends ServerSelectionList.Entry
 	private void drawMultiSelection(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, boolean hovered, float partialTicks, CallbackInfo ci)
 	{
-		if(!((IMultiplayerMultiSelect)screen).wurst$isMultiSelected(serverData))
+		if(!((IMultiplayerMultiSelect)screen)
+			.wurst$isServerHighlighted(serverData))
 			return;
 		
 		context.fill(getContentX() - 2, getContentY() - 2,
