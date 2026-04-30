@@ -49,7 +49,7 @@ import net.wurstclient.util.RenderUtils;
 public final class NiceWurstModule
 {
 	private static final String BRAND_LABEL = "NiceWurst 7";
-	private static final String OPTIONS_LABEL = "NiceWurst 7 Options";
+	private static final String OPTIONS_LABEL = "NiceWurst Options";
 	
 	private static final EnumSet<Category> CATEGORY_ALLOW_ALL =
 		EnumSet.of(Category.FUN);
@@ -147,6 +147,11 @@ public final class NiceWurstModule
 	public static boolean showAltManager()
 	{
 		return !isActive();
+	}
+	
+	public static boolean showTitleScreenOptions()
+	{
+		return true;
 	}
 	
 	public static boolean showAntiFingerprintControls()

@@ -107,7 +107,7 @@ public abstract class TitleScreenMixin extends Screen
 		if(realmsButton == null)
 			throw new IllegalStateException("Couldn't find realms button!");
 		
-		if(NiceWurstModule.showAltManager())
+		if(NiceWurstModule.showTitleScreenOptions())
 		{
 			// make Realms button smaller
 			realmsButton.setWidth(98);

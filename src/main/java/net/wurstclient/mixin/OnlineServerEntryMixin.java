@@ -42,7 +42,10 @@ public abstract class OnlineServerEntryMixin extends ServerSelectionList.Entry
 			cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "method_25343", at = @At("HEAD"), remap = false)
+	@Inject(
+		method = "renderContent(Lnet/minecraft/client/gui/GuiGraphics;IIZF)V",
+		at = @At("HEAD"),
+		require = 0)
 	private void drawMultiSelection(GuiGraphics context, int mouseX, int mouseY,
 		boolean hovered, float partialTicks, CallbackInfo ci)
 	{

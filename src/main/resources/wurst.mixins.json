@@ -5,6 +5,8 @@
   "mixins": [],
   "client": [
     "AbstractSignEditScreenMixin",
+    "AbstractScrollAreaMixin",
+    "AbstractWidgetMixin",
     "AtmosphericFogEnvironmentMixin",
     "BlockMixin",
     "BossHealthOverlayAccessor",
