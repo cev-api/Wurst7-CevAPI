@@ -10,7 +10,6 @@ package net.wurstclient.navigator;
 import java.awt.Color;
 import java.awt.Rectangle;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeMap;
@@ -40,6 +39,7 @@ import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.settings.Setting;
+import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.WurstColors;
@@ -69,11 +69,11 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		
 		for(Setting setting : feature.getSettings().values())
 		{
-			if(!setting.isVisibleInGui())
+			if(!setting.isVisibleInGui() && !isShownViaAnySettingGroup(setting))
 				continue;
 			
 			Component c;
-			if(setting instanceof net.wurstclient.settings.SettingGroup group)
+			if(setting instanceof SettingGroup group)
 				c = group.getComponent(false);
 			else
 				c = setting.getComponent();
@@ -87,6 +87,21 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		window.setPositionClampingEnabled(false);
 		window.pack();
 		cachedWindowContentHeight = window.getInnerHeight();
+	}
+	
+	private boolean isShownViaAnySettingGroup(Setting setting)
+	{
+		for(Feature f : WurstClient.INSTANCE.getNavigator().getList())
+		{
+			for(Setting s : f.getSettings().values())
+			{
+				if(!(s instanceof SettingGroup group))
+					continue;
+				if(group.getChildren().contains(setting))
+					return true;
+			}
+		}
+		return false;
 	}
 	
 	@Override
@@ -147,8 +162,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		Rectangle area = new Rectangle(middleX - 154, 60, 308, height - 103);
 		
 		// settings
-		Collection<Setting> settings = feature.getSettings().values();
-		if(!settings.isEmpty())
+		if(window.countChildren() > 0)
 		{
 			text += "\n\nSettings:";
 			window.validate();
