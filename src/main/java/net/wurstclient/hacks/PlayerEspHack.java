@@ -205,6 +205,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private static final long NPC_CONFIRM_DELAY_MS = 400;
 	private static final Pattern VALID_MC_USERNAME =
 		Pattern.compile("^[A-Za-z0-9_]{3,16}$");
+	private static final Pattern VALID_BEDROCK_USERNAME =
+		Pattern.compile("^\\.[A-Za-z0-9_]{3,16}$");
 	private static final Pattern NPC_STYLE_NAME =
 		Pattern.compile("(?i)^npc[0-9a-f-]{6,}$");
 	
@@ -518,7 +520,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		String normalizedName = normalizeIdentityName(rawName);
 		if(normalizedName == null || normalizedName.isEmpty())
 			return true;
-		if(!VALID_MC_USERNAME.matcher(normalizedName).matches())
+		if(!isValidPlayerName(normalizedName))
 			return true;
 		
 		// Many NPC plugins generate names like NPC7facdc7b-679c.
@@ -535,6 +537,12 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		String stripped = StringUtil.stripColor(rawName).trim();
 		return stripped.isEmpty() ? null : stripped;
+	}
+	
+	private boolean isValidPlayerName(String normalizedName)
+	{
+		return VALID_MC_USERNAME.matcher(normalizedName).matches()
+			|| VALID_BEDROCK_USERNAME.matcher(normalizedName).matches();
 	}
 	
 	private boolean hasValidTabListIdentity(UUID uuid, String entityName)
