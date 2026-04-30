@@ -8,7 +8,6 @@
 package net.wurstclient.mixin;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -43,6 +42,7 @@ import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.config.AntiFingerprintConfig;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -57,7 +57,6 @@ import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
-import net.minecraft.server.players.NameAndId;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -69,6 +68,7 @@ import net.wurstclient.util.MultiProcessingUtils;
 import net.wurstclient.util.ServerPanelConfig;
 import net.wurstclient.util.ServerExportFileChooser;
 import net.wurstclient.util.ServerImportFileChooser;
+import net.wurstclient.util.ServerListExport;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
@@ -206,6 +206,18 @@ public class JoinMultiplayerScreenMixin extends Screen
 				b -> LastServerRememberer.joinLastServer(mpScreen))
 			.width(100).build();
 		addRenderableWidget(lastServerButton);
+	}
+	
+	@Inject(method = "init()V", at = @At("TAIL"))
+	private void afterVanillaButtons(CallbackInfo ci)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
+		addRenderableOnly((context, mouseX, mouseY,
+			partialTicks) -> wurst$renderPanelOverlays(context));
 	}
 	
 	@Inject(method = "repositionElements()V", at = @At("TAIL"))
@@ -391,12 +403,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 		wurst$syncMultiSelectButtons();
 	}
 	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
-		at = @At("TAIL"))
-	private void afterExtractRenderState(
-		net.minecraft.client.gui.GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks, CallbackInfo ci)
+	@Unique
+	private void wurst$renderPanelOverlays(GuiGraphics context)
 	{
 		if(wurst$panelConfig == null)
 			return;
@@ -411,13 +419,13 @@ public class JoinMultiplayerScreenMixin extends Screen
 			if(!visible)
 				continue;
 			
-			context.verticalLine(x, top, bottom, 0x66000000);
-			context.verticalLine(x + panelWidth, top, bottom, 0x66000000);
+			context.vLine(x, top, bottom, 0x66000000);
+			context.vLine(x + panelWidth, top, bottom, 0x66000000);
 		}
 		
 		if(wurst$statusMessage != null
 			&& System.currentTimeMillis() < wurst$statusMessageUntil)
-			context.centeredText(font, wurst$statusMessage, width / 2,
+			context.drawCenteredString(font, wurst$statusMessage, width / 2,
 				height - 76, 0xFFFFFFFF);
 	}
 	
@@ -435,7 +443,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "lambda$init$4", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "method_19914",
+		at = @At("HEAD"),
+		cancellable = true,
+		remap = false)
 	private void onDeleteButton(Button button, CallbackInfo ci)
 	{
 		if(wurst$multiSelectedServers.size() <= 1)
@@ -1223,7 +1234,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		File file = path.toFile();
 		
-		ExportedServerList exported = new ExportedServerList();
+		ServerListExport exported = new ServerListExport();
 		exported.exportedAt = java.time.Instant.now().toString();
 		for(int i = 0; i < PANEL_COUNT; i++)
 			exported.panelTitles[i] = wurst$panelConfig.getTitle(i);
@@ -1232,7 +1243,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			ServerData server = serverData.get(i);
 			int panel = wurst$panelConfig.getPanel(server);
-			exported.servers.add(ExportedServer.from(server, panel,
+			exported.servers.add(ServerListExport.Server.from(server, panel,
 				wurst$panelConfig.getTitle(panel), i));
 		}
 		
@@ -1258,8 +1269,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 		
 		try(FileReader reader = new FileReader(file))
 		{
-			ExportedServerList imported =
-				GSON.fromJson(reader, ExportedServerList.class);
+			ServerListExport imported =
+				GSON.fromJson(reader, ServerListExport.class);
 			if(imported == null)
 				return;
 			
@@ -1270,7 +1281,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 						wurst$panelConfig.setTitle(i, imported.panelTitles[i]);
 					
 			if(imported.servers != null)
-				for(ExportedServer exported : imported.servers)
+				for(ServerListExport.Server exported : imported.servers)
 				{
 					if(exported.name == null || exported.ip == null)
 						continue;
@@ -1460,96 +1471,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 	}
 	
 	@Unique
-	private static final class ExportedServerList
-	{
-		private String format = "wurst-multiplayer-servers";
-		private int formatVersion = 2;
-		private String exportedAt;
-		private String[] panelTitles = new String[PANEL_COUNT];
-		private List<ExportedServer> servers = new ArrayList<>();
-	}
-	
-	@Unique
-	private static final class ExportedServer
-	{
-		private String name;
-		private String ip;
-		private String motd;
-		private String status;
-		private String version;
-		private int protocol;
-		private long ping;
-		private int onlinePlayers;
-		private int maxPlayers;
-		private int panel;
-		private String panelTitle;
-		private int savedIndex;
-		private String type;
-		private String state;
-		private String resourcePackStatus;
-		private boolean lan;
-		private boolean realm;
-		private String iconBase64;
-		private List<String> playerList = new ArrayList<>();
-		private List<ExportedPlayer> playerSample = new ArrayList<>();
-		
-		private static ExportedServer from(ServerData server, int panel,
-			String panelTitle, int savedIndex)
-		{
-			ExportedServer exported = new ExportedServer();
-			exported.name = server.name;
-			exported.ip = server.ip;
-			exported.motd = server.motd != null ? server.motd.getString() : "";
-			exported.status =
-				server.status != null ? server.status.getString() : "";
-			exported.version =
-				server.version != null ? server.version.getString() : "";
-			exported.protocol = server.protocol;
-			exported.ping = server.ping;
-			exported.type = server.type().name();
-			exported.state = server.state().name();
-			exported.resourcePackStatus = server.getResourcePackStatus().name();
-			exported.lan = server.isLan();
-			exported.realm = server.isRealm();
-			byte[] icon = server.getIconBytes();
-			if(icon != null)
-				exported.iconBase64 = Base64.getEncoder().encodeToString(icon);
-			if(server.playerList != null)
-				for(Component player : server.playerList)
-					exported.playerList.add(player.getString());
-			if(server.players != null)
-			{
-				exported.onlinePlayers = server.players.online();
-				exported.maxPlayers = server.players.max();
-				for(NameAndId player : server.players.sample())
-					exported.playerSample.add(ExportedPlayer.from(player));
-			}
-			exported.panel = panel;
-			exported.panelTitle = panelTitle;
-			exported.savedIndex = savedIndex;
-			return exported;
-		}
-	}
-	
-	@Unique
-	private static final class ExportedPlayer
-	{
-		private String id;
-		private String name;
-		
-		private static ExportedPlayer from(NameAndId player)
-		{
-			ExportedPlayer exported = new ExportedPlayer();
-			exported.id = player.id().toString();
-			exported.name = player.name();
-			return exported;
-		}
-	}
-	
-	@Unique
 	private AbstractWidget findWidget(String label)
 	{
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(button.getMessage().getString().equals(label))
 				return button;

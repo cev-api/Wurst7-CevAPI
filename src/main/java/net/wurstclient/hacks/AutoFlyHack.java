@@ -998,7 +998,7 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return false;
 		
-		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos playerChunk = new ChunkPos(MC.player.blockPosition());
 		boolean containsChunk = isMatchingChunkType(playerChunk, oldChunks);
 		if(!containsChunk)
 			return false;
@@ -1032,8 +1032,8 @@ public final class AutoFlyHack extends Hack
 		{
 			for(int i = 1; i < limit; i++)
 			{
-				ChunkPos candidate = new ChunkPos(center.x() + stepX * i * dir,
-					center.z() + stepZ * i * dir);
+				ChunkPos candidate = new ChunkPos(center.x + stepX * i * dir,
+					center.z + stepZ * i * dir);
 				if(!isMatchingChunkType(candidate, oldChunks))
 					break;
 				

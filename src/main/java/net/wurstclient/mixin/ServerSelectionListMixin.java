@@ -64,7 +64,11 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		cir.setReturnValue(Math.max(120, list.getWidth() - 20));
 	}
 	
-	@Inject(method = "scrollBarX()I", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "method_65507()I",
+		at = @At("HEAD"),
+		cancellable = true,
+		require = 0,
+		remap = false)
 	private void getPanelScrollBarX(CallbackInfoReturnable<Integer> cir)
 	{
 		if(!wurst$panelList)
@@ -74,10 +78,11 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		cir.setReturnValue(list.getX() + list.getWidth() - 8);
 	}
 	
-	@Inject(
-		method = "mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z",
+	@Inject(method = "method_25402(Lnet/minecraft/class_11909;Z)Z",
 		at = @At("HEAD"),
-		cancellable = true)
+		cancellable = true,
+		require = 0,
+		remap = false)
 	private void onPanelScrollbarClicked(
 		net.minecraft.client.input.MouseButtonEvent event, boolean doubleClick,
 		CallbackInfoReturnable<Boolean> cir)
@@ -101,10 +106,11 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		cir.setReturnValue(true);
 	}
 	
-	@Inject(
-		method = "mouseDragged(Lnet/minecraft/client/input/MouseButtonEvent;DD)Z",
+	@Inject(method = "method_25403(Lnet/minecraft/class_11909;DD)Z",
 		at = @At("HEAD"),
-		cancellable = true)
+		cancellable = true,
+		require = 0,
+		remap = false)
 	private void onPanelScrollbarDragged(
 		net.minecraft.client.input.MouseButtonEvent event, double dragX,
 		double dragY, CallbackInfoReturnable<Boolean> cir)
@@ -117,10 +123,11 @@ public class ServerSelectionListMixin implements IServerSelectionListExt
 		cir.setReturnValue(true);
 	}
 	
-	@Inject(
-		method = "mouseReleased(Lnet/minecraft/client/input/MouseButtonEvent;)Z",
+	@Inject(method = "method_25406(Lnet/minecraft/class_11909;)Z",
 		at = @At("HEAD"),
-		cancellable = true)
+		cancellable = true,
+		require = 0,
+		remap = false)
 	private void onPanelScrollbarReleased(
 		net.minecraft.client.input.MouseButtonEvent event,
 		CallbackInfoReturnable<Boolean> cir)

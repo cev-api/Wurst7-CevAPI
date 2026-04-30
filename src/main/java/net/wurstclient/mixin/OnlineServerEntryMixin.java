@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.gui.screens.multiplayer.ServerSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -42,9 +42,9 @@ public abstract class OnlineServerEntryMixin extends ServerSelectionList.Entry
 			cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "extractContent", at = @At("HEAD"))
-	private void drawMultiSelection(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, boolean hovered, float partialTicks, CallbackInfo ci)
+	@Inject(method = "method_25343", at = @At("HEAD"), remap = false)
+	private void drawMultiSelection(GuiGraphics context, int mouseX, int mouseY,
+		boolean hovered, float partialTicks, CallbackInfo ci)
 	{
 		if(!((IMultiplayerMultiSelect)screen)
 			.wurst$isServerHighlighted(serverData))

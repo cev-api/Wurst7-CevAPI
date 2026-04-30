@@ -575,14 +575,13 @@ public final class WurstOptionsScreen extends Screen
 		context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
 		renderSectionHeaders(context, viewTop, viewBottom);
 		for(WurstOptionsButton button : contentButtons)
-			button.extractRenderState(context, mouseX, mouseY, partialTicks);
+			button.render(context, mouseX, mouseY, partialTicks);
 		context.disableScissor();
 		
 		for(Renderable drawable : renderables)
 			if(!(drawable instanceof WurstOptionsButton wo)
 				|| !contentButtons.contains(wo))
-				drawable.extractRenderState(context, mouseX, mouseY,
-					partialTicks);
+				drawable.render(context, mouseX, mouseY, partialTicks);
 			
 		renderScrollbar(context, viewRight + 4, viewTop, viewBottom);
 		
@@ -616,12 +615,14 @@ public final class WurstOptionsScreen extends Screen
 		
 		String title =
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
-		context.centeredText(tr, title, middleX, titleY, CommonColors.WHITE);
-		context.centeredText(tr, "Feature-rich controls and recovery tools",
-			middleX, titleY + 12, CommonColors.LIGHT_GRAY);
+		context.drawCenteredString(tr, title, middleX, titleY,
+			CommonColors.WHITE);
+		context.drawCenteredString(tr,
+			"Feature-rich controls and recovery tools", middleX, titleY + 12,
+			CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderSectionHeaders(GuiGraphicsExtractor context, int viewTop,
+	private void renderSectionHeaders(GuiGraphics context, int viewTop,
 		int viewBottom)
 	{
 		Font tr = minecraft.font;
@@ -630,12 +631,12 @@ public final class WurstOptionsScreen extends Screen
 			int y = header.y() - scrollOffset;
 			if(y + tr.lineHeight < viewTop || y > viewBottom)
 				continue;
-			context.centeredText(tr, header.title(), header.centerX(), y,
+			context.drawCenteredString(tr, header.title(), header.centerX(), y,
 				WurstColors.VERY_LIGHT_GRAY);
 		}
 	}
 	
-	private void renderScrollbar(GuiGraphicsExtractor context, int x, int top,
+	private void renderScrollbar(GuiGraphics context, int x, int top,
 		int bottom)
 	{
 		if(maxScroll <= 0)

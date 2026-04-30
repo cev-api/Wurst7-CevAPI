@@ -163,12 +163,11 @@ public abstract class TitleScreenMixin extends Screen
 	 * Replaces the vanilla Minecraft logo on the title screen with the client
 	 * supplied CevAPI logo.
 	 */
-	@Redirect(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Redirect(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"))
-	private void onRenderLogo(LogoRenderer logoRenderer,
-		GuiGraphicsExtractor graphics, int width, float fade)
+			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
+	private void onRenderLogo(LogoRenderer logoRenderer, GuiGraphics graphics,
+		int width, float fade)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
@@ -178,7 +177,7 @@ public abstract class TitleScreenMixin extends Screen
 			return;
 		
 		int minButtonY = Integer.MAX_VALUE;
-		for(AbstractWidget widget : Screens.getWidgets(this))
+		for(AbstractWidget widget : Screens.getButtons(this))
 		{
 			if(widget == null)
 				continue;
