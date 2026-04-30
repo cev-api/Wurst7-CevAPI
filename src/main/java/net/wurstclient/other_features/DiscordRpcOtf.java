@@ -71,6 +71,12 @@ public final class DiscordRpcOtf extends OtherFeature implements UpdateListener
 		addSetting(showServerIp);
 		addSetting(showUsername);
 		
+		// Ensure these are available in Navigator/GUI setting lists.
+		enabled.setVisibleInGui(true);
+		statusMessage.setVisibleInGui(true);
+		showServerIp.setVisibleInGui(true);
+		showUsername.setVisibleInGui(true);
+		
 		EVENTS.add(UpdateListener.class, this);
 	}
 	

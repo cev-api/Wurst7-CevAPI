@@ -45,12 +45,14 @@ import net.wurstclient.util.WurstColors;
 
 public final class WurstOptionsScreen extends Screen
 {
-	private static final int BUTTON_HEIGHT = 20;
-	private static final int ROW_GAP = 2;
+	private static final int BUTTON_HEIGHT = 18;
+	private static final int ROW_GAP = 1;
 	private static final int COLUMN_GAP = 10;
+	private static final int COLUMN_GAP_COMPACT = 6;
 	
 	private final Screen prevScreen;
 	private final List<SectionHeader> sectionHeaders = new ArrayList<>();
+	private final List<WurstOptionsButton> contentButtons = new ArrayList<>();
 	
 	private int columnCount;
 	private int buttonWidth;
@@ -59,6 +61,8 @@ public final class WurstOptionsScreen extends Screen
 	private int contentTop;
 	private int contentBottom;
 	private int backButtonY;
+	private int scrollOffset;
+	private int maxScroll;
 	private boolean randomAltReconnectInProgress;
 	
 	public WurstOptionsScreen(Screen prevScreen)
@@ -71,6 +75,8 @@ public final class WurstOptionsScreen extends Screen
 	public void init()
 	{
 		sectionHeaders.clear();
+		contentButtons.clear();
+		scrollOffset = 0;
 		layoutColumns();
 		
 		addCoreSection();
@@ -78,39 +84,64 @@ public final class WurstOptionsScreen extends Screen
 		addToolsSection();
 		addLinksSection();
 		
-		backButtonY = Math.max(contentBottom + 10, height - 28);
+		backButtonY = height - 26;
+		int viewTop = contentTop - 2;
+		int viewBottom = backButtonY - 8;
+		int visibleHeight = Math.max(1, viewBottom - viewTop);
+		int totalHeight =
+			Math.max(0, contentBottom - contentTop + BUTTON_HEIGHT);
+		maxScroll = Math.max(0, totalHeight - visibleHeight);
+		
 		new WurstOptionsButton(width / 2 - 110, backButtonY, 220, 20,
 			() -> "Back", "Return to the previous screen.",
 			b -> minecraft.setScreen(prevScreen));
+		applyScrollLayout();
 	}
 	
 	private void layoutColumns()
 	{
-		columnCount = width >= 700 ? 4 : 3;
-		buttonWidth = columnCount >= 4 ? 156 : 178;
+		if(width >= 860)
+			columnCount = 4;
+		else if(width >= 640)
+			columnCount = 3;
+		else if(width >= 460)
+			columnCount = 2;
+		else
+			columnCount = 1;
 		
-		int totalWidth =
-			columnCount * buttonWidth + (columnCount - 1) * COLUMN_GAP;
-		int left = Math.max(8, (width - totalWidth) / 2);
-		contentTop = height / 4 + 4;
+		int gap = columnCount >= 3 ? COLUMN_GAP : COLUMN_GAP_COMPACT;
+		int horizontalPadding = columnCount >= 3 ? 16 : 8;
+		int availableWidth = Math.max(120,
+			width - horizontalPadding * 2 - (columnCount - 1) * gap);
+		int maxButtonWidth =
+			columnCount == 1 ? 300 : columnCount == 2 ? 240 : 196;
+		buttonWidth = Math.max(120,
+			Math.min(maxButtonWidth, availableWidth / columnCount));
+		
+		int totalWidth = columnCount * buttonWidth + (columnCount - 1) * gap;
+		int left = Math.max(4, (width - totalWidth) / 2);
+		contentTop = Math.max(56, height / 8);
 		contentBottom = contentTop;
 		
 		columnX = new int[columnCount];
 		nextRowByColumn = new int[columnCount];
 		for(int i = 0; i < columnCount; i++)
 		{
-			columnX[i] = left + i * (buttonWidth + COLUMN_GAP);
+			columnX[i] = left + i * (buttonWidth + gap);
 			nextRowByColumn[i] = contentTop + 16;
 		}
 	}
 	
 	private int beginSection(String title, int preferredColumn)
 	{
-		int column = Math.min(preferredColumn, columnCount - 1);
-		int sectionY = nextRowByColumn[column] - 12;
+		int column = preferredColumn % columnCount;
+		if(nextRowByColumn[column] > contentTop + 16)
+			nextRowByColumn[column] += BUTTON_HEIGHT; // explicit empty row
+			
+		int sectionY = nextRowByColumn[column];
 		sectionHeaders.add(new SectionHeader(title,
 			columnX[column] + buttonWidth / 2, sectionY));
-		nextRowByColumn[column] += 2;
+		nextRowByColumn[column] += 13; // reserved header row height
 		return column;
 	}
 	
@@ -412,10 +443,33 @@ public final class WurstOptionsScreen extends Screen
 		String tooltip, Button.OnPress pressAction)
 	{
 		int y = nextRowByColumn[column];
-		new WurstOptionsButton(columnX[column], y, buttonWidth, BUTTON_HEIGHT,
-			messageSupplier, tooltip, pressAction);
+		WurstOptionsButton button = new WurstOptionsButton(columnX[column], y,
+			buttonWidth, BUTTON_HEIGHT, messageSupplier, tooltip, pressAction);
+		contentButtons.add(button);
 		nextRowByColumn[column] += BUTTON_HEIGHT + ROW_GAP;
 		contentBottom = Math.max(contentBottom, y + BUTTON_HEIGHT);
+	}
+	
+	private void applyScrollLayout()
+	{
+		for(WurstOptionsButton button : contentButtons)
+			button.setY(button.getBaseY() - scrollOffset);
+	}
+	
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX,
+		double scrollY)
+	{
+		if(maxScroll <= 0)
+			return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+		
+		scrollOffset -= (int)Math.round(scrollY * 18.0);
+		if(scrollOffset < 0)
+			scrollOffset = 0;
+		if(scrollOffset > maxScroll)
+			scrollOffset = maxScroll;
+		applyScrollLayout();
+		return true;
 	}
 	
 	private static void cycleSlider(SliderSetting slider)
@@ -511,9 +565,26 @@ public final class WurstOptionsScreen extends Screen
 	{
 		renderOptionsBackground(context, mouseX, mouseY, partialTicks);
 		renderTitles(context);
+		applyScrollLayout();
+		
+		int viewTop = contentTop - 2;
+		int viewBottom = backButtonY - 8;
+		int viewLeft = columnX[0] - 6;
+		int viewRight = columnX[columnCount - 1] + buttonWidth + 6;
+		
+		context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
+		renderSectionHeaders(context, viewTop, viewBottom);
+		for(WurstOptionsButton button : contentButtons)
+			button.extractRenderState(context, mouseX, mouseY, partialTicks);
+		context.disableScissor();
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			if(!(drawable instanceof WurstOptionsButton wo)
+				|| !contentButtons.contains(wo))
+				drawable.extractRenderState(context, mouseX, mouseY,
+					partialTicks);
+			
+		renderScrollbar(context, viewRight + 4, viewTop, viewBottom);
 		
 		renderButtonTooltip(context, mouseX, mouseY);
 	}
@@ -545,15 +616,39 @@ public final class WurstOptionsScreen extends Screen
 		
 		String title =
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
-		context.drawCenteredString(tr, title, middleX, titleY,
-			CommonColors.WHITE);
-		context.drawCenteredString(tr,
-			"Feature-rich controls and recovery tools", middleX, titleY + 12,
-			CommonColors.LIGHT_GRAY);
-		
+		context.centeredText(tr, title, middleX, titleY, CommonColors.WHITE);
+		context.centeredText(tr, "Feature-rich controls and recovery tools",
+			middleX, titleY + 12, CommonColors.LIGHT_GRAY);
+	}
+	
+	private void renderSectionHeaders(GuiGraphicsExtractor context, int viewTop,
+		int viewBottom)
+	{
+		Font tr = minecraft.font;
 		for(SectionHeader header : sectionHeaders)
-			context.drawCenteredString(tr, header.title(), header.centerX(),
-				header.y(), WurstColors.VERY_LIGHT_GRAY);
+		{
+			int y = header.y() - scrollOffset;
+			if(y + tr.lineHeight < viewTop || y > viewBottom)
+				continue;
+			context.centeredText(tr, header.title(), header.centerX(), y,
+				WurstColors.VERY_LIGHT_GRAY);
+		}
+	}
+	
+	private void renderScrollbar(GuiGraphicsExtractor context, int x, int top,
+		int bottom)
+	{
+		if(maxScroll <= 0)
+			return;
+		
+		int barH = Math.max(20, bottom - top);
+		int thumbH = Math.max(18,
+			(int)Math.round(barH * (barH / (double)(barH + maxScroll))));
+		int thumbTop = top + (int)Math.round(
+			(barH - thumbH) * (scrollOffset / (double)Math.max(1, maxScroll)));
+		
+		context.fill(x, top, x + 6, bottom, 0x66303030);
+		context.fill(x, thumbTop, x + 6, thumbTop + thumbH, 0xAA808080);
 	}
 	
 	private void renderButtonTooltip(GuiGraphics context, int mouseX,
@@ -588,6 +683,7 @@ public final class WurstOptionsScreen extends Screen
 	{
 		private final Supplier<String> messageSupplier;
 		private final List<Component> tooltip;
+		private final int baseY;
 		
 		private WurstOptionsButton(int x, int y, int w, int h,
 			Supplier<String> messageSupplier, String tooltip,
@@ -596,6 +692,7 @@ public final class WurstOptionsScreen extends Screen
 			super(x, y, w, h, Component.literal(messageSupplier.get()),
 				pressAction, Button.DEFAULT_NARRATION);
 			this.messageSupplier = messageSupplier;
+			this.baseY = y;
 			
 			String normalizedTooltip = tooltip == null ? "" : tooltip.trim();
 			if(normalizedTooltip.isEmpty())
@@ -615,6 +712,11 @@ public final class WurstOptionsScreen extends Screen
 			}
 			
 			addRenderableWidget(this);
+		}
+		
+		private int getBaseY()
+		{
+			return baseY;
 		}
 		
 		@Override

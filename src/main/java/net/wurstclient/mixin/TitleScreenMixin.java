@@ -43,8 +43,11 @@ public abstract class TitleScreenMixin extends Screen
 {
 	// Current title texture (randomly chosen among available variations).
 	private static Identifier CURRENT_TITLE_TEXTURE = null;
+	private static String CURRENT_TITLE_BASE = null;
+	private static Screen LAST_TITLE_SCREEN_INSTANCE = null;
 	private static final int TARGET_LOGO_WIDTH = 256;
 	private static final int TARGET_LOGO_TOP = 30;
+	private static final int LOGO_BUTTON_GAP = 8;
 	
 	private static int titleWidth = -1;
 	private static int titleHeight = -1;
@@ -61,9 +64,22 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(method = "init()V", at = @At("HEAD"))
 	private void onInit(CallbackInfo ci)
 	{
-		CURRENT_TITLE_TEXTURE = null;
-		titleWidth = -1;
-		titleHeight = -1;
+		String currentBase =
+			NiceWurstModule.isActive() ? "nicewurst_title" : "cevapi_title";
+		boolean screenInstanceChanged =
+			LAST_TITLE_SCREEN_INSTANCE != (Screen)(Object)this;
+		boolean baseChanged = !currentBase.equals(CURRENT_TITLE_BASE);
+		
+		// Keep the same title on resize/re-init, but reroll when we actually
+		// enter a new title screen instance (or when switching title base).
+		if(screenInstanceChanged || baseChanged)
+		{
+			CURRENT_TITLE_TEXTURE = null;
+			titleWidth = -1;
+			titleHeight = -1;
+			CURRENT_TITLE_BASE = currentBase;
+			LAST_TITLE_SCREEN_INSTANCE = (Screen)(Object)this;
+		}
 	}
 	
 	/**
@@ -161,8 +177,27 @@ public abstract class TitleScreenMixin extends Screen
 		if(titleWidth <= 0 || titleHeight <= 0)
 			return;
 		
-		float scale = TARGET_LOGO_WIDTH / (float)titleWidth;
-		int x = Math.round((width / 2F - TARGET_LOGO_WIDTH / 2F) / scale);
+		int minButtonY = Integer.MAX_VALUE;
+		for(AbstractWidget widget : Screens.getWidgets(this))
+		{
+			if(widget == null)
+				continue;
+			minButtonY = Math.min(minButtonY, widget.getY());
+		}
+		
+		float maxAllowedHeight = titleHeight;
+		if(minButtonY != Integer.MAX_VALUE)
+			maxAllowedHeight =
+				Math.max(1, minButtonY - TARGET_LOGO_TOP - LOGO_BUTTON_GAP);
+		
+		float widthScale = TARGET_LOGO_WIDTH / (float)titleWidth;
+		float heightScale = maxAllowedHeight / (float)titleHeight;
+		float scale = Math.min(widthScale, heightScale);
+		if(scale <= 0)
+			return;
+		
+		float scaledWidth = titleWidth * scale;
+		int x = Math.round((width / 2F - scaledWidth / 2F) / scale);
 		int y = Math.round(TARGET_LOGO_TOP / scale);
 		graphics.pose().pushMatrix();
 		graphics.pose().scale(scale);
