@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -17,6 +18,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.ISimpleOption;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -40,6 +42,17 @@ public final class ClientChatOverlayHack extends Hack
 	private final TextFieldSetting forceNormalKeywords = new TextFieldSetting(
 		"Force normal chat keywords",
 		"Comma-separated keywords that force a message into normal chat.", "");
+	private final CheckboxSetting colorUsernames =
+		new CheckboxSetting("Color usernames",
+			"Colors only the sender username in captured player chat.", false);
+	private final CheckboxSetting randomOwnUsernameColor = new CheckboxSetting(
+		"Random own username color",
+		"Uses a generated color for your username instead of the fixed color.",
+		false);
+	private final ColorSetting ownUsernameColor = new ColorSetting(
+		"Own username color",
+		"Fixed color for your own username when Color usernames is enabled.",
+		new Color(0x55FFFF));
 	private final SliderSetting maxLines =
 		new SliderSetting("Max lines", 10, 3, 30, 1, ValueDisplay.INTEGER);
 	private final SliderSetting chatFontScale =
@@ -62,6 +75,9 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(extraPanelForWurstMessages);
 		addSetting(forceClientKeywords);
 		addSetting(forceNormalKeywords);
+		addSetting(colorUsernames);
+		addSetting(randomOwnUsernameColor);
+		addSetting(ownUsernameColor);
 		addSetting(maxLines);
 		addSetting(chatFontScale);
 		addSetting(hudOffsetX);
@@ -106,6 +122,21 @@ public final class ClientChatOverlayHack extends Hack
 	public int getMaxLines()
 	{
 		return maxLines.getValueI();
+	}
+	
+	public boolean shouldColorUsernames()
+	{
+		return colorUsernames.isChecked();
+	}
+	
+	public boolean shouldRandomizeOwnUsernameColor()
+	{
+		return randomOwnUsernameColor.isChecked();
+	}
+	
+	public int getOwnUsernameColorI()
+	{
+		return ownUsernameColor.getColorI() & 0x00FFFFFF;
 	}
 	
 	public double getChatFontScale()

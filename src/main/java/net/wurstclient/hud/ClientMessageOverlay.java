@@ -7,10 +7,12 @@
  */
 package net.wurstclient.hud;
 
+import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
@@ -23,7 +25,10 @@ import net.minecraft.client.gui.components.ComponentRenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.MessageSignature;
+import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
@@ -442,14 +447,352 @@ public final class ClientMessageOverlay
 			if(target.size() >= MAX_STORED_MESSAGES)
 				target.removeFirst();
 			
-			target
-				.addLast(new Entry(message.copy(), System.currentTimeMillis()));
+			Component stored =
+				shouldColorStoredUsername(message, wurstOnlyPanel)
+					? colorizeChatUsernameIfEnabled(message) : message.copy();
+			target.addLast(new Entry(stored, System.currentTimeMillis()));
 		}
 		
 		if(splitWurstPanel && wurstOnlyPanel)
 			wurstScrollOffset = 0;
 		else
 			scrollOffset = 0;
+	}
+	
+	private static boolean shouldColorStoredUsername(Component message,
+		boolean wurstOnlyPanel)
+	{
+		if(wurstOnlyPanel || message == null)
+			return false;
+		
+		String plain = stripLegacyFormatting(message.getString()).trim();
+		if(plain.isEmpty() || isWurstMessage(plain))
+			return false;
+		
+		SenderSpan sender = extractSenderSpan(plain);
+		return sender != null && (sender.trustedChatDelimiter()
+			|| isOnlinePlayerName(sender.name()));
+	}
+	
+	public Component colorizeChatUsernameIfEnabled(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames()
+			|| message == null)
+			return message.copy();
+		
+		String plain = stripLegacyFormatting(message.getString());
+		if(isWurstMessage(plain.trim()))
+			return message.copy();
+		
+		SenderSpan sender = extractSenderSpan(plain);
+		if(sender == null || sender.name().isBlank())
+			return message.copy();
+		if(!sender.trustedChatDelimiter() && !isOnlinePlayerName(sender.name()))
+			return message.copy();
+		
+		int rgb = getUsernameColor(sender.name(), hack);
+		Component translatableColored =
+			colorizeTranslatableSender(message, rgb);
+		if(translatableColored != null)
+			return translatableColored;
+		
+		boolean[] changed = {false};
+		Component tokenColored =
+			colorizeSenderToken(message, sender.name(), rgb, changed);
+		if(changed[0])
+			return tokenColored;
+		
+		return colorizeComponentRange(message, sender.start(), sender.end(),
+			rgb, new int[]{0});
+	}
+	
+	private static Component colorizeTranslatableSender(Component message,
+		int rgb)
+	{
+		if(!(message.getContents() instanceof TranslatableContents tr))
+			return null;
+		
+		Object[] args = tr.getArgs();
+		if(args == null || args.length < 1)
+			return null;
+		
+		Object senderArg = args[0];
+		Object coloredSender;
+		if(senderArg instanceof Component senderComponent)
+		{
+			coloredSender =
+				senderComponent.copy().withStyle(style -> style.withColor(rgb));
+			
+		}else if(senderArg instanceof String senderText)
+		{
+			coloredSender = Component.literal(senderText)
+				.withStyle(style -> style.withColor(rgb));
+		}else
+			return null;
+		
+		Object[] newArgs = args.clone();
+		newArgs[0] = coloredSender;
+		
+		MutableComponent recolored =
+			Component.translatable(tr.getKey(), newArgs);
+		recolored.setStyle(message.getStyle());
+		for(Component sibling : message.getSiblings())
+			recolored.append(sibling.copy());
+		
+		return recolored;
+	}
+	
+	private static MutableComponent colorizeSenderToken(Component component,
+		String senderName, int rgb, boolean[] changed)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof TranslatableContents tr)
+		{
+			Object[] args = tr.getArgs();
+			Object[] newArgs = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < newArgs.length; i++)
+			{
+				if(newArgs[i] instanceof Component argComponent)
+					newArgs[i] = colorizeSenderToken(argComponent, senderName,
+						rgb, changed);
+				else if(newArgs[i] instanceof String argString)
+					newArgs[i] = colorizeTextOccurrences(argString,
+						component.getStyle(), senderName, rgb, changed);
+			}
+			
+			result = Component.translatable(tr.getKey(), newArgs);
+			
+		}else if(component.getContents() instanceof LiteralContents literal)
+			result = colorizeTextOccurrences(literal.text(),
+				component.getStyle(), senderName, rgb, changed);
+		else
+			result = MutableComponent.create(component.getContents());
+		
+		if(!(component.getContents() instanceof LiteralContents))
+			result.setStyle(component.getStyle());
+		
+		for(Component sibling : component.getSiblings())
+			result
+				.append(colorizeSenderToken(sibling, senderName, rgb, changed));
+		
+		return result;
+	}
+	
+	private static MutableComponent colorizeTextOccurrences(String text,
+		net.minecraft.network.chat.Style style, String senderName, int rgb,
+		boolean[] changed)
+	{
+		Pattern pattern = Pattern.compile("(?i)(?<![A-Za-z0-9_])"
+			+ Pattern.quote(senderName) + "(?![A-Za-z0-9_])");
+		Matcher matcher = pattern.matcher(text);
+		MutableComponent result = Component.literal("");
+		int lastEnd = 0;
+		while(matcher.find())
+		{
+			if(matcher.start() > lastEnd)
+				result.append(
+					Component.literal(text.substring(lastEnd, matcher.start()))
+						.withStyle(style));
+			
+			result.append(Component
+				.literal(text.substring(matcher.start(), matcher.end()))
+				.withStyle(style.withColor(rgb)));
+			lastEnd = matcher.end();
+			changed[0] = true;
+		}
+		
+		if(lastEnd == 0)
+			return Component.literal(text).withStyle(style);
+		
+		if(lastEnd < text.length())
+			result.append(
+				Component.literal(text.substring(lastEnd)).withStyle(style));
+		
+		return result;
+	}
+	
+	public static MutableComponent colorizeWholeComponent(Component component,
+		int rgb)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof TranslatableContents tr)
+		{
+			Object[] args = tr.getArgs();
+			Object[] newArgs = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < newArgs.length; i++)
+			{
+				if(newArgs[i] instanceof Component argComponent)
+					newArgs[i] = colorizeWholeComponent(argComponent, rgb);
+				else if(newArgs[i] instanceof String argString)
+					newArgs[i] = Component.literal(argString)
+						.withStyle(style -> style.withColor(rgb));
+			}
+			
+			result = Component.translatable(tr.getKey(), newArgs);
+			
+		}else
+			result = MutableComponent.create(component.getContents());
+		
+		result.setStyle(component.getStyle().withColor(rgb));
+		for(Component sibling : component.getSiblings())
+			result.append(colorizeWholeComponent(sibling, rgb));
+		
+		return result;
+	}
+	
+	private static MutableComponent colorizeComponentRange(Component component,
+		int start, int end, int rgb, int[] offset)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof LiteralContents literal)
+		{
+			String text = literal.text();
+			result = Component.literal("");
+			int textStart = offset[0];
+			int textEnd = textStart + text.length();
+			if(start < textEnd && end > textStart)
+			{
+				int localStart = Math.max(0, start - textStart);
+				int localEnd = Math.min(text.length(), end - textStart);
+				if(localStart > 0)
+					result
+						.append(Component.literal(text.substring(0, localStart))
+							.withStyle(component.getStyle()));
+				result.append(
+					Component.literal(text.substring(localStart, localEnd))
+						.withStyle(component.getStyle().withColor(rgb)));
+				if(localEnd < text.length())
+					result.append(Component.literal(text.substring(localEnd))
+						.withStyle(component.getStyle()));
+			}else
+				result.append(
+					Component.literal(text).withStyle(component.getStyle()));
+			offset[0] = textEnd;
+		}else
+		{
+			result = MutableComponent.create(component.getContents());
+			result.setStyle(component.getStyle());
+			offset[0] += getOwnTextLength(component);
+		}
+		
+		for(Component sibling : component.getSiblings())
+			result.append(
+				colorizeComponentRange(sibling, start, end, rgb, offset));
+		
+		return result;
+	}
+	
+	private static int getOwnTextLength(Component component)
+	{
+		int ownLength = component.getString().length();
+		for(Component sibling : component.getSiblings())
+			ownLength -= sibling.getString().length();
+		
+		return Math.max(0, ownLength);
+	}
+	
+	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
+	{
+		String ownName = WurstClient.MC.getUser() == null ? ""
+			: WurstClient.MC.getUser().getName();
+		boolean ownNameMatches = name.equalsIgnoreCase(ownName);
+		if(ownNameMatches && !hack.shouldRandomizeOwnUsernameColor())
+			return hack.getOwnUsernameColorI();
+		
+		int rgb = getGeneratedUsernameColor(name, 0);
+		if(ownNameMatches)
+			return rgb;
+		
+		for(int attempt = 1; isReservedUsernameColor(rgb, ownName, hack)
+			&& attempt < 16; attempt++)
+			rgb = getGeneratedUsernameColor(name, attempt);
+		
+		return rgb;
+	}
+	
+	private static int getGeneratedUsernameColor(String name, int attempt)
+	{
+		int hash = name.toLowerCase().hashCode() + attempt * 0x9E3779B9;
+		float hue = (hash & 0xFFFF) / 65535.0F;
+		return Color.HSBtoRGB(hue, 0.65F, 1.0F) & 0x00FFFFFF;
+	}
+	
+	private static boolean isReservedUsernameColor(int rgb, String ownName,
+		ClientChatOverlayHack hack)
+	{
+		int ownColor = ownName == null || ownName.isBlank()
+			|| !hack.shouldRandomizeOwnUsernameColor()
+				? hack.getOwnUsernameColorI()
+				: getGeneratedUsernameColor(ownName, 0);
+		if(isSimilarColor(rgb, ownColor))
+			return true;
+		
+		if(WurstClient.INSTANCE != null && WurstClient.INSTANCE.getHax() != null
+			&& isSimilarColor(rgb,
+				WurstClient.INSTANCE.getHax().mentionHack.getMentionColorI()))
+			return true;
+		
+		return false;
+	}
+	
+	private static boolean isSimilarColor(int a, int b)
+	{
+		int dr = ((a >> 16) & 0xFF) - ((b >> 16) & 0xFF);
+		int dg = ((a >> 8) & 0xFF) - ((b >> 8) & 0xFF);
+		int db = (a & 0xFF) - (b & 0xFF);
+		return dr * dr + dg * dg + db * db < 80 * 80;
+	}
+	
+	private static SenderSpan extractSenderSpan(String plain)
+	{
+		if(plain == null || plain.isBlank())
+			return null;
+		
+		String trimmed = plain.trim();
+		int trimOffset = plain.indexOf(trimmed);
+		if(trimmed.startsWith("<"))
+		{
+			int end = trimmed.indexOf('>');
+			if(end > 1)
+				return new SenderSpan(trimOffset + 1, trimOffset + end,
+					trimmed.substring(1, end), true);
+		}
+		
+		ChatDelimiter delimiter = findChatDelimiter(trimmed);
+		if(delimiter == null || delimiter.index() <= 0)
+			return null;
+		
+		String senderPart = trimmed.substring(0, delimiter.index());
+		var matcher = USERNAME_PATTERN.matcher(senderPart);
+		int start = -1;
+		int end = -1;
+		String name = "";
+		while(matcher.find())
+		{
+			start = matcher.start();
+			end = matcher.end();
+			name = matcher.group();
+		}
+		
+		if(name.isEmpty())
+			return null;
+		
+		return new SenderSpan(trimOffset + start, trimOffset + end, name,
+			delimiter.trusted());
+	}
+	
+	private static ChatDelimiter findChatDelimiter(String text)
+	{
+		ChatDelimiter best = null;
+		for(String delimiter : new String[]{" » ", " > ", ": "})
+		{
+			int index = text.indexOf(delimiter);
+			if(index > 0 && (best == null || index < best.index()))
+				best = new ChatDelimiter(index, !delimiter.equals(": "));
+		}
+		
+		return best;
 	}
 	
 	private static boolean looksLikePlayerChat(String plain)
@@ -880,5 +1223,12 @@ public final class ClientMessageOverlay
 	{}
 	
 	private record RenderLine(FormattedCharSequence text, int alpha)
+	{}
+	
+	private record ChatDelimiter(int index, boolean trusted)
+	{}
+	
+	private record SenderSpan(int start, int end, String name,
+		boolean trustedChatDelimiter)
 	{}
 }

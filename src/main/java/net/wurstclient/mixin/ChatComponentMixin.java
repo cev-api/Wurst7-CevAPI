@@ -21,6 +21,7 @@ import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessageSource;
 import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
@@ -55,17 +56,26 @@ public class ChatComponentMixin
 			if(event.isCancelled())
 				ci.cancel();
 			else
-				message.set(event.getComponent());
+				message.set(ClientMessageOverlay.getInstance()
+					.colorizeChatUsernameIfEnabled(event.getComponent()));
 			
 			return;
 		}
 		
+		ChatInputEvent event =
+			new ChatInputEvent(message.get(), trimmedMessages);
+		EventManager.fire(event);
+		if(event.isCancelled())
+		{
+			ci.cancel();
+			return;
+		}
+		
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
 			.captureSingleArgMessage(message.get()))
 		{
-			ChatInputEvent event =
-				new ChatInputEvent(message.get(), trimmedMessages);
-			EventManager.fire(event);
 			ci.cancel();
 			return;
 		}
@@ -89,7 +99,8 @@ public class ChatComponentMixin
 			return;
 		}
 		
-		message.set(event.getComponent());
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
 			.captureIfNonPlayerMessage(message.get(), null))
 		{
@@ -120,7 +131,8 @@ public class ChatComponentMixin
 			return;
 		}
 		
-		message.set(event.getComponent());
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
 			.captureIfNonPlayerMessage(message.get(), signature))
 		{
@@ -132,5 +144,18 @@ public class ChatComponentMixin
 			.modifyIndicator(message.get(), signature, indicator.get()));
 		ClientMessageOverlay.getInstance()
 			.notifyVanillaChatMessage(message.get());
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V")
+	private void onAddMessage(Component messageDontUse,
+		@Nullable MessageSignature signature, GuiMessageSource source,
+		@Nullable GuiMessageTag indicator, CallbackInfo ci,
+		@Local(argsOnly = true) LocalRef<Component> message)
+	{
+		Component colored = WurstClient.INSTANCE.getHax().mentionHack
+			.colorizeForDisplayIfNeeded(message.get());
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(colored));
 	}
 }

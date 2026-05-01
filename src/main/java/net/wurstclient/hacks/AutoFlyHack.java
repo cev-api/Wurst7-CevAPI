@@ -15,6 +15,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.io.File;
 import java.io.FileReader;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -61,6 +62,11 @@ public final class AutoFlyHack extends Hack
 	private static final double COMMAND_FORWARD_DISTANCE = 100000.0;
 	private static final double COMMAND_FORWARD_LEAD_DISTANCE = 512.0;
 	private static final int CHUNK_TRAIL_LOOKAHEAD = 5;
+	private static final double CHUNK_CORRIDOR_LOOKAHEAD_BLOCKS = 80.0;
+	private static final int CHUNK_CORRIDOR_SEARCH_RADIUS = 5;
+	private static final int CHUNK_TRAIL_PORTAL_SCAN_COOLDOWN_TICKS = 40;
+	private static final ChunkAreaSetting.ChunkArea CHUNK_TRAIL_PORTAL_AREA =
+		ChunkAreaSetting.ChunkArea.A5;
 	private static final ChunkAreaSetting.ChunkArea STOP_BLOCK_AREA =
 		ChunkAreaSetting.ChunkArea.A65;
 	
@@ -257,6 +263,10 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting disableOnDamage =
 		new CheckboxSetting("Disable on damage",
 			"Disable AutoFly entirely when you take damage.", false);
+	private final CheckboxSetting suppressChunkTrailRender =
+		new CheckboxSetting("Suppress chunk trail render",
+			"When using Chunk trail route, hide NewerNewChunks overlays to improve FPS while keeping chunk detection active.",
+			true);
 	
 	private final List<AutoFlyTarget> targets = new ArrayList<>();
 	private AutoFlyTarget currentTarget;
@@ -266,6 +276,8 @@ public final class AutoFlyHack extends Hack
 	private Vec3 chunkCorridorOrigin;
 	private Vec3 chunkCorridorHeading;
 	private Vec3 chunkCorridorTargetPos;
+	private final ArrayDeque<ChunkPos> recentChunkCorridorChunks =
+		new ArrayDeque<>();
 	private boolean chunkAssistActive;
 	private boolean pausedNoY;
 	private boolean commandForwardUnlimited;
@@ -324,6 +336,8 @@ public final class AutoFlyHack extends Hack
 	private ChunkSearcherCoordinator stopBlockCoordinator2;
 	private StopOnType stopBlockCoordinatorType2;
 	private String stopBlockCoordinatorKeyword2;
+	private ChunkSearcherCoordinator chunkTrailPortalCoordinator;
+	private int chunkTrailPortalScanCooldown;
 	private boolean stopHold;
 	private int stopIgnoreTicks;
 	
@@ -367,6 +381,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(disableAutoFlyOnStop);
 		addSetting(disableOnPlayers);
 		addSetting(disableOnDamage);
+		addSetting(suppressChunkTrailRender);
 	}
 	
 	@Override
@@ -447,6 +462,8 @@ public final class AutoFlyHack extends Hack
 		stopBlockCoordinator2 = null;
 		stopBlockCoordinatorType2 = null;
 		stopBlockCoordinatorKeyword2 = null;
+		chunkTrailPortalCoordinator = null;
+		chunkTrailPortalScanCooldown = 0;
 		stopHold = false;
 		stopIgnoreTicks = 0;
 		selectNextTarget(false);
@@ -542,6 +559,9 @@ public final class AutoFlyHack extends Hack
 		closeHorizLatched = false;
 		stopHold = false;
 		stopIgnoreTicks = 0;
+		chunkTrailPortalCoordinator = null;
+		chunkTrailPortalScanCooldown = 0;
+		applyChunkTrailRenderSuppression(false);
 	}
 	
 	@Override
@@ -573,6 +593,7 @@ public final class AutoFlyHack extends Hack
 		boolean gridRoute = routeType.getSelected() == RouteType.GRID;
 		boolean chunkRoute = routeType.getSelected() == RouteType.CHUNKS;
 		boolean cruisingRoute = gridRoute || chunkRoute;
+		applyChunkTrailRenderSuppression(chunkRoute);
 		
 		if(!chunkRoute && currentTarget == null)
 		{
@@ -583,18 +604,27 @@ public final class AutoFlyHack extends Hack
 				return;
 			}
 		}
+		if(chunkRoute && currentTarget == null)
+			setForwardFromCommand(null, null, false);
 		
-		if(checkStopOn(stopOn, stopKeyword, false))
-			return;
-		
-		if(checkStopOn(stopOn2, stopKeyword2, true))
-			return;
-		
-		if(checkStopOnPlayers())
-			return;
-		
-		if(checkDisableOnDamage())
-			return;
+		if(chunkRoute)
+		{
+			if(checkChunkTrailPortalStop())
+				return;
+		}else
+		{
+			if(checkStopOn(stopOn, stopKeyword, false))
+				return;
+			
+			if(checkStopOn(stopOn2, stopKeyword2, true))
+				return;
+			
+			if(checkStopOnPlayers())
+				return;
+			
+			if(checkDisableOnDamage())
+				return;
+		}
 		
 		if(allowManualAdjust.isChecked() && isManualInputActive())
 		{
@@ -732,6 +762,12 @@ public final class AutoFlyHack extends Hack
 			
 			if(cruisingRoute)
 			{
+				if(chunkRoute && chunkAssistActive)
+				{
+					closeHorizLatched = false;
+					return;
+				}
+				
 				if(chunkRoute)
 					advanceChunkTrailTarget();
 				else
@@ -772,7 +808,8 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		// Force a final descend near center to ensure landing completes
-		boolean finalLanding = distHoriz <= Math.max(radius, 1.0) + 0.5;
+		boolean finalLanding =
+			!cruisingRoute && distHoriz <= Math.max(radius, 1.0) + 0.5;
 		if(finalLanding)
 			autoSetKey(MC.options.keyShift, true);
 		
@@ -920,6 +957,46 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		return false;
+	}
+	
+	private boolean checkChunkTrailPortalStop()
+	{
+		if(MC.player == null || MC.level == null)
+			return false;
+		
+		if(chunkTrailPortalScanCooldown-- > 0)
+			return false;
+		chunkTrailPortalScanCooldown = CHUNK_TRAIL_PORTAL_SCAN_COOLDOWN_TICKS;
+		
+		ensureChunkTrailPortalCoordinator();
+		chunkTrailPortalCoordinator.update();
+		
+		Result hit = chunkTrailPortalCoordinator.getReadyMatches().findFirst()
+			.orElse(null);
+		if(hit == null)
+			return false;
+		
+		if(hit.state().getBlock() == Blocks.NETHER_PORTAL)
+		{
+			stopAutoFly("Stopped: Found Nether Portal");
+			return true;
+		}
+		
+		stopAutoFly("Stopped: Found End Portal");
+		return true;
+	}
+	
+	private void ensureChunkTrailPortalCoordinator()
+	{
+		if(chunkTrailPortalCoordinator != null)
+			return;
+		
+		ChunkAreaSetting area = new ChunkAreaSetting(
+			"Chunk trail portal scan (internal)", "", CHUNK_TRAIL_PORTAL_AREA);
+		chunkTrailPortalCoordinator = new ChunkSearcherCoordinator((pos,
+			state) -> state != null && (state.getBlock() == Blocks.NETHER_PORTAL
+				|| state.getBlock() == Blocks.END_PORTAL),
+			area);
 	}
 	
 	private boolean scanBlocksForKeyword(boolean secondary, String keyword,
@@ -1143,6 +1220,13 @@ public final class AutoFlyHack extends Hack
 	private static String safeString(String s)
 	{
 		return s == null ? "" : s;
+	}
+	
+	private void applyChunkTrailRenderSuppression(boolean chunkRoute)
+	{
+		boolean suppress =
+			chunkRoute && suppressChunkTrailRender.isChecked() && isEnabled();
+		WURST.getHax().newerNewChunksHack.setAutoFlyRenderSuppressed(suppress);
 	}
 	
 	@Override
@@ -1755,7 +1839,8 @@ public final class AutoFlyHack extends Hack
 	private double getCruiseY(AutoFlyTarget target)
 	{
 		double y = flightHeight.getValue();
-		if(target != null && target.hasY)
+		if(routeType.getSelected() != RouteType.CHUNKS && target != null
+			&& target.hasY)
 			y = Math.max(y, target.pos.getY() + 2);
 		
 		if(MC.level != null)
@@ -2013,8 +2098,9 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		var trail = WURST.getHax().newerNewChunksHack.getOldChunksLiveView();
-		if(trail.isEmpty())
+		var chunks = WURST.getHax().newerNewChunksHack;
+		var oldTrail = chunks.getOldChunksLiveView();
+		if(oldTrail.isEmpty())
 			return;
 		
 		if(chunkCorridorOrigin == null)
@@ -2028,10 +2114,15 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		Vec3 playerPos = MC.player.position();
-		Vec3 targetPos = selectChunkCorridorTargetPos(trail, playerPos,
-			chunkCorridorOrigin, chunkCorridorHeading);
+		rememberRecentCorridorChunk(
+			ChunkPos.containing(MC.player.blockPosition()));
+		Vec3 targetPos = selectChunkCorridorTargetPos(oldTrail,
+			chunks.getNewChunksLiveView(), playerPos, chunkCorridorHeading);
 		if(targetPos == null)
+		{
+			chunkCorridorTargetPos = playerPos;
 			return;
+		}
 		
 		chunkCorridorTargetPos = targetPos;
 		ChunkPos anchor = ChunkPos.containing(BlockPos.containing(targetPos));
@@ -2047,6 +2138,7 @@ public final class AutoFlyHack extends Hack
 		chunkCorridorOrigin = null;
 		chunkCorridorHeading = null;
 		chunkCorridorTargetPos = null;
+		recentChunkCorridorChunks.clear();
 		chunkTrailPath.clear();
 	}
 	
@@ -2056,11 +2148,10 @@ public final class AutoFlyHack extends Hack
 		routeType.setSelected(RouteType.WAYPOINTS);
 	}
 	
-	private Vec3 selectChunkCorridorTargetPos(java.util.Set<ChunkPos> trail,
-		Vec3 playerPos, Vec3 origin, Vec3 heading)
+	private Vec3 selectChunkCorridorTargetPos(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, Vec3 playerPos, Vec3 heading)
 	{
-		if(trail.isEmpty() || playerPos == null || origin == null
-			|| heading == null)
+		if(oldTrail.isEmpty() || playerPos == null || heading == null)
 			return null;
 		
 		Vec3 flatHeading = new Vec3(heading.x, 0.0, heading.z);
@@ -2068,58 +2159,146 @@ public final class AutoFlyHack extends Hack
 			return null;
 		flatHeading = flatHeading.normalize();
 		
-		double playerProgress = playerPos.subtract(origin).dot(flatHeading);
-		double lookaheadBlocks = 64.0;
-		Vec3 lookaheadPoint =
-			origin.add(flatHeading.scale(playerProgress + lookaheadBlocks));
-		ChunkPos centerChunk =
-			ChunkPos.containing(BlockPos.containing(lookaheadPoint));
+		Vec3 right = new Vec3(-flatHeading.z, 0.0, flatHeading.x);
 		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
 		
-		Vec3 weightedSum = Vec3.ZERO;
-		double totalWeight = 0.0;
+		ChunkPos best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
 		
-		for(int radius = 0; radius <= 6; radius++)
+		for(int dx = -1; dx <= 1; dx++)
 		{
-			for(int dx = -radius; dx <= radius; dx++)
+			for(int dz = -1; dz <= 1; dz++)
 			{
-				for(int dz = -radius; dz <= radius; dz++)
+				if(dx == 0 && dz == 0)
+					continue;
+				
+				ChunkPos candidate =
+					new ChunkPos(playerChunk.x() + dx, playerChunk.z() + dz);
+				if(!oldTrail.contains(candidate))
+					continue;
+				if(isBlockedDiagonalStep(oldTrail, newChunks, playerChunk, dx,
+					dz))
+					continue;
+				
+				Vec3 center = Vec3.atCenterOf(chunkCenter(candidate));
+				Vec3 delta = center.subtract(playerPos);
+				Vec3 dir = new Vec3(delta.x, 0.0, delta.z);
+				if(dir.lengthSqr() < 1.0E-6)
+					continue;
+				dir = dir.normalize();
+				
+				double along = dir.dot(flatHeading);
+				double lateral = Math.abs(dir.dot(right));
+				double score = along * 16.0 - lateral * 2.0
+					+ getCorridorSideScore(oldTrail, newChunks, candidate,
+						flatHeading, right)
+					- getRecentCorridorPenalty(candidate);
+				
+				if(isNewOrKnownWall(newChunks, candidate))
+					score -= 100.0;
+				if(score > bestScore)
 				{
-					ChunkPos candidate = new ChunkPos(centerChunk.x() + dx,
-						centerChunk.z() + dz);
-					if(!trail.contains(candidate))
-						continue;
-					
-					Vec3 center = Vec3.atCenterOf(chunkCenter(candidate));
-					double along = center.subtract(origin).dot(flatHeading);
-					if(along < playerProgress - 8.0)
-						continue;
-					
-					Vec3 delta = center.subtract(lookaheadPoint);
-					double lateral = Math.hypot(delta.x, delta.z);
-					double alongError =
-						Math.abs(along - (playerProgress + lookaheadBlocks));
-					double density = countTrailNeighbors(trail, candidate, 1)
-						+ countTrailNeighbors(trail, candidate, 2) * 0.35;
-					double weight = Math.max(0.1, density * 4.0 + 1.5
-						- lateral * 0.05 - alongError * 0.02);
-					if(candidate.equals(centerChunk))
-						weight += 0.75;
-					if(Math.abs(candidate.x() - playerChunk.x()) <= 1
-						&& Math.abs(candidate.z() - playerChunk.z()) <= 1)
-						weight += 0.25;
-					
-					weightedSum = weightedSum.add(center.scale(weight));
-					totalWeight += weight;
+					best = candidate;
+					bestScore = score;
 				}
 			}
 		}
 		
-		if(totalWeight <= 0.0)
-			return Vec3.atCenterOf(chunkCenter(
-				findClosestChunk(new ArrayList<>(trail), playerChunk)));
+		return best != null ? Vec3.atCenterOf(chunkCenter(best)) : null;
+	}
+	
+	private static boolean isBlockedDiagonalStep(
+		java.util.Set<ChunkPos> oldTrail, java.util.Set<ChunkPos> newChunks,
+		ChunkPos origin, int dx, int dz)
+	{
+		if(Math.abs(dx) != 1 || Math.abs(dz) != 1)
+			return false;
 		
-		return weightedSum.scale(1.0 / totalWeight);
+		ChunkPos xStep = new ChunkPos(origin.x() + dx, origin.z());
+		ChunkPos zStep = new ChunkPos(origin.x(), origin.z() + dz);
+		return (!oldTrail.contains(xStep) || newChunks.contains(xStep))
+			&& (!oldTrail.contains(zStep) || newChunks.contains(zStep));
+	}
+	
+	private void rememberRecentCorridorChunk(ChunkPos chunk)
+	{
+		if(chunk == null || (!recentChunkCorridorChunks.isEmpty()
+			&& chunk.equals(recentChunkCorridorChunks.peekLast())))
+			return;
+		
+		recentChunkCorridorChunks.addLast(chunk);
+		while(recentChunkCorridorChunks.size() > 32)
+			recentChunkCorridorChunks.removeFirst();
+	}
+	
+	private double getRecentCorridorPenalty(ChunkPos candidate)
+	{
+		if(candidate == null || recentChunkCorridorChunks.isEmpty())
+			return 0.0;
+		
+		int age = 0;
+		for(var it = recentChunkCorridorChunks.descendingIterator(); it
+			.hasNext();)
+		{
+			ChunkPos recent = it.next();
+			if(candidate.equals(recent))
+				return Math.max(0.0, 32.0 - age * 2.0);
+			age++;
+		}
+		
+		return 0.0;
+	}
+	
+	private static double getCorridorSideScore(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, ChunkPos candidate, Vec3 forward,
+		Vec3 right)
+	{
+		ChunkPos leftChunk = stepChunk(candidate, right, -1);
+		ChunkPos rightChunk = stepChunk(candidate, right, 1);
+		ChunkPos frontChunk = stepChunk(candidate, forward, 1);
+		ChunkPos backChunk = stepChunk(candidate, forward, -1);
+		
+		double score = 0.0;
+		if(isNewOrKnownWall(newChunks, leftChunk))
+			score += 1.0;
+		if(isNewOrKnownWall(newChunks, rightChunk))
+			score += 1.0;
+		if(oldTrail.contains(frontChunk))
+			score += 0.75;
+		if(oldTrail.contains(backChunk))
+			score += 0.35;
+		if(oldTrail.contains(leftChunk))
+			score -= 0.2;
+		if(oldTrail.contains(rightChunk))
+			score -= 0.2;
+		return score;
+	}
+	
+	private static boolean isNewOrKnownWall(java.util.Set<ChunkPos> newChunks,
+		ChunkPos chunk)
+	{
+		return chunk != null && newChunks.contains(chunk);
+	}
+	
+	private static ChunkPos stepChunk(ChunkPos origin, Vec3 direction,
+		int steps)
+	{
+		if(origin == null || direction == null || steps == 0)
+			return origin;
+		
+		int dx;
+		int dz;
+		if(Math.abs(direction.x) >= Math.abs(direction.z))
+		{
+			dx = direction.x >= 0 ? 1 : -1;
+			dz = 0;
+		}else
+		{
+			dx = 0;
+			dz = direction.z >= 0 ? 1 : -1;
+		}
+		
+		return new ChunkPos(origin.x() + dx * steps, origin.z() + dz * steps);
 	}
 	
 	private static int countTrailNeighbors(java.util.Set<ChunkPos> trail,
