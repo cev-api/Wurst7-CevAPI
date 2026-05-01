@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -14,7 +15,11 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -23,6 +28,8 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.events.ChatOutputListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -44,7 +51,12 @@ public final class MentionHack extends Hack
 	private static final Pattern ARROW_CHAT = Pattern.compile("^"
 		+ CHAT_PREFIX_PATTERN + "([A-Za-z0-9_\\-*.]{1,24})\\s*[»>]\\s+(.+)$");
 	private static final Pattern WHISPER_TO_YOU_CHAT = Pattern.compile(
-		"^([A-Za-z0-9_\\-*.]{1,24})\\s+whispers\\s+to\\s+you:\\s+(.+)$",
+		"^.*?([A-Za-z0-9_\\-*.]{1,24})\\s+"
+			+ "(?:whispers|msgs|messages)\\s+(?:to\\s+)?you:\\s+(.+)$",
+		Pattern.CASE_INSENSITIVE);
+	private static final Pattern FROM_WHISPER_CHAT = Pattern.compile(
+		"^" + CHAT_PREFIX_PATTERN + "from\\s+"
+			+ "([A-Za-z0-9_\\-*.]{1,24})\\s*[:>]\\s+(.+)$",
 		Pattern.CASE_INSENSITIVE);
 	
 	private final TextFieldSetting nicknameAliases = new TextFieldSetting(
@@ -60,6 +72,20 @@ public final class MentionHack extends Hack
 		new SliderSetting("Volume", "Sound volume for mention pings.", 100, 0,
 			200, 1, ValueDisplay.INTEGER.withSuffix("%"));
 	
+	private final CheckboxSetting toastPopup =
+		new CheckboxSetting("Toast popup",
+			"Shows a toast notification when you're mentioned or whispered to.",
+			false);
+	
+	private final CheckboxSetting colorMessages =
+		new CheckboxSetting("Color messages",
+			"Changes the color of messages that mention you.", true);
+	
+	private final ColorSetting mentionColor = new ColorSetting("Mention color",
+		"Color used for messages that mention your name/alias or whisper to"
+			+ " you.",
+		new Color(0x55FFFF));
+	
 	private final ArrayDeque<RecentSentMessage> recentSentMessages =
 		new ArrayDeque<>();
 	
@@ -70,6 +96,9 @@ public final class MentionHack extends Hack
 		addSetting(nicknameAliases);
 		addSetting(sound);
 		addSetting(volume);
+		addSetting(toastPopup);
+		addSetting(colorMessages);
+		addSetting(mentionColor);
 	}
 	
 	@Override
@@ -132,10 +161,55 @@ public final class MentionHack extends Hack
 		if(line.sender().equals("System") && isLikelyOwnEcho(line.text()))
 			return;
 		
-		if(!containsMention(line.text(), ownName))
+		boolean isMention = containsMention(line.text(), ownName);
+		boolean isWhisperToYou = line.whisperToYou();
+		if(!isMention && !isWhisperToYou)
 			return;
 		
+		if(colorMessages.isChecked())
+			colorizeMentionMessage(event);
 		playMentionSound();
+		showMentionToast(event.getComponent(), isWhisperToYou);
+	}
+	
+	private void colorizeMentionMessage(ChatInputEvent event)
+	{
+		int rgb = mentionColor.getColorI() & 0x00FFFFFF;
+		MutableComponent colored = event.getComponent().copy();
+		colorizeComponentTree(colored, rgb);
+		event.setComponent(colored);
+	}
+	
+	private void colorizeComponentTree(MutableComponent component, int rgb)
+	{
+		component.setStyle(component.getStyle().withColor(rgb));
+		for(Component sibling : component.getSiblings())
+			if(sibling instanceof MutableComponent mutable)
+				colorizeComponentTree(mutable, rgb);
+	}
+	
+	private void showMentionToast(Component message, boolean whisperToYou)
+	{
+		if(!toastPopup.isChecked())
+			return;
+		
+		MutableComponent title =
+			Component.literal(whisperToYou ? "Whisper" : "Mention");
+		MutableComponent toastMessage = message.copy();
+		removeColorFromComponentTree(toastMessage);
+		
+		SystemToast toast = SystemToast.multiline(MC,
+			SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title,
+			toastMessage);
+		MC.getToastManager().addToast(toast);
+	}
+	
+	private void removeColorFromComponentTree(MutableComponent component)
+	{
+		component.setStyle(component.getStyle().withColor((TextColor)null));
+		for(Component sibling : component.getSiblings())
+			if(sibling instanceof MutableComponent mutable)
+				removeColorFromComponentTree(mutable);
 	}
 	
 	private boolean containsMention(String text, String ownName)
@@ -251,23 +325,28 @@ public final class MentionHack extends Hack
 	
 	private static ChatLine parseChatLine(String plain)
 	{
+		Matcher whisper = WHISPER_TO_YOU_CHAT.matcher(plain);
+		if(whisper.matches())
+			return new ChatLine(whisper.group(1), whisper.group(2), true);
+		
+		Matcher fromWhisper = FROM_WHISPER_CHAT.matcher(plain);
+		if(fromWhisper.matches())
+			return new ChatLine(fromWhisper.group(1), fromWhisper.group(2),
+				true);
+		
 		Matcher angle = DECORATED_ANGLE_CHAT.matcher(plain);
 		if(angle.matches())
-			return new ChatLine(angle.group(1), angle.group(2));
+			return new ChatLine(angle.group(1), angle.group(2), false);
 		
 		Matcher colon = COLON_CHAT.matcher(plain);
 		if(colon.matches())
-			return new ChatLine(colon.group(1), colon.group(2));
+			return new ChatLine(colon.group(1), colon.group(2), false);
 		
 		Matcher arrow = ARROW_CHAT.matcher(plain);
 		if(arrow.matches())
-			return new ChatLine(arrow.group(1), arrow.group(2));
+			return new ChatLine(arrow.group(1), arrow.group(2), false);
 		
-		Matcher whisper = WHISPER_TO_YOU_CHAT.matcher(plain);
-		if(whisper.matches())
-			return new ChatLine(whisper.group(1), whisper.group(2));
-		
-		return new ChatLine("System", plain);
+		return new ChatLine("System", plain, false);
 	}
 	
 	private static String stripLegacyFormatting(String text)
@@ -388,7 +467,7 @@ public final class MentionHack extends Hack
 		}
 	}
 	
-	private record ChatLine(String sender, String text)
+	private record ChatLine(String sender, String text, boolean whisperToYou)
 	{}
 	
 	private record RecentSentMessage(String message, long timestampMs)

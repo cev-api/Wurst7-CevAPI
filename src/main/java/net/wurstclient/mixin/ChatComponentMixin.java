@@ -39,38 +39,45 @@ public class ChatComponentMixin
 	@Inject(at = @At("HEAD"),
 		method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
 		cancellable = true)
-	private void onAddMessage(Component message, CallbackInfo ci)
+	private void onAddClientSystemMessage(Component messageDontUse,
+		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
-		String plain = message.getString().trim();
+		String plain = message.get().getString().trim();
 		if(WurstClient.INSTANCE.getHax().autoChatHack
 			.isReadDiscordRelayMessagesEnabled()
 			&& WurstClient.INSTANCE.getHax().autoChatHack
 				.matchesDiscordRelayMessage(plain))
 		{
-			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			ChatInputEvent event =
+				new ChatInputEvent(message.get(), trimmedMessages);
 			EventManager.fire(event);
 			
 			if(event.isCancelled())
 				ci.cancel();
+			else
+				message.set(event.getComponent());
 			
 			return;
 		}
 		
-		if(ClientMessageOverlay.getInstance().captureSingleArgMessage(message))
+		if(ClientMessageOverlay.getInstance()
+			.captureSingleArgMessage(message.get()))
 		{
-			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			ChatInputEvent event =
+				new ChatInputEvent(message.get(), trimmedMessages);
 			EventManager.fire(event);
 			ci.cancel();
 			return;
 		}
 		
-		ClientMessageOverlay.getInstance().notifyVanillaChatMessage(message);
+		ClientMessageOverlay.getInstance()
+			.notifyVanillaChatMessage(message.get());
 	}
 	
 	@Inject(at = @At("HEAD"),
 		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
 		cancellable = true)
-	private void onAddMessage(Component messageDontUse,
+	private void onAddPlayerMessage(Component messageDontUse,
 		@Nullable MessageSignature signature,
 		@Nullable GuiMessageTag indicatorDontUse, CallbackInfo ci,
 		@Local(argsOnly = true) LocalRef<Component> message,

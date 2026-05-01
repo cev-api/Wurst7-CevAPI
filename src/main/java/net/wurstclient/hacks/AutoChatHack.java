@@ -381,9 +381,16 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		ChatLine line = parsePlayerChatLine(plain);
 		if(line == null)
 			return;
-		if(!readDiscordRelayMessages.isChecked()
-			&& !isRealPlayerSender(line.sender()))
-			return;
+		boolean realPlayerSender = isRealPlayerSender(line.sender());
+		if(!realPlayerSender)
+		{
+			if(!readDiscordRelayMessages.isChecked())
+				return;
+			
+			if(!matchesDiscordRelayMessage(plain)
+				|| !isRelayStyledChatMessage(plain))
+				return;
+		}
 		
 		if(line.sender().equalsIgnoreCase(ownName))
 			return;
@@ -1755,6 +1762,15 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				receivedAtMs);
 		
 		return null;
+	}
+	
+	private static boolean isRelayStyledChatMessage(String plain)
+	{
+		// Require explicit chat-style payloads for non-player senders.
+		// This blocks plugin/system status lines like "Homes: ...".
+		return REPORTABLE_CHAT.matcher(plain).matches()
+			|| DECORATED_ANGLE_CHAT.matcher(plain).matches()
+			|| WHISPER_TO_YOU_CHAT.matcher(plain).matches();
 	}
 	
 	private boolean isRealPlayerSender(String sender)
