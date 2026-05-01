@@ -39,40 +39,49 @@ public class ChatComponentMixin
 	@Inject(at = @At("HEAD"),
 		method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V",
 		cancellable = true)
-	private void onAddClientSystemMessage(Component message, CallbackInfo ci)
+	private void onAddClientSystemMessage(Component messageDontUse,
+		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
-		String plain = message.getString().trim();
+		String plain = message.get().getString().trim();
 		if(WurstClient.INSTANCE.getHax().autoChatHack
 			.isReadDiscordRelayMessagesEnabled()
 			&& WurstClient.INSTANCE.getHax().autoChatHack
 				.matchesDiscordRelayMessage(plain))
 		{
-			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			ChatInputEvent event =
+				new ChatInputEvent(message.get(), trimmedMessages);
 			EventManager.fire(event);
 			
 			if(event.isCancelled())
 				ci.cancel();
+			else
+				message.set(event.getComponent());
 			
 			return;
 		}
 		
-		if(ClientMessageOverlay.getInstance().captureSingleArgMessage(message))
+		if(ClientMessageOverlay.getInstance()
+			.captureSingleArgMessage(message.get()))
 		{
-			ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+			ChatInputEvent event =
+				new ChatInputEvent(message.get(), trimmedMessages);
 			EventManager.fire(event);
 			ci.cancel();
 			return;
 		}
 		
-		ClientMessageOverlay.getInstance().notifyVanillaChatMessage(message);
+		ClientMessageOverlay.getInstance()
+			.notifyVanillaChatMessage(message.get());
 	}
 	
 	@Inject(at = @At("HEAD"),
 		method = "addServerSystemMessage(Lnet/minecraft/network/chat/Component;)V",
 		cancellable = true)
-	private void onAddServerSystemMessage(Component message, CallbackInfo ci)
+	private void onAddServerSystemMessage(Component messageDontUse,
+		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
-		ChatInputEvent event = new ChatInputEvent(message, trimmedMessages);
+		ChatInputEvent event =
+			new ChatInputEvent(message.get(), trimmedMessages);
 		EventManager.fire(event);
 		if(event.isCancelled())
 		{
@@ -80,15 +89,16 @@ public class ChatComponentMixin
 			return;
 		}
 		
+		message.set(event.getComponent());
 		if(ClientMessageOverlay.getInstance()
-			.captureIfNonPlayerMessage(event.getComponent(), null))
+			.captureIfNonPlayerMessage(message.get(), null))
 		{
 			ci.cancel();
 			return;
 		}
 		
 		ClientMessageOverlay.getInstance()
-			.notifyVanillaChatMessage(event.getComponent());
+			.notifyVanillaChatMessage(message.get());
 	}
 	
 	@Inject(at = @At("HEAD"),

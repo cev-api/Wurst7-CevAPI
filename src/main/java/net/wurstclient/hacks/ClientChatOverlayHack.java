@@ -32,6 +32,8 @@ public final class ClientChatOverlayHack extends Hack
 		new CheckboxSetting("Route to game console", false);
 	private final CheckboxSetting onlyWurstMessages =
 		new CheckboxSetting("Only Wurst messages", false);
+	private final CheckboxSetting extraPanelForWurstMessages =
+		new CheckboxSetting("Extra panel for Wurst-only messages", false);
 	private final TextFieldSetting forceClientKeywords = new TextFieldSetting(
 		"Force client chat keywords",
 		"Comma-separated keywords that force a message into client chat.", "");
@@ -57,6 +59,7 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(fadeOutTimeSeconds);
 		addSetting(routeToConsole);
 		addSetting(onlyWurstMessages);
+		addSetting(extraPanelForWurstMessages);
 		addSetting(forceClientKeywords);
 		addSetting(forceNormalKeywords);
 		addSetting(maxLines);
@@ -83,6 +86,11 @@ public final class ClientChatOverlayHack extends Hack
 	public boolean isOnlyWurstMessages()
 	{
 		return onlyWurstMessages.isChecked();
+	}
+	
+	public boolean isExtraPanelForWurstMessages()
+	{
+		return extraPanelForWurstMessages.isChecked();
 	}
 	
 	public boolean matchesForceClientKeyword(String text)

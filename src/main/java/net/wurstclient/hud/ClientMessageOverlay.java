@@ -11,7 +11,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +24,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
-import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
@@ -54,22 +52,16 @@ public final class ClientMessageOverlay
 		"^" + CHAT_PREFIX_PATTERN + PLAYER_NAME_TOKEN + "\\s*[»>]\\s+.+$");
 	private static final Pattern BRACKETED_PLAYER_CHAT_PATTERN =
 		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s+\\[[^\\]]{1,32}\\]\\s+.+$");
-	private static final Pattern JOIN_LEAVE_PATTERN =
-		Pattern.compile("^[A-Za-z0-9_]{1,16}\\s+(joined|left)\\s+the\\s+game$",
-			Pattern.CASE_INSENSITIVE);
-	private static final Pattern DECORATED_JOIN_LEAVE_PATTERN = Pattern.compile(
-		"^" + CHAT_PREFIX_PATTERN
-			+ "[A-Za-z0-9_]{1,16}\\s+(joined|left)\\s+the\\s+game$",
-		Pattern.CASE_INSENSITIVE);
-	private static final Pattern PLAYER_EVENT_SUFFIX_PATTERN = Pattern.compile(
-		"^(joined\\b|left\\b|disconnected\\b|logged\\s+in\\b|logged\\s+out\\b|was\\b|died\\b|drowned\\b|starved\\b|suffocated\\b|burned\\b|burnt\\b|froze\\b|withered\\b|fell\\b|tried\\b).*$",
-		Pattern.CASE_INSENSITIVE);
+	private static final Pattern USERNAME_PATTERN =
+		Pattern.compile("[A-Za-z0-9_]{1,16}");
 	private static final Pattern DISCORD_PREFIX_PATTERN =
 		Pattern.compile("^\\[Discord\\]\\s+.+$", Pattern.CASE_INSENSITIVE);
 	private static final ClientMessageOverlay INSTANCE =
 		new ClientMessageOverlay();
 	
 	private final Deque<Entry> messages = new ArrayDeque<>(MAX_STORED_MESSAGES);
+	private final Deque<Entry> wurstMessages =
+		new ArrayDeque<>(MAX_STORED_MESSAGES);
 	private boolean dragging;
 	private double dragStartMouseX;
 	private double dragStartMouseY;
@@ -77,14 +69,22 @@ public final class ClientMessageOverlay
 	private int dragStartOffsetY;
 	private int dragOffsetX;
 	private int dragOffsetY;
-	private boolean hovered;
+	private boolean hoveredMainPanel;
+	private boolean hoveredWurstPanel;
 	private int scrollOffset;
+	private int wurstScrollOffset;
 	private int visibleLineCount;
 	private int totalLineCount;
-	private int lastX1;
-	private int lastY1;
-	private int lastX2;
-	private int lastY2;
+	private int wurstVisibleLineCount;
+	private int wurstTotalLineCount;
+	private int lastMainX1;
+	private int lastMainY1;
+	private int lastMainX2;
+	private int lastMainY2;
+	private int lastWurstX1;
+	private int lastWurstY1;
+	private int lastWurstX2;
+	private int lastWurstY2;
 	
 	private ClientMessageOverlay()
 	{}
@@ -105,31 +105,25 @@ public final class ClientMessageOverlay
 		
 		if(isWurstMessage(plain))
 		{
-			addMessage(message);
-			scrollOffset = 0;
+			addMessage(message, true);
 			logToConsoleIfEnabled(message);
 			return true;
 		}
 		
 		if(isForcedToClientChat(plain))
 		{
-			addMessage(message);
-			scrollOffset = 0;
+			addMessage(message, false);
 			logToConsoleIfEnabled(message);
 			return true;
 		}
 		
-		if(isVanillaPlayerEventComponent(message))
-			return false;
-		
-		if(looksLikePlayerChat(plain))
+		if(shouldKeepInVanillaChat(plain, null))
 			return false;
 		
 		if(!shouldCaptureByFilter(message))
 			return false;
 		
-		addMessage(message);
-		scrollOffset = 0;
+		addMessage(message, false);
 		logToConsoleIfEnabled(message);
 		return true;
 	}
@@ -146,57 +140,73 @@ public final class ClientMessageOverlay
 		
 		if(isWurstMessage(plain))
 		{
-			addMessage(message);
-			scrollOffset = 0;
+			addMessage(message, true);
 			logToConsoleIfEnabled(message);
 			return true;
 		}
 		
 		if(isForcedToClientChat(plain))
 		{
-			addMessage(message);
-			scrollOffset = 0;
+			addMessage(message, false);
 			logToConsoleIfEnabled(message);
 			return true;
 		}
 		
-		if(isVanillaPlayerEventComponent(message))
-			return false;
-			
-		// Signed messages are usually player chat. Keep them in vanilla chat
-		// unless explicitly forced into client chat via keyword.
-		if(signature != null)
-			return false;
-		
-		if(looksLikePlayerChat(plain))
+		if(shouldKeepInVanillaChat(plain, signature))
 			return false;
 		
 		if(!shouldCaptureByFilter(message))
 			return false;
 		
-		addMessage(message);
-		scrollOffset = 0;
+		addMessage(message, false);
 		logToConsoleIfEnabled(message);
 		return true;
 	}
 	
 	public void onMouseScroll(double vertical)
 	{
-		if(!isEnabled() || !hovered || totalLineCount <= visibleLineCount)
+		if(!isEnabled())
+			return;
+		
+		boolean overMain =
+			hoveredMainPanel && totalLineCount > visibleLineCount;
+		boolean overWurst =
+			hoveredWurstPanel && wurstTotalLineCount > wurstVisibleLineCount;
+		if(!overMain && !overWurst)
 			return;
 		
 		if(vertical > 0)
-			scrollOffset += 2;
-		else if(vertical < 0)
-			scrollOffset -= 2;
+		{
+			if(overWurst)
+				wurstScrollOffset += 2;
+			else
+				scrollOffset += 2;
+		}else if(vertical < 0)
+		{
+			if(overWurst)
+				wurstScrollOffset -= 2;
+			else
+				scrollOffset -= 2;
+		}
 		
-		int maxScroll = Math.max(0, totalLineCount - visibleLineCount);
-		scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
+		if(overWurst)
+		{
+			int maxScroll =
+				Math.max(0, wurstTotalLineCount - wurstVisibleLineCount);
+			wurstScrollOffset = Mth.clamp(wurstScrollOffset, 0, maxScroll);
+		}else
+		{
+			int maxScroll = Math.max(0, totalLineCount - visibleLineCount);
+			scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
+		}
 	}
 	
 	public boolean isControllingScrollEvents()
 	{
-		return isEnabled() && hovered && totalLineCount > visibleLineCount;
+		return isEnabled()
+			&& ((hoveredMainPanel && totalLineCount > visibleLineCount)
+				|| (hoveredWurstPanel
+					&& wurstTotalLineCount > wurstVisibleLineCount));
 	}
 	
 	public void notifyVanillaChatMessage(Component message)
@@ -213,7 +223,8 @@ public final class ClientMessageOverlay
 		if(hack == null || !hack.isEnabled())
 			return;
 		
-		if(messages.isEmpty())
+		boolean splitWurstPanel = hack.isExtraPanelForWurstMessages();
+		if(messages.isEmpty() && (!splitWurstPanel || wurstMessages.isEmpty()))
 			return;
 		
 		float chatScale = WurstClient.MC.options.chatScale().get().floatValue();
@@ -229,18 +240,34 @@ public final class ClientMessageOverlay
 			return;
 		
 		List<RenderLine> allLines =
-			buildAllLines(maxWidth, chatOpen || hovered);
+			buildAllLines(messages, maxWidth, chatOpen || hoveredMainPanel);
 		totalLineCount = allLines.size();
-		if(allLines.isEmpty())
-			return;
-		
 		int maxScroll = Math.max(0, totalLineCount - maxLines);
 		scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
 		List<RenderLine> lines =
 			getVisibleLines(allLines, maxLines, scrollOffset);
-		if(lines.isEmpty())
-			return;
 		visibleLineCount = lines.size();
+		
+		List<RenderLine> wurstLines = List.of();
+		if(splitWurstPanel)
+		{
+			List<RenderLine> allWurstLines = buildAllLines(wurstMessages,
+				maxWidth, chatOpen || hoveredWurstPanel);
+			wurstTotalLineCount = allWurstLines.size();
+			int maxWurstScroll = Math.max(0, wurstTotalLineCount - maxLines);
+			wurstScrollOffset = Mth.clamp(wurstScrollOffset, 0, maxWurstScroll);
+			wurstLines =
+				getVisibleLines(allWurstLines, maxLines, wurstScrollOffset);
+			wurstVisibleLineCount = wurstLines.size();
+		}else
+		{
+			wurstTotalLineCount = 0;
+			wurstVisibleLineCount = 0;
+			wurstScrollOffset = 0;
+		}
+		
+		if(lines.isEmpty() && wurstLines.isEmpty())
+			return;
 		
 		int chatHeight = ChatComponent.getHeight(
 			chatOpen ? WurstClient.MC.options.chatHeightFocused().get()
@@ -249,13 +276,10 @@ public final class ClientMessageOverlay
 		int visibleVanillaLines =
 			getVisibleVanillaLineCount(chatHeight, chatOpen);
 		
-		float boxWidth = 0;
-		for(RenderLine line : lines)
-			boxWidth = Math.max(boxWidth, WurstClient.MC.font.width(line.text())
-				+ HORIZONTAL_PADDING * 2F);
-		
-		float boxHeight = lines.size() * WurstClient.MC.font.lineHeight
-			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
+		float mainBoxWidth = getBoxWidth(lines);
+		float mainBoxHeight = getBoxHeight(lines);
+		float wurstBoxWidth = getBoxWidth(wurstLines);
+		float wurstBoxHeight = getBoxHeight(wurstLines);
 		
 		int drawX = 4 + getCurrentOffsetX();
 		int drawY = baseY + getCurrentOffsetY();
@@ -267,37 +291,37 @@ public final class ClientMessageOverlay
 			drawY -= Math.round(nudgeUp * chatScale);
 		}
 		
-		handleDrag(context, drawX, drawY, boxWidth * chatScale,
-			boxHeight * chatScale);
+		int mainDrawY = drawY;
+		int wurstDrawY = drawY;
+		if(!lines.isEmpty() && !wurstLines.isEmpty())
+			wurstDrawY =
+				drawY - Math.round(mainBoxHeight * chatScale) - OVERLAY_GAP;
+		else if(lines.isEmpty())
+			mainDrawY = Integer.MIN_VALUE;
 		
-		updateHoverBounds(context, drawX, drawY, boxWidth * chatScale,
-			boxHeight * chatScale);
+		handleDrag(context, drawX, mainDrawY, mainBoxWidth * chatScale,
+			mainBoxHeight * chatScale, wurstDrawY, wurstBoxWidth * chatScale,
+			wurstBoxHeight * chatScale, !wurstLines.isEmpty());
 		
-		context.pose().pushMatrix();
-		context.pose().translate(drawX, drawY);
-		context.pose().scale(chatScale, chatScale);
+		updateHoverBounds(context, drawX, mainDrawY, mainBoxWidth * chatScale,
+			mainBoxHeight * chatScale, wurstDrawY, wurstBoxWidth * chatScale,
+			wurstBoxHeight * chatScale, !wurstLines.isEmpty());
 		
-		int y = -WurstClient.MC.font.lineHeight;
-		for(RenderLine line : lines)
-		{
-			int width = WurstClient.MC.font.width(line.text());
-			int alpha = Mth.clamp(line.alpha(), 0, 255);
-			int bgColor = (alpha / 2 << 24) | (BACKGROUND_COLOR & 0x00FFFFFF);
-			int textColor = (alpha << 24) | 0x00FFFFFF;
-			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
-				y + WurstClient.MC.font.lineHeight, bgColor);
-			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,
-				y, textColor, false);
-			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
-		}
+		if(!lines.isEmpty())
+			drawPanel(context, lines, drawX, mainDrawY, chatScale);
 		
-		context.pose().popMatrix();
+		if(!wurstLines.isEmpty())
+			drawPanel(context, wurstLines, drawX, wurstDrawY, chatScale);
 	}
 	
 	private void handleDrag(GuiGraphicsExtractor context, int drawX, int drawY,
-		float width, float height)
+		float width, float height, int wurstDrawY, float wurstWidth,
+		float wurstHeight, boolean hasWurstPanel)
 	{
-		hovered = isMouseOverOverlay(context);
+		boolean overMain = isMouseOverPanel(context, lastMainX1, lastMainY1,
+			lastMainX2, lastMainY2);
+		boolean overWurst = hasWurstPanel && isMouseOverPanel(context,
+			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 		
 		if(WurstClient.MC.screen == null)
 		{
@@ -321,10 +345,24 @@ public final class ClientMessageOverlay
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
 		
-		float x = drawX;
-		float y = drawY - height;
-		boolean overHud = mouseX >= x && mouseX <= x + width && mouseY >= y
-			&& mouseY <= y + height;
+		float x1 = drawX;
+		float y1 = drawY - height;
+		float x2 = drawX + width;
+		float y2 = drawY;
+		if(hasWurstPanel)
+		{
+			float wx1 = drawX;
+			float wy1 = wurstDrawY - wurstHeight;
+			float wx2 = drawX + wurstWidth;
+			float wy2 = wurstDrawY;
+			x1 = Math.min(x1, wx1);
+			y1 = Math.min(y1, wy1);
+			x2 = Math.max(x2, wx2);
+			y2 = Math.max(y2, wy2);
+		}
+		
+		boolean overHud = (overMain || overWurst)
+			|| mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
 		
 		if(leftDown && overHud)
 		{
@@ -392,16 +430,26 @@ public final class ClientMessageOverlay
 		return hack != null && hack.isEnabled();
 	}
 	
-	private void addMessage(Component message)
+	private void addMessage(Component message, boolean wurstOnlyPanel)
 	{
-		synchronized(messages)
+		ClientChatOverlayHack hack = getSettings();
+		boolean splitWurstPanel =
+			hack != null && hack.isExtraPanelForWurstMessages();
+		Deque<Entry> target =
+			splitWurstPanel && wurstOnlyPanel ? wurstMessages : messages;
+		synchronized(target)
 		{
-			if(messages.size() >= MAX_STORED_MESSAGES)
-				messages.removeFirst();
+			if(target.size() >= MAX_STORED_MESSAGES)
+				target.removeFirst();
 			
-			messages
+			target
 				.addLast(new Entry(message.copy(), System.currentTimeMillis()));
 		}
+		
+		if(splitWurstPanel && wurstOnlyPanel)
+			wurstScrollOffset = 0;
+		else
+			scrollOffset = 0;
 	}
 	
 	private static boolean looksLikePlayerChat(String plain)
@@ -424,16 +472,7 @@ public final class ClientMessageOverlay
 		if(BRACKETED_PLAYER_CHAT_PATTERN.matcher(plain).matches())
 			return true;
 		
-		if(JOIN_LEAVE_PATTERN.matcher(plain).matches())
-			return true;
-		
-		if(DECORATED_JOIN_LEAVE_PATTERN.matcher(plain).matches())
-			return true;
-		
 		if(DISCORD_PREFIX_PATTERN.matcher(plain).matches())
-			return true;
-		
-		if(looksLikeOnlinePlayerEventMessage(plain))
 			return true;
 		
 		if(matchesOnlinePlayerSender(plain))
@@ -444,16 +483,25 @@ public final class ClientMessageOverlay
 			|| lower.startsWith("to ") && plain.contains(": ");
 	}
 	
-	private static boolean isVanillaPlayerEventComponent(Component component)
+	private static boolean shouldKeepInVanillaChat(String plain,
+		@Nullable MessageSignature signature)
 	{
-		if(component == null
-			|| !(component.getContents() instanceof TranslatableContents tr))
-			return false;
+		// Signed messages are usually player chat. Keep them in vanilla chat
+		// unless explicitly forced into client chat via keyword.
+		if(signature != null)
+			return true;
+			
+		// Primary signal: sender token resolves to someone in the online player
+		// list (tab list), including decorated sender formats.
+		if(matchesOnlinePlayerSender(plain))
+			return true;
 		
-		String key = tr.getKey();
-		return key.startsWith("death.")
-			|| key.equals("multiplayer.player.joined")
-			|| key.equals("multiplayer.player.left");
+		// Explicit bridge format handling.
+		if(DISCORD_PREFIX_PATTERN.matcher(plain).matches())
+			return true;
+		
+		// Fallback: structural chat patterns.
+		return looksLikePlayerChat(plain);
 	}
 	
 	private static boolean matchesOnlinePlayerSender(String plain)
@@ -484,39 +532,6 @@ public final class ClientMessageOverlay
 		}
 		
 		return false;
-	}
-	
-	private static boolean looksLikeOnlinePlayerEventMessage(String plain)
-	{
-		if(plain == null || plain.isEmpty())
-			return false;
-		
-		String trimmed = plain.trim();
-		if(trimmed.isEmpty())
-			return false;
-		
-		String withoutPrefix =
-			trimmed.replaceFirst("^" + CHAT_PREFIX_PATTERN, "");
-		int space = withoutPrefix.indexOf(' ');
-		if(space <= 0)
-			return false;
-		
-		String firstToken = withoutPrefix.substring(0, space);
-		String playerName = normalizeSenderToken(firstToken);
-		if(playerName.isEmpty() || !isOnlinePlayerName(playerName))
-			return false;
-		
-		String suffix = withoutPrefix.substring(space + 1).trim();
-		if(suffix.isEmpty())
-			return false;
-		
-		if(PLAYER_EVENT_SUFFIX_PATTERN.matcher(suffix).matches())
-			return true;
-		
-		String lowerSuffix = suffix.toLowerCase(Locale.ROOT);
-		return lowerSuffix.contains("joined the game")
-			|| lowerSuffix.contains("left the game")
-			|| lowerSuffix.contains("disconnected");
 	}
 	
 	private static boolean isOnlinePlayerName(String name)
@@ -588,20 +603,41 @@ public final class ClientMessageOverlay
 		int space = s.lastIndexOf(' ');
 		if(space >= 0 && space + 1 < s.length())
 			s = s.substring(space + 1);
+			
+		// Fallback for decorated sender tokens (e.g. head-chat prefixes):
+		// extract the last username-like token so we can still identify online
+		// player chat and let vanilla chat render things like head icons.
+		String username = extractLastUsernameToken(s);
+		if(!username.isEmpty())
+			return username;
 		
 		return s;
 	}
 	
-	private List<RenderLine> buildAllLines(int maxWidth, boolean fullOpacity)
+	private static String extractLastUsernameToken(String text)
 	{
-		synchronized(messages)
+		if(text == null || text.isEmpty())
+			return "";
+		
+		String last = "";
+		var matcher = USERNAME_PATTERN.matcher(text);
+		while(matcher.find())
+			last = matcher.group();
+		
+		return last;
+	}
+	
+	private List<RenderLine> buildAllLines(Deque<Entry> source, int maxWidth,
+		boolean fullOpacity)
+	{
+		synchronized(source)
 		{
-			if(messages.isEmpty())
+			if(source.isEmpty())
 				return List.of();
 			
 			List<RenderLine> lines = new ArrayList<>();
 			long now = System.currentTimeMillis();
-			for(Entry message : messages.reversed())
+			for(Entry message : source.reversed())
 			{
 				List<FormattedCharSequence> wrapped =
 					ComponentRenderUtils.wrapComponents(message.component(),
@@ -765,22 +801,79 @@ public final class ClientMessageOverlay
 			/ window.getScreenHeight();
 	}
 	
-	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
-		float width, float height)
+	private static float getBoxWidth(List<RenderLine> lines)
 	{
-		lastX1 = x;
-		lastY1 = (int)(y - height);
-		lastX2 = (int)(x + width);
-		lastY2 = y;
-		hovered = isMouseOverOverlay(context);
+		float boxWidth = 0;
+		for(RenderLine line : lines)
+			boxWidth = Math.max(boxWidth, WurstClient.MC.font.width(line.text())
+				+ HORIZONTAL_PADDING * 2F);
+		return boxWidth;
 	}
 	
-	private boolean isMouseOverOverlay(GuiGraphicsExtractor context)
+	private static float getBoxHeight(List<RenderLine> lines)
+	{
+		if(lines.isEmpty())
+			return 0;
+		
+		return lines.size() * WurstClient.MC.font.lineHeight
+			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
+	}
+	
+	private static void drawPanel(GuiGraphicsExtractor context,
+		List<RenderLine> lines, int drawX, int drawY, float chatScale)
+	{
+		context.pose().pushMatrix();
+		context.pose().translate(drawX, drawY);
+		context.pose().scale(chatScale, chatScale);
+		
+		int y = -WurstClient.MC.font.lineHeight;
+		for(RenderLine line : lines)
+		{
+			int width = WurstClient.MC.font.width(line.text());
+			int alpha = Mth.clamp(line.alpha(), 0, 255);
+			int bgColor = (alpha / 2 << 24) | (BACKGROUND_COLOR & 0x00FFFFFF);
+			int textColor = (alpha << 24) | 0x00FFFFFF;
+			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
+				y + WurstClient.MC.font.lineHeight, bgColor);
+			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,
+				y, textColor, false);
+			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
+		}
+		
+		context.pose().popMatrix();
+	}
+	
+	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
+		float width, float height, int wurstY, float wurstWidth,
+		float wurstHeight, boolean hasWurstPanel)
+	{
+		if(height > 0 && y != Integer.MIN_VALUE)
+		{
+			lastMainX1 = x;
+			lastMainY1 = (int)(y - height);
+			lastMainX2 = (int)(x + width);
+			lastMainY2 = y;
+		}
+		hoveredMainPanel = isMouseOverPanel(context, lastMainX1, lastMainY1,
+			lastMainX2, lastMainY2);
+		
+		if(hasWurstPanel && wurstHeight > 0)
+		{
+			lastWurstX1 = x;
+			lastWurstY1 = (int)(wurstY - wurstHeight);
+			lastWurstX2 = (int)(x + wurstWidth);
+			lastWurstY2 = wurstY;
+		}
+		hoveredWurstPanel = hasWurstPanel && isMouseOverPanel(context,
+			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
+	}
+	
+	private static boolean isMouseOverPanel(GuiGraphicsExtractor context,
+		int x1, int y1, int x2, int y2)
 	{
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
-		return mouseX >= lastX1 && mouseX <= lastX2 && mouseY >= lastY1
-			&& mouseY <= lastY2;
+		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
 	}
 	
 	private record Entry(Component component, long timestamp)
