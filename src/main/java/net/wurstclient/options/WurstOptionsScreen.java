@@ -452,8 +452,20 @@ public final class WurstOptionsScreen extends Screen
 	
 	private void applyScrollLayout()
 	{
+		int viewTop = contentTop - 2;
+		int viewBottom = backButtonY - 8;
 		for(WurstOptionsButton button : contentButtons)
-			button.setY(button.getBaseY() - scrollOffset);
+		{
+			int y = button.getBaseY() - scrollOffset;
+			button.setY(y);
+			
+			// Scissoring only affects rendering; hide/disable off-screen
+			// buttons
+			// so they don't intercept clicks over the Back button area.
+			boolean inView = y + button.getHeight() > viewTop && y < viewBottom;
+			button.visible = inView;
+			button.active = inView;
+		}
 	}
 	
 	@Override
