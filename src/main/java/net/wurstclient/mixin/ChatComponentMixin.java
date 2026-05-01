@@ -55,17 +55,26 @@ public class ChatComponentMixin
 			if(event.isCancelled())
 				ci.cancel();
 			else
-				message.set(event.getComponent());
+				message.set(ClientMessageOverlay.getInstance()
+					.colorizeChatUsernameIfEnabled(event.getComponent()));
 			
 			return;
 		}
 		
+		ChatInputEvent event =
+			new ChatInputEvent(message.get(), trimmedMessages);
+		EventManager.fire(event);
+		if(event.isCancelled())
+		{
+			ci.cancel();
+			return;
+		}
+		
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
 			.captureSingleArgMessage(message.get()))
 		{
-			ChatInputEvent event =
-				new ChatInputEvent(message.get(), trimmedMessages);
-			EventManager.fire(event);
 			ci.cancel();
 			return;
 		}
@@ -93,7 +102,10 @@ public class ChatComponentMixin
 			return;
 		}
 		
-		message.set(event.getComponent());
+		Component colored = WurstClient.INSTANCE.getHax().mentionHack
+			.colorizeForDisplayIfNeeded(event.getComponent());
+		message.set(ClientMessageOverlay.getInstance()
+			.colorizeChatUsernameIfEnabled(colored));
 		if(ClientMessageOverlay.getInstance()
 			.captureIfNonPlayerMessage(message.get(), signature))
 		{

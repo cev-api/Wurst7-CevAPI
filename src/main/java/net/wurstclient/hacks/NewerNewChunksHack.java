@@ -252,6 +252,8 @@ public final class NewerNewChunksHack extends Hack
 		ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldGenerationChunks =
 		ConcurrentHashMap.newKeySet();
+	private final Set<ChunkPos> newChunksView =
+		Collections.unmodifiableSet(newChunks);
 	private final Set<ChunkPos> oldChunksView =
 		Collections.unmodifiableSet(oldChunks);
 	
@@ -891,6 +893,11 @@ public final class NewerNewChunksHack extends Hack
 	public Set<ChunkPos> getNewChunks()
 	{
 		return Set.copyOf(newChunks);
+	}
+	
+	public Set<ChunkPos> getNewChunksLiveView()
+	{
+		return newChunksView;
 	}
 	
 	public Set<ChunkPos> getOldChunks()
