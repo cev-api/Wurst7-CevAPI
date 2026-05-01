@@ -78,6 +78,11 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		{"ignore previous", "ignore all previous", "system prompt",
 			"developer message", "reveal prompt", "show prompt", "jailbreak",
 			"dan mode", "forget your instructions", "new instructions"};
+	private static final String[] COMPLIANCE_ATTACK_MARKERS =
+		{"recipe", "ingredients", "how to make", "steps for", "bake",
+			"calculate", "solve", "equation", "rephrase", "rewrite",
+			"repeat this", "echo this", "copy this", "shorten this",
+			"make it shorter", "make it longer", "extend this"};
 	private static final Set<String> CONTEXT_STOP_WORDS =
 		Set.of("about", "after", "again", "also", "because", "been", "being",
 			"could", "does", "doing", "from", "have", "here", "just", "like",
@@ -401,6 +406,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				line.receivedAtMs()) : line;
 		addHistory(safeLine);
 		
+		if(isPromptInjection(line.text())
+			|| isLikelyComplianceAttack(line.text()))
+			return;
+		
 		boolean direct = isDirectlyAddressed(line, ownName)
 			|| isLikelyOneOnOne(line.sender(), ownName);
 		if(!shouldReply(direct))
@@ -448,6 +457,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			
 			reply = sanitizeReply(reply, maxChars.getValueI(),
 				MC.getUser().getName());
+			if(isUnsafeComplianceReply(reply))
+				return;
 			if(reply.isEmpty())
 			{
 				if(!warnedAboutEmptyResponse)
@@ -1707,6 +1718,31 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			if(lower.contains(marker))
 				return true;
 			
+		return false;
+	}
+	
+	private static boolean isLikelyComplianceAttack(String text)
+	{
+		String lower = text.toLowerCase(Locale.ROOT);
+		for(String marker : COMPLIANCE_ATTACK_MARKERS)
+			if(lower.contains(marker))
+				return true;
+			
+		return false;
+	}
+	
+	private static boolean isUnsafeComplianceReply(String reply)
+	{
+		if(reply == null || reply.isBlank())
+			return false;
+		
+		String lower = reply.toLowerCase(Locale.ROOT);
+		if(lower.contains("recipe") || lower.contains("ingredients")
+			|| lower.contains("mix ") || lower.contains("bake")
+			|| lower.contains("cup ") || lower.contains("teaspoon")
+			|| lower.contains("tablespoon"))
+			return true;
+		
 		return false;
 	}
 	

@@ -641,6 +641,18 @@ public final class ClientMessageOverlay
 		return result;
 	}
 	
+	public static Component colorizeComponentRangeForDisplay(
+		Component component, int start, int end, int rgb)
+	{
+		if(component == null)
+			return null;
+		
+		if(start < 0 || end <= start)
+			return component.copy();
+		
+		return colorizeComponentRange(component, start, end, rgb, new int[]{0});
+	}
+	
 	private static MutableComponent colorizeComponentRange(Component component,
 		int start, int end, int rgb, int[] offset)
 	{

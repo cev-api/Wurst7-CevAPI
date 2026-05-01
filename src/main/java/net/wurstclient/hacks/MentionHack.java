@@ -185,14 +185,16 @@ public final class MentionHack extends Hack
 			return;
 		
 		if(colorMessages.isChecked())
-			colorizeMentionMessage(event);
+			colorizeMentionMessage(event, plain, line);
 		playMentionSound();
 		showMentionToast(event.getComponent(), isWhisperToYou);
 	}
 	
-	private void colorizeMentionMessage(ChatInputEvent event)
+	private void colorizeMentionMessage(ChatInputEvent event, String plain,
+		ChatLine line)
 	{
-		event.setComponent(colorizeMentionComponent(event.getComponent()));
+		event.setComponent(
+			colorizeMentionComponent(event.getComponent(), plain, line));
 	}
 	
 	public Component colorizeForDisplayIfNeeded(Component component)
@@ -218,13 +220,19 @@ public final class MentionHack extends Hack
 		if(!isMention && !line.whisperToYou())
 			return component;
 		
-		return colorizeMentionComponent(component);
+		return colorizeMentionComponent(component, plain, line);
 	}
 	
-	private Component colorizeMentionComponent(Component component)
+	private Component colorizeMentionComponent(Component component,
+		String plain, ChatLine line)
 	{
 		int rgb = mentionColor.getColorI() & 0x00FFFFFF;
-		return ClientMessageOverlay.colorizeWholeComponent(component, rgb);
+		int textStart = line.textStart();
+		if(textStart <= 0 || textStart >= plain.length())
+			return ClientMessageOverlay.colorizeWholeComponent(component, rgb);
+		
+		return ClientMessageOverlay.colorizeComponentRangeForDisplay(component,
+			textStart, plain.length(), rgb);
 	}
 	
 	private void showMentionToast(Component message, boolean whisperToYou)
@@ -387,38 +395,42 @@ public final class MentionHack extends Hack
 	{
 		Matcher whisper = WHISPER_TO_YOU_CHAT.matcher(plain);
 		if(whisper.matches())
-			return new ChatLine(whisper.group(1), whisper.group(2), true,
-				false);
+			return new ChatLine(whisper.group(1), whisper.group(2), true, false,
+				whisper.start(2));
 		
 		Matcher arrowWhisper = INCOMING_ARROW_WHISPER_CHAT.matcher(plain);
 		if(arrowWhisper.matches())
 			return new ChatLine(arrowWhisper.group(1), arrowWhisper.group(2),
-				true, false);
+				true, false, arrowWhisper.start(2));
 		
 		Matcher outgoingArrowWhisper =
 			OUTGOING_ARROW_WHISPER_CHAT.matcher(plain);
 		if(outgoingArrowWhisper.matches())
 			return new ChatLine(outgoingArrowWhisper.group(1),
-				outgoingArrowWhisper.group(2), false, true);
+				outgoingArrowWhisper.group(2), false, true,
+				outgoingArrowWhisper.start(2));
 		
 		Matcher fromWhisper = FROM_WHISPER_CHAT.matcher(plain);
 		if(fromWhisper.matches())
 			return new ChatLine(fromWhisper.group(1), fromWhisper.group(2),
-				true, false);
+				true, false, fromWhisper.start(2));
 		
 		Matcher angle = DECORATED_ANGLE_CHAT.matcher(plain);
 		if(angle.matches())
-			return new ChatLine(angle.group(1), angle.group(2), false, false);
+			return new ChatLine(angle.group(1), angle.group(2), false, false,
+				angle.start(2));
 		
 		Matcher colon = COLON_CHAT.matcher(plain);
 		if(colon.matches())
-			return new ChatLine(colon.group(1), colon.group(2), false, false);
+			return new ChatLine(colon.group(1), colon.group(2), false, false,
+				colon.start(2));
 		
 		Matcher arrow = ARROW_CHAT.matcher(plain);
 		if(arrow.matches())
-			return new ChatLine(arrow.group(1), arrow.group(2), false, false);
+			return new ChatLine(arrow.group(1), arrow.group(2), false, false,
+				arrow.start(2));
 		
-		return new ChatLine("System", plain, false, false);
+		return new ChatLine("System", plain, false, false, 0);
 	}
 	
 	private static String stripLegacyFormatting(String text)
@@ -540,7 +552,7 @@ public final class MentionHack extends Hack
 	}
 	
 	private record ChatLine(String sender, String text, boolean whisperToYou,
-		boolean outgoingWhisper)
+		boolean outgoingWhisper, int textStart)
 	{}
 	
 	private record RecentSentMessage(String message, long timestampMs)
