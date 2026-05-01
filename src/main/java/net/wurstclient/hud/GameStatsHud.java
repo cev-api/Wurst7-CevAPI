@@ -9,6 +9,7 @@ package net.wurstclient.hud;
 
 import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Locale;
 import java.time.LocalTime;
@@ -34,6 +35,19 @@ public final class GameStatsHud
 	private static final float PADDING = 4F;
 	private static final float LINE_GAP = 2F;
 	private static final long SAMPLE_INTERVAL_MS = 1000L;
+	private static final long SPEED_WINDOW_MS = 600L;
+	private static final double SPEED_EMA_ALPHA = 0.5;
+	private static final double SPEED_MAX_PLAUSIBLE_BPS = 80.0;
+	private static final float GRAPH_GAP = 4F;
+	private static final float GRAPH_TO_TEXT_GAP = 2F;
+	private static final float GRAPH_HEIGHT = 34F;
+	private static final long GRAPH_SAMPLE_INTERVAL_MS = 200L;
+	private static final int GRAPH_MAX_SAMPLES = 240;
+	private static final double FPS_GRAPH_TARGET = 120.0;
+	private static final double TPS_GRAPH_TARGET = 20.0;
+	private static final float GRAPH_WINDOW_BASE_X = 8F;
+	private static final float GRAPH_WINDOW_BASE_Y = 8F;
+	private static final int GRAPH_RESIZE_MARGIN = 8;
 	private static final DateTimeFormatter TIME_FORMAT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
 	
@@ -55,6 +69,13 @@ public final class GameStatsHud
 	private double lastX;
 	private double lastY;
 	private double lastZ;
+	private long lastMovementSampleMs;
+	private final ArrayDeque<MovementSample> movementSamples =
+		new ArrayDeque<>();
+	private long movementWindowDurationMs;
+	private double movementWindowDistance;
+	private double liveSpeedBps;
+	private double smoothedSpeedBps;
 	private int mobKillsBaseline = -1;
 	private int playerKillsBaseline = -1;
 	private int xpBaseline = -1;
@@ -203,6 +224,10 @@ public final class GameStatsHud
 			lines.add(withPrefix(showPrefixes, "Distance",
 				formatDistance(distanceTravelledMeters)));
 		
+		if(hack.showSpeed())
+			lines.add(withPrefix(showPrefixes, "Speed",
+				String.format(Locale.ROOT, "%.2fb/s", smoothedSpeedBps)));
+		
 		if(hack.showMobKills())
 			lines.add(withPrefix(showPrefixes, "Mob Kills",
 				Integer.toString(getSessionMobKills())));
@@ -220,9 +245,13 @@ public final class GameStatsHud
 	
 	private void updateSessionTracking()
 	{
+		long now = System.currentTimeMillis();
+		
 		if(MC.player == null)
 		{
 			hasLastPos = false;
+			lastMovementSampleMs = now;
+			resetMovementSpeed();
 			return;
 		}
 		
@@ -236,13 +265,19 @@ public final class GameStatsHud
 			double dz = z - lastZ;
 			double delta = Math.sqrt(dx * dx + dy * dy + dz * dz);
 			if(Double.isFinite(delta) && delta >= 0)
+			{
 				distanceTravelledMeters += delta;
+				long dtMs = Math.max(1L, now - lastMovementSampleMs);
+				double horizontalDelta = Math.hypot(dx, dz);
+				pushMovementSample(horizontalDelta, dtMs);
+			}
 		}
 		
 		lastX = x;
 		lastY = y;
 		lastZ = z;
 		hasLastPos = true;
+		lastMovementSampleMs = now;
 		
 		if(mobKillsBaseline < 0)
 			mobKillsBaseline = getCurrentMobKills();
@@ -301,6 +336,8 @@ public final class GameStatsHud
 		lastX = 0;
 		lastY = 0;
 		lastZ = 0;
+		lastMovementSampleMs = now;
+		resetMovementSpeed();
 		mobKillsBaseline = -1;
 		playerKillsBaseline = -1;
 		xpBaseline = -1;
@@ -332,6 +369,45 @@ public final class GameStatsHud
 	private static String formatDistance(double meters)
 	{
 		return String.format(Locale.ROOT, "%.1f", meters);
+	}
+	
+	private void resetMovementSpeed()
+	{
+		movementSamples.clear();
+		movementWindowDurationMs = 0L;
+		movementWindowDistance = 0;
+		liveSpeedBps = 0;
+		smoothedSpeedBps = 0;
+	}
+	
+	private void pushMovementSample(double distance, long dtMs)
+	{
+		if(dtMs <= 0L || !Double.isFinite(distance) || distance < 0)
+			return;
+		
+		double dtSec = dtMs / 1000D;
+		double maxDistance = SPEED_MAX_PLAUSIBLE_BPS * dtSec;
+		distance = Math.min(distance, maxDistance);
+		
+		movementSamples.addLast(new MovementSample(distance, dtMs));
+		movementWindowDistance += distance;
+		movementWindowDurationMs += dtMs;
+		
+		while(movementWindowDurationMs > SPEED_WINDOW_MS
+			&& !movementSamples.isEmpty())
+		{
+			MovementSample oldest = movementSamples.removeFirst();
+			movementWindowDistance -= oldest.distance;
+			movementWindowDurationMs -= oldest.durationMs;
+		}
+		
+		if(movementWindowDurationMs <= 0L)
+			liveSpeedBps = 0;
+		else
+			liveSpeedBps =
+				movementWindowDistance / (movementWindowDurationMs / 1000D);
+		
+		smoothedSpeedBps += SPEED_EMA_ALPHA * (liveSpeedBps - smoothedSpeedBps);
 	}
 	
 	private static String getWorldTime24h()
@@ -616,5 +692,17 @@ public final class GameStatsHud
 	private static int withAlpha(int rgb, int alpha)
 	{
 		return (Math.max(0, Math.min(255, alpha)) << 24) | (rgb & 0x00FFFFFF);
+	}
+	
+	private static final class MovementSample
+	{
+		private final double distance;
+		private final long durationMs;
+		
+		private MovementSample(double distance, long durationMs)
+		{
+			this.distance = distance;
+			this.durationMs = durationMs;
+		}
 	}
 }

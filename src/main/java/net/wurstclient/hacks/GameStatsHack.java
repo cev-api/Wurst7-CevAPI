@@ -63,6 +63,9 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final CheckboxSetting showDistanceTravelled =
 		new CheckboxSetting("Show Distance", true);
 	
+	private final CheckboxSetting showSpeed =
+		new CheckboxSetting("Show Speed", true);
+	
 	private final CheckboxSetting showMobKills =
 		new CheckboxSetting("Show Mob Kills", true);
 	
@@ -121,6 +124,7 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		addSetting(showWorldTime);
 		addSetting(showPacketRate);
 		addSetting(showDistanceTravelled);
+		addSetting(showSpeed);
 		addSetting(showMobKills);
 		addSetting(showPlayerKills);
 		addSetting(showXpGained);
@@ -286,6 +290,11 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showDistanceTravelled()
 	{
 		return showDistanceTravelled.isChecked();
+	}
+	
+	public boolean showSpeed()
+	{
+		return showSpeed.isChecked();
 	}
 	
 	public boolean showMobKills()
