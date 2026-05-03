@@ -103,6 +103,10 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				+ " removed from the remaining list.",
 			2, 1, 10, 1, ValueDisplay.INTEGER.withSuffix(" ticks"));
 	
+	private final CheckboxSetting disableOnFinish = new CheckboxSetting(
+		"Disable when finished",
+		"Automatically disables AutoBuild when all blocks are placed.", true);
+	
 	private Status status = Status.NO_TEMPLATE;
 	private AutoBuildTemplate template;
 	private LinkedHashMap<BlockPos, Item> remainingBlocks =
@@ -129,6 +133,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(strictBuildOrder);
 		addSetting(previewTemplate);
 		addSetting(confirmTicks);
+		addSetting(disableOnFinish);
 	}
 	
 	@Override
@@ -351,6 +356,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		if(remainingBlocks.isEmpty())
 		{
 			status = Status.IDLE;
+			if(disableOnFinish.isChecked())
+				setEnabled(false);
 			return;
 		}
 		
