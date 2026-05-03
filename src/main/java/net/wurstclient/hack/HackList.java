@@ -235,6 +235,7 @@ public final class HackList implements UpdateListener
 	public final QuickShulkerHack quickShulkerHack = new QuickShulkerHack();
 	public final RadarHack radarHack = new RadarHack();
 	public final RainbowUiHack rainbowUiHack = new RainbowUiHack();
+	public final RenderAdjustHack renderAdjustHack = new RenderAdjustHack();
 	public final InfiniteReachHack infiniteReachHack = new InfiniteReachHack();
 	public final ReachHack reachHack = new ReachHack();
 	public final RemoteViewHack remoteViewHack = new RemoteViewHack();
@@ -283,6 +284,7 @@ public final class HackList implements UpdateListener
 	public final VeinMinerHack veinMinerHack = new VeinMinerHack();
 	public final XRayHack xRayHack = new XRayHack();
 	public final WaypointsHack waypointsHack = new WaypointsHack();
+	public final ViewmodelHack viewmodelHack = new ViewmodelHack();
 	public final BreadcrumbsHack breadcrumbsHack = new BreadcrumbsHack();
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();

@@ -29,13 +29,23 @@ public abstract class ItemInHandRendererMixin
 	 */
 	@Inject(
 		method = "renderArmWithItem(Lnet/minecraft/client/player/AbstractClientPlayer;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
-		at = @At("HEAD"))
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onApplyEquipOffsetBlocking(AbstractClientPlayer player,
 		float tickProgress, float pitch, InteractionHand hand,
 		float swingProgress, ItemStack item, float equipProgress,
 		PoseStack matrices, SubmitNodeCollector entityRenderCommandQueue,
 		int light, CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.getHax().viewmodelHack.shouldHide(player, hand))
+		{
+			ci.cancel();
+			return;
+		}
+		
+		WurstClient.INSTANCE.getHax().viewmodelHack.applyTransform(player, hand,
+			matrices);
+		
 		boolean blocking = player.isUsingItem()
 			&& player.getUseItem().getItem() == Items.SHIELD;
 		

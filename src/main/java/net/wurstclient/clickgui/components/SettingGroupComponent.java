@@ -77,18 +77,19 @@ public final class SettingGroupComponent extends Component
 			return false;
 		
 		ClickGui gui = WURST.getGui();
-		Window existing = gui.findWindowByTitle(group.getName());
+		Window parent = getParent();
+		if(parent == null)
+			return false;
+		
+		String windowTitle = parent.getTitle() + " > " + group.getName();
+		Window existing = gui.findWindowByTitle(windowTitle);
 		if(existing != null)
 		{
 			existing.close();
 			return true;
 		}
 		
-		Window parent = getParent();
-		if(parent == null)
-			return false;
-		
-		Window popupWin = new Window(group.getName());
+		Window popupWin = new Window(windowTitle);
 		for(Setting s : group.getChildren())
 		{
 			Component c = s.getComponent();
@@ -102,6 +103,7 @@ public final class SettingGroupComponent extends Component
 		popupWin.pack();
 		popupWin.setPinnable(true);
 		popupWin.setClosable(true);
+		popupWin.setPinned(parent.isPinned());
 		popupWin.setX(parent.getX() + getX() + getWidth() + 5);
 		popupWin.setY(parent.getY() + 13 + parent.getScrollOffset() + getY());
 		gui.addWindow(popupWin);
@@ -134,14 +136,8 @@ public final class SettingGroupComponent extends Component
 			
 			if(popoutEnabled && clickedArrow)
 			{
-				if(togglePopoutWindow())
-					return;
-			}
-			
-			if(popoutEnabled)
-			{
-				if(togglePopoutWindow())
-					return;
+				togglePopoutWindow();
+				return;
 			}
 			
 			expanded = !expanded;

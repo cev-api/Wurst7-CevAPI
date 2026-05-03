@@ -15,6 +15,7 @@ import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.RenderAdjustHack;
 
 @Mixin(FogRenderer.class)
 public class FogRendererMixin
@@ -28,11 +29,20 @@ public class FogRendererMixin
 		at = @At("RETURN"))
 	private FogData modifyFogData(FogData fog)
 	{
-		if(WurstClient.INSTANCE.getHax().noFogHack.isEnabled())
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		
+		if(WurstClient.INSTANCE.getHax().noFogHack.isEnabled()
+			|| renderAdjust.shouldDisableFog())
 		{
 			fog.renderDistanceStart = 1000000;
 			fog.renderDistanceEnd = 1000000;
+			fog.environmentalStart = 1000000;
+			fog.environmentalEnd = 1000000;
 		}
+		
+		if(renderAdjust.shouldAdjustFogColor())
+			fog.color = renderAdjust.getFogColor(fog.color);
 		
 		return fog;
 	}

@@ -42,6 +42,7 @@ import net.wurstclient.clickgui.components.FeatureButton;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.settings.Setting;
+import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.json.JsonUtils;
 
@@ -288,7 +289,8 @@ public final class ClickGui
 			applySavedScroll(window, scrollElement);
 		}
 		
-		// Recreate any pinned settings windows
+		// Recreate any pinned settings windows and setting-group popout
+		// windows.
 		for(java.util.Map.Entry<String, JsonElement> e : json.entrySet())
 		{
 			String title = e.getKey();
@@ -301,6 +303,74 @@ public final class ClickGui
 				}
 			if(exists)
 				continue;
+			
+			final String groupSeparator = " Settings > ";
+			int groupSplit = title.indexOf(groupSeparator);
+			if(groupSplit >= 0)
+			{
+				String featName = title.substring(0, groupSplit);
+				String groupName =
+					title.substring(groupSplit + groupSeparator.length());
+				Feature matched = null;
+				for(Feature f : features)
+					if(f.getName().equals(featName))
+					{
+						matched = f;
+						break;
+					}
+				if(matched == null)
+					continue;
+				
+				SettingGroup group = null;
+				for(Setting setting : matched.getSettings().values())
+					if(setting instanceof SettingGroup g
+						&& g.getName().equals(groupName))
+					{
+						group = g;
+						break;
+					}
+				if(group == null)
+					continue;
+				
+				try
+				{
+					Window popout = new Window(title);
+					for(Setting s : group.getChildren())
+					{
+						Component c = s.getComponent();
+						if(c != null)
+							popout.add(c);
+					}
+					popout.pack();
+					popout.setPinnable(true);
+					popout.setClosable(true);
+					
+					JsonObject jw = e.getValue().getAsJsonObject();
+					JsonElement jx = jw.get("x");
+					if(jx != null && jx.isJsonPrimitive()
+						&& jx.getAsJsonPrimitive().isNumber())
+						popout.setX(jx.getAsInt());
+					JsonElement jy = jw.get("y");
+					if(jy != null && jy.isJsonPrimitive()
+						&& jy.getAsJsonPrimitive().isNumber())
+						popout.setY(jy.getAsInt());
+					JsonElement jm = jw.get("minimized");
+					if(jm != null && jm.isJsonPrimitive()
+						&& jm.getAsJsonPrimitive().isBoolean())
+						popout.setMinimized(jm.getAsBoolean());
+					JsonElement jp = jw.get("pinned");
+					if(jp != null && jp.isJsonPrimitive()
+						&& jp.getAsJsonPrimitive().isBoolean())
+						popout.setPinned(jp.getAsBoolean());
+					JsonElement scrollElement = jw.get("scrollOffset");
+					applySavedScroll(popout, scrollElement);
+					windows.add(popout);
+				}catch(Throwable ignored)
+				{
+					// Best-effort.
+				}
+				continue;
+			}
 			
 			final String suffix = " Settings";
 			if(!title.endsWith(suffix))
@@ -316,7 +386,7 @@ public final class ClickGui
 				}
 			if(matched == null)
 				continue;
-			// Create a SettingsWindow for the feature and apply saved state.
+			
 			try
 			{
 				SettingsWindow sw =
@@ -343,8 +413,7 @@ public final class ClickGui
 				windows.add(sw);
 			}catch(Throwable ignored)
 			{
-				// Best-effort: ignore any failure recreating saved settings
-				// windows
+				// Best-effort.
 			}
 		}
 		

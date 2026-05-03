@@ -15,7 +15,6 @@ import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
@@ -40,28 +39,6 @@ public class GuiMixin
 		EventManager.fire(new GUIRenderEvent(context, tickDelta));
 	}
 	
-	@Inject(
-		method = "extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onRenderOverlay(GuiGraphicsExtractor context,
-		Identifier texture, float opacity, CallbackInfo ci)
-	{
-		if(texture == null)
-			return;
-		
-		String path = texture.getPath();
-		HackList hax = WurstClient.INSTANCE.getHax();
-		
-		if("textures/misc/pumpkinblur.png".equals(path)
-			&& hax.noPumpkinHack.isEnabled())
-			ci.cancel();
-		
-		if("textures/misc/powder_snow_outline.png".equals(path)
-			&& hax.noOverlayHack.isEnabled())
-			ci.cancel();
-	}
-	
 	@Inject(method = "extractVignette", at = @At("HEAD"), cancellable = true)
 	private void onRenderVignetteOverlay(GuiGraphicsExtractor context,
 		Entity entity, CallbackInfo ci)
@@ -71,6 +48,29 @@ public class GuiMixin
 			return;
 		
 		ci.cancel();
+	}
+	
+	@Inject(
+		method = "extractScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onExtractScoreboardSidebar(GuiGraphicsExtractor context,
+		DeltaTracker tickCounter, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE.getHax().renderAdjustHack
+			.shouldHideScoreboard())
+			ci.cancel();
+	}
+	
+	@Inject(
+		method = "extractBossOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onExtractBossOverlay(GuiGraphicsExtractor context,
+		DeltaTracker tickCounter, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE.getHax().renderAdjustHack.shouldHideBossBars())
+			ci.cancel();
 	}
 	
 	@Inject(at = @At("TAIL"), method = "tick")
