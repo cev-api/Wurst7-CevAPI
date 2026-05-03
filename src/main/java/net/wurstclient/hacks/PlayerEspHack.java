@@ -22,8 +22,10 @@ import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.util.StringUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
@@ -31,8 +33,10 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
@@ -40,6 +44,8 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -63,7 +69,7 @@ import net.wurstclient.util.ShaderUtils;
 
 @SearchTags({"player esp", "PlayerTracers", "player tracers"})
 public final class PlayerEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+	CameraTransformViewBobbingListener, RenderListener, PacketInputListener
 {
 	private final PlayerEspStyleSetting style =
 		new PlayerEspStyleSetting(PlayerEspStyleSetting.Style.LINES_AND_GLOW);
@@ -95,6 +101,16 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		new SliderSetting("Enter alert cooldown",
 			"Minimum time between enter alerts (sound or chat).", 0, 0, 60, 1,
 			SliderSetting.ValueDisplay.INTEGER.withSuffix("s"));
+	private final CheckboxSetting enterPopupAlert = new CheckboxSetting(
+		"Enter popup",
+		"When enabled, shows a toast popup when a player enters range.", false);
+	private final SliderSetting enterPopupCooldown = new SliderSetting(
+		"Enter popup cooldown", "Minimum time between enter popups.", 5, 0, 60,
+		1, SliderSetting.ValueDisplay.INTEGER.withSuffix("s"));
+	private final CheckboxSetting showEquipmentInEnterAlerts =
+		new CheckboxSetting("Include held items/armor",
+			"Adds main hand, offhand and armor details to enter chat/popup alerts.",
+			false);
 	private final EnumSetting<DetectionSound> enterSound =
 		new EnumSetting<>("Enter sound type", DetectionSound.values(),
 			DetectionSound.NOTE_BLOCK_CHIME);
@@ -109,9 +125,16 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		"When enabled, notifies in chat when a player leaves PlayerESP\n"
 			+ "visibility, showing distance and XYZ at which they left.",
 		false);
+	private final CheckboxSetting totemPopChatAlert =
+		new CheckboxSetting("Totem pop chat",
+			"Sends a chat alert when a tracked player pops a totem.", false);
+	private final CheckboxSetting totemPopSoundAlert =
+		new CheckboxSetting("Totem pop sound",
+			"Plays a sound when a tracked player pops a totem.", false);
 	private final PlayerRangeAlertManager alertManager =
 		WURST.getPlayerRangeAlertManager();
 	private long lastEnterAlertAt;
+	private long lastEnterPopupAt;
 	private final PlayerRangeAlertManager.Listener alertListener =
 		new PlayerRangeAlertManager.Listener()
 		{
@@ -231,10 +254,15 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		addSetting(enterAlert);
 		addSetting(enterSoundAlert);
 		addSetting(enterAlertCooldown);
+		addSetting(enterPopupAlert);
+		addSetting(enterPopupCooldown);
 		addSetting(enterSound);
 		addSetting(enterSoundVolume);
 		addSetting(customEnterSoundId);
+		addSetting(showEquipmentInEnterAlerts);
 		addSetting(exitAlert);
+		addSetting(totemPopChatAlert);
+		addSetting(totemPopSoundAlert);
 		entityFilters.forEach(this::addSetting);
 		addSetting(ignoreNpcs);
 	}
@@ -256,6 +284,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
 		alertManager.addListener(alertListener);
 		shaderSafeMode = ShaderUtils.refreshShadersActive();
 		if(shaderSafeMode)
@@ -269,10 +298,12 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(PacketInputListener.class, this);
 		alertManager.removeListener(alertListener);
 		losStates.clear();
 		pendingEnterAlerts.clear();
 		lastEnterAlertAt = 0L;
+		lastEnterPopupAt = 0L;
 	}
 	
 	@Override
@@ -396,6 +427,17 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		if(enterAlert.isChecked())
 			sendEnterMessage(info);
+		
+		if(enterPopupAlert.isChecked())
+		{
+			long popupCooldownMs = (long)enterPopupCooldown.getValue() * 1000L;
+			if(popupCooldownMs <= 0
+				|| now - lastEnterPopupAt >= popupCooldownMs)
+			{
+				showEnterPopup(info);
+				lastEnterPopupAt = now;
+			}
+		}
 	}
 	
 	private void playEnterSound()
@@ -484,12 +526,109 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
 		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
-		Component msg = nameText.append(Component
+		MutableComponent msg = nameText.append(Component
 			.literal(" entered range (" + distStr + ") at " + x + ", " + y
 				+ ", " + z + ".")
 			.withStyle(s -> s
 				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
+		if(showEquipmentInEnterAlerts.isChecked())
+		{
+			String equipmentLine = getEquipmentLine(info.getUuid());
+			if(!equipmentLine.isBlank())
+				msg.append(Component.literal(" [" + equipmentLine + "]")
+					.withStyle(s -> s.withColor(
+						TextColor.fromLegacyFormat(ChatFormatting.GRAY))));
+		}
 		ChatUtils.component(msg);
+	}
+	
+	private void showEnterPopup(PlayerRangeAlertManager.PlayerInfo info)
+	{
+		if(MC == null)
+			return;
+		
+		String name =
+			info.getName() == null ? "Unknown" : info.getName().trim();
+		if(name.isEmpty())
+			name = "Unknown";
+		
+		String line2 = "Player entered range";
+		if(showEquipmentInEnterAlerts.isChecked())
+		{
+			String equipmentLine = getEquipmentLine(info.getUuid());
+			if(!equipmentLine.isBlank())
+				line2 = equipmentLine;
+		}
+		
+		SystemToast toast = SystemToast.multiline(MC,
+			SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+			Component.literal(name), Component.literal(line2));
+		MC.getToastManager().addToast(toast);
+	}
+	
+	private String getEquipmentLine(UUID playerId)
+	{
+		if(playerId == null || MC == null || MC.level == null)
+			return "";
+		
+		Player player = MC.level.getPlayerByUUID(playerId);
+		if(player == null)
+			return "";
+		
+		String main = formatStack(player.getMainHandItem());
+		String off = formatStack(player.getOffhandItem());
+		ArrayList<String> armor = new ArrayList<>(4);
+		EquipmentSlot[] slots = {EquipmentSlot.HEAD, EquipmentSlot.CHEST,
+			EquipmentSlot.LEGS, EquipmentSlot.FEET};
+		for(EquipmentSlot slot : slots)
+		{
+			ItemStack stack = player.getItemBySlot(slot);
+			if(!stack.isEmpty())
+				armor.add(formatStack(stack));
+		}
+		
+		String armorText = armor.isEmpty() ? "None" : String.join(", ", armor);
+		
+		return "Main: " + main + " | Off: " + off + " | Armor: " + armorText;
+	}
+	
+	private String formatStack(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return "Empty";
+		
+		return stack.getHoverName().getString();
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		if(!isEnabled() || MC.level == null || MC.player == null)
+			return;
+		
+		if(!totemPopChatAlert.isChecked() && !totemPopSoundAlert.isChecked())
+			return;
+		
+		if(!(event.getPacket() instanceof ClientboundEntityEventPacket packet))
+			return;
+		
+		if(packet.getEventId() != 35)
+			return;
+		
+		if(!(packet.getEntity(MC.level) instanceof Player poppedPlayer))
+			return;
+		
+		if(!shouldRenderPlayer(poppedPlayer))
+			return;
+		
+		if(totemPopChatAlert.isChecked())
+		{
+			String playerName = poppedPlayer.getName().getString();
+			ChatUtils.message(playerName + " popped a totem.");
+		}
+		
+		if(totemPopSoundAlert.isChecked())
+			playEnterSound();
 	}
 	
 	private boolean shouldIgnoreNpcCandidate(

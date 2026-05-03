@@ -38,7 +38,7 @@ public final class GameStatsHud
 	private static final long SAMPLE_INTERVAL_MS = 1000L;
 	private static final long SPEED_WINDOW_MS = 600L;
 	private static final double SPEED_EMA_ALPHA = 0.5;
-	private static final double SPEED_MAX_PLAUSIBLE_BPS = 80.0;
+	private static final double SPEED_MAX_PLAUSIBLE_BPS = 5000.0;
 	private static final float GRAPH_GAP = 4F;
 	private static final float GRAPH_TO_TEXT_GAP = 2F;
 	private static final float GRAPH_HEIGHT = 34F;

@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import java.awt.Color;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -19,6 +20,7 @@ import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -30,7 +32,6 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.events.ChatOutputListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.hud.ClientMessageOverlay;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
@@ -193,8 +194,8 @@ public final class MentionHack extends Hack
 	private void colorizeMentionMessage(ChatInputEvent event, String plain,
 		ChatLine line)
 	{
-		event.setComponent(
-			colorizeMentionComponent(event.getComponent(), plain, line));
+		event.setComponent(colorizeMentionComponent(event.getComponent(), plain,
+			line, MC.getUser().getName()));
 	}
 	
 	public Component colorizeForDisplayIfNeeded(Component component)
@@ -220,19 +221,113 @@ public final class MentionHack extends Hack
 		if(!isMention && !line.whisperToYou())
 			return component;
 		
-		return colorizeMentionComponent(component, plain, line);
+		return colorizeMentionComponent(component, plain, line, ownName);
 	}
 	
 	private Component colorizeMentionComponent(Component component,
-		String plain, ChatLine line)
+		String plain, ChatLine line, String ownName)
 	{
 		int rgb = mentionColor.getColorI() & 0x00FFFFFF;
-		int textStart = line.textStart();
-		if(textStart <= 0 || textStart >= plain.length())
-			return ClientMessageOverlay.colorizeWholeComponent(component, rgb);
+		Set<String> variants = getNameVariants(ownName);
+		if(variants.isEmpty())
+			return component.copy();
 		
-		return ClientMessageOverlay.colorizeComponentRangeForDisplay(component,
-			textStart, plain.length(), rgb);
+		return colorizeMentionTokens(component, variants, rgb);
+	}
+	
+	private MutableComponent colorizeMentionTokens(Component component,
+		Set<String> variants, int rgb)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof TranslatableContents tr)
+		{
+			Object[] args = tr.getArgs();
+			Object[] newArgs = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < newArgs.length; i++)
+			{
+				if(newArgs[i] instanceof Component argComponent)
+					newArgs[i] =
+						colorizeMentionTokens(argComponent, variants, rgb);
+				else if(newArgs[i] instanceof String argString)
+					newArgs[i] = colorizeMentionText(argString,
+						component.getStyle(), variants, rgb);
+			}
+			
+			result = Component.translatable(tr.getKey(), newArgs);
+			
+		}else if(component.getContents() instanceof LiteralContents literal)
+			result = colorizeMentionText(literal.text(), component.getStyle(),
+				variants, rgb);
+		else
+			result = MutableComponent.create(component.getContents());
+		
+		if(!(component.getContents() instanceof LiteralContents))
+			result.setStyle(component.getStyle());
+		
+		for(Component sibling : component.getSiblings())
+			result.append(colorizeMentionTokens(sibling, variants, rgb));
+		
+		return result;
+	}
+	
+	private MutableComponent colorizeMentionText(String text, Style style,
+		Set<String> variants, int rgb)
+	{
+		ArrayList<int[]> ranges = new ArrayList<>();
+		for(String variant : variants)
+		{
+			Pattern mentionPattern = Pattern.compile(
+				"(?i)(^|\\W)(@?" + Pattern.quote(variant) + ")(\\W|$)");
+			Matcher matcher = mentionPattern.matcher(text);
+			while(matcher.find())
+			{
+				int start = matcher.start(2);
+				int end = matcher.end(2);
+				if(end > start)
+					ranges.add(new int[]{start, end});
+			}
+		}
+		
+		if(ranges.isEmpty())
+			return Component.literal(text).withStyle(style);
+		
+		ranges.sort((a, b) -> Integer.compare(a[0], b[0]));
+		ArrayList<int[]> merged = new ArrayList<>();
+		for(int[] range : ranges)
+		{
+			if(merged.isEmpty())
+			{
+				merged.add(range);
+				continue;
+			}
+			
+			int[] last = merged.get(merged.size() - 1);
+			if(range[0] <= last[1])
+				last[1] = Math.max(last[1], range[1]);
+			else
+				merged.add(range);
+		}
+		
+		MutableComponent out = Component.literal("");
+		int cursor = 0;
+		for(int[] range : merged)
+		{
+			int start = range[0];
+			int end = range[1];
+			if(start > cursor)
+				out.append(Component.literal(text.substring(cursor, start))
+					.withStyle(style));
+			
+			out.append(Component.literal(text.substring(start, end))
+				.withStyle(style.withColor(rgb)));
+			cursor = end;
+		}
+		
+		if(cursor < text.length())
+			out.append(
+				Component.literal(text.substring(cursor)).withStyle(style));
+		
+		return out;
 	}
 	
 	private void showMentionToast(Component message, boolean whisperToYou)
@@ -355,7 +450,7 @@ public final class MentionHack extends Hack
 				variants.add(p);
 		}
 		
-		for(String alias : nicknameAliases.getValue().split(","))
+		for(String alias : nicknameAliases.getValue().split("[,\\s]+"))
 		{
 			String a = alias.toLowerCase(Locale.ROOT).trim();
 			if(a.length() >= 2)

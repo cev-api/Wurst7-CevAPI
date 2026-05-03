@@ -62,8 +62,17 @@ public final class NoWeatherHack extends Hack
 	protected void onEnable()
 	{
 		lastKnownWeather = null;
-		packetRaining = null;
-		packetThundering = null;
+		if(MC.level != null)
+		{
+			packetRaining = MC.level.isRaining();
+			packetThundering = MC.level.isThundering();
+			if(packetThundering)
+				packetRaining = true;
+		}else
+		{
+			packetRaining = null;
+			packetThundering = null;
+		}
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
 	}
@@ -76,6 +85,17 @@ public final class NoWeatherHack extends Hack
 		lastKnownWeather = null;
 		packetRaining = null;
 		packetThundering = null;
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		String name = getName();
+		WeatherState weather = getCurrentWeatherState();
+		if(weather == null)
+			return name;
+		
+		return name + " [" + weather.getDisplayName() + "]";
 	}
 	
 	@Override
@@ -148,13 +168,26 @@ public final class NoWeatherHack extends Hack
 		}
 	}
 	
+	private WeatherState getCurrentWeatherState()
+	{
+		if(MC.level == null)
+			return null;
+		
+		boolean raining =
+			packetRaining != null ? packetRaining : getActualRaining();
+		boolean thundering =
+			packetThundering != null ? packetThundering : getActualThundering();
+		return WeatherState.fromLevel(raining, thundering);
+	}
+	
 	private boolean getActualRaining()
 	{
 		if(MC.level == null)
 			return false;
 			
-		// Read server-synced weather flags directly so alerts still work when
-		// NoWeather suppresses visual rain rendering.
+		// Read server weather flag directly; this is not affected by
+		// NoWeather's
+		// getRainLevel mixin used for visual suppression.
 		return MC.level.isRaining();
 	}
 	
@@ -163,7 +196,6 @@ public final class NoWeatherHack extends Hack
 		if(MC.level == null)
 			return false;
 		
-		// Same as above: avoid relying on rendered rain/thunder state.
 		return MC.level.isThundering();
 	}
 	
