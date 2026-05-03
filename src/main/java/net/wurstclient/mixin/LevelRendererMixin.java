@@ -24,6 +24,8 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
+import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.RenderAdjustHack;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.RenderUtils;
 
@@ -48,6 +50,13 @@ public class LevelRendererMixin
 		GpuBufferSlice gpuBufferSlice, Vector4f vector4f, boolean bl,
 		CallbackInfo ci)
 	{
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		if(renderAdjust.shouldDisableSky())
+			vector4f.set(0, 0, 0, 0);
+		else if(renderAdjust.shouldAdjustSkyColor())
+			renderAdjust.applySkyColor(vector4f);
+		
 		RenderUtils.beginEspFrame();
 		GlobalEspManager.getInstance().beginFrame();
 	}

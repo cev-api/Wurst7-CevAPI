@@ -17,6 +17,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.RenderAdjustHack;
 
 @Mixin(FogRenderer.class)
 public class FogRendererMixin
@@ -35,11 +36,20 @@ public class FogRendererMixin
 		float renderDistanceEnd, float skyEnd, float cloudEnd,
 		Operation<Void> original)
 	{
-		if(WurstClient.INSTANCE.getHax().noFogHack.isEnabled())
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		
+		if(WurstClient.INSTANCE.getHax().noFogHack.isEnabled()
+			|| renderAdjust.shouldDisableFog())
 		{
+			environmentalStart = 1000000;
+			environmentalEnd = 1000000;
 			renderDistanceStart = 1000000;
 			renderDistanceEnd = 1000000;
 		}
+		
+		if(renderAdjust.shouldAdjustFogColor())
+			fogColor = renderAdjust.getFogColor(fogColor);
 		
 		original.call(instance, buffer, bufPos, fogColor, environmentalStart,
 			environmentalEnd, renderDistanceStart, renderDistanceEnd, skyEnd,

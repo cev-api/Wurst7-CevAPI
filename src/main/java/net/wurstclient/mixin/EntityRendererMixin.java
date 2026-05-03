@@ -75,6 +75,13 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	private void addHealthToDisplayName(T entity, S state, float tickProgress,
 		CallbackInfo ci)
 	{
+		if(WurstClient.INSTANCE.getHax().renderAdjustHack
+			.shouldRemoveNameTag(entity, state.nameTag))
+		{
+			state.nameTag = null;
+			return;
+		}
+		
 		if(!(entity instanceof LivingEntity le))
 			return;
 		
