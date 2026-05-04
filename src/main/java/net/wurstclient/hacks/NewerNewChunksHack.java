@@ -293,13 +293,24 @@ public final class NewerNewChunksHack extends Hack
 	private static final int WINDOW_RADIUS_CHUNKS = 64; // fallback only
 	private static final int REFRESH_DISTANCE_CHUNKS = 32; // fallback only
 	private ChunkPos lastWindowCenter;
-	private final ExecutorService windowLoader =
-		Executors.newSingleThreadExecutor(r -> {
+	private volatile ExecutorService windowLoader = createWindowLoader();
+	private volatile boolean windowLoadInProgress;
+	
+	private static ExecutorService createWindowLoader()
+	{
+		return Executors.newSingleThreadExecutor(r -> {
 			Thread t = new Thread(r, "nnc-window-loader");
 			t.setDaemon(true);
 			return t;
 		});
-	private volatile boolean windowLoadInProgress;
+	}
+	
+	private void ensureWindowLoader()
+	{
+		ExecutorService exec = windowLoader;
+		if(exec == null || exec.isShutdown() || exec.isTerminated())
+			windowLoader = createWindowLoader();
+	}
 	
 	private int newChunkAlarmTicks;
 	private int newChunkAlarmRingsLeft;
@@ -545,7 +556,6 @@ public final class NewerNewChunksHack extends Hack
 		ensureDataFiles();
 		if(loadChunkData.isChecked())
 		{
-			// Windowed initial load (merge, no clear)
 			if(MC.player != null)
 			{
 				ChunkPos c = MC.player.chunkPosition();
@@ -1531,15 +1541,39 @@ public final class NewerNewChunksHack extends Hack
 		if(windowLoadInProgress)
 			return;
 		windowLoadInProgress = true;
-		windowLoader.submit(() -> {
+		ensureWindowLoader();
+		try
+		{
+			windowLoader.submit(() -> {
+				try
+				{
+					loadDataWindowed(px, pz, radiusChunks);
+				}finally
+				{
+					windowLoadInProgress = false;
+				}
+			});
+		}catch(java.util.concurrent.RejectedExecutionException ex)
+		{
+			// Executor was shut down between ensure and submit; recreate and
+			// retry once.
 			try
 			{
-				loadDataWindowed(px, pz, radiusChunks);
-			}finally
+				windowLoader = createWindowLoader();
+				windowLoader.submit(() -> {
+					try
+					{
+						loadDataWindowed(px, pz, radiusChunks);
+					}finally
+					{
+						windowLoadInProgress = false;
+					}
+				});
+			}catch(Exception ignored)
 			{
 				windowLoadInProgress = false;
 			}
-		});
+		}
 	}
 	
 	private int getWindowRadius()

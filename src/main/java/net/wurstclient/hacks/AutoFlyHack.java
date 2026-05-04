@@ -72,6 +72,9 @@ public final class AutoFlyHack extends Hack
 	private static final double CHUNK_REVERSE_DOT_THRESHOLD = -0.2;
 	private static final double CHUNK_MIN_FORWARD_DOT = -0.05;
 	private static final int CHUNK_MIN_CORRIDOR_THICKNESS = 3;
+	private static final int CHUNK_NO_TARGET_ABORT_TICKS = 120; // fallback;
+																// overridden by
+																// setting
 	private static final int CHUNK_WALL_SCAN_RADIUS = 6;
 	private static final double CHUNK_BACKTRACK_BLOCK_TOLERANCE = 8.0;
 	private static final double CHUNK_MIN_TARGET_LEAD_BLOCKS = 4.0;
@@ -333,6 +336,20 @@ public final class AutoFlyHack extends Hack
 	private boolean flightWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
+	
+	// Chunk-trail steering settings
+	private final SliderSetting noTrailAbortSeconds =
+		new SliderSetting("Chunk trail: No-trail abort (sec)", 6, 2, 30, 1,
+			SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting aheadScanChunks =
+		new SliderSetting("Chunk trail: Ahead scan (chunks)", 8, 2, 32, 1,
+			SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting sideScanHalfWidth =
+		new SliderSetting("Chunk trail: Side scan half-width", 3, 1, 8, 1,
+			SliderSetting.ValueDisplay.INTEGER);
+	private final SliderSetting singleWallNudgeStrength =
+		new SliderSetting("Chunk trail: Single-wall nudge (blocks/step)", 12, 4,
+			32, 1, SliderSetting.ValueDisplay.INTEGER);
 	private boolean flightOverridesApplied;
 	private double lastYForProgress = Double.NaN;
 	private long lastVerticalProgressMs;
@@ -389,6 +406,11 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopOn);
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
+		// Chunk-trail steering tunables
+		addSetting(noTrailAbortSeconds);
+		addSetting(aheadScanChunks);
+		addSetting(sideScanHalfWidth);
+		addSetting(singleWallNudgeStrength);
 		addSetting(stopKeyword2);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
@@ -686,8 +708,8 @@ public final class AutoFlyHack extends Hack
 		if(chunkAssistActive)
 		{
 			applyChunkCorridorAssist();
-			if(chunkCorridorTargetPos == null)
-				return;
+			// Don't block movement if borders aren't visible; a provisional
+			// forward target will be used when no corridor target is found.
 		}
 		
 		if(pausedNoY)
@@ -880,6 +902,13 @@ public final class AutoFlyHack extends Hack
 		StopOnType type = stopSetting.getSelected();
 		if(type == null || type == StopOnType.OFF)
 			return false;
+			
+		// While chunk-corridor assist is active, do not hard-stop on
+		// old/new chunk transitions; steering logic will keep us in the
+		// corridor. Other stop types (players, portals, blocks, etc.)
+		if(chunkAssistActive
+			&& (type == StopOnType.NEW_CHUNKS || type == StopOnType.OLD_CHUNKS))
+			return false;
 		
 		if(MC.player == null || MC.level == null)
 			return false;
@@ -1014,10 +1043,12 @@ public final class AutoFlyHack extends Hack
 		
 		ChunkAreaSetting area = new ChunkAreaSetting(
 			"Chunk trail portal scan (internal)", "", CHUNK_TRAIL_PORTAL_AREA);
-		chunkTrailPortalCoordinator = new ChunkSearcherCoordinator((pos,
-			state) -> state != null && (state.getBlock() == Blocks.NETHER_PORTAL
-				|| state.getBlock() == Blocks.END_PORTAL),
-			area);
+		chunkTrailPortalCoordinator =
+			new ChunkSearcherCoordinator((pos, state) -> {
+				return state != null
+					&& (state.getBlock() == Blocks.NETHER_PORTAL
+						|| state.getBlock() == Blocks.END_PORTAL);
+			}, area);
 	}
 	
 	private boolean scanBlocksForKeyword(boolean secondary, String keyword,
@@ -2178,29 +2209,76 @@ public final class AutoFlyHack extends Hack
 			playerForwardProgress);
 		if(targetPos == null)
 		{
+			// Keep moving forward even without detected borders. Use current
+			// forward axis (or look direction) to set a provisional target.
 			chunkNoTargetTicks++;
 			if(chunkCorridorTargetPos != null && isTargetStillAhead(
 				chunkCorridorTargetPos, playerForwardProgress))
 				return;
 			
-			if(chunkCorridorForwardAxis != null
-				&& chunkCorridorForwardAxis.lengthSqr() > 1.0E-6
-				&& chunkNoTargetTicks <= CHUNK_NO_TARGET_GRACE_TICKS)
+			Vec3 forward = chunkCorridorForwardAxis;
+			if(forward == null || forward.lengthSqr() <= 1.0E-6)
+				forward = getHorizontalLookDirection();
+			Vec3 axis = new Vec3(forward.x, 0.0, forward.z);
+			if(axis.lengthSqr() <= 1.0E-6)
 			{
-				Vec3 axis = new Vec3(chunkCorridorForwardAxis.x, 0.0,
-					chunkCorridorForwardAxis.z);
-				if(axis.lengthSqr() > 1.0E-6)
+				chunkCorridorTargetPos = null;
+				return;
+			}
+			double lead = CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS;
+			// After grace, extend the lead to keep cruising smoothly.
+			if(chunkNoTargetTicks > CHUNK_NO_TARGET_GRACE_TICKS)
+				lead = Math.max(lead, 32.0);
+			Vec3 provisional = playerPos.add(axis.normalize().scale(lead));
+			
+			// Single/both-wall avoidance: nudge away from red walls and
+			// center between them when both are detected.
+			java.util.Set<ChunkPos> newSet =
+				WURST.getHax().newerNewChunksHack.getNewChunksLiveView();
+			Vec3 right = new Vec3(-axis.z, 0.0, axis.x);
+			ChunkPos pChunk = ChunkPos.containing(MC.player.blockPosition());
+			int leftDist = distanceToNearestNewWall(newSet, pChunk, right, -1,
+				CHUNK_WALL_SCAN_RADIUS);
+			int rightDist = distanceToNearestNewWall(newSet, pChunk, right, 1,
+				CHUNK_WALL_SCAN_RADIUS);
+			double lateral = 0.0;
+			if(leftDist > 0 && rightDist > 0)
+			{
+				double centerOffsetChunks = (rightDist - leftDist) * 0.5;
+				lateral +=
+					Math.max(-24.0, Math.min(24.0, centerOffsetChunks * 16.0));
+			}else
+			{
+				int guard = Math.max(3, CHUNK_MIN_CORRIDOR_THICKNESS);
+				double nudge = getSingleWallNudgeStrength();
+				if(leftDist > 0 && leftDist <= guard)
+					lateral += (guard + 1 - leftDist) * nudge; // push right
+				if(rightDist > 0 && rightDist <= guard)
+					lateral -= (guard + 1 - rightDist) * nudge; // push left
+			}
+			if(Math.abs(lateral) > 0.01)
+				provisional = provisional.add(right.normalize().scale(lateral));
+				
+			// If we've been blind to green for too long and there is no
+			// old-chunk trail ahead within a reasonable search window,
+			// treat it as end-of-trail and stop.
+			if(chunkNoTargetTicks > getNoTargetAbortTicks())
+			{
+				boolean ahead = hasOldTrailAhead(oldTrail, newSet,
+					ChunkPos.containing(MC.player.blockPosition()), axis, right,
+					getAheadScanChunks(), getSideScanHalfWidth());
+				if(!ahead)
 				{
-					chunkCorridorTargetPos = playerPos.add(axis.normalize()
-						.scale(CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS));
+					chunkCorridorTargetPos = null;
+					PathProcessor.releaseControls();
+					resetAutoKeyFlags();
+					clearMovementKeys();
+					stopAutoFly("Stopped: Chunk trail ended or off-track");
 					return;
 				}
 			}
 			
-			chunkCorridorTargetPos = null;
-			PathProcessor.releaseControls();
-			resetAutoKeyFlags();
-			clearMovementKeys();
+			chunkCorridorTargetPos = provisional;
 			return;
 		}
 		
@@ -2554,6 +2632,28 @@ public final class AutoFlyHack extends Hack
 		ChunkPos chunk)
 	{
 		return chunk != null && newChunks.contains(chunk);
+	}
+	
+	private static boolean hasOldTrailAhead(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, ChunkPos origin, Vec3 forward,
+		Vec3 right, int forwardChunks, int halfWidth)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || origin == null
+			|| forward == null || right == null)
+			return false;
+		
+		for(int f = 1; f <= Math.max(1, forwardChunks); f++)
+		{
+			ChunkPos front = stepChunk(origin, forward, f);
+			for(int w = -halfWidth; w <= halfWidth; w++)
+			{
+				ChunkPos pos = stepChunk(front, right, w);
+				if(pos != null && oldTrail.contains(pos)
+					&& (newChunks == null || !newChunks.contains(pos)))
+					return true;
+			}
+		}
+		return false;
 	}
 	
 	private static ChunkPos stepChunk(ChunkPos origin, Vec3 direction,
@@ -3504,4 +3604,33 @@ public final class AutoFlyHack extends Hack
 		ASCEND,
 		DESCEND
 	}
+	
+	// --- Chunk-trail setting accessors ---
+	private int getNoTargetAbortTicks()
+	{
+		double seconds = noTrailAbortSeconds.getValue();
+		int ticks = (int)Math.round(seconds * 20.0);
+		if(ticks <= 0)
+			ticks = CHUNK_NO_TARGET_ABORT_TICKS;
+		return Math.max(20, Math.min(600, ticks));
+	}
+	
+	private int getAheadScanChunks()
+	{
+		int v = aheadScanChunks.getValueI();
+		return Math.max(2, Math.min(64, v));
+	}
+	
+	private int getSideScanHalfWidth()
+	{
+		int v = sideScanHalfWidth.getValueI();
+		return Math.max(1, Math.min(16, v));
+	}
+	
+	private double getSingleWallNudgeStrength()
+	{
+		int v = singleWallNudgeStrength.getValueI();
+		return Math.max(1, Math.min(64, v));
+	}
+	
 }
