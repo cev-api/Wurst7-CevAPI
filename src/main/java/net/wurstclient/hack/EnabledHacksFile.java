@@ -119,9 +119,16 @@ public final class EnabledHacksFile
 		try
 		{
 			net.minecraft.client.Minecraft mc = net.wurstclient.WurstClient.MC;
-			if(mc != null
-				&& mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
-				return;
+			// Avoid saving enabled-hacks while not in a game world. Toggling
+			// hacks from the title screen (where player == null) can overwrite
+			// the persisted enabled hacks with an incomplete set.
+			if(mc != null)
+			{
+				if(mc.player == null)
+					return;
+				if(mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
+					return;
+			}
 		}catch(Throwable ignored)
 		{}
 		

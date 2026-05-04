@@ -378,8 +378,42 @@ public final class HackList implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		// Defer loading/enabling hacks until we are in a game world. Loading
+		// enabled-hacks.json on the title screen can undesirably disable or
+		// overwrite state triggered from title-screen UI actions. Wait until
+		// the Minecraft player instance exists.
+		try
+		{
+			net.minecraft.client.Minecraft mc = net.wurstclient.WurstClient.MC;
+			if(mc == null || mc.player == null)
+				return;
+		}catch(Throwable ignored)
+		{
+			return;
+		}
+		
+		// Preserve runtime HideWurst toggle made on title screen so it isn't
+		// clobbered by loading saved enabled-hacks.json.
+		boolean hideWurstWasEnabled = false;
+		try
+		{
+			hideWurstWasEnabled =
+				this.hideWurstHack != null && this.hideWurstHack.isEnabled();
+		}catch(Throwable ignored)
+		{}
+		
 		enabledHacksFile.load(this);
 		favoriteHacksFile.load(this);
+		// If HideWurst was enabled before loading, re-apply it to ensure
+		// UI/hack rendering remains hidden after entering the world.
+		try
+		{
+			if(hideWurstWasEnabled && this.hideWurstHack != null
+				&& !this.hideWurstHack.isEnabled())
+				this.hideWurstHack.setEnabled(true);
+		}catch(Throwable ignored)
+		{}
+		
 		panicHack.handleStartupRestore();
 		eventManager.remove(UpdateListener.class, this);
 	}
