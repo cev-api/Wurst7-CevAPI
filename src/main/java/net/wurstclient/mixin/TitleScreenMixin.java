@@ -171,7 +171,13 @@ public abstract class TitleScreenMixin extends Screen
 		GuiGraphicsExtractor graphics, int width, float fade)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+		{
+			// If UI mixins are hidden, render the vanilla logo instead of
+			// suppressing the call entirely so the title screen still shows
+			// a logo.
+			logoRenderer.extractRenderState(graphics, width, fade);
 			return;
+		}
 		
 		ensureTitleDimensions();
 		if(titleWidth <= 0 || titleHeight <= 0)
