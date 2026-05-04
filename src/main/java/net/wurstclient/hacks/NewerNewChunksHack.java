@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.io.IOException;
+import java.io.BufferedReader;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,8 +19,11 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -244,6 +248,13 @@ public final class NewerNewChunksHack extends Hack
 	private final ColorSetting oldVersionChunksLineColor = new ColorSetting(
 		"OldVersion Chunks Line Color", new Color(190, 255, 0));
 	
+	// IO/window tuning (user-configurable)
+	private final SliderSetting persistedWindowRadiusChunks =
+		new SliderSetting("Persisted-Window-Radius(Chunks)", 128, 16, 256, 1,
+			ValueDisplay.INTEGER);
+	private final SliderSetting windowRefreshDistanceChunks = new SliderSetting(
+		"Window-Refresh-Distance(Chunks)", 48, 4, 128, 1, ValueDisplay.INTEGER);
+	
 	private final Set<ChunkPos> newChunks = ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldChunks = ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> tickExploitChunks =
@@ -252,6 +263,16 @@ public final class NewerNewChunksHack extends Hack
 		ConcurrentHashMap.newKeySet();
 	private final Set<ChunkPos> oldGenerationChunks =
 		ConcurrentHashMap.newKeySet();
+	
+	// Region-bucket indices (32x32 chunk tiles) for O(visible) queries
+	private static final int REGION_SHIFT = 5; // 32x32 tiles
+	private final Map<Long, Set<ChunkPos>> idxNew = new ConcurrentHashMap<>();
+	private final Map<Long, Set<ChunkPos>> idxOld = new ConcurrentHashMap<>();
+	private final Map<Long, Set<ChunkPos>> idxTick = new ConcurrentHashMap<>();
+	private final Map<Long, Set<ChunkPos>> idxBeingUpdated =
+		new ConcurrentHashMap<>();
+	private final Map<Long, Set<ChunkPos>> idxOldGen =
+		new ConcurrentHashMap<>();
 	private final Set<ChunkPos> newChunksView =
 		Collections.unmodifiableSet(newChunks);
 	private final Set<ChunkPos> oldChunksView =
@@ -267,6 +288,18 @@ public final class NewerNewChunksHack extends Hack
 	private int autoReloadTicks;
 	private long lastMapaRescanTick = Long.MIN_VALUE;
 	private boolean autoFlyRenderSuppressed;
+	
+	// Windowed disk-load parameters (legacy defaults, superseded by settings)
+	private static final int WINDOW_RADIUS_CHUNKS = 64; // fallback only
+	private static final int REFRESH_DISTANCE_CHUNKS = 32; // fallback only
+	private ChunkPos lastWindowCenter;
+	private final ExecutorService windowLoader =
+		Executors.newSingleThreadExecutor(r -> {
+			Thread t = new Thread(r, "nnc-window-loader");
+			t.setDaemon(true);
+			return t;
+		});
+	private volatile boolean windowLoadInProgress;
 	
 	private int newChunkAlarmTicks;
 	private int newChunkAlarmRingsLeft;
@@ -478,6 +511,8 @@ public final class NewerNewChunksHack extends Hack
 		addSetting(loadChunkData);
 		addSetting(autoReloadChunks);
 		addSetting(autoReloadDelaySeconds);
+		addSetting(persistedWindowRadiusChunks);
+		addSetting(windowRefreshDistanceChunks);
 		addSetting(deleteChunkData);
 		addSetting(renderDistance);
 		addSetting(renderHeight);
@@ -509,7 +544,18 @@ public final class NewerNewChunksHack extends Hack
 		resolveWorldKeys();
 		ensureDataFiles();
 		if(loadChunkData.isChecked())
-			loadData();
+		{
+			// Windowed initial load (merge, no clear)
+			if(MC.player != null)
+			{
+				ChunkPos c = MC.player.chunkPosition();
+				requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
+				lastWindowCenter = c;
+			}else
+			{
+				// No player yet; defer until update tick
+			}
+		}
 		
 		loadedThisSession = loadChunkData.isChecked();
 		autoReloadTicks = 0;
@@ -543,6 +589,11 @@ public final class NewerNewChunksHack extends Hack
 		EVENTS.remove(RenderListener.class, this);
 		if(removeOnDisable.isChecked() && !isMapaTrackingActive())
 			clearChunkData();
+		try
+		{
+			windowLoader.shutdownNow();
+		}catch(Exception ignored)
+		{}
 	}
 	
 	@Override
@@ -572,8 +623,13 @@ public final class NewerNewChunksHack extends Hack
 		
 		if(!loadedThisSession && loadChunkData.isChecked())
 		{
-			loadData();
-			loadedThisSession = true;
+			if(MC.player != null)
+			{
+				ChunkPos c = MC.player.chunkPosition();
+				requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
+				lastWindowCenter = c;
+				loadedThisSession = true;
+			}
 		}
 		
 		if(autoReloadChunks.isChecked())
@@ -581,9 +637,14 @@ public final class NewerNewChunksHack extends Hack
 			autoReloadTicks++;
 			if(autoReloadTicks >= autoReloadDelaySeconds.getValueI() * 20)
 			{
+				// Soft refresh: clear and windowed reload near current pos
 				clearChunkData();
-				if(loadChunkData.isChecked())
-					loadData();
+				if(loadChunkData.isChecked() && MC.player != null)
+				{
+					ChunkPos c = MC.player.chunkPosition();
+					requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
+					lastWindowCenter = c;
+				}
 				autoReloadTicks = 0;
 			}
 		}
@@ -611,14 +672,23 @@ public final class NewerNewChunksHack extends Hack
 		double maxDist = renderDistance.getValue() * 16;
 		BlockPos playerPos = MC.player.blockPosition();
 		
-		List<AABB> oldBoxes = collectBoxes(oldChunks, y, playerPos, maxDist);
-		List<AABB> newBoxes = collectBoxes(newChunks, y, playerPos, maxDist);
-		List<AABB> tickBoxes =
-			collectBoxes(tickExploitChunks, y, playerPos, maxDist);
+		ChunkPos pc = MC.player.chunkPosition();
+		int visR = (int)Math.ceil(maxDist / 16.0);
+		Set<ChunkPos> visOld = getOldChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visNew = getNewChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visTick =
+			getBlockExploitChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visBeing =
+			getBeingUpdatedChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visOldGen =
+			getOldGenerationChunksInRange(pc.x(), pc.z(), visR);
+		List<AABB> oldBoxes = collectBoxes(visOld, y, playerPos, maxDist);
+		List<AABB> newBoxes = collectBoxes(visNew, y, playerPos, maxDist);
+		List<AABB> tickBoxes = collectBoxes(visTick, y, playerPos, maxDist);
 		List<AABB> beingUpdatedBoxes =
-			collectBoxes(beingUpdatedOldChunks, y, playerPos, maxDist);
+			collectBoxes(visBeing, y, playerPos, maxDist);
 		List<AABB> oldVersionBoxes =
-			collectBoxes(oldGenerationChunks, y, playerPos, maxDist);
+			collectBoxes(visOldGen, y, playerPos, maxDist);
 		
 		if(!oldBoxes.isEmpty())
 		{
@@ -905,6 +975,35 @@ public final class NewerNewChunksHack extends Hack
 		return Set.copyOf(oldChunks);
 	}
 	
+	// Visible-range queries using region buckets
+	public Set<ChunkPos> getNewChunksInRange(int cx, int cz, int radius)
+	{
+		return getChunksInRange(idxNew, cx, cz, radius);
+	}
+	
+	public Set<ChunkPos> getOldChunksInRange(int cx, int cz, int radius)
+	{
+		return getChunksInRange(idxOld, cx, cz, radius);
+	}
+	
+	public Set<ChunkPos> getBlockExploitChunksInRange(int cx, int cz,
+		int radius)
+	{
+		return getChunksInRange(idxTick, cx, cz, radius);
+	}
+	
+	public Set<ChunkPos> getBeingUpdatedChunksInRange(int cx, int cz,
+		int radius)
+	{
+		return getChunksInRange(idxBeingUpdated, cx, cz, radius);
+	}
+	
+	public Set<ChunkPos> getOldGenerationChunksInRange(int cx, int cz,
+		int radius)
+	{
+		return getChunksInRange(idxOldGen, cx, cz, radius);
+	}
+	
 	public Set<ChunkPos> getOldChunksLiveView()
 	{
 		return oldChunksView;
@@ -981,6 +1080,8 @@ public final class NewerNewChunksHack extends Hack
 		if(activatedNow || tick != lastMapaRescanTick && tick % 40L == 0L)
 		{
 			scanLoadedChunksAroundPlayer();
+			// Refresh windowed persisted-data load when player moved enough
+			refreshWindowedLoadIfNeeded();
 			lastMapaRescanTick = tick;
 		}
 	}
@@ -1025,8 +1126,13 @@ public final class NewerNewChunksHack extends Hack
 			ensureDataFiles();
 			if(loadChunkData.isChecked())
 			{
-				loadData();
-				loadedThisSession = true;
+				if(MC.player != null)
+				{
+					ChunkPos c = MC.player.chunkPosition();
+					requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
+					lastWindowCenter = c;
+					loadedThisSession = true;
+				}
 			}
 		}
 	}
@@ -1058,11 +1164,15 @@ public final class NewerNewChunksHack extends Hack
 	{
 		if(!newChunks.add(chunkPos))
 			return;
-		
+		indexAdd(idxNew, chunkPos);
 		oldChunks.remove(chunkPos);
+		indexRemove(idxOld, chunkPos);
 		tickExploitChunks.remove(chunkPos);
+		indexRemove(idxTick, chunkPos);
 		beingUpdatedOldChunks.remove(chunkPos);
+		indexRemove(idxBeingUpdated, chunkPos);
 		oldGenerationChunks.remove(chunkPos);
+		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.NewChunkData, chunkPos);
 		triggerAlarm(AlarmType.NEW);
@@ -1072,11 +1182,15 @@ public final class NewerNewChunksHack extends Hack
 	{
 		if(!oldChunks.add(chunkPos))
 			return;
-		
+		indexAdd(idxOld, chunkPos);
 		newChunks.remove(chunkPos);
+		indexRemove(idxNew, chunkPos);
 		tickExploitChunks.remove(chunkPos);
+		indexRemove(idxTick, chunkPos);
 		beingUpdatedOldChunks.remove(chunkPos);
+		indexRemove(idxBeingUpdated, chunkPos);
 		oldGenerationChunks.remove(chunkPos);
+		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.OldChunkData, chunkPos);
 		triggerAlarm(AlarmType.OLD);
@@ -1086,7 +1200,7 @@ public final class NewerNewChunksHack extends Hack
 	{
 		if(!tickExploitChunks.add(chunkPos))
 			return;
-		
+		indexAdd(idxTick, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.BlockExploitChunkData, chunkPos);
 		triggerAlarm(AlarmType.BLOCK_EXPLOIT);
@@ -1096,11 +1210,15 @@ public final class NewerNewChunksHack extends Hack
 	{
 		if(!beingUpdatedOldChunks.add(chunkPos))
 			return;
-		
+		indexAdd(idxBeingUpdated, chunkPos);
 		newChunks.remove(chunkPos);
+		indexRemove(idxNew, chunkPos);
 		oldChunks.remove(chunkPos);
+		indexRemove(idxOld, chunkPos);
 		tickExploitChunks.remove(chunkPos);
+		indexRemove(idxTick, chunkPos);
 		oldGenerationChunks.remove(chunkPos);
+		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.BeingUpdatedChunkData, chunkPos);
 		triggerAlarm(AlarmType.BEING_UPDATED);
@@ -1110,11 +1228,15 @@ public final class NewerNewChunksHack extends Hack
 	{
 		if(!oldGenerationChunks.add(chunkPos))
 			return;
-		
+		indexAdd(idxOldGen, chunkPos);
 		newChunks.remove(chunkPos);
+		indexRemove(idxNew, chunkPos);
 		oldChunks.remove(chunkPos);
+		indexRemove(idxOld, chunkPos);
 		tickExploitChunks.remove(chunkPos);
+		indexRemove(idxTick, chunkPos);
 		beingUpdatedOldChunks.remove(chunkPos);
+		indexRemove(idxBeingUpdated, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.OldGenerationChunkData, chunkPos);
 		triggerAlarm(AlarmType.OLD_VERSION);
@@ -1270,6 +1392,11 @@ public final class NewerNewChunksHack extends Hack
 		tickExploitChunks.clear();
 		beingUpdatedOldChunks.clear();
 		oldGenerationChunks.clear();
+		idxNew.clear();
+		idxOld.clear();
+		idxTick.clear();
+		idxBeingUpdated.clear();
+		idxOldGen.clear();
 	}
 	
 	private List<AABB> collectBoxes(Set<ChunkPos> chunks, double y,
@@ -1320,9 +1447,25 @@ public final class NewerNewChunksHack extends Hack
 	private void removeOutside(Set<ChunkPos> chunks, BlockPos playerPos,
 		double maxDist)
 	{
-		chunks.removeIf(
-			chunk -> !playerPos.closerThan(new BlockPos(chunk.getMiddleBlockX(),
-				playerPos.getY(), chunk.getMiddleBlockZ()), maxDist));
+		var it = chunks.iterator();
+		while(it.hasNext())
+		{
+			ChunkPos chunk = it.next();
+			boolean keep =
+				playerPos.closerThan(new BlockPos(chunk.getMiddleBlockX(),
+					playerPos.getY(), chunk.getMiddleBlockZ()), maxDist);
+			if(!keep)
+			{
+				it.remove();
+				// Remove from all indices (chunk could be in multiple transient
+				// sets)
+				indexRemove(idxNew, chunk);
+				indexRemove(idxOld, chunk);
+				indexRemove(idxTick, chunk);
+				indexRemove(idxBeingUpdated, chunk);
+				indexRemove(idxOldGen, chunk);
+			}
+		}
 	}
 	
 	private void resolveWorldKeys()
@@ -1367,36 +1510,112 @@ public final class NewerNewChunksHack extends Hack
 		}
 	}
 	
-	private void loadData()
+	private void loadDataWindowed(int px, int pz, int radiusChunks)
 	{
-		clearChunkData();
-		loadChunkData(Paths.BlockExploitChunkData, tickExploitChunks);
-		loadChunkData(Paths.OldChunkData, oldChunks);
-		loadChunkData(Paths.NewChunkData, newChunks);
-		loadChunkData(Paths.BeingUpdatedChunkData, beingUpdatedOldChunks);
-		loadChunkData(Paths.OldGenerationChunkData, oldGenerationChunks);
+		// Merge-only windowed load from disk, respecting existing
+		// classifications
+		loadChunkDataWindowed(Paths.BlockExploitChunkData, tickExploitChunks,
+			px, pz, radiusChunks);
+		loadChunkDataWindowed(Paths.OldChunkData, oldChunks, px, pz,
+			radiusChunks);
+		loadChunkDataWindowed(Paths.NewChunkData, newChunks, px, pz,
+			radiusChunks);
+		loadChunkDataWindowed(Paths.BeingUpdatedChunkData,
+			beingUpdatedOldChunks, px, pz, radiusChunks);
+		loadChunkDataWindowed(Paths.OldGenerationChunkData, oldGenerationChunks,
+			px, pz, radiusChunks);
 	}
 	
-	private void loadChunkData(Path fileName, Set<ChunkPos> target)
+	private void requestWindowLoad(int px, int pz, int radiusChunks)
+	{
+		if(windowLoadInProgress)
+			return;
+		windowLoadInProgress = true;
+		windowLoader.submit(() -> {
+			try
+			{
+				loadDataWindowed(px, pz, radiusChunks);
+			}finally
+			{
+				windowLoadInProgress = false;
+			}
+		});
+	}
+	
+	private int getWindowRadius()
+	{
+		int v = persistedWindowRadiusChunks.getValueI();
+		if(v <= 0)
+			v = WINDOW_RADIUS_CHUNKS; // fallback
+		return Math.max(16, Math.min(256, v));
+	}
+	
+	private int getRefreshDistance()
+	{
+		int v = windowRefreshDistanceChunks.getValueI();
+		if(v <= 0)
+			v = REFRESH_DISTANCE_CHUNKS; // fallback
+		return Math.max(4, Math.min(128, v));
+	}
+	
+	private int getPrefetchRadius()
+	{
+		int win = getWindowRadius();
+		// Prefetch slightly larger than active window for smoothness
+		return Math.min(256, win + 32);
+	}
+	
+	private void loadChunkDataWindowed(Path fileName, Set<ChunkPos> target,
+		int px, int pz, int radiusChunks)
 	{
 		Path path = getBaseDir().resolve(fileName);
 		if(Files.notExists(path))
 			return;
 		
-		try
+		try(BufferedReader br =
+			Files.newBufferedReader(path, StandardCharsets.UTF_8))
 		{
-			List<String> allLines = Files.readAllLines(path);
-			for(String line : allLines)
+			String line;
+			while((line = br.readLine()) != null)
 			{
 				ChunkPos chunkPos = parseChunkPos(line);
 				if(chunkPos == null)
 					continue;
+				if(Math.abs(chunkPos.x() - px) > radiusChunks
+					|| Math.abs(chunkPos.z() - pz) > radiusChunks)
+					continue;
 				if(!containsAny(chunkPos))
+				{
 					target.add(chunkPos);
+					if(target == newChunks)
+						indexAdd(idxNew, chunkPos);
+					else if(target == oldChunks)
+						indexAdd(idxOld, chunkPos);
+					else if(target == tickExploitChunks)
+						indexAdd(idxTick, chunkPos);
+					else if(target == beingUpdatedOldChunks)
+						indexAdd(idxBeingUpdated, chunkPos);
+					else if(target == oldGenerationChunks)
+						indexAdd(idxOldGen, chunkPos);
+				}
 			}
 		}catch(IOException e)
 		{
 			e.printStackTrace();
+		}
+	}
+	
+	private void refreshWindowedLoadIfNeeded()
+	{
+		if(!loadChunkData.isChecked() || MC.player == null)
+			return;
+		ChunkPos c = MC.player.chunkPosition();
+		if(lastWindowCenter == null
+			|| Math.max(Math.abs(c.x() - lastWindowCenter.x()),
+				Math.abs(c.z() - lastWindowCenter.z())) >= getRefreshDistance())
+		{
+			requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
+			lastWindowCenter = c;
 		}
 	}
 	
@@ -1433,6 +1652,61 @@ public final class NewerNewChunksHack extends Hack
 		{
 			e.printStackTrace();
 		}
+	}
+	
+	// --- Region index helpers and queries ---
+	private static long regionKey(int x, int z)
+	{
+		int rx = x >> REGION_SHIFT;
+		int rz = z >> REGION_SHIFT;
+		return (((long)rx) << 32) ^ (rz & 0xFFFFFFFFL);
+	}
+	
+	private static long regionKeyFromRegion(int rx, int rz)
+	{
+		return (((long)rx) << 32) ^ (rz & 0xFFFFFFFFL);
+	}
+	
+	private void indexAdd(Map<Long, Set<ChunkPos>> index, ChunkPos pos)
+	{
+		long key = regionKey(pos.x(), pos.z());
+		Set<ChunkPos> bucket =
+			index.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet());
+		bucket.add(pos);
+	}
+	
+	private void indexRemove(Map<Long, Set<ChunkPos>> index, ChunkPos pos)
+	{
+		long key = regionKey(pos.x(), pos.z());
+		Set<ChunkPos> bucket = index.get(key);
+		if(bucket != null)
+		{
+			bucket.remove(pos);
+			if(bucket.isEmpty())
+				index.remove(key);
+		}
+	}
+	
+	private Set<ChunkPos> getChunksInRange(Map<Long, Set<ChunkPos>> index,
+		int cx, int cz, int radius)
+	{
+		int minRx = (cx - radius) >> REGION_SHIFT;
+		int maxRx = (cx + radius) >> REGION_SHIFT;
+		int minRz = (cz - radius) >> REGION_SHIFT;
+		int maxRz = (cz + radius) >> REGION_SHIFT;
+		Set<ChunkPos> result = new HashSet<>();
+		for(int rx = minRx; rx <= maxRx; rx++)
+			for(int rz = minRz; rz <= maxRz; rz++)
+			{
+				Set<ChunkPos> bucket = index.get(regionKeyFromRegion(rx, rz));
+				if(bucket == null || bucket.isEmpty())
+					continue;
+				for(ChunkPos cp : bucket)
+					if(Math.abs(cp.x() - cx) <= radius
+						&& Math.abs(cp.z() - cz) <= radius)
+						result.add(cp);
+			}
+		return result;
 	}
 	
 	private void confirmDeleteChunkData()

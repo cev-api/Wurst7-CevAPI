@@ -427,13 +427,39 @@ public final class MapaHack extends Hack
 		int beingUpdatedColor = rgba(hack.getBeingUpdatedChunksColorI(), 34);
 		int oldVersionColor = rgba(hack.getOldGenerationChunksColorI(), 32);
 		
-		renderChunkSet(context, cfg, hack.getOldChunks(), oldColor);
-		renderChunkSet(context, cfg, hack.getNewChunks(), newColor);
-		renderChunkSet(context, cfg, hack.getBlockExploitChunks(), blockColor);
-		renderChunkSet(context, cfg, hack.getBeingUpdatedChunks(),
-			beingUpdatedColor);
-		renderChunkSet(context, cfg, hack.getOldGenerationChunks(),
-			oldVersionColor);
+		if(MC.player == null)
+			return;
+		
+		// Compute a conservative chunk radius covered by the minimap
+		double zoomBlocks =
+			MapRenderService.zoomToBlocksPerPixel(cfg.minimapZoom);
+		double half = cfg.minimapSize / 2.0 * zoomBlocks;
+		int chunkRadius = (int)Math.ceil((half * 1.6) / 16.0); // 1.6x to cover
+																// rotation
+		int cx = MC.player.chunkPosition().x();
+		int cz = MC.player.chunkPosition().z();
+		
+		Set<ChunkPos> visOld = hack.getOldChunksInRange(cx, cz, chunkRadius);
+		Set<ChunkPos> visNew = hack.getNewChunksInRange(cx, cz, chunkRadius);
+		Set<ChunkPos> visBeing =
+			hack.getBeingUpdatedChunksInRange(cx, cz, chunkRadius);
+		Set<ChunkPos> visOldGen =
+			hack.getOldGenerationChunksInRange(cx, cz, chunkRadius);
+		Set<ChunkPos> visBlock =
+			hack.getBlockExploitChunksInRange(cx, cz, chunkRadius);
+		
+		// Cheap overlap filtering for block-exploit: exclude already classified
+		if(!visBlock.isEmpty())
+		{
+			visBlock.removeIf(cp -> visNew.contains(cp) || visOld.contains(cp)
+				|| visBeing.contains(cp) || visOldGen.contains(cp));
+		}
+		
+		renderChunkSet(context, cfg, visOld, oldColor);
+		renderChunkSet(context, cfg, visNew, newColor);
+		renderChunkSet(context, cfg, visBlock, blockColor);
+		renderChunkSet(context, cfg, visBeing, beingUpdatedColor);
+		renderChunkSet(context, cfg, visOldGen, oldVersionColor);
 	}
 	
 	private void renderExploredChunksOverlay(GuiGraphicsExtractor context,
