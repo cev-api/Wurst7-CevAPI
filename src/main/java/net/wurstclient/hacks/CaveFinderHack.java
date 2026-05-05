@@ -82,7 +82,7 @@ public final class CaveFinderHack extends Hack
 	public CaveFinderHack()
 	{
 		super("CaveFinder");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(area);
 		addSetting(limit);
 		addSetting(color);

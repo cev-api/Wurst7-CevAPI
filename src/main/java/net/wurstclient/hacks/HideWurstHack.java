@@ -31,7 +31,7 @@ public final class HideWurstHack extends Hack
 	public HideWurstHack()
 	{
 		super("HideWurst");
-		setCategory(Category.RENDER);
+		setCategory(Category.TOOLS);
 		addSetting(hideUiMixins);
 		addSetting(hideFromModMenu);
 		addSetting(hideToggleChat);

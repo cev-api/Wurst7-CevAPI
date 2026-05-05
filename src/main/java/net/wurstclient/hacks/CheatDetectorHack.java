@@ -164,7 +164,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 	public CheatDetectorHack()
 	{
 		super("CheatDetector");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(detectSpeed);
 		addSetting(speedThreshold);
 		addSetting(cancelDuration);

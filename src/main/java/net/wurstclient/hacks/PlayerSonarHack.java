@@ -96,7 +96,7 @@ public final class PlayerSonarHack extends Hack
 		super("PlayerSonar",
 			"Detects likely player activity outside 128 blocks by scoring world-change packet patterns.",
 			false);
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(showBoxes);
 		addSetting(onlyBeyondPlayerEspRange);
 		addSetting(showTracers);

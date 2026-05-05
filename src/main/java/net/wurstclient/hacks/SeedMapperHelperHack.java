@@ -313,7 +313,7 @@ public final class SeedMapperHelperHack extends Hack
 	public SeedMapperHelperHack()
 	{
 		super("SeedMapperHelper");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		
 		addPossibleKeybind(".say /sm:clear", "SeedMapper: Clear overlays");
 		addPossibleKeybind(".say /sm:stoptask",

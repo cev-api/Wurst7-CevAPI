@@ -22,7 +22,7 @@ public final class TimerHack extends Hack implements UpdateListener
 	public TimerHack()
 	{
 		super("Timer");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(speed);
 	}
 	

@@ -64,7 +64,7 @@ public final class UiUtilsHack extends Hack
 	public UiUtilsHack()
 	{
 		super("UI-Utils");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(pluginScanButton);
 		addSetting(slotOverlayEnabled);
 		addSetting(slotOverlayColor);

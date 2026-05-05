@@ -115,7 +115,7 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public GameStatsHack()
 	{
 		super("GameStats");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(showFps);
 		addSetting(showTps);
 		addSetting(showPing);

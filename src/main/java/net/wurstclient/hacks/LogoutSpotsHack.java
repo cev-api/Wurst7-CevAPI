@@ -85,7 +85,7 @@ public final class LogoutSpotsHack extends Hack
 	public LogoutSpotsHack()
 	{
 		super("LogoutSpots");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(sideColor);
 		addSetting(lineColor);
 		addSetting(scale);

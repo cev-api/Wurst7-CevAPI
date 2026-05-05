@@ -217,7 +217,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	public TunnelHoleStairEspHack()
 	{
 		super("TunnelHoleStairESP");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(style);
 		addSetting(detectionMode);
 		addSetting(stickyArea);

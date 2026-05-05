@@ -19,6 +19,7 @@ public final class OtfList
 {
 	public final AntiFingerprintOtf antiFingerprintOtf =
 		new AntiFingerprintOtf();
+	public final PacketToolsOtf packetToolsOtf = new PacketToolsOtf();
 	public final ChangelogOtf changelogOtf = new ChangelogOtf();
 	public final CleanUpOtf cleanUpOtf = new CleanUpOtf();
 	public final ConnectionLogOverlayOtf connectionLogOverlayOtf =
@@ -36,7 +37,6 @@ public final class OtfList
 	public final NoChatReportsOtf noChatReportsOtf = new NoChatReportsOtf();
 	public final NoTelemetryOtf noTelemetryOtf = new NoTelemetryOtf();
 	public final PacketFirewallOtf packetFirewallOtf = new PacketFirewallOtf();
-	public final PacketToolsOtf packetToolsOtf = new PacketToolsOtf();
 	public final ReconnectOtf reconnectOtf = new ReconnectOtf();
 	public final ServerFinderOtf serverFinderOtf = new ServerFinderOtf();
 	public final TabGuiOtf tabGuiOtf = new TabGuiOtf();

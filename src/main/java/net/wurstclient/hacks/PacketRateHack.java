@@ -44,7 +44,7 @@ public final class PacketRateHack extends Hack
 	public PacketRateHack()
 	{
 		super("PacketRate");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(limiterEnabled);
 		addSetting(limit);
 	}

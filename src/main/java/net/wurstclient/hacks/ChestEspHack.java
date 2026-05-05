@@ -385,6 +385,9 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				if(enforceAboveGround && entity.getY() < yLimit)
 					continue;
 				
+				if(shouldSkipEntityByExclusiveContainerFilters(entity))
+					continue;
+				
 				groups.entityGroups
 					.forEach(group -> group.addIfMatches(entity));
 			}
@@ -1816,6 +1819,25 @@ public class ChestEspHack extends Hack implements UpdateListener,
 				return false;
 		}
 		
+		return true;
+	}
+	
+	private boolean shouldSkipEntityByExclusiveContainerFilters(Entity e)
+	{
+		boolean restrictToSelectedFamilies = doubleChestsOnly.isChecked()
+			|| shulkersOnly.isChecked() || enderChestsOnly.isChecked();
+		if(!restrictToSelectedFamilies)
+			return false;
+		if(e == null)
+			return true;
+		// Exclusive container filters target block-container families.
+		// Entity containers (minecarts/boats) should not pass these filters.
+		if(e instanceof MinecartChest || e instanceof AbstractChestBoat)
+			return true;
+		// Hopper carts are not part of any exclusive block family.
+		if(e instanceof MinecartHopper)
+			return true;
+		// Default: exclude entity when exclusive filters are set.
 		return true;
 	}
 	
