@@ -406,17 +406,16 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopOn);
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
-		// Chunk-trail steering tunables
-		addSetting(noTrailAbortSeconds);
-		addSetting(aheadScanChunks);
-		addSetting(sideScanHalfWidth);
-		addSetting(singleWallNudgeStrength);
 		addSetting(stopKeyword2);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
 		addSetting(disableOnPlayers);
 		addSetting(disableOnDamage);
 		addSetting(suppressChunkTrailRender);
+		addSetting(noTrailAbortSeconds);
+		addSetting(aheadScanChunks);
+		addSetting(sideScanHalfWidth);
+		addSetting(singleWallNudgeStrength);
 	}
 	
 	@Override
@@ -732,6 +731,10 @@ public final class AutoFlyHack extends Hack
 				return;
 			clearPathingState();
 		}
+		
+		// Guard against currentTarget becoming null after the initial checks
+		if(currentTarget == null)
+			return;
 		
 		double radius = targetRadius.getValue();
 		Vec3 playerPos = MC.player.position();
