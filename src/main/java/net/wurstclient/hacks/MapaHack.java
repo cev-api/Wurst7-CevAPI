@@ -209,7 +209,7 @@ public final class MapaHack extends Hack
 	public MapaHack()
 	{
 		super("Mapa");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(openWorldMapButton);
 		addSetting(noMap);
 		addSetting(espIconsEnabled);

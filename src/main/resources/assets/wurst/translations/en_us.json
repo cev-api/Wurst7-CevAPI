@@ -591,8 +591,8 @@
   "description.wurst.hack.noplayerchat": "Filters player chat with optional join/leave, whisper, death-message, and keyword-rule controls.",
   "hack.wurst.coordlogger": "CoordLogger",
   "description.wurst.hack.coordlogger": "Logs coordinates vanilla world events. World events are grouped so you can filter them in the ClickGUI. Events out of range will give directional advice rather than pinpoint coordinates.",
-  "description.wurst.hack.commandscanner": "Sends /a through /z as autocomplete probes, collects suggested root commands, and reports unique non-vanilla commands."
-  ,"hack.wurst.renderadjust": "RenderAdjust",
+  "description.wurst.hack.commandscanner": "Sends /a through /z as autocomplete probes, collects suggested root commands, and reports unique non-vanilla commands.",
+  "hack.wurst.renderadjust": "RenderAdjust",
   "description.wurst.hack.renderadjust": "Recolor or remove fog and sky passes, and hide common server-side decorative renders like holograms, boss bars, and scoreboards.",
   "hack.wurst.viewmodel": "Viewmodel",
   "description.wurst.hack.viewmodel": "Customize hand/item position, rotation, opacity, tint, and artificial glint for left and right hands."

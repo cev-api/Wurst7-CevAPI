@@ -48,7 +48,7 @@ public final class ForceOpHack extends Hack implements ChatInputListener
 	public ForceOpHack()
 	{
 		super("ForceOP");
-		setCategory(Category.CHAT);
+		setCategory(Category.TOOLS);
 	}
 	
 	@Override

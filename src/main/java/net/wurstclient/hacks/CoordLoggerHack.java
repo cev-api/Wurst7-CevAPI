@@ -252,7 +252,7 @@ public final class CoordLoggerHack extends Hack
 	public CoordLoggerHack()
 	{
 		super("CoordLogger");
-		setCategory(Category.OTHER);
+		setCategory(Category.INTEL);
 		
 		// Settings in ClickGUI
 		addSetting(minDistance);

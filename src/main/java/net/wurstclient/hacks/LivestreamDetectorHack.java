@@ -99,7 +99,7 @@ public final class LivestreamDetectorHack extends Hack implements UpdateListener
 	public LivestreamDetectorHack()
 	{
 		super("LivestreamDetector");
-		setCategory(Category.OTHER);
+		setCategory(Category.INTEL);
 		addSetting(autoScanEnabled);
 		addSetting(scanIntervalMinutes);
 		addSetting(scanOnlyJoin);

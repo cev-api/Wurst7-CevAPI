@@ -133,7 +133,7 @@ public final class MiningEvidenceHack extends Hack
 	public MiningEvidenceHack()
 	{
 		super("MiningEvidence");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(lineColor);
 		addSetting(pointColor);
 		addSetting(tracerColor);

@@ -312,7 +312,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	public BaseFinderHack()
 	{
 		super("BaseFinder");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(naturalBlocks);
 		addSetting(color);
 		addSetting(minY);

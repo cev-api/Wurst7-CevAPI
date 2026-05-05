@@ -14,6 +14,8 @@ public enum Category
 	MOVEMENT("Movement"),
 	COMBAT("Combat"),
 	RENDER("Render"),
+	INTEL("Intel"),
+	TOOLS("Tools"),
 	CHAT("Chat"),
 	FUN("Fun"),
 	ITEMS("Items"),

@@ -127,7 +127,7 @@ public final class PacketToolsOtf extends OtherFeature
 	@Override
 	public Category getCategory()
 	{
-		return Category.OTHER;
+		return Category.TOOLS;
 	}
 	
 	@Override

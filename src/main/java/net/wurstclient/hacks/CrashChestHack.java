@@ -27,7 +27,7 @@ public final class CrashChestHack extends Hack
 	{
 		super("CrashChest");
 		
-		setCategory(Category.ITEMS);
+		setCategory(Category.TOOLS);
 	}
 	
 	@Override

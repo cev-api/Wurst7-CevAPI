@@ -60,7 +60,7 @@ public final class KickForensicsHack extends Hack
 	public KickForensicsHack()
 	{
 		super("KickForensics");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(windowSeconds);
 	}
 	

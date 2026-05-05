@@ -113,7 +113,7 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 	public BundleDupeHack()
 	{
 		super("BundleDupe");
-		setCategory(Category.ITEMS);
+		setCategory(Category.TOOLS);
 		
 		addSetting(dupeMethod);
 		addSetting(timeoutSeconds);

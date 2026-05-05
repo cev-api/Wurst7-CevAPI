@@ -218,7 +218,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	public OfflineSettingsHack()
 	{
 		super("OfflineSettings");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(crackedDetection);
 		addSetting(autoReconnect);
 		addSetting(randomName);

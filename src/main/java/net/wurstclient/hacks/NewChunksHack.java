@@ -88,7 +88,7 @@ public final class NewChunksHack extends Hack
 	public NewChunksHack()
 	{
 		super("NewChunks");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(style);
 		addSetting(show);
 		addSetting(showReasons);

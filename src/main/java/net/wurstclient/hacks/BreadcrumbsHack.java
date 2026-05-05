@@ -150,7 +150,7 @@ public final class BreadcrumbsHack extends Hack
 	public BreadcrumbsHack()
 	{
 		super("Breadcrumbs");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		addSetting(color);
 		addSetting(target);
 		addSetting(otherColor);

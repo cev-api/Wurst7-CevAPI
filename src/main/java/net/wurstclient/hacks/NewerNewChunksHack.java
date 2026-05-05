@@ -505,7 +505,7 @@ public final class NewerNewChunksHack extends Hack
 	public NewerNewChunksHack()
 	{
 		super("NewerNewChunks");
-		setCategory(Category.RENDER);
+		setCategory(Category.INTEL);
 		
 		addSetting(detectMode);
 		addSetting(paletteExploit);

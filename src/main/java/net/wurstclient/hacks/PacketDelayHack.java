@@ -43,7 +43,7 @@ public final class PacketDelayHack extends Hack
 	public PacketDelayHack()
 	{
 		super("PacketDelay");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(delayS2c);
 		addSetting(delayC2s);
 		addSetting(timeDelay);

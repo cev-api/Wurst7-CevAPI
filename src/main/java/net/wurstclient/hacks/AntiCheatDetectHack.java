@@ -78,7 +78,7 @@ public final class AntiCheatDetectHack extends Hack
 	public AntiCheatDetectHack()
 	{
 		super("AntiCheatDetect");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(setbackDetection);
 		addSetting(suppressUnknown);
 		addSetting(detectGlobalAntiEsp);

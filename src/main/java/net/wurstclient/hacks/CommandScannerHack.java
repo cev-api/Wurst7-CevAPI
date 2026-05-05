@@ -105,7 +105,7 @@ public final class CommandScannerHack extends Hack
 	public CommandScannerHack()
 	{
 		super("CommandScanner");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(scanMode);
 		addSetting(debugProbe);
 		addSetting(runFoundCommands);

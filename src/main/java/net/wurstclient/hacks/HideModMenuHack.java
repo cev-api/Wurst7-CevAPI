@@ -27,7 +27,7 @@ public final class HideModMenuHack extends Hack
 	public HideModMenuHack()
 	{
 		super("HideModMenu");
-		setCategory(Category.OTHER);
+		setCategory(Category.TOOLS);
 		addSetting(keywords);
 	}
 	

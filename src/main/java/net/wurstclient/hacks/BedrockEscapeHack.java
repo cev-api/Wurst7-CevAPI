@@ -152,6 +152,13 @@ public final class BedrockEscapeHack extends Hack
 	private boolean surfaceXrayWasEnabled;
 	private double surfaceXrayPreviousOpacity;
 	private List<String> surfaceXrayPreviousBlocks = Collections.emptyList();
+	
+	/*
+	 * Debounce counter to avoid rapid apply/restore cycles when camera
+	 * or position jitter crosses the bedrock detection threshold.
+	 */
+	private int shiftSurfaceXrayCounter = 0;
+	private static final int SHIFT_SURFACE_XRAY_STABLE_TICKS = 3;
 	private final ArrayDeque<ChunkPos> shaftScanQueue = new ArrayDeque<>();
 	private final HashSet<ChunkPos> queuedShaftChunks = new HashSet<>();
 	private final HashMap<ChunkPos, ArrayList<ShaftCandidate>> shaftsByChunk =
@@ -293,9 +300,22 @@ public final class BedrockEscapeHack extends Hack
 		boolean shouldApply = shiftSurfaceXray.isChecked()
 			&& (shiftInBedrockContext || autoWhenTargetAbove);
 		
+		// Update debounce counter
 		if(shouldApply)
+		{
+			if(shiftSurfaceXrayCounter < SHIFT_SURFACE_XRAY_STABLE_TICKS)
+				shiftSurfaceXrayCounter++;
+		}else
+		{
+			if(shiftSurfaceXrayCounter > 0)
+				shiftSurfaceXrayCounter--;
+		}
+		
+		boolean stableApply =
+			shiftSurfaceXrayCounter >= SHIFT_SURFACE_XRAY_STABLE_TICKS;
+		if(stableApply)
 			applyShiftSurfaceXrayOverride();
-		else
+		else if(shiftSurfaceXrayCounter == 0)
 			restoreShiftSurfaceXrayOverride();
 	}
 	

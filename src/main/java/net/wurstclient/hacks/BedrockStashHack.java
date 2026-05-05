@@ -87,7 +87,7 @@ public final class BedrockStashHack extends Hack
 	public BedrockStashHack()
 	{
 		super("BedrockStash");
-		setCategory(Category.RENDER);
+		setCategory(Category.OTHER);
 		addSetting(area);
 		addSetting(chunksPerTick);
 		addSetting(verticalRange);

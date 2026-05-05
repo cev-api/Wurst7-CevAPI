@@ -21,7 +21,6 @@ import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
 import net.wurstclient.util.ConnectionLogOverlay;
 
@@ -60,34 +59,6 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 		
 		Font font = minecraft.font;
 		overlay.layoutLoginOverlay(font, width, height);
-		
-		graphics.fill(overlay.getOverlayX(), overlay.getOverlayY(),
-			overlay.getOverlayX() + overlay.getOverlayWidth(),
-			overlay.getOverlayY() + overlay.getOverlayHeight(), 0xFF1E1E1E);
-		
-		int borderColor = 0xFF555555;
-		graphics.fill(overlay.getOverlayX(), overlay.getOverlayY(),
-			overlay.getOverlayX() + overlay.getOverlayWidth(),
-			overlay.getOverlayY() + 2, borderColor);
-		graphics.fill(overlay.getOverlayX(),
-			overlay.getOverlayY() + overlay.getOverlayHeight() - 2,
-			overlay.getOverlayX() + overlay.getOverlayWidth(),
-			overlay.getOverlayY() + overlay.getOverlayHeight(), borderColor);
-		graphics.fill(overlay.getOverlayX(), overlay.getOverlayY(),
-			overlay.getOverlayX() + 2,
-			overlay.getOverlayY() + overlay.getOverlayHeight(), borderColor);
-		graphics.fill(overlay.getOverlayX() + overlay.getOverlayWidth() - 2,
-			overlay.getOverlayY(),
-			overlay.getOverlayX() + overlay.getOverlayWidth(),
-			overlay.getOverlayY() + overlay.getOverlayHeight(), borderColor);
-		
-		int textY = overlay.getOverlayY() + 10;
-		for(FormattedCharSequence line : overlay.getOverlayLines())
-		{
-			graphics.text(font, line, overlay.getOverlayX() + 10, textY,
-				0xFFFFFFFF, false);
-			textY += font.lineHeight + 2;
-		}
 		
 		ConnectionLogOverlay.getInstance().render(graphics);
 	}

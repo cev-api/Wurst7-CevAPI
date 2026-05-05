@@ -76,11 +76,21 @@ public final class AutoFlyHack extends Hack
 																// overridden by
 																// setting
 	private static final int CHUNK_WALL_SCAN_RADIUS = 6;
+	private static final int CHUNK_RED_RECOVERY_RADIUS = 8;
+	private static final int CHUNK_NEARBY_SNAP_RADIUS = 3;
+	private static final int CHUNK_EDGE_RECOVERY_STICKY_TICKS = 40;
+	private static final double CHUNK_VERTICAL_DEADBAND_BLOCKS = 6.0;
+	private static final double CHUNK_VERTICAL_HARD_CORRECT_BLOCKS = 12.0;
+	private static final double CHUNK_RECOVERY_MIN_FORWARD_DOT = -0.05;
 	private static final double CHUNK_BACKTRACK_BLOCK_TOLERANCE = 8.0;
 	private static final double CHUNK_MIN_TARGET_LEAD_BLOCKS = 4.0;
 	private static final double CHUNK_RELAXED_TARGET_LEAD_BLOCKS = 0.0;
-	private static final int CHUNK_NO_TARGET_GRACE_TICKS = 30;
+	private static final int CHUNK_NO_TARGET_GRACE_TICKS = 60;
 	private static final double CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS = 20.0;
+	private static final int CHUNK_TRAIL_END_CONFIRM_STRIKES = 3;
+	private static final long CHUNK_FULL_RED_STOP_MS = 3000L;
+	private static final long CHUNK_NO_GREEN_STOP_MS = 3000L;
+	private static final int WORLD_STATE_MISSING_TICK_GRACE = 40;
 	
 	public static enum RouteType
 	{
@@ -290,6 +300,12 @@ public final class AutoFlyHack extends Hack
 	private Vec3 chunkCorridorForwardAxis;
 	private Vec3 chunkCorridorTargetPos;
 	private int chunkNoTargetTicks;
+	private int chunkTrailEndConfirmStrikes;
+	private long chunkFullyRedSinceMs;
+	private long chunkNoGreenSinceMs;
+	private ChunkPos chunkEdgeRecoveryAnchor;
+	private int chunkEdgeRecoveryTicks;
+	private int missingWorldStateTicks;
 	private double chunkForwardProgressMax;
 	private boolean chunkForwardProgressInitialized;
 	private final ArrayDeque<ChunkPos> recentChunkCorridorChunks =
@@ -492,6 +508,12 @@ public final class AutoFlyHack extends Hack
 		chunkForwardProgressInitialized = false;
 		chunkCorridorForwardAxis = null;
 		chunkNoTargetTicks = 0;
+		chunkTrailEndConfirmStrikes = 0;
+		chunkFullyRedSinceMs = 0L;
+		chunkNoGreenSinceMs = 0L;
+		chunkEdgeRecoveryAnchor = null;
+		chunkEdgeRecoveryTicks = 0;
+		missingWorldStateTicks = 0;
 		closeHorizLatched = false;
 		stopScanCooldown = 0;
 		stopBlockCoordinator = null;
@@ -599,6 +621,7 @@ public final class AutoFlyHack extends Hack
 		stopIgnoreTicks = 0;
 		chunkTrailPortalCoordinator = null;
 		chunkTrailPortalScanCooldown = 0;
+		missingWorldStateTicks = 0;
 		applyChunkTrailRenderSuppression(false);
 	}
 	
@@ -607,9 +630,16 @@ public final class AutoFlyHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 		{
-			setEnabled(false);
+			missingWorldStateTicks++;
+			if(missingWorldStateTicks >= WORLD_STATE_MISSING_TICK_GRACE)
+			{
+				ChatUtils.message(
+					"AutoFly disabled: world/player unavailable for 2s.");
+				setEnabled(false);
+			}
 			return;
 		}
+		missingWorldStateTicks = 0;
 		
 		long updateNow = System.currentTimeMillis();
 		if(lastUpdateMs > 0L && updateNow - lastUpdateMs > 1000L)
@@ -638,12 +668,13 @@ public final class AutoFlyHack extends Hack
 			selectNextTarget(false);
 			if(currentTarget == null)
 			{
-				setEnabled(false);
+				disableAutoFlyWithReason(
+					"AutoFly disabled: no reachable targets.");
 				return;
 			}
 		}
 		if(chunkRoute && currentTarget == null)
-			setForwardFromCommand(null, null, false);
+			setForwardFromCommand(null, null, true);
 		
 		if(chunkRoute)
 		{
@@ -775,6 +806,12 @@ public final class AutoFlyHack extends Hack
 		if(cruisingRoute)
 		{
 			desiredY = cruiseY;
+			if(chunkRoute && chunkAssistActive)
+			{
+				if(chunkCorridorTargetPos == null
+					|| isBedrockCeilingAbove(playerPos))
+					desiredY = Math.min(desiredY, playerPos.y);
+			}
 		}else if(currentTarget.hasY)
 		{
 			boolean approachHoriz = distHoriz <= descentStartRadius;
@@ -859,8 +896,29 @@ public final class AutoFlyHack extends Hack
 		if(finalLanding)
 			autoSetKey(MC.options.keyShift, true);
 		
-		applyVerticalAssist(playerPos, yDiff, nearTargetY);
-		updateVerticalControls(yDiff, nearTargetY);
+		if(chunkRoute && chunkAssistActive)
+		{
+			// Prevent jump/sneak thrashing near chunk-edge recovery lines.
+			if(Math.abs(yDiff) <= CHUNK_VERTICAL_DEADBAND_BLOCKS)
+			{
+				verticalMode = VerticalMode.NONE;
+				autoSetKey(MC.options.keyJump, false);
+				autoSetKey(MC.options.keyShift, false);
+			}else
+			{
+				// Only apply vertical correction when we're meaningfully off
+				// cruise altitude.
+				double chunkYDiff = yDiff;
+				if(Math.abs(chunkYDiff) < CHUNK_VERTICAL_HARD_CORRECT_BLOCKS)
+					chunkYDiff = Math.signum(chunkYDiff)
+						* CHUNK_VERTICAL_HARD_CORRECT_BLOCKS;
+				updateVerticalControls(chunkYDiff, false);
+			}
+		}else
+		{
+			applyVerticalAssist(playerPos, yDiff, nearTargetY);
+			updateVerticalControls(yDiff, nearTargetY);
+		}
 		if(anyAutoKeyDown())
 			lastAutoControlMs = now;
 		
@@ -1847,7 +1905,7 @@ public final class AutoFlyHack extends Hack
 		
 		if(disableAutoFlyOnArrival.isChecked())
 		{
-			setEnabled(false);
+			disableAutoFlyWithReason("AutoFly disabled: arrival reached.");
 			return;
 		}
 		
@@ -2129,12 +2187,17 @@ public final class AutoFlyHack extends Hack
 		chunkForwardProgressMax = Double.NEGATIVE_INFINITY;
 		chunkForwardProgressInitialized = false;
 		chunkNoTargetTicks = 0;
+		chunkTrailEndConfirmStrikes = 0;
+		chunkFullyRedSinceMs = 0L;
+		chunkNoGreenSinceMs = 0L;
+		chunkEdgeRecoveryAnchor = null;
+		chunkEdgeRecoveryTicks = 0;
 		targets.clear();
 		currentIndex = -1;
 		currentTarget = null;
 		chunkTrailPath.clear();
 		chunkCorridorAnchor = null;
-		setForwardFromCommand(null, null, false);
+		setForwardFromCommand(null, null, true);
 	}
 	
 	private void refreshUnlimitedForwardTarget()
@@ -2177,6 +2240,106 @@ public final class AutoFlyHack extends Hack
 			|| chunkCorridorForwardAxis.lengthSqr() < 1.0E-6)
 			chunkCorridorForwardAxis = chunkCorridorHeading;
 		
+		java.util.Set<ChunkPos> newSet = chunks.getNewChunksLiveView();
+		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos nearbySafe = findNearestUsableOldTrailChunk(oldTrail, newSet,
+			playerChunk, CHUNK_NEARBY_SNAP_RADIUS, chunkCorridorForwardAxis);
+		boolean playerOnUsableGreen =
+			isOldTrailNotNew(oldTrail, newSet, playerChunk);
+		if(playerOnUsableGreen)
+		{
+			chunkEdgeRecoveryAnchor = null;
+			chunkEdgeRecoveryTicks = 0;
+		}
+		if(!playerOnUsableGreen && nearbySafe != null)
+		{
+			ChunkPos recoveryTargetChunk = nearbySafe;
+			if(chunkEdgeRecoveryAnchor != null && chunkEdgeRecoveryTicks > 0
+				&& isOldTrailNotNew(oldTrail, newSet, chunkEdgeRecoveryAnchor))
+			{
+				recoveryTargetChunk = chunkEdgeRecoveryAnchor;
+				chunkEdgeRecoveryTicks--;
+			}else
+			{
+				chunkEdgeRecoveryAnchor = nearbySafe;
+				chunkEdgeRecoveryTicks = CHUNK_EDGE_RECOVERY_STICKY_TICKS;
+			}
+			
+			if(playerChunk.equals(recoveryTargetChunk))
+			{
+				chunkEdgeRecoveryAnchor = null;
+				chunkEdgeRecoveryTicks = 0;
+			}
+			
+			Vec3 recoveryPos =
+				Vec3.atCenterOf(chunkCenter(recoveryTargetChunk));
+			if(!isRecoveryTargetForwardCompatible(playerChunk,
+				recoveryTargetChunk, chunkCorridorForwardAxis))
+			{
+				recoveryPos = null;
+			}
+			
+			if(recoveryPos != null)
+				chunkCorridorTargetPos = recoveryPos;
+			else
+				chunkCorridorTargetPos = null;
+			chunkNoTargetTicks++;
+			chunkTrailEndConfirmStrikes = 0;
+			chunkNoGreenSinceMs = 0L;
+			return;
+		}
+		
+		if(isFullyWithinNewChunkArea(playerChunk, newSet))
+		{
+			long nowMs = System.currentTimeMillis();
+			if(chunkFullyRedSinceMs <= 0L)
+				chunkFullyRedSinceMs = nowMs;
+			else if(nowMs - chunkFullyRedSinceMs >= CHUNK_FULL_RED_STOP_MS)
+			{
+				chunkCorridorTargetPos = null;
+				PathProcessor.releaseControls();
+				resetAutoKeyFlags();
+				clearMovementKeys();
+				stopAutoFly("Stopped: Fully inside new chunks for 3s");
+				return;
+			}
+		}else
+		{
+			chunkFullyRedSinceMs = 0L;
+		}
+		
+		Vec3 earlyForward = chunkCorridorForwardAxis != null
+			? chunkCorridorForwardAxis : chunkCorridorHeading;
+		if(earlyForward == null || earlyForward.lengthSqr() < 1.0E-6)
+			earlyForward = getHorizontalLookDirection();
+		Vec3 earlyAxis = new Vec3(earlyForward.x, 0.0, earlyForward.z);
+		Vec3 earlyRight = earlyAxis.lengthSqr() > 1.0E-6
+			? new Vec3(-earlyAxis.z, 0.0, earlyAxis.x)
+			: new Vec3(1.0, 0.0, 0.0);
+		boolean hasNearbyUsableGreen =
+			hasAnyUsableOldTrailNearby(oldTrail, newSet, playerChunk, 1);
+		boolean hasAheadUsableGreen = hasOldTrailAheadFromNearbyOrigins(
+			oldTrail, newSet, playerChunk, earlyAxis, earlyRight,
+			getAheadScanChunks(), getSideScanHalfWidth(), 2);
+		if(!hasNearbyUsableGreen && !hasAheadUsableGreen)
+		{
+			long nowMs = System.currentTimeMillis();
+			if(chunkNoGreenSinceMs <= 0L)
+				chunkNoGreenSinceMs = nowMs;
+			else if(nowMs - chunkNoGreenSinceMs >= CHUNK_NO_GREEN_STOP_MS)
+			{
+				chunkCorridorTargetPos = null;
+				PathProcessor.releaseControls();
+				resetAutoKeyFlags();
+				clearMovementKeys();
+				stopAutoFly("Stopped: No green corridor for 3s");
+				return;
+			}
+		}else
+		{
+			chunkNoGreenSinceMs = 0L;
+		}
+		
 		Vec3 playerPos = MC.player.position();
 		double playerForwardProgress = Double.NaN;
 		if(chunkCorridorOrigin != null && chunkCorridorForwardAxis != null
@@ -2212,6 +2375,30 @@ public final class AutoFlyHack extends Hack
 			playerForwardProgress);
 		if(targetPos == null)
 		{
+			ChunkPos chunkAtPlayerNow =
+				ChunkPos.containing(MC.player.blockPosition());
+			if(newSet.contains(chunkAtPlayerNow))
+			{
+				Vec3 recoveryTarget =
+					selectRedRecoveryTarget(oldTrail, newSet, chunkAtPlayerNow,
+						chunkCorridorForwardAxis, playerForwardProgress);
+				if(recoveryTarget != null)
+				{
+					ChunkPos rc = ChunkPos
+						.containing(BlockPos.containing(recoveryTarget));
+					if(!isRecoveryTargetForwardCompatible(chunkAtPlayerNow, rc,
+						chunkCorridorForwardAxis))
+						recoveryTarget = null;
+				}
+				if(recoveryTarget != null)
+				{
+					chunkNoTargetTicks++;
+					chunkTrailEndConfirmStrikes = 0;
+					chunkCorridorTargetPos = recoveryTarget;
+					return;
+				}
+			}
+			
 			// Keep moving forward even without detected borders. Use current
 			// forward axis (or look direction) to set a provisional target.
 			chunkNoTargetTicks++;
@@ -2236,8 +2423,6 @@ public final class AutoFlyHack extends Hack
 			
 			// Single/both-wall avoidance: nudge away from red walls and
 			// center between them when both are detected.
-			java.util.Set<ChunkPos> newSet =
-				WURST.getHax().newerNewChunksHack.getNewChunksLiveView();
 			Vec3 right = new Vec3(-axis.z, 0.0, axis.x);
 			ChunkPos pChunk = ChunkPos.containing(MC.player.blockPosition());
 			int leftDist = distanceToNearestNewWall(newSet, pChunk, right, -1,
@@ -2264,20 +2449,23 @@ public final class AutoFlyHack extends Hack
 				
 			// If we've been blind to green for too long and there is no
 			// old-chunk trail ahead within a reasonable search window,
-			// treat it as end-of-trail and stop.
-			if(chunkNoTargetTicks > getNoTargetAbortTicks())
+			// keep cruising instead of hard-stopping.
+			// Add extra buffer (grace ticks) to account for chunk loading
+			// delays.
+			if(chunkNoTargetTicks > getNoTargetAbortTicks()
+				+ CHUNK_NO_TARGET_GRACE_TICKS)
 			{
-				boolean ahead = hasOldTrailAhead(oldTrail, newSet,
-					ChunkPos.containing(MC.player.blockPosition()), axis, right,
-					getAheadScanChunks(), getSideScanHalfWidth());
+				int adaptiveHalfWidth = getAdaptiveAheadScanHalfWidth(
+					getSideScanHalfWidth(), leftDist, rightDist);
+				boolean ahead = hasOldTrailAheadFromNearbyOrigins(oldTrail,
+					newSet, ChunkPos.containing(MC.player.blockPosition()),
+					axis, right, getAheadScanChunks(), adaptiveHalfWidth, 2);
 				if(!ahead)
 				{
-					chunkCorridorTargetPos = null;
-					PathProcessor.releaseControls();
-					resetAutoKeyFlags();
-					clearMovementKeys();
-					stopAutoFly("Stopped: Chunk trail ended or off-track");
-					return;
+					chunkTrailEndConfirmStrikes++;
+				}else
+				{
+					chunkTrailEndConfirmStrikes = 0;
 				}
 			}
 			
@@ -2286,6 +2474,11 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		chunkNoTargetTicks = 0;
+		chunkTrailEndConfirmStrikes = 0;
+		chunkFullyRedSinceMs = 0L;
+		chunkNoGreenSinceMs = 0L;
+		chunkEdgeRecoveryAnchor = null;
+		chunkEdgeRecoveryTicks = 0;
 		chunkCorridorTargetPos = targetPos;
 		ChunkPos anchor = ChunkPos.containing(BlockPos.containing(targetPos));
 		if(chunkCorridorAnchor != null && !anchor.equals(chunkCorridorAnchor))
@@ -2326,8 +2519,180 @@ public final class AutoFlyHack extends Hack
 		chunkForwardProgressMax = Double.NEGATIVE_INFINITY;
 		chunkForwardProgressInitialized = false;
 		chunkNoTargetTicks = 0;
+		chunkTrailEndConfirmStrikes = 0;
+		chunkFullyRedSinceMs = 0L;
+		chunkNoGreenSinceMs = 0L;
+		chunkEdgeRecoveryAnchor = null;
+		chunkEdgeRecoveryTicks = 0;
 		recentChunkCorridorChunks.clear();
 		chunkTrailPath.clear();
+	}
+	
+	private static boolean isFullyWithinNewChunkArea(ChunkPos center,
+		java.util.Set<ChunkPos> newChunks)
+	{
+		if(center == null || newChunks == null || newChunks.isEmpty())
+			return false;
+		
+		for(int dx = -1; dx <= 1; dx++)
+		{
+			for(int dz = -1; dz <= 1; dz++)
+			{
+				ChunkPos pos = new ChunkPos(center.x() + dx, center.z() + dz);
+				if(!newChunks.contains(pos))
+					return false;
+			}
+		}
+		
+		return true;
+	}
+	
+	private static boolean hasAnyUsableOldTrailNearby(
+		java.util.Set<ChunkPos> oldTrail, java.util.Set<ChunkPos> newChunks,
+		ChunkPos center, int radius)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || center == null)
+			return false;
+		
+		int r = Math.max(0, radius);
+		for(int dx = -r; dx <= r; dx++)
+		{
+			for(int dz = -r; dz <= r; dz++)
+			{
+				ChunkPos pos = new ChunkPos(center.x() + dx, center.z() + dz);
+				if(oldTrail.contains(pos)
+					&& (newChunks == null || !newChunks.contains(pos)))
+					return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	private static ChunkPos findNearestUsableOldTrailChunk(
+		java.util.Set<ChunkPos> oldTrail, java.util.Set<ChunkPos> newChunks,
+		ChunkPos center, int radius, Vec3 heading)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || center == null)
+			return null;
+		
+		int r = Math.max(1, radius);
+		Vec3 flatHeading =
+			heading == null ? null : new Vec3(heading.x, 0.0, heading.z);
+		if(flatHeading != null && flatHeading.lengthSqr() > 1.0E-6)
+			flatHeading = flatHeading.normalize();
+		else
+			flatHeading = null;
+		ChunkPos best = null;
+		long bestDistSq = Long.MAX_VALUE;
+		for(int dx = -r; dx <= r; dx++)
+		{
+			for(int dz = -r; dz <= r; dz++)
+			{
+				ChunkPos pos = new ChunkPos(center.x() + dx, center.z() + dz);
+				if(!isOldTrailNotNew(oldTrail, newChunks, pos))
+					continue;
+				if(!isRecoveryTargetForwardCompatible(center, pos, flatHeading))
+					continue;
+				
+				long distSq = (long)dx * dx + (long)dz * dz;
+				if(distSq < bestDistSq)
+				{
+					bestDistSq = distSq;
+					best = pos;
+				}
+			}
+		}
+		
+		return best;
+	}
+	
+	private static boolean isRecoveryTargetForwardCompatible(ChunkPos from,
+		ChunkPos to, Vec3 heading)
+	{
+		if(from == null || to == null || heading == null
+			|| heading.lengthSqr() < 1.0E-6)
+			return true;
+		
+		int dx = to.x() - from.x();
+		int dz = to.z() - from.z();
+		if(dx == 0 && dz == 0)
+			return true;
+		
+		Vec3 dir = new Vec3(dx, 0.0, dz).normalize();
+		Vec3 flatHeading = new Vec3(heading.x, 0.0, heading.z);
+		if(flatHeading.lengthSqr() < 1.0E-6)
+			return true;
+		flatHeading = flatHeading.normalize();
+		
+		// Allow slight sideways/backward correction, but block hard reverse.
+		return dir.dot(flatHeading) >= CHUNK_RECOVERY_MIN_FORWARD_DOT;
+	}
+	
+	private Vec3 selectRedRecoveryTarget(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, ChunkPos playerChunk, Vec3 heading,
+		double playerForwardProgress)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || playerChunk == null)
+			return null;
+		
+		Vec3 flatHeading =
+			heading == null ? null : new Vec3(heading.x, 0.0, heading.z);
+		if(flatHeading != null && flatHeading.lengthSqr() > 1.0E-6)
+			flatHeading = flatHeading.normalize();
+		
+		ChunkPos best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
+		for(int dx =
+			-CHUNK_RED_RECOVERY_RADIUS; dx <= CHUNK_RED_RECOVERY_RADIUS; dx++)
+		{
+			for(int dz =
+				-CHUNK_RED_RECOVERY_RADIUS; dz <= CHUNK_RED_RECOVERY_RADIUS; dz++)
+			{
+				ChunkPos candidate =
+					new ChunkPos(playerChunk.x() + dx, playerChunk.z() + dz);
+				if(!oldTrail.contains(candidate)
+					|| newChunks.contains(candidate))
+					continue;
+				
+				double dist = Math.hypot(dx, dz);
+				if(dist < 0.5)
+					dist = 0.5;
+				
+				double score = -dist * 12.0;
+				if(flatHeading != null)
+				{
+					Vec3 to = chunkDirection(playerChunk, candidate);
+					if(to.lengthSqr() > 1.0E-6)
+						score += to.dot(flatHeading) * 14.0;
+					
+					if(chunkCorridorOrigin != null
+						&& !Double.isNaN(playerForwardProgress))
+					{
+						Vec3 center = Vec3.atCenterOf(chunkCenter(candidate));
+						double progress = projectAlongHeading(center,
+							chunkCorridorOrigin, flatHeading);
+						if(!Double.isNaN(progress))
+						{
+							double delta = progress - playerForwardProgress;
+							score +=
+								Math.max(-24.0, Math.min(24.0, delta * 0.4));
+						}
+					}
+				}
+				
+				if(score > bestScore)
+				{
+					bestScore = score;
+					best = candidate;
+				}
+			}
+		}
+		
+		if(best == null)
+			return null;
+		
+		return Vec3.atCenterOf(chunkCenter(best));
 	}
 	
 	public void setWaypointRouteFromCommand()
@@ -2657,6 +3022,52 @@ public final class AutoFlyHack extends Hack
 			}
 		}
 		return false;
+	}
+	
+	private static boolean hasOldTrailAheadFromNearbyOrigins(
+		java.util.Set<ChunkPos> oldTrail, java.util.Set<ChunkPos> newChunks,
+		ChunkPos origin, Vec3 forward, Vec3 right, int forwardChunks,
+		int halfWidth, int lateralOriginSpan)
+	{
+		if(hasOldTrailAhead(oldTrail, newChunks, origin, forward, right,
+			forwardChunks, halfWidth))
+			return true;
+		
+		int span = Math.max(0, lateralOriginSpan);
+		for(int offset = 1; offset <= span; offset++)
+		{
+			ChunkPos leftOrigin = stepChunk(origin, right, -offset);
+			if(hasOldTrailAhead(oldTrail, newChunks, leftOrigin, forward, right,
+				forwardChunks, halfWidth))
+				return true;
+			
+			ChunkPos rightOrigin = stepChunk(origin, right, offset);
+			if(hasOldTrailAhead(oldTrail, newChunks, rightOrigin, forward,
+				right, forwardChunks, halfWidth))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private static int getAdaptiveAheadScanHalfWidth(int baseHalfWidth,
+		int leftWallDist, int rightWallDist)
+	{
+		int width = Math.max(1, baseHalfWidth);
+		int minWallDist = Integer.MAX_VALUE;
+		if(leftWallDist > 0)
+			minWallDist = Math.min(minWallDist, leftWallDist);
+		if(rightWallDist > 0)
+			minWallDist = Math.min(minWallDist, rightWallDist);
+		
+		if(minWallDist <= 2)
+			width += 3;
+		else if(minWallDist <= 4)
+			width += 2;
+		else if(minWallDist != Integer.MAX_VALUE)
+			width += 1;
+		
+		return Math.max(1, Math.min(16, width));
 	}
 	
 	private static ChunkPos stepChunk(ChunkPos origin, Vec3 direction,
@@ -3263,6 +3674,13 @@ public final class AutoFlyHack extends Hack
 		lastYForProgress = playerPos.y;
 		lastVerticalProgressMs = now;
 		lastAutoControlMs = 0L;
+	}
+	
+	private void disableAutoFlyWithReason(String reason)
+	{
+		if(reason != null && !reason.isBlank())
+			ChatUtils.message(reason);
+		setEnabled(false);
 	}
 	
 	private void beginManualAdjust(Vec3 playerPos)

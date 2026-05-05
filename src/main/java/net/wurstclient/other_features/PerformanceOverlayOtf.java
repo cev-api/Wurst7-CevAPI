@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features;
 
+import net.wurstclient.Category;
+
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.CheckboxSetting;
@@ -58,6 +60,12 @@ public final class PerformanceOverlayOtf extends OtherFeature
 		addSetting(backgroundOpacity);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
+	}
+	
+	@Override
+	public Category getCategory()
+	{
+		return Category.TOOLS;
 	}
 	
 	@Override

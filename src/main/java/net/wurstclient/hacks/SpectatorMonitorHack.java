@@ -88,7 +88,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 	public SpectatorMonitorHack()
 	{
 		super("SpectatorMonitor");
-		setCategory(Category.OTHER);
+		setCategory(Category.INTEL);
 		addSetting(chatAlert);
 		addSetting(soundAlert);
 		addSetting(sound);
