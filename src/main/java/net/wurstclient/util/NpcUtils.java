@@ -21,6 +21,8 @@ public final class NpcUtils
 		Pattern.compile("^\\.[A-Za-z0-9_]{3,16}$");
 	private static final Pattern NPC_STYLE_NAME =
 		Pattern.compile("(?i)^npc[0-9a-f-]{6,}$");
+	private static final Pattern DIGITS_ONLY = Pattern.compile("^\\d{2,16}$");
+	private static final Pattern DOT_DIGITS = Pattern.compile("^\\.\\d{1,6}$");
 	
 	private NpcUtils()
 	{}
@@ -43,6 +45,11 @@ public final class NpcUtils
 		if(normalizedName == null || normalizedName.isEmpty())
 			return true;
 		if(!isValidPlayerName(normalizedName))
+			return true;
+		
+		// Common lobby/bot name styles on some servers.
+		if(DIGITS_ONLY.matcher(normalizedName).matches()
+			|| DOT_DIGITS.matcher(normalizedName).matches())
 			return true;
 		
 		// Many NPC plugins generate names like NPC7facdc7b-679c.

@@ -61,6 +61,7 @@ import net.wurstclient.settings.filters.FilterSleepingSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
+import net.wurstclient.util.NpcUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
@@ -634,18 +635,16 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	private boolean shouldIgnoreNpcCandidate(
 		PlayerRangeAlertManager.PlayerInfo info)
 	{
-		return isLikelyNpc(info == null ? null : info.getUuid(),
-			info == null ? null : info.getName(),
-			info != null && info.isProbablyNpc());
+		if(info == null)
+			return true;
+		if(info.isProbablyNpc())
+			return true;
+		return NpcUtils.isLikelyNpc(info.getUuid(), info.getName());
 	}
 	
 	private boolean isLikelyNpcPlayer(Player player)
 	{
-		if(player == null)
-			return true;
-		
-		return isLikelyNpc(player.getUUID(), player.getName().getString(),
-			false);
+		return NpcUtils.isLikelyNpcPlayer(player);
 	}
 	
 	private boolean isLikelyNpc(UUID uuid, String rawName, boolean flaggedNpc)

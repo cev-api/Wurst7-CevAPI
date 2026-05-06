@@ -1185,6 +1185,7 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.NewChunkData, chunkPos);
+		WURST.getHax().webhookAlertHack.onChunkDetected("new chunk", chunkPos);
 		triggerAlarm(AlarmType.NEW);
 	}
 	
@@ -1203,6 +1204,7 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.OldChunkData, chunkPos);
+		WURST.getHax().webhookAlertHack.onChunkDetected("old chunk", chunkPos);
 		triggerAlarm(AlarmType.OLD);
 	}
 	

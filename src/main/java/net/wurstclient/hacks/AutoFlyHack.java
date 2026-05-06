@@ -1161,8 +1161,10 @@ public final class AutoFlyHack extends Hack
 				continue;
 			
 			String name = safeString(p.getName().getString());
-			ChatUtils.message("Disabled: Player detected"
-				+ (name.isBlank() ? "" : " (" + name + ")"));
+			String message = "Disabled: Player detected"
+				+ (name.isBlank() ? "" : " (" + name + ")");
+			ChatUtils.message(message);
+			WURST.getHax().webhookAlertHack.onAutoFlyStopped(message);
 			setEnabled(false);
 			return true;
 		}
@@ -1178,7 +1180,9 @@ public final class AutoFlyHack extends Hack
 		if(MC.player.hurtTime <= 0)
 			return false;
 		
-		ChatUtils.message("Disabled: You took damage.");
+		String message = "Disabled: You took damage.";
+		ChatUtils.message(message);
+		WURST.getHax().webhookAlertHack.onAutoFlyStopped(message);
 		setEnabled(false);
 		return true;
 	}
@@ -1303,11 +1307,15 @@ public final class AutoFlyHack extends Hack
 		if(disableAutoFlyOnStop.isChecked())
 		{
 			ChatUtils.message(message + " (AutoFly disabled)");
+			WURST.getHax().webhookAlertHack
+				.onAutoFlyStopped(message + " (AutoFly disabled)");
 			setEnabled(false);
 			return;
 		}
 		
 		ChatUtils.message(message + " (use Next waypoint to continue)");
+		WURST.getHax().webhookAlertHack
+			.onAutoFlyStopped(message + " (use Next waypoint to continue)");
 		stopHold = true;
 		stopIgnoreTicks = 0;
 	}
