@@ -285,6 +285,8 @@ public final class HackList implements UpdateListener
 	public final XRayHack xRayHack = new XRayHack();
 	public final WaypointsHack waypointsHack = new WaypointsHack();
 	public final ViewmodelHack viewmodelHack = new ViewmodelHack();
+	public final WebhookAlertHack webhookAlertHack = new WebhookAlertHack();
+	public final OppStatsHack oppStatsHack = new OppStatsHack();
 	public final BreadcrumbsHack breadcrumbsHack = new BreadcrumbsHack();
 	public final LogoutSpotsHack logoutSpotsHack = new LogoutSpotsHack();
 	public final TridentEspHack tridentEspHack = new TridentEspHack();
