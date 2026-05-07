@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import java.util.Map;
 
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
@@ -50,8 +51,18 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private final EnumSetting<ChunkScanMode> chunkScanMode = new EnumSetting<>(
 		"Chunk scan mode",
 		"FULL: Update only when full area scan is done (old behavior).\n"
-			+ "PARTIAL: Update from ready chunks immediately (faster detection).",
+			+ "PARTIAL: Update from ready chunks immediately (faster detection).\n"
+			+ "AUTO: Use FULL while slow and PARTIAL while moving fast.",
 		ChunkScanMode.values(), ChunkScanMode.FULL);
+	private final SliderSetting autoPartialSpeed = new SliderSetting(
+		"Auto partial speed",
+		"Movement speed in blocks/second where AUTO chunk scan mode switches to PARTIAL.",
+		80, 5, 300, 5, ValueDisplay.INTEGER.withSuffix(" b/s"));
+	private final EnumSetting<EspPriorityMode> espPriorityMode =
+		new EnumSetting<>("ESP priority",
+			"OFF: Global ESP limits apply normally.\n"
+				+ "PORTALS_AND_CHESTS: PortalESP and ChestESP bypass global render limits and keep scanning warm while moving fast.",
+			EspPriorityMode.values(), EspPriorityMode.OFF);
 	private final EnumSetting<GlobalEspRenderMode> globalEspRenderMode =
 		new EnumSetting<>("Global ESP render mode",
 			"LEGACY: existing per-hack draw path.\n"
@@ -96,6 +107,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		ChunkSearcher.getBackgroundThreadPriority();
 	private boolean lastDisableAllTracers;
 	private boolean tracerStateInitialized;
+	private Vec3 lastPlayerPos;
+	private double playerSpeedBlocksPerSecond;
 	
 	public GlobalToggleHack()
 	{
@@ -108,6 +121,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(searchThreadPriority);
 		addSetting(setSliderLimitOverride);
 		addSetting(chunkScanMode);
+		addSetting(autoPartialSpeed);
+		addSetting(espPriorityMode);
 		addSetting(globalEspRenderMode);
 		addSetting(globalEspRenderLimitEnabled);
 		addSetting(globalEspRenderLimit);
@@ -136,6 +151,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		var hacks = WURST.getHax();
+		updatePlayerSpeed();
 		
 		// Sticky override --------------------------------------------------
 		boolean stickyOverride = stickyAreaOverride.isChecked();
@@ -210,7 +226,41 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	
 	public boolean usePartialChunkScan()
 	{
-		return chunkScanMode.getSelected() == ChunkScanMode.PARTIAL;
+		return switch(chunkScanMode.getSelected())
+		{
+			case FULL -> false;
+			case PARTIAL -> true;
+			case AUTO -> playerSpeedBlocksPerSecond >= autoPartialSpeed
+				.getValue();
+		};
+	}
+	
+	public double getPlayerSpeedBlocksPerSecond()
+	{
+		return playerSpeedBlocksPerSecond;
+	}
+	
+	public boolean shouldKeepPriorityEspWarm(String source)
+	{
+		return isPriorityEsp(source)
+			&& playerSpeedBlocksPerSecond >= autoPartialSpeed.getValue();
+	}
+	
+	public boolean isPriorityEsp(String source)
+	{
+		if(source == null
+			|| espPriorityMode.getSelected() == EspPriorityMode.OFF)
+			return false;
+		
+		return switch(espPriorityMode.getSelected())
+		{
+			case OFF -> false;
+			case PORTALS_AND_CHESTS -> switch(source.toLowerCase())
+			{
+				case "portalesp", "chestesp" -> true;
+				default -> false;
+			};
+		};
 	}
 	
 	public boolean isSetSliderLimitOverrideAllowed()
@@ -237,9 +287,26 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 			Math.max(0, getGlobalEspRenderLimit()));
 	}
 	
+	public int getEffectiveGlobalEspRenderLimit(String source)
+	{
+		if(isPriorityEsp(source))
+			return 0;
+		
+		return getEffectiveGlobalEspRenderLimit();
+	}
+	
 	public int applyGlobalEspRenderLimit(int localLimit)
 	{
 		int globalLimit = getEffectiveGlobalEspRenderLimit();
+		if(localLimit <= 0 || globalLimit <= 0)
+			return localLimit;
+		
+		return Math.min(localLimit, globalLimit);
+	}
+	
+	public int applyGlobalEspRenderLimit(String source, int localLimit)
+	{
+		int globalLimit = getEffectiveGlobalEspRenderLimit(source);
 		if(localLimit <= 0 || globalLimit <= 0)
 			return localLimit;
 		
@@ -284,6 +351,47 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	private enum ChunkScanMode
 	{
 		FULL,
-		PARTIAL;
+		PARTIAL,
+		AUTO;
+	}
+	
+	private enum EspPriorityMode
+	{
+		OFF("Off"),
+		PORTALS_AND_CHESTS("Portals + Chests");
+		
+		private final String name;
+		
+		private EspPriorityMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
+	private void updatePlayerSpeed()
+	{
+		if(MC.player == null)
+		{
+			lastPlayerPos = null;
+			playerSpeedBlocksPerSecond = 0;
+			return;
+		}
+		
+		Vec3 pos = MC.player.position();
+		if(lastPlayerPos == null)
+		{
+			lastPlayerPos = pos;
+			playerSpeedBlocksPerSecond = 0;
+			return;
+		}
+		
+		playerSpeedBlocksPerSecond = pos.distanceTo(lastPlayerPos) * 20.0;
+		lastPlayerPos = pos;
 	}
 }

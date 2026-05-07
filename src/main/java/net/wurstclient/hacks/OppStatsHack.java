@@ -32,7 +32,6 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -41,8 +40,6 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
-import net.wurstclient.events.ChatInputListener;
-import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.oppstats.OppStatsScreen;
@@ -52,13 +49,10 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.NpcUtils;
 import net.wurstclient.util.json.JsonUtils;
 
-public final class OppStatsHack extends Hack
-	implements UpdateListener, ChatInputListener
+public final class OppStatsHack extends Hack implements UpdateListener
 {
 	private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter
 		.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
-	private static final Pattern DEATH_PHRASE =
-		Pattern.compile("(?i).*(was|fell|died|blew|burned|starved|slain).*");
 	private static final Pattern LOBBY_BOT_NAME =
 		Pattern.compile("^\\s*[:;.,'`~!@#\\-_=+]?\\d{1,4}\\s*$");
 	
@@ -93,14 +87,12 @@ public final class OppStatsHack extends Hack
 		loadCurrentServerData();
 		bootstrapFromTablist();
 		EVENTS.add(UpdateListener.class, this);
-		EVENTS.add(ChatInputListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
-		EVENTS.remove(ChatInputListener.class, this);
 		saveIfNeeded(true);
 	}
 	
@@ -187,48 +179,6 @@ public final class OppStatsHack extends Hack
 		saveIfNeeded(false);
 	}
 	
-	@Override
-	public void onReceivedMessage(ChatInputEvent event)
-	{
-		if(event == null || event.getComponent() == null)
-			return;
-		
-		String msg = event.getComponent().getString();
-		if(msg == null || msg.isBlank())
-			return;
-		
-		boolean vanillaDeath = event.getComponent()
-			.getContents() instanceof TranslatableContents tc
-			&& tc.getKey().startsWith("death.");
-		if(!vanillaDeath && !DEATH_PHRASE.matcher(msg).matches())
-			return;
-		
-		OppRecord victim = null;
-		for(OppRecord rec : records.values())
-			if(msg.startsWith(rec.name + " "))
-			{
-				victim = rec;
-				break;
-			}
-		
-		if(victim == null)
-			return;
-		
-		long now = System.currentTimeMillis();
-		victim.deathCount++;
-		victim.addEvent("Death: " + msg);
-		String killerName = inferKillerName(msg, victim.name);
-		if(killerName != null)
-			for(OppRecord rec : records.values())
-				if(rec.name.equalsIgnoreCase(killerName))
-				{
-					rec.killCount++;
-					rec.addEvent("Kill: " + victim.name + " (" + msg + ")");
-					break;
-				}
-		dirty = true;
-	}
-	
 	private void updateFromLivePlayer(OppRecord rec, Player p, long now)
 	{
 		rec.name = p.getName().getString();
@@ -305,8 +255,7 @@ public final class OppStatsHack extends Hack
 			+ nullToNA(r.gamemode) + "\nMain hand: " + r.mainHand
 			+ "\nOff hand: " + r.offHand + "\nHelmet: " + r.helmet
 			+ "\nChestplate: " + r.chest + "\nLeggings: " + r.legs + "\nBoots: "
-			+ r.boots + "\nKills: " + r.killCount + "\nDeaths: " + r.deathCount
-			+ "\nJoins: " + r.joinCount + "\nLast join: "
+			+ r.boots + "\nJoins: " + r.joinCount + "\nLast join: "
 			+ formatEpoch(r.lastJoinAt) + "\nLast leave: "
 			+ formatEpoch(r.lastLeaveAt) + "\nLast seen: " + lastSeen
 			+ "\nEvent log:\n" + String.join("\n", r.events);
@@ -456,19 +405,6 @@ public final class OppStatsHack extends Hack
 		return value == null || value.isBlank() ? "N/A" : value;
 	}
 	
-	private String inferKillerName(String msg, String victimName)
-	{
-		String lower = msg.toLowerCase(Locale.ROOT);
-		int by = lower.lastIndexOf(" by ");
-		if(by < 0)
-			return null;
-		String suffix = msg.substring(by + 4).trim();
-		for(OppRecord rec : records.values())
-			if(suffix.startsWith(rec.name) && !rec.name.equals(victimName))
-				return rec.name;
-		return null;
-	}
-	
 	private boolean isBotLikeIdentity(UUID uuid, String name)
 	{
 		if(isHardLobbyBotName(name))
@@ -538,8 +474,6 @@ public final class OppStatsHack extends Hack
 		public long lastJoinAt;
 		public long lastLeaveAt;
 		public int joinCount;
-		public int killCount;
-		public int deathCount;
 		public final ArrayList<String> events = new ArrayList<>();
 		
 		public OppRecord(UUID uuid, String name)
@@ -585,8 +519,6 @@ public final class OppStatsHack extends Hack
 			o.addProperty("lastJoinAt", lastJoinAt);
 			o.addProperty("lastLeaveAt", lastLeaveAt);
 			o.addProperty("joinCount", joinCount);
-			o.addProperty("killCount", killCount);
-			o.addProperty("deathCount", deathCount);
 			JsonArray ev = new JsonArray();
 			for(String e : events)
 				ev.add(e);
@@ -621,8 +553,6 @@ public final class OppStatsHack extends Hack
 			r.lastJoinAt = getLong(o, "lastJoinAt", 0L);
 			r.lastLeaveAt = getLong(o, "lastLeaveAt", 0L);
 			r.joinCount = getInt(o, "joinCount", 0);
-			r.killCount = getInt(o, "killCount", 0);
-			r.deathCount = getInt(o, "deathCount", 0);
 			if(o.has("events") && o.get("events").isJsonArray())
 				for(var ev : o.getAsJsonArray("events"))
 					r.events.add(ev.getAsString());

@@ -166,8 +166,7 @@ public final class WebhookAlertHack extends Hack
 		addSetting(playerStoppedMoving);
 		addSetting(autoFlyStopped);
 		addSetting(unexpectedDisconnect);
-
-
+		
 	}
 	
 	@Override
