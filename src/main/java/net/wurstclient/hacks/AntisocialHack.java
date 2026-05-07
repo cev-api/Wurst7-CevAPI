@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.hack.Hack;
@@ -15,6 +16,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.PlayerRangeAlertManager;
 
 @SearchTags({"antisocial", "auto logout", "auto quit", "afk logout"})
@@ -123,23 +125,34 @@ public final class AntisocialHack extends Hack
 		ChatUtils.message("\u00a76Antisocial:\u00a7r " + intruder
 			+ " entered your range. Leaving via " + selectedMode + " mode.");
 		
-		leave(selectedMode);
+		leave(selectedMode, intruder, info.getLastPos());
 	}
 	
-	private void leave(Mode selectedMode)
+	private void leave(Mode selectedMode, String intruder, Vec3 intruderPos)
 	{
+		String details = "Detected player: " + intruder + "\nDetected at: "
+			+ formatVec(intruderPos);
+		
 		switch(selectedMode)
 		{
-			case QUIT -> AutoLeaveHack.Mode.QUIT.leave();
-			case CHARS -> AutoLeaveHack.Mode.CHARS.leave();
-			case SELFHURT -> AutoLeaveHack.Mode.SELFHURT.leave();
+			case QUIT -> AutoLeaveHack.Mode.QUIT.leave(details);
+			case CHARS -> AutoLeaveHack.Mode.CHARS.leave(details);
+			case SELFHURT -> AutoLeaveHack.Mode.SELFHURT.leave(details);
 			case COMMAND ->
 			{
 				if(!runLeaveCommand())
 				{
 					ChatUtils.error(
 						"Antisocial: Command mode selected but command is empty. Falling back to Quit mode.");
-					AutoLeaveHack.Mode.QUIT.leave();
+					AutoLeaveHack.Mode.QUIT.leave(details);
+				}else
+				{
+					DisconnectContext.markExpectedDisconnect(DisconnectContext
+						.buildAutoDisconnectDetails("Antisocial", "Command",
+							MC.player == null ? null
+								: MC.player.blockPosition(),
+							details + "\nCommand: "
+								+ command.getValue().trim()));
 				}
 			}
 		}
@@ -175,5 +188,14 @@ public final class AntisocialHack extends Hack
 	public void onPlayerExit(PlayerRangeAlertManager.PlayerInfo info)
 	{
 		// not needed
+	}
+	
+	private static String formatVec(Vec3 vec)
+	{
+		if(vec == null)
+			return "unknown";
+		
+		return String.format(java.util.Locale.ROOT, "%.1f, %.1f, %.1f", vec.x,
+			vec.y, vec.z);
 	}
 }

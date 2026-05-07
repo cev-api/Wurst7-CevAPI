@@ -7,7 +7,7 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.world.item.Items;
 import net.wurstclient.Category;
@@ -18,6 +18,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"auto leave", "AutoDisconnect", "auto disconnect", "AutoQuit",
@@ -95,13 +96,21 @@ public final class AutoLeaveHack extends Hack implements UpdateListener
 		if(currentHealth <= 0F || currentHealth > health.getValueF() * 2F)
 			return;
 		
+		int totemCount = InventoryUtils.count(Items.TOTEM_OF_UNDYING, 40, true);
+		boolean totemGateEnabled = totems.getValueI() < 11;
+		
 		// check totems
-		if(totems.getValueI() < 11 && InventoryUtils
-			.count(Items.TOTEM_OF_UNDYING, 40, true) > totems.getValueI())
+		if(totemGateEnabled && totemCount > totems.getValueI())
 			return;
 		
+		String triggerDetails =
+			buildTriggerDetails(currentHealth, totemCount, totemGateEnabled);
+		
 		// leave server
-		mode.getSelected().leave();
+		if(mode.getSelected() == Mode.QUIT)
+			quitWithReason(triggerDetails);
+		else
+			mode.getSelected().leave(triggerDetails);
 		
 		// disable
 		setEnabled(false);
@@ -112,18 +121,29 @@ public final class AutoLeaveHack extends Hack implements UpdateListener
 	
 	public static enum Mode
 	{
-		QUIT("Quit",
-			() -> MC.level.disconnect(ClientLevel.DEFAULT_QUIT_MESSAGE)),
+		QUIT("Quit", AutoLeaveHack::quitWithReason),
 		
-		CHARS("Chars", () -> MC.getConnection().sendChat("\u00a7")),
+		CHARS("Chars", details -> {
+			DisconnectContext.markExpectedDisconnect(DisconnectContext
+				.buildAutoDisconnectDetails("AutoLeave", "Chars",
+					MC.player == null ? null : MC.player.blockPosition(),
+					details));
+			MC.getConnection().sendChat("\u00a7");
+		}),
 		
-		SELFHURT("SelfHurt", () -> MC.getConnection()
-			.send(new ServerboundAttackPacket(MC.player.getId())));
+		SELFHURT("SelfHurt", details -> {
+			DisconnectContext.markExpectedDisconnect(DisconnectContext
+				.buildAutoDisconnectDetails("AutoLeave", "SelfHurt",
+					MC.player == null ? null : MC.player.blockPosition(),
+					details));
+			MC.getConnection()
+				.send(new ServerboundAttackPacket(MC.player.getId()));
+		});
 		
 		private final String name;
-		private final Runnable leave;
+		private final java.util.function.Consumer<String> leave;
 		
-		private Mode(String name, Runnable leave)
+		private Mode(String name, java.util.function.Consumer<String> leave)
 		{
 			this.name = name;
 			this.leave = leave;
@@ -137,7 +157,47 @@ public final class AutoLeaveHack extends Hack implements UpdateListener
 		
 		public void leave()
 		{
-			leave.run();
+			leave.accept(null);
 		}
+		
+		public void leave(String details)
+		{
+			leave.accept(details);
+		}
+	}
+	
+	private static void quitWithReason(String details)
+	{
+		if(MC.level == null)
+			return;
+		
+		Component reason = DisconnectContext.createAutoQuitReason("AutoLeave",
+			MC.player == null ? null : MC.player.blockPosition(), details);
+		DisconnectContext.markExpectedDisconnect(reason.getString());
+		MC.level.disconnect(reason);
+	}
+	
+	private String buildTriggerDetails(float currentHealth, int totemCount,
+		boolean totemGateEnabled)
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append("Trigger: health threshold reached").append("\nMode: ")
+			.append(mode.getSelected()).append("\nHealth: ")
+			.append(String.format(java.util.Locale.ROOT,
+				"%.1f hearts (%.1f hp)", currentHealth / 2F, currentHealth))
+			.append(" <= ")
+			.append(
+				String.format(java.util.Locale.ROOT, "%.1f hearts (%.1f hp)",
+					health.getValueF(), health.getValueF() * 2F))
+			.append("\nTotems: ").append(totemCount).append(" in inventory")
+			.append("\nTotem rule: ");
+		
+		if(totemGateEnabled)
+			sb.append("leave when totems <= ").append(totems.getValueI());
+		else
+			sb.append("ignored (setting = ").append(totems.getValueI())
+				.append(")");
+		
+		return sb.toString();
 	}
 }

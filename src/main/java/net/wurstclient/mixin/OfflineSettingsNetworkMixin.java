@@ -28,6 +28,8 @@ public abstract class OfflineSettingsNetworkMixin
 	{
 		WurstClient.INSTANCE.getHax().kickForensicsHack
 			.onDisconnected(details.reason());
+		WurstClient.INSTANCE.getHax().webhookAlertHack
+			.onDisconnected(details.reason());
 		OfflineSettingsHack hack =
 			WurstClient.INSTANCE.getHax().offlineSettingsHack;
 		
