@@ -50,6 +50,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.NpcUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 
@@ -61,6 +62,7 @@ public final class WebhookAlertHack extends Hack
 		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 	private static final long STOPPED_MOVING_MS = 5000L;
 	private static final long STARVING_COOLDOWN_MS = 60000L;
+	private static final long WEBHOOK_RATE_LIMIT_COOLDOWN_MS = 15000L;
 	private static final int PORTAL_SCAN_RADIUS = 4;
 	
 	private final TextFieldSetting webhookUrl = new TextFieldSetting(
@@ -103,6 +105,10 @@ public final class WebhookAlertHack extends Hack
 	private final CheckboxSetting autoFlyStopped =
 		new CheckboxSetting("AutoFly stopped",
 			"Send a webhook when AutoFly stops due to a stop condition.", true);
+	private final CheckboxSetting unexpectedDisconnect = new CheckboxSetting(
+		"Unexpected disconnect",
+		"Send a webhook when the game disconnects unexpectedly (e.g. network issue).",
+		true);
 	private final CheckboxSetting chatFeedback =
 		new CheckboxSetting("Chat feedback",
 			"Show local chat warnings if a webhook cannot be sent.", false);
@@ -133,6 +139,7 @@ public final class WebhookAlertHack extends Hack
 	private int lastHurtTime;
 	private int lastFoodLevel = -1;
 	private long lastStarvingAlertMs;
+	private long webhookCooldownUntilMs;
 	private Vec3 lastMovingPos;
 	private long lastMovedMs;
 	private boolean stoppedMovingAlertSent;
@@ -145,6 +152,8 @@ public final class WebhookAlertHack extends Hack
 			"Sends selected client-side alerts to a Discord webhook.", false);
 		setCategory(Category.OTHER);
 		addSetting(webhookUrl);
+		addSetting(chatFeedback);
+		addSetting(ignoreNpcs);
 		addSetting(mentionAliases);
 		addSetting(mentions);
 		addSetting(playerEnterRange);
@@ -155,9 +164,10 @@ public final class WebhookAlertHack extends Hack
 		addSetting(oldChunkDetection);
 		addSetting(chunkAlertTravelDistance);
 		addSetting(playerStoppedMoving);
-		addSetting(ignoreNpcs);
 		addSetting(autoFlyStopped);
-		addSetting(chatFeedback);
+		addSetting(unexpectedDisconnect);
+
+
 	}
 	
 	@Override
@@ -260,6 +270,20 @@ public final class WebhookAlertHack extends Hack
 			+ "\n" + localPlayerStatus() + "\n" + worldStatus());
 	}
 	
+	public void onDisconnected(Component reason)
+	{
+		if(!isEnabled() || !unexpectedDisconnect.isChecked())
+			return;
+		
+		if(DisconnectContext.consumeRecentExpectedDisconnect())
+			return;
+		
+		send("Unexpected disconnect",
+			"Time: " + now() + "\nReason: "
+				+ (reason == null ? "unknown" : safe(reason.getString())) + "\n"
+				+ localPlayerStatus() + "\n" + worldStatus());
+	}
+	
 	private void resetState()
 	{
 		lastHealth = MC.player == null ? -1F : MC.player.getHealth();
@@ -270,6 +294,7 @@ public final class WebhookAlertHack extends Hack
 		lastMovedMs = System.currentTimeMillis();
 		stoppedMovingAlertSent = false;
 		lastStarvingAlertMs = 0L;
+		webhookCooldownUntilMs = 0L;
 		lastNewChunkAlertPos = null;
 		lastOldChunkAlertPos = null;
 		seenPortalPositions.clear();
@@ -475,6 +500,8 @@ public final class WebhookAlertHack extends Hack
 		String url = webhookUrl.getValue();
 		if(url == null || url.isBlank())
 			return;
+		if(isWebhookOnCooldown())
+			return;
 		
 		String content = "**" + safe(title) + "**\n" + safe(body);
 		if(content.length() > 1900)
@@ -486,6 +513,9 @@ public final class WebhookAlertHack extends Hack
 	
 	private void postWebhook(String url, String payload)
 	{
+		if(isWebhookOnCooldown())
+			return;
+		
 		try
 		{
 			HttpURLConnection conn =
@@ -504,7 +534,12 @@ public final class WebhookAlertHack extends Hack
 			}
 			
 			int code = conn.getResponseCode();
-			if(code < 200 || code >= 300)
+			if(code == 429)
+			{
+				markWebhookRateLimited();
+				reportError(
+					"Discord webhook rate-limited (HTTP 429). Pausing for 15 seconds.");
+			}else if(code < 200 || code >= 300)
 				reportError("Discord webhook returned HTTP " + code + ".");
 			
 			conn.disconnect();
@@ -518,6 +553,17 @@ public final class WebhookAlertHack extends Hack
 	{
 		if(chatFeedback.isChecked() && MC != null)
 			MC.execute(() -> ChatUtils.error("WebhookAlert: " + message));
+	}
+	
+	private boolean isWebhookOnCooldown()
+	{
+		return System.currentTimeMillis() < webhookCooldownUntilMs;
+	}
+	
+	private void markWebhookRateLimited()
+	{
+		webhookCooldownUntilMs =
+			System.currentTimeMillis() + WEBHOOK_RATE_LIMIT_COOLDOWN_MS;
 	}
 	
 	private String localPlayerStatus()

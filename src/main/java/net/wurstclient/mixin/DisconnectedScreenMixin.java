@@ -44,6 +44,7 @@ import net.wurstclient.navigator.NavigatorListScreen;
 import net.wurstclient.nochatreports.ForcedChatReportsScreen;
 import net.wurstclient.nochatreports.NcrModRequiredScreen;
 import net.wurstclient.options.EnterProfileNameScreen;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.LastServerRememberer;
 
 @Mixin(value = DisconnectedScreen.class, remap = false)
@@ -167,6 +168,8 @@ public class DisconnectedScreenMixin extends Screen
 			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
 		
 		offlineSettingsHack.handleDisconnect(reason);
+		String autoLeaveDetails =
+			DisconnectContext.consumePendingDisconnectDetails();
 		boolean loginElsewhere = isLoginElsewhere(reason);
 		boolean crackedServer = offlineSettingsHack.wasLastServerCracked();
 		
@@ -176,11 +179,18 @@ public class DisconnectedScreenMixin extends Screen
 			if(overlayReason == null)
 				overlayReason = Component.literal(
 					crackedServer ? "Cracked server detected" : "Disconnected");
+			if(autoLeaveDetails != null && !autoLeaveDetails.isBlank())
+				overlayReason = Component.literal(
+					overlayReason.getString() + "\n\n" + autoLeaveDetails);
 			showLoginOverlay(offlineSettingsHack, overlayReason);
 			
 			if(loginElsewhere
 				&& offlineSettingsHack.consumeAutoReconnectRequest())
 				offlineSettingsHack.performAutoReconnect(parent);
+		}else if(autoLeaveDetails != null && !autoLeaveDetails.isBlank())
+		{
+			showLoginOverlay(offlineSettingsHack,
+				Component.literal(autoLeaveDetails));
 		}else
 			hideLoginOverlay();
 		

@@ -266,6 +266,7 @@ public final class NewerNewChunksHack extends Hack
 	
 	// Region-bucket indices (32x32 chunk tiles) for O(visible) queries
 	private static final int REGION_SHIFT = 5; // 32x32 tiles
+	private static final int WEBHOOK_MIN_THICKNESS_CHUNKS = 6;
 	private final Map<Long, Set<ChunkPos>> idxNew = new ConcurrentHashMap<>();
 	private final Map<Long, Set<ChunkPos>> idxOld = new ConcurrentHashMap<>();
 	private final Map<Long, Set<ChunkPos>> idxTick = new ConcurrentHashMap<>();
@@ -1185,7 +1186,9 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.NewChunkData, chunkPos);
-		WURST.getHax().webhookAlertHack.onChunkDetected("new chunk", chunkPos);
+		if(isThickEnoughForWebhook(chunkPos, newChunksView))
+			WURST.getHax().webhookAlertHack.onChunkDetected("new chunk",
+				chunkPos);
 		triggerAlarm(AlarmType.NEW);
 	}
 	
@@ -1204,7 +1207,9 @@ public final class NewerNewChunksHack extends Hack
 		indexRemove(idxOldGen, chunkPos);
 		if(saveChunkData.isChecked())
 			saveChunk(Paths.OldChunkData, chunkPos);
-		WURST.getHax().webhookAlertHack.onChunkDetected("old chunk", chunkPos);
+		if(isThickEnoughForWebhook(chunkPos, oldChunksView))
+			WURST.getHax().webhookAlertHack.onChunkDetected("old chunk",
+				chunkPos);
 		triggerAlarm(AlarmType.OLD);
 	}
 	
@@ -1742,6 +1747,40 @@ public final class NewerNewChunksHack extends Hack
 						result.add(cp);
 			}
 		return result;
+	}
+	
+	private boolean isThickEnoughForWebhook(ChunkPos chunkPos,
+		Set<ChunkPos> chunks)
+	{
+		if(chunkPos == null || chunks == null || chunks.isEmpty())
+			return false;
+		
+		int requiredThickness = WEBHOOK_MIN_THICKNESS_CHUNKS;
+		int runX = getChunkRunLength(chunkPos, 1, 0, chunks, requiredThickness);
+		int runZ = getChunkRunLength(chunkPos, 0, 1, chunks, requiredThickness);
+		return runX >= requiredThickness && runZ >= requiredThickness;
+	}
+	
+	private static int getChunkRunLength(ChunkPos center, int stepX, int stepZ,
+		Set<ChunkPos> chunks, int limit)
+	{
+		int run = 1;
+		for(int dir : new int[]{-1, 1})
+		{
+			for(int i = 1; i < limit; i++)
+			{
+				ChunkPos candidate = new ChunkPos(center.x() + stepX * i * dir,
+					center.z() + stepZ * i * dir);
+				if(!chunks.contains(candidate))
+					break;
+				
+				run++;
+				if(run >= limit)
+					return run;
+			}
+		}
+		
+		return run;
 	}
 	
 	private void confirmDeleteChunkData()

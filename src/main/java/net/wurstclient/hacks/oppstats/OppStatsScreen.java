@@ -14,6 +14,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -25,12 +27,15 @@ import net.wurstclient.hacks.OppStatsHack;
 import net.wurstclient.hacks.OppStatsHack.OppRecord;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
+import org.lwjgl.glfw.GLFW;
 
 public final class OppStatsScreen extends Screen
 {
 	private final Screen previous;
 	private final OppStatsHack hack;
 	private OppList list;
+	private Button onlineButton;
+	private Button historicalButton;
 	private Button copyButton;
 	private Button copyEventsButton;
 	private boolean showOnline = true;
@@ -59,14 +64,17 @@ public final class OppStatsScreen extends Screen
 			top, 24, hack, showOnline);
 		addWidget(list);
 		
-		addRenderableWidget(Button.builder(Component.literal("Online"), b -> {
-			showOnline = true;
-			list.reload(showOnline);
-		}).bounds(16, 12, 100, 20).build());
 		addRenderableWidget(
+			onlineButton = Button.builder(Component.literal("Online"), b -> {
+				showOnline = true;
+				list.reload(showOnline);
+				updateModeButtonLabels();
+			}).bounds(16, 12, 100, 20).build());
+		addRenderableWidget(historicalButton =
 			Button.builder(Component.literal("Historical"), b -> {
 				showOnline = false;
 				list.reload(showOnline);
+				updateModeButtonLabels();
 			}).bounds(122, 12, 110, 20).build());
 		copyButton = addRenderableWidget(Button
 			.builder(Component.literal("Copy Profile"), b -> copySelected())
@@ -77,6 +85,7 @@ public final class OppStatsScreen extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Close"), b -> onClose())
 				.bounds(width - 120, height - 32, 100, 20).build());
+		updateModeButtonLabels();
 	}
 	
 	@Override
@@ -88,9 +97,20 @@ public final class OppStatsScreen extends Screen
 			list.reload(showOnline);
 			nextReloadAt = System.currentTimeMillis() + 700L;
 		}
+		updateModeButtonLabels();
 		boolean hasSelection = list.getSingleSelected() != null;
 		copyButton.active = hasSelection;
 		copyEventsButton.active = hasSelection;
+	}
+	
+	private void updateModeButtonLabels()
+	{
+		if(onlineButton != null)
+			onlineButton.setMessage(Component
+				.literal("Online (" + hack.getOnlineRecords().size() + ")"));
+		if(historicalButton != null)
+			historicalButton.setMessage(Component.literal(
+				"Historical (" + hack.getHistoricalRecords().size() + ")"));
 	}
 	
 	private void copySelected()
@@ -120,6 +140,34 @@ public final class OppStatsScreen extends Screen
 	@Override
 	public boolean isPauseScreen()
 	{
+		return false;
+	}
+	
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
+	{
+		if(list != null && list.mouseClicked(event, doubleClick))
+		{
+			setFocused(list);
+			return true;
+		}
+		
+		return super.mouseClicked(event, doubleClick);
+	}
+	
+	@Override
+	public boolean keyPressed(KeyEvent context)
+	{
+		if(context.key() == GLFW.GLFW_KEY_UP)
+			return list != null && list.moveSelection(-1);
+		if(context.key() == GLFW.GLFW_KEY_DOWN)
+			return list != null && list.moveSelection(1);
+		
+		if(super.keyPressed(context))
+			return true;
+		
+		if(list != null && list.keyPressed(context))
+			return true;
 		return false;
 	}
 	
@@ -275,6 +323,7 @@ public final class OppStatsScreen extends Screen
 			+ fmt(selected.absorption) + "  Armor: " + na(selected.armorValue)
 			+ "  Ping: " + na(selected.ping), false));
 		lines.add(new InfoLine("Gamemode: " + na(selected.gamemode), false));
+		lines.add(new InfoLine("", false));
 		lines.add(new InfoLine("Stats", true));
 		lines.add(new InfoLine("Kills: " + selected.killCount + "  Deaths: "
 			+ selected.deathCount + "  Joins: " + selected.joinCount, false));
@@ -539,6 +588,32 @@ public final class OppStatsScreen extends Screen
 			if(selected.isEmpty())
 				return null;
 			return selected.get(0).record;
+		}
+		
+		boolean moveSelection(int delta)
+		{
+			if(delta == 0)
+				return false;
+			
+			List<Entry> entries = children();
+			if(entries.isEmpty())
+				return false;
+			
+			Entry selected = getSelected();
+			int index = entries.indexOf(selected);
+			if(index < 0)
+				index = delta > 0 ? -1 : entries.size();
+			
+			int next = Math.max(0, Math.min(entries.size() - 1, index + delta));
+			if(next == index)
+				return false;
+			
+			Entry entry = entries.get(next);
+			onEntryClicked(entry, false, false);
+			double targetScroll =
+				Math.max(0, Math.min(maxScrollAmount(), next * 24.0));
+			setScrollAmount(targetScroll);
+			return true;
 		}
 		
 		@Override
