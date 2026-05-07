@@ -78,6 +78,17 @@ public class ServerFinderScreen extends Screen
 	private final List<WurstServerPinger.ProbeResult> candidates =
 		new ArrayList<>();
 	
+	private boolean compactLogExpanded;
+	private boolean compactDiscoveredExpanded;
+	private int compactLogHeaderX;
+	private int compactLogHeaderY;
+	private int compactLogHeaderW;
+	private int compactLogHeaderH;
+	private int compactDiscoveredHeaderX;
+	private int compactDiscoveredHeaderY;
+	private int compactDiscoveredHeaderW;
+	private int compactDiscoveredHeaderH;
+	
 	public ServerFinderScreen(JoinMultiplayerScreen prevScreen)
 	{
 		super(Component.literal("Server Finder"));
@@ -128,6 +139,9 @@ public class ServerFinderScreen extends Screen
 		maxThreadsBox.setValue("128");
 		addWidget(maxThreadsBox);
 		
+		compactLogExpanded = false;
+		compactDiscoveredExpanded = false;
+		
 		layoutWidgets();
 		state = ServerFinderState.NOT_RUNNING;
 	}
@@ -136,33 +150,47 @@ public class ServerFinderScreen extends Screen
 	{
 		int panelX = getPanelX();
 		int panelY = getPanelY();
-		int leftX = panelX + 18;
+		int leftX = panelX + getPanelPadding();
 		int leftW = getLeftColumnW();
-		int y = panelY + 72;
+		int contentTop = panelY + getHeaderH() + 12;
+		int buttonY = panelY + getPanelH() - getPanelPadding() - 20;
 		
-		ipBox.setPosition(leftX, y + 38);
+		int ipY = contentTop + 34;
+		int minSpacing = isCompactLayout() ? 24 : 36;
+		int maxSpacing = isCompactLayout() ? 32 : 44;
+		int availableSpacing =
+			Math.max(minSpacing * 4, buttonY - (ipY + 20) - 12);
+		int rowSpacing =
+			MathUtils.clamp(availableSpacing / 4, minSpacing, maxSpacing);
+		
+		int threadsY = ipY + rowSpacing;
+		int prefixY = threadsY + rowSpacing;
+		int versionY = prefixY + rowSpacing;
+		int ignoreY = versionY + rowSpacing + (isCompactLayout() ? 5 : 8);
+		
+		ipBox.setPosition(leftX, ipY);
 		ipBox.setWidth(leftW);
 		
-		maxThreadsBox.setPosition(leftX, y + 86);
+		maxThreadsBox.setPosition(leftX, threadsY);
 		maxThreadsBox.setWidth(56);
 		
-		prefixBox.setPosition(leftX, y + 130);
+		prefixBox.setPosition(leftX, prefixY);
 		prefixBox.setWidth(leftW);
 		
-		versionFilterBox.setPosition(leftX, y + 174);
+		versionFilterBox.setPosition(leftX, versionY);
 		versionFilterBox.setWidth(leftW);
 		
-		ignoreWhitelistButton.setPosition(leftX, y + 226);
+		ignoreWhitelistButton.setPosition(leftX, ignoreY);
 		ignoreWhitelistButton.setWidth(leftW);
 		
-		int buttonY = panelY + getPanelH() - 38;
-		int buttonW = (leftW - 12) / 3;
+		int buttonGap = 6;
+		int buttonW = Math.max(58, (leftW - buttonGap * 2) / 3);
 		searchButton.setPosition(leftX, buttonY);
 		searchButton.setWidth(buttonW);
-		retryUnverifiedButton.setPosition(leftX + buttonW + 6, buttonY);
+		retryUnverifiedButton.setPosition(leftX + buttonW + buttonGap, buttonY);
 		retryUnverifiedButton.setWidth(buttonW);
-		backButton.setPosition(leftX + (buttonW + 6) * 2, buttonY);
-		backButton.setWidth(leftW - buttonW * 2 - 12);
+		backButton.setPosition(leftX + (buttonW + buttonGap) * 2, buttonY);
+		backButton.setWidth(Math.max(58, leftW - buttonW * 2 - buttonGap * 2));
 	}
 	
 	private void toggleIgnoreWhitelist()
@@ -908,6 +936,30 @@ public class ServerFinderScreen extends Screen
 			return true;
 		}
 		
+		if(isCompactLayout() && context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		{
+			int mouseX = (int)context.x();
+			int mouseY = (int)context.y();
+			if(isInside(mouseX, mouseY, compactLogHeaderX, compactLogHeaderY,
+				compactLogHeaderW, compactLogHeaderH))
+			{
+				compactLogExpanded = !compactLogExpanded;
+				if(compactLogExpanded)
+					compactDiscoveredExpanded = false;
+				return true;
+			}
+			
+			if(isInside(mouseX, mouseY, compactDiscoveredHeaderX,
+				compactDiscoveredHeaderY, compactDiscoveredHeaderW,
+				compactDiscoveredHeaderH))
+			{
+				compactDiscoveredExpanded = !compactDiscoveredExpanded;
+				if(compactDiscoveredExpanded)
+					compactLogExpanded = false;
+				return true;
+			}
+		}
+		
 		return super.mouseClicked(context, doubleClick);
 	}
 	
@@ -924,14 +976,15 @@ public class ServerFinderScreen extends Screen
 		int panelW = getPanelW();
 		int panelH = getPanelH();
 		int leftW = getLeftColumnW();
-		int leftX = panelX + 18;
-		int rightX = leftX + leftW + 18;
-		int rightW = panelW - leftW - 54;
+		int leftX = panelX + getPanelPadding();
+		int rightX = leftX + leftW + getColumnGap();
+		int rightW = panelW - (leftW + getColumnGap() + getPanelPadding() * 2);
 		
 		drawPanel(context, panelX, panelY, panelW, panelH);
-		context.fill(panelX, panelY, panelX + panelW, panelY + 42, 0xFF18212B);
-		context.fill(panelX, panelY + 41, panelX + panelW, panelY + 42,
-			0xFF2E4050);
+		context.fill(panelX, panelY, panelX + panelW, panelY + getHeaderH(),
+			0xFF18212B);
+		context.fill(panelX, panelY + getHeaderH() - 1, panelX + panelW,
+			panelY + getHeaderH(), 0xFF2E4050);
 		
 		context.drawString(font, "Server Finder", panelX + 18, panelY + 10,
 			CommonColors.WHITE, false);
@@ -942,12 +995,14 @@ public class ServerFinderScreen extends Screen
 		String accountText = hasAuthenticatedSession()
 			? "Account: authenticated" : "Account: offline/cracked";
 		int accountW = font.width(accountText) + 16;
-		drawChip(context, panelX + panelW - accountW - 18, panelY + 10,
-			accountW, accountText,
+		drawChip(context, panelX + panelW - accountW - getPanelPadding(),
+			panelY + 10, accountW, accountText,
 			hasAuthenticatedSession() ? 0xFF1E6D42 : 0xFF7B2D2D);
 		
-		context.fill(leftX + leftW + 9, panelY + 54, leftX + leftW + 10,
-			panelY + panelH - 18, 0xFF2A3541);
+		if(!isCompactLayout())
+			context.fill(leftX + leftW + 9, panelY + getHeaderH() + 12,
+				leftX + leftW + 10, panelY + panelH - getPanelPadding(),
+				0xFF2A3541);
 		
 		context.drawString(font, "Scan Target", leftX, panelY + 58,
 			CommonColors.WHITE, false);
@@ -981,15 +1036,43 @@ public class ServerFinderScreen extends Screen
 			checked + " / " + totalTargets, progress);
 		drawMiniStats(context, leftX, progressY + 54, leftW);
 		
-		int logsY = panelY + 58;
-		int logsH = panelY + panelH - logsY - 18;
+		int logsY =
+			isCompactLayout() ? progressY + 118 : panelY + getHeaderH() + 16;
+		int logsH = panelY + panelH - logsY - getPanelPadding();
 		int gap = 10;
-		int logW = (rightW - gap) / 2;
-		drawListPanel(context, "Live Scan Log", snapshot(liveLog), rightX,
-			logsY, logW, logsH, "Waiting for scan output...");
-		drawDiscoveredPanel(context, "Discovered Servers", snapshot(discovered),
-			rightX + logW + gap, logsY, rightW - logW - gap, logsH,
-			"No servers discovered yet.");
+		if(isCompactLayout())
+		{
+			int collapsedTopH = 24;
+			int expandedY = logsY + collapsedTopH + gap;
+			int expandedH =
+				Math.max(70, panelY + panelH - expandedY - getPanelPadding());
+			
+			drawCollapsibleHeader(context, "Live Scan Log",
+				snapshot(liveLog).size(), leftX, logsY, leftW,
+				compactLogExpanded);
+			drawCollapsibleHeader(context, "Discovered Servers",
+				snapshot(discovered).size(), leftX, logsY + collapsedTopH + 2,
+				leftW, compactDiscoveredExpanded);
+			
+			if(compactLogExpanded)
+				drawListPanel(context, "Live Scan Log", snapshot(liveLog),
+					leftX, expandedY, leftW, expandedH,
+					"Waiting for scan output...");
+			else if(compactDiscoveredExpanded)
+				drawDiscoveredPanel(context, "Discovered Servers",
+					snapshot(discovered), leftX, expandedY, leftW, expandedH,
+					"No servers discovered yet.");
+			else
+				drawCompactHint(context, leftX, expandedY, leftW);
+		}else
+		{
+			int logW = (rightW - gap) / 2;
+			drawListPanel(context, "Live Scan Log", snapshot(liveLog), rightX,
+				logsY, logW, logsH, "Waiting for scan output...");
+			drawDiscoveredPanel(context, "Discovered Servers",
+				snapshot(discovered), rightX + logW + gap, logsY,
+				rightW - logW - gap, logsH, "No servers discovered yet.");
+		}
 		
 		for(Renderable drawable : renderables)
 			drawable.render(context, mouseX, mouseY, partialTicks);
@@ -1053,6 +1136,44 @@ public class ServerFinderScreen extends Screen
 			context.fill(barX, barY, barX + barW * percent / 100, barY + 4,
 				0xFF58A6FF);
 		}
+	}
+	
+	private void drawCollapsibleHeader(GuiGraphics context,
+		String title, int count, int x, int y, int w, boolean expanded)
+	{
+		int h = 22;
+		context.fill(x, y, x + w, y + h, 0xFF17212B);
+		drawBorder(context, x, y, w, h, 0xFF34495A);
+		String prefix = expanded ? "[-] " : "[+] ";
+		context.drawString(font, prefix + title, x + 8, y + 7,
+			CommonColors.WHITE, false);
+		context.drawString(font, Integer.toString(count), x + w - 20, y + 7,
+			0xFF9FB2C4, false);
+		
+		if("Live Scan Log".equals(title))
+		{
+			compactLogHeaderX = x;
+			compactLogHeaderY = y;
+			compactLogHeaderW = w;
+			compactLogHeaderH = h;
+		}else
+		{
+			compactDiscoveredHeaderX = x;
+			compactDiscoveredHeaderY = y;
+			compactDiscoveredHeaderW = w;
+			compactDiscoveredHeaderH = h;
+		}
+	}
+	
+	private void drawCompactHint(GuiGraphics context, int x, int y, int w)
+	{
+		context.fill(x, y, x + w, y + 52, 0xFF0C1117);
+		drawBorder(context, x, y, w, 52, 0xFF34495A);
+		context.drawCenteredString(font, "Tap a panel above to expand it.",
+			x + w / 2, y + 16, 0xFF9FB2C4);
+		context.drawCenteredString(font,
+			"Compact mode keeps one output open at a time.", x + w / 2,
+			y + 29, 0xFF7F92A2);
 	}
 	
 	private void drawListPanel(GuiGraphics context, String title,
@@ -1197,14 +1318,19 @@ public class ServerFinderScreen extends Screen
 		return new ArrayList<>(list);
 	}
 	
+	private boolean isInside(int mouseX, int mouseY, int x, int y, int w, int h)
+	{
+		return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+	}
+	
 	private int getPanelW()
 	{
-		return Math.min(width - 32, 880);
+		return Math.min(width - 8, 920);
 	}
 	
 	private int getPanelH()
 	{
-		return Math.min(height - 24, 520);
+		return Math.min(height - 8, 560);
 	}
 	
 	private int getPanelX()
@@ -1214,12 +1340,34 @@ public class ServerFinderScreen extends Screen
 	
 	private int getPanelY()
 	{
-		return Math.max(12, (height - getPanelH()) / 2);
+		return Math.max(4, (height - getPanelH()) / 2);
 	}
 	
 	private int getLeftColumnW()
 	{
-		return Math.min(260, getPanelW() / 3);
+		if(isCompactLayout())
+			return getPanelW() - getPanelPadding() * 2;
+		return Math.min(290, Math.max(240, getPanelW() / 3));
+	}
+	
+	private boolean isCompactLayout()
+	{
+		return getPanelW() < 760 || getPanelH() < 470;
+	}
+	
+	private int getPanelPadding()
+	{
+		return isCompactLayout() ? 12 : 18;
+	}
+	
+	private int getHeaderH()
+	{
+		return isCompactLayout() ? 36 : 42;
+	}
+	
+	private int getColumnGap()
+	{
+		return isCompactLayout() ? 0 : 18;
 	}
 	
 	@Override

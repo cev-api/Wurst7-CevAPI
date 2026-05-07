@@ -10,6 +10,12 @@ package net.wurstclient.hacks.oppstats;
 import java.util.List;
 import java.util.UUID;
 import java.util.ArrayList;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import com.mojang.authlib.GameProfile;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -31,6 +37,11 @@ import org.lwjgl.glfw.GLFW;
 
 public final class OppStatsScreen extends Screen
 {
+	private static final ConcurrentMap<UUID, Identifier> mojangSkins =
+		new ConcurrentHashMap<>();
+	private static final ConcurrentHashMap.KeySetView<UUID, Boolean> loadingMojangSkins =
+		ConcurrentHashMap.newKeySet();
+	
 	private final Screen previous;
 	private final OppStatsHack hack;
 	private OppList list;
@@ -325,8 +336,7 @@ public final class OppStatsScreen extends Screen
 		lines.add(new InfoLine("Gamemode: " + na(selected.gamemode), false));
 		lines.add(new InfoLine("", false));
 		lines.add(new InfoLine("Stats", true));
-		lines.add(new InfoLine("Kills: " + selected.killCount + "  Deaths: "
-			+ selected.deathCount + "  Joins: " + selected.joinCount, false));
+		lines.add(new InfoLine("Joins: " + selected.joinCount, false));
 		lines.add(new InfoLine("", false));
 		lines.add(new InfoLine("Recent events", true));
 		for(String event : selected.events)
@@ -401,6 +411,7 @@ public final class OppStatsScreen extends Screen
 	private void drawEnchantLines(GuiGraphicsExtractor context, String enchants,
 		int x, int y, int maxW, int maxLines)
 	{
+		enchants = normalizeEnchantText(enchants);
 		if(enchants == null || enchants.isBlank() || enchants.equals("N/A")
 			|| enchants.equals("none"))
 			return;
@@ -465,7 +476,20 @@ public final class OppStatsScreen extends Screen
 		int i = stackText.indexOf("enchants=");
 		if(i < 0)
 			return "N/A";
-		return stackText.substring(i + "enchants=".length()).trim();
+		return normalizeEnchantText(
+			stackText.substring(i + "enchants=".length()).trim());
+	}
+	
+	private String normalizeEnchantText(String text)
+	{
+		if(text == null)
+			return null;
+		
+		String normalized = text.trim();
+		while(normalized.endsWith("]"))
+			normalized =
+				normalized.substring(0, normalized.length() - 1).trim();
+		return normalized;
 	}
 	
 	private String durabilityOnly(String stackText)
@@ -517,10 +541,17 @@ public final class OppStatsScreen extends Screen
 	
 	private Identifier resolveSkin(UUID uuid)
 	{
+		requestMojangSkin(uuid);
+		Identifier mojangSkin = mojangSkins.get(uuid);
+		if(mojangSkin != null)
+			return mojangSkin;
+		
 		PlayerInfo info = minecraft.getConnection() == null ? null
 			: minecraft.getConnection().getPlayerInfo(uuid);
-		return info != null ? info.getSkin().body().texturePath()
-			: DefaultPlayerSkin.get(uuid).body().texturePath();
+		if(info != null)
+			return info.getSkin().body().texturePath();
+		
+		return DefaultPlayerSkin.get(uuid).body().texturePath();
 	}
 	
 	private Identifier resolveCape(UUID uuid)
@@ -545,6 +576,39 @@ public final class OppStatsScreen extends Screen
 		}catch(Exception ignored)
 		{}
 		return null;
+	}
+	
+	private static void requestMojangSkin(UUID uuid)
+	{
+		if(uuid == null || !loadingMojangSkins.add(uuid))
+			return;
+		
+		CompletableFuture.supplyAsync(() -> {
+			Minecraft mc = Minecraft.getInstance();
+			try
+			{
+				var result =
+					mc.services().sessionService().fetchProfile(uuid, false);
+				return result == null ? null : result.profile();
+				
+			}catch(Exception e)
+			{
+				return null;
+			}
+		}).thenCompose(profile -> {
+			if(profile == null)
+				return CompletableFuture.completedFuture(Optional.empty());
+			
+			Minecraft mc = Minecraft.getInstance();
+			return mc.getSkinManager().get((GameProfile)profile);
+		}).thenAccept(optSkin -> {
+			optSkin.ifPresent(
+				skin -> mojangSkins.put(uuid, skin.body().texturePath()));
+			loadingMojangSkins.remove(uuid);
+		}).exceptionally(error -> {
+			loadingMojangSkins.remove(uuid);
+			return null;
+		});
 	}
 	
 	private record SlotView(String label, String raw)
@@ -671,11 +735,18 @@ public final class OppStatsScreen extends Screen
 			
 			private Identifier resolveSkin(UUID uuid)
 			{
+				requestMojangSkin(uuid);
+				Identifier mojangSkin = mojangSkins.get(uuid);
+				if(mojangSkin != null)
+					return mojangSkin;
+				
 				Minecraft mc = Minecraft.getInstance();
 				PlayerInfo info = mc.getConnection() == null ? null
 					: mc.getConnection().getPlayerInfo(uuid);
-				return info != null ? info.getSkin().body().texturePath()
-					: DefaultPlayerSkin.get(uuid).body().texturePath();
+				if(info != null)
+					return info.getSkin().body().texturePath();
+				
+				return DefaultPlayerSkin.get(uuid).body().texturePath();
 			}
 		}
 	}
