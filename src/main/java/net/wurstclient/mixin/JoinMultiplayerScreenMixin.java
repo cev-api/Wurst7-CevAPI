@@ -226,9 +226,17 @@ public class JoinMultiplayerScreenMixin extends Screen
 		updateLastServerButton();
 		
 		if(!WurstClient.INSTANCE.isEnabled())
+		{
+			wurst$setCustomMultiplayerUiVisible(false);
 			return;
+		}
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+		{
+			wurst$setCustomMultiplayerUiVisible(false);
 			return;
+		}
+		
+		wurst$setCustomMultiplayerUiVisible(true);
 		
 		wurst$layoutServerPanels();
 		wurst$ensurePanelWidgets();
@@ -387,6 +395,44 @@ public class JoinMultiplayerScreenMixin extends Screen
 		}
 		
 		wurst$layoutBottomButtons();
+	}
+	
+	@Unique
+	private void wurst$setCustomMultiplayerUiVisible(boolean visible)
+	{
+		if(lastServerButton != null)
+			lastServerButton.visible = visible;
+		if(antiFingerprintButton != null)
+			antiFingerprintButton.visible = visible;
+		if(cornerServerFinderButton != null)
+			cornerServerFinderButton.visible = visible;
+		if(cornerCleanUpButton != null)
+			cornerCleanUpButton.visible = visible;
+		if(cornerAltManagerButton != null)
+			cornerAltManagerButton.visible = visible;
+		if(bypassResourcePackButton != null)
+			bypassResourcePackButton.visible = visible;
+		if(forceDenyResourcePackButton != null)
+			forceDenyResourcePackButton.visible = visible;
+		if(wurst$restorePanelButton != null)
+			wurst$restorePanelButton.visible = visible;
+		if(wurst$exportButton != null)
+			wurst$exportButton.visible = visible;
+		if(wurst$importButton != null)
+			wurst$importButton.visible = visible;
+		
+		for(int i = 0; i < PANEL_COUNT; i++)
+		{
+			if(wurst$panelTitleBoxes[i] != null)
+				wurst$panelTitleBoxes[i].visible = visible;
+			if(wurst$panelLists[i] != null)
+				wurst$panelLists[i].visible = visible;
+			if(wurst$closePanelButtons[i] != null)
+				wurst$closePanelButtons[i].visible = visible;
+			for(int j = 0; j < SORT_LABELS.length; j++)
+				if(wurst$sortButtons[i][j] != null)
+					wurst$sortButtons[i][j].visible = visible;
+		}
 	}
 	
 	@Inject(method = "join(Lnet/minecraft/client/multiplayer/ServerData;)V",
