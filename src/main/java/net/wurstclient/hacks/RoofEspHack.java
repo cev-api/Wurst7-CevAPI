@@ -13,10 +13,12 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
@@ -25,6 +27,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -60,6 +63,9 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Chat alerts",
 			"Sends a chat alert when the number of RoofESP detections changes.",
 			false);
+	private final CheckboxSetting soundAlerts = new CheckboxSetting(
+		"Sound alerts",
+		"Plays a sound when the number of RoofESP detections changes.", false);
 	private final SliderSetting alertCooldown =
 		new SliderSetting("Alert cooldown", "Minimum time between chat alerts.",
 			5, 0, 60, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix("s"));
@@ -86,6 +92,13 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		"Block render limit",
 		"Maximum amount of roof blocks to process each scan. 0 = unlimited.",
 		500, 0, 5000, 1, SliderSetting.ValueDisplay.INTEGER);
+	private final CheckboxSetting detectLowerLadders =
+		new CheckboxSetting("Detect ladders 118-128",
+			"Also detect ladder blocks between Y=118 and Y=127 in the Nether.",
+			false);
+	private final CheckboxSetting ignoreNaturalRoofBlocks =
+		new CheckboxSetting("Ignore natural roof blocks",
+			"Hides natural roof noise blocks (red/brown mushrooms).", true);
 	
 	private final ArrayList<AABB> boxes = new ArrayList<>();
 	private final ArrayList<Vec3> tracerEnds = new ArrayList<>();
@@ -109,6 +122,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		addSetting(highlightFill);
 		addSetting(tracerFlash);
 		addSetting(chatAlerts);
+		addSetting(soundAlerts);
 		addSetting(alertCooldown);
 		addSetting(ignoreOwnDrops);
 		addSetting(showCountInHackList);
@@ -116,6 +130,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		addSetting(area);
 		addSetting(blockScanInterval);
 		addSetting(blockRenderLimit);
+		addSetting(detectLowerLadders);
+		addSetting(ignoreNaturalRoofBlocks);
 	}
 	
 	@Override
@@ -172,7 +188,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		targets.addAll(cachedBlockTargets);
 		collectRoofItems(targets);
 		
-		targets.sort(Comparator.comparingDouble(t -> t.distanceSq));
+		targets.sort(Comparator.comparingDouble(this::distanceSqToPlayer));
 		int limit = getEffectiveGlobalEspLimit();
 		if(limit > 0 && targets.size() > limit)
 			targets.subList(limit, targets.size()).clear();
@@ -202,44 +218,84 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 	
 	private void collectRoofBlocks(ArrayList<Target> targets)
 	{
-		int minY = Math.max(ROOF_Y, MC.level.getMinY());
+		if(MC.level == null)
+			return;
+		
+		int worldMinY = MC.level.getMinY();
+		int minY = Math.max(ROOF_Y, worldMinY);
+		int ladderMinY = Math.max(ROOF_Y - 10, MC.level.getMinY());
+		boolean includeLowerLadders = detectLowerLadders.isChecked();
 		int maxYExclusive = MC.level.getMaxY();
-		if(minY >= maxYExclusive)
+		if(minY >= maxYExclusive && !includeLowerLadders)
 			return;
 		int cap = blockRenderLimit.getValueI();
 		HashSet<Long> dedupe = new HashSet<>();
 		
-		for(LevelChunk chunk : getChunksInScanArea())
+		for(LevelChunk chunk : getChunksInScanAreaSortedByDistance())
 		{
 			if(cap > 0 && targets.size() >= cap)
 				break;
 			
+			LevelChunkSection[] sections = chunk.getSections();
+			if(sections == null || sections.length == 0)
+				continue;
+			
 			BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-			int xStart = chunk.getPos().getMinBlockX();
-			int zStart = chunk.getPos().getMinBlockZ();
-			for(int y = minY; y < maxYExclusive; y++)
+			int scanMinY = includeLowerLadders ? ladderMinY : minY;
+			int firstSectionY = chunk.getMinY() >> 4;
+			int minSectionIndex = Math.max(0, (scanMinY >> 4) - firstSectionY);
+			int maxSectionIndex = Math.min(sections.length - 1,
+				((maxYExclusive - 1) >> 4) - firstSectionY);
+			for(int sectionIndex =
+				minSectionIndex; sectionIndex <= maxSectionIndex; sectionIndex++)
 			{
+				LevelChunkSection section = sections[sectionIndex];
+				if(section == null || section.hasOnlyAir())
+					continue;
+				
 				if(cap > 0 && targets.size() >= cap)
 					break;
-				for(int x = xStart; x < xStart + 16; x++)
+				
+				int baseY = (firstSectionY + sectionIndex) << 4;
+				for(int ly = 0; ly < 16; ly++)
 				{
+					int y = baseY + ly;
+					if(y < scanMinY || y >= maxYExclusive)
+						continue;
+					
 					if(cap > 0 && targets.size() >= cap)
 						break;
-					for(int z = zStart; z < zStart + 16; z++)
+					for(int lx = 0; lx < 16; lx++)
 					{
-						pos.set(x, y, z);
-						Block block = chunk.getBlockState(pos).getBlock();
-						if(block == Blocks.AIR || block == Blocks.CAVE_AIR
-							|| block == Blocks.VOID_AIR)
-							continue;
-						if(block == Blocks.RED_MUSHROOM
-							|| block == Blocks.BROWN_MUSHROOM)
-							continue;
-						long key = pos.asLong();
-						if(!dedupe.add(key))
-							continue;
-						AABB box = new AABB(pos);
-						targets.add(new Target(box, box.getCenter()));
+						if(cap > 0 && targets.size() >= cap)
+							break;
+						int x = chunk.getPos().getMinBlockX() + lx;
+						for(int lz = 0; lz < 16; lz++)
+						{
+							pos.set(x, y, chunk.getPos().getMinBlockZ() + lz);
+							Block block =
+								section.getBlockState(lx, ly, lz).getBlock();
+							if(y < ROOF_Y)
+							{
+								if(!includeLowerLadders
+									|| block != Blocks.LADDER)
+									continue;
+							}else
+							{
+								if(block == Blocks.AIR
+									|| block == Blocks.CAVE_AIR
+									|| block == Blocks.VOID_AIR)
+									continue;
+								if(ignoreNaturalRoofBlocks.isChecked()
+									&& isNaturalRoofBlock(block))
+									continue;
+							}
+							long key = pos.asLong();
+							if(!dedupe.add(key))
+								continue;
+							AABB box = new AABB(pos);
+							targets.add(new Target(box, box.getCenter()));
+						}
 					}
 				}
 			}
@@ -266,6 +322,26 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 			}
 		
 		return chunks;
+	}
+	
+	private List<LevelChunk> getChunksInScanAreaSortedByDistance()
+	{
+		ArrayList<LevelChunk> chunks = new ArrayList<>();
+		for(LevelChunk chunk : getChunksInScanArea())
+			chunks.add(chunk);
+		if(anchorChunk == null)
+			return chunks;
+		chunks.sort(Comparator.comparingInt(chunk -> {
+			int dx = chunk.getPos().x() - anchorChunk.x();
+			int dz = chunk.getPos().z() - anchorChunk.z();
+			return dx * dx + dz * dz;
+		}));
+		return chunks;
+	}
+	
+	private boolean isNaturalRoofBlock(Block block)
+	{
+		return block == Blocks.RED_MUSHROOM || block == Blocks.BROWN_MUSHROOM;
 	}
 	
 	private int getChunkRange(ChunkAreaSetting.ChunkArea selectedArea)
@@ -388,29 +464,45 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 			.getEffectiveGlobalEspRenderLimit();
 	}
 	
+	private double distanceSqToPlayer(Target target)
+	{
+		return MC.player == null ? Double.MAX_VALUE
+			: MC.player.distanceToSqr(target.end());
+	}
+	
 	private void sendAlertIfNeeded(int currentCount)
 	{
-		if(!chatAlerts.isChecked())
+		boolean chatEnabled = chatAlerts.isChecked();
+		boolean soundEnabled = soundAlerts.isChecked();
+		if(!chatEnabled && !soundEnabled)
 		{
 			lastAlertCount = currentCount;
 			return;
 		}
+		
 		if(currentCount == lastAlertCount)
 			return;
+		
 		long now = System.currentTimeMillis();
 		long cooldownMs = alertCooldown.getValueI() * 1000L;
 		if(now - lastAlertMs < cooldownMs)
 			return;
+		
 		lastAlertMs = now;
 		lastAlertCount = currentCount;
-		ChatUtils.component(Component.literal("[RoofESP] ")
-			.withStyle(ChatFormatting.DARK_RED)
-			.append(
-				Component.literal("Detected ").withStyle(ChatFormatting.GRAY))
-			.append(Component.literal(Integer.toString(currentCount))
-				.withStyle(ChatFormatting.RED))
-			.append(Component.literal(" roof targets at/above Y=128.")
-				.withStyle(ChatFormatting.GRAY)));
+		
+		if(chatEnabled)
+			ChatUtils.component(Component.literal("[RoofESP] ")
+				.withStyle(ChatFormatting.DARK_RED)
+				.append(Component.literal("Detected ")
+					.withStyle(ChatFormatting.GRAY))
+				.append(Component.literal(Integer.toString(currentCount))
+					.withStyle(ChatFormatting.RED))
+				.append(Component.literal(" roof targets at/above Y=128.")
+					.withStyle(ChatFormatting.GRAY)));
+		
+		if(soundEnabled && MC.player != null)
+			MC.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.7F, 1.35F);
 	}
 	
 	@Override
@@ -445,12 +537,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private record Target(AABB box, Vec3 end, double distanceSq)
+	private record Target(AABB box, Vec3 end)
 	{
-		private Target(AABB box, Vec3 end)
-		{
-			this(box, end, MC.player == null ? Double.MAX_VALUE
-				: MC.player.distanceToSqr(end));
-		}
+		// compact immutable render target
 	}
 }

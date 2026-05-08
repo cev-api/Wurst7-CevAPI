@@ -59,6 +59,10 @@ public final class ClientChatOverlayHack extends Hack
 		new SliderSetting("Chat font size",
 			"description.wurst.setting.clientchatoverlay.chat_font_scale", 1,
 			0.5, 2, 0.05, ValueDisplay.DECIMAL.withSuffix("x"));
+	private final ColorSetting defaultTextColor = new ColorSetting(
+		"Default text color",
+		"Base text color for overlay chat lines without explicit color styling.",
+		new Color(0xC0C0C0));
 	private final SliderSetting hudOffsetX = new SliderSetting("HUD X offset",
 		0, -320, 320, 1, ValueDisplay.INTEGER);
 	private final SliderSetting hudOffsetY = new SliderSetting("HUD Y offset",
@@ -80,6 +84,7 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(ownUsernameColor);
 		addSetting(maxLines);
 		addSetting(chatFontScale);
+		addSetting(defaultTextColor);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
 	}
@@ -147,6 +152,11 @@ public final class ClientChatOverlayHack extends Hack
 	public SliderSetting getChatFontScaleSetting()
 	{
 		return chatFontScale;
+	}
+	
+	public int getDefaultTextColorI()
+	{
+		return defaultTextColor.getColorI() & 0x00FFFFFF;
 	}
 	
 	public void resetVanillaChatScale()

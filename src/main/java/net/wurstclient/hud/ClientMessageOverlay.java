@@ -449,7 +449,8 @@ public final class ClientMessageOverlay
 			
 			Component stored =
 				shouldColorStoredUsername(message, wurstOnlyPanel)
-					? colorizeChatUsernameIfEnabled(message) : message.copy();
+					? prepareMessageForDisplay(message)
+					: applyDefaultTextColorIfEnabled(message);
 			target.addLast(new Entry(stored, System.currentTimeMillis()));
 		}
 		
@@ -505,6 +506,30 @@ public final class ClientMessageOverlay
 		
 		return colorizeComponentRange(message, sender.start(), sender.end(),
 			rgb, new int[]{0});
+	}
+	
+	public Component prepareMessageForDisplay(Component message)
+	{
+		return applyDefaultTextColorIfEnabled(
+			colorizeChatUsernameIfEnabled(message));
+	}
+	
+	public Component applyDefaultTextColorIfEnabled(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(message == null)
+			return Component.empty();
+		if(hack == null || !hack.isEnabled())
+			return message.copy();
+		
+		int rgb = hack.getDefaultTextColorI();
+		String plain = stripLegacyFormatting(message.getString());
+		SenderSpan sender = extractSenderSpan(plain);
+		if(sender == null || !isPlayerChatSender(sender))
+			return message.copy();
+		
+		return applyDefaultColorToUncoloredStylesInRange(message, rgb,
+			sender.start(), plain.length(), new int[]{0});
 	}
 	
 	private static Component colorizeTranslatableSender(Component message,
@@ -794,6 +819,12 @@ public final class ClientMessageOverlay
 			delimiter.trusted());
 	}
 	
+	private static boolean isPlayerChatSender(SenderSpan sender)
+	{
+		return sender.trustedChatDelimiter()
+			|| isOnlinePlayerName(sender.name());
+	}
+	
 	private static ChatDelimiter findChatDelimiter(String text)
 	{
 		ChatDelimiter best = null;
@@ -994,8 +1025,10 @@ public final class ClientMessageOverlay
 			long now = System.currentTimeMillis();
 			for(Entry message : source.reversed())
 			{
+				Component renderComponent =
+					applyDefaultTextColorIfEnabled(message.component());
 				List<FormattedCharSequence> wrapped =
-					ComponentRenderUtils.wrapComponents(message.component(),
+					ComponentRenderUtils.wrapComponents(renderComponent,
 						maxWidth, WurstClient.MC.font);
 				int alpha =
 					fullOpacity ? 255 : getLineAlpha(now - message.timestamp());
@@ -1008,6 +1041,117 @@ public final class ClientMessageOverlay
 			
 			return lines;
 		}
+	}
+	
+	private static MutableComponent applyDefaultColorToUncoloredStyles(
+		Component component, int rgb)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof TranslatableContents tr)
+		{
+			Object[] args = tr.getArgs();
+			Object[] newArgs = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < newArgs.length; i++)
+			{
+				if(newArgs[i] instanceof Component argComponent)
+					newArgs[i] =
+						applyDefaultColorToUncoloredStyles(argComponent, rgb);
+				else if(newArgs[i] instanceof String argString)
+					newArgs[i] = Component.literal(argString)
+						.withStyle(style -> style.withColor(rgb));
+			}
+			
+			result = Component.translatable(tr.getKey(), newArgs);
+		}else
+			result = MutableComponent.create(component.getContents());
+		
+		net.minecraft.network.chat.Style style = component.getStyle();
+		var textColor = style.getColor();
+		if(textColor == null || isNeutralGray(textColor.getValue()))
+			style = style.withColor(rgb);
+		result.setStyle(style);
+		for(Component sibling : component.getSiblings())
+			result.append(applyDefaultColorToUncoloredStyles(sibling, rgb));
+		
+		return result;
+	}
+	
+	private static MutableComponent applyDefaultColorToUncoloredStylesInRange(
+		Component component, int rgb, int start, int end, int[] offset)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof TranslatableContents tr)
+		{
+			Object[] args = tr.getArgs();
+			Object[] newArgs = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < newArgs.length; i++)
+			{
+				if(newArgs[i] instanceof Component argComponent)
+					newArgs[i] = applyDefaultColorToUncoloredStylesInRange(
+						argComponent, rgb, start, end, offset);
+				else if(newArgs[i] instanceof String argString)
+					newArgs[i] = applyDefaultColorToUncoloredStylesInRange(
+						Component.literal(argString), rgb, start, end, offset);
+			}
+			
+			result = Component.translatable(tr.getKey(), newArgs);
+			result.setStyle(component.getStyle());
+			offset[0] += getOwnTextLength(component);
+		}else if(component.getContents() instanceof LiteralContents literal)
+		{
+			String text = literal.text();
+			result = Component.literal("");
+			int textStart = offset[0];
+			int textEnd = textStart + text.length();
+			if(start < textEnd && end > textStart)
+			{
+				int localStart = Math.max(0, start - textStart);
+				int localEnd = Math.min(text.length(), end - textStart);
+				if(localStart > 0)
+					result
+						.append(Component.literal(text.substring(0, localStart))
+							.withStyle(component.getStyle()));
+				result.append(Component
+					.literal(text.substring(localStart, localEnd))
+					.withStyle(defaultColoredStyle(component.getStyle(), rgb)));
+				if(localEnd < text.length())
+					result.append(Component.literal(text.substring(localEnd))
+						.withStyle(component.getStyle()));
+			}else
+				result.append(
+					Component.literal(text).withStyle(component.getStyle()));
+			offset[0] = textEnd;
+		}else
+		{
+			result = MutableComponent.create(component.getContents());
+			result.setStyle(component.getStyle());
+			offset[0] += getOwnTextLength(component);
+		}
+		
+		for(Component sibling : component.getSiblings())
+			result.append(applyDefaultColorToUncoloredStylesInRange(sibling,
+				rgb, start, end, offset));
+		
+		return result;
+	}
+	
+	private static net.minecraft.network.chat.Style defaultColoredStyle(
+		net.minecraft.network.chat.Style style, int rgb)
+	{
+		var textColor = style.getColor();
+		if(textColor == null || isNeutralGray(textColor.getValue()))
+			return style.withColor(rgb);
+		
+		return style;
+	}
+	
+	private static boolean isNeutralGray(int rgb)
+	{
+		int c = rgb & 0x00FFFFFF;
+		int r = (c >> 16) & 0xFF;
+		int g = (c >> 8) & 0xFF;
+		int b = c & 0xFF;
+		return r == g && g == b && r > 0x10;
 	}
 	
 	private static List<RenderLine> getVisibleLines(List<RenderLine> allLines,
@@ -1174,9 +1318,13 @@ public final class ClientMessageOverlay
 			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
 	}
 	
-	private static void drawPanel(GuiGraphicsExtractor context,
-		List<RenderLine> lines, int drawX, int drawY, float chatScale)
+	private void drawPanel(GuiGraphicsExtractor context, List<RenderLine> lines,
+		int drawX, int drawY, float chatScale)
 	{
+		ClientChatOverlayHack hack = getSettings();
+		int baseTextColor =
+			hack == null ? 0xC0C0C0 : hack.getDefaultTextColorI();
+		
 		context.pose().pushMatrix();
 		context.pose().translate(drawX, drawY);
 		context.pose().scale(chatScale, chatScale);
@@ -1187,7 +1335,7 @@ public final class ClientMessageOverlay
 			int width = WurstClient.MC.font.width(line.text());
 			int alpha = Mth.clamp(line.alpha(), 0, 255);
 			int bgColor = (alpha / 2 << 24) | (BACKGROUND_COLOR & 0x00FFFFFF);
-			int textColor = (alpha << 24) | 0x00FFFFFF;
+			int textColor = (alpha << 24) | (baseTextColor & 0x00FFFFFF);
 			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
 				y + WurstClient.MC.font.lineHeight, bgColor);
 			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,

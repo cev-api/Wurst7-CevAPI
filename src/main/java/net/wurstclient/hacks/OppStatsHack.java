@@ -165,6 +165,8 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			{
 				if(p == MC.player)
 					continue;
+				if(!onlineNow.contains(p.getUUID()))
+					continue;
 				if(ignoreNpcs.isChecked()
 					&& isBotLikeEntity(p.getUUID(), p.getName().getString()))
 					continue;
@@ -182,7 +184,6 @@ public final class OppStatsHack extends Hack implements UpdateListener
 	private void updateFromLivePlayer(OppRecord rec, Player p, long now)
 	{
 		rec.name = p.getName().getString();
-		rec.online = true;
 		rec.lastPos = p.position();
 		rec.lastSeenAt = now;
 		rec.distance = MC.player == null ? Double.NaN : p.distanceTo(MC.player);
@@ -364,6 +365,11 @@ public final class OppStatsHack extends Hack implements UpdateListener
 				OppRecord rec = OppRecord.fromJson(el.getAsJsonObject());
 				records.put(rec.uuid, rec);
 			}
+			
+			// Saved online state is stale across sessions.
+			// Current tab list should be the only source of truth.
+			for(OppRecord rec : records.values())
+				rec.online = false;
 		}catch(Exception e)
 		{
 			ChatUtils.error("OppStats load failed: " + e.getMessage());

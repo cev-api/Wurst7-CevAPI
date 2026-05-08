@@ -11,6 +11,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -321,10 +323,19 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	{
 		if(MC.screen instanceof AbstractContainerScreen)
 		{
-			ChatUtils
-				.error("AutoBuild disabled: container opened during build.");
-			setEnabled(false);
-			return;
+			if(MC.screen instanceof InventoryScreen
+				|| MC.screen instanceof CreativeModeInventoryScreen)
+			{
+				// Allow opening player inventory while building so blocks can
+				// be
+				// moved/restocked without cancelling AutoBuild.
+			}else
+			{
+				ChatUtils.error(
+					"AutoBuild disabled: container opened during build.");
+				setEnabled(false);
+				return;
+			}
 		}
 		
 		int beforeSize = remainingBlocks.size();
