@@ -245,6 +245,8 @@
   "description.wurst.hack.multiaura": "Faster Killaura that attacks multiple entities at once.",
   "description.wurst.hack.nameprotect": "Hides all player names.",
   "description.wurst.hack.nametags": "Changes the scale of the nametags so you can always read them. Also allows you to see the nametags of sneaking players.",
+  "hack.wurst.necomode": "NecoMode",
+  "description.wurst.hack.necomode": "Renders all living entitiesa as Neco-Arc.",
   "description.wurst.hack.navigator": "A searchable GUI that learns your preferences over time.",
   "description.wurst.hack.newchunks": "Highlights newly generated chunks around you.",
   "description.wurst.hack.newernewchunks": "Detects and visualizes old/new chunk boundaries using palette, block-update, and legacy-version signals.",
