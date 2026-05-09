@@ -79,6 +79,7 @@
     "OnlineServerEntryMixin",
     "PackSelectionScreenMixin",
     "PauseScreenMixin",
+    "ParticleEngineMixin",
     "PowderSnowBlockMixin",
     "ScreenEffectRendererMixin",
     "ScreenMixin",

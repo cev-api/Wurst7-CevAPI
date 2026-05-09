@@ -143,6 +143,11 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		return getName();
 	}
 	
+	public int getDetectionCount()
+	{
+		return foundCount;
+	}
+	
 	@Override
 	protected void onEnable()
 	{

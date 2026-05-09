@@ -23,6 +23,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.util.EntityHealthRenderer;
 
 @SearchTags({"mob health", "health", "hearts"})
@@ -53,6 +54,24 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 	private final CheckboxSetting showNames = new CheckboxSetting("Show names",
 		"When enabled, keeps the mob's name and adds health next to it.", true);
 	
+	private final CheckboxSetting showArmor = new CheckboxSetting("Show armor",
+		"Shows the mob's total armor as HUD-style armor icons above hearts.",
+		false);
+	
+	private final CheckboxSetting showHeldItems = new CheckboxSetting(
+		"Show held items",
+		"Shows main-hand/offhand item icons, durability, and potion-effect color indicators.",
+		false);
+	
+	private final EnumSetting<EntityHealthRenderer.DurabilityDisplayMode> durabilityDisplayMode =
+		new EnumSetting<>("Held item durability mode",
+			EntityHealthRenderer.DurabilityDisplayMode.values(),
+			EntityHealthRenderer.DurabilityDisplayMode.PERCENT_ONLY);
+	
+	private final CheckboxSetting showPotionEffectStatus = new CheckboxSetting(
+		"Show potion effect status",
+		"Shows potion-color bottle indicators above held item icons.", true);
+	
 	public MobHealthHack()
 	{
 		super("MobHealth");
@@ -62,6 +81,10 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		addSetting(ignoreNpcs);
 		addSetting(throughWalls);
 		addSetting(showNames);
+		addSetting(showArmor);
+		addSetting(showHeldItems);
+		addSetting(durabilityDisplayMode);
+		addSetting(showPotionEffectStatus);
 	}
 	
 	@Override
@@ -159,7 +182,9 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		float yOffset = shouldShowNames() || shouldShowAsNumber()
 			? HEARTS_Y_WITH_NAMETAG : HEARTS_Y_NO_NAMETAG;
 		EntityHealthRenderer.drawHeartsAtEntity(context, mob, partialTicks,
-			yOffset);
+			yOffset, showArmor.isChecked(), showHeldItems.isChecked(),
+			durabilityDisplayMode.getSelected(),
+			showPotionEffectStatus.isChecked());
 	}
 	
 	private Mob getLookedAtMob()

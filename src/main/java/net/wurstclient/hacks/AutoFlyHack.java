@@ -118,6 +118,7 @@ public final class AutoFlyHack extends Hack
 		MOBS("Mobs"),
 		BLOCKS("Blocks"),
 		ITEMS("Items"),
+		ROOF_ESP("RoofESP"),
 		OLD_CHUNKS("Old chunk"),
 		NEW_CHUNKS("New chunk"),
 		END_PORTAL("End portal"),
@@ -268,6 +269,14 @@ public final class AutoFlyHack extends Hack
 		"Stop keyword 2",
 		"Keyword to match against the second Stop on type (ignored for portals).",
 		"");
+	private final EnumSetting<StopOnType> stopOn3 = new EnumSetting<>(
+		"Stop on 3",
+		"Optional third stop reason. AutoFly stops if any Stop on setting matches.",
+		StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword3 = new TextFieldSetting(
+		"Stop keyword 3",
+		"Keyword to match against the third Stop on type (ignored for portals).",
+		"");
 	private final SliderSetting stopChunkThickness = new SliderSetting(
 		"Chunk stop thickness",
 		"For Old/New chunk stop modes, require this many contiguous matching"
@@ -373,6 +382,8 @@ public final class AutoFlyHack extends Hack
 	private boolean enabledAntisocialForAutoFly;
 	private boolean enabledAutoEatForAutoFly;
 	private boolean enabledAutoLeaveForAutoFly;
+	private boolean enabledNewerNewChunksForStopOn;
+	private boolean enabledRoofEspForStopOn;
 	
 	private boolean closeHorizLatched;
 	private int stopScanCooldown;
@@ -423,6 +434,8 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
 		addSetting(stopKeyword2);
+		addSetting(stopOn3);
+		addSetting(stopKeyword3);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
 		addSetting(disableOnPlayers);
@@ -538,6 +551,8 @@ public final class AutoFlyHack extends Hack
 		enabledAntisocialForAutoFly = false;
 		enabledAutoEatForAutoFly = false;
 		enabledAutoLeaveForAutoFly = false;
+		enabledNewerNewChunksForStopOn = false;
+		enabledRoofEspForStopOn = false;
 		
 		var hax = WURST.getHax();
 		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
@@ -576,9 +591,15 @@ public final class AutoFlyHack extends Hack
 			hax.autoEatHack.setEnabled(false);
 		if(enabledAutoLeaveForAutoFly && hax.autoLeaveHack.isEnabled())
 			hax.autoLeaveHack.setEnabled(false);
+		if(enabledNewerNewChunksForStopOn && hax.newerNewChunksHack.isEnabled())
+			hax.newerNewChunksHack.setEnabled(false);
+		if(enabledRoofEspForStopOn && hax.roofEspHack.isEnabled())
+			hax.roofEspHack.setEnabled(false);
 		enabledAntisocialForAutoFly = false;
 		enabledAutoEatForAutoFly = false;
 		enabledAutoLeaveForAutoFly = false;
+		enabledNewerNewChunksForStopOn = false;
+		enabledRoofEspForStopOn = false;
 		pausedNoY = false;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
@@ -686,6 +707,9 @@ public final class AutoFlyHack extends Hack
 				return;
 			
 			if(checkStopOn(stopOn2, stopKeyword2, true))
+				return;
+			
+			if(checkStopOn(stopOn3, stopKeyword3, false))
 				return;
 			
 			if(checkStopOnPlayers())
@@ -1031,6 +1055,18 @@ public final class AutoFlyHack extends Hack
 				return false;
 			}
 			
+			case ROOF_ESP ->
+			{
+				ensureRoofEspForStopOn();
+				if(WURST.getHax().roofEspHack.isEnabled()
+					&& WURST.getHax().roofEspHack.getDetectionCount() > 0)
+				{
+					stopAutoFly("Stopped: Found RoofESP");
+					return true;
+				}
+				return false;
+			}
+			
 			case BLOCKS ->
 			{
 				String kw = getStopKeyword(keywordSetting);
@@ -1192,6 +1228,8 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return false;
 		
+		ensureNewerNewChunksForStopOn();
+		
 		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
 		boolean containsChunk = isMatchingChunkType(playerChunk, oldChunks);
 		if(!containsChunk)
@@ -1318,6 +1356,30 @@ public final class AutoFlyHack extends Hack
 			.onAutoFlyStopped(message + " (use Next waypoint to continue)");
 		stopHold = true;
 		stopIgnoreTicks = 0;
+	}
+	
+	private void ensureNewerNewChunksForStopOn()
+	{
+		var newerNewChunks = WURST.getHax().newerNewChunksHack;
+		if(newerNewChunks.isEnabled())
+			return;
+		
+		newerNewChunks.setEnabled(true);
+		enabledNewerNewChunksForStopOn = true;
+		ChatUtils.message(
+			"NewerNewChunks was enabled due to stop condition in AutoFly.");
+	}
+	
+	private void ensureRoofEspForStopOn()
+	{
+		var roofEsp = WURST.getHax().roofEspHack;
+		if(roofEsp.isEnabled())
+			return;
+		
+		roofEsp.setEnabled(true);
+		enabledRoofEspForStopOn = true;
+		ChatUtils
+			.message("RoofESP was enabled due to stop condition in AutoFly.");
 	}
 	
 	private String getStopKeyword(TextFieldSetting setting)

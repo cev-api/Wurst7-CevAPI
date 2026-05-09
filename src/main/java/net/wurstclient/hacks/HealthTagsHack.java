@@ -22,6 +22,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.util.EntityHealthRenderer;
 
 @SearchTags({"health tags"})
@@ -38,6 +39,23 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		"Hides health tags/hearts for likely NPC players (tab-list mismatch, no tab entry, or NPC-style names).",
 		true);
 	
+	private final CheckboxSetting showArmor = new CheckboxSetting("Show armor",
+		"Shows total armor as HUD-style armor icons above hearts.", false);
+	
+	private final CheckboxSetting showHeldItems = new CheckboxSetting(
+		"Show held items",
+		"Shows main-hand/offhand item icons, durability, and potion-effect color indicators.",
+		false);
+	
+	private final EnumSetting<EntityHealthRenderer.DurabilityDisplayMode> durabilityDisplayMode =
+		new EnumSetting<>("Held item durability mode",
+			EntityHealthRenderer.DurabilityDisplayMode.values(),
+			EntityHealthRenderer.DurabilityDisplayMode.PERCENT_ONLY);
+	
+	private final CheckboxSetting showPotionEffectStatus = new CheckboxSetting(
+		"Show potion effect status",
+		"Shows potion-color bottle indicators above held item icons.", true);
+	
 	private final java.util.Set<LivingEntity> entitiesToRender =
 		java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
 	private static final Pattern VALID_MC_USERNAME =
@@ -51,6 +69,10 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		setCategory(Category.RENDER);
 		addSetting(heartsBelowName);
 		addSetting(ignoreNpcs);
+		addSetting(showArmor);
+		addSetting(showHeldItems);
+		addSetting(durabilityDisplayMode);
+		addSetting(showPotionEffectStatus);
 	}
 	
 	@Override
@@ -166,7 +188,9 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 				continue;
 			
 			EntityHealthRenderer.drawHeartsAtEntity(context, entity,
-				partialTicks, -10F);
+				partialTicks, -10F, showArmor.isChecked(),
+				showHeldItems.isChecked(), durabilityDisplayMode.getSelected(),
+				showPotionEffectStatus.isChecked());
 		}
 		
 		entitiesToRender.clear();
