@@ -174,7 +174,7 @@ public abstract class TitleScreenMixin extends Screen
 			// If UI mixins are hidden, render the vanilla logo instead of
 			// suppressing the call entirely so the title screen still shows
 			// a logo.
-			logoRenderer.extractRenderState(graphics, width, fade);
+			logoRenderer.renderLogo(graphics, width, fade);
 			return;
 		}
 		

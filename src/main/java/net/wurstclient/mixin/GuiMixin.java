@@ -15,7 +15,6 @@ import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
@@ -75,10 +74,10 @@ public class GuiMixin
 	}
 	
 	@Inject(
-		method = "extractScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onExtractScoreboardSidebar(GuiGraphicsExtractor context,
+	private void onRenderScoreboardSidebar(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().renderAdjustHack
@@ -87,10 +86,10 @@ public class GuiMixin
 	}
 	
 	@Inject(
-		method = "extractBossOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderBossOverlay(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onExtractBossOverlay(GuiGraphicsExtractor context,
+	private void onRenderBossOverlay(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().renderAdjustHack.shouldHideBossBars())

@@ -1318,7 +1318,7 @@ public final class ClientMessageOverlay
 			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
 	}
 	
-	private static void drawPanel(GuiGraphics context, List<RenderLine> lines,
+	private void drawPanel(GuiGraphics context, List<RenderLine> lines,
 		int drawX, int drawY, float chatScale)
 	{
 		ClientChatOverlayHack hack = getSettings();

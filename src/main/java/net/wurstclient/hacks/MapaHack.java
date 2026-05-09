@@ -434,8 +434,8 @@ public final class MapaHack extends Hack
 		double half = cfg.minimapSize / 2.0 * zoomBlocks;
 		int chunkRadius = (int)Math.ceil((half * 1.6) / 16.0); // 1.6x to cover
 																// rotation
-		int cx = MC.player.chunkPosition().x();
-		int cz = MC.player.chunkPosition().z();
+		int cx = MC.player.chunkPosition().x;
+		int cz = MC.player.chunkPosition().z;
 		
 		Set<ChunkPos> visOld = hack.getOldChunksInRange(cx, cz, chunkRadius);
 		Set<ChunkPos> visNew = hack.getNewChunksInRange(cx, cz, chunkRadius);
@@ -535,7 +535,7 @@ public final class MapaHack extends Hack
 			if(point == null)
 				continue;
 			int size = getMarkerSize(cfg);
-			int x = Math.round(point.x()) - size / 2;
+			int x = Math.round(point.x) - size / 2;
 			int y = Math.round(point.y()) - size / 2;
 			drawIconOutline(context, x, y, size, outlineColor);
 			context.fill(x, y, x + size, y + size, 0xFF4AA3FF);
@@ -565,7 +565,7 @@ public final class MapaHack extends Hack
 		Identifier skin, String name, int size, int outlineColor,
 		boolean drawName, float nameScale)
 	{
-		int x = Math.round(point.x()) - size / 2;
+		int x = Math.round(point.x) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 8, 8, size, size,
@@ -772,7 +772,7 @@ public final class MapaHack extends Hack
 	private void renderItemMarker(GuiGraphics context, MapPoint point,
 		ItemStack icon, int size, int outlineColor)
 	{
-		int x = Math.round(point.x()) - size / 2;
+		int x = Math.round(point.x) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.pose().pushMatrix();
@@ -1353,7 +1353,7 @@ public final class MapaHack extends Hack
 					drawWidth, drawHeight, centerX, centerZ, blocksPerPixel);
 			if(point == null)
 				continue;
-			int x = Math.round(point.x()) - markerSize / 2;
+			int x = Math.round(point.x) - markerSize / 2;
 			int y = Math.round(point.y()) - markerSize / 2;
 			drawIconOutline(context, x, y, markerSize, outlineColor);
 			context.fill(x, y, x + markerSize, y + markerSize, 0xFF4AA3FF);

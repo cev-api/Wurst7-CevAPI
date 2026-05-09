@@ -252,7 +252,7 @@ public final class WebhookAlertHack extends Hack
 		
 		String label = isOld ? "Old chunk detected" : "New chunk detected";
 		send(label,
-			"Time: " + now() + "\nChunk: " + chunkPos.x() + ", " + chunkPos.z()
+			"Time: " + now() + "\nChunk: " + chunkPos.x + ", " + chunkPos.z
 				+ "\nApprox coords: " + x + ", " + z + "\n"
 				+ "Chunk block range: x=" + (chunkPos.getMinBlockX()) + ".."
 				+ (chunkPos.getMaxBlockX()) + ", z=" + (chunkPos.getMinBlockZ())
@@ -593,7 +593,7 @@ public final class WebhookAlertHack extends Hack
 		ChunkPos chunk = MC.player.chunkPosition();
 		long gameTime = MC.level.getGameTime();
 		return "Dimension: " + MC.level.dimension().identifier() + "\nChunk: "
-			+ chunk.x() + ", " + chunk.z() + "\nBiome: "
+			+ chunk.x + ", " + chunk.z + "\nBiome: "
 			+ MC.level.getBiome(MC.player.blockPosition()).unwrapKey()
 				.map(k -> k.identifier().toString()).orElse("unknown")
 			+ "\nWorld time: " + gameTime + " ticks";

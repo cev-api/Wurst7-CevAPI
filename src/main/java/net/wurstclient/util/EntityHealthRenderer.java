@@ -216,8 +216,8 @@ public final class EntityHealthRenderer
 		context.pose().popMatrix();
 	}
 	
-	private static void drawArmorRow(GuiGraphics context,
-		float centerX, float y, float scale, LivingEntity entity)
+	private static void drawArmorRow(GuiGraphics context, float centerX,
+		float y, float scale, LivingEntity entity)
 	{
 		int armorPoints = Mth.clamp(entity.getArmorValue(), 0, 20);
 		if(armorPoints <= 0)
@@ -251,10 +251,9 @@ public final class EntityHealthRenderer
 		context.pose().popMatrix();
 	}
 	
-	private static void drawHeldItems(GuiGraphics context,
-		float centerX, float heartsY, float armorY, float scale,
-		LivingEntity entity, boolean hasArmor,
-		DurabilityDisplayMode durabilityDisplayMode,
+	private static void drawHeldItems(GuiGraphics context, float centerX,
+		float heartsY, float armorY, float scale, LivingEntity entity,
+		boolean hasArmor, DurabilityDisplayMode durabilityDisplayMode,
 		boolean showPotionEffectStatus)
 	{
 		float overlayScale = Math.max(scale, 0.65F);
@@ -336,14 +335,14 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	private static void drawScaledItem(GuiGraphics context,
-		ItemStack stack, float x, float y, float size)
+	private static void drawScaledItem(GuiGraphics context, ItemStack stack,
+		float x, float y, float size)
 	{
 		context.pose().pushMatrix();
 		context.pose().translate(x, y);
 		float drawScale = size / 16F;
 		context.pose().scale(drawScale, drawScale);
-		context.item(stack, 0, 0);
+		context.renderItem(stack, 0, 0);
 		context.pose().popMatrix();
 	}
 	
@@ -424,8 +423,8 @@ public final class EntityHealthRenderer
 		return 0;
 	}
 	
-	private static void drawPotionBottle(GuiGraphics context, float x,
-		float y, float size, float scale, int argbColor)
+	private static void drawPotionBottle(GuiGraphics context, float x, float y,
+		float size, float scale, int argbColor)
 	{
 		ItemStack bottle = new ItemStack(Items.POTION);
 		PotionContents contents = new PotionContents(Optional.empty(),

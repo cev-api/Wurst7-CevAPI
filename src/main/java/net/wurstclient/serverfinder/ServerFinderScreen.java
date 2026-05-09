@@ -1138,8 +1138,8 @@ public class ServerFinderScreen extends Screen
 		}
 	}
 	
-	private void drawCollapsibleHeader(GuiGraphics context,
-		String title, int count, int x, int y, int w, boolean expanded)
+	private void drawCollapsibleHeader(GuiGraphics context, String title,
+		int count, int x, int y, int w, boolean expanded)
 	{
 		int h = 22;
 		context.fill(x, y, x + w, y + h, 0xFF17212B);
@@ -1172,8 +1172,8 @@ public class ServerFinderScreen extends Screen
 		context.drawCenteredString(font, "Tap a panel above to expand it.",
 			x + w / 2, y + 16, 0xFF9FB2C4);
 		context.drawCenteredString(font,
-			"Compact mode keeps one output open at a time.", x + w / 2,
-			y + 29, 0xFF7F92A2);
+			"Compact mode keeps one output open at a time.", x + w / 2, y + 29,
+			0xFF7F92A2);
 	}
 	
 	private void drawListPanel(GuiGraphics context, String title,
