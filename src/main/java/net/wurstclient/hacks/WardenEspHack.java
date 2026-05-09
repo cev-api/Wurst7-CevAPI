@@ -409,7 +409,13 @@ public final class WardenEspHack extends Hack
 			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float s = 0.025F * scale;
+		// Smaller when close, smoothly ramps up with distance for readability.
+		double dx = x - cam.x;
+		double dy = y - cam.y;
+		double dz = z - cam.z;
+		float distance = (float)Math.sqrt(dx * dx + dy * dy + dz * dz);
+		float distanceFactor = getDistanceLabelFactor(distance);
+		float s = 0.018F * scale * distanceFactor;
 		matrices.scale(s, -s, s);
 		matrices.translate(0, offsetPx, 0);
 		Font tr = MC.font;
@@ -435,6 +441,16 @@ public final class WardenEspHack extends Hack
 			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
+	}
+	
+	private static float getDistanceLabelFactor(float distance)
+	{
+		// <=4m: 30% size, >=28m: 100% size
+		if(distance <= 4F)
+			return 0.30F;
+		if(distance >= 28F)
+			return 1.00F;
+		return 0.30F + (distance - 4F) / 24F * 0.70F;
 	}
 	
 	private static float MthClamp(float v)
