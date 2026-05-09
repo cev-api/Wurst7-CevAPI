@@ -3374,7 +3374,7 @@
     "Show multiplayer button": false,
     "Bypass resource pack": true,
     "Force deny resource pack": false,
-    "Show resource-pack bypass buttons": true,
+    "Show resource-pack bypass buttons": false,
     "Fingerprint threshold": 3.0,
     "Fingerprint window (ms)": 1500.0,
     "Whitelisted hosts": ""

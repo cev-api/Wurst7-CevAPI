@@ -314,7 +314,7 @@ public final class WurstOptionsScreen extends Screen
 			b -> cycleSlider(connectionFontScale));
 		
 		addButton(column,
-			() -> "Show RP Buttons: " + onOff(
+			() -> "Resource Pack Buttons: " + onOff(
 				antiFingerprintConfig.shouldShowResourcePackBypassButtons()),
 			"Show Bypass Resource Pack and Force Deny on the Multiplayer screen.",
 			b -> antiFingerprintConfig.getShowResourcePackBypassButtonsSetting()
