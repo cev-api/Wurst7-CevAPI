@@ -227,16 +227,6 @@ public final class OppStatsScreen extends Screen
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x + 43, y + 73, 4, 20,
 			12, 20, 4, 12, 64, 64, 0xFFFFFFFF);
 		
-		Identifier cape = resolveCape(selected.uuid);
-		RenderUtils.fill2D(context, x + 6, y + 98, x + 80, y + 114, 0x44000000);
-		RenderUtils.drawBorder2D(context, x + 6, y + 98, x + 80, y + 114,
-			0x66808080);
-		context.text(font, "Cape", x + 9, y + 91, 0xFFB8D8FF, false);
-		if(cape != null)
-			context.blit(RenderPipelines.GUI_TEXTURED, cape, x + 38, y + 100, 1,
-				1, 36, 12, 16, 16, 64, 32, 0xFFFFFFFF);
-		else
-			context.text(font, "No cape", x + 22, y + 102, 0xFFAAAAAA, false);
 	}
 	
 	private int drawEquipmentPanel(GuiGraphicsExtractor context,
@@ -268,12 +258,16 @@ public final class OppStatsScreen extends Screen
 			String durability = durabilityOnly(slots[i].raw);
 			String nameLine = name.equals("N/A") ? "N/A"
 				: name + (durability.isBlank() ? "" : "  |  " + durability);
+			String enchantText = enchantsOnly(slots[i].raw);
+			boolean hasEnchants = enchantText != null && !enchantText.isBlank()
+				&& !enchantText.equals("N/A") && !enchantText.equals("none");
 			int contentX = iconX + 32;
 			int contentW = w - (contentX - x) - 8;
-			drawTrimmed(context, nameLine, contentX, rowY, contentW,
+			int nameY = hasEnchants ? rowY : rowY + 11;
+			drawTrimmed(context, nameLine, contentX, nameY, contentW,
 				0xFFE0E0E0);
-			drawEnchantLines(context, enchantsOnly(slots[i].raw), contentX,
-				rowY + 11, contentW, 2);
+			drawEnchantLines(context, enchantText, contentX, rowY + 11,
+				contentW, 2);
 			if(mouseX >= iconX && mouseX <= iconX + 18 && mouseY >= rowY + 6
 				&& mouseY <= rowY + 24)
 				showSlotTooltip(context, slots[i], mouseX, mouseY);
@@ -552,30 +546,6 @@ public final class OppStatsScreen extends Screen
 			return info.getSkin().body().texturePath();
 		
 		return DefaultPlayerSkin.get(uuid).body().texturePath();
-	}
-	
-	private Identifier resolveCape(UUID uuid)
-	{
-		PlayerInfo info = minecraft.getConnection() == null ? null
-			: minecraft.getConnection().getPlayerInfo(uuid);
-		if(info == null)
-			return null;
-		try
-		{
-			Object skin = info.getSkin();
-			for(String methodName : new String[]{"capeTexturePath",
-				"capeTexture", "cape"})
-				try
-				{
-					var m = skin.getClass().getMethod(methodName);
-					Object v = m.invoke(skin);
-					if(v instanceof Identifier id)
-						return id;
-				}catch(NoSuchMethodException ignored)
-				{}
-		}catch(Exception ignored)
-		{}
-		return null;
 	}
 	
 	private static void requestMojangSkin(UUID uuid)

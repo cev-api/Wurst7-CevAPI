@@ -69,6 +69,7 @@
     "PackSelectionScreenMixin",
     "PauseScreenMixin",
     "PlayerAttackStrengthAccessor",
+    "ParticleEngineMixin",
     "PowderSnowBlockMixin",
     "ScreenEffectRendererMixin",
     "ScreenMixin",

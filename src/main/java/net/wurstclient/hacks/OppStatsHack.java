@@ -36,6 +36,7 @@ import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.phys.Vec3;
@@ -305,6 +306,7 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY));
 		appendEnchantments(parts, seen, stack.getOrDefault(
 			DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY));
+		appendLoreEnchantments(parts, seen, stack.get(DataComponents.LORE));
 		return String.join(", ", parts);
 	}
 	
@@ -320,6 +322,23 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			if(!seen.add(key))
 				continue;
 			out.add(Enchantment.getFullname(holder, lvl).getString());
+		}
+	}
+	
+	private static void appendLoreEnchantments(List<String> out,
+		Set<String> seen, ItemLore lore)
+	{
+		if(lore == null)
+			return;
+		
+		for(var line : lore.lines())
+		{
+			String text = StringUtil.stripColor(line.getString()).trim();
+			if(text.isBlank())
+				continue;
+			if(!seen.add(text + "#lore"))
+				continue;
+			out.add(text);
 		}
 	}
 	
