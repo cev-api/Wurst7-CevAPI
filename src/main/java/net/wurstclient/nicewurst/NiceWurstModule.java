@@ -100,7 +100,7 @@ public final class NiceWurstModule
 			Set.of("DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
 				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
-				"ElytraInfo", "RoofESP"));
+				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
@@ -119,7 +119,8 @@ public final class NiceWurstModule
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
-				"DamageDetect", "ClientChatOverlay", "GlobalToggle"));
+				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
+				"WebhookAlert"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
