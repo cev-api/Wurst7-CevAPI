@@ -97,23 +97,29 @@ public final class NiceWurstModule
 			"AutoLeave", "PearlIntercept", "ShieldSwing", "WindChargeKey"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
-			Set.of("Breadcrumbs", "DurabilityHUD", "Fullbright", "HealthTags",
-				"MobHealth", "NameTags", "NewChunks", "NewerNewChunks",
-				"NoBackground", "NoFireOverlay", "NoVignette", "NoWeather",
-				"NoShieldOverlay", "Freecam", "Waypoints", "HideWurst",
-				"ElytraInfo", "Mapa", "BedrockStash"));
+			Set.of("DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
+				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
+				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
+				"ElytraInfo", "RoofESP"));
+		
+		ALLOWED_HACKS.put(Category.INTEL,
+			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
+				"BedrockStash", "LivestreamDetector", "SpectatorMonitor",
+				"OppStats"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "Mention", "NoPlayerChat"));
 		
+		ALLOWED_HACKS.put(Category.TOOLS,
+			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
+				"SeedMapperHelper", "HideModMenu", "GameStats",
+				"CommandScanner", "UI-Utils", "HideWurst"));
+		
 		ALLOWED_HACKS.put(Category.OTHER,
-			Set.of("AntiAFK", "Antisocial", "AntiCheatDetect", "AutoFish",
-				"AutoLibrarian", "AutoReconnect", "AutoTrader", "CheatDetector",
-				"ClickGUI", "FeedAura", "Navigator", "LivestreamDetector",
-				"PacketRate", "Panic", "PortalGUI", "SafeTP", "UI-Utils",
-				"SeedMapperHelper", "TooManyHax", "HideModMenu", "GameStats",
-				"DamageDetect", "ClientChatOverlay", "CommandScanner",
-				"GlobalToggle", "SpectatorMonitor"));
+			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
+				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
+				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
+				"DamageDetect", "ClientChatOverlay", "GlobalToggle"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
