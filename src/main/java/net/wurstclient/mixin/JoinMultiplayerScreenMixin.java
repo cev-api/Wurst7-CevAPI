@@ -8,7 +8,6 @@
 package net.wurstclient.mixin;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -55,9 +54,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
-import net.minecraft.server.players.NameAndId;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -66,6 +64,8 @@ import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
 import net.wurstclient.util.MultiProcessingUtils;
+import net.wurstclient.util.ServerExportData.ExportedServer;
+import net.wurstclient.util.ServerExportData.ExportedServerList;
 import net.wurstclient.util.ServerPanelConfig;
 import net.wurstclient.util.ServerExportFileChooser;
 import net.wurstclient.util.ServerImportFileChooser;
@@ -1269,7 +1269,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		File file = path.toFile();
 		
-		ExportedServerList exported = new ExportedServerList();
+		ExportedServerList exported = new ExportedServerList(PANEL_COUNT);
 		exported.exportedAt = java.time.Instant.now().toString();
 		for(int i = 0; i < PANEL_COUNT; i++)
 			exported.panelTitles[i] = wurst$panelConfig.getTitle(i);
@@ -1503,93 +1503,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 		selectButton.active = false;
 		editButton.active = false;
 		deleteButton.active = true;
-	}
-	
-	@Unique
-	private static final class ExportedServerList
-	{
-		private String format = "wurst-multiplayer-servers";
-		private int formatVersion = 2;
-		private String exportedAt;
-		private String[] panelTitles = new String[PANEL_COUNT];
-		private List<ExportedServer> servers = new ArrayList<>();
-	}
-	
-	@Unique
-	private static final class ExportedServer
-	{
-		private String name;
-		private String ip;
-		private String motd;
-		private String status;
-		private String version;
-		private int protocol;
-		private long ping;
-		private int onlinePlayers;
-		private int maxPlayers;
-		private int panel;
-		private String panelTitle;
-		private int savedIndex;
-		private String type;
-		private String state;
-		private String resourcePackStatus;
-		private boolean lan;
-		private boolean realm;
-		private String iconBase64;
-		private List<String> playerList = new ArrayList<>();
-		private List<ExportedPlayer> playerSample = new ArrayList<>();
-		
-		private static ExportedServer from(ServerData server, int panel,
-			String panelTitle, int savedIndex)
-		{
-			ExportedServer exported = new ExportedServer();
-			exported.name = server.name;
-			exported.ip = server.ip;
-			exported.motd = server.motd != null ? server.motd.getString() : "";
-			exported.status =
-				server.status != null ? server.status.getString() : "";
-			exported.version =
-				server.version != null ? server.version.getString() : "";
-			exported.protocol = server.protocol;
-			exported.ping = server.ping;
-			exported.type = server.type().name();
-			exported.state = server.state().name();
-			exported.resourcePackStatus = server.getResourcePackStatus().name();
-			exported.lan = server.isLan();
-			exported.realm = server.isRealm();
-			byte[] icon = server.getIconBytes();
-			if(icon != null)
-				exported.iconBase64 = Base64.getEncoder().encodeToString(icon);
-			if(server.playerList != null)
-				for(Component player : server.playerList)
-					exported.playerList.add(player.getString());
-			if(server.players != null)
-			{
-				exported.onlinePlayers = server.players.online();
-				exported.maxPlayers = server.players.max();
-				for(NameAndId player : server.players.sample())
-					exported.playerSample.add(ExportedPlayer.from(player));
-			}
-			exported.panel = panel;
-			exported.panelTitle = panelTitle;
-			exported.savedIndex = savedIndex;
-			return exported;
-		}
-	}
-	
-	@Unique
-	private static final class ExportedPlayer
-	{
-		private String id;
-		private String name;
-		
-		private static ExportedPlayer from(NameAndId player)
-		{
-			ExportedPlayer exported = new ExportedPlayer();
-			exported.id = player.id().toString();
-			exported.name = player.name();
-			return exported;
-		}
 	}
 	
 	@Unique
