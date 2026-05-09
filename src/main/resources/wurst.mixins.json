@@ -69,6 +69,7 @@
     "ModMenuEntryMixin",
     "MouseHandlerMixin",
     "MultiPlayerGameModeMixin",
+    "NecoModeLivingEntityRendererMixin",
     "JoinMultiplayerScreenMixin",
     "PackSelectionScreenMixin",
     "PlayerAttackStrengthAccessor",
