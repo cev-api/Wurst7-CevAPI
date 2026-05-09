@@ -55,8 +55,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -65,10 +65,11 @@ import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
 import net.wurstclient.util.MultiProcessingUtils;
+import net.wurstclient.util.ServerExportData.ExportedServer;
+import net.wurstclient.util.ServerExportData.ExportedServerList;
 import net.wurstclient.util.ServerPanelConfig;
 import net.wurstclient.util.ServerExportFileChooser;
 import net.wurstclient.util.ServerImportFileChooser;
-import net.wurstclient.util.ServerListExport;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
@@ -1280,7 +1281,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		File file = path.toFile();
 		
-		ServerListExport exported = new ServerListExport();
+		ExportedServerList exported = new ExportedServerList(PANEL_COUNT);
 		exported.exportedAt = java.time.Instant.now().toString();
 		for(int i = 0; i < PANEL_COUNT; i++)
 			exported.panelTitles[i] = wurst$panelConfig.getTitle(i);
@@ -1289,7 +1290,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			ServerData server = serverData.get(i);
 			int panel = wurst$panelConfig.getPanel(server);
-			exported.servers.add(ServerListExport.Server.from(server, panel,
+			exported.servers.add(ExportedServer.from(server, panel,
 				wurst$panelConfig.getTitle(panel), i));
 		}
 		
@@ -1315,8 +1316,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 		
 		try(FileReader reader = new FileReader(file))
 		{
-			ServerListExport imported =
-				GSON.fromJson(reader, ServerListExport.class);
+			ExportedServerList imported =
+				GSON.fromJson(reader, ExportedServerList.class);
 			if(imported == null)
 				return;
 			
@@ -1327,7 +1328,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 						wurst$panelConfig.setTitle(i, imported.panelTitles[i]);
 					
 			if(imported.servers != null)
-				for(ServerListExport.Server exported : imported.servers)
+				for(ExportedServer exported : imported.servers)
 				{
 					if(exported.name == null || exported.ip == null)
 						continue;
