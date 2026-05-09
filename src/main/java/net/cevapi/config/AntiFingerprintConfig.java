@@ -76,7 +76,7 @@ public final class AntiFingerprintConfig
 	private final CheckboxSetting showResourcePackBypassButtons =
 		new CheckboxSetting("Show resource-pack bypass buttons",
 			"Adds Bypass Resource Pack and Force Deny buttons to the Multiplayer screen.",
-			true);
+			false);
 	
 	private final SliderSetting fingerprintThreshold = new SliderSetting(
 		"Fingerprint threshold",
