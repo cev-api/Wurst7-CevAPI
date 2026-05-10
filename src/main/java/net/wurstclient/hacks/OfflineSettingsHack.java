@@ -134,6 +134,12 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 				+ "chars) before reconnecting."),
 			false);
 	
+	private final CheckboxSetting showDisconnectButtons = new CheckboxSetting(
+		"Show disconnect buttons",
+		WText.literal(
+			"Show OfflineSettings reconnect controls on the disconnect screen."),
+		true);
+	
 	private final CheckboxSetting crackedDetection =
 		new CheckboxSetting("Cracked server detection",
 			WText.literal("Detect cracked servers and announce them in chat."),
@@ -222,6 +228,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		addSetting(crackedDetection);
 		addSetting(autoReconnect);
 		addSetting(randomName);
+		addSetting(showDisconnectButtons);
 		addSetting(specifiedName);
 		addSetting(otherPlayerName);
 		addSetting(autoLogout);
@@ -235,6 +242,16 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	public boolean isAutoReconnectEnabled()
 	{
 		return autoReconnect.isChecked();
+	}
+	
+	public boolean shouldShowDisconnectButtons()
+	{
+		return showDisconnectButtons.isChecked();
+	}
+	
+	public void setShowDisconnectButtons(boolean enabled)
+	{
+		showDisconnectButtons.setChecked(enabled);
 	}
 	
 	public void toggleAutoReconnect()
