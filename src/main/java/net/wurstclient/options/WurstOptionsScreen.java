@@ -356,6 +356,18 @@ public final class WurstOptionsScreen extends Screen
 						!wurst.getAltManager()
 							.isDisconnectRandomAltReconnectEnabled()));
 			
+			addButton(column,
+				() -> "Show Offline Buttons: "
+					+ onOff(wurst.getHax().offlineSettingsHack
+						.shouldShowDisconnectButtons()),
+				"Controls whether OfflineSettings reconnect controls appear on the Disconnected screen.",
+				b -> {
+					boolean enabled = wurst.getHax().offlineSettingsHack
+						.shouldShowDisconnectButtons();
+					wurst.getHax().offlineSettingsHack
+						.setShowDisconnectButtons(!enabled);
+				});
+			
 			addButton(column, this::getRandomAltReconnectLabel,
 				"Log into a random saved alt, then reconnect to the last server.",
 				b -> reconnectAsRandomAlt());

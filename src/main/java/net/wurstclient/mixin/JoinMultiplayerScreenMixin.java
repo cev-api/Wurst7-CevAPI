@@ -281,7 +281,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			}
 			
 			antiFingerprintButton.setX(width / 2 + 54);
-			antiFingerprintButton.setY(10);
+			antiFingerprintButton.setY(6);
 			antiFingerprintButton.setWidth(100);
 			antiFingerprintButton.visible = true;
 		}else if(antiFingerprintButton != null)

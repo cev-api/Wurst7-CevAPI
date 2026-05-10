@@ -127,6 +127,8 @@ public class DisconnectedScreenMixin extends Screen
 		ensureValidParent();
 		OfflineSettingsHack offlineSettingsHack =
 			WurstClient.INSTANCE.getHax().offlineSettingsHack;
+		boolean showOfflineButtons =
+			offlineSettingsHack.shouldShowDisconnectButtons();
 		
 		reconnectButton = layout.addChild(Button
 			.builder(Component.literal("Reconnect"),
@@ -173,7 +175,7 @@ public class DisconnectedScreenMixin extends Screen
 		boolean loginElsewhere = isLoginElsewhere(reason);
 		boolean crackedServer = offlineSettingsHack.wasLastServerCracked();
 		
-		if(loginElsewhere || crackedServer)
+		if(showOfflineButtons && (loginElsewhere || crackedServer))
 		{
 			Component overlayReason = reason;
 			if(overlayReason == null)
@@ -187,7 +189,8 @@ public class DisconnectedScreenMixin extends Screen
 			if(loginElsewhere
 				&& offlineSettingsHack.consumeAutoReconnectRequest())
 				offlineSettingsHack.performAutoReconnect(parent);
-		}else if(autoLeaveDetails != null && !autoLeaveDetails.isBlank())
+		}else if(showOfflineButtons && autoLeaveDetails != null
+			&& !autoLeaveDetails.isBlank())
 		{
 			showLoginOverlay(offlineSettingsHack,
 				Component.literal(autoLeaveDetails));
