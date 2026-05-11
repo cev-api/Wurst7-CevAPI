@@ -112,6 +112,27 @@ public final class AutoFlyHack extends Hack
 		}
 	}
 	
+	public static enum ClickGuiStartMode
+	{
+		DIRECTIONAL("Directional (.autofly)"),
+		CHUNKS("Chunk trail (.autofly chunk)"),
+		GRID("Grid"),
+		WAYPOINTS("Waypoints");
+		
+		private final String name;
+		
+		ClickGuiStartMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
 	public static enum StopOnType
 	{
 		OFF("Off"),
@@ -142,6 +163,13 @@ public final class AutoFlyHack extends Hack
 		"Waypoints",
 		"Waypoints list. Format: x y z or x z (no Y). Separate by ';' or new lines.",
 		"");
+	
+	private final EnumSetting<ClickGuiStartMode> clickGuiStartMode =
+		new EnumSetting<>("ClickGUI start mode",
+			"What AutoFly should start when enabled from ClickGUI.\n\n"
+				+ "Directional = same as .autofly\n"
+				+ "Chunk trail = same as .autofly chunk",
+			ClickGuiStartMode.values(), ClickGuiStartMode.DIRECTIONAL);
 	
 	private final EnumSetting<RouteType> routeType = new EnumSetting<>(
 		"Route type",
@@ -402,6 +430,7 @@ public final class AutoFlyHack extends Hack
 	{
 		super("AutoFly");
 		setCategory(Category.MOVEMENT);
+		addSetting(clickGuiStartMode);
 		addSetting(waypointText);
 		addSetting(routeType);
 		addSetting(gridWidthChunks);
@@ -461,16 +490,7 @@ public final class AutoFlyHack extends Hack
 			useExistingTargetsOnEnable = false;
 		else
 		{
-			if(routeType.getSelected() == RouteType.GRID)
-				loadTargetsFromGrid(MC.player.blockPosition());
-			else if(routeType.getSelected() == RouteType.CHUNKS)
-			{
-				targets.clear();
-				currentTarget = null;
-				currentIndex = -1;
-				chunkTrailPath.clear();
-			}else
-				loadTargetsFromSettings();
+			startFromClickGuiMode();
 		}
 		if(targets.isEmpty())
 		{
@@ -701,23 +721,22 @@ public final class AutoFlyHack extends Hack
 		{
 			if(checkChunkTrailPortalStop())
 				return;
-		}else
-		{
-			if(checkStopOn(stopOn, stopKeyword, false))
-				return;
-			
-			if(checkStopOn(stopOn2, stopKeyword2, true))
-				return;
-			
-			if(checkStopOn(stopOn3, stopKeyword3, false))
-				return;
-			
-			if(checkStopOnPlayers())
-				return;
-			
-			if(checkDisableOnDamage())
-				return;
 		}
+		
+		if(checkStopOn(stopOn, stopKeyword, false))
+			return;
+		
+		if(checkStopOn(stopOn2, stopKeyword2, true))
+			return;
+		
+		if(checkStopOn(stopOn3, stopKeyword3, false))
+			return;
+		
+		if(checkStopOnPlayers())
+			return;
+		
+		if(checkDisableOnDamage())
+			return;
 		
 		if(allowManualAdjust.isChecked() && isManualInputActive())
 		{
@@ -1487,6 +1506,32 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		loadTargetsFromJson();
+	}
+	
+	private void startFromClickGuiMode()
+	{
+		ClickGuiStartMode mode = clickGuiStartMode.getSelected();
+		if(mode == null)
+			mode = ClickGuiStartMode.DIRECTIONAL;
+		
+		switch(mode)
+		{
+			case DIRECTIONAL -> setForwardFromCommand(null, null, true);
+			
+			case CHUNKS -> setChunkTrailFromCommand();
+			
+			case GRID ->
+			{
+				routeType.setSelected(RouteType.GRID);
+				loadTargetsFromGrid(MC.player.blockPosition());
+			}
+			
+			case WAYPOINTS ->
+			{
+				routeType.setSelected(RouteType.WAYPOINTS);
+				loadTargetsFromSettings();
+			}
+		}
 	}
 	
 	private void startGridFromPlayer()
