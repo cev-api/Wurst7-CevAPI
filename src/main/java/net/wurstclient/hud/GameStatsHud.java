@@ -35,8 +35,7 @@ public final class GameStatsHud
 	private static final float PADDING = 4F;
 	private static final float LINE_GAP = 2F;
 	private static final long SAMPLE_INTERVAL_MS = 1000L;
-	private static final long SPEED_WINDOW_MS = 600L;
-	private static final double SPEED_EMA_ALPHA = 0.5;
+	private static final long SPEED_WINDOW_MS = 3000L;
 	private static final double SPEED_MAX_PLAUSIBLE_BPS = 5000.0;
 	private static final float GRAPH_GAP = 4F;
 	private static final float GRAPH_TO_TEXT_GAP = 2F;
@@ -70,11 +69,7 @@ public final class GameStatsHud
 	private double lastY;
 	private double lastZ;
 	private long lastMovementSampleMs;
-	private final ArrayDeque<MovementSample> movementSamples =
-		new ArrayDeque<>();
-	private long movementWindowDurationMs;
-	private double movementWindowDistance;
-	private double liveSpeedBps;
+	private final ArrayDeque<MovementPoint> movementPoints = new ArrayDeque<>();
 	private double smoothedSpeedBps;
 	private int mobKillsBaseline = -1;
 	private int playerKillsBaseline = -1;
@@ -267,9 +262,7 @@ public final class GameStatsHud
 			if(Double.isFinite(delta) && delta >= 0)
 			{
 				distanceTravelledMeters += delta;
-				long dtMs = Math.max(1L, now - lastMovementSampleMs);
-				double horizontalDelta = Math.hypot(dx, dz);
-				pushMovementSample(horizontalDelta, dtMs);
+				pushMovementSample(x, z, now);
 			}
 		}
 		
@@ -373,41 +366,38 @@ public final class GameStatsHud
 	
 	private void resetMovementSpeed()
 	{
-		movementSamples.clear();
-		movementWindowDurationMs = 0L;
-		movementWindowDistance = 0;
-		liveSpeedBps = 0;
+		movementPoints.clear();
 		smoothedSpeedBps = 0;
 	}
 	
-	private void pushMovementSample(double distance, long dtMs)
+	private void pushMovementSample(double x, double z, long nowMs)
 	{
-		if(dtMs <= 0L || !Double.isFinite(distance) || distance < 0)
+		if(!Double.isFinite(x) || !Double.isFinite(z))
 			return;
 		
+		movementPoints.addLast(new MovementPoint(x, z, nowMs));
+		long minTime = nowMs - SPEED_WINDOW_MS;
+		while(movementPoints.size() > 2
+			&& movementPoints.peekFirst().timestampMs < minTime)
+			movementPoints.removeFirst();
+		
+		MovementPoint oldest = movementPoints.peekFirst();
+		MovementPoint newest = movementPoints.peekLast();
+		if(oldest == null || newest == null)
+			return;
+		
+		long dtMs = newest.timestampMs - oldest.timestampMs;
+		if(dtMs <= 0L)
+			return;
+		
+		double dx = newest.x - oldest.x;
+		double dz = newest.z - oldest.z;
+		double netDistance = Math.hypot(dx, dz);
 		double dtSec = dtMs / 1000D;
+		double speed = netDistance / dtSec;
 		double maxDistance = SPEED_MAX_PLAUSIBLE_BPS * dtSec;
-		distance = Math.min(distance, maxDistance);
-		
-		movementSamples.addLast(new MovementSample(distance, dtMs));
-		movementWindowDistance += distance;
-		movementWindowDurationMs += dtMs;
-		
-		while(movementWindowDurationMs > SPEED_WINDOW_MS
-			&& !movementSamples.isEmpty())
-		{
-			MovementSample oldest = movementSamples.removeFirst();
-			movementWindowDistance -= oldest.distance;
-			movementWindowDurationMs -= oldest.durationMs;
-		}
-		
-		if(movementWindowDurationMs <= 0L)
-			liveSpeedBps = 0;
-		else
-			liveSpeedBps =
-				movementWindowDistance / (movementWindowDurationMs / 1000D);
-		
-		smoothedSpeedBps += SPEED_EMA_ALPHA * (liveSpeedBps - smoothedSpeedBps);
+		speed = Math.min(speed, maxDistance / dtSec);
+		smoothedSpeedBps = speed;
 	}
 	
 	private static String getWorldTime24h()
@@ -694,15 +684,17 @@ public final class GameStatsHud
 		return (Math.max(0, Math.min(255, alpha)) << 24) | (rgb & 0x00FFFFFF);
 	}
 	
-	private static final class MovementSample
+	private static final class MovementPoint
 	{
-		private final double distance;
-		private final long durationMs;
+		private final double x;
+		private final double z;
+		private final long timestampMs;
 		
-		private MovementSample(double distance, long durationMs)
+		private MovementPoint(double x, double z, long timestampMs)
 		{
-			this.distance = distance;
-			this.durationMs = durationMs;
+			this.x = x;
+			this.z = z;
+			this.timestampMs = timestampMs;
 		}
 	}
 }
