@@ -50,6 +50,7 @@
     "KeyMappingMixin",
     "KeyboardHandlerMixin",
     "LanguageManagerMixin",
+    "LoadingOverlayMixin",
     "LevelMixin",
     "LevelRendererMixin",
     "LivingEntityMixin",
