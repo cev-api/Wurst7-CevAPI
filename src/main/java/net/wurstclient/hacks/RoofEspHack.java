@@ -391,6 +391,17 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		{
 			anchorChunk = playerChunk;
 			scanTimer = 0;
+			return;
+		}
+		
+		// Sticky mode keeps a stable scan center while you move within the
+		// selected area, but should re-anchor once you leave that area.
+		int radius = getChunkRange(selectedArea);
+		if(Math.abs(playerChunk.x() - anchorChunk.x()) > radius
+			|| Math.abs(playerChunk.z() - anchorChunk.z()) > radius)
+		{
+			anchorChunk = playerChunk;
+			scanTimer = 0;
 		}
 	}
 	
