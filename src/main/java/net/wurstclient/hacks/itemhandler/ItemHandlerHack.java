@@ -148,6 +148,11 @@ public class ItemHandlerHack extends Hack
 		new CheckboxSetting("Detect named entities",
 			"Detects custom-named entities (e.g. pets and mobs).", false);
 	
+	private final CheckboxSetting detectCraftedEntities = new CheckboxSetting(
+		"Detect crafted entities",
+		"Detects nearby crafted entities like boats/rafts, paintings, glow item frames, and selected minecarts.",
+		false);
+	
 	private final SliderSetting signRange = new SliderSetting("Sign range",
 		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
 			+ "∞ = all loaded chunks around you (limited by render distance).",
@@ -211,6 +216,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
 		addSetting(detectNamedEntities);
+		addSetting(detectCraftedEntities);
 		addSetting(respectItemEspIgnores);
 		addSetting(itemEspIgnoredListSetting);
 		addSetting(rejectRadius);
@@ -589,7 +595,8 @@ public class ItemHandlerHack extends Hack
 		boolean guiOpen = MC.screen instanceof ItemHandlerScreen;
 		boolean detectSigns = showSignsInHud.isChecked() || guiOpen;
 		boolean detectNamed = detectNamedEntities.isChecked() || guiOpen;
-		if(!detectSigns && !detectNamed)
+		boolean detectCrafted = detectCraftedEntities.isChecked() || guiOpen;
+		if(!detectSigns && !detectNamed && !detectCrafted)
 		{
 			trackedLabels.clear();
 			return;
@@ -657,6 +664,28 @@ public class ItemHandlerHack extends Hack
 					new ItemStack(Items.NAME_TAG),
 					"Named entity: " + customName, Math.sqrt(distSq),
 					getNamedEntityTraceId(entity.getUUID())));
+			}
+		}
+		
+		if(detectCrafted)
+		{
+			AABB scanBox = MC.player.getBoundingBox().inflate(range);
+			List<Entity> craftedEntities = MC.level.getEntities(MC.player,
+				scanBox, e -> e != null && e.isAlive() && !e.isRemoved()
+					&& isTrackedCraftedEntityType(e));
+			
+			for(Entity entity : craftedEntities)
+			{
+				Vec3 p = entity.position();
+				double distSq = p.distanceToSqr(centerVec);
+				if(!infinite && distSq > rangeSq)
+					continue;
+				
+				ItemStack icon = iconForCraftedEntity(entity);
+				String label = "Crafted entity: " + craftedEntityLabel(entity);
+				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
+					icon, label, Math.sqrt(distSq),
+					getCraftedEntityTraceId(entity.getUUID())));
 			}
 		}
 		
@@ -1456,6 +1485,83 @@ public class ItemHandlerHack extends Hack
 		ITEM_FRAME,
 		MOB_HELD,
 		MOB_WORN
+	}
+	
+	private static String getCraftedEntityTraceId(UUID uuid)
+	{
+		if(uuid == null)
+			return null;
+		return "crafted_entity:" + uuid;
+	}
+	
+	private boolean isTrackedCraftedEntityType(Entity entity)
+	{
+		if(entity == null)
+			return false;
+		
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		return path.endsWith("_boat") || path.endsWith("_chest_boat")
+			|| path.equals("bamboo_raft") || path.equals("bamboo_chest_raft")
+			|| path.equals("painting") || path.equals("glow_item_frame")
+			|| path.equals("furnace_minecart") || path.equals("hopper_minecart")
+			|| path.equals("tnt_minecart");
+	}
+	
+	private ItemStack iconForCraftedEntity(Entity entity)
+	{
+		if(entity == null)
+			return new ItemStack(Items.NAME_TAG);
+		
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		if(path.endsWith("_boat") || path.equals("bamboo_raft")
+			|| path.equals("bamboo_chest_raft"))
+			return new ItemStack(Items.OAK_BOAT);
+		if(path.endsWith("_chest_boat"))
+			return new ItemStack(Items.OAK_CHEST_BOAT);
+		if(path.equals("painting"))
+			return new ItemStack(Items.PAINTING);
+		if(path.equals("glow_item_frame"))
+			return new ItemStack(Items.GLOW_ITEM_FRAME);
+		if(path.equals("furnace_minecart"))
+			return new ItemStack(Items.FURNACE_MINECART);
+		if(path.equals("hopper_minecart"))
+			return new ItemStack(Items.HOPPER_MINECART);
+		if(path.equals("tnt_minecart"))
+			return new ItemStack(Items.TNT_MINECART);
+		
+		return new ItemStack(Items.NAME_TAG);
+	}
+	
+	private String craftedEntityLabel(Entity entity)
+	{
+		if(entity == null)
+			return "entity";
+		
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		return switch(path)
+		{
+			case "bamboo_raft" -> "Bamboo raft";
+			case "bamboo_chest_raft" -> "Bamboo chest raft";
+			case "painting" -> "Painting";
+			case "glow_item_frame" -> "Glow item frame";
+			case "furnace_minecart" -> "Minecart with furnace";
+			case "hopper_minecart" -> "Minecart with hopper";
+			case "tnt_minecart" -> "Minecart with TNT";
+			default ->
+			{
+				if(path.endsWith("_chest_boat"))
+					yield "Chest boat";
+				if(path.endsWith("_boat"))
+					yield "Boat";
+				yield path.replace('_', ' ');
+			}
+		};
 	}
 	
 	// Inline ItemESP ignored-items editor in ItemHandler settings
