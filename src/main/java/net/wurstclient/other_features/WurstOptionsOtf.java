@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features;
 
+import java.awt.Color;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Button.OnPress;
@@ -20,6 +22,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.util.text.WText;
@@ -38,6 +41,14 @@ public final class WurstOptionsOtf extends OtherFeature
 	private final CheckboxSetting hackToggleChatFeedback =
 		new CheckboxSetting("Hack toggle chat feedback",
 			"Show a chat message when hacks are enabled or disabled.", false);
+	
+	private final CheckboxSetting customMojangLogoBackground =
+		new CheckboxSetting("Custom Mojang logo background",
+			"Use a custom background color behind the Mojang loading logo.",
+			true);
+	
+	private final ColorSetting mojangLogoBackgroundColor =
+		new ColorSetting("Mojang logo background color", Color.BLACK);
 	
 	private final SettingGroup discordPresenceGroup =
 		new SettingGroup("Discord Presence",
@@ -70,6 +81,8 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Open the latest Wurst changelog in your browser.",
 			changelogOtf::doPrimaryAction));
 		addSetting(hackToggleChatFeedback);
+		addSetting(customMojangLogoBackground);
+		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
 		addSetting(noChatReportsOtf.getDisableSignaturesSetting());
@@ -95,6 +108,16 @@ public final class WurstOptionsOtf extends OtherFeature
 	public CheckboxSetting getHackToggleChatFeedbackSetting()
 	{
 		return hackToggleChatFeedback;
+	}
+	
+	public CheckboxSetting getCustomMojangLogoBackgroundSetting()
+	{
+		return customMojangLogoBackground;
+	}
+	
+	public ColorSetting getMojangLogoBackgroundColorSetting()
+	{
+		return mojangLogoBackgroundColor;
 	}
 	
 	public String getLocationName()
