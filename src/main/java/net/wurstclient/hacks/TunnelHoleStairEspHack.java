@@ -91,6 +91,17 @@ public final class TunnelHoleStairEspHack extends Hack
 		"Periodically re-queue all chunks in range so stale detections refresh\n"
 			+ "without toggling the hack.",
 		10, 0, 60, 1, ValueDisplay.INTEGER.withSuffix(" s"));
+	private final CheckboxSetting adaptiveMovementScan = new CheckboxSetting(
+		"Adaptive movement scan",
+		"Adjusts scan area and throughput based on your movement speed.\n"
+			+ "Standing still keeps your selected area. Moving/flying tightens area\n"
+			+ "and boosts nearby scan speed.",
+		true);
+	private final SliderSetting nearbyPriorityRadius = new SliderSetting(
+		"Nearby priority radius",
+		"Always prioritize chunks in this radius around you each tick.\n"
+			+ "Higher values discover nearby tunnels faster, but can cost more CPU.",
+		2, 0, 12, 1, ValueDisplay.INTEGER.withSuffix(" chunks"));
 	private final CheckboxSetting airOnly = new CheckboxSetting("Air only",
 		"Only treat pure air as passable. Turning this off will also treat\n"
 			+ "other non-solid blocks as passable.",
@@ -213,6 +224,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	private int scanConfigHash;
 	private int refreshTimerTicks;
 	private Level activeLevel;
+	private Vec3 lastPlayerPos;
 	
 	public TunnelHoleStairEspHack()
 	{
@@ -225,6 +237,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		addSetting(chunksPerTick);
 		addSetting(scanTimeBudgetMs);
 		addSetting(refreshInterval);
+		addSetting(adaptiveMovementScan);
+		addSetting(nearbyPriorityRadius);
 		addSetting(airOnly);
 		addSetting(minYOffset);
 		addSetting(maxYOffset);
@@ -283,6 +297,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		refreshTimerTicks = 0;
 		lastAreaSelection = area.getSelected();
 		activeLevel = null;
+		lastPlayerPos = null;
 		clearRuntimeState();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -298,6 +313,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
 		activeLevel = null;
+		lastPlayerPos = null;
 		clearRuntimeState();
 	}
 	
@@ -324,6 +340,7 @@ public final class TunnelHoleStairEspHack extends Hack
 			refreshTimerTicks = 0;
 			lastAreaSelection = area.getSelected();
 			scanConfigHash = getScanConfigHash();
+			lastPlayerPos = null;
 			clearRuntimeState();
 		}
 		
@@ -349,11 +366,14 @@ public final class TunnelHoleStairEspHack extends Hack
 			clearRuntimeState();
 		}
 		
-		HashSet<ChunkPos> areaChunks = getAreaChunks();
+		ScanProfile profile = getScanProfile();
+		HashSet<ChunkPos> areaChunks = getAreaChunks(profile.range);
 		boolean changed = syncToArea(areaChunks);
 		enqueueDirtyChunks(areaChunks);
 		enqueuePeriodicRefresh(areaChunks);
-		changed |= processQueuedScans(areaChunks);
+		promoteNearbyChunks(areaChunks, profile.nearbyRadius);
+		changed |=
+			processQueuedScans(areaChunks, profile.scans, profile.budgetNs);
 		
 		if(changed)
 			rebuildRenderCache();
@@ -518,7 +538,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		return true;
 	}
 	
-	private HashSet<ChunkPos> getAreaChunks()
+	private HashSet<ChunkPos> getAreaChunks(int chunkRange)
 	{
 		ChunkPos center = getAreaCenterChunk();
 		ChunkAreaSetting.ChunkArea selection = area.getSelected();
@@ -528,7 +548,6 @@ public final class TunnelHoleStairEspHack extends Hack
 		// requiring
 		// a hack toggle or area change.
 		areaChunkCache.clear();
-		int chunkRange = getChunkRange(selection);
 		for(int x = center.x - chunkRange; x <= center.x + chunkRange; x++)
 			for(int z = center.z - chunkRange; z <= center.z + chunkRange; z++)
 				if(MC.level.hasChunk(x, z))
@@ -591,15 +610,44 @@ public final class TunnelHoleStairEspHack extends Hack
 			
 			if(queuedChunks.add(pos))
 				scanQueue.addFirst(pos);
+			else if(scanQueue.remove(pos))
+				scanQueue.addFirst(pos);
 			
 			promoted++;
 		}
 	}
 	
-	private boolean processQueuedScans(HashSet<ChunkPos> areaChunks)
+	private void promoteNearbyChunks(HashSet<ChunkPos> areaChunks,
+		int nearbyRadius)
 	{
-		int scans = Math.max(1, chunksPerTick.getValueI());
-		long budgetNs = Math.max(1L, scanTimeBudgetMs.getValueI()) * 1_000_000L;
+		ChunkPos center = getAreaCenterChunk();
+		ArrayList<ChunkPos> nearby = new ArrayList<>();
+		int radius = Math.min(getChunkRange(area.getSelected()), nearbyRadius);
+		
+		for(int dx = -radius; dx <= radius; dx++)
+			for(int dz = -radius; dz <= radius; dz++)
+			{
+				ChunkPos pos = new ChunkPos(center.x + dx, center.z + dz);
+				if(areaChunks.contains(pos))
+					nearby.add(pos);
+			}
+		
+		nearby.sort(
+			Comparator.comparingInt(pos -> getChunkDistance(pos, center)));
+		// Push nearest chunks to the front so "standing on it" updates fast.
+		for(int i = nearby.size() - 1; i >= 0; i--)
+		{
+			ChunkPos pos = nearby.get(i);
+			if(queuedChunks.add(pos))
+				scanQueue.addFirst(pos);
+			else if(scanQueue.remove(pos))
+				scanQueue.addFirst(pos);
+		}
+	}
+	
+	private boolean processQueuedScans(HashSet<ChunkPos> areaChunks, int scans,
+		long budgetNs)
+	{
 		long startNs = System.nanoTime();
 		boolean changed = false;
 		
@@ -620,6 +668,52 @@ public final class TunnelHoleStairEspHack extends Hack
 		}
 		
 		return changed;
+	}
+	
+	private ScanProfile getScanProfile()
+	{
+		int baseRange = getChunkRange(area.getSelected());
+		int baseScans = Math.max(1, chunksPerTick.getValueI());
+		long baseBudgetNs =
+			Math.max(1L, scanTimeBudgetMs.getValueI()) * 1_000_000L;
+		int baseNearby = nearbyPriorityRadius.getValueI();
+		
+		if(MC.player == null)
+			return new ScanProfile(baseRange, baseScans, baseBudgetNs,
+				baseNearby);
+		
+		Vec3 currentPos = MC.player.position();
+		double speed = 0;
+		if(lastPlayerPos != null)
+			speed = currentPos.subtract(lastPlayerPos).horizontalDistance();
+		lastPlayerPos = currentPos;
+		
+		if(!adaptiveMovementScan.isChecked())
+			return new ScanProfile(baseRange, baseScans, baseBudgetNs,
+				baseNearby);
+		
+		boolean flying =
+			MC.player.getAbilities().flying || MC.player.isFallFlying();
+		if(flying || speed >= 0.9)
+		{
+			int range = Math.min(baseRange, 6);
+			int scans = Math.max(baseScans, 16);
+			long budgetNs = Math.max(baseBudgetNs, 16_000_000L);
+			int nearby = Math.min(Math.max(baseNearby, 3), 6);
+			return new ScanProfile(range, scans, budgetNs, nearby);
+		}
+		
+		if(speed >= 0.25)
+		{
+			int range = Math.min(baseRange, 12);
+			int scans = Math.max(baseScans, 10);
+			long budgetNs = Math.max(baseBudgetNs, 10_000_000L);
+			int nearby = Math.min(Math.max(baseNearby, 3), 8);
+			return new ScanProfile(range, scans, budgetNs, nearby);
+		}
+		
+		// Standing/slow movement: keep full selected area and user throughput.
+		return new ScanProfile(baseRange, baseScans, baseBudgetNs, baseNearby);
 	}
 	
 	private ChunkDetections scanChunk(ChunkPos chunkPos)
@@ -1371,7 +1465,8 @@ public final class TunnelHoleStairEspHack extends Hack
 			minLadderHeight.getValueI(), detectBubbleColumns.isChecked(),
 			minBubbleColumnHeight.getValueI(), detectWaterColumns.isChecked(),
 			minWaterColumnHeight.getValueI(), maxPerChunk.getValueI(),
-			refreshInterval.getValueI(), naturalWallsOnly.isChecked(),
+			refreshInterval.getValueI(), adaptiveMovementScan.isChecked(),
+			nearbyPriorityRadius.getValueI(), naturalWallsOnly.isChecked(),
 			naturalWallRatio.getValue(), overworld.isChecked(),
 			nether.isChecked(), end.isChecked());
 	}
@@ -1417,6 +1512,23 @@ public final class TunnelHoleStairEspHack extends Hack
 		private final ArrayList<AABB> ladders = new ArrayList<>();
 		private final ArrayList<AABB> bubbleColumns = new ArrayList<>();
 		private final ArrayList<AABB> waterColumns = new ArrayList<>();
+	}
+	
+	private static final class ScanProfile
+	{
+		private final int range;
+		private final int scans;
+		private final long budgetNs;
+		private final int nearbyRadius;
+		
+		private ScanProfile(int range, int scans, long budgetNs,
+			int nearbyRadius)
+		{
+			this.range = range;
+			this.scans = scans;
+			this.budgetNs = budgetNs;
+			this.nearbyRadius = nearbyRadius;
+		}
 	}
 	
 	private enum DetectionMode
