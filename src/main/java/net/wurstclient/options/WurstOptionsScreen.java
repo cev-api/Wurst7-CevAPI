@@ -38,10 +38,13 @@ import net.wurstclient.other_features.DiscordRpcOtf;
 import net.wurstclient.other_features.VanillaSpoofOtf;
 import net.wurstclient.other_features.WurstOptionsOtf;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.ColorUtils;
 import net.wurstclient.util.LastServerRememberer;
 import net.wurstclient.util.WurstColors;
+import net.wurstclient.clickgui.screens.EditColorScreen;
 
 public final class WurstOptionsScreen extends Screen
 {
@@ -160,6 +163,10 @@ public final class WurstOptionsScreen extends Screen
 			wurst.getOtfs().forceAllowChatsOtf.getForceAllowChatsSetting();
 		CheckboxSetting hackToggleFeedback =
 			options.getHackToggleChatFeedbackSetting();
+		CheckboxSetting customMojangLogoBg =
+			options.getCustomMojangLogoBackgroundSetting();
+		ColorSetting mojangLogoBgColor =
+			options.getMojangLogoBackgroundColorSetting();
 		CheckboxSetting hideEnableButton =
 			wurst.getOtfs().disableOtf.getHideEnableButtonSetting();
 		var hideWurstHack = wurst.getHax().hideWurstHack;
@@ -186,6 +193,18 @@ public final class WurstOptionsScreen extends Screen
 			"Show chat feedback when hacks are enabled or disabled.",
 			b -> hackToggleFeedback
 				.setChecked(!hackToggleFeedback.isChecked()));
+		
+		addButton(column,
+			() -> "Mojang Logo Bg: " + onOff(customMojangLogoBg.isChecked()),
+			customMojangLogoBg.getDescription(), b -> customMojangLogoBg
+				.setChecked(!customMojangLogoBg.isChecked()));
+		
+		addButton(column,
+			() -> "Mojang Bg Color: "
+				+ ColorUtils.toHex(mojangLogoBgColor.getColor()),
+			"Pick the custom background color used behind the Mojang loading logo.",
+			b -> minecraft
+				.setScreen(new EditColorScreen(this, mojangLogoBgColor)));
 		
 		addButton(column,
 			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
