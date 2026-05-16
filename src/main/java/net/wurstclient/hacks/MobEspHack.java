@@ -10,11 +10,13 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.entity.projectile.hurtingprojectile.WitherSkull;
@@ -52,6 +54,12 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Fill shapes", "Render filled versions of the ESP shapes.", true);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting lastAttackerTracer =
+		new CheckboxSetting("Last attacker tracer",
+			"Draw a tracer to the mob that last damaged you.", false);
+	private final CheckboxSetting chargingCreeperTracer = new CheckboxSetting(
+		"Charging creeper tracer",
+		"Draw a flashing tracer to creepers that are about to explode.", false);
 	
 	// New color options to match MobSearch
 	private final CheckboxSetting useRainbow =
@@ -109,6 +117,12 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		new CheckboxSetting("Highlight wither projectiles",
 			"Also outline the projectiles fired by withers.", false);
 	
+	private static final long LAST_ATTACKER_TIMEOUT_MS = 5000;
+	private static final long CREEPER_FLASH_PERIOD_MS = 450L;
+	private UUID lastAttackerUuid;
+	private long lastAttackerExpiresAt;
+	private int lastPlayerHurtTimeSeen;
+	
 	private int foundCount;
 	
 	public MobEspHack()
@@ -119,6 +133,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(boxSize);
 		addSetting(fillShapes);
 		addSetting(tracerFlash);
+		addSetting(lastAttackerTracer);
+		addSetting(chargingCreeperTracer);
 		addSetting(useRainbow);
 		addSetting(color);
 		entityFilters.forEach(this::addSetting);
@@ -135,6 +151,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		lastAttackerUuid = null;
+		lastAttackerExpiresAt = 0;
+		lastPlayerHurtTimeSeen = MC.player == null ? 0 : MC.player.hurtTime;
 	}
 	
 	@Override
@@ -146,6 +165,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		foundCount = 0;
 		shulkerBullets.clear();
 		witherSkulls.clear();
+		lastAttackerUuid = null;
+		lastAttackerExpiresAt = 0;
+		lastPlayerHurtTimeSeen = 0;
 	}
 	
 	@Override
@@ -154,6 +176,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		mobs.clear();
 		shulkerBullets.clear();
 		witherSkulls.clear();
+		updateLastAttackerTracking();
 		
 		Stream<LivingEntity> stream = StreamSupport
 			.stream(MC.level.entitiesForRendering().spliterator(), false)
@@ -205,7 +228,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
-		if(style.hasLines())
+		if(style.hasLines() || lastAttackerTracer.isChecked()
+			|| chargingCreeperTracer.isChecked())
 			event.cancel();
 	}
 	
@@ -216,6 +240,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		boolean glowMode = shape == MobEspStyleSetting.Shape.GLOW;
 		boolean drawShape = !glowMode && shape != MobEspStyleSetting.Shape.NONE;
 		boolean drawLines = style.hasLines();
+		boolean drawSpecialTracers =
+			lastAttackerTracer.isChecked() || chargingCreeperTracer.isChecked();
 		boolean drawFill = drawShape && fillShapes.isChecked();
 		float projectileOutlineAlpha = 0.85F;
 		float projectileFillAlpha = 0.35F;
@@ -231,10 +257,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			drawShape ? new ArrayList<>(anticipatedSize) : null;
 		ArrayList<ColoredBox> filledShapes =
 			drawFill ? new ArrayList<>(anticipatedSize) : null;
-		ArrayList<ColoredPoint> ends =
-			drawLines ? new ArrayList<>(anticipatedSize) : null;
+		ArrayList<ColoredPoint> ends = (drawLines || drawSpecialTracers)
+			? new ArrayList<>(anticipatedSize) : null;
 		
-		if(drawShape || drawLines)
+		if(drawShape || drawLines || drawSpecialTracers)
 		{
 			double extraSize = drawShape ? boxSize.getExtraSize() / 2D : 0;
 			
@@ -243,7 +269,6 @@ public final class MobEspHack extends Hack implements UpdateListener,
 				AABB lerpedBox = EntityUtils.getLerpedBox(e, partialTicks);
 				float[] rgb = getColorRgb();
 				int outlineColor = RenderUtils.toIntColor(rgb, 0.5F);
-				
 				if(drawShape)
 				{
 					AABB box =
@@ -261,6 +286,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 					ends.add(
 						new ColoredPoint(lerpedBox.getCenter(), outlineColor));
 			}
+			
+			if(drawSpecialTracers && ends != null)
+				addSpecialTracers(ends, partialTicks, drawLines);
 			
 			if(highlightShulkerProjectiles.isChecked())
 			{
@@ -426,7 +454,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		double extra = drawShape ? boxSize.getExtraSize() / 2D : 0;
 		boolean fill = drawShape && fillShapes.isChecked();
 		
-		return new RenderStyleInfo(renderShape, style.hasLines(), fill, extra);
+		return new RenderStyleInfo(renderShape,
+			style.hasLines() || lastAttackerTracer.isChecked()
+				|| chargingCreeperTracer.isChecked(),
+			fill, extra);
 	}
 	
 	private float[] getColorRgb()
@@ -447,6 +478,102 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			return false;
 		
 		return entityFilters.testOne(entity);
+	}
+	
+	private boolean isChargingCreeperTracer(LivingEntity entity)
+	{
+		if(!chargingCreeperTracer.isChecked() || !(entity instanceof Creeper))
+			return false;
+		
+		Creeper creeper = (Creeper)entity;
+		return creeper.getSwellDir() > 0 || creeper.isIgnited()
+			|| creeper.isPowered();
+	}
+	
+	private void addSpecialTracers(ArrayList<ColoredPoint> ends,
+		float partialTicks, boolean normalMobTracersEnabled)
+	{
+		float[] rgb = getColorRgb();
+		int baseTracerColor = RenderUtils.toIntColor(rgb, 0.5F);
+		boolean drawCreeperFlashNow = isCreeperFlashVisibleNow();
+		
+		if(lastAttackerTracer.isChecked() && MC.level != null
+			&& lastAttackerUuid != null)
+		{
+			Entity tracked = MC.level.getEntity(lastAttackerUuid);
+			if(tracked instanceof LivingEntity living
+				&& !(living instanceof Player) && !living.isRemoved()
+				&& living.getHealth() > 0
+				&& (!normalMobTracersEnabled || !mobs.contains(living)))
+			{
+				AABB attackerBox =
+					EntityUtils.getLerpedBox(living, partialTicks);
+				ends.add(
+					new ColoredPoint(attackerBox.getCenter(), baseTracerColor));
+			}
+		}
+		
+		if(chargingCreeperTracer.isChecked())
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+			{
+				if(!(entity instanceof Creeper creeper) || entity.isRemoved()
+					|| creeper.getHealth() <= 0
+					|| (normalMobTracersEnabled && mobs.contains(creeper)))
+					continue;
+				if(!isChargingCreeperTracer(creeper))
+					continue;
+				if(!drawCreeperFlashNow)
+					continue;
+				
+				AABB creeperBox =
+					EntityUtils.getLerpedBox(creeper, partialTicks);
+				ends.add(
+					new ColoredPoint(creeperBox.getCenter(), baseTracerColor));
+			}
+		}
+	}
+	
+	private boolean isCreeperFlashVisibleNow()
+	{
+		long phase = System.currentTimeMillis() % CREEPER_FLASH_PERIOD_MS;
+		return phase < (CREEPER_FLASH_PERIOD_MS / 2L);
+	}
+	
+	private void updateLastAttackerTracking()
+	{
+		if(MC.player == null)
+		{
+			lastPlayerHurtTimeSeen = 0;
+			return;
+		}
+		
+		int hurtTime = MC.player.hurtTime;
+		if(hurtTime > lastPlayerHurtTimeSeen)
+		{
+			Entity attacker = null;
+			if(MC.player.getLastDamageSource() != null)
+			{
+				attacker = MC.player.getLastDamageSource().getEntity();
+				if(attacker == null)
+					attacker =
+						MC.player.getLastDamageSource().getDirectEntity();
+			}
+			
+			if(attacker instanceof LivingEntity living
+				&& !(living instanceof Player))
+			{
+				lastAttackerUuid = living.getUUID();
+				lastAttackerExpiresAt =
+					System.currentTimeMillis() + LAST_ATTACKER_TIMEOUT_MS;
+			}
+		}
+		
+		lastPlayerHurtTimeSeen = hurtTime;
+		
+		if(lastAttackerUuid != null
+			&& System.currentTimeMillis() > lastAttackerExpiresAt)
+			lastAttackerUuid = null;
 	}
 	
 	public static enum RenderShape

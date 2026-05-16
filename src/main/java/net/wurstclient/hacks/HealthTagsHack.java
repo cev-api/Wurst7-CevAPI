@@ -119,6 +119,9 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 	
 	private boolean shouldSkipEntity(LivingEntity entity)
 	{
+		if(entity == MC.player)
+			return true;
+		
 		if(entity instanceof ArmorStand && entity.isInvisible())
 			return true;
 		
