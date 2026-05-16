@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Set;
 import java.io.File;
 import java.io.FileReader;
@@ -166,6 +167,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private Component wurst$statusMessage;
 	@Unique
 	private long wurst$statusMessageUntil;
+	@Unique
+	private EditBox wurst$searchBox;
+	@Unique
+	private String wurst$searchQuery = "";
 	
 	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
@@ -241,6 +246,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 		
 		wurst$layoutServerPanels();
 		wurst$ensurePanelWidgets();
+		wurst$ensureSearchWidgets();
+		wurst$layoutSearchWidgets();
+		wurst$updateSearchResults();
 		
 		if(NiceWurstModule.showAltManager())
 		{
@@ -421,6 +429,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 			wurst$exportButton.visible = visible;
 		if(wurst$importButton != null)
 			wurst$importButton.visible = visible;
+		if(wurst$searchBox != null)
+			wurst$searchBox.visible = visible;
 		
 		for(int i = 0; i < PANEL_COUNT; i++)
 		{
@@ -689,6 +699,249 @@ public class JoinMultiplayerScreenMixin extends Screen
 		}
 		
 		wurst$refreshPanelLists();
+	}
+	
+	@Unique
+	private void wurst$ensureSearchWidgets()
+	{
+		if(wurst$searchBox == null)
+		{
+			wurst$searchBox =
+				new EditBox(font, 0, 0, 120, 16, Component.literal("Search"));
+			wurst$searchBox.setMaxLength(128);
+			wurst$searchBox.setHint(Component.literal("Search Servers..."));
+			wurst$searchBox.setValue(wurst$searchQuery);
+			wurst$searchBox.setResponder(value -> {
+				wurst$searchQuery = value == null ? "" : value.trim();
+				wurst$refreshPanelLists();
+			});
+			addRenderableWidget(wurst$searchBox);
+		}
+	}
+	
+	@Unique
+	private void wurst$layoutSearchWidgets()
+	{
+		if(wurst$searchBox == null)
+			return;
+		
+		int anchorPanel = wurst$getSearchAnchorPanel();
+		int x = wurst$getPanelX(anchorPanel) + 4;
+		int width = wurst$getPanelWidth() - 8;
+		int listTop = wurst$getPanelListY();
+		int listHeight = Math.max(36, height - 86 - listTop);
+		int listBottom = listTop + listHeight;
+		int topButtonY = height - 54;
+		int boxHeight = 16;
+		// Keep the box centered in the vertical gap between list and buttons.
+		int y =
+			listBottom + Math.max(0, (topButtonY - listBottom - boxHeight) / 2);
+		
+		wurst$searchBox.setX(x);
+		wurst$searchBox.setY(y);
+		wurst$searchBox.setWidth(width);
+		wurst$searchBox.setHeight(boxHeight);
+	}
+	
+	@Unique
+	private int wurst$getSearchAnchorPanel()
+	{
+		List<Integer> visible = new ArrayList<>();
+		for(int i = 0; i < PANEL_COUNT; i++)
+			if(wurst$panelConfig.isPanelVisible(i))
+				visible.add(i);
+			
+		if(visible.isEmpty())
+			return 1;
+		
+		// Center panel for odd counts, left panel for two visible panels.
+		int anchorIndex = (visible.size() - 1) / 2;
+		return visible.get(anchorIndex);
+	}
+	
+	@Unique
+	private void wurst$updateSearchResults()
+	{
+		// Search now renders directly in the normal server panels.
+	}
+	
+	@Unique
+	private boolean wurst$matchesSearch(ServerData server, String query)
+	{
+		if(server == null)
+			return false;
+		String q = query == null ? "" : query.trim();
+		if(q.isBlank())
+			return true;
+		
+		String normalized = q.replace("&&", " AND ").replace("||", " OR ")
+			.replace("!", " NOT ");
+		List<String> tokens = wurst$tokenizeSearchQuery(normalized);
+		if(tokens.isEmpty())
+			return true;
+		
+		String index = wurst$buildSearchIndex(server);
+		boolean result = false;
+		String pendingOp = "OR";
+		int pos = 0;
+		while(pos < tokens.size())
+		{
+			boolean negate = false;
+			while(pos < tokens.size()
+				&& tokens.get(pos).equalsIgnoreCase("NOT"))
+			{
+				negate = !negate;
+				pos++;
+			}
+			if(pos >= tokens.size())
+				break;
+			
+			String token = tokens.get(pos++);
+			if(token.equalsIgnoreCase("AND") || token.equalsIgnoreCase("OR"))
+			{
+				pendingOp = token.toUpperCase(Locale.ROOT);
+				continue;
+			}
+			
+			boolean termMatch = index.contains(token.toLowerCase(Locale.ROOT));
+			if(negate)
+				termMatch = !termMatch;
+			
+			if("AND".equals(pendingOp))
+				result = result && termMatch;
+			else
+				result = result || termMatch;
+			
+			if(pos < tokens.size())
+			{
+				String next = tokens.get(pos);
+				if(next.equalsIgnoreCase("AND") || next.equalsIgnoreCase("OR"))
+				{
+					pendingOp = next.toUpperCase(Locale.ROOT);
+					pos++;
+				}else
+				{
+					// Treat consecutive words as AND by default.
+					pendingOp = "AND";
+				}
+			}
+		}
+		
+		return result;
+	}
+	
+	@Unique
+	private List<String> wurst$tokenizeSearchQuery(String query)
+	{
+		List<String> tokens = new ArrayList<>();
+		if(query == null || query.isBlank())
+			return tokens;
+		
+		StringBuilder current = new StringBuilder();
+		boolean inQuotes = false;
+		for(int i = 0; i < query.length(); i++)
+		{
+			char c = query.charAt(i);
+			if(c == '"')
+			{
+				if(inQuotes)
+				{
+					String token = current.toString().trim();
+					if(!token.isEmpty())
+						tokens.add(token);
+					current.setLength(0);
+					inQuotes = false;
+				}else
+				{
+					if(current.length() > 0)
+					{
+						String token = current.toString().trim();
+						if(!token.isEmpty())
+							tokens.add(token);
+						current.setLength(0);
+					}
+					inQuotes = true;
+				}
+				continue;
+			}
+			
+			if(Character.isWhitespace(c) && !inQuotes)
+			{
+				if(current.length() > 0)
+				{
+					String token = current.toString().trim();
+					if(!token.isEmpty())
+						tokens.add(token);
+					current.setLength(0);
+				}
+				continue;
+			}
+			
+			current.append(c);
+		}
+		
+		if(current.length() > 0)
+		{
+			String token = current.toString().trim();
+			if(!token.isEmpty())
+				tokens.add(token);
+		}
+		
+		return tokens;
+	}
+	
+	@Unique
+	private String wurst$buildSearchIndex(ServerData server)
+	{
+		StringBuilder sb = new StringBuilder();
+		wurst$appendSearchTerm(sb, server.name);
+		wurst$appendSearchTerm(sb, server.ip);
+		wurst$appendSearchTerm(sb, wurst$getServerTextField(server, "motd"));
+		wurst$appendSearchTerm(sb, wurst$getServerTextField(server, "status"));
+		wurst$appendSearchTerm(sb,
+			wurst$getServerTextField(server, "description"));
+		try
+		{
+			wurst$appendSearchTerm(sb, server.version.getString());
+		}catch(Throwable ignored)
+		{}
+		try
+		{
+			if(server.players != null)
+				wurst$appendSearchTerm(sb,
+					Integer.toString(server.players.online()));
+		}catch(Throwable ignored)
+		{}
+		return sb.toString();
+	}
+	
+	@Unique
+	private void wurst$appendSearchTerm(StringBuilder sb, String term)
+	{
+		if(term == null || term.isBlank())
+			return;
+		if(sb.length() > 0)
+			sb.append(' ');
+		sb.append(term.toLowerCase(Locale.ROOT));
+	}
+	
+	@Unique
+	private String wurst$getServerTextField(ServerData server, String fieldName)
+	{
+		if(server == null || fieldName == null || fieldName.isBlank())
+			return "";
+		try
+		{
+			Object value = server.getClass().getField(fieldName).get(server);
+			if(value == null)
+				return "";
+			if(value instanceof Component component)
+				return component.getString();
+			return value.toString();
+		}catch(Throwable ignored)
+		{
+			return "";
+		}
 	}
 	
 	@Unique
@@ -1200,6 +1453,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private void wurst$refreshPanelLists()
 	{
+		String query =
+			wurst$searchQuery == null ? "" : wurst$searchQuery.trim();
+		boolean searchActive = !query.isBlank();
+		
 		for(int panel = 0; panel < PANEL_COUNT; panel++)
 		{
 			ServerSelectionList panelList = wurst$panelLists[panel];
@@ -1209,7 +1466,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 			ServerList subset = new ServerList(minecraft);
 			if(wurst$panelConfig.isPanelVisible(panel))
 				for(ServerData server : wurst$getServers())
-					if(wurst$panelConfig.getPanel(server) == panel)
+					if(wurst$panelConfig.getPanel(server) == panel
+						&& (!searchActive
+							|| wurst$matchesSearch(server, query)))
 						subset.add(server, false);
 					
 			panelList.updateOnlineServers(subset);

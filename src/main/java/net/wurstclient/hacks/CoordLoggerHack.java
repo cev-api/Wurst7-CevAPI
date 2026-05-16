@@ -18,7 +18,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundLevelEventPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -310,6 +313,20 @@ public final class CoordLoggerHack extends Hack
 			if(packet instanceof ClientboundLevelEventPacket lvl)
 			{
 				handleLevelEvent(lvl);
+				return;
+			}
+			
+			// Sound packets (used by some servers/versions for wither spawn
+			// direction hints)
+			if(packet instanceof ClientboundSoundPacket sound)
+			{
+				handleSoundPacket(sound);
+				return;
+			}
+			
+			if(packet instanceof ClientboundSoundEntityPacket soundEntity)
+			{
+				handleSoundEntityPacket(soundEntity);
 			}
 		}catch(Throwable t)
 		{
@@ -497,6 +514,83 @@ public final class CoordLoggerHack extends Hack
 			else
 				ChatUtils.message(toSend);
 		}
+	}
+	
+	private void handleSoundPacket(ClientboundSoundPacket packet)
+	{
+		if(packet == null || MC == null || MC.player == null)
+			return;
+		if(!logMobs.isChecked())
+			return;
+		
+		String soundId;
+		try
+		{
+			soundId = BuiltInRegistries.SOUND_EVENT
+				.getKey(packet.getSound().value()).toString();
+		}catch(Throwable t)
+		{
+			return;
+		}
+		
+		if(!"minecraft:entity.wither.spawn".equals(soundId))
+			return;
+		
+		Vec3 soundPos = new Vec3(packet.getX(), packet.getY(), packet.getZ());
+		double dist = MC.player.position().distanceTo(soundPos);
+		if(dist < minDistance.getValue())
+			return;
+		
+		String dir = getCompassDirection(MC.player.position(), soundPos);
+		String msg = String.format(
+			"[CoordLogger] Wither spawn sound at x=%.1f, y=%.1f, z=%.1f (dist=%.1f, dir=%s)",
+			soundPos.x, soundPos.y, soundPos.z, dist, dir);
+		MC.execute(() -> ChatUtils.message(msg));
+		
+		boolean isFar = dist > NEAR_EVENT_DISTANCE;
+		markers.add(new EventMarker(soundPos, isFar, 1023, "WITHER_SPAWN_SOUND",
+			EventCategory.MOBS));
+	}
+	
+	private void handleSoundEntityPacket(ClientboundSoundEntityPacket packet)
+	{
+		if(packet == null || MC == null || MC.player == null
+			|| MC.level == null)
+			return;
+		if(!logMobs.isChecked())
+			return;
+		
+		String soundId;
+		try
+		{
+			soundId = BuiltInRegistries.SOUND_EVENT
+				.getKey(packet.getSound().value()).toString();
+		}catch(Throwable t)
+		{
+			return;
+		}
+		
+		if(!"minecraft:entity.wither.spawn".equals(soundId))
+			return;
+		
+		Entity entity = MC.level.getEntity(packet.getId());
+		if(entity == null)
+			return;
+		
+		Vec3 soundPos = entity.position();
+		double dist = MC.player.position().distanceTo(soundPos);
+		if(dist < minDistance.getValue())
+			return;
+		
+		String dir = getCompassDirection(MC.player.position(), soundPos);
+		String msg = String.format(
+			"[CoordLogger] Wither spawn sound(entity) at x=%.1f, y=%.1f, z=%.1f (dist=%.1f, dir=%s)",
+			soundPos.x, soundPos.y, soundPos.z, dist, dir);
+		MC.execute(() -> ChatUtils.message(msg));
+		
+		boolean isFar = dist > NEAR_EVENT_DISTANCE;
+		markers.add(new EventMarker(soundPos, isFar, 1023,
+			"WITHER_SPAWN_SOUND_ENTITY", EventCategory.MOBS));
 	}
 	
 	private double distanceToPlayer(BlockPos pos)

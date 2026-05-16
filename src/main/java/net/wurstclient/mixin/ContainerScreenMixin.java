@@ -1306,43 +1306,51 @@ public abstract class ContainerScreenMixin
 				// If loot export present, compare now and notify if mismatch
 				try
 				{
-					java.io.File lootFile =
-						net.wurstclient.lootsearch.LootSearchUtil
-							.findFileForServer(serverIp);
-					if(lootFile != null)
+					net.wurstclient.hacks.LootSearchHack lootSearchHack =
+						WurstClient.INSTANCE == null ? null
+							: WurstClient.INSTANCE.getHax().lootSearchHack;
+					if(lootSearchHack != null
+						&& lootSearchHack.shouldCompareOpenedChests())
 					{
-						boolean match =
+						java.io.File lootFile =
 							net.wurstclient.lootsearch.LootSearchUtil
-								.compareStacksWithLoot(serverIp, dimension, fx,
-									fy, fz, region);
-						// Debug log to help diagnose why mismatch messages may
-						// not
-						// appear in chat. Useful during testing.
-						try
+								.findFileForServer(serverIp);
+						if(lootFile != null)
 						{
-							System.out.println(
-								"[LootSearch] compare at " + fx + "," + fy + ","
-									+ fz + " server=" + serverIp + " lootFile="
+							boolean match =
+								net.wurstclient.lootsearch.LootSearchUtil
+									.compareStacksWithLoot(serverIp, dimension,
+										fx, fy, fz, region);
+							// Debug log to help diagnose why mismatch messages
+							// may
+							// not
+							// appear in chat. Useful during testing.
+							try
+							{
+								System.out.println("[LootSearch] compare at "
+									+ fx + "," + fy + "," + fz + " server="
+									+ serverIp + " lootFile="
 									+ (lootFile == null ? "null"
 										: lootFile.getAbsolutePath())
 									+ " match=" + match);
-						}catch(Throwable ignored)
-						{}
-						ChestSearchHack csh = wurst$getChestSearchHack();
-						boolean allowMismatchNotification = csh == null
-							|| csh.isLootMismatchNotificationEnabled();
-						if(!match && allowMismatchNotification
-							&& net.wurstclient.WurstClient.MC != null)
-						{
-							net.wurstclient.WurstClient.MC.execute(() -> {
-								try
-								{
-									if(net.wurstclient.WurstClient.MC.player != null)
-										ChatUtils.message(
-											"Chest does not match loot table.");
-								}catch(Throwable ignored)
-								{}
-							});
+							}catch(Throwable ignored)
+							{}
+							ChestSearchHack csh = wurst$getChestSearchHack();
+							boolean allowMismatchNotification = csh == null
+								|| csh.isLootMismatchNotificationEnabled();
+							if(!match && allowMismatchNotification
+								&& net.wurstclient.WurstClient.MC != null)
+							{
+								net.wurstclient.WurstClient.MC.execute(() -> {
+									try
+									{
+										if(net.wurstclient.WurstClient.MC.player != null)
+											ChatUtils.message(
+												"Chest does not match loot table.");
+									}catch(Throwable ignored)
+									{}
+								});
+							}
 						}
 					}
 				}catch(Throwable ignored)

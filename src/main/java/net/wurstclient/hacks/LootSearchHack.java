@@ -15,6 +15,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.lootsearch.LootChestManager;
 import net.wurstclient.lootsearch.LootSearchUtil;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.FileSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -48,6 +49,11 @@ public final class LootSearchHack extends Hack
 		ValueDisplay.INTEGER.withSuffix(" min")
 			.withLabel(WAYPOINT_TIME_MINUTES_INFINITE, "Infinite"));
 	
+	private final CheckboxSetting compareOpenedChests = new CheckboxSetting(
+		"Compare opened chests",
+		"Compare opened chests against the loot export and report mismatches.",
+		false);
+	
 	public LootSearchHack()
 	{
 		super("LootSearch");
@@ -55,6 +61,7 @@ public final class LootSearchHack extends Hack
 		addSetting(lootJsonPicker);
 		addSetting(literalJsonPath);
 		addSetting(waypointTimeMinutes);
+		addSetting(compareOpenedChests);
 	}
 	
 	public int getWaypointTimeMs()
@@ -63,6 +70,11 @@ public final class LootSearchHack extends Hack
 		if(minutes >= WAYPOINT_TIME_MINUTES_INFINITE)
 			return -1;
 		return minutes * 60 * 1000;
+	}
+	
+	public boolean shouldCompareOpenedChests()
+	{
+		return compareOpenedChests.isChecked();
 	}
 	
 	@Override
