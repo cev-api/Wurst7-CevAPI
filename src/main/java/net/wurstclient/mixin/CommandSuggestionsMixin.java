@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.Collection;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 import org.spongepowered.asm.mixin.Final;
@@ -17,9 +19,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.EditBox;
 import net.wurstclient.WurstClient;
+import net.wurstclient.command.Command;
 import net.wurstclient.hacks.AutoCompleteHack;
 
 @Mixin(CommandSuggestions.class)
@@ -34,18 +38,73 @@ public abstract class CommandSuggestionsMixin
 	@Inject(method = "updateCommandInfo()V", at = @At("TAIL"))
 	private void onRefresh(CallbackInfo ci)
 	{
+		String draftMessage =
+			input.getValue().substring(0, input.getCursorPosition());
+		if(wurst$showWurstCommandSuggestions(draftMessage))
+			return;
+		
 		AutoCompleteHack autoComplete =
 			WurstClient.INSTANCE.getHax().autoCompleteHack;
 		if(!autoComplete.isEnabled())
 			return;
 		
-		String draftMessage =
-			input.getValue().substring(0, input.getCursorPosition());
 		autoComplete.onRefresh(draftMessage, (builder, suggestion) -> {
 			input.setSuggestion(suggestion);
 			pendingSuggestions = builder.buildFuture();
 			showSuggestions(false);
 		});
+	}
+	
+	private boolean wurst$showWurstCommandSuggestions(String draftMessage)
+	{
+		if(draftMessage == null || draftMessage.isEmpty()
+			|| draftMessage.startsWith("/"))
+			return false;
+		
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		if(prefix == null || prefix.isEmpty()
+			|| !draftMessage.startsWith(prefix))
+			return false;
+		
+		String lowerDraft = draftMessage.toLowerCase(Locale.ROOT);
+		Collection<Command> commands =
+			WurstClient.INSTANCE.getCmds().getAllCmds();
+		SuggestionsBuilder builder = new SuggestionsBuilder(draftMessage, 0);
+		String inlineSuggestion = "";
+		int suggestions = 0;
+		for(Command cmd : commands)
+		{
+			if(cmd == null || cmd.getName() == null)
+				continue;
+			
+			String cmdName = cmd.getName();
+			if(cmdName.startsWith("."))
+				cmdName = cmdName.substring(1);
+			String candidate = prefix + cmdName;
+			if(!candidate.toLowerCase(Locale.ROOT).startsWith(lowerDraft))
+				continue;
+			
+			builder.suggest(candidate);
+			suggestions++;
+			if(inlineSuggestion.isEmpty()
+				&& candidate.length() > draftMessage.length())
+				inlineSuggestion = candidate.substring(draftMessage.length());
+		}
+		
+		if(suggestions == 0)
+			return false;
+		
+		input.setSuggestion(inlineSuggestion);
+		pendingSuggestions = builder.buildFuture();
+		showSuggestions(false);
+		return true;
 	}
 	
 	@Shadow

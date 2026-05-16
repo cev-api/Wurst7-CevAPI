@@ -1196,6 +1196,7 @@
     "Hide opened chest tracers": true,
     "Opened chest color": "#FF0000",
     "Chat notifications": false,
+    "Console logs": true,
     "Loot mismatch notifications": false
   },
   "ChorusFruit": {
@@ -1995,7 +1996,8 @@
   "LootSearch": {
     "Loot JSON": "simplified-results.json",
     "JSON Path": "",
-    "Waypoint time (min)": 241.0
+    "Waypoint time (min)": 241.0,
+    "Compare opened chests": false
   },
   "MaceDMG": {
     "Height": 53.6

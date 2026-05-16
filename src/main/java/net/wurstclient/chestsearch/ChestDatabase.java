@@ -21,6 +21,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.ChestSearchHack;
 
 public class ChestDatabase
 {
@@ -77,8 +79,8 @@ public class ChestDatabase
 		try(FileWriter w = new FileWriter(file))
 		{
 			gson.toJson(entries, w);
-			System.out.println("[ChestDatabase] saved " + entries.size()
-				+ " entries to " + file.getAbsolutePath());
+			log("[ChestDatabase] saved " + entries.size() + " entries to "
+				+ file.getAbsolutePath());
 		}catch(Exception e)
 		{
 			e.printStackTrace();
@@ -126,9 +128,8 @@ public class ChestDatabase
 						entry.touch();
 						entries.add(entry);
 						finalizeInsert(entry);
-						System.out.println(
-							"[ChestDatabase] merged entry by contents; preserved primary="
-								+ entry.x + "," + entry.y + "," + entry.z);
+						log("[ChestDatabase] merged entry by contents; preserved primary="
+							+ entry.x + "," + entry.y + "," + entry.z);
 						return;
 					}
 				}
@@ -152,7 +153,7 @@ public class ChestDatabase
 				it.remove();
 				entries.add(entry);
 				finalizeInsert(entry);
-				System.out.println("[ChestDatabase] updated entry at bounds "
+				log("[ChestDatabase] updated entry at bounds "
 					+ entry.getMinPos() + " -> " + entry.getMaxPos()
 					+ " facing=" + entry.facing + " (preserved primary="
 					+ entry.x + "," + entry.y + "," + entry.z + ")");
@@ -162,9 +163,8 @@ public class ChestDatabase
 		entry.touch();
 		entries.add(entry);
 		finalizeInsert(entry);
-		System.out.println(
-			"[ChestDatabase] added entry at bounds " + entry.getMinPos()
-				+ " -> " + entry.getMaxPos() + " facing=" + entry.facing);
+		log("[ChestDatabase] added entry at bounds " + entry.getMinPos()
+			+ " -> " + entry.getMaxPos() + " facing=" + entry.facing);
 	}
 	
 	public synchronized void removeAt(String serverIp, String dimension, int x,
@@ -175,8 +175,7 @@ public class ChestDatabase
 				&& e.x == x && e.y == y && e.z == z))
 			.collect(Collectors.toList());
 		save();
-		System.out.println(
-			"[ChestDatabase] removed entry at " + x + "," + y + "," + z);
+		log("[ChestDatabase] removed entry at " + x + "," + y + "," + z);
 	}
 	
 	public synchronized List<ChestEntry> search(String query)
@@ -320,8 +319,7 @@ public class ChestDatabase
 	{
 		boolean removed = removeOverlappingDuplicates(entry);
 		if(removed)
-			System.out.println(
-				"[ChestDatabase] cleaned overlapping duplicates after insert.");
+			log("[ChestDatabase] cleaned overlapping duplicates after insert.");
 		save();
 	}
 	
@@ -360,12 +358,33 @@ public class ChestDatabase
 			if(!overlap)
 				continue;
 			it.remove();
-			System.out
-				.println("[ChestDatabase] removed overlapping duplicate at "
-					+ other.getMinPos() + " -> " + other.getMaxPos());
+			log("[ChestDatabase] removed overlapping duplicate at "
+				+ other.getMinPos() + " -> " + other.getMaxPos());
 			removed = true;
 		}
 		return removed;
+	}
+	
+	private static void log(String message)
+	{
+		if(shouldLogConsole())
+			System.out.println(message);
+	}
+	
+	private static boolean shouldLogConsole()
+	{
+		try
+		{
+			if(WurstClient.INSTANCE == null
+				|| WurstClient.INSTANCE.getHax() == null)
+				return true;
+			ChestSearchHack hack =
+				WurstClient.INSTANCE.getHax().chestSearchHack;
+			return hack == null || hack.shouldShowConsoleLogs();
+		}catch(Throwable ignored)
+		{
+			return true;
+		}
 	}
 	
 	private boolean dedupeLoadedEntries()

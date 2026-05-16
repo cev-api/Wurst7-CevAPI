@@ -69,6 +69,9 @@ public final class ChestSearchHack extends Hack
 		new CheckboxSetting("Loot mismatch notifications",
 			"Show a chat notification when a chest does not match the loot table.",
 			false);
+	private final CheckboxSetting consoleLogs =
+		new CheckboxSetting("Console logs",
+			"Print ChestSearch debug messages to the console.", true);
 	private final SliderSetting textScale = new SliderSetting("Text scale", 1.0,
 		0.5, 1.25, 0.05, ValueDisplay.DECIMAL);
 	
@@ -96,6 +99,7 @@ public final class ChestSearchHack extends Hack
 		addSetting(markXColor);
 		addSetting(recordedChestNotifications);
 		addSetting(lootMismatchNotifications);
+		addSetting(consoleLogs);
 	}
 	
 	public int getMarkXColorARGB()
@@ -133,6 +137,11 @@ public final class ChestSearchHack extends Hack
 	public boolean isLootMismatchNotificationEnabled()
 	{
 		return lootMismatchNotifications.isChecked();
+	}
+	
+	public boolean shouldShowConsoleLogs()
+	{
+		return consoleLogs.isChecked();
 	}
 	
 	public int getCleanerGraceTicks()
