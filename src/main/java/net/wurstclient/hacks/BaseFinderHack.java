@@ -310,6 +310,8 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	
 	private ArrayList<String> blockNames;
 	private java.util.Set<String> naturalExactIds;
+	private java.util.Set<String> forcedManMadeAlwaysIds;
+	private java.util.Set<String> forcedManMadeUnderwaterIds;
 	
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(area);
@@ -371,6 +373,13 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		lastAreaSelection = area.getSelected();
 		coordinator.setQuery((pos, state) -> {
 			String idFull = BlockUtils.getName(state.getBlock());
+			if(forcedManMadeAlwaysIds != null
+				&& forcedManMadeAlwaysIds.contains(idFull))
+				return true;
+			if(forcedManMadeUnderwaterIds != null
+				&& forcedManMadeUnderwaterIds.contains(idFull))
+				return state.getFluidState() == null
+					|| state.getFluidState().isEmpty();
 			return naturalExactIds == null || !naturalExactIds.contains(idFull);
 		});
 		
@@ -449,6 +458,13 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			rebuildNaturalCaches();
 			coordinator.setQuery((pos, state) -> {
 				String idFull = BlockUtils.getName(state.getBlock());
+				if(forcedManMadeAlwaysIds != null
+					&& forcedManMadeAlwaysIds.contains(idFull))
+					return true;
+				if(forcedManMadeUnderwaterIds != null
+					&& forcedManMadeUnderwaterIds.contains(idFull))
+					return state.getFluidState() == null
+						|| state.getFluidState().isEmpty();
 				return naturalExactIds == null
 					|| !naturalExactIds.contains(idFull);
 			});
@@ -688,6 +704,113 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 				exact.add(id.toString());
 		}
 		naturalExactIds = exact;
+		
+		java.util.HashSet<String> forcedManMadeAlways = new java.util.HashSet<>();
+		java.util.HashSet<String> forcedManMadeWhenDry = new java.util.HashSet<>();
+		
+		// User-requested base indicators that should never be treated as natural.
+		// (Includes typo corrections and grouped requests like all beds/corals/terracottas.)
+		java.util.Collections.addAll(forcedManMadeAlways,
+			"minecraft:raw_iron_block", "minecraft:bee_nest",
+			"minecraft:iron_chain", "minecraft:potted_dead_bush",
+			"minecraft:cobbled_deepslate", "minecraft:red_candle",
+			"minecraft:red_glazed_terracotta",
+			"minecraft:chiseled_sandstone", "minecraft:dispenser",
+			"minecraft:ladder", "minecraft:cactus",
+			"minecraft:mossy_stone_bricks",
+			"minecraft:cracked_stone_bricks",
+			"minecraft:chiseled_stone_bricks",
+			"minecraft:stone_brick_stairs", "minecraft:stone_bricks",
+			"minecraft:iron_bars", "minecraft:stone_brick_slab",
+			"minecraft:mossy_stone_brick_stairs", "minecraft:red_concrete",
+			"minecraft:white_stained_glass", "minecraft:black_stained_glass",
+			"minecraft:mud", "minecraft:stone_button", "minecraft:mangrove_wood",
+			"minecraft:cut_sandstone", "minecraft:polished_granite",
+			"minecraft:light_blue_terracotta",
+			"minecraft:sandstone_stairs", "minecraft:stone_slab",
+			"minecraft:tripwire", "minecraft:tripwire_hook",
+			"minecraft:creaking_heart", "minecraft:dirt_path",
+			
+			// All bed colors
+			"minecraft:white_bed", "minecraft:orange_bed",
+			"minecraft:magenta_bed", "minecraft:light_blue_bed",
+			"minecraft:yellow_bed", "minecraft:lime_bed",
+			"minecraft:pink_bed", "minecraft:gray_bed",
+			"minecraft:light_gray_bed", "minecraft:cyan_bed",
+			"minecraft:purple_bed", "minecraft:blue_bed",
+			"minecraft:brown_bed", "minecraft:green_bed",
+			"minecraft:red_bed", "minecraft:black_bed",
+			
+			// All terracottas
+			"minecraft:terracotta", "minecraft:white_terracotta",
+			"minecraft:orange_terracotta", "minecraft:magenta_terracotta",
+			"minecraft:light_blue_terracotta", "minecraft:yellow_terracotta",
+			"minecraft:lime_terracotta", "minecraft:pink_terracotta",
+			"minecraft:gray_terracotta", "minecraft:light_gray_terracotta",
+			"minecraft:cyan_terracotta", "minecraft:purple_terracotta",
+			"minecraft:blue_terracotta", "minecraft:brown_terracotta",
+			"minecraft:green_terracotta", "minecraft:red_terracotta",
+			"minecraft:black_terracotta",
+			
+			// All coral types (live + dead, blocks + corals + fans + wall fans)
+			"minecraft:tube_coral_block", "minecraft:brain_coral_block",
+			"minecraft:bubble_coral_block", "minecraft:fire_coral_block",
+			"minecraft:horn_coral_block", "minecraft:tube_coral",
+			"minecraft:brain_coral", "minecraft:bubble_coral",
+			"minecraft:fire_coral", "minecraft:horn_coral",
+			"minecraft:tube_coral_fan", "minecraft:brain_coral_fan",
+			"minecraft:bubble_coral_fan", "minecraft:fire_coral_fan",
+			"minecraft:horn_coral_fan", "minecraft:tube_coral_wall_fan",
+			"minecraft:brain_coral_wall_fan", "minecraft:bubble_coral_wall_fan",
+			"minecraft:fire_coral_wall_fan", "minecraft:horn_coral_wall_fan",
+			"minecraft:dead_tube_coral_block",
+			"minecraft:dead_brain_coral_block",
+			"minecraft:dead_bubble_coral_block",
+			"minecraft:dead_fire_coral_block",
+			"minecraft:dead_horn_coral_block", "minecraft:dead_tube_coral",
+			"minecraft:dead_brain_coral", "minecraft:dead_bubble_coral",
+			"minecraft:dead_fire_coral", "minecraft:dead_horn_coral",
+			"minecraft:dead_tube_coral_fan",
+			"minecraft:dead_brain_coral_fan",
+			"minecraft:dead_bubble_coral_fan",
+			"minecraft:dead_fire_coral_fan", "minecraft:dead_horn_coral_fan",
+			"minecraft:dead_tube_coral_wall_fan",
+			"minecraft:dead_brain_coral_wall_fan",
+			"minecraft:dead_bubble_coral_wall_fan",
+			"minecraft:dead_fire_coral_wall_fan",
+			"minecraft:dead_horn_coral_wall_fan");
+		
+		// Only suspicious when NOT underwater (your boat/ocean context).
+		java.util.Collections.addAll(forcedManMadeWhenDry,
+			// Sea lantern + all prismarine variants
+			"minecraft:sea_lantern", "minecraft:prismarine",
+			"minecraft:prismarine_slab", "minecraft:prismarine_stairs",
+			"minecraft:prismarine_wall", "minecraft:prismarine_bricks",
+			"minecraft:prismarine_brick_slab",
+			"minecraft:prismarine_brick_stairs", "minecraft:dark_prismarine",
+			"minecraft:dark_prismarine_slab",
+			"minecraft:dark_prismarine_stairs",
+			
+			// Spruce set
+			"minecraft:spruce_planks", "minecraft:spruce_stairs",
+			"minecraft:spruce_slab", "minecraft:spruce_fence",
+			"minecraft:spruce_fence_gate", "minecraft:spruce_door",
+			"minecraft:spruce_trapdoor", "minecraft:spruce_button",
+			"minecraft:spruce_pressure_plate", "minecraft:spruce_sign",
+			"minecraft:spruce_wall_sign", "minecraft:spruce_hanging_sign",
+			"minecraft:spruce_wall_hanging_sign",
+			
+			// Jungle set
+			"minecraft:jungle_planks", "minecraft:jungle_stairs",
+			"minecraft:jungle_slab", "minecraft:jungle_fence",
+			"minecraft:jungle_fence_gate", "minecraft:jungle_door",
+			"minecraft:jungle_trapdoor", "minecraft:jungle_button",
+			"minecraft:jungle_pressure_plate", "minecraft:jungle_sign",
+			"minecraft:jungle_wall_sign", "minecraft:jungle_hanging_sign",
+			"minecraft:jungle_wall_hanging_sign");
+		
+		forcedManMadeAlwaysIds = forcedManMadeAlways;
+		forcedManMadeUnderwaterIds = forcedManMadeWhenDry;
 	}
 	
 	private void syncNaturalBlocksWithBuiltins()
