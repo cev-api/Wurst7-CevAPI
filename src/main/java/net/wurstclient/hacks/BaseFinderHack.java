@@ -14,28 +14,32 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
+import net.minecraft.world.level.ChunkPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstRenderLayers;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.BlockVertexCompiler;
-import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EasyVertexBuffer;
 import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.chunk.ChunkSearcher;
+import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
 @SearchTags({"base finder", "factions"})
 public final class BaseFinderHack extends Hack implements UpdateListener,
-	RenderListener, CameraTransformViewBobbingListener
+	RenderListener, CameraTransformViewBobbingListener, PacketInputListener
 {
 	private final BlockListSetting naturalBlocks = new BlockListSetting(
 		"Natural Blocks",
@@ -94,6 +98,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		"minecraft:leaf_litter", "minecraft:pink_petals",
 		"minecraft:short_dry_grass", "minecraft:tall_dry_grass",
 		"minecraft:wildflowers", "minecraft:bush", "minecraft:cactus_flower",
+		"minecraft:firefly_bush",
 		
 		// Mushrooms
 		"minecraft:red_mushroom", "minecraft:brown_mushroom",
@@ -268,6 +273,10 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		// Natural obsidian (e.g., lava-water, ruined portals) & world spawners
 		"minecraft:obsidian", "minecraft:crying_obsidian", "minecraft:spawner",
 		
+		// Common naturally-generated "false base" noise blocks
+		"minecraft:oak_planks", "minecraft:oak_fence", "minecraft:rail",
+		"minecraft:torch", "minecraft:wall_torch", "minecraft:packed_mud",
+		
 		// Misc vines
 		"minecraft:vine");
 	
@@ -292,21 +301,27 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		"Sticky area",
 		"Off: Re-centers every scan around your position.\nOn: Keeps results anchored so you can path back to them.",
 		false);
-	private BlockPos scanCenter;
+	private final ChunkAreaSetting area = new ChunkAreaSetting("Area",
+		"The area around you to scan for man-made blocks.",
+		ChunkAreaSetting.ChunkArea.A11);
 	private boolean lastSticky;
+	private ChunkPos lastPlayerChunk;
+	private ChunkAreaSetting.ChunkArea lastAreaSelection;
 	
 	private ArrayList<String> blockNames;
 	private java.util.Set<String> naturalExactIds;
-	private String[] naturalKeywords;
 	
-	private final HashSet<BlockPos> matchingBlocks = new HashSet<>();
+	private final ChunkSearcherCoordinator coordinator =
+		new ChunkSearcherCoordinator(area);
 	private ArrayList<int[]> vertices = new ArrayList<>();
 	private java.util.ArrayList<net.minecraft.world.phys.Vec3> tracerEnds =
 		new java.util.ArrayList<>();
 	private EasyVertexBuffer vertexBuffer;
 	
-	private int messageTimer = 0;
 	private int counter;
+	private int lastMatchesVersion = -1;
+	private int lastMinY;
+	private int lastMaxY;
 	
 	private RegionPos lastRegion;
 	
@@ -321,6 +336,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		addSetting(showTracers);
 		addSetting(tracerFlash);
 		addSetting(stickyArea);
+		addSetting(area);
 	}
 	
 	@Override
@@ -345,16 +361,23 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	@Override
 	protected void onEnable()
 	{
-		// reset timer
-		messageTimer = 0;
+		syncNaturalBlocksWithBuiltins();
 		blockNames = new ArrayList<>(naturalBlocks.getBlockNames());
 		rebuildNaturalCaches();
-		scanCenter = BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
+		lastMinY = minY.getValueI();
+		lastMaxY = maxY.getValueI();
 		lastSticky = stickyArea.isChecked();
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastAreaSelection = area.getSelected();
+		coordinator.setQuery((pos, state) -> {
+			String idFull = BlockUtils.getName(state.getBlock());
+			return naturalExactIds == null || !naturalExactIds.contains(idFull);
+		});
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
 	}
 	
 	@Override
@@ -363,23 +386,25 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
-		matchingBlocks.clear();
+		EVENTS.remove(PacketInputListener.class, this);
 		vertices.clear();
 		tracerEnds.clear();
+		coordinator.reset();
+		counter = 0;
 		
 		if(vertexBuffer != null)
 			vertexBuffer.close();
 		vertexBuffer = null;
 		lastRegion = null;
-		scanCenter = null;
+		lastMatchesVersion = -1;
 	}
 	
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		RegionPos region = RenderUtils.getCameraRegion();
-		if(!region.equals(lastRegion))
-			onUpdate();
+		if(vertexBuffer != null && !region.equals(lastRegion))
+			rebuildVertexBuffer(region);
 		
 		if(vertexBuffer == null)
 			return;
@@ -414,6 +439,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		syncNaturalBlocksWithBuiltins();
 		// Detect block list changes without toggling the hack
 		java.util.ArrayList<String> current =
 			new java.util.ArrayList<>(naturalBlocks.getBlockNames());
@@ -421,57 +447,38 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		{
 			blockNames = current;
 			rebuildNaturalCaches();
-			matchingBlocks.clear();
-			vertices.clear();
-			tracerEnds.clear();
-			if(vertexBuffer != null)
-			{
-				vertexBuffer.close();
-				vertexBuffer = null;
-			}
-			lastRegion = null;
+			coordinator.setQuery((pos, state) -> {
+				String idFull = BlockUtils.getName(state.getBlock());
+				return naturalExactIds == null
+					|| !naturalExactIds.contains(idFull);
+			});
+			clearRenderCache();
 		}
 		
-		// Update scan center based on sticky toggle
+		// Search-like sticky behavior
 		boolean sticky = stickyArea.isChecked();
 		if(sticky != lastSticky)
 		{
-			matchingBlocks.clear();
-			vertices.clear();
-			tracerEnds.clear();
-			if(vertexBuffer != null)
-			{
-				vertexBuffer.close();
-				vertexBuffer = null;
-			}
-			lastRegion = null;
+			coordinator.reset();
+			clearRenderCache();
 			lastSticky = sticky;
 		}
-		if(!sticky || scanCenter == null)
-			scanCenter =
-				BlockPos.containing(MC.player.getX(), 0, MC.player.getZ());
 		
-		int modulo = MC.player.tickCount % 64;
-		RegionPos region = RenderUtils.getCameraRegion();
-		
-		if(modulo == 0 || !region.equals(lastRegion))
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		if(!sticky && !currentChunk.equals(lastPlayerChunk))
 		{
-			if(vertexBuffer != null)
-				vertexBuffer.close();
-			
-			vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
-				DefaultVertexFormat.POSITION_COLOR, buffer -> {
-					for(int[] vertex : vertices)
-						buffer.addVertex(vertex[0] - region.x(), vertex[1],
-							vertex[2] - region.z()).setColor(0xFFFFFFFF);
-				});
-			
-			lastRegion = region;
+			lastPlayerChunk = currentChunk;
+			coordinator.reset();
+			clearRenderCache();
 		}
 		
-		// reset matching blocks
-		if(modulo == 0)
-			matchingBlocks.clear();
+		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
+		if(currentArea != lastAreaSelection)
+		{
+			lastAreaSelection = currentArea;
+			coordinator.reset();
+			clearRenderCache();
+		}
 		
 		int worldMinY = MC.level.getMinY();
 		int worldMaxY = MC.level.getMaxY() - 1;
@@ -485,121 +492,208 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			clampedMaxY = t;
 		}
 		
-		int totalY = Math.max(1, clampedMaxY - clampedMinY + 1);
-		int stepSize = Math.max(1, (int)Math.ceil(totalY / 64.0));
-		int startY = clampedMaxY - modulo * stepSize;
-		if(startY < clampedMinY)
-			return;
-		int endY = Math.max(startY - stepSize + 1, clampedMinY);
-		
-		BlockPos playerPos = scanCenter;
-		
-		// search matching blocks
-		loop: for(int y = startY; y >= endY; y--)
-			for(int x = 64; x > -64; x--)
-				for(int z = 64; z > -64; z--)
-				{
-					if(matchingBlocks.size() >= 10000)
-						break loop;
-					
-					BlockPos pos = new BlockPos(playerPos.getX() + x, y,
-						playerPos.getZ() + z);
-					
-					// Unloaded chunks can return placeholder states and cause
-					// large false positives in the air/void.
-					if(!hasLoadedChunk(pos))
-						continue;
-					
-					String idFull = BlockUtils.getName(pos);
-					boolean isNatural = naturalExactIds != null
-						&& naturalExactIds.contains(idFull);
-					if(!isNatural && naturalKeywords != null
-						&& naturalKeywords.length > 0)
-					{
-						String localId = idFull.contains(":")
-							? idFull.substring(idFull.indexOf(":") + 1)
-							: idFull;
-						String localSpaced = localId.replace('_', ' ');
-						net.minecraft.world.level.block.Block b =
-							BlockUtils.getBlock(pos);
-						String transKey = b.getDescriptionId();
-						String display = b.getName().getString();
-						for(String term : naturalKeywords)
-							if(containsNormalized(idFull, term)
-								|| containsNormalized(localId, term)
-								|| containsNormalized(localSpaced, term)
-								|| containsNormalized(transKey, term)
-								|| containsNormalized(display, term))
-							{
-								isNatural = true;
-								break;
-							}
-					}
-					if(isNatural)
-						continue;
-					
-					matchingBlocks.add(pos);
-				}
-			
-		if(modulo != 63)
-			return;
-		
-		// update timer
-		if(matchingBlocks.size() < 10000)
-			messageTimer--;
-		else
+		if(clampedMinY != lastMinY || clampedMaxY != lastMaxY)
 		{
-			// show message
-			if(messageTimer <= 0)
-			{
-				ChatUtils
-					.warning("BaseFinder found \u00a7lA LOT\u00a7r of blocks.");
-				ChatUtils.message(
-					"To prevent lag, it will only show the first 10000 blocks.");
-			}
-			
-			// reset timer
-			messageTimer = 3;
+			lastMinY = clampedMinY;
+			lastMaxY = clampedMaxY;
+			clearRenderCache();
 		}
 		
-		// update counter
-		counter = matchingBlocks.size();
+		coordinator.update();
+		if(!coordinator.hasReadyMatches())
+			return;
 		
-		// calculate vertices
-		vertices = BlockVertexCompiler.compile(matchingBlocks);
-		// update stable tracer end points until next compile
-		tracerEnds = new java.util.ArrayList<>(matchingBlocks.size());
-		for(BlockPos p : matchingBlocks)
-			tracerEnds.add(new net.minecraft.world.phys.Vec3(p.getX() + 0.5,
+		int matchesVersion = coordinator.getMatchesVersion();
+		if(matchesVersion == lastMatchesVersion)
+			return;
+		lastMatchesVersion = matchesVersion;
+		
+		HashSet<BlockPos> filtered = new HashSet<>();
+		for(ChunkSearcher.Result r : coordinator.getReadyMatches().toList())
+		{
+			BlockPos pos = r.pos();
+			if(pos.getY() < clampedMinY || pos.getY() > clampedMaxY)
+				continue;
+			filtered.add(pos.immutable());
+			if(filtered.size() >= 10000)
+				break;
+		}
+		
+		counter = filtered.size();
+		vertices = BlockVertexCompiler.compile(filtered);
+		tracerEnds = buildAdaptiveTracerEnds(filtered);
+		rebuildVertexBuffer(RenderUtils.getCameraRegion());
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		coordinator.onReceivedPacket(event);
+	}
+	
+	private void clearRenderCache()
+	{
+		vertices.clear();
+		tracerEnds.clear();
+		counter = 0;
+		lastMatchesVersion = -1;
+		if(vertexBuffer != null)
+		{
+			vertexBuffer.close();
+			vertexBuffer = null;
+		}
+		lastRegion = null;
+	}
+	
+	private void rebuildVertexBuffer(RegionPos region)
+	{
+		if(vertexBuffer != null)
+			vertexBuffer.close();
+		vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+			DefaultVertexFormat.POSITION_COLOR, buffer -> {
+				for(int[] vertex : vertices)
+					buffer.addVertex(vertex[0] - region.x(), vertex[1],
+						vertex[2] - region.z()).setColor(0xFFFFFFFF);
+			});
+		lastRegion = region;
+	}
+	
+	private java.util.ArrayList<net.minecraft.world.phys.Vec3> buildAdaptiveTracerEnds(
+		java.util.Set<BlockPos> filtered)
+	{
+		java.util.ArrayList<net.minecraft.world.phys.Vec3> all =
+			new java.util.ArrayList<>(filtered.size());
+		for(BlockPos p : filtered)
+			all.add(new net.minecraft.world.phys.Vec3(p.getX() + 0.5,
 				p.getY() + 0.5, p.getZ() + 0.5));
+		
+		if(all.size() <= 80 || MC.player == null)
+			return all;
+		
+		net.minecraft.world.phys.Vec3 eyes = MC.player.getEyePosition(1.0F);
+		net.minecraft.world.phys.Vec3 look =
+			MC.player.getViewVector(1.0F).normalize();
+		
+		double nearestSq = Double.MAX_VALUE;
+		for(net.minecraft.world.phys.Vec3 v : all)
+			nearestSq = Math.min(nearestSq, v.distanceToSqr(eyes));
+		
+		double nearest = Math.sqrt(nearestSq);
+		int maxTracers;
+		int binDeg;
+		double fovDot;
+		if(nearest < 32)
+		{
+			maxTracers = 72;
+			binDeg = 12;
+			fovDot = Math.cos(Math.toRadians(75));
+		}else if(nearest < 64)
+		{
+			maxTracers = 48;
+			binDeg = 18;
+			fovDot = Math.cos(Math.toRadians(70));
+		}else if(nearest < 128)
+		{
+			maxTracers = 24;
+			binDeg = 26;
+			fovDot = Math.cos(Math.toRadians(65));
+		}else
+		{
+			maxTracers = 12;
+			binDeg = 36;
+			fovDot = Math.cos(Math.toRadians(60));
+		}
+		
+		java.util.HashMap<Long, net.minecraft.world.phys.Vec3> inFovBins =
+			new java.util.HashMap<>();
+		java.util.HashMap<Long, net.minecraft.world.phys.Vec3> outFovBins =
+			new java.util.HashMap<>();
+		java.util.HashMap<Long, Double> inFovDist = new java.util.HashMap<>();
+		java.util.HashMap<Long, Double> outFovDist = new java.util.HashMap<>();
+		
+		for(net.minecraft.world.phys.Vec3 v : all)
+		{
+			net.minecraft.world.phys.Vec3 d = v.subtract(eyes);
+			double distSq = d.lengthSqr();
+			if(distSq < 1.0E-6)
+				continue;
+			
+			net.minecraft.world.phys.Vec3 n = d.normalize();
+			double dot = n.dot(look);
+			double yaw = Math.toDegrees(Math.atan2(n.z, n.x));
+			double pitch = Math.toDegrees(Math.asin(n.y));
+			int yawBin = (int)Math.floor((yaw + 180.0) / binDeg);
+			int pitchBin = (int)Math.floor((pitch + 90.0) / binDeg);
+			long key = (((long)yawBin) << 32) ^ (pitchBin & 0xffffffffL);
+			
+			if(dot >= fovDot)
+			{
+				Double old = inFovDist.get(key);
+				if(old == null || distSq < old)
+				{
+					inFovDist.put(key, distSq);
+					inFovBins.put(key, v);
+				}
+			}else
+			{
+				Double old = outFovDist.get(key);
+				if(old == null || distSq < old)
+				{
+					outFovDist.put(key, distSq);
+					outFovBins.put(key, v);
+				}
+			}
+		}
+		
+		java.util.ArrayList<net.minecraft.world.phys.Vec3> selected =
+			new java.util.ArrayList<>(inFovBins.values());
+		selected.sort(
+			java.util.Comparator.comparingDouble(v -> v.distanceToSqr(eyes)));
+		
+		if(selected.size() < maxTracers)
+		{
+			java.util.ArrayList<net.minecraft.world.phys.Vec3> fallback =
+				new java.util.ArrayList<>(outFovBins.values());
+			fallback.sort(java.util.Comparator
+				.comparingDouble(v -> v.distanceToSqr(eyes)));
+			for(net.minecraft.world.phys.Vec3 v : fallback)
+			{
+				if(selected.size() >= maxTracers)
+					break;
+				selected.add(v);
+			}
+		}
+		
+		if(selected.isEmpty())
+		{
+			all.sort(java.util.Comparator
+				.comparingDouble(v -> v.distanceToSqr(eyes)));
+			selected.add(all.get(0));
+		}
+		
+		if(selected.size() > maxTracers)
+			selected.subList(maxTracers, selected.size()).clear();
+		
+		return selected;
 	}
 	
 	private void rebuildNaturalCaches()
 	{
 		java.util.HashSet<String> exact = new java.util.HashSet<>();
-		java.util.ArrayList<String> kw = new java.util.ArrayList<>();
 		for(String s : blockNames)
 		{
 			net.minecraft.resources.Identifier id =
 				net.minecraft.resources.Identifier.tryParse(s);
 			if(id != null)
 				exact.add(id.toString());
-			else if(s != null && !s.isBlank())
-				kw.add(s.toLowerCase(java.util.Locale.ROOT));
 		}
 		naturalExactIds = exact;
-		naturalKeywords = kw.toArray(new String[0]);
 	}
 	
-	private static boolean containsNormalized(String haystack, String needle)
+	private void syncNaturalBlocksWithBuiltins()
 	{
-		return haystack != null
-			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
-	}
-	
-	private static boolean hasLoadedChunk(BlockPos pos)
-	{
-		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
-			SectionPos.blockToSectionCoord(pos.getZ()));
+		for(String builtin : naturalBlocks.getDefaultBlockNames())
+			if(!naturalBlocks.contains(builtin))
+				naturalBlocks.addRawName(builtin);
 	}
 }
