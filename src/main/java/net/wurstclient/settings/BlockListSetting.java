@@ -81,6 +81,11 @@ public class BlockListSetting extends Setting
 		return Collections.unmodifiableList(getBlockNamesSnapshot());
 	}
 	
+	public List<String> getDefaultBlockNames()
+	{
+		return Collections.unmodifiableList(Arrays.asList(defaultNames));
+	}
+	
 	private ArrayList<String> getBlockNamesSnapshot()
 	{
 		synchronized(blockNamesLock)
