@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -23,6 +24,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.KineticWeapon;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
@@ -461,13 +463,26 @@ public final class SpearAssistHack extends Hack
 		if(!maintainCharge)
 			return;
 		
-		if(!MC.player.isUsingItem())
+		if(MC.player.isUsingItem() && isSpear(MC.player.getUseItem()))
 		{
-			silentlyStartUseItem();
-			return;
+			int refreshTicks = getSpearRefreshTicks(MC.player.getUseItem());
+			if(MC.player.getTicksUsingItem() < refreshTicks)
+				return;
+			
+			MC.player.releaseUsingItem();
 		}
 		
+		MC.rightClickDelay = 0;
 		silentlyStartUseItem();
+	}
+	
+	private int getSpearRefreshTicks(ItemStack stack)
+	{
+		KineticWeapon kineticWeapon = stack.get(DataComponents.KINETIC_WEAPON);
+		if(kineticWeapon == null)
+			return 200;
+		
+		return Math.max(1, kineticWeapon.computeDamageUseDuration() - 5);
 	}
 	
 	private void handleAutoAttack(boolean holdingSpear, boolean attackHeld)
