@@ -705,41 +705,42 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		}
 		naturalExactIds = exact;
 		
-		java.util.HashSet<String> forcedManMadeAlways = new java.util.HashSet<>();
-		java.util.HashSet<String> forcedManMadeWhenDry = new java.util.HashSet<>();
+		java.util.HashSet<String> forcedManMadeAlways =
+			new java.util.HashSet<>();
+		java.util.HashSet<String> forcedManMadeWhenDry =
+			new java.util.HashSet<>();
 		
-		// User-requested base indicators that should never be treated as natural.
-		// (Includes typo corrections and grouped requests like all beds/corals/terracottas.)
+		// User-requested base indicators that should never be treated as
+		// natural.
+		// (Includes typo corrections and grouped requests like all
+		// beds/corals/terracottas.)
 		java.util.Collections.addAll(forcedManMadeAlways,
 			"minecraft:raw_iron_block", "minecraft:bee_nest",
 			"minecraft:iron_chain", "minecraft:potted_dead_bush",
 			"minecraft:cobbled_deepslate", "minecraft:red_candle",
-			"minecraft:red_glazed_terracotta",
-			"minecraft:chiseled_sandstone", "minecraft:dispenser",
-			"minecraft:ladder", "minecraft:cactus",
-			"minecraft:mossy_stone_bricks",
-			"minecraft:cracked_stone_bricks",
-			"minecraft:chiseled_stone_bricks",
-			"minecraft:stone_brick_stairs", "minecraft:stone_bricks",
-			"minecraft:iron_bars", "minecraft:stone_brick_slab",
-			"minecraft:mossy_stone_brick_stairs", "minecraft:red_concrete",
-			"minecraft:white_stained_glass", "minecraft:black_stained_glass",
-			"minecraft:mud", "minecraft:stone_button", "minecraft:mangrove_wood",
+			"minecraft:red_glazed_terracotta", "minecraft:chiseled_sandstone",
+			"minecraft:dispenser", "minecraft:ladder", "minecraft:cactus",
+			"minecraft:mossy_stone_bricks", "minecraft:cracked_stone_bricks",
+			"minecraft:chiseled_stone_bricks", "minecraft:stone_brick_stairs",
+			"minecraft:stone_bricks", "minecraft:iron_bars",
+			"minecraft:stone_brick_slab", "minecraft:mossy_stone_brick_stairs",
+			"minecraft:red_concrete", "minecraft:white_stained_glass",
+			"minecraft:black_stained_glass", "minecraft:mud",
+			"minecraft:stone_button", "minecraft:mangrove_wood",
 			"minecraft:cut_sandstone", "minecraft:polished_granite",
-			"minecraft:light_blue_terracotta",
-			"minecraft:sandstone_stairs", "minecraft:stone_slab",
-			"minecraft:tripwire", "minecraft:tripwire_hook",
-			"minecraft:creaking_heart", "minecraft:dirt_path",
+			"minecraft:light_blue_terracotta", "minecraft:sandstone_stairs",
+			"minecraft:stone_slab", "minecraft:tripwire",
+			"minecraft:tripwire_hook", "minecraft:creaking_heart",
+			"minecraft:dirt_path",
 			
 			// All bed colors
 			"minecraft:white_bed", "minecraft:orange_bed",
 			"minecraft:magenta_bed", "minecraft:light_blue_bed",
-			"minecraft:yellow_bed", "minecraft:lime_bed",
-			"minecraft:pink_bed", "minecraft:gray_bed",
-			"minecraft:light_gray_bed", "minecraft:cyan_bed",
-			"minecraft:purple_bed", "minecraft:blue_bed",
-			"minecraft:brown_bed", "minecraft:green_bed",
-			"minecraft:red_bed", "minecraft:black_bed",
+			"minecraft:yellow_bed", "minecraft:lime_bed", "minecraft:pink_bed",
+			"minecraft:gray_bed", "minecraft:light_gray_bed",
+			"minecraft:cyan_bed", "minecraft:purple_bed", "minecraft:blue_bed",
+			"minecraft:brown_bed", "minecraft:green_bed", "minecraft:red_bed",
+			"minecraft:black_bed",
 			
 			// All terracottas
 			"minecraft:terracotta", "minecraft:white_terracotta",
@@ -770,10 +771,9 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			"minecraft:dead_horn_coral_block", "minecraft:dead_tube_coral",
 			"minecraft:dead_brain_coral", "minecraft:dead_bubble_coral",
 			"minecraft:dead_fire_coral", "minecraft:dead_horn_coral",
-			"minecraft:dead_tube_coral_fan",
-			"minecraft:dead_brain_coral_fan",
-			"minecraft:dead_bubble_coral_fan",
-			"minecraft:dead_fire_coral_fan", "minecraft:dead_horn_coral_fan",
+			"minecraft:dead_tube_coral_fan", "minecraft:dead_brain_coral_fan",
+			"minecraft:dead_bubble_coral_fan", "minecraft:dead_fire_coral_fan",
+			"minecraft:dead_horn_coral_fan",
 			"minecraft:dead_tube_coral_wall_fan",
 			"minecraft:dead_brain_coral_wall_fan",
 			"minecraft:dead_bubble_coral_wall_fan",
