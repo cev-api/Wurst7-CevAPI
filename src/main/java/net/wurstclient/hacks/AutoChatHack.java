@@ -43,13 +43,39 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.json.JsonUtils;
 
 @SearchTags({"auto chat", "chat bot", "chatbot", "persona", "roleplay",
-	"OpenAI", "ChatGPT", "GPT-5", "gpt-5"})
+	"OpenAI", "ChatGPT", "GPT-5", "gpt-5", "DeepSeek", "deepseek"})
 public final class AutoChatHack extends Hack implements ChatInputListener
 {
-	private static final String RESPONSES_ENDPOINT =
+	private static final String OPENAI_RESPONSES_ENDPOINT =
 		"https://api.openai.com/v1/responses";
-	private static final String CHAT_COMPLETIONS_ENDPOINT =
+	private static final String OPENAI_CHAT_COMPLETIONS_ENDPOINT =
 		"https://api.openai.com/v1/chat/completions";
+	private static final String DEEPSEEK_CHAT_COMPLETIONS_ENDPOINT =
+		"https://api.deepseek.com/v1/chat/completions";
+	
+	private static String getResponsesEndpoint(Provider provider)
+	{
+		return provider == Provider.OPENAI ? OPENAI_RESPONSES_ENDPOINT : null;
+	}
+	
+	private static String getChatCompletionsEndpoint(Provider provider)
+	{
+		return switch(provider)
+		{
+			case OPENAI -> OPENAI_CHAT_COMPLETIONS_ENDPOINT;
+			case DEEPSEEK -> DEEPSEEK_CHAT_COMPLETIONS_ENDPOINT;
+		};
+	}
+	
+	private static String getProviderDisplayName(Provider provider)
+	{
+		return switch(provider)
+		{
+			case OPENAI -> "OpenAI";
+			case DEEPSEEK -> "DeepSeek";
+		};
+	}
+	
 	private static final int DEFAULT_HISTORY_SIZE = 20;
 	private static final int DEFAULT_CONTEXT_MAX_AGE_SEC = 45;
 	private static final int DEFAULT_RELEVANT_CONTEXT_LINES = 6;
@@ -102,10 +128,26 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			+ " or fewer. If the draft is longer, rewrite it shorter before"
 			+ " responding.";
 	
+	private final EnumSetting<Provider> provider = new EnumSetting<>("Provider",
+		"Choose the AI provider.", Provider.values(), Provider.OPENAI)
+	{
+		@Override
+		public void setSelected(Provider selected)
+		{
+			super.setSelected(selected);
+			updateVisibility();
+		}
+	};
+	
 	private final TextFieldSetting apiKey =
 		new TextFieldSetting("OpenAI API key",
 			"Used for AutoChat requests. Leave blank to use WURST_OPENAI_KEY.",
 			"", s -> s.length() <= 256);
+	
+	private final TextFieldSetting deepseekApiKey = new TextFieldSetting(
+		"DeepSeek API key",
+		"Used for DeepSeek requests. Leave blank to use WURST_DEEPSEEK_KEY.",
+		"", s -> s.length() <= 256);
 	
 	private final TextFieldSetting persona = new TextFieldSetting("Persona",
 		"How AutoChat should behave and speak in chat.",
@@ -125,9 +167,41 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		new ButtonSetting("Edit system prompt", this::openSystemPromptEditor);
 	
 	private final EnumSetting<Model> model = new EnumSetting<>("Model",
-		"OpenAI model used for chat replies. Options are grouped by chat usefulness, cost, and latency.",
+		"AI model used for chat replies. Options are filtered by the selected provider.",
 		Model.values(), Model.GPT_5_4_MINI)
 	{
+		@Override
+		public Model[] getValues()
+		{
+			Provider currentProvider = provider.getSelected();
+			return java.util.Arrays.stream(Model.values())
+				.filter(m -> m.provider == currentProvider)
+				.toArray(Model[]::new);
+		}
+		
+		@Override
+		public Model getSelected()
+		{
+			Model selected = super.getSelected();
+			if(selected.provider != provider.getSelected())
+			{
+				Model[] filtered = getValues();
+				if(filtered.length > 0)
+				{
+					setSelected(filtered[0]);
+					return filtered[0];
+				}
+			}
+			return selected;
+		}
+		
+		@Override
+		public void setSelected(Model selected)
+		{
+			super.setSelected(selected);
+			updateVisibility();
+		}
+		
 		@Override
 		public boolean setSelected(String selected)
 		{
@@ -149,6 +223,36 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			return new JsonPrimitive(getSelected().modelName);
 		}
 	};
+	
+	/**
+	 * Updates which settings are visible in the GUI based on the selected
+	 * provider. OpenAI shows temperature, DeepSeek hides it.
+	 */
+	private void updateVisibility()
+	{
+		Provider currentProvider = provider.getSelected();
+		boolean isOpenAI = currentProvider == Provider.OPENAI;
+		boolean isDeepSeek = currentProvider == Provider.DEEPSEEK;
+		
+		apiKey.setVisibleInGui(isOpenAI);
+		deepseekApiKey.setVisibleInGui(isDeepSeek);
+		temperature.setVisibleInGui(isOpenAI);
+		thinkingEnabled.setVisibleInGui(isDeepSeek);
+		reasoningEffort.setVisibleInGui(isDeepSeek);
+		
+		Model currentModel = model.getSelected();
+		if(currentModel.provider != currentProvider)
+		{
+			for(Model m : Model.values())
+			{
+				if(m.provider == currentProvider)
+				{
+					model.setSelected(m);
+					break;
+				}
+			}
+		}
+	}
 	
 	private final SliderSetting maxTokens = new SliderSetting("Max tokens",
 		"Maximum output tokens used for each reply.", 120, 16, 1024, 1,
@@ -245,8 +349,20 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			"Maximum speaking speed used by WPM mode to pace outgoing replies.",
 			120, 30, 300, 1, ValueDisplay.INTEGER.withSuffix(" wpm"));
 	
+	private final CheckboxSetting thinkingEnabled =
+		new CheckboxSetting("Thinking mode",
+			"Enables DeepSeek thinking/reasoning mode. When enabled, the model"
+				+ " will think before replying for better quality answers.",
+			true);
+	
+	private final EnumSetting<ReasoningEffort> reasoningEffort =
+		new EnumSetting<>("Reasoning effort",
+			"Controls how much effort the model spends on reasoning."
+				+ " Low and Medium are mapped to High; X-High is mapped to Max.",
+			ReasoningEffort.values(), ReasoningEffort.HIGH);
+	
 	private final CheckboxSetting debugMode = new CheckboxSetting("Debug mode",
-		"Logs OpenAI request/response JSON to the game console.", false);
+		"Logs AI request/response JSON to the game console.", false);
 	
 	private final SliderSetting maxConcurrentRequests = new SliderSetting(
 		"Max concurrent requests",
@@ -274,11 +390,115 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private String lastPersonaSnapshot = "";
 	private String lastCustomPromptSnapshot = "";
 	
+	// Usage tracking (accumulated per session)
+	private final Object usageLock = new Object();
+	private long openaiTotalInputTokens;
+	private long openaiTotalOutputTokens;
+	private long openaiTotalCostCents;
+	private long deepseekTotalInputTokens;
+	private long deepseekTotalOutputTokens;
+	private long deepseekTotalCostCents;
+	
+	private final CheckboxSetting showUsageInHackList = new CheckboxSetting(
+		"Show usage in hacklist",
+		"When enabled, AutoChat shows token usage and cost in the hack list.",
+		false);
+	
+	private final ButtonSetting viewUsageStatsButton =
+		new ButtonSetting("View usage stats",
+			"Click to print token usage and cost for both providers.",
+			this::printUsageStats);
+	
+	private String getUsageSummary()
+	{
+		synchronized(usageLock)
+		{
+			long oi = openaiTotalInputTokens;
+			long oo = openaiTotalOutputTokens;
+			long oc = openaiTotalCostCents;
+			long di = deepseekTotalInputTokens;
+			long da = deepseekTotalOutputTokens;
+			long dc = deepseekTotalCostCents;
+			
+			StringBuilder sb = new StringBuilder();
+			if(oi > 0 || oo > 0)
+			{
+				sb.append("OpenAI: ").append(formatTokens(oi + oo))
+					.append(" | $").append(String.format("%.4f", oc / 10000.0));
+			}
+			if(di > 0 || da > 0)
+			{
+				if(sb.length() > 0)
+					sb.append("  ");
+				sb.append("DeepSeek: ").append(formatTokens(di + da))
+					.append(" | $").append(String.format("%.4f", dc / 10000.0));
+			}
+			if(sb.length() == 0)
+				return "";
+			return sb.toString();
+		}
+	}
+	
+	private static String formatTokens(long tokens)
+	{
+		if(tokens < 1000)
+			return tokens + " tok";
+		if(tokens < 1_000_000)
+			return String.format("%.1fK tok", tokens / 1000.0);
+		return String.format("%.1fM tok", tokens / 1_000_000.0);
+	}
+	
+	private void printUsageStats()
+	{
+		String summary = getUsageSummary();
+		if(summary.isEmpty())
+			ChatUtils.message("AutoChat: No usage stats yet.");
+		else
+			ChatUtils.message("AutoChat usage: " + summary);
+	}
+	
+	private void accumulateUsage(JsonObject usage, Model model)
+	{
+		if(usage == null)
+			return;
+		Provider p = model.provider;
+		long inputTokens = JsonUtils.getAsLong(usage.get("input_tokens"), 0L);
+		long outputTokens = JsonUtils.getAsLong(usage.get("output_tokens"), 0L);
+		long outputDetailsTokens = 0;
+		JsonElement od = usage.get("output_tokens_details");
+		if(od != null && od.isJsonObject())
+		{
+			JsonElement rt = od.getAsJsonObject().get("reasoning_tokens");
+			if(rt != null)
+				outputDetailsTokens = JsonUtils.getAsLong(rt, 0L);
+		}
+		long totalOutput = outputTokens + outputDetailsTokens;
+		long costCents = (long)(inputTokens * model.inputCostPerMTok
+			+ totalOutput * model.outputCostPerMTok);
+		
+		synchronized(usageLock)
+		{
+			if(p == Provider.OPENAI)
+			{
+				openaiTotalInputTokens += inputTokens;
+				openaiTotalOutputTokens += totalOutput;
+				openaiTotalCostCents += costCents;
+			}else
+			{
+				deepseekTotalInputTokens += inputTokens;
+				deepseekTotalOutputTokens += totalOutput;
+				deepseekTotalCostCents += costCents;
+			}
+		}
+	}
+	
 	public AutoChatHack()
 	{
 		super("AutoChat");
 		setCategory(Category.CHAT);
+		addSetting(provider);
 		addSetting(apiKey);
+		addSetting(deepseekApiKey);
 		addSetting(persona);
 		addSetting(nicknameAliases);
 		addSetting(editSystemPromptButton);
@@ -303,12 +523,29 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(discordRelayMarker);
 		addSetting(wpmMode);
 		addSetting(wordsPerMinute);
+		addSetting(thinkingEnabled);
+		addSetting(reasoningEffort);
 		addSetting(maxConcurrentRequests);
+		addSetting(showUsageInHackList);
+		addSetting(viewUsageStatsButton);
 		addSetting(debugMode);
 		lastPersonaSnapshot = persona.getValue();
 		lastCustomPromptSnapshot =
 			normalizePromptText(customSystemPrompt.getValue());
+		updateVisibility();
+	}
+	
+	@Override
+	public String getRenderName()
+	{
+		if(!showUsageInHackList.isChecked() || MC.player == null)
+			return getName();
 		
+		String summary = getUsageSummary();
+		if(summary.isEmpty())
+			return getName();
+		
+		return getName() + " [" + summary + "]";
 	}
 	
 	@Override
@@ -317,8 +554,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		String key = resolveApiKey();
 		if(key == null)
 		{
-			ChatUtils.error("AutoChat: No API key. Set \"OpenAI API key\" or"
-				+ " WURST_OPENAI_KEY.");
+			ChatUtils.error("AutoChat: No API key. Set \""
+				+ getApiKeySettingName() + "\" or " + getEnvVarName() + ".");
 			setEnabled(false);
 			return;
 		}
@@ -451,6 +688,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		try
 		{
 			JsonObject response = requestReply(snapshot, latest, direct, key);
+			// Accumulate usage stats if present
+			if(response.has("usage") && response.get("usage").isJsonObject())
+				accumulateUsage(response.getAsJsonObject("usage"),
+					model.getSelected());
 			String reply = extractReply(response);
 			if(reply == null || reply.isBlank())
 				reply = trySecondaryReplyPath(snapshot, latest, direct, key);
@@ -511,6 +752,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		try
 		{
+			String endpoint =
+				getChatCompletionsEndpoint(provider.getSelected());
 			JsonObject response = useChatCompletionsFallback
 				? requestReply(snapshot, latest, direct, key)
 				: requestReplyViaChatCompletions(snapshot, latest, direct, key);
@@ -531,7 +774,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			boolean defaultSimple = selectedModel.useSimpleResponsesPayload;
 			JsonObject request = buildRequest(snapshot, latest, direct,
 				temperatureSupported, responsesTokenParam, !defaultSimple);
-			JsonObject response = postJson(RESPONSES_ENDPOINT, request, key);
+			String endpoint = getResponsesEndpoint(provider.getSelected());
+			if(endpoint == null)
+				return "";
+			JsonObject response = postJson(endpoint, request, key);
 			return extractReply(response);
 			
 		}catch(Exception e)
@@ -543,7 +789,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private void startReplyThread(ArrayList<ChatLine> snapshot, ChatLine line,
 		boolean direct, String key)
 	{
-		Thread.ofVirtual().name("AutoChat-OpenAI")
+		Thread.ofVirtual()
+			.name("AutoChat-" + getProviderDisplayName(provider.getSelected()))
 			.uncaughtExceptionHandler((t, e) -> e.printStackTrace())
 			.start(() -> generateAndSendReply(snapshot, line, direct, key));
 	}
@@ -676,11 +923,17 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			return requestReplyViaChatCompletions(snapshot, latest, direct,
 				key);
 		
+		String endpoint = getResponsesEndpoint(provider.getSelected());
+		// DeepSeek only supports chat/completions, not responses
+		if(endpoint == null)
+			return requestReplyViaChatCompletions(snapshot, latest, direct,
+				key);
+		
 		try
 		{
 			JsonObject request = buildRequest(snapshot, latest, direct,
 				temperatureSupported, responsesTokenParam, null);
-			return postJson(RESPONSES_ENDPOINT, request, key);
+			return postJson(endpoint, request, key);
 			
 		}catch(IOException e)
 		{
@@ -705,14 +958,14 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				
 				JsonObject retryRequest = buildRequest(snapshot, latest, direct,
 					false, responsesTokenParam, null);
-				return postJson(RESPONSES_ENDPOINT, retryRequest, key);
+				return postJson(endpoint, retryRequest, key);
 			}
 			
 			if(adaptResponsesTokenParameter(message))
 			{
 				JsonObject retryRequest = buildRequest(snapshot, latest, direct,
 					temperatureSupported, responsesTokenParam, null);
-				return postJson(RESPONSES_ENDPOINT, retryRequest, key);
+				return postJson(endpoint, retryRequest, key);
 			}
 			
 			if(shouldFallbackToChatCompletions(message))
@@ -731,11 +984,13 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private JsonObject requestReplyViaChatCompletions(List<ChatLine> snapshot,
 		ChatLine latest, boolean direct, String key) throws IOException
 	{
+		String endpoint = getChatCompletionsEndpoint(provider.getSelected());
+		
 		try
 		{
 			JsonObject request = buildChatCompletionsRequest(snapshot, latest,
 				direct, temperatureSupported, chatCompletionsTokenParam);
-			return postJson(CHAT_COMPLETIONS_ENDPOINT, request, key);
+			return postJson(endpoint, request, key);
 			
 		}catch(IOException e)
 		{
@@ -760,7 +1015,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				
 				JsonObject retryRequest = buildChatCompletionsRequest(snapshot,
 					latest, direct, false, chatCompletionsTokenParam);
-				return postJson(CHAT_COMPLETIONS_ENDPOINT, retryRequest, key);
+				return postJson(endpoint, retryRequest, key);
 			}
 			
 			if(adaptChatCompletionsTokenParameter(message))
@@ -768,7 +1023,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				JsonObject retryRequest =
 					buildChatCompletionsRequest(snapshot, latest, direct,
 						temperatureSupported, chatCompletionsTokenParam);
-				return postJson(CHAT_COMPLETIONS_ENDPOINT, retryRequest, key);
+				return postJson(endpoint, retryRequest, key);
 			}
 			
 			throw e;
@@ -910,13 +1165,32 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	{
 		JsonObject root = new JsonObject();
 		Model selectedModel = model.getSelected();
+		boolean isDeepSeek = selectedModel.provider == Provider.DEEPSEEK;
+		
 		root.addProperty("model", selectedModel.modelName);
 		if(tokenParam != null && !tokenParam.isBlank())
 			root.addProperty(tokenParam, maxTokens.getValueI());
 		
-		String reasoningEffort = getReasoningEffortForModel(selectedModel);
-		if(reasoningEffort != null)
-			root.addProperty("reasoning_effort", reasoningEffort);
+		// DeepSeek reasoning effort (user-facing enum with mapped values)
+		if(isDeepSeek)
+			root.addProperty("reasoning_effort",
+				reasoningEffort.getSelected().apiValue);
+		else
+		{
+			String effort = getReasoningEffortForModel(selectedModel);
+			if(effort != null)
+				root.addProperty("reasoning_effort", effort);
+		}
+		
+		// DeepSeek thinking mode (enabled by default)
+		if(isDeepSeek && thinkingEnabled.isChecked())
+		{
+			JsonObject extraBody = new JsonObject();
+			JsonObject thinking = new JsonObject();
+			thinking.addProperty("type", "enabled");
+			extraBody.add("thinking", thinking);
+			root.add("extra_body", extraBody);
+		}
 		
 		if(includeTemperature && modelSupportsTemperature(selectedModel))
 			root.addProperty("temperature", temperature.getValue());
@@ -2040,17 +2314,45 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		}
 	}
 	
+	private String getApiKeySettingName()
+	{
+		return provider.getSelected() == Provider.OPENAI ? "OpenAI API key"
+			: "DeepSeek API key";
+	}
+	
+	private String getEnvVarName()
+	{
+		return provider.getSelected() == Provider.OPENAI ? "WURST_OPENAI_KEY"
+			: "WURST_DEEPSEEK_KEY";
+	}
+	
 	private String resolveApiKey()
 	{
-		String key = apiKey.getValue().trim();
-		if(!key.isEmpty())
-			return key;
+		boolean isOpenAI = provider.getSelected() == Provider.OPENAI;
 		
-		String envKey = System.getenv("WURST_OPENAI_KEY");
-		if(envKey == null || envKey.isBlank())
-			return null;
-		
-		return envKey.trim();
+		if(isOpenAI)
+		{
+			String key = apiKey.getValue().trim();
+			if(!key.isEmpty())
+				return key;
+			
+			String envKey = System.getenv("WURST_OPENAI_KEY");
+			if(envKey == null || envKey.isBlank())
+				return null;
+			
+			return envKey.trim();
+		}else
+		{
+			String key = deepseekApiKey.getValue().trim();
+			if(!key.isEmpty())
+				return key;
+			
+			String envKey = System.getenv("WURST_DEEPSEEK_KEY");
+			if(envKey == null || envKey.isBlank())
+				return null;
+			
+			return envKey.trim();
+		}
 	}
 	
 	private static String stripLegacyFormatting(String text)
@@ -2161,85 +2463,151 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		return text.regionMatches(true, 0, prefix, 0, prefix.length());
 	}
 	
+	private enum ReasoningEffort
+	{
+		LOW("Low", "high"),
+		MEDIUM("Medium", "high"),
+		HIGH("High", "high"),
+		XHIGH("X-High", "max");
+		
+		private final String displayName;
+		final String apiValue; // the actual value sent to the API
+		
+		ReasoningEffort(String displayName, String apiValue)
+		{
+			this.displayName = displayName;
+			this.apiValue = apiValue;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+	
+	private enum Provider
+	{
+		OPENAI("OpenAI"),
+		DEEPSEEK("DeepSeek");
+		
+		private final String displayName;
+		
+		private Provider(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+	
 	private enum Model
 	{
 		GPT_5_4_MINI("gpt-5.4-mini",
 			"Recommended chat: gpt-5.4-mini - best balance ($0.75/$4.50)",
-			false, false, true, "none"),
+			Provider.OPENAI, false, false, true, "none", 7500, 45000),
 		GPT_5_3_CHAT_LATEST("gpt-5.3-chat-latest",
-			"Best ChatGPT-style: gpt-5.3-chat-latest ($1.75/$14)", false, true,
-			false, null),
+			"Best ChatGPT-style: gpt-5.3-chat-latest ($1.75/$14)",
+			Provider.OPENAI, false, true, false, null, 17500, 140000),
 		GPT_5_4_NANO("gpt-5.4-nano",
-			"Cheap chat: gpt-5.4-nano - fast/high volume ($0.20/$1.25)", true,
-			false, true, "none"),
+			"Cheap chat: gpt-5.4-nano - fast/high volume ($0.20/$1.25)",
+			Provider.OPENAI, true, false, true, "none", 2000, 12500),
 		GPT_5_4("gpt-5.4",
-			"High quality: gpt-5.4 - stronger but pricier ($2.50/$15)", false,
-			false, true, "low"),
+			"High quality: gpt-5.4 - stronger but pricier ($2.50/$15)",
+			Provider.OPENAI, false, false, true, "low", 25000, 150000),
 		GPT_5_5("gpt-5.5",
-			"Top quality: gpt-5.5 - strongest, expensive ($5/$30)", false,
-			false, true, "low"),
+			"Top quality: gpt-5.5 - strongest, expensive ($5/$30)",
+			Provider.OPENAI, false, false, true, "low", 50000, 300000),
 		GPT_5_5_PRO("gpt-5.5-pro",
-			"Overkill: gpt-5.5-pro - slowest/most expensive ($30/$180)", false,
-			false, true, "high", true),
-		GPT_5_MINI("gpt-5-mini", "Legacy cheap: gpt-5-mini ($0.25/$2)", true,
-			false, true, "minimal"),
+			"Overkill: gpt-5.5-pro - slowest/most expensive ($30/$180)",
+			Provider.OPENAI, false, false, true, "high", true, 300000, 1800000),
+		GPT_5_MINI("gpt-5-mini", "Legacy cheap: gpt-5-mini ($0.25/$2)",
+			Provider.OPENAI, true, false, true, "minimal", 2500, 20000),
 		GPT_5_NANO("gpt-5-nano", "Legacy cheapest: gpt-5-nano ($0.05/$0.40)",
-			true, false, true, "minimal"),
+			Provider.OPENAI, true, false, true, "minimal", 500, 4000),
 		GPT_5_2_CHAT_LATEST("gpt-5.2-chat-latest",
-			"Legacy ChatGPT: gpt-5.2-chat-latest ($1.75/$14)", false, true,
-			false, null),
-		GPT_5_2("gpt-5.2", "Legacy high quality: gpt-5.2 ($1.75/$14)", false,
-			false, true, "none"),
+			"Legacy ChatGPT: gpt-5.2-chat-latest ($1.75/$14)", Provider.OPENAI,
+			false, true, false, null, 17500, 140000),
+		GPT_5_2("gpt-5.2", "Legacy high quality: gpt-5.2 ($1.75/$14)",
+			Provider.OPENAI, false, false, true, "none", 17500, 140000),
 		GPT_5_1_CHAT_LATEST("gpt-5.1-chat-latest",
-			"Legacy ChatGPT: gpt-5.1-chat-latest ($1.25/$10)", false, true,
-			false, null),
-		GPT_5_1("gpt-5.1", "Legacy flagship: gpt-5.1 ($1.25/$10)", false, false,
-			true, "none"),
+			"Legacy ChatGPT: gpt-5.1-chat-latest ($1.25/$10)", Provider.OPENAI,
+			false, true, false, null, 12500, 100000),
+		GPT_5_1("gpt-5.1", "Legacy flagship: gpt-5.1 ($1.25/$10)",
+			Provider.OPENAI, false, false, true, "none", 12500, 100000),
 		GPT_5_CHAT_LATEST("gpt-5-chat-latest",
-			"Legacy ChatGPT: gpt-5-chat-latest ($1.25/$10)", false, true, false,
-			null),
-		GPT_5("gpt-5", "Legacy GPT-5: gpt-5 ($1.25/$10)", false, false, true,
-			"minimal"),
-		GPT_4_1("gpt-4.1", "Non-reasoning: gpt-4.1 ($2/$8)", false, true, false,
-			null),
+			"Legacy ChatGPT: gpt-5-chat-latest ($1.25/$10)", Provider.OPENAI,
+			false, true, false, null, 12500, 100000),
+		GPT_5("gpt-5", "Legacy GPT-5: gpt-5 ($1.25/$10)", Provider.OPENAI,
+			false, false, true, "minimal", 12500, 100000),
+		GPT_4_1("gpt-4.1", "Non-reasoning: gpt-4.1 ($2/$8)", Provider.OPENAI,
+			false, true, false, null, 20000, 80000),
 		GPT_4_1_MINI("gpt-4.1-mini",
-			"Non-reasoning cheap: gpt-4.1-mini ($0.40/$1.60)", false, true,
-			false, null),
+			"Non-reasoning cheap: gpt-4.1-mini ($0.40/$1.60)", Provider.OPENAI,
+			false, true, false, null, 4000, 16000),
 		GPT_4_1_NANO("gpt-4.1-nano",
-			"Non-reasoning tiny: gpt-4.1-nano ($0.10/$0.40)", true, true, false,
-			null),
-		GPT_4O("gpt-4o", "Legacy 4o: gpt-4o ($2.50/$10)", false, true, false,
-			null),
+			"Non-reasoning tiny: gpt-4.1-nano ($0.10/$0.40)", Provider.OPENAI,
+			true, true, false, null, 1000, 4000),
+		GPT_4O("gpt-4o", "Legacy 4o: gpt-4o ($2.50/$10)", Provider.OPENAI,
+			false, true, false, null, 25000, 100000),
 		GPT_4O_MINI("gpt-4o-mini", "Legacy 4o cheap: gpt-4o-mini ($0.15/$0.60)",
-			false, true, false, null),
+			Provider.OPENAI, false, true, false, null, 1500, 6000),
 		CHATGPT_4O_LATEST("chatgpt-4o-latest",
-			"Legacy ChatGPT 4o: chatgpt-4o-latest", false, true, false, null),;
+			"Legacy ChatGPT 4o: chatgpt-4o-latest", Provider.OPENAI, false,
+			true, false, null, 25000, 100000),
+		
+		// DeepSeek models (OpenAI-compatible API)
+		// DeepSeek pricing: V3 series ~$0.27/$1.10 per MTok
+		DEEPSEEK_V4_FLASH("deepseek-v4-flash",
+			"DeepSeek: deepseek-v4-flash - fast model", Provider.DEEPSEEK,
+			false, true, false, null, 2700, 11000),
+		DEEPSEEK_V4_PRO("deepseek-v4-pro",
+			"DeepSeek: deepseek-v4-pro - pro model with reasoning",
+			Provider.DEEPSEEK, false, true, false, null, 5500, 22000);
 		
 		private final String modelName;
 		private final String displayName;
+		private final Provider provider;
 		private final boolean useSimpleResponsesPayload;
 		private final boolean supportsTemperature;
 		private final boolean hasReasoningTokens;
 		private final boolean usesTextConfig;
 		private final boolean responsesOnly;
 		private final String reasoningEffort;
+		/**
+		 * Cost per million input tokens in tenths of a cent (e.g., 7500 =
+		 * $0.75/MTok)
+		 */
+		private final long inputCostPerMTok;
+		/**
+		 * Cost per million output tokens in tenths of a cent (e.g., 45000 =
+		 * $4.50/MTok)
+		 */
+		private final long outputCostPerMTok;
 		
-		private Model(String modelName, String displayName,
-			boolean useSimpleResponsesPayload, boolean supportsTemperature,
-			boolean hasReasoningTokens, String reasoningEffort)
-		{
-			this(modelName, displayName, useSimpleResponsesPayload,
-				supportsTemperature, hasReasoningTokens, reasoningEffort,
-				false);
-		}
-		
-		private Model(String modelName, String displayName,
+		private Model(String modelName, String displayName, Provider provider,
 			boolean useSimpleResponsesPayload, boolean supportsTemperature,
 			boolean hasReasoningTokens, String reasoningEffort,
-			boolean responsesOnly)
+			long inputCostPerMTok, long outputCostPerMTok)
+		{
+			this(modelName, displayName, provider, useSimpleResponsesPayload,
+				supportsTemperature, hasReasoningTokens, reasoningEffort, false,
+				inputCostPerMTok, outputCostPerMTok);
+		}
+		
+		private Model(String modelName, String displayName, Provider provider,
+			boolean useSimpleResponsesPayload, boolean supportsTemperature,
+			boolean hasReasoningTokens, String reasoningEffort,
+			boolean responsesOnly, long inputCostPerMTok,
+			long outputCostPerMTok)
 		{
 			this.modelName = modelName;
 			this.displayName = displayName;
+			this.provider = provider;
 			this.useSimpleResponsesPayload = useSimpleResponsesPayload;
 			this.supportsTemperature = supportsTemperature;
 			this.hasReasoningTokens = hasReasoningTokens;
@@ -2247,6 +2615,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				&& !modelName.endsWith("-chat-latest");
 			this.reasoningEffort = reasoningEffort;
 			this.responsesOnly = responsesOnly;
+			this.inputCostPerMTok = inputCostPerMTok;
+			this.outputCostPerMTok = outputCostPerMTok;
 		}
 		
 		private boolean matchesSettingValue(String value)

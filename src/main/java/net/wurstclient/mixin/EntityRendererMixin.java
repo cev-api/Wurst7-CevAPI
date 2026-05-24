@@ -82,6 +82,9 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 			return;
 		}
 		
+		state.nameTag = WurstClient.INSTANCE.getHax().mobOwnersHack
+			.addOwnerInfo(entity, state.nameTag);
+		
 		if(!(entity instanceof LivingEntity le))
 			return;
 		

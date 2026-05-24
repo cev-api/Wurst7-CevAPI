@@ -191,12 +191,35 @@ public final class OppStatsHack extends Hack implements UpdateListener
 		rec.health = p.getHealth();
 		rec.absorption = p.getAbsorptionAmount();
 		rec.armorValue = p.getArmorValue();
-		rec.mainHand = stackInfo(p.getMainHandItem());
-		rec.offHand = stackInfo(p.getOffhandItem());
-		rec.helmet = stackInfo(p.getItemBySlot(EquipmentSlot.HEAD));
-		rec.chest = stackInfo(p.getItemBySlot(EquipmentSlot.CHEST));
-		rec.legs = stackInfo(p.getItemBySlot(EquipmentSlot.LEGS));
-		rec.boots = stackInfo(p.getItemBySlot(EquipmentSlot.FEET));
+		rec.mainHand = observeEquipment(rec, "Main hand", rec.mainHand,
+			p.getMainHandItem(), now);
+		rec.offHand = observeEquipment(rec, "Off hand", rec.offHand,
+			p.getOffhandItem(), now);
+		rec.helmet = observeEquipment(rec, "Helmet", rec.helmet,
+			p.getItemBySlot(EquipmentSlot.HEAD), now);
+		rec.chest = observeEquipment(rec, "Chestplate", rec.chest,
+			p.getItemBySlot(EquipmentSlot.CHEST), now);
+		rec.legs = observeEquipment(rec, "Leggings", rec.legs,
+			p.getItemBySlot(EquipmentSlot.LEGS), now);
+		rec.boots = observeEquipment(rec, "Boots", rec.boots,
+			p.getItemBySlot(EquipmentSlot.FEET), now);
+	}
+	
+	private String observeEquipment(OppRecord rec, String slot, String previous,
+		ItemStack stack, long now)
+	{
+		String next = stackInfo(stack);
+		if(next.equals(previous))
+			return next;
+		
+		if(!"N/A".equals(next))
+		{
+			rec.addRecentItem(slot + ": " + next, now);
+			if(previous != null && !"N/A".equals(previous))
+				rec.addEvent(slot + " changed to " + compactStackInfo(next));
+		}
+		
+		return next;
 	}
 	
 	private void bootstrapFromTablist()
@@ -257,7 +280,10 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			+ nullToNA(r.gamemode) + "\nMain hand: " + r.mainHand
 			+ "\nOff hand: " + r.offHand + "\nHelmet: " + r.helmet
 			+ "\nChestplate: " + r.chest + "\nLeggings: " + r.legs + "\nBoots: "
-			+ r.boots + "\nJoins: " + r.joinCount + "\nLast join: "
+			+ r.boots + "\nRecent observed items:\n"
+			+ (r.recentItems.isEmpty() ? "N/A"
+				: String.join("\n", r.recentItems))
+			+ "\nJoins: " + r.joinCount + "\nLast join: "
 			+ formatEpoch(r.lastJoinAt) + "\nLast leave: "
 			+ formatEpoch(r.lastLeaveAt) + "\nLast seen: " + lastSeen
 			+ "\nEvent log:\n" + String.join("\n", r.events);
@@ -296,6 +322,12 @@ public final class OppStatsHack extends Hack implements UpdateListener
 		return stack.getHoverName().getString() + " x" + stack.getCount()
 			+ " [id=" + itemId + ", durability=" + dur + ", enchants="
 			+ (ench.isBlank() ? "none" : ench) + "]";
+	}
+	
+	private String compactStackInfo(String info)
+	{
+		int idIndex = info.indexOf(" [id=");
+		return idIndex > 0 ? info.substring(0, idIndex) : info;
 	}
 	
 	private String getEnchantmentSummary(ItemStack stack)
@@ -500,6 +532,7 @@ public final class OppStatsHack extends Hack implements UpdateListener
 		public long lastLeaveAt;
 		public int joinCount;
 		public final ArrayList<String> events = new ArrayList<>();
+		public final ArrayList<String> recentItems = new ArrayList<>();
 		
 		public OppRecord(UUID uuid, String name)
 		{
@@ -513,6 +546,16 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			events.add(0, line);
 			while(events.size() > 80)
 				events.remove(events.size() - 1);
+		}
+		
+		public void addRecentItem(String text, long epochMs)
+		{
+			String line =
+				TS_FORMAT.format(Instant.ofEpochMilli(epochMs)) + " - " + text;
+			recentItems.removeIf(s -> s.endsWith(text));
+			recentItems.add(0, line);
+			while(recentItems.size() > 36)
+				recentItems.remove(recentItems.size() - 1);
 		}
 		
 		JsonObject toJson()
@@ -548,6 +591,10 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			for(String e : events)
 				ev.add(e);
 			o.add("events", ev);
+			JsonArray recent = new JsonArray();
+			for(String item : recentItems)
+				recent.add(item);
+			o.add("recentItems", recent);
 			return o;
 		}
 		
@@ -581,6 +628,9 @@ public final class OppStatsHack extends Hack implements UpdateListener
 			if(o.has("events") && o.get("events").isJsonArray())
 				for(var ev : o.getAsJsonArray("events"))
 					r.events.add(ev.getAsString());
+			if(o.has("recentItems") && o.get("recentItems").isJsonArray())
+				for(var item : o.getAsJsonArray("recentItems"))
+					r.recentItems.add(item.getAsString());
 			return r;
 		}
 		
