@@ -49,6 +49,8 @@ public final class HackList implements UpdateListener
 	public final AntiVoidHack antiVoidHack = new AntiVoidHack();
 	public final AntiWaterPushHack antiWaterPushHack = new AntiWaterPushHack();
 	public final AntiWobbleHack antiWobbleHack = new AntiWobbleHack();
+	public final AntiProjectileHack antiProjectileHack =
+		new AntiProjectileHack();
 	public final ArrowDmgHack arrowDmgHack = new ArrowDmgHack();
 	public final AttributeSwapHack attributeSwapHack = new AttributeSwapHack();
 	public final AutoArmorHack autoArmorHack = new AutoArmorHack();
@@ -89,6 +91,7 @@ public final class HackList implements UpdateListener
 	public final WindChargeKeyHack windChargeKeyHack = new WindChargeKeyHack();
 	public final XCarryHack xCarryHack = new XCarryHack();
 	public final BarrierEspHack barrierEspHack = new BarrierEspHack();
+	public final BacktrackHack backtrackHack = new BacktrackHack();
 	public final BaseFinderHack baseFinderHack = new BaseFinderHack();
 	public final BeaconExploitHack beaconExploitHack = new BeaconExploitHack();
 	public final BlinkHack blinkHack = new BlinkHack();
@@ -130,9 +133,11 @@ public final class HackList implements UpdateListener
 	public final DolphinHack dolphinHack = new DolphinHack();
 	public final ElytraFlightHack elytraFlightHack = new ElytraFlightHack();
 	public final ElytraInfoHack elytraInfoHack = new ElytraInfoHack();
+	public final EntityControlHack entityControlHack = new EntityControlHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
+	public final FakeLagHack fakeLagHack = new FakeLagHack();
 	public final FastBreakHack fastBreakHack = new FastBreakHack();
 	public final FastLadderHack fastLadderHack = new FastLadderHack();
 	public final FastPlaceHack fastPlaceHack = new FastPlaceHack();
@@ -187,6 +192,7 @@ public final class HackList implements UpdateListener
 	public final MeasurementEspHack measurementEspHack =
 		new MeasurementEspHack();
 	public final MobHealthHack mobHealthHack = new MobHealthHack();
+	public final MobOwnersHack mobOwnersHack = new MobOwnersHack();
 	public final MobEspHack mobEspHack = new MobEspHack();
 	public final WardenEspHack wardenEspHack = new WardenEspHack();
 	public final MobSearchHack mobSearchHack = new MobSearchHack();

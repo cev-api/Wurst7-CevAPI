@@ -6,6 +6,7 @@
   "mixins": [],
   "client": [
     "AbstractSignEditScreenMixin",
+    "AbstractHorseMixin",
     "AbstractScrollAreaMixin",
     "AbstractWidgetMixin",
     "AtmosphericFogEnvironmentMixin",

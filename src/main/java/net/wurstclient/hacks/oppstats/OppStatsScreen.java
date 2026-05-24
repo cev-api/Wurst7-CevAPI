@@ -332,6 +332,13 @@ public final class OppStatsScreen extends Screen
 		lines.add(new InfoLine("Stats", true));
 		lines.add(new InfoLine("Joins: " + selected.joinCount, false));
 		lines.add(new InfoLine("", false));
+		lines.add(new InfoLine("Recent observed items", true));
+		if(selected.recentItems.isEmpty())
+			lines.add(new InfoLine("N/A", false));
+		else
+			for(String item : selected.recentItems)
+				lines.add(new InfoLine(item, false));
+		lines.add(new InfoLine("", false));
 		lines.add(new InfoLine("Recent events", true));
 		for(String event : selected.events)
 			lines.add(new InfoLine(event, false));

@@ -8,8 +8,13 @@
 package net.wurstclient.hacks;
 
 import java.util.HashMap;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
@@ -81,8 +86,16 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		200, 1, ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting ignoreSelf =
 		new CheckboxSetting("Ignore self", true);
+	private final CheckboxSetting staffAlerts = new CheckboxSetting(
+		"Staff alerts",
+		"Alerts when a player from the local staff list appears in tab.\n\n"
+			+ "Staff names are loaded from .minecraft/wurst/staff/<server>.txt"
+			+ " and .minecraft/wurst/staff/global.txt, one name per line.",
+		false);
 	
 	private final Map<UUID, Boolean> spectatorStates = new HashMap<>();
+	private final Set<String> staffNames = new HashSet<>();
+	private final Set<UUID> alertedStaff = new HashSet<>();
 	private String lastServerKey = "unknown";
 	
 	public SpectatorMonitorHack()
@@ -94,13 +107,16 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		addSetting(sound);
 		addSetting(volume);
 		addSetting(ignoreSelf);
+		addSetting(staffAlerts);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		spectatorStates.clear();
+		alertedStaff.clear();
 		lastServerKey = resolveServerKey();
+		loadStaffNames();
 		snapshotCurrentStates();
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -110,6 +126,8 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		spectatorStates.clear();
+		alertedStaff.clear();
+		staffNames.clear();
 	}
 	
 	@Override
@@ -125,7 +143,9 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		if(!serverKeyNow.equals(lastServerKey))
 		{
 			spectatorStates.clear();
+			alertedStaff.clear();
 			lastServerKey = serverKeyNow;
+			loadStaffNames();
 			snapshotCurrentStates();
 			return;
 		}
@@ -140,6 +160,9 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 			
 			boolean isSpectator = info.getGameMode() == GameType.SPECTATOR;
 			nextStates.put(id, isSpectator);
+			if(staffAlerts.isChecked() && isStaffName(info.getProfile().name())
+				&& alertedStaff.add(id))
+				alertStaff(info);
 			
 			Boolean previous = spectatorStates.get(id);
 			if(previous == null)
@@ -202,6 +225,64 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 				MC.level.playLocalSound(x, y, z, event, SoundSource.PLAYERS,
 					remainder, enteredSpectator ? 1.2F : 0.85F, false);
 		}
+	}
+	
+	private void alertStaff(PlayerInfo info)
+	{
+		String name = info.getProfile().name();
+		if(chatAlert.isChecked())
+			ChatUtils.component(Component.literal(String.format(Locale.ROOT,
+				"[SpectatorMonitor] Staff member %s is online.", name)));
+		
+		if(soundAlert.isChecked() && MC.level != null && MC.player != null)
+		{
+			SoundEvent event = sound.getSelected().resolve();
+			float target = (float)(volume.getValue() / 100.0);
+			if(event == null || target <= 0F)
+				return;
+			
+			MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+				MC.player.getZ(), event, SoundSource.PLAYERS,
+				Math.max(0.2F, target), 1.6F, false);
+		}
+	}
+	
+	private void loadStaffNames()
+	{
+		staffNames.clear();
+		if(!staffAlerts.isChecked())
+			return;
+		
+		Path folder = WURST.getWurstFolder().resolve("staff");
+		loadStaffFile(folder.resolve("global.txt"));
+		loadStaffFile(folder.resolve(lastServerKey + ".txt"));
+	}
+	
+	private void loadStaffFile(Path file)
+	{
+		if(!Files.isRegularFile(file))
+			return;
+		
+		try
+		{
+			for(String line : Files.readAllLines(file))
+			{
+				String name = line.strip();
+				if(name.isEmpty() || name.startsWith("#"))
+					continue;
+				staffNames.add(name.toLowerCase(Locale.ROOT));
+			}
+		}catch(IOException e)
+		{
+			ChatUtils
+				.error("SpectatorMonitor staff list failed: " + e.getMessage());
+		}
+	}
+	
+	private boolean isStaffName(String name)
+	{
+		return name != null
+			&& staffNames.contains(name.toLowerCase(Locale.ROOT));
 	}
 	
 	private String resolveServerKey()

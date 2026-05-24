@@ -11,7 +11,10 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
@@ -32,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
+import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -48,7 +52,7 @@ import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"item esp", "ItemTracers", "item tracers"})
 public final class ItemEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+	CameraTransformViewBobbingListener, RenderListener, GUIRenderListener
 {
 	private enum SpecialMode
 	{
@@ -149,6 +153,20 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"HackList count",
 		"Appends the number of detected items to this hack's entry in the HackList.",
 		false);
+	private final CheckboxSetting itemTags = new CheckboxSetting("Item tags",
+		"Draws item icons and stack counts above dropped items.", false);
+	private final SliderSetting itemTagScale =
+		new SliderSetting("Item tag scale", 1, 0.25, 3, 0.05,
+			SliderSetting.ValueDisplay.PERCENTAGE);
+	private final SliderSetting itemTagMaxDistance =
+		new SliderSetting("Item tag max distance", 64, 4, 256, 1,
+			SliderSetting.ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final SliderSetting itemTagAggregateDistance =
+		new SliderSetting("Item tag aggregate distance", 28, 4, 256, 1,
+			SliderSetting.ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final SliderSetting itemTagAggregateRadius =
+		new SliderSetting("Item tag aggregate radius", 2.5, 0.5, 12, 0.1,
+			SliderSetting.ValueDisplay.DECIMAL.withSuffix(" blocks"));
 	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
 	private final ArrayList<ExperienceOrb> xpOrbs = new ArrayList<>();
@@ -198,6 +216,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 		// new setting
 		addSetting(showCountInHackList);
+		addSetting(itemTags);
+		addSetting(itemTagScale);
+		addSetting(itemTagMaxDistance);
+		addSetting(itemTagAggregateDistance);
+		addSetting(itemTagAggregateRadius);
 	}
 	
 	@Override
@@ -206,6 +229,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(GUIRenderListener.class, this);
 	}
 	
 	@Override
@@ -214,8 +238,131 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(GUIRenderListener.class, this);
 		// reset count
 		foundCount = 0;
+	}
+	
+	@Override
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	{
+		if(!itemTags.isChecked() || MC.level == null || MC.player == null)
+			return;
+		
+		double maxDistSq =
+			itemTagMaxDistance.getValue() * itemTagMaxDistance.getValue();
+		double aggregateDistSq = itemTagAggregateDistance.getValue()
+			* itemTagAggregateDistance.getValue();
+		double aggregateRadiusSq = itemTagAggregateRadius.getValue()
+			* itemTagAggregateRadius.getValue();
+		Font font = MC.font;
+		ArrayList<ItemEntity> farItems = new ArrayList<>();
+		
+		for(ItemEntity entity : items)
+		{
+			ItemStack stack = entity.getItem();
+			if(stack == null || stack.isEmpty() || isIgnored(stack))
+				continue;
+			if(onlyAboveGround.isChecked()
+				&& entity.getY() < aboveGroundY.getValue())
+				continue;
+			if(entity.distanceToSqr(MC.player) > maxDistSq)
+				continue;
+			if(entity.distanceToSqr(MC.player) > aggregateDistSq)
+			{
+				farItems.add(entity);
+				continue;
+			}
+			
+			Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks)
+				.add(0, entity.getBbHeight() + 0.35, 0);
+			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
+			if(projected.z <= -1 || projected.z >= 1)
+				continue;
+			if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
+				|| projected.y >= 1)
+				continue;
+			
+			float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
+			float y =
+				(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
+			drawItemTag(context, font, stack, stack.getCount(), x, y);
+		}
+		
+		if(farItems.isEmpty())
+			return;
+		
+		HashSet<ItemEntity> visited = new HashSet<>();
+		for(ItemEntity seed : farItems)
+		{
+			if(!visited.add(seed))
+				continue;
+			
+			ItemStack seedStack = seed.getItem();
+			if(seedStack == null || seedStack.isEmpty())
+				continue;
+			
+			int totalCount = seedStack.getCount();
+			int clusterSize = 1;
+			Vec3 center = EntityUtils.getLerpedPos(seed, partialTicks).add(0,
+				seed.getBbHeight() + 0.35, 0);
+			
+			for(ItemEntity other : farItems)
+			{
+				if(visited.contains(other) || other == seed)
+					continue;
+				ItemStack otherStack = other.getItem();
+				if(otherStack == null || otherStack.isEmpty())
+					continue;
+				if(otherStack.getItem() != seedStack.getItem())
+					continue;
+				if(seed.distanceToSqr(other) > aggregateRadiusSq)
+					continue;
+				
+				visited.add(other);
+				totalCount += otherStack.getCount();
+				clusterSize++;
+				center =
+					center.add(EntityUtils.getLerpedPos(other, partialTicks)
+						.add(0, other.getBbHeight() + 0.35, 0));
+			}
+			
+			Vec3 worldPos = center.scale(1.0 / clusterSize);
+			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
+			if(projected.z <= -1 || projected.z >= 1)
+				continue;
+			if(projected.x <= -1 || projected.x >= 1 || projected.y <= -1
+				|| projected.y >= 1)
+				continue;
+			
+			float x = (float)((projected.x + 1) * 0.5 * context.guiWidth());
+			float y =
+				(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
+			drawItemTag(context, font, seedStack, totalCount, x, y);
+		}
+	}
+	
+	private void drawItemTag(GuiGraphicsExtractor context, Font font,
+		ItemStack stack, int displayCount, float centerX, float centerY)
+	{
+		float scale = itemTagScale.getValueF();
+		String count = displayCount > 1 ? String.valueOf(displayCount) : "";
+		int textWidth = count.isEmpty() ? 0 : font.width(count);
+		float width = (18 + (textWidth > 0 ? textWidth + 3 : 0)) * scale;
+		float height = 18 * scale;
+		float x = centerX - width / 2F;
+		float y = centerY - height / 2F;
+		
+		RenderUtils.fill2D(context, x - 2, y - 2, x + width + 2, y + height + 2,
+			0x90000000);
+		
+		context.pose().pushMatrix();
+		context.pose().translate(x + 1 * scale, y + 1 * scale);
+		context.pose().scale(scale, scale);
+		context.item(stack, 0, 0);
+		if(!count.isEmpty())
+			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
+		context.pose().popMatrix();
 	}
 	
 	// Expose ignored-items configuration for other features (like ItemHandler)
