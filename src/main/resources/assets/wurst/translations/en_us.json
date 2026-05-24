@@ -254,6 +254,8 @@
   "description.wurst.setting.necomode.only_passive_mobs": "Only apply NecoMode to passive mobs (animals, ambient mobs, and passive water mobs).",
   "description.wurst.setting.necomode.only_aggressive_mobs": "Only apply NecoMode to aggressive mobs (monster category).",
   "description.wurst.hack.navigator": "A searchable GUI that learns your preferences over time.",
+  "hack.wurst.nbtsizecounter": "NbtSizeCounter",
+  "description.wurst.hack.nbtsizecounter": "Estimates container item NBT/component payload size while viewing inventories, shows outgoing container click/close packet sizes, tracks session totals for interacted containers, and can live-scan the current chunk's loaded containers.",
   "description.wurst.hack.newchunks": "Highlights newly generated chunks around you.",
   "description.wurst.hack.newernewchunks": "Detects and visualizes old/new chunk boundaries using palette, block-update, and legacy-version signals.",
   "description.wurst.hack.nobackground": "Removes the dark background behind inventories.",

@@ -67,6 +67,15 @@ public abstract class HandledScreenMixin
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
+		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
+		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled()
+			&& nbtSizeCounter.handleMouseClick(context))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseClick(context))
 		{
 			cir.setReturnValue(true);
@@ -116,6 +125,26 @@ public abstract class HandledScreenMixin
 		}
 	}
 	
+	@Inject(at = @At("HEAD"),
+		method = "mouseDragged(Lnet/minecraft/client/input/MouseButtonEvent;DD)Z",
+		cancellable = true)
+	private void wurst$handleMouseDrag(MouseButtonEvent context, double deltaX,
+		double deltaY, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
+		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
+		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled()
+			&& nbtSizeCounter.handleMouseDrag(context))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+		}
+	}
+	
 	@Inject(at = @At("TAIL"),
 		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
 	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
@@ -132,6 +161,11 @@ public abstract class HandledScreenMixin
 		if(enchantHack != null && enchantHack.isEnabled())
 			enchantHack.renderOnHandledScreen(
 				(AbstractContainerScreen<?>)(Object)this, context, delta);
+		
+		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
+		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled())
+			nbtSizeCounter.renderOnHandledScreen(
+				(AbstractContainerScreen<?>)(Object)this, context);
 	}
 	
 	@Inject(at = @At("HEAD"),
@@ -144,6 +178,15 @@ public abstract class HandledScreenMixin
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
+		
+		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
+		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled()
+			&& nbtSizeCounter.handleMouseRelease())
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseRelease(context.x(),
 			context.y(), context.button()))
@@ -163,6 +206,18 @@ public abstract class HandledScreenMixin
 			cir.setReturnValue(true);
 			cir.cancel();
 		}
+	}
+	
+	@Inject(at = @At("HEAD"), method = "removed()V")
+	private void wurst$onRemoved(CallbackInfo ci)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
+		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled())
+			nbtSizeCounter.onContainerScreenClosed(
+				(AbstractContainerScreen<?>)(Object)this);
 	}
 	
 }
