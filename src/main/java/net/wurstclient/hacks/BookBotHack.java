@@ -11,6 +11,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,6 +44,13 @@ public final class BookBotHack extends Hack implements UpdateListener
 		RANDOM
 	}
 	
+	private enum RandomType
+	{
+		ASCII,
+		UTF8,
+		PAPER_MC
+	}
+	
 	private final EnumSetting<Mode> mode = new EnumSetting<>("Mode",
 		"What kind of text to write.", Mode.values(), Mode.RANDOM);
 	
@@ -50,8 +58,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 		"Number of pages to write per book (Random mode).", 50, 1, 100, 1,
 		ValueDisplay.INTEGER);
 	
-	private final CheckboxSetting onlyAscii = new CheckboxSetting("ASCII only",
-		"Only uses characters from the ASCII charset.", false);
+	private final EnumSetting<RandomType> randomType = new EnumSetting<>(
+		"Random type", "Character profile used in Random mode.",
+		RandomType.values(), RandomType.UTF8);
 	
 	private final SliderSetting delay = new SliderSetting("Delay (ticks)",
 		"Delay between writing books in ticks.", 20, 1, 200, 1,
@@ -95,7 +104,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		
 		addSetting(mode);
 		addSetting(pages);
-		addSetting(onlyAscii);
+		addSetting(randomType);
 		addSetting(delay);
 		addSetting(sign);
 		addSetting(name);
@@ -160,13 +169,30 @@ public final class BookBotHack extends Hack implements UpdateListener
 		// Produce pages
 		if(mode.getSelected() == Mode.RANDOM)
 		{
-			int origin = onlyAscii.isChecked() ? 0x21 : 0x0800;
-			int bound = onlyAscii.isChecked() ? 0x7E : 0x10FFFF;
-			PrimitiveIterator.OfInt chars = random.ints(origin, bound)
-				.filter(
-					i -> !Character.isWhitespace(i) && i != '\r' && i != '\n')
-				.iterator();
-			writeBook(randomPages(chars));
+			List<String> generatedPages;
+			switch(randomType.getSelected())
+			{
+				case PAPER_MC:
+				generatedPages = paperMcPages();
+				break;
+				case ASCII:
+				{
+					PrimitiveIterator.OfInt chars = random.ints(0x21, 0x7F)
+						.filter(this::isValidRandomCodePoint).iterator();
+					generatedPages = randomPages(chars);
+					break;
+				}
+				case UTF8:
+				default:
+				{
+					PrimitiveIterator.OfInt chars =
+						random.ints(0x0800, 0x110000)
+							.filter(this::isValidRandomCodePoint).iterator();
+					generatedPages = randomPages(chars);
+					break;
+				}
+			}
+			writeBook(generatedPages);
 			
 		}else
 		{
@@ -300,6 +326,64 @@ public final class BookBotHack extends Hack implements UpdateListener
 		return outPages;
 	}
 	
+	private List<String> paperMcPages()
+	{
+		ArrayList<String> outPages = new ArrayList<>(100);
+		PrimitiveIterator.OfInt oneByte = random.ints(0x21, 0x80)
+			.filter(this::isValidRandomCodePoint).iterator();
+		PrimitiveIterator.OfInt twoBytes = random.ints(0x0080, 0x0800)
+			.filter(this::isValidRandomCodePoint).iterator();
+		PrimitiveIterator.OfInt threeBytes = random.ints(0x0800, 0xD800)
+			.filter(this::isValidRandomCodePoint).iterator();
+		
+		for(int page = 0; page < 50; page++)
+		{
+			StringBuilder sb = new StringBuilder(1024 * 2);
+			appendCodePoints(sb, threeBytes, 1);
+			appendCodePoints(sb, oneByte, 1023);
+			outPages.add(sb.toString());
+		}
+		
+		{
+			StringBuilder sb = new StringBuilder(1024 * 2);
+			appendCodePoints(sb, threeBytes, 110);
+			appendCodePoints(sb, twoBytes, 1);
+			appendCodePoints(sb, oneByte, 913);
+			outPages.add(sb.toString());
+		}
+		
+		for(int page = 51; page < 100; page++)
+		{
+			StringBuilder sb = new StringBuilder(1024 * 2);
+			appendCodePoints(sb, threeBytes, 1024);
+			outPages.add(sb.toString());
+		}
+		
+		return outPages;
+	}
+	
+	private void appendCodePoints(StringBuilder sb,
+		PrimitiveIterator.OfInt chars, int count)
+	{
+		for(int i = 0; i < count; i++)
+			sb.appendCodePoint(chars.nextInt());
+	}
+	
+	private boolean isValidRandomCodePoint(int cp)
+	{
+		if(cp == '\r' || cp == '\n')
+			return false;
+		if(Character.isWhitespace(cp))
+			return false;
+		if(!Character.isValidCodePoint(cp))
+			return false;
+		if(cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE)
+			return false;
+		if(Character.isISOControl(cp))
+			return false;
+		return Character.isDefined(cp);
+	}
+	
 	private List<String> filePages(String text)
 	{
 		ArrayList<String> pages = new ArrayList<>();
@@ -350,8 +434,10 @@ public final class BookBotHack extends Hack implements UpdateListener
 		String title = name.getValue();
 		if(appendCount.isChecked() && bookCount != 0)
 			title += " #" + bookCount;
-		
-		// Local visual signing skipped; server will apply on success.
+			
+		// Keep packet-only behavior to avoid writing brittle local
+		// WRITABLE_BOOK content components across mappings.
+		logBookPayloadEstimate(pages, title);
 		
 		// Send packet
 		MC.getConnection()
@@ -360,5 +446,27 @@ public final class BookBotHack extends Hack implements UpdateListener
 				sign.isChecked() ? Optional.of(title) : Optional.empty()));
 		
 		bookCount++;
+	}
+	
+	private void logBookPayloadEstimate(List<String> pages, String title)
+	{
+		long totalJavaChars = 0;
+		long totalCodePoints = 0;
+		long pageUtf8Bytes = 0;
+		for(String page : pages)
+		{
+			totalJavaChars += page.length();
+			totalCodePoints += page.codePointCount(0, page.length());
+			pageUtf8Bytes += page.getBytes(StandardCharsets.UTF_8).length;
+		}
+		
+		long titleUtf8Bytes = sign.isChecked()
+			? title.getBytes(StandardCharsets.UTF_8).length : 0;
+		double totalKb = (pageUtf8Bytes + titleUtf8Bytes) / 1024D;
+		ChatUtils.message("Book payload estimate: pages=" + pages.size()
+			+ ", javaChars=" + totalJavaChars + ", codePoints="
+			+ totalCodePoints + ", pagesUtf8Bytes=" + pageUtf8Bytes
+			+ ", titleUtf8Bytes=" + titleUtf8Bytes + ", totalKB="
+			+ String.format("%.2f", totalKb) + " (estimate)");
 	}
 }
