@@ -7,37 +7,64 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import io.netty.buffer.Unpooled;
+import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
-import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
+import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"NBT size", "container size", "chest size", "packet size"})
-public final class NbtSizeCounterHack extends Hack
-	implements PacketOutputListener
+public final class NbtSizeCounterHack extends Hack implements
+	PacketOutputListener, PacketInputListener, UpdateListener, RenderListener
 {
+	private enum SizeUnit
+	{
+		KB(1024L),
+		MB(1024L * 1024L);
+		
+		private final long bytes;
+		
+		SizeUnit(long bytes)
+		{
+			this.bytes = bytes;
+		}
+	}
+	
 	private final CheckboxSetting showScreenOverlay =
 		new CheckboxSetting("Screen overlay",
 			"Shows the current container size while a container GUI is open.",
@@ -45,6 +72,25 @@ public final class NbtSizeCounterHack extends Hack
 	private final CheckboxSetting showLastPacket =
 		new CheckboxSetting("Show last packet",
 			"Shows the last outgoing container click/close packet size.", true);
+	private final CheckboxSetting showFloorItemLabels =
+		new CheckboxSetting("Floor item labels",
+			"Shows estimated NBT/components size above dropped items.", true);
+	private final SliderSetting ignoreFloorItemsBelowKb =
+		new SliderSetting("Ignore below (KB)",
+			"Ignore dropped items smaller than this estimated size.", 0, 0,
+			4096, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting includeFloorInTotals =
+		new CheckboxSetting("Add floor items to totals",
+			"Adds dropped-item counts and bytes to the total summary.", true);
+	private final CheckboxSetting preventChunkEntry = new CheckboxSetting(
+		"Block heavy chunk entry",
+		"Prevents entering chunks over the configured floor-item size threshold (unless already in such a chunk).",
+		false);
+	private final SliderSetting chunkLimitValue = new SliderSetting(
+		"Chunk limit value", "Threshold for heavy-chunk entry blocking.", 512,
+		1, 32768, 1, ValueDisplay.INTEGER);
+	private final EnumSetting<SizeUnit> chunkLimitUnit =
+		new EnumSetting<>("Chunk limit unit", SizeUnit.values(), SizeUnit.KB);
 	
 	private long currentInventoryBytes;
 	private int currentContainerId = -1;
@@ -63,12 +109,27 @@ public final class NbtSizeCounterHack extends Hack
 	private int dragOffsetX;
 	private int dragOffsetY;
 	
+	private final List<FloorItemEstimate> floorItems = new ArrayList<>();
+	private final Map<Long, Long> floorChunkBytes = new HashMap<>();
+	private final Map<Integer, PacketEstimate> packetItemEstimates =
+		new HashMap<>();
+	private long floorTotalBytes;
+	private int floorTotalCount;
+	private ChunkPos previousChunk;
+	private Vec3 previousSafePos;
+	
 	public NbtSizeCounterHack()
 	{
 		super("NbtSizeCounter");
 		setCategory(Category.TOOLS);
 		addSetting(showScreenOverlay);
 		addSetting(showLastPacket);
+		addSetting(showFloorItemLabels);
+		addSetting(ignoreFloorItemsBelowKb);
+		addSetting(includeFloorInTotals);
+		addSetting(preventChunkEntry);
+		addSetting(chunkLimitValue);
+		addSetting(chunkLimitUnit);
 	}
 	
 	@Override
@@ -79,8 +140,15 @@ public final class NbtSizeCounterHack extends Hack
 			return getName() + " [" + formatBytes(currentInventoryBytes)
 				+ " | total " + total + "]";
 		
-		if(getSessionTotalBytes() > 0)
+		if(getSessionTotalBytes() > 0 || (includeFloorInTotals.isChecked()
+			&& (floorTotalBytes > 0 || floorTotalCount > 0)))
+		{
+			if(includeFloorInTotals.isChecked())
+				return getName() + " [total " + total + " + floor "
+					+ formatBytes(floorTotalBytes) + " (" + floorTotalCount
+					+ ")]";
 			return getName() + " [total " + total + "]";
+		}
 		
 		return getName();
 	}
@@ -90,12 +158,18 @@ public final class NbtSizeCounterHack extends Hack
 	{
 		resetCounters();
 		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
+		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(RenderListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		EVENTS.remove(PacketOutputListener.class, this);
+		EVENTS.remove(PacketInputListener.class, this);
+		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(RenderListener.class, this);
 		resetCounters();
 	}
 	
@@ -122,6 +196,61 @@ public final class NbtSizeCounterHack extends Hack
 		}
 	}
 	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		if(MC.level == null)
+			return;
+		
+		if(!(event
+			.getPacket() instanceof ClientboundSetEntityDataPacket update))
+			return;
+		
+		if(!(MC.level.getEntity(update.id()) instanceof ItemEntity))
+			return;
+		
+		ItemStack stack = extractItemStackFromEntityDataPacket(update);
+		if(stack == null)
+			return;
+		
+		long bytes = getItemStackPayloadSize(stack);
+		if(bytes <= 0)
+			return;
+		
+		packetItemEstimates.put(update.id(),
+			new PacketEstimate(bytes, System.currentTimeMillis()));
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		scanFloorItems();
+		if(preventChunkEntry.isChecked())
+			enforceChunkEntryGuard();
+		else
+			updateSafeChunkTracking();
+	}
+	
+	@Override
+	public void onRender(PoseStack matrices, float partialTicks)
+	{
+		if(!showFloorItemLabels.isChecked() || MC.level == null
+			|| MC.player == null)
+			return;
+		
+		for(FloorItemEstimate estimate : floorItems)
+		{
+			ItemEntity entity = estimate.item();
+			if(entity == null || !entity.isAlive())
+				continue;
+			
+			Vec3 pos = entity.position().add(0, entity.getBbHeight() + 0.35, 0);
+			String src = estimate.packetDerived() ? "[packet]" : "[local]";
+			drawWorldLabel(matrices, formatBytes(estimate.bytes()) + " " + src,
+				pos.x, pos.y, pos.z, 0xFFFFFFFF);
+		}
+	}
+	
 	public void onContainerScreenClosed(AbstractContainerScreen<?> screen)
 	{
 		if(screen != null)
@@ -143,13 +272,18 @@ public final class NbtSizeCounterHack extends Hack
 		List<String> lines = new ArrayList<>();
 		lines.add("NBT/components: " + formatBytes(currentInventoryBytes));
 		lines.add("Container slots: " + currentExternalSlots);
+		lines.add("Floor items: " + floorTotalCount + " ("
+			+ formatBytes(floorTotalBytes) + ")");
 		
 		if(showLastPacket.isChecked() && lastPacketBytes > 0)
 			lines.add(
 				lastPacketName + " packet: " + formatBytes(lastPacketBytes));
 		
-		lines.add("Session total: " + formatBytes(getSessionTotalBytes())
-			+ " / " + interactedContainers.size());
+		long sessionTotal = getSessionTotalBytes();
+		if(includeFloorInTotals.isChecked())
+			sessionTotal += floorTotalBytes;
+		lines.add("Session total: " + formatBytes(sessionTotal) + " / "
+			+ interactedContainers.size());
 		
 		int width = 0;
 		for(String line : lines)
@@ -229,8 +363,6 @@ public final class NbtSizeCounterHack extends Hack
 		currentExternalSlots = stacks.size();
 		currentInventoryBytes = getStackListPayloadSize(stacks);
 		
-		// Keep a close-safe snapshot so totals still work if the menu gets torn
-		// down before close hooks can re-read it.
 		if(currentInventoryBytes > 0)
 		{
 			pendingContainerKey = currentContainerKey;
@@ -316,6 +448,29 @@ public final class NbtSizeCounterHack extends Hack
 		}
 	}
 	
+	private long getItemStackPayloadSize(ItemStack stack)
+	{
+		if(MC.level == null)
+			return 0;
+		
+		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
+			Unpooled.buffer(), MC.level.registryAccess());
+		try
+		{
+			ItemStack.OPTIONAL_STREAM_CODEC.encode(buf,
+				stack == null ? ItemStack.EMPTY : stack);
+			return buf.writerIndex();
+			
+		}catch(Throwable t)
+		{
+			return 0;
+			
+		}finally
+		{
+			buf.release();
+		}
+	}
+	
 	private long getPacketBodySize(ServerboundContainerClickPacket packet)
 	{
 		if(MC.level == null)
@@ -370,6 +525,13 @@ public final class NbtSizeCounterHack extends Hack
 		dragging = false;
 		overlayX = Integer.MIN_VALUE;
 		overlayY = Integer.MIN_VALUE;
+		floorItems.clear();
+		floorChunkBytes.clear();
+		packetItemEstimates.clear();
+		floorTotalBytes = 0;
+		floorTotalCount = 0;
+		previousChunk = null;
+		previousSafePos = null;
 	}
 	
 	private void finalizeCurrentContainer()
@@ -416,4 +578,245 @@ public final class NbtSizeCounterHack extends Hack
 		
 		return String.format("%.2f MB", kib / 1024D);
 	}
+	
+	private long minFloorItemBytes()
+	{
+		return ignoreFloorItemsBelowKb.getValueI() * 1024L;
+	}
+	
+	private long chunkLimitBytes()
+	{
+		return (long)chunkLimitValue.getValueI()
+			* chunkLimitUnit.getSelected().bytes;
+	}
+	
+	private void scanFloorItems()
+	{
+		floorItems.clear();
+		floorChunkBytes.clear();
+		floorTotalBytes = 0;
+		floorTotalCount = 0;
+		
+		ClientLevel level = MC.level;
+		if(level == null)
+			return;
+		
+		long minBytes = minFloorItemBytes();
+		long now = System.currentTimeMillis();
+		for(var entity : level.entitiesForRendering())
+		{
+			if(!(entity instanceof ItemEntity itemEntity)
+				|| !itemEntity.isAlive())
+				continue;
+			
+			long localBytes = getItemStackPayloadSize(itemEntity.getItem());
+			PacketEstimate packetEstimate =
+				packetItemEstimates.get(itemEntity.getId());
+			boolean packetFresh = packetEstimate != null
+				&& now - packetEstimate.timestampMs() <= 15000L;
+			long bytes = packetFresh ? packetEstimate.bytes() : localBytes;
+			if(bytes < minBytes)
+				continue;
+			
+			floorItems
+				.add(new FloorItemEstimate(itemEntity, bytes, packetFresh));
+			floorTotalCount++;
+			floorTotalBytes += bytes;
+			
+			ChunkPos chunk = itemEntity.chunkPosition();
+			long key = chunkKey(chunk);
+			floorChunkBytes.merge(key, bytes, Long::sum);
+		}
+		
+		packetItemEstimates.entrySet()
+			.removeIf(e -> now - e.getValue().timestampMs() > 30000L);
+	}
+	
+	private void updateSafeChunkTracking()
+	{
+		if(MC.player == null)
+			return;
+		
+		previousChunk = MC.player.chunkPosition();
+		previousSafePos = MC.player.position();
+	}
+	
+	private void enforceChunkEntryGuard()
+	{
+		if(MC.player == null)
+			return;
+		
+		ChunkPos current = MC.player.chunkPosition();
+		if(previousChunk == null)
+		{
+			previousChunk = current;
+			previousSafePos = MC.player.position();
+			return;
+		}
+		
+		if(current.equals(previousChunk))
+		{
+			previousSafePos = MC.player.position();
+			return;
+		}
+		
+		long limit = chunkLimitBytes();
+		long targetBytes = floorChunkBytes.getOrDefault(chunkKey(current), 0L);
+		if(targetBytes > limit)
+		{
+			long previousBytes =
+				floorChunkBytes.getOrDefault(chunkKey(previousChunk), 0L);
+			
+			// unless they're already in heavy chunks
+			if(previousBytes <= limit && previousSafePos != null)
+			{
+				MC.player.setPos(previousSafePos.x, previousSafePos.y,
+					previousSafePos.z);
+				Vec3 v = MC.player.getDeltaMovement();
+				MC.player.setDeltaMovement(0, v.y, 0);
+			}
+			return;
+		}
+		
+		previousChunk = current;
+		previousSafePos = MC.player.position();
+	}
+	
+	private void drawWorldLabel(PoseStack matrices, String text, double x,
+		double y, double z, int argb)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		
+		// Keep labels visible from far away by anchoring to a near point.
+		if(dist > 256.0)
+		{
+			double anchor = 12.0;
+			Vec3 anchored = cam.add(dir.scale(anchor / Math.max(dist, 1e-6)));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
+		Camera camera = MC.gameRenderer.getMainCamera();
+		if(camera != null)
+		{
+			matrices.mulPose(
+				com.mojang.math.Axis.YP.rotationDegrees(-camera.yRot()));
+			matrices.mulPose(
+				com.mojang.math.Axis.XP.rotationDegrees(camera.xRot()));
+		}
+		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
+		
+		float scale =
+			(float)(0.025F * Math.max(1.0, Math.min(dist * 0.10, 8.0)));
+		matrices.scale(scale, -scale, scale);
+		
+		Font tr = MC.font;
+		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		float w = tr.width(text) / 2F;
+		int baseAlpha = (argb >>> 24) & 0xFF;
+		int bgAlpha =
+			(int)Math.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+		int bg = (bgAlpha << 24);
+		var matrix = matrices.last().pose();
+		int stroke = (Math.max(0, Math.min(255, baseAlpha)) << 24);
+		
+		tr.drawInBatch(text, -w - 1, 0, stroke, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		tr.drawInBatch(text, -w + 1, 0, stroke, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		tr.drawInBatch(text, -w, -1, stroke, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		tr.drawInBatch(text, -w, +1, stroke, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		vcp.endBatch();
+		matrices.popPose();
+	}
+	
+	private long chunkKey(ChunkPos pos)
+	{
+		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
+	}
+	
+	private ItemStack extractItemStackFromEntityDataPacket(
+		ClientboundSetEntityDataPacket packet)
+	{
+		List<?> dataList = getPacketDataList(packet);
+		if(dataList == null)
+			return null;
+		
+		for(Object dataValue : dataList)
+		{
+			if(dataValue == null)
+				continue;
+			
+			Object value = invokeNoArg(dataValue, "value");
+			if(value instanceof ItemStack stack)
+				return stack;
+		}
+		
+		return null;
+	}
+	
+	private List<?> getPacketDataList(ClientboundSetEntityDataPacket packet)
+	{
+		Object result = invokeNoArg(packet, "packedItems");
+		if(result instanceof List<?> list)
+			return list;
+		
+		result = invokeNoArg(packet, "unpackedData");
+		if(result instanceof List<?> list)
+			return list;
+		
+		for(var method : packet.getClass().getMethods())
+		{
+			if(method.getParameterCount() != 0
+				|| !List.class.isAssignableFrom(method.getReturnType()))
+				continue;
+			
+			try
+			{
+				Object value = method.invoke(packet);
+				if(value instanceof List<?> list)
+					return list;
+				
+			}catch(Throwable ignored)
+			{}
+		}
+		
+		return null;
+	}
+	
+	private Object invokeNoArg(Object obj, String methodName)
+	{
+		try
+		{
+			var method = obj.getClass().getMethod(methodName);
+			return method.invoke(obj);
+			
+		}catch(Throwable ignored)
+		{
+			return null;
+		}
+	}
+	
+	private record FloorItemEstimate(ItemEntity item, long bytes,
+		boolean packetDerived)
+	{}
+	
+	private record PacketEstimate(long bytes, long timestampMs)
+	{}
 }
