@@ -61,6 +61,9 @@ public final class HackList implements UpdateListener
 	public final AutoDisenchantHack autoDisenchantHack =
 		new AutoDisenchantHack();
 	public final AutoDropHack autoDropHack = new AutoDropHack();
+	public final InstantCommandHack instantCommandHack =
+		new InstantCommandHack();
+	public final JoinDropHack joinDropHack = new JoinDropHack();
 	public final SusNoMoreHack susNoMoreHack = new SusNoMoreHack();
 	public final AutoLeaveHack autoLeaveHack = new AutoLeaveHack();
 	public final AutoLibrarianHack autoLibrarianHack = new AutoLibrarianHack();
@@ -186,6 +189,8 @@ public final class HackList implements UpdateListener
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final BedrockEscapeHack bedrockEscapeHack = new BedrockEscapeHack();
 	public final BedrockStashHack bedrockStashHack = new BedrockStashHack();
+	public final StasisDetectorHack stasisDetectorHack =
+		new StasisDetectorHack();
 	public final TeleportHack teleportHack = new TeleportHack();
 	public final MileyCyrusHack mileyCyrusHack = new MileyCyrusHack();
 	public final MeasurementEspHack measurementEspHack =

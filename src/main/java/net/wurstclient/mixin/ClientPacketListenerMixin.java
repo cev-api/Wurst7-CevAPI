@@ -53,6 +53,9 @@ public abstract class ClientPacketListenerMixin
 		if(!wurst.isEnabled())
 			return;
 		
+		wurst.getHax().instantCommandHack.onServerJoin();
+		wurst.getHax().joinDropHack.onServerJoin();
+		
 		// Remove Mojang's dishonest warning toast on safe servers
 		if(!packet.enforcesSecureChat())
 		{
