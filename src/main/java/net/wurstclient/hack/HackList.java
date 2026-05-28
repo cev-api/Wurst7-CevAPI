@@ -243,6 +243,7 @@ public final class HackList implements UpdateListener
 	public final PlayerEspHack playerEspHack = new PlayerEspHack();
 	public final PlayerSonarHack playerSonarHack = new PlayerSonarHack();
 	public final PortalEspHack portalEspHack = new PortalEspHack();
+	public final PotEspHack potEspHack = new PotEspHack();
 	public final PortalGuiHack portalGuiHack = new PortalGuiHack();
 	public final PotionSaverHack potionSaverHack = new PotionSaverHack();
 	public final ProphuntEspHack prophuntEspHack = new ProphuntEspHack();
@@ -274,6 +275,8 @@ public final class HackList implements UpdateListener
 	public final SnowShoeHack snowShoeHack = new SnowShoeHack();
 	public final SpeedHackHack speedHackHack = new SpeedHackHack();
 	public final SpeedNukerHack speedNukerHack = new SpeedNukerHack();
+	public final SuperInstaMineHack superInstaMineHack =
+		new SuperInstaMineHack();
 	public final SpiderHack spiderHack = new SpiderHack();
 	public final StepHack stepHack = new StepHack();
 	public final TemplateToolHack templateToolHack = new TemplateToolHack();

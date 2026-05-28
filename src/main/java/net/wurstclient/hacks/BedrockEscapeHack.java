@@ -146,6 +146,7 @@ public final class BedrockEscapeHack extends Hack
 	private boolean targetBelow;
 	private final List<BlockPos> blocksBelowBedrock = new ArrayList<>();
 	private static final int SHIFT_BREAK_COOLDOWN_TICKS = 6;
+	private static final int BEDROCK_CONTEXT_RADIUS = 20;
 	private static final String BEDROCK_BLOCK_ID = "minecraft:bedrock";
 	private static final double SHIFT_SURFACE_XRAY_OPACITY = 0.3;
 	private int shiftBreakCooldown;
@@ -232,6 +233,14 @@ public final class BedrockEscapeHack extends Hack
 			return;
 		}
 		
+		if(!isActiveBedrockEscapeContext())
+		{
+			resetRuntimeState();
+			restoreShiftSurfaceXrayOverride();
+			clearShaftScanState();
+			return;
+		}
+		
 		updateTarget();
 		updateShiftSurfaceXrayOverride();
 		updateEscapeShafts();
@@ -274,6 +283,54 @@ public final class BedrockEscapeHack extends Hack
 		}
 		
 		shiftBreakCooldown = 0;
+	}
+	
+	private boolean isActiveBedrockEscapeContext()
+	{
+		if(MC.player == null || MC.level == null)
+			return false;
+		
+		if(MC.level.dimension() == Level.END)
+			return false;
+		
+		BlockPos playerPos = MC.player.blockPosition();
+		BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos(
+			playerPos.getX(), playerPos.getY(), playerPos.getZ());
+		int minY = MC.level.getMinY();
+		int maxY = minY + MC.level.getHeight() - 1;
+		int startY = playerPos.getY();
+		int downY = Math.max(minY, startY - BEDROCK_CONTEXT_RADIUS);
+		int upY = Math.min(maxY, startY + BEDROCK_CONTEXT_RADIUS);
+		
+		for(int y = startY; y >= downY; y--)
+		{
+			probe.set(playerPos.getX(), y, playerPos.getZ());
+			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
+				return true;
+		}
+		
+		for(int y = startY + 1; y <= upY; y++)
+		{
+			probe.set(playerPos.getX(), y, playerPos.getZ());
+			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private void resetRuntimeState()
+	{
+		teleportTarget = null;
+		targetBox = null;
+		damageHearts = 0;
+		damageColor = DAMAGE_COLOR_SAFE.getRGB();
+		isValidTarget = false;
+		showSafeTick = false;
+		targetBelow = false;
+		teleportedThisPress = false;
+		shiftBreakCooldown = 0;
+		blocksBelowBedrock.clear();
 	}
 	
 	private void updateShiftSurfaceXrayOverride()
