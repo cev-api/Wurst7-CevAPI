@@ -8,6 +8,7 @@
 package net.wurstclient.mixin;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
@@ -24,6 +25,7 @@ import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.EditBox;
 import net.wurstclient.WurstClient;
 import net.wurstclient.command.Command;
+import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.AutoCompleteHack;
 
 @Mixin(CommandSuggestions.class)
@@ -76,9 +78,12 @@ public abstract class CommandSuggestionsMixin
 		String lowerDraft = draftMessage.toLowerCase(Locale.ROOT);
 		Collection<Command> commands =
 			WurstClient.INSTANCE.getCmds().getAllCmds();
+		Collection<Hack> hacks = WurstClient.INSTANCE.getHax().getAllHax();
 		SuggestionsBuilder builder = new SuggestionsBuilder(draftMessage, 0);
+		LinkedHashSet<String> candidates = new LinkedHashSet<>();
 		String inlineSuggestion = "";
 		int suggestions = 0;
+		
 		for(Command cmd : commands)
 		{
 			if(cmd == null || cmd.getName() == null)
@@ -87,7 +92,19 @@ public abstract class CommandSuggestionsMixin
 			String cmdName = cmd.getName();
 			if(cmdName.startsWith("."))
 				cmdName = cmdName.substring(1);
-			String candidate = prefix + cmdName;
+			candidates.add(prefix + cmdName);
+		}
+		
+		for(Hack hack : hacks)
+		{
+			if(hack == null || hack.getName() == null)
+				continue;
+			
+			candidates.add(prefix + hack.getName());
+		}
+		
+		for(String candidate : candidates)
+		{
 			if(!candidate.toLowerCase(Locale.ROOT).startsWith(lowerDraft))
 				continue;
 			

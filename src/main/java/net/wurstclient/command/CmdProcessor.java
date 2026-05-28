@@ -8,11 +8,13 @@
 package net.wurstclient.command;
 
 import java.util.Arrays;
+import java.util.Locale;
 import net.minecraft.CrashReport;
 import net.minecraft.CrashReportCategory;
 import net.minecraft.ReportedException;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.ChatOutputListener;
+import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.util.ChatUtils;
 
@@ -32,14 +34,7 @@ public final class CmdProcessor implements ChatOutputListener
 			return;
 		
 		String message = event.getOriginalMessage().trim();
-		// Use the configured command prefix from the Wurst options.
-		String prefix = ".";
-		try
-		{
-			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
-				.getPrefixSetting().getSelected().toString();
-		}catch(Throwable ignored)
-		{}
+		String prefix = getPrefix();
 		
 		if(!message.startsWith(prefix))
 			return;
@@ -50,6 +45,9 @@ public final class CmdProcessor implements ChatOutputListener
 	
 	public void process(String input)
 	{
+		if(runHackShortcut(input))
+			return;
+		
 		try
 		{
 			Command cmd = parseCmd(input);
@@ -105,6 +103,78 @@ public final class CmdProcessor implements ChatOutputListener
 		}
 	}
 	
+	private boolean runHackShortcut(String input)
+	{
+		String[] args = input.trim().split("\\s+");
+		if(args.length == 0 || args[0].isEmpty())
+			return false;
+		
+		Hack hack = WurstClient.INSTANCE.getHax().getHackByName(args[0]);
+		if(hack == null)
+			return false;
+		
+		if(args.length == 1)
+		{
+			setHackEnabled(hack, !hack.isEnabled());
+			return true;
+		}
+		
+		if(args.length == 2)
+		{
+			switch(args[1].toLowerCase(Locale.ROOT))
+			{
+				case "on":
+				setHackEnabled(hack, true);
+				return true;
+				
+				case "off":
+				setHackEnabled(hack, false);
+				return true;
+				
+				case "toggle":
+				setHackEnabled(hack, !hack.isEnabled());
+				return true;
+				
+				default:
+				return false;
+			}
+		}
+		
+		// Let same-name commands continue to support their own extra arguments.
+		if(cmds.getCmdByName(args[0]) != null)
+			return false;
+		
+		ChatUtils
+			.error("Syntax: " + getPrefix() + args[0] + " [on|off|toggle]");
+		return true;
+	}
+	
+	private void setHackEnabled(Hack hack, boolean enabled)
+	{
+		TooManyHaxHack tooManyHax =
+			WurstClient.INSTANCE.getHax().tooManyHaxHack;
+		if(enabled && tooManyHax.isEnabled() && tooManyHax.isBlocked(hack))
+		{
+			ChatUtils.error(hack.getName() + " is blocked by TooManyHax.");
+			return;
+		}
+		
+		hack.setEnabled(enabled);
+	}
+	
+	private static String getPrefix()
+	{
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		return prefix;
+	}
+	
 	private static class CmdNotFoundException extends Exception
 	{
 		private final String input;
@@ -117,13 +187,7 @@ public final class CmdProcessor implements ChatOutputListener
 		public void printToChat()
 		{
 			String cmdName = input.split(" ")[0];
-			String prefix = ".";
-			try
-			{
-				prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
-					.getPrefixSetting().getSelected().toString();
-			}catch(Throwable ignored)
-			{}
+			String prefix = getPrefix();
 			
 			ChatUtils.error("Unknown command: " + prefix + cmdName);
 			

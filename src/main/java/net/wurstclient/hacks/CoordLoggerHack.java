@@ -16,12 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
 // use internal SliderSetting.ValueDisplay; external GUI class not available
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundLevelEventPacket;
-import net.minecraft.network.protocol.game.ClientboundSoundEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -108,120 +107,47 @@ public final class CoordLoggerHack extends Hack
 																// within radius
 																// to
 																// auto-remove
+	private static final long WITHER_DEDUPE_WINDOW_MS = 2500L;
+	private static final double WITHER_DEDUPE_DISTANCE = 4.0;
 	
 	private final List<EventMarker> markers = new CopyOnWriteArrayList<>();
+	private long lastWitherSpawnLogMs;
+	private Vec3 lastWitherSpawnPos;
 	
 	private enum EventCategory
 	{
-		DOORS,
 		PORTALS,
 		REDSTONE,
 		MOBS,
 		MISC
 	}
 	
-	private static final Map<Integer, EventCategory> EVENT_CATEGORIES =
-		new HashMap<>(); // id -> category
-	private static final Map<Integer, String> EVENT_NAMES = new HashMap<>(); // id
-																				// ->
-																				// constant
-																				// name
+	private enum EventScope
+	{
+		LOCAL,
+		GLOBAL
+	}
+	
+	private record EventMeta(String name, EventCategory category,
+		EventScope expectedScope)
+	{}
+	
+	private static final Map<Integer, EventMeta> TRACKED_EVENTS =
+		new HashMap<>();
 	
 	static
 	{
-		// Doors / trapdoors
-		register(1005, "IRON_DOOR_OPENS", EventCategory.DOORS);
-		register(1011, "IRON_DOOR_CLOSES", EventCategory.DOORS);
-		register(1006, "WOODEN_DOOR_OPENS", EventCategory.DOORS);
-		register(1012, "WOODEN_DOOR_CLOSES", EventCategory.DOORS);
-		register(1007, "WOODEN_TRAPDOOR_OPENS", EventCategory.DOORS);
-		register(1013, "WOODEN_TRAPDOOR_CLOSES", EventCategory.DOORS);
-		register(1008, "FENCE_GATE_OPENS", EventCategory.DOORS);
-		register(1014, "FENCE_GATE_CLOSES", EventCategory.DOORS);
-		
-		// Portals / gateways
-		register(1032, "TRAVEL_THROUGH_PORTAL", EventCategory.PORTALS);
-		register(1038, "END_PORTAL_OPENED", EventCategory.PORTALS);
-		register(3000, "END_GATEWAY_SPAWNS", EventCategory.PORTALS);
-		register(1503, "END_PORTAL_FRAME_FILLED", EventCategory.PORTALS);
-		
-		// Redstone / technical
-		register(2000, "DISPENSER_ACTIVATED", EventCategory.REDSTONE);
-		register(1000, "DISPENSER_DISPENSES", EventCategory.REDSTONE);
-		register(1001, "DISPENSER_FAILS", EventCategory.REDSTONE);
-		register(1002, "DISPENSER_LAUNCHES_PROJECTILE", EventCategory.REDSTONE);
-		register(1500, "COMPOSTER_USED", EventCategory.REDSTONE);
-		register(1501, "LAVA_EXTINGUISHED", EventCategory.REDSTONE);
-		register(1502, "REDSTONE_TORCH_BURNS_OUT", EventCategory.REDSTONE);
-		register(1504, "POINTED_DRIPSTONE_DRIPS", EventCategory.REDSTONE);
-		register(1046, "POINTED_DRIPSTONE_DRIPS_LAVA_INTO_CAULDRON",
-			EventCategory.REDSTONE);
-		register(1047, "POINTED_DRIPSTONE_DRIPS_WATER_INTO_CAULDRON",
-			EventCategory.REDSTONE);
-		register(1505, "BONE_MEAL_USED", EventCategory.REDSTONE);
-		register(2003, "EYE_OF_ENDER_BREAKS", EventCategory.REDSTONE);
-		register(1003, "EYE_OF_ENDER_LAUNCHES", EventCategory.REDSTONE);
-		register(2005, "PLANT_FERTILIZED", EventCategory.REDSTONE);
-		register(2006, "DRAGON_BREATH_CLOUD_SPAWNS", EventCategory.REDSTONE);
-		register(2004, "SPAWNER_SPAWNS_MOB", EventCategory.REDSTONE);
-		register(3002, "ELECTRICITY_SPARKS", EventCategory.REDSTONE);
-		register(3003, "BLOCK_WAXED", EventCategory.REDSTONE);
-		register(3004, "WAX_REMOVED", EventCategory.REDSTONE);
-		register(3005, "BLOCK_SCRAPED", EventCategory.REDSTONE);
-		
-		// Mobs / combat
-		register(1018, "BLAZE_SHOOTS", EventCategory.MOBS);
-		register(1017, "ENDER_DRAGON_SHOOTS", EventCategory.MOBS);
-		register(1016, "GHAST_SHOOTS", EventCategory.MOBS);
-		register(1015, "GHAST_WARNS", EventCategory.MOBS);
-		register(1023, "WITHER_SPAWNS", EventCategory.MOBS);
-		register(1024, "WITHER_SHOOTS", EventCategory.MOBS);
-		register(1022, "WITHER_BREAKS_BLOCK", EventCategory.MOBS);
-		register(1028, "ENDER_DRAGON_DIES", EventCategory.MOBS);
-		register(2008, "ENDER_DRAGON_BREAKS_BLOCK", EventCategory.MOBS);
-		register(3001, "ENDER_DRAGON_RESURRECTED", EventCategory.MOBS);
-		register(1025, "BAT_TAKES_OFF", EventCategory.MOBS);
-		register(1026, "ZOMBIE_INFECTS_VILLAGER", EventCategory.MOBS);
-		register(1027, "ZOMBIE_VILLAGER_CURED", EventCategory.MOBS);
-		register(1019, "ZOMBIE_ATTACKS_WOODEN_DOOR", EventCategory.MOBS);
-		register(1020, "ZOMBIE_ATTACKS_IRON_DOOR", EventCategory.MOBS);
-		register(1021, "ZOMBIE_BREAKS_WOODEN_DOOR", EventCategory.MOBS);
-		register(1040, "ZOMBIE_CONVERTS_TO_DROWNED", EventCategory.MOBS);
-		register(1041, "HUSK_CONVERTS_TO_ZOMBIE", EventCategory.MOBS);
-		register(1048, "SKELETON_CONVERTS_TO_STRAY", EventCategory.MOBS);
-		register(1039, "PHANTOM_BITES", EventCategory.MOBS);
-		
-		// Misc / ambience / utility
-		register(1029, "ANVIL_DESTROYED", EventCategory.MISC);
-		register(1030, "ANVIL_USED", EventCategory.MISC);
-		register(1031, "ANVIL_LANDS", EventCategory.MISC);
-		register(1033, "CHORUS_FLOWER_GROWS", EventCategory.MISC);
-		register(1034, "CHORUS_FLOWER_DIES", EventCategory.MISC);
-		register(1004, "FIREWORK_ROCKET_SHOOTS", EventCategory.MISC);
-		register(1009, "FIRE_EXTINGUISHED", EventCategory.MISC);
-		register(1504, "POINTED_DRIPSTONE_DRIPS", EventCategory.MISC); // also
-																		// in
-																		// redstone,
-																		// keep
-																		// mapping
-		register(1045, "POINTED_DRIPSTONE_LANDS", EventCategory.MISC);
-		register(1010, "MUSIC_DISC_PLAYED", EventCategory.MISC);
-		register(1035, "BREWING_STAND_BREWS", EventCategory.MISC);
-		register(1042, "GRINDSTONE_USED", EventCategory.MISC);
-		register(1043, "LECTERN_BOOK_PAGE_TURNED", EventCategory.MISC);
-		register(1044, "SMITHING_TABLE_USED", EventCategory.MISC);
-		register(1505, "BONE_MEAL_USED", EventCategory.MISC);
-		register(1501, "LAVA_EXTINGUISHED", EventCategory.MISC);
-		register(2001, "BLOCK_BROKEN", EventCategory.MISC);
-		register(2002, "SPLASH_POTION_SPLASHED", EventCategory.MISC);
-		register(2007, "INSTANT_SPLASH_POTION_SPLASHED", EventCategory.MISC);
-		register(2009, "WET_SPONGE_DRIES_OUT", EventCategory.MISC);
-	}
-	
-	private static void register(int id, String name, EventCategory category)
-	{
-		EVENT_NAMES.put(id, name);
-		EVENT_CATEGORIES.put(id, category);
+		// Exact events requested in the detection overview.
+		TRACKED_EVENTS.put(1038, new EventMeta("SOUND_END_PORTAL_SPAWN",
+			EventCategory.PORTALS, EventScope.GLOBAL));
+		TRACKED_EVENTS.put(2003, new EventMeta("PARTICLES_EYE_OF_ENDER_DEATH",
+			EventCategory.REDSTONE, EventScope.LOCAL));
+		TRACKED_EVENTS.put(1023, new EventMeta("SOUND_WITHER_BOSS_SPAWN",
+			EventCategory.MOBS, EventScope.GLOBAL));
+		TRACKED_EVENTS.put(2001, new EventMeta("PARTICLES_DESTROY_BLOCK",
+			EventCategory.MISC, EventScope.LOCAL));
+		TRACKED_EVENTS.put(1022, new EventMeta("WITHER_BREAK_BLOCK",
+			EventCategory.MOBS, EventScope.LOCAL));
 	}
 	
 	private static final class EventMarker
@@ -316,17 +242,10 @@ public final class CoordLoggerHack extends Hack
 				return;
 			}
 			
-			// Sound packets (used by some servers/versions for wither spawn
-			// direction hints)
 			if(packet instanceof ClientboundSoundPacket sound)
 			{
 				handleSoundPacket(sound);
 				return;
-			}
-			
-			if(packet instanceof ClientboundSoundEntityPacket soundEntity)
-			{
-				handleSoundEntityPacket(soundEntity);
 			}
 		}catch(Throwable t)
 		{
@@ -367,17 +286,16 @@ public final class CoordLoggerHack extends Hack
 			return;
 		
 		Entity entity = MC.level.getEntity(entityId);
-		if(entity == null)
-			return;
 		
 		// Mojmap names
-		Vec3 oldPos = entity.position();
+		Vec3 oldPos =
+			entity == null ? lastLoggedPos.get(entityId) : entity.position();
 		if(packet.change() == null || packet.change().position() == null)
 			return;
 		Vec3 newPos = packet.change().position();
 		
-		double dist = oldPos.distanceTo(newPos);
-		if(dist < minDistance.getValue())
+		double dist = oldPos == null ? Double.NaN : oldPos.distanceTo(newPos);
+		if(!Double.isNaN(dist) && dist < minDistance.getValue())
 			return;
 			
 		// rate-limit / dedupe: if we logged this entity recently and the last
@@ -403,10 +321,12 @@ public final class CoordLoggerHack extends Hack
 		if(!isPlayer && !logAllEntityTeleports.isChecked())
 			return;
 		
-		String entityName = entity.getName().getString();
+		String entityName = entity == null ? ("Entity#" + entityId)
+			: entity.getName().getString();
+		String delta = Double.isNaN(dist) ? "n/a" : String.format("%.1f", dist);
 		String msg = String.format(
-			"[CoordLogger] Teleport: %s (id=%d) -> x=%.1f, y=%.1f, z=%.1f (Δ=%.1f)",
-			entityName, entity.getId(), newPos.x, newPos.y, newPos.z, dist);
+			"[CoordLogger] Teleport: %s (id=%d) -> x=%.1f, y=%.1f, z=%.1f (Δ=%s)",
+			entityName, entityId, newPos.x, newPos.y, newPos.z, delta);
 		
 		if(MC != null)
 			MC.execute(() -> ChatUtils.message(msg));
@@ -437,12 +357,15 @@ public final class CoordLoggerHack extends Hack
 			return;
 		
 		int id = packet.getType(); // Mojmap: getType() == WorldEvents constant
+		EventMeta meta = TRACKED_EVENTS.get(id);
+		if(meta == null)
+		{
+			if(!logUnknown.isChecked())
+				return;
+			meta = new EventMeta("UNKNOWN", EventCategory.MISC,
+				packet.isGlobalEvent() ? EventScope.GLOBAL : EventScope.LOCAL);
+		}
 		
-		// Restrict to specific events: END_PORTAL_OPENED (1038),
-		// EYE_OF_ENDER_BREAKS (2003), WITHER_SPAWNS (1023), BLOCK_BROKEN (2001)
-		if(id != 1038 && id != 2003 && id != 1023 && id != 2001)
-			return;
-			
 		// Debugging: optionally print raw packet info so we can inspect what
 		// coordinates the server actually sent vs the player's position.
 		if(debugLevelEvents.isChecked())
@@ -464,133 +387,104 @@ public final class CoordLoggerHack extends Hack
 				ChatUtils.message(dbg);
 		}
 		
-		String name = EVENT_NAMES.getOrDefault(id, "UNKNOWN");
-		EventCategory cat = EVENT_CATEGORIES.get(id);
+		EventCategory cat = meta.category();
 		
-		if(cat == null)
-		{
-			if(!logUnknown.isChecked())
-				return;
-		}else
-		{
-			
-			if(cat == EventCategory.PORTALS && !logPortals.isChecked())
-				return;
-			if(cat == EventCategory.REDSTONE && !logRedstone.isChecked())
-				return;
-			if(cat == EventCategory.MOBS && !logMobs.isChecked())
-				return;
-			if(cat == EventCategory.MISC && !logMisc.isChecked())
-				return;
-		}
+		if(cat == EventCategory.PORTALS && !logPortals.isChecked())
+			return;
+		if(cat == EventCategory.REDSTONE && !logRedstone.isChecked())
+			return;
+		if(cat == EventCategory.MOBS && !logMobs.isChecked())
+			return;
+		if(cat == EventCategory.MISC && !logMisc.isChecked())
+			return;
 		
-		String catName = (cat == null ? "UNKNOWN_CAT" : cat.name());
+		String catName = cat.name();
+		String expectedScope = meta.expectedScope().name();
+		String actualScope = packet.isGlobalEvent() ? "GLOBAL" : "LOCAL";
+		Vec3 eventVec = Vec3.atCenterOf(pos);
+		String directionInfo = MC.player == null ? "n/a"
+			: getDirectionInfo(MC.player.position(), eventVec);
+		if(id == 1023)
+			rememberWitherSpawn(eventVec);
 		
-		// base message (direction appended later for far events when possible)
-		final String baseMsg = String.format(
-			"[CoordLogger] WorldEvent id=%d (%s, %s) at x=%d, y=%d, z=%d (dist=%.1f)",
-			id, name, catName, pos.getX(), pos.getY(), pos.getZ(), dist);
+		String extraData = "";
+		if(id == 2001)
+			extraData = " blockStateId=" + packet.getData();
+		
+		String scopeNote = actualScope.equals(expectedScope) ? ""
+			: String.format(" scopeMismatch(expected=%s, got=%s)",
+				expectedScope, actualScope);
+		
+		final String msg = String.format(
+			"[CoordLogger] LevelEvent id=%d (%s, %s, scope=%s)%s at x=%d, y=%d, z=%d%s (dist=%.1f, %s)",
+			id, meta.name(), catName, actualScope, scopeNote, pos.getX(),
+			pos.getY(), pos.getZ(), extraData, dist, directionInfo);
 		
 		// Create a render marker for this event (near vs far visual)
 		if(MC != null && MC.player != null)
 		{
-			Vec3 eventVec =
-				new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
 			boolean isFar = dist > NEAR_EVENT_DISTANCE;
-			EventMarker em = new EventMarker(eventVec, isFar, id, name, cat);
+			EventMarker em =
+				new EventMarker(eventVec, isFar, id, meta.name(), cat);
 			markers.add(em);
 			
-			// Append compass direction for far events
-			String finalMsg = baseMsg;
-			if(isFar && MC != null && MC.player != null)
-			{
-				String dirStr =
-					getCompassDirection(MC.player.position(), eventVec);
-				finalMsg = baseMsg + " dir=" + dirStr;
-			}
-			final String toSend = finalMsg;
 			if(MC != null)
-				MC.execute(() -> ChatUtils.message(toSend));
+				MC.execute(() -> ChatUtils.message(msg));
 			else
-				ChatUtils.message(toSend);
+				ChatUtils.message(msg);
 		}
 	}
 	
 	private void handleSoundPacket(ClientboundSoundPacket packet)
 	{
-		if(packet == null || MC == null || MC.player == null)
-			return;
-		if(!logMobs.isChecked())
+		if(packet == null || !logMobs.isChecked())
 			return;
 		
-		String soundId;
-		try
-		{
-			soundId = BuiltInRegistries.SOUND_EVENT
-				.getKey(packet.getSound().value()).toString();
-		}catch(Throwable t)
-		{
-			return;
-		}
-		
-		if(!"minecraft:entity.wither.spawn".equals(soundId))
+		String soundId = BuiltInRegistries.SOUND_EVENT
+			.getKey(packet.getSound().value()).toString();
+		if(!soundId.contains("wither") || !soundId.contains("spawn"))
 			return;
 		
 		Vec3 soundPos = new Vec3(packet.getX(), packet.getY(), packet.getZ());
-		double dist = MC.player.position().distanceTo(soundPos);
+		if(shouldSkipWitherSpawnByDedupe(soundPos))
+			return;
+		
+		double dist =
+			MC.player == null ? 0.0 : MC.player.position().distanceTo(soundPos);
 		if(dist < minDistance.getValue())
 			return;
 		
-		String dir = getCompassDirection(MC.player.position(), soundPos);
+		String directionInfo = MC.player == null ? "n/a"
+			: getDirectionInfo(MC.player.position(), soundPos);
 		String msg = String.format(
-			"[CoordLogger] Wither spawn sound at x=%.1f, y=%.1f, z=%.1f (dist=%.1f, dir=%s)",
-			soundPos.x, soundPos.y, soundPos.z, dist, dir);
-		MC.execute(() -> ChatUtils.message(msg));
-		
-		boolean isFar = dist > NEAR_EVENT_DISTANCE;
-		markers.add(new EventMarker(soundPos, isFar, 1023, "WITHER_SPAWN_SOUND",
-			EventCategory.MOBS));
-	}
-	
-	private void handleSoundEntityPacket(ClientboundSoundEntityPacket packet)
-	{
-		if(packet == null || MC == null || MC.player == null
-			|| MC.level == null)
-			return;
-		if(!logMobs.isChecked())
-			return;
-		
-		String soundId;
-		try
-		{
-			soundId = BuiltInRegistries.SOUND_EVENT
-				.getKey(packet.getSound().value()).toString();
-		}catch(Throwable t)
-		{
-			return;
-		}
-		
-		if(!"minecraft:entity.wither.spawn".equals(soundId))
-			return;
-		
-		Entity entity = MC.level.getEntity(packet.getId());
-		if(entity == null)
-			return;
-		
-		Vec3 soundPos = entity.position();
-		double dist = MC.player.position().distanceTo(soundPos);
-		if(dist < minDistance.getValue())
-			return;
-		
-		String dir = getCompassDirection(MC.player.position(), soundPos);
-		String msg = String.format(
-			"[CoordLogger] Wither spawn sound(entity) at x=%.1f, y=%.1f, z=%.1f (dist=%.1f, dir=%s)",
-			soundPos.x, soundPos.y, soundPos.z, dist, dir);
-		MC.execute(() -> ChatUtils.message(msg));
+			"[CoordLogger] Wither spawn sound at x=%.1f, y=%.1f, z=%.1f (dist=%.1f, %s)",
+			soundPos.x, soundPos.y, soundPos.z, dist, directionInfo);
 		
 		boolean isFar = dist > NEAR_EVENT_DISTANCE;
 		markers.add(new EventMarker(soundPos, isFar, 1023,
-			"WITHER_SPAWN_SOUND_ENTITY", EventCategory.MOBS));
+			"SOUND_WITHER_BOSS_SPAWN", EventCategory.MOBS));
+		rememberWitherSpawn(soundPos);
+		
+		if(MC != null)
+			MC.execute(() -> ChatUtils.message(msg));
+		else
+			ChatUtils.message(msg);
+	}
+	
+	private void rememberWitherSpawn(Vec3 pos)
+	{
+		lastWitherSpawnPos = pos;
+		lastWitherSpawnLogMs = System.currentTimeMillis();
+	}
+	
+	private boolean shouldSkipWitherSpawnByDedupe(Vec3 pos)
+	{
+		if(lastWitherSpawnPos == null)
+			return false;
+		
+		long age = System.currentTimeMillis() - lastWitherSpawnLogMs;
+		return age <= WITHER_DEDUPE_WINDOW_MS
+			&& lastWitherSpawnPos.distanceTo(pos) <= WITHER_DEDUPE_DISTANCE;
 	}
 	
 	private double distanceToPlayer(BlockPos pos)
@@ -608,6 +502,20 @@ public final class CoordLoggerHack extends Hack
 	 * Returns one of the 8 compass directions (N, NE, E, SE, S, SW, W, NW)
 	 * from 'from' pointing towards 'to'.
 	 */
+	private static String getDirectionInfo(Vec3 from, Vec3 to)
+	{
+		Vec3 delta = to.subtract(from);
+		double len = delta.length();
+		if(len < 1e-6)
+			return "dir=HERE h=0.0deg v=0.0deg";
+		
+		Vec3 dir = delta.scale(1.0 / len);
+		double horizontalAngle = Math.toDegrees(Math.atan2(dir.x, dir.z));
+		double verticalAngle = Math.toDegrees(Math.asin(dir.y));
+		return String.format("dir=%s h=%.1fdeg v=%.1fdeg",
+			getCompassDirection(from, to), horizontalAngle, verticalAngle);
+	}
+	
 	private static String getCompassDirection(Vec3 from, Vec3 to)
 	{
 		double dx = to.x - from.x;
