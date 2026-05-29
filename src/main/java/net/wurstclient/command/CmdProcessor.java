@@ -16,6 +16,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.events.ChatOutputListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.util.ChatUtils;
 
 public final class CmdProcessor implements ChatOutputListener
@@ -46,6 +47,9 @@ public final class CmdProcessor implements ChatOutputListener
 	public void process(String input)
 	{
 		if(runHackShortcut(input))
+			return;
+		
+		if(runOtherFeatureShortcut(input))
 			return;
 		
 		try
@@ -148,6 +152,24 @@ public final class CmdProcessor implements ChatOutputListener
 		
 		ChatUtils
 			.error("Syntax: " + getPrefix() + args[0] + " [on|off|toggle]");
+		return true;
+	}
+	
+	private boolean runOtherFeatureShortcut(String input)
+	{
+		String[] args = input.trim().split("\\s+");
+		if(args.length != 1 || args[0].isEmpty())
+			return false;
+		
+		// If a real command shares this name, let the command parser handle it.
+		if(cmds.getCmdByName(args[0]) != null)
+			return false;
+		
+		OtherFeature otf = WurstClient.INSTANCE.getOtfs().getOtfByName(args[0]);
+		if(otf == null)
+			return false;
+		
+		otf.doPrimaryAction();
 		return true;
 	}
 	
