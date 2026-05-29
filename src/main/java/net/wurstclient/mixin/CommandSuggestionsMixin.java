@@ -27,6 +27,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.command.Command;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.AutoCompleteHack;
+import net.wurstclient.other_feature.OtherFeature;
 
 @Mixin(CommandSuggestions.class)
 public abstract class CommandSuggestionsMixin
@@ -79,6 +80,8 @@ public abstract class CommandSuggestionsMixin
 		Collection<Command> commands =
 			WurstClient.INSTANCE.getCmds().getAllCmds();
 		Collection<Hack> hacks = WurstClient.INSTANCE.getHax().getAllHax();
+		Collection<OtherFeature> otfs =
+			WurstClient.INSTANCE.getOtfs().getAllOtfs();
 		SuggestionsBuilder builder = new SuggestionsBuilder(draftMessage, 0);
 		LinkedHashSet<String> candidates = new LinkedHashSet<>();
 		String inlineSuggestion = "";
@@ -101,6 +104,14 @@ public abstract class CommandSuggestionsMixin
 				continue;
 			
 			candidates.add(prefix + hack.getName());
+		}
+		
+		for(OtherFeature otf : otfs)
+		{
+			if(otf == null || otf.getName() == null)
+				continue;
+			
+			candidates.add(prefix + otf.getName());
 		}
 		
 		for(String candidate : candidates)
