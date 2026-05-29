@@ -108,6 +108,12 @@ public final class CmdProcessor implements ChatOutputListener
 		String[] args = input.trim().split("\\s+");
 		if(args.length == 0 || args[0].isEmpty())
 			return false;
+			
+		// If a real command shares this name, let the command parser handle it.
+		// This keeps legacy commands like .autofly working even when the hack
+		// name is also runnable as a shortcut.
+		if(cmds.getCmdByName(args[0]) != null)
+			return false;
 		
 		Hack hack = WurstClient.INSTANCE.getHax().getHackByName(args[0]);
 		if(hack == null)
@@ -139,10 +145,6 @@ public final class CmdProcessor implements ChatOutputListener
 				return false;
 			}
 		}
-		
-		// Let same-name commands continue to support their own extra arguments.
-		if(cmds.getCmdByName(args[0]) != null)
-			return false;
 		
 		ChatUtils
 			.error("Syntax: " + getPrefix() + args[0] + " [on|off|toggle]");
