@@ -74,12 +74,11 @@ public final class HackPerformanceOverlay
 			return;
 		
 		if(otf.shouldShowGraph())
-			updateGraphSample(snapshot.rows());
+			updateGraphSample(snapshot.allTotalMs());
 		
 		int availableWidth = Math.max(120,
 			scaledWidth - HORIZONTAL_MARGIN * 2 - BOX_PADDING * 2);
-		ArrayList<String> lines =
-			buildLines(snapshot.rows(), snapshot.usingWindowData(), otf);
+		ArrayList<String> lines = buildLines(snapshot, otf);
 		if(lines.isEmpty())
 			return;
 		
@@ -135,25 +134,59 @@ public final class HackPerformanceOverlay
 		}
 	}
 	
-	private ArrayList<String> buildLines(List<HackPerformanceTracker.Row> rows,
-		boolean usingWindowData, PerformanceOverlayOtf otf)
+	private ArrayList<String> buildLines(
+		HackPerformanceTracker.ListSnapshot snapshot, PerformanceOverlayOtf otf)
 	{
 		ArrayList<String> lines = new ArrayList<>();
-		String mode = usingWindowData ? "1s" : "live";
-		lines.add("Hack Perf [" + mode + "] sort="
+		List<HackPerformanceTracker.Row> rows = snapshot.rows();
+		boolean usingWindowData = snapshot.usingWindowData();
+		String mode = usingWindowData ? "1s window" : "live";
+		lines.add("Hack Performance [" + mode + "] sort="
 			+ (otf.getSortMode() == SortMode.PEAK_TIME ? "peak" : "total"));
+		
+		double fps = Math.max(1, MC.getFps());
+		double frameMs = 1000.0 / fps;
+		double unattributedMs = Math.max(0, frameMs - snapshot.allTotalMs());
+		lines.add("Frame " + formatMs(frameMs) + " | Hacks "
+			+ formatMs(snapshot.allTotalMs()) + " | Other "
+			+ formatMs(unattributedMs));
+		lines.add("Top hacks: total " + (usingWindowData ? "ms/s" : "ms")
+			+ " (peak callback ms)");
+		if(snapshot.hiddenRowsTotalMs() > 0.01)
+			lines.add("Hidden by row limit: "
+				+ formatMs(snapshot.hiddenRowsTotalMs()));
 		
 		for(HackPerformanceTracker.Row row : rows)
 		{
 			StringBuilder sb = new StringBuilder(row.name());
-			sb.append(" | T ").append(formatMs(row.totalMs()));
-			if(otf.shouldShowUpdate())
-				sb.append(" U ").append(formatMs(row.updateMs()));
-			if(otf.shouldShowRender())
-				sb.append(" R ").append(formatMs(row.renderMs()));
-			if(otf.shouldShowGui())
-				sb.append(" G ").append(formatMs(row.guiMs()));
-			sb.append(" | P ").append(formatMs(row.peakMs()));
+			sb.append(" | ").append(formatMs(row.totalMs()));
+			sb.append(" (peak ").append(formatMs(row.peakMs())).append(")");
+			
+			if(otf.shouldShowUpdate() || otf.shouldShowRender()
+				|| otf.shouldShowGui())
+			{
+				sb.append(" [");
+				boolean wroteAnyBreakdown = false;
+				if(otf.shouldShowUpdate())
+				{
+					sb.append("update ").append(formatMs(row.updateMs()));
+					wroteAnyBreakdown = true;
+				}
+				if(otf.shouldShowRender())
+				{
+					if(wroteAnyBreakdown)
+						sb.append(", ");
+					sb.append("world ").append(formatMs(row.renderMs()));
+					wroteAnyBreakdown = true;
+				}
+				if(otf.shouldShowGui())
+				{
+					if(wroteAnyBreakdown)
+						sb.append(", ");
+					sb.append("gui ").append(formatMs(row.guiMs()));
+				}
+				sb.append("]");
+			}
 			lines.add(sb.toString());
 		}
 		
@@ -191,18 +224,14 @@ public final class HackPerformanceOverlay
 		return WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
 	}
 	
-	private void updateGraphSample(List<HackPerformanceTracker.Row> rows)
+	private void updateGraphSample(double allHackTotalMs)
 	{
 		long now = System.currentTimeMillis();
 		if(now - lastGraphSampleMs < GRAPH_SAMPLE_INTERVAL_MS)
 			return;
 		
 		lastGraphSampleMs = now;
-		double totalMs = 0;
-		for(HackPerformanceTracker.Row row : rows)
-			totalMs += row.totalMs();
-		
-		pushGraphSample(totalMs);
+		pushGraphSample(allHackTotalMs);
 	}
 	
 	private void pushGraphSample(double value)

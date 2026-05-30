@@ -90,10 +90,29 @@ public enum HackPerformanceTracker
 				rows.sort(Comparator.comparingDouble(Row::totalMs).reversed());
 			
 			int limit = Math.max(1, maxRows);
-			if(rows.size() > limit)
-				rows = new ArrayList<>(rows.subList(0, limit));
+			double allUpdateMs = 0;
+			double allRenderMs = 0;
+			double allGuiMs = 0;
+			double allTotalMs = 0;
+			for(Row row : rows)
+			{
+				allUpdateMs += row.updateMs();
+				allRenderMs += row.renderMs();
+				allGuiMs += row.guiMs();
+				allTotalMs += row.totalMs();
+			}
 			
-			return new ListSnapshot(rows, hasCompletedWindow);
+			ArrayList<Row> visibleRows = rows;
+			if(visibleRows.size() > limit)
+				visibleRows = new ArrayList<>(visibleRows.subList(0, limit));
+			
+			double visibleTotalMs = 0;
+			for(Row row : visibleRows)
+				visibleTotalMs += row.totalMs();
+			
+			return new ListSnapshot(visibleRows, hasCompletedWindow,
+				allUpdateMs, allRenderMs, allGuiMs, allTotalMs,
+				allTotalMs - visibleTotalMs);
 		}
 	}
 	
@@ -193,6 +212,8 @@ public enum HackPerformanceTracker
 		double guiMs, double totalMs, double peakMs)
 	{}
 	
-	public record ListSnapshot(ArrayList<Row> rows, boolean usingWindowData)
+	public record ListSnapshot(ArrayList<Row> rows, boolean usingWindowData,
+		double allUpdateMs, double allRenderMs, double allGuiMs,
+		double allTotalMs, double hiddenRowsTotalMs)
 	{}
 }

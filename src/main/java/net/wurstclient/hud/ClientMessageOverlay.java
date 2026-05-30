@@ -90,6 +90,7 @@ public final class ClientMessageOverlay
 	private int lastWurstY1;
 	private int lastWurstX2;
 	private int lastWurstY2;
+	private boolean tabHeldForOverlay;
 	
 	private ClientMessageOverlay()
 	{}
@@ -228,15 +229,21 @@ public final class ClientMessageOverlay
 		if(hack == null || !hack.isEnabled())
 			return;
 		
+		handleHoldTabOpensChat(hack);
+		
 		boolean splitWurstPanel = hack.isExtraPanelForWurstMessages();
-		if(messages.isEmpty() && (!splitWurstPanel || wurstMessages.isEmpty()))
+		boolean hasVanillaMessages =
+			tabHeldForOverlay && hasVanillaChatMessages();
+		if(messages.isEmpty() && (!splitWurstPanel || wurstMessages.isEmpty())
+			&& !hasVanillaMessages)
 			return;
 		
 		float chatScale = WurstClient.MC.options.chatScale().get().floatValue();
 		if(chatScale <= 0)
 			return;
 		
-		boolean chatOpen = WurstClient.MC.screen instanceof ChatScreen;
+		boolean chatOpen =
+			WurstClient.MC.screen instanceof ChatScreen || tabHeldForOverlay;
 		int maxLines = hack.getMaxLines();
 		int maxWidth = Mth.floor(
 			ChatComponent.getWidth(WurstClient.MC.options.chatWidth().get())
@@ -244,8 +251,12 @@ public final class ClientMessageOverlay
 		if(maxWidth <= 0)
 			return;
 		
-		List<RenderLine> allLines =
-			buildAllLines(messages, maxWidth, chatOpen || hoveredMainPanel);
+		List<RenderLine> allLines;
+		if(tabHeldForOverlay)
+			allLines = buildCombinedLines(messages, maxWidth);
+		else
+			allLines =
+				buildAllLines(messages, maxWidth, chatOpen || hoveredMainPanel);
 		totalLineCount = allLines.size();
 		int maxScroll = Math.max(0, totalLineCount - maxLines);
 		scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
@@ -1013,6 +1024,62 @@ public final class ClientMessageOverlay
 		return last;
 	}
 	
+	private boolean hasVanillaChatMessages()
+	{
+		List<GuiMessage.Line> vanillaLines =
+			WurstClient.MC.gui.getChat().trimmedMessages;
+		return vanillaLines != null && !vanillaLines.isEmpty();
+	}
+	
+	private List<RenderLine> buildCombinedLines(Deque<Entry> overlayMessages,
+		int maxWidth)
+	{
+		List<TimedRenderLine> timed = new ArrayList<>();
+		long nowMs = System.currentTimeMillis();
+		int guiTicks = WurstClient.MC.gui.getGuiTicks();
+		
+		// Overlay entries (system/Wurst messages)
+		synchronized(overlayMessages)
+		{
+			for(Entry entry : overlayMessages)
+			{
+				Component renderComponent =
+					applyDefaultTextColorIfEnabled(entry.component());
+				List<FormattedCharSequence> wrapped =
+					ComponentRenderUtils.wrapComponents(renderComponent,
+						maxWidth, WurstClient.MC.font);
+				for(int i = wrapped.size() - 1; i >= 0; i--)
+					timed.add(
+						new TimedRenderLine(new RenderLine(wrapped.get(i), 255),
+							entry.timestamp()));
+			}
+		}
+		
+		// Vanilla chat entries (player chat messages)
+		List<GuiMessage.Line> vanillaLines =
+			WurstClient.MC.gui.getChat().trimmedMessages;
+		if(vanillaLines != null)
+			for(GuiMessage.Line line : vanillaLines)
+			{
+				int tickAge = guiTicks - line.addedTime();
+				if(tickAge >= 0)
+					timed.add(
+						new TimedRenderLine(new RenderLine(line.content(), 255),
+							nowMs - tickAge * 50L));
+			}
+		
+		// Sort newest first (matching buildAllLines order)
+		timed.sort((a, b) -> Long.compare(b.sortKey, a.sortKey));
+		
+		List<RenderLine> result = new ArrayList<>(timed.size());
+		for(TimedRenderLine t : timed)
+			result.add(t.line);
+		return result;
+	}
+	
+	private record TimedRenderLine(RenderLine line, long sortKey)
+	{}
+	
 	private List<RenderLine> buildAllLines(Deque<Entry> source, int maxWidth,
 		boolean fullOpacity)
 	{
@@ -1377,6 +1444,32 @@ public final class ClientMessageOverlay
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
 		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
+	}
+	
+	private void handleHoldTabOpensChat(ClientChatOverlayHack hack)
+	{
+		if(WurstClient.MC == null)
+			return;
+		
+		if(!hack.shouldHoldTabOpenChat())
+		{
+			tabHeldForOverlay = false;
+			return;
+		}
+		
+		Window window = WurstClient.MC.getWindow();
+		if(window == null)
+			return;
+		
+		boolean tabDown = GLFW.glfwGetKey(window.handle(),
+			GLFW.GLFW_KEY_TAB) == GLFW.GLFW_PRESS;
+		
+		tabHeldForOverlay = tabDown;
+	}
+	
+	public boolean isTabHeldForOverlay()
+	{
+		return tabHeldForOverlay;
 	}
 	
 	private record Entry(Component component, long timestamp)
