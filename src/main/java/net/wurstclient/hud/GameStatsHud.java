@@ -913,8 +913,9 @@ public final class GameStatsHud
 	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
 		float width, float height)
 	{
-		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
-		if(!containerOpen)
+		boolean canEdit = MC.screen instanceof ChatScreen
+			|| MC.screen instanceof AbstractContainerScreen<?>;
+		if(!canEdit)
 		{
 			if(dragging)
 				commitDraggedOffset();

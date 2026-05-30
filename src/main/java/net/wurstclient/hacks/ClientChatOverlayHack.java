@@ -36,6 +36,10 @@ public final class ClientChatOverlayHack extends Hack
 		new CheckboxSetting("Only Wurst messages", false);
 	private final CheckboxSetting extraPanelForWurstMessages =
 		new CheckboxSetting("Extra panel for Wurst-only messages", false);
+	private final CheckboxSetting holdTabOpensChat = new CheckboxSetting(
+		"Hold Tab opens chat",
+		"While held, opens vanilla chat like pressing T. Releasing Tab closes it.",
+		false);
 	private final TextFieldSetting forceClientKeywords = new TextFieldSetting(
 		"Force client chat keywords",
 		"Comma-separated keywords that force a message into client chat.", "");
@@ -77,6 +81,7 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(routeToConsole);
 		addSetting(onlyWurstMessages);
 		addSetting(extraPanelForWurstMessages);
+		addSetting(holdTabOpensChat);
 		addSetting(forceClientKeywords);
 		addSetting(forceNormalKeywords);
 		addSetting(colorUsernames);
@@ -112,6 +117,11 @@ public final class ClientChatOverlayHack extends Hack
 	public boolean isExtraPanelForWurstMessages()
 	{
 		return extraPanelForWurstMessages.isChecked();
+	}
+	
+	public boolean shouldHoldTabOpenChat()
+	{
+		return holdTabOpensChat.isChecked();
 	}
 	
 	public boolean matchesForceClientKeyword(String text)
