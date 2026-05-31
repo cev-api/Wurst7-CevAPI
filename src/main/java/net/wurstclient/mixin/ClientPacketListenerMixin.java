@@ -12,13 +12,17 @@ import java.util.Optional;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.CommonListenerCookie;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.network.Connection;
 import net.minecraft.network.TickablePacketListener;
 import net.minecraft.network.chat.Component;
@@ -111,6 +115,46 @@ public abstract class ClientPacketListenerMixin
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
 				.afterChunkDeltaUpdate(pos, state);
 		});
+	}
+	
+	@Inject(
+		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
+		at = @At("HEAD"))
+	private void wurst$funCreepersParticles(ClientboundExplodePacket packet,
+		CallbackInfo ci)
+	{
+		Vec3 center = packet.center();
+		var funCreepers = WurstClient.INSTANCE.getHax().funCreepersHack;
+		if(!funCreepers.shouldPartyifyExplosion(center))
+			return;
+		
+		funCreepers.spawnPartyEffects(center);
+	}
+	
+	@Redirect(
+		method = "handleExplosion(Lnet/minecraft/network/protocol/game/ClientboundExplodePacket;)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/ClientLevel;playLocalSound(DDDLnet/minecraft/sounds/SoundEvent;Lnet/minecraft/sounds/SoundSource;FFZ)V"))
+	private void wurst$funCreepersSound(ClientLevel level, double x, double y,
+		double z, SoundEvent sound, SoundSource source, float volume,
+		float pitch, boolean useDistanceDelay, ClientboundExplodePacket packet)
+	{
+		var funCreepers = WurstClient.INSTANCE.getHax().funCreepersHack;
+		if(funCreepers.shouldPartyifyExplosion(packet.center()))
+		{
+			SoundEvent replacement = funCreepers.getReplacementExplosionSound();
+			if(replacement != null)
+			{
+				level.playLocalSound(x, y, z, replacement,
+					funCreepers.getReplacementSoundSource(),
+					funCreepers.getReplacementVolume(),
+					funCreepers.getReplacementPitch(), useDistanceDelay);
+				return;
+			}
+		}
+		
+		level.playLocalSound(x, y, z, sound, source, volume, pitch,
+			useDistanceDelay);
 	}
 	
 	@Inject(
