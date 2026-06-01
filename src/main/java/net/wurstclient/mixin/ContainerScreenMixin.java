@@ -40,6 +40,7 @@ import net.minecraft.world.phys.HitResult;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.ChestConfig;
 import net.wurstclient.chestsearch.ChestRecorder;
+import net.wurstclient.chestsearch.SlotHighlighter;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
 import net.wurstclient.hacks.ChestSearchHack;
@@ -110,6 +111,18 @@ public abstract class ContainerScreenMixin
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
+		try
+		{
+			if(WurstClient.MC.hitResult instanceof BlockHitResult blockHit
+				&& WurstClient.MC.level != null)
+			{
+				String dimension =
+					WurstClient.MC.level.dimension().identifier().toString();
+				SlotHighlighter.INSTANCE.tryActivate(dimension,
+					blockHit.getBlockPos());
+			}
+		}catch(Throwable ignored)
+		{}
 		final ChestSearchHack chestSearchHack = wurst$getChestSearchHack();
 		boolean autoButtonsPlaced = false;
 		final int autoButtonHeight = 12;
@@ -453,6 +466,11 @@ public abstract class ContainerScreenMixin
 						ChestSearchScreen.clearDecorations(fDimension,
 							resolvedPos);
 					}
+					int activated = SlotHighlighter.INSTANCE
+						.tryActivate(fDimension, clickedPos);
+					if(activated < 0)
+						SlotHighlighter.INSTANCE.tryActivate(fDimension,
+							resolvedPos);
 				}catch(Throwable ignored)
 				{}
 			}
@@ -1170,7 +1188,6 @@ public abstract class ContainerScreenMixin
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
-		
 		long now = System.currentTimeMillis();
 		if(lastRecordMessage != null && now <= lastRecordUntilMs)
 		{
@@ -1194,6 +1211,7 @@ public abstract class ContainerScreenMixin
 	@Override
 	public void removed()
 	{
+		SlotHighlighter.INSTANCE.clearActive();
 		wurst$finalizeChestSnapshot();
 		super.removed();
 	}

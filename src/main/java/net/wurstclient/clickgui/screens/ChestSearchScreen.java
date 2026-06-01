@@ -20,6 +20,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
+import net.wurstclient.chestsearch.SlotHighlighter;
 import net.wurstclient.util.ItemNameUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.chestsearch.ChestManager;
@@ -37,6 +38,8 @@ public final class ChestSearchScreen extends Screen
 	private EditBox searchField;
 	private java.util.List<ChestEntry> results = new ArrayList<>();
 	private final java.util.List<Button> rowButtons =
+		new java.util.ArrayList<>();
+	private final java.util.List<ItemRowHitbox> itemRowHitboxes =
 		new java.util.ArrayList<>();
 	private int totalChestsLogged = 0;
 	private long totalItemsLogged = 0;
@@ -75,6 +78,10 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	private static final java.util.Map<String, TempWp> TEMP_WP_BY_POS =
+		new java.util.HashMap<>();
+	private static final java.util.Map<String, Integer> SELECTED_SLOT_BY_ENTRY =
+		new java.util.HashMap<>();
+	private static final java.util.Map<String, String> SELECTED_POS_BY_ENTRY =
 		new java.util.HashMap<>();
 	private final java.util.Map<ChestEntry, java.util.List<ChestEntry.ItemEntry>> matchCache =
 		new java.util.HashMap<>();
@@ -121,6 +128,58 @@ public final class ChestSearchScreen extends Screen
 		BlockPos max = entry.getMaxPos();
 		return server + "|" + dim + "|" + formatBlockPos(min) + ">"
 			+ formatBlockPos(max);
+	}
+	
+	private static int getSelectedSlot(ChestEntry entry,
+		java.util.List<ChestEntry.ItemEntry> matches)
+	{
+		String key = makeEntryKey(entry);
+		Integer selected = SELECTED_SLOT_BY_ENTRY.get(key);
+		if(selected != null)
+			return selected.intValue();
+		return -1;
+	}
+	
+	public static void forgetSlotSelection(String dimension, BlockPos pos,
+		int slot)
+	{
+		if(pos == null || slot < 0)
+			return;
+		String posKey = makePosKey(dimension, pos);
+		SELECTED_SLOT_BY_ENTRY.entrySet().removeIf(entry -> {
+			if(entry.getValue().intValue() != slot
+				|| !posKey.equals(SELECTED_POS_BY_ENTRY.get(entry.getKey())))
+				return false;
+			SELECTED_POS_BY_ENTRY.remove(entry.getKey());
+			return true;
+		});
+	}
+	
+	private static final class ItemRowHitbox
+	{
+		final int x1, y1, x2, y2;
+		final String entryKey;
+		final String dimension;
+		final BlockPos pos;
+		final int slot;
+		
+		ItemRowHitbox(int x1, int y1, int x2, int y2, String entryKey,
+			String dimension, BlockPos pos, int slot)
+		{
+			this.x1 = x1;
+			this.y1 = y1;
+			this.x2 = x2;
+			this.y2 = y2;
+			this.entryKey = entryKey;
+			this.dimension = dimension;
+			this.pos = pos;
+			this.slot = slot;
+		}
+		
+		boolean contains(double x, double y)
+		{
+			return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+		}
 	}
 	
 	private int getContentWidth()
@@ -707,6 +766,7 @@ public final class ChestSearchScreen extends Screen
 						}
 						net.wurstclient.hacks.ChestSearchHack hack =
 							WurstClient.INSTANCE.getHax().chestSearchHack;
+						boolean wasEspActive = isEspActive(dimLocal, useMin);
 						net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
 							.setColors(hack.getEspFillARGB(),
 								hack.getEspLineARGB());
@@ -715,6 +775,16 @@ public final class ChestSearchScreen extends Screen
 						net.wurstclient.chestsearch.TargetHighlighter.INSTANCE
 							.toggle(dimLocal, useMin, useMin,
 								hack.getEspTimeMs());
+						if(wasEspActive)
+						{
+							SlotHighlighter.INSTANCE.clearChestSearchActive();
+						}else
+						{
+							int selectedSlot = getSelectedSlot(e, matches);
+							if(selectedSlot >= 0)
+								SlotHighlighter.INSTANCE.setPending(dimLocal,
+									useMin, selectedSlot);
+						}
 						minecraft.execute(this::refreshPins);
 					}catch(Throwable ignored)
 					{}
@@ -764,6 +834,7 @@ public final class ChestSearchScreen extends Screen
 							wh.removeTemporaryWaypoint(id);
 						}catch(Throwable ignored)
 						{}
+						SlotHighlighter.INSTANCE.clearChestSearchActive();
 						minecraft.execute(this::refreshPins);
 						return;
 					}
@@ -788,6 +859,10 @@ public final class ChestSearchScreen extends Screen
 					}
 					w.setDimension(wdim);
 					java.util.UUID id = wh.addTemporaryWaypoint(w);
+					int selectedSlot = getSelectedSlot(e, matches);
+					if(selectedSlot >= 0)
+						SlotHighlighter.INSTANCE.setPending(dim, wpPos,
+							selectedSlot);
 					int sleep = getWaypointTimeMsForActiveManager();
 					long expiresAt =
 						sleep > 0 ? System.currentTimeMillis() + sleep : -1L;
@@ -850,6 +925,7 @@ public final class ChestSearchScreen extends Screen
 			addRenderableWidget(delBtn);
 			rowButtons.add(delBtn);
 			rowButtons.add(wpBtn);
+			
 			y += boxHeight + 6;
 		}
 	}
@@ -928,6 +1004,32 @@ public final class ChestSearchScreen extends Screen
 		double mouseX = context.x();
 		double mouseY = context.y();
 		int button = context.button();
+		if(button == 0)
+		{
+			for(ItemRowHitbox hitbox : itemRowHitboxes)
+			{
+				if(!hitbox.contains(mouseX, mouseY))
+					continue;
+				Integer current = SELECTED_SLOT_BY_ENTRY.get(hitbox.entryKey);
+				if(current != null && current.intValue() == hitbox.slot)
+				{
+					SELECTED_SLOT_BY_ENTRY.remove(hitbox.entryKey);
+					SELECTED_POS_BY_ENTRY.remove(hitbox.entryKey);
+					SlotHighlighter.INSTANCE.clearPending();
+					SlotHighlighter.INSTANCE.clearChestSearchActive();
+				}else
+				{
+					SELECTED_SLOT_BY_ENTRY.put(hitbox.entryKey, hitbox.slot);
+					SELECTED_POS_BY_ENTRY.put(hitbox.entryKey,
+						makePosKey(hitbox.dimension, hitbox.pos));
+					if(hitbox.pos != null)
+						SlotHighlighter.INSTANCE.setPending(hitbox.dimension,
+							hitbox.pos, hitbox.slot);
+				}
+				refreshPins();
+				return true;
+			}
+		}
 		if(button == 0 && scrollMaxOffset > 0)
 		{
 			if(isOverScrollbarThumb(mouseX, mouseY))
@@ -1018,6 +1120,7 @@ public final class ChestSearchScreen extends Screen
 	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float delta)
 	{
+		itemRowHitboxes.clear();
 		context.fill(0, 0, this.width, this.height, 0x88000000);
 		context.centeredText(this.font, Component.literal(this.screenTitle),
 			this.width / 2, 4, 0xFFFFFFFF);
@@ -1149,6 +1252,7 @@ public final class ChestSearchScreen extends Screen
 		}
 		for(ChestEntry e : results)
 		{
+			String entryKey = makeEntryKey(e);
 			String dim = normalizeDimension(e.dimension);
 			final BlockPos minPos = e.getClickedPos();
 			boolean waypointActive = isWaypointActive(dim, minPos);
@@ -1156,6 +1260,7 @@ public final class ChestSearchScreen extends Screen
 			boolean pinnedEntry = waypointActive || espActive;
 			
 			java.util.List<ChestEntry.ItemEntry> matches = collectMatches(e, q);
+			int selectedSlotForEntry = getSelectedSlot(e, matches);
 			int totalCount = 0;
 			for(ChestEntry.ItemEntry it : matches)
 				totalCount += it.count;
@@ -1364,8 +1469,14 @@ public final class ChestSearchScreen extends Screen
 					
 					String line = name + extra + " x" + it.count + " (slot "
 						+ it.slot + ")";
+					if(it.slot == selectedSlotForEntry)
+						context.fill(x + 18, lineY, x + getContentWidth() - 66,
+							lineY + 16, 0x80406020);
 					RenderUtils.drawScaledText(context, this.font, line, x + 20,
 						lineY + 2, 0xFFEFEFEF, false, scale);
+					itemRowHitboxes.add(new ItemRowHitbox(x + 20, lineY,
+						x + getContentWidth() - 70, lineY + 16, entryKey, dim,
+						minPos, it.slot));
 					lineY += Math.max(18, Math.round(18 * scale));
 				}
 			}

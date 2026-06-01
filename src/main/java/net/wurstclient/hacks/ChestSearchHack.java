@@ -49,6 +49,13 @@ public final class ChestSearchHack extends Hack
 		new ColorSetting("ESP line", new java.awt.Color(0x22FF88));
 	private final ColorSetting markXColor =
 		new ColorSetting("Opened chest color", new java.awt.Color(0xFF9900));
+	private final CheckboxSetting slotHighlightEnabled =
+		new CheckboxSetting("Slot highlight", true);
+	private final ColorSetting slotHighlightColor =
+		new ColorSetting("Slot highlight color", new java.awt.Color(0x7EC8FF));
+	private final SliderSetting slotHighlightOpacity =
+		new SliderSetting("Slot highlight opacity", 45, 5, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting hideOpenedChestTracers =
 		new CheckboxSetting("Hide opened chest tracers",
 			"Disable tracer lines for opened chests recorded by ChestSearch.",
@@ -97,6 +104,9 @@ public final class ChestSearchHack extends Hack
 		addSetting(openedChestMarker);
 		addSetting(hideOpenedChestTracers);
 		addSetting(markXColor);
+		addSetting(slotHighlightEnabled);
+		addSetting(slotHighlightColor);
+		addSetting(slotHighlightOpacity);
 		addSetting(recordedChestNotifications);
 		addSetting(lootMismatchNotifications);
 		addSetting(consoleLogs);
@@ -234,6 +244,20 @@ public final class ChestSearchHack extends Hack
 	public int getEspLineARGB()
 	{
 		return (0x80 << 24) | (espLineColor.getColor().getRGB() & 0x00FFFFFF);
+	}
+	
+	public boolean isSlotHighlightEnabled()
+	{
+		return slotHighlightEnabled.isChecked();
+	}
+	
+	public int getSlotHighlightColorARGB()
+	{
+		int rgb = slotHighlightColor.getColor().getRGB() & 0x00FFFFFF;
+		int alpha =
+			(int)Math.round(255 * (slotHighlightOpacity.getValueF() / 100F));
+		alpha = Math.max(0, Math.min(255, alpha));
+		return (alpha << 24) | rgb;
 	}
 	
 	@Override

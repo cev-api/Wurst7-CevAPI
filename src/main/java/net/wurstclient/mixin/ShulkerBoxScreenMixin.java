@@ -24,6 +24,7 @@ import net.minecraft.world.phys.HitResult;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.ChestConfig;
 import net.wurstclient.chestsearch.ChestRecorder;
+import net.wurstclient.chestsearch.SlotHighlighter;
 import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
 import net.wurstclient.hacks.ChestSearchHack;
@@ -67,7 +68,18 @@ public abstract class ShulkerBoxScreenMixin
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
-		
+		try
+		{
+			if(WurstClient.MC.hitResult instanceof BlockHitResult blockHit
+				&& WurstClient.MC.level != null)
+			{
+				String dimension =
+					WurstClient.MC.level.dimension().identifier().toString();
+				SlotHighlighter.INSTANCE.tryActivate(dimension,
+					blockHit.getBlockPos());
+			}
+		}catch(Throwable ignored)
+		{}
 		boolean autoButtonsPlaced = false;
 		final int autoButtonHeight = 12;
 		final int autoButtonY = topPos - autoButtonHeight - 4;
@@ -170,6 +182,11 @@ public abstract class ShulkerBoxScreenMixin
 				{
 					ChestSearchScreen.clearDecorations(dimension, shulkerPos);
 				}
+				int activated =
+					shulkerClickedPos == null ? -1 : SlotHighlighter.INSTANCE
+						.tryActivate(dimension, shulkerClickedPos);
+				if(activated < 0)
+					SlotHighlighter.INSTANCE.tryActivate(dimension, shulkerPos);
 			}catch(Throwable ignored)
 			{}
 			
@@ -185,6 +202,7 @@ public abstract class ShulkerBoxScreenMixin
 	@Override
 	public void removed()
 	{
+		SlotHighlighter.INSTANCE.clearActive();
 		wurst$finalizeShulkerSnapshot();
 		super.removed();
 	}
