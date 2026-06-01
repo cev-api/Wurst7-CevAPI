@@ -175,6 +175,7 @@ public enum WurstClient
 		Path friendsFile = wurstFolder.resolve("friends.json");
 		friends = new FriendsList(friendsFile);
 		friends.load();
+		eventManager.add(UpdateListener.class, friends);
 		
 		translator = new WurstTranslator();
 		

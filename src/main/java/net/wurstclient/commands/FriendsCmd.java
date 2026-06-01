@@ -25,6 +25,11 @@ public class FriendsCmd extends Command
 		new CheckboxSetting("Middle click friends",
 			"Add/remove friends by clicking them with the middle mouse button.",
 			true);
+	private final CheckboxSetting friendJoinAlerts =
+		new CheckboxSetting("Friend join alerts",
+			"Alerts in chat when a friend joins your current server,\n"
+				+ "or when you join a server that already has friends online.",
+			true);
 	
 	public FriendsCmd()
 	{
@@ -33,6 +38,7 @@ public class FriendsCmd extends Command
 			".friends list [<page>]");
 		
 		addSetting(middleClickFriends);
+		addSetting(friendJoinAlerts);
 	}
 	
 	@Override
@@ -137,5 +143,10 @@ public class FriendsCmd extends Command
 	public CheckboxSetting getMiddleClickFriends()
 	{
 		return middleClickFriends;
+	}
+	
+	public CheckboxSetting getFriendJoinAlerts()
+	{
+		return friendJoinAlerts;
 	}
 }

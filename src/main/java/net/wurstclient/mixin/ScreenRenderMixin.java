@@ -20,7 +20,11 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
+import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.EnchantmentHandlerHack;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
 import net.wurstclient.util.ConnectionLogOverlay;
 
@@ -61,5 +65,24 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 		overlay.layoutLoginOverlay(font, width, height);
 		
 		ConnectionLogOverlay.getInstance().render(graphics);
+	}
+	
+	@Inject(at = @At("TAIL"),
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void wurst$renderInventoryEnchantmentHandler(
+		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
+	{
+		if(!WurstClient.INSTANCE.isEnabled()
+			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		if(!((Object)this instanceof InventoryScreen)
+			|| !((Object)this instanceof AbstractContainerScreen<?> screen))
+			return;
+		
+		EnchantmentHandlerHack hack =
+			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
+		if(hack != null && hack.isEnabled())
+			hack.renderOnHandledScreen(screen, graphics, partialTicks);
 	}
 }

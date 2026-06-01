@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -44,11 +45,13 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.chestsearch.SlotHighlighter;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ItemUtils;
 import net.wurstclient.util.RenderUtils;
 
@@ -103,11 +106,24 @@ public final class EnchantmentHandlerHack extends Hack
 	private final SliderSetting hoverScrollSpeed = new SliderSetting(
 		"Hover scroll speed", "Pixels per second when hovering long entries.",
 		25, 5, 80, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting useItemIcons =
+		new CheckboxSetting("Use item icons", true);
+	private final CheckboxSetting showSlotNumbers =
+		new CheckboxSetting("Show slot numbers", false);
 	
 	private final CheckboxSetting includePlayerInventory =
 		new CheckboxSetting("Include player inventory", false);
 	private final CheckboxSetting includeShulkerContents =
-		new CheckboxSetting("Include shulker contents", false);
+		new CheckboxSetting("Include shulker contents", true);
+	private final CheckboxSetting showOnInventoryScreen =
+		new CheckboxSetting("Show on inventory screen", true);
+	private final CheckboxSetting slotHighlightEnabled =
+		new CheckboxSetting("Slot highlight", true);
+	private final ColorSetting slotHighlightColor =
+		new ColorSetting("Slot highlight color", new java.awt.Color(0x7EC8FF));
+	private final SliderSetting slotHighlightOpacity =
+		new SliderSetting("Slot highlight opacity", 45, 5, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
 	
 	private double scrollOffset;
 	private double maxScroll;
@@ -116,6 +132,12 @@ public final class EnchantmentHandlerHack extends Hack
 	private int panelWidth;
 	private int panelHeight;
 	private boolean customPosition;
+	private int containerPanelX;
+	private int containerPanelY;
+	private boolean inventoryCustomPosition;
+	private int inventoryPanelX;
+	private int inventoryPanelY;
+	private boolean renderingInventoryScreen;
 	private boolean panelDragging;
 	private int dragOffsetX;
 	private int dragOffsetY;
@@ -124,6 +146,8 @@ public final class EnchantmentHandlerHack extends Hack
 	private int contentHeight;
 	private int hoveredSlotId = -1;
 	private long hoverStartMs;
+	private AbstractContainerScreen<?> lastRenderedScreen;
+	private GuiGraphicsExtractor lastRenderContext;
 	
 	public EnchantmentHandlerHack()
 	{
@@ -134,8 +158,14 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(boxHeight);
 		addSetting(textScale);
 		addSetting(hoverScrollSpeed);
+		addSetting(useItemIcons);
+		addSetting(showSlotNumbers);
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
+		addSetting(showOnInventoryScreen);
+		addSetting(slotHighlightEnabled);
+		addSetting(slotHighlightColor);
+		addSetting(slotHighlightOpacity);
 		
 		for(GearCategory cat : GearCategory.ORDERED)
 		{
@@ -179,18 +209,30 @@ public final class EnchantmentHandlerHack extends Hack
 		hitboxes.clear();
 		hoveredSlotId = -1;
 		hoverStartMs = 0L;
+		if(SlotHighlighter.INSTANCE.isEnchantmentHandlerActive())
+			SlotHighlighter.INSTANCE.clearEnchantmentHandlerActive();
 		customPosition = false;
+		inventoryCustomPosition = false;
 		panelDragging = false;
 		dragOffsetX = 0;
 		dragOffsetY = 0;
+		lastRenderedScreen = null;
+		lastRenderContext = null;
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
 		GuiGraphics context, float partialTicks)
 	{
+		if(screen == lastRenderedScreen && context == lastRenderContext)
+			return;
+		lastRenderedScreen = screen;
+		lastRenderContext = context;
 		lastRenderActive = false;
 		
 		if(MC.player == null || MC.gameMode == null)
+			return;
+		if(screen instanceof InventoryScreen
+			&& !showOnInventoryScreen.isChecked())
 			return;
 		
 		if(needsRescan)
@@ -203,6 +245,8 @@ public final class EnchantmentHandlerHack extends Hack
 			hitboxes.clear();
 			hoveredSlotId = -1;
 			hoverStartMs = 0L;
+			if(SlotHighlighter.INSTANCE.isEnchantmentHandlerActive())
+				SlotHighlighter.INSTANCE.clearEnchantmentHandlerActive();
 			return;
 		}
 		
@@ -221,9 +265,24 @@ public final class EnchantmentHandlerHack extends Hack
 			panelHeight = Mth.clamp(configuredHeight, 60,
 				Math.max(60, windowHeight - 10));
 		
+		renderingInventoryScreen = screen instanceof InventoryScreen;
 		int defaultX = accessor.getX() - panelWidth - PANEL_PADDING;
 		int defaultY = accessor.getY();
-		if(!customPosition)
+		if(renderingInventoryScreen)
+		{
+			defaultX = accessor.getX();
+			defaultY = accessor.getY() + accessor.getBackgroundHeight()
+				+ PANEL_PADDING;
+		}
+		if(renderingInventoryScreen && inventoryCustomPosition)
+		{
+			panelX = inventoryPanelX;
+			panelY = inventoryPanelY;
+		}else if(!renderingInventoryScreen && customPosition)
+		{
+			panelX = containerPanelX;
+			panelY = containerPanelY;
+		}else
 		{
 			panelX = defaultX;
 			panelY = defaultY;
@@ -235,12 +294,24 @@ public final class EnchantmentHandlerHack extends Hack
 			double scaledMouseY = getScaledMouseY(context);
 			panelX = (int)Math.round(scaledMouseX - dragOffsetX);
 			panelY = (int)Math.round(scaledMouseY - dragOffsetY);
-			customPosition = true;
+			if(renderingInventoryScreen)
+				inventoryCustomPosition = true;
+			else
+				customPosition = true;
 		}
 		
 		panelX =
 			Mth.clamp(panelX, 2 - panelWidth, windowWidth - panelWidth - 2);
 		panelY = Mth.clamp(panelY, 2, windowHeight - panelHeight - 2);
+		if(renderingInventoryScreen && inventoryCustomPosition)
+		{
+			inventoryPanelX = panelX;
+			inventoryPanelY = panelY;
+		}else if(!renderingInventoryScreen && customPosition)
+		{
+			containerPanelX = panelX;
+			containerPanelY = panelY;
+		}
 		
 		renderOverlay(context);
 		lastRenderActive = true;
@@ -273,6 +344,14 @@ public final class EnchantmentHandlerHack extends Hack
 			{
 				if(button == 0)
 				{
+					if(hitbox.entry.slotId < 0
+						&& hitbox.entry.getHighlightSlotId() >= 0)
+					{
+						SlotHighlighter.INSTANCE
+							.setStickySlot(hitbox.entry.getHighlightSlotId());
+						return true;
+					}
+					
 					if(hitbox.entry instanceof GearEntry gear)
 						takeEntry(gear, handler);
 					else if(hitbox.entry instanceof BookEntry book)
@@ -351,6 +430,20 @@ public final class EnchantmentHandlerHack extends Hack
 		return true;
 	}
 	
+	public boolean isSlotHighlightEnabled()
+	{
+		return slotHighlightEnabled.isChecked();
+	}
+	
+	public int getSlotHighlightColor()
+	{
+		int rgb = slotHighlightColor.getColor().getRGB() & 0x00FFFFFF;
+		int alpha =
+			(int)Math.round(255 * (slotHighlightOpacity.getValueF() / 100F));
+		alpha = Mth.clamp(alpha, 0, 255);
+		return (alpha << 24) | rgb;
+	}
+	
 	private boolean isInsidePanel(double mouseX, double mouseY)
 	{
 		return mouseX >= panelX && mouseX <= panelX + panelWidth
@@ -368,7 +461,10 @@ public final class EnchantmentHandlerHack extends Hack
 		panelDragging = true;
 		dragOffsetX = (int)Math.round(mouseX - panelX);
 		dragOffsetY = (int)Math.round(mouseY - panelY);
-		customPosition = true;
+		if(renderingInventoryScreen)
+			inventoryCustomPosition = true;
+		else
+			customPosition = true;
 	}
 	
 	private void renderOverlay(GuiGraphics context)
@@ -378,6 +474,8 @@ public final class EnchantmentHandlerHack extends Hack
 		Font tr = MC.font;
 		float scale = Mth.clamp(textScale.getValueF(), 0.5F, 1.25F);
 		int lineHeight = Math.max(1, Math.round(tr.lineHeight * scale));
+		if(useItemIcons.isChecked())
+			lineHeight = Math.max(lineHeight, Math.round(18 * scale));
 		int headerMargin = Math.max(1, Math.round(HEADER_MARGIN * scale));
 		int entryMargin = Math.max(1, Math.round(ENTRY_MARGIN * scale));
 		
@@ -447,6 +545,9 @@ public final class EnchantmentHandlerHack extends Hack
 		{
 			hoveredSlotId = -1;
 			hoverStartMs = 0L;
+			if(SlotHighlighter.INSTANCE.isEnchantmentHandlerActive()
+				&& !SlotHighlighter.INSTANCE.isStickyActive())
+				SlotHighlighter.INSTANCE.clearEnchantmentHandlerActive();
 		}
 		
 		contentHeight = (int)Math.max(0, Math.round(cursorY - contentTop));
@@ -684,18 +785,25 @@ public final class EnchantmentHandlerHack extends Hack
 				context.fill(panelX + 2, entryY - 2, panelX + panelWidth - 2,
 					entryY + lineHeight + 2, 0x802A2A2A);
 			
+			int iconSpace =
+				useItemIcons.isChecked() && !entry.iconStack.isEmpty()
+					? Math.max(18, Math.round(18 * scale)) : 0;
 			double textWidth = Math.max(1.0, tr.width(entry.line) * scale);
-			double travel = textWidth - textAreaWidth;
+			double travel =
+				textWidth - Math.max(1.0, textAreaWidth - iconSpace);
 			double scrollX = 0.0;
 			
 			if(hovered)
 			{
 				hoverFlag[0] = true;
-				if(entry.slotId != hoveredSlotId)
+				int highlightSlotId = entry.getHighlightSlotId();
+				if(highlightSlotId != hoveredSlotId)
 				{
-					hoveredSlotId = entry.slotId;
+					hoveredSlotId = highlightSlotId;
 					hoverStartMs = System.currentTimeMillis();
 				}
+				if(!SlotHighlighter.INSTANCE.isStickyActive())
+					SlotHighlighter.INSTANCE.setActiveSlot(highlightSlotId);
 				
 				if(travel > 1.0)
 				{
@@ -719,15 +827,24 @@ public final class EnchantmentHandlerHack extends Hack
 					}
 				}
 				scrollX = Mth.clamp(scrollX, 0.0, Math.max(0.0, travel));
-			}else if(hoveredSlotId == entry.slotId)
-			{
-				hoveredSlotId = -1;
-				hoverStartMs = 0L;
 			}
 			
 			float renderScroll = (float)(scrollX / scale);
-			drawScaledText(context, tr, entry.line, titleX - renderScroll,
-				entryY, hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
+			float textX = titleX - renderScroll;
+			if(useItemIcons.isChecked() && !entry.iconStack.isEmpty())
+			{
+				context.item(entry.iconStack, titleX,
+					entryY + (lineHeight - 16) / 2);
+				textX += iconSpace;
+			}
+			int textY = entryY + Math.max(0,
+				(lineHeight - Math.round(tr.lineHeight * scale)) / 2);
+			int textClipLeft = titleX + iconSpace;
+			context.enableScissor(textClipLeft, entryY - 2,
+				panelX + panelWidth - PANEL_PADDING, entryY + lineHeight + 2);
+			drawScaledText(context, tr, entry.line, textX, textY,
+				hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
+			context.disableScissor();
 			
 			hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2, panelWidth - 4,
 				lineHeight + 4, entry));
@@ -816,7 +933,7 @@ public final class EnchantmentHandlerHack extends Hack
 							var ench = EnchantmentHelper
 								.getEnchantmentsForCrafting(inner).entrySet();
 							BookEntry entry = buildBookEntryFromStack(
-								parentSlotNumber, inner, ench);
+								parentSlotNumber, i, inner, ench, true);
 							if(entry != null)
 							{
 								allEntries.add(entry);
@@ -832,7 +949,7 @@ public final class EnchantmentHandlerHack extends Hack
 						if(pCatInner != null)
 						{
 							PotionEntry entry = buildPotionEntryFromStack(
-								parentSlotNumber, inner, pCatInner);
+								parentSlotNumber, i, inner, pCatInner, true);
 							if(entry != null)
 							{
 								allEntries.add(entry);
@@ -852,8 +969,8 @@ public final class EnchantmentHandlerHack extends Hack
 							if(gCatInner != null)
 							{
 								GearEntry entry =
-									buildGearEntryFromStack(parentSlotNumber,
-										inner, gCatInner, enchInner);
+									buildGearEntryFromStack(parentSlotNumber, i,
+										inner, gCatInner, enchInner, true);
 								if(entry != null)
 								{
 									allEntries.add(entry);
@@ -1007,7 +1124,7 @@ public final class EnchantmentHandlerHack extends Hack
 							var ench = EnchantmentHelper
 								.getEnchantmentsForCrafting(inner).entrySet();
 							BookEntry entry = buildBookEntryFromStack(
-								parentSlotNumber, inner, ench);
+								parentSlotNumber, i, inner, ench, true);
 							if(entry != null)
 							{
 								allEntries.add(entry);
@@ -1024,7 +1141,7 @@ public final class EnchantmentHandlerHack extends Hack
 						if(pCatInner != null)
 						{
 							PotionEntry entry = buildPotionEntryFromStack(
-								parentSlotNumber, inner, pCatInner);
+								parentSlotNumber, i, inner, pCatInner, true);
 							if(entry != null)
 							{
 								allEntries.add(entry);
@@ -1044,8 +1161,8 @@ public final class EnchantmentHandlerHack extends Hack
 							if(gCatInner != null)
 							{
 								GearEntry entry =
-									buildGearEntryFromStack(parentSlotNumber,
-										inner, gCatInner, enchInner);
+									buildGearEntryFromStack(parentSlotNumber, i,
+										inner, gCatInner, enchInner, true);
 								if(entry != null)
 								{
 									allEntries.add(entry);
@@ -1150,15 +1267,20 @@ public final class EnchantmentHandlerHack extends Hack
 		int slotNumber = slot.getContainerSlot() + 1;
 		String itemName = limitLength(stack.getHoverName().getString(), 40);
 		
-		String line = slotNumber + " - " + itemName + " | " + enchantSummary;
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? slotNumber + " - " : "";
+		String line = useItemIcons.isChecked() ? slotPrefix + enchantSummary
+			: slotPrefix + itemName + " | " + enchantSummary;
 		
-		return new GearEntry(slot.index, slotNumber, category, line);
+		return new GearEntry(slot.index, slotNumber, slot.index, category, line,
+			stack.copyWithCount(1));
 	}
 	
 	// Build a GearEntry for an item inside a shulker box (no real slot id)
 	private GearEntry buildGearEntryFromStack(int parentSlotNumber,
-		ItemStack stack, GearCategory category,
-		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
+		int parentSlotId, ItemStack stack, GearCategory category,
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
+		boolean inShulker)
 	{
 		List<String> parts = new ArrayList<>();
 		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
@@ -1180,9 +1302,14 @@ public final class EnchantmentHandlerHack extends Hack
 			return null;
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
 		String itemName = limitLength(stack.getHoverName().getString(), 40);
-		String line = parentSlotNumber + " - " + itemName + " | "
-			+ enchantSummary + " (in shulker)";
-		return new GearEntry(-1, parentSlotNumber, category, line);
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? parentSlotNumber + " - " : "";
+		String suffix = inShulker ? " (in shulker)" : "";
+		String line =
+			useItemIcons.isChecked() ? slotPrefix + enchantSummary + suffix
+				: slotPrefix + itemName + " | " + enchantSummary + suffix;
+		return new GearEntry(-1, parentSlotNumber, parentSlotId, category, line,
+			stack.copyWithCount(1));
 	}
 	
 	private BookEntry buildBookEntry(Slot slot,
@@ -1221,15 +1348,18 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
 		int slotNumber = slot.getContainerSlot() + 1;
-		String line = slotNumber + " - " + enchantSummary;
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? slotNumber + " - " : "";
+		String line = slotPrefix + enchantSummary;
 		
 		return new BookEntry(slot.index, slotNumber, primary, line);
 	}
 	
 	// Build a BookEntry for an item inside a shulker box (no real slot id)
 	private BookEntry buildBookEntryFromStack(int parentSlotNumber,
-		ItemStack stack,
-		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
+		int parentSlotId, ItemStack stack,
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
+		boolean inShulker)
 	{
 		List<String> parts = new ArrayList<>();
 		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
@@ -1257,9 +1387,11 @@ public final class EnchantmentHandlerHack extends Hack
 				.orElseGet(() -> categories.stream().findFirst()
 					.orElse(BookCategory.MISC));
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? parentSlotNumber + " - " : "";
 		String line =
-			parentSlotNumber + " - " + enchantSummary + " (in shulker)";
-		return new BookEntry(-1, parentSlotNumber, primary, line);
+			slotPrefix + enchantSummary + (inShulker ? " (in shulker)" : "");
+		return new BookEntry(-1, parentSlotNumber, parentSlotId, primary, line);
 	}
 	
 	private PotionEntry buildPotionEntry(Slot slot, ItemStack stack,
@@ -1341,14 +1473,18 @@ public final class EnchantmentHandlerHack extends Hack
 		String summary = limitLength(String.join(", ", parts), 90);
 		int slotNumber = slot.getContainerSlot() + 1;
 		String itemName = limitLength(stack.getHoverName().getString(), 40);
-		String line = slotNumber + " - " + itemName + " | " + summary;
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? slotNumber + " - " : "";
+		String line = slotPrefix + itemName + " | " + summary;
 		
-		return new PotionEntry(slot.index, slotNumber, category, line,
-			primaryName, primaryLevel, primaryDuration);
+		return new PotionEntry(slot.index, slotNumber, slot.index, category,
+			line, primaryName, primaryLevel, primaryDuration,
+			stack.copyWithCount(1));
 	}
 	
 	private PotionEntry buildPotionEntryFromStack(int parentSlotNumber,
-		ItemStack stack, PotionCategory category)
+		int parentSlotId, ItemStack stack, PotionCategory category,
+		boolean inShulker)
 	{
 		List<String> parts = new ArrayList<>();
 		PotionContents potionContents = stack.getComponents()
@@ -1386,8 +1522,10 @@ public final class EnchantmentHandlerHack extends Hack
 			return null;
 		String summary = limitLength(String.join(", ", parts), 90);
 		String itemName = limitLength(stack.getHoverName().getString(), 40);
-		String line = parentSlotNumber + " - " + itemName + " | " + summary
-			+ " (in shulker)";
+		String slotPrefix =
+			showSlotNumbers.isChecked() ? parentSlotNumber + " - " : "";
+		String line = slotPrefix + itemName + " | " + summary
+			+ (inShulker ? " (in shulker)" : "");
 		String primaryName = null;
 		int primaryLevel = 0;
 		int primaryDuration = 0;
@@ -1418,8 +1556,9 @@ public final class EnchantmentHandlerHack extends Hack
 				primaryName = "Unknown";
 			}
 		}
-		return new PotionEntry(-1, parentSlotNumber, category, line,
-			primaryName, primaryLevel, primaryDuration);
+		return new PotionEntry(-1, parentSlotNumber, parentSlotId, category,
+			line, primaryName, primaryLevel, primaryDuration,
+			stack.copyWithCount(1));
 	}
 	
 	private void takeEntry(GearEntry entry, AbstractContainerMenu handler)
@@ -1713,13 +1852,23 @@ public final class EnchantmentHandlerHack extends Hack
 	{
 		final int slotId;
 		final int displaySlot;
+		final int highlightSlotId;
 		final String line;
+		final ItemStack iconStack;
 		
-		AbstractEntry(int slotId, int displaySlot, String line)
+		AbstractEntry(int slotId, int displaySlot, int highlightSlotId,
+			String line, ItemStack iconStack)
 		{
 			this.slotId = slotId;
 			this.displaySlot = displaySlot;
+			this.highlightSlotId = highlightSlotId;
 			this.line = line;
+			this.iconStack = iconStack == null ? ItemStack.EMPTY : iconStack;
+		}
+		
+		int getHighlightSlotId()
+		{
+			return highlightSlotId;
 		}
 	}
 	
@@ -1730,7 +1879,20 @@ public final class EnchantmentHandlerHack extends Hack
 		GearEntry(int slotId, int displaySlot, GearCategory category,
 			String line)
 		{
-			super(slotId, displaySlot, line);
+			this(slotId, displaySlot, slotId, category, line, ItemStack.EMPTY);
+		}
+		
+		GearEntry(int slotId, int displaySlot, int highlightSlotId,
+			GearCategory category, String line)
+		{
+			this(slotId, displaySlot, highlightSlotId, category, line,
+				ItemStack.EMPTY);
+		}
+		
+		GearEntry(int slotId, int displaySlot, int highlightSlotId,
+			GearCategory category, String line, ItemStack iconStack)
+		{
+			super(slotId, displaySlot, highlightSlotId, line, iconStack);
 			this.category = Objects.requireNonNull(category);
 		}
 	}
@@ -1742,7 +1904,14 @@ public final class EnchantmentHandlerHack extends Hack
 		BookEntry(int slotId, int displaySlot, BookCategory category,
 			String line)
 		{
-			super(slotId, displaySlot, line);
+			this(slotId, displaySlot, slotId, category, line);
+		}
+		
+		BookEntry(int slotId, int displaySlot, int highlightSlotId,
+			BookCategory category, String line)
+		{
+			super(slotId, displaySlot, highlightSlotId, line,
+				new ItemStack(Items.ENCHANTED_BOOK));
 			this.category = Objects.requireNonNull(category);
 		}
 	}
@@ -1758,7 +1927,23 @@ public final class EnchantmentHandlerHack extends Hack
 			String line, String primaryName, int primaryLevel,
 			int primaryDuration)
 		{
-			super(slotId, displaySlot, line);
+			this(slotId, displaySlot, slotId, category, line, primaryName,
+				primaryLevel, primaryDuration);
+		}
+		
+		PotionEntry(int slotId, int displaySlot, int highlightSlotId,
+			PotionCategory category, String line, String primaryName,
+			int primaryLevel, int primaryDuration)
+		{
+			this(slotId, displaySlot, highlightSlotId, category, line,
+				primaryName, primaryLevel, primaryDuration, ItemStack.EMPTY);
+		}
+		
+		PotionEntry(int slotId, int displaySlot, int highlightSlotId,
+			PotionCategory category, String line, String primaryName,
+			int primaryLevel, int primaryDuration, ItemStack iconStack)
+		{
+			super(slotId, displaySlot, highlightSlotId, line, iconStack);
 			this.category = Objects.requireNonNull(category);
 			this.primaryName = primaryName != null ? primaryName : "";
 			this.primaryLevel = primaryLevel;
@@ -1880,22 +2065,23 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private static enum BookCategory
 	{
-		HELMET("Armor (Helmet)", "respiration", "aqua_affinity"),
-		CHEST("Armor (Chest)", "protection", "fire_protection",
+		HELMET("Books (Helmet)", "respiration", "aqua_affinity"),
+		CHEST("Books (Chest)", "protection", "fire_protection",
 			"blast_protection", "projectile_protection", "thorns"),
-		LEGGINGS("Armor (Leggings)", "swift_sneak"),
-		BOOTS("Armor (Boots)", "feather_falling", "depth_strider",
+		LEGGINGS("Books (Leggings)", "swift_sneak"),
+		BOOTS("Books (Boots)", "feather_falling", "depth_strider",
 			"frost_walker", "soul_speed"),
-		WEAPON("Weapons", "sharpness", "smite", "bane_of_arthropods",
+		WEAPON("Books (Weapons)", "sharpness", "smite", "bane_of_arthropods",
 			"knockback", "looting", "fire_aspect", "sweeping", "sweeping_edge",
 			"breach", "density", "wind_burst"),
-		TOOLS("Tools", "efficiency", "silk_touch", "fortune"),
-		BOW("Bow", "power", "punch", "flame", "infinity"),
-		CROSSBOW("Crossbow", "piercing", "quick_charge", "multishot"),
-		TRIDENT("Trident", "impaling", "riptide", "channeling", "loyalty"),
-		SHIELD("Shield", "bulwark"),
-		ELYTRA("Elytra", "wind_burst"),
-		MISC("Misc", "mending", "unbreaking", "binding_curse",
+		TOOLS("Books (Tools)", "efficiency", "silk_touch", "fortune"),
+		BOW("Books (Bow)", "power", "punch", "flame", "infinity"),
+		CROSSBOW("Books (Crossbow)", "piercing", "quick_charge", "multishot"),
+		TRIDENT("Books (Trident)", "impaling", "riptide", "channeling",
+			"loyalty"),
+		SHIELD("Books (Shield)", "bulwark"),
+		ELYTRA("Books (Elytra)", "wind_burst"),
+		MISC("Books (Misc)", "mending", "unbreaking", "binding_curse",
 			"vanishing_curse", "lure", "luck_of_the_sea");
 		
 		static final List<BookCategory> ORDERED =
