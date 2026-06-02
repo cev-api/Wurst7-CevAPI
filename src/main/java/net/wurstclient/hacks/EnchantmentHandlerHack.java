@@ -124,6 +124,18 @@ public final class EnchantmentHandlerHack extends Hack
 	private final SliderSetting slotHighlightOpacity =
 		new SliderSetting("Slot highlight opacity", 45, 5, 100, 1,
 			ValueDisplay.INTEGER.withSuffix("%"));
+	private final CheckboxSetting savedContainerPosition =
+		new CheckboxSetting("Saved container position", false);
+	private final SliderSetting savedContainerX = new SliderSetting(
+		"Saved container X", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting savedContainerY = new SliderSetting(
+		"Saved container Y", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting savedInventoryPosition =
+		new CheckboxSetting("Saved inventory position", false);
+	private final SliderSetting savedInventoryX = new SliderSetting(
+		"Saved inventory X", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting savedInventoryY = new SliderSetting(
+		"Saved inventory Y", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
 	
 	private double scrollOffset;
 	private double maxScroll;
@@ -166,6 +178,12 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(slotHighlightEnabled);
 		addSetting(slotHighlightColor);
 		addSetting(slotHighlightOpacity);
+		addHiddenPositionSetting(savedContainerPosition);
+		addHiddenPositionSetting(savedContainerX);
+		addHiddenPositionSetting(savedContainerY);
+		addHiddenPositionSetting(savedInventoryPosition);
+		addHiddenPositionSetting(savedInventoryX);
+		addHiddenPositionSetting(savedInventoryY);
 		
 		for(GearCategory cat : GearCategory.ORDERED)
 		{
@@ -223,6 +241,13 @@ public final class EnchantmentHandlerHack extends Hack
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
 		GuiGraphicsExtractor context, float partialTicks)
 	{
+		customPosition = savedContainerPosition.isChecked();
+		containerPanelX = savedContainerX.getValueI();
+		containerPanelY = savedContainerY.getValueI();
+		inventoryCustomPosition = savedInventoryPosition.isChecked();
+		inventoryPanelX = savedInventoryX.getValueI();
+		inventoryPanelY = savedInventoryY.getValueI();
+		
 		if(screen == lastRenderedScreen && context == lastRenderContext)
 			return;
 		lastRenderedScreen = screen;
@@ -406,6 +431,7 @@ public final class EnchantmentHandlerHack extends Hack
 		if(panelDragging && button == 0)
 		{
 			panelDragging = false;
+			savePanelPosition();
 			return true;
 		}
 		
@@ -465,6 +491,28 @@ public final class EnchantmentHandlerHack extends Hack
 			inventoryCustomPosition = true;
 		else
 			customPosition = true;
+	}
+	
+	private void savePanelPosition()
+	{
+		if(renderingInventoryScreen)
+		{
+			savedInventoryPosition.setChecked(inventoryCustomPosition);
+			savedInventoryX.setValue(inventoryPanelX);
+			savedInventoryY.setValue(inventoryPanelY);
+			return;
+		}
+		
+		savedContainerPosition.setChecked(customPosition);
+		savedContainerX.setValue(containerPanelX);
+		savedContainerY.setValue(containerPanelY);
+	}
+	
+	private void addHiddenPositionSetting(
+		net.wurstclient.settings.Setting setting)
+	{
+		setting.setVisibleInGui(false);
+		addSetting(setting);
 	}
 	
 	private void renderOverlay(GuiGraphicsExtractor context)
