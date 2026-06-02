@@ -91,6 +91,12 @@ public final class NbtSizeCounterHack extends Hack implements
 		1, 32768, 1, ValueDisplay.INTEGER);
 	private final EnumSetting<SizeUnit> chunkLimitUnit =
 		new EnumSetting<>("Chunk limit unit", SizeUnit.values(), SizeUnit.KB);
+	private final CheckboxSetting savedOverlayPosition =
+		new CheckboxSetting("Saved overlay position", false);
+	private final SliderSetting savedOverlayX = new SliderSetting(
+		"Saved overlay X", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting savedOverlayY = new SliderSetting(
+		"Saved overlay Y", 0, -4000, 4000, 1, ValueDisplay.INTEGER);
 	
 	private long currentInventoryBytes;
 	private int currentContainerId = -1;
@@ -130,6 +136,9 @@ public final class NbtSizeCounterHack extends Hack implements
 		addSetting(preventChunkEntry);
 		addSetting(chunkLimitValue);
 		addSetting(chunkLimitUnit);
+		addHiddenPositionSetting(savedOverlayPosition);
+		addHiddenPositionSetting(savedOverlayX);
+		addHiddenPositionSetting(savedOverlayY);
 	}
 	
 	@Override
@@ -265,6 +274,15 @@ public final class NbtSizeCounterHack extends Hack implements
 		if(!showScreenOverlay.isChecked())
 			return;
 		
+		if(overlayX == Integer.MIN_VALUE || overlayY == Integer.MIN_VALUE)
+		{
+			if(savedOverlayPosition.isChecked())
+			{
+				overlayX = savedOverlayX.getValueI();
+				overlayY = savedOverlayY.getValueI();
+			}
+		}
+		
 		updateCurrentContainer(screen);
 		
 		HandledScreenAccessor accessor = (HandledScreenAccessor)screen;
@@ -342,7 +360,17 @@ public final class NbtSizeCounterHack extends Hack implements
 			return false;
 		
 		dragging = false;
+		savedOverlayPosition.setChecked(true);
+		savedOverlayX.setValue(overlayX);
+		savedOverlayY.setValue(overlayY);
 		return true;
+	}
+	
+	private void addHiddenPositionSetting(
+		net.wurstclient.settings.Setting setting)
+	{
+		setting.setVisibleInGui(false);
+		addSetting(setting);
 	}
 	
 	private void updateCurrentContainer(AbstractContainerScreen<?> screen)

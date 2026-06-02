@@ -90,6 +90,7 @@ public final class HackList implements UpdateListener
 	public final AutoToolHack autoToolHack = new AutoToolHack();
 	public final AutoTotemHack autoTotemHack = new AutoTotemHack();
 	public final SoulChaliceHack soulChaliceHack = new SoulChaliceHack();
+	public final SkyBuildEspHack skyBuildEspHack = new SkyBuildEspHack();
 	public final AutoWalkHack autoWalkHack = new AutoWalkHack();
 	public final WindChargeKeyHack windChargeKeyHack = new WindChargeKeyHack();
 	public final XCarryHack xCarryHack = new XCarryHack();

@@ -21,6 +21,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundLevelEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -440,8 +441,12 @@ public final class CoordLoggerHack extends Hack
 		if(packet == null || !logMobs.isChecked())
 			return;
 		
-		String soundId = BuiltInRegistries.SOUND_EVENT
-			.getKey(packet.getSound().value()).toString();
+		Identifier soundKey =
+			BuiltInRegistries.SOUND_EVENT.getKey(packet.getSound().value());
+		if(soundKey == null)
+			return;
+		
+		String soundId = soundKey.toString();
 		if(!soundId.contains("wither") || !soundId.contains("spawn"))
 			return;
 		
