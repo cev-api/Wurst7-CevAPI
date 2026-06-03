@@ -15,9 +15,11 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -482,6 +484,51 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	public Path getFolder()
 	{
 		return templateSetting.getFolder();
+	}
+	
+	public List<String> getAvailableTemplateNames()
+	{
+		ArrayList<String> names = new ArrayList<>();
+		for(Path file : templateSetting.listFiles())
+		{
+			String fileName = "" + file.getFileName();
+			int dot = fileName.lastIndexOf('.');
+			names.add(dot >= 0 ? fileName.substring(0, dot) : fileName);
+		}
+		return names;
+	}
+	
+	public boolean selectTemplateByName(String templateName)
+	{
+		if(templateName == null)
+			return false;
+		
+		String trimmed = templateName.trim();
+		if(trimmed.isEmpty())
+			return false;
+		
+		String normalized = trimmed.toLowerCase(Locale.ROOT);
+		for(Path file : templateSetting.listFiles())
+		{
+			String fileName = "" + file.getFileName();
+			String stem = fileName;
+			int dot = fileName.lastIndexOf('.');
+			if(dot >= 0)
+				stem = fileName.substring(0, dot);
+			
+			if(!stem.toLowerCase(Locale.ROOT).equals(normalized))
+				continue;
+			
+			templateSetting.setSelectedFile(fileName);
+			remainingBlocks.clear();
+			previewBlocks.clear();
+			placedConfirmations.clear();
+			status = Status.NO_TEMPLATE;
+			loadSelectedTemplate();
+			return status == Status.IDLE;
+		}
+		
+		return false;
 	}
 	
 	private void updatePreview()

@@ -8,11 +8,13 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +24,7 @@ import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.util.StringUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -43,6 +46,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.commands.FriendsCmd;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
@@ -222,11 +226,18 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			100, 1,
 			net.wurstclient.settings.SliderSetting.ValueDisplay.INTEGER);
 	private final Map<UUID, LosState> losStates = new HashMap<>();
+	private final Map<String, FriendPingMarker> friendPingMarkers =
+		new HashMap<>();
 	private static final long LOS_HOLD_MS = 250;
 	private static final long LOS_FADE_MS = 120;
 	private static final double THREAT_LINE_WIDTH = 4.0; // base thickness of
 															// threat lines
 	private static final long NPC_CONFIRM_DELAY_MS = 400;
+	private static final double REMOTE_PLAYER_WIDTH = 0.6;
+	private static final double REMOTE_PLAYER_HEIGHT = 1.8;
+	private static final double FRIEND_PING_MIN_DISTANCE = 128.0;
+	private static final double FRIEND_PING_MIN_DISTANCE_SQ =
+		FRIEND_PING_MIN_DISTANCE * FRIEND_PING_MIN_DISTANCE;
 	private static final Pattern VALID_MC_USERNAME =
 		Pattern.compile("^[A-Za-z0-9_]{3,16}$");
 	private static final Pattern VALID_BEDROCK_USERNAME =
@@ -302,6 +313,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(PacketInputListener.class, this);
 		alertManager.removeListener(alertListener);
 		losStates.clear();
+		friendPingMarkers.clear();
 		pendingEnterAlerts.clear();
 		lastEnterAlertAt = 0L;
 		lastEnterPopupAt = 0L;
@@ -355,6 +367,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		players.addAll(stream.collect(Collectors.toList()));
 		
 		long now = Util.getMillis();
+		pruneExpiredFriendPings(now);
 		
 		if(losThreatDetection.isChecked())
 			updateLosStates(now);
@@ -770,23 +783,59 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	{
 		long now = Util.getMillis();
 		Map<UUID, PlayerVisual> visualCache = new HashMap<>(players.size());
+		ArrayList<FriendPingMarker> visibleFriendPings =
+			getVisibleFriendPings(now);
 		
-		if(style.hasBoxes())
+		if(style.hasBoxes() || !visibleFriendPings.isEmpty())
 		{
 			double extraSize = boxSize.getExtraSize() / 2;
 			
 			ArrayList<ColoredBox> normalOutline = new ArrayList<>();
 			ArrayList<ColoredBox> threatOutline = new ArrayList<>();
 			ArrayList<ColoredBox> solid = filledBoxes.isChecked()
-				? new ArrayList<>(players.size()) : null;
+				? new ArrayList<>(players.size() + visibleFriendPings.size())
+				: null;
 			
-			for(Player e : players)
+			if(style.hasBoxes())
 			{
-				AABB box = EntityUtils.getLerpedBox(e, partialTicks)
-					.move(0, extraSize, 0).inflate(extraSize);
-				PlayerVisual visual = visualCache.computeIfAbsent(e.getUUID(),
-					id -> getVisual(e, now));
-				int boxColor = visual.boxColor();
+				for(Player e : players)
+				{
+					AABB box = EntityUtils.getLerpedBox(e, partialTicks)
+						.move(0, extraSize, 0).inflate(extraSize);
+					PlayerVisual visual = visualCache
+						.computeIfAbsent(e.getUUID(), id -> getVisual(e, now));
+					int boxColor = visual.boxColor();
+					
+					if(filledBoxes.isChecked())
+					{
+						int rgb = boxColor & 0x00FFFFFF;
+						int solidAlpha =
+							(int)((filledAlpha.getValue() / 100f) * 255) << 24;
+						int solidColor = rgb | solidAlpha;
+						if(solid != null)
+							solid.add(new ColoredBox(box, solidColor));
+						int outlineColor = rgb | (0xFF << 24);
+						ColoredBox outlineBox =
+							new ColoredBox(box, outlineColor);
+						if(visual.isThreat())
+							threatOutline.add(outlineBox);
+						else
+							normalOutline.add(outlineBox);
+					}else
+					{
+						ColoredBox cb = new ColoredBox(box, boxColor);
+						if(visual.isThreat())
+							threatOutline.add(cb);
+						else
+							normalOutline.add(cb);
+					}
+				}
+			}
+			
+			for(FriendPingMarker marker : visibleFriendPings)
+			{
+				AABB box = createRemotePlayerBox(marker.pos(), extraSize);
+				int boxColor = getFriendPingBoxColor();
 				
 				if(filledBoxes.isChecked())
 				{
@@ -796,19 +845,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 					int solidColor = rgb | solidAlpha;
 					if(solid != null)
 						solid.add(new ColoredBox(box, solidColor));
-					int outlineColor = rgb | (0xFF << 24);
-					ColoredBox outlineBox = new ColoredBox(box, outlineColor);
-					if(visual.isThreat())
-						threatOutline.add(outlineBox);
-					else
-						normalOutline.add(outlineBox);
+					normalOutline.add(new ColoredBox(box, rgb | (0xFF << 24)));
 				}else
 				{
-					ColoredBox cb = new ColoredBox(box, boxColor);
-					if(visual.isThreat())
-						threatOutline.add(cb);
-					else
-						normalOutline.add(cb);
+					normalOutline.add(new ColoredBox(box, boxColor));
 				}
 			}
 			
@@ -838,6 +878,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			ArrayList<ColoredPoint> normalEnds =
 				new ArrayList<>(players.size());
 			ArrayList<ColoredPoint> threatEnds = new ArrayList<>();
+			ArrayList<ColoredPoint> friendPingEnds = new ArrayList<>();
 			
 			for(Player e : players)
 			{
@@ -855,16 +896,31 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 					normalEnds.add(colored);
 			}
 			
+			for(FriendPingMarker marker : visibleFriendPings)
+			{
+				Vec3 point = marker.pos().add(0, REMOTE_PLAYER_HEIGHT * 0.5, 0);
+				int tracerColor = getFriendPingTracerColor();
+				if(tracerFlash.isChecked())
+					tracerColor = RenderUtils.flashColor(tracerColor);
+				friendPingEnds.add(new ColoredPoint(point, tracerColor));
+			}
+			
 			double normalLineWidth = tracerThickness.getValue();
+			double friendPingLineWidth = getFriendPingTracerThickness();
 			double threatLineWidth = normalLineWidth + Math.max(0,
 				THREAT_LINE_WIDTH - tracerThickness.getDefaultValue());
 			if(!normalEnds.isEmpty())
 				RenderUtils.drawTracers("playeresp", matrixStack, partialTicks,
 					normalEnds, false, normalLineWidth);
+			if(!friendPingEnds.isEmpty())
+				RenderUtils.drawTracers("playeresp", matrixStack, partialTicks,
+					friendPingEnds, false, friendPingLineWidth);
 			if(!threatEnds.isEmpty())
 				RenderUtils.drawTracers("playeresp", matrixStack, partialTicks,
 					threatEnds, false, threatLineWidth);
 		}
+		
+		renderFriendPingLabels(matrixStack, visibleFriendPings);
 	}
 	
 	public Integer getGlowColor(LivingEntity entity)
@@ -975,6 +1031,203 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		int boxColor = mixThreatColor(baseColor, factor, false);
 		int tracerColor = mixThreatColor(makeOpaque(baseColor), factor, true);
 		return new PlayerVisual(boxColor, tracerColor, factor);
+	}
+	
+	public void rememberFriendPing(String friendName, Vec3 pos,
+		String dimension, long timeoutMs)
+	{
+		if(friendName == null || friendName.isBlank() || pos == null
+			|| dimension == null || dimension.isBlank())
+		{
+			return;
+		}
+		
+		long expiresAt = Long.MAX_VALUE;
+		friendPingMarkers.put(friendName.toLowerCase(Locale.ROOT),
+			new FriendPingMarker(friendName, pos, dimension, expiresAt));
+	}
+	
+	private void pruneExpiredFriendPings(long now)
+	{
+		friendPingMarkers.values()
+			.removeIf(marker -> marker.expiresAt() <= now);
+	}
+	
+	private ArrayList<FriendPingMarker> getVisibleFriendPings(long now)
+	{
+		ArrayList<FriendPingMarker> markers = new ArrayList<>();
+		if(MC.player == null || MC.level == null)
+			return markers;
+		
+		String currentDimension = MC.level.dimension().identifier().toString();
+		for(FriendPingMarker marker : friendPingMarkers.values())
+		{
+			if(marker.expiresAt() <= now)
+				continue;
+			if(!currentDimension.equals(marker.dimension()))
+				continue;
+			if(MC.player.position()
+				.distanceToSqr(marker.pos()) < FRIEND_PING_MIN_DISTANCE_SQ)
+			{
+				continue;
+			}
+			if(isRenderedAsRealPlayer(marker.friendName()))
+				continue;
+			markers.add(marker);
+		}
+		
+		return markers;
+	}
+	
+	private boolean isRenderedAsRealPlayer(String friendName)
+	{
+		for(Player player : players)
+			if(player.getName().getString().equalsIgnoreCase(friendName))
+				return true;
+			
+		return false;
+	}
+	
+	private AABB createRemotePlayerBox(Vec3 pos, double extraSize)
+	{
+		AABB base = new AABB(pos.x - REMOTE_PLAYER_WIDTH / 2, pos.y,
+			pos.z - REMOTE_PLAYER_WIDTH / 2, pos.x + REMOTE_PLAYER_WIDTH / 2,
+			pos.y + REMOTE_PLAYER_HEIGHT, pos.z + REMOTE_PLAYER_WIDTH / 2);
+		return base.move(0, extraSize, 0).inflate(extraSize);
+	}
+	
+	private int getFriendPingBoxColor()
+	{
+		FriendsCmd friendsCmd = WURST.getCmds().friendsCmd;
+		if(friendsCmd == null)
+			return 0x9040A0FF;
+		
+		Color color = friendsCmd.getPingBoxColor().getColor();
+		return RenderUtils.toIntColor(new float[]{color.getRed() / 255f,
+			color.getGreen() / 255f, color.getBlue() / 255f}, 0.56F);
+	}
+	
+	private int getFriendPingTracerColor()
+	{
+		FriendsCmd friendsCmd = WURST.getCmds().friendsCmd;
+		if(friendsCmd == null)
+			return 0xFF40A0FF;
+		
+		Color color = friendsCmd.getPingTracerColor().getColor();
+		return ((0xFF) << 24) | (color.getRed() << 16) | (color.getGreen() << 8)
+			| color.getBlue();
+	}
+	
+	private double getFriendPingTracerThickness()
+	{
+		FriendsCmd friendsCmd = WURST.getCmds().friendsCmd;
+		if(friendsCmd == null)
+			return tracerThickness.getValue();
+		
+		return friendsCmd.getPingTracerThickness().getValue();
+	}
+	
+	private void renderFriendPingLabels(PoseStack matrices,
+		ArrayList<FriendPingMarker> markers)
+	{
+		FriendsCmd friendsCmd = WURST.getCmds().friendsCmd;
+		if(friendsCmd == null || markers.isEmpty() || MC.player == null)
+		{
+			return;
+		}
+		
+		int color = getFriendPingTracerColor();
+		float baseScale = (float)friendsCmd.getLabelScale().getValue();
+		for(FriendPingMarker marker : markers)
+		{
+			double dist = MC.player.position().distanceTo(marker.pos());
+			String distanceText = (int)Math.round(dist) + " blocks";
+			double lx = marker.pos().x;
+			double ly = marker.pos().y + REMOTE_PLAYER_HEIGHT + 0.45;
+			double lz = marker.pos().z;
+			
+			boolean anchored = dist > 256.0;
+			if(anchored)
+			{
+				Vec3 cam = RenderUtils.getCameraPos();
+				Vec3 target = new Vec3(lx, ly, lz);
+				Vec3 dir = target.subtract(cam);
+				double len = dir.length();
+				if(len > 1e-3)
+				{
+					Vec3 anchor = cam.add(dir.scale(Math.min(len, 12.0) / len));
+					lx = anchor.x;
+					ly = anchor.y;
+					lz = anchor.z;
+				}
+			}
+			
+			float scale = baseScale;
+			if(!anchored)
+			{
+				Vec3 cam = RenderUtils.getCameraPos();
+				double labelDistance = cam.distanceTo(new Vec3(lx, ly, lz));
+				scale *= (float)Math.max(1.0, labelDistance * 0.1);
+			}
+			
+			double nearRef = 6.0;
+			double maxRef = 256.0;
+			double t = (dist - nearRef) / (maxRef - nearRef);
+			t = Mth.clamp(t, 0.0, 1.0);
+			t = t * t * (3.0 - 2.0 * t);
+			double factor = 1.80 + (0.90 - 1.80) * t;
+			scale *= (float)Mth.clamp(factor, 0.75, 2.50);
+			
+			drawWorldLabel(matrices, marker.friendName(), lx, ly, lz, color,
+				scale, -10F);
+			drawWorldLabel(matrices, distanceText, lx, ly, lz, color,
+				scale * 0.9F, 0F);
+		}
+	}
+	
+	private void drawWorldLabel(PoseStack matrices, String text, double x,
+		double y, double z, int argb, float scale, float offsetPx)
+	{
+		if(text == null || text.isEmpty() || MC.player == null)
+			return;
+		
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
+		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		var camEntity = MC.getCameraEntity();
+		if(camEntity != null)
+		{
+			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
+			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
+		}
+		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		
+		float s = 0.025F * scale;
+		matrices.scale(s, -s, s);
+		matrices.translate(0, offsetPx, 0);
+		
+		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		float w = MC.font.width(text) / 2F;
+		int baseAlpha = (argb >>> 24) & 0xFF;
+		int bgAlpha =
+			(int)Math.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+		int bg = (bgAlpha << 24);
+		var matrix = matrices.last().pose();
+		int strokeColor =
+			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
+		MC.font.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
+			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		MC.font.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
+			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		MC.font.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
+			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		MC.font.drawInBatch(text, -w, 1, strokeColor, false, matrix, vcp,
+			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		MC.font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, bg,
+			0xF000F0);
+		vcp.endBatch();
+		matrices.popPose();
 	}
 	
 	private float getLosFactor(Player e, long now)
@@ -1227,6 +1480,43 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				holdUntil = now + LOS_HOLD_MS;
 				fadeUntil = holdUntil + LOS_FADE_MS;
 			}
+		}
+	}
+	
+	private static final class FriendPingMarker
+	{
+		private final String friendName;
+		private final Vec3 pos;
+		private final String dimension;
+		private final long expiresAt;
+		
+		private FriendPingMarker(String friendName, Vec3 pos, String dimension,
+			long expiresAt)
+		{
+			this.friendName = friendName;
+			this.pos = pos;
+			this.dimension = dimension;
+			this.expiresAt = expiresAt;
+		}
+		
+		public String friendName()
+		{
+			return friendName;
+		}
+		
+		public Vec3 pos()
+		{
+			return pos;
+		}
+		
+		public String dimension()
+		{
+			return dimension;
+		}
+		
+		public long expiresAt()
+		{
+			return expiresAt;
 		}
 	}
 	

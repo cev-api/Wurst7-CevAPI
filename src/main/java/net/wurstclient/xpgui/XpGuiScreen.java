@@ -62,6 +62,7 @@ import net.wurstclient.clickgui.screens.EditBlockScreen;
 import net.wurstclient.clickgui.screens.EditBookOffersScreen;
 import net.wurstclient.clickgui.screens.EditColorScreen;
 import net.wurstclient.clickgui.screens.EditEntityTypeListScreen;
+import net.wurstclient.clickgui.screens.EditFriendListScreen;
 import net.wurstclient.clickgui.screens.EditItemListScreen;
 import net.wurstclient.clickgui.screens.EditTextFieldScreen;
 import net.wurstclient.clickgui.screens.SelectFileScreen;
@@ -84,6 +85,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EntityTypeListSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.FileSetting;
+import net.wurstclient.settings.FriendListSetting;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.MobWeaponRuleSetting;
 import net.wurstclient.settings.PlantTypeSetting;
@@ -2098,6 +2100,8 @@ public final class XpGuiScreen extends Screen
 			minecraft.setScreen(new EditItemListScreen(this, itemList));
 		else if(setting instanceof EntityTypeListSetting entityList)
 			minecraft.setScreen(new EditEntityTypeListScreen(this, entityList));
+		else if(setting instanceof FriendListSetting friendList)
+			minecraft.setScreen(new EditFriendListScreen(this, friendList));
 		else if(setting instanceof BookOffersSetting offers)
 			minecraft.setScreen(new EditBookOffersScreen(this, offers));
 		else if(setting instanceof FileSetting file)
@@ -2494,7 +2498,7 @@ public final class XpGuiScreen extends Screen
 					context.fill(x, y, x + itemW, y + 20, 0xFFCFE1FA);
 				
 				renderFeatureStatusIcon(context, x + 4, y + 3, feature);
-				String name = clipText(feature.getName(), itemW - 28);
+				String name = clipText(feature.getDisplayName(), itemW - 28);
 				context.drawString(minecraft.font, name, x + 22, y + 7,
 					0xFF153A70, false);
 			}

@@ -44,6 +44,16 @@ public abstract class Command extends Feature
 	}
 	
 	@Override
+	public String getDisplayName()
+	{
+		String fullName = getName();
+		if(fullName.equalsIgnoreCase(".friends"))
+			return "Friends";
+		
+		return fullName;
+	}
+	
+	@Override
 	public String getPrimaryAction()
 	{
 		return "";

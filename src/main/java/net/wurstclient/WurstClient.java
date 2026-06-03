@@ -23,6 +23,7 @@ import net.wurstclient.command.CmdList;
 import net.wurstclient.command.CmdProcessor;
 import net.wurstclient.command.Command;
 import net.wurstclient.event.EventManager;
+import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.events.ChatOutputListener;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.KeyPressListener;
@@ -176,6 +177,7 @@ public enum WurstClient
 		friends = new FriendsList(friendsFile);
 		friends.load();
 		eventManager.add(UpdateListener.class, friends);
+		eventManager.add(ChatInputListener.class, friends);
 		
 		translator = new WurstTranslator();
 		
