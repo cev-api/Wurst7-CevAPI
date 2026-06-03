@@ -292,6 +292,12 @@ public final class WaypointsHack extends Hack
 		saveExcludingTemporaries();
 	}
 	
+	public java.util.List<Waypoint> getAllWaypoints()
+	{
+		ensureWorldData();
+		return new ArrayList<>(manager.all());
+	}
+	
 	/**
 	 * Modify waypoints within radius (blocks) around player according to
 	 * options map. Returns number of waypoints modified/removed.

@@ -40,6 +40,11 @@ public abstract class Feature
 	
 	public abstract String getName();
 	
+	public String getDisplayName()
+	{
+		return getName();
+	}
+	
 	public abstract String getDescription();
 	
 	public String getWrappedDescription(int width)

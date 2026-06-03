@@ -20,7 +20,7 @@ public final class SettingsWindow extends Window
 	
 	public SettingsWindow(Feature feature, Window parent, int buttonY)
 	{
-		super(feature.getName() + " Settings");
+		super(feature.getDisplayName() + " Settings");
 		this.feature = feature;
 		
 		rebuild();

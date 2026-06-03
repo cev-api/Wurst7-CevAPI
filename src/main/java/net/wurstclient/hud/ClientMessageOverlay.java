@@ -24,9 +24,13 @@ import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
+import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.MessageSignature;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.util.FormattedCharSequence;
@@ -91,6 +95,9 @@ public final class ClientMessageOverlay
 	private int lastWurstX2;
 	private int lastWurstY2;
 	private boolean tabHeldForOverlay;
+	private List<LineClickTarget> lastMainClickTargets = List.of();
+	private List<LineClickTarget> lastWurstClickTargets = List.of();
+	private boolean lastLeftMouseDown;
 	
 	private ClientMessageOverlay()
 	{}
@@ -106,6 +113,9 @@ public final class ClientMessageOverlay
 			return false;
 		
 		String plain = stripLegacyFormatting(message.getString()).trim();
+		if(isFriendPingTransportMessage(plain))
+			return true;
+		
 		if(isForcedToNormalChat(plain))
 			return false;
 		
@@ -141,6 +151,9 @@ public final class ClientMessageOverlay
 			return false;
 		
 		String plain = stripLegacyFormatting(message.getString()).trim();
+		if(isFriendPingTransportMessage(plain))
+			return true;
+		
 		if(isForcedToNormalChat(plain))
 			return false;
 		
@@ -317,7 +330,7 @@ public final class ClientMessageOverlay
 		
 		handleDrag(context, drawX, mainDrawY, mainBoxWidth * chatScale,
 			mainBoxHeight * chatScale, wurstDrawY, wurstBoxWidth * chatScale,
-			wurstBoxHeight * chatScale, !wurstLines.isEmpty());
+			wurstBoxHeight * chatScale, !wurstLines.isEmpty(), chatScale);
 		
 		updateHoverBounds(context, drawX, mainDrawY, mainBoxWidth * chatScale,
 			mainBoxHeight * chatScale, wurstDrawY, wurstBoxWidth * chatScale,
@@ -328,11 +341,15 @@ public final class ClientMessageOverlay
 		
 		if(!wurstLines.isEmpty())
 			drawPanel(context, wurstLines, drawX, wurstDrawY, chatScale);
+		
+		updateClickTargets(lines, drawX, mainDrawY, chatScale, false);
+		updateClickTargets(wurstLines, drawX, wurstDrawY, chatScale, true);
+		handleLinkClicks(context, chatScale);
 	}
 	
 	private void handleDrag(GuiGraphicsExtractor context, int drawX, int drawY,
 		float width, float height, int wurstDrawY, float wurstWidth,
-		float wurstHeight, boolean hasWurstPanel)
+		float wurstHeight, boolean hasWurstPanel, float chatScale)
 	{
 		boolean overMain = isMouseOverPanel(context, lastMainX1, lastMainY1,
 			lastMainX2, lastMainY2);
@@ -380,7 +397,7 @@ public final class ClientMessageOverlay
 		boolean overHud = (overMain || overWurst)
 			|| mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
 		
-		if(leftDown && overHud)
+		if(leftDown && overHud && !hasClickableAt(context, chatScale))
 		{
 			if(!dragging)
 			{
@@ -1045,13 +1062,13 @@ public final class ClientMessageOverlay
 			{
 				Component renderComponent =
 					applyDefaultTextColorIfEnabled(entry.component());
-				List<FormattedCharSequence> wrapped =
-					ComponentRenderUtils.wrapComponents(renderComponent,
-						maxWidth, WurstClient.MC.font);
+				List<WrappedLine> wrapped =
+					wrapComponent(renderComponent, maxWidth);
 				for(int i = wrapped.size() - 1; i >= 0; i--)
-					timed.add(
-						new TimedRenderLine(new RenderLine(wrapped.get(i), 255),
-							entry.timestamp()));
+					timed.add(new TimedRenderLine(
+						new RenderLine(wrapped.get(i).sequence(), 255,
+							wrapped.get(i).text()),
+						entry.timestamp()));
 			}
 		}
 		
@@ -1063,9 +1080,9 @@ public final class ClientMessageOverlay
 			{
 				int tickAge = guiTicks - line.addedTime();
 				if(tickAge >= 0)
-					timed.add(
-						new TimedRenderLine(new RenderLine(line.content(), 255),
-							nowMs - tickAge * 50L));
+					timed.add(new TimedRenderLine(
+						new RenderLine(line.content(), 255, null),
+						nowMs - tickAge * 50L));
 			}
 		
 		// Sort newest first (matching buildAllLines order)
@@ -1094,16 +1111,16 @@ public final class ClientMessageOverlay
 			{
 				Component renderComponent =
 					applyDefaultTextColorIfEnabled(message.component());
-				List<FormattedCharSequence> wrapped =
-					ComponentRenderUtils.wrapComponents(renderComponent,
-						maxWidth, WurstClient.MC.font);
+				List<WrappedLine> wrapped =
+					wrapComponent(renderComponent, maxWidth);
 				int alpha =
 					fullOpacity ? 255 : getLineAlpha(now - message.timestamp());
 				if(alpha <= 3)
 					continue;
 				
 				for(int i = wrapped.size() - 1; i >= 0; i--)
-					lines.add(new RenderLine(wrapped.get(i), alpha));
+					lines.add(new RenderLine(wrapped.get(i).sequence(), alpha,
+						wrapped.get(i).text()));
 			}
 			
 			return lines;
@@ -1285,6 +1302,15 @@ public final class ClientMessageOverlay
 		return plain.regionMatches(true, 0, "[Wurst]", 0, 7);
 	}
 	
+	private static boolean isFriendPingTransportMessage(String plain)
+	{
+		if(plain == null || plain.isBlank())
+			return false;
+		
+		String upper = plain.toUpperCase();
+		return upper.contains("FPNG") || upper.contains("FPNA");
+	}
+	
 	private int getVisibleVanillaLineCount(int chatHeight, boolean chatOpen)
 	{
 		List<GuiMessage.Line> lines =
@@ -1413,6 +1439,177 @@ public final class ClientMessageOverlay
 		context.pose().popMatrix();
 	}
 	
+	private static List<WrappedLine> wrapComponent(Component component,
+		int maxWidth)
+	{
+		if(component == null)
+			return List.of();
+		
+		List<FormattedCharSequence> sequences = ComponentRenderUtils
+			.wrapComponents(component, maxWidth, WurstClient.MC.font);
+		ArrayList<FormattedText> textLines = new ArrayList<>();
+		WurstClient.MC.font.getSplitter().splitLines(component, maxWidth,
+			Style.EMPTY, (text, ignored) -> textLines.add(text));
+		
+		ArrayList<WrappedLine> result = new ArrayList<>();
+		for(int i = 0; i < sequences.size(); i++)
+		{
+			FormattedText text = i < textLines.size() ? textLines.get(i) : null;
+			result.add(new WrappedLine(sequences.get(i), text));
+		}
+		return result;
+	}
+	
+	private void updateClickTargets(List<RenderLine> lines, int drawX,
+		int drawY, float chatScale, boolean wurstPanel)
+	{
+		ArrayList<LineClickTarget> targets = new ArrayList<>();
+		int y = -WurstClient.MC.font.lineHeight;
+		for(RenderLine line : lines)
+		{
+			if(line.textSource() != null)
+			{
+				targets.add(new LineClickTarget(line.textSource(),
+					drawX + HORIZONTAL_PADDING * chatScale,
+					drawY + y * chatScale, chatScale));
+			}
+			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
+		}
+		
+		if(wurstPanel)
+			lastWurstClickTargets = targets;
+		else
+			lastMainClickTargets = targets;
+	}
+	
+	private void handleLinkClicks(GuiGraphicsExtractor context, float chatScale)
+	{
+		Window window = WurstClient.MC.getWindow();
+		if(window == null)
+			return;
+		
+		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
+			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		if(!leftDown)
+		{
+			lastLeftMouseDown = false;
+			return;
+		}
+		
+		if(lastLeftMouseDown || dragging)
+			return;
+		
+		lastLeftMouseDown = true;
+		Style style = getClickableStyleAt(context, chatScale);
+		if(style == null || style.getClickEvent() == null)
+			return;
+		
+		handleClickEvent(style.getClickEvent());
+	}
+	
+	private void handleClickEvent(ClickEvent clickEvent)
+	{
+		if(clickEvent instanceof ClickEvent.OpenUrl openUrl
+			&& WurstClient.MC.screen != null)
+		{
+			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.screen,
+				openUrl.uri(), false);
+			return;
+		}
+		
+		if(clickEvent instanceof ClickEvent.RunCommand runCommand)
+		{
+			runClickedCommand(runCommand.command());
+		}
+	}
+	
+	private void runClickedCommand(String command)
+	{
+		if(command == null || command.isBlank())
+			return;
+		
+		String trimmed = command.trim();
+		if(trimmed.startsWith("."))
+		{
+			WurstClient.INSTANCE.getCmdProcessor()
+				.process(trimmed.substring(1));
+			return;
+		}
+		
+		if(WurstClient.MC.getConnection() != null)
+			WurstClient.MC.getConnection().sendCommand(trimmed);
+	}
+	
+	private boolean hasClickableAt(GuiGraphicsExtractor context,
+		float chatScale)
+	{
+		Style style = getClickableStyleAt(context, chatScale);
+		return style != null && style.getClickEvent() != null;
+	}
+	
+	private Style getClickableStyleAt(GuiGraphicsExtractor context,
+		float chatScale)
+	{
+		if(!(WurstClient.MC.screen instanceof ChatScreen) && !tabHeldForOverlay)
+			return null;
+		
+		double mouseX = getScaledMouseX(context);
+		double mouseY = getScaledMouseY(context);
+		Style main = getClickableStyleAt(lastMainClickTargets, mouseX, mouseY);
+		if(main != null && main.getClickEvent() != null)
+			return main;
+		
+		return getClickableStyleAt(lastWurstClickTargets, mouseX, mouseY);
+	}
+	
+	private Style getClickableStyleAt(List<LineClickTarget> targets,
+		double mouseX, double mouseY)
+	{
+		for(LineClickTarget target : targets)
+		{
+			double lineHeight = WurstClient.MC.font.lineHeight * target.scale();
+			if(mouseY < target.y() || mouseY > target.y() + lineHeight)
+				continue;
+			
+			int localX =
+				(int)Math.floor((mouseX - target.x()) / target.scale());
+			if(localX < 0)
+				continue;
+			
+			return styleAtWidth(target.text(), localX);
+		}
+		
+		return null;
+	}
+	
+	private Style styleAtWidth(FormattedText text, int x)
+	{
+		if(text == null)
+			return null;
+		
+		Style[] result = {null};
+		int[] width = {0};
+		text.visit((style, string) -> {
+			if(result[0] != null || string == null || string.isEmpty())
+				return java.util.Optional.empty();
+			
+			for(int i = 1; i <= string.length(); i++)
+			{
+				int nextWidth =
+					WurstClient.MC.font.width(string.substring(0, i));
+				if(width[0] + nextWidth > x)
+				{
+					result[0] = style;
+					break;
+				}
+			}
+			
+			width[0] += WurstClient.MC.font.width(string);
+			return java.util.Optional.empty();
+		}, Style.EMPTY);
+		return result[0];
+	}
+	
 	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
 		float width, float height, int wurstY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel)
@@ -1475,7 +1672,16 @@ public final class ClientMessageOverlay
 	private record Entry(Component component, long timestamp)
 	{}
 	
-	private record RenderLine(FormattedCharSequence text, int alpha)
+	private record WrappedLine(FormattedCharSequence sequence,
+		FormattedText text)
+	{}
+	
+	private record RenderLine(FormattedCharSequence text, int alpha,
+		FormattedText textSource)
+	{}
+	
+	private record LineClickTarget(FormattedText text, double x, double y,
+		float scale)
 	{}
 	
 	private record ChatDelimiter(int index, boolean trusted)

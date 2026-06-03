@@ -21,6 +21,7 @@ public final class CmdList
 	public final AnnoyCmd annoyCmd = new AnnoyCmd();
 	public final AuthorCmd authorCmd = new AuthorCmd();
 	public final AutoFlyCmd autoFlyCmd = new AutoFlyCmd();
+	public final AutoBuildCmd autoBuildCmd = new AutoBuildCmd();
 	public final BindCmd bindCmd = new BindCmd();
 	public final BindsCmd bindsCmd = new BindsCmd();
 	public final BlinkCmd blinkCmd = new BlinkCmd();
