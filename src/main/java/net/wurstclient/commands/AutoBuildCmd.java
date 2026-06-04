@@ -31,7 +31,7 @@ public final class AutoBuildCmd extends Command
 	{
 		if(args.length == 0)
 			throw new CmdSyntaxError();
-
+		
 		AutoBuildHack autoBuildHack = WURST.getHax().autoBuildHack;
 		String templateName = String.join(" ", args);
 		if(!autoBuildHack.selectTemplateByName(templateName))

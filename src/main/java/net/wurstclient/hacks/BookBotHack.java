@@ -18,7 +18,10 @@ import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.Random;
 
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.network.Filterable;
+import net.minecraft.world.item.component.WrittenBookContent;
 import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -57,6 +60,10 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private final SliderSetting pages = new SliderSetting("Pages",
 		"Number of pages to write per book (Random mode).", 50, 1, 100, 1,
 		ValueDisplay.INTEGER);
+	
+	private final SliderSetting characters = new SliderSetting("Characters",
+		"Number of characters to write per page (Random mode).", 128, 1, 1024,
+		1, ValueDisplay.INTEGER);
 	
 	private final EnumSetting<RandomType> randomType = new EnumSetting<>(
 		"Random type", "Character profile used in Random mode.",
@@ -104,6 +111,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		
 		addSetting(mode);
 		addSetting(pages);
+		addSetting(characters);
 		addSetting(randomType);
 		addSetting(delay);
 		addSetting(sign);
@@ -177,17 +185,20 @@ public final class BookBotHack extends Hack implements UpdateListener
 				break;
 				case ASCII:
 				{
-					PrimitiveIterator.OfInt chars = random.ints(0x21, 0x7F)
-						.filter(this::isValidRandomCodePoint).iterator();
+					PrimitiveIterator.OfInt chars = random.ints(0x21, 0x80)
+						.filter(i -> !Character.isWhitespace(i) && i != '\r'
+							&& i != '\n')
+						.iterator();
 					generatedPages = randomPages(chars);
 					break;
 				}
 				case UTF8:
 				default:
 				{
-					PrimitiveIterator.OfInt chars =
-						random.ints(0x0800, 0x110000)
-							.filter(this::isValidRandomCodePoint).iterator();
+					PrimitiveIterator.OfInt chars = random.ints(0x21, 0xD800)
+						.filter(i -> !Character.isWhitespace(i) && i != '\r'
+							&& i != '\n')
+						.iterator();
 					generatedPages = randomPages(chars);
 					break;
 				}
@@ -256,71 +267,21 @@ public final class BookBotHack extends Hack implements UpdateListener
 	{
 		ArrayList<String> outPages = new ArrayList<>();
 		StringBuilder page = new StringBuilder();
-		StringBuilder line = new StringBuilder();
 		int maxPages = pages.getValueI();
-		int lineWidth = 0;
-		int linesOnPage = 0;
+		int pageIndex = 0;
 		
-		while(chars.hasNext() && outPages.size() < maxPages)
+		while(pageIndex != maxPages)
 		{
-			int cp = chars.nextInt();
-			if(cp == '\r' || cp == '\n')
-				continue; // skip explicit newlines in random mode
-				
-			// width of this code point in pixels
-			String s = new String(Character.toChars(cp));
-			int w = MC.font.width(s);
+			for(int i = 0; i < characters.getValueI() && chars.hasNext(); i++)
+				page.appendCodePoint(chars.nextInt());
 			
-			if(lineWidth + w <= 114)
+			if(!page.isEmpty())
 			{
-				line.append(s);
-				lineWidth += w;
-			}else
-			{
-				// finish current line
-				page.append(line).append('\n');
-				line.setLength(0);
-				lineWidth = 0;
-				linesOnPage++;
-				
-				if(linesOnPage >= 14)
-				{
-					// finish page
-					outPages.add(page.toString());
-					page.setLength(0);
-					linesOnPage = 0;
-					
-					if(outPages.size() >= maxPages)
-						break;
-				}
-				
-				// start next line with current char if it fits (it should,
-				// unless glyph is wider than 114px)
-				if(w <= 114)
-				{
-					line.append(s);
-					lineWidth = w;
-				}
+				outPages.add(page.toString());
+				page.setLength(0);
 			}
-		}
-		
-		// flush last line
-		if(line.length() > 0)
-		{
-			page.append(line);
-			linesOnPage++;
-		}
-		
-		// pad remaining lines with explicit newlines to close the page properly
-		if(page.length() > 0 && outPages.size() < maxPages)
-		{
-			// ensure max 14 lines per page
-			while(linesOnPage > 0 && linesOnPage < 14)
-			{
-				page.append('\n');
-				linesOnPage++;
-			}
-			outPages.add(page.toString());
+			
+			pageIndex++;
 		}
 		
 		return outPages;
@@ -329,12 +290,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private List<String> paperMcPages()
 	{
 		ArrayList<String> outPages = new ArrayList<>(100);
-		PrimitiveIterator.OfInt oneByte = random.ints(0x21, 0x80)
-			.filter(this::isValidRandomCodePoint).iterator();
-		PrimitiveIterator.OfInt twoBytes = random.ints(0x0080, 0x0800)
-			.filter(this::isValidRandomCodePoint).iterator();
-		PrimitiveIterator.OfInt threeBytes = random.ints(0x0800, 0xD800)
-			.filter(this::isValidRandomCodePoint).iterator();
+		PrimitiveIterator.OfInt oneByte = random.ints(0x21, 0x80).iterator();
+		PrimitiveIterator.OfInt twoBytes =
+			random.ints(0x0080, 0x0800).iterator();
+		PrimitiveIterator.OfInt threeBytes =
+			random.ints(0x0800, 0xD800).iterator();
 		
 		for(int page = 0; page < 50; page++)
 		{
@@ -367,21 +327,6 @@ public final class BookBotHack extends Hack implements UpdateListener
 	{
 		for(int i = 0; i < count; i++)
 			sb.appendCodePoint(chars.nextInt());
-	}
-	
-	private boolean isValidRandomCodePoint(int cp)
-	{
-		if(cp == '\r' || cp == '\n')
-			return false;
-		if(Character.isWhitespace(cp))
-			return false;
-		if(!Character.isValidCodePoint(cp))
-			return false;
-		if(cp >= Character.MIN_SURROGATE && cp <= Character.MAX_SURROGATE)
-			return false;
-		if(Character.isISOControl(cp))
-			return false;
-		return Character.isDefined(cp);
 	}
 	
 	private List<String> filePages(String text)
@@ -434,9 +379,17 @@ public final class BookBotHack extends Hack implements UpdateListener
 		String title = name.getValue();
 		if(appendCount.isChecked() && bookCount != 0)
 			title += " #" + bookCount;
-			
-		// Keep packet-only behavior to avoid writing brittle local
-		// WRITABLE_BOOK content components across mappings.
+		
+		// Build filtered pages for the component
+		ArrayList<Filterable<Component>> filteredPages = new ArrayList<>();
+		for(String page : pages)
+			filteredPages.add(Filterable.passThrough(Component.literal(page)));
+		
+		// Write data to book (client-side component)
+		MC.player.getMainHandItem().set(DataComponents.WRITTEN_BOOK_CONTENT,
+			new WrittenBookContent(Filterable.passThrough(title),
+				MC.player.getGameProfile().name(), 0, filteredPages, true));
+		
 		logBookPayloadEstimate(pages, title);
 		
 		// Send packet
