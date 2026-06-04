@@ -209,10 +209,12 @@ public final class HackList implements UpdateListener
 	public final NameProtectHack nameProtectHack = new NameProtectHack();
 	public final NameTagsHack nameTagsHack = new NameTagsHack();
 	public final NecoModeHack necoModeHack = new NecoModeHack();
+	public final NoGoZoneHack noGoZoneHack = new NoGoZoneHack();
 	public final NavigatorHack navigatorHack = new NavigatorHack();
 	public final NewChunksHack newChunksHack = new NewChunksHack();
 	public final NewerNewChunksHack newerNewChunksHack =
 		new NewerNewChunksHack();
+	public final NbtFilterHack nbtFilterHack = new NbtFilterHack();
 	public final NbtSizeCounterHack nbtSizeCounterHack =
 		new NbtSizeCounterHack();
 	public final NoBackgroundHack noBackgroundHack = new NoBackgroundHack();
