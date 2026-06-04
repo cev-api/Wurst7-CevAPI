@@ -74,6 +74,7 @@
     "NecoModeLivingEntityRendererMixin",
     "JoinMultiplayerScreenMixin",
     "PackSelectionScreenMixin",
+    "PacketDecoderMixin",
     "PlayerAttackStrengthAccessor",
     "MobEffectInstanceMixin",
     "MouseHandlerMixin",

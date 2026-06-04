@@ -2856,7 +2856,8 @@
     "Sound alert": true,
     "Sound": "minecraft:block.note_block.flute",
     "Volume": 200.0,
-    "Ignore self": true
+    "Ignore self": true,
+    "Hidden player alerts": false
   },
   "SpeedHack": {
     "Max speed": 0.7,

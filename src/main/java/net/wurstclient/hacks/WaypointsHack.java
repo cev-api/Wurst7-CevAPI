@@ -152,6 +152,10 @@ public final class WaypointsHack extends Hack
 		new CheckboxSetting("Icon-only when obscured",
 			"When a waypoint is hidden behind blocks, only show its icon on the on-screen compass unless you're looking directly at it.",
 			false);
+	private final CheckboxSetting showLineDistanceUnderCrosshair =
+		new CheckboxSetting("Show line distance under crosshair",
+			"Shows the distance to a waypoint under the crosshair while looking at a waypoint with lines enabled.",
+			true);
 	
 	// Waypoint world-label outline settings
 	private final CheckboxSetting waypointOutline =
@@ -209,6 +213,7 @@ public final class WaypointsHack extends Hack
 		addSetting(compassOutlineOpacity);
 		addSetting(dimObscuredOnScreenWaypoints);
 		addSetting(iconOnlyForObscuredOnScreenWaypoints);
+		addSetting(showLineDistanceUnderCrosshair);
 		addSetting(waypointOutline);
 		addSetting(waypointOutlineOpacity);
 		addSetting(compassBackgroundOpacity);
@@ -1409,7 +1414,13 @@ public final class WaypointsHack extends Hack
 	@Override
 	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
-		if(!compassMode.isChecked() || MC.player == null || MC.level == null)
+		if(MC.player == null || MC.level == null)
+			return;
+
+		if(showLineDistanceUnderCrosshair.isChecked())
+			renderLineDistanceUnderCrosshair(context);
+
+		if(!compassMode.isChecked())
 			return;
 		
 		Font tr = MC.font;
@@ -1596,6 +1607,46 @@ public final class WaypointsHack extends Hack
 		}
 	}
 	
+	private void renderLineDistanceUnderCrosshair(GuiGraphicsExtractor context)
+	{
+		WaypointDistanceTarget target = getCrosshairLineDistanceTarget();
+		if(target == null)
+			return;
+
+		Font font = MC.font;
+		String text = target.distanceBlocks + " blocks";
+		int centerX = context.guiWidth() / 2;
+		int y = context.guiHeight() / 2 + 10;
+		int x = centerX - font.width(text) / 2;
+		context.text(font, text, x, y, target.color, true);
+	}
+
+	private WaypointDistanceTarget getCrosshairLineDistanceTarget()
+	{
+		WaypointDistanceTarget best = null;
+		for(Waypoint waypoint : new ArrayList<>(manager.all()))
+		{
+			if(!waypoint.isVisible() || !waypoint.isLines())
+				continue;
+
+			BlockPos pos = worldSpace(waypoint);
+			if(pos == null)
+				continue;
+
+			double angle = angleToWaypoint(pos);
+			if(angle > 5.0)
+				continue;
+
+			double distSq = MC.player.distanceToSqr(pos.getX() + 0.5,
+				pos.getY() + 0.5, pos.getZ() + 0.5);
+			int distanceBlocks = (int)Math.round(Math.sqrt(distSq));
+			int color = applyFade(waypoint.getColor(), distSq);
+			if(best == null || angle < best.angle)
+				best = new WaypointDistanceTarget(distanceBlocks, angle, color);
+		}
+		return best;
+	}
+
 	private int adjustCompassYForOverlays(GuiGraphicsExtractor context,
 		int baseY)
 	{
@@ -1709,23 +1760,27 @@ public final class WaypointsHack extends Hack
 	private boolean isDirectlyLookingAtWaypoint(BlockPos waypointPos,
 		double maxAngleDeg)
 	{
+		return angleToWaypoint(waypointPos) <= maxAngleDeg;
+	}
+
+	private double angleToWaypoint(BlockPos waypointPos)
+	{
 		if(MC.player == null || waypointPos == null)
-			return false;
-		
+			return Double.POSITIVE_INFINITY;
+
 		Vec3 eyes = MC.player.getEyePosition(1.0F);
 		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
 			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
 		Vec3 toWp = target.subtract(eyes);
 		double len = toWp.length();
 		if(len < 1.0E-6)
-			return true;
-		
+			return 0.0;
+
 		Vec3 dir = toWp.scale(1.0 / len);
 		Vec3 look = MC.player.getLookAngle();
 		double dot = look.dot(dir);
 		dot = Math.max(-1.0, Math.min(1.0, dot));
-		double angle = Math.toDegrees(Math.acos(dot));
-		return angle <= maxAngleDeg;
+		return Math.toDegrees(Math.acos(dot));
 	}
 	
 	private int dimForObscured(int argb)
@@ -1751,6 +1806,20 @@ public final class WaypointsHack extends Hack
 		}
 	}
 	
+	private static final class WaypointDistanceTarget
+	{
+		final int distanceBlocks;
+		final double angle;
+		final int color;
+
+		WaypointDistanceTarget(int distanceBlocks, double angle, int color)
+		{
+			this.distanceBlocks = distanceBlocks;
+			this.angle = angle;
+			this.color = color;
+		}
+	}
+
 	private static final class OcclusionSample
 	{
 		final BlockPos pos;

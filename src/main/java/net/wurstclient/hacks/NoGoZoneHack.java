@@ -107,17 +107,51 @@ public final class NoGoZoneHack extends Hack
 			AABB box = zone.getBoundingBox();
 			if(box == null)
 				continue;
-				
-			// Render as a thin ground slab at the player's feet so large zones
-			// remain visible even when the original center Y is far away.
-			double groundY = Math.floor(MC.player.getY()) - 0.02;
-			AABB renderBox = new AABB(box.minX, groundY, box.minZ, box.maxX,
-				groundY + 0.06, box.maxZ);
 			
-			RenderUtils.drawSolidBox(matrixStack, renderBox, fillColor, false);
-			RenderUtils.drawOutlinedBox(matrixStack,
-				renderBox.expandTowards(0, 1, 0), outlineColor, false);
+			if(zone.contains(MC.player.position()))
+				renderFloor(matrixStack, zone, fillColor, outlineColor);
+			else
+				renderWalls(matrixStack, zone, fillColor, outlineColor);
 		}
+	}
+	
+	private void renderFloor(PoseStack matrixStack, NoGoZone zone,
+		int fillColor, int outlineColor)
+	{
+		AABB box = zone.getBoundingBox();
+		double groundY = zone.center.getY() - 0.02;
+		AABB floor = new AABB(box.minX, groundY, box.minZ, box.maxX,
+			groundY + 0.06, box.maxZ);
+		
+		RenderUtils.drawSolidBox(matrixStack, floor, fillColor, false);
+		RenderUtils.drawOutlinedBox(matrixStack, floor.expandTowards(0, 1, 0),
+			outlineColor, false);
+	}
+	
+	private void renderWalls(PoseStack matrixStack, NoGoZone zone,
+		int fillColor, int outlineColor)
+	{
+		AABB box = zone.getBoundingBox();
+		double minY = 0;
+		double maxY = 200;
+		double minX = box.minX;
+		double maxX = box.maxX;
+		double minZ = box.minZ;
+		double maxZ = box.maxZ;
+		double thickness = 0.15;
+		
+		List<AABB> walls = List.of(
+			new AABB(minX - thickness, minY, minZ - thickness, maxX + thickness,
+				maxY, minZ + thickness),
+			new AABB(minX - thickness, minY, maxZ - thickness, maxX + thickness,
+				maxY, maxZ + thickness),
+			new AABB(minX - thickness, minY, minZ - thickness, minX + thickness,
+				maxY, maxZ + thickness),
+			new AABB(maxX - thickness, minY, minZ - thickness, maxX + thickness,
+				maxY, maxZ + thickness));
+		
+		RenderUtils.drawSolidBoxes(matrixStack, walls, fillColor, false);
+		RenderUtils.drawOutlinedBoxes(matrixStack, walls, outlineColor, false);
 	}
 	
 	private void keepPlayerOut(NoGoZone zone)
