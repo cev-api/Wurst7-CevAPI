@@ -64,6 +64,7 @@
     "OfflineSettingsHandshakeMixin",
     "OfflineSettingsNetworkMixin",
     "NecoModeLivingEntityRendererMixin",
+    "PacketDecoderMixin",
     "OptionInstanceMixin",
     "OnlineServerEntryMixin",
     "PackSelectionScreenMixin",

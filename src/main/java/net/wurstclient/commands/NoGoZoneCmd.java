@@ -26,7 +26,7 @@ public final class NoGoZoneCmd extends Command
 		super("nogozone",
 			"Manages NoGoZones - areas you cannot re-enter after leaving.\n"
 				+ "Use when NoGoZone hack is enabled.",
-			".nogozone add", ".nogozone list", ".nogozone remove <id>",
+			".nogozone add [x z]", ".nogozone list", ".nogozone remove <id>",
 			".nogozone clear");
 	}
 	
@@ -39,7 +39,7 @@ public final class NoGoZoneCmd extends Command
 		switch(args[0].toLowerCase())
 		{
 			case "add":
-			addZone();
+			addZone(args);
 			break;
 			
 			case "list":
@@ -61,27 +61,44 @@ public final class NoGoZoneCmd extends Command
 		}
 	}
 	
-	private void addZone()
+	private void addZone(String[] args) throws CmdError
 	{
 		if(MC.player == null)
 		{
 			ChatUtils.error("You must be in a world to add a NoGoZone.");
 			return;
 		}
+		if(args.length != 1 && args.length != 3)
+			throw new CmdError("Usage: .nogozone add [x z]");
 		
 		// Read the effective render distance (capped by server view distance)
 		int renderDistance = MC.options.getEffectiveRenderDistance();
-		// Add +1 as specified
-		int chunkRadius = renderDistance + 1;
+		// Add +3 as specified
+		int chunkRadius = renderDistance + 3;
 		
-		BlockPos playerPos = MC.player.blockPosition();
-		int id = NoGoZoneHack.addZone(playerPos, chunkRadius);
+		BlockPos zonePos = args.length == 3
+			? parseXZ(args[1], args[2], MC.player.blockPosition().getY())
+			: MC.player.blockPosition();
+		int id = NoGoZoneHack.addZone(zonePos, chunkRadius);
 		WURST.getHax().noGoZoneHack.setEnabled(true);
 		
 		int blockRadius = chunkRadius * 16;
-		ChatUtils.message("NoGoZone #" + id + " created at " + playerPos.getX()
-			+ " " + playerPos.getY() + " " + playerPos.getZ() + " with radius "
+		ChatUtils.message("NoGoZone #" + id + " created at " + zonePos.getX()
+			+ " " + zonePos.getY() + " " + zonePos.getZ() + " with radius "
 			+ blockRadius + " blocks (" + chunkRadius + " chunks).");
+	}
+	
+	private BlockPos parseXZ(String xStr, String zStr, int y) throws CmdError
+	{
+		try
+		{
+			return new BlockPos(Integer.parseInt(xStr), y,
+				Integer.parseInt(zStr));
+			
+		}catch(NumberFormatException e)
+		{
+			throw new CmdError("Invalid coordinates: " + xStr + " " + zStr);
+		}
 	}
 	
 	private void listZones()
