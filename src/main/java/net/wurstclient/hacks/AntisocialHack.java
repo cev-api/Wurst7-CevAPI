@@ -120,18 +120,21 @@ public final class AntisocialHack extends Hack
 		
 		String intruder =
 			player == null ? info.getName() : player.getName().getString();
+		Vec3 selfPos = MC.player == null ? null : MC.player.position();
 		
 		Mode selectedMode = mode.getSelected();
 		ChatUtils.message("\u00a76Antisocial:\u00a7r " + intruder
 			+ " entered your range. Leaving via " + selectedMode + " mode.");
 		
-		leave(selectedMode, intruder, info.getLastPos());
+		leave(selectedMode, intruder, selfPos, info.getLastPos());
 	}
 	
-	private void leave(Mode selectedMode, String intruder, Vec3 intruderPos)
+	private void leave(Mode selectedMode, String intruder, Vec3 selfPos,
+		Vec3 intruderPos)
 	{
-		String details = "Detected player: " + intruder + "\nDetected at: "
-			+ formatVec(intruderPos);
+		String details = "Detected player: " + intruder + "\nDetected at:\n"
+			+ DisconnectContext.formatPlayerDetectionDetails(selfPos,
+				intruderPos);
 		
 		switch(selectedMode)
 		{
@@ -188,14 +191,5 @@ public final class AntisocialHack extends Hack
 	public void onPlayerExit(PlayerRangeAlertManager.PlayerInfo info)
 	{
 		// not needed
-	}
-	
-	private static String formatVec(Vec3 vec)
-	{
-		if(vec == null)
-			return "unknown";
-		
-		return String.format(java.util.Locale.ROOT, "%.1f, %.1f, %.1f", vec.x,
-			vec.y, vec.z);
 	}
 }

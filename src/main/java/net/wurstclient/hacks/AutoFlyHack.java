@@ -1441,12 +1441,21 @@ public final class AutoFlyHack extends Hack
 		if(info == null || info.isBlank())
 			return;
 		
+		String eta = buildETAInfo();
+		
 		Font font = MC.font;
 		int centerX = context.guiWidth() / 2;
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
 		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
+		
+		if(eta != null && !eta.isBlank())
+		{
+			int etaWidth = font.width(eta);
+			int etaX = centerX - etaWidth / 2;
+			context.drawString(font, eta, etaX, y + 10, 0xFFAAAAAA, true);
+		}
 	}
 	
 	@Override
@@ -2175,6 +2184,47 @@ public final class AutoFlyHack extends Hack
 		return String.format(Locale.ROOT,
 			"AutoFly %d/%d | %.1fm | %.1fb/s | %s", index, total, dist, speed,
 			getStateLabel());
+	}
+	
+	private String buildETAInfo()
+	{
+		if(currentTarget == null || MC.player == null || targets.isEmpty())
+			return null;
+		
+		if(commandForwardUnlimited)
+			return null;
+		
+		double speed = MC.player.getDeltaMovement().length() * 20.0;
+		if(speed < 0.01)
+			return null;
+		
+		// Sum remaining distance: current target + all subsequent targets
+		double totalDist = 0;
+		Vec3 lastPos = MC.player.position();
+		
+		for(int i = currentIndex; i < targets.size(); i++)
+		{
+			AutoFlyTarget t = targets.get(i);
+			Vec3 targetPos = Vec3.atCenterOf(t.pos);
+			totalDist += lastPos.distanceTo(targetPos);
+			lastPos = targetPos;
+		}
+		
+		double etaSeconds = totalDist / speed;
+		
+		if(etaSeconds < 60)
+			return String.format(Locale.ROOT, "ETA %.0fs", etaSeconds);
+		
+		if(etaSeconds < 3600)
+		{
+			int minutes = (int)(etaSeconds / 60);
+			int seconds = (int)(etaSeconds % 60);
+			return String.format(Locale.ROOT, "ETA %dm %ds", minutes, seconds);
+		}
+		
+		int hours = (int)(etaSeconds / 3600);
+		int minutes = (int)((etaSeconds % 3600) / 60);
+		return String.format(Locale.ROOT, "ETA %dh %dm", hours, minutes);
 	}
 	
 	private String getStateLabel()

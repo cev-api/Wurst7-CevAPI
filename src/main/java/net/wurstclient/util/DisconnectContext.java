@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 
 public final class DisconnectContext
 {
@@ -52,6 +53,23 @@ public final class DisconnectContext
 		return sb.toString();
 	}
 	
+	public static String formatPlayerDetectionDetails(Vec3 selfPos,
+		Vec3 otherPos)
+	{
+		if(otherPos == null)
+			return "unknown";
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append(describePlayerDistance(selfPos, otherPos));
+		if(selfPos != null)
+		{
+			sb.append("\nDistance: ")
+				.append(formatBlockDistance(selfPos.distanceTo(otherPos)));
+		}
+		sb.append("\nPosition: ").append(formatVec(otherPos));
+		return sb.toString();
+	}
+	
 	public static void markExpectedDisconnect(String details)
 	{
 		lastExpectedDisconnectMs = System.currentTimeMillis();
@@ -85,5 +103,36 @@ public final class DisconnectContext
 	private static String formatBlockPos(BlockPos pos)
 	{
 		return pos.getX() + ", " + pos.getY() + ", " + pos.getZ();
+	}
+	
+	private static String formatVec(Vec3 vec)
+	{
+		return String.format(java.util.Locale.ROOT, "%.1f, %.1f, %.1f", vec.x,
+			vec.y, vec.z);
+	}
+	
+	private static String describePlayerDistance(Vec3 selfPos, Vec3 otherPos)
+	{
+		if(selfPos == null || otherPos == null)
+			return "unknown";
+		
+		double dx = otherPos.x - selfPos.x;
+		double dy = otherPos.y - selfPos.y;
+		double dz = otherPos.z - selfPos.z;
+		double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
+		if(Math.abs(dy) >= 0.5D
+			&& Math.abs(dy) >= Math.max(Math.abs(dx), Math.abs(dz)))
+		{
+			long blocks = Math.max(1L, Math.round(Math.abs(dy)));
+			return blocks + " Blocks " + (dy > 0 ? "Above" : "Below");
+		}
+		
+		long blocks = Math.max(1L, Math.round(horizontalDistance));
+		return blocks + " Blocks Horizontally";
+	}
+	
+	private static String formatBlockDistance(double distance)
+	{
+		return String.format(java.util.Locale.ROOT, "%.1f blocks", distance);
 	}
 }

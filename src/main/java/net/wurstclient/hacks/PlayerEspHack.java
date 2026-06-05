@@ -63,6 +63,7 @@ import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.settings.filters.FilterInvisibleSetting;
 import net.wurstclient.settings.filters.FilterSleepingSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.NpcUtils;
@@ -522,13 +523,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		
 		UUID id = info.getUuid();
 		Vec3 pos = info.getLastPos();
-		double dist = pos == null ? -1.0
-			: Math.round(pos.distanceTo(
-				new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
-				* 10.0) / 10.0;
-		int x = pos == null ? 0 : (int)Math.round(pos.x);
-		int y = pos == null ? 0 : (int)Math.round(pos.y);
-		int z = pos == null ? 0 : (int)Math.round(pos.z);
+		String detectionDetails = formatDetectionDetails(pos);
 		MutableComponent nameText = MutableComponent
 			.create(Component.literal(trimmedName).getContents());
 		if(randomBrightColors.isChecked())
@@ -539,10 +534,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
-		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
 		MutableComponent msg = nameText.append(Component
-			.literal(" entered range (" + distStr + ") at " + x + ", " + y
-				+ ", " + z + ".")
+			.literal(" entered range.\nDetected at:\n" + detectionDetails
+				+ "\nUUID: " + (id == null ? "unknown" : id))
 			.withStyle(s -> s
 				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
 		if(showEquipmentInEnterAlerts.isChecked())
@@ -566,12 +560,12 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		if(name.isEmpty())
 			name = "Unknown";
 		
-		String line2 = "Player entered range";
+		String line2 = formatDetectionSummary(info.getLastPos());
 		if(showEquipmentInEnterAlerts.isChecked())
 		{
 			String equipmentLine = getEquipmentLine(info.getUuid());
 			if(!equipmentLine.isBlank())
-				line2 = equipmentLine;
+				line2 = line2 + " | " + equipmentLine;
 		}
 		
 		SystemToast toast = SystemToast.multiline(MC,
@@ -612,6 +606,27 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			return "Empty";
 		
 		return stack.getHoverName().getString();
+	}
+	
+	private String formatDetectionDetails(Vec3 pos)
+	{
+		if(MC.player == null || pos == null)
+			return "unknown";
+		
+		return DisconnectContext
+			.formatPlayerDetectionDetails(MC.player.position(), pos);
+	}
+	
+	private String formatDetectionSummary(Vec3 pos)
+	{
+		String details = formatDetectionDetails(pos);
+		if(details.equals("unknown"))
+			return "Detected at: unknown";
+		
+		int lineBreak = details.indexOf('\n');
+		String firstLine =
+			lineBreak < 0 ? details : details.substring(0, lineBreak);
+		return "Detected at: " + firstLine;
 	}
 	
 	@Override
@@ -737,13 +752,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			return;
 		
 		Vec3 pos = info.getLastPos();
-		double dist = pos == null ? -1.0
-			: Math.round(pos.distanceTo(
-				new Vec3(MC.player.getX(), MC.player.getY(), MC.player.getZ()))
-				* 10.0) / 10.0;
-		int x = pos == null ? 0 : (int)Math.round(pos.x);
-		int y = pos == null ? 0 : (int)Math.round(pos.y);
-		int z = pos == null ? 0 : (int)Math.round(pos.z);
 		String rawName = info.getName();
 		if(rawName == null)
 			return;
@@ -761,10 +769,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			nameText.setStyle(nameText.getStyle().withColor(TextColor.fromRgb(
 				(gen.getRed() << 16) | (gen.getGreen() << 8) | gen.getBlue())));
 		}
-		String distStr = dist < 0 ? "unknown" : (dist + " blocks");
+		String detectionDetails = formatDetectionDetails(pos);
 		Component msg = nameText.append(Component
-			.literal(" left range (" + distStr + ") at " + x + ", " + y + ", "
-				+ z + ".")
+			.literal(" left range.\nDetected at:\n" + detectionDetails)
 			.withStyle(s -> s
 				.withColor(TextColor.fromLegacyFormat(ChatFormatting.WHITE))));
 		ChatUtils.component(msg);
