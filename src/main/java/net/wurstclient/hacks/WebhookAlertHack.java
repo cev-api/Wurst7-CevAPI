@@ -317,9 +317,8 @@ public final class WebhookAlertHack extends Hack
 		Vec3 pos = info == null ? null : info.getLastPos();
 		if(pos == null && player != null)
 			pos = player.position();
-		
-		double distance =
-			pos == null ? -1 : MC.player.position().distanceTo(pos);
+		String detectionDetails = DisconnectContext
+			.formatPlayerDetectionDetails(MC.player.position(), pos);
 		UUID uuid = info == null ? null : info.getUuid();
 		Player livePlayer = player;
 		if(livePlayer == null && uuid != null && MC.level != null)
@@ -327,12 +326,9 @@ public final class WebhookAlertHack extends Hack
 		
 		send("Player entered range",
 			"Time: " + now() + "\nPlayer: " + name + "\nUUID: "
-				+ (uuid == null ? "unknown" : uuid) + "\nPosition: "
-				+ formatVec(pos) + "\nDistance: "
-				+ (distance < 0 ? "unknown"
-					: String.format(Locale.ROOT, "%.1f blocks", distance))
-				+ "\nTarget status: " + formatTargetStatus(livePlayer)
-				+ "\nMain hand: "
+				+ (uuid == null ? "unknown" : uuid) + "\nDetected at:\n"
+				+ detectionDetails + "\nTarget status: "
+				+ formatTargetStatus(livePlayer) + "\nMain hand: "
 				+ formatDetailedStack(livePlayer == null
 					? ItemStack.EMPTY : livePlayer.getMainHandItem())
 				+ "\nOff hand: "

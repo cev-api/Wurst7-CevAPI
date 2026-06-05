@@ -21,7 +21,9 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"no go zone", "nogozone", "zone", "no go", "restrict area",
@@ -32,17 +34,33 @@ public final class NoGoZoneHack extends Hack
 {
 	private static final List<NoGoZone> ZONES = new ArrayList<>();
 	private static final Set<Integer> PLAYER_INSIDE_ZONE_IDS = new HashSet<>();
+	private static final int RENDER_HEIGHT = 50;
 	private static int nextZoneId = 1;
-	private Vec3 lastSafePos;
 	
-	private final ColorSetting zoneColor = new ColorSetting("Zone color",
-		"Color of the no-go zone ground highlight", new Color(0xFF0000));
+	private final CheckboxSetting showRender = new CheckboxSetting(
+		"Show render",
+		"Renders the zone marker. Disable this to keep enforcing the zone without showing it.",
+		true);
+	
+	private final EnumSetting<RenderShape> renderShape =
+		new EnumSetting<>("Render shape", "Shape used to render NoGoZones.",
+			RenderShape.values(), RenderShape.BOX);
+	
+	private final ColorSetting boxColor = new ColorSetting("Box color",
+		"Color of the no-go zone box render.", new Color(0xFF0000));
+	
+	private final ColorSetting octahedronColor =
+		new ColorSetting("Octahedron color",
+			"Color of the no-go zone octahedron render.", new Color(0x003A8C));
 	
 	public NoGoZoneHack()
 	{
 		super("NoGoZone");
 		// No category = unlisted, accessible via search/navigator
-		addSetting(zoneColor);
+		addSetting(showRender);
+		addSetting(renderShape);
+		addSetting(boxColor);
+		addSetting(octahedronColor);
 	}
 	
 	@Override
@@ -50,8 +68,6 @@ public final class NoGoZoneHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		if(MC.player != null && !isInsideArmedZone(MC.player.position()))
-			lastSafePos = MC.player.position();
 	}
 	
 	@Override
@@ -68,15 +84,16 @@ public final class NoGoZoneHack extends Hack
 			return;
 		
 		Vec3 playerPos = MC.player.position();
-		boolean insideAnyArmedZone = false;
+		boolean insideAnyZone = false;
 		
 		for(NoGoZone zone : ZONES)
 		{
 			boolean playerInside = zone.contains(playerPos);
+			if(playerInside)
+				insideAnyZone = true;
 			
 			if(playerInside && !PLAYER_INSIDE_ZONE_IDS.contains(zone.id))
 			{
-				insideAnyArmedZone = true;
 				keepPlayerOut(zone);
 				return;
 			}
@@ -88,81 +105,45 @@ public final class NoGoZoneHack extends Hack
 			}
 		}
 		
-		if(!insideAnyArmedZone)
-			lastSafePos = playerPos;
+		if(!insideAnyZone)
+			return;
 	}
 	
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
-		if(MC.player == null)
+		if(MC.player == null || !showRender.isChecked())
 			return;
 		
-		// Strong alpha for visibility
-		int fillColor = zoneColor.getColorI(0x40);
-		int outlineColor = zoneColor.getColorI(0xFF);
+		ArrayList<AABB> boxes = new ArrayList<>();
 		
 		for(NoGoZone zone : ZONES)
+			boxes.add(zone.getRenderBox());
+		
+		switch(renderShape.getSelected())
 		{
-			AABB box = zone.getBoundingBox();
-			if(box == null)
-				continue;
+			case BOX:
+			int boxFillColor = boxColor.getColorI(0x30);
+			int boxLineColor = boxColor.getColorI(0xC0);
+			RenderUtils.drawSolidBoxes(matrixStack, boxes, boxFillColor, false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, boxLineColor,
+				false);
+			RenderUtils.drawCrossBoxes(matrixStack, boxes, boxLineColor, false);
+			break;
 			
-			if(zone.contains(MC.player.position()))
-				renderFloor(matrixStack, zone, fillColor, outlineColor);
-			else
-				renderWalls(matrixStack, zone, fillColor, outlineColor);
+			case OCTAHEDRON:
+			int octahedronFillColor = octahedronColor.getColorI(0x30);
+			int octahedronLineColor = octahedronColor.getColorI(0xC0);
+			RenderUtils.drawSolidOctahedrons(matrixStack, boxes,
+				octahedronFillColor, false);
+			RenderUtils.drawOutlinedOctahedrons(matrixStack, boxes,
+				octahedronLineColor, false);
+			break;
 		}
-	}
-	
-	private void renderFloor(PoseStack matrixStack, NoGoZone zone,
-		int fillColor, int outlineColor)
-	{
-		AABB box = zone.getBoundingBox();
-		double groundY = zone.center.getY() - 0.02;
-		AABB floor = new AABB(box.minX, groundY, box.minZ, box.maxX,
-			groundY + 0.06, box.maxZ);
-		
-		RenderUtils.drawSolidBox(matrixStack, floor, fillColor, false);
-		RenderUtils.drawOutlinedBox(matrixStack, floor.expandTowards(0, 1, 0),
-			outlineColor, false);
-	}
-	
-	private void renderWalls(PoseStack matrixStack, NoGoZone zone,
-		int fillColor, int outlineColor)
-	{
-		AABB box = zone.getBoundingBox();
-		double minY = 0;
-		double maxY = 200;
-		double minX = box.minX;
-		double maxX = box.maxX;
-		double minZ = box.minZ;
-		double maxZ = box.maxZ;
-		double thickness = 0.15;
-		
-		List<AABB> walls = List.of(
-			new AABB(minX - thickness, minY, minZ - thickness, maxX + thickness,
-				maxY, minZ + thickness),
-			new AABB(minX - thickness, minY, maxZ - thickness, maxX + thickness,
-				maxY, maxZ + thickness),
-			new AABB(minX - thickness, minY, minZ - thickness, minX + thickness,
-				maxY, maxZ + thickness),
-			new AABB(maxX - thickness, minY, minZ - thickness, maxX + thickness,
-				maxY, maxZ + thickness));
-		
-		RenderUtils.drawSolidBoxes(matrixStack, walls, fillColor, false);
-		RenderUtils.drawOutlinedBoxes(matrixStack, walls, outlineColor, false);
 	}
 	
 	private void keepPlayerOut(NoGoZone zone)
 	{
-		if(lastSafePos != null && !zone.contains(lastSafePos))
-		{
-			MC.player.setPos(lastSafePos.x, lastSafePos.y, lastSafePos.z);
-			stopPlayerMotion();
-			return;
-		}
-		
 		pushPlayerOut(zone);
 	}
 	
@@ -171,10 +152,10 @@ public final class NoGoZoneHack extends Hack
 		double playerX = MC.player.getX();
 		double playerZ = MC.player.getZ();
 		
-		int zoneMinX = zone.minChunk.getMinBlockX();
-		int zoneMaxX = zone.maxChunk.getMaxBlockX() + 1;
-		int zoneMinZ = zone.minChunk.getMinBlockZ();
-		int zoneMaxZ = zone.maxChunk.getMaxBlockZ() + 1;
+		int zoneMinX = zone.minX;
+		int zoneMaxX = zone.maxX + 1;
+		int zoneMinZ = zone.minZ;
+		int zoneMaxZ = zone.maxZ + 1;
 		
 		// Distances to each edge (positive = inside zone)
 		double distMinX = playerX - zoneMinX;
@@ -188,7 +169,7 @@ public final class NoGoZoneHack extends Hack
 		double minDist = Math.min(Math.min(distMinX, distMaxX),
 			Math.min(distMinZ, distMaxZ));
 		
-		double pushAmount = 1.5;
+		double pushAmount = 0.35;
 		
 		if(minDist == distMinX)
 			targetX = zoneMinX - pushAmount;
@@ -200,7 +181,6 @@ public final class NoGoZoneHack extends Hack
 			targetZ = zoneMaxZ + pushAmount;
 		
 		MC.player.setPos(targetX, MC.player.getY(), targetZ);
-		lastSafePos = new Vec3(targetX, MC.player.getY(), targetZ);
 		stopPlayerMotion();
 	}
 	
@@ -211,24 +191,15 @@ public final class NoGoZoneHack extends Hack
 		MC.player.zza = 0;
 	}
 	
-	private boolean isInsideArmedZone(Vec3 pos)
-	{
-		for(NoGoZone zone : ZONES)
-			if(zone.contains(pos) && !PLAYER_INSIDE_ZONE_IDS.contains(zone.id))
-				return true;
-			
-		return false;
-	}
-	
 	public static List<NoGoZone> getZones()
 	{
 		return ZONES;
 	}
 	
-	public static int addZone(BlockPos center, int chunkRadius)
+	public static int addZone(BlockPos center, int blockRadius)
 	{
 		int id = nextZoneId++;
-		NoGoZone zone = new NoGoZone(center, chunkRadius, id);
+		NoGoZone zone = new NoGoZone(center, blockRadius, id);
 		ZONES.add(zone);
 		// Player is inside the zone they just created
 		PLAYER_INSIDE_ZONE_IDS.add(id);
@@ -250,51 +221,74 @@ public final class NoGoZoneHack extends Hack
 	
 	// ---- Zone data class ----
 	
+	private enum RenderShape
+	{
+		BOX("Box"),
+		OCTAHEDRON("Octahedron");
+		
+		private final String name;
+		
+		private RenderShape(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
 	public static class NoGoZone
 	{
 		public final int id;
 		public final BlockPos center;
-		public final int chunkRadius;
-		public final ChunkPos minChunk;
-		public final ChunkPos maxChunk;
+		public final int blockRadius;
+		public final int minX;
+		public final int maxX;
+		public final int minZ;
+		public final int maxZ;
 		
-		public NoGoZone(BlockPos center, int chunkRadius, int id)
+		public NoGoZone(BlockPos center, int blockRadius, int id)
 		{
 			this.id = id;
 			this.center = center;
-			this.chunkRadius = chunkRadius;
-			ChunkPos centerChunk = ChunkPos.containing(center);
-			minChunk = new ChunkPos(centerChunk.x() - chunkRadius,
-				centerChunk.z() - chunkRadius);
-			maxChunk = new ChunkPos(centerChunk.x() + chunkRadius,
-				centerChunk.z() + chunkRadius);
+			this.blockRadius = blockRadius;
+			minX = center.getX() - blockRadius;
+			maxX = center.getX() + blockRadius;
+			minZ = center.getZ() - blockRadius;
+			maxZ = center.getZ() + blockRadius;
 		}
 		
 		public boolean containsChunk(ChunkPos chunk)
 		{
-			return chunk.x() >= minChunk.x() && chunk.x() <= maxChunk.x()
-				&& chunk.z() >= minChunk.z() && chunk.z() <= maxChunk.z();
+			return chunk.getMaxBlockX() >= minX && chunk.getMinBlockX() <= maxX
+				&& chunk.getMaxBlockZ() >= minZ && chunk.getMinBlockZ() <= maxZ;
 		}
 		
 		public boolean contains(Vec3 pos)
 		{
-			return pos.x >= minChunk.getMinBlockX()
-				&& pos.x <= maxChunk.getMaxBlockX() + 1
-				&& pos.z >= minChunk.getMinBlockZ()
-				&& pos.z <= maxChunk.getMaxBlockZ() + 1;
+			return pos.x >= minX && pos.x <= maxX + 1 && pos.z >= minZ
+				&& pos.z <= maxZ + 1;
 		}
 		
 		public int getBlockRadius()
 		{
-			return chunkRadius * 16;
+			return blockRadius;
 		}
 		
 		public AABB getBoundingBox()
 		{
 			int y = center.getY();
-			return new AABB(minChunk.getMinBlockX(), y, minChunk.getMinBlockZ(),
-				maxChunk.getMaxBlockX() + 1, y + 1,
-				maxChunk.getMaxBlockZ() + 1);
+			return new AABB(minX, y, minZ, maxX + 1, y + 1, maxZ + 1);
+		}
+		
+		public AABB getRenderBox()
+		{
+			int y = center.getY();
+			return new AABB(minX, y, minZ, maxX + 1, y + RENDER_HEIGHT,
+				maxZ + 1);
 		}
 	}
 }

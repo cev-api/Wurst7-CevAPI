@@ -13,10 +13,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.Random;
+import java.util.Set;
 
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
@@ -102,7 +104,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 	
 	private int delayTimer;
 	private int bookCount;
+	private int inventoryCooldown;
 	private Random random;
+	private final Set<Integer> unsignedWrittenSlots = new HashSet<>();
 	
 	public BookBotHack()
 	{
@@ -137,7 +141,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 		
 		random = new Random();
 		delayTimer = delay.getValueI();
+		inventoryCooldown = 0;
 		bookCount = 0;
+		unsignedWrittenSlots.clear();
 		
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -146,12 +152,19 @@ public final class BookBotHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		unsignedWrittenSlots.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		// Find an empty writable book in inventory
+		if(inventoryCooldown > 0)
+		{
+			inventoryCooldown--;
+			return;
+		}
+		
 		int slot = findWritableBookSlot();
 		if(slot == -1)
 		{
@@ -241,7 +254,7 @@ public final class BookBotHack extends Hack implements UpdateListener
 		for(int i = 0; i < MC.player.getInventory().getContainerSize(); i++)
 		{
 			ItemStack s = MC.player.getInventory().getItem(i);
-			if(s.is(Items.WRITABLE_BOOK))
+			if(s.is(Items.WRITABLE_BOOK) && !unsignedWrittenSlots.contains(i))
 			{
 				// Accept any writable book; server will accept updates
 				return i;
@@ -260,7 +273,18 @@ public final class BookBotHack extends Hack implements UpdateListener
 		if(slot < 9)
 			MC.player.getInventory().setSelectedSlot(slot);
 		else
-			InventoryUtils.selectItem(slot);
+			swapWithMainHand(slot);
+	}
+	
+	private void swapWithMainHand(int slot)
+	{
+		if(slot < 0 || slot == MC.player.getInventory().getSelectedSlot())
+			return;
+		
+		IMC.getInteractionManager().windowClick_SWAP(
+			InventoryUtils.toNetworkSlot(slot),
+			MC.player.getInventory().getSelectedSlot());
+		inventoryCooldown = 2;
 	}
 	
 	private List<String> randomPages(PrimitiveIterator.OfInt chars)
@@ -397,6 +421,20 @@ public final class BookBotHack extends Hack implements UpdateListener
 			.send(new ServerboundEditBookPacket(
 				MC.player.getInventory().getSelectedSlot(), pages,
 				sign.isChecked() ? Optional.of(title) : Optional.empty()));
+		
+		if(!sign.isChecked())
+		{
+			int selectedSlot = MC.player.getInventory().getSelectedSlot();
+			unsignedWrittenSlots.add(selectedSlot);
+			
+			int nextSlot = findWritableBookSlot();
+			if(nextSlot != -1)
+			{
+				swapWithMainHand(nextSlot);
+				unsignedWrittenSlots.add(nextSlot);
+				unsignedWrittenSlots.remove(selectedSlot);
+			}
+		}
 		
 		bookCount++;
 	}

@@ -1416,10 +1416,10 @@ public final class WaypointsHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 			return;
-
+		
 		if(showLineDistanceUnderCrosshair.isChecked())
 			renderLineDistanceUnderCrosshair(context);
-
+		
 		if(!compassMode.isChecked())
 			return;
 		
@@ -1612,7 +1612,7 @@ public final class WaypointsHack extends Hack
 		WaypointDistanceTarget target = getCrosshairLineDistanceTarget();
 		if(target == null)
 			return;
-
+		
 		Font font = MC.font;
 		String text = target.distanceBlocks + " blocks";
 		int centerX = context.guiWidth() / 2;
@@ -1620,7 +1620,7 @@ public final class WaypointsHack extends Hack
 		int x = centerX - font.width(text) / 2;
 		context.text(font, text, x, y, target.color, true);
 	}
-
+	
 	private WaypointDistanceTarget getCrosshairLineDistanceTarget()
 	{
 		WaypointDistanceTarget best = null;
@@ -1628,15 +1628,15 @@ public final class WaypointsHack extends Hack
 		{
 			if(!waypoint.isVisible() || !waypoint.isLines())
 				continue;
-
+			
 			BlockPos pos = worldSpace(waypoint);
 			if(pos == null)
 				continue;
-
+			
 			double angle = angleToWaypoint(pos);
 			if(angle > 5.0)
 				continue;
-
+			
 			double distSq = MC.player.distanceToSqr(pos.getX() + 0.5,
 				pos.getY() + 0.5, pos.getZ() + 0.5);
 			int distanceBlocks = (int)Math.round(Math.sqrt(distSq));
@@ -1646,7 +1646,7 @@ public final class WaypointsHack extends Hack
 		}
 		return best;
 	}
-
+	
 	private int adjustCompassYForOverlays(GuiGraphicsExtractor context,
 		int baseY)
 	{
@@ -1762,12 +1762,12 @@ public final class WaypointsHack extends Hack
 	{
 		return angleToWaypoint(waypointPos) <= maxAngleDeg;
 	}
-
+	
 	private double angleToWaypoint(BlockPos waypointPos)
 	{
 		if(MC.player == null || waypointPos == null)
 			return Double.POSITIVE_INFINITY;
-
+		
 		Vec3 eyes = MC.player.getEyePosition(1.0F);
 		Vec3 target = new Vec3(waypointPos.getX() + 0.5,
 			waypointPos.getY() + 1.2, waypointPos.getZ() + 0.5);
@@ -1775,7 +1775,7 @@ public final class WaypointsHack extends Hack
 		double len = toWp.length();
 		if(len < 1.0E-6)
 			return 0.0;
-
+		
 		Vec3 dir = toWp.scale(1.0 / len);
 		Vec3 look = MC.player.getLookAngle();
 		double dot = look.dot(dir);
@@ -1811,7 +1811,7 @@ public final class WaypointsHack extends Hack
 		final int distanceBlocks;
 		final double angle;
 		final int color;
-
+		
 		WaypointDistanceTarget(int distanceBlocks, double angle, int color)
 		{
 			this.distanceBlocks = distanceBlocks;
@@ -1819,7 +1819,7 @@ public final class WaypointsHack extends Hack
 			this.color = color;
 		}
 	}
-
+	
 	private static final class OcclusionSample
 	{
 		final BlockPos pos;

@@ -26,8 +26,8 @@ public final class NoGoZoneCmd extends Command
 		super("nogozone",
 			"Manages NoGoZones - areas you cannot re-enter after leaving.\n"
 				+ "Use when NoGoZone hack is enabled.",
-			".nogozone add [x z]", ".nogozone list", ".nogozone remove <id>",
-			".nogozone clear");
+			".nogozone add [x z [radius]]", ".nogozone list",
+			".nogozone remove <id>", ".nogozone clear");
 	}
 	
 	@Override
@@ -68,24 +68,30 @@ public final class NoGoZoneCmd extends Command
 			ChatUtils.error("You must be in a world to add a NoGoZone.");
 			return;
 		}
-		if(args.length != 1 && args.length != 3)
-			throw new CmdError("Usage: .nogozone add [x z]");
+		if(args.length != 1 && args.length != 3 && args.length != 4)
+			throw new CmdError("Usage: .nogozone add [x z [radius]]");
 		
 		// Read the effective render distance (capped by server view distance)
 		int renderDistance = MC.options.getEffectiveRenderDistance();
 		// Add +3 as specified
-		int chunkRadius = renderDistance + 3;
+		int blockRadius = (renderDistance + 3) * 16;
 		
 		BlockPos zonePos = args.length == 3
 			? parseXZ(args[1], args[2], MC.player.blockPosition().getY())
 			: MC.player.blockPosition();
-		int id = NoGoZoneHack.addZone(zonePos, chunkRadius);
+		if(args.length == 4)
+		{
+			zonePos =
+				parseXZ(args[1], args[2], MC.player.blockPosition().getY());
+			blockRadius = parseRadius(args[3]);
+		}
+		
+		int id = NoGoZoneHack.addZone(zonePos, blockRadius);
 		WURST.getHax().noGoZoneHack.setEnabled(true);
 		
-		int blockRadius = chunkRadius * 16;
 		ChatUtils.message("NoGoZone #" + id + " created at " + zonePos.getX()
 			+ " " + zonePos.getY() + " " + zonePos.getZ() + " with radius "
-			+ blockRadius + " blocks (" + chunkRadius + " chunks).");
+			+ blockRadius + " blocks.");
 	}
 	
 	private BlockPos parseXZ(String xStr, String zStr, int y) throws CmdError
@@ -98,6 +104,21 @@ public final class NoGoZoneCmd extends Command
 		}catch(NumberFormatException e)
 		{
 			throw new CmdError("Invalid coordinates: " + xStr + " " + zStr);
+		}
+	}
+	
+	private int parseRadius(String radiusStr) throws CmdError
+	{
+		try
+		{
+			int radius = Integer.parseInt(radiusStr);
+			if(radius < 1)
+				throw new CmdError("Radius must be at least 1 block.");
+			return radius;
+			
+		}catch(NumberFormatException e)
+		{
+			throw new CmdError("Invalid radius: " + radiusStr);
 		}
 	}
 	
@@ -116,8 +137,7 @@ public final class NoGoZoneCmd extends Command
 		{
 			ChatUtils.message("  #" + zone.id + " | XYZ: " + zone.center.getX()
 				+ " " + zone.center.getY() + " " + zone.center.getZ()
-				+ " | Radius: " + zone.getBlockRadius() + " blocks ("
-				+ zone.chunkRadius + " chunks)");
+				+ " | Radius: " + zone.getBlockRadius() + " blocks");
 		}
 	}
 	
