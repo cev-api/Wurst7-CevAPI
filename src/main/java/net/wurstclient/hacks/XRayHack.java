@@ -17,7 +17,6 @@ import java.util.stream.Stream;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -26,7 +25,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.clickgui.screens.EditBlockListScreen;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
@@ -35,14 +33,14 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.ISimpleOption;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.settings.BlockListSetting;
-import net.wurstclient.settings.SliderSetting;
-import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.ColorSetting;
-import net.wurstclient.settings.EnumSetting;
-import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
+import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.util.BBEModCompat;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
@@ -100,6 +98,7 @@ public final class XRayHack extends Hack
 		0, 0, 0.99, 0.01, ValueDisplay.PERCENTAGE.withLabel(0, "off"));
 	
 	private final String optiFineWarning;
+	private final String bbeWarning;
 	private final String renderName = Math.random() < 0.01
 		&& System.getProperty("fabric.client.gametest") == null ? "X-Wurst"
 			: getName();
@@ -166,6 +165,8 @@ public final class XRayHack extends Hack
 	{
 		super("X-Ray");
 		setCategory(Category.RENDER);
+		coordinator = new ChunkSearcherCoordinator(
+			(pos, state) -> isVisible(state.getBlock(), pos), area);
 		addSetting(ores);
 		addSetting(onlyExposed);
 		addSetting(opacity);
@@ -176,38 +177,9 @@ public final class XRayHack extends Hack
 		addSetting(highlightColor);
 		addSetting(highlightAlpha);
 		addSetting(renderAmount);
+		addSetting(area);
 		optiFineWarning = checkOptiFine();
-		// Coordinator query: lightweight matching (ID + simple name), exposure
-		// filtering is applied on main thread when building boxes
-		coordinator = new ChunkSearcherCoordinator((pos, state) -> {
-			String idFull =
-				net.wurstclient.util.BlockUtils.getName(state.getBlock());
-			// LIST mode matching
-			if(mode.getSelected() == Mode.LIST)
-			{
-				if(oreExactIds != null && oreExactIds.contains(idFull))
-					return true;
-				if(oreExactIds == null && oreNamesCache != null
-					&& oreNamesCache.contains(idFull))
-					return true;
-				return false;
-			}
-			// QUERY mode matching (only by id/local id/local spaced)
-			if(oreKeywords == null || oreKeywords.length == 0)
-				return false;
-			String localId = idFull.contains(":")
-				? idFull.substring(idFull.indexOf(":") + 1) : idFull;
-			String localSpaced = localId.replace('_', ' ');
-			for(String term : oreKeywords)
-			{
-				if(idFull.toLowerCase(java.util.Locale.ROOT).contains(term)
-					|| localId.toLowerCase(java.util.Locale.ROOT).contains(term)
-					|| localSpaced.toLowerCase(java.util.Locale.ROOT)
-						.contains(term))
-					return true;
-			}
-			return false;
-		}, area);
+		bbeWarning = checkBBE();
 	}
 	
 	@Override
@@ -263,9 +235,11 @@ public final class XRayHack extends Hack
 		// reload chunks
 		MC.levelRenderer.allChanged();
 		
-		// display warning if OptiFine is detected
+		// display compatibility warnings
 		if(optiFineWarning != null)
 			ChatUtils.warning(optiFineWarning);
+		if(opacity.getValue() > 0 && bbeWarning != null)
+			ChatUtils.warning(bbeWarning);
 	}
 	
 	@Override
@@ -497,6 +471,17 @@ public final class XRayHack extends Hack
 		visibleBoxesUpToDate = true;
 	}
 	
+	private void resetCoordinatorAndHighlights()
+	{
+		coordinator.reset();
+		lastMatchesVersion = coordinator.getMatchesVersion();
+		highlightPositionsUpToDate = false;
+		highlightPositions.clear();
+		visibleBoxesUpToDate = false;
+		visibleBoxes.clear();
+		lastCoordinatorChangeMs = System.currentTimeMillis();
+	}
+	
 	private int getEffectiveRenderAmount()
 	{
 		int localLimit = renderAmount.getValueLog();
@@ -656,6 +641,13 @@ public final class XRayHack extends Hack
 			Math.min(100, (int)Math.round(highlightAlpha.getValue()))) / 100.0);
 	}
 	
+	public void enableQuerySearch(String rawQuery)
+	{
+		mode.setSelected(Mode.QUERY);
+		query.setValue(rawQuery == null ? "" : rawQuery.trim());
+		setEnabled(true);
+	}
+	
 	/**
 	 * Checks if OptiFine/OptiFabric is installed and returns a warning message
 	 * if it is.
@@ -673,30 +665,11 @@ public final class XRayHack extends Hack
 		return null;
 	}
 	
-	public void openBlockListEditor(Screen prevScreen)
+	private String checkBBE()
 	{
-		MC.setScreen(new EditBlockListScreen(prevScreen, ores));
-	}
-	
-	public void enableQuerySearch(String rawQuery)
-	{
-		mode.setSelected(Mode.QUERY);
-		query.setValue(rawQuery == null ? "" : rawQuery.trim());
-		setEnabled(true);
-	}
-	
-	// See AbstractBlockRenderContextMixin, RenderLayersMixin
-	
-	private void resetCoordinatorAndHighlights()
-	{
-		// Cancel current searches and clear cached highlights to avoid stale
-		// results persisting after mode/list/query changes.
-		coordinator.reset();
-		lastMatchesVersion = coordinator.getMatchesVersion();
-		highlightPositions.clear();
-		visibleBoxes.clear();
-		highlightPositionsUpToDate = false;
-		visibleBoxesUpToDate = false;
-		lastCoordinatorChangeMs = System.currentTimeMillis();
+		if(BBEModCompat.isBrokenBBEInstalled())
+			return "Better Block Entities v1.3.2-v1.3.3 breaks Opacity X-Ray. Update/remove BBE or turn off opacity mode.";
+		
+		return null;
 	}
 }

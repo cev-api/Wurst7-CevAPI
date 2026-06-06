@@ -1,6 +1,7 @@
 {
   "required": true,
   "package": "net.wurstclient.mixin",
+  "plugin": "net.wurstclient.WurstMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [
@@ -50,9 +51,6 @@
     "InGameHudLocatorProbeMixin",
     "ItemHandlerHudLateMixin",
     "GuiMixin",
-    "ItemInHandRendererMixin",
-    "ItemStackLayerRenderStateMixin",
-    "ItemStackRenderStateAccessor",
     "JoinMultiplayerScreenMixin",
     "KeyBindsListMixin",
     "KeyMappingMixin",
@@ -116,6 +114,7 @@
     "freecam.EntityRenderDispatcherMixin",
     "freecam.ItemInHandRendererMixin",
     "freecam.LocalPlayerMixin",
+    "noshieldoverlay.ItemInHandRendererMixin",
     "sodium.OcclusionCullerMixin",
     "xray.BlockEntityRenderDispatcherMixin",
     "xray.BlockStateBaseMixin",
