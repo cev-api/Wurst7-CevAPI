@@ -76,6 +76,10 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 	private final SliderSetting scale = new SliderSetting("Scale",
 		"Scales the health overlay. 100% is the original size.", 1, 0.25, 3,
 		0.05, SliderSetting.ValueDisplay.PERCENTAGE);
+	private final CheckboxSetting scaleWithNameTagDistance =
+		new CheckboxSetting("Scale with nametag distance",
+			"Makes the health overlay grow with distance like nametags while still applying the Scale setting.",
+			false);
 	
 	public MobHealthHack()
 	{
@@ -91,6 +95,7 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		addSetting(durabilityDisplayMode);
 		addSetting(showPotionEffectStatus);
 		addSetting(scale);
+		addSetting(scaleWithNameTagDistance);
 	}
 	
 	@Override
@@ -190,7 +195,8 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 		EntityHealthRenderer.drawHeartsAtEntity(context, mob, partialTicks,
 			yOffset, showArmor.isChecked(), showHeldItems.isChecked(),
 			durabilityDisplayMode.getSelected(),
-			showPotionEffectStatus.isChecked(), scale.getValueF());
+			showPotionEffectStatus.isChecked(), scale.getValueF(),
+			scaleWithNameTagDistance.isChecked());
 	}
 	
 	private Mob getLookedAtMob()

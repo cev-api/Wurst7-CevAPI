@@ -69,6 +69,11 @@ public final class SourceFillHack extends Hack
 		"minecraft:dirt", "minecraft:cobblestone", "minecraft:netherrack");
 	
 	private final EspStyleSetting style = new EspStyleSetting();
+	private final CheckboxSetting renderWater =
+		new CheckboxSetting("Render water",
+			"Render ESP boxes and tracers for water sources.", true);
+	private final CheckboxSetting renderLava = new CheckboxSetting(
+		"Render lava", "Render ESP boxes and tracers for lava sources.", true);
 	private final ColorSetting waterColor = new ColorSetting("Water color",
 		"Water source blocks will be highlighted in this color.",
 		new Color(0x3F76E4));
@@ -78,9 +83,10 @@ public final class SourceFillHack extends Hack
 	private final SliderSetting fillAlpha = new SliderSetting("Fill opacity",
 		"Opacity of the highlighted source block fill.", 64, 0, 255, 1,
 		ValueDisplay.INTEGER);
-	private final SliderSetting outlineAlpha = new SliderSetting(
-		"Outline opacity", "description.wurst.setting.sourcefill.outline_opacity",
-		255, 0, 255, 1, ValueDisplay.INTEGER);
+	private final SliderSetting outlineAlpha =
+		new SliderSetting("Outline opacity",
+			"description.wurst.setting.sourcefill.outline_opacity", 255, 0, 255,
+			1, ValueDisplay.INTEGER);
 	private final CheckboxSetting tracerFlash =
 		new CheckboxSetting("Tracer flash", "Make ESP tracers pulse.", false);
 	
@@ -102,6 +108,8 @@ public final class SourceFillHack extends Hack
 		addSetting(liquidMode);
 		addSetting(blockWhitelist);
 		addSetting(style);
+		addSetting(renderWater);
+		addSetting(renderLava);
 		addSetting(waterColor);
 		addSetting(lavaColor);
 		addSetting(fillAlpha);
@@ -169,12 +177,17 @@ public final class SourceFillHack extends Hack
 		if(targets.isEmpty())
 			return;
 		
-		List<AABB> waterBoxes =
-			targets.stream().filter(pos -> getFluid(pos).is(FluidTags.WATER))
-				.map(AABB::new).toList();
-		List<AABB> lavaBoxes =
-			targets.stream().filter(pos -> getFluid(pos).is(FluidTags.LAVA))
-				.map(AABB::new).toList();
+		List<AABB> waterBoxes = renderWater.isChecked()
+			? targets.stream().filter(pos -> getFluid(pos).is(FluidTags.WATER))
+				.map(AABB::new).toList()
+			: List.of();
+		List<AABB> lavaBoxes = renderLava.isChecked()
+			? targets.stream().filter(pos -> getFluid(pos).is(FluidTags.LAVA))
+				.map(AABB::new).toList()
+			: List.of();
+		
+		if(waterBoxes.isEmpty() && lavaBoxes.isEmpty())
+			return;
 		
 		if(style.getSelected().hasBoxes())
 		{
