@@ -23,6 +23,7 @@ import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityHealthRenderer;
 
 @SearchTags({"health tags"})
@@ -56,6 +57,10 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		"Show potion effect status",
 		"Shows potion-color bottle indicators above held item icons.", true);
 	
+	private final SliderSetting scale = new SliderSetting("Scale",
+		"Scales the hearts below the nametag. 100% is the original size.", 1,
+		0.25, 3, 0.05, SliderSetting.ValueDisplay.PERCENTAGE);
+	
 	private final java.util.Set<LivingEntity> entitiesToRender =
 		java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
 	private static final Pattern VALID_MC_USERNAME =
@@ -73,6 +78,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		addSetting(showHeldItems);
 		addSetting(durabilityDisplayMode);
 		addSetting(showPotionEffectStatus);
+		addSetting(scale);
 	}
 	
 	@Override
@@ -193,7 +199,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 			EntityHealthRenderer.drawHeartsAtEntity(context, entity,
 				partialTicks, -10F, showArmor.isChecked(),
 				showHeldItems.isChecked(), durabilityDisplayMode.getSelected(),
-				showPotionEffectStatus.isChecked());
+				showPotionEffectStatus.isChecked(), scale.getValueF());
 		}
 		
 		entitiesToRender.clear();
