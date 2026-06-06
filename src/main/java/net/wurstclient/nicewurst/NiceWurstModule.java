@@ -58,7 +58,8 @@ public final class NiceWurstModule
 		new EnumMap<>(Category.class);
 	private static final Set<String> ALLOWED_NAME_ONLY =
 		Set.of("ClickGUI", "Navigator", "AltGUI", "XPGUI", "ChorusFruit",
-			"MeasurementESP", "Towny", "NecoMode");
+			"MeasurementESP", "Towny", "NecoMode", "InstantCommand", "JoinDrop",
+			"NBTFilter", "NoGoZone");
 	
 	private static final Set<String> HIDDEN_OTHER_FEATURES =
 		Set.of("Anti-Fingerprint");
@@ -87,20 +88,25 @@ public final class NiceWurstModule
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
-				"TemplateTool"));
+				"TemplateTool", "SourceFill", "SuperInstaMine"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
-				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk"));
+				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk",
+				"EntityControl"));
 		
-		ALLOWED_HACKS.put(Category.COMBAT, Set.of("AutoRespawn", "AutoTotem",
-			"AutoLeave", "PearlIntercept", "ShieldSwing", "WindChargeKey"));
+		ALLOWED_HACKS.put(Category.COMBAT,
+			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "PearlIntercept",
+				"ShieldSwing", "WindChargeKey", "AntiProjectile",
+				"AttributeSwap"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
 			Set.of("DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
 				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
-				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel"));
+				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
+				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
+				"ProjectileOwner"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
@@ -552,6 +558,8 @@ public final class NiceWurstModule
 		Category cat = category;
 		
 		if(cat != null && CATEGORY_ALLOW_ALL.contains(cat))
+			return true;
+		if(ALLOWED_NAME_ONLY.contains(name))
 			return true;
 		
 		Set<String> allowed =

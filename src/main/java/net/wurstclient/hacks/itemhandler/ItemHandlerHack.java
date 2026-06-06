@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.LinkedHashSet;
+import java.lang.reflect.Method;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
@@ -29,10 +30,12 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
+import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.ItemFrame;
@@ -152,6 +155,10 @@ public class ItemHandlerHack extends Hack
 		"Detect crafted entities",
 		"Detects nearby crafted entities like boats/rafts, paintings, glow item frames, and selected minecarts.",
 		false);
+	private final CheckboxSetting detectOwnedEntities = new CheckboxSetting(
+		"Detect owned entities",
+		"Detects nearby owner-capable entities like pearls, projectiles, primed TNT, and tamed mobs.",
+		false);
 	
 	private final SliderSetting signRange = new SliderSetting("Sign range",
 		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
@@ -217,6 +224,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(showSignsInHud);
 		addSetting(detectNamedEntities);
 		addSetting(detectCraftedEntities);
+		addSetting(detectOwnedEntities);
 		addSetting(respectItemEspIgnores);
 		addSetting(itemEspIgnoredListSetting);
 		addSetting(rejectRadius);
@@ -596,7 +604,8 @@ public class ItemHandlerHack extends Hack
 		boolean detectSigns = showSignsInHud.isChecked() || guiOpen;
 		boolean detectNamed = detectNamedEntities.isChecked() || guiOpen;
 		boolean detectCrafted = detectCraftedEntities.isChecked() || guiOpen;
-		if(!detectSigns && !detectNamed && !detectCrafted)
+		boolean detectOwned = detectOwnedEntities.isChecked() || guiOpen;
+		if(!detectSigns && !detectNamed && !detectCrafted && !detectOwned)
 		{
 			trackedLabels.clear();
 			return;
@@ -686,6 +695,33 @@ public class ItemHandlerHack extends Hack
 				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
 					icon, label, Math.sqrt(distSq),
 					getCraftedEntityTraceId(entity.getUUID())));
+			}
+		}
+		
+		if(detectOwned)
+		{
+			AABB scanBox = MC.player.getBoundingBox().inflate(range);
+			List<Entity> ownedEntities = MC.level.getEntities(MC.player,
+				scanBox, e -> e != null && e.isAlive() && !e.isRemoved()
+					&& isOwnerCapableEntity(e));
+			
+			for(Entity entity : ownedEntities)
+			{
+				Vec3 p = entity.position();
+				double distSq = p.distanceToSqr(centerVec);
+				if(!infinite && distSq > rangeSq)
+					continue;
+				
+				Entity owner = getEntityOwner(entity);
+				if(owner == null)
+					continue;
+				
+				ItemStack icon = iconForOwnedEntity(entity);
+				String label = "Owned entity: " + ownedEntityLabel(entity)
+					+ " (" + getOwnerLabel(owner) + ")";
+				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
+					icon, label, Math.sqrt(distSq),
+					getOwnedEntityTraceId(entity.getUUID())));
 			}
 		}
 		
@@ -1492,6 +1528,109 @@ public class ItemHandlerHack extends Hack
 		if(uuid == null)
 			return null;
 		return "crafted_entity:" + uuid;
+	}
+	
+	private static String getOwnedEntityTraceId(UUID uuid)
+	{
+		if(uuid == null)
+			return null;
+		return "owned_entity:" + uuid;
+	}
+	
+	private boolean isOwnerCapableEntity(Entity entity)
+	{
+		if(entity == null || entity == MC.player)
+			return false;
+		if(entity instanceof Projectile || entity instanceof OwnableEntity)
+			return true;
+		
+		try
+		{
+			Method method = entity.getClass().getMethod("getOwner");
+			return Entity.class.isAssignableFrom(method.getReturnType());
+		}catch(NoSuchMethodException e)
+		{
+			return false;
+		}catch(SecurityException e)
+		{
+			return false;
+		}
+	}
+	
+	private Entity getEntityOwner(Entity entity)
+	{
+		if(entity instanceof Projectile projectile)
+			return projectile.getOwner();
+		if(entity instanceof OwnableEntity ownable)
+			return ownable.getOwner();
+		
+		try
+		{
+			Method method = entity.getClass().getMethod("getOwner");
+			Object owner = method.invoke(entity);
+			if(owner instanceof Entity ownerEntity)
+				return ownerEntity;
+		}catch(Exception ignored)
+		{}
+		
+		return null;
+	}
+	
+	private String getOwnerLabel(Entity owner)
+	{
+		if(owner == MC.player)
+			return "Owner: You";
+		if(owner instanceof Player player)
+			return "Owner: " + player.getName().getString();
+		if(owner != null)
+			return "Owner: " + entityDisplayName(owner);
+		return "Owner: Unknown";
+	}
+	
+	private ItemStack iconForOwnedEntity(Entity entity)
+	{
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		return switch(path)
+		{
+			case "ender_pearl" -> new ItemStack(Items.ENDER_PEARL);
+			case "arrow" -> new ItemStack(Items.ARROW);
+			case "spectral_arrow" -> new ItemStack(Items.SPECTRAL_ARROW);
+			case "trident" -> new ItemStack(Items.TRIDENT);
+			case "snowball" -> new ItemStack(Items.SNOWBALL);
+			case "egg" -> new ItemStack(Items.EGG);
+			case "potion", "area_effect_cloud" -> new ItemStack(Items.POTION);
+			case "experience_bottle" -> new ItemStack(Items.EXPERIENCE_BOTTLE);
+			case "firework_rocket" -> new ItemStack(Items.FIREWORK_ROCKET);
+			case "wind_charge", "breeze_wind_charge" -> new ItemStack(
+				Items.WIND_CHARGE);
+			case "fireball", "small_fireball", "dragon_fireball" -> new ItemStack(
+				Items.FIRE_CHARGE);
+			case "fishing_bobber" -> new ItemStack(Items.FISHING_ROD);
+			case "tnt" -> new ItemStack(Items.TNT);
+			default -> new ItemStack(Items.NAME_TAG);
+		};
+	}
+	
+	private String ownedEntityLabel(Entity entity)
+	{
+		return entityDisplayName(entity);
+	}
+	
+	private String entityDisplayName(Entity entity)
+	{
+		if(entity == null)
+			return "entity";
+		
+		String name = entity.getName().getString();
+		if(name != null && !name.isBlank())
+			return name;
+		
+		String path =
+			net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE
+				.getKey(entity.getType()).getPath();
+		return path.replace('_', ' ');
 	}
 	
 	private boolean isTrackedCraftedEntityType(Entity entity)

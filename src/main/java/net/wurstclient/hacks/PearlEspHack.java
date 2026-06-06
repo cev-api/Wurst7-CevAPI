@@ -7,12 +7,18 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
@@ -22,8 +28,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.BubbleColumnBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -43,6 +53,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 
@@ -52,6 +63,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 {
 	private static final double LANDING_BOX_RADIUS = 0.35;
 	private static final double HAND_BOX_RADIUS = 0.18;
+	private static final long STASIS_LABEL_STICKY_MS = 1200;
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Highlight color for pearls, landing boxes and trajectory.",
@@ -66,6 +78,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private final CheckboxSetting showTracerLine =
 		new CheckboxSetting("Show tracer line",
 			"Draw trajectory lines for pearl predictions.", true);
+	private final CheckboxSetting showStasisOwners = new CheckboxSetting(
+		"Show stasis owners",
+		"Show the owner name above visible ender pearls sitting in stasis chambers.",
+		true);
 	private final SliderSetting tracerThickness = new SliderSetting(
 		"Tracer thickness", 2, 0.5, 8, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
@@ -84,6 +100,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private final ArrayList<TrackedPearl> pearls = new ArrayList<>();
 	private final ArrayList<HeldPearl> holders = new ArrayList<>();
 	private final HashSet<UUID> alertedPearls = new HashSet<>();
+	private final Map<UUID, StasisLabel> stasisLabels = new HashMap<>();
 	private boolean hasOwnPearl;
 	private long ownPearlSuppressUntilMs;
 	
@@ -95,6 +112,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		addSetting(highlightHeld);
 		addSetting(showPlayerPrediction);
 		addSetting(showTracerLine);
+		addSetting(showStasisOwners);
 		addSetting(tracerThickness);
 		addSetting(tracerFlash);
 		addSetting(chatAlerts);
@@ -119,6 +137,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		pearls.clear();
 		holders.clear();
 		alertedPearls.clear();
+		stasisLabels.clear();
 		hasOwnPearl = false;
 		ownPearlSuppressUntilMs = 0L;
 	}
@@ -130,6 +149,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		holders.clear();
 		hasOwnPearl = false;
 		HashSet<UUID> seenPearls = new HashSet<>();
+		long now = System.currentTimeMillis();
 		
 		if(MC.level == null)
 			return;
@@ -141,27 +161,25 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				Entity pearl = entity;
 				seenPearls.add(pearl.getUUID());
 				PearlPrediction prediction = buildPrediction(pearl);
-				pearls.add(new TrackedPearl(pearl, prediction));
-				boolean ownPearl = false;
-				// Detect ownership via reflection and set suppression window
-				try
+				Entity owner = getPearlOwner(pearl);
+				String ownerLabel = getPearlOwnerLabel(owner);
+				Vec3 stasisLabelPos = getStasisLabelPos(pearl);
+				if(stasisLabelPos != null)
+					stasisLabels.put(pearl.getUUID(),
+						new StasisLabel(ownerLabel, stasisLabelPos,
+							now + STASIS_LABEL_STICKY_MS));
+				StasisLabel stasisLabel = stasisLabels.get(pearl.getUUID());
+				pearls.add(new TrackedPearl(pearl, prediction, ownerLabel,
+					stasisLabel));
+				boolean ownPearl = owner == MC.player;
+				if(ownPearl)
 				{
-					Method m = pearl.getClass().getMethod("getOwner");
-					Object owner = m.invoke(pearl);
-					if(owner == MC.player)
-					{
-						ownPearl = true;
-						hasOwnPearl = true;
-						ownPearlSuppressUntilMs =
-							System.currentTimeMillis() + 4000; // suppress
-																// prediction up
-																// to 4s
-					}
-				}catch(Exception ignored)
-				{}
+					hasOwnPearl = true;
+					ownPearlSuppressUntilMs = System.currentTimeMillis() + 4000;
+				}
 				
 				if(!ownPearl && alertedPearls.add(pearl.getUUID()))
-					triggerPearlAlert(pearl);
+					triggerPearlAlert(pearl, ownerLabel);
 				continue;
 			}
 			
@@ -170,20 +188,22 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		}
 		
 		alertedPearls.retainAll(seenPearls);
+		stasisLabels.entrySet().removeIf(e -> !seenPearls.contains(e.getKey())
+			|| e.getValue().untilMs() < now);
 	}
 	
-	private void triggerPearlAlert(Entity pearl)
+	private void triggerPearlAlert(Entity pearl, String ownerLabel)
 	{
 		if(!chatAlerts.isChecked() && !soundAlerts.isChecked())
 			return;
 		
 		if(chatAlerts.isChecked())
 		{
-			int x = (int)Math.floor(pearl.getX());
-			int y = (int)Math.floor(pearl.getY());
-			int z = (int)Math.floor(pearl.getZ());
-			ChatUtils.message("PearlESP: Ender pearl detected at " + x + ", "
-				+ y + ", " + z + ".");
+			Vec3 selfPos = MC.player == null ? null : MC.player.position();
+			String detectionDetails = DisconnectContext
+				.formatPlayerDetectionDetails(selfPos, pearl.position());
+			ChatUtils.message("PearlESP: Ender pearl detected.\nDetected at:\n"
+				+ detectionDetails + "\n" + ownerLabel + ".");
 		}
 		
 		if(!soundAlerts.isChecked() || MC.level == null || MC.player == null)
@@ -265,6 +285,14 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			
 			AABB box = EntityUtils.getLerpedBox(pearl, partialTicks);
 			pearlBoxes.add(box);
+			
+			if(showStasisOwners.isChecked())
+			{
+				StasisLabel label = tracked.stasisLabel();
+				if(label != null)
+					drawWorldLabel(matrixStack, label.text(), label.pos().x,
+						label.pos().y, label.pos().z, lineColor, 0.85F, 0F);
+			}
 			
 			PearlPrediction prediction = tracked.prediction();
 			if(prediction != null && prediction.landing() != null)
@@ -375,6 +403,133 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			lineColor = RenderUtils.flashColor(lineColor);
 		RenderUtils.drawCurvedLine(matrixStack, path, lineColor, false,
 			tracerThickness.getValue());
+	}
+	
+	private Entity getPearlOwner(Entity pearl)
+	{
+		if(pearl instanceof Projectile projectile)
+			return projectile.getOwner();
+		
+		try
+		{
+			Method m = pearl.getClass().getMethod("getOwner");
+			Object owner = m.invoke(pearl);
+			if(owner instanceof Entity entity)
+				return entity;
+		}catch(Exception ignored)
+		{}
+		
+		return null;
+	}
+	
+	private String getPearlOwnerLabel(Entity owner)
+	{
+		if(owner == MC.player)
+			return "Owner: You";
+		if(owner instanceof Player player)
+			return "Owner: " + player.getName().getString();
+		return "Owner: Unknown";
+	}
+	
+	private Vec3 getStasisLabelPos(Entity pearl)
+	{
+		if(MC.level == null)
+			return null;
+		
+		BlockPos pearlPos = pearl.blockPosition();
+		for(int yOffset = 2; yOffset >= -2; yOffset--)
+		{
+			BlockPos checkPos = pearlPos.offset(0, yOffset, 0);
+			BlockPos base = getStasisBase(checkPos);
+			if(base != null)
+				return getStaticLabelPos(base);
+		}
+		
+		return null;
+	}
+	
+	private BlockPos getStasisBase(BlockPos pos)
+	{
+		if(!isBubbleColumn(pos))
+			return null;
+		
+		for(int dy = 1; dy <= 8; dy++)
+		{
+			BlockPos below = pos.below(dy);
+			BlockState state = MC.level.getBlockState(below);
+			if(state.getBlock() == Blocks.SOUL_SAND
+				|| state.getBlock() == Blocks.SOUL_SOIL)
+				return below;
+			if(!isBubbleColumn(below) && state.getFluidState().isEmpty())
+				return null;
+		}
+		
+		return null;
+	}
+	
+	private Vec3 getStaticLabelPos(BlockPos base)
+	{
+		int topY = base.getY();
+		for(int dy = 1; dy <= 16; dy++)
+		{
+			BlockPos above = base.above(dy);
+			if(!isBubbleColumn(above))
+				break;
+			topY = above.getY();
+		}
+		
+		return new Vec3(base.getX() + 0.5, topY + 2.35, base.getZ() + 0.5);
+	}
+	
+	private boolean isBubbleColumn(BlockPos pos)
+	{
+		BlockState state = MC.level.getBlockState(pos);
+		return state.getBlock() instanceof BubbleColumnBlock;
+	}
+	
+	private void drawWorldLabel(PoseStack matrices, String text, double x,
+		double y, double z, int argb, float scale, float offsetPx)
+	{
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
+		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		
+		var camEntity = MC.getCameraEntity();
+		if(camEntity != null)
+		{
+			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
+			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
+		}
+		
+		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		float s = 0.025F * scale;
+		matrices.scale(s, -s, s);
+		matrices.translate(0, offsetPx, 0);
+		
+		Font font = MC.font;
+		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		float w = font.width(text) / 2F;
+		int baseAlpha = (argb >>> 24) & 0xFF;
+		int bgAlpha =
+			(int)Math.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+		int bg = bgAlpha << 24;
+		int strokeColor =
+			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
+		var matrix = matrices.last().pose();
+		
+		font.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		font.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		font.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		font.drawInBatch(text, -w, 1, strokeColor, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		
+		vcp.endBatch();
+		matrices.popPose();
 	}
 	
 	private PearlPrediction buildPrediction(Entity pearl)
@@ -506,13 +661,17 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		return basePos.add(offsetX, offsetY, offsetZ);
 	}
 	
-	private record TrackedPearl(Entity pearl, PearlPrediction prediction)
+	private record TrackedPearl(Entity pearl, PearlPrediction prediction,
+		String ownerLabel, StasisLabel stasisLabel)
 	{}
 	
 	private record PearlPrediction(List<Vec3> path, Vec3 landing)
 	{}
 	
 	private record HeldPearl(Player player, InteractionHand hand)
+	{}
+	
+	private record StasisLabel(String text, Vec3 pos, long untilMs)
 	{}
 	
 	private enum AlertSound

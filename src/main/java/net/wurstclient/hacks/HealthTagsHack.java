@@ -60,6 +60,10 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 	private final SliderSetting scale = new SliderSetting("Scale",
 		"Scales the hearts below the nametag. 100% is the original size.", 1,
 		0.25, 3, 0.05, SliderSetting.ValueDisplay.PERCENTAGE);
+	private final CheckboxSetting scaleWithNameTagDistance =
+		new CheckboxSetting("Scale with nametag distance",
+			"Makes hearts grow with distance like nametags while still applying the Scale setting.",
+			false);
 	
 	private final java.util.Set<LivingEntity> entitiesToRender =
 		java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
@@ -79,6 +83,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		addSetting(durabilityDisplayMode);
 		addSetting(showPotionEffectStatus);
 		addSetting(scale);
+		addSetting(scaleWithNameTagDistance);
 	}
 	
 	@Override
@@ -199,7 +204,8 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 			EntityHealthRenderer.drawHeartsAtEntity(context, entity,
 				partialTicks, -10F, showArmor.isChecked(),
 				showHeldItems.isChecked(), durabilityDisplayMode.getSelected(),
-				showPotionEffectStatus.isChecked(), scale.getValueF());
+				showPotionEffectStatus.isChecked(), scale.getValueF(),
+				scaleWithNameTagDistance.isChecked());
 		}
 		
 		entitiesToRender.clear();
