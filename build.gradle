@@ -6,7 +6,8 @@ buildscript {
 
 plugins {
 	id "fabric-loom" version "${loom_version}"
-	id "com.diffplug.spotless" version "8.4.0"
+	id "com.diffplug.spotless" version "8.6.0"
+	id "net.wimods.github-compile-summary" version "0.1.1"
 }
 
 def ENV = System.getenv()
@@ -66,10 +67,6 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings loom.officialMojangMappings()
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	// Use Fabric Loader JUnit only for gametests, not for plain unit tests
-	// Standard JUnit for unit tests
-	testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
-	testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.10.2"
 	
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
@@ -123,10 +120,32 @@ configurations {
 	}
 }
 
+def optionalCompatMods = [
+	sodium: [artifact: "sodium", property: "sodium_version"],
+	better_block_entities: [
+		artifact: "better-block-entities",
+		property: "better_block_entities_version"
+	],
+	badoptimizations: [
+		artifact: "badoptimizations",
+		property: "badoptimizations_version"
+	]
+]
+
+def compatModVersions = optionalCompatMods.collectEntries { id, mod ->
+	[(id): providers.gradleProperty(mod.property).orElse("")]
+}
+
 dependencies {
-	testMods "maven.modrinth:sodium:${project.sodium_version}"
-	// Ensure gametest source set has Fabric JUnit engine
-	gametestImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+	optionalCompatMods.each { id, mod ->
+		def version = compatModVersions[id].get().trim()
+		if(!version.isEmpty())
+			testMods "maven.modrinth:${mod.artifact}:${version}"
+	}
+}
+
+def hasCompatMods = providers.provider {
+	compatModVersions.values().any { !it.get().trim().isEmpty() }
 }
 
 def cleanClientWithMods = tasks.register("cleanClientWithMods", Delete) {
@@ -139,6 +158,7 @@ def prepareClientWithMods = tasks.register("prepareClientWithMods", Sync) {
 }
 
 tasks.named("runClientWithMods") {
+	onlyIf { hasCompatMods.get() }
 	dependsOn prepareClientWithMods
 	finalizedBy cleanClientWithMods
 }
@@ -153,9 +173,8 @@ def prepareClientGameTestWithMods = tasks.register("prepareClientGameTestWithMod
 	into layout.buildDirectory.dir("run/clientGameTestWithMods/mods")
 }
 
-def doModCompatTest = providers.gradleProperty("do_mod_compat_test").map { it.toBoolean() }.orElse(false)
 tasks.named("runClientGameTestWithMods") {
-	onlyIf { doModCompatTest.get() }
+	onlyIf { hasCompatMods.get() }
 	dependsOn prepareClientGameTestWithMods
 }
 
@@ -283,13 +302,6 @@ spotless {
 		target("src/**/*.json", "src/**/*.mcmeta")
 		gson().indentWithSpaces(2).version("2.11.0")
 	}
-}
-
-test {
-	useJUnitPlatform()
-	// Ensure Fabric Loader JUnit can see the test classes as a classpath group
-	// to avoid "hasn't been exposed to the game" errors in-dev.
-	systemProperty "fabric.classPathGroups", "default,test"
 }
 
 def getGhVersion() {
