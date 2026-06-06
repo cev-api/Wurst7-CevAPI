@@ -86,7 +86,7 @@ public final class EntityHealthRenderer
 			showHeldItems, durabilityDisplayMode, showPotionEffectStatus, 1F);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,
@@ -97,7 +97,7 @@ public final class EntityHealthRenderer
 			scaleMultiplier, false);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,

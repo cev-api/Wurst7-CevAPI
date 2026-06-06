@@ -22,7 +22,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.wurstclient.WurstClient;
-import net.wurstclient.hacks.RenderAdjustHack;
 
 @Mixin(FogRenderer.class)
 public class FogRendererMixin

@@ -15,10 +15,9 @@ import java.util.Objects;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -119,18 +118,15 @@ public final class EditFriendListScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		super.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(
+		context.drawCenteredString(
 			minecraft.font, friendList.getName() + " ("
 				+ friendList.getFriendNames().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
-		
-		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -207,15 +203,15 @@ public final class EditFriendListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
 			
-			context.text(minecraft.font, friendName, x + 4, y + 4,
+			context.drawString(minecraft.font, friendName, x + 4, y + 4,
 				CommonColors.WHITE, false);
-			context.text(minecraft.font, "Click or shift-click to select",
+			context.drawString(minecraft.font, "Click or shift-click to select",
 				x + 4, y + 16, CommonColors.LIGHT_GRAY, false);
 		}
 		

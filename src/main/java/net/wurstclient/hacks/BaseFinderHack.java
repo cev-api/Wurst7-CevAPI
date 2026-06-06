@@ -369,7 +369,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		lastMinY = minY.getValueI();
 		lastMaxY = maxY.getValueI();
 		lastSticky = stickyArea.isChecked();
-		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastAreaSelection = area.getSelected();
 		coordinator.setQuery((pos, state) -> {
 			String idFull = BlockUtils.getName(state.getBlock());
@@ -480,7 +480,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			lastSticky = sticky;
 		}
 		
-		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!sticky && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;

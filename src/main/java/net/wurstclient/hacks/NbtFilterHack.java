@@ -562,7 +562,7 @@ public final class NbtFilterHack extends Hack
 	private InspectionResult checkBlockEntityPacket(
 		ClientboundBlockEntityDataPacket packet)
 	{
-		ChunkPos chunkPos = ChunkPos.containing(packet.getPos());
+		ChunkPos chunkPos = new ChunkPos(packet.getPos());
 		if(isBannedChunk(chunkPos))
 			return InspectionResult.dangerous(PacketKind.BLOCK_ENTITY,
 				"block entity in quarantined chunk", -1, chunkPos, null);
@@ -699,10 +699,10 @@ public final class NbtFilterHack extends Hack
 			return new ChunkPos(p.getX(), p.getZ());
 		
 		if(packet instanceof ClientboundBlockEntityDataPacket p)
-			return ChunkPos.containing(p.getPos());
+			return new ChunkPos(p.getPos());
 		
 		if(packet instanceof ClientboundBlockUpdatePacket p)
-			return ChunkPos.containing(p.getPos());
+			return new ChunkPos(p.getPos());
 		
 		if(packet instanceof ClientboundSectionBlocksUpdatePacket p)
 			return getSectionUpdateChunk(p);
@@ -843,12 +843,12 @@ public final class NbtFilterHack extends Hack
 	
 	private int chunkX(ChunkPos chunk)
 	{
-		return chunk == null ? 0 : chunk.x();
+		return chunk == null ? 0 : chunk.x;
 	}
 	
 	private int chunkZ(ChunkPos chunk)
 	{
-		return chunk == null ? 0 : chunk.z();
+		return chunk == null ? 0 : chunk.z;
 	}
 	
 	private boolean isBannedChunk(ChunkPos chunk)

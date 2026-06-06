@@ -11,17 +11,27 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.world.entity.animal.equine.AbstractHorse;
+import net.minecraft.world.entity.Mob;
 import net.wurstclient.WurstClient;
 
-@Mixin(AbstractHorse.class)
-public abstract class AbstractHorseMixin
+@Mixin(Mob.class)
+public abstract class MobEntityMixin
 {
-	@Inject(method = "isMobControlled", at = @At("HEAD"), cancellable = true)
-	private void forceMobControlled(CallbackInfoReturnable<Boolean> cir)
+	@Inject(method = "isSaddled", at = @At("HEAD"), cancellable = true)
+	private void forceSaddled(CallbackInfoReturnable<Boolean> cir)
 	{
 		if(WurstClient.INSTANCE.getHax().entityControlHack
-			.shouldEnforceMobControlled())
+			.shouldEnforceSaddled())
 			cir.setReturnValue(true);
+	}
+	
+	@Inject(method = "getJumpPower", at = @At("RETURN"), cancellable = true)
+	private void forceJumpStrength(CallbackInfoReturnable<Float> cir)
+	{
+		if(!WurstClient.INSTANCE.getHax().entityControlHack
+			.shouldEnforceJumpStrength())
+			return;
+		
+		cir.setReturnValue(Math.max(cir.getReturnValueF(), 0.7F));
 	}
 }

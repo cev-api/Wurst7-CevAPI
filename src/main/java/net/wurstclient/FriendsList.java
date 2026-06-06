@@ -754,7 +754,7 @@ public class FriendsList implements UpdateListener, ChatInputListener
 				Component.literal("[Friends] ").withStyle(ChatFormatting.BLUE);
 			MutableComponent body =
 				Component.literal(message).withStyle(ChatFormatting.WHITE);
-			mc.gui.getChat().addClientSystemMessage(prefix.append(body));
+			mc.gui.getChat().addMessage(prefix.append(body));
 		});
 	}
 	

@@ -1,11 +1,12 @@
-﻿# Wurst Client v7.53.1 (MC1.21.11) - Modified by CevAPI 
+﻿# Wurst Client v7.54 (MC1.21.11) - Modified by CevAPI 
 
-![CevAPI Logo](https://i.imgur.com/kBIn9Ab.png)
+![CevAPI Logo](https://i.imgur.com/4x8fvbp.jpeg)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Original Wurst Wiki: [https://wurst.wiki/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwurst.wiki%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
 - Wurst 7 CevAPI Wiki: https://github.com/cev-api/Wurst7-CevAPI/wiki
+- CevAPI Discord: https://discord.gg/5fddQNST84
 
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 

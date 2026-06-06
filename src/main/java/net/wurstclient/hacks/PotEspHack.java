@@ -126,7 +126,7 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	{
 		renderDataUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -166,7 +166,7 @@ public final class PotEspHack extends Hack implements UpdateListener,
 			renderDataUpToDate = false;
 		}
 		
-		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -293,7 +293,7 @@ public final class PotEspHack extends Hack implements UpdateListener,
 				pot.collectComponents().getOrDefault(DataComponents.CONTAINER,
 					ItemContainerContents.EMPTY);
 			boolean hadAnyContainerItems = false;
-			for(ItemStack stack : contents.nonEmptyItemCopyStream().toList())
+			for(ItemStack stack : contents.nonEmptyStream().toList())
 			{
 				hadAnyContainerItems = true;
 				Item item = stack.getItem();

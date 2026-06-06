@@ -159,7 +159,7 @@ public final class EnchantmentHandlerHack extends Hack
 	private int hoveredSlotId = -1;
 	private long hoverStartMs;
 	private AbstractContainerScreen<?> lastRenderedScreen;
-	private GuiGraphicsExtractor lastRenderContext;
+	private GuiGraphics lastRenderContext;
 	
 	public EnchantmentHandlerHack()
 	{
@@ -881,8 +881,8 @@ public final class EnchantmentHandlerHack extends Hack
 			float textX = titleX - renderScroll;
 			if(useItemIcons.isChecked() && !entry.iconStack.isEmpty())
 			{
-				context.item(entry.iconStack, titleX,
-					entryY + (lineHeight - 16) / 2);
+				RenderUtils.drawItem(context, entry.iconStack, titleX,
+					entryY + (lineHeight - 16) / 2, true);
 				textX += iconSpace;
 			}
 			int textY = entryY + Math.max(0,

@@ -14,7 +14,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
@@ -244,7 +244,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(!itemTags.isChecked() || MC.level == null || MC.player == null)
 			return;
@@ -342,8 +342,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void drawItemTag(GuiGraphicsExtractor context, Font font,
-		ItemStack stack, int displayCount, float centerX, float centerY)
+	private void drawItemTag(GuiGraphics context, Font font, ItemStack stack,
+		int displayCount, float centerX, float centerY)
 	{
 		float scale = itemTagScale.getValueF();
 		String count = displayCount > 1 ? String.valueOf(displayCount) : "";
@@ -359,9 +359,9 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		context.pose().pushMatrix();
 		context.pose().translate(x + 1 * scale, y + 1 * scale);
 		context.pose().scale(scale, scale);
-		context.item(stack, 0, 0);
+		RenderUtils.drawItem(context, stack, 0, 0, true);
 		if(!count.isEmpty())
-			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
+			context.drawString(font, count, 19, 5, 0xFFFFFFFF, true);
 		context.pose().popMatrix();
 	}
 	
