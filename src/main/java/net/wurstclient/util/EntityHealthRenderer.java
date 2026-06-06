@@ -65,7 +65,7 @@ public final class EntityHealthRenderer
 		LivingEntity entity, float partialTicks, float yOffsetPx)
 	{
 		drawHeartsAtEntity(context, entity, partialTicks, yOffsetPx, false,
-			false, DurabilityDisplayMode.PERCENT_ONLY, true);
+			false, DurabilityDisplayMode.PERCENT_ONLY, true, 1F);
 	}
 	
 	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
@@ -73,7 +73,7 @@ public final class EntityHealthRenderer
 		boolean showArmor)
 	{
 		drawHeartsAtEntity(context, entity, partialTicks, yOffsetPx, showArmor,
-			false, DurabilityDisplayMode.PERCENT_ONLY, true);
+			false, DurabilityDisplayMode.PERCENT_ONLY, true, 1F);
 	}
 	
 	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
@@ -81,6 +81,16 @@ public final class EntityHealthRenderer
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,
 		boolean showPotionEffectStatus)
+	{
+		drawHeartsAtEntity(context, entity, partialTicks, yOffsetPx, showArmor,
+			showHeldItems, durabilityDisplayMode, showPotionEffectStatus, 1F);
+	}
+	
+	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+		LivingEntity entity, float partialTicks, float yOffsetPx,
+		boolean showArmor, boolean showHeldItems,
+		DurabilityDisplayMode durabilityDisplayMode,
+		boolean showPotionEffectStatus, float scaleMultiplier)
 	{
 		Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks).add(0,
 			entity.getBbHeight() + 0.5, 0);
@@ -99,7 +109,7 @@ public final class EntityHealthRenderer
 		
 		double distance = WurstClient.MC.gameRenderer.getMainCamera().position()
 			.distanceTo(worldPos);
-		float scale = getScale(distance);
+		float scale = getScale(distance, scaleMultiplier);
 		float heartsY = screenY + yOffsetPx;
 		drawHeartRow(context, screenX, heartsY, scale, entity);
 		
@@ -446,14 +456,14 @@ public final class EntityHealthRenderer
 		return Math.max(1, Mth.ceil(displayedAbsorptionHalfHearts / 2.0F));
 	}
 	
-	private static float getScale(double distance)
+	private static float getScale(double distance, float scaleMultiplier)
 	{
 		float nameTagScale = 1F;
 		if(WurstClient.INSTANCE.getHax().nameTagsHack.isEnabled())
 			nameTagScale =
 				WurstClient.INSTANCE.getHax().nameTagsHack.getScale();
 		
-		float scale = 0.7F * nameTagScale;
+		float scale = 0.7F * nameTagScale * scaleMultiplier;
 		
 		// Keep hearts reasonable at long range so they don't dominate nametags.
 		if(distance > 12)
