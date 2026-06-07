@@ -20,6 +20,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundBundlePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -48,6 +52,8 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransformViewBobbingEvent;
 import java.lang.reflect.Method;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -59,7 +65,7 @@ import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"Pearl ESP", "ender pearl warning", "PearlESP"})
 public class PearlEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+	CameraTransformViewBobbingListener, PacketInputListener, RenderListener
 {
 	private static final double LANDING_BOX_RADIUS = 0.35;
 	private static final double HAND_BOX_RADIUS = 0.18;
@@ -101,6 +107,11 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private final ArrayList<HeldPearl> holders = new ArrayList<>();
 	private final HashSet<UUID> alertedPearls = new HashSet<>();
 	private final Map<UUID, StasisLabel> stasisLabels = new HashMap<>();
+	private final Map<UUID, UUID> pearlOwnerUuids = new HashMap<>();
+	private final Map<UUID, String> pearlOwnerLabels = new HashMap<>();
+	private final Map<UUID, Integer> pearlSpawnOwnerIds = new HashMap<>();
+	private final Map<Integer, UUID> entityIdToPlayerUuid = new HashMap<>();
+	private final Map<UUID, String> knownPlayerNames = new HashMap<>();
 	private boolean hasOwnPearl;
 	private long ownPearlSuppressUntilMs;
 	
@@ -125,6 +136,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
 	
@@ -133,13 +145,62 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
+		EVENTS.remove(PacketInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		pearls.clear();
 		holders.clear();
 		alertedPearls.clear();
 		stasisLabels.clear();
+		pearlOwnerUuids.clear();
+		pearlOwnerLabels.clear();
+		pearlSpawnOwnerIds.clear();
+		entityIdToPlayerUuid.clear();
+		knownPlayerNames.clear();
 		hasOwnPearl = false;
 		ownPearlSuppressUntilMs = 0L;
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		rememberPacket(event.getPacket());
+	}
+	
+	private void rememberPacket(Packet<?> rawPacket)
+	{
+		if(rawPacket instanceof ClientboundBundlePacket bundle)
+		{
+			for(Packet<?> subPacket : bundle.subPackets())
+				rememberPacket(subPacket);
+			return;
+		}
+		
+		if(rawPacket instanceof ClientboundPlayerInfoUpdatePacket packet)
+		{
+			rememberPlayerInfo(packet);
+			return;
+		}
+		
+		if(!(rawPacket instanceof ClientboundAddEntityPacket packet))
+			return;
+		
+		if(packet.getType() == EntityType.PLAYER)
+		{
+			rememberPlayerSpawn(packet);
+			return;
+		}
+		
+		if(packet.getType() != EntityType.ENDER_PEARL)
+			return;
+		
+		int ownerId = packet.getData();
+		if(ownerId <= 0)
+			return;
+		
+		pearlSpawnOwnerIds.put(packet.getUUID(), ownerId);
+		UUID ownerUuid = resolveOwnerUuid(ownerId);
+		if(ownerUuid != null)
+			rememberPearlOwnerUuid(packet.getUUID(), ownerUuid);
 	}
 	
 	@Override
@@ -155,6 +216,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			return;
 		
 		for(Entity entity : MC.level.entitiesForRendering())
+			if(entity instanceof Player player)
+				rememberVisibleOwner(player);
+			
+		for(Entity entity : MC.level.entitiesForRendering())
 		{
 			if(entity.getType() == EntityType.ENDER_PEARL)
 			{
@@ -162,7 +227,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				seenPearls.add(pearl.getUUID());
 				PearlPrediction prediction = buildPrediction(pearl);
 				Entity owner = getPearlOwner(pearl);
-				String ownerLabel = getPearlOwnerLabel(owner);
+				String ownerLabel = getPearlOwnerLabel(pearl, owner);
 				Vec3 stasisLabelPos = getStasisLabelPos(pearl);
 				if(stasisLabelPos != null)
 					stasisLabels.put(pearl.getUUID(),
@@ -184,7 +249,9 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			}
 			
 			if(entity instanceof Player player)
+			{
 				handleHolder(player);
+			}
 		}
 		
 		alertedPearls.retainAll(seenPearls);
@@ -408,7 +475,11 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private Entity getPearlOwner(Entity pearl)
 	{
 		if(pearl instanceof Projectile projectile)
-			return projectile.getOwner();
+		{
+			Entity owner = projectile.getOwner();
+			if(owner != null)
+				return owner;
+		}
 		
 		try
 		{
@@ -419,16 +490,201 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		}catch(Exception ignored)
 		{}
 		
+		Integer ownerId = pearlSpawnOwnerIds.get(pearl.getUUID());
+		if(ownerId != null && MC.level != null)
+			return MC.level.getEntity(ownerId);
+		
 		return null;
 	}
 	
-	private String getPearlOwnerLabel(Entity owner)
+	private String getPearlOwnerLabel(Entity pearl, Entity owner)
+	{
+		UUID pearlUuid = pearl.getUUID();
+		UUID ownerUuid = getKnownOwnerUuid(owner);
+		if(ownerUuid != null)
+		{
+			rememberPearlOwnerUuid(pearlUuid, ownerUuid);
+			String label = getOwnerUuidLabel(ownerUuid);
+			if(label != null)
+				return rememberPearlOwnerLabel(pearlUuid, label);
+		}
+		
+		UUID cachedOwnerUuid = pearlOwnerUuids.get(pearlUuid);
+		String label = getOwnerUuidLabel(cachedOwnerUuid);
+		if(label != null)
+			return rememberPearlOwnerLabel(pearlUuid, label);
+		
+		Integer ownerId = pearlSpawnOwnerIds.get(pearl.getUUID());
+		if(ownerId != null)
+		{
+			ownerUuid = resolveOwnerUuid(ownerId);
+			if(ownerUuid != null)
+			{
+				if(cachedOwnerUuid == null)
+					rememberPearlOwnerUuid(pearlUuid, ownerUuid);
+				label = getOwnerUuidLabel(ownerUuid);
+				if(label != null)
+					return rememberPearlOwnerLabel(pearlUuid, label);
+			}
+		}
+		
+		label = pearlOwnerLabels.get(pearlUuid);
+		if(label != null)
+			return label;
+		
+		return "Owner: Unknown";
+	}
+	
+	private void rememberPearlOwnerUuid(UUID pearlUuid, UUID ownerUuid)
+	{
+		if(pearlUuid == null || ownerUuid == null)
+			return;
+		
+		pearlOwnerUuids.put(pearlUuid, ownerUuid);
+	}
+	
+	private String rememberPearlOwnerLabel(UUID pearlUuid, String label)
+	{
+		if(pearlUuid != null && label != null && !label.isBlank()
+			&& !label.equals("Owner: Unknown"))
+			pearlOwnerLabels.put(pearlUuid, label);
+		return label;
+	}
+	
+	private UUID getKnownOwnerUuid(Entity owner)
 	{
 		if(owner == MC.player)
-			return "Owner: You";
+			return owner.getUUID();
 		if(owner instanceof Player player)
-			return "Owner: " + player.getName().getString();
-		return "Owner: Unknown";
+		{
+			rememberVisibleOwner(player);
+			return player.getUUID();
+		}
+		return null;
+	}
+	
+	private void rememberPlayerInfo(ClientboundPlayerInfoUpdatePacket packet)
+	{
+		for(ClientboundPlayerInfoUpdatePacket.Entry entry : packet.entries())
+		{
+			if(entry == null || entry.profileId() == null)
+				continue;
+			
+			String name = null;
+			if(entry.profile() != null)
+				name = entry.profile().name();
+			
+			if(name == null || name.isBlank())
+				continue;
+			
+			knownPlayerNames.put(entry.profileId(), name);
+		}
+	}
+	
+	private void rememberPlayerSpawn(ClientboundAddEntityPacket packet)
+	{
+		UUID uuid = packet.getUUID();
+		if(uuid == null)
+			return;
+		
+		entityIdToPlayerUuid.put(packet.getId(), uuid);
+		resolvePlayerName(uuid);
+		rememberPearlOwnersForEntityId(packet.getId(), uuid);
+	}
+	
+	private void rememberVisibleOwner(Player player)
+	{
+		if(player == null)
+			return;
+		
+		entityIdToPlayerUuid.put(player.getId(), player.getUUID());
+		rememberPearlOwnersForEntityId(player.getId(), player.getUUID());
+		
+		String name = player.getName().getString();
+		if(name == null || name.isBlank())
+			return;
+		
+		knownPlayerNames.put(player.getUUID(), name);
+	}
+	
+	private UUID resolveOwnerUuid(int ownerId)
+	{
+		UUID cached = entityIdToPlayerUuid.get(ownerId);
+		if(cached != null)
+			return cached;
+		
+		if(MC.level == null)
+			return null;
+		
+		Entity entity = MC.level.getEntity(ownerId);
+		if(entity instanceof Player player)
+		{
+			rememberVisibleOwner(player);
+			return player.getUUID();
+		}
+		
+		for(Entity visible : MC.level.entitiesForRendering())
+		{
+			if(visible.getId() != ownerId
+				|| !(visible instanceof Player player))
+				continue;
+			
+			rememberVisibleOwner(player);
+			return player.getUUID();
+		}
+		
+		return null;
+	}
+	
+	private void rememberPearlOwnersForEntityId(int ownerId, UUID ownerUuid)
+	{
+		if(ownerUuid == null)
+			return;
+		
+		for(Map.Entry<UUID, Integer> entry : pearlSpawnOwnerIds.entrySet())
+		{
+			Integer pearlOwnerId = entry.getValue();
+			if(pearlOwnerId == null || pearlOwnerId != ownerId)
+				continue;
+			
+			rememberPearlOwnerUuid(entry.getKey(), ownerUuid);
+		}
+	}
+	
+	private String getOwnerUuidLabel(UUID ownerUuid)
+	{
+		if(ownerUuid == null)
+			return null;
+		
+		if(MC.player != null && ownerUuid.equals(MC.player.getUUID()))
+			return "Owner: You";
+		
+		String name = resolvePlayerName(ownerUuid);
+		return name == null ? null : "Owner: " + name;
+	}
+	
+	private String resolvePlayerName(UUID uuid)
+	{
+		if(uuid == null)
+			return null;
+		
+		String cached = knownPlayerNames.get(uuid);
+		if(cached != null && !cached.isBlank())
+			return cached;
+		
+		if(MC.getConnection() == null)
+			return null;
+		
+		var info = MC.getConnection().getPlayerInfo(uuid);
+		if(info == null || info.getProfile() == null)
+			return null;
+		
+		String name = info.getProfile().name();
+		if(name == null || name.isBlank())
+			return null;
+		
+		knownPlayerNames.put(uuid, name);
+		return name;
 	}
 	
 	private Vec3 getStasisLabelPos(Entity pearl)

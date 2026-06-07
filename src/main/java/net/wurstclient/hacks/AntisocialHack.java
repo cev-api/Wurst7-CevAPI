@@ -111,9 +111,7 @@ public final class AntisocialHack extends Hack
 		if(ignoreNpcs.isChecked() && info.isProbablyNpc())
 			return;
 		
-		if(ignoreFriends.isChecked()
-			&& (player != null && WURST.getFriends().isFriend(player)
-				|| WURST.getFriends().contains(info.getName())))
+		if(ignoreFriends.isChecked() && isFriend(player, info))
 			return;
 		
 		triggered = true;
@@ -185,6 +183,25 @@ public final class AntisocialHack extends Hack
 			MC.getConnection().sendChat(trimmed);
 		
 		return true;
+	}
+	
+	private boolean isFriend(Player player,
+		PlayerRangeAlertManager.PlayerInfo info)
+	{
+		if(WURST.getFriends() == null)
+			return false;
+		
+		if(player != null && WURST.getFriends().isFriend(player))
+			return true;
+		
+		if(info != null && WURST.getFriends().contains(info.getName()))
+			return true;
+		
+		if(player == null)
+			return false;
+		
+		String name = player.getName().getString();
+		return name != null && WURST.getFriends().contains(name);
 	}
 	
 	@Override
