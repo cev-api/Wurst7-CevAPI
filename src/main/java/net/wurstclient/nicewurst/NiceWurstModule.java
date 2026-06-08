@@ -110,7 +110,7 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
-				"BedrockStash", "LivestreamDetector", "SpectatorMonitor",
+				"BedrockStash", "LivestreamDetector", "StaffMonitor",
 				"OppStats"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,

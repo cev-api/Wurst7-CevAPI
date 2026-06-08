@@ -21,6 +21,7 @@ import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -39,6 +40,10 @@ import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.other_features.packettools.EntityLifecycleTracker;
+import net.wurstclient.other_features.packettools.PacketDecodeCoverage;
+import net.wurstclient.other_features.packettools.PacketDumper;
+import net.wurstclient.other_features.packettools.PacketFilter;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -75,6 +80,43 @@ public final class PacketToolsOtf extends OtherFeature
 		ValueDisplay.INTEGER);
 	private final ButtonSetting openUiButton =
 		new ButtonSetting("Open Packet Tools UI", this::openScreen);
+	
+	// ---- Verbose mode ----
+	private final CheckboxSetting verboseEnabled = new CheckboxSetting(
+		"Verbose logging",
+		"When enabled, packets selected for logging are dumped with\n"
+			+ "full per-field detail (JSONL + optional human-readable)\n"
+			+ "instead of a simple one-line toString().\n"
+			+ "Honors the same per-packet Log selections in the UI.",
+		false);
+	private final CheckboxSetting verboseHumanReadable =
+		new CheckboxSetting("Verbose human-readable",
+			"Also write human-readable logs alongside JSONL.", true);
+	private final SliderSetting verboseFlushInterval =
+		new SliderSetting("Verbose flush ticks",
+			"How often to flush the verbose buffer to disk (in ticks).\n"
+				+ "Higher values reduce disk I/O but use more memory.",
+			20, 1, 200, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting showCoverageReport =
+		new ButtonSetting("Show coverage report", this::printCoverageReport);
+	private final ButtonSetting showEntitySummary =
+		new ButtonSetting("Show entity summary", this::printEntitySummary);
+	
+	private final PacketDecodeCoverage decodeCoverage =
+		new PacketDecodeCoverage();
+	private final EntityLifecycleTracker lifecycleTracker =
+		new EntityLifecycleTracker();
+	private final PacketFilter packetFilter = new PacketFilter();
+	private PacketDumper packetDumper;
+	
+	private Path currentVerboseJsonlFile;
+	private Path currentVerboseHumanFile;
+	
+	// Batched write buffers – flushed in onUpdate() to avoid per-packet disk
+	// I/O
+	private final ArrayList<String> verboseJsonlBuffer = new ArrayList<>(512);
+	private final ArrayList<String> verboseHumanBuffer = new ArrayList<>(512);
+	private int verboseFlushTickCounter;
 	
 	private final Set<String> logS2C = new LinkedHashSet<>();
 	private final Set<String> logC2S = new LinkedHashSet<>();
@@ -113,6 +155,11 @@ public final class PacketToolsOtf extends OtherFeature
 		addSetting(showUnknownPackets);
 		addSetting(delayTicks);
 		addSetting(openUiButton);
+		addSetting(verboseEnabled);
+		addSetting(verboseHumanReadable);
+		addSetting(verboseFlushInterval);
+		addSetting(showCoverageReport);
+		addSetting(showEntitySummary);
 		
 		loadSelectionConfig();
 		
@@ -202,7 +249,31 @@ public final class PacketToolsOtf extends OtherFeature
 		if(lastLoggingState && !loggingEnabled.isChecked())
 			currentLogFile = null;
 		lastLoggingState = loggingEnabled.isChecked();
+		
+		// Tick entity lifecycle tracker
+		if(verboseEnabled.isChecked())
+		{
+			lifecycleTracker.tick();
+			
+			// Flush verbose buffers periodically
+			int flushInterval = Math.max(1, verboseFlushInterval.getValueI());
+			verboseFlushTickCounter++;
+			if(verboseFlushTickCounter >= flushInterval)
+			{
+				verboseFlushTickCounter = 0;
+				flushVerboseBuffers();
+			}
+		}else if(!verboseEnabled.isChecked() && lastVerboseState)
+		{
+			// Verbose just turned off — flush remaining and clear refs
+			flushVerboseBuffers();
+			currentVerboseJsonlFile = null;
+			currentVerboseHumanFile = null;
+		}
+		lastVerboseState = verboseEnabled.isChecked();
 	}
+	
+	private boolean lastVerboseState;
 	
 	public void openScreen()
 	{
@@ -483,6 +554,14 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void logPacket(String name, String direction, Packet<?> packet)
 	{
+		// If verbose is enabled, use the detailed JSONL dumper instead of
+		// the simple one-line toString() output.
+		if(verboseEnabled.isChecked())
+		{
+			logVerbose(packet, direction);
+			return;
+		}
+		
 		String data = String.valueOf(packet);
 		String timestamp = LocalDateTime.now().format(TIME_FORMAT);
 		String line =
@@ -528,6 +607,176 @@ public final class PacketToolsOtf extends OtherFeature
 			"packets_" + LocalDateTime.now().format(FILE_TIME_FORMAT) + ".log";
 		currentLogFile = LOG_DIR.resolve(name);
 		return currentLogFile;
+	}
+	
+	// === Verbose logging ===
+	
+	private void logVerbose(Packet<?> packet, String direction)
+	{
+		if(packetDumper == null)
+			packetDumper = new PacketDumper(decodeCoverage, packetFilter,
+				lifecycleTracker);
+		
+		List<String> lines =
+			packetDumper.dumpRecursive(packet, direction, null);
+		if(lines.isEmpty())
+			return;
+		
+		boolean human = verboseHumanReadable.isChecked();
+		synchronized(verboseJsonlBuffer)
+		{
+			for(String line : lines)
+			{
+				verboseJsonlBuffer.add(line);
+				if(human)
+					verboseHumanBuffer.add(buildHumanReadable(line));
+			}
+		}
+	}
+	
+	private void flushVerboseBuffers()
+	{
+		ArrayList<String> jsonlBatch;
+		ArrayList<String> humanBatch;
+		synchronized(verboseJsonlBuffer)
+		{
+			if(verboseJsonlBuffer.isEmpty())
+				return;
+			jsonlBatch = new ArrayList<>(verboseJsonlBuffer);
+			humanBatch = verboseHumanReadable.isChecked()
+				? new ArrayList<>(verboseHumanBuffer) : null;
+			verboseJsonlBuffer.clear();
+			verboseHumanBuffer.clear();
+		}
+		
+		try
+		{
+			Path jsonlFile = getCurrentVerboseJsonlFile();
+			StringBuilder sb = new StringBuilder();
+			for(String line : jsonlBatch)
+				sb.append(line).append('\n');
+			Files.writeString(jsonlFile, sb.toString(),
+				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+		}catch(IOException e)
+		{
+			ChatUtils.error("PacketTools: failed writing verbose JSONL file.");
+		}
+		
+		if(humanBatch != null)
+		{
+			try
+			{
+				Path humanFile = getCurrentVerboseHumanFile();
+				StringBuilder sb = new StringBuilder();
+				for(String line : humanBatch)
+					sb.append(line);
+				Files.writeString(humanFile, sb.toString(),
+					StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+			}catch(IOException e)
+			{
+				ChatUtils.error(
+					"PacketTools: failed writing verbose human-readable file.");
+			}
+		}
+	}
+	
+	private String buildHumanReadable(String jsonLine)
+	{
+		try
+		{
+			JsonObject obj = JsonParser.parseString(jsonLine).getAsJsonObject();
+			StringBuilder sb = new StringBuilder();
+			sb.append("[").append(obj.get("timestamp").getAsString())
+				.append("] [").append(obj.get("direction").getAsString())
+				.append("] ").append(obj.get("simpleName").getAsString());
+			if(obj.has("bundlePath"))
+				sb.append(" @ ").append(obj.get("bundlePath").getAsString());
+			sb.append("\n");
+			
+			if(obj.has("fields"))
+			{
+				JsonObject fields = obj.getAsJsonObject("fields");
+				for(Map.Entry<String, com.google.gson.JsonElement> e : fields
+					.entrySet())
+				{
+					sb.append("  ").append(e.getKey()).append(" = ")
+						.append(e.getValue()).append("\n");
+				}
+			}
+			sb.append("\n");
+			return sb.toString();
+		}catch(Exception e)
+		{
+			return jsonLine + "\n";
+		}
+	}
+	
+	private Path getCurrentVerboseJsonlFile() throws IOException
+	{
+		if(currentVerboseJsonlFile != null)
+			return currentVerboseJsonlFile;
+		
+		Files.createDirectories(LOG_DIR);
+		String name = "verbose_" + LocalDateTime.now().format(FILE_TIME_FORMAT)
+			+ ".jsonl";
+		currentVerboseJsonlFile = LOG_DIR.resolve(name);
+		return currentVerboseJsonlFile;
+	}
+	
+	private Path getCurrentVerboseHumanFile() throws IOException
+	{
+		if(currentVerboseHumanFile != null)
+			return currentVerboseHumanFile;
+		
+		Files.createDirectories(LOG_DIR);
+		String name =
+			"verbose_" + LocalDateTime.now().format(FILE_TIME_FORMAT) + ".log";
+		currentVerboseHumanFile = LOG_DIR.resolve(name);
+		return currentVerboseHumanFile;
+	}
+	
+	private void printCoverageReport()
+	{
+		String report = decodeCoverage.buildReport();
+		ChatUtils.message(report);
+	}
+	
+	private void printEntitySummary()
+	{
+		String summary = lifecycleTracker.buildSummary();
+		ChatUtils.message(summary);
+	}
+	
+	// === Verbose mode settings accessors ===
+	
+	public CheckboxSetting getVerboseEnabledSetting()
+	{
+		return verboseEnabled;
+	}
+	
+	public CheckboxSetting getVerboseHumanReadableSetting()
+	{
+		return verboseHumanReadable;
+	}
+	
+	public SliderSetting getVerboseFlushIntervalSetting()
+	{
+		return verboseFlushInterval;
+	}
+	
+	public PacketDecodeCoverage getDecodeCoverage()
+	{
+		return decodeCoverage;
+	}
+	
+	public EntityLifecycleTracker getLifecycleTracker()
+	{
+		return lifecycleTracker;
+	}
+	
+	public PacketFilter getPacketFilter()
+	{
+		return packetFilter;
 	}
 	
 	private long getCurrentTick()

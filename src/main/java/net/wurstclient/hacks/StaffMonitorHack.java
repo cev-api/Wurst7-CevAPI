@@ -36,9 +36,10 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.FakePlayerEntity;
 
-@SearchTags({"spectator monitor", "spectator detector", "gamemode monitor",
-	"spec detector", "hidden player detector", "vanish detector"})
-public final class SpectatorMonitorHack extends Hack implements UpdateListener
+@SearchTags({"staff monitor", "spectator monitor", "spectator detector",
+	"gamemode monitor", "creative monitor", "spec detector",
+	"hidden player detector", "vanish detector", "staff detector"})
+public final class StaffMonitorHack extends Hack implements UpdateListener
 {
 	private enum AlertSound
 	{
@@ -86,6 +87,11 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		new EnumSetting<>("Sound", AlertSound.values(), AlertSound.CHIME);
 	private final SliderSetting volume = new SliderSetting("Volume", 100, 0,
 		200, 1, ValueDisplay.INTEGER.withSuffix("%"));
+	private final CheckboxSetting monitorModeSwitching = new CheckboxSetting(
+		"Monitor mode switching",
+		"Alert when players switch gamemodes (survival \u2194 creative \u2194"
+			+ " adventure \u2194 spectator).",
+		true);
 	private final CheckboxSetting ignoreSelf =
 		new CheckboxSetting("Ignore self", true);
 	private final CheckboxSetting hiddenPlayerAlerts = new CheckboxSetting(
@@ -94,38 +100,39 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 			+ " the tab list.\n\n"
 			+ "This can reveal vanished players, but some servers also use"
 			+ " off-tab player entities for NPCs.",
-		false);
-	private final CheckboxSetting staffAlerts = new CheckboxSetting(
-		"Staff alerts",
+		true);
+	private final CheckboxSetting hiddenStaffAlerts = new CheckboxSetting(
+		"Hidden staff alerts",
 		"Alerts when a player from the local staff list appears in tab.\n\n"
 			+ "Staff names are loaded from .minecraft/wurst/staff/<server>.txt"
 			+ " and .minecraft/wurst/staff/global.txt, one name per line.",
-		false);
+		true);
 	
-	private final Map<UUID, Boolean> spectatorStates = new HashMap<>();
+	private final Map<UUID, GameType> gamemodeStates = new HashMap<>();
 	private final Map<UUID, String> hiddenPlayers = new HashMap<>();
 	private final Set<String> staffNames = new HashSet<>();
 	private final Set<UUID> alertedStaff = new HashSet<>();
 	private String lastServerKey = "unknown";
 	private boolean hiddenPlayerAlertsActive;
 	
-	public SpectatorMonitorHack()
+	public StaffMonitorHack()
 	{
-		super("SpectatorMonitor");
+		super("StaffMonitor");
 		setCategory(Category.INTEL);
 		addSetting(chatAlert);
 		addSetting(soundAlert);
 		addSetting(sound);
 		addSetting(volume);
+		addSetting(monitorModeSwitching);
 		addSetting(ignoreSelf);
 		addSetting(hiddenPlayerAlerts);
-		addSetting(staffAlerts);
+		addSetting(hiddenStaffAlerts);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
-		spectatorStates.clear();
+		gamemodeStates.clear();
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		lastServerKey = resolveServerKey();
@@ -141,7 +148,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
-		spectatorStates.clear();
+		gamemodeStates.clear();
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		staffNames.clear();
@@ -153,7 +160,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 	{
 		if(MC.getConnection() == null)
 		{
-			spectatorStates.clear();
+			gamemodeStates.clear();
 			hiddenPlayers.clear();
 			hiddenPlayerAlertsActive = false;
 			return;
@@ -162,7 +169,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		String serverKeyNow = resolveServerKey();
 		if(!serverKeyNow.equals(lastServerKey))
 		{
-			spectatorStates.clear();
+			gamemodeStates.clear();
 			hiddenPlayers.clear();
 			alertedStaff.clear();
 			lastServerKey = serverKeyNow;
@@ -174,9 +181,11 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 			return;
 		}
 		
+		boolean modeSwitching = monitorModeSwitching.isChecked();
+		
 		updateHiddenPlayers();
 		
-		HashMap<UUID, Boolean> nextStates = new HashMap<>();
+		HashMap<UUID, GameType> nextStates = new HashMap<>();
 		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
 			UUID id = info.getProfile().id();
@@ -184,26 +193,31 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 				&& id.equals(MC.player.getUUID()))
 				continue;
 			
-			boolean isSpectator = info.getGameMode() == GameType.SPECTATOR;
-			nextStates.put(id, isSpectator);
-			if(staffAlerts.isChecked() && isStaffName(info.getProfile().name())
+			GameType currentMode = info.getGameMode();
+			nextStates.put(id, currentMode);
+			
+			// Hidden staff alert
+			if(hiddenStaffAlerts.isChecked()
+				&& isStaffName(info.getProfile().name())
 				&& alertedStaff.add(id))
 				alertStaff(info);
 			
-			Boolean previous = spectatorStates.get(id);
+			GameType previous = gamemodeStates.get(id);
 			if(previous == null)
 			{
-				if(isSpectator)
-					alert(info, true);
+				// First time seeing this player — alert their initial mode
+				if(modeSwitching)
+					alert(info, currentMode, true);
 				continue;
 			}
 			
-			if(previous.booleanValue() != isSpectator)
-				alert(info, isSpectator);
+			// Gamemode changed — alert on any transition
+			if(modeSwitching && previous != currentMode)
+				alert(info, currentMode, true);
 		}
 		
-		spectatorStates.clear();
-		spectatorStates.putAll(nextStates);
+		gamemodeStates.clear();
+		gamemodeStates.putAll(nextStates);
 	}
 	
 	private void updateHiddenPlayers()
@@ -264,7 +278,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 				&& id.equals(MC.player.getUUID()))
 				continue;
 			
-			spectatorStates.put(id, info.getGameMode() == GameType.SPECTATOR);
+			gamemodeStates.put(id, info.getGameMode());
 		}
 	}
 	
@@ -296,14 +310,16 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 			&& player.getUUID().equals(MC.player.getUUID());
 	}
 	
-	private void alert(PlayerInfo info, boolean enteredSpectator)
+	private void alert(PlayerInfo info, GameType mode, boolean entered)
 	{
 		String name = info.getProfile().name();
+		String modeLabel = mode.getName(); // "survival", "creative",
+											// "spectator", "adventure"
 		if(chatAlert.isChecked())
 		{
-			String action = enteredSpectator ? "entered" : "left";
+			String action = entered ? "entered" : "left";
 			ChatUtils.component(Component.literal(String.format(Locale.ROOT,
-				"[SpectatorMonitor] %s %s spectator mode.", name, action)));
+				"[StaffMonitor] %s %s %s mode.", name, action, modeLabel)));
 		}
 		
 		if(soundAlert.isChecked() && MC.level != null && MC.player != null)
@@ -320,10 +336,10 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 			double z = MC.player.getZ();
 			for(int i = 0; i < whole; i++)
 				MC.level.playLocalSound(x, y, z, event, SoundSource.PLAYERS, 1F,
-					enteredSpectator ? 1.2F : 0.85F, false);
+					entered ? 1.2F : 0.85F, false);
 			if(remainder > 0F)
 				MC.level.playLocalSound(x, y, z, event, SoundSource.PLAYERS,
-					remainder, enteredSpectator ? 1.2F : 0.85F, false);
+					remainder, entered ? 1.2F : 0.85F, false);
 		}
 	}
 	
@@ -332,7 +348,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		String name = info.getProfile().name();
 		if(chatAlert.isChecked())
 			ChatUtils.component(Component.literal(String.format(Locale.ROOT,
-				"[SpectatorMonitor] Staff member %s is online.", name)));
+				"[StaffMonitor] Staff member %s is online.", name)));
 		
 		if(soundAlert.isChecked() && MC.level != null && MC.player != null)
 		{
@@ -353,7 +369,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		{
 			String action = appeared ? "appeared off-tab" : "disappeared";
 			ChatUtils.component(Component.literal(String.format(Locale.ROOT,
-				"[SpectatorMonitor] %s %s.", name, action)));
+				"[StaffMonitor] %s %s.", name, action)));
 		}
 		
 		if(soundAlert.isChecked() && MC.level != null && MC.player != null)
@@ -372,7 +388,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 	private void loadStaffNames()
 	{
 		staffNames.clear();
-		if(!staffAlerts.isChecked())
+		if(!hiddenStaffAlerts.isChecked())
 			return;
 		
 		Path folder = WURST.getWurstFolder().resolve("staff");
@@ -397,7 +413,7 @@ public final class SpectatorMonitorHack extends Hack implements UpdateListener
 		}catch(IOException e)
 		{
 			ChatUtils
-				.error("SpectatorMonitor staff list failed: " + e.getMessage());
+				.error("StaffMonitor staff list failed: " + e.getMessage());
 		}
 	}
 	
