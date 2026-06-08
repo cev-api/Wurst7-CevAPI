@@ -25,6 +25,10 @@ public abstract class MobRendererMixin
 	private void onShouldShowName(Mob mob, double distanceSq,
 		CallbackInfoReturnable<Boolean> cir)
 	{
+		if(WurstClient.INSTANCE.getHax().mobOwnersHack
+			.shouldForceMobNametag(mob))
+			cir.setReturnValue(true);
+		
 		if(WurstClient.INSTANCE.getHax().mobHealthHack
 			.shouldForceMobNametags(mob))
 			cir.setReturnValue(true);

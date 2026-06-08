@@ -7,9 +7,13 @@
  */
 package net.wurstclient.hacks;
 
+import com.google.gson.JsonObject;
 import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +28,8 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
+import net.minecraft.util.Mth;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -44,6 +50,7 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
@@ -52,6 +59,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.CameraTransformViewBobbingListener.CameraTransformViewBobbingEvent;
 import java.lang.reflect.Method;
+import net.minecraft.client.multiplayer.ServerData;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
@@ -61,7 +69,9 @@ import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.EntityUtils;
+import net.wurstclient.util.OwnerResolver;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.json.JsonUtils;
 
 @SearchTags({"Pearl ESP", "ender pearl warning", "PearlESP"})
 public class PearlEspHack extends Hack implements UpdateListener,
@@ -88,6 +98,16 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		"Show stasis owners",
 		"Show the owner name above visible ender pearls sitting in stasis chambers.",
 		true);
+	private final CheckboxSetting stasisEspColor =
+		new CheckboxSetting("Stasis ESP color",
+			"Use a separate ESP color for pearls sitting in stasis chambers.",
+			true);
+	private final ColorSetting stasisColor = new ColorSetting("Stasis color",
+		"Highlight color for pearls in stasis chambers.", new Color(0x55FFAA));
+	private final CheckboxSetting stasisFlash =
+		new CheckboxSetting("Stasis flash",
+			"Make ESP for pearls in stasis chambers pulse with a smooth fade.",
+			false);
 	private final SliderSetting tracerThickness = new SliderSetting(
 		"Tracer thickness", 2, 0.5, 8, 0.1, ValueDisplay.DECIMAL);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
@@ -102,6 +122,21 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		new EnumSetting<>("Alert sound",
 			"Sound used for PearlESP alerts (includes all note-block sounds).",
 			AlertSound.values(), AlertSound.NOTE_BLOCK_CHIME);
+	private final CheckboxSetting persistOwnership = new CheckboxSetting(
+		"Persist ownership",
+		"Save pearl owner mappings per-server so ownership survives game restarts.",
+		true);
+	private final ButtonSetting clearOwnershipLog =
+		new ButtonSetting("Clear ownership log",
+			"Delete stored pearl ownership data for the current server.",
+			this::clearOwnershipLog);
+	private final CheckboxSetting inferOwnership = new CheckboxSetting(
+		"Infer ownership",
+		"Infer pearl owner from join timing when a player joins and a pearl appears within a tight window.",
+		true);
+	private final SliderSetting inferenceWindowMs =
+		new SliderSetting("Inference window", 32, 2, 250, 1,
+			ValueDisplay.INTEGER.withSuffix(" ms"));
 	
 	private final ArrayList<TrackedPearl> pearls = new ArrayList<>();
 	private final ArrayList<HeldPearl> holders = new ArrayList<>();
@@ -110,10 +145,27 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private final Map<UUID, UUID> pearlOwnerUuids = new HashMap<>();
 	private final Map<UUID, String> pearlOwnerLabels = new HashMap<>();
 	private final Map<UUID, Integer> pearlSpawnOwnerIds = new HashMap<>();
-	private final Map<Integer, UUID> entityIdToPlayerUuid = new HashMap<>();
+	private final Map<Integer, EntityIdBinding> entityIdBindings =
+		new HashMap<>();
+	private final Map<UUID, PlayerIdentity> playerIdentities = new HashMap<>();
+	private final Map<UUID, PearlIdentity> pearlIdentities = new HashMap<>();
 	private final Map<UUID, String> knownPlayerNames = new HashMap<>();
+	private final Map<UUID, Long> playerJoinTimes = new HashMap<>();
+	private final Map<UUID, Long> playerLeaveTimes = new HashMap<>();
 	private boolean hasOwnPearl;
 	private long ownPearlSuppressUntilMs;
+	
+	// Per-frame tracking for disconnect inference
+	private HashSet<UUID> previousPearlUuids = new HashSet<>();
+	private final Map<UUID, Vec3> lastPearlPositions = new HashMap<>();
+	private final Map<UUID, StasisLabel> offlineStasisLabels = new HashMap<>();
+	private static final long OFFLINE_STASIS_STICKY_MS = 8000;
+	
+	// Per-server file persistence
+	private boolean dirty;
+	private long lastSaveAt;
+	private Path currentFile;
+	private String lastServerKey;
 	
 	public PearlEspHack()
 	{
@@ -124,11 +176,18 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		addSetting(showPlayerPrediction);
 		addSetting(showTracerLine);
 		addSetting(showStasisOwners);
+		addSetting(stasisEspColor);
+		addSetting(stasisColor);
+		addSetting(stasisFlash);
 		addSetting(tracerThickness);
 		addSetting(tracerFlash);
 		addSetting(chatAlerts);
 		addSetting(soundAlerts);
 		addSetting(alertSound);
+		addSetting(persistOwnership);
+		addSetting(clearOwnershipLog);
+		addSetting(inferOwnership);
+		addSetting(inferenceWindowMs);
 	}
 	
 	@Override
@@ -138,6 +197,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		loadOwnershipData();
 	}
 	
 	@Override
@@ -147,6 +207,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		saveOwnershipData(true);
 		pearls.clear();
 		holders.clear();
 		alertedPearls.clear();
@@ -154,10 +215,20 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		pearlOwnerUuids.clear();
 		pearlOwnerLabels.clear();
 		pearlSpawnOwnerIds.clear();
-		entityIdToPlayerUuid.clear();
+		entityIdBindings.clear();
+		playerIdentities.clear();
+		pearlIdentities.clear();
 		knownPlayerNames.clear();
+		playerJoinTimes.clear();
+		playerLeaveTimes.clear();
+		previousPearlUuids.clear();
+		lastPearlPositions.clear();
+		offlineStasisLabels.clear();
 		hasOwnPearl = false;
 		ownPearlSuppressUntilMs = 0L;
+		dirty = false;
+		currentFile = null;
+		lastServerKey = null;
 	}
 	
 	@Override
@@ -181,6 +252,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			return;
 		}
 		
+		if(rawPacket instanceof ClientboundRemoveEntitiesPacket remove)
+		{
+			rememberEntityRemoval(remove);
+			return;
+		}
+		
 		if(!(rawPacket instanceof ClientboundAddEntityPacket packet))
 			return;
 		
@@ -197,10 +274,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(ownerId <= 0)
 			return;
 		
-		pearlSpawnOwnerIds.put(packet.getUUID(), ownerId);
-		UUID ownerUuid = resolveOwnerUuid(ownerId);
-		if(ownerUuid != null)
-			rememberPearlOwnerUuid(packet.getUUID(), ownerUuid);
+		rememberPearlSpawn(packet);
 	}
 	
 	@Override
@@ -225,11 +299,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			{
 				Entity pearl = entity;
 				seenPearls.add(pearl.getUUID());
+				lastPearlPositions.put(pearl.getUUID(), pearl.position());
 				PearlPrediction prediction = buildPrediction(pearl);
 				Entity owner = getPearlOwner(pearl);
 				String ownerLabel = getPearlOwnerLabel(pearl, owner);
 				Vec3 stasisLabelPos = getStasisLabelPos(pearl);
-				if(stasisLabelPos != null)
+				if(stasisLabelPos != null && ownerLabel != null)
 					stasisLabels.put(pearl.getUUID(),
 						new StasisLabel(ownerLabel, stasisLabelPos,
 							now + STASIS_LABEL_STICKY_MS));
@@ -257,6 +332,49 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		alertedPearls.retainAll(seenPearls);
 		stasisLabels.entrySet().removeIf(e -> !seenPearls.contains(e.getKey())
 			|| e.getValue().untilMs() < now);
+		offlineStasisLabels.entrySet()
+			.removeIf(e -> seenPearls.contains(e.getKey())
+				|| e.getValue() == null || e.getValue().untilMs() < now);
+		
+		// Disconnect inference: pearls that disappeared since last frame
+		if(inferOwnership.isChecked())
+		{
+			HashSet<UUID> vanished = new HashSet<>(previousPearlUuids);
+			vanished.removeAll(seenPearls);
+			for(UUID vanishedUuid : vanished)
+			{
+				UUID existingOwner = pearlOwnerUuids.get(vanishedUuid);
+				if(existingOwner != null)
+				{
+					Vec3 pos = lastPearlPositions.get(vanishedUuid);
+					if(pos != null)
+					{
+						String inferred = getOwnerUuidLabel(existingOwner);
+						if(inferred != null)
+							offlineStasisLabels.put(vanishedUuid,
+								new StasisLabel(
+									formatOfflineLabelText(vanishedUuid,
+										inferred),
+									pos, now + OFFLINE_STASIS_STICKY_MS));
+					}
+					continue;
+				}
+				
+				String inferred = inferOwnerFromLeaveTiming(vanishedUuid);
+				if(inferred != null)
+				{
+					Vec3 pos = lastPearlPositions.get(vanishedUuid);
+					if(pos != null)
+						offlineStasisLabels.put(vanishedUuid, new StasisLabel(
+							inferred, pos, now + OFFLINE_STASIS_STICKY_MS));
+				}
+			}
+		}
+		previousPearlUuids = seenPearls;
+		
+		// Re-resolve current file in case server changed
+		resolveCurrentFile();
+		saveIfNeeded(false);
 	}
 	
 	private void triggerPearlAlert(Entity pearl, String ownerLabel)
@@ -269,8 +387,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			Vec3 selfPos = MC.player == null ? null : MC.player.position();
 			String detectionDetails = DisconnectContext
 				.formatPlayerDetectionDetails(selfPos, pearl.position());
-			ChatUtils.message("PearlESP: Ender pearl detected.\nDetected at:\n"
-				+ detectionDetails + "\n" + ownerLabel + ".");
+			String ownerInfo =
+				ownerLabel != null ? "\n" + ownerLabel + "." : "";
+			ChatUtils.message("PearlESP: Ender pearl detected." + ownerInfo
+				+ "\nDetected at:\n" + detectionDetails);
 		}
 		
 		if(!soundAlerts.isChecked() || MC.level == null || MC.player == null)
@@ -339,10 +459,14 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		}
 		
 		ArrayList<AABB> pearlBoxes = new ArrayList<>();
+		ArrayList<AABB> stasisPearlBoxes = new ArrayList<>();
 		ArrayList<AABB> landingBoxes = new ArrayList<>();
+		ArrayList<AABB> stasisLandingBoxes = new ArrayList<>();
 		ArrayList<AABB> handBoxes = new ArrayList<>();
 		int lineColor = color.getColorI();
 		int fillColor = color.getColorI(0x50);
+		int stasisLineColor = getStasisLineColor();
+		int stasisFillColor = getStasisFillColor();
 		
 		for(TrackedPearl tracked : pearls)
 		{
@@ -351,22 +475,53 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			AABB box = EntityUtils.getLerpedBox(pearl, partialTicks);
-			pearlBoxes.add(box);
+			boolean isStasis = tracked.stasisLabel() != null;
+			
+			if(isStasis)
+				stasisPearlBoxes.add(box);
+			else
+				pearlBoxes.add(box);
 			
 			if(showStasisOwners.isChecked())
 			{
 				StasisLabel label = tracked.stasisLabel();
-				if(label != null)
-					drawWorldLabel(matrixStack, label.text(), label.pos().x,
-						label.pos().y, label.pos().z, lineColor, 0.85F, 0F);
+				if(label != null && label.text() != null
+					&& !label.text().isBlank())
+				{
+					Vec3 labelPos = label.pos();
+					float dynScale = computeDistanceScale(labelPos, 0.85F);
+					drawWorldLabel(matrixStack, label.text(), labelPos.x,
+						labelPos.y, labelPos.z,
+						isStasis ? stasisLineColor : lineColor, dynScale, 0F);
+				}
 			}
 			
 			PearlPrediction prediction = tracked.prediction();
 			if(prediction != null && prediction.landing() != null)
 			{
-				landingBoxes.add(
-					createLandingBox(prediction.landing(), LANDING_BOX_RADIUS));
-				renderTrajectory(matrixStack, prediction.path(), lineColor);
+				AABB landing =
+					createLandingBox(prediction.landing(), LANDING_BOX_RADIUS);
+				if(isStasis)
+					stasisLandingBoxes.add(landing);
+				else
+					landingBoxes.add(landing);
+				renderTrajectory(matrixStack, prediction.path(),
+					isStasis ? stasisLineColor : lineColor);
+			}
+		}
+		
+		if(showStasisOwners.isChecked())
+		{
+			for(StasisLabel label : offlineStasisLabels.values())
+			{
+				if(label == null || label.text() == null
+					|| label.text().isBlank() || label.pos() == null)
+					continue;
+				
+				Vec3 labelPos = label.pos();
+				float dynScale = computeDistanceScale(labelPos, 0.85F);
+				drawWorldLabel(matrixStack, label.text(), labelPos.x,
+					labelPos.y, labelPos.z, stasisLineColor, dynScale, 0F);
 			}
 		}
 		
@@ -442,6 +597,9 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(!pearlBoxes.isEmpty())
 			RenderUtils.drawOutlinedBoxes(matrixStack, pearlBoxes, lineColor,
 				false);
+		if(!stasisPearlBoxes.isEmpty())
+			RenderUtils.drawOutlinedBoxes(matrixStack, stasisPearlBoxes,
+				stasisLineColor, false);
 		
 		if(!landingBoxes.isEmpty())
 		{
@@ -449,6 +607,13 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				false);
 			RenderUtils.drawOutlinedBoxes(matrixStack, landingBoxes, lineColor,
 				false);
+		}
+		if(!stasisLandingBoxes.isEmpty())
+		{
+			RenderUtils.drawSolidBoxes(matrixStack, stasisLandingBoxes,
+				stasisFillColor, false);
+			RenderUtils.drawOutlinedBoxes(matrixStack, stasisLandingBoxes,
+				stasisLineColor, false);
 		}
 		
 		if(!handBoxes.isEmpty())
@@ -506,14 +671,45 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			rememberPearlOwnerUuid(pearlUuid, ownerUuid);
 			String label = getOwnerUuidLabel(ownerUuid);
 			if(label != null)
+			{
+				OwnerConfidence conf = getPearlConfidence(pearlUuid);
+				// If inference already fired in rememberPearlSpawn,
+				// keep (Inferred) until entity-id confirmation
+				if(conf == OwnerConfidence.INFERRED_JOIN_TIMING)
+				{
+					updatePearlIdentityConfidence(pearlUuid, ownerUuid,
+						OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID);
+					return rememberPearlOwnerLabel(pearlUuid, label);
+				}
+				updatePearlIdentityConfidence(pearlUuid, ownerUuid,
+					OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID);
 				return rememberPearlOwnerLabel(pearlUuid, label);
+			}
 		}
 		
-		UUID cachedOwnerUuid = pearlOwnerUuids.get(pearlUuid);
-		String label = getOwnerUuidLabel(cachedOwnerUuid);
-		if(label != null)
-			return rememberPearlOwnerLabel(pearlUuid, label);
+		// Check confidence state — if inferred, keep showing (Inferred)
+		OwnerConfidence existingConf = getPearlConfidence(pearlUuid);
 		
+		// Check pearl UUID cache — survives entity id changes
+		UUID cachedOwnerUuid = pearlOwnerUuids.get(pearlUuid);
+		if(cachedOwnerUuid != null)
+		{
+			String label = getOwnerUuidLabel(cachedOwnerUuid);
+			if(label != null)
+			{
+				if(existingConf == null
+					|| existingConf == OwnerConfidence.UNKNOWN)
+					updatePearlIdentityConfidence(pearlUuid, cachedOwnerUuid,
+						OwnerConfidence.CONFIRMED_PEARL_UUID_CACHE);
+				// Preserve (Inferred) suffix if still inferred
+				if(existingConf == OwnerConfidence.INFERRED_JOIN_TIMING)
+					return rememberPearlOwnerLabel(pearlUuid,
+						label + " (Inferred)");
+				return rememberPearlOwnerLabel(pearlUuid, label);
+			}
+		}
+		
+		// Try resolving via the spawn packet owner entity id
 		Integer ownerId = pearlSpawnOwnerIds.get(pearl.getUUID());
 		if(ownerId != null)
 		{
@@ -522,32 +718,84 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			{
 				if(cachedOwnerUuid == null)
 					rememberPearlOwnerUuid(pearlUuid, ownerUuid);
-				label = getOwnerUuidLabel(ownerUuid);
+				String label = getOwnerUuidLabel(ownerUuid);
 				if(label != null)
+				{
+					updatePearlIdentityConfidence(pearlUuid, ownerUuid,
+						OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID);
 					return rememberPearlOwnerLabel(pearlUuid, label);
+				}
+			}
+			
+			// Owner entity id couldn't resolve, check historical binding
+			EntityIdBinding binding = entityIdBindings.get(ownerId);
+			if(binding != null && !binding.active()
+				&& binding.playerUuid() != null)
+			{
+				String label = getOwnerUuidLabel(binding.playerUuid());
+				if(label != null)
+				{
+					rememberPearlOwnerUuid(pearlUuid, binding.playerUuid());
+					updatePearlIdentityConfidence(pearlUuid,
+						binding.playerUuid(),
+						OwnerConfidence.HISTORICAL_ENTITY_ID);
+					return rememberPearlOwnerLabel(pearlUuid, label);
+				}
 			}
 		}
 		
-		label = pearlOwnerLabels.get(pearlUuid);
-		if(label != null)
-			return label;
+		// Check stored label from prior sessions
+		UUID anyOwnerUuid = cachedOwnerUuid != null ? cachedOwnerUuid
+			: pearlOwnerUuids.get(pearlUuid);
+		if(anyOwnerUuid != null)
+		{
+			String label = getOwnerUuidLabel(anyOwnerUuid);
+			if(label != null)
+				return rememberPearlOwnerLabel(pearlUuid, label);
+		}
 		
-		return "Owner: Unknown";
+		String storedLabel = pearlOwnerLabels.get(pearlUuid);
+		if(storedLabel != null && !storedLabel.isBlank())
+			return storedLabel;
+		
+		// Inference already fired in rememberPearlSpawn?
+		if(existingConf == OwnerConfidence.INFERRED_JOIN_TIMING
+			&& cachedOwnerUuid != null)
+		{
+			String label = getOwnerUuidLabel(cachedOwnerUuid);
+			if(label != null)
+				return rememberPearlOwnerLabel(pearlUuid,
+					label + " (Inferred)");
+		}
+		
+		return null;
 	}
 	
+	// These methods update the dirty flag for auto-save
 	private void rememberPearlOwnerUuid(UUID pearlUuid, UUID ownerUuid)
 	{
 		if(pearlUuid == null || ownerUuid == null)
 			return;
 		
 		pearlOwnerUuids.put(pearlUuid, ownerUuid);
+		dirty = true;
+		
+		// Update pearl identity with owner
+		PearlIdentity pearlId = pearlIdentities.get(pearlUuid);
+		if(pearlId != null)
+			pearlIdentities.put(pearlUuid,
+				pearlId.withOwner(ownerUuid,
+					OwnerConfidence.CONFIRMED_PEARL_UUID_CACHE,
+					System.currentTimeMillis()));
 	}
 	
 	private String rememberPearlOwnerLabel(UUID pearlUuid, String label)
 	{
-		if(pearlUuid != null && label != null && !label.isBlank()
-			&& !label.equals("Owner: Unknown"))
+		if(pearlUuid != null && label != null && !label.isBlank())
+		{
 			pearlOwnerLabels.put(pearlUuid, label);
+			dirty = true;
+		}
 		return label;
 	}
 	
@@ -565,19 +813,27 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	
 	private void rememberPlayerInfo(ClientboundPlayerInfoUpdatePacket packet)
 	{
+		long now = System.currentTimeMillis();
+		
 		for(ClientboundPlayerInfoUpdatePacket.Entry entry : packet.entries())
 		{
 			if(entry == null || entry.profileId() == null)
 				continue;
 			
-			String name = null;
+			// ADD_PLAYER: profile is present → record join time
 			if(entry.profile() != null)
-				name = entry.profile().name();
-			
-			if(name == null || name.isBlank())
-				continue;
-			
-			knownPlayerNames.put(entry.profileId(), name);
+			{
+				playerJoinTimes.put(entry.profileId(), now);
+				String name = entry.profile().name();
+				if(name != null && !name.isBlank())
+					knownPlayerNames.put(entry.profileId(), name);
+			}else
+			{
+				// REMOVE_PLAYER: profile is null → record leave time
+				playerLeaveTimes.put(entry.profileId(), now);
+				if(inferOwnership.isChecked())
+					inferOwnersFromPlayerLeave(entry.profileId(), now);
+			}
 		}
 	}
 	
@@ -587,9 +843,26 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(uuid == null)
 			return;
 		
-		entityIdToPlayerUuid.put(packet.getId(), uuid);
+		int entityId = packet.getId();
+		long now = System.currentTimeMillis();
+		
+		// Deactivate any previous binding for this player UUID
+		markPlayerEntityIdInactiveForUuid(uuid, now);
+		
+		// Create active binding
+		entityIdBindings.put(entityId,
+			new EntityIdBinding(uuid, now, 0L, true));
+		
+		// Update player identity
+		PlayerIdentity existing = playerIdentities.get(uuid);
+		if(existing != null)
+			playerIdentities.put(uuid, existing.withEntityId(entityId, now));
+		else
+			playerIdentities.put(uuid,
+				new PlayerIdentity(uuid, null, entityId, now, now));
+		
 		resolvePlayerName(uuid);
-		rememberPearlOwnersForEntityId(packet.getId(), uuid);
+		rememberPearlOwnersForEntityId(entityId, uuid);
 	}
 	
 	private void rememberVisibleOwner(Player player)
@@ -597,21 +870,45 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(player == null)
 			return;
 		
-		entityIdToPlayerUuid.put(player.getId(), player.getUUID());
-		rememberPearlOwnersForEntityId(player.getId(), player.getUUID());
+		int entityId = player.getId();
+		UUID uuid = player.getUUID();
+		long now = System.currentTimeMillis();
+		
+		// Deactivate any previous binding for this player UUID
+		markPlayerEntityIdInactiveForUuid(uuid, now);
+		
+		// Create/refresh active binding
+		entityIdBindings.put(entityId,
+			new EntityIdBinding(uuid, now, 0L, true));
+		
+		// Update player identity
+		PlayerIdentity existing = playerIdentities.get(uuid);
+		if(existing != null)
+			playerIdentities.put(uuid, existing.withEntityId(entityId, now));
+		else
+			playerIdentities.put(uuid,
+				new PlayerIdentity(uuid, null, entityId, now, now));
+		
+		rememberPearlOwnersForEntityId(entityId, uuid);
 		
 		String name = player.getName().getString();
 		if(name == null || name.isBlank())
 			return;
 		
-		knownPlayerNames.put(player.getUUID(), name);
+		knownPlayerNames.put(uuid, name);
+		
+		// Update player identity with name
+		PlayerIdentity pid = playerIdentities.get(uuid);
+		if(pid != null && pid.name() == null)
+			playerIdentities.put(uuid, pid.withName(name, now));
 	}
 	
 	private UUID resolveOwnerUuid(int ownerId)
 	{
-		UUID cached = entityIdToPlayerUuid.get(ownerId);
-		if(cached != null)
-			return cached;
+		// Check active entity id binding first
+		EntityIdBinding binding = entityIdBindings.get(ownerId);
+		if(binding != null && binding.active() && binding.playerUuid() != null)
+			return binding.playerUuid();
 		
 		if(MC.level == null)
 			return null;
@@ -633,6 +930,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			return player.getUUID();
 		}
 		
+		// Fall back to inactive binding (historical match)
+		if(binding != null && binding.playerUuid() != null)
+			return binding.playerUuid();
+		
 		return null;
 	}
 	
@@ -641,6 +942,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(ownerUuid == null)
 			return;
 		
+		// Walk all known pearl spawn owner ids
 		for(Map.Entry<UUID, Integer> entry : pearlSpawnOwnerIds.entrySet())
 		{
 			Integer pearlOwnerId = entry.getValue();
@@ -648,6 +950,21 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			rememberPearlOwnerUuid(entry.getKey(), ownerUuid);
+		}
+		
+		// Also walk pearl identities that have this owner entity id
+		for(Map.Entry<UUID, PearlIdentity> entry : pearlIdentities.entrySet())
+		{
+			PearlIdentity pid = entry.getValue();
+			if(pid.ownerEntityId() != null && pid.ownerEntityId() == ownerId)
+			{
+				UUID pearlUuid = entry.getKey();
+				if(!pearlSpawnOwnerIds.containsKey(pearlUuid)
+					|| pearlSpawnOwnerIds.get(pearlUuid) != ownerId)
+					// Already handled above
+					continue;
+				rememberPearlOwnerUuid(pearlUuid, ownerUuid);
+			}
 		}
 	}
 	
@@ -668,23 +985,18 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(uuid == null)
 			return null;
 		
+		String name = OwnerResolver.lookupPlayerName(uuid);
+		if(name != null && !name.isBlank())
+		{
+			knownPlayerNames.put(uuid, name);
+			return name;
+		}
+		
 		String cached = knownPlayerNames.get(uuid);
 		if(cached != null && !cached.isBlank())
 			return cached;
 		
-		if(MC.getConnection() == null)
-			return null;
-		
-		var info = MC.getConnection().getPlayerInfo(uuid);
-		if(info == null || info.getProfile() == null)
-			return null;
-		
-		String name = info.getProfile().name();
-		if(name == null || name.isBlank())
-			return null;
-		
-		knownPlayerNames.put(uuid, name);
-		return name;
+		return null;
 	}
 	
 	private Vec3 getStasisLabelPos(Entity pearl)
@@ -915,6 +1227,575 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		double offsetZ = Math.sin(yaw) * 0.18 * side;
 		
 		return basePos.add(offsetX, offsetY, offsetZ);
+	}
+	
+	// ---- New ownership tracking methods ----
+	
+	private String inferOwnerFromJoinTiming(UUID pearlUuid, Entity pearl)
+	{
+		long now = System.currentTimeMillis();
+		long windowMs = inferenceWindowMs.getValueI();
+		long pearlSpawnTime = 0L;
+		
+		// Use lastSeenMs (most recent respawn time), not firstSeenMs
+		PearlIdentity pid = pearlIdentities.get(pearlUuid);
+		if(pid != null)
+			pearlSpawnTime = pid.lastSeenMs();
+		
+		// If identity doesn't have a recent time, use now
+		if(pearlSpawnTime == 0L || pearlSpawnTime < now - 5000L)
+			pearlSpawnTime = now;
+		
+		// Find players who joined within the window before this pearl spawned
+		UUID bestCandidate = null;
+		int candidateCount = 0;
+		
+		for(Map.Entry<UUID, Long> entry : playerJoinTimes.entrySet())
+		{
+			long joinTime = entry.getValue();
+			if(joinTime >= pearlSpawnTime - windowMs
+				&& joinTime <= pearlSpawnTime)
+			{
+				bestCandidate = entry.getKey();
+				candidateCount++;
+			}
+		}
+		
+		// Only infer if exactly one candidate
+		if(candidateCount != 1 || bestCandidate == null)
+			return null;
+		
+		// Don't infer if we already have a different confirmed owner
+		UUID existingOwner = pearlOwnerUuids.get(pearlUuid);
+		if(existingOwner != null && !existingOwner.equals(bestCandidate))
+			return null;
+		
+		String label = getOwnerUuidLabel(bestCandidate);
+		if(label == null)
+			return null;
+		
+		// Remember the inferred owner so subsequent lookups find it
+		rememberPearlOwnerUuid(pearlUuid, bestCandidate);
+		updatePearlIdentityConfidence(pearlUuid, bestCandidate,
+			OwnerConfidence.INFERRED_JOIN_TIMING);
+		
+		ChatUtils.message(
+			"PearlESP: Inferred owner " + label + " for pearl via join timing ("
+				+ (pearlSpawnTime - playerJoinTimes.get(bestCandidate))
+				+ "ms gap).");
+		
+		return label + " (Inferred)";
+	}
+	
+	private String inferOwnerFromLeaveTiming(UUID pearlUuid)
+	{
+		long now = System.currentTimeMillis();
+		long windowMs = inferenceWindowMs.getValueI();
+		
+		// Pearl vanished — use now as reference
+		UUID bestCandidate = null;
+		int candidateCount = 0;
+		
+		for(Map.Entry<UUID, Long> entry : playerLeaveTimes.entrySet())
+		{
+			long leaveTime = entry.getValue();
+			if(leaveTime >= now - windowMs && leaveTime <= now + windowMs)
+			{
+				bestCandidate = entry.getKey();
+				candidateCount++;
+			}
+		}
+		
+		if(candidateCount != 1 || bestCandidate == null)
+			return null;
+		
+		String label = getOwnerUuidLabel(bestCandidate);
+		if(label == null)
+			return null;
+		
+		ChatUtils.message("PearlESP: Inferred owner " + label
+			+ " for vanished pearl via leave timing ("
+			+ (now - playerLeaveTimes.get(bestCandidate)) + "ms gap).");
+		
+		rememberPearlOwnerUuid(pearlUuid, bestCandidate);
+		updatePearlIdentityConfidence(pearlUuid, bestCandidate,
+			OwnerConfidence.INFERRED_LEAVE_TIMING);
+		return label + " (Inferred, Offline)";
+	}
+	
+	private void inferOwnersFromPlayerLeave(UUID playerUuid, long now)
+	{
+		if(playerUuid == null)
+			return;
+		
+		Integer playerEntityId = null;
+		PlayerIdentity identity = playerIdentities.get(playerUuid);
+		if(identity != null)
+			playerEntityId = identity.currentEntityId();
+		
+		if(playerEntityId == null)
+		{
+			for(Map.Entry<Integer, EntityIdBinding> entry : entityIdBindings
+				.entrySet())
+			{
+				EntityIdBinding binding = entry.getValue();
+				if(binding != null && playerUuid.equals(binding.playerUuid()))
+				{
+					playerEntityId = entry.getKey();
+					break;
+				}
+			}
+		}
+		
+		if(playerEntityId == null)
+			return;
+		
+		String label = getOwnerUuidLabel(playerUuid);
+		if(label == null)
+			return;
+		
+		int inferredCount = 0;
+		for(Map.Entry<UUID, Integer> entry : pearlSpawnOwnerIds.entrySet())
+		{
+			Integer ownerId = entry.getValue();
+			if(ownerId == null || ownerId.intValue() != playerEntityId)
+				continue;
+			
+			UUID pearlUuid = entry.getKey();
+			UUID existingOwner = pearlOwnerUuids.get(pearlUuid);
+			if(existingOwner != null && !existingOwner.equals(playerUuid))
+				continue;
+			
+			rememberPearlOwnerUuid(pearlUuid, playerUuid);
+			updatePearlIdentityConfidence(pearlUuid, playerUuid,
+				OwnerConfidence.INFERRED_LEAVE_TIMING);
+			
+			Vec3 pos = lastPearlPositions.get(pearlUuid);
+			if(pos != null)
+				offlineStasisLabels.put(pearlUuid,
+					new StasisLabel(formatOfflineLabelText(pearlUuid, label),
+						pos, now + OFFLINE_STASIS_STICKY_MS));
+			
+			inferredCount++;
+		}
+		
+		if(inferredCount > 0)
+		{
+			ChatUtils.message("PearlESP: Inferred owner " + label + " for "
+				+ inferredCount + " pearl" + (inferredCount == 1 ? "" : "s")
+				+ " via leave timing.");
+		}
+	}
+	
+	private void rememberPearlSpawn(ClientboundAddEntityPacket packet)
+	{
+		UUID pearlUuid = packet.getUUID();
+		int pearlEntityId = packet.getId();
+		int ownerId = packet.getData();
+		long now = System.currentTimeMillis();
+		
+		pearlSpawnOwnerIds.put(pearlUuid, ownerId);
+		
+		// Update pearl identity
+		PearlIdentity existing = pearlIdentities.get(pearlUuid);
+		if(existing != null)
+		{
+			// Pearl reappeared — keep cached owner UUID, update entity id
+			pearlIdentities.put(pearlUuid,
+				existing.withEntityId(pearlEntityId, ownerId, now));
+		}else
+		{
+			pearlIdentities.put(pearlUuid,
+				new PearlIdentity(pearlUuid, pearlEntityId, null, ownerId,
+					OwnerConfidence.UNKNOWN, now, now));
+		}
+		
+		// Try to resolve owner now
+		UUID ownerUuid = resolveOwnerUuid(ownerId);
+		if(ownerUuid != null)
+		{
+			rememberPearlOwnerUuid(pearlUuid, ownerUuid);
+			updatePearlIdentityConfidence(pearlUuid, ownerUuid,
+				OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID);
+			return;
+		}
+		
+		// Check if we already have a cached owner for this pearl UUID
+		UUID cachedOwner = pearlOwnerUuids.get(pearlUuid);
+		boolean alreadyCached = cachedOwner != null;
+		
+		if(alreadyCached)
+			updatePearlIdentityConfidence(pearlUuid, cachedOwner,
+				OwnerConfidence.CONFIRMED_PEARL_UUID_CACHE);
+			
+		// Try join-timing inference NOW (during packet processing).
+		// Run even if cached owner exists — we want the (Inferred)
+		// suffix when a fresh join correlates with this spawn.
+		if(inferOwnership.isChecked())
+		{
+			String inferred = inferOwnerFromJoinTiming(pearlUuid, null);
+			if(inferred != null)
+			{
+				UUID inferredUuid = pearlOwnerUuids.get(pearlUuid);
+				if(inferredUuid != null)
+					updatePearlIdentityConfidence(pearlUuid, inferredUuid,
+						OwnerConfidence.INFERRED_JOIN_TIMING);
+				return;
+			}
+		}
+		
+		// If we had a cached owner and inference didn't fire,
+		// the cached owner is still valid — stop here.
+		if(alreadyCached)
+			return;
+		
+		// Check if the owner entity id matches a historical binding
+		EntityIdBinding binding = entityIdBindings.get(ownerId);
+		if(binding != null && binding.playerUuid() != null)
+		{
+			rememberPearlOwnerUuid(pearlUuid, binding.playerUuid());
+			OwnerConfidence conf =
+				binding.active() ? OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID
+					: OwnerConfidence.HISTORICAL_ENTITY_ID;
+			updatePearlIdentityConfidence(pearlUuid, binding.playerUuid(),
+				conf);
+		}
+	}
+	
+	private void rememberEntityRemoval(ClientboundRemoveEntitiesPacket packet)
+	{
+		long now = System.currentTimeMillis();
+		
+		for(int id : packet.getEntityIds())
+			markEntityIdInactive(id, now);
+	}
+	
+	private void markEntityIdInactive(int entityId, long now)
+	{
+		EntityIdBinding binding = entityIdBindings.get(entityId);
+		if(binding != null && binding.active())
+			entityIdBindings.put(entityId, binding.withInactive(now));
+	}
+	
+	private void markPlayerEntityIdInactiveForUuid(UUID playerUuid, long now)
+	{
+		// Find all active bindings for this player UUID and mark them inactive
+		for(Map.Entry<Integer, EntityIdBinding> entry : entityIdBindings
+			.entrySet())
+		{
+			EntityIdBinding binding = entry.getValue();
+			if(binding.active() && playerUuid.equals(binding.playerUuid()))
+				entityIdBindings.put(entry.getKey(), binding.withInactive(now));
+		}
+	}
+	
+	private void updatePearlIdentityConfidence(UUID pearlUuid, UUID ownerUuid,
+		OwnerConfidence confidence)
+	{
+		PearlIdentity pid = pearlIdentities.get(pearlUuid);
+		if(pid != null)
+			pearlIdentities.put(pearlUuid, pid.withOwner(ownerUuid, confidence,
+				System.currentTimeMillis()));
+	}
+	
+	private OwnerConfidence getPearlConfidence(UUID pearlUuid)
+	{
+		PearlIdentity pid = pearlIdentities.get(pearlUuid);
+		return pid != null ? pid.confidence() : null;
+	}
+	
+	private float computeDistanceScale(Vec3 labelPos, float baseScale)
+	{
+		if(MC.player == null)
+			return baseScale;
+		
+		Vec3 cam = RenderUtils.getCameraPos();
+		double dist = cam.distanceTo(labelPos);
+		float scale = baseScale * (float)Math.max(1.0, dist * 0.1);
+		
+		double nearRef = 6.0;
+		double maxRef = 256.0;
+		double t = (dist - nearRef) / (maxRef - nearRef);
+		t = Mth.clamp(t, 0.0, 1.0);
+		t = t * t * (3.0 - 2.0 * t);
+		double factor = 1.80 + (0.90 - 1.80) * t;
+		scale *= (float)Mth.clamp(factor, 0.75, 2.50);
+		
+		return scale;
+	}
+	
+	private int getStasisLineColor()
+	{
+		int c = stasisColor.getColorI();
+		return stasisFlash.isChecked() ? RenderUtils.flashColor(c) : c;
+	}
+	
+	private int getStasisFillColor()
+	{
+		int c = stasisColor.getColorI(0x50);
+		return stasisFlash.isChecked() ? RenderUtils.flashColor(c) : c;
+	}
+	
+	private String formatOfflineLabelText(UUID pearlUuid, String label)
+	{
+		OwnerConfidence conf = getPearlConfidence(pearlUuid);
+		if(conf == OwnerConfidence.INFERRED_JOIN_TIMING
+			|| conf == OwnerConfidence.INFERRED_LEAVE_TIMING)
+			return label + " (Inferred, Offline)";
+		
+		return label;
+	}
+	
+	// ---- Per-server file persistence ----
+	
+	private void resolveCurrentFile()
+	{
+		String key = resolveServerKey();
+		if(key.equals(lastServerKey) && currentFile != null)
+			return;
+		
+		lastServerKey = key;
+		currentFile = resolveDataFile(key);
+		loadOwnershipData();
+	}
+	
+	private String resolveServerKey()
+	{
+		ServerData info = MC.getCurrentServer();
+		if(info != null)
+		{
+			if(info.ip != null && !info.ip.isEmpty())
+				return info.ip.replace(':', '_');
+			if(info.isRealm())
+				return "realms_" + (info.name == null ? "" : info.name);
+			if(info.name != null && !info.name.isEmpty())
+				return "server_" + info.name;
+		}
+		if(MC.hasSingleplayerServer())
+			return "singleplayer";
+		
+		// Fallback via ServerObserver
+		var observer = WURST.getServerObserver();
+		if(observer != null)
+		{
+			String addr = observer.getServerAddress();
+			if(addr != null && !addr.isBlank())
+				return addr.replace(':', '_');
+		}
+		
+		return "unknown";
+	}
+	
+	private Path resolveDataFile(String serverKey)
+	{
+		String safe = serverKey.replaceAll("[^a-zA-Z0-9._-]", "_");
+		return WURST.getWurstFolder().resolve("pearlesp")
+			.resolve(safe + ".json");
+	}
+	
+	private void loadOwnershipData()
+	{
+		resolveCurrentFile();
+		if(currentFile == null || !Files.exists(currentFile))
+			return;
+		
+		try
+		{
+			JsonObject root =
+				JsonUtils.parseFile(currentFile).getAsJsonObject();
+			
+			// Load pearl owner UUID mappings
+			if(root.has("pearlOwners")
+				&& root.get("pearlOwners").isJsonObject())
+			{
+				JsonObject owners = root.getAsJsonObject("pearlOwners");
+				for(String key : owners.keySet())
+				{
+					try
+					{
+						UUID pearlUuid = UUID.fromString(key);
+						UUID ownerUuid =
+							UUID.fromString(owners.get(key).getAsString());
+						pearlOwnerUuids.put(pearlUuid, ownerUuid);
+					}catch(IllegalArgumentException ignored)
+					{}
+				}
+			}
+			
+			// Load pearl owner labels
+			if(root.has("pearlLabels")
+				&& root.get("pearlLabels").isJsonObject())
+			{
+				JsonObject labels = root.getAsJsonObject("pearlLabels");
+				for(String key : labels.keySet())
+				{
+					try
+					{
+						UUID pearlUuid = UUID.fromString(key);
+						String label = labels.get(key).getAsString();
+						if(!label.isBlank())
+							pearlOwnerLabels.put(pearlUuid, label);
+					}catch(IllegalArgumentException ignored)
+					{}
+				}
+			}
+			
+			// Load known player names
+			if(root.has("playerNames")
+				&& root.get("playerNames").isJsonObject())
+			{
+				JsonObject names = root.getAsJsonObject("playerNames");
+				for(String key : names.keySet())
+				{
+					try
+					{
+						UUID uuid = UUID.fromString(key);
+						String name = names.get(key).getAsString();
+						if(!name.isBlank())
+							knownPlayerNames.put(uuid, name);
+					}catch(IllegalArgumentException ignored)
+					{}
+				}
+			}
+		}catch(Exception e)
+		{
+			ChatUtils
+				.error("PearlESP ownership load failed: " + e.getMessage());
+		}
+	}
+	
+	private void saveOwnershipData(boolean force)
+	{
+		if(!persistOwnership.isChecked())
+			return;
+		
+		resolveCurrentFile();
+		if(currentFile == null)
+			return;
+		
+		long now = System.currentTimeMillis();
+		if(!force && now - lastSaveAt < 2000L)
+			return;
+		
+		JsonObject root = new JsonObject();
+		
+		// Save pearl owner UUIDs
+		JsonObject owners = new JsonObject();
+		for(Map.Entry<UUID, UUID> entry : pearlOwnerUuids.entrySet())
+			owners.addProperty(entry.getKey().toString(),
+				entry.getValue().toString());
+		root.add("pearlOwners", owners);
+		
+		// Save pearl owner labels
+		JsonObject labels = new JsonObject();
+		for(Map.Entry<UUID, String> entry : pearlOwnerLabels.entrySet())
+			labels.addProperty(entry.getKey().toString(), entry.getValue());
+		root.add("pearlLabels", labels);
+		
+		// Save known player names
+		JsonObject names = new JsonObject();
+		for(Map.Entry<UUID, String> entry : knownPlayerNames.entrySet())
+			names.addProperty(entry.getKey().toString(), entry.getValue());
+		root.add("playerNames", names);
+		
+		try
+		{
+			Files.createDirectories(currentFile.getParent());
+			JsonUtils.toJson(root, currentFile);
+			dirty = false;
+			lastSaveAt = now;
+		}catch(IOException | net.wurstclient.util.json.JsonException e)
+		{
+			ChatUtils
+				.error("PearlESP ownership save failed: " + e.getMessage());
+		}
+	}
+	
+	private void saveIfNeeded(boolean force)
+	{
+		if(!dirty || currentFile == null)
+			return;
+		long now = System.currentTimeMillis();
+		if(!force && now - lastSaveAt < 2000L)
+			return;
+		
+		saveOwnershipData(force);
+	}
+	
+	private void clearOwnershipLog()
+	{
+		resolveCurrentFile();
+		if(currentFile != null)
+		{
+			try
+			{
+				Files.deleteIfExists(currentFile);
+			}catch(IOException ignored)
+			{}
+		}
+		
+		pearlOwnerUuids.clear();
+		pearlOwnerLabels.clear();
+		pearlIdentities.clear();
+		stasisLabels.clear();
+		dirty = false;
+		
+		ChatUtils.message("PearlESP: Cleared ownership data for this server.");
+	}
+	
+	// ---- Records and enums ----
+	
+	private enum OwnerConfidence
+	{
+		UNKNOWN,
+		CONFIRMED_CURRENT_ENTITY_ID,
+		CONFIRMED_PEARL_UUID_CACHE,
+		HISTORICAL_ENTITY_ID,
+		INFERRED_JOIN_TIMING,
+		INFERRED_LEAVE_TIMING
+	}
+	
+	private record EntityIdBinding(UUID playerUuid, long validFromMs,
+		long validUntilMs, boolean active)
+	{
+		EntityIdBinding withInactive(long now)
+		{
+			return new EntityIdBinding(playerUuid, validFromMs, now, false);
+		}
+	}
+	
+	private record PlayerIdentity(UUID uuid, String name, int currentEntityId,
+		long firstSeenMs, long lastSeenMs)
+	{
+		PlayerIdentity withEntityId(int entityId, long now)
+		{
+			return new PlayerIdentity(uuid, name, entityId, firstSeenMs, now);
+		}
+		
+		PlayerIdentity withName(String newName, long now)
+		{
+			return new PlayerIdentity(uuid, newName, currentEntityId,
+				firstSeenMs, now);
+		}
+	}
+	
+	private record PearlIdentity(UUID pearlUuid, int currentEntityId,
+		UUID ownerUuid, Integer ownerEntityId, OwnerConfidence confidence,
+		long firstSeenMs, long lastSeenMs)
+	{
+		PearlIdentity withOwner(UUID newOwnerUuid,
+			OwnerConfidence newConfidence, long now)
+		{
+			return new PearlIdentity(pearlUuid, currentEntityId, newOwnerUuid,
+				ownerEntityId, newConfidence, firstSeenMs, now);
+		}
+		
+		PearlIdentity withEntityId(int entityId, Integer newOwnerEntityId,
+			long now)
+		{
+			return new PearlIdentity(pearlUuid, entityId, ownerUuid,
+				newOwnerEntityId, confidence, firstSeenMs, now);
+		}
 	}
 	
 	private record TrackedPearl(Entity pearl, PearlPrediction prediction,
