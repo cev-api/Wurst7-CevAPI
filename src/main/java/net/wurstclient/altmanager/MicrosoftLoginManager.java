@@ -127,13 +127,23 @@ public enum MicrosoftLoginManager
 	public static void loginWithRefreshToken(String refreshToken)
 		throws LoginException
 	{
-		System.out.println("Logging in with refresh token...");
+		loginWithRefreshToken(refreshToken, null);
+	}
+	
+	public static void loginWithRefreshToken(String refreshToken,
+		String clientId) throws LoginException
+	{
+		boolean hasCustomClient = clientId != null && !clientId.isBlank()
+			&& !clientId.equals(CLIENT_ID);
+		System.out.println("Logging in with refresh token" + (hasCustomClient
+			? " (custom client_id: " + clientId + ")" : " (default client_id)")
+			+ "...");
 		long startTime = System.nanoTime();
 		
 		try
 		{
 			MinecraftProfile mcProfile =
-				authenticateRefreshTokenWithoutSession(refreshToken);
+				authenticateRefreshTokenWithoutSession(refreshToken, clientId);
 			System.out.println("Refresh-token auth resolved profile: "
 				+ mcProfile.getName() + " (" + mcProfile.getUUID() + ")");
 			setSession(mcProfile);
@@ -145,6 +155,8 @@ public enum MicrosoftLoginManager
 		{
 			System.out.println("Refresh-token login failed after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			System.out.println("Exception: " + e.getMessage());
+			e.printStackTrace();
 			throw e;
 		}
 	}
@@ -172,21 +184,35 @@ public enum MicrosoftLoginManager
 	public static MinecraftProfile authenticateRefreshTokenWithoutSession(
 		String refreshToken) throws LoginException
 	{
+		return authenticateRefreshTokenWithoutSession(refreshToken, null);
+	}
+	
+	public static MinecraftProfile authenticateRefreshTokenWithoutSession(
+		String refreshToken, String clientId) throws LoginException
+	{
 		if(refreshToken == null || refreshToken.isBlank())
 			throw new LoginException("Refresh token cannot be empty.");
 		
-		String msftAccessToken =
-			getMicrosoftAccessTokenFromRefreshToken(refreshToken.trim());
+		String msftAccessToken = getMicrosoftAccessTokenFromRefreshToken(
+			refreshToken.trim(), clientId);
 		return getAccountFromMicrosoftAccessToken(msftAccessToken);
 	}
 	
 	public static MinecraftProfile authenticateTokenAltWithoutSession(
 		String token, String refreshToken) throws LoginException
 	{
+		return authenticateTokenAltWithoutSession(token, refreshToken, null);
+	}
+	
+	public static MinecraftProfile authenticateTokenAltWithoutSession(
+		String token, String refreshToken, String clientId)
+		throws LoginException
+	{
 		String trimmedRefresh = refreshToken == null ? "" : refreshToken.trim();
 		
 		if(!trimmedRefresh.isEmpty())
-			return authenticateRefreshTokenWithoutSession(trimmedRefresh);
+			return authenticateRefreshTokenWithoutSession(trimmedRefresh,
+				clientId);
 		
 		return authenticateTokenWithoutSession(token);
 	}
@@ -394,13 +420,33 @@ public enum MicrosoftLoginManager
 	private static String getMicrosoftAccessTokenFromRefreshToken(
 		String refreshToken) throws LoginException
 	{
+		return getMicrosoftAccessTokenFromRefreshToken(refreshToken, null);
+	}
+	
+	private static String getMicrosoftAccessTokenFromRefreshToken(
+		String refreshToken, String clientIdOverride) throws LoginException
+	{
+		String effectiveClientId =
+			clientIdOverride != null && !clientIdOverride.isBlank()
+				? clientIdOverride.trim() : CLIENT_ID;
+		
+		boolean isNonDefaultClient = !effectiveClientId.equals(CLIENT_ID);
+		
+		System.out.println("Using client_id: " + effectiveClientId);
+		
 		Map<String, String> postData = new HashMap<>();
-		postData.put("client_id", CLIENT_ID);
+		postData.put("client_id", effectiveClientId);
 		postData.put("refresh_token", refreshToken);
 		postData.put("grant_type", "refresh_token");
-		postData.put("redirect_uri",
-			"https://login.live.com/oauth20_desktop.srf");
-		postData.put("scope", SCOPE_UNENCODED);
+		
+		// When using a non-default client, omit scope and redirect_uri
+		// to avoid mismatches with how the token was originally obtained.
+		if(!isNonDefaultClient)
+		{
+			postData.put("redirect_uri",
+				"https://login.live.com/oauth20_desktop.srf");
+			postData.put("scope", SCOPE_UNENCODED);
+		}
 		
 		byte[] encodedDataBytes =
 			urlEncodeMap(postData).getBytes(StandardCharsets.UTF_8);
@@ -422,6 +468,16 @@ public enum MicrosoftLoginManager
 				out.write(encodedDataBytes);
 			}
 			
+			int responseCode = connection.getResponseCode();
+			if(responseCode != 200)
+			{
+				String errorBody = readErrorBody(connection);
+				System.out.println("Microsoft token refresh returned HTTP "
+					+ responseCode + ": " + errorBody);
+				throw new LoginException("Microsoft returned HTTP "
+					+ responseCode + ": " + errorBody);
+			}
+			
 			WsonObject json = JsonUtils.parseConnectionToObject(connection);
 			return json.getString("access_token");
 			
@@ -435,13 +491,36 @@ public enum MicrosoftLoginManager
 		}
 	}
 	
+	private static String readErrorBody(HttpURLConnection connection)
+	{
+		try(InputStream errorStream = connection.getErrorStream())
+		{
+			if(errorStream == null)
+				return connection.getResponseMessage();
+			
+			try(BufferedReader reader = new BufferedReader(
+				new InputStreamReader(errorStream, StandardCharsets.UTF_8)))
+			{
+				return reader.lines().collect(Collectors.joining());
+			}
+		}catch(IOException e)
+		{
+			return "(could not read error body)";
+		}
+	}
+	
 	private static XBoxLiveToken getXBLToken(String msftAccessToken)
 		throws LoginException
 	{
 		JsonObject properties = new JsonObject();
 		properties.addProperty("AuthMethod", "RPS");
 		properties.addProperty("SiteName", "user.auth.xboxlive.com");
-		properties.addProperty("RpsTicket", msftAccessToken);
+		
+		// The RpsTicket must be the access token prefixed with "d="
+		// to indicate it's a delegated token from Microsoft account.
+		String rpsTicket = msftAccessToken.startsWith("d=") ? msftAccessToken
+			: "d=" + msftAccessToken;
+		properties.addProperty("RpsTicket", rpsTicket);
 		
 		JsonObject postData = new JsonObject();
 		postData.addProperty("RelyingParty", "http://auth.xboxlive.com");
@@ -452,7 +531,8 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			URLConnection connection = XBL_TOKEN_URL.openConnection();
+			HttpURLConnection connection =
+				(HttpURLConnection)XBL_TOKEN_URL.openConnection();
 			
 			connection.setRequestProperty("Content-Type", "application/json");
 			connection.setRequestProperty("Accept", "application/json");
@@ -464,6 +544,16 @@ public enum MicrosoftLoginManager
 			try(OutputStream out = connection.getOutputStream())
 			{
 				out.write(request.getBytes(StandardCharsets.US_ASCII));
+			}
+			
+			int responseCode = connection.getResponseCode();
+			if(responseCode != 200)
+			{
+				String errorBody = readErrorBody(connection);
+				System.out.println("XBL authentication returned HTTP "
+					+ responseCode + ": " + errorBody);
+				throw new LoginException("XBL auth returned HTTP "
+					+ responseCode + ": " + errorBody);
 			}
 			
 			WsonObject json = JsonUtils.parseConnectionToObject(connection);

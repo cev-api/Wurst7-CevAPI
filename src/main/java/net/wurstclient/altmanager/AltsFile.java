@@ -155,9 +155,12 @@ public final class AltsFile
 			String refreshToken =
 				JsonUtils.getAsString(jsonAlt.get("refresh_token"), "");
 			String name = JsonUtils.getAsString(jsonAlt.get("name"), "");
+			String clientId =
+				JsonUtils.getAsString(jsonAlt.get("client_id"), "");
 			
 			if(!token.isEmpty() || !refreshToken.isEmpty())
-				return new TokenAlt(token, refreshToken, name, starred);
+				return new TokenAlt(token, refreshToken, name, starred,
+					clientId);
 			
 			return new CrackedAlt(nameOrEmail, starred);
 		}

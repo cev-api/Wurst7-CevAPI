@@ -29,11 +29,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
@@ -96,6 +100,7 @@ public final class AltManagerScreen extends Screen
 	private volatile boolean autoCheckInProgress;
 	private final HashSet<Alt> checkingAlts = new HashSet<>();
 	private volatile boolean importInProgress;
+	private volatile boolean importPrismInProgress;
 	private volatile String importStatus = "";
 	private volatile int importDone;
 	private volatile int importTotal;
@@ -197,10 +202,14 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Export"), b -> pressExportAlts())
 				.bounds(58, 8, 50, 20).build());
 		
+		addRenderableWidget(Button
+			.builder(Component.literal("Import Prism"), b -> pressImportPrism())
+			.bounds(112, 8, 80, 20).build());
+		
 		addRenderableWidget(disconnectRandomReconnectToggleButton = Button
 			.builder(getDisconnectRandomReconnectLabel(),
 				b -> pressToggleDisconnectRandomReconnect())
-			.bounds(114, 8, 170, 20).build());
+			.bounds(198, 8, 170, 20).build());
 		
 		addRenderableWidget(checkButton =
 			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
@@ -223,7 +232,7 @@ public final class AltManagerScreen extends Screen
 			|| checkButton == null)
 			return;
 		
-		if(importInProgress)
+		if(importInProgress || importPrismInProgress)
 		{
 			useButton.active = false;
 			if(randomButton != null)
@@ -278,12 +287,12 @@ public final class AltManagerScreen extends Screen
 		checkButton.active = !autoCheckInProgress && hasUncheckedPremiumAlts();
 		
 		if(importButton != null)
-			importButton.active =
-				!importInProgress && !minecraft.options.fullscreen().get();
+			importButton.active = !importInProgress && !importPrismInProgress
+				&& !minecraft.options.fullscreen().get();
 		
 		if(exportButton != null)
-			exportButton.active =
-				!importInProgress && !minecraft.options.fullscreen().get();
+			exportButton.active = !importInProgress && !importPrismInProgress
+				&& !minecraft.options.fullscreen().get();
 		
 		if(disconnectRandomReconnectToggleButton != null)
 			disconnectRandomReconnectToggleButton.active = true;
@@ -586,9 +595,9 @@ public final class AltManagerScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile =
-					MicrosoftLoginManager.authenticateTokenAltWithoutSession(
-						tokenAlt.getToken(), tokenAlt.getRefreshToken());
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 				
 				minecraft.execute(() -> {
 					editValidationInProgress = false;
@@ -678,6 +687,89 @@ public final class AltManagerScreen extends Screen
 		}
 	}
 	
+	private void pressImportPrism()
+	{
+		if(importPrismInProgress)
+			return;
+		
+		String appData = System.getenv("APPDATA");
+		if(appData == null)
+		{
+			importStatus = "Import Prism failed: APPDATA not found";
+			return;
+		}
+		
+		Path prismPath = Paths.get(appData, "PrismLauncher", "accounts.json");
+		
+		if(!Files.exists(prismPath))
+		{
+			importStatus =
+				"Import Prism failed: File not found at " + prismPath;
+			return;
+		}
+		
+		importPrismInProgress = true;
+		importStatus = "Starting Prism import...";
+		importDone = 0;
+		importTotal = 0;
+		importHasCounts = false;
+		updateAltButtons();
+		
+		List<Alt> existing = new ArrayList<>(altManager.getList());
+		
+		Thread thread = new Thread(() -> runPrismImport(prismPath, existing),
+			"Wurst Alt Prism Import");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void runPrismImport(Path path, List<Alt> existing)
+	{
+		try
+		{
+			importStatus = "Reading Prism Launcher file...";
+			ArrayList<Alt> imported =
+				importAsPrismJSON(path, this::setImportProgress);
+			
+			importStatus = "Filtering duplicates...";
+			ImportResult result = filterDuplicates(imported, existing);
+			int totalImported = imported.size();
+			
+			minecraft.execute(() -> {
+				try
+				{
+					if(result.addedCount > 0)
+						altManager.addAll(result.toAdd);
+					
+					altManager.dedupeByUsernamePreferRefreshToken();
+					if(minecraft.screen == this)
+						reloadScreen();
+					
+					importStatus = "Imported " + result.addedCount + " of "
+						+ totalImported + " accounts from Prism Launcher ("
+						+ result.duplicateCount + " duplicates skipped).";
+					
+				}finally
+				{
+					importPrismInProgress = false;
+					importHasCounts = false;
+					updateAltButtons();
+				}
+			});
+			
+		}catch(Exception e)
+		{
+			minecraft.execute(() -> {
+				importStatus =
+					"Prism import failed: " + e.getClass().getSimpleName();
+				importPrismInProgress = false;
+				importHasCounts = false;
+				updateAltButtons();
+			});
+			e.printStackTrace();
+		}
+	}
+	
 	private void startImport(Path path)
 	{
 		importInProgress = true;
@@ -756,6 +848,87 @@ public final class AltManagerScreen extends Screen
 		importHasCounts = false;
 		WsonObject wson = JsonUtils.parseFileToObject(path);
 		return AltsFile.parseJson(wson);
+	}
+	
+	private ArrayList<Alt> importAsPrismJSON(Path path,
+		Consumer<String> progress) throws IOException, JsonException
+	{
+		progress.accept("Parsing Prism Launcher JSON...");
+		importHasCounts = false;
+		
+		// Read the raw file and parse with plain Gson to avoid
+		// any WsonObject quirks with hyphenated keys like "msa-client-id".
+		String raw;
+		try(BufferedReader reader = Files.newBufferedReader(path))
+		{
+			raw = reader.lines().collect(Collectors.joining());
+		}
+		JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
+		
+		int formatVersion = root.has("formatVersion")
+			? root.get("formatVersion").getAsInt() : 0;
+		if(formatVersion < 1)
+			throw new JsonException(
+				"Invalid or missing formatVersion in Prism Launcher file");
+		
+		if(!root.has("accounts"))
+			throw new JsonException(
+				"No accounts array found in Prism Launcher file");
+		
+		JsonArray accountsArray = root.getAsJsonArray("accounts");
+		int total = accountsArray.size();
+		int done = 0;
+		ArrayList<Alt> alts = new ArrayList<>();
+		
+		for(JsonElement elem : accountsArray)
+		{
+			if(!elem.isJsonObject())
+				continue;
+			
+			JsonObject account = elem.getAsJsonObject();
+			done++;
+			if(done == 1 || done == total || done % 10 == 0)
+				setImportProgressCounts("Importing Prism accounts", done,
+					total);
+			
+			// Get profile name
+			String name = "";
+			if(account.has("profile") && account.get("profile").isJsonObject())
+			{
+				JsonObject profile = account.getAsJsonObject("profile");
+				if(profile.has("name"))
+					name = profile.get("name").getAsString();
+			}
+			
+			// Get MSA tokens
+			String token = "";
+			String refreshToken = "";
+			if(account.has("msa") && account.get("msa").isJsonObject())
+			{
+				JsonObject msa = account.getAsJsonObject("msa");
+				if(msa.has("token"))
+					token = msa.get("token").getAsString();
+				if(msa.has("refresh_token"))
+					refreshToken = msa.get("refresh_token").getAsString();
+			}
+			
+			// Get MSA client ID (used by Prism Launcher to refresh)
+			String clientId = "";
+			if(account.has("msa-client-id"))
+				clientId = account.get("msa-client-id").getAsString();
+			
+			System.out.println("[PrismImport] name=" + name + " clientId='"
+				+ clientId + "' tokenLen=" + token.length() + " refreshLen="
+				+ refreshToken.length());
+			
+			// Skip accounts without any token
+			if(token.isEmpty() && refreshToken.isEmpty())
+				continue;
+			
+			alts.add(new TokenAlt(token, refreshToken, name, false, clientId));
+		}
+		
+		return alts;
 	}
 	
 	private ArrayList<Alt> importAsTXT(Path path, Consumer<String> progress)
@@ -1318,7 +1491,7 @@ public final class AltManagerScreen extends Screen
 	
 	private void renderImportOverlay(GuiGraphics context)
 	{
-		if(!importInProgress)
+		if(!importInProgress && !importPrismInProgress)
 			return;
 		
 		int now = (int)(Util.getMillis() / 450L);
