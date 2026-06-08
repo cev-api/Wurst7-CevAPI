@@ -16,10 +16,17 @@ public final class TokenAlt extends Alt
 {
 	private final String token;
 	private final String refreshToken;
+	private final String clientId;
 	private String name;
 	
 	public TokenAlt(String token, String refreshToken, String name,
 		boolean favorite)
+	{
+		this(token, refreshToken, name, favorite, "");
+	}
+	
+	public TokenAlt(String token, String refreshToken, String name,
+		boolean favorite, String clientId)
 	{
 		super(favorite);
 		
@@ -32,6 +39,7 @@ public final class TokenAlt extends Alt
 		
 		this.token = normalizedToken;
 		this.refreshToken = normalizedRefresh;
+		this.clientId = clientId == null ? "" : clientId.trim();
 		this.name = name == null ? "" : name;
 	}
 	
@@ -39,8 +47,20 @@ public final class TokenAlt extends Alt
 	public void login() throws LoginException
 	{
 		if(!refreshToken.isEmpty())
-			MicrosoftLoginManager.loginWithRefreshToken(refreshToken);
-		else
+		{
+			if(!clientId.isEmpty())
+			{
+				System.out.println(
+					"*** TOKENALT using client_id: " + clientId + " ***");
+				MicrosoftLoginManager.loginWithRefreshToken(refreshToken,
+					clientId);
+			}else
+			{
+				System.out.println(
+					"*** TOKENALT using DEFAULT client_id (old path) ***");
+				MicrosoftLoginManager.loginWithRefreshToken(refreshToken);
+			}
+		}else
 			MicrosoftLoginManager.loginWithToken(token);
 		
 		name = getNameFromSession();
@@ -67,6 +87,8 @@ public final class TokenAlt extends Alt
 		jsonAlt.addProperty("refresh_token", refreshToken);
 		jsonAlt.addProperty("name", name);
 		jsonAlt.addProperty("starred", isFavorite());
+		if(!clientId.isEmpty())
+			jsonAlt.addProperty("client_id", clientId);
 		
 		String key = "token_"
 			+ Integer.toHexString(Objects.hash(token, refreshToken, name));
@@ -76,7 +98,8 @@ public final class TokenAlt extends Alt
 	@Override
 	public String exportAsTXT()
 	{
-		return "token:" + token + ":" + refreshToken + ":" + name;
+		return "token:" + token + ":" + refreshToken + ":" + name
+			+ (clientId.isEmpty() ? "" : ":" + clientId);
 	}
 	
 	@Override
@@ -101,6 +124,11 @@ public final class TokenAlt extends Alt
 		return refreshToken;
 	}
 	
+	public String getClientId()
+	{
+		return clientId;
+	}
+	
 	void setName(String name)
 	{
 		this.name = name == null ? "" : name;
@@ -109,7 +137,7 @@ public final class TokenAlt extends Alt
 	@Override
 	public int hashCode()
 	{
-		return Objects.hash(token, refreshToken);
+		return Objects.hash(token, refreshToken, clientId);
 	}
 	
 	@Override
@@ -123,6 +151,7 @@ public final class TokenAlt extends Alt
 		
 		TokenAlt other = (TokenAlt)obj;
 		return Objects.equals(token, other.token)
-			&& Objects.equals(refreshToken, other.refreshToken);
+			&& Objects.equals(refreshToken, other.refreshToken)
+			&& Objects.equals(clientId, other.clientId);
 	}
 }

@@ -166,9 +166,9 @@ public final class EditTokenAltScreen extends Screen
 	{
 		try
 		{
-			MinecraftProfile profile =
-				MicrosoftLoginManager.authenticateTokenAltWithoutSession(
-					tokenAlt.getToken(), tokenAlt.getRefreshToken());
+			MinecraftProfile profile = MicrosoftLoginManager
+				.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+					tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 			String accessToken = profile.getAccessToken();
 			
 			String precheckWarning = "";
@@ -261,9 +261,9 @@ public final class EditTokenAltScreen extends Screen
 	{
 		try
 		{
-			MinecraftProfile profile =
-				MicrosoftLoginManager.authenticateTokenAltWithoutSession(
-					tokenAlt.getToken(), tokenAlt.getRefreshToken());
+			MinecraftProfile profile = MicrosoftLoginManager
+				.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+					tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 			String accessToken = profile.getAccessToken();
 			
 			MinecraftServicesApi.SkinChangeResult result = MinecraftServicesApi
@@ -393,9 +393,9 @@ public final class EditTokenAltScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile =
-					MicrosoftLoginManager.authenticateTokenAltWithoutSession(
-						tokenAlt.getToken(), tokenAlt.getRefreshToken());
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 				
 				MinecraftServicesApi.NameChangeInfo info = MinecraftServicesApi
 					.getNameChangeInfo(profile.getAccessToken());
