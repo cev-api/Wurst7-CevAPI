@@ -305,8 +305,7 @@ public final class HackList implements UpdateListener
 	public final TrueSightHack trueSightHack = new TrueSightHack();
 	public final TunnellerHack tunnellerHack = new TunnellerHack();
 	public final SurfaceXrayHack surfaceXrayHack = new SurfaceXrayHack();
-	public final SpectatorMonitorHack spectatorMonitorHack =
-		new SpectatorMonitorHack();
+	public final StaffMonitorHack staffMonitorHack = new StaffMonitorHack();
 	public final VeinMinerHack veinMinerHack = new VeinMinerHack();
 	public final XRayHack xRayHack = new XRayHack();
 	public final WaypointsHack waypointsHack = new WaypointsHack();
