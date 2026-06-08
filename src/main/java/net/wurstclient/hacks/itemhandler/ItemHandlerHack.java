@@ -56,6 +56,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.OwnerResolver;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyBinding;
 import net.wurstclient.settings.Setting;
@@ -713,12 +714,12 @@ public class ItemHandlerHack extends Hack
 					continue;
 				
 				Entity owner = getEntityOwner(entity);
-				if(owner == null)
+				if(owner == null && getEntityOwnerUuid(entity) == null)
 					continue;
 				
 				ItemStack icon = iconForOwnedEntity(entity);
 				String label = "Owned entity: " + ownedEntityLabel(entity)
-					+ " (" + getOwnerLabel(owner) + ")";
+					+ " (" + getOwnerLabel(entity, owner) + ")";
 				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
 					icon, label, Math.sqrt(distSq),
 					getOwnedEntityTraceId(entity.getUUID())));
@@ -1576,8 +1577,19 @@ public class ItemHandlerHack extends Hack
 		return null;
 	}
 	
-	private String getOwnerLabel(Entity owner)
+	private String getOwnerLabel(Entity entity, Entity owner)
 	{
+		UUID ownerUuid = getEntityOwnerUuid(entity);
+		if(ownerUuid != null)
+		{
+			if(MC.player != null && ownerUuid.equals(MC.player.getUUID()))
+				return "Owner: You";
+			
+			String name = OwnerResolver.lookupPlayerName(ownerUuid);
+			if(name != null)
+				return "Owner: " + name;
+		}
+		
 		if(owner == MC.player)
 			return "Owner: You";
 		if(owner instanceof Player player)
@@ -1585,6 +1597,13 @@ public class ItemHandlerHack extends Hack
 		if(owner != null)
 			return "Owner: " + entityDisplayName(owner);
 		return "Owner: Unknown";
+	}
+	
+	private UUID getEntityOwnerUuid(Entity entity)
+	{
+		if(entity == null)
+			return null;
+		return OwnerResolver.getOwnerUuid(entity);
 	}
 	
 	private ItemStack iconForOwnedEntity(Entity entity)

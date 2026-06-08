@@ -249,8 +249,6 @@ public final class HackList implements UpdateListener
 	public final PortalEspHack portalEspHack = new PortalEspHack();
 	public final PotEspHack potEspHack = new PotEspHack();
 	public final PortalGuiHack portalGuiHack = new PortalGuiHack();
-	public final ProjectileOwnerHack projectileOwnerHack =
-		new ProjectileOwnerHack();
 	public final PotionSaverHack potionSaverHack = new PotionSaverHack();
 	public final ProphuntEspHack prophuntEspHack = new ProphuntEspHack();
 	public final ProtectHack protectHack = new ProtectHack();
