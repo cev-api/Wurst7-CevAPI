@@ -32,6 +32,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -39,13 +40,12 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.config.AntiFingerprintConfig;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -58,9 +58,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
-import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.network.chat.CommonComponents;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -178,6 +177,29 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private JoinMultiplayerScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
+	}
+	
+	/**
+	 * Intercept the title Component passed to super() in
+	 * JoinMultiplayerScreen's constructor. Replace "Play Multiplayer"
+	 * with "Logged In As: NAME" so vanilla rendering uses our text.
+	 */
+	@ModifyArg(method = "<init>(Lnet/minecraft/client/gui/screens/Screen;)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/screens/Screen;<init>(Lnet/minecraft/network/chat/Component;)V"),
+		index = 0)
+	private static Component changeTitle(Component original)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return original;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return original;
+		
+		Minecraft mc = Minecraft.getInstance();
+		if(mc.getUser() != null)
+			return Component.literal("Logged In As: " + mc.getUser().getName());
+		
+		return original;
 	}
 	
 	@Inject(method = "init()V", at = @At("HEAD"))
@@ -466,35 +488,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private void wurst$renderPanelOverlays(GuiGraphics context)
 	{
-		// Render "Logged In As: NAME" with player head icon
-		if(minecraft.getUser() != null)
-		{
-			String playerName = minecraft.getUser().getName();
-			Component titleText =
-				Component.literal("Logged In As: " + playerName);
-			
-			int iconSize = 12;
-			int textWidth = font.width(titleText);
-			int totalWidth = textWidth + 4 + iconSize;
-			int startX = width / 2 - totalWidth / 2;
-			int titleY = 15;
-			int iconY = titleY + (font.lineHeight - iconSize) / 2;
-			int iconX = startX + textWidth + 4;
-			
-			// Draw the "Logged In As: NAME" text (centered)
-			context.centeredText(font, titleText, startX + textWidth / 2,
-				titleY, 0xFFFFFFFF);
-			
-			// Draw player head icon to the right of the text
-			Identifier skinTexture = DefaultPlayerSkin
-				.get(minecraft.getUser().getProfileId()).body().texturePath();
-			
-			context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, iconX,
-				iconY, 8, 8, iconSize, iconSize, 8, 8, 64, 64, 0xFFFFFFFF);
-			context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, iconX,
-				iconY, 40, 8, iconSize, iconSize, 8, 8, 64, 64, 0xFFFFFFFF);
-		}
-		
 		if(wurst$panelConfig == null)
 			return;
 		
