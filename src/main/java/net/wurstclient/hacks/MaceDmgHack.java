@@ -10,7 +10,6 @@ package net.wurstclient.hacks;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PlayerAttacksEntityListener;
@@ -27,6 +26,8 @@ public final class MaceDmgHack extends Hack
 	private final SliderSetting height = new SliderSetting("Height",
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, 50, 0.1, ValueDisplay.DECIMAL);
+	
+	private long lastSmashTick = -1;
 	
 	public MaceDmgHack()
 	{
@@ -50,13 +51,20 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onPlayerAttacksEntity(Entity target)
 	{
-		if(MC.hitResult == null
-			|| MC.hitResult.getType() != HitResult.Type.ENTITY)
+		doSmash();
+	}
+	
+	public void doSmash()
+	{
+		if(!isEnabled() || MC.player == null || MC.player.connection == null)
 			return;
-		
 		if(!MC.player.getMainHandItem().is(Items.MACE))
 			return;
-			
+		
+		long now = MC.player.tickCount;
+		if(now == lastSmashTick)
+			return;
+		lastSmashTick = now;
 		// See ServerGamePacketListenerImpl.handleMovePlayer()
 		// for why it's using these numbers.
 		// Also, let me know if you find a way to bypass that check.
