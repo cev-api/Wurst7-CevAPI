@@ -714,7 +714,15 @@ public class ItemHandlerHack extends Hack
 					continue;
 				
 				Entity owner = getEntityOwner(entity);
-				if(owner == null && getEntityOwnerUuid(entity) == null)
+				UUID ownerUuid = getEntityOwnerUuid(entity);
+				
+				// Skip entities with no identifiable owner
+				if(owner == null && ownerUuid == null)
+					continue;
+				
+				// If we have a UUID but no entity, require a known name
+				if(owner == null
+					&& OwnerResolver.lookupPlayerName(ownerUuid) == null)
 					continue;
 				
 				ItemStack icon = iconForOwnedEntity(entity);

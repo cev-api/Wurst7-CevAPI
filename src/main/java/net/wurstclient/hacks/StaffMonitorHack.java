@@ -205,8 +205,10 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			GameType previous = gamemodeStates.get(id);
 			if(previous == null)
 			{
-				// First time seeing this player — alert their initial mode
-				if(modeSwitching)
+				// First time seeing this player — only alert if they
+				// appear in creative or spectator (potential staff)
+				if(modeSwitching && (currentMode == GameType.CREATIVE
+					|| currentMode == GameType.SPECTATOR))
 					alert(info, currentMode, true);
 				continue;
 			}
