@@ -190,7 +190,8 @@ public final class KillauraHack extends Hack
 		ItemStack heldItem = MC.player.getMainHandItem();
 		PiercingWeapon piercingWeapon =
 			heldItem.get(DataComponents.PIERCING_WEAPON);
-		if(piercingWeapon != null)
+		if(piercingWeapon != null
+			&& !WURST.getHax().attributeSwapHack.isEnabled())
 			MC.gameMode.piercingAttack(piercingWeapon);
 		else
 			MC.gameMode.attack(MC.player, target);
