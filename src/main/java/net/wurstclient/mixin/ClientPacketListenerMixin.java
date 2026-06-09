@@ -127,8 +127,12 @@ public abstract class ClientPacketListenerMixin
 		var funCreepers = WurstClient.INSTANCE.getHax().funCreepersHack;
 		if(!funCreepers.shouldPartyifyExplosion(center))
 			return;
-		
-		funCreepers.spawnPartyEffects(center);
+			
+		// Schedule on render thread to avoid concurrent access to
+		// LegacyRandomSource in the particle engine (MC 26.1+ threading
+		// detector). handleExplosion runs on the network thread, but
+		// addParticle must only be called from the render thread.
+		minecraft.execute(() -> funCreepers.spawnPartyEffects(center));
 	}
 	
 	@Redirect(
