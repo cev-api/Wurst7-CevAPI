@@ -39,6 +39,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
@@ -58,6 +60,7 @@ import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -463,6 +466,35 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private void wurst$renderPanelOverlays(GuiGraphics context)
 	{
+		// Render "Logged In As: NAME" with player head icon
+		if(minecraft.getUser() != null)
+		{
+			String playerName = minecraft.getUser().getName();
+			Component titleText =
+				Component.literal("Logged In As: " + playerName);
+			
+			int iconSize = 12;
+			int textWidth = font.width(titleText);
+			int totalWidth = textWidth + 4 + iconSize;
+			int startX = width / 2 - totalWidth / 2;
+			int titleY = 15;
+			int iconY = titleY + (font.lineHeight - iconSize) / 2;
+			int iconX = startX + textWidth + 4;
+			
+			// Draw the "Logged In As: NAME" text (centered)
+			context.centeredText(font, titleText, startX + textWidth / 2,
+				titleY, 0xFFFFFFFF);
+			
+			// Draw player head icon to the right of the text
+			Identifier skinTexture = DefaultPlayerSkin
+				.get(minecraft.getUser().getProfileId()).body().texturePath();
+			
+			context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, iconX,
+				iconY, 8, 8, iconSize, iconSize, 8, 8, 64, 64, 0xFFFFFFFF);
+			context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, iconX,
+				iconY, 40, 8, iconSize, iconSize, 8, 8, 64, 64, 0xFFFFFFFF);
+		}
+		
 		if(wurst$panelConfig == null)
 			return;
 		
@@ -1685,7 +1717,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		
 		lastServerButton.active = LastServerRememberer.getLastServer() != null;
-		lastServerButton.setX(width / 2 - 154);
+		lastServerButton.setX(NiceWurstModule.showAltManager() ? 110 : 6);
 		lastServerButton.setY(6);
 	}
 	

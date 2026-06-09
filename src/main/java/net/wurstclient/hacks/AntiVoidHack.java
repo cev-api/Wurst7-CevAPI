@@ -23,6 +23,7 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
@@ -72,56 +73,112 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private boolean rescueActive;
 	private boolean jumpWasDown;
 	private int lastHurtTimeSeen;
-	private long lastAutoRescueMs;
+	private boolean flightEnabledByAntiVoid;
 	
 	// Always-on update listener (registered in constructor)
 	private final UpdateListener alwaysListener = new UpdateListener()
 	{
+		private boolean hurtAlerted;
+		private boolean launchesActive;
+		
 		@Override
 		public void onUpdate()
 		{
 			LocalPlayer p = MC.player;
 			if(p == null)
 				return;
-			// Avoid enabling during early startup before other hacks restore
 			if(MC.level == null || MC.level.getGameTime() < STARTUP_GRACE_TICKS)
 			{
 				lastHurtTimeSeen = p.hurtTime;
 				return;
 			}
-			// We still allow auto-enable at thresholds even if flight is
-			// active.
-			int ht = p.hurtTime;
-			if(autoEnableOnOutOfWorld.isChecked() && ht > lastHurtTimeSeen)
+			if(p.connection == null)
 			{
-				DamageSource src = p.getLastDamageSource();
-				if(isOutOfWorldDamage(src))
-				{
-					long now = System.currentTimeMillis();
-					if(now - lastAutoRescueMs > 500)
-					{
-						if(!isEnabled())
-							setEnabled(true);
-						rescueToFixedLevel(p);
-						lastAutoRescueMs = now;
-					}
-				}
+				lastHurtTimeSeen = p.hurtTime;
+				return;
 			}
-			// Height-based auto-enable at fixed thresholds while falling
+			
+			// Auto-enable on out_of_world damage
+			if(autoEnableOnOutOfWorld.isChecked()
+				&& p.hurtTime > lastHurtTimeSeen
+				&& isOutOfWorldDamage(p.getLastDamageSource()))
+			{
+				if(!isEnabled())
+				{
+					setEnabled(true);
+					ChatUtils.message("Void damage! Enabled AntiVoid.");
+				}
+				if(useFlight.isChecked()
+					&& !WURST.getHax().flightHack.isEnabled())
+				{
+					WURST.getHax().flightHack.setEnabled(true);
+					flightEnabledByAntiVoid = true;
+				}
+				hurtAlerted = false;
+				launchesActive = true;
+			}
+			
+			// Height-based auto-enable
 			if(autoEnableByHeight.isChecked() && MC.level != null)
 			{
 				double y = p.getY();
-				boolean falling =
-					p.getDeltaMovement().y < 0 && p.fallDistance > 2F;
-				double threshold = fixedVoidLevel();
-				if(falling && y <= threshold && !isEnabled())
+				if(p.getDeltaMovement().y < 0 && p.fallDistance > 2F
+					&& y <= fixedVoidLevel() && !isEnabled())
+				{
 					setEnabled(true);
-				// If flight is active and we're above threshold, keep AntiVoid
-				// off
-				if(isFlyingHackEnabled() && y > threshold && isEnabled())
-					setEnabled(false);
+					ChatUtils.message("Below void threshold (Y=" + (int)y
+						+ "), enabled AntiVoid.");
+				}
 			}
-			lastHurtTimeSeen = ht;
+			
+			// Launch: every tick AntiVoid is on and player is below
+			// safe Y, force-send flying position packets to move up.
+			// Flying packets (onGround=false) are accepted by servers
+			// unlike grounded teleports.
+			if(!isEnabled())
+			{
+				launchesActive = false;
+				lastHurtTimeSeen = p.hurtTime;
+				return;
+			}
+			
+			if(!launchesActive)
+			{
+				lastHurtTimeSeen = p.hurtTime;
+				return;
+			}
+			
+			double safeY = rescueTargetY();
+			boolean stillDamaged =
+				p.hurtTime > 0 || isOutOfWorldDamage(p.getLastDamageSource());
+			if(!stillDamaged && p.getY() >= safeY)
+			{
+				launchesActive = false;
+				lastHurtTimeSeen = p.hurtTime;
+				return;
+			}
+			
+			// Launch upward: move the player client-side AND send
+			// flying position packets the server will accept.
+			double targetY = p.getY() + 0.6;
+			p.setPos(p.getX(), targetY, p.getZ());
+			p.setDeltaMovement(p.getDeltaMovement().x, 0.42,
+				p.getDeltaMovement().z);
+			p.fallDistance = 0;
+			
+			// Send as flying (onGround=false) — server trusts these
+			p.connection.send(new ServerboundMovePlayerPacket.Pos(p.getX(),
+				targetY, p.getZ(), false, p.horizontalCollision));
+			
+			if(!hurtAlerted)
+			{
+				ChatUtils.message(
+					"Launching out of void (Y=" + (int)targetY + ")...");
+				hurtAlerted = true;
+			}
+			
+			launchesActive = true;
+			lastHurtTimeSeen = p.hurtTime;
 		}
 	};
 	
@@ -148,12 +205,16 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		airWalkY = Double.NaN;
 		rescueActive = false;
 		jumpWasDown = false;
+		flightEnabledByAntiVoid = false;
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
+		if(flightEnabledByAntiVoid && WURST.getHax().flightHack.isEnabled())
+			WURST.getHax().flightHack.setEnabled(false);
+		flightEnabledByAntiVoid = false;
 		EVENTS.remove(UpdateListener.class, this);
 		lastSafePos = null;
 		airWalkActive = false;
@@ -183,9 +244,6 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		if(!airWalkActive && (player.onGround() || player.isInWater()
 			|| player.isInLava() || player.onClimbable()))
 			rescueActive = false;
-			
-		// Do not force-disable here; alwaysListener handles
-		// flight-vs-threshold.
 		
 		if(player.onGround() && !player.isInWater() && !player.isInLava())
 			lastSafePos = player.position();
@@ -199,35 +257,60 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			return;
 		}
 		
+		// Detect falling into void/lava
 		if(player.getDeltaMovement().y >= 0 || player.fallDistance <= 2F)
 			return;
 		
-		if(!isOverVoid(player) && !isOverLava(player))
+		boolean overVoid = isOverVoid(player);
+		boolean overLava = isOverLava(player);
+		
+		if(!overVoid && !overLava)
 			return;
+		
+		// Alert on rescue
+		{
+			String cause = overVoid ? "void" : "lava";
+			ChatUtils.message("Falling into " + cause + " (Y="
+				+ (int)player.getY() + "), rescuing...");
+		}
 		
 		if(useFlight.isChecked())
 		{
-			// Hand off to Flight and stop our intervention
-			rescueActive = true;
 			var hax = WURST.getHax();
 			if(!hax.flightHack.isEnabled())
+			{
 				hax.flightHack.setEnabled(true);
+				ChatUtils.message("Enabled Flight to escape "
+					+ (overVoid ? "void" : "lava") + ".");
+			}
+			rescueActive = true;
 			return;
 		}
 		
 		if(useAirWalk.isChecked())
 		{
-			airWalkActive = true;
-			rescueActive = true;
-			airWalkY = player.getY();
+			if(!airWalkActive)
+			{
+				ChatUtils.message("Enabled AirWalk to escape "
+					+ (overVoid ? "void" : "lava") + ".");
+				airWalkActive = true;
+				rescueActive = true;
+				airWalkY = player.getY();
+			}
 			applyAirWalk(player);
 			return;
 		}
 		
+		// Fallback: rubberband to last safe position
 		if(lastSafePos == null)
 			return;
 		
-		rescueActive = true;
+		if(!rescueActive)
+		{
+			ChatUtils
+				.message("No safe Y — rubberbanding to last ground position.");
+			rescueActive = true;
+		}
 		player.setDeltaMovement(0, 0, 0);
 		player.fallDistance = 0;
 		player.setOnGround(true);
@@ -270,14 +353,6 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			return true;
 		AABB checkBox = player.getBoundingBox().move(0, -0.05, 0);
 		return BlockUtils.getBlockCollisions(checkBox).findAny().isPresent();
-	}
-	
-	private boolean isFlyingHackEnabled()
-	{
-		return WURST.getHax().flightHack.isEnabled()
-			|| WURST.getHax().creativeFlightHack.isEnabled()
-			|| WURST.getHax().elytraFlightHack.isEnabled()
-			|| WURST.getHax().jetpackHack.isEnabled();
 	}
 	
 	private boolean isOverVoid(LocalPlayer player)
@@ -357,27 +432,13 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	
 	// No height band method needed; using fixed thresholds.
 	
-	private void rescueToFixedLevel(LocalPlayer player)
+	/**
+	 * Returns a safe Y level above void damage based on fixedVoidLevel().
+	 * Overworld: -117 (4 blocks above -121 damage), Nether/End: -57.
+	 */
+	private double rescueTargetY()
 	{
-		double targetY = fixedVoidLevel() + 1.0;
-		Vec3 here = player.position();
-		player.setDeltaMovement(0, 0, 0);
-		player.fallDistance = 0;
-		player.setOnGround(true);
-		player.setPos(here.x, targetY, here.z);
-		if(player.connection != null)
-		{
-			player.connection.send(new ServerboundMovePlayerPacket.Pos(here.x,
-				targetY, here.z, true, player.horizontalCollision));
-		}
-		lastSafePos = new Vec3(here.x, targetY, here.z);
-		// If configured, immediately hold the player using AirWalk after rescue
-		if(useAirWalk.isChecked())
-		{
-			airWalkActive = true;
-			rescueActive = true;
-			airWalkY = targetY;
-		}
+		return fixedVoidLevel() + 10.0;
 	}
 	
 	private boolean isOutOfWorldDamage(DamageSource src)
