@@ -11,9 +11,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Comparator;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.PiercingWeapon;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -184,7 +187,13 @@ public final class KillauraHack extends Hack
 		if(target == null)
 			return;
 		
-		MC.gameMode.attack(MC.player, target);
+		ItemStack heldItem = MC.player.getMainHandItem();
+		PiercingWeapon piercingWeapon =
+			heldItem.get(DataComponents.PIERCING_WEAPON);
+		if(piercingWeapon != null)
+			MC.gameMode.piercingAttack(piercingWeapon);
+		else
+			MC.gameMode.attack(MC.player, target);
 		swingHand.swing(InteractionHand.MAIN_HAND);
 		
 		target = null;
