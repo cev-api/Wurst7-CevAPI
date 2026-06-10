@@ -69,6 +69,15 @@ public abstract class Hack extends Feature
 	}
 	
 	/**
+	 * Returns a status suffix to display after the hack name in HackList,
+	 * rendered in green. Return null for no status text.
+	 */
+	public String getStatusText()
+	{
+		return null;
+	}
+	
+	/**
 	 * Optional: A representative ARGB color to display this hack in the
 	 * HackList.
 	 * Default implementation searches for a ColorSetting among this hack's

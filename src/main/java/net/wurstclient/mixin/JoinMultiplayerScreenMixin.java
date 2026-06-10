@@ -223,6 +223,13 @@ public class JoinMultiplayerScreenMixin extends Screen
 		wurst$restorePanelButton = null;
 		wurst$panelConfig = ServerPanelConfig.load(minecraft);
 		
+		// Refresh the title on every init so the "Logged In As" text
+		// updates when the screen is re-shown (e.g. after Alt Manager login).
+		Minecraft mc = Minecraft.getInstance();
+		if(mc.getUser() != null)
+			title =
+				Component.literal("Logged In As: " + mc.getUser().getName());
+		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())

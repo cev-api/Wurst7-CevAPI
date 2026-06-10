@@ -110,9 +110,19 @@ public abstract class ContainerScreenMixin
 		if(RemoteEnderChestHack
 			.isLinkedScreen((AbstractContainerScreen<?>)(Object)this))
 		{
+			RemoteEnderChestHack remote =
+				WurstClient.INSTANCE.getHax().remoteEnderChestHack;
 			int key = event.key();
 			if(key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_E)
 			{
+				// If swap inventory key is active, pressing X/ESC closes
+				// the screen and disables the hack completely
+				if(remote != null && remote.shouldSwapInventoryKey())
+				{
+					remote.setEnabled(false);
+					return true;
+				}
+				
 				RemoteEnderChestHack.hideLinkedGui();
 				return true;
 			}
@@ -122,6 +132,7 @@ public abstract class ContainerScreenMixin
 				return true;
 			}
 		}
+		
 		return super.keyPressed(event);
 	}
 	
@@ -215,16 +226,22 @@ public abstract class ContainerScreenMixin
 		}
 		
 		// RemoteEChest close button — on the title line, right-aligned
-		// next to the container name
+		// next to the container name. When swap inventory key mode is
+		// active, pressing X opens the player's actual inventory and
+		// cancels the remote ender chest hack.
 		RemoteEnderChestHack remoteEChest =
 			WurstClient.INSTANCE.getHax().remoteEnderChestHack;
 		if(remoteEChest != null && RemoteEnderChestHack
 			.isLinkedScreen((AbstractContainerScreen<?>)(Object)this))
 		{
-			addRenderableWidget(Button
-				.builder(Component.literal("\u2715"),
-					b -> RemoteEnderChestHack.hideLinkedGui())
-				.bounds(leftPos + imageWidth - 17, topPos + 2, 14, 14).build());
+			addRenderableWidget(
+				Button.builder(Component.literal("\u2715"), b -> {
+					if(remoteEChest.shouldCancelWithInventory())
+						RemoteEnderChestHack.cancelWithPlayerInventory();
+					else
+						RemoteEnderChestHack.hideLinkedGui();
+				}).bounds(leftPos + imageWidth - 17, topPos + 2, 14, 14)
+					.build());
 		}
 		
 		// Add a manual scan button to help on plugin-protected servers when

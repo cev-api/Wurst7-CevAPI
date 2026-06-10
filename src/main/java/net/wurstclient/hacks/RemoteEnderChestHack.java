@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.inventory.MenuType;
@@ -18,6 +19,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"remote echest", "remote ender chest", "ender chest",
@@ -34,14 +36,21 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	private Level lastWorld;
 	private BlockPos potentialEChestPos;
 	
+	private final CheckboxSetting swapInventoryKey =
+		new CheckboxSetting("Swap inventory key",
+			"When active, pressing the inventory key (E) will open the linked\n"
+				+ "ender chest instead of the regular inventory.",
+			false);
+	
 	public RemoteEnderChestHack()
 	{
 		super("RemoteEChest");
 		instance = this;
 		setCategory(Category.OTHER);
+		addSetting(swapInventoryKey);
 	}
 	
-	// ---- Mixin API (X button, E/ESC/Alt interception) ----
+	// ---- Mixin API (X button, E/ESC key interception) ----
 	
 	public static boolean isLinkedScreen(AbstractContainerScreen<?> screen)
 	{
@@ -112,6 +121,76 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	// ---------------------------------------------------------------
 	
 	@Override
+	public String getRenderName()
+	{
+		return super.getRenderName();
+	}
+	
+	@Override
+	public String getStatusText()
+	{
+		if(isEnabled() && savedScreen != null
+			&& isSavedContainerMenuStillActive())
+			return " [Active]";
+		return null;
+	}
+	
+	/**
+	 * Called from mixin to check if the inventory key should open the
+	 * linked ender chest instead.
+	 */
+	public boolean shouldSwapInventoryKey()
+	{
+		return isEnabled() && swapInventoryKey.isChecked()
+			&& savedScreen != null && isSavedContainerMenuStillActive()
+			&& guiHidden;
+	}
+	
+	/**
+	 * Opens the linked ender chest GUI when the inventory key is pressed.
+	 */
+	public void openLinkedGui()
+	{
+		if(savedScreen == null || !isSavedContainerMenuStillActive())
+			return;
+		MC.setScreen(savedScreen);
+		guiHidden = false;
+	}
+	
+	/**
+	 * Returns true if the X button should open the player inventory instead
+	 * of just hiding the linked GUI. This checks the swap inventory key
+	 * setting without requiring the GUI to be hidden.
+	 */
+	public boolean shouldCancelWithInventory()
+	{
+		return isEnabled() && swapInventoryKey.isChecked()
+			&& savedScreen != null && isSavedContainerMenuStillActive();
+	}
+	
+	/**
+	 * Breaks the ender chest link and opens the player's own inventory,
+	 * effectively cancelling the remote ender chest hack when the X button
+	 * is pressed in swap-inventory-key mode.
+	 */
+	public static void cancelWithPlayerInventory()
+	{
+		RemoteEnderChestHack self = instance;
+		if(self == null || !self.isEnabled() || self.savedScreen == null)
+			return;
+		
+		// Break the link (closes the current screen and cleans up state)
+		self.resetStuff(false);
+		ChatUtils.message("EChest link cancelled. Opened player inventory.");
+		
+		// Open the player's actual inventory
+		if(self.MC.player != null)
+		{
+			self.MC.setScreen(new InventoryScreen(self.MC.player));
+		}
+	}
+	
+	@Override
 	protected void onEnable()
 	{
 		EVENTS.add(UpdateListener.class, this);
@@ -139,6 +218,18 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		if(MC.player == null || MC.level == null)
 		{
 			resetStuff(false);
+			return;
+		}
+		
+		// Swap inventory key: when the player opens their inventory (E key),
+		// immediately replace it with the linked ender chest GUI.
+		if(swapInventoryKey.isChecked() && savedScreen != null
+			&& isSavedContainerMenuStillActive() && guiHidden
+			&& MC.screen instanceof InventoryScreen invScreen
+			&& invScreen != savedScreen)
+		{
+			MC.setScreen(savedScreen);
+			guiHidden = false;
 			return;
 		}
 		
@@ -201,7 +292,6 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		
 		if(keyJustPressed && savedScreen != null)
 		{
-			
 			if(!isSavedContainerMenuStillActive())
 			{
 				breakLink("Ender chest handler invalid. EChest link broken.");

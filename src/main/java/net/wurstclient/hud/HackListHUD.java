@@ -214,7 +214,11 @@ public final class HackListHUD implements UpdateListener
 		int yDraw = posY + otf.getYOffset();
 		double scale = getScale() * otf.getFontSize();
 		// scaled string width
+		String statusText = hack.getStatusText();
 		int stringWidth = (int)(tr.width(s) * scale);
+		int statusWidth =
+			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
+		int totalWidth = stringWidth + statusWidth;
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
@@ -222,7 +226,7 @@ public final class HackListHUD implements UpdateListener
 		else
 		{
 			int screenWidth = context.guiWidth();
-			posX = screenWidth - stringWidth - 2 + otf.getXOffset();
+			posX = screenWidth - totalWidth - 2 + otf.getXOffset();
 		}
 		int alpha = (int)(otf.getTransparency() * 255) << 24;
 		// Quantize to scaled-space integer coordinates to avoid half-pixel
@@ -250,7 +254,7 @@ public final class HackListHUD implements UpdateListener
 			int pad = (int)Math.max(1, Math.round(2 * scale));
 			int boxX1 = mainX - pad;
 			int boxY1 = mainY; // align to line top to avoid overlap
-			int boxX2 = mainX + stringWidth + pad;
+			int boxX2 = mainX + totalWidth + pad;
 			int boxY2 = mainY + lineHeight; // align to line bottom
 			int fillAlpha = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
 				.getShadowBoxAlpha() * otf.getTransparency() * 255);
@@ -258,12 +262,19 @@ public final class HackListHUD implements UpdateListener
 			context.fill(boxX1, boxY1, boxX2, boxY2, boxColor);
 		}else
 		{
-			RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
-				0x04000000 | alpha, false, scale);
+			if(statusText != null)
+				RenderUtils.drawScaledText(context, tr, s + statusText, shadowX,
+					shadowY, 0x04000000 | alpha, false, scale);
+			else
+				RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
+					0x04000000 | alpha, false, scale);
 		}
 		context.guiRenderState.up();
 		RenderUtils.drawScaledText(context, tr, s, mainX, mainY,
 			(lineColor | alpha), false, scale);
+		if(statusText != null)
+			RenderUtils.drawScaledText(context, tr, statusText,
+				mainX + stringWidth, mainY, (0xFF55FF55 | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
@@ -273,12 +284,16 @@ public final class HackListHUD implements UpdateListener
 	{
 		Font tr = WurstClient.MC.font;
 		String s = e.hack.getRenderName();
+		String statusText = e.hack.getStatusText();
 		
 		float offset =
 			e.offset * partialTicks + e.prevOffset * (1 - partialTicks);
 		
 		double scale = getScale() * otf.getFontSize();
 		int stringWidth = (int)(tr.width(s) * scale);
+		int statusWidth =
+			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
+		int totalWidth = stringWidth + statusWidth;
 		
 		float posX;
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
@@ -288,7 +303,7 @@ public final class HackListHUD implements UpdateListener
 		else
 		{
 			int screenWidth = context.guiWidth();
-			posX = screenWidth - stringWidth - 2 + (int)(5 * offset * scale)
+			posX = screenWidth - totalWidth - 2 + (int)(5 * offset * scale)
 				+ otf.getXOffset();
 		}
 		
@@ -315,7 +330,7 @@ public final class HackListHUD implements UpdateListener
 			int pad2 = (int)Math.max(1, Math.round(2 * scale));
 			int boxX12 = mainX2 - pad2;
 			int boxY12 = mainY2; // align to line top
-			int boxX22 = mainX2 + stringWidth + pad2;
+			int boxX22 = mainX2 + totalWidth + pad2;
 			int boxY22 = mainY2 + lineHeight; // align to line bottom
 			int fillAlpha2 = (int)(WurstClient.INSTANCE.getOtfs().hackListOtf
 				.getShadowBoxAlpha() * otf.getTransparency() * 255);
@@ -323,12 +338,20 @@ public final class HackListHUD implements UpdateListener
 			context.fill(boxX12, boxY12, boxX22, boxY22, boxColor2);
 		}else
 		{
-			RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
-				0x04000000 | alpha, false, scale);
+			if(statusText != null)
+				RenderUtils.drawScaledText(context, tr, s + statusText,
+					shadowX2, shadowY2, 0x04000000 | alpha, false, scale);
+			else
+				RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
+					0x04000000 | alpha, false, scale);
 		}
 		context.guiRenderState.up();
 		RenderUtils.drawScaledText(context, tr, s, mainX2, mainY2,
 			(lineColor | alpha), false, scale);
+		if(statusText != null)
+			RenderUtils.drawScaledText(context, tr, statusText,
+				mainX2 + stringWidth, mainY2, (0xFF55FF55 | alpha), false,
+				scale);
 		
 		posY += lineHeight + spacing;
 	}

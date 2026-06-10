@@ -22,6 +22,8 @@ import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"xcarry", "extra inventory", "crafting carry"})
@@ -41,6 +43,18 @@ public final class XCarryHack extends Hack
 		"Turns off XCarry in Creative mode, since there is no 2x2 crafting grid.",
 		false);
 	
+	private final CheckboxSetting moveToInventory = new CheckboxSetting(
+		"Move to inventory",
+		"Automatically quick-moves items from the crafting grid into your main\n"
+			+ "inventory whenever there is a free slot available.",
+		false);
+	
+	private final SliderSetting moveDelay = new SliderSetting("Move delay",
+		"Ticks to wait between moving each crafting grid item.", 2, 0, 20, 1,
+		ValueDisplay.INTEGER);
+	
+	private int moveTimer;
+	
 	private final ItemStack[] trackedCraftingStacks =
 		new ItemStack[CRAFTING_SLOT_COUNT];
 	private List<ItemStack> lastInventorySnapshot = Collections.emptyList();
@@ -51,6 +65,8 @@ public final class XCarryHack extends Hack
 		setCategory(Category.ITEMS);
 		addSetting(dangerousMode);
 		addSetting(disableInCreative);
+		addSetting(moveToInventory);
+		addSetting(moveDelay);
 		resetTracking();
 	}
 	
@@ -103,11 +119,47 @@ public final class XCarryHack extends Hack
 			return;
 		}
 		
+		// move items from crafting grid to inventory
+		if(moveToInventory.isChecked())
+		{
+			if(moveTimer > 0)
+				moveTimer--;
+			else
+				tryMoveCraftingToInventory();
+		}
+		
 		List<ItemStack> previousInventory = lastInventorySnapshot;
 		List<ItemStack> currentInventory = captureInventorySnapshot();
 		lastInventorySnapshot = currentInventory;
 		
 		monitorCraftingGrid(previousInventory, currentInventory);
+	}
+	
+	private void tryMoveCraftingToInventory()
+	{
+		if(MC.player == null || MC.player.inventoryMenu == null)
+			return;
+		
+		// only move when the inventory screen is open
+		if(!(MC.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen))
+			return;
+		
+		// check if there's room in the main inventory
+		if(MC.player.getInventory().getFreeSlot() == -1)
+			return;
+		
+		// find the first non-empty crafting slot and quick-move it
+		for(int i = 0; i < CRAFTING_SLOT_COUNT; i++)
+		{
+			ItemStack stack = getCraftingSlotStack(i);
+			if(stack.isEmpty())
+				continue;
+			
+			IMC.getInteractionManager()
+				.windowClick_QUICK_MOVE(CRAFTING_SLOT_START + i);
+			moveTimer = moveDelay.getValueI();
+			return;
+		}
 	}
 	
 	private void monitorCraftingGrid(List<ItemStack> previousInventory,
