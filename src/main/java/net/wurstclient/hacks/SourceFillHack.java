@@ -93,10 +93,17 @@ public final class SourceFillHack extends Hack
 	private final SwingHandSetting swingHand =
 		new SwingHandSetting(this, SwingHand.SERVER);
 	
+	private final CheckboxSetting autoJesus =
+		new CheckboxSetting("Auto-enable Jesus",
+			"Automatically enables Jesus when SourceFill is enabled and"
+				+ " disables it when SourceFill is turned off.",
+			false);
+	
 	private List<BlockPos> targets = List.of();
 	private final HashSet<BlockPos> blocksToBreak = new HashSet<>();
 	private BlockPos currentTarget;
 	private BlockPos currentlyBreaking;
+	private boolean autoEnabledJesus;
 	
 	public SourceFillHack()
 	{
@@ -116,6 +123,7 @@ public final class SourceFillHack extends Hack
 		addSetting(outlineAlpha);
 		addSetting(tracerFlash);
 		addSetting(swingHand);
+		addSetting(autoJesus);
 	}
 	
 	@Override
@@ -123,6 +131,12 @@ public final class SourceFillHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		
+		if(autoJesus.isChecked() && !WURST.getHax().jesusHack.isEnabled())
+		{
+			WURST.getHax().jesusHack.setEnabled(true);
+			autoEnabledJesus = true;
+		}
 	}
 	
 	@Override
@@ -130,6 +144,10 @@ public final class SourceFillHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		
+		if(autoEnabledJesus && WURST.getHax().jesusHack.isEnabled())
+			WURST.getHax().jesusHack.setEnabled(false);
+		autoEnabledJesus = false;
 		
 		if(currentlyBreaking != null)
 		{

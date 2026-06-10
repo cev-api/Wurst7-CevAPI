@@ -228,6 +228,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(detectOwnedEntities);
 		addSetting(respectItemEspIgnores);
 		addSetting(itemEspIgnoredListSetting);
+		addSetting(itemEspSpecialListSetting);
 		addSetting(rejectRadius);
 		addSetting(rejectExpiry);
 		addSetting(popupRange);
@@ -725,17 +726,22 @@ public class ItemHandlerHack extends Hack
 					&& OwnerResolver.lookupPlayerName(ownerUuid) == null)
 					continue;
 				
+				boolean ownedByMe = MC.player != null && ownerUuid != null
+					&& ownerUuid.equals(MC.player.getUUID())
+					|| owner == MC.player;
+				
 				ItemStack icon = iconForOwnedEntity(entity);
 				String label = "Owned entity: " + ownedEntityLabel(entity)
 					+ " (" + getOwnerLabel(entity, owner) + ")";
 				trackedLabels.add(new NearbyLabel(p, entity.getBoundingBox(),
 					icon, label, Math.sqrt(distSq),
-					getOwnedEntityTraceId(entity.getUUID())));
+					getOwnedEntityTraceId(entity.getUUID()), ownedByMe));
 			}
 		}
 		
-		trackedLabels
-			.sort(java.util.Comparator.comparingDouble(NearbyLabel::distance));
+		trackedLabels.sort(java.util.Comparator
+			.comparingInt((NearbyLabel l) -> l.isOwnedByMe() ? 0 : 1)
+			.thenComparingDouble(NearbyLabel::distance));
 		
 		int max = signMax.getValueI();
 		if(trackedLabels.size() > max)
@@ -1235,8 +1241,14 @@ public class ItemHandlerHack extends Hack
 	}
 	
 	public record NearbyLabel(Vec3 position, AABB box, ItemStack icon,
-		String text, double distance, String traceId)
-	{}
+		String text, double distance, String traceId, boolean isOwnedByMe)
+	{
+		public NearbyLabel(Vec3 position, AABB box, ItemStack icon, String text,
+			double distance, String traceId)
+		{
+			this(position, box, icon, text, distance, traceId, false);
+		}
+	}
 	
 	public boolean isHudEnabled()
 	{
@@ -1744,6 +1756,52 @@ public class ItemHandlerHack extends Hack
 						new net.wurstclient.settings.ItemListSetting(
 							"Ignored items", WText.empty()));
 				return new ItemListEditButton(esp.getIgnoredListSetting());
+			}
+			
+			@Override
+			public void fromJson(JsonElement json)
+			{
+				// no-op
+			}
+			
+			@Override
+			public JsonElement toJson()
+			{
+				return JsonNull.INSTANCE;
+			}
+			
+			@Override
+			public JsonObject exportWikiData()
+			{
+				JsonObject json = new JsonObject();
+				json.addProperty("name", getName());
+				json.addProperty("description", getDescription());
+				json.addProperty("type", "ItemList");
+				return json;
+			}
+			
+			@Override
+			public java.util.Set<net.wurstclient.keybinds.PossibleKeybind> getPossibleKeybinds(
+				String featureName)
+			{
+				return java.util.Collections.emptySet();
+			}
+		};
+	
+	// Inline ItemESP special-items editor in ItemHandler settings
+	private final Setting itemEspSpecialListSetting =
+		new Setting("Special items", WText.empty())
+		{
+			@Override
+			public Component getComponent()
+			{
+				net.wurstclient.hacks.ItemEspHack esp =
+					net.wurstclient.WurstClient.INSTANCE.getHax().itemEspHack;
+				if(esp == null)
+					return new ItemListEditButton(
+						new net.wurstclient.settings.ItemListSetting(
+							"Special items", WText.empty()));
+				return new ItemListEditButton(esp.getSpecialListSetting());
 			}
 			
 			@Override

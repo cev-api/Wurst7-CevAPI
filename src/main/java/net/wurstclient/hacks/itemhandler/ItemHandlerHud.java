@@ -63,9 +63,11 @@ public class ItemHandlerHud
 			double closest;
 			boolean isLabel;
 			boolean isSpecial;
+			boolean isOwnedByMe;
 			
 			MergeEntry(ItemStack rep, String displayName, int total,
-				double closest, boolean isLabel, boolean isSpecial)
+				double closest, boolean isLabel, boolean isSpecial,
+				boolean isOwnedByMe)
 			{
 				this.rep = rep;
 				this.displayName = displayName;
@@ -73,6 +75,7 @@ public class ItemHandlerHud
 				this.closest = closest;
 				this.isLabel = isLabel;
 				this.isSpecial = isSpecial;
+				this.isOwnedByMe = isOwnedByMe;
 			}
 		}
 		
@@ -87,7 +90,7 @@ public class ItemHandlerHud
 				map.put(key,
 					new MergeEntry(stack.copy(), gi.displayName(),
 						stack.getCount(), gi.distance(), false,
-						hack.isSpecialByItemEsp(stack)));
+						hack.isSpecialByItemEsp(stack), false));
 			}else
 			{
 				me.total += stack.getCount();
@@ -104,18 +107,17 @@ public class ItemHandlerHud
 			if(label == null || label.icon() == null || label.text() == null)
 				continue;
 			items.add(new MergeEntry(label.icon().copy(), label.text(), 1,
-				label.distance(), true, false));
+				label.distance(), true, false, label.isOwnedByMe()));
 		}
 		
+		// Always sort owned-by-me entries first, then optionally
+		// sort ItemESP special items next, then sort by distance.
+		Comparator<MergeEntry> comparator =
+			Comparator.comparingInt((MergeEntry m) -> m.isOwnedByMe ? 0 : 1);
 		if(hack.isPinSpecialItemsTop())
-		{
-			items.sort(
-				Comparator.comparing((MergeEntry m) -> m.isSpecial ? 0 : 1)
-					.thenComparingDouble(m -> m.closest));
-		}else
-		{
-			items.sort(Comparator.comparingDouble(m -> m.closest));
-		}
+			comparator = comparator.thenComparingInt(m -> m.isSpecial ? 0 : 1);
+		comparator = comparator.thenComparingDouble(m -> m.closest);
+		items.sort(comparator);
 		
 		int guiW = context.guiWidth();
 		

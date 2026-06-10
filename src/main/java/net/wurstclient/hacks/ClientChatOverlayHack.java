@@ -13,8 +13,11 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.ISimpleOption;
 import net.wurstclient.settings.CheckboxSetting;
@@ -24,7 +27,7 @@ import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
 @SearchTags({"ui settings", "chat overlay", "hud", "client chat"})
-public final class ClientChatOverlayHack extends Hack
+public final class ClientChatOverlayHack extends Hack implements UpdateListener
 {
 	private final SliderSetting transparency =
 		new SliderSetting("Transparency", 35, 0, 100, 1, ValueDisplay.INTEGER);
@@ -72,6 +75,17 @@ public final class ClientChatOverlayHack extends Hack
 	private final SliderSetting hudOffsetY = new SliderSetting("HUD Y offset",
 		0, -240, 240, 1, ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting colorCommandText =
+		new CheckboxSetting("Color command text",
+			"Colors the chat input text orange when you are typing a Wurst"
+				+ " command (starting with the command prefix, e.g. '.').",
+			false);
+	
+	private final ColorSetting commandTextColor =
+		new ColorSetting("Command text color",
+			"The color to use for chat input text when typing a Wurst command.",
+			new Color(0xFFAA00));
+	
 	public ClientChatOverlayHack()
 	{
 		super("ClientChatOverlay");
@@ -92,6 +106,75 @@ public final class ClientChatOverlayHack extends Hack
 		addSetting(defaultTextColor);
 		addSetting(hudOffsetX);
 		addSetting(hudOffsetY);
+		addSetting(colorCommandText);
+		addSetting(commandTextColor);
+	}
+	
+	@Override
+	protected void onEnable()
+	{
+		EVENTS.add(UpdateListener.class, this);
+	}
+	
+	@Override
+	protected void onDisable()
+	{
+		EVENTS.remove(UpdateListener.class, this);
+	}
+	
+	@Override
+	public void onUpdate()
+	{
+		if(!(MC.screen instanceof ChatScreen))
+			return;
+		
+		if(!colorCommandText.isChecked())
+			return;
+		
+		EditBox input = getChatInput();
+		if(input == null)
+			return;
+		
+		String text = input.getValue();
+		boolean isCommand =
+			text != null && !text.isEmpty() && !text.startsWith("/");
+		if(isCommand)
+		{
+			String prefix = getCommandPrefix();
+			isCommand =
+				prefix != null && !prefix.isEmpty() && text.startsWith(prefix);
+		}
+		
+		if(isCommand)
+			input.setTextColor(getCommandTextColorI());
+		else
+			input.setTextColor(0xFFE0E0E0);
+	}
+	
+	private EditBox getChatInput()
+	{
+		try
+		{
+			java.lang.reflect.Field field =
+				ChatScreen.class.getDeclaredField("input");
+			field.setAccessible(true);
+			return (EditBox)field.get(MC.screen);
+		}catch(Exception e)
+		{
+			return null;
+		}
+	}
+	
+	private String getCommandPrefix()
+	{
+		try
+		{
+			return WURST.getOtfs().commandPrefixOtf.getPrefixSetting()
+				.getSelected().toString();
+		}catch(Throwable ignored)
+		{
+			return ".";
+		}
 	}
 	
 	public int getTransparencyPercent()
@@ -191,6 +274,16 @@ public final class ClientChatOverlayHack extends Hack
 	{
 		hudOffsetX.setValue(x);
 		hudOffsetY.setValue(y);
+	}
+	
+	public boolean shouldColorCommandText()
+	{
+		return colorCommandText.isChecked();
+	}
+	
+	public int getCommandTextColorI()
+	{
+		return commandTextColor.getColorI();
 	}
 	
 	private Set<String> getForceClientKeywords()

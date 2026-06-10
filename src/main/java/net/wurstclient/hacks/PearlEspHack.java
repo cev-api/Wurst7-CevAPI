@@ -1270,6 +1270,9 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(existingOwner != null && !existingOwner.equals(bestCandidate))
 			return null;
 		
+		boolean wasAlreadyKnown =
+			existingOwner != null && existingOwner.equals(bestCandidate);
+		
 		String label = getOwnerUuidLabel(bestCandidate);
 		if(label == null)
 			return null;
@@ -1279,8 +1282,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		updatePearlIdentityConfidence(pearlUuid, bestCandidate,
 			OwnerConfidence.INFERRED_JOIN_TIMING);
 		
-		ChatUtils.message(
-			"PearlESP: Inferred owner " + label + " for pearl via join timing ("
+		// Only chat about it if this is a new discovery
+		if(!wasAlreadyKnown && !bestCandidate.equals(MC.player.getUUID()))
+			ChatUtils.message("PearlESP: Inferred owner " + label
+				+ " for pearl via join timing ("
 				+ (pearlSpawnTime - playerJoinTimes.get(bestCandidate))
 				+ "ms gap).");
 		
@@ -1313,9 +1318,15 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(label == null)
 			return null;
 		
-		ChatUtils.message("PearlESP: Inferred owner " + label
-			+ " for vanished pearl via leave timing ("
-			+ (now - playerLeaveTimes.get(bestCandidate)) + "ms gap).");
+		// Only chat if the owner wasn't already known for this pearl
+		UUID existingOwner = pearlOwnerUuids.get(pearlUuid);
+		boolean wasAlreadyKnown =
+			existingOwner != null && existingOwner.equals(bestCandidate);
+		
+		if(!wasAlreadyKnown && !bestCandidate.equals(MC.player.getUUID()))
+			ChatUtils.message("PearlESP: Inferred owner " + label
+				+ " for vanished pearl via leave timing ("
+				+ (now - playerLeaveTimes.get(bestCandidate)) + "ms gap).");
 		
 		rememberPearlOwnerUuid(pearlUuid, bestCandidate);
 		updatePearlIdentityConfidence(pearlUuid, bestCandidate,
@@ -1355,6 +1366,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			return;
 		
 		int inferredCount = 0;
+		int alreadyKnownCount = 0;
 		for(Map.Entry<UUID, Integer> entry : pearlSpawnOwnerIds.entrySet())
 		{
 			Integer ownerId = entry.getValue();
@@ -1365,6 +1377,11 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			UUID existingOwner = pearlOwnerUuids.get(pearlUuid);
 			if(existingOwner != null && !existingOwner.equals(playerUuid))
 				continue;
+			
+			boolean wasAlreadyKnown =
+				existingOwner != null && existingOwner.equals(playerUuid);
+			if(wasAlreadyKnown)
+				alreadyKnownCount++;
 			
 			rememberPearlOwnerUuid(pearlUuid, playerUuid);
 			updatePearlIdentityConfidence(pearlUuid, playerUuid,
@@ -1379,10 +1396,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			inferredCount++;
 		}
 		
-		if(inferredCount > 0)
+		// Only chat about newly inferred pearls (not re-inferred ones)
+		int newCount = inferredCount - alreadyKnownCount;
+		if(newCount > 0 && !playerUuid.equals(MC.player.getUUID()))
 		{
 			ChatUtils.message("PearlESP: Inferred owner " + label + " for "
-				+ inferredCount + " pearl" + (inferredCount == 1 ? "" : "s")
+				+ newCount + " pearl" + (newCount == 1 ? "" : "s")
 				+ " via leave timing.");
 		}
 	}

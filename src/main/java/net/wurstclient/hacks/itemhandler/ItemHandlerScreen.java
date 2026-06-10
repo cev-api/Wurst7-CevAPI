@@ -353,12 +353,14 @@ public class ItemHandlerScreen extends Screen
 				a.closest = label.distance();
 				a.total = 1;
 				a.isLabel = true;
+				a.isOwnedByMe = label.isOwnedByMe();
 				groups.put(traceId, a);
 			}
-			// Preserve insertion order; add entries sorted by closest distance
+			// Sort: owned-by-me first, then by closest distance
 			groups.values().stream()
 				.sorted(java.util.Comparator
-					.comparingDouble(Aggregated::closestDistance))
+					.comparingInt((Aggregated a) -> a.isOwnedByMe ? 0 : 1)
+					.thenComparingDouble(Aggregated::closestDistance))
 				.map(a -> new Entry(this, a)).forEach(this::addEntry);
 			if(prev != null)
 				restoreState(prev);
@@ -389,6 +391,7 @@ public class ItemHandlerScreen extends Screen
 			int total;
 			double closest = Double.MAX_VALUE;
 			boolean isLabel;
+			boolean isOwnedByMe;
 			
 			Aggregated(String itemId, String selectionId, String traceId,
 				ItemStack rep, String displayName)
