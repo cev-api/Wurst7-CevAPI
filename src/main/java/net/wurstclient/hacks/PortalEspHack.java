@@ -181,6 +181,18 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	private final SliderSetting aboveGroundY = new SliderSetting(
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting disableTracersAlertsForWaypointPortals =
+		new CheckboxSetting("Disable tracers/alerts for waypoint portals",
+			"Disables tracers and alerts (sounds + text) for portals\n"
+				+ "that already have a Wurst waypoint nearby.",
+			false);
+	
+	private final CheckboxSetting disableHighlightingForWaypointPortals =
+		new CheckboxSetting("Disable highlighting for waypoint portals",
+			"Disables ESP entirely for portals that already have\n"
+				+ "a Wurst waypoint nearby.",
+			false);
+	
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() == Blocks.NETHER_PORTAL
 			|| state.getBlock() == Blocks.END_PORTAL
@@ -232,6 +244,8 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(disableTracersAlertsForWaypointPortals);
+		addSetting(disableHighlightingForWaypointPortals);
 	}
 	
 	public List<PortalEspBlockGroup> getMapaGroups()
@@ -345,7 +359,11 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			if(!group.isEnabled())
 				continue;
 			
-			List<AABB> boxes = group.getBoxes();
+			List<AABB> boxes = disableHighlightingForWaypointPortals.isChecked()
+				? getBoxesFilteringWaypoints(group) : group.getBoxes();
+			if(boxes.isEmpty())
+				continue;
+			
 			int quadsColor = group.getColorI(0x40);
 			int linesColor = group.getColorI(0x80);
 			
@@ -353,6 +371,17 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
 				false);
 		}
+	}
+	
+	private List<AABB> getBoxesFilteringWaypoints(PortalEspBlockGroup group)
+	{
+		List<BlockPos> positions = group.getPositions();
+		List<AABB> boxes = group.getBoxes();
+		ArrayList<AABB> filtered = new ArrayList<>();
+		for(int i = 0; i < positions.size(); i++)
+			if(!isNearWaypoint(positions.get(i)))
+				filtered.add(boxes.get(i));
+		return filtered;
 	}
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
@@ -366,6 +395,16 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 				continue;
 			
 			List<Vec3> ends = getTracerTargets(group);
+			if(ends.isEmpty())
+				continue;
+			
+			if(shouldSuppressAlertsAndTracers())
+				ends =
+					ends.stream()
+						.filter(v -> !isNearWaypoint(
+							new BlockPos((int)v.x, (int)v.y, (int)v.z)))
+						.toList();
+			
 			if(ends.isEmpty())
 				continue;
 			
@@ -410,6 +449,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		
 		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup =
 			commitCandidates(candidatesByGroup);
+		
+		if(shouldSuppressAlertsAndTracers())
+			newBlocksByGroup = filterNewBlocksByWaypoint(newBlocksByGroup);
 		
 		ArrayList<DiscoveryHit> discoveries =
 			buildDiscoveries(newBlocksByGroup);
@@ -1937,6 +1979,35 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 	
 	private record DiscoveryHit(String label, Vec3 pos)
 	{}
+	
+	private boolean isNearWaypoint(BlockPos pos)
+	{
+		return WURST.getHax().waypointsHack != null
+			&& WURST.getHax().waypointsHack.hasWaypointNear(pos, 5.0);
+	}
+	
+	private boolean shouldSuppressAlertsAndTracers()
+	{
+		return disableTracersAlertsForWaypointPortals.isChecked()
+			|| disableHighlightingForWaypointPortals.isChecked();
+	}
+	
+	private HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> filterNewBlocksByWaypoint(
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> newBlocksByGroup)
+	{
+		HashMap<PortalEspBlockGroup, ArrayList<BlockPos>> filtered =
+			new HashMap<>();
+		for(var entry : newBlocksByGroup.entrySet())
+		{
+			ArrayList<BlockPos> filteredBlocks = new ArrayList<>();
+			for(BlockPos pos : entry.getValue())
+				if(!isNearWaypoint(pos))
+					filteredBlocks.add(pos);
+			if(!filteredBlocks.isEmpty())
+				filtered.put(entry.getKey(), filteredBlocks);
+		}
+		return filtered;
+	}
 	
 	private enum DetectionSound
 	{
