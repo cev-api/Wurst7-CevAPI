@@ -111,6 +111,12 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		"Disable when finished",
 		"Automatically disables AutoBuild when all blocks are placed.", true);
 	
+	private final CheckboxSetting swapFlightWithAirWalk =
+		new CheckboxSetting("Swap flight with AirWalk",
+			"If Flight is enabled, swaps to AirWalk while building and swaps"
+				+ " back to Flight when finished.",
+			false);
+	
 	private Status status = Status.NO_TEMPLATE;
 	private AutoBuildTemplate template;
 	private LinkedHashMap<BlockPos, Item> remainingBlocks =
@@ -122,6 +128,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	private final Map<BlockPos, Integer> placedConfirmations = new HashMap<>();
 	
 	private static final long STUCK_TIMEOUT_MS = 1250L;
+	private boolean swappedFlightForAirWalk;
 	
 	public AutoBuildHack()
 	{
@@ -138,6 +145,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(previewTemplate);
 		addSetting(confirmTicks);
 		addSetting(disableOnFinish);
+		addSetting(swapFlightWithAirWalk);
 	}
 	
 	@Override
@@ -192,6 +200,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		remainingBlocks.clear();
 		previewBlocks.clear();
 		placedConfirmations.clear();
+		
+		// Swap back from AirWalk to Flight if we swapped earlier
+		swapBackFlightIfNeeded();
 		
 		if(template == null)
 			status = Status.NO_TEMPLATE;
@@ -282,6 +293,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		lastProgressMs = System.currentTimeMillis();
 		
 		status = Status.BUILDING;
+		
+		// If Flight is enabled, swap to AirWalk while building
+		swapFlightToAirWalkIfEnabled();
 	}
 	
 	@Override
@@ -369,6 +383,10 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		if(remainingBlocks.isEmpty())
 		{
 			status = Status.IDLE;
+			
+			// Swap back from AirWalk to Flight when building finishes
+			swapBackFlightIfNeeded();
+			
 			if(disableOnFinish.isChecked())
 				setEnabled(false);
 			return;
@@ -653,5 +671,31 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		LOADING,
 		IDLE,
 		BUILDING;
+	}
+	
+	private void swapFlightToAirWalkIfEnabled()
+	{
+		if(!swapFlightWithAirWalk.isChecked())
+			return;
+		
+		if(!WURST.getHax().flightHack.isEnabled())
+			return;
+		
+		WURST.getHax().flightHack.setEnabled(false);
+		WURST.getHax().airWalkHack.setEnabled(true);
+		swappedFlightForAirWalk = true;
+	}
+	
+	private void swapBackFlightIfNeeded()
+	{
+		if(!swappedFlightForAirWalk)
+			return;
+		
+		swappedFlightForAirWalk = false;
+		
+		if(WURST.getHax().airWalkHack.isEnabled())
+			WURST.getHax().airWalkHack.setEnabled(false);
+		
+		WURST.getHax().flightHack.setEnabled(true);
 	}
 }

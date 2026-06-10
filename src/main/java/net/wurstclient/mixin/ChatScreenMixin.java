@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -19,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatOutputListener.ChatOutputEvent;
+import net.wurstclient.hacks.ClientChatOverlayHack;
 import net.wurstclient.uiutils.UiUtilsCommandSystem;
 
 @Mixin(ChatScreen.class)
@@ -37,6 +39,8 @@ public abstract class ChatScreenMixin extends Screen
 	{
 		if(WurstClient.INSTANCE.getHax().infiniChatHack.isEnabled())
 			input.setMaxLength(Integer.MAX_VALUE);
+		
+		updateCommandTextColor();
 	}
 	
 	@Inject(method = "handleChatInput(Ljava/lang/String;Z)V",
@@ -93,6 +97,55 @@ public abstract class ChatScreenMixin extends Screen
 					.sendCommand(newMessage.substring(1));
 			else
 				minecraft.player.connection.sendChat(newMessage);
+	}
+	
+	@Inject(
+		method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+		at = @At("TAIL"))
+	private void onRender(GuiGraphicsExtractor guiGraphics, int mouseX,
+		int mouseY, float partialTicks, CallbackInfo ci)
+	{
+		updateCommandTextColor();
+	}
+	
+	private void updateCommandTextColor()
+	{
+		ClientChatOverlayHack overlay =
+			WurstClient.INSTANCE.getHax().clientChatOverlayHack;
+		if(!overlay.shouldColorCommandText())
+		{
+			input.setTextColor(0xFFE0E0E0);
+			return;
+		}
+		
+		String text = input.getValue();
+		
+		// Determine if this looks like a Wurst command
+		boolean isCommand =
+			text != null && !text.isEmpty() && !text.startsWith("/");
+		if(isCommand)
+		{
+			String prefix = getCommandPrefix();
+			isCommand =
+				prefix != null && !prefix.isEmpty() && text.startsWith(prefix);
+		}
+		
+		if(isCommand)
+			input.setTextColor(overlay.getCommandTextColorI());
+		else
+			input.setTextColor(0xFFE0E0E0);
+	}
+	
+	private String getCommandPrefix()
+	{
+		try
+		{
+			return WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{
+			return ".";
+		}
 	}
 	
 	@Shadow

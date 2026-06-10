@@ -376,6 +376,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		return ignoredList;
 	}
 	
+	public ItemListSetting getSpecialListSetting()
+	{
+		return specialList;
+	}
+	
 	public boolean isIgnoredId(String id)
 	{
 		if(id == null)
