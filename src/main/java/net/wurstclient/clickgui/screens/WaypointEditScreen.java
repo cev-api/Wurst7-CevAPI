@@ -73,6 +73,7 @@ public final class WaypointEditScreen extends Screen
 	private Button iconButton;
 	
 	private Button oppositeButton;
+	private boolean addOppositeOnSave;
 	private Button visibleButton;
 	private Button linesButton;
 	private Button beaconButton;
@@ -172,17 +173,13 @@ public final class WaypointEditScreen extends Screen
 			yToggles = y;
 			int halfGap = 10;
 			int halfW = (cw - halfGap) / 2;
-			oppositeButton =
-				Button
-					.builder(
-						Component.literal(
-							buttonLabel("Opposite", waypoint.isOpposite())),
-						b -> {
-							waypoint.setOpposite(!waypoint.isOpposite());
-							b.setMessage(Component.literal(buttonLabel(
-								"Opposite", waypoint.isOpposite())));
-						})
-					.bounds(x, y, halfW, 20).build();
+			oppositeButton = Button.builder(
+				Component.literal(buttonLabel("Opposite", addOppositeOnSave)),
+				b -> {
+					addOppositeOnSave = !addOppositeOnSave;
+					b.setMessage(Component
+						.literal(buttonLabel("Opposite", addOppositeOnSave)));
+				}).bounds(x, y, halfW, 20).build();
 			addRenderableWidget(oppositeButton);
 			
 			visibleButton = Button.builder(
@@ -196,7 +193,7 @@ public final class WaypointEditScreen extends Screen
 			y += 28;
 			
 			// Reserve space for opposite preview text, then Lines/Beacon row
-			y += 16;
+			y += 28;
 			int toggleWidth = (cw - halfGap) / 2;
 			linesButton = Button.builder(
 				Component.literal(buttonLabel("Lines", waypoint.isLines())),
@@ -410,6 +407,11 @@ public final class WaypointEditScreen extends Screen
 		manager.addOrUpdate(waypoint);
 		if(listScreen != null)
 			listScreen.saveNow();
+		
+		// Create opposite-dimension waypoint if toggle was enabled
+		if(addOppositeOnSave)
+			createOppositeWaypoint();
+		
 		minecraft.setScreen(prev);
 	}
 	
@@ -496,18 +498,16 @@ public final class WaypointEditScreen extends Screen
 			CommonColors.GRAY);
 		context.fill(boxX, boxY, boxX + 16, boxY + 16, color);
 		
-		// Opposite preview text – render below the toggles and lines rows
+		// Opposite preview text – render below the toggles row with spacing
 		String opp = oppositePreview();
 		if(!opp.isEmpty())
 			context.text(minecraft.font, opp, fieldsBaseX,
-				/* directly below the opposite/visible row */
-				yToggles + 28 + 8, 0xFFCCCCCC, false);
+				/* below the opposite/visible row with extra gap */
+				yToggles + 28 + 12, 0xFFCCCCCC, false);
 	}
 	
 	private String oppositePreview()
 	{
-		if(!waypoint.isOpposite())
-			return "";
 		WaypointDimension d = WaypointDimension.values()[dimIndex];
 		if(d == WaypointDimension.END)
 			return "Opposite has no effect in the End";
@@ -530,11 +530,52 @@ public final class WaypointEditScreen extends Screen
 				oz = z * 8;
 				td = WaypointDimension.OVERWORLD;
 			}
-			return "Opposite shows in " + td.name() + " at (" + ox + ", " + y
-				+ ", " + oz + ")";
+			return "Opposite (" + td.name() + "): " + ox + ", " + y + ", " + oz;
 		}catch(Exception e)
 		{
 			return "";
 		}
+	}
+	
+	private void createOppositeWaypoint()
+	{
+		WaypointDimension d = WaypointDimension.values()[dimIndex];
+		if(d == WaypointDimension.END)
+			return;
+		try
+		{
+			int x = Integer.parseInt(xField.getValue());
+			int y = Integer.parseInt(yField.getValue());
+			int z = Integer.parseInt(zField.getValue());
+			int ox, oz;
+			WaypointDimension td;
+			if(d == WaypointDimension.OVERWORLD)
+			{
+				ox = Math.floorDiv(x, 8);
+				oz = Math.floorDiv(z, 8);
+				td = WaypointDimension.NETHER;
+			}else
+			{
+				ox = x * 8;
+				oz = z * 8;
+				td = WaypointDimension.OVERWORLD;
+			}
+			Waypoint opposite = new Waypoint(java.util.UUID.randomUUID(),
+				System.currentTimeMillis());
+			opposite.setName(nameField.getValue());
+			opposite.setPos(new BlockPos(ox, y, oz));
+			opposite.setDimension(td);
+			opposite.setIcon(ICON_KEYS[iconIndex]);
+			opposite.setColor(colorSetting.getColorI((int)Math.round(
+				Math.max(1, Math.min(100, alphaPercent)) / 100.0 * 255)));
+			opposite.setVisible(waypoint.isVisible());
+			opposite.setLines(waypoint.isLines());
+			opposite.setBeaconMode(waypoint.getBeaconMode());
+			opposite.setOpposite(false);
+			manager.addOrUpdate(opposite);
+			if(listScreen != null)
+				listScreen.saveNow();
+		}catch(Exception ignored)
+		{}
 	}
 }
