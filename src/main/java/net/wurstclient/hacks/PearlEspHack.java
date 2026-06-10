@@ -334,7 +334,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			|| e.getValue().untilMs() < now);
 		offlineStasisLabels.entrySet()
 			.removeIf(e -> seenPearls.contains(e.getKey())
-				|| e.getValue() == null || e.getValue().untilMs() < now);
+				|| e.getValue() == null || e.getValue().untilMs() < now
+				|| isPositionOccupiedByVisiblePearl(
+					e.getValue() != null ? e.getValue().pos() : null,
+					seenPearls));
 		
 		// Disconnect inference: pearls that disappeared since last frame
 		if(inferOwnership.isChecked())
@@ -343,31 +346,36 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			vanished.removeAll(seenPearls);
 			for(UUID vanishedUuid : vanished)
 			{
+				Vec3 vanishedPos = lastPearlPositions.get(vanishedUuid);
+				if(vanishedPos == null)
+					continue;
+					
+				// Skip if a currently visible pearl is at the same position
+				// (UUID change due to server re-creating the entity)
+				if(isPositionOccupiedByVisiblePearl(vanishedPos, seenPearls))
+					continue;
+				
 				UUID existingOwner = pearlOwnerUuids.get(vanishedUuid);
 				if(existingOwner != null)
 				{
-					Vec3 pos = lastPearlPositions.get(vanishedUuid);
-					if(pos != null)
-					{
-						String inferred = getOwnerUuidLabel(existingOwner);
-						if(inferred != null)
-							offlineStasisLabels.put(vanishedUuid,
-								new StasisLabel(
-									formatOfflineLabelText(vanishedUuid,
-										inferred),
-									pos, now + OFFLINE_STASIS_STICKY_MS));
-					}
+					// Never create offline labels for your own pearls. You
+					// already know where they are and "Owner: You" is noise.
+					if(MC.player != null
+						&& existingOwner.equals(MC.player.getUUID()))
+						continue;
+					
+					String inferred = getOwnerUuidLabel(existingOwner);
+					if(inferred != null)
+						putOfflineStasisLabel(vanishedUuid,
+							formatOfflineLabelText(vanishedUuid, inferred),
+							vanishedPos, now);
 					continue;
 				}
 				
 				String inferred = inferOwnerFromLeaveTiming(vanishedUuid);
 				if(inferred != null)
-				{
-					Vec3 pos = lastPearlPositions.get(vanishedUuid);
-					if(pos != null)
-						offlineStasisLabels.put(vanishedUuid, new StasisLabel(
-							inferred, pos, now + OFFLINE_STASIS_STICKY_MS));
-				}
+					putOfflineStasisLabel(vanishedUuid, inferred, vanishedPos,
+						now);
 			}
 		}
 		previousPearlUuids = seenPearls;
@@ -1314,6 +1322,10 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		if(candidateCount != 1 || bestCandidate == null)
 			return null;
 		
+		// Never infer yourself — you know you didn't leave
+		if(MC.player != null && bestCandidate.equals(MC.player.getUUID()))
+			return null;
+		
 		String label = getOwnerUuidLabel(bestCandidate);
 		if(label == null)
 			return null;
@@ -1337,6 +1349,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private void inferOwnersFromPlayerLeave(UUID playerUuid, long now)
 	{
 		if(playerUuid == null)
+			return;
+			
+		// Ignore REMOVE_PLAYER info refreshes where the player is still
+		// visible in the world (common on servers that send remove+add
+		// cycles for tab-list/latency updates).
+		if(isPlayerVisibleInWorld(playerUuid))
 			return;
 		
 		Integer playerEntityId = null;
@@ -1389,9 +1407,8 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			
 			Vec3 pos = lastPearlPositions.get(pearlUuid);
 			if(pos != null)
-				offlineStasisLabels.put(pearlUuid,
-					new StasisLabel(formatOfflineLabelText(pearlUuid, label),
-						pos, now + OFFLINE_STASIS_STICKY_MS));
+				putOfflineStasisLabel(pearlUuid,
+					formatOfflineLabelText(pearlUuid, label), pos, now);
 			
 			inferredCount++;
 		}
@@ -1521,6 +1538,73 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	{
 		PearlIdentity pid = pearlIdentities.get(pearlUuid);
 		return pid != null ? pid.confidence() : null;
+	}
+	
+	/**
+	 * Checks whether any currently visible pearl is at approximately the
+	 * same position as the given vanished position. This prevents creating
+	 * duplicate offline labels when the server re-creates a pearl entity
+	 * with a new UUID (common in bubble-column stasis chambers).
+	 */
+	private boolean isPositionOccupiedByVisiblePearl(Vec3 vanishedPos,
+		HashSet<UUID> seenPearls)
+	{
+		if(vanishedPos == null)
+			return false;
+		double threshold = 0.5;
+		for(UUID seenUuid : seenPearls)
+		{
+			Vec3 seenPos = lastPearlPositions.get(seenUuid);
+			if(seenPos != null
+				&& seenPos.distanceToSqr(vanishedPos) < threshold * threshold)
+				return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Checks whether a player with the given UUID is currently visible
+	 * among the entities being rendered in the world.
+	 */
+	private boolean isPlayerVisibleInWorld(UUID playerUuid)
+	{
+		if(playerUuid == null || MC.level == null)
+			return false;
+		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(entity instanceof Player && playerUuid.equals(entity.getUUID()))
+				return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Adds or refreshes an offline stasis label, de-duplicating by position.
+	 * If an existing offline label exists at approximately the same position,
+	 * its timestamp is refreshed instead of creating a duplicate.
+	 */
+	private void putOfflineStasisLabel(UUID vanishedUuid, String text, Vec3 pos,
+		long now)
+	{
+		double threshold = 0.5;
+		long untilMs = now + OFFLINE_STASIS_STICKY_MS;
+		
+		// Check for an existing offline label at the same position
+		for(Map.Entry<UUID, StasisLabel> entry : offlineStasisLabels.entrySet())
+		{
+			StasisLabel existing = entry.getValue();
+			if(existing != null && existing.pos() != null
+				&& existing.pos().distanceToSqr(pos) < threshold * threshold)
+			{
+				// Refresh the existing entry instead of adding a duplicate
+				offlineStasisLabels.put(entry.getKey(),
+					new StasisLabel(existing.text(), existing.pos(), untilMs));
+				return;
+			}
+		}
+		
+		offlineStasisLabels.put(vanishedUuid,
+			new StasisLabel(text, pos, untilMs));
 	}
 	
 	private float computeDistanceScale(Vec3 labelPos, float baseScale)
