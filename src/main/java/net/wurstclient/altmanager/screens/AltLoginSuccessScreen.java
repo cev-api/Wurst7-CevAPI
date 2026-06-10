@@ -13,6 +13,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -35,10 +37,9 @@ public final class AltLoginSuccessScreen extends Screen
 	@Override
 	protected void init()
 	{
-		addRenderableWidget(Button
-			.builder(Component.literal("Continue"),
-				b -> minecraft.setScreen(nextScreen))
-			.bounds(width / 2 - 100, height / 2 + 48, 200, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Continue"), b -> openNextScreen())
+				.bounds(width / 2 - 100, height / 2 + 48, 200, 20).build());
 	}
 	
 	@Override
@@ -82,7 +83,17 @@ public final class AltLoginSuccessScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(nextScreen);
+		openNextScreen();
+	}
+	
+	private void openNextScreen()
+	{
+		if(minecraft == null)
+			return;
+		
+		Screen screenToOpen = nextScreen instanceof JoinMultiplayerScreen
+			? new JoinMultiplayerScreen(new TitleScreen()) : nextScreen;
+		minecraft.setScreen(screenToOpen);
 	}
 	
 	@Override

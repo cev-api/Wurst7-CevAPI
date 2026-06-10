@@ -71,7 +71,7 @@ public final class EnchantmentHandlerHack extends Hack
 	private static final int ACTION_HOVER_COLOR = 0xFFB6E1FF;
 	private static final long HOVER_SCROLL_DELAY_MS = 400;
 	private static final double HOVER_SCROLL_PAUSE = 32.0;
-	private static final int DRAG_BAR_HEIGHT = 28;
+	private static final int DRAG_BAR_HEIGHT = 12;
 	
 	private final List<AbstractEntry> allEntries = new ArrayList<>();
 	private final Map<GearCategory, List<GearEntry>> gearGroupedEntries =
@@ -110,6 +110,12 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Use item icons", true);
 	private final CheckboxSetting showSlotNumbers =
 		new CheckboxSetting("Show slot numbers", false);
+	private final CheckboxSetting colorEnchantments =
+		new CheckboxSetting("Color enchantments", true);
+	
+	private final SliderSetting iconScale = new SliderSetting("Icon scale",
+		"Scale factor for item icons rendered in the list.", 1.0, 0.5, 1.0, 0.1,
+		ValueDisplay.DECIMAL);
 	
 	private final CheckboxSetting includePlayerInventory =
 		new CheckboxSetting("Include player inventory", false);
@@ -161,6 +167,14 @@ public final class EnchantmentHandlerHack extends Hack
 	private AbstractContainerScreen<?> lastRenderedScreen;
 	private GuiGraphics lastRenderContext;
 	
+	// Scroll bar
+	private boolean scrollBarDragging;
+	private int scrollBarDragStartY;
+	private double scrollBarDragStartOffset;
+	private static final int SCROLL_BAR_WIDTH = 6;
+	private static final int SCROLL_BAR_COLOR = 0xC0333333;
+	private static final int SCROLL_BAR_BG = 0x60181818;
+	
 	public EnchantmentHandlerHack()
 	{
 		super("EnchantmentHandler");
@@ -172,6 +186,8 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(hoverScrollSpeed);
 		addSetting(useItemIcons);
 		addSetting(showSlotNumbers);
+		addSetting(colorEnchantments);
+		addSetting(iconScale);
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
 		addSetting(showOnInventoryScreen);
@@ -236,6 +252,7 @@ public final class EnchantmentHandlerHack extends Hack
 		dragOffsetY = 0;
 		lastRenderedScreen = null;
 		lastRenderContext = null;
+		scrollBarDragging = false;
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
@@ -348,6 +365,15 @@ public final class EnchantmentHandlerHack extends Hack
 		if(!lastRenderActive)
 			return false;
 		
+		// Handle scroll bar click/drag
+		if(button == 0 && isInsideScrollBar(mouseX, mouseY))
+		{
+			scrollBarDragging = true;
+			scrollBarDragStartY = (int)mouseY;
+			scrollBarDragStartOffset = scrollOffset;
+			return true;
+		}
+		
 		if(button == 0 && isInsideDragBar(mouseX, mouseY))
 		{
 			startPanelDrag(mouseX, mouseY);
@@ -435,6 +461,12 @@ public final class EnchantmentHandlerHack extends Hack
 			return true;
 		}
 		
+		if(scrollBarDragging && button == 0)
+		{
+			scrollBarDragging = false;
+			return true;
+		}
+		
 		return false;
 	}
 	
@@ -482,6 +514,21 @@ public final class EnchantmentHandlerHack extends Hack
 			&& mouseY >= panelY && mouseY <= panelY + DRAG_BAR_HEIGHT;
 	}
 	
+	private boolean isInsideScrollBar(double mouseX, double mouseY)
+	{
+		return mouseX >= panelX + panelWidth - SCROLL_BAR_WIDTH - 2
+			&& mouseX <= panelX + panelWidth && mouseY >= panelY
+			&& mouseY <= panelY + panelHeight;
+	}
+	
+	private double getScrollThumbHeight(double trackHeight)
+	{
+		if(contentHeight <= 0 || trackHeight <= 0)
+			return trackHeight;
+		double ratio = trackHeight / (double)contentHeight;
+		return Math.max(16, ratio * trackHeight);
+	}
+	
 	private void startPanelDrag(double mouseX, double mouseY)
 	{
 		panelDragging = true;
@@ -523,7 +570,10 @@ public final class EnchantmentHandlerHack extends Hack
 		float scale = Mth.clamp(textScale.getValueF(), 0.5F, 1.25F);
 		int lineHeight = Math.max(1, Math.round(tr.lineHeight * scale));
 		if(useItemIcons.isChecked())
-			lineHeight = Math.max(lineHeight, Math.round(18 * scale));
+		{
+			float iconScaleVal = Mth.clamp(iconScale.getValueF(), 0.5F, 1.0F);
+			lineHeight = Math.max(lineHeight, Math.round(18 * iconScaleVal));
+		}
 		int headerMargin = Math.max(1, Math.round(HEADER_MARGIN * scale));
 		int entryMargin = Math.max(1, Math.round(ENTRY_MARGIN * scale));
 		
@@ -538,7 +588,7 @@ public final class EnchantmentHandlerHack extends Hack
 		context.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth,
 			panelY + panelHeight, 0xFF202020);
 		
-		int contentTop = panelY + PANEL_PADDING;
+		int contentTop = panelY + DRAG_BAR_HEIGHT;
 		int titleX = panelX + PANEL_PADDING;
 		int contentBottom = panelY + panelHeight - PANEL_PADDING;
 		int innerHeight = contentBottom - contentTop;
@@ -553,19 +603,17 @@ public final class EnchantmentHandlerHack extends Hack
 		double scaledMouseX = getScaledMouseX(context);
 		double scaledMouseY = getScaledMouseY(context);
 		
-		context.enableScissor(panelX + 1, contentTop, panelX + panelWidth - 1,
+		context.enableScissor(panelX + 1, contentTop,
+			panelX + panelWidth - SCROLL_BAR_WIDTH - 2,
 			panelY + panelHeight - 1);
 		
 		double cursorY = contentTop;
 		double offset = scrollOffset;
 		boolean[] hoverFlag = new boolean[]{false};
-		double textAreaWidth =
-			Math.max(1.0, panelWidth - 2.0 * PANEL_PADDING - 4.0);
+		double textAreaWidth = Math.max(1.0,
+			panelWidth - 2.0 * PANEL_PADDING - SCROLL_BAR_WIDTH - 2.0);
 		double hoverSpeed = Math.max(1.0, hoverScrollSpeed.getValueI());
 		
-		// Render source sections: Container always, then optional Player and
-		// Shulker sections (each contains gear, potions and books
-		// subcategories)
 		cursorY = renderSourceSection(context, tr, scale, titleX, cursorY,
 			offset, textAreaWidth, hoverSpeed, scaledMouseX, scaledMouseY,
 			lineHeight, entryMargin, headerMargin, hoverFlag, "Container",
@@ -600,9 +648,46 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		contentHeight = (int)Math.max(0, Math.round(cursorY - contentTop));
 		maxScroll = Math.max(0, contentHeight - innerHeight);
-		scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
+		
+		// Handle scroll bar drag
+		if(scrollBarDragging)
+		{
+			double trackHeight = Math.max(1, innerHeight);
+			double thumbHeight = getScrollThumbHeight(trackHeight);
+			double trackUsable = trackHeight - thumbHeight;
+			double dy = scaledMouseY - scrollBarDragStartY;
+			double ratio = trackUsable > 0 ? dy / trackUsable : 0;
+			scrollOffset = Mth.clamp(
+				scrollBarDragStartOffset + ratio * maxScroll, 0, maxScroll);
+		}else
+			scrollOffset = Mth.clamp(scrollOffset, 0, maxScroll);
 		
 		context.disableScissor();
+		
+		// Render scroll bar
+		if(maxScroll > 0)
+		{
+			int scrollBarX = panelX + panelWidth - SCROLL_BAR_WIDTH - 1;
+			int scrollTrackTop = panelY;
+			int scrollTrackBottom = panelY + panelHeight;
+			int trackHeight = scrollTrackBottom - scrollTrackTop;
+			
+			// Track background
+			context.fill(scrollBarX - 1, scrollTrackTop,
+				scrollBarX + SCROLL_BAR_WIDTH + 1, scrollTrackBottom,
+				SCROLL_BAR_BG);
+			
+			// Thumb
+			double thumbHeight = getScrollThumbHeight(trackHeight);
+			double thumbPos = maxScroll > 0
+				? (scrollOffset / maxScroll) * (trackHeight - thumbHeight) : 0;
+			int thumbTop = scrollTrackTop + (int)Math.round(thumbPos);
+			int thumbBottom =
+				scrollTrackTop + (int)Math.round(thumbPos + thumbHeight);
+			thumbBottom = Math.min(thumbBottom, scrollTrackBottom);
+			context.fill(scrollBarX, thumbTop, scrollBarX + SCROLL_BAR_WIDTH,
+				thumbBottom, SCROLL_BAR_COLOR);
+		}
 	}
 	
 	private double renderGearSection(GuiGraphics context, Font tr, float scale,
@@ -803,7 +888,8 @@ public final class EnchantmentHandlerHack extends Hack
 		String takeAllText = "Take All";
 		int takeAllWidth =
 			Math.max(1, Math.round(tr.width(takeAllText) * scale));
-		int takeAllX = panelX + panelWidth - PANEL_PADDING - takeAllWidth;
+		int takeAllX = panelX + panelWidth - SCROLL_BAR_WIDTH - PANEL_PADDING
+			- takeAllWidth;
 		int takeAllY = headerY;
 		boolean actionHovered = scaledMouseX >= takeAllX - 2
 			&& scaledMouseX <= takeAllX + takeAllWidth + 2
@@ -825,17 +911,19 @@ public final class EnchantmentHandlerHack extends Hack
 		{
 			int entryY = (int)Math.round(cursorY - offset);
 			boolean hovered = scaledMouseX >= panelX + 2
-				&& scaledMouseX <= panelX + panelWidth - 2
+				&& scaledMouseX <= panelX + panelWidth - SCROLL_BAR_WIDTH - 2
 				&& scaledMouseY >= entryY - 2
 				&& scaledMouseY <= entryY + lineHeight + 2;
 			
 			if(hovered)
-				context.fill(panelX + 2, entryY - 2, panelX + panelWidth - 2,
+				context.fill(panelX + 2, entryY - 2,
+					panelX + panelWidth - SCROLL_BAR_WIDTH - 2,
 					entryY + lineHeight + 2, 0x802A2A2A);
 			
+			float iconScaleVal = Mth.clamp(iconScale.getValueF(), 0.5F, 1.0F);
 			int iconSpace =
 				useItemIcons.isChecked() && !entry.iconStack.isEmpty()
-					? Math.max(18, Math.round(18 * scale)) : 0;
+					? Math.round(18 * iconScaleVal) : 0;
 			double textWidth = Math.max(1.0, tr.width(entry.line) * scale);
 			double travel =
 				textWidth - Math.max(1.0, textAreaWidth - iconSpace);
@@ -881,20 +969,28 @@ public final class EnchantmentHandlerHack extends Hack
 			float textX = titleX - renderScroll;
 			if(useItemIcons.isChecked() && !entry.iconStack.isEmpty())
 			{
-				RenderUtils.drawItem(context, entry.iconStack, titleX,
-					entryY + (lineHeight - 16) / 2, true);
+				float iconX = titleX;
+				float iconHeight = 16F * iconScaleVal;
+				float iconY = entryY + (lineHeight - iconHeight) / 2F;
+				context.pose().pushMatrix();
+				context.pose().translate(iconX, iconY);
+				context.pose().scale(iconScaleVal, iconScaleVal);
+				context.item(entry.iconStack, 0, 0);
+				context.pose().popMatrix();
 				textX += iconSpace;
 			}
-			int textY = entryY + Math.max(0,
-				(lineHeight - Math.round(tr.lineHeight * scale)) / 2);
+			int textY =
+				entryY + (lineHeight - Math.round(tr.lineHeight * scale)) / 2;
 			int textClipLeft = titleX + iconSpace;
 			context.enableScissor(textClipLeft, entryY - 2,
-				panelX + panelWidth - PANEL_PADDING, entryY + lineHeight + 2);
+				panelX + panelWidth - SCROLL_BAR_WIDTH - 2,
+				entryY + lineHeight + 2);
 			drawScaledText(context, tr, entry.line, textX, textY,
 				hovered ? ENTRY_HOVER_COLOR : ENTRY_COLOR, scale);
 			context.disableScissor();
 			
-			hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2, panelWidth - 4,
+			int entryWidth = panelWidth - SCROLL_BAR_WIDTH - 4;
+			hitboxes.add(Hitbox.forEntry(panelX + 2, entryY - 2, entryWidth,
 				lineHeight + 4, entry));
 			
 			cursorY += lineHeight + entryMargin;
@@ -1226,13 +1322,13 @@ public final class EnchantmentHandlerHack extends Hack
 			}
 		}
 		
-		// Sort container, player and shulker grouped lists
-		gearGroupedEntries.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
-		gearGroupedEntriesPlayer.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
-		gearGroupedEntriesShulker.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		// Sort container, player and shulker grouped lists by material
+		// priority, then slot number
+		gearGroupedEntries.values().forEach(list -> sortGearEntries(list));
+		gearGroupedEntriesPlayer.values()
+			.forEach(list -> sortGearEntries(list));
+		gearGroupedEntriesShulker.values()
+			.forEach(list -> sortGearEntries(list));
 		bookGroupedEntries.values().forEach(list -> list
 			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
 		bookGroupedEntriesPlayer.values().forEach(list -> list
@@ -1302,9 +1398,8 @@ public final class EnchantmentHandlerHack extends Hack
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
-			String levelText = Component
-				.translatable("enchantment.level." + level).getString();
-			parts.add(name + " " + levelText);
+			String levelText = buildLevelSuffix(level);
+			parts.add(name + levelText);
 		}
 		
 		if(parts.isEmpty())
@@ -1342,9 +1437,8 @@ public final class EnchantmentHandlerHack extends Hack
 			String path = id != null ? id.getPath()
 				: sanitizePath(enchantmentEntry.getRegisteredName());
 			String name = buildEnchantmentName(id, path);
-			String levelText = Component
-				.translatable("enchantment.level." + level).getString();
-			parts.add(name + " " + levelText);
+			String levelText = buildLevelSuffix(level);
+			parts.add(name + levelText);
 		}
 		if(parts.isEmpty())
 			return null;
@@ -1381,9 +1475,8 @@ public final class EnchantmentHandlerHack extends Hack
 			categories.add(category);
 			
 			String name = buildEnchantmentName(id, path);
-			String levelText = Component
-				.translatable("enchantment.level." + level).getString();
-			parts.add(name + " " + levelText);
+			String levelText = buildLevelSuffix(level);
+			parts.add(name + levelText);
 		}
 		
 		if(parts.isEmpty())
@@ -1424,9 +1517,8 @@ public final class EnchantmentHandlerHack extends Hack
 			BookCategory category = BookCategory.fromPath(path);
 			categories.add(category);
 			String name = buildEnchantmentName(id, path);
-			String levelText = Component
-				.translatable("enchantment.level." + level).getString();
-			parts.add(name + " " + levelText);
+			String levelText = buildLevelSuffix(level);
+			parts.add(name + levelText);
 		}
 		if(parts.isEmpty())
 			return null;
@@ -1835,17 +1927,97 @@ public final class EnchantmentHandlerHack extends Hack
 		return text.substring(0, Math.max(0, max - 3)) + "...";
 	}
 	
-	private static String buildEnchantmentName(Identifier id, String path)
+	private String buildEnchantmentName(Identifier id, String path)
 	{
 		if(path == null || path.isEmpty())
 			return "Unknown Enchant";
 		
+		// Hardcoded resource-pack style: color + human name
+		String hardcoded = ENCHANT_DISPLAY.get(path);
+		if(hardcoded != null)
+		{
+			if(colorEnchantments.isChecked())
+				return hardcoded;
+			return stripFormattingCodes(hardcoded);
+		}
+		
+		// Fallback to translatable
 		String namespace = id != null ? id.getNamespace() : "minecraft";
 		String key = "enchantment." + namespace + "." + path;
 		String translated = Component.translatable(key).getString();
 		if(translated.equals(key))
 			return humanize(path);
-		return translated;
+		if(colorEnchantments.isChecked())
+			return translated;
+		return stripFormattingCodes(translated);
+	}
+	
+	/**
+	 * Returns the level suffix for enchantments. Level 1 is empty, level 2+
+	 * gets "\u00a7f{N}" (white number), matching the resource pack.
+	 */
+	private String buildLevelSuffix(int level)
+	{
+		if(level <= 1)
+			return "";
+		if(colorEnchantments.isChecked())
+			return " \u00a7f" + level;
+		return " " + level;
+	}
+	
+	private static String stripFormattingCodes(String text)
+	{
+		return text.replaceAll("\u00a7[0-9A-FK-ORa-fk-or]", "");
+	}
+	
+	private static final Map<String, String> ENCHANT_DISPLAY =
+		new LinkedHashMap<>();
+	static
+	{
+		ENCHANT_DISPLAY.put("aqua_affinity", "\u00a7b Aqua Affinity");
+		ENCHANT_DISPLAY.put("bane_of_arthropods", "\u00a75 Bane of Arthropods");
+		ENCHANT_DISPLAY.put("binding_curse", "\u00a74 Curse of Binding");
+		ENCHANT_DISPLAY.put("blast_protection", "\u00a72 Blast Protection");
+		ENCHANT_DISPLAY.put("breach", "\u00a73 Breach");
+		ENCHANT_DISPLAY.put("channeling", "\u00a76 Channeling");
+		ENCHANT_DISPLAY.put("density", "\u00a7a Density");
+		ENCHANT_DISPLAY.put("depth_strider", "\u00a7b Depth Strider");
+		ENCHANT_DISPLAY.put("efficiency", "\u00a72 Efficiency");
+		ENCHANT_DISPLAY.put("feather_falling", "\u00a79 Feather Falling");
+		ENCHANT_DISPLAY.put("fire_aspect", "\u00a7c Fire Aspect");
+		ENCHANT_DISPLAY.put("fire_protection", "\u00a7c Fire Protection");
+		ENCHANT_DISPLAY.put("flame", "\u00a7c Flame");
+		ENCHANT_DISPLAY.put("fortune", "\u00a7d Fortune");
+		ENCHANT_DISPLAY.put("frost_walker", "\u00a7b Frost Walker");
+		ENCHANT_DISPLAY.put("impaling", "\u00a7b Impaling");
+		ENCHANT_DISPLAY.put("infinity", "\u00a7d Infinity");
+		ENCHANT_DISPLAY.put("knockback", "\u00a73 Knockback");
+		ENCHANT_DISPLAY.put("looting", "\u00a7d Looting");
+		ENCHANT_DISPLAY.put("loyalty", "\u00a71 Loyalty");
+		ENCHANT_DISPLAY.put("luck_of_the_sea", "\u00a7b Luck of the Sea");
+		ENCHANT_DISPLAY.put("lure", "\u00a7b Lure");
+		ENCHANT_DISPLAY.put("mending", "\u00a7e Mending");
+		ENCHANT_DISPLAY.put("multishot", "\u00a7d Multishot");
+		ENCHANT_DISPLAY.put("piercing", "\u00a76 Piercing");
+		ENCHANT_DISPLAY.put("power", "\u00a76 Power");
+		ENCHANT_DISPLAY.put("projectile_protection",
+			"\u00a7a Projectile Protection");
+		ENCHANT_DISPLAY.put("protection", "\u00a7d Protection");
+		ENCHANT_DISPLAY.put("punch", "\u00a7a Punch");
+		ENCHANT_DISPLAY.put("quick_charge", "\u00a7a Quick Charge");
+		ENCHANT_DISPLAY.put("respiration", "\u00a73 Respiration");
+		ENCHANT_DISPLAY.put("riptide", "\u00a73 Riptide");
+		ENCHANT_DISPLAY.put("sharpness", "\u00a7a Sharpness");
+		ENCHANT_DISPLAY.put("silk_touch", "\u00a7b Silk Touch");
+		ENCHANT_DISPLAY.put("smite", "\u00a76 Smite");
+		ENCHANT_DISPLAY.put("soul_speed", "\u00a73 Soul Speed");
+		ENCHANT_DISPLAY.put("sweeping_edge", "\u00a7b Sweeping Edge");
+		ENCHANT_DISPLAY.put("sweeping", "\u00a7b Sweeping Edge");
+		ENCHANT_DISPLAY.put("swift_sneak", "\u00a73 Swift Sneak");
+		ENCHANT_DISPLAY.put("thorns", "\u00a72 Thorns");
+		ENCHANT_DISPLAY.put("unbreaking", "\u00a7e Unbreaking");
+		ENCHANT_DISPLAY.put("vanishing_curse", "\u00a74 Curse of Vanishing");
+		ENCHANT_DISPLAY.put("wind_burst", "\u00a7b Wind Burst");
 	}
 	
 	private static String buildEffectName(Identifier id, String path)
@@ -1885,6 +2057,72 @@ public final class EnchantmentHandlerHack extends Hack
 					+ (part.length() > 1 ? part.substring(1) : ""))
 				.collect(Collectors.joining(" "));
 		return humanized.isEmpty() ? "Unknown" : humanized;
+	}
+	
+	private static int getMaterialPriority(GearEntry entry)
+	{
+		ItemStack stack = entry.iconStack;
+		if(stack.isEmpty())
+			return 0;
+		
+		if(stack.is(Items.NETHERITE_SWORD) || stack.is(Items.NETHERITE_AXE)
+			|| stack.is(Items.NETHERITE_PICKAXE)
+			|| stack.is(Items.NETHERITE_SHOVEL) || stack.is(Items.NETHERITE_HOE)
+			|| stack.is(Items.NETHERITE_HELMET)
+			|| stack.is(Items.NETHERITE_CHESTPLATE)
+			|| stack.is(Items.NETHERITE_LEGGINGS)
+			|| stack.is(Items.NETHERITE_BOOTS))
+			return 7;
+		if(stack.is(Items.DIAMOND_SWORD) || stack.is(Items.DIAMOND_AXE)
+			|| stack.is(Items.DIAMOND_PICKAXE) || stack.is(Items.DIAMOND_SHOVEL)
+			|| stack.is(Items.DIAMOND_HOE) || stack.is(Items.DIAMOND_HELMET)
+			|| stack.is(Items.DIAMOND_CHESTPLATE)
+			|| stack.is(Items.DIAMOND_LEGGINGS)
+			|| stack.is(Items.DIAMOND_BOOTS))
+			return 6;
+		if(stack.is(Items.IRON_SWORD) || stack.is(Items.IRON_AXE)
+			|| stack.is(Items.IRON_PICKAXE) || stack.is(Items.IRON_SHOVEL)
+			|| stack.is(Items.IRON_HOE) || stack.is(Items.IRON_HELMET)
+			|| stack.is(Items.IRON_CHESTPLATE) || stack.is(Items.IRON_LEGGINGS)
+			|| stack.is(Items.IRON_BOOTS) || stack.is(Items.CHAINMAIL_HELMET)
+			|| stack.is(Items.CHAINMAIL_CHESTPLATE)
+			|| stack.is(Items.CHAINMAIL_LEGGINGS)
+			|| stack.is(Items.CHAINMAIL_BOOTS))
+			return 5;
+		if(stack.is(Items.GOLDEN_SWORD) || stack.is(Items.GOLDEN_AXE)
+			|| stack.is(Items.GOLDEN_PICKAXE) || stack.is(Items.GOLDEN_SHOVEL)
+			|| stack.is(Items.GOLDEN_HOE) || stack.is(Items.GOLDEN_HELMET)
+			|| stack.is(Items.GOLDEN_CHESTPLATE)
+			|| stack.is(Items.GOLDEN_LEGGINGS) || stack.is(Items.GOLDEN_BOOTS))
+			return 4;
+		if(stack.is(Items.STONE_SWORD) || stack.is(Items.STONE_AXE)
+			|| stack.is(Items.STONE_PICKAXE) || stack.is(Items.STONE_SHOVEL)
+			|| stack.is(Items.STONE_HOE))
+			return 3;
+		if(stack.is(Items.WOODEN_SWORD) || stack.is(Items.WOODEN_AXE)
+			|| stack.is(Items.WOODEN_PICKAXE) || stack.is(Items.WOODEN_SHOVEL)
+			|| stack.is(Items.WOODEN_HOE) || stack.is(Items.LEATHER_HELMET)
+			|| stack.is(Items.LEATHER_CHESTPLATE)
+			|| stack.is(Items.LEATHER_LEGGINGS)
+			|| stack.is(Items.LEATHER_BOOTS))
+			return 2;
+		if(stack.is(Items.TURTLE_HELMET))
+			return 5;
+		if(stack.is(Items.ELYTRA))
+			return 6;
+		
+		return 1;
+	}
+	
+	private static void sortGearEntries(List<GearEntry> list)
+	{
+		list.sort((a, b) -> {
+			int matCompare =
+				Integer.compare(getMaterialPriority(b), getMaterialPriority(a));
+			if(matCompare != 0)
+				return matCompare;
+			return Integer.compare(a.displaySlot, b.displaySlot);
+		});
 	}
 	
 	private static String sanitizePath(String raw)
@@ -2059,7 +2297,18 @@ public final class EnchantmentHandlerHack extends Hack
 		LEGGINGS("Armor (Leggings)"),
 		BOOTS("Armor (Boots)"),
 		SHIELD("Shield"),
-		WEAPON("Weapons");
+		SWORD("Swords"),
+		AXE("Axes"),
+		PICKAXE("Pickaxes"),
+		SHOVEL("Shovels"),
+		HOE("Hoes"),
+		ELYTRA("Elytra"),
+		TRIDENT("Tridents"),
+		BOW("Bows"),
+		CROSSBOW("Crossbows"),
+		MACE("Maces"),
+		SPEAR("Spears"),
+		OTHER_WEAPON("Other Weapons");
 		
 		static final List<GearCategory> ORDERED =
 			List.of(GearCategory.values());
@@ -2099,13 +2348,37 @@ public final class EnchantmentHandlerHack extends Hack
 			if(stack.is(Items.SHIELD))
 				return SHIELD;
 			
-			if(stack.is(Items.TRIDENT) || stack.is(Items.BOW)
-				|| stack.is(Items.CROSSBOW))
-				return WEAPON;
+			if(stack.is(Items.TRIDENT))
+				return TRIDENT;
+			if(stack.is(Items.BOW))
+				return BOW;
+			if(stack.is(Items.CROSSBOW))
+				return CROSSBOW;
+			if(stack.is(Items.MACE))
+				return MACE;
+			
+			// Check ItemTags for sword, axe, pickaxe, shovel, hoe
+			if(stack.is(net.minecraft.tags.ItemTags.SWORDS))
+				return SWORD;
+			if(stack.is(net.minecraft.tags.ItemTags.AXES))
+				return AXE;
+			if(stack.is(net.minecraft.tags.ItemTags.PICKAXES))
+				return PICKAXE;
+			if(stack.is(net.minecraft.tags.ItemTags.SHOVELS))
+				return SHOVEL;
+			if(stack.is(net.minecraft.tags.ItemTags.HOES))
+				return HOE;
+			
+			if(stack.is(Items.ELYTRA))
+				return ELYTRA;
+			
+			// Spear check: item tag or direct item check
+			if(stack.is(net.minecraft.tags.ItemTags.SPEARS))
+				return SPEAR;
 			
 			Weapon weapon = stack.getComponents().get(DataComponents.WEAPON);
 			if(weapon != null)
-				return WEAPON;
+				return OTHER_WEAPON;
 			
 			return null;
 		}
