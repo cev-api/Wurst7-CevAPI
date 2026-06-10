@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
@@ -45,7 +46,9 @@ import net.wurstclient.clickgui.screens.ChestSearchScreen;
 import net.wurstclient.hacks.AutoStealHack;
 import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.hacks.QuickShulkerHack;
+import net.wurstclient.hacks.RemoteEnderChestHack;
 import net.wurstclient.util.ChatUtils;
+import org.lwjgl.glfw.GLFW;
 
 @Mixin(ContainerScreen.class)
 public abstract class ContainerScreenMixin
@@ -99,6 +102,27 @@ public abstract class ContainerScreenMixin
 		Inventory playerInventory, Component name)
 	{
 		super(container, playerInventory, name);
+	}
+	
+	@Override
+	public boolean keyPressed(KeyEvent event)
+	{
+		if(RemoteEnderChestHack
+			.isLinkedScreen((AbstractContainerScreen<?>)(Object)this))
+		{
+			int key = event.key();
+			if(key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_E)
+			{
+				RemoteEnderChestHack.hideLinkedGui();
+				return true;
+			}
+			if(key == GLFW.GLFW_KEY_LEFT_ALT)
+			{
+				RemoteEnderChestHack.toggleLinkedGui();
+				return true;
+			}
+		}
+		return super.keyPressed(event);
 	}
 	
 	@Override
@@ -188,6 +212,19 @@ public abstract class ContainerScreenMixin
 				.build();
 			quickButton.active = !quickShulker.isBusy();
 			addRenderableWidget(quickButton);
+		}
+		
+		// RemoteEChest close button — on the title line, right-aligned
+		// next to the container name
+		RemoteEnderChestHack remoteEChest =
+			WurstClient.INSTANCE.getHax().remoteEnderChestHack;
+		if(remoteEChest != null && RemoteEnderChestHack
+			.isLinkedScreen((AbstractContainerScreen<?>)(Object)this))
+		{
+			addRenderableWidget(Button
+				.builder(Component.literal("\u2715"),
+					b -> RemoteEnderChestHack.hideLinkedGui())
+				.bounds(leftPos + imageWidth - 17, topPos + 2, 14, 14).build());
 		}
 		
 		// Add a manual scan button to help on plugin-protected servers when
