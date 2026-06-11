@@ -18,8 +18,12 @@ import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.LeftClickListener;
+import net.wurstclient.events.LeftClickListener.LeftClickEvent;
 import net.wurstclient.events.PlayerAttacksEntityListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -33,7 +37,7 @@ import net.wurstclient.util.InventoryUtils;
 	"auto swap", "auto shield break", "auto mace", "disable shield",
 	"item swap", "hotbar swap", "item saver", "durability saver"})
 public final class AttributeSwapHack extends Hack
-	implements PlayerAttacksEntityListener, UpdateListener
+	implements LeftClickListener, PlayerAttacksEntityListener, UpdateListener
 {
 	private final EnumSetting<Mode> mode = new EnumSetting<>("Mode",
 		"Simple: swaps to a fixed hotbar slot on attack.\n"
@@ -92,6 +96,7 @@ public final class AttributeSwapHack extends Hack
 		awaitingBack = false;
 		originalSlot = -1;
 		
+		EVENTS.add(LeftClickListener.class, this);
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -99,6 +104,7 @@ public final class AttributeSwapHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		EVENTS.remove(LeftClickListener.class, this);
 		EVENTS.remove(PlayerAttacksEntityListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
 		
@@ -112,6 +118,22 @@ public final class AttributeSwapHack extends Hack
 	}
 	
 	@Override
+	public void onLeftClick(LeftClickEvent event)
+	{
+		if(onlyWithKillAura.isChecked()
+			&& !WURST.getHax().killauraHack.isEnabled())
+			return;
+		
+		if(MC.hitResult != null
+			&& MC.hitResult.getType() == HitResult.Type.BLOCK)
+			return;
+		
+		Entity target = MC.hitResult instanceof EntityHitResult hit
+			? hit.getEntity() : null;
+		performSwap(target);
+	}
+	
+	@Override
 	public void onPlayerAttacksEntity(Entity target)
 	{
 		if(onlyWithKillAura.isChecked()
@@ -119,6 +141,7 @@ public final class AttributeSwapHack extends Hack
 			return;
 		
 		performSwap(target);
+		WURST.getHax().maceDmgHack.doSmash();
 	}
 	
 	@Override
