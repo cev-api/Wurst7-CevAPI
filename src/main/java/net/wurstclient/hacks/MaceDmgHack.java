@@ -26,18 +26,18 @@ public final class MaceDmgHack extends Hack
 	private static final double DEFAULT_HEIGHT = Math.sqrt(500);
 	private static final double MIN_FALL = 1.6;
 	private static final double SCAN_STEP = 0.25;
-
+	
 	private final SliderSetting height = new SliderSetting("Height",
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, 50, 0.1, ValueDisplay.DECIMAL);
-
+	
 	private final CheckboxSetting caveMode = new CheckboxSetting("Cave mode",
 		"Scans for an air gap above you to fall through, so smashes work under"
 			+ " a ceiling. Fully sealed spaces still can't be smashed.",
 		true);
-
+	
 	private long lastSmashTick = -1;
-
+	
 	public MaceDmgHack()
 	{
 		super("MaceDMG");
@@ -83,23 +83,23 @@ public final class MaceDmgHack extends Hack
 		sendFakeY(findFallOffset());
 		sendFakeY(0);
 	}
-
+	
 	private double findFallOffset()
 	{
 		double cap = height.getValue();
 		if(!caveMode.isChecked() || MC.level == null)
 			return cap;
-
+		
 		for(double off = cap; off >= MIN_FALL; off -= SCAN_STEP)
 		{
 			AABB box = MC.player.getBoundingBox().move(0, off, 0);
 			if(MC.level.noCollision(MC.player, box))
 				return off;
 		}
-
+		
 		return cap;
 	}
-
+	
 	private void sendFakeY(double offset)
 	{
 		MC.player.connection

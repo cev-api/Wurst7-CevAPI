@@ -30,8 +30,11 @@ import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.multiplayer.ProfileKeyPairManager;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.thread.ReentrantBlockableEventLoop;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.ProjectileUtil;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.HandleBlockBreakingListener.HandleBlockBreakingEvent;
@@ -131,12 +134,30 @@ public abstract class MinecraftMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
-		
-		HitResult hitResult = WurstClient.MC.hitResult;
-		if(!(hitResult instanceof EntityHitResult eHitResult))
+			
+		// Do a custom long-range entity raycast to find players
+		// at greater distances than the vanilla reach limit
+		LocalPlayer localPlayer = WurstClient.MC.player;
+		if(localPlayer == null)
 			return;
 		
-		WurstClient.INSTANCE.getFriends().middleClick(eHitResult.getEntity());
+		double reach = 64.0;
+		Vec3 eyePos = localPlayer.getEyePosition(1.0F);
+		Vec3 lookVec = localPlayer.getViewVector(1.0F);
+		Vec3 endPos =
+			eyePos.add(lookVec.x * reach, lookVec.y * reach, lookVec.z * reach);
+		
+		AABB searchBox = localPlayer.getBoundingBox()
+			.expandTowards(lookVec.scale(reach)).inflate(1.0);
+		
+		EntityHitResult hit = ProjectileUtil.getEntityHitResult(localPlayer,
+			eyePos, endPos, searchBox,
+			e -> e instanceof Player && !e.isSpectator(), reach * reach);
+		
+		if(hit == null)
+			return;
+		
+		WurstClient.INSTANCE.getFriends().middleClick(hit.getEntity());
 	}
 	
 	/**
