@@ -126,9 +126,15 @@ public class FriendsList implements UpdateListener, ChatInputListener
 		String name = entity.getName().getString();
 		
 		if(contains(name))
+		{
 			removeAndSave(name);
-		else
+			ChatUtils
+				.message("Removed \"" + name + "\" from your friends list.");
+		}else
+		{
 			addAndSave(name);
+			ChatUtils.message("Added \"" + name + "\" to your friends list.");
+		}
 	}
 	
 	public boolean contains(String name)
