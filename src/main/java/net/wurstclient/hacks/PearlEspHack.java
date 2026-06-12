@@ -994,7 +994,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 			return null;
 		
 		String name = OwnerResolver.lookupPlayerName(uuid);
-		if(name != null && !name.isBlank())
+		if(OwnerResolver.isResolvablePlayerName(name))
 		{
 			knownPlayerNames.put(uuid, name);
 			return name;

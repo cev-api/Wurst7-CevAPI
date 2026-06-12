@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
@@ -20,6 +21,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"remote echest", "remote ender chest", "ender chest",
@@ -30,11 +32,15 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	
 	private boolean guiHidden;
 	private boolean guiWasOpen;
-	private boolean lastKeyState;
+	private boolean lastToggleKeyState;
 	private AbstractContainerScreen<?> savedScreen;
 	private int savedSyncId = -1;
 	private Level lastWorld;
 	private BlockPos potentialEChestPos;
+	
+	private final TextFieldSetting toggleGuiKey =
+		new TextFieldSetting("Toggle GUI key", "key.keyboard.left.alt",
+			RemoteEnderChestHack::isValidKey);
 	
 	private final CheckboxSetting swapInventoryKey =
 		new CheckboxSetting("Swap inventory key",
@@ -47,6 +53,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		super("RemoteEChest");
 		instance = this;
 		setCategory(Category.OTHER);
+		addSetting(toggleGuiKey);
 		addSetting(swapInventoryKey);
 	}
 	
@@ -86,9 +93,6 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		RemoteEnderChestHack self = instance;
 		if(self == null || !self.isEnabled() || self.savedScreen == null)
 			return;
-		
-		// Prevent double-toggle when both a mixin and onUpdate() see Left Alt.
-		self.lastKeyState = true;
 		
 		if(!self.isSavedContainerMenuStillActive())
 		{
@@ -233,6 +237,25 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 			return;
 		}
 		
+		if(MC.screen == null && savedScreen != null
+			&& isSavedContainerMenuStillActive())
+		{
+			InputConstants.Key key = getToggleGuiKey();
+			if(key != null)
+			{
+				boolean keyDown =
+					InputConstants.isKeyDown(MC.getWindow(), key.getValue());
+				boolean keyJustPressed = keyDown && !lastToggleKeyState;
+				lastToggleKeyState = keyDown;
+				if(keyJustPressed)
+				{
+					toggleLinkedGui();
+					return;
+				}
+			}
+		}else
+			lastToggleKeyState = false;
+		
 		if(MC.hitResult instanceof BlockHitResult bhr)
 		{
 			potentialEChestPos = bhr.getBlockPos();
@@ -249,8 +272,8 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		}
 		
 		// Opening another container, chest, player inventory, etc. invalidates
-		// the saved link. Clear it immediately so Alt cannot reopen a stale
-		// ghost GUI later.
+		// the saved link. Clear it immediately so the toggle key cannot
+		// reopen a stale ghost GUI later.
 		if(savedScreen != null
 			&& MC.screen instanceof AbstractContainerScreen<?> screen
 			&& screen != savedScreen)
@@ -281,32 +304,8 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 			guiWasOpen = true;
 			lastWorld = MC.level;
 			ChatUtils.message(
-				"EChest link created! Press Left Alt to toggle the GUI.");
-		}
-		
-		long window = MC.getWindow().handle();
-		boolean keyDown = org.lwjgl.glfw.GLFW.glfwGetKey(window,
-			org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_ALT) == 1;
-		boolean keyJustPressed = keyDown && !lastKeyState;
-		lastKeyState = keyDown;
-		
-		if(keyJustPressed && savedScreen != null)
-		{
-			if(!isSavedContainerMenuStillActive())
-			{
-				breakLink("Ender chest handler invalid. EChest link broken.");
-				return;
-			}
-			
-			if(guiHidden)
-			{
-				MC.setScreen(savedScreen);
-				guiHidden = false;
-			}else
-			{
-				MC.setScreen(null);
-				guiHidden = true;
-			}
+				"EChest link created! Use the configured toggle key to show or"
+					+ " hide the GUI.");
 		}
 		
 		if(savedScreen != null && MC.screen == null && !guiHidden && guiWasOpen)
@@ -373,7 +372,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		
 		guiHidden = false;
 		guiWasOpen = false;
-		lastKeyState = false;
+		lastToggleKeyState = false;
 		potentialEChestPos = null;
 		savedSyncId = -1;
 		savedScreen = null;
@@ -386,6 +385,33 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		{
 			MC.getConnection()
 				.send(new ServerboundContainerClosePacket(syncId));
+		}
+	}
+	
+	public String getToggleGuiKeyName()
+	{
+		return toggleGuiKey.getValue();
+	}
+	
+	private InputConstants.Key getToggleGuiKey()
+	{
+		try
+		{
+			return InputConstants.getKey(toggleGuiKey.getValue());
+		}catch(IllegalArgumentException e)
+		{
+			return null;
+		}
+	}
+	
+	private static boolean isValidKey(String keyName)
+	{
+		try
+		{
+			return InputConstants.getKey(keyName) != null;
+		}catch(IllegalArgumentException e)
+		{
+			return false;
 		}
 	}
 }

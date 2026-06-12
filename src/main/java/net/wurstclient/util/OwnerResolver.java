@@ -135,7 +135,12 @@ public final class OwnerResolver
 	public static boolean shouldFetchFromServer(@Nullable UUID uuid)
 	{
 		String name = lookupPlayerName(uuid);
-		return name == null || name.equals(DUMMY_NAME);
+		return !isResolvablePlayerName(name);
+	}
+
+	public static boolean isResolvablePlayerName(@Nullable String name)
+	{
+		return name != null && !name.isBlank() && !DUMMY_NAME.equals(name);
 	}
 	
 	@Nullable
