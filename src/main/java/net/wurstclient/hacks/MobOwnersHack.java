@@ -114,7 +114,8 @@ public final class MobOwnersHack extends Hack implements RenderListener
 	
 	private String resolveOwnerName(UUID owner)
 	{
-		return OwnerResolver.lookupPlayerName(owner);
+		String name = OwnerResolver.lookupPlayerName(owner);
+		return OwnerResolver.isResolvablePlayerName(name) ? name : null;
 	}
 	
 	@Override
@@ -154,7 +155,7 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		if(ownerUuid != null)
 		{
 			String name = OwnerResolver.lookupPlayerName(ownerUuid);
-			if(name != null)
+			if(OwnerResolver.isResolvablePlayerName(name))
 				return "Owner: " + name;
 		}
 		

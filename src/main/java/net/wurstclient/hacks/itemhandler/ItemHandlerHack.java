@@ -722,8 +722,9 @@ public class ItemHandlerHack extends Hack
 					continue;
 				
 				// If we have a UUID but no entity, require a known name
-				if(owner == null
-					&& OwnerResolver.lookupPlayerName(ownerUuid) == null)
+				String ownerName = ownerUuid == null ? null
+					: OwnerResolver.lookupPlayerName(ownerUuid);
+				if(owner == null && !hasResolvableOwnerName(ownerName))
 					continue;
 				
 				boolean ownedByMe = MC.player != null && ownerUuid != null
@@ -1606,7 +1607,7 @@ public class ItemHandlerHack extends Hack
 				return "Owner: You";
 			
 			String name = OwnerResolver.lookupPlayerName(ownerUuid);
-			if(name != null)
+			if(hasResolvableOwnerName(name))
 				return "Owner: " + name;
 		}
 		
@@ -1617,6 +1618,12 @@ public class ItemHandlerHack extends Hack
 		if(owner != null)
 			return "Owner: " + entityDisplayName(owner);
 		return "Owner: Unknown";
+	}
+
+	private boolean hasResolvableOwnerName(String name)
+	{
+		return name != null && !name.isBlank()
+			&& !OwnerResolver.DUMMY_NAME.equals(name);
 	}
 	
 	private UUID getEntityOwnerUuid(Entity entity)

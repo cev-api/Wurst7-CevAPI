@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.KeyEvent;
@@ -126,7 +127,11 @@ public abstract class ContainerScreenMixin
 				RemoteEnderChestHack.hideLinkedGui();
 				return true;
 			}
-			if(key == GLFW.GLFW_KEY_LEFT_ALT)
+			String keyName = InputConstants.getKey(
+				new KeyEvent(event.key(), event.scancode(), event.modifiers()))
+				.getName();
+			if(remote != null
+				&& keyName.equalsIgnoreCase(remote.getToggleGuiKeyName()))
 			{
 				RemoteEnderChestHack.toggleLinkedGui();
 				return true;

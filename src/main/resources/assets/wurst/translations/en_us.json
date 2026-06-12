@@ -593,6 +593,8 @@
   "description.wurst.hack.miningevidence": "Detects underground line-shaped item drops that suggest recent mining activity and keeps the matched trail visible for a configurable time after the items disappear.",
   "hack.wurst.spectatormonitor": "SpectatorMonitor",
   "description.wurst.hack.spectatormonitor": "Monitors the tab list for players entering or leaving spectator mode, with optional alerts for visible player entities missing from the tab list.",
+  "hack.wurst.staffmonitor": "StaffMonitor",
+  "description.wurst.hack.staffmonitor": "Monitors the tab list for players entering or leaving spectator mode, with optional alerts for hidden staff and visible player entities missing from the tab list.",
   "description.wurst.hack.ui-utils": "Adds UI utilities like packet control, chat-in-GUI input, and resource pack bypass tools.",
   "hack.wurst.pearlesp": "PearlESP",
   "description.wurst.hack.pearlesp": "Highlights ender pearls thrown by other players, shows predicted landing with a purple box, draws a trajectory line, and highlights when players are holding an ender pearl.",
