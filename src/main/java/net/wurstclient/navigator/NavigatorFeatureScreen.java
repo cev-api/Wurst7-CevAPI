@@ -69,7 +69,9 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		
 		for(Setting setting : feature.getSettings().values())
 		{
-			if(!setting.isVisibleInGui() && !isShownViaAnySettingGroup(setting))
+			if(isShownViaAnySettingGroup(setting))
+				continue;
+			if(!setting.isVisibleInGui())
 				continue;
 			
 			Component c;

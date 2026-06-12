@@ -293,6 +293,7 @@
   "description.wurst.hack.portalgui": "Allows you to open GUIs in portals.",
   "description.wurst.hack.potesp": "Finds decorated pots with suspicious or valuable contents, highlights them with ESP, and can notify you with chat or sound alerts.",
   "description.wurst.hack.potionsaver": "Freezes all potion effects while you are standing still.",
+  "description.wurst.hack.projectileesp": "Draws configurable boxes, tracers, name tags and trajectories on every projectile in range.",
   "description.wurst.hack.prophuntesp": "Allows you to see fake blocks in Prophunt.\nMade for Mineplex Prophunt. Might not work on other servers.",
   "description.wurst.hack.protect": "A bot that follows the closest entity and protects it from other entities.\nUse .protect to protect a specific entity instead of the closest one.",
   "description.wurst.hack.quickshulker": "Drops a shulker box beside you, moves the filtered items from your inventory or the currently opened container into it, and picks it back up so inventory cleanup only takes one click.",
