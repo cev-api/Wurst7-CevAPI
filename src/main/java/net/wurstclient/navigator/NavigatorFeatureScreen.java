@@ -11,6 +11,7 @@ import java.awt.Color;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -58,6 +59,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	private int keybindTextOffset;
 	private String keybindText = "";
 	private int cachedWindowContentHeight = -1;
+	private boolean rebuildingSettings;
 	
 	public NavigatorFeatureScreen(Feature feature, NavigatorMainScreen parent)
 	{
@@ -66,29 +68,49 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		hasBackground = false;
 		
 		window.setClampPosition(false);
+		rebuildSettingComponents();
+	}
+	
+	private void rebuildSettingComponents()
+	{
+		if(rebuildingSettings)
+			return;
 		
-		for(Setting setting : feature.getSettings().values())
+		rebuildingSettings = true;
+		
+		try
 		{
-			if(isShownViaAnySettingGroup(setting))
-				continue;
-			if(!setting.isVisibleInGui())
-				continue;
+			window.clearChildren();
 			
-			Component c;
-			if(setting instanceof SettingGroup group)
-				c = group.getComponent(false);
-			else
-				c = setting.getComponent();
+			for(Setting setting : feature.getSettings().values())
+			{
+				setting.update();
+				
+				if(isShownViaAnySettingGroup(setting))
+					continue;
+				if(!setting.isVisibleInGui())
+					continue;
+				
+				Component c;
+				if(setting instanceof SettingGroup group)
+					c = group.getComponent(false);
+				else
+					c = setting.getComponent();
+				
+				if(c != null)
+					window.add(c);
+			}
 			
-			if(c != null)
-				window.add(c);
+			window.setWidth(308);
+			window.setFixedWidth(true);
+			window.setPositionClampingEnabled(false);
+			window.pack();
+			cachedWindowContentHeight = window.getInnerHeight();
+			
+		}finally
+		{
+			rebuildingSettings = false;
 		}
-		
-		window.setWidth(308);
-		window.setFixedWidth(true);
-		window.setPositionClampingEnabled(false);
-		window.pack();
-		cachedWindowContentHeight = window.getInnerHeight();
 	}
 	
 	private boolean isShownViaAnySettingGroup(Setting setting)
@@ -592,6 +614,23 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	public Feature getFeature()
 	{
 		return feature;
+	}
+	
+	public void refreshSettingsWindow()
+	{
+		rebuildSettingComponents();
+		if(rebuildingSettings)
+			return;
+		
+		for(AbstractWidget widget : List.copyOf(Screens.getWidgets(this)))
+			removeWidget(widget);
+		
+		onResize();
+	}
+	
+	public boolean isRebuildingSettings()
+	{
+		return rebuildingSettings;
 	}
 	
 	public int getMiddleX()

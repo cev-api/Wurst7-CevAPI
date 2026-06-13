@@ -44,7 +44,8 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		if(mouseX < getX() + getWidth() - popupWidth - getBoxHeight() - 4)
+		if(mouseX < getX() + getWidth() - getVisibleValueWidth()
+			- getBoxHeight() - 4)
 			return;
 		
 		switch(mouseButton)
@@ -93,7 +94,8 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		int x2 = x1 + getWidth();
 		int boxHeight = getBoxHeight();
 		int x3 = x2 - boxHeight;
-		int x4 = x3 - popupWidth - 4;
+		int valueWidth = getVisibleValueWidth();
+		int x4 = x3 - valueWidth - 4;
 		int y1 = getY();
 		int y2 = y1 + getHeight();
 		
@@ -124,11 +126,26 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		
 		// text
 		String name = setting.getName();
-		String value = "" + setting.getSelected();
+		String value = trimToWidth("" + setting.getSelected(), valueWidth - 4);
 		int txtColor = GUI.getTxtColor();
 		int textY = y1 + (getHeight() - TR.lineHeight) / 2;
 		context.drawString(TR, name, x1, textY, txtColor, false);
 		context.drawString(TR, value, x4 + 2, textY, txtColor, false);
+	}
+	
+	private int getVisibleValueWidth()
+	{
+		int maxWidth = getWidth() - getBoxHeight() - 4;
+		return Math.max(24, Math.min(popupWidth, maxWidth));
+	}
+	
+	private static String trimToWidth(String text, int width)
+	{
+		if(TR.width(text) <= width)
+			return text;
+		
+		return TR.plainSubstrByWidth(text, Math.max(0, width - TR.width("...")))
+			+ "...";
 	}
 	
 	private int getFillColor(boolean hovering)

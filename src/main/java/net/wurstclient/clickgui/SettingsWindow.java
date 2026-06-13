@@ -17,6 +17,7 @@ import net.wurstclient.settings.Setting;
 public final class SettingsWindow extends Window
 {
 	private final Feature feature;
+	private boolean rebuilding;
 	
 	public SettingsWindow(Feature feature, Window parent, int buttonY)
 	{
@@ -34,14 +35,31 @@ public final class SettingsWindow extends Window
 	
 	public void rebuild()
 	{
-		clearChildren();
+		if(rebuilding)
+			return;
 		
-		Stream<Setting> settings = feature.getSettings().values().stream()
-			.filter(Setting::isVisibleInGui);
-		settings.map(Setting::getComponent).filter(Objects::nonNull)
-			.forEach(this::add);
+		rebuilding = true;
 		
-		pack();
+		try
+		{
+			clearChildren();
+			
+			Stream<Setting> settings = feature.getSettings().values().stream()
+				.peek(Setting::update).filter(Setting::isVisibleInGui);
+			settings.map(Setting::getComponent).filter(Objects::nonNull)
+				.forEach(this::add);
+			
+			pack();
+			
+		}finally
+		{
+			rebuilding = false;
+		}
+	}
+	
+	public boolean isRebuilding()
+	{
+		return rebuilding;
 	}
 	
 	private void setInitialPosition(Window parent, int buttonY)
