@@ -7,6 +7,7 @@
   "client": [
     "AbstractSignEditScreenMixin",
     "AbstractHorseMixin",
+    "AccountProfileKeyPairManagerMixin",
     "AtmosphericFogEnvironmentMixin",
     "BlockMixin",
     "BossHealthOverlayAccessor",
@@ -15,6 +16,7 @@
     "CameraMixin",
     "ChatComponentMixin",
     "ChatScreenMixin",
+    "ChatReportScreenMixin",
     "ClientClockManagerMixin",
     "ConnectionMixin",
     "ConnectScreenMixin",

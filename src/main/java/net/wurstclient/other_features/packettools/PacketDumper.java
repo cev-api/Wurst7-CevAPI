@@ -756,6 +756,13 @@ public final class PacketDumper
 			return m;
 		}
 		
+		// Strongly-encapsulated JDK types should not be reflectively opened.
+		// Fall back to their string form so packet dumps stay usable on Java
+		// 25.
+		if(cn.startsWith("java.") || cn.startsWith("javax.")
+			|| cn.startsWith("jdk."))
+			return value.toString();
+		
 		// Property
 		if(cn.equals("com.mojang.authlib.properties.Property"))
 		{

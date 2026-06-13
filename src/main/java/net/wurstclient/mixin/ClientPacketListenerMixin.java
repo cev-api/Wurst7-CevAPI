@@ -7,8 +7,10 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.LinkedHashMap;
 import java.util.Optional;
 
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -20,12 +22,15 @@ import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.CommonListenerCookie;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.network.Connection;
 import net.minecraft.network.TickablePacketListener;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.LastSeenMessagesTracker;
+import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
@@ -33,6 +38,7 @@ import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
+import net.minecraft.world.entity.player.ProfileKeyPair;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ChatUtils;
@@ -42,6 +48,9 @@ public abstract class ClientPacketListenerMixin
 	extends ClientCommonPacketListenerImpl
 	implements TickablePacketListener, ClientGamePacketListener
 {
+	@Shadow
+	private LastSeenMessagesTracker lastSeenMessages;
+	
 	private ClientPacketListenerMixin(WurstClient wurst, Minecraft client,
 		Connection connection, CommonListenerCookie connectionState)
 	{
@@ -80,6 +89,122 @@ public abstract class ClientPacketListenerMixin
 		SystemToast systemToast = SystemToast.multiline(minecraft,
 			SystemToast.SystemToastId.UNSECURE_SERVER_WARNING, title, message);
 		minecraft.getToastManager().addToast(systemToast);
+	}
+	
+	@Inject(method = "sendChat(Ljava/lang/String;)V", at = @At("HEAD"))
+	private void wurst$logSendChat(String message, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseChatAction(
+			"ClientPacketListener.sendChat", message, false);
+	}
+	
+	@Inject(method = "sendCommand(Ljava/lang/String;)V", at = @At("HEAD"))
+	private void wurst$logSendCommand(String command, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseChatAction(
+			"ClientPacketListener.sendCommand", command, true);
+	}
+	
+	@Inject(
+		method = "sendUnattendedCommand(Ljava/lang/String;Lnet/minecraft/client/gui/screens/Screen;)V",
+		at = @At("HEAD"))
+	private void wurst$logSendUnattendedCommand(String command,
+		net.minecraft.client.gui.screens.Screen screen, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseChatAction(
+			"ClientPacketListener.sendUnattendedCommand", command, true);
+	}
+	
+	@Inject(
+		method = "markMessageAsProcessed(Lnet/minecraft/network/chat/MessageSignature;Z)V",
+		at = @At("HEAD"))
+	private void wurst$logChatAcknowledgement(MessageSignature signature,
+		boolean acknowledged, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+		fields.put("stage", "markMessageAsProcessed");
+		fields.put("signature",
+			signature != null ? signature.toString() : null);
+		fields.put("acknowledged", acknowledged);
+		fields.put("lastSeenOffset",
+			lastSeenMessages != null ? lastSeenMessages.offset() : null);
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseExternalEvent("ChatAck", fields);
+	}
+	
+	@Inject(method = "sendChatAcknowledgement()V", at = @At("HEAD"))
+	private void wurst$logChatAcknowledgementSend(CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+		fields.put("stage", "sendChatAcknowledgement");
+		fields.put("lastSeenOffset",
+			lastSeenMessages != null ? lastSeenMessages.offset() : null);
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseExternalEvent("ChatAck", fields);
+	}
+	
+	@Inject(
+		method = "initializeChatSession(Lnet/minecraft/network/protocol/game/ClientboundPlayerInfoUpdatePacket$Entry;Lnet/minecraft/client/multiplayer/PlayerInfo;)V",
+		at = @At("RETURN"))
+	private void wurst$logChatSessionSync(
+		net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Entry entry,
+		PlayerInfo playerInfo, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+		fields.put("stage", "initializeChatSession");
+		fields.put("profileName", playerInfo.getProfile() != null
+			? playerInfo.getProfile().name() : null);
+		fields.put("profileId", playerInfo.getProfile() != null
+			? String.valueOf(playerInfo.getProfile().id()) : null);
+		fields.put("hasChatSession", playerInfo.getChatSession() != null);
+		fields.put("hasVerifiableChat", playerInfo.hasVerifiableChat());
+		fields.put("sessionId", playerInfo.getChatSession() != null
+			? String.valueOf(playerInfo.getChatSession().sessionId()) : null);
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseExternalEvent("ChatAuthCallback", fields);
+	}
+	
+	@Inject(
+		method = "setKeyPair(Lnet/minecraft/world/entity/player/ProfileKeyPair;)V",
+		at = @At("HEAD"))
+	private void wurst$logKeyPairUpdate(ProfileKeyPair keyPair, CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getOtfs() == null)
+			return;
+		
+		LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+		fields.put("stage", "setKeyPair");
+		fields.put("hasKeyPair", keyPair != null);
+		fields.put("refreshedAfter",
+			keyPair != null ? String.valueOf(keyPair.refreshedAfter()) : null);
+		fields.put("dueRefresh", keyPair != null && keyPair.dueRefresh());
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseExternalEvent("AuthCallback", fields);
 	}
 	
 	@Inject(

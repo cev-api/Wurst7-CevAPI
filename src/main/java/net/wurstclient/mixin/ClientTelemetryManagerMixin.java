@@ -24,6 +24,13 @@ public class ClientTelemetryManagerMixin
 		cancellable = true)
 	private void onGetSender(CallbackInfoReturnable<TelemetryEventSender> cir)
 	{
+		if(WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseTelemetryEvent("getOutsideSessionSender",
+					"noTelemetry="
+						+ WurstClient.INSTANCE.getOtfs().noTelemetryOtf
+							.isEnabled());
+		
 		if(!WurstClient.INSTANCE.getOtfs().noTelemetryOtf.isEnabled())
 			return;
 		

@@ -31,6 +31,13 @@ public class YggdrasilUserApiServiceMixin
 	private void wurst$forceAllowChats(
 		CallbackInfoReturnable<UserProperties> cir)
 	{
+		if(WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseApiCall(
+				"YggdrasilUserApiService.fetchProperties",
+				"forceAllowChats="
+					+ WurstClient.INSTANCE.getOtfs().forceAllowChatsOtf
+						.isForceAllowChatsEnabled());
+		
 		if(WurstClient.INSTANCE.getOtfs() == null)
 			return;
 		

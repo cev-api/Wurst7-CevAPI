@@ -19,23 +19,39 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.authlib.minecraft.report.AbuseReport;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.User;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundChatAckPacket;
+import net.minecraft.network.protocol.game.ServerboundChatSessionUpdatePacket;
+import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
+import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.wurstclient.Category;
+import net.wurstclient.events.ConnectionPacketOutputListener;
+import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketOutputListener;
 import net.wurstclient.events.UpdateListener;
@@ -44,6 +60,7 @@ import net.wurstclient.other_features.packettools.EntityLifecycleTracker;
 import net.wurstclient.other_features.packettools.PacketDecodeCoverage;
 import net.wurstclient.other_features.packettools.PacketDumper;
 import net.wurstclient.other_features.packettools.PacketFilter;
+import net.minecraft.client.multiplayer.chat.report.ReportType;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -53,9 +70,14 @@ import net.wurstclient.util.json.JsonUtils;
 import org.slf4j.Logger;
 
 public final class PacketToolsOtf extends OtherFeature
-	implements PacketInputListener, PacketOutputListener, UpdateListener
+	implements PacketInputListener, PacketOutputListener,
+	ConnectionPacketOutputListener, UpdateListener
 {
 	private static final Logger LOGGER = LogUtils.getLogger();
+	private static final Gson VERBOSE_GSON = new GsonBuilder()
+		.disableHtmlEscaping().serializeSpecialFloatingPointValues().create();
+	private static final DateTimeFormatter ISO_FORMAT =
+		DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 	private static final DateTimeFormatter TIME_FORMAT =
 		DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 	private static final DateTimeFormatter FILE_TIME_FORMAT =
@@ -89,6 +111,13 @@ public final class PacketToolsOtf extends OtherFeature
 			+ "instead of a simple one-line toString().\n"
 			+ "Honors the same per-packet Log selections in the UI.",
 		false);
+	private final CheckboxSetting verboseOutsideGamePackets =
+		new CheckboxSetting("Monitor outside game",
+			"Also dump packets while the client is still connecting or\n"
+				+ "before the world loads, and log chat report submissions.\n"
+				+ "This logs every outside-game packet verbosely, even if it\n"
+				+ "isn't selected in the UI.",
+			false);
 	private final CheckboxSetting verboseHumanReadable =
 		new CheckboxSetting("Verbose human-readable",
 			"Also write human-readable logs alongside JSONL.", true);
@@ -156,6 +185,7 @@ public final class PacketToolsOtf extends OtherFeature
 		addSetting(delayTicks);
 		addSetting(openUiButton);
 		addSetting(verboseEnabled);
+		addSetting(verboseOutsideGamePackets);
 		addSetting(verboseHumanReadable);
 		addSetting(verboseFlushInterval);
 		addSetting(showCoverageReport);
@@ -168,6 +198,7 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(ConnectionPacketOutputListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -186,7 +217,9 @@ public final class PacketToolsOtf extends OtherFeature
 		discoveredS2C.add(name);
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.S2C);
 		
-		if(loggingEnabled.isChecked() && logS2C.contains(name))
+		if(shouldVerboseOutsideGame())
+			logVerbose(packet, "OUTSIDE-S2C");
+		else if(loggingEnabled.isChecked() && logS2C.contains(name))
 			logPacket(name, "S2C", packet);
 		
 		if(denyEnabled.isChecked() && denyS2C.contains(name))
@@ -216,7 +249,15 @@ public final class PacketToolsOtf extends OtherFeature
 		discoveredC2S.add(name);
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.C2S);
 		
-		if(loggingEnabled.isChecked() && logC2S.contains(name))
+		if(verboseEnabled.isChecked() && shouldAlwaysVerbose(packet))
+		{
+			logVerbose(packet, "C2S");
+			return;
+		}
+		
+		if(shouldVerboseOutsideGame())
+			logVerbose(packet, "OUTSIDE-C2S");
+		else if(loggingEnabled.isChecked() && logC2S.contains(name))
 			logPacket(name, "C2S", packet);
 		
 		if(denyEnabled.isChecked() && denyC2S.contains(name))
@@ -232,6 +273,20 @@ public final class PacketToolsOtf extends OtherFeature
 			delayedOutgoing.addLast(new QueuedPacket(packet,
 				getCurrentTick() + delayTicks.getValueI()));
 		}
+	}
+	
+	@Override
+	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
+	{
+		if(!shouldVerboseExternalMonitoring())
+			return;
+		
+		Packet<?> packet = event.getPacket();
+		String name = net.wurstclient.other_features.packettools.PacketCatalog
+			.formatPacketName(packet);
+		discoveredC2S.add(name);
+		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.C2S);
+		logVerbose(packet, "OUTSIDE-C2S");
 	}
 	
 	@Override
@@ -626,12 +681,135 @@ public final class PacketToolsOtf extends OtherFeature
 		synchronized(verboseJsonlBuffer)
 		{
 			for(String line : lines)
-			{
-				verboseJsonlBuffer.add(line);
-				if(human)
-					verboseHumanBuffer.add(buildHumanReadable(line));
-			}
+				appendVerboseLineLocked(line, human);
 		}
+	}
+	
+	public void logVerboseChatReport(UUID reportedProfileId,
+		ReportType reportType, AbuseReport abuseReport)
+	{
+		if(!shouldVerboseExternalMonitoring())
+			return;
+		
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("reportedProfileId",
+			reportedProfileId != null ? reportedProfileId.toString() : null);
+		fields.put("reportType",
+			reportType != null ? String.valueOf(reportType) : null);
+		fields.put("report", abuseReport);
+		
+		Map<String, Object> root = new LinkedHashMap<>();
+		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		root.put("direction", "REPORT");
+		root.put("class",
+			abuseReport != null ? abuseReport.getClass().getName() : "unknown");
+		root.put("simpleName", "ChatReport");
+		root.put("fields", fields);
+		
+		enqueueVerboseExternalEvent(root);
+	}
+	
+	public void logVerboseExternalEvent(String eventType,
+		Map<String, Object> fields)
+	{
+		if(!shouldVerboseExternalMonitoring())
+			return;
+		
+		Map<String, Object> root = new LinkedHashMap<>();
+		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		root.put("direction", "EXTERNAL");
+		root.put("class", eventType);
+		root.put("simpleName", eventType);
+		root.put("fields", fields);
+		enqueueVerboseExternalEvent(root);
+	}
+	
+	public void logVerboseChatAction(String source, String message,
+		boolean command)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		fields.put("message", message);
+		fields.put("isCommand", command);
+		logVerboseExternalEvent("ChatAction", fields);
+	}
+	
+	public void logVerboseJoinFlow(String source, ServerData serverData)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		if(serverData != null)
+		{
+			fields.put("name", serverData.name);
+			fields.put("address", serverData.ip);
+		}
+		logVerboseExternalEvent("JoinFlow", fields);
+	}
+	
+	public void logVerboseSessionChange(String action, User user)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("action", action);
+		if(user != null)
+		{
+			fields.put("name", user.getName());
+			fields.put("profileId", String.valueOf(user.getProfileId()));
+		}
+		logVerboseExternalEvent("SessionChange", fields);
+	}
+	
+	public void logVerboseTelemetryEvent(String action, String details)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("action", action);
+		fields.put("details", details);
+		logVerboseExternalEvent("Telemetry", fields);
+	}
+	
+	public void logVerboseApiCall(String api, String details)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("api", api);
+		fields.put("details", details);
+		logVerboseExternalEvent("ApiCall", fields);
+	}
+	
+	private void appendVerboseLineLocked(String jsonLine, boolean human)
+	{
+		verboseJsonlBuffer.add(jsonLine);
+		if(human)
+			verboseHumanBuffer.add(buildHumanReadable(jsonLine));
+	}
+	
+	private boolean shouldVerboseExternalMonitoring()
+	{
+		return verboseEnabled.isChecked()
+			&& verboseOutsideGamePackets.isChecked();
+	}
+	
+	private void enqueueVerboseExternalEvent(Map<String, Object> root)
+	{
+		String json = VERBOSE_GSON.toJson(root);
+		synchronized(verboseJsonlBuffer)
+		{
+			appendVerboseLineLocked(json, verboseHumanReadable.isChecked());
+		}
+	}
+	
+	private boolean shouldVerboseOutsideGame()
+	{
+		return shouldVerboseExternalMonitoring() && isOutsideGame();
+	}
+	
+	private static boolean shouldAlwaysVerbose(Packet<?> packet)
+	{
+		return packet instanceof ServerboundSignUpdatePacket
+			|| packet instanceof ServerboundEditBookPacket
+			|| packet instanceof ServerboundChatAckPacket
+			|| packet instanceof ServerboundChatSessionUpdatePacket
+			|| packet instanceof ServerboundContainerClickPacket
+			|| packet instanceof ServerboundContainerButtonClickPacket
+			|| packet instanceof ServerboundContainerClosePacket;
 	}
 	
 	private void flushVerboseBuffers()
@@ -754,6 +932,11 @@ public final class PacketToolsOtf extends OtherFeature
 		return verboseEnabled;
 	}
 	
+	public CheckboxSetting getVerboseOutsideGamePacketsSetting()
+	{
+		return verboseOutsideGamePackets;
+	}
+	
 	public CheckboxSetting getVerboseHumanReadableSetting()
 	{
 		return verboseHumanReadable;
@@ -777,6 +960,11 @@ public final class PacketToolsOtf extends OtherFeature
 	public PacketFilter getPacketFilter()
 	{
 		return packetFilter;
+	}
+	
+	private boolean isOutsideGame()
+	{
+		return MC == null || MC.level == null || MC.player == null;
 	}
 	
 	private long getCurrentTick()

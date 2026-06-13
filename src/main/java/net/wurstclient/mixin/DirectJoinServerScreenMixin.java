@@ -36,5 +36,8 @@ public class DirectJoinServerScreenMixin extends Screen
 	private void onSaveAndClose(CallbackInfo ci)
 	{
 		LastServerRememberer.setLastServer(serverData);
+		if(WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseJoinFlow(
+				"DirectJoinServerScreen.onSelect", serverData);
 	}
 }
