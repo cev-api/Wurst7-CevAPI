@@ -24,7 +24,7 @@ import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.text.WText;
 
-public final class StringDropdownSetting extends Setting
+public class StringDropdownSetting extends Setting
 {
 	private final List<String> values = new ArrayList<>();
 	private final String defaultValue;
@@ -122,7 +122,11 @@ public final class StringDropdownSetting extends Setting
 		if(!JsonUtils.isString(json))
 			return;
 		
-		setSelected(json.getAsString());
+		String newValue = json.getAsString();
+		if(newValue == null)
+			return;
+		
+		selected = newValue;
 	}
 	
 	@Override

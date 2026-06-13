@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -30,20 +31,27 @@ import com.google.gson.JsonPrimitive;
 
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.clickgui.SettingsWindow;
+import net.wurstclient.clickgui.Window;
+import net.wurstclient.clickgui.screens.AutoChatPromptScreen;
 import net.wurstclient.clickgui.screens.AutoChatSystemPromptScreen;
 import net.wurstclient.events.ChatInputListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.navigator.NavigatorFeatureScreen;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.json.JsonUtils;
+import net.wurstclient.util.text.WText;
 
 @SearchTags({"auto chat", "chat bot", "chatbot", "persona", "roleplay",
-	"OpenAI", "ChatGPT", "GPT-5", "gpt-5", "DeepSeek", "deepseek"})
+	"OpenAI", "ChatGPT", "GPT-5", "gpt-5", "DeepSeek", "deepseek", "Ollama",
+	"ollama", "local AI", "local model"})
 public final class AutoChatHack extends Hack implements ChatInputListener
 {
 	private static final String OPENAI_RESPONSES_ENDPOINT =
@@ -52,19 +60,31 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		"https://api.openai.com/v1/chat/completions";
 	private static final String DEEPSEEK_CHAT_COMPLETIONS_ENDPOINT =
 		"https://api.deepseek.com/v1/chat/completions";
+	private static final String OLLAMA_NATIVE_CHAT_ENDPOINT = "/api/chat";
+	private static final String OLLAMA_CHAT_COMPLETIONS_ENDPOINT =
+		"/v1/chat/completions";
+	private static final String OLLAMA_TAGS_ENDPOINT = "/api/tags";
 	
-	private static String getResponsesEndpoint(Provider provider)
+	private String getResponsesEndpoint()
 	{
-		return provider == Provider.OPENAI ? OPENAI_RESPONSES_ENDPOINT : null;
+		return provider.getSelected() == Provider.OPENAI
+			? OPENAI_RESPONSES_ENDPOINT : null;
 	}
 	
-	private static String getChatCompletionsEndpoint(Provider provider)
+	private String getChatCompletionsEndpoint()
 	{
-		return switch(provider)
+		return switch(provider.getSelected())
 		{
 			case OPENAI -> OPENAI_CHAT_COMPLETIONS_ENDPOINT;
 			case DEEPSEEK -> DEEPSEEK_CHAT_COMPLETIONS_ENDPOINT;
+			case OLLAMA -> getOllamaBaseUrl()
+				+ OLLAMA_CHAT_COMPLETIONS_ENDPOINT;
 		};
+	}
+	
+	private String getOllamaNativeEndpoint()
+	{
+		return getOllamaBaseUrl() + OLLAMA_NATIVE_CHAT_ENDPOINT;
 	}
 	
 	private static String getProviderDisplayName(Provider provider)
@@ -73,7 +93,13 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		{
 			case OPENAI -> "OpenAI";
 			case DEEPSEEK -> "DeepSeek";
+			case OLLAMA -> "Ollama";
 		};
+	}
+	
+	private static String getOllamaBaseUrl()
+	{
+		return ollamaEndpoint.getValue().replaceAll("/+$", "");
 	}
 	
 	private static final int DEFAULT_HISTORY_SIZE = 20;
@@ -120,9 +146,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private static final Pattern DEFAULT_PROMPT_USERNAME_LINE =
 		Pattern.compile("(?m)^Your username: .*$");
 	private static final Pattern DEFAULT_PROMPT_PERSONA_LINE =
-		Pattern.compile("(?m)^Persona: .*$");
-	private static final Pattern SYSTEM_PROMPT_PERSONA_CAPTURE =
-		Pattern.compile("(?m)^Persona:\\s*(.*)$");
+		Pattern.compile("(?m)^Persona:.*$");
 	private static final String HARD_LENGTH_CONSTRAINT =
 		"Non-negotiable constraint: the final reply must be 256 characters"
 			+ " or fewer. If the draft is longer, rewrite it shorter before"
@@ -149,8 +173,13 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		"Used for DeepSeek requests. Leave blank to use WURST_DEEPSEEK_KEY.",
 		"", s -> s.length() <= 256);
 	
+	private final TextFieldSetting compatibleApiKey = new TextFieldSetting(
+		"Compatible API key",
+		"Optional bearer token for Ollama OpenAI-compatible or other compatible endpoints.",
+		"", s -> s.length() <= 256);
+	
 	private final TextFieldSetting persona = new TextFieldSetting("Persona",
-		"How AutoChat should behave and speak in chat.",
+		"How AutoChat should behave and speak in chat when no persona file is selected.",
 		"Playful Minecraft chatter. Short and natural replies.");
 	
 	private final TextFieldSetting nicknameAliases = new TextFieldSetting(
@@ -165,6 +194,120 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private final ButtonSetting editSystemPromptButton =
 		new ButtonSetting("Edit system prompt", this::openSystemPromptEditor);
+	
+	// --- Ollama settings ---
+	private static final TextFieldSetting ollamaEndpoint = new TextFieldSetting(
+		"Compatible endpoint",
+		"Base URL of your Ollama server or another OpenAI-compatible endpoint (e.g. http://localhost:11434).",
+		"http://localhost:11434", s -> s.length() <= 512);
+	
+	private final EnumSetting<OllamaMode> ollamaMode = new EnumSetting<>(
+		"Endpoint mode",
+		"Native Ollama uses /api/chat. OpenAI-compatible uses /v1/chat/completions and also works with many non-Ollama compatible servers.",
+		OllamaMode.values(), OllamaMode.NATIVE)
+	{
+		@Override
+		public void setSelected(OllamaMode selected)
+		{
+			super.setSelected(selected);
+			updateVisibility();
+		}
+	};
+	
+	private final StringDropdownSetting ollamaModelName =
+		new StringDropdownSetting("Ollama model",
+			WText.literal("Select an Ollama model to use. Use Refresh to detect"
+				+ " models from your Ollama server."))
+		{
+			@Override
+			public void update()
+			{
+				setOptions(getAvailableOllamaModelOptions());
+				if(isVisibleInGui())
+					ensureOllamaModelsLoaded(false);
+			}
+		};
+	
+	private final ButtonSetting refreshOllamaModelsButton =
+		new ButtonSetting("Refresh Ollama models",
+			"Fetch available models from your Ollama server.",
+			this::refreshOllamaModels);
+	
+	private final TextFieldSetting compatibleModelName = new TextFieldSetting(
+		"Compatible model",
+		"Model name sent to OpenAI-compatible endpoints. Example: hf.co/... or deepseek-r1.",
+		"", s -> s.length() <= 256);
+	
+	private volatile List<String> detectedOllamaModels = List.of();
+	private volatile boolean ollamaModelsRefreshInProgress;
+	private volatile long lastOllamaModelsRefreshStartedAt;
+	
+	// --- Prompt system settings ---
+	private final AutoChatPromptManager promptManager =
+		new AutoChatPromptManager();
+	
+	private final CheckboxSetting useChatPromptFile = new CheckboxSetting(
+		"Use persona file",
+		WText.literal("When enabled, AutoChat uses the selected persona file"
+			+ " from the dropdown below instead of the in-game Persona"
+			+ " field."),
+		false)
+	{
+		@Override
+		public void update()
+		{
+			updateVisibility();
+		}
+	};
+	
+	private final ButtonSetting openPromptManagerButton = new ButtonSetting(
+		"Manage persona files",
+		"Open the persona file manager to create, edit, save and load persona files.",
+		() -> openPromptManager(false));
+	
+	private final CheckboxSetting useSystemPromptFile = new CheckboxSetting(
+		"Use system prompt file",
+		WText.literal("When enabled, AutoChat uses the selected system prompt"
+			+ " file from the dropdown below instead of the in-game"
+			+ " persona/system prompt editor."),
+		false)
+	{
+		@Override
+		public void update()
+		{
+			updateVisibility();
+		}
+	};
+	
+	private final ButtonSetting openSystemPromptManagerButton =
+		new ButtonSetting("Manage system prompt files",
+			"Open the system prompt file manager to create, edit, save and load system prompt files.",
+			() -> openPromptManager(true));
+	
+	private final StringDropdownSetting chatPromptFileName =
+		new StringDropdownSetting("Persona file", WText.literal(
+			"Select a persona file from .minecraft/wurst/autochat/prompts/."
+				+ " This file is used when \"Use persona file\" is enabled."))
+		{
+			@Override
+			public void update()
+			{
+				setOptions(promptManager.listChatPrompts().values());
+			}
+		};
+	
+	private final StringDropdownSetting systemPromptFileName =
+		new StringDropdownSetting("System prompt file",
+			WText.literal("Select a system prompt file from"
+				+ " .minecraft/wurst/autochat/system_prompts/. Leave empty to"
+				+ " use the generated default."))
+		{
+			@Override
+			public void update()
+			{
+				setOptions(promptManager.listSystemPrompts().values());
+			}
+		};
 	
 	private final EnumSetting<Model> model = new EnumSetting<>("Model",
 		"AI model used for chat replies. Options are filtered by the selected provider.",
@@ -226,41 +369,119 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	/**
 	 * Updates which settings are visible in the GUI based on the selected
-	 * provider. OpenAI shows temperature, DeepSeek hides it.
+	 * provider and endpoint mode.
 	 */
 	private void updateVisibility()
 	{
 		Provider currentProvider = provider.getSelected();
 		boolean isOpenAI = currentProvider == Provider.OPENAI;
 		boolean isDeepSeek = currentProvider == Provider.DEEPSEEK;
+		boolean isOllama = currentProvider == Provider.OLLAMA;
+		boolean isOllamaNative =
+			isOllama && ollamaMode.getSelected() == OllamaMode.NATIVE;
+		boolean isOllamaCompat =
+			isOllama && ollamaMode.getSelected() == OllamaMode.OPENAI_COMPAT;
 		
 		apiKey.setVisibleInGui(isOpenAI);
 		deepseekApiKey.setVisibleInGui(isDeepSeek);
-		temperature.setVisibleInGui(isOpenAI);
-		thinkingEnabled.setVisibleInGui(isDeepSeek);
-		reasoningEffort.setVisibleInGui(isDeepSeek);
+		compatibleApiKey.setVisibleInGui(isOllamaCompat);
+		temperature.setVisibleInGui(true);
+		topP.setVisibleInGui(true);
+		stopAtNewline.setVisibleInGui(true);
+		disableThinking.setVisibleInGui(true);
+		reasoningEffort.setVisibleInGui(true);
+		model.setVisibleInGui(!isOllama);
+		ollamaEndpoint.setVisibleInGui(isOllama);
+		ollamaMode.setVisibleInGui(isOllama);
+		ollamaModelName.setVisibleInGui(isOllamaNative);
+		refreshOllamaModelsButton.setVisibleInGui(isOllamaNative);
+		compatibleModelName.setVisibleInGui(isOllamaCompat);
+		topK.setVisibleInGui(isOllamaNative);
+		repeatPenalty.setVisibleInGui(isOllamaNative);
 		
-		Model currentModel = model.getSelected();
-		if(currentModel.provider != currentProvider)
+		boolean usingChatPromptFile = useChatPromptFile.isChecked();
+		boolean usingSystemPromptFile = useSystemPromptFile.isChecked();
+		
+		persona.setVisibleInGui(!usingChatPromptFile);
+		editSystemPromptButton.setVisibleInGui(!usingSystemPromptFile);
+		chatPromptFileName.setVisibleInGui(usingChatPromptFile);
+		openPromptManagerButton.setVisibleInGui(usingChatPromptFile);
+		systemPromptFileName.setVisibleInGui(usingSystemPromptFile);
+		openSystemPromptManagerButton.setVisibleInGui(usingSystemPromptFile);
+		
+		if(!isOllama)
 		{
-			for(Model m : Model.values())
+			Model currentModel = model.getSelected();
+			if(currentModel.provider != currentProvider)
 			{
-				if(m.provider == currentProvider)
+				for(Model m : Model.values())
 				{
-					model.setSelected(m);
-					break;
+					if(m.provider == currentProvider)
+					{
+						model.setSelected(m);
+						break;
+					}
 				}
 			}
+		}else if(isOllamaNative)
+			ensureOllamaModelsLoaded(false);
+		
+		refreshOpenSettingsViews();
+	}
+	
+	private List<String> getAvailableOllamaModelOptions()
+	{
+		LinkedHashSet<String> options =
+			new LinkedHashSet<>(detectedOllamaModels);
+		String selected = ollamaModelName.getSelected().trim();
+		if(!selected.isEmpty())
+			options.add(selected);
+		
+		return new ArrayList<>(options);
+	}
+	
+	private void refreshOpenSettingsViews()
+	{
+		var gui = WURST.getGuiIfInitialized();
+		if(gui != null)
+		{
+			Window window = gui.findWindowByTitle(getName() + " Settings");
+			if(window instanceof SettingsWindow settingsWindow
+				&& !settingsWindow.isRebuilding())
+				settingsWindow.rebuild();
 		}
+		
+		if(MC.screen instanceof NavigatorFeatureScreen navigatorScreen
+			&& navigatorScreen.getFeature() == this
+			&& !navigatorScreen.isRebuildingSettings())
+			navigatorScreen.refreshSettingsWindow();
 	}
 	
 	private final SliderSetting maxTokens = new SliderSetting("Max tokens",
-		"Maximum output tokens used for each reply.", 120, 16, 1024, 1,
+		"Maximum output tokens used for each reply.", 64, 16, 1024, 1,
 		ValueDisplay.INTEGER);
 	
 	private final SliderSetting temperature = new SliderSetting("Temperature",
 		"Higher values are more creative; lower values are more consistent.",
 		0.8, 0, 2, 0.01, ValueDisplay.DECIMAL);
+	
+	private final SliderSetting topP = new SliderSetting("Top P",
+		"Nucleus sampling. Lower values are more focused; higher values allow more variety.",
+		0.9, 0, 1, 0.01, ValueDisplay.DECIMAL);
+	
+	private final SliderSetting topK = new SliderSetting("Top K",
+		"Native Ollama only. Limits sampling to the top K candidate tokens.",
+		40, 0, 200, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting repeatPenalty =
+		new SliderSetting("Repeat penalty",
+			"Native Ollama only. Higher values reduce repetitive wording.", 1.1,
+			0.8, 2.0, 0.01, ValueDisplay.DECIMAL);
+	
+	private final CheckboxSetting stopAtNewline = new CheckboxSetting(
+		"Stop at newline",
+		"When enabled, generation stops at the first newline so AutoChat stays on one line.",
+		true);
 	
 	private final SliderSetting maxChars = new SliderSetting("Max chars",
 		"Hard character limit applied before sending chat.", 140, 24, 256, 1,
@@ -349,17 +570,15 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			"Maximum speaking speed used by WPM mode to pace outgoing replies.",
 			120, 30, 300, 1, ValueDisplay.INTEGER.withSuffix(" wpm"));
 	
-	private final CheckboxSetting thinkingEnabled =
-		new CheckboxSetting("Thinking mode",
-			"Enables DeepSeek thinking/reasoning mode. When enabled, the model"
-				+ " will think before replying for better quality answers.",
-			true);
+	private final CheckboxSetting disableThinking = new CheckboxSetting(
+		"Disable thinking",
+		"When enabled, AutoChat sends a real API flag to disable reasoning/thinking where supported.",
+		true);
 	
 	private final EnumSetting<ReasoningEffort> reasoningEffort =
-		new EnumSetting<>("Reasoning effort",
-			"Controls how much effort the model spends on reasoning."
-				+ " Low and Medium are mapped to High; X-High is mapped to Max.",
-			ReasoningEffort.values(), ReasoningEffort.HIGH);
+		new EnumSetting<>("Thinking effort",
+			"Used when thinking is enabled. None disables reasoning for compatible providers.",
+			ReasoningEffort.values(), ReasoningEffort.NONE);
 	
 	private final CheckboxSetting debugMode = new CheckboxSetting("Debug mode",
 		"Logs AI request/response JSON to the game console.", false);
@@ -377,7 +596,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private volatile boolean warnedAboutTokenFloor = false;
 	private volatile boolean useChatCompletionsFallback = false;
 	private volatile String responsesTokenParam = "max_output_tokens";
-	private volatile String chatCompletionsTokenParam = "max_completion_tokens";
+	private volatile String standardChatCompletionsTokenParam =
+		"max_completion_tokens";
+	private volatile String compatibleChatCompletionsTokenParam = "max_tokens";
 	private final Object pendingLock = new Object();
 	private final Object replyTimingLock = new Object();
 	private final ArrayDeque<PendingTrigger> pendingTriggers =
@@ -398,6 +619,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private long deepseekTotalInputTokens;
 	private long deepseekTotalOutputTokens;
 	private long deepseekTotalCostCents;
+	private final AutoChatModelOverrideManager modelOverrideManager =
+		new AutoChatModelOverrideManager();
 	
 	private final CheckboxSetting showUsageInHackList = new CheckboxSetting(
 		"Show usage in hacklist",
@@ -499,14 +722,30 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(provider);
 		addSetting(apiKey);
 		addSetting(deepseekApiKey);
+		addSetting(compatibleApiKey);
 		addSetting(persona);
+		addSetting(useChatPromptFile);
+		addSetting(chatPromptFileName);
+		addSetting(openPromptManagerButton);
 		addSetting(nicknameAliases);
 		addSetting(editSystemPromptButton);
 		customSystemPrompt.setVisibleInGui(false);
 		addSetting(customSystemPrompt);
+		addSetting(useSystemPromptFile);
+		addSetting(systemPromptFileName);
+		addSetting(openSystemPromptManagerButton);
 		addSetting(model);
+		addSetting(ollamaEndpoint);
+		addSetting(ollamaMode);
+		addSetting(ollamaModelName);
+		addSetting(refreshOllamaModelsButton);
+		addSetting(compatibleModelName);
 		addSetting(maxTokens);
 		addSetting(temperature);
+		addSetting(topP);
+		addSetting(topK);
+		addSetting(repeatPenalty);
+		addSetting(stopAtNewline);
 		addSetting(maxChars);
 		addSetting(onlyWhenSpokenTo);
 		addSetting(buttInChance);
@@ -523,12 +762,15 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		addSetting(discordRelayMarker);
 		addSetting(wpmMode);
 		addSetting(wordsPerMinute);
-		addSetting(thinkingEnabled);
+		addSetting(disableThinking);
 		addSetting(reasoningEffort);
 		addSetting(maxConcurrentRequests);
 		addSetting(showUsageInHackList);
 		addSetting(viewUsageStatsButton);
 		addSetting(debugMode);
+		ollamaModelName.update();
+		chatPromptFileName.update();
+		systemPromptFileName.update();
 		lastPersonaSnapshot = persona.getValue();
 		lastCustomPromptSnapshot =
 			normalizePromptText(customSystemPrompt.getValue());
@@ -551,13 +793,18 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	@Override
 	protected void onEnable()
 	{
-		String key = resolveApiKey();
-		if(key == null)
+		Provider p = provider.getSelected();
+		if(p != Provider.OLLAMA || requiresCompatibleApiKey())
 		{
-			ChatUtils.error("AutoChat: No API key. Set \""
-				+ getApiKeySettingName() + "\" or " + getEnvVarName() + ".");
-			setEnabled(false);
-			return;
+			String key = resolveApiKey();
+			if(key == null)
+			{
+				ChatUtils.error(
+					"AutoChat: No API key. Set \"" + getApiKeySettingName()
+						+ "\" or " + getEnvVarName() + ".");
+				setEnabled(false);
+				return;
+			}
 		}
 		
 		synchronized(history)
@@ -575,7 +822,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		warnedAboutTokenFloor = false;
 		useChatCompletionsFallback = false;
 		responsesTokenParam = "max_output_tokens";
-		chatCompletionsTokenParam = "max_completion_tokens";
+		standardChatCompletionsTokenParam = "max_completion_tokens";
+		compatibleChatCompletionsTokenParam = "max_tokens";
 		synchronized(pendingLock)
 		{
 			pendingTriggers.clear();
@@ -622,16 +870,27 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		ChatLine line = parsePlayerChatLine(plain);
 		if(line == null)
+		{
+			debugLog("Ignored chat line (unparsed): " + plain);
 			return;
+		}
 		boolean realPlayerSender = isRealPlayerSender(line.sender());
 		if(!realPlayerSender)
 		{
 			if(!readDiscordRelayMessages.isChecked())
+			{
+				debugLog("Ignored non-player sender with relay reading off: "
+					+ line.sender() + " | " + plain);
 				return;
+			}
 			
 			if(!matchesDiscordRelayMessage(plain)
 				|| !isRelayStyledChatMessage(plain))
+			{
+				debugLog("Ignored non-player sender that did not match relay"
+					+ " rules: " + line.sender() + " | " + plain);
 				return;
+			}
 		}
 		
 		if(line.sender().equalsIgnoreCase(ownName))
@@ -752,8 +1011,6 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		try
 		{
-			String endpoint =
-				getChatCompletionsEndpoint(provider.getSelected());
 			JsonObject response = useChatCompletionsFallback
 				? requestReply(snapshot, latest, direct, key)
 				: requestReplyViaChatCompletions(snapshot, latest, direct, key);
@@ -774,7 +1031,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			boolean defaultSimple = selectedModel.useSimpleResponsesPayload;
 			JsonObject request = buildRequest(snapshot, latest, direct,
 				temperatureSupported, responsesTokenParam, !defaultSimple);
-			String endpoint = getResponsesEndpoint(provider.getSelected());
+			String endpoint = getResponsesEndpoint();
 			if(endpoint == null)
 				return "";
 			JsonObject response = postJson(endpoint, request, key);
@@ -919,11 +1176,21 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	private JsonObject requestReply(List<ChatLine> snapshot, ChatLine latest,
 		boolean direct, String key) throws IOException
 	{
+		if(provider.getSelected() == Provider.OLLAMA)
+		{
+			if(getEffectiveOllamaMode().usesNativeApi())
+				return requestReplyViaOllamaNative(snapshot, latest, direct,
+					key);
+			
+			return requestReplyViaChatCompletions(snapshot, latest, direct,
+				key);
+		}
+		
 		if(useChatCompletionsFallback && !model.getSelected().responsesOnly)
 			return requestReplyViaChatCompletions(snapshot, latest, direct,
 				key);
 		
-		String endpoint = getResponsesEndpoint(provider.getSelected());
+		String endpoint = getResponsesEndpoint();
 		// DeepSeek only supports chat/completions, not responses
 		if(endpoint == null)
 			return requestReplyViaChatCompletions(snapshot, latest, direct,
@@ -981,15 +1248,25 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		}
 	}
 	
+	private JsonObject requestReplyViaOllamaNative(List<ChatLine> snapshot,
+		ChatLine latest, boolean direct, String key) throws IOException
+	{
+		String endpoint = getOllamaNativeEndpoint();
+		JsonObject request =
+			buildOllamaNativeRequest(snapshot, latest, direct, true);
+		return postJson(endpoint, request, key);
+	}
+	
 	private JsonObject requestReplyViaChatCompletions(List<ChatLine> snapshot,
 		ChatLine latest, boolean direct, String key) throws IOException
 	{
-		String endpoint = getChatCompletionsEndpoint(provider.getSelected());
+		String endpoint = getChatCompletionsEndpoint();
 		
 		try
 		{
 			JsonObject request = buildChatCompletionsRequest(snapshot, latest,
-				direct, temperatureSupported, chatCompletionsTokenParam);
+				direct, temperatureSupported,
+				getCurrentChatCompletionsTokenParam());
 			return postJson(endpoint, request, key);
 			
 		}catch(IOException e)
@@ -1013,16 +1290,17 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 						"AutoChat: This model/API ignores temperature. Retrying without temperature.");
 				}
 				
-				JsonObject retryRequest = buildChatCompletionsRequest(snapshot,
-					latest, direct, false, chatCompletionsTokenParam);
+				JsonObject retryRequest =
+					buildChatCompletionsRequest(snapshot, latest, direct, false,
+						getCurrentChatCompletionsTokenParam());
 				return postJson(endpoint, retryRequest, key);
 			}
 			
 			if(adaptChatCompletionsTokenParameter(message))
 			{
-				JsonObject retryRequest =
-					buildChatCompletionsRequest(snapshot, latest, direct,
-						temperatureSupported, chatCompletionsTokenParam);
+				JsonObject retryRequest = buildChatCompletionsRequest(snapshot,
+					latest, direct, temperatureSupported,
+					getCurrentChatCompletionsTokenParam());
 				return postJson(endpoint, retryRequest, key);
 			}
 			
@@ -1062,14 +1340,14 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		
 		if(message.contains("max_tokens"))
 		{
-			chatCompletionsTokenParam = "max_completion_tokens";
+			setCurrentChatCompletionsTokenParam("max_completion_tokens");
 			ChatUtils.warning("AutoChat: Retrying with max_completion_tokens.");
 			return true;
 		}
 		
 		if(message.contains("max_completion_tokens"))
 		{
-			chatCompletionsTokenParam = null;
+			setCurrentChatCompletionsTokenParam(null);
 			ChatUtils.warning(
 				"AutoChat: Retrying chat/completions without explicit token limit.");
 			return true;
@@ -1084,9 +1362,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	{
 		JsonObject root = new JsonObject();
 		Model selectedModel = model.getSelected();
-		root.addProperty("model", selectedModel.modelName);
+		ResolvedModelConfig cfg = resolveModelConfig(selectedModel.modelName);
+		root.addProperty("model", cfg.modelName());
 		
-		int effectiveMax = maxTokens.getValueI();
+		int effectiveMax = cfg.maxTokens();
 		if(shouldApplyGpt5TokenFloor(selectedModel)
 			&& effectiveMax < GPT5_MIN_OUTPUT_TOKENS)
 		{
@@ -1103,7 +1382,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(tokenParam != null && !tokenParam.isBlank())
 			root.addProperty(tokenParam, effectiveMax);
 		
-		String reasoningEffort = getReasoningEffortForModel(selectedModel);
+		String reasoningEffort =
+			getResponsesReasoningEffort(selectedModel, cfg);
 		if(reasoningEffort != null)
 		{
 			JsonObject reasoning = new JsonObject();
@@ -1117,9 +1397,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(includeTemperature)
 		{
 			if(modelSupportsTemperature(selectedModel))
-				root.addProperty("temperature", temperature.getValue());
+				root.addProperty("temperature", cfg.temperature());
 			else
-				applyVerbosityFromTemperature(root, temperature.getValue());
+				applyVerbosityFromTemperature(root, cfg.temperature());
 		}
 		
 		String system = buildSystemPrompt();
@@ -1165,35 +1445,44 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	{
 		JsonObject root = new JsonObject();
 		Model selectedModel = model.getSelected();
-		boolean isDeepSeek = selectedModel.provider == Provider.DEEPSEEK;
+		ResolvedModelConfig cfg =
+			resolveModelConfig(getCurrentRequestModelName());
+		boolean isDeepSeek = selectedModel.provider == Provider.DEEPSEEK
+			&& provider.getSelected() == Provider.DEEPSEEK;
+		boolean isOllamaCompat = provider.getSelected() == Provider.OLLAMA;
 		
-		root.addProperty("model", selectedModel.modelName);
+		root.addProperty("model", cfg.modelName());
+		root.addProperty("stream", false);
+		
 		if(tokenParam != null && !tokenParam.isBlank())
-			root.addProperty(tokenParam, maxTokens.getValueI());
+			root.addProperty(tokenParam, cfg.maxTokens());
 		
-		// DeepSeek reasoning effort (user-facing enum with mapped values)
+		if(includeTemperature
+			&& (isOllamaCompat || modelSupportsTemperature(selectedModel)))
+			root.addProperty("temperature", cfg.temperature());
+		
+		root.addProperty("top_p", cfg.topP());
+		addStopSequence(root, cfg.stopAtNewline());
+		
 		if(isDeepSeek)
+		{
+			if(cfg.reasoningEffort() != ReasoningEffort.NONE)
+				root.addProperty("reasoning_effort",
+					cfg.reasoningEffort().apiValue);
+			if(!cfg.disableThinking()
+				&& cfg.reasoningEffort() != ReasoningEffort.NONE)
+			{
+				JsonObject extraBody = new JsonObject();
+				JsonObject thinking = new JsonObject();
+				thinking.addProperty("type", "enabled");
+				extraBody.add("thinking", thinking);
+				root.add("extra_body", extraBody);
+			}
+		}else if(isOllamaCompat || provider.getSelected() == Provider.OPENAI
+			&& (selectedModel.reasoningEffort != null
+				|| selectedModel.hasReasoningTokens))
 			root.addProperty("reasoning_effort",
-				reasoningEffort.getSelected().apiValue);
-		else
-		{
-			String effort = getReasoningEffortForModel(selectedModel);
-			if(effort != null)
-				root.addProperty("reasoning_effort", effort);
-		}
-		
-		// DeepSeek thinking mode (enabled by default)
-		if(isDeepSeek && thinkingEnabled.isChecked())
-		{
-			JsonObject extraBody = new JsonObject();
-			JsonObject thinking = new JsonObject();
-			thinking.addProperty("type", "enabled");
-			extraBody.add("thinking", thinking);
-			root.add("extra_body", extraBody);
-		}
-		
-		if(includeTemperature && modelSupportsTemperature(selectedModel))
-			root.addProperty("temperature", temperature.getValue());
+				cfg.reasoningEffort().apiValue);
 		
 		JsonArray messages = new JsonArray();
 		JsonObject systemMessage = new JsonObject();
@@ -1211,23 +1500,237 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		return root;
 	}
 	
+	private JsonObject buildOllamaNativeRequest(List<ChatLine> snapshot,
+		ChatLine latest, boolean direct, boolean includeTemperature)
+	{
+		ResolvedModelConfig cfg =
+			resolveModelConfig(getCurrentRequestModelName());
+		JsonObject root = new JsonObject();
+		root.addProperty("model", cfg.modelName());
+		root.addProperty("stream", false);
+		if(cfg.disableThinking()
+			|| cfg.reasoningEffort() == ReasoningEffort.NONE)
+			root.addProperty("think", false);
+		else
+			root.addProperty("think", cfg.reasoningEffort().apiValue);
+		
+		JsonArray messages = new JsonArray();
+		JsonObject systemMessage = new JsonObject();
+		systemMessage.addProperty("role", "system");
+		systemMessage.addProperty("content", buildSystemPrompt());
+		messages.add(systemMessage);
+		
+		JsonObject userMessage = new JsonObject();
+		userMessage.addProperty("role", "user");
+		userMessage.addProperty("content",
+			buildUserPrompt(snapshot, latest, direct));
+		messages.add(userMessage);
+		root.add("messages", messages);
+		
+		JsonObject options = new JsonObject();
+		if(includeTemperature)
+			options.addProperty("temperature", cfg.temperature());
+		options.addProperty("top_p", cfg.topP());
+		options.addProperty("top_k", cfg.topK());
+		options.addProperty("repeat_penalty", cfg.repeatPenalty());
+		options.addProperty("num_predict", cfg.maxTokens());
+		addStopSequence(options, cfg.stopAtNewline());
+		root.add("options", options);
+		return root;
+	}
+	
+	private String getCurrentChatCompletionsTokenParam()
+	{
+		return provider.getSelected() == Provider.OLLAMA
+			? compatibleChatCompletionsTokenParam
+			: standardChatCompletionsTokenParam;
+	}
+	
+	private void setCurrentChatCompletionsTokenParam(String tokenParam)
+	{
+		if(provider.getSelected() == Provider.OLLAMA)
+			compatibleChatCompletionsTokenParam = tokenParam;
+		else
+			standardChatCompletionsTokenParam = tokenParam;
+	}
+	
+	private String getCurrentRequestModelName()
+	{
+		if(provider.getSelected() != Provider.OLLAMA)
+			return model.getSelected().modelName;
+		
+		if(ollamaMode.getSelected() == OllamaMode.OPENAI_COMPAT)
+		{
+			String compatModel = compatibleModelName.getValue().trim();
+			if(!compatModel.isEmpty())
+				return compatModel;
+		}
+		
+		return ollamaModelName.getSelected().trim();
+	}
+	
+	private OllamaMode getEffectiveOllamaMode()
+	{
+		JsonObject overrides = modelOverrideManager
+			.getOverridesForModel(getCurrentRequestModelName());
+		String mode = getStringOverride(overrides, "providerMode",
+			"provider_mode", "ollamaMode", "ollama_mode");
+		OllamaMode parsed = OllamaMode.fromConfigValue(mode);
+		return parsed != null ? parsed : ollamaMode.getSelected();
+	}
+	
+	private ResolvedModelConfig resolveModelConfig(String baseModelName)
+	{
+		JsonObject overrides =
+			modelOverrideManager.getOverridesForModel(baseModelName);
+		String overrideModel =
+			getStringOverride(overrides, "model", "modelName", "model_name");
+		String modelName = overrideModel == null || overrideModel.isBlank()
+			? baseModelName : overrideModel.trim();
+		
+		return new ResolvedModelConfig(modelName,
+			getIntOverride(overrides, maxTokens.getValueI(), "maxTokens",
+				"max_tokens", "numPredict", "num_predict"),
+			getDoubleOverride(overrides, temperature.getValue(), "temperature"),
+			getDoubleOverride(overrides, topP.getValue(), "topP", "top_p"),
+			getIntOverride(overrides, topK.getValueI(), "topK", "top_k"),
+			getDoubleOverride(overrides, repeatPenalty.getValue(),
+				"repeatPenalty", "repeat_penalty"),
+			getBooleanOverride(overrides, disableThinking.isChecked(),
+				"disableThinking", "disable_thinking"),
+			resolveReasoningEffortOverride(overrides),
+			getBooleanOverride(overrides, stopAtNewline.isChecked(),
+				"stopAtNewline", "stop_at_newline"));
+	}
+	
+	private ReasoningEffort resolveReasoningEffortOverride(JsonObject overrides)
+	{
+		String effort = getStringOverride(overrides, "thinkingEffort",
+			"thinking_effort", "reasoningEffort", "reasoning_effort");
+		ReasoningEffort parsed = ReasoningEffort.fromConfigValue(effort);
+		return parsed != null ? parsed : reasoningEffort.getSelected();
+	}
+	
+	private static void addStopSequence(JsonObject root, boolean stopAtNewline)
+	{
+		if(!stopAtNewline)
+			return;
+		
+		JsonArray stop = new JsonArray();
+		stop.add("\n");
+		root.add("stop", stop);
+	}
+	
+	private static boolean getBooleanOverride(JsonObject object,
+		boolean defaultValue, String... keys)
+	{
+		for(String key : keys)
+		{
+			if(object == null || !object.has(key)
+				|| !object.get(key).isJsonPrimitive())
+				continue;
+			
+			try
+			{
+				return object.get(key).getAsBoolean();
+			}catch(RuntimeException e)
+			{
+				// Ignore malformed override values and keep the UI setting.
+			}
+		}
+		
+		return defaultValue;
+	}
+	
+	private static int getIntOverride(JsonObject object, int defaultValue,
+		String... keys)
+	{
+		for(String key : keys)
+		{
+			if(object == null || !object.has(key)
+				|| !object.get(key).isJsonPrimitive())
+				continue;
+			
+			try
+			{
+				return object.get(key).getAsInt();
+			}catch(RuntimeException e)
+			{
+				// Ignore malformed override values and keep the UI setting.
+			}
+		}
+		
+		return defaultValue;
+	}
+	
+	private static double getDoubleOverride(JsonObject object,
+		double defaultValue, String... keys)
+	{
+		for(String key : keys)
+		{
+			if(object == null || !object.has(key)
+				|| !object.get(key).isJsonPrimitive())
+				continue;
+			
+			try
+			{
+				return object.get(key).getAsDouble();
+			}catch(RuntimeException e)
+			{
+				// Ignore malformed override values and keep the UI setting.
+			}
+		}
+		
+		return defaultValue;
+	}
+	
+	private static String getStringOverride(JsonObject object, String... keys)
+	{
+		for(String key : keys)
+		{
+			if(object == null || !object.has(key)
+				|| !object.get(key).isJsonPrimitive())
+				continue;
+			
+			try
+			{
+				return object.get(key).getAsString();
+			}catch(RuntimeException e)
+			{
+				// Ignore malformed override values and keep the UI setting.
+			}
+		}
+		
+		return null;
+	}
+	
 	private String buildSystemPrompt()
 	{
-		syncPersonaAndPrompt();
+		if(useSystemPromptFile.isChecked())
+		{
+			String sysFileName = systemPromptFileName.getSelected().trim();
+			if(!sysFileName.isEmpty())
+			{
+				String filePrompt = promptManager.loadSystemPrompt(sysFileName);
+				if(!filePrompt.isBlank())
+					return finalizeSystemPrompt(filePrompt);
+			}
+		}
 		
 		String custom = normalizePromptText(customSystemPrompt.getValue());
 		if(!custom.isBlank() && !isGeneratedDefaultPromptSnapshot(custom))
-			return custom + "\n\n" + HARD_LENGTH_CONSTRAINT;
+			return finalizeSystemPrompt(custom);
 		
-		return buildDefaultSystemPrompt() + "\n" + HARD_LENGTH_CONSTRAINT;
+		return finalizeSystemPrompt(buildDefaultSystemPrompt());
 	}
 	
 	private String buildDefaultSystemPrompt()
 	{
 		String ownName = MC.getUser().getName();
+		String personaText = getActivePersonaText();
 		return "You are an in-game Minecraft chat participant controlled by the"
 			+ " local user.\n" + "Your username: " + ownName + "\n"
-			+ "Persona: " + persona.getValue() + "\n" + "Rules:\n"
+			+ "Persona:\n" + personaText + "\n" + "Rules:\n"
 			+ "- Treat the persona as background flavor, not the topic.\n"
 			+ "- Do not announce, explain, or keep restating your persona.\n"
 			+ "- Reply to what was just said, using the persona only to shape"
@@ -1266,12 +1769,202 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			+ " generic assistant behavior.";
 	}
 	
+	private String finalizeSystemPrompt(String basePrompt)
+	{
+		String normalized = normalizePromptText(basePrompt);
+		String withPersona = ensurePersonaAttached(normalized);
+		return withPersona + "\n\n" + HARD_LENGTH_CONSTRAINT;
+	}
+	
+	private String ensurePersonaAttached(String prompt)
+	{
+		String normalized = normalizePromptText(prompt);
+		String personaText = getActivePersonaText();
+		if(personaText.isBlank())
+			return normalized;
+		
+		String ownName = MC.getUser().getName();
+		StringBuilder sb = new StringBuilder(normalized);
+		String lower = normalized.toLowerCase(Locale.ROOT);
+		
+		if(!lower.contains("your username:"))
+			sb.append("\nYour username: ").append(ownName);
+		
+		String lowerPersona = lower;
+		String personaLower = personaText.toLowerCase(Locale.ROOT);
+		if(!lowerPersona.contains("persona:")
+			&& !lowerPersona.contains(personaLower))
+			sb.append("\nPersona:\n").append(personaText);
+		
+		return sb.toString().strip();
+	}
+	
+	private String getActivePersonaText()
+	{
+		if(useChatPromptFile.isChecked())
+		{
+			String personaFileName = chatPromptFileName.getSelected().trim();
+			if(!personaFileName.isEmpty())
+			{
+				String filePrompt =
+					promptManager.loadChatPrompt(personaFileName);
+				if(!filePrompt.isBlank())
+					return filePrompt.strip();
+			}
+		}
+		
+		return persona.getValue().strip();
+	}
+	
 	public void openSystemPromptEditor()
 	{
 		if(MC == null)
 			return;
 		
 		MC.setScreen(new AutoChatSystemPromptScreen(MC.screen, this));
+	}
+	
+	private void openPromptManager(boolean systemMode)
+	{
+		if(MC == null)
+			return;
+		
+		MC.setScreen(new AutoChatPromptScreen(MC.screen, this, systemMode));
+	}
+	
+	/**
+	 * Fetches the list of available models from the Ollama server and updates
+	 * {@link #detectedOllamaModels}.
+	 */
+	private void ensureOllamaModelsLoaded(boolean manual)
+	{
+		if(provider.getSelected() != Provider.OLLAMA
+			|| ollamaMode.getSelected() != OllamaMode.NATIVE)
+			return;
+		
+		long now = System.currentTimeMillis();
+		if(ollamaModelsRefreshInProgress)
+			return;
+		
+		if(!manual)
+		{
+			if(!detectedOllamaModels.isEmpty())
+				return;
+			
+			if(now - lastOllamaModelsRefreshStartedAt < 1500)
+				return;
+		}
+		
+		refreshOllamaModels(manual);
+	}
+	
+	private void refreshOllamaModels()
+	{
+		refreshOllamaModels(true);
+	}
+	
+	private void refreshOllamaModels(boolean announceResult)
+	{
+		ollamaModelsRefreshInProgress = true;
+		lastOllamaModelsRefreshStartedAt = System.currentTimeMillis();
+		
+		Thread.ofVirtual().name("AutoChat-OllamaRefresh")
+			.uncaughtExceptionHandler((t, e) -> e.printStackTrace())
+			.start(() -> {
+				try
+				{
+					String baseUrl = getOllamaBaseUrl();
+					URL url =
+						URI.create(baseUrl + OLLAMA_TAGS_ENDPOINT).toURL();
+					HttpURLConnection conn =
+						(HttpURLConnection)url.openConnection();
+					conn.setConnectTimeout(5000);
+					conn.setReadTimeout(5000);
+					conn.setRequestMethod("GET");
+					
+					int code = conn.getResponseCode();
+					String responseText;
+					try(InputStream is = code >= 200 && code < 300
+						? conn.getInputStream() : conn.getErrorStream())
+					{
+						if(is == null)
+						{
+							if(announceResult)
+								ChatUtils.error(
+									"AutoChat: Ollama returned HTTP " + code);
+							
+							ollamaModelsRefreshInProgress = false;
+							return;
+						}
+						responseText = new String(is.readAllBytes(),
+							StandardCharsets.UTF_8);
+					}
+					
+					JsonElement parsed = JsonParser.parseString(responseText);
+					if(!parsed.isJsonObject())
+					{
+						if(announceResult)
+							ChatUtils.error(
+								"AutoChat: Invalid response from Ollama.");
+						
+						ollamaModelsRefreshInProgress = false;
+						return;
+					}
+					
+					JsonObject obj = parsed.getAsJsonObject();
+					if(!obj.has("models") || !obj.get("models").isJsonArray())
+					{
+						if(announceResult)
+							ChatUtils.error(
+								"AutoChat: No models array in Ollama response.");
+						
+						ollamaModelsRefreshInProgress = false;
+						return;
+					}
+					
+					JsonArray models = obj.getAsJsonArray("models");
+					List<String> modelNames = new ArrayList<>();
+					for(JsonElement el : models)
+					{
+						if(!el.isJsonObject())
+							continue;
+						JsonObject m = el.getAsJsonObject();
+						if(m.has("name") && m.get("name").isJsonPrimitive())
+							modelNames.add(m.get("name").getAsString());
+					}
+					
+					detectedOllamaModels = List.copyOf(modelNames);
+					MC.execute(() -> {
+						ollamaModelName.update();
+						ollamaModelsRefreshInProgress = false;
+						refreshOpenSettingsViews();
+					});
+					
+					if(announceResult)
+					{
+						StringBuilder msg = new StringBuilder();
+						msg.append("AutoChat: ").append(modelNames.size())
+							.append(" Ollama model(s) detected:");
+						for(String name : modelNames)
+							msg.append(" ").append(name);
+						
+						ChatUtils.message(msg.toString());
+					}
+					
+				}catch(IOException e)
+				{
+					detectedOllamaModels = List.of();
+					if(announceResult)
+						ChatUtils.error("AutoChat: Failed to reach Ollama - "
+							+ e.getMessage());
+					
+					MC.execute(() -> {
+						ollamaModelName.update();
+						ollamaModelsRefreshInProgress = false;
+						refreshOpenSettingsViews();
+					});
+				}
+			});
 	}
 	
 	public String getSystemPromptEditorText()
@@ -1385,19 +2078,35 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private static String extractPersonaFromPrompt(String prompt)
 	{
-		Matcher matcher =
-			SYSTEM_PROMPT_PERSONA_CAPTURE.matcher(normalizePromptText(prompt));
-		if(!matcher.find())
+		String normalized = normalizePromptText(prompt);
+		int personaIndex = normalized.indexOf("Persona:");
+		if(personaIndex < 0)
 			return null;
 		
-		return matcher.group(1).strip();
+		int valueStart = personaIndex + "Persona:".length();
+		int rulesIndex = normalized.indexOf("\nRules:", valueStart);
+		String personaBlock =
+			rulesIndex >= 0 ? normalized.substring(valueStart, rulesIndex)
+				: normalized.substring(valueStart);
+		String trimmed = personaBlock.strip();
+		return trimmed.isEmpty() ? null : trimmed;
 	}
 	
 	private static String replacePersonaInPrompt(String prompt, String persona)
 	{
-		return SYSTEM_PROMPT_PERSONA_CAPTURE
-			.matcher(normalizePromptText(prompt))
-			.replaceFirst("Persona: " + Matcher.quoteReplacement(persona));
+		String normalized = normalizePromptText(prompt);
+		int personaIndex = normalized.indexOf("Persona:");
+		if(personaIndex < 0)
+			return normalized;
+		
+		int valueStart = personaIndex + "Persona:".length();
+		int rulesIndex = normalized.indexOf("\nRules:", valueStart);
+		StringBuilder sb = new StringBuilder();
+		sb.append(normalized, 0, personaIndex).append("Persona:\n")
+			.append(persona.strip());
+		if(rulesIndex >= 0)
+			sb.append(normalized.substring(rulesIndex));
+		return sb.toString();
 	}
 	
 	private static String normalizePromptText(String prompt)
@@ -1425,8 +2134,14 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		String signature = normalizePromptText(prompt);
 		signature = DEFAULT_PROMPT_USERNAME_LINE.matcher(signature)
 			.replaceFirst("Your username: <dynamic>");
-		signature = DEFAULT_PROMPT_PERSONA_LINE.matcher(signature)
-			.replaceFirst("Persona: <dynamic>");
+		int personaIndex = signature.indexOf("Persona:");
+		int rulesIndex = signature.indexOf("\nRules:");
+		if(personaIndex >= 0 && rulesIndex > personaIndex)
+			signature = signature.substring(0, personaIndex)
+				+ "Persona:\n<dynamic>" + signature.substring(rulesIndex);
+		else
+			signature = DEFAULT_PROMPT_PERSONA_LINE.matcher(signature)
+				.replaceFirst("Persona: <dynamic>");
 		return signature;
 	}
 	
@@ -1572,10 +2287,12 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		URL url = URI.create(endpoint).toURL();
 		HttpURLConnection conn = (HttpURLConnection)url.openConnection();
 		conn.setConnectTimeout(15000);
-		conn.setReadTimeout(model.getSelected().responsesOnly ? 180000 : 30000);
+		conn.setReadTimeout(provider.getSelected() == Provider.OLLAMA ? 120000
+			: model.getSelected().responsesOnly ? 180000 : 30000);
 		conn.setRequestMethod("POST");
 		conn.setRequestProperty("Content-Type", "application/json");
-		conn.setRequestProperty("Authorization", "Bearer " + key);
+		if(key != null && !key.isEmpty())
+			conn.setRequestProperty("Authorization", "Bearer " + key);
 		conn.setDoOutput(true);
 		
 		byte[] body =
@@ -1681,6 +2398,14 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(response.has("choices") && response.get("choices").isJsonArray())
 			return extractChatCompletionsReply(
 				response.getAsJsonArray("choices"));
+		
+		if(response.has("message") && response.get("message").isJsonObject())
+		{
+			JsonObject message = response.getAsJsonObject("message");
+			if(message.has("content")
+				&& message.get("content").isJsonPrimitive())
+				return message.get("content").getAsString();
+		}
 		
 		if(!response.has("output") || !response.get("output").isJsonArray())
 			return "";
@@ -2046,32 +2771,102 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			&& senders.contains(latestSender.toLowerCase(Locale.ROOT));
 	}
 	
-	private static ChatLine parsePlayerChatLine(String plain)
+	private ChatLine parsePlayerChatLine(String plain)
 	{
 		long receivedAtMs = System.currentTimeMillis();
 		Matcher reportable = REPORTABLE_CHAT.matcher(plain);
 		if(reportable.matches())
-			return new ChatLine(reportable.group(1), reportable.group(2),
-				receivedAtMs);
+			return new ChatLine(normalizeSenderName(reportable.group(1)),
+				reportable.group(2), receivedAtMs);
 		
 		Matcher angle = DECORATED_ANGLE_CHAT.matcher(plain);
 		if(angle.matches())
-			return new ChatLine(angle.group(1), angle.group(2), receivedAtMs);
+			return new ChatLine(normalizeSenderName(angle.group(1)),
+				angle.group(2), receivedAtMs);
 		
 		Matcher colon = COLON_CHAT.matcher(plain);
 		if(colon.matches())
-			return new ChatLine(colon.group(1), colon.group(2), receivedAtMs);
+			return new ChatLine(normalizeSenderName(colon.group(1)),
+				colon.group(2), receivedAtMs);
 		
 		Matcher arrow = ARROW_CHAT.matcher(plain);
 		if(arrow.matches())
-			return new ChatLine(arrow.group(1), arrow.group(2), receivedAtMs);
+			return new ChatLine(normalizeSenderName(arrow.group(1)),
+				arrow.group(2), receivedAtMs);
 		
 		Matcher whisper = WHISPER_TO_YOU_CHAT.matcher(plain);
 		if(whisper.matches())
-			return new ChatLine(whisper.group(1), whisper.group(2),
-				receivedAtMs);
+			return new ChatLine(normalizeSenderName(whisper.group(1)),
+				whisper.group(2), receivedAtMs);
 		
 		return null;
+	}
+	
+	private String normalizeSenderName(String rawSender)
+	{
+		if(rawSender == null)
+			return "";
+		
+		String trimmed = rawSender.trim();
+		if(trimmed.isEmpty())
+			return trimmed;
+		if(VALID_PLAYER_NAME.matcher(trimmed).matches())
+			return trimmed;
+		
+		String onlineName = findOnlinePlayerNameInSender(trimmed);
+		if(onlineName != null)
+			return onlineName;
+		
+		Matcher tail =
+			Pattern.compile("([A-Za-z0-9_]{1,16})$").matcher(trimmed);
+		if(tail.find())
+			return tail.group(1);
+		
+		Matcher any = Pattern.compile("[A-Za-z0-9_]{1,16}").matcher(trimmed);
+		String lastToken = null;
+		while(any.find())
+			lastToken = any.group();
+		
+		return lastToken != null ? lastToken : trimmed;
+	}
+	
+	private String findOnlinePlayerNameInSender(String rawSender)
+	{
+		if(MC.getConnection() != null)
+		{
+			for(var info : MC.getConnection().getOnlinePlayers())
+			{
+				if(info.getProfile() == null
+					|| info.getProfile().name() == null)
+					continue;
+				
+				String name = info.getProfile().name();
+				if(containsSenderToken(rawSender, name))
+					return name;
+			}
+		}
+		
+		if(MC.level != null)
+		{
+			for(var player : MC.level.players())
+			{
+				String name = player.getName().getString();
+				if(containsSenderToken(rawSender, name))
+					return name;
+			}
+		}
+		
+		return null;
+	}
+	
+	private static boolean containsSenderToken(String rawSender, String name)
+	{
+		if(rawSender == null || name == null || name.isBlank())
+			return false;
+		
+		Pattern tokenPattern = Pattern.compile("(?i)(^|[^A-Za-z0-9_])"
+			+ Pattern.quote(name) + "([^A-Za-z0-9_]|$)");
+		return tokenPattern.matcher(rawSender).find();
 	}
 	
 	private static boolean isRelayStyledChatMessage(String plain)
@@ -2239,6 +3034,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private boolean isGpt5FamilyModel()
 	{
+		if(provider.getSelected() == Provider.OLLAMA)
+			return false;
+		
 		return model.getSelected().modelName.startsWith("gpt-5");
 	}
 	
@@ -2269,9 +3067,18 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		return selectedModel.hasReasoningTokens;
 	}
 	
-	private static String getReasoningEffortForModel(Model selectedModel)
+	private static String getResponsesReasoningEffort(Model selectedModel,
+		ResolvedModelConfig cfg)
 	{
-		return selectedModel.reasoningEffort;
+		if(selectedModel.reasoningEffort == null
+			&& !selectedModel.hasReasoningTokens)
+			return null;
+		
+		if(cfg.disableThinking()
+			|| cfg.reasoningEffort() == ReasoningEffort.NONE)
+			return "none";
+		
+		return cfg.reasoningEffort().apiValue;
 	}
 	
 	private static void ensureTextFormatConfig(JsonObject root)
@@ -2316,21 +3123,42 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private String getApiKeySettingName()
 	{
-		return provider.getSelected() == Provider.OPENAI ? "OpenAI API key"
-			: "DeepSeek API key";
+		return switch(provider.getSelected())
+		{
+			case OPENAI -> "OpenAI API key";
+			case DEEPSEEK -> "DeepSeek API key";
+			case OLLAMA -> "Compatible API key";
+		};
 	}
 	
 	private String getEnvVarName()
 	{
-		return provider.getSelected() == Provider.OPENAI ? "WURST_OPENAI_KEY"
-			: "WURST_DEEPSEEK_KEY";
+		return switch(provider.getSelected())
+		{
+			case OPENAI -> "WURST_OPENAI_KEY";
+			case DEEPSEEK -> "WURST_DEEPSEEK_KEY";
+			case OLLAMA -> "WURST_COMPATIBLE_AI_KEY";
+		};
 	}
 	
 	private String resolveApiKey()
 	{
-		boolean isOpenAI = provider.getSelected() == Provider.OPENAI;
+		Provider p = provider.getSelected();
 		
-		if(isOpenAI)
+		if(p == Provider.OLLAMA)
+		{
+			String key = compatibleApiKey.getValue().trim();
+			if(!key.isEmpty())
+				return key;
+			
+			String envKey = System.getenv("WURST_COMPATIBLE_AI_KEY");
+			if(envKey == null || envKey.isBlank())
+				return "";
+			
+			return envKey.trim();
+		}
+		
+		if(p == Provider.OPENAI)
 		{
 			String key = apiKey.getValue().trim();
 			if(!key.isEmpty())
@@ -2353,6 +3181,12 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			
 			return envKey.trim();
 		}
+	}
+	
+	private boolean requiresCompatibleApiKey()
+	{
+		return provider.getSelected() == Provider.OLLAMA
+			&& ollamaMode.getSelected() == OllamaMode.OPENAI_COMPAT;
 	}
 	
 	private static String stripLegacyFormatting(String text)
@@ -2465,10 +3299,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private enum ReasoningEffort
 	{
-		LOW("Low", "high"),
-		MEDIUM("Medium", "high"),
-		HIGH("High", "high"),
-		XHIGH("X-High", "max");
+		NONE("None", "none"),
+		LOW("Low", "low"),
+		MEDIUM("Medium", "medium"),
+		HIGH("High", "high");
 		
 		private final String displayName;
 		final String apiValue; // the actual value sent to the API
@@ -2484,12 +3318,75 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		{
 			return displayName;
 		}
+		
+		private static ReasoningEffort fromConfigValue(String value)
+		{
+			if(value == null || value.isBlank())
+				return null;
+			
+			String normalized = value.trim().replace("-", "").replace("_", "")
+				.toLowerCase(Locale.ROOT);
+			if(normalized.equals("minimal"))
+				return NONE;
+			if(normalized.equals("max") || normalized.equals("xhigh"))
+				return HIGH;
+			
+			for(ReasoningEffort effort : values())
+				if(effort.displayName.equalsIgnoreCase(value)
+					|| effort.apiValue.equalsIgnoreCase(value)
+					|| effort.name().equalsIgnoreCase(value))
+					return effort;
+				
+			return null;
+		}
+	}
+	
+	private enum OllamaMode
+	{
+		NATIVE("Native Ollama"),
+		OPENAI_COMPAT("OpenAI-compatible");
+		
+		private final String displayName;
+		
+		private OllamaMode(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		private boolean usesNativeApi()
+		{
+			return this == NATIVE;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+		
+		private static OllamaMode fromConfigValue(String value)
+		{
+			if(value == null || value.isBlank())
+				return null;
+			
+			String normalized =
+				value.trim().replace('-', '_').replace(' ', '_');
+			for(OllamaMode mode : values())
+			{
+				if(mode.displayName.equalsIgnoreCase(value)
+					|| mode.name().equalsIgnoreCase(normalized))
+					return mode;
+			}
+			
+			return null;
+		}
 	}
 	
 	private enum Provider
 	{
 		OPENAI("OpenAI"),
-		DEEPSEEK("DeepSeek");
+		DEEPSEEK("DeepSeek"),
+		OLLAMA("Ollama");
 		
 		private final String displayName;
 		
@@ -2504,6 +3401,12 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			return displayName;
 		}
 	}
+	
+	private record ResolvedModelConfig(String modelName, int maxTokens,
+		double temperature, double topP, int topK, double repeatPenalty,
+		boolean disableThinking, ReasoningEffort reasoningEffort,
+		boolean stopAtNewline)
+	{}
 	
 	private enum Model
 	{
