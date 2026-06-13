@@ -33,6 +33,7 @@ public final class PacketToolsScreen extends Screen
 	private Button delayButton;
 	private Button outputButton;
 	private Button modeButton;
+	private Button outsideGameButton;
 	private Button delayMinusButton;
 	private Button delayPlusButton;
 	
@@ -60,7 +61,6 @@ public final class PacketToolsScreen extends Screen
 		int y = 28;
 		int gap = 6;
 		
-		int half = (panelWidth - gap) / 2;
 		int third = (panelWidth - gap * 2) / 3;
 		
 		loggingButton =
@@ -114,7 +114,7 @@ public final class PacketToolsScreen extends Screen
 				packetTools.getFileOutputSetting().setChecked(file);
 				b.setMessage(
 					Component.literal("Output: " + (file ? "File" : "Chat")));
-			}).bounds(panelX, y, half, 20).build());
+			}).bounds(panelX, y, third, 20).build());
 		
 		modeButton = addRenderableWidget(
 			Button.builder(Component.literal("Editing: " + editMode.getLabel()),
@@ -124,7 +124,18 @@ public final class PacketToolsScreen extends Screen
 					b.setMessage(
 						Component.literal("Editing: " + editMode.getLabel()));
 					reloadSelectorsFromMode(previous);
-				}).bounds(panelX + half + gap, y, half, 20).build());
+				}).bounds(panelX + third + gap, y, third, 20).build());
+		
+		outsideGameButton = addRenderableWidget(Button.builder(
+			enabledLabel("Outside-game",
+				packetTools.getVerboseOutsideGamePacketsSetting().isChecked()),
+			b -> {
+				boolean value = !packetTools
+					.getVerboseOutsideGamePacketsSetting().isChecked();
+				packetTools.getVerboseOutsideGamePacketsSetting()
+					.setChecked(value);
+				b.setMessage(enabledLabel("Outside-game", value));
+			}).bounds(panelX + (third + gap) * 2, y, third, 20).build());
 		
 		y += 24;
 		

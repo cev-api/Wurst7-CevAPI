@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.LinkedHashMap;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -52,6 +54,21 @@ public abstract class ChatScreenMixin extends Screen
 		// Ignore empty messages just like vanilla
 		if((message = normalizeChatMessage(message)).isEmpty())
 			return;
+		
+		if(WurstClient.INSTANCE.getOtfs() != null)
+		{
+			LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
+			fields.put("source", "ChatScreen");
+			fields.put("message", message);
+			fields.put("kind",
+				UiUtilsCommandSystem.isUiUtilsCommand(message)
+					? "uiutils_command"
+					: message.startsWith("/") ? "command" : "chat");
+			if(message.startsWith("/"))
+				fields.put("command", message.substring(1));
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseExternalEvent("ChatAction", fields);
+		}
 		
 		if(UiUtilsCommandSystem.isUiUtilsCommand(message))
 		{

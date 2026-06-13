@@ -483,6 +483,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private void onConnect(ServerData entry, CallbackInfo ci)
 	{
 		LastServerRememberer.setLastServer(entry);
+		if(WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseJoinFlow("JoinMultiplayerScreen.join", entry);
 		updateLastServerButton();
 	}
 	

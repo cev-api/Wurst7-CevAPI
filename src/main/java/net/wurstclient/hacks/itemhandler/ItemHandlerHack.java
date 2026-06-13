@@ -1619,7 +1619,7 @@ public class ItemHandlerHack extends Hack
 			return "Owner: " + entityDisplayName(owner);
 		return "Owner: Unknown";
 	}
-
+	
 	private boolean hasResolvableOwnerName(String name)
 	{
 		return name != null && !name.isBlank()

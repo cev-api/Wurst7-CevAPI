@@ -260,6 +260,11 @@ public abstract class MinecraftMixin
 			wurstOriginalSession = ((Minecraft)(Object)this).getUser();
 		
 		wurstSession = session;
+		if(WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseSessionChange(
+					session != null ? "setWurstSession" : "clearWurstSession",
+					session);
 		if(session == null)
 		{
 			wurstProfileKeys = null;
@@ -286,6 +291,9 @@ public abstract class MinecraftMixin
 	{
 		User original = wurstOriginalSession;
 		setWurstSession(null);
+		if(original != null && WurstClient.INSTANCE.getOtfs() != null)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseSessionChange("restoreOriginalSession", original);
 		
 		if(original == null)
 			return true;

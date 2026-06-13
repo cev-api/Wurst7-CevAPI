@@ -9,6 +9,7 @@ package net.wurstclient.uiutils;
 
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.LinkedHashMap;
 import java.util.WeakHashMap;
 import java.util.function.Consumer;
 import java.util.Locale;
@@ -449,6 +450,22 @@ public final class UiUtils
 						|| keyEvent.key() == GLFW.GLFW_KEY_KP_ENTER)
 					{
 						String text = getValue();
+						if(WurstClient.INSTANCE.getOtfs() != null
+							&& text != null && !text.isEmpty())
+						{
+							LinkedHashMap<String, Object> fields =
+								new LinkedHashMap<>();
+							fields.put("source", "UiUtilsChatField");
+							fields.put("message", text);
+							fields.put("kind",
+								UiUtilsCommandSystem.isUiUtilsCommand(text)
+									? "uiutils_command" : text.startsWith("/")
+										? "command" : "chat");
+							if(text.startsWith("/"))
+								fields.put("command", text.substring(1));
+							WurstClient.INSTANCE.getOtfs().packetToolsOtf
+								.logVerboseExternalEvent("ChatAction", fields);
+						}
 						if(UiUtilsCommandSystem.isUiUtilsCommand(text))
 						{
 							String command =

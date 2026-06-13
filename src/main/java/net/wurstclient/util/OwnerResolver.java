@@ -137,7 +137,7 @@ public final class OwnerResolver
 		String name = lookupPlayerName(uuid);
 		return !isResolvablePlayerName(name);
 	}
-
+	
 	public static boolean isResolvablePlayerName(@Nullable String name)
 	{
 		return name != null && !name.isBlank() && !DUMMY_NAME.equals(name);
