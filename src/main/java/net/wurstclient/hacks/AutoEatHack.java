@@ -255,11 +255,13 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		if(!MC.player.canEat(false))
 			return false;
 		
+		boolean autoFlyActive = WURST.getHax().autoFlyHack.isEnabled();
+		
 		if(!eatWhileWalking.isChecked()
-			&& (MC.player.zza != 0 || MC.player.xxa != 0))
+			&& !autoFlyActive && (MC.player.zza != 0 || MC.player.xxa != 0))
 			return false;
 		
-		if(isClickable(MC.hitResult))
+		if(!autoFlyActive && isClickable(MC.hitResult))
 			return false;
 		
 		return true;
