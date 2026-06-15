@@ -599,6 +599,8 @@
   "description.wurst.hack.ui-utils": "Adds UI utilities like packet control, chat-in-GUI input, and resource pack bypass tools.",
   "hack.wurst.pearlesp": "PearlESP",
   "description.wurst.hack.pearlesp": "Highlights ender pearls thrown by other players, shows predicted landing with a purple box, draws a trajectory line, and highlights when players are holding an ender pearl.",
+  "hack.wurst.pearldrop": "PearlDrop",
+  "description.wurst.hack.pearldrop": "Helps you place ender pearls into 1-block-high bubble column stasis chambers by using ESP to perfect your throw through a honey block.",
   "hack.wurst.projectileowner": "ProjectileOwner",
   "description.wurst.hack.projectileowner": "Shows owner labels above projectiles when the owner is known client-side, ignoring projectiles thrown by you.",
   "hack.wurst.pearlintercept": "PearlIntercept",
