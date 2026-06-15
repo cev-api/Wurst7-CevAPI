@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec2;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -227,18 +228,23 @@ public final class FlightHack extends Hack implements UpdateListener,
 		
 		double vSpeed = getActualVerticalSpeed();
 		
-		if(MC.options.keyJump.isDown())
+		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
+		boolean autoJump = autoFly.isAutoKeyJumpDown();
+		boolean autoShift = autoFly.isAutoKeyShiftDown();
+		if(MC.options.keyJump.isDown() || autoJump)
 			player.addDeltaMovement(new Vec3(0, vSpeed, 0));
 		
 		boolean shiftActuallyDown =
 			IKeyMapping.get(MC.options.keyShift).isActuallyDown();
 		boolean allowShiftInThisContext =
 			!ignoreShiftInGuis.isChecked() || MC.screen == null;
-		if(shiftActuallyDown && allowShiftInThisContext)
+		if((shiftActuallyDown && allowShiftInThisContext) || autoShift)
 		{
 			MC.options.keyShift.setDown(false);
 			player.addDeltaMovement(new Vec3(0, -vSpeed, 0));
 		}
+		
+		applyAutoFlyHorizontalVelocity(player, autoFly);
 		
 		if(isAntiKickEnabled())
 			doAntiKick();
@@ -253,6 +259,47 @@ public final class FlightHack extends Hack implements UpdateListener,
 			Vec3 current = player.getDeltaMovement();
 			player.setDeltaMovement(current.x, alignStep, current.z);
 		}
+	}
+	
+	private void applyAutoFlyHorizontalVelocity(LocalPlayer player,
+		AutoFlyHack autoFly)
+	{
+		if(!autoFly.isProvidingAutoFlyInput())
+			return;
+		
+		Vec2 moveVector =
+			player.input != null ? player.input.getMoveVector() : Vec2.ZERO;
+		if(moveVector.lengthSquared() > 1.0E-5F)
+			return;
+		
+		double forwardImpulse = 0.0;
+		double sideImpulse = 0.0;
+		if(autoFly.isAutoKeyUpDown())
+			forwardImpulse += 1.0;
+		if(autoFly.isAutoKeyDownDown())
+			forwardImpulse -= 1.0;
+		if(autoFly.isAutoKeyLeftDown())
+			sideImpulse += 1.0;
+		if(autoFly.isAutoKeyRightDown())
+			sideImpulse -= 1.0;
+		
+		if(forwardImpulse == 0.0 && sideImpulse == 0.0)
+			return;
+		
+		Vec3 forward =
+			Vec3.directionFromRotation(0.0F, player.getYRot()).normalize();
+		forward = new Vec3(forward.x, 0.0, forward.z);
+		if(forward.lengthSqr() < 1.0E-6)
+			return;
+		forward = forward.normalize();
+		Vec3 right = new Vec3(-forward.z, 0.0, forward.x);
+		Vec3 movement =
+			forward.scale(forwardImpulse).add(right.scale(sideImpulse));
+		if(movement.lengthSqr() < 1.0E-6)
+			return;
+		
+		double speed = horizontalSpeed.getValue();
+		player.addDeltaMovement(movement.normalize().scale(speed));
 	}
 	
 	private void syncNoSlowdownVineIgnore()

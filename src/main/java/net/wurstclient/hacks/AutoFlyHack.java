@@ -404,6 +404,7 @@ public final class AutoFlyHack extends Hack
 		new SliderSetting("Chunk trail: Single-wall nudge (blocks/step)", 12, 4,
 			32, 1, SliderSetting.ValueDisplay.INTEGER);
 	private boolean flightOverridesApplied;
+	private double chunkTrailSpeedScale = 1.0;
 	private double lastYForProgress = Double.NaN;
 	private long lastVerticalProgressMs;
 	private boolean verticalAssistActive;
@@ -736,6 +737,9 @@ public final class AutoFlyHack extends Hack
 			return;
 		
 		if(checkDisableOnDamage())
+			return;
+		
+		if(handleAutoEatPause())
 			return;
 		
 		if(allowManualAdjust.isChecked() && isManualInputActive())
@@ -2107,8 +2111,10 @@ public final class AutoFlyHack extends Hack
 	private void applyFlightSpeed()
 	{
 		var flight = WURST.getHax().flightHack;
+		double scale = routeType.getSelected() == RouteType.CHUNKS
+			? chunkTrailSpeedScale : 1.0;
 		double desired = Math.min(flight.horizontalSpeed.getMaximum(),
-			flightSpeed.getValue());
+			flightSpeed.getValue() * MathUtils.clamp(scale, 0.2, 1.0));
 		flight.horizontalSpeed.setValue(desired);
 	}
 	
@@ -2386,6 +2392,7 @@ public final class AutoFlyHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 			return;
+		chunkTrailSpeedScale = 1.0;
 		
 		var chunks = WURST.getHax().newerNewChunksHack;
 		var oldTrail = chunks.getOldChunksLiveView();
@@ -2418,6 +2425,7 @@ public final class AutoFlyHack extends Hack
 		}
 		if(!playerOnUsableGreen && nearbySafe != null)
 		{
+			chunkTrailSpeedScale = 0.35;
 			ChunkPos recoveryTargetChunk = nearbySafe;
 			if(chunkEdgeRecoveryAnchor != null && chunkEdgeRecoveryTicks > 0
 				&& isOldTrailNotNew(oldTrail, newSet, chunkEdgeRecoveryAnchor))
@@ -2555,6 +2563,7 @@ public final class AutoFlyHack extends Hack
 				}
 				if(recoveryTarget != null)
 				{
+					chunkTrailSpeedScale = 0.35;
 					chunkNoTargetTicks++;
 					chunkTrailEndConfirmStrikes = 0;
 					chunkCorridorTargetPos = recoveryTarget;
@@ -2562,8 +2571,8 @@ public final class AutoFlyHack extends Hack
 				}
 			}
 			
-			// Keep moving forward even without detected borders. Use current
-			// forward axis (or look direction) to set a provisional target.
+			// If the green corridor has not caught up yet, slow down hard and
+			// favor nearby known old chunks instead of charging into red.
 			chunkNoTargetTicks++;
 			if(chunkCorridorTargetPos != null && isTargetStillAhead(
 				chunkCorridorTargetPos, playerForwardProgress))
@@ -2578,34 +2587,45 @@ public final class AutoFlyHack extends Hack
 				chunkCorridorTargetPos = null;
 				return;
 			}
-			double lead = CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS;
-			// After grace, extend the lead to keep cruising smoothly.
-			if(chunkNoTargetTicks > CHUNK_NO_TARGET_GRACE_TICKS)
-				lead = Math.max(lead, 32.0);
-			Vec3 provisional = playerPos.add(axis.normalize().scale(lead));
-			
-			// Single/both-wall avoidance: nudge away from red walls and
-			// center between them when both are detected.
 			Vec3 right = new Vec3(-axis.z, 0.0, axis.x);
 			ChunkPos pChunk = new ChunkPos(MC.player.blockPosition());
 			int leftDist = distanceToNearestNewWall(newSet, pChunk, right, -1,
 				CHUNK_WALL_SCAN_RADIUS);
 			int rightDist = distanceToNearestNewWall(newSet, pChunk, right, 1,
 				CHUNK_WALL_SCAN_RADIUS);
+			Vec3 looseOldTarget = selectLooseOldTrailTarget(oldTrail, newSet,
+				playerPos, pChunk, axis, right, playerForwardProgress);
+			double lead = Math.min(CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS, 10.0);
+			chunkTrailSpeedScale =
+				chunkNoTargetTicks > CHUNK_NO_TARGET_GRACE_TICKS ? 0.2 : 0.35;
+			Vec3 provisional = looseOldTarget != null ? looseOldTarget
+				: playerPos.add(axis.normalize().scale(lead));
+			
+			// Single/both-wall avoidance: nudge away from red walls and
+			// center between them when both are detected.
 			double lateral = 0.0;
 			if(leftDist > 0 && rightDist > 0)
 			{
 				double centerOffsetChunks = (rightDist - leftDist) * 0.5;
 				lateral +=
 					Math.max(-24.0, Math.min(24.0, centerOffsetChunks * 16.0));
+				int nearestWall = Math.min(leftDist, rightDist);
+				if(nearestWall <= 2)
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 			}else
 			{
 				int guard = Math.max(3, CHUNK_MIN_CORRIDOR_THICKNESS);
 				double nudge = getSingleWallNudgeStrength();
 				if(leftDist > 0 && leftDist <= guard)
+				{
 					lateral += (guard + 1 - leftDist) * nudge; // push right
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
+				}
 				if(rightDist > 0 && rightDist <= guard)
+				{
 					lateral -= (guard + 1 - rightDist) * nudge; // push left
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
+				}
 			}
 			if(Math.abs(lateral) > 0.01)
 				provisional = provisional.add(right.normalize().scale(lateral));
@@ -2674,6 +2694,7 @@ public final class AutoFlyHack extends Hack
 	public void clearChunkCorridorAssist()
 	{
 		chunkAssistActive = false;
+		chunkTrailSpeedScale = 1.0;
 		chunkCorridorAnchor = null;
 		chunkCorridorOrigin = null;
 		chunkCorridorHeading = null;
@@ -3003,6 +3024,84 @@ public final class AutoFlyHack extends Hack
 		if(relaxedBest != null)
 			return relaxedBestTargetPos;
 		return null;
+	}
+	
+	private Vec3 selectLooseOldTrailTarget(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, Vec3 playerPos, ChunkPos playerChunk,
+		Vec3 forward, Vec3 right, double playerForwardProgress)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || playerPos == null
+			|| playerChunk == null || forward == null || right == null)
+			return null;
+		
+		Vec3 flatForward = new Vec3(forward.x, 0.0, forward.z);
+		if(flatForward.lengthSqr() < 1.0E-6)
+			return null;
+		flatForward = flatForward.normalize();
+		
+		ChunkPos best = null;
+		double bestScore = Double.NEGATIVE_INFINITY;
+		int forwardLimit = Math.max(2, getAheadScanChunks());
+		int sideLimit = Math.max(1, getSideScanHalfWidth() + 2);
+		for(int f = 0; f <= forwardLimit; f++)
+		{
+			ChunkPos front = stepChunk(playerChunk, flatForward, f);
+			for(int w = -sideLimit; w <= sideLimit; w++)
+			{
+				ChunkPos candidate = stepChunk(front, right, w);
+				if(!isOldTrailNotNew(oldTrail, newChunks, candidate))
+					continue;
+				
+				Vec3 center = Vec3.atCenterOf(chunkCenter(candidate));
+				Vec3 delta = center.subtract(playerPos);
+				Vec3 dir = new Vec3(delta.x, 0.0, delta.z);
+				if(dir.lengthSqr() < 1.0E-6)
+					continue;
+				dir = dir.normalize();
+				
+				double along = dir.dot(flatForward);
+				if(along < CHUNK_MIN_FORWARD_DOT)
+					continue;
+				
+				double targetProgress =
+					chunkCorridorOrigin != null ? projectAlongHeading(center,
+						chunkCorridorOrigin, flatForward) : Double.NaN;
+				if(!Double.isNaN(playerForwardProgress)
+					&& !Double.isNaN(targetProgress)
+					&& targetProgress < playerForwardProgress
+						- CHUNK_BACKTRACK_BLOCK_TOLERANCE)
+					continue;
+				
+				double dist = Math.max(1.0, Math.hypot(delta.x, delta.z));
+				double lateral = Math.abs(dir.dot(right));
+				int leftWallDist = distanceToNearestNewWall(newChunks,
+					candidate, right, -1, CHUNK_WALL_SCAN_RADIUS);
+				int rightWallDist = distanceToNearestNewWall(newChunks,
+					candidate, right, 1, CHUNK_WALL_SCAN_RADIUS);
+				double wallScore = 0.0;
+				if(leftWallDist > 0 && rightWallDist > 0)
+					wallScore += Math.min(leftWallDist, rightWallDist) * 1.5
+						- Math.abs(leftWallDist - rightWallDist) * 2.0;
+				else if(leftWallDist > 0 || rightWallDist > 0)
+					wallScore += 1.0;
+				
+				double score = along * 18.0 - lateral * 6.0 - dist * 0.12
+					+ wallScore - getRecentCorridorPenalty(candidate);
+				if(!Double.isNaN(playerForwardProgress)
+					&& !Double.isNaN(targetProgress))
+					score +=
+						Math.min(32.0, targetProgress - playerForwardProgress)
+							* 0.25;
+				
+				if(score > bestScore)
+				{
+					bestScore = score;
+					best = candidate;
+				}
+			}
+		}
+		
+		return best != null ? Vec3.atCenterOf(chunkCenter(best)) : null;
 	}
 	
 	private static int distanceToNearestNewWall(
@@ -3852,6 +3951,31 @@ public final class AutoFlyHack extends Hack
 		PathProcessor.releaseControls();
 	}
 	
+	private boolean handleAutoEatPause()
+	{
+		if(!WURST.getHax().autoEatHack.isEating())
+			return false;
+		
+		long now = System.currentTimeMillis();
+		ensureFlightEnabled();
+		applyFlightSpeed();
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+		clearMovementKeys();
+		clearPathingState();
+		manualAdjustHold = false;
+		manualAdjustStartMs = 0L;
+		manualAdjustStartPos = null;
+		lastProgressMs = now;
+		lastProgressDist = Double.NaN;
+		lastMovePos = MC.player.position();
+		lastMoveMs = now;
+		lastHorizPos = lastMovePos;
+		lastHorizMoveMs = now;
+		lastAutoControlMs = 0L;
+		return true;
+	}
+	
 	private void handleManualAdjust()
 	{
 		if(MC.player == null)
@@ -3976,6 +4100,41 @@ public final class AutoFlyHack extends Hack
 			autoKeyJumpDown = down;
 		else if(key == MC.options.keyShift)
 			autoKeyShiftDown = down;
+	}
+	
+	public boolean isProvidingAutoFlyInput()
+	{
+		return isEnabled() && anyAutoKeyDown();
+	}
+	
+	public boolean isAutoKeyUpDown()
+	{
+		return autoKeyUpDown;
+	}
+	
+	public boolean isAutoKeyDownDown()
+	{
+		return autoKeyDownDown;
+	}
+	
+	public boolean isAutoKeyLeftDown()
+	{
+		return autoKeyLeftDown;
+	}
+	
+	public boolean isAutoKeyRightDown()
+	{
+		return autoKeyRightDown;
+	}
+	
+	public boolean isAutoKeyJumpDown()
+	{
+		return autoKeyJumpDown;
+	}
+	
+	public boolean isAutoKeyShiftDown()
+	{
+		return autoKeyShiftDown;
 	}
 	
 	private void resetAutoKeyFlags()
