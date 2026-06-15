@@ -1327,18 +1327,17 @@ public final class EnchantmentHandlerHack extends Hack
 		}
 		
 		// Sort container, player and shulker grouped lists by material
-		// priority, then slot number
+		// priority, display text, then slot number.
 		gearGroupedEntries.values().forEach(list -> sortGearEntries(list));
 		gearGroupedEntriesPlayer.values()
 			.forEach(list -> sortGearEntries(list));
 		gearGroupedEntriesShulker.values()
 			.forEach(list -> sortGearEntries(list));
-		bookGroupedEntries.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
-		bookGroupedEntriesPlayer.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
-		bookGroupedEntriesShulker.values().forEach(list -> list
-			.sort((a, b) -> Integer.compare(a.displaySlot, b.displaySlot)));
+		bookGroupedEntries.values().forEach(list -> sortBookEntries(list));
+		bookGroupedEntriesPlayer.values()
+			.forEach(list -> sortBookEntries(list));
+		bookGroupedEntriesShulker.values()
+			.forEach(list -> sortBookEntries(list));
 		potionGroupedEntries.values().forEach(list -> list.sort((a, b) -> {
 			int n = a.primaryName.compareToIgnoreCase(b.primaryName);
 			if(n != 0)
@@ -1388,23 +1387,7 @@ public final class EnchantmentHandlerHack extends Hack
 		GearCategory category,
 		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
-		List<String> parts = new ArrayList<>();
-		
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
-		{
-			Holder<Enchantment> enchantmentEntry = entry.getKey();
-			if(enchantmentEntry == null)
-				continue;
-			
-			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.identifier()).orElse(null);
-			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getRegisteredName());
-			String name = buildEnchantmentName(id, path);
-			String levelText = buildLevelSuffix(level);
-			parts.add(name + levelText);
-		}
+		List<String> parts = buildSortedEnchantmentParts(enchantments);
 		
 		if(parts.isEmpty())
 			return null;
@@ -1429,21 +1412,7 @@ public final class EnchantmentHandlerHack extends Hack
 		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
 		boolean inShulker)
 	{
-		List<String> parts = new ArrayList<>();
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
-		{
-			Holder<Enchantment> enchantmentEntry = entry.getKey();
-			if(enchantmentEntry == null)
-				continue;
-			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.identifier()).orElse(null);
-			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getRegisteredName());
-			String name = buildEnchantmentName(id, path);
-			String levelText = buildLevelSuffix(level);
-			parts.add(name + levelText);
-		}
+		List<String> parts = buildSortedEnchantmentParts(enchantments);
 		if(parts.isEmpty())
 			return null;
 		String enchantSummary = limitLength(String.join(", ", parts), 90);
@@ -1461,27 +1430,11 @@ public final class EnchantmentHandlerHack extends Hack
 	private BookEntry buildBookEntry(Slot slot,
 		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
 	{
-		List<String> parts = new ArrayList<>();
-		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
-		
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
-		{
-			Holder<Enchantment> enchantmentEntry = entry.getKey();
-			if(enchantmentEntry == null)
-				continue;
-			
-			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.identifier()).orElse(null);
-			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getRegisteredName());
-			BookCategory category = BookCategory.fromPath(path);
-			categories.add(category);
-			
-			String name = buildEnchantmentName(id, path);
-			String levelText = buildLevelSuffix(level);
-			parts.add(name + levelText);
-		}
+		List<EnchantmentLine> lines = buildSortedEnchantmentLines(enchantments);
+		List<String> parts = lines.stream().map(EnchantmentLine::text).toList();
+		EnumSet<BookCategory> categories =
+			lines.stream().map(EnchantmentLine::category).collect(Collectors
+				.toCollection(() -> EnumSet.noneOf(BookCategory.class)));
 		
 		if(parts.isEmpty())
 			return null;
@@ -1506,24 +1459,11 @@ public final class EnchantmentHandlerHack extends Hack
 		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
 		boolean inShulker)
 	{
-		List<String> parts = new ArrayList<>();
-		EnumSet<BookCategory> categories = EnumSet.noneOf(BookCategory.class);
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
-		{
-			Holder<Enchantment> enchantmentEntry = entry.getKey();
-			if(enchantmentEntry == null)
-				continue;
-			int level = entry.getIntValue();
-			Identifier id = enchantmentEntry.unwrapKey()
-				.map(registryKey -> registryKey.identifier()).orElse(null);
-			String path = id != null ? id.getPath()
-				: sanitizePath(enchantmentEntry.getRegisteredName());
-			BookCategory category = BookCategory.fromPath(path);
-			categories.add(category);
-			String name = buildEnchantmentName(id, path);
-			String levelText = buildLevelSuffix(level);
-			parts.add(name + levelText);
-		}
+		List<EnchantmentLine> lines = buildSortedEnchantmentLines(enchantments);
+		List<String> parts = lines.stream().map(EnchantmentLine::text).toList();
+		EnumSet<BookCategory> categories =
+			lines.stream().map(EnchantmentLine::category).collect(Collectors
+				.toCollection(() -> EnumSet.noneOf(BookCategory.class)));
 		if(parts.isEmpty())
 			return null;
 		BookCategory primary =
@@ -1561,6 +1501,7 @@ public final class EnchantmentHandlerHack extends Hack
 				: "";
 			parts.add(name + ampText + durText);
 		}
+		parts.sort(EnchantmentHandlerHack::compareDisplayText);
 		
 		// If there are no effects, fall back to base potion name (water,
 		// mundane, etc.)
@@ -1648,6 +1589,7 @@ public final class EnchantmentHandlerHack extends Hack
 				: "";
 			parts.add(name + ampText + durText);
 		}
+		parts.sort(EnchantmentHandlerHack::compareDisplayText);
 		if(parts.isEmpty())
 		{
 			var basePotion = potionContents.potion();
@@ -1969,10 +1911,56 @@ public final class EnchantmentHandlerHack extends Hack
 		return " " + level;
 	}
 	
+	private List<String> buildSortedEnchantmentParts(
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
+	{
+		return buildSortedEnchantmentLines(enchantments).stream()
+			.map(EnchantmentLine::text).toList();
+	}
+	
+	private List<EnchantmentLine> buildSortedEnchantmentLines(
+		Set<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
+	{
+		List<EnchantmentLine> lines = new ArrayList<>();
+		
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
+		{
+			Holder<Enchantment> enchantmentEntry = entry.getKey();
+			if(enchantmentEntry == null)
+				continue;
+			
+			int level = entry.getIntValue();
+			Identifier id = enchantmentEntry.unwrapKey()
+				.map(registryKey -> registryKey.identifier()).orElse(null);
+			String path = id != null ? id.getPath()
+				: sanitizePath(enchantmentEntry.getRegisteredName());
+			String name = buildEnchantmentName(id, path);
+			String levelText = buildLevelSuffix(level);
+			lines.add(new EnchantmentLine(name + levelText,
+				stripFormattingCodes(name), BookCategory.fromPath(path)));
+		}
+		
+		lines.sort((a, b) -> compareDisplayText(a.sortName, b.sortName));
+		return lines;
+	}
+	
 	private static String stripFormattingCodes(String text)
 	{
 		return text.replaceAll("\u00a7[0-9A-FK-ORa-fk-or]", "");
 	}
+	
+	private static int compareDisplayText(String a, String b)
+	{
+		int result = stripFormattingCodes(a)
+			.compareToIgnoreCase(stripFormattingCodes(b));
+		if(result != 0)
+			return result;
+		return stripFormattingCodes(a).compareTo(stripFormattingCodes(b));
+	}
+	
+	private record EnchantmentLine(String text, String sortName,
+		BookCategory category)
+	{}
 	
 	private static final Map<String, String> ENCHANT_DISPLAY =
 		new LinkedHashMap<>();
@@ -1999,6 +1987,7 @@ public final class EnchantmentHandlerHack extends Hack
 		ENCHANT_DISPLAY.put("looting", "\u00a7d Looting");
 		ENCHANT_DISPLAY.put("loyalty", "\u00a71 Loyalty");
 		ENCHANT_DISPLAY.put("luck_of_the_sea", "\u00a7b Luck of the Sea");
+		ENCHANT_DISPLAY.put("lunge", "\u00a7b Lunge");
 		ENCHANT_DISPLAY.put("lure", "\u00a7b Lure");
 		ENCHANT_DISPLAY.put("mending", "\u00a7e Mending");
 		ENCHANT_DISPLAY.put("multishot", "\u00a7d Multishot");
@@ -2069,20 +2058,25 @@ public final class EnchantmentHandlerHack extends Hack
 		if(stack.isEmpty())
 			return 0;
 		
+		Identifier itemId = net.minecraft.core.registries.BuiltInRegistries.ITEM
+			.getKey(stack.getItem());
+		String path = itemId != null ? itemId.getPath() : "";
+		
 		if(stack.is(Items.NETHERITE_SWORD) || stack.is(Items.NETHERITE_AXE)
 			|| stack.is(Items.NETHERITE_PICKAXE)
 			|| stack.is(Items.NETHERITE_SHOVEL) || stack.is(Items.NETHERITE_HOE)
 			|| stack.is(Items.NETHERITE_HELMET)
 			|| stack.is(Items.NETHERITE_CHESTPLATE)
 			|| stack.is(Items.NETHERITE_LEGGINGS)
-			|| stack.is(Items.NETHERITE_BOOTS))
+			|| stack.is(Items.NETHERITE_BOOTS)
+			|| path.equals("netherite_spear"))
 			return 7;
 		if(stack.is(Items.DIAMOND_SWORD) || stack.is(Items.DIAMOND_AXE)
 			|| stack.is(Items.DIAMOND_PICKAXE) || stack.is(Items.DIAMOND_SHOVEL)
 			|| stack.is(Items.DIAMOND_HOE) || stack.is(Items.DIAMOND_HELMET)
 			|| stack.is(Items.DIAMOND_CHESTPLATE)
-			|| stack.is(Items.DIAMOND_LEGGINGS)
-			|| stack.is(Items.DIAMOND_BOOTS))
+			|| stack.is(Items.DIAMOND_LEGGINGS) || stack.is(Items.DIAMOND_BOOTS)
+			|| path.equals("diamond_spear"))
 			return 6;
 		if(stack.is(Items.IRON_SWORD) || stack.is(Items.IRON_AXE)
 			|| stack.is(Items.IRON_PICKAXE) || stack.is(Items.IRON_SHOVEL)
@@ -2091,24 +2085,25 @@ public final class EnchantmentHandlerHack extends Hack
 			|| stack.is(Items.IRON_BOOTS) || stack.is(Items.CHAINMAIL_HELMET)
 			|| stack.is(Items.CHAINMAIL_CHESTPLATE)
 			|| stack.is(Items.CHAINMAIL_LEGGINGS)
-			|| stack.is(Items.CHAINMAIL_BOOTS))
+			|| stack.is(Items.CHAINMAIL_BOOTS) || path.equals("iron_spear"))
 			return 5;
 		if(stack.is(Items.GOLDEN_SWORD) || stack.is(Items.GOLDEN_AXE)
 			|| stack.is(Items.GOLDEN_PICKAXE) || stack.is(Items.GOLDEN_SHOVEL)
 			|| stack.is(Items.GOLDEN_HOE) || stack.is(Items.GOLDEN_HELMET)
 			|| stack.is(Items.GOLDEN_CHESTPLATE)
-			|| stack.is(Items.GOLDEN_LEGGINGS) || stack.is(Items.GOLDEN_BOOTS))
+			|| stack.is(Items.GOLDEN_LEGGINGS) || stack.is(Items.GOLDEN_BOOTS)
+			|| path.equals("golden_spear"))
 			return 4;
 		if(stack.is(Items.STONE_SWORD) || stack.is(Items.STONE_AXE)
 			|| stack.is(Items.STONE_PICKAXE) || stack.is(Items.STONE_SHOVEL)
-			|| stack.is(Items.STONE_HOE))
+			|| stack.is(Items.STONE_HOE) || path.equals("stone_spear"))
 			return 3;
 		if(stack.is(Items.WOODEN_SWORD) || stack.is(Items.WOODEN_AXE)
 			|| stack.is(Items.WOODEN_PICKAXE) || stack.is(Items.WOODEN_SHOVEL)
 			|| stack.is(Items.WOODEN_HOE) || stack.is(Items.LEATHER_HELMET)
 			|| stack.is(Items.LEATHER_CHESTPLATE)
-			|| stack.is(Items.LEATHER_LEGGINGS)
-			|| stack.is(Items.LEATHER_BOOTS))
+			|| stack.is(Items.LEATHER_LEGGINGS) || stack.is(Items.LEATHER_BOOTS)
+			|| path.equals("wooden_spear"))
 			return 2;
 		if(stack.is(Items.TURTLE_HELMET))
 			return 5;
@@ -2125,8 +2120,37 @@ public final class EnchantmentHandlerHack extends Hack
 				Integer.compare(getMaterialPriority(b), getMaterialPriority(a));
 			if(matCompare != 0)
 				return matCompare;
+			int nameCompare = compareEntryText(a, b);
+			if(nameCompare != 0)
+				return nameCompare;
 			return Integer.compare(a.displaySlot, b.displaySlot);
 		});
+	}
+	
+	private static void sortBookEntries(List<BookEntry> list)
+	{
+		list.sort((a, b) -> {
+			int nameCompare = compareEntryText(a, b);
+			if(nameCompare != 0)
+				return nameCompare;
+			return Integer.compare(a.displaySlot, b.displaySlot);
+		});
+	}
+	
+	private static int compareEntryText(AbstractEntry a, AbstractEntry b)
+	{
+		return compareDisplayText(entrySortText(a), entrySortText(b));
+	}
+	
+	private static String entrySortText(AbstractEntry entry)
+	{
+		if(entry == null || entry.line == null)
+			return "";
+		
+		String text = stripFormattingCodes(entry.line);
+		text = text.replaceFirst("^\\d+\\s+-\\s+", "");
+		text = text.replace(" (in shulker)", "");
+		return text;
 	}
 	
 	private static String sanitizePath(String raw)
@@ -2390,24 +2414,25 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private static enum BookCategory
 	{
-		HELMET("Books (Helmet)", "respiration", "aqua_affinity"),
-		CHEST("Books (Chest)", "protection", "fire_protection",
-			"blast_protection", "projectile_protection", "thorns"),
+		HELMET("Books (Helmet)", "aqua_affinity", "respiration"),
+		CHEST("Books (Chest)", "blast_protection", "fire_protection",
+			"projectile_protection", "protection", "thorns"),
 		LEGGINGS("Books (Leggings)", "swift_sneak"),
-		BOOTS("Books (Boots)", "feather_falling", "depth_strider",
+		BOOTS("Books (Boots)", "depth_strider", "feather_falling",
 			"frost_walker", "soul_speed"),
-		WEAPON("Books (Weapons)", "sharpness", "smite", "bane_of_arthropods",
-			"knockback", "looting", "fire_aspect", "sweeping", "sweeping_edge",
-			"breach", "density", "wind_burst"),
-		TOOLS("Books (Tools)", "efficiency", "silk_touch", "fortune"),
-		BOW("Books (Bow)", "power", "punch", "flame", "infinity"),
-		CROSSBOW("Books (Crossbow)", "piercing", "quick_charge", "multishot"),
-		TRIDENT("Books (Trident)", "impaling", "riptide", "channeling",
-			"loyalty"),
+		WEAPON("Books (Weapons)", "bane_of_arthropods", "breach", "density",
+			"fire_aspect", "knockback", "looting", "sharpness", "smite",
+			"sweeping", "sweeping_edge", "wind_burst"),
+		TOOLS("Books (Tools)", "efficiency", "fortune", "silk_touch"),
+		BOW("Books (Bow)", "flame", "infinity", "power", "punch"),
+		CROSSBOW("Books (Crossbow)", "multishot", "piercing", "quick_charge"),
+		TRIDENT("Books (Trident)", "channeling", "impaling", "loyalty",
+			"riptide"),
+		SPEAR("Books (Spear)", "lunge"),
 		SHIELD("Books (Shield)", "bulwark"),
 		ELYTRA("Books (Elytra)", "wind_burst"),
-		MISC("Books (Misc)", "mending", "unbreaking", "binding_curse",
-			"vanishing_curse", "lure", "luck_of_the_sea");
+		MISC("Books (Misc)", "binding_curse", "luck_of_the_sea", "lure",
+			"mending", "unbreaking", "vanishing_curse");
 		
 		static final List<BookCategory> ORDERED =
 			List.of(BookCategory.values());
