@@ -351,6 +351,7 @@ public final class AutoFlyHack extends Hack
 	private boolean pausedNoY;
 	private boolean commandForwardUnlimited;
 	private Vec3 commandForwardDirection;
+	private double commandForwardY;
 	private boolean useExistingTargetsOnEnable;
 	private boolean arrivalPause;
 	private long arrivalPauseUntilMs;
@@ -507,6 +508,7 @@ public final class AutoFlyHack extends Hack
 		arrivedHold = false;
 		commandForwardUnlimited = false;
 		commandForwardDirection = null;
+		commandForwardY = Double.NaN;
 		manualAdjustHold = false;
 		manualAdjustStartMs = 0L;
 		manualAdjustStartPos = null;
@@ -604,6 +606,7 @@ public final class AutoFlyHack extends Hack
 		EVENTS.remove(GUIRenderListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		PathProcessor.releaseControls();
+		clearAutoFlyInput();
 		restoreFlightSettings();
 		var hax = WURST.getHax();
 		if(enabledAntisocialForAutoFly && hax.antisocialHack.isEnabled())
@@ -655,6 +658,7 @@ public final class AutoFlyHack extends Hack
 		currentIndex = -1;
 		commandForwardUnlimited = false;
 		commandForwardDirection = null;
+		commandForwardY = Double.NaN;
 		clearChunkCorridorAssist();
 		savedFlightVSpeed = -1;
 		flightOverridesApplied = false;
@@ -695,8 +699,7 @@ public final class AutoFlyHack extends Hack
 		{
 			// Allow player to decide what to do next (e.g. cycle waypoint).
 			PathProcessor.releaseControls();
-			resetAutoKeyFlags();
-			clearMovementKeys();
+			clearAutoFlyInput();
 			return;
 		}
 		
@@ -772,9 +775,8 @@ public final class AutoFlyHack extends Hack
 		{
 			ensureFlightEnabled();
 			applyFlightSpeed();
-			resetAutoKeyFlags();
 			PathProcessor.lockControls();
-			clearMovementKeys();
+			clearAutoFlyInput();
 			autoSetKey(MC.options.keyJump, true);
 			lastAutoControlMs = now;
 			return;
@@ -910,9 +912,8 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		now = System.currentTimeMillis();
-		resetAutoKeyFlags();
 		PathProcessor.lockControls();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		
 		boolean approachHoriz = distHoriz <= descentStartRadius;
 		boolean nearTargetY =
@@ -986,8 +987,7 @@ public final class AutoFlyHack extends Hack
 	{
 		// Stop immediately to avoid overshooting and oscillation at pass turns.
 		PathProcessor.releaseControls();
-		resetAutoKeyFlags();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		clearPathingState();
 		closeHorizLatched = false;
 		verticalMode = VerticalMode.NONE;
@@ -1362,8 +1362,7 @@ public final class AutoFlyHack extends Hack
 	{
 		// Stop immediately, even if keys were held from the previous tick.
 		PathProcessor.releaseControls();
-		resetAutoKeyFlags();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		
 		if(disableAutoFlyOnStop.isChecked())
 		{
@@ -2007,8 +2006,7 @@ public final class AutoFlyHack extends Hack
 		
 		// Ensure no keys are left pressed when switching to arrived-hold.
 		PathProcessor.releaseControls();
-		resetAutoKeyFlags();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		
 		manualAdjustHold = false;
 		manualAdjustStartMs = 0L;
@@ -2080,8 +2078,11 @@ public final class AutoFlyHack extends Hack
 	private double getCruiseY(AutoFlyTarget target)
 	{
 		double y = flightHeight.getValue();
+		if(commandForwardUnlimited && target != null && target.hasY
+			&& !Double.isNaN(commandForwardY))
+			y = commandForwardY;
 		if(routeType.getSelected() != RouteType.CHUNKS && target != null
-			&& target.hasY)
+			&& target.hasY && !commandForwardUnlimited)
 			y = Math.max(y, target.pos.getY() + 2);
 		
 		if(MC.level != null)
@@ -2328,20 +2329,27 @@ public final class AutoFlyHack extends Hack
 		if(MC.player == null)
 			return;
 		
-		Vec3 look = MC.player.getLookAngle();
+		Vec3 look = getHorizontalLookDirection();
 		if(look.lengthSqr() < 1.0E-6)
 			look = new Vec3(0.0, 0.0, 1.0);
 		commandForwardDirection = look.normalize();
+		double forwardY =
+			overrideHeight != null ? overrideHeight : MC.player.getY();
+		commandForwardY = forwardY;
 		commandForwardUnlimited = unlimitedMode;
 		
 		Vec3 target = MC.player.position()
 			.add(commandForwardDirection.scale(commandForwardUnlimited
 				? COMMAND_FORWARD_LEAD_DISTANCE : COMMAND_FORWARD_DISTANCE));
-		setTargetFromCommand(BlockPos.containing(target), true, overrideHeight,
-			overrideSpeed);
+		setTargetFromCommand(BlockPos.containing(target.x, forwardY, target.z),
+			true, overrideHeight, overrideSpeed);
 		commandForwardUnlimited = unlimitedMode;
+		commandForwardY = forwardY;
 		if(!commandForwardUnlimited)
+		{
 			commandForwardDirection = null;
+			commandForwardY = Double.NaN;
+		}
 	}
 	
 	public void setChunkTrailFromCommand()
@@ -2383,7 +2391,10 @@ public final class AutoFlyHack extends Hack
 		Vec3 target = MC.player.position()
 			.add(dir.normalize().scale(COMMAND_FORWARD_LEAD_DISTANCE));
 		targets.clear();
-		targets.add(new AutoFlyTarget(BlockPos.containing(target), true));
+		double y =
+			Double.isNaN(commandForwardY) ? MC.player.getY() : commandForwardY;
+		targets.add(new AutoFlyTarget(
+			BlockPos.containing(target.x, y, target.z), true));
 		currentIndex = 0;
 		currentTarget = targets.get(0);
 	}
@@ -2471,8 +2482,7 @@ public final class AutoFlyHack extends Hack
 			{
 				chunkCorridorTargetPos = null;
 				PathProcessor.releaseControls();
-				resetAutoKeyFlags();
-				clearMovementKeys();
+				clearAutoFlyInput();
 				stopAutoFly("Stopped: Fully inside new chunks for 3s");
 				return;
 			}
@@ -2503,8 +2513,7 @@ public final class AutoFlyHack extends Hack
 			{
 				chunkCorridorTargetPos = null;
 				PathProcessor.releaseControls();
-				resetAutoKeyFlags();
-				clearMovementKeys();
+				clearAutoFlyInput();
 				stopAutoFly("Stopped: No green corridor for 3s");
 				return;
 			}
@@ -3919,8 +3928,7 @@ public final class AutoFlyHack extends Hack
 	{
 		Vec3 playerPos = MC.player.position();
 		PathProcessor.releaseControls();
-		resetAutoKeyFlags();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		clearPathingState();
 		verticalMode = VerticalMode.NONE;
 		verticalAssistActive = false;
@@ -3948,7 +3956,7 @@ public final class AutoFlyHack extends Hack
 		manualAdjustStartMs = System.currentTimeMillis();
 		manualAdjustStartPos = playerPos;
 		lastManualInputMs = manualAdjustStartMs;
-		PathProcessor.releaseControls();
+		releaseAutoFlyInput();
 	}
 	
 	private boolean handleAutoEatPause()
@@ -3960,8 +3968,7 @@ public final class AutoFlyHack extends Hack
 		ensureFlightEnabled();
 		applyFlightSpeed();
 		PathProcessor.releaseControls();
-		resetAutoKeyFlags();
-		clearMovementKeys();
+		clearAutoFlyInput();
 		clearPathingState();
 		manualAdjustHold = false;
 		manualAdjustStartMs = 0L;
@@ -4145,6 +4152,18 @@ public final class AutoFlyHack extends Hack
 		autoKeyRightDown = false;
 		autoKeyJumpDown = false;
 		autoKeyShiftDown = false;
+	}
+	
+	private void releaseAutoFlyInput()
+	{
+		PathProcessor.releaseControls();
+		resetAutoKeyFlags();
+	}
+	
+	private void clearAutoFlyInput()
+	{
+		resetAutoKeyFlags();
+		clearMovementKeys();
 	}
 	
 	private boolean anyAutoKeyDown()

@@ -63,6 +63,8 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.RightClickListener;
+import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.util.BlockUtils;
@@ -74,12 +76,15 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.json.JsonUtils;
 
 @SearchTags({"Pearl ESP", "ender pearl warning", "PearlESP"})
-public class PearlEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, PacketInputListener, RenderListener
+public class PearlEspHack extends Hack
+	implements UpdateListener, CameraTransformViewBobbingListener,
+	PacketInputListener, RightClickListener, RenderListener
 {
 	private static final double LANDING_BOX_RADIUS = 0.35;
 	private static final double HAND_BOX_RADIUS = 0.18;
 	private static final long STASIS_LABEL_STICKY_MS = 1200;
+	private static final long OWN_THROW_INFERENCE_MS = 2000;
+	private static final double OWN_THROW_INFERENCE_RADIUS = 12.0;
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Highlight color for pearls, landing boxes and trajectory.",
@@ -154,6 +159,8 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	private final Map<UUID, Long> playerLeaveTimes = new HashMap<>();
 	private boolean hasOwnPearl;
 	private long ownPearlSuppressUntilMs;
+	private long lastOwnPearlUseMs;
+	private Vec3 lastOwnPearlUsePos;
 	
 	// Per-frame tracking for disconnect inference
 	private HashSet<UUID> previousPearlUuids = new HashSet<>();
@@ -196,6 +203,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
+		EVENTS.add(RightClickListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		loadOwnershipData();
 	}
@@ -206,6 +214,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
+		EVENTS.remove(RightClickListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		saveOwnershipData(true);
 		pearls.clear();
@@ -226,6 +235,8 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		offlineStasisLabels.clear();
 		hasOwnPearl = false;
 		ownPearlSuppressUntilMs = 0L;
+		lastOwnPearlUseMs = 0L;
+		lastOwnPearlUsePos = null;
 		dirty = false;
 		currentFile = null;
 		lastServerKey = null;
@@ -235,6 +246,19 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		rememberPacket(event.getPacket());
+	}
+	
+	@Override
+	public void onRightClick(RightClickEvent event)
+	{
+		if(MC.player == null)
+			return;
+		
+		if(!isHoldingPearlAnyHand(MC.player))
+			return;
+		
+		lastOwnPearlUseMs = System.currentTimeMillis();
+		lastOwnPearlUsePos = MC.player.position();
 	}
 	
 	private void rememberPacket(Packet<?> rawPacket)
@@ -268,10 +292,6 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		}
 		
 		if(packet.getType() != EntityType.ENDER_PEARL)
-			return;
-		
-		int ownerId = packet.getData();
-		if(ownerId <= 0)
 			return;
 		
 		rememberPearlSpawn(packet);
@@ -311,7 +331,7 @@ public class PearlEspHack extends Hack implements UpdateListener,
 				StasisLabel stasisLabel = stasisLabels.get(pearl.getUUID());
 				pearls.add(new TrackedPearl(pearl, prediction, ownerLabel,
 					stasisLabel));
-				boolean ownPearl = owner == MC.player;
+				boolean ownPearl = isOwnPearl(pearl, owner, ownerLabel);
 				if(ownPearl)
 				{
 					hasOwnPearl = true;
@@ -501,6 +521,15 @@ public class PearlEspHack extends Hack implements UpdateListener,
 					drawWorldLabel(matrixStack, label.text(), labelPos.x,
 						labelPos.y, labelPos.z,
 						isStasis ? stasisLineColor : lineColor, dynScale, 0F);
+				}else if(tracked.ownerLabel() != null
+					&& !tracked.ownerLabel().isBlank())
+				{
+					Vec3 labelPos =
+						getVisiblePearlLabelPos(pearl, partialTicks);
+					float dynScale = computeDistanceScale(labelPos, 0.7F);
+					drawWorldLabel(matrixStack, tracked.ownerLabel(),
+						labelPos.x, labelPos.y, labelPos.z, lineColor, dynScale,
+						0F);
 				}
 			}
 			
@@ -697,6 +726,17 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		
 		// Check confidence state — if inferred, keep showing (Inferred)
 		OwnerConfidence existingConf = getPearlConfidence(pearlUuid);
+		
+		ownerUuid = inferOwnPearlOwner(pearl);
+		if(ownerUuid != null)
+		{
+			rememberPearlOwnerUuid(pearlUuid, ownerUuid);
+			updatePearlIdentityConfidence(pearlUuid, ownerUuid,
+				OwnerConfidence.CONFIRMED_CURRENT_ENTITY_ID);
+			String label = getOwnerUuidLabel(ownerUuid);
+			if(label != null)
+				return rememberPearlOwnerLabel(pearlUuid, label);
+		}
 		
 		// Check pearl UUID cache — survives entity id changes
 		UUID cachedOwnerUuid = pearlOwnerUuids.get(pearlUuid);
@@ -913,6 +953,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 	
 	private UUID resolveOwnerUuid(int ownerId)
 	{
+		if(MC.player != null && ownerId == MC.player.getId())
+		{
+			rememberVisibleOwner(MC.player);
+			return MC.player.getUUID();
+		}
+		
 		// Check active entity id binding first
 		EntityIdBinding binding = entityIdBindings.get(ownerId);
 		if(binding != null && binding.active() && binding.playerUuid() != null)
@@ -988,6 +1034,48 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		return name == null ? null : "Owner: " + name;
 	}
 	
+	private boolean isOwnPearl(Entity pearl, Entity owner, String ownerLabel)
+	{
+		if(MC.player == null)
+			return false;
+		
+		if(owner == MC.player)
+			return true;
+		
+		UUID ownerUuid =
+			pearl != null ? pearlOwnerUuids.get(pearl.getUUID()) : null;
+		if(MC.player.getUUID().equals(ownerUuid))
+			return true;
+		
+		return "Owner: You".equals(ownerLabel);
+	}
+	
+	private UUID inferOwnPearlOwner(Entity pearl)
+	{
+		if(pearl == null || MC.player == null)
+			return null;
+		
+		Integer ownerId = pearlSpawnOwnerIds.get(pearl.getUUID());
+		if(ownerId != null && ownerId > 0 && ownerId != MC.player.getId())
+			return null;
+		
+		if(System.currentTimeMillis()
+			- lastOwnPearlUseMs > OWN_THROW_INFERENCE_MS)
+			return null;
+		
+		Vec3 reference = lastOwnPearlUsePos != null ? lastOwnPearlUsePos
+			: MC.player.position();
+		if(reference == null)
+			return null;
+		
+		double maxDistSq =
+			OWN_THROW_INFERENCE_RADIUS * OWN_THROW_INFERENCE_RADIUS;
+		if(pearl.position().distanceToSqr(reference) > maxDistSq)
+			return null;
+		
+		return MC.player.getUUID();
+	}
+	
 	private String resolvePlayerName(UUID uuid)
 	{
 		if(uuid == null)
@@ -1022,6 +1110,12 @@ public class PearlEspHack extends Hack implements UpdateListener,
 		}
 		
 		return null;
+	}
+	
+	private Vec3 getVisiblePearlLabelPos(Entity pearl, float partialTicks)
+	{
+		AABB box = EntityUtils.getLerpedBox(pearl, partialTicks);
+		return new Vec3(box.getCenter().x, box.maxY + 0.45, box.getCenter().z);
 	}
 	
 	private BlockPos getStasisBase(BlockPos pos)

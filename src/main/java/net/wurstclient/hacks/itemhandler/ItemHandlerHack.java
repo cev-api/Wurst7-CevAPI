@@ -1854,6 +1854,7 @@ public class ItemHandlerHack extends Hack
 			DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY));
 		if(parts.isEmpty())
 			return "";
+		parts.sort(String.CASE_INSENSITIVE_ORDER);
 		return String.join(", ", parts);
 	}
 	
