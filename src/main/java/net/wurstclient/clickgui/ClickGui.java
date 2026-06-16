@@ -136,9 +136,8 @@ public final class ClickGui
 			// When TooManyHax is enabled, hide hacks that it disabled from
 			// the ClickGUI to avoid cluttering the UI. The Navigator should
 			// keep showing all features, so we only apply this filter here.
-			if(f instanceof net.wurstclient.hack.Hack && tooManyHax.isEnabled()
-				&& tooManyHax.isBlocked(f)
-				&& !((net.wurstclient.hack.Hack)f).isEnabled())
+			if(f instanceof net.wurstclient.hack.Hack
+				&& tooManyHax.shouldHideEverywhere(f))
 			{
 				continue;
 			}
@@ -176,9 +175,8 @@ public final class ClickGui
 				&& ((net.wurstclient.hack.Hack)f).isFavorite()))
 				continue;
 			
-			if(f instanceof net.wurstclient.hack.Hack && tooManyHax.isEnabled()
-				&& tooManyHax.isBlocked(f)
-				&& !((net.wurstclient.hack.Hack)f).isEnabled())
+			if(f instanceof net.wurstclient.hack.Hack
+				&& tooManyHax.shouldHideEverywhere(f))
 			{
 				continue;
 			}

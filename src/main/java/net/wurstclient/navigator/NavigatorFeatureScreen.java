@@ -145,7 +145,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				b -> {
 					TooManyHaxHack tooManyHax =
 						WurstClient.INSTANCE.getHax().tooManyHaxHack;
-					if(tooManyHax.isEnabled() && tooManyHax.isBlocked(feature))
+					if(tooManyHax.shouldBlockStarting(feature))
 					{
 						ChatUtils.error(
 							feature.getName() + " is blocked by TooManyHax.");

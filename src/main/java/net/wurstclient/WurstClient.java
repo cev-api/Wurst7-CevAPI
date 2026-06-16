@@ -163,6 +163,7 @@ public enum WurstClient
 		this.settingsFile = new SettingsFile(settingsFile, hax, cmds, otfs);
 		this.settingsFile.load();
 		hax.tooManyHaxHack.loadBlockedHacksFile();
+		otfs.hackListOtf.loadHiddenHacksFile();
 		
 		Path keybindsFile = wurstFolder.resolve("keybinds.json");
 		keybinds = new KeybindList(keybindsFile);
@@ -285,6 +286,9 @@ public enum WurstClient
 			hax.reloadEnabledHax();
 			hax.reloadFavoriteHax();
 		}
+		
+		if(otfs != null)
+			otfs.hackListOtf.loadHiddenHacksFile();
 		
 		if(keybinds != null)
 			keybinds.reload();

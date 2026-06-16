@@ -29,6 +29,8 @@ public final class IngameHUD implements GUIRenderListener
 		ClientMessageOverlay.getInstance();
 	private final HackPerformanceOverlay performanceOverlay =
 		HackPerformanceOverlay.getInstance();
+	private final ChestSearchMousePreview chestSearchMousePreview =
+		new ChestSearchMousePreview();
 	private TabGui tabGui;
 	private net.wurstclient.hacks.itemhandler.ItemHandlerHud itemHandlerHud;
 	
@@ -58,6 +60,7 @@ public final class IngameHUD implements GUIRenderListener
 				new net.wurstclient.hacks.itemhandler.ItemHandlerHud();
 		itemHandlerHud.render(context, partialTicks);
 		performanceOverlay.render(context);
+		chestSearchMousePreview.render(context);
 		
 		// pinned windows
 		if(!(WurstClient.MC.screen instanceof ClickGuiScreen)

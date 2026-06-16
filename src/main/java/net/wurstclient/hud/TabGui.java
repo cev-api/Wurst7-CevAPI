@@ -255,7 +255,7 @@ public final class TabGui implements KeyPressListener
 			Feature feature = features.get(selected);
 			
 			TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
-			if(tooManyHax.isEnabled() && tooManyHax.isBlocked(feature))
+			if(tooManyHax.shouldBlockStarting(feature))
 			{
 				ChatUtils
 					.error(feature.getName() + " is blocked by TooManyHax.");

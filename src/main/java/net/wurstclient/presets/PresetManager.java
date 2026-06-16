@@ -150,6 +150,7 @@ public final class PresetManager
 	{
 		wurst.reloadSettings();
 		wurst.getHax().tooManyHaxHack.loadBlockedHacksFile();
+		wurst.getOtfs().hackListOtf.loadHiddenHacksFile();
 		wurst.getHax().reloadEnabledHax();
 		wurst.getHax().reloadFavoriteHax();
 		wurst.getKeybinds().reload();

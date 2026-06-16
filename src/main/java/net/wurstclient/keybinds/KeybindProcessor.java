@@ -308,8 +308,8 @@ public final class KeybindProcessor
 				return;
 			}
 			
-			if(!hack.isEnabled() && hax.tooManyHaxHack.isEnabled()
-				&& hax.tooManyHaxHack.isBlocked(hack))
+			if(!hack.isEnabled()
+				&& hax.tooManyHaxHack.shouldBlockStarting(hack))
 			{
 				ChatUtils.error(hack.getName() + " is blocked by TooManyHax.");
 				return;

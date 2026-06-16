@@ -24,11 +24,19 @@ public final class TooManyHaxFile
 {
 	private final Path path;
 	private final ArrayList<Feature> blockedFeatures;
+	private final boolean requireSafeToBlock;
 	
 	public TooManyHaxFile(Path path, ArrayList<Feature> blockedFeatures)
 	{
+		this(path, blockedFeatures, true);
+	}
+	
+	public TooManyHaxFile(Path path, ArrayList<Feature> blockedFeatures,
+		boolean requireSafeToBlock)
+	{
 		this.path = path;
 		this.blockedFeatures = blockedFeatures;
+		this.requireSafeToBlock = requireSafeToBlock;
 	}
 	
 	public void load()
@@ -70,7 +78,8 @@ public final class TooManyHaxFile
 		{
 			Feature feature = WurstClient.INSTANCE.getFeatureByName(name);
 			
-			if(feature != null && feature.isSafeToBlock())
+			if(feature != null
+				&& (!requireSafeToBlock || feature.isSafeToBlock()))
 				blockedFeatures.add(feature);
 		}
 		
@@ -106,7 +115,8 @@ public final class TooManyHaxFile
 	private JsonArray createJson()
 	{
 		JsonArray json = new JsonArray();
-		blockedFeatures.stream().filter(Feature::isSafeToBlock)
+		blockedFeatures.stream()
+			.filter(feature -> !requireSafeToBlock || feature.isSafeToBlock())
 			.map(Feature::getName).forEach(name -> json.add(name));
 		
 		return json;

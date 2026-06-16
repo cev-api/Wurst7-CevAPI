@@ -56,8 +56,7 @@ public final class TCmd extends Command
 	private void setEnabled(Hack hack, boolean enabled)
 	{
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
-		if(!hack.isEnabled() && tooManyHax.isEnabled()
-			&& tooManyHax.isBlocked(hack))
+		if(!hack.isEnabled() && tooManyHax.shouldBlockStarting(hack))
 		{
 			ChatUtils.error(hack.getName() + " is blocked by TooManyHax.");
 			return;

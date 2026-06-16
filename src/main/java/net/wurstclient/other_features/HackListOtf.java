@@ -8,16 +8,35 @@
 package net.wurstclient.other_features;
 
 import java.awt.Color;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
+import net.wurstclient.TooManyHaxFile;
 import net.wurstclient.WurstClient;
+import net.wurstclient.clickgui.ClickGui;
+import net.wurstclient.clickgui.ClickGuiIcons;
+import net.wurstclient.clickgui.Component;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.Setting;
+import net.wurstclient.settings.SettingGroup;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.text.WText;
 
 @SearchTags({"hack list", "HakList", "hak list", "HacksList", "hacks list",
 	"HaxList", "hax list", "ArrayList", "array list", "ModList", "mod list",
@@ -25,6 +44,21 @@ import net.wurstclient.settings.EnumSetting;
 @DontBlock
 public final class HackListOtf extends OtherFeature
 {
+	private final ArrayList<net.wurstclient.Feature> hiddenHacks =
+		new ArrayList<>();
+	private final TooManyHaxFile hiddenHacksFile;
+	private final CheckboxSetting hideFromHackListEnabled = new CheckboxSetting(
+		"Enabled",
+		"Enable or disable the Hide from HackList filter without clearing its saved list.",
+		true)
+	{
+		@Override
+		public void update()
+		{
+			refreshGui();
+		}
+	};
+	
 	private final EnumSetting<Mode> mode = new EnumSetting<>("Mode",
 		"\u00a7lAuto\u00a7r mode renders the whole list if it fits onto the screen.\n"
 			+ "\u00a7lCount\u00a7r mode only renders the number of active hacks.\n"
@@ -86,6 +120,13 @@ public final class HackListOtf extends OtherFeature
 	private final CheckboxSetting animations = new CheckboxSetting("Animations",
 		"When enabled, entries slide into and out of the HackList as hacks are enabled and disabled.",
 		true);
+	private final HiddenHacksSetting hiddenHacksSetting =
+		new HiddenHacksSetting();
+	private final SettingGroup hiddenHacksGroup = new SettingGroup(
+		"Hide from HackList",
+		WText.literal(
+			"Choose which active hacks should not be shown in the HackList."))
+				.addChildren(hideFromHackListEnabled, hiddenHacksSetting);
 	
 	private SortBy prevSortBy;
 	private Boolean prevRevSort;
@@ -103,6 +144,9 @@ public final class HackListOtf extends OtherFeature
 	public HackListOtf()
 	{
 		super("HackList", "Shows a list of active hacks on the screen.");
+		hiddenHacksFile = new TooManyHaxFile(
+			WURST.getWurstFolder().resolve("toomanyhax_hacklist.json"),
+			hiddenHacks, false);
 		
 		addSetting(mode);
 		addSetting(position);
@@ -118,6 +162,63 @@ public final class HackListOtf extends OtherFeature
 		addSetting(sortBy);
 		addSetting(revSort);
 		addSetting(animations);
+		addSetting(hiddenHacksGroup);
+	}
+	
+	public void loadHiddenHacksFile()
+	{
+		hiddenHacksFile.load();
+	}
+	
+	public boolean isHidden(Hack hack)
+	{
+		return hideFromHackListEnabled.isChecked()
+			&& hiddenHacks.contains(hack);
+	}
+	
+	public void setHidden(Hack hack, boolean hidden)
+	{
+		if(hidden)
+		{
+			if(hiddenHacks.contains(hack))
+				return;
+			hiddenHacks.add(hack);
+			hiddenHacks
+				.sort(Comparator.comparing(f -> f.getName().toLowerCase()));
+		}else
+			hiddenHacks.remove(hack);
+		
+		hiddenHacksFile.save();
+		refreshGui();
+	}
+	
+	public int getEnabledHiddenHackCount()
+	{
+		if(!hideFromHackListEnabled.isChecked())
+			return 0;
+		
+		int count = 0;
+		for(net.wurstclient.Feature feature : hiddenHacks)
+			if(feature instanceof Hack hack && hack.isEnabled())
+				count++;
+		return count;
+	}
+	
+	private void refreshGui()
+	{
+		try
+		{
+			if(WURST.getGui() != null)
+				WURST.getGui().requestRefresh();
+		}catch(Exception ignored)
+		{}
+	}
+	
+	private List<Hack> getSortedHacks()
+	{
+		return WURST.getHax().getAllHax().stream()
+			.sorted(Comparator.comparing(h -> h.getName().toLowerCase()))
+			.collect(Collectors.toList());
 	}
 	
 	public Mode getMode()
@@ -211,6 +312,173 @@ public final class HackListOtf extends OtherFeature
 	public double getShadowBoxAlpha()
 	{
 		return shadowBoxAlpha.getValue();
+	}
+	
+	private final class HiddenHacksSetting extends Setting
+	{
+		private HiddenHacksSetting()
+		{
+			super("Hacks", WText.literal(
+				"Select active hacks that should not be shown in the HackList."));
+		}
+		
+		@Override
+		public Component getComponent()
+		{
+			HiddenHacksComponent component = new HiddenHacksComponent();
+			component.refreshSize();
+			return component;
+		}
+		
+		@Override
+		public void fromJson(JsonElement json)
+		{
+			// Stored separately in toomanyhax_hacklist.json.
+		}
+		
+		@Override
+		public JsonElement toJson()
+		{
+			return JsonNull.INSTANCE;
+		}
+		
+		@Override
+		public JsonObject exportWikiData()
+		{
+			JsonObject json = new JsonObject();
+			json.addProperty("name", getName());
+			json.addProperty("description", getDescription());
+			json.addProperty("type", "Custom");
+			return json;
+		}
+		
+		@Override
+		public java.util.Set<PossibleKeybind> getPossibleKeybinds(
+			String featureName)
+		{
+			return Collections.emptySet();
+		}
+	}
+	
+	private final class HiddenHacksComponent extends Component
+	{
+		private static final int ROW_HEIGHT = 11;
+		private static final int BOX_SIZE = 11;
+		
+		private void refreshSize()
+		{
+			refreshSize(getSortedHacks());
+		}
+		
+		private void refreshSize(List<Hack> hacks)
+		{
+			int desiredHeight =
+				Math.max(ROW_HEIGHT * Math.max(hacks.size(), 1), ROW_HEIGHT);
+			
+			if(getHeight() != desiredHeight)
+				setHeight(desiredHeight);
+		}
+		
+		@Override
+		public void handleMouseClick(double mouseX, double mouseY,
+			int mouseButton, MouseButtonEvent context)
+		{
+			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+				return;
+			
+			int mx = (int)Math.floor(mouseX);
+			int my = (int)Math.floor(mouseY);
+			if(!isHovering(mx, my))
+				return;
+			
+			List<Hack> hacks = getSortedHacks();
+			if(hacks.isEmpty())
+				return;
+			
+			int relativeY = my - getY();
+			if(relativeY < 0)
+				return;
+			
+			int index = relativeY / ROW_HEIGHT;
+			if(index < 0 || index >= hacks.size())
+				return;
+			
+			Hack hack = hacks.get(index);
+			setHidden(hack, !isHidden(hack));
+		}
+		
+		@Override
+		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, float partialTicks)
+		{
+			List<Hack> hacks = getSortedHacks();
+			refreshSize(hacks);
+			
+			if(hacks.isEmpty())
+			{
+				context.text(MC.font, "No hacks available.", getX() + 2,
+					getY() + 2, WURST.getGui().getTxtColor(), false);
+				return;
+			}
+			
+			ClickGui gui = WURST.getGui();
+			int x1 = getX();
+			int x2 = x1 + getWidth();
+			boolean hovering = isHovering(mouseX, mouseY);
+			
+			for(int i = 0; i < hacks.size(); i++)
+			{
+				Hack hack = hacks.get(i);
+				int y1 = getY() + i * ROW_HEIGHT;
+				int y2 = y1 + ROW_HEIGHT;
+				boolean hidden = isHidden(hack);
+				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
+				
+				if(rowHover)
+					gui.setTooltip(hack.getWrappedDescription(200));
+				
+				float[] bg = gui.getBgColor();
+				float opacity = gui.getOpacity();
+				float intensity = rowHover ? 1.2F : hidden ? 1.05F : 1.0F;
+				int boxX2 = x1 + BOX_SIZE;
+				
+				context.fill(boxX2, y1, x2, y2,
+					RenderUtils.toIntColor(bg, opacity * intensity));
+				context.fill(x1, y1, boxX2, y2, RenderUtils.toIntColor(bg,
+					opacity * (rowHover ? 1.3F : 1.0F)));
+				
+				int outlineColor =
+					RenderUtils.toIntColor(gui.getAcColor(), 0.5F);
+				RenderUtils.drawBorder2D(context, x1, y1, boxX2, y2,
+					outlineColor);
+				
+				if(hidden)
+					ClickGuiIcons.drawCheck(context, x1, y1, boxX2, y2,
+						rowHover, false);
+				
+				int textColor =
+					hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
+				context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+					textColor, false);
+			}
+		}
+		
+		@Override
+		public int getDefaultWidth()
+		{
+			int maxNameWidth = 0;
+			for(Hack hack : getSortedHacks())
+				maxNameWidth =
+					Math.max(maxNameWidth, MC.font.width(hack.getName()));
+			
+			return Math.max(130, BOX_SIZE + 4 + maxNameWidth);
+		}
+		
+		@Override
+		public int getDefaultHeight()
+		{
+			return 110;
+		}
 	}
 	
 	public static enum Mode

@@ -2129,7 +2129,7 @@ public final class XpGuiScreen extends Screen
 	{
 		TooManyHaxHack tooManyHax =
 			WurstClient.INSTANCE.getHax().tooManyHaxHack;
-		if(tooManyHax.isEnabled() && tooManyHax.isBlocked(feature))
+		if(tooManyHax.shouldBlockStarting(feature))
 		{
 			ChatUtils.error(feature.getName() + " is blocked by TooManyHax.");
 			return;
@@ -3732,9 +3732,8 @@ public final class XpGuiScreen extends Screen
 		if(hack == WurstClient.INSTANCE.getHax().globalToggleHack)
 			return false;
 		
-		return !(WurstClient.INSTANCE.getHax().tooManyHaxHack.isEnabled()
-			&& WurstClient.INSTANCE.getHax().tooManyHaxHack.isBlocked(hack)
-			&& !hack.isEnabled());
+		return !WurstClient.INSTANCE.getHax().tooManyHaxHack
+			.shouldHideEverywhere(hack);
 	}
 	
 	private boolean isInsideStartMenu(double mouseX, double mouseY)
