@@ -58,8 +58,8 @@ public final class PearlDropHack extends Hack
 	private static final double HONEY_SHAPE_INSET = 0.0625;
 	private static final double HONEY_SHAPE_TOP = 0.9375;
 	
-	private static final Direction[] HORIZONTAL_DIRECTIONS = {
-		Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+	private static final Direction[] HORIZONTAL_DIRECTIONS =
+		{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
 	
 	private BlockPos nearestColumn;
 	private BlockPos nearestHoney;
@@ -144,8 +144,8 @@ public final class PearlDropHack extends Hack
 			ready ? 0xE022FF66 : hasSolution ? 0xE0FFE066 : 0xE0FF5555;
 		RenderUtils.drawSolidBox(matrixStack, new AABB(column), columnFill,
 			false);
-		RenderUtils.drawOutlinedBox(matrixStack, new AABB(column), columnOutline,
-			false);
+		RenderUtils.drawOutlinedBox(matrixStack, new AABB(column),
+			columnOutline, false);
 		
 		if(honey != null)
 		{
@@ -240,26 +240,27 @@ public final class PearlDropHack extends Hack
 		for(int i = 0; i < checks; i++)
 		{
 			SetupCandidate setup = setups.get(i);
-			SimulationResult currentResult =
-				simulateTrajectory(currentYaw, currentPitch, setup.column,
-					setup.honey);
+			SimulationResult currentResult = simulateTrajectory(currentYaw,
+				currentPitch, setup.column, setup.honey);
 			
 			if(currentResult != null)
 			{
-				TrajectorySolution solution = new TrajectorySolution(setup.column,
-					setup.honey, currentYaw, currentPitch, currentResult.score,
-					0);
+				TrajectorySolution solution =
+					new TrajectorySolution(setup.column, setup.honey,
+						currentYaw, currentPitch, currentResult.score, 0);
 				
-				if(activeSolution == null || solution.score < activeSolution.score)
+				if(activeSolution == null
+					|| solution.score < activeSolution.score)
 					activeSolution = solution;
 			}
 			
-			TrajectorySolution nearbySolution = solveNearCurrentAim(setup.column,
-				setup.honey, currentYaw, currentPitch);
+			TrajectorySolution nearbySolution = solveNearCurrentAim(
+				setup.column, setup.honey, currentYaw, currentPitch);
 			
 			if(nearbySolution == null)
 				continue;
-			if(bestSolution == null || nearbySolution.score < bestSolution.score)
+			if(bestSolution == null
+				|| nearbySolution.score < bestSolution.score)
 				bestSolution = nearbySolution;
 		}
 		
@@ -278,7 +279,8 @@ public final class PearlDropHack extends Hack
 	}
 	
 	private void addSetupIfValid(ArrayList<SetupCandidate> setups, Vec3 eyes,
-		BlockPos column, BlockPos honey, ArrayList<BlockPos> standingHoneyBlocks)
+		BlockPos column, BlockPos honey,
+		ArrayList<BlockPos> standingHoneyBlocks)
 	{
 		if(!isHoney(honey))
 			return;
@@ -324,7 +326,8 @@ public final class PearlDropHack extends Hack
 		honeyBlocks.add(pos.immutable());
 	}
 	
-	private boolean containsBlockPos(ArrayList<BlockPos> positions, BlockPos pos)
+	private boolean containsBlockPos(ArrayList<BlockPos> positions,
+		BlockPos pos)
 	{
 		for(BlockPos current : positions)
 		{
@@ -335,8 +338,8 @@ public final class PearlDropHack extends Hack
 		return false;
 	}
 	
-	private TrajectorySolution solveNearCurrentAim(BlockPos column, BlockPos honey,
-		float currentYaw, float currentPitch)
+	private TrajectorySolution solveNearCurrentAim(BlockPos column,
+		BlockPos honey, float currentYaw, float currentPitch)
 	{
 		SearchResult best = null;
 		
@@ -346,8 +349,8 @@ public final class PearlDropHack extends Hack
 		if(best == null)
 			return null;
 		
-		best = searchRotations(column, honey, currentYaw, currentPitch, best.yaw,
-			best.pitch, REFINE_RANGE, REFINE_STEP, best);
+		best = searchRotations(column, honey, currentYaw, currentPitch,
+			best.yaw, best.pitch, REFINE_RANGE, REFINE_STEP, best);
 		
 		SimulationResult result =
 			simulateTrajectory(best.yaw, best.pitch, column, honey);
@@ -357,19 +360,19 @@ public final class PearlDropHack extends Hack
 		double aimError =
 			getAngleDifference(currentYaw, currentPitch, best.yaw, best.pitch);
 		double score = result.score + aimError * 0.08;
-		return new TrajectorySolution(column, honey, best.yaw, best.pitch, score,
-			aimError);
+		return new TrajectorySolution(column, honey, best.yaw, best.pitch,
+			score, aimError);
 	}
 	
 	private SearchResult searchRotations(BlockPos column, BlockPos honey,
-		float currentYaw, float currentPitch, float centerYaw, float centerPitch,
-		double range, double step, SearchResult best)
+		float currentYaw, float currentPitch, float centerYaw,
+		float centerPitch, double range, double step, SearchResult best)
 	{
-		for(double yawOffset = -range; yawOffset <= range + 1.0E-7;
-			yawOffset += step)
+		for(double yawOffset = -range; yawOffset <= range + 1.0E-7; yawOffset +=
+			step)
 		{
-			for(double pitchOffset = -range; pitchOffset <= range + 1.0E-7;
-				pitchOffset += step)
+			for(double pitchOffset = -range; pitchOffset <= range
+				+ 1.0E-7; pitchOffset += step)
 			{
 				float yaw = wrapDegrees((float)(centerYaw + yawOffset));
 				float pitch = (float)(centerPitch + pitchOffset);
@@ -440,10 +443,8 @@ public final class PearlDropHack extends Hack
 		BlockPos column, int tick)
 	{
 		AABB captureBox = new AABB(column.getX() + 0.5 - COLUMN_CAPTURE_RADIUS,
-			column.getY() + 0.03,
-			column.getZ() + 0.5 - COLUMN_CAPTURE_RADIUS,
-			column.getX() + 0.5 + COLUMN_CAPTURE_RADIUS,
-			column.getY() + 0.97,
+			column.getY() + 0.03, column.getZ() + 0.5 - COLUMN_CAPTURE_RADIUS,
+			column.getX() + 0.5 + COLUMN_CAPTURE_RADIUS, column.getY() + 0.97,
 			column.getZ() + 0.5 + COLUMN_CAPTURE_RADIUS);
 		
 		Double hit = getSegmentBoxIntersection(start, end, captureBox);
@@ -457,8 +458,8 @@ public final class PearlDropHack extends Hack
 		double dz = point.z - centerZ;
 		double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
 		double speedPenalty = Math.max(0, velocity.length() - 0.36) * 0.18;
-		double verticalPenalty = Math.abs(point.y - (column.getY() + 0.45))
-			* 0.08;
+		double verticalPenalty =
+			Math.abs(point.y - (column.getY() + 0.45)) * 0.08;
 		double tickPenalty = tick * 0.0015;
 		double score =
 			horizontalDistance + speedPenalty + verticalPenalty + tickPenalty;
@@ -470,9 +471,8 @@ public final class PearlDropHack extends Hack
 		AABB honeyCollision)
 	{
 		AABB pearlBox = getPearlBox(pos);
-		AABB honeyTouchBox = new AABB(honey.getX(), honey.getY(),
-			honey.getZ(), honey.getX() + 1, honey.getY() + HONEY_SHAPE_TOP,
-			honey.getZ() + 1);
+		AABB honeyTouchBox = new AABB(honey.getX(), honey.getY(), honey.getZ(),
+			honey.getX() + 1, honey.getY() + HONEY_SHAPE_TOP, honey.getZ() + 1);
 		
 		if(!pearlBox.intersects(honeyTouchBox))
 			return false;
@@ -532,9 +532,8 @@ public final class PearlDropHack extends Hack
 	
 	private AABB getPearlBox(Vec3 pos)
 	{
-		return new AABB(pos.x - PEARL_RADIUS, pos.y,
-			pos.z - PEARL_RADIUS, pos.x + PEARL_RADIUS,
-			pos.y + PEARL_HEIGHT, pos.z + PEARL_RADIUS);
+		return new AABB(pos.x - PEARL_RADIUS, pos.y, pos.z - PEARL_RADIUS,
+			pos.x + PEARL_RADIUS, pos.y + PEARL_HEIGHT, pos.z + PEARL_RADIUS);
 	}
 	
 	private AABB getHoneyCollisionBox(BlockPos honey)
