@@ -1328,18 +1328,11 @@ public final class ChestSearchScreen extends Screen
 				{
 					try
 					{
-						net.minecraft.resources.Identifier id =
-							net.minecraft.resources.Identifier
-								.tryParse(it.itemId);
-						if(id != null)
-						{
-							net.minecraft.world.item.Item item =
-								net.minecraft.core.registries.BuiltInRegistries.ITEM
-									.getValue(id);
-							net.minecraft.world.item.ItemStack stack =
-								new net.minecraft.world.item.ItemStack(item, 1);
+						net.minecraft.world.item.ItemStack stack =
+							net.wurstclient.chestsearch.ChestSearchItemStacks
+								.decode(it);
+						if(!stack.isEmpty())
 							context.item(stack, x + 2, lineY - 2);
-						}
 					}catch(Throwable ignored)
 					{}
 					String name =

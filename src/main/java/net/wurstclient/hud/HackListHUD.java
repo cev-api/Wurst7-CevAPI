@@ -41,6 +41,8 @@ public final class HackListHUD implements UpdateListener
 		if(otf.getMode() == Mode.HIDDEN)
 			return;
 		
+		removeTooManyHaxHiddenEntries();
+		
 		boolean isBottom = (otf.getPosition() == Position.BOTTOM_LEFT
 			|| otf.getPosition() == Position.BOTTOM_RIGHT);
 		// Factor both global UI scale and hacklist font size multiplier
@@ -103,6 +105,13 @@ public final class HackListHUD implements UpdateListener
 	
 	public void updateState(Hack hack)
 	{
+		if(WurstClient.INSTANCE.getHax().tooManyHaxHack
+			.shouldHideFromHackList(hack) || otf.isHidden(hack))
+		{
+			activeHax.remove(new HackListEntry(hack, 0));
+			return;
+		}
+		
 		int offset = otf.isAnimations() ? 4 : 0;
 		HackListEntry entry = new HackListEntry(hack, offset);
 		
@@ -128,6 +137,8 @@ public final class HackListHUD implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		removeTooManyHaxHiddenEntries();
+		
 		if(otf.shouldSort())
 			sort();
 		
@@ -138,6 +149,9 @@ public final class HackListHUD implements UpdateListener
 		{
 			HackListEntry e = itr.next();
 			boolean enabled = e.hack.isEnabled();
+			if(WurstClient.INSTANCE.getHax().tooManyHaxHack
+				.shouldHideFromHackList(e.hack) || otf.isHidden(e.hack))
+				enabled = false;
 			e.prevOffset = e.offset;
 			
 			if(enabled && e.offset > 0)
@@ -360,6 +374,12 @@ public final class HackListHUD implements UpdateListener
 	{
 		return UiScale.OVERRIDE_SCALE != 1.0 ? UiScale.OVERRIDE_SCALE
 			: UiScale.getScale();
+	}
+	
+	private void removeTooManyHaxHiddenEntries()
+	{
+		activeHax.removeIf(e -> WurstClient.INSTANCE.getHax().tooManyHaxHack
+			.shouldHideFromHackList(e.hack) || otf.isHidden(e.hack));
 	}
 	
 	private static final class HackListEntry

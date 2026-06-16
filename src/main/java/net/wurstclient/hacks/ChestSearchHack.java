@@ -56,6 +56,11 @@ public final class ChestSearchHack extends Hack
 	private final SliderSetting slotHighlightOpacity =
 		new SliderSetting("Slot highlight opacity", 45, 5, 100, 1,
 			ValueDisplay.INTEGER.withSuffix("%"));
+	private final ColorSetting mousePreviewBackground = new ColorSetting(
+		"Mouse preview background", new java.awt.Color(0x101010));
+	private final SliderSetting mousePreviewTransparency =
+		new SliderSetting("Mouse preview transparency", 82, 0, 100, 1,
+			ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting hideOpenedChestTracers =
 		new CheckboxSetting("Hide opened chest tracers",
 			"Disable tracer lines for opened chests recorded by ChestSearch.",
@@ -72,6 +77,18 @@ public final class ChestSearchHack extends Hack
 		new CheckboxSetting("Chat notifications",
 			"Show a chat notification when ChestSearch records a container.",
 			false);
+	private final CheckboxSetting displayOnMouse = new CheckboxSetting(
+		"Display on mouse",
+		"Shows a quick inventory preview when your mouse is over a known chest.",
+		false);
+	private final CheckboxSetting fixedPreviewPosition = new CheckboxSetting(
+		"Fixed preview position",
+		"Shows the mouse-over chest preview at a saved screen position that can be dragged.",
+		false);
+	private final SliderSetting previewX =
+		new SliderSetting("Preview X", 0, 0, 3840, 1, ValueDisplay.INTEGER);
+	private final SliderSetting previewY =
+		new SliderSetting("Preview Y", 0, 0, 2160, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting lootMismatchNotifications =
 		new CheckboxSetting("Loot mismatch notifications",
 			"Show a chat notification when a chest does not match the loot table.",
@@ -108,6 +125,12 @@ public final class ChestSearchHack extends Hack
 		addSetting(slotHighlightColor);
 		addSetting(slotHighlightOpacity);
 		addSetting(recordedChestNotifications);
+		addSetting(displayOnMouse);
+		addSetting(fixedPreviewPosition);
+		addSetting(previewX);
+		addSetting(previewY);
+		addSetting(mousePreviewBackground);
+		addSetting(mousePreviewTransparency);
 		addSetting(lootMismatchNotifications);
 		addSetting(consoleLogs);
 	}
@@ -142,6 +165,41 @@ public final class ChestSearchHack extends Hack
 	public boolean isRecordNotificationEnabled()
 	{
 		return recordedChestNotifications.isChecked();
+	}
+	
+	public boolean shouldDisplayOnMouse()
+	{
+		return displayOnMouse.isChecked();
+	}
+	
+	public boolean isFixedPreviewPosition()
+	{
+		return fixedPreviewPosition.isChecked();
+	}
+	
+	public int getPreviewX()
+	{
+		return previewX.getValueI();
+	}
+	
+	public int getPreviewY()
+	{
+		return previewY.getValueI();
+	}
+	
+	public void setPreviewPosition(int x, int y)
+	{
+		previewX.setValue(x);
+		previewY.setValue(y);
+	}
+	
+	public int getMousePreviewBackgroundARGB()
+	{
+		int rgb = mousePreviewBackground.getColor().getRGB() & 0x00FFFFFF;
+		int alpha = (int)Math
+			.round(255 * (mousePreviewTransparency.getValueF() / 100F));
+		alpha = Math.max(0, Math.min(255, alpha));
+		return (alpha << 24) | rgb;
 	}
 	
 	public boolean isLootMismatchNotificationEnabled()

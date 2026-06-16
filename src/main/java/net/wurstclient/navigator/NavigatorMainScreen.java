@@ -179,7 +179,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		WurstClient wurst = WurstClient.INSTANCE;
 		TooManyHaxHack tooManyHax = wurst.getHax().tooManyHaxHack;
 		
-		if(tooManyHax.isEnabled() && tooManyHax.isBlocked(feature))
+		if(tooManyHax.shouldBlockStarting(feature))
 		{
 			ChatUtils.error(feature.getName() + " is blocked by TooManyHax.");
 			return;

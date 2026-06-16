@@ -1671,8 +1671,8 @@ public final class AltGuiScreen extends Screen
 				{
 					TooManyHaxHack tooManyHax =
 						WurstClient.INSTANCE.getHax().tooManyHaxHack;
-					if(feature != tooManyHax && tooManyHax.isEnabled()
-						&& tooManyHax.isBlocked(feature))
+					if(feature != tooManyHax
+						&& tooManyHax.shouldBlockStarting(feature))
 					{
 						ChatUtils.error(
 							feature.getName() + " is blocked by TooManyHax.");
@@ -2681,7 +2681,7 @@ public final class AltGuiScreen extends Screen
 	{
 		TooManyHaxHack tooManyHax =
 			WurstClient.INSTANCE.getHax().tooManyHaxHack;
-		return tooManyHax.isEnabled() && tooManyHax.isBlocked(feature);
+		return tooManyHax.shouldHideEverywhere(feature);
 	}
 	
 	private void clampScroll()

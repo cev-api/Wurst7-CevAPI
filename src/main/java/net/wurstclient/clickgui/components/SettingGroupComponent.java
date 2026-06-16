@@ -16,6 +16,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Component;
+import net.wurstclient.other_features.HackListOtf;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.util.RenderUtils;
@@ -180,7 +181,8 @@ public final class SettingGroupComponent extends Component
 		context.fill(x1, y1, x2, y2, bgColor);
 		
 		int txtColor = WURST.getGui().getTxtColor();
-		context.text(MC.font, group.getName(), x1 + 4, y1 + 2, txtColor, false);
+		context.text(MC.font, getDisplayName(), x1 + 4, y1 + 2, txtColor,
+			false);
 		ClickGuiIcons.drawMinimizeArrow(context, x2 - 11, y1 + 1, x2 - 1,
 			y2 - 1, hoverHeader, !expanded);
 		
@@ -214,6 +216,19 @@ public final class SettingGroupComponent extends Component
 			child.extractRenderState(context, mouseX, mouseY, partialTicks);
 			childY += child.getHeight() + 2;
 		}
+	}
+	
+	private String getDisplayName()
+	{
+		if(!"Hide from HackList".equals(group.getName()))
+			return group.getName();
+		
+		HackListOtf hackListOtf = WURST.getOtfs().hackListOtf;
+		int hiddenCount = hackListOtf.getEnabledHiddenHackCount();
+		if(hiddenCount <= 0)
+			return group.getName();
+		
+		return group.getName() + " [Hidden " + hiddenCount + "]";
 	}
 	
 	@Override

@@ -78,7 +78,7 @@ public final class FeatureButton extends Component
 		}
 		
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
-		if(tooManyHax.isEnabled() && tooManyHax.isBlocked(feature))
+		if(tooManyHax.shouldBlockStarting(feature))
 		{
 			ChatUtils.error(feature.getName() + " is blocked by TooManyHax.");
 			return;

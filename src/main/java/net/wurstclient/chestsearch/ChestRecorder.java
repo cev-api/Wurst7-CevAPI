@@ -327,8 +327,9 @@ public class ChestRecorder
 			{}
 			try
 			{
+				it.nbt = ChestSearchItemStacks.encode(copy);
 				String n = copy.toString();
-				if(n != null && !n.isBlank())
+				if(it.nbt == null && n != null && !n.isBlank())
 				{
 					it.nbt = new JsonPrimitive(n);
 					if(n.contains("Enchantments")

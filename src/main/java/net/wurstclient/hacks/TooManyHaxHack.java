@@ -36,6 +36,7 @@ import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.keybinds.PossibleKeybind;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
@@ -50,6 +51,9 @@ public final class TooManyHaxHack extends Hack
 	private final ArrayList<Feature> blockedFeatures = new ArrayList<>();
 	private final Path profilesFolder;
 	private final TooManyHaxFile file;
+	private final CheckboxSetting hideOnly = new CheckboxSetting("Hide only",
+		"Only hides selected hacks from Wurst's UIs instead of blocking them from starting.",
+		false);
 	private final HackSelectionSetting hackSelectionSetting =
 		new HackSelectionSetting();
 	
@@ -57,6 +61,7 @@ public final class TooManyHaxHack extends Hack
 	{
 		super("TooManyHax");
 		setCategory(Category.OTHER);
+		addSetting(hideOnly);
 		addSetting(hackSelectionSetting);
 		
 		Path wurstFolder = WURST.getWurstFolder();
@@ -74,24 +79,25 @@ public final class TooManyHaxHack extends Hack
 	@Override
 	public String getRenderName()
 	{
-		return getName() + " [" + blockedFeatures.size() + " blocked]";
+		return getName() + " [" + blockedFeatures.size() + " hidden]";
 	}
 	
 	@Override
 	protected void onEnable()
 	{
-		disableBlockedHacks();
+		applyBlockedHacks();
 	}
 	
-	private void disableBlockedHacks()
+	private void applyBlockedHacks()
 	{
-		for(Feature feature : blockedFeatures)
-		{
-			if(!(feature instanceof Hack))
-				continue;
-			
-			((Hack)feature).setEnabled(false);
-		}
+		if(!hideOnly.isChecked())
+			for(Feature feature : blockedFeatures)
+			{
+				if(!(feature instanceof Hack))
+					continue;
+				
+				((Hack)feature).setEnabled(false);
+			}
 		// Refresh ClickGUI so hacks disabled by TooManyHax are hidden there.
 		refreshClickGui();
 	}
@@ -115,7 +121,7 @@ public final class TooManyHaxHack extends Hack
 	public void loadProfile(String fileName) throws IOException, JsonException
 	{
 		file.loadProfile(profilesFolder.resolve(fileName));
-		disableBlockedHacks();
+		applyBlockedHacks();
 	}
 	
 	public void saveProfile(String fileName) throws IOException, JsonException
@@ -128,12 +134,32 @@ public final class TooManyHaxHack extends Hack
 		return blockedFeatures.contains(feature);
 	}
 	
+	public boolean shouldBlockStarting(Feature feature)
+	{
+		return isEnabled() && !hideOnly.isChecked() && isBlocked(feature);
+	}
+	
+	public boolean shouldHideEverywhere(Feature feature)
+	{
+		return isEnabled() && isBlocked(feature);
+	}
+	
+	public boolean shouldHideFromHackList(Hack hack)
+	{
+		if(!isEnabled())
+			return false;
+		return hideOnly.isChecked() && blockedFeatures.contains(hack);
+	}
+	
 	public void setBlocked(Feature feature, boolean blocked)
 	{
 		if(blocked)
 		{
 			if(!feature.isSafeToBlock())
 				throw new IllegalArgumentException();
+			
+			if(blockedFeatures.contains(feature))
+				return;
 			
 			blockedFeatures.add(feature);
 			blockedFeatures
@@ -189,6 +215,11 @@ public final class TooManyHaxHack extends Hack
 		return Collections.unmodifiableList(blockedFeatures);
 	}
 	
+	private boolean isSelected(Hack hack)
+	{
+		return isBlocked(hack);
+	}
+	
 	private List<Hack> getSortedHacks()
 	{
 		return WURST.getHax().getAllHax().stream()
@@ -200,8 +231,8 @@ public final class TooManyHaxHack extends Hack
 	{
 		private HackSelectionSetting()
 		{
-			super("Blocked hacks", WText.literal(
-				"Select the hacks that TooManyHax should keep disabled."));
+			super("Hidden hacks",
+				WText.literal("Select the hacks that TooManyHax should hide."));
 		}
 		
 		@Override
@@ -294,8 +325,8 @@ public final class TooManyHaxHack extends Hack
 				return;
 			}
 			
-			boolean blocked = isBlocked(hack);
-			setBlocked(hack, !blocked);
+			boolean selected = isSelected(hack);
+			setBlocked(hack, !selected);
 		}
 		
 		@Override
@@ -323,7 +354,7 @@ public final class TooManyHaxHack extends Hack
 				Hack hack = hacks.get(i);
 				int y1 = getY() + i * ROW_HEIGHT;
 				int y2 = y1 + ROW_HEIGHT;
-				boolean blocked = isBlocked(hack);
+				boolean selected = isSelected(hack);
 				
 				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
 				if(rowHover)
@@ -336,7 +367,7 @@ public final class TooManyHaxHack extends Hack
 				
 				float[] bg = gui.getBgColor();
 				float opacity = gui.getOpacity();
-				float intensity = rowHover ? 1.2F : blocked ? 1.05F : 1.0F;
+				float intensity = rowHover ? 1.2F : selected ? 1.05F : 1.0F;
 				float rowOpacity = opacity * intensity;
 				if(!hack.isSafeToBlock())
 					rowOpacity *= 0.6F;
@@ -355,11 +386,12 @@ public final class TooManyHaxHack extends Hack
 				RenderUtils.drawBorder2D(context, x1, y1, boxX2, y2,
 					outlineColor);
 				
-				if(blocked)
+				if(selected)
 					ClickGuiIcons.drawCheck(context, x1, y1, boxX2, y2,
 						rowHover, !hack.isSafeToBlock());
 				
-				int textColor = gui.getTxtColor();
+				int textColor =
+					hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
 				if(!hack.isSafeToBlock())
 					textColor = (textColor & 0x00FFFFFF) | 0x55000000;
 				
