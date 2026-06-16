@@ -3818,6 +3818,9 @@ public final class AutoFlyHack extends Hack
 	
 	private boolean shouldRepath(Vec3 playerPos, double distHoriz)
 	{
+		if(isDirectionalForwardMode())
+			return false;
+			
 		// Recovery pathing is designed for ground navigation. In mid-air it can
 		// cause oscillation/stalls, so keep using direct flight controls.
 		if(MC.player != null && !MC.player.onGround())
@@ -3839,6 +3842,8 @@ public final class AutoFlyHack extends Hack
 	private void startRecoveryPath(Vec3 playerPos)
 	{
 		if(MC.level == null || MC.player == null)
+			return;
+		if(isDirectionalForwardMode())
 			return;
 		
 		lastRepathMs = System.currentTimeMillis();
@@ -3922,6 +3927,12 @@ public final class AutoFlyHack extends Hack
 		stuckRepathCount = 0;
 		lastProgressMs = System.currentTimeMillis();
 		lastProgressDist = Double.NaN;
+	}
+	
+	private boolean isDirectionalForwardMode()
+	{
+		return commandForwardUnlimited
+			&& routeType.getSelected() != RouteType.CHUNKS;
 	}
 	
 	private void resetAfterTickGap(long now)
