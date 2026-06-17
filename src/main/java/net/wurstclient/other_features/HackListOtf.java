@@ -28,6 +28,10 @@ import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.hacks.AltGuiHack;
+import net.wurstclient.hacks.ClickGuiHack;
+import net.wurstclient.hacks.NavigatorHack;
+import net.wurstclient.hacks.XpGuiHack;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.settings.CheckboxSetting;
@@ -217,8 +221,15 @@ public final class HackListOtf extends OtherFeature
 	private List<Hack> getSortedHacks()
 	{
 		return WURST.getHax().getAllHax().stream()
+			.filter(this::canAppearInHackList)
 			.sorted(Comparator.comparing(h -> h.getName().toLowerCase()))
 			.collect(Collectors.toList());
+	}
+	
+	private boolean canAppearInHackList(Hack hack)
+	{
+		return !(hack instanceof NavigatorHack || hack instanceof ClickGuiHack
+			|| hack instanceof AltGuiHack || hack instanceof XpGuiHack);
 	}
 	
 	public Mode getMode()
@@ -364,6 +375,8 @@ public final class HackListOtf extends OtherFeature
 	{
 		private static final int ROW_HEIGHT = 11;
 		private static final int BOX_SIZE = 11;
+		private static final int MAX_VISIBLE_ROWS = 10;
+		private int scrollOffset;
 		
 		private void refreshSize()
 		{
@@ -372,8 +385,9 @@ public final class HackListOtf extends OtherFeature
 		
 		private void refreshSize(List<Hack> hacks)
 		{
-			int desiredHeight =
-				Math.max(ROW_HEIGHT * Math.max(hacks.size(), 1), ROW_HEIGHT);
+			int visibleRows = Math.max(1,
+				Math.min(MAX_VISIBLE_ROWS, Math.max(hacks.size(), 1)));
+			int desiredHeight = ROW_HEIGHT * visibleRows;
 			
 			if(getHeight() != desiredHeight)
 				setHeight(desiredHeight);
@@ -399,7 +413,7 @@ public final class HackListOtf extends OtherFeature
 			if(relativeY < 0)
 				return;
 			
-			int index = relativeY / ROW_HEIGHT;
+			int index = scrollOffset + relativeY / ROW_HEIGHT;
 			if(index < 0 || index >= hacks.size())
 				return;
 			
@@ -408,11 +422,42 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
+		public boolean handleMouseScroll(double mouseX, double mouseY,
+			double delta)
+		{
+			int mx = (int)Math.floor(mouseX);
+			int my = (int)Math.floor(mouseY);
+			if(!isHovering(mx, my))
+				return false;
+			
+			List<Hack> hacks = getSortedHacks();
+			int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
+			int maxOffset = Math.max(0, hacks.size() - visibleRows);
+			if(maxOffset <= 0)
+				return true;
+			
+			int direction = (int)Math.signum(delta);
+			if(direction == 0)
+				return true;
+			
+			scrollOffset -= direction;
+			if(scrollOffset < 0)
+				scrollOffset = 0;
+			else if(scrollOffset > maxOffset)
+				scrollOffset = maxOffset;
+			return true;
+		}
+		
+		@Override
 		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
 			int mouseY, float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
 			refreshSize(hacks);
+			int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
+			int maxOffset = Math.max(0, hacks.size() - visibleRows);
+			if(scrollOffset > maxOffset)
+				scrollOffset = maxOffset;
 			
 			if(hacks.isEmpty())
 			{
@@ -424,17 +469,20 @@ public final class HackListOtf extends OtherFeature
 			ClickGui gui = WURST.getGui();
 			int x1 = getX();
 			int x2 = x1 + getWidth();
+			int yTop = getY();
+			int yBottom = yTop + getHeight();
 			boolean hovering = isHovering(mouseX, mouseY);
 			
-			for(int i = 0; i < hacks.size(); i++)
+			for(int row = 0; row < visibleRows; row++)
 			{
-				Hack hack = hacks.get(i);
-				int y1 = getY() + i * ROW_HEIGHT;
+				int index = scrollOffset + row;
+				int y1 = getY() + row * ROW_HEIGHT;
 				int y2 = y1 + ROW_HEIGHT;
-				boolean hidden = isHidden(hack);
+				Hack hack = index < hacks.size() ? hacks.get(index) : null;
+				boolean hidden = hack != null && isHidden(hack);
 				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
 				
-				if(rowHover)
+				if(rowHover && hack != null)
 					gui.setTooltip(hack.getWrappedDescription(200));
 				
 				float[] bg = gui.getBgColor();
@@ -456,10 +504,32 @@ public final class HackListOtf extends OtherFeature
 					ClickGuiIcons.drawCheck(context, x1, y1, boxX2, y2,
 						rowHover, false);
 				
-				int textColor =
-					hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
-				context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
-					textColor, false);
+				if(hack != null)
+				{
+					int textColor =
+						hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
+					context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+						textColor, false);
+				}
+			}
+			
+			if(maxOffset > 0)
+			{
+				int trackX1 = x2 - 3;
+				int trackX2 = x2 - 1;
+				int trackY1 = yTop;
+				int trackY2 = yBottom;
+				context.fill(trackX1, trackY1, trackX2, trackY2,
+					RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity()));
+				
+				double thumbHeight = Math.max(8,
+					getHeight() * (visibleRows / (double)hacks.size()));
+				double travel = Math.max(0, getHeight() - thumbHeight);
+				double thumbY =
+					trackY1 + travel * (scrollOffset / (double)maxOffset);
+				context.fill(trackX1, (int)Math.round(thumbY), trackX2,
+					(int)Math.round(thumbY + thumbHeight),
+					RenderUtils.toIntColor(gui.getAcColor(), 0.75F));
 			}
 		}
 		

@@ -60,7 +60,9 @@ public final class IngameHUD implements GUIRenderListener
 				new net.wurstclient.hacks.itemhandler.ItemHandlerHud();
 		itemHandlerHud.render(context, partialTicks);
 		performanceOverlay.render(context);
-		chestSearchMousePreview.render(context);
+		if(!(WurstClient.MC.screen instanceof net.minecraft.client.gui.screens.ChatScreen)
+			&& !(WurstClient.MC.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>))
+			chestSearchMousePreview.render(context);
 		
 		// pinned windows
 		if(!(WurstClient.MC.screen instanceof ClickGuiScreen)
@@ -71,5 +73,15 @@ public final class IngameHUD implements GUIRenderListener
 	public HackListHUD getHackList()
 	{
 		return hackList;
+	}
+	
+	public ChestSearchMousePreview getChestSearchMousePreview()
+	{
+		return chestSearchMousePreview;
+	}
+	
+	public GameStatsHud getGameStatsHud()
+	{
+		return gameStatsHud;
 	}
 }

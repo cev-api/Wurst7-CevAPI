@@ -105,6 +105,9 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final CheckboxSetting showAverages =
 		new CheckboxSetting("Show Averages", true);
 	
+	private final CheckboxSetting pinAboveHackList =
+		new CheckboxSetting("Pin above HackList", false);
+	
 	private final CheckboxSetting showGraph =
 		new CheckboxSetting("Show graph", false);
 	
@@ -163,6 +166,7 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		addSetting(hudOffsetY);
 		addSetting(showPrefixes);
 		addSetting(showAverages);
+		addSetting(pinAboveHackList);
 		addSetting(showGraph);
 		addSetting(separateGraphWindow);
 		addSetting(fpsGraphColor);
@@ -382,6 +386,11 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showAverages()
 	{
 		return showAverages.isChecked();
+	}
+	
+	public boolean pinAboveHackList()
+	{
+		return pinAboveHackList.isChecked();
 	}
 	
 	public boolean showGraph()

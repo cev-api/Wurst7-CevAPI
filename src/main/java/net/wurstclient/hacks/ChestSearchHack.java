@@ -85,6 +85,12 @@ public final class ChestSearchHack extends Hack
 		"Fixed preview position",
 		"Shows the mouse-over chest preview at a saved screen position that can be dragged.",
 		false);
+	private final EnumSetting<PreviewAnchor> previewAnchor =
+		new EnumSetting<>("Preview anchor",
+			"Choose where the fixed chest preview should pin itself.",
+			PreviewAnchor.values(), PreviewAnchor.DRAGGED);
+	private final SliderSetting previewAnchorGap = new SliderSetting(
+		"Preview anchor gap", 8, 0, 240, 1, ValueDisplay.INTEGER);
 	private final SliderSetting previewX =
 		new SliderSetting("Preview X", 0, 0, 3840, 1, ValueDisplay.INTEGER);
 	private final SliderSetting previewY =
@@ -127,6 +133,8 @@ public final class ChestSearchHack extends Hack
 		addSetting(recordedChestNotifications);
 		addSetting(displayOnMouse);
 		addSetting(fixedPreviewPosition);
+		addSetting(previewAnchor);
+		addSetting(previewAnchorGap);
 		addSetting(previewX);
 		addSetting(previewY);
 		addSetting(mousePreviewBackground);
@@ -180,6 +188,28 @@ public final class ChestSearchHack extends Hack
 	public int getPreviewX()
 	{
 		return previewX.getValueI();
+	}
+	
+	public PreviewAnchor getPreviewAnchor()
+	{
+		try
+		{
+			PreviewAnchor anchor = previewAnchor.getSelected();
+			return anchor != null ? anchor : PreviewAnchor.DRAGGED;
+		}catch(Throwable t)
+		{
+			return PreviewAnchor.DRAGGED;
+		}
+	}
+	
+	public int getPreviewAnchorGap()
+	{
+		return previewAnchorGap.getValueI();
+	}
+	
+	public boolean usesPinnedPreviewAnchor()
+	{
+		return getPreviewAnchor() != PreviewAnchor.DRAGGED;
 	}
 	
 	public int getPreviewY()
@@ -358,6 +388,30 @@ public final class ChestSearchHack extends Hack
 		private final String displayName;
 		
 		private OpenedChestMarker(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
+	}
+	
+	public enum PreviewAnchor
+	{
+		DRAGGED("Dragged"),
+		HUD_LEFT("HUD Left"),
+		HUD_RIGHT("HUD Right"),
+		TOP_LEFT("Top Left"),
+		TOP_RIGHT("Top Right"),
+		BOTTOM_LEFT("Bottom Left"),
+		BOTTOM_RIGHT("Bottom Right");
+		
+		private final String displayName;
+		
+		private PreviewAnchor(String displayName)
 		{
 			this.displayName = displayName;
 		}

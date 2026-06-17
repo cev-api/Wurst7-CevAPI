@@ -1563,7 +1563,9 @@ public class ItemHandlerHack extends Hack
 	{
 		if(entity == null || entity == MC.player)
 			return false;
-		if(entity instanceof Projectile || entity instanceof OwnableEntity)
+		if(entity instanceof Projectile projectile)
+			return isPlayerOwnedProjectile(projectile);
+		if(entity instanceof OwnableEntity)
 			return true;
 		
 		try
@@ -1577,6 +1579,12 @@ public class ItemHandlerHack extends Hack
 		{
 			return false;
 		}
+	}
+	
+	private static boolean isPlayerOwnedProjectile(Projectile projectile)
+	{
+		Entity owner = projectile.getOwner();
+		return owner instanceof Player;
 	}
 	
 	private Entity getEntityOwner(Entity entity)

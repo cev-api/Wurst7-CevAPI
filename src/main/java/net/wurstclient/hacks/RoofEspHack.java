@@ -499,6 +499,12 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		if(currentCount == lastAlertCount)
 			return;
 		
+		if(currentCount <= 0)
+		{
+			lastAlertCount = currentCount;
+			return;
+		}
+		
 		long now = System.currentTimeMillis();
 		long cooldownMs = alertCooldown.getValueI() * 1000L;
 		if(now - lastAlertMs < cooldownMs)

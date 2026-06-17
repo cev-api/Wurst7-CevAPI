@@ -184,6 +184,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		
 		// area
 		Rectangle area = new Rectangle(middleX - 154, 60, 308, height - 103);
+		int contentBottom = hasPrimaryAction ? height - 67 : height - 43;
+		int contentViewportHeight = contentBottom - area.y;
 		
 		// settings
 		if(window.countChildren() > 0)
@@ -196,42 +198,15 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				fontHeight = 9;
 			
 			windowComponentY = getStringHeight(text) + 2;
-			int windowBottom = windowComponentY + window.getInnerHeight();
-			int textHeight = getStringHeight(text);
-			
-			while(textHeight < windowBottom)
-			{
-				text += "\n";
-				textHeight += fontHeight;
-			}
 			cachedWindowContentHeight = window.getInnerHeight();
-			keybindTextOffset = windowComponentY + window.getInnerHeight() + 6;
 		}else
-		{
 			windowComponentY = getStringHeight(text) + 2;
-			keybindTextOffset = windowComponentY + 6;
-		}
 		
 		// keybinds
 		Set<PossibleKeybind> possibleKeybinds = feature.getPossibleKeybinds();
 		if(!possibleKeybinds.isEmpty())
 		{
 			StringBuilder kbText = new StringBuilder("Keybinds:");
-			
-			// add keybind button
-			ButtonData addKeybindButton =
-				new ButtonData(area.x + area.width - 16,
-					area.y + keybindTextOffset - 7, 12, 8, "+", 0x00ff00)
-				{
-					@Override
-					public void press()
-					{
-						// add keybind
-						WurstClient.MC.setScreen(new NavigatorNewKeybindScreen(
-							possibleKeybinds, NavigatorFeatureScreen.this));
-					}
-				};
-			buttonDatas.add(addKeybindButton);
 			
 			// keybind list
 			HashMap<String, String> possibleKeybindsMap = new HashMap<>();
@@ -280,33 +255,82 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			}
 			if(noKeybindsSet)
 				kbText.append("\nNone");
-			else
+			
+			keybindText = kbText.toString();
+			
+			ButtonData addKeybindButton = new ButtonData(
+				area.x + area.width - 16, 0, 12, 8, "+", 0x00ff00)
 			{
-				// remove keybind button
-				buttonDatas.add(new ButtonData(addKeybindButton.x,
-					addKeybindButton.y, addKeybindButton.width,
-					addKeybindButton.height, "-", 0xff0000)
+				@Override
+				public void press()
+				{
+					WurstClient.MC.setScreen(new NavigatorNewKeybindScreen(
+						possibleKeybinds, NavigatorFeatureScreen.this));
+				}
+			};
+			buttonDatas.add(addKeybindButton);
+			
+			if(!noKeybindsSet)
+			{
+				buttonDatas.add(new ButtonData(area.x + area.width - 16, 0, 12,
+					8, "-", 0xff0000)
 				{
 					@Override
 					public void press()
 					{
-						// remove keybind
 						minecraft.setScreen(new NavigatorRemoveKeybindScreen(
 							existingKeybinds, NavigatorFeatureScreen.this));
 					}
 				});
-				addKeybindButton.x -= 16;
 			}
-			
-			keybindText = kbText.toString();
 		}
 		
-		// text height
-		int windowBottom = windowComponentY + window.getInnerHeight();
 		int keybindHeight =
 			keybindText.isEmpty() ? 0 : getStringHeight(keybindText) + 8;
-		setContentHeight(
-			Math.max(getStringHeight(text), windowBottom) + keybindHeight);
+		if(window.countChildren() > 0)
+		{
+			int availableWindowHeight =
+				contentViewportHeight - windowComponentY - keybindHeight - 6;
+			window.setMaxHeight(Math.max(26, availableWindowHeight));
+			window.validate();
+			
+			int visibleWindowBottom =
+				windowComponentY + window.getHeight() - 13;
+			int textHeight = getStringHeight(text);
+			int fontHeight = minecraft.font.lineHeight;
+			if(fontHeight <= 0)
+				fontHeight = 9;
+			
+			while(textHeight < visibleWindowBottom)
+			{
+				text += "\n";
+				textHeight += fontHeight;
+			}
+			
+			keybindTextOffset = windowComponentY + window.getHeight() - 7;
+			cachedWindowContentHeight = window.getInnerHeight();
+			
+		}else
+			keybindTextOffset = windowComponentY + 6;
+		
+		if(!buttonDatas.isEmpty())
+		{
+			int buttonX = area.x + area.width - 16;
+			int buttonY = area.y + keybindTextOffset - 7;
+			buttonDatas.get(0).x = buttonX;
+			buttonDatas.get(0).y = buttonY;
+			if(buttonDatas.size() > 1)
+			{
+				buttonDatas.get(1).x = buttonX;
+				buttonDatas.get(1).y = buttonY;
+				buttonDatas.get(0).x -= 16;
+			}
+		}
+		
+		int visibleWindowBottom = window.countChildren() > 0
+			? windowComponentY + window.getHeight() - 13 : windowComponentY;
+		setContentHeight(Math.max(getStringHeight(text), visibleWindowBottom)
+			+ keybindHeight);
 	}
 	
 	@Override
@@ -354,10 +378,14 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			return;
 		}
 		
+		if(handleWindowScrollbarClick(x, y, button))
+			return;
+		
 		// component settings
 		WurstClient.INSTANCE.getGui().handleNavigatorMouseClick(
-			x - middleX + 154, y - 60 - scroll - windowComponentY, button,
-			window, context);
+			x - middleX + 154,
+			y - 60 - scroll - windowComponentY - window.getScrollOffset(),
+			button, window, context);
 	}
 	
 	private void goBack()
@@ -370,13 +398,45 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	protected void onMouseDrag(double mouseX, double mouseY, int button,
 		double double_3, double double_4)
 	{
-		
+		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+			&& window.isDraggingScrollbar())
+			window.dragScrollbarTo((int)mouseY);
 	}
 	
 	@Override
 	protected void onMouseRelease(double x, double y, int button)
 	{
+		window.stopDraggingScrollbar();
 		WurstClient.INSTANCE.getGui().handleMouseRelease(x, y, button);
+	}
+	
+	@Override
+	protected boolean onMouseScroll(double mouseX, double mouseY,
+		double verticalAmount)
+	{
+		if(verticalAmount == 0)
+			return false;
+		if(!isInsideVisibleWindow(mouseX, mouseY))
+			return false;
+		
+		if(WurstClient.INSTANCE.getGui()
+			.handleNavigatorComponentMouseScroll(mouseX - middleX + 154, mouseY
+				- 60 - scroll - windowComponentY - window.getScrollOffset(),
+				verticalAmount, window))
+			return true;
+		if(!window.isScrollingEnabled())
+			return false;
+		
+		int scrollAmount = (int)verticalAmount * 4;
+		if(scrollAmount == 0)
+			return false;
+		
+		int scrollOffset = window.getScrollOffset() + scrollAmount;
+		scrollOffset = Math.min(scrollOffset, 0);
+		scrollOffset = Math.max(scrollOffset,
+			-window.getInnerHeight() + window.getHeight() - 13);
+		window.setScrollOffset(scrollOffset);
+		return true;
 	}
 	
 	@Override
@@ -428,7 +488,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			keybindText.isEmpty() ? 0 : getStringHeight(keybindText) + 8;
 		if(innerHeight != cachedWindowContentHeight)
 		{
-			int desiredBottom = windowComponentY + innerHeight;
+			int desiredBottom = windowComponentY + window.getHeight() - 13;
 			int textHeight = getStringHeight(text);
 			int fontHeight = minecraft.font.lineHeight;
 			if(fontHeight <= 0)
@@ -439,28 +499,61 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				textHeight += fontHeight;
 			}
 			
-			keybindTextOffset = windowComponentY + innerHeight + 6;
+			keybindTextOffset = windowComponentY + window.getHeight() - 7;
 			setContentHeight(Math.max(textHeight, desiredBottom) + extraPadding
 				+ keybindHeight);
 			cachedWindowContentHeight = innerHeight;
 		}else
-			setContentHeight(
-				Math.max(getStringHeight(text), windowComponentY + innerHeight)
-					+ extraPadding + keybindHeight);
+			setContentHeight(Math.max(getStringHeight(text),
+				windowComponentY + window.getHeight() - 13) + extraPadding
+				+ keybindHeight);
 		
 		window.setY(windowY1 - 13);
 		matrixStack.pushMatrix();
-		matrixStack.translate(bgx1, windowY1);
+		int x1 = 0;
+		int y1 = -13;
+		int x2 = x1 + window.getWidth();
+		int y2 = y1 + window.getHeight();
+		int y3 = y1 + 13;
+		int x3 = x1 + 2;
+		int x4 = window.isScrollingEnabled() ? x2 - 3 : x2;
+		int x5 = x4 - 2;
+		int y4 = windowY1 + window.getScrollOffset();
+		
+		if(window.isScrollingEnabled())
+		{
+			int xs1 = x2 - 3;
+			int xs2 = xs1 + 2;
+			int xs3 = x2;
+			
+			double outerHeight = window.getHeight() - 13;
+			double maxScrollbarHeight = outerHeight - 2;
+			double scrollbarY =
+				outerHeight * (-window.getScrollOffset() / (double)innerHeight)
+					+ 1;
+			double scrollbarHeight =
+				maxScrollbarHeight * outerHeight / (double)innerHeight;
+			
+			int ys1 = windowY1;
+			int ys2 = ys1 + (int)outerHeight;
+			int ys3 = ys1 + (int)scrollbarY;
+			int ys4 = ys3 + (int)scrollbarHeight;
+			
+			context.fill(bgx1 + xs2, ys1, bgx1 + xs3, ys2,
+				getBackgroundColor());
+			context.fill(bgx1 + xs1, ys1, bgx1 + xs2, ys3,
+				getBackgroundColor());
+			context.fill(bgx1 + xs1, ys4, bgx1 + xs2, ys2,
+				getBackgroundColor());
+			context.fill(bgx1 + xs1, ys3, bgx1 + xs2, ys4,
+				RenderUtils.toIntColor(gui.getAcColor(), 0.75F));
+		}
+		
+		context.enableScissor(bgx1, windowY1, bgx2,
+			windowY1 + window.getHeight() - 13);
+		matrixStack.translate(bgx1, y4);
 		
 		{
-			int x1 = 0;
-			int y1 = -13;
-			int x2 = x1 + window.getWidth();
-			int y2 = y1 + window.getHeight();
-			int y3 = y1 + 13;
-			int x3 = x1 + 2;
-			int x5 = x2 - 2;
-			
 			// window background
 			// left & right
 			int bgColor = getBackgroundColor();
@@ -501,32 +594,35 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		for(int i = 0; i < window.countChildren(); i++)
 		{
 			Component child = window.getChild(i);
-			if(child.getY() + child.getHeight() < bgy1 - windowY1)
+			if(child.getY() + child.getHeight() < bgy1 - y4)
 				continue;
-			if(child.getY() > bgy3 - windowY1)
+			if(child.getY() > window.getHeight() - 13
+				- window.getScrollOffset())
 				break;
 			
-			child.extractRenderState(context, mouseX - bgx1, mouseY - windowY1,
+			child.extractRenderState(context, mouseX - bgx1, mouseY - y4,
 				partialTicks);
 		}
 		matrixStack.popMatrix();
+		context.disableScissor();
+		context.enableScissor(bgx1, bgy1, bgx2, bgy3);
 		
 		// buttons
 		activeButton = null;
 		for(ButtonData buttonData : buttonDatas)
 		{
 			// positions
-			int x1 = buttonData.x;
-			int x2 = x1 + buttonData.width;
-			int y1 = buttonData.y + scroll;
-			int y2 = y1 + buttonData.height;
+			int bx1 = buttonData.x;
+			int bx2 = bx1 + buttonData.width;
+			int by1 = buttonData.y + scroll;
+			int by2 = by1 + buttonData.height;
 			
 			// color
 			float alpha;
 			if(buttonData.isLocked())
 				alpha = 0.25F;
-			else if(mouseX >= x1 && mouseX <= x2 && mouseY >= y1
-				&& mouseY <= y2)
+			else if(mouseX >= bx1 && mouseX <= bx2 && mouseY >= by1
+				&& mouseY <= by2)
 			{
 				alpha = 0.75F;
 				activeButton = buttonData;
@@ -535,13 +631,13 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			float[] rgb = buttonData.color.getColorComponents(null);
 			
 			// button
-			drawBox(context, x1, y1, x2, y2,
+			drawBox(context, bx1, by1, bx2, by2,
 				RenderUtils.toIntColor(rgb, alpha));
 			
 			// text
 			context.guiRenderState.up();
 			context.centeredText(minecraft.font, buttonData.buttonText,
-				(x1 + x2) / 2, y1 + (buttonData.height - 10) / 2 + 1,
+				(bx1 + bx2) / 2, by1 + (buttonData.height - 10) / 2 + 1,
 				buttonData.isLocked() ? WurstColors.VERY_LIGHT_GRAY
 					: buttonData.textColor);
 		}
@@ -572,14 +668,14 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		for(AbstractWidget button : Screens.getWidgets(this))
 		{
 			// positions
-			int x1 = button.getX();
-			int x2 = x1 + button.getWidth();
-			int y1 = button.getY();
-			int y2 = y1 + 18;
+			int bx1 = button.getX();
+			int bx2 = bx1 + button.getWidth();
+			int by1 = button.getY();
+			int by2 = by1 + 18;
 			
 			// color
-			boolean hovering =
-				mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
+			boolean hovering = mouseX >= bx1 && mouseX <= bx2 && mouseY >= by1
+				&& mouseY <= by2;
 			int buttonColor;
 			if(feature.isEnabled() && button == primaryButton)
 				buttonColor = hovering ? 0x4000FF00 : 0x4000E000;
@@ -587,13 +683,13 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				buttonColor = hovering ? 0x40606060 : 0x40404040;
 			
 			// button
-			drawBox(context, x1, y1, x2, y2, buttonColor);
+			drawBox(context, bx1, by1, bx2, by2, buttonColor);
 			
 			// text
 			String buttonText = button.getMessage().getString();
 			context.guiRenderState.up();
 			context.text(minecraft.font, buttonText,
-				(x1 + x2 - minecraft.font.width(buttonText)) / 2, y1 + 5,
+				(bx1 + bx2 - minecraft.font.width(buttonText)) / 2, by1 + 5,
 				txtColor, false);
 		}
 		
@@ -646,6 +742,49 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	public int getTextHeight()
 	{
 		return getStringHeight(text);
+	}
+	
+	private boolean handleWindowScrollbarClick(double mouseX, double mouseY,
+		int mouseButton)
+	{
+		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+			|| !window.isScrollingEnabled())
+			return false;
+		if(!isInsideVisibleWindow(mouseX, mouseY))
+			return false;
+		
+		int relativeMouseX = (int)(mouseX - (middleX - 154));
+		int relativeMouseY = (int)(mouseY - (60 + scroll + windowComponentY));
+		int scrollbarX = window.getWidth() - 3;
+		if(relativeMouseX < scrollbarX || relativeMouseX >= window.getWidth())
+			return false;
+		
+		double outerHeight = window.getHeight() - 13;
+		double innerHeight = window.getInnerHeight();
+		double maxScrollbarHeight = outerHeight - 2;
+		int scrollbarY =
+			(int)(outerHeight * (-window.getScrollOffset() / innerHeight) + 1);
+		int scrollbarHeight =
+			(int)(maxScrollbarHeight * outerHeight / innerHeight);
+		
+		if(relativeMouseY < scrollbarY
+			|| relativeMouseY >= scrollbarY + scrollbarHeight)
+			return false;
+		
+		window.startDraggingScrollbar((int)mouseY);
+		return true;
+	}
+	
+	private boolean isInsideVisibleWindow(double mouseX, double mouseY)
+	{
+		if(window.countChildren() == 0)
+			return false;
+		
+		int x1 = middleX - 154;
+		int x2 = x1 + window.getWidth();
+		int y1 = 60 + scroll + windowComponentY;
+		int y2 = y1 + window.getHeight() - 13;
+		return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
 	}
 	
 	public abstract static class ButtonData extends Rectangle
