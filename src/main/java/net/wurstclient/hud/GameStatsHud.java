@@ -25,6 +25,8 @@ import net.minecraft.stats.Stats;
 import net.minecraft.world.entity.EntityType;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.GameStatsHack;
+import net.wurstclient.other_features.HackListOtf;
+import net.wurstclient.other_features.HackListOtf.Position;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.ServerObserver;
 
@@ -48,6 +50,7 @@ public final class GameStatsHud
 	private static final float GRAPH_WINDOW_BASE_X = 8F;
 	private static final float GRAPH_WINDOW_BASE_Y = 8F;
 	private static final int GRAPH_RESIZE_MARGIN = 8;
+	private static final float HACKLIST_GAP = 2F;
 	private static final DateTimeFormatter TIME_FORMAT =
 		DateTimeFormatter.ofPattern("HH:mm:ss");
 	
@@ -126,13 +129,38 @@ public final class GameStatsHud
 		float boxWidth = maxTextWidth + PADDING * 2F;
 		float boxHeight = textHeight + PADDING * 2F;
 		
-		float x = BASE_X + getCurrentOffsetX();
-		float y = BASE_Y + getCurrentOffsetY();
+		boolean pinnedAboveHackList = hack.pinAboveHackList();
+		float anchorX = BASE_X;
+		float anchorY = BASE_Y;
+		if(pinnedAboveHackList)
+		{
+			HackListOtf hackListOtf =
+				WurstClient.INSTANCE.getOtfs().hackListOtf;
+			Position position = hackListOtf.getPosition();
+			boolean isLeft = position == Position.TOP_LEFT
+				|| position == Position.BOTTOM_LEFT;
+			boolean isTop =
+				position == Position.TOP_LEFT || position == Position.TOP_RIGHT;
+			if(isTop)
+			{
+				anchorX =
+					isLeft ? 2 + hackListOtf.getXOffset() : context.guiWidth()
+						- boxWidth - 2 + hackListOtf.getXOffset();
+				anchorY = 2 + hackListOtf.getYOffset();
+				if(isLeft
+					&& WurstClient.INSTANCE.getOtfs().wurstLogoOtf.isVisible())
+					anchorY = Math.max(anchorY, 22 + hackListOtf.getYOffset());
+			}
+		}
 		
-		handleDrag(context, x, y, boxWidth, boxHeight);
+		float x = pinnedAboveHackList ? anchorX : anchorX + getCurrentOffsetX();
+		float y = pinnedAboveHackList ? anchorY : anchorY + getCurrentOffsetY();
 		
-		x = BASE_X + getCurrentOffsetX();
-		y = BASE_Y + getCurrentOffsetY();
+		if(!pinnedAboveHackList)
+			handleDrag(context, x, y, boxWidth, boxHeight);
+		
+		x = pinnedAboveHackList ? anchorX : anchorX + getCurrentOffsetX();
+		y = pinnedAboveHackList ? anchorY : anchorY + getCurrentOffsetY();
 		
 		if(hack.hasBackgroundBox())
 		{
@@ -160,6 +188,23 @@ public final class GameStatsHud
 				false, scale);
 			drawY += lineHeight + LINE_GAP;
 		}
+	}
+	
+	public boolean isPinnedAboveHackList()
+	{
+		return hack != null && hack.isEnabled() && hack.pinAboveHackList();
+	}
+	
+	public int getHackListReservedHeight(GuiGraphicsExtractor context)
+	{
+		if(!isPinnedAboveHackList() || MC == null || MC.font == null)
+			return 0;
+		
+		Layout layout = buildLayout();
+		if(layout == null)
+			return 0;
+		
+		return (int)Math.ceil(layout.boxHeight() + HACKLIST_GAP);
 	}
 	
 	private List<String> buildLines()
@@ -416,6 +461,42 @@ public final class GameStatsHud
 		String value)
 	{
 		return showPrefix ? prefix + ": " + value : value;
+	}
+	
+	private Layout buildLayout()
+	{
+		if(MC == null || hack == null || MC.font == null)
+			return null;
+		
+		double scale = hack.getFontScale();
+		List<String> lines = buildLines();
+		if(lines.isEmpty())
+			return null;
+		
+		boolean renderGraph = shouldRenderGraph();
+		boolean separateGraphWindow = renderGraph && hack.separateGraphWindow();
+		
+		float maxTextWidth = 0F;
+		for(String line : lines)
+			maxTextWidth =
+				Math.max(maxTextWidth, (float)(MC.font.width(line) * scale));
+		
+		float lineHeight = (float)(MC.font.lineHeight * scale);
+		float textHeight = lines.size() * lineHeight
+			+ Math.max(0, lines.size() - 1) * LINE_GAP;
+		float graphBlockHeight = 0F;
+		if(renderGraph && !separateGraphWindow)
+		{
+			float graphGap = Math.max(2F, GRAPH_GAP * (float)scale);
+			float graphToTextGap =
+				Math.max(1F, GRAPH_TO_TEXT_GAP * (float)scale);
+			float graphHeight = Math.max(12F, GRAPH_HEIGHT * (float)scale);
+			graphBlockHeight = graphGap + graphToTextGap + graphHeight;
+		}
+		
+		float boxWidth = maxTextWidth + PADDING * 2F;
+		float boxHeight = textHeight + PADDING * 2F + graphBlockHeight;
+		return new Layout(scale, boxWidth, boxHeight);
 	}
 	
 	private int getSessionMobKills()
@@ -685,6 +766,9 @@ public final class GameStatsHud
 	{
 		return (Math.max(0, Math.min(255, alpha)) << 24) | (rgb & 0x00FFFFFF);
 	}
+	
+	private static record Layout(double scale, float boxWidth, float boxHeight)
+	{}
 	
 	private static final class MovementPoint
 	{

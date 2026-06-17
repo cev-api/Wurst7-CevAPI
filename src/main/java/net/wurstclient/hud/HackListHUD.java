@@ -29,6 +29,10 @@ public final class HackListHUD implements UpdateListener
 	private int posY;
 	private int textColor;
 	private boolean usePerHackColors;
+	private int lastRenderX;
+	private int lastRenderY;
+	private int lastRenderWidth;
+	private int lastRenderHeight;
 	
 	public HackListHUD()
 	{
@@ -37,6 +41,11 @@ public final class HackListHUD implements UpdateListener
 	
 	public void render(GuiGraphics context, float partialTicks)
 	{
+		lastRenderX = 0;
+		lastRenderY = 0;
+		lastRenderWidth = 0;
+		lastRenderHeight = 0;
+		
 		if(otf.getMode() == Mode.HIDDEN)
 			return;
 		
@@ -52,6 +61,13 @@ public final class HackListHUD implements UpdateListener
 			: count * lineHeight + Math.max(0, count - 1) * spacing;
 		
 		int baseY = isBottom ? context.guiHeight() - height - 2 : 2;
+		if(!isBottom)
+		{
+			IngameHUD hud = WurstClient.INSTANCE.getHud();
+			if(hud != null)
+				baseY +=
+					hud.getGameStatsHud().getHackListReservedHeight(context);
+		}
 		// Avoid overlapping with Wurst Logo in top-left
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
@@ -59,6 +75,17 @@ public final class HackListHUD implements UpdateListener
 			posY = Math.max(baseY, 22);
 		else
 			posY = baseY;
+		
+		int contentWidth = getContentWidth();
+		int drawX = getContentX(context, contentWidth);
+		int drawY = posY + otf.getYOffset();
+		if(contentWidth > 0 && height > 0)
+		{
+			lastRenderX = drawX;
+			lastRenderY = drawY;
+			lastRenderWidth = contentWidth;
+			lastRenderHeight = height;
+		}
 		
 		// color
 		boolean rainbowUi =
@@ -379,6 +406,62 @@ public final class HackListHUD implements UpdateListener
 	{
 		activeHax.removeIf(e -> WurstClient.INSTANCE.getHax().tooManyHaxHack
 			.shouldHideFromHackList(e.hack) || otf.isHidden(e.hack));
+	}
+	
+	public int getLastRenderX()
+	{
+		return lastRenderX;
+	}
+	
+	public int getLastRenderY()
+	{
+		return lastRenderY;
+	}
+	
+	public int getLastRenderWidth()
+	{
+		return lastRenderWidth;
+	}
+	
+	public int getLastRenderHeight()
+	{
+		return lastRenderHeight;
+	}
+	
+	private int getContentWidth()
+	{
+		Font tr = WurstClient.MC.font;
+		double scale = getScale() * otf.getFontSize();
+		if(tr == null)
+			return 0;
+		
+		if(otf.getMode() == Mode.COUNT)
+		{
+			long size =
+				activeHax.stream().filter(e -> e.hack.isEnabled()).count();
+			String s = size + " hack" + (size != 1 ? "s" : "") + " active";
+			return (int)(tr.width(s) * scale);
+		}
+		
+		int maxWidth = 0;
+		for(HackListEntry e : activeHax)
+		{
+			String statusText = e.hack.getStatusText();
+			int width = (int)(tr.width(e.hack.getRenderName()) * scale);
+			if(statusText != null)
+				width += (int)(tr.width(statusText) * scale);
+			maxWidth = Math.max(maxWidth, width);
+		}
+		return maxWidth;
+	}
+	
+	private int getContentX(GuiGraphicsExtractor context, int contentWidth)
+	{
+		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
+			|| otf.getPosition() == Position.BOTTOM_LEFT);
+		if(isLeft)
+			return 2 + otf.getXOffset();
+		return context.guiWidth() - contentWidth - 2 + otf.getXOffset();
 	}
 	
 	private static final class HackListEntry

@@ -83,6 +83,14 @@ public abstract class HandledScreenMixin
 			return;
 		}
 		
+		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.handleMouseClick(context.x(), context.y(), context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
 		EnchantmentHandlerHack enchantHack =
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(enchantHack != null && enchantHack.isEnabled()
@@ -107,6 +115,14 @@ public abstract class HandledScreenMixin
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseScroll(mouseX, mouseY,
 			verticalAmount))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
+		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.handleMouseScroll(mouseX, mouseY, verticalAmount))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
@@ -142,7 +158,9 @@ public abstract class HandledScreenMixin
 		{
 			cir.setReturnValue(true);
 			cir.cancel();
+			return;
 		}
+		
 	}
 	
 	@Inject(at = @At("TAIL"),
@@ -190,6 +208,14 @@ public abstract class HandledScreenMixin
 		
 		if(WurstClient.INSTANCE.getGui().handlePinnedMouseRelease(context.x(),
 			context.y(), context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
+		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.handleMouseRelease(context.button()))
 		{
 			cir.setReturnValue(true);
 			cir.cancel();

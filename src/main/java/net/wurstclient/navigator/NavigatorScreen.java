@@ -129,6 +129,9 @@ public abstract class NavigatorScreen extends Screen
 			mouseY, verticalAmount))
 			return true;
 		
+		if(onMouseScroll(mouseX, mouseY, verticalAmount))
+			return true;
+		
 		// scrollbar
 		if(!scrollbarLocked)
 		{
@@ -219,6 +222,12 @@ public abstract class NavigatorScreen extends Screen
 		int button, double double_3, double double_4);
 	
 	protected abstract void onMouseRelease(double x, double y, int button);
+	
+	protected boolean onMouseScroll(double mouseX, double mouseY,
+		double verticalAmount)
+	{
+		return false;
+	}
 	
 	protected abstract void onUpdate();
 	

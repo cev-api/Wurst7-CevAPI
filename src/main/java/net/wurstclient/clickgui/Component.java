@@ -30,6 +30,11 @@ public abstract class Component
 		
 	}
 	
+	public boolean handleMouseScroll(double mouseX, double mouseY, double delta)
+	{
+		return false;
+	}
+	
 	public abstract void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks);
 	

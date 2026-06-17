@@ -18,6 +18,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
+import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -83,5 +84,24 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 			WurstClient.INSTANCE.getHax().enchantmentHandlerHack;
 		if(hack != null && hack.isEnabled())
 			hack.renderOnHandledScreen(screen, graphics, partialTicks);
+	}
+	
+	@Inject(at = @At("TAIL"),
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void wurst$renderChestSearchPreviewOnScreens(
+		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
+	{
+		if(!WurstClient.INSTANCE.isEnabled()
+			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		if((Object)this instanceof InventoryScreen)
+			return;
+		if(!((Object)this instanceof ChatScreen)
+			&& !((Object)this instanceof AbstractContainerScreen<?>))
+			return;
+		
+		WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.render(graphics);
 	}
 }

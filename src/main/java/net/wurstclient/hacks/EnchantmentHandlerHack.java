@@ -50,6 +50,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ItemUtils;
@@ -123,6 +124,12 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Include shulker contents", true);
 	private final CheckboxSetting showOnInventoryScreen =
 		new CheckboxSetting("Show on inventory screen", true);
+	private final EnumSetting<PanelAnchor> panelAnchor = new EnumSetting<>(
+		"Panel anchor",
+		"Pin the panel to the left, right, top, or bottom of the current inventory/container.",
+		PanelAnchor.values(), PanelAnchor.LEFT);
+	private final SliderSetting panelAnchorGap = new SliderSetting(
+		"Panel anchor gap", 6, 0, 240, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting slotHighlightEnabled =
 		new CheckboxSetting("Slot highlight", true);
 	private final ColorSetting slotHighlightColor =
@@ -191,6 +198,8 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
 		addSetting(showOnInventoryScreen);
+		addSetting(panelAnchor);
+		addSetting(panelAnchorGap);
 		addSetting(slotHighlightEnabled);
 		addSetting(slotHighlightColor);
 		addSetting(slotHighlightOpacity);
@@ -308,19 +317,14 @@ public final class EnchantmentHandlerHack extends Hack
 				Math.max(60, windowHeight - 10));
 		
 		renderingInventoryScreen = screen instanceof InventoryScreen;
-		int defaultX = accessor.getX() - panelWidth - PANEL_PADDING;
-		int defaultY = accessor.getY();
-		if(renderingInventoryScreen)
-		{
-			defaultX = accessor.getX();
-			defaultY = accessor.getY() + accessor.getBackgroundHeight()
-				+ PANEL_PADDING;
-		}
-		if(renderingInventoryScreen && inventoryCustomPosition)
+		int defaultX = getAnchoredPanelX(accessor);
+		int defaultY = getAnchoredPanelY(accessor);
+		boolean freePosition = usesFreePosition();
+		if(freePosition && renderingInventoryScreen && inventoryCustomPosition)
 		{
 			panelX = inventoryPanelX;
 			panelY = inventoryPanelY;
-		}else if(!renderingInventoryScreen && customPosition)
+		}else if(freePosition && !renderingInventoryScreen && customPosition)
 		{
 			panelX = containerPanelX;
 			panelY = containerPanelY;
@@ -345,11 +349,11 @@ public final class EnchantmentHandlerHack extends Hack
 		panelX =
 			Mth.clamp(panelX, 2 - panelWidth, windowWidth - panelWidth - 2);
 		panelY = Mth.clamp(panelY, 2, windowHeight - panelHeight - 2);
-		if(renderingInventoryScreen && inventoryCustomPosition)
+		if(freePosition && renderingInventoryScreen && inventoryCustomPosition)
 		{
 			inventoryPanelX = panelX;
 			inventoryPanelY = panelY;
-		}else if(!renderingInventoryScreen && customPosition)
+		}else if(freePosition && !renderingInventoryScreen && customPosition)
 		{
 			containerPanelX = panelX;
 			containerPanelY = panelY;
@@ -376,6 +380,8 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		if(button == 0 && isInsideDragBar(mouseX, mouseY))
 		{
+			if(!usesFreePosition())
+				return true;
 			startPanelDrag(mouseX, mouseY);
 			return true;
 		}
@@ -531,6 +537,8 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private void startPanelDrag(double mouseX, double mouseY)
 	{
+		if(!usesFreePosition())
+			return;
 		panelDragging = true;
 		dragOffsetX = (int)Math.round(mouseX - panelX);
 		dragOffsetY = (int)Math.round(mouseY - panelY);
@@ -542,6 +550,8 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	private void savePanelPosition()
 	{
+		if(!usesFreePosition())
+			return;
 		if(renderingInventoryScreen)
 		{
 			savedInventoryPosition.setChecked(inventoryCustomPosition);
@@ -560,6 +570,48 @@ public final class EnchantmentHandlerHack extends Hack
 	{
 		setting.setVisibleInGui(false);
 		addSetting(setting);
+	}
+	
+	private boolean usesFreePosition()
+	{
+		return panelAnchor.getSelected() == PanelAnchor.FREE;
+	}
+	
+	private int getAnchoredPanelX(HandledScreenAccessor accessor)
+	{
+		int gap = panelAnchorGap.getValueI();
+		return switch(panelAnchor.getSelected())
+		{
+			case LEFT -> accessor.getX() - panelWidth - gap;
+			case RIGHT -> accessor.getX() + accessor.getBackgroundWidth() + gap;
+			case TOP, BOTTOM -> accessor.getX()
+				+ (accessor.getBackgroundWidth() - panelWidth) / 2;
+			case FREE ->
+			{
+				if(renderingInventoryScreen)
+					yield accessor.getX();
+				yield accessor.getX() - panelWidth - PANEL_PADDING;
+			}
+		};
+	}
+	
+	private int getAnchoredPanelY(HandledScreenAccessor accessor)
+	{
+		int gap = panelAnchorGap.getValueI();
+		return switch(panelAnchor.getSelected())
+		{
+			case LEFT, RIGHT -> accessor.getY();
+			case TOP -> accessor.getY() - panelHeight - gap;
+			case BOTTOM -> accessor.getY() + accessor.getBackgroundHeight()
+				+ gap;
+			case FREE ->
+			{
+				if(renderingInventoryScreen)
+					yield accessor.getY() + accessor.getBackgroundHeight()
+						+ PANEL_PADDING;
+				yield accessor.getY();
+			}
+		};
 	}
 	
 	private void renderOverlay(GuiGraphics context)
@@ -2312,6 +2364,28 @@ public final class EnchantmentHandlerHack extends Hack
 		GEAR,
 		BOOK,
 		POTION;
+	}
+	
+	private static enum PanelAnchor
+	{
+		FREE("Free"),
+		LEFT("Left"),
+		RIGHT("Right"),
+		TOP("Top"),
+		BOTTOM("Bottom");
+		
+		private final String displayName;
+		
+		PanelAnchor(String displayName)
+		{
+			this.displayName = displayName;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
+		}
 	}
 	
 	private static enum GearCategory

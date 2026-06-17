@@ -867,6 +867,34 @@ public final class ClickGui
 		closeInvalidPopups();
 	}
 	
+	public boolean handleNavigatorComponentMouseScroll(double cMouseX,
+		double cMouseY, double delta, Window window)
+	{
+		if(delta == 0)
+			return false;
+		
+		for(int i = window.countChildren() - 1; i >= 0; i--)
+		{
+			Component c = window.getChild(i);
+			
+			if(cMouseX < c.getX() || cMouseY < c.getY())
+				continue;
+			if(cMouseX >= c.getX() + c.getWidth()
+				|| cMouseY >= c.getY() + c.getHeight())
+				continue;
+			
+			if(c.handleMouseScroll(cMouseX, cMouseY, delta))
+			{
+				closeInvalidPopups();
+				return true;
+			}
+			
+			break;
+		}
+		
+		return false;
+	}
+	
 	public void closePopupsOutsideArea(Window window, int x1, int y1, int x2,
 		int y2)
 	{

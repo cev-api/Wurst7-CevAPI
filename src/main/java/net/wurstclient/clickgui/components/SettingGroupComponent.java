@@ -165,6 +165,29 @@ public final class SettingGroupComponent extends Component
 	}
 	
 	@Override
+	public boolean handleMouseScroll(double mouseX, double mouseY, double delta)
+	{
+		if(!expanded)
+			return false;
+		
+		for(Component child : childComponents)
+		{
+			int cx1 = child.getX();
+			int cy1 = child.getY();
+			int cx2 = cx1 + child.getWidth();
+			int cy2 = cy1 + child.getHeight();
+			
+			if(mouseX < cx1 || mouseX > cx2 || mouseY < cy1 || mouseY > cy2)
+				continue;
+			
+			if(child.handleMouseScroll(mouseX, mouseY, delta))
+				return true;
+		}
+		
+		return false;
+	}
+	
+	@Override
 	public void render(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks)
 	{
