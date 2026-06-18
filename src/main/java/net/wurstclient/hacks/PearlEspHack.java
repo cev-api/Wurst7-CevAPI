@@ -997,7 +997,8 @@ public class PearlEspHack extends Hack
 			return;
 		
 		// Walk all known pearl spawn owner ids
-		for(Map.Entry<UUID, Integer> entry : pearlSpawnOwnerIds.entrySet())
+		for(Map.Entry<UUID, Integer> entry : new ArrayList<>(
+			pearlSpawnOwnerIds.entrySet()))
 		{
 			Integer pearlOwnerId = entry.getValue();
 			if(pearlOwnerId == null || pearlOwnerId != ownerId)
@@ -1007,14 +1008,15 @@ public class PearlEspHack extends Hack
 		}
 		
 		// Also walk pearl identities that have this owner entity id
-		for(Map.Entry<UUID, PearlIdentity> entry : pearlIdentities.entrySet())
+		for(Map.Entry<UUID, PearlIdentity> entry : new ArrayList<>(
+			pearlIdentities.entrySet()))
 		{
 			PearlIdentity pid = entry.getValue();
 			if(pid.ownerEntityId() != null && pid.ownerEntityId() == ownerId)
 			{
 				UUID pearlUuid = entry.getKey();
-				if(!pearlSpawnOwnerIds.containsKey(pearlUuid)
-					|| pearlSpawnOwnerIds.get(pearlUuid) != ownerId)
+				if(pearlSpawnOwnerIds.containsKey(pearlUuid)
+					&& pearlSpawnOwnerIds.get(pearlUuid) == ownerId)
 					// Already handled above
 					continue;
 				rememberPearlOwnerUuid(pearlUuid, ownerUuid);
