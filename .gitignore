@@ -37,3 +37,5 @@ hs_err_pid*
 Thumbs.db
 desktop.ini
 *.rar
+*.log
+*.jsonl

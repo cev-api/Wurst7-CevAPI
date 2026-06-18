@@ -137,6 +137,7 @@ public final class HackList implements UpdateListener
 	public final DolphinHack dolphinHack = new DolphinHack();
 	public final ElytraFlightHack elytraFlightHack = new ElytraFlightHack();
 	public final ElytraInfoHack elytraInfoHack = new ElytraInfoHack();
+	public final EntityCountHack entityCountHack = new EntityCountHack();
 	public final EntityControlHack entityControlHack = new EntityControlHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();

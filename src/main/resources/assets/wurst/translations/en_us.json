@@ -612,6 +612,7 @@
   "description.wurst.hack.mobhealth": "Shows health for the mob you're looking at, either as hearts or a colored number, with optional hostile-only and through-walls detection.",
   "hack.wurst.elytrainfo": "ElytraInfo",
   "description.wurst.hack.elytrainfo": "Shows an Elytra HUD (yaw, pitch, altitude, speed, direction, durability) and can auto-swap Elytra/chestplate on landing or low durability.",
+  "description.wurst.hack.entitycount": "Shows a floating entity count label in each nearby chunk and adds the total to the hack list entry.",
   "hack.wurst.playersonar": "PlayerSonar",
   "description.wurst.hack.playersonar": "Tracks distant player activity using a sonar-like ping display and tracer markers outside the normal PlayerESP range.",
   "hack.wurst.noplayerchat": "NoPlayerChat",
