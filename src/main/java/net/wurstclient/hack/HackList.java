@@ -289,6 +289,7 @@ public final class HackList implements UpdateListener
 	public final StepHack stepHack = new StepHack();
 	public final TemplateToolHack templateToolHack = new TemplateToolHack();
 	public final ThrowHack throwHack = new ThrowHack();
+	public final UseItemSpamHack useItemSpamHack = new UseItemSpamHack();
 	public final TillauraHack tillauraHack = new TillauraHack();
 	public final TimerHack timerHack = new TimerHack();
 	public final TargetPlaceHack targetPlaceHack = new TargetPlaceHack();

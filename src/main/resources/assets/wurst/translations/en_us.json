@@ -597,6 +597,7 @@
   "hack.wurst.staffmonitor": "StaffMonitor",
   "description.wurst.hack.staffmonitor": "Monitors the tab list for players entering or leaving spectator mode, with optional alerts for hidden staff and visible player entities missing from the tab list.",
   "description.wurst.hack.ui-utils": "Adds UI utilities like packet control, chat-in-GUI input, and resource pack bypass tools.",
+  "description.wurst.hack.useitemspam": "Repeatedly sends use-item packets for selected item types while holding right click. Credit: aisiaiiad (github.com/aisiaiiad).",
   "hack.wurst.pearlesp": "PearlESP",
   "description.wurst.hack.pearlesp": "Highlights ender pearls thrown by other players, shows predicted landing with a purple box, draws a trajectory line, and highlights when players are holding an ender pearl.",
   "hack.wurst.pearldrop": "PearlDrop",
