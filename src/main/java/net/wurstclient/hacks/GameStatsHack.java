@@ -45,6 +45,9 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	private final CheckboxSetting showTps =
 		new CheckboxSetting("Show TPS", true);
 	
+	private final CheckboxSetting showMspt =
+		new CheckboxSetting("Show MSPT", false);
+	
 	private final CheckboxSetting showPing =
 		new CheckboxSetting("Show Ping", true);
 	
@@ -145,6 +148,7 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 		setCategory(Category.TOOLS);
 		addSetting(showFps);
 		addSetting(showTps);
+		addSetting(showMspt);
 		addSetting(showPing);
 		addSetting(showPlayTime);
 		addSetting(showCurrentTime);
@@ -296,6 +300,11 @@ public final class GameStatsHack extends Hack implements PacketInputListener,
 	public boolean showTps()
 	{
 		return showTps.isChecked();
+	}
+	
+	public boolean showMspt()
+	{
+		return showMspt.isChecked();
 	}
 	
 	public boolean showPing()

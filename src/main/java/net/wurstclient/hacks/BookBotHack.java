@@ -7,11 +7,11 @@
  */
 package net.wurstclient.hacks;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +19,11 @@ import java.util.Optional;
 import java.util.PrimitiveIterator;
 import java.util.Random;
 import java.util.Set;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -46,6 +51,13 @@ import net.wurstclient.util.InventoryUtils;
 @SearchTags({"book bot", "book writer"})
 public final class BookBotHack extends Hack implements UpdateListener
 {
+	private static final int BOOKBOT_EXPORT_VERSION = 1;
+	private static final int MAX_BOOK_PAGES = 100;
+	private static final int MAX_PAGE_JAVA_CHARS = 1024;
+	private static final int MAX_TITLE_JAVA_CHARS = 32;
+	private static final int MIN_THREE_BYTE_BMP = 0x0800;
+	private static final int MAX_THREE_BYTE_BMP_EXCLUSIVE = 0xD800;
+	
 	private enum Mode
 	{
 		FILE,
@@ -97,8 +109,18 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private final CheckboxSetting appendCount = new CheckboxSetting(
 		"Append count", "Append sequential number to the title.", true);
 	
+	private final CheckboxSetting highByteSignedName = new CheckboxSetting(
+		"High-byte signed name",
+		"Uses a 32 character 3-byte UTF-8 signed book name in Random UTF8 mode.",
+		true);
+	
 	private final CheckboxSetting wordWrap = new CheckboxSetting("Word wrap",
 		"Prevents words from being cut in the middle of lines.", true);
+	
+	private final CheckboxSetting saveToFile = new CheckboxSetting(
+		"Save to file",
+		"Also saves each written book as an importable file under wurst/bookbot.",
+		false);
 	
 	private final FileSetting fileSetting =
 		new FileSetting("File", "", "bookbot", folder -> {
@@ -121,6 +143,10 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private Random random;
 	private final Set<Integer> unsignedWrittenSlots = new HashSet<>();
 	
+	private record BookFileData(List<String> pages, String title,
+		boolean signed)
+	{}
+	
 	public BookBotHack()
 	{
 		super("BookBot");
@@ -136,7 +162,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 		addSetting(autoCraft);
 		addSetting(name);
 		addSetting(appendCount);
+		addSetting(highByteSignedName);
 		addSetting(wordWrap);
+		addSetting(saveToFile);
 		addSetting(fileSetting);
 	}
 	
@@ -226,7 +254,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 				case UTF8:
 				default:
 				{
-					PrimitiveIterator.OfInt chars = random.ints(0x21, 0xD800)
+					PrimitiveIterator.OfInt chars = random
+						.ints(MIN_THREE_BYTE_BMP, MAX_THREE_BYTE_BMP_EXCLUSIVE)
 						.filter(i -> !Character.isWhitespace(i) && i != '\r'
 							&& i != '\n')
 						.iterator();
@@ -252,13 +281,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 				return;
 			}
 			
-			try(BufferedReader br = new BufferedReader(new FileReader(f)))
+			try
 			{
-				StringBuilder sb = new StringBuilder();
-				String line;
-				while((line = br.readLine()) != null)
-					sb.append(line).append('\n');
-				writeBook(filePages(sb.toString()));
+				BookFileData importedBook = loadBookFile(f);
+				writeBook(importedBook.pages(), importedBook.title(),
+					importedBook.signed());
 				
 			}catch(IOException e)
 			{
@@ -356,13 +383,15 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private List<String> randomPages(PrimitiveIterator.OfInt chars)
 	{
 		ArrayList<String> outPages = new ArrayList<>();
-		StringBuilder page = new StringBuilder();
-		int maxPages = pages.getValueI();
+		StringBuilder page = new StringBuilder(MAX_PAGE_JAVA_CHARS);
+		int maxPages = Math.min(pages.getValueI(), MAX_BOOK_PAGES);
+		int charsPerPage =
+			Math.min(characters.getValueI(), MAX_PAGE_JAVA_CHARS);
 		int pageIndex = 0;
 		
 		while(pageIndex != maxPages)
 		{
-			for(int i = 0; i < characters.getValueI() && chars.hasNext(); i++)
+			for(int i = 0; i < charsPerPage && chars.hasNext(); i++)
 				page.appendCodePoint(chars.nextInt());
 			
 			if(!page.isEmpty())
@@ -419,6 +448,42 @@ public final class BookBotHack extends Hack implements UpdateListener
 			sb.appendCodePoint(chars.nextInt());
 	}
 	
+	private String randomMaxPayloadTitle()
+	{
+		StringBuilder sb = new StringBuilder(MAX_TITLE_JAVA_CHARS);
+		PrimitiveIterator.OfInt chars =
+			random.ints(MIN_THREE_BYTE_BMP, MAX_THREE_BYTE_BMP_EXCLUSIVE)
+				.filter(
+					i -> !Character.isWhitespace(i) && i != '\r' && i != '\n')
+				.iterator();
+		
+		appendCodePoints(sb, chars, MAX_TITLE_JAVA_CHARS);
+		return sb.toString();
+	}
+	
+	private List<String> clampPages(List<String> pages)
+	{
+		ArrayList<String> outPages = new ArrayList<>();
+		int maxPages = Math.min(pages.size(), MAX_BOOK_PAGES);
+		
+		for(int i = 0; i < maxPages; i++)
+			outPages.add(clampToJavaChars(pages.get(i), MAX_PAGE_JAVA_CHARS));
+		
+		return outPages;
+	}
+	
+	private String clampToJavaChars(String s, int maxJavaChars)
+	{
+		if(s.length() <= maxJavaChars)
+			return s;
+		
+		int end = maxJavaChars;
+		if(end > 0 && Character.isHighSurrogate(s.charAt(end - 1)))
+			end--;
+		
+		return s.substring(0, end);
+	}
+	
 	private List<String> filePages(String text)
 	{
 		ArrayList<String> pages = new ArrayList<>();
@@ -462,13 +527,31 @@ public final class BookBotHack extends Hack implements UpdateListener
 	
 	private void writeBook(List<String> pages)
 	{
+		writeBook(pages, null, sign.isChecked());
+	}
+	
+	private void writeBook(List<String> pages, String titleOverride,
+		boolean signedOverride)
+	{
 		if(MC.getConnection() == null)
 			return;
 		
+		pages = clampPages(pages);
+		
 		// Title
-		String title = name.getValue();
-		if(appendCount.isChecked() && bookCount != 0)
+		String title = titleOverride != null ? titleOverride : name.getValue();
+		if(title == null || title.isBlank())
+			title = "Untitled";
+		if(titleOverride == null && appendCount.isChecked() && bookCount != 0)
 			title += " #" + bookCount;
+		
+		if(titleOverride == null && signedOverride
+			&& highByteSignedName.isChecked()
+			&& mode.getSelected() == Mode.RANDOM
+			&& randomType.getSelected() == RandomType.UTF8)
+			title = randomMaxPayloadTitle();
+		
+		title = clampToJavaChars(title, MAX_TITLE_JAVA_CHARS);
 		
 		// Build filtered pages for the component
 		ArrayList<Filterable<Component>> filteredPages = new ArrayList<>();
@@ -480,19 +563,21 @@ public final class BookBotHack extends Hack implements UpdateListener
 			new WrittenBookContent(Filterable.passThrough(title),
 				MC.player.getGameProfile().name(), 0, filteredPages, true));
 		
-		logBookPayloadEstimate(pages, title);
+		logBookPayloadEstimate(pages, title, signedOverride);
+		
+		saveBookToFile(pages, title, signedOverride);
 		
 		// Send packet
 		MC.getConnection()
 			.send(new ServerboundEditBookPacket(
 				MC.player.getInventory().getSelectedSlot(), pages,
-				sign.isChecked() ? Optional.of(title) : Optional.empty()));
+				signedOverride ? Optional.of(title) : Optional.empty()));
 		
 		if(dropAfterWrite.isChecked())
 		{
 			dropMainHand();
 			
-		}else if(!sign.isChecked())
+		}else if(!signedOverride)
 		{
 			int selectedSlot = MC.player.getInventory().getSelectedSlot();
 			unsignedWrittenSlots.add(selectedSlot);
@@ -507,6 +592,73 @@ public final class BookBotHack extends Hack implements UpdateListener
 		}
 		
 		bookCount++;
+	}
+	
+	private void saveBookToFile(List<String> pages, String title,
+		boolean signed)
+	{
+		if(!saveToFile.isChecked())
+			return;
+		
+		try
+		{
+			Path folder = fileSetting.getFolder();
+			Files.createDirectories(folder);
+			
+			String fileName = AutoChatPromptManager.sanitizeFileName(title);
+			fileName = String.format("%s_%03d", fileName, bookCount + 1);
+			
+			JsonObject json = new JsonObject();
+			json.addProperty("version", BOOKBOT_EXPORT_VERSION);
+			json.addProperty("title", title);
+			json.addProperty("signed", signed);
+			JsonArray jsonPages = new JsonArray();
+			for(String page : pages)
+				jsonPages.add(page);
+			json.add("pages", jsonPages);
+			
+			Path file = folder.resolve(fileName + ".bookbot.json");
+			Files.writeString(file, json.toString(), StandardCharsets.UTF_8);
+			
+		}catch(IOException e)
+		{
+			ChatUtils.error("Failed to save book to file.");
+		}
+	}
+	
+	private BookFileData loadBookFile(File file) throws IOException
+	{
+		String content =
+			Files.readString(file.toPath(), StandardCharsets.UTF_8);
+		String trimmed = content.stripLeading();
+		if(trimmed.startsWith("{"))
+		{
+			try
+			{
+				JsonObject json =
+					JsonParser.parseString(content).getAsJsonObject();
+				if(json.has("version")
+					&& json.get("version").getAsInt() == BOOKBOT_EXPORT_VERSION
+					&& json.has("pages"))
+				{
+					ArrayList<String> pages = new ArrayList<>();
+					for(var element : json.getAsJsonArray("pages"))
+						pages.add(element.getAsString());
+					
+					String title = json.has("title")
+						? json.get("title").getAsString() : name.getValue();
+					boolean signed =
+						json.has("signed") && json.get("signed").getAsBoolean();
+					return new BookFileData(pages, title, signed);
+				}
+				
+			}catch(JsonSyntaxException | IllegalStateException e)
+			{
+				// Fall back to plain text import below.
+			}
+		}
+		
+		return new BookFileData(filePages(content), null, sign.isChecked());
 	}
 	
 	private void dropMainHand()
@@ -526,7 +678,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 		inventoryCooldown = 2;
 	}
 	
-	private void logBookPayloadEstimate(List<String> pages, String title)
+	private void logBookPayloadEstimate(List<String> pages, String title,
+		boolean signed)
 	{
 		long totalJavaChars = 0;
 		long totalCodePoints = 0;
@@ -538,8 +691,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 			pageUtf8Bytes += page.getBytes(StandardCharsets.UTF_8).length;
 		}
 		
-		long titleUtf8Bytes = sign.isChecked()
-			? title.getBytes(StandardCharsets.UTF_8).length : 0;
+		long titleUtf8Bytes =
+			signed ? title.getBytes(StandardCharsets.UTF_8).length : 0;
 		double totalKb = (pageUtf8Bytes + titleUtf8Bytes) / 1024D;
 		ChatUtils.message("Book payload estimate: pages=" + pages.size()
 			+ ", javaChars=" + totalJavaChars + ", codePoints="

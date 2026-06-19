@@ -234,6 +234,18 @@ public final class GameStatsHud
 			lines.add(withPrefix(showPrefixes, "TPS", tpsValue));
 		}
 		
+		if(hack.showMspt())
+		{
+			double tps = getServerTps();
+			String msptValue = formatMspt(tps);
+			if(showAverages && tpsSampleCount > 0)
+			{
+				double averageTps = tpsSampleSum / tpsSampleCount;
+				msptValue += " (" + formatMspt(averageTps) + ")";
+			}
+			lines.add(withPrefix(showPrefixes, "MSPT", msptValue));
+		}
+		
 		if(hack.showPing())
 		{
 			int ping = getPlayerPing();
@@ -408,6 +420,15 @@ public final class GameStatsHud
 	private static String formatDistance(double meters)
 	{
 		return String.format(Locale.ROOT, "%.1f", meters);
+	}
+	
+	private static String formatMspt(double tps)
+	{
+		if(Double.isNaN(tps) || tps <= 0D)
+			return "--";
+		
+		double mspt = 1000D / tps;
+		return String.format(Locale.ROOT, "%.2f", mspt);
 	}
 	
 	private void resetMovementSpeed()
