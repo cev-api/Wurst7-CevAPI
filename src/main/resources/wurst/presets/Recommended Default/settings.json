@@ -1012,6 +1012,7 @@
     "Name": "I LOVE CEVAPS",
     "Append count": true,
     "Word wrap": true,
+    "Save to file": false,
     "File": "bookbot.txt"
   },
   "BowAimbot": {
@@ -1508,6 +1509,7 @@
   "GameStats": {
     "Show FPS": true,
     "Show TPS": true,
+    "Show MSPT": false,
     "Show Ping": true,
     "Show Play Time": true,
     "Show Time": false,
