@@ -20,11 +20,14 @@ import java.util.PrimitiveIterator;
 import java.util.Random;
 import java.util.Set;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.network.Filterable;
 import net.minecraft.world.item.component.WrittenBookContent;
 import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.wurstclient.Category;
@@ -78,6 +81,16 @@ public final class BookBotHack extends Hack implements UpdateListener
 	private final CheckboxSetting sign =
 		new CheckboxSetting("Sign", "Whether to sign the book.", true);
 	
+	private final CheckboxSetting dropAfterWrite =
+		new CheckboxSetting("Drop after write",
+			"Drops each finished book on the ground right after it's written.",
+			false);
+	
+	private final CheckboxSetting autoCraft = new CheckboxSetting("Auto-craft",
+		"When you run out of book & quills, craft one from a book, a feather"
+			+ " and an ink sac in your inventory.",
+		false);
+	
 	private final TextFieldSetting name = new TextFieldSetting("Name",
 		"The name you want to give your books.", "I Love Cevapi!");
 	
@@ -119,6 +132,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 		addSetting(randomType);
 		addSetting(delay);
 		addSetting(sign);
+		addSetting(dropAfterWrite);
+		addSetting(autoCraft);
 		addSetting(name);
 		addSetting(appendCount);
 		addSetting(wordWrap);
@@ -168,6 +183,9 @@ public final class BookBotHack extends Hack implements UpdateListener
 		int slot = findWritableBookSlot();
 		if(slot == -1)
 		{
+			if(autoCraft.isChecked() && tryCraftBookAndQuill())
+				return;
+			
 			setEnabled(false);
 			return;
 		}
@@ -285,6 +303,54 @@ public final class BookBotHack extends Hack implements UpdateListener
 			InventoryUtils.toNetworkSlot(slot),
 			MC.player.getInventory().getSelectedSlot());
 		inventoryCooldown = 2;
+	}
+	
+	private boolean tryCraftBookAndQuill()
+	{
+		if(MC.player == null)
+			return false;
+		
+		if(MC.player.containerMenu != MC.player.inventoryMenu)
+			return false;
+		
+		if(!MC.player.inventoryMenu.getCarried().isEmpty())
+			return false;
+		
+		var im = IMC.getInteractionManager();
+		
+		for(int gridSlot = 1; gridSlot <= 4; gridSlot++)
+			if(!MC.player.inventoryMenu.getSlot(gridSlot).getItem().isEmpty())
+				im.windowClick_QUICK_MOVE(gridSlot);
+			
+		int bookSlot = InventoryUtils.indexOf(Items.BOOK, 36);
+		int featherSlot = InventoryUtils.indexOf(Items.FEATHER, 36);
+		int inkSlot = InventoryUtils.indexOf(Items.INK_SAC, 36);
+		if(bookSlot == -1 || featherSlot == -1 || inkSlot == -1)
+			return false;
+		
+		placeStackInGrid(im, bookSlot, 1);
+		placeStackInGrid(im, featherSlot, 2);
+		placeStackInGrid(im, inkSlot, 3);
+		
+		im.windowClick_PICKUP(0);
+		
+		int freeSlot = MC.player.getInventory().getFreeSlot();
+		if(freeSlot != -1)
+			im.windowClick_PICKUP(InventoryUtils.toNetworkSlot(freeSlot));
+		
+		for(int gridSlot = 1; gridSlot <= 3; gridSlot++)
+			im.windowClick_QUICK_MOVE(gridSlot);
+		
+		inventoryCooldown = 2;
+		return true;
+	}
+	
+	private void placeStackInGrid(
+		net.wurstclient.mixinterface.IMultiPlayerGameMode im, int inventorySlot,
+		int gridSlot)
+	{
+		im.windowClick_PICKUP(InventoryUtils.toNetworkSlot(inventorySlot));
+		im.windowClick_PICKUP(gridSlot);
 	}
 	
 	private List<String> randomPages(PrimitiveIterator.OfInt chars)
@@ -422,7 +488,11 @@ public final class BookBotHack extends Hack implements UpdateListener
 				MC.player.getInventory().getSelectedSlot(), pages,
 				sign.isChecked() ? Optional.of(title) : Optional.empty()));
 		
-		if(!sign.isChecked())
+		if(dropAfterWrite.isChecked())
+		{
+			dropMainHand();
+			
+		}else if(!sign.isChecked())
 		{
 			int selectedSlot = MC.player.getInventory().getSelectedSlot();
 			unsignedWrittenSlots.add(selectedSlot);
@@ -437,6 +507,23 @@ public final class BookBotHack extends Hack implements UpdateListener
 		}
 		
 		bookCount++;
+	}
+	
+	private void dropMainHand()
+	{
+		if(MC.getConnection() == null)
+			return;
+		
+		int selectedSlot = MC.player.getInventory().getSelectedSlot();
+		
+		MC.getConnection()
+			.send(new ServerboundPlayerActionPacket(
+				ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS,
+				BlockPos.ZERO, Direction.DOWN));
+		
+		MC.player.getInventory().setItem(selectedSlot, ItemStack.EMPTY);
+		unsignedWrittenSlots.remove(selectedSlot);
+		inventoryCooldown = 2;
 	}
 	
 	private void logBookPayloadEstimate(List<String> pages, String title)
