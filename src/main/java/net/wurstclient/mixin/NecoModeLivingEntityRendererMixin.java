@@ -96,7 +96,8 @@ public abstract class NecoModeLivingEntityRendererMixin
 		if(type == null)
 			return true;
 		
-		if(necoMode.shouldExcludePlayers() && type == EntityType.PLAYER)
+		if(necoMode.shouldExcludePlayers()
+			&& type == net.wurstclient.util.RegistryUtils.entityType("player"))
 			return false;
 		
 		boolean onlyPassive = necoMode.shouldRenderOnlyPassiveMobs();
@@ -106,13 +107,14 @@ public abstract class NecoModeLivingEntityRendererMixin
 		
 		MobCategory category = type.getCategory();
 		boolean isAggressive = category == MobCategory.MONSTER;
-		boolean isPassive =
-			category == MobCategory.CREATURE || category == MobCategory.AMBIENT
-				|| category == MobCategory.WATER_CREATURE
-				|| category == MobCategory.WATER_AMBIENT
-				|| category == MobCategory.UNDERGROUND_WATER_CREATURE
-				|| type == EntityType.VILLAGER
-				|| type == EntityType.WANDERING_TRADER;
+		boolean isPassive = category == MobCategory.CREATURE
+			|| category == MobCategory.AMBIENT
+			|| category == MobCategory.WATER_CREATURE
+			|| category == MobCategory.WATER_AMBIENT
+			|| category == MobCategory.UNDERGROUND_WATER_CREATURE
+			|| type == net.wurstclient.util.RegistryUtils.entityType("villager")
+			|| type == net.wurstclient.util.RegistryUtils
+				.entityType("wandering_trader");
 		
 		if(onlyPassive && onlyAggressive)
 			return isPassive || isAggressive;

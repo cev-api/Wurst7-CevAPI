@@ -24,7 +24,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -1226,7 +1226,7 @@ public final class WaypointsHack extends Hack
 		// consistently.
 		matrices.translate(0, offsetPx, 0);
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		// Background opacity should respect the text alpha (which may be
 		// reduced by fading).
@@ -1244,18 +1244,22 @@ public final class WaypointsHack extends Hack
 				.round(baseAlpha * (waypointOutlineOpacity.getValue() / 100.0));
 			int strokeColor =
 				(Math.max(0, Math.min(255, strokeAlpha)) << 24) | 0x000000;
-			tr.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w - 1,
+				0, strokeColor, false, matrix, vcp,
 				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w + 1,
+				0, strokeColor, false, matrix, vcp,
 				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w, +1, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, -1,
+				strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH,
+				0, 0xF000F0);
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, +1,
+				strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH,
+				0, 0xF000F0);
 		}
 		// main text
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, 0, argb,
+			false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}
@@ -1407,8 +1411,11 @@ public final class WaypointsHack extends Hack
 	public void openManager()
 	{
 		ensureWorldData();
-		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
-			MC.screen, manager));
+		if(MC.gui == null)
+			return;
+		
+		MC.gui.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
+			MC.gui.screen(), manager));
 	}
 	
 	@Override
@@ -1664,7 +1671,7 @@ public final class WaypointsHack extends Hack
 	{
 		if(MC.gui == null)
 			return 0;
-		BossHealthOverlay bossBarHud = MC.gui.getBossOverlay();
+		BossHealthOverlay bossBarHud = MC.gui.hud.getBossOverlay();
 		if(bossBarHud == null)
 			return 0;
 		

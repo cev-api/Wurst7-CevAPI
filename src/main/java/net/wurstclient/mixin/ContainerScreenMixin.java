@@ -1180,7 +1180,8 @@ public abstract class ContainerScreenMixin
 				try
 				{
 					if(WurstClient.MC == null
-						|| WurstClient.MC.screen != ContainerScreenMixin.this
+						|| WurstClient.MC.gui
+							.screen() != ContainerScreenMixin.this
 						|| !manualScanActive
 						|| System.currentTimeMillis() > manualScanUntil)
 					{

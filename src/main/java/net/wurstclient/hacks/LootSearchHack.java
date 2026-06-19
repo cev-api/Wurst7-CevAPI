@@ -106,9 +106,15 @@ public final class LootSearchHack extends Hack
 			}
 			
 			LootChestManager mgr = new LootChestManager(f, serverIp);
-			WurstClient.MC.setScreen(
+			if(WurstClient.MC.gui == null)
+			{
+				setEnabled(false);
+				return;
+			}
+			
+			WurstClient.MC.gui.setScreen(
 				new net.wurstclient.clickgui.screens.ChestSearchScreen(
-					WurstClient.MC.screen, mgr, Boolean.TRUE));
+					WurstClient.MC.gui.screen(), mgr, Boolean.TRUE));
 		}catch(Throwable t)
 		{
 			t.printStackTrace();

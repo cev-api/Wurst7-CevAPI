@@ -83,7 +83,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		
 		if(!self.guiHidden)
 		{
-			self.MC.setScreen(null);
+			self.MC.gui.setScreen(null);
 			self.guiHidden = true;
 		}
 	}
@@ -102,11 +102,11 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		
 		if(self.guiHidden)
 		{
-			self.MC.setScreen(self.savedScreen);
+			self.MC.gui.setScreen(self.savedScreen);
 			self.guiHidden = false;
 		}else
 		{
-			self.MC.setScreen(null);
+			self.MC.gui.setScreen(null);
 			self.guiHidden = true;
 		}
 	}
@@ -157,7 +157,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	{
 		if(savedScreen == null || !isSavedContainerMenuStillActive())
 			return;
-		MC.setScreen(savedScreen);
+		MC.gui.setScreen(savedScreen);
 		guiHidden = false;
 	}
 	
@@ -190,7 +190,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		// Open the player's actual inventory
 		if(self.MC.player != null)
 		{
-			self.MC.setScreen(new InventoryScreen(self.MC.player));
+			self.MC.gui.setScreen(new InventoryScreen(self.MC.player));
 		}
 	}
 	
@@ -229,15 +229,15 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		// immediately replace it with the linked ender chest GUI.
 		if(swapInventoryKey.isChecked() && savedScreen != null
 			&& isSavedContainerMenuStillActive() && guiHidden
-			&& MC.screen instanceof InventoryScreen invScreen
+			&& MC.gui.screen() instanceof InventoryScreen invScreen
 			&& invScreen != savedScreen)
 		{
-			MC.setScreen(savedScreen);
+			MC.gui.setScreen(savedScreen);
 			guiHidden = false;
 			return;
 		}
 		
-		if(MC.screen == null && savedScreen != null
+		if(MC.gui.screen() == null && savedScreen != null
 			&& isSavedContainerMenuStillActive())
 		{
 			InputConstants.Key key = getToggleGuiKey();
@@ -260,7 +260,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		{
 			potentialEChestPos = bhr.getBlockPos();
 			
-			if(MC.screen == null
+			if(MC.gui.screen() == null
 				&& MC.level.getBlockState(bhr.getBlockPos())
 					.getBlock() == Blocks.ENDER_CHEST
 				&& MC.options.keyUse.isDown()
@@ -275,7 +275,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		// the saved link. Clear it immediately so the toggle key cannot
 		// reopen a stale ghost GUI later.
 		if(savedScreen != null
-			&& MC.screen instanceof AbstractContainerScreen<?> screen
+			&& MC.gui.screen() instanceof AbstractContainerScreen<?> screen
 			&& screen != savedScreen)
 		{
 			breakLink(
@@ -295,11 +295,11 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		if(isEnderChestScreen(potentialEChestPos) && savedScreen == null
 			&& !guiWasOpen && !guiHidden)
 		{
-			savedScreen = (AbstractContainerScreen<?>)MC.screen;
+			savedScreen = (AbstractContainerScreen<?>)MC.gui.screen();
 			
 			savedSyncId = savedScreen.getMenu().containerId;
 			
-			MC.setScreen(null);
+			MC.gui.setScreen(null);
 			guiHidden = true;
 			guiWasOpen = true;
 			lastWorld = MC.level;
@@ -308,7 +308,8 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 					+ " hide the GUI.");
 		}
 		
-		if(savedScreen != null && MC.screen == null && !guiHidden && guiWasOpen)
+		if(savedScreen != null && MC.gui.screen() == null && !guiHidden
+			&& guiWasOpen)
 		{
 			
 			// ESC/X will hide the GUI.
@@ -328,7 +329,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	
 	private boolean isEnderChestScreen(BlockPos echest)
 	{
-		if(!(MC.screen instanceof AbstractContainerScreen<?> screen))
+		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen))
 			return false;
 		if(echest == null || MC.level == null)
 			return false;
@@ -368,7 +369,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	{
 		int syncId = savedSyncId;
 		AbstractContainerScreen<?> oldScreen = savedScreen;
-		boolean oldScreenVisible = MC.screen == oldScreen;
+		boolean oldScreenVisible = MC.gui.screen() == oldScreen;
 		
 		guiHidden = false;
 		guiWasOpen = false;
@@ -378,7 +379,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		savedScreen = null;
 		
 		if(oldScreenVisible)
-			MC.setScreen(null);
+			MC.gui.setScreen(null);
 		
 		if(sendClosePacket && !oldScreenVisible && syncId != -1
 			&& MC.getConnection() != null)

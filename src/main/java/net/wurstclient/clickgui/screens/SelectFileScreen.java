@@ -74,7 +74,7 @@ public final class SelectFileScreen extends Screen
 	
 	private void openPrevScreen()
 	{
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	private void done()
@@ -98,7 +98,7 @@ public final class SelectFileScreen extends Screen
 				+ "' folder and then re-generate the default files.\n"
 				+ "Are you sure you want to do this?");
 		
-		minecraft
+		minecraft.gui
 			.setScreen(new ConfirmScreen(this::confirmReset, title, message));
 	}
 	
@@ -107,7 +107,7 @@ public final class SelectFileScreen extends Screen
 		if(confirmed)
 			setting.resetFolder();
 		
-		minecraft.setScreen(SelectFileScreen.this);
+		minecraft.gui.setScreen(SelectFileScreen.this);
 	}
 	
 	@Override

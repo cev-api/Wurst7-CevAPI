@@ -130,9 +130,9 @@ public final class UiUtils
 			return false;
 		
 		String key = slot.toLowerCase(Locale.ROOT);
-		UiUtilsState.storedScreen = mc.screen;
+		UiUtilsState.storedScreen = mc.gui.screen();
 		UiUtilsState.storedMenu = mc.player.containerMenu;
-		UiUtilsState.savedScreens.put(key, mc.screen);
+		UiUtilsState.savedScreens.put(key, mc.gui.screen());
 		UiUtilsState.savedMenus.put(key, mc.player.containerMenu);
 		return true;
 	}
@@ -148,7 +148,7 @@ public final class UiUtils
 		if(screen == null || menu == null)
 			return false;
 		
-		mc.setScreen(screen);
+		mc.gui.setScreen(screen);
 		mc.player.containerMenu = menu;
 		UiUtilsState.storedScreen = screen;
 		UiUtilsState.storedMenu = menu;
@@ -239,7 +239,7 @@ public final class UiUtils
 		
 		adder.accept(
 			Button.builder(Component.literal("Close without packet"), b -> {
-				mc.setScreen(null);
+				mc.gui.setScreen(null);
 				chatIfEnabled("Closed GUI without packet");
 			}).bounds(baseX, baseY, fullWidth, 20).build());
 		int y = baseY + 20 + spacing;
@@ -292,7 +292,7 @@ public final class UiUtils
 				int sent = sendQueuedPackets(mc, 1);
 				UiUtilsState.delayUiPackets = false;
 				UiUtilsState.delayedUiPackets.clear();
-				mc.setScreen(null);
+				mc.gui.setScreen(null);
 				chatIfEnabled(
 					"Left GUI and sent queued packets (" + sent + ")");
 			}).bounds(baseX, y, fullWidth, 20).build());
@@ -320,7 +320,7 @@ public final class UiUtils
 					mc.player != null ? mc.player.containerMenu : null;
 				int syncId = menu != null ? menu.containerId : 0;
 				int revision = menu != null ? menu.getStateId() : 0;
-				if(mc.screen instanceof AbstractContainerScreen)
+				if(mc.gui.screen() instanceof AbstractContainerScreen)
 				{
 					UiUtilsState.fabricateOverlayOpen =
 						!UiUtilsState.fabricateOverlayOpen;
@@ -330,8 +330,8 @@ public final class UiUtils
 				}else
 				{
 					UiUtilsState.skipNextContainerRemoval = true;
-					mc.setScreen(
-						new FabricatePacketScreen(mc.screen, syncId, revision));
+					mc.gui.setScreen(new FabricatePacketScreen(mc.gui.screen(),
+						syncId, revision));
 				}
 			}).bounds(baseX, y, fullWidth, 20).build());
 		y += 20 + spacing;
@@ -340,12 +340,16 @@ public final class UiUtils
 			Button.builder(Component.literal("Copy GUI Title JSON"), b -> {
 				try
 				{
-					if(mc.screen == null)
+					if(mc.gui.screen() == null)
 						throw new IllegalStateException(
 							"Minecraft screen was null.");
-					String json = new Gson().toJson(ComponentSerialization.CODEC
-						.encodeStart(JsonOps.INSTANCE, mc.screen.getTitle())
-						.getOrThrow());
+					String json =
+						new Gson()
+							.toJson(
+								ComponentSerialization.CODEC
+									.encodeStart(JsonOps.INSTANCE,
+										mc.gui.screen().getTitle())
+									.getOrThrow());
 					mc.keyboardHandler.setClipboard(json);
 					chatIfEnabled("Copied GUI title JSON to clipboard");
 				}catch(IllegalStateException e)
@@ -770,7 +774,7 @@ public final class UiUtils
 		@Override
 		public void onClose()
 		{
-			minecraft.setScreen(parent);
+			minecraft.gui.setScreen(parent);
 		}
 		
 		@Override
@@ -1086,7 +1090,7 @@ public final class UiUtils
 			statusMessage = message;
 			statusColor = color;
 			queueTask(() -> {
-				if(minecraft.screen == this)
+				if(minecraft.gui.screen() == this)
 				{
 					statusMessage = null;
 					statusColor = 0;
@@ -1121,7 +1125,7 @@ public final class UiUtils
 			
 			// Never restore saved GUIs while chat is open, regardless of what
 			// key UiUtils is currently bound to.
-			if(mc.screen instanceof ChatScreen)
+			if(mc.gui.screen() instanceof ChatScreen)
 			{
 				if(customKey != null)
 				{
@@ -1156,7 +1160,7 @@ public final class UiUtils
 			if(UiUtilsState.storedScreen != null
 				&& UiUtilsState.storedMenu != null && mc.player != null)
 			{
-				mc.setScreen(UiUtilsState.storedScreen);
+				mc.gui.setScreen(UiUtilsState.storedScreen);
 				mc.player.containerMenu = UiUtilsState.storedMenu;
 				try
 				{

@@ -31,13 +31,13 @@ public final class ChooseNameState extends TemplateToolState
 	@Override
 	public void onEnter(TemplateToolHack hack)
 	{
-		MC.setScreen(new ChooseNameScreen(hack));
+		MC.gui.setScreen(new ChooseNameScreen(hack));
 	}
 	
 	@Override
 	public void onExit(TemplateToolHack hack)
 	{
-		MC.setScreen(null);
+		MC.gui.setScreen(null);
 	}
 	
 	@Override

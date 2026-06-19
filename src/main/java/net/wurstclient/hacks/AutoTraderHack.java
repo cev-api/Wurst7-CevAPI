@@ -65,10 +65,10 @@ public final class AutoTraderHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.screen == null)
+		if(MC.player == null || MC.gui.screen() == null)
 			return;
 		
-		if(!(MC.screen instanceof MerchantScreen tradeScreen))
+		if(!(MC.gui.screen() instanceof MerchantScreen tradeScreen))
 			return;
 		
 		MerchantOffers recipes = tradeScreen.getMenu().getOffers();

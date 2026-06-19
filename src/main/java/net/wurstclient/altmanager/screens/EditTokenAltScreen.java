@@ -546,6 +546,6 @@ public final class EditTokenAltScreen extends Screen
 		if(busy)
 			return;
 		
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 }

@@ -451,7 +451,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 				settingsWindow.rebuild();
 		}
 		
-		if(MC.screen instanceof NavigatorFeatureScreen navigatorScreen
+		if(MC.gui != null
+			&& MC.gui.screen() instanceof NavigatorFeatureScreen navigatorScreen
 			&& navigatorScreen.getFeature() == this
 			&& !navigatorScreen.isRebuildingSettings())
 			navigatorScreen.refreshSettingsWindow();
@@ -1821,7 +1822,7 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(MC == null)
 			return;
 		
-		MC.setScreen(new AutoChatSystemPromptScreen(MC.screen, this));
+		MC.gui.setScreen(new AutoChatSystemPromptScreen(MC.gui.screen(), this));
 	}
 	
 	private void openPromptManager(boolean systemMode)
@@ -1829,7 +1830,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		if(MC == null)
 			return;
 		
-		MC.setScreen(new AutoChatPromptScreen(MC.screen, this, systemMode));
+		MC.gui.setScreen(
+			new AutoChatPromptScreen(MC.gui.screen(), this, systemMode));
 	}
 	
 	/**

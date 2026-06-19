@@ -339,10 +339,9 @@ public final class MentionHack extends Hack
 			Component.literal(whisperToYou ? "Whisper" : "Mention");
 		MutableComponent toastMessage = removeColorFromComponent(message);
 		
-		SystemToast toast = SystemToast.multiline(MC,
+		SystemToast.add(MC.gui.toastManager(),
 			SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title,
 			toastMessage);
-		MC.getToastManager().addToast(toast);
 	}
 	
 	private MutableComponent removeColorFromComponent(Component component)

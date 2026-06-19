@@ -262,8 +262,8 @@ public final class ElytraInfoHack extends Hack implements UpdateListener
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen))
+		if(MC.gui.screen() instanceof AbstractContainerScreen
+			&& !(MC.gui.screen() instanceof InventoryScreen))
 			return;
 		
 		ItemStack chest = MC.player.getItemBySlot(EquipmentSlot.CHEST);

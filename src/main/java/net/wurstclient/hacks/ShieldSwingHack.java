@@ -120,7 +120,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 			return;
 		}
 		
-		if(MC.screen != null)
+		if(MC.gui.screen() != null)
 		{
 			attackKeyWasDown = false;
 			return;
@@ -155,8 +155,8 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 	
 	private void tryAutoHoldShield()
 	{
-		boolean shouldForce = autoHoldShield.isChecked() && MC.screen == null
-			&& hasShieldInOffhand(MC.player);
+		boolean shouldForce = autoHoldShield.isChecked()
+			&& MC.gui.screen() == null && hasShieldInOffhand(MC.player);
 		
 		if(shouldForce)
 		{
@@ -180,9 +180,9 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 			&& !MC.player.containerMenu.getCarried().isEmpty())
 			return;
 		
-		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen))
+		if(MC.gui.screen() instanceof AbstractContainerScreen
+			&& !(MC.gui.screen() instanceof InventoryScreen
+				|| MC.gui.screen() instanceof CreativeModeInventoryScreen))
 			return;
 		
 		int shieldSlot = InventoryUtils.indexOf(this::isShield, 40);

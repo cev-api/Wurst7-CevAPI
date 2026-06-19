@@ -356,7 +356,7 @@ public final class PacketToolsScreen extends Screen
 	public void onClose()
 	{
 		if(minecraft != null)
-			minecraft.setScreen(parent);
+			minecraft.gui.setScreen(parent);
 	}
 	
 	@Override

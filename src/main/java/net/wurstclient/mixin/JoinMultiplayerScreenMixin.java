@@ -275,7 +275,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerAltManagerButton = Button
 					.builder(Component.literal("Alt Manager"),
-						b -> minecraft.setScreen(new AltManagerScreen(
+						b -> minecraft.gui.setScreen(new AltManagerScreen(
 							(JoinMultiplayerScreen)(Object)this,
 							WurstClient.INSTANCE.getAltManager())))
 					.bounds(0, 0, 100, 20).build();
@@ -299,10 +299,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			if(antiFingerprintButton == null)
 			{
-				antiFingerprintButton = Button.builder(
-					Component.literal("Anti-Fingerprint"),
-					b -> minecraft.setScreen(new AntiFingerprintConfigScreen(
-						(JoinMultiplayerScreen)(Object)this)))
+				antiFingerprintButton = Button
+					.builder(Component.literal("Anti-Fingerprint"),
+						b -> minecraft.gui
+							.setScreen(new AntiFingerprintConfigScreen(
+								(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(antiFingerprintButton);
 			}
@@ -370,7 +371,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerServerFinderButton = Button
 					.builder(Component.literal("Server Finder"),
-						b -> minecraft.setScreen(new ServerFinderScreen(
+						b -> minecraft.gui.setScreen(new ServerFinderScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(cornerServerFinderButton);
@@ -393,7 +394,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerCleanUpButton = Button
 					.builder(Component.literal("Clean Up"),
-						b -> minecraft.setScreen(new CleanUpScreen(
+						b -> minecraft.gui.setScreen(new CleanUpScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 74, 20).build();
 				addRenderableWidget(cornerCleanUpButton);
@@ -1779,10 +1780,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		Component message = Component.literal(
 			"Are you sure you want to delete " + count + " selected servers?");
 		Component delete = Component.translatable("selectServer.deleteButton");
-		minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 			if(confirmed)
 				wurst$bulkDeleteSelected();
-			minecraft.setScreen((JoinMultiplayerScreen)(Object)this);
+			minecraft.gui.setScreen((JoinMultiplayerScreen)(Object)this);
 		}, title, message, delete, CommonComponents.GUI_CANCEL));
 	}
 	

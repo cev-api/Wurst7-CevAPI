@@ -119,7 +119,7 @@ public final class EntityHealthRenderer
 		float screenY =
 			(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
 		
-		double distance = WurstClient.MC.gameRenderer.getMainCamera().position()
+		double distance = WurstClient.MC.gameRenderer.mainCamera().position()
 			.distanceTo(worldPos);
 		float scale =
 			getScale(distance, scaleMultiplier, scaleWithNameTagDistance);

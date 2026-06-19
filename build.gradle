@@ -95,8 +95,7 @@ loom {
 	
 	runs {
 		clientGameTest {
-			environment = "client"
-			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
+			jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
 		}
 		
 		clientWithMods {
@@ -108,10 +107,10 @@ loom {
 			environment = "client"
 			inherit client
 			runDir = "build/run/clientGameTestWithMods"
-			vmArgs.add("-Dfabric.client.gametest")
-			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
-			vmArgs.add("-Dwurst.test.withMods=true")
-			programArgs.add("--username=Wurst-Bot")
+			jvmArguments.add("-Dfabric.client.gametest")
+			jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
+			jvmArguments.add("-Dwurst.test.withMods=true")
+			programArguments.add("--username=Wurst-Bot")
 		}
 	}
 }

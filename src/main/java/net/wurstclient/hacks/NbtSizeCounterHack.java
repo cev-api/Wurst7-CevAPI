@@ -19,7 +19,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -725,18 +725,19 @@ public final class NbtSizeCounterHack extends Hack implements
 		double ly = y;
 		double lz = z;
 		
-		// Keep labels visible from far away by anchoring to a near point.
-		if(dist > 256.0)
+		// Anchor all labels to a near point so they stay readable
+		// regardless of distance (perspective shrinks distant objects).
+		if(dist > 1.0)
 		{
-			double anchor = 12.0;
-			Vec3 anchored = cam.add(dir.scale(anchor / Math.max(dist, 1e-6)));
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
 			lx = anchored.x;
 			ly = anchored.y;
 			lz = anchored.z;
 		}
 		
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		Camera camera = MC.gameRenderer.getMainCamera();
+		Camera camera = MC.gameRenderer.mainCamera();
 		if(camera != null)
 		{
 			matrices.mulPose(
@@ -746,12 +747,12 @@ public final class NbtSizeCounterHack extends Hack implements
 		}
 		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
 		
-		float scale =
-			(float)(0.025F * Math.max(1.0, Math.min(dist * 0.10, 8.0)));
+		float scale = 0.025F;
+		scale *= RenderUtils.getCappedWorldLabelScale(0.65F, dist);
 		matrices.scale(scale, -scale, scale);
 		
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -760,16 +761,20 @@ public final class NbtSizeCounterHack extends Hack implements
 		var matrix = matrices.last().pose();
 		int stroke = (Math.max(0, Math.min(255, baseAlpha)) << 24);
 		
-		tr.drawInBatch(text, -w - 1, 0, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w + 1, 0, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, -1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, +1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w - 1, 0,
+			stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w + 1, 0,
+			stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, -1,
+			stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, +1,
+			stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, 0, argb,
+			false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}

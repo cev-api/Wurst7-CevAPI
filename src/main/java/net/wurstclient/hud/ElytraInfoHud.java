@@ -170,8 +170,8 @@ public final class ElytraInfoHud
 	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
 		int width, int height)
 	{
-		boolean canDrag = MC.screen instanceof ChatScreen
-			|| MC.screen instanceof AbstractContainerScreen<?>;
+		boolean canDrag = MC.gui.screen() instanceof ChatScreen
+			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!canDrag)
 		{
 			if(dragging)

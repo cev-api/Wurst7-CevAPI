@@ -123,14 +123,14 @@ public final class WaypointsScreen extends Screen
 			b -> {
 				filterDim =
 					net.wurstclient.waypoints.WaypointDimension.OVERWORLD;
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			}).bounds(fx, fy, filterBtnWidth, 20).build());
 		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.NETHER)
 				? "[Nether]" : "Nether"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.NETHER;
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			}).bounds(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
 			.build());
 		addRenderableWidget(Button.builder(Component.literal(
@@ -138,7 +138,7 @@ public final class WaypointsScreen extends Screen
 				? "[End]" : "End"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.END;
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			})
 			.bounds(fx + (filterBtnWidth + spacing) * 2, fy, filterBtnWidth, 20)
 			.build());
@@ -158,7 +158,7 @@ public final class WaypointsScreen extends Screen
 				w.setDimension(currentDim());
 				w.setMaxVisible(5000);
 				w.setLines(false); // default new waypoints without lines
-				minecraft
+				minecraft.gui
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
 			}).bounds(x, createY, 300, 20).build());
 		
@@ -246,7 +246,7 @@ public final class WaypointsScreen extends Screen
 			
 			Button nameBtn = addRenderableWidget(
 				Button.builder(Component.literal(w.getName()), b -> {
-					minecraft.setScreen(
+					minecraft.gui.setScreen(
 						new WaypointEditScreen(this, manager, w, false));
 				}).bounds(x, rowY, 140, 20).build());
 			
@@ -257,7 +257,7 @@ public final class WaypointsScreen extends Screen
 						manager.addOrUpdate(w);
 						saveNow();
 						// Refresh in-place without stacking a new screen
-						minecraft.setScreen(this);
+						minecraft.gui.setScreen(this);
 					})
 				.bounds(x + 145, rowY, 55, 20).build());
 			
@@ -266,7 +266,7 @@ public final class WaypointsScreen extends Screen
 					manager.remove(w);
 					saveNow();
 					// Refresh in-place without stacking a new screen
-					minecraft.setScreen(this);
+					minecraft.gui.setScreen(this);
 				}).bounds(x + 205, rowY, 55, 20).build());
 			
 			Button copyBtn = addRenderableWidget(
@@ -327,10 +327,11 @@ public final class WaypointsScreen extends Screen
 					default -> SortMode.DATE;
 				};
 				saveScrollState();
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			}).bounds(x, this.height - 28, sortWidth, 20).build());
 		addRenderableWidget(Button
-			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
+			.builder(Component.literal("Back"),
+				b -> minecraft.gui.setScreen(prev))
 			.bounds(x + sortWidth + 10, this.height - 28, backWidth, 20)
 			.build());
 	}
@@ -775,7 +776,7 @@ public final class WaypointsScreen extends Screen
 		if(minecraft.player != null)
 			minecraft.player.sendSystemMessage(text);
 		else if(minecraft.gui != null)
-			minecraft.gui.getChat().addClientSystemMessage(text);
+			minecraft.gui.hud.getChat().addClientSystemMessage(text);
 	}
 	
 	private String importSummary(WaypointsManager.XaeroSyncStats stats)

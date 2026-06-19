@@ -607,8 +607,16 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			return null;
 		if(style.getShape() != MobEspStyleSetting.Shape.GLOW)
 			return null;
-		if(!mobs.contains(entity))
+		try
+		{
+			if(!mobs.contains(entity))
+				return null;
+		}catch(IllegalStateException e)
+		{
+			// Entity doesn't have an ID yet (e.g. spawner display entity).
+			// mobs.contains() calls Entity.equals() which calls getId().
 			return null;
+		}
 		return RenderUtils.toIntColor(getColorRgb(), 1F);
 	}
 	

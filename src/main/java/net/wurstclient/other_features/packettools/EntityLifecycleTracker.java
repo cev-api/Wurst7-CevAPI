@@ -77,7 +77,8 @@ public final class EntityLifecycleTracker
 		
 		public boolean isPlayer()
 		{
-			return type == EntityType.PLAYER;
+			return type == net.wurstclient.util.RegistryUtils
+				.entityType("player");
 		}
 	}
 	

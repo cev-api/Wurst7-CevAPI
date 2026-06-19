@@ -337,10 +337,10 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	
 	private void buildNormally()
 	{
-		if(MC.screen instanceof AbstractContainerScreen)
+		if(MC.gui.screen() instanceof AbstractContainerScreen)
 		{
-			if(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen)
+			if(MC.gui.screen() instanceof InventoryScreen
+				|| MC.gui.screen() instanceof CreativeModeInventoryScreen)
 			{
 				// Allow opening player inventory while building so blocks can
 				// be

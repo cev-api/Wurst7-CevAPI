@@ -7,6 +7,7 @@
  */
 package net.wurstclient.util;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -19,9 +20,11 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Font.DisplayMode;
+import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -153,7 +156,7 @@ public enum RenderUtils
 	
 	public static Vec3 getCameraPos()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return Vec3.ZERO;
 		
@@ -162,7 +165,7 @@ public enum RenderUtils
 	
 	public static Rotation getCameraRotation()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return new Rotation(0, 0);
 		
@@ -171,7 +174,7 @@ public enum RenderUtils
 	
 	public static BlockPos getCameraBlockPos()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return BlockPos.ZERO;
 		
@@ -217,9 +220,64 @@ public enum RenderUtils
 		return false;
 	}
 	
-	public static MultiBufferSource.BufferSource getVCP()
+	public static WurstBufferSource getVCP()
 	{
-		return WurstClient.MC.renderBuffers().bufferSource();
+		return new WurstBufferSource();
+	}
+	
+	public static void drawTextInBatch(Font font, String text, float x, float y,
+		int color, boolean shadow, Matrix4f matrix, WurstBufferSource vcp,
+		DisplayMode displayMode, int backgroundColor, int packedLight)
+	{
+		if(text == null || text.isEmpty())
+			return;
+			
+		// 26.2: Font.drawInBatch was removed. Use a fresh StagedVertexBuffer
+		// per text label — exactly how MC's TextFeatureRenderer works.
+		var prepared = font.prepareText(text, x, y, color, shadow, packedLight);
+		
+		StagedVertexBuffer svb = new StagedVertexBuffer(() -> "wurstText",
+			RenderType.BIG_BUFFER_SIZE);
+		java.util.ArrayList<StagedVertexBuffer.Draw> draws =
+			new java.util.ArrayList<>();
+		java.util.ArrayList<RenderType> drawTypes = new java.util.ArrayList<>();
+		
+		prepared.visit(new Font.GlyphVisitor()
+		{
+			@Override
+			public void acceptGlyph(TextRenderable.Styled glyph)
+			{
+				RenderType type = glyph.renderType(displayMode);
+				StagedVertexBuffer.Draw draw =
+					svb.appendDraw(type.format(), type.primitiveTopology(),
+						type.sortOnUpload()
+							? RenderSystem.getProjectionType().vertexSorting()
+							: null);
+				draws.add(draw);
+				drawTypes.add(type);
+				glyph.render(matrix, svb.getVertexBuilder(draw), packedLight,
+					false);
+			}
+		});
+		
+		if(draws.isEmpty())
+		{
+			svb.close();
+			return;
+		}
+		
+		svb.upload();
+		
+		for(int i = 0; i < draws.size(); i++)
+		{
+			StagedVertexBuffer.ExecuteInfo info =
+				svb.getExecuteInfo(draws.get(i));
+			if(info != null)
+				drawTypes.get(i).prepare().drawFromBuffer(info);
+		}
+		
+		svb.endDraw();
+		svb.close();
 	}
 	
 	public static float[] getRainbowColor()
@@ -284,7 +342,7 @@ public enum RenderUtils
 			color, depthTest, DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -322,7 +380,7 @@ public enum RenderUtils
 			depthTest, DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -370,7 +428,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -388,6 +446,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -429,7 +489,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -448,6 +508,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -495,7 +557,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -514,6 +576,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -608,7 +672,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -630,7 +694,7 @@ public enum RenderUtils
 			appliedWidth))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLineStrip(depthTest, width);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -687,7 +751,7 @@ public enum RenderUtils
 		if(globalEsp.submitSolidBox(matrices, shiftedBox, color, depthTest))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -721,7 +785,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -747,6 +811,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidBoxes(PoseStack matrices,
@@ -774,7 +840,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -801,6 +867,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidBox(VertexConsumer buffer, AABB box, int color)
@@ -861,7 +929,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -879,6 +947,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedOctahedrons(PoseStack matrices,
@@ -887,7 +957,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -905,6 +975,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidOctahedrons(PoseStack matrices,
@@ -913,7 +985,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -930,6 +1002,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidOctahedrons(PoseStack matrices,
@@ -938,7 +1012,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -956,6 +1030,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedOctahedron(VertexConsumer buffer, AABB box,
@@ -1105,7 +1181,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1139,7 +1215,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1165,6 +1241,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBoxes(PoseStack matrices,
@@ -1192,7 +1270,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1219,6 +1297,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBoxes(PoseStack matrices,
@@ -1251,7 +1331,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1278,6 +1358,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBox(VertexConsumer buffer, AABB box,
@@ -1370,7 +1452,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1399,7 +1481,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1433,7 +1515,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1542,7 +1624,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1571,7 +1653,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1603,7 +1685,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1663,8 +1745,9 @@ public enum RenderUtils
 	public static void drawArrow(PoseStack matrices, VertexConsumer buffer,
 		BlockPos from, BlockPos to, RegionPos region, int color)
 	{
-		Vec3 fromVec = from.getCenter().subtract(region.x(), 0, region.z());
-		Vec3 toVec = to.getCenter().subtract(region.x(), 0, region.z());
+		Vec3 fromVec =
+			Vec3.atCenterOf(from).subtract(region.x(), 0, region.z());
+		Vec3 toVec = Vec3.atCenterOf(to).subtract(region.x(), 0, region.z());
 		drawArrow(matrices, buffer, fromVec, toVec, color, 1 / 16F);
 	}
 	
@@ -1948,6 +2031,14 @@ public enum RenderUtils
 	
 	public record ColoredBox(AABB box, int color)
 	{}
+	
+	public static float getCappedWorldLabelScale(float baseScale,
+		double distance)
+	{
+		double factor = Math.max(1.0, distance * 0.1);
+		factor = Math.min(factor, 1.2);
+		return baseScale * (float)factor;
+	}
 	
 	/**
 	 * Draw text scaled by the given scale factor.

@@ -16,10 +16,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import com.llamalad7.mixinextras.sugar.Local;
+
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.language.I18n;
@@ -41,7 +44,7 @@ public abstract class PauseScreenMixin extends Screen
 	}
 	
 	@Inject(method = "createPauseMenu()V", at = @At("TAIL"))
-	private void onInitWidgets(CallbackInfo ci)
+	private void addWurstOptionsButton(CallbackInfo ci)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
 		if(!wurst.isEnabled())
@@ -52,19 +55,6 @@ public abstract class PauseScreenMixin extends Screen
 			return;
 		
 		addWurstOptionsButton();
-	}
-	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
-		at = @At("TAIL"))
-	private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci)
-	{
-		WurstClient wurst = WurstClient.INSTANCE;
-		if(!wurst.isEnabled())
-			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
 	}
 	
 	@Unique
@@ -102,7 +92,6 @@ public abstract class PauseScreenMixin extends Screen
 		}
 		
 		// Clear required space for Wurst Options
-		hideFeedbackReportAndServerLinksButtons();
 		ensureSpaceAvailable(buttonX, buttonY, buttonWidth, buttonHeight);
 		
 		// Create Wurst Options button with full label instead of padded spaces
@@ -115,14 +104,10 @@ public abstract class PauseScreenMixin extends Screen
 	}
 	
 	@Unique
-	private void hideFeedbackReportAndServerLinksButtons()
+	private boolean isTrKey(AbstractWidget button, String key)
 	{
-		for(AbstractWidget button : Screens.getWidgets(this))
-			if(isTrKey(button, "menu.sendFeedback")
-				|| isTrKey(button, "menu.reportBugs")
-				|| isTrKey(button, "menu.feedback")
-				|| isTrKey(button, "menu.server_links"))
-				button.visible = false;
+		String message = button.getMessage().getString();
+		return message != null && message.equals(I18n.get(key));
 	}
 	
 	@Unique
@@ -155,13 +140,30 @@ public abstract class PauseScreenMixin extends Screen
 	@Unique
 	private void openWurstOptions(Button button)
 	{
-		minecraft.setScreen(new WurstOptionsScreen(this));
+		minecraft.gui.setScreen(new WurstOptionsScreen(this));
 	}
 	
-	@Unique
-	private boolean isTrKey(AbstractWidget button, String key)
+	@Inject(method = "createPauseMenu()V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/layouts/GridLayout;arrangeElements()V"))
+	private void hideIconButtonRow(CallbackInfo ci,
+		@Local LinearLayout iconButtonRow)
 	{
-		String message = button.getMessage().getString();
-		return message != null && message.equals(I18n.get(key));
+		if(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf.isVisibleInGameMenu())
+			iconButtonRow.visitWidgets(button -> button.visible = false);
+	}
+	
+	@Inject(
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+		at = @At("TAIL"))
+	private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
+	{
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(!wurst.isEnabled())
+			return;
+		
+		wurst.getOtfs().wurstOptionsOtf.drawWurstLogoOnButton(context,
+			wurstOptionsButton);
 	}
 }

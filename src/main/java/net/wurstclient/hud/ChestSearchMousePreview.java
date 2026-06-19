@@ -117,7 +117,7 @@ public final class ChestSearchMousePreview
 		ChestSearchHack hack = WurstClient.INSTANCE.getHax().chestSearchHack;
 		if(hack == null || !hack.shouldDisplayOnMouse())
 			return;
-		Screen screen = WurstClient.MC.screen;
+		Screen screen = WurstClient.MC.gui.screen();
 		if(WurstClient.MC.level == null || WurstClient.MC.player == null
 			|| !canRenderOnScreen(screen))
 			return;
@@ -272,7 +272,7 @@ public final class ChestSearchMousePreview
 	
 	private int getAnchorX(GuiGraphicsExtractor context)
 	{
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 			return context.guiWidth() / 2;
 		return (int)(WurstClient.MC.mouseHandler.xpos() * context.guiWidth()
 			/ WurstClient.MC.getWindow().getScreenWidth());
@@ -280,7 +280,7 @@ public final class ChestSearchMousePreview
 	
 	private int getAnchorY(GuiGraphicsExtractor context)
 	{
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 			return context.guiHeight() / 2;
 		return (int)(WurstClient.MC.mouseHandler.ypos() * context.guiHeight()
 			/ WurstClient.MC.getWindow().getScreenHeight());
@@ -321,9 +321,10 @@ public final class ChestSearchMousePreview
 		
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		boolean canDrag = WurstClient.MC.screen instanceof ChatScreen
-			|| (WurstClient.MC.screen instanceof AbstractContainerScreen<?>
-				&& !isOwnInventoryScreen(WurstClient.MC.screen));
+		boolean canDrag = WurstClient.MC.gui.screen() instanceof ChatScreen
+			|| (WurstClient.MC.gui
+				.screen() instanceof AbstractContainerScreen<?>
+				&& !isOwnInventoryScreen(WurstClient.MC.gui.screen()));
 		if(!canDrag)
 		{
 			if(dragging)

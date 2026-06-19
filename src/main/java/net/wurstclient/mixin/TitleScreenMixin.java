@@ -117,7 +117,7 @@ public abstract class TitleScreenMixin extends Screen
 				.builder(
 					Component.literal(
 						NiceWurstModule.getOptionsLabel("Wurst Options")),
-					b -> minecraft.setScreen(new WurstOptionsScreen(this)))
+					b -> minecraft.gui.setScreen(new WurstOptionsScreen(this)))
 				.bounds(width / 2 + 2, realmsButton.getY(), 98, 20).build());
 		}else
 			wurstOptionsButton = null;

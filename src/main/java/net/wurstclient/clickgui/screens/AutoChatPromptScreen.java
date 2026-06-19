@@ -108,7 +108,7 @@ public final class AutoChatPromptScreen extends Screen
 		int doneW = 100;
 		cancelBtn = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(rightPanelX + editorWidth - doneW, buttonY, doneW, 20)
 			.build();
 		addRenderableWidget(cancelBtn);
@@ -311,7 +311,7 @@ public final class AutoChatPromptScreen extends Screen
 	{
 		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -323,7 +323,7 @@ public final class AutoChatPromptScreen extends Screen
 		
 		if(event.key() == GLFW.GLFW_KEY_ENTER && event.hasControlDown())
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		

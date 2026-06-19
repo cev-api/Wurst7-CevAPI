@@ -43,7 +43,7 @@ public abstract class UiUtilsInBedChatScreenMixin extends Screen
 				if(mc.player != null)
 				{
 					mc.player.stopSleeping();
-					mc.setScreen(null);
+					mc.gui.setScreen(null);
 				}
 			}).bounds(baseX, startY, 115, 20).build());
 	}

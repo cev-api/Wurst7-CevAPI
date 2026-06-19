@@ -243,7 +243,7 @@ public final class AutoDisenchantHack extends Hack
 	
 	private boolean isScreenValid(GrindstoneScreen screen)
 	{
-		return MC.screen == screen;
+		return MC.gui.screen() == screen;
 	}
 	
 	public boolean shouldShowButton()

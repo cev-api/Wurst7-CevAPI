@@ -215,7 +215,7 @@ public final class AddAltScreen extends AltEditorScreen
 			{
 				altManager.add(new TokenAlt(verifiedToken, verifiedRefreshToken,
 					verifiedProfileName, false));
-				minecraft.setScreen(prevScreen);
+				minecraft.gui.setScreen(prevScreen);
 				return;
 			}
 			
@@ -246,7 +246,7 @@ public final class AddAltScreen extends AltEditorScreen
 		else
 			altManager.add(new MojangAlt(nameOrEmail, password));
 		
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	private void toggleMode()

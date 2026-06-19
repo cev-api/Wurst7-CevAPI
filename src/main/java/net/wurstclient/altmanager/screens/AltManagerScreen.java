@@ -143,7 +143,7 @@ public final class AltManagerScreen extends Screen
 			
 			AlertScreen screen =
 				new AlertScreen(action, title, message, buttonText, false);
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 			
 		}else if(altManager.getList().isEmpty() && shouldAsk)
 		{
@@ -154,7 +154,7 @@ public final class AltManagerScreen extends Screen
 			BooleanConsumer callback = this::confirmGenerate;
 			
 			ConfirmScreen screen = new ConfirmScreen(callback, title, message);
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 		}
 		
 		addRenderableWidget(useButton =
@@ -167,15 +167,14 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
-				b -> minecraft.setScreen(new DirectLoginScreen(this)))
+				b -> minecraft.gui.setScreen(new DirectLoginScreen(this)))
 			.bounds(width / 2 - 50, height - 52, 100, 20).build());
 		
-		addRenderableWidget(
-			Button
-				.builder(Component.literal("Add"),
-					b -> minecraft
-						.setScreen(new AddAltScreen(this, altManager)))
-				.bounds(width / 2 + 54, height - 52, 100, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Add"),
+				b -> minecraft.gui
+					.setScreen(new AddAltScreen(this, altManager)))
+			.bounds(width / 2 + 54, height - 52, 100, 20).build());
 		
 		addRenderableWidget(starButton =
 			Button.builder(Component.literal("Favorite"), b -> pressFavorite())
@@ -191,7 +190,7 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 + 80, height - 28, 75, 20).build());
 		
 		addRenderableWidget(importButton =
@@ -348,7 +347,7 @@ public final class AltManagerScreen extends Screen
 			Component.literal("Log in as \"" + alt.getDisplayName() + "\"?");
 		ConfirmScreen screen = new ConfirmScreen(this::confirmLogin, text,
 			message, Component.literal("Login"), Component.literal("Cancel"));
-		minecraft.setScreen(screen);
+		minecraft.gui.setScreen(screen);
 	}
 	
 	private void confirmLogin(boolean confirmed)
@@ -358,7 +357,7 @@ public final class AltManagerScreen extends Screen
 		
 		if(!confirmed || alt == null)
 		{
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 			return;
 		}
 		
@@ -366,14 +365,15 @@ public final class AltManagerScreen extends Screen
 		{
 			altManager.login(alt);
 			clearLoginFailure(alt);
-			minecraft.setScreen(new AltLoginSuccessScreen(prevScreen,
+			minecraft.gui.setScreen(new AltLoginSuccessScreen(prevScreen,
 				minecraft.getUser().getName()));
 			
 		}catch(LoginException e)
 		{
 			errorTimer = 8;
 			recordLoginFailure(alt, e);
-			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
+			minecraft.gui
+				.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
 	}
 	
@@ -426,8 +426,8 @@ public final class AltManagerScreen extends Screen
 					minecraft.execute(() -> {
 						randomLoginInProgress = false;
 						updateAltButtons();
-						if(minecraft.screen == this)
-							minecraft.setScreen(
+						if(minecraft.gui.screen() == this)
+							minecraft.gui.setScreen(
 								new AltLoginSuccessScreen(prevScreen, name));
 					});
 					return;
@@ -449,8 +449,8 @@ public final class AltManagerScreen extends Screen
 			minecraft.execute(() -> {
 				randomLoginInProgress = false;
 				updateAltButtons();
-				if(minecraft.screen == this)
-					minecraft.setScreen(new AltLoginFailedScreen(this,
+				if(minecraft.gui.screen() == this)
+					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
 						"Random login failed for all accounts."));
 			});
 			
@@ -474,7 +474,7 @@ public final class AltManagerScreen extends Screen
 		restored = restored && matchesOriginal;
 		
 		updateAltButtons();
-		minecraft
+		minecraft.gui
 			.setScreen(new AltLogoutResultScreen(this, restored, currentName));
 	}
 	
@@ -525,7 +525,7 @@ public final class AltManagerScreen extends Screen
 		CountDownLatch latch = new CountDownLatch(1);
 		
 		minecraft.execute(() -> {
-			if(minecraft.screen != this)
+			if(minecraft.gui.screen() != this)
 			{
 				latch.countDown();
 				return;
@@ -539,11 +539,11 @@ public final class AltManagerScreen extends Screen
 					+ (remainingCount == 1 ? "?" : "s?"));
 			ConfirmScreen screen = new ConfirmScreen(confirmed -> {
 				result.set(confirmed);
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 				latch.countDown();
 			}, title, message, Component.literal("Continue"),
 				Component.literal("Stop"));
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 		});
 		
 		try
@@ -580,7 +580,7 @@ public final class AltManagerScreen extends Screen
 			return;
 		}
 		
-		minecraft.setScreen(new EditAltScreen(this, altManager, alt));
+		minecraft.gui.setScreen(new EditAltScreen(this, altManager, alt));
 	}
 	
 	private void validateTokenAltBeforeEditing(TokenAlt tokenAlt)
@@ -610,8 +610,8 @@ public final class AltManagerScreen extends Screen
 						AltRenderer.refreshSkin(resolvedName);
 					}
 					
-					if(minecraft.screen == this)
-						minecraft.setScreen(
+					if(minecraft.gui.screen() == this)
+						minecraft.gui.setScreen(
 							new EditTokenAltScreen(this, altManager, tokenAlt));
 				});
 				
@@ -626,7 +626,7 @@ public final class AltManagerScreen extends Screen
 					String details =
 						e.getMessage() == null || e.getMessage().isBlank()
 							? "Unknown error" : e.getMessage();
-					minecraft.setScreen(new AltLoginFailedScreen(this,
+					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
 						"Token validation failed: " + details));
 				});
 			}
@@ -662,7 +662,7 @@ public final class AltManagerScreen extends Screen
 		
 		ConfirmScreen screen = new ConfirmScreen(this::confirmRemove, text,
 			message, Component.literal("Delete"), Component.literal("Cancel"));
-		minecraft.setScreen(screen);
+		minecraft.gui.setScreen(screen);
 	}
 	
 	private void pressImportAlts()
@@ -742,7 +742,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.screen == this)
+					if(minecraft.gui.screen() == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -805,7 +805,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.screen == this)
+					if(minecraft.gui.screen() == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -1228,14 +1228,14 @@ public final class AltManagerScreen extends Screen
 			imc.setWurstSession(previousSession);
 			autoCheckInProgress = false;
 			minecraft.execute(() -> {
-				if(minecraft.screen == this)
+				if(minecraft.gui.screen() == this)
 					updateAltButtons();
 			});
 		}
 		
 		if(changed)
 			minecraft.execute(() -> {
-				if(minecraft.screen == this)
+				if(minecraft.gui.screen() == this)
 					reloadScreen();
 			});
 	}
@@ -1329,13 +1329,13 @@ public final class AltManagerScreen extends Screen
 	
 	private void reloadScreen()
 	{
-		minecraft.setScreen(new AltManagerScreen(prevScreen, altManager));
+		minecraft.gui.setScreen(new AltManagerScreen(prevScreen, altManager));
 	}
 	
 	private boolean isOpenScreen()
 	{
 		return !autoCheckCancelled && minecraft != null
-			&& minecraft.screen == this;
+			&& minecraft.gui.screen() == this;
 	}
 	
 	private boolean hasUncheckedPremiumAlts()
@@ -1418,7 +1418,7 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		shouldAsk = false;
-		minecraft.setScreen(this);
+		minecraft.gui.setScreen(this);
 	}
 	
 	private void confirmRemove(boolean confirmed)
@@ -1430,7 +1430,7 @@ public final class AltManagerScreen extends Screen
 			});
 		
 		pendingDeletion = Collections.emptyList();
-		minecraft.setScreen(this);
+		minecraft.gui.setScreen(this);
 	}
 	
 	@Override
@@ -1602,7 +1602,7 @@ public final class AltManagerScreen extends Screen
 	public void onClose()
 	{
 		autoCheckCancelled = true;
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override

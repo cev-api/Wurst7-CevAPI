@@ -27,8 +27,14 @@ public final class XpGuiHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		if(!(MC.screen instanceof XpGuiScreen))
-			MC.setScreen(new XpGuiScreen());
+		if(MC.gui == null)
+		{
+			setEnabled(false);
+			return;
+		}
+		
+		if(!(MC.gui.screen() instanceof XpGuiScreen))
+			MC.gui.setScreen(new XpGuiScreen());
 		
 		setEnabled(false);
 	}

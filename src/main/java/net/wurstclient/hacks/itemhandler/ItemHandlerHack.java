@@ -265,8 +265,8 @@ public class ItemHandlerHack extends Hack
 		rejectedRules.clear();
 		endPickFilterSession();
 		
-		if(MC.screen instanceof ItemHandlerScreen)
-			MC.setScreen(null);
+		if(MC.gui.screen() instanceof ItemHandlerScreen)
+			MC.gui.setScreen(null);
 	}
 	
 	@Override
@@ -602,7 +602,7 @@ public class ItemHandlerHack extends Hack
 	
 	private void scanNearbySigns()
 	{
-		boolean guiOpen = MC.screen instanceof ItemHandlerScreen;
+		boolean guiOpen = MC.gui.screen() instanceof ItemHandlerScreen;
 		boolean detectSigns = showSignsInHud.isChecked() || guiOpen;
 		boolean detectNamed = detectNamedEntities.isChecked() || guiOpen;
 		boolean detectCrafted = detectCraftedEntities.isChecked() || guiOpen;
@@ -1118,8 +1118,8 @@ public class ItemHandlerHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		Screen prev = MC.screen;
-		MC.setScreen(new ItemHandlerScreen(prev, this));
+		Screen prev = MC.gui.screen();
+		MC.gui.setScreen(new ItemHandlerScreen(prev, this));
 	}
 	
 	public void requestPickup(Collection<Integer> entityIds)

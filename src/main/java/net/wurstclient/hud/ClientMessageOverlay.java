@@ -255,8 +255,8 @@ public final class ClientMessageOverlay
 		if(chatScale <= 0)
 			return;
 		
-		boolean chatOpen =
-			WurstClient.MC.screen instanceof ChatScreen || tabHeldForOverlay;
+		boolean chatOpen = WurstClient.MC.gui.screen() instanceof ChatScreen
+			|| tabHeldForOverlay;
 		int maxLines = hack.getMaxLines();
 		int maxWidth = Mth.floor(
 			ChatComponent.getWidth(WurstClient.MC.options.chatWidth().get())
@@ -356,7 +356,7 @@ public final class ClientMessageOverlay
 		boolean overWurst = hasWurstPanel && isMouseOverPanel(context,
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 		
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 		{
 			if(dragging)
 				commitDraggedOffset();
@@ -1044,7 +1044,7 @@ public final class ClientMessageOverlay
 	private boolean hasVanillaChatMessages()
 	{
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		return vanillaLines != null && !vanillaLines.isEmpty();
 	}
 	
@@ -1053,7 +1053,7 @@ public final class ClientMessageOverlay
 	{
 		List<TimedRenderLine> timed = new ArrayList<>();
 		long nowMs = System.currentTimeMillis();
-		int guiTicks = WurstClient.MC.gui.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
 		
 		// Overlay entries (system/Wurst messages)
 		synchronized(overlayMessages)
@@ -1074,7 +1074,7 @@ public final class ClientMessageOverlay
 		
 		// Vanilla chat entries (player chat messages)
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		if(vanillaLines != null)
 			for(GuiMessage.Line line : vanillaLines)
 			{
@@ -1314,7 +1314,7 @@ public final class ClientMessageOverlay
 	private int getVisibleVanillaLineCount(int chatHeight, boolean chatOpen)
 	{
 		List<GuiMessage.Line> lines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		if(lines == null || lines.isEmpty())
 			return 0;
 		
@@ -1324,7 +1324,7 @@ public final class ClientMessageOverlay
 		if(chatOpen)
 			return Math.min(lines.size(), maxVisibleLines);
 		
-		int guiTicks = WurstClient.MC.gui.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
 		int visibleLines = 0;
 		for(GuiMessage.Line line : lines)
 		{
@@ -1510,9 +1510,9 @@ public final class ClientMessageOverlay
 	private void handleClickEvent(ClickEvent clickEvent)
 	{
 		if(clickEvent instanceof ClickEvent.OpenUrl openUrl
-			&& WurstClient.MC.screen != null)
+			&& WurstClient.MC.gui.screen() != null)
 		{
-			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.screen,
+			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.gui.screen(),
 				openUrl.uri(), false);
 			return;
 		}
@@ -1550,7 +1550,8 @@ public final class ClientMessageOverlay
 	private Style getClickableStyleAt(GuiGraphicsExtractor context,
 		float chatScale)
 	{
-		if(!(WurstClient.MC.screen instanceof ChatScreen) && !tabHeldForOverlay)
+		if(!(WurstClient.MC.gui.screen() instanceof ChatScreen)
+			&& !tabHeldForOverlay)
 			return null;
 		
 		double mouseX = getScaledMouseX(context);

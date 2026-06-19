@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.monster.warden.AngerLevel;
@@ -30,7 +29,7 @@ import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
@@ -117,7 +116,8 @@ public final class WardenEspHack extends Hack
 			if(e.isRemoved() || (le.getHealth() <= 0))
 				continue;
 			// Prefer checking the entity type to handle mapped/obfuscated names
-			if(e.getType() == EntityType.WARDEN)
+			if(e.getType() == net.wurstclient.util.RegistryUtils
+				.entityType("warden"))
 				wardens.add(le);
 		}
 		
@@ -419,7 +419,7 @@ public final class WardenEspHack extends Hack
 		matrices.scale(s, -s, s);
 		matrices.translate(0, offsetPx, 0);
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -429,16 +429,20 @@ public final class WardenEspHack extends Hack
 		// stroke for legibility
 		int strokeColor =
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
-		tr.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, +1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w - 1, 0,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w + 1, 0,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, -1,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, +1,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, 0, argb,
+			false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}

@@ -69,7 +69,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(startX + doneWidth + gap + smallButtonWidth + gap, buttonY,
 				smallButtonWidth, 20)
 			.build());
@@ -78,7 +78,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 	private void done()
 	{
 		hack.setCustomSystemPrompt(promptField.getValue());
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -86,7 +86,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 	{
 		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		

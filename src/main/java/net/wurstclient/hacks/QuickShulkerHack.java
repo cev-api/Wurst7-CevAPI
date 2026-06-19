@@ -685,7 +685,7 @@ public final class QuickShulkerHack extends Hack
 		if(WurstClient.MC == null)
 			return;
 		
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 			return;
 		
 		WurstClient.MC.execute(() -> {
@@ -705,7 +705,7 @@ public final class QuickShulkerHack extends Hack
 				Thread.currentThread().interrupt();
 				return;
 			}
-			if(WurstClient.MC.screen == null)
+			if(WurstClient.MC.gui.screen() == null)
 				return;
 			try
 			{

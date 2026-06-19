@@ -13,10 +13,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Button.OnPress;
 import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;
@@ -31,9 +29,6 @@ import net.wurstclient.util.text.WText;
 @DontBlock
 public final class WurstOptionsOtf extends OtherFeature
 {
-	private static final Identifier WURST_TEXTURE =
-		Identifier.fromNamespaceAndPath("wurst", "wurst_128.png");
-	
 	private final EnumSetting<Location> location = new EnumSetting<>("Location",
 		"description.wurst.setting.wurstoptions.location", Location.values(),
 		Location.GAME_MENU);
@@ -158,20 +153,7 @@ public final class WurstOptionsOtf extends OtherFeature
 	public void drawWurstLogoOnButton(GuiGraphicsExtractor context,
 		Button wurstOptionsButton)
 	{
-		if(wurstOptionsButton == null)
-			return;
-		
-		int x = wurstOptionsButton.getX() + 34;
-		int y = wurstOptionsButton.getY() + 2;
-		int w = 63;
-		int h = 16;
-		int fw = 63;
-		int fh = 16;
-		float u = 0;
-		float v = 0;
-		context.guiRenderState.up();
-		context.blit(RenderPipelines.GUI_TEXTURED, WURST_TEXTURE, x, y, u, v, w,
-			h, fw, fh);
+		// Logo disabled — no longer rendered on the options button.
 	}
 	
 	private enum Location

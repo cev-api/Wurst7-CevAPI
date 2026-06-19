@@ -93,7 +93,7 @@ public final class AltLoginSuccessScreen extends Screen
 		
 		Screen screenToOpen = nextScreen instanceof JoinMultiplayerScreen
 			? new JoinMultiplayerScreen(new TitleScreen()) : nextScreen;
-		minecraft.setScreen(screenToOpen);
+		minecraft.gui.setScreen(screenToOpen);
 	}
 	
 	@Override

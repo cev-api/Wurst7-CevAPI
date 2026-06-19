@@ -222,7 +222,7 @@ public final class NavigatorListScreen extends Screen
 		if(commandCallback == null || entry == null || entry.isEmpty())
 			return;
 		
-		minecraft.setScreen(new EnterProfileNameScreen(this, input -> {
+		minecraft.gui.setScreen(new EnterProfileNameScreen(this, input -> {
 			if(input == null)
 				return;
 			
@@ -244,6 +244,6 @@ public final class NavigatorListScreen extends Screen
 	
 	private void close()
 	{
-		minecraft.setScreen(returnScreen);
+		minecraft.gui.setScreen(returnScreen);
 	}
 }

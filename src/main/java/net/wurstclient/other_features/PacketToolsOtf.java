@@ -332,12 +332,12 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	public void openScreen()
 	{
-		if(MC == null)
+		if(MC == null || MC.gui == null)
 			return;
 		
-		MC.setScreen(
+		MC.gui.setScreen(
 			new net.wurstclient.other_features.packettools.PacketToolsScreen(
-				MC.screen, this));
+				MC.gui.screen(), this));
 	}
 	
 	public synchronized void saveSelectionConfig()
@@ -628,12 +628,12 @@ public final class PacketToolsOtf extends OtherFeature
 			return;
 		}
 		
-		if(MC.gui != null && MC.gui.getChat() != null)
+		if(MC.gui != null && MC.gui.hud.getChat() != null)
 		{
 			MC.execute(() -> {
 				MutableComponent msg = Component.literal("[PacketTools] ")
 					.withColor(0x55FFFF).append(Component.literal(line));
-				MC.gui.getChat().addClientSystemMessage(msg);
+				MC.gui.hud.getChat().addClientSystemMessage(msg);
 			});
 		}
 	}

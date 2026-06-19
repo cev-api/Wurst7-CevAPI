@@ -1529,7 +1529,7 @@ public final class LootRunnerHack extends Hack
 		Integer slotIdx = lootQueue.pollFirst();
 		lastLootClickMs = now;
 		
-		var screen = MC.screen;
+		var screen = MC.gui.screen();
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return;
 		
@@ -2760,7 +2760,8 @@ public final class LootRunnerHack extends Hack
 	
 	private boolean isChestScreenOpen()
 	{
-		if(!(MC.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen))
+		if(!(MC.gui
+			.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen))
 			return false;
 		return screen.getMenu() instanceof ChestMenu
 			|| screen.getMenu() instanceof ShulkerBoxMenu;
@@ -2864,7 +2865,7 @@ public final class LootRunnerHack extends Hack
 		if(chestBefore.isEmpty())
 			return;
 		
-		var screen = MC.screen;
+		var screen = MC.gui.screen();
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return;
 		
@@ -2883,7 +2884,7 @@ public final class LootRunnerHack extends Hack
 	private List<ItemStack> readChestItems()
 	{
 		List<ItemStack> out = new ArrayList<>();
-		var screen = MC.screen;
+		var screen = MC.gui.screen();
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return out;
 		

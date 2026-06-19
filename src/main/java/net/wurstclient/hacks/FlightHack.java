@@ -237,7 +237,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		boolean shiftActuallyDown =
 			IKeyMapping.get(MC.options.keyShift).isActuallyDown();
 		boolean allowShiftInThisContext =
-			!ignoreShiftInGuis.isChecked() || MC.screen == null;
+			!ignoreShiftInGuis.isChecked() || MC.gui.screen() == null;
 		if((shiftActuallyDown && allowShiftInThisContext) || autoShift)
 		{
 			MC.options.keyShift.setDown(false);
@@ -374,7 +374,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	public boolean isControllingScrollEvents()
 	{
 		return isEnabled() && scrollToChangeSpeed.isChecked()
-			&& MC.screen == null
+			&& MC.gui.screen() == null
 			&& !WURST.getOtfs().zoomOtf.isControllingScrollEvents()
 			&& !WURST.getHax().freecamHack.isMovingCamera();
 	}

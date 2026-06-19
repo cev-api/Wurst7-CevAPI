@@ -339,7 +339,8 @@ public final class PacketDumper
 		{}
 		try
 		{
-			if(p.getType() == EntityType.ENDER_PEARL)
+			if(p.getType() == net.wurstclient.util.RegistryUtils
+				.entityType("ender_pearl"))
 				f.put("_ownerEntityId", p.getData());
 		}catch(Exception ignored)
 		{}

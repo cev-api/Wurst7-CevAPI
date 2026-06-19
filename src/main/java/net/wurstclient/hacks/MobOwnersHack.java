@@ -13,7 +13,7 @@ import java.awt.Color;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -175,7 +175,21 @@ public final class MobOwnersHack extends Hack implements RenderListener
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -185,11 +199,11 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		}
 		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float s = 0.025F * scale;
+		float s = 0.025F * RenderUtils.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -199,16 +213,21 @@ public final class MobOwnersHack extends Hack implements RenderListener
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
 		var matrix = matrices.last().pose();
 		
-		font.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, 1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w - 1, 0,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w + 1, 0,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, -1,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 1,
+			strokeColor, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 0,
+			argb, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, bg,
+			0xF000F0);
 		
 		vcp.endBatch();
 		matrices.popPose();

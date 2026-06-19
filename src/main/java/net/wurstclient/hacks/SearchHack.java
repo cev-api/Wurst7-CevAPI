@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -837,7 +837,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
-				return pos.getCenter();
+				return Vec3.atCenterOf(pos);
 			}).collect(java.util.stream.Collectors.toList());
 			foundCount = Math.min(matchingBlocks.size(), 999);
 			
@@ -855,7 +855,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		RegionPos region = RenderUtils.getCameraRegion();
 		if(vertexBuffer != null)
 			vertexBuffer.close();
-		vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+		vertexBuffer = EasyVertexBuffer.createAndUpload(PrimitiveTopology.QUADS,
 			DefaultVertexFormat.POSITION_COLOR, buffer -> {
 				for(int[] vertex : vertices)
 					buffer.addVertex(vertex[0] - region.x(), vertex[1],
@@ -872,7 +872,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
-				return pos.getCenter();
+				return Vec3.atCenterOf(pos);
 			}).collect(java.util.stream.Collectors.toList());
 			// update count for HUD (clamped to 999)
 			foundCount = Math.min(matchingBlocks.size(), 999);

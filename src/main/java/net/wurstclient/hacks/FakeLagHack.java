@@ -100,7 +100,7 @@ public final class FakeLagHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.level == null || MC.screen != null)
+		if(MC.player == null || MC.level == null || MC.gui.screen() != null)
 		{
 			flush();
 			return;
@@ -132,7 +132,7 @@ public final class FakeLagHack extends Hack
 		
 		if(!(packet instanceof ServerboundMovePlayerPacket))
 			return;
-		if(MC.screen != null || MC.player.isInWater()
+		if(MC.gui.screen() != null || MC.player.isInWater()
 			|| System.currentTimeMillis() < recoilUntil)
 			return;
 		if(mode.getSelected() == Mode.DYNAMIC && !isEnemyNearby())

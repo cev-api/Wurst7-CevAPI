@@ -13,7 +13,7 @@ import java.util.Comparator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -111,7 +111,7 @@ public final class PearlDropHack extends Hack
 	{
 		if(MC.player == null || MC.level == null || MC.gameMode == null)
 			return;
-		if(MC.rightClickDelay > 0 || MC.screen != null)
+		if(MC.rightClickDelay > 0 || MC.gui.screen() != null)
 			return;
 		if(getPearlHand() == null)
 			return;
@@ -623,7 +623,21 @@ public final class PearlDropHack extends Hack
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
+		Vec3 target = pos;
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = pos.x;
+		double ly = pos.y;
+		double lz = pos.z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -633,14 +647,16 @@ public final class PearlDropHack extends Hack
 		}
 		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		matrices.scale(0.025F, -0.025F, 0.025F);
+		float s = 0.025F * RenderUtils.getCappedWorldLabelScale(1.0F, dist);
+		matrices.scale(s, -s, s);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		var matrix = matrices.last().pose();
-		font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0x80000000, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 0,
+			argb, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0x80000000,
+			0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}

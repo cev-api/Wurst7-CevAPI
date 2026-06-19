@@ -141,9 +141,15 @@ public abstract class EntityMixin
 		if(!((Object)this instanceof LivingEntity living))
 			return;
 		
-		Integer glowColor = getEspGlowColor(living);
-		if(glowColor != null)
-			cir.setReturnValue(true);
+		try
+		{
+			Integer glowColor = getEspGlowColor(living);
+			if(glowColor != null)
+				cir.setReturnValue(true);
+		}catch(IllegalStateException e)
+		{
+			// Entity doesn't have an ID yet (e.g. spawner display entity)
+		}
 	}
 	
 	@Inject(at = @At("RETURN"), method = "getTeamColor", cancellable = true)
@@ -152,9 +158,15 @@ public abstract class EntityMixin
 		if(!((Object)this instanceof LivingEntity living))
 			return;
 		
-		Integer glowColor = getEspGlowColor(living);
-		if(glowColor != null)
-			cir.setReturnValue(glowColor);
+		try
+		{
+			Integer glowColor = getEspGlowColor(living);
+			if(glowColor != null)
+				cir.setReturnValue(glowColor);
+		}catch(IllegalStateException e)
+		{
+			// Entity doesn't have an ID yet (e.g. spawner display entity)
+		}
 	}
 	
 	private Integer getEspGlowColor(LivingEntity living)

@@ -115,7 +115,7 @@ public final class AltGuiKeybindScreen extends Screen
 				return true;
 			}
 			
-			minecraft.setScreen(returnScreen);
+			minecraft.gui.setScreen(returnScreen);
 			return true;
 		}
 		
@@ -131,7 +131,7 @@ public final class AltGuiKeybindScreen extends Screen
 		
 		if(button == GLFW.GLFW_MOUSE_BUTTON_4)
 		{
-			minecraft.setScreen(returnScreen);
+			minecraft.gui.setScreen(returnScreen);
 			return true;
 		}
 		
@@ -152,7 +152,7 @@ public final class AltGuiKeybindScreen extends Screen
 		
 		if(isInside(mouseX, mouseY, backX1, backY1, backX2, backY2))
 		{
-			minecraft.setScreen(returnScreen);
+			minecraft.gui.setScreen(returnScreen);
 			return true;
 		}
 		
@@ -401,7 +401,7 @@ public final class AltGuiKeybindScreen extends Screen
 		{
 			int overflow = textW - innerW;
 			int ticks = minecraft != null && minecraft.gui != null
-				? minecraft.gui.getGuiTicks()
+				? minecraft.gui.hud.getGuiTicks()
 				: (int)(System.currentTimeMillis() / 50L);
 			float cycle = 220F;
 			float phase = (ticks % (int)cycle) / cycle;

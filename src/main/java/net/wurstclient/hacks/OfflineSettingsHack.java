@@ -342,7 +342,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		
 		Screen resolvedPrev = resolvePrevScreen(prevScreen, client);
 		if(resolvedPrev == null)
-			resolvedPrev = client != null ? client.screen : null;
+			resolvedPrev = client != null ? client.gui.screen() : null;
 		final Screen prev = resolvedPrev;
 		
 		if(!autoReconnectInProgress.compareAndSet(false, true))
@@ -468,7 +468,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		if(requested != null)
 			return requested;
 		
-		return client != null ? client.screen : null;
+		return client != null ? client.gui.screen() : null;
 	}
 	
 	private void startConnection(Minecraft client, Screen prevScreen,

@@ -290,7 +290,8 @@ public final class DurabilityHud
 		if(MC == null)
 			return;
 		
-		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
+		boolean containerOpen =
+			MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)
 		{
 			dragging = false;
@@ -337,7 +338,7 @@ public final class DurabilityHud
 		float hudY, float hudHeight)
 	{
 		if(MC == null || MC.font == null || MC.gui == null
-			|| !(MC.gui instanceof GuiAccessor accessor))
+			|| !(MC.gui.hud instanceof GuiAccessor accessor))
 			return 0F;
 		
 		if(hudY < context.guiHeight() - ACTIONBAR_AVOID_ZONE_HEIGHT)
@@ -373,7 +374,7 @@ public final class DurabilityHud
 		GuiGraphicsExtractor context)
 	{
 		if(MC == null || MC.gui == null
-			|| !(MC.gui instanceof GuiAccessor accessor))
+			|| !(MC.gui.hud instanceof GuiAccessor accessor))
 			return false;
 		
 		DurabilityHudHack hack = WurstClient.INSTANCE != null
@@ -494,7 +495,7 @@ public final class DurabilityHud
 	private static boolean isOverlayMessageVisible()
 	{
 		if(MC == null || MC.gui == null
-			|| !(MC.gui instanceof GuiAccessor accessor))
+			|| !(MC.gui.hud instanceof GuiAccessor accessor))
 			return false;
 		
 		int time = accessor.getOverlayMessageTime();

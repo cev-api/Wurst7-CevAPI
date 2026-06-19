@@ -11,7 +11,6 @@ import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.GlowItemFrame;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.block.Blocks;
@@ -124,7 +123,8 @@ public final class CommonNukerSettings implements LeftClickListener
 		if(entity instanceof ItemFrame)
 			return hasEntityId("item_frame");
 		
-		if(entity.getType() == EntityType.PAINTING)
+		if(entity.getType() == net.wurstclient.util.RegistryUtils
+			.entityType("painting"))
 			return hasEntityId("painting");
 		
 		return false;

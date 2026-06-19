@@ -178,7 +178,7 @@ public final class AntiFingerprintConfigScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 	}
 	
 	private void onThresholdChanged(String text)

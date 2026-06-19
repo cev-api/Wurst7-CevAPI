@@ -93,16 +93,24 @@ public final class EnabledHacksFile
 				return;
 			}
 			
-			for(Hack hack : hax.getAllHax())
-				hack.setEnabled(false);
-			
+			// Compute the desired set of enabled hacks from the preset.
+			java.util.Set<String> desired = new java.util.HashSet<>();
 			for(String name : wson.getAllStrings())
+				desired.add(name);
+				
+			// Only toggle hacks whose state actually differs. This avoids
+			// calling onEnable/onDisable unnecessarily, which can trigger
+			// expensive operations like LevelRenderer.allChanged() that
+			// may leave viewArea in an inconsistent state if called in
+			// rapid succession.
+			for(Hack hack : hax.getAllHax())
 			{
-				Hack hack = hax.getHackByName(name);
-				if(hack == null || !hack.isStateSaved())
+				if(!hack.isStateSaved())
 					continue;
 				
-				hack.setEnabled(true);
+				boolean shouldEnable = desired.contains(hack.getName());
+				if(shouldEnable != hack.isEnabled())
+					hack.setEnabled(shouldEnable);
 			}
 			
 		}finally
@@ -126,7 +134,8 @@ public final class EnabledHacksFile
 			{
 				if(mc.player == null)
 					return;
-				if(mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
+				if(mc.gui
+					.screen() instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
 					return;
 			}
 		}catch(Throwable ignored)

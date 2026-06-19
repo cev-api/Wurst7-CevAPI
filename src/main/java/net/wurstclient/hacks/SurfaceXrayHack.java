@@ -48,7 +48,7 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 			public void update()
 			{
 				super.update();
-				onSettingsChanged(false);
+				onSurfaceOpacityChanged();
 			}
 		};
 	
@@ -118,6 +118,8 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	private ClientLevel cachedWorld;
 	private long lastCleanupTick;
+	private boolean pendingTerrainReload;
+	private boolean lastUsesTranslucentLayer;
 	
 	public SurfaceXrayHack()
 	{
@@ -133,9 +135,11 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 		clearCache();
 		cachedWorld = null;
 		lastCleanupTick = 0;
+		pendingTerrainReload = false;
+		lastUsesTranslucentLayer = usesTranslucentLayer();
 		EVENTS.add(UpdateListener.class, this);
 		
-		onSettingsChanged(true);
+		requestTerrainReload(true);
 	}
 	
 	@Override
@@ -145,12 +149,16 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 		
 		clearCache();
 		cachedWorld = null;
-		onSettingsChanged(false);
+		pendingTerrainReload = false;
+		reloadTerrainNow();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(pendingTerrainReload)
+			reloadPendingTerrain();
+		
 		ClientLevel world = MC.level;
 		if(world == null || world != cachedWorld)
 		{
@@ -244,7 +252,7 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	public void openBlockListEditor(Screen prevScreen)
 	{
-		MC.setScreen(new EditBlockListScreen(prevScreen, targetBlocks));
+		MC.gui.setScreen(new EditBlockListScreen(prevScreen, targetBlocks));
 	}
 	
 	private SurfaceState classifyPos(BlockPos pos, Block block)
@@ -369,14 +377,14 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	private void onTrackedBlocksChanged()
 	{
-		onSettingsChanged(true);
+		requestTerrainReload(true);
 	}
 	
-	private void onSettingsChanged(boolean clearCache)
+	private void requestTerrainReload(boolean clearCache)
 	{
 		if(!MC.isSameThread())
 		{
-			MC.execute(() -> onSettingsChanged(clearCache));
+			MC.execute(() -> requestTerrainReload(clearCache));
 			return;
 		}
 		
@@ -386,8 +394,44 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 			lastCleanupTick = 0;
 		}
 		
-		if(MC.levelRenderer != null)
-			MC.levelRenderer.allChanged();
+		pendingTerrainReload = true;
+	}
+	
+	private boolean usesTranslucentLayer()
+	{
+		return getSurfaceOpacity() < 0.99f;
+	}
+	
+	private void reloadPendingTerrain()
+	{
+		if(MC.level == null || MC.levelExtractor == null)
+			return;
+		
+		pendingTerrainReload = false;
+		MC.levelExtractor.allChanged();
+		lastUsesTranslucentLayer = usesTranslucentLayer();
+	}
+	
+	private void reloadTerrainNow()
+	{
+		if(!MC.isSameThread())
+		{
+			MC.execute(this::reloadTerrainNow);
+			return;
+		}
+		
+		if(MC.level == null || MC.levelExtractor == null)
+			return;
+		
+		MC.levelExtractor.allChanged();
+		lastUsesTranslucentLayer = usesTranslucentLayer();
+	}
+	
+	private void onSurfaceOpacityChanged()
+	{
+		boolean usesTranslucentLayer = usesTranslucentLayer();
+		if(usesTranslucentLayer != lastUsesTranslucentLayer)
+			requestTerrainReload(false);
 	}
 	
 	private static final class CacheEntry

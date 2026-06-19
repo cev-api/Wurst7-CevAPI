@@ -228,7 +228,7 @@ public final class AutoLibrarianHack extends Hack
 		lastReasonMessage = "";
 		reasonMessageCooldown = 0;
 		
-		if(!(MC.screen instanceof MerchantScreen tradeScreen))
+		if(!(MC.gui.screen() instanceof MerchantScreen tradeScreen))
 		{
 			openTradeScreen();
 			return;

@@ -231,7 +231,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				
 				Thread.sleep(delay.getValueI());
 				
-				if(MC.screen == null)
+				if(MC.gui.screen() == null)
 					break;
 				
 				screen.slotClicked(slot, slot.index, 0,
@@ -256,7 +256,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				
 				Thread.sleep(delay.getValueI());
 				
-				if(MC.screen == null)
+				if(MC.gui.screen() == null)
 					break;
 				
 				screen.slotClicked(slot, slot.index, 1, ContainerInput.THROW);
@@ -270,7 +270,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 	
 	private void maybeStealCurrentChest()
 	{
-		if(!(MC.screen instanceof AbstractContainerScreen<?> screen))
+		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen))
 			return;
 		
 		if(isCreativeScreen(screen))
@@ -427,7 +427,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 			return;
 		
 		AbstractContainerScreen<?> screen =
-			MC.screen instanceof AbstractContainerScreen<?> s ? s : null;
+			MC.gui.screen() instanceof AbstractContainerScreen<?> s ? s : null;
 		if(screen == null || screen instanceof InventoryScreen
 			|| isCreativeScreen(screen))
 		{

@@ -10,7 +10,7 @@ package net.wurstclient.chestsearch;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.List;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -28,7 +28,7 @@ public final class ChestSearchMarkerRenderer
 		if(matrices == null || box == null)
 			return;
 		
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, thickness);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		drawMarker(matrices.last(), buffer,
@@ -42,7 +42,7 @@ public final class ChestSearchMarkerRenderer
 		if(matrices == null || boxes == null || boxes.isEmpty())
 			return;
 		
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, thickness);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		PoseStack.Pose entry = matrices.last();

@@ -78,13 +78,13 @@ public abstract class ChatScreenMixin extends Screen
 			String result = UiUtilsCommandSystem.execute(command);
 			
 			if(addToHistory)
-				minecraft.gui.getChat().addRecentChat(message);
+				minecraft.gui.hud.getChat().addRecentChat(message);
 			
 			if(minecraft.player != null && !result.isEmpty())
 				for(String line : result.split("\n"))
 					minecraft.player.sendSystemMessage(Component.literal(line));
 				
-			minecraft.setScreen(null);
+			minecraft.gui.setScreen(null);
 			ci.cancel();
 			return;
 		}
@@ -106,7 +106,7 @@ public abstract class ChatScreenMixin extends Screen
 		// Otherwise the up/down arrows won't work correctly
 		String newMessage = event.getMessage();
 		if(addToHistory)
-			minecraft.gui.getChat().addRecentChat(newMessage);
+			minecraft.gui.hud.getChat().addRecentChat(newMessage);
 		
 		// If the event isn't cancelled, send the modified message
 		if(!cancelled)

@@ -25,7 +25,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -128,7 +127,8 @@ public final class SusNoMoreHack extends Hack
 	private void handleBlockEntityPacket(
 		ClientboundBlockEntityDataPacket packet)
 	{
-		if(packet.getType() != BlockEntityType.BRUSHABLE_BLOCK)
+		if(packet.getType() != net.wurstclient.util.RegistryUtils
+			.blockEntityType("brushable_block"))
 			return;
 		
 		CompoundTag tag = packet.getTag();

@@ -152,10 +152,10 @@ public final class EditBlockListScreen extends Screen
 		
 		addRenderableWidget(
 			Button.builder(Component.literal("Reset to Defaults"),
-				b -> minecraft.setScreen(new ConfirmScreen(b2 -> {
+				b -> minecraft.gui.setScreen(new ConfirmScreen(b2 -> {
 					if(b2)
 						blockList.resetToDefaults();
-					minecraft.setScreen(EditBlockListScreen.this);
+					minecraft.gui.setScreen(EditBlockListScreen.this);
 				}, Component.literal("Reset to Defaults"),
 					Component.literal("Are you sure?"))))
 				.bounds(width - 328, 8, 150, 20).build());
@@ -163,12 +163,12 @@ public final class EditBlockListScreen extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Clear List"), b -> {
 				blockList.clear();
-				minecraft.setScreen(EditBlockListScreen.this);
+				minecraft.gui.setScreen(EditBlockListScreen.this);
 			}).bounds(width - 168, 8, 150, 20).build());
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	

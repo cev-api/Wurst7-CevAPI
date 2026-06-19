@@ -15,7 +15,7 @@ import java.util.Map;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.contextualbar.LocatorBarRenderer;
+import net.minecraft.client.gui.contextualbar.LocatorBar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -59,7 +59,7 @@ public class InGameHudLocatorProbeMixin
 						int count = 0;
 						for(Object val : map.values())
 						{
-							if(val instanceof LocatorBarRenderer)
+							if(val instanceof LocatorBar)
 							{
 								count++;
 								reflectLocatorBar(val);

@@ -62,7 +62,7 @@ public final class EditTextFieldScreen extends Screen
 		String value = valueField.getValue();
 		setting.setValue(value);
 		
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -75,7 +75,7 @@ public final class EditTextFieldScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			break;
 		}
 		

@@ -351,8 +351,8 @@ public final class HackPerformanceOverlay
 	private void handleDrag(GuiGraphicsExtractor context,
 		PerformanceOverlayOtf otf, int x, int y, int width, int height)
 	{
-		boolean canDrag = MC.screen instanceof ChatScreen
-			|| MC.screen instanceof AbstractContainerScreen<?>;
+		boolean canDrag = MC.gui.screen() instanceof ChatScreen
+			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!canDrag)
 		{
 			if(dragging)

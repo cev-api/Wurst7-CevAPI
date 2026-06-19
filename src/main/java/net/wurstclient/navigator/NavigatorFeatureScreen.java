@@ -264,7 +264,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				@Override
 				public void press()
 				{
-					WurstClient.MC.setScreen(new NavigatorNewKeybindScreen(
+					WurstClient.MC.gui.setScreen(new NavigatorNewKeybindScreen(
 						possibleKeybinds, NavigatorFeatureScreen.this));
 				}
 			};
@@ -278,8 +278,9 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 					@Override
 					public void press()
 					{
-						minecraft.setScreen(new NavigatorRemoveKeybindScreen(
-							existingKeybinds, NavigatorFeatureScreen.this));
+						minecraft.gui.setScreen(
+							new NavigatorRemoveKeybindScreen(existingKeybinds,
+								NavigatorFeatureScreen.this));
 					}
 				});
 			}
@@ -391,7 +392,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	private void goBack()
 	{
 		parent.setExpanding(false);
-		minecraft.setScreen(parent);
+		minecraft.gui.setScreen(parent);
 	}
 	
 	@Override

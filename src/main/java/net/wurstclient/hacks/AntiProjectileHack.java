@@ -79,7 +79,7 @@ public final class AntiProjectileHack extends Hack
 		if(MC.player == null || MC.level == null || MC.player.isSpectator())
 			return;
 		if(!ignoreInventory.isChecked()
-			&& MC.screen instanceof AbstractContainerScreen)
+			&& MC.gui.screen() instanceof AbstractContainerScreen)
 			return;
 		if(cooldownLeft > 0)
 		{

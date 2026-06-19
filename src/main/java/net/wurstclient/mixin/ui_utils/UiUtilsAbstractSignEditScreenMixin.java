@@ -45,7 +45,7 @@ public abstract class UiUtilsAbstractSignEditScreenMixin extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Close without packet"), b -> {
 				UiUtilsState.shouldEditSign = false;
-				mc.setScreen(null);
+				mc.gui.setScreen(null);
 			}).bounds(baseX, startY, 115, 20).build());
 		
 		addRenderableWidget(

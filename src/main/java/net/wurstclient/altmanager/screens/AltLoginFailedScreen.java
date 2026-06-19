@@ -39,7 +39,7 @@ public final class AltLoginFailedScreen extends Screen
 	{
 		addRenderableWidget(Button
 			.builder(Component.literal("Continue"),
-				b -> minecraft.setScreen(nextScreen))
+				b -> minecraft.gui.setScreen(nextScreen))
 			.bounds(width / 2 - 100, height / 2 + 48, 200, 20).build());
 	}
 	
@@ -82,7 +82,7 @@ public final class AltLoginFailedScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(nextScreen);
+		minecraft.gui.setScreen(nextScreen);
 	}
 	
 	@Override

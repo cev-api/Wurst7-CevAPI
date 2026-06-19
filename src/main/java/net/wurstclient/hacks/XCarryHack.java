@@ -141,7 +141,8 @@ public final class XCarryHack extends Hack
 			return;
 		
 		// only move when the inventory screen is open
-		if(!(MC.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen))
+		if(!(MC.gui
+			.screen() instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen))
 			return;
 		
 		// check if there's room in the main inventory
@@ -175,7 +176,8 @@ public final class XCarryHack extends Hack
 			ItemStack previous = trackedCraftingStacks[i];
 			trackedCraftingStacks[i] = current.copy();
 			
-			if(MC.screen != null || previous.isEmpty() || !current.isEmpty())
+			if(MC.gui.screen() != null || previous.isEmpty()
+				|| !current.isEmpty())
 				continue;
 			
 			removedStacks.add(previous);

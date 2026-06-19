@@ -162,7 +162,8 @@ public final class FileSetting extends Setting
 			
 		}catch(JsonException e)
 		{
-			e.printStackTrace();
+			System.out.println("Couldn't load file setting '" + getName()
+				+ "': " + e.getMessage());
 		}
 	}
 	

@@ -381,7 +381,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		if(!signAura.isChecked() || MC.player == null || MC.level == null
-			|| MC.screen != null)
+			|| MC.gui.screen() != null)
 			return;
 		
 		String[] newText = getSignText();

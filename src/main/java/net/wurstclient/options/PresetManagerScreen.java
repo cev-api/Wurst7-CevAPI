@@ -57,7 +57,7 @@ public final class PresetManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("New Preset"),
-				b -> minecraft.setScreen(
+				b -> minecraft.gui.setScreen(
 					new EnterProfileNameScreen(this, this::newPreset)))
 			.bounds(width / 2 - 154, height - 48, 100, 20).build());
 		
@@ -71,7 +71,7 @@ public final class PresetManagerScreen extends Screen
 		
 		backButton = addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 - 50, height - 24, 100, 20).build());
 	}
 	
@@ -93,7 +93,7 @@ public final class PresetManagerScreen extends Screen
 		try
 		{
 			WurstClient.INSTANCE.getPresetManager().savePreset(trimmed);
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 			
 		}catch(IOException e)
 		{
@@ -106,7 +106,7 @@ public final class PresetManagerScreen extends Screen
 		Path path = listGui.getSelectedPath();
 		if(path == null)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return;
 		}
 		
@@ -114,7 +114,7 @@ public final class PresetManagerScreen extends Screen
 		{
 			String name = "" + path.getFileName();
 			WurstClient.INSTANCE.getPresetManager().loadPreset(name);
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			
 		}catch(IOException e)
 		{
@@ -130,7 +130,7 @@ public final class PresetManagerScreen extends Screen
 			return;
 		
 		String name = "" + path.getFileName();
-		minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 			if(confirmed)
 			{
 				try
@@ -143,7 +143,7 @@ public final class PresetManagerScreen extends Screen
 				}
 			}
 			
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 		}, Component.literal("Delete preset '" + name + "'?"),
 			Component.literal("This cannot be undone!")));
 	}

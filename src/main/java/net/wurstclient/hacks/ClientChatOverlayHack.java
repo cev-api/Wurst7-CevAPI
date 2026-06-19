@@ -125,7 +125,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(!(MC.screen instanceof ChatScreen))
+		if(!(MC.gui.screen() instanceof ChatScreen))
 			return;
 		
 		if(!colorCommandText.isChecked())
@@ -158,7 +158,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 			java.lang.reflect.Field field =
 				ChatScreen.class.getDeclaredField("input");
 			field.setAccessible(true);
-			return (EditBox)field.get(MC.screen);
+			return (EditBox)field.get(MC.gui.screen());
 		}catch(Exception e)
 		{
 			return null;

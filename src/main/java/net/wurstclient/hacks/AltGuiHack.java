@@ -169,11 +169,17 @@ public final class AltGuiHack extends Hack
 	@Override
 	protected void onEnable()
 	{
+		if(MC.gui == null)
+		{
+			setEnabled(false);
+			return;
+		}
+		
 		normalizeLegacyScaleSettings();
 		enforceNoClipLayout();
 		
-		if(!(MC.screen instanceof AltGuiScreen))
-			MC.setScreen(new AltGuiScreen(MC.screen));
+		if(!(MC.gui.screen() instanceof AltGuiScreen))
+			MC.gui.setScreen(new AltGuiScreen(MC.gui.screen()));
 		
 		setEnabled(false);
 	}

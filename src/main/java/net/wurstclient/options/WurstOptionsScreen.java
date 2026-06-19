@@ -97,7 +97,7 @@ public final class WurstOptionsScreen extends Screen
 		
 		new WurstOptionsButton(width / 2 - 110, backButtonY, 220, 20,
 			() -> "Back", "Return to the previous screen.",
-			b -> minecraft.setScreen(prevScreen));
+			b -> minecraft.gui.setScreen(prevScreen));
 		applyScrollLayout();
 	}
 	
@@ -203,7 +203,7 @@ public final class WurstOptionsScreen extends Screen
 			() -> "Mojang Bg Color: "
 				+ ColorUtils.toHex(mojangLogoBgColor.getColor()),
 			"Pick the custom background color used behind the Mojang loading logo.",
-			b -> minecraft
+			b -> minecraft.gui
 				.setScreen(new EditColorScreen(this, mojangLogoBgColor)));
 		
 		addButton(column,
@@ -343,7 +343,7 @@ public final class WurstOptionsScreen extends Screen
 		if(NiceWurstModule.showAntiFingerprintControls())
 			addButton(column, () -> "Anti-Fingerprint",
 				"Open Anti-Fingerprint controls for resource-pack handling.",
-				b -> minecraft.setScreen(
+				b -> minecraft.gui.setScreen(
 					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
 	}
 	
@@ -355,15 +355,16 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Presets",
 			"Manage full Wurst presets for hacks, UI, keybinds, and more.",
-			b -> minecraft.setScreen(new PresetManagerScreen(this)));
+			b -> minecraft.gui.setScreen(new PresetManagerScreen(this)));
 		
 		addButton(column, () -> "Keybinds", "Open Keybind Manager.",
-			b -> minecraft.setScreen(new KeybindManagerScreen(this)));
+			b -> minecraft.gui.setScreen(new KeybindManagerScreen(this)));
 		
 		if(!NiceWurstModule.isActive())
 		{
 			addButton(column, () -> "Alt Manager",
-				"Open Alt Manager and account tools.", b -> minecraft.setScreen(
+				"Open Alt Manager and account tools.",
+				b -> minecraft.gui.setScreen(
 					new AltManagerScreen(this, wurst.getAltManager())));
 			
 			addButton(column,
@@ -408,11 +409,11 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Hack Debugger",
 			"Open Navigator to toggle hacks/settings while out of game.",
-			b -> minecraft.setScreen(new NavigatorMainScreen()));
+			b -> minecraft.gui.setScreen(new NavigatorMainScreen()));
 		
 		addButton(column, () -> "Blocked Hacks Editor",
 			"Open TooManyHax blocklist editor (safe outside game).",
-			b -> minecraft.setScreen(new TooManyHaxEditorScreen(this,
+			b -> minecraft.gui.setScreen(new TooManyHaxEditorScreen(this,
 				wurst.getHax().tooManyHaxHack)));
 		
 		addButton(column, () -> "Panic: Disable All Hacks",
@@ -599,7 +600,7 @@ public final class WurstOptionsScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override

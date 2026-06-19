@@ -244,7 +244,8 @@ public final class ChestSearchScreen extends Screen
 			try
 			{
 				WurstClient.MC.execute(() -> {
-					if(WurstClient.MC.screen instanceof ChestSearchScreen screen)
+					if(WurstClient.MC.gui
+						.screen() instanceof ChestSearchScreen screen)
 						screen.refreshPins();
 				});
 			}catch(Throwable ignored)
@@ -339,7 +340,8 @@ public final class ChestSearchScreen extends Screen
 		// removed Scan Open button per user request
 		
 		addRenderableWidget(Button
-			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
+			.builder(Component.literal("Back"),
+				b -> minecraft.gui.setScreen(prev))
 			.bounds(mid - 150, this.height - 28, 300, 20).build());
 		
 		scrollOffset = 0;

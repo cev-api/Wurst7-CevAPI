@@ -410,7 +410,7 @@ public final class AltGuiScreen extends Screen
 	{
 		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -562,7 +562,7 @@ public final class AltGuiScreen extends Screen
 		drawStringScaled(context, font, drawText, x1 + padX, textY, textColor,
 			false);
 		
-		if(focused && (minecraft.gui.getGuiTicks() / 6) % 2 == 0)
+		if(focused && (minecraft.gui.hud.getGuiTicks() / 6) % 2 == 0)
 		{
 			int caretX = x1 + padX + scaledFontWidth(font, drawText);
 			int caretTop = textY;
@@ -1485,7 +1485,7 @@ public final class AltGuiScreen extends Screen
 		int x1 = uiMenuX + 8;
 		int x2 = uiMenuX + uiMenuW - 8;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
-			minecraft.setScreen(new EditColorScreen(this, setting));
+			minecraft.gui.setScreen(new EditColorScreen(this, setting));
 		return y + rowH + scaleRightSettingHeight(1);
 	}
 	
@@ -1723,7 +1723,7 @@ public final class AltGuiScreen extends Screen
 		if(row.isKeybindRow())
 		{
 			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
-				minecraft.setScreen(new AltGuiKeybindScreen(this, owner));
+				minecraft.gui.setScreen(new AltGuiKeybindScreen(this, owner));
 			return true;
 		}
 		
@@ -1829,7 +1829,8 @@ public final class AltGuiScreen extends Screen
 		if(owner instanceof TooManyHaxHack tooManyHax
 			&& "Blocked hacks".equals(setting.getName()))
 		{
-			minecraft.setScreen(new TooManyHaxEditorScreen(this, tooManyHax));
+			minecraft.gui
+				.setScreen(new TooManyHaxEditorScreen(this, tooManyHax));
 			return true;
 		}
 		
@@ -1876,61 +1877,62 @@ public final class AltGuiScreen extends Screen
 				return true;
 			}
 			
-			minecraft.setScreen(new EditColorScreen(this, color));
+			minecraft.gui.setScreen(new EditColorScreen(this, color));
 			return true;
 		}
 		
 		if(setting instanceof TextFieldSetting textField)
 		{
-			minecraft.setScreen(new EditTextFieldScreen(this, textField));
+			minecraft.gui.setScreen(new EditTextFieldScreen(this, textField));
 			return true;
 		}
 		
 		if(setting instanceof BlockSetting block)
 		{
-			minecraft.setScreen(new EditBlockScreen(this, block));
+			minecraft.gui.setScreen(new EditBlockScreen(this, block));
 			return true;
 		}
 		
 		if(setting instanceof BlockListSetting blockList)
 		{
-			minecraft.setScreen(new EditBlockListScreen(this, blockList));
+			minecraft.gui.setScreen(new EditBlockListScreen(this, blockList));
 			return true;
 		}
 		
 		if(setting instanceof ItemListSetting itemList)
 		{
-			minecraft.setScreen(new EditItemListScreen(this, itemList));
+			minecraft.gui.setScreen(new EditItemListScreen(this, itemList));
 			return true;
 		}
 		
 		if(setting instanceof EntityTypeListSetting entityList)
 		{
-			minecraft.setScreen(new EditEntityTypeListScreen(this, entityList));
+			minecraft.gui
+				.setScreen(new EditEntityTypeListScreen(this, entityList));
 			return true;
 		}
 		
 		if(setting instanceof FriendListSetting friendList)
 		{
-			minecraft.setScreen(new EditFriendListScreen(this, friendList));
+			minecraft.gui.setScreen(new EditFriendListScreen(this, friendList));
 			return true;
 		}
 		
 		if(setting instanceof BookOffersSetting bookOffers)
 		{
-			minecraft.setScreen(new EditBookOffersScreen(this, bookOffers));
+			minecraft.gui.setScreen(new EditBookOffersScreen(this, bookOffers));
 			return true;
 		}
 		
 		if(setting instanceof FileSetting file)
 		{
-			minecraft.setScreen(new SelectFileScreen(this, file));
+			minecraft.gui.setScreen(new SelectFileScreen(this, file));
 			return true;
 		}
 		
 		if(setting instanceof WaypointsSetting waypoints)
 		{
-			minecraft
+			minecraft.gui
 				.setScreen(new WaypointsScreen(this, waypoints.getManager()));
 			return true;
 		}
@@ -2839,7 +2841,7 @@ public final class AltGuiScreen extends Screen
 		
 		int overflow = textW - innerW;
 		int ticks = minecraft != null && minecraft.gui != null
-			? minecraft.gui.getGuiTicks()
+			? minecraft.gui.hud.getGuiTicks()
 			: (int)(System.currentTimeMillis() / 50L);
 		float cycle = 220F;
 		float phase = (ticks % (int)cycle) / cycle;

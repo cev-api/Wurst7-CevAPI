@@ -43,7 +43,7 @@ public final class TooManyHaxEditorScreen extends Screen
 	{
 		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		

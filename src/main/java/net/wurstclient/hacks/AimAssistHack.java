@@ -187,7 +187,7 @@ public final class AimAssistHack extends Hack
 		rightClickAttackSpeed.updateTimer();
 		
 		// don't aim when a container/inventory screen is open
-		if(MC.screen instanceof AbstractContainerScreen)
+		if(MC.gui.screen() instanceof AbstractContainerScreen)
 			return;
 		
 		boolean useHeld = isUseKeyHeld();

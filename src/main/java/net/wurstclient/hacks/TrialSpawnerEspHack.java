@@ -21,7 +21,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -325,32 +325,34 @@ public final class TrialSpawnerEspHack extends Hack
 						@Override
 						public void run()
 						{
-							try
-							{
-								if(MC == null || MC.level == null)
-									return;
-								BlockState after =
-									MC.level.getBlockState(vposFinal);
-								VaultState afterState =
-									after.hasProperty(VaultBlock.STATE)
-										? after.getValue(VaultBlock.STATE)
-										: null;
-								boolean prevIdle = prevFinal == null
-									|| prevFinal == VaultState.INACTIVE;
-								if(prevIdle && ((afterState == null
-									&& prevFinal == null)
-									|| (afterState == prevFinal)))
+							MC.execute(() -> {
+								try
 								{
-									// unchanged and was idle -> assume already
-									// opened/locked
-									if(openedVaultKeys.add(keyFinal))
-										saveOpenedVaults();
+									if(MC.level == null)
+										return;
+									BlockState after =
+										MC.level.getBlockState(vposFinal);
+									VaultState afterState =
+										after.hasProperty(VaultBlock.STATE)
+											? after.getValue(VaultBlock.STATE)
+											: null;
+									boolean prevIdle = prevFinal == null
+										|| prevFinal == VaultState.INACTIVE;
+									if(prevIdle && ((afterState == null
+										&& prevFinal == null)
+										|| (afterState == prevFinal)))
+									{
+										// unchanged and was idle -> assume
+										// already opened/locked
+										if(openedVaultKeys.add(keyFinal))
+											saveOpenedVaults();
+									}
+								}catch(Throwable ignored)
+								{}finally
+								{
+									approachScheduledKeys.remove(keyFinal);
 								}
-							}catch(Throwable ignored)
-							{}finally
-							{
-								approachScheduledKeys.remove(keyFinal);
-							}
+							});
 						}
 					}, 1500L);
 				}
@@ -468,30 +470,33 @@ public final class TrialSpawnerEspHack extends Hack
 			@Override
 			public void run()
 			{
-				try
-				{
-					if(MC == null || MC.level == null)
-						return;
-					BlockState after = MC.level.getBlockState(posFinal);
-					VaultState afterState = after.hasProperty(VaultBlock.STATE)
-						? after.getValue(VaultBlock.STATE) : null;
-					// Only mark as opened if the vault was idle/inactive when
-					// we checked and the state stayed unchanged. If it was
-					// ACTIVE (mouth opened) or transitioned to ACTIVE/EJECTING,
-					// do not mark.
-					boolean beforeIdle = beforeFinal == null
-						|| beforeFinal == VaultState.INACTIVE;
-					if(beforeIdle
-						&& ((afterState == null && beforeFinal == null)
-							|| (afterState == beforeFinal)))
+				MC.execute(() -> {
+					try
 					{
-						String key = dimFinal + "|" + posFinal.getX() + ","
-							+ posFinal.getY() + "," + posFinal.getZ();
-						if(openedVaultKeys.add(key))
-							saveOpenedVaults();
-					}
-				}catch(Throwable ignored)
-				{}
+						if(MC.level == null)
+							return;
+						BlockState after = MC.level.getBlockState(posFinal);
+						VaultState afterState =
+							after.hasProperty(VaultBlock.STATE)
+								? after.getValue(VaultBlock.STATE) : null;
+						// Only mark as opened if the vault was idle/inactive
+						// when we checked and the state stayed unchanged. If it
+						// was ACTIVE (mouth opened) or transitioned to
+						// ACTIVE/EJECTING, do not mark.
+						boolean beforeIdle = beforeFinal == null
+							|| beforeFinal == VaultState.INACTIVE;
+						if(beforeIdle
+							&& ((afterState == null && beforeFinal == null)
+								|| (afterState == beforeFinal)))
+						{
+							String key = dimFinal + "|" + posFinal.getX() + ","
+								+ posFinal.getY() + "," + posFinal.getZ();
+							if(openedVaultKeys.add(key))
+								saveOpenedVaults();
+						}
+					}catch(Throwable ignored)
+					{}
+				});
 			}
 		};
 		new Timer(true).schedule(task, 1500);
@@ -805,8 +810,20 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(position.x - cam.x, position.y - cam.y,
-			position.z - cam.z);
+		Vec3 dir = position.subtract(cam);
+		double dist = dir.length();
+		double lx = position.x;
+		double ly = position.y;
+		double lz = position.z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
 		{
@@ -814,7 +831,7 @@ public final class TrialSpawnerEspHack extends Hack
 			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
 		matrices.mulPose(Axis.YP.rotationDegrees(180));
-		float s = 0.025F * scale;
+		float s = 0.025F * RenderUtils.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);
 		
 		Font tr = MC.font;
@@ -824,15 +841,16 @@ public final class TrialSpawnerEspHack extends Hack
 			.max().orElse(0);
 		int x = -maxWidth / 2;
 		
-		BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		for(int i = 0; i < lines.size(); i++)
 		{
 			OverlayLine line = lines.get(i);
 			int y = i * lineHeight;
 			DisplayMode layerType =
 				NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
-			tr.drawInBatch(line.text(), x, y, line.color(), false,
-				matrices.last().pose(), vcp, layerType, bg, 0xF000F0);
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, line.text(), x,
+				y, line.color(), false, matrices.last().pose(), vcp, layerType,
+				bg, 0xF000F0);
 		}
 		vcp.endBatch();
 		matrices.popPose();
@@ -1282,16 +1300,26 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		return switch(decorMob.toLowerCase(Locale.ROOT))
 		{
-			case "baby zombie", "zombie" -> EntityType.ZOMBIE;
-			case "husk" -> EntityType.HUSK;
-			case "spider" -> EntityType.SPIDER;
-			case "cave spider" -> EntityType.CAVE_SPIDER;
-			case "silverfish" -> EntityType.SILVERFISH;
-			case "slime" -> EntityType.SLIME;
-			case "skeleton" -> EntityType.SKELETON;
-			case "bogged" -> EntityType.BOGGED;
-			case "stray" -> EntityType.STRAY;
-			case "breeze" -> EntityType.BREEZE;
+			case "baby zombie", "zombie" -> net.wurstclient.util.RegistryUtils
+				.entityType("zombie");
+			case "husk" -> net.wurstclient.util.RegistryUtils
+				.entityType("husk");
+			case "spider" -> net.wurstclient.util.RegistryUtils
+				.entityType("spider");
+			case "cave spider" -> net.wurstclient.util.RegistryUtils
+				.entityType("cave_spider");
+			case "silverfish" -> net.wurstclient.util.RegistryUtils
+				.entityType("silverfish");
+			case "slime" -> net.wurstclient.util.RegistryUtils
+				.entityType("slime");
+			case "skeleton" -> net.wurstclient.util.RegistryUtils
+				.entityType("skeleton");
+			case "bogged" -> net.wurstclient.util.RegistryUtils
+				.entityType("bogged");
+			case "stray" -> net.wurstclient.util.RegistryUtils
+				.entityType("stray");
+			case "breeze" -> net.wurstclient.util.RegistryUtils
+				.entityType("breeze");
 			default -> null;
 		};
 	}

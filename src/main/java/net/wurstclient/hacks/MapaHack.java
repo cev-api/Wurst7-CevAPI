@@ -326,7 +326,7 @@ public final class MapaHack extends Hack
 		}
 		renderMinimapOverlay(context, cfg);
 		
-		if(!isEditorScreen(MC.screen))
+		if(!isEditorScreen(MC.gui.screen()))
 			return;
 		
 		int x = cfg.minimapPosX;
@@ -400,7 +400,7 @@ public final class MapaHack extends Hack
 		if(bedEspOnMap.isChecked() && WURST.getHax().bedEspHack.isEnabled())
 			renderAabbMarkers(context, cfg,
 				WURST.getHax().bedEspHack.getMapaBoxes(),
-				iconForItem(Items.RED_BED),
+				iconForItem(net.wurstclient.util.RegistryUtils.item("red_bed")),
 				WURST.getHax().bedEspHack.getMapaColor());
 		if(playerEspOnMap.isChecked()
 			&& WURST.getHax().playerEspHack.isEnabled())
@@ -809,7 +809,8 @@ public final class MapaHack extends Hack
 			dragging = false;
 			return;
 		}
-		if(event.getAction() != GLFW.GLFW_PRESS || !isEditorScreen(MC.screen))
+		if(event.getAction() != GLFW.GLFW_PRESS
+			|| !isEditorScreen(MC.gui.screen()))
 			return;
 		
 		XMapConfig cfg = createConfig();
@@ -1197,7 +1198,7 @@ public final class MapaHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		MC.setScreen(new WorldMapScreen(this, renderService));
+		MC.gui.setScreen(new WorldMapScreen(this, renderService));
 	}
 	
 	public void renderFullscreenMapEsp(GuiGraphicsExtractor context, int mapX,
@@ -1248,7 +1249,8 @@ public final class MapaHack extends Hack
 				renderFullscreenAabbs(context, mapX, mapY, drawWidth,
 					drawHeight, centerX, centerZ, blocksPerPixel,
 					WURST.getHax().bedEspHack.getMapaBoxes(),
-					iconForItem(Items.RED_BED),
+					iconForItem(
+						net.wurstclient.util.RegistryUtils.item("red_bed")),
 					WURST.getHax().bedEspHack.getMapaColor());
 			if(playerEspOnMap.isChecked()
 				&& WURST.getHax().playerEspHack.isEnabled())

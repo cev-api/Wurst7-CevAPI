@@ -60,13 +60,15 @@ public final class IngameHUD implements GUIRenderListener
 				new net.wurstclient.hacks.itemhandler.ItemHandlerHud();
 		itemHandlerHud.render(context, partialTicks);
 		performanceOverlay.render(context);
-		if(!(WurstClient.MC.screen instanceof net.minecraft.client.gui.screens.ChatScreen)
-			&& !(WurstClient.MC.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>))
+		if(!(WurstClient.MC.gui
+			.screen() instanceof net.minecraft.client.gui.screens.ChatScreen)
+			&& !(WurstClient.MC.gui
+				.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>))
 			chestSearchMousePreview.render(context);
 		
 		// pinned windows
-		if(!(WurstClient.MC.screen instanceof ClickGuiScreen)
-			&& !(WurstClient.MC.screen instanceof XpGuiScreen))
+		if(!(WurstClient.MC.gui.screen() instanceof ClickGuiScreen)
+			&& !(WurstClient.MC.gui.screen() instanceof XpGuiScreen))
 			clickGui.renderPinnedWindows(context, partialTicks);
 	}
 	

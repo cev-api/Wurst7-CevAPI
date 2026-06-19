@@ -9,11 +9,11 @@ package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public interface GuiAccessor
 {
 	@Accessor("overlayMessageString")

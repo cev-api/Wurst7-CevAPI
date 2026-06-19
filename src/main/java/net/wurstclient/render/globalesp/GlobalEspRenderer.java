@@ -16,12 +16,12 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.TextureTransform;
@@ -112,7 +112,7 @@ public final class GlobalEspRenderer
 		if(lines.isEmpty())
 			return;
 		
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -161,11 +161,11 @@ public final class GlobalEspRenderer
 			modelViewStack.mul(transform.pose);
 			GpuBufferSlice transformSlice =
 				RenderSystem.getDynamicUniforms()
-					.writeTransform(RenderSystem.getModelViewMatrix(),
+					.writeTransform(RenderSystem.getModelViewMatrixCopy(),
 						new Vector4f(mesh.red, mesh.green, mesh.blue,
 							mesh.alpha),
 						new Vector3f(),
-						TextureTransform.DEFAULT_TEXTURING.getMatrix());
+						TextureTransform.DEFAULT_TEXTURING.createMatrix());
 			modelViewStack.popMatrix();
 			
 			GpuBuffer indexBuffer = indexAccessor.getBuffer(indexCount);
@@ -182,7 +182,7 @@ public final class GlobalEspRenderer
 		try(RenderPass renderPass =
 			RenderSystem.getDevice().createCommandEncoder().createRenderPass(
 				() -> "wurst_global_esp_meshes",
-				framebuffer.getColorTextureView(), OptionalInt.empty(),
+				framebuffer.getColorTextureView(), Optional.empty(),
 				framebuffer.getDepthTextureView(), OptionalDouble.empty()))
 		{
 			RenderSystem.bindDefaultUniforms(renderPass);
@@ -190,10 +190,10 @@ public final class GlobalEspRenderer
 			{
 				renderPass.setPipeline(drawCall.pipeline);
 				renderPass.setUniform("DynamicTransforms", drawCall.transform);
-				renderPass.setVertexBuffer(0, drawCall.vertexBuffer);
+				renderPass.setVertexBuffer(0, drawCall.vertexBuffer.slice());
 				renderPass.setIndexBuffer(drawCall.indexBuffer,
 					drawCall.indexAccessor.type());
-				renderPass.drawIndexed(0, 0, drawCall.indexCount, 1);
+				renderPass.drawIndexed(drawCall.indexCount, 1, 0, 0, 0);
 			}
 		}
 	}
@@ -228,7 +228,7 @@ public final class GlobalEspRenderer
 		if(boxes.isEmpty())
 			return;
 		
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		

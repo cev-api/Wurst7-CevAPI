@@ -245,7 +245,7 @@ public final class NiceWurstModule
 		if(WurstClient.MC.level == null || WurstClient.MC.player == null)
 			return true;
 		
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return true;
 		

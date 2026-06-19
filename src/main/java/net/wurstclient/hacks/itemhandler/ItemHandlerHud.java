@@ -275,7 +275,8 @@ public class ItemHandlerHud
 		
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
+		boolean containerOpen =
+			MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)
 		{
 			if(dragging)

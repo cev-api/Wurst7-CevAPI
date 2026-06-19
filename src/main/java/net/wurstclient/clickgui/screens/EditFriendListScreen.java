@@ -101,20 +101,20 @@ public final class EditFriendListScreen extends Screen
 		updateButtons();
 		
 		addRenderableWidget(Button.builder(Component.literal("Clear List"),
-			b -> minecraft.setScreen(new ConfirmScreen(confirm -> {
+			b -> minecraft.gui.setScreen(new ConfirmScreen(confirm -> {
 				if(confirm)
 				{
 					friendList.clear();
 					refreshList(null, Collections.emptyList(), 0);
 				}
-				minecraft.setScreen(EditFriendListScreen.this);
+				minecraft.gui.setScreen(EditFriendListScreen.this);
 			}, Component.literal("Clear Friends"),
 				Component.literal("Remove every friend?"))))
 			.bounds(width / 2 - 75, 8, 150, 20).build());
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	

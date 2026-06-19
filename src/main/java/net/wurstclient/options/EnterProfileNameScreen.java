@@ -81,8 +81,8 @@ public final class EnterProfileNameScreen extends Screen
 		
 		callback.accept(value);
 		
-		if(minecraft.screen == this)
-			minecraft.setScreen(prevScreen);
+		if(minecraft.gui.screen() == this)
+			minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -95,7 +95,7 @@ public final class EnterProfileNameScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			break;
 		}
 		

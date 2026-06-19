@@ -31,6 +31,9 @@ public final class PresetManagerOtf extends OtherFeature
 	@Override
 	public void doPrimaryAction()
 	{
-		MC.setScreen(new PresetManagerScreen(MC.screen));
+		if(MC.gui == null)
+			return;
+		
+		MC.gui.setScreen(new PresetManagerScreen(MC.gui.screen()));
 	}
 }

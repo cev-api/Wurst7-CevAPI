@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
@@ -475,7 +475,23 @@ public final class EntityCountHack extends Hack
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		
+		// Anchor to a near point so perspective doesn't shrink text.
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		Entity camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -485,30 +501,32 @@ public final class EntityCountHack extends Hack
 		}
 		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float scale = 0.025F * labelScale.getValueF();
-		double distance = MC.player.distanceToSqr(x, y, z);
-		double meters = Math.sqrt(distance);
-		if(meters > 10)
-			scale *= meters / 10.0;
+		float scale = 0.025F * RenderUtils
+			.getCappedWorldLabelScale(labelScale.getValueF(), dist);
 		
 		matrices.scale(scale, -scale, scale);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float halfWidth = font.width(text) / 2F;
 		int bgAlpha = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
 		int stroke = 0xCC000000;
-		font.drawInBatch(text, -halfWidth - 1, 0, stroke, false, matrix, vcp,
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text,
+			-halfWidth - 1, 0, stroke, false, matrix, vcp,
 			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -halfWidth + 1, 0, stroke, false, matrix, vcp,
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text,
+			-halfWidth + 1, 0, stroke, false, matrix, vcp,
 			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -halfWidth, -1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -halfWidth, 1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -halfWidth, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bgAlpha, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -halfWidth,
+			-1, stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -halfWidth,
+			1, stroke, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, 0,
+			0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -halfWidth,
+			0, argb, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH, bgAlpha,
+			0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}

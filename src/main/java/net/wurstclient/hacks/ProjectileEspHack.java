@@ -15,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -343,7 +343,21 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		Entity camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -353,16 +367,18 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		}
 		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float s = 0.025F * nameScale.getValueF();
-		matrices.scale(s, -s, s);
+		float scale = 0.025F
+			* RenderUtils.getCappedWorldLabelScale(nameScale.getValueF(), dist);
+		matrices.scale(scale, -scale, scale);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
+		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		int bgAlpha = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
-		font.drawInBatch(text, -w, 0, argb | 0xFF000000, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bgAlpha, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 0,
+			argb | 0xFF000000, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH,
+			bgAlpha, 0xF000F0);
 		vcp.endBatch();
 		matrices.popPose();
 	}

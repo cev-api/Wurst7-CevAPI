@@ -258,7 +258,7 @@ public final class WaypointEditScreen extends Screen
 					// Preserve selected dimension index so it isn't lost when
 					// the child color screen re-initializes this screen.
 					draftDimIndex = dimIndex;
-					minecraft
+					minecraft.gui
 						.setScreen(new EditColorScreen(this, colorSetting));
 				}).bounds(x, y, cw - 24, 20).build();
 			addRenderableWidget(colorButton);
@@ -305,7 +305,7 @@ public final class WaypointEditScreen extends Screen
 				.bounds(fieldsBaseX, height - 52, halfW, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prev))
+				b -> minecraft.gui.setScreen(prev))
 			.bounds(fieldsBaseX + halfW + halfGap, height - 52, halfW, 20)
 			.build());
 	}
@@ -372,7 +372,7 @@ public final class WaypointEditScreen extends Screen
 		manager.remove(waypoint);
 		if(listScreen != null)
 			listScreen.saveNow();
-		minecraft.setScreen(prev);
+		minecraft.gui.setScreen(prev);
 	}
 	
 	private void saveAndBack()
@@ -412,7 +412,7 @@ public final class WaypointEditScreen extends Screen
 		if(addOppositeOnSave)
 			createOppositeWaypoint();
 		
-		minecraft.setScreen(prev);
+		minecraft.gui.setScreen(prev);
 	}
 	
 	private String toHex6(int argb)

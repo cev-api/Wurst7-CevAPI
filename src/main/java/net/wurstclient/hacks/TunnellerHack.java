@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -214,7 +214,8 @@ public final class TunnellerHack extends Hack
 		Vec3 arrowStart = dirVec.scale(0.25).add(offset);
 		Vec3 arrowEnd = dirVec.scale(Math.max(0.5, length)).add(offset);
 		
-		vertexBuffers[0] = EasyVertexBuffer.createAndUpload(Mode.LINES,
+		vertexBuffers[0] = EasyVertexBuffer.createAndUpload(
+			PrimitiveTopology.LINES,
 			DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, buffer -> {
 				RenderUtils.drawNode(buffer, nodeBox, cyan);
 				RenderUtils.drawArrow(buffer, arrowStart, arrowEnd, cyan, 0.1F);
@@ -338,12 +339,13 @@ public final class TunnellerHack extends Hack
 			
 			int green = 0x8000FF00;
 			if(!boxes.isEmpty())
-				vertexBuffers[1] = EasyVertexBuffer.createAndUpload(Mode.LINES,
-					DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
-					buffer -> {
-						for(AABB box : boxes)
-							RenderUtils.drawOutlinedBox(buffer, box, green);
-					});
+				vertexBuffers[1] =
+					EasyVertexBuffer.createAndUpload(PrimitiveTopology.LINES,
+						DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
+						buffer -> {
+							for(AABB box : boxes)
+								RenderUtils.drawOutlinedBox(buffer, box, green);
+						});
 			
 			if(currentBlock == null)
 			{
@@ -429,13 +431,14 @@ public final class TunnellerHack extends Hack
 					.move(region.negate().toVec3d());
 				
 				int yellow = 0x80FFFF00;
-				vertexBuffers[2] = EasyVertexBuffer.createAndUpload(Mode.LINES,
-					DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
-					buffer -> {
-						for(BlockPos pos : blocks)
-							RenderUtils.drawOutlinedBox(buffer, box.move(pos),
-								yellow);
-					});
+				vertexBuffers[2] =
+					EasyVertexBuffer.createAndUpload(PrimitiveTopology.LINES,
+						DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
+						buffer -> {
+							for(BlockPos pos : blocks)
+								RenderUtils.drawOutlinedBox(buffer,
+									box.move(pos), yellow);
+						});
 				
 				return true;
 			}
@@ -575,13 +578,14 @@ public final class TunnellerHack extends Hack
 					.move(region.negate().toVec3d());
 				
 				int red = 0x80FF0000;
-				vertexBuffers[3] = EasyVertexBuffer.createAndUpload(Mode.LINES,
-					DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
-					buffer -> {
-						for(BlockPos pos : liquids)
-							RenderUtils.drawOutlinedBox(buffer, box.move(pos),
-								red);
-					});
+				vertexBuffers[3] =
+					EasyVertexBuffer.createAndUpload(PrimitiveTopology.LINES,
+						DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
+						buffer -> {
+							for(BlockPos pos : liquids)
+								RenderUtils.drawOutlinedBox(buffer,
+									box.move(pos), red);
+						});
 			}
 			
 			return true;
@@ -666,12 +670,13 @@ public final class TunnellerHack extends Hack
 				Vec3.atBottomCenterOf(nextTorch).subtract(region.toVec3d());
 			
 			int yellow = 0x80FFFF00;
-			vertexBuffers[4] = EasyVertexBuffer.createAndUpload(Mode.LINES,
-				DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
-				buffer -> {
-					RenderUtils.drawArrow(buffer, torchVec,
-						torchVec.add(0, 0.5, 0), yellow, 0.1F);
-				});
+			vertexBuffers[4] =
+				EasyVertexBuffer.createAndUpload(PrimitiveTopology.LINES,
+					DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH,
+					buffer -> {
+						RenderUtils.drawArrow(buffer, torchVec,
+							torchVec.add(0, 0.5, 0), yellow, 0.1F);
+					});
 			
 			BlockPos player = BlockPos.containing(MC.player.position());
 			if(getDistance(player, nextTorch) > 4)

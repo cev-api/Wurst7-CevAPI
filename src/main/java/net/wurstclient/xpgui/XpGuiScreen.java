@@ -471,7 +471,7 @@ public final class XpGuiScreen extends Screen
 				return true;
 			}
 			
-			minecraft.setScreen(null);
+			minecraft.gui.setScreen(null);
 			return true;
 		}
 		
@@ -1263,7 +1263,9 @@ public final class XpGuiScreen extends Screen
 			0x80FFFFFF);
 		context.fill(buttonX, buttonY + buttonH - 1, buttonX + buttonW,
 			buttonY + buttonH, 0x7016336C);
-		context.item(new ItemStack(Blocks.RED_WOOL), buttonX + 4, buttonY + 3);
+		context.item(
+			new ItemStack(net.wurstclient.util.RegistryUtils.block("red_wool")),
+			buttonX + 4, buttonY + 3);
 		context.text(minecraft.font, "Disconnect", buttonX + 24, buttonY + 7,
 			0xFFFFFFFF, false);
 	}
@@ -1800,28 +1802,28 @@ public final class XpGuiScreen extends Screen
 		if(isInsideRect(mouseX, mouseY, rightX, rightY,
 			rects.width - rects.leftWidth - 12, 24))
 		{
-			minecraft.setScreen(new WurstOptionsScreen(this));
+			minecraft.gui.setScreen(new WurstOptionsScreen(this));
 			return true;
 		}
 		rightY += 24;
 		if(isInsideRect(mouseX, mouseY, rightX, rightY,
 			rects.width - rects.leftWidth - 12, 24))
 		{
-			minecraft.setScreen(new PresetManagerScreen(this));
+			minecraft.gui.setScreen(new PresetManagerScreen(this));
 			return true;
 		}
 		rightY += 24;
 		if(isInsideRect(mouseX, mouseY, rightX, rightY,
 			rects.width - rects.leftWidth - 12, 24))
 		{
-			minecraft.setScreen(new KeybindManagerScreen(this));
+			minecraft.gui.setScreen(new KeybindManagerScreen(this));
 			return true;
 		}
 		rightY += 24;
 		if(isInsideRect(mouseX, mouseY, rightX, rightY,
 			rects.width - rects.leftWidth - 12, 24))
 		{
-			minecraft.setScreen(new AltManagerScreen(this,
+			minecraft.gui.setScreen(new AltManagerScreen(this,
 				WurstClient.INSTANCE.getAltManager()));
 			return true;
 		}
@@ -2089,25 +2091,26 @@ public final class XpGuiScreen extends Screen
 	private void openSettingEditor(Setting setting)
 	{
 		if(setting instanceof ColorSetting color)
-			minecraft.setScreen(new EditColorScreen(this, color));
+			minecraft.gui.setScreen(new EditColorScreen(this, color));
 		else if(setting instanceof TextFieldSetting textField)
-			minecraft.setScreen(new EditTextFieldScreen(this, textField));
+			minecraft.gui.setScreen(new EditTextFieldScreen(this, textField));
 		else if(setting instanceof BlockSetting block)
-			minecraft.setScreen(new EditBlockScreen(this, block));
+			minecraft.gui.setScreen(new EditBlockScreen(this, block));
 		else if(setting instanceof BlockListSetting blockList)
-			minecraft.setScreen(new EditBlockListScreen(this, blockList));
+			minecraft.gui.setScreen(new EditBlockListScreen(this, blockList));
 		else if(setting instanceof ItemListSetting itemList)
-			minecraft.setScreen(new EditItemListScreen(this, itemList));
+			minecraft.gui.setScreen(new EditItemListScreen(this, itemList));
 		else if(setting instanceof EntityTypeListSetting entityList)
-			minecraft.setScreen(new EditEntityTypeListScreen(this, entityList));
+			minecraft.gui
+				.setScreen(new EditEntityTypeListScreen(this, entityList));
 		else if(setting instanceof FriendListSetting friendList)
-			minecraft.setScreen(new EditFriendListScreen(this, friendList));
+			minecraft.gui.setScreen(new EditFriendListScreen(this, friendList));
 		else if(setting instanceof BookOffersSetting offers)
-			minecraft.setScreen(new EditBookOffersScreen(this, offers));
+			minecraft.gui.setScreen(new EditBookOffersScreen(this, offers));
 		else if(setting instanceof FileSetting file)
-			minecraft.setScreen(new SelectFileScreen(this, file));
+			minecraft.gui.setScreen(new SelectFileScreen(this, file));
 		else if(setting instanceof WaypointsSetting waypoints)
-			minecraft
+			minecraft.gui
 				.setScreen(new WaypointsScreen(this, waypoints.getManager()));
 	}
 	

@@ -109,13 +109,13 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(ForcedChatReportsScreen.isCausedByNoChatReports(reason))
 		{
-			minecraft.setScreen(new ForcedChatReportsScreen(parent));
+			minecraft.gui.setScreen(new ForcedChatReportsScreen(parent));
 			return;
 		}
 		
 		if(NcrModRequiredScreen.isCausedByLackOfNCR(reason))
 		{
-			minecraft.setScreen(new NcrModRequiredScreen(parent));
+			minecraft.gui.setScreen(new NcrModRequiredScreen(parent));
 			return;
 		}
 		
@@ -583,25 +583,26 @@ public class DisconnectedScreenMixin extends Screen
 			return;
 		
 		Screen returnScreen = (Screen)(Object)this;
-		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
-			if(input == null)
-				return;
-			
-			String trimmed = input.trim();
-			if(trimmed.isEmpty()
-				|| !OfflineSettingsHack.isValidOfflineNameFormat(trimmed))
-				return;
-			
-			hideLoginOverlay();
-			hack.reconnectWithCustomName(trimmed, parent);
-		}, Component.literal("Enter offline name"), value -> {
-			if(value == null)
-				return false;
-			
-			String trimmed = value.trim();
-			return !trimmed.isEmpty()
-				&& OfflineSettingsHack.isValidOfflineNameFormat(trimmed);
-		}));
+		minecraft.gui
+			.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+				if(input == null)
+					return;
+				
+				String trimmed = input.trim();
+				if(trimmed.isEmpty()
+					|| !OfflineSettingsHack.isValidOfflineNameFormat(trimmed))
+					return;
+				
+				hideLoginOverlay();
+				hack.reconnectWithCustomName(trimmed, parent);
+			}, Component.literal("Enter offline name"), value -> {
+				if(value == null)
+					return false;
+				
+				String trimmed = value.trim();
+				return !trimmed.isEmpty()
+					&& OfflineSettingsHack.isValidOfflineNameFormat(trimmed);
+			}));
 	}
 	
 	private void showPlayerPicker(OfflineSettingsHack hack)
@@ -638,7 +639,7 @@ public class DisconnectedScreenMixin extends Screen
 		};
 		
 		hideLoginOverlay();
-		minecraft.setScreen(new NavigatorListScreen(
+		minecraft.gui.setScreen(new NavigatorListScreen(
 			Component.literal("Select player"), names, selected -> {
 				if(selected != null && !selected.trim().isEmpty())
 					hack.reconnectWithCustomName(selected.trim(), parent);
@@ -659,19 +660,20 @@ public class DisconnectedScreenMixin extends Screen
 			return;
 		
 		Screen returnScreen = (Screen)(Object)this;
-		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
-			if(input == null)
-				return;
-			
-			String trimmed = input.trim();
-			if(trimmed.isEmpty())
-				return;
-			
-			hideLoginOverlay();
-			hack.queueReconnectCommand(trimmed);
-			hack.reconnectWithSelectedName(parent);
-		}, Component.literal("Enter reconnect command"),
-			value -> value != null && !value.trim().isEmpty()));
+		minecraft.gui
+			.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+				if(input == null)
+					return;
+				
+				String trimmed = input.trim();
+				if(trimmed.isEmpty())
+					return;
+				
+				hideLoginOverlay();
+				hack.queueReconnectCommand(trimmed);
+				hack.reconnectWithSelectedName(parent);
+			}, Component.literal("Enter reconnect command"),
+				value -> value != null && !value.trim().isEmpty()));
 	}
 	
 	@Override

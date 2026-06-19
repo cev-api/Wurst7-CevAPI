@@ -220,10 +220,14 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 					scheduler.schedule(() -> {
 						if(!isEnabled())
 							return;
-						sendInteractItem();
-						executeLagMethod();
-						ChatUtils.message("Timeout Dupe executed!");
-						setEnabled(false);
+						MC.execute(() -> {
+							if(!isEnabled())
+								return;
+							sendInteractItem();
+							executeLagMethod();
+							ChatUtils.message("Timeout Dupe executed!");
+							setEnabled(false);
+						});
 					}, interactDelayMillis.getValueI(), TimeUnit.MILLISECONDS);
 				}, timeoutSeconds.getValueI(), TimeUnit.SECONDS);
 				
@@ -345,8 +349,10 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		ChatUtils.message("Kick Dupe executed!");
 		
 		scheduler.schedule(() -> {
-			if(isEnabled())
-				setEnabled(false);
+			MC.execute(() -> {
+				if(isEnabled())
+					setEnabled(false);
+			});
 		}, 100, TimeUnit.MILLISECONDS);
 	}
 	

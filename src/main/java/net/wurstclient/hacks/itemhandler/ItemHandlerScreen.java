@@ -185,7 +185,7 @@ public class ItemHandlerScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(previous);
+		minecraft.gui.setScreen(previous);
 	}
 	
 	@Override

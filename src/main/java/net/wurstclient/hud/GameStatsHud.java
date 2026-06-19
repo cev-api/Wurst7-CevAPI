@@ -610,7 +610,8 @@ public final class GameStatsHud
 			int perEntityMobKills = 0;
 			for(EntityType<?> type : BuiltInRegistries.ENTITY_TYPE)
 			{
-				if(type == EntityType.PLAYER)
+				if(type == net.wurstclient.util.RegistryUtils
+					.entityType("player"))
 					continue;
 				
 				perEntityMobKills += MC.player.getStats()
@@ -872,8 +873,8 @@ public final class GameStatsHud
 	private void handleGraphWindowInteraction(GuiGraphicsExtractor context,
 		float x, float y, float width, float height)
 	{
-		boolean canEdit = MC.screen instanceof ChatScreen
-			|| MC.screen instanceof AbstractContainerScreen<?>;
+		boolean canEdit = MC.gui.screen() instanceof ChatScreen
+			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!canEdit)
 		{
 			if(graphDragging)
@@ -1015,8 +1016,8 @@ public final class GameStatsHud
 	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
 		float width, float height)
 	{
-		boolean canEdit = MC.screen instanceof ChatScreen
-			|| MC.screen instanceof AbstractContainerScreen<?>;
+		boolean canEdit = MC.gui.screen() instanceof ChatScreen
+			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!canEdit)
 		{
 			if(dragging)
