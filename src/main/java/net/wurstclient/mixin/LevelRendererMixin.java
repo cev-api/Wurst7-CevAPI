@@ -9,17 +9,21 @@ package net.wurstclient.mixin;
 
 import org.joml.Matrix4fc;
 import org.joml.Vector4f;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
 import net.wurstclient.WurstClient;
@@ -30,6 +34,10 @@ import net.wurstclient.util.RenderUtils;
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin
 {
+	@Shadow
+	@Final
+	private LevelRenderState levelRenderState;
+	
 	@Inject(
 		method = "render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V",
 		at = @At("HEAD"))
@@ -39,15 +47,26 @@ public class LevelRendererMixin
 		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
 		boolean shouldRenderSky, CallbackInfo ci)
 	{
+		RenderUtils.beginEspFrame();
+		GlobalEspManager.getInstance().beginFrame();
+	}
+	
+	@Inject(method = "addSkyPass", at = @At("HEAD"), cancellable = true)
+	private void onAddSkyPass(FrameGraphBuilder frameGraphBuilder,
+		CameraRenderState cameraState, GpuBufferSlice fogBuffer,
+		CallbackInfo ci)
+	{
 		RenderAdjustHack renderAdjust =
 			WurstClient.INSTANCE.getHax().renderAdjustHack;
 		if(renderAdjust.shouldDisableSky())
-			vector4f.set(0, 0, 0, 0);
-		else if(renderAdjust.shouldAdjustSkyColor())
-			renderAdjust.applySkyColor(vector4f);
+		{
+			ci.cancel();
+			return;
+		}
 		
-		RenderUtils.beginEspFrame();
-		GlobalEspManager.getInstance().beginFrame();
+		if(renderAdjust.shouldAdjustSkyColor())
+			levelRenderState.skyRenderState.skyColor = renderAdjust
+				.applySkyColor(levelRenderState.skyRenderState.skyColor);
 	}
 	
 	@Inject(

@@ -92,6 +92,12 @@ fabricApi.configureTests {
 
 loom {
 	accessWidenerPath = file("src/main/resources/wurst.accesswidener")
+	mods {
+		wurst {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.gametest
+		}
+	}
 	
 	runs {
 		clientGameTest {

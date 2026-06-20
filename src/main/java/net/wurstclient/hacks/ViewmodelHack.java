@@ -59,6 +59,22 @@ public final class ViewmodelHack extends Hack
 		matrices.mulPose(Axis.ZP.rotationDegrees(settings.roll.getValueF()));
 	}
 	
+	public void applyTransform(HumanoidArm arm, PoseStack matrices)
+	{
+		if(!isEnabled())
+			return;
+		
+		HandSettings settings = arm == HumanoidArm.RIGHT ? rightHand : leftHand;
+		if(settings.hidden.isChecked())
+			return;
+		
+		matrices.translate(settings.x.getValueF(), settings.y.getValueF(),
+			settings.z.getValueF());
+		matrices.mulPose(Axis.XP.rotationDegrees(settings.pitch.getValueF()));
+		matrices.mulPose(Axis.YP.rotationDegrees(settings.yaw.getValueF()));
+		matrices.mulPose(Axis.ZP.rotationDegrees(settings.roll.getValueF()));
+	}
+	
 	public boolean shouldHide(AbstractClientPlayer player, InteractionHand hand)
 	{
 		if(!isEnabled())
@@ -66,6 +82,15 @@ public final class ViewmodelHack extends Hack
 		
 		HandSettings settings = getHandSettings(player, hand);
 		return settings != null && settings.hidden.isChecked();
+	}
+	
+	public boolean shouldHide(HumanoidArm arm)
+	{
+		if(!isEnabled())
+			return false;
+		
+		HandSettings settings = arm == HumanoidArm.RIGHT ? rightHand : leftHand;
+		return settings.hidden.isChecked();
 	}
 	
 	public boolean shouldForceGlint(AbstractClientPlayer player,

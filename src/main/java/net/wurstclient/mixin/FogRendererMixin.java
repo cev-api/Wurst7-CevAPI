@@ -21,6 +21,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.RenderAdjustHack;
 
 @Mixin(FogRenderer.class)
 public class FogRendererMixin
@@ -43,7 +44,13 @@ public class FogRendererMixin
 		DeltaTracker deltaTracker, float darkenWorldAmount, ClientLevel level,
 		CallbackInfoReturnable<FogData> cir, @Local FogData fog)
 	{
-		if(!WurstClient.INSTANCE.getHax().noFogHack.isEnabled())
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		if(renderAdjust.shouldAdjustFogColor())
+			fog.color.set(renderAdjust.getFogColor(fog.color));
+		
+		if(!WurstClient.INSTANCE.getHax().noFogHack.isEnabled()
+			&& !renderAdjust.shouldDisableFog())
 			return;
 		
 		fog.renderDistanceStart = 1000000;

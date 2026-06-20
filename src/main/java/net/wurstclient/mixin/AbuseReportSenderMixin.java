@@ -21,7 +21,7 @@ import net.minecraft.client.multiplayer.chat.report.ReportType;
 import net.wurstclient.WurstClient;
 
 @Mixin(
-	targets = "net.minecraft.client.multiplayer.chat.report.AbuseReportSender")
+	targets = "net.minecraft.client.multiplayer.chat.report.AbuseReportSender$Services")
 public abstract class AbuseReportSenderMixin
 {
 	@Inject(

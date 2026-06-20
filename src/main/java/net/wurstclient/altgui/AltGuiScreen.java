@@ -2058,8 +2058,6 @@ public final class AltGuiScreen extends Screen
 			: searchText.toLowerCase(Locale.ROOT).trim();
 		boolean globalSearch = !query.isEmpty();
 		ArrayList<Feature> features = new ArrayList<>();
-		Feature performanceOverlay =
-			WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
 		List<Feature> clientSettingsFeatures = getClientSettingsFeatures();
 		
 		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
@@ -2092,7 +2090,7 @@ public final class AltGuiScreen extends Screen
 		
 		for(OtherFeature otf : WurstClient.INSTANCE.getOtfs().getAllOtfs())
 		{
-			if(otf == null || otf == performanceOverlay)
+			if(otf == null)
 				continue;
 			
 			if(HIDDEN_OTHER_FEATURES.contains(otf.getName()))
@@ -2112,7 +2110,7 @@ public final class AltGuiScreen extends Screen
 			{
 				if(styleCategorySelected || enabledCategorySelected)
 					continue;
-				if(!selectedCategory.equalsIgnoreCase(Category.OTHER.getName()))
+				if(!matchesCategory(otf, selectedCategory))
 					continue;
 			}
 			
@@ -2120,15 +2118,6 @@ public final class AltGuiScreen extends Screen
 				continue;
 			
 			features.add(otf);
-		}
-		
-		if(!styleCategorySelected && !enabledCategorySelected)
-		{
-			boolean include = globalSearch
-				? matchesSearch(performanceOverlay, query)
-				: selectedCategory.equalsIgnoreCase(Category.OTHER.getName());
-			if(include && !isHiddenByTooManyHax(performanceOverlay))
-				features.add(performanceOverlay);
 		}
 		
 		if(globalSearch)
@@ -2186,16 +2175,6 @@ public final class AltGuiScreen extends Screen
 			if(!added.add(key))
 				continue;
 			entries.add(new DisplayEntry(feature, false));
-		}
-		
-		Feature performanceOverlay =
-			WurstClient.INSTANCE.getOtfs().performanceOverlayOtf;
-		if(!isHiddenByTooManyHax(performanceOverlay)
-			&& matchesSearch(performanceOverlay, query))
-		{
-			String key = performanceOverlay.getName().toLowerCase(Locale.ROOT);
-			if(added.add(key))
-				entries.add(new DisplayEntry(performanceOverlay, false));
 		}
 		
 		Comparator<Feature> comparator = buildSearchComparator(query);
@@ -2303,16 +2282,16 @@ public final class AltGuiScreen extends Screen
 		return features;
 	}
 	
-	private boolean matchesCategory(Hack hack, String categoryName)
+	private boolean matchesCategory(Feature feature, String categoryName)
 	{
 		if(categoryName.equalsIgnoreCase(Category.FAVORITES.getName()))
-			return hack.isFavorite();
+			return feature instanceof Hack hack && hack.isFavorite();
 		
-		String hackCategory = hack.getCategoryName();
-		if(hackCategory == null || hackCategory.isBlank())
-			hackCategory = Category.OTHER.getName();
+		String featureCategory = feature.getCategoryName();
+		if(featureCategory == null || featureCategory.isBlank())
+			featureCategory = Category.OTHER.getName();
 		
-		return hackCategory.equalsIgnoreCase(categoryName);
+		return featureCategory.equalsIgnoreCase(categoryName);
 	}
 	
 	private List<String> getDisplayCategories()

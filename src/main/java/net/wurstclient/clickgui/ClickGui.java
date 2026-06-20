@@ -156,17 +156,8 @@ public final class ClickGui
 			window.add(new FeatureButton(f));
 		}
 		
-		// Bridge selected category-less "Other Features" into Other so they
-		// remain discoverable in the hack-style category layout.
-		windowMap.get(net.wurstclient.Category.OTHER.getName())
-			.add(new FeatureButton(WURST.getOtfs().performanceOverlayOtf));
-		
-		// Keep the "Other" category usable: it contains a mixed bag of hacks,
-		// commands and other-features, so insertion order is not meaningful.
-		Window otherWindow =
-			windowMap.get(net.wurstclient.Category.OTHER.getName());
-		if(otherWindow != null)
-			sortWindowByFeatureName(otherWindow);
+		for(Window window : windowMap.values())
+			sortWindowByFeatureName(window);
 		// add favorites window entries (show favorites in the Favorites
 		// category). Respect TooManyHax hiding behaviour here as well so
 		// favorite hacks disabled by TooManyHax don't appear in ClickGUI.

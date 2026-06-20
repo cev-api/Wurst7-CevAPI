@@ -18,6 +18,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.fog.FogData;
 import net.minecraft.client.renderer.fog.environment.AtmosphericFogEnvironment;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.RenderAdjustHack;
 
 @Mixin(AtmosphericFogEnvironment.class)
 public class AtmosphericFogEnvironmentMixin
@@ -31,7 +32,10 @@ public class AtmosphericFogEnvironmentMixin
 		ClientLevel world, float viewDistance, DeltaTracker tickCounter,
 		CallbackInfo ci)
 	{
-		if(!WurstClient.INSTANCE.getHax().noFogHack.isEnabled())
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		if(!WurstClient.INSTANCE.getHax().noFogHack.isEnabled()
+			&& !renderAdjust.shouldDisableFog())
 			return;
 		
 		data.environmentalStart = 1000000;

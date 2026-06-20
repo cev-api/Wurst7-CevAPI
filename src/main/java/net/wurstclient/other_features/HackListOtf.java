@@ -72,7 +72,7 @@ public final class HackListOtf extends OtherFeature
 	private final EnumSetting<Position> position = new EnumSetting<>("Position",
 		"Which side of the screen the HackList should be shown on."
 			+ "\nChange this to \u00a7lRight\u00a7r when using TabGUI.",
-		Position.values(), Position.TOP_LEFT);
+		Position.values(), Position.TOP_RIGHT);
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Color of the HackList text.\n"

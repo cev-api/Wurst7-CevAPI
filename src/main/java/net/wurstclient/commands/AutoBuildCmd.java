@@ -23,7 +23,7 @@ public final class AutoBuildCmd extends Command
 		super("autobuild",
 			"Selects an AutoBuild template by file name and enables AutoBuild.",
 			".autobuild <template>");
-		setCategory(Category.BLOCKS);
+		setCategory(Category.OTHER);
 	}
 	
 	@Override

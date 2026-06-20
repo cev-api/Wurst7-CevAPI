@@ -11,6 +11,7 @@ import java.awt.Color;
 
 import org.joml.Vector4f;
 
+import net.minecraft.util.ARGB;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
@@ -137,10 +138,18 @@ public final class RenderAdjustHack extends Hack
 		return isEnabled() && adjustSky.isChecked() && !disableSky.isChecked();
 	}
 	
-	public void applySkyColor(Vector4f color)
+	public int applySkyColor(int color)
 	{
-		Vector4f adjusted = blendColor(color, skyColor, skyOpacity.getValueF());
-		color.set(adjusted.x, adjusted.y, adjusted.z, adjusted.w);
+		float opacity = skyOpacity.getValueF();
+		float inverse = 1 - opacity;
+		
+		int red =
+			Math.round(ARGB.red(color) * inverse + skyColor.getRed() * opacity);
+		int green = Math
+			.round(ARGB.green(color) * inverse + skyColor.getGreen() * opacity);
+		int blue = Math
+			.round(ARGB.blue(color) * inverse + skyColor.getBlue() * opacity);
+		return ARGB.color(255, red, green, blue);
 	}
 	
 	public boolean shouldHideScoreboard()

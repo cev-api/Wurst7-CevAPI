@@ -167,10 +167,12 @@ public final class GameStatsHud
 			HackListOtf hackListOtf =
 				WurstClient.INSTANCE.getOtfs().hackListOtf;
 			Position position = hackListOtf.getPosition();
-			boolean isLeft = position == Position.TOP_LEFT
-				|| position == Position.BOTTOM_LEFT;
-			boolean isTop =
-				position == Position.TOP_LEFT || position == Position.TOP_RIGHT;
+			boolean isLeft =
+				position == Position.LEFT || position == Position.TOP_LEFT
+					|| position == Position.BOTTOM_LEFT;
+			boolean isTop = position == Position.LEFT
+				|| position == Position.RIGHT || position == Position.TOP_LEFT
+				|| position == Position.TOP_RIGHT;
 			if(isTop)
 			{
 				anchorX =
