@@ -54,7 +54,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		new CheckboxSetting("Auto-enable on out_of_world",
 			"Automatically enables AntiVoid and rescues to the fixed void level"
 				+ " when taking out_of_world damage.",
-			false);
+			true);
 	
 	private final SliderSetting lavaBufferBlocks = new SliderSetting(
 		"Lava buffer (blocks)", 2, 0, 12, 1, ValueDisplay.INTEGER);

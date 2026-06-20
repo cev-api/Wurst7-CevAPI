@@ -85,11 +85,11 @@ public final class HackListOtf extends OtherFeature
 		"Use hack colors",
 		"When enabled, each entry uses the hack's own color (if available), e.g. ESP highlight colors.\n"
 			+ "Has no effect while RainbowUI is enabled.",
-		false);
+		true);
 	
 	private final CheckboxSetting shadowBox = new CheckboxSetting("Shadow box",
 		"Replace the text shadow with a transparent black box background. Useful when scaled fonts produce ugly shadows.",
-		false);
+		true);
 	
 	// Shadow box alpha (0.0 - 1.0)
 	private final net.wurstclient.settings.SliderSetting shadowBoxAlpha =

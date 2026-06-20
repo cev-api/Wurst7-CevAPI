@@ -25,22 +25,22 @@ public final class NoSlowdownHack extends Hack implements
 	private final CheckboxSetting lavaSpeed = new CheckboxSetting(
 		"No lava slowdown", "Removes lava movement penalties.\n"
 			+ "Some servers treat this like a speedhack.",
-		false);
+		true);
 	private final CheckboxSetting waterSpeed = new CheckboxSetting(
 		"No water slowdown", "Removes water movement penalties.\n"
 			+ "Some servers treat this like a speedhack.",
-		false);
+		true);
 	
 	private final CheckboxSetting allowSwimming = new CheckboxSetting(
 		"Allow swimming",
 		"Allows normal swimming while \"No water slowdown\" is enabled.\n"
 			+ "When enabled, water slowdown is only bypassed while walking on the ground in water.",
-		false);
+		true);
 	
 	private final CheckboxSetting ignoreVines = new CheckboxSetting(
 		"Ignore vines",
 		"Prevents vines from applying slowdown or climb behavior, effectively treating them like air.",
-		false);
+		true);
 	
 	private boolean bypassingLava;
 	private boolean bypassingWater;

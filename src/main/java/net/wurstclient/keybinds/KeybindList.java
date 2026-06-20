@@ -140,12 +140,12 @@ public final class KeybindList
 		addKB(set, "keypad.add", "Panic");
 		addKB(set, "keypad.decimal", "panic restore");
 		addKB(set, "left.bracket", "ChestSearch");
-		addKB(set, "menu", "clickgui");
 		addKB(set, "n", "nuker");
 		addKB(set, "r", "multiaura");
 		addKB(set, "right.alt", "altgui");
 		addKB(set, "right.bracket", ".setcheckbox breadcrumbs paused toggle");
-		addKB(set, "right.shift", "navigator");
+		addKB(set, "right.control", "navigator");
+		addKB(set, "right.shift", "clickgui");
 		addKB(set, "semicolon", "itemhandler gui");
 		addKB(set, "u", "freecam");
 		addKB(set, "x", "x-ray");

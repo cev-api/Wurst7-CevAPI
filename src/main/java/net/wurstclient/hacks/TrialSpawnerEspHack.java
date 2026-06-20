@@ -82,7 +82,7 @@ public final class TrialSpawnerEspHack extends Hack
 	private final SliderSetting maxDistance =
 		new SliderSetting("Max distance", 160, 0, 256, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting drawTracers =
-		new CheckboxSetting("Show tracer", true);
+		new CheckboxSetting("Show tracer", false);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting fillShapes =
@@ -90,7 +90,7 @@ public final class TrialSpawnerEspHack extends Hack
 	private final CheckboxSetting showOverlay =
 		new CheckboxSetting("Text overlay", true);
 	private final SliderSetting overlayScale = new SliderSetting(
-		"Overlay scale", 1.0, 0.5, 2.0, 0.05, ValueDisplay.DECIMAL);
+		"Overlay scale", 0.5, 0.5, 2.0, 0.05, ValueDisplay.DECIMAL);
 	private final CheckboxSetting showMobType =
 		new CheckboxSetting("Show mob type", true);
 	private final CheckboxSetting showStatus =
@@ -116,7 +116,7 @@ public final class TrialSpawnerEspHack extends Hack
 	private final CheckboxSetting showActivationRadius =
 		new CheckboxSetting("Show activation radius", true);
 	private final CheckboxSetting showVaultLink =
-		new CheckboxSetting("Show vault link", true);
+		new CheckboxSetting("Show vault link", false);
 	private final CheckboxSetting onlyVaults =
 		new CheckboxSetting("Only vaults", false);
 	private final SliderSetting vaultLinkRange = new SliderSetting(

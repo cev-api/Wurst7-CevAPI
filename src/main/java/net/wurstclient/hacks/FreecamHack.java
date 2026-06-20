@@ -91,7 +91,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		new FreecamInitialPosSetting();
 	
 	private final CheckboxSetting tracer = new CheckboxSetting("Tracer",
-		"description.wurst.setting.freecam.tracer", false);
+		"description.wurst.setting.freecam.tracer", true);
 	
 	private final ColorSetting color =
 		new ColorSetting("Tracer color", Color.WHITE);

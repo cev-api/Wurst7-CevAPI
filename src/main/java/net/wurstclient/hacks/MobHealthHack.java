@@ -50,19 +50,19 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 	private final CheckboxSetting throughWalls = new CheckboxSetting(
 		"Through walls",
 		"Detects the looked-at mob through walls instead of requiring direct line of sight.",
-		false);
+		true);
 	
 	private final CheckboxSetting showNames = new CheckboxSetting("Show names",
 		"When enabled, keeps the mob's name and adds health next to it.", true);
 	
 	private final CheckboxSetting showArmor = new CheckboxSetting("Show armor",
 		"Shows the mob's total armor as HUD-style armor icons above hearts.",
-		false);
+		true);
 	
 	private final CheckboxSetting showHeldItems = new CheckboxSetting(
 		"Show held items",
 		"Shows main-hand/offhand item icons, durability, and potion-effect color indicators.",
-		false);
+		true);
 	
 	private final EnumSetting<EntityHealthRenderer.DurabilityDisplayMode> durabilityDisplayMode =
 		new EnumSetting<>("Held item durability mode",
@@ -79,7 +79,7 @@ public final class MobHealthHack extends Hack implements GUIRenderListener
 	private final CheckboxSetting scaleWithNameTagDistance =
 		new CheckboxSetting("Scale with nametag distance",
 			"Makes the health overlay grow with distance like nametags while still applying the Scale setting.",
-			false);
+			true);
 	
 	public MobHealthHack()
 	{

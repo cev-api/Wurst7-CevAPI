@@ -64,20 +64,20 @@ public final class HandNoClipHack extends Hack
 		"minecraft:yellow_shulker_box");
 	private final CheckboxSetting enableOnTarget = new CheckboxSetting(
 		"Enable On Target",
-		WText.literal("Only noclip while aiming at a listed block."), false);
+		WText.literal("Only noclip while aiming at a listed block."), true);
 	
 	private final CheckboxSetting villagerThroughWalls = new CheckboxSetting(
 		"Villagers Through Walls",
 		WText.literal(
 			"Allows interacting with villagers through walls when aiming at them."
 				+ " Only works with Enable On Target."),
-		false);
+		true);
 	
 	private final CheckboxSetting bedrockPassthrough = new CheckboxSetting(
 		"Bedrock Passthrough",
 		WText.literal("When enabled, aiming through bedrock can target"
 			+ " blocks behind it for breaking, interacting, and placement."),
-		false);
+		true);
 	
 	private BlockPos targetBlock;
 	private boolean targetVillager;

@@ -95,7 +95,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 	private final CheckboxSetting detectLowerLadders =
 		new CheckboxSetting("Detect ladders 118-128",
 			"Also detect ladder blocks between Y=118 and Y=127 in the Nether.",
-			false);
+			true);
 	private final CheckboxSetting ignoreNaturalRoofBlocks =
 		new CheckboxSetting("Ignore natural roof blocks",
 			"Hides natural roof noise blocks (red/brown mushrooms).", true);

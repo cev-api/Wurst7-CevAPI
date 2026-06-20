@@ -23,7 +23,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 public final class MaceDmgHack extends Hack
 	implements PlayerAttacksEntityListener
 {
-	private static final double DEFAULT_HEIGHT = Math.sqrt(500);
+	private static final double DEFAULT_HEIGHT = 22.0;
 	private static final double MIN_FALL = 1.6;
 	private static final double SCAN_STEP = 0.25;
 	

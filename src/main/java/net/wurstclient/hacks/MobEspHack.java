@@ -56,10 +56,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting lastAttackerTracer =
 		new CheckboxSetting("Last attacker tracer",
-			"Draw a tracer to the mob that last damaged you.", false);
+			"Draw a tracer to the mob that last damaged you.", true);
 	private final CheckboxSetting chargingCreeperTracer = new CheckboxSetting(
 		"Charging creeper tracer",
-		"Draw a flashing tracer to creepers that are about to explode.", false);
+		"Draw a flashing tracer to creepers that are about to explode.", true);
 	
 	// New color options to match MobSearch
 	private final CheckboxSetting useRainbow =
