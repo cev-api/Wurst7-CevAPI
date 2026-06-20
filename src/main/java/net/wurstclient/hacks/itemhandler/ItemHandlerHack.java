@@ -128,12 +128,12 @@ public class ItemHandlerHack extends Hack
 		new CheckboxSetting("Show item popup HUD", true);
 	
 	private final CheckboxSetting showRegistryName =
-		new CheckboxSetting("Show registry names", false);
+		new CheckboxSetting("Show registry names", true);
 	
 	private final CheckboxSetting showEnchantmentsInNames =
 		new CheckboxSetting("Show enchantments in names",
 			"Shows enchantments on the second line in ItemHandler HUD and GUI.",
-			false);
+			true);
 	
 	// How many items to show in the popup HUD
 	private final SliderSetting popupMaxItems = new SliderSetting(
@@ -142,24 +142,24 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting pinSpecialItemsTop = new CheckboxSetting(
 		"Pin ItemESP special to top",
 		"In popup HUD sorting, show items marked as special by ItemESP first.",
-		false);
+		true);
 	
 	private final CheckboxSetting showSignsInHud =
 		new CheckboxSetting("Show nearby signs",
-			"Adds nearby sign text to the ItemHandler popup HUD.", false);
+			"Adds nearby sign text to the ItemHandler popup HUD.", true);
 	
 	private final CheckboxSetting detectNamedEntities =
 		new CheckboxSetting("Detect named entities",
-			"Detects custom-named entities (e.g. pets and mobs).", false);
+			"Detects custom-named entities (e.g. pets and mobs).", true);
 	
 	private final CheckboxSetting detectCraftedEntities = new CheckboxSetting(
 		"Detect crafted entities",
 		"Detects nearby crafted entities like boats/rafts, paintings, glow item frames, and selected minecarts.",
-		false);
+		true);
 	private final CheckboxSetting detectOwnedEntities = new CheckboxSetting(
 		"Detect owned entities",
 		"Detects nearby owner-capable entities like pearls, projectiles, primed TNT, and tamed mobs.",
-		false);
+		true);
 	
 	private final SliderSetting signRange = new SliderSetting("Sign range",
 		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
@@ -190,7 +190,7 @@ public class ItemHandlerHack extends Hack
 	// Include items held or worn by mobs
 	private final CheckboxSetting includeMobEquipment =
 		new CheckboxSetting("Detect held/worn mob items",
-			"Also detect items held or worn by mobs.", false);
+			"Also detect items held or worn by mobs.", true);
 	
 	private final CheckboxSetting detectArmorStandEquipment =
 		new CheckboxSetting("Detect armor stand equipment",

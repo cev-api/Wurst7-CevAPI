@@ -35,7 +35,7 @@ public final class WurstOptionsOtf extends OtherFeature
 	
 	private final CheckboxSetting hackToggleChatFeedback =
 		new CheckboxSetting("Hack toggle chat feedback",
-			"Show a chat message when hacks are enabled or disabled.", false);
+			"Show a chat message when hacks are enabled or disabled.", true);
 	
 	private final CheckboxSetting customMojangLogoBackground =
 		new CheckboxSetting("Custom Mojang logo background",

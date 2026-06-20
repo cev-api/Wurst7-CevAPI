@@ -154,7 +154,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"Appends the number of detected items to this hack's entry in the HackList.",
 		false);
 	private final CheckboxSetting itemTags = new CheckboxSetting("Item tags",
-		"Draws item icons and stack counts above dropped items.", false);
+		"Draws item icons and stack counts above dropped items.", true);
 	private final SliderSetting itemTagScale =
 		new SliderSetting("Item tag scale", 1, 0.25, 3, 0.05,
 			SliderSetting.ValueDisplay.PERCENTAGE);

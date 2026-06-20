@@ -33,7 +33,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		new CheckboxSetting("Hearts below name",
 			"Shows hearts on a second line below the nametag instead of"
 				+ " appending a numeric value to the name.",
-			false);
+			true);
 	
 	private final CheckboxSetting ignoreNpcs = new CheckboxSetting(
 		"Ignore NPCs",
@@ -41,12 +41,12 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		true);
 	
 	private final CheckboxSetting showArmor = new CheckboxSetting("Show armor",
-		"Shows total armor as HUD-style armor icons above hearts.", false);
+		"Shows total armor as HUD-style armor icons above hearts.", true);
 	
 	private final CheckboxSetting showHeldItems = new CheckboxSetting(
 		"Show held items",
 		"Shows main-hand/offhand item icons, durability, and potion-effect color indicators.",
-		false);
+		true);
 	
 	private final EnumSetting<EntityHealthRenderer.DurabilityDisplayMode> durabilityDisplayMode =
 		new EnumSetting<>("Held item durability mode",
@@ -63,7 +63,7 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 	private final CheckboxSetting scaleWithNameTagDistance =
 		new CheckboxSetting("Scale with nametag distance",
 			"Makes hearts grow with distance like nametags while still applying the Scale setting.",
-			false);
+			true);
 	
 	private final java.util.Set<LivingEntity> entitiesToRender =
 		java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
