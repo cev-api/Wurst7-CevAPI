@@ -597,6 +597,50 @@ public enum RenderUtils
 			.setLineWidth(DEFAULT_LINE_WIDTH);
 	}
 	
+	public static void drawCircle(PoseStack matrices, Vec3 center,
+		double radius, int segments, int color, boolean depthTest)
+	{
+		if(segments < 3 || radius <= 0)
+			return;
+		
+		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
+		Vec3 c = center.add(getCameraPos().reverse());
+		double step = (Math.PI * 2) / segments;
+		
+		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
+		if(globalEsp.shouldTakeOverRenderCalls())
+		{
+			Vec3 prev = c.add(radius, 0, 0);
+			for(int i = 1; i <= segments; i++)
+			{
+				double angle = i * step;
+				Vec3 next = c.add(Math.cos(angle) * radius, 0,
+					Math.sin(angle) * radius);
+				globalEsp.submitLine(matrices, prev, next, color, depthTest,
+					DEFAULT_LINE_WIDTH);
+				prev = next;
+			}
+			
+			return;
+		}
+		
+		WurstBufferSource vcp = getVCP();
+		RenderType layer = WurstRenderLayers.getLines(depthTest);
+		VertexConsumer buffer = vcp.getBuffer(layer);
+		
+		Vec3 prev = c.add(radius, 0, 0);
+		for(int i = 1; i <= segments; i++)
+		{
+			double angle = i * step;
+			Vec3 next =
+				c.add(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+			drawLine(matrices, buffer, prev, next, color, DEFAULT_LINE_WIDTH);
+			prev = next;
+		}
+		
+		vcp.endBatch(layer);
+	}
+	
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,
 		int color, boolean depthTest)
 	{
