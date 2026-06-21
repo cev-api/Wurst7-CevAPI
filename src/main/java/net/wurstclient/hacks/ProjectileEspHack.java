@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.gui.Font;
-import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -372,14 +371,12 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		matrices.scale(scale, -scale, scale);
 		
 		Font font = MC.font;
-		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		int bgAlpha = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
 		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 0,
-			argb | 0xFF000000, false, matrix, vcp, Font.DisplayMode.SEE_THROUGH,
-			bgAlpha, 0xF000F0);
-		vcp.endBatch();
+			argb | 0xFF000000, false, matrix, null,
+			Font.DisplayMode.SEE_THROUGH, bgAlpha, 0xF000F0);
 		matrices.popPose();
 	}
 	

@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
 import net.minecraft.client.player.AbstractClientPlayer;
-import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.util.StringUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -1212,7 +1211,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		matrices.scale(s, -s, s);
 		matrices.translate(0, offsetPx, 0);
 		
-		WurstBufferSource vcp = RenderUtils.getVCP();
 		float w = MC.font.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -1221,23 +1219,10 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		var matrix = matrices.last().pose();
 		int strokeColor =
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
-		net.wurstclient.util.RenderUtils.drawTextInBatch(MC.font, text, -w - 1,
-			0, strokeColor, false, matrix, vcp,
-			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		net.wurstclient.util.RenderUtils.drawTextInBatch(MC.font, text, -w + 1,
-			0, strokeColor, false, matrix, vcp,
-			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		net.wurstclient.util.RenderUtils.drawTextInBatch(MC.font, text, -w, -1,
-			strokeColor, false, matrix, vcp,
-			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		net.wurstclient.util.RenderUtils.drawTextInBatch(MC.font, text, -w, 1,
-			strokeColor, false, matrix, vcp,
-			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		net.wurstclient.util.RenderUtils.drawTextInBatch(MC.font, text, -w, 0,
-			argb, false, matrix, vcp,
+		net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(MC.font, text,
+			-w, 0, argb, strokeColor, matrix,
 			net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH, bg,
 			0xF000F0);
-		vcp.endBatch();
 		matrices.popPose();
 	}
 	
