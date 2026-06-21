@@ -242,10 +242,11 @@ public final class SpawnRadiusHack extends Hack
 		RenderUtils.drawLine(b, x2, y1, z2, x2, y2, z2, color);
 		RenderUtils.drawLine(b, x1, y1, z2, x1, y2, z2, color);
 	}
-
+	
 	/*
-	 *  Cheap order-independent hash-combine,
-	 *  fingerprints current spawner set to cheaply detect changes since last GPU upload
+	 * Cheap order-independent hash-combine,
+	 * fingerprints current spawner set to cheaply detect changes since last GPU
+	 * upload
 	 */
 	private static long signature(List<SpawnerInfo> list, RegionPos region)
 	{
@@ -254,7 +255,8 @@ public final class SpawnRadiusHack extends Hack
 		{
 			long h = info.pos().asLong() * 1099511628211L; // FNV prime
 			h ^= info.radius() * 31L;
-			h ^= info.detected() ? 0x9E3779B97F4A7C15L : 0L; // golden-ratio constant
+			h ^= info.detected() ? 0x9E3779B97F4A7C15L : 0L; // golden-ratio
+																// constant
 			set ^= h; // XOR accumulate
 		}
 		

@@ -225,59 +225,115 @@ public enum RenderUtils
 		return new WurstBufferSource();
 	}
 	
+	private static StagedVertexBuffer textBuffer;
+	private static final java.util.ArrayList<StagedVertexBuffer.Draw> textDraws =
+		new java.util.ArrayList<>();
+	private static final java.util.ArrayList<RenderType> textDrawTypes =
+		new java.util.ArrayList<>();
+	private static RenderType textLastType;
+	private static StagedVertexBuffer.Draw textLastDraw;
+	
+	// Uploads and draws all text submitted this frame in a single batch, then
+	// recycles the GPU buffer pools. Must be called once per frame after all
+	// world-space text is submitted (see LevelRendererMixin). Drawing all text
+	// here - instead of uploading per label - collapses dozens of per-label GPU
+	// uploads and fence waits into one.
+	public static void endTextFrame()
+	{
+		StagedVertexBuffer svb = textBuffer;
+		if(svb == null)
+			return;
+		
+		try
+		{
+			if(!textDraws.isEmpty())
+			{
+				svb.upload();
+				for(int i = 0; i < textDraws.size(); i++)
+				{
+					StagedVertexBuffer.ExecuteInfo info =
+						svb.getExecuteInfo(textDraws.get(i));
+					if(info != null)
+						textDrawTypes.get(i).prepare().drawFromBuffer(info);
+				}
+			}
+		}finally
+		{
+			textDraws.clear();
+			textDrawTypes.clear();
+			textLastType = null;
+			textLastDraw = null;
+			svb.endDraw();
+			svb.endFrame();
+		}
+	}
+	
 	public static void drawTextInBatch(Font font, String text, float x, float y,
 		int color, boolean shadow, Matrix4f matrix, WurstBufferSource vcp,
 		DisplayMode displayMode, int backgroundColor, int packedLight)
 	{
 		if(text == null || text.isEmpty())
 			return;
-			
-		// 26.2: Font.drawInBatch was removed. Use a fresh StagedVertexBuffer
-		// per text label — exactly how MC's TextFeatureRenderer works.
+		
+		if(textBuffer == null)
+			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
+		
 		var prepared = font.prepareText(text, x, y, color, shadow, packedLight);
+		appendPreparedText(prepared, matrix, displayMode, packedLight);
+	}
+	
+	public static void drawOutlinedTextInBatch(Font font, String text, float x,
+		float y, int color, int outlineColor, Matrix4f matrix,
+		DisplayMode displayMode, int backgroundColor, int packedLight)
+	{
+		if(text == null || text.isEmpty())
+			return;
 		
-		StagedVertexBuffer svb = new StagedVertexBuffer(() -> "wurstText",
-			RenderType.BIG_BUFFER_SIZE);
-		java.util.ArrayList<StagedVertexBuffer.Draw> draws =
-			new java.util.ArrayList<>();
-		java.util.ArrayList<RenderType> drawTypes = new java.util.ArrayList<>();
+		if(textBuffer == null)
+			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
+			
+		// Shape the outline once and stamp it at the four 1px offsets via
+		// translated matrices, instead of re-shaping the string four times.
+		var outline = font.prepareText(text, x, y, outlineColor, false, 0);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(-1, 0, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(1, 0, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(0, -1, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(0, 1, 0),
+			displayMode, packedLight);
 		
+		var main = font.prepareText(text, x, y, color, false, backgroundColor);
+		appendPreparedText(main, matrix, displayMode, packedLight);
+	}
+	
+	private static void appendPreparedText(Font.PreparedText prepared,
+		Matrix4f matrix, DisplayMode displayMode, int packedLight)
+	{
+		StagedVertexBuffer svb = textBuffer;
 		prepared.visit(new Font.GlyphVisitor()
 		{
 			@Override
 			public void acceptGlyph(TextRenderable.Styled glyph)
 			{
 				RenderType type = glyph.renderType(displayMode);
-				StagedVertexBuffer.Draw draw =
-					svb.appendDraw(type.format(), type.primitiveTopology(),
+				if(textLastDraw == null || type != textLastType
+					|| !type.canConsolidateConsecutiveGeometry())
+				{
+					textLastDraw = svb.appendDraw(type.format(),
+						type.primitiveTopology(),
 						type.sortOnUpload()
 							? RenderSystem.getProjectionType().vertexSorting()
 							: null);
-				draws.add(draw);
-				drawTypes.add(type);
-				glyph.render(matrix, svb.getVertexBuilder(draw), packedLight,
-					false);
+					textDraws.add(textLastDraw);
+					textDrawTypes.add(type);
+					textLastType = type;
+				}
+				glyph.render(matrix, svb.getVertexBuilder(textLastDraw),
+					packedLight, false);
 			}
 		});
-		
-		if(draws.isEmpty())
-		{
-			svb.close();
-			return;
-		}
-		
-		svb.upload();
-		
-		for(int i = 0; i < draws.size(); i++)
-		{
-			StagedVertexBuffer.ExecuteInfo info =
-				svb.getExecuteInfo(draws.get(i));
-			if(info != null)
-				drawTypes.get(i).prepare().drawFromBuffer(info);
-		}
-		
-		svb.endDraw();
-		svb.close();
 	}
 	
 	public static float[] getRainbowColor()
