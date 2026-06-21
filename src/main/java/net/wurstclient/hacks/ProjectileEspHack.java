@@ -15,7 +15,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -54,13 +53,13 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 	private final EspBoxSizeSetting boxSize =
 		new EspBoxSizeSetting("§lAccurate§r mode shows the exact hitbox.\n"
 			+ "§lFancy§r mode shows larger boxes that look better.");
-
+	
 	private final CheckboxSetting includeArrows = new CheckboxSetting(
 		"Include arrows",
 		"Also highlight arrows and tridents. Turn off to cut the clutter and"
 			+ " only show thrown items like snowballs, eggs and pearls.",
 		true);
-
+	
 	private final EnumSetting<ColorMode> colorMode = new EnumSetting<>("Colors",
 		"How projectiles are colored.\n\n"
 			+ "§lFixed§r - one color for everything.\n"
@@ -69,10 +68,10 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			+ "§lBy type§r - a separate color per projectile type, set in the"
 			+ " §lType colors§r menu.",
 		ColorMode.values(), ColorMode.BY_TYPE);
-
+	
 	private final ColorSetting fixedColor = new ColorSetting("Fixed color",
 		"Color used in §lFixed§r mode.", Color.CYAN);
-
+	
 	private final ColorSetting selfColor = new ColorSetting("Your projectiles",
 		"§lBy owner§r: projectiles you threw.", new Color(0x55FF55));
 	private final ColorSetting otherPlayerColor = new ColorSetting(
@@ -84,7 +83,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 	private final SettingGroup ownerColors = new SettingGroup("Owner colors",
 		WText.literal("Colors used by the §lBy owner§r mode."), false, true)
 			.addChildren(selfColor, otherPlayerColor, mobColor);
-
+	
 	private final ColorSetting snowballColor = new ColorSetting("Snowball",
 		"Color for snowballs.", new Color(0xFFFFFF));
 	private final ColorSetting eggColor =
@@ -112,13 +111,13 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		false, true).addChildren(snowballColor, eggColor, pearlColor,
 			potionColor, xpBottleColor, arrowColor, tridentColor, fireballColor,
 			fireworkColor, otherColor);
-
+	
 	private final CheckboxSetting showNames = new CheckboxSetting("Show names",
 		"Draw a name tag above each projectile showing what it is.", false);
 	private final SliderSetting nameScale =
 		new SliderSetting("Name scale", "Size of the projectile name tags.", 1,
 			0.5, 2, 0.05, ValueDisplay.PERCENTAGE);
-
+	
 	private final CheckboxSetting trajectory = new CheckboxSetting("Trajectory",
 		"Draw the predicted flight path of each in-flight projectile, in its"
 			+ " color.",
@@ -128,12 +127,12 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 	private final CheckboxSetting landingBox =
 		new CheckboxSetting("Landing box",
 			"Mark where each projectile is predicted to land/hit.", true);
-
+	
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
-
+	
 	private final ArrayList<Projectile> projectiles = new ArrayList<>();
-
+	
 	public ProjectileEspHack()
 	{
 		super("ProjectileESP");
@@ -146,7 +145,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			trajectory, trajectoryThickness, landingBox, tracerFlash})
 			addSetting(setting);
 	}
-
+	
 	@Override
 	protected void onEnable()
 	{
@@ -154,7 +153,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
-
+	
 	@Override
 	protected void onDisable()
 	{
@@ -163,14 +162,14 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		projectiles.clear();
 	}
-
+	
 	@Override
 	public void onUpdate()
 	{
 		projectiles.clear();
 		if(MC.level == null)
 			return;
-
+		
 		for(Entity e : MC.level.entitiesForRendering())
 		{
 			if(!(e instanceof Projectile projectile))
@@ -180,7 +179,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			projectiles.add(projectile);
 		}
 	}
-
+	
 	@Override
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
@@ -188,7 +187,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		if(style.hasLines() || trajectory.isChecked())
 			event.cancel();
 	}
-
+	
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
@@ -200,17 +199,17 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		boolean paths = trajectory.isChecked();
 		if(!boxes && !lines && !names && !paths)
 			return;
-
+		
 		Map<Integer, List<AABB>> boxesByColor = new LinkedHashMap<>();
 		Map<Integer, List<Vec3>> endsByColor = new LinkedHashMap<>();
 		Map<Integer, List<AABB>> landingByColor = new LinkedHashMap<>();
-
+		
 		for(Projectile p : projectiles)
 		{
 			int color = colorFor(p);
 			AABB box =
 				applyExtraSize(EntityUtils.getLerpedBox(p, partialTicks));
-
+			
 			if(boxes)
 				boxesByColor.computeIfAbsent(color, k -> new ArrayList<>())
 					.add(box);
@@ -221,7 +220,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 				drawNameTag(matrixStack,
 					p.getType().getDescription().getString(), box.getCenter().x,
 					box.maxY + 0.3, box.getCenter().z, color);
-
+			
 			if(paths)
 			{
 				List<Vec3> path = buildPath(p);
@@ -241,7 +240,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 				}
 			}
 		}
-
+		
 		for(Map.Entry<Integer, List<AABB>> e : boxesByColor.entrySet())
 			RenderUtils.drawOutlinedBoxes(matrixStack, e.getValue(), e.getKey(),
 				false);
@@ -256,7 +255,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			RenderUtils.drawOutlinedBoxes(matrixStack, e.getValue(), c, false);
 		}
 	}
-
+	
 	private List<Vec3> buildPath(Projectile p)
 	{
 		ArrayList<Vec3> path = new ArrayList<>();
@@ -265,11 +264,11 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		path.add(pos);
 		if(MC.level == null)
 			return path;
-
+		
 		double gravity =
 			p.isNoGravity() ? 0.0 : p instanceof AbstractArrow ? 0.05 : 0.03;
 		double drag = p.isInWater() ? 0.8 : 0.99;
-
+		
 		for(int i = 0; i < 200; i++)
 		{
 			Vec3 next = pos.add(vel);
@@ -279,18 +278,18 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 				path.add(hit.getLocation());
 				break;
 			}
-
+			
 			path.add(next);
 			pos = next;
 			vel = vel.scale(drag).add(0, -gravity, 0);
-
+			
 			if(pos.y < MC.level.getMinY() - 4 || vel.lengthSqr() < 1e-4)
 				break;
 		}
-
+		
 		return path;
 	}
-
+	
 	private int colorFor(Projectile p)
 	{
 		int color = switch(colorMode.getSelected())
@@ -303,7 +302,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		};
 		return tracerFlash.isChecked() ? RenderUtils.flashColor(color) : color;
 	}
-
+	
 	private int ownerColor(Projectile p)
 	{
 		Entity owner = p.getOwner();
@@ -313,7 +312,7 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			return otherPlayerColor.getColorI(0x80);
 		return mobColor.getColorI(0x80);
 	}
-
+	
 	private ColorSetting typeColorSetting(Projectile p)
 	{
 		String id = BuiltInRegistries.ENTITY_TYPE.getKey(p.getType()).getPath();
@@ -331,56 +330,70 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			default -> otherColor;
 		};
 	}
-
+	
 	private AABB applyExtraSize(AABB box)
 	{
 		double extra = boxSize.getExtraSize() / 2.0;
 		return box.move(0, extra, 0).inflate(extra);
 	}
-
+	
 	private void drawNameTag(PoseStack matrices, String text, double x,
 		double y, double z, int argb)
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
+		
 		Entity camEntity = MC.getCameraEntity();
 		if(camEntity != null)
 		{
 			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
 			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
-
+		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float s = 0.025F * nameScale.getValueF();
-		matrices.scale(s, -s, s);
-
+		float scale = 0.025F
+			* RenderUtils.getCappedWorldLabelScale(nameScale.getValueF(), dist);
+		matrices.scale(scale, -scale, scale);
+		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		int bgAlpha = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
-		font.drawInBatch(text, -w, 0, argb | 0xFF000000, false, matrix, vcp,
+		net.wurstclient.util.RenderUtils.drawTextInBatch(font, text, -w, 0,
+			argb | 0xFF000000, false, matrix, null,
 			Font.DisplayMode.SEE_THROUGH, bgAlpha, 0xF000F0);
-		vcp.endBatch();
 		matrices.popPose();
 	}
-
+	
 	private enum ColorMode
 	{
 		FIXED("Fixed"),
 		RAINBOW("Rainbow"),
 		BY_OWNER("By owner"),
 		BY_TYPE("By type");
-
+		
 		private final String name;
-
+		
 		ColorMode(String name)
 		{
 			this.name = name;
 		}
-
+		
 		@Override
 		public String toString()
 		{

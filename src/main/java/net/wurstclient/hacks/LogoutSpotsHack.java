@@ -18,7 +18,6 @@ import java.util.UUID;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
@@ -323,14 +322,11 @@ public final class LogoutSpotsHack extends Hack
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp =
-			net.wurstclient.util.RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
+		RenderUtils.drawTextInBatch(tr, text, -w, 0, argb, false, matrix, null,
 			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
-		vcp.endBatch();
 		matrices.popPose();
 	}
 	

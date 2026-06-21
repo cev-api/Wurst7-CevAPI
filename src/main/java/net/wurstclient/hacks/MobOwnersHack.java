@@ -13,7 +13,6 @@ import java.awt.Color;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
@@ -189,7 +188,6 @@ public final class MobOwnersHack extends Hack implements RenderListener
 		matrices.scale(s, -s, s);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -199,18 +197,8 @@ public final class MobOwnersHack extends Hack implements RenderListener
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
 		var matrix = matrices.last().pose();
 		
-		font.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, 1, strokeColor, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
-		
-		vcp.endBatch();
+		RenderUtils.drawOutlinedTextInBatch(font, text, -w, 0, argb,
+			strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		matrices.popPose();
 	}
 }

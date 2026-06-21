@@ -75,5 +75,6 @@ public class LevelRendererMixin
 		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
 		EventManager.fire(event);
 		GlobalEspManager.getInstance().endFrame(matrixStack);
+		net.wurstclient.util.RenderUtils.endTextFrame();
 	}
 }
