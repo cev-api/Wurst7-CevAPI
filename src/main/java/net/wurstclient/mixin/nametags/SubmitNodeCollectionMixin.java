@@ -19,6 +19,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.vertex.PoseStack;
 
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.renderer.SubmitNodeCollection;
 import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
@@ -52,6 +53,13 @@ public class SubmitNodeCollectionMixin
 		@Nullable Vec3 nameTagAttachment, int offset, Component name,
 		boolean seeThrough, int lightCoords, CameraRenderState camera)
 	{
+		if(WurstClient.MC != null && WurstClient.MC.gui
+			.screen() instanceof AbstractContainerScreen<?>)
+		{
+			original.call(matrices, x, y, z);
+			return;
+		}
+		
 		NameTagsHack nameTagsHack = WurstClient.INSTANCE.getHax().nameTagsHack;
 		if(!nameTagsHack.isEnabled())
 		{

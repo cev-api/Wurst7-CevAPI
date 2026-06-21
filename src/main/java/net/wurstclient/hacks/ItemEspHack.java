@@ -276,6 +276,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			
 			Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks)
 				.add(0, entity.getBbHeight() + 0.35, 0);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -328,6 +330,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 			
 			Vec3 worldPos = center.scale(1.0 / clusterSize);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -363,6 +367,23 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		if(!count.isEmpty())
 			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
 		context.pose().popMatrix();
+	}
+	
+	private boolean isBehindCamera(Vec3 worldPos)
+	{
+		if(MC.gameRenderer == null || MC.gameRenderer.mainCamera() == null)
+			return false;
+		
+		Vec3 camPos = MC.gameRenderer.mainCamera().position();
+		Vec3 toItem = worldPos.subtract(camPos);
+		if(toItem.lengthSqr() == 0)
+			return false;
+		
+		double yawRad = Math.toRadians(MC.gameRenderer.mainCamera().yRot());
+		double pitchRad = Math.toRadians(MC.gameRenderer.mainCamera().xRot());
+		Vec3 forward = new Vec3(-Math.sin(yawRad) * Math.cos(pitchRad),
+			-Math.sin(pitchRad), Math.cos(yawRad) * Math.cos(pitchRad));
+		return toItem.dot(forward) <= 0;
 	}
 	
 	// Expose ignored-items configuration for other features (like ItemHandler)
