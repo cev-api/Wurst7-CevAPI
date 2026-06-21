@@ -222,6 +222,58 @@ public enum RenderUtils
 		return WurstClient.MC.renderBuffers().bufferSource();
 	}
 	
+	private static MultiBufferSource.BufferSource textBuffer;
+	
+	/** Flushes all world-space text queued during the current render frame. */
+	public static void endTextFrame()
+	{
+		MultiBufferSource.BufferSource buffer = textBuffer;
+		if(buffer == null)
+			return;
+		
+		try
+		{
+			buffer.endBatch();
+		}finally
+		{
+			textBuffer = null;
+		}
+	}
+	
+	public static void drawTextInBatch(Font font, String text, float x, float y,
+		int color, boolean shadow, Matrix4f matrix,
+		MultiBufferSource.BufferSource ignored, Font.DisplayMode displayMode,
+		int backgroundColor, int packedLight)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		
+		if(textBuffer == null)
+			textBuffer = getVCP();
+		
+		font.drawInBatch(text, x, y, color, shadow, matrix, textBuffer,
+			displayMode, backgroundColor, packedLight);
+	}
+	
+	public static void drawOutlinedTextInBatch(Font font, String text, float x,
+		float y, int color, int outlineColor, Matrix4f matrix,
+		Font.DisplayMode displayMode, int backgroundColor, int packedLight)
+	{
+		if(text == null || text.isEmpty())
+			return;
+		
+		drawTextInBatch(font, text, x - 1, y, outlineColor, false, matrix, null,
+			displayMode, 0, packedLight);
+		drawTextInBatch(font, text, x + 1, y, outlineColor, false, matrix, null,
+			displayMode, 0, packedLight);
+		drawTextInBatch(font, text, x, y - 1, outlineColor, false, matrix, null,
+			displayMode, 0, packedLight);
+		drawTextInBatch(font, text, x, y + 1, outlineColor, false, matrix, null,
+			displayMode, 0, packedLight);
+		drawTextInBatch(font, text, x, y, color, false, matrix, null,
+			displayMode, backgroundColor, packedLight);
+	}
+	
 	public static float[] getRainbowColor()
 	{
 		float x = System.currentTimeMillis() % 2000 / 1000F;
@@ -624,7 +676,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		WurstBufferSource vcp = getVCP();
+		MultiBufferSource.BufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		

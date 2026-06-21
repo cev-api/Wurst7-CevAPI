@@ -21,7 +21,6 @@ import java.util.Timer;
 import java.util.TimerTask;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -638,17 +637,8 @@ public final class TrialSpawnerEspHack extends Hack
 			inside ? mixWithWhite(stateColor, 0.35F) : radiusColor.getColorI(),
 			inside ? 0.65F : 0.35F);
 		int segments = Math.max(32, radius * 12);
-		double step = (Math.PI * 2) / segments;
-		
-		Vec3 prev = center.add(radius, 0, 0);
-		for(int i = 1; i <= segments; i++)
-		{
-			double angle = i * step;
-			Vec3 next = center.add(radius * Math.cos(angle), 0,
-				radius * Math.sin(angle));
-			RenderUtils.drawLine(matrices, prev, next, color, false);
-			prev = next;
-		}
+		RenderUtils.drawCircle(matrices, center, radius, segments, color,
+			false);
 	}
 	
 	private void drawVaultLink(PoseStack matrices, TrialSpawnerInfo info,
@@ -820,21 +810,20 @@ public final class TrialSpawnerEspHack extends Hack
 		Font tr = MC.font;
 		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		int lineHeight = tr.lineHeight + 2;
-		int maxWidth = lines.stream().mapToInt(line -> tr.width(line.text()))
-			.max().orElse(0);
+		int maxWidth = 0;
+		for(OverlayLine line : lines)
+			maxWidth = Math.max(maxWidth, tr.width(line.text()));
 		int x = -maxWidth / 2;
 		
-		BufferSource vcp = RenderUtils.getVCP();
+		DisplayMode layerType =
+			NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
 		for(int i = 0; i < lines.size(); i++)
 		{
 			OverlayLine line = lines.get(i);
 			int y = i * lineHeight;
-			DisplayMode layerType =
-				NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
-			tr.drawInBatch(line.text(), x, y, line.color(), false,
-				matrices.last().pose(), vcp, layerType, bg, 0xF000F0);
+			RenderUtils.drawTextInBatch(tr, line.text(), x, y, line.color(),
+				false, matrices.last().pose(), null, layerType, bg, 0xF000F0);
 		}
-		vcp.endBatch();
 		matrices.popPose();
 	}
 	

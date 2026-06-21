@@ -24,7 +24,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -1226,7 +1225,6 @@ public final class WaypointsHack extends Hack
 		// consistently.
 		matrices.translate(0, offsetPx, 0);
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		// Background opacity should respect the text alpha (which may be
 		// reduced by fading).
@@ -1244,19 +1242,14 @@ public final class WaypointsHack extends Hack
 				.round(baseAlpha * (waypointOutlineOpacity.getValue() / 100.0));
 			int strokeColor =
 				(Math.max(0, Math.min(255, strokeAlpha)) << 24) | 0x000000;
-			tr.drawInBatch(text, -w - 1, 0, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w + 1, 0, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w, -1, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-			tr.drawInBatch(text, -w, +1, strokeColor, false, matrix, vcp,
-				Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+			RenderUtils.drawOutlinedTextInBatch(tr, text, -w, 0, argb,
+				strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg,
+				0xF000F0);
+		}else
+		{
+			RenderUtils.drawTextInBatch(tr, text, -w, 0, argb, false, matrix,
+				null, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		}
-		// main text
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
-		vcp.endBatch();
 		matrices.popPose();
 	}
 	

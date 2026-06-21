@@ -13,7 +13,6 @@ import java.util.Comparator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -636,12 +635,10 @@ public final class PearlDropHack extends Hack
 		matrices.scale(0.025F, -0.025F, 0.025F);
 		
 		Font font = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = font.width(text) / 2F;
 		var matrix = matrices.last().pose();
-		font.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0x80000000, 0xF000F0);
-		vcp.endBatch();
+		RenderUtils.drawTextInBatch(font, text, -w, 0, argb, false, matrix,
+			null, Font.DisplayMode.SEE_THROUGH, 0x80000000, 0xF000F0);
 		matrices.popPose();
 	}
 	

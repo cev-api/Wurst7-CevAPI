@@ -19,7 +19,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -751,7 +750,6 @@ public final class NbtSizeCounterHack extends Hack implements
 		matrices.scale(scale, -scale, scale);
 		
 		Font tr = MC.font;
-		MultiBufferSource.BufferSource vcp = RenderUtils.getVCP();
 		float w = tr.width(text) / 2F;
 		int baseAlpha = (argb >>> 24) & 0xFF;
 		int bgAlpha =
@@ -760,17 +758,8 @@ public final class NbtSizeCounterHack extends Hack implements
 		var matrix = matrices.last().pose();
 		int stroke = (Math.max(0, Math.min(255, baseAlpha)) << 24);
 		
-		tr.drawInBatch(text, -w - 1, 0, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w + 1, 0, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, -1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, +1, stroke, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
-		tr.drawInBatch(text, -w, 0, argb, false, matrix, vcp,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
-		vcp.endBatch();
+		RenderUtils.drawOutlinedTextInBatch(tr, text, -w, 0, argb, stroke,
+			matrix, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		matrices.popPose();
 	}
 	
