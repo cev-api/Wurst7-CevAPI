@@ -704,22 +704,30 @@ public final class ClickGui
 		if(handlePopupMouseScroll(mouseX, mouseY, delta))
 			return;
 		
-		int dWheel = (int)delta * 4;
-		if(dWheel == 0)
-			return;
-		
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
 			Window window = windows.get(i);
 			
-			if(!window.isScrollingEnabled() || window.isMinimized()
-				|| window.isInvisible())
+			if(window.isMinimized() || window.isInvisible())
 				continue;
 			
 			if(mouseX < window.getX() || mouseY < window.getY() + 13)
 				continue;
 			if(mouseX >= window.getX() + window.getWidth()
 				|| mouseY >= window.getY() + window.getHeight())
+				continue;
+			
+			if(handleWindowComponentMouseScroll(window, mouseX, mouseY, delta))
+			{
+				closeInvalidPopups();
+				break;
+			}
+			
+			int dWheel = (int)delta * 4;
+			if(dWheel == 0)
+				return;
+			
+			if(!window.isScrollingEnabled())
 				continue;
 			
 			int scroll = window.getScrollOffset() + dWheel;
@@ -742,23 +750,32 @@ public final class ClickGui
 		if(handlePinnedPopupMouseScroll(mouseX, mouseY, delta))
 			return true;
 		
-		int dWheel = (int)delta * 4;
-		if(dWheel == 0)
-			return false;
-		
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
 			Window window = windows.get(i);
 			if(!window.isPinned() || window.isInvisible())
 				continue;
 			
-			if(!window.isScrollingEnabled() || window.isMinimized())
+			if(window.isMinimized())
 				continue;
 			
 			if(mouseX < window.getX() || mouseY < window.getY() + 13)
 				continue;
 			if(mouseX >= window.getX() + window.getWidth()
 				|| mouseY >= window.getY() + window.getHeight())
+				continue;
+			
+			if(handleWindowComponentMouseScroll(window, mouseX, mouseY, delta))
+			{
+				closeInvalidPopups();
+				return true;
+			}
+			
+			int dWheel = (int)delta * 4;
+			if(dWheel == 0)
+				return false;
+			
+			if(!window.isScrollingEnabled())
 				continue;
 			
 			int scroll = window.getScrollOffset() + dWheel;
@@ -1307,6 +1324,20 @@ public final class ClickGui
 			c.handleMouseClick(mouseX, mouseY, mouseButton, context);
 			break;
 		}
+	}
+	
+	private boolean handleWindowComponentMouseScroll(Window window,
+		double mouseX, double mouseY, double delta)
+	{
+		window.validate();
+		
+		int cMouseX = (int)(mouseX - window.getX());
+		int cMouseY = (int)(mouseY - window.getY() - 13);
+		if(window.isScrollingEnabled())
+			cMouseY -= window.getScrollOffset();
+		
+		return handleNavigatorComponentMouseScroll(cMouseX, cMouseY, delta,
+			window);
 	}
 	
 	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
