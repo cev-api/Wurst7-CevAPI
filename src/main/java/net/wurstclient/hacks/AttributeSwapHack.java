@@ -11,6 +11,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
@@ -68,6 +69,18 @@ public final class AttributeSwapHack extends Hack
 		"Swaps to a non-damageable item to save main weapon durability (Smart mode).",
 		true);
 	
+	private final CheckboxSetting onlyAgainstOtherPlayers =
+		new CheckboxSetting("Only against other players",
+			"Only swap when attacking other players. Can be combined with "
+				+ "\"Only against mobs\".",
+			false);
+	
+	private final CheckboxSetting onlyAgainstMobs =
+		new CheckboxSetting("Only against mobs",
+			"Only swap when attacking mobs. Can be combined with "
+				+ "\"Only against other players\".",
+			false);
+	
 	private final CheckboxSetting onlyWithKillAura = new CheckboxSetting(
 		"Only with Killaura", "Only activate when Killaura is enabled.", false);
 	
@@ -86,6 +99,8 @@ public final class AttributeSwapHack extends Hack
 		addSetting(shieldBreaker);
 		addSetting(itemSaver);
 		addSetting(breachSwapping);
+		addSetting(onlyAgainstOtherPlayers);
+		addSetting(onlyAgainstMobs);
 		addSetting(onlyWithKillAura);
 	}
 	
@@ -120,28 +135,30 @@ public final class AttributeSwapHack extends Hack
 	@Override
 	public void onLeftClick(LeftClickEvent event)
 	{
-		if(onlyWithKillAura.isChecked()
-			&& !WURST.getHax().killauraHack.isEnabled())
-			return;
-		
 		if(MC.hitResult != null
 			&& MC.hitResult.getType() == HitResult.Type.BLOCK)
 			return;
 		
 		Entity target = MC.hitResult instanceof EntityHitResult hit
 			? hit.getEntity() : null;
-		performSwap(target);
+		if(!shouldSwapForTarget(target))
+			return;
+		
+		prepareForAttack(target);
 	}
 	
 	@Override
 	public void onPlayerAttacksEntity(Entity target)
 	{
-		if(onlyWithKillAura.isChecked()
-			&& !WURST.getHax().killauraHack.isEnabled())
+		prepareForAttack(target);
+	}
+	
+	public void prepareForAttack(Entity target)
+	{
+		if(!isEnabled() || !shouldSwapForTarget(target))
 			return;
 		
 		performSwap(target);
-		WURST.getHax().maceDmgHack.doSmash();
 	}
 	
 	@Override
@@ -158,7 +175,10 @@ public final class AttributeSwapHack extends Hack
 	
 	private void performSwap(Entity target)
 	{
-		if(awaitingBack)
+		// MultiAura can fire several attacks back-to-back in one burst, so let
+		// it keep re-evaluating the swap target instead of freezing after the
+		// first attack.
+		if(awaitingBack && !WURST.getHax().multiAuraHack.isEnabled())
 			return;
 		
 		if(mode.getSelected() == Mode.SIMPLE)
@@ -172,8 +192,6 @@ public final class AttributeSwapHack extends Hack
 	
 	private void doSwap(int slotIndex)
 	{
-		if(awaitingBack)
-			return;
 		if(slotIndex < 0 || slotIndex > 8)
 			return;
 		
@@ -181,7 +199,8 @@ public final class AttributeSwapHack extends Hack
 		if(slotIndex == current)
 			return;
 		
-		originalSlot = current;
+		if(originalSlot == -1)
+			originalSlot = current;
 		MC.player.getInventory().setSelectedSlot(slotIndex);
 		
 		if(swapBack.isChecked())
@@ -247,6 +266,29 @@ public final class AttributeSwapHack extends Hack
 		}
 		
 		return bestSlot;
+	}
+	
+	private boolean shouldSwapForTarget(Entity target)
+	{
+		if(onlyWithKillAura.isChecked()
+			&& !WURST.getHax().killauraHack.isEnabled())
+			return false;
+		
+		boolean restrictToPlayers = onlyAgainstOtherPlayers.isChecked();
+		boolean restrictToMobs = onlyAgainstMobs.isChecked();
+		if(!restrictToPlayers && !restrictToMobs)
+			return true;
+		
+		if(target == null)
+			return false;
+		
+		if(target instanceof Player)
+			return restrictToPlayers;
+		
+		if(target instanceof LivingEntity)
+			return restrictToMobs;
+		
+		return false;
 	}
 	
 	private int getDurabilityScore(ItemStack stack)

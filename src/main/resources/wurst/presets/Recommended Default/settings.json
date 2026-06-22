@@ -166,6 +166,8 @@
     "Shield breaker": true,
     "Item saver": true,
     "Breach swapping": true,
+    "Only against other players": false,
+    "Only against mobs": false,
     "Only with Killaura": true
   },
   "AutoArmor": {
