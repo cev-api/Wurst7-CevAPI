@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.LinkedHashSet;
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Method;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
@@ -46,6 +47,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.phys.Vec3;
@@ -69,6 +71,7 @@ import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 // no screen import needed; we embed ItemESP's editor component directly
 import net.wurstclient.util.InventoryUtils;
+import net.wurstclient.util.ShelfUtils;
 import net.wurstclient.util.chunk.ChunkUtils;
 
 public class ItemHandlerHack extends Hack
@@ -591,6 +594,8 @@ public class ItemHandlerHack extends Hack
 					distance, frame.position(), SourceType.ITEM_FRAME, null));
 		}
 		
+		addTrackedShelfItems(player, scanRadius);
+		
 		if(includeMobEquipment.isChecked())
 			addMobEquipmentItems(player, scanRadius);
 			
@@ -598,6 +603,43 @@ public class ItemHandlerHack extends Hack
 		// of
 		// range or not currently tracked. (Only explicit pickup detection or
 		// manual toggling should untrace.)
+	}
+	
+	private void addTrackedShelfItems(LocalPlayer player, double scanRadius)
+	{
+		Vec3 playerPos = player.position();
+		double scanRadiusSq =
+			scanRadius >= INFINITE_SCAN_RADIUS ? -1 : scanRadius * scanRadius;
+		
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(!(be instanceof ShelfBlockEntity shelf))
+				return;
+			
+			Vec3 shelfCenter = shelf.position();
+			if(scanRadiusSq >= 0
+				&& shelfCenter.distanceToSqr(playerPos) > scanRadiusSq)
+				return;
+			
+			BlockPos shelfPos = shelf.getBlockPos();
+			List<ItemStack> shelfItems = shelf.getItems();
+			for(int slot = 0; slot < shelfItems.size(); slot++)
+			{
+				ItemStack stack = shelfItems.get(slot);
+				if(stack == null || stack.isEmpty())
+					continue;
+				if(isIgnoredByItemEsp(stack))
+					continue;
+				
+				Vec3 itemPos = ShelfUtils.getItemPosition(shelf, slot);
+				if(itemPos == null)
+					itemPos = shelfCenter;
+				double distance = itemPos.distanceTo(playerPos);
+				trackedItems
+					.add(new GroundItem(getShelfSlotEntityId(shelfPos, slot),
+						getShelfSlotUuid(shelfPos, slot), stack.copy(),
+						distance, itemPos, SourceType.SHELF, null));
+			}
+		});
 	}
 	
 	private void scanNearbySigns()
@@ -1348,6 +1390,8 @@ public class ItemHandlerHack extends Hack
 			}
 			if(sourceType == SourceType.ITEM_FRAME)
 				return baseId + ":item_frame";
+			if(sourceType == SourceType.SHELF)
+				return baseId + ":shelf";
 			return baseId;
 		}
 		
@@ -1359,6 +1403,8 @@ public class ItemHandlerHack extends Hack
 				return "worn by " + (sourceName != null ? sourceName : "mob");
 			if(sourceType == SourceType.ITEM_FRAME)
 				return "in item frame";
+			if(sourceType == SourceType.SHELF)
+				return "in shelf";
 			return "";
 		}
 		
@@ -1541,8 +1587,24 @@ public class ItemHandlerHack extends Hack
 		GROUND,
 		XP_ORB,
 		ITEM_FRAME,
+		SHELF,
 		MOB_HELD,
 		MOB_WORN
+	}
+	
+	private static int getShelfSlotEntityId(BlockPos pos, int slot)
+	{
+		int hash = Long
+			.hashCode(pos.asLong() ^ ((long)slot + 1L) * 0x9E3779B97F4A7C15L);
+		if(hash == 0)
+			return Integer.MIN_VALUE;
+		return hash > 0 ? -hash : hash;
+	}
+	
+	private static UUID getShelfSlotUuid(BlockPos pos, int slot)
+	{
+		String key = "shelf:" + pos.asLong() + ":" + slot;
+		return UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
 	}
 	
 	private static String getCraftedEntityTraceId(UUID uuid)

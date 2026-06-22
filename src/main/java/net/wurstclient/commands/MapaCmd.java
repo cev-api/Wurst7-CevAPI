@@ -22,9 +22,10 @@ public final class MapaCmd extends Command
 {
 	public MapaCmd()
 	{
-		super("mapa", "Controls the integrated Mapa minimap.", ".mapa",
-			".mapa open", ".mapa reset", ".mapa toggle",
-			".mapa enabled <true|false>", ".mapa size <72-256>",
+		super("mapa",
+			"Controls the integrated Mapa minimap.\nBare .mapa toggles it.",
+			".mapa", ".mapa show", ".mapa status", ".mapa open", ".mapa reset",
+			".mapa toggle", ".mapa enabled <true|false>", ".mapa size <72-256>",
 			".mapa zoom <0.25-10>", ".mapa samples <32-512>",
 			".mapa textScale <0.5-4>", ".mapa pos <x> <y>",
 			".mapa rotate <true|false>", ".mapa underground <true|false>",
@@ -47,7 +48,14 @@ public final class MapaCmd extends Command
 	{
 		MapaHack mapa = WURST.getHax().mapaHack;
 		
-		if(args.length == 0 || equalsAny(args[0], "show", "status"))
+		if(args.length == 0)
+		{
+			mapa.setEnabled(!mapa.isEnabled());
+			ChatUtils.message("Mapa enabled set to " + mapa.isEnabled() + ".");
+			return;
+		}
+		
+		if(equalsAny(args[0], "show", "status"))
 		{
 			ChatUtils.message(statusLine(mapa));
 			return;

@@ -1,4 +1,5 @@
 [
+  "AutoFly",
   "AutoTotem",
   "BedESP",
   "Breadcrumbs",
@@ -7,6 +8,7 @@
   "HandNoClip",
   "ItemESP",
   "LavaWaterESP",
+  "MiningEvidence",
   "MobESP",
   "MobSearch",
   "NoFall",
