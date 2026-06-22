@@ -1,63 +1,42 @@
 {
+  "Favorites": {
+    "x": 373,
+    "y": 34,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
   "Blocks": {
-    "x": 2,
-    "y": 22,
+    "x": 74,
+    "y": 149,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
   },
   "Movement": {
-    "x": 92,
-    "y": 63,
+    "x": 174,
+    "y": 76,
     "minimized": false,
     "pinned": false,
-    "scrollOffset": -210
+    "scrollOffset": -68
   },
   "Combat": {
-    "x": 185,
-    "y": 41,
+    "x": 273,
+    "y": 70,
     "minimized": false,
     "pinned": false,
-    "scrollOffset": -105
+    "scrollOffset": -40
   },
   "Render": {
-    "x": 374,
-    "y": 35,
+    "x": 475,
+    "y": 76,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
   },
-  "Chat": {
-    "x": 8,
-    "y": 327,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": 0
-  },
-  "Fun": {
-    "x": 134,
-    "y": 376,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": 0
-  },
-  "Items": {
-    "x": 602,
-    "y": 63,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": 0
-  },
-  "Other": {
-    "x": 478,
-    "y": 60,
-    "minimized": false,
-    "pinned": false,
-    "scrollOffset": -168
-  },
-  "Template": {
-    "x": 283,
-    "y": 18,
+  "Intel": {
+    "x": 578,
+    "y": 345,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
@@ -69,16 +48,44 @@
     "pinned": true,
     "scrollOffset": 0
   },
-  "Favorites": {
-    "x": 277,
-    "y": 128,
+  "Items": {
+    "x": 689,
+    "y": 45,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0
   },
   "Client Settings": {
-    "x": 722,
-    "y": 101,
+    "x": 941,
+    "y": 61,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Tools": {
+    "x": 813,
+    "y": 53,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Other": {
+    "x": 588,
+    "y": 37,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Chat": {
+    "x": 361,
+    "y": 391,
+    "minimized": false,
+    "pinned": false,
+    "scrollOffset": 0
+  },
+  "Fun": {
+    "x": 264,
+    "y": 387,
     "minimized": false,
     "pinned": false,
     "scrollOffset": 0

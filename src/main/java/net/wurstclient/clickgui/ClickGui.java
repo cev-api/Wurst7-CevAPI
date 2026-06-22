@@ -2043,10 +2043,10 @@ public final class ClickGui
 		// sort by feature name when possible
 		all.sort((c1, c2) -> {
 			String n1 = c1 instanceof FeatureButton
-				? ((FeatureButton)c1).getFeature().getName()
+				? getFeatureSortName(((FeatureButton)c1).getFeature())
 				: c1.getClass().getName();
 			String n2 = c2 instanceof FeatureButton
-				? ((FeatureButton)c2).getFeature().getName()
+				? getFeatureSortName(((FeatureButton)c2).getFeature())
 				: c2.getClass().getName();
 			return n1.compareToIgnoreCase(n2);
 		});
@@ -2073,10 +2073,10 @@ public final class ClickGui
 		
 		all.sort((c1, c2) -> {
 			String n1 = c1 instanceof FeatureButton
-				? ((FeatureButton)c1).getFeature().getName()
+				? getFeatureSortName(((FeatureButton)c1).getFeature())
 				: c1.getClass().getName();
 			String n2 = c2 instanceof FeatureButton
-				? ((FeatureButton)c2).getFeature().getName()
+				? getFeatureSortName(((FeatureButton)c2).getFeature())
 				: c2.getClass().getName();
 			return n1.compareToIgnoreCase(n2);
 		});
@@ -2087,5 +2087,14 @@ public final class ClickGui
 			window.add(c);
 		
 		window.pack();
+	}
+	
+	private static String getFeatureSortName(Feature feature)
+	{
+		String name = feature.getName();
+		if(name != null && name.startsWith("."))
+			return name.substring(1);
+		
+		return name;
 	}
 }

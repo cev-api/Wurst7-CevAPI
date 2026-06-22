@@ -12,6 +12,7 @@ import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -30,6 +31,7 @@ import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -49,6 +51,8 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.ShelfUtils;
+import net.wurstclient.util.chunk.ChunkUtils;
 
 @SearchTags({"item esp", "ItemTracers", "item tracers"})
 public final class ItemEspHack extends Hack implements UpdateListener,
@@ -144,9 +148,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			XpMode.values(), XpMode.NORMAL);
 	
 	// New: include item frames holding special items
-	private final CheckboxSetting includeItemFrames =
-		new CheckboxSetting("Highlight frames with special",
-			"Also highlight item frames if the item inside is special.", true);
+	private final CheckboxSetting includeItemFrames = new CheckboxSetting(
+		"Highlight frames with special",
+		"Also highlight item frames and shelves if the displayed item is special.",
+		true);
 	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
@@ -666,12 +671,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 		}
 		
-		// update count for HackList from final filtered/drawn data only
-		int displayedCount =
-			normalBoxes.size() + specialBoxes.size() + tracedBoxes.size();
-		foundCount = Math.min(displayedCount, 999);
-		
-		// Item frames holding special items
+		// Item frames and shelves holding special items
 		if(includeItemFrames.isChecked())
 		{
 			for(Entity ent : MC.level.entitiesForRendering())
@@ -693,6 +693,36 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				specialBoxes.add(fbox);
 				specialEnds.add(fbox.getCenter());
 			}
+			
+			ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+				if(!(be instanceof ShelfBlockEntity shelf))
+					return;
+				
+				List<ItemStack> shelfItems = shelf.getItems();
+				for(int slot = 0; slot < shelfItems.size(); slot++)
+				{
+					ItemStack shelfStack = shelfItems.get(slot);
+					if(shelfStack == null || shelfStack.isEmpty())
+						continue;
+					if(isIgnored(shelfStack))
+						continue;
+					if(!isSpecial(shelfStack))
+						continue;
+					
+					Vec3 itemPos = ShelfUtils.getItemPosition(shelf, slot);
+					if(itemPos == null)
+						continue;
+					if(onlyAboveGround.isChecked()
+						&& itemPos.y < aboveGroundY.getValue())
+						continue;
+					
+					AABB box = smallBoxAt(itemPos);
+					if(box == null)
+						continue;
+					specialBoxes.add(box);
+					specialEnds.add(box.getCenter());
+				}
+			});
 		}
 		
 		// Equipped specials (held or head) on entities
@@ -763,6 +793,10 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				}
 			}
 		}
+		
+		int displayedCount =
+			normalBoxes.size() + specialBoxes.size() + tracedBoxes.size();
+		foundCount = Math.min(displayedCount, 999);
 		
 		if(style.hasBoxes())
 		{
