@@ -59,6 +59,7 @@ public final class HackListOtf extends OtherFeature
 		@Override
 		public void update()
 		{
+			syncHiddenHackStates();
 			refreshGui();
 		}
 	};
@@ -172,6 +173,7 @@ public final class HackListOtf extends OtherFeature
 	public void loadHiddenHacksFile()
 	{
 		hiddenHacksFile.load();
+		syncHiddenHackStates();
 	}
 	
 	public boolean isHidden(Hack hack)
@@ -193,6 +195,7 @@ public final class HackListOtf extends OtherFeature
 			hiddenHacks.remove(hack);
 		
 		hiddenHacksFile.save();
+		syncHackState(hack);
 		refreshGui();
 	}
 	
@@ -216,6 +219,27 @@ public final class HackListOtf extends OtherFeature
 				WURST.getGui().requestRefresh();
 		}catch(Exception ignored)
 		{}
+	}
+	
+	private void syncHiddenHackStates()
+	{
+		var hud = WURST.getHud();
+		if(hud == null)
+			return;
+		
+		var hackList = hud.getHackList();
+		for(net.wurstclient.Feature feature : hiddenHacks)
+			if(feature instanceof Hack hack)
+				hackList.updateState(hack);
+	}
+	
+	private void syncHackState(Hack hack)
+	{
+		var hud = WURST.getHud();
+		if(hud == null)
+			return;
+		
+		hud.getHackList().updateState(hack);
 	}
 	
 	private List<Hack> getSortedHacks()
@@ -434,7 +458,7 @@ public final class HackListOtf extends OtherFeature
 			int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
 			int maxOffset = Math.max(0, hacks.size() - visibleRows);
 			if(maxOffset <= 0)
-				return true;
+				return false;
 			
 			int direction = (int)Math.signum(delta);
 			if(direction == 0)
