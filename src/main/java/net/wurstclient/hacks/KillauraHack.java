@@ -146,6 +146,14 @@ public final class KillauraHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		if(maceDmg.shouldControlAuraAttacks() && maceDmg.hasFallDebt())
+		{
+			target = null;
+			renderTarget = null;
+			return;
+		}
+		
 		speed.updateTimer();
 		if(!speed.isTimeToAttack())
 			return;
@@ -186,6 +194,13 @@ public final class KillauraHack extends Hack
 	{
 		if(target == null)
 			return;
+		
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		if(maceDmg.shouldControlAuraAttacks() && maceDmg.hasFallDebt())
+		{
+			target = null;
+			return;
+		}
 		
 		ItemStack heldItem = MC.player.getMainHandItem();
 		PiercingWeapon piercingWeapon =

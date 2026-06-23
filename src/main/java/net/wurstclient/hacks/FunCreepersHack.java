@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
+
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvent;
@@ -18,6 +20,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -45,6 +48,9 @@ public final class FunCreepersHack extends Hack
 		"How many colorful sparkles get sprayed around.", 90, 20, 400, 10,
 		ValueDisplay.INTEGER);
 	
+	private final ColorSetting sparkleColor = new ColorSetting("Sparkle color",
+		"Color of the sparkle particles.", new Color(0xFF55FF));
+	
 	private final CheckboxSetting replaceSound =
 		new CheckboxSetting("Replace Sound",
 			"Replace explosion sound with a happy firework sound.", true);
@@ -61,6 +67,7 @@ public final class FunCreepersHack extends Hack
 		addSetting(fireworks);
 		addSetting(confetti);
 		addSetting(sparkles);
+		addSetting(sparkleColor);
 		addSetting(replaceSound);
 	}
 	
@@ -108,15 +115,15 @@ public final class FunCreepersHack extends Hack
 		
 		for(int i = 0; i < sparkleCount; i++)
 		{
-			int color = random.nextInt(0x1000000);
 			double x = center.x + randomRange(2.0);
 			double y = center.y + random.nextDouble() * 2.0;
 			double z = center.z + randomRange(2.0);
 			double dx = randomRange(0.2);
 			double dy = random.nextDouble() * 0.25;
 			double dz = randomRange(0.2);
-			MC.level.addParticle(new DustParticleOptions(color, 1.0F), x, y, z,
-				dx, dy, dz);
+			MC.level.addParticle(
+				new DustParticleOptions(sparkleColor.getColorI(), 1.0F), x, y,
+				z, dx, dy, dz);
 			if(random.nextBoolean())
 				MC.level.addParticle(ParticleTypes.END_ROD, x, y, z, dx * 0.7,
 					dy * 0.7, dz * 0.7);
