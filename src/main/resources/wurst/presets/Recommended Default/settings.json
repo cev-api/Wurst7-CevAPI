@@ -1805,6 +1805,7 @@
     "Fireworks": 200.0,
     "Confetti": 300.0,
     "Sparkles": 400.0,
+    "Sparkle color": "#FF55FF",
     "Replace Sound": true
   },
   "GameStats": {
@@ -2377,8 +2378,23 @@
     "Compare opened chests": false
   },
   "MaceDMG": {
+    "Excitement": 300.0,
+    "Fireworks": 200.0,
+    "Confetti": 300.0,
+    "Sparkles": 400.0,
     "Height": 22.1,
-    "Cave mode": true
+    "Cave mode": true,
+    "Totem bypass": false,
+    "Smash sparkles": true,
+    "Sparkle color": "#FF55FF"
+  },
+  "DamageESP": {
+    "Players only": false,
+    "Text size": 1.0,
+    "Fade time": 24.0,
+    "Opacity": 100.0,
+    "Number mode": "Health lost (packet)",
+    "Text color": "#FF5555"
   },
   "Mapa": {
     "No map": true,
