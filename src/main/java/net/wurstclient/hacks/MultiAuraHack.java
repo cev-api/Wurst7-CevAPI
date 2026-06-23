@@ -115,6 +115,11 @@ public final class MultiAuraHack extends Hack
 		if(!speed.isTimeToAttack())
 			return;
 		
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		boolean maceSupportActive = maceDmg.isAuraSupportReady();
+		if(maceSupportActive && maceDmg.hasFallDebt())
+			return;
+		
 		if(pauseOnContainers.shouldPause())
 			return;
 		
@@ -141,20 +146,35 @@ public final class MultiAuraHack extends Hack
 			return;
 		currentTargets.addAll(entities);
 		
+		if(maceSupportActive)
+		{
+			if(maceDmg.queueTargets(entities))
+				speed.resetTimer();
+			return;
+		}
+		
 		WURST.getHax().autoSwordHack.setSlot(entities.get(0));
 		
 		// attack entities
+		boolean attacked = false;
 		for(Entity entity : entities)
 		{
+			if(maceDmg.isEnabled() && maceDmg.hasFallDebt())
+				break;
+			
 			RotationUtils
 				.getNeededRotations(entity.getBoundingBox().getCenter())
 				.sendPlayerLookPacket();
 			
 			MC.gameMode.attack(MC.player, entity);
+			attacked = true;
 		}
 		
-		swingHand.swing(InteractionHand.MAIN_HAND);
-		speed.resetTimer();
+		if(attacked)
+		{
+			swingHand.swing(InteractionHand.MAIN_HAND);
+			speed.resetTimer();
+		}
 	}
 	
 	@Override

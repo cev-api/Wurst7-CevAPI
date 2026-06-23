@@ -69,6 +69,7 @@ public abstract class MouseHandlerMixin
 		return !wurst.getOtfs().zoomOtf.isControllingScrollEvents()
 			&& !wurst.getHax().freecamHack.isControllingScrollEvents()
 			&& !wurst.getHax().flightHack.isControllingScrollEvents()
-			&& !ClientMessageOverlay.getInstance().isControllingScrollEvents();
+			&& !ClientMessageOverlay.getInstance().isControllingScrollEvents()
+			&& wurst.getHax().attributeSwapHack.canPlayerSelectHotbarSlot(slot);
 	}
 }

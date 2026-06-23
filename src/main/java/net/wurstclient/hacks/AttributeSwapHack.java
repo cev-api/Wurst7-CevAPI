@@ -49,6 +49,11 @@ public final class AttributeSwapHack extends Hack
 		"Hotbar slot to swap to (Simple mode).", 1, 1, 9, 1,
 		ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting reserveTargetSlot = new CheckboxSetting(
+		"Reserve target slot",
+		"Prevents you from selecting the target slot yourself. AttributeSwap can still use it temporarily.",
+		false);
+	
 	private final CheckboxSetting swapBack = new CheckboxSetting("Swap back",
 		"Swap back to the original slot after delay.", true);
 	
@@ -87,6 +92,8 @@ public final class AttributeSwapHack extends Hack
 	private int backTimer;
 	private boolean awaitingBack;
 	private int originalSlot;
+	private int lastSafeSlot;
+	private int protectedSlotBypassTicks;
 	
 	public AttributeSwapHack()
 	{
@@ -94,6 +101,7 @@ public final class AttributeSwapHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(mode);
 		addSetting(targetSlot);
+		addSetting(reserveTargetSlot);
 		addSetting(swapBack);
 		addSetting(swapBackDelay);
 		addSetting(shieldBreaker);
@@ -110,6 +118,8 @@ public final class AttributeSwapHack extends Hack
 		backTimer = 0;
 		awaitingBack = false;
 		originalSlot = -1;
+		lastSafeSlot = -1;
+		protectedSlotBypassTicks = 0;
 		
 		EVENTS.add(LeftClickListener.class, this);
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
@@ -130,6 +140,8 @@ public final class AttributeSwapHack extends Hack
 		}
 		backTimer = 0;
 		originalSlot = -1;
+		lastSafeSlot = -1;
+		protectedSlotBypassTicks = 0;
 	}
 	
 	@Override
@@ -155,6 +167,9 @@ public final class AttributeSwapHack extends Hack
 	
 	public void prepareForAttack(Entity target)
 	{
+		if(WURST.getHax().maceDmgHack.isExecutingAuraBurst())
+			return;
+		
 		if(!isEnabled() || !shouldSwapForTarget(target))
 			return;
 		
@@ -164,13 +179,22 @@ public final class AttributeSwapHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(!awaitingBack)
-			return;
-		if(backTimer-- > 0)
-			return;
+		if(protectedSlotBypassTicks > 0)
+			protectedSlotBypassTicks--;
 		
-		doSwapBack();
-		awaitingBack = false;
+		if(!awaitingBack)
+		{
+			enforceReservedTargetSlot();
+			return;
+		}
+		
+		if(backTimer-- <= 0)
+		{
+			doSwapBack();
+			awaitingBack = false;
+		}
+		
+		enforceReservedTargetSlot();
 	}
 	
 	private void performSwap(Entity target)
@@ -201,7 +225,7 @@ public final class AttributeSwapHack extends Hack
 		
 		if(originalSlot == -1)
 			originalSlot = current;
-		MC.player.getInventory().setSelectedSlot(slotIndex);
+		setSelectedSlotForHack(slotIndex);
 		
 		if(swapBack.isChecked())
 		{
@@ -213,9 +237,61 @@ public final class AttributeSwapHack extends Hack
 	private void doSwapBack()
 	{
 		if(originalSlot >= 0 && originalSlot <= 8)
-			MC.player.getInventory().setSelectedSlot(originalSlot);
+			setSelectedSlotForHack(originalSlot);
 		
 		originalSlot = -1;
+	}
+	
+	private void setSelectedSlotForHack(int slot)
+	{
+		protectedSlotBypassTicks = Math.max(protectedSlotBypassTicks, 2);
+		MC.player.getInventory().setSelectedSlot(slot);
+	}
+	
+	private void enforceReservedTargetSlot()
+	{
+		if(MC.player == null || !isTargetSlotReserved())
+			return;
+		
+		int protectedSlot = getTargetHotbarSlot();
+		int selectedSlot = MC.player.getInventory().getSelectedSlot();
+		if(selectedSlot != protectedSlot)
+		{
+			lastSafeSlot = selectedSlot;
+			return;
+		}
+		
+		if(protectedSlotBypassTicks > 0)
+			return;
+		
+		int fallbackSlot = getFallbackSlot(protectedSlot);
+		if(fallbackSlot != -1 && fallbackSlot != selectedSlot)
+		{
+			protectedSlotBypassTicks = 1;
+			MC.player.getInventory().setSelectedSlot(fallbackSlot);
+			lastSafeSlot = fallbackSlot;
+		}
+	}
+	
+	private int getFallbackSlot(int protectedSlot)
+	{
+		if(lastSafeSlot >= 0 && lastSafeSlot <= 8
+			&& lastSafeSlot != protectedSlot)
+			return lastSafeSlot;
+		
+		int current = MC.player.getInventory().getSelectedSlot();
+		for(int offset = 1; offset < 9; offset++)
+		{
+			int right = (current + offset) % 9;
+			if(right != protectedSlot)
+				return right;
+			
+			int left = (current - offset + 9) % 9;
+			if(left != protectedSlot)
+				return left;
+		}
+		
+		return -1;
 	}
 	
 	private int getSmartSlot(Entity target)
@@ -289,6 +365,21 @@ public final class AttributeSwapHack extends Hack
 			return restrictToMobs;
 		
 		return false;
+	}
+	
+	public boolean canPlayerSelectHotbarSlot(int slot)
+	{
+		return !isTargetSlotReserved() || slot != getTargetHotbarSlot();
+	}
+	
+	private boolean isTargetSlotReserved()
+	{
+		return isEnabled() && reserveTargetSlot.isChecked();
+	}
+	
+	public int getTargetHotbarSlot()
+	{
+		return targetSlot.getValueI() - 1;
 	}
 	
 	private int getDurabilityScore(ItemStack stack)
