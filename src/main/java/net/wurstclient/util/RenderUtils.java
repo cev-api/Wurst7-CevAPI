@@ -2045,6 +2045,14 @@ public enum RenderUtils
 	public record ColoredBox(AABB box, int color)
 	{}
 	
+	public static float getCappedWorldLabelScale(float baseScale,
+		double distance)
+	{
+		double factor = Math.max(1.0, distance * 0.1);
+		factor = Math.min(factor, 1.2);
+		return baseScale * (float)factor;
+	}
+	
 	/**
 	 * Draw text scaled by the given scale factor.
 	 * This applies a matrix transform so glyphs are scaled.
