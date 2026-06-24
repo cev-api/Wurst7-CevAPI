@@ -62,9 +62,9 @@ public final class HandNoClipHack extends Hack
 		"minecraft:red_shulker_box", "minecraft:shulker_box",
 		"minecraft:trapped_chest", "minecraft:white_shulker_box",
 		"minecraft:yellow_shulker_box");
-	private final CheckboxSetting enableOnTarget = new CheckboxSetting(
-		"Enable On Target",
-		WText.literal("Only noclip while aiming at a listed block."), true);
+	private final CheckboxSetting enableOnTarget =
+		new CheckboxSetting("Enable On Target",
+			WText.literal("Only noclip while aiming at a listed block."), true);
 	
 	private final CheckboxSetting villagerThroughWalls = new CheckboxSetting(
 		"Villagers Through Walls",
