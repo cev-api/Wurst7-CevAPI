@@ -1,4 +1,4 @@
-﻿# Wurst Client v7.54 (MC1.21.11) - Modified by CevAPI 
+﻿# Wurst Client v7.54 (MC26.2) - Modified by CevAPI 
 
 ![CevAPI Logo](https://i.imgur.com/4x8fvbp.jpeg)
 
@@ -11,7 +11,7 @@
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
-I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I generally only update and maintain the latest; [26.2](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus)
 
@@ -19,11 +19,12 @@ Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth
 
 I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
-![Release](https://i.imgur.com/xzkNiWl.png)
+![Release](https://i.imgur.com/tq9mfbd.png)
 
 ### Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
 ![AltGUI](https://i.imgur.com/gzAVbru.png)
+![XPGUI](https://i.imgur.com/d5iDhwj.png)
 
 ## Full Feature List / Documentation
 
