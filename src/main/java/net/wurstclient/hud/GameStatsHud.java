@@ -195,7 +195,7 @@ public final class GameStatsHud
 		return hack != null && hack.isEnabled() && hack.pinAboveHackList();
 	}
 	
-	public int getHackListReservedHeight(GuiGraphicsExtractor context)
+	public int getHackListReservedHeight(GuiGraphics context)
 	{
 		if(!isPinnedAboveHackList() || MC == null || MC.font == null)
 			return 0;
@@ -482,6 +482,11 @@ public final class GameStatsHud
 		String value)
 	{
 		return showPrefix ? prefix + ": " + value : value;
+	}
+	
+	private boolean shouldRenderGraph()
+	{
+		return hack != null && hack.showGraph();
 	}
 	
 	private Layout buildLayout()

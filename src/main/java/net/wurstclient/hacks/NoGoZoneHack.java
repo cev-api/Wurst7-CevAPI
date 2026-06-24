@@ -403,17 +403,17 @@ public final class NoGoZoneHack extends Hack
 			this.id = id;
 			this.center = center;
 			this.chunkRadius = chunkRadius;
-			ChunkPos centerChunk = ChunkPos.containing(center);
-			minChunk = new ChunkPos(centerChunk.x() - chunkRadius,
-				centerChunk.z() - chunkRadius);
-			maxChunk = new ChunkPos(centerChunk.x() + chunkRadius,
-				centerChunk.z() + chunkRadius);
+			ChunkPos centerChunk = new ChunkPos(center);
+			minChunk = new ChunkPos(centerChunk.x - chunkRadius,
+				centerChunk.z - chunkRadius);
+			maxChunk = new ChunkPos(centerChunk.x + chunkRadius,
+				centerChunk.z + chunkRadius);
 		}
 		
 		public boolean containsChunk(ChunkPos chunk)
 		{
-			return chunk.x() >= minChunk.x() && chunk.x() <= maxChunk.x()
-				&& chunk.z() >= minChunk.z() && chunk.z() <= maxChunk.z();
+			return chunk.x >= minChunk.x && chunk.x <= maxChunk.x
+				&& chunk.z >= minChunk.z && chunk.z <= maxChunk.z;
 		}
 		
 		public boolean contains(Vec3 pos)

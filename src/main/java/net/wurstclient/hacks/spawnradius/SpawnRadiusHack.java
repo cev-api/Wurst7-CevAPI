@@ -7,10 +7,10 @@
  */
 package net.wurstclient.hacks.spawnradius;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 import java.util.ArrayList;
 import java.util.List;
 import java.lang.reflect.Method;
@@ -186,7 +186,7 @@ public final class SpawnRadiusHack extends Hack
 		
 		List<SpawnerInfo> snapshot = new ArrayList<>(spawners);
 		RegionPos region = bufferRegion;
-		buffer = EasyVertexBuffer.createAndUpload(PrimitiveTopology.LINES,
+		buffer = EasyVertexBuffer.createAndUpload(Mode.LINES,
 			DefaultVertexFormat.POSITION_COLOR_NORMAL_LINE_WIDTH, b -> {
 				for(SpawnerInfo info : snapshot)
 					buildSpawner(b, info, region);

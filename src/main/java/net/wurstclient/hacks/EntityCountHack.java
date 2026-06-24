@@ -225,8 +225,8 @@ public final class EntityCountHack extends Hack
 		for(int dx = -radius; dx <= radius; dx++)
 			for(int dz = -radius; dz <= radius; dz++)
 			{
-				int chunkX = center.x() + dx;
-				int chunkZ = center.z() + dz;
+				int chunkX = center.x + dx;
+				int chunkZ = center.z + dz;
 				ChunkPos pos = new ChunkPos(chunkX, chunkZ);
 				if(!isInSelectedView(pos))
 					continue;
@@ -251,15 +251,15 @@ public final class EntityCountHack extends Hack
 			for(Map.Entry<ChunkPos, Integer> entry : chunkCounts.entrySet())
 			{
 				ChunkPos pos = entry.getKey();
-				int dx = pos.x() - center.x();
-				int dz = pos.z() - center.z();
+				int dx = pos.x - center.x;
+				int dz = pos.z - center.z;
 				if(Math.abs(dx) > radius || Math.abs(dz) > radius)
 					continue;
 				if(!isInSelectedView(pos))
 					continue;
 				if(Math.abs(dx) <= renderDistance
 					&& Math.abs(dz) <= renderDistance
-					&& MC.level.hasChunk(pos.x(), pos.z()))
+					&& MC.level.hasChunk(pos.x, pos.z))
 					continue;
 				
 				int count = entry.getValue();

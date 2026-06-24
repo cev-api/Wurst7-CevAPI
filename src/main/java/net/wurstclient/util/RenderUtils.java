@@ -274,6 +274,14 @@ public enum RenderUtils
 			displayMode, backgroundColor, packedLight);
 	}
 	
+	public static float getCappedWorldLabelScale(float baseScale,
+		double distance)
+	{
+		double factor = Math.max(1.0, distance * 0.1);
+		factor = Math.min(factor, 1.2);
+		return baseScale * (float)factor;
+	}
+	
 	public static float[] getRainbowColor()
 	{
 		float x = System.currentTimeMillis() % 2000 / 1000F;

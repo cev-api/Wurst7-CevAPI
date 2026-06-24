@@ -87,10 +87,9 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
-	private void wurst$renderChestSearchPreviewOnScreens(
-		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci)
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void wurst$renderChestSearchPreviewOnScreens(GuiGraphics graphics,
+		int mouseX, int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled()
 			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())

@@ -18,7 +18,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
@@ -473,8 +473,8 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
-		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, float partialTicks)
+		public void render(GuiGraphics context, int mouseX, int mouseY,
+			float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
 			refreshSize(hacks);
@@ -485,7 +485,7 @@ public final class HackListOtf extends OtherFeature
 			
 			if(hacks.isEmpty())
 			{
-				context.text(MC.font, "No hacks available.", getX() + 2,
+				context.drawString(MC.font, "No hacks available.", getX() + 2,
 					getY() + 2, WURST.getGui().getTxtColor(), false);
 				return;
 			}
@@ -532,8 +532,8 @@ public final class HackListOtf extends OtherFeature
 				{
 					int textColor =
 						hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
-					context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
-						textColor, false);
+					context.drawString(MC.font, hack.getName(), boxX2 + 2,
+						y1 + 2, textColor, false);
 				}
 			}
 			

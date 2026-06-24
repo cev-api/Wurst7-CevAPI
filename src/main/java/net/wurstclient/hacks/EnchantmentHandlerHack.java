@@ -1027,7 +1027,7 @@ public final class EnchantmentHandlerHack extends Hack
 				context.pose().pushMatrix();
 				context.pose().translate(iconX, iconY);
 				context.pose().scale(iconScaleVal, iconScaleVal);
-				context.item(entry.iconStack, 0, 0);
+				context.renderItem(entry.iconStack, 0, 0);
 				context.pose().popMatrix();
 				textX += iconSpace;
 			}

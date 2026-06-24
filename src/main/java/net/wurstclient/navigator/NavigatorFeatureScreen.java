@@ -600,8 +600,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				- window.getScrollOffset())
 				break;
 			
-			child.render(context, mouseX - bgx1, mouseY - y4,
-				partialTicks);
+			child.render(context, mouseX - bgx1, mouseY - y4, partialTicks);
 		}
 		matrixStack.popMatrix();
 		// buttons
@@ -712,7 +711,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			drawBox(context, bx1, by1, bx2, by2, buttonColor);
 			String buttonText = primaryButton.getMessage().getString();
 			context.guiRenderState.up();
-			context.text(minecraft.font, buttonText,
+			context.drawString(minecraft.font, buttonText,
 				(bx1 + bx2 - minecraft.font.width(buttonText)) / 2, by1 + 5,
 				txtColor, false);
 		}
@@ -742,7 +741,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		if(rebuildingSettings)
 			return;
 		
-		for(AbstractWidget widget : List.copyOf(Screens.getWidgets(this)))
+		for(AbstractWidget widget : List.copyOf(Screens.getButtons(this)))
 			removeWidget(widget);
 		
 		onResize();

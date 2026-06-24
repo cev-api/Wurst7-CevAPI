@@ -455,7 +455,7 @@ public final class HackListHUD implements UpdateListener
 		return maxWidth;
 	}
 	
-	private int getContentX(GuiGraphicsExtractor context, int contentWidth)
+	private int getContentX(GuiGraphics context, int contentWidth)
 	{
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);

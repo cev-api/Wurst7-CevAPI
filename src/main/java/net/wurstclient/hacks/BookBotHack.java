@@ -373,8 +373,8 @@ public final class BookBotHack extends Hack implements UpdateListener
 	}
 	
 	private void placeStackInGrid(
-		net.wurstclient.mixinterface.IMultiPlayerGameMode im, int inventorySlot,
-		int gridSlot)
+		net.wurstclient.mixinterface.IClientPlayerInteractionManager im,
+		int inventorySlot, int gridSlot)
 	{
 		im.windowClick_PICKUP(InventoryUtils.toNetworkSlot(inventorySlot));
 		im.windowClick_PICKUP(gridSlot);

@@ -14,12 +14,10 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
@@ -118,51 +116,12 @@ public abstract class ChatScreenMixin extends Screen
 				minecraft.player.connection.sendChat(newMessage);
 	}
 	
-	@Inject(
-		method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At("TAIL"))
-	private void onRender(GuiGraphicsExtractor guiGraphics, int mouseX,
-		int mouseY, float partialTicks, CallbackInfo ci)
+	private void onRender(GuiGraphics guiGraphics, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
 	{
 		updateCommandTextColor();
-	}
-	
-	@Inject(at = @At("HEAD"),
-		method = "mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z",
-		cancellable = true)
-	private void wurst$handleChestSearchPreviewClick(MouseButtonEvent context,
-		boolean doubleClick, CallbackInfoReturnable<Boolean> cir)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
-		
-		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
-			.handleMouseClick(context.x(), context.y(), context.button()))
-		{
-			cir.setReturnValue(true);
-			cir.cancel();
-		}
-	}
-	
-	@Inject(at = @At("HEAD"),
-		method = "mouseReleased(Lnet/minecraft/client/input/MouseButtonEvent;)Z",
-		cancellable = true)
-	private void wurst$handleChestSearchPreviewRelease(MouseButtonEvent context,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
-		
-		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
-			.handleMouseRelease(context.button()))
-		{
-			cir.setReturnValue(true);
-			cir.cancel();
-		}
 	}
 	
 	private void updateCommandTextColor()
