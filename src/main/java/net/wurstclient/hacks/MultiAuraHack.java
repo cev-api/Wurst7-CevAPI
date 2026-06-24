@@ -149,7 +149,12 @@ public final class MultiAuraHack extends Hack
 		if(maceSupportActive)
 		{
 			if(maceDmg.queueTargets(entities))
-				speed.resetTimer();
+			{
+				if(shouldUseAuraSpeedAssist(maceDmg))
+					speed.resetTimer(0);
+				else
+					speed.resetTimer();
+			}
 			return;
 		}
 		
@@ -197,5 +202,11 @@ public final class MultiAuraHack extends Hack
 		
 		RenderUtils.drawTracers("multiaura_debug", matrixStack, partialTicks,
 			points, false, 2.0);
+	}
+	
+	private boolean shouldUseAuraSpeedAssist(MaceDmgHack maceDmg)
+	{
+		return maceDmg.isAuraSupportReady()
+			&& WURST.getHax().attributeSwapHack.isEnabled();
 	}
 }

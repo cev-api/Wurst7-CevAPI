@@ -213,7 +213,10 @@ public final class KillauraHack extends Hack
 		swingHand.swing(InteractionHand.MAIN_HAND);
 		
 		target = null;
-		speed.resetTimer(speedRandMS.getValue());
+		if(shouldUseAuraSpeedAssist(maceDmg))
+			speed.resetTimer(0);
+		else
+			speed.resetTimer(speedRandMS.getValue());
 	}
 	
 	@Override
@@ -238,6 +241,12 @@ public final class KillauraHack extends Hack
 		
 		RenderUtils.drawSolidBox(matrixStack, box, quadColor, false);
 		RenderUtils.drawOutlinedBox(matrixStack, box, lineColor, false);
+	}
+	
+	private boolean shouldUseAuraSpeedAssist(MaceDmgHack maceDmg)
+	{
+		return maceDmg.isAuraSupportReady()
+			&& WURST.getHax().attributeSwapHack.isEnabled();
 	}
 	
 	private enum Priority

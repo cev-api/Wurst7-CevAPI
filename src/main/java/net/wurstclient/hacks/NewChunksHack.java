@@ -177,8 +177,9 @@ public final class NewChunksHack extends Hack
 			return;
 		
 		LevelChunk chunk = MC.level.getChunk(x, z);
-		new Thread(() -> checkLoadedChunk(chunk), "NewChunks " + chunk.getPos())
-			.start();
+		// This has to run on the client thread because chunk/world access is
+		// not thread-safe and can trip Minecraft's threading detector.
+		checkLoadedChunk(chunk);
 	}
 	
 	private void checkLoadedChunk(LevelChunk chunk)

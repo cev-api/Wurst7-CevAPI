@@ -456,6 +456,12 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	
 	private void playEnterSound()
 	{
+		if(!MC.isSameThread())
+		{
+			MC.execute(this::playEnterSound);
+			return;
+		}
+		
 		if(MC.player == null || MC.level == null)
 			return;
 		

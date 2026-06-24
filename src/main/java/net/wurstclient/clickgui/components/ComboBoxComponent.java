@@ -24,6 +24,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 {
 	private static final ClickGui GUI = WURST.getGui();
 	private static final Font TR = MC.font;
+	private static final int VALUE_PADDING = 8;
 	
 	private final EnumSetting<T> setting;
 	private final int popupWidth;
@@ -34,7 +35,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	{
 		this.setting = setting;
 		popupWidth = Arrays.stream(setting.getValues()).map(T::toString)
-			.mapToInt(s -> TR.width(s)).max().getAsInt();
+			.mapToInt(s -> TR.width(s)).max().getAsInt() + VALUE_PADDING;
 		
 		setWidth(getDefaultWidth());
 		setHeight(getDefaultHeight());
