@@ -11,7 +11,7 @@
 ### Download
 Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
-I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x.](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus)
 
