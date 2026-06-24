@@ -19,7 +19,7 @@ Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth
 
 I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
-![Release](https://i.imgur.com/uF5smIz.png)
+![Release](https://i.imgur.com/tq9mfbd.png)
 
 ### Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
