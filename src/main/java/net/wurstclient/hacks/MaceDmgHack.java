@@ -63,9 +63,11 @@ public final class MaceDmgHack extends Hack
 	private static final double MIN_FALL = 1.6;
 	private static final double SCAN_STEP = 0.25;
 	private static final int CONFIRM_TIMEOUT_TICKS = 20;
-	private static final int RECOVERY_TICKS = 2;
+	private static final int TOTEM_POP_FALLBACK_TICKS = 2;
+	private static final int SAFE_RECOVERY_TICKS = 2;
+	private static final int UNSAFE_RECOVERY_TICKS = 6;
 	private static final int TOTEM_BYPASS_GRACE_TICKS = 40;
-	private static final double FABRIC_MAX_HEIGHT = 22.0;
+	private static final double FABRIC_MAX_HEIGHT = 22.3;
 	private static final double PAPER_MAX_HEIGHT = 50.0;
 	
 	private enum ServerType
@@ -113,8 +115,9 @@ public final class MaceDmgHack extends Hack
 		@Override
 		public void update()
 		{
-			if(isChecked())
+			if(isChecked() && !autoOptimizeWasChecked)
 				applyAutoOptimize();
+			autoOptimizeWasChecked = isChecked();
 		}
 	};
 	
@@ -124,8 +127,7 @@ public final class MaceDmgHack extends Hack
 	
 	private final CheckboxSetting totemBypass = new CheckboxSetting(
 		"Totem bypass",
-		"Gameplay. Sends an immediate rising-damage mace burst against totem\n"
-			+ "users so later hits can beat the same invulnerability window.",
+		"Paper only. With MultiAura, sends a rising-damage mace burst against totem users.",
 		true)
 	{
 		@Override
@@ -190,6 +192,7 @@ public final class MaceDmgHack extends Hack
 	private volatile int recentTotemPopEntityId = -1;
 	private volatile int recentTotemPopTicks;
 	private volatile boolean safetyListenersRegistered;
+	private boolean autoOptimizeWasChecked;
 	private final Map<UUID, TotemBypassState> totemBypassSteps =
 		new HashMap<>();
 	private final ArrayDeque<Integer> queuedTargetIds = new ArrayDeque<>();
@@ -204,9 +207,9 @@ public final class MaceDmgHack extends Hack
 		super("MaceDMG");
 		setCategory(Category.COMBAT);
 		addSetting(serverType);
-		addSetting(autoOptimize);
 		addSetting(height);
 		addSetting(totemBypass);
+		addSetting(autoOptimize);
 		addSetting(heightIncrease);
 		addSetting(attackCount);
 		addSetting(caveMode);
@@ -236,7 +239,7 @@ public final class MaceDmgHack extends Hack
 		{
 			double h = base + i * inc;
 			if(fabric)
-				h = Math.min(h, 22.0);
+				h = Math.min(h, 22.3);
 			sb.append(i == 0 ? " " : "\u2192").append(String.format("%.0f", h));
 		}
 		
@@ -247,6 +250,7 @@ public final class MaceDmgHack extends Hack
 	@Override
 	protected void onEnable()
 	{
+		autoOptimizeWasChecked = false;
 		onServerTypeChanged();
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
 		registerSafetyListeners();
@@ -255,6 +259,7 @@ public final class MaceDmgHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		autoOptimizeWasChecked = false;
 		EVENTS.remove(PlayerAttacksEntityListener.class, this);
 		totemBypassSteps.clear();
 		clearQueuedTargets();
@@ -439,6 +444,15 @@ public final class MaceDmgHack extends Hack
 			recentTotemPopEntityId = poppedPlayer.getId();
 			recentTotemPopTicks = 2;
 			armTotemBypassBurst(poppedPlayer);
+			if(smashState == SmashState.WAITING_FOR_MACE_CONFIRM
+				&& poppedPlayer.getId() == pendingTargetId)
+			{
+				// Totem-pop shows the burst resolved, but not that the server
+				// safely cleared our fake fall state. Cut the wait short
+				// without
+				// releasing fall debt immediately.
+				confirmTicks = Math.min(confirmTicks, TOTEM_POP_FALLBACK_TICKS);
+			}
 		}
 		
 		if((smashState != SmashState.WAITING_FOR_MACE_CONFIRM
@@ -455,21 +469,30 @@ public final class MaceDmgHack extends Hack
 			damage.sourceType().is(DamageTypes.PLAYER_ATTACK);
 		if(!confirmedSmash && !confirmedRejectedSpoof)
 			return;
-		
-		if(confirmedSmash && smashSparkles.isChecked() && MC.level != null)
-		{
-			int targetId = damage.entityId();
-			MC.execute(() -> spawnSmashPartyEffects(targetId));
-		}
-		
+			
 		// MACE_SMASH proves that postHurtEnemy() reset server fall distance.
 		// PLAYER_ATTACK from the same pending mace attack proves that the
 		// server
 		// evaluated canSmashAttack() as false, so dangerous fake fall distance
 		// was not retained. Either result safely ends this attempt.
+		confirmCurrentSmash(confirmedSmash);
+	}
+	
+	private void confirmCurrentSmash(boolean spawnSparkles)
+	{
+		if(spawnSparkles && smashSparkles.isChecked() && MC.level != null
+			&& pendingTargetId != -1)
+		{
+			int targetId = pendingTargetId;
+			if(!MC.isSameThread())
+				MC.execute(() -> spawnSmashPartyEffects(targetId));
+			else
+				spawnSmashPartyEffects(targetId);
+		}
+		
 		smashState = SmashState.CONFIRMED_SAFE;
 		confirmTicks = 0;
-		recoveryTicks = RECOVERY_TICKS;
+		recoveryTicks = SAFE_RECOVERY_TICKS;
 	}
 	
 	@Override
@@ -479,7 +502,7 @@ public final class MaceDmgHack extends Hack
 			&& --confirmTicks <= 0)
 		{
 			smashState = SmashState.FAILED_UNSAFE;
-			recoveryTicks = RECOVERY_TICKS;
+			recoveryTicks = UNSAFE_RECOVERY_TICKS;
 		}
 		
 		if(recentTotemPopTicks > 0 && --recentTotemPopTicks <= 0)
@@ -569,9 +592,13 @@ public final class MaceDmgHack extends Hack
 		try
 		{
 			selectQueuedMaceSlot(maceSlot);
-			performQueuedSmashBurst(target);
+			boolean burstSent = performQueuedSmashBurst(target);
+			if(burstSent)
+				restoreQueuedSlot();
 		}finally
 		{
+			if(queuedPreviousSlot != -1)
+				restoreQueuedSlot();
 			queuedAttackInProgress = false;
 		}
 	}
@@ -816,19 +843,20 @@ public final class MaceDmgHack extends Hack
 		{
 			case PAPER:
 			if(height.getValue() <= FABRIC_MAX_HEIGHT)
-				height.setValue(49);
+				height.setValue(22.8);
 			heightIncrease.setValue(9);
 			attackCount.setValue(3);
 			break;
 			
 			case FABRIC:
-			height.setValue(15);
+			height.setValue(22.3);
 			heightIncrease.setValue(7);
 			attackCount.setValue(2);
 			if(height.getValue() > FABRIC_MAX_HEIGHT)
 				height.setValue(FABRIC_MAX_HEIGHT);
 			break;
 		}
+		autoOptimizeWasChecked = true;
 	}
 	
 	private void onServerTypeChanged()
@@ -837,6 +865,14 @@ public final class MaceDmgHack extends Hack
 		height.setUsableMax(maxHeight);
 		if(height.getValue() > maxHeight)
 			height.setValue(maxHeight);
+		
+		boolean paper = serverType.getSelected() == ServerType.PAPER;
+		totemBypass.setVisibleInGui(paper);
+		autoOptimize.setVisibleInGui(paper);
+		heightIncrease.setVisibleInGui(paper);
+		attackCount.setVisibleInGui(paper);
+		if(WURST.getGuiIfInitialized() != null)
+			WURST.getGuiIfInitialized().requestRefresh();
 		
 		if(autoOptimize.isChecked())
 			applyAutoOptimize();
@@ -857,6 +893,12 @@ public final class MaceDmgHack extends Hack
 	
 	private void spawnSmashPartyEffects(int entityId)
 	{
+		if(!MC.isSameThread())
+		{
+			MC.execute(() -> spawnSmashPartyEffects(entityId));
+			return;
+		}
+		
 		if(!isEnabled() || !smashSparkles.isChecked() || MC.level == null)
 			return;
 		
