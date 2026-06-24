@@ -133,6 +133,7 @@ public final class HackList implements UpdateListener
 	public final CriticalsHack criticalsHack = new CriticalsHack();
 	public final CrystalAuraHack crystalAuraHack = new CrystalAuraHack();
 	public final DerpHack derpHack = new DerpHack();
+	public final UntouchableHack untouchableHack = new UntouchableHack();
 	public final TunnelHoleStairEspHack tunnelHoleStairEspHack =
 		new TunnelHoleStairEspHack();
 	public final DolphinHack dolphinHack = new DolphinHack();
