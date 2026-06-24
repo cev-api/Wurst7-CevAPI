@@ -281,6 +281,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			
 			Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks)
 				.add(0, entity.getBbHeight() + 0.35, 0);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -333,6 +335,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 			
 			Vec3 worldPos = center.scale(1.0 / clusterSize);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -368,6 +372,19 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		if(!count.isEmpty())
 			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
 		context.pose().popMatrix();
+	}
+	
+	private boolean isBehindCamera(Vec3 worldPos)
+	{
+		if(MC.gameRenderer == null || MC.gameRenderer.getMainCamera() == null)
+			return false;
+		
+		Vec3 camPos = RenderUtils.getCameraPos();
+		Vec3 toItem = worldPos.subtract(camPos);
+		if(toItem.lengthSqr() == 0)
+			return false;
+		
+		return toItem.dot(RenderUtils.getCameraRotation().toLookVec()) <= 0;
 	}
 	
 	// Expose ignored-items configuration for other features (like ItemHandler)

@@ -20,6 +20,7 @@ import com.llamalad7.mixinextras.injector.ModifyReceiver;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.SubmitNodeStorage;
 import net.minecraft.client.renderer.feature.NameTagFeatureRenderer;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -48,6 +49,13 @@ public class StorageMixin
 		int i, Component text, boolean bl, int j, double d,
 		CameraRenderState state)
 	{
+		if(WurstClient.MC != null
+			&& WurstClient.MC.screen instanceof AbstractContainerScreen<?>)
+		{
+			original.call(matrices, x, y, z);
+			return;
+		}
+		
 		NameTagsHack nameTags = WurstClient.INSTANCE.getHax().nameTagsHack;
 		if(!nameTags.isEnabled())
 		{
