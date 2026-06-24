@@ -27,8 +27,10 @@ import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
@@ -53,6 +55,7 @@ public final class UntouchableHack extends Hack
 	private static final int DIRECTION_SAMPLES = 16;
 	private static final long MACE_PACKET_CUE_MS = 500;
 	private static final long PRIMED_SPEAR_MEMORY_MS = 1200;
+	private static final long CHARGING_CREEPER_MEMORY_MS = 1200;
 	
 	private enum KeepDistanceMode
 	{
@@ -160,11 +163,19 @@ public final class UntouchableHack extends Hack
 	private final CheckboxSetting avoidHostileMobs =
 		new CheckboxSetting("Avoid hostile mobs",
 			"description.wurst.setting.untouchable.avoid_hostile_mobs", false);
+	private final CheckboxSetting onlyChargingCreepers = new CheckboxSetting(
+		"Only charging creepers",
+		"description.wurst.setting.untouchable.only_charging_creepers", false);
+	private final CheckboxSetting avoidArrows =
+		new CheckboxSetting("Avoid arrows",
+			"description.wurst.setting.untouchable.avoid_arrows", true);
 	
 	private final Map<Integer, Vec3> previousPositions = new HashMap<>();
 	private final Map<Integer, MacePacketCue> macePacketCues =
 		new ConcurrentHashMap<>();
 	private final Map<Integer, Long> primedSpearCues =
+		new ConcurrentHashMap<>();
+	private final Map<Integer, Long> chargingCreeperCues =
 		new ConcurrentHashMap<>();
 	private int cooldownTicksLeft;
 	private int statusTicksLeft;
@@ -194,6 +205,8 @@ public final class UntouchableHack extends Hack
 		addSetting(teleportCooldown);
 		addSetting(avoidDrops);
 		addSetting(avoidHostileMobs);
+		addSetting(onlyChargingCreepers);
+		addSetting(avoidArrows);
 	}
 	
 	@Override
@@ -223,6 +236,7 @@ public final class UntouchableHack extends Hack
 		previousPositions.clear();
 		macePacketCues.clear();
 		primedSpearCues.clear();
+		chargingCreeperCues.clear();
 		cooldownTicksLeft = 0;
 		statusTicksLeft = 0;
 		activeThreat = null;
@@ -449,6 +463,7 @@ public final class UntouchableHack extends Hack
 		}
 		
 		rememberPrimedSpears();
+		rememberChargingCreepers();
 		if(cooldownTicksLeft > 0)
 			cooldownTicksLeft--;
 		
@@ -533,8 +548,30 @@ public final class UntouchableHack extends Hack
 				if(!(entity instanceof Enemy) || entity == MC.player
 					|| !entity.isAlive())
 					continue;
+				if(shouldSuppressDodging(entity.position()))
+					continue;
+				if(onlyChargingCreepers.isChecked()
+					&& !isChargingCreeper(entity))
+					continue;
 				
 				Threat threat = getHostileMobThreat(entity);
+				if(threat != null
+					&& (best == null || threat.urgency > best.urgency))
+					best = threat;
+			}
+		}
+		if(avoidArrows.isChecked())
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+			{
+				if(!(entity instanceof AbstractArrow arrow) || !arrow.isAlive()
+					|| arrow.getOwner() == MC.player)
+					continue;
+				Entity owner = arrow.getOwner();
+				if(owner instanceof Player player && isIgnoredPlayer(player))
+					continue;
+				
+				Threat threat = getArrowThreat(arrow);
 				if(threat != null
 					&& (best == null || threat.urgency > best.urgency))
 					best = threat;
@@ -818,6 +855,59 @@ public final class UntouchableHack extends Hack
 			250 + (playerDistance.getValue() - distance) * 10);
 	}
 	
+	private Threat getArrowThreat(AbstractArrow arrow)
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		Vec3 playerCenter = MC.player.getBoundingBox().getCenter();
+		Vec3 arrowCenter = arrow.getBoundingBox().getCenter();
+		Vec3 velocity = getObservedVelocity(arrow);
+		if(velocity.lengthSqr() < 0.01)
+			velocity = arrow.getDeltaMovement();
+		if(velocity.lengthSqr() < 0.01)
+			return null;
+		
+		Vec3 toPlayer = playerCenter.subtract(arrowCenter);
+		if(velocity.dot(toPlayer) <= 0)
+			return null;
+		
+		double ticks = reactionTicks.getValue() + 2;
+		Vec3 end = arrowCenter.add(velocity.scale(ticks));
+		double missDistance = distanceToSegment(playerCenter, arrowCenter, end);
+		double effectiveRange = Math.max(detectionRange.getValue(),
+			velocity.length() * ticks + reachAllowance.getValue());
+		if(arrowCenter.distanceToSqr(playerCenter) > square(effectiveRange)
+			|| missDistance > reachAllowance.getValue() + 0.75)
+			return null;
+		
+		double urgency =
+			110 + Math.max(0, 6 - arrowCenter.distanceTo(playerCenter)) * 12
+				- missDistance * 5;
+		return new Threat(ThreatType.ARROW, arrowCenter, end, urgency);
+	}
+	
+	private boolean isChargingCreeper(Entity entity)
+	{
+		if(!(entity instanceof Creeper creeper))
+			return false;
+		
+		return isChargingCreeper(creeper);
+	}
+	
+	private boolean isChargingCreeper(Creeper creeper)
+	{
+		if(creeper == null || !creeper.isAlive())
+			return false;
+		
+		if(creeper.getSwellDir() > 0 || creeper.isIgnited()
+			|| creeper.isPowered())
+			return true;
+		
+		Long expiry = chargingCreeperCues.get(creeper.getId());
+		return expiry != null && expiry >= System.currentTimeMillis();
+	}
+	
 	private Vec3 chooseDodgeDestination(Threat threat)
 	{
 		Vec3 playerPos = MC.player.position();
@@ -833,12 +923,16 @@ public final class UntouchableHack extends Hack
 		
 		ArrayList<DodgeCandidate> candidates = new ArrayList<>();
 		int verticalRange = verticalScan.getValueI();
-		double maxHorizontal = scanDistance.getValue();
+		double maxHorizontal =
+			threat.type == ThreatType.ARROW ? 1.0 : scanDistance.getValue();
+		double minHorizontal = threat.type == ThreatType.ARROW ? 1.0 : 0.5;
+		double horizontalStep = threat.type == ThreatType.ARROW ? 1.0 : 0.5;
 		
 		for(int yOffset = -verticalRange; yOffset <= verticalRange; yOffset++)
 		{
-			for(double distance = maxHorizontal; distance >= 0.5; distance -=
-				0.5)
+			for(double distance =
+				maxHorizontal; distance >= minHorizontal; distance -=
+					horizontalStep)
 			{
 				for(int i = 0; i < DIRECTION_SAMPLES; i++)
 				{
@@ -966,6 +1060,24 @@ public final class UntouchableHack extends Hack
 		primedSpearCues.values().removeIf(expiry -> expiry < now);
 	}
 	
+	private void rememberChargingCreepers()
+	{
+		if(MC.level == null)
+			return;
+		
+		long now = System.currentTimeMillis();
+		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(!(entity instanceof Creeper creeper) || !creeper.isAlive())
+				continue;
+			if(creeper.getSwellDir() > 0 || creeper.isIgnited()
+				|| creeper.isPowered())
+				chargingCreeperCues.put(creeper.getId(),
+					now + CHARGING_CREEPER_MEMORY_MS);
+		}
+		chargingCreeperCues.values().removeIf(expiry -> expiry < now);
+	}
+	
 	private boolean wasRecentlyPrimed(Player player)
 	{
 		Long expiry = primedSpearCues.get(player.getId());
@@ -982,13 +1094,13 @@ public final class UntouchableHack extends Hack
 		macePacketCues.values().removeIf(cue -> cue.timeMs < cutoff);
 	}
 	
-	private Vec3 getObservedVelocity(Player player)
+	private Vec3 getObservedVelocity(Entity entity)
 	{
-		Vec3 networkVelocity = player.getDeltaMovement();
-		Vec3 previous = previousPositions.get(player.getId());
+		Vec3 networkVelocity = entity.getDeltaMovement();
+		Vec3 previous = previousPositions.get(entity.getId());
 		if(previous == null)
 			return networkVelocity;
-		Vec3 observed = player.position().subtract(previous);
+		Vec3 observed = entity.position().subtract(previous);
 		return observed.lengthSqr() > networkVelocity.lengthSqr() ? observed
 			: networkVelocity;
 	}
@@ -1160,6 +1272,7 @@ public final class UntouchableHack extends Hack
 		SPEAR("Spear!"),
 		SWORD("Sword!"),
 		AXE("Axe!"),
+		ARROW("Arrow"),
 		MOB("Mob"),
 		SPACING("Spacing");
 		

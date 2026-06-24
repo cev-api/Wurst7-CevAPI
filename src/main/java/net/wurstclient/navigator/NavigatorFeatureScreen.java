@@ -605,10 +605,8 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 				partialTicks);
 		}
 		matrixStack.popMatrix();
-		context.disableScissor();
-		context.enableScissor(bgx1, bgy1, bgx2, bgy3);
-		
 		// buttons
+		context.disableScissor();
 		activeButton = null;
 		for(ButtonData buttonData : buttonDatas)
 		{
@@ -688,6 +686,32 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 			
 			// text
 			String buttonText = button.getMessage().getString();
+			context.guiRenderState.up();
+			context.text(minecraft.font, buttonText,
+				(bx1 + bx2 - minecraft.font.width(buttonText)) / 2, by1 + 5,
+				txtColor, false);
+		}
+		
+		// Fallback primary action button rendering.
+		//
+		// In some builds the vanilla widget paint path can be visually absent
+		// even though the button still receives clicks. Drawing the button
+		// directly here keeps the enable/disable control visible.
+		if(primaryButton != null)
+		{
+			int bx1 = primaryButton.getX();
+			int bx2 = bx1 + primaryButton.getWidth();
+			int by1 = primaryButton.getY();
+			int by2 = by1 + 18;
+			boolean hovering = mouseX >= bx1 && mouseX <= bx2 && mouseY >= by1
+				&& mouseY <= by2;
+			int buttonColor;
+			if(feature.isEnabled())
+				buttonColor = hovering ? 0x9000FF00 : 0x9000E000;
+			else
+				buttonColor = hovering ? 0x90606060 : 0x90404040;
+			drawBox(context, bx1, by1, bx2, by2, buttonColor);
+			String buttonText = primaryButton.getMessage().getString();
 			context.guiRenderState.up();
 			context.text(minecraft.font, buttonText,
 				(bx1 + bx2 - minecraft.font.width(buttonText)) / 2, by1 + 5,
