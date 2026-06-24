@@ -93,7 +93,7 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
 				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk",
-				"EntityControl"));
+				"EntityControl", "PearlDrop"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
 			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "PearlIntercept",
@@ -105,7 +105,8 @@ public final class NiceWurstModule
 				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
 				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
-				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP"));
+				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
+				"DamageESP", "ProjectileESP"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
@@ -118,20 +119,20 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
 				"SeedMapperHelper", "HideModMenu", "GameStats",
-				"CommandScanner", "UI-Utils", "HideWurst"));
+				"CommandScanner", "UI-Utils", "HideWurst", "EntityCount"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert"));
+				"WebhookAlert", "RemoteEChest"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
 				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
-				"SusNoMore"));
+				"SusNoMore", "UseItemSpam"));
 	}
 	
 	private NiceWurstModule()
