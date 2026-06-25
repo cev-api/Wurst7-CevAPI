@@ -42,7 +42,11 @@ public final class SettingGroupComponent extends Component
 		expanded = group.isDefaultExpanded();
 		rebuildChildren();
 		setWidth(getDefaultWidth());
-		setHeight(getDefaultHeight());
+		// Height is already set by rebuildChildren() -> updateHeight().
+		// Only override to default height when collapsed to ensure correct
+		// initial sizing.
+		if(!expanded)
+			setHeight(getDefaultHeight());
 	}
 	
 	private void rebuildChildren()
