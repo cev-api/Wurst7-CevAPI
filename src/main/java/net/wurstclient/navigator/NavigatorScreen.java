@@ -203,7 +203,9 @@ public abstract class NavigatorScreen extends Screen
 	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
 		float deltaTicks)
 	{
-		// Don't blur
+		// Render a dark overlay so the Minecraft world does not show through
+		// the semi-transparent areas of the Navigator GUI.
+		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 	}
 	
 	@Override
@@ -284,7 +286,10 @@ public abstract class NavigatorScreen extends Screen
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		gui.updateColors();
-		return RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity());
+		// Ensure a minimum opacity so panel backgrounds are always opaque
+		// enough to hide the world behind the GUI.
+		return RenderUtils.toIntColor(gui.getBgColor(),
+			Math.max(0.85F, gui.getOpacity()));
 	}
 	
 	protected final void drawBackgroundBox(GuiGraphics context, int x1, int y1,
