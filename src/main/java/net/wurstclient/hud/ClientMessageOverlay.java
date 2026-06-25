@@ -522,7 +522,7 @@ public final class ClientMessageOverlay
 		
 		int rgb = getUsernameColor(sender.name(), hack);
 		Component translatableColored =
-			colorizeTranslatableSender(message, rgb);
+			colorizeTranslatableSender(message, sender.name(), rgb);
 		if(translatableColored != null)
 			return translatableColored;
 		
@@ -561,7 +561,7 @@ public final class ClientMessageOverlay
 	}
 	
 	private static Component colorizeTranslatableSender(Component message,
-		int rgb)
+		String senderName, int rgb)
 	{
 		if(!(message.getContents() instanceof TranslatableContents tr))
 			return null;
@@ -574,9 +574,12 @@ public final class ClientMessageOverlay
 		Object coloredSender;
 		if(senderArg instanceof Component senderComponent)
 		{
-			coloredSender =
-				senderComponent.copy().withStyle(style -> style.withColor(rgb));
-			
+			boolean[] changed = {false};
+			Component deepColored =
+				colorizeSenderToken(senderComponent, senderName, rgb, changed);
+			coloredSender = changed[0] ? deepColored
+				: colorizeComponentRange(senderComponent, 0,
+					senderComponent.getString().length(), rgb, new int[]{0});
 		}else if(senderArg instanceof String senderText)
 		{
 			coloredSender = Component.literal(senderText)
@@ -759,8 +762,7 @@ public final class ClientMessageOverlay
 	
 	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
 	{
-		String ownName = WurstClient.MC.getUser() == null ? ""
-			: WurstClient.MC.getUser().getName();
+		String ownName = getOwnPlayerName();
 		boolean ownNameMatches = name.equalsIgnoreCase(ownName);
 		if(ownNameMatches && !hack.shouldRandomizeOwnUsernameColor())
 			return hack.getOwnUsernameColorI();
@@ -932,12 +934,12 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
-		for(var info : connection.getOnlinePlayers())
+		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
-			String name = info.getProfile().name();
+			String name = getProfileNameSafe(info.getProfile());
 			if(name == null || name.isEmpty())
 				continue;
 			
@@ -957,12 +959,12 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
-		for(var info : connection.getOnlinePlayers())
+		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
-			String onlineName = info.getProfile().name();
+			String onlineName = getProfileNameSafe(info.getProfile());
 			if(onlineName == null || onlineName.isEmpty())
 				continue;
 			
@@ -971,6 +973,111 @@ public final class ClientMessageOverlay
 		}
 		
 		return false;
+	}
+	
+	/**
+	 * Safely gets the online player list, falling back to reflection if
+	 * the mapped method name changes across MC versions.
+	 */
+	@SuppressWarnings("unchecked")
+	private static Iterable<net.minecraft.client.multiplayer.PlayerInfo> getOnlinePlayersSafe(
+		net.minecraft.client.multiplayer.ClientPacketListener connection)
+	{
+		try
+		{
+			return connection.getOnlinePlayers();
+		}catch(Throwable t)
+		{
+			// Fallback: try to access the listedPlayers field directly
+			try
+			{
+				java.lang.reflect.Field field =
+					net.minecraft.client.multiplayer.ClientPacketListener.class
+						.getDeclaredField("listedPlayers");
+				field.setAccessible(true);
+				return (Iterable<net.minecraft.client.multiplayer.PlayerInfo>)field
+					.get(connection);
+			}catch(Throwable t2)
+			{
+				return java.util.Collections.emptyList();
+			}
+		}
+	}
+	
+	/**
+	 * Safely gets the name from a GameProfile, handling both record-style
+	 * {@code name()} and legacy {@code getName()} accessors.
+	 */
+	private static String getProfileNameSafe(
+		com.mojang.authlib.GameProfile profile)
+	{
+		try
+		{
+			return profile.name();
+		}catch(Throwable t1)
+		{
+			try
+			{
+				// Fallback for legacy getName() accessor
+				java.lang.reflect.Method method =
+					com.mojang.authlib.GameProfile.class
+						.getDeclaredMethod("getName");
+				return (String)method.invoke(profile);
+			}catch(Throwable t2)
+			{
+				return null;
+			}
+		}
+	}
+	
+	/**
+	 * Gets the local player's name.
+	 * Uses multiple fallbacks since authlib changes across MC versions.
+	 */
+	private static String getOwnPlayerName()
+	{
+		// 1. Entity display name (plain text, always works in-game)
+		if(WurstClient.MC.player != null)
+		{
+			try
+			{
+				String name = WurstClient.MC.player.getName().getString();
+				if(name != null && !name.isBlank())
+					return name;
+			}catch(Throwable ignored)
+			{}
+		}
+		
+		// 2. User session object
+		try
+		{
+			net.minecraft.client.User user = WurstClient.MC.getUser();
+			if(user != null)
+			{
+				String name = user.getName();
+				if(name != null && !name.isBlank())
+					return name;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		// 3. Reflection on User.name
+		try
+		{
+			java.lang.reflect.Field field =
+				net.minecraft.client.User.class.getDeclaredField("name");
+			field.setAccessible(true);
+			net.minecraft.client.User user = WurstClient.MC.getUser();
+			if(user != null)
+			{
+				String name = (String)field.get(user);
+				if(name != null && !name.isBlank())
+					return name;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		return "";
 	}
 	
 	private static String extractSenderToken(String plain)

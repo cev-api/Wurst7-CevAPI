@@ -22,12 +22,14 @@ import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.client.renderer.state.level.LevelRenderState;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.RenderAdjustHack;
+import net.wurstclient.hacks.OverlayHack;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.RenderUtils;
 
@@ -85,5 +87,14 @@ public class LevelRendererMixin
 		EventManager.fire(event);
 		GlobalEspManager.getInstance().endFrame(matrixStack);
 		net.wurstclient.util.RenderUtils.endTextFrame();
+	}
+	
+	@Inject(method = "submitBlockOutline", at = @At("HEAD"), cancellable = true)
+	private void onSubmitBlockOutline(PoseStack matrixStack,
+		SubmitNodeCollector collector, LevelRenderState levelRenderState,
+		CallbackInfo ci)
+	{
+		if(OverlayHack.shouldCancelVanillaBlockOutline())
+			ci.cancel();
 	}
 }

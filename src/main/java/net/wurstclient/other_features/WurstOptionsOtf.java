@@ -70,11 +70,11 @@ public final class WurstOptionsOtf extends OtherFeature
 		if(linkedExtraSettings)
 			return;
 		
-		addSetting(commandPrefixOtf.getPrefixSetting());
-		addSetting(discordPresenceGroup);
 		addSetting(new ButtonSetting("Changelog",
 			"Open the latest Wurst changelog in your browser.",
 			changelogOtf::doPrimaryAction));
+		addSetting(commandPrefixOtf.getPrefixSetting());
+		addSetting(discordPresenceGroup);
 		addSetting(hackToggleChatFeedback);
 		addSetting(customMojangLogoBackground);
 		addSetting(mojangLogoBackgroundColor);
@@ -87,6 +87,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(wurstCapesOtf.getCapesSetting());
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
 		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
+		addSetting(WURST.getHax().navigatorHack.backgroundOverlay);
 		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
 			discordRpcOtf.getStatusMessageSetting(),
 			discordRpcOtf.getShowServerIpSetting(),

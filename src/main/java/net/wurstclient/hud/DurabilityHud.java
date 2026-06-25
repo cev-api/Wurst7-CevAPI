@@ -27,7 +27,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -432,8 +432,12 @@ public final class DurabilityHud
 	{
 		List<Component> lines = new ArrayList<>();
 		LinkedHashSet<String> seen = new LinkedHashSet<>();
+		appendEnchantmentLines(lines, seen, stack
+			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY)
+			.entrySet());
 		appendEnchantmentLines(lines, seen,
-			EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet());
+			stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
+				ItemEnchantments.EMPTY).entrySet());
 		return lines;
 	}
 	
