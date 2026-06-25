@@ -46,6 +46,9 @@
     "vulkanmod": "*"
   },
   "custom": {
+    "modrinth": {
+      "project-id": "${modrinthProjectId}"
+    },
     "badoptimizations:cache_hooks": {
       "lightmap": "net.wurstclient.hacks.fullbright.BadOptimizationsLightmapHook"
     },
