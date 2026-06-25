@@ -17,6 +17,8 @@ def niceWurstRaw =
 def niceWurstEnabled = !["0", "false", "off", "no", ""]
 	.contains(niceWurstRaw.toLowerCase(Locale.ROOT))
 
+def forkReleaseVersion =
+	(project.findProperty("fork_release_version") ?: "0.0").toString()
 def effectiveVersion = project.mod_version
 def effectiveArchiveName =
 	niceWurstEnabled ? "NiceWurst" : project.archives_base_name
@@ -24,8 +26,8 @@ def modId = niceWurstEnabled ? "nicewurst" : "wurst"
 def modName = niceWurstEnabled ? "NiceWurst 7"
 	: "Wurst Client - Modified by CevAPI"
 def modDescription = niceWurstEnabled
-	? "NiceWurst is a curated, cheat-free build of this fork."
-	: "Cevapi Cevapi Cevapi!"
+	? "NiceWurst is a curated, cheat-free build of the Wurst7-CevAPI, a fork of the original Wurst client."
+	: "A fork of the original Wurst client, with many new features and improvements. This fork is maintained by CevAPI."
 def homepageUrl = niceWurstEnabled ? "https://github.com/cev-api/NiceWurst"
 	: "https://github.com/cev-api/Wurst7-CevAPI/"
 def sourcesUrl = homepageUrl
@@ -34,8 +36,6 @@ def issuesUrl =
 
 version = effectiveVersion
 group = project.maven_group
-def forkReleaseVersion =
-	(project.findProperty("fork_release_version") ?: "0.0").toString()
 
 def mainModId = niceWurstEnabled ? "nicewurst" : "wurst"
 
@@ -181,7 +181,9 @@ tasks.named("runClientGameTestWithMods") {
 }
 
 processResources {
-	def modVersion = project.version.substring(1)
+	def rawVersion = project.version.toString()
+	def modVersion = niceWurstEnabled ? forkReleaseVersion
+		: (rawVersion.startsWith("v") ? rawVersion.substring(1) : rawVersion)
 	inputs.property("version", modVersion)
 	inputs.property("modName", modName)
 	inputs.property("modDescription", modDescription)
@@ -189,6 +191,8 @@ processResources {
 	inputs.property("sourcesUrl", sourcesUrl)
 	inputs.property("issuesUrl", issuesUrl)
 	inputs.property("modId", modId)
+	def modrinthProjectId = niceWurstEnabled ? "V5aiZX0p" : ""
+	inputs.property("modrinthProjectId", modrinthProjectId)
 	
 	filesMatching("fabric.mod.json") {
 		expand([
@@ -198,7 +202,8 @@ processResources {
 			modDescription: modDescription,
 			homepage: homepageUrl,
 			sources: sourcesUrl,
-			issues: issuesUrl
+			issues: issuesUrl,
+			modrinthProjectId: modrinthProjectId
 		])
 	}
 }
