@@ -227,19 +227,22 @@ public final class MaceDmgHack extends Hack
 		sb.append(" [").append(serverType.getSelected().toString());
 		
 		double base = height.getValue();
+		boolean fabric = serverType.getSelected() == ServerType.FABRIC;
+		
+		if(fabric)
+			return sb.append(" - ").append(String.format("%.1f", base))
+				.append("]").toString();
+		
 		if(!totemBypass.isChecked())
 			return sb.append(" ").append(String.format("%.0f", base))
 				.append("]").toString();
 		
 		double inc = heightIncrease.getValue();
 		int count = attackCount.getValueI();
-		boolean fabric = serverType.getSelected() == ServerType.FABRIC;
 		
 		for(int i = 0; i < count; i++)
 		{
 			double h = base + i * inc;
-			if(fabric)
-				h = Math.min(h, 22.3);
 			sb.append(i == 0 ? " " : "\u2192").append(String.format("%.0f", h));
 		}
 		
@@ -871,6 +874,10 @@ public final class MaceDmgHack extends Hack
 		autoOptimize.setVisibleInGui(paper);
 		heightIncrease.setVisibleInGui(paper);
 		attackCount.setVisibleInGui(paper);
+		
+		if(!paper)
+			totemBypass.setChecked(false);
+		
 		if(WURST.getGuiIfInitialized() != null)
 			WURST.getGuiIfInitialized().requestRefresh();
 		
