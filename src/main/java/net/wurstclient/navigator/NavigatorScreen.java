@@ -205,11 +205,12 @@ public abstract class NavigatorScreen extends Screen
 	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float deltaTicks)
 	{
-		// Dark overlay so the world does not show through semi-transparent areas.
+		// Dark overlay so the world does not show through semi-transparent
+		// areas.
 		// Toggle via Navigator hack settings.
 		if(!isBackgroundOverlayEnabled())
 			return;
-
+		
 		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 	}
 	

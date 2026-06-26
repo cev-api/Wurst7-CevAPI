@@ -33,55 +33,55 @@ import net.wurstclient.util.RenderUtils;
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin
 {
-        @ModifyVariable(
-                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
-                at = @At("HEAD"),
-                argsOnly = true,
-                ordinal = 0)
-        private boolean modifyRenderBlockOutline(boolean renderBlockOutline)
-        {
-                if(OverlayHack.shouldCancelVanillaBlockOutline())
-                        return false;
-                return renderBlockOutline;
-        }
-
-        @Inject(
-                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
-                at = @At("HEAD"))
-        private void onRenderStart(GraphicsResourceAllocator allocator,
-                DeltaTracker tickCounter, boolean renderBlockOutline,
-                CameraRenderState cameraState, Matrix4fc positionMatrix,
-                GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
-                boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
-                CallbackInfo ci)
-        {
-                RenderAdjustHack renderAdjust =
-                        WurstClient.INSTANCE.getHax().renderAdjustHack;
-                if(renderAdjust.shouldDisableSky())
-                        vector4f.set(0, 0, 0, 0);
-                else if(renderAdjust.shouldAdjustSkyColor())
-                        renderAdjust.applySkyColor(vector4f);
-
-                RenderUtils.beginEspFrame();
-                GlobalEspManager.getInstance().beginFrame();
-        }
-
-        @Inject(
-                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
-                at = @At("RETURN"))
-        private void onRender(GraphicsResourceAllocator allocator,
-                DeltaTracker tickCounter, boolean renderBlockOutline,
-                CameraRenderState cameraState, Matrix4fc positionMatrix,
-                GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
-                boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
-                CallbackInfo ci)
-        {
-                PoseStack matrixStack = new PoseStack();
-                matrixStack.mulPose(positionMatrix);
-                float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
-                RenderEvent event = new RenderEvent(matrixStack, tickProgress);
-                EventManager.fire(event);
-                GlobalEspManager.getInstance().endFrame(matrixStack);
-                net.wurstclient.util.RenderUtils.endTextFrame();
-        }
+	@ModifyVariable(
+		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+		at = @At("HEAD"),
+		argsOnly = true,
+		ordinal = 0)
+	private boolean modifyRenderBlockOutline(boolean renderBlockOutline)
+	{
+		if(OverlayHack.shouldCancelVanillaBlockOutline())
+			return false;
+		return renderBlockOutline;
+	}
+	
+	@Inject(
+		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+		at = @At("HEAD"))
+	private void onRenderStart(GraphicsResourceAllocator allocator,
+		DeltaTracker tickCounter, boolean renderBlockOutline,
+		CameraRenderState cameraState, Matrix4fc positionMatrix,
+		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
+		boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
+		CallbackInfo ci)
+	{
+		RenderAdjustHack renderAdjust =
+			WurstClient.INSTANCE.getHax().renderAdjustHack;
+		if(renderAdjust.shouldDisableSky())
+			vector4f.set(0, 0, 0, 0);
+		else if(renderAdjust.shouldAdjustSkyColor())
+			renderAdjust.applySkyColor(vector4f);
+		
+		RenderUtils.beginEspFrame();
+		GlobalEspManager.getInstance().beginFrame();
+	}
+	
+	@Inject(
+		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+		at = @At("RETURN"))
+	private void onRender(GraphicsResourceAllocator allocator,
+		DeltaTracker tickCounter, boolean renderBlockOutline,
+		CameraRenderState cameraState, Matrix4fc positionMatrix,
+		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
+		boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
+		CallbackInfo ci)
+	{
+		PoseStack matrixStack = new PoseStack();
+		matrixStack.mulPose(positionMatrix);
+		float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
+		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
+		EventManager.fire(event);
+		GlobalEspManager.getInstance().endFrame(matrixStack);
+		net.wurstclient.util.RenderUtils.endTextFrame();
+	}
 }

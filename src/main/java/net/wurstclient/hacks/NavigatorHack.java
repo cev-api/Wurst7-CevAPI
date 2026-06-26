@@ -17,30 +17,30 @@ import net.wurstclient.settings.CheckboxSetting;
 @DontSaveState
 @DontBlock
 @SearchTags({"ClickGUI", "click gui", "SearchGUI", "search gui", "HackMenu",
-        "hack menu"})
+	"hack menu"})
 public final class NavigatorHack extends Hack
 {
-        public final CheckboxSetting backgroundOverlay =
-                new CheckboxSetting("Background overlay",
-                        "Darkens the background when Navigator is open.", true);
-
-        public NavigatorHack()
-        {
-                super("Navigator");
-                addSetting(backgroundOverlay);
-        }
-
-        @Override
-        protected void onEnable()
-        {
-                if(!(MC.screen instanceof NavigatorMainScreen))
-                        MC.setScreen(new NavigatorMainScreen());
-
-                setEnabled(false);
-        }
-
-        public boolean isBackgroundOverlayEnabled()
-        {
-                return backgroundOverlay.isChecked();
-        }
+	public final CheckboxSetting backgroundOverlay =
+		new CheckboxSetting("Background overlay",
+			"Darkens the background when Navigator is open.", true);
+	
+	public NavigatorHack()
+	{
+		super("Navigator");
+		addSetting(backgroundOverlay);
+	}
+	
+	@Override
+	protected void onEnable()
+	{
+		if(!(MC.screen instanceof NavigatorMainScreen))
+			MC.setScreen(new NavigatorMainScreen());
+		
+		setEnabled(false);
+	}
+	
+	public boolean isBackgroundOverlayEnabled()
+	{
+		return backgroundOverlay.isChecked();
+	}
 }
