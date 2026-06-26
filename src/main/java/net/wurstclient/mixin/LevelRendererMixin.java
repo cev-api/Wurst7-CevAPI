@@ -12,6 +12,7 @@ import org.joml.Vector4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
@@ -24,6 +25,7 @@ import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.RenderListener.RenderEvent;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.OverlayHack;
 import net.wurstclient.hacks.RenderAdjustHack;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.RenderUtils;
@@ -31,43 +33,55 @@ import net.wurstclient.util.RenderUtils;
 @Mixin(LevelRenderer.class)
 public class LevelRendererMixin
 {
-	@Inject(
-		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
-		at = @At("HEAD"))
-	private void onRenderStart(GraphicsResourceAllocator allocator,
-		DeltaTracker tickCounter, boolean renderBlockOutline,
-		CameraRenderState cameraState, Matrix4fc positionMatrix,
-		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
-		boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
-		CallbackInfo ci)
-	{
-		RenderAdjustHack renderAdjust =
-			WurstClient.INSTANCE.getHax().renderAdjustHack;
-		if(renderAdjust.shouldDisableSky())
-			vector4f.set(0, 0, 0, 0);
-		else if(renderAdjust.shouldAdjustSkyColor())
-			renderAdjust.applySkyColor(vector4f);
-		
-		RenderUtils.beginEspFrame();
-		GlobalEspManager.getInstance().beginFrame();
-	}
-	
-	@Inject(
-		method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
-		at = @At("RETURN"))
-	private void onRender(GraphicsResourceAllocator allocator,
-		DeltaTracker tickCounter, boolean renderBlockOutline,
-		CameraRenderState cameraState, Matrix4fc positionMatrix,
-		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
-		boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
-		CallbackInfo ci)
-	{
-		PoseStack matrixStack = new PoseStack();
-		matrixStack.mulPose(positionMatrix);
-		float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
-		RenderEvent event = new RenderEvent(matrixStack, tickProgress);
-		EventManager.fire(event);
-		GlobalEspManager.getInstance().endFrame(matrixStack);
-		net.wurstclient.util.RenderUtils.endTextFrame();
-	}
+        @ModifyVariable(
+                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+                at = @At("HEAD"),
+                argsOnly = true,
+                ordinal = 0)
+        private boolean modifyRenderBlockOutline(boolean renderBlockOutline)
+        {
+                if(OverlayHack.shouldCancelVanillaBlockOutline())
+                        return false;
+                return renderBlockOutline;
+        }
+
+        @Inject(
+                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+                at = @At("HEAD"))
+        private void onRenderStart(GraphicsResourceAllocator allocator,
+                DeltaTracker tickCounter, boolean renderBlockOutline,
+                CameraRenderState cameraState, Matrix4fc positionMatrix,
+                GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
+                boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
+                CallbackInfo ci)
+        {
+                RenderAdjustHack renderAdjust =
+                        WurstClient.INSTANCE.getHax().renderAdjustHack;
+                if(renderAdjust.shouldDisableSky())
+                        vector4f.set(0, 0, 0, 0);
+                else if(renderAdjust.shouldAdjustSkyColor())
+                        renderAdjust.applySkyColor(vector4f);
+
+                RenderUtils.beginEspFrame();
+                GlobalEspManager.getInstance().beginFrame();
+        }
+
+        @Inject(
+                method = "renderLevel(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZLnet/minecraft/client/renderer/chunk/ChunkSectionsToRender;)V",
+                at = @At("RETURN"))
+        private void onRender(GraphicsResourceAllocator allocator,
+                DeltaTracker tickCounter, boolean renderBlockOutline,
+                CameraRenderState cameraState, Matrix4fc positionMatrix,
+                GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
+                boolean shouldRenderSky, ChunkSectionsToRender chunkSectionsToRender,
+                CallbackInfo ci)
+        {
+                PoseStack matrixStack = new PoseStack();
+                matrixStack.mulPose(positionMatrix);
+                float tickProgress = tickCounter.getGameTimeDeltaPartialTick(false);
+                RenderEvent event = new RenderEvent(matrixStack, tickProgress);
+                EventManager.fire(event);
+                GlobalEspManager.getInstance().endFrame(matrixStack);
+                net.wurstclient.util.RenderUtils.endTextFrame();
+        }
 }

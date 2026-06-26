@@ -106,7 +106,7 @@ public final class NiceWurstModule
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
 				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
 				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
-				"DamageESP", "ProjectileESP"));
+				"DamageESP", "ProjectileESP", "BlockOverlay"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
