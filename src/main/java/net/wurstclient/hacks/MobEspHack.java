@@ -38,6 +38,12 @@ import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import com.mojang.math.Axis;
+import net.minecraft.client.gui.Font;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.phys.Vec3;
 
 @SearchTags({"mob esp", "MobTracers", "mob tracers"})
 public final class MobEspHack extends Hack implements UpdateListener,
@@ -102,6 +108,18 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Appends the number of detected mobs to this hack's entry in the HackList.",
 		false);
 	
+	// Villager professions label
+	private final CheckboxSetting showVillagerProfessions =
+		new CheckboxSetting("Show villager professions",
+			"Displays the profession of villagers above their heads.", false);
+	
+	// Range limiter
+	private final CheckboxSetting rangeLimit = new CheckboxSetting(
+		"Range limit", "Only show mobs within the configured range.", false);
+	
+	private final SliderSetting espRange = new SliderSetting("ESP range", 64, 1,
+		150, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
@@ -143,6 +161,9 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(highlightShulkerProjectiles);
 		addSetting(highlightWitherProjectiles);
 		addSetting(showCountInHackList);
+		addSetting(showVillagerProfessions);
+		addSetting(rangeLimit);
+		addSetting(espRange);
 	}
 	
 	@Override
@@ -186,6 +207,11 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		// optionally filter out mobs below the configured Y level
 		if(onlyAboveGround.isChecked())
 			stream = stream.filter(e -> e.getY() >= aboveGroundY.getValue());
+		
+		// optionally limit range
+		if(rangeLimit.isChecked())
+			stream = stream
+				.filter(e -> MC.player.distanceTo(e) <= espRange.getValue());
 		
 		stream = entityFilters.applyTo(stream);
 		
@@ -399,6 +425,111 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		if(glowMode && highlightWitherProjectiles.isChecked()
 			&& !witherSkulls.isEmpty())
 			renderWitherProjectileFallback(matrixStack, partialTicks);
+		
+		// render villager professions
+		if(showVillagerProfessions.isChecked())
+			renderVillagerProfessions(matrixStack, partialTicks);
+	}
+	
+	private static final double VANILLA_NAMETAG_DIST = 5.0;
+	
+	private void renderVillagerProfessions(PoseStack matrices,
+		float partialTicks)
+	{
+		Vec3 cam = RenderUtils.getCameraPos();
+		var camEntity = MC.getCameraEntity();
+		
+		for(LivingEntity e : mobs)
+		{
+			if(!(e instanceof Villager villager))
+				continue;
+				
+			// If vanilla is already showing the profession name tag
+			// up close, skip the MobESP label to avoid duplicates.
+			if(MC.player.distanceTo(villager) < VANILLA_NAMETAG_DIST)
+				continue;
+			
+			String profession = getVillagerProfessionName(villager);
+			if(profession.isEmpty())
+				continue;
+			
+			// position above head
+			AABB box = EntityUtils.getLerpedBox(e, partialTicks);
+			double lx = box.getCenter().x;
+			double ly = box.maxY + 0.6;
+			double lz = box.getCenter().z;
+			
+			float[] rgb = getColorRgb();
+			int labelColor = RenderUtils.toIntColor(rgb, 0.9F);
+			
+			matrices.pushPose();
+			matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
+			if(camEntity != null)
+			{
+				matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
+				matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
+			}
+			matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+			
+			double dist = MC.player.distanceTo(e);
+			float scale = 0.025F * (float)Math.max(1.0, dist * 0.1);
+			matrices.scale(scale, -scale, scale);
+			
+			float w = MC.font.width(profession) / 2F;
+			int baseAlpha = (labelColor >>> 24) & 0xFF;
+			int bgAlpha = (int)Math
+				.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+			int bg = bgAlpha << 24;
+			int strokeColor =
+				(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
+			var matrix = matrices.last().pose();
+			RenderUtils.drawOutlinedTextInBatch(MC.font, profession, -w, 0,
+				labelColor, strokeColor, matrix, Font.DisplayMode.SEE_THROUGH,
+				bg, 0xF000F0);
+			matrices.popPose();
+		}
+	}
+	
+	private String getVillagerProfessionName(Villager villager)
+	{
+		ResourceKey<VillagerProfession> key =
+			villager.getVillagerData().profession().unwrapKey().orElse(null);
+		
+		if(key == null)
+			return "";
+		
+		if(key == VillagerProfession.NONE)
+			return "Unemployed";
+		if(key == VillagerProfession.NITWIT)
+			return "Nitwit";
+		if(key == VillagerProfession.FARMER)
+			return "Farmer";
+		if(key == VillagerProfession.FISHERMAN)
+			return "Fisherman";
+		if(key == VillagerProfession.SHEPHERD)
+			return "Shepherd";
+		if(key == VillagerProfession.FLETCHER)
+			return "Fletcher";
+		if(key == VillagerProfession.LIBRARIAN)
+			return "Librarian";
+		if(key == VillagerProfession.CARTOGRAPHER)
+			return "Cartographer";
+		if(key == VillagerProfession.CLERIC)
+			return "Cleric";
+		if(key == VillagerProfession.ARMORER)
+			return "Armorer";
+		if(key == VillagerProfession.WEAPONSMITH)
+			return "Weaponsmith";
+		if(key == VillagerProfession.TOOLSMITH)
+			return "Toolsmith";
+		if(key == VillagerProfession.BUTCHER)
+			return "Butcher";
+		if(key == VillagerProfession.LEATHERWORKER)
+			return "Leatherworker";
+		if(key == VillagerProfession.MASON)
+			return "Mason";
+		
+		return "";
 	}
 	
 	private void renderShulkerProjectileFallback(PoseStack matrixStack,
