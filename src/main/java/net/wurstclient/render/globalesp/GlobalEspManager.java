@@ -33,6 +33,15 @@ public final class GlobalEspManager
 	private int renderedEspItemsThisFrame;
 	private boolean frameOpen;
 	
+	/**
+	 * Set to {@code true} while {@link GlobalEspRenderer} is replaying
+	 * collected primitives. Prevents the takeover path from intercepting
+	 * its own draw calls, which would otherwise cause infinite recursion
+	 * and/or feed a stale {@code VertexConsumer} that points to freed
+	 * native memory.
+	 */
+	private boolean isReplayingGlobalEsp;
+	
 	private GlobalEspManager()
 	{}
 	
@@ -88,7 +97,7 @@ public final class GlobalEspManager
 	
 	public synchronized boolean shouldTakeOverRenderCalls()
 	{
-		return frameOpen && isShaderOutlineMode();
+		return frameOpen && isShaderOutlineMode() && !isReplayingGlobalEsp;
 	}
 	
 	public boolean shouldTakeOverBufferedLineCalls()
@@ -304,6 +313,26 @@ public final class GlobalEspManager
 	public synchronized boolean isShaderOutlineMode()
 	{
 		return getRenderMode() == GlobalEspRenderMode.SHADER_OUTLINE;
+	}
+	
+	/**
+	 * Must be called by {@link GlobalEspRenderer} immediately before
+	 * replaying collected primitives so that the takeover path does not
+	 * intercept its own draw calls.
+	 */
+	public synchronized void beginReplay()
+	{
+		isReplayingGlobalEsp = true;
+	}
+	
+	/**
+	 * Must be called by {@link GlobalEspRenderer} immediately after
+	 * replaying collected primitives so that the takeover path resumes
+	 * normal operation for the next frame.
+	 */
+	public synchronized void endReplay()
+	{
+		isReplayingGlobalEsp = false;
 	}
 	
 	private boolean isEspLayer(RenderType layer)
