@@ -220,6 +220,13 @@ public final class NewerNewChunksHack extends Hack
 	private final SliderSetting renderHeight = new SliderSetting(
 		"Render-Height", 0, -64, 319, 1, ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting useMinimumClassificationY =
+		new CheckboxSetting("Use Minimum-Classification-Y",
+			"Only classifies blocks above the specified Y level.", false);
+	
+	private final SliderSetting minimumClassificationY = new SliderSetting(
+		"Minimum-Classification-Y", 16, -64, 319, 1, ValueDisplay.INTEGER);
+	
 	private final EnumSetting<ShapeMode> shapeMode =
 		new EnumSetting<>("Shape Mode", ShapeMode.values(), ShapeMode.Both);
 	
@@ -344,7 +351,8 @@ public final class NewerNewChunksHack extends Hack
 	}
 	
 	private record ChunkClassification(boolean isNewChunk,
-		boolean isOldGeneration, boolean chunkIsBeingUpdated)
+		boolean isOldGeneration, boolean chunkIsBeingUpdated,
+		boolean hasUsableEvidence)
 	{}
 	
 	private static Set<Block> createNewNetherBlocks()
@@ -528,6 +536,8 @@ public final class NewerNewChunksHack extends Hack
 		addSetting(deleteChunkData);
 		addSetting(renderDistance);
 		addSetting(renderHeight);
+		addSetting(useMinimumClassificationY);
+		addSetting(minimumClassificationY);
 		addSetting(shapeMode);
 		addSetting(newChunksSideColor);
 		addSetting(newChunksLineColor);
@@ -773,33 +783,37 @@ public final class NewerNewChunksHack extends Hack
 		if(paletteExploit.isChecked())
 		{
 			ChunkClassification classification = classifyChunk(chunk);
-			boolean isNewChunk = classification.isNewChunk();
-			boolean isOldGeneration = classification.isOldGeneration();
-			boolean chunkIsBeingUpdated = classification.chunkIsBeingUpdated();
-			boolean allowNew = isEnd() ? isNewChunk : !isOldGeneration;
-			
-			if(isNewChunk && !chunkIsBeingUpdated && allowNew)
+			if(classification.hasUsableEvidence())
 			{
-				markNew(chunkPos);
-				return;
-			}
-			
-			if(!isNewChunk && !chunkIsBeingUpdated && isOldGeneration)
-			{
-				markOldGeneration(chunkPos);
-				return;
-			}
-			
-			if(chunkIsBeingUpdated)
-			{
-				markBeingUpdated(chunkPos);
-				return;
-			}
-			
-			if(!isNewChunk)
-			{
-				markOld(chunkPos);
-				return;
+				boolean isNewChunk = classification.isNewChunk();
+				boolean isOldGeneration = classification.isOldGeneration();
+				boolean chunkIsBeingUpdated =
+					classification.chunkIsBeingUpdated();
+				boolean allowNew = isEnd() ? isNewChunk : !isOldGeneration;
+				
+				if(isNewChunk && !chunkIsBeingUpdated && allowNew)
+				{
+					markNew(chunkPos);
+					return;
+				}
+				
+				if(!isNewChunk && !chunkIsBeingUpdated && isOldGeneration)
+				{
+					markOldGeneration(chunkPos);
+					return;
+				}
+				
+				if(chunkIsBeingUpdated)
+				{
+					markBeingUpdated(chunkPos);
+					return;
+				}
+				
+				if(!isNewChunk)
+				{
+					markOld(chunkPos);
+					return;
+				}
 			}
 		}
 		
@@ -812,6 +826,7 @@ public final class NewerNewChunksHack extends Hack
 		boolean isNewChunk = false;
 		boolean isOldGeneration = false;
 		boolean chunkIsBeingUpdated = false;
+		boolean hasUsableEvidence = false;
 		LevelChunkSection[] sections = chunk.getSections();
 		
 		if(overworldOldChunksDetector.isChecked() && isOverworld())
@@ -831,9 +846,12 @@ public final class NewerNewChunksHack extends Hack
 			int newChunkQuantifier = 0;
 			int oldChunkQuantifier = 0;
 			
-			for(LevelChunkSection section : sections)
+			for(int sectionIndex =
+				0; sectionIndex < sections.length; sectionIndex++)
 			{
-				if(section == null)
+				LevelChunkSection section = sections[sectionIndex];
+				if(section == null
+					|| !shouldUseSectionForClassification(chunk, sectionIndex))
 					continue;
 				
 				int isNewSection = 0;
@@ -841,6 +859,7 @@ public final class NewerNewChunksHack extends Hack
 				
 				if(!section.hasOnlyAir())
 				{
+					hasUsableEvidence = true;
 					PalettedContainer<BlockState> blockStates =
 						section.getStates();
 					List<BlockState> paletteEntries =
@@ -924,7 +943,30 @@ public final class NewerNewChunksHack extends Hack
 		}
 		
 		return new ChunkClassification(isNewChunk, isOldGeneration,
-			chunkIsBeingUpdated);
+			chunkIsBeingUpdated, hasUsableEvidence || isOldGeneration);
+	}
+	
+	private int getClassificationMinY()
+	{
+		if(!useMinimumClassificationY.isChecked())
+			return Integer.MIN_VALUE;
+		return minimumClassificationY.getValueI();
+	}
+	
+	private int getSectionMinY(LevelChunk chunk, int sectionIndex)
+	{
+		return chunk.getMinY() + sectionIndex * 16;
+	}
+	
+	private int getSectionMaxY(LevelChunk chunk, int sectionIndex)
+	{
+		return getSectionMinY(chunk, sectionIndex) + 15;
+	}
+	
+	private boolean shouldUseSectionForClassification(LevelChunk chunk,
+		int sectionIndex)
+	{
+		return getSectionMaxY(chunk, sectionIndex) >= getClassificationMinY();
 	}
 	
 	public void afterUpdateBlock(BlockPos pos)
@@ -947,6 +989,9 @@ public final class NewerNewChunksHack extends Hack
 	private void handleBlockLikeUpdate(BlockPos pos, BlockState state,
 		boolean allowTickExploit)
 	{
+		if(pos.getY() < getClassificationMinY())
+			return;
+		
 		ChunkPos chunkPos = ChunkPos.containing(pos);
 		if(allowTickExploit && blockUpdateExploit.isChecked()
 			&& !containsAny(chunkPos))
@@ -1818,7 +1863,7 @@ public final class NewerNewChunksHack extends Hack
 	
 	private boolean hasFlowingFluid(LevelChunk chunk)
 	{
-		int minY = chunk.getMinY();
+		int minY = Math.max(chunk.getMinY(), getClassificationMinY());
 		int maxY = chunk.getMaxY();
 		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 		for(int cx = 0; cx < 16; cx++)
@@ -1909,17 +1954,24 @@ public final class NewerNewChunksHack extends Hack
 		int safeSections = Math.min(17, sections.length);
 		boolean foundAnyOre = false;
 		boolean hasNewOverworldGeneration = false;
+		int minY = getClassificationMinY();
 		
 		for(int i = 0; i < safeSections; i++)
 		{
 			LevelChunkSection section = sections[i];
-			if(section == null || section.hasOnlyAir())
+			if(section == null || section.hasOnlyAir()
+				|| !shouldUseSectionForClassification(chunk, i))
 				continue;
 			
+			int sectionMinY = getSectionMinY(chunk, i);
 			for(int x = 0; x < 16; x++)
 				for(int y = 0; y < 16; y++)
 					for(int z = 0; z < 16; z++)
 					{
+						int blockY = sectionMinY + y;
+						if(blockY < minY)
+							continue;
+						
 						Block block = section.getBlockState(x, y, z).getBlock();
 						if(!foundAnyOre && ORE_BLOCKS.contains(block))
 							foundAnyOre = true;
@@ -1927,7 +1979,7 @@ public final class NewerNewChunksHack extends Hack
 						if(hasNewOverworldGeneration)
 							continue;
 						
-						boolean inModernRange = (i == 4 && y >= 5) || i > 4;
+						boolean inModernRange = blockY >= 5;
 						if(inModernRange
 							&& (NEW_OVERWORLD_BLOCKS.contains(block)
 								|| DEEPSLATE_BLOCKS.contains(block)))
@@ -1943,24 +1995,32 @@ public final class NewerNewChunksHack extends Hack
 	{
 		LevelChunkSection[] sections = chunk.getSections();
 		int safeSections = Math.min(8, sections.length);
+		int minY = getClassificationMinY();
+		boolean foundUsableSection = false;
 		
 		for(int i = 0; i < safeSections; i++)
 		{
 			LevelChunkSection section = sections[i];
-			if(section == null || section.hasOnlyAir())
+			if(section == null || section.hasOnlyAir()
+				|| !shouldUseSectionForClassification(chunk, i))
 				continue;
 			
+			foundUsableSection = true;
+			int sectionMinY = getSectionMinY(chunk, i);
 			for(int x = 0; x < 16; x++)
 				for(int y = 0; y < 16; y++)
 					for(int z = 0; z < 16; z++)
 					{
+						if(sectionMinY + y < minY)
+							continue;
+						
 						Block block = section.getBlockState(x, y, z).getBlock();
 						if(NEW_NETHER_BLOCKS.contains(block))
 							return false;
 					}
 		}
 		
-		return true;
+		return foundUsableSection;
 	}
 	
 	private boolean hasEndBiome(LevelChunk chunk)
