@@ -10,10 +10,11 @@ package net.wurstclient.util;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.GuiMessage;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.ChatComponent;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
@@ -23,6 +24,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
+import net.wurstclient.hud.ClientMessageOverlay;
 
 public enum ChatUtils
 {
@@ -59,9 +61,11 @@ public enum ChatUtils
 			if(!enabled || MC.gui == null)
 				return;
 			
-			ChatComponent chatHud = MC.gui.getChat();
+			ChatComponent chatHud = MC.gui.hud.getChat();
 			MutableComponent prefix = Component.literal(WURST_PREFIX);
-			chatHud.addMessage(prefix.append(component));
+			MutableComponent message = prefix.append(component);
+			ClientMessageOverlay.getInstance().markWurstClientMessage(message);
+			chatHud.addClientSystemMessage(message);
 		});
 	}
 	

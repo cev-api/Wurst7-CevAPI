@@ -13,7 +13,8 @@ import java.util.Comparator;
 import java.util.Iterator;
 import net.wurstclient.ui.UiScale;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -39,7 +40,7 @@ public final class HackListHUD implements UpdateListener
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class, this);
 	}
 	
-	public void render(GuiGraphics context, float partialTicks)
+	public void render(GuiGraphicsExtractor context, float partialTicks)
 	{
 		lastRenderX = 0;
 		lastRenderY = 0;
@@ -108,7 +109,7 @@ public final class HackListHUD implements UpdateListener
 			drawHackList(context, partialTicks, lineHeight, spacing);
 	}
 	
-	private void drawCounter(GuiGraphics context)
+	private void drawCounter(GuiGraphicsExtractor context)
 	{
 		long size = activeHax.stream().filter(e -> e.hack.isEnabled()).count();
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
@@ -117,7 +118,7 @@ public final class HackListHUD implements UpdateListener
 			/* spacing */0);
 	}
 	
-	private void drawHackList(GuiGraphics context, float partialTicks,
+	private void drawHackList(GuiGraphicsExtractor context, float partialTicks,
 		int lineHeight, int spacing)
 	{
 		if(otf.isAnimations())
@@ -189,8 +190,8 @@ public final class HackListHUD implements UpdateListener
 		}
 	}
 	
-	private void drawString(GuiGraphics context, String s, int lineHeight,
-		int spacing)
+	private void drawString(GuiGraphicsExtractor context, String s,
+		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
 		int posX;
@@ -246,7 +247,7 @@ public final class HackListHUD implements UpdateListener
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawString(GuiGraphics context, Hack hack, String s,
+	private void drawString(GuiGraphicsExtractor context, Hack hack, String s,
 		int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
@@ -254,7 +255,7 @@ public final class HackListHUD implements UpdateListener
 		int yDraw = posY + otf.getYOffset();
 		double scale = getScale() * otf.getFontSize();
 		// scaled string width
-		String statusText = hack.getStatusText();
+		String statusText = getStatusText(hack);
 		int stringWidth = (int)(tr.width(s) * scale);
 		int statusWidth =
 			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
@@ -319,12 +320,12 @@ public final class HackListHUD implements UpdateListener
 		posY += lineHeight + spacing;
 	}
 	
-	private void drawWithOffset(GuiGraphics context, HackListEntry e,
+	private void drawWithOffset(GuiGraphicsExtractor context, HackListEntry e,
 		float partialTicks, int lineHeight, int spacing)
 	{
 		Font tr = WurstClient.MC.font;
 		String s = e.hack.getRenderName();
-		String statusText = e.hack.getStatusText();
+		String statusText = getStatusText(e.hack);
 		
 		float offset =
 			e.offset * partialTicks + e.prevOffset * (1 - partialTicks);
@@ -446,7 +447,7 @@ public final class HackListHUD implements UpdateListener
 		int maxWidth = 0;
 		for(HackListEntry e : activeHax)
 		{
-			String statusText = e.hack.getStatusText();
+			String statusText = getStatusText(e.hack);
 			int width = (int)(tr.width(e.hack.getRenderName()) * scale);
 			if(statusText != null)
 				width += (int)(tr.width(statusText) * scale);
@@ -455,13 +456,26 @@ public final class HackListHUD implements UpdateListener
 		return maxWidth;
 	}
 	
-	private int getContentX(GuiGraphics context, int contentWidth)
+	private int getContentX(GuiGraphicsExtractor context, int contentWidth)
 	{
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
 			return 2 + otf.getXOffset();
 		return context.guiWidth() - contentWidth - 2 + otf.getXOffset();
+	}
+	
+	private String getStatusText(Hack hack)
+	{
+		String statusText = hack.getStatusText();
+		String pauseStatus = WurstClient.INSTANCE.getOtfs().packetFirewallOtf
+			.getVanillaOnlyPauseStatus(hack);
+		
+		if(pauseStatus == null)
+			return statusText;
+		if(statusText == null)
+			return pauseStatus;
+		return statusText + pauseStatus;
 	}
 	
 	private static final class HackListEntry

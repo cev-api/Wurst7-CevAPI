@@ -10,8 +10,11 @@ package net.wurstclient.hud;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,10 +22,10 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.Window;
-import net.minecraft.client.GuiMessage;
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.network.chat.Component;
@@ -55,6 +58,8 @@ public final class ClientMessageOverlay
 	private static final Pattern DECORATED_PLAYER_CHAT_PATTERN =
 		Pattern.compile("^" + CHAT_PREFIX_PATTERN + "<[^>]{1,32}>\\s+.+$");
 	private static final String PLAYER_NAME_TOKEN = "[+A-Za-z0-9_\\-*.]{1,32}";
+	private static final Pattern PLAYER_NAME_TOKEN_PATTERN =
+		Pattern.compile(PLAYER_NAME_TOKEN);
 	private static final Pattern COLON_PLAYER_CHAT_PATTERN = Pattern
 		.compile("^" + CHAT_PREFIX_PATTERN + PLAYER_NAME_TOKEN + ":\\s+.+$");
 	private static final Pattern ARROW_PLAYER_CHAT_PATTERN = Pattern.compile(
@@ -98,6 +103,8 @@ public final class ClientMessageOverlay
 	private List<LineClickTarget> lastMainClickTargets = List.of();
 	private List<LineClickTarget> lastWurstClickTargets = List.of();
 	private boolean lastLeftMouseDown;
+	private final Set<Component> wurstClientMessages =
+		Collections.newSetFromMap(new IdentityHashMap<>());
 	
 	private ClientMessageOverlay()
 	{}
@@ -105,6 +112,38 @@ public final class ClientMessageOverlay
 	public static ClientMessageOverlay getInstance()
 	{
 		return INSTANCE;
+	}
+	
+	public void markWurstClientMessage(Component message)
+	{
+		if(message == null)
+			return;
+		
+		synchronized(wurstClientMessages)
+		{
+			wurstClientMessages.add(message);
+		}
+	}
+	
+	public boolean consumeWurstClientMessage(Component message)
+	{
+		if(message == null)
+			return false;
+		
+		synchronized(wurstClientMessages)
+		{
+			return wurstClientMessages.remove(message);
+		}
+	}
+	
+	public boolean captureWurstClientMessage(Component message)
+	{
+		if(!isEnabled() || message == null)
+			return false;
+		
+		addMessage(message, true);
+		logToConsoleIfEnabled(message);
+		return true;
 	}
 	
 	public boolean captureSingleArgMessage(Component message)
@@ -233,7 +272,7 @@ public final class ClientMessageOverlay
 		// No-op. Kept for ChatHudMixin compatibility.
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -255,8 +294,8 @@ public final class ClientMessageOverlay
 		if(chatScale <= 0)
 			return;
 		
-		boolean chatOpen =
-			WurstClient.MC.screen instanceof ChatScreen || tabHeldForOverlay;
+		boolean chatOpen = WurstClient.MC.gui.screen() instanceof ChatScreen
+			|| tabHeldForOverlay;
 		int maxLines = hack.getMaxLines();
 		int maxWidth = Mth.floor(
 			ChatComponent.getWidth(WurstClient.MC.options.chatWidth().get())
@@ -347,7 +386,7 @@ public final class ClientMessageOverlay
 		handleLinkClicks(context, chatScale);
 	}
 	
-	private void handleDrag(GuiGraphics context, int drawX, int drawY,
+	private void handleDrag(GuiGraphicsExtractor context, int drawX, int drawY,
 		float width, float height, int wurstDrawY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel, float chatScale)
 	{
@@ -356,7 +395,7 @@ public final class ClientMessageOverlay
 		boolean overWurst = hasWurstPanel && isMouseOverPanel(context,
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 		
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 		{
 			if(dragging)
 				commitDraggedOffset();
@@ -475,10 +514,7 @@ public final class ClientMessageOverlay
 			if(target.size() >= MAX_STORED_MESSAGES)
 				target.removeFirst();
 			
-			Component stored =
-				shouldColorStoredUsername(message, wurstOnlyPanel)
-					? prepareMessageForDisplay(message)
-					: applyDefaultTextColorIfEnabled(message);
+			Component stored = prepareStoredMessage(message, wurstOnlyPanel);
 			target.addLast(new Entry(stored, System.currentTimeMillis()));
 		}
 		
@@ -486,6 +522,48 @@ public final class ClientMessageOverlay
 			wurstScrollOffset = 0;
 		else
 			scrollOffset = 0;
+	}
+	
+	private Component prepareStoredMessage(Component message,
+		boolean wurstOnlyPanel)
+	{
+		if(wurstOnlyPanel)
+			return applyDefaultTextColorIfEnabled(message);
+		
+		Component normalized = normalizePlayerChatForDisplay(message);
+		if(normalized != null)
+			return normalized;
+		
+		return shouldColorStoredUsername(message, false)
+			? prepareMessageForDisplay(message)
+			: applyDefaultTextColorIfEnabled(message);
+	}
+	
+	private Component normalizePlayerChatForDisplay(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(hack == null || !hack.isEnabled() || message == null)
+			return null;
+		
+		NormalizedPlayerChat chat =
+			extractNormalizedPlayerChat(message.getString());
+		if(chat == null || chat.name().isBlank() || chat.message().isBlank())
+			return null;
+		
+		if(!isOnlinePlayerName(chat.name())
+			&& !PLAYER_NAME_TOKEN_PATTERN.matcher(chat.name()).matches())
+			return null;
+		
+		int defaultRgb = hack.getDefaultTextColorI();
+		int usernameRgb = hack.shouldColorUsernames()
+			? getUsernameColor(chat.name(), hack) : defaultRgb;
+		
+		return Component.literal("<")
+			.withStyle(style -> style.withColor(defaultRgb))
+			.append(Component.literal(chat.name())
+				.withStyle(style -> style.withColor(usernameRgb)))
+			.append(Component.literal("> " + chat.message())
+				.withStyle(style -> style.withColor(defaultRgb)));
 	}
 	
 	private static boolean shouldColorStoredUsername(Component message,
@@ -522,7 +600,7 @@ public final class ClientMessageOverlay
 		
 		int rgb = getUsernameColor(sender.name(), hack);
 		Component translatableColored =
-			colorizeTranslatableSender(message, rgb);
+			colorizeTranslatableSender(message, sender.name(), rgb);
 		if(translatableColored != null)
 			return translatableColored;
 		
@@ -537,6 +615,16 @@ public final class ClientMessageOverlay
 	}
 	
 	public Component prepareMessageForDisplay(Component message)
+	{
+		Component normalized = normalizePlayerChatForDisplay(message);
+		if(normalized != null)
+			return normalized;
+		
+		return applyDefaultTextColorIfEnabled(
+			colorizeChatUsernameIfEnabled(message));
+	}
+	
+	public Component prepareClientSystemMessageForDisplay(Component message)
 	{
 		return applyDefaultTextColorIfEnabled(
 			colorizeChatUsernameIfEnabled(message));
@@ -561,7 +649,7 @@ public final class ClientMessageOverlay
 	}
 	
 	private static Component colorizeTranslatableSender(Component message,
-		int rgb)
+		String senderName, int rgb)
 	{
 		if(!(message.getContents() instanceof TranslatableContents tr))
 			return null;
@@ -574,9 +662,12 @@ public final class ClientMessageOverlay
 		Object coloredSender;
 		if(senderArg instanceof Component senderComponent)
 		{
-			coloredSender =
-				senderComponent.copy().withStyle(style -> style.withColor(rgb));
-			
+			boolean[] changed = {false};
+			Component deepColored =
+				colorizeSenderToken(senderComponent, senderName, rgb, changed);
+			coloredSender = changed[0] ? deepColored
+				: colorizeComponentRange(senderComponent, 0,
+					senderComponent.getString().length(), rgb, new int[]{0});
 		}else if(senderArg instanceof String senderText)
 		{
 			coloredSender = Component.literal(senderText)
@@ -757,33 +848,9 @@ public final class ClientMessageOverlay
 		return Math.max(0, ownLength);
 	}
 	
-	public static int getUsernameColorForTabList(String name)
-	{
-		ClientChatOverlayHack hack = getSettingsStatic();
-		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames())
-			return -1;
-		return getUsernameColor(name, hack);
-	}
-	
-	public static boolean containsPlayerSprite(Component component)
-	{
-		if(component == null)
-			return false;
-		return component.getString().contains("[Name head]");
-	}
-	
-	private static ClientChatOverlayHack getSettingsStatic()
-	{
-		if(WurstClient.INSTANCE == null
-			|| WurstClient.INSTANCE.getHax() == null)
-			return null;
-		return WurstClient.INSTANCE.getHax().clientChatOverlayHack;
-	}
-	
 	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
 	{
-		String ownName = WurstClient.MC.getUser() == null ? ""
-			: WurstClient.MC.getUser().getName();
+		String ownName = getOwnPlayerName();
 		boolean ownNameMatches = name.equalsIgnoreCase(ownName);
 		if(ownNameMatches && !hack.shouldRandomizeOwnUsernameColor())
 			return hack.getOwnUsernameColorI();
@@ -876,6 +943,117 @@ public final class ClientMessageOverlay
 			|| isOnlinePlayerName(sender.name());
 	}
 	
+	private static NormalizedPlayerChat extractNormalizedPlayerChat(String raw)
+	{
+		if(raw == null || raw.isBlank())
+			return null;
+		
+		String rawTrimmed = raw.trim();
+		String text = stripLegacyFormatting(raw).trim();
+		boolean hadLegacyFormatting = !text.equals(rawTrimmed);
+		boolean hadDisplayedFormatting = false;
+		if(!hadLegacyFormatting)
+		{
+			String strippedDisplayed = stripDisplayedLegacyFormatting(text);
+			hadDisplayedFormatting = !strippedDisplayed.equals(text);
+			text = strippedDisplayed;
+		}
+		if(text.isBlank())
+			return null;
+		
+		text = stripLeakedLegacyPrefix(text);
+		if(text.isBlank())
+			return null;
+		
+		if(!hadLegacyFormatting && !hadDisplayedFormatting)
+			return null;
+		
+		NormalizedPlayerChat angleChat = extractAngleBracketChat(text);
+		if(angleChat != null)
+			return angleChat;
+		
+		return null;
+	}
+	
+	private static NormalizedPlayerChat extractAngleBracketChat(String text)
+	{
+		int start = firstChatBracketIndex(text);
+		if(start < 0)
+			return null;
+		
+		int end = firstChatBracketCloseIndex(text, start + 1);
+		if(end <= start + 1)
+			return null;
+		
+		String name = normalizeSenderToken(text.substring(start + 1, end));
+		if(name.isBlank())
+			return null;
+		
+		String message = text.substring(end + 1).trim();
+		if(message.isBlank())
+			return null;
+		
+		return new NormalizedPlayerChat(name, stripLeakedLegacyPrefix(message));
+	}
+	
+	private static String stripDisplayedLegacyFormatting(String text)
+	{
+		if(text == null || text.isEmpty())
+			return "";
+		
+		String result = text.trim();
+		result = result
+			.replaceAll("(?i)(?<=<)[0-9a-fklmnor]+(?=[+A-Za-z0-9_*.\\-])", "");
+		result = result
+			.replaceAll("(?i)(?<=[+A-Za-z0-9_*.\\-])[0-9a-fklmnor]+(?=>)", "");
+		result = result.replaceAll("(?i)^[0-9a-fklmnor]+(?=[<{])", "");
+		return result.trim();
+	}
+	
+	private static int firstChatBracketCloseIndex(String text, int from)
+	{
+		int angle = text.indexOf('>', from);
+		int brace = text.indexOf('}', from);
+		
+		if(angle < 0)
+			return brace;
+		if(brace < 0)
+			return angle;
+		
+		return Math.min(angle, brace);
+	}
+	
+	private static int firstChatBracketIndex(String text)
+	{
+		for(int i = 0; i < text.length(); i++)
+		{
+			char c = text.charAt(i);
+			if(c == '<' || c == '{')
+				return i;
+			
+			if(!isLeakedLegacyCodeChar(c) && !Character.isWhitespace(c))
+				return -1;
+		}
+		
+		return -1;
+	}
+	
+	private static String stripLeakedLegacyPrefix(String text)
+	{
+		String result = text == null ? "" : text.trim();
+		while(result.length() >= 2 && isLeakedLegacyCodeChar(result.charAt(0))
+			&& (result.charAt(1) == '<' || result.charAt(1) == '{'))
+			result = result.substring(1).trim();
+		
+		return result;
+	}
+	
+	private static boolean isLeakedLegacyCodeChar(char c)
+	{
+		return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+			|| (c >= 'A' && c <= 'F') || "klmnorKLMNOR".indexOf(c) >= 0;
+	}
+	
 	private static ChatDelimiter findChatDelimiter(String text)
 	{
 		ChatDelimiter best = null;
@@ -955,12 +1133,12 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
-		for(var info : connection.getOnlinePlayers())
+		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
-			String name = info.getProfile().name();
+			String name = getProfileNameSafe(info.getProfile());
 			if(name == null || name.isEmpty())
 				continue;
 			
@@ -980,12 +1158,12 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
-		for(var info : connection.getOnlinePlayers())
+		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
-			String onlineName = info.getProfile().name();
+			String onlineName = getProfileNameSafe(info.getProfile());
 			if(onlineName == null || onlineName.isEmpty())
 				continue;
 			
@@ -994,6 +1172,111 @@ public final class ClientMessageOverlay
 		}
 		
 		return false;
+	}
+	
+	/**
+	 * Safely gets the online player list, falling back to reflection if
+	 * the mapped method name changes across MC versions.
+	 */
+	@SuppressWarnings("unchecked")
+	private static Iterable<net.minecraft.client.multiplayer.PlayerInfo> getOnlinePlayersSafe(
+		net.minecraft.client.multiplayer.ClientPacketListener connection)
+	{
+		try
+		{
+			return connection.getOnlinePlayers();
+		}catch(Throwable t)
+		{
+			// Fallback: try to access the listedPlayers field directly
+			try
+			{
+				java.lang.reflect.Field field =
+					net.minecraft.client.multiplayer.ClientPacketListener.class
+						.getDeclaredField("listedPlayers");
+				field.setAccessible(true);
+				return (Iterable<net.minecraft.client.multiplayer.PlayerInfo>)field
+					.get(connection);
+			}catch(Throwable t2)
+			{
+				return java.util.Collections.emptyList();
+			}
+		}
+	}
+	
+	/**
+	 * Safely gets the name from a GameProfile, handling both record-style
+	 * {@code name()} and legacy {@code getName()} accessors.
+	 */
+	private static String getProfileNameSafe(
+		com.mojang.authlib.GameProfile profile)
+	{
+		try
+		{
+			return profile.name();
+		}catch(Throwable t1)
+		{
+			try
+			{
+				// Fallback for legacy getName() accessor
+				java.lang.reflect.Method method =
+					com.mojang.authlib.GameProfile.class
+						.getDeclaredMethod("getName");
+				return (String)method.invoke(profile);
+			}catch(Throwable t2)
+			{
+				return null;
+			}
+		}
+	}
+	
+	/**
+	 * Gets the local player's name.
+	 * Uses multiple fallbacks since authlib changes across MC versions.
+	 */
+	private static String getOwnPlayerName()
+	{
+		// 1. Entity display name (plain text, always works in-game)
+		if(WurstClient.MC.player != null)
+		{
+			try
+			{
+				String name = WurstClient.MC.player.getName().getString();
+				if(name != null && !name.isBlank())
+					return name;
+			}catch(Throwable ignored)
+			{}
+		}
+		
+		// 2. User session object
+		try
+		{
+			net.minecraft.client.User user = WurstClient.MC.getUser();
+			if(user != null)
+			{
+				String name = user.getName();
+				if(name != null && !name.isBlank())
+					return name;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		// 3. Reflection on User.name
+		try
+		{
+			java.lang.reflect.Field field =
+				net.minecraft.client.User.class.getDeclaredField("name");
+			field.setAccessible(true);
+			net.minecraft.client.User user = WurstClient.MC.getUser();
+			if(user != null)
+			{
+				String name = (String)field.get(user);
+				if(name != null && !name.isBlank())
+					return name;
+			}
+		}catch(Throwable ignored)
+		{}
+		
+		return "";
 	}
 	
 	private static String extractSenderToken(String plain)
@@ -1067,7 +1350,7 @@ public final class ClientMessageOverlay
 	private boolean hasVanillaChatMessages()
 	{
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		return vanillaLines != null && !vanillaLines.isEmpty();
 	}
 	
@@ -1076,7 +1359,7 @@ public final class ClientMessageOverlay
 	{
 		List<TimedRenderLine> timed = new ArrayList<>();
 		long nowMs = System.currentTimeMillis();
-		int guiTicks = WurstClient.MC.gui.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
 		
 		// Overlay entries (system/Wurst messages)
 		synchronized(overlayMessages)
@@ -1097,7 +1380,7 @@ public final class ClientMessageOverlay
 		
 		// Vanilla chat entries (player chat messages)
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		if(vanillaLines != null)
 			for(GuiMessage.Line line : vanillaLines)
 			{
@@ -1258,7 +1541,10 @@ public final class ClientMessageOverlay
 		int r = (c >> 16) & 0xFF;
 		int g = (c >> 8) & 0xFF;
 		int b = c & 0xFF;
-		return r == g && g == b && r > 0x10;
+		// Only treat mid-range grays as "neutral" (no explicit color).
+		// Exclude pure white (§f / 0xFFFFFF) and near-white so that
+		// legitimate formatting codes (like DonutSMP's §f) are preserved.
+		return r == g && g == b && r > 0x10 && r < 0xF0;
 	}
 	
 	private static List<RenderLine> getVisibleLines(List<RenderLine> allLines,
@@ -1337,7 +1623,7 @@ public final class ClientMessageOverlay
 	private int getVisibleVanillaLineCount(int chatHeight, boolean chatOpen)
 	{
 		List<GuiMessage.Line> lines =
-			WurstClient.MC.gui.getChat().trimmedMessages;
+			WurstClient.MC.gui.hud.getChat().trimmedMessages;
 		if(lines == null || lines.isEmpty())
 			return 0;
 		
@@ -1347,7 +1633,7 @@ public final class ClientMessageOverlay
 		if(chatOpen)
 			return Math.min(lines.size(), maxVisibleLines);
 		
-		int guiTicks = WurstClient.MC.gui.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
 		int visibleLines = 0;
 		for(GuiMessage.Line line : lines)
 		{
@@ -1396,7 +1682,7 @@ public final class ClientMessageOverlay
 		return sb.toString();
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1406,7 +1692,7 @@ public final class ClientMessageOverlay
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1434,13 +1720,9 @@ public final class ClientMessageOverlay
 			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
 	}
 	
-	private void drawPanel(GuiGraphics context, List<RenderLine> lines,
+	private void drawPanel(GuiGraphicsExtractor context, List<RenderLine> lines,
 		int drawX, int drawY, float chatScale)
 	{
-		ClientChatOverlayHack hack = getSettings();
-		int baseTextColor =
-			hack == null ? 0xC0C0C0 : hack.getDefaultTextColorI();
-		
 		context.pose().pushMatrix();
 		context.pose().translate(drawX, drawY);
 		context.pose().scale(chatScale, chatScale);
@@ -1451,11 +1733,14 @@ public final class ClientMessageOverlay
 			int width = WurstClient.MC.font.width(line.text());
 			int alpha = Mth.clamp(line.alpha(), 0, 255);
 			int bgColor = (alpha / 2 << 24) | (BACKGROUND_COLOR & 0x00FFFFFF);
-			int textColor = (alpha << 24) | (baseTextColor & 0x00FFFFFF);
+			// Use white as the base so the FormattedCharSequence's own
+			// per-character colors (from § codes) are preserved.
+			// The default text color is already applied at message-prep time.
+			int textColor = (alpha << 24) | 0xFFFFFF;
 			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
 				y + WurstClient.MC.font.lineHeight, bgColor);
-			context.drawString(WurstClient.MC.font, line.text(),
-				HORIZONTAL_PADDING, y, textColor, false);
+			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,
+				y, textColor, false);
 			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
 		}
 		
@@ -1505,7 +1790,7 @@ public final class ClientMessageOverlay
 			lastMainClickTargets = targets;
 	}
 	
-	private void handleLinkClicks(GuiGraphics context, float chatScale)
+	private void handleLinkClicks(GuiGraphicsExtractor context, float chatScale)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1533,9 +1818,9 @@ public final class ClientMessageOverlay
 	private void handleClickEvent(ClickEvent clickEvent)
 	{
 		if(clickEvent instanceof ClickEvent.OpenUrl openUrl
-			&& WurstClient.MC.screen != null)
+			&& WurstClient.MC.gui.screen() != null)
 		{
-			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.screen,
+			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.gui.screen(),
 				openUrl.uri(), false);
 			return;
 		}
@@ -1563,15 +1848,18 @@ public final class ClientMessageOverlay
 			WurstClient.MC.getConnection().sendCommand(trimmed);
 	}
 	
-	private boolean hasClickableAt(GuiGraphics context, float chatScale)
+	private boolean hasClickableAt(GuiGraphicsExtractor context,
+		float chatScale)
 	{
 		Style style = getClickableStyleAt(context, chatScale);
 		return style != null && style.getClickEvent() != null;
 	}
 	
-	private Style getClickableStyleAt(GuiGraphics context, float chatScale)
+	private Style getClickableStyleAt(GuiGraphicsExtractor context,
+		float chatScale)
 	{
-		if(!(WurstClient.MC.screen instanceof ChatScreen) && !tabHeldForOverlay)
+		if(!(WurstClient.MC.gui.screen() instanceof ChatScreen)
+			&& !tabHeldForOverlay)
 			return null;
 		
 		double mouseX = getScaledMouseX(context);
@@ -1631,7 +1919,7 @@ public final class ClientMessageOverlay
 		return result[0];
 	}
 	
-	private void updateHoverBounds(GuiGraphics context, int x, int y,
+	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
 		float width, float height, int wurstY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel)
 	{
@@ -1656,8 +1944,8 @@ public final class ClientMessageOverlay
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 	}
 	
-	private static boolean isMouseOverPanel(GuiGraphics context, int x1, int y1,
-		int x2, int y2)
+	private static boolean isMouseOverPanel(GuiGraphicsExtractor context,
+		int x1, int y1, int x2, int y2)
 	{
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
@@ -1710,5 +1998,8 @@ public final class ClientMessageOverlay
 	
 	private record SenderSpan(int start, int end, String name,
 		boolean trustedChatDelimiter)
+	{}
+	
+	private record NormalizedPlayerChat(String name, String message)
 	{}
 }
