@@ -12,23 +12,21 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-
-import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
 
-@Mixin(Screen.class)
+@Mixin(value = Screen.class, remap = false)
 public abstract class ScreenMixin extends AbstractContainerEventHandler
 	implements Renderable
 {
 	@Inject(
-		method = "extractTransparentBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V",
+		method = "extractBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	public void onRenderInGameBackground(GuiGraphicsExtractor context,
-		CallbackInfo ci)
+	public void onExtractBackground(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;

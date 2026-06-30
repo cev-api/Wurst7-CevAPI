@@ -89,6 +89,13 @@ public final class AttributeSwapHack extends Hack
 	private final CheckboxSetting onlyWithKillAura = new CheckboxSetting(
 		"Only with Killaura", "Only activate when Killaura is enabled.", false);
 	
+	private final CheckboxSetting onlyWithMultiAura =
+		new CheckboxSetting("Only with MultiAura",
+			"Only activate when MultiAura is enabled.", false);
+	
+	private final CheckboxSetting onlyWithMace = new CheckboxSetting(
+		"Only with Mace", "Only swap when holding a Mace.", false);
+	
 	private int backTimer;
 	private boolean awaitingBack;
 	private int originalSlot;
@@ -110,6 +117,8 @@ public final class AttributeSwapHack extends Hack
 		addSetting(onlyAgainstOtherPlayers);
 		addSetting(onlyAgainstMobs);
 		addSetting(onlyWithKillAura);
+		addSetting(onlyWithMultiAura);
+		addSetting(onlyWithMace);
 	}
 	
 	@Override
@@ -217,6 +226,10 @@ public final class AttributeSwapHack extends Hack
 	private void doSwap(int slotIndex)
 	{
 		if(slotIndex < 0 || slotIndex > 8)
+			return;
+		
+		if(onlyWithMace.isChecked() && !(MC.player.getInventory()
+			.getItem(slotIndex).getItem() instanceof MaceItem))
 			return;
 		
 		int current = MC.player.getInventory().getSelectedSlot();
@@ -348,6 +361,10 @@ public final class AttributeSwapHack extends Hack
 	{
 		if(onlyWithKillAura.isChecked()
 			&& !WURST.getHax().killauraHack.isEnabled())
+			return false;
+		
+		if(onlyWithMultiAura.isChecked()
+			&& !WURST.getHax().multiAuraHack.isEnabled())
 			return false;
 		
 		boolean restrictToPlayers = onlyAgainstOtherPlayers.isChecked();

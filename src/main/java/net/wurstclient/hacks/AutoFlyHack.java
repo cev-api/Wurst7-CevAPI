@@ -1254,23 +1254,72 @@ public final class AutoFlyHack extends Hack
 		ensureNewerNewChunksForStopOn();
 		
 		ChunkPos playerChunk = ChunkPos.containing(MC.player.blockPosition());
-		boolean containsChunk = isMatchingChunkType(playerChunk, oldChunks);
-		if(!containsChunk)
-			return false;
-		
 		int requiredThickness = Math.max(1, stopChunkThickness.getValueI());
-		if(requiredThickness > 1)
+		Vec3 heading = getChunkStopHeading();
+		Vec3 right = heading.lengthSqr() > 1.0E-6
+			? new Vec3(-heading.z, 0.0, heading.x) : new Vec3(1.0, 0.0, 0.0);
+		
+		if(!matchesChunkStopArea(playerChunk, oldChunks, requiredThickness,
+			heading, right))
 		{
-			int runX = getChunkRunLength(playerChunk, 1, 0, oldChunks,
-				requiredThickness);
-			int runZ = getChunkRunLength(playerChunk, 0, 1, oldChunks,
-				requiredThickness);
-			if(runX < requiredThickness || runZ < requiredThickness)
+			ChunkPos candidate = findMatchingChunkStopAhead(playerChunk,
+				heading, right, oldChunks, requiredThickness);
+			if(candidate == null)
 				return false;
 		}
 		
 		stopAutoFly("Stopped: Reached " + stopName);
 		return true;
+	}
+	
+	private ChunkPos findMatchingChunkStopAhead(ChunkPos playerChunk,
+		Vec3 heading, Vec3 right, boolean oldChunks, int requiredThickness)
+	{
+		if(playerChunk == null)
+			return null;
+		
+		int forwardLimit = Math.max(4, requiredThickness * 3);
+		int lateralLimit = Math.max(1, requiredThickness);
+		for(int forward = 1; forward <= forwardLimit; forward++)
+			for(int lateral = -lateralLimit; lateral <= lateralLimit; lateral++)
+			{
+				ChunkPos candidate =
+					offsetChunk(playerChunk, heading, right, forward, lateral);
+				if(!isMatchingChunkType(candidate, oldChunks))
+					continue;
+				
+				if(matchesChunkStopArea(candidate, oldChunks, requiredThickness,
+					heading, right))
+					return candidate;
+			}
+		
+		return null;
+	}
+	
+	private boolean matchesChunkStopArea(ChunkPos chunk, boolean oldChunks,
+		int requiredThickness, Vec3 heading, Vec3 right)
+	{
+		if(chunk == null || !isMatchingChunkType(chunk, oldChunks))
+			return false;
+		
+		if(requiredThickness <= 1)
+			return true;
+		
+		int runX = getChunkRunLength(chunk, 1, 0, oldChunks, requiredThickness);
+		int runZ = getChunkRunLength(chunk, 0, 1, oldChunks, requiredThickness);
+		if(runX >= requiredThickness && runZ >= requiredThickness)
+			return true;
+			
+		// Also allow path-aligned chunk bands so diagonal crossings don't get
+		// ignored until we've already plowed through them.
+		int lateralRun = getChunkDirectionalRunLength(chunk, right, oldChunks,
+			requiredThickness);
+		if(lateralRun >= requiredThickness)
+			return true;
+		
+		int forwardRun = getChunkDirectionalRunLength(chunk, heading, oldChunks,
+			requiredThickness);
+		return forwardRun >= requiredThickness;
 	}
 	
 	private boolean isMatchingChunkType(ChunkPos chunk, boolean oldChunks)
@@ -1299,6 +1348,65 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		return run;
+	}
+	
+	private int getChunkDirectionalRunLength(ChunkPos center, Vec3 direction,
+		boolean oldChunks, int limit)
+	{
+		if(center == null || direction == null
+			|| direction.lengthSqr() < 1.0E-6)
+			return 0;
+		
+		int run = 1;
+		for(int dir : new int[]{-1, 1})
+		{
+			for(int i = 1; i < limit; i++)
+			{
+				ChunkPos candidate = stepChunk(center, direction, i * dir);
+				if(!isMatchingChunkType(candidate, oldChunks))
+					break;
+				
+				run++;
+				if(run >= limit)
+					return run;
+			}
+		}
+		
+		return run;
+	}
+	
+	private ChunkPos offsetChunk(ChunkPos origin, Vec3 forward, Vec3 right,
+		int forwardSteps, int lateralSteps)
+	{
+		ChunkPos offset = origin;
+		if(forwardSteps != 0)
+			offset = stepChunk(offset, forward, forwardSteps);
+		if(lateralSteps != 0)
+			offset = stepChunk(offset, right, lateralSteps);
+		return offset;
+	}
+	
+	private Vec3 getChunkStopHeading()
+	{
+		if(MC.player == null)
+			return new Vec3(0.0, 0.0, 1.0);
+		
+		if(currentTarget != null)
+		{
+			Vec3 playerPos = MC.player.position();
+			Vec3 targetPos = Vec3.atCenterOf(currentTarget.pos);
+			Vec3 toTarget = new Vec3(targetPos.x - playerPos.x, 0.0,
+				targetPos.z - playerPos.z);
+			if(toTarget.lengthSqr() >= 1.0E-6)
+				return toTarget.normalize();
+		}
+		
+		if(commandForwardDirection != null
+			&& commandForwardDirection.lengthSqr() >= 1.0E-6)
+			return new Vec3(commandForwardDirection.x, 0.0,
+				commandForwardDirection.z).normalize();
+		
+		return getHorizontalLookDirection();
 	}
 	
 	private void ensureStopBlockCoordinatorConfigured(boolean secondary,
@@ -3349,17 +3457,20 @@ public final class AutoFlyHack extends Hack
 		if(origin == null || direction == null || steps == 0)
 			return origin;
 		
-		int dx;
-		int dz;
-		if(Math.abs(direction.x) >= Math.abs(direction.z))
-		{
-			dx = direction.x >= 0 ? 1 : -1;
-			dz = 0;
-		}else
-		{
-			dx = 0;
+		double absX = Math.abs(direction.x);
+		double absZ = Math.abs(direction.z);
+		if(absX < 1.0E-6 && absZ < 1.0E-6)
+			return origin;
+			
+		// Use 8-way chunk stepping so diagonal routes scan the same chunk bands
+		// the player is actually crossing instead of collapsing to X or Z only.
+		double diagonalCutoff = Math.tan(Math.PI / 8.0);
+		int dx = 0;
+		int dz = 0;
+		if(absZ > absX * diagonalCutoff)
 			dz = direction.z >= 0 ? 1 : -1;
-		}
+		if(absX > absZ * diagonalCutoff)
+			dx = direction.x >= 0 ? 1 : -1;
 		
 		return new ChunkPos(origin.x() + dx * steps, origin.z() + dz * steps);
 	}
