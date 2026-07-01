@@ -111,6 +111,13 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		"Disable when finished",
 		"Automatically disables AutoBuild when all blocks are placed.", true);
 	
+	private final CheckboxSetting enableCreativeFlight = new CheckboxSetting(
+		"Enable CreativeFlight",
+		"Enables CreativeFlight and starts flying when AutoBuild begins.\n\n"
+			+ "If CreativeFlight was off before the build, it will be turned"
+			+ " off again when the build ends.",
+		false);
+	
 	private final CheckboxSetting swapFlightWithAirWalk =
 		new CheckboxSetting("Swap flight with AirWalk",
 			"If Flight is enabled, swaps to AirWalk while building and swaps"
@@ -129,6 +136,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	
 	private static final long STUCK_TIMEOUT_MS = 1250L;
 	private boolean swappedFlightForAirWalk;
+	private boolean enabledCreativeFlightForBuild;
 	
 	public AutoBuildHack()
 	{
@@ -145,6 +153,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(previewTemplate);
 		addSetting(confirmTicks);
 		addSetting(disableOnFinish);
+		addSetting(enableCreativeFlight);
 		addSetting(swapFlightWithAirWalk);
 	}
 	
@@ -203,6 +212,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		// Swap back from AirWalk to Flight if we swapped earlier
 		swapBackFlightIfNeeded();
+		stopCreativeFlightIfNeeded();
 		
 		if(template == null)
 			status = Status.NO_TEMPLATE;
@@ -294,6 +304,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		status = Status.BUILDING;
 		
+		startCreativeFlightIfEnabled();
+		
 		// If Flight is enabled, swap to AirWalk while building
 		swapFlightToAirWalkIfEnabled();
 	}
@@ -311,7 +323,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			break;
 			
 			case IDLE:
-			if(!template.isSelected(templateSetting))
+			if(!template.isGenerated() && !template.isSelected(templateSetting))
 				loadSelectedTemplate();
 			updatePreview();
 			break;
@@ -386,6 +398,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			
 			// Swap back from AirWalk to Flight when building finishes
 			swapBackFlightIfNeeded();
+			stopCreativeFlightIfNeeded();
 			
 			if(disableOnFinish.isChecked())
 				setEnabled(false);
@@ -549,6 +562,18 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
+	public void selectGeneratedTemplate(AutoBuildTemplate generatedTemplate)
+	{
+		template = generatedTemplate;
+		remainingBlocks.clear();
+		previewBlocks.clear();
+		placedConfirmations.clear();
+		previewStartPos = null;
+		previewDirection = null;
+		lastProgressMs = System.currentTimeMillis();
+		status = Status.IDLE;
+	}
+	
 	private void updatePreview()
 	{
 		if(!previewTemplate.isChecked() || template == null)
@@ -596,8 +621,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			return;
 		
 		List<BlockPos> blocksToDraw = blocks.keySet().stream()
-			.filter(pos -> BlockUtils.getState(pos).canBeReplaced()).limit(1024)
-			.toList();
+			.filter(pos -> BlockUtils.getState(pos).canBeReplaced())
+			.limit(16384).toList();
 		
 		int black = 0x80000000;
 		List<AABB> outlineBoxes =
@@ -678,6 +703,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		if(!swapFlightWithAirWalk.isChecked())
 			return;
 		
+		if(enableCreativeFlight.isChecked())
+			return;
+		
 		if(!WURST.getHax().flightHack.isEnabled())
 			return;
 		
@@ -697,5 +725,29 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			WURST.getHax().airWalkHack.setEnabled(false);
 		
 		WURST.getHax().flightHack.setEnabled(true);
+	}
+	
+	private void startCreativeFlightIfEnabled()
+	{
+		if(!enableCreativeFlight.isChecked() || MC.player == null)
+			return;
+		
+		CreativeFlightHack creativeFlight = WURST.getHax().creativeFlightHack;
+		enabledCreativeFlightForBuild = !creativeFlight.isEnabled();
+		if(enabledCreativeFlightForBuild)
+			creativeFlight.setEnabled(true);
+		
+		MC.player.getAbilities().mayfly = true;
+		MC.player.getAbilities().flying = true;
+	}
+	
+	private void stopCreativeFlightIfNeeded()
+	{
+		if(!enabledCreativeFlightForBuild)
+			return;
+		
+		enabledCreativeFlightForBuild = false;
+		if(WURST.getHax().creativeFlightHack.isEnabled())
+			WURST.getHax().creativeFlightHack.setEnabled(false);
 	}
 }
