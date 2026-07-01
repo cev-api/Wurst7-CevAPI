@@ -34,6 +34,13 @@ public final class AutoBuildTemplate
 		this.blocks = blocks;
 	}
 	
+	private AutoBuildTemplate(String name, LinkedHashSet<BlockData> blocks)
+	{
+		path = null;
+		this.name = name;
+		this.blocks = blocks;
+	}
+	
 	public static AutoBuildTemplate load(Path path)
 		throws IOException, JsonException
 	{
@@ -54,6 +61,16 @@ public final class AutoBuildTemplate
 		}
 		
 		return new AutoBuildTemplate(path, loadedBlocks);
+	}
+	
+	public static AutoBuildTemplate createGenerated(String name,
+		LinkedHashSet<int[]> blocks)
+	{
+		LinkedHashSet<BlockData> generatedBlocks = new LinkedHashSet<>();
+		for(int[] pos : blocks)
+			generatedBlocks.add(new BlockData(pos.clone(), ""));
+		
+		return new AutoBuildTemplate(name, generatedBlocks);
 	}
 	
 	private static void loadV2(WsonArray jsonBlocks,
@@ -126,7 +143,12 @@ public final class AutoBuildTemplate
 	
 	public boolean isSelected(FileSetting setting)
 	{
-		return path.equals(setting.getSelectedFile());
+		return path != null && path.equals(setting.getSelectedFile());
+	}
+	
+	public boolean isGenerated()
+	{
+		return path == null;
 	}
 	
 	public String getName()
