@@ -23,6 +23,10 @@ import java.util.Locale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
@@ -46,7 +50,6 @@ import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.RenderUtils;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
@@ -156,6 +159,64 @@ public final class AutoFlyHack extends Hack
 		public String toString()
 		{
 			return name;
+		}
+	}
+	
+	private static enum StopSound
+	{
+		NOTE_BLOCK_HARP("Note Block Harp", "minecraft:block.note_block.harp"),
+		NOTE_BLOCK_BASS("Note Block Bass", "minecraft:block.note_block.bass"),
+		NOTE_BLOCK_BASEDRUM("Note Block Basedrum",
+			"minecraft:block.note_block.basedrum"),
+		NOTE_BLOCK_SNARE("Note Block Snare",
+			"minecraft:block.note_block.snare"),
+		NOTE_BLOCK_HAT("Note Block Hat", "minecraft:block.note_block.hat"),
+		NOTE_BLOCK_GUITAR("Note Block Guitar",
+			"minecraft:block.note_block.guitar"),
+		NOTE_BLOCK_FLUTE("Note Block Flute",
+			"minecraft:block.note_block.flute"),
+		NOTE_BLOCK_BELL("Note Block Bell", "minecraft:block.note_block.bell"),
+		NOTE_BLOCK_CHIME("Note Block Chime",
+			"minecraft:block.note_block.chime"),
+		NOTE_BLOCK_XYLOPHONE("Note Block Xylophone",
+			"minecraft:block.note_block.xylophone"),
+		NOTE_BLOCK_IRON_XYLOPHONE("Note Block Iron Xylophone",
+			"minecraft:block.note_block.iron_xylophone"),
+		NOTE_BLOCK_COW_BELL("Note Block Cow Bell",
+			"minecraft:block.note_block.cow_bell"),
+		NOTE_BLOCK_DIDGERIDOO("Note Block Didgeridoo",
+			"minecraft:block.note_block.didgeridoo"),
+		NOTE_BLOCK_BIT("Note Block Bit", "minecraft:block.note_block.bit"),
+		NOTE_BLOCK_BANJO("Note Block Banjo",
+			"minecraft:block.note_block.banjo"),
+		NOTE_BLOCK_PLING("Note Block Pling",
+			"minecraft:block.note_block.pling");
+		
+		private final String displayName;
+		private final String id;
+		
+		private StopSound(String displayName, String id)
+		{
+			this.displayName = displayName;
+			this.id = id;
+		}
+		
+		private SoundEvent resolve()
+		{
+			try
+			{
+				return BuiltInRegistries.SOUND_EVENT
+					.getValue(Identifier.parse(id));
+			}catch(Exception e)
+			{
+				return null;
+			}
+		}
+		
+		@Override
+		public String toString()
+		{
+			return displayName;
 		}
 	}
 	
@@ -315,6 +376,12 @@ public final class AutoFlyHack extends Hack
 		"Disable on stop",
 		"When AutoFly stops due to a Stop on event, fully disable AutoFly (equivalent to .autofly stop) instead of holding position.",
 		false);
+	private final CheckboxSetting stopSoundEnabled = new CheckboxSetting(
+		"Stop sound",
+		"Play a sound whenever AutoFly stops or is manually stopped.", false);
+	private final EnumSetting<StopSound> stopSound =
+		new EnumSetting<>("Stop sound tone", "Sound played when AutoFly stops.",
+			StopSound.values(), StopSound.NOTE_BLOCK_CHIME);
 	private final CheckboxSetting disableOnPlayers = new CheckboxSetting(
 		"Disable on players",
 		"Disable AutoFly entirely if another player entity is detected nearby.",
@@ -469,6 +536,8 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopKeyword3);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
+		addSetting(stopSoundEnabled);
+		addSetting(stopSound);
 		addSetting(disableOnPlayers);
 		addSetting(disableOnDamage);
 		addSetting(suppressChunkTrailRender);
@@ -787,6 +856,9 @@ public final class AutoFlyHack extends Hack
 		if(chunkAssistActive)
 		{
 			applyChunkCorridorAssist();
+			// Re-apply after corridor analysis so any newly detected slowdown
+			// takes effect on the same tick instead of one tick later.
+			applyFlightSpeed();
 			// Don't block movement if borders aren't visible; a provisional
 			// forward target will be used when no corridor target is found.
 		}
@@ -1307,19 +1379,7 @@ public final class AutoFlyHack extends Hack
 		
 		int runX = getChunkRunLength(chunk, 1, 0, oldChunks, requiredThickness);
 		int runZ = getChunkRunLength(chunk, 0, 1, oldChunks, requiredThickness);
-		if(runX >= requiredThickness && runZ >= requiredThickness)
-			return true;
-			
-		// Also allow path-aligned chunk bands so diagonal crossings don't get
-		// ignored until we've already plowed through them.
-		int lateralRun = getChunkDirectionalRunLength(chunk, right, oldChunks,
-			requiredThickness);
-		if(lateralRun >= requiredThickness)
-			return true;
-		
-		int forwardRun = getChunkDirectionalRunLength(chunk, heading, oldChunks,
-			requiredThickness);
-		return forwardRun >= requiredThickness;
+		return runX >= requiredThickness && runZ >= requiredThickness;
 	}
 	
 	private boolean isMatchingChunkType(ChunkPos chunk, boolean oldChunks)
@@ -1338,31 +1398,6 @@ public final class AutoFlyHack extends Hack
 			{
 				ChunkPos candidate = new ChunkPos(center.x() + stepX * i * dir,
 					center.z() + stepZ * i * dir);
-				if(!isMatchingChunkType(candidate, oldChunks))
-					break;
-				
-				run++;
-				if(run >= limit)
-					return run;
-			}
-		}
-		
-		return run;
-	}
-	
-	private int getChunkDirectionalRunLength(ChunkPos center, Vec3 direction,
-		boolean oldChunks, int limit)
-	{
-		if(center == null || direction == null
-			|| direction.lengthSqr() < 1.0E-6)
-			return 0;
-		
-		int run = 1;
-		for(int dir : new int[]{-1, 1})
-		{
-			for(int i = 1; i < limit; i++)
-			{
-				ChunkPos candidate = stepChunk(center, direction, i * dir);
 				if(!isMatchingChunkType(candidate, oldChunks))
 					break;
 				
@@ -1471,6 +1506,7 @@ public final class AutoFlyHack extends Hack
 		// Stop immediately, even if keys were held from the previous tick.
 		PathProcessor.releaseControls();
 		clearAutoFlyInput();
+		playStopSound();
 		
 		if(disableAutoFlyOnStop.isChecked())
 		{
@@ -1486,6 +1522,15 @@ public final class AutoFlyHack extends Hack
 			.onAutoFlyStopped(message + " (use Next waypoint to continue)");
 		stopHold = true;
 		stopIgnoreTicks = 0;
+	}
+	
+	public void stopFromCommand()
+	{
+		if(!isEnabled())
+			return;
+		
+		playStopSound();
+		setEnabled(false);
 	}
 	
 	private void ensureNewerNewChunksForStopOn()
@@ -2511,7 +2556,6 @@ public final class AutoFlyHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 			return;
-		chunkTrailSpeedScale = 1.0;
 		
 		var chunks = WURST.getHax().newerNewChunksHack;
 		var oldTrail = chunks.getOldChunksLiveView();
@@ -2544,7 +2588,6 @@ public final class AutoFlyHack extends Hack
 		}
 		if(!playerOnUsableGreen && nearbySafe != null)
 		{
-			chunkTrailSpeedScale = 0.35;
 			ChunkPos recoveryTargetChunk = nearbySafe;
 			if(chunkEdgeRecoveryAnchor != null && chunkEdgeRecoveryTicks > 0
 				&& isOldTrailNotNew(oldTrail, newSet, chunkEdgeRecoveryAnchor))
@@ -2612,6 +2655,10 @@ public final class AutoFlyHack extends Hack
 		boolean hasAheadUsableGreen = hasOldTrailAheadFromNearbyOrigins(
 			oldTrail, newSet, playerChunk, earlyAxis, earlyRight,
 			getAheadScanChunks(), getSideScanHalfWidth(), 2);
+		double targetSpeedScale =
+			getChunkTrailSpeedTarget(oldTrail, newSet, playerChunk, earlyAxis,
+				earlyRight, hasNearbyUsableGreen, hasAheadUsableGreen);
+		chunkTrailSpeedScale = smoothChunkTrailSpeedScale(targetSpeedScale);
 		if(!hasNearbyUsableGreen && !hasAheadUsableGreen)
 		{
 			long nowMs = System.currentTimeMillis();
@@ -2682,7 +2729,6 @@ public final class AutoFlyHack extends Hack
 				}
 				if(recoveryTarget != null)
 				{
-					chunkTrailSpeedScale = 0.35;
 					chunkNoTargetTicks++;
 					chunkTrailEndConfirmStrikes = 0;
 					chunkCorridorTargetPos = recoveryTarget;
@@ -2715,8 +2761,6 @@ public final class AutoFlyHack extends Hack
 			Vec3 looseOldTarget = selectLooseOldTrailTarget(oldTrail, newSet,
 				playerPos, pChunk, axis, right, playerForwardProgress);
 			double lead = Math.min(CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS, 10.0);
-			chunkTrailSpeedScale =
-				chunkNoTargetTicks > CHUNK_NO_TARGET_GRACE_TICKS ? 0.2 : 0.35;
 			Vec3 provisional = looseOldTarget != null ? looseOldTarget
 				: playerPos.add(axis.normalize().scale(lead));
 			
@@ -2728,9 +2772,6 @@ public final class AutoFlyHack extends Hack
 				double centerOffsetChunks = (rightDist - leftDist) * 0.5;
 				lateral +=
 					Math.max(-24.0, Math.min(24.0, centerOffsetChunks * 16.0));
-				int nearestWall = Math.min(leftDist, rightDist);
-				if(nearestWall <= 2)
-					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 			}else
 			{
 				int guard = Math.max(3, CHUNK_MIN_CORRIDOR_THICKNESS);
@@ -2738,12 +2779,10 @@ public final class AutoFlyHack extends Hack
 				if(leftDist > 0 && leftDist <= guard)
 				{
 					lateral += (guard + 1 - leftDist) * nudge; // push right
-					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 				}
 				if(rightDist > 0 && rightDist <= guard)
 				{
 					lateral -= (guard + 1 - rightDist) * nudge; // push left
-					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 				}
 			}
 			if(Math.abs(lateral) > 0.01)
@@ -3431,6 +3470,77 @@ public final class AutoFlyHack extends Hack
 		return false;
 	}
 	
+	private double getChunkTrailSpeedTarget(java.util.Set<ChunkPos> oldTrail,
+		java.util.Set<ChunkPos> newChunks, ChunkPos playerChunk, Vec3 forward,
+		Vec3 right, boolean hasNearbyUsableGreen, boolean hasAheadUsableGreen)
+	{
+		if(oldTrail == null || oldTrail.isEmpty() || playerChunk == null)
+			return 1.0;
+		
+		Vec3 flatForward =
+			forward == null ? null : new Vec3(forward.x, 0.0, forward.z);
+		Vec3 flatRight = right == null ? null : new Vec3(right.x, 0.0, right.z);
+		if(flatForward == null || flatForward.lengthSqr() < 1.0E-6
+			|| flatRight == null || flatRight.lengthSqr() < 1.0E-6)
+			return hasNearbyUsableGreen ? 1.0 : 0.55;
+		
+		flatForward = flatForward.normalize();
+		flatRight = flatRight.normalize();
+		
+		int forwardLimit = Math.max(2, getAheadScanChunks());
+		int sideLimit = Math.max(1, getSideScanHalfWidth());
+		int seenRows = 0;
+		double coverageSum = 0.0;
+		for(int f = 1; f <= forwardLimit; f++)
+		{
+			ChunkPos front = stepChunk(playerChunk, flatForward, f);
+			int usableInRow = 0;
+			int samplesInRow = 0;
+			for(int w = -sideLimit; w <= sideLimit; w++)
+			{
+				ChunkPos sample = stepChunk(front, flatRight, w);
+				samplesInRow++;
+				if(isOldTrailNotNew(oldTrail, newChunks, sample))
+					usableInRow++;
+			}
+			
+			if(usableInRow == 0)
+				break;
+			
+			seenRows++;
+			coverageSum += (double)usableInRow / samplesInRow;
+		}
+		
+		double targetScale;
+		if(seenRows == 0)
+			targetScale = hasNearbyUsableGreen ? 0.75 : 0.45;
+		else
+		{
+			double depthRatio = seenRows / (double)forwardLimit;
+			double coverageRatio = coverageSum / seenRows;
+			double confidence = depthRatio * 0.8 + coverageRatio * 0.2;
+			double slowdown = 1.0 - confidence;
+			targetScale = 1.0 - slowdown * slowdown * 0.85;
+		}
+		
+		// Keep the signal biased toward full speed and only shave off speed
+		// when the forward corridor really starts to disappear.
+		if(!hasNearbyUsableGreen)
+			targetScale = Math.min(targetScale, 0.85);
+		if(!hasAheadUsableGreen)
+			targetScale = Math.min(targetScale, 0.92);
+		
+		return MathUtils.clamp(targetScale, 0.3, 1.0);
+	}
+	
+	private double smoothChunkTrailSpeedScale(double targetScale)
+	{
+		targetScale = MathUtils.clamp(targetScale, 0.3, 1.0);
+		chunkTrailSpeedScale = MathUtils
+			.clamp(chunkTrailSpeedScale * 0.7 + targetScale * 0.3, 0.3, 1.0);
+		return chunkTrailSpeedScale;
+	}
+	
 	private static int getAdaptiveAheadScanHalfWidth(int baseHalfWidth,
 		int leftWallDist, int rightWallDist)
 	{
@@ -4075,6 +4185,21 @@ public final class AutoFlyHack extends Hack
 		if(reason != null && !reason.isBlank())
 			ChatUtils.message(reason);
 		setEnabled(false);
+	}
+	
+	private void playStopSound()
+	{
+		if(!stopSoundEnabled.isChecked() || MC.level == null
+			|| MC.player == null)
+			return;
+		
+		SoundEvent soundEvent = stopSound.getSelected().resolve();
+		if(soundEvent == null)
+			return;
+		
+		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+			MC.player.getZ(), soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F,
+			false);
 	}
 	
 	private void beginManualAdjust(Vec3 playerPos)

@@ -49,6 +49,8 @@ public final class CmdList
 	public final IpCmd ipCmd = new IpCmd();
 	public final ItemListCmd itemListCmd = new ItemListCmd();
 	public final JumpCmd jumpCmd = new JumpCmd();
+	public final KeyboardCmd keyboardCmd = new KeyboardCmd();
+	public final KeymapCmd keymapCmd = new KeymapCmd();
 	public final LeaveCmd leaveCmd = new LeaveCmd();
 	public final LivestreamCmd livestreamCmd = new LivestreamCmd();
 	public final MapaCmd mapaCmd = new MapaCmd();

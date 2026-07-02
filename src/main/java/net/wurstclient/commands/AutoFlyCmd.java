@@ -67,8 +67,7 @@ public final class AutoFlyCmd extends Command
 			if(cmd.equalsIgnoreCase("stop") || cmd.equalsIgnoreCase("off")
 				|| cmd.equalsIgnoreCase("disable"))
 			{
-				if(WURST.getHax().autoFlyHack.isEnabled())
-					WURST.getHax().autoFlyHack.setEnabled(false);
+				WURST.getHax().autoFlyHack.stopFromCommand();
 				return;
 			}
 		}
