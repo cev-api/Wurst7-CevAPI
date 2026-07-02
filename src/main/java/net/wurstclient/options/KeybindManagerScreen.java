@@ -24,6 +24,7 @@ import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.KeybindList;
+import net.wurstclient.keymap.KeyboardBindsScreen;
 import net.wurstclient.util.WurstColors;
 
 public final class KeybindManagerScreen extends Screen
@@ -54,20 +55,25 @@ public final class KeybindManagerScreen extends Screen
 					.builder(Component.literal("Add"),
 						b -> minecraft.gui
 							.setScreen(new KeybindEditorScreen(this)))
-					.bounds(width / 2 - 102, height - 52, 100, 20).build());
-		
-		addRenderableWidget(
-			editButton = Button.builder(Component.literal("Edit"), b -> edit())
-				.bounds(width / 2 + 2, height - 52, 100, 20).build());
+					.bounds(width / 2 - 154, height - 52, 100, 20).build());
 		
 		addRenderableWidget(removeButton =
 			Button.builder(Component.literal("Remove"), b -> remove())
-				.bounds(width / 2 - 102, height - 28, 100, 20).build());
+				.bounds(width / 2 - 50, height - 52, 100, 20).build());
+		
+		addRenderableWidget(
+			editButton = Button.builder(Component.literal("Edit"), b -> edit())
+				.bounds(width / 2 + 54, height - 52, 100, 20).build());
+		
+		addRenderableWidget(Button
+			.builder(Component.literal("View Keyboard"),
+				b -> minecraft.gui.setScreen(new KeyboardBindsScreen(this)))
+			.bounds(width / 2 - 104, height - 28, 100, 20).build());
 		
 		addRenderableWidget(backButton = Button
 			.builder(Component.literal("Back"),
 				b -> minecraft.gui.setScreen(prevScreen))
-			.bounds(width / 2 + 2, height - 28, 100, 20).build());
+			.bounds(width / 2 + 4, height - 28, 100, 20).build());
 		
 		addRenderableWidget(Button.builder(Component.literal("Reset Keybinds"),
 			b -> minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
