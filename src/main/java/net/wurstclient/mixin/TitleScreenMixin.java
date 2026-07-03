@@ -23,7 +23,7 @@ import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.resources.language.I18n;
@@ -48,6 +48,16 @@ public abstract class TitleScreenMixin extends Screen
 	private static final int TARGET_LOGO_WIDTH = 256;
 	private static final int TARGET_LOGO_TOP = 30;
 	private static final int LOGO_BUTTON_GAP = 8;
+	private static final String[] CEVAPI_TITLE_TEXTURES = new String[]{
+		"cevapi_title.png", "cevapi_title_2.png", "cevapi_title_3.png",
+		"cevapi_title_4.png", "cevapi_title_5.png", "cevapi_title_6.png",
+		"cevapi_title_7.png", "cevapi_title_8.png", "cevapi_title_9.png",
+		"cevapi_title_10.png", "cevapi_title_11.png", "cevapi_title_12.png",
+		"cevapi_title_13.png", "cevapi_title_14.png", "cevapi_title_15.png",
+		"cevapi_title_16.png", "cevapi_title_17.png", "cevapi_title_18.png",
+		"cevapi_title_19.png", "cevapi_title_20.png"};
+	private static final String[] NICEWURST_TITLE_TEXTURES =
+		new String[]{"nicewurst_title.png"};
 	
 	private static int titleWidth = -1;
 	private static int titleHeight = -1;
@@ -95,7 +105,7 @@ public abstract class TitleScreenMixin extends Screen
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
-		for(AbstractWidget button : Screens.getButtons(this))
+		for(AbstractWidget button : Screens.getWidgets(this))
 		{
 			if(!button.getMessage().getString().equals(I18n.get("menu.online")))
 				continue;
@@ -117,7 +127,7 @@ public abstract class TitleScreenMixin extends Screen
 				.builder(
 					Component.literal(
 						NiceWurstModule.getOptionsLabel("Wurst Options")),
-					b -> minecraft.setScreen(new WurstOptionsScreen(this)))
+					b -> minecraft.gui.setScreen(new WurstOptionsScreen(this)))
 				.bounds(width / 2 + 2, realmsButton.getY(), 98, 20).build());
 		}else
 			wurstOptionsButton = null;
@@ -141,8 +151,8 @@ public abstract class TitleScreenMixin extends Screen
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
-	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
+	private void onRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -155,26 +165,27 @@ public abstract class TitleScreenMixin extends Screen
 		String suffix = WurstClient.INSTANCE.getForkUpdateChecker() == null ? ""
 			: WurstClient.INSTANCE.getForkUpdateChecker().getStatusSuffix();
 		String text = baseText + suffix;
-		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
-			4, 4, 0xFFFFFFFF, true);
+		graphics.text(font, Component.literal(text).getVisualOrderText(), 4, 4,
+			0xFFFFFFFF, true);
 	}
 	
 	/**
 	 * Replaces the vanilla Minecraft logo on the title screen with the client
 	 * supplied CevAPI logo.
 	 */
-	@Redirect(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+	@Redirect(
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
-	private void onRenderLogo(LogoRenderer logoRenderer, GuiGraphics graphics,
-		int width, float fade)
+			target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"))
+	private void onRenderLogo(LogoRenderer logoRenderer,
+		GuiGraphicsExtractor graphics, int width, float fade)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 		{
 			// If UI mixins are hidden, render the vanilla logo instead of
 			// suppressing the call entirely so the title screen still shows
 			// a logo.
-			logoRenderer.renderLogo(graphics, width, fade);
+			logoRenderer.extractRenderState(graphics, width, fade);
 			return;
 		}
 		
@@ -183,7 +194,7 @@ public abstract class TitleScreenMixin extends Screen
 			return;
 		
 		int minButtonY = Integer.MAX_VALUE;
-		for(AbstractWidget widget : Screens.getButtons(this))
+		for(AbstractWidget widget : Screens.getWidgets(this))
 		{
 			if(widget == null)
 				continue;
@@ -222,19 +233,16 @@ public abstract class TitleScreenMixin extends Screen
 	private static void onRegisterTextures(TextureManager textureManager,
 		CallbackInfo ci)
 	{
-		// Register a broad set of possible title textures for reloads so they
-		// are
-		// available when randomly selected.
-		String[] bases = new String[]{"nicewurst_title", "cevapi_title"};
-		for(String base : bases)
+		// Register only textures that actually exist in the resource pack.
+		for(String texture : NICEWURST_TITLE_TEXTURES)
 		{
 			textureManager.registerForNextReload(
-				Identifier.fromNamespaceAndPath("wurst", base + ".png"));
-			for(int i = 1; i <= 99; i++)
-			{
-				textureManager.registerForNextReload(Identifier
-					.fromNamespaceAndPath("wurst", base + "_" + i + ".png"));
-			}
+				Identifier.fromNamespaceAndPath("wurst", texture));
+		}
+		for(String texture : CEVAPI_TITLE_TEXTURES)
+		{
+			textureManager.registerForNextReload(
+				Identifier.fromNamespaceAndPath("wurst", texture));
 		}
 	}
 	
@@ -265,13 +273,11 @@ public abstract class TitleScreenMixin extends Screen
 			|| WurstClient.MC.getResourceManager() == null)
 			return;
 		// Build a list of candidate title textures (randomized)
-		String base =
-			NiceWurstModule.isActive() ? "nicewurst_title" : "cevapi_title";
+		String[] textures = NiceWurstModule.isActive()
+			? NICEWURST_TITLE_TEXTURES : CEVAPI_TITLE_TEXTURES;
 		java.util.List<Identifier> candidates = new java.util.ArrayList<>();
-		candidates.add(Identifier.fromNamespaceAndPath("wurst", base + ".png"));
-		for(int i = 1; i <= 99; i++)
-			candidates.add(Identifier.fromNamespaceAndPath("wurst",
-				base + "_" + i + ".png"));
+		for(String texture : textures)
+			candidates.add(Identifier.fromNamespaceAndPath("wurst", texture));
 		
 		java.util.Random rnd = new java.util.Random();
 		java.util.Collections.shuffle(candidates, rnd);
@@ -301,7 +307,7 @@ public abstract class TitleScreenMixin extends Screen
 			titleWidth = TARGET_LOGO_WIDTH;
 			titleHeight = 64;
 			CURRENT_TITLE_TEXTURE =
-				Identifier.fromNamespaceAndPath("wurst", base + ".png");
+				Identifier.fromNamespaceAndPath("wurst", textures[0]);
 		}
 	}
 }
