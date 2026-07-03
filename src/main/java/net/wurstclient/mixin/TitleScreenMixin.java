@@ -48,6 +48,16 @@ public abstract class TitleScreenMixin extends Screen
 	private static final int TARGET_LOGO_WIDTH = 256;
 	private static final int TARGET_LOGO_TOP = 30;
 	private static final int LOGO_BUTTON_GAP = 8;
+	private static final String[] CEVAPI_TITLE_TEXTURES = new String[]{
+		"cevapi_title.png", "cevapi_title_2.png", "cevapi_title_3.png",
+		"cevapi_title_4.png", "cevapi_title_5.png", "cevapi_title_6.png",
+		"cevapi_title_7.png", "cevapi_title_8.png", "cevapi_title_9.png",
+		"cevapi_title_10.png", "cevapi_title_11.png", "cevapi_title_12.png",
+		"cevapi_title_13.png", "cevapi_title_14.png", "cevapi_title_15.png",
+		"cevapi_title_16.png", "cevapi_title_17.png", "cevapi_title_18.png",
+		"cevapi_title_19.png", "cevapi_title_20.png"};
+	private static final String[] NICEWURST_TITLE_TEXTURES =
+		new String[]{"nicewurst_title.png"};
 	
 	private static int titleWidth = -1;
 	private static int titleHeight = -1;
@@ -223,19 +233,16 @@ public abstract class TitleScreenMixin extends Screen
 	private static void onRegisterTextures(TextureManager textureManager,
 		CallbackInfo ci)
 	{
-		// Register a broad set of possible title textures for reloads so they
-		// are
-		// available when randomly selected.
-		String[] bases = new String[]{"nicewurst_title", "cevapi_title"};
-		for(String base : bases)
+		// Register only textures that actually exist in the resource pack.
+		for(String texture : NICEWURST_TITLE_TEXTURES)
 		{
 			textureManager.registerForNextReload(
-				Identifier.fromNamespaceAndPath("wurst", base + ".png"));
-			for(int i = 1; i <= 99; i++)
-			{
-				textureManager.registerForNextReload(Identifier
-					.fromNamespaceAndPath("wurst", base + "_" + i + ".png"));
-			}
+				Identifier.fromNamespaceAndPath("wurst", texture));
+		}
+		for(String texture : CEVAPI_TITLE_TEXTURES)
+		{
+			textureManager.registerForNextReload(
+				Identifier.fromNamespaceAndPath("wurst", texture));
 		}
 	}
 	
@@ -266,13 +273,11 @@ public abstract class TitleScreenMixin extends Screen
 			|| WurstClient.MC.getResourceManager() == null)
 			return;
 		// Build a list of candidate title textures (randomized)
-		String base =
-			NiceWurstModule.isActive() ? "nicewurst_title" : "cevapi_title";
+		String[] textures = NiceWurstModule.isActive()
+			? NICEWURST_TITLE_TEXTURES : CEVAPI_TITLE_TEXTURES;
 		java.util.List<Identifier> candidates = new java.util.ArrayList<>();
-		candidates.add(Identifier.fromNamespaceAndPath("wurst", base + ".png"));
-		for(int i = 1; i <= 99; i++)
-			candidates.add(Identifier.fromNamespaceAndPath("wurst",
-				base + "_" + i + ".png"));
+		for(String texture : textures)
+			candidates.add(Identifier.fromNamespaceAndPath("wurst", texture));
 		
 		java.util.Random rnd = new java.util.Random();
 		java.util.Collections.shuffle(candidates, rnd);
@@ -302,7 +307,7 @@ public abstract class TitleScreenMixin extends Screen
 			titleWidth = TARGET_LOGO_WIDTH;
 			titleHeight = 64;
 			CURRENT_TITLE_TEXTURE =
-				Identifier.fromNamespaceAndPath("wurst", base + ".png");
+				Identifier.fromNamespaceAndPath("wurst", textures[0]);
 		}
 	}
 }
