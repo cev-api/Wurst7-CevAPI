@@ -426,8 +426,8 @@ public final class KeyboardBindsScreen extends Screen
 			context.drawString(font, "!", x + w - 8, y + 2, 0xFFFFB3B3, false);
 	}
 	
-	private void drawCenteredScaledFitText(GuiGraphics context, Font font,
-		String text, int x1, int y1, int x2, int y2, int color)
+	private void drawCenteredScaledFitText(GuiGraphicsExtractor context,
+		Font font, String text, int x1, int y1, int x2, int y2, int color)
 	{
 		if(text == null || text.isBlank() || x2 <= x1)
 			return;
@@ -467,7 +467,7 @@ public final class KeyboardBindsScreen extends Screen
 		return builder + ellipsis;
 	}
 	
-	private void drawCenteredFitText(GuiGraphics context, Font font,
+	private void drawCenteredFitText(GuiGraphicsExtractor context, Font font,
 		String text, int x1, int y1, int x2, int y2, int color)
 	{
 		drawCenteredScaledFitText(context, font, text, x1, y1, x2, y2, color);

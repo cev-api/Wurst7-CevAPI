@@ -15,7 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
@@ -159,7 +159,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		"Appends the number of detected items to this hack's entry in the HackList.",
 		false);
 	private final CheckboxSetting itemTags = new CheckboxSetting("Item tags",
-		"Draws item icons and stack counts above dropped items.", false);
+		"Draws item icons and stack counts above dropped items.", true);
 	private final SliderSetting itemTagScale =
 		new SliderSetting("Item tag scale", 1, 0.25, 3, 0.05,
 			SliderSetting.ValueDisplay.PERCENTAGE);
@@ -249,7 +249,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!itemTags.isChecked() || MC.level == null || MC.player == null)
 			return;
@@ -281,6 +281,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			
 			Vec3 worldPos = EntityUtils.getLerpedPos(entity, partialTicks)
 				.add(0, entity.getBbHeight() + 0.35, 0);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -333,6 +335,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			}
 			
 			Vec3 worldPos = center.scale(1.0 / clusterSize);
+			if(isBehindCamera(worldPos))
+				continue;
 			Vec3 projected = MC.gameRenderer.projectPointToScreen(worldPos);
 			if(projected.z <= -1 || projected.z >= 1)
 				continue;
@@ -347,8 +351,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private void drawItemTag(GuiGraphics context, Font font, ItemStack stack,
-		int displayCount, float centerX, float centerY)
+	private void drawItemTag(GuiGraphicsExtractor context, Font font,
+		ItemStack stack, int displayCount, float centerX, float centerY)
 	{
 		float scale = itemTagScale.getValueF();
 		String count = displayCount > 1 ? String.valueOf(displayCount) : "";
@@ -364,10 +368,27 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		context.pose().pushMatrix();
 		context.pose().translate(x + 1 * scale, y + 1 * scale);
 		context.pose().scale(scale, scale);
-		RenderUtils.drawItem(context, stack, 0, 0, true);
+		context.item(stack, 0, 0);
 		if(!count.isEmpty())
-			context.drawString(font, count, 19, 5, 0xFFFFFFFF, true);
+			context.text(font, count, 19, 5, 0xFFFFFFFF, true);
 		context.pose().popMatrix();
+	}
+	
+	private boolean isBehindCamera(Vec3 worldPos)
+	{
+		if(MC.gameRenderer == null || MC.gameRenderer.mainCamera() == null)
+			return false;
+		
+		Vec3 camPos = MC.gameRenderer.mainCamera().position();
+		Vec3 toItem = worldPos.subtract(camPos);
+		if(toItem.lengthSqr() == 0)
+			return false;
+		
+		double yawRad = Math.toRadians(MC.gameRenderer.mainCamera().yRot());
+		double pitchRad = Math.toRadians(MC.gameRenderer.mainCamera().xRot());
+		Vec3 forward = new Vec3(-Math.sin(yawRad) * Math.cos(pitchRad),
+			-Math.sin(pitchRad), Math.cos(yawRad) * Math.cos(pitchRad));
+		return toItem.dot(forward) <= 0;
 	}
 	
 	// Expose ignored-items configuration for other features (like ItemHandler)
@@ -851,11 +872,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				specialTracerColor = RenderUtils.flashColor(specialTracerColor);
 			}
 			if(!linesOnlyForSpecial.isChecked() && !normalEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
-					normalTracerColor, false);
+				RenderUtils.drawTracers("itemesp:normal", matrixStack,
+					partialTicks, normalEnds, normalTracerColor, false);
 			if(!specialEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, specialEnds,
-					specialTracerColor, false);
+				RenderUtils.drawTracers("itemesp:special", matrixStack,
+					partialTicks, specialEnds, specialTracerColor, false);
 			// draw traced lines last with rainbow color
 			if(!tracedEnds.isEmpty())
 			{
@@ -863,8 +884,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
 				if(tracerFlash.isChecked())
 					tracedLines = RenderUtils.flashColor(tracedLines);
-				RenderUtils.drawTracers(matrixStack, partialTicks, tracedEnds,
-					tracedLines, false);
+				RenderUtils.drawTracers("itemesp:traced", matrixStack,
+					partialTicks, tracedEnds, tracedLines, false);
 			}
 		}
 	}
@@ -921,7 +942,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					id.contains(":") ? id.substring(id.indexOf(":") + 1) : id;
 				String localSpaced = localId.replace('_', ' ');
 				String transKey = item.getDescriptionId();
-				String display = item.getName().getString();
+				String display = item.getName(new ItemStack(item)).getString();
 				String stackDisplay = stack.getHoverName().getString();
 				if(specialKeywords != null)
 					for(String term : specialKeywords)
@@ -984,7 +1005,7 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			? fullId.substring(fullId.indexOf(":") + 1) : fullId;
 		String localSpaced = localId.replace('_', ' ');
 		String transKey = item.getDescriptionId();
-		String display = item.getName().getString();
+		String display = item.getName(new ItemStack(item)).getString();
 		String stackDisplay =
 			stack != null ? stack.getHoverName().getString() : "";
 		String[] terms = Arrays.stream(normalizedQuery.split(","))

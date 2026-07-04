@@ -7,6 +7,7 @@
  */
 package net.wurstclient.util;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -19,9 +20,11 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font.DisplayMode;
+import net.minecraft.client.gui.font.TextRenderable;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -104,14 +107,37 @@ public enum RenderUtils
 			
 			String source = TRACER_SOURCE.get();
 			if(source == null)
+				source = deriveTracerSource();
+			if(source == null)
 				return true;
 			
+			WurstClient.INSTANCE.getHax().globalToggleHack
+				.noteTracerSource(source);
 			return !WurstClient.INSTANCE.getHax().globalToggleHack
 				.isTracerSourceWhitelisted(source);
 		}catch(Exception ignored)
 		{
 			return false;
 		}
+	}
+	
+	private static String deriveTracerSource()
+	{
+		StackTraceElement[] trace = new Throwable().getStackTrace();
+		for(StackTraceElement frame : trace)
+		{
+			String cls = frame.getClassName();
+			if(cls == null)
+				continue;
+			if(cls.equals(RenderUtils.class.getName()))
+				continue;
+			if(cls.startsWith("java.lang.Thread"))
+				continue;
+			if(cls.startsWith("net.wurstclient.util.RenderUtils"))
+				continue;
+			return cls + "#" + frame.getMethodName();
+		}
+		return null;
 	}
 	
 	private static void withTracerSource(String source, Runnable action)
@@ -153,7 +179,7 @@ public enum RenderUtils
 	
 	public static Vec3 getCameraPos()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return Vec3.ZERO;
 		
@@ -162,7 +188,7 @@ public enum RenderUtils
 	
 	public static Rotation getCameraRotation()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return new Rotation(0, 0);
 		
@@ -171,7 +197,7 @@ public enum RenderUtils
 	
 	public static BlockPos getCameraBlockPos()
 	{
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return BlockPos.ZERO;
 		
@@ -217,69 +243,120 @@ public enum RenderUtils
 		return false;
 	}
 	
-	public static MultiBufferSource.BufferSource getVCP()
+	public static WurstBufferSource getVCP()
 	{
-		return WurstClient.MC.renderBuffers().bufferSource();
+		return new WurstBufferSource();
 	}
 	
-	private static MultiBufferSource.BufferSource textBuffer;
+	private static StagedVertexBuffer textBuffer;
+	private static final java.util.ArrayList<StagedVertexBuffer.Draw> textDraws =
+		new java.util.ArrayList<>();
+	private static final java.util.ArrayList<RenderType> textDrawTypes =
+		new java.util.ArrayList<>();
+	private static RenderType textLastType;
+	private static StagedVertexBuffer.Draw textLastDraw;
 	
-	/** Flushes all world-space text queued during the current render frame. */
+	// Uploads and draws all text submitted this frame in a single batch, then
+	// recycles the GPU buffer pools. Must be called once per frame after all
+	// world-space text is submitted (see LevelRendererMixin). Drawing all text
+	// here - instead of uploading per label - collapses dozens of per-label GPU
+	// uploads and fence waits into one.
 	public static void endTextFrame()
 	{
-		MultiBufferSource.BufferSource buffer = textBuffer;
-		if(buffer == null)
+		StagedVertexBuffer svb = textBuffer;
+		if(svb == null)
 			return;
 		
 		try
 		{
-			buffer.endBatch();
+			if(!textDraws.isEmpty())
+			{
+				svb.upload();
+				for(int i = 0; i < textDraws.size(); i++)
+				{
+					StagedVertexBuffer.ExecuteInfo info =
+						svb.getExecuteInfo(textDraws.get(i));
+					if(info != null)
+						textDrawTypes.get(i).prepare().drawFromBuffer(info);
+				}
+			}
 		}finally
 		{
-			textBuffer = null;
+			textDraws.clear();
+			textDrawTypes.clear();
+			textLastType = null;
+			textLastDraw = null;
+			svb.endDraw();
+			svb.endFrame();
 		}
 	}
 	
 	public static void drawTextInBatch(Font font, String text, float x, float y,
-		int color, boolean shadow, Matrix4f matrix,
-		MultiBufferSource.BufferSource ignored, Font.DisplayMode displayMode,
-		int backgroundColor, int packedLight)
+		int color, boolean shadow, Matrix4f matrix, WurstBufferSource vcp,
+		DisplayMode displayMode, int backgroundColor, int packedLight)
 	{
 		if(text == null || text.isEmpty())
 			return;
 		
 		if(textBuffer == null)
-			textBuffer = getVCP();
+			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
-		font.drawInBatch(text, x, y, color, shadow, matrix, textBuffer,
-			displayMode, backgroundColor, packedLight);
+		var prepared = font.prepareText(text, x, y, color, shadow, packedLight);
+		appendPreparedText(prepared, matrix, displayMode, packedLight);
 	}
 	
 	public static void drawOutlinedTextInBatch(Font font, String text, float x,
 		float y, int color, int outlineColor, Matrix4f matrix,
-		Font.DisplayMode displayMode, int backgroundColor, int packedLight)
+		DisplayMode displayMode, int backgroundColor, int packedLight)
 	{
 		if(text == null || text.isEmpty())
 			return;
 		
-		drawTextInBatch(font, text, x - 1, y, outlineColor, false, matrix, null,
-			displayMode, 0, packedLight);
-		drawTextInBatch(font, text, x + 1, y, outlineColor, false, matrix, null,
-			displayMode, 0, packedLight);
-		drawTextInBatch(font, text, x, y - 1, outlineColor, false, matrix, null,
-			displayMode, 0, packedLight);
-		drawTextInBatch(font, text, x, y + 1, outlineColor, false, matrix, null,
-			displayMode, 0, packedLight);
-		drawTextInBatch(font, text, x, y, color, false, matrix, null,
-			displayMode, backgroundColor, packedLight);
+		if(textBuffer == null)
+			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
+			
+		// Shape the outline once and stamp it at the four 1px offsets via
+		// translated matrices, instead of re-shaping the string four times.
+		var outline = font.prepareText(text, x, y, outlineColor, false, 0);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(-1, 0, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(1, 0, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(0, -1, 0),
+			displayMode, packedLight);
+		appendPreparedText(outline, new Matrix4f(matrix).translate(0, 1, 0),
+			displayMode, packedLight);
+		
+		var main = font.prepareText(text, x, y, color, false, backgroundColor);
+		appendPreparedText(main, matrix, displayMode, packedLight);
 	}
 	
-	public static float getCappedWorldLabelScale(float baseScale,
-		double distance)
+	private static void appendPreparedText(Font.PreparedText prepared,
+		Matrix4f matrix, DisplayMode displayMode, int packedLight)
 	{
-		double factor = Math.max(1.0, distance * 0.1);
-		factor = Math.min(factor, 1.2);
-		return baseScale * (float)factor;
+		StagedVertexBuffer svb = textBuffer;
+		prepared.visit(new Font.GlyphVisitor()
+		{
+			@Override
+			public void acceptGlyph(TextRenderable.Styled glyph)
+			{
+				RenderType type = glyph.renderType(displayMode);
+				if(textLastDraw == null || type != textLastType
+					|| !type.canConsolidateConsecutiveGeometry())
+				{
+					textLastDraw = svb.appendDraw(type.format(),
+						type.primitiveTopology(),
+						type.sortOnUpload()
+							? RenderSystem.getProjectionType().vertexSorting()
+							: null);
+					textDraws.add(textLastDraw);
+					textDrawTypes.add(type);
+					textLastType = type;
+				}
+				glyph.render(matrix, svb.getVertexBuilder(textLastDraw),
+					packedLight, false);
+			}
+		});
 	}
 	
 	public static float[] getRainbowColor()
@@ -344,7 +421,7 @@ public enum RenderUtils
 			color, depthTest, DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -382,7 +459,7 @@ public enum RenderUtils
 			depthTest, DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -430,7 +507,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -448,6 +525,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -489,7 +568,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -508,6 +587,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -555,7 +636,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -574,6 +655,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawTracers(String source, PoseStack matrices,
@@ -684,7 +767,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -704,6 +787,9 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,
 		int color, boolean depthTest)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		Vec3 offset = getCameraPos().reverse();
 		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
@@ -712,7 +798,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -724,6 +810,9 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,
 		int color, boolean depthTest, double width)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		float appliedWidth =
 			(float)Mth.clamp(width, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
@@ -734,7 +823,7 @@ public enum RenderUtils
 			appliedWidth))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLineStrip(depthTest, width);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -746,12 +835,18 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		drawCurvedLine(matrices, buffer, points, color, DEFAULT_LINE_WIDTH);
 	}
 	
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color, float lineWidth)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverBufferedLineCalls()
 			&& globalEsp.submitCurvedLine(matrices, points, color,
@@ -775,6 +870,20 @@ public enum RenderUtils
 		}
 	}
 	
+	public static void drawCurvedLine(String source, PoseStack matrices,
+		List<Vec3> points, int color, boolean depthTest)
+	{
+		withTracerSource(source,
+			() -> drawCurvedLine(matrices, points, color, depthTest));
+	}
+	
+	public static void drawCurvedLine(String source, PoseStack matrices,
+		List<Vec3> points, int color, boolean depthTest, double width)
+	{
+		withTracerSource(source,
+			() -> drawCurvedLine(matrices, points, color, depthTest, width));
+	}
+	
 	public static void drawSolidBox(PoseStack matrices, AABB box, int color,
 		boolean depthTest)
 	{
@@ -791,7 +900,7 @@ public enum RenderUtils
 		if(globalEsp.submitSolidBox(matrices, shiftedBox, color, depthTest))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -825,7 +934,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -851,6 +960,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidBoxes(PoseStack matrices,
@@ -878,7 +989,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -905,6 +1016,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidBox(VertexConsumer buffer, AABB box, int color)
@@ -965,7 +1078,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -983,6 +1096,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedOctahedrons(PoseStack matrices,
@@ -991,7 +1106,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1009,6 +1124,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidOctahedrons(PoseStack matrices,
@@ -1017,7 +1134,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1034,6 +1151,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawSolidOctahedrons(PoseStack matrices,
@@ -1042,7 +1161,7 @@ public enum RenderUtils
 		boolean overlay = NiceWurstModule.shouldOverlayEntityShapes();
 		if(!overlay)
 			depthTest = NiceWurstModule.enforceDepthTest(depthTest);
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getQuads(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1060,6 +1179,8 @@ public enum RenderUtils
 		
 		if(rendered)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedOctahedron(VertexConsumer buffer, AABB box,
@@ -1209,7 +1330,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1243,7 +1364,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1269,6 +1390,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBoxes(PoseStack matrices,
@@ -1296,7 +1419,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1323,6 +1446,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBoxes(PoseStack matrices,
@@ -1355,7 +1480,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest, lineWidth);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1382,6 +1507,8 @@ public enum RenderUtils
 		
 		if(rendered && boxesInBatch > 0)
 			vcp.endBatch(layer);
+		else
+			vcp.close();
 	}
 	
 	public static void drawOutlinedBox(VertexConsumer buffer, AABB box,
@@ -1474,7 +1601,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1503,7 +1630,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1537,7 +1664,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1646,7 +1773,7 @@ public enum RenderUtils
 			DEFAULT_LINE_WIDTH))
 			return;
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1675,7 +1802,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1707,7 +1834,7 @@ public enum RenderUtils
 			return;
 		}
 		
-		MultiBufferSource.BufferSource vcp = getVCP();
+		WurstBufferSource vcp = getVCP();
 		RenderType layer = WurstRenderLayers.getLines(depthTest);
 		VertexConsumer buffer = vcp.getBuffer(layer);
 		
@@ -1767,8 +1894,9 @@ public enum RenderUtils
 	public static void drawArrow(PoseStack matrices, VertexConsumer buffer,
 		BlockPos from, BlockPos to, RegionPos region, int color)
 	{
-		Vec3 fromVec = from.getCenter().subtract(region.x(), 0, region.z());
-		Vec3 toVec = to.getCenter().subtract(region.x(), 0, region.z());
+		Vec3 fromVec =
+			Vec3.atCenterOf(from).subtract(region.x(), 0, region.z());
+		Vec3 toVec = Vec3.atCenterOf(to).subtract(region.x(), 0, region.z());
 		drawArrow(matrices, buffer, fromVec, toVec, color, 1 / 16F);
 	}
 	
@@ -1823,8 +1951,8 @@ public enum RenderUtils
 		matrices.popPose();
 	}
 	
-	public static void drawItem(GuiGraphics context, ItemStack stack, int x,
-		int y, boolean large)
+	public static void drawItem(GuiGraphicsExtractor context, ItemStack stack,
+		int x, int y, boolean large)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		
@@ -1838,7 +1966,7 @@ public enum RenderUtils
 		ItemStack renderStack = stack.isEmpty() || stack.getItem() == null
 			? new ItemStack(Blocks.GRASS_BLOCK) : stack;
 		
-		context.renderItem(renderStack, 0, 0);
+		context.item(renderStack, 0, 0);
 		
 		matrixStack.popMatrix();
 		
@@ -1851,19 +1979,19 @@ public enum RenderUtils
 				matrixStack.scale(2, 2);
 			
 			Font tr = WurstClient.MC.font;
-			context.drawString(tr, "?", 3, 2, WurstColors.VERY_LIGHT_GRAY,
-				true);
+			context.text(tr, "?", 3, 2, WurstColors.VERY_LIGHT_GRAY, true);
 			
 			matrixStack.popMatrix();
 		}
 	}
 	
 	/**
-	 * Similar to {@link GuiGraphics#fill(int, int, int, int, int)}, but uses
+	 * Similar to {@link GuiGraphicsExtractor#fill(int, int, int, int, int)},
+	 * but uses
 	 * floating-point coordinates instead of integers.
 	 */
-	public static void fill2D(GuiGraphics context, float x1, float y1, float x2,
-		float y2, int color)
+	public static void fill2D(GuiGraphicsExtractor context, float x1, float y1,
+		float x2, float y2, int color)
 	{
 		int scale = WurstClient.MC.getWindow().getGuiScale();
 		int xs1 = (int)(x1 * scale);
@@ -1880,8 +2008,8 @@ public enum RenderUtils
 	/**
 	 * Renders the given vertices in QUADS draw mode.
 	 */
-	public static void fillQuads2D(GuiGraphics context, float[][] vertices,
-		int color)
+	public static void fillQuads2D(GuiGraphicsExtractor context,
+		float[][] vertices, int color)
 	{
 		Matrix3x2f pose = new Matrix3x2f(context.pose());
 		ScreenRectangle scissor = context.scissorStack.peek();
@@ -1900,8 +2028,8 @@ public enum RenderUtils
 			float x4 = vertices[i + 3][0];
 			float y4 = vertices[i + 3][1];
 			
-			context.guiRenderState.submitGuiElement(new CustomQuadRenderState(
-				pose, x1, y1, x2, y2, x3, y3, x4, y4, color, scissor));
+			context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose,
+				x1, y1, x2, y2, x3, y3, x4, y4, color, scissor));
 		}
 	}
 	
@@ -1912,8 +2040,8 @@ public enum RenderUtils
 	 * <p>
 	 * ...blame Vibrant Visuals.
 	 */
-	public static void fillTriangle2D(GuiGraphics context, float[][] vertices,
-		int color)
+	public static void fillTriangle2D(GuiGraphicsExtractor context,
+		float[][] vertices, int color)
 	{
 		Matrix3x2f pose = new Matrix3x2f(context.pose());
 		ScreenRectangle scissor = context.scissorStack.peek();
@@ -1930,19 +2058,19 @@ public enum RenderUtils
 			float x3 = vertices[i + 2][0];
 			float y3 = vertices[i + 2][1];
 			
-			context.guiRenderState.submitGuiElement(new CustomQuadRenderState(
-				pose, x1, y1, x2, y2, x3, y3, x3, y3, color, scissor));
+			context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose,
+				x1, y1, x2, y2, x3, y3, x3, y3, color, scissor));
 		}
 	}
 	
 	/**
-	 * Similar to {@link GuiGraphics#hLine(int, int, int, int)} and
-	 * {@link GuiGraphics#vLine(int, int, int, int)}, but supports
+	 * Similar to {@link GuiGraphicsExtractor#hLine(int, int, int, int)} and
+	 * {@link GuiGraphicsExtractor#vLine(int, int, int, int)}, but supports
 	 * diagonal lines, uses floating-point coordinates instead of integers, and
 	 * is one actual pixel wide instead of one scaled pixel.
 	 */
-	public static void drawLine2D(GuiGraphics context, float x1, float y1,
-		float x2, float y2, int color)
+	public static void drawLine2D(GuiGraphicsExtractor context, float x1,
+		float y1, float x2, float y2, int color)
 	{
 		int scale = WurstClient.MC.getWindow().getGuiScale();
 		float x = x1 * scale;
@@ -1957,17 +2085,18 @@ public enum RenderUtils
 		context.pose().translate(x, y);
 		context.pose().rotate(angle);
 		context.pose().translate(-0.5F, -0.5F);
-		context.hLine(0, length - 1, 0, color);
+		context.horizontalLine(0, length - 1, 0, color);
 		context.pose().popMatrix();
 	}
 	
 	/**
-	 * Similar to {@link GuiGraphics#drawBorder(int, int, int, int, int)}, but
+	 * Similar to
+	 * {@link GuiGraphicsExtractor#drawBorder(int, int, int, int, int)}, but
 	 * uses floating-point coordinates instead of integers, and is one actual
 	 * pixel wide instead of one scaled pixel.
 	 */
-	public static void drawBorder2D(GuiGraphics context, float x1, float y1,
-		float x2, float y2, int color)
+	public static void drawBorder2D(GuiGraphicsExtractor context, float x1,
+		float y1, float x2, float y2, int color)
 	{
 		int scale = WurstClient.MC.getWindow().getGuiScale();
 		int x = (int)(x1 * scale);
@@ -1977,18 +2106,18 @@ public enum RenderUtils
 		
 		context.pose().pushMatrix();
 		context.pose().scale(1F / scale);
-		context.hLine(x, x + w - 1, y, color);
-		context.hLine(x, x + w - 1, y + h - 1, color);
-		context.vLine(x, y + 1, y + h - 1, color);
-		context.vLine(x + w - 1, y + 1, y + h - 1, color);
+		context.horizontalLine(x, x + w - 1, y, color);
+		context.horizontalLine(x, x + w - 1, y + h - 1, color);
+		context.verticalLine(x, y + 1, y + h - 1, color);
+		context.verticalLine(x + w - 1, y + 1, y + h - 1, color);
 		context.pose().popMatrix();
 	}
 	
 	/**
 	 * Draws a 1px border around the given polygon.
 	 */
-	public static void drawLineStrip2D(GuiGraphics context, float[][] vertices,
-		int color)
+	public static void drawLineStrip2D(GuiGraphicsExtractor context,
+		float[][] vertices, int color)
 	{
 		if(vertices.length < 2)
 			return;
@@ -2004,8 +2133,8 @@ public enum RenderUtils
 	/**
 	 * Draws a box shadow around the given rectangle.
 	 */
-	public static void drawBoxShadow2D(GuiGraphics context, int x1, int y1,
-		int x2, int y2)
+	public static void drawBoxShadow2D(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2)
 	{
 		float[] acColor = WurstClient.INSTANCE.getGui().getAcColor();
 		
@@ -2026,23 +2155,23 @@ public enum RenderUtils
 		ScreenRectangle scissor = context.scissorStack.peek();
 		
 		// top
-		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(pose,
-			x1, y1, x2, y1, xs2, ys1, xs1, ys1, shadowColor1, shadowColor1,
+		context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose, x1,
+			y1, x2, y1, xs2, ys1, xs1, ys1, shadowColor1, shadowColor1,
 			shadowColor2, shadowColor2, scissor));
 		
 		// left
-		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(pose,
+		context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose,
 			xs1, ys1, xs1, ys2, x1, y2, x1, y1, shadowColor2, shadowColor2,
 			shadowColor1, shadowColor1, scissor));
 		
 		// right
-		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(pose,
-			x2, y1, x2, y2, xs2, ys2, xs2, ys1, shadowColor1, shadowColor1,
+		context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose, x2,
+			y1, x2, y2, xs2, ys2, xs2, ys1, shadowColor1, shadowColor1,
 			shadowColor2, shadowColor2, scissor));
 		
 		// bottom
-		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(pose,
-			x2, y2, x1, y2, xs1, ys2, xs2, ys2, shadowColor1, shadowColor1,
+		context.guiRenderState.addGuiElement(new CustomQuadRenderState(pose, x2,
+			y2, x1, y2, xs1, ys2, xs2, ys2, shadowColor1, shadowColor1,
 			shadowColor2, shadowColor2, scissor));
 	}
 	
@@ -2052,18 +2181,26 @@ public enum RenderUtils
 	public record ColoredBox(AABB box, int color)
 	{}
 	
+	public static float getCappedWorldLabelScale(float baseScale,
+		double distance)
+	{
+		double factor = Math.max(1.0, distance * 0.1);
+		factor = Math.min(factor, 1.2);
+		return baseScale * (float)factor;
+	}
+	
 	/**
 	 * Draw text scaled by the given scale factor.
 	 * This applies a matrix transform so glyphs are scaled.
 	 */
-	public static void drawScaledText(GuiGraphics context, Font tr, String text,
-		int x, int y, int color, boolean shadow, double scale)
+	public static void drawScaledText(GuiGraphicsExtractor context, Font tr,
+		String text, int x, int y, int color, boolean shadow, double scale)
 	{
 		if(text == null || text.isEmpty())
 			return;
 		if(Math.abs(scale - 1.0) < 1e-6)
 		{
-			context.drawString(tr, text, x, y, color, shadow);
+			context.text(tr, text, x, y, color, shadow);
 			return;
 		}
 		
@@ -2076,7 +2213,7 @@ public enum RenderUtils
 		// must be divided by `scale` to appear at the intended screen position.
 		int sx = (int)Math.round(x / scale);
 		int sy = (int)Math.round(y / scale);
-		context.drawString(tr, text, sx, sy, color, shadow);
+		context.text(tr, text, sx, sy, color, shadow);
 		context.pose().popMatrix();
 	}
 }
