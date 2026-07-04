@@ -670,8 +670,8 @@ public class PearlEspHack extends Hack
 		
 		if(tracerFlash.isChecked())
 			lineColor = RenderUtils.flashColor(lineColor);
-		RenderUtils.drawCurvedLine(matrixStack, path, lineColor, false,
-			tracerThickness.getValue());
+		RenderUtils.drawCurvedLine("pearlesp", matrixStack, path, lineColor,
+			false, tracerThickness.getValue());
 	}
 	
 	private Entity getPearlOwner(Entity pearl)

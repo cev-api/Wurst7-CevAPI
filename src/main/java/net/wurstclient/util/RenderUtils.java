@@ -107,14 +107,37 @@ public enum RenderUtils
 			
 			String source = TRACER_SOURCE.get();
 			if(source == null)
+				source = deriveTracerSource();
+			if(source == null)
 				return true;
 			
+			WurstClient.INSTANCE.getHax().globalToggleHack
+				.noteTracerSource(source);
 			return !WurstClient.INSTANCE.getHax().globalToggleHack
 				.isTracerSourceWhitelisted(source);
 		}catch(Exception ignored)
 		{
 			return false;
 		}
+	}
+	
+	private static String deriveTracerSource()
+	{
+		StackTraceElement[] trace = new Throwable().getStackTrace();
+		for(StackTraceElement frame : trace)
+		{
+			String cls = frame.getClassName();
+			if(cls == null)
+				continue;
+			if(cls.equals(RenderUtils.class.getName()))
+				continue;
+			if(cls.startsWith("java.lang.Thread"))
+				continue;
+			if(cls.startsWith("net.wurstclient.util.RenderUtils"))
+				continue;
+			return cls + "#" + frame.getMethodName();
+		}
+		return null;
 	}
 	
 	private static void withTracerSource(String source, Runnable action)
@@ -764,6 +787,9 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,
 		int color, boolean depthTest)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		Vec3 offset = getCameraPos().reverse();
 		List<Vec3> points2 = points.stream().map(v -> v.add(offset)).toList();
@@ -784,6 +810,9 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, List<Vec3> points,
 		int color, boolean depthTest, double width)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		depthTest = NiceWurstModule.enforceDepthTest(depthTest);
 		float appliedWidth =
 			(float)Mth.clamp(width, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
@@ -806,12 +835,18 @@ public enum RenderUtils
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		drawCurvedLine(matrices, buffer, points, color, DEFAULT_LINE_WIDTH);
 	}
 	
 	public static void drawCurvedLine(PoseStack matrices, VertexConsumer buffer,
 		List<Vec3> points, int color, float lineWidth)
 	{
+		if(shouldSuppressAllTracers())
+			return;
+		
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.shouldTakeOverBufferedLineCalls()
 			&& globalEsp.submitCurvedLine(matrices, points, color,
@@ -833,6 +868,20 @@ public enum RenderUtils
 			buffer.addVertex(entry, current).setColor(color)
 				.setNormal(entry, normal).setLineWidth(lineWidth);
 		}
+	}
+	
+	public static void drawCurvedLine(String source, PoseStack matrices,
+		List<Vec3> points, int color, boolean depthTest)
+	{
+		withTracerSource(source,
+			() -> drawCurvedLine(matrices, points, color, depthTest));
+	}
+	
+	public static void drawCurvedLine(String source, PoseStack matrices,
+		List<Vec3> points, int color, boolean depthTest, double width)
+	{
+		withTracerSource(source,
+			() -> drawCurvedLine(matrices, points, color, depthTest, width));
 	}
 	
 	public static void drawSolidBox(PoseStack matrices, AABB box, int color,

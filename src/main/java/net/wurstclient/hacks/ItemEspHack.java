@@ -872,11 +872,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				specialTracerColor = RenderUtils.flashColor(specialTracerColor);
 			}
 			if(!linesOnlyForSpecial.isChecked() && !normalEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
-					normalTracerColor, false);
+				RenderUtils.drawTracers("itemesp:normal", matrixStack,
+					partialTicks, normalEnds, normalTracerColor, false);
 			if(!specialEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, specialEnds,
-					specialTracerColor, false);
+				RenderUtils.drawTracers("itemesp:special", matrixStack,
+					partialTicks, specialEnds, specialTracerColor, false);
 			// draw traced lines last with rainbow color
 			if(!tracedEnds.isEmpty())
 			{
@@ -884,8 +884,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
 				if(tracerFlash.isChecked())
 					tracedLines = RenderUtils.flashColor(tracedLines);
-				RenderUtils.drawTracers(matrixStack, partialTicks, tracedEnds,
-					tracedLines, false);
+				RenderUtils.drawTracers("itemesp:traced", matrixStack,
+					partialTicks, tracedEnds, tracedLines, false);
 			}
 		}
 	}
