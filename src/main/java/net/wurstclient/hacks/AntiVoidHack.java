@@ -13,6 +13,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.DamageSource;
@@ -35,6 +36,21 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Use AirWalk",
 		"Prevents falling into the void/lava by air-walking instead of rubberbanding.",
 		false);
+	
+	private final CheckboxSetting falseFloor =
+		new CheckboxSetting("False floor",
+			"Treat the Nether and End as if they had a solid floor below you.",
+			false);
+	
+	private final SliderSetting netherFalseFloorY = new SliderSetting(
+		"Nether floor Y",
+		"Block Y for the fake Nether floor. The walkable surface is one block above this.",
+		-40, -40, -4, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting endFalseFloorY = new SliderSetting(
+		"End floor Y",
+		"Block Y for the fake End floor. The walkable surface is one block above this.",
+		-60, -60, 0, 1, ValueDisplay.INTEGER);
 	
 	private final CheckboxSetting detectLava = new CheckboxSetting(
 		"Detect lava",
@@ -187,6 +203,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		super("AntiVoid");
 		setCategory(Category.MOVEMENT);
 		addSetting(useAirWalk);
+		addSetting(falseFloor);
+		addSetting(netherFalseFloorY);
+		addSetting(endFalseFloorY);
 		addSetting(detectLava);
 		addSetting(gateAtVoidLevel);
 		addSetting(useFlight);
@@ -249,6 +268,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			lastSafePos = player.position();
 		
 		if(player.isFallFlying())
+			return;
+		
+		if(applyFalseFloor(player))
 			return;
 		
 		if(airWalkActive)
@@ -353,6 +375,35 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			return true;
 		AABB checkBox = player.getBoundingBox().move(0, -0.05, 0);
 		return BlockUtils.getBlockCollisions(checkBox).findAny().isPresent();
+	}
+	
+	private boolean applyFalseFloor(LocalPlayer player)
+	{
+		if(!falseFloor.isChecked() || MC.level == null)
+			return false;
+		
+		double floorY;
+		if(MC.level.dimension() == Level.NETHER)
+			floorY = netherFalseFloorY.getValue() + 1.0;
+		else if(MC.level.dimension() == Level.END)
+			floorY = endFalseFloorY.getValue() + 1.0;
+		else
+			return false;
+		
+		if(player.isInWater() || player.isInLava() || player.onClimbable())
+			return false;
+		
+		if(player.getY() > floorY)
+			return false;
+		
+		Vec3 v = player.getDeltaMovement();
+		player.setDeltaMovement(v.x, Math.max(0, v.y), v.z);
+		player.setOnGround(true);
+		player.fallDistance = 0;
+		if(Math.abs(player.getY() - floorY) > 1e-4)
+			player.setPos(player.getX(), floorY, player.getZ());
+		
+		return true;
 	}
 	
 	private boolean isOverVoid(LocalPlayer player)

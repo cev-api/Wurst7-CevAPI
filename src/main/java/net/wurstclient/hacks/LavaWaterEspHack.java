@@ -225,8 +225,8 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			int color = group.getColorI(alpha);
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers("LavaWaterESP", matrixStack, partialTicks,
+				ends, color, false);
 		}
 	}
 	

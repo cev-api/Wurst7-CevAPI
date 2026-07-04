@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.world.level.block.SignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
@@ -49,6 +50,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 {
 	private static final int MAX_LINES = 4;
 	private static final int MAX_CHARS_PER_LINE = 15;
+	private static final int RECENT_EDIT_TICKS = 200;
 	
 	private String[] signText;
 	private final TextFieldSetting presetText = new TextFieldSetting(
@@ -88,6 +90,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	private int auraRotation;
 	private BlockPos pausedTarget;
 	private double pausedTargetDistanceSq = Double.NaN;
+	private final Map<BlockPos, Long> recentlyEditedSigns =
+		new LinkedHashMap<>();
 	
 	public AutoSignHack()
 	{
@@ -380,10 +384,10 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(!signAura.isChecked() || MC.player == null || MC.level == null
-			|| MC.gui.screen() != null)
+		if(!signAura.isChecked() || MC.player == null || MC.level == null)
 			return;
 		
+		pruneRecentlyEditedSigns();
 		String[] newText = getSignText();
 		if(newText == null)
 			return;
@@ -423,7 +427,13 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		String[] oldText = readSign(signEntity);
+		boolean frontText = signEntity.isFacingFrontText(MC.player);
+		String[] oldText = readSign(signEntity, frontText);
+		if(isRecentlyEdited(target))
+		{
+			auraTimer = Math.max(1, auraDelay.getValueI());
+			return;
+		}
 		if(signHasDesiredText(signEntity, newText))
 		{
 			if(pausedTarget != null && pausedTarget.equals(target))
@@ -444,6 +454,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		auraTimer = Math.max(1, auraDelay.getValueI());
 		pausedTarget = target;
 		pausedTargetDistanceSq = targetDistanceSq;
+		markRecentlyEdited(target);
 		
 		reportSignEdit(target, oldText, newText);
 	}
@@ -474,6 +485,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 					
 					BlockState state = MC.level.getBlockState(candidate);
 					if(!(state.getBlock() instanceof SignBlock))
+						continue;
+					if(isRecentlyEdited(candidate))
 						continue;
 					
 					boolean visible = hasLineOfSightToSign(candidate, center);
@@ -520,12 +533,94 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		if(sign == null || desired == null)
 			return false;
 		
-		String[] front = readSign(sign.getFrontText());
-		if(linesMatch(front, desired))
-			return true;
+		return linesMatch(readSign(sign.getFrontText()), desired)
+			&& linesMatch(readSign(sign.getBackText()), desired);
+	}
+	
+	public boolean isAuraActive()
+	{
+		return isEnabled() && signAura.isChecked();
+	}
+	
+	public boolean isRecentlyEdited(BlockPos pos)
+	{
+		pruneRecentlyEditedSigns();
+		if(pos == null || MC.level == null)
+			return false;
 		
-		String[] back = readSign(sign.getBackText());
-		return linesMatch(back, desired);
+		Long expiresAt = recentlyEditedSigns.get(pos);
+		if(expiresAt == null)
+			return false;
+		
+		return MC.level.getGameTime() <= expiresAt.longValue();
+	}
+	
+	public void markRecentlyEdited(BlockPos pos)
+	{
+		if(pos == null || MC.level == null)
+			return;
+		
+		recentlyEditedSigns.put(pos,
+			MC.level.getGameTime() + RECENT_EDIT_TICKS);
+	}
+	
+	public boolean writeTextWithoutScreen(BlockPos pos, boolean frontText)
+	{
+		if(pos == null || MC.player == null || MC.level == null)
+			return false;
+		
+		String[] text = getSignText();
+		if(text == null)
+			return false;
+		
+		if(MC.getConnection() == null)
+			return false;
+		
+		SignBlockEntity sign =
+			MC.level.getBlockEntity(pos) instanceof SignBlockEntity s ? s
+				: null;
+		if(sign != null)
+		{
+			boolean frontMatches =
+				linesMatch(readSign(sign.getFrontText()), text);
+			boolean backMatches =
+				linesMatch(readSign(sign.getBackText()), text);
+			if(frontMatches && backMatches)
+				return true;
+			
+			markRecentlyEdited(pos);
+			if(!frontMatches)
+			{
+				MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
+					frontText, text[0], text[1], text[2], text[3]));
+			}
+			if(!backMatches)
+			{
+				MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
+					!frontText, text[0], text[1], text[2], text[3]));
+			}
+			return true;
+		}
+		
+		markRecentlyEdited(pos);
+		MC.getConnection().send(new ServerboundSignUpdatePacket(pos, frontText,
+			text[0], text[1], text[2], text[3]));
+		MC.getConnection().send(new ServerboundSignUpdatePacket(pos, !frontText,
+			text[0], text[1], text[2], text[3]));
+		return true;
+	}
+	
+	private void pruneRecentlyEditedSigns()
+	{
+		if(MC.level == null)
+		{
+			recentlyEditedSigns.clear();
+			return;
+		}
+		
+		long gameTime = MC.level.getGameTime();
+		recentlyEditedSigns.entrySet()
+			.removeIf(entry -> entry.getValue() < gameTime);
 	}
 	
 	private boolean canUseHandNoClip()
@@ -543,6 +638,14 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			return readSign((SignText)null);
 		
 		return readSign(sign.getFrontText());
+	}
+	
+	private String[] readSign(SignBlockEntity sign, boolean frontText)
+	{
+		if(sign == null)
+			return readSign((SignText)null);
+		
+		return readSign(sign.getText(frontText));
 	}
 	
 	private String[] readSign(SignText signText)

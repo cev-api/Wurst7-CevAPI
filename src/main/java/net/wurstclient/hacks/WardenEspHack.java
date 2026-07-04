@@ -49,7 +49,7 @@ public final class WardenEspHack extends Hack
 	private final List<LivingEntity> wardens = new ArrayList<>();
 	
 	// debugging: last found count to log when changes occur
-	private int lastFoundCount = -1;
+	private int lastFoundCount = 0;
 	
 	private final WardenEspStyleSetting style = new WardenEspStyleSetting();
 	private final CheckboxSetting fillShapes = new CheckboxSetting(
@@ -124,7 +124,6 @@ public final class WardenEspHack extends Hack
 		if(sz != lastFoundCount)
 		{
 			lastFoundCount = sz;
-			System.out.println("WardenESP: found wardens = " + sz);
 		}
 	}
 	
@@ -390,8 +389,8 @@ public final class WardenEspHack extends Hack
 		{
 			double lineWidth =
 				tracerMode.getSelected() == TracerMode.ALWAYS ? 1.8 : 2.8;
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerPoints,
-				false, lineWidth);
+			RenderUtils.drawTracers("WardenESP", matrixStack, partialTicks,
+				tracerPoints, false, lineWidth);
 		}
 	}
 	

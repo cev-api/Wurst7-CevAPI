@@ -542,8 +542,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("Search", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 		
 		if(drawHighlights)

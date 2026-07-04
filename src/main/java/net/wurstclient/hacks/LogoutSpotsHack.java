@@ -289,8 +289,8 @@ public final class LogoutSpotsHack extends Hack
 			int tracerColor = lines;
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrices, partialTicks, ends, tracerColor,
-				false);
+			RenderUtils.drawTracers("LogoutSpots", matrices, partialTicks, ends,
+				tracerColor, false);
 		}
 		for(var e : spots.values())
 		{

@@ -294,8 +294,8 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 		
 		// Draw tracers
 		if(style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty())
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				lineColor, false);
+			RenderUtils.drawTracers("StasisChamber ESP", matrixStack,
+				partialTicks, tracerEnds, lineColor, false);
 	}
 	
 	@Override

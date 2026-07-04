@@ -245,8 +245,8 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 			RenderUtils.drawOutlinedBoxes(matrixStack, e.getValue(), e.getKey(),
 				false);
 		for(Map.Entry<Integer, List<Vec3>> e : endsByColor.entrySet())
-			RenderUtils.drawTracers(matrixStack, partialTicks, e.getValue(),
-				e.getKey(), false);
+			RenderUtils.drawTracers("ProjectileESP", matrixStack, partialTicks,
+				e.getValue(), e.getKey(), false);
 		for(Map.Entry<Integer, List<AABB>> e : landingByColor.entrySet())
 		{
 			int c = e.getKey();

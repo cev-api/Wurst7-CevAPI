@@ -432,8 +432,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
 					color = RenderUtils.flashColor(color);
-				RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-					false);
+				RenderUtils.drawTracers("RedstoneESP", matrixStack,
+					partialTicks, ends, color, false);
 				continue;
 			}
 			
@@ -451,8 +451,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
 					inactiveColor = RenderUtils.flashColor(inactiveColor);
-				RenderUtils.drawTracers(matrixStack, partialTicks, inactiveEnds,
-					inactiveColor, false);
+				RenderUtils.drawTracers("RedstoneESP", matrixStack,
+					partialTicks, inactiveEnds, inactiveColor, false);
 			}
 			
 			if(!activeEnds.isEmpty())
@@ -463,8 +463,8 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 						? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 					if(tracerFlash.isChecked())
 						activeColor = RenderUtils.flashColor(activeColor);
-					RenderUtils.drawTracers(matrixStack, partialTicks,
-						activeEnds, activeColor, false);
+					RenderUtils.drawTracers("RedstoneESP", matrixStack,
+						partialTicks, activeEnds, activeColor, false);
 				}
 			}
 		}

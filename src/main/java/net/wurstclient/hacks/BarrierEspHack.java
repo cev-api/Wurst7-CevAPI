@@ -209,8 +209,8 @@ public final class BarrierEspHack extends Hack implements UpdateListener,
 		int tracerColor = color.getColorI(0x80);
 		if(tracerFlash.isChecked())
 			tracerColor = RenderUtils.flashColor(tracerColor);
-		RenderUtils.drawTracers(matrixStack, partialTicks, ends, tracerColor,
-			false);
+		RenderUtils.drawTracers("BarrierESP", matrixStack, partialTicks, ends,
+			tracerColor, false);
 	}
 	
 	private void updateBoxes()

@@ -529,8 +529,8 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 		{
 			int tracerColor = tracerFlash.isChecked()
 				? RenderUtils.flashColor(linesColor) : linesColor;
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("SkyBuildESP", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

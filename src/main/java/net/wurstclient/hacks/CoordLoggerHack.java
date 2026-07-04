@@ -612,8 +612,8 @@ public final class CoordLoggerHack extends Hack
 			// draw tracer if enabled
 			if(tracersEnabled.isChecked())
 			{
-				RenderUtils.drawTracer(matrixStack, partialTicks, markerPos,
-					color, false);
+				RenderUtils.drawTracer("CoordLogger", matrixStack, partialTicks,
+					markerPos, color, false);
 			}
 			
 			// draw a simple block-sized box for all markers

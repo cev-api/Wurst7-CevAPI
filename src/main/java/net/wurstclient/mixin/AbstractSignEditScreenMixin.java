@@ -13,9 +13,12 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
+import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoSignHack;
 
@@ -25,6 +28,16 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 	@Shadow
 	@Final
 	private String[] messages;
+	
+	@Shadow
+	@Final
+	private SignBlockEntity sign;
+	
+	@Shadow
+	@Final
+	private boolean isFrontText;
+	
+	private boolean wurst$mirrorBothSides;
 	
 	private AbstractSignEditScreenMixin(WurstClient wurst, Component title)
 	{
@@ -40,6 +53,8 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 		if(autoSignText == null)
 			return;
 		
+		wurst$mirrorBothSides = true;
+		
 		for(int i = 0; i < 4; i++)
 			messages[i] = autoSignText[i];
 		
@@ -50,6 +65,22 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 	private void onFinishEditing(CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().autoSignHack.setSignText(messages);
+	}
+	
+	@Inject(method = "removed()V", at = @At("TAIL"))
+	private void onRemoved(CallbackInfo ci)
+	{
+		if(!wurst$mirrorBothSides)
+			return;
+		
+		Minecraft mc = Minecraft.getInstance();
+		if(mc.getConnection() == null || sign == null)
+			return;
+		
+		boolean otherSide = !isFrontText;
+		mc.getConnection()
+			.send(new ServerboundSignUpdatePacket(sign.getBlockPos(), otherSide,
+				messages[0], messages[1], messages[2], messages[3]));
 	}
 	
 	@Shadow

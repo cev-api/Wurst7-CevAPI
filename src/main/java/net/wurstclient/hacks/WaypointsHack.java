@@ -831,7 +831,7 @@ public final class WaypointsHack extends Hack
 			// the tracer when the "lines" option is enabled.
 			if(w.isLines())
 			{
-				RenderUtils.drawTracer(matrices, partialTicks,
+				RenderUtils.drawTracer("Waypoints", matrices, partialTicks,
 					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
 					waypointColor, false);
 				RenderUtils.drawOutlinedBoxes(matrices, java.util.List.of(

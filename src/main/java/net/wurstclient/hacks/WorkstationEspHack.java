@@ -341,8 +341,8 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 				: group.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers("WorkstationESP", matrixStack, partialTicks,
+				ends, color, false);
 		}
 	}
 	

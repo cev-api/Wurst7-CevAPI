@@ -608,8 +608,8 @@ public final class TrialSpawnerEspHack extends Hack
 		if(!outlineBoxes.isEmpty())
 			RenderUtils.drawOutlinedBoxes(matrices, outlineBoxes, false);
 		if(tracerTargets != null && !tracerTargets.isEmpty())
-			RenderUtils.drawTracers(matrices, partialTicks, tracerTargets,
-				false);
+			RenderUtils.drawTracers("TrialSpawnerESP", matrices, partialTicks,
+				tracerTargets, false);
 		
 		// draw overlays after all ESP geometry so labels are not overwritten
 		java.util.HashSet<BlockPos> drawn = new java.util.HashSet<>();
