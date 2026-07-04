@@ -18,8 +18,10 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.SectionPos;
+<<<<<<< HEAD
+		import net.minecraft.client.gui.GuiGraphics;
+		import net.minecraft.core.SectionPos;
+		import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
@@ -28,7 +30,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.core.BlockPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
@@ -65,8 +66,8 @@ public final class BedrockEscapeHack extends Hack
 	
 	private final CheckboxSetting renderEscapeShafts = new CheckboxSetting(
 		"Render Escape Shafts",
-		"Highlights bedrock columns that can be escaped by breaking blocks below.\n"
-			+ "Green = no damage, Yellow = low survivable damage.",
+		"Highlights bedrock columns that can be escaped by breaking blocks below"
+			+ " or above.\nGreen = no damage, Yellow = low survivable damage.",
 		true);
 	
 	private final CheckboxSetting shaftFillBoxes = new CheckboxSetting(
@@ -101,7 +102,9 @@ public final class BedrockEscapeHack extends Hack
 			3.0, 0.5, 10.0, 0.5, ValueDisplay.DECIMAL.withSuffix(" hearts"));
 	
 	private final ColorSetting safeShaftColor =
-		new ColorSetting("Safe shaft color", new Color(60, 255, 100));
+		new ColorSetting("Legacy exit color", new Color(255, 80, 80));
+	private final ColorSetting superSafeShaftColor =
+		new ColorSetting("Super safe exit color", new Color(60, 255, 100));
 	private final ColorSetting lowDamageShaftColor =
 		new ColorSetting("Low damage color", new Color(255, 235, 80));
 	
@@ -135,6 +138,7 @@ public final class BedrockEscapeHack extends Hack
 	private static final Color DAMAGE_COLOR_DEATH = new Color(255, 64, 64);
 	private static final int SAFE_TICK_COLOR = 0xFF00FF00;
 	private static final double VERTICAL_LOOK_THRESHOLD = 0.99995;
+	private static final int NETHER_FLOOR_RENDER_Y = -2;
 	
 	private Vec3 teleportTarget;
 	private AABB targetBox;
@@ -166,6 +170,7 @@ public final class BedrockEscapeHack extends Hack
 	private final HashMap<ChunkPos, ArrayList<ShaftCandidate>> shaftsByChunk =
 		new HashMap<>();
 	private final ArrayList<ColoredBox> safeShaftBoxes = new ArrayList<>();
+	private final ArrayList<ColoredBox> superSafeShaftBoxes = new ArrayList<>();
 	private final ArrayList<ColoredBox> lowDamageShaftBoxes = new ArrayList<>();
 	private ChunkPos lastShaftPlayerChunk;
 	private ChunkAreaSetting.ChunkArea lastShaftAreaSelection;
@@ -173,6 +178,7 @@ public final class BedrockEscapeHack extends Hack
 	private boolean playerAboveSideBoundary;
 	private boolean hasSideBoundary;
 	private int foundSafeShafts;
+	private int foundSuperSafeShafts;
 	private int foundLowDamageShafts;
 	
 	public BedrockEscapeHack()
@@ -193,6 +199,7 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(shaftDepth);
 		addSetting(lowDamageLimit);
 		addSetting(safeShaftColor);
+		addSetting(superSafeShaftColor);
 		addSetting(lowDamageShaftColor);
 		addSetting(boxColor);
 		addSetting(ignoreSafeTickRequirement);
@@ -558,8 +565,7 @@ public final class BedrockEscapeHack extends Hack
 		
 		if(dropDistance > 0)
 		{
-			double raw = Math.max(0, dropDistance - 3.0);
-			damageHearts = Math.floor(raw) / 2.0;
+			damageHearts = estimateFallDamageHearts(dropDistance);
 			damageColor = getDamageTextColor(playerHearts, damageHearts);
 		}else
 		{
@@ -735,6 +741,13 @@ public final class BedrockEscapeHack extends Hack
 			(ratio - 0.5f) / 0.5f);
 	}
 	
+	private double estimateFallDamageHearts(double dropDistance)
+	{
+		double raw = Math.max(0, dropDistance - 3.0);
+		// Fall damage rounds up in-game, so floor underestimates shallow drops.
+		return Math.ceil(raw) / 2.0;
+	}
+	
 	private int blendColor(Color from, Color to, float t)
 	{
 		t = Math.max(0, Math.min(1, t));
@@ -779,10 +792,12 @@ public final class BedrockEscapeHack extends Hack
 	{
 		if(!renderEscapeShafts.isChecked())
 			return;
-		if(safeShaftBoxes.isEmpty() && lowDamageShaftBoxes.isEmpty())
+		if(safeShaftBoxes.isEmpty() && superSafeShaftBoxes.isEmpty()
+			&& lowDamageShaftBoxes.isEmpty())
 			return;
 		
 		List<ColoredBox> limitedSafe = limitBoxes(safeShaftBoxes);
+		List<ColoredBox> limitedSuperSafe = limitBoxes(superSafeShaftBoxes);
 		List<ColoredBox> limitedLow = limitBoxes(lowDamageShaftBoxes);
 		
 		if(!limitedSafe.isEmpty())
@@ -790,6 +805,14 @@ public final class BedrockEscapeHack extends Hack
 			if(shaftFillBoxes.isChecked())
 				RenderUtils.drawSolidBoxes(matrices, limitedSafe, false);
 			RenderUtils.drawOutlinedBoxes(matrices, limitedSafe, false, 2.0);
+		}
+		
+		if(!limitedSuperSafe.isEmpty())
+		{
+			if(shaftFillBoxes.isChecked())
+				RenderUtils.drawSolidBoxes(matrices, limitedSuperSafe, false);
+			RenderUtils.drawOutlinedBoxes(matrices, limitedSuperSafe, false,
+				2.0);
 		}
 		
 		if(!limitedLow.isEmpty())
@@ -833,7 +856,10 @@ public final class BedrockEscapeHack extends Hack
 			for(int z = chunkPos.getMinBlockZ(); z <= chunkPos
 				.getMaxBlockZ(); z++)
 			{
-				for(int y = maxY - 1; y >= minY + 1; y--)
+				// Include the world-boundary bedrock layers so Nether
+				// floor/roof
+				// escapes can be detected at the extreme min/max Y positions.
+				for(int y = maxY; y >= minY; y--)
 				{
 					cursor.set(x, y, z);
 					if(!MC.level.getBlockState(cursor).is(Blocks.BEDROCK))
@@ -878,11 +904,14 @@ public final class BedrockEscapeHack extends Hack
 	private void rebuildShaftRenderCache()
 	{
 		safeShaftBoxes.clear();
+		superSafeShaftBoxes.clear();
 		lowDamageShaftBoxes.clear();
 		foundSafeShafts = 0;
+		foundSuperSafeShafts = 0;
 		foundLowDamageShafts = 0;
 		
 		ArrayList<ShaftCandidate> safeCandidates = new ArrayList<>();
+		ArrayList<ShaftCandidate> superSafeCandidates = new ArrayList<>();
 		ArrayList<ShaftCandidate> lowCandidates = new ArrayList<>();
 		
 		for(ArrayList<ShaftCandidate> candidates : shaftsByChunk.values())
@@ -893,7 +922,10 @@ public final class BedrockEscapeHack extends Hack
 				
 				if(candidate.safe())
 				{
-					safeCandidates.add(candidate);
+					if(candidate.fromAbove() || candidate.superSafe())
+						superSafeCandidates.add(candidate);
+					else
+						safeCandidates.add(candidate);
 				}else
 				{
 					lowCandidates.add(candidate);
@@ -911,16 +943,25 @@ public final class BedrockEscapeHack extends Hack
 		for(ShaftCandidate candidate : safeCandidates)
 		{
 			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
-				candidate.fromAbove());
+				candidate.fromAbove(), candidate.landingY());
 			safeShaftBoxes
 				.add(new ColoredBox(markerBox, safeShaftColor.getColorI(0xC0)));
 			foundSafeShafts++;
 		}
 		
+		for(ShaftCandidate candidate : superSafeCandidates)
+		{
+			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
+				candidate.fromAbove(), candidate.landingY());
+			superSafeShaftBoxes.add(
+				new ColoredBox(markerBox, superSafeShaftColor.getColorI(0xC0)));
+			foundSuperSafeShafts++;
+		}
+		
 		for(ShaftCandidate candidate : lowCandidates)
 		{
 			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
-				candidate.fromAbove());
+				candidate.fromAbove(), candidate.landingY());
 			lowDamageShaftBoxes.add(
 				new ColoredBox(markerBox, lowDamageShaftColor.getColorI(0xB8)));
 			foundLowDamageShafts++;
@@ -938,14 +979,20 @@ public final class BedrockEscapeHack extends Hack
 		return MC.player.distanceToSqr(cx, cy, cz);
 	}
 	
-	private AABB getShaftMarkerBox(BlockPos surfacePos, boolean fromAbove)
+	private AABB getShaftMarkerBox(BlockPos surfacePos, boolean fromAbove,
+		int landingY)
 	{
 		double x1 = surfacePos.getX();
 		double y1 = surfacePos.getY();
 		double z1 = surfacePos.getZ();
 		
 		if(!shaftSurfaceOnly.isChecked())
-			return new AABB(x1, y1, z1, x1 + 1, y1 + 1, z1 + 1);
+		{
+			if(fromAbove)
+				return new AABB(x1, y1, z1, x1 + 1, y1 + 1, z1 + 1);
+			
+			return new AABB(x1, landingY, z1, x1 + 1, landingY + 2, z1 + 1);
+		}
 		
 		if(fromAbove)
 		{
@@ -954,9 +1001,9 @@ public final class BedrockEscapeHack extends Hack
 				y1 + 1.02, z1 + 0.95);
 		}
 		
-		// Thin bottom-face tile marker when escaping upward from below bedrock.
-		return new AABB(x1 + 0.05, y1 - 0.02, z1 + 0.05, x1 + 0.95, y1 + 0.02,
-			z1 + 0.95);
+		// Thin marker for the re-enter hole above the bedrock.
+		return new AABB(x1 + 0.05, landingY - 0.02, z1 + 0.05, x1 + 0.95,
+			landingY + 0.02, z1 + 0.95);
 	}
 	
 	private void clearShaftScanState()
@@ -965,6 +1012,7 @@ public final class BedrockEscapeHack extends Hack
 		queuedShaftChunks.clear();
 		shaftsByChunk.clear();
 		safeShaftBoxes.clear();
+		superSafeShaftBoxes.clear();
 		lowDamageShaftBoxes.clear();
 		lastShaftPlayerChunk = null;
 		lastShaftAreaSelection = null;
@@ -972,6 +1020,7 @@ public final class BedrockEscapeHack extends Hack
 		playerAboveSideBoundary = false;
 		hasSideBoundary = false;
 		foundSafeShafts = 0;
+		foundSuperSafeShafts = 0;
 		foundLowDamageShafts = 0;
 	}
 	
@@ -1032,20 +1081,20 @@ public final class BedrockEscapeHack extends Hack
 		
 		double targetY = landingY + 0.1;
 		double dropDistance = MC.player.getY() - targetY;
-		double damage = 0;
-		if(dropDistance > 0)
-			damage = Math.floor(Math.max(0, dropDistance - 3.0)) / 2.0;
+		double damage =
+			dropDistance > 0 ? estimateFallDamageHearts(dropDistance) : 0;
 		
 		if(playerHearts <= 0 || damage > playerHearts)
 			return;
 		
 		boolean safe = damage <= 0;
+		boolean superSafe = safe && !hasLavaNearExit(x, z, landingY, maxY);
 		boolean low = !safe && damage <= lowDamageLimit.getValue();
 		if(!safe && !low)
 			return;
 		
-		candidates
-			.add(new ShaftCandidate(new BlockPos(x, y, z), safe, fromAbove));
+		candidates.add(new ShaftCandidate(new BlockPos(x, y, z), landingY, safe,
+			superSafe, fromAbove));
 	}
 	
 	private int findBreakableTwoHighLandingYDown(int x, int startY, int z,
@@ -1103,6 +1152,39 @@ public final class BedrockEscapeHack extends Hack
 				return true;
 			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean hasLavaNearExit(int x, int z, int landingY, int maxY)
+	{
+		if(MC.level == null)
+			return true;
+		
+		int minY = MC.level.getMinY();
+		int beginY = Math.max(landingY - 1, minY);
+		int endY = maxY;
+		if(beginY > endY)
+			return false;
+		
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = beginY; y <= endY; y++)
+		{
+			for(int dx = -1; dx <= 1; dx++)
+			{
+				for(int dz = -1; dz <= 1; dz++)
+				{
+					pos.set(x + dx, y, z + dz);
+					if(!MC.level.hasChunkAt(pos))
+						return true;
+					if(MC.level.getBlockState(pos).getFluidState()
+						.is(FluidTags.LAVA))
+					{
+						return true;
+					}
+				}
+			}
 		}
 		
 		return false;
@@ -1166,8 +1248,12 @@ public final class BedrockEscapeHack extends Hack
 		if(MC.level != null && MC.player != null
 			&& MC.level.dimension() == Level.NETHER)
 		{
-			boolean onRoofSide = MC.player.getBlockY() >= 123;
-			return fromAbove == onRoofSide;
+			int py = MC.player.getBlockY();
+			if(py >= 123)
+				return fromAbove;
+			if(py <= NETHER_FLOOR_RENDER_Y)
+				return !fromAbove;
+			return false;
 		}
 		
 		if(!hasSideBoundary || MC.player == null)
@@ -1179,13 +1265,14 @@ public final class BedrockEscapeHack extends Hack
 		return !playerAboveSideBoundary;
 	}
 	
+<<<<<<< HEAD
 	private static boolean hasLoadedChunk(BlockPos pos)
 	{
 		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
 			SectionPos.blockToSectionCoord(pos.getZ()));
 	}
 	
-	private record ShaftCandidate(BlockPos surfacePos, boolean safe,
-		boolean fromAbove)
+	private record ShaftCandidate(BlockPos surfacePos, int landingY,
+		boolean safe, boolean superSafe, boolean fromAbove)
 	{}
 }

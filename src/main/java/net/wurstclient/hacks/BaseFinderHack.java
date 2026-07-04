@@ -432,8 +432,8 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			int lineColor = color.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				lineColor = RenderUtils.flashColor(lineColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				lineColor, false);
+			RenderUtils.drawTracers("BaseFinder", matrixStack, partialTicks,
+				tracerEnds, lineColor, false);
 		}
 	}
 	

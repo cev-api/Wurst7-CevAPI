@@ -117,8 +117,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	
 	public List<AABB> getMapaSignBoxes()
 	{
-		return groups.stream().flatMap(group -> group.getBoxes().stream())
-			.toList();
+		return signs.getBoxes();
 	}
 	
 	public List<AABB> getMapaFrameBoxes(float partialTicks)
@@ -131,7 +130,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	
 	public int getMapaSignColor()
 	{
-		return groups.isEmpty() ? 0xFFFFFFFF : groups.get(0).getColorI(0xFF);
+		return signs.getColorI(0xFF);
 	}
 	
 	public int getMapaFrameColor()
@@ -229,12 +228,14 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		{
 			if(!group.isEnabled())
 				continue;
-			List<AABB> boxes = group.getBoxes();
-			int quadsColor = group.getColorI(0x40);
-			int linesColor = group.getColorI(0x80);
-			RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor, false);
-			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
-				false);
+			group.getEntries().forEach(entry -> {
+				int quadsColor = entry.getColorI(0x40);
+				int linesColor = entry.getColorI(0x80);
+				RenderUtils.drawSolidBoxes(matrixStack,
+					java.util.List.of(entry.getBox()), quadsColor, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack,
+					java.util.List.of(entry.getBox()), linesColor, false);
+			});
 		}
 		// frames
 		for(FrameEspEntityGroup group : entityGroups)
@@ -256,13 +257,14 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		{
 			if(!group.isEnabled())
 				continue;
-			List<AABB> boxes = group.getBoxes();
-			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
-			int color = group.getColorI(0x80);
-			if(tracerFlash.isChecked())
-				color = RenderUtils.flashColor(color);
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			group.getEntries().forEach(entry -> {
+				int color = entry.getColorI(0x80);
+				if(tracerFlash.isChecked())
+					color = RenderUtils.flashColor(color);
+				RenderUtils.drawTracers("SignESP", matrixStack, partialTicks,
+					java.util.List.of(entry.getBox().getCenter()), color,
+					false);
+			});
 		}
 		// frames
 		for(FrameEspEntityGroup group : entityGroups)
@@ -274,8 +276,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			int color = group.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-				false);
+			RenderUtils.drawTracers("SignESP", matrixStack, partialTicks, ends,
+				color, false);
 		}
 	}
 	
@@ -338,7 +340,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	
 	private static final class SignEspGroup
 	{
-		private final ArrayList<AABB> boxes = new ArrayList<>();
+		private final ArrayList<SignEspEntry> entries = new ArrayList<>();
 		private final ColorSetting color;
 		private final CheckboxSetting enabled;
 		
@@ -357,12 +359,13 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			AABB box = BlockUtils.getBoundingBox(pos);
 			if(box.getSize() == 0)
 				return;
-			boxes.add(box);
+			entries.add(
+				new SignEspEntry(pos, box, color.getColorI(0xFF) & 0xFFFFFF));
 		}
 		
 		public void clear()
 		{
-			boxes.clear();
+			entries.clear();
 		}
 		
 		public boolean isEnabled()
@@ -382,7 +385,41 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		
 		public List<AABB> getBoxes()
 		{
-			return java.util.Collections.unmodifiableList(boxes);
+			return entries.stream().map(SignEspEntry::getBox).toList();
+		}
+		
+		public List<SignEspEntry> getEntries()
+		{
+			return java.util.Collections.unmodifiableList(entries);
+		}
+	}
+	
+	private static final class SignEspEntry
+	{
+		private static final int RECENT_COLOR = 0x00FF00;
+		private final BlockPos pos;
+		private final AABB box;
+		private final int baseColor;
+		
+		private SignEspEntry(BlockPos pos, AABB box, int baseColor)
+		{
+			this.pos = pos;
+			this.box = box;
+			this.baseColor = baseColor;
+		}
+		
+		public AABB getBox()
+		{
+			return box;
+		}
+		
+		public int getColorI(int alpha)
+		{
+			AutoSignHack autoSign = WURST.getHax().autoSignHack;
+			if(autoSign != null && autoSign.isRecentlyEdited(pos))
+				return (alpha << 24) | RECENT_COLOR;
+			
+			return (alpha << 24) | baseColor;
 		}
 	}
 	

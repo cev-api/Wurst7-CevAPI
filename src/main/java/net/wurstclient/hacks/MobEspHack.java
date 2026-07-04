@@ -415,7 +415,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		
 		if(ends != null && !ends.isEmpty())
 		{
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			RenderUtils.drawTracers("MobESP", matrixStack, partialTicks, ends,
+				false);
 		}
 		
 		if(glowMode && highlightShulkerProjectiles.isChecked()

@@ -497,8 +497,8 @@ public final class SuperInstaMineHack extends Hack implements UpdateListener,
 		if(renderStyle.hasLines())
 		{
 			int tracerColor = lineColor.getColorI(lineOpacity.getValueI());
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("SuperInstaMine", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

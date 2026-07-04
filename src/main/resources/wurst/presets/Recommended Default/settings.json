@@ -144,6 +144,9 @@
   },
   "AntiVoid": {
     "Use AirWalk": true,
+    "False floor": false,
+    "Nether floor Y": -40.0,
+    "End floor Y": -60.0,
     "Detect lava": true,
     "Respond only at void level": true,
     "Use Flight": true,

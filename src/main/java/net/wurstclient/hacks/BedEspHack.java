@@ -264,8 +264,8 @@ public final class BedEspHack extends Hack implements UpdateListener,
 					finalTracerColor))
 				.toList();
 			
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false,
-				tracerThickness.getValue());
+			RenderUtils.drawTracers("BedESP", matrixStack, partialTicks, ends,
+				false, tracerThickness.getValue());
 		}
 	}
 	

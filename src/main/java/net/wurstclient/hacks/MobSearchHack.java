@@ -337,7 +337,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		}
 		
 		if(ends != null && !ends.isEmpty())
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			RenderUtils.drawTracers("MobSearch", matrixStack, partialTicks,
+				ends, false);
 	}
 	
 	private int getColorI(float alpha)

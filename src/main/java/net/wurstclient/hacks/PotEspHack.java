@@ -355,8 +355,8 @@ public final class PotEspHack extends Hack implements UpdateListener,
 			int tracerColor = color.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("PotESP", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

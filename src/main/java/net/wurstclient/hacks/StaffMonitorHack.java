@@ -7,10 +7,15 @@
  */
 package net.wurstclient.hacks;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -29,12 +34,18 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.Setting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.FakePlayerEntity;
+import net.wurstclient.util.RenderUtils;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 @SearchTags({"staff monitor", "spectator monitor", "spectator detector",
 	"gamemode monitor", "creative monitor", "spec detector",
@@ -107,13 +118,71 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			+ "Staff names are loaded from .minecraft/wurst/staff/<server>.txt"
 			+ " and .minecraft/wurst/staff/global.txt, one name per line.",
 		true);
+	private final Setting savedStaffList =
+		new Setting("Saved staff list", net.wurstclient.util.text.WText
+			.literal("Names detected by StaffMonitor on this server."))
+		{
+			@Override
+			public net.wurstclient.clickgui.Component getComponent()
+			{
+				return new SavedStaffListComponent();
+			}
+			
+			@Override
+			public void fromJson(com.google.gson.JsonElement json)
+			{
+				// read-only
+			}
+			
+			@Override
+			public com.google.gson.JsonElement toJson()
+			{
+				return com.google.gson.JsonNull.INSTANCE;
+			}
+			
+			@Override
+			public com.google.gson.JsonObject exportWikiData()
+			{
+				com.google.gson.JsonObject json =
+					new com.google.gson.JsonObject();
+				json.addProperty("name", getName());
+				json.addProperty("description", getDescription());
+				json.addProperty("type", "Custom");
+				return json;
+			}
+			
+			@Override
+			public java.util.Set<net.wurstclient.keybinds.PossibleKeybind> getPossibleKeybinds(
+				String featureName)
+			{
+				return java.util.Collections.emptySet();
+			}
+		};
+	private final TextFieldSetting addStaffUsernameField = new TextFieldSetting(
+		"Add staff username", "", s -> s.isEmpty() || isValidStaffUsername(s));
+	private final ButtonSetting addStaffUsernameButton =
+		new ButtonSetting("Add staff username button",
+			"Adds the typed username to this server's saved" + " staff list.",
+			this::addStaffUsername);
+	private final CheckboxSetting quitOnStaffEnter = new CheckboxSetting(
+		"Quit on staff enter",
+		"Leaves the server when StaffMonitor detects a staff member entering"
+			+ " a monitored mode. AutoReconnect is disabled first.",
+		false);
+	private final SliderSetting quitDelay = new SliderSetting("Quit delay",
+		"Time to wait before quitting after staff are detected.", 0, 0, 60, 1,
+		ValueDisplay.INTEGER.withSuffix("s"));
 	
 	private final Map<UUID, GameType> gamemodeStates = new HashMap<>();
 	private final Map<UUID, String> hiddenPlayers = new HashMap<>();
 	private final Set<String> staffNames = new HashSet<>();
+	private final LinkedHashSet<String> savedStaffNames = new LinkedHashSet<>();
 	private final Set<UUID> alertedStaff = new HashSet<>();
 	private String lastServerKey = "unknown";
+	private String savedStaffServerKey = "unknown";
 	private boolean hiddenPlayerAlertsActive;
+	private int staffQuitTicks = -1;
+	private String staffQuitReason;
 	
 	public StaffMonitorHack()
 	{
@@ -127,6 +196,11 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		addSetting(ignoreSelf);
 		addSetting(hiddenPlayerAlerts);
 		addSetting(hiddenStaffAlerts);
+		addSetting(savedStaffList);
+		addSetting(addStaffUsernameField);
+		addSetting(addStaffUsernameButton);
+		addSetting(quitOnStaffEnter);
+		addSetting(quitDelay);
 	}
 	
 	@Override
@@ -135,10 +209,14 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		gamemodeStates.clear();
 		hiddenPlayers.clear();
 		alertedStaff.clear();
+		savedStaffNames.clear();
 		lastServerKey = resolveServerKey();
+		savedStaffServerKey = resolveStorageServerKey();
 		hiddenPlayerAlertsActive = hiddenPlayerAlerts.isChecked();
 		loadStaffNames();
+		loadSavedStaffNames();
 		snapshotCurrentStates();
+		checkForStaffPresence();
 		if(hiddenPlayerAlertsActive)
 			snapshotHiddenPlayers();
 		EVENTS.add(UpdateListener.class, this);
@@ -152,17 +230,23 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		staffNames.clear();
+		savedStaffNames.clear();
 		hiddenPlayerAlertsActive = false;
+		cancelStaffQuit();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		tickStaffQuit();
+		
 		if(MC.getConnection() == null)
 		{
 			gamemodeStates.clear();
 			hiddenPlayers.clear();
 			hiddenPlayerAlertsActive = false;
+			savedStaffNames.clear();
+			cancelStaffQuit();
 			return;
 		}
 		
@@ -173,11 +257,14 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			hiddenPlayers.clear();
 			alertedStaff.clear();
 			lastServerKey = serverKeyNow;
+			savedStaffServerKey = resolveStorageServerKey();
 			hiddenPlayerAlertsActive = hiddenPlayerAlerts.isChecked();
 			loadStaffNames();
+			loadSavedStaffNames();
 			snapshotCurrentStates();
 			if(hiddenPlayerAlertsActive)
 				snapshotHiddenPlayers();
+			cancelStaffQuit();
 			return;
 		}
 		
@@ -205,21 +292,30 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			GameType previous = gamemodeStates.get(id);
 			if(previous == null)
 			{
-				// First time seeing this player — only alert if they
-				// appear in creative or spectator (potential staff)
-				if(modeSwitching && (currentMode == GameType.CREATIVE
-					|| currentMode == GameType.SPECTATOR))
+				// First time seeing this player.
+				if(modeSwitching && isStaffMode(currentMode))
+				{
 					alert(info, currentMode, true);
+					recordSavedStaffMember(info.getProfile().name());
+				}
+				if(quitOnStaffEnter.isChecked()
+					&& isStaffName(info.getProfile().name()))
+					queueStaffQuit(info.getProfile().name());
 				continue;
 			}
 			
 			// Gamemode changed — alert on any transition
 			if(modeSwitching && previous != currentMode)
+			{
 				alert(info, currentMode, true);
+				if(isStaffMode(previous) || isStaffMode(currentMode))
+					recordSavedStaffMember(info.getProfile().name());
+			}
 		}
 		
 		gamemodeStates.clear();
 		gamemodeStates.putAll(nextStates);
+		tickStaffQuit();
 	}
 	
 	private void updateHiddenPlayers()
@@ -398,6 +494,218 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		loadStaffFile(folder.resolve(lastServerKey + ".txt"));
 	}
 	
+	private void loadSavedStaffNames()
+	{
+		savedStaffNames.clear();
+		Path file = getSavedStaffFile();
+		if(!Files.isRegularFile(file))
+			return;
+		
+		try
+		{
+			for(String line : Files.readAllLines(file, StandardCharsets.UTF_8))
+			{
+				String name = line.strip();
+				if(name.isEmpty()
+					|| containsNameIgnoreCase(savedStaffNames, name))
+					continue;
+				savedStaffNames.add(name);
+			}
+		}catch(IOException e)
+		{
+			ChatUtils
+				.error("StaffMonitor saved list failed: " + e.getMessage());
+		}
+	}
+	
+	private void recordSavedStaffMember(String name)
+	{
+		if(name == null)
+			return;
+		
+		String trimmed = name.strip();
+		if(trimmed.isEmpty()
+			|| containsNameIgnoreCase(savedStaffNames, trimmed))
+			return;
+		
+		savedStaffNames.add(trimmed);
+		saveSavedStaffNames();
+	}
+	
+	private void addStaffUsername()
+	{
+		String name = addStaffUsernameField.getValue().strip();
+		if(name.isEmpty())
+		{
+			ChatUtils.error("StaffMonitor: username cannot be empty.");
+			return;
+		}
+		
+		if(!isValidStaffUsername(name))
+		{
+			ChatUtils.error("StaffMonitor: invalid username.");
+			return;
+		}
+		
+		if(containsNameIgnoreCase(savedStaffNames, name))
+		{
+			ChatUtils.message("[StaffMonitor] " + name
+				+ " is already in the saved staff list.");
+			return;
+		}
+		
+		savedStaffNames.add(name);
+		saveSavedStaffNames();
+		addStaffUsernameField.setValue("");
+		ChatUtils.message("[StaffMonitor] Added staff username: " + name);
+	}
+	
+	private void saveSavedStaffNames()
+	{
+		Path file = getSavedStaffFile();
+		try
+		{
+			Files.createDirectories(file.getParent());
+			Files.write(file, savedStaffNames, StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+				StandardOpenOption.WRITE);
+		}catch(IOException e)
+		{
+			ChatUtils
+				.error("StaffMonitor saved list failed: " + e.getMessage());
+		}
+	}
+	
+	private Path getSavedStaffFile()
+	{
+		return WURST.getWurstFolder().resolve("staff-monitor")
+			.resolve(savedStaffServerKey + ".txt");
+	}
+	
+	private void cancelStaffQuit()
+	{
+		staffQuitTicks = -1;
+		staffQuitReason = null;
+	}
+	
+	private void checkForStaffPresence()
+	{
+		if(!quitOnStaffEnter.isChecked() || MC.getConnection() == null)
+			return;
+		
+		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
+		{
+			String name = info.getProfile().name();
+			if(isStaffName(name))
+			{
+				queueStaffQuit(name);
+				return;
+			}
+		}
+	}
+	
+	private void queueStaffQuit(String staffName)
+	{
+		if(!quitOnStaffEnter.isChecked() || staffName == null
+			|| staffName.isBlank())
+			return;
+		
+		if(staffQuitTicks >= 0)
+			return;
+		
+		staffQuitTicks = quitDelay.getValueI() * 20;
+		staffQuitReason = staffName + " joined the server.";
+		
+		if(chatAlert.isChecked())
+			ChatUtils.component(Component.literal(String.format(Locale.ROOT,
+				"[StaffMonitor] Staff member %s is online.", staffName)));
+		
+		if(soundAlert.isChecked() && MC.level != null && MC.player != null)
+		{
+			SoundEvent event = sound.getSelected().resolve();
+			float target = (float)(volume.getValue() / 100.0);
+			if(event != null && target > 0F)
+			{
+				MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+					MC.player.getZ(), event, SoundSource.PLAYERS,
+					Math.max(0.2F, target), 1.6F, false);
+			}
+		}
+		
+		AutoReconnectHack autoReconnect =
+			WURST.getHax() == null ? null : WURST.getHax().autoReconnectHack;
+		if(autoReconnect != null && autoReconnect.isEnabled())
+			autoReconnect.setEnabled(false);
+		
+		ChatUtils.message("[StaffMonitor] Staff detected: " + staffName
+			+ ". Quitting in " + quitDelay.getValueI() + "s.");
+	}
+	
+	private void tickStaffQuit()
+	{
+		if(staffQuitTicks < 0)
+			return;
+		
+		if(MC.getConnection() == null || MC.level == null)
+		{
+			cancelStaffQuit();
+			return;
+		}
+		
+		if(staffQuitTicks > 0)
+		{
+			staffQuitTicks--;
+			return;
+		}
+		
+		performStaffQuit();
+	}
+	
+	private void performStaffQuit()
+	{
+		if(MC.level == null)
+		{
+			cancelStaffQuit();
+			return;
+		}
+		
+		AutoReconnectHack autoReconnect =
+			WURST.getHax() == null ? null : WURST.getHax().autoReconnectHack;
+		if(autoReconnect != null && autoReconnect.isEnabled())
+			autoReconnect.setEnabled(false);
+		
+		Component reason =
+			DisconnectContext.createAutoQuitReason("StaffMonitor",
+				MC.player == null ? null : MC.player.blockPosition(),
+				staffQuitReason);
+		DisconnectContext.markExpectedDisconnect(reason.getString());
+		MC.level.disconnect(reason);
+		cancelStaffQuit();
+	}
+	
+	private static boolean containsNameIgnoreCase(Set<String> names,
+		String name)
+	{
+		if(names == null || name == null)
+			return false;
+		
+		for(String existing : names)
+			if(existing != null && existing.equalsIgnoreCase(name))
+				return true;
+		return false;
+	}
+	
+	private static boolean isValidStaffUsername(String name)
+	{
+		return name != null && name.length() <= 16
+			&& name.matches("[A-Za-z0-9_]+");
+	}
+	
+	private boolean isStaffMode(GameType mode)
+	{
+		return mode == GameType.CREATIVE || mode == GameType.SPECTATOR;
+	}
+	
 	private void loadStaffFile(Path file)
 	{
 		if(!Files.isRegularFile(file))
@@ -422,7 +730,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	private boolean isStaffName(String name)
 	{
 		return name != null
-			&& staffNames.contains(name.toLowerCase(Locale.ROOT));
+			&& (staffNames.contains(name.toLowerCase(Locale.ROOT))
+				|| containsNameIgnoreCase(savedStaffNames, name));
 	}
 	
 	private String resolveServerKey()
@@ -440,5 +749,77 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		if(MC.hasSingleplayerServer())
 			return "singleplayer";
 		return "unknown";
+	}
+	
+	private String resolveStorageServerKey()
+	{
+		return resolveServerKey().replaceAll("[^A-Za-z0-9._-]", "_");
+	}
+	
+	private ArrayList<String> getSavedStaffLines(int maxWidth)
+	{
+		if(savedStaffNames.isEmpty())
+			return new ArrayList<>(
+				Collections.singletonList("No staff detected yet."));
+		
+		String joined = String.join(", ", savedStaffNames);
+		String wrapped = ChatUtils.wrapText(joined, Math.max(40, maxWidth));
+		ArrayList<String> lines = new ArrayList<>();
+		for(String line : wrapped.split("\n"))
+			lines.add(line);
+		return lines;
+	}
+	
+	private final class SavedStaffListComponent
+		extends net.wurstclient.clickgui.Component
+	{
+		private SavedStaffListComponent()
+		{
+			setWidth(getDefaultWidth());
+			setHeight(getDefaultHeight());
+		}
+		
+		@Override
+		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, float partialTicks)
+		{
+			int width = getWidth();
+			int x1 = getX();
+			int y1 = getY();
+			int x2 = x1 + width;
+			int lineHeight = MC.font.lineHeight + 1;
+			ArrayList<String> lines = getSavedStaffLines(width - 8);
+			int neededHeight = 6 + lineHeight * (lines.size() + 1);
+			if(getHeight() != neededHeight)
+				setHeight(neededHeight);
+			
+			int bgColor = RenderUtils.toIntColor(WURST.getGui().getBgColor(),
+				WURST.getGui().getOpacity());
+			context.fill(x1, y1, x2, y1 + getHeight(), bgColor);
+			
+			int txtColor = WURST.getGui().getTxtColor();
+			context.text(MC.font,
+				"Saved staff on this server (" + savedStaffNames.size() + "):",
+				x1 + 4, y1 + 2, txtColor, false);
+			
+			int y = y1 + 2 + lineHeight;
+			for(String line : lines)
+			{
+				context.text(MC.font, line, x1 + 4, y, txtColor, false);
+				y += lineHeight;
+			}
+		}
+		
+		@Override
+		public int getDefaultWidth()
+		{
+			return 200;
+		}
+		
+		@Override
+		public int getDefaultHeight()
+		{
+			return 6 + (MC.font.lineHeight + 1) * 2;
+		}
 	}
 }

@@ -431,7 +431,8 @@ public final class SpearAssistHack extends Hack
 		}
 		
 		if(ends != null && !ends.isEmpty())
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			RenderUtils.drawTracers("SpearAssist", matrixStack, partialTicks,
+				ends, false);
 	}
 	
 	@Override
