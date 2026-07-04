@@ -30,6 +30,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.CommonColors;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.RenderUtils;
 
 public final class KeyboardBindsScreen extends Screen
 {
@@ -405,45 +406,49 @@ public final class KeyboardBindsScreen extends Screen
 		int keyMidY = y + h / 2 - font.lineHeight / 2;
 		int keyBotY = y + h - font.lineHeight - 3;
 		
-		drawCenteredFitText(context, font, key.label(), x + padX, keyTopY,
+		drawCenteredScaledFitText(context, font, key.label(), x + padX, keyTopY,
 			x + w - padX, keyTopY + font.lineHeight, 0xFFF4F6F9);
 		
 		if(command != null && h >= 32)
-		{
-			drawCenteredFitText(context, font, shortenCommandLabel(command),
-				x + padX, keyMidY, x + w - padX, keyMidY + font.lineHeight,
-				0xFFFFB86B);
-		}else if(!occupied.isEmpty() && h >= 32)
-		{
-			drawCenteredFitText(context, font,
+			drawCenteredScaledFitText(context, font,
+				shortenCommandLabel(command), x + padX, keyMidY, x + w - padX,
+				keyMidY + font.lineHeight, 0xFFFFB86B);
+		else if(!occupied.isEmpty() && h >= 32)
+			drawCenteredScaledFitText(context, font,
 				shortenControlLabel(getOccupiedLabel(occupied)), x + padX,
 				keyMidY, x + w - padX, keyMidY + font.lineHeight, 0xFFFFE18A);
-		}
 		
 		if(conflict && !occupied.isEmpty() && h >= 34)
-		{
-			drawCenteredFitText(context, font,
+			drawCenteredScaledFitText(context, font,
 				shortenControlLabel(getOccupiedLabel(occupied)), x + padX,
 				keyBotY, x + w - padX, keyBotY + font.lineHeight, 0xFFFFE18A);
-		}
 		
 		if(conflict)
 			context.text(font, "!", x + w - 8, y + 2, 0xFFFFB3B3, false);
 	}
 	
-	private void drawCenteredFitText(GuiGraphicsExtractor context, Font font,
-		String text, int x1, int y1, int x2, int y2, int color)
+	private void drawCenteredScaledFitText(GuiGraphicsExtractor context,
+		Font font, String text, int x1, int y1, int x2, int y2, int color)
 	{
 		if(text == null || text.isBlank() || x2 <= x1)
 			return;
 		
-		String fitted = fitText(font, text, x2 - x1 - 2);
-		int textW = font.width(fitted);
+		int availableWidth = x2 - x1 - 2;
+		if(availableWidth <= 0)
+			return;
+		
+		int rawWidth = Math.max(1, font.width(text));
+		double scale = Math.min(1.0, availableWidth / (double)rawWidth);
+		scale = Math.max(0.58D, scale);
+		int fitWidth = Math.max(1, (int)Math.floor(availableWidth / scale));
+		String fitted = fitText(font, text, fitWidth);
+		
+		int textW = (int)Math.round(font.width(fitted) * scale);
+		int textH = (int)Math.round(font.lineHeight * scale);
 		int textX = x1 + Math.max(0, (x2 - x1 - textW) / 2);
-		int textY = y1 + Math.max(0, (y2 - y1 - font.lineHeight) / 2);
-		context.enableScissor(x1, y1, x2, y2);
-		context.text(font, fitted, textX, textY, color, false);
-		context.disableScissor();
+		int textY = y1 + Math.max(0, (y2 - y1 - textH) / 2);
+		RenderUtils.drawScaledText(context, font, fitted, textX, textY, color,
+			false, scale);
 	}
 	
 	private String fitText(Font font, String text, int maxWidth)
@@ -461,6 +466,12 @@ public final class KeyboardBindsScreen extends Screen
 			&& font.width(builder.toString()) > targetWidth)
 			builder.setLength(builder.length() - 1);
 		return builder + ellipsis;
+	}
+	
+	private void drawCenteredFitText(GuiGraphicsExtractor context, Font font,
+		String text, int x1, int y1, int x2, int y2, int color)
+	{
+		drawCenteredScaledFitText(context, font, text, x1, y1, x2, y2, color);
 	}
 	
 	private List<Component> buildTooltip(VisualKey key)

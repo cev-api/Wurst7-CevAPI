@@ -1510,8 +1510,8 @@ public class ItemHandlerHack extends Hack
 				false);
 		}
 		if(hasTracers)
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false,
-				tracerThickness.getValue());
+			RenderUtils.drawTracers("itemhandler", matrixStack, partialTicks,
+				ends, false, tracerThickness.getValue());
 	}
 	
 	private boolean isIgnoredByItemEsp(ItemStack stack)
