@@ -13,6 +13,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.DamageSource;
@@ -62,7 +63,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	
 	private final CheckboxSetting gateAtVoidLevel = new CheckboxSetting(
 		"Respond only at void level",
-		"Only trigger when reaching the standard void level (End: -60, Others: -125).\n"
+		"Only trigger when reaching the configured void level (Overworld: -64..-100, End/Nether: -60).\n"
 			+ "For lava, triggers one block above the lava surface.",
 		false);
 	
@@ -74,17 +75,17 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		new CheckboxSetting("Auto-enable on out_of_world",
 			"Automatically enables AntiVoid and rescues to the fixed void level"
 				+ " when taking out_of_world damage.",
-			false);
+			true);
 	
 	private final SliderSetting lavaBufferBlocks = new SliderSetting(
 		"Lava buffer (blocks)", 2, 0, 12, 1, ValueDisplay.INTEGER);
 	
-	// Fixed thresholds are used; no per-dimension sliders.
+	// Nether/End thresholds are fixed; Overworld uses the floor slider.
 	
 	private final CheckboxSetting autoEnableByHeight = new CheckboxSetting(
 		"Auto-enable by height",
 		"Automatically enables AntiVoid when your Y is within a safety band below 0.\n"
-			+ "Defaults: End -65..0, Others -125..-60.",
+			+ "Defaults: Overworld -64, End/Nether -60.",
 		true);
 	
 	private Vec3 lastSafePos;
@@ -207,6 +208,10 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		super("AntiVoid");
 		setCategory(Category.MOVEMENT);
 		addSetting(useAirWalk);
+		addSetting(falseFloor);
+		addSetting(overworldFalseFloorY);
+		addSetting(netherFalseFloorY);
+		addSetting(endFalseFloorY);
 		addSetting(detectLava);
 		addSetting(gateAtVoidLevel);
 		addSetting(useFlight);
@@ -269,6 +274,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			lastSafePos = player.position();
 		
 		if(player.isFallFlying())
+			return;
+		
+		if(applyFalseFloor(player))
 			return;
 		
 		if(airWalkActive)
@@ -375,6 +383,37 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		return BlockUtils.getBlockCollisions(checkBox).findAny().isPresent();
 	}
 	
+	private boolean applyFalseFloor(LocalPlayer player)
+	{
+		if(!falseFloor.isChecked() || MC.level == null)
+			return false;
+		
+		double floorY;
+		if(MC.level.dimension() == Level.OVERWORLD)
+			floorY = overworldFalseFloorY.getValue() + 1.0;
+		else if(MC.level.dimension() == Level.NETHER)
+			floorY = netherFalseFloorY.getValue() + 1.0;
+		else if(MC.level.dimension() == Level.END)
+			floorY = endFalseFloorY.getValue() + 1.0;
+		else
+			return false;
+		
+		if(player.isInWater() || player.isInLava() || player.onClimbable())
+			return false;
+		
+		if(player.getY() > floorY)
+			return false;
+		
+		Vec3 v = player.getDeltaMovement();
+		player.setDeltaMovement(v.x, Math.max(0, v.y), v.z);
+		player.setOnGround(true);
+		player.fallDistance = 0;
+		if(Math.abs(player.getY() - floorY) > 1e-4)
+			player.setPos(player.getX(), floorY, player.getZ());
+		
+		return true;
+	}
+	
 	private boolean isOverVoid(LocalPlayer player)
 	{
 		double voidY = fixedVoidLevel();
@@ -440,21 +479,20 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private double fixedVoidLevel()
 	{
 		if(MC.level == null)
-			return -120.0;
+			return overworldFalseFloorY.getValue();
 		String key = MC.level.dimension().identifier().getPath();
 		if("the_end".equals(key))
 			return -60.0;
 		if("the_nether".equals(key))
 			return -60.0;
 		// Overworld
-		return -120.0;
+		return overworldFalseFloorY.getValue();
 	}
 	
 	// No height band method needed; using fixed thresholds.
 	
 	/**
 	 * Returns a safe Y level above void damage based on fixedVoidLevel().
-	 * Overworld: -117 (4 blocks above -121 damage), Nether/End: -57.
 	 */
 	private double rescueTargetY()
 	{
