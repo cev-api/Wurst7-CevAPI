@@ -28,6 +28,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.ai.PathFinder;
@@ -854,15 +855,23 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		long now = System.currentTimeMillis();
+		boolean underNetherBedrock = isUnderNetherBedrock(MC.player.position());
 		if(climbAttemptUntilMs > now)
 		{
-			ensureFlightEnabled();
-			applyFlightSpeed();
-			PathProcessor.lockControls();
-			clearAutoFlyInput();
-			autoSetKey(MC.options.keyJump, true);
-			lastAutoControlMs = now;
-			return;
+			if(underNetherBedrock)
+			{
+				climbAttemptUntilMs = 0L;
+				lastClimbAttemptMs = 0L;
+			}else
+			{
+				ensureFlightEnabled();
+				applyFlightSpeed();
+				PathProcessor.lockControls();
+				clearAutoFlyInput();
+				autoSetKey(MC.options.keyJump, true);
+				lastAutoControlMs = now;
+				return;
+			}
 		}
 		
 		ensureFlightEnabled();
@@ -938,7 +947,10 @@ public final class AutoFlyHack extends Hack
 		// landing at each point.
 		// Keep a constant cruise altitude and treat targets as reached based on
 		// horizontal distance only.
-		if(cruisingRoute)
+		if(!adjustFlightHeight.isChecked())
+		{
+			desiredY = playerPos.y;
+		}else if(cruisingRoute)
 		{
 			desiredY = cruiseY;
 			if(chunkRoute && chunkAssistActive)
@@ -1025,8 +1037,8 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		// Force a final descend near center to ensure landing completes
-		boolean finalLanding =
-			!cruisingRoute && distHoriz <= Math.max(radius, 1.0) + 0.5;
+		boolean finalLanding = !underNetherBedrock && !cruisingRoute
+			&& distHoriz <= Math.max(radius, 1.0) + 0.5;
 		if(finalLanding)
 			autoSetKey(MC.options.keyShift, true);
 		
@@ -1046,12 +1058,13 @@ public final class AutoFlyHack extends Hack
 				if(Math.abs(chunkYDiff) < CHUNK_VERTICAL_HARD_CORRECT_BLOCKS)
 					chunkYDiff = Math.signum(chunkYDiff)
 						* CHUNK_VERTICAL_HARD_CORRECT_BLOCKS;
-				updateVerticalControls(chunkYDiff, false);
+				updateVerticalControls(chunkYDiff, false, underNetherBedrock);
 			}
 		}else
 		{
-			applyVerticalAssist(playerPos, yDiff, nearTargetY);
-			updateVerticalControls(yDiff, nearTargetY);
+			applyVerticalAssist(playerPos, yDiff, nearTargetY,
+				underNetherBedrock);
+			updateVerticalControls(yDiff, nearTargetY, underNetherBedrock);
 		}
 		if(anyAutoKeyDown())
 			lastAutoControlMs = now;
@@ -4022,9 +4035,22 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	private void applyVerticalAssist(Vec3 playerPos, double yDiff,
-		boolean nearTargetHoriz)
+		boolean nearTargetHoriz, boolean underNetherBedrock)
 	{
+		if(!adjustFlightHeight.isChecked())
+		{
+			restoreVerticalIfBoosted();
+			verticalAssistActive = false;
+			return;
+		}
+		
 		if(!nearTargetHoriz || currentTarget == null)
+		{
+			restoreVerticalIfBoosted();
+			verticalAssistActive = false;
+			return;
+		}
+		if(underNetherBedrock)
 		{
 			restoreVerticalIfBoosted();
 			verticalAssistActive = false;
@@ -4096,6 +4122,10 @@ public final class AutoFlyHack extends Hack
 		if(MC.level == null || MC.player == null)
 			return;
 		if(isDirectionalForwardMode())
+			return;
+		if(!adjustFlightHeight.isChecked())
+			return;
+		if(isUnderNetherBedrock(playerPos))
 			return;
 		
 		lastRepathMs = System.currentTimeMillis();
@@ -4306,8 +4336,25 @@ public final class AutoFlyHack extends Hack
 		}
 	}
 	
-	private void updateVerticalControls(double yDiff, boolean nearTargetY)
+	private void updateVerticalControls(double yDiff, boolean nearTargetY,
+		boolean underNetherBedrock)
 	{
+		if(!adjustFlightHeight.isChecked())
+		{
+			verticalMode = VerticalMode.NONE;
+			autoSetKey(MC.options.keyJump, false);
+			autoSetKey(MC.options.keyShift, false);
+			return;
+		}
+		
+		if(underNetherBedrock)
+		{
+			verticalMode = VerticalMode.NONE;
+			autoSetKey(MC.options.keyJump, false);
+			autoSetKey(MC.options.keyShift, false);
+			return;
+		}
+		
 		if(verticalAssistActive)
 		{
 			autoSetKey(MC.options.keyJump, false);
@@ -4605,6 +4652,17 @@ public final class AutoFlyHack extends Hack
 		return false;
 	}
 	
+	private boolean isUnderNetherBedrock(Vec3 playerPos)
+	{
+		if(MC.level == null || playerPos == null)
+			return false;
+		if(MC.level.dimension() != Level.NETHER)
+			return false;
+		if(playerPos.y >= 0.0)
+			return false;
+		return isBedrockCeilingAbove(playerPos);
+	}
+	
 	private double getGroundYAtXZ(BlockPos xz)
 	{
 		if(MC.level == null || xz == null)
@@ -4620,6 +4678,12 @@ public final class AutoFlyHack extends Hack
 	{
 		if(target == null || playerPos == null)
 			return playerPos != null ? playerPos.y : 0.0;
+		
+		if(!adjustFlightHeight.isChecked())
+			return playerPos.y;
+		
+		if(isUnderNetherBedrock(playerPos))
+			return playerPos.y;
 		
 		if(!target.hasY)
 			return Double.NaN;
