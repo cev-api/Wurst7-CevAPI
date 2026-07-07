@@ -37,10 +37,15 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Prevents falling into the void/lava by air-walking instead of rubberbanding.",
 		false);
 	
-	private final CheckboxSetting falseFloor =
-		new CheckboxSetting("False floor",
-			"Treat the Nether and End as if they had a solid floor below you.",
-			false);
+	private final CheckboxSetting falseFloor = new CheckboxSetting(
+		"False floor",
+		"Treat the Overworld, Nether and End as if they had a solid floor below you.",
+		false);
+	
+	private final SliderSetting overworldFalseFloorY = new SliderSetting(
+		"Overworld floor Y",
+		"Block Y for the fake Overworld floor. The walkable surface is one block above this.",
+		-4, -64, 320, 1, ValueDisplay.INTEGER);
 	
 	private final SliderSetting netherFalseFloorY = new SliderSetting(
 		"Nether floor Y",
@@ -204,6 +209,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		setCategory(Category.MOVEMENT);
 		addSetting(useAirWalk);
 		addSetting(falseFloor);
+		addSetting(overworldFalseFloorY);
 		addSetting(netherFalseFloorY);
 		addSetting(endFalseFloorY);
 		addSetting(detectLava);
@@ -383,7 +389,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			return false;
 		
 		double floorY;
-		if(MC.level.dimension() == Level.NETHER)
+		if(MC.level.dimension() == Level.OVERWORLD)
+			floorY = overworldFalseFloorY.getValue() + 1.0;
+		else if(MC.level.dimension() == Level.NETHER)
 			floorY = netherFalseFloorY.getValue() + 1.0;
 		else if(MC.level.dimension() == Level.END)
 			floorY = endFalseFloorY.getValue() + 1.0;
