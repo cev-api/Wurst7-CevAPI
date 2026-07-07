@@ -302,9 +302,15 @@ public final class AutoFlyHack extends Hack
 		new ButtonSetting("Previous waypoint", this::selectPreviousTarget);
 	private final ButtonSetting nextButton =
 		new ButtonSetting("Next waypoint", this::selectNextTargetFromButton);
-	private final SliderSetting flightHeight =
-		new SliderSetting("Flight height", "Cruise Y level while traveling.",
-			80, -64, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final CheckboxSetting adjustFlightHeight = new CheckboxSetting(
+		"Adjust flight height",
+		"When enabled, AutoFly keeps using the configured Flight height.\n"
+			+ "When disabled, AutoFly uses your current Y level instead of forcing a separate cruise altitude.",
+		false);
+	private final SliderSetting flightHeight = new SliderSetting(
+		"Flight height",
+		"Cruise Y level while traveling. Only used when Adjust flight height is enabled.",
+		80, -64, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
 	private final SliderSetting flightSpeed = new SliderSetting("Flight speed",
 		"Temporary Flight horizontal speed while AutoFly is active.", 6.0, 0.5,
 		10.0, 0.1, ValueDisplay.DECIMAL.withSuffix(" b/s"));
@@ -455,6 +461,7 @@ public final class AutoFlyHack extends Hack
 	private double climbTargetY;
 	
 	private boolean flightWasEnabled;
+	private boolean boatFlyWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
 	
@@ -515,6 +522,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(reloadJsonButton);
 		addSetting(previousButton);
 		addSetting(nextButton);
+		addSetting(adjustFlightHeight);
 		addSetting(flightHeight);
 		addSetting(flightSpeed);
 		addSetting(targetRadius);
@@ -633,6 +641,7 @@ public final class AutoFlyHack extends Hack
 		stopIgnoreTicks = 0;
 		selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
+		boatFlyWasEnabled = WURST.getHax().boatFlyHack.isEnabled();
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
 		flightOverridesApplied = false;
@@ -662,6 +671,7 @@ public final class AutoFlyHack extends Hack
 			hax.autoLeaveHack.setEnabled(true);
 			enabledAutoLeaveForAutoFly = true;
 		}
+		ensureBoatFlyEnabledIfRiding();
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -688,6 +698,8 @@ public final class AutoFlyHack extends Hack
 			hax.newerNewChunksHack.setEnabled(false);
 		if(enabledRoofEspForStopOn && hax.roofEspHack.isEnabled())
 			hax.roofEspHack.setEnabled(false);
+		if(!boatFlyWasEnabled && hax.boatFlyHack.isEnabled())
+			hax.boatFlyHack.setEnabled(false);
 		enabledAntisocialForAutoFly = false;
 		enabledAutoEatForAutoFly = false;
 		enabledAutoLeaveForAutoFly = false;
@@ -737,6 +749,7 @@ public final class AutoFlyHack extends Hack
 		chunkTrailPortalCoordinator = null;
 		chunkTrailPortalScanCooldown = 0;
 		missingWorldStateTicks = 0;
+		ensureBoatFlyEnabledIfRiding();
 		applyChunkTrailRenderSuppression(false);
 	}
 	
@@ -755,6 +768,7 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		missingWorldStateTicks = 0;
+		ensureBoatFlyEnabledIfRiding();
 		
 		long updateNow = System.currentTimeMillis();
 		if(lastUpdateMs > 0L && updateNow - lastUpdateMs > 1000L)
@@ -2230,11 +2244,13 @@ public final class AutoFlyHack extends Hack
 	
 	private double getCruiseY(AutoFlyTarget target)
 	{
-		double y = flightHeight.getValue();
+		double y = adjustFlightHeight.isChecked() ? flightHeight.getValue()
+			: MC.player != null ? MC.player.getY() : flightHeight.getValue();
 		if(commandForwardUnlimited && target != null && target.hasY
 			&& !Double.isNaN(commandForwardY))
 			y = commandForwardY;
-		if(routeType.getSelected() != RouteType.CHUNKS && target != null
+		if(adjustFlightHeight.isChecked()
+			&& routeType.getSelected() != RouteType.CHUNKS && target != null
 			&& target.hasY && !commandForwardUnlimited)
 			y = Math.max(y, target.pos.getY() + 2);
 		
@@ -2249,6 +2265,16 @@ public final class AutoFlyHack extends Hack
 		if(!flight.isEnabled())
 			flight.setEnabled(true);
 		applyFlightOverrides();
+	}
+	
+	private void ensureBoatFlyEnabledIfRiding()
+	{
+		if(MC.player == null || !MC.player.isPassenger())
+			return;
+		
+		var boatFly = WURST.getHax().boatFlyHack;
+		if(!boatFly.isEnabled())
+			boatFly.setEnabled(true);
 	}
 	
 	private void applyFlightSettings()
