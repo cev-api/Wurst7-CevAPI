@@ -8,6 +8,8 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,14 +22,25 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.FluidTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat;
+import net.minecraft.world.entity.vehicle.boat.Boat;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -35,6 +48,7 @@ import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -138,6 +152,8 @@ public final class BedrockEscapeHack extends Hack
 	private static final int SAFE_TICK_COLOR = 0xFF00FF00;
 	private static final double VERTICAL_LOOK_THRESHOLD = 0.99995;
 	private static final int NETHER_FLOOR_RENDER_Y = -2;
+	private static final int BOAT_PLACE_RETRY_TICKS = 12;
+	private static final int BOAT_ENTER_RETRY_TICKS = 12;
 	
 	private Vec3 teleportTarget;
 	private AABB targetBox;
@@ -179,6 +195,9 @@ public final class BedrockEscapeHack extends Hack
 	private int foundSafeShafts;
 	private int foundSuperSafeShafts;
 	private int foundLowDamageShafts;
+	private int pendingBoatPlacementTicks;
+	private InteractionHand pendingBoatHand;
+	private int pendingBoatEnterTicks;
 	
 	public BedrockEscapeHack()
 	{
@@ -211,6 +230,7 @@ public final class BedrockEscapeHack extends Hack
 	protected void onEnable()
 	{
 		teleportedThisPress = false;
+		clearPendingBoatPlacement();
 		shiftSurfaceXrayApplied = false;
 		clearShaftScanState();
 		EVENTS.add(UpdateListener.class, this);
@@ -222,6 +242,7 @@ public final class BedrockEscapeHack extends Hack
 	protected void onDisable()
 	{
 		restoreShiftSurfaceXrayOverride();
+		clearPendingBoatPlacement();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
@@ -236,8 +257,11 @@ public final class BedrockEscapeHack extends Hack
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
 		{
 			restoreShiftSurfaceXrayOverride();
+			clearPendingBoatPlacement();
 			return;
 		}
+		
+		handlePendingBoatPlacement();
 		
 		if(!isActiveBedrockEscapeContext())
 		{
@@ -687,6 +711,10 @@ public final class BedrockEscapeHack extends Hack
 			|| destination == null)
 			return;
 		
+		boolean upwardRoofEscape =
+			destination.y > MC.player.getY() && destination.y > 127;
+		InteractionHand boatHand = upwardRoofEscape ? getHeldBoatHand() : null;
+		
 		int packets = packetSpam.getValueI();
 		for(int i = 0; i < packets; i++)
 		{
@@ -699,6 +727,15 @@ public final class BedrockEscapeHack extends Hack
 		Player player = MC.player;
 		player.setPos(destination.x, destination.y, destination.z);
 		player.setDeltaMovement(Vec3.ZERO);
+		
+		if(boatHand != null)
+		{
+			scheduleBoatPlacementRetry(boatHand);
+			tryPlaceBoatAboveRoof(boatHand);
+		}else
+		{
+			clearPendingBoatPlacement();
+		}
 	}
 	
 	private void sendMove(Vec3 destination)
@@ -709,6 +746,333 @@ public final class BedrockEscapeHack extends Hack
 		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
 			destination.x, destination.y, destination.z, MC.player.getYRot(),
 			MC.player.getXRot(), false, false));
+	}
+	
+	private void handlePendingBoatPlacement()
+	{
+		if(MC.player.isPassenger())
+		{
+			clearPendingBoatPlacement();
+			return;
+		}
+		
+		if(pendingBoatEnterTicks > 0)
+		{
+			if(tryEnterNearbyBoat())
+			{
+				clearPendingBoatPlacement();
+				return;
+			}
+			
+			pendingBoatEnterTicks--;
+		}
+		
+		if(pendingBoatPlacementTicks <= 0 || pendingBoatHand == null)
+			return;
+		
+		if(!isBoat(MC.player.getItemInHand(pendingBoatHand))
+			|| MC.player.getY() <= 127)
+		{
+			pendingBoatHand = null;
+			pendingBoatPlacementTicks = 0;
+			return;
+		}
+		
+		if(!tryEnterNearbyBoat() && tryPlaceBoatAboveRoof(pendingBoatHand))
+			pendingBoatEnterTicks = BOAT_ENTER_RETRY_TICKS;
+		
+		pendingBoatPlacementTicks--;
+		if(pendingBoatPlacementTicks <= 0)
+			pendingBoatHand = null;
+	}
+	
+	private void scheduleBoatPlacementRetry(InteractionHand hand)
+	{
+		pendingBoatHand = hand;
+		pendingBoatPlacementTicks = BOAT_PLACE_RETRY_TICKS;
+	}
+	
+	private void clearPendingBoatPlacement()
+	{
+		pendingBoatHand = null;
+		pendingBoatPlacementTicks = 0;
+		pendingBoatEnterTicks = 0;
+	}
+	
+	private InteractionHand getHeldBoatHand()
+	{
+		if(MC.player == null)
+			return null;
+		
+		if(isBoat(MC.player.getMainHandItem()))
+			return InteractionHand.MAIN_HAND;
+		
+		if(isBoat(MC.player.getOffhandItem()))
+			return InteractionHand.OFF_HAND;
+		
+		return null;
+	}
+	
+	private boolean isBoat(ItemStack stack)
+	{
+		if(stack.isEmpty())
+			return false;
+		
+		String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+		return path.endsWith("_boat") || path.endsWith("_chest_boat")
+			|| path.endsWith("_raft") || path.endsWith("_chest_raft");
+	}
+	
+	private boolean tryPlaceBoatAboveRoof(InteractionHand hand)
+	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null
+			|| hand == null || MC.rightClickDelay > 0
+			|| MC.gameMode.isDestroying() || MC.player.isHandsBusy())
+		{
+			return false;
+		}
+		
+		ItemStack stack = MC.player.getItemInHand(hand);
+		if(!isBoat(stack))
+			return false;
+		
+		BlockPos roofBase = findRoofBoatPlacementBase();
+		if(roofBase == null)
+			return false;
+		
+		Vec3 hitVec = Vec3.atCenterOf(roofBase).add(0, 0.5, 0);
+		BlockHitResult hitResult =
+			new BlockHitResult(hitVec, Direction.UP, roofBase, false);
+		
+		MC.rightClickDelay = 4;
+		WURST.getRotationFaker().faceVectorClient(hitVec);
+		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
+			MC.player.getX(), MC.player.getY(), MC.player.getZ(),
+			MC.player.getYRot(), MC.player.getXRot(), false, false));
+		MC.hitResult = hitResult;
+		MC.startUseItem();
+		
+		InteractionResult result =
+			MC.gameMode.useItemOn(MC.player, hand, hitResult);
+		if(!result.consumesAction()
+			&& MC.gameMode instanceof IMultiPlayerGameMode gameMode)
+		{
+			gameMode.sendPlayerInteractBlockPacket(hand, hitResult);
+			result = InteractionResult.SUCCESS;
+		}
+		
+		if(!result.consumesAction())
+			result = MC.gameMode.useItem(MC.player, hand);
+		
+		if(!result.consumesAction())
+		{
+			MC.player.connection.send(
+				new ServerboundUseItemPacket(hand, getPredictionSequence(),
+					MC.player.getYRot(), MC.player.getXRot()));
+		}
+		
+		MC.player.swing(hand);
+		if(result.consumesAction())
+			pendingBoatEnterTicks = BOAT_ENTER_RETRY_TICKS;
+		
+		return MC.player.isPassenger() || result.consumesAction();
+	}
+	
+	private boolean tryEnterNearbyBoat()
+	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null)
+			return false;
+		
+		Entity boat = null;
+		double bestDistance = Double.POSITIVE_INFINITY;
+		Entity camera = MC.getCameraEntity();
+		if(camera != null)
+		{
+			Vec3 start = camera.getEyePosition(1.0F);
+			Vec3 look = camera.getViewVector(1.0F).normalize();
+			Vec3 end = start.add(look.scale(16.0));
+			boat = getClosestBoatHit(start, end);
+			if(boat != null)
+				bestDistance = distanceToPlayerSq(boat);
+		}
+		
+		if(boat == null)
+		{
+			AABB searchBox = MC.player.getBoundingBox().inflate(8.0, 8.0, 8.0);
+			for(Entity entity : MC.level.getEntities(MC.player, searchBox,
+				this::isEnterableBoat))
+			{
+				double distance = distanceToPlayerSq(entity);
+				if(distance >= bestDistance)
+					continue;
+				
+				bestDistance = distance;
+				boat = entity;
+			}
+		}
+		
+		if(boat == null)
+			return false;
+		
+		Vec3 targetVec = getBoatTopHitVec(boat);
+		EntityHitResult hitResult = new EntityHitResult(boat, targetVec);
+		WURST.getRotationFaker().faceVectorClient(targetVec);
+		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
+			MC.player.getX(), MC.player.getY(), MC.player.getZ(),
+			MC.player.getYRot(), MC.player.getXRot(), false, false));
+		
+		MC.rightClickDelay = 4;
+		
+		for(InteractionHand hand : InteractionHand.values())
+		{
+			InteractionResult result =
+				MC.gameMode.interact(MC.player, boat, hitResult, hand);
+			if(result.consumesAction())
+				MC.player.swing(hand);
+			
+			if(MC.player.isPassenger())
+				return true;
+		}
+		
+		return MC.player.isPassenger();
+	}
+	
+	private Boat getClosestBoatHit(Vec3 start, Vec3 end)
+	{
+		if(MC.level == null)
+			return null;
+		
+		Vec3 dir = end.subtract(start);
+		double maxDist = dir.length();
+		if(maxDist <= 0)
+			return null;
+		
+		Vec3 dirNorm = dir.scale(1.0 / maxDist);
+		AABB searchBox = new AABB(start, end).inflate(1);
+		Boat closest = null;
+		double closestDist = Double.POSITIVE_INFINITY;
+		for(Entity entity : MC.level.getEntities(MC.player, searchBox,
+			this::isEnterableBoat))
+		{
+			AABB box = entity.getBoundingBox();
+			var opt = box.clip(start, end);
+			if(opt.isEmpty())
+				continue;
+			
+			Vec3 hit = opt.get();
+			double dist = hit.subtract(start).dot(dirNorm);
+			if(dist < 0 || dist > maxDist || dist >= closestDist)
+				continue;
+			
+			closestDist = dist;
+			closest = entity instanceof Boat boat ? boat : null;
+		}
+		
+		return closest;
+	}
+	
+	private double distanceToPlayerSq(Entity entity)
+	{
+		return entity.distanceToSqr(MC.player);
+	}
+	
+	private boolean isEnterableBoat(Entity entity)
+	{
+		if(entity == null || entity.isRemoved()
+			|| entity == MC.player.getVehicle())
+			return false;
+		
+		if(entity instanceof Boat boat)
+			return boat.getControllingPassenger() == null;
+		
+		if(entity instanceof AbstractChestBoat chestBoat)
+			return chestBoat.getControllingPassenger() == null;
+		
+		return false;
+	}
+	
+	private Vec3 getBoatTopHitVec(Entity boat)
+	{
+		AABB box = boat.getBoundingBox();
+		return new Vec3((box.minX + box.maxX) * 0.5, box.maxY - 0.05,
+			(box.minZ + box.maxZ) * 0.5);
+	}
+	
+	private BlockPos findRoofBoatPlacementBase()
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		Vec3 look = MC.player.getViewVector(1.0F);
+		double horizontalLength = Math.hypot(look.x, look.z);
+		int forwardX = horizontalLength < 1.0E-4 ? 0
+			: (int)Math.round(look.x / horizontalLength);
+		int forwardZ = horizontalLength < 1.0E-4 ? 1
+			: (int)Math.round(look.z / horizontalLength);
+		
+		if(forwardX == 0 && forwardZ == 0)
+			forwardZ = 1;
+		
+		BlockPos base = MC.player.blockPosition().below();
+		int sideX = -forwardZ;
+		int sideZ = forwardX;
+		
+		for(int forward = 2; forward <= 3; forward++)
+			for(int side = 0; side <= 1; side++)
+			{
+				BlockPos center =
+					base.offset(forwardX * forward, 0, forwardZ * forward);
+				BlockPos candidate = side == 0 ? center
+					: center.offset(sideX * side, 0, sideZ * side);
+				if(isValidBoatPlacementBase(candidate))
+					return candidate;
+				
+				if(side > 0)
+				{
+					BlockPos mirrored =
+						center.offset(-sideX * side, 0, -sideZ * side);
+					if(isValidBoatPlacementBase(mirrored))
+						return mirrored;
+				}
+			}
+		
+		return null;
+	}
+	
+	private boolean isValidBoatPlacementBase(BlockPos pos)
+	{
+		BlockState state = MC.level.getBlockState(pos);
+		if(state.isAir() || !state.getFluidState().isEmpty())
+			return false;
+		
+		BlockState above = MC.level.getBlockState(pos.above());
+		BlockState twoAbove = MC.level.getBlockState(pos.above(2));
+		return above.isAir() && twoAbove.isAir();
+	}
+	
+	private int getPredictionSequence()
+	{
+		if(MC.level == null)
+			return 0;
+		
+		try
+		{
+			Field handlerField = MC.level.getClass()
+				.getDeclaredField("blockStatePredictionHandler");
+			handlerField.setAccessible(true);
+			Object handler = handlerField.get(MC.level);
+			if(handler == null)
+				return 0;
+			
+			Method currentSequence =
+				handler.getClass().getMethod("currentSequence");
+			Object value = currentSequence.invoke(handler);
+			return value instanceof Integer i ? i : 0;
+			
+		}catch(ReflectiveOperationException e)
+		{
+			return 0;
+		}
 	}
 	
 	private float getPlayerHearts()
