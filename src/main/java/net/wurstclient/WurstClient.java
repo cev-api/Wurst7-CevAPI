@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.wurstclient.addons.AddonManager;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
-import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.command.CmdList;
 import net.wurstclient.command.CmdProcessor;
@@ -41,7 +40,6 @@ import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.presets.PresetManager;
-import net.wurstclient.proxy.ProxyManager;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.ForkUpdateChecker;
@@ -64,12 +62,10 @@ public enum WurstClient
 	public static IMinecraftClient IMC;
 	
 	public static final String VERSION = "7.54";
-	public static final String MC_VERSION = "1.21.11";
+	public static final String MC_VERSION = "26.2";
 	
-	private PlausibleAnalytics plausible;
 	private EventManager eventManager;
 	private AltManager altManager;
-	private ProxyManager proxyManager;
 	private HackList hax;
 	private CmdList cmds;
 	private OtfList otfs;
@@ -133,10 +129,6 @@ public enum WurstClient
 			System.out.println("Couldn't seed bundled preset.");
 			e.printStackTrace();
 		}
-		
-		Path analyticsFile = wurstFolder.resolve("analytics.json");
-		plausible = new PlausibleAnalytics(analyticsFile);
-		plausible.pageview("/");
 		
 		eventManager = new EventManager(this);
 		playerRangeAlertManager = new PlayerRangeAlertManager(eventManager);
@@ -211,8 +203,6 @@ public enum WurstClient
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
 		altManager = new AltManager(altsFile, encFolder);
-		proxyManager =
-			new ProxyManager(wurstFolder.resolve("proxies.json"), encFolder);
 		
 		NiceWurstModule.apply(this);
 	}
@@ -239,11 +229,6 @@ public enum WurstClient
 	public String translate(String key, Object... args)
 	{
 		return translator.translate(key, args);
-	}
-	
-	public PlausibleAnalytics getPlausible()
-	{
-		return plausible;
 	}
 	
 	public EventManager getEventManager()
@@ -489,10 +474,5 @@ public enum WurstClient
 	public AltManager getAltManager()
 	{
 		return altManager;
-	}
-	
-	public ProxyManager getProxyManager()
-	{
-		return proxyManager;
 	}
 }

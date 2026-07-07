@@ -36,6 +36,26 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Prevents falling into the void/lava by air-walking instead of rubberbanding.",
 		false);
 	
+	private final CheckboxSetting falseFloor = new CheckboxSetting(
+		"False floor",
+		"Treat the Overworld, Nether and End as if they had a solid floor below you.",
+		false);
+	
+	private final SliderSetting overworldFalseFloorY = new SliderSetting(
+		"Overworld floor Y",
+		"Block Y for the fake Overworld floor. The walkable surface is one block above this.",
+		-68, -100, -64, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting netherFalseFloorY = new SliderSetting(
+		"Nether floor Y",
+		"Block Y for the fake Nether floor. The walkable surface is one block above this.",
+		-40, -40, -4, 1, ValueDisplay.INTEGER);
+	
+	private final SliderSetting endFalseFloorY = new SliderSetting(
+		"End floor Y",
+		"Block Y for the fake End floor. The walkable surface is one block above this.",
+		-60, -60, 0, 1, ValueDisplay.INTEGER);
+	
 	private final CheckboxSetting detectLava = new CheckboxSetting(
 		"Detect lava",
 		"Also prevents falling into lava when it is directly below you.", true);
