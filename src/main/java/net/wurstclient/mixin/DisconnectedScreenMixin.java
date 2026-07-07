@@ -38,6 +38,7 @@ import net.wurstclient.altmanager.LoginException;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hacks.AutoReconnectHack;
+import net.wurstclient.hacks.CommandSpamHack;
 import net.wurstclient.hacks.OfflineSettingsHack;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
 import net.wurstclient.navigator.NavigatorListScreen;
@@ -170,6 +171,14 @@ public class DisconnectedScreenMixin extends Screen
 			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
 		
 		offlineSettingsHack.handleDisconnect(reason);
+		CommandSpamHack commandSpam =
+			WurstClient.INSTANCE.getHax().commandSpamHack;
+		if(commandSpam.shouldInstantReconnect(reason))
+		{
+			LastServerRememberer.reconnect(parent);
+			return;
+		}
+		
 		String autoLeaveDetails =
 			DisconnectContext.consumePendingDisconnectDetails();
 		boolean loginElsewhere = isLoginElsewhere(reason);

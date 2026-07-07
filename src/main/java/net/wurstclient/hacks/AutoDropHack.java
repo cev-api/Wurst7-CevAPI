@@ -7,15 +7,21 @@
  */
 package net.wurstclient.hacks;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.HashedStack;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ItemListSetting;
 
 @SearchTags({"auto drop", "AutoEject", "auto-eject", "auto eject",
@@ -32,6 +38,13 @@ public final class AutoDropHack extends Hack implements UpdateListener
 		"minecraft:rose_bush", "minecraft:rotten_flesh", "minecraft:sunflower",
 		"minecraft:wheat_seeds", "minecraft:white_tulip");
 	
+	private final CheckboxSetting packetOnly = new CheckboxSetting(
+		"Packet-only mode",
+		"Sends raw drop packets instead of using Minecraft's normal inventory"
+			+ " click handler. Experimental: may reduce local animations, but can"
+			+ " cause temporary inventory desync if a server rejects the packet.",
+		false);
+	
 	private final String renderName =
 		Math.random() < 0.01 ? "AutoLinus" : getName();
 	
@@ -40,6 +53,7 @@ public final class AutoDropHack extends Hack implements UpdateListener
 		super("AutoDrop");
 		setCategory(Category.ITEMS);
 		addSetting(items);
+		addSetting(packetOnly);
 	}
 	
 	@Override
@@ -84,7 +98,30 @@ public final class AutoDropHack extends Hack implements UpdateListener
 			if(!items.getItemNames().contains(itemName))
 				continue;
 			
-			IMC.getInteractionManager().windowClick_THROW(slot);
+			if(packetOnly.isChecked())
+				sendThrowPacket(slot, adjustedSlot);
+			else
+				IMC.getInteractionManager().windowClick_THROW(slot);
 		}
+	}
+	
+	private void sendThrowPacket(int slot, int inventorySlot)
+	{
+		ClientPacketListener connection = MC.getConnection();
+		if(connection == null)
+			return;
+		
+		ServerboundContainerClickPacket packet =
+			new ServerboundContainerClickPacket(
+				MC.player.containerMenu.containerId,
+				MC.player.containerMenu.getStateId(), (short)slot, (byte)1,
+				ContainerInput.THROW, new Int2ObjectOpenHashMap<>(),
+				HashedStack.EMPTY);
+		
+		connection.send(packet);
+		
+		// Vanilla normally predicts click results locally. Packet-only mode
+		// skips that path, so clear the slot to avoid resending it every tick.
+		MC.player.getInventory().setItem(inventorySlot, ItemStack.EMPTY);
 	}
 }
