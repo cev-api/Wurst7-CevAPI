@@ -45,7 +45,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private final SliderSetting overworldFalseFloorY = new SliderSetting(
 		"Overworld floor Y",
 		"Block Y for the fake Overworld floor. The walkable surface is one block above this.",
-		-4, -64, 320, 1, ValueDisplay.INTEGER);
+		-68, -100, -64, 1, ValueDisplay.INTEGER);
 	
 	private final SliderSetting netherFalseFloorY = new SliderSetting(
 		"Nether floor Y",
@@ -63,7 +63,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	
 	private final CheckboxSetting gateAtVoidLevel = new CheckboxSetting(
 		"Respond only at void level",
-		"Only trigger when reaching the standard void level (End: -60, Others: -125).\n"
+		"Only trigger when reaching the configured void level (Overworld: -64..-100, End/Nether: -60).\n"
 			+ "For lava, triggers one block above the lava surface.",
 		false);
 	
@@ -80,12 +80,12 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private final SliderSetting lavaBufferBlocks = new SliderSetting(
 		"Lava buffer (blocks)", 2, 0, 12, 1, ValueDisplay.INTEGER);
 	
-	// Fixed thresholds are used; no per-dimension sliders.
+	// Nether/End thresholds are fixed; Overworld uses the floor slider.
 	
 	private final CheckboxSetting autoEnableByHeight = new CheckboxSetting(
 		"Auto-enable by height",
 		"Automatically enables AntiVoid when your Y is within a safety band below 0.\n"
-			+ "Defaults: End -65..0, Others -125..-60.",
+			+ "Defaults: Overworld -64, End/Nether -60.",
 		true);
 	
 	private Vec3 lastSafePos;
@@ -479,21 +479,20 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private double fixedVoidLevel()
 	{
 		if(MC.level == null)
-			return -120.0;
+			return overworldFalseFloorY.getValue();
 		String key = MC.level.dimension().identifier().getPath();
 		if("the_end".equals(key))
 			return -60.0;
 		if("the_nether".equals(key))
 			return -60.0;
 		// Overworld
-		return -120.0;
+		return overworldFalseFloorY.getValue();
 	}
 	
 	// No height band method needed; using fixed thresholds.
 	
 	/**
 	 * Returns a safe Y level above void damage based on fixedVoidLevel().
-	 * Overworld: -117 (4 blocks above -121 damage), Nether/End: -57.
 	 */
 	private double rescueTargetY()
 	{
