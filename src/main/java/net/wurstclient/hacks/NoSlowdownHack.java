@@ -36,6 +36,11 @@ public final class NoSlowdownHack extends Hack implements
 		"Allows normal swimming while \"No water slowdown\" is enabled.\n"
 			+ "When enabled, water slowdown is only bypassed while walking on the ground in water.",
 		true);
+	private final CheckboxSetting swimSpeed = new CheckboxSetting(
+		"No swimming slowdown",
+		"Also removes slowdown while actively swimming underwater.\n"
+			+ "This lets you move at full surface speed in water, and SpeedHack can stack on top of it.",
+		false);
 	
 	private final CheckboxSetting ignoreVines = new CheckboxSetting(
 		"Ignore vines",
@@ -52,6 +57,7 @@ public final class NoSlowdownHack extends Hack implements
 		addSetting(lavaSpeed);
 		addSetting(waterSpeed);
 		addSetting(allowSwimming);
+		addSetting(swimSpeed);
 		addSetting(ignoreVines);
 	}
 	
@@ -103,6 +109,12 @@ public final class NoSlowdownHack extends Hack implements
 		
 		if(event.isNormallyInWater())
 		{
+			if(swimSpeed.isChecked())
+			{
+				bypassingWater = true;
+				return;
+			}
+			
 			if(allowSwimming.isChecked())
 			{
 				// Let the game see that we're in water while swimming, but
@@ -148,6 +160,11 @@ public final class NoSlowdownHack extends Hack implements
 	public void setIgnoreVines(boolean ignore)
 	{
 		ignoreVines.setChecked(ignore);
+	}
+	
+	public boolean shouldBypassSwimmingSlowdown()
+	{
+		return isEnabled() && waterSpeed.isChecked() && swimSpeed.isChecked();
 	}
 	
 	// See BlockMixin, LocalPlayerMixin

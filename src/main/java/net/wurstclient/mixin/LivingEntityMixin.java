@@ -11,16 +11,23 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+
 import net.minecraft.core.Holder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 
 @Mixin(LivingEntity.class)
@@ -40,6 +47,71 @@ public class LivingEntityMixin
 		
 		if(WurstClient.INSTANCE.getHax().antiBlindHack.isEnabled())
 			cir.setReturnValue(0F);
+	}
+	
+	/**
+	 * Preserves swimming while removing the vanilla water slowdown multiplier
+	 * when NoSlowdown's swimming mode is enabled.
+	 */
+	@ModifyReturnValue(method = "getWaterSlowDown()F", at = @At("RETURN"))
+	private float onGetWaterSlowDown(float original)
+	{
+		Entity entity = (Entity)(Object)this;
+		if(!(entity instanceof Player player) || !player.isLocalPlayer())
+			return original;
+		
+		var hax = WurstClient.INSTANCE.getHax();
+		if(hax == null)
+			return original;
+		
+		var noSlowdown = hax.noSlowdownHack;
+		if(!noSlowdown.shouldBypassSwimmingSlowdown())
+			return original;
+		
+		return 1.0F;
+	}
+	
+	/**
+	 * Maximizes underwater movement efficiency while NoSlowdown's swimming
+	 * mode is enabled, so swimming keeps its state but loses the vanilla drag.
+	 */
+	@ModifyReturnValue(
+		method = "getAttributeValue(Lnet/minecraft/core/Holder;)D",
+		at = @At("RETURN"))
+	private double onGetAttributeValue(double original,
+		net.minecraft.core.Holder<?> attribute)
+	{
+		Entity entity = (Entity)(Object)this;
+		if(!(entity instanceof Player player) || !player.isLocalPlayer())
+			return original;
+		
+		var hax = WurstClient.INSTANCE.getHax();
+		if(hax == null || !hax.noSlowdownHack.shouldBypassSwimmingSlowdown())
+			return original;
+		
+		if(attribute == Attributes.WATER_MOVEMENT_EFFICIENCY)
+			return Math.max(original, 1.0D);
+		
+		return original;
+	}
+	
+	/**
+	 * Boosts the swim push itself so underwater movement matches surface speed
+	 * when NoSlowdown's swimming mode is enabled.
+	 */
+	@WrapOperation(
+		method = "travelInWater(Lnet/minecraft/world/phys/Vec3;DZD)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/world/entity/LivingEntity;moveRelative(FLnet/minecraft/world/phys/Vec3;)V",
+			ordinal = 0))
+	private void wrapTravelInWaterMoveRelative(LivingEntity instance,
+		float speed, Vec3 movementInput, Operation<Void> original)
+	{
+		var hax = WurstClient.INSTANCE.getHax();
+		if(hax != null && hax.noSlowdownHack.shouldBypassSwimmingSlowdown())
+			speed *= 1.8F;
+		
+		original.call(instance, speed, movementInput);
 	}
 	
 	@Inject(method = "onClimbable()Z", at = @At("HEAD"), cancellable = true)
