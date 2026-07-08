@@ -125,7 +125,11 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 			
 		// Avoid doing this while flying or in fluids, where vanilla movement
 		// rules differ a lot.
-		if(MC.player.getAbilities().flying || MC.player.isInWater()
+		var hax = WURST.getHax();
+		boolean allowWaterSpeed =
+			hax != null && hax.noSlowdownHack.shouldBypassSwimmingSlowdown();
+		if(MC.player.getAbilities().flying
+			|| (!allowWaterSpeed && MC.player.isInWater())
 			|| MC.player.isInLava())
 			return;
 		
