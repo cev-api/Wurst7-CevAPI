@@ -141,6 +141,11 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		"Set ESP Y limit", 62, -65, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private java.util.List<ChestEntry> openedChests = java.util.List.of();
 	private long lastOpenedChestsRefreshMs;
+	private java.util.Set<Long> openedChestIndex = java.util.Set.of();
+	private java.util.List<ChestEntry> openedChestOversized =
+		java.util.List.of();
+	private java.util.List<ChestEntry> openedChestIndexSource;
+	private String openedChestIndexDimFull;
 	
 	// Buried highlighting
 	private final CheckboxSetting highlightBuried = new CheckboxSetting(
@@ -933,6 +938,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		if(openedChests.isEmpty())
 			return false;
 		
+		rebuildOpenedChestIndexIfNeeded(curDimFull, curDim);
+		
 		int boxMinX = (int)Math.floor(box.minX + 1e-6);
 		int boxMaxX = (int)Math.floor(box.maxX - 1e-6);
 		int boxMinY = (int)Math.floor(box.minY + 1e-6);
@@ -940,6 +947,42 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		int boxMinZ = (int)Math.floor(box.minZ + 1e-6);
 		int boxMaxZ = (int)Math.floor(box.maxZ - 1e-6);
 		
+		boolean smallBox = boxMaxX - boxMinX <= 8 && boxMaxY - boxMinY <= 8
+			&& boxMaxZ - boxMinZ <= 8;
+		if(!smallBox)
+			return isRecordedChestLinear(boxMinX, boxMaxX, boxMinY, boxMaxY,
+				boxMinZ, boxMaxZ, curDimFull, curDim);
+		
+		if(!openedChestIndex.isEmpty())
+			for(int x = boxMinX; x <= boxMaxX; x++)
+				for(int y = boxMinY; y <= boxMaxY; y++)
+					for(int z = boxMinZ; z <= boxMaxZ; z++)
+						if(openedChestIndex.contains(
+							net.minecraft.core.BlockPos.asLong(x, y, z)))
+							return true;
+						
+		for(ChestEntry e : openedChestOversized)
+		{
+			int minX = Math.min(e.x, e.maxX);
+			int maxX = Math.max(e.x, e.maxX);
+			int minY = Math.min(e.y, e.maxY);
+			int maxY = Math.max(e.y, e.maxY);
+			int minZ = Math.min(e.z, e.maxZ);
+			int maxZ = Math.max(e.z, e.maxZ);
+			boolean overlap =
+				boxMinX <= maxX && boxMaxX >= minX && boxMinY <= maxY
+					&& boxMaxY >= minY && boxMinZ <= maxZ && boxMaxZ >= minZ;
+			if(overlap)
+				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean isRecordedChestLinear(int boxMinX, int boxMaxX, int boxMinY,
+		int boxMaxY, int boxMinZ, int boxMaxZ, String curDimFull, String curDim)
+	{
+		String dimSuffix = ":" + curDim;
 		for(ChestEntry e : openedChests)
 		{
 			if(e == null || e.dimension == null)
@@ -947,7 +990,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			
 			String ed = e.dimension;
 			boolean sameDimension = ed.equals(curDimFull) || ed.equals(curDim)
-				|| ed.endsWith(":" + curDim);
+				|| ed.endsWith(dimSuffix);
 			if(!sameDimension)
 				continue;
 			
@@ -963,8 +1006,54 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			if(overlap)
 				return true;
 		}
-		
 		return false;
+	}
+	
+	private void rebuildOpenedChestIndexIfNeeded(String curDimFull,
+		String curDim)
+	{
+		if(openedChestIndexSource == openedChests
+			&& java.util.Objects.equals(openedChestIndexDimFull, curDimFull))
+			return;
+		
+		java.util.HashSet<Long> index = new java.util.HashSet<>();
+		java.util.ArrayList<ChestEntry> oversized = new java.util.ArrayList<>();
+		String dimSuffix = ":" + curDim;
+		
+		for(ChestEntry e : openedChests)
+		{
+			if(e == null || e.dimension == null)
+				continue;
+			
+			String ed = e.dimension;
+			boolean sameDimension = ed.equals(curDimFull) || ed.equals(curDim)
+				|| ed.endsWith(dimSuffix);
+			if(!sameDimension)
+				continue;
+			
+			int minX = Math.min(e.x, e.maxX);
+			int maxX = Math.max(e.x, e.maxX);
+			int minY = Math.min(e.y, e.maxY);
+			int maxY = Math.max(e.y, e.maxY);
+			int minZ = Math.min(e.z, e.maxZ);
+			int maxZ = Math.max(e.z, e.maxZ);
+			
+			if(maxX - minX > 4 || maxY - minY > 4 || maxZ - minZ > 4)
+			{
+				oversized.add(e);
+				continue;
+			}
+			
+			for(int x = minX; x <= maxX; x++)
+				for(int y = minY; y <= maxY; y++)
+					for(int z = minZ; z <= maxZ; z++)
+						index.add(net.minecraft.core.BlockPos.asLong(x, y, z));
+		}
+		
+		openedChestIndex = index;
+		openedChestOversized = oversized;
+		openedChestIndexSource = openedChests;
+		openedChestIndexDimFull = curDimFull;
 	}
 	
 	private void renderTracers(PoseStack matrixStack, float partialTicks)
