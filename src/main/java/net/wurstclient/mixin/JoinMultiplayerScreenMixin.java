@@ -44,7 +44,6 @@ import net.wurstclient.WurstClient;
 import net.cevapi.config.AntiFingerprintConfigScreen;
 import net.cevapi.security.ResourcePackProtector;
 import net.cevapi.config.AntiFingerprintConfig;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -246,18 +245,6 @@ public class JoinMultiplayerScreenMixin extends Screen
 		addRenderableWidget(lastServerButton);
 	}
 	
-	@Inject(method = "init()V", at = @At("TAIL"))
-	private void afterVanillaButtons(CallbackInfo ci)
-	{
-		if(!WurstClient.INSTANCE.isEnabled())
-			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
-		
-		addRenderableOnly((context, mouseX, mouseY,
-			partialTicks) -> wurst$renderPanelOverlays(context));
-	}
-	
 	@Inject(method = "repositionElements()V", at = @At("TAIL"))
 	private void onRefreshWidgetPositions(CallbackInfo ci)
 	{
@@ -274,13 +261,16 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		}
 		
-		wurst$setCustomMultiplayerUiVisible(true);
-		
-		wurst$layoutServerPanels();
-		wurst$ensurePanelWidgets();
-		wurst$ensureSearchWidgets();
-		wurst$layoutSearchWidgets();
-		wurst$updateSearchResults();
+		boolean customLayout = wurst$shouldUseCustomMultiplayerLayout();
+		wurst$setCustomMultiplayerUiVisible(customLayout);
+		if(customLayout)
+		{
+			wurst$layoutServerPanels();
+			wurst$ensurePanelWidgets();
+			wurst$ensureSearchWidgets();
+			wurst$layoutSearchWidgets();
+			wurst$updateSearchResults();
+		}
 		
 		if(NiceWurstModule.showAltManager())
 		{
@@ -288,7 +278,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerAltManagerButton = Button
 					.builder(Component.literal("Alt Manager"),
-						b -> minecraft.setScreen(new AltManagerScreen(
+						b -> minecraft.gui.setScreen(new AltManagerScreen(
 							(JoinMultiplayerScreen)(Object)this,
 							WurstClient.INSTANCE.getAltManager())))
 					.bounds(0, 0, 100, 20).build();
@@ -312,10 +302,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			if(antiFingerprintButton == null)
 			{
-				antiFingerprintButton = Button.builder(
-					Component.literal("Anti-Fingerprint"),
-					b -> minecraft.setScreen(new AntiFingerprintConfigScreen(
-						(JoinMultiplayerScreen)(Object)this)))
+				antiFingerprintButton = Button
+					.builder(Component.literal("Anti-Fingerprint"),
+						b -> minecraft.gui
+							.setScreen(new AntiFingerprintConfigScreen(
+								(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(antiFingerprintButton);
 			}
@@ -383,7 +374,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerServerFinderButton = Button
 					.builder(Component.literal("Server Finder"),
-						b -> minecraft.setScreen(new ServerFinderScreen(
+						b -> minecraft.gui.setScreen(new ServerFinderScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(cornerServerFinderButton);
@@ -406,7 +397,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerCleanUpButton = Button
 					.builder(Component.literal("Clean Up"),
-						b -> minecraft.setScreen(new CleanUpScreen(
+						b -> minecraft.gui.setScreen(new CleanUpScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 74, 20).build();
 				addRenderableWidget(cornerCleanUpButton);
@@ -478,6 +469,17 @@ public class JoinMultiplayerScreenMixin extends Screen
 		}
 	}
 	
+	@Unique
+	private boolean wurst$shouldUseCustomMultiplayerLayout()
+	{
+		if(WurstClient.INSTANCE.getOtfs() == null
+			|| WurstClient.INSTANCE.getOtfs().wurstOptionsOtf == null)
+			return true;
+		
+		return WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.isCustomMultiplayerLayoutEnabled();
+	}
+	
 	@Inject(method = "join(Lnet/minecraft/client/multiplayer/ServerData;)V",
 		at = @At("HEAD"))
 	private void onConnect(ServerData entry, CallbackInfo ci)
@@ -495,8 +497,12 @@ public class JoinMultiplayerScreenMixin extends Screen
 		wurst$syncMultiSelectButtons();
 	}
 	
-	@Unique
-	private void wurst$renderPanelOverlays(GuiGraphics context)
+	@Inject(
+		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+		at = @At("TAIL"))
+	private void afterExtractRenderState(
+		net.minecraft.client.gui.GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(wurst$panelConfig == null)
 			return;
@@ -511,13 +517,13 @@ public class JoinMultiplayerScreenMixin extends Screen
 			if(!visible)
 				continue;
 			
-			context.vLine(x, top, bottom, 0x66000000);
-			context.vLine(x + panelWidth, top, bottom, 0x66000000);
+			context.verticalLine(x, top, bottom, 0x66000000);
+			context.verticalLine(x + panelWidth, top, bottom, 0x66000000);
 		}
 		
 		if(wurst$statusMessage != null
 			&& System.currentTimeMillis() < wurst$statusMessageUntil)
-			context.drawCenteredString(font, wurst$statusMessage, width / 2,
+			context.centeredText(font, wurst$statusMessage, width / 2,
 				height - 76, 0xFFFFFFFF);
 	}
 	
@@ -535,10 +541,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "method_19914",
-		at = @At("HEAD"),
-		cancellable = true,
-		remap = false)
+	@Inject(method = "lambda$init$4", at = @At("HEAD"), cancellable = true)
 	private void onDeleteButton(Button button, CallbackInfo ci)
 	{
 		if(wurst$multiSelectedServers.size() <= 1)
@@ -1791,10 +1794,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		Component message = Component.literal(
 			"Are you sure you want to delete " + count + " selected servers?");
 		Component delete = Component.translatable("selectServer.deleteButton");
-		minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 			if(confirmed)
 				wurst$bulkDeleteSelected();
-			minecraft.setScreen((JoinMultiplayerScreen)(Object)this);
+			minecraft.gui.setScreen((JoinMultiplayerScreen)(Object)this);
 		}, title, message, delete, CommonComponents.GUI_CANCEL));
 	}
 	
@@ -1814,7 +1817,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private AbstractWidget findWidget(String label)
 	{
-		for(AbstractWidget button : Screens.getButtons(this))
+		for(AbstractWidget button : Screens.getWidgets(this))
 		{
 			if(button.getMessage().getString().equals(label))
 				return button;
