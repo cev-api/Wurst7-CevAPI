@@ -556,8 +556,6 @@ public final class ShadertoyBackgroundManager
 			#define iChannel2 Sampler2
 			#define iChannel3 Sampler2
 			
-			const vec3 iResolution = vec3(1920.0, 1080.0, 1.0);
-			const vec4 iMouse = vec4(0.0);
 			const vec3 iChannelResolution[4] = vec3[4](
 			""" + channelResolutionArray + """
 			);
