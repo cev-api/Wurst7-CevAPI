@@ -274,13 +274,16 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		}
 		
-		wurst$setCustomMultiplayerUiVisible(true);
-		
-		wurst$layoutServerPanels();
-		wurst$ensurePanelWidgets();
-		wurst$ensureSearchWidgets();
-		wurst$layoutSearchWidgets();
-		wurst$updateSearchResults();
+		boolean customLayout = wurst$shouldUseCustomMultiplayerLayout();
+		wurst$setCustomMultiplayerUiVisible(customLayout);
+		if(customLayout)
+		{
+			wurst$layoutServerPanels();
+			wurst$ensurePanelWidgets();
+			wurst$ensureSearchWidgets();
+			wurst$layoutSearchWidgets();
+			wurst$updateSearchResults();
+		}
 		
 		if(NiceWurstModule.showAltManager())
 		{
@@ -476,6 +479,17 @@ public class JoinMultiplayerScreenMixin extends Screen
 				if(wurst$sortButtons[i][j] != null)
 					wurst$sortButtons[i][j].visible = visible;
 		}
+	}
+	
+	@Unique
+	private boolean wurst$shouldUseCustomMultiplayerLayout()
+	{
+		if(WurstClient.INSTANCE.getOtfs() == null
+			|| WurstClient.INSTANCE.getOtfs().wurstOptionsOtf == null)
+			return true;
+		
+		return WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.isCustomMultiplayerLayoutEnabled();
 	}
 	
 	@Inject(method = "join(Lnet/minecraft/client/multiplayer/ServerData;)V",

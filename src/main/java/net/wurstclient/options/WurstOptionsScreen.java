@@ -165,6 +165,8 @@ public final class WurstOptionsScreen extends Screen
 			options.getHackToggleChatFeedbackSetting();
 		CheckboxSetting customMojangLogoBg =
 			options.getCustomMojangLogoBackgroundSetting();
+		CheckboxSetting customMultiplayerLayout =
+			options.getCustomMultiplayerLayoutSetting();
 		ColorSetting mojangLogoBgColor =
 			options.getMojangLogoBackgroundColorSetting();
 		CheckboxSetting hideEnableButton =
@@ -205,6 +207,13 @@ public final class WurstOptionsScreen extends Screen
 			"Pick the custom background color used behind the Mojang loading logo.",
 			b -> minecraft
 				.setScreen(new EditColorScreen(this, mojangLogoBgColor)));
+		
+		addButton(column,
+			() -> "Multiplayer Layout: "
+				+ onOff(customMultiplayerLayout.isChecked()),
+			"Toggle Wurst's custom server panels and search bar on the multiplayer screen.",
+			b -> customMultiplayerLayout
+				.setChecked(!customMultiplayerLayout.isChecked()));
 		
 		addButton(column,
 			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
