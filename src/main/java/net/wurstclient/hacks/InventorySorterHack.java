@@ -77,7 +77,7 @@ public final class InventorySorterHack extends Hack
 		
 		sort(screen, sectionSlots(screen, hovered));
 	}
-
+	
 	private ArrayList<Slot> sectionSlots(AbstractContainerScreen<?> screen,
 		Slot hovered)
 	{
@@ -161,12 +161,12 @@ public final class InventorySorterHack extends Hack
 			click(screen, slotA);
 		}
 	}
-
+	
 	private void click(AbstractContainerScreen<?> screen, Slot slot)
 	{
 		screen.slotClicked(slot, slot.index, 0, ContainerInput.PICKUP);
 	}
-
+	
 	private int compare(ItemStack a, ItemStack b)
 	{
 		boolean ae = a.isEmpty();

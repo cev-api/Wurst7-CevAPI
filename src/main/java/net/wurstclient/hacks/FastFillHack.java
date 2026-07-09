@@ -213,7 +213,7 @@ public final class FastFillHack extends Hack
 				? inReach.stream().filter(this::needsBreak)
 					.collect(Collectors.toCollection(ArrayList::new))
 				: new ArrayList<>();
-
+		
 		boolean creative = MC.player.getAbilities().instabuild;
 		if(!creative && !toBreak.isEmpty())
 		{

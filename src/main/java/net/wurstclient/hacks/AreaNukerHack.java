@@ -161,12 +161,12 @@ public final class AreaNukerHack extends Hack
 		if(MC.hitResult instanceof BlockHitResult bhr)
 		{
 			posLookingAt = bhr.getBlockPos();
-
+			
 			if(MC.options.keyShift.isDown())
 				posLookingAt = posLookingAt.relative(bhr.getDirection());
 		}else
 			posLookingAt = null;
-
+		
 		if(posLookingAt != null && MC.options.keyUse.isDown())
 			setStepPos(posLookingAt);
 	}
