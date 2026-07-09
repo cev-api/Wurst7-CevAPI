@@ -10,12 +10,15 @@ package net.wurstclient.mixin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.Panorama;
 import net.wurstclient.WurstClient;
+import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
 @Mixin(value = Screen.class, remap = false)
 public abstract class ScreenMixin extends AbstractContainerEventHandler
@@ -34,5 +37,23 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		if(WurstClient.INSTANCE.getHax().noBackgroundHack
 			.shouldCancelBackground((Screen)(Object)this))
 			ci.cancel();
+	}
+	
+	@Redirect(
+		method = "extractPanorama(Lnet/minecraft/client/gui/GuiGraphicsExtractor;F)V",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/Panorama;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V"))
+	private void onExtractPanorama(Panorama panorama,
+		GuiGraphicsExtractor context, int width, int height)
+	{
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins()
+			|| !WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+				.isTitleScreenShadertoyBackgroundEnabled())
+		{
+			panorama.extractRenderState(context, width, height);
+			return;
+		}
+		
+		TitleScreenBackgroundRenderer.addBackground(context, width, height);
 	}
 }

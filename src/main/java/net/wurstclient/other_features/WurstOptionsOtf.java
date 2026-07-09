@@ -46,6 +46,11 @@ public final class WurstOptionsOtf extends OtherFeature
 		"Custom multiplayer layout",
 		"Use Wurst's custom multiplayer server panels and search bar.", true);
 	
+	private final CheckboxSetting titleScreenShadertoyBackground =
+		new CheckboxSetting("Shadertoy background",
+			"Render the animated Shadertoy-style background on the title screen.",
+			true);
+	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
 	
@@ -82,6 +87,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(hackToggleChatFeedback);
 		addSetting(customMojangLogoBackground);
 		addSetting(customMultiplayerLayout);
+		addSetting(titleScreenShadertoyBackground);
 		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
@@ -124,6 +130,16 @@ public final class WurstOptionsOtf extends OtherFeature
 	public CheckboxSetting getCustomMultiplayerLayoutSetting()
 	{
 		return customMultiplayerLayout;
+	}
+	
+	public CheckboxSetting getTitleScreenShadertoyBackgroundSetting()
+	{
+		return titleScreenShadertoyBackground;
+	}
+	
+	public boolean isTitleScreenShadertoyBackgroundEnabled()
+	{
+		return titleScreenShadertoyBackground.isChecked();
 	}
 	
 	public boolean isCustomMultiplayerLayoutEnabled()

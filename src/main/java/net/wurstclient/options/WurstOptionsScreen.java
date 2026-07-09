@@ -165,6 +165,8 @@ public final class WurstOptionsScreen extends Screen
 			options.getCustomMojangLogoBackgroundSetting();
 		CheckboxSetting customMultiplayerLayout =
 			options.getCustomMultiplayerLayoutSetting();
+		CheckboxSetting titleScreenShadertoyBackground =
+			options.getTitleScreenShadertoyBackgroundSetting();
 		ColorSetting mojangLogoBgColor =
 			options.getMojangLogoBackgroundColorSetting();
 		CheckboxSetting hideEnableButton =
@@ -208,6 +210,13 @@ public final class WurstOptionsScreen extends Screen
 			"Toggle Wurst's custom server panels and search bar on the multiplayer screen.",
 			b -> customMultiplayerLayout
 				.setChecked(!customMultiplayerLayout.isChecked()));
+		
+		addButton(column,
+			() -> "Shadertoy Background: "
+				+ onOff(titleScreenShadertoyBackground.isChecked()),
+			"Render a Shadertoy-style animated background behind the title screen.",
+			b -> titleScreenShadertoyBackground
+				.setChecked(!titleScreenShadertoyBackground.isChecked()));
 		
 		addButton(column,
 			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
