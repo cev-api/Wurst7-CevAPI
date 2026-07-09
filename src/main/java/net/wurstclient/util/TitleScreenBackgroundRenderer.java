@@ -14,30 +14,29 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
-import net.minecraft.resources.Identifier;
 import net.wurstclient.TitleScreenShaderPipelines;
+import net.wurstclient.util.TitleBackgroundModeManager.Mode;
 
 public enum TitleScreenBackgroundRenderer
 {
 	;
-	
-	private static final Identifier BLOCK_ATLAS =
-		Identifier.parse("wurst:textures/shader_blocks.png");
 	
 	public static void addBackground(GuiGraphicsExtractor context, int width,
 		int height)
 	{
 		Matrix3x2f pose = new Matrix3x2f();
 		ScreenRectangle bounds = new ScreenRectangle(0, 0, width, height);
+		Mode mode = TitleBackgroundModeManager.getCurrentMode();
 		int time = (int)((System.currentTimeMillis() / 50L) & 0xFFFF);
-		int timeColor = 0xFF0000FF | ((time >> 8) << 16) | ((time & 0xFF) << 8);
-		AbstractTexture texture =
-			Minecraft.getInstance().getTextureManager().getTexture(BLOCK_ATLAS);
+		int packedColor = 0xFF000000 | ((time >> 8) << 16)
+			| ((time & 0xFF) << 8) | (mode.getShaderIndex() & 0xFF);
+		AbstractTexture texture = Minecraft.getInstance().getTextureManager()
+			.getTexture(mode.getAtlasId());
 		context.guiRenderState.addGuiElement(new CustomQuadRenderState(
 			TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND,
 			TextureSetup.singleTexture(texture.getTextureView(),
 				texture.getSampler()),
-			pose, -1, -1, 1, -1, 1, 1, -1, 1, timeColor, timeColor, timeColor,
-			timeColor, null, bounds));
+			pose, -1, -1, 1, -1, 1, 1, -1, 1, packedColor, packedColor,
+			packedColor, packedColor, null, bounds));
 	}
 }

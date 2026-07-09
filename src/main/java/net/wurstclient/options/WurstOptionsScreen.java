@@ -42,6 +42,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.ColorUtils;
 import net.wurstclient.util.LastServerRememberer;
+import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.WurstColors;
 import net.wurstclient.clickgui.screens.EditColorScreen;
 
@@ -215,8 +216,12 @@ public final class WurstOptionsScreen extends Screen
 			() -> "Shadertoy Background: "
 				+ onOff(titleScreenShadertoyBackground.isChecked()),
 			"Render a Shadertoy-style animated background behind the title screen.",
-			b -> titleScreenShadertoyBackground
-				.setChecked(!titleScreenShadertoyBackground.isChecked()));
+			b -> {
+				boolean wasEnabled = titleScreenShadertoyBackground.isChecked();
+				titleScreenShadertoyBackground.setChecked(!wasEnabled);
+				if(!wasEnabled)
+					TitleBackgroundModeManager.advanceForEnableToggle();
+			});
 		
 		addButton(column, () -> "Import Shadertoy",
 			"Import a Shadertoy by URL or pasted source code as the menu background.",
