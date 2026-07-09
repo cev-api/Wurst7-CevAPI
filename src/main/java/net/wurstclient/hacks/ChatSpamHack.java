@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -31,6 +33,7 @@ import net.wurstclient.util.ChatUtils;
 public final class ChatSpamHack extends Hack implements UpdateListener
 {
 	private static final int CHAT_LIMIT = 256;
+	private static final char FORMAT_CHAR = '\u00A7';
 	
 	private final TextFieldSetting message = new TextFieldSetting("Message",
 		"Chat message to send repeatedly when file mode is disabled.", "",
@@ -218,9 +221,7 @@ public final class ChatSpamHack extends Hack implements UpdateListener
 		
 		for(String line : lines)
 		{
-			String normalized = normalizeMessage(line);
-			if(!normalized.isEmpty())
-				pendingMessages.add(normalized);
+			addMessageChunks(line);
 		}
 		
 		if(pendingMessages.isEmpty())
@@ -237,10 +238,143 @@ public final class ChatSpamHack extends Hack implements UpdateListener
 		if(message == null)
 			return "";
 		
-		String trimmed = message.replace("\r", "");
-		if(trimmed.length() > CHAT_LIMIT)
-			trimmed = trimmed.substring(0, CHAT_LIMIT);
+		return message.replace("\r", "");
+	}
+	
+	private void addMessageChunks(String message)
+	{
+		String remaining = normalizeMessage(message);
+		if(remaining.isEmpty())
+			return;
 		
-		return trimmed;
+		String formattingPrefix = "";
+		while(!remaining.isEmpty())
+		{
+			int budget = CHAT_LIMIT - formattingPrefix.length();
+			if(budget <= 0)
+			{
+				formattingPrefix = "";
+				budget = CHAT_LIMIT;
+			}
+			
+			if(remaining.length() <= budget)
+			{
+				pendingMessages.add(formattingPrefix + remaining);
+				return;
+			}
+			
+			int breakPos = findPreferredBreakPosition(remaining, budget);
+			if(breakPos <= 0)
+				breakPos = findSafeHardBreak(remaining, budget);
+			
+			String chunk = remaining.substring(0, breakPos).stripTrailing();
+			if(!chunk.isEmpty())
+			{
+				pendingMessages.add(formattingPrefix + chunk);
+				formattingPrefix =
+					getActiveFormatting(formattingPrefix + chunk);
+			}
+			
+			remaining = remaining.substring(breakPos).stripLeading();
+		}
+	}
+	
+	private static int findPreferredBreakPosition(String text, int budget)
+	{
+		int sentenceBreak = findSentenceBreakPosition(text, budget);
+		if(sentenceBreak > 0)
+			return sentenceBreak;
+		
+		int wordBreak = findWhitespaceBreakPosition(text, budget);
+		if(wordBreak > 0)
+			return wordBreak;
+		
+		return -1;
+	}
+	
+	private static int findSentenceBreakPosition(String text, int budget)
+	{
+		BreakIterator iterator = BreakIterator.getSentenceInstance(Locale.ROOT);
+		iterator.setText(text);
+		
+		int best = -1;
+		for(int end = iterator.first(); end != BreakIterator.DONE; end =
+			iterator.next())
+		{
+			if(end > 0 && end <= budget)
+				best = end;
+		}
+		
+		return best;
+	}
+	
+	private static int findWhitespaceBreakPosition(String text, int budget)
+	{
+		int limit = Math.min(budget, text.length());
+		for(int i = limit; i > 0; i--)
+		{
+			if(Character.isWhitespace(text.charAt(i - 1)))
+				return i;
+		}
+		
+		return -1;
+	}
+	
+	private static int findSafeHardBreak(String text, int budget)
+	{
+		int end = Math.min(budget, text.length());
+		if(end <= 0)
+			return Math.min(1, text.length());
+		
+		if(text.charAt(end - 1) == FORMAT_CHAR)
+			end--;
+		
+		if(end <= 0)
+			end = Math.min(1, text.length());
+		
+		return end;
+	}
+	
+	private static String getActiveFormatting(String text)
+	{
+		String color = "";
+		StringBuilder styles = new StringBuilder();
+		
+		for(int i = 0; i < text.length() - 1; i++)
+		{
+			if(text.charAt(i) != FORMAT_CHAR)
+				continue;
+			
+			char code = Character.toLowerCase(text.charAt(++i));
+			if(code == 'r')
+			{
+				color = "";
+				styles.setLength(0);
+				continue;
+			}
+			
+			if(isColorCode(code))
+			{
+				color = "" + FORMAT_CHAR + code;
+				styles.setLength(0);
+				continue;
+			}
+			
+			if(isStyleCode(code) && styles.indexOf("" + FORMAT_CHAR + code) < 0)
+				styles.append(FORMAT_CHAR).append(code);
+		}
+		
+		return color + styles;
+	}
+	
+	private static boolean isColorCode(char code)
+	{
+		return code >= '0' && code <= '9' || code >= 'a' && code <= 'f';
+	}
+	
+	private static boolean isStyleCode(char code)
+	{
+		return code == 'k' || code == 'l' || code == 'm' || code == 'n'
+			|| code == 'o';
 	}
 }

@@ -112,6 +112,11 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			+ "This can reveal vanished players, but some servers also use"
 			+ " off-tab player entities for NPCs.",
 		true);
+	private final CheckboxSetting ignoreNpcNames = new CheckboxSetting(
+		"Ignore NPC names",
+		"Filters common server NPC/bot names from hidden player alerts, such "
+			+ "as CIT-... fake player entries.",
+		true);
 	private final CheckboxSetting hiddenStaffAlerts = new CheckboxSetting(
 		"Hidden staff alerts",
 		"Alerts when a player from the local staff list appears in tab.\n\n"
@@ -195,6 +200,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		addSetting(monitorModeSwitching);
 		addSetting(ignoreSelf);
 		addSetting(hiddenPlayerAlerts);
+		addSetting(ignoreNpcNames);
 		addSetting(hiddenStaffAlerts);
 		addSetting(savedStaffList);
 		addSetting(addStaffUsernameField);
@@ -404,8 +410,30 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		if(player == null || player instanceof FakePlayerEntity)
 			return true;
 		
+		if(ignoreNpcNames.isChecked()
+			&& isLikelyNpcName(player.getName().getString()))
+			return true;
+		
 		return ignoreSelf.isChecked() && MC.player != null
 			&& player.getUUID().equals(MC.player.getUUID());
+	}
+	
+	private boolean isLikelyNpcName(String name)
+	{
+		if(name == null)
+			return false;
+		
+		String stripped = name.strip();
+		if(stripped.isEmpty())
+			return true;
+		
+		String lower = stripped.toLowerCase(Locale.ROOT);
+		if(lower.matches("cit-[0-9a-f-]{6,}"))
+			return true;
+		
+		return lower.contains("npc") || lower.startsWith("[npc]")
+			|| lower.endsWith("_npc") || lower.startsWith("bot_")
+			|| lower.endsWith("_bot");
 	}
 	
 	private void alert(PlayerInfo info, GameType mode, boolean entered)
