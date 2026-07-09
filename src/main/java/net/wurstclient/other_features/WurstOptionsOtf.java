@@ -23,6 +23,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SettingGroup;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"wurst options", "settings"})
@@ -50,6 +51,12 @@ public final class WurstOptionsOtf extends OtherFeature
 		new CheckboxSetting("Shadertoy background",
 			"Render the animated Shadertoy-style background on the title screen.",
 			true);
+	
+	private final TextFieldSetting titleScreenShadertoyUrl =
+		new TextFieldSetting("Custom Shadertoy URL",
+			"Paste a single-pass Shadertoy URL to use as the menu background.",
+			"", s -> s == null || s.isBlank() || s.matches(
+				"https?://(www\\.)?shadertoy\\.com/(view|embed)/[A-Za-z0-9]{6}.*"));
 	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
@@ -88,6 +95,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(customMojangLogoBackground);
 		addSetting(customMultiplayerLayout);
 		addSetting(titleScreenShadertoyBackground);
+		addSetting(titleScreenShadertoyUrl);
 		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
@@ -135,6 +143,11 @@ public final class WurstOptionsOtf extends OtherFeature
 	public CheckboxSetting getTitleScreenShadertoyBackgroundSetting()
 	{
 		return titleScreenShadertoyBackground;
+	}
+	
+	public TextFieldSetting getTitleScreenShadertoyUrlSetting()
+	{
+		return titleScreenShadertoyUrl;
 	}
 	
 	public boolean isTitleScreenShadertoyBackgroundEnabled()

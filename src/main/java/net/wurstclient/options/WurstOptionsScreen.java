@@ -218,6 +218,11 @@ public final class WurstOptionsScreen extends Screen
 			b -> titleScreenShadertoyBackground
 				.setChecked(!titleScreenShadertoyBackground.isChecked()));
 		
+		addButton(column, () -> "Import Shadertoy",
+			"Import a Shadertoy by URL or pasted source code as the menu background.",
+			b -> minecraft.gui
+				.setScreen(new CustomShadertoyBackgroundScreen(this)));
+		
 		addButton(column,
 			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
 			hideEnableButton.getDescription(),
