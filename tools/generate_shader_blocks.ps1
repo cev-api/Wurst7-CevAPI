@@ -199,15 +199,15 @@ function Get-ThemeSprites {
 				@{ name = "end_stone_top"; path = "assets/minecraft/textures/block/end_stone.png" },
 				@{ name = "end_stone_side"; path = "assets/minecraft/textures/block/end_stone.png" },
 				@{ name = "end_stone"; path = "assets/minecraft/textures/block/end_stone.png" },
-				@{ name = "obsidian"; path = "assets/minecraft/textures/block/obsidian.png" },
-				@{ name = "bedrock"; path = "assets/minecraft/textures/block/bedrock.png" },
+				@{ name = "purpur_pillar_top"; path = "assets/minecraft/textures/block/purpur_pillar_top.png" },
+				@{ name = "purpur_block_alt"; path = "assets/minecraft/textures/block/purpur_block.png" },
 				@{ name = "chorus_plant"; path = "assets/minecraft/textures/block/chorus_plant.png" },
 				@{ name = "chorus_flower"; path = "assets/minecraft/textures/block/chorus_flower.png" },
 				@{ name = "chorus_flower_dead"; path = "assets/minecraft/textures/block/chorus_flower_dead.png" },
 				@{ name = "purpur_block"; path = "assets/minecraft/textures/block/purpur_block.png" },
 				@{ name = "purpur_pillar"; path = "assets/minecraft/textures/block/purpur_pillar_side.png" },
 				@{ name = "end_stone_bricks"; path = "assets/minecraft/textures/block/end_stone_bricks.png" },
-				@{ name = "end_portal_frame"; path = "assets/minecraft/textures/block/end_portal_frame_top.png" }
+				@{ name = "purpur_pillar_top_alt"; path = "assets/minecraft/textures/block/purpur_pillar_top.png" }
 			)
 		}
 	}

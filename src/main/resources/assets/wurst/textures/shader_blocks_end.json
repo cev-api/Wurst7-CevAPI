@@ -36,22 +36,22 @@
       "source": "assets/minecraft/textures/block/end_stone.png"
     },
     {
-      "name": "obsidian",
+      "name": "purpur_pillar_top",
       "index": 3,
       "x": 48,
       "y": 0,
       "width": 16,
       "height": 16,
-      "source": "assets/minecraft/textures/block/obsidian.png"
+      "source": "assets/minecraft/textures/block/purpur_pillar_top.png"
     },
     {
-      "name": "bedrock",
+      "name": "purpur_block_alt",
       "index": 4,
       "x": 0,
       "y": 16,
       "width": 16,
       "height": 16,
-      "source": "assets/minecraft/textures/block/bedrock.png"
+      "source": "assets/minecraft/textures/block/purpur_block.png"
     },
     {
       "name": "chorus_plant",
@@ -108,13 +108,13 @@
       "source": "assets/minecraft/textures/block/end_stone_bricks.png"
     },
     {
-      "name": "end_portal_frame",
+      "name": "purpur_pillar_top_alt",
       "index": 11,
       "x": 48,
       "y": 32,
       "width": 16,
       "height": 16,
-      "source": "assets/minecraft/textures/block/end_portal_frame_top.png"
+      "source": "assets/minecraft/textures/block/purpur_pillar_top.png"
     }
   ]
 }
