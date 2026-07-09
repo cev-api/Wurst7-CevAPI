@@ -217,7 +217,7 @@ public final class AutoSpawnProoferHack extends Hack
 		if(!BlockUtils.getState(pos).canBeReplaced())
 			return false;
 		
-		if(!SpawnPlacements.isSpawnPositionOk(EntityType.CREEPER, MC.level,
+		if(!SpawnPlacements.isSpawnPositionOk(EntityTypes.CREEPER, MC.level,
 			pos))
 			return false;
 		
