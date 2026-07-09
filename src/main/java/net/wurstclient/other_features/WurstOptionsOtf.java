@@ -42,6 +42,10 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Use a custom background color behind the Mojang loading logo.",
 			true);
 	
+	private final CheckboxSetting customMultiplayerLayout = new CheckboxSetting(
+		"Custom multiplayer layout",
+		"Use Wurst's custom multiplayer server panels and search bar.", true);
+	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
 	
@@ -77,6 +81,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(discordPresenceGroup);
 		addSetting(hackToggleChatFeedback);
 		addSetting(customMojangLogoBackground);
+		addSetting(customMultiplayerLayout);
 		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
@@ -114,6 +119,16 @@ public final class WurstOptionsOtf extends OtherFeature
 	public ColorSetting getMojangLogoBackgroundColorSetting()
 	{
 		return mojangLogoBackgroundColor;
+	}
+	
+	public CheckboxSetting getCustomMultiplayerLayoutSetting()
+	{
+		return customMultiplayerLayout;
+	}
+	
+	public boolean isCustomMultiplayerLayoutEnabled()
+	{
+		return customMultiplayerLayout.isChecked();
 	}
 	
 	public String getLocationName()

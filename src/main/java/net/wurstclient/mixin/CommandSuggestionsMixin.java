@@ -23,6 +23,7 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.client.gui.components.CommandSuggestions;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.multiplayer.PlayerInfo;
 import net.wurstclient.WurstClient;
 import net.wurstclient.command.Command;
 import net.wurstclient.hack.Hack;
@@ -44,6 +45,8 @@ public abstract class CommandSuggestionsMixin
 		String draftMessage =
 			input.getValue().substring(0, input.getCursorPosition());
 		if(wurst$showWurstCommandSuggestions(draftMessage))
+			return;
+		if(wurst$showPlayerNameSuggestions(draftMessage))
 			return;
 		
 		AutoCompleteHack autoComplete =
@@ -127,6 +130,83 @@ public abstract class CommandSuggestionsMixin
 		}
 		
 		if(suggestions == 0)
+			return false;
+		
+		input.setSuggestion(inlineSuggestion);
+		pendingSuggestions = builder.buildFuture();
+		showSuggestions(false);
+		return true;
+	}
+	
+	private boolean wurst$showPlayerNameSuggestions(String draftMessage)
+	{
+		if(draftMessage == null || draftMessage.isEmpty()
+			|| draftMessage.startsWith("/"))
+			return false;
+		
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		if(prefix == null || prefix.isEmpty()
+			|| !draftMessage.startsWith(prefix))
+			return false;
+		
+		String raw = draftMessage.substring(prefix.length()).stripLeading();
+		if(raw.isEmpty())
+			return false;
+		
+		String[] tokens = raw.split("\\s+", -1);
+		if(tokens.length < 2)
+			return false;
+		
+		String cmdName = tokens[0];
+		Command cmd = WurstClient.INSTANCE.getCmds().getCmdByName(cmdName);
+		if(cmd == null)
+			return false;
+		
+		int currentTokenIndex = tokens.length - 1;
+		int argIndex = currentTokenIndex - 1;
+		if(!cmd.shouldSuggestPlayerNames(argIndex))
+			return false;
+		
+		String currentToken = tokens[currentTokenIndex];
+		String lowerToken = currentToken.toLowerCase(Locale.ROOT);
+		int tokenStart = draftMessage.length() - currentToken.length();
+		SuggestionsBuilder builder =
+			new SuggestionsBuilder(draftMessage, tokenStart);
+		LinkedHashSet<String> candidates = new LinkedHashSet<>();
+		String inlineSuggestion = "";
+		
+		if(WurstClient.MC.getConnection() != null)
+			for(PlayerInfo info : WurstClient.MC.getConnection()
+				.getOnlinePlayers())
+			{
+				if(info == null || info.getProfile() == null
+					|| info.getProfile().name() == null)
+					continue;
+				
+				String name = info.getProfile().name();
+				if(!lowerToken.isEmpty()
+					&& !name.toLowerCase(Locale.ROOT).startsWith(lowerToken))
+					continue;
+				
+				candidates.add(name);
+			}
+		
+		for(String candidate : candidates)
+		{
+			builder.suggest(candidate);
+			if(inlineSuggestion.isEmpty()
+				&& candidate.length() > currentToken.length())
+				inlineSuggestion = candidate.substring(currentToken.length());
+		}
+		
+		if(candidates.isEmpty())
 			return false;
 		
 		input.setSuggestion(inlineSuggestion);

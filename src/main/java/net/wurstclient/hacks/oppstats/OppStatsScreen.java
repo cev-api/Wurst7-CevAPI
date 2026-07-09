@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.ArrayList;
 import java.util.Optional;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -19,6 +20,7 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -45,11 +47,13 @@ public final class OppStatsScreen extends Screen
 	private final Screen previous;
 	private final OppStatsHack hack;
 	private OppList list;
+	private EditBox searchBox;
 	private Button onlineButton;
 	private Button historicalButton;
 	private Button copyButton;
 	private Button copyEventsButton;
 	private boolean showOnline = true;
+	private String searchQuery = "";
 	private long nextReloadAt;
 	private int infoScroll;
 	private int infoMaxScroll;
@@ -68,25 +72,37 @@ public final class OppStatsScreen extends Screen
 	@Override
 	protected void init()
 	{
-		int top = 40;
+		int top = 68;
 		int bottomPad = 44;
 		int listHeight = height - top - bottomPad;
+		int leftPanelX = 16;
+		int leftPanelW = Math.min(440, Math.max(220, width / 2 - 36));
 		list = new OppList(Minecraft.getInstance(), width / 2 - 20, listHeight,
-			top, 24, hack, showOnline);
+			top, 24, hack, showOnline, searchQuery);
 		addWidget(list);
 		
 		addRenderableWidget(
 			onlineButton = Button.builder(Component.literal("Online"), b -> {
 				showOnline = true;
-				list.reload(showOnline);
+				list.reload(showOnline, searchQuery);
 				updateModeButtonLabels();
 			}).bounds(16, 12, 100, 20).build());
 		addRenderableWidget(historicalButton =
 			Button.builder(Component.literal("Historical"), b -> {
 				showOnline = false;
-				list.reload(showOnline);
+				list.reload(showOnline, searchQuery);
 				updateModeButtonLabels();
 			}).bounds(122, 12, 110, 20).build());
+		searchBox = new EditBox(font, leftPanelX, 36, leftPanelW, 18,
+			Component.literal("Search"));
+		searchBox.setHint(Component.literal("Search players..."));
+		searchBox.setValue(searchQuery);
+		searchBox.setResponder(value -> {
+			searchQuery = value == null ? "" : value.trim();
+			if(list != null)
+				list.reload(showOnline, searchQuery);
+		});
+		addRenderableWidget(searchBox);
 		copyButton = addRenderableWidget(Button
 			.builder(Component.literal("Copy Profile"), b -> copySelected())
 			.bounds(width - 360, height - 32, 110, 20).build());
@@ -105,7 +121,7 @@ public final class OppStatsScreen extends Screen
 		super.tick();
 		if(System.currentTimeMillis() >= nextReloadAt)
 		{
-			list.reload(showOnline);
+			list.reload(showOnline, searchQuery);
 			nextReloadAt = System.currentTimeMillis() + 700L;
 		}
 		updateModeButtonLabels();
@@ -169,10 +185,13 @@ public final class OppStatsScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_UP)
-			return list != null && list.moveSelection(-1);
-		if(context.key() == GLFW.GLFW_KEY_DOWN)
-			return list != null && list.moveSelection(1);
+		if(searchBox == null || !searchBox.isFocused())
+		{
+			if(context.key() == GLFW.GLFW_KEY_UP)
+				return list != null && list.moveSelection(-1);
+			if(context.key() == GLFW.GLFW_KEY_DOWN)
+				return list != null && list.moveSelection(1);
+		}
 		
 		if(super.keyPressed(context))
 			return true;
@@ -326,7 +345,7 @@ public final class OppStatsScreen extends Screen
 		lines.add(new InfoLine("Status", true));
 		lines.add(new InfoLine("HP: " + fmt(selected.health) + "  Abs: "
 			+ fmt(selected.absorption) + "  Armor: " + na(selected.armorValue)
-			+ "  Ping: " + na(selected.ping), false));
+			+ "  Ping: " + na(getLivePing(selected)), false));
 		lines.add(new InfoLine("Gamemode: " + na(selected.gamemode), false));
 		lines.add(new InfoLine("", false));
 		lines.add(new InfoLine("Stats", true));
@@ -530,7 +549,7 @@ public final class OppStatsScreen extends Screen
 		return String.format("%.1f", v);
 	}
 	
-	private String na(int value)
+	private static String na(int value)
 	{
 		return value < 0 ? "N/A" : String.valueOf(value);
 	}
@@ -538,6 +557,19 @@ public final class OppStatsScreen extends Screen
 	private String na(String value)
 	{
 		return value == null || value.isBlank() ? "N/A" : value;
+	}
+	
+	private static int getLivePing(OppRecord rec)
+	{
+		Minecraft mc = Minecraft.getInstance();
+		if(rec == null || rec.uuid == null || mc.getConnection() == null)
+			return rec == null ? -1 : rec.ping;
+		
+		PlayerInfo info = mc.getConnection().getPlayerInfo(rec.uuid);
+		if(info != null)
+			return info.getLatency();
+		
+		return rec.ping;
 	}
 	
 	private Identifier resolveSkin(UUID uuid)
@@ -601,24 +633,31 @@ public final class OppStatsScreen extends Screen
 		private boolean showOnline;
 		
 		public OppList(Minecraft mc, int width, int height, int top,
-			int itemHeight, OppStatsHack hack, boolean showOnline)
+			int itemHeight, OppStatsHack hack, boolean showOnline,
+			String searchQuery)
 		{
 			super(mc, width, height, top, itemHeight);
 			this.hack = hack;
 			this.showOnline = showOnline;
-			reload(showOnline);
+			reload(showOnline, searchQuery);
 			ensureSelection();
 		}
 		
-		void reload(boolean showOnline)
+		void reload(boolean showOnline, String searchQuery)
 		{
 			this.showOnline = showOnline;
 			var prev = captureState();
 			clearEntries();
 			List<OppRecord> src = showOnline ? hack.getOnlineRecords()
 				: hack.getHistoricalRecords();
+			String query = searchQuery == null ? ""
+				: searchQuery.trim().toLowerCase(Locale.ROOT);
 			for(OppRecord rec : src)
+			{
+				if(!query.isBlank() && !matchesSearch(rec, query))
+					continue;
 				addEntry(new Entry(this, rec));
+			}
 			if(!children().isEmpty())
 				restoreState(prev);
 		}
@@ -669,6 +708,21 @@ public final class OppStatsScreen extends Screen
 			return width - 20;
 		}
 		
+		private boolean matchesSearch(OppRecord rec, String query)
+		{
+			if(rec == null || query == null || query.isBlank())
+				return true;
+			
+			String name =
+				rec.name == null ? "" : rec.name.toLowerCase(Locale.ROOT);
+			if(name.contains(query))
+				return true;
+			
+			String uuid = rec.uuid == null ? ""
+				: rec.uuid.toString().toLowerCase(Locale.ROOT);
+			return uuid.contains(query);
+		}
+		
 		private static final class Entry
 			extends MultiSelectEntryListWidget.Entry<Entry>
 		{
@@ -705,9 +759,10 @@ public final class OppStatsScreen extends Screen
 					40, 8, 16, 16, 8, 8, 64, 64, 0xFFFFFFFF);
 				context.text(Minecraft.getInstance().font, record.name, x + 24,
 					y + 2, 0xFFFFFFFF, false);
-				context.text(Minecraft.getInstance().font,
-					record.online ? "online" : "offline", x + 24, y + 12,
-					record.online ? 0xFF55FF55 : 0xFFFF7777, false);
+				String pingText = record.online
+					? "ping: " + na(getLivePing(record)) + " ms" : "offline";
+				context.text(Minecraft.getInstance().font, pingText, x + 24,
+					y + 12, record.online ? 0xFF55FF55 : 0xFFFF7777, false);
 			}
 			
 			private Identifier resolveSkin(UUID uuid)

@@ -7,6 +7,7 @@
  */
 package net.wurstclient.command;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import net.wurstclient.Category;
@@ -76,6 +77,34 @@ public abstract class Command extends Feature
 	public final String[] getSyntax()
 	{
 		return syntax;
+	}
+	
+	public boolean shouldSuggestPlayerNames(int argIndex)
+	{
+		if(argIndex < 0)
+			return false;
+		
+		for(String line : syntax)
+		{
+			if(line == null)
+				continue;
+			
+			String trimmed = line.trim();
+			if(trimmed.regionMatches(true, 0, "Syntax:", 0, "Syntax:".length()))
+				trimmed = trimmed.substring("Syntax:".length()).trim();
+			if(!trimmed.startsWith("."))
+				continue;
+			
+			String[] tokens = trimmed.split("\\s+");
+			if(tokens.length <= argIndex + 1)
+				continue;
+			
+			String token = tokens[argIndex + 1].toLowerCase(Locale.ROOT);
+			if(token.contains("<player>"))
+				return true;
+		}
+		
+		return false;
 	}
 	
 	public final void printHelp()
