@@ -1,0 +1,120 @@
+{
+  "sourceJar": "C:\\Users\\MiMi\\.gradle\\caches\\fabric-loom\\26.2\\minecraft-client.jar",
+  "minecraftVersion": "26.2",
+  "theme": "nether",
+  "tileSize": 16,
+  "columns": 4,
+  "rows": 3,
+  "width": 64,
+  "height": 48,
+  "sprites": [
+    {
+      "name": "crimson_nylium_top",
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/crimson_nylium.png"
+    },
+    {
+      "name": "crimson_nylium_side",
+      "index": 1,
+      "x": 16,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/crimson_nylium_side.png"
+    },
+    {
+      "name": "netherrack",
+      "index": 2,
+      "x": 32,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/netherrack.png"
+    },
+    {
+      "name": "blackstone",
+      "index": 3,
+      "x": 48,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/blackstone.png"
+    },
+    {
+      "name": "basalt_side",
+      "index": 4,
+      "x": 0,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/basalt_side.png"
+    },
+    {
+      "name": "nether_quartz_ore",
+      "index": 5,
+      "x": 16,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/nether_quartz_ore.png"
+    },
+    {
+      "name": "nether_gold_ore",
+      "index": 6,
+      "x": 32,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/nether_gold_ore.png"
+    },
+    {
+      "name": "ancient_debris",
+      "index": 7,
+      "x": 48,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/ancient_debris_side.png"
+    },
+    {
+      "name": "magma",
+      "index": 8,
+      "x": 0,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/magma.png"
+    },
+    {
+      "name": "soul_sand",
+      "index": 9,
+      "x": 16,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/soul_sand.png"
+    },
+    {
+      "name": "soul_soil",
+      "index": 10,
+      "x": 32,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/soul_soil.png"
+    },
+    {
+      "name": "glowstone",
+      "index": 11,
+      "x": 48,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/glowstone.png"
+    }
+  ]
+}

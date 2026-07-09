@@ -15,6 +15,11 @@ float titleTime()
 	return (packed.x * 256.0 + packed.y) / 20.0;
 }
 
+float titleMode()
+{
+	return floor(vertexColor.b * 255.0 + 0.5);
+}
+
 float hash13(vec3 p3)
 {
 	p3 = fract(p3 * 0.1031);
@@ -46,8 +51,8 @@ float noise(in vec3 x)
 
 float mapTerrain(in vec3 p)
 {
+	float mode = titleMode();
 	p *= 0.1;
-	p.xz *= 0.6;
 
 	float time = 0.5 + 0.15 * titleTime();
 	float ft = fract(time);
@@ -56,10 +61,33 @@ float mapTerrain(in vec3 p)
 	time = it + ft;
 	float spe = 1.4;
 
-	float f = 0.5000 * noise(p * 1.00 + vec3(0.0, 1.0, 0.0) * spe * time);
-	f += 0.2500 * noise(p * 2.02 + vec3(0.0, 2.0, 0.0) * spe * time);
-	f += 0.1250 * noise(p * 4.01);
-	return 25.0 * f - 10.0;
+	if(mode < 0.5)
+	{
+		p.xz *= 0.60;
+		float f =
+			0.5000 * noise(p * 1.00 + vec3(0.0, 1.0, 0.0) * spe * time);
+		f += 0.2500 * noise(p * 2.02 + vec3(0.0, 2.0, 0.0) * spe * time);
+		f += 0.1250 * noise(p * 4.01);
+		return 25.0 * f - 10.0;
+	}
+
+	if(mode < 1.5)
+	{
+		p.xz *= 0.52;
+		float f =
+			0.5500 * noise(p * 1.10 + vec3(0.0, 1.4, 0.0) * spe * time);
+		f += 0.2800 * noise(p * 2.30 + vec3(0.0, 2.7, 0.0) * spe * time);
+		f += 0.1600 * noise(p * 4.50);
+		f += 0.0800 * noise(p * 7.50);
+		return 32.0 * f - 14.0;
+	}
+
+	p.xz *= 0.40;
+	float f = 0.5800 * noise(p * 0.90 + vec3(0.0, 0.7, 0.0) * spe * time);
+	f += 0.2700 * noise(p * 1.90 + vec3(0.0, 1.5, 0.0) * spe * time);
+	f += 0.1200 * noise(p * 4.00);
+	f -= 0.1900 * noise(p * 0.45 + vec3(9.1, 0.0, 7.3));
+	return 24.0 * f - 7.0;
 }
 
 vec3 gro = vec3(0.0);
@@ -95,21 +123,39 @@ float oreTile(in vec3 vos)
 
 	float kind = hash31(floor(vos * 0.23) + vec3(3.9, 77.4, 12.6));
 	if(kind < 0.22)
-		return 5.0; // coal
+		return 5.0;
 	if(kind < 0.40)
-		return 6.0; // iron
+		return 6.0;
 	if(kind < 0.56)
-		return 8.0; // copper
+		return 8.0;
 	if(kind < 0.70)
-		return 7.0; // gold
+		return 7.0;
 	if(kind < 0.83)
-		return 11.0; // redstone
+		return 11.0;
 	if(kind < 0.93)
-		return 9.0; // diamond
-	return 10.0; // emerald
+		return 9.0;
+	return 10.0;
 }
 
-float blockTile(in vec3 vos, in vec3 nor)
+float netherOreTile(in vec3 vos)
+{
+	float vein = hash31(floor(vos * 0.60) + vec3(11.7, 71.1, 23.2));
+	if(vein < 0.94)
+		return -1.0;
+
+	float kind = hash31(floor(vos * 0.31) + vec3(4.2, 8.3, 12.5));
+	if(kind < 0.28)
+		return 5.0;
+	if(kind < 0.52)
+		return 6.0;
+	if(kind < 0.72)
+		return 8.0;
+	if(kind < 0.88)
+		return 11.0;
+	return 7.0;
+}
+
+float overworldBlockTile(in vec3 vos, in vec3 nor)
 {
 	bool airAbove = map(vos + vec3(0.0, 1.0, 0.0)) < 0.5;
 	bool nearSurface = map(vos + vec3(0.0, 2.0, 0.0)) < 0.5
@@ -118,21 +164,99 @@ float blockTile(in vec3 vos, in vec3 nor)
 	if(airAbove)
 	{
 		if(nor.y > 0.5)
-			return 0.0; // grass top
+			return 0.0;
 		if(nor.y < -0.5)
-			return 2.0; // dirt
-		return 1.0; // grass side
+			return 2.0;
+		return 1.0;
 	}
 
 	if(nearSurface)
-		return 2.0; // dirt layer below grass
+		return 2.0;
 
 	float ore = oreTile(vos);
 	if(ore >= 0.0)
 		return ore;
 
 	float deep = hash31(floor(vos) + vec3(8.8, 1.4, 6.2));
-	return vos.y + deep * 8.0 < 8.0 ? 4.0 : 3.0; // deepslate / stone
+	return vos.y + deep * 8.0 < 8.0 ? 4.0 : 3.0;
+}
+
+float netherBlockTile(in vec3 vos, in vec3 nor)
+{
+	bool airAbove = map(vos + vec3(0.0, 1.0, 0.0)) < 0.5;
+	bool nearSurface = map(vos + vec3(0.0, 2.0, 0.0)) < 0.5
+		|| map(vos + vec3(0.0, 3.0, 0.0)) < 0.5;
+	float region = hash31(floor(vos * 0.12) + vec3(3.2, 17.4, 29.1));
+
+	if(airAbove)
+	{
+		if(region < 0.16)
+			return 9.0;
+		if(region < 0.28)
+			return 10.0;
+		if(nor.y > 0.5)
+			return 0.0;
+		if(nor.y < -0.5)
+			return 2.0;
+		return 1.0;
+	}
+
+	if(nearSurface)
+		return region < 0.20 ? 10.0 : 2.0;
+
+	float ore = netherOreTile(vos);
+	if(ore >= 0.0)
+		return ore;
+
+	float deep = hash31(floor(vos * 0.75) + vec3(6.8, 13.1, 2.7));
+	if(deep > 0.74)
+		return 4.0;
+	if(deep > 0.48)
+		return 3.0;
+	return 2.0;
+}
+
+float endBlockTile(in vec3 vos, in vec3 nor)
+{
+	bool airAbove = map(vos + vec3(0.0, 1.0, 0.0)) < 0.5;
+	bool nearSurface = map(vos + vec3(0.0, 2.0, 0.0)) < 0.5
+		|| map(vos + vec3(0.0, 3.0, 0.0)) < 0.5;
+	float accent = hash31(floor(vos * 0.18) + vec3(12.3, 8.5, 4.9));
+
+	if(airAbove)
+	{
+		if(accent > 0.972)
+			return 10.0;
+		if(accent > 0.945)
+			return 8.0;
+		if(nor.y > 0.5)
+			return 0.0;
+		if(nor.y < -0.5)
+			return 2.0;
+		return 1.0;
+	}
+
+	if(nearSurface)
+		return 2.0;
+
+	float deep = hash31(floor(vos * 0.70) + vec3(9.6, 5.8, 17.3));
+	if(deep > 0.985)
+		return 4.0;
+	if(deep > 0.93)
+		return 3.0;
+	if(deep > 0.90)
+		return 9.0;
+	return 2.0;
+}
+
+float blockTile(in vec3 vos, in vec3 nor)
+{
+	float mode = titleMode();
+	if(mode < 0.5)
+		return overworldBlockTile(vos, nor);
+	if(mode < 1.5)
+		return netherBlockTile(vos, nor);
+	return endBlockTile(vos, nor);
 }
 
 vec3 blockTexture(in vec3 vos, in vec3 nor, in vec3 uvw)
@@ -152,7 +276,14 @@ vec3 blockTexture(in vec3 vos, in vec3 nor, in vec3 uvw)
 	return sampleBlockAtlas(tile, uv);
 }
 
-const vec3 lig = normalize(vec3(-0.4, 0.3, 0.7));
+vec3 lightDir(float mode)
+{
+	if(mode < 0.5)
+		return normalize(vec3(-0.4, 0.3, 0.7));
+	if(mode < 1.5)
+		return normalize(vec3(-0.2, 0.55, 0.35));
+	return normalize(vec3(-0.35, 0.45, 0.55));
+}
 
 float raycast(in vec3 ro, in vec3 rd, out vec3 oVos, out vec3 oDir)
 {
@@ -219,7 +350,10 @@ float isEdge(in vec2 uv, vec4 va, vec4 vb, vec4 vc, vec4 vd)
 
 vec3 render(in vec3 ro, in vec3 rd)
 {
-	vec3 fogCol = vec3(0.16, 0.28, 0.55);
+	float mode = titleMode();
+	vec3 fogCol = mode < 0.5 ? vec3(0.16, 0.28, 0.55)
+		: mode < 1.5 ? vec3(0.38, 0.10, 0.05) : vec3(0.23, 0.21, 0.31);
+	vec3 lig = lightDir(mode);
 	vec3 col;
 
 	vec3 vos;
@@ -276,29 +410,64 @@ vec3 render(in vec3 ro, in vec3 rd)
 		occ *= amb;
 
 		vec3 lin = vec3(0.0);
-		lin += 1.45 * dif * vec3(1.00, 0.88, 0.72) * (0.6 + 0.4 * occ);
-		lin += 0.24 * bac * vec3(0.26, 0.22, 0.18) * occ;
-		lin += 0.58 * sky * vec3(0.35, 0.48, 0.72) * occ;
-		lin += 0.08 * occ;
-
-		col = col * lin;
-		col = mix(col, fogCol, 1.0 - exp(-0.0035 * t));
+		if(mode < 0.5)
+		{
+			lin += 1.45 * dif * vec3(1.00, 0.88, 0.72) * (0.6 + 0.4 * occ);
+			lin += 0.24 * bac * vec3(0.26, 0.22, 0.18) * occ;
+			lin += 0.58 * sky * vec3(0.35, 0.48, 0.72) * occ;
+			lin += 0.08 * occ;
+			col = col * lin;
+			col = mix(col, fogCol, 1.0 - exp(-0.0035 * t));
+		}else if(mode < 1.5)
+		{
+			lin += 1.05 * dif * vec3(1.18, 0.48, 0.20) * (0.65 + 0.35 * occ);
+			lin += 0.42 * bac * vec3(0.38, 0.10, 0.06) * occ;
+			lin += 0.22 * sky * vec3(0.28, 0.08, 0.05) * occ;
+			lin += 0.16 * occ * vec3(0.90, 0.26, 0.11);
+			col = col * lin;
+			col = mix(col, fogCol, 1.0 - exp(-0.0050 * t));
+		}else
+		{
+			lin += 1.20 * dif * vec3(0.94, 0.92, 0.84) * (0.70 + 0.30 * occ);
+			lin += 0.16 * bac * vec3(0.18, 0.16, 0.20) * occ;
+			lin += 0.46 * sky * vec3(0.42, 0.38, 0.56) * occ;
+			lin += 0.11 * occ * vec3(0.70, 0.66, 0.80);
+			col = col * lin;
+			col = mix(col, fogCol, 1.0 - exp(-0.0042 * t));
+		}
 	}else
 	{
-		col = mix(fogCol, vec3(0.05, 0.12, 0.38),
-			clamp(rd.y * 1.4, 0.0, 1.0));
-		float sun = clamp(dot(rd, lig), 0.0, 1.0);
-		col += 0.6 * vec3(1.0, 0.7, 0.35) * pow(sun, 6.0);
-		col += 2.0 * vec3(1.0, 0.85, 0.55) * pow(sun, 256.0);
+		if(mode < 0.5)
+		{
+			col = mix(fogCol, vec3(0.05, 0.12, 0.38),
+				clamp(rd.y * 1.4, 0.0, 1.0));
+			float sun = clamp(dot(rd, lig), 0.0, 1.0);
+			col += 0.6 * vec3(1.0, 0.7, 0.35) * pow(sun, 6.0);
+			col += 2.0 * vec3(1.0, 0.85, 0.55) * pow(sun, 256.0);
+		}else if(mode < 1.5)
+		{
+			col = mix(vec3(0.09, 0.02, 0.01), fogCol,
+				clamp(rd.y * 0.85 + 0.55, 0.0, 1.0));
+			float ember = clamp(dot(rd, lig), 0.0, 1.0);
+			col += 0.9 * vec3(1.0, 0.32, 0.10) * pow(ember, 9.0);
+			col += 0.4 * vec3(0.95, 0.56, 0.14) * pow(ember, 36.0);
+		}else
+		{
+			col = mix(vec3(0.03, 0.02, 0.05), fogCol,
+				clamp(rd.y * 1.0 + 0.55, 0.0, 1.0));
+			float glow = clamp(dot(rd, lig), 0.0, 1.0);
+			col += 0.18 * vec3(0.90, 0.82, 0.96) * pow(glow, 18.0);
+		}
 	}
 
-	col *= 0.62;
+	col *= mode < 0.5 ? 0.62 : mode < 1.5 ? 0.68 : 0.60;
 	col = clamp((col * (2.51 * col + 0.03))
 		/ (col * (2.43 * col + 0.59) + 0.14), 0.0, 1.0);
 	col = pow(col, vec3(1.0 / 2.2));
 	float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-	col = mix(vec3(lum), col, 1.08);
-	return clamp((col - 0.5) * 0.92 + 0.5, 0.0, 1.0);
+	col = mix(vec3(lum), col, mode < 1.5 ? 1.08 : 1.03);
+	float contrast = mode < 0.5 ? 0.92 : mode < 1.5 ? 0.96 : 0.89;
+	return clamp((col - 0.5) * contrast + 0.5, 0.0, 1.0);
 }
 
 void main()

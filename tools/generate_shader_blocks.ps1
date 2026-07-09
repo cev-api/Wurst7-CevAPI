@@ -1,10 +1,10 @@
 param(
 	[string]$MinecraftVersion = "",
 	[string]$MinecraftJar = "",
-	[string]$Output =
-		"src/main/resources/assets/wurst/textures/shader_blocks.png",
-	[string]$Metadata =
-		"src/main/resources/assets/wurst/textures/shader_blocks.json"
+	[ValidateSet("overworld", "nether", "end")]
+	[string]$Theme = "overworld",
+	[string]$Output = "",
+	[string]$Metadata = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -122,43 +122,120 @@ function Open-BitmapFromZip {
 	}
 }
 
-$sprites = @(
-	@{
-		name = "grass_top"
-		path = "assets/minecraft/textures/block/grass_block_top.png"
-		tint = "#7CBD6B"
-	},
-	@{
-		name = "grass_side"
-		path = "assets/minecraft/textures/block/grass_block_side.png"
-		overlay = "assets/minecraft/textures/block/grass_block_side_overlay.png"
-		overlayTint = "#7CBD6B"
-	},
-	@{ name = "dirt"; path = "assets/minecraft/textures/block/dirt.png" },
-	@{ name = "stone"; path = "assets/minecraft/textures/block/stone.png" },
-	@{ name = "deepslate"; path = "assets/minecraft/textures/block/deepslate.png" },
-	@{ name = "coal_ore"; path = "assets/minecraft/textures/block/coal_ore.png" },
-	@{ name = "iron_ore"; path = "assets/minecraft/textures/block/iron_ore.png" },
-	@{ name = "gold_ore"; path = "assets/minecraft/textures/block/gold_ore.png" },
-	@{ name = "copper_ore"; path = "assets/minecraft/textures/block/copper_ore.png" },
-	@{ name = "diamond_ore"; path = "assets/minecraft/textures/block/diamond_ore.png" },
-	@{ name = "emerald_ore"; path = "assets/minecraft/textures/block/emerald_ore.png" },
-	@{ name = "redstone_ore"; path = "assets/minecraft/textures/block/redstone_ore.png" }
-)
+function Normalize-BitmapFrame {
+	param([System.Drawing.Bitmap]$Bitmap)
+	
+	if($Bitmap.Height -le $Bitmap.Width -or ($Bitmap.Height % $Bitmap.Width) -ne 0) {
+		return $Bitmap
+	}
+	
+	$frame = New-Object System.Drawing.Bitmap($Bitmap.Width, $Bitmap.Width,
+		[System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+	$graphics = [System.Drawing.Graphics]::FromImage($frame)
+	try {
+		$graphics.InterpolationMode =
+			[System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
+		$graphics.PixelOffsetMode =
+			[System.Drawing.Drawing2D.PixelOffsetMode]::Half
+		$graphics.DrawImage($Bitmap,
+			[System.Drawing.Rectangle]::new(0, 0, $Bitmap.Width, $Bitmap.Width),
+			[System.Drawing.Rectangle]::new(0, 0, $Bitmap.Width, $Bitmap.Width),
+			[System.Drawing.GraphicsUnit]::Pixel)
+	} finally {
+		$graphics.Dispose()
+		$Bitmap.Dispose()
+	}
+	
+	return $frame
+}
+
+function Get-ThemeSprites {
+	param([string]$Name)
+	
+	switch($Name) {
+		"overworld" {
+			return @(
+				@{
+					name = "grass_top"
+					path = "assets/minecraft/textures/block/grass_block_top.png"
+					tint = "#7CBD6B"
+				},
+				@{
+					name = "grass_side"
+					path = "assets/minecraft/textures/block/grass_block_side.png"
+					overlay = "assets/minecraft/textures/block/grass_block_side_overlay.png"
+					overlayTint = "#7CBD6B"
+				},
+				@{ name = "dirt"; path = "assets/minecraft/textures/block/dirt.png" },
+				@{ name = "stone"; path = "assets/minecraft/textures/block/stone.png" },
+				@{ name = "deepslate"; path = "assets/minecraft/textures/block/deepslate.png" },
+				@{ name = "coal_ore"; path = "assets/minecraft/textures/block/coal_ore.png" },
+				@{ name = "iron_ore"; path = "assets/minecraft/textures/block/iron_ore.png" },
+				@{ name = "gold_ore"; path = "assets/minecraft/textures/block/gold_ore.png" },
+				@{ name = "copper_ore"; path = "assets/minecraft/textures/block/copper_ore.png" },
+				@{ name = "diamond_ore"; path = "assets/minecraft/textures/block/diamond_ore.png" },
+				@{ name = "emerald_ore"; path = "assets/minecraft/textures/block/emerald_ore.png" },
+				@{ name = "redstone_ore"; path = "assets/minecraft/textures/block/redstone_ore.png" }
+			)
+		}
+		"nether" {
+			return @(
+				@{ name = "crimson_nylium_top"; path = "assets/minecraft/textures/block/crimson_nylium.png" },
+				@{ name = "crimson_nylium_side"; path = "assets/minecraft/textures/block/crimson_nylium_side.png" },
+				@{ name = "netherrack"; path = "assets/minecraft/textures/block/netherrack.png" },
+				@{ name = "blackstone"; path = "assets/minecraft/textures/block/blackstone.png" },
+				@{ name = "basalt_side"; path = "assets/minecraft/textures/block/basalt_side.png" },
+				@{ name = "nether_quartz_ore"; path = "assets/minecraft/textures/block/nether_quartz_ore.png" },
+				@{ name = "nether_gold_ore"; path = "assets/minecraft/textures/block/nether_gold_ore.png" },
+				@{ name = "ancient_debris"; path = "assets/minecraft/textures/block/ancient_debris_side.png" },
+				@{ name = "magma"; path = "assets/minecraft/textures/block/magma.png" },
+				@{ name = "soul_sand"; path = "assets/minecraft/textures/block/soul_sand.png" },
+				@{ name = "soul_soil"; path = "assets/minecraft/textures/block/soul_soil.png" },
+				@{ name = "glowstone"; path = "assets/minecraft/textures/block/glowstone.png" }
+			)
+		}
+		"end" {
+			return @(
+				@{ name = "end_stone_top"; path = "assets/minecraft/textures/block/end_stone.png" },
+				@{ name = "end_stone_side"; path = "assets/minecraft/textures/block/end_stone.png" },
+				@{ name = "end_stone"; path = "assets/minecraft/textures/block/end_stone.png" },
+				@{ name = "obsidian"; path = "assets/minecraft/textures/block/obsidian.png" },
+				@{ name = "bedrock"; path = "assets/minecraft/textures/block/bedrock.png" },
+				@{ name = "chorus_plant"; path = "assets/minecraft/textures/block/chorus_plant.png" },
+				@{ name = "chorus_flower"; path = "assets/minecraft/textures/block/chorus_flower.png" },
+				@{ name = "chorus_flower_dead"; path = "assets/minecraft/textures/block/chorus_flower_dead.png" },
+				@{ name = "purpur_block"; path = "assets/minecraft/textures/block/purpur_block.png" },
+				@{ name = "purpur_pillar"; path = "assets/minecraft/textures/block/purpur_pillar_side.png" },
+				@{ name = "end_stone_bricks"; path = "assets/minecraft/textures/block/end_stone_bricks.png" },
+				@{ name = "end_portal_frame"; path = "assets/minecraft/textures/block/end_portal_frame_top.png" }
+			)
+		}
+	}
+}
+
+if($Output -eq "") {
+	$Output = "src/main/resources/assets/wurst/textures/shader_blocks_$Theme.png"
+}
+
+if($Metadata -eq "") {
+	$Metadata = "src/main/resources/assets/wurst/textures/shader_blocks_$Theme.json"
+}
+
+$sprites = Get-ThemeSprites $Theme
 
 $zip = [System.IO.Compression.ZipFile]::OpenRead($MinecraftJar)
 $loaded = @()
 
 try {
 	foreach($sprite in $sprites) {
-		$bitmap = Open-BitmapFromZip $zip $sprite.path
+		$bitmap = Normalize-BitmapFrame (Open-BitmapFromZip $zip $sprite.path)
 		
 		if($sprite.tint) {
 			Apply-Tint $bitmap (Convert-HexColor $sprite.tint)
 		}
 		
 		if($sprite.overlay) {
-			$overlay = Open-BitmapFromZip $zip $sprite.overlay
+			$overlay = Normalize-BitmapFrame (Open-BitmapFromZip $zip $sprite.overlay)
 			try {
 				if($sprite.overlayTint) {
 					Apply-Tint $overlay (Convert-HexColor $sprite.overlayTint)
@@ -246,6 +323,7 @@ $sheet.Dispose()
 $metadataObject = [ordered]@{
 	sourceJar = $MinecraftJar
 	minecraftVersion = $MinecraftVersion
+	theme = $Theme
 	tileSize = $tileSize
 	columns = $columns
 	rows = $rows

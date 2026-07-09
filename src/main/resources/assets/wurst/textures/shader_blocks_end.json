@@ -1,0 +1,120 @@
+{
+  "sourceJar": "C:\\Users\\MiMi\\.gradle\\caches\\fabric-loom\\26.2\\minecraft-client.jar",
+  "minecraftVersion": "26.2",
+  "theme": "end",
+  "tileSize": 16,
+  "columns": 4,
+  "rows": 3,
+  "width": 64,
+  "height": 48,
+  "sprites": [
+    {
+      "name": "end_stone_top",
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/end_stone.png"
+    },
+    {
+      "name": "end_stone_side",
+      "index": 1,
+      "x": 16,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/end_stone.png"
+    },
+    {
+      "name": "end_stone",
+      "index": 2,
+      "x": 32,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/end_stone.png"
+    },
+    {
+      "name": "obsidian",
+      "index": 3,
+      "x": 48,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/obsidian.png"
+    },
+    {
+      "name": "bedrock",
+      "index": 4,
+      "x": 0,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/bedrock.png"
+    },
+    {
+      "name": "chorus_plant",
+      "index": 5,
+      "x": 16,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/chorus_plant.png"
+    },
+    {
+      "name": "chorus_flower",
+      "index": 6,
+      "x": 32,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/chorus_flower.png"
+    },
+    {
+      "name": "chorus_flower_dead",
+      "index": 7,
+      "x": 48,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/chorus_flower_dead.png"
+    },
+    {
+      "name": "purpur_block",
+      "index": 8,
+      "x": 0,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/purpur_block.png"
+    },
+    {
+      "name": "purpur_pillar",
+      "index": 9,
+      "x": 16,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/purpur_pillar_side.png"
+    },
+    {
+      "name": "end_stone_bricks",
+      "index": 10,
+      "x": 32,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/end_stone_bricks.png"
+    },
+    {
+      "name": "end_portal_frame",
+      "index": 11,
+      "x": 48,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/end_portal_frame_top.png"
+    }
+  ]
+}

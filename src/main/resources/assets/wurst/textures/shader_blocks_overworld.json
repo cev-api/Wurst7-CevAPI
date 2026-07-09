@@ -1,0 +1,120 @@
+{
+  "sourceJar": "C:\\Users\\MiMi\\.gradle\\caches\\fabric-loom\\26.2\\minecraft-client.jar",
+  "minecraftVersion": "26.2",
+  "theme": "overworld",
+  "tileSize": 16,
+  "columns": 4,
+  "rows": 3,
+  "width": 64,
+  "height": 48,
+  "sprites": [
+    {
+      "name": "grass_top",
+      "index": 0,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/grass_block_top.png"
+    },
+    {
+      "name": "grass_side",
+      "index": 1,
+      "x": 16,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/grass_block_side.png"
+    },
+    {
+      "name": "dirt",
+      "index": 2,
+      "x": 32,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/dirt.png"
+    },
+    {
+      "name": "stone",
+      "index": 3,
+      "x": 48,
+      "y": 0,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/stone.png"
+    },
+    {
+      "name": "deepslate",
+      "index": 4,
+      "x": 0,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/deepslate.png"
+    },
+    {
+      "name": "coal_ore",
+      "index": 5,
+      "x": 16,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/coal_ore.png"
+    },
+    {
+      "name": "iron_ore",
+      "index": 6,
+      "x": 32,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/iron_ore.png"
+    },
+    {
+      "name": "gold_ore",
+      "index": 7,
+      "x": 48,
+      "y": 16,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/gold_ore.png"
+    },
+    {
+      "name": "copper_ore",
+      "index": 8,
+      "x": 0,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/copper_ore.png"
+    },
+    {
+      "name": "diamond_ore",
+      "index": 9,
+      "x": 16,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/diamond_ore.png"
+    },
+    {
+      "name": "emerald_ore",
+      "index": 10,
+      "x": 32,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/emerald_ore.png"
+    },
+    {
+      "name": "redstone_ore",
+      "index": 11,
+      "x": 48,
+      "y": 32,
+      "width": 16,
+      "height": 16,
+      "source": "assets/minecraft/textures/block/redstone_ore.png"
+    }
+  ]
+}
