@@ -144,6 +144,7 @@ public final class HackList implements UpdateListener
 	public final EntityCountHack entityCountHack = new EntityCountHack();
 	public final EntityControlHack entityControlHack = new EntityControlHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
+	public final AreaNukerHack areaNukerHack = new AreaNukerHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
 	public final FakeLagHack fakeLagHack = new FakeLagHack();
