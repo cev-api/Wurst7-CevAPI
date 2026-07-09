@@ -18,9 +18,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -79,6 +82,11 @@ public final class ShadertoyBackgroundManager
 		return getFolder().resolve("custom_title_shadertoy_background.fsh");
 	}
 	
+	public static Path getPresetsFolder()
+	{
+		return getFolder().resolve("presets");
+	}
+	
 	public static String loadRawShader()
 	{
 		try
@@ -107,6 +115,77 @@ public final class ShadertoyBackgroundManager
 		
 		saveCustomShader(rawSource);
 		return "Loaded pasted Shadertoy code.";
+	}
+	
+	public static List<Path> listPresets()
+	{
+		Path folder = getPresetsFolder();
+		if(!Files.isDirectory(folder))
+			return List.of();
+		
+		try(Stream<Path> stream = Files.list(folder))
+		{
+			return stream.filter(Files::isRegularFile)
+				.filter(path -> path.getFileName().toString().endsWith(".glsl"))
+				.sorted(Comparator.comparing(
+					path -> path.getFileName().toString().toLowerCase()))
+				.toList();
+		}catch(IOException e)
+		{
+			return List.of();
+		}
+	}
+	
+	public static String savePreset(String name, String rawSource)
+		throws IOException
+	{
+		String trimmed = name == null ? "" : name.trim();
+		if(trimmed.isEmpty())
+			throw new IllegalArgumentException("Preset name cannot be empty.");
+		
+		if(rawSource == null || rawSource.isBlank())
+			throw new IllegalArgumentException(
+				"Load or paste a custom shader before saving a preset.");
+		
+		String fileName = toPresetFileName(trimmed);
+		Files.createDirectories(getPresetsFolder());
+		Files.writeString(getPresetsFolder().resolve(fileName), rawSource,
+			StandardCharsets.UTF_8);
+		return "Saved preset '" + trimmed + "'.";
+	}
+	
+	public static String loadPreset(Path path) throws Exception
+	{
+		if(path == null || !Files.isRegularFile(path))
+			throw new IllegalArgumentException("Preset file not found.");
+		
+		String rawSource = Files.readString(path, StandardCharsets.UTF_8);
+		saveCustomShader(rawSource);
+		return "Loaded preset '" + getPresetDisplayName(path) + "'.";
+	}
+	
+	public static String deletePreset(Path path) throws IOException
+	{
+		if(path == null || !Files.isRegularFile(path))
+			throw new IllegalArgumentException("Preset file not found.");
+		
+		String name = getPresetDisplayName(path);
+		Files.deleteIfExists(path);
+		return "Deleted preset '" + name + "'.";
+	}
+	
+	public static String getPresetDisplayName(Path path)
+	{
+		String fileName = path.getFileName().toString();
+		return fileName.endsWith(".glsl")
+			? fileName.substring(0, fileName.length() - 5) : fileName;
+	}
+	
+	public static boolean isValidPresetName(String name)
+	{
+		String trimmed = name == null ? "" : name.trim();
+		return !trimmed.isEmpty()
+			&& trimmed.chars().noneMatch(ch -> "\\/:*?\"<>|".indexOf(ch) >= 0);
 	}
 	
 	public static void clearCustomShader()
@@ -297,5 +376,14 @@ public final class ShadertoyBackgroundManager
 			return;
 		
 		mc.execute(() -> mc.reloadResourcePacks());
+	}
+	
+	private static String toPresetFileName(String name)
+	{
+		if(!isValidPresetName(name))
+			throw new IllegalArgumentException(
+				"Preset name contains invalid filename characters.");
+		
+		return name.trim() + ".glsl";
 	}
 }

@@ -25,6 +25,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 	private final Screen prevScreen;
 	private EditBox urlBox;
 	private MultiLineEditBox codeBox;
+	private Button savePresetButton;
 	private String status = "";
 	private boolean loading;
 	
@@ -56,7 +57,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 		addRenderableWidget(urlBox);
 		
 		int editorY = urlY + 48;
-		int editorHeight = Math.max(120, height - editorY - 96);
+		int editorHeight = Math.max(120, height - editorY - 144);
 		codeBox = MultiLineEditBox.builder().setX(left).setY(editorY)
 			.setPlaceholder(Component.literal(
 				"Paste raw Shadertoy code here, including mainImage(...)."))
@@ -69,7 +70,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 		int buttonY = editorY + editorHeight + 10;
 		int gap = 6;
 		int buttonWidth = 112;
-		int totalWidth = buttonWidth * 4 + gap * 3;
+		int totalWidth = buttonWidth * 3 + gap * 2;
 		int buttonX = width / 2 - totalWidth / 2;
 		
 		addRenderableWidget(
@@ -86,10 +87,21 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 			.bounds(buttonX + (buttonWidth + gap) * 2, buttonY, buttonWidth, 20)
 			.build());
 		
+		int secondRowY = buttonY + 24;
+		addRenderableWidget(
+			Button.builder(Component.literal("Load Preset"), b -> loadPreset())
+				.bounds(buttonX, secondRowY, buttonWidth, 20).build());
+		
+		savePresetButton = addRenderableWidget(Button
+			.builder(Component.literal("Save Preset"), b -> savePreset())
+			.bounds(buttonX + (buttonWidth + gap), secondRowY, buttonWidth, 20)
+			.build());
+		
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
 				b -> minecraft.gui.setScreen(prevScreen))
-			.bounds(buttonX + (buttonWidth + gap) * 3, buttonY, buttonWidth, 20)
+			.bounds(buttonX + (buttonWidth + gap) * 2, secondRowY, buttonWidth,
+				20)
 			.build());
 		
 		status = ShadertoyBackgroundManager.hasCustomShader()
@@ -177,6 +189,58 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 		{
 			status = "Failed to clear custom shader: " + e.getMessage();
 		}
+	}
+	
+	private void savePreset()
+	{
+		if(loading)
+			return;
+		
+		String source = codeBox.getValue();
+		if(source.isBlank())
+		{
+			status = "Load or paste a custom shader before saving a preset.";
+			return;
+		}
+		
+		minecraft.gui.setScreen(new EnterProfileNameScreen(this, name -> {
+			try
+			{
+				status = ShadertoyBackgroundManager.savePreset(name, source);
+			}catch(Exception e)
+			{
+				status = "Failed: " + e.getMessage();
+			}
+		}, Component.literal("Save this shader as a preset"),
+			ShadertoyBackgroundManager::isValidPresetName));
+	}
+	
+	private void loadPreset()
+	{
+		if(loading)
+			return;
+		
+		minecraft.gui.setScreen(new ShadertoyPresetScreen(this));
+	}
+	
+	public void reloadFromDisk(String newStatus)
+	{
+		if(urlBox != null)
+			urlBox.setValue(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+				.getTitleScreenShadertoyUrlSetting().getValue());
+		
+		if(codeBox != null)
+			codeBox.setValue(ShadertoyBackgroundManager.loadRawShader());
+		
+		status = newStatus;
+	}
+	
+	@Override
+	public void tick()
+	{
+		if(savePresetButton != null)
+			savePresetButton.active =
+				ShadertoyBackgroundManager.hasCustomShader() && !loading;
 	}
 	
 	@Override
