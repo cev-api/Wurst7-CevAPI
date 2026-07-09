@@ -151,6 +151,7 @@ public final class HackList implements UpdateListener
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
 	public final FakeLagHack fakeLagHack = new FakeLagHack();
 	public final FastBreakHack fastBreakHack = new FastBreakHack();
+	public final FastFillHack fastFillHack = new FastFillHack();
 	public final FastLadderHack fastLadderHack = new FastLadderHack();
 	public final FastPlaceHack fastPlaceHack = new FastPlaceHack();
 	public final FeedAuraHack feedAuraHack = new FeedAuraHack();

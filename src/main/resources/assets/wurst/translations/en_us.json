@@ -33,6 +33,7 @@
   "description.wurst.hack.arrowdmg": "Massively increases arrow damage, but also consumes a lot of hunger and reduces accuracy.\n\nDoes not work with crossbows and seems to be patched on Paper servers.",
   "description.wurst.hack.areanuker": "Combines Excavator's area selection with SpeedNuker's speed.",
   "description.wurst.hack.autospawnproofer": "Automatically places light sources (torches by default) on nearby tiles where hostile mobs could spawn.",
+  "description.wurst.hack.fastfill": "Block area filler. Select two corners and a block, then fly around the box while FastFill places the block into every reachable empty spot. With §lReplace§r on it also breaks any wrong blocks first.",
   "description.wurst.setting.arrowdmg.strength": "Strength of the effect. 10 is the highest possible as of Minecraft 1.21.",
   "description.wurst.setting.arrowdmg.trident_yeet_mode": "When enabled, tridents fly much further. Doesn't seem to affect damage or Riptide.\n\nWARNING: You can easily lose your trident by enabling this option!",
   "description.wurst.hack.attributeswap": "Swaps main-hand item attributes with the target slot.",
