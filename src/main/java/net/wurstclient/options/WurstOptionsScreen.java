@@ -29,7 +29,6 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.altgui.TooManyHaxEditorScreen;
 import net.wurstclient.altmanager.LoginException;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
-import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.commands.FriendsCmd;
 import net.wurstclient.navigator.NavigatorMainScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -153,7 +152,6 @@ public final class WurstOptionsScreen extends Screen
 		WurstClient wurst = WurstClient.INSTANCE;
 		FriendsCmd friendsCmd = wurst.getCmds().friendsCmd;
 		CheckboxSetting middleClickFriends = friendsCmd.getMiddleClickFriends();
-		PlausibleAnalytics plausible = wurst.getPlausible();
 		WurstOptionsOtf options = wurst.getOtfs().wurstOptionsOtf;
 		VanillaSpoofOtf vanillaSpoof = wurst.getOtfs().vanillaSpoofOtf;
 		CheckboxSetting forceEnglish =
@@ -183,10 +181,6 @@ public final class WurstOptionsScreen extends Screen
 			middleClickFriends.getWrappedDescription(220),
 			b -> middleClickFriends
 				.setChecked(!middleClickFriends.isChecked()));
-		
-		addButton(column, () -> "Count Users: " + onOff(plausible.isEnabled()),
-			"Anonymous usage analytics to help prioritize support and version compatibility.",
-			b -> plausible.setEnabled(!plausible.isEnabled()));
 		
 		addButton(column,
 			() -> "Hack Toggle Chat: " + onOff(hackToggleFeedback.isChecked()),

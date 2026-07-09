@@ -17,7 +17,6 @@ import net.minecraft.client.Minecraft;
 import net.wurstclient.addons.AddonManager;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
-import net.wurstclient.analytics.PlausibleAnalytics;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.command.CmdList;
 import net.wurstclient.command.CmdProcessor;
@@ -65,7 +64,6 @@ public enum WurstClient
 	public static final String VERSION = "7.54";
 	public static final String MC_VERSION = "26.2";
 	
-	private PlausibleAnalytics plausible;
 	private EventManager eventManager;
 	private AltManager altManager;
 	private HackList hax;
@@ -131,10 +129,6 @@ public enum WurstClient
 			System.out.println("Couldn't seed bundled preset.");
 			e.printStackTrace();
 		}
-		
-		Path analyticsFile = wurstFolder.resolve("analytics.json");
-		plausible = new PlausibleAnalytics(analyticsFile);
-		plausible.pageview("/");
 		
 		eventManager = new EventManager(this);
 		playerRangeAlertManager = new PlayerRangeAlertManager(eventManager);
@@ -235,11 +229,6 @@ public enum WurstClient
 	public String translate(String key, Object... args)
 	{
 		return translator.translate(key, args);
-	}
-	
-	public PlausibleAnalytics getPlausible()
-	{
-		return plausible;
 	}
 	
 	public EventManager getEventManager()
