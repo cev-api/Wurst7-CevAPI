@@ -38,10 +38,12 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
+import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -50,7 +52,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 @SearchTags({"untouchable", "dodge hvh", "hacker vs hacker", "anti mace",
 	"anti spear", "anti sword", "anti axe", "mace dodge", "spear dodge"})
 public final class UntouchableHack extends Hack
-	implements UpdateListener, PacketInputListener
+	implements UpdateListener, PacketInputListener, HandleInputListener
 {
 	private static final int DIRECTION_SAMPLES = 16;
 	private static final long MACE_PACKET_CUE_MS = 500;
@@ -127,6 +129,11 @@ public final class UntouchableHack extends Hack
 		new EnumSetting<>("Move pause mode",
 			"description.wurst.setting.untouchable.move_pause_mode",
 			MovePauseMode.values(), MovePauseMode.MOVE_TOWARD_PLAYER);
+	private final CheckboxSetting pauseOnShift = new CheckboxSetting(
+		"Pause on shift",
+		"Holding sneak prevents Untouchable from teleporting. While held, the "
+			+ "sneak key is released again so you keep moving at normal speed.",
+		false);
 	private final SliderSetting playerDistance =
 		new SliderSetting("Player distance",
 			"description.wurst.setting.untouchable.player_distance", 7, 3, 16,
@@ -195,6 +202,7 @@ public final class UntouchableHack extends Hack
 		addSetting(autoDistanceOnTotemPop);
 		addSetting(keepDistanceMode);
 		addSetting(movePauseMode);
+		addSetting(pauseOnShift);
 		addSetting(playerDistance);
 		addSetting(detectionRange);
 		addSetting(reachAllowance);
@@ -220,6 +228,7 @@ public final class UntouchableHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
+		EVENTS.add(HandleInputListener.class, this);
 		reset();
 	}
 	
@@ -228,6 +237,7 @@ public final class UntouchableHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
+		EVENTS.remove(HandleInputListener.class, this);
 		reset();
 	}
 	
@@ -246,6 +256,13 @@ public final class UntouchableHack extends Hack
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		inspectPacket(event.getPacket());
+	}
+	
+	@Override
+	public void onHandleInput()
+	{
+		if(shouldPauseOnShift())
+			releaseSneakKey();
 	}
 	
 	private void inspectPacket(Packet<?> packet)
@@ -1017,6 +1034,8 @@ public final class UntouchableHack extends Hack
 	{
 		if(MC.player == null || MC.player.connection == null)
 			return;
+		if(shouldSuppressDodging(threat.pathStart))
+			return;
 		Vec3 destination = chooseDodgeDestination(threat);
 		if(destination == null)
 			return;
@@ -1132,11 +1151,29 @@ public final class UntouchableHack extends Hack
 	
 	private boolean shouldSuppressDodging(Vec3 targetPosition)
 	{
+		if(shouldPauseOnShift())
+			return true;
 		if(movePauseMode.getSelected() == MovePauseMode.ANY_MOVEMENT_KEY)
 			return MC.options != null && (MC.options.keyUp.isDown()
 				|| MC.options.keyDown.isDown() || MC.options.keyLeft.isDown()
 				|| MC.options.keyRight.isDown());
 		return isWalkingToward(targetPosition);
+	}
+	
+	private boolean shouldPauseOnShift()
+	{
+		if(!pauseOnShift.isChecked() || MC.options == null)
+			return false;
+		
+		return IKeyMapping.get(MC.options.keyShift).isActuallyDown();
+	}
+	
+	private void releaseSneakKey()
+	{
+		IKeyMapping sneakKey = IKeyMapping.get(MC.options.keyShift);
+		sneakKey.setDown(false);
+		if(MC.player != null)
+			MC.player.setShiftKeyDown(false);
 	}
 	
 	private boolean isIgnoredPlayer(Player player)
