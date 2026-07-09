@@ -81,6 +81,7 @@
     "ServerSelectionListMixin",
     "SectionOcclusionGraphMixin",
     "ServerNameResolverMixin",
+    "ShaderManagerMixin",
     "ShulkerBoxScreenMixin",
     "SkinManagerMixin",
     "StatsScreenMixin",
