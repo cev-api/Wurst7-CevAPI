@@ -7,7 +7,6 @@
  */
 package net.wurstclient.hacks;
 
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.phys.Vec3;
@@ -23,6 +22,8 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 @SearchTags({"creative flight", "CreativeFly", "creative fly"})
 public final class CreativeFlightHack extends Hack implements UpdateListener
 {
+	private static final double DESCENT_SPEED = -0.15;
+	
 	private final CheckboxSetting antiKick = new CheckboxSetting("Anti-Kick",
 		"Makes you fall a little bit every now and then to prevent you from getting kicked.",
 		false);
@@ -31,16 +32,22 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		new SliderSetting("Anti-Kick Interval",
 			"How often Anti-Kick should prevent you from getting kicked.\n"
 				+ "Most servers will kick you after 80 ticks.",
-			30, 5, 80, 1, SliderSetting.ValueDisplay.INTEGER
+			70, 5, 80, 1, SliderSetting.ValueDisplay.INTEGER
 				.withSuffix(" ticks").withLabel(1, "1 tick"));
 	
 	private final SliderSetting antiKickDistance = new SliderSetting(
 		"Anti-Kick Distance",
 		"How far Anti-Kick should make you fall.\n"
 			+ "Most servers require at least 0.032m to stop you from getting kicked.",
-		0.07, 0.01, 0.2, 0.001, ValueDisplay.DECIMAL.withSuffix("m"));
+		0.035, 0.01, 0.2, 0.001, ValueDisplay.DECIMAL.withSuffix("m"));
+	
+	private final CheckboxSetting startFlyingImmediately = new CheckboxSetting(
+		"Start flying immediately",
+		"Automatically enables CreativeFlight as soon as the hack is turned on, instead of waiting for the usual double-jump.",
+		true);
 	
 	private int tickCounter = 0;
+	private boolean suppressedSneakKey;
 	
 	public CreativeFlightHack()
 	{
@@ -49,15 +56,22 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		addSetting(antiKick);
 		addSetting(antiKickInterval);
 		addSetting(antiKickDistance);
+		addSetting(startFlyingImmediately);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		tickCounter = 0;
+		suppressedSneakKey = false;
 		
 		WURST.getHax().jetpackHack.setEnabled(false);
 		WURST.getHax().flightHack.setEnabled(false);
+		
+		Abilities abilities = MC.player.getAbilities();
+		abilities.mayfly = true;
+		if(startFlyingImmediately.isChecked())
+			abilities.flying = true;
 		
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -74,7 +88,7 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		abilities.flying = creative && !player.onGround();
 		abilities.mayfly = creative;
 		
-		restoreKeyPresses();
+		restoreSneakKey();
 	}
 	
 	@Override
@@ -83,49 +97,71 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		Abilities abilities = MC.player.getAbilities();
 		abilities.mayfly = true;
 		
+		handleSmoothDescent(abilities);
+		
 		if(antiKick.isChecked() && abilities.flying)
 			doAntiKick();
 	}
 	
+	private void handleSmoothDescent(Abilities abilities)
+	{
+		IKeyMapping sneakKey = IKeyMapping.get(MC.options.keyShift);
+		boolean sneakDown = sneakKey.isActuallyDown();
+		
+		if(!abilities.flying || !sneakDown)
+		{
+			if(suppressedSneakKey)
+				restoreSneakKey();
+			
+			return;
+		}
+		
+		sneakKey.setDown(false);
+		suppressedSneakKey = true;
+		
+		if(IKeyMapping.get(MC.options.keyJump).isActuallyDown())
+			return;
+		
+		Vec3 velocity = MC.player.getDeltaMovement();
+		MC.player.setDeltaMovement(velocity.x, DESCENT_SPEED, velocity.z);
+	}
+	
 	private void doAntiKick()
 	{
-		if(tickCounter > antiKickInterval.getValueI() + 2)
+		if(IKeyMapping.get(MC.options.keyJump).isActuallyDown()
+			|| IKeyMapping.get(MC.options.keyShift).isActuallyDown())
+			return;
+		
+		if(tickCounter > antiKickInterval.getValueI() + 1)
 			tickCounter = 0;
 		
 		switch(tickCounter)
 		{
 			case 0 ->
 			{
-				if(MC.options.keyShift.isDown() && !MC.options.keyJump.isDown())
-					tickCounter = 3;
+				Vec3 velocity = MC.player.getDeltaMovement();
+				if(velocity.y <= -antiKickDistance.getValue())
+					tickCounter = 2;
 				else
-					setMotionY(-antiKickDistance.getValue());
+					addMotionY(-antiKickDistance.getValue());
 			}
 			
-			case 1 -> setMotionY(antiKickDistance.getValue());
-			
-			case 2 -> setMotionY(0);
-			
-			case 3 -> restoreKeyPresses();
+			case 1 -> addMotionY(antiKickDistance.getValue());
 		}
 		
 		tickCounter++;
 	}
 	
-	private void setMotionY(double motionY)
+	private void addMotionY(double motionY)
 	{
-		MC.options.keyShift.setDown(false);
-		MC.options.keyJump.setDown(false);
-		
 		Vec3 velocity = MC.player.getDeltaMovement();
-		MC.player.setDeltaMovement(velocity.x, motionY, velocity.z);
+		MC.player.setDeltaMovement(velocity.x, velocity.y + motionY,
+			velocity.z);
 	}
 	
-	private void restoreKeyPresses()
+	private void restoreSneakKey()
 	{
-		KeyMapping[] keys = {MC.options.keyJump, MC.options.keyShift};
-		
-		for(KeyMapping key : keys)
-			IKeyMapping.get(key).resetPressedState();
+		IKeyMapping.get(MC.options.keyShift).resetPressedState();
+		suppressedSneakKey = false;
 	}
 }

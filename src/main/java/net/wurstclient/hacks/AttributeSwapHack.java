@@ -51,7 +51,7 @@ public final class AttributeSwapHack extends Hack
 	
 	private final CheckboxSetting reserveTargetSlot = new CheckboxSetting(
 		"Reserve target slot",
-		"Prevents you from selecting the target slot yourself. AttributeSwap can still use it temporarily.",
+		"Prevents you from selecting the target slot yourself. If \"Only with Mace\" is on and the slot doesn't hold a mace, the reservation is lifted.",
 		false);
 	
 	private final CheckboxSetting swapBack = new CheckboxSetting("Swap back",
@@ -94,7 +94,9 @@ public final class AttributeSwapHack extends Hack
 			"Only activate when MultiAura is enabled.", false);
 	
 	private final CheckboxSetting onlyWithMace = new CheckboxSetting(
-		"Only with Mace", "Only swap when holding a Mace.", false);
+		"Only with Mace",
+		"Only swap when the target slot already contains a Mace. If the slot doesn't hold a mace, AttributeSwap stays off and won't reserve the slot.",
+		false);
 	
 	private int backTimer;
 	private boolean awaitingBack;
@@ -391,7 +393,21 @@ public final class AttributeSwapHack extends Hack
 	
 	private boolean isTargetSlotReserved()
 	{
-		return isEnabled() && reserveTargetSlot.isChecked();
+		return isEnabled() && reserveTargetSlot.isChecked()
+			&& isTargetSlotUsable();
+	}
+	
+	private boolean isTargetSlotUsable()
+	{
+		if(!onlyWithMace.isChecked())
+			return true;
+		
+		int target = getTargetHotbarSlot();
+		if(target < 0 || target > 8 || MC.player == null)
+			return false;
+		
+		return MC.player.getInventory().getItem(target)
+			.getItem() instanceof MaceItem;
 	}
 	
 	public int getTargetHotbarSlot()
