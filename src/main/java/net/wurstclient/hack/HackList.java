@@ -86,6 +86,8 @@ public final class HackList implements UpdateListener
 	public final AutoSoupHack autoSoupHack = new AutoSoupHack();
 	public final AutoSprintHack autoSprintHack = new AutoSprintHack();
 	public final AutoStealHack autoStealHack = new AutoStealHack();
+	public final AutoSpawnProoferHack autoSpawnProoferHack =
+		new AutoSpawnProoferHack();
 	public final AutoSwimHack autoSwimHack = new AutoSwimHack();
 	public final AutoSwitchHack autoSwitchHack = new AutoSwitchHack();
 	public final AutoSwordHack autoSwordHack = new AutoSwordHack();
@@ -144,10 +146,12 @@ public final class HackList implements UpdateListener
 	public final EntityCountHack entityCountHack = new EntityCountHack();
 	public final EntityControlHack entityControlHack = new EntityControlHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
+	public final AreaNukerHack areaNukerHack = new AreaNukerHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
 	public final FakeLagHack fakeLagHack = new FakeLagHack();
 	public final FastBreakHack fastBreakHack = new FastBreakHack();
+	public final FastFillHack fastFillHack = new FastFillHack();
 	public final FastLadderHack fastLadderHack = new FastLadderHack();
 	public final FastPlaceHack fastPlaceHack = new FastPlaceHack();
 	public final FeedAuraHack feedAuraHack = new FeedAuraHack();
@@ -174,6 +178,8 @@ public final class HackList implements UpdateListener
 	public final InstaBuildHack instaBuildHack = new InstaBuildHack();
 	public final InstantBunkerHack instantBunkerHack = new InstantBunkerHack();
 	public final InvWalkHack invWalkHack = new InvWalkHack();
+	public final InventorySorterHack inventorySorterHack =
+		new InventorySorterHack();
 	public final ItemEspHack itemEspHack = new ItemEspHack();
 	public final ItemGeneratorHack itemGeneratorHack = new ItemGeneratorHack();
 	public final net.wurstclient.hacks.itemhandler.ItemHandlerHack itemHandlerHack =
