@@ -12,12 +12,18 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
+import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.Panorama;
 import net.wurstclient.WurstClient;
+import net.wurstclient.util.ShadertoyBackgroundManager;
+import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
 @Mixin(value = Screen.class, remap = false)
@@ -37,6 +43,30 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		if(WurstClient.INSTANCE.getHax().noBackgroundHack
 			.shouldCancelBackground((Screen)(Object)this))
 			ci.cancel();
+	}
+	
+	@Inject(method = "keyPressed(Lnet/minecraft/client/input/KeyEvent;)Z",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onKeyPressed(KeyEvent context,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(context.key() != GLFW.GLFW_KEY_ESCAPE)
+			return;
+		if(!((Object)this instanceof TitleScreen))
+			return;
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		if(!WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.isTitleScreenShadertoyBackgroundEnabled())
+			return;
+		if(ShadertoyBackgroundManager.hasCustomShader())
+			return;
+		
+		TitleBackgroundModeManager.advanceForEnableToggle();
+		cir.setReturnValue(true);
 	}
 	
 	@Redirect(

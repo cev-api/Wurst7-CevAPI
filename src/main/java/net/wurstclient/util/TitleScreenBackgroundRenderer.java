@@ -11,7 +11,6 @@ import org.joml.Matrix3x2f;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.wurstclient.TitleScreenShaderPipelines;
@@ -33,10 +32,11 @@ public enum TitleScreenBackgroundRenderer
 		AbstractTexture texture = Minecraft.getInstance().getTextureManager()
 			.getTexture(mode.getAtlasId());
 		context.guiRenderState.addGuiElement(new CustomQuadRenderState(
-			TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND,
-			TextureSetup.singleTexture(texture.getTextureView(),
-				texture.getSampler()),
-			pose, -1, -1, 1, -1, 1, 1, -1, 1, packedColor, packedColor,
-			packedColor, packedColor, null, bounds));
+			ShadertoyBackgroundManager.hasCustomShader()
+				? TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND_CUSTOM
+				: TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND,
+			ShadertoyBackgroundManager.createCustomTextureSetup(texture), pose,
+			-1, -1, 1, -1, 1, 1, -1, 1, packedColor, packedColor, packedColor,
+			packedColor, null, bounds));
 	}
 }
