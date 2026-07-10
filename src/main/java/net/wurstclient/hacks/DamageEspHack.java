@@ -22,7 +22,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 
 import net.minecraft.client.gui.Font;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
@@ -42,6 +44,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"damage esp", "damage numbers", "damage popups"})
@@ -71,7 +74,13 @@ public final class DamageEspHack extends Hack
 	private final ColorSetting textColor = new ColorSetting("Text color",
 		"Color of the floating damage numbers.", new Color(0xFF5555));
 	
+	private final CheckboxSetting chatInfo = new CheckboxSetting("Chat info",
+		"Show damage dealt by you in chat, including three-second attack burst summaries.",
+		false);
+	
 	private final Map<UUID, Float> trackedHealth = new HashMap<>();
+	private final Map<Integer, PendingDamage> pendingDamage = new HashMap<>();
+	private final Map<UUID, DamageBurst> damageBursts = new HashMap<>();
 	private final List<DamagePopup> popups = new ArrayList<>();
 	private final RandomSource random = RandomSource.create();
 	private static final int HEALTH_DATA_ID = resolveHealthDataId();
@@ -85,6 +94,7 @@ public final class DamageEspHack extends Hack
 		addSetting(fadeTime);
 		addSetting(opacity);
 		addSetting(textColor);
+		addSetting(chatInfo);
 	}
 	
 	@Override
@@ -92,6 +102,8 @@ public final class DamageEspHack extends Hack
 	{
 		trackedHealth.clear();
 		popups.clear();
+		pendingDamage.clear();
+		damageBursts.clear();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
@@ -105,6 +117,8 @@ public final class DamageEspHack extends Hack
 		EVENTS.remove(PacketInputListener.class, this);
 		trackedHealth.clear();
 		popups.clear();
+		pendingDamage.clear();
+		damageBursts.clear();
 	}
 	
 	@Override
@@ -116,6 +130,8 @@ public final class DamageEspHack extends Hack
 		
 		if(packet instanceof ClientboundSetEntityDataPacket entityData)
 			handleEntityDataPacket(entityData);
+		else if(packet instanceof ClientboundDamageEventPacket damage)
+			handleDamageEvent(damage);
 	}
 	
 	@Override
@@ -125,10 +141,15 @@ public final class DamageEspHack extends Hack
 		{
 			trackedHealth.clear();
 			popups.clear();
+			pendingDamage.clear();
+			damageBursts.clear();
 			return;
 		}
 		
 		long now = MC.level.getGameTime();
+		flushDamageBursts(now);
+		pendingDamage.entrySet()
+			.removeIf(entry -> now - entry.getValue().createdTick > 5);
 		Set<UUID> seen = new HashSet<>();
 		for(Entity entity : MC.level.entitiesForRendering())
 		{
@@ -226,9 +247,92 @@ public final class DamageEspHack extends Hack
 			trackedHealth.put(id, newHealth);
 			float damage = oldHealth - newHealth;
 			if(damage > DAMAGE_EPSILON)
+			{
 				spawnPopup(living, damage);
+				PendingDamage pending = pendingDamage.remove(entityId);
+				if(pending != null
+					&& pending.createdTick + 5 >= MC.level.getGameTime())
+					recordChatDamage(living, damage, pending.weapon);
+			}
 			break;
 		}
+	}
+	
+	private void handleDamageEvent(ClientboundDamageEventPacket packet)
+	{
+		if(!chatInfo.isChecked() || MC.player == null || MC.level == null
+			|| packet.sourceCauseId() != MC.player.getId())
+			return;
+		
+		Entity target = MC.level.getEntity(packet.entityId());
+		if(!(target instanceof LivingEntity living) || !shouldTrack(living))
+			return;
+		
+		String weapon = getHeldItemName();
+		pendingDamage.put(packet.entityId(),
+			new PendingDamage(weapon, MC.level.getGameTime()));
+	}
+	
+	private void recordChatDamage(LivingEntity target, float damage,
+		String weapon)
+	{
+		if(!chatInfo.isChecked())
+			return;
+		
+		String amount = formatDamage(damage);
+		ChatUtils.message("You did " + amount + " HP damage to "
+			+ target.getName().getString() + " with " + weapon + ".");
+		
+		UUID id = target.getUUID();
+		DamageBurst burst = damageBursts.computeIfAbsent(id,
+			ignored -> new DamageBurst(target.getName().getString(), weapon));
+		burst.totalDamage += damage;
+		if(burst.hitCount > 0)
+			burst.totalIntervalTicks +=
+				MC.level.getGameTime() - burst.lastHitTick;
+		burst.hitCount++;
+		burst.lastHitTick = MC.level.getGameTime();
+		burst.weapon = weapon;
+	}
+	
+	private void flushDamageBursts(long now)
+	{
+		if(!chatInfo.isChecked())
+		{
+			damageBursts.clear();
+			return;
+		}
+		
+		damageBursts.entrySet().removeIf(entry -> {
+			DamageBurst burst = entry.getValue();
+			if(now - burst.lastHitTick < 60)
+				return false;
+			if(burst.hitCount > 1)
+				ChatUtils.message("Attack summary on " + burst.targetName + ": "
+					+ burst.hitCount + " hits, average "
+					+ formatDamage(burst.totalDamage / burst.hitCount)
+					+ " HP, average time between hits "
+					+ formatSeconds(
+						burst.totalIntervalTicks / (burst.hitCount - 1))
+					+ ", total " + formatDamage(burst.totalDamage) + " HP with "
+					+ burst.weapon + ".");
+			return true;
+		});
+	}
+	
+	private String getHeldItemName()
+	{
+		if(MC.player == null || MC.player.getMainHandItem().isEmpty())
+			return "UNKNOWN";
+		
+		String name = BuiltInRegistries.ITEM
+			.getKey(MC.player.getMainHandItem().getItem()).getPath();
+		return name.replace('_', ' ').toUpperCase(Locale.ROOT);
+	}
+	
+	private String formatSeconds(double ticks)
+	{
+		return String.format(Locale.ROOT, "%.1f seconds", ticks / 20.0);
 	}
 	
 	private void spawnPopup(LivingEntity entity, float damage)
@@ -296,6 +400,25 @@ public final class DamageEspHack extends Hack
 		private double ageTicks(double currentTick)
 		{
 			return currentTick - createdTick;
+		}
+	}
+	
+	private record PendingDamage(String weapon, long createdTick)
+	{}
+	
+	private static final class DamageBurst
+	{
+		private final String targetName;
+		private String weapon;
+		private float totalDamage;
+		private int hitCount;
+		private long lastHitTick;
+		private long totalIntervalTicks;
+		
+		private DamageBurst(String targetName, String weapon)
+		{
+			this.targetName = targetName;
+			this.weapon = weapon;
 		}
 	}
 	

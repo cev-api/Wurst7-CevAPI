@@ -41,6 +41,7 @@ import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgres
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
+import net.wurstclient.hacks.MaceDmgHack;
 import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
@@ -172,11 +173,22 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V")
+		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V",
+		cancellable = true)
 	private void onAttackEntity(Player player, Entity target, CallbackInfo ci)
 	{
 		if(player != minecraft.player)
 			return;
+		
+		if(WurstClient.INSTANCE.isEnabled())
+		{
+			MaceDmgHack maceDmg = WurstClient.INSTANCE.getHax().maceDmgHack;
+			if(maceDmg != null && maceDmg.shouldBlockAttack(target))
+			{
+				ci.cancel();
+				return;
+			}
+		}
 		
 		EventManager.fire(new PlayerAttacksEntityEvent(target));
 	}

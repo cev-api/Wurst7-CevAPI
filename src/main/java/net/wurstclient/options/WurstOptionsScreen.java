@@ -215,8 +215,7 @@ public final class WurstOptionsScreen extends Screen
 		addButton(column,
 			() -> "Shader Background: "
 				+ onOff(titleScreenShadertoyBackground.isChecked()),
-			"Render an animatedbackground behind the title screen.",
-			b -> {
+			"Render an animatedbackground behind the title screen.", b -> {
 				boolean wasEnabled = titleScreenShadertoyBackground.isChecked();
 				titleScreenShadertoyBackground.setChecked(!wasEnabled);
 				if(!wasEnabled)
