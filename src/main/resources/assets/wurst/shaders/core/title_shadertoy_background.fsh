@@ -11,13 +11,20 @@ const vec2 BLOCK_ATLAS_TILES = vec2(4.0, 3.0);
 
 float titleTime()
 {
-	vec2 packed = floor(vertexColor.rg * 255.0 + 0.5);
-	return (packed.x * 256.0 + packed.y) / 20.0;
+	vec4 packed = floor(vertexColor * 255.0 + 0.5);
+	return (packed.a * 16.0 + floor(packed.r / 16.0)) / 20.0;
 }
 
 float titleMode()
 {
-	return floor(vertexColor.b * 255.0 + 0.5);
+	float red = floor(vertexColor.r * 255.0 + 0.5);
+	return floor(mod(red / 4.0, 4.0));
+}
+
+bool titleXrayEnabled()
+{
+	float red = floor(vertexColor.r * 255.0 + 0.5);
+	return mod(floor(red / 2.0), 2.0) > 0.5;
 }
 
 float hash13(vec3 p3)
@@ -259,6 +266,56 @@ float blockTile(in vec3 vos, in vec3 nor)
 	return endBlockTile(vos, nor);
 }
 
+bool isXrayTargetBlock(in vec3 vos)
+{
+	float mode = titleMode();
+	if(mode < 0.5)
+	{
+		float ore = oreTile(vos);
+		return ore == 7.0 || ore == 9.0 || ore == 10.0 || ore == 11.0;
+	}
+	if(mode < 1.5)
+	{
+		float ore = netherOreTile(vos);
+		return ore == 5.0 || ore == 6.0 || ore == 7.0;
+	}
+
+	bool airAbove = map(vos + vec3(0.0, 1.0, 0.0)) < 0.5;
+	bool nearSurface = map(vos + vec3(0.0, 2.0, 0.0)) < 0.5
+		|| map(vos + vec3(0.0, 3.0, 0.0)) < 0.5;
+	float accent = hash31(floor(vos * 0.18) + vec3(12.3, 8.5, 4.9));
+	if(airAbove)
+		return accent > 0.945 && accent <= 0.972;
+	if(nearSurface)
+		return false;
+
+	float deep = hash31(floor(vos * 0.70) + vec3(9.6, 5.8, 17.3));
+	return deep > 0.90;
+}
+
+float xrayTargetTile(in vec3 vos)
+{
+	float mode = titleMode();
+	if(mode < 0.5)
+		return oreTile(vos);
+	if(mode < 1.5)
+		return netherOreTile(vos);
+
+	bool airAbove = map(vos + vec3(0.0, 1.0, 0.0)) < 0.5;
+	float accent = hash31(floor(vos * 0.18) + vec3(12.3, 8.5, 4.9));
+	if(airAbove)
+		return accent > 0.945 && accent <= 0.972 ? 8.0 : -1.0;
+
+	float deep = hash31(floor(vos * 0.70) + vec3(9.6, 5.8, 17.3));
+	if(deep > 0.985)
+		return 4.0;
+	if(deep > 0.93)
+		return 3.0;
+	if(deep > 0.90)
+		return 9.0;
+	return -1.0;
+}
+
 vec3 blockTexture(in vec3 vos, in vec3 nor, in vec3 uvw)
 {
 	vec2 uv;
@@ -269,7 +326,9 @@ vec3 blockTexture(in vec3 vos, in vec3 nor, in vec3 uvw)
 	else
 		uv = uvw.xy;
 
-	float tile = blockTile(vos, nor);
+	float tile = titleXrayEnabled() ? xrayTargetTile(vos) : blockTile(vos, nor);
+	if(tile < 0.0)
+		tile = blockTile(vos, nor);
 	if(abs(nor.y) <= 0.5)
 		uv.y = 1.0 - uv.y;
 
@@ -297,6 +356,37 @@ float raycast(in vec3 ro, in vec3 rd, out vec3 oVos, out vec3 oDir)
 	for(int i = 0; i < 128; i++)
 	{
 		if(map(pos) > 0.5)
+		{
+			res = 1.0;
+			break;
+		}
+
+		mm = step(dis.xyz, dis.yzx) * step(dis.xyz, dis.zxy);
+		dis += mm * rs * ri;
+		pos += mm * rs;
+	}
+
+	vec3 vos = pos;
+	vec3 mini = (pos - ro + 0.5 - 0.5 * vec3(rs)) * ri;
+	float t = max(mini.x, max(mini.y, mini.z));
+
+	oDir = mm;
+	oVos = vos;
+	return t * res;
+}
+
+float raycastXray(in vec3 ro, in vec3 rd, out vec3 oVos, out vec3 oDir)
+{
+	vec3 pos = floor(ro);
+	vec3 ri = 1.0 / rd;
+	vec3 rs = sign(rd);
+	vec3 dis = (pos - ro + 0.5 + rs * 0.5) * ri;
+	float res = -1.0;
+	vec3 mm = vec3(0.0);
+
+	for(int i = 0; i < 128; i++)
+	{
+		if(map(pos) > 0.5 && isXrayTargetBlock(pos))
 		{
 			res = 1.0;
 			break;
@@ -358,7 +448,8 @@ vec3 render(in vec3 ro, in vec3 rd)
 
 	vec3 vos;
 	vec3 dir;
-	float t = raycast(ro, rd, vos, dir);
+	float t = titleXrayEnabled() ? raycastXray(ro, rd, vos, dir)
+		: raycast(ro, rd, vos, dir);
 	if(t > 0.0)
 	{
 		vec3 nor = -dir * sign(rd);

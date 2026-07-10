@@ -51,8 +51,6 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 	private void onKeyPressed(KeyEvent context,
 		CallbackInfoReturnable<Boolean> cir)
 	{
-		if(context.key() != GLFW.GLFW_KEY_ESCAPE)
-			return;
 		if(!((Object)this instanceof TitleScreen))
 			return;
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -65,8 +63,19 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		if(ShadertoyBackgroundManager.hasCustomShader())
 			return;
 		
-		TitleBackgroundModeManager.advanceForEnableToggle();
-		cir.setReturnValue(true);
+		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		{
+			TitleBackgroundModeManager.advanceForEnableToggle();
+			cir.setReturnValue(true);
+			return;
+		}
+		
+		if(context.key() == GLFW.GLFW_KEY_X)
+		{
+			WurstClient.INSTANCE.getHax().xRayHack.setEnabled(
+				!WurstClient.INSTANCE.getHax().xRayHack.isEnabled());
+			cir.setReturnValue(true);
+		}
 	}
 	
 	@Redirect(

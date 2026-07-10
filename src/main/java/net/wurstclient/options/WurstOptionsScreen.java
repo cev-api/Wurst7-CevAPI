@@ -213,9 +213,9 @@ public final class WurstOptionsScreen extends Screen
 				.setChecked(!customMultiplayerLayout.isChecked()));
 		
 		addButton(column,
-			() -> "Shadertoy Background: "
+			() -> "Shader Background: "
 				+ onOff(titleScreenShadertoyBackground.isChecked()),
-			"Render a Shadertoy-style animated background behind the title screen.",
+			"Render an animatedbackground behind the title screen.",
 			b -> {
 				boolean wasEnabled = titleScreenShadertoyBackground.isChecked();
 				titleScreenShadertoyBackground.setChecked(!wasEnabled);
@@ -223,7 +223,7 @@ public final class WurstOptionsScreen extends Screen
 					TitleBackgroundModeManager.advanceForEnableToggle();
 			});
 		
-		addButton(column, () -> "Import Shadertoy",
+		addButton(column, () -> "Import/Load Shader Background",
 			"Import a Shadertoy by URL or pasted source code as the menu background.",
 			b -> minecraft.gui
 				.setScreen(new CustomShadertoyBackgroundScreen(this)));
