@@ -71,7 +71,17 @@ public final class ShadertoyBackgroundManager
 	
 	public static boolean hasCustomShader()
 	{
-		return Files.isRegularFile(getGeneratedShaderPath());
+		if(!Files.isRegularFile(getGeneratedShaderPath()))
+			return false;
+		
+		try
+		{
+			return isSafeGeneratedShader(Files
+				.readString(getGeneratedShaderPath(), StandardCharsets.UTF_8));
+		}catch(IOException e)
+		{
+			return false;
+		}
 	}
 	
 	public static Optional<Resource> getCustomShaderResource(Identifier id)
@@ -82,6 +92,13 @@ public final class ShadertoyBackgroundManager
 		IoSupplier<InputStream> stream =
 			() -> Files.newInputStream(getGeneratedShaderPath());
 		return Optional.of(new Resource(null, stream));
+	}
+	
+	private static boolean isSafeGeneratedShader(String source)
+	{
+		return source.contains("const vec3 iResolution")
+			&& !source.contains("#define iResolution vec3")
+			&& !source.contains("wurstTitleResolution");
 	}
 	
 	public static Path getFolder()
@@ -506,13 +523,13 @@ public final class ShadertoyBackgroundManager
 			#define iTimeDelta 0.05
 			#define iFrame 0
 			#define iFrameRate 20.0
-			#define iResolution vec3(1920.0, 1080.0, 1.0)
-			#define iMouse vec4(0.0)
 			#define iChannel0 Sampler0
 			#define iChannel1 Sampler1
 			#define iChannel2 Sampler2
 			#define iChannel3 Sampler2
 			
+			const vec3 iResolution = vec3(1920.0, 1080.0, 1.0);
+			const vec4 iMouse = vec4(0.0);
 			const vec3 iChannelResolution[4] = vec3[4](
 			""" + channelResolutionArray + """
 			);
