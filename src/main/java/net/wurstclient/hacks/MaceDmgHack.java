@@ -125,6 +125,12 @@ public final class MaceDmgHack extends Hack
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, PAPER_MAX_HEIGHT, 0.1, ValueDisplay.DECIMAL);
 	
+	private final CheckboxSetting attackCap = new CheckboxSetting(
+		"6-block attack cap",
+		"Blocks all entity attacks started while MaceDMG is enabled when the target"
+			+ " is more than 6 blocks horizontally or vertically away.",
+		true);
+	
 	private final CheckboxSetting totemBypass = new CheckboxSetting(
 		"Totem bypass",
 		"Paper only. With MultiAura, sends a rising-damage mace burst against totem users.",
@@ -208,6 +214,7 @@ public final class MaceDmgHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(serverType);
 		addSetting(height);
+		addSetting(attackCap);
 		addSetting(totemBypass);
 		addSetting(autoOptimize);
 		addSetting(heightIncrease);
@@ -335,6 +342,21 @@ public final class MaceDmgHack extends Hack
 	{
 		return target instanceof LivingEntity living && living.isAlive()
 			&& !living.isRemoved();
+	}
+	
+	public boolean shouldBlockAttack(Entity target)
+	{
+		if(!isEnabled() || !attackCap.isChecked() || MC.player == null
+			|| target == null)
+			return false;
+		
+		AABB box = target.getBoundingBox();
+		double x = Math.clamp(MC.player.getX(), box.minX, box.maxX);
+		double z = Math.clamp(MC.player.getZ(), box.minZ, box.maxZ);
+		double dx = MC.player.getX() - x;
+		double dz = MC.player.getZ() - z;
+		double verticalDistance = Math.abs(MC.player.getY() - target.getY());
+		return dx * dx + dz * dz > 36.0 || verticalDistance > 6.0;
 	}
 	
 	public boolean hasFallDebt()
@@ -670,7 +692,8 @@ public final class MaceDmgHack extends Hack
 	{
 		if(target == null || MC.gameMode == null)
 			return false;
-		
+		if(shouldBlockAttack(target))
+			return false;
 		List<Double> offsets = getBurstOffsets(target);
 		if(offsets.isEmpty() || !beginSmashAttempt(target))
 			return false;
