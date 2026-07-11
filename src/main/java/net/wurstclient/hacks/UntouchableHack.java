@@ -27,6 +27,7 @@ import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
@@ -176,6 +177,21 @@ public final class UntouchableHack extends Hack
 	private final CheckboxSetting avoidArrows =
 		new CheckboxSetting("Avoid arrows",
 			"description.wurst.setting.untouchable.avoid_arrows", true);
+	private final CheckboxSetting avoidCrystals = new CheckboxSetting(
+		"Avoid crystals",
+		"Dodges dangerous end crystals near you when they are placed.", true);
+	private final SliderSetting armedRadiusBonus =
+		new SliderSetting("Armed radius bonus",
+			"Extra defensive radius while an enemy is holding a spear or mace.",
+			4, 0, 12, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final CheckboxSetting emergencyEscape = new CheckboxSetting(
+		"Emergency escape",
+		"Teleports perpendicular to the current threat after taking at least the configured damage.",
+		true);
+	private final SliderSetting emergencyDamage =
+		new SliderSetting("Emergency damage",
+			"Minimum health damage that triggers an emergency escape.", 10, 1,
+			40, 1, ValueDisplay.INTEGER.withSuffix(" HP"));
 	
 	private final Map<Integer, Vec3> previousPositions = new HashMap<>();
 	private final Map<Integer, MacePacketCue> macePacketCues =
@@ -187,6 +203,7 @@ public final class UntouchableHack extends Hack
 	private int cooldownTicksLeft;
 	private int statusTicksLeft;
 	private ThreatType activeThreat;
+	private float lastHealth = -1;
 	
 	public UntouchableHack()
 	{
@@ -197,6 +214,7 @@ public final class UntouchableHack extends Hack
 		addSetting(dodgeAxes);
 		addSetting(dodgeSpears);
 		addSetting(onlyPrimedSpears);
+		addSetting(avoidCrystals);
 		addSetting(keepDistance);
 		addSetting(autoDistanceOnDamage);
 		addSetting(autoDistanceOnTotemPop);
@@ -207,6 +225,7 @@ public final class UntouchableHack extends Hack
 		addSetting(detectionRange);
 		addSetting(reachAllowance);
 		addSetting(reactionTicks);
+		addSetting(armedRadiusBonus);
 		addSetting(scanDistance);
 		addSetting(verticalScan);
 		addSetting(teleportPackets);
@@ -215,6 +234,8 @@ public final class UntouchableHack extends Hack
 		addSetting(avoidHostileMobs);
 		addSetting(onlyChargingCreepers);
 		addSetting(avoidArrows);
+		addSetting(emergencyEscape);
+		addSetting(emergencyDamage);
 	}
 	
 	@Override
@@ -250,6 +271,7 @@ public final class UntouchableHack extends Hack
 		cooldownTicksLeft = 0;
 		statusTicksLeft = 0;
 		activeThreat = null;
+		lastHealth = -1;
 	}
 	
 	@Override
@@ -481,6 +503,7 @@ public final class UntouchableHack extends Hack
 		
 		rememberPrimedSpears();
 		rememberChargingCreepers();
+		checkEmergencyDamage();
 		if(cooldownTicksLeft > 0)
 			cooldownTicksLeft--;
 		
@@ -594,7 +617,60 @@ public final class UntouchableHack extends Hack
 					best = threat;
 			}
 		}
+		if(avoidCrystals.isChecked())
+		{
+			for(Entity entity : MC.level.entitiesForRendering())
+			{
+				if(!(entity instanceof EndCrystal crystal)
+					|| !crystal.isAlive())
+					continue;
+				Threat threat = getCrystalThreat(crystal);
+				if(threat != null
+					&& (best == null || threat.urgency > best.urgency))
+					best = threat;
+			}
+		}
 		return best;
+	}
+	
+	private void checkEmergencyDamage()
+	{
+		float health = MC.player.getHealth();
+		if(lastHealth < 0)
+		{
+			lastHealth = health;
+			return;
+		}
+		
+		float damage = lastHealth - health;
+		lastHealth = health;
+		if(!emergencyEscape.isChecked() || damage < emergencyDamage.getValueF()
+			|| MC.player.hurtTime <= 0)
+			return;
+		
+		Threat threat = null;
+		for(Player attacker : MC.level.players())
+		{
+			if(attacker == MC.player || !attacker.isAlive()
+				|| isIgnoredPlayer(attacker))
+				continue;
+			Threat candidate =
+				getMeleeThreat(attacker, WeaponType.SWORD, false);
+			if(candidate == null)
+				candidate = getMeleeThreat(attacker, WeaponType.AXE, false);
+			if(candidate != null
+				&& (threat == null || candidate.urgency > threat.urgency))
+				threat = candidate;
+		}
+		
+		if(threat == null)
+		{
+			Vec3 center = MC.player.getBoundingBox().getCenter();
+			threat = new Threat(ThreatType.EMERGENCY, center,
+				center.add(0, 0, 1), 1000);
+		}
+		activeThreat = ThreatType.EMERGENCY;
+		teleportAway(threat, true);
 	}
 	
 	private Threat getSpacingThreat(Player attacker, Vec3 attackerPosition)
@@ -828,7 +904,9 @@ public final class UntouchableHack extends Hack
 		Vec3 attackerCenter = attacker.getBoundingBox().getCenter();
 		double horizontalDistance =
 			horizontalLength(attackerCenter.subtract(playerCenter));
-		if(horizontalDistance > reachAllowance.getValue() + 2)
+		double armedRadius =
+			reachAllowance.getValue() + 2 + armedRadiusBonus.getValue();
+		if(horizontalDistance > armedRadius)
 			return null;
 		
 		MacePacketCue cue = macePacketCues.get(attacker.getId());
@@ -902,6 +980,20 @@ public final class UntouchableHack extends Hack
 			110 + Math.max(0, 6 - arrowCenter.distanceTo(playerCenter)) * 12
 				- missDistance * 5;
 		return new Threat(ThreatType.ARROW, arrowCenter, end, urgency);
+	}
+	
+	private Threat getCrystalThreat(EndCrystal crystal)
+	{
+		Vec3 playerCenter = MC.player.getBoundingBox().getCenter();
+		Vec3 crystalCenter = crystal.getBoundingBox().getCenter();
+		double distance = crystalCenter.distanceTo(playerCenter);
+		double radius = Math.max(detectionRange.getValue(), 6);
+		if(distance > radius)
+			return null;
+		
+		double urgency = 260 + Math.max(0, radius - distance) * 20;
+		return new Threat(ThreatType.CRYSTAL, crystalCenter, playerCenter,
+			urgency);
 	}
 	
 	private boolean isChargingCreeper(Entity entity)
@@ -1032,9 +1124,14 @@ public final class UntouchableHack extends Hack
 	
 	private void teleportAway(Threat threat)
 	{
+		teleportAway(threat, false);
+	}
+	
+	private void teleportAway(Threat threat, boolean emergency)
+	{
 		if(MC.player == null || MC.player.connection == null)
 			return;
-		if(shouldSuppressDodging(threat.pathStart))
+		if(!emergency && shouldSuppressDodging(threat.pathStart))
 			return;
 		Vec3 destination = chooseDodgeDestination(threat);
 		if(destination == null)
@@ -1310,7 +1407,9 @@ public final class UntouchableHack extends Hack
 		SWORD("Sword!"),
 		AXE("Axe!"),
 		ARROW("Arrow"),
+		CRYSTAL("Crystal!"),
 		MOB("Mob"),
+		EMERGENCY("Emergency!"),
 		SPACING("Spacing");
 		
 		private final String label;

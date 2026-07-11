@@ -10,13 +10,14 @@ package net.wurstclient.hacks;
 import java.awt.Color;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -78,10 +79,12 @@ public final class DamageEspHack extends Hack
 		"Show damage dealt by you in chat, including three-second attack burst summaries.",
 		false);
 	
-	private final Map<UUID, Float> trackedHealth = new HashMap<>();
-	private final Map<Integer, PendingDamage> pendingDamage = new HashMap<>();
-	private final Map<UUID, DamageBurst> damageBursts = new HashMap<>();
-	private final List<DamagePopup> popups = new ArrayList<>();
+	private final Map<UUID, Float> trackedHealth = new ConcurrentHashMap<>();
+	private final Map<Integer, PendingDamage> pendingDamage =
+		new ConcurrentHashMap<>();
+	private final Map<UUID, DamageBurst> damageBursts =
+		new ConcurrentHashMap<>();
+	private final List<DamagePopup> popups = new CopyOnWriteArrayList<>();
 	private final RandomSource random = RandomSource.create();
 	private static final int HEALTH_DATA_ID = resolveHealthDataId();
 	

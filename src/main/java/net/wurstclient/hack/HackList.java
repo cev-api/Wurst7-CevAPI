@@ -57,6 +57,7 @@ public final class HackList implements UpdateListener
 	public final AutoBuildHack autoBuildHack = new AutoBuildHack();
 	public final AutoChatHack autoChatHack = new AutoChatHack();
 	public final ChatSpamHack chatSpamHack = new ChatSpamHack();
+	public final PlayerMuteHack playerMuteHack = new PlayerMuteHack();
 	public final CommandSpamHack commandSpamHack = new CommandSpamHack();
 	public final CommandScannerHack commandScannerHack =
 		new CommandScannerHack();

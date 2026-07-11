@@ -39,6 +39,7 @@ public final class CmdList
 	public final FeaturesCmd featuresCmd = new FeaturesCmd();
 	public final FollowCmd followCmd = new FollowCmd();
 	public final FriendsCmd friendsCmd = new FriendsCmd();
+	public final PlayerMuteCmd playerMuteCmd = new PlayerMuteCmd();
 	public final GetPosCmd getPosCmd = new GetPosCmd();
 	public final GiveCmd giveCmd = new GiveCmd();
 	public final GmCmd gmCmd = new GmCmd();

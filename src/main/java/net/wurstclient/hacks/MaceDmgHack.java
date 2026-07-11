@@ -346,6 +346,9 @@ public final class MaceDmgHack extends Hack
 	
 	public boolean shouldBlockAttack(Entity target)
 	{
+		if(target instanceof Player player && player.isCreative())
+			return true;
+		
 		if(!isEnabled() || !attackCap.isChecked() || MC.player == null
 			|| target == null)
 			return false;

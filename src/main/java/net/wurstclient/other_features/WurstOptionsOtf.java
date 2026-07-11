@@ -65,6 +65,17 @@ public final class WurstOptionsOtf extends OtherFeature
 	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
+	private final CheckboxSetting tabListPing = new CheckboxSetting("Live ping",
+		"Shows each player's current ping instead of the signal bars.", false);
+	private final CheckboxSetting tabListHeads =
+		new CheckboxSetting("Player heads",
+			"Shows player heads next to names in the tab list.", false);
+	private final CheckboxSetting tabListPingColors =
+		new CheckboxSetting("Color ping",
+			"Colors ping from bright green through yellow to red.", false);
+	private final SettingGroup tabList = new SettingGroup("Tab list",
+		WText.literal("Tab-list appearance options.")).addChildren(tabListPing,
+			tabListHeads, tabListPingColors);
 	
 	private final SettingGroup discordPresenceGroup =
 		new SettingGroup("Discord Presence",
@@ -78,6 +89,21 @@ public final class WurstOptionsOtf extends OtherFeature
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
+	}
+	
+	public boolean shouldShowTabListPing()
+	{
+		return tabListPing.isChecked();
+	}
+	
+	public boolean shouldShowTabListHeads()
+	{
+		return tabListHeads.isChecked();
+	}
+	
+	public boolean shouldColorTabListPing()
+	{
+		return tabListPingColors.isChecked();
 	}
 	
 	public void linkAdditionalSettings(DisableOtf disableOtf,
@@ -112,6 +138,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
 		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
 		addSetting(WURST.getHax().navigatorHack.backgroundOverlay);
+		addSetting(tabList);
 		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
 			discordRpcOtf.getStatusMessageSetting(),
 			discordRpcOtf.getShowServerIpSetting(),
