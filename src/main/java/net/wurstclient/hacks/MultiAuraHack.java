@@ -51,6 +51,10 @@ public final class MultiAuraHack extends Hack
 	private final PauseAttackOnContainersSetting pauseOnContainers =
 		new PauseAttackOnContainersSetting(false);
 	
+	private final CheckboxSetting pauseForAutoEat =
+		new CheckboxSetting("Pause for AutoEat",
+			"Stops attacking while AutoEat is actively eating.", true);
+	
 	private final EntityFilterList entityFilters =
 		EntityFilterList.genericCombat();
 	
@@ -74,6 +78,7 @@ public final class MultiAuraHack extends Hack
 		addSetting(fov);
 		addSetting(swingHand);
 		addSetting(pauseOnContainers);
+		addSetting(pauseForAutoEat);
 		addSetting(ignoreNpcs);
 		addSetting(showAttackTracers);
 		
@@ -89,7 +94,7 @@ public final class MultiAuraHack extends Hack
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().protectHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
 		WURST.getHax().triggerBotHack.setEnabled(false);
@@ -102,6 +107,7 @@ public final class MultiAuraHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		currentTargets.clear();
@@ -111,6 +117,9 @@ public final class MultiAuraHack extends Hack
 	public void onUpdate()
 	{
 		currentTargets.clear();
+		if(pauseForAutoEat.isChecked() && WURST.getHax().autoEatHack.isEating())
+			return;
+		
 		speed.updateTimer();
 		if(!speed.isTimeToAttack())
 			return;

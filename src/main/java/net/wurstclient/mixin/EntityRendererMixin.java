@@ -22,7 +22,10 @@ import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.AutoTotemHack;
 import net.wurstclient.hacks.HealthTagsHack;
 import net.wurstclient.hacks.MobHealthHack;
 
@@ -104,6 +107,15 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 		if(state.nameTag == null)
 			return;
 		
+		if(entity instanceof Player player)
+		{
+			int pops = AutoTotemHack.getEnemyTotemPops(player);
+			if(pops > 0)
+				state.nameTag = state.nameTag.copy()
+					.append(Component.literal(" [" + pops + "]")
+						.withStyle(net.minecraft.ChatFormatting.YELLOW));
+		}
+		
 		HealthTagsHack healthTags =
 			WurstClient.INSTANCE.getHax().healthTagsHack;
 		if(!healthTags.isEnabled())
@@ -113,5 +125,6 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 			healthTags.markForHeartRender(le);
 		
 		state.nameTag = healthTags.addHealth(le, state.nameTag.copy());
+		
 	}
 }

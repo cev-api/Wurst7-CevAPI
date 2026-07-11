@@ -659,5 +659,18 @@
   "hack.wurst.renderadjust": "RenderAdjust",
   "description.wurst.hack.renderadjust": "Recolor or remove fog and sky passes, and hide common server-side decorative renders like holograms, boss bars, and scoreboards.",
   "hack.wurst.viewmodel": "Viewmodel",
-  "description.wurst.hack.viewmodel": "Customize hand/item position, rotation, opacity, tint, and artificial glint for left and right hands."
+  "description.wurst.hack.viewmodel": "Customize hand/item position, rotation, opacity, tint, and artificial glint for left and right hands.",
+  "description.wurst.hack.antiprojectile": "Reduces or prevents projectile threats from reaching you.",
+  "description.wurst.hack.backtrack": "Stores recent player positions and renders or uses their past locations.",
+  "description.wurst.hack.entitycontrol": "Allows you to control entities that you are riding.",
+  "description.wurst.hack.fakelag": "Delays outgoing packets to make your movement appear delayed to the server.",
+  "description.wurst.hack.funcreepers": "Applies fun client-side effects to creepers.",
+  "description.wurst.hack.instantcommand": "Sends configured commands instantly when their trigger is used.",
+  "description.wurst.hack.joindrop": "Drops configured items when joining a world or server.",
+  "description.wurst.hack.mobowners": "Shows ownership information for nearby mobs.",
+  "description.wurst.hack.oppstats": "Records and displays statistics about opposing players.",
+  "description.wurst.hack.playermute": "Mutes selected players by UUID or name, including chat relays for players who are not online.",
+  "description.wurst.hack.superinstamine": "Mines blocks extremely quickly when the required conditions are met.",
+  "description.wurst.hack.webhookalert": "Sends configured alerts to a webhook when selected events occur.",
+  "description.wurst.hack.blockoverlay": "Renders the Nuker animation whenever you mine a block."
 }

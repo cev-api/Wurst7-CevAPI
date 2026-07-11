@@ -97,7 +97,7 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 		WURST.getHax().aimAssistHack.setEnabled(false);
 		WURST.getHax().clickAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
 		WURST.getHax().multiAuraHack.setEnabled(false);
 		WURST.getHax().protectHack.setEnabled(false);
@@ -110,6 +110,7 @@ public final class CrystalAuraHack extends Hack implements UpdateListener
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 	}
 	

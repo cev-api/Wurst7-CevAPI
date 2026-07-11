@@ -156,7 +156,7 @@ public final class AimAssistHack extends Hack
 		WURST.getHax().clickAuraHack.setEnabled(false);
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
 		WURST.getHax().multiAuraHack.setEnabled(false);
 		WURST.getHax().protectHack.setEnabled(false);
@@ -170,6 +170,7 @@ public final class AimAssistHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(MouseUpdateListener.class, this);
 		target = null;

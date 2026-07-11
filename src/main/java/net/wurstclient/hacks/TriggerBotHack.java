@@ -110,7 +110,7 @@ public final class TriggerBotHack extends Hack
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().multiAuraHack.setEnabled(false);
 		WURST.getHax().protectHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
@@ -123,6 +123,7 @@ public final class TriggerBotHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		if(simulatingMouseClick)
 		{
 			IKeyMapping.get(MC.options.keyAttack).simulatePress(false);

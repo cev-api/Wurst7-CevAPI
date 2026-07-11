@@ -35,6 +35,7 @@ import net.minecraft.world.item.ItemStack;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.DurabilityHudHack;
+import net.wurstclient.hacks.EnchantmentHandlerHack;
 import net.wurstclient.mixin.GuiAccessor;
 import net.wurstclient.util.RenderUtils;
 
@@ -389,7 +390,8 @@ public final class DurabilityHud
 			|| MC.gameMode.getPlayerMode() == GameType.SPECTATOR)
 			return false;
 		
-		List<Component> lines = getEnchantmentLines(state.stack());
+		List<Component> lines =
+			getEnchantmentLines(state.stack(), hack.isShowEnchantmentColors());
 		
 		int alpha = getHotbarHighlightAlpha(state.timer());
 		if(alpha <= 0)
@@ -428,22 +430,32 @@ public final class DurabilityHud
 		return true;
 	}
 	
-	private static List<Component> getEnchantmentLines(ItemStack stack)
+	private static List<Component> getEnchantmentLines(ItemStack stack,
+		boolean colorEnchantments)
 	{
 		List<Component> lines = new ArrayList<>();
 		LinkedHashSet<String> seen = new LinkedHashSet<>();
 		appendEnchantmentLines(lines, seen, stack
 			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY)
-			.entrySet());
+			.entrySet(), colorEnchantments);
 		appendEnchantmentLines(lines, seen,
 			stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
-				ItemEnchantments.EMPTY).entrySet());
+				ItemEnchantments.EMPTY).entrySet(),
+			colorEnchantments);
 		return lines;
 	}
 	
 	private static void appendEnchantmentLines(List<Component> out,
 		Set<String> seen,
 		Iterable<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
+	{
+		appendEnchantmentLines(out, seen, enchantments, false);
+	}
+	
+	private static void appendEnchantmentLines(List<Component> out,
+		Set<String> seen,
+		Iterable<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
+		boolean colorEnchantments)
 	{
 		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
@@ -452,7 +464,9 @@ public final class DurabilityHud
 			String key = holder.getRegisteredName() + "#" + level;
 			if(!seen.add(key))
 				continue;
-			out.add(Enchantment.getFullname(holder, level));
+			out.add(colorEnchantments ? EnchantmentHandlerHack
+				.getColoredEnchantmentName(holder, level)
+				: Enchantment.getFullname(holder, level));
 		}
 	}
 	
@@ -471,7 +485,7 @@ public final class DurabilityHud
 		
 		int lines = 1;
 		if(includeEnchantments)
-			lines += getEnchantmentLines(state.stack()).size();
+			lines += getEnchantmentLines(state.stack(), false).size();
 		
 		float textHeight = lines * font.lineHeight;
 		if(lines > 1)

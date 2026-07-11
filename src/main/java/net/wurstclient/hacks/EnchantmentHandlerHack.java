@@ -115,6 +115,10 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Show slot numbers", false);
 	private final CheckboxSetting colorEnchantments =
 		new CheckboxSetting("Color enchantments", true);
+	private final CheckboxSetting showColorsInTooltips =
+		new CheckboxSetting("Show colors in tool tips",
+			"Applies EnchantmentHandler's enchantment colors to item tooltips.",
+			false);
 	
 	private final SliderSetting iconScale = new SliderSetting("Icon scale",
 		"Scale factor for item icons rendered in the list.", 1.0, 0.5, 1.0, 0.1,
@@ -196,6 +200,7 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(useItemIcons);
 		addSetting(showSlotNumbers);
 		addSetting(colorEnchantments);
+		addSetting(showColorsInTooltips);
 		addSetting(iconScale);
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
@@ -2014,6 +2019,62 @@ public final class EnchantmentHandlerHack extends Hack
 		if(colorEnchantments.isChecked())
 			return translated;
 		return stripFormattingCodes(translated);
+	}
+	
+	public boolean shouldShowColorsInTooltips()
+	{
+		return showColorsInTooltips.isChecked();
+	}
+	
+	public static Component getColoredEnchantmentName(
+		Holder<Enchantment> holder, int level)
+	{
+		if(holder == null)
+			return Component.empty();
+		
+		Identifier id = holder.unwrapKey()
+			.map(registryKey -> registryKey.identifier()).orElse(null);
+		String path = id != null ? id.getPath()
+			: sanitizePath(holder.getRegisteredName());
+		String display = ENCHANT_DISPLAY.get(path);
+		if(display == null)
+			return Enchantment.getFullname(holder, level);
+		
+		if(level > 1)
+			display += " \u00a7f" + level;
+		return Component.literal(display);
+	}
+	
+	public static Component colorizeTooltipLine(ItemStack stack, Component line)
+	{
+		if(stack == null || line == null)
+			return line;
+		
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
+			.getOrDefault(DataComponents.ENCHANTMENTS,
+				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
+			.entrySet())
+		{
+			Component vanilla =
+				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
+			if(vanilla.getString().equals(line.getString()))
+				return getColoredEnchantmentName(entry.getKey(),
+					entry.getIntValue());
+		}
+		
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
+			.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
+				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
+			.entrySet())
+		{
+			Component vanilla =
+				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
+			if(vanilla.getString().equals(line.getString()))
+				return getColoredEnchantmentName(entry.getKey(),
+					entry.getIntValue());
+		}
+		
+		return line;
 	}
 	
 	/**

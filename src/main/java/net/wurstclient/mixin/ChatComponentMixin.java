@@ -29,6 +29,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
+import net.wurstclient.hacks.PlayerMuteHack;
 
 @Mixin(ChatComponent.class)
 public class ChatComponentMixin
@@ -108,6 +109,14 @@ public class ChatComponentMixin
 	private void onAddServerSystemMessage(Component messageDontUse,
 		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
+		PlayerMuteHack playerMuteHack =
+			WurstClient.INSTANCE.getHax().playerMuteHack;
+		if(playerMuteHack.shouldMute(message.get()))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		EventManager.fire(event);
@@ -139,6 +148,14 @@ public class ChatComponentMixin
 		@Local(argsOnly = true) LocalRef<Component> message,
 		@Local(argsOnly = true) LocalRef<GuiMessageTag> indicator)
 	{
+		PlayerMuteHack playerMuteHack =
+			WurstClient.INSTANCE.getHax().playerMuteHack;
+		if(playerMuteHack.shouldMute(message.get()))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		

@@ -34,8 +34,13 @@ import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.chat.contents.ObjectContents;
+import net.minecraft.network.chat.contents.objects.PlayerSprite;
+import net.minecraft.network.chat.contents.objects.ObjectInfo;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.wurstclient.WurstClient;
@@ -544,6 +549,12 @@ public final class ClientMessageOverlay
 		ClientChatOverlayHack hack = getSettings();
 		if(hack == null || !hack.isEnabled() || message == null)
 			return null;
+			
+		// PlayerSprite.getString() is represented as "[Name head]". Keep the
+		// component tree intact when another chat-head implementation already
+		// added one; parsing that synthetic text is what used to cut names.
+		if(containsPlayerSprite(message))
+			return message.copy();
 		
 		NormalizedPlayerChat chat =
 			extractNormalizedPlayerChat(message.getString());
@@ -558,12 +569,46 @@ public final class ClientMessageOverlay
 		int usernameRgb = hack.shouldColorUsernames()
 			? getUsernameColor(chat.name(), hack) : defaultRgb;
 		
-		return Component.literal("<")
+		MutableComponent normalized = Component.literal("<")
 			.withStyle(style -> style.withColor(defaultRgb))
 			.append(Component.literal(chat.name())
 				.withStyle(style -> style.withColor(usernameRgb)))
 			.append(Component.literal("> " + chat.message())
 				.withStyle(style -> style.withColor(defaultRgb)));
+		
+		if(hack.shouldShowChatHeads())
+		{
+			net.minecraft.client.multiplayer.PlayerInfo info =
+				findOnlinePlayer(chat.name());
+			if(info != null)
+				normalized = Component.empty()
+					.append(Component.object(new PlayerSprite(
+						ResolvableProfile.createResolved(info.getProfile()),
+						info.showHat())))
+					.append(normalized);
+		}
+		
+		return normalized;
+	}
+	
+	public static boolean containsPlayerSprite(Component component)
+	{
+		if(component
+			.getContents() instanceof ObjectContents(ObjectInfo objectInfo, java.util.Optional<?> ignored)
+			&& objectInfo instanceof PlayerSprite)
+			return true;
+		
+		for(Component sibling : component.getSiblings())
+			if(containsPlayerSprite(sibling))
+				return true;
+			
+		if(component.getContents() instanceof TranslatableContents translatable)
+			for(Object arg : translatable.getArgs())
+				if(arg instanceof Component argument
+					&& containsPlayerSprite(argument))
+					return true;
+				
+		return false;
 	}
 	
 	private static boolean shouldColorStoredUsername(Component message,
@@ -614,14 +659,48 @@ public final class ClientMessageOverlay
 			rgb, new int[]{0});
 	}
 	
+	public static int getUsernameColorForTabList(String name)
+	{
+		ClientChatOverlayHack hack = INSTANCE.getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames())
+			return -1;
+		
+		return getUsernameColor(name, hack);
+	}
+	
 	public Component prepareMessageForDisplay(Component message)
 	{
 		Component normalized = normalizePlayerChatForDisplay(message);
 		if(normalized != null)
 			return normalized;
 		
-		return applyDefaultTextColorIfEnabled(
+		Component prepared = applyDefaultTextColorIfEnabled(
 			colorizeChatUsernameIfEnabled(message));
+		return addChatHeadIfEnabled(prepared);
+	}
+	
+	private Component addChatHeadIfEnabled(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldShowChatHeads()
+			|| message == null || containsPlayerSprite(message))
+			return message;
+		
+		String plain = stripLegacyFormatting(message.getString()).trim();
+		SenderSpan sender = extractSenderSpan(plain);
+		if(sender == null || !isPlayerChatSender(sender))
+			return message;
+		
+		net.minecraft.client.multiplayer.PlayerInfo info =
+			findOnlinePlayer(sender.name());
+		if(info == null)
+			return message;
+		
+		return Component.empty()
+			.append(Component.object(new PlayerSprite(
+				ResolvableProfile.createResolved(info.getProfile()),
+				info.showHat())))
+			.append(message);
 	}
 	
 	public Component prepareClientSystemMessageForDisplay(Component message)
@@ -850,6 +929,13 @@ public final class ClientMessageOverlay
 	
 	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
 	{
+		if(hack.shouldUseServerColors())
+		{
+			int serverColor = getServerPlayerColor(findOnlinePlayer(name));
+			if(serverColor >= 0)
+				return serverColor;
+		}
+		
 		String ownName = getOwnPlayerName();
 		boolean ownNameMatches = name.equalsIgnoreCase(ownName);
 		if(ownNameMatches && !hack.shouldRandomizeOwnUsernameColor())
@@ -864,6 +950,52 @@ public final class ClientMessageOverlay
 			rgb = getGeneratedUsernameColor(name, attempt);
 		
 		return rgb;
+	}
+	
+	public static int getServerPlayerColor(
+		net.minecraft.client.multiplayer.PlayerInfo info)
+	{
+		if(info == null)
+			return -1;
+		
+		Integer displayColor =
+			findExplicitComponentColor(info.getTabListDisplayName());
+		if(displayColor != null)
+			return displayColor;
+		
+		if(info.getTeam() != null && info.getTeam().getColor().isPresent())
+			return info.getTeam().getColor().get().rgb();
+		
+		return -1;
+	}
+	
+	private static Integer findExplicitComponentColor(Component component)
+	{
+		if(component == null)
+			return null;
+		
+		TextColor color = component.getStyle().getColor();
+		if(color != null)
+			return color.getValue();
+		
+		for(Component sibling : component.getSiblings())
+		{
+			Integer siblingColor = findExplicitComponentColor(sibling);
+			if(siblingColor != null)
+				return siblingColor;
+		}
+		
+		if(component.getContents() instanceof TranslatableContents translatable)
+			for(Object arg : translatable.getArgs())
+				if(arg instanceof Component argument)
+				{
+					Integer argumentColor =
+						findExplicitComponentColor(argument);
+					if(argumentColor != null)
+						return argumentColor;
+				}
+			
+		return null;
 	}
 	
 	private static int getGeneratedUsernameColor(String name, int attempt)
@@ -951,13 +1083,6 @@ public final class ClientMessageOverlay
 		String rawTrimmed = raw.trim();
 		String text = stripLegacyFormatting(raw).trim();
 		boolean hadLegacyFormatting = !text.equals(rawTrimmed);
-		boolean hadDisplayedFormatting = false;
-		if(!hadLegacyFormatting)
-		{
-			String strippedDisplayed = stripDisplayedLegacyFormatting(text);
-			hadDisplayedFormatting = !strippedDisplayed.equals(text);
-			text = strippedDisplayed;
-		}
 		if(text.isBlank())
 			return null;
 		
@@ -965,7 +1090,7 @@ public final class ClientMessageOverlay
 		if(text.isBlank())
 			return null;
 		
-		if(!hadLegacyFormatting && !hadDisplayedFormatting)
+		if(!hadLegacyFormatting)
 			return null;
 		
 		NormalizedPlayerChat angleChat = extractAngleBracketChat(text);
@@ -1158,20 +1283,31 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
+		return findOnlinePlayer(name) != null;
+	}
+	
+	@Nullable
+	private static net.minecraft.client.multiplayer.PlayerInfo findOnlinePlayer(
+		String name)
+	{
+		if(name == null || name.isEmpty())
+			return null;
+		
+		var connection = WurstClient.MC.getConnection();
+		if(connection == null)
+			return null;
+		
 		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
 			String onlineName = getProfileNameSafe(info.getProfile());
-			if(onlineName == null || onlineName.isEmpty())
-				continue;
-			
-			if(name.equalsIgnoreCase(onlineName))
-				return true;
+			if(onlineName != null && name.equalsIgnoreCase(onlineName))
+				return info;
 		}
 		
-		return false;
+		return null;
 	}
 	
 	/**

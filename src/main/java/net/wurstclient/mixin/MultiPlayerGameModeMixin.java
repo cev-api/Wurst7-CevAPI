@@ -179,6 +179,15 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	{
 		if(player != minecraft.player)
 			return;
+			
+		// Never let any aura or other automated attack path hit a player who is
+		// currently in Creative mode. This is centralized here so new attack
+		// hacks receive the same protection automatically.
+		if(target instanceof Player targetPlayer && targetPlayer.isCreative())
+		{
+			ci.cancel();
+			return;
+		}
 		
 		if(WurstClient.INSTANCE.isEnabled())
 		{
@@ -191,6 +200,13 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		}
 		
 		EventManager.fire(new PlayerAttacksEntityEvent(target));
+	}
+	
+	@Override
+	public void windowClick(int syncId, int slot, int button,
+		ContainerInput action)
+	{
+		handleContainerInput(syncId, slot, button, action, minecraft.player);
 	}
 	
 	@Override
