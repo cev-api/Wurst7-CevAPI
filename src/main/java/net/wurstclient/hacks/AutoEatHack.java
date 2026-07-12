@@ -18,8 +18,7 @@ import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.TamableAnimal;
-import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.food.FoodData;
 import net.minecraft.world.food.FoodProperties;
@@ -76,6 +75,22 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		new CheckboxSetting("Eat while walking",
 			"description.wurst.setting.autoeat.eat_while_walking", false);
 	
+	private final CheckboxSetting eatWhileFlying = new CheckboxSetting(
+		"Eat while flying", "Allows AutoEat to continue while flying.", true);
+	
+	private final CheckboxSetting eatWhileLookingAtMobs = new CheckboxSetting(
+		"Eat while looking at mobs",
+		"Allows AutoEat to continue while the crosshair is on a mob.", true);
+	
+	private final CheckboxSetting eatWhileLookingAtPlayers =
+		new CheckboxSetting("Eat while looking at players",
+			"Allows AutoEat to continue while the crosshair is on a player.",
+			false);
+	
+	private final CheckboxSetting eatThroughWalls = new CheckboxSetting(
+		"Eat through walls",
+		"Allows AutoEat to continue while the crosshair is on a wall.", true);
+	
 	private final CheckboxSetting allowHunger =
 		new CheckboxSetting("Allow hunger effect",
 			"description.wurst.setting.autoeat.allow_hunger", true);
@@ -104,6 +119,10 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		addSetting(allowOffhand);
 		
 		addSetting(eatWhileWalking);
+		addSetting(eatWhileFlying);
+		addSetting(eatWhileLookingAtMobs);
+		addSetting(eatWhileLookingAtPlayers);
+		addSetting(eatThroughWalls);
 		addSetting(allowHunger);
 		addSetting(allowPoison);
 		addSetting(allowChorus);
@@ -161,6 +180,39 @@ public final class AutoEatHack extends Hack implements UpdateListener
 			int maxPoints = targetHungerI - foodLevel;
 			eat(maxPoints);
 		}
+	}
+	
+	/**
+	 * Used by combat hacks to yield before they perform an action that would
+	 * interfere with eating. This includes the inventory-transfer tick before
+	 * AutoEat has started using the item.
+	 */
+	public boolean shouldPauseOtherActions()
+	{
+		if(isEating())
+			return true;
+		
+		if(!shouldEat())
+			return false;
+		
+		LocalPlayer player = MC.player;
+		FoodData food = player.getFoodData();
+		int foodLevel = food.getFoodLevel();
+		int target = (int)(targetHunger.getValue() * 2);
+		int min = (int)(minHunger.getValue() * 2);
+		int injured = (int)(injuredHunger.getValue() * 2);
+		
+		int maxPoints = -1;
+		if(isInjured(player) && foodLevel < injured)
+			maxPoints = -1;
+		else if(foodLevel < min)
+			maxPoints = -1;
+		else if(foodLevel < target)
+			maxPoints = target - foodLevel;
+		else
+			return false;
+		
+		return findBestFoodSlot(maxPoints) != -1;
 	}
 	
 	private void eat(int maxPoints)
@@ -256,12 +308,18 @@ public final class AutoEatHack extends Hack implements UpdateListener
 			return false;
 		
 		boolean autoFlyActive = WURST.getHax().autoFlyHack.isEnabled();
+		boolean flying = MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled() || autoFlyActive;
+		if(flying && !eatWhileFlying.isChecked())
+			return false;
 		
 		if(!eatWhileWalking.isChecked() && !autoFlyActive
 			&& (MC.player.zza != 0 || MC.player.xxa != 0))
 			return false;
 		
-		if(!autoFlyActive && isClickable(MC.hitResult))
+		boolean mobCombat = WURST.getHax().multiAuraHack.isFightingMobsOnly();
+		if(!autoFlyActive && isClickable(MC.hitResult)
+			&& !(mobCombat && eatWhileLookingAtMobs.isChecked()))
 			return false;
 		
 		return true;
@@ -313,8 +371,10 @@ public final class AutoEatHack extends Hack implements UpdateListener
 		if(hitResult instanceof EntityHitResult)
 		{
 			Entity entity = ((EntityHitResult)hitResult).getEntity();
-			return entity instanceof Villager
-				|| entity instanceof TamableAnimal;
+			if(entity instanceof Player)
+				return !eatWhileLookingAtPlayers.isChecked();
+			
+			return !eatWhileLookingAtMobs.isChecked();
 		}
 		
 		if(hitResult instanceof BlockHitResult)
@@ -324,8 +384,11 @@ public final class AutoEatHack extends Hack implements UpdateListener
 				return false;
 			
 			Block block = MC.level.getBlockState(pos).getBlock();
-			return block instanceof BaseEntityBlock
-				|| block instanceof CraftingTableBlock;
+			if(block instanceof BaseEntityBlock
+				|| block instanceof CraftingTableBlock)
+				return true;
+			
+			return !eatThroughWalls.isChecked();
 		}
 		
 		return false;

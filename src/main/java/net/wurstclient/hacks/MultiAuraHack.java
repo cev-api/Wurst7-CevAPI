@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
@@ -67,6 +68,7 @@ public final class MultiAuraHack extends Hack
 			false);
 	
 	private final List<Entity> currentTargets = new ArrayList<>();
+	private final List<Entity> lastTargets = new ArrayList<>();
 	
 	public MultiAuraHack()
 	{
@@ -111,13 +113,15 @@ public final class MultiAuraHack extends Hack
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		currentTargets.clear();
+		lastTargets.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		currentTargets.clear();
-		if(pauseForAutoEat.isChecked() && WURST.getHax().autoEatHack.isEating())
+		if(pauseForAutoEat.isChecked()
+			&& WURST.getHax().autoEatHack.shouldPauseOtherActions())
 			return;
 		
 		speed.updateTimer();
@@ -152,7 +156,12 @@ public final class MultiAuraHack extends Hack
 		ArrayList<Entity> entities =
 			stream.collect(Collectors.toCollection(ArrayList::new));
 		if(entities.isEmpty())
+		{
+			lastTargets.clear();
 			return;
+		}
+		lastTargets.clear();
+		lastTargets.addAll(entities);
 		currentTargets.addAll(entities);
 		
 		if(maceSupportActive)
@@ -189,6 +198,18 @@ public final class MultiAuraHack extends Hack
 			swingHand.swing(InteractionHand.MAIN_HAND);
 			speed.resetTimer();
 		}
+	}
+	
+	/**
+	 * Returns true when MultiAura's last target set consisted only of mobs.
+	 * AutoEat uses this because a wall hit result hides the mob behind it.
+	 */
+	public boolean isFightingMobsOnly()
+	{
+		if(!isEnabled() || lastTargets.isEmpty())
+			return false;
+		
+		return lastTargets.stream().noneMatch(Player.class::isInstance);
 	}
 	
 	@Override

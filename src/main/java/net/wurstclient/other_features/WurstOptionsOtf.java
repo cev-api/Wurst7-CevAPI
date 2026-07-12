@@ -133,6 +133,9 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
 		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
 		addSetting(WURST.getHax().navigatorHack.backgroundOverlay);
+		addSetting(tabListPing);
+		addSetting(tabListHeads);
+		addSetting(tabListPingColors);
 		addSetting(tabList);
 		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
 			discordRpcOtf.getStatusMessageSetting(),

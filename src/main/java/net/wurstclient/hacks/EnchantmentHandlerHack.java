@@ -115,6 +115,10 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Show slot numbers", false);
 	private final CheckboxSetting colorEnchantments =
 		new CheckboxSetting("Color enchantments", true);
+	private final CheckboxSetting colorEnchantmentsInChestSearch =
+		new CheckboxSetting("Color enchantments in Chest Search",
+			"Applies EnchantmentHandler's enchantment colors to Chest Search results.",
+			true);
 	private final CheckboxSetting showColorsInTooltips =
 		new CheckboxSetting("Show colors in tool tips",
 			"Applies EnchantmentHandler's enchantment colors to item tooltips.",
@@ -200,6 +204,7 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(useItemIcons);
 		addSetting(showSlotNumbers);
 		addSetting(colorEnchantments);
+		addSetting(colorEnchantmentsInChestSearch);
 		addSetting(showColorsInTooltips);
 		addSetting(iconScale);
 		addSetting(includePlayerInventory);
@@ -2026,6 +2031,12 @@ public final class EnchantmentHandlerHack extends Hack
 		return showColorsInTooltips.isChecked();
 	}
 	
+	public boolean shouldColorEnchantmentsInChestSearch()
+	{
+		return colorEnchantments.isChecked()
+			&& colorEnchantmentsInChestSearch.isChecked();
+	}
+	
 	public static Component getColoredEnchantmentName(
 		Holder<Enchantment> holder, int level)
 	{
@@ -2036,13 +2047,25 @@ public final class EnchantmentHandlerHack extends Hack
 			.map(registryKey -> registryKey.identifier()).orElse(null);
 		String path = id != null ? id.getPath()
 			: sanitizePath(holder.getRegisteredName());
-		String display = ENCHANT_DISPLAY.get(path);
+		String display = getColoredEnchantmentDisplay(path, level);
 		if(display == null)
 			return Enchantment.getFullname(holder, level);
 		
+		return Component.literal(display);
+	}
+	
+	public static String getColoredEnchantmentDisplay(String path, int level)
+	{
+		if(path == null || path.isEmpty())
+			return null;
+		
+		String display = ENCHANT_DISPLAY.get(path);
+		if(display == null)
+			return null;
+		
 		if(level > 1)
 			display += " \u00a7f" + level;
-		return Component.literal(display);
+		return display;
 	}
 	
 	public static Component colorizeTooltipLine(ItemStack stack, Component line)

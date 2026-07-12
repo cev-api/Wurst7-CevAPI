@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.SlotHighlighter;
@@ -26,6 +27,7 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.chestsearch.ChestEntry;
 import net.wurstclient.hacks.WaypointsHack;
+import net.wurstclient.hacks.EnchantmentHandlerHack;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
 
@@ -1328,11 +1330,11 @@ public final class ChestSearchScreen extends Screen
 			{
 				for(ChestEntry.ItemEntry it : matches)
 				{
+					ItemStack stack =
+						net.wurstclient.chestsearch.ChestSearchItemStacks
+							.decode(it);
 					try
 					{
-						net.minecraft.world.item.ItemStack stack =
-							net.wurstclient.chestsearch.ChestSearchItemStacks
-								.decode(it);
 						if(!stack.isEmpty())
 							context.item(stack, x + 2, lineY - 2);
 					}catch(Throwable ignored)
@@ -1363,6 +1365,32 @@ public final class ChestSearchScreen extends Screen
 									: ItemNameUtils.sanitizePath(ench);
 								String baseName = ItemNameUtils
 									.buildEnchantmentName(eid, path);
+								boolean coloredName = false;
+								try
+								{
+									var handler = WurstClient.INSTANCE
+										.getHax().enchantmentHandlerHack;
+									if(handler != null && handler.isEnabled()
+										&& handler
+											.shouldColorEnchantmentsInChestSearch())
+									{
+										String colored = EnchantmentHandlerHack
+											.getColoredEnchantmentDisplay(path,
+												it.enchantmentLevels != null
+													&& ei < it.enchantmentLevels
+														.size()
+															? it.enchantmentLevels
+																.get(ei)
+																.intValue()
+															: 1);
+										if(colored != null)
+										{
+											baseName = colored;
+											coloredName = true;
+										}
+									}
+								}catch(Throwable ignored)
+								{}
 								String levelText = "";
 								try
 								{
@@ -1371,7 +1399,7 @@ public final class ChestSearchScreen extends Screen
 									{
 										int lvl = it.enchantmentLevels.get(ei)
 											.intValue();
-										if(lvl > 0)
+										if(lvl > 0 && !coloredName)
 											levelText = " " + Component
 												.translatable(
 													"enchantment.level." + lvl)
