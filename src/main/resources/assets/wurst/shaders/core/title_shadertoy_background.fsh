@@ -11,8 +11,8 @@ const vec2 BLOCK_ATLAS_TILES = vec2(4.0, 3.0);
 
 float titleTime()
 {
-	vec4 packed = floor(vertexColor * 255.0 + 0.5);
-	return (packed.a * 16.0 + floor(packed.r / 16.0)) / 20.0;
+	vec4 encodedTime = floor(vertexColor * 255.0 + 0.5);
+	return (encodedTime.a * 16.0 + floor(encodedTime.r / 16.0)) / 20.0;
 }
 
 float titleMode()

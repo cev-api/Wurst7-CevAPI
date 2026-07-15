@@ -515,8 +515,8 @@ public final class ShadertoyBackgroundManager
 			
 			float titleTime()
 			{
-				vec2 packed = floor(vertexColor.rg * 255.0 + 0.5);
-				return (packed.x * 256.0 + packed.y) / 20.0;
+				vec2 encodedTime = floor(vertexColor.rg * 255.0 + 0.5);
+				return (encodedTime.x * 256.0 + encodedTime.y) / 20.0;
 			}
 			
 			#define iTime titleTime()

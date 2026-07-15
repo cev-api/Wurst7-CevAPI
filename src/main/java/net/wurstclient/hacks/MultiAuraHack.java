@@ -120,6 +120,12 @@ public final class MultiAuraHack extends Hack
 	public void onUpdate()
 	{
 		currentTargets.clear();
+		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
+		{
+			lastTargets.clear();
+			return;
+		}
+		
 		if(pauseForAutoEat.isChecked()
 			&& WURST.getHax().autoEatHack.shouldPauseOtherActions())
 			return;

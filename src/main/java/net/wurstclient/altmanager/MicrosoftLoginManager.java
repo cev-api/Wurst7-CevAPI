@@ -195,7 +195,21 @@ public enum MicrosoftLoginManager
 		
 		String msftAccessToken = getMicrosoftAccessTokenFromRefreshToken(
 			refreshToken.trim(), clientId);
-		return getAccountFromMicrosoftAccessToken(msftAccessToken);
+		try
+		{
+			return getAccountFromMicrosoftAccessToken(msftAccessToken);
+		}catch(LoginException e)
+		{
+			if(e.getMessage() != null
+				&& e.getMessage().contains("XBL auth returned HTTP 401"))
+				throw new LoginException(
+					"Microsoft accepted the refresh token, but Xbox Live rejected "
+						+ "the resulting access token (HTTP 401). The refresh token "
+						+ "is not necessarily invalid; it may belong to a different "
+						+ "Microsoft client or lack Xbox Live authorization.",
+					e);
+			throw e;
+		}
 	}
 	
 	public static MinecraftProfile authenticateTokenAltWithoutSession(
@@ -254,7 +268,7 @@ public enum MicrosoftLoginManager
 	private static MinecraftProfile getAccountFromMicrosoftAccessToken(
 		String msftAccessToken) throws LoginException
 	{
-		XBoxLiveToken xblToken = getXBLToken(msftAccessToken);
+		XBoxLiveToken xblToken = getXBLTokenWithRetry(msftAccessToken);
 		String xstsToken = getXSTSToken(xblToken.getToken());
 		
 		String mcAccessToken =
@@ -509,6 +523,31 @@ public enum MicrosoftLoginManager
 		}
 	}
 	
+	private static String describeHttpError(HttpURLConnection connection)
+	{
+		String status;
+		try
+		{
+			status = connection.getResponseCode() + " "
+				+ connection.getResponseMessage();
+		}catch(IOException e)
+		{
+			status = "unknown status";
+		}
+		
+		StringBuilder details = new StringBuilder(status);
+		String body = readErrorBody(connection);
+		if(body != null && !body.isBlank())
+			details.append("; body=").append(body);
+		String wwwAuthenticate = connection.getHeaderField("WWW-Authenticate");
+		if(wwwAuthenticate != null && !wwwAuthenticate.isBlank())
+			details.append("; WWW-Authenticate=").append(wwwAuthenticate);
+		String xErr = connection.getHeaderField("X-Err");
+		if(xErr != null && !xErr.isBlank())
+			details.append("; X-Err=").append(xErr);
+		return details.toString();
+	}
+	
 	private static XBoxLiveToken getXBLToken(String msftAccessToken)
 		throws LoginException
 	{
@@ -549,11 +588,11 @@ public enum MicrosoftLoginManager
 			int responseCode = connection.getResponseCode();
 			if(responseCode != 200)
 			{
-				String errorBody = readErrorBody(connection);
-				System.out.println("XBL authentication returned HTTP "
-					+ responseCode + ": " + errorBody);
-				throw new LoginException("XBL auth returned HTTP "
-					+ responseCode + ": " + errorBody);
+				String errorDetails = describeHttpError(connection);
+				String errorMessage = "XBL auth returned HTTP " + errorDetails;
+				System.out.println(
+					"XBL authentication returned HTTP " + errorDetails);
+				throw new LoginException(errorMessage);
 			}
 			
 			WsonObject json = JsonUtils.parseConnectionToObject(connection);
@@ -572,6 +611,45 @@ public enum MicrosoftLoginManager
 		{
 			throw new LoginException("Server sent invalid JSON.", e);
 		}
+	}
+	
+	private static XBoxLiveToken getXBLTokenWithRetry(String msftAccessToken)
+		throws LoginException
+	{
+		LoginException last = null;
+		for(int attempt = 1; attempt <= 3; attempt++)
+		{
+			try
+			{
+				return getXBLToken(msftAccessToken);
+			}catch(LoginException e)
+			{
+				last = e;
+				if(!isTransientAuthFailure(e) || attempt == 3)
+					throw e;
+				
+				System.out.println("Retrying XBL authentication (attempt "
+					+ (attempt + 1) + "/3)...");
+				try
+				{
+					Thread.sleep(250L * attempt);
+				}catch(InterruptedException interrupted)
+				{
+					Thread.currentThread().interrupt();
+					throw new LoginException(
+						"XBL authentication retry interrupted.", interrupted);
+				}
+			}
+		}
+		throw last == null ? new LoginException("XBL authentication failed.")
+			: last;
+	}
+	
+	private static boolean isTransientAuthFailure(LoginException e)
+	{
+		String message = e.getMessage();
+		return message != null && (message.contains("HTTP 5")
+			|| message.startsWith("Connection failed:"));
 	}
 	
 	private static String getXSTSToken(String xblToken) throws LoginException
