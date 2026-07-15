@@ -56,6 +56,7 @@ public final class PotEspHack extends Hack implements UpdateListener,
 	private static final Set<Item> NATURAL_POT_ITEMS = Set.of(Items.AIR,
 		Items.STRING, Items.EMERALD, Items.EMERALD_BLOCK, Items.RAW_IRON_BLOCK,
 		Items.IRON_INGOT, Items.TRIAL_KEY, Items.DIAMOND, Items.DIAMOND_BLOCK,
+		Items.ARROW, Items.TIPPED_ARROW, Items.SPECTRAL_ARROW,
 		// The pot item itself can show up in malformed container data and is
 		// not
 		// a meaningful suspicious item.

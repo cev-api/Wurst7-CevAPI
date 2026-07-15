@@ -183,6 +183,13 @@ public final class KillauraHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
+		{
+			target = null;
+			renderTarget = null;
+			return;
+		}
+		
 		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
 		if(maceDmg.shouldControlAuraAttacks() && maceDmg.hasFallDebt())
 		{
@@ -229,6 +236,12 @@ public final class KillauraHack extends Hack
 	@Override
 	public void onHandleInput()
 	{
+		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
+		{
+			target = null;
+			return;
+		}
+		
 		if(target == null)
 			return;
 		

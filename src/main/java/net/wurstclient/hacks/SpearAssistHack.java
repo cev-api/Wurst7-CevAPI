@@ -133,6 +133,10 @@ public final class SpearAssistHack extends Hack
 		"Auto attack when ready",
 		"Automatically swings again as soon as the attack indicator refills while you hold attack.",
 		false);
+	private final CheckboxSetting disableAurasWhileHoldingSpear =
+		new CheckboxSetting("Disable Killaura/MultiAura",
+			"Stops Killaura and MultiAura from targeting or attacking while you hold a spear.",
+			true);
 	
 	private final EnumSetting<SpearKillMode> spearKillMode = new EnumSetting<>(
 		"SK mode", SpearKillMode.values(), SpearKillMode.LUNGE);
@@ -242,6 +246,7 @@ public final class SpearAssistHack extends Hack
 		addSetting(aimAssistLockOnOverride);
 		addSetting(autoAlignment);
 		addSetting(autoAttackWhenReady);
+		addSetting(disableAurasWhileHoldingSpear);
 		addSetting(spearKillMode);
 		addSetting(spearKillMaxRange);
 		addSetting(spearKillTargetListMode);
@@ -268,6 +273,17 @@ public final class SpearAssistHack extends Hack
 	{
 		return assistMode.getSelected() == AssistMode.SPEARKILL
 			? getName() + " [Kill]" : getName();
+	}
+	
+	/**
+	 * Returns whether spear combat currently owns combat actions that should
+	 * not be performed by Killaura or MultiAura. Holding another weapon leaves
+	 * those aura hacks free to operate.
+	 */
+	public boolean blocksAuraAttacks()
+	{
+		return disableAurasWhileHoldingSpear.isChecked() && isEnabled()
+			&& MC.player != null && isSpear(MC.player.getMainHandItem());
 	}
 	
 	@Override
