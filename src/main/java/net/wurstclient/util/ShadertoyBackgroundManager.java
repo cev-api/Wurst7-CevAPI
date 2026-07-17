@@ -187,7 +187,7 @@ public final class ShadertoyBackgroundManager
 	public static List<Path> listPresets()
 	{
 		installMissingBundledPresets();
-
+		
 		Path folder = getPresetsFolder();
 		if(!Files.isDirectory(folder))
 			return List.of();
@@ -204,7 +204,7 @@ public final class ShadertoyBackgroundManager
 			return List.of();
 		}
 	}
-
+	
 	private static void installMissingBundledPresets()
 	{
 		try
@@ -215,10 +215,10 @@ public final class ShadertoyBackgroundManager
 				Path target = getPresetsFolder().resolve(preset + ".glsl");
 				if(Files.exists(target))
 					continue;
-
+				
 				String resource = BUNDLED_PRESET_FOLDER + preset + ".glsl";
-				try(InputStream stream =
-					ShadertoyBackgroundManager.class.getResourceAsStream(resource))
+				try(InputStream stream = ShadertoyBackgroundManager.class
+					.getResourceAsStream(resource))
 				{
 					if(stream != null)
 						Files.copy(stream, target);

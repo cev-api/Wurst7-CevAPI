@@ -551,66 +551,82 @@ public enum MicrosoftLoginManager
 	private static XBoxLiveToken getXBLToken(String msftAccessToken)
 		throws LoginException
 	{
-		JsonObject properties = new JsonObject();
-		properties.addProperty("AuthMethod", "RPS");
-		properties.addProperty("SiteName", "user.auth.xboxlive.com");
+		String rawToken = msftAccessToken.startsWith("d=")
+			? msftAccessToken.substring(2) : msftAccessToken;
+		String[] rpsTickets = {"d=" + rawToken, rawToken};
+		String firstError = null;
 		
-		// The RpsTicket must be the access token prefixed with "d="
-		// to indicate it's a delegated token from Microsoft account.
-		String rpsTicket = msftAccessToken.startsWith("d=") ? msftAccessToken
-			: "d=" + msftAccessToken;
-		properties.addProperty("RpsTicket", rpsTicket);
-		
-		JsonObject postData = new JsonObject();
-		postData.addProperty("RelyingParty", "http://auth.xboxlive.com");
-		postData.addProperty("TokenType", "JWT");
-		postData.add("Properties", properties);
-		
-		String request = postData.toString();
-		
-		try
+		for(int attempt = 0; attempt < rpsTickets.length; attempt++)
 		{
-			HttpURLConnection connection =
-				(HttpURLConnection)XBL_TOKEN_URL.openConnection();
+			JsonObject properties = new JsonObject();
+			properties.addProperty("AuthMethod", "RPS");
+			properties.addProperty("SiteName", "user.auth.xboxlive.com");
+			properties.addProperty("RpsTicket", rpsTickets[attempt]);
 			
-			connection.setRequestProperty("Content-Type", "application/json");
-			connection.setRequestProperty("Accept", "application/json");
+			JsonObject postData = new JsonObject();
+			postData.addProperty("RelyingParty", "http://auth.xboxlive.com");
+			postData.addProperty("TokenType", "JWT");
+			postData.add("Properties", properties);
 			
-			connection.setDoOutput(true);
-			
-			System.out.println("Getting X-Box Live token...");
-			
-			try(OutputStream out = connection.getOutputStream())
+			try
 			{
-				out.write(request.getBytes(StandardCharsets.US_ASCII));
-			}
-			
-			int responseCode = connection.getResponseCode();
-			if(responseCode != 200)
+				HttpURLConnection connection =
+					(HttpURLConnection)XBL_TOKEN_URL.openConnection();
+				
+				connection.setRequestProperty("Content-Type",
+					"application/json");
+				connection.setRequestProperty("Accept", "application/json");
+				connection.setRequestProperty("x-xbl-contract-version", "1");
+				connection.setDoOutput(true);
+				
+				if(attempt == 0)
+					System.out.println("Getting X-Box Live token...");
+				else
+					System.out.println(
+						"XBL authentication fallback: trying raw RPS ticket...");
+				
+				try(OutputStream out = connection.getOutputStream())
+				{
+					out.write(postData.toString()
+						.getBytes(StandardCharsets.US_ASCII));
+				}
+				
+				int responseCode = connection.getResponseCode();
+				if(responseCode != 200)
+				{
+					String errorDetails = describeHttpError(connection);
+					if(attempt == 0)
+					{
+						firstError = errorDetails;
+						continue;
+					}
+					
+					System.out.println(
+						"XBL authentication returned HTTP " + errorDetails);
+					throw new LoginException(
+						"XBL authentication failed after both RPS ticket variants. "
+							+ "First attempt returned HTTP " + firstError
+							+ "; second attempt returned HTTP " + errorDetails);
+				}
+				
+				WsonObject json = JsonUtils.parseConnectionToObject(connection);
+				String token = json.getString("Token");
+				String uhs = json.getObject("DisplayClaims").getArray("xui")
+					.getObject(0).getString("uhs");
+				
+				return new XBoxLiveToken(token, uhs);
+				
+			}catch(IOException e)
 			{
-				String errorDetails = describeHttpError(connection);
-				String errorMessage = "XBL auth returned HTTP " + errorDetails;
-				System.out.println(
-					"XBL authentication returned HTTP " + errorDetails);
-				throw new LoginException(errorMessage);
+				throw new LoginException("Connection failed: " + e, e);
+				
+			}catch(JsonException e)
+			{
+				throw new LoginException("Server sent invalid JSON.", e);
 			}
-			
-			WsonObject json = JsonUtils.parseConnectionToObject(connection);
-			
-			String token = json.getString("Token");
-			String uhs = json.getObject("DisplayClaims").getArray("xui")
-				.getObject(0).getString("uhs");
-			
-			return new XBoxLiveToken(token, uhs);
-			
-		}catch(IOException e)
-		{
-			throw new LoginException("Connection failed: " + e, e);
-			
-		}catch(JsonException e)
-		{
-			throw new LoginException("Server sent invalid JSON.", e);
 		}
+		
+		throw new LoginException("XBL authentication failed.");
 	}
 	
 	private static XBoxLiveToken getXBLTokenWithRetry(String msftAccessToken)
