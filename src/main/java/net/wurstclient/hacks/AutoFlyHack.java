@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -51,12 +52,14 @@ import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.mixinterface.IKeyMapping;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
+import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"auto fly", "autofly", "waypoint fly", "auto flight"})
 public final class AutoFlyHack extends Hack
@@ -144,6 +147,7 @@ public final class AutoFlyHack extends Hack
 		BLOCKS("Blocks"),
 		ITEMS("Items"),
 		ROOF_ESP("RoofESP"),
+		SKYBUILD_ESP("SkyBuildESP"),
 		OLD_CHUNKS("Old chunk"),
 		NEW_CHUNKS("New chunk"),
 		END_PORTAL("End portal"),
@@ -457,6 +461,8 @@ public final class AutoFlyHack extends Hack
 	private boolean autoKeyRightDown;
 	private boolean autoKeyJumpDown;
 	private boolean autoKeyShiftDown;
+	private boolean actualShiftDown;
+	private boolean actualControlDown;
 	private long climbAttemptUntilMs;
 	private long lastClimbAttemptMs;
 	private double climbTargetY;
@@ -489,6 +495,7 @@ public final class AutoFlyHack extends Hack
 	private boolean enabledAutoLeaveForAutoFly;
 	private boolean enabledNewerNewChunksForStopOn;
 	private boolean enabledRoofEspForStopOn;
+	private boolean enabledSkyBuildEspForStopOn;
 	
 	private boolean closeHorizLatched;
 	private int stopScanCooldown;
@@ -612,6 +619,9 @@ public final class AutoFlyHack extends Hack
 		autoKeyRightDown = false;
 		autoKeyJumpDown = false;
 		autoKeyShiftDown = false;
+		actualShiftDown = IKeyMapping.get(MC.options.keyShift)
+			.isActuallyDown();
+		actualControlDown = isControlDown();
 		climbAttemptUntilMs = 0L;
 		lastClimbAttemptMs = 0L;
 		climbTargetY = 0.0;
@@ -655,6 +665,7 @@ public final class AutoFlyHack extends Hack
 		enabledAutoLeaveForAutoFly = false;
 		enabledNewerNewChunksForStopOn = false;
 		enabledRoofEspForStopOn = false;
+		enabledSkyBuildEspForStopOn = false;
 		
 		var hax = WURST.getHax();
 		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
@@ -699,6 +710,8 @@ public final class AutoFlyHack extends Hack
 			hax.newerNewChunksHack.setEnabled(false);
 		if(enabledRoofEspForStopOn && hax.roofEspHack.isEnabled())
 			hax.roofEspHack.setEnabled(false);
+		if(enabledSkyBuildEspForStopOn && hax.skyBuildEspHack.isEnabled())
+			hax.skyBuildEspHack.setEnabled(false);
 		if(!boatFlyWasEnabled && hax.boatFlyHack.isEnabled())
 			hax.boatFlyHack.setEnabled(false);
 		enabledAntisocialForAutoFly = false;
@@ -706,6 +719,7 @@ public final class AutoFlyHack extends Hack
 		enabledAutoLeaveForAutoFly = false;
 		enabledNewerNewChunksForStopOn = false;
 		enabledRoofEspForStopOn = false;
+		enabledSkyBuildEspForStopOn = false;
 		pausedNoY = false;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
@@ -769,6 +783,23 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		missingWorldStateTicks = 0;
+		boolean shiftDown = IKeyMapping.get(MC.options.keyShift)
+			.isActuallyDown();
+		if(shiftDown && !actualShiftDown)
+		{
+			actualShiftDown = true;
+			stopFromCommand();
+			return;
+		}
+		actualShiftDown = shiftDown;
+		boolean controlDown = isControlDown();
+		if(controlDown && !actualControlDown)
+		{
+			actualControlDown = true;
+			stopFromCommand();
+			return;
+		}
+		actualControlDown = controlDown;
 		ensureBoatFlyEnabledIfRiding();
 		
 		long updateNow = System.currentTimeMillis();
@@ -1189,6 +1220,18 @@ public final class AutoFlyHack extends Hack
 				return false;
 			}
 			
+			case SKYBUILD_ESP ->
+			{
+				ensureSkyBuildEspForStopOn();
+				if(WURST.getHax().skyBuildEspHack.isEnabled()
+					&& WURST.getHax().skyBuildEspHack.getDetectionCount() > 0)
+				{
+					stopAutoFly("Stopped: Found SkyBuildESP target");
+					return true;
+				}
+				return false;
+			}
+			
 			case BLOCKS ->
 			{
 				String kw = getStopKeyword(keywordSetting);
@@ -1584,6 +1627,18 @@ public final class AutoFlyHack extends Hack
 			.message("RoofESP was enabled due to stop condition in AutoFly.");
 	}
 	
+	private void ensureSkyBuildEspForStopOn()
+	{
+		var skyBuildEsp = WURST.getHax().skyBuildEspHack;
+		if(skyBuildEsp.isEnabled())
+			return;
+		
+		skyBuildEsp.setEnabled(true);
+		enabledSkyBuildEspForStopOn = true;
+		ChatUtils.message(
+			"SkyBuildESP was enabled due to stop condition in AutoFly.");
+	}
+	
 	private String getStopKeyword(TextFieldSetting setting)
 	{
 		if(setting == null)
@@ -1631,13 +1686,18 @@ public final class AutoFlyHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
+		int etaWidth = eta == null || eta.isBlank() ? 0 : font.width(eta);
+		int backgroundWidth = Math.max(textWidth, etaWidth);
+		int backgroundBottom =
+			y + (etaWidth > 0 ? 10 : 0) + font.lineHeight + 2;
+		context.fill(centerX - backgroundWidth / 2 - 2, y - 2,
+			centerX + backgroundWidth / 2 + 2, backgroundBottom, 0x80000000);
 		context.text(font, info, x, y, 0xFFFFFFFF, true);
 		
 		if(eta != null && !eta.isBlank())
 		{
-			int etaWidth = font.width(eta);
 			int etaX = centerX - etaWidth / 2;
-			context.text(font, eta, etaX, y + 10, 0xFFAAAAAA, true);
+			context.text(font, eta, etaX, y + 10, 0xFFFFFFFF, true);
 		}
 	}
 	
@@ -4256,6 +4316,14 @@ public final class AutoFlyHack extends Hack
 		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
 			MC.player.getZ(), soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F,
 			false);
+	}
+	
+	private boolean isControlDown()
+	{
+		return InputConstants.isKeyDown(MC.getWindow(),
+			GLFW.GLFW_KEY_LEFT_CONTROL)
+			|| InputConstants.isKeyDown(MC.getWindow(),
+				GLFW.GLFW_KEY_RIGHT_CONTROL);
 	}
 	
 	private void beginManualAdjust(Vec3 playerPos)
