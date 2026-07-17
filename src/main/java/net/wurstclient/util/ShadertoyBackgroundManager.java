@@ -45,6 +45,9 @@ import net.wurstclient.WurstClient;
 
 public final class ShadertoyBackgroundManager
 {
+	private static final String BUNDLED_PRESET_FOLDER =
+		"/wurst/shadertoy-presets/";
+	private static final List<String> BUNDLED_PRESETS = List.of("LCL");
 	private static final Identifier SHADER_RESOURCE =
 		Identifier.parse("wurst:shaders/core/title_shadertoy_background.fsh");
 	private static final Pattern SHADERTOY_ID = Pattern
@@ -183,6 +186,8 @@ public final class ShadertoyBackgroundManager
 	
 	public static List<Path> listPresets()
 	{
+		installMissingBundledPresets();
+
 		Path folder = getPresetsFolder();
 		if(!Files.isDirectory(folder))
 			return List.of();
@@ -198,6 +203,29 @@ public final class ShadertoyBackgroundManager
 		{
 			return List.of();
 		}
+	}
+
+	private static void installMissingBundledPresets()
+	{
+		try
+		{
+			Files.createDirectories(getPresetsFolder());
+			for(String preset : BUNDLED_PRESETS)
+			{
+				Path target = getPresetsFolder().resolve(preset + ".glsl");
+				if(Files.exists(target))
+					continue;
+
+				String resource = BUNDLED_PRESET_FOLDER + preset + ".glsl";
+				try(InputStream stream =
+					ShadertoyBackgroundManager.class.getResourceAsStream(resource))
+				{
+					if(stream != null)
+						Files.copy(stream, target);
+				}
+			}
+		}catch(IOException ignored)
+		{}
 	}
 	
 	public static String savePreset(String name, String rawSource)
