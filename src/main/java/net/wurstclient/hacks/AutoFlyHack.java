@@ -619,8 +619,7 @@ public final class AutoFlyHack extends Hack
 		autoKeyRightDown = false;
 		autoKeyJumpDown = false;
 		autoKeyShiftDown = false;
-		actualShiftDown = IKeyMapping.get(MC.options.keyShift)
-			.isActuallyDown();
+		actualShiftDown = IKeyMapping.get(MC.options.keyShift).isActuallyDown();
 		actualControlDown = isControlDown();
 		climbAttemptUntilMs = 0L;
 		lastClimbAttemptMs = 0L;
@@ -783,8 +782,8 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		missingWorldStateTicks = 0;
-		boolean shiftDown = IKeyMapping.get(MC.options.keyShift)
-			.isActuallyDown();
+		boolean shiftDown =
+			IKeyMapping.get(MC.options.keyShift).isActuallyDown();
 		if(shiftDown && !actualShiftDown)
 		{
 			actualShiftDown = true;
