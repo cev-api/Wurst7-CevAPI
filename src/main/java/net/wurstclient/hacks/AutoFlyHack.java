@@ -328,6 +328,10 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting crosshairInfo =
 		new CheckboxSetting("Crosshair info",
 			"Shows AutoFly status near the crosshair while active.", true);
+	private final SliderSetting crosshairBackgroundOpacity =
+		new SliderSetting("Overlay background opacity",
+			"Opacity of the background behind AutoFly's status and ETA text.",
+			0.5, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final CheckboxSetting useAntisocial =
 		new CheckboxSetting("Enable Antisocial",
 			"Enables Antisocial while AutoFly is active.", true);
@@ -536,6 +540,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(targetRadius);
 		addSetting(skipReached);
 		addSetting(crosshairInfo);
+		addSetting(crosshairBackgroundOpacity);
 		addSetting(useAntisocial);
 		addSetting(useAutoEat);
 		addSetting(useAutoLeave);
@@ -814,6 +819,7 @@ public final class AutoFlyHack extends Hack
 			// Allow player to decide what to do next (e.g. cycle waypoint).
 			PathProcessor.releaseControls();
 			clearAutoFlyInput();
+			pauseAutoOwnedFlight();
 			return;
 		}
 		
@@ -1591,6 +1597,7 @@ public final class AutoFlyHack extends Hack
 			.onAutoFlyStopped(message + " (use Next waypoint to continue)");
 		stopHold = true;
 		stopIgnoreTicks = 0;
+		pauseAutoOwnedFlight();
 	}
 	
 	public void stopFromCommand()
@@ -1690,7 +1697,8 @@ public final class AutoFlyHack extends Hack
 		int backgroundBottom =
 			y + (etaWidth > 0 ? 10 : 0) + font.lineHeight + 2;
 		context.fill(centerX - backgroundWidth / 2 - 2, y - 2,
-			centerX + backgroundWidth / 2 + 2, backgroundBottom, 0x80000000);
+			centerX + backgroundWidth / 2 + 2, backgroundBottom,
+			(int)Math.round(crosshairBackgroundOpacity.getValue() * 255) << 24);
 		context.text(font, info, x, y, 0xFFFFFFFF, true);
 		
 		if(eta != null && !eta.isBlank())
@@ -2381,8 +2389,26 @@ public final class AutoFlyHack extends Hack
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
 		if(!flightWasEnabled && flight.isEnabled())
+		{
+			if(MC.player != null)
+				MC.player.setDeltaMovement(Vec3.ZERO);
 			flight.setEnabled(false);
+		}
 		flightWasEnabled = false;
+	}
+	
+	private void pauseAutoOwnedFlight()
+	{
+		if(flightWasEnabled)
+			return;
+		
+		var flight = WURST.getHax().flightHack;
+		if(!flight.isEnabled())
+			return;
+		
+		if(MC.player != null)
+			MC.player.setDeltaMovement(Vec3.ZERO);
+		flight.setEnabled(false);
 	}
 	
 	private void applyFlightOverrides()
