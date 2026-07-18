@@ -7,7 +7,6 @@
  */
 package net.wurstclient.mixin;
 
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,6 +20,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.authlib.GameProfile;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -56,8 +56,6 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Shadow
 	@Final
 	protected Minecraft minecraft;
-	
-	private Screen tempCurrentScreen;
 	
 	private LocalPlayerMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
@@ -198,38 +196,20 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	}
 	
 	/**
-	 * When PortalGUI is enabled, this mixin temporarily sets the current screen
-	 * to null to prevent the updateNausea() method from closing it.
+	 * Prevents the portal nausea code from closing a GUI opened by PortalGUI.
+	 * Returning null only for this check keeps the real screen untouched, which
+	 * avoids resetting mouse capture while the player is in the portal.
 	 */
-	@Inject(method = "handlePortalTransitionEffect(Z)V",
+	@WrapOperation(method = "handlePortalTransitionEffect(Z)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/gui/Gui;screen()Lnet/minecraft/client/gui/screens/Screen;",
 			ordinal = 0))
-	private void beforeTickNausea(boolean fromPortalEffect, CallbackInfo ci)
+	private Screen wrapPortalGuiScreen(Gui instance, Operation<Screen> original)
 	{
-		if(!WurstClient.INSTANCE.getHax().portalGuiHack.isEnabled())
-			return;
+		if(WurstClient.INSTANCE.getHax().portalGuiHack.isEnabled())
+			return null;
 		
-		tempCurrentScreen = minecraft.gui.screen();
-		minecraft.gui.setScreen(null);
-	}
-	
-	/**
-	 * This mixin restores the current screen as soon as the updateNausea()
-	 * method is done looking at it.
-	 */
-	@Inject(method = "handlePortalTransitionEffect(Z)V",
-		at = @At(value = "FIELD",
-			target = "Lnet/minecraft/client/player/LocalPlayer;portalEffectIntensity:F",
-			opcode = Opcodes.GETFIELD,
-			ordinal = 1))
-	private void afterTickNausea(boolean fromPortalEffect, CallbackInfo ci)
-	{
-		if(tempCurrentScreen == null)
-			return;
-		
-		minecraft.gui.setScreen(tempCurrentScreen);
-		tempCurrentScreen = null;
+		return original.call(instance);
 	}
 	
 	/**
