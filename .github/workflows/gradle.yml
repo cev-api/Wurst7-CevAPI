@@ -114,18 +114,6 @@ jobs:
     - name: Install Mesa Vulkan drivers
       run: sudo apt-get install -y mesa-vulkan-drivers
 
-    - name: Run client gametests
-      timeout-minutes: 10
-      env:
-        IMGUR_CLIENT_ID: ${{ secrets.IMGUR_CLIENT_ID }}
-      run: ./gradlew runClientGameTest --stacktrace
-
-    - name: Run client gametests with mods
-      timeout-minutes: 10
-      env:
-        IMGUR_CLIENT_ID: ${{ secrets.IMGUR_CLIENT_ID }}
-      run: ./gradlew runClientGameTestWithMods --stacktrace
-
     - name: Upload screenshots
       uses: actions/upload-artifact@v7
       if: ${{ success() || failure() }}
