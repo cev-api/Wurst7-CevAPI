@@ -43,13 +43,17 @@ import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.UpdateListener;
@@ -150,6 +154,10 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting showSignsInHud =
 		new CheckboxSetting("Show nearby signs",
 			"Adds nearby sign text to the ItemHandler popup HUD.", true);
+	private final CheckboxSetting detectWallHeads = new CheckboxSetting(
+		"Detect wall heads",
+		"Detects standing and wall-mounted player heads in the ItemHandler HUD.",
+		true);
 	
 	private final CheckboxSetting detectNamedEntities =
 		new CheckboxSetting("Detect named entities",
@@ -226,6 +234,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(filterDefaultMobEquipment);
 		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
+		addSetting(detectWallHeads);
 		addSetting(detectNamedEntities);
 		addSetting(detectCraftedEntities);
 		addSetting(detectOwnedEntities);
@@ -694,6 +703,9 @@ public class ItemHandlerHack extends Hack
 					"Sign: " + text, Math.sqrt(distSq), getSignTraceId(pos)));
 			});
 		
+		if(detectWallHeads.isChecked())
+			addPlayerHeadLabels(centerVec, range, infinite, rangeSq);
+		
 		if(detectNamed)
 		{
 			AABB scanBox = MC.player.getBoundingBox().inflate(range);
@@ -789,6 +801,35 @@ public class ItemHandlerHack extends Hack
 		int max = signMax.getValueI();
 		if(trackedLabels.size() > max)
 			trackedLabels.subList(max, trackedLabels.size()).clear();
+	}
+	
+	private void addPlayerHeadLabels(Vec3 centerVec, double range,
+		boolean infinite, double rangeSq)
+	{
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(!(be instanceof SkullBlockEntity skull))
+				return;
+			
+			ResolvableProfile profile = skull.getOwnerProfile();
+			if(profile == null)
+				return;
+			String owner = profile.name().orElse("").trim();
+			if(owner.isEmpty())
+				return;
+			
+			BlockPos pos = skull.getBlockPos();
+			Vec3 point = Vec3.atCenterOf(pos);
+			double distSq = point.distanceToSqr(centerVec);
+			if(!infinite && distSq > rangeSq)
+				return;
+			
+			ItemStack icon = new ItemStack(Items.PLAYER_HEAD);
+			icon.set(net.minecraft.core.component.DataComponents.PROFILE,
+				profile);
+			String label = owner + "'s Head";
+			trackedLabels.add(new NearbyLabel(point, new AABB(pos), icon, label,
+				Math.sqrt(distSq), getSkullTraceId(pos)));
+		});
 	}
 	
 	private ItemStack iconForBlockEntity(BlockEntity be, ItemStack fallback)
@@ -1278,6 +1319,11 @@ public class ItemHandlerHack extends Hack
 		return "named_entity:" + uuid;
 	}
 	
+	public static String getSkullTraceId(BlockPos pos)
+	{
+		return pos == null ? null : "skull:" + pos.asLong();
+	}
+	
 	public boolean isShowSignsInHud()
 	{
 		return showSignsInHud.isChecked();
@@ -1360,6 +1406,34 @@ public class ItemHandlerHack extends Hack
 	public boolean isShowRegistryName()
 	{
 		return showRegistryName.isChecked();
+	}
+	
+	/**
+	 * Returns the useful extra tooltip line for a player head, such as
+	 * "Killed by Flirmaput". ItemHandler normally only uses getHoverName(),
+	 * which intentionally omits these additional tooltip lines.
+	 */
+	public String getItemSubtitle(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty()
+			|| stack.getItem() != Items.PLAYER_HEAD)
+			return "";
+		
+		try
+		{
+			List<net.minecraft.network.chat.Component> lines =
+				stack.getTooltipLines(Item.TooltipContext.of(MC.level),
+					MC.player, TooltipFlag.NORMAL);
+			for(net.minecraft.network.chat.Component line : lines)
+			{
+				String text = line.getString();
+				if(text != null
+					&& text.toLowerCase(Locale.ROOT).contains("killed by"))
+					return text.trim();
+			}
+		}catch(Throwable ignored)
+		{}
+		return "";
 	}
 	
 	public boolean isShowEnchantmentsInNames()

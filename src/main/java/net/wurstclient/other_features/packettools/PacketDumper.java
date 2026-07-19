@@ -38,6 +38,7 @@ import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
+import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
@@ -48,6 +49,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.saveddata.maps.MapDecoration;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.phys.Vec3;
 
 import net.wurstclient.other_features.packettools.PacketDecodeCoverage.DecodeLevel;
@@ -199,6 +202,11 @@ public final class PacketDumper
 		{
 			hasSpecial = true;
 			augmentMerchantOffers(p, f);
+		}
+		if(packet instanceof ClientboundMapItemDataPacket p)
+		{
+			hasSpecial = true;
+			augmentMapItemData(p, f);
 		}
 		if(packet instanceof ClientboundUpdateAttributesPacket p)
 		{
@@ -538,6 +546,49 @@ public final class PacketDumper
 			f.put("_decodedOffers", offers);
 	}
 	
+	private void augmentMapItemData(ClientboundMapItemDataPacket p,
+		Map<String, Object> f)
+	{
+		Map<String, Object> map = new LinkedHashMap<>();
+		map.put("mapId", p.mapId().id());
+		map.put("scale", p.scale());
+		map.put("locked", p.locked());
+		
+		List<Map<String, Object>> decorations = new ArrayList<>();
+		try
+		{
+			p.decorations().ifPresent(values -> {
+				for(MapDecoration decoration : values)
+				{
+					Map<String, Object> decoded = new LinkedHashMap<>();
+					decoded.put("type", decodeValue(decoration.type(), 0,
+						new IdentityHashMap<Object, Boolean>()));
+					decoded.put("x", decoration.x());
+					decoded.put("y", decoration.y());
+					decoded.put("rotation", decoration.rot());
+					decoded.put("name", decodeValue(decoration.name(), 0,
+						new IdentityHashMap<Object, Boolean>()));
+					decorations.add(decoded);
+				}
+			});
+		}catch(Exception ignored)
+		{}
+		map.put("decorations", decorations);
+		
+		p.colorPatch().ifPresent(patch -> {
+			Map<String, Object> decoded = new LinkedHashMap<>();
+			decoded.put("startX", patch.startX());
+			decoded.put("startY", patch.startY());
+			decoded.put("width", patch.width());
+			decoded.put("height", patch.height());
+			decoded.put("mapColors",
+				decodeCompleteByteArray(patch.mapColors()));
+			map.put("colorPatch", decoded);
+		});
+		
+		f.put("_decodedMapItemData", map);
+	}
+	
 	private void augmentUpdateAttributes(ClientboundUpdateAttributesPacket p,
 		Map<String, Object> f)
 	{
@@ -722,6 +773,11 @@ public final class PacketDumper
 		// ItemStack
 		if(value instanceof ItemStack stack)
 			return RegistryDecoder.decodeItemStackDetailed(stack);
+			
+		// MapItemSavedData contains the world center and the complete 128x128
+		// color buffer. Do not use the normal collection/array limits here.
+		if(value instanceof MapItemSavedData mapData)
+			return decodeMapItemSavedData(mapData, visited, nextDepth);
 		
 		// BlockState
 		if(value instanceof BlockState state)
@@ -1065,6 +1121,35 @@ public final class PacketDumper
 		}
 		
 		return fc > 0 ? out : null;
+	}
+	
+	private static Map<String, Object> decodeMapItemSavedData(
+		MapItemSavedData mapData, IdentityHashMap<Object, Boolean> visited,
+		int depth)
+	{
+		Map<String, Object> decoded = new LinkedHashMap<>();
+		decoded.put("_type", "MapItemSavedData");
+		decoded.put("centerX", mapData.centerX);
+		decoded.put("centerZ", mapData.centerZ);
+		decoded.put("dimension",
+			decodeValue(mapData.dimension, depth, visited));
+		decoded.put("scale", mapData.scale);
+		decoded.put("locked", mapData.locked);
+		decoded.put("colors", decodeCompleteByteArray(mapData.colors));
+		List<Object> decorations = new ArrayList<>();
+		for(MapDecoration decoration : mapData.getDecorations())
+			decorations.add(decodeValue(decoration, depth, visited));
+		decoded.put("decorations", decorations);
+		return decoded;
+	}
+	
+	private static Map<String, Object> decodeCompleteByteArray(byte[] bytes)
+	{
+		Map<String, Object> decoded = new LinkedHashMap<>();
+		decoded.put("length", bytes != null ? bytes.length : 0);
+		decoded.put("base64",
+			bytes != null ? Base64.getEncoder().encodeToString(bytes) : null);
+		return decoded;
 	}
 	
 	// ---- Entry point ----

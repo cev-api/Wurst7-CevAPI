@@ -459,8 +459,8 @@ public class ItemHandlerScreen extends Screen
 				context.text(tr, group.displayName, x + 36, y + 2, 0xFFFFFFFF,
 					false);
 				// Optional subtitle line: enchantments or registry ID.
-				String subtitle = "";
-				if(hack.isShowEnchantmentsInNames())
+				String subtitle = hack.getItemSubtitle(group.rep);
+				if(subtitle.isBlank() && hack.isShowEnchantmentsInNames())
 					subtitle = hack.getEnchantmentSummary(group.rep);
 				if(subtitle.isBlank() && hack.isShowRegistryName())
 				{
