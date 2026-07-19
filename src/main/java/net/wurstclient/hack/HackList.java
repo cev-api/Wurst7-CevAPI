@@ -226,6 +226,8 @@ public final class HackList implements UpdateListener
 	public final NewChunksHack newChunksHack = new NewChunksHack();
 	public final NewerNewChunksHack newerNewChunksHack =
 		new NewerNewChunksHack();
+	public final SimulationSonarHack simulationSonarHack =
+		new SimulationSonarHack();
 	public final NbtFilterHack nbtFilterHack = new NbtFilterHack();
 	public final NbtSizeCounterHack nbtSizeCounterHack =
 		new NbtSizeCounterHack();

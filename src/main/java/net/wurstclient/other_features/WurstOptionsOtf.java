@@ -89,6 +89,11 @@ public final class WurstOptionsOtf extends OtherFeature
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
+		// Register tab-list settings before settings files are created.
+		addSetting(tabListPing);
+		addSetting(tabListHeads);
+		addSetting(tabListPingColors);
+		addSetting(tabList);
 	}
 	
 	public boolean shouldShowTabListPing()
@@ -104,6 +109,21 @@ public final class WurstOptionsOtf extends OtherFeature
 	public boolean shouldColorTabListPing()
 	{
 		return tabListPingColors.isChecked();
+	}
+	
+	public CheckboxSetting getTabListPingSetting()
+	{
+		return tabListPing;
+	}
+	
+	public CheckboxSetting getTabListHeadsSetting()
+	{
+		return tabListHeads;
+	}
+	
+	public CheckboxSetting getTabListPingColorsSetting()
+	{
+		return tabListPingColors;
 	}
 	
 	public void linkAdditionalSettings(DisableOtf disableOtf,
@@ -138,10 +158,6 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
 		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
 		addSetting(WURST.getHax().navigatorHack.backgroundOverlay);
-		addSetting(tabListPing);
-		addSetting(tabListHeads);
-		addSetting(tabListPingColors);
-		addSetting(tabList);
 		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
 			discordRpcOtf.getStatusMessageSetting(),
 			discordRpcOtf.getShowServerIpSetting(),
