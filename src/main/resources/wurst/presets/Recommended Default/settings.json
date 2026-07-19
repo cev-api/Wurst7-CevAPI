@@ -4093,7 +4093,10 @@
   },
   "ConnectionLogOverlay": {
     "Connection log overlay": true,
-    "Overlay Font Size": 0.7
+    "Overlay Font Size": 0.7,
+    "Live ping": false,
+    "Player heads": false,
+    "Color ping": false
   },
   "DisableWurst": {
     "Hide enable button": false

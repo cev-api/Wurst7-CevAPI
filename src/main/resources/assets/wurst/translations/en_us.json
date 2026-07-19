@@ -651,6 +651,8 @@
   "description.wurst.hack.entitycount": "Shows a floating entity count label in each nearby chunk and adds the total to the hack list entry.",
   "hack.wurst.playersonar": "PlayerSonar",
   "description.wurst.hack.playersonar": "Tracks distant player activity using a sonar-like ping display and tracer markers outside the normal PlayerESP range.",
+  "hack.wurst.simulationsonar": "SimulationSonar",
+  "description.wurst.hack.simulationsonar": "Detects unexplained simulation activity outside your recent movement footprint and marks suspicious chunks with fading sonar tiles.",
   "hack.wurst.noplayerchat": "NoPlayerChat",
   "description.wurst.hack.noplayerchat": "Filters player chat with optional join/leave, whisper, death-message, and keyword-rule controls.",
   "hack.wurst.coordlogger": "CoordLogger",

@@ -160,6 +160,10 @@ public final class WurstOptionsScreen extends Screen
 		CheckboxSetting capes = wurst.getOtfs().wurstCapesOtf.getCapesSetting();
 		CheckboxSetting forceAllowChats =
 			wurst.getOtfs().forceAllowChatsOtf.getForceAllowChatsSetting();
+		CheckboxSetting tabListPing = options.getTabListPingSetting();
+		CheckboxSetting tabListHeads = options.getTabListHeadsSetting();
+		CheckboxSetting tabListPingColors =
+			options.getTabListPingColorsSetting();
 		CheckboxSetting hackToggleFeedback =
 			options.getHackToggleChatFeedbackSetting();
 		CheckboxSetting customMojangLogoBg =
@@ -277,6 +281,22 @@ public final class WurstOptionsScreen extends Screen
 			() -> "Force Allow Chats: " + onOff(forceAllowChats.isChecked()),
 			forceAllowChats.getDescription(),
 			b -> forceAllowChats.setChecked(!forceAllowChats.isChecked()));
+		
+		addButton(column,
+			() -> "Tab List Live Ping: " + onOff(tabListPing.isChecked()),
+			tabListPing.getDescription(),
+			b -> tabListPing.setChecked(!tabListPing.isChecked()));
+		
+		addButton(column,
+			() -> "Tab List Player Heads: " + onOff(tabListHeads.isChecked()),
+			tabListHeads.getDescription(),
+			b -> tabListHeads.setChecked(!tabListHeads.isChecked()));
+		
+		addButton(column,
+			() -> "Tab List Ping Colors: "
+				+ onOff(tabListPingColors.isChecked()),
+			tabListPingColors.getDescription(),
+			b -> tabListPingColors.setChecked(!tabListPingColors.isChecked()));
 	}
 	
 	private void addPrivacySection()

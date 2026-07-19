@@ -765,6 +765,11 @@ public final class NewerNewChunksHack extends Hack
 		autoFlyRenderSuppressed = suppressed;
 	}
 	
+	public double getRenderHeight()
+	{
+		return renderHeight.getValue();
+	}
+	
 	public void afterLoadChunk(int x, int z)
 	{
 		if(!isTrackingActive() || MC.level == null)
@@ -1484,6 +1489,14 @@ public final class NewerNewChunksHack extends Hack
 	private void renderBoxes(PoseStack matrices, List<AABB> boxes,
 		int sideColor, int lineColor)
 	{
+		if(WURST != null && WURST.getHax().simulationSonarHack.isEnabled())
+			boxes = boxes.stream().filter(
+				box -> !WURST.getHax().simulationSonarHack.isChunkOverridden(
+					new ChunkPos((int)Math.floor(box.minX / 16),
+						(int)Math.floor(box.minZ / 16))))
+				.toList();
+		if(boxes.isEmpty())
+			return;
 		ShapeMode mode = shapeMode.getSelected();
 		if(mode == ShapeMode.Sides || mode == ShapeMode.Both)
 			RenderUtils.drawSolidBoxes(matrices, boxes, sideColor, true);
