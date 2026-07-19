@@ -43,13 +43,17 @@ import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.UpdateListener;
@@ -131,12 +135,12 @@ public class ItemHandlerHack extends Hack
 		new CheckboxSetting("Show item popup HUD", true);
 	
 	private final CheckboxSetting showRegistryName =
-		new CheckboxSetting("Show registry names", false);
+		new CheckboxSetting("Show registry names", true);
 	
 	private final CheckboxSetting showEnchantmentsInNames =
 		new CheckboxSetting("Show enchantments in names",
 			"Shows enchantments on the second line in ItemHandler HUD and GUI.",
-			false);
+			true);
 	
 	// How many items to show in the popup HUD
 	private final SliderSetting popupMaxItems = new SliderSetting(
@@ -145,24 +149,28 @@ public class ItemHandlerHack extends Hack
 	private final CheckboxSetting pinSpecialItemsTop = new CheckboxSetting(
 		"Pin ItemESP special to top",
 		"In popup HUD sorting, show items marked as special by ItemESP first.",
-		false);
+		true);
 	
 	private final CheckboxSetting showSignsInHud =
 		new CheckboxSetting("Show nearby signs",
-			"Adds nearby sign text to the ItemHandler popup HUD.", false);
+			"Adds nearby sign text to the ItemHandler popup HUD.", true);
+	private final CheckboxSetting detectWallHeads = new CheckboxSetting(
+		"Detect wall heads",
+		"Detects standing and wall-mounted player heads in the ItemHandler HUD.",
+		true);
 	
 	private final CheckboxSetting detectNamedEntities =
 		new CheckboxSetting("Detect named entities",
-			"Detects custom-named entities (e.g. pets and mobs).", false);
+			"Detects custom-named entities (e.g. pets and mobs).", true);
 	
 	private final CheckboxSetting detectCraftedEntities = new CheckboxSetting(
 		"Detect crafted entities",
 		"Detects nearby crafted entities like boats/rafts, paintings, glow item frames, and selected minecarts.",
-		false);
+		true);
 	private final CheckboxSetting detectOwnedEntities = new CheckboxSetting(
 		"Detect owned entities",
 		"Detects nearby owner-capable entities like pearls, projectiles, primed TNT, and tamed mobs.",
-		false);
+		true);
 	
 	private final SliderSetting signRange = new SliderSetting("Sign range",
 		"How far to scan for signs when 'Show nearby signs' is enabled.\n"
@@ -193,7 +201,7 @@ public class ItemHandlerHack extends Hack
 	// Include items held or worn by mobs
 	private final CheckboxSetting includeMobEquipment =
 		new CheckboxSetting("Detect held/worn mob items",
-			"Also detect items held or worn by mobs.", false);
+			"Also detect items held or worn by mobs.", true);
 	
 	private final CheckboxSetting detectArmorStandEquipment =
 		new CheckboxSetting("Detect armor stand equipment",
@@ -226,6 +234,7 @@ public class ItemHandlerHack extends Hack
 		addSetting(filterDefaultMobEquipment);
 		addSetting(pinSpecialItemsTop);
 		addSetting(showSignsInHud);
+		addSetting(detectWallHeads);
 		addSetting(detectNamedEntities);
 		addSetting(detectCraftedEntities);
 		addSetting(detectOwnedEntities);
@@ -268,8 +277,8 @@ public class ItemHandlerHack extends Hack
 		rejectedRules.clear();
 		endPickFilterSession();
 		
-		if(MC.screen instanceof ItemHandlerScreen)
-			MC.setScreen(null);
+		if(MC.gui.screen() instanceof ItemHandlerScreen)
+			MC.gui.setScreen(null);
 	}
 	
 	@Override
@@ -644,7 +653,7 @@ public class ItemHandlerHack extends Hack
 	
 	private void scanNearbySigns()
 	{
-		boolean guiOpen = MC.screen instanceof ItemHandlerScreen;
+		boolean guiOpen = MC.gui.screen() instanceof ItemHandlerScreen;
 		boolean detectSigns = showSignsInHud.isChecked() || guiOpen;
 		boolean detectNamed = detectNamedEntities.isChecked() || guiOpen;
 		boolean detectCrafted = detectCraftedEntities.isChecked() || guiOpen;
@@ -693,6 +702,9 @@ public class ItemHandlerHack extends Hack
 				trackedLabels.add(new NearbyLabel(p, new AABB(pos), icon,
 					"Sign: " + text, Math.sqrt(distSq), getSignTraceId(pos)));
 			});
+		
+		if(detectWallHeads.isChecked())
+			addPlayerHeadLabels(centerVec, range, infinite, rangeSq);
 		
 		if(detectNamed)
 		{
@@ -789,6 +801,35 @@ public class ItemHandlerHack extends Hack
 		int max = signMax.getValueI();
 		if(trackedLabels.size() > max)
 			trackedLabels.subList(max, trackedLabels.size()).clear();
+	}
+	
+	private void addPlayerHeadLabels(Vec3 centerVec, double range,
+		boolean infinite, double rangeSq)
+	{
+		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
+			if(!(be instanceof SkullBlockEntity skull))
+				return;
+			
+			ResolvableProfile profile = skull.getOwnerProfile();
+			if(profile == null)
+				return;
+			String owner = profile.name().orElse("").trim();
+			if(owner.isEmpty())
+				return;
+			
+			BlockPos pos = skull.getBlockPos();
+			Vec3 point = Vec3.atCenterOf(pos);
+			double distSq = point.distanceToSqr(centerVec);
+			if(!infinite && distSq > rangeSq)
+				return;
+			
+			ItemStack icon = new ItemStack(Items.PLAYER_HEAD);
+			icon.set(net.minecraft.core.component.DataComponents.PROFILE,
+				profile);
+			String label = owner + "'s Head";
+			trackedLabels.add(new NearbyLabel(point, new AABB(pos), icon, label,
+				Math.sqrt(distSq), getSkullTraceId(pos)));
+		});
 	}
 	
 	private ItemStack iconForBlockEntity(BlockEntity be, ItemStack fallback)
@@ -1160,8 +1201,8 @@ public class ItemHandlerHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		Screen prev = MC.screen;
-		MC.setScreen(new ItemHandlerScreen(prev, this));
+		Screen prev = MC.gui.screen();
+		MC.gui.setScreen(new ItemHandlerScreen(prev, this));
 	}
 	
 	public void requestPickup(Collection<Integer> entityIds)
@@ -1278,6 +1319,11 @@ public class ItemHandlerHack extends Hack
 		return "named_entity:" + uuid;
 	}
 	
+	public static String getSkullTraceId(BlockPos pos)
+	{
+		return pos == null ? null : "skull:" + pos.asLong();
+	}
+	
 	public boolean isShowSignsInHud()
 	{
 		return showSignsInHud.isChecked();
@@ -1360,6 +1406,34 @@ public class ItemHandlerHack extends Hack
 	public boolean isShowRegistryName()
 	{
 		return showRegistryName.isChecked();
+	}
+	
+	/**
+	 * Returns the useful extra tooltip line for a player head, such as
+	 * "Killed by Flirmaput". ItemHandler normally only uses getHoverName(),
+	 * which intentionally omits these additional tooltip lines.
+	 */
+	public String getItemSubtitle(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty()
+			|| stack.getItem() != Items.PLAYER_HEAD)
+			return "";
+		
+		try
+		{
+			List<net.minecraft.network.chat.Component> lines =
+				stack.getTooltipLines(Item.TooltipContext.of(MC.level),
+					MC.player, TooltipFlag.NORMAL);
+			for(net.minecraft.network.chat.Component line : lines)
+			{
+				String text = line.getString();
+				if(text != null
+					&& text.toLowerCase(Locale.ROOT).contains("killed by"))
+					return text.trim();
+			}
+		}catch(Throwable ignored)
+		{}
+		return "";
 	}
 	
 	public boolean isShowEnchantmentsInNames()
