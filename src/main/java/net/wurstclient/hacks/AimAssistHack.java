@@ -45,6 +45,11 @@ public final class AimAssistHack extends Hack
 	private final CheckboxSetting lockOn = new CheckboxSetting("Lock-on",
 		"Instantly snaps to targets instead of smoothing rotation.", false);
 	
+	private final CheckboxSetting matchYLevel = new CheckboxSetting(
+		"Match Y level",
+		"While flying, adjusts your vertical movement toward the AimAssist target.",
+		false);
+	
 	private final SliderSetting fov =
 		new SliderSetting("FOV", "description.wurst.setting.aimassist.fov", 120,
 			30, 360, 10, ValueDisplay.DEGREES);
@@ -134,6 +139,7 @@ public final class AimAssistHack extends Hack
 		addSetting(range);
 		addSetting(rotationSpeed);
 		addSetting(lockOn);
+		addSetting(matchYLevel);
 		addSetting(fov);
 		addSetting(aimAt);
 		addSetting(ignoreMouseInput);
@@ -216,6 +222,7 @@ public final class AimAssistHack extends Hack
 			return;
 		}
 		
+		updateMatchYLevel();
 		updateRightClickVerticalAlignment();
 		updateRightClickAutoAttack();
 		
@@ -268,11 +275,41 @@ public final class AimAssistHack extends Hack
 				.getAngleToLookVec(getAimPoint(e)) <= fov.getValue() / 2.0);
 		
 		stream = entityFilters.applyTo(stream);
-		
 		target = stream
 			.min(Comparator.comparingDouble(
 				e -> RotationUtils.getAngleToLookVec(getAimPoint(e))))
 			.orElse(null);
+	}
+	
+	private void updateMatchYLevel()
+	{
+		if(!matchYLevel.isChecked() || MC.player == null || target == null)
+			return;
+		
+		boolean flying = MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled();
+		if(!flying)
+			return;
+		
+		if(target.onGround() && !MC.options.keyShift.isDown()
+			&& target.getY() < MC.player.getY())
+			return;
+		
+		double maxStep = WURST.getHax().flightHack.isEnabled()
+			? WURST.getHax().flightHack.verticalSpeed.getValue()
+			: MC.player.getAbilities().getFlyingSpeed();
+		if(maxStep <= 0)
+			return;
+		
+		double delta = target.getY() - MC.player.getY();
+		if(MC.player.onGround() && delta < 0 && !MC.options.keyShift.isDown())
+			return;
+		if(Math.abs(delta) < 0.02)
+			return;
+		
+		double step = Math.max(-maxStep, Math.min(maxStep, delta));
+		Vec3 motion = MC.player.getDeltaMovement();
+		MC.player.setDeltaMovement(motion.x, motion.y + step, motion.z);
 	}
 	
 	@Override

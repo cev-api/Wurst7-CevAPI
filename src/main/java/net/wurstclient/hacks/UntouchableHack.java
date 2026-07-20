@@ -36,6 +36,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import com.mojang.blaze3d.platform.InputConstants;
+import org.lwjgl.glfw.GLFW;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
@@ -135,6 +137,9 @@ public final class UntouchableHack extends Hack
 		"Holding sneak prevents Untouchable from teleporting. While held, the "
 			+ "sneak key is released again so you keep moving at normal speed.",
 		false);
+	private final CheckboxSetting pauseOnLeftControl =
+		new CheckboxSetting("Pause on left Ctrl",
+			"Holding left Ctrl prevents Untouchable from teleporting.", false);
 	private final SliderSetting playerDistance =
 		new SliderSetting("Player distance",
 			"description.wurst.setting.untouchable.player_distance", 7, 3, 16,
@@ -221,6 +226,7 @@ public final class UntouchableHack extends Hack
 		addSetting(keepDistanceMode);
 		addSetting(movePauseMode);
 		addSetting(pauseOnShift);
+		addSetting(pauseOnLeftControl);
 		addSetting(playerDistance);
 		addSetting(detectionRange);
 		addSetting(reachAllowance);
@@ -1248,7 +1254,7 @@ public final class UntouchableHack extends Hack
 	
 	private boolean shouldSuppressDodging(Vec3 targetPosition)
 	{
-		if(shouldPauseOnShift())
+		if(shouldPauseOnShift() || shouldPauseOnLeftControl())
 			return true;
 		if(movePauseMode.getSelected() == MovePauseMode.ANY_MOVEMENT_KEY)
 			return MC.options != null && (MC.options.keyUp.isDown()
@@ -1263,6 +1269,13 @@ public final class UntouchableHack extends Hack
 			return false;
 		
 		return IKeyMapping.get(MC.options.keyShift).isActuallyDown();
+	}
+	
+	private boolean shouldPauseOnLeftControl()
+	{
+		return pauseOnLeftControl.isChecked() && MC.getWindow() != null
+			&& InputConstants.isKeyDown(MC.getWindow(),
+				GLFW.GLFW_KEY_LEFT_CONTROL);
 	}
 	
 	private void releaseSneakKey()
