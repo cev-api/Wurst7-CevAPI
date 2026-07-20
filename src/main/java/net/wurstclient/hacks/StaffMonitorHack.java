@@ -189,6 +189,12 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	private int staffQuitTicks = -1;
 	private String staffQuitReason;
 	
+	/** Used by safety-aware modules without invoking StaffMonitor's action. */
+	public boolean hasDetectedStaff()
+	{
+		return !alertedStaff.isEmpty() || !hiddenPlayers.isEmpty();
+	}
+	
 	public StaffMonitorHack()
 	{
 		super("StaffMonitor");

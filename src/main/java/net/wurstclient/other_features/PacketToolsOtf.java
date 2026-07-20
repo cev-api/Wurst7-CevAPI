@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.Base64;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -49,6 +50,8 @@ import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.wurstclient.Category;
 import net.wurstclient.events.ConnectionPacketOutputListener;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
@@ -682,6 +685,49 @@ public final class PacketToolsOtf extends OtherFeature
 		{
 			for(String line : lines)
 				appendVerboseLineLocked(line, human);
+		}
+	}
+	
+	/**
+	 * Called after vanilla applies a map-data packet, when ClientLevel's map
+	 * cache contains the complete current map state rather than only the
+	 * packet's optional colour patch.
+	 */
+	public void logVerboseMapCache(ClientboundMapItemDataPacket packet,
+		MapItemSavedData mapData)
+	{
+		if(!verboseEnabled.isChecked() || !loggingEnabled.isChecked()
+			|| packet == null || mapData == null)
+			return;
+		
+		String name = net.wurstclient.other_features.packettools.PacketCatalog
+			.formatPacketName(packet);
+		if(!logS2C.contains(name))
+			return;
+		
+		Map<String, Object> root = new LinkedHashMap<>();
+		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		root.put("direction", "S2C-CACHE");
+		root.put("class", packet.getClass().getName());
+		root.put("simpleName", packet.getClass().getSimpleName());
+		root.put("packetId", name);
+		root.put("mapId", packet.mapId().id());
+		root.put("dataComponent", "minecraft:map_id");
+		root.put("centerX", mapData.centerX);
+		root.put("centerZ", mapData.centerZ);
+		root.put("dimension", String.valueOf(mapData.dimension));
+		root.put("scale", mapData.scale);
+		root.put("locked", mapData.locked);
+		Map<String, Object> colors = new LinkedHashMap<>();
+		colors.put("length", mapData.colors.length);
+		colors.put("base64",
+			Base64.getEncoder().encodeToString(mapData.colors));
+		root.put("colors", colors);
+		
+		String json = VERBOSE_GSON.toJson(root);
+		synchronized(verboseJsonlBuffer)
+		{
+			appendVerboseLineLocked(json, verboseHumanReadable.isChecked());
 		}
 	}
 	

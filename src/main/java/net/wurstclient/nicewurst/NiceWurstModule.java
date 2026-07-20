@@ -114,9 +114,8 @@ public final class NiceWurstModule
 				"BedrockStash", "LivestreamDetector", "StaffMonitor",
 				"OppStats", "SimulationSonar"));
 		
-		ALLOWED_HACKS.put(Category.CHAT,
-			Set.of("AutoChat", "Mention", "NoPlayerChat", "ChatSpam",
-				"CommandSpam", "PlayerMute"));
+		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention",
+			"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
