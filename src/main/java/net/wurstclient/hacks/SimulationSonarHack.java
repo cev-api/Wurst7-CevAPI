@@ -296,6 +296,9 @@ public final class SimulationSonarHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		if(isFreecamActive())
+			return;
+		
 		Packet<?> p = event.getPacket();
 		if(p instanceof ClientboundSetSimulationDistancePacket x)
 		{
@@ -809,6 +812,9 @@ public final class SimulationSonarHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		if(isFreecamActive())
+			return;
+		
 		if(MC.level == null || MC.player == null)
 		{
 			if(level != null)
@@ -1120,7 +1126,7 @@ public final class SimulationSonarHack extends Hack
 	@Override
 	public void onRender(PoseStack matrices, float partialTicks)
 	{
-		if(!render.isChecked() || MC.player == null)
+		if(isFreecamActive() || !render.isChecked() || MC.player == null)
 			return;
 		long now = System.currentTimeMillis();
 		double y = renderHeight.getValue();
@@ -1157,6 +1163,12 @@ public final class SimulationSonarHack extends Hack
 						true);
 			}
 		}
+	}
+	
+	private boolean isFreecamActive()
+	{
+		return WURST != null && WURST.getHax() != null
+			&& WURST.getHax().freecamHack.isMovingCamera();
 	}
 	
 	private int distanceFromPlayer(ChunkPos pos)
