@@ -37,11 +37,13 @@ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.ProfileKeyPair;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoSignHack;
 import net.wurstclient.util.ChatUtils;
@@ -53,6 +55,19 @@ public abstract class ClientPacketListenerMixin
 {
 	@Shadow
 	private LastSeenMessagesTracker lastSeenMessages;
+	
+	@Inject(
+		method = "handleMapItemData(Lnet/minecraft/network/protocol/game/ClientboundMapItemDataPacket;)V",
+		at = @At("TAIL"))
+	private void wurst$logAppliedMapData(ClientboundMapItemDataPacket packet,
+		CallbackInfo ci)
+	{
+		if(minecraft.level == null)
+			return;
+		MapItemSavedData mapData = minecraft.level.getMapData(packet.mapId());
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseMapCache(packet,
+			mapData);
+	}
 	
 	private ClientPacketListenerMixin(WurstClient wurst, Minecraft client,
 		Connection connection, CommonListenerCookie connectionState)

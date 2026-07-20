@@ -160,6 +160,15 @@ public final class SimulationSonarHack extends Hack
 	// tracked separately so unloaded detection markers can remain visible.
 	private final Map<Long, Long> loadedChunks = new ConcurrentHashMap<>();
 	private final Map<Long, Long> localCoverage = new ConcurrentHashMap<>();
+	
+	/** Returns true when sonar currently has a confidence-ranked detection. */
+	public boolean hasDetectedSource()
+	{
+		long now = System.currentTimeMillis();
+		return states.values().stream().anyMatch(s -> s.confidence != null
+			&& now - s.lastMarked < expiry.getValue() * 1000);
+	}
+	
 	private ClientLevelMarker level;
 	private int simulationDistance = -1, viewDistance = -1;
 	private long stationarySince, lastDebug;

@@ -46,6 +46,7 @@
   "description.wurst.setting.autobuild.face_target": "How AutoBuild should face the blocks it's placing.",
   "description.wurst.setting.autobuild.swing_hand": "How AutoBuild should swing your hand when placing blocks.",
   "description.wurst.hack.autocomplete": "Auto-completes your chat messages using large language models. Requires an OpenAI account with API access or any other language model API that is OpenAI-compatible.",
+  "description.wurst.hack.autoclicker": "Clicks the selected mouse button at a configurable interval, with repeat limits, selected block targets, and safety flags.",
   "description.wurst.hack.autodisenchant": "Automatically feeds every inventory item into the grindstone to remove enchantments. Enable the setting to include your hotbar.",
   "description.wurst.hack.autodrop": "Automatically drops unwanted items.",
   "description.wurst.hack.susnomore": "Reports each suspicious sand/gravel dust result instantly in chat so you can skip the useless ones. Optionally auto-breaks the sand with your shovel when the revealed item matches your configured list.",
