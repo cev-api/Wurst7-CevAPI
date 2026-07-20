@@ -3485,7 +3485,8 @@
     "Monitor mode switching": true,
     "Ignore self": true,
     "Hidden player alerts": true,
-    "Hidden staff alerts": true
+    "Hidden staff alerts": true,
+    "Mojang Staff": false
   },
   "StasisDetector": {
     "Style": "Lines and boxes",
@@ -3942,6 +3943,12 @@
     "Mentions": true,
     "Player enter range": true,
     "Portal detection": true,
+    "Shulker detection": true,
+    "Double chest detection": true,
+    "Ender chest detection": true,
+    "StasisDetector alert": true,
+    "Named entity/item alert": true,
+    "Named block alert": true,
     "Player damage": true,
     "Player starving": true,
     "New chunk detection": false,
