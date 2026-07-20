@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.io.InputStream;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -123,6 +124,10 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			+ "Staff names are loaded from .minecraft/wurst/staff/<server>.txt"
 			+ " and .minecraft/wurst/staff/global.txt, one name per line.",
 		true);
+	private final CheckboxSetting mojangStaff = new CheckboxSetting(
+		"Mojang Staff",
+		"Includes the bundled Mojang staff names and UUIDs in staff detection.",
+		false);
 	private final Setting savedStaffList =
 		new Setting("Saved staff list", net.wurstclient.util.text.WText
 			.literal("Names detected by StaffMonitor on this server."))
@@ -181,6 +186,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	private final Map<UUID, GameType> gamemodeStates = new HashMap<>();
 	private final Map<UUID, String> hiddenPlayers = new HashMap<>();
 	private final Set<String> staffNames = new HashSet<>();
+	private final Set<String> mojangStaffNames = new HashSet<>();
+	private final Set<UUID> mojangStaffUuids = new HashSet<>();
 	private final LinkedHashSet<String> savedStaffNames = new LinkedHashSet<>();
 	private final Set<UUID> alertedStaff = new HashSet<>();
 	private String lastServerKey = "unknown";
@@ -208,6 +215,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		addSetting(hiddenPlayerAlerts);
 		addSetting(ignoreNpcNames);
 		addSetting(hiddenStaffAlerts);
+		addSetting(mojangStaff);
 		addSetting(savedStaffList);
 		addSetting(addStaffUsernameField);
 		addSetting(addStaffUsernameButton);
@@ -226,6 +234,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		savedStaffServerKey = resolveStorageServerKey();
 		hiddenPlayerAlertsActive = hiddenPlayerAlerts.isChecked();
 		loadStaffNames();
+		loadMojangStaff();
 		loadSavedStaffNames();
 		snapshotCurrentStates();
 		checkForStaffPresence();
@@ -242,6 +251,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		staffNames.clear();
+		mojangStaffNames.clear();
+		mojangStaffUuids.clear();
 		savedStaffNames.clear();
 		hiddenPlayerAlertsActive = false;
 		cancelStaffQuit();
@@ -261,6 +272,9 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			cancelStaffQuit();
 			return;
 		}
+		if(mojangStaff.isChecked() && mojangStaffNames.isEmpty()
+			&& mojangStaffUuids.isEmpty())
+			loadMojangStaff();
 		
 		String serverKeyNow = resolveServerKey();
 		if(!serverKeyNow.equals(lastServerKey))
@@ -272,6 +286,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			savedStaffServerKey = resolveStorageServerKey();
 			hiddenPlayerAlertsActive = hiddenPlayerAlerts.isChecked();
 			loadStaffNames();
+			loadMojangStaff();
 			loadSavedStaffNames();
 			snapshotCurrentStates();
 			if(hiddenPlayerAlertsActive)
@@ -297,7 +312,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			
 			// Hidden staff alert
 			if(hiddenStaffAlerts.isChecked()
-				&& isStaffName(info.getProfile().name())
+				&& isStaff(info.getProfile().id(), info.getProfile().name())
 				&& alertedStaff.add(id))
 				alertStaff(info);
 			
@@ -310,8 +325,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 					alert(info, currentMode, true);
 					recordSavedStaffMember(info.getProfile().name());
 				}
-				if(quitOnStaffEnter.isChecked()
-					&& isStaffName(info.getProfile().name()))
+				if(quitOnStaffEnter.isChecked() && isStaff(
+					info.getProfile().id(), info.getProfile().name()))
 					queueStaffQuit(info.getProfile().name());
 				continue;
 			}
@@ -528,6 +543,49 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		loadStaffFile(folder.resolve(lastServerKey + ".txt"));
 	}
 	
+	private void loadMojangStaff()
+	{
+		mojangStaffNames.clear();
+		mojangStaffUuids.clear();
+		if(!mojangStaff.isChecked())
+			return;
+		loadMojangStaffFile("/wurst/staff/mojang-names.txt", false);
+		loadMojangStaffFile("/wurst/staff/mojang-uuids.txt", true);
+	}
+	
+	private void loadMojangStaffFile(String resource, boolean uuidFile)
+	{
+		try(InputStream stream =
+			StaffMonitorHack.class.getResourceAsStream(resource))
+		{
+			if(stream == null)
+				return;
+			String content =
+				new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+			for(String line : content.split("\\R"))
+			{
+				String value = line.strip();
+				if(value.isEmpty() || value.startsWith("#"))
+					continue;
+				if(uuidFile)
+				{
+					try
+					{
+						mojangStaffUuids.add(UUID.fromString(value));
+					}catch(IllegalArgumentException ignored)
+					{
+						// Ignore malformed bundled entries.
+					}
+				}else
+					mojangStaffNames.add(value.toLowerCase(Locale.ROOT));
+			}
+		}catch(IOException e)
+		{
+			ChatUtils.error(
+				"StaffMonitor Mojang staff list failed: " + e.getMessage());
+		}
+	}
+	
 	private void loadSavedStaffNames()
 	{
 		savedStaffNames.clear();
@@ -630,7 +688,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
 			String name = info.getProfile().name();
-			if(isStaffName(name))
+			if(isStaff(info.getProfile().id(), name))
 			{
 				queueStaffQuit(name);
 				return;
@@ -761,11 +819,15 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		}
 	}
 	
-	private boolean isStaffName(String name)
+	private boolean isStaff(UUID id, String name)
 	{
-		return name != null
-			&& (staffNames.contains(name.toLowerCase(Locale.ROOT))
-				|| containsNameIgnoreCase(savedStaffNames, name));
+		if(name == null)
+			return false;
+		return staffNames.contains(name.toLowerCase(Locale.ROOT))
+			|| containsNameIgnoreCase(savedStaffNames, name)
+			|| (mojangStaff.isChecked()
+				&& (mojangStaffNames.contains(name.toLowerCase(Locale.ROOT))
+					|| mojangStaffUuids.contains(id)));
 	}
 	
 	private String resolveServerKey()
