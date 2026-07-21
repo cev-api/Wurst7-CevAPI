@@ -17,11 +17,31 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.AnvilBlock;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.BeaconBlock;
+import net.minecraft.world.level.block.BrewingStandBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CartographyTableBlock;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.world.level.block.DispenserBlock;
+import net.minecraft.world.level.block.EnchantingTableBlock;
+import net.minecraft.world.level.block.GrindstoneBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.LecternBlock;
+import net.minecraft.world.level.block.LoomBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.SmithingTableBlock;
+import net.minecraft.world.level.block.StonecutterBlock;
+import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.RightClickListener;
+import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.TextFieldSetting;
@@ -30,7 +50,8 @@ import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"remote echest", "remote ender chest", "ender chest",
 	"portable echest", "portable ender chest"})
-public final class RemoteEnderChestHack extends Hack implements UpdateListener
+public final class RemoteEnderChestHack extends Hack
+	implements UpdateListener, RightClickListener
 {
 	private static RemoteEnderChestHack instance;
 	
@@ -41,6 +62,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	private int savedSyncId = -1;
 	private Level lastWorld;
 	private BlockPos potentialEChestPos;
+	private boolean blockedContainerWarningShown;
 	private int autoTotemReserve = -1;
 	private boolean autoTotemRefillRequested;
 	
@@ -60,6 +82,11 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 			+ " opening its GUI.",
 		false);
 	
+	private final CheckboxSetting disableContainers = new CheckboxSetting(
+		"Disable containers",
+		"For forgetful players who keep breaking the link to their e-chest.",
+		false);
+	
 	public RemoteEnderChestHack()
 	{
 		super("RemoteEChest");
@@ -68,6 +95,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		addSetting(toggleGuiKey);
 		addSetting(swapInventoryKey);
 		addSetting(autoTotem);
+		addSetting(disableContainers);
 	}
 	
 	// ---- Mixin API (X button, E/ESC key interception) ----
@@ -223,6 +251,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(RightClickListener.class, this);
 		resetStuff();
 		
 		if(MC.player == null || MC.level == null)
@@ -238,12 +267,58 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(RightClickListener.class, this);
 		resetStuff();
+	}
+	
+	@Override
+	public void onRightClick(RightClickEvent event)
+	{
+		if(!disableContainers.isChecked() || savedScreen == null
+			|| !isSavedContainerMenuStillActive() || MC.level == null
+			|| !(MC.hitResult instanceof BlockHitResult hit)
+			|| !isContainerBlock(hit.getBlockPos()))
+			return;
+		
+		event.cancel();
+		if(MC.options.keyUse.isDown())
+		{
+			if(blockedContainerWarningShown)
+				return;
+			blockedContainerWarningShown = true;
+		}
+		ChatUtils.message(
+			"Containers are disabled while the EChest link is active.");
+	}
+	
+	private boolean isContainerBlock(BlockPos pos)
+	{
+		BlockState state = MC.level.getBlockState(pos);
+		if(MC.level.getBlockEntity(pos) instanceof BaseContainerBlockEntity)
+			return true;
+		
+		var block = state.getBlock();
+		return block instanceof ChestBlock || block instanceof BarrelBlock
+			|| block instanceof ShulkerBoxBlock || block instanceof HopperBlock
+			|| block instanceof DispenserBlock || block instanceof BeaconBlock
+			|| block instanceof BrewingStandBlock || block instanceof AnvilBlock
+			|| block instanceof CartographyTableBlock
+			|| block instanceof CrafterBlock
+			|| block instanceof EnchantingTableBlock
+			|| block instanceof GrindstoneBlock || block instanceof LecternBlock
+			|| block instanceof LoomBlock || block instanceof SmithingTableBlock
+			|| block instanceof StonecutterBlock || block == Blocks.DROPPER
+			|| block == Blocks.FURNACE || block == Blocks.BLAST_FURNACE
+			|| block == Blocks.SMOKER || block == Blocks.ENDER_CHEST
+			|| block == Blocks.CRAFTER;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(!MC.options.keyUse.isDown())
+			blockedContainerWarningShown = false;
+		
 		if(MC.player == null || MC.level == null)
 		{
 			resetStuff(false);
@@ -462,6 +537,7 @@ public final class RemoteEnderChestHack extends Hack implements UpdateListener
 		guiWasOpen = false;
 		lastToggleKeyState = false;
 		potentialEChestPos = null;
+		blockedContainerWarningShown = false;
 		autoTotemReserve = -1;
 		autoTotemRefillRequested = false;
 		savedSyncId = -1;

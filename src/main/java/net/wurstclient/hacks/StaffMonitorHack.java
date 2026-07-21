@@ -104,8 +104,6 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		"Alert when players switch gamemodes (survival \u2194 creative \u2194"
 			+ " adventure \u2194 spectator).",
 		true);
-	private final CheckboxSetting ignoreSelf =
-		new CheckboxSetting("Ignore self", true);
 	private final CheckboxSetting hiddenPlayerAlerts = new CheckboxSetting(
 		"Hidden player alerts",
 		"Alerts when a player entity is visible to the client but missing from"
@@ -211,7 +209,6 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		addSetting(sound);
 		addSetting(volume);
 		addSetting(monitorModeSwitching);
-		addSetting(ignoreSelf);
 		addSetting(hiddenPlayerAlerts);
 		addSetting(ignoreNpcNames);
 		addSetting(hiddenStaffAlerts);
@@ -303,8 +300,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
 			UUID id = info.getProfile().id();
-			if(ignoreSelf.isChecked() && MC.player != null
-				&& id.equals(MC.player.getUUID()))
+			if(shouldIgnorePlayer(id, info.getProfile().name()))
 				continue;
 			
 			GameType currentMode = info.getGameMode();
@@ -384,7 +380,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		}
 		
 		for(Map.Entry<UUID, String> entry : hiddenPlayers.entrySet())
-			if(!nextHiddenPlayers.containsKey(entry.getKey()))
+			if(!nextHiddenPlayers.containsKey(entry.getKey())
+				&& !shouldIgnorePlayer(entry.getKey(), entry.getValue()))
 				alertHiddenPlayer(entry.getValue(), false);
 			
 		hiddenPlayers.clear();
@@ -399,8 +396,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
 			UUID id = info.getProfile().id();
-			if(ignoreSelf.isChecked() && MC.player != null
-				&& id.equals(MC.player.getUUID()))
+			if(shouldIgnorePlayer(id, info.getProfile().name()))
 				continue;
 			
 			gamemodeStates.put(id, info.getGameMode());
@@ -435,8 +431,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			&& isLikelyNpcName(player.getName().getString()))
 			return true;
 		
-		return ignoreSelf.isChecked() && MC.player != null
-			&& player.getUUID().equals(MC.player.getUUID());
+		return shouldIgnorePlayer(player.getUUID(),
+			player.getName().getString());
 	}
 	
 	private boolean isLikelyNpcName(String name)
@@ -688,6 +684,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		for(PlayerInfo info : MC.getConnection().getOnlinePlayers())
 		{
 			String name = info.getProfile().name();
+			if(shouldIgnorePlayer(info.getProfile().id(), name))
+				continue;
 			if(isStaff(info.getProfile().id(), name))
 			{
 				queueStaffQuit(name);
@@ -828,6 +826,25 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			|| (mojangStaff.isChecked()
 				&& (mojangStaffNames.contains(name.toLowerCase(Locale.ROOT))
 					|| mojangStaffUuids.contains(id)));
+	}
+	
+	private boolean shouldIgnorePlayer(UUID id, String name)
+	{
+		if(id != null && MC.getUser() != null
+			&& id.equals(MC.getUser().getProfileId()))
+			return true;
+		
+		if(MC.player != null && id != null && id.equals(MC.player.getUUID()))
+			return true;
+		
+		if(name == null)
+			return false;
+		
+		if(MC.getUser() != null
+			&& name.equalsIgnoreCase(MC.getUser().getName()))
+			return true;
+		
+		return WURST.getFriends() != null && WURST.getFriends().contains(name);
 	}
 	
 	private String resolveServerKey()
