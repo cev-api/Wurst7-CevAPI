@@ -20,6 +20,11 @@ import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -73,6 +78,14 @@ public enum MicrosoftLoginManager
 	
 	private static final URL PROFILE_URL =
 		createURL("https://api.minecraftservices.com/minecraft/profile");
+	
+	private static final String LIVE_AUTHORIZE_URL =
+		"https://login.live.com/oauth20_authorize.srf";
+	
+	private static final String DEFAULT_USER_AGENT =
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+			+ "AppleWebKit/537.36 (KHTML, like Gecko) "
+			+ "Chrome/124.0.0.0 Safari/537.36";
 	
 	/**
 	 * Expected data: <code>"sFTTag": "&lt;input type=\"hidden\" name=\"PPFT\"
@@ -235,6 +248,349 @@ public enum MicrosoftLoginManager
 		String mcAccessToken) throws LoginException
 	{
 		return getMinecraftProfile(mcAccessToken);
+	}
+	
+	/**
+	 * Logs in using Netscape-format cookies from login.live.com,
+	 * sets the Minecraft session, and returns the profile.
+	 * Used by DirectLoginScreen for direct cookie-based login.
+	 */
+	public static MinecraftProfile loginWithCookies(String cookiesText)
+		throws LoginException
+	{
+		System.out.println("Logging in with cookies...");
+		long startTime = System.nanoTime();
+		
+		try
+		{
+			CookieAuthResult result = authenticateCookies(cookiesText);
+			setSession(result.getProfile());
+			
+			System.out.println("Cookie login successful after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			
+			return result.getProfile();
+			
+		}catch(LoginException e)
+		{
+			System.out.println("Cookie login failed after "
+				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			throw e;
+		}
+	}
+	
+	/**
+	 * Authenticates using Netscape-format cookies from login.live.com
+	 * without setting the session. Returns both the Minecraft profile
+	 * and the MSA refresh token (for saving as a TokenAlt).
+	 */
+	public static CookieAuthResult authenticateCookies(String cookiesText)
+		throws LoginException
+	{
+		if(cookiesText == null || cookiesText.isBlank())
+			throw new LoginException("Cookies text cannot be empty.");
+		
+		List<CookieEntry> cookies = parseNetscapeCookies(cookiesText);
+		if(cookies.isEmpty())
+			throw new LoginException(
+				"No valid cookies found in the pasted text.");
+		
+		System.out.println("Parsed " + cookies.size() + " cookies");
+		
+		String cookieHeader = buildCookieHeader(cookies);
+		PkcePair pkce = generatePkcePair();
+		
+		System.out.println("Getting authorization code from cookies...");
+		String authCode = getAuthorizationCodeFromCookies(cookieHeader, pkce);
+		
+		System.out
+			.println("Exchanging authorization code for MSA tokens (PKCE)...");
+		MsTokenResult msTokens =
+			getMicrosoftTokenWithPkce(authCode, pkce.verifier());
+		
+		System.out.println("Got MSA access_token ("
+			+ msTokens.accessToken().length() + " chars) and refresh_token ("
+			+ msTokens.refreshToken().length() + " chars)");
+		
+		MinecraftProfile mcProfile =
+			getAccountFromMicrosoftAccessToken(msTokens.accessToken());
+		
+		return new CookieAuthResult(mcProfile, msTokens.refreshToken());
+	}
+	
+	// --- Cookie authentication helper classes ---
+	
+	/** Result of cookie-based authentication for use by AddAltScreen. */
+	public static final class CookieAuthResult
+	{
+		private final MinecraftProfile profile;
+		private final String refreshToken;
+		
+		private CookieAuthResult(MinecraftProfile profile, String refreshToken)
+		{
+			this.profile = profile;
+			this.refreshToken = refreshToken;
+		}
+		
+		public MinecraftProfile getProfile()
+		{
+			return profile;
+		}
+		
+		public String getRefreshToken()
+		{
+			return refreshToken;
+		}
+	}
+	
+	private static final class CookieEntry
+	{
+		final String name;
+		final String value;
+		final String domain;
+		
+		CookieEntry(String name, String value, String domain)
+		{
+			this.name = name;
+			this.value = value;
+			this.domain = domain;
+		}
+	}
+	
+	private static final class PkcePair
+	{
+		private final String verifier;
+		private final String challenge;
+		
+		PkcePair(String verifier, String challenge)
+		{
+			this.verifier = verifier;
+			this.challenge = challenge;
+		}
+		
+		String verifier()
+		{
+			return verifier;
+		}
+		
+		String challenge()
+		{
+			return challenge;
+		}
+	}
+	
+	private static final class MsTokenResult
+	{
+		private final String accessToken;
+		private final String refreshToken;
+		
+		MsTokenResult(String accessToken, String refreshToken)
+		{
+			this.accessToken = accessToken;
+			this.refreshToken = refreshToken;
+		}
+		
+		String accessToken()
+		{
+			return accessToken;
+		}
+		
+		String refreshToken()
+		{
+			return refreshToken;
+		}
+	}
+	
+	// --- Cookie authentication private methods ---
+	
+	private static final Pattern NETSCAPE_NO_TAB_REGEX =
+		Pattern.compile("^([\\w.-]*\\.[a-zA-Z]{2,})(TRUE|FALSE)(/)(TRUE|FALSE)"
+			+ "(\\d{10})([A-Za-z_][\\w-]*)(.*)$");
+	
+	private static List<CookieEntry> parseNetscapeCookies(String text)
+	{
+		List<CookieEntry> entries = new ArrayList<>();
+		
+		for(String line : text.split("\\r?\\n"))
+		{
+			line = line.trim();
+			if(line.isEmpty() || line.startsWith("#"))
+				continue;
+			
+			// Try tab-delimited format first
+			String[] parts = line.split("\t");
+			if(parts.length >= 7)
+			{
+				String domain = parts[0].trim();
+				String name = parts[5].trim();
+				String value = parts[6].trim();
+				
+				if(!name.isEmpty())
+				{
+					entries.add(new CookieEntry(name, value, domain));
+					continue;
+				}
+			}
+			
+			// Fallback: tabs were stripped, use regex
+			Matcher m = NETSCAPE_NO_TAB_REGEX.matcher(line);
+			if(m.matches())
+			{
+				String domain = m.group(1);
+				String name = m.group(6);
+				String value = m.group(7);
+				entries.add(new CookieEntry(name, value, domain));
+			}
+		}
+		
+		return entries;
+	}
+	
+	private static String buildCookieHeader(List<CookieEntry> cookies)
+	{
+		StringBuilder sb = new StringBuilder();
+		for(CookieEntry c : cookies)
+		{
+			if(sb.length() > 0)
+				sb.append("; ");
+			sb.append(c.name).append("=").append(c.value);
+		}
+		return sb.toString();
+	}
+	
+	private static PkcePair generatePkcePair() throws LoginException
+	{
+		try
+		{
+			// Generate 128-char code verifier
+			SecureRandom random = new SecureRandom();
+			byte[] bytes = new byte[96];
+			random.nextBytes(bytes);
+			String verifier =
+				Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+			if(verifier.length() > 128)
+				verifier = verifier.substring(0, 128);
+			
+			// SHA-256 hash for code challenge
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash =
+				digest.digest(verifier.getBytes(StandardCharsets.US_ASCII));
+			String challenge =
+				Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+			
+			return new PkcePair(verifier, challenge);
+			
+		}catch(NoSuchAlgorithmException e)
+		{
+			throw new LoginException("SHA-256 not available.", e);
+		}
+	}
+	
+	private static String getAuthorizationCodeFromCookies(String cookieHeader,
+		PkcePair pkce) throws LoginException
+	{
+		String params = "client_id=" + CLIENT_ID + "&redirect_uri="
+			+ REDIRECT_URI_ENCODED + "&response_type=code&scope="
+			+ SCOPE_ENCODED + "&code_challenge="
+			+ URLEncoder.encode(pkce.challenge(), StandardCharsets.UTF_8)
+			+ "&code_challenge_method=S256";
+		
+		try
+		{
+			URL url = URI.create(LIVE_AUTHORIZE_URL + "?" + params).toURL();
+			
+			HttpURLConnection connection =
+				(HttpURLConnection)url.openConnection();
+			connection.setInstanceFollowRedirects(false);
+			connection.setRequestProperty("Cookie", cookieHeader);
+			connection.setRequestProperty("User-Agent", DEFAULT_USER_AGENT);
+			
+			int responseCode = connection.getResponseCode();
+			if(responseCode != 302)
+				throw new LoginException("Microsoft authorize returned HTTP "
+					+ responseCode
+					+ " (expected 302). Cookies may be expired or invalid.");
+			
+			String location = connection.getHeaderField("Location");
+			if(location == null)
+				throw new LoginException(
+					"No redirect Location header from Microsoft authorize.");
+			
+			Matcher matcher = AUTHCODE_REGEX.matcher(location);
+			if(!matcher.find())
+				throw new LoginException(
+					"No authorization code in redirect URL. Cookies may be expired.");
+			
+			String rawCode = matcher.group(1);
+			return URLDecoder.decode(rawCode, StandardCharsets.UTF_8);
+			
+		}catch(IOException e)
+		{
+			throw new LoginException("Connection failed: " + e, e);
+		}
+	}
+	
+	private static MsTokenResult getMicrosoftTokenWithPkce(String authCode,
+		String codeVerifier) throws LoginException
+	{
+		Map<String, String> postData = new HashMap<>();
+		postData.put("client_id", CLIENT_ID);
+		postData.put("code", authCode);
+		postData.put("grant_type", "authorization_code");
+		postData.put("redirect_uri",
+			"https://login.live.com/oauth20_desktop.srf");
+		postData.put("code_verifier", codeVerifier);
+		
+		byte[] encodedDataBytes =
+			urlEncodeMap(postData).getBytes(StandardCharsets.UTF_8);
+		
+		try
+		{
+			HttpURLConnection connection =
+				(HttpURLConnection)AUTH_TOKEN_URL.openConnection();
+			
+			connection.setRequestMethod("POST");
+			connection.setRequestProperty("Content-Type",
+				"application/x-www-form-urlencoded; charset=UTF-8");
+			connection.setDoOutput(true);
+			
+			System.out.println("Exchanging auth code for MSA tokens (PKCE)...");
+			
+			try(OutputStream out = connection.getOutputStream())
+			{
+				out.write(encodedDataBytes);
+			}
+			
+			int responseCode = connection.getResponseCode();
+			if(responseCode != 200)
+			{
+				String errorBody = readErrorBody(connection);
+				throw new LoginException(
+					"Microsoft token exchange returned HTTP " + responseCode
+						+ ": " + errorBody);
+			}
+			
+			WsonObject json = JsonUtils.parseConnectionToObject(connection);
+			String accessToken = json.getString("access_token");
+			String refreshToken = json.getString("refresh_token");
+			
+			if(accessToken == null || accessToken.isEmpty())
+				throw new LoginException(
+					"No access_token in Microsoft token response.");
+			
+			if(refreshToken == null)
+				refreshToken = "";
+			
+			return new MsTokenResult(accessToken, refreshToken);
+			
+		}catch(IOException e)
+		{
+			throw new LoginException("Connection failed: " + e, e);
+			
+		}catch(JsonException e)
+		{
+			throw new LoginException("Server sent invalid JSON.", e);
+		}
 	}
 	
 	private static MinecraftProfile getAccount(String email, String password)
