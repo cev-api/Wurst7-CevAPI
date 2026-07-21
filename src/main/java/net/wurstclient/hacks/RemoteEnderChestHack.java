@@ -46,7 +46,6 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
-import net.wurstclient.util.InventoryUtils;
 
 @SearchTags({"remote echest", "remote ender chest", "ender chest",
 	"portable echest", "portable ender chest"})
@@ -63,7 +62,6 @@ public final class RemoteEnderChestHack extends Hack
 	private Level lastWorld;
 	private BlockPos potentialEChestPos;
 	private boolean blockedContainerWarningShown;
-	private int autoTotemReserve = -1;
 	private boolean autoTotemRefillRequested;
 	
 	private final TextFieldSetting toggleGuiKey =
@@ -437,11 +435,7 @@ public final class RemoteEnderChestHack extends Hack
 			return;
 		
 		boolean forceRefill = autoTotemRefillRequested;
-		int localTotems = InventoryUtils
-			.count(stack -> stack.is(Items.TOTEM_OF_UNDYING), 40, true);
-		if(autoTotemReserve < 0)
-			autoTotemReserve = Math.max(1, localTotems);
-		if(!forceRefill && localTotems >= autoTotemReserve)
+		if(!forceRefill)
 			return;
 			
 		// A generic 9x3 chest has 27 chest slots before the player's slots.
@@ -538,7 +532,6 @@ public final class RemoteEnderChestHack extends Hack
 		lastToggleKeyState = false;
 		potentialEChestPos = null;
 		blockedContainerWarningShown = false;
-		autoTotemReserve = -1;
 		autoTotemRefillRequested = false;
 		savedSyncId = -1;
 		savedScreen = null;

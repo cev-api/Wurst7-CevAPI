@@ -10,6 +10,9 @@ package net.wurstclient.hacks;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
@@ -28,6 +31,10 @@ public final class NoFallHack extends Hack implements UpdateListener
 		new CheckboxSetting("Pause for mace",
 			"description.wurst.setting.nofall.pause_for_mace", false);
 	
+	private final CheckboxSetting pauseForFlight =
+		new CheckboxSetting("Pause during Flight",
+			"description.wurst.setting.nofall.pause_for_flight", false);
+	
 	private final SliderSetting minFallDistance =
 		new SliderSetting("Min fall distance",
 			"description.wurst.setting.nofall.min_fall_distance", 1, 0, 10, 0.1,
@@ -44,6 +51,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 		setCategory(Category.MOVEMENT);
 		addSetting(allowElytra);
 		addSetting(pauseForMace);
+		addSetting(pauseForFlight);
 		addSetting(minFallDistance);
 		addSetting(minFallDistanceElytra);
 	}
@@ -97,6 +105,14 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(pauseForMace.isChecked() && player.getMainHandItem().is(Items.MACE))
 			return true;
 			
+		// Flight controls the player's vertical motion directly. In particular,
+		// descending with Flight raises fallDistance even though the player has
+		// not started a normal fall. Ground packets then use hunger, so wait
+		// until a landing surface is close before protecting a fall.
+		if(pauseForFlight.isChecked() && WURST.getHax().flightHack.isEnabled()
+			&& !isCloseToGround(player))
+			return true;
+			
 		// ignore small falls that can't cause damage,
 		// unless CreativeFlight is enabled in survival mode
 		boolean creativeFlying = WURST.getHax().creativeFlightHack.isEnabled()
@@ -116,5 +132,22 @@ public final class NoFallHack extends Hack implements UpdateListener
 	private boolean isFallingFastEnoughToCauseDamage(LocalPlayer player)
 	{
 		return player.getDeltaMovement().y < -0.5;
+	}
+	
+	private boolean isCloseToGround(LocalPlayer player)
+	{
+		if(MC.level == null)
+			return false;
+			
+		// Leave enough room for Flight's next vertical movement, including at
+		// its maximum configured speed, before it can reach the surface.
+		double distance =
+			WURST.getHax().flightHack.getActualVerticalSpeed() + 1;
+		Vec3 start = new Vec3(player.getX(), player.getBoundingBox().minY,
+			player.getZ());
+		Vec3 end = start.add(0, -distance, 0);
+		HitResult result = MC.level.clip(new ClipContext(start, end,
+			ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
+		return result.getType() == HitResult.Type.BLOCK;
 	}
 }
