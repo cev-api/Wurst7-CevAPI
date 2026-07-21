@@ -283,7 +283,8 @@ public final class AltManagerScreen extends Screen
 		logoutButton.active =
 			((IMinecraftClient)minecraft).getWurstSession() != null;
 		
-		checkButton.active = !autoCheckInProgress && hasUncheckedPremiumAlts();
+		checkButton.active = !autoCheckInProgress
+			&& altManager.getList().stream().anyMatch(alt -> !alt.isCracked());
 		
 		if(importButton != null)
 			importButton.active = !importInProgress && !importPrismInProgress

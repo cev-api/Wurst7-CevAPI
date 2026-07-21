@@ -19,6 +19,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import com.google.gson.JsonElement;
@@ -80,6 +82,55 @@ public enum MinecraftServicesApi
 		return new NameChangeInfo(allowed, changedAt, createdAt);
 	}
 	
+	public static List<NameHistoryEntry> getNameHistory(String uuid)
+		throws ApiException
+	{
+		String cleanUuid = uuid == null ? "" : uuid.replace("-", "").trim();
+		if(cleanUuid.isBlank())
+			return List.of();
+		
+		String[] urls = {
+			"https://api.minecraftservices.com/minecraft/profile/lookup/name/"
+				+ cleanUuid + "/names",
+			"https://api.mojang.com/user/profiles/" + cleanUuid + "/names"};
+		
+		for(String endpoint : urls)
+		{
+			ApiResponse response =
+				sendJsonRequest("GET", createURL(endpoint), null, null);
+			if(!response.isSuccess())
+				continue;
+			
+			JsonElement parsed;
+			try
+			{
+				parsed = JsonParser.parseString(response.body);
+			}catch(RuntimeException e)
+			{
+				continue;
+			}
+			JsonElement names =
+				parsed.isJsonArray() ? parsed : parsed.isJsonObject()
+					? parsed.getAsJsonObject().get("names") : null;
+			if(names == null || !names.isJsonArray())
+				continue;
+			
+			ArrayList<NameHistoryEntry> result = new ArrayList<>();
+			for(JsonElement element : names.getAsJsonArray())
+			{
+				if(!element.isJsonObject())
+					continue;
+				JsonObject entry = element.getAsJsonObject();
+				result.add(new NameHistoryEntry(
+					JsonUtils.getAsString(entry.get("name"), ""),
+					JsonUtils.getAsString(entry.get("changedToAt"), "")));
+			}
+			return result;
+		}
+		
+		return List.of();
+	}
+	
 	public static ProfileData changeName(String mcAccessToken, String newName)
 		throws ApiException
 	{
@@ -126,16 +177,14 @@ public enum MinecraftServicesApi
 	private static ApiResponse sendJsonRequest(String method, URL url,
 		String mcAccessToken, String body) throws ApiException
 	{
-		if(mcAccessToken == null || mcAccessToken.isBlank())
-			throw new ApiException("Minecraft access token cannot be empty.");
-		
 		try
 		{
 			HttpURLConnection connection =
 				(HttpURLConnection)url.openConnection();
 			connection.setRequestMethod(method);
-			connection.setRequestProperty("Authorization",
-				"Bearer " + mcAccessToken.trim());
+			if(mcAccessToken != null && !mcAccessToken.isBlank())
+				connection.setRequestProperty("Authorization",
+					"Bearer " + mcAccessToken.trim());
 			connection.setRequestProperty("Accept", "application/json");
 			
 			if(body != null)
@@ -419,6 +468,9 @@ public enum MinecraftServicesApi
 	
 	public record NameChangeInfo(boolean allowed, String changedAt,
 		String createdAt)
+	{}
+	
+	public record NameHistoryEntry(String name, String changedToAt)
 	{}
 	
 	public record SkinChangeResult(ProfileData profile, String requestedUrl,

@@ -19,6 +19,7 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -41,6 +42,7 @@ public abstract class AltEditorScreen extends Screen
 	protected final Screen prevScreen;
 	
 	private EditBox nameOrEmailBox;
+	private MultiLineEditBox multiLineNameOrEmailBox;
 	private EditBox passwordBox;
 	
 	private Button doneButton;
@@ -61,19 +63,37 @@ public abstract class AltEditorScreen extends Screen
 	@Override
 	public final void init()
 	{
-		nameOrEmailBox = new EditBox(font, width / 2 - 100,
-			getNameOrEmailBoxY(), 200, 20, Component.literal(""));
-		nameOrEmailBox.setMaxLength(4096);
-		nameOrEmailBox.setFocused(true);
-		nameOrEmailBox.setValue(getDefaultNameOrEmail());
-		addWidget(nameOrEmailBox);
+		int nameBoxX = getNameOrEmailBoxX();
+		if(useMultiLineNameOrEmailInput())
+		{
+			multiLineNameOrEmailBox = MultiLineEditBox.builder().setX(nameBoxX)
+				.setY(getNameOrEmailBoxY())
+				.setPlaceholder(
+					Component.literal("Paste the complete cookie export here"))
+				.build(font, getNameOrEmailBoxWidth(),
+					getNameOrEmailBoxHeight(), Component.literal("Cookies"));
+			multiLineNameOrEmailBox.setCharacterLimit(131072);
+			multiLineNameOrEmailBox.setValue(getDefaultNameOrEmail());
+			addRenderableWidget(multiLineNameOrEmailBox);
+		}else
+		{
+			nameOrEmailBox = new EditBox(font, nameBoxX, getNameOrEmailBoxY(),
+				getNameOrEmailBoxWidth(), getNameOrEmailBoxHeight(),
+				Component.literal(""));
+			nameOrEmailBox.setMaxLength(4096);
+			nameOrEmailBox.setFocused(true);
+			nameOrEmailBox.setValue(getDefaultNameOrEmail());
+			addWidget(nameOrEmailBox);
+		}
 		
 		passwordBox = new EditBox(font, width / 2 - 100, getPasswordBoxY(), 200,
 			20, Component.literal(""));
 		passwordBox.setValue(getDefaultPassword());
-		passwordBox.addFormatter((text, startIndex) -> FormattedCharSequence
-			.forward("*".repeat(text.length()), Style.EMPTY));
+		if(shouldMaskPassword())
+			passwordBox.addFormatter((text, startIndex) -> FormattedCharSequence
+				.forward("*".repeat(text.length()), Style.EMPTY));
 		passwordBox.setMaxLength(4096);
+		passwordBox.visible = shouldShowPasswordInput();
 		addWidget(passwordBox);
 		
 		addRenderableWidget(doneButton = Button
@@ -109,7 +129,8 @@ public abstract class AltEditorScreen extends Screen
 		
 		addExtraWidgets();
 		
-		setFocused(nameOrEmailBox);
+		setFocused(
+			nameOrEmailBox != null ? nameOrEmailBox : multiLineNameOrEmailBox);
 	}
 	
 	private void openSkinFolder()
@@ -134,7 +155,7 @@ public abstract class AltEditorScreen extends Screen
 	@Override
 	public final void tick()
 	{
-		String nameOrEmail = nameOrEmailBox.getValue().trim();
+		String nameOrEmail = getNameOrEmail().trim();
 		doneButton.active =
 			isDoneButtonActive(nameOrEmail, passwordBox.getValue().trim());
 		doneButton.setMessage(Component.literal(getDoneButtonText()));
@@ -154,8 +175,18 @@ public abstract class AltEditorScreen extends Screen
 	
 	private void applyDynamicLayout()
 	{
-		nameOrEmailBox.setY(getNameOrEmailBoxY());
-		passwordBox.setY(getPasswordBoxY());
+		if(nameOrEmailBox != null)
+		{
+			nameOrEmailBox.setX(getNameOrEmailBoxX());
+			nameOrEmailBox.setY(getNameOrEmailBoxY());
+		}
+		if(multiLineNameOrEmailBox != null)
+		{
+			multiLineNameOrEmailBox.setX(getNameOrEmailBoxX());
+			multiLineNameOrEmailBox.setY(getNameOrEmailBoxY());
+		}
+		passwordBox.visible = shouldShowPasswordInput();
+		passwordBox.setY(shouldShowPasswordInput() ? getPasswordBoxY() : -1000);
 		doneButton.setY(getDoneButtonY());
 		randomNameButton.setY(getRandomNameButtonY());
 		cancelButton.setY(getCancelButtonY());
@@ -211,6 +242,26 @@ public abstract class AltEditorScreen extends Screen
 		return 60;
 	}
 	
+	protected int getNameOrEmailBoxWidth()
+	{
+		return 200;
+	}
+	
+	protected int getNameOrEmailBoxHeight()
+	{
+		return 20;
+	}
+	
+	protected int getNameOrEmailBoxX()
+	{
+		return width / 2 - getNameOrEmailBoxWidth() / 2;
+	}
+	
+	protected boolean useMultiLineNameOrEmailInput()
+	{
+		return false;
+	}
+	
 	protected int getPasswordBoxY()
 	{
 		return 100;
@@ -247,12 +298,24 @@ public abstract class AltEditorScreen extends Screen
 	 */
 	protected final String getNameOrEmail()
 	{
-		return nameOrEmailBox.getValue();
+		return multiLineNameOrEmailBox != null
+			? multiLineNameOrEmailBox.getValue() : nameOrEmailBox.getValue();
 	}
 	
 	protected final void setNameOrEmail(String value)
 	{
-		nameOrEmailBox.setValue(value);
+		if(multiLineNameOrEmailBox != null)
+			multiLineNameOrEmailBox.setValue(value);
+		else
+			nameOrEmailBox.setValue(value);
+	}
+	
+	protected final void setNameOrEmailMaxLength(int maxLength)
+	{
+		if(nameOrEmailBox != null)
+			nameOrEmailBox.setMaxLength(maxLength);
+		else if(multiLineNameOrEmailBox != null)
+			multiLineNameOrEmailBox.setCharacterLimit(maxLength);
 	}
 	
 	/**
@@ -291,6 +354,16 @@ public abstract class AltEditorScreen extends Screen
 	protected String getPasswordLabel()
 	{
 		return "Password (for premium alts)";
+	}
+	
+	protected boolean shouldMaskPassword()
+	{
+		return true;
+	}
+	
+	protected boolean shouldShowPasswordInput()
+	{
+		return true;
 	}
 	
 	protected String getAccountTypeLabel()
@@ -340,17 +413,52 @@ public abstract class AltEditorScreen extends Screen
 	{
 		if(context.key() == GLFW.GLFW_KEY_ENTER)
 			doneButton.onPress(context);
+			
+		// Intercept Ctrl+V paste when the name/email box is focused
+		// and the subclass requests tab preservation.
+		// Minecraft's EditBox/MultiLineEditBox strips tabs via
+		// SharedConstants.isAllowedChatCharacter(), so we bypass that by
+		// reading the system clipboard directly and using setValue().
+		if(preserveTabsOnPaste() && context.hasControlDown()
+			&& context.key() == GLFW.GLFW_KEY_V)
+		{
+			String rawClipboard = minecraft.keyboardHandler.getClipboard();
+			
+			if(rawClipboard != null && !rawClipboard.isEmpty())
+			{
+				setNameOrEmail(rawClipboard);
+				return true;
+			}
+		}
 		
 		return super.keyPressed(context);
+	}
+	
+	/**
+	 * Override and return true to intercept Ctrl+V paste events
+	 * and set the name/email box value directly from the system
+	 * clipboard, bypassing Minecraft's character filter that
+	 * strips tabs and other control characters.
+	 */
+	protected boolean preserveTabsOnPaste()
+	{
+		return false;
 	}
 	
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		nameOrEmailBox.mouseClicked(context, doubleClick);
-		passwordBox.mouseClicked(context, doubleClick);
+		if(nameOrEmailBox != null)
+			nameOrEmailBox.mouseClicked(context, doubleClick);
+		if(multiLineNameOrEmailBox != null)
+			multiLineNameOrEmailBox.mouseClicked(context, doubleClick);
+		if(shouldShowPasswordInput())
+			passwordBox.mouseClicked(context, doubleClick);
 		
-		if(nameOrEmailBox.isFocused() || passwordBox.isFocused())
+		if((nameOrEmailBox != null && nameOrEmailBox.isFocused())
+			|| (multiLineNameOrEmailBox != null
+				&& multiLineNameOrEmailBox.isFocused())
+			|| (shouldShowPasswordInput() && passwordBox.isFocused()))
 			message = "";
 		
 		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
@@ -384,26 +492,36 @@ public abstract class AltEditorScreen extends Screen
 		// dynamic labels next to inputs
 		int nameBoxY = getNameOrEmailBoxY();
 		int passBoxY = getPasswordBoxY();
-		context.text(font, getNameOrEmailLabelLine1(), width / 2 - 100,
+		context.text(font, getNameOrEmailLabelLine1(), getNameOrEmailBoxX(),
 			nameBoxY - 23, CommonColors.LIGHT_GRAY);
-		context.text(font, getNameOrEmailLabelLine2(), width / 2 - 100,
+		context.text(font, getNameOrEmailLabelLine2(), getNameOrEmailBoxX(),
 			nameBoxY - 13, CommonColors.LIGHT_GRAY);
-		context.text(font, getPasswordLabel(), width / 2 - 100, passBoxY - 13,
-			CommonColors.LIGHT_GRAY);
-		context.text(font, "Account type: " + getAccountTypeLabel(),
-			width / 2 - 100, passBoxY + 27, CommonColors.LIGHT_GRAY);
+		if(shouldShowPasswordInput())
+		{
+			context.text(font, getPasswordLabel(), width / 2 - 100,
+				passBoxY - 13, CommonColors.LIGHT_GRAY);
+			context.text(font, "Account type: " + getAccountTypeLabel(),
+				width / 2 - 100, passBoxY + 27, CommonColors.LIGHT_GRAY);
+		}
 		
 		// status / error message below account type, adapts with layout
 		String[] lines = message.split("\n");
-		int messageBaseY = passBoxY + 42; // below account type label
+		int messageBaseY = shouldShowPasswordInput() ? passBoxY + 42
+			: nameBoxY + getNameOrEmailBoxHeight() + 12;
 		for(int i = 0; i < lines.length; i++)
 			context.centeredText(font, lines[i], width / 2,
 				messageBaseY + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
-		nameOrEmailBox.extractRenderState(context, mouseX, mouseY,
-			partialTicks);
-		passwordBox.extractRenderState(context, mouseX, mouseY, partialTicks);
+		if(nameOrEmailBox != null)
+			nameOrEmailBox.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
+		if(multiLineNameOrEmailBox != null)
+			multiLineNameOrEmailBox.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
+		if(shouldShowPasswordInput())
+			passwordBox.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
 		
 		// red flash for errors
 		if(errorTimer > 0)

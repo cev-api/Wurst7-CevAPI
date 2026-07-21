@@ -8,6 +8,12 @@
 package net.wurstclient.altmanager.screens;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
+import java.util.List;
 import java.util.regex.Pattern;
 
 import org.lwjgl.glfw.GLFW;
@@ -44,9 +50,11 @@ public final class EditTokenAltScreen extends Screen
 	private Button renameButton;
 	private Button skinModelButton;
 	private Button applySkinButton;
+	private Button accountInfoButton;
 	
 	private volatile boolean busy;
 	private volatile String message = "";
+	private volatile String accountInfo = "";
 	private volatile boolean nameChangeProbeInProgress;
 	private volatile Boolean nameChangeAllowed;
 	private volatile String nameChangeStatus =
@@ -96,9 +104,14 @@ public final class EditTokenAltScreen extends Screen
 				b -> startSkinChange())
 			.bounds(width / 2 + 2, 176, 98, 20).build());
 		
+		addRenderableWidget(accountInfoButton = Button
+			.builder(Component.literal("Refresh Account Info"),
+				b -> startAccountInfoLookup())
+			.bounds(width / 2 - 100, 200, 200, 20).build());
+		
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
-				.bounds(width / 2 - 100, 200, 200, 20).build());
+				.bounds(width / 2 - 100, 224, 200, 20).build());
 		
 		scheduleSkinRefreshBurst(previewName, 5);
 		startNameChangeAvailabilityProbe();
@@ -121,6 +134,7 @@ public final class EditTokenAltScreen extends Screen
 		renameButton
 			.setMessage(Component.literal(getRenameButtonText(renameUnknown)));
 		applySkinButton.active = canChangeSkin;
+		accountInfoButton.active = !busy;
 		skinModelButton.active = !busy;
 		skinModelButton.setMessage(
 			Component.literal(busy ? "Model: -" : getSkinModelButtonText()));
@@ -131,6 +145,103 @@ public final class EditTokenAltScreen extends Screen
 			AltRenderer.refreshSkin(previewName);
 			skinRefreshBurstsRemaining--;
 			nextSkinRefreshTime = Util.getMillis() + 900L;
+		}
+	}
+	
+	private void startAccountInfoLookup()
+	{
+		if(busy)
+			return;
+		
+		setBusyMessage("\u00a7e\u00a7lRetrieving account information...");
+		Thread thread = new Thread(() -> {
+			try
+			{
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
+				MinecraftServicesApi.NameChangeInfo changeInfo =
+					MinecraftServicesApi
+						.getNameChangeInfo(profile.getAccessToken());
+				List<MinecraftServicesApi.NameHistoryEntry> history =
+					MinecraftServicesApi
+						.getNameHistory(profile.getUUID().toString());
+				
+				StringBuilder details = new StringBuilder();
+				details.append("Token source: ")
+					.append(tokenAlt.getRefreshToken().isBlank()
+						? "stored access token"
+						: "refresh token (new access token retrieved)");
+				appendJwtTimes(details, profile.getAccessToken());
+				if(!changeInfo.createdAt().isBlank())
+					details.append("\nAccount created: ")
+						.append(formatTime(changeInfo.createdAt()));
+				else
+					details.append("\nAccount created: unavailable");
+				details.append("\nName history: ").append(history.size())
+					.append(history.size() == 1 ? " name" : " names");
+				for(MinecraftServicesApi.NameHistoryEntry entry : history)
+				{
+					details.append("\n  ").append(entry.name());
+					if(!entry.changedToAt().isBlank())
+						details.append(" (since ")
+							.append(formatTime(entry.changedToAt()))
+							.append(")");
+				}
+				
+				minecraft.execute(() -> {
+					accountInfo = details.toString();
+					message = "\u00a7a\u00a7lAccount information updated.";
+					busy = false;
+				});
+			}catch(LoginException | MinecraftServicesApi.ApiException e)
+			{
+				setErrorMessage("Could not retrieve account information: "
+					+ cleanMessage(e.getMessage()));
+			}
+		}, "Wurst Account Info Lookup");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void appendJwtTimes(StringBuilder details, String token)
+	{
+		try
+		{
+			String[] parts = token.split("\\.");
+			if(parts.length < 2)
+				throw new IllegalArgumentException();
+			String json = new String(Base64.getUrlDecoder().decode(parts[1]),
+				StandardCharsets.UTF_8);
+			com.google.gson.JsonObject payload =
+				com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+			if(payload.has("iat"))
+				details.append("\nToken issued: ")
+					.append(formatEpoch(payload.get("iat").getAsLong()));
+			if(payload.has("exp"))
+				details.append("\nToken expires: ")
+					.append(formatEpoch(payload.get("exp").getAsLong()));
+		}catch(RuntimeException e)
+		{
+			details.append("\nToken issued/expiry: unavailable");
+		}
+	}
+	
+	private String formatEpoch(long epoch)
+	{
+		return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(
+			Instant.ofEpochSecond(epoch).atOffset(ZoneOffset.UTC)) + " UTC";
+	}
+	
+	private String formatTime(String value)
+	{
+		try
+		{
+			return DateTimeFormatter.ISO_LOCAL_DATE_TIME
+				.format(Instant.parse(value).atOffset(ZoneOffset.UTC)) + " UTC";
+		}catch(RuntimeException e)
+		{
+			return value;
 		}
 	}
 	
@@ -510,6 +621,10 @@ public final class EditTokenAltScreen extends Screen
 			CommonColors.LIGHT_GRAY);
 		context.centeredText(font, nameChangeStatus, width / 2, 226,
 			CommonColors.LIGHT_GRAY);
+		String[] infoLines = accountInfo.split("\\n");
+		for(int i = 0; i < infoLines.length; i++)
+			context.centeredText(font, infoLines[i], width / 2, 250 + i * 10,
+				CommonColors.LIGHT_GRAY);
 		
 		String[] lines = message.split("\n");
 		for(int i = 0; i < lines.length; i++)
