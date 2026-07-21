@@ -43,7 +43,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -143,7 +143,7 @@ public final class AltManagerScreen extends Screen
 			
 			AlertScreen screen =
 				new AlertScreen(action, title, message, buttonText, false);
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 			
 		}else if(altManager.getList().isEmpty() && shouldAsk)
 		{
@@ -154,7 +154,7 @@ public final class AltManagerScreen extends Screen
 			BooleanConsumer callback = this::confirmGenerate;
 			
 			ConfirmScreen screen = new ConfirmScreen(callback, title, message);
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 		}
 		
 		addRenderableWidget(useButton =
@@ -167,15 +167,14 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
-				b -> minecraft.setScreen(new DirectLoginScreen(this)))
+				b -> minecraft.gui.setScreen(new DirectLoginScreen(this)))
 			.bounds(width / 2 - 50, height - 52, 100, 20).build());
 		
-		addRenderableWidget(
-			Button
-				.builder(Component.literal("Add"),
-					b -> minecraft
-						.setScreen(new AddAltScreen(this, altManager)))
-				.bounds(width / 2 + 54, height - 52, 100, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Add"),
+				b -> minecraft.gui
+					.setScreen(new AddAltScreen(this, altManager)))
+			.bounds(width / 2 + 54, height - 52, 100, 20).build());
 		
 		addRenderableWidget(starButton =
 			Button.builder(Component.literal("Favorite"), b -> pressFavorite())
@@ -191,7 +190,7 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 + 80, height - 28, 75, 20).build());
 		
 		addRenderableWidget(importButton =
@@ -284,7 +283,8 @@ public final class AltManagerScreen extends Screen
 		logoutButton.active =
 			((IMinecraftClient)minecraft).getWurstSession() != null;
 		
-		checkButton.active = !autoCheckInProgress && hasUncheckedPremiumAlts();
+		checkButton.active = !autoCheckInProgress
+			&& altManager.getList().stream().anyMatch(alt -> !alt.isCracked());
 		
 		if(importButton != null)
 			importButton.active = !importInProgress && !importPrismInProgress
@@ -348,7 +348,7 @@ public final class AltManagerScreen extends Screen
 			Component.literal("Log in as \"" + alt.getDisplayName() + "\"?");
 		ConfirmScreen screen = new ConfirmScreen(this::confirmLogin, text,
 			message, Component.literal("Login"), Component.literal("Cancel"));
-		minecraft.setScreen(screen);
+		minecraft.gui.setScreen(screen);
 	}
 	
 	private void confirmLogin(boolean confirmed)
@@ -358,7 +358,7 @@ public final class AltManagerScreen extends Screen
 		
 		if(!confirmed || alt == null)
 		{
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 			return;
 		}
 		
@@ -366,14 +366,15 @@ public final class AltManagerScreen extends Screen
 		{
 			altManager.login(alt);
 			clearLoginFailure(alt);
-			minecraft.setScreen(new AltLoginSuccessScreen(prevScreen,
+			minecraft.gui.setScreen(new AltLoginSuccessScreen(prevScreen,
 				minecraft.getUser().getName()));
 			
 		}catch(LoginException e)
 		{
 			errorTimer = 8;
 			recordLoginFailure(alt, e);
-			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
+			minecraft.gui
+				.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
 	}
 	
@@ -426,8 +427,8 @@ public final class AltManagerScreen extends Screen
 					minecraft.execute(() -> {
 						randomLoginInProgress = false;
 						updateAltButtons();
-						if(minecraft.screen == this)
-							minecraft.setScreen(
+						if(minecraft.gui.screen() == this)
+							minecraft.gui.setScreen(
 								new AltLoginSuccessScreen(prevScreen, name));
 					});
 					return;
@@ -449,8 +450,8 @@ public final class AltManagerScreen extends Screen
 			minecraft.execute(() -> {
 				randomLoginInProgress = false;
 				updateAltButtons();
-				if(minecraft.screen == this)
-					minecraft.setScreen(new AltLoginFailedScreen(this,
+				if(minecraft.gui.screen() == this)
+					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
 						"Random login failed for all accounts."));
 			});
 			
@@ -474,7 +475,7 @@ public final class AltManagerScreen extends Screen
 		restored = restored && matchesOriginal;
 		
 		updateAltButtons();
-		minecraft
+		minecraft.gui
 			.setScreen(new AltLogoutResultScreen(this, restored, currentName));
 	}
 	
@@ -525,7 +526,7 @@ public final class AltManagerScreen extends Screen
 		CountDownLatch latch = new CountDownLatch(1);
 		
 		minecraft.execute(() -> {
-			if(minecraft.screen != this)
+			if(minecraft.gui.screen() != this)
 			{
 				latch.countDown();
 				return;
@@ -539,11 +540,11 @@ public final class AltManagerScreen extends Screen
 					+ (remainingCount == 1 ? "?" : "s?"));
 			ConfirmScreen screen = new ConfirmScreen(confirmed -> {
 				result.set(confirmed);
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 				latch.countDown();
 			}, title, message, Component.literal("Continue"),
 				Component.literal("Stop"));
-			minecraft.setScreen(screen);
+			minecraft.gui.setScreen(screen);
 		});
 		
 		try
@@ -580,7 +581,7 @@ public final class AltManagerScreen extends Screen
 			return;
 		}
 		
-		minecraft.setScreen(new EditAltScreen(this, altManager, alt));
+		minecraft.gui.setScreen(new EditAltScreen(this, altManager, alt));
 	}
 	
 	private void validateTokenAltBeforeEditing(TokenAlt tokenAlt)
@@ -610,8 +611,8 @@ public final class AltManagerScreen extends Screen
 						AltRenderer.refreshSkin(resolvedName);
 					}
 					
-					if(minecraft.screen == this)
-						minecraft.setScreen(
+					if(minecraft.gui.screen() == this)
+						minecraft.gui.setScreen(
 							new EditTokenAltScreen(this, altManager, tokenAlt));
 				});
 				
@@ -626,7 +627,7 @@ public final class AltManagerScreen extends Screen
 					String details =
 						e.getMessage() == null || e.getMessage().isBlank()
 							? "Unknown error" : e.getMessage();
-					minecraft.setScreen(new AltLoginFailedScreen(this,
+					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
 						"Token validation failed: " + details));
 				});
 			}
@@ -662,7 +663,7 @@ public final class AltManagerScreen extends Screen
 		
 		ConfirmScreen screen = new ConfirmScreen(this::confirmRemove, text,
 			message, Component.literal("Delete"), Component.literal("Cancel"));
-		minecraft.setScreen(screen);
+		minecraft.gui.setScreen(screen);
 	}
 	
 	private void pressImportAlts()
@@ -742,7 +743,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.screen == this)
+					if(minecraft.gui.screen() == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -805,7 +806,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.screen == this)
+					if(minecraft.gui.screen() == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -1228,14 +1229,14 @@ public final class AltManagerScreen extends Screen
 			imc.setWurstSession(previousSession);
 			autoCheckInProgress = false;
 			minecraft.execute(() -> {
-				if(minecraft.screen == this)
+				if(minecraft.gui.screen() == this)
 					updateAltButtons();
 			});
 		}
 		
 		if(changed)
 			minecraft.execute(() -> {
-				if(minecraft.screen == this)
+				if(minecraft.gui.screen() == this)
 					reloadScreen();
 			});
 	}
@@ -1329,13 +1330,13 @@ public final class AltManagerScreen extends Screen
 	
 	private void reloadScreen()
 	{
-		minecraft.setScreen(new AltManagerScreen(prevScreen, altManager));
+		minecraft.gui.setScreen(new AltManagerScreen(prevScreen, altManager));
 	}
 	
 	private boolean isOpenScreen()
 	{
 		return !autoCheckCancelled && minecraft != null
-			&& minecraft.screen == this;
+			&& minecraft.gui.screen() == this;
 	}
 	
 	private boolean hasUncheckedPremiumAlts()
@@ -1418,7 +1419,7 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		shouldAsk = false;
-		minecraft.setScreen(this);
+		minecraft.gui.setScreen(this);
 	}
 	
 	private void confirmRemove(boolean confirmed)
@@ -1430,14 +1431,14 @@ public final class AltManagerScreen extends Screen
 			});
 		
 		pendingDeletion = Collections.emptyList();
-		minecraft.setScreen(this);
+		minecraft.gui.setScreen(this);
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		// skin preview
 		Alt alt = listGui.getSelectedAlt();
@@ -1451,25 +1452,25 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		// title text
-		context.drawCenteredString(font, "Alt Manager", width / 2, 4,
+		context.centeredText(font, "Alt Manager", width / 2, 4,
 			CommonColors.WHITE);
-		context.drawCenteredString(font, "Alts: " + altManager.getList().size(),
+		context.centeredText(font, "Alts: " + altManager.getList().size(),
 			width / 2, 14, CommonColors.LIGHT_GRAY);
-		context.drawCenteredString(font,
+		context.centeredText(font,
 			"premium: " + altManager.getNumPremium() + ", cracked: "
 				+ altManager.getNumCracked(),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
 		
 		if(!importStatus.isEmpty())
-			context.drawCenteredString(font, importStatus, width / 2, 42,
+			context.centeredText(font, importStatus, width / 2, 42,
 				importInProgress ? 0xFFFF55 : CommonColors.LIGHT_GRAY);
 		
 		if(editValidationInProgress && !editValidationStatus.isBlank())
-			context.drawCenteredString(font, editValidationStatus, width / 2,
-				58, 0xFFFF55);
+			context.centeredText(font, editValidationStatus, width / 2, 58,
+				0xFFFF55);
 		
 		if(((IMinecraftClient)minecraft).getWurstSession() != null)
-			context.drawCenteredString(font,
+			context.centeredText(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);
 		
@@ -1483,13 +1484,13 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		renderImportOverlay(context);
 		renderAltTooltip(context, mouseX, mouseY);
 	}
 	
-	private void renderImportOverlay(GuiGraphics context)
+	private void renderImportOverlay(GuiGraphicsExtractor context)
 	{
 		if(!importInProgress && !importPrismInProgress)
 			return;
@@ -1522,18 +1523,18 @@ public final class AltManagerScreen extends Screen
 		context.fill(x1, y1, x1 + 1, y2, 0xFF5FA3FF);
 		context.fill(x2 - 1, y1, x2, y2, 0xFF5FA3FF);
 		
-		context.drawCenteredString(font, headline, width / 2, y1 + 16,
+		context.centeredText(font, headline, width / 2, y1 + 16,
 			CommonColors.WHITE);
-		context.drawCenteredString(font, status, width / 2, y1 + 34, 0xFFFFAA);
+		context.centeredText(font, status, width / 2, y1 + 34, 0xFFFFAA);
 		if(!counts.isBlank())
-			context.drawCenteredString(font, counts, width / 2, y1 + 50,
-				0xFFA8D0FF);
-		context.drawCenteredString(font,
+			context.centeredText(font, counts, width / 2, y1 + 50, 0xFFA8D0FF);
+		context.centeredText(font,
 			"Import/Export/Login controls are temporarily disabled.", width / 2,
 			importHasCounts ? y1 + 68 : y1 + 54, CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderAltTooltip(GuiGraphics context, int mouseX, int mouseY)
+	private void renderAltTooltip(GuiGraphicsExtractor context, int mouseX,
+		int mouseY)
 	{
 		if(!listGui.isMouseOver(mouseX, mouseY))
 			return;
@@ -1602,7 +1603,7 @@ public final class AltManagerScreen extends Screen
 	public void onClose()
 	{
 		autoCheckCancelled = true;
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -1687,8 +1688,8 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -1712,11 +1713,11 @@ public final class AltManagerScreen extends Screen
 			Font tr = minecraft.font;
 			
 			// name / email
-			context.drawString(tr, "Name: " + alt.getDisplayName(), x + 31,
-				y + 3, CommonColors.LIGHT_GRAY, false);
+			context.text(tr, "Name: " + alt.getDisplayName(), x + 31, y + 3,
+				CommonColors.LIGHT_GRAY, false);
 			
 			// status
-			context.drawString(tr, getBottomText(), x + 31, y + 15,
+			context.text(tr, getBottomText(), x + 31, y + 15,
 				CommonColors.LIGHT_GRAY, false);
 		}
 		
