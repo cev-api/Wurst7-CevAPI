@@ -8,22 +8,43 @@
 - Wurst 7 CevAPI Wiki: https://github.com/cev-api/Wurst7-CevAPI/wiki
 - CevAPI Discord: https://discord.gg/5fddQNST84
 
-### Download
-Pre-compiled copies are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
+## Download
+Pre-compiled versioned and polished releases are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
 [![](https://i.imgur.com/b44bIdV.png)](https://github.com/cev-api/Wurst7-CevAPI/releases)
 
 I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
-Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus)
+Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus) and use latest release on an older server.
 
-#### Note On Updates
+### Note On Updates
 
 I make changes very often but I publish releases sparingly, so if you want the latest patches/bug fixes and features you **must** compile it yourself. 
 
 ![Release](https://i.imgur.com/tq9mfbd.png)
 
-### Wurst7-CevAPI In-Game Screenshot
+### Compiling Yourself (Pre-Releases)
+Don't want to wait for a proper public release? **Grab a compiled copy from the Actions tab in my GitHub page!**
+
+The benefit of this is that it is the exact code here on this repo, no need to download it and setup your own environment to compile, Github has done it for you!
+
+- Sign into Github
+- Click the **Actions** tab
+- Click latest build at the top with a green tick
+- In the **Artifacts** section click **jar** to download
+
+![Step1](https://i.imgur.com/In0c8MI.png)
+![Step2](https://i.imgur.com/REX2bSz.png)
+
+**Caveats:**
+- May be buggy
+- May have unlabelled or hidden features
+- Features added may be removed/changed
+- Will likely not say its a new version
+- Will only support MC26.2
+- No NiceWurst
+
+## Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
 ![AltGUI](https://i.imgur.com/gzAVbru.png)
 ![XPGUI](https://i.imgur.com/d5iDhwj.png)
