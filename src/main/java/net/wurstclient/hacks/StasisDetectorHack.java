@@ -263,7 +263,7 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 			: WurstClient.INSTANCE.getHax().webhookAlertHack;
 		if(webhook != null)
 			webhook.onStasisDetected(pos);
-
+		
 		if(chatAlerts.isChecked())
 		{
 			ChatUtils.message("Stasis chamber found at " + pos.getX() + ", "

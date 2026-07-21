@@ -44,7 +44,6 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.EnderChestBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.Vec3;
@@ -90,19 +89,25 @@ public final class WebhookAlertHack extends Hack
 	private final CheckboxSetting portalDetection = new CheckboxSetting(
 		"Portal detection",
 		"Send a webhook when a nearby nether/end portal is detected.", true);
-	private final CheckboxSetting shulkerDetection = new CheckboxSetting(
-		"Shulker detection", "Send a webhook when a shulker box is detected.", true);
-	private final CheckboxSetting doubleChestDetection = new CheckboxSetting(
-		"Double chest detection", "Send a webhook when a double chest is detected.", true);
-	private final CheckboxSetting enderChestDetection = new CheckboxSetting(
-		"Ender chest detection", "Send a webhook when an ender chest is detected.", true);
-	private final CheckboxSetting stasisDetectorAlert = new CheckboxSetting(
-		"StasisDetector alert", "Send a webhook when StasisDetector finds a chamber.", true);
+	private final CheckboxSetting shulkerDetection =
+		new CheckboxSetting("Shulker detection",
+			"Send a webhook when a shulker box is detected.", true);
+	private final CheckboxSetting doubleChestDetection =
+		new CheckboxSetting("Double chest detection",
+			"Send a webhook when a double chest is detected.", true);
+	private final CheckboxSetting enderChestDetection =
+		new CheckboxSetting("Ender chest detection",
+			"Send a webhook when an ender chest is detected.", true);
+	private final CheckboxSetting stasisDetectorAlert =
+		new CheckboxSetting("StasisDetector alert",
+			"Send a webhook when StasisDetector finds a chamber.", true);
 	private final CheckboxSetting namedEntityItemAlert = new CheckboxSetting(
 		"Named entity/item alert",
-		"Send a webhook when a named entity or named dropped item is detected.", true);
-	private final CheckboxSetting namedBlockAlert = new CheckboxSetting(
-		"Named block alert", "Send a webhook when a named block is detected.", true);
+		"Send a webhook when a named entity or named dropped item is detected.",
+		true);
+	private final CheckboxSetting namedBlockAlert =
+		new CheckboxSetting("Named block alert",
+			"Send a webhook when a named block is detected.", true);
 	private final CheckboxSetting playerDamage = new CheckboxSetting(
 		"Player damage", "Send a webhook when you take damage.", true);
 	private final CheckboxSetting playerStarving =
@@ -250,14 +255,14 @@ public final class WebhookAlertHack extends Hack
 		checkNearbyPortals();
 		checkNearbyWorldDetections();
 	}
-
+	
 	public void onStasisDetected(BlockPos pos)
 	{
 		if(!isEnabled() || !stasisDetectorAlert.isChecked() || pos == null)
 			return;
-		send("Stasis chamber detected", "Time: " + now() + "\nCoordinates: "
-			+ formatBlockPos(pos) + "\n" + localPlayerStatus() + "\n"
-			+ worldStatus());
+		send("Stasis chamber detected",
+			"Time: " + now() + "\nCoordinates: " + formatBlockPos(pos) + "\n"
+				+ localPlayerStatus() + "\n" + worldStatus());
 	}
 	
 	public void onChunkDetected(String type, ChunkPos chunkPos)
@@ -502,13 +507,13 @@ public final class WebhookAlertHack extends Hack
 							+ worldStatus());
 				}
 	}
-
+	
 	private void checkNearbyWorldDetections()
 	{
 		if(!shulkerDetection.isChecked() && !doubleChestDetection.isChecked()
 			&& !enderChestDetection.isChecked() && !namedBlockAlert.isChecked())
 			return;
-
+		
 		ChunkUtils.getLoadedBlockEntities().forEach(be -> {
 			BlockPos pos = be.getBlockPos();
 			BlockState state = MC.level.getBlockState(pos);
@@ -522,9 +527,8 @@ public final class WebhookAlertHack extends Hack
 				alertWorldDetection("double-chest:" + pos.asLong(),
 					"Double chest detected", pos, null);
 			if(enderChestDetection.isChecked()
-				&& (block instanceof EnderChestBlock
-					|| be.getType().toString().toLowerCase(Locale.ROOT)
-						.contains("ender_chest")))
+				&& (block instanceof EnderChestBlock || be.getType().toString()
+					.toLowerCase(Locale.ROOT).contains("ender_chest")))
 				alertWorldDetection("ender-chest:" + pos.asLong(),
 					"Ender chest detected", pos, null);
 			if(namedBlockAlert.isChecked() && be instanceof Nameable nameable
@@ -536,10 +540,10 @@ public final class WebhookAlertHack extends Hack
 					name == null ? "unknown" : name.getString());
 			}
 		});
-
+		
 		if(!namedEntityItemAlert.isChecked())
 			return;
-
+		
 		Vec3 center = MC.player.position();
 		var box = MC.player.getBoundingBox().inflate(64);
 		MC.level.getEntitiesOfClass(Entity.class, box).forEach(entity -> {
@@ -554,22 +558,23 @@ public final class WebhookAlertHack extends Hack
 				Component name = entity.getCustomName();
 				alertWorldDetection("named-entity:" + entity.getUUID(),
 					"Named entity detected", entity.blockPosition(),
-					name == null ? entity.getName().getString() : name.getString());
+					name == null ? entity.getName().getString()
+						: name.getString());
 			}
 		});
 	}
-
+	
 	private void alertWorldDetection(String key, String title, BlockPos pos,
 		String name)
 	{
 		if(!seenWorldDetections.add(key))
 			return;
-		String details = "Time: " + now() + "\nCoordinates: "
-			+ formatBlockPos(pos);
+		String details =
+			"Time: " + now() + "\nCoordinates: " + formatBlockPos(pos);
 		if(name != null && !name.isBlank())
 			details += "\nName: " + name;
-		send(title, details + "\n" + localPlayerStatus() + "\n"
-			+ worldStatus());
+		send(title,
+			details + "\n" + localPlayerStatus() + "\n" + worldStatus());
 	}
 	
 	private boolean containsMention(String message)
