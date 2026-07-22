@@ -86,7 +86,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Auto-enable by height",
 		"Automatically enables AntiVoid when your Y is within a safety band below 0.\n"
 			+ "Defaults: Overworld -64, End/Nether -60.",
-		true);
+		false);
 	
 	private Vec3 lastSafePos;
 	private boolean airWalkActive;

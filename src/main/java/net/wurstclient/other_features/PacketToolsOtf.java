@@ -123,7 +123,7 @@ public final class PacketToolsOtf extends OtherFeature
 			false);
 	private final CheckboxSetting verboseHumanReadable =
 		new CheckboxSetting("Verbose human-readable",
-			"Also write human-readable logs alongside JSONL.", true);
+			"Also write human-readable logs alongside JSONL.", false);
 	private final SliderSetting verboseFlushInterval =
 		new SliderSetting("Verbose flush ticks",
 			"How often to flush the verbose buffer to disk (in ticks).\n"
