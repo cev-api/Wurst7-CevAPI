@@ -258,6 +258,9 @@ public abstract class ClientPacketListenerMixin
 	{
 		WurstClient.INSTANCE.getHax().newChunksHack.afterLoadChunk(x, z);
 		WurstClient.INSTANCE.getHax().newerNewChunksHack.afterLoadChunk(x, z);
+		if(minecraft.level != null)
+			WurstClient.INSTANCE.getHax().autoFlyHack
+				.onPathChunkLoaded(minecraft.level.getChunk(x, z));
 	}
 	
 	@Inject(
@@ -270,6 +273,8 @@ public abstract class ClientPacketListenerMixin
 			.afterUpdateBlock(packet.getPos());
 		WurstClient.INSTANCE.getHax().newerNewChunksHack
 			.afterUpdateBlock(packet.getPos());
+		WurstClient.INSTANCE.getHax().autoFlyHack
+			.onPathBlockUpdate(packet.getPos(), packet.getBlockState());
 	}
 	
 	@Inject(
@@ -279,6 +284,8 @@ public abstract class ClientPacketListenerMixin
 		ClientboundSectionBlocksUpdatePacket packet, CallbackInfo ci)
 	{
 		packet.runUpdates((pos, state) -> {
+			WurstClient.INSTANCE.getHax().autoFlyHack.onPathBlockUpdate(pos,
+				state);
 			WurstClient.INSTANCE.getHax().newChunksHack.afterUpdateBlock(pos);
 			WurstClient.INSTANCE.getHax().newerNewChunksHack
 				.afterChunkDeltaUpdate(pos, state);
