@@ -36,6 +36,7 @@
     "DisconnectedScreenMixin",
     "DownloadQueueMixin",
     "EntityMixin",
+    "PathFlightEntityMoveMixin",
     "EntityRenderDispatcherMixin",
     "EntityRendererMixin",
     "EnvironmentAttributeSystemMixin",

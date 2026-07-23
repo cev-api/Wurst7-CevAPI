@@ -26,7 +26,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
@@ -39,8 +38,6 @@ import net.wurstclient.autoflypath.PathFlightConfig;
 import net.wurstclient.autoflypath.PathFlightRuntime;
 import net.wurstclient.autoflypath.flight.FlightController;
 import net.wurstclient.events.RenderListener;
-import net.wurstclient.events.PacketInputListener;
-import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
@@ -69,8 +66,8 @@ import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"auto fly", "autofly", "waypoint fly", "auto flight"})
-public final class AutoFlyHack extends Hack implements UpdateListener,
-	GUIRenderListener, RenderListener, PacketInputListener
+public final class AutoFlyHack extends Hack
+	implements UpdateListener, GUIRenderListener, RenderListener
 {
 	public static enum NavigationMode
 	{
@@ -848,7 +845,6 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		EVENTS.add(PacketInputListener.class, this);
 	}
 	
 	@Override
@@ -857,7 +853,6 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
-		EVENTS.remove(PacketInputListener.class, this);
 		PathProcessor.releaseControls();
 		pathFlightController.stop();
 		lastPathFlightTarget = null;
@@ -1300,13 +1295,10 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	@Override
-	public void onReceivedPacket(PacketInputEvent event)
+	public void onPathServerCorrection()
 	{
-		if(!isPathMode()
-			|| !(event.getPacket() instanceof ClientboundPlayerPositionPacket))
-			return;
-		MC.execute(pathFlightController::noteServerCorrection);
+		if(isEnabled() && isPathMode() && pathFlightController.isActive())
+			pathFlightController.onServerCorrection();
 	}
 	
 	private void advanceCruiseTarget()
@@ -1364,7 +1356,12 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		clearPathingState();
 		syncPathFlightConfig();
 		
-		BlockPos target = BlockPos.containing(targetX, desiredY, targetZ);
+		// For ordinary waypoints, pass the original coordinates straight into
+		// FlyTo. Replacing their Y with AutoFly's transient cruise calculation
+		// restarted its planner every time our altitude changed.
+		BlockPos target =
+			cruisingRoute ? BlockPos.containing(targetX, desiredY, targetZ)
+				: currentTarget.pos;
 		long now = System.currentTimeMillis();
 		boolean movingTarget = cruisingRoute || commandForwardUnlimited;
 		boolean changed = lastPathFlightTarget == null
@@ -1382,7 +1379,6 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 			lastPathFlightRetargetMs = now;
 		}
 		
-		pathFlightController.clientTick();
 		lastAutoControlMs = now;
 	}
 	
@@ -2635,7 +2631,7 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		applyFlightSpeed();
 		applyFlightOverrides();
 	}
-
+	
 	private void captureFlightSettings()
 	{
 		var flight = WURST.getHax().flightHack;
@@ -2644,7 +2640,7 @@ public final class AutoFlyHack extends Hack implements UpdateListener,
 		if(savedFlightVSpeed < 0)
 			savedFlightVSpeed = flight.verticalSpeed.getValue();
 	}
-
+	
 	private void suspendWurstFlightForPath()
 	{
 		var flight = WURST.getHax().flightHack;

@@ -22,12 +22,15 @@ import java.util.function.UnaryOperator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientChunkCache;
 import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.level.ChunkPos;
@@ -61,16 +64,15 @@ public final class FlightController
 	private static final double LAVA_MIN_SPEED = 1.2;
 	private static final double LAVA_CLIMB = 0.45;
 	private static final double LAVA_SAFE_CLEARANCE = 4.0;
-	private static final double ADAPTIVE_CEILING_FLOOR = 1.0;
-	private static final double ADAPTIVE_CEILING_RECOVERY = 0.002;
 	private static final int GOVERNOR_BLOCKED_REPATH_TICKS = 10;
+	private static final int RECALC_CAUTION_TICKS = 30;
+	private static final double RECALC_CAUTION_SPEED = 1.0;
+	private static final double RECALC_CAUTION_TIGHT_SPEED = 0.2;
 	private static final int STUCK_TICKS = 8;
 	private static final int OSCILLATION_TICKS = 40;
 	private static final double ESCAPE_PROBE = 4.0;
 	private static final double ESCAPE_SPEED = 1.0;
 	private static final int FRONTIER_HOLD_PATIENCE_TICKS = 300;
-	private static final int DESYNC_CLUSTER_WINDOW = 100;
-	private static final int DESYNC_CAUTION_DURATION = 40;
 	private final Minecraft mc = Minecraft.getInstance();
 	private final PathFlightConfig config;
 	private final BlockPos.MutableBlockPos scratch =
@@ -95,6 +97,7 @@ public final class FlightController
 	private boolean frontierHold;
 	private int frontierHoldTicks;
 	private int frontierPushTicks;
+	private int frontierMeterTicks;
 	private int pushRepathCounter;
 	private int recoveryCooldown;
 	private double bestDistToDest = Double.MAX_VALUE;
@@ -107,7 +110,12 @@ public final class FlightController
 	private boolean recoveryHover;
 	private static final int OSC_ESCAPES_BEFORE_HARD = 2;
 	private static final int HARD_RECOVERY_TICKS = 60;
-	private static final int ABORT_TICKS = 400;
+	private static final int ABORT_TICKS = 2400;
+	private static final int DETOUR_ESCALATE_TICKS = 200;
+	private static final double DETOUR_INITIAL = 48.0;
+	private static final double DETOUR_MAX = 192.0;
+	private static final double DETOUR_AHEAD = 192.0;
+	private static final double DETOUR_CLEAR_PROGRESS = 48.0;
 	private static final int RECOVER_CLIMB_TICKS = 80;
 	private static final int THREAD_PATIENCE = 100;
 	private static final int PLAN_UPDATE_TICKS = 10;
@@ -123,16 +131,33 @@ public final class FlightController
 	private int ticksSinceServerCorrection = 100000;
 	private int debugBiomeCheckTicks;
 	private int settleTicks;
-	private int desyncLevel;
-	private int desyncCautionTicks;
-	private double adaptiveCeiling = Double.MAX_VALUE;
+	private boolean commandedThisTick;
+	private Vec3 freezeProbePos;
+	private int freezeTicks;
+	private int moveClampLogCooldown;
+	private int speedLimitLogCooldown;
+	private String lastMoveNote = "none";
+	private double lastMoveLen;
+	private double lastMoveHit;
+	private double detourMag;
+	private int detourSide = 1;
+	private double detourStartBest;
+	private Vec3 lastEscapeDir;
 	private int governorBlockedTicks;
+	private int recalcCautionTicks;
+	private int noGoMarkCooldown;
+	private boolean abortLanding;
+	private int abortLandingTicks;
+	private static final int ABORT_LANDING_MAX_TICKS = 300;
+	private final ArrayList<double[]> noGoZones = new ArrayList();
+	private ResourceKey<Level> noGoDimension;
 	private final ArrayDeque<String> debugTrail = new ArrayDeque();
 	private boolean debugProblemActive = false;
 	private int debugRepeatSuppress = 0;
 	private double debugGovHit = -1.0;
 	private double debugGovScale = 1.0;
 	private Vec3 debugPrevPos = null;
+	private static final double[] AIM_LATERAL_MARGINS = new double[]{0.15, 0.0};
 	
 	public FlightController(PathFlightConfig config)
 	{
@@ -267,7 +292,7 @@ public final class FlightController
 	private int computeCruiseY()
 	{
 		int base = this.config.flightCruiseHeight > 0
-			? this.config.flightCruiseHeight : this.isNether() ? 118 : 230;
+			? this.config.flightCruiseHeight : (this.isNether() ? 118 : 230);
 		if(this.level() == null)
 		{
 			return base;
@@ -358,16 +383,75 @@ public final class FlightController
 		return dx * dx + dy * dy + dz * dz;
 	}
 	
+	public Vec3 validateMoveTime(Vec3 movement)
+	{
+		if(this.destination == null || !this.commandedThisTick
+			|| this.player() == null || this.level() == null)
+		{
+			return movement;
+		}
+		if(this.aimTight)
+		{
+			this.lastMoveNote = "tight-skip";
+			return movement;
+		}
+		double len = movement.length();
+		if(len < 1.0E-6)
+		{
+			this.lastMoveNote = "zero";
+			return movement;
+		}
+		double hit = this.sweptCollisionDistance(movement, len);
+		this.lastMoveLen = len;
+		this.lastMoveHit = hit;
+		if(hit >= len)
+		{
+			this.lastMoveNote = "clear";
+			return movement;
+		}
+		this.lastMoveNote = "clamped";
+		Vec3 clamped = movement.scale(Math.max(0.0, hit) / len);
+		if(this.config.flightDebug && this.moveClampLogCooldown == 0)
+		{
+			this.moveClampLogCooldown = 20;
+			Vec3 cmd = this.lastCommandedVel;
+			this.log(String.format(Locale.ROOT,
+				"[AutoFly] move-time clamp %.2f->%.2f actual=%.2f,%.2f,%.2f cmd=%.2f,%.2f,%.2f drift=%.3f",
+				len, Math.max(0.0, hit), movement.x, movement.y, movement.z,
+				cmd.x, cmd.y, cmd.z, movement.subtract(cmd).length()));
+		}
+		return clamped;
+	}
+	
 	public void clientTick()
 	{
 		if(!this.isActive())
 		{
 			return;
 		}
+		if(this.mc.isPaused())
+		{
+			return;
+		}
+		this.commandedThisTick = false;
+		if(this.moveClampLogCooldown > 0)
+		{
+			--this.moveClampLogCooldown;
+		}
+		if(this.speedLimitLogCooldown > 0)
+		{
+			--this.speedLimitLogCooldown;
+		}
 		this.onTick();
 		if(this.isFlying())
 		{
 			this.tick();
+			if(this.destination != null && !this.commandedThisTick
+				&& this.player() != null)
+			{
+				this.player().setDeltaMovement(Vec3.ZERO);
+				this.lastCommandedVel = Vec3.ZERO;
+			}
 		}
 		if(this.hasReachedGoal())
 		{
@@ -385,6 +469,8 @@ public final class FlightController
 		this.lastPos = null;
 		this.serverFallEstimate = 0.0;
 		this.lastYForFall = Double.NaN;
+		this.abortLanding = false;
+		this.abortLandingTicks = 0;
 		this.visiblePath = Collections.emptyList();
 		this.pathManager.clear();
 		this.destroyContext();
@@ -406,21 +492,96 @@ public final class FlightController
 		this.serverFallEstimate = 0.0;
 		this.lastYForFall = Double.NaN;
 		this.settleTicks = 0;
-		this.desyncLevel = 0;
-		this.desyncCautionTicks = 0;
-		this.adaptiveCeiling = Double.MAX_VALUE;
+		this.frontierMeterTicks = 0;
 		this.governorBlockedTicks = 0;
+		this.recalcCautionTicks = 0;
+		this.noGoMarkCooldown = 0;
+		this.abortLanding = false;
+		this.abortLandingTicks = 0;
 		this.oscEscapeCount = 0;
 		this.hardRecoveryTicks = 0;
 		this.recoveryHover = false;
 		this.globalBestDist = Double.MAX_VALUE;
 		this.ticksSinceGlobalBest = 0;
+		this.detourMag = 0.0;
+		this.lastEscapeDir = null;
 		this.pathManager.clear();
 		this.rebuildContext();
 		if(this.context != null)
 		{
 			this.pathManager.pathToDestination(this.feet());
 		}
+	}
+	
+	private void escalateDetour(Vec3 playerPos)
+	{
+		if(this.destination == null || this.abortLanding)
+		{
+			return;
+		}
+		Vec3 destC = Vec3.atCenterOf((Vec3i)this.destination);
+		double dx = destC.x - playerPos.x;
+		double dz = destC.z - playerPos.z;
+		double h = Math.sqrt(dx * dx + dz * dz);
+		if(h < 192.0)
+		{
+			return;
+		}
+		if(this.detourMag <= 0.0)
+		{
+			double lClear;
+			this.detourStartBest = this.globalBestDist;
+			Vec3 right = new Vec3(-dz / h, 0.0, dx / h);
+			double rClear = this.sweptCollisionDistance(right.scale(8.0), 8.0);
+			this.detourSide = rClear >= (lClear =
+				this.sweptCollisionDistance(right.scale(-8.0), 8.0)) ? 1 : -1;
+			this.detourMag = 48.0;
+		}else if(this.detourMag < 192.0)
+		{
+			this.detourMag = Math.min(192.0, this.detourMag * 2.0);
+		}else
+		{
+			this.detourSide = -this.detourSide;
+		}
+		if(this.config.flightDebug)
+		{
+			this.log(String.format(Locale.ROOT,
+				"[AutoFly] no global progress for %d ticks - detour %s %.0f blocks",
+				this.ticksSinceGlobalBest,
+				this.detourSide > 0 ? "right" : "left", this.detourMag));
+		}
+		if(!this.pathManager.isRecalculating())
+		{
+			this.pathManager.pathToDestination(this.feet());
+		}
+	}
+	
+	private BetterBlockPos effectiveSearchGoal(BlockPos from)
+	{
+		double dz;
+		if(this.detourMag <= 0.0 || this.destination == null)
+		{
+			return this.destination;
+		}
+		double dx =
+			(double)this.destination.getX() + 0.5 - ((double)from.getX() + 0.5);
+		double h = Math.sqrt(dx * dx + (dz =
+			(double)this.destination.getZ() + 0.5 - ((double)from.getZ() + 0.5))
+			* dz);
+		if(h < 192.0)
+		{
+			return this.destination;
+		}
+		double ux = dx / h;
+		double uz = dz / h;
+		double px = -uz * (double)this.detourSide;
+		double pz = ux * (double)this.detourSide;
+		int gx = (int)Math.floor(
+			(double)from.getX() + 0.5 + ux * 192.0 + px * this.detourMag);
+		int gz = (int)Math.floor(
+			(double)from.getZ() + 0.5 + uz * 192.0 + pz * this.detourMag);
+		int gy = Math.max(40, Math.min(100, from.getY()));
+		return new BetterBlockPos(gx, gy, gz);
 	}
 	
 	private void destroyContext()
@@ -439,18 +600,120 @@ public final class FlightController
 			&& this.player().level().dimension() == Level.NETHER;
 	}
 	
+	private long predictionSeed()
+	{
+		Long stored;
+		ServerLevel serverLevel;
+		IntegratedServer server = this.mc.getSingleplayerServer();
+		if(server != null && this.level() != null && (serverLevel =
+			server.getLevel(this.level().dimension())) != null)
+		{
+			return serverLevel.getSeed();
+		}
+		String addr = FlightController.serverAddress();
+		if(addr != null
+			&& (stored = this.config.flightServerSeeds.get(addr)) != null)
+		{
+			return stored;
+		}
+		return this.config.flightSeed;
+	}
+	
+	public static String serverAddress()
+	{
+		ServerData data = Minecraft.getInstance().getCurrentServer();
+		return data == null || data.ip == null ? null
+			: data.ip.toLowerCase(Locale.ROOT);
+	}
+	
 	private void rebuildContext()
 	{
+		long seed;
 		if(this.level() == null || this.player() == null)
 		{
 			return;
 		}
 		this.destroyContext();
 		boolean predict = this.isNether() && this.config.flightPredictTerrain;
-		long seed = predict ? this.config.flightSeed : 0L;
+		long l = seed = predict ? this.predictionSeed() : 0L;
+		if(predict)
+		{
+			boolean stored;
+			boolean local = this.mc.getSingleplayerServer() != null;
+			String addr = FlightController.serverAddress();
+			boolean bl = stored = !local && addr != null
+				&& this.config.flightServerSeeds.containsKey(addr);
+			if(!local && !stored)
+			{
+				this.log("[AutoFly] no stored seed for "
+					+ (addr == null ? "this server" : addr)
+					+ " - predicting with global seed " + seed
+					+ " (/flyto set seed <value> to pin)");
+			}
+			if(this.config.flightDebug)
+			{
+				this.log("[AutoFly] prediction seed " + seed + (String)(local
+					? " (integrated server)"
+					: (stored ? " (stored for " + addr + ")" : " (global)")));
+			}
+		}
 		this.context = new FlightPathfinder(seed, this.level().getMinY(),
 			this.level().getHeight(), predict);
+		ResourceKey dim = this.level().dimension();
+		if(!dim.equals(this.noGoDimension))
+		{
+			this.noGoZones.clear();
+			this.noGoDimension = dim;
+		}
+		this.context.setNoGoZones(this.noGoZones);
 		this.repackChunks();
+	}
+	
+	private void addNoGoZone(double x, double y, double z, double radius)
+	{
+		if(this.level() != null
+			&& !this.level().dimension().equals(this.noGoDimension))
+		{
+			this.noGoZones.clear();
+			this.noGoDimension = this.level().dimension();
+		}
+		for(double[] zone : this.noGoZones)
+		{
+			double dz;
+			double dy;
+			double dx = x - zone[0];
+			if(!(dx * dx + (dy = y - zone[1]) * dy
+				+ (dz = z - zone[2]) * dz < zone[3]))
+				continue;
+			double grown = Math.min(20.0, Math.sqrt(zone[3]) * 1.5);
+			zone[3] = grown * grown;
+			if(this.context != null)
+			{
+				this.context.setNoGoZones(this.noGoZones);
+			}
+			if(this.config.flightDebug)
+			{
+				this.log(String.format(Locale.ROOT,
+					"[AutoFly] dead-end zone grown to r=%.0f at %.0f,%.0f,%.0f",
+					grown, zone[0], zone[1], zone[2]));
+			}
+			return;
+		}
+		if(this.noGoZones.size() >= 24)
+		{
+			this.noGoZones.remove(0);
+		}
+		this.noGoZones.add(new double[]{x, y, z, radius * radius});
+		if(this.context != null)
+		{
+			this.context.setNoGoZones(this.noGoZones);
+		}
+		if(this.config.flightDebug)
+		{
+			this.log(String.format(Locale.ROOT,
+				"[AutoFly] dead-end zone added r=%.0f at %.0f,%.0f,%.0f",
+				radius, x, y, z));
+		}
 	}
 	
 	public void repackChunks()
@@ -504,9 +767,13 @@ public final class FlightController
 		{
 			--this.settleTicks;
 		}
-		if(this.desyncCautionTicks > 0 && --this.desyncCautionTicks == 0)
+		if(this.recalcCautionTicks > 0)
 		{
-			this.desyncLevel = 0;
+			--this.recalcCautionTicks;
+		}
+		if(this.noGoMarkCooldown > 0)
+		{
+			--this.noGoMarkCooldown;
 		}
 		if(this.player() != null)
 		{
@@ -534,7 +801,7 @@ public final class FlightController
 		}
 		boolean wantPredict =
 			this.isNether() && this.config.flightPredictTerrain;
-		long l = wantSeed = wantPredict ? this.config.flightSeed : 0L;
+		long l = wantSeed = wantPredict ? this.predictionSeed() : 0L;
 		if(this.context.isPredictTerrain() != wantPredict
 			|| wantPredict && this.context.getSeed() != wantSeed)
 		{
@@ -572,7 +839,9 @@ public final class FlightController
 			{
 				this.log("[AutoFly] biome predictor MISMATCH: predicted "
 					+ String.valueOf(predicted.identifier()) + " actual "
-					+ String.valueOf(actual.identifier()));
+					+ String.valueOf(actual.identifier()) + " at "
+					+ this.feet().getX() + "," + this.feet().getZ() + " seed="
+					+ this.context.getSeed());
 			}
 		}
 		this.pathManager.tick();
@@ -587,24 +856,47 @@ public final class FlightController
 		boolean threading;
 		boolean overworld;
 		Vec3 target;
-		Vec3 destCenter;
-		double distToDest0;
 		if(this.destination == null || this.reachedGoal)
 		{
 			return;
 		}
 		Vec3 playerPos = this.player().position();
+		if(this.freezeProbePos != null
+			&& this.lastCommandedVel.lengthSqr() > 1.0
+			&& playerPos.distanceToSqr(this.freezeProbePos) < 0.0025)
+		{
+			if(++this.freezeTicks % 40 == 3 && this.config.flightDebug)
+			{
+				int pcx = this.feet().getX() >> 4;
+				int pcz = this.feet().getZ() >> 4;
+				this.log(String.format(Locale.ROOT,
+					"[AutoFly] FROZEN %d ticks: cmd=%.2f residualDelta=%.2f ownChunk=%s clientLoaded=%s corrAge=%d",
+					this.freezeTicks, this.lastCommandedVel.length(),
+					this.player().getDeltaMovement().length(),
+					this.level().getChunkSource().getChunk(pcx, pcz,
+						false) != null,
+					this.mc.getConnection() != null
+						&& this.mc.getConnection().hasClientLoaded(),
+					this.ticksSinceServerCorrection));
+			}
+		}else
+		{
+			this.freezeTicks = 0;
+		}
+		this.freezeProbePos = playerPos;
 		if(this.planFinalX != null && --this.planUpdateCooldown <= 0)
 		{
 			this.planUpdateCooldown = 10;
 			this.updateFlightPlan();
 		}
-		if((distToDest0 = playerPos.distanceTo(destCenter = Vec3.atCenterOf(
-			(Vec3i)this.destination))) < this.config.flightArrivalRadius
-			&& this.destinationIsFinal)
+		Vec3 destCenter = Vec3.atCenterOf((Vec3i)this.destination);
+		double distToDest0 = playerPos.distanceTo(destCenter);
+		double d = this.abortLanding ? 2.0 : this.config.flightArrivalRadius;
+		if(distToDest0 < d && this.destinationIsFinal)
 		{
 			if(this.serverFallEstimate > 2.0)
 			{
+				this.commandedThisTick = true;
 				this.player().setDeltaMovement(0.0, 0.08, 0.0);
 				return;
 			}
@@ -616,10 +908,32 @@ public final class FlightController
 		{
 			this.globalBestDist = progressDist;
 			this.ticksSinceGlobalBest = 0;
-		}else if(++this.ticksSinceGlobalBest > 400)
+			if(this.detourMag > 0.0
+				&& progressDist < this.detourStartBest - 48.0)
+			{
+				this.detourMag = 0.0;
+				if(this.config.flightDebug)
+				{
+					this.log(
+						"[AutoFly] detour cleared - resuming direct route");
+				}
+			}
+		}else if(++this.ticksSinceGlobalBest > 2400)
+		{
+			this.addNoGoZone(playerPos.x, playerPos.y, playerPos.z, 16.0);
+			this.beginAbort(playerPos,
+				"destination appears unreachable from here");
+			return;
+		}
+		if(this.ticksSinceGlobalBest > 0
+			&& this.ticksSinceGlobalBest % 200 == 0)
+		{
+			this.escalateDetour(playerPos);
+		}
+		if(this.abortLanding && ++this.abortLandingTicks > 300)
 		{
 			this.log(
-				"[AutoFly] destination appears unreachable from here - stopping.");
+				"[AutoFly] could not reach a safe landing spot - stopping here.");
 			this.stop();
 			return;
 		}
@@ -647,6 +961,14 @@ public final class FlightController
 			this.performExtraction(playerPos);
 			return;
 		}
+		if(this.level().getChunkSource().getChunk(this.feet().getX() >> 4,
+			this.feet().getZ() >> 4, false) == null)
+		{
+			this.ticksSinceProgress = 0;
+			this.ticksSinceGoalProgress = 0;
+			this.lastPos = playerPos;
+			return;
+		}
 		if(this.frontierHold)
 		{
 			++this.frontierHoldTicks;
@@ -664,6 +986,10 @@ public final class FlightController
 		if(this.frontierPushTicks > 0)
 		{
 			--this.frontierPushTicks;
+		}
+		if(this.frontierMeterTicks > 0)
+		{
+			--this.frontierMeterTicks;
 		}
 		boolean holdSuppress =
 			this.frontierHold && this.frontierHoldTicks < 300;
@@ -692,6 +1018,14 @@ public final class FlightController
 				&& playerPos.distanceToSqr(destCenter) > 9.0
 				&& nearIndex >= path.size() - 3)
 			{
+				if(this.ticksSinceGlobalBest > 60 && this.noGoMarkCooldown == 0)
+				{
+					this.noGoMarkCooldown = 100;
+					BetterBlockPos tail = path.get(path.size() - 1);
+					this.addNoGoZone((double)tail.getX() + 0.5,
+						(double)tail.getY() + 0.5, (double)tail.getZ() + 0.5,
+						12.0);
+				}
 				if(!this.pathManager.isRecalculating())
 				{
 					this.pathManager.pathToDestination(this.feet());
@@ -754,6 +1088,7 @@ public final class FlightController
 			--this.hardRecoveryTicks;
 			if(this.recoveryHover)
 			{
+				this.commandedThisTick = true;
 				this.lastCommandedVel = Vec3.ZERO;
 				this.player().setDeltaMovement(Vec3.ZERO);
 				this.player().resetFallDistance();
@@ -769,9 +1104,9 @@ public final class FlightController
 				this.hardRecoveryTicks = 0;
 			}else
 			{
-				Vec3 v;
-				this.lastCommandedVel =
-					v = this.recoveryDir.scale(Math.min(sp, allowed));
+				Vec3 v = this.recoveryDir.scale(Math.min(sp, allowed));
+				this.commandedThisTick = true;
+				this.lastCommandedVel = v;
 				this.player().setDeltaMovement(v);
 				this.player().resetFallDistance();
 				if(this.hardRecoveryTicks % 20 == 0
@@ -785,8 +1120,8 @@ public final class FlightController
 		}
 		boolean bl2 =
 			threading = this.aimTight && this.ticksSinceGlobalBest < 100;
-		if(!(this.frontierPushTicks != 0 || threading
-			|| this.ticksSinceProgress <= 8
+		if(!(this.frontierPushTicks != 0 || this.frontierMeterTicks != 0
+			|| threading || this.ticksSinceProgress <= 8
 				&& this.ticksSinceGoalProgress <= 40))
 		{
 			boolean osc = this.ticksSinceGoalProgress > 40;
@@ -800,6 +1135,8 @@ public final class FlightController
 				if(++this.oscEscapeCount >= 2)
 				{
 					this.oscEscapeCount = 0;
+					this.addNoGoZone(playerPos.x, playerPos.y, playerPos.z,
+						8.0);
 					double[] clear = new double[1];
 					this.recoveryDir = this.mostOpenDirection(clear);
 					this.recoveryHover =
@@ -825,6 +1162,104 @@ public final class FlightController
 		{
 			this.flightDebugTick(playerPos, target);
 		}
+	}
+	
+	private void beginAbort(Vec3 playerPos, String reason)
+	{
+		if(this.abortLanding)
+		{
+			this.log("[AutoFly] " + reason + " - stopping.");
+			this.stop();
+			return;
+		}
+		BetterBlockPos landing = this.findSafeLanding(this.feet());
+		if(landing == null)
+		{
+			this.log("[AutoFly] " + reason + " - stopping.");
+			this.stop();
+			return;
+		}
+		this.log("[AutoFly] " + reason + " - landing at " + landing.getX() + ","
+			+ landing.getY() + "," + landing.getZ() + " then stopping.");
+		this.abortLanding = true;
+		this.abortLandingTicks = 0;
+		this.planFinalX = null;
+		this.planFinalZ = null;
+		this.destinationIsFinal = true;
+		this.destSanitized = true;
+		this.destination = landing;
+		this.globalBestDist = Double.MAX_VALUE;
+		this.ticksSinceGlobalBest = 0;
+		this.bestDistToDest = Double.MAX_VALUE;
+		this.ticksSinceGoalProgress = 0;
+		if(!this.pathManager.isRecalculating())
+		{
+			this.pathManager.pathToDestination(this.feet());
+		}
+	}
+	
+	private boolean isLandingCell(int x, int y, int z)
+	{
+		BlockState s;
+		int i;
+		for(i = 0; i < 3; ++i)
+		{
+			s = this.blockAt(x, y + i, z);
+			if(s.isAir())
+				continue;
+			return false;
+		}
+		for(i = 1; i <= 4; ++i)
+		{
+			s = this.blockAt(x, y - i, z);
+			if(FlightController.isBurnHazard(s))
+			{
+				return false;
+			}
+			if(s.isAir())
+				continue;
+			return true;
+		}
+		return false;
+	}
+	
+	private BetterBlockPos findSafeLanding(BlockPos from)
+	{
+		if(this.isLandingCell(from.getX(), from.getY(), from.getZ()))
+		{
+			return null;
+		}
+		for(int r = 1; r <= 32; ++r)
+		{
+			BetterBlockPos best = null;
+			double bestD = Double.MAX_VALUE;
+			for(int dx = -r; dx <= r; ++dx)
+			{
+				for(int dy = -r; dy <= r; ++dy)
+				{
+					for(int dz = -r; dz <= r; ++dz)
+					{
+						double d;
+						int z;
+						int y;
+						int x;
+						if(Math.max(Math.abs(dx),
+							Math.max(Math.abs(dy), Math.abs(dz))) != r
+							|| !this.isLandingCell(x = from.getX() + dx,
+								y = from.getY() + dy, z = from.getZ() + dz)
+							|| !((d =
+								(double)(dx * dx + dy * dy + dz * dz)) < bestD))
+							continue;
+						bestD = d;
+						best = new BetterBlockPos(x, y, z);
+					}
+				}
+			}
+			if(best == null)
+				continue;
+			return best;
+		}
+		return null;
 	}
 	
 	private void performExtraction(Vec3 playerPos)
@@ -1054,6 +1489,11 @@ public final class FlightController
 			if(clears[i] < threshold)
 				continue;
 			double d = score = tn == null ? clears[i] : dirs[i].dot(tn);
+			if(this.lastEscapeDir != null
+				&& dirs[i].dot(this.lastEscapeDir) < -0.5)
+			{
+				score -= 1.5;
+			}
 			if(!(score > bestScore))
 				continue;
 			bestScore = score;
@@ -1062,9 +1502,11 @@ public final class FlightController
 		}
 		if(best != null)
 		{
+			this.lastEscapeDir = best;
 			double escSpeed =
 				Math.max(0.5, Math.min(1.0, this.config.flightHorizontalSpeed));
 			escSpeed = Math.min(escSpeed, Math.max(0.1, bestChosenClear * 0.6));
+			this.commandedThisTick = true;
 			this.player().setDeltaMovement(best.scale(escSpeed));
 			this.prevCmdSpeed = escSpeed;
 			if(this.config.flightDebug)
@@ -1084,7 +1526,6 @@ public final class FlightController
 		int near)
 	{
 		int next;
-		double lookahead;
 		int bestSeg = Math.max(0, Math.min(near, path.size() - 1));
 		Vec3 bestPoint = Vec3.atCenterOf((Vec3i)((Vec3i)path.get(bestSeg)));
 		double bestDistSq = playerPos.distanceToSqr(bestPoint);
@@ -1092,8 +1533,8 @@ public final class FlightController
 		int hi = Math.min(path.size() - 2, near + 8);
 		for(int i = lo; i <= hi; ++i)
 		{
-			Vec3 a = Vec3.atCenterOf((Vec3i)((Vec3i)path.get(i)));
-			Vec3 b = Vec3.atCenterOf((Vec3i)((Vec3i)path.get(i + 1)));
+			Vec3 a = Vec3.atCenterOf((Vec3i)path.get(i));
+			Vec3 b = Vec3.atCenterOf((Vec3i)path.get(i + 1));
 			Vec3 ab = b.subtract(a);
 			double abLenSq = ab.lengthSqr();
 			double t = abLenSq < 1.0E-9 ? 0.0 : Math.max(0.0,
@@ -1116,24 +1557,22 @@ public final class FlightController
 			arc + Vec3.atCenterOf((Vec3i)((Vec3i)path.get(bestSeg)))
 				.distanceTo(bestPoint);
 		this.aimTight = false;
-		for(double d = lookahead = Math.max(3.0,
-			Math.min(32.0,
-				this.config.flightHorizontalSpeed * 1.5)); d >= 0.5; d -=
-					d > 8.0 ? 1.0 : 0.5)
+		double lookahead = Math.max(3.0,
+			Math.min(32.0, this.config.flightHorizontalSpeed * 1.5));
+		for(double extra : AIM_LATERAL_MARGINS)
 		{
-			Vec3 cand = this.advanceAlongPath(path, bestSeg, bestPoint, d);
-			if(this.clearViewForPlayer(playerPos, cand)
-				&& this.octreeClear(playerPos, cand)
-				&& this.lineClearOfHazard(playerPos, cand))
+			for(double d = lookahead; d >= 0.5; d -= d > 8.0 ? 1.0 : 0.5)
 			{
-				return cand;
+				Vec3 cand = this.advanceAlongPath(path, bestSeg, bestPoint, d);
+				if(this.aimClear(playerPos, cand, extra))
+				{
+					return cand;
+				}
+				Vec3 low = cand.add(0.0, -0.4, 0.0);
+				if(!this.aimClear(playerPos, low, extra))
+					continue;
+				return low;
 			}
-			Vec3 low = cand.add(0.0, -0.4, 0.0);
-			if(!this.clearViewForPlayer(playerPos, low)
-				|| !this.octreeClear(playerPos, low)
-				|| !this.lineClearOfHazard(playerPos, low))
-				continue;
-			return low;
 		}
 		this.aimTight = true;
 		int lastIdx = path.size() - 1;
@@ -1141,9 +1580,7 @@ public final class FlightController
 		{
 			Vec3 vertex = Vec3.atCenterOf((Vec3i)((Vec3i)path.get(j)));
 			if(!(vertex.distanceToSqr(playerPos) > 0.12249999999999998)
-				|| !this.clearViewForPlayer(playerPos, vertex)
-				|| !this.octreeClear(playerPos, vertex)
-				|| !this.lineClearOfHazard(playerPos, vertex))
+				|| !this.aimClear(playerPos, vertex, 0.0))
 				continue;
 			return vertex;
 		}
@@ -1151,17 +1588,38 @@ public final class FlightController
 			&& Vec3.atCenterOf((Vec3i)((Vec3i)path.get(next)))
 				.distanceToSqr(playerPos) < 0.12249999999999998; ++next)
 		{}
-		return Vec3.atCenterOf((Vec3i)((Vec3i)path.get(next)));
+		for(int j = next; j <= Math.min(next + 8, lastIdx); ++j)
+		{
+			BetterBlockPos node = path.get(j);
+			if(!this.passable(node.x, node.y, node.z)
+				|| !this.passable(node.x, node.y + 1, node.z))
+				continue;
+			return Vec3.atCenterOf((Vec3i)node);
+		}
+		this.recalcCautionTicks = 30;
+		return playerPos;
 	}
 	
-	private boolean octreeClear(Vec3 from, Vec3 to)
+	private boolean aimClear(Vec3 from, Vec3 to, double extraMargin)
+	{
+		Vec3 delta = to.subtract(from);
+		double len = delta.length();
+		if(len > 1.0E-6 && this.sweptCollisionDistance(delta, len) < len)
+		{
+			return false;
+		}
+		return this.octreeClear(from, to, 0.45 + extraMargin)
+			&& this.lineClearOfHazard(from, to);
+	}
+	
+	private boolean octreeClear(Vec3 from, Vec3 to, double offset)
 	{
 		FlightPathfinder context = this.context;
 		if(context == null)
 		{
 			return true;
 		}
-		return context.pathLineClear(from, to);
+		return context.pathLineClear(from, to, offset);
 	}
 	
 	private Vec3 advanceAlongPath(List<BetterBlockPos> path, int seg, Vec3 from,
@@ -1185,7 +1643,10 @@ public final class FlightController
 	
 	private void driveToward(Vec3 playerPos, Vec3 target, Vec3 destCenter)
 	{
+		double spS;
+		double hazardBelow;
 		Vec3 vel;
+		ArrayList<String> limiters;
 		Vec3 delta = target.subtract(playerPos);
 		double dist = delta.length();
 		this.debugGovHit = -1.0;
@@ -1195,43 +1656,82 @@ public final class FlightController
 		{
 			this.faceToward(playerPos, target);
 		}
-		if(this.adaptiveCeiling < this.config.flightHorizontalSpeed)
-		{
-			this.adaptiveCeiling = Math.min(this.config.flightHorizontalSpeed,
-				this.adaptiveCeiling + 0.002);
-		}
-		double maxSpeed =
-			Math.min(this.config.flightHorizontalSpeed, this.adaptiveCeiling);
+		double maxSpeed = this.config.flightHorizontalSpeed;
+		ArrayList<String> arrayList = limiters =
+			this.config.flightDebug ? new ArrayList<String>(4) : null;
 		if(dist < 1.0E-4)
 		{
 			vel = Vec3.ZERO;
 		}else
 		{
+			double vCap;
 			double distToDest2 = playerPos.distanceTo(destCenter);
-			double speed = Math.min(Math.min(maxSpeed, dist),
-				Math.max(0.2, distToDest2 * 0.6));
+			double arrivalCap = Math.max(0.2, distToDest2 * 0.6);
+			double speed = Math.min(Math.min(maxSpeed, dist), arrivalCap);
 			vel = delta.scale(speed / dist);
-			double vCap = this.config.flightVerticalSpeed;
-			if(vCap > 0.0 && Math.abs(vel.y) > vCap)
+			if(limiters != null && speed < maxSpeed - 0.01)
+			{
+				limiters.add(arrivalCap < Math.min(maxSpeed, dist) ? "arrival"
+					: "aim-near");
+			}
+			if((vCap = this.config.flightVerticalSpeed) > 0.0
+				&& Math.abs(vel.y) > vCap)
 			{
 				vel = vel.scale(vCap / Math.abs(vel.y));
 			}
 		}
+		double preAvoid = vel.length();
 		vel = this.applyLavaAvoidance(playerPos, vel, maxSpeed);
-		double hazardBelow = this.lavaClearanceAhead(playerPos, vel);
-		if(!Double.isNaN(hazardBelow) && hazardBelow < 4.0)
+		if(limiters != null && vel.length() < preAvoid - 0.01)
 		{
-			vel = this.liftClamped(vel, 0.45);
-			double frac = Math.max(0.0, hazardBelow) / 4.0;
-			double cap = 1.2 + frac * Math.max(0.0, maxSpeed - 1.2);
-			double s = vel.length();
-			if(s > cap && s > 1.0E-6)
+			limiters.add("lava-avoid");
+		}
+		if(!Double
+			.isNaN(hazardBelow = this.lavaClearanceAhead(playerPos, vel, dist)))
+		{
+			if(hazardBelow < 2.5)
 			{
-				vel = vel.scale(cap / s);
-				vel = this.liftClamped(vel, Math.min(0.45, cap));
+				vel = this.liftClamped(vel, 0.45);
+			}else if(hazardBelow < 3.5)
+			{
+				if(vel.y < 0.0)
+				{
+					vel = new Vec3(vel.x, 0.0, vel.z);
+				}
+			}else
+			{
+				double maxDescent = Math.min(3.0, (hazardBelow - 3.0) * 0.5);
+				if(vel.y < -maxDescent)
+				{
+					vel = new Vec3(vel.x, -maxDescent, vel.z);
+				}
+			}
+			if(hazardBelow < 4.0)
+			{
+				double frac = Math.max(0.0, hazardBelow) / 4.0;
+				double cap = 1.2 + frac * Math.max(0.0, maxSpeed - 1.2);
+				double s = vel.length();
+				if(s > cap && s > 1.0E-6)
+				{
+					vel = vel.scale(cap / s);
+					if(hazardBelow < 2.5)
+					{
+						vel = this.liftClamped(vel, Math.min(0.45, cap));
+					}
+					if(limiters != null)
+					{
+						limiters.add(String.format(Locale.ROOT,
+							"lava-clear:%.1f", hazardBelow));
+					}
+				}
 			}
 		}
+		double preBarrier = vel.length();
 		vel = this.applyUnloadedChunkBarrier(playerPos, vel);
+		if(limiters != null && vel.length() < preBarrier - 0.01)
+		{
+			limiters.add("frontier");
+		}
 		if(this.serverFallEstimate > 2.0 && vel.y > -0.2 && vel.y < 0.08)
 		{
 			vel = new Vec3(vel.x, 0.08, vel.z);
@@ -1254,10 +1754,24 @@ public final class FlightController
 					vel =
 						slide.lengthSqr() > scaled.lengthSqr() ? slide : scaled;
 					this.debugGovScale = vel.length() / sp;
+					if(limiters != null)
+					{
+						limiters
+							.add(String.format(Locale.ROOT, "wall:%.1f", hit));
+					}
 				}
 			}
 		}else
 		{
+			double spT = vel.length();
+			if(spT > 0.6)
+			{
+				vel = vel.scale(0.6 / spT);
+				if(limiters != null)
+				{
+					limiters.add("tight");
+				}
+			}
 			this.debugGovHit =
 				this.sweptCollisionDistance(vel, vel.length() + 0.5);
 			this.debugGovScale = 1.0;
@@ -1275,28 +1789,43 @@ public final class FlightController
 				Math.max(0.0, octHit - this.governorMargin(sp2))) < sp2)
 			{
 				vel = vel.scale(octAllowed / sp2);
+				if(limiters != null)
+				{
+					limiters.add(
+						String.format(Locale.ROOT, "predicted:%.1f", octHit));
+				}
 			}
 		}
-		if(this.settleTicks > 0)
+		if(this.settleTicks > 0 && (spS = vel.length()) > 0.1)
 		{
-			double spS = vel.length();
-			if(spS > 0.1)
+			vel = vel.scale(0.1 / spS);
+			if(limiters != null)
 			{
-				vel = vel.scale(0.1 / spS);
-			}
-		}else if(this.desyncLevel > 0)
-		{
-			double cap =
-				Math.max(0.5, maxSpeed * Math.pow(0.5, this.desyncLevel));
-			double spD = vel.length();
-			if(spD > cap)
-			{
-				vel = vel.scale(cap / spD);
+				limiters.add("settle");
 			}
 		}
-		if(!Double.isNaN(hazardBelow) && hazardBelow < 4.0)
+		if(this.recalcCautionTicks > 0)
 		{
-			vel = this.liftClamped(vel, 0.2);
+			double cap = this.aimTight ? 0.2 : 1.0;
+			double spC = vel.length();
+			if(spC > cap)
+			{
+				vel = vel.scale(cap / spC);
+				if(limiters != null)
+				{
+					limiters.add("caution");
+				}
+			}
+		}
+		if(!Double.isNaN(hazardBelow))
+		{
+			if(hazardBelow < 2.5)
+			{
+				vel = this.liftClamped(vel, 0.2);
+			}else if(hazardBelow < 3.5 && vel.y < 0.0)
+			{
+				vel = this.sweepClamped(new Vec3(vel.x, 0.0, vel.z));
+			}
 		}
 		if(!this.frontierHold && this.hardRecoveryTicks == 0
 			&& this.settleTicks == 0 && desiredSp > 0.5
@@ -1314,30 +1843,73 @@ public final class FlightController
 		{
 			this.governorBlockedTicks = 0;
 		}
+		if(limiters != null && !limiters.isEmpty()
+			&& vel.length() < 0.8 * maxSpeed && this.speedLimitLogCooldown == 0)
+		{
+			this.speedLimitLogCooldown = 60;
+			this.log(String.format(Locale.ROOT,
+				"[AutoFly] speed %.1f/%.1f limited by %s", vel.length(),
+				maxSpeed, String.join((CharSequence)"+", limiters)));
+		}
+		this.commandedThisTick = true;
 		this.lastCommandedVel = vel;
 		this.player().setDeltaMovement(vel);
 		this.player().resetFallDistance();
 	}
 	
+	private Vec3 sweepClamped(Vec3 vel)
+	{
+		double len = vel.length();
+		if(len < 1.0E-6)
+		{
+			return vel;
+		}
+		double hit = this.sweptCollisionDistance(vel, len + 0.25);
+		double allowed = Math.max(0.0, hit - 0.25);
+		return allowed < len ? vel.scale(allowed / len) : vel;
+	}
+	
 	private Vec3 liftClamped(Vec3 vel, double lift)
 	{
+		double hit;
+		double allowed;
 		double probe = lift + 0.3;
 		double upClear =
 			this.sweptCollisionDistance(new Vec3(0.0, probe, 0.0), probe);
-		double allowed = Math.max(0.0, upClear - 0.3);
-		return new Vec3(vel.x, Math.max(vel.y, Math.min(lift, allowed)), vel.z);
+		double liftY = Math.min(lift, Math.max(0.0, upClear - 0.3));
+		if(vel.y >= liftY)
+		{
+			return vel;
+		}
+		Vec3 lifted = new Vec3(vel.x, liftY, vel.z);
+		double len = lifted.length();
+		if(len > 1.0E-6 && (allowed = Math.max(0.0,
+			(hit = this.sweptCollisionDistance(lifted, len + 0.25))
+				- 0.25)) < len)
+		{
+			lifted = lifted.scale(allowed / len);
+		}
+		return lifted;
 	}
 	
-	private double lavaClearanceAhead(Vec3 playerPos, Vec3 vel)
+	private double lavaClearanceAhead(Vec3 playerPos, Vec3 vel, double maxDist)
 	{
 		double best = this.lavaClearanceBelow(playerPos);
-		for(int k = 1; k <= 2; ++k)
+		double sp = vel.length();
+		if(sp > 1.0E-6 && maxDist > 1.0E-6)
 		{
-			double c =
-				this.lavaClearanceBelow(playerPos.add(vel.scale((double)k)));
-			if(Double.isNaN(c) || !Double.isNaN(best) && !(c < best))
-				continue;
-			best = c;
+			Vec3 dir = vel.scale(1.0 / sp);
+			for(int k = 1; k <= 3; ++k)
+			{
+				double d = Math.min((double)k * sp, maxDist);
+				double c = this.lavaClearanceBelow(playerPos.add(dir.scale(d)));
+				if(!Double.isNaN(c) && (Double.isNaN(best) || c < best))
+				{
+					best = c;
+				}
+				if(d >= maxDist)
+					break;
+			}
 		}
 		return best;
 	}
@@ -1365,20 +1937,26 @@ public final class FlightController
 		}
 		ClientChunkCache chunkSource = this.level().getChunkSource();
 		Vec3 dir = vel.scale(1.0 / sp);
-		double probe = sp + 6.0;
+		double probe = 2.0 * sp + 8.0;
 		for(double d = 2.0; d <= probe; d += 2.0)
 		{
+			double allowed;
+			boolean packed;
 			Vec3 p = playerPos.add(dir.scale(d));
-			if(chunkSource.getChunk((int)Math.floor(p.x) >> 4,
-				(int)Math.floor(p.z) >> 4, false) != null)
+			int cx = (int)Math.floor(p.x) >> 4;
+			int cz = (int)Math.floor(p.z) >> 4;
+			LevelChunk chunk = chunkSource.getChunk(cx, cz, false);
+			boolean bl = packed =
+				this.context != null && this.context.hasRealChunk(cx, cz);
+			if(chunk != null && packed)
 				continue;
-			double allowed = Math.max(0.0, d - 3.0);
-			if(allowed < 0.15 && d > 1.5)
+			if(chunk != null && this.context != null)
 			{
-				allowed = 0.15;
+				this.context.queueForPacking(chunk);
 			}
-			if(allowed < sp)
+			if((allowed = Math.max(0.15, (d - 4.0) * 0.5)) < sp)
 			{
+				this.frontierMeterTicks = 40;
 				if(allowed < 0.2)
 				{
 					this.frontierHold = true;
@@ -1393,6 +1971,7 @@ public final class FlightController
 	private Vec3 axisSlide(Vec3 vel)
 	{
 		double hit;
+		double allowed;
 		double z;
 		double y;
 		double x =
@@ -1403,10 +1982,11 @@ public final class FlightController
 			z = this.slideComponent(vel.z,
 				new Vec3(0.0, 0.0, Math.signum(vel.z))));
 		double len = slide.length();
-		if(len > 1.0E-6
-			&& (hit = this.sweptCollisionDistance(slide, len)) < len)
+		if(len > 1.0E-6 && (allowed =
+			Math.max(0.0, (hit = this.sweptCollisionDistance(slide, len + 0.25))
+				- 0.25)) < len)
 		{
-			slide = slide.scale(hit / len);
+			slide = slide.scale(allowed / len);
 		}
 		return slide;
 	}
@@ -1439,15 +2019,15 @@ public final class FlightController
 		}
 		Vec3 dir = move.scale(1.0 / len);
 		AABB box = this.player().getBoundingBox();
-		double step = 0.25;
-		for(double d = 0.25; d <= probe; d += 0.25)
+		double step = 0.1;
+		for(double d = 0.1; d <= probe; d += 0.1)
 		{
 			Vec3 off = dir.scale(d);
-			AABB moved = box.move(off.x, off.y, off.z);
+			AABB moved = box.move(off.x, off.y, off.z).inflate(0.05);
 			if(this.level().noBlockCollision((Entity)this.player(), moved)
-				&& !this.boxIntersectsBurnHazard(moved.inflate(0.1)))
+				&& !this.boxIntersectsBurnHazard(moved.inflate(0.05)))
 				continue;
-			return d - 0.25;
+			return d - 0.1;
 		}
 		return probe;
 	}
@@ -1565,18 +2145,33 @@ public final class FlightController
 			int x = (int)Math.floor(playerPos.x + o[0]);
 			int z = (int)Math.floor(playerPos.z + o[1]);
 			for(int y = feetY = (int)Math.floor(playerPos.y); y >= feetY
-				- 8; --y)
+				- 12; --y)
 			{
-				if(!FlightController.isBurnHazard(this.blockAt(x, y, z)))
-					continue;
-				double clear = playerPos.y - ((double)y + 0.889);
-				if(!Double.isNaN(best) && !(clear < best))
+				BlockState s = this.blockAt(x, y, z);
+				if(FlightController.isBurnHazard(s))
+				{
+					double clear = playerPos.y - ((double)y + 0.889);
+					if(!Double.isNaN(best) && !(clear < best))
+						continue block0;
+					best = clear;
 					continue block0;
-				best = clear;
-				continue block0;
+				}
+				if(!s.isAir())
+					continue block0;
 			}
 		}
 		return best;
+	}
+	
+	public void onServerCorrection()
+	{
+		LocalPlayer p = this.player();
+		if(p != null && this.isActive())
+		{
+			p.setDeltaMovement(Vec3.ZERO);
+			this.lastCommandedVel = Vec3.ZERO;
+		}
+		this.noteServerCorrection();
 	}
 	
 	public void noteServerCorrection()
@@ -1584,20 +2179,6 @@ public final class FlightController
 		if(this.destination != null)
 		{
 			this.settleTicks = 3;
-			if(this.ticksSinceServerCorrection < 100)
-			{
-				this.desyncLevel = Math.min(3, this.desyncLevel + 1);
-				this.desyncCautionTicks = 40;
-				this.adaptiveCeiling =
-					Math.max(1.0, Math.min(this.adaptiveCeiling,
-						this.config.flightHorizontalSpeed) * 0.5);
-				if(this.config.flightDebug)
-				{
-					this.log(String.format(Locale.ROOT,
-						"[AutoFly] repeated server corrections - desync caution level %d, speed ceiling %.2f",
-						this.desyncLevel, this.adaptiveCeiling));
-				}
-			}
 		}
 		this.ticksSinceServerCorrection = 0;
 	}
@@ -1634,8 +2215,14 @@ public final class FlightController
 	
 	private boolean clearViewForPlayer(Vec3 from, Vec3 to)
 	{
+		return this.clearViewForPlayer(from, to, 0.0);
+	}
+	
+	private boolean clearViewForPlayer(Vec3 from, Vec3 to, double extraMargin)
+	{
 		double[][] offsets;
-		double halfWidth = (double)this.player().getBbWidth() / 2.0;
+		double halfWidth =
+			(double)this.player().getBbWidth() / 2.0 + extraMargin;
 		double height = this.player().getBbHeight();
 		for(double[] o : offsets = new double[][]{{0.0, 0.0},
 			{halfWidth, halfWidth}, {halfWidth, -halfWidth},
@@ -1643,6 +2230,11 @@ public final class FlightController
 		{
 			if(!this.clearView(from.add(o[0], 0.0, o[1]),
 				to.add(o[0], 0.0, o[1])))
+			{
+				return false;
+			}
+			if(!this.clearView(from.add(o[0], height * 0.5, o[1]),
+				to.add(o[0], height * 0.5, o[1])))
 			{
 				return false;
 			}
@@ -1707,13 +2299,15 @@ public final class FlightController
 			label, horiz, vert, minor, inLava, advanced,
 			this.ticksSinceGoalProgress));
 		this.log(String.format(Locale.ROOT,
-			"  pos=%.1f,%.1f,%.1f aim=%s near=%d aimClr=%s govHit=%.2f govScale=%.2f cmd=%.2f",
+			"  pos=%.1f,%.1f,%.1f aim=%s near=%d aimClr=%s govHit=%.2f govScale=%.2f cmd=%.2f corrAge=%d recalcCaution=%d mv=%s:%.2f/%.2f",
 			playerPos.x, playerPos.y, playerPos.z,
 			aim == null ? "none"
 				: String.format(Locale.ROOT, "%.1f,%.1f,%.1f", aim.x, aim.y,
 					aim.z),
 			this.pathManager.getNear(), aimClear, this.debugGovHit,
-			this.debugGovScale, cmdSpeed));
+			this.debugGovScale, cmdSpeed, this.ticksSinceServerCorrection,
+			this.recalcCautionTicks, this.lastMoveNote, this.lastMoveLen,
+			this.lastMoveHit));
 		BlockPos f = this.feet();
 		this.log("  feet=" + this.classifyAt(f) + " head="
 			+ this.classifyAt(f.above()) + " above2="
@@ -1797,9 +2391,8 @@ public final class FlightController
 				return CompletableFuture.completedFuture(null);
 			}
 			this.recalculating = true;
-			return this
-				.path0(from, this.this$0.destination, UnaryOperator.identity())
-				.whenComplete((result, ex) -> {
+			return this.path0(from, this.this$0.effectiveSearchGoal(from),
+				UnaryOperator.identity()).whenComplete((result, ex) -> {
 					this.recalculating = false;
 					if(ex != null)
 					{
@@ -1962,6 +2555,8 @@ public final class FlightController
 			BetterBlockPos rangeStart = this.path.get(rangeStartIncl);
 			if(!this.this$0.passable(rangeStart.x, rangeStart.y, rangeStart.z))
 			{
+				this.this$0.recalcCautionTicks = 30;
+				this.pathRecalcSegment(OptionalInt.empty());
 				return;
 			}
 			if(this.ticksNearUnchanged > 100)
@@ -1981,11 +2576,17 @@ public final class FlightController
 					canSeeAny = true;
 				}
 				if(this.this$0.clearView(a, b)
+					&& this.this$0.clearView(a.add(0.0, 1.0, 0.0),
+						b.add(0.0, 1.0, 0.0))
 					&& this.this$0.clearView(a.add(0.0, 2.0, 0.0),
 						b.add(0.0, 2.0, 0.0))
 					&& context.pathSegmentSafe(this.path.get(i),
 						this.path.get(i + 1)))
 					continue;
+				if(this.path.get(i).distanceSq(this.this$0.feet()) < 1024.0)
+				{
+					this.this$0.recalcCautionTicks = 30;
+				}
 				OptionalInt rejoinAt = this.path.get(rangeEndExcl - 1)
 					.distanceSq(this.this$0.destination) < this.path
 						.get(rangeStartIncl).distanceSq(this.this$0.destination)

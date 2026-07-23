@@ -39,6 +39,7 @@ import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.ProfileKeyPair;
@@ -261,6 +262,15 @@ public abstract class ClientPacketListenerMixin
 		if(minecraft.level != null)
 			WurstClient.INSTANCE.getHax().autoFlyHack
 				.onPathChunkLoaded(minecraft.level.getChunk(x, z));
+	}
+	
+	@Inject(
+		method = "handleMovePlayer(Lnet/minecraft/network/protocol/game/ClientboundPlayerPositionPacket;)V",
+		at = @At("TAIL"))
+	private void wurst$onPathServerCorrection(
+		ClientboundPlayerPositionPacket packet, CallbackInfo ci)
+	{
+		WurstClient.INSTANCE.getHax().autoFlyHack.onPathServerCorrection();
 	}
 	
 	@Inject(

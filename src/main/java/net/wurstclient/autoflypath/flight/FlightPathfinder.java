@@ -13,7 +13,11 @@ import net.wurstclient.autoflypath.engine.LazyThetaStar;
 import net.wurstclient.autoflypath.engine.NetherBiomeRisk;
 import net.wurstclient.autoflypath.engine.NetherTerrainGenerator;
 import java.lang.ref.SoftReference;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -36,12 +40,17 @@ public final class FlightPathfinder
 	private long lastSearchStart = Long.MIN_VALUE;
 	private double lastSearchBestH = Double.POSITIVE_INFINITY;
 	private int escalation;
+	private final List<double[]> noGoZones = new CopyOnWriteArrayList<>();
 	private final FlightGrid grid;
 	private final long seed;
 	private final boolean predictTerrain;
 	private final NetherTerrainGenerator generator;
 	private final ExecutorService executor;
+	private final ExecutorService packExecutor;
 	private volatile NetherBiomeRisk biomeRisk;
+	private static final double CONTINUE_PROBE = 24.0;
+	private static final double[][] CONTINUE_ROTS = {{1.0, 0.0}, {0.819, 0.574},
+		{0.819, -0.574}, {0.342, 0.94}, {0.342, -0.94}};
 	
 	private static boolean isBurnHazard(BlockState state)
 	{
@@ -59,6 +68,11 @@ public final class FlightPathfinder
 			predictTerrain ? new NetherTerrainGenerator(seed) : null;
 		this.executor = Executors.newSingleThreadExecutor(r -> {
 			Thread t = new Thread(r, "AutoFly-Engine");
+			t.setDaemon(true);
+			return t;
+		});
+		this.packExecutor = Executors.newSingleThreadExecutor(r -> {
+			Thread t = new Thread(r, "AutoFly-Pack");
 			t.setDaemon(true);
 			return t;
 		});
@@ -106,6 +120,11 @@ public final class FlightPathfinder
 		return this.grid.hasRealChunk(pos.x(), pos.z());
 	}
 	
+	public boolean hasRealChunk(int chunkX, int chunkZ)
+	{
+		return this.grid.hasRealChunk(chunkX, chunkZ);
+	}
+	
 	public FlightGrid grid()
 	{
 		return this.grid;
@@ -114,7 +133,7 @@ public final class FlightPathfinder
 	public void queueForPacking(LevelChunk chunkIn)
 	{
 		SoftReference<LevelChunk> ref = new SoftReference<LevelChunk>(chunkIn);
-		this.executor.execute(() -> {
+		this.packExecutor.execute(() -> {
 			LevelChunk chunk = (LevelChunk)ref.get();
 			if(chunk != null)
 			{
@@ -128,13 +147,13 @@ public final class FlightPathfinder
 		BlockPos p = pos.immutable();
 		boolean solid = state != AIR_BLOCK_STATE && !state.isAir();
 		boolean hazard = FlightPathfinder.isBurnHazard(state);
-		this.executor.execute(() -> this.grid.setBlock(p.getX(), p.getY(),
+		this.packExecutor.execute(() -> this.grid.setBlock(p.getX(), p.getY(),
 			p.getZ(), solid, hazard));
 	}
 	
 	public void queueCacheCulling(int chunkX, int chunkZ, int maxDistanceBlocks)
 	{
-		this.executor.execute(() -> this.grid.cullBeyond(chunkX, chunkZ,
+		this.packExecutor.execute(() -> this.grid.cullBeyond(chunkX, chunkZ,
 			Math.max(1, maxDistanceBlocks >> 4)));
 	}
 	
@@ -189,6 +208,13 @@ public final class FlightPathfinder
 		}
 	}
 	
+	public void setNoGoZones(Collection<double[]> zones)
+	{
+		this.noGoZones.clear();
+		for(double[] zone : zones)
+			this.noGoZones.add(zone.clone());
+	}
+	
 	public CompletableFuture<UnpackedSegment> pathFindAsync(BlockPos src,
 		BlockPos dst)
 	{
@@ -197,43 +223,109 @@ public final class FlightPathfinder
 				this.generator == null ? null : (cx, cz) -> {
 					if(!this.grid.hasChunk(cx, cz))
 					{
-						this.generator.generate(this.grid, cx, cz);
+						NetherBiomeRisk risk = this.biomeRisk;
+						this.generator.generate(this.grid, cx, cz,
+							risk != null && risk.isRiskyChunk(cx, cz));
 					}
 				};
-			long startKey = (long)(src.getX() >> 3) << 40
-				^ (long)(src.getY() >> 3) << 20 ^ (long)(src.getZ() >> 3);
-			if(startKey != this.lastSearchStart)
+			long destKey = (long)(dst.getX() >> 4) << 40
+				^ (long)(dst.getY() >> 4) << 20 ^ (long)(dst.getZ() >> 4);
+			if(destKey != this.lastSearchStart)
 			{
 				this.escalation = 0;
 				this.lastSearchBestH = Double.POSITIVE_INFINITY;
 			}
-			this.lastSearchStart = startKey;
-			LazyThetaStar.Result result = new LazyThetaStar(this.grid, ensurer)
-				.search(src.getX(), src.getY(), src.getZ(), dst.getX(),
-					dst.getY(), dst.getZ(), 400000 << this.escalation,
-					System.nanoTime() + (450000000L << this.escalation));
+			this.lastSearchStart = destKey;
+			double weight = this.escalation >= 2 ? 1.0 : 1.15;
+			LazyThetaStar.Result result = new LazyThetaStar(this.grid, ensurer,
+				this.noGoZones.toArray(double[][]::new)).search(src.getX(),
+					src.getY(), src.getZ(), dst.getX(), dst.getY(), dst.getZ(),
+					400000 << this.escalation,
+					System.nanoTime() + (450000000L << this.escalation),
+					weight);
 			if(result.path.isEmpty())
 			{
 				throw new PathCalculationException("Path calculation failed");
 			}
-			int[] tail = result.path.get(result.path.size() - 1);
+			List<int[]> path = result.path;
+			if(!result.finished && path.size() > 2)
+				path = this.trimToContinuable(path, dst, ensurer);
+			int[] tail = path.get(path.size() - 1);
 			double bestH = Math.sqrt(Math.pow(tail[0] - dst.getX(), 2.0)
 				+ Math.pow(tail[1] - dst.getY(), 2.0)
 				+ Math.pow(tail[2] - dst.getZ(), 2.0));
-			this.escalation =
-				!result.finished && bestH > this.lastSearchBestH - 8.0
+			int[] head = path.get(0);
+			double tailAdvance = Math.sqrt(Math.pow(tail[0] - head[0], 2.0)
+				+ Math.pow(tail[1] - head[1], 2.0)
+				+ Math.pow(tail[2] - head[2], 2.0));
+			this.escalation = !result.finished
+				&& (bestH > this.lastSearchBestH - 8.0 || tailAdvance < 96.0)
 					? Math.min(this.escalation + 1, 3) : 0;
 			this.lastSearchBestH = Math.min(this.lastSearchBestH, bestH);
 			return new UnpackedSegment(
-				result.path.stream()
-					.map(c -> new BetterBlockPos(c[0], c[1], c[2])),
+				path.stream().map(c -> new BetterBlockPos(c[0], c[1], c[2])),
 				result.finished);
 		}, this.executor);
+	}
+	
+	private List<int[]> trimToContinuable(List<int[]> path, BlockPos dst,
+		LazyThetaStar.ChunkEnsurer ensurer)
+	{
+		for(int i = path.size() - 1; i >= 1; --i)
+		{
+			if(!this.continuable(path.get(i), dst, ensurer))
+				continue;
+			return i == path.size() - 1 ? path
+				: new ArrayList<>(path.subList(0, i + 1));
+		}
+		return path;
+	}
+	
+	private boolean continuable(int[] node, BlockPos dst,
+		LazyThetaStar.ChunkEnsurer ensurer)
+	{
+		double cx = node[0] + 0.5;
+		double cy = node[1] + 1.0;
+		double cz = node[2] + 0.5;
+		double dx = dst.getX() + 0.5 - cx;
+		double dz = dst.getZ() + 0.5 - cz;
+		double horizontal = Math.sqrt(dx * dx + dz * dz);
+		if(horizontal < CONTINUE_PROBE)
+			return true;
+		dx /= horizontal;
+		dz /= horizontal;
+		GridRay.CellTest test = (x, y, z) -> {
+			if(ensurer != null)
+				ensurer.ensure(x >> 4, z >> 4);
+			return this.grid.isSolid(x, y, z);
+		};
+		for(double[] rotation : CONTINUE_ROTS)
+		{
+			double rx = dx * rotation[0] - dz * rotation[1];
+			double rz = dx * rotation[1] + dz * rotation[0];
+			for(int pitch = 0; pitch <= 1; ++pitch)
+			{
+				double py = pitch == 0 ? 0.0 : 0.45;
+				double norm = Math.sqrt(1.0 + py * py);
+				if(GridRay.clear(test, cx, cy, cz,
+					cx + rx / norm * CONTINUE_PROBE,
+					cy + py / norm * CONTINUE_PROBE,
+					cz + rz / norm * CONTINUE_PROBE))
+					return true;
+			}
+		}
+		return false;
 	}
 	
 	public boolean pathLineClear(Vec3 a, Vec3 b)
 	{
 		return GridRay.corridorClear(this.grid, a.x, a.y, a.z, b.x, b.y, b.z);
+	}
+	
+	public boolean pathLineClear(Vec3 a, Vec3 b, double offset)
+	{
+		return GridRay.corridorClear(this.grid, a.x, a.y, a.z, b.x, b.y, b.z,
+			offset);
 	}
 	
 	public boolean pathSegmentSafe(BlockPos a, BlockPos b)
@@ -278,9 +370,11 @@ public final class FlightPathfinder
 	public void destroy()
 	{
 		this.executor.shutdownNow();
+		this.packExecutor.shutdownNow();
 		try
 		{
 			this.executor.awaitTermination(2L, TimeUnit.SECONDS);
+			this.packExecutor.awaitTermination(2L, TimeUnit.SECONDS);
 		}catch(InterruptedException e)
 		{
 			Thread.currentThread().interrupt();

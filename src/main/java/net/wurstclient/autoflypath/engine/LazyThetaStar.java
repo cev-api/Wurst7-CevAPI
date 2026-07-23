@@ -15,13 +15,24 @@ import java.util.List;
 
 public final class LazyThetaStar
 {
-	private static final double TIGHT_PENALTY = 1.6;
-	private static final double MID_PENALTY = 0.5;
-	private static final double FLOOR_PENALTY = 0.4;
+	private static final double[] CLEARANCE_PENALTY =
+		{0.0, 4.0, 1.5, 0.6, 0.25, 0.0};
+	private static final double PREDICTED_CLEARANCE_SCALE = 1.5;
+	private static final double CEIL_NEAR_PENALTY = 1.0;
+	private static final double CEIL_MID_PENALTY = 0.4;
+	private static final double FLOOR_NEAR_PENALTY = 0.5;
+	private static final double FLOOR_MID_PENALTY = 0.2;
+	private static final int[][][] CLEARANCE_RINGS = {
+		{{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}},
+		{{2, 0}, {-2, 0}, {0, 2}, {0, -2}, {2, 2}, {2, -2}, {-2, 2}, {-2, -2}},
+		{{3, 0}, {-3, 0}, {0, 3}, {0, -3}, {3, 3}, {3, -3}, {-3, 3}, {-3, -3}},
+		{{4, 0}, {-4, 0}, {0, 4}, {0, -4}}};
 	private static final int HAZARD_CLEAR_BELOW = 4;
 	private static final int HAZARD_PENALTY_DEPTH = 8;
 	private static final double HAZARD_LOW_PENALTY = 1.2;
-	private static final double PREFERRED_CLEARANCE = 1.1;
+	private static final double NO_GO_PENALTY = 4.0;
+	private static final double TAIL_OPEN_BIAS = 8.0;
+	private static final double PREFERRED_CLEARANCE = 1.6;
 	private static final double HEURISTIC_WEIGHT = 1.15;
 	private static final int[][] NEIGHBORS = LazyThetaStar.buildNeighbors();
 	private static final int[] NEIGHBOR_CUBE =
@@ -32,11 +43,13 @@ public final class LazyThetaStar
 		LazyThetaStar.buildNeighborSubsets();
 	private final FlightGrid grid;
 	private final ChunkEnsurer ensurer;
+	private final double[][] noGoZones;
 	private final LongOpenHashSet ensured = new LongOpenHashSet();
 	private long forcedPassable = Long.MIN_VALUE;
 	private final Long2IntOpenHashMap posToId = new Long2IntOpenHashMap();
 	private long[] nPos = new long[1024];
 	private double[] nG = new double[1024];
+	private double[] nPenalty = new double[1024];
 	private int[] nParent = new int[1024];
 	private boolean[] nClosed = new boolean[1024];
 	private int nodeCount;
@@ -50,8 +63,15 @@ public final class LazyThetaStar
 	
 	public LazyThetaStar(FlightGrid grid, ChunkEnsurer ensurer)
 	{
+		this(grid, ensurer, new double[0][]);
+	}
+	
+	public LazyThetaStar(FlightGrid grid, ChunkEnsurer ensurer,
+		double[][] noGoZones)
+	{
 		this.grid = grid;
 		this.ensurer = ensurer;
+		this.noGoZones = noGoZones;
 		this.posToId.defaultReturnValue(-1);
 	}
 	
@@ -315,27 +335,18 @@ public final class LazyThetaStar
 	
 	private double penalty(int x, int y, int z)
 	{
-		double p = 0.0;
-		if(this.columnSolidAt(x + 1, y, z) || this.columnSolidAt(x - 1, y, z)
-			|| this.columnSolidAt(x, y, z + 1)
-			|| this.columnSolidAt(x, y, z - 1))
-		{
-			p += 1.6;
-		}else if(this.columnSolidAt(x + 2, y, z)
-			|| this.columnSolidAt(x - 2, y, z)
-			|| this.columnSolidAt(x, y, z + 2)
-			|| this.columnSolidAt(x, y, z - 2)
-			|| this.columnSolidAt(x + 1, y, z + 1)
-			|| this.columnSolidAt(x + 1, y, z - 1)
-			|| this.columnSolidAt(x - 1, y, z + 1)
-			|| this.columnSolidAt(x - 1, y, z - 1))
-		{
-			p += 0.5;
-		}
+		double p = CLEARANCE_PENALTY[this.lateralClearance(x, y, z)];
+		FlightGrid.GridChunk chunk = this.memoChunk(x, z);
+		if(p > 0.0 && (chunk == null || chunk.source != 1))
+			p *= PREDICTED_CLEARANCE_SCALE;
+		if(this.solid(x, y + 3, z))
+			p += CEIL_NEAR_PENALTY;
+		else if(this.solid(x, y + 4, z))
+			p += CEIL_MID_PENALTY;
 		if(this.solid(x, y - 1, z))
-		{
-			p += 0.4;
-		}
+			p += FLOOR_NEAR_PENALTY;
+		else if(this.solid(x, y - 2, z))
+			p += FLOOR_MID_PENALTY;
 		for(int dy = 1; dy <= 8; ++dy)
 		{
 			if(!this.solid(x, y - dy, z))
@@ -345,6 +356,14 @@ public final class LazyThetaStar
 			p += 1.2 * (double)(9 - dy) / 8.0;
 			break;
 		}
+		for(double[] zone : this.noGoZones)
+		{
+			double dx = x + 0.5 - zone[0];
+			double dy = y + 0.5 - zone[1];
+			double dz = z + 0.5 - zone[2];
+			if(dx * dx + dy * dy + dz * dz < zone[3])
+				p += NO_GO_PENALTY;
+		}
 		return p;
 	}
 	
@@ -353,6 +372,19 @@ public final class LazyThetaStar
 		this.touch(x, z);
 		return this.solid(x, y, z) || this.solid(x, y + 1, z)
 			|| this.solid(x, y + 2, z);
+	}
+	
+	private int lateralClearance(int x, int y, int z)
+	{
+		for(int ring = 0; ring < CLEARANCE_RINGS.length; ++ring)
+		{
+			for(int[] offset : CLEARANCE_RINGS[ring])
+			{
+				if(this.columnSolidAt(x + offset[0], y, z + offset[1]))
+					return ring + 1;
+			}
+		}
+		return CLEARANCE_RINGS.length + 1;
 	}
 	
 	private static double dist(long a, long b)
@@ -375,11 +407,13 @@ public final class LazyThetaStar
 			int cap = this.nPos.length << 1;
 			this.nPos = Arrays.copyOf(this.nPos, cap);
 			this.nG = Arrays.copyOf(this.nG, cap);
+			this.nPenalty = Arrays.copyOf(this.nPenalty, cap);
 			this.nParent = Arrays.copyOf(this.nParent, cap);
 			this.nClosed = Arrays.copyOf(this.nClosed, cap);
 		}
 		this.nPos[id] = pos;
 		this.nG[id] = Double.POSITIVE_INFINITY;
+		this.nPenalty[id] = -1.0;
 		this.nParent[id] = -1;
 		this.nClosed[id] = false;
 		this.posToId.put(pos, id);
@@ -448,8 +482,31 @@ public final class LazyThetaStar
 		this.heapKey[b] = tk;
 	}
 	
+	private double zoneBiasedHeuristic(long pos, double heuristic)
+	{
+		double x = LazyThetaStar.unpackX(pos) + 0.5;
+		double y = LazyThetaStar.unpackY(pos) + 0.5;
+		double z = LazyThetaStar.unpackZ(pos) + 0.5;
+		for(double[] zone : this.noGoZones)
+		{
+			double dx = x - zone[0];
+			double dy = y - zone[1];
+			double dz = z - zone[2];
+			if(dx * dx + dy * dy + dz * dz < zone[3])
+				heuristic += 64.0;
+		}
+		return heuristic;
+	}
+	
 	public Result search(int sx, int sy, int sz, int gx, int gy, int gz,
 		int maxPops, long deadlineNanos)
+	{
+		return this.search(sx, sy, sz, gx, gy, gz, maxPops, deadlineNanos,
+			HEURISTIC_WEIGHT);
+	}
+	
+	public Result search(int sx, int sy, int sz, int gx, int gy, int gz,
+		int maxPops, long deadlineNanos, double heuristicWeight)
 	{
 		long startPos;
 		int minY = this.grid.minY();
@@ -461,9 +518,14 @@ public final class LazyThetaStar
 		int startId = this.nodeId(startPos);
 		this.nG[startId] = 0.0;
 		this.nParent[startId] = startId;
-		this.heapPush(startId, 1.15 * LazyThetaStar.dist(startPos, goalPos));
+		this.heapPush(startId,
+			heuristicWeight * LazyThetaStar.dist(startPos, goalPos));
 		int bestId = startId;
-		double bestH = LazyThetaStar.dist(startPos, goalPos);
+		double bestH = this.zoneBiasedHeuristic(startPos,
+			LazyThetaStar.dist(startPos, goalPos))
+			+ this.penalty(LazyThetaStar.unpackX(startPos),
+				LazyThetaStar.unpackY(startPos),
+				LazyThetaStar.unpackZ(startPos)) * TAIL_OPEN_BIAS;
 		int pops = 0;
 		boolean finished = false;
 		while(this.heapSize > 0)
@@ -478,7 +540,15 @@ public final class LazyThetaStar
 				|| pops > maxPops)
 				break;
 			long spos = this.nPos[s];
-			double h = LazyThetaStar.dist(spos, goalPos);
+			int x = LazyThetaStar.unpackX(spos);
+			int y = LazyThetaStar.unpackY(spos);
+			int z = LazyThetaStar.unpackZ(spos);
+			double nodePenalty = this.nPenalty[s];
+			if(nodePenalty < 0.0)
+				this.nPenalty[s] = nodePenalty = this.penalty(x, y, z);
+			double h = this.zoneBiasedHeuristic(spos,
+				LazyThetaStar.dist(spos, goalPos))
+				+ nodePenalty * TAIL_OPEN_BIAS;
 			if(h < bestH)
 			{
 				bestH = h;
@@ -490,9 +560,6 @@ public final class LazyThetaStar
 				finished = true;
 				break;
 			}
-			int x = LazyThetaStar.unpackX(spos);
-			int y = LazyThetaStar.unpackY(spos);
-			int z = LazyThetaStar.unpackZ(spos);
 			double sg = this.nG[s];
 			boolean[] cube = this.cube;
 			for(i = 0; i < NEIGHBORS.length; ++i)
@@ -520,14 +587,17 @@ public final class LazyThetaStar
 				long npos = LazyThetaStar.pack(nx, ny, nz);
 				int n = this.nodeId(npos);
 				if(this.nClosed[n]
-					|| sg + (step = NEIGHBOR_LEN[i]) >= this.nG[n]
-					|| !((tentative = sg + step
-						* (1.0 + this.penalty(nx, ny, nz))) < this.nG[n]))
+					|| sg + (step = NEIGHBOR_LEN[i]) >= this.nG[n])
+					continue;
+				double penalty = this.nPenalty[n];
+				if(penalty < 0.0)
+					this.nPenalty[n] = penalty = this.penalty(nx, ny, nz);
+				if(!((tentative = sg + step * (1.0 + penalty)) < this.nG[n]))
 					continue;
 				this.nG[n] = tentative;
 				this.nParent[n] = s;
-				this.heapPush(n,
-					tentative + 1.15 * LazyThetaStar.dist(npos, goalPos));
+				this.heapPush(n, tentative
+					+ heuristicWeight * LazyThetaStar.dist(npos, goalPos));
 			}
 		}
 		ArrayList<Long> chain = new ArrayList<Long>();
@@ -560,12 +630,12 @@ public final class LazyThetaStar
 			while(reach < hiCap)
 			{
 				j = Math.min(i + span, hiCap);
-				if(!this.los(chain.get(i), chain.get(j), 1.1))
+				if(!this.los(chain.get(i), chain.get(j), 1.6))
 					break;
 				reach = j;
 				span <<= 1;
 			}
-			if(reach == i + 1 && !this.los(chain.get(i), chain.get(i + 1), 1.1))
+			if(reach == i + 1 && !this.los(chain.get(i), chain.get(i + 1), 1.6))
 			{
 				span = 2;
 				while(reach < hiCap)
