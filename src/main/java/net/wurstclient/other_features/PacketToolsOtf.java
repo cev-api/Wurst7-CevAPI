@@ -760,10 +760,18 @@ public final class PacketToolsOtf extends OtherFeature
 	{
 		if(!shouldVerboseExternalMonitoring())
 			return;
+		enqueueVerboseEvent(eventType, "EXTERNAL", fields);
+	}
+	
+	private void enqueueVerboseEvent(String eventType, String direction,
+		Map<String, Object> fields)
+	{
+		if(!verboseEnabled.isChecked())
+			return;
 		
 		Map<String, Object> root = new LinkedHashMap<>();
 		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
-		root.put("direction", "EXTERNAL");
+		root.put("direction", direction);
 		root.put("class", eventType);
 		root.put("simpleName", eventType);
 		root.put("fields", fields);
@@ -777,7 +785,26 @@ public final class PacketToolsOtf extends OtherFeature
 		fields.put("source", source);
 		fields.put("message", message);
 		fields.put("isCommand", command);
-		logVerboseExternalEvent("ChatAction", fields);
+		enqueueVerboseEvent("ChatAction", "CHAT-C2S", fields);
+	}
+	
+	public void logVerboseChatOutput(String source, String message)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		fields.put("message", message);
+		enqueueVerboseEvent("ChatMessage", "CHAT-S2C", fields);
+	}
+	
+	public void logVerboseChatInput(String source, String message, String kind)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		fields.put("message", message);
+		fields.put("kind", kind);
+		fields.put("isCommand",
+			"command".equals(kind) || "uiutils_command".equals(kind));
+		enqueueVerboseEvent("ChatInput", "CHAT-C2S", fields);
 	}
 	
 	public void logVerboseJoinFlow(String source, ServerData serverData)

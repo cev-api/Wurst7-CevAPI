@@ -102,6 +102,7 @@ public final class AimAssistHack extends Hack
 				.genericCombat(AttackDetectingEntityFilter.Mode.OFF),
 			FilterPassiveSetting.genericCombat(true),
 			FilterPassiveWaterSetting.genericCombat(true),
+			FilterAllaysSetting.genericCombat(true),
 			FilterBabiesSetting.genericCombat(true),
 			FilterBatsSetting.genericCombat(true),
 			FilterSlimesSetting.genericCombat(true),
@@ -190,6 +191,7 @@ public final class AimAssistHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		Entity previousTarget = target;
 		target = null;
 		rightClickAttackSpeed.updateTimer();
 		
@@ -209,6 +211,8 @@ public final class AimAssistHack extends Hack
 		
 		if(forced != null)
 			target = forced;
+		else if(isValidTarget(previousTarget))
+			target = previousTarget;
 		else
 			chooseTarget();
 		
@@ -296,7 +300,7 @@ public final class AimAssistHack extends Hack
 			return;
 		
 		double maxStep = WURST.getHax().flightHack.isEnabled()
-			? WURST.getHax().flightHack.verticalSpeed.getValue()
+			? WURST.getHax().flightHack.getActualVerticalSpeed()
 			: MC.player.getAbilities().getFlyingSpeed();
 		if(maxStep <= 0)
 			return;
@@ -309,7 +313,8 @@ public final class AimAssistHack extends Hack
 		
 		double step = Math.max(-maxStep, Math.min(maxStep, delta));
 		Vec3 motion = MC.player.getDeltaMovement();
-		MC.player.setDeltaMovement(motion.x, motion.y + step, motion.z);
+		double nextY = Math.max(-maxStep, Math.min(maxStep, motion.y + step));
+		MC.player.setDeltaMovement(motion.x, nextY, motion.z);
 	}
 	
 	@Override
@@ -433,6 +438,13 @@ public final class AimAssistHack extends Hack
 			return false;
 		
 		return true;
+	}
+	
+	private boolean isValidTarget(Entity entity)
+	{
+		return isValidForcedTarget(entity) && MC.player != null
+			&& EntityUtils.distanceToHitboxSq(entity) <= getRangeSq()
+			&& entityFilters.testOne(entity);
 	}
 	
 	private void updateRightClickAutoAttack()
