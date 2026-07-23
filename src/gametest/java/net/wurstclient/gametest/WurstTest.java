@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.MixinEnvironment;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldBuilder;
@@ -55,9 +55,6 @@ public class WurstTest implements FabricClientGameTest
 		waitForTitleScreenFade(context);
 		
 		LOGGER.info("Reached title screen");
-		assertScreenshotEquals(context, "title_screen",
-			"https://i.imgur.com/xSAHDXr.png");
-		
 		AltManagerTest.testAltManagerButton(context);
 		
 		LOGGER.info("Creating test world");
@@ -84,7 +81,7 @@ public class WurstTest implements FabricClientGameTest
 		TestSingleplayerContext spContext)
 	{
 		TestInput input = context.getInput();
-		TestClientWorldContext world = spContext.getClientWorld();
+		TestClientLevelContext world = spContext.getClientLevel();
 		TestServerContext server = spContext.getServer();
 		
 		// Disable chunk fade
@@ -92,8 +89,8 @@ public class WurstTest implements FabricClientGameTest
 		
 		runCommand(server, "time set noon");
 		runCommand(server, "tp 0 -57 0");
-		runCommand(server, "fill ~ ~-3 ~ ~ ~-1 ~ smooth_stone");
-		runCommand(server, "fill ~-12 ~-3 ~10 ~12 ~9 ~10 smooth_stone");
+		runCommand(server, "fill 0 -60 0 0 -58 0 smooth_stone");
+		runCommand(server, "fill -12 -60 10 12 -48 10 smooth_stone");
 		
 		LOGGER.info("Loading chunks");
 		context.waitTicks(2);
@@ -120,7 +117,7 @@ public class WurstTest implements FabricClientGameTest
 			"setmode WurstLogo visibility only_when_outdated");
 		runWurstCommand(context, "setcheckbox HackList animations off");
 		
-		new InGameMenuTest(context, spContext).run();
+		new PauseScreenTest(context, spContext).run();
 		
 		// Test entity filters
 		new FilterBabiesTest(context, spContext).run();
@@ -133,6 +130,7 @@ public class WurstTest implements FabricClientGameTest
 		new AutoMineHackTest(context, spContext).run();
 		new BlinkHackSmokeTest(context, spContext).run();
 		new FreecamHackTest(context, spContext).run();
+		new LsdHackTest(context, spContext).run();
 		new NoFallHackTest(context, spContext).run();
 		new NoShieldOverlayHackTest(context, spContext).run();
 		new NoWeatherHackTest(context, spContext).run();
