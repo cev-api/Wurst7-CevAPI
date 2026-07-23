@@ -7,6 +7,9 @@
  */
 package net.wurstclient.autoflypath;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /** Mutable settings snapshot consumed by the path-flight engine. */
 public final class PathFlightConfig
 {
@@ -17,6 +20,8 @@ public final class PathFlightConfig
 	public double flightArrivalRadius = 5.0;
 	public boolean flightPredictTerrain;
 	public long flightSeed;
+	/** Optional per-server seeds used by the imported engine. */
+	public final Map<String, Long> flightServerSeeds = new LinkedHashMap<>();
 	public boolean flightAntiHunger = true;
 	public boolean flightFaceTravel;
 	public boolean flightRenderPath = true;

@@ -10,6 +10,7 @@ package net.wurstclient.autoflypath;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.wurstclient.autoflypath.flight.FlightController;
 
 /** Shared runtime used by the imported FlyTo planner. */
@@ -24,6 +25,7 @@ public final class PathFlightRuntime
 	
 	private static PathFlightConfig config;
 	private static FlightController controller;
+	private static boolean clientTickRegistered;
 	
 	private PathFlightRuntime()
 	{}
@@ -34,6 +36,17 @@ public final class PathFlightRuntime
 			controller.stop();
 		config = newConfig;
 		controller = new FlightController(config);
+		
+		if(!clientTickRegistered)
+		{
+			ClientTickEvents.END_CLIENT_TICK.register(client -> {
+				FlightController activeController = controller;
+				if(activeController != null && client.player != null
+					&& client.level != null)
+					activeController.clientTick();
+			});
+			clientTickRegistered = true;
+		}
 	}
 	
 	public static PathFlightConfig config()

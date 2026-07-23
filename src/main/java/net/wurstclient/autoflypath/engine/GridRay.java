@@ -86,10 +86,16 @@ public final class GridRay
 	public static boolean corridorClear(FlightGrid grid, double fx, double fy,
 		double fz, double tx, double ty, double tz)
 	{
+		return GridRay.corridorClear(grid, fx, fy, fz, tx, ty, tz, 0.45);
+	}
+	
+	public static boolean corridorClear(FlightGrid grid, double fx, double fy,
+		double fz, double tx, double ty, double tz, double offset)
+	{
 		double[][] offs;
 		CellTest column = grid::columnBlocked;
-		for(double[] o : offs = new double[][]{{0.45, 0.45}, {0.45, -0.45},
-			{-0.45, 0.45}, {-0.45, -0.45}})
+		for(double[] o : offs = new double[][]{{offset, offset},
+			{offset, -offset}, {-offset, offset}, {-offset, -offset}})
 		{
 			if(GridRay.clear(column, fx + o[0], fy + 0.05, fz + o[1], tx + o[0],
 				ty + 0.05, tz + o[1]))

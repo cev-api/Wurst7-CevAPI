@@ -17,6 +17,7 @@ public final class NetherTerrainGenerator
 	private static final int TERRAIN_MIN_Y = 0;
 	private static final int TERRAIN_HEIGHT = 128;
 	private static final int SEA_LEVEL = 32;
+	private static final int FEATURE_MARGIN = 8;
 	private final BlendedNoise noise;
 	
 	public NetherTerrainGenerator(long seed)
@@ -46,6 +47,16 @@ public final class NetherTerrainGenerator
 	}
 	
 	public void generate(FlightGrid grid, int cx, int cz)
+	{
+		this.generate(grid, cx, cz, false);
+	}
+	
+	/**
+	 * Seed-only terrain cannot know trees, basalt pillars, or structures. In
+	 * feature-risk chunks, reserve a safety margin under every ceiling so the
+	 * predicted route does not treat thin, uncertain gaps as flyable corridors.
+	 */
+	public void generate(FlightGrid grid, int cx, int cz, boolean featureRisk)
 	{
 		int yi;
 		long[] bits = grid.newChunkBits();
@@ -94,6 +105,38 @@ public final class NetherTerrainGenerator
 						continue;
 					int n2 = bit >> 6;
 					hazard[n2] = hazard[n2] | 1L << (bit & 0x3F);
+				}
+			}
+		}
+		if(featureRisk)
+		{
+			boolean[] column = new boolean[TERRAIN_HEIGHT];
+			for(int z = 0; z < 16; ++z)
+			{
+				for(int x = 0; x < 16; ++x)
+				{
+					for(int y = 0; y < TERRAIN_HEIGHT; ++y)
+					{
+						int yIdx = y - grid.minY();
+						int bit = yIdx << 8 | z << 4 | x;
+						column[y] = yIdx >= 0 && yIdx < grid.height()
+							&& (bits[bit >> 6] & 1L << (bit & 0x3F)) != 0L;
+					}
+					int sinceSolid = 1000;
+					for(int y = 0; y < TERRAIN_HEIGHT; ++y)
+					{
+						if(column[y])
+						{
+							sinceSolid = 0;
+							continue;
+						}
+						int yIdx = y - grid.minY();
+						if(++sinceSolid > FEATURE_MARGIN || yIdx < 0
+							|| yIdx >= grid.height())
+							continue;
+						int bit = yIdx << 8 | z << 4 | x;
+						bits[bit >> 6] |= 1L << (bit & 0x3F);
+					}
 				}
 			}
 		}
