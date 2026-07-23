@@ -8,6 +8,8 @@
 package net.wurstclient.gametest;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import org.lwjgl.glfw.GLFW;
@@ -15,7 +17,7 @@ import org.slf4j.Logger;
 
 import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.Minecraft;
@@ -31,7 +33,7 @@ public abstract class SingleplayerTest
 	protected final ClientGameTestContext context;
 	protected final TestSingleplayerContext spContext;
 	protected final TestInput input;
-	protected final TestClientWorldContext world;
+	protected final TestClientLevelContext world;
 	protected final TestServerContext server;
 	protected final Logger logger = WurstTest.LOGGER;
 	
@@ -41,7 +43,7 @@ public abstract class SingleplayerTest
 		this.context = context;
 		this.spContext = spContext;
 		this.input = context.getInput();
-		this.world = spContext.getClientWorld();
+		this.world = spContext.getClientLevel();
 		this.server = spContext.getServer();
 	}
 	
@@ -55,7 +57,7 @@ public abstract class SingleplayerTest
 		String testName = getClass().getSimpleName();
 		int retries =
 			waitForScreenshotMatch(testName.toLowerCase() + "_cleanup",
-				"https://i.imgur.com/i2Nr9is.png");
+				"https://i.imgur.com/XF1SILt.png");
 		
 		if(retries > 0)
 			logger.warn(testName + " needed " + retries
@@ -103,39 +105,74 @@ public abstract class SingleplayerTest
 		}
 	}
 	
-	protected final void setBlockAndWait(int x, int y, int z, Block block)
+	/**
+	 * Builds a batch of block placements, runs the whole batch in one server
+	 * task, and waits for every final block state to reach the client before
+	 * waiting for the affected chunks to render.
+	 *
+	 * <p>
+	 * If a position is set more than once, only its last state is placed.
+	 */
+	protected final void setBlocksAndWait(Consumer<BlockBatch> batchBuilder)
 	{
-		BlockState state = block.defaultBlockState();
-		setBlockAndWait(x, y, z, state);
-	}
-	
-	protected final void setBlockAndWait(int x, int y, int z, BlockState state)
-	{
-		BlockPos pos = new BlockPos(x, y, z);
-		server.runOnServer(mc -> mc.getLevel(Level.OVERWORLD).setBlock(pos,
-			state, Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_CLIENTS));
-		context.waitFor(mc -> mc.level.getBlockState(pos) == state);
+		BlockBatch batch = new BlockBatch();
+		batchBuilder.accept(batch);
+		
+		server.runOnServer(mc -> batch.blocks
+			.forEach((pos, state) -> mc.getLevel(Level.OVERWORLD).setBlock(pos,
+				state, Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_CLIENTS)));
+		context.waitFor(
+			mc -> batch.blocks.entrySet().stream().allMatch(entry -> mc.level
+				.getBlockState(entry.getKey()) == entry.getValue()));
 		world.waitForChunksRender();
 	}
 	
-	protected final void fillAndWait(int x1, int y1, int z1, int x2, int y2,
-		int z2, Block block)
+	protected static final class BlockBatch
 	{
-		BlockState state = block.defaultBlockState();
-		fillAndWait(x1, y1, z1, x2, y2, z2, state);
-	}
-	
-	protected final void fillAndWait(int x1, int y1, int z1, int x2, int y2,
-		int z2, BlockState state)
-	{
-		BlockPos pos1 = new BlockPos(x1, y1, z1);
-		BlockPos pos2 = new BlockPos(x2, y2, z2);
-		server.runOnServer(mc -> BlockPos.betweenClosedStream(pos1, pos2)
-			.forEach(pos -> mc.getLevel(Level.OVERWORLD).setBlock(pos, state,
-				Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_CLIENTS)));
-		context.waitFor(mc -> BlockPos.betweenClosedStream(pos1, pos2)
-			.allMatch(pos -> mc.level.getBlockState(pos) == state));
-		world.waitForChunksRender();
+		private final LinkedHashMap<BlockPos, BlockState> blocks =
+			new LinkedHashMap<>();
+		
+		public void set(BlockPos pos, BlockState state)
+		{
+			blocks.put(pos.immutable(), state);
+		}
+		
+		public void set(BlockPos pos, Block block)
+		{
+			set(pos, block.defaultBlockState());
+		}
+		
+		public void set(int x, int y, int z, BlockState state)
+		{
+			set(new BlockPos(x, y, z), state);
+		}
+		
+		public void set(int x, int y, int z, Block block)
+		{
+			set(x, y, z, block.defaultBlockState());
+		}
+		
+		public void fill(BlockPos pos1, BlockPos pos2, BlockState state)
+		{
+			BlockPos.betweenClosed(pos1, pos2).forEach(pos -> set(pos, state));
+		}
+		
+		public void fill(BlockPos pos1, BlockPos pos2, Block block)
+		{
+			fill(pos1, pos2, block.defaultBlockState());
+		}
+		
+		public void fill(int x1, int y1, int z1, int x2, int y2, int z2,
+			BlockState state)
+		{
+			fill(new BlockPos(x1, y1, z1), new BlockPos(x2, y2, z2), state);
+		}
+		
+		public void fill(int x1, int y1, int z1, int x2, int y2, int z2,
+			Block block)
+		{
+			fill(x1, y1, z1, x2, y2, z2, block.defaultBlockState());
+		}
 	}
 	
 	protected final void waitForBlock(int relX, int relY, int relZ, Block block)
@@ -162,7 +199,7 @@ public abstract class SingleplayerTest
 	
 	protected final void clearChat()
 	{
-		context.runOnClient(mc -> mc.gui.getChat().clearMessages(true));
+		context.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(true));
 	}
 	
 	protected final void clearInventory()
@@ -180,7 +217,7 @@ public abstract class SingleplayerTest
 	
 	protected final void clearToasts()
 	{
-		context.runOnClient(mc -> mc.getToastManager().clear());
+		context.runOnClient(mc -> mc.gui.toastManager().clear());
 	}
 	
 	protected final void assertOneItemInSlot(int slot, Item item)
@@ -188,10 +225,10 @@ public abstract class SingleplayerTest
 		ItemStack stack = context
 			.computeOnClient(mc -> mc.player.getInventory().getItem(slot));
 		if(!stack.is(item) || stack.getCount() != 1)
-			throw new RuntimeException(
-				"Expected 1 " + item.getName().getString() + " at slot " + slot
-					+ ", found " + stack.getCount() + " "
-					+ stack.getItem().getName().getString() + " instead");
+			throw new RuntimeException("Expected 1 "
+				+ item.getName(item.getDefaultInstance()).getString()
+				+ " at slot " + slot + ", found " + stack.getCount() + " "
+				+ stack.getItemName().getString() + " instead");
 	}
 	
 	protected final void assertScreenshotEquals(String fileName,
@@ -232,6 +269,6 @@ public abstract class SingleplayerTest
 		if(!stack.isEmpty())
 			throw new RuntimeException("Expected no item in slot " + slot
 				+ ", found " + stack.getCount() + " "
-				+ stack.getItem().getName().getString() + " instead");
+				+ stack.getItemName().getString() + " instead");
 	}
 }
