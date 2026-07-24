@@ -410,6 +410,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		double rangeSq = range.getValueSq();
 		boolean stuck = isStuck();
+		Map.Entry<BlockPos, Item> selectedEntry = null;
+		BlockPlacingParams selectedParams = null;
+		double selectedDistanceSq = Double.MAX_VALUE;
 		for(Map.Entry<BlockPos, Item> entry : remainingBlocks.entrySet())
 		{
 			BlockPos pos = entry.getKey();
@@ -423,25 +426,44 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 					return;
 				else
 					continue;
-				
-			if(useSavedBlocks.isChecked() && item != Items.AIR
-				&& !MC.player.getMainHandItem().is(item))
+			
+			if(strictBuildOrder.isChecked())
 			{
-				giveOrSelectItem(item);
-				return;
+				selectedEntry = entry;
+				selectedParams = params;
+				break;
 			}
 			
-			// AutoBuild should only place blocks (no generic item/block
-			// interactions).
-			ItemStack held = MC.player.getMainHandItem();
-			if(held.isEmpty() || !(held.getItem() instanceof BlockItem))
-				return;
-			
-			MC.rightClickDelay = 4;
-			faceTarget.face(params.hitVec());
-			placeWithoutInteraction(params);
+			double distanceSq = MC.player.distanceToSqr(
+				Vec3.atCenterOf(pos));
+			if(distanceSq < selectedDistanceSq)
+			{
+				selectedEntry = entry;
+				selectedParams = params;
+				selectedDistanceSq = distanceSq;
+			}
+		}
+		
+		if(selectedEntry == null || selectedParams == null)
+			return;
+		
+		Item item = selectedEntry.getValue();
+		if(useSavedBlocks.isChecked() && item != Items.AIR
+			&& !MC.player.getMainHandItem().is(item))
+		{
+			giveOrSelectItem(item);
 			return;
 		}
+		
+		// AutoBuild should only place blocks (no generic item/block
+		// interactions).
+		ItemStack held = MC.player.getMainHandItem();
+		if(held.isEmpty() || !(held.getItem() instanceof BlockItem))
+			return;
+		
+		MC.rightClickDelay = 4;
+		faceTarget.face(selectedParams.hitVec());
+		placeWithoutInteraction(selectedParams);
 	}
 	
 	private void placeWithoutInteraction(BlockPlacingParams params)

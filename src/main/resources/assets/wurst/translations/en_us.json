@@ -498,6 +498,8 @@
   "description.wurst.setting.generic.face_target.server": "Face the target on the server-side, while still letting you move the camera freely on the client-side.",
   "description.wurst.setting.generic.face_target.spam": "Face the target on the server-side and send a separate packet every time. Can help with some (broken) anti-cheat plugins but is more likely to just get you kicked.",
   "description.wurst.setting.generic.filter_allays_combat": "Won't attack allays.",
+  "description.wurst.setting.generic.filter_sulfur_cubes_combat": "Won't attack sulfur cubes.",
+  "description.wurst.setting.generic.filter_sulfur_cubes_vision": "Won't show sulfur cubes.",
   "description.wurst.setting.generic.filter_allays_vision": "Won't show allays.",
   "description.wurst.setting.generic.filter_armor_stands_combat": "Won't attack armor stands.",
   "description.wurst.setting.generic.filter_armor_stands_vision": "Won't show armor stands.",
