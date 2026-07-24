@@ -7,6 +7,7 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +27,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Leashable;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.Shearable;
 import net.minecraft.world.entity.animal.cow.MushroomCow;
@@ -43,10 +45,12 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.equipment.Equippable;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
+import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
@@ -56,11 +60,12 @@ import net.wurstclient.settings.TakeItemsFromSetting;
 import net.wurstclient.settings.TakeItemsFromSetting.TakeItemsFrom;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.InventoryUtils;
+import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"shear aura", "AutoShear", "auto shear", "AutoShearing",
 	"auto shearing"})
 public final class ShearAuraHack extends Hack
-	implements UpdateListener, HandleInputListener
+	implements UpdateListener, HandleInputListener, RenderListener
 {
 	private static final int RETRY_DELAY = 4;
 	
@@ -118,6 +123,7 @@ public final class ShearAuraHack extends Hack
 	private final Random random = new Random();
 	private final Map<Integer, Long> retryAfter = new HashMap<>();
 	private Entity target;
+	private Entity renderTarget;
 	
 	public ShearAuraHack()
 	{
@@ -146,7 +152,6 @@ public final class ShearAuraHack extends Hack
 	protected void onEnable()
 	{
 		WURST.getHax().clickAuraHack.setEnabled(false);
-		WURST.getHax().feedAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
 		WURST.getHax().multiAuraHack.setEnabled(false);
@@ -156,6 +161,7 @@ public final class ShearAuraHack extends Hack
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(HandleInputListener.class, this);
+		EVENTS.add(RenderListener.class, this);
 	}
 	
 	@Override
@@ -163,8 +169,10 @@ public final class ShearAuraHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(HandleInputListener.class, this);
+		EVENTS.remove(RenderListener.class, this);
 		
 		target = null;
+		renderTarget = null;
 		retryAfter.clear();
 	}
 	
@@ -172,6 +180,7 @@ public final class ShearAuraHack extends Hack
 	public void onUpdate()
 	{
 		target = null;
+		renderTarget = null;
 		if(!hasAccessibleShears())
 			return;
 		
@@ -197,6 +206,7 @@ public final class ShearAuraHack extends Hack
 			return;
 		
 		target = targets.get(random.nextInt(targets.size()));
+		renderTarget = target;
 		WURST.getRotationFaker()
 			.faceVectorPacket(target.getBoundingBox().getCenter());
 	}
@@ -236,6 +246,33 @@ public final class ShearAuraHack extends Hack
 		}
 		
 		target = null;
+	}
+	
+	@Override
+	public void onRender(PoseStack matrixStack, float partialTicks)
+	{
+		if(renderTarget == null || renderTarget.isRemoved())
+			return;
+		
+		float health = 1;
+		if(renderTarget instanceof LivingEntity living
+			&& living.getMaxHealth() > 1e-5)
+			health = living.getHealth() / living.getMaxHealth();
+		
+		float green = health * 2F;
+		float red = 2 - green;
+		float[] rgb = {red, green, 0};
+		int quadColor = RenderUtils.toIntColor(rgb, 0.25F);
+		int lineColor = RenderUtils.toIntColor(rgb, 0.5F);
+		
+		AABB box = EntityUtils.getLerpedBox(renderTarget, partialTicks);
+		if(health < 1)
+			box = box.deflate((1 - health) * 0.5 * box.getXsize(),
+				(1 - health) * 0.5 * box.getYsize(),
+				(1 - health) * 0.5 * box.getZsize());
+		
+		RenderUtils.drawSolidBox(matrixStack, box, quadColor, false);
+		RenderUtils.drawOutlinedBox(matrixStack, box, lineColor, false);
 	}
 	
 	private boolean hasAccessibleShears()
