@@ -287,6 +287,7 @@ public final class HackList implements UpdateListener
 	public final SpawnRadiusHack spawnRadiusHack = new SpawnRadiusHack();
 	public final SeedMapperHelperHack seedMapperHelperHack =
 		new SeedMapperHelperHack();
+	public final ShearAuraHack shearAuraHack = new ShearAuraHack();
 	public final SignEspHack signEspHack = new SignEspHack();
 	public final ShieldSwingHack shieldSwingHack = new ShieldSwingHack();
 	public final WorkstationEspHack workstationEspHack =
