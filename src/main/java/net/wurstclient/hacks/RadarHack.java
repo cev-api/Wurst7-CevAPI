@@ -48,6 +48,7 @@ public final class RadarHack extends Hack implements UpdateListener
 			FilterPassiveWaterSetting.genericVision(false),
 			FilterBatsSetting.genericVision(true),
 			FilterSlimesSetting.genericVision(false),
+			FilterSulfurCubesSetting.genericVision(false),
 			FilterInvisibleSetting.genericVision(false));
 	
 	public RadarHack()

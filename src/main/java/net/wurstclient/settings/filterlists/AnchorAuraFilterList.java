@@ -53,6 +53,8 @@ public final class AnchorAuraFilterList extends EntityFilterList
 		
 		builder.add(new FilterSlimesSetting("Won't target slimes when"
 			+ " auto-placing anchors." + damageWarning, true));
+		builder.add(new FilterSulfurCubesSetting("Won't target sulfur cubes when"
+			+ " auto-placing anchors." + damageWarning, true));
 		
 		builder.add(new FilterVillagersSetting("Won't target villagers and"
 			+ " wandering traders when auto-placing anchors." + damageWarning,
