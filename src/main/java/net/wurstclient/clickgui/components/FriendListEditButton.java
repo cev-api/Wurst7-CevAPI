@@ -27,7 +27,7 @@ public final class FriendListEditButton extends AbstractListEditButton
 	@Override
 	protected void openScreen()
 	{
-		MC.setScreen(new EditFriendListScreen(MC.screen, setting));
+		MC.gui.setScreen(new EditFriendListScreen(MC.gui.screen(), setting));
 	}
 	
 	@Override

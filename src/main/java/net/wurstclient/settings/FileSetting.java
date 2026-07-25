@@ -79,13 +79,6 @@ public final class FileSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
-	@Override
-	public void resetToDefault()
-	{
-		setSelectedFileToDefault();
-		WurstClient.INSTANCE.saveSettings();
-	}
-	
 	private void setSelectedFileToDefault()
 	{
 		ArrayList<Path> files = listFiles();
@@ -129,7 +122,8 @@ public final class FileSetting extends Setting
 				throw new RuntimeException(e);
 			}
 		
-		resetToDefault();
+		setSelectedFileToDefault();
+		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	public ArrayList<Path> listFiles()
@@ -168,7 +162,8 @@ public final class FileSetting extends Setting
 			
 		}catch(JsonException e)
 		{
-			e.printStackTrace();
+			System.out.println("Couldn't load file setting '" + getName()
+				+ "': " + e.getMessage());
 		}
 	}
 	

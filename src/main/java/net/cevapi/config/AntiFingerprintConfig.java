@@ -62,7 +62,7 @@ public final class AntiFingerprintConfig
 	
 	private final CheckboxSetting showMultiplayerButton =
 		new CheckboxSetting("Show multiplayer button",
-			"Adds a shortcut to this panel to the Multiplayer screen.", true);
+			"Adds a shortcut to this panel to the Multiplayer screen.", false);
 	
 	private final CheckboxSetting bypassResourcePack = new CheckboxSetting(
 		"Bypass resource pack",

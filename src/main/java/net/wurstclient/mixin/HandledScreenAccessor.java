@@ -15,6 +15,9 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(AbstractContainerScreen.class)
 public interface HandledScreenAccessor
 {
+	@Accessor("hoveredSlot")
+	Slot getHoveredSlot();
+	
 	@Accessor("leftPos")
 	int getX();
 	
@@ -26,7 +29,4 @@ public interface HandledScreenAccessor
 	
 	@Accessor("imageHeight")
 	int getBackgroundHeight();
-	
-	@Accessor("hoveredSlot")
-	Slot getHoveredSlot();
 }

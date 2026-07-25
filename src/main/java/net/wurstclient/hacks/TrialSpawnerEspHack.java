@@ -86,9 +86,6 @@ public final class TrialSpawnerEspHack extends Hack
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting fillShapes =
 		new CheckboxSetting("Fill boxes", true);
-	private final SliderSetting fillOpacity = new SliderSetting("Fill opacity",
-		"Opacity of the filled vault and trial spawner boxes.", 0.18, 0, 1,
-		0.01, ValueDisplay.PERCENTAGE);
 	private final CheckboxSetting showOverlay =
 		new CheckboxSetting("Text overlay", true);
 	private final SliderSetting overlayScale = new SliderSetting(
@@ -117,16 +114,10 @@ public final class TrialSpawnerEspHack extends Hack
 		new CheckboxSetting("Show trial type", true);
 	private final CheckboxSetting showActivationRadius =
 		new CheckboxSetting("Show activation radius", true);
-	private final CheckboxSetting cubeActivationRadius =
-		new CheckboxSetting("3D cube activation radius",
-			"Render the activation radius as a 3D cube instead of a circle.",
-			false);
 	private final CheckboxSetting showVaultLink =
 		new CheckboxSetting("Show vault link", false);
 	private final CheckboxSetting onlyVaults =
 		new CheckboxSetting("Only vaults", false);
-	private final CheckboxSetting showRegularVaults =
-		new CheckboxSetting("Show regular vaults", true);
 	private final SliderSetting vaultLinkRange = new SliderSetting(
 		"Vault link range", 48, 8, 96, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting alertOminousKey = new CheckboxSetting(
@@ -182,7 +173,6 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(drawTracers);
 		addSetting(tracerFlash);
 		addSetting(fillShapes);
-		addSetting(fillOpacity);
 		addSetting(showOverlay);
 		addSetting(overlayScale);
 		addSetting(showMobType);
@@ -196,10 +186,8 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(showDistance);
 		addSetting(showTrialType);
 		addSetting(showActivationRadius);
-		addSetting(cubeActivationRadius);
 		addSetting(showVaultLink);
 		addSetting(onlyVaults);
-		addSetting(showRegularVaults);
 		addSetting(vaultLinkRange);
 		addSetting(alertOminousKey);
 		addSetting(alertOminousKeySound);
@@ -533,11 +521,9 @@ public final class TrialSpawnerEspHack extends Hack
 			{
 				BlockPos vpos = v.pos();
 				BlockState vstate = MC.level.getBlockState(vpos);
+				int vcolor = vaultBoxColor.getColorI();
 				boolean ominous = vstate.hasProperty(VaultBlock.OMINOUS)
 					&& vstate.getValue(VaultBlock.OMINOUS);
-				if(!showRegularVaults.isChecked() && !ominous)
-					continue;
-				int vcolor = vaultBoxColor.getColorI();
 				if(ominous)
 					vcolor = ominousVaultBoxColor.getColorI();
 				// if we know this ominous vault was opened before, mark it
@@ -559,8 +545,8 @@ public final class TrialSpawnerEspHack extends Hack
 				AABB vbox = new AABB(vpos);
 				outlineBoxes.add(new ColoredBox(vbox, vcolor));
 				if(filledBoxes != null)
-					filledBoxes.add(new ColoredBox(vbox,
-						withAlpha(vcolor, fillOpacity.getValueF())));
+					filledBoxes
+						.add(new ColoredBox(vbox, withAlpha(vcolor, 0.18F)));
 				
 				// show simple status label above the vault
 				String status = describeVaultState(vstate);
@@ -594,8 +580,8 @@ public final class TrialSpawnerEspHack extends Hack
 				AABB box = new AABB(info.pos());
 				outlineBoxes.add(new ColoredBox(box, color));
 				if(filledBoxes != null)
-					filledBoxes.add(new ColoredBox(box,
-						withAlpha(color, fillOpacity.getValueF())));
+					filledBoxes
+						.add(new ColoredBox(box, withAlpha(color, 0.18F)));
 				if(tracerTargets != null)
 				{
 					int tracerColor = color;
@@ -655,18 +641,9 @@ public final class TrialSpawnerEspHack extends Hack
 		int color = withAlpha(
 			inside ? mixWithWhite(stateColor, 0.35F) : radiusColor.getColorI(),
 			inside ? 0.65F : 0.35F);
-		if(cubeActivationRadius.isChecked())
-		{
-			AABB box = new AABB(center.x - radius, center.y - radius,
-				center.z - radius, center.x + radius, center.y + radius,
-				center.z + radius);
-			RenderUtils.drawOutlinedBoxes(matrices, List.of(box), color, false);
-		}else
-		{
-			int segments = Math.max(32, radius * 12);
-			RenderUtils.drawCircle(matrices, center, radius, segments, color,
-				false);
-		}
+		int segments = Math.max(32, radius * 12);
+		RenderUtils.drawCircle(matrices, center, radius, segments, color,
+			false);
 	}
 	
 	private void drawVaultLink(PoseStack matrices, TrialSpawnerInfo info,

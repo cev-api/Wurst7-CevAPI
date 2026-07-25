@@ -11,7 +11,6 @@ import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.GlowItemFrame;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.block.Blocks;
@@ -36,7 +35,7 @@ public final class CommonNukerSettings implements LeftClickListener
 	private final CheckboxSetting flat = new CheckboxSetting("Flat mode",
 		"Won't break any blocks below your feet.", false);
 	
-	private final NukerModeSetting mode;
+	private final NukerModeSetting mode = new NukerModeSetting();
 	
 	private final BlockSetting id =
 		new BlockSetting("ID", "The type of block to break in ID mode.\n"
@@ -53,16 +52,6 @@ public final class CommonNukerSettings implements LeftClickListener
 		"Skip blocks covered by suspicious dust",
 		"Stops breaking any block that has suspicious sand or gravel at or above it (blocks beneath the dust).",
 		false);
-	
-	public CommonNukerSettings()
-	{
-		this(false);
-	}
-	
-	public CommonNukerSettings(boolean includeTunnelMode)
-	{
-		mode = new NukerModeSetting(includeTunnelMode);
-	}
 	
 	public Stream<Setting> getSettings()
 	{
@@ -83,7 +72,6 @@ public final class CommonNukerSettings implements LeftClickListener
 			case ID -> " [ID:" + id.getShortBlockName() + "]";
 			case MULTI_ID -> " [MultiID:" + multiIdList.size() + "]";
 			case SMASH -> " [Smash]";
-			case TUNNEL -> " [Tunnel]";
 			default -> "";
 		};
 	}
@@ -97,11 +85,6 @@ public final class CommonNukerSettings implements LeftClickListener
 	public boolean isSphereShape()
 	{
 		return shape.getSelected() == NukerShape.SPHERE;
-	}
-	
-	public boolean isTunnelMode()
-	{
-		return mode.getSelected() == NukerMode.TUNNEL;
 	}
 	
 	public boolean shouldBreakBlock(BlockPos pos)
@@ -140,7 +123,8 @@ public final class CommonNukerSettings implements LeftClickListener
 		if(entity instanceof ItemFrame)
 			return hasEntityId("item_frame");
 		
-		if(entity.getType() == EntityType.PAINTING)
+		if(entity.getType() == net.wurstclient.util.RegistryUtils
+			.entityType("painting"))
 			return hasEntityId("painting");
 		
 		return false;

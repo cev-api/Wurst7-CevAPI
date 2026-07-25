@@ -95,7 +95,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 	private final CheckboxSetting detectLowerLadders =
 		new CheckboxSetting("Detect ladders 118-128",
 			"Also detect ladder blocks between Y=118 and Y=127 in the Nether.",
-			false);
+			true);
 	private final CheckboxSetting ignoreNaturalRoofBlocks =
 		new CheckboxSetting("Ignore natural roof blocks",
 			"Hides natural roof noise blocks (red/brown mushrooms).", true);
@@ -314,8 +314,9 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 			return chunks;
 		
 		int radius = getChunkRange(area.getSelected());
-		for(int x = anchorChunk.x - radius; x <= anchorChunk.x + radius; x++)
-			for(int z = anchorChunk.z - radius; z <= anchorChunk.z
+		for(int x = anchorChunk.x() - radius; x <= anchorChunk.x()
+			+ radius; x++)
+			for(int z = anchorChunk.z() - radius; z <= anchorChunk.z()
 				+ radius; z++)
 			{
 				if(!MC.level.hasChunk(x, z))
@@ -336,8 +337,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		if(anchorChunk == null)
 			return chunks;
 		chunks.sort(Comparator.comparingInt(chunk -> {
-			int dx = chunk.getPos().x - anchorChunk.x;
-			int dz = chunk.getPos().z - anchorChunk.z;
+			int dx = chunk.getPos().x() - anchorChunk.x();
+			int dz = chunk.getPos().z() - anchorChunk.z();
 			return dx * dx + dz * dz;
 		}));
 		return chunks;
@@ -396,8 +397,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		// Sticky mode keeps a stable scan center while you move within the
 		// selected area, but should re-anchor once you leave that area.
 		int radius = getChunkRange(selectedArea);
-		if(Math.abs(playerChunk.x - anchorChunk.x) > radius
-			|| Math.abs(playerChunk.z - anchorChunk.z) > radius)
+		if(Math.abs(playerChunk.x() - anchorChunk.x()) > radius
+			|| Math.abs(playerChunk.z() - anchorChunk.z()) > radius)
 		{
 			anchorChunk = playerChunk;
 			scanTimer = 0;
@@ -553,8 +554,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		{
 			int tracerColor = tracerFlash.isChecked()
 				? RenderUtils.flashColor(linesColor) : linesColor;
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("RoofESP", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

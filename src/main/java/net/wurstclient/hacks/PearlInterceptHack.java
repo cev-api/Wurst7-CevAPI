@@ -13,7 +13,6 @@ import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.BlockState;
@@ -97,7 +96,8 @@ public final class PearlInterceptHack extends Hack implements UpdateListener
 		HashSet<UUID> present = new HashSet<>();
 		for(Entity entity : MC.level.entitiesForRendering())
 		{
-			if(entity.getType() != EntityType.ENDER_PEARL)
+			if(entity.getType() != net.wurstclient.util.RegistryUtils
+				.entityType("ender_pearl"))
 				continue;
 			
 			UUID pearlId = entity.getUUID();

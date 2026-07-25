@@ -114,9 +114,9 @@ public final class SoulChaliceHack extends Hack implements UpdateListener
 		handlePendingHotbarEquip();
 		updateCounts();
 		
-		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen))
+		if(MC.gui.screen() instanceof AbstractContainerScreen
+			&& !(MC.gui.screen() instanceof InventoryScreen
+				|| MC.gui.screen() instanceof CreativeModeInventoryScreen))
 			return;
 		
 		ItemStack offhand = MC.player.getOffhandItem();
@@ -373,9 +373,9 @@ public final class SoulChaliceHack extends Hack implements UpdateListener
 		if(!pendingEquipHotbar)
 			return;
 		
-		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen))
+		if(MC.gui.screen() instanceof AbstractContainerScreen
+			&& !(MC.gui.screen() instanceof InventoryScreen
+				|| MC.gui.screen() instanceof CreativeModeInventoryScreen))
 			return;
 		
 		int targetSlot = findChaliceSlotForHotbar();

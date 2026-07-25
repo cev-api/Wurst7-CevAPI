@@ -16,7 +16,7 @@ import java.util.Objects;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
@@ -55,7 +55,7 @@ public final class KeybindProfilesScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("New Profile"),
-				b -> minecraft.setScreen(
+				b -> minecraft.gui.setScreen(
 					new EnterProfileNameScreen(this, this::newProfile)))
 			.bounds(width / 2 - 154, height - 48, 100, 20).build());
 		
@@ -65,7 +65,7 @@ public final class KeybindProfilesScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 + 54, height - 48, 100, 20).build());
 	}
 	
@@ -95,7 +95,7 @@ public final class KeybindProfilesScreen extends Screen
 		Path path = listGui.getSelectedPath();
 		if(path == null)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return;
 		}
 		
@@ -103,7 +103,7 @@ public final class KeybindProfilesScreen extends Screen
 		{
 			String fileName = "" + path.getFileName();
 			WurstClient.INSTANCE.getKeybinds().loadProfile(fileName);
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			
 		}catch(IOException | JsonException e)
 		{
@@ -118,7 +118,7 @@ public final class KeybindProfilesScreen extends Screen
 		if(context.key() == GLFW.GLFW_KEY_ENTER)
 			loadSelected();
 		else if(context.key() == GLFW.GLFW_KEY_ESCAPE)
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 		
 		return super.keyPressed(context);
 	}
@@ -130,16 +130,16 @@ public final class KeybindProfilesScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(minecraft.font, "Keybind Profiles",
-			width / 2, 12, CommonColors.WHITE);
+		context.centeredText(minecraft.font, "Keybind Profiles", width / 2, 12,
+			CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		if(loadButton.isHoveredOrFocused() && !loadButton.active)
 			context.setComponentTooltipForNextFrame(font,
@@ -172,8 +172,8 @@ public final class KeybindProfilesScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -181,13 +181,11 @@ public final class KeybindProfilesScreen extends Screen
 			Font tr = minecraft.font;
 			
 			String fileName = "" + path.getFileName();
-			context.drawString(tr, fileName, x + 28, y,
-				WurstColors.VERY_LIGHT_GRAY);
+			context.text(tr, fileName, x + 28, y, WurstColors.VERY_LIGHT_GRAY);
 			
 			String relPath =
 				"" + minecraft.gameDirectory.toPath().relativize(path);
-			context.drawString(tr, relPath, x + 28, y + 9,
-				CommonColors.LIGHT_GRAY);
+			context.text(tr, relPath, x + 28, y + 9, CommonColors.LIGHT_GRAY);
 		}
 	}
 	

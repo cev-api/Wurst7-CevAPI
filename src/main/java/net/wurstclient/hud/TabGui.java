@@ -14,7 +14,7 @@ import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
@@ -127,7 +127,7 @@ public final class TabGui implements KeyPressListener
 			}
 	}
 	
-	public void render(GuiGraphics context, float partialTicks)
+	public void render(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(tabGuiOtf.isHidden())
 			return;
@@ -150,7 +150,7 @@ public final class TabGui implements KeyPressListener
 			if(i == selected)
 				tabName = (tabOpened ? "<" : ">") + tabName;
 			
-			context.drawString(tr, tabName, 2, textY, txtColor, false);
+			context.text(tr, tabName, 2, textY, txtColor, false);
 			textY += 10;
 		}
 		
@@ -179,7 +179,7 @@ public final class TabGui implements KeyPressListener
 				if(i == tab.selected)
 					fName = ">" + fName;
 				
-				context.drawString(tr, fName, 2, tabTextY, txtColor, false);
+				context.text(tr, fName, 2, tabTextY, txtColor, false);
 				tabTextY += 10;
 			}
 			
@@ -190,7 +190,8 @@ public final class TabGui implements KeyPressListener
 		matrixStack.popMatrix();
 	}
 	
-	private void drawBox(GuiGraphics context, int x1, int y1, int x2, int y2)
+	private void drawBox(GuiGraphicsExtractor context, int x1, int y1, int x2,
+		int y2)
 	{
 		ClickGui gui = WURST.getGui();
 		int bgColor =

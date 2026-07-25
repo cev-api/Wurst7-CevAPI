@@ -31,6 +31,7 @@ import net.minecraft.util.Util;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.AltRenderer;
 import net.wurstclient.altmanager.LoginException;
+import net.wurstclient.altmanager.MicrosoftLoginManager;
 import net.wurstclient.altmanager.MinecraftProfile;
 import net.wurstclient.altmanager.MinecraftServicesApi;
 import net.wurstclient.altmanager.TokenAlt;
@@ -50,12 +51,10 @@ public final class EditTokenAltScreen extends Screen
 	private Button skinModelButton;
 	private Button applySkinButton;
 	private Button accountInfoButton;
-	private Button copyCredentialsButton;
 	
 	private volatile boolean busy;
 	private volatile String message = "";
 	private volatile String accountInfo = "";
-	private volatile boolean showAccountInfo;
 	private volatile boolean nameChangeProbeInProgress;
 	private volatile Boolean nameChangeAllowed;
 	private volatile String nameChangeStatus =
@@ -106,18 +105,13 @@ public final class EditTokenAltScreen extends Screen
 			.bounds(width / 2 + 2, 176, 98, 20).build());
 		
 		addRenderableWidget(accountInfoButton = Button
-			.builder(Component.literal("Show Account Info"),
-				b -> toggleAccountInfo())
+			.builder(Component.literal("Refresh Account Info"),
+				b -> startAccountInfoLookup())
 			.bounds(width / 2 - 100, 200, 200, 20).build());
-		
-		addRenderableWidget(copyCredentialsButton = Button
-			.builder(Component.literal("Copy Credentials"),
-				b -> copyCredentials())
-			.bounds(width / 2 - 100, 224, 200, 20).build());
 		
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
-				.bounds(width / 2 - 100, 248, 200, 20).build());
+				.bounds(width / 2 - 100, 224, 200, 20).build());
 		
 		scheduleSkinRefreshBurst(previewName, 5);
 		startNameChangeAvailabilityProbe();
@@ -141,9 +135,6 @@ public final class EditTokenAltScreen extends Screen
 			.setMessage(Component.literal(getRenameButtonText(renameUnknown)));
 		applySkinButton.active = canChangeSkin;
 		accountInfoButton.active = !busy;
-		copyCredentialsButton.active = !busy;
-		accountInfoButton.setMessage(Component.literal(
-			showAccountInfo ? "Hide Account Info" : "Show Account Info"));
 		skinModelButton.active = !busy;
 		skinModelButton.setMessage(
 			Component.literal(busy ? "Model: -" : getSkinModelButtonText()));
@@ -157,22 +148,6 @@ public final class EditTokenAltScreen extends Screen
 		}
 	}
 	
-	private void copyCredentials()
-	{
-		minecraft.keyboardHandler.setClipboard(tokenAlt.exportAsTXT());
-		message = "Credentials copied to clipboard.";
-	}
-	
-	private void toggleAccountInfo()
-	{
-		if(busy)
-			return;
-		
-		showAccountInfo = !showAccountInfo;
-		if(showAccountInfo)
-			startAccountInfoLookup();
-	}
-	
 	private void startAccountInfoLookup()
 	{
 		if(busy)
@@ -182,7 +157,9 @@ public final class EditTokenAltScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile = authenticateTokenAlt();
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 				MinecraftServicesApi.NameChangeInfo changeInfo =
 					MinecraftServicesApi
 						.getNameChangeInfo(profile.getAccessToken());
@@ -300,7 +277,9 @@ public final class EditTokenAltScreen extends Screen
 	{
 		try
 		{
-			MinecraftProfile profile = authenticateTokenAlt();
+			MinecraftProfile profile = MicrosoftLoginManager
+				.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+					tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 			String accessToken = profile.getAccessToken();
 			
 			String precheckWarning = "";
@@ -393,7 +372,9 @@ public final class EditTokenAltScreen extends Screen
 	{
 		try
 		{
-			MinecraftProfile profile = authenticateTokenAlt();
+			MinecraftProfile profile = MicrosoftLoginManager
+				.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+					tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 			String accessToken = profile.getAccessToken();
 			
 			MinecraftServicesApi.SkinChangeResult result = MinecraftServicesApi
@@ -457,13 +438,6 @@ public final class EditTokenAltScreen extends Screen
 		{
 			return false;
 		}
-	}
-	
-	private MinecraftProfile authenticateTokenAlt() throws LoginException
-	{
-		MinecraftProfile profile = tokenAlt.authenticateWithoutSession();
-		minecraft.execute(() -> altManager.saveTokenAlt(tokenAlt));
-		return profile;
 	}
 	
 	private void setBusyMessage(String busyMessage)
@@ -530,7 +504,9 @@ public final class EditTokenAltScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile = authenticateTokenAlt();
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
+						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
 				
 				MinecraftServicesApi.NameChangeInfo info = MinecraftServicesApi
 					.getNameChangeInfo(profile.getAccessToken());
@@ -643,36 +619,17 @@ public final class EditTokenAltScreen extends Screen
 			CommonColors.LIGHT_GRAY);
 		context.text(font, "Skin URL (http/https)", width / 2 - 100, 114,
 			CommonColors.LIGHT_GRAY);
-		
-		// The Back button ends at y=268. Start feedback below it so status and
-		// warning text cannot render underneath the footer buttons.
-		int feedbackY = 276;
-		if(!nameChangeStatus.isBlank())
-		{
-			context.centeredText(font, nameChangeStatus, width / 2, feedbackY,
+		context.centeredText(font, nameChangeStatus, width / 2, 226,
+			CommonColors.LIGHT_GRAY);
+		String[] infoLines = accountInfo.split("\\n");
+		for(int i = 0; i < infoLines.length; i++)
+			context.centeredText(font, infoLines[i], width / 2, 250 + i * 10,
 				CommonColors.LIGHT_GRAY);
-			feedbackY += 12;
-		}
 		
-		if(!message.isBlank())
-		{
-			String[] messageLines = message.split("\\n");
-			for(String line : messageLines)
-			{
-				context.centeredText(font, line, width / 2, feedbackY,
-					CommonColors.WHITE);
-				feedbackY += 10;
-			}
-			feedbackY += 4;
-		}
-		
-		if(showAccountInfo)
-		{
-			String[] infoLines = accountInfo.split("\\n");
-			for(int i = 0; i < infoLines.length; i++)
-				context.centeredText(font, infoLines[i], width / 2,
-					feedbackY + i * 10, CommonColors.LIGHT_GRAY);
-		}
+		String[] lines = message.split("\n");
+		for(int i = 0; i < lines.length; i++)
+			context.centeredText(font, lines[i], width / 2, 238 + i * 10,
+				CommonColors.WHITE);
 		
 		if(!previewName.isBlank() && (skinRefreshBurstsRemaining > 0
 			|| AltRenderer.isSkinLoading(previewName)))

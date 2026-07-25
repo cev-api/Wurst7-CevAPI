@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -369,7 +369,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 		lastMinY = minY.getValueI();
 		lastMaxY = maxY.getValueI();
 		lastSticky = stickyArea.isChecked();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastAreaSelection = area.getSelected();
 		coordinator.setQuery((pos, state) -> {
 			String idFull = BlockUtils.getName(state.getBlock());
@@ -432,8 +432,8 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			int lineColor = color.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				lineColor = RenderUtils.flashColor(lineColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				lineColor, false);
+			RenderUtils.drawTracers("BaseFinder", matrixStack, partialTicks,
+				tracerEnds, lineColor, false);
 		}
 	}
 	
@@ -480,7 +480,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 			lastSticky = sticky;
 		}
 		
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!sticky && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -565,7 +565,7 @@ public final class BaseFinderHack extends Hack implements UpdateListener,
 	{
 		if(vertexBuffer != null)
 			vertexBuffer.close();
-		vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+		vertexBuffer = EasyVertexBuffer.createAndUpload(PrimitiveTopology.QUADS,
 			DefaultVertexFormat.POSITION_COLOR, buffer -> {
 				for(int[] vertex : vertices)
 					buffer.addVertex(vertex[0] - region.x(), vertex[1],

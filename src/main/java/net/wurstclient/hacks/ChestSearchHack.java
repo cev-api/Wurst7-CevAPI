@@ -351,10 +351,17 @@ public final class ChestSearchHack extends Hack
 	@Override
 	protected void onEnable()
 	{
+		if(MC.gui == null)
+		{
+			setEnabled(false);
+			return;
+		}
+		
 		try
 		{
-			MC.setScreen(new net.wurstclient.clickgui.screens.ChestSearchScreen(
-				MC.screen, Boolean.TRUE));
+			MC.gui.setScreen(
+				new net.wurstclient.clickgui.screens.ChestSearchScreen(
+					MC.gui.screen(), Boolean.TRUE));
 		}catch(Throwable ignored)
 		{}
 		setEnabled(false);

@@ -68,10 +68,6 @@ public final class BedrockEscapeHack extends Hack
 	
 	private final CheckboxSetting allowLiquids = new CheckboxSetting(
 		"Allow Liquids", "Allow teleport targets inside liquids.", true);
-	private final CheckboxSetting treatObsidianAsBedrock = new CheckboxSetting(
-		"Treat obsidian as bedrock",
-		"Allow going up and down through obsidian using the same safeguards as bedrock.",
-		false);
 	
 	private final SliderSetting packetSpam = new SliderSetting(
 		"Teleport Packets",
@@ -210,7 +206,6 @@ public final class BedrockEscapeHack extends Hack
 		
 		addSetting(reach);
 		addSetting(allowLiquids);
-		addSetting(treatObsidianAsBedrock);
 		addSetting(packetSpam);
 		addSetting(render);
 		addSetting(renderEscapeShafts);
@@ -340,14 +335,14 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y >= downY; y--)
 		{
 			probe.set(playerPos.getX(), y, playerPos.getZ());
-			if(isEscapeBlock(MC.level.getBlockState(probe)))
+			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
 				return true;
 		}
 		
 		for(int y = startY + 1; y <= upY; y++)
 		{
 			probe.set(playerPos.getX(), y, playerPos.getZ());
-			if(isEscapeBlock(MC.level.getBlockState(probe)))
+			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
 				return true;
 		}
 		
@@ -418,11 +413,11 @@ public final class BedrockEscapeHack extends Hack
 			return false;
 		
 		BlockPos playerPos = MC.player.blockPosition();
-		if(isEscapeBlock(MC.level.getBlockState(playerPos.below())))
+		if(MC.level.getBlockState(playerPos.below()).is(Blocks.BEDROCK))
 			return true;
 		
 		for(int y = 0; y <= 3; y++)
-			if(isEscapeBlock(MC.level.getBlockState(playerPos.above(y))))
+			if(MC.level.getBlockState(playerPos.above(y)).is(Blocks.BEDROCK))
 				return true;
 			
 		return false;
@@ -442,11 +437,8 @@ public final class BedrockEscapeHack extends Hack
 		surfaceXrayPreviousOpacity = surfaceXray.getConfiguredSurfaceOpacity();
 		surfaceXrayPreviousBlocks = surfaceXray.getTrackedBlockNamesSnapshot();
 		
-		List<String> trackedBlocks = new ArrayList<>();
-		trackedBlocks.add(BEDROCK_BLOCK_ID);
-		if(treatObsidianAsBedrock.isChecked())
-			trackedBlocks.add("minecraft:obsidian");
-		surfaceXray.setTrackedBlocksTemporarily(trackedBlocks);
+		surfaceXray.setTrackedBlocksTemporarily(
+			Collections.singletonList(BEDROCK_BLOCK_ID));
 		surfaceXray.setSurfaceOpacityTemporarily(SHIFT_SURFACE_XRAY_OPACITY);
 		
 		if(!surfaceXrayWasEnabled)
@@ -547,14 +539,14 @@ public final class BedrockEscapeHack extends Hack
 			BlockPos candidate = BlockPos.containing(sample);
 			BlockState state = MC.level.getBlockState(candidate);
 			
-			if(isEscapeBlock(state))
+			if(state.is(Blocks.BEDROCK))
 			{
 				inBedrock = true;
 				blocksBelowBedrock.clear();
 				lastBreakable = null;
 			}else if(inBedrock)
 			{
-				if(!state.isAir() && !isEscapeBlock(state))
+				if(!state.isAir() && !state.is(Blocks.BEDROCK))
 				{
 					if(lastBreakable == null
 						|| !lastBreakable.equals(candidate))
@@ -1233,7 +1225,7 @@ public final class BedrockEscapeHack extends Hack
 				for(int y = maxY; y >= minY; y--)
 				{
 					cursor.set(x, y, z);
-					if(!isEscapeBlock(MC.level.getBlockState(cursor)))
+					if(!MC.level.getBlockState(cursor).is(Blocks.BEDROCK))
 						continue;
 					tryAddShaftCandidate(candidates, x, y, z, minY, maxY,
 						depthLimit, playerHearts, true);
@@ -1258,7 +1250,7 @@ public final class BedrockEscapeHack extends Hack
 			pos.set(x, y, z);
 			if(!MC.level.hasChunkAt(pos))
 				return true;
-			if(isEscapeBlock(MC.level.getBlockState(pos)))
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 				return true;
 		}
 		
@@ -1267,7 +1259,7 @@ public final class BedrockEscapeHack extends Hack
 	
 	private boolean isBreakableEscapeBlock(BlockState state)
 	{
-		if(isEscapeBlock(state))
+		if(state.is(Blocks.BEDROCK))
 			return false;
 		return state.getFluidState().isEmpty();
 	}
@@ -1427,7 +1419,7 @@ public final class BedrockEscapeHack extends Hack
 		{
 			if(!isAirLike(MC.level.getBlockState(above)))
 				return;
-			if(isEscapeBlock(MC.level.getBlockState(below)))
+			if(MC.level.getBlockState(below).is(Blocks.BEDROCK))
 				return;
 			if(hasBedrockWithinDepth(x, z, y - 1, minY, depthLimit))
 				return;
@@ -1439,7 +1431,7 @@ public final class BedrockEscapeHack extends Hack
 			// be outside loaded world space.
 			if(hasBelow && !isAirLike(MC.level.getBlockState(below)))
 				return;
-			if(isEscapeBlock(MC.level.getBlockState(above)))
+			if(MC.level.getBlockState(above).is(Blocks.BEDROCK))
 				return;
 			if(hasBedrockWithinDepthUp(x, z, y + 1, maxY, depthLimit))
 				return;
@@ -1521,7 +1513,7 @@ public final class BedrockEscapeHack extends Hack
 			pos.set(x, y, z);
 			if(!MC.level.hasChunkAt(pos))
 				return true;
-			if(isEscapeBlock(MC.level.getBlockState(pos)))
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 				return true;
 		}
 		
@@ -1578,7 +1570,7 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = py; y <= maxY; y++)
 		{
 			pos.set(px, y, pz);
-			if(isEscapeBlock(MC.level.getBlockState(pos)))
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 			{
 				aboveY = y;
 				break;
@@ -1589,8 +1581,7 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = py; y >= minY; y--)
 		{
 			pos.set(px, y, pz);
-			if(isEscapeBlock(MC.level.getBlockState(pos)))
-			
+			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
 			{
 				belowY = y;
 				break;
@@ -1613,13 +1604,6 @@ public final class BedrockEscapeHack extends Hack
 		}
 		
 		hasSideBoundary = true;
-	}
-	
-	private boolean isEscapeBlock(BlockState state)
-	{
-		return state != null
-			&& (state.is(Blocks.BEDROCK) || (treatObsidianAsBedrock.isChecked()
-				&& state.is(Blocks.OBSIDIAN)));
 	}
 	
 	private boolean isSideAllowed(boolean fromAbove)

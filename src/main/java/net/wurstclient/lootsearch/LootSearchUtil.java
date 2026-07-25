@@ -68,7 +68,7 @@ public final class LootSearchUtil
 		}catch(Throwable ignored)
 		{}
 		String os = System.getProperty("os.name").toLowerCase();
-		// On Windows, Minecraft is usually in %APPDATA%\.minecraft
+		// On Windows, Minecraft is usually in %APPDATA%.minecraft
 		if(os.contains("win"))
 		{
 			String appdata = System.getenv("APPDATA");

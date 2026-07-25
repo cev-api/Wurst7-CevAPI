@@ -22,6 +22,7 @@ import net.wurstclient.events.MouseButtonPressListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.InputSimulation;
 import net.wurstclient.xpgui.XpGuiScreen;
 
 public final class KeybindProcessor
@@ -42,8 +43,13 @@ public final class KeybindProcessor
 	@Override
 	public void onKeyPress(KeyPressEvent event)
 	{
+		if(InputSimulation.isActive())
+			return;
+		
 		if(event.getAction() != GLFW.GLFW_PRESS
 			&& event.getAction() != GLFW.GLFW_REPEAT)
+			return;
+		if(WurstClient.MC.gui == null)
 			return;
 		
 		boolean isRepeat = event.getAction() == GLFW.GLFW_REPEAT;
@@ -57,7 +63,7 @@ public final class KeybindProcessor
 		boolean isPacketDelayKeybind =
 			cmds != null && isPacketDelayKeybind(cmds);
 		
-		Screen screen = WurstClient.MC.screen;
+		Screen screen = WurstClient.MC.gui.screen();
 		// Allow processing when no screen is open, when the Click GUI is open,
 		// or when Waypoints or ItemHandler screens are open so their keybinds
 		// can toggle/close them with the same key.
@@ -88,7 +94,7 @@ public final class KeybindProcessor
 				// open navigator without prepopulating the search to avoid
 				// the first character being entered twice (widget will receive
 				// it)
-				WurstClient.MC.setScreen(
+				WurstClient.MC.gui.setScreen(
 					new net.wurstclient.navigator.NavigatorMainScreen());
 				return;
 			}
@@ -123,6 +129,9 @@ public final class KeybindProcessor
 	@Override
 	public void onMouseButtonPress(MouseButtonPressEvent event)
 	{
+		if(InputSimulation.isActive())
+			return;
+		
 		if(event.getAction() != GLFW.GLFW_PRESS)
 			return;
 		
@@ -143,8 +152,10 @@ public final class KeybindProcessor
 		if(InputConstants.isKeyDown(WurstClient.MC.getWindow(),
 			GLFW.GLFW_KEY_F3))
 			return false;
+		if(WurstClient.MC.gui == null)
+			return false;
 		
-		Screen screen = WurstClient.MC.screen;
+		Screen screen = WurstClient.MC.gui.screen();
 		return screen == null || screen instanceof ClickGuiScreen
 			|| screen instanceof XpGuiScreen;
 	}
@@ -217,6 +228,9 @@ public final class KeybindProcessor
 	
 	private void processCmd(String cmd)
 	{
+		if(WurstClient.MC.gui == null)
+			return;
+		
 		String trimmed = cmd.trim();
 		
 		// Special-case: toggle ClickGUI when bound to "clickgui".
@@ -224,8 +238,8 @@ public final class KeybindProcessor
 		// using the regular hack toggle logic won't close an already open GUI.
 		if(trimmed.equalsIgnoreCase("clickgui"))
 		{
-			if(WurstClient.MC.screen instanceof ClickGuiScreen)
-				WurstClient.MC.setScreen(null);
+			if(WurstClient.MC.gui.screen() instanceof ClickGuiScreen)
+				WurstClient.MC.gui.setScreen(null);
 			else
 				WurstClient.INSTANCE.getHax().clickGuiHack.setEnabled(true);
 			return;
@@ -236,8 +250,8 @@ public final class KeybindProcessor
 		if(trimmed.equalsIgnoreCase("altgui")
 			|| trimmed.equalsIgnoreCase("meteorgui"))
 		{
-			if(WurstClient.MC.screen instanceof AltGuiScreen)
-				WurstClient.MC.setScreen(null);
+			if(WurstClient.MC.gui.screen() instanceof AltGuiScreen)
+				WurstClient.MC.gui.setScreen(null);
 			else
 				WurstClient.INSTANCE.getHax().altGuiHack.setEnabled(true);
 			return;
@@ -247,8 +261,8 @@ public final class KeybindProcessor
 		// auto-disables itself after opening.
 		if(trimmed.equalsIgnoreCase("xpgui"))
 		{
-			if(WurstClient.MC.screen instanceof XpGuiScreen)
-				WurstClient.MC.setScreen(null);
+			if(WurstClient.MC.gui.screen() instanceof XpGuiScreen)
+				WurstClient.MC.gui.setScreen(null);
 			else
 				WurstClient.INSTANCE.getHax().xpGuiHack.setEnabled(true);
 			return;
@@ -258,10 +272,11 @@ public final class KeybindProcessor
 		if(trimmed.equalsIgnoreCase(".waypoints"))
 		{
 			// If Waypoints screen is open, close it; otherwise open manager
-			if(net.minecraft.client.Minecraft
-				.getInstance().screen instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
+			if(net.minecraft.client.Minecraft.getInstance().gui
+				.screen() instanceof net.wurstclient.clickgui.screens.WaypointsScreen)
 			{
-				net.minecraft.client.Minecraft.getInstance().setScreen(null);
+				net.minecraft.client.Minecraft.getInstance().gui
+					.setScreen(null);
 				return;
 			}
 			// open via hack utility
@@ -279,10 +294,10 @@ public final class KeybindProcessor
 			if(lower.equals("itemhandler gui"))
 			{
 				net.minecraft.client.gui.screens.Screen s =
-					net.minecraft.client.Minecraft.getInstance().screen;
+					net.minecraft.client.Minecraft.getInstance().gui.screen();
 				if(s instanceof net.wurstclient.hacks.itemhandler.ItemHandlerScreen)
 				{
-					net.minecraft.client.Minecraft.getInstance()
+					net.minecraft.client.Minecraft.getInstance().gui
 						.setScreen(null);
 					return;
 				}

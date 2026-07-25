@@ -49,6 +49,7 @@ import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
 import net.wurstclient.util.HackToggleFeedback;
+import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -156,6 +157,7 @@ public enum WurstClient
 		settingsProfileFolder = wurstFolder.resolve("settings");
 		this.settingsFile = new SettingsFile(settingsFile, hax, cmds, otfs);
 		this.settingsFile.load();
+		TitleBackgroundModeManager.advanceForStartup();
 		hax.tooManyHaxHack.loadBlockedHacksFile();
 		otfs.hackListOtf.loadHiddenHacksFile();
 		
@@ -192,8 +194,7 @@ public enum WurstClient
 		eventManager.add(PostMotionListener.class, rotationFaker);
 		
 		updater = new WurstUpdater();
-		// Disabled upstream's update checker. Because well, you're using CEVAPI ain't cha?
-		// eventManager.add(UpdateListener.class, updater); 
+		eventManager.add(UpdateListener.class, updater);
 		
 		forkUpdateChecker = new ForkUpdateChecker();
 		eventManager.add(UpdateListener.class, forkUpdateChecker);
@@ -338,22 +339,13 @@ public enum WurstClient
 		Hack hack = getHax().getHackByName(name);
 		if(hack != null)
 			return hack;
-		for(Hack candidate : getHax().getAllHax())
-			if(candidate.getName().equalsIgnoreCase(name))
-				return candidate;
-			
-		Command cmd = getCmds()
-			.getCmdByName(name.startsWith("#") ? name.substring(1) : name);
+		
+		Command cmd = getCmds().getCmdByName(name.substring(1));
 		if(cmd != null)
 			return cmd;
 		
 		OtherFeature otf = getOtfs().getOtfByName(name);
-		if(otf != null)
-			return otf;
-		for(OtherFeature candidate : getOtfs().getAllOtfs())
-			if(candidate.getName().equalsIgnoreCase(name))
-				return candidate;
-		return null;
+		return otf;
 	}
 	
 	public KeybindList getKeybinds()

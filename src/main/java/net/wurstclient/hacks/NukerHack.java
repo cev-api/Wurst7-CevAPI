@@ -10,13 +10,10 @@ package net.wurstclient.hacks;
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -34,7 +31,6 @@ import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockBreaker.BlockBreakingParams;
 import net.wurstclient.util.BlockBreakingCache;
 import net.wurstclient.util.BlockUtils;
-import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.OverlayRenderer;
 import net.wurstclient.util.RotationUtils;
 
@@ -55,12 +51,6 @@ public final class NukerHack extends Hack
 		"Automatically switch to the best tool in your hotbar for the current"
 			+ " block even if the AutoTool hack is disabled.",
 		false);
-	private final CheckboxSetting preserveTools = new CheckboxSetting(
-		"Preserve Tools",
-		"Stops using damageable hotbar items when they reach 1% durability,"
-			+ " switches to another item above 1% from the entire inventory, and"
-			+ " disables Nuker when none remain.",
-		false);
 	
 	private final BlockBreakingCache cache = new BlockBreakingCache();
 	private final OverlayRenderer overlay = new OverlayRenderer();
@@ -68,7 +58,6 @@ public final class NukerHack extends Hack
 	
 	// Remember whether AutoTool was enabled before this hack enabled it
 	private boolean prevAutoToolEnabled;
-	private final Set<Integer> preservedToolSlots = new HashSet<>();
 	
 	public NukerHack()
 	{
@@ -78,7 +67,6 @@ public final class NukerHack extends Hack
 		commonSettings.getSettings().forEach(this::addSetting);
 		addSetting(swingHand);
 		addSetting(autoSwitchTool);
-		addSetting(preserveTools);
 	}
 	
 	@Override
@@ -99,9 +87,7 @@ public final class NukerHack extends Hack
 		
 		// Auto-enable AutoTool if requested by per-hack setting
 		prevAutoToolEnabled = WURST.getHax().autoToolHack.isEnabled();
-		preservedToolSlots.clear();
-		if((autoSwitchTool.isChecked() || preserveTools.isChecked())
-			&& !prevAutoToolEnabled)
+		if(autoSwitchTool.isChecked() && !prevAutoToolEnabled)
 		{
 			WURST.getHax().autoToolHack.setEnabled(true);
 		}
@@ -128,7 +114,6 @@ public final class NukerHack extends Hack
 		cache.reset();
 		overlay.resetProgress();
 		commonSettings.reset();
-		preservedToolSlots.clear();
 		
 		// Restore AutoTool previous state if we enabled it
 		if(!prevAutoToolEnabled && WURST.getHax().autoToolHack.isEnabled())
@@ -198,10 +183,7 @@ public final class NukerHack extends Hack
 	private boolean breakOneBlock(BlockBreakingParams params)
 	{
 		WURST.getRotationFaker().faceVectorPacket(params.hitVec());
-		if(preserveTools.isChecked() && !MC.player.getAbilities().instabuild
-			&& !preparePreservedTool(params.pos()))
-			return false;
-			
+		
 		// Auto-switch tool behavior: prefer using the global AutoTool hack when
 		// enabled,
 		// otherwise use this per-hack setting to call equipBestTool directly.
@@ -221,89 +203,6 @@ public final class NukerHack extends Hack
 		
 		swingHand.swing(InteractionHand.MAIN_HAND);
 		return true;
-	}
-	
-	private boolean preparePreservedTool(BlockPos pos)
-	{
-		updatePreservedToolSlots();
-		if(findAvailableToolSlot() == -1)
-		{
-			ChatUtils.warning(
-				"Preserve Tools: no usable tools remain. Nuker disabled.");
-			setEnabled(false);
-			return false;
-		}
-		
-		ItemStack selected = MC.player.getMainHandItem();
-		int selectedSlot = MC.player.getInventory().getSelectedSlot();
-		if(isAvailableTool(selected))
-		{
-			WURST.getHax().autoToolHack.equipBestToolFromInventory(pos, true,
-				false, 0, this::isAllowedPreserveSlot);
-			return isAvailableTool(MC.player.getMainHandItem());
-		}
-		
-		preservedToolSlots.add(selectedSlot);
-		boolean switched =
-			WURST.getHax().autoToolHack.equipBestToolFromInventory(pos, true,
-				false, 0, this::isAllowedPreserveSlot);
-		if(switched && isAvailableTool(MC.player.getMainHandItem()))
-			return true;
-		
-		ChatUtils.warning("Preserve Tools: unable to equip a usable tool."
-			+ " Nuker disabled.");
-		setEnabled(false);
-		return false;
-	}
-	
-	private void updatePreservedToolSlots()
-	{
-		for(int slot = 0; slot < 9; slot++)
-		{
-			ItemStack stack = MC.player.getInventory().getItem(slot);
-			if(isAtPreserveThreshold(stack))
-				preservedToolSlots.add(slot);
-			else
-				preservedToolSlots.remove(slot);
-		}
-	}
-	
-	private int findAvailableToolSlot()
-	{
-		for(int slot = 0; slot < 36; slot++)
-			if(!preservedToolSlots.contains(slot)
-				&& isAvailableTool(MC.player.getInventory().getItem(slot)))
-				return slot;
-		return -1;
-	}
-	
-	private boolean isAllowedPreserveSlot(int slot)
-	{
-		return !preservedToolSlots.contains(slot)
-			&& !isAtPreserveThreshold(MC.player.getInventory().getItem(slot));
-	}
-	
-	private boolean isAvailableTool(ItemStack stack)
-	{
-		return !stack.isEmpty() && stack.isDamageableItem()
-			&& !isAtPreserveThreshold(stack);
-	}
-	
-	private boolean isAtPreserveThreshold(ItemStack stack)
-	{
-		if(!stack.isDamageableItem())
-			return false;
-		return getRemainingUses(stack) <= getPreserveThreshold(stack);
-	}
-	
-	private int getRemainingUses(ItemStack stack)
-	{
-		return stack.getMaxDamage() - stack.getDamageValue();
-	}
-	
-	private int getPreserveThreshold(ItemStack stack)
-	{
-		return Math.max(1, (stack.getMaxDamage() + 99) / 100);
 	}
 	
 	private boolean attackOneEntity(Vec3 eyesVec, double rangeSq)

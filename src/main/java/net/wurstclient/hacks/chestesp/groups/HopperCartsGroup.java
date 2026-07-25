@@ -19,7 +19,7 @@ public final class HopperCartsGroup extends ChestEspEntityGroup
 	@Override
 	protected CheckboxSetting createIncludeSetting()
 	{
-		return new CheckboxSetting("Include hopper carts", false);
+		return new CheckboxSetting("Include hopper carts", true);
 	}
 	
 	@Override

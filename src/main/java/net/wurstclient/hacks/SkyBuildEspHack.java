@@ -354,8 +354,9 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 			return chunks;
 		
 		int radius = getChunkRange(area.getSelected());
-		for(int x = anchorChunk.x - radius; x <= anchorChunk.x + radius; x++)
-			for(int z = anchorChunk.z - radius; z <= anchorChunk.z
+		for(int x = anchorChunk.x() - radius; x <= anchorChunk.x()
+			+ radius; x++)
+			for(int z = anchorChunk.z() - radius; z <= anchorChunk.z()
 				+ radius; z++)
 			{
 				if(!MC.level.hasChunk(x, z))
@@ -379,8 +380,8 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 			return chunks;
 		
 		chunks.sort(Comparator.comparingInt(chunk -> {
-			int dx = chunk.getPos().x - anchorChunk.x;
-			int dz = chunk.getPos().z - anchorChunk.z;
+			int dx = chunk.getPos().x() - anchorChunk.x();
+			int dz = chunk.getPos().z() - anchorChunk.z();
 			return dx * dx + dz * dz;
 		}));
 		return chunks;
@@ -433,8 +434,8 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 		}
 		
 		int radius = getChunkRange(selectedArea);
-		if(Math.abs(playerChunk.x - anchorChunk.x) > radius
-			|| Math.abs(playerChunk.z - anchorChunk.z) > radius)
+		if(Math.abs(playerChunk.x() - anchorChunk.x()) > radius
+			|| Math.abs(playerChunk.z() - anchorChunk.z()) > radius)
 		{
 			anchorChunk = playerChunk;
 			scanTimer = 0;
@@ -533,8 +534,8 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 		{
 			int tracerColor = tracerFlash.isChecked()
 				? RenderUtils.flashColor(linesColor) : linesColor;
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("SkyBuildESP", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

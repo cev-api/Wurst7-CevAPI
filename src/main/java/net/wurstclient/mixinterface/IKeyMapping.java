@@ -12,8 +12,6 @@ import net.minecraft.client.KeyMapping;
 
 public interface IKeyMapping extends IKeyBinding
 {
-	InputConstants.Key wurst$getKey();
-	
 	default KeyMapping asVanilla()
 	{
 		return (KeyMapping)(Object)this;
@@ -37,4 +35,14 @@ public interface IKeyMapping extends IKeyBinding
 	{
 		return asVanilla().isDown();
 	}
+	
+	default InputConstants.Key getBoundKey()
+	{
+		return wurst_getBoundKey();
+	}
+	
+	/**
+	 * Returns the actual vanilla key bound to this KeyMapping.
+	 */
+	InputConstants.Key wurst_getBoundKey();
 }

@@ -14,7 +14,7 @@ import java.util.Set;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -74,7 +74,7 @@ public final class KeyCommandEditScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 + 54, height - 48, 100, 20).build());
 	}
 	
@@ -86,13 +86,13 @@ public final class KeyCommandEditScreen extends Screen
 		else
 			bindBridge.setCommandForKey(visualKey.key(), command);
 		
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	private void clearAndClose()
 	{
 		bindBridge.clearCommandForKey(visualKey.key());
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -124,7 +124,7 @@ public final class KeyCommandEditScreen extends Screen
 			return true;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 			
 			default:
@@ -135,28 +135,28 @@ public final class KeyCommandEditScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xDF0C1118, 0xE7161D28);
 		
-		context.drawCenteredString(font, "Editing " + visualKey.label(),
-			width / 2, 20, CommonColors.WHITE);
+		context.centeredText(font, "Editing " + visualKey.label(), width / 2,
+			20, CommonColors.WHITE);
 		
-		context.drawCenteredString(font,
+		context.centeredText(font,
 			"Physical key: " + Keybind.getDisplayKey(visualKey.key().getName()),
 			width / 2, 36, CommonColors.LIGHT_GRAY);
 		
-		context.drawString(font, "Command for this key", commandField.getX(),
+		context.text(font, "Command for this key", commandField.getX(),
 			commandField.getY() - 12, CommonColors.LIGHT_GRAY);
 		if(!suggestion.isBlank())
-			context.drawString(font, suggestion, commandField.getX() + 6,
+			context.text(font, suggestion, commandField.getX() + 6,
 				commandField.getY() + 7, 0xFF9A9A9A);
 		
-		commandField.render(context, mouseX, mouseY, partialTicks);
+		commandField.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

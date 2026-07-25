@@ -17,11 +17,29 @@ import net.wurstclient.WurstClient;
 @Mixin(AbstractHorse.class)
 public abstract class AbstractHorseMixin
 {
+	@Inject(method = "isSaddled", at = @At("HEAD"), cancellable = true)
+	private void forceSaddled(CallbackInfoReturnable<Boolean> cir)
+	{
+		if(WurstClient.INSTANCE.getHax().entityControlHack
+			.shouldEnforceSaddled())
+			cir.setReturnValue(true);
+	}
+	
 	@Inject(method = "isMobControlled", at = @At("HEAD"), cancellable = true)
 	private void forceMobControlled(CallbackInfoReturnable<Boolean> cir)
 	{
 		if(WurstClient.INSTANCE.getHax().entityControlHack
 			.shouldEnforceMobControlled())
 			cir.setReturnValue(true);
+	}
+	
+	@Inject(method = "getJumpPower", at = @At("RETURN"), cancellable = true)
+	private void forceJumpStrength(CallbackInfoReturnable<Float> cir)
+	{
+		if(!WurstClient.INSTANCE.getHax().entityControlHack
+			.shouldEnforceJumpStrength())
+			return;
+		
+		cir.setReturnValue(Math.max(cir.getReturnValueF(), 0.7F));
 	}
 }

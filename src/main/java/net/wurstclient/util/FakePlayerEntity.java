@@ -66,7 +66,19 @@ public class FakePlayerEntity extends RemotePlayer
 	
 	private void spawn()
 	{
-		world.addEntity(this);
+		try
+		{
+			world.addEntity(this);
+		}catch(IllegalStateException e)
+		{
+			// MC 26.2 changed ClientLevel.addEntity() to call
+			// removeEntityIfQueued(entity.getId()) before the entity
+			// has been assigned an ID. Fall back to the superclass
+			// implementation which handles ID assignment internally.
+			System.out.println("Falling back to Level.addFreshEntity for "
+				+ "FakePlayer: " + e.getMessage());
+			world.addFreshEntity(this);
+		}
 	}
 	
 	public void despawn()

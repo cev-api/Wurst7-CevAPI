@@ -12,7 +12,7 @@ import java.util.Objects;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
@@ -24,6 +24,7 @@ import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.KeybindList;
+import net.wurstclient.keymap.KeyboardBindsScreen;
 import net.wurstclient.util.WurstColors;
 
 public final class KeybindManagerScreen extends Screen
@@ -48,49 +49,59 @@ public final class KeybindManagerScreen extends Screen
 		listGui = new ListGui(minecraft, this);
 		addWidget(listGui);
 		
-		addRenderableWidget(addButton = Button
-			.builder(Component.literal("Add"),
-				b -> minecraft.setScreen(new KeybindEditorScreen(this)))
-			.bounds(width / 2 - 102, height - 52, 100, 20).build());
-		
 		addRenderableWidget(
-			editButton = Button.builder(Component.literal("Edit"), b -> edit())
-				.bounds(width / 2 + 2, height - 52, 100, 20).build());
+			addButton =
+				Button
+					.builder(Component.literal("Add"),
+						b -> minecraft.gui
+							.setScreen(new KeybindEditorScreen(this)))
+					.bounds(width / 2 - 154, height - 52, 100, 20).build());
 		
 		addRenderableWidget(removeButton =
 			Button.builder(Component.literal("Remove"), b -> remove())
-				.bounds(width / 2 - 102, height - 28, 100, 20).build());
+				.bounds(width / 2 - 50, height - 52, 100, 20).build());
+		
+		addRenderableWidget(
+			editButton = Button.builder(Component.literal("Edit"), b -> edit())
+				.bounds(width / 2 + 54, height - 52, 100, 20).build());
+		
+		addRenderableWidget(Button
+			.builder(Component.literal("View Keyboard"),
+				b -> minecraft.gui.setScreen(new KeyboardBindsScreen(this)))
+			.bounds(width / 2 - 104, height - 28, 100, 20).build());
 		
 		addRenderableWidget(backButton = Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.setScreen(prevScreen))
-			.bounds(width / 2 + 2, height - 28, 100, 20).build());
+				b -> minecraft.gui.setScreen(prevScreen))
+			.bounds(width / 2 + 4, height - 28, 100, 20).build());
 		
 		addRenderableWidget(Button.builder(Component.literal("Reset Keybinds"),
-			b -> minecraft.setScreen(new ConfirmScreen(confirmed -> {
+			b -> minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 				if(confirmed)
 					WurstClient.INSTANCE.getKeybinds()
 						.setKeybinds(KeybindList.DEFAULT_KEYBINDS);
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			}, Component
 				.literal("Are you sure you want to reset your keybinds?"),
 				Component.literal("This cannot be undone!"))))
 			.bounds(8, 8, 100, 20).build());
 		
 		addRenderableWidget(Button.builder(Component.literal("Clear"),
-			b -> minecraft.setScreen(new ConfirmScreen(confirmed -> {
+			b -> minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 				if(confirmed)
 					WurstClient.INSTANCE.getKeybinds().removeAll();
-				minecraft.setScreen(this);
+				minecraft.gui.setScreen(this);
 			}, Component
 				.literal("Are you sure you want to clear all keybinds?"),
 				Component.literal("This cannot be undone!"))))
 			.bounds(112, 8, 100, 20).build());
 		
-		addRenderableWidget(Button
-			.builder(Component.literal("Profiles..."),
-				b -> minecraft.setScreen(new KeybindProfilesScreen(this)))
-			.bounds(width - 108, 8, 100, 20).build());
+		addRenderableWidget(
+			Button
+				.builder(Component.literal("Profiles..."),
+					b -> minecraft.gui
+						.setScreen(new KeybindProfilesScreen(this)))
+				.bounds(width - 108, 8, 100, 20).build());
 	}
 	
 	private void edit()
@@ -99,7 +110,7 @@ public final class KeybindManagerScreen extends Screen
 		if(keybind == null)
 			return;
 		
-		minecraft.setScreen(new KeybindEditorScreen(this, keybind.getKey(),
+		minecraft.gui.setScreen(new KeybindEditorScreen(this, keybind.getKey(),
 			keybind.getCommands()));
 	}
 	
@@ -110,7 +121,7 @@ public final class KeybindManagerScreen extends Screen
 			return;
 		
 		WurstClient.INSTANCE.getKeybinds().remove(keybind.getKey());
-		minecraft.setScreen(this);
+		minecraft.gui.setScreen(this);
 	}
 	
 	@Override
@@ -149,20 +160,20 @@ public final class KeybindManagerScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(font, "Keybind Manager", width / 2, 8,
+		context.centeredText(font, "Keybind Manager", width / 2, 8,
 			CommonColors.WHITE);
 		
 		int count = WurstClient.INSTANCE.getKeybinds().getAllKeybinds().size();
-		context.drawCenteredString(font, "Keybinds: " + count, width / 2, 20,
+		context.centeredText(font, "Keybinds: " + count, width / 2, 20,
 			CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -189,8 +200,8 @@ public final class KeybindManagerScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -198,12 +209,12 @@ public final class KeybindManagerScreen extends Screen
 			Font tr = minecraft.font;
 			
 			String keyText = "Key: " + Keybind.getDisplayKey(keybind.getKey());
-			context.drawString(tr, keyText, x + 3, y + 3,
-				WurstColors.VERY_LIGHT_GRAY, false);
+			context.text(tr, keyText, x + 3, y + 3, WurstColors.VERY_LIGHT_GRAY,
+				false);
 			
 			String cmdText = "Commands: " + keybind.getCommands();
-			context.drawString(tr, cmdText, x + 3, y + 15,
-				CommonColors.LIGHT_GRAY, false);
+			context.text(tr, cmdText, x + 3, y + 15, CommonColors.LIGHT_GRAY,
+				false);
 		}
 	}
 	

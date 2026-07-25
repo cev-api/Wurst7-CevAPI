@@ -28,7 +28,6 @@ import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
-import net.minecraft.util.Mth;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -36,7 +35,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -284,13 +282,15 @@ public class PearlEspHack extends Hack
 		if(!(rawPacket instanceof ClientboundAddEntityPacket packet))
 			return;
 		
-		if(packet.getType() == EntityType.PLAYER)
+		if(packet.getType() == net.wurstclient.util.RegistryUtils
+			.entityType("player"))
 		{
 			rememberPlayerSpawn(packet);
 			return;
 		}
 		
-		if(packet.getType() != EntityType.ENDER_PEARL)
+		if(packet.getType() != net.wurstclient.util.RegistryUtils
+			.entityType("ender_pearl"))
 			return;
 		
 		rememberPearlSpawn(packet);
@@ -314,7 +314,8 @@ public class PearlEspHack extends Hack
 			
 		for(Entity entity : MC.level.entitiesForRendering())
 		{
-			if(entity.getType() == EntityType.ENDER_PEARL)
+			if(entity.getType() == net.wurstclient.util.RegistryUtils
+				.entityType("ender_pearl"))
 			{
 				Entity pearl = entity;
 				seenPearls.add(pearl.getUUID());
@@ -1163,7 +1164,21 @@ public class PearlEspHack extends Hack
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -1187,8 +1202,10 @@ public class PearlEspHack extends Hack
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
 		var matrix = matrices.last().pose();
 		
-		RenderUtils.drawOutlinedTextInBatch(font, text, -w, 0, argb,
-			strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(font, text, -w,
+			0, argb, strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg,
+			0xF000F0);
+		
 		matrices.popPose();
 	}
 	
@@ -1698,17 +1715,7 @@ public class PearlEspHack extends Hack
 		
 		Vec3 cam = RenderUtils.getCameraPos();
 		double dist = cam.distanceTo(labelPos);
-		float scale = baseScale * (float)Math.max(1.0, dist * 0.1);
-		
-		double nearRef = 6.0;
-		double maxRef = 256.0;
-		double t = (dist - nearRef) / (maxRef - nearRef);
-		t = Mth.clamp(t, 0.0, 1.0);
-		t = t * t * (3.0 - 2.0 * t);
-		double factor = 1.80 + (0.90 - 1.80) * t;
-		scale *= (float)Mth.clamp(factor, 0.75, 2.50);
-		
-		return scale;
+		return RenderUtils.getCappedWorldLabelScale(baseScale, dist);
 	}
 	
 	private int getStasisLineColor()

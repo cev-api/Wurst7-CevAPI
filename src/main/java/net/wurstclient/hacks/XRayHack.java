@@ -233,7 +233,8 @@ public final class XRayHack extends Hack
 		EVENTS.add(VisGraphListener.class, this);
 		
 		// reload chunks
-		MC.levelRenderer.allChanged();
+		if(MC.levelExtractor != null)
+			MC.levelExtractor.allChanged();
 		
 		// display compatibility warnings
 		if(optiFineWarning != null)
@@ -252,7 +253,8 @@ public final class XRayHack extends Hack
 		EVENTS.remove(VisGraphListener.class, this);
 		
 		// reload chunks
-		MC.levelRenderer.allChanged();
+		if(MC.levelExtractor != null)
+			MC.levelExtractor.allChanged();
 		
 		// reset gamma
 		FullbrightHack fullbright = WURST.getHax().fullbrightHack;
@@ -296,7 +298,7 @@ public final class XRayHack extends Hack
 				rebuildOreCaches();
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.allChanged();
+				MC.levelRenderer.resetLevelRenderData();
 			}else // switched to QUERY
 			{
 				oreNamesCache = null; // avoid fallback to list
@@ -310,7 +312,7 @@ public final class XRayHack extends Hack
 						.filter(s -> !s.isEmpty()).toArray(String[]::new);
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.allChanged();
+				MC.levelRenderer.resetLevelRenderData();
 			}
 		}
 		
@@ -324,7 +326,7 @@ public final class XRayHack extends Hack
 				rebuildOreCaches();
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.allChanged();
+				MC.levelRenderer.resetLevelRenderData();
 			}else
 			{
 				// safety: if caches are missing (e.g., after a reload), rebuild
@@ -359,7 +361,7 @@ public final class XRayHack extends Hack
 				oreExactIds = null; // force keyword path
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.allChanged();
+				MC.levelRenderer.resetLevelRenderData();
 			}
 		}
 		
@@ -367,7 +369,7 @@ public final class XRayHack extends Hack
 		if(currentOpacity != lastOpacityVal)
 		{
 			lastOpacityVal = currentOpacity;
-			MC.levelRenderer.allChanged();
+			MC.levelRenderer.resetLevelRenderData();
 		}
 		// Detect only-exposed toggle changes and reload chunks so mixins
 		// re-evaluate visibility based on the new setting.
@@ -378,7 +380,7 @@ public final class XRayHack extends Hack
 			// Rebuild visible boxes immediately from known positions so the
 			// ESP updates without waiting for a full coordinator pass.
 			rebuildVisibleBoxes();
-			MC.levelRenderer.allChanged();
+			MC.levelRenderer.resetLevelRenderData();
 		}
 	}
 	

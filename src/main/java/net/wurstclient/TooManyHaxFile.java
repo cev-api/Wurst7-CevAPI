@@ -48,15 +48,15 @@ public final class TooManyHaxFile
 			
 		}catch(NoSuchFileException e)
 		{
-			// A missing file represents an empty list (e.g. a preset created
-			// before this file existed). Do not retain the previous list.
-			blockedFeatures.clear();
-			save();
+			// The file doesn't exist yet. No problem, we'll create it later.
+			
 		}catch(IOException | JsonException e)
 		{
 			System.out.println("Couldn't load " + path.getFileName());
 			e.printStackTrace();
 		}
+		
+		save();
 	}
 	
 	public void loadProfile(Path profilePath) throws IOException, JsonException
@@ -72,17 +72,16 @@ public final class TooManyHaxFile
 	
 	private void setBlockedFeatures(WsonArray wson)
 	{
-		ArrayList<Feature> loadedFeatures = new ArrayList<>();
+		blockedFeatures.clear();
+		
 		for(String name : wson.getAllStrings())
 		{
 			Feature feature = WurstClient.INSTANCE.getFeatureByName(name);
 			
 			if(feature != null
 				&& (!requireSafeToBlock || feature.isSafeToBlock()))
-				loadedFeatures.add(feature);
+				blockedFeatures.add(feature);
 		}
-		blockedFeatures.clear();
-		blockedFeatures.addAll(loadedFeatures);
 		
 		blockedFeatures
 			.sort(Comparator.comparing(f -> f.getName().toLowerCase()));

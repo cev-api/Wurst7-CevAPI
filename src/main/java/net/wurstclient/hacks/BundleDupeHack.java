@@ -35,7 +35,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.boat.ChestBoat;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecartContainer;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
@@ -220,10 +220,14 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 					scheduler.schedule(() -> {
 						if(!isEnabled())
 							return;
-						sendInteractItem();
-						executeLagMethod();
-						ChatUtils.message("Timeout Dupe executed!");
-						setEnabled(false);
+						MC.execute(() -> {
+							if(!isEnabled())
+								return;
+							sendInteractItem();
+							executeLagMethod();
+							ChatUtils.message("Timeout Dupe executed!");
+							setEnabled(false);
+						});
 					}, interactDelayMillis.getValueI(), TimeUnit.MILLISECONDS);
 				}, timeoutSeconds.getValueI(), TimeUnit.SECONDS);
 				
@@ -267,8 +271,9 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 			{
 				ClientPacketListener c = MC.getConnection();
 				if(c != null && MC.player != null)
-					c.send(ServerboundInteractPacket.createAttackPacket(
-						MC.player, MC.player.isShiftKeyDown()));
+					c.send(new ServerboundInteractPacket(MC.player.getId(),
+						InteractionHand.MAIN_HAND, MC.player.position(),
+						MC.player.isShiftKeyDown()));
 			}
 			
 			case CLIENTSETTINGS ->
@@ -324,7 +329,7 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 					ServerboundContainerClickPacket p =
 						new ServerboundContainerClickPacket(-1,
 							Integer.MAX_VALUE, (short)Short.MAX_VALUE,
-							(byte)127, ClickType.PICKUP,
+							(byte)127, ContainerInput.PICKUP,
 							new Int2ObjectOpenHashMap<>(), HashedStack.EMPTY);
 					c.send(p);
 				}
@@ -344,8 +349,10 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		ChatUtils.message("Kick Dupe executed!");
 		
 		scheduler.schedule(() -> {
-			if(isEnabled())
-				setEnabled(false);
+			MC.execute(() -> {
+				if(isEnabled())
+					setEnabled(false);
+			});
 		}, 100, TimeUnit.MILLISECONDS);
 	}
 	
@@ -403,9 +410,9 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		
 		Entity entity = eHit.getEntity();
 		for(int i = 0; i < entityNbtPackets.getValueI(); i++)
-			c.send(ServerboundInteractPacket.createInteractionPacket(entity,
-				MC.player != null && MC.player.isShiftKeyDown(),
-				InteractionHand.MAIN_HAND));
+			c.send(new ServerboundInteractPacket(entity.getId(),
+				InteractionHand.MAIN_HAND, eHit.getLocation(),
+				MC.player != null && MC.player.isShiftKeyDown()));
 		
 		ChatUtils.message(
 			"Sent " + entityNbtPackets.getValueI() + " Interact packets.");
@@ -421,7 +428,7 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		{
 			ServerboundContainerClickPacket p =
 				new ServerboundContainerClickPacket(0, 0, (short)0, (byte)0,
-					ClickType.PICKUP, new Int2ObjectOpenHashMap<>(),
+					ContainerInput.PICKUP, new Int2ObjectOpenHashMap<>(),
 					HashedStack.EMPTY);
 			c.send(p);
 		}

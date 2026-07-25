@@ -110,9 +110,6 @@
     "Wait time randomization": 0.5,
     "Show wait time": true
   },
-  "AntiBreak": {
-    "Durability threshold": 1.0
-  },
   "AntiBlast": {
     "Horizontal Strength": 1.0,
     "Vertical Strength": 1.0
@@ -146,11 +143,16 @@
     "Ignore friends": true
   },
   "AntiVoid": {
+    "Use AirWalk": true,
+    "False floor": false,
     "Nether floor Y": -40.0,
     "End floor Y": -60.0,
-    "Lava false floor": true,
+    "Detect lava": true,
+    "Respond only at void level": true,
+    "Use Flight": true,
     "Auto-enable on out_of_world": false,
-    "Lava floor clearance (blocks)": 1.0
+    "Auto-enable by height": false,
+    "Lava buffer (blocks)": 2.0
   },
   "AntiWaterPush": {
     "Prevent slowdown": false
@@ -1166,7 +1168,7 @@
     "Switch back": true
   },
   "BedESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "Bed color": "#FF0099",
     "HackList count": true,
     "Area": "65x65 chunks",
@@ -1382,7 +1384,7 @@
     "Swing threshold (per second)": 6.0
   },
   "ChestESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "Sticky area": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -1529,8 +1531,6 @@
     "Force client chat keywords": "",
     "Force normal chat keywords": "[Discord]",
     "Color usernames": true,
-    "Chat heads": true,
-    "Emojis": true,
     "Random own username color": false,
     "Own username color": "#55FFFF",
     "Max lines": 10.0,
@@ -2402,7 +2402,7 @@
     "Text color": "#FF5555"
   },
   "Mapa": {
-    "No map": false,
+    "No map": true,
     "Enable ESP icons": true,
     "Minimap icon size": 10.0,
     "World map icon size": 12.0,
@@ -2960,7 +2960,7 @@
     "Disable highlighting for waypoint portals": false
   },
   "PotESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "Color": "#E74C3C",
     "Tracer flash": true,
     "Chat alerts": true,
@@ -3052,7 +3052,7 @@
     "Range": 10.0
   },
   "RedstoneESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "HackList count": true,
     "Active mode": "ON",
     "Above ground only": false,
@@ -3477,9 +3477,7 @@
     ],
     "Skip blocks covered by suspicious dust": false,
     "Swing hand": "Off",
-    "Auto switch tool": false,
-    "Only activate on left click": false,
-    "Preserve Tools": false
+    "Auto switch tool": false
   },
   "StaffMonitor": {
     "Chat alert": true,
@@ -3971,7 +3969,7 @@
     "Jump delay": 10.0
   },
   "WorkstationESP": {
-    "Style": "Boxes only",
+    "Style": "Lines and boxes",
     "HackList count": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,

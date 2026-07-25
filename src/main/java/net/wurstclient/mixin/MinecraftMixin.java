@@ -43,8 +43,8 @@ import net.wurstclient.events.LeftClickListener.LeftClickEvent;
 import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.mixinterface.ILocalPlayer;
-import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
 @Mixin(Minecraft.class)
 public abstract class MinecraftMixin
@@ -67,9 +67,10 @@ public abstract class MinecraftMixin
 	private User wurstSession;
 	private ProfileKeyPairManager wurstProfileKeys;
 	
-	private MinecraftMixin(WurstClient wurst, String name)
+	private MinecraftMixin(WurstClient wurst, String name,
+		boolean propagatesCrashes)
 	{
-		super(name);
+		super(name, propagatesCrashes);
 	}
 	
 	@Inject(method = "<init>",
@@ -84,12 +85,12 @@ public abstract class MinecraftMixin
 	
 	/**
 	 * Runs just before {@link Minecraft#handleKeybinds()}, bypassing
-	 * the <code>overlay == null && currentScreen == null</code> check in
+	 * the <code>gui.overlay() == null && gui.screen() == null</code> check in
 	 * {@link Minecraft#tick()}.
 	 */
 	@Inject(method = "tick()V",
-		at = @At(value = "FIELD",
-			target = "Lnet/minecraft/client/Minecraft;overlay:Lnet/minecraft/client/gui/screens/Overlay;",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/gui/Gui;overlay()Lnet/minecraft/client/gui/screens/Overlay;",
 			ordinal = 0))
 	private void onHandleInputEvents(CallbackInfo ci)
 	{
@@ -128,7 +129,7 @@ public abstract class MinecraftMixin
 			ci.cancel();
 	}
 	
-	@Inject(method = "pickBlock()V", at = @At("HEAD"))
+	@Inject(method = "pickBlockOrEntity()V", at = @At("HEAD"))
 	private void onDoItemPick(CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -242,9 +243,9 @@ public abstract class MinecraftMixin
 	}
 	
 	@Override
-	public IClientPlayerInteractionManager getInteractionManager()
+	public IMultiPlayerGameMode getInteractionManager()
 	{
-		return (IClientPlayerInteractionManager)gameMode;
+		return (IMultiPlayerGameMode)gameMode;
 	}
 	
 	@Override

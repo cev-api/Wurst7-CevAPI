@@ -53,10 +53,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 		new CheckboxSetting("Color usernames",
 			"Colors only the sender username in captured player chat.", false);
 	private final CheckboxSetting chatHeads = new CheckboxSetting("Chat heads",
-		"Shows the sender's player head before player chat messages.", true);
-	private final CheckboxSetting emojis = new CheckboxSetting("Emojis",
-		"Converts PixelTwemoji-style shortcodes such as :tired_face: into emoji.",
-		true);
+		"Shows the sender's player head before player chat messages.", false);
 	private final CheckboxSetting useServerColors = new CheckboxSetting(
 		"Use server username colors",
 		"Follows colors supplied by the server for chat usernames when available.",
@@ -109,7 +106,6 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 		addSetting(forceNormalKeywords);
 		addSetting(colorUsernames);
 		addSetting(chatHeads);
-		addSetting(emojis);
 		addSetting(useServerColors);
 		addSetting(randomOwnUsernameColor);
 		addSetting(ownUsernameColor);
@@ -137,7 +133,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(!(MC.screen instanceof ChatScreen))
+		if(!(MC.gui.screen() instanceof ChatScreen))
 			return;
 		
 		if(!colorCommandText.isChecked())
@@ -170,7 +166,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 			java.lang.reflect.Field field =
 				ChatScreen.class.getDeclaredField("input");
 			field.setAccessible(true);
-			return (EditBox)field.get(MC.screen);
+			return (EditBox)field.get(MC.gui.screen());
 		}catch(Exception e)
 		{
 			return null;
@@ -242,11 +238,6 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 	public boolean shouldShowChatHeads()
 	{
 		return chatHeads.isChecked();
-	}
-	
-	public boolean shouldConvertEmojis()
-	{
-		return emojis.isChecked();
 	}
 	
 	public boolean shouldUseServerColors()

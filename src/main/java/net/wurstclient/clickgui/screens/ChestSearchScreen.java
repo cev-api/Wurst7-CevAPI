@@ -11,13 +11,14 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
 import net.wurstclient.chestsearch.SlotHighlighter;
@@ -26,6 +27,7 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.chestsearch.ChestManager;
 import net.wurstclient.chestsearch.ChestEntry;
 import net.wurstclient.hacks.WaypointsHack;
+import net.wurstclient.hacks.EnchantmentHandlerHack;
 import net.wurstclient.waypoints.Waypoint;
 import net.wurstclient.waypoints.WaypointDimension;
 
@@ -244,7 +246,8 @@ public final class ChestSearchScreen extends Screen
 			try
 			{
 				WurstClient.MC.execute(() -> {
-					if(WurstClient.MC.screen instanceof ChestSearchScreen screen)
+					if(WurstClient.MC.gui
+						.screen() instanceof ChestSearchScreen screen)
 						screen.refreshPins();
 				});
 			}catch(Throwable ignored)
@@ -313,7 +316,6 @@ public final class ChestSearchScreen extends Screen
 		searchField.setEditable(true);
 		addRenderableWidget(searchField);
 		searchField.setResponder(this::onSearchChanged);
-		searchField.setFilter(s -> true);
 		searchField.setMaxLength(100);
 		searchField.setMessage(
 			Component.literal("Type item name or id, e.g. minecraft:stone"));
@@ -340,7 +342,8 @@ public final class ChestSearchScreen extends Screen
 		// removed Scan Open button per user request
 		
 		addRenderableWidget(Button
-			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
+			.builder(Component.literal("Back"),
+				b -> minecraft.gui.setScreen(prev))
 			.bounds(mid - 150, this.height - 28, 300, 20).build());
 		
 		scrollOffset = 0;
@@ -1118,12 +1121,13 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float delta)
 	{
 		itemRowHitboxes.clear();
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		context.drawCenteredString(this.font,
-			Component.literal(this.screenTitle), this.width / 2, 4, 0xFFFFFFFF);
+		context.centeredText(this.font, Component.literal(this.screenTitle),
+			this.width / 2, 4, 0xFFFFFFFF);
 		int mid = this.width / 2;
 		int sfX = mid - 150;
 		int sfY = 18;
@@ -1326,13 +1330,13 @@ public final class ChestSearchScreen extends Screen
 			{
 				for(ChestEntry.ItemEntry it : matches)
 				{
+					ItemStack stack =
+						net.wurstclient.chestsearch.ChestSearchItemStacks
+							.decode(it);
 					try
 					{
-						net.minecraft.world.item.ItemStack stack =
-							net.wurstclient.chestsearch.ChestSearchItemStacks
-								.decode(it);
 						if(!stack.isEmpty())
-							context.renderItem(stack, x + 2, lineY - 2);
+							context.item(stack, x + 2, lineY - 2);
 					}catch(Throwable ignored)
 					{}
 					String name =
@@ -1361,6 +1365,32 @@ public final class ChestSearchScreen extends Screen
 									: ItemNameUtils.sanitizePath(ench);
 								String baseName = ItemNameUtils
 									.buildEnchantmentName(eid, path);
+								boolean coloredName = false;
+								try
+								{
+									var handler = WurstClient.INSTANCE
+										.getHax().enchantmentHandlerHack;
+									if(handler != null && handler.isEnabled()
+										&& handler
+											.shouldColorEnchantmentsInChestSearch())
+									{
+										String colored = EnchantmentHandlerHack
+											.getColoredEnchantmentDisplay(path,
+												it.enchantmentLevels != null
+													&& ei < it.enchantmentLevels
+														.size()
+															? it.enchantmentLevels
+																.get(ei)
+																.intValue()
+															: 1);
+										if(colored != null)
+										{
+											baseName = colored;
+											coloredName = true;
+										}
+									}
+								}catch(Throwable ignored)
+								{}
 								String levelText = "";
 								try
 								{
@@ -1369,7 +1399,7 @@ public final class ChestSearchScreen extends Screen
 									{
 										int lvl = it.enchantmentLevels.get(ei)
 											.intValue();
-										if(lvl > 0)
+										if(lvl > 0 && !coloredName)
 											levelText = " " + Component
 												.translatable(
 													"enchantment.level." + lvl)
@@ -1485,14 +1515,14 @@ public final class ChestSearchScreen extends Screen
 			// ignore scissor underflow if scissor wasn't enabled
 		}
 		// now draw children (buttons etc.) on top
-		super.render(context, mouseX, mouseY, delta);
+		super.extractRenderState(context, mouseX, mouseY, delta);
 		int summaryHalf = summaryWidth / 2;
 		int summaryCenter = this.width / 2;
 		int summaryLeft = Math.max(0, summaryCenter - summaryHalf);
 		int summaryRight = Math.min(this.width, summaryCenter + summaryHalf);
 		context.fill(summaryLeft, summaryY - 2, summaryRight, summaryY + 18,
 			0xFF222222);
-		context.drawCenteredString(this.font, Component.literal(summary),
+		context.centeredText(this.font, Component.literal(summary),
 			this.width / 2, summaryY + 2, 0xFFCCCCCC);
 		
 		if(shown == 0)
@@ -1503,7 +1533,7 @@ public final class ChestSearchScreen extends Screen
 						+ totalChestsLogged + " chests with " + totalItemsLogged
 						+ " items." + " Matching items: 0."
 					: "No chests recorded yet.";
-			context.drawCenteredString(this.font, Component.literal(msg),
+			context.centeredText(this.font, Component.literal(msg),
 				this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
 	}

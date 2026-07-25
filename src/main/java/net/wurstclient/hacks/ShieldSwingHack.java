@@ -21,7 +21,7 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.mixinterface.IKeyMapping;
-import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.InventoryUtils;
@@ -120,7 +120,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 			return;
 		}
 		
-		if(MC.screen != null)
+		if(MC.gui.screen() != null)
 		{
 			attackKeyWasDown = false;
 			return;
@@ -155,8 +155,8 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 	
 	private void tryAutoHoldShield()
 	{
-		boolean shouldForce = autoHoldShield.isChecked() && MC.screen == null
-			&& hasShieldInOffhand(MC.player);
+		boolean shouldForce = autoHoldShield.isChecked()
+			&& MC.gui.screen() == null && hasShieldInOffhand(MC.player);
 		
 		if(shouldForce)
 		{
@@ -180,9 +180,9 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 			&& !MC.player.containerMenu.getCarried().isEmpty())
 			return;
 		
-		if(MC.screen instanceof AbstractContainerScreen
-			&& !(MC.screen instanceof InventoryScreen
-				|| MC.screen instanceof CreativeModeInventoryScreen))
+		if(MC.gui.screen() instanceof AbstractContainerScreen
+			&& !(MC.gui.screen() instanceof InventoryScreen
+				|| MC.gui.screen() instanceof CreativeModeInventoryScreen))
 			return;
 		
 		int shieldSlot = InventoryUtils.indexOf(this::isShield, 40);
@@ -195,8 +195,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 	private void moveToOffhand(int itemSlot)
 	{
 		boolean offhandEmpty = MC.player.getOffhandItem().isEmpty();
-		IClientPlayerInteractionManager interactionManager =
-			IMC.getInteractionManager();
+		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
 		interactionManager.windowClick_PICKUP(itemSlot);
 		interactionManager.windowClick_PICKUP(45);
 		
@@ -209,8 +208,7 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 		if(nextTickSlot == -1 || MC.player == null)
 			return;
 		
-		IClientPlayerInteractionManager interactionManager =
-			IMC.getInteractionManager();
+		IMultiPlayerGameMode interactionManager = IMC.getInteractionManager();
 		interactionManager.windowClick_PICKUP(nextTickSlot);
 		nextTickSlot = -1;
 	}

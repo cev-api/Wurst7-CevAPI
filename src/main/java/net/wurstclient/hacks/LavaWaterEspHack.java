@@ -85,7 +85,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	private final BiPredicate<BlockPos, BlockState> query =
-		(pos, state) -> isEnabledTargetBlock(state.getBlock());
+		(pos, state) -> isTargetBlock(state.getBlock());
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(query, area);
 	private boolean groupsUpToDate;
@@ -115,12 +115,6 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			if(g.getBlock() == b)
 				return true;
 		return false;
-	}
-	
-	private boolean isEnabledTargetBlock(Block b)
-	{
-		return groups.stream()
-			.anyMatch(g -> g.getBlock() == b && g.isEnabled());
 	}
 	
 	@Override

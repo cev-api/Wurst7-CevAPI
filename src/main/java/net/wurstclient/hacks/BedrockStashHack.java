@@ -16,7 +16,6 @@ import java.util.HashSet;
 import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
@@ -262,7 +261,7 @@ public final class BedrockStashHack extends Hack
 		while(!queue.isEmpty())
 		{
 			BlockPos current = queue.removeFirst();
-			if(!hasLoadedChunk(current))
+			if(!MC.level.hasChunkAt(current))
 			{
 				leaked = true;
 				continue;
@@ -285,7 +284,7 @@ public final class BedrockStashHack extends Hack
 			for(Direction dir : DIRECTIONS)
 			{
 				BlockPos neighbor = current.relative(dir);
-				if(!hasLoadedChunk(neighbor))
+				if(!MC.level.hasChunkAt(neighbor))
 				{
 					leaked = true;
 					continue;
@@ -331,7 +330,7 @@ public final class BedrockStashHack extends Hack
 				if(componentSet.contains(neighbor.asLong()))
 					continue;
 				
-				if(!hasLoadedChunk(neighbor))
+				if(!MC.level.hasChunkAt(neighbor))
 					return false;
 				if(!MC.level.getBlockState(neighbor).is(Blocks.BEDROCK))
 					return false;
@@ -348,7 +347,7 @@ public final class BedrockStashHack extends Hack
 		for(Direction dir : DIRECTIONS)
 		{
 			BlockPos neighbor = pos.relative(dir);
-			if(!hasLoadedChunk(neighbor))
+			if(!MC.level.hasChunkAt(neighbor))
 				continue;
 			if(MC.level.getBlockState(neighbor).is(Blocks.BEDROCK))
 				return true;
@@ -534,12 +533,6 @@ public final class BedrockStashHack extends Hack
 			return box.minY >= sideBoundaryY + 1;
 		
 		return box.maxY <= sideBoundaryY;
-	}
-	
-	private static boolean hasLoadedChunk(BlockPos pos)
-	{
-		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
-			SectionPos.blockToSectionCoord(pos.getZ()));
 	}
 	
 	private record StashHit(AABB box, boolean air)

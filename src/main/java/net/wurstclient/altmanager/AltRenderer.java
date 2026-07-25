@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.yggdrasil.ProfileResult;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.resources.DefaultPlayerSkin;
@@ -134,8 +134,8 @@ public final class AltRenderer
 		});
 	}
 	
-	public static void drawAltFace(GuiGraphics context, String name, int x,
-		int y, int w, int h, boolean selected)
+	public static void drawAltFace(GuiGraphicsExtractor context, String name,
+		int x, int y, int w, int h, boolean selected)
 	{
 		try
 		{
@@ -164,8 +164,8 @@ public final class AltRenderer
 		}
 	}
 	
-	public static void drawAltBody(GuiGraphics context, String name, int x,
-		int y, int width, int height)
+	public static void drawAltBody(GuiGraphicsExtractor context, String name,
+		int x, int y, int width, int height)
 	{
 		try
 		{
@@ -301,8 +301,8 @@ public final class AltRenderer
 		}
 	}
 	
-	public static void drawAltBack(GuiGraphics context, String name, int x,
-		int y, int width, int height)
+	public static void drawAltBack(GuiGraphicsExtractor context, String name,
+		int x, int y, int width, int height)
 	{
 		try
 		{

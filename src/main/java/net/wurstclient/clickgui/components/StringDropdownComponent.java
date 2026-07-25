@@ -10,7 +10,7 @@ package net.wurstclient.clickgui.components;
 import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
@@ -85,8 +85,8 @@ public final class StringDropdownComponent extends Component
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		int popupWidth = computePopupWidth();
 		int x1 = getX();
@@ -123,8 +123,8 @@ public final class StringDropdownComponent extends Component
 		int txtColor = GUI.getTxtColor();
 		int nameY = getY() + (labelHeight - TR.lineHeight) / 2;
 		int valueY = boxY1 + (boxHeight - TR.lineHeight) / 2;
-		context.drawString(TR, name, x1, nameY, txtColor, false);
-		context.drawString(TR, value, x1 + 2, valueY, txtColor, false);
+		context.text(TR, name, x1, nameY, txtColor, false);
+		context.text(TR, value, x1 + 2, valueY, txtColor, false);
 	}
 	
 	private int computePopupWidth()

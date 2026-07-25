@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.Color;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
@@ -145,11 +145,11 @@ public final class WaypointsHack extends Hack
 		"Compass outline opacity", 100, 0, 100, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting dimObscuredOnScreenWaypoints =
 		new CheckboxSetting("Dim obscured on-screen waypoints",
-			"When a waypoint is hidden behind blocks, greatly dim its world label unless you're looking directly at it.",
+			"When a waypoint is hidden behind blocks, greatly dim its on-screen compass marker unless you're looking directly at it.",
 			false);
 	private final CheckboxSetting iconOnlyForObscuredOnScreenWaypoints =
 		new CheckboxSetting("Icon-only when obscured",
-			"When a waypoint is hidden behind blocks, only show its icon unless you're looking directly at it.",
+			"When a waypoint is hidden behind blocks, only show its icon on the on-screen compass unless you're looking directly at it.",
 			false);
 	private final CheckboxSetting showLineDistanceUnderCrosshair =
 		new CheckboxSetting("Show line distance under crosshair",
@@ -504,11 +504,9 @@ public final class WaypointsHack extends Hack
 							sendingOwnChat = true;
 							try
 							{
-								MC.player.displayClientMessage(
-									Component.literal(
-										name + " died at " + at.getX() + ", "
-											+ at.getY() + ", " + at.getZ()),
-									false);
+								MC.player.sendSystemMessage(Component
+									.literal(name + " died at " + at.getX()
+										+ ", " + at.getY() + ", " + at.getZ()));
 							}finally
 							{
 								sendingOwnChat = false;
@@ -833,12 +831,12 @@ public final class WaypointsHack extends Hack
 			// the tracer when the "lines" option is enabled.
 			if(w.isLines())
 			{
-				RenderUtils.drawTracer(matrices, partialTicks,
+				RenderUtils.drawTracer("Waypoints", matrices, partialTicks,
 					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
-					applyFade(w.getColor(), distSq), false);
-				RenderUtils.drawOutlinedBoxes(matrices,
-					java.util.List.of(new AABB(wp)),
-					applyFade(w.getColor(), distSq), false);
+					waypointColor, false);
+				RenderUtils.drawOutlinedBoxes(matrices, java.util.List.of(
+					new RenderUtils.ColoredBox(new AABB(wp), waypointColor)),
+					false);
 			}
 			
 			if(!beyondMaxVisible)
@@ -862,8 +860,7 @@ public final class WaypointsHack extends Hack
 				if(beaconsEnabled && beaconMode != Waypoint.BeaconMode.OFF)
 				{
 					if(beaconInfinite || distSq <= beaconRangeSq)
-						drawBeaconBeam(matrices, wp,
-							applyFade(w.getColor(), distSq), beaconMode);
+						drawBeaconBeam(matrices, wp, waypointColor, beaconMode);
 				}
 			}
 			
@@ -889,7 +886,10 @@ public final class WaypointsHack extends Hack
 				
 				String title = w.getName() == null ? "" : w.getName();
 				String icon = iconChar(w.getIcon());
-				if(!icon.isEmpty())
+				if(suppressDetails)
+				{
+					title = icon.isEmpty() ? "●" : icon;
+				}else if(!icon.isEmpty())
 					title = icon + (title.isEmpty() ? "" : " " + title);
 				String distanceText = (int)dist + " blocks";
 				double baseY = wp.getY() + 1.2;
@@ -1002,8 +1002,8 @@ public final class WaypointsHack extends Hack
 			sendingOwnChat = true;
 			try
 			{
-				MC.player.displayClientMessage(Component.literal("Died at "
-					+ at.getX() + ", " + at.getY() + ", " + at.getZ()), false);
+				MC.player.sendSystemMessage(Component.literal("Died at "
+					+ at.getX() + ", " + at.getY() + ", " + at.getZ()));
 			}finally
 			{
 				sendingOwnChat = false;
@@ -1242,13 +1242,14 @@ public final class WaypointsHack extends Hack
 				.round(baseAlpha * (waypointOutlineOpacity.getValue() / 100.0));
 			int strokeColor =
 				(Math.max(0, Math.min(255, strokeAlpha)) << 24) | 0x000000;
-			RenderUtils.drawOutlinedTextInBatch(tr, text, -w, 0, argb,
-				strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg,
-				0xF000F0);
+			net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(tr, text,
+				-w, 0, argb, strokeColor, matrix, Font.DisplayMode.SEE_THROUGH,
+				bg, 0xF000F0);
 		}else
 		{
-			RenderUtils.drawTextInBatch(tr, text, -w, 0, argb, false, matrix,
-				null, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+			net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, 0,
+				argb, false, matrix, null, Font.DisplayMode.SEE_THROUGH, bg,
+				0xF000F0);
 		}
 		matrices.popPose();
 	}
@@ -1301,9 +1302,10 @@ public final class WaypointsHack extends Hack
 		if(safeMode == Waypoint.BeaconMode.ESP)
 		{
 			RenderUtils.drawOutlinedBoxes(matrices,
-				java.util.List.of(
-					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1)),
-				withAlpha(rgb, Math.max(alpha, 120)), false);
+				java.util.List.of(new RenderUtils.ColoredBox(
+					new AABB(baseX, minY, baseZ, baseX + 1, maxY, baseZ + 1),
+					withAlpha(rgb, Math.max(alpha, 120)))),
+				false);
 		}
 	}
 	
@@ -1319,16 +1321,16 @@ public final class WaypointsHack extends Hack
 	}
 	
 	// Draw text with a simple outline (stroke) for legibility
-	private void drawOutlinedString(GuiGraphics context, Font font, String s,
-		int x, int y, int color, int stroke)
+	private void drawOutlinedString(GuiGraphicsExtractor context, Font font,
+		String s, int x, int y, int color, int stroke)
 	{
 		// 4-way outline
-		context.drawString(font, s, x - 1, y, stroke, false);
-		context.drawString(font, s, x + 1, y, stroke, false);
-		context.drawString(font, s, x, y - 1, stroke, false);
-		context.drawString(font, s, x, y + 1, stroke, false);
+		context.text(font, s, x - 1, y, stroke);
+		context.text(font, s, x + 1, y, stroke);
+		context.text(font, s, x, y - 1, stroke);
+		context.text(font, s, x, y + 1, stroke);
 		// main
-		context.drawString(font, s, x, y, color, false);
+		context.text(font, s, x, y, color);
 	}
 	
 	private Waypoint.BeaconMode waypointBeaconMode(Waypoint waypoint)
@@ -1399,12 +1401,15 @@ public final class WaypointsHack extends Hack
 	public void openManager()
 	{
 		ensureWorldData();
-		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
-			MC.screen, manager));
+		if(MC.gui == null)
+			return;
+		
+		MC.gui.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
+			MC.gui.screen(), manager));
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(MC.player == null || MC.level == null)
 			return;
@@ -1449,7 +1454,7 @@ public final class WaypointsHack extends Hack
 			int cw = tr.width(coords);
 			int cx = centerX - cw / 2;
 			int cy = Math.max(2, barY - 13); // was 12, now 13
-			context.drawString(tr, coords, cx, cy, 0xFFFFFFFF, false);
+			context.text(tr, coords, cx, cy, 0xFFFFFFFF);
 		}
 		
 		var list = new ArrayList<>(manager.all());
@@ -1527,7 +1532,9 @@ public final class WaypointsHack extends Hack
 		for(WaypointEntry e : entries)
 		{
 			int ix = (int)Math.round(e.x);
-			if(selected != null && e.w.getUuid().equals(selected.w.getUuid()))
+			boolean directlyLooked =
+				selected != null && e.w.getUuid().equals(selected.w.getUuid());
+			if(directlyLooked)
 				ix = centerX; // center selected
 			String icon = iconChar(e.w.getIcon());
 			if(icon == null)
@@ -1547,8 +1554,7 @@ public final class WaypointsHack extends Hack
 					color, strokeColor);
 			}else
 			{
-				context.drawString(tr, icon, ix - iconW / 2, iconY, color,
-					false);
+				context.text(tr, icon, ix - iconW / 2, iconY, color);
 			}
 		}
 		
@@ -1592,14 +1598,13 @@ public final class WaypointsHack extends Hack
 					textColor, strokeColor);
 			}else
 			{
-				context.drawString(tr, title, titleX, titleY, textColor, false);
-				context.drawString(tr, distText, distX, distY, textColor,
-					false);
+				context.text(tr, title, titleX, titleY, textColor);
+				context.text(tr, distText, distX, distY, textColor);
 			}
 		}
 	}
 	
-	private void renderLineDistanceUnderCrosshair(GuiGraphics context)
+	private void renderLineDistanceUnderCrosshair(GuiGraphicsExtractor context)
 	{
 		WaypointDistanceTarget target = getCrosshairLineDistanceTarget();
 		if(target == null)
@@ -1610,7 +1615,7 @@ public final class WaypointsHack extends Hack
 		int centerX = context.guiWidth() / 2;
 		int y = context.guiHeight() / 2 - 19;
 		int x = centerX - font.width(text) / 2;
-		context.drawString(font, text, x, y, target.color, true);
+		context.text(font, text, x, y, target.color, true);
 	}
 	
 	private WaypointDistanceTarget getCrosshairLineDistanceTarget()
@@ -1639,7 +1644,8 @@ public final class WaypointsHack extends Hack
 		return best;
 	}
 	
-	private int adjustCompassYForOverlays(GuiGraphics context, int baseY)
+	private int adjustCompassYForOverlays(GuiGraphicsExtractor context,
+		int baseY)
 	{
 		int adjusted = baseY;
 		int bossBarBottom = getBossBarBottom(context);
@@ -1651,11 +1657,11 @@ public final class WaypointsHack extends Hack
 		return adjusted;
 	}
 	
-	private int getBossBarBottom(GuiGraphics context)
+	private int getBossBarBottom(GuiGraphicsExtractor context)
 	{
 		if(MC.gui == null)
 			return 0;
-		BossHealthOverlay bossBarHud = MC.gui.getBossOverlay();
+		BossHealthOverlay bossBarHud = MC.gui.hud.getBossOverlay();
 		if(bossBarHud == null)
 			return 0;
 		

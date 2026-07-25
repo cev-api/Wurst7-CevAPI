@@ -7,7 +7,7 @@
  */
 package net.wurstclient.clickgui.components;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.clickgui.Component;
 
 /**
@@ -26,8 +26,8 @@ public final class SpacerComponent extends Component
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		// intentionally blank
 	}

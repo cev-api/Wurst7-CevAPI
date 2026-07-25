@@ -201,26 +201,14 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private final HashMap<ChunkPos, ChunkDetections> detectionsByChunk =
 		new HashMap<>();
-	private final ArrayDeque<ChunkPos> dirtyScanQueue = new ArrayDeque<>();
-	private final ArrayDeque<ChunkPos> nearbyScanQueue = new ArrayDeque<>();
-	private final ArrayDeque<ChunkPos> normalScanQueue = new ArrayDeque<>();
-	private final ArrayDeque<ChunkPos> refreshScanQueue = new ArrayDeque<>();
+	private final ArrayDeque<ChunkPos> scanQueue = new ArrayDeque<>();
 	private final HashSet<ChunkPos> queuedChunks = new HashSet<>();
-	private final HashMap<ChunkPos, ScanPriority> queuedPriorities =
-		new HashMap<>();
-	private final HashSet<ChunkPos> scannedChunks = new HashSet<>();
-	private final HashMap<ChunkPos, ChunkScanState> partialScans =
-		new HashMap<>();
 	private final ConcurrentLinkedQueue<ChunkPos> dirtyChunkQueue =
 		new ConcurrentLinkedQueue<>();
 	private final java.util.Set<ChunkPos> dirtyChunkSet =
 		ConcurrentHashMap.newKeySet();
 	private final HashMap<Block, Boolean> naturalWallCache = new HashMap<>();
 	private final HashSet<ChunkPos> areaChunkCache = new HashSet<>();
-	private final HashSet<ChunkPos> loadedChunkCache = new HashSet<>();
-	private final HashSet<ChunkPos> lastLoadedChunks = new HashSet<>();
-	private final HashSet<ChunkPos> lastEffectiveArea = new HashSet<>();
-	private final ArrayList<ChunkPos> refreshCandidates = new ArrayList<>();
 	private ChunkPos cachedAreaCenter;
 	private ChunkAreaSetting.ChunkArea cachedAreaSelection;
 	private ResourceKey<Level> cachedAreaDimension;
@@ -235,14 +223,6 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private int scanConfigHash;
 	private int refreshTimerTicks;
-	private int refreshCursor;
-	private boolean refreshSweepActive;
-	private int nearbyCursor;
-	private int nearbyCursorRadius = -1;
-	private int highPriorityStreak;
-	private int nearbyPriorityStreak;
-	private int normalPriorityStreak;
-	private boolean lastStickyAreaSetting;
 	private Level activeLevel;
 	private Vec3 lastPlayerPos;
 	
@@ -374,8 +354,7 @@ public final class TunnelHoleStairEspHack extends Hack
 		
 		if(!isEnabledInCurrentDimension())
 		{
-			if(!detectionsByChunk.isEmpty() || !queuedChunks.isEmpty()
-				|| !partialScans.isEmpty())
+			if(!detectionsByChunk.isEmpty() || !scanQueue.isEmpty())
 				clearRuntimeState();
 			return;
 		}
@@ -565,20 +544,16 @@ public final class TunnelHoleStairEspHack extends Hack
 		ChunkAreaSetting.ChunkArea selection = area.getSelected();
 		ResourceKey<Level> dimension = MC.level.dimension();
 		
-		// ChunkUtils enumerates the client-side view-distance window and
-		// filters
-		// it through hasChunk(). This keeps the selected area an upper bound
-		// instead of making a large area setting force terrain loads.
-		loadedChunkCache.clear();
-		ChunkUtils.getLoadedChunks()
-			.forEach(chunk -> loadedChunkCache.add(chunk.getPos()));
-		
+		// Rebuild every tick so newly loaded chunks get scanned without
+		// requiring
+		// a hack toggle or area change.
 		areaChunkCache.clear();
-		for(ChunkPos pos : loadedChunkCache)
-			if(Math.abs(pos.x() - center.x()) <= chunkRange
-				&& Math.abs(pos.z() - center.z()) <= chunkRange)
-				areaChunkCache.add(pos);
-			
+		for(int x = center.x() - chunkRange; x <= center.x() + chunkRange; x++)
+			for(int z = center.z() - chunkRange; z <= center.z()
+				+ chunkRange; z++)
+				if(MC.level.hasChunk(x, z))
+					areaChunkCache.add(new ChunkPos(x, z));
+				
 		cachedAreaCenter = center;
 		cachedAreaSelection = selection;
 		cachedAreaDimension = dimension;
@@ -588,74 +563,34 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private boolean syncToArea(HashSet<ChunkPos> areaChunks)
 	{
-		boolean loadedChanged = !lastLoadedChunks.equals(loadedChunkCache);
-		boolean areaChanged = !lastEffectiveArea.equals(areaChunks);
-		boolean stickyChanged = lastStickyAreaSetting != stickyArea.isChecked();
-		boolean changed = loadedChanged;
-		lastLoadedChunks.clear();
-		lastLoadedChunks.addAll(loadedChunkCache);
+		boolean changed = false;
 		
-		// A moving player can change the effective area even when the set of
-		// loaded chunks has not changed. Partial work then has to restart with
-		// the new local boundary rules.
-		if(areaChanged)
-		{
-			partialScans.clear();
-			lastEffectiveArea.clear();
-			lastEffectiveArea.addAll(areaChunks);
-		}
-		lastStickyAreaSetting = stickyArea.isChecked();
+		if(!stickyArea.isChecked() && detectionsByChunk.keySet()
+			.removeIf(pos -> !areaChunks.contains(pos)))
+			changed = true;
 		
-		if(areaChanged || loadedChanged || stickyChanged)
-		{
-			if(!stickyArea.isChecked() && detectionsByChunk.keySet()
-				.removeIf(pos -> !areaChunks.contains(pos)))
-				changed = true;
-				
-			// Completion state is intentionally separate from retained
-			// detections.
-			// Sticky detections can survive an unload, but the unloaded chunk
-			// must
-			// be scanned again if it later becomes available.
-			scannedChunks.retainAll(areaChunks);
-			partialScans.keySet().removeIf(pos -> !areaChunks.contains(pos));
-			removePendingOutsideArea(areaChunks);
-		}
+		scanQueue.removeIf(pos -> !areaChunks.contains(pos));
+		queuedChunks.retainAll(areaChunks);
 		
-		// Queue only a bounded number of new chunks per tick. The next ticks
-		// pick
-		// up where this one left off without sorting the whole loaded area.
-		int maxNewChunks = Math.max(64, chunksPerTick.getValueI() * 32);
-		int queued = 0;
+		ChunkPos priorityCenter = getAreaCenterChunk();
+		ArrayList<ChunkPos> missingChunks = new ArrayList<>();
 		for(ChunkPos pos : areaChunks)
-		{
-			if(queued >= maxNewChunks)
-				break;
-			if(!scannedChunks.contains(pos) && !partialScans.containsKey(pos)
+			if(!detectionsByChunk.containsKey(pos)
 				&& !queuedChunks.contains(pos))
-			{
-				enqueueChunk(pos, ScanPriority.NORMAL);
-				queued++;
-			}
+				missingChunks.add(pos);
+			
+		missingChunks.sort(Comparator
+			.comparingInt(pos -> getChunkDistance(pos, priorityCenter)));
+		// Prioritize nearby chunks so stale long-range detections are corrected
+		// quickly when the player moves toward them.
+		for(int i = missingChunks.size() - 1; i >= 0; i--)
+		{
+			ChunkPos pos = missingChunks.get(i);
+			if(queuedChunks.add(pos))
+				scanQueue.addFirst(pos);
 		}
 		
 		return changed;
-	}
-	
-	private void removePendingOutsideArea(HashSet<ChunkPos> areaChunks)
-	{
-		removeOutsideArea(dirtyScanQueue, areaChunks);
-		removeOutsideArea(nearbyScanQueue, areaChunks);
-		removeOutsideArea(normalScanQueue, areaChunks);
-		removeOutsideArea(refreshScanQueue, areaChunks);
-		queuedChunks.removeIf(pos -> !areaChunks.contains(pos));
-		queuedPriorities.keySet().removeIf(pos -> !areaChunks.contains(pos));
-	}
-	
-	private void removeOutsideArea(ArrayDeque<ChunkPos> queue,
-		HashSet<ChunkPos> areaChunks)
-	{
-		queue.removeIf(pos -> !areaChunks.contains(pos));
 	}
 	
 	private void enqueueDirtyChunks(HashSet<ChunkPos> areaChunks)
@@ -674,9 +609,10 @@ public final class TunnelHoleStairEspHack extends Hack
 			if(!areaChunks.contains(pos))
 				continue;
 			
-			partialScans.remove(pos);
-			scannedChunks.remove(pos);
-			enqueueChunk(pos, ScanPriority.DIRTY);
+			if(queuedChunks.add(pos))
+				scanQueue.addFirst(pos);
+			else if(scanQueue.remove(pos))
+				scanQueue.addFirst(pos);
 			
 			promoted++;
 		}
@@ -686,33 +622,27 @@ public final class TunnelHoleStairEspHack extends Hack
 		int nearbyRadius)
 	{
 		ChunkPos center = getAreaCenterChunk();
+		ArrayList<ChunkPos> nearby = new ArrayList<>();
 		int radius = Math.min(getChunkRange(area.getSelected()), nearbyRadius);
-		if(radius != nearbyCursorRadius)
-		{
-			nearbyCursorRadius = radius;
-			nearbyCursor = 0;
-		}
 		
-		int diameter = radius * 2 + 1;
-		int total = diameter * diameter;
-		int maxChecks = Math.max(32, chunksPerTick.getValueI() * 8);
-		int maxPromotions = Math.max(8, chunksPerTick.getValueI() * 4);
-		int checked = 0;
-		int promoted = 0;
-		while(checked++ < maxChecks && promoted < maxPromotions)
+		for(int dx = -radius; dx <= radius; dx++)
+			for(int dz = -radius; dz <= radius; dz++)
+			{
+				ChunkPos pos = new ChunkPos(center.x() + dx, center.z() + dz);
+				if(areaChunks.contains(pos))
+					nearby.add(pos);
+			}
+		
+		nearby.sort(
+			Comparator.comparingInt(pos -> getChunkDistance(pos, center)));
+		// Push nearest chunks to the front so "standing on it" updates fast.
+		for(int i = nearby.size() - 1; i >= 0; i--)
 		{
-			int index = nearbyCursor++ % total;
-			int dx = index / diameter - radius;
-			int dz = index % diameter - radius;
-			ChunkPos pos = new ChunkPos(center.x() + dx, center.z() + dz);
-			if(!areaChunks.contains(pos) || scannedChunks.contains(pos)
-				|| partialScans.containsKey(pos))
-				continue;
-			
-			ScanPriority oldPriority = queuedPriorities.get(pos);
-			enqueueChunk(pos, ScanPriority.NEARBY);
-			if(oldPriority != ScanPriority.NEARBY)
-				promoted++;
+			ChunkPos pos = nearby.get(i);
+			if(queuedChunks.add(pos))
+				scanQueue.addFirst(pos);
+			else if(scanQueue.remove(pos))
+				scanQueue.addFirst(pos);
 		}
 	}
 	
@@ -720,140 +650,25 @@ public final class TunnelHoleStairEspHack extends Hack
 		long budgetNs)
 	{
 		long startNs = System.nanoTime();
-		long deadlineNs = startNs + Math.max(1L, budgetNs);
 		boolean changed = false;
 		
-		for(int i = 0; i < scans; i++)
+		for(int i = 0; i < scans && !scanQueue.isEmpty(); i++)
 		{
 			if(System.nanoTime() - startNs >= budgetNs)
 				break;
 			
-			ScanWork work = pollNextScanWork();
-			if(work == null)
-				break;
+			ChunkPos pos = scanQueue.removeFirst();
+			queuedChunks.remove(pos);
 			
-			ChunkPos pos = work.pos;
-			
-			if(!areaChunks.contains(pos) || !loadedChunkCache.contains(pos))
+			if(!areaChunks.contains(pos))
 				continue;
 			
-			ChunkScanState state = partialScans.remove(pos);
-			if(state == null)
-				state = new ChunkScanState(pos, work.priority);
-			else
-				state.priority = work.priority;
-			
-			ScanStep step = scanChunk(state, deadlineNs, areaChunks);
-			if(step.unloaded)
-				continue;
-				
-			// A packet can arrive while a scan is in progress. Do not publish
-			// the
-			// result in that case; the dirty queue will process a fresh scan.
-			if(!step.complete || dirtyChunkSet.contains(pos))
-			{
-				if(!step.complete)
-				{
-					partialScans.put(pos, state);
-					enqueueChunk(pos, state.priority);
-				}
-				continue;
-			}
-			
-			ChunkDetections old = detectionsByChunk.put(pos, state.result);
-			scannedChunks.add(pos);
-			changed |= old == null || !old.sameAs(state.result);
+			ChunkDetections detections = scanChunk(pos);
+			detectionsByChunk.put(pos, detections);
+			changed = true;
 		}
 		
 		return changed;
-	}
-	
-	private void enqueueChunk(ChunkPos pos, ScanPriority priority)
-	{
-		ScanPriority oldPriority = queuedPriorities.get(pos);
-		if(oldPriority != null)
-		{
-			if(priority.ordinal() >= oldPriority.ordinal())
-				return;
-			
-			removePendingChunk(pos);
-		}else
-			queuedChunks.add(pos);
-		
-		queuedPriorities.put(pos, priority);
-		switch(priority)
-		{
-			case DIRTY -> dirtyScanQueue.addFirst(pos);
-			case NEARBY -> nearbyScanQueue.addLast(pos);
-			case NORMAL -> normalScanQueue.addLast(pos);
-			case REFRESH -> refreshScanQueue.addLast(pos);
-		}
-	}
-	
-	private void removePendingChunk(ChunkPos pos)
-	{
-		dirtyScanQueue.remove(pos);
-		nearbyScanQueue.remove(pos);
-		normalScanQueue.remove(pos);
-		refreshScanQueue.remove(pos);
-		queuedChunks.remove(pos);
-		queuedPriorities.remove(pos);
-	}
-	
-	private ScanWork pollNextScanWork()
-	{
-		boolean lowerWork = !nearbyScanQueue.isEmpty()
-			|| !normalScanQueue.isEmpty() || !refreshScanQueue.isEmpty();
-		if(!dirtyScanQueue.isEmpty() && (highPriorityStreak < 4 || !lowerWork))
-		{
-			highPriorityStreak++;
-			return pollScanWork(dirtyScanQueue, ScanPriority.DIRTY);
-		}
-		
-		if(!nearbyScanQueue.isEmpty()
-			&& (nearbyPriorityStreak < 4 || normalScanQueue.isEmpty()))
-		{
-			highPriorityStreak = 0;
-			nearbyPriorityStreak++;
-			return pollScanWork(nearbyScanQueue, ScanPriority.NEARBY);
-		}
-		
-		if(!normalScanQueue.isEmpty()
-			&& (normalPriorityStreak < 8 || refreshScanQueue.isEmpty()))
-		{
-			highPriorityStreak = 0;
-			nearbyPriorityStreak = 0;
-			normalPriorityStreak++;
-			return pollScanWork(normalScanQueue, ScanPriority.NORMAL);
-		}
-		
-		if(!refreshScanQueue.isEmpty())
-		{
-			highPriorityStreak = 0;
-			nearbyPriorityStreak = 0;
-			normalPriorityStreak = 0;
-			return pollScanWork(refreshScanQueue, ScanPriority.REFRESH);
-		}
-		
-		if(!normalScanQueue.isEmpty())
-		{
-			normalPriorityStreak++;
-			return pollScanWork(normalScanQueue, ScanPriority.NORMAL);
-		}
-		if(!nearbyScanQueue.isEmpty())
-			return pollScanWork(nearbyScanQueue, ScanPriority.NEARBY);
-		if(!dirtyScanQueue.isEmpty())
-			return pollScanWork(dirtyScanQueue, ScanPriority.DIRTY);
-		return null;
-	}
-	
-	private ScanWork pollScanWork(ArrayDeque<ChunkPos> queue,
-		ScanPriority priority)
-	{
-		ChunkPos pos = queue.removeFirst();
-		queuedChunks.remove(pos);
-		queuedPriorities.remove(pos);
-		return new ScanWork(pos, priority);
 	}
 	
 	private ScanProfile getScanProfile()
@@ -902,23 +717,20 @@ public final class TunnelHoleStairEspHack extends Hack
 		return new ScanProfile(baseRange, baseScans, baseBudgetNs, baseNearby);
 	}
 	
-	private ScanStep scanChunk(ChunkScanState state, long deadlineNs,
-		HashSet<ChunkPos> areaChunks)
+	private ChunkDetections scanChunk(ChunkPos chunkPos)
 	{
-		state.budget.deadlineNs = deadlineNs;
-		state.budget.paused = false;
-		ChunkPos chunkPos = state.pos;
-		if(MC.level == null || !loadedChunkCache.contains(chunkPos))
-			return ScanStep.UNLOADED;
+		ChunkDetections result = new ChunkDetections();
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
+			return result;
 		
 		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
 		if(chunk == null)
-			return ScanStep.UNLOADED;
+			return result;
 		
 		int minY = MC.level.getMinY() + minYOffset.getValueI();
 		int maxY = MC.level.getMaxY() - 1 - maxYOffset.getValueI();
 		if(minY > maxY)
-			return ScanStep.COMPLETE;
+			return result;
 		
 		boolean detectHoles = shouldDetectHoles();
 		boolean detectTunnels = shouldDetectTunnels();
@@ -931,132 +743,90 @@ public final class TunnelHoleStairEspHack extends Hack
 		BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos();
 		LevelChunkSection[] sections = chunk.getSections();
 		int minSectionY = chunk.getMinY() >> 4;
-		if(state.sectionIndex >= sections.length)
-			state.sectionIndex = sections.length - 1;
 		
-		while(state.sectionIndex >= 0)
+		for(int sectionIndex =
+			sections.length - 1; sectionIndex >= 0; sectionIndex--)
 		{
-			LevelChunkSection section = sections[state.sectionIndex];
-			int sectionBaseY = (minSectionY + state.sectionIndex) << 4;
+			LevelChunkSection section = sections[sectionIndex];
+			if(section == null || section.hasOnlyAir())
+				continue;
+			
+			int sectionBaseY = (minSectionY + sectionIndex) << 4;
 			int sectionTopY = sectionBaseY + 15;
+			if(sectionTopY < minY || sectionBaseY > maxY)
+				continue;
+			
 			int startY = Math.max(minY, sectionBaseY);
 			int endY = Math.min(maxY, sectionTopY);
-			if(section == null || section.hasOnlyAir() || sectionTopY < minY
-				|| sectionBaseY > maxY)
-			{
-				advanceSection(state);
-				continue;
-			}
 			
-			if(state.y == Integer.MIN_VALUE)
-			{
-				state.y = endY;
-				state.localX = 0;
-				state.localZ = 0;
-			}
-			
-			while(state.y >= startY)
-			{
-				while(state.localX < 16)
-				{
-					while(state.localZ < 16)
+			for(int y = endY; y >= startY; y--)
+				for(int lx = 0; lx < 16; lx++)
+					for(int lz = 0; lz < 16; lz++)
 					{
-						if(state.budget.shouldPause(deadlineNs))
-							return ScanStep.INCOMPLETE;
-						
-						if((!detectHoles
-							|| state.result.holes.size() >= chunkLimit)
+						if((!detectHoles || result.holes.size() >= chunkLimit)
 							&& (!detectTunnels
-								|| state.result.tunnels.size() >= chunkLimit)
+								|| result.tunnels.size() >= chunkLimit)
 							&& (!detectStairs
-								|| state.result.stairs.size() >= chunkLimit)
+								|| result.stairs.size() >= chunkLimit)
 							&& (!laddersEnabled
-								|| state.result.ladders.size() >= chunkLimit)
+								|| result.ladders.size() >= chunkLimit)
 							&& (!bubbleColumnsEnabled
-								|| state.result.bubbleColumns
-									.size() >= chunkLimit)
+								|| result.bubbleColumns.size() >= chunkLimit)
 							&& (!waterColumnsEnabled
-								|| state.result.waterColumns
-									.size() >= chunkLimit))
-							return ScanStep.COMPLETE;
+								|| result.waterColumns.size() >= chunkLimit))
+							return result;
 						
-						int localY = state.y - sectionBaseY;
-						BlockState blockState = section.getStates()
-							.get(state.localX, localY, state.localZ);
-						mutablePos.set(chunkPos.getMinBlockX() + state.localX,
-							state.y, chunkPos.getMinBlockZ() + state.localZ);
+						int localY = y - sectionBaseY;
+						BlockState state =
+							section.getStates().get(lx, localY, lz);
+						
+						mutablePos.set(chunkPos.getMinBlockX() + lx, y,
+							chunkPos.getMinBlockZ() + lz);
 						BlockPos pos = mutablePos.immutable();
 						
-						if(laddersEnabled
-							&& state.result.ladders.size() < chunkLimit)
-							tryAddLadderColumn(pos, blockState, minY, maxY,
-								state.result);
+						if(laddersEnabled && result.ladders.size() < chunkLimit)
+							tryAddLadderColumn(pos, state, minY, maxY, result);
 						
 						if(bubbleColumnsEnabled
-							&& state.result.bubbleColumns.size() < chunkLimit)
-							tryAddBubbleColumn(pos, blockState, minY, maxY,
-								state.result);
+							&& result.bubbleColumns.size() < chunkLimit)
+							tryAddBubbleColumn(pos, state, minY, maxY, result);
 						
 						if(waterColumnsEnabled
-							&& state.result.waterColumns.size() < chunkLimit)
-							tryAddWaterColumn(pos, blockState, minY, maxY,
-								state.result);
+							&& result.waterColumns.size() < chunkLimit)
+							tryAddWaterColumn(pos, state, minY, maxY, result);
 						
-						boolean passable = isPassable(mutablePos, blockState);
-						boolean holePassable = detectHoles
-							&& isHolePassable(mutablePos, blockState);
+						boolean passable = isPassable(mutablePos, state);
+						boolean holePassable =
+							detectHoles && isHolePassable(mutablePos, state);
 						boolean tunnelPassable = detectTunnels
-							&& isTunnelPassable(mutablePos, blockState);
-						if(passable || holePassable || tunnelPassable)
-						{
-							boolean hasSolidBelow = false;
-							if((detectTunnels && tunnelPassable
-								&& state.result.tunnels.size() < chunkLimit)
-								|| (detectStairs && passable
-									&& state.result.stairs.size() < chunkLimit))
-								hasSolidBelow = isSolid(pos.below());
-							
-							if(detectHoles && holePassable
-								&& state.result.holes.size() < chunkLimit)
-								tryAddHole(pos, maxY, state.result);
-							
-							if(detectTunnels && tunnelPassable && hasSolidBelow
-								&& state.result.tunnels.size() < chunkLimit)
-								for(Direction dir : TUNNEL_DIRECTIONS)
-								{
-									tryAddTunnel(pos, dir, state.result, state,
-										areaChunks);
-									if(state.budget.paused)
-										return ScanStep.INCOMPLETE;
-								}
-							
-							if(detectStairs && passable && hasSolidBelow
-								&& state.result.stairs.size() < chunkLimit)
-								for(Direction dir : CARDINALS)
-									tryAddStaircase(pos, dir, state.result);
-						}
+							&& isTunnelPassable(mutablePos, state);
+						if(!passable && !holePassable && !tunnelPassable)
+							continue;
 						
-						state.localZ++;
+						boolean hasSolidBelow = false;
+						if((detectTunnels && tunnelPassable
+							&& result.tunnels.size() < chunkLimit)
+							|| (detectStairs && passable
+								&& result.stairs.size() < chunkLimit))
+							hasSolidBelow = isSolid(pos.below());
+						
+						if(detectHoles && holePassable
+							&& result.holes.size() < chunkLimit)
+							tryAddHole(pos, maxY, result);
+						
+						if(detectTunnels && tunnelPassable && hasSolidBelow
+							&& result.tunnels.size() < chunkLimit)
+							for(Direction dir : TUNNEL_DIRECTIONS)
+								tryAddTunnel(pos, dir, result);
+							
+						if(detectStairs && passable && hasSolidBelow
+							&& result.stairs.size() < chunkLimit)
+							for(Direction dir : CARDINALS)
+								tryAddStaircase(pos, dir, result);
 					}
-					state.localZ = 0;
-					state.localX++;
-				}
-				state.localX = 0;
-				state.y--;
-			}
-			
-			advanceSection(state);
 		}
 		
-		return ScanStep.COMPLETE;
-	}
-	
-	private void advanceSection(ChunkScanState state)
-	{
-		state.sectionIndex--;
-		state.y = Integer.MIN_VALUE;
-		state.localX = 0;
-		state.localZ = 0;
+		return result;
 	}
 	
 	private void tryAddHole(BlockPos start, int maxY, ChunkDetections result)
@@ -1130,59 +900,27 @@ public final class TunnelHoleStairEspHack extends Hack
 	{
 		int intervalTicks = refreshInterval.getValueI() * 20;
 		if(intervalTicks <= 0)
+			return;
+		
+		if(refreshTimerTicks > 0)
 		{
-			refreshSweepActive = false;
-			refreshCandidates.clear();
-			refreshCursor = 0;
+			refreshTimerTicks--;
 			return;
 		}
 		
-		if(refreshTimerTicks > 0)
-			refreshTimerTicks--;
-		else if(!refreshSweepActive)
-		{
-			refreshTimerTicks = intervalTicks;
-			refreshCandidates.clear();
-			refreshCandidates.addAll(areaChunks);
-			refreshCursor = 0;
-			refreshSweepActive = true;
-		}
-		
-		// Refresh is deliberately spread over multiple ticks and has the lowest
-		// priority. A new or dirty chunk never waits for this sweep to finish.
-		int promoted = 0;
-		while(refreshSweepActive && refreshCursor < refreshCandidates.size()
-			&& promoted < 2)
-		{
-			ChunkPos pos = refreshCandidates.get(refreshCursor++);
-			if(areaChunks.contains(pos) && scannedChunks.contains(pos))
-			{
-				ScanPriority old = queuedPriorities.get(pos);
-				enqueueChunk(pos, ScanPriority.REFRESH);
-				if(old == null)
-					promoted++;
-			}
-		}
-		if(refreshCursor >= refreshCandidates.size())
-			refreshSweepActive = false;
+		refreshTimerTicks = intervalTicks;
+		for(ChunkPos pos : areaChunks)
+			if(queuedChunks.add(pos))
+				scanQueue.addLast(pos);
 	}
 	
 	private void tryAddTunnel(BlockPos start, Direction dir,
-		ChunkDetections result, ChunkScanState scanState,
-		HashSet<ChunkPos> areaChunks)
+		ChunkDetections result)
 	{
-		if(!isInEffectiveScanArea(start, areaChunks)
-			|| !isTunnelSection(start, dir))
+		if(!isTunnelSection(start, dir))
 			return;
-		
-		TunnelVisit startVisit = new TunnelVisit(start.asLong(), dir.getAxis());
-		if(scanState.visitedTunnelCells.contains(startVisit))
+		if(isTunnelSection(start.relative(dir.getOpposite()), dir))
 			return;
-			
-		// A tunnel is intentionally discovered from the first available local
-		// cell. There is no predecessor test: an unloaded chunk, scan boundary,
-		// or selected-area boundary is a valid local segment boundary.
-		ArrayList<TunnelVisit> runVisits = new ArrayList<>();
 		
 		BlockPos.MutableBlockPos cursor = start.mutable();
 		BlockPos end = start;
@@ -1192,14 +930,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		int minWidth = Integer.MAX_VALUE;
 		int maxWidth = Integer.MIN_VALUE;
 		
-		int maxLocalLength = Math.max(16, minTunnelLength.getValueI());
-		while(length < maxLocalLength
-			&& isInEffectiveScanArea(cursor, areaChunks)
-			&& isTunnelSection(cursor, dir))
+		while(isTunnelSection(cursor, dir))
 		{
-			if(scanState.budget.checkNow())
-				return;
-			runVisits.add(new TunnelVisit(cursor.asLong(), dir.getAxis()));
 			int height =
 				getTunnelClearHeight(cursor, maxTunnelHeight.getValueI());
 			int width = getTunnelWidth(cursor, dir, height);
@@ -1222,8 +954,6 @@ public final class TunnelHoleStairEspHack extends Hack
 		if(maxWidth - minWidth > 1)
 			return;
 		
-		scanState.visitedTunnelCells.addAll(runVisits);
-		
 		Direction side = dir.getClockWise();
 		BlockPos sideEnd = end.relative(side, maxWidth - 1);
 		AABB box = new AABB(
@@ -1234,10 +964,8 @@ public final class TunnelHoleStairEspHack extends Hack
 			start.getY() + maxHeight,
 			Math.max(Math.max(start.getZ(), end.getZ()), sideEnd.getZ()) + 1);
 		
-		if(!intersectsTunnel(result.tunnels, box, dir.getAxis(), start.getY(),
-			maxWidth, maxHeight))
-			result.tunnels.add(new TunnelDetection(box, dir.getAxis(),
-				start.getY(), maxWidth, maxHeight));
+		if(!intersectsAny(result.tunnels, box))
+			result.tunnels.add(box);
 	}
 	
 	private void tryAddLadderColumn(BlockPos start, BlockState startState,
@@ -1245,18 +973,15 @@ public final class TunnelHoleStairEspHack extends Hack
 	{
 		if(!(startState.getBlock() instanceof LadderBlock))
 			return;
-		BlockState belowState = getLoadedBlockState(start.below());
-		if(start.getY() > minY && belowState != null
-			&& belowState.getBlock() instanceof LadderBlock)
+		if(start.getY() > minY && MC.level.getBlockState(start.below())
+			.getBlock() instanceof LadderBlock)
 			return;
 		
 		BlockPos.MutableBlockPos cursor = start.mutable();
 		int height = 0;
-		while(cursor.getY() <= maxY)
+		while(cursor.getY() <= maxY
+			&& MC.level.getBlockState(cursor).getBlock() instanceof LadderBlock)
 		{
-			BlockState state = getLoadedBlockState(cursor);
-			if(state == null || !(state.getBlock() instanceof LadderBlock))
-				break;
 			height++;
 			cursor.move(Direction.UP);
 		}
@@ -1278,21 +1003,19 @@ public final class TunnelHoleStairEspHack extends Hack
 		if(start.getY() > minY)
 		{
 			BlockPos belowPos = start.below();
-			BlockState belowState = getLoadedBlockState(belowPos);
-			if(belowState != null
-				&& belowState.getBlock() instanceof BubbleColumnBlock
+			if(MC.level.getBlockState(belowPos)
+				.getBlock() instanceof BubbleColumnBlock
 				&& isBubbleColumnSectionInHole(belowPos))
 				return;
 		}
 		
 		BlockPos.MutableBlockPos cursor = start.mutable();
 		int height = 0;
-		while(cursor.getY() <= maxY)
+		while(cursor.getY() <= maxY
+			&& MC.level.getBlockState(cursor)
+				.getBlock() instanceof BubbleColumnBlock
+			&& isBubbleColumnSectionInHole(cursor))
 		{
-			BlockState state = getLoadedBlockState(cursor);
-			if(state == null || !(state.getBlock() instanceof BubbleColumnBlock)
-				|| !isBubbleColumnSectionInHole(cursor))
-				break;
 			height++;
 			cursor.move(Direction.UP);
 		}
@@ -1316,8 +1039,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		if(start.getY() > minY)
 		{
 			BlockPos belowPos = start.below();
-			BlockState below = getLoadedBlockState(belowPos);
-			if(below != null && below.getFluidState().is(FluidTags.WATER)
+			BlockState below = MC.level.getBlockState(belowPos);
+			if(below.getFluidState().is(FluidTags.WATER)
 				&& !(below.getBlock() instanceof BubbleColumnBlock)
 				&& isBubbleColumnSectionInHole(belowPos))
 				return;
@@ -1327,8 +1050,8 @@ public final class TunnelHoleStairEspHack extends Hack
 		int height = 0;
 		while(cursor.getY() <= maxY)
 		{
-			BlockState state = getLoadedBlockState(cursor);
-			if(state == null || !state.getFluidState().is(FluidTags.WATER)
+			BlockState state = MC.level.getBlockState(cursor);
+			if(!state.getFluidState().is(FluidTags.WATER)
 				|| state.getBlock() instanceof BubbleColumnBlock
 				|| !isBubbleColumnSectionInHole(cursor))
 				break;
@@ -1419,9 +1142,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private boolean isHolePassable(BlockPos pos)
 	{
-		BlockState state = getLoadedBlockState(pos);
-		if(state == null)
-			return false;
+		BlockState state = MC.level.getBlockState(pos);
 		return isHolePassable(pos, state);
 	}
 	
@@ -1504,12 +1225,6 @@ public final class TunnelHoleStairEspHack extends Hack
 		while(width < maxWidth
 			&& isTunnelLaneAtHeight(pos.relative(side, width), height))
 			width++;
-			
-		// Do not silently clamp an actually wider tunnel to the configured
-		// maximum. Returning max+1 makes the caller reject it.
-		if(width == maxWidth
-			&& isTunnelLaneAtHeight(pos.relative(side, width), height))
-			return maxWidth + 1;
 		
 		return width;
 	}
@@ -1528,8 +1243,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private boolean isTunnelPassable(BlockPos pos)
 	{
-		BlockState state = getLoadedBlockState(pos);
-		return state != null && isTunnelPassable(pos, state);
+		return isTunnelPassable(pos, MC.level.getBlockState(pos));
 	}
 	
 	private boolean isTunnelPassable(BlockPos pos, BlockState state)
@@ -1589,8 +1303,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private boolean isPassable(BlockPos pos)
 	{
-		BlockState state = getLoadedBlockState(pos);
-		return state != null && isPassable(pos, state);
+		return isPassable(pos, MC.level.getBlockState(pos));
 	}
 	
 	private boolean isPassable(BlockPos pos, BlockState state)
@@ -1606,9 +1319,7 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private boolean isSolid(BlockPos pos)
 	{
-		BlockState state = getLoadedBlockState(pos);
-		if(state == null)
-			return false;
+		BlockState state = MC.level.getBlockState(pos);
 		if(!state.getFluidState().isEmpty())
 			return false;
 		
@@ -1629,20 +1340,13 @@ public final class TunnelHoleStairEspHack extends Hack
 		int height = 0;
 		while(height < maxHeight && isTunnelPassable(pos.above(height)))
 			height++;
-			
-		// As with width, distinguish an exact maximum from a tunnel that is
-		// taller than the configured maximum.
-		if(height == maxHeight && isTunnelPassable(pos.above(height)))
-			return maxHeight + 1;
 		
 		return height;
 	}
 	
 	private boolean isLikelyNaturalWall(BlockPos pos)
 	{
-		BlockState state = getLoadedBlockState(pos);
-		if(state == null)
-			return false;
+		BlockState state = MC.level.getBlockState(pos);
 		if(!state.isCollisionShapeFullBlock(MC.level, pos)
 			|| !state.getFluidState().isEmpty())
 			return false;
@@ -1658,22 +1362,6 @@ public final class TunnelHoleStairEspHack extends Hack
 		boolean natural = looksNaturalTerrain(path);
 		naturalWallCache.put(block, natural);
 		return natural;
-	}
-	
-	private boolean isInEffectiveScanArea(BlockPos pos,
-		HashSet<ChunkPos> areaChunks)
-	{
-		return areaChunks
-			.contains(new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4));
-	}
-	
-	private BlockState getLoadedBlockState(BlockPos pos)
-	{
-		if(MC.level == null || pos.getY() < MC.level.getMinY()
-			|| pos.getY() >= MC.level.getMaxY()
-			|| !MC.level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4))
-			return null;
-		return MC.level.getBlockState(pos);
 	}
 	
 	private boolean looksNaturalTerrain(String path)
@@ -1713,121 +1401,32 @@ public final class TunnelHoleStairEspHack extends Hack
 		bubbleColumnBoxes.clear();
 		waterColumnBoxes.clear();
 		
-		ArrayList<TunnelDetection> tunnels = new ArrayList<>();
 		for(Map.Entry<ChunkPos, ChunkDetections> entry : detectionsByChunk
 			.entrySet())
 		{
 			ChunkPos chunkPos = entry.getKey();
-			if(MC.level == null || !loadedChunkCache.contains(chunkPos))
+			if(MC.level == null
+				|| !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 				continue;
 			
 			ChunkDetections detections = entry.getValue();
 			holeBoxes.addAll(detections.holes);
-			for(TunnelDetection tunnel : detections.tunnels)
-				tunnels.add(new TunnelDetection(tunnel.box, tunnel.axis,
-					tunnel.floorY, tunnel.width, tunnel.height));
+			tunnelBoxes.addAll(detections.tunnels);
 			stairBoxes.addAll(detections.stairs);
 			ladderBoxes.addAll(detections.ladders);
 			bubbleColumnBoxes.addAll(detections.bubbleColumns);
 			waterColumnBoxes.addAll(detections.waterColumns);
 		}
-		
-		mergeTunnelDetections(tunnels);
-		for(TunnelDetection tunnel : tunnels)
-			tunnelBoxes.add(tunnel.box);
-	}
-	
-	private void mergeTunnelDetections(ArrayList<TunnelDetection> tunnels)
-	{
-		tunnels.sort(Comparator.comparing((TunnelDetection t) -> t.axis)
-			.thenComparingInt(t -> t.floorY).thenComparingInt(t -> t.height)
-			.thenComparingInt(t -> t.width)
-			.thenComparingDouble(t -> tunnelCrossMin(t))
-			.thenComparingDouble(t -> tunnelAlongMin(t)));
-		
-		for(int i = 1; i < tunnels.size();)
-		{
-			TunnelDetection previous = tunnels.get(i - 1);
-			TunnelDetection current = tunnels.get(i);
-			if(!areCompatibleTunnels(previous, current))
-			{
-				i++;
-				continue;
-			}
-			previous.box = mergeBoxes(previous.box, current.box);
-			tunnels.remove(i);
-		}
-	}
-	
-	private boolean areCompatibleTunnels(TunnelDetection a, TunnelDetection b)
-	{
-		if(a.axis != b.axis || a.floorY != b.floorY || a.height != b.height
-			|| a.width != b.width)
-			return false;
-		if(Double.compare(tunnelCrossMin(a), tunnelCrossMin(b)) != 0
-			|| Double.compare(tunnelCrossMax(a), tunnelCrossMax(b)) != 0)
-			return false;
-		return tunnelAlongMin(b) <= tunnelAlongMax(a);
-	}
-	
-	private double tunnelAlongMin(TunnelDetection tunnel)
-	{
-		return tunnel.axis == Direction.Axis.X ? tunnel.box.minX
-			: tunnel.box.minZ;
-	}
-	
-	private double tunnelAlongMax(TunnelDetection tunnel)
-	{
-		return tunnel.axis == Direction.Axis.X ? tunnel.box.maxX
-			: tunnel.box.maxZ;
-	}
-	
-	private double tunnelCrossMin(TunnelDetection tunnel)
-	{
-		return tunnel.axis == Direction.Axis.X ? tunnel.box.minZ
-			: tunnel.box.minX;
-	}
-	
-	private double tunnelCrossMax(TunnelDetection tunnel)
-	{
-		return tunnel.axis == Direction.Axis.X ? tunnel.box.maxZ
-			: tunnel.box.maxX;
-	}
-	
-	private AABB mergeBoxes(AABB a, AABB b)
-	{
-		return new AABB(Math.min(a.minX, b.minX), Math.min(a.minY, b.minY),
-			Math.min(a.minZ, b.minZ), Math.max(a.maxX, b.maxX),
-			Math.max(a.maxY, b.maxY), Math.max(a.maxZ, b.maxZ));
 	}
 	
 	private void clearRuntimeState()
 	{
-		refreshTimerTicks = 0;
 		detectionsByChunk.clear();
-		dirtyScanQueue.clear();
-		nearbyScanQueue.clear();
-		normalScanQueue.clear();
-		refreshScanQueue.clear();
+		scanQueue.clear();
 		queuedChunks.clear();
-		queuedPriorities.clear();
-		scannedChunks.clear();
-		partialScans.clear();
 		dirtyChunkQueue.clear();
 		dirtyChunkSet.clear();
 		areaChunkCache.clear();
-		loadedChunkCache.clear();
-		lastLoadedChunks.clear();
-		lastEffectiveArea.clear();
-		refreshCandidates.clear();
-		refreshCursor = 0;
-		refreshSweepActive = false;
-		nearbyCursor = 0;
-		nearbyCursorRadius = -1;
-		highPriorityStreak = 0;
-		nearbyPriorityStreak = 0;
-		normalPriorityStreak = 0;
-		lastPlayerPos = null;
 		cachedAreaCenter = null;
 		cachedAreaSelection = null;
 		cachedAreaDimension = null;
@@ -1847,9 +1446,12 @@ public final class TunnelHoleStairEspHack extends Hack
 	
 	private int getChunkRange(ChunkAreaSetting.ChunkArea selection)
 	{
-		// The enum names are total diameters: A1 is radius 0, A19 is
-		// radius 9, and A65 is radius 32.
-		return selection.ordinal();
+		return selection.ordinal() + 1;
+	}
+	
+	private int getChunkDistance(ChunkPos a, ChunkPos b)
+	{
+		return Math.abs(a.x() - b.x()) + Math.abs(a.z() - b.z());
 	}
 	
 	private int getScanConfigHash()
@@ -1904,176 +1506,14 @@ public final class TunnelHoleStairEspHack extends Hack
 		return false;
 	}
 	
-	private boolean intersectsTunnel(ArrayList<TunnelDetection> tunnels,
-		AABB candidate, Direction.Axis axis, int floorY, int width, int height)
-	{
-		for(TunnelDetection existing : tunnels)
-			if(existing.axis == axis && existing.floorY == floorY
-				&& existing.width == width && existing.height == height
-				&& existing.box.intersects(candidate))
-				return true;
-		return false;
-	}
-	
 	private static final class ChunkDetections
 	{
 		private final ArrayList<AABB> holes = new ArrayList<>();
-		private final ArrayList<TunnelDetection> tunnels = new ArrayList<>();
+		private final ArrayList<AABB> tunnels = new ArrayList<>();
 		private final ArrayList<AABB> stairs = new ArrayList<>();
 		private final ArrayList<AABB> ladders = new ArrayList<>();
 		private final ArrayList<AABB> bubbleColumns = new ArrayList<>();
 		private final ArrayList<AABB> waterColumns = new ArrayList<>();
-		
-		private boolean sameAs(ChunkDetections other)
-		{
-			return sameBoxes(holes, other.holes)
-				&& sameTunnelBoxes(tunnels, other.tunnels)
-				&& sameBoxes(stairs, other.stairs)
-				&& sameBoxes(ladders, other.ladders)
-				&& sameBoxes(bubbleColumns, other.bubbleColumns)
-				&& sameBoxes(waterColumns, other.waterColumns);
-		}
-		
-		private static boolean sameBoxes(ArrayList<AABB> a, ArrayList<AABB> b)
-		{
-			if(a.size() != b.size())
-				return false;
-			for(int i = 0; i < a.size(); i++)
-				if(!sameBox(a.get(i), b.get(i)))
-					return false;
-			return true;
-		}
-		
-		private static boolean sameTunnelBoxes(ArrayList<TunnelDetection> a,
-			ArrayList<TunnelDetection> b)
-		{
-			if(a.size() != b.size())
-				return false;
-			for(int i = 0; i < a.size(); i++)
-			{
-				TunnelDetection left = a.get(i);
-				TunnelDetection right = b.get(i);
-				if(left.axis != right.axis || left.floorY != right.floorY
-					|| left.width != right.width || left.height != right.height
-					|| !sameBox(left.box, right.box))
-					return false;
-			}
-			return true;
-		}
-		
-		private static boolean sameBox(AABB a, AABB b)
-		{
-			return Double.compare(a.minX, b.minX) == 0
-				&& Double.compare(a.minY, b.minY) == 0
-				&& Double.compare(a.minZ, b.minZ) == 0
-				&& Double.compare(a.maxX, b.maxX) == 0
-				&& Double.compare(a.maxY, b.maxY) == 0
-				&& Double.compare(a.maxZ, b.maxZ) == 0;
-		}
-	}
-	
-	private static final class TunnelDetection
-	{
-		private AABB box;
-		private final Direction.Axis axis;
-		private final int floorY;
-		private final int width;
-		private final int height;
-		
-		private TunnelDetection(AABB box, Direction.Axis axis, int floorY,
-			int width, int height)
-		{
-			this.box = box;
-			this.axis = axis;
-			this.floorY = floorY;
-			this.width = width;
-			this.height = height;
-		}
-	}
-	
-	private record TunnelVisit(long pos, Direction.Axis axis)
-	{}
-	
-	private enum ScanPriority
-	{
-		DIRTY,
-		NEARBY,
-		NORMAL,
-		REFRESH
-	}
-	
-	private static final class ScanWork
-	{
-		private final ChunkPos pos;
-		private final ScanPriority priority;
-		
-		private ScanWork(ChunkPos pos, ScanPriority priority)
-		{
-			this.pos = pos;
-			this.priority = priority;
-		}
-	}
-	
-	private static final class ScanStep
-	{
-		private static final ScanStep COMPLETE = new ScanStep(true, false);
-		private static final ScanStep INCOMPLETE = new ScanStep(false, false);
-		private static final ScanStep UNLOADED = new ScanStep(false, true);
-		private final boolean complete;
-		private final boolean unloaded;
-		
-		private ScanStep(boolean complete, boolean unloaded)
-		{
-			this.complete = complete;
-			this.unloaded = unloaded;
-		}
-	}
-	
-	private static final class ScanBudget
-	{
-		private int examinedBlocks;
-		private boolean paused;
-		private long deadlineNs;
-		
-		private boolean shouldPause(long deadlineNs)
-		{
-			if(++examinedBlocks < 256)
-				return false;
-			examinedBlocks = 0;
-			return checkNow(deadlineNs);
-		}
-		
-		private boolean checkNow(long deadlineNs)
-		{
-			if(System.nanoTime() < deadlineNs)
-				return false;
-			paused = true;
-			return true;
-		}
-		
-		private boolean checkNow()
-		{
-			return checkNow(deadlineNs);
-		}
-	}
-	
-	private static final class ChunkScanState
-	{
-		private final ChunkPos pos;
-		private final ChunkDetections result = new ChunkDetections();
-		private final HashSet<TunnelVisit> visitedTunnelCells = new HashSet<>();
-		private final ScanBudget budget = new ScanBudget();
-		private ScanPriority priority;
-		private int sectionIndex = Integer.MAX_VALUE;
-		private int y = Integer.MIN_VALUE;
-		private int localX;
-		private int localZ;
-		
-		private ChunkScanState(ChunkPos pos, ScanPriority priority)
-		{
-			this.pos = pos;
-			this.priority = priority;
-		}
 	}
 	
 	private static final class ScanProfile

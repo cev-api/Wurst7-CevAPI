@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.ChatFormatting;
@@ -1180,7 +1180,8 @@ public abstract class ContainerScreenMixin
 				try
 				{
 					if(WurstClient.MC == null
-						|| WurstClient.MC.screen != ContainerScreenMixin.this
+						|| WurstClient.MC.gui
+							.screen() != ContainerScreenMixin.this
 						|| !manualScanActive
 						|| System.currentTimeMillis() > manualScanUntil)
 					{
@@ -1242,7 +1243,7 @@ public abstract class ContainerScreenMixin
 	
 	// Replace hard override with a safe inject at TAIL to render overlay
 	@Inject(method = "render", at = @At("TAIL"))
-	private void wurst$renderOverlay(GuiGraphics context, int mouseX,
+	private void wurst$renderOverlay(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float delta, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -1252,15 +1253,15 @@ public abstract class ContainerScreenMixin
 		{
 			int textX = this.width / 2 - 120;
 			int textY = this.height - 18; // near bottom
-			context.drawString(this.font, Component.literal(lastRecordMessage),
-				textX, textY, 0xFFFFFF00, false);
+			context.text(this.font, Component.literal(lastRecordMessage), textX,
+				textY, 0xFFFFFF00);
 		}else if(manualScanActive && !manualScanQuiet)
 		{
 			String hint = "Scanning... hover/click slots to reveal items";
 			int textX = this.width / 2 - 120;
 			int textY = this.height - 18;
-			context.drawString(this.font, Component.literal(hint), textX, textY,
-				0xFFFFFF00, false);
+			context.text(this.font, Component.literal(hint), textX, textY,
+				0xFFFFFF00);
 		}
 		
 		if(autoToggleButton != null)
@@ -1366,10 +1367,9 @@ public abstract class ContainerScreenMixin
 										if(net.wurstclient.WurstClient.MC.player != null
 											&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
 											net.wurstclient.WurstClient.MC.player
-												.displayClientMessage(
+												.sendSystemMessage(
 													net.minecraft.network.chat.Component
-														.literal(recordedMsg),
-													false);
+														.literal(recordedMsg));
 									}catch(Throwable ignored)
 									{}
 								});

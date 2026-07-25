@@ -273,7 +273,7 @@ public final class AutoClickerHack extends Hack
 		// A simulated click is delivered to the active screen as a real mouse
 		// event. Never let it operate the ClickGUI, where it could toggle this
 		// feature (or change another setting) under its own cursor.
-		if(MC.screen instanceof ClickGuiScreen)
+		if(MC.gui.screen() instanceof ClickGuiScreen)
 			return;
 		boolean moved = MC.player.distanceToSqr(lastX, lastY, lastZ) > 0.0001;
 		boolean damaged =
@@ -432,7 +432,7 @@ public final class AutoClickerHack extends Hack
 		useWasDown = enterWasDown = false;
 		if(cursorMode.getSelected() == CursorMode.MULTIPLE)
 			locations.clear();
-		MC.setScreen(null);
+		MC.gui.setScreen(null);
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		ChatUtils
@@ -444,7 +444,8 @@ public final class AutoClickerHack extends Hack
 	
 	private boolean staffDetected()
 	{
-		return false;
+		return WURST.getHax().staffMonitorHack.isEnabled()
+			&& WURST.getHax().staffMonitorHack.hasDetectedStaff();
 	}
 	
 	private boolean sonarDetected()

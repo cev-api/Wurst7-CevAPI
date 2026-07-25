@@ -14,8 +14,8 @@ import java.util.Iterator;
 import java.util.Map;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.contextualbar.LocatorBarRenderer;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.contextualbar.LocatorBar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -31,9 +31,9 @@ public class InGameHudLocatorProbeMixin
 	private static long lastProbeLogMs = 0L;
 	
 	@Inject(
-		method = "renderTabList(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderTabList(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"))
-	private void onAnyHudRender(GuiGraphics ctx, DeltaTracker rtc,
+	private void onAnyHudRender(GuiGraphicsExtractor ctx, DeltaTracker rtc,
 		CallbackInfo ci)
 	{
 		long now = System.currentTimeMillis();
@@ -59,7 +59,7 @@ public class InGameHudLocatorProbeMixin
 						int count = 0;
 						for(Object val : map.values())
 						{
-							if(val instanceof LocatorBarRenderer)
+							if(val instanceof LocatorBar)
 							{
 								count++;
 								reflectLocatorBar(val);

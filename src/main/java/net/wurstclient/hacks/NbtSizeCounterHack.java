@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -268,7 +268,7 @@ public final class NbtSizeCounterHack extends Hack implements
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
-		GuiGraphics context)
+		GuiGraphicsExtractor context)
 	{
 		if(!showScreenOverlay.isChecked())
 			return;
@@ -323,7 +323,7 @@ public final class NbtSizeCounterHack extends Hack implements
 			y + lines.size() * (font.lineHeight + 1) + 2, 0x90000000);
 		
 		for(int i = 0; i < lines.size(); i++)
-			context.drawString(font, Component.literal(lines.get(i)), x,
+			context.text(font, Component.literal(lines.get(i)), x,
 				y + i * (font.lineHeight + 1), 0xFFE6E6E6, true);
 	}
 	
@@ -724,18 +724,19 @@ public final class NbtSizeCounterHack extends Hack implements
 		double ly = y;
 		double lz = z;
 		
-		// Keep labels visible from far away by anchoring to a near point.
-		if(dist > 256.0)
+		// Anchor all labels to a near point so they stay readable
+		// regardless of distance (perspective shrinks distant objects).
+		if(dist > 1.0)
 		{
-			double anchor = 12.0;
-			Vec3 anchored = cam.add(dir.scale(anchor / Math.max(dist, 1e-6)));
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
 			lx = anchored.x;
 			ly = anchored.y;
 			lz = anchored.z;
 		}
 		
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		Camera camera = MC.gameRenderer.getMainCamera();
+		Camera camera = MC.gameRenderer.mainCamera();
 		if(camera != null)
 		{
 			matrices.mulPose(
@@ -745,8 +746,8 @@ public final class NbtSizeCounterHack extends Hack implements
 		}
 		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
 		
-		float scale =
-			(float)(0.025F * Math.max(1.0, Math.min(dist * 0.10, 8.0)));
+		float scale = 0.025F;
+		scale *= RenderUtils.getCappedWorldLabelScale(0.65F, dist);
 		matrices.scale(scale, -scale, scale);
 		
 		Font tr = MC.font;
@@ -758,14 +759,15 @@ public final class NbtSizeCounterHack extends Hack implements
 		var matrix = matrices.last().pose();
 		int stroke = (Math.max(0, Math.min(255, baseAlpha)) << 24);
 		
-		RenderUtils.drawOutlinedTextInBatch(tr, text, -w, 0, argb, stroke,
-			matrix, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(tr, text, -w,
+			0, argb, stroke, matrix, Font.DisplayMode.SEE_THROUGH, bg,
+			0xF000F0);
 		matrices.popPose();
 	}
 	
 	private long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
+		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
 	}
 	
 	private ItemStack extractItemStackFromEntityDataPacket(

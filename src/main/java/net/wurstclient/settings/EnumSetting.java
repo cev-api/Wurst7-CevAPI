@@ -68,12 +68,6 @@ public class EnumSetting<T extends Enum<T>> extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
-	@Override
-	public void resetToDefault()
-	{
-		setSelected(defaultSelected);
-	}
-	
 	public boolean setSelected(String selected)
 	{
 		for(T value : values)

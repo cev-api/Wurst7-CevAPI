@@ -154,6 +154,6 @@ public final class UiUtilsHack extends Hack
 		String result = UiUtilsPluginScanner.startScan();
 		if(MC.player != null && !result.isEmpty())
 			for(String line : result.split("\n"))
-				MC.player.displayClientMessage(Component.literal(line), false);
+				MC.player.sendSystemMessage(Component.literal(line));
 	}
 }

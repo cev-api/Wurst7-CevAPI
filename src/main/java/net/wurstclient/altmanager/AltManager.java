@@ -42,37 +42,16 @@ public final class AltManager
 	
 	public void add(Alt alt)
 	{
-		markAdded(alt);
 		alts.add(alt);
 		sortAlts();
 		altsFile.save(this);
 	}
 	
-	/** Saves a token account created by an external account workflow. */
-	public void saveTokenAlt(TokenAlt alt)
-	{
-		if(alt != null && !alts.contains(alt))
-			add(alt);
-	}
-	
 	public void addAll(Collection<Alt> c)
 	{
-		addAll(c, true);
-	}
-	
-	void addAll(Collection<Alt> c, boolean markAdded)
-	{
-		if(markAdded)
-			c.forEach(this::markAdded);
 		alts.addAll(c);
 		sortAlts();
 		altsFile.save(this);
-	}
-	
-	private void markAdded(Alt alt)
-	{
-		if(alt.getLastValidatedAt() == 0)
-			alt.markValidatedNow();
 	}
 	
 	public void edit(Alt oldAlt, String newNameOrEmail, String newPassword)
@@ -119,7 +98,6 @@ public final class AltManager
 		boolean wasUnchecked = alt.isUncheckedPremium();
 		
 		alt.login();
-		alt.markValidatedNow();
 		
 		if(wasUnchecked)
 			numPremium++;

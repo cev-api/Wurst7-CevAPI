@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import com.mojang.blaze3d.platform.Window;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.Holder;
@@ -115,6 +115,14 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Show slot numbers", false);
 	private final CheckboxSetting colorEnchantments =
 		new CheckboxSetting("Color enchantments", true);
+	private final CheckboxSetting colorEnchantmentsInChestSearch =
+		new CheckboxSetting("Color enchantments in Chest Search",
+			"Applies EnchantmentHandler's enchantment colors to Chest Search results.",
+			true);
+	private final CheckboxSetting showColorsInTooltips =
+		new CheckboxSetting("Show colors in tool tips",
+			"Applies EnchantmentHandler's enchantment colors to item tooltips.",
+			false);
 	
 	private final SliderSetting iconScale = new SliderSetting("Icon scale",
 		"Scale factor for item icons rendered in the list.", 1.0, 0.5, 1.0, 0.1,
@@ -174,7 +182,7 @@ public final class EnchantmentHandlerHack extends Hack
 	private int hoveredSlotId = -1;
 	private long hoverStartMs;
 	private AbstractContainerScreen<?> lastRenderedScreen;
-	private GuiGraphics lastRenderContext;
+	private GuiGraphicsExtractor lastRenderContext;
 	
 	// Scroll bar
 	private boolean scrollBarDragging;
@@ -196,6 +204,8 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(useItemIcons);
 		addSetting(showSlotNumbers);
 		addSetting(colorEnchantments);
+		addSetting(colorEnchantmentsInChestSearch);
+		addSetting(showColorsInTooltips);
 		addSetting(iconScale);
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
@@ -267,7 +277,7 @@ public final class EnchantmentHandlerHack extends Hack
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
-		GuiGraphics context, float partialTicks)
+		GuiGraphicsExtractor context, float partialTicks)
 	{
 		customPosition = savedContainerPosition.isChecked();
 		containerPanelX = savedContainerX.getValueI();
@@ -672,7 +682,7 @@ public final class EnchantmentHandlerHack extends Hack
 		};
 	}
 	
-	private void renderOverlay(GuiGraphics context)
+	private void renderOverlay(GuiGraphicsExtractor context)
 	{
 		hitboxes.clear();
 		
@@ -800,10 +810,11 @@ public final class EnchantmentHandlerHack extends Hack
 		}
 	}
 	
-	private double renderGearSection(GuiGraphics context, Font tr, float scale,
-		int titleX, double cursorY, double offset, double textAreaWidth,
-		double hoverSpeed, double scaledMouseX, double scaledMouseY,
-		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
+	private double renderGearSection(GuiGraphicsExtractor context, Font tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
 	{
 		boolean hasEntries = GearCategory.ORDERED.stream().anyMatch(
 			cat -> !gearGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -836,7 +847,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderSourceSection(GuiGraphics context, Font tr,
+	private double renderSourceSection(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -909,10 +920,11 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderBookSection(GuiGraphics context, Font tr, float scale,
-		int titleX, double cursorY, double offset, double textAreaWidth,
-		double hoverSpeed, double scaledMouseX, double scaledMouseY,
-		int lineHeight, int entryMargin, int headerMargin, boolean[] hoverFlag)
+	private double renderBookSection(GuiGraphicsExtractor context, Font tr,
+		float scale, int titleX, double cursorY, double offset,
+		double textAreaWidth, double hoverSpeed, double scaledMouseX,
+		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
+		boolean[] hoverFlag)
 	{
 		boolean hasEntries = BookCategory.ORDERED.stream().anyMatch(
 			cat -> !bookGroupedEntries.getOrDefault(cat, List.of()).isEmpty());
@@ -945,7 +957,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderPotionSection(GuiGraphics context, Font tr,
+	private double renderPotionSection(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -982,7 +994,7 @@ public final class EnchantmentHandlerHack extends Hack
 		return cursorY;
 	}
 	
-	private double renderCategoryEntries(GuiGraphics context, Font tr,
+	private double renderCategoryEntries(GuiGraphicsExtractor context, Font tr,
 		float scale, int titleX, double cursorY, double offset,
 		double textAreaWidth, double hoverSpeed, double scaledMouseX,
 		double scaledMouseY, int lineHeight, int entryMargin, int headerMargin,
@@ -1085,7 +1097,7 @@ public final class EnchantmentHandlerHack extends Hack
 				context.pose().pushMatrix();
 				context.pose().translate(iconX, iconY);
 				context.pose().scale(iconScaleVal, iconScaleVal);
-				context.renderItem(entry.iconStack, 0, 0);
+				context.item(entry.iconStack, 0, 0);
 				context.pose().popMatrix();
 				textX += iconSpace;
 			}
@@ -1178,7 +1190,8 @@ public final class EnchantmentHandlerHack extends Hack
 				if(container != null)
 				{
 					int parentSlotNumber = slot.getContainerSlot() + 1;
-					for(ItemStack inner : container.nonEmptyItems())
+					for(ItemStack inner : container.nonEmptyItemCopyStream()
+						.toList())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
@@ -1368,7 +1381,8 @@ public final class EnchantmentHandlerHack extends Hack
 				if(container != null)
 				{
 					int parentSlotNumber = slot.getContainerSlot() + 1;
-					for(ItemStack inner : container.nonEmptyItems())
+					for(ItemStack inner : container.nonEmptyItemCopyStream()
+						.toList())
 					{
 						if(inner == null || inner.isEmpty())
 							continue;
@@ -1774,8 +1788,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1791,8 +1805,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1808,8 +1822,8 @@ public final class EnchantmentHandlerHack extends Hack
 		if(slot == null || !slot.hasItem())
 			return;
 		
-		MC.gameMode.handleInventoryMouseClick(handler.containerId, entry.slotId,
-			0, ClickType.QUICK_MOVE, MC.player);
+		MC.gameMode.handleContainerInput(handler.containerId, entry.slotId, 0,
+			ContainerInput.QUICK_MOVE, MC.player);
 		needsRescan = true;
 	}
 	
@@ -1843,8 +1857,8 @@ public final class EnchantmentHandlerHack extends Hack
 			if(slot == null || !slot.hasItem())
 				continue;
 			
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1879,8 +1893,8 @@ public final class EnchantmentHandlerHack extends Hack
 			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasItem())
 				continue;
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1915,8 +1929,8 @@ public final class EnchantmentHandlerHack extends Hack
 			Slot slot = getSlotSafe(handler, entry.slotId);
 			if(slot == null || !slot.hasItem())
 				continue;
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				entry.slotId, 0, ClickType.QUICK_MOVE, MC.player);
+			MC.gameMode.handleContainerInput(handler.containerId, entry.slotId,
+				0, ContainerInput.QUICK_MOVE, MC.player);
 		}
 		
 		needsRescan = true;
@@ -1946,29 +1960,29 @@ public final class EnchantmentHandlerHack extends Hack
 		return Math.max(0, contentBottom - contentTop);
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.xpos() * context.guiWidth()
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		Window window = MC.getWindow();
 		return MC.mouseHandler.ypos() * context.guiHeight()
 			/ window.getScreenHeight();
 	}
 	
-	private static void drawScaledText(GuiGraphics context, Font tr,
+	private static void drawScaledText(GuiGraphicsExtractor context, Font tr,
 		String text, float x, float y, int color, float scale)
 	{
 		RenderUtils.drawScaledText(context, tr, text, Math.round(x),
 			Math.round(y), color, false, scale);
 	}
 	
-	private void drawSectionHeader(GuiGraphics context, Font tr, int x, int y,
-		String text, float scale)
+	private void drawSectionHeader(GuiGraphicsExtractor context, Font tr, int x,
+		int y, String text, float scale)
 	{
 		int textWidth = Math.max(1, Math.round(tr.width(text) * scale));
 		int textHeight = Math.max(1, Math.round(tr.lineHeight * scale));
@@ -2014,7 +2028,44 @@ public final class EnchantmentHandlerHack extends Hack
 	
 	public boolean shouldShowColorsInTooltips()
 	{
-		return colorEnchantments.isChecked();
+		return showColorsInTooltips.isChecked();
+	}
+	
+	public boolean shouldColorEnchantmentsInChestSearch()
+	{
+		return colorEnchantments.isChecked()
+			&& colorEnchantmentsInChestSearch.isChecked();
+	}
+	
+	public static Component getColoredEnchantmentName(
+		Holder<Enchantment> holder, int level)
+	{
+		if(holder == null)
+			return Component.empty();
+		
+		Identifier id = holder.unwrapKey()
+			.map(registryKey -> registryKey.identifier()).orElse(null);
+		String path = id != null ? id.getPath()
+			: sanitizePath(holder.getRegisteredName());
+		String display = getColoredEnchantmentDisplay(path, level);
+		if(display == null)
+			return Enchantment.getFullname(holder, level);
+		
+		return Component.literal(display);
+	}
+	
+	public static String getColoredEnchantmentDisplay(String path, int level)
+	{
+		if(path == null || path.isEmpty())
+			return null;
+		
+		String display = ENCHANT_DISPLAY.get(path);
+		if(display == null)
+			return null;
+		
+		if(level > 1)
+			display += " \u00a7f" + level;
+		return display;
 	}
 	
 	public static Component colorizeTooltipLine(ItemStack stack, Component line)
@@ -2030,26 +2081,23 @@ public final class EnchantmentHandlerHack extends Hack
 			Component vanilla =
 				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
 			if(vanilla.getString().equals(line.getString()))
-				return Component.literal(getColoredEnchantmentDisplay(
-					entry.getKey(), entry.getIntValue(), vanilla.getString()));
+				return getColoredEnchantmentName(entry.getKey(),
+					entry.getIntValue());
+		}
+		
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
+			.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
+				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
+			.entrySet())
+		{
+			Component vanilla =
+				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
+			if(vanilla.getString().equals(line.getString()))
+				return getColoredEnchantmentName(entry.getKey(),
+					entry.getIntValue());
 		}
 		
 		return line;
-	}
-	
-	private static String getColoredEnchantmentDisplay(
-		Holder<Enchantment> holder, int level, String fallback)
-	{
-		Identifier id = holder.unwrapKey()
-			.map(registryKey -> registryKey.identifier()).orElse(null);
-		String path = id != null ? id.getPath()
-			: sanitizePath(holder.getRegisteredName());
-		String display = ENCHANT_DISPLAY.get(path);
-		if(display == null)
-			return fallback;
-		if(level > 1)
-			display += " §f" + level;
-		return display;
 	}
 	
 	/**

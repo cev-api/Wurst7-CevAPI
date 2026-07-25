@@ -47,10 +47,10 @@ public final class ModMenuTextUtils
 			return false;
 		
 		Minecraft mc = WurstClient.MC;
-		if(mc == null || mc.screen == null)
+		if(mc == null || mc.gui.screen() == null)
 			return false;
 		
-		boolean isModMenuScreen = mc.screen.getClass().getName()
+		boolean isModMenuScreen = mc.gui.screen().getClass().getName()
 			.equals("com.terraformersmc.modmenu.gui.ModsScreen");
 		if(!isModMenuScreen)
 			return false;

@@ -9,7 +9,7 @@ package net.wurstclient.other_features.packettools;
 
 import org.joml.Matrix3x2fStack;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -193,17 +193,17 @@ public final class PacketToolsScreen extends Screen
 	}
 	
 	@Override
-	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
-		float partialTick)
+	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTick)
 	{
 		context.fillGradient(0, 0, width, height, 0xA0101010, 0xB0101010);
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		renderBackground(context, mouseX, mouseY, partialTicks);
+		extractBackground(context, mouseX, mouseY, partialTicks);
 		
 		int panelWidth = Math.min(560, width - 30);
 		int panelX = (width - panelWidth) / 2;
@@ -214,20 +214,21 @@ public final class PacketToolsScreen extends Screen
 		context.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight,
 			0xE0181818);
 		
-		s2cSelector.render(context, mouseX, mouseY, partialTicks);
-		c2sSelector.render(context, mouseX, mouseY, partialTicks);
+		s2cSelector.extractRenderState(context, mouseX, mouseY, partialTicks);
+		c2sSelector.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		Matrix3x2fStack stack = context.pose();
 		stack.pushMatrix();
 		for(var renderable : renderables)
-			renderable.render(context, mouseX, mouseY, partialTicks);
+			renderable.extractRenderState(context, mouseX, mouseY,
+				partialTicks);
 		stack.popMatrix();
 		
-		context.drawCenteredString(font, title, width / 2, 7, 0xFFFFFFFF);
+		context.centeredText(font, title, width / 2, 7, 0xFFFFFFFF);
 		
 		String delayLabel =
 			"Delay ticks: " + packetTools.getDelayTicksSetting().getValueI();
-		context.drawCenteredString(font, delayLabel, width / 2, 76, 0xFFFFFFFF);
+		context.centeredText(font, delayLabel, width / 2, 76, 0xFFFFFFFF);
 	}
 	
 	@Override
@@ -355,7 +356,7 @@ public final class PacketToolsScreen extends Screen
 	public void onClose()
 	{
 		if(minecraft != null)
-			minecraft.setScreen(parent);
+			minecraft.gui.setScreen(parent);
 	}
 	
 	@Override

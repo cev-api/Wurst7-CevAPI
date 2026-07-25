@@ -18,7 +18,7 @@ public final class NecoModeHack extends Hack
 			"description.wurst.setting.necomode.exclude_players", false);
 	private final CheckboxSetting onlyPassiveMobs =
 		new CheckboxSetting("Only passive mobs",
-			"description.wurst.setting.necomode.only_passive_mobs", false);
+			"description.wurst.setting.necomode.only_passive_mobs", true);
 	private final CheckboxSetting onlyAggressiveMobs =
 		new CheckboxSetting("Only aggressive mobs",
 			"description.wurst.setting.necomode.only_aggressive_mobs", false);

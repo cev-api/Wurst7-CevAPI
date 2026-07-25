@@ -14,7 +14,8 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.wurstclient.Category;
@@ -230,10 +231,11 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				
 				Thread.sleep(delay.getValueI());
 				
-				if(MC.screen == null)
+				if(MC.gui.screen() == null)
 					break;
 				
-				screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
+				screen.slotClicked(slot, slot.index, 0,
+					ContainerInput.QUICK_MOVE);
 				
 			}catch(InterruptedException e)
 			{
@@ -254,10 +256,10 @@ public final class AutoStealHack extends Hack implements UpdateListener
 				
 				Thread.sleep(delay.getValueI());
 				
-				if(MC.screen == null)
+				if(MC.gui.screen() == null)
 					break;
 				
-				screen.slotClicked(slot, slot.index, 1, ClickType.THROW);
+				screen.slotClicked(slot, slot.index, 1, ContainerInput.THROW);
 				
 			}catch(InterruptedException e)
 			{
@@ -268,7 +270,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 	
 	private void maybeStealCurrentChest()
 	{
-		if(!(MC.screen instanceof AbstractContainerScreen<?> screen))
+		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen))
 			return;
 		
 		if(isCreativeScreen(screen))
@@ -425,7 +427,7 @@ public final class AutoStealHack extends Hack implements UpdateListener
 			return;
 		
 		AbstractContainerScreen<?> screen =
-			MC.screen instanceof AbstractContainerScreen<?> s ? s : null;
+			MC.gui.screen() instanceof AbstractContainerScreen<?> s ? s : null;
 		if(screen == null || screen instanceof InventoryScreen
 			|| isCreativeScreen(screen))
 		{
@@ -464,5 +466,5 @@ public final class AutoStealHack extends Hack implements UpdateListener
 		steal(screen, rows);
 	}
 	
-	// See ContainerScreenMixin and ShulkerBoxScreenMixin
+	// See GenericContainerScreenMixin and ShulkerBoxScreenMixin
 }

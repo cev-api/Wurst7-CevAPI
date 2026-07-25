@@ -16,7 +16,7 @@ import java.util.Objects;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
@@ -57,7 +57,7 @@ public final class PresetManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("New Preset"),
-				b -> minecraft.setScreen(
+				b -> minecraft.gui.setScreen(
 					new EnterProfileNameScreen(this, this::newPreset)))
 			.bounds(width / 2 - 154, height - 48, 100, 20).build());
 		
@@ -71,7 +71,7 @@ public final class PresetManagerScreen extends Screen
 		
 		backButton = addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(width / 2 - 50, height - 24, 100, 20).build());
 	}
 	
@@ -93,7 +93,7 @@ public final class PresetManagerScreen extends Screen
 		try
 		{
 			WurstClient.INSTANCE.getPresetManager().savePreset(trimmed);
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 			
 		}catch(IOException e)
 		{
@@ -106,7 +106,7 @@ public final class PresetManagerScreen extends Screen
 		Path path = listGui.getSelectedPath();
 		if(path == null)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return;
 		}
 		
@@ -114,7 +114,7 @@ public final class PresetManagerScreen extends Screen
 		{
 			String name = "" + path.getFileName();
 			WurstClient.INSTANCE.getPresetManager().loadPreset(name);
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			
 		}catch(IOException e)
 		{
@@ -130,7 +130,7 @@ public final class PresetManagerScreen extends Screen
 			return;
 		
 		String name = "" + path.getFileName();
-		minecraft.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
 			if(confirmed)
 			{
 				try
@@ -143,7 +143,7 @@ public final class PresetManagerScreen extends Screen
 				}
 			}
 			
-			minecraft.setScreen(this);
+			minecraft.gui.setScreen(this);
 		}, Component.literal("Delete preset '" + name + "'?"),
 			Component.literal("This cannot be undone!")));
 	}
@@ -182,16 +182,16 @@ public final class PresetManagerScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		listGui.render(context, mouseX, mouseY, partialTicks);
+		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawCenteredString(minecraft.font, "Presets", width / 2, 12,
+		context.centeredText(minecraft.font, "Presets", width / 2, 12,
 			CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		if(loadButton.isHoveredOrFocused() && !loadButton.active)
 			context.setComponentTooltipForNextFrame(font,
@@ -224,8 +224,8 @@ public final class PresetManagerScreen extends Screen
 		}
 		
 		@Override
-		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
-			boolean hovered, float tickDelta)
+		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -233,13 +233,11 @@ public final class PresetManagerScreen extends Screen
 			Font tr = minecraft.font;
 			
 			String name = "" + path.getFileName();
-			context.drawString(tr, name, x + 28, y,
-				WurstColors.VERY_LIGHT_GRAY);
+			context.text(tr, name, x + 28, y, WurstColors.VERY_LIGHT_GRAY);
 			
 			String relPath =
 				"" + minecraft.gameDirectory.toPath().relativize(path);
-			context.drawString(tr, relPath, x + 28, y + 9,
-				CommonColors.LIGHT_GRAY);
+			context.text(tr, relPath, x + 28, y + 9, CommonColors.LIGHT_GRAY);
 		}
 	}
 	

@@ -22,7 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Util;
 import net.wurstclient.WurstClient;
 
@@ -189,7 +189,7 @@ public final class AltGuiFontManager
 		return activeFont.lineHeight();
 	}
 	
-	public void drawString(GuiGraphics context,
+	public void drawString(GuiGraphicsExtractor context,
 		net.minecraft.client.gui.Font fallback, String text, int x, int y,
 		int color, boolean shadow, float scale)
 	{
@@ -200,12 +200,12 @@ public final class AltGuiFontManager
 		{
 			if(Math.abs(scale - 1F) < 0.001F)
 			{
-				context.drawString(fallback, text, x, y, color, shadow);
+				context.text(fallback, text, x, y, color, shadow);
 			}else
 			{
 				context.pose().pushMatrix();
 				context.pose().scale(scale, scale);
-				context.drawString(fallback, text, Math.round(x / scale),
+				context.text(fallback, text, Math.round(x / scale),
 					Math.round(y / scale), color, shadow);
 				context.pose().popMatrix();
 			}
@@ -454,8 +454,8 @@ public final class AltGuiFontManager
 			return lineHeight;
 		}
 		
-		private void draw(GuiGraphics context, String text, int x, int y,
-			int color, boolean shadow, float scale)
+		private void draw(GuiGraphicsExtractor context, String text, int x,
+			int y, int color, boolean shadow, float scale)
 		{
 			if(shadow)
 			{
@@ -468,8 +468,8 @@ public final class AltGuiFontManager
 			drawInternal(context, text, x, y, color, scale);
 		}
 		
-		private void drawInternal(GuiGraphics context, String text, int x,
-			int y, int color, float scale)
+		private void drawInternal(GuiGraphicsExtractor context, String text,
+			int x, int y, int color, float scale)
 		{
 			boolean scaled = Math.abs(scale - 1F) >= 0.001F;
 			if(scaled)

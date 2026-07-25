@@ -230,9 +230,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		"Global override color for RedstoneESP.", defaultColor);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
-	private final CheckboxSetting nearestTracerOnly =
-		new CheckboxSetting("Nearest tracer only",
-			"Only draw the closest RedstoneESP tracer.", false);
 	private ActiveMode lastActiveMode;
 	private final Set<Long> activeRenderPositions = new HashSet<>();
 	
@@ -248,7 +245,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
 		addSetting(tracerFlash);
-		addSetting(nearestTracerOnly);
 		addSetting(area);
 		addSetting(stickyArea);
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
@@ -432,10 +428,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			if(!flashActive || positions.size() != boxes.size())
 			{
 				List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
-				if(nearestTracerOnly.isChecked())
-					ends = net.wurstclient.util.EspLimitUtils
-						.collectNearest(ends, 1, v -> v.distanceToSqr(
-							net.wurstclient.util.RotationUtils.getEyesPos()));
 				int color = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
@@ -455,10 +447,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				
 			if(!inactiveEnds.isEmpty())
 			{
-				if(nearestTracerOnly.isChecked())
-					inactiveEnds = net.wurstclient.util.EspLimitUtils
-						.collectNearest(inactiveEnds, 1, v -> v.distanceToSqr(
-							net.wurstclient.util.RotationUtils.getEyesPos()));
 				int inactiveColor = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
@@ -469,10 +457,6 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			
 			if(!activeEnds.isEmpty())
 			{
-				if(nearestTracerOnly.isChecked())
-					activeEnds = net.wurstclient.util.EspLimitUtils
-						.collectNearest(activeEnds, 1, v -> v.distanceToSqr(
-							net.wurstclient.util.RotationUtils.getEyesPos()));
 				if(flashOn)
 				{
 					int activeColor = useFixedColor.isChecked()

@@ -27,7 +27,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -964,8 +964,8 @@ public class ServerFinderScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		layoutWidgets();
 		
@@ -986,11 +986,10 @@ public class ServerFinderScreen extends Screen
 		context.fill(panelX, panelY + getHeaderH() - 1, panelX + panelW,
 			panelY + getHeaderH(), 0xFF2E4050);
 		
-		context.drawString(font, "Server Finder", panelX + 18, panelY + 10,
+		context.text(font, "Server Finder", panelX + 18, panelY + 10,
 			CommonColors.WHITE, false);
-		context.drawString(font,
-			"CIDR, IP range, ASN lookup, offline-mode detection", panelX + 18,
-			panelY + 24, 0xFF9FB2C4, false);
+		context.text(font, "CIDR, IP range, ASN lookup, offline-mode detection",
+			panelX + 18, panelY + 24, 0xFF9FB2C4, false);
 		
 		String accountText = hasAuthenticatedSession()
 			? "Account: authenticated" : "Account: offline/cracked";
@@ -1004,29 +1003,31 @@ public class ServerFinderScreen extends Screen
 				leftX + leftW + 10, panelY + panelH - getPanelPadding(),
 				0xFF2A3541);
 		
-		context.drawString(font, "Scan Target", leftX, panelY + 58,
+		int scanHeaderY = ipBox.getY() - 34;
+		context.text(font, "Scan Target", leftX, scanHeaderY,
 			CommonColors.WHITE, false);
-		context.drawString(font,
+		context.text(font,
 			trimToWidth("Use CIDR, IP range, host, or ASN", leftW), leftX,
-			panelY + 72, 0xFF93A4B4, false);
-		context.drawString(font,
+			scanHeaderY + 14, 0xFF93A4B4, false);
+		context.text(font,
 			trimToWidth("Example: 203.0.113.0/24 or AS15169", leftW), leftX,
-			panelY + 83, 0xFF93A4B4, false);
-		ipBox.render(context, mouseX, mouseY, partialTicks);
+			scanHeaderY + 25, 0xFF93A4B4, false);
+		ipBox.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawString(font, "Threads", leftX, maxThreadsBox.getY() - 12,
+		context.text(font, "Threads", leftX, maxThreadsBox.getY() - 12,
 			CommonColors.WHITE, false);
-		maxThreadsBox.render(context, mouseX, mouseY, partialTicks);
+		maxThreadsBox.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawString(font, "Server Prefix", leftX, prefixBox.getY() - 12,
+		context.text(font, "Server Prefix", leftX, prefixBox.getY() - 12,
 			CommonColors.WHITE, false);
-		prefixBox.render(context, mouseX, mouseY, partialTicks);
+		prefixBox.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
-		context.drawString(font, "Version / Software Filter", leftX,
+		context.text(font, "Version / Software Filter", leftX,
 			versionFilterBox.getY() - 12, CommonColors.WHITE, false);
-		versionFilterBox.render(context, mouseX, mouseY, partialTicks);
+		versionFilterBox.extractRenderState(context, mouseX, mouseY,
+			partialTicks);
 		
-		context.drawString(font, "Whitelist Handling", leftX,
+		context.text(font, "Whitelist Handling", leftX,
 			ignoreWhitelistButton.getY() - 12, CommonColors.WHITE, false);
 		
 		int progressY = ignoreWhitelistButton.getY() + 28;
@@ -1075,32 +1076,33 @@ public class ServerFinderScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
-	private void drawMiniStats(GuiGraphics context, int x, int y, int w)
+	private void drawMiniStats(GuiGraphicsExtractor context, int x, int y,
+		int w)
 	{
 		context.fill(x, y, x + w, y + 82, 0xFF101820);
 		drawBorder(context, x, y, w, 82, 0xFF34495A);
-		context.drawString(font, "Classified", x + 8, y + 7, 0xFF9FB2C4, false);
-		context.drawString(font, "Online found: " + onlineFound, x + 8, y + 20,
+		context.text(font, "Classified", x + 8, y + 7, 0xFF9FB2C4, false);
+		context.text(font, "Online found: " + onlineFound, x + 8, y + 20,
 			CommonColors.WHITE, false);
-		context.drawString(font, "Added: " + working, x + 8, y + 32,
+		context.text(font, "Added: " + working, x + 8, y + 32,
 			CommonColors.WHITE, false);
-		context.drawString(font, "Offline-mode: " + offlineMode, x + 8, y + 44,
+		context.text(font, "Offline-mode: " + offlineMode, x + 8, y + 44,
 			0xFF7DE38D, false);
-		context.drawString(font, "Whitelisted: " + whitelisted, x + 8, y + 56,
+		context.text(font, "Whitelisted: " + whitelisted, x + 8, y + 56,
 			0xFFFFD166, false);
-		context.drawString(font, "Ignored: " + ignoredWhitelisted, x + w / 2,
-			y + 56, 0xFFFF8A8A, false);
-		context.drawString(font, "Unverified: " + ignoredUnverified, x + w / 2,
+		context.text(font, "Ignored: " + ignoredWhitelisted, x + w / 2, y + 56,
+			0xFFFF8A8A, false);
+		context.text(font, "Unverified: " + ignoredUnverified, x + w / 2,
 			y + 68, 0xFFFF8A8A, false);
-		context.drawString(font, "Version filtered: " + versionFiltered, x + 8,
+		context.text(font, "Version filtered: " + versionFiltered, x + 8,
 			y + 68, 0xFFB39DDB, false);
 	}
 	
-	private void drawStatusBlock(GuiGraphics context, int x, int y, int w,
-		int h)
+	private void drawStatusBlock(GuiGraphicsExtractor context, int x, int y,
+		int w, int h)
 	{
 		context.fill(x, y, x + w, y + h, 0xFF101820);
 		drawBorder(context, x, y, w, h, 0xFF34495A);
@@ -1109,24 +1111,23 @@ public class ServerFinderScreen extends Screen
 			|| state == ServerFinderState.UNKNOWN_HOST
 			|| state == ServerFinderState.AUTH_REQUIRED ? 0xFFFF6B6B
 				: state.isRunning() ? 0xFF7DE38D : 0xFFB6C2CC;
-		context.drawString(font,
+		context.text(font,
 			state.toString().isEmpty() ? "Ready" : state.toString(), x + 10,
 			y + 10, color, false);
-		context.drawString(font,
+		context.text(font,
 			trimToWidth(
 				"Use 203.0.113.0/24, 203.0.113.10-203.0.113.80, or AS15169",
 				w - 20),
 			x + 10, y + 28, 0xFF8FA3B5, false);
 	}
 	
-	private void drawMetric(GuiGraphics context, int x, int y, int w,
+	private void drawMetric(GuiGraphicsExtractor context, int x, int y, int w,
 		String label, String value, int percent)
 	{
 		context.fill(x, y, x + w, y + 42, 0xFF101820);
 		drawBorder(context, x, y, w, 42, 0xFF34495A);
-		context.drawString(font, label, x + 8, y + 7, 0xFF9FB2C4, false);
-		context.drawString(font, value, x + 8, y + 20, CommonColors.WHITE,
-			false);
+		context.text(font, label, x + 8, y + 7, 0xFF9FB2C4, false);
+		context.text(font, value, x + 8, y + 20, CommonColors.WHITE, false);
 		if(percent > 0)
 		{
 			int barX = x + 82;
@@ -1138,16 +1139,16 @@ public class ServerFinderScreen extends Screen
 		}
 	}
 	
-	private void drawCollapsibleHeader(GuiGraphics context, String title,
-		int count, int x, int y, int w, boolean expanded)
+	private void drawCollapsibleHeader(GuiGraphicsExtractor context,
+		String title, int count, int x, int y, int w, boolean expanded)
 	{
 		int h = 22;
 		context.fill(x, y, x + w, y + h, 0xFF17212B);
 		drawBorder(context, x, y, w, h, 0xFF34495A);
 		String prefix = expanded ? "[-] " : "[+] ";
-		context.drawString(font, prefix + title, x + 8, y + 7,
-			CommonColors.WHITE, false);
-		context.drawString(font, Integer.toString(count), x + w - 20, y + 7,
+		context.text(font, prefix + title, x + 8, y + 7, CommonColors.WHITE,
+			false);
+		context.text(font, Integer.toString(count), x + w - 20, y + 7,
 			0xFF9FB2C4, false);
 		
 		if("Live Scan Log".equals(title))
@@ -1165,34 +1166,33 @@ public class ServerFinderScreen extends Screen
 		}
 	}
 	
-	private void drawCompactHint(GuiGraphics context, int x, int y, int w)
+	private void drawCompactHint(GuiGraphicsExtractor context, int x, int y,
+		int w)
 	{
 		context.fill(x, y, x + w, y + 52, 0xFF0C1117);
 		drawBorder(context, x, y, w, 52, 0xFF34495A);
-		context.drawCenteredString(font, "Tap a panel above to expand it.",
-			x + w / 2, y + 16, 0xFF9FB2C4);
-		context.drawCenteredString(font,
+		context.centeredText(font, "Tap a panel above to expand it.", x + w / 2,
+			y + 16, 0xFF9FB2C4);
+		context.centeredText(font,
 			"Compact mode keeps one output open at a time.", x + w / 2, y + 29,
 			0xFF7F92A2);
 	}
 	
-	private void drawListPanel(GuiGraphics context, String title,
+	private void drawListPanel(GuiGraphicsExtractor context, String title,
 		List<String> rows, int x, int y, int w, int h, String emptyText)
 	{
 		context.fill(x, y, x + w, y + h, 0xFF0C1117);
 		context.fill(x, y, x + w, y + 22, 0xFF17212B);
 		drawBorder(context, x, y, w, h, 0xFF34495A);
-		context.drawString(font, title, x + 8, y + 7, CommonColors.WHITE,
-			false);
-		context.drawString(font, Integer.toString(rows.size()), x + w - 20,
-			y + 7, 0xFF9FB2C4, false);
+		context.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
+		context.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
+			0xFF9FB2C4, false);
 		
 		int rowTop = y + 28;
 		int visible = Math.max(1, (h - 34) / 11);
 		if(rows.isEmpty())
 		{
-			context.drawString(font, emptyText, x + 8, rowTop, 0xFF697987,
-				false);
+			context.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
 			return;
 		}
 		
@@ -1206,7 +1206,7 @@ public class ServerFinderScreen extends Screen
 			if(i % 2 == 0)
 				context.fill(x + 4, rowY - 1, x + w - 4, rowY + 10, 0x201D2A36);
 			String row = rows.get(index);
-			context.drawString(font, trimToWidth(row, w - 14), x + 8, rowY,
+			context.text(font, trimToWidth(row, w - 14), x + 8, rowY,
 				getLogColor(row), false);
 		}
 	}
@@ -1238,24 +1238,22 @@ public class ServerFinderScreen extends Screen
 		return CommonColors.WHITE;
 	}
 	
-	private void drawDiscoveredPanel(GuiGraphics context, String title,
+	private void drawDiscoveredPanel(GuiGraphicsExtractor context, String title,
 		List<DiscoveredServer> rows, int x, int y, int w, int h,
 		String emptyText)
 	{
 		context.fill(x, y, x + w, y + h, 0xFF0C1117);
 		context.fill(x, y, x + w, y + 22, 0xFF17212B);
 		drawBorder(context, x, y, w, h, 0xFF34495A);
-		context.drawString(font, title, x + 8, y + 7, CommonColors.WHITE,
-			false);
-		context.drawString(font, Integer.toString(rows.size()), x + w - 20,
-			y + 7, 0xFF9FB2C4, false);
+		context.text(font, title, x + 8, y + 7, CommonColors.WHITE, false);
+		context.text(font, Integer.toString(rows.size()), x + w - 20, y + 7,
+			0xFF9FB2C4, false);
 		
 		int rowTop = y + 28;
 		int visible = Math.max(1, (h - 34) / 11);
 		if(rows.isEmpty())
 		{
-			context.drawString(font, emptyText, x + 8, rowTop, 0xFF697987,
-				false);
+			context.text(font, emptyText, x + 8, rowTop, 0xFF697987, false);
 			return;
 		}
 		
@@ -1269,20 +1267,21 @@ public class ServerFinderScreen extends Screen
 			int rowY = rowTop + i * 11;
 			if(i % 2 == 0)
 				context.fill(x + 4, rowY - 1, x + w - 4, rowY + 10, 0x201D2A36);
-			context.drawString(font, trimToWidth(row.text(), w - 14), x + 8,
-				rowY, row.color(), false);
+			context.text(font, trimToWidth(row.text(), w - 14), x + 8, rowY,
+				row.color(), false);
 		}
 	}
 	
-	private void drawPanel(GuiGraphics context, int x, int y, int w, int h)
+	private void drawPanel(GuiGraphicsExtractor context, int x, int y, int w,
+		int h)
 	{
 		context.fill(x - 2, y - 2, x + w + 2, y + h + 2, 0xAA000000);
 		context.fill(x, y, x + w, y + h, 0xEE0D1319);
 		drawBorder(context, x, y, w, h, 0xFF415366);
 	}
 	
-	private void drawBorder(GuiGraphics context, int x, int y, int w, int h,
-		int color)
+	private void drawBorder(GuiGraphicsExtractor context, int x, int y, int w,
+		int h, int color)
 	{
 		context.fill(x, y, x + w, y + 1, color);
 		context.fill(x, y + h - 1, x + w, y + h, color);
@@ -1290,13 +1289,12 @@ public class ServerFinderScreen extends Screen
 		context.fill(x + w - 1, y, x + w, y + h, color);
 	}
 	
-	private void drawChip(GuiGraphics context, int x, int y, int w, String text,
-		int color)
+	private void drawChip(GuiGraphicsExtractor context, int x, int y, int w,
+		String text, int color)
 	{
 		context.fill(x, y, x + w, y + 15, color);
 		context.fill(x, y, x + w, y + 1, 0x55FFFFFF);
-		context.drawCenteredString(font, text, x + w / 2, y + 4,
-			CommonColors.WHITE);
+		context.centeredText(font, text, x + w / 2, y + 4, CommonColors.WHITE);
 	}
 	
 	private String trimToWidth(String text, int maxWidth)
@@ -1374,7 +1372,7 @@ public class ServerFinderScreen extends Screen
 	public void onClose()
 	{
 		state = ServerFinderState.CANCELLED;
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	enum ServerFinderState

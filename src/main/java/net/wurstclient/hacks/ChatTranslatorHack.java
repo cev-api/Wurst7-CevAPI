@@ -109,8 +109,17 @@ public final class ChatTranslatorHack extends Hack
 		String translated = GoogleTranslate.translate(message,
 			fromLang.getValue(), toLang.getValue());
 		
-		if(translated != null)
-			MC.gui.getChat().addMessage(toLang.prefixText(translated));
+		if(translated == null)
+			return;
+		
+		String finalTranslated = translated;
+		MC.execute(() -> {
+			if(MC.gui == null || MC.gui.hud == null)
+				return;
+			
+			MC.gui.hud.getChat()
+				.addClientSystemMessage(toLang.prefixText(finalTranslated));
+		});
 	}
 	
 	@Override
@@ -143,6 +152,10 @@ public final class ChatTranslatorHack extends Hack
 		if(translated == null)
 			translated = message;
 		
-		MC.getConnection().sendChat(translated);
+		String finalTranslated = translated;
+		MC.execute(() -> {
+			if(MC.getConnection() != null)
+				MC.getConnection().sendChat(finalTranslated);
+		});
 	}
 }

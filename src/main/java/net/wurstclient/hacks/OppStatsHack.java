@@ -453,8 +453,8 @@ public final class OppStatsHack extends Hack implements UpdateListener
 	
 	public void openScreen()
 	{
-		Screen prev = MC.screen;
-		MC.setScreen(new OppStatsScreen(prev, this));
+		Screen prev = MC.gui.screen();
+		MC.gui.setScreen(new OppStatsScreen(prev, this));
 	}
 	
 	private String nullToNA(String value)

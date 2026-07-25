@@ -13,7 +13,7 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
@@ -67,8 +67,8 @@ public final class InventorySorterHack extends Hack
 			return;
 		
 		// only inside a real container screen, not the creative item palette
-		if(!(MC.screen instanceof AbstractContainerScreen<?> screen)
-			|| MC.screen instanceof CreativeModeInventoryScreen)
+		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen)
+			|| MC.gui.screen() instanceof CreativeModeInventoryScreen)
 			return;
 		
 		Slot hovered = ((HandledScreenAccessor)screen).getHoveredSlot();
@@ -164,7 +164,7 @@ public final class InventorySorterHack extends Hack
 	
 	private void click(AbstractContainerScreen<?> screen, Slot slot)
 	{
-		screen.slotClicked(slot, slot.index, 0, ClickType.PICKUP);
+		screen.slotClicked(slot, slot.index, 0, ContainerInput.PICKUP);
 	}
 	
 	private int compare(ItemStack a, ItemStack b)

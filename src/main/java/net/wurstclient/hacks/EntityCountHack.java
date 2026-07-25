@@ -225,8 +225,8 @@ public final class EntityCountHack extends Hack
 		for(int dx = -radius; dx <= radius; dx++)
 			for(int dz = -radius; dz <= radius; dz++)
 			{
-				int chunkX = center.x + dx;
-				int chunkZ = center.z + dz;
+				int chunkX = center.x() + dx;
+				int chunkZ = center.z() + dz;
 				ChunkPos pos = new ChunkPos(chunkX, chunkZ);
 				if(!isInSelectedView(pos))
 					continue;
@@ -251,15 +251,15 @@ public final class EntityCountHack extends Hack
 			for(Map.Entry<ChunkPos, Integer> entry : chunkCounts.entrySet())
 			{
 				ChunkPos pos = entry.getKey();
-				int dx = pos.x - center.x;
-				int dz = pos.z - center.z;
+				int dx = pos.x() - center.x();
+				int dz = pos.z() - center.z();
 				if(Math.abs(dx) > radius || Math.abs(dz) > radius)
 					continue;
 				if(!isInSelectedView(pos))
 					continue;
 				if(Math.abs(dx) <= renderDistance
 					&& Math.abs(dz) <= renderDistance
-					&& MC.level.hasChunk(pos.x, pos.z))
+					&& MC.level.hasChunk(pos.x(), pos.z()))
 					continue;
 				
 				int count = entry.getValue();
@@ -474,7 +474,23 @@ public final class EntityCountHack extends Hack
 	{
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		
+		// Anchor to a near point so perspective doesn't shrink text.
+		Vec3 target = new Vec3(x, y, z);
+		Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
 		Entity camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -484,11 +500,8 @@ public final class EntityCountHack extends Hack
 		}
 		
 		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
-		float scale = 0.025F * labelScale.getValueF();
-		double distance = MC.player.distanceToSqr(x, y, z);
-		double meters = Math.sqrt(distance);
-		if(meters > 10)
-			scale *= meters / 10.0;
+		float scale = 0.025F * RenderUtils
+			.getCappedWorldLabelScale(labelScale.getValueF(), dist);
 		
 		matrices.scale(scale, -scale, scale);
 		
@@ -497,8 +510,9 @@ public final class EntityCountHack extends Hack
 		int bgAlpha = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
 		int stroke = 0xCC000000;
-		RenderUtils.drawOutlinedTextInBatch(font, text, -halfWidth, 0, argb,
-			stroke, matrix, Font.DisplayMode.SEE_THROUGH, bgAlpha, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(font, text,
+			-halfWidth, 0, argb, stroke, matrix, Font.DisplayMode.SEE_THROUGH,
+			bgAlpha, 0xF000F0);
 		matrices.popPose();
 	}
 	

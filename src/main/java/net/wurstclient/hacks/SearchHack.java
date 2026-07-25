@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat.Mode;
+import com.mojang.blaze3d.PrimitiveTopology;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -37,12 +37,8 @@ import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.decoration.ItemFrame;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
@@ -117,6 +113,9 @@ public final class SearchHack extends Hack implements UpdateListener,
 			ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final SliderSetting tracerThickness = new SliderSetting(
+		"Tracer thickness", "Line thickness for SearchESP tracers.", 2, 0.5, 10,
+		0.1, ValueDisplay.DECIMAL);
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
 			"Off: Re-centers the scan every chunk to match ESP drop-off.\n"
@@ -141,10 +140,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		"Anti-ESP alerts",
 		"Sends chat warnings when Search detects suspicious anti-ESP behavior.",
 		true);
-	private final CheckboxSetting searchItemContents = new CheckboxSetting(
-		"Search item contents",
-		"Also search dropped items, item frames, and shelves using the selected item name or ID.",
-		false);
 	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
@@ -219,9 +214,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 	private boolean antiEspSuspicious;
 	private int antiEspSignals;
 	private boolean antiEspPreviouslyEnabled;
-	private boolean lastSearchItemContents;
-	private int itemScanCooldown;
-	private final HashSet<BlockPos> matchingItemPositions = new HashSet<>();
 	
 	public SearchHack()
 	{
@@ -236,6 +228,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(highlightFill);
 		addSetting(highlightAlpha);
 		addSetting(tracerFlash);
+		addSetting(tracerThickness);
 		addSetting(stickyArea);
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
@@ -245,7 +238,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(aboveGroundY);
 		addSetting(antiEspDetection);
 		addSetting(antiEspAlerts);
-		addSetting(searchItemContents);
 		// new setting
 		addSetting(showCountInHackList);
 	}
@@ -291,7 +283,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		currentBuildGeneration = 0;
 		bufferUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMode = mode.getSelected();
 		lastListHash = blockList.getBlockNames().hashCode();
 		lastNeedsVertexBuffer = needsVertexBuffer();
@@ -299,7 +291,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		resetAntiEspState();
 		antiEspPreviouslyEnabled = antiEspDetection.isChecked();
-		lastSearchItemContents = searchItemContents.isChecked();
 		if(shaderSafeMode)
 			ChatUtils
 				.message("Shaders detected - using safe mode for SearchHack.");
@@ -330,8 +321,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		tracerEnds = null;
 		lastPlayerChunk = null;
 		foundCount = 0; // reset count
-		matchingItemPositions.clear();
-		itemScanCooldown = 0;
 		resetAntiEspState();
 		antiEspPreviouslyEnabled = false;
 	}
@@ -372,12 +361,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 		
 		SearchMode currentMode = mode.getSelected();
-		if(searchItemContents.isChecked() != lastSearchItemContents)
-		{
-			lastSearchItemContents = searchItemContents.isChecked();
-			matchingItemPositions.clear();
-			stopBuildingBuffer(true);
-		}
 		
 		// Mode/list changes
 		if(currentMode != lastMode)
@@ -396,7 +379,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		}
 		
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -429,13 +412,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		// Update coordinator (adds/removes searchers, applies packet updates)
 		coordinator.update();
-		if(searchItemContents.isChecked())
-		{
-			HashSet<BlockPos> previous = new HashSet<>(matchingItemPositions);
-			updateMatchingItemPositions();
-			if(!previous.equals(matchingItemPositions))
-				stopBuildingBuffer(false);
-		}
 		
 		int matchesVersion = coordinator.getMatchesVersion();
 		if(matchesVersion != lastMatchesVersion)
@@ -570,8 +546,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			ArrayList<RenderUtils.ColoredPoint> coloredTracerEnds =
+				new ArrayList<>(tracerEnds.size());
+			for(Vec3 end : tracerEnds)
+				coloredTracerEnds
+					.add(new RenderUtils.ColoredPoint(end, tracerColor));
+			RenderUtils.drawTracers("Search", matrixStack, partialTicks,
+				coloredTracerEnds, false, tracerThickness.getValue());
 		}
 		
 		if(drawHighlights)
@@ -706,86 +687,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
-	private void updateMatchingItemPositions()
-	{
-		if(itemScanCooldown-- > 0)
-			return;
-		itemScanCooldown = 10;
-		matchingItemPositions.clear();
-		if(MC.level == null || MC.player == null)
-			return;
-		
-		for(ItemEntity entity : MC.level.getEntitiesOfClass(ItemEntity.class,
-			MC.player.getBoundingBox().inflate(2048), e -> !e.isRemoved()))
-			if(area.isInRange(ChunkPos.containing(entity.blockPosition()))
-				&& itemMatchesSearch(entity.getItem()))
-				matchingItemPositions.add(entity.blockPosition());
-			
-		for(ItemFrame frame : MC.level.getEntitiesOfClass(ItemFrame.class,
-			MC.player.getBoundingBox().inflate(2048), e -> !e.isRemoved()))
-			if(area.isInRange(ChunkPos.containing(frame.blockPosition()))
-				&& itemMatchesSearch(frame.getItem()))
-				matchingItemPositions.add(frame.blockPosition());
-			
-		for(LevelChunk chunk : area.getChunksInRange().stream()
-			.filter(c -> c instanceof LevelChunk).map(c -> (LevelChunk)c)
-			.toList())
-			for(BlockEntity blockEntity : chunk.getBlockEntities().values())
-				if(blockEntity instanceof ShelfBlockEntity shelf)
-				{
-					for(ItemStack stack : shelf.getItems())
-						if(itemMatchesSearch(stack))
-						{
-							matchingItemPositions.add(shelf.getBlockPos());
-							break;
-						}
-				}
-	}
-	
-	private boolean itemMatchesSearch(ItemStack stack)
-	{
-		if(stack == null || stack.isEmpty())
-			return false;
-		
-		String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-		switch(mode.getSelected())
-		{
-			case BLOCK_ID:
-			return id.equals(BlockUtils.getName(block.getBlock()));
-			case LIST:
-			if(listExactIds.contains(id))
-				return true;
-			for(String term : listKeywords)
-				if(itemContains(stack, id, term))
-					return true;
-			return false;
-			case QUERY:
-			for(String term : normalizedItemTerms(query.getValue()))
-				if(itemContains(stack, id, term))
-					return true;
-			return false;
-			default:
-			return false;
-		}
-	}
-	
-	private boolean itemContains(ItemStack stack, String id, String term)
-	{
-		String localId =
-			id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
-		return containsNormalized(id, term) || containsNormalized(localId, term)
-			|| containsNormalized(localId.replace('_', ' '), term)
-			|| containsNormalized(stack.getHoverName().getString(), term);
-	}
-	
-	private String[] normalizedItemTerms(String raw)
-	{
-		String normalized = normalizeQuery(raw);
-		String[] terms = Arrays.stream(normalized.split(",")).map(String::trim)
-			.filter(s -> !s.isEmpty()).toArray(String[]::new);
-		return terms.length == 0 ? new String[]{normalized} : terms;
-	}
-	
 	private boolean containsNormalized(String haystack, String normalizedQuery)
 	{
 		return haystack != null
@@ -800,7 +701,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		BlockPos eyesPos = BlockPos.containing(RotationUtils.getEyesPos());
 		final int limitCount = getEffectiveRenderLimit();
 		currentBuildGeneration = buildGeneration;
-		HashSet<BlockPos> itemPositions = new HashSet<>(matchingItemPositions);
 		getMatchingBlocksTask = forkJoinPool.submit(() -> {
 			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
 				(a, b) -> Integer.compare(b.distManhattan(eyesPos),
@@ -811,17 +711,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 			{
 				ChunkSearcher.Result r = it.next();
 				BlockPos pos = r.pos();
-				if(heap.size() < limitCount)
-					heap.offer(pos);
-				else if(pos.distManhattan(eyesPos) < heap.peek()
-					.distManhattan(eyesPos))
-				{
-					heap.poll();
-					heap.offer(pos);
-				}
-			}
-			for(BlockPos pos : itemPositions)
-			{
 				if(heap.size() < limitCount)
 					heap.offer(pos);
 				else if(pos.distManhattan(eyesPos) < heap.peek()
@@ -884,17 +773,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		for(ChunkSearcher.Result r : readyMatches)
 		{
 			BlockPos pos = r.pos();
-			if(heap.size() < limitCount)
-				heap.offer(pos);
-			else if(pos.distManhattan(eyesPos) < heap.peek()
-				.distManhattan(eyesPos))
-			{
-				heap.poll();
-				heap.offer(pos);
-			}
-		}
-		for(BlockPos pos : matchingItemPositions)
-		{
 			if(heap.size() < limitCount)
 				heap.offer(pos);
 			else if(pos.distManhattan(eyesPos) < heap.peek()
@@ -968,7 +846,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
-				return pos.getCenter();
+				return Vec3.atCenterOf(pos);
 			}).collect(java.util.stream.Collectors.toList());
 			foundCount = Math.min(matchingBlocks.size(), 999);
 			
@@ -986,7 +864,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 		RegionPos region = RenderUtils.getCameraRegion();
 		if(vertexBuffer != null)
 			vertexBuffer.close();
-		vertexBuffer = EasyVertexBuffer.createAndUpload(Mode.QUADS,
+		vertexBuffer = EasyVertexBuffer.createAndUpload(PrimitiveTopology.QUADS,
 			DefaultVertexFormat.POSITION_COLOR, buffer -> {
 				for(int[] vertex : vertices)
 					buffer.addVertex(vertex[0] - region.x(), vertex[1],
@@ -1003,7 +881,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 				if(net.wurstclient.util.BlockUtils.canBeClicked(pos))
 					return net.wurstclient.util.BlockUtils.getBoundingBox(pos)
 						.getCenter();
-				return pos.getCenter();
+				return Vec3.atCenterOf(pos);
 			}).collect(java.util.stream.Collectors.toList());
 			// update count for HUD (clamped to 999)
 			foundCount = Math.min(matchingBlocks.size(), 999);
@@ -1366,10 +1244,10 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private void scanChunkForContainers(ChunkPos chunkPos)
 	{
-		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
 			return;
 		
-		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
 		if(chunk == null)
 			return;
 		
@@ -1417,13 +1295,13 @@ public final class SearchHack extends Hack implements UpdateListener,
 		
 		if(withoutBlockEntity > 0)
 			flagAntiEsp("missing-be",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ withoutBlockEntity
 					+ " container blocks without block entities");
 		
 		if(containerBlocks >= 8 && withBlockEntity == 0)
 			flagAntiEsp("chunk-te-mismatch",
-				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
+				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
 					+ containerBlocks
 					+ " container blocks but 0 block entities");
 	}
@@ -1543,7 +1421,7 @@ public final class SearchHack extends Hack implements UpdateListener,
 	
 	private static long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
+		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
 	}
 	
 	private boolean isTrackedBlock(Block candidate)

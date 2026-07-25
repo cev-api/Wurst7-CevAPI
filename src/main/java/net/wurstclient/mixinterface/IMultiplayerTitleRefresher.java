@@ -5,10 +5,17 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixinterface;
+package net.fabricmc.fabric.api.client.keybinding.v1;
 
-/** Refreshes the dynamic account title on the multiplayer screen. */
-public interface IMultiplayerTitleRefresher
+import net.minecraft.client.KeyMapping;
+
+public final class KeyBindingHelper
 {
-	void wurst$refreshAccountTitle();
+	private KeyBindingHelper()
+	{}
+	
+	public static KeyMapping registerKeyBinding(KeyMapping keyBinding)
+	{
+		return keyBinding;
+	}
 }

@@ -12,7 +12,6 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -40,14 +39,14 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
 	private final CommonNukerSettings commonSettings =
-		new CommonNukerSettings(true);
+		new CommonNukerSettings();
 	
 	private final SwingHandSetting swingHand = new SwingHandSetting(
 		SwingHandSetting.genericMiningDescription(this), SwingHand.OFF);
 	
 	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
 		"Auto switch tool",
-		"Automatically switch to the best tool in your inventory for the current"
+		"Automatically switch to the best tool in your hotbar for the current"
 			+ " block even if the AutoTool hack is disabled.",
 		false);
 	
@@ -109,11 +108,6 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		// Yield before, during, and immediately after AutoEat's hand/inventory
-		// interaction. The next update automatically resumes SpeedNuker.
-		if(WURST.getHax().autoEatHack.shouldPauseOtherActions())
-			return;
-		
 		if(commonSettings.isIdModeWithAir())
 			return;
 		
@@ -122,25 +116,14 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		double rangeSq = range.getValueSq();
 		int blockRange = range.getValueCeil();
 		
-		Stream<BlockPos> stream;
-		if(commonSettings.isTunnelMode())
-		{
-			Direction direction = MC.player.getDirection();
-			BlockPos start =
-				BlockPos.containing(MC.player.position()).relative(direction);
-			BlockPos end = start.relative(direction, blockRange - 1).above();
-			stream = BlockUtils.getAllInBoxStream(start, end);
-		}else
-		{
-			stream = BlockUtils.getAllInBoxStream(eyesBlock, blockRange);
-			if(commonSettings.isSphereShape())
-				stream = stream
-					.filter(pos -> pos.distToCenterSqr(eyesVec) <= rangeSq);
-		}
+		Stream<BlockPos> stream =
+			BlockUtils.getAllInBoxStream(eyesBlock, blockRange)
+				.filter(BlockUtils::canBeClicked)
+				.filter(commonSettings::shouldBreakBlock);
 		
-		stream = stream.filter(BlockUtils::canBeClicked)
-			.filter(pos -> !BlockUtils.isUnbreakable(pos))
-			.filter(commonSettings::shouldBreakBlock);
+		if(commonSettings.isSphereShape())
+			stream =
+				stream.filter(pos -> pos.distToCenterSqr(eyesVec) <= rangeSq);
 		
 		ArrayList<BlockPos> blocks = stream
 			.sorted(
@@ -157,15 +140,11 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		// switch
 		if(WURST.getHax().autoToolHack.isEnabled())
 		{
-			if(WURST.getHax().autoToolHack.isEnabled())
-			{
-				WURST.getHax().autoToolHack
-					.equipIfEnabledFromInventory(blocks.get(0));
-			}else if(autoSwitchTool.isChecked())
-			{
-				WURST.getHax().autoToolHack.equipBestToolFromInventory(
-					blocks.get(0), true, true, 0, slot -> true);
-			}
+			WURST.getHax().autoToolHack.equipIfEnabled(blocks.get(0));
+		}else if(autoSwitchTool.isChecked())
+		{
+			WURST.getHax().autoToolHack.equipBestTool(blocks.get(0), true, true,
+				0);
 		}
 		
 		BlockBreaker.breakBlocksWithPacketSpam(blocks);

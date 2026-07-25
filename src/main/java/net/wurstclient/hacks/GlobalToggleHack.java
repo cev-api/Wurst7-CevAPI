@@ -79,14 +79,18 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new CheckboxSetting("Enable global ESP render limit",
 			"When disabled, the global ESP render-limit slider is ignored.",
 			false);
+	private final CheckboxSetting globalEspRangeEnabled = new CheckboxSetting(
+		"Enable global ESP/tracer range",
+		"When enabled, ESP and tracer targets outside the global range are ignored.",
+		false);
+	private final SliderSetting globalEspRange = new SliderSetting(
+		"Global ESP/tracer range",
+		"Maximum distance for ESP and tracer targets when the global range limiter is enabled.",
+		128, 1, 512, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting disableAllTracers = new CheckboxSetting(
 		"Disable all tracers",
 		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
 		false);
-	private final CheckboxSetting nearestTracerOnly =
-		new CheckboxSetting("Nearest tracer per category",
-			"Limits every ESP tracer category to its closest visible target.",
-			false);
 	private final SettingGroup tracerFilters = new SettingGroup(
 		"Tracer filters",
 		WText.literal(
@@ -126,8 +130,9 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderMode);
 		addSetting(globalEspRenderLimitEnabled);
 		addSetting(globalEspRenderLimit);
+		addSetting(globalEspRangeEnabled);
+		addSetting(globalEspRange);
 		addSetting(disableAllTracers);
-		addSetting(nearestTracerOnly);
 		addSetting(tracerFilters);
 		registerTracerSource("chestesp", "ChestESP", true);
 		registerTracerSource("playeresp", "PlayerESP", true);
@@ -325,14 +330,19 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return globalEspRenderLimitEnabled.isChecked();
 	}
 	
+	public boolean isWithinGlobalEspRange(Vec3 point)
+	{
+		if(!globalEspRangeEnabled.isChecked() || point == null
+			|| MC.player == null)
+			return true;
+		
+		double range = globalEspRange.getValue();
+		return MC.player.distanceToSqr(point) <= range * range;
+	}
+	
 	public boolean areAllTracersDisabled()
 	{
 		return disableAllTracers.isChecked();
-	}
-	
-	public boolean isNearestTracerOnlyEnabled()
-	{
-		return nearestTracerOnly.isChecked();
 	}
 	
 	public void toggleAllTracers()

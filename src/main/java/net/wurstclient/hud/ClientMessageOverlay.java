@@ -7,10 +7,6 @@
  */
 package net.wurstclient.hud;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -18,8 +14,6 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,7 +21,6 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
-import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -38,15 +31,18 @@ import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.FormattedText;
-import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.minecraft.network.chat.contents.ObjectContents;
+import net.minecraft.network.chat.contents.objects.PlayerSprite;
+import net.minecraft.network.chat.contents.objects.ObjectInfo;
+import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
-import net.minecraft.resources.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.ClientChatOverlayHack;
 
@@ -77,14 +73,6 @@ public final class ClientMessageOverlay
 		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s+\\[[^\\]]{1,32}\\]\\s+.+$");
 	private static final Pattern USERNAME_PATTERN =
 		Pattern.compile("[A-Za-z0-9_]{1,16}");
-	private static final Pattern EMOJI_SHORTCODE_PATTERN =
-		Pattern.compile(":([a-z0-9_+\\-]+):");
-	private static final Identifier EMOJI_FONT =
-		Identifier.fromNamespaceAndPath("wurst", "emoji");
-	private static final FontDescription EMOJI_FONT_DESCRIPTION =
-		new FontDescription.Resource(EMOJI_FONT);
-	private static final Map<String, String> EMOJI_SHORTCODES =
-		loadEmojiShortcodes();
 	private static final Pattern DISCORD_PREFIX_PATTERN =
 		Pattern.compile("^\\[Discord\\]\\s+.+$", Pattern.CASE_INSENSITIVE);
 	private static final ClientMessageOverlay INSTANCE =
@@ -116,8 +104,6 @@ public final class ClientMessageOverlay
 	private int lastWurstY1;
 	private int lastWurstX2;
 	private int lastWurstY2;
-	private int lastGuiWidth;
-	private int lastGuiHeight;
 	private boolean tabHeldForOverlay;
 	private List<LineClickTarget> lastMainClickTargets = List.of();
 	private List<LineClickTarget> lastWurstClickTargets = List.of();
@@ -246,11 +232,9 @@ public final class ClientMessageOverlay
 			return;
 		
 		boolean overMain =
-			isMouseOverPanelNow(lastMainX1, lastMainY1, lastMainX2, lastMainY2)
-				&& totalLineCount > visibleLineCount;
+			hoveredMainPanel && totalLineCount > visibleLineCount;
 		boolean overWurst =
-			isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
-				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount;
+			hoveredWurstPanel && wurstTotalLineCount > wurstVisibleLineCount;
 		if(!overMain && !overWurst)
 			return;
 		
@@ -282,10 +266,10 @@ public final class ClientMessageOverlay
 	
 	public boolean isControllingScrollEvents()
 	{
-		return isEnabled() && ((isMouseOverPanelNow(lastMainX1, lastMainY1,
-			lastMainX2, lastMainY2) && totalLineCount > visibleLineCount)
-			|| (isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
-				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount));
+		return isEnabled()
+			&& ((hoveredMainPanel && totalLineCount > visibleLineCount)
+				|| (hoveredWurstPanel
+					&& wurstTotalLineCount > wurstVisibleLineCount));
 	}
 	
 	public void notifyVanillaChatMessage(Component message)
@@ -295,11 +279,6 @@ public final class ClientMessageOverlay
 	
 	public void render(GuiGraphicsExtractor context)
 	{
-		// Hover state is only valid for the panel rendered during this frame.
-		// Clear it first so an expired/hidden overlay cannot keep consuming the
-		// mouse wheel and prevent vanilla hotbar selection.
-		clearHoverState();
-		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
@@ -553,141 +532,16 @@ public final class ClientMessageOverlay
 	private Component prepareStoredMessage(Component message,
 		boolean wurstOnlyPanel)
 	{
-		Component prepared;
 		if(wurstOnlyPanel)
-			prepared = applyDefaultTextColorIfEnabled(message);
-		else
-		{
-			Component normalized = normalizePlayerChatForDisplay(message);
-			prepared = normalized != null ? normalized
-				: shouldColorStoredUsername(message, false)
-					? prepareMessageForDisplay(message)
-					: applyDefaultTextColorIfEnabled(message);
-		}
+			return applyDefaultTextColorIfEnabled(message);
 		
-		return convertEmojiShortcodesIfEnabled(prepared);
-	}
-	
-	private Component convertEmojiShortcodesIfEnabled(Component message)
-	{
-		ClientChatOverlayHack hack = getSettings();
-		if(hack == null || !hack.isEnabled() || !hack.shouldConvertEmojis()
-			|| message == null)
-			return message;
+		Component normalized = normalizePlayerChatForDisplay(message);
+		if(normalized != null)
+			return normalized;
 		
-		return convertEmojiShortcodes(message);
-	}
-	
-	private static MutableComponent convertEmojiShortcodes(Component component)
-	{
-		MutableComponent result;
-		if(component.getContents() instanceof LiteralContents literal)
-			result = convertLiteralEmojiShortcodes(literal.text(),
-				component.getStyle());
-		else if(component
-			.getContents() instanceof TranslatableContents translatable)
-		{
-			Object[] args = translatable.getArgs();
-			Object[] converted = args == null ? new Object[0] : args.clone();
-			for(int i = 0; i < converted.length; i++)
-			{
-				if(converted[i] instanceof Component argument)
-					converted[i] = convertEmojiShortcodes(argument);
-				else if(converted[i] instanceof String text
-					&& EMOJI_SHORTCODE_PATTERN.matcher(text).find())
-					converted[i] = convertLiteralEmojiShortcodes(text,
-						component.getStyle());
-			}
-			result = Component.translatable(translatable.getKey(), converted);
-		}else
-			result = MutableComponent.create(component.getContents());
-		
-		result.setStyle(component.getStyle());
-		for(Component sibling : component.getSiblings())
-			result.append(convertEmojiShortcodes(sibling));
-		return result;
-	}
-	
-	private static MutableComponent convertLiteralEmojiShortcodes(String text,
-		Style style)
-	{
-		MutableComponent result = Component.empty().withStyle(style);
-		Matcher matcher = EMOJI_SHORTCODE_PATTERN.matcher(text);
-		int start = 0;
-		while(matcher.find())
-		{
-			if(matcher.start() > start)
-				appendTextWithEmojiFont(result,
-					text.substring(start, matcher.start()), style);
-			String emoji = EMOJI_SHORTCODES.get(matcher.group());
-			if(emoji == null)
-				appendTextWithEmojiFont(result, matcher.group(), style);
-			else
-				result.append(Component.literal(emoji).withStyle(style)
-					.withStyle(shortcodeStyle -> shortcodeStyle
-						.withFont(EMOJI_FONT_DESCRIPTION)));
-			start = matcher.end();
-		}
-		if(start < text.length())
-			appendTextWithEmojiFont(result, text.substring(start), style);
-		return result;
-	}
-	
-	private static void appendTextWithEmojiFont(MutableComponent result,
-		String text, Style style)
-	{
-		int plainStart = 0;
-		for(int offset = 0; offset < text.length();)
-		{
-			int codePoint = text.codePointAt(offset);
-			int next = offset + Character.charCount(codePoint);
-			if(isEmojiCodePoint(codePoint))
-			{
-				if(offset > plainStart)
-					result.append(
-						Component.literal(text.substring(plainStart, offset))
-							.withStyle(style));
-				result.append(Component.literal(text.substring(offset, next))
-					.withStyle(style).withStyle(shortcodeStyle -> shortcodeStyle
-						.withFont(EMOJI_FONT_DESCRIPTION)));
-				plainStart = next;
-			}
-			offset = next;
-		}
-		if(plainStart < text.length())
-			result.append(
-				Component.literal(text.substring(plainStart)).withStyle(style));
-	}
-	
-	private static boolean isEmojiCodePoint(int codePoint)
-	{
-		return codePoint >= 0x1F000 && codePoint <= 0x1FAFF
-			|| codePoint >= 0x2600 && codePoint <= 0x27BF
-			|| codePoint >= 0x2300 && codePoint <= 0x23FF || codePoint == 0x00A9
-			|| codePoint == 0x00AE || codePoint == 0x203C || codePoint == 0x2049
-			|| codePoint == 0x2122;
-	}
-	
-	private static Map<String, String> loadEmojiShortcodes()
-	{
-		try(InputStream stream = ClientMessageOverlay.class
-			.getResourceAsStream("/assets/wurst/lang/en_us.json"))
-		{
-			if(stream == null)
-				return Map.of();
-			var root = JsonParser
-				.parseReader(
-					new InputStreamReader(stream, StandardCharsets.UTF_8))
-				.getAsJsonObject();
-			Map<String, String> result = new HashMap<>();
-			for(var entry : root.entrySet())
-				if(EMOJI_SHORTCODE_PATTERN.matcher(entry.getKey()).matches())
-					result.put(entry.getKey(), entry.getValue().getAsString());
-			return Map.copyOf(result);
-		}catch(IOException | RuntimeException e)
-		{
-			return Map.of();
-		}
+		return shouldColorStoredUsername(message, false)
+			? prepareMessageForDisplay(message)
+			: applyDefaultTextColorIfEnabled(message);
 	}
 	
 	private Component normalizePlayerChatForDisplay(Component message)
@@ -695,6 +549,12 @@ public final class ClientMessageOverlay
 		ClientChatOverlayHack hack = getSettings();
 		if(hack == null || !hack.isEnabled() || message == null)
 			return null;
+			
+		// PlayerSprite.getString() is represented as "[Name head]". Keep the
+		// component tree intact when another chat-head implementation already
+		// added one; parsing that synthetic text is what used to cut names.
+		if(containsPlayerSprite(message))
+			return message.copy();
 		
 		NormalizedPlayerChat chat =
 			extractNormalizedPlayerChat(message.getString());
@@ -709,12 +569,46 @@ public final class ClientMessageOverlay
 		int usernameRgb = hack.shouldColorUsernames()
 			? getUsernameColor(chat.name(), hack) : defaultRgb;
 		
-		return Component.literal("<")
+		MutableComponent normalized = Component.literal("<")
 			.withStyle(style -> style.withColor(defaultRgb))
 			.append(Component.literal(chat.name())
 				.withStyle(style -> style.withColor(usernameRgb)))
 			.append(Component.literal("> " + chat.message())
 				.withStyle(style -> style.withColor(defaultRgb)));
+		
+		if(hack.shouldShowChatHeads())
+		{
+			net.minecraft.client.multiplayer.PlayerInfo info =
+				findOnlinePlayer(chat.name());
+			if(info != null)
+				normalized = Component.empty()
+					.append(Component.object(new PlayerSprite(
+						ResolvableProfile.createResolved(info.getProfile()),
+						info.showHat())))
+					.append(normalized);
+		}
+		
+		return normalized;
+	}
+	
+	public static boolean containsPlayerSprite(Component component)
+	{
+		if(component
+			.getContents() instanceof ObjectContents(ObjectInfo objectInfo, java.util.Optional<?> ignored)
+			&& objectInfo instanceof PlayerSprite)
+			return true;
+		
+		for(Component sibling : component.getSiblings())
+			if(containsPlayerSprite(sibling))
+				return true;
+			
+		if(component.getContents() instanceof TranslatableContents translatable)
+			for(Object arg : translatable.getArgs())
+				if(arg instanceof Component argument
+					&& containsPlayerSprite(argument))
+					return true;
+				
+		return false;
 	}
 	
 	private static boolean shouldColorStoredUsername(Component message,
@@ -765,19 +659,24 @@ public final class ClientMessageOverlay
 			rgb, new int[]{0});
 	}
 	
+	public static int getUsernameColorForTabList(String name)
+	{
+		ClientChatOverlayHack hack = INSTANCE.getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames())
+			return -1;
+		
+		return getUsernameColor(name, hack);
+	}
+	
 	public Component prepareMessageForDisplay(Component message)
 	{
 		Component normalized = normalizePlayerChatForDisplay(message);
-		Component prepared;
 		if(normalized != null)
-			prepared = normalized;
-		else
-		{
-			prepared = applyDefaultTextColorIfEnabled(
-				colorizeChatUsernameIfEnabled(message));
-			prepared = addChatHeadIfEnabled(prepared);
-		}
-		return convertEmojiShortcodesIfEnabled(prepared);
+			return normalized;
+		
+		Component prepared = applyDefaultTextColorIfEnabled(
+			colorizeChatUsernameIfEnabled(message));
+		return addChatHeadIfEnabled(prepared);
 	}
 	
 	private Component addChatHeadIfEnabled(Component message)
@@ -806,8 +705,8 @@ public final class ClientMessageOverlay
 	
 	public Component prepareClientSystemMessageForDisplay(Component message)
 	{
-		return convertEmojiShortcodesIfEnabled(applyDefaultTextColorIfEnabled(
-			colorizeChatUsernameIfEnabled(message)));
+		return applyDefaultTextColorIfEnabled(
+			colorizeChatUsernameIfEnabled(message));
 	}
 	
 	public Component applyDefaultTextColorIfEnabled(Component message)
@@ -1030,6 +929,13 @@ public final class ClientMessageOverlay
 	
 	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
 	{
+		if(hack.shouldUseServerColors())
+		{
+			int serverColor = getServerPlayerColor(findOnlinePlayer(name));
+			if(serverColor >= 0)
+				return serverColor;
+		}
+		
 		String ownName = getOwnPlayerName();
 		boolean ownNameMatches = name.equalsIgnoreCase(ownName);
 		if(ownNameMatches && !hack.shouldRandomizeOwnUsernameColor())
@@ -1044,6 +950,52 @@ public final class ClientMessageOverlay
 			rgb = getGeneratedUsernameColor(name, attempt);
 		
 		return rgb;
+	}
+	
+	public static int getServerPlayerColor(
+		net.minecraft.client.multiplayer.PlayerInfo info)
+	{
+		if(info == null)
+			return -1;
+		
+		Integer displayColor =
+			findExplicitComponentColor(info.getTabListDisplayName());
+		if(displayColor != null)
+			return displayColor;
+		
+		if(info.getTeam() != null && info.getTeam().getColor().isPresent())
+			return info.getTeam().getColor().get().rgb();
+		
+		return -1;
+	}
+	
+	private static Integer findExplicitComponentColor(Component component)
+	{
+		if(component == null)
+			return null;
+		
+		TextColor color = component.getStyle().getColor();
+		if(color != null)
+			return color.getValue();
+		
+		for(Component sibling : component.getSiblings())
+		{
+			Integer siblingColor = findExplicitComponentColor(sibling);
+			if(siblingColor != null)
+				return siblingColor;
+		}
+		
+		if(component.getContents() instanceof TranslatableContents translatable)
+			for(Object arg : translatable.getArgs())
+				if(arg instanceof Component argument)
+				{
+					Integer argumentColor =
+						findExplicitComponentColor(argument);
+					if(argumentColor != null)
+						return argumentColor;
+				}
+			
+		return null;
 	}
 	
 	private static int getGeneratedUsernameColor(String name, int attempt)
@@ -1131,13 +1083,6 @@ public final class ClientMessageOverlay
 		String rawTrimmed = raw.trim();
 		String text = stripLegacyFormatting(raw).trim();
 		boolean hadLegacyFormatting = !text.equals(rawTrimmed);
-		boolean hadDisplayedFormatting = false;
-		if(!hadLegacyFormatting)
-		{
-			String strippedDisplayed = stripDisplayedLegacyFormatting(text);
-			hadDisplayedFormatting = !strippedDisplayed.equals(text);
-			text = strippedDisplayed;
-		}
 		if(text.isBlank())
 			return null;
 		
@@ -1145,7 +1090,7 @@ public final class ClientMessageOverlay
 		if(text.isBlank())
 			return null;
 		
-		if(!hadLegacyFormatting && !hadDisplayedFormatting)
+		if(!hadLegacyFormatting)
 			return null;
 		
 		NormalizedPlayerChat angleChat = extractAngleBracketChat(text);
@@ -1338,20 +1283,31 @@ public final class ClientMessageOverlay
 		if(connection == null)
 			return false;
 		
+		return findOnlinePlayer(name) != null;
+	}
+	
+	@Nullable
+	private static net.minecraft.client.multiplayer.PlayerInfo findOnlinePlayer(
+		String name)
+	{
+		if(name == null || name.isEmpty())
+			return null;
+		
+		var connection = WurstClient.MC.getConnection();
+		if(connection == null)
+			return null;
+		
 		for(var info : getOnlinePlayersSafe(connection))
 		{
 			if(info == null || info.getProfile() == null)
 				continue;
 			
 			String onlineName = getProfileNameSafe(info.getProfile());
-			if(onlineName == null || onlineName.isEmpty())
-				continue;
-			
-			if(name.equalsIgnoreCase(onlineName))
-				return true;
+			if(onlineName != null && name.equalsIgnoreCase(onlineName))
+				return info;
 		}
 		
-		return false;
+		return null;
 	}
 	
 	/**
@@ -2103,9 +2059,6 @@ public final class ClientMessageOverlay
 		float width, float height, int wurstY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel)
 	{
-		lastGuiWidth = context.guiWidth();
-		lastGuiHeight = context.guiHeight();
-		
 		if(height > 0 && y != Integer.MIN_VALUE)
 		{
 			lastMainX1 = x;
@@ -2125,25 +2078,6 @@ public final class ClientMessageOverlay
 		}
 		hoveredWurstPanel = hasWurstPanel && isMouseOverPanel(context,
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
-	}
-	
-	private void clearHoverState()
-	{
-		hoveredMainPanel = false;
-		hoveredWurstPanel = false;
-	}
-	
-	private boolean isMouseOverPanelNow(int x1, int y1, int x2, int y2)
-	{
-		Window window = WurstClient.MC.getWindow();
-		if(window == null || lastGuiWidth <= 0 || lastGuiHeight <= 0)
-			return false;
-		
-		double mouseX = WurstClient.MC.mouseHandler.xpos() * lastGuiWidth
-			/ window.getScreenWidth();
-		double mouseY = WurstClient.MC.mouseHandler.ypos() * lastGuiHeight
-			/ window.getScreenHeight();
-		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
 	}
 	
 	private static boolean isMouseOverPanel(GuiGraphicsExtractor context,

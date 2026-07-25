@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.monster.warden.AngerLevel;
@@ -50,7 +49,7 @@ public final class WardenEspHack extends Hack
 	private final List<LivingEntity> wardens = new ArrayList<>();
 	
 	// debugging: last found count to log when changes occur
-	private int lastFoundCount = -1;
+	private int lastFoundCount = 0;
 	
 	private final WardenEspStyleSetting style = new WardenEspStyleSetting();
 	private final CheckboxSetting fillShapes = new CheckboxSetting(
@@ -116,7 +115,8 @@ public final class WardenEspHack extends Hack
 			if(e.isRemoved() || (le.getHealth() <= 0))
 				continue;
 			// Prefer checking the entity type to handle mapped/obfuscated names
-			if(e.getType() == EntityType.WARDEN)
+			if(e.getType() == net.wurstclient.util.RegistryUtils
+				.entityType("warden"))
 				wardens.add(le);
 		}
 		
@@ -124,7 +124,6 @@ public final class WardenEspHack extends Hack
 		if(sz != lastFoundCount)
 		{
 			lastFoundCount = sz;
-			System.out.println("WardenESP: found wardens = " + sz);
 		}
 	}
 	
@@ -390,8 +389,8 @@ public final class WardenEspHack extends Hack
 		{
 			double lineWidth =
 				tracerMode.getSelected() == TracerMode.ALWAYS ? 1.8 : 2.8;
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerPoints,
-				false, lineWidth);
+			RenderUtils.drawTracers("WardenESP", matrixStack, partialTicks,
+				tracerPoints, false, lineWidth);
 		}
 	}
 	
@@ -427,8 +426,9 @@ public final class WardenEspHack extends Hack
 		// stroke for legibility
 		int strokeColor =
 			(Math.max(0, Math.min(255, baseAlpha)) << 24) | 0x000000;
-		RenderUtils.drawOutlinedTextInBatch(tr, text, -w, 0, argb, strokeColor,
-			matrix, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawOutlinedTextInBatch(tr, text, -w,
+			0, argb, strokeColor, matrix, Font.DisplayMode.SEE_THROUGH, bg,
+			0xF000F0);
 		matrices.popPose();
 	}
 	

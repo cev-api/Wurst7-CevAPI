@@ -98,7 +98,7 @@ public final class BarrierEspHack extends Hack implements UpdateListener,
 		boxesUpToDate = false;
 		lastRenderMode = renderMode.getSelected();
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		if(lastRenderMode.usesEsp())
@@ -127,7 +127,7 @@ public final class BarrierEspHack extends Hack implements UpdateListener,
 			coordinator.reset();
 			lastMatchesVersion = coordinator.getMatchesVersion();
 			lastAreaSelection = area.getSelected();
-			lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+			lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 			
 			if(currentMode.usesEsp())
 				addEspEvents();
@@ -146,7 +146,7 @@ public final class BarrierEspHack extends Hack implements UpdateListener,
 			boxesUpToDate = false;
 		}
 		
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -209,8 +209,8 @@ public final class BarrierEspHack extends Hack implements UpdateListener,
 		int tracerColor = color.getColorI(0x80);
 		if(tracerFlash.isChecked())
 			tracerColor = RenderUtils.flashColor(tracerColor);
-		RenderUtils.drawTracers(matrixStack, partialTicks, ends, tracerColor,
-			false);
+		RenderUtils.drawTracers("BarrierESP", matrixStack, partialTicks, ends,
+			tracerColor, false);
 	}
 	
 	private void updateBoxes()

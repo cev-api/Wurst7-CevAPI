@@ -8,7 +8,7 @@
 package net.wurstclient.clickgui.screens;
 
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -69,7 +69,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(startX + doneWidth + gap + smallButtonWidth + gap, buttonY,
 				smallButtonWidth, 20)
 			.build());
@@ -78,7 +78,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 	private void done()
 	{
 		hack.setCustomSystemPrompt(promptField.getValue());
-		minecraft.setScreen(prevScreen);
+		minecraft.gui.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -86,7 +86,7 @@ public final class AutoChatSystemPromptScreen extends Screen
 	{
 		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -100,16 +100,16 @@ public final class AutoChatSystemPromptScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		context.drawCenteredString(font, "AutoChat System Prompt", width / 2,
-			14, CommonColors.WHITE);
-		context.drawCenteredString(font,
+		context.centeredText(font, "AutoChat System Prompt", width / 2, 14,
+			CommonColors.WHITE);
+		context.centeredText(font,
 			"Ctrl+Enter to save. Use Default to load the generated prompt.",
 			width / 2, 26, 0xAAAAAA);
 		
-		super.render(context, mouseX, mouseY, partialTicks);
+		super.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

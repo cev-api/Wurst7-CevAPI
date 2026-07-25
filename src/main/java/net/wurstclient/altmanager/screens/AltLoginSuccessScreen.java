@@ -9,7 +9,7 @@ package net.wurstclient.altmanager.screens;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -43,16 +43,16 @@ public final class AltLoginSuccessScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		context.drawCenteredString(font, "Login successful", width / 2,
+		context.centeredText(font, "Login successful", width / 2,
 			height / 2 - 34, GREEN);
-		context.drawCenteredString(font, playerName, width / 2, height / 2 - 20,
+		context.centeredText(font, playerName, width / 2, height / 2 - 20,
 			GREEN);
 		
 		for(Renderable drawable : renderables)
-			drawable.render(context, mouseX, mouseY, partialTicks);
+			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -93,7 +93,7 @@ public final class AltLoginSuccessScreen extends Screen
 		
 		Screen screenToOpen = nextScreen instanceof JoinMultiplayerScreen
 			? new JoinMultiplayerScreen(new TitleScreen()) : nextScreen;
-		minecraft.setScreen(screenToOpen);
+		minecraft.gui.setScreen(screenToOpen);
 	}
 	
 	@Override

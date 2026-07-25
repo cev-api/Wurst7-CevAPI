@@ -110,12 +110,6 @@ public class SliderSetting extends Setting implements SliderLock
 		return defaultValue;
 	}
 	
-	@Override
-	public final void resetToDefault()
-	{
-		setValue(defaultValue);
-	}
-	
 	public final String getValueString()
 	{
 		return display.getValueString(getValue());

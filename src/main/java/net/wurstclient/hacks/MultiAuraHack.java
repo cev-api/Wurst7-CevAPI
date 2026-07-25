@@ -9,16 +9,15 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
-import java.util.ArrayDeque;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
-import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
@@ -36,11 +35,8 @@ import net.wurstclient.util.RotationUtils;
 
 @SearchTags({"multi aura", "ForceField", "force field"})
 public final class MultiAuraHack extends Hack
-	implements UpdateListener, HandleInputListener, RenderListener
+	implements UpdateListener, RenderListener
 {
-	private Entity pendingMaceTarget;
-	private final ArrayList<Entity> pendingMaceBurst = new ArrayList<>();
-	private final ArrayDeque<Integer> maceTargetQueue = new ArrayDeque<>();
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
@@ -56,6 +52,10 @@ public final class MultiAuraHack extends Hack
 	private final PauseAttackOnContainersSetting pauseOnContainers =
 		new PauseAttackOnContainersSetting(false);
 	
+	private final CheckboxSetting pauseForAutoEat =
+		new CheckboxSetting("Pause for AutoEat",
+			"Stops attacking while AutoEat is actively eating.", true);
+	
 	private final EntityFilterList entityFilters =
 		EntityFilterList.genericCombat();
 	
@@ -68,6 +68,7 @@ public final class MultiAuraHack extends Hack
 			false);
 	
 	private final List<Entity> currentTargets = new ArrayList<>();
+	private final List<Entity> lastTargets = new ArrayList<>();
 	
 	public MultiAuraHack()
 	{
@@ -79,6 +80,7 @@ public final class MultiAuraHack extends Hack
 		addSetting(fov);
 		addSetting(swingHand);
 		addSetting(pauseOnContainers);
+		addSetting(pauseForAutoEat);
 		addSetting(ignoreNpcs);
 		addSetting(showAttackTracers);
 		
@@ -94,33 +96,40 @@ public final class MultiAuraHack extends Hack
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().protectHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
 		WURST.getHax().triggerBotHack.setEnabled(false);
 		
 		speed.resetTimer();
 		EVENTS.add(UpdateListener.class, this);
-		EVENTS.add(HandleInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
-		EVENTS.remove(HandleInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
-		pendingMaceTarget = null;
-		pendingMaceBurst.clear();
-		maceTargetQueue.clear();
 		currentTargets.clear();
+		lastTargets.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		currentTargets.clear();
+		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
+		{
+			lastTargets.clear();
+			return;
+		}
+		
+		if(pauseForAutoEat.isChecked()
+			&& WURST.getHax().autoEatHack.shouldPauseOtherActions())
+			return;
+		
 		speed.updateTimer();
 		if(!speed.isTimeToAttack())
 			return;
@@ -153,47 +162,23 @@ public final class MultiAuraHack extends Hack
 		ArrayList<Entity> entities =
 			stream.collect(Collectors.toCollection(ArrayList::new));
 		if(entities.isEmpty())
+		{
+			lastTargets.clear();
 			return;
+		}
+		lastTargets.clear();
+		lastTargets.addAll(entities);
 		currentTargets.addAll(entities);
 		
 		if(maceSupportActive)
 		{
-			// Killaura selects and rotates during Update, then attacks during
-			// HandleInput. MaceDMG's fake fall sequence needs that same phase.
-			maceTargetQueue.removeIf(id -> {
-				Entity entity = MC.level.getEntity(id);
-				return entity == null || !entity.isAlive() || entity.isRemoved()
-					|| !entities.contains(entity);
-			});
-			for(Entity entity : entities)
-				if(!maceTargetQueue.contains(entity.getId())
-					&& (pendingMaceTarget == null
-						|| pendingMaceTarget.getId() != entity.getId()))
-					maceTargetQueue.addLast(entity.getId());
-				
-			if(pendingMaceTarget != null || !pendingMaceBurst.isEmpty())
-				return;
-			
-			int burstCount = maceDmg.getAuraBurstTargetCount();
-			ArrayList<Entity> picks = new ArrayList<>();
-			for(Integer id : maceTargetQueue)
+			if(maceDmg.queueTargets(entities))
 			{
-				if(picks.size() >= burstCount)
-					break;
-				Entity entity = MC.level.getEntity(id);
-				if(entity != null && maceDmg.canSpoofSmashNow(entity))
-					picks.add(entity);
+				if(shouldUseAuraSpeedAssist(maceDmg))
+					speed.resetTimer(0);
+				else
+					speed.resetTimer();
 			}
-			if(picks.isEmpty())
-				return;
-			
-			if(picks.size() == 1)
-				pendingMaceTarget = picks.get(0);
-			else
-				pendingMaceBurst.addAll(picks);
-			RotationUtils
-				.getNeededRotations(picks.get(0).getBoundingBox().getCenter())
-				.sendPlayerLookPacket();
 			return;
 		}
 		
@@ -219,55 +204,6 @@ public final class MultiAuraHack extends Hack
 			swingHand.swing(InteractionHand.MAIN_HAND);
 			speed.resetTimer();
 		}
-	}
-	
-	@Override
-	public void onHandleInput()
-	{
-		if(!pendingMaceBurst.isEmpty())
-		{
-			ArrayList<Entity> burst = new ArrayList<>(pendingMaceBurst);
-			pendingMaceBurst.clear();
-			
-			MaceDmgHack burstMaceDmg = WURST.getHax().maceDmgHack;
-			if(burstMaceDmg.hasFallDebt())
-				return;
-			
-			List<Entity> attacked = burstMaceDmg.performAuraBurst(burst,
-				burstMaceDmg.getAuraBurstTargetCount());
-			if(attacked.isEmpty())
-				return;
-			
-			for(Entity entity : attacked)
-				maceTargetQueue.removeFirstOccurrence(entity.getId());
-			if(shouldUseAuraSpeedAssist(burstMaceDmg))
-				speed.resetTimer(0);
-			else
-				speed.resetTimer();
-			return;
-		}
-		
-		Entity target = pendingMaceTarget;
-		pendingMaceTarget = null;
-		if(target == null || !target.isAlive() || target.isRemoved())
-			return;
-		
-		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
-		// The update phase already selected this as the mace path. Let the
-		// MaceDMG attack listener perform AttributeSwap/mace selection here;
-		// re-checking aura readiness can incorrectly suppress the attack while
-		// AttributeSwap is between slots.
-		if(maceDmg.hasFallDebt())
-			return;
-		
-		maceTargetQueue.removeFirstOccurrence(target.getId());
-		
-		MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
-		if(shouldUseAuraSpeedAssist(maceDmg))
-			speed.resetTimer(0);
-		else
-			speed.resetTimer();
 	}
 	
 	/**

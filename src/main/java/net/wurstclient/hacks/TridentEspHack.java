@@ -196,8 +196,8 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 					ends.add(hand);
 			}
 			if(!ends.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, ends,
-					lineColor, false);
+				RenderUtils.drawTracers("TridentESP", matrixStack, partialTicks,
+					ends, lineColor, false);
 		}
 	}
 	
@@ -286,14 +286,14 @@ public final class TridentEspHack extends Hack implements UpdateListener,
 		if(style.hasLines())
 		{
 			if(!selfEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, selfEnds,
-					selfCol, false);
+				RenderUtils.drawTracers("TridentESP", matrixStack, partialTicks,
+					selfEnds, selfCol, false);
 			if(!playerEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, playerEnds,
-					playerCol, false);
+				RenderUtils.drawTracers("TridentESP", matrixStack, partialTicks,
+					playerEnds, playerCol, false);
 			if(!mobEnds.isEmpty())
-				RenderUtils.drawTracers(matrixStack, partialTicks, mobEnds,
-					mobCol, false);
+				RenderUtils.drawTracers("TridentESP", matrixStack, partialTicks,
+					mobEnds, mobCol, false);
 		}
 	}
 	

@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import com.mojang.authlib.GameProfile;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -161,7 +161,7 @@ public final class OppStatsScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.setScreen(previous);
+		minecraft.gui.setScreen(previous);
 	}
 	
 	@Override
@@ -202,13 +202,13 @@ public final class OppStatsScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
-		list.render(context, mouseX, mouseY, partialTicks);
-		context.drawCenteredString(font, "OppStats", width / 2, 12, 0xFFFFFFFF);
+		list.extractRenderState(context, mouseX, mouseY, partialTicks);
+		context.centeredText(font, "OppStats", width / 2, 12, 0xFFFFFFFF);
 		for(var r : renderables)
-			r.render(context, mouseX, mouseY, partialTicks);
+			r.extractRenderState(context, mouseX, mouseY, partialTicks);
 		
 		OppRecord selected = list.getSingleSelected();
 		if(selected == null)
@@ -224,8 +224,8 @@ public final class OppStatsScreen extends Screen
 		drawInfoPanel(context, selected, panelX, infoY, panelW);
 	}
 	
-	private void drawModelPanel(GuiGraphics context, OppRecord selected, int x,
-		int y)
+	private void drawModelPanel(GuiGraphicsExtractor context,
+		OppRecord selected, int x, int y)
 	{
 		Identifier skin = resolveSkin(selected.uuid);
 		RenderUtils.fill2D(context, x, y, x + 86, y + 120, 0x55000000);
@@ -248,8 +248,8 @@ public final class OppStatsScreen extends Screen
 		
 	}
 	
-	private int drawEquipmentPanel(GuiGraphics context, OppRecord selected,
-		int x, int y, int w, int mouseX, int mouseY)
+	private int drawEquipmentPanel(GuiGraphicsExtractor context,
+		OppRecord selected, int x, int y, int w, int mouseX, int mouseY)
 	{
 		int panelH = 254;
 		RenderUtils.fill2D(context, x, y, x + w, y + panelH, 0x55000000);
@@ -268,8 +268,8 @@ public final class OppStatsScreen extends Screen
 			int rowY = y + 8 + i * rowH;
 			int iconX = x + 40;
 			int labelX = x + 8;
-			context.drawString(font, slots[i].label, labelX, rowY + 11,
-				0xFFD0E0FF, false);
+			context.text(font, slots[i].label, labelX, rowY + 11, 0xFFD0E0FF,
+				false);
 			ItemStack stack = parseStackIdToDisplay(slots[i].raw);
 			if(!stack.isEmpty())
 				RenderUtils.drawItem(context, stack, iconX, rowY + 6, true);
@@ -297,8 +297,8 @@ public final class OppStatsScreen extends Screen
 		return panelH;
 	}
 	
-	private void showSlotTooltip(GuiGraphics context, SlotView slot, int mouseX,
-		int mouseY)
+	private void showSlotTooltip(GuiGraphicsExtractor context, SlotView slot,
+		int mouseX, int mouseY)
 	{
 		ArrayList<Component> lines = new ArrayList<>();
 		String name = extractItemName(slot.raw);
@@ -316,8 +316,8 @@ public final class OppStatsScreen extends Screen
 		context.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 	}
 	
-	private void drawInfoPanel(GuiGraphics context, OppRecord selected, int x,
-		int y, int w)
+	private void drawInfoPanel(GuiGraphicsExtractor context, OppRecord selected,
+		int x, int y, int w)
 	{
 		infoPanelX = x;
 		infoPanelY = y;
@@ -402,20 +402,20 @@ public final class OppStatsScreen extends Screen
 		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 	
-	private void drawLine(GuiGraphics context, String text, int x, int y,
-		int maxWidth)
+	private void drawLine(GuiGraphicsExtractor context, String text, int x,
+		int y, int maxWidth)
 	{
 		if(font.width(text) <= maxWidth)
 		{
-			context.drawString(font, text, x, y, 0xFFE0E0E0, false);
+			context.text(font, text, x, y, 0xFFE0E0E0, false);
 			return;
 		}
 		RenderUtils.drawScaledText(context, font, text, x, y, 0xFFE0E0E0, false,
 			0.82);
 	}
 	
-	private void drawTrimmed(GuiGraphics context, String text, int x, int y,
-		int maxW, int color)
+	private void drawTrimmed(GuiGraphicsExtractor context, String text, int x,
+		int y, int maxW, int color)
 	{
 		if(text == null || text.isBlank() || text.equals("N/A")
 			|| text.equals("none"))
@@ -425,11 +425,11 @@ public final class OppStatsScreen extends Screen
 			t = t.substring(0, t.length() - 1);
 		if(!t.equals(text))
 			t = t.substring(0, Math.max(1, t.length() - 1)) + "…";
-		context.drawString(font, t, x, y, color, false);
+		context.text(font, t, x, y, color, false);
 	}
 	
-	private void drawEnchantLines(GuiGraphics context, String enchants, int x,
-		int y, int maxW, int maxLines)
+	private void drawEnchantLines(GuiGraphicsExtractor context, String enchants,
+		int x, int y, int maxW, int maxLines)
 	{
 		enchants = normalizeEnchantText(enchants);
 		if(enchants == null || enchants.isBlank() || enchants.equals("N/A")
@@ -454,10 +454,10 @@ public final class OppStatsScreen extends Screen
 		}
 	}
 	
-	private void drawSectionTitle(GuiGraphics context, String title, int x,
-		int y)
+	private void drawSectionTitle(GuiGraphicsExtractor context, String title,
+		int x, int y)
 	{
-		context.drawString(font, title, x, y, 0xFFD0E0FF, false);
+		context.text(font, title, x, y, 0xFFD0E0FF, false);
 	}
 	
 	private ItemStack parseStackIdToDisplay(String text)
@@ -747,7 +747,7 @@ public final class OppStatsScreen extends Screen
 			}
 			
 			@Override
-			public void renderContent(GuiGraphics context, int mouseX,
+			public void extractContent(GuiGraphicsExtractor context, int mouseX,
 				int mouseY, boolean hovered, float tickDelta)
 			{
 				int x = getContentX();

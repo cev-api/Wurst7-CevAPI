@@ -63,12 +63,6 @@ public class CheckboxSetting extends Setting implements CheckboxLock
 		setCheckedIgnoreLock(checked);
 	}
 	
-	@Override
-	public final void resetToDefault()
-	{
-		setChecked(checkedByDefault);
-	}
-	
 	private void setCheckedIgnoreLock(boolean checked)
 	{
 		this.checked = checked;

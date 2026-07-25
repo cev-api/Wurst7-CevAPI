@@ -10,7 +10,7 @@ package net.wurstclient.hud;
 import java.util.Comparator;
 import java.util.List;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -111,13 +111,13 @@ public final class ChestSearchMousePreview
 		return true;
 	}
 	
-	public void render(GuiGraphics context)
+	public void render(GuiGraphicsExtractor context)
 	{
 		visible = false;
 		ChestSearchHack hack = WurstClient.INSTANCE.getHax().chestSearchHack;
 		if(hack == null || !hack.shouldDisplayOnMouse())
 			return;
-		Screen screen = WurstClient.MC.screen;
+		Screen screen = WurstClient.MC.gui.screen();
 		if(WurstClient.MC.level == null || WurstClient.MC.player == null
 			|| !canRenderOnScreen(screen))
 			return;
@@ -202,7 +202,7 @@ public final class ChestSearchMousePreview
 			
 			int sx = getSlotX(x, item.slot);
 			int sy = getSlotY(y, item.slot, scrollRowOffset);
-			context.renderItem(stack, sx, sy);
+			context.item(stack, sx, sy);
 			drawCount(context, item.count, sx, sy);
 		}
 		
@@ -257,7 +257,8 @@ public final class ChestSearchMousePreview
 			+ (slot / COLUMNS - firstVisibleRow) * SLOT_SIZE;
 	}
 	
-	private void drawCount(GuiGraphics context, int count, int x, int y)
+	private void drawCount(GuiGraphicsExtractor context, int count, int x,
+		int y)
 	{
 		if(count <= 1)
 			return;
@@ -266,27 +267,27 @@ public final class ChestSearchMousePreview
 		int tx = x + 17 - font.width(text);
 		int ty = y + 9;
 		context.guiRenderState.up();
-		context.drawString(font, text, tx, ty, 0xFFFFFFFF, true);
+		context.text(font, text, tx, ty, 0xFFFFFFFF, true);
 	}
 	
-	private int getAnchorX(GuiGraphics context)
+	private int getAnchorX(GuiGraphicsExtractor context)
 	{
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 			return context.guiWidth() / 2;
 		return (int)(WurstClient.MC.mouseHandler.xpos() * context.guiWidth()
 			/ WurstClient.MC.getWindow().getScreenWidth());
 	}
 	
-	private int getAnchorY(GuiGraphics context)
+	private int getAnchorY(GuiGraphicsExtractor context)
 	{
-		if(WurstClient.MC.screen == null)
+		if(WurstClient.MC.gui.screen() == null)
 			return context.guiHeight() / 2;
 		return (int)(WurstClient.MC.mouseHandler.ypos() * context.guiHeight()
 			/ WurstClient.MC.getWindow().getScreenHeight());
 	}
 	
-	private int getCurrentFixedX(ChestSearchHack hack, GuiGraphics context,
-		int anchorX, int width)
+	private int getCurrentFixedX(ChestSearchHack hack,
+		GuiGraphicsExtractor context, int anchorX, int width)
 	{
 		if(hack.usesPinnedPreviewAnchor())
 			return getPinnedPreviewX(hack, context, width);
@@ -296,8 +297,8 @@ public final class ChestSearchMousePreview
 		return x;
 	}
 	
-	private int getCurrentFixedY(ChestSearchHack hack, GuiGraphics context,
-		int anchorY, int height)
+	private int getCurrentFixedY(ChestSearchHack hack,
+		GuiGraphicsExtractor context, int anchorY, int height)
 	{
 		if(hack.usesPinnedPreviewAnchor())
 			return getPinnedPreviewY(hack, context, height);
@@ -307,8 +308,8 @@ public final class ChestSearchMousePreview
 		return y;
 	}
 	
-	private void handleDrag(GuiGraphics context, ChestSearchHack hack, int x,
-		int y, int width, int height)
+	private void handleDrag(GuiGraphicsExtractor context, ChestSearchHack hack,
+		int x, int y, int width, int height)
 	{
 		com.mojang.blaze3d.platform.Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -320,9 +321,10 @@ public final class ChestSearchMousePreview
 		
 		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
 			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
-		boolean canDrag = WurstClient.MC.screen instanceof ChatScreen
-			|| (WurstClient.MC.screen instanceof AbstractContainerScreen<?>
-				&& !isOwnInventoryScreen(WurstClient.MC.screen));
+		boolean canDrag = WurstClient.MC.gui.screen() instanceof ChatScreen
+			|| (WurstClient.MC.gui
+				.screen() instanceof AbstractContainerScreen<?>
+				&& !isOwnInventoryScreen(WurstClient.MC.gui.screen()));
 		if(!canDrag)
 		{
 			if(dragging)
@@ -375,12 +377,12 @@ public final class ChestSearchMousePreview
 		hack.setPreviewPosition(dragOffsetX, dragOffsetY);
 	}
 	
-	private int clampPreviewX(GuiGraphics context, int x, int width)
+	private int clampPreviewX(GuiGraphicsExtractor context, int x, int width)
 	{
 		return clampPreviewX(context.guiWidth(), x, width);
 	}
 	
-	private int clampPreviewY(GuiGraphics context, int y, int height)
+	private int clampPreviewY(GuiGraphicsExtractor context, int y, int height)
 	{
 		return clampPreviewY(context.guiHeight(), y, height);
 	}
@@ -415,7 +417,7 @@ public final class ChestSearchMousePreview
 		return menu != null && menu == WurstClient.MC.player.inventoryMenu;
 	}
 	
-	private int getMaxVisibleRows(GuiGraphics context)
+	private int getMaxVisibleRows(GuiGraphicsExtractor context)
 	{
 		int availableHeight = Math.max(18, context.guiHeight() - 8);
 		int maxVisibleRows =
@@ -423,8 +425,8 @@ public final class ChestSearchMousePreview
 		return Math.max(1, maxVisibleRows);
 	}
 	
-	private void drawScrollBar(GuiGraphics context, int x, int y, int width,
-		int height)
+	private void drawScrollBar(GuiGraphicsExtractor context, int x, int y,
+		int width, int height)
 	{
 		int barX = x + width - SCROLLBAR_WIDTH - 2;
 		int barTop = y + 2;
@@ -445,8 +447,8 @@ public final class ChestSearchMousePreview
 			Math.min(barBottom, thumbY + thumbHeight), 0xC0A0A0A0);
 	}
 	
-	private int getPinnedPreviewX(ChestSearchHack hack, GuiGraphics context,
-		int width)
+	private int getPinnedPreviewX(ChestSearchHack hack,
+		GuiGraphicsExtractor context, int width)
 	{
 		int gap = hack.getPreviewAnchorGap();
 		PreviewAnchor anchor = hack.getPreviewAnchor();
@@ -460,8 +462,8 @@ public final class ChestSearchMousePreview
 		};
 	}
 	
-	private int getPinnedPreviewY(ChestSearchHack hack, GuiGraphics context,
-		int height)
+	private int getPinnedPreviewY(ChestSearchHack hack,
+		GuiGraphicsExtractor context, int height)
 	{
 		int gap = hack.getPreviewAnchorGap();
 		PreviewAnchor anchor = hack.getPreviewAnchor();
@@ -475,7 +477,7 @@ public final class ChestSearchMousePreview
 		};
 	}
 	
-	private static double getScaledMouseX(GuiGraphics context)
+	private static double getScaledMouseX(GuiGraphicsExtractor context)
 	{
 		com.mojang.blaze3d.platform.Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -484,7 +486,7 @@ public final class ChestSearchMousePreview
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphics context)
+	private static double getScaledMouseY(GuiGraphicsExtractor context)
 	{
 		com.mojang.blaze3d.platform.Window window = WurstClient.MC.getWindow();
 		if(window == null)

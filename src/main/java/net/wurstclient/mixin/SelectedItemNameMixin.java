@@ -11,17 +11,18 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
 import net.wurstclient.hud.DurabilityHud;
 
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class SelectedItemNameMixin
 {
-	@Inject(method = "renderSelectedItemName",
+	@Inject(method = "extractSelectedItemName",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onRenderSelectedItemName(GuiGraphics context, CallbackInfo ci)
+	private void onExtractSelectedItemName(GuiGraphicsExtractor context,
+		CallbackInfo ci)
 	{
 		if(DurabilityHud.renderSelectedItemNameWithEnchantments(context))
 			ci.cancel();

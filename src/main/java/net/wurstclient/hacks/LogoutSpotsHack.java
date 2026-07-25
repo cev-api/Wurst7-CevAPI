@@ -289,8 +289,8 @@ public final class LogoutSpotsHack extends Hack
 			int tracerColor = lines;
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrices, partialTicks, ends, tracerColor,
-				false);
+			RenderUtils.drawTracers("LogoutSpots", matrices, partialTicks, ends,
+				tracerColor, false);
 		}
 		for(var e : spots.values())
 		{
@@ -308,7 +308,23 @@ public final class LogoutSpotsHack extends Hack
 		matrices.pushPose();
 		net.minecraft.world.phys.Vec3 cam =
 			net.wurstclient.util.RenderUtils.getCameraPos();
-		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		net.minecraft.world.phys.Vec3 target =
+			new net.minecraft.world.phys.Vec3(x, y, z);
+		net.minecraft.world.phys.Vec3 dir = target.subtract(cam);
+		double dist = dir.length();
+		double lx = x;
+		double ly = y;
+		double lz = z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			net.minecraft.world.phys.Vec3 anchored =
+				cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		// Face the camera (billboard)
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
@@ -319,14 +335,15 @@ public final class LogoutSpotsHack extends Hack
 				com.mojang.math.Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
 		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
-		float s = 0.025F * scale;
+		float s = 0.025F * net.wurstclient.util.RenderUtils
+			.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);
 		Font tr = MC.font;
 		float w = tr.width(text) / 2F;
 		int bg = (int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
 		var matrix = matrices.last().pose();
-		RenderUtils.drawTextInBatch(tr, text, -w, 0, argb, false, matrix, null,
-			Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
+		net.wurstclient.util.RenderUtils.drawTextInBatch(tr, text, -w, 0, argb,
+			false, matrix, null, Font.DisplayMode.SEE_THROUGH, bg, 0xF000F0);
 		matrices.popPose();
 	}
 	

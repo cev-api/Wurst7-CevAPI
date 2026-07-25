@@ -101,7 +101,7 @@ public final class AltsFile
 			disableSaving = true;
 			altManager.setDisconnectRandomAltReconnectEnabledSilently(
 				disconnectRandomAltReconnect);
-			altManager.addAll(alts, false);
+			altManager.addAll(alts);
 			
 		}finally
 		{
@@ -148,8 +148,6 @@ public final class AltsFile
 	{
 		String type = JsonUtils.getAsString(jsonAlt.get("type"), "");
 		boolean starred = JsonUtils.getAsBoolean(jsonAlt.get("starred"), false);
-		long lastValidated = jsonAlt.has("last_validated")
-			? jsonAlt.get("last_validated").getAsLong() : 0;
 		
 		if("token".equalsIgnoreCase(type))
 		{
@@ -161,44 +159,19 @@ public final class AltsFile
 				JsonUtils.getAsString(jsonAlt.get("client_id"), "");
 			
 			if(!token.isEmpty() || !refreshToken.isEmpty())
-			{
-				TokenAlt alt =
-					new TokenAlt(token, refreshToken, name, starred, clientId);
-				alt.setLastValidatedAt(lastValidated);
-				return alt;
-			}
+				return new TokenAlt(token, refreshToken, name, starred,
+					clientId);
 			
-			CrackedAlt alt = new CrackedAlt(nameOrEmail, starred);
-			alt.setLastValidatedAt(lastValidated);
-			return alt;
+			return new CrackedAlt(nameOrEmail, starred);
 		}
 		
 		String password = JsonUtils.getAsString(jsonAlt.get("password"), "");
-		if(isTokenCredential(password))
-		{
-			TokenAlt alt = new TokenAlt("", password, nameOrEmail, starred);
-			alt.setLastValidatedAt(lastValidated);
-			return alt;
-		}
 		
 		if(password.isEmpty())
-		{
-			CrackedAlt alt = new CrackedAlt(nameOrEmail, starred);
-			alt.setLastValidatedAt(lastValidated);
-			return alt;
-		}
+			return new CrackedAlt(nameOrEmail, starred);
 		
 		String name = JsonUtils.getAsString(jsonAlt.get("name"), "");
-		MojangAlt alt = new MojangAlt(nameOrEmail, password, name, starred);
-		alt.setLastValidatedAt(lastValidated);
-		return alt;
-	}
-	
-	private static boolean isTokenCredential(String value)
-	{
-		String trimmed = value == null ? "" : value.trim();
-		return trimmed.startsWith("M.") || trimmed.startsWith("eyJ")
-			|| trimmed.startsWith("Ew");
+		return new MojangAlt(nameOrEmail, password, name, starred);
 	}
 	
 	public void save(AltManager alts)

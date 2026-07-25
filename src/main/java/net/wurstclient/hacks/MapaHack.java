@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.multiplayer.PlayerInfo;
@@ -289,7 +289,7 @@ public final class MapaHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		updateMapSettingVisibility();
 		WURST.getHax().newerNewChunksHack
@@ -326,7 +326,7 @@ public final class MapaHack extends Hack
 		}
 		renderMinimapOverlay(context, cfg);
 		
-		if(!isEditorScreen(MC.screen))
+		if(!isEditorScreen(MC.gui.screen()))
 			return;
 		
 		int x = cfg.minimapPosX;
@@ -339,7 +339,8 @@ public final class MapaHack extends Hack
 		context.fill(x + size + 1, y - 1, x + size + 2, y + size + 1, border);
 	}
 	
-	private void renderMinimapOverlay(GuiGraphics context, XMapConfig cfg)
+	private void renderMinimapOverlay(GuiGraphicsExtractor context,
+		XMapConfig cfg)
 	{
 		int x = cfg.minimapPosX;
 		int y = cfg.minimapPosY;
@@ -367,7 +368,7 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderMapEsp(GuiGraphics context, float partialTicks,
+	private void renderMapEsp(GuiGraphicsExtractor context, float partialTicks,
 		XMapConfig cfg)
 	{
 		if(!espIconsEnabled.isChecked())
@@ -399,14 +400,15 @@ public final class MapaHack extends Hack
 		if(bedEspOnMap.isChecked() && WURST.getHax().bedEspHack.isEnabled())
 			renderAabbMarkers(context, cfg,
 				WURST.getHax().bedEspHack.getMapaBoxes(),
-				iconForItem(Items.RED_BED),
+				iconForItem(net.wurstclient.util.RegistryUtils.item("red_bed")),
 				WURST.getHax().bedEspHack.getMapaColor());
 		if(playerEspOnMap.isChecked()
 			&& WURST.getHax().playerEspHack.isEnabled())
 			renderPlayerMarkers(context, cfg);
 	}
 	
-	private void renderChunkOverlays(GuiGraphics context, XMapConfig cfg)
+	private void renderChunkOverlays(GuiGraphicsExtractor context,
+		XMapConfig cfg)
 	{
 		if(showNewerNewChunks.isChecked())
 			renderNewerNewChunksOverlay(context, cfg);
@@ -414,7 +416,7 @@ public final class MapaHack extends Hack
 			renderExploredChunksOverlay(context, cfg);
 	}
 	
-	private void renderNewerNewChunksOverlay(GuiGraphics context,
+	private void renderNewerNewChunksOverlay(GuiGraphicsExtractor context,
 		XMapConfig cfg)
 	{
 		NewerNewChunksHack hack = WURST.getHax().newerNewChunksHack;
@@ -434,8 +436,8 @@ public final class MapaHack extends Hack
 		double half = cfg.minimapSize / 2.0 * zoomBlocks;
 		int chunkRadius = (int)Math.ceil((half * 1.6) / 16.0); // 1.6x to cover
 																// rotation
-		int cx = MC.player.chunkPosition().x;
-		int cz = MC.player.chunkPosition().z;
+		int cx = MC.player.chunkPosition().x();
+		int cz = MC.player.chunkPosition().z();
 		
 		Set<ChunkPos> visOld = hack.getOldChunksInRange(cx, cz, chunkRadius);
 		Set<ChunkPos> visNew = hack.getNewChunksInRange(cx, cz, chunkRadius);
@@ -460,7 +462,7 @@ public final class MapaHack extends Hack
 		renderChunkSet(context, cfg, visOldGen, oldVersionColor);
 	}
 	
-	private void renderExploredChunksOverlay(GuiGraphics context,
+	private void renderExploredChunksOverlay(GuiGraphicsExtractor context,
 		XMapConfig cfg)
 	{
 		int argb = rgba(exploredChunksColor.getColorI(),
@@ -468,8 +470,8 @@ public final class MapaHack extends Hack
 		renderChunkSet(context, cfg, getCurrentExploredChunks(), argb);
 	}
 	
-	private void renderChestMarkers(GuiGraphics context, XMapConfig cfg,
-		float partialTicks)
+	private void renderChestMarkers(GuiGraphicsExtractor context,
+		XMapConfig cfg, float partialTicks)
 	{
 		ChestEspHack chestEsp = WURST.getHax().chestEspHack;
 		ChestEspGroupManager manager = chestEsp.getMapaGroupManager();
@@ -479,8 +481,8 @@ public final class MapaHack extends Hack
 				iconForChestGroup(group), group.getColorI(0xFF));
 	}
 	
-	private void renderBlockGroupMarkers(GuiGraphics context, XMapConfig cfg,
-		List<PortalEspBlockGroup> groups)
+	private void renderBlockGroupMarkers(GuiGraphicsExtractor context,
+		XMapConfig cfg, List<PortalEspBlockGroup> groups)
 	{
 		int markerSize = getMarkerSize(cfg);
 		for(PortalEspBlockGroup group : groups)
@@ -494,7 +496,7 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderAabbMarkers(GuiGraphics context, XMapConfig cfg,
+	private void renderAabbMarkers(GuiGraphicsExtractor context, XMapConfig cfg,
 		List<AABB> boxes, ItemStack icon, int outlineColor)
 	{
 		int markerSize = getMarkerSize(cfg);
@@ -503,7 +505,8 @@ public final class MapaHack extends Hack
 				outlineColor);
 	}
 	
-	private void renderPlayerMarkers(GuiGraphics context, XMapConfig cfg)
+	private void renderPlayerMarkers(GuiGraphicsExtractor context,
+		XMapConfig cfg)
 	{
 		int markerSize = getPlayerMarkerSize();
 		for(Player player : WURST.getHax().playerEspHack.getMapaPlayers())
@@ -523,7 +526,7 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderLogoutSpots(GuiGraphics context, XMapConfig cfg)
+	private void renderLogoutSpots(GuiGraphicsExtractor context, XMapConfig cfg)
 	{
 		String dim = MC.level.dimension().identifier().getPath();
 		int outlineColor = WURST.getHax().logoutSpotsHack.getMapaLineColor();
@@ -535,14 +538,14 @@ public final class MapaHack extends Hack
 			if(point == null)
 				continue;
 			int size = getMarkerSize(cfg);
-			int x = Math.round(point.x) - size / 2;
+			int x = Math.round(point.x()) - size / 2;
 			int y = Math.round(point.y()) - size / 2;
 			drawIconOutline(context, x, y, size, outlineColor);
 			context.fill(x, y, x + size, y + size, 0xFF4AA3FF);
 		}
 	}
 	
-	private void renderItemMarker(GuiGraphics context, XMapConfig cfg,
+	private void renderItemMarker(GuiGraphicsExtractor context, XMapConfig cfg,
 		Vec3 worldPos, ItemStack icon, int size, int outlineColor)
 	{
 		MapPoint point = projectToMinimap(cfg, worldPos);
@@ -551,8 +554,9 @@ public final class MapaHack extends Hack
 		renderItemMarker(context, point, icon, size, outlineColor);
 	}
 	
-	private void renderPlayerHeadMarker(GuiGraphics context, XMapConfig cfg,
-		Vec3 worldPos, Identifier skin, String name, int size, int outlineColor)
+	private void renderPlayerHeadMarker(GuiGraphicsExtractor context,
+		XMapConfig cfg, Vec3 worldPos, Identifier skin, String name, int size,
+		int outlineColor)
 	{
 		MapPoint point = projectToMinimap(cfg, worldPos);
 		if(point == null)
@@ -561,11 +565,11 @@ public final class MapaHack extends Hack
 			cfg.showPlayerNames, (float)cfg.playerNameScale);
 	}
 	
-	private void renderPlayerHeadMarker(GuiGraphics context, MapPoint point,
-		Identifier skin, String name, int size, int outlineColor,
-		boolean drawName, float nameScale)
+	private void renderPlayerHeadMarker(GuiGraphicsExtractor context,
+		MapPoint point, Identifier skin, String name, int size,
+		int outlineColor, boolean drawName, float nameScale)
 	{
-		int x = Math.round(point.x) - size / 2;
+		int x = Math.round(point.x()) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.blit(RenderPipelines.GUI_TEXTURED, skin, x, y, 8, 8, size, size,
@@ -577,8 +581,8 @@ public final class MapaHack extends Hack
 				outlineColor, size, nameScale);
 	}
 	
-	private void drawMarkerLabel(GuiGraphics context, String label, int centerX,
-		int y, int color, int iconSize, float nameScale)
+	private void drawMarkerLabel(GuiGraphicsExtractor context, String label,
+		int centerX, int y, int color, int iconSize, float nameScale)
 	{
 		float scale = Mth.clamp(iconSize / 8.0F * nameScale, 0.5F, 6.0F);
 		int width = Math.round(MC.font.width(label) * scale);
@@ -587,11 +591,11 @@ public final class MapaHack extends Hack
 		context.pose().pushMatrix();
 		context.pose().translate(x, y);
 		context.pose().scale(scale, scale);
-		context.drawString(MC.font, label, -1, 0, stroke, false);
-		context.drawString(MC.font, label, 1, 0, stroke, false);
-		context.drawString(MC.font, label, 0, -1, stroke, false);
-		context.drawString(MC.font, label, 0, 1, stroke, false);
-		context.drawString(MC.font, label, 0, 0, color, false);
+		context.text(MC.font, label, -1, 0, stroke, false);
+		context.text(MC.font, label, 1, 0, stroke, false);
+		context.text(MC.font, label, 0, -1, stroke, false);
+		context.text(MC.font, label, 0, 1, stroke, false);
+		context.text(MC.font, label, 0, 0, color, false);
 		context.pose().popMatrix();
 	}
 	
@@ -607,7 +611,7 @@ public final class MapaHack extends Hack
 		return new MapPoint((float)px, (float)py);
 	}
 	
-	private void renderChunkSet(GuiGraphics context, XMapConfig cfg,
+	private void renderChunkSet(GuiGraphicsExtractor context, XMapConfig cfg,
 		Set<ChunkPos> chunks, int color)
 	{
 		if(chunks.isEmpty() || MC.player == null)
@@ -769,22 +773,22 @@ public final class MapaHack extends Hack
 		return new ItemStack(item);
 	}
 	
-	private void renderItemMarker(GuiGraphics context, MapPoint point,
+	private void renderItemMarker(GuiGraphicsExtractor context, MapPoint point,
 		ItemStack icon, int size, int outlineColor)
 	{
-		int x = Math.round(point.x) - size / 2;
+		int x = Math.round(point.x()) - size / 2;
 		int y = Math.round(point.y()) - size / 2;
 		drawIconOutline(context, x, y, size, outlineColor);
 		context.pose().pushMatrix();
 		float scale = size / 16.0f;
 		context.pose().translate(x, y);
 		context.pose().scale(scale, scale);
-		context.renderItem(icon, 0, 0);
+		context.item(icon, 0, 0);
 		context.pose().popMatrix();
 	}
 	
-	private void drawIconOutline(GuiGraphics context, int x, int y, int size,
-		int outlineColor)
+	private void drawIconOutline(GuiGraphicsExtractor context, int x, int y,
+		int size, int outlineColor)
 	{
 		if(!iconOutline.isChecked())
 			return;
@@ -805,7 +809,8 @@ public final class MapaHack extends Hack
 			dragging = false;
 			return;
 		}
-		if(event.getAction() != GLFW.GLFW_PRESS || !isEditorScreen(MC.screen))
+		if(event.getAction() != GLFW.GLFW_PRESS
+			|| !isEditorScreen(MC.gui.screen()))
 			return;
 		
 		XMapConfig cfg = createConfig();
@@ -1193,11 +1198,11 @@ public final class MapaHack extends Hack
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		MC.setScreen(new WorldMapScreen(this, renderService));
+		MC.gui.setScreen(new WorldMapScreen(this, renderService));
 	}
 	
-	public void renderFullscreenMapEsp(GuiGraphics context, int mapX, int mapY,
-		int drawWidth, int drawHeight, double centerX, double centerZ,
+	public void renderFullscreenMapEsp(GuiGraphicsExtractor context, int mapX,
+		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
 		double blocksPerPixel)
 	{
 		if(MC.player == null || MC.level == null)
@@ -1244,7 +1249,8 @@ public final class MapaHack extends Hack
 				renderFullscreenAabbs(context, mapX, mapY, drawWidth,
 					drawHeight, centerX, centerZ, blocksPerPixel,
 					WURST.getHax().bedEspHack.getMapaBoxes(),
-					iconForItem(Items.RED_BED),
+					iconForItem(
+						net.wurstclient.util.RegistryUtils.item("red_bed")),
 					WURST.getHax().bedEspHack.getMapaColor());
 			if(playerEspOnMap.isChecked()
 				&& WURST.getHax().playerEspHack.isEnabled())
@@ -1256,9 +1262,9 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderFullscreenChestMarkers(GuiGraphics context, int mapX,
-		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
-		double blocksPerPixel)
+	private void renderFullscreenChestMarkers(GuiGraphicsExtractor context,
+		int mapX, int mapY, int drawWidth, int drawHeight, double centerX,
+		double centerZ, double blocksPerPixel)
 	{
 		ChestEspHack chestEsp = WURST.getHax().chestEspHack;
 		ChestEspGroupManager manager = chestEsp.getMapaGroupManager();
@@ -1269,9 +1275,9 @@ public final class MapaHack extends Hack
 				iconForChestGroup(group), group.getColorI(0xFF));
 	}
 	
-	private void renderFullscreenBlockGroups(GuiGraphics context, int mapX,
-		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
-		double blocksPerPixel, List<PortalEspBlockGroup> groups)
+	private void renderFullscreenBlockGroups(GuiGraphicsExtractor context,
+		int mapX, int mapY, int drawWidth, int drawHeight, double centerX,
+		double centerZ, double blocksPerPixel, List<PortalEspBlockGroup> groups)
 	{
 		int markerSize =
 			getFullscreenMarkerSize(Math.max(drawWidth, drawHeight));
@@ -1292,8 +1298,8 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderFullscreenAabbs(GuiGraphics context, int mapX, int mapY,
-		int drawWidth, int drawHeight, double centerX, double centerZ,
+	private void renderFullscreenAabbs(GuiGraphicsExtractor context, int mapX,
+		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
 		double blocksPerPixel, List<AABB> boxes, ItemStack icon,
 		int outlineColor)
 	{
@@ -1309,7 +1315,7 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderFullscreenPlayers(GuiGraphics context, int mapX,
+	private void renderFullscreenPlayers(GuiGraphicsExtractor context, int mapX,
 		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
 		double blocksPerPixel)
 	{
@@ -1336,9 +1342,9 @@ public final class MapaHack extends Hack
 		}
 	}
 	
-	private void renderFullscreenLogoutSpots(GuiGraphics context, int mapX,
-		int mapY, int drawWidth, int drawHeight, double centerX, double centerZ,
-		double blocksPerPixel)
+	private void renderFullscreenLogoutSpots(GuiGraphicsExtractor context,
+		int mapX, int mapY, int drawWidth, int drawHeight, double centerX,
+		double centerZ, double blocksPerPixel)
 	{
 		String dim = MC.level.dimension().identifier().getPath();
 		int outlineColor = WURST.getHax().logoutSpotsHack.getMapaLineColor();
@@ -1353,7 +1359,7 @@ public final class MapaHack extends Hack
 					drawWidth, drawHeight, centerX, centerZ, blocksPerPixel);
 			if(point == null)
 				continue;
-			int x = Math.round(point.x) - markerSize / 2;
+			int x = Math.round(point.x()) - markerSize / 2;
 			int y = Math.round(point.y()) - markerSize / 2;
 			drawIconOutline(context, x, y, markerSize, outlineColor);
 			context.fill(x, y, x + markerSize, y + markerSize, 0xFF4AA3FF);

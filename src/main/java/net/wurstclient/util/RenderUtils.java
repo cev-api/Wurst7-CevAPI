@@ -27,7 +27,6 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -77,6 +76,9 @@ public enum RenderUtils
 	{
 		if(box == null)
 			return tryReserveEspRenderSlot();
+		if(!WurstClient.INSTANCE.getHax().globalToggleHack
+			.isWithinGlobalEspRange(box.getCenter()))
+			return false;
 		
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.isShaderOutlineMode())
@@ -306,26 +308,6 @@ public enum RenderUtils
 		appendPreparedText(prepared, matrix, displayMode, packedLight);
 	}
 	
-	/**
-	 * Queues styled text while retaining its per-character formatting. This is
-	 * needed for components whose colors or fonts come from a resource pack.
-	 */
-	public static void drawTextInBatch(Font font, FormattedCharSequence text,
-		float x, float y, int color, boolean shadow, Matrix4f matrix,
-		WurstBufferSource vcp, DisplayMode displayMode, int backgroundColor,
-		int packedLight)
-	{
-		if(text == null)
-			return;
-		
-		if(textBuffer == null)
-			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
-		
-		var prepared =
-			font.prepareText(text, x, y, color, shadow, false, backgroundColor);
-		appendPreparedText(prepared, matrix, displayMode, packedLight);
-	}
-	
 	public static void drawOutlinedTextInBatch(Font font, String text, float x,
 		float y, int color, int outlineColor, Matrix4f matrix,
 		DisplayMode displayMode, int backgroundColor, int packedLight)
@@ -457,42 +439,13 @@ public enum RenderUtils
 		return getCameraRotation().toLookVec().scale(10);
 	}
 	
-	private static boolean shouldLimitNearestTracers()
-	{
-		try
-		{
-			return WurstClient.INSTANCE != null
-				&& WurstClient.INSTANCE.getHax() != null
-				&& WurstClient.INSTANCE.getHax().globalToggleHack != null
-				&& WurstClient.INSTANCE.getHax().globalToggleHack
-					.isNearestTracerOnlyEnabled();
-		}catch(Exception ignored)
-		{
-			return false;
-		}
-	}
-	
-	private static List<Vec3> limitNearestTracerEnds(List<Vec3> ends)
-	{
-		if(!shouldLimitNearestTracers() || ends == null || ends.size() <= 1)
-			return ends;
-		return EspLimitUtils.collectNearest(ends, 1,
-			end -> end.distanceToSqr(RotationUtils.getEyesPos()));
-	}
-	
-	private static List<ColoredPoint> limitNearestColoredTracerEnds(
-		List<ColoredPoint> ends)
-	{
-		if(!shouldLimitNearestTracers() || ends == null || ends.size() <= 1)
-			return ends;
-		return EspLimitUtils.collectNearest(ends, 1,
-			end -> end.point().distanceToSqr(RotationUtils.getEyesPos()));
-	}
-	
 	public static void drawTracer(PoseStack matrices, float partialTicks,
 		Vec3 end, int color, boolean depthTest)
 	{
 		if(shouldSuppressAllTracers())
+			return;
+		if(!WurstClient.INSTANCE.getHax().globalToggleHack
+			.isWithinGlobalEspRange(end))
 			return;
 		
 		boolean enforceVisibility =
@@ -532,7 +485,6 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<Vec3> ends, int color, boolean depthTest)
 	{
-		ends = limitNearestTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		
@@ -548,6 +500,9 @@ public enum RenderUtils
 		{
 			for(Vec3 end : ends)
 			{
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(end))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(end))
 					continue;
@@ -568,6 +523,9 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(Vec3 end : ends)
 		{
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(end))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 				continue;
 			if(!tryReserveEspRenderSlot())
@@ -593,7 +551,6 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest)
 	{
-		ends = limitNearestColoredTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		
@@ -610,6 +567,9 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(point))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
@@ -631,6 +591,9 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(point))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
 			if(!tryReserveEspRenderSlot())
@@ -656,7 +619,6 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest, double lineWidth)
 	{
-		ends = limitNearestColoredTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		
@@ -679,6 +641,9 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(point))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
@@ -700,6 +665,9 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(point))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
 			if(!tryReserveEspRenderSlot())

@@ -337,7 +337,8 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 		}
 		
 		if(ends != null && !ends.isEmpty())
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			RenderUtils.drawTracers("MobSearch", matrixStack, partialTicks,
+				ends, false);
 	}
 	
 	private int getColorI(float alpha)
@@ -411,8 +412,15 @@ public final class MobSearchHack extends Hack implements UpdateListener,
 			return null;
 		if(style.getShape() != MobSearchStyleSetting.Shape.GLOW)
 			return null;
-		if(!matches.contains(entity))
+		try
+		{
+			if(!matches.contains(entity))
+				return null;
+		}catch(IllegalStateException e)
+		{
+			// Entity doesn't have an ID yet (e.g. spawner display entity)
 			return null;
+		}
 		return getColorI(1F);
 	}
 	

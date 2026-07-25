@@ -18,7 +18,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
@@ -73,7 +73,7 @@ public final class HackListOtf extends OtherFeature
 	private final EnumSetting<Position> position = new EnumSetting<>("Position",
 		"Which side of the screen the HackList should be shown on."
 			+ "\nChange this to \u00a7lRight\u00a7r when using TabGUI.",
-		Position.values(), Position.TOP_LEFT);
+		Position.values(), Position.TOP_RIGHT);
 	
 	private final ColorSetting color = new ColorSetting("Color",
 		"Color of the HackList text.\n"
@@ -85,11 +85,11 @@ public final class HackListOtf extends OtherFeature
 		"Use hack colors",
 		"When enabled, each entry uses the hack's own color (if available), e.g. ESP highlight colors.\n"
 			+ "Has no effect while RainbowUI is enabled.",
-		false);
+		true);
 	
 	private final CheckboxSetting shadowBox = new CheckboxSetting("Shadow box",
 		"Replace the text shadow with a transparent black box background. Useful when scaled fonts produce ugly shadows.",
-		false);
+		true);
 	
 	// Shadow box alpha (0.0 - 1.0)
 	private final net.wurstclient.settings.SliderSetting shadowBoxAlpha =
@@ -228,11 +228,9 @@ public final class HackListOtf extends OtherFeature
 			return;
 		
 		var hackList = hud.getHackList();
-		// Re-evaluate every hack. Loading a preset can unhide entries that were
-		// present in the previous list, and updating only the newly hidden
-		// entries would leave those stale entries in the HUD.
-		for(Hack hack : WURST.getHax().getAllHax())
-			hackList.updateState(hack);
+		for(net.wurstclient.Feature feature : hiddenHacks)
+			if(feature instanceof Hack hack)
+				hackList.updateState(hack);
 	}
 	
 	private void syncHackState(Hack hack)
@@ -444,7 +442,7 @@ public final class HackListOtf extends OtherFeature
 				return;
 			
 			Hack hack = hacks.get(index);
-			setHidden(hack, !hiddenHacks.contains(hack));
+			setHidden(hack, !isHidden(hack));
 		}
 		
 		@Override
@@ -475,8 +473,8 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
-		public void render(GuiGraphics context, int mouseX, int mouseY,
-			float partialTicks)
+		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
 			refreshSize(hacks);
@@ -487,7 +485,7 @@ public final class HackListOtf extends OtherFeature
 			
 			if(hacks.isEmpty())
 			{
-				context.drawString(MC.font, "No hacks available.", getX() + 2,
+				context.text(MC.font, "No hacks available.", getX() + 2,
 					getY() + 2, WURST.getGui().getTxtColor(), false);
 				return;
 			}
@@ -505,7 +503,7 @@ public final class HackListOtf extends OtherFeature
 				int y1 = getY() + row * ROW_HEIGHT;
 				int y2 = y1 + ROW_HEIGHT;
 				Hack hack = index < hacks.size() ? hacks.get(index) : null;
-				boolean hidden = hack != null && hiddenHacks.contains(hack);
+				boolean hidden = hack != null && isHidden(hack);
 				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
 				
 				if(rowHover && hack != null)
@@ -534,8 +532,8 @@ public final class HackListOtf extends OtherFeature
 				{
 					int textColor =
 						hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
-					context.drawString(MC.font, hack.getName(), boxX2 + 2,
-						y1 + 2, textColor, false);
+					context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+						textColor, false);
 				}
 			}
 			

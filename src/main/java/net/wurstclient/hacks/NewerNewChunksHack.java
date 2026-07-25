@@ -570,7 +570,7 @@ public final class NewerNewChunksHack extends Hack
 			if(MC.player != null)
 			{
 				ChunkPos c = MC.player.chunkPosition();
-				requestWindowLoad(c.x, c.z, getPrefetchRadius());
+				requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
 				lastWindowCenter = c;
 			}else
 			{
@@ -647,7 +647,7 @@ public final class NewerNewChunksHack extends Hack
 			if(MC.player != null)
 			{
 				ChunkPos c = MC.player.chunkPosition();
-				requestWindowLoad(c.x, c.z, getPrefetchRadius());
+				requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
 				lastWindowCenter = c;
 				loadedThisSession = true;
 			}
@@ -663,7 +663,7 @@ public final class NewerNewChunksHack extends Hack
 				if(loadChunkData.isChecked() && MC.player != null)
 				{
 					ChunkPos c = MC.player.chunkPosition();
-					requestWindowLoad(c.x, c.z, getPrefetchRadius());
+					requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
 					lastWindowCenter = c;
 				}
 				autoReloadTicks = 0;
@@ -695,12 +695,14 @@ public final class NewerNewChunksHack extends Hack
 		
 		ChunkPos pc = MC.player.chunkPosition();
 		int visR = (int)Math.ceil(maxDist / 16.0);
-		Set<ChunkPos> visOld = getOldChunksInRange(pc.x, pc.z, visR);
-		Set<ChunkPos> visNew = getNewChunksInRange(pc.x, pc.z, visR);
-		Set<ChunkPos> visTick = getBlockExploitChunksInRange(pc.x, pc.z, visR);
-		Set<ChunkPos> visBeing = getBeingUpdatedChunksInRange(pc.x, pc.z, visR);
+		Set<ChunkPos> visOld = getOldChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visNew = getNewChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visTick =
+			getBlockExploitChunksInRange(pc.x(), pc.z(), visR);
+		Set<ChunkPos> visBeing =
+			getBeingUpdatedChunksInRange(pc.x(), pc.z(), visR);
 		Set<ChunkPos> visOldGen =
-			getOldGenerationChunksInRange(pc.x, pc.z, visR);
+			getOldGenerationChunksInRange(pc.x(), pc.z(), visR);
 		List<AABB> oldBoxes = collectBoxes(visOld, y, playerPos, maxDist);
 		List<AABB> newBoxes = collectBoxes(visNew, y, playerPos, maxDist);
 		List<AABB> tickBoxes = collectBoxes(visTick, y, playerPos, maxDist);
@@ -761,6 +763,11 @@ public final class NewerNewChunksHack extends Hack
 	public void setAutoFlyRenderSuppressed(boolean suppressed)
 	{
 		autoFlyRenderSuppressed = suppressed;
+	}
+	
+	public double getRenderHeight()
+	{
+		return renderHeight.getValue();
 	}
 	
 	public void afterLoadChunk(int x, int z)
@@ -1183,7 +1190,7 @@ public final class NewerNewChunksHack extends Hack
 				if(MC.player != null)
 				{
 					ChunkPos c = MC.player.chunkPosition();
-					requestWindowLoad(c.x, c.z, getPrefetchRadius());
+					requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
 					lastWindowCenter = c;
 					loadedThisSession = true;
 				}
@@ -1196,8 +1203,8 @@ public final class NewerNewChunksHack extends Hack
 		if(MC.level == null || MC.player == null)
 			return;
 		
-		int px = MC.player.chunkPosition().x;
-		int pz = MC.player.chunkPosition().z;
+		int px = MC.player.chunkPosition().x();
+		int pz = MC.player.chunkPosition().z();
 		int radius = Math.max(2, MC.options.getEffectiveRenderDistance()) + 1;
 		for(int x = px - radius; x <= px + radius; x++)
 			for(int z = pz - radius; z <= pz + radius; z++)
@@ -1482,6 +1489,14 @@ public final class NewerNewChunksHack extends Hack
 	private void renderBoxes(PoseStack matrices, List<AABB> boxes,
 		int sideColor, int lineColor)
 	{
+		if(WURST != null && WURST.getHax().simulationSonarHack.isEnabled())
+			boxes = boxes.stream().filter(
+				box -> !WURST.getHax().simulationSonarHack.isChunkOverridden(
+					new ChunkPos((int)Math.floor(box.minX / 16),
+						(int)Math.floor(box.minZ / 16))))
+				.toList();
+		if(boxes.isEmpty())
+			return;
 		ShapeMode mode = shapeMode.getSelected();
 		if(mode == ShapeMode.Sides || mode == ShapeMode.Both)
 			RenderUtils.drawSolidBoxes(matrices, boxes, sideColor, true);
@@ -1665,8 +1680,8 @@ public final class NewerNewChunksHack extends Hack
 				ChunkPos chunkPos = parseChunkPos(line);
 				if(chunkPos == null)
 					continue;
-				if(Math.abs(chunkPos.x - px) > radiusChunks
-					|| Math.abs(chunkPos.z - pz) > radiusChunks)
+				if(Math.abs(chunkPos.x() - px) > radiusChunks
+					|| Math.abs(chunkPos.z() - pz) > radiusChunks)
 					continue;
 				if(!containsAny(chunkPos))
 				{
@@ -1695,10 +1710,10 @@ public final class NewerNewChunksHack extends Hack
 			return;
 		ChunkPos c = MC.player.chunkPosition();
 		if(lastWindowCenter == null
-			|| Math.max(Math.abs(c.x - lastWindowCenter.x),
-				Math.abs(c.z - lastWindowCenter.z)) >= getRefreshDistance())
+			|| Math.max(Math.abs(c.x() - lastWindowCenter.x()),
+				Math.abs(c.z() - lastWindowCenter.z())) >= getRefreshDistance())
 		{
-			requestWindowLoad(c.x, c.z, getPrefetchRadius());
+			requestWindowLoad(c.x(), c.z(), getPrefetchRadius());
 			lastWindowCenter = c;
 		}
 	}
@@ -1726,7 +1741,8 @@ public final class NewerNewChunksHack extends Hack
 	{
 		ensureDataFiles();
 		Path file = getBaseDir().resolve(fileName);
-		String line = chunkPos.x + "," + chunkPos.z + System.lineSeparator();
+		String line =
+			chunkPos.x() + "," + chunkPos.z() + System.lineSeparator();
 		try
 		{
 			Files.writeString(file, line, StandardCharsets.UTF_8,
@@ -1752,7 +1768,7 @@ public final class NewerNewChunksHack extends Hack
 	
 	private void indexAdd(Map<Long, Set<ChunkPos>> index, ChunkPos pos)
 	{
-		long key = regionKey(pos.x, pos.z);
+		long key = regionKey(pos.x(), pos.z());
 		Set<ChunkPos> bucket =
 			index.computeIfAbsent(key, k -> ConcurrentHashMap.newKeySet());
 		bucket.add(pos);
@@ -1760,7 +1776,7 @@ public final class NewerNewChunksHack extends Hack
 	
 	private void indexRemove(Map<Long, Set<ChunkPos>> index, ChunkPos pos)
 	{
-		long key = regionKey(pos.x, pos.z);
+		long key = regionKey(pos.x(), pos.z());
 		Set<ChunkPos> bucket = index.get(key);
 		if(bucket != null)
 		{
@@ -1785,8 +1801,8 @@ public final class NewerNewChunksHack extends Hack
 				if(bucket == null || bucket.isEmpty())
 					continue;
 				for(ChunkPos cp : bucket)
-					if(Math.abs(cp.x - cx) <= radius
-						&& Math.abs(cp.z - cz) <= radius)
+					if(Math.abs(cp.x() - cx) <= radius
+						&& Math.abs(cp.z() - cz) <= radius)
 						result.add(cp);
 			}
 		return result;
@@ -1812,8 +1828,8 @@ public final class NewerNewChunksHack extends Hack
 		{
 			for(int i = 1; i < limit; i++)
 			{
-				ChunkPos candidate = new ChunkPos(center.x + stepX * i * dir,
-					center.z + stepZ * i * dir);
+				ChunkPos candidate = new ChunkPos(center.x() + stepX * i * dir,
+					center.z() + stepZ * i * dir);
 				if(!chunks.contains(candidate))
 					break;
 				

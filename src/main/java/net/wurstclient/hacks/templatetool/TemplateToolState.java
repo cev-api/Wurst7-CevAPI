@@ -10,7 +10,7 @@ package net.wurstclient.hacks.templatetool;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.CommonColors;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.TemplateToolHack;
@@ -41,8 +41,8 @@ public abstract class TemplateToolState
 		
 	}
 	
-	public final void onRenderGUI(TemplateToolHack hack, GuiGraphics context,
-		float partialTicks)
+	public final void onRenderGUI(TemplateToolHack hack,
+		GuiGraphicsExtractor context, float partialTicks)
 	{
 		String message = getMessage(hack);
 		Font tr = MC.font;
@@ -54,8 +54,8 @@ public abstract class TemplateToolState
 		int msgY2 = msgY1 + 10;
 		
 		context.fill(msgX1, msgY1, msgX2, msgY2, 0x80000000);
-		context.drawString(tr, message, msgX1 + 2, msgY1 + 1,
-			CommonColors.WHITE, false);
+		context.text(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
+			false);
 	}
 	
 	protected abstract String getMessage(TemplateToolHack hack);

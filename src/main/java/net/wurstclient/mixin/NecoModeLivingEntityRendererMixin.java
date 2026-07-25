@@ -44,7 +44,7 @@ public abstract class NecoModeLivingEntityRendererMixin
 	private static PlayerModel necoPlayerModel;
 	
 	@WrapOperation(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"))
 	private void wurst$replaceSubmittedModel(SubmitNodeCollector collector,
@@ -70,7 +70,7 @@ public abstract class NecoModeLivingEntityRendererMixin
 	}
 	
 	@WrapOperation(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;shouldRenderLayers(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;)Z"))
 	private boolean wurst$skipMobLayers(LivingEntityRenderer instance,
@@ -96,7 +96,8 @@ public abstract class NecoModeLivingEntityRendererMixin
 		if(type == null)
 			return true;
 		
-		if(necoMode.shouldExcludePlayers() && type == EntityType.PLAYER)
+		if(necoMode.shouldExcludePlayers()
+			&& type == net.wurstclient.util.RegistryUtils.entityType("player"))
 			return false;
 		
 		boolean onlyPassive = necoMode.shouldRenderOnlyPassiveMobs();
@@ -106,13 +107,14 @@ public abstract class NecoModeLivingEntityRendererMixin
 		
 		MobCategory category = type.getCategory();
 		boolean isAggressive = category == MobCategory.MONSTER;
-		boolean isPassive =
-			category == MobCategory.CREATURE || category == MobCategory.AMBIENT
-				|| category == MobCategory.WATER_CREATURE
-				|| category == MobCategory.WATER_AMBIENT
-				|| category == MobCategory.UNDERGROUND_WATER_CREATURE
-				|| type == EntityType.VILLAGER
-				|| type == EntityType.WANDERING_TRADER;
+		boolean isPassive = category == MobCategory.CREATURE
+			|| category == MobCategory.AMBIENT
+			|| category == MobCategory.WATER_CREATURE
+			|| category == MobCategory.WATER_AMBIENT
+			|| category == MobCategory.UNDERGROUND_WATER_CREATURE
+			|| type == net.wurstclient.util.RegistryUtils.entityType("villager")
+			|| type == net.wurstclient.util.RegistryUtils
+				.entityType("wandering_trader");
 		
 		if(onlyPassive && onlyAggressive)
 			return isPassive || isAggressive;

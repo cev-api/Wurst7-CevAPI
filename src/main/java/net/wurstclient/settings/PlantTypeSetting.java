@@ -26,7 +26,8 @@ import net.wurstclient.util.text.WText;
 
 public final class PlantTypeSetting extends Setting
 {
-	private final ItemStack icon;
+	private final Item iconItem;
+	private ItemStack icon;
 	private boolean harvest;
 	private final boolean harvestByDefault;
 	private boolean replant;
@@ -36,7 +37,7 @@ public final class PlantTypeSetting extends Setting
 		boolean harvest, boolean replant)
 	{
 		super(name, description);
-		this.icon = new ItemStack(icon);
+		this.iconItem = icon;
 		this.harvest = harvest;
 		harvestByDefault = harvest;
 		this.replant = replant;
@@ -57,6 +58,8 @@ public final class PlantTypeSetting extends Setting
 	
 	public ItemStack getIcon()
 	{
+		if(icon == null)
+			icon = new ItemStack(iconItem);
 		return icon;
 	}
 	

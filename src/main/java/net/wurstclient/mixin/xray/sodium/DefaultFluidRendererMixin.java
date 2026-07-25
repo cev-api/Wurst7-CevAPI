@@ -15,9 +15,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.sugar.Local;
+
+import net.minecraft.client.renderer.block.BlockAndTintGetter;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.BlockAndTintGetter;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
@@ -28,8 +29,8 @@ import net.wurstclient.hacks.XRayHack;
 
 /**
  * Last updated for <a href=
- * "https://github.com/CaffeineMC/sodium/blob/367487beb44ee583cd26bb553a9c9e7a27801681/common/src/main/java/net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/DefaultFluidRenderer.java">Sodium
- * mc1.21.11-0.8.7</a>
+ * "https://github.com/CaffeineMC/sodium/blob/148316fbfca6c3c88274ad79e1010310c6a3749b/common/src/main/java/net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/DefaultFluidRenderer.java">Sodium
+ * mc26.1-0.8.7</a>
  */
 @Pseudo
 @Mixin(targets = {
@@ -37,64 +38,11 @@ import net.wurstclient.hacks.XRayHack;
 public class DefaultFluidRendererMixin
 {
 	/**
-	 * Hides and shows the top side of fluids when using X-Ray with Sodium
-	 * <=0.8.6 installed.
-	 */
-	@Inject(
-		method = "isFullBlockFluidOccluded(Lnet/minecraft/class_1920;Lnet/minecraft/class_2338;Lnet/minecraft/class_2350;Lnet/minecraft/class_2680;Lnet/minecraft/class_3610;)Z",
-		at = @At("HEAD"),
-		cancellable = true,
-		remap = false,
-		require = 0)
-	private void onIsFullBlockFluidOccluded(BlockAndTintGetter world,
-		BlockPos pos, Direction dir, BlockState state, FluidState fluid,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
-		
-		// Note: the null BlockPos is here to skip the "exposed only" check
-		Boolean shouldDrawSide = xray.shouldDrawSide(state, null);
-		
-		if(shouldDrawSide != null)
-			cir.setReturnValue(!shouldDrawSide);
-	}
-	
-	/**
-	 * Hides and shows all fluid faces except the top face when using X-Ray with
-	 * Sodium <=0.8.6 installed.
-	 */
-	@Inject(
-		method = "isSideExposed(Lnet/minecraft/class_1920;IIILnet/minecraft/class_2350;F)Z",
-		at = @At("HEAD"),
-		cancellable = true,
-		remap = false,
-		require = 0)
-	private void onIsSideExposed(BlockAndTintGetter world, int x, int y, int z,
-		Direction dir, float height, CallbackInfoReturnable<Boolean> cir)
-	{
-		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
-		BlockPos pos = new BlockPos(x, y, z);
-		BlockState state = world.getBlockState(pos);
-		
-		// Note: the null BlockPos is here to skip the "exposed only" check
-		Boolean shouldDrawSide = xray.shouldDrawSide(state, null);
-		
-		if(shouldDrawSide == null)
-			return;
-		
-		BlockPos nPos = pos.offset(dir.getUnitVec3i());
-		BlockState neighborState = world.getBlockState(nPos);
-		
-		cir.setReturnValue(!neighborState.getFluidState().getType()
-			.isSame(state.getFluidState().getType()) && shouldDrawSide);
-	}
-	
-	/**
 	 * This, together with {@code onIsFluidSideExposed(...)}, hides and shows
-	 * fluid side faces when using X-Ray with Sodium >=0.8.7.
+	 * fluid side faces when using X-Ray with Sodium.
 	 */
 	@Inject(
-		method = "isFullBlockFluidSideVisible(Lnet/minecraft/class_1922;Lnet/minecraft/class_2338;Lnet/minecraft/class_2350;Lnet/minecraft/class_3610;)Z",
+		method = "isFullBlockFluidSideVisible(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;Lnet/minecraft/world/level/material/FluidState;)Z",
 		at = @At("HEAD"),
 		cancellable = true,
 		remap = false,
@@ -103,7 +51,7 @@ public class DefaultFluidRendererMixin
 		Direction dir, FluidState fluid, CallbackInfoReturnable<Boolean> cir)
 	{
 		XRayHack xray = WurstClient.INSTANCE.getHax().xRayHack;
-		BlockState state = fluid.createLegacyBlock();
+		BlockState state = world.getBlockState(pos);
 		
 		// Note: the null BlockPos is here to skip the "exposed only" check
 		Boolean shouldDrawSide = xray.shouldDrawSide(state, null);
@@ -121,14 +69,14 @@ public class DefaultFluidRendererMixin
 	
 	/**
 	 * This, together with {@code onIsFullBlockFluidSideVisible(...)}, hides and
-	 * shows fluid side faces when using X-Ray with Sodium >=0.8.7.
+	 * shows fluid side faces when using X-Ray with Sodium.
 	 *
 	 * It also slightly breaks the shape of flowing water when X-Ray is enabled
 	 * because of the way Sodium's {@code fluidCornerHeight(...)} works. This is
 	 * annoying to work around so I left it as-is.
 	 */
 	@Inject(
-		method = "isFluidSideExposed(Lnet/minecraft/class_1920;Lnet/minecraft/class_2680;Lnet/minecraft/class_2338;Lnet/minecraft/class_2350;F)Z",
+		method = "isFluidSideExposed(Lnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;F)Z",
 		at = @At("HEAD"),
 		cancellable = true,
 		remap = false,
@@ -154,11 +102,9 @@ public class DefaultFluidRendererMixin
 	 * Overrides Sodium's hidden-fluid-culling flood fill for source/full
 	 * fluids. Returning 3 marks the upward face as exposed from both
 	 * directions, which keeps underground top faces visible for X-Ray.
-	 *
-	 * Applies to Sodium >=0.8.7.
 	 */
 	@Inject(
-		method = "getUpFaceExposureByNeighbors(Lnet/minecraft/class_1920;Lnet/minecraft/class_2338;Lnet/minecraft/class_3610;)I",
+		method = "getUpFaceExposureByNeighbors(Lnet/minecraft/client/renderer/block/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/material/FluidState;)I",
 		at = @At("HEAD"),
 		cancellable = true,
 		remap = false,

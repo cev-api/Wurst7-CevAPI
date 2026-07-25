@@ -12,9 +12,8 @@ import org.lwjgl.glfw.GLFW;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.animal.chicken.Chicken;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.LeverBlock;
@@ -98,8 +97,9 @@ public final class FreecamHackTest extends SingleplayerTest
 		world.waitForChunksRender();
 		input.holdKeyFor(GLFW.GLFW_KEY_S, 2);
 		input.holdKeyFor(GLFW.GLFW_KEY_SPACE, 1);
+		context.waitTick();
 		assertScreenshotEquals("freecam_moved",
-			"https://i.imgur.com/HxrcHbh.png");
+			"https://i.imgur.com/SQPSG5S.png");
 		
 		// Enable tracer
 		runWurstCommand("setcheckbox Freecam tracer on");
@@ -116,8 +116,7 @@ public final class FreecamHackTest extends SingleplayerTest
 		runWurstCommand("setcheckbox Freecam hide_hand on");
 		
 		// Enable player movement, walk forward, and turn around
-		setBlocksAndWait(
-			blocks -> blocks.fill(0, -58, 1, 0, -58, 2, Blocks.SMOOTH_STONE));
+		runCommand("fill 0 -58 1 0 -58 2 smooth_stone");
 		runWurstCommand("setmode Freecam apply_input_to player");
 		input.holdKeyFor(GLFW.GLFW_KEY_W, 10);
 		for(int i = 0; i < 10; i++)
@@ -142,20 +141,17 @@ public final class FreecamHackTest extends SingleplayerTest
 		world.waitForChunksRender();
 		
 		// Reset player and remove walkway
-		setBlocksAndWait(
-			blocks -> blocks.fill(0, -58, 1, 0, -58, 2, Blocks.AIR));
+		runCommand("fill 0 -58 1 0 -58 2 air");
 		runCommand("tp @s 0 -57 0 0 0");
 		// Restore body rotation - /tp only rotates the head as of 1.21.11
 		context.runOnClient(mc -> mc.player.setYBodyRot(0));
 		
 		// Test "Interact from" setting
-		setBlocksAndWait(blocks -> {
-			blocks.set(0, -56, 2, Blocks.SMOOTH_STONE);
-			blocks.set(0, -56, 1, Blocks.LEVER.defaultBlockState()
-				.setValue(LeverBlock.FACING, Direction.NORTH));
-			blocks.set(0, -56, 3, Blocks.LEVER.defaultBlockState()
-				.setValue(LeverBlock.FACING, Direction.SOUTH));
-		});
+		runCommand("setblock 0 -56 2 smooth_stone");
+		waitForBlock(0, 1, 2, Blocks.SMOOTH_STONE);
+		runCommand("setblock 0 -56 1 lever[face=wall,facing=north]");
+		runCommand("setblock 0 -56 3 lever[face=wall,facing=south]");
+		waitForBlock(0, 1, 3, Blocks.LEVER);
 		context.waitTicks(WurstTest.IS_SODIUM_INSTALLED ? 5 : 1);
 		world.waitForChunksRender();
 		context.takeScreenshot("freecam_interact_setup");
@@ -190,8 +186,7 @@ public final class FreecamHackTest extends SingleplayerTest
 		assertLeverState(0, -56, 3, true, "far lever, player mode");
 		
 		// Replace levers with chickens
-		setBlocksAndWait(
-			blocks -> blocks.fill(0, -56, 1, 0, -56, 3, Blocks.AIR));
+		runCommand("fill 0 -56 1 0 -56 3 air strict");
 		Chicken nearChicken = spawnChicken(1.5);
 		Chicken farChicken = spawnChicken(3.5);
 		clearParticles();
@@ -219,13 +214,13 @@ public final class FreecamHackTest extends SingleplayerTest
 		farChicken.discard();
 		runWurstCommand("setmode Freecam interact_from camera");
 		input.pressKey(GLFW.GLFW_KEY_U);
-		waitForHandSwing();
+		context.waitTicks(2);
 	}
 	
 	private Chicken spawnChicken(double z)
 	{
 		return server.computeOnServer(s -> {
-			Chicken c = EntityType.CHICKEN.create(s.overworld(),
+			Chicken c = EntityTypes.CHICKEN.create(s.overworld(),
 				EntitySpawnReason.COMMAND);
 			c.setPos(0.5, -56, z);
 			c.setNoAi(true);

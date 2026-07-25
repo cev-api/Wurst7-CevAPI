@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.Mth;
@@ -85,18 +85,18 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	}
 	
 	@Override
-	protected void renderItem(GuiGraphics context, int mouseX, int mouseY,
-		float delta, E entry)
+	protected void extractItem(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float delta, E entry)
 	{
 		if(entriesCanBeSelected()
 			&& selectedKeys.contains(getSelectionKey(entry)))
 		{
 			int color =
 				this.getSelected() == entry && this.isFocused() ? -1 : -8355712;
-			renderSelection(context, entry, color);
+			extractSelection(context, entry, color);
 		}
 		
-		entry.renderContent(context, mouseX, mouseY,
+		entry.extractContent(context, mouseX, mouseY,
 			Objects.equals(getHovered(), entry), delta);
 	}
 	

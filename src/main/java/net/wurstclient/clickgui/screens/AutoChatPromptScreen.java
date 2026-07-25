@@ -13,7 +13,7 @@ import java.util.Map;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
@@ -108,7 +108,7 @@ public final class AutoChatPromptScreen extends Screen
 		int doneW = 100;
 		cancelBtn = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.setScreen(prevScreen))
+				b -> minecraft.gui.setScreen(prevScreen))
 			.bounds(rightPanelX + editorWidth - doneW, buttonY, doneW, 20)
 			.build();
 		addRenderableWidget(cancelBtn);
@@ -192,20 +192,20 @@ public final class AutoChatPromptScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX, int mouseY,
-		float partialTicks)
+	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+		int mouseY, float partialTicks)
 	{
 		// Title
-		context.drawCenteredString(font, isSystemPromptMode
+		context.centeredText(font, isSystemPromptMode
 			? "AutoChat System Prompts" : "AutoChat Personas", width / 2, 8,
 			CommonColors.WHITE);
 		
 		String hint =
 			"Ctrl+S to save  |  Ctrl+Enter to confirm  |  Esc to close";
-		context.drawCenteredString(font, hint, width / 2, 20, 0xAAAAAA);
+		context.centeredText(font, hint, width / 2, 20, 0xAAAAAA);
 		
 		if(!statusMessage.isEmpty())
-			context.drawCenteredString(font, statusMessage, width / 2, 30,
+			context.centeredText(font, statusMessage, width / 2, 30,
 				statusColor);
 		
 		// Draw prompt list
@@ -252,11 +252,11 @@ public final class AutoChatPromptScreen extends Screen
 			
 			String display =
 				name.length() > 22 ? name.substring(0, 21) + "..." : name;
-			context.drawCenteredString(font, display,
-				leftPanelX + LIST_WIDTH / 2, itemY + 3, color);
+			context.centeredText(font, display, leftPanelX + LIST_WIDTH / 2,
+				itemY + 3, color);
 		}
 		
-		super.render(context, mouseX, mouseY, partialTicks);
+		super.extractRenderState(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -311,7 +311,7 @@ public final class AutoChatPromptScreen extends Screen
 	{
 		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -323,7 +323,7 @@ public final class AutoChatPromptScreen extends Screen
 		
 		if(event.key() == GLFW.GLFW_KEY_ENTER && event.hasControlDown())
 		{
-			minecraft.setScreen(prevScreen);
+			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
