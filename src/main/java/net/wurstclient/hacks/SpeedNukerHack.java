@@ -51,7 +51,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	
 	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
 		"Auto switch tool",
-		"Automatically switch to the best tool in your hotbar for the current"
+		"Automatically switch to the best tool in your inventory for the current"
 			+ " block even if the AutoTool hack is disabled.",
 		false);
 	
@@ -200,11 +200,12 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		{
 			if(WURST.getHax().autoToolHack.isEnabled())
 			{
-				WURST.getHax().autoToolHack.equipIfEnabled(blocks.get(0));
+				WURST.getHax().autoToolHack
+					.equipIfEnabledFromInventory(blocks.get(0));
 			}else if(autoSwitchTool.isChecked())
 			{
-				WURST.getHax().autoToolHack.equipBestTool(blocks.get(0), true,
-					true, 0);
+				WURST.getHax().autoToolHack.equipBestToolFromInventory(
+					blocks.get(0), true, true, 0, slot -> true);
 			}
 		}
 		

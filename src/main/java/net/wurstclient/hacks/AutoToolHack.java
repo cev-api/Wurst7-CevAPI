@@ -128,6 +128,15 @@ public final class AutoToolHack extends Hack
 			repairMode.getValueI());
 	}
 	
+	public boolean equipIfEnabledFromInventory(BlockPos pos)
+	{
+		if(!isEnabled())
+			return false;
+		
+		return equipBestToolFromInventory(pos, useSwords.isChecked(),
+			useHands.isChecked(), repairMode.getValueI(), slot -> true);
+	}
+	
 	public void equipBestTool(BlockPos pos, boolean useSwords, boolean useHands,
 		int repairMode)
 	{
