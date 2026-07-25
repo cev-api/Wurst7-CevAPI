@@ -199,6 +199,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		EVENTS.remove(AirStrafingSpeedListener.class, this);
 		alertManager.removeListener(this);
 		EVENTS.remove(MouseScrollListener.class, this);
+		WURST.getHax().spearAssistHack.onFlightDisabled();
 	}
 	
 	@Override
@@ -249,6 +250,10 @@ public final class FlightHack extends Hack implements UpdateListener,
 		if(isAntiKickEnabled())
 			doAntiKick();
 		
+		Vec3 adjustedMotion = WURST.getHax().spearAssistHack
+			.adjustHorizontalVelocityForFlight(player.getDeltaMovement());
+		player.setDeltaMovement(adjustedMotion);
+		
 		Double alignStep =
 			WURST.getHax().spearAssistHack.getAutoAlignmentStepForFlight();
 		if(alignStep == null)
@@ -257,8 +262,8 @@ public final class FlightHack extends Hack implements UpdateListener,
 		if(alignStep != null)
 		{
 			double safeVerticalSpeed = getActualVerticalSpeed();
-			alignStep = Mth.clamp(alignStep, -safeVerticalSpeed,
-				safeVerticalSpeed);
+			alignStep =
+				Mth.clamp(alignStep, -safeVerticalSpeed, safeVerticalSpeed);
 			
 			Vec3 current = player.getDeltaMovement();
 			player.setDeltaMovement(current.x, alignStep, current.z);
@@ -360,6 +365,10 @@ public final class FlightHack extends Hack implements UpdateListener,
 			return;
 		
 		event.setSpeed(horizontalSpeed.getValueF());
+		Double speedLimit = WURST.getHax().spearAssistHack
+			.getHitWindowSpeedLimitForFlight(event.getSpeed());
+		if(speedLimit != null)
+			event.setSpeed(Math.min(event.getSpeed(), speedLimit.floatValue()));
 	}
 	
 	@Override

@@ -14,10 +14,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -42,6 +45,7 @@ import net.wurstclient.hacks.MobEspHack.RenderShape;
 import net.wurstclient.hacks.MobEspHack.RenderStyleInfo;
 import net.wurstclient.clickgui.SettingsWindow;
 import net.wurstclient.clickgui.Window;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EntityTypeListSetting;
@@ -112,6 +116,35 @@ public final class SpearAssistHack extends Hack
 		"Auto resume charge",
 		"Automatically re-presses use to keep the spear raised when it drops.",
 		true);
+	private final SliderSetting chargeRefreshSafetyMargin =
+		new SliderSetting("Charge refresh safety margin",
+			"Ticks before the computed spear duration to refresh charge.", 8, 5,
+			20, 1, ValueDisplay.INTEGER.withSuffix(" ticks"));
+	private final SliderSetting passTurnaroundDistance =
+		new SliderSetting("Pass turnaround distance",
+			"Horizontal distance beyond the target before turning back.", 10, 6,
+			24, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final SliderSetting passLockRange =
+		new SliderSetting("Pass lock range",
+			"Maximum horizontal distance for the locked pass target.", 24, 12,
+			64, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final SliderSetting passDetectionRadius =
+		new SliderSetting("Pass detection radius",
+			"Distance where crossing the target can start a pass detection.",
+			4.5, 2, 8, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final CheckboxSetting hitWindowSpeedLimit =
+		new CheckboxSetting("Hit-window speed limit",
+			"Limit horizontal Flight speed near a charged target.", true);
+	private final SliderSetting hitWindowRange =
+		new SliderSetting("Hit-window range",
+			"Distance where the hit-window speed limit applies.", 8, 4, 12, 0.5,
+			ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final SliderSetting hitWindowMaxTravel = new SliderSetting(
+		"Hit-window max travel",
+		"Maximum horizontal Flight travel per tick in the hit window. 2.5 blocks/tick equals 50 blocks/s at 20 TPS.",
+		2.5, 0.5, 5, 0.1, ValueDisplay.DECIMAL.withSuffix(" blocks/tick"));
+	private final CheckboxSetting passDebug = new CheckboxSetting("Pass debug",
+		"Prints SpearAssist pass state transitions.", false);
 	
 	private final EnumSetting<AimAssistMode> aimAssistMode = new EnumSetting<>(
 		"AimAssist mode", AimAssistMode.values(), AimAssistMode.OFF);
@@ -225,6 +258,22 @@ public final class SpearAssistHack extends Hack
 	private int spearKillBlinkChargeTicks;
 	private int spearKillFlushCooldown;
 	private AssistMode lastAssistMode;
+	private boolean chargeRestartPending;
+	private Entity passTarget;
+	private PassState passState = PassState.APPROACHING;
+	private double previousPassDistance = Double.NaN;
+	private double closestApproachDistance = Double.MAX_VALUE;
+	private Vec3 previousPassPlayerPosition;
+	private Vec3 previousPassTargetPosition;
+	private Vec3 approachDirection = Vec3.ZERO;
+	private int passDistanceIncreaseTicks;
+	private int coastTicks;
+	private boolean passWasNearWhileApproaching;
+	private boolean passCrossedBehind;
+	private boolean previousTargetAhead;
+	private boolean hitWindowGovernorActive;
+	private boolean noFallConflictReported;
+	private int passStateUpdateTick = -1;
 	
 	public SpearAssistHack()
 	{
@@ -241,6 +290,14 @@ public final class SpearAssistHack extends Hack
 		addSetting(nearHighlightColor);
 		addSetting(farHighlightColor);
 		addSetting(autoResumeCharge);
+		addSetting(chargeRefreshSafetyMargin);
+		addSetting(passTurnaroundDistance);
+		addSetting(passLockRange);
+		addSetting(passDetectionRadius);
+		addSetting(hitWindowSpeedLimit);
+		addSetting(hitWindowRange);
+		addSetting(hitWindowMaxTravel);
+		addSetting(passDebug);
 		addSetting(aimAssistMode);
 		addSetting(aimAssistRangeOverride);
 		addSetting(aimAssistLockOnOverride);
@@ -317,13 +374,19 @@ public final class SpearAssistHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(MC.player == null || MC.options == null)
+		if(MC.player == null || MC.level == null || MC.options == null
+			|| MC.gameMode == null || MC.getConnection() == null
+			|| MC.player.isRemoved() || !MC.player.isAlive())
+		{
+			resetAssistState();
 			return;
+		}
 		
 		updateModeVisibility();
 		
 		if(assistMode.getSelected() == AssistMode.SPEARKILL)
 		{
+			resetAssistState();
 			updateSpearKill();
 			return;
 		}
@@ -356,10 +419,11 @@ public final class SpearAssistHack extends Hack
 				Vec3 dashDirection =
 					shouldReverseDashBoost() ? reversed : direction;
 				
-				if(attackHeld)
+				if(attackHeld && passState != PassState.COASTING_AFTER_PASS)
 					applyHoldVelocity(holdDirection);
 				
-				continueDash(dashDirection);
+				if(passState != PassState.COASTING_AFTER_PASS)
+					continueDash(dashDirection);
 			}
 		}else
 			resetDash();
@@ -371,6 +435,9 @@ public final class SpearAssistHack extends Hack
 		updateAimAssistRangeOverride(holdingSpear);
 		updateAimAssistLockOnOverride(holdingSpear);
 		updateAimAssist(charging, holdingSpear);
+		if(!charging && !chargeRestartPending)
+			resetPassState();
+		updatePassStateOnce(charging, holdingSpear);
 		updateAutoAlignment(charging, holdingSpear);
 		handleAutoAttack(holdingSpear, attackHeld);
 	}
@@ -460,6 +527,11 @@ public final class SpearAssistHack extends Hack
 		if(!autoResumeCharge.isChecked() || MC.player == null
 			|| MC.gameMode == null)
 			return;
+		if(chargeRestartPending)
+		{
+			event.cancel();
+			return;
+		}
 		
 		if(!isSpear(MC.player.getMainHandItem()))
 			return;
@@ -471,14 +543,38 @@ public final class SpearAssistHack extends Hack
 	
 	private void handleAutoResumeCharge(boolean holdingSpear)
 	{
-		if(MC.player == null || MC.options == null)
+		if(MC.player == null || MC.level == null || MC.options == null
+			|| MC.gameMode == null || MC.getConnection() == null)
+			return;
+		if(!(MC.gameMode instanceof IMultiPlayerGameMode gameMode))
 			return;
 		
 		boolean maintainCharge = holdingSpear && autoResumeCharge.isChecked()
+			&& assistMode.getSelected() == AssistMode.ASSIST
 			&& MC.options.keyUse.isDown();
 		
 		if(!maintainCharge)
+		{
+			chargeRestartPending = false;
 			return;
+		}
+		
+		if(chargeRestartPending)
+		{
+			if(!MC.options.keyUse.isDown()
+				|| !isSpear(MC.player.getMainHandItem())
+				|| MC.player.isRemoved() || !MC.player.isAlive())
+			{
+				chargeRestartPending = false;
+				return;
+			}
+			
+			MC.rightClickDelay = 0;
+			silentlyStartUseItem();
+			chargeRestartPending = false;
+			debugPass("Charge restart sent");
+			return;
+		}
 		
 		if(MC.player.isUsingItem() && isSpear(MC.player.getUseItem()))
 		{
@@ -486,20 +582,26 @@ public final class SpearAssistHack extends Hack
 			if(MC.player.getTicksUsingItem() < refreshTicks)
 				return;
 			
+			gameMode.sendPlayerActionC2SPacket(
+				ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM,
+				BlockPos.ZERO, Direction.DOWN);
 			MC.player.releaseUsingItem();
+			chargeRestartPending = true;
+			debugPass("Charge refresh release sent");
+			return;
 		}
-		
-		MC.rightClickDelay = 0;
-		silentlyStartUseItem();
 	}
 	
 	private int getSpearRefreshTicks(ItemStack stack)
 	{
 		KineticWeapon kineticWeapon = stack.get(DataComponents.KINETIC_WEAPON);
 		if(kineticWeapon == null)
-			return 200;
+			return Math.max(1, 200 - chargeRefreshSafetyMargin.getValueI() - 1);
 		
-		return Math.max(1, kineticWeapon.computeDamageUseDuration() - 5);
+		int duration = kineticWeapon.computeDamageUseDuration();
+		int margin = chargeRefreshSafetyMargin.getValueI();
+		int usefulChargeFloor = Math.min(duration / 2, duration - 1);
+		return Math.max(usefulChargeFloor, Math.max(1, duration - margin - 1));
 	}
 	
 	private void handleAutoAttack(boolean holdingSpear, boolean attackHeld)
@@ -644,6 +746,7 @@ public final class SpearAssistHack extends Hack
 	private void resetState()
 	{
 		resetDash();
+		resetAssistState();
 		highlightTargets.clear();
 		useGlowFallback = true;
 		currentStyle = null;
@@ -663,6 +766,42 @@ public final class SpearAssistHack extends Hack
 		spearKillTarget = null;
 		spearKillBlinkChargeTicks = 0;
 		spearKillFlushCooldown = 0;
+	}
+	
+	private void resetAssistState()
+	{
+		chargeRestartPending = false;
+		resetPassState();
+		hitWindowGovernorActive = false;
+		noFallConflictReported = false;
+	}
+	
+	private void resetPassState()
+	{
+		boolean hadTarget = passTarget != null;
+		var aimAssist = WURST.getHax().aimAssistHack;
+		if(aimAssist != null)
+		{
+			aimAssist.clearPassTarget();
+			aimAssist.setHorizontalRotationSuppressed(false);
+		}
+		
+		passTarget = null;
+		passState = PassState.APPROACHING;
+		previousPassDistance = Double.NaN;
+		closestApproachDistance = Double.MAX_VALUE;
+		previousPassPlayerPosition = null;
+		previousPassTargetPosition = null;
+		approachDirection = Vec3.ZERO;
+		passDistanceIncreaseTicks = 0;
+		coastTicks = 0;
+		passWasNearWhileApproaching = false;
+		passCrossedBehind = false;
+		previousTargetAhead = false;
+		setHitWindowGovernorActive(false);
+		passStateUpdateTick = -1;
+		if(hadTarget)
+			debugPass("Target lock reset");
 	}
 	
 	private void updateHighlights(boolean holdingSpear)
@@ -788,6 +927,230 @@ public final class SpearAssistHack extends Hack
 		}
 	}
 	
+	public void updatePassStateForAimAssist()
+	{
+		if(MC.player == null || MC.level == null || MC.options == null
+			|| MC.gameMode == null || MC.getConnection() == null
+			|| MC.player.isRemoved() || !MC.player.isAlive())
+		{
+			resetAssistState();
+			return;
+		}
+		
+		boolean holdingSpear = isSpear(MC.player.getMainHandItem());
+		boolean charging = holdingSpear && MC.player.isUsingItem()
+			&& isSpear(MC.player.getUseItem());
+		updatePassStateOnce(charging, holdingSpear);
+	}
+	
+	private void updatePassStateOnce(boolean charging, boolean holdingSpear)
+	{
+		if(MC.player != null && passStateUpdateTick == MC.player.tickCount)
+			return;
+		updatePassState(charging, holdingSpear);
+		if(MC.player != null)
+			passStateUpdateTick = MC.player.tickCount;
+	}
+	
+	private void updatePassState(boolean charging, boolean holdingSpear)
+	{
+		var aimAssist = WURST.getHax().aimAssistHack;
+		boolean active = assistMode.getSelected() == AssistMode.ASSIST
+			&& holdingSpear && charging && WURST.getHax().flightHack.isEnabled()
+			&& aimAssist != null && aimAssist.isEnabled() && MC.player != null
+			&& MC.level != null;
+		if(!active)
+		{
+			if(chargeRestartPending && holdingSpear
+				&& assistMode.getSelected() == AssistMode.ASSIST)
+				return;
+			resetPassState();
+			return;
+		}
+		
+		if(passTarget == null)
+		{
+			Entity candidate = aimAssist.getCurrentTarget();
+			if(isValidPassTarget(candidate))
+				lockPassTarget(candidate);
+			else
+				return;
+		}
+		
+		if(!isValidPassTarget(passTarget))
+		{
+			resetPassState();
+			return;
+		}
+		
+		if(aimAssist != null)
+		{
+			aimAssist.setPassTarget(passTarget);
+			aimAssist.setHorizontalRotationSuppressed(
+				passState == PassState.COASTING_AFTER_PASS);
+		}
+		
+		Vec3 playerPosition = MC.player.position();
+		Vec3 targetPosition = passTarget.position();
+		double distance = horizontalDistance(playerPosition, targetPosition);
+		Vec3 playerStep =
+			previousPassPlayerPosition == null ? Vec3.ZERO : horizontalOnly(
+				playerPosition.subtract(previousPassPlayerPosition));
+		Vec3 targetStep =
+			previousPassTargetPosition == null ? Vec3.ZERO : horizontalOnly(
+				targetPosition.subtract(previousPassTargetPosition));
+		Vec3 relativeStep = playerStep.subtract(targetStep);
+		Vec3 travelDirection = getHorizontalTravelDirection(playerStep);
+		boolean targetAhead = isTargetAhead(targetPosition, playerPosition,
+			travelDirection, relativeStep);
+		
+		if(Double.isNaN(previousPassDistance))
+		{
+			previousPassDistance = distance;
+			closestApproachDistance = distance;
+			previousTargetAhead = targetAhead;
+		}
+		
+		boolean distanceDecreased = distance < previousPassDistance - 0.01;
+		if(distanceDecreased)
+		{
+			closestApproachDistance =
+				Math.min(closestApproachDistance, distance);
+			passDistanceIncreaseTicks = 0;
+		}else if(distance > previousPassDistance + 0.05)
+			passDistanceIncreaseTicks++;
+		else if(distance <= previousPassDistance + 0.01)
+			passDistanceIncreaseTicks = 0;
+		
+		if((passState == PassState.APPROACHING
+			|| passState == PassState.RETURNING) && targetAhead
+			&& distance <= passDetectionRadius.getValue() && (distanceDecreased
+				|| distance <= closestApproachDistance + 0.05))
+			passWasNearWhileApproaching = true;
+		
+		if(passWasNearWhileApproaching && previousTargetAhead && !targetAhead)
+			passCrossedBehind = true;
+		
+		if((passState == PassState.APPROACHING
+			|| passState == PassState.RETURNING) && passCrossedBehind
+			&& (passDistanceIncreaseTicks >= 2
+				|| distance - closestApproachDistance >= 0.25))
+		{
+			approachDirection = travelDirection;
+			passState = PassState.COASTING_AFTER_PASS;
+			coastTicks = 0;
+			debugPass("Pass detected");
+			debugPass("Coast started");
+		}
+		
+		if(passState == PassState.COASTING_AFTER_PASS)
+		{
+			coastTicks++;
+			boolean reachedDistance =
+				distance >= passTurnaroundDistance.getValue();
+			boolean timedOut = coastTicks >= 30;
+			if(reachedDistance || timedOut)
+			{
+				passState = PassState.RETURNING;
+				passDistanceIncreaseTicks = 0;
+				closestApproachDistance = distance;
+				previousPassDistance = distance;
+				passWasNearWhileApproaching = false;
+				passCrossedBehind = false;
+				previousTargetAhead = false;
+				if(reachedDistance)
+					debugPass("Turnaround distance reached");
+				debugPass("Return started");
+			}
+		}
+		
+		if(aimAssist != null)
+			aimAssist.setHorizontalRotationSuppressed(
+				passState == PassState.COASTING_AFTER_PASS);
+		previousPassDistance = distance;
+		previousPassPlayerPosition = playerPosition;
+		previousPassTargetPosition = targetPosition;
+		previousTargetAhead = targetAhead;
+	}
+	
+	private void lockPassTarget(Entity target)
+	{
+		passTarget = target;
+		passState = PassState.APPROACHING;
+		previousPassDistance = Double.NaN;
+		closestApproachDistance = Double.MAX_VALUE;
+		previousPassPlayerPosition = MC.player.position();
+		previousPassTargetPosition = target.position();
+		approachDirection = Vec3.ZERO;
+		passDistanceIncreaseTicks = 0;
+		coastTicks = 0;
+		passWasNearWhileApproaching = false;
+		passCrossedBehind = false;
+		previousTargetAhead = false;
+		WURST.getHax().aimAssistHack.setPassTarget(target);
+		debugPass("Target locked");
+	}
+	
+	private boolean isValidPassTarget(Entity target)
+	{
+		if(!(target instanceof LivingEntity living) || !living.isAlive()
+			|| target.isRemoved() || target.level() != MC.level)
+			return false;
+		
+		if(MC.player == null)
+			return false;
+		
+		double maxRange = getPassLockRange();
+		return horizontalDistance(MC.player.position(),
+			target.position()) <= maxRange;
+	}
+	
+	private double getPassLockRange()
+	{
+		return Math.max(passLockRange.getValue(),
+			passTurnaroundDistance.getValue() + 4);
+	}
+	
+	private static Vec3 horizontalOnly(Vec3 vector)
+	{
+		return new Vec3(vector.x, 0, vector.z);
+	}
+	
+	private static double horizontalDistance(Vec3 first, Vec3 second)
+	{
+		double x = first.x - second.x;
+		double z = first.z - second.z;
+		return Math.sqrt(x * x + z * z);
+	}
+	
+	private Vec3 getHorizontalTravelDirection(Vec3 playerStep)
+	{
+		Vec3 movement = horizontalOnly(MC.player.getDeltaMovement());
+		if(movement.lengthSqr() <= 1.0E-5)
+			movement = playerStep;
+		if(movement.lengthSqr() <= 1.0E-5)
+			return approachDirection.lengthSqr() > 1.0E-5
+				? approachDirection.normalize() : Vec3.ZERO;
+		return movement.normalize();
+	}
+	
+	private boolean isTargetAhead(Vec3 targetPosition, Vec3 playerPosition,
+		Vec3 travelDirection, Vec3 relativeStep)
+	{
+		Vec3 toTarget = horizontalOnly(targetPosition.subtract(playerPosition));
+		if(toTarget.lengthSqr() <= 1.0E-5
+			|| travelDirection.lengthSqr() <= 1.0E-5)
+			return false;
+		
+		toTarget = toTarget.normalize();
+		if(travelDirection.dot(toTarget) < 0.15)
+			return false;
+		
+		if(relativeStep.lengthSqr() > 1.0E-5 && relativeStep.dot(toTarget) <= 0)
+			return false;
+		return true;
+	}
+	
 	private void updateAutoAlignment(boolean charging, boolean holdingSpear)
 	{
 		if(WURST.getHax().flightHack.isEnabled())
@@ -808,6 +1171,143 @@ public final class SpearAssistHack extends Hack
 			WURST.getHax().flightHack.getActualVerticalSpeed());
 	}
 	
+	public Vec3 adjustHorizontalVelocityForFlight(Vec3 proposed)
+	{
+		if(proposed == null)
+			return null;
+		
+		Vec3 horizontal = horizontalOnly(proposed);
+		if(horizontal.lengthSqr() <= 1.0E-5)
+			return proposed;
+		
+		Double limit =
+			getHitWindowSpeedLimit(horizontal.normalize(), horizontal.length());
+		if(limit == null)
+			return proposed;
+		
+		return new Vec3(horizontal.x * limit / horizontal.length(), proposed.y,
+			horizontal.z * limit / horizontal.length());
+	}
+	
+	public Double getHitWindowSpeedLimitForFlight(double proposedSpeed)
+	{
+		if(MC.player == null || MC.player.input == null)
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		Vec3 direction = getFlightInputDirection();
+		if(direction.lengthSqr() <= 1.0E-5)
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		return getHitWindowSpeedLimit(direction, proposedSpeed);
+	}
+	
+	private Double getHitWindowSpeedLimit(Vec3 movementDirection,
+		double proposedSpeed)
+	{
+		if(!hitWindowSpeedLimit.isChecked()
+			|| assistMode.getSelected() != AssistMode.ASSIST
+			|| !WURST.getHax().flightHack.isEnabled() || MC.player == null
+			|| !isSpear(MC.player.getMainHandItem()) || !MC.player.isUsingItem()
+			|| !isSpear(MC.player.getUseItem())
+			|| (passState != PassState.APPROACHING
+				&& passState != PassState.RETURNING))
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		Entity target = passTarget;
+		if(!isValidPassTarget(target))
+		{
+			var aimAssist = WURST.getHax().aimAssistHack;
+			target = aimAssist != null ? aimAssist.getCurrentTarget() : null;
+		}
+		if(!isValidPassTarget(target)
+			|| proposedSpeed <= hitWindowMaxTravel.getValue())
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		Vec3 playerPosition = MC.player.position();
+		Vec3 targetPosition = target.position();
+		Vec3 toTarget = horizontalOnly(targetPosition.subtract(playerPosition));
+		if(toTarget.lengthSqr() <= 1.0E-5)
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		double distance = toTarget.length();
+		toTarget = toTarget.normalize();
+		if(distance > hitWindowRange.getValue()
+			|| movementDirection.dot(toTarget) < 0.5)
+		{
+			setHitWindowGovernorActive(false);
+			return null;
+		}
+		
+		setHitWindowGovernorActive(true);
+		return hitWindowMaxTravel.getValue();
+	}
+	
+	private Vec3 getFlightInputDirection()
+	{
+		if(MC.player == null || MC.player.input == null)
+			return Vec3.ZERO;
+		
+		var input = MC.player.input.getMoveVector();
+		if(input.lengthSquared() <= 1.0E-5F)
+			return Vec3.ZERO;
+		
+		Vec3 forward = Vec3.directionFromRotation(0, MC.player.getYRot());
+		forward = horizontalOnly(forward);
+		if(forward.lengthSqr() <= 1.0E-5)
+			return Vec3.ZERO;
+		forward = forward.normalize();
+		Vec3 right = new Vec3(-forward.z, 0, forward.x);
+		return forward.scale(input.y).add(right.scale(input.x)).normalize();
+	}
+	
+	private void setHitWindowGovernorActive(boolean active)
+	{
+		if(hitWindowGovernorActive == active)
+			return;
+		hitWindowGovernorActive = active;
+		debugPass(active ? "Hit-window speed governor activated"
+			: "Hit-window speed governor deactivated");
+	}
+	
+	public void debugNoFallConflictPrevented()
+	{
+		if(!noFallConflictReported)
+		{
+			noFallConflictReported = true;
+			debugPass("NoFall conflict prevented");
+		}
+	}
+	
+	public void onFlightDisabled()
+	{
+		if(isEnabled() && assistMode.getSelected() == AssistMode.ASSIST)
+		{
+			resetPassState();
+			noFallConflictReported = false;
+		}
+	}
+	
+	private void debugPass(String message)
+	{
+		if(isEnabled() && passDebug.isChecked())
+			ChatUtils.message("SpearAssist: " + message);
+	}
+	
 	public Double getAimAssistRangeOverride()
 	{
 		if(!isEnabled() || MC.player == null)
@@ -819,7 +1319,10 @@ public final class SpearAssistHack extends Hack
 		if(!isSpear(MC.player.getMainHandItem()))
 			return null;
 		
-		return aimAssistRangeOverride.getValue();
+		return passTarget != null
+			? Math.max(aimAssistRangeOverride.getValue(),
+				passTurnaroundDistance.getValue() + 4)
+			: aimAssistRangeOverride.getValue();
 	}
 	
 	private Double getAutoAlignmentStepInternal(Boolean chargingOverride,
@@ -944,6 +1447,13 @@ public final class SpearAssistHack extends Hack
 	private BoostMode getBoostMode()
 	{
 		return boostMode.getSelected();
+	}
+	
+	private enum PassState
+	{
+		APPROACHING,
+		COASTING_AFTER_PASS,
+		RETURNING
 	}
 	
 	public Integer getGlowColor(LivingEntity entity)
@@ -1071,6 +1581,14 @@ public final class SpearAssistHack extends Hack
 		nearHighlightColor.setVisibleInGui(assist);
 		farHighlightColor.setVisibleInGui(assist);
 		autoResumeCharge.setVisibleInGui(assist);
+		chargeRefreshSafetyMargin.setVisibleInGui(assist);
+		passTurnaroundDistance.setVisibleInGui(assist);
+		passLockRange.setVisibleInGui(assist);
+		passDetectionRadius.setVisibleInGui(assist);
+		hitWindowSpeedLimit.setVisibleInGui(assist);
+		hitWindowRange.setVisibleInGui(assist);
+		hitWindowMaxTravel.setVisibleInGui(assist);
+		passDebug.setVisibleInGui(assist);
 		aimAssistMode.setVisibleInGui(assist);
 		aimAssistRangeOverride.setVisibleInGui(assist);
 		aimAssistLockOnOverride.setVisibleInGui(assist);
@@ -1096,6 +1614,8 @@ public final class SpearAssistHack extends Hack
 		
 		if(currentMode != lastAssistMode)
 		{
+			if(lastAssistMode != null)
+				resetAssistState();
 			lastAssistMode = currentMode;
 			refreshSettingsWindow();
 		}
