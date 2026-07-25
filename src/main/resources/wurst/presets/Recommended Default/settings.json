@@ -110,6 +110,9 @@
     "Wait time randomization": 0.5,
     "Show wait time": true
   },
+  "AntiBreak": {
+    "Durability threshold": 1.0
+  },
   "AntiBlast": {
     "Horizontal Strength": 1.0,
     "Vertical Strength": 1.0
@@ -150,7 +153,7 @@
     "Detect lava": true,
     "Respond only at void level": true,
     "Use Flight": true,
-    "Auto-enable on out_of_world": true,
+    "Auto-enable on out_of_world": false,
     "Auto-enable by height": false,
     "Lava buffer (blocks)": 2.0
   },
@@ -1864,6 +1867,8 @@
     "Global ESP render mode": "Legacy",
     "Enable global ESP render limit": false,
     "Global ESP render limit": 1456.0,
+    "Enable global ESP/tracer range": false,
+    "Global ESP/tracer range": 128.0,
     "Disable all tracers": false,
     "Whitelist ChestESP tracers": false,
     "Whitelist PlayerESP tracers": true,
@@ -3475,7 +3480,9 @@
     ],
     "Skip blocks covered by suspicious dust": false,
     "Swing hand": "Off",
-    "Auto switch tool": false
+    "Auto switch tool": false,
+    "Only activate on left click": false,
+    "Preserve Tools": false
   },
   "StaffMonitor": {
     "Chat alert": true,
@@ -4072,8 +4079,8 @@
     "Logging enabled": false,
     "Deny enabled": false,
     "Delay enabled": false,
-    "Log to file": true,
-    "Show unknown packets": true,
+    "Log to file": false,
+    "Show unknown packets": false,
     "Delay ticks": 5.0,
     "Verbose logging": false,
     "Monitor outside game": false,

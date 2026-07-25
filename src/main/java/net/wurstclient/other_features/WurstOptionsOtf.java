@@ -50,7 +50,7 @@ public final class WurstOptionsOtf extends OtherFeature
 	private final CheckboxSetting titleScreenShadertoyBackground =
 		new CheckboxSetting("Shadertoy background",
 			"Render the animated Shadertoy-style background on the title screen.",
-			true);
+			false);
 	
 	private final TextFieldSetting titleScreenShadertoyUrl =
 		new TextFieldSetting("Custom Shadertoy URL",

@@ -34,6 +34,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.ai.PathFinder;
 import net.wurstclient.ai.PathProcessor;
+import net.wurstclient.autoflypath.PathFlightConfig;
+import net.wurstclient.autoflypath.PathFlightRuntime;
+import net.wurstclient.autoflypath.flight.FlightController;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -57,6 +60,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import org.lwjgl.glfw.GLFW;
@@ -65,6 +69,25 @@ import org.lwjgl.glfw.GLFW;
 public final class AutoFlyHack extends Hack
 	implements UpdateListener, GUIRenderListener, RenderListener
 {
+	public static enum NavigationMode
+	{
+		DIRECT("Direct"),
+		PATH("Path (FlyTo)");
+		
+		private final String name;
+		
+		NavigationMode(String name)
+		{
+			this.name = name;
+		}
+		
+		@Override
+		public String toString()
+		{
+			return name;
+		}
+	}
+	
 	private static final int STOP_SCAN_COOLDOWN_TICKS = 10;
 	private static final double COMMAND_FORWARD_DISTANCE = 100000.0;
 	private static final double COMMAND_FORWARD_LEAD_DISTANCE = 512.0;
@@ -225,6 +248,18 @@ public final class AutoFlyHack extends Hack
 		}
 	}
 	
+	private final EnumSetting<NavigationMode> navigationMode =
+		new EnumSetting<>("Flight mode",
+			"Direct uses AutoFly's lightweight point-to-point pilot. Path uses the FlyTo terrain-aware planner.",
+			NavigationMode.values(), NavigationMode.DIRECT)
+		{
+			@Override
+			public void setSelected(NavigationMode selected)
+			{
+				super.setSelected(selected);
+				updateModeSettingVisibility();
+			}
+		};
 	private final TextFieldSetting waypointText = new TextFieldSetting(
 		"Waypoints",
 		"Waypoints list. Format: x y z or x z (no Y). Separate by ';' or new lines.",
@@ -322,6 +357,35 @@ public final class AutoFlyHack extends Hack
 	private final SliderSetting targetRadius = new SliderSetting(
 		"Target radius", "Distance to consider a waypoint reached.", 4.0, 1.0,
 		64.0, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final SliderSetting pathSpeed = new SliderSetting("Path speed",
+		"FlyTo's maximum movement speed per tick.", 1.0, 0.1, 10.0, 0.05,
+		ValueDisplay.DECIMAL.withSuffix(" b/t"));
+	private final SliderSetting pathVerticalSpeed = new SliderSetting(
+		"Path vertical speed", "FlyTo's maximum vertical speed per tick.", 1.0,
+		0.1, 10.0, 0.05, ValueDisplay.DECIMAL.withSuffix(" b/t"));
+	private final SliderSetting pathArrivalRadius =
+		new SliderSetting("Path arrival radius",
+			"Distance at which FlyTo considers the target reached.", 5.0, 1.0,
+			64.0, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
+	private final CheckboxSetting pathPredictTerrain =
+		new CheckboxSetting("Path predict terrain",
+			"Use seed-based Nether terrain prediction beyond loaded chunks.",
+			false);
+	private final TextFieldSetting pathSeed = new TextFieldSetting("Path seed",
+		"World seed used for Nether terrain prediction.", "0");
+	private final CheckboxSetting pathAntiHunger =
+		new CheckboxSetting("Path anti-hunger",
+			"Keep FlyTo movement packets airborne while pathing.", true);
+	private final CheckboxSetting pathFaceTravel = new CheckboxSetting(
+		"Path face travel", "Face the direction FlyTo is travelling.", false);
+	private final CheckboxSetting pathRender = new CheckboxSetting("Show path",
+		"Render FlyTo's calculated route in the world.", true);
+	private final CheckboxSetting pathDebug = new CheckboxSetting("Path debug",
+		"Show detailed FlyTo recovery and prediction diagnostics.", false);
+	private final SliderSetting pathCruiseHeight =
+		new SliderSetting("Path cruise height",
+			"Cruise Y for X/Z targets. Zero uses FlyTo's dimension default.", 0,
+			0, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
 	private final CheckboxSetting skipReached =
 		new CheckboxSetting("Skip reached",
 			"Skip waypoints that are already within the target radius.", true);
@@ -513,11 +577,18 @@ public final class AutoFlyHack extends Hack
 	private int chunkTrailPortalScanCooldown;
 	private boolean stopHold;
 	private int stopIgnoreTicks;
+	private final PathFlightConfig pathFlightConfig = new PathFlightConfig();
+	private final FlightController pathFlightController;
+	private BlockPos lastPathFlightTarget;
+	private long lastPathFlightRetargetMs;
 	
 	public AutoFlyHack()
 	{
 		super("AutoFly");
 		setCategory(Category.MOVEMENT);
+		PathFlightRuntime.initialize(pathFlightConfig);
+		pathFlightController = PathFlightRuntime.controller();
+		addSetting(navigationMode);
 		addSetting(clickGuiStartMode);
 		addSetting(waypointText);
 		addSetting(routeType);
@@ -538,6 +609,16 @@ public final class AutoFlyHack extends Hack
 		addSetting(flightHeight);
 		addSetting(flightSpeed);
 		addSetting(targetRadius);
+		addSetting(pathSpeed);
+		addSetting(pathVerticalSpeed);
+		addSetting(pathArrivalRadius);
+		addSetting(pathPredictTerrain);
+		addSetting(pathSeed);
+		addSetting(pathAntiHunger);
+		addSetting(pathFaceTravel);
+		addSetting(pathRender);
+		addSetting(pathDebug);
+		addSetting(pathCruiseHeight);
 		addSetting(skipReached);
 		addSetting(crosshairInfo);
 		addSetting(crosshairBackgroundOpacity);
@@ -566,6 +647,70 @@ public final class AutoFlyHack extends Hack
 		addSetting(aheadScanChunks);
 		addSetting(sideScanHalfWidth);
 		addSetting(singleWallNudgeStrength);
+		updateModeSettingVisibility();
+	}
+	
+	private void updateModeSettingVisibility()
+	{
+		boolean path = navigationMode.getSelected() == NavigationMode.PATH;
+		adjustFlightHeight.setVisibleInGui(!path);
+		flightHeight.setVisibleInGui(!path);
+		flightSpeed.setVisibleInGui(!path);
+		targetRadius.setVisibleInGui(!path);
+		allowManualAdjust.setVisibleInGui(!path);
+		smoothFlight.setVisibleInGui(!path);
+		pathSpeed.setVisibleInGui(path);
+		pathVerticalSpeed.setVisibleInGui(path);
+		pathArrivalRadius.setVisibleInGui(path);
+		pathPredictTerrain.setVisibleInGui(path);
+		pathSeed.setVisibleInGui(path);
+		pathAntiHunger.setVisibleInGui(path);
+		pathFaceTravel.setVisibleInGui(path);
+		pathRender.setVisibleInGui(path);
+		pathDebug.setVisibleInGui(path);
+		pathCruiseHeight.setVisibleInGui(path);
+	}
+	
+	public void setNavigationModeFromCommand(NavigationMode mode)
+	{
+		if(mode == null || navigationMode.getSelected() == mode)
+			return;
+		navigationMode.setSelected(mode);
+		clearPathingState();
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
+		if(isEnabled())
+		{
+			if(isPathMode())
+			{
+				captureFlightSettings();
+				suspendWurstFlightForPath();
+			}else
+				applyFlightSettings();
+		}
+	}
+	
+	private boolean isPathMode()
+	{
+		return navigationMode.getSelected() == NavigationMode.PATH;
+	}
+	
+	public void onPathChunkLoaded(LevelChunk chunk)
+	{
+		if(isEnabled() && isPathMode())
+			pathFlightController.onChunkLoaded(chunk);
+	}
+	
+	public void onPathBlockUpdate(BlockPos pos, BlockState state)
+	{
+		if(isEnabled() && isPathMode())
+			pathFlightController.onBlockUpdate(pos, state);
+	}
+	
+	public boolean shouldApplyPathAntiHunger()
+	{
+		return isEnabled() && isPathMode() && pathAntiHunger.isChecked()
+			&& pathFlightController.isActive();
 	}
 	
 	@Override
@@ -654,7 +799,17 @@ public final class AutoFlyHack extends Hack
 		chunkTrailPortalScanCooldown = 0;
 		stopHold = false;
 		stopIgnoreTicks = 0;
-		selectNextTarget(false);
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
+		lastPathFlightRetargetMs = 0L;
+		// Chunk routes use a moving forward target instead of the normal
+		// waypoint list. Rebuild that target after the enable reset; otherwise
+		// .autofly path chunk starts with the target state cleared here and the
+		// path controller can remain idle until another target update occurs.
+		if(routeType.getSelected() == RouteType.CHUNKS && chunkAssistActive)
+			setForwardFromCommand(null, null, true);
+		else
+			selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		boatFlyWasEnabled = WURST.getHax().boatFlyHack.isEnabled();
 		savedFlightSpeed = -1;
@@ -663,7 +818,12 @@ public final class AutoFlyHack extends Hack
 		lastYForProgress = Double.NaN;
 		lastVerticalProgressMs = System.currentTimeMillis();
 		verticalAssistActive = false;
-		applyFlightSettings();
+		if(isPathMode())
+		{
+			captureFlightSettings();
+			suspendWurstFlightForPath();
+		}else
+			applyFlightSettings();
 		enabledAntisocialForAutoFly = false;
 		enabledAutoEatForAutoFly = false;
 		enabledAutoLeaveForAutoFly = false;
@@ -701,6 +861,8 @@ public final class AutoFlyHack extends Hack
 		EVENTS.remove(GUIRenderListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		PathProcessor.releaseControls();
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
 		clearAutoFlyInput();
 		restoreFlightSettings();
 		var hax = WURST.getHax();
@@ -775,6 +937,7 @@ public final class AutoFlyHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		updateModeSettingVisibility();
 		if(MC.player == null || MC.level == null)
 		{
 			missingWorldStateTicks++;
@@ -820,6 +983,7 @@ public final class AutoFlyHack extends Hack
 			PathProcessor.releaseControls();
 			clearAutoFlyInput();
 			pauseAutoOwnedFlight();
+			pathFlightController.stop();
 			return;
 		}
 		
@@ -865,7 +1029,8 @@ public final class AutoFlyHack extends Hack
 		if(handleAutoEatPause())
 			return;
 		
-		if(allowManualAdjust.isChecked() && isManualInputActive())
+		if(!isPathMode() && allowManualAdjust.isChecked()
+			&& isManualInputActive())
 		{
 			beginManualAdjust(MC.player.position());
 			return;
@@ -892,7 +1057,7 @@ public final class AutoFlyHack extends Hack
 		
 		long now = System.currentTimeMillis();
 		boolean underNetherBedrock = isUnderNetherBedrock(MC.player.position());
-		if(climbAttemptUntilMs > now)
+		if(!isPathMode() && climbAttemptUntilMs > now)
 		{
 			if(underNetherBedrock)
 			{
@@ -910,14 +1075,20 @@ public final class AutoFlyHack extends Hack
 			}
 		}
 		
-		ensureFlightEnabled();
-		applyFlightSpeed();
+		if(isPathMode())
+			suspendWurstFlightForPath();
+		else
+		{
+			ensureFlightEnabled();
+			applyFlightSpeed();
+		}
 		if(chunkAssistActive)
 		{
 			applyChunkCorridorAssist();
 			// Re-apply after corridor analysis so any newly detected slowdown
 			// takes effect on the same tick instead of one tick later.
-			applyFlightSpeed();
+			if(!isPathMode())
+				applyFlightSpeed();
 			// Don't block movement if borders aren't visible; a provisional
 			// forward target will be used when no corridor target is found.
 		}
@@ -947,7 +1118,7 @@ public final class AutoFlyHack extends Hack
 		if(currentTarget == null)
 			return;
 		
-		double radius = targetRadius.getValue();
+		double radius = getActiveTargetRadius();
 		Vec3 playerPos = MC.player.position();
 		double targetX = currentTarget.pos.getX() + 0.5;
 		double targetZ = currentTarget.pos.getZ() + 0.5;
@@ -1020,6 +1191,12 @@ public final class AutoFlyHack extends Hack
 		
 		if(reached)
 		{
+			if(isPathMode())
+			{
+				pathFlightController.stop();
+				lastPathFlightTarget = null;
+				MC.player.setDeltaMovement(Vec3.ZERO);
+			}
 			if(commandForwardUnlimited)
 			{
 				refreshUnlimitedForwardTarget();
@@ -1042,6 +1219,13 @@ public final class AutoFlyHack extends Hack
 			}
 			
 			handleTargetReached();
+			return;
+		}
+		
+		if(isPathMode())
+		{
+			runPathFlight(targetX, desiredY, targetZ, cruisingRoute,
+				currentTarget.hasY);
 			return;
 		}
 		
@@ -1118,6 +1302,12 @@ public final class AutoFlyHack extends Hack
 		}
 	}
 	
+	public void onPathServerCorrection()
+	{
+		if(isEnabled() && isPathMode() && pathFlightController.isActive())
+			pathFlightController.onServerCorrection();
+	}
+	
 	private void advanceCruiseTarget()
 	{
 		// Stop immediately to avoid overshooting and oscillation at pass turns.
@@ -1134,6 +1324,69 @@ public final class AutoFlyHack extends Hack
 				? "AutoFly chunk trail completed." : "AutoFly grid completed.");
 			setEnabled(false);
 		}
+	}
+	
+	private double getActiveTargetRadius()
+	{
+		return isPathMode() ? pathArrivalRadius.getValue()
+			: targetRadius.getValue();
+	}
+	
+	private void syncPathFlightConfig()
+	{
+		pathFlightConfig.flightProcess = isEnabled() && isPathMode();
+		pathFlightConfig.assumeFlightHack = true;
+		pathFlightConfig.flightHorizontalSpeed = pathSpeed.getValue();
+		pathFlightConfig.flightVerticalSpeed = pathVerticalSpeed.getValue();
+		pathFlightConfig.flightArrivalRadius = pathArrivalRadius.getValue();
+		pathFlightConfig.flightPredictTerrain = pathPredictTerrain.isChecked();
+		pathFlightConfig.flightAntiHunger = pathAntiHunger.isChecked();
+		pathFlightConfig.flightFaceTravel = pathFaceTravel.isChecked();
+		pathFlightConfig.flightRenderPath = pathRender.isChecked();
+		pathFlightConfig.flightDebug = pathDebug.isChecked();
+		pathFlightConfig.flightCruiseHeight = pathCruiseHeight.getValueI();
+		try
+		{
+			pathFlightConfig.flightSeed =
+				Long.parseLong(pathSeed.getValue().trim());
+		}catch(RuntimeException e)
+		{
+			pathFlightConfig.flightSeed = 0L;
+		}
+	}
+	
+	private void runPathFlight(double targetX, double desiredY, double targetZ,
+		boolean cruisingRoute, boolean targetHasY)
+	{
+		PathProcessor.releaseControls();
+		clearAutoFlyInput();
+		clearPathingState();
+		syncPathFlightConfig();
+		
+		// For ordinary waypoints, pass the original coordinates straight into
+		// FlyTo. Replacing their Y with AutoFly's transient cruise calculation
+		// restarted its planner every time our altitude changed.
+		BlockPos target =
+			cruisingRoute ? BlockPos.containing(targetX, desiredY, targetZ)
+				: currentTarget.pos;
+		long now = System.currentTimeMillis();
+		boolean movingTarget = cruisingRoute || commandForwardUnlimited;
+		boolean changed = lastPathFlightTarget == null
+			|| lastPathFlightTarget.distSqr(target) >= (movingTarget ? 256 : 1);
+		boolean retargetReady =
+			!movingTarget || now - lastPathFlightRetargetMs >= 750;
+		if(!pathFlightController.isActive() || changed && retargetReady)
+		{
+			if(!cruisingRoute && !targetHasY)
+				pathFlightController.flyTo(target.getX(), target.getZ());
+			else
+				pathFlightController.flyTo(target.getX(), target.getY(),
+					target.getZ());
+			lastPathFlightTarget = target;
+			lastPathFlightRetargetMs = now;
+		}
+		
+		lastAutoControlMs = now;
 	}
 	
 	private boolean checkStopOn(EnumSetting<StopOnType> stopSetting,
@@ -1581,6 +1834,8 @@ public final class AutoFlyHack extends Hack
 		// Stop immediately, even if keys were held from the previous tick.
 		PathProcessor.releaseControls();
 		clearAutoFlyInput();
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
 		playStopSound();
 		
 		if(disableAutoFlyOnStop.isChecked())
@@ -1605,6 +1860,8 @@ public final class AutoFlyHack extends Hack
 		if(!isEnabled())
 			return;
 		
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
 		playStopSound();
 		setEnabled(false);
 	}
@@ -1712,10 +1969,26 @@ public final class AutoFlyHack extends Hack
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
 		renderGridPath(matrixStack);
+		renderPathFlight(matrixStack);
 		
 		if(pathFinder == null || pathProcessor == null)
 			return;
 		pathFinder.renderPath(matrixStack, false, false);
+	}
+	
+	private void renderPathFlight(PoseStack matrixStack)
+	{
+		if(!isPathMode() || !pathRender.isChecked() || MC.player == null)
+			return;
+		List<net.wurstclient.autoflypath.flight.BetterBlockPos> path =
+			pathFlightController.getVisiblePath();
+		if(path.isEmpty())
+			return;
+		List<Vec3> points = new ArrayList<>(path.size() + 1);
+		points.add(MC.player.position());
+		for(BlockPos pos : path)
+			points.add(Vec3.atCenterOf(pos));
+		RenderUtils.drawCurvedLine(matrixStack, points, 0xE840C4FF, false, 2.0);
 	}
 	
 	private void renderGridPath(PoseStack matrixStack)
@@ -2203,7 +2476,7 @@ public final class AutoFlyHack extends Hack
 			
 			AutoFlyTarget candidate = targets.get(idx);
 			if(skipReached.isChecked() && isTargetReached(candidate,
-				MC.player.position(), targetRadius.getValue()))
+				MC.player.position(), getActiveTargetRadius()))
 				continue;
 			
 			if(stopHold)
@@ -2271,6 +2544,8 @@ public final class AutoFlyHack extends Hack
 		arrivalPauseUntilMs = System.currentTimeMillis() + 1000L;
 		clearPathingState();
 		arrivedHold = true;
+		if(isPathMode() && !disableFlightOnArrival.isChecked())
+			pauseAutoOwnedFlight();
 		if(!isVoidTarget(currentTarget.pos)
 			&& disableFlightOnArrival.isChecked()
 			&& WURST.getHax().flightHack.isEnabled())
@@ -2359,13 +2634,30 @@ public final class AutoFlyHack extends Hack
 	
 	private void applyFlightSettings()
 	{
+		captureFlightSettings();
+		applyFlightSpeed();
+		applyFlightOverrides();
+	}
+	
+	private void captureFlightSettings()
+	{
 		var flight = WURST.getHax().flightHack;
 		if(savedFlightSpeed < 0)
 			savedFlightSpeed = flight.horizontalSpeed.getValue();
 		if(savedFlightVSpeed < 0)
 			savedFlightVSpeed = flight.verticalSpeed.getValue();
-		applyFlightSpeed();
-		applyFlightOverrides();
+	}
+	
+	private void suspendWurstFlightForPath()
+	{
+		var flight = WURST.getHax().flightHack;
+		clearFlightOverrides();
+		if(savedFlightSpeed >= 0)
+			flight.horizontalSpeed.setValue(savedFlightSpeed);
+		if(savedFlightVSpeed >= 0)
+			flight.verticalSpeed.setValue(savedFlightVSpeed);
+		if(flight.isEnabled())
+			flight.setEnabled(false);
 	}
 	
 	private void applyFlightSpeed()
@@ -2388,7 +2680,9 @@ public final class AutoFlyHack extends Hack
 			flight.verticalSpeed.setValue(savedFlightVSpeed);
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
-		if(!flightWasEnabled && flight.isEnabled())
+		if(flightWasEnabled && !flight.isEnabled())
+			flight.setEnabled(true);
+		else if(!flightWasEnabled && flight.isEnabled())
 		{
 			if(MC.player != null)
 				MC.player.setDeltaMovement(Vec3.ZERO);
@@ -2399,10 +2693,16 @@ public final class AutoFlyHack extends Hack
 	
 	private void pauseAutoOwnedFlight()
 	{
+		var flight = WURST.getHax().flightHack;
+		if(isPathMode())
+		{
+			if(flightWasEnabled && !flight.isEnabled())
+				flight.setEnabled(true);
+			return;
+		}
 		if(flightWasEnabled)
 			return;
 		
-		var flight = WURST.getHax().flightHack;
 		if(!flight.isEnabled())
 			return;
 		
@@ -2513,6 +2813,8 @@ public final class AutoFlyHack extends Hack
 	
 	private String getStateLabel()
 	{
+		if(isPathMode() && pathFlightController.isActive())
+			return "Pathing";
 		if(pathFinder != null)
 			return "Pathing";
 		if(stopHold)
@@ -2547,9 +2849,19 @@ public final class AutoFlyHack extends Hack
 		BlockPos landingPos = pos;
 		
 		if(overrideHeight != null)
-			flightHeight.setValue(overrideHeight);
+		{
+			if(isPathMode())
+				pathCruiseHeight.setValue(overrideHeight);
+			else
+				flightHeight.setValue(overrideHeight);
+		}
 		if(overrideSpeed != null)
-			flightSpeed.setValue(overrideSpeed);
+		{
+			if(isPathMode())
+				pathSpeed.setValue(overrideSpeed);
+			else
+				flightSpeed.setValue(overrideSpeed);
+		}
 		
 		targets.clear();
 		targets.add(new AutoFlyTarget(landingPos, hasY));
@@ -2635,6 +2947,8 @@ public final class AutoFlyHack extends Hack
 			return;
 		
 		clearChunkCorridorAssist();
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
 		routeType.setSelected(RouteType.CHUNKS);
 		chunkAssistActive = true;
 		chunkCorridorOrigin = MC.player.position();
@@ -3943,7 +4257,7 @@ public final class AutoFlyHack extends Hack
 		double dx = center.x - playerPos.x;
 		double dz = center.z - playerPos.z;
 		return Math.hypot(dx, dz) <= Math.max(6.0,
-			targetRadius.getValue() * 2.0);
+			getActiveTargetRadius() * 2.0);
 	}
 	
 	private boolean isChunkAnchorStillAhead(ChunkPos anchor,
@@ -4197,7 +4511,7 @@ public final class AutoFlyHack extends Hack
 			return false;
 		if(now - lastRepathMs < 1000L)
 			return false;
-		if(distHoriz <= Math.max(2.0, targetRadius.getValue()))
+		if(distHoriz <= Math.max(2.0, getActiveTargetRadius()))
 			return false;
 		return true;
 	}
@@ -4366,8 +4680,17 @@ public final class AutoFlyHack extends Hack
 			return false;
 		
 		long now = System.currentTimeMillis();
-		ensureFlightEnabled();
-		applyFlightSpeed();
+		if(isPathMode())
+		{
+			pathFlightController.stop();
+			lastPathFlightTarget = null;
+			suspendWurstFlightForPath();
+			MC.player.setDeltaMovement(Vec3.ZERO);
+		}else
+		{
+			ensureFlightEnabled();
+			applyFlightSpeed();
+		}
 		PathProcessor.releaseControls();
 		clearAutoFlyInput();
 		clearPathingState();

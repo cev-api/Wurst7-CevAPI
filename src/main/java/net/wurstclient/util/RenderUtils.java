@@ -76,6 +76,9 @@ public enum RenderUtils
 	{
 		if(box == null)
 			return tryReserveEspRenderSlot();
+		if(!WurstClient.INSTANCE.getHax().globalToggleHack
+			.isWithinGlobalEspRange(box.getCenter()))
+			return false;
 		
 		GlobalEspManager globalEsp = GlobalEspManager.getInstance();
 		if(globalEsp.isShaderOutlineMode())
@@ -441,6 +444,9 @@ public enum RenderUtils
 	{
 		if(shouldSuppressAllTracers())
 			return;
+		if(!WurstClient.INSTANCE.getHax().globalToggleHack
+			.isWithinGlobalEspRange(end))
+			return;
 		
 		boolean enforceVisibility =
 			NiceWurstModule.shouldEnforceTracerVisibility();
@@ -494,6 +500,9 @@ public enum RenderUtils
 		{
 			for(Vec3 end : ends)
 			{
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(end))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(end))
 					continue;
@@ -514,6 +523,9 @@ public enum RenderUtils
 		boolean rendered = false;
 		for(Vec3 end : ends)
 		{
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(end))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(end))
 				continue;
 			if(!tryReserveEspRenderSlot())
@@ -555,6 +567,9 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(point))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
@@ -576,6 +591,9 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(point))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
 			if(!tryReserveEspRenderSlot())
@@ -623,6 +641,9 @@ public enum RenderUtils
 			for(ColoredPoint end : ends)
 			{
 				Vec3 point = end.point();
+				if(!WurstClient.INSTANCE.getHax().globalToggleHack
+					.isWithinGlobalEspRange(point))
+					continue;
 				if(enforceVisibility
 					&& !NiceWurstModule.shouldRenderTarget(point))
 					continue;
@@ -644,6 +665,9 @@ public enum RenderUtils
 		for(ColoredPoint end : ends)
 		{
 			Vec3 point = end.point();
+			if(!WurstClient.INSTANCE.getHax().globalToggleHack
+				.isWithinGlobalEspRange(point))
+				continue;
 			if(enforceVisibility && !NiceWurstModule.shouldRenderTarget(point))
 				continue;
 			if(!tryReserveEspRenderSlot())

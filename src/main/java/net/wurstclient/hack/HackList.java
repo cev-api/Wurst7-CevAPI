@@ -35,6 +35,7 @@ public final class HackList implements UpdateListener
 	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();
 	public final AntiAfkHack antiAfkHack = new AntiAfkHack();
+	public final AntiBreakHack antiBreakHack = new AntiBreakHack();
 	public final AntiBlindHack antiBlindHack = new AntiBlindHack();
 	public final AntiCactusHack antiCactusHack = new AntiCactusHack();
 	public final AntiCheatDetectHack antiCheatDetectHack =
@@ -72,6 +73,7 @@ public final class HackList implements UpdateListener
 	public final SusNoMoreHack susNoMoreHack = new SusNoMoreHack();
 	public final AutoLeaveHack autoLeaveHack = new AutoLeaveHack();
 	public final AutoLibrarianHack autoLibrarianHack = new AutoLibrarianHack();
+	public final AutoLootHack autoLootHack = new AutoLootHack();
 	public final AutoTraderHack autoTraderHack = new AutoTraderHack();
 	public final AutoEatHack autoEatHack = new AutoEatHack();
 	public final AutoFarmHack autoFarmHack = new AutoFarmHack();

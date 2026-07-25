@@ -75,7 +75,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		new CheckboxSetting("Auto-enable on out_of_world",
 			"Automatically enables AntiVoid and rescues to the fixed void level"
 				+ " when taking out_of_world damage.",
-			true);
+			false);
 	
 	private final SliderSetting lavaBufferBlocks = new SliderSetting(
 		"Lava buffer (blocks)", 2, 0, 12, 1, ValueDisplay.INTEGER);
@@ -86,7 +86,7 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Auto-enable by height",
 		"Automatically enables AntiVoid when your Y is within a safety band below 0.\n"
 			+ "Defaults: Overworld -64, End/Nether -60.",
-		true);
+		false);
 	
 	private Vec3 lastSafePos;
 	private boolean airWalkActive;

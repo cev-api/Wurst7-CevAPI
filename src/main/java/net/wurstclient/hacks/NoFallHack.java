@@ -10,9 +10,6 @@ package net.wurstclient.hacks;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
@@ -105,12 +102,11 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(pauseForMace.isChecked() && player.getMainHandItem().is(Items.MACE))
 			return true;
 			
-		// Flight controls the player's vertical motion directly. In particular,
-		// descending with Flight raises fallDistance even though the player has
-		// not started a normal fall. Ground packets then use hunger, so wait
-		// until a landing surface is close before protecting a fall.
+		// Flight controls the player's vertical motion directly. Keep NoFall
+		// active while descending, even when pausing it during Flight is
+		// enabled, because descending with Flight can still cause fall damage.
 		if(pauseForFlight.isChecked() && WURST.getHax().flightHack.isEnabled()
-			&& !isCloseToGround(player))
+			&& !isDescending(player))
 			return true;
 			
 		// ignore small falls that can't cause damage,
@@ -134,20 +130,17 @@ public final class NoFallHack extends Hack implements UpdateListener
 		return player.getDeltaMovement().y < -0.5;
 	}
 	
-	private boolean isCloseToGround(LocalPlayer player)
+	private boolean isDescending(LocalPlayer player)
 	{
-		if(MC.level == null)
-			return false;
-			
-		// Leave enough room for Flight's next vertical movement, including at
-		// its maximum configured speed, before it can reach the surface.
-		double distance =
-			WURST.getHax().flightHack.getActualVerticalSpeed() + 1;
-		Vec3 start = new Vec3(player.getX(), player.getBoundingBox().minY,
-			player.getZ());
-		Vec3 end = start.add(0, -distance, 0);
-		HitResult result = MC.level.clip(new ClipContext(start, end,
-			ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, player));
-		return result.getType() == HitResult.Type.BLOCK;
+		// Flight resets the player's velocity every tick. AutoFly can therefore
+		// make deltaMovement.y briefly cross zero while its intended direction
+		// has not changed, which makes the pause state flicker. Use AutoFly's
+		// input flag instead; it is the same source that Flight uses to apply
+		// vertical motion.
+		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
+		if(autoFly.isEnabled() && WURST.getHax().flightHack.isEnabled())
+			return autoFly.isAutoKeyShiftDown();
+		
+		return player.getDeltaMovement().y < -1.0E-4;
 	}
 }

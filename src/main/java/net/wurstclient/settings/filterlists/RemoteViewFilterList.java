@@ -52,6 +52,8 @@ public final class RemoteViewFilterList extends EntityFilterList
 			"description.wurst.setting.remoteview.filter_bats", true));
 		
 		builder.add(new FilterSlimesSetting("Won't view slimes.", true));
+		builder.add(
+			new FilterSulfurCubesSetting("Won't view sulfur cubes.", true));
 		
 		builder.add(new FilterPetsSetting(
 			"description.wurst.setting.remoteview.filter_pets", true));

@@ -14,8 +14,8 @@ import net.minecraft.network.protocol.Packet;
 
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.events.PacketOutputListener;
-import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
+import net.wurstclient.events.ConnectionPacketOutputListener;
+import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
@@ -24,20 +24,32 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 
 @SearchTags({"PacketRate", "RateLimit", "packets per second", "pps"})
 public final class PacketRateHack extends Hack
-	implements PacketOutputListener, UpdateListener
+	implements ConnectionPacketOutputListener, UpdateListener
 {
+	/*
+	 * This deliberately uses the connection-level event instead of also
+	 * listening to PacketOutputListener. ClientPacketListener.send() normally
+	 * reaches Connection.send(), so registering at both levels would process
+	 * the same packet twice. The connection-level event also catches direct
+	 * Connection.send() calls.
+	 */
 	private final CheckboxSetting limiterEnabled =
 		new CheckboxSetting("Enable limiter",
 			"Turn off to only monitor packet rate without limiting it.", true);
+	private final CheckboxSetting dropExcess = new CheckboxSetting(
+		"Drop excess packets",
+		"Drop packets that exceed the limit instead of queueing them.", false);
 	
 	private final SliderSetting limit = new SliderSetting("Limit",
 		"Max outgoing packets per second.\n0 = unlimited", 100, 0, 1000, 1,
 		ValueDisplay.INTEGER);
 	
 	private final ArrayDeque<Packet<?>> queue = new ArrayDeque<>();
+	private final Object queueLock = new Object();
 	private final ArrayDeque<Long> sentTimes = new ArrayDeque<>();
 	private final Object sentTimesLock = new Object();
-	private boolean flushing;
+	private final ThreadLocal<Boolean> bypassLimiter =
+		ThreadLocal.withInitial(() -> false);
 	private double tokens;
 	private long lastRefillMs;
 	
@@ -46,6 +58,7 @@ public final class PacketRateHack extends Hack
 		super("PacketRate");
 		setCategory(Category.TOOLS);
 		addSetting(limiterEnabled);
+		addSetting(dropExcess);
 		addSetting(limit);
 	}
 	
@@ -66,72 +79,100 @@ public final class PacketRateHack extends Hack
 		if(limit.getValueI() <= 0)
 			return getName() + " [" + rate + "/s]";
 		
-		return getName() + " [" + rate + "/s | lim " + limit.getValueI() + "]";
+		String mode = dropExcess.isChecked() ? "drop" : "queue";
+		return getName() + " [" + rate + "/s | lim " + limit.getValueI() + " | "
+			+ mode + "]";
 	}
 	
 	@Override
 	protected void onEnable()
 	{
-		queue.clear();
-		sentTimes.clear();
-		tokens = 0;
-		lastRefillMs = System.currentTimeMillis();
+		synchronized(queueLock)
+		{
+			queue.clear();
+			tokens = 0;
+			lastRefillMs = System.currentTimeMillis();
+		}
+		synchronized(sentTimesLock)
+		{
+			sentTimes.clear();
+		}
 		
-		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(ConnectionPacketOutputListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
-		EVENTS.remove(PacketOutputListener.class, this);
+		EVENTS.remove(ConnectionPacketOutputListener.class, this);
 		EVENTS.remove(UpdateListener.class, this);
 		
 		flushAll();
 	}
 	
 	@Override
-	public void onSentPacket(PacketOutputEvent event)
+	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
 	{
-		if(flushing)
+		if(bypassLimiter.get())
 			return;
 		
 		Packet<?> packet = event.getPacket();
+		long now = System.currentTimeMillis();
 		
 		if(!shouldLimit())
 		{
-			recordSent(System.currentTimeMillis());
+			recordSent(now);
 			return;
 		}
 		
 		if(isKeepAlive(packet))
 		{
-			recordSent(System.currentTimeMillis());
+			recordSent(now);
 			return;
 		}
 		
-		if(limit.getValueI() <= 0)
+		int limitValue = limit.getValueI();
+		if(limitValue <= 0)
 		{
-			recordSent(System.currentTimeMillis());
+			recordSent(now);
 			return;
 		}
 		
-		refillTokens();
-		if(!queue.isEmpty())
+		boolean allowed = false;
+		synchronized(queueLock)
 		{
-			queue.addLast(packet);
-			event.cancel();
-			return;
+			refillTokensLocked(now, limitValue);
+			
+			if(dropExcess.isChecked())
+			{
+				// If the setting was changed while packets were queued, do not
+				// release the old queue in drop mode.
+				queue.clear();
+				if(tokens >= 1)
+				{
+					tokens -= 1;
+					allowed = true;
+				}
+			}else if(!queue.isEmpty())
+			{
+				queue.addLast(packet);
+			}else if(tokens >= 1)
+			{
+				tokens -= 1;
+				allowed = true;
+			}else
+			{
+				queue.addLast(packet);
+			}
 		}
 		
-		if(tokens >= 1)
+		if(allowed)
 		{
-			tokens -= 1;
-			recordSent(System.currentTimeMillis());
+			recordSent(now);
 			return;
 		}
 		
-		queue.addLast(packet);
 		event.cancel();
 	}
 	
@@ -140,9 +181,12 @@ public final class PacketRateHack extends Hack
 	{
 		if(!shouldLimit())
 		{
-			queue.clear();
-			tokens = 0;
-			lastRefillMs = System.currentTimeMillis();
+			synchronized(queueLock)
+			{
+				queue.clear();
+				tokens = 0;
+				lastRefillMs = System.currentTimeMillis();
+			}
 			pruneSentTimes(lastRefillMs);
 			return;
 		}
@@ -154,68 +198,92 @@ public final class PacketRateHack extends Hack
 			return;
 		}
 		
-		refillTokens();
+		int limitValue = limit.getValueI();
+		synchronized(queueLock)
+		{
+			refillTokensLocked(System.currentTimeMillis(), limitValue);
+			if(dropExcess.isChecked())
+				queue.clear();
+		}
 		sendQueuedPackets();
 		pruneSentTimes(System.currentTimeMillis());
 	}
 	
 	private void sendQueuedPackets()
 	{
-		if(queue.isEmpty())
-			return;
-		
 		ClientPacketListener connection = MC.getConnection();
 		if(connection == null)
 		{
-			queue.clear();
+			synchronized(queueLock)
+			{
+				queue.clear();
+			}
 			return;
 		}
 		
-		flushing = true;
-		try
+		while(true)
 		{
-			while(!queue.isEmpty())
+			Packet<?> packet;
+			synchronized(queueLock)
 			{
-				refillTokens();
-				if(tokens < 1)
-					break;
+				if(queue.isEmpty())
+					return;
 				
-				Packet<?> packet = queue.removeFirst();
+				refillTokensLocked(System.currentTimeMillis(),
+					limit.getValueI());
+				if(tokens < 1)
+					return;
+				
+				packet = queue.removeFirst();
 				tokens -= 1;
-				connection.send(packet);
-				recordSent(System.currentTimeMillis());
 			}
 			
-		}finally
-		{
-			flushing = false;
+			sendBypassingLimiter(connection, packet);
+			recordSent(System.currentTimeMillis());
 		}
 	}
 	
 	private void flushAll()
 	{
-		if(queue.isEmpty())
-			return;
-		
 		ClientPacketListener connection = MC.getConnection();
 		if(connection == null)
 		{
-			queue.clear();
+			synchronized(queueLock)
+			{
+				queue.clear();
+			}
 			return;
 		}
 		
-		flushing = true;
-		try
+		while(true)
 		{
-			while(!queue.isEmpty())
+			Packet<?> packet;
+			synchronized(queueLock)
 			{
-				connection.send(queue.removeFirst());
-				recordSent(System.currentTimeMillis());
+				if(queue.isEmpty())
+					return;
+				packet = queue.removeFirst();
 			}
 			
+			sendBypassingLimiter(connection, packet);
+			recordSent(System.currentTimeMillis());
+		}
+	}
+	
+	private void sendBypassingLimiter(ClientPacketListener connection,
+		Packet<?> packet)
+	{
+		boolean wasBypassing = bypassLimiter.get();
+		bypassLimiter.set(true);
+		try
+		{
+			connection.send(packet);
 		}finally
 		{
-			flushing = false;
+			if(wasBypassing)
+				bypassLimiter.set(true);
+			else
+				bypassLimiter.remove();
 		}
 	}
 	
@@ -248,16 +316,14 @@ public final class PacketRateHack extends Hack
 		}
 	}
 	
-	private void refillTokens()
+	private void refillTokensLocked(long now, int limitValue)
 	{
-		int limitValue = limit.getValueI();
 		if(limitValue <= 0)
 		{
-			lastRefillMs = System.currentTimeMillis();
+			lastRefillMs = now;
 			return;
 		}
 		
-		long now = System.currentTimeMillis();
 		long elapsed = now - lastRefillMs;
 		if(elapsed <= 0)
 			return;

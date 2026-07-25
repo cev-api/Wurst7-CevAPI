@@ -46,6 +46,9 @@ public class ChatComponentMixin
 	{
 		boolean wurstClientMessage = ClientMessageOverlay.getInstance()
 			.consumeWurstClientMessage(message.get());
+		if(wurstClientMessage)
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf
+				.logVerboseChatOutput("WurstClient", message.get().getString());
 		String plain = message.get().getString().trim();
 		if(WurstClient.INSTANCE.getHax().autoChatHack
 			.isReadDiscordRelayMessagesEnabled()
@@ -109,6 +112,8 @@ public class ChatComponentMixin
 	private void onAddServerSystemMessage(Component messageDontUse,
 		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseChatOutput("ServerSystem", message.get().getString());
 		PlayerMuteHack playerMuteHack =
 			WurstClient.INSTANCE.getHax().playerMuteHack;
 		if(playerMuteHack.shouldMute(message.get()))
@@ -148,6 +153,8 @@ public class ChatComponentMixin
 		@Local(argsOnly = true) LocalRef<Component> message,
 		@Local(argsOnly = true) LocalRef<GuiMessageTag> indicator)
 	{
+		WurstClient.INSTANCE.getOtfs().packetToolsOtf
+			.logVerboseChatOutput("PlayerChat", message.get().getString());
 		PlayerMuteHack playerMuteHack =
 			WurstClient.INSTANCE.getHax().playerMuteHack;
 		if(playerMuteHack.shouldMute(message.get()))

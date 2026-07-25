@@ -85,7 +85,8 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 	private void onExtractPanorama(Panorama panorama,
 		GuiGraphicsExtractor context, int width, int height)
 	{
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins()
+		if(WurstClient.MC.level != null
+			|| WurstClient.INSTANCE.shouldHideWurstUiMixins()
 			|| !WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
 				.isTitleScreenShadertoyBackgroundEnabled())
 		{

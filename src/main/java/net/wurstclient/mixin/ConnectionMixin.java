@@ -21,6 +21,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
@@ -56,6 +58,12 @@ public abstract class ConnectionMixin
 		at = @At("HEAD"))
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
+		if(packet instanceof ServerboundMovePlayerPacket move
+			&& move.isOnGround() && WurstClient.INSTANCE != null
+			&& WurstClient.INSTANCE.getHax() != null
+			&& WurstClient.INSTANCE.getHax().autoFlyHack
+				.shouldApplyPathAntiHunger())
+			((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
 		events.add(event);

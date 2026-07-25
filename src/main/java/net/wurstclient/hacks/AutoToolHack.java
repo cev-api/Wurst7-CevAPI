@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
+import java.util.function.IntPredicate;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder.Reference;
@@ -127,8 +128,23 @@ public final class AutoToolHack extends Hack
 			repairMode.getValueI());
 	}
 	
+	public boolean equipIfEnabledFromInventory(BlockPos pos)
+	{
+		if(!isEnabled())
+			return false;
+		
+		return equipBestToolFromInventory(pos, useSwords.isChecked(),
+			useHands.isChecked(), repairMode.getValueI(), slot -> true);
+	}
+	
 	public void equipBestTool(BlockPos pos, boolean useSwords, boolean useHands,
 		int repairMode)
+	{
+		equipBestTool(pos, useSwords, useHands, repairMode, slot -> true);
+	}
+	
+	public void equipBestTool(BlockPos pos, boolean useSwords, boolean useHands,
+		int repairMode, IntPredicate allowedSlot)
 	{
 		LocalPlayer player = MC.player;
 		if(player.getAbilities().instabuild)
@@ -140,7 +156,7 @@ public final class AutoToolHack extends Hack
 			putAwayDamagedTool(repairMode);
 		
 		BlockState state = BlockUtils.getState(pos);
-		int bestSlot = getBestSlot(state, useSwords, repairMode);
+		int bestSlot = getBestSlot(state, useSwords, repairMode, allowedSlot);
 		if(bestSlot == -1)
 		{
 			if(useHands && heldItemDamageable && isWrongTool(heldItem, state))
@@ -152,20 +168,66 @@ public final class AutoToolHack extends Hack
 		player.getInventory().setSelectedSlot(bestSlot);
 	}
 	
-	private int getBestSlot(BlockState state, boolean useSwords, int repairMode)
+	public boolean equipBestToolFromInventory(BlockPos pos, boolean useSwords,
+		boolean useHands, int repairMode, IntPredicate allowedSlot)
+	{
+		LocalPlayer player = MC.player;
+		if(player.getAbilities().instabuild)
+			return false;
+		
+		BlockState state = BlockUtils.getState(pos);
+		int bestSlot =
+			getBestSlot(state, useSwords, repairMode, allowedSlot, 36);
+		if(bestSlot == -1)
+		{
+			ItemStack heldItem = player.getMainHandItem();
+			if(useHands && isDamageable(heldItem)
+				&& isWrongTool(heldItem, state))
+				selectFallbackSlot();
+			
+			return false;
+		}
+		
+		if(bestSlot < 9)
+		{
+			player.getInventory().setSelectedSlot(bestSlot);
+			return true;
+		}
+		
+		if(!player.inventoryMenu.getCarried().isEmpty())
+			return false;
+		
+		int selectedSlot = player.getInventory().getSelectedSlot();
+		IMC.getInteractionManager().windowClick_SWAP(
+			InventoryUtils.toNetworkSlot(bestSlot), selectedSlot);
+		return true;
+	}
+	
+	private int getBestSlot(BlockState state, boolean useSwords, int repairMode,
+		IntPredicate allowedSlot)
+	{
+		return getBestSlot(state, useSwords, repairMode, allowedSlot, 9);
+	}
+	
+	private int getBestSlot(BlockState state, boolean useSwords, int repairMode,
+		IntPredicate allowedSlot, int maxSlot)
 	{
 		LocalPlayer player = MC.player;
 		Inventory inventory = player.getInventory();
 		ItemStack heldItem = MC.player.getMainHandItem();
 		
-		float bestSpeed = getMiningSpeed(heldItem, state);
+		float bestSpeed = allowedSlot.test(inventory.getSelectedSlot())
+			? getMiningSpeed(heldItem, state) : 1;
 		if(isTooDamaged(heldItem, repairMode))
 			bestSpeed = 1;
 		int bestSlot = -1;
 		
-		for(int slot = 0; slot < 9; slot++)
+		for(int slot = 0; slot < maxSlot; slot++)
 		{
 			if(slot == inventory.getSelectedSlot())
+				continue;
+			
+			if(!allowedSlot.test(slot))
 				continue;
 			
 			ItemStack stack = inventory.getItem(slot);
