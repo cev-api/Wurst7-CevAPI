@@ -55,7 +55,8 @@ public final class CrystalAuraFilterList extends EntityFilterList
 			+ " auto-placing crystals." + damageWarning, true));
 		builder.add(new FilterSulfurCubesSetting(
 			"Won't target sulfur cubes when auto-placing crystals."
-				+ damageWarning, true));
+				+ damageWarning,
+			true));
 		
 		builder.add(new FilterVillagersSetting("Won't target villagers and"
 			+ " wandering traders when auto-placing crystals." + damageWarning,

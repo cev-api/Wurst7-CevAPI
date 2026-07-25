@@ -805,7 +805,7 @@ public final class SpearAssistHack extends Hack
 	public Double getAutoAlignmentStepForFlight()
 	{
 		return getAutoAlignmentStepInternal(null, null,
-			WURST.getHax().flightHack.verticalSpeed.getValue());
+			WURST.getHax().flightHack.getActualVerticalSpeed());
 	}
 	
 	public Double getAimAssistRangeOverride()
