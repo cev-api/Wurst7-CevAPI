@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -39,7 +40,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
 	private final CommonNukerSettings commonSettings =
-		new CommonNukerSettings();
+		new CommonNukerSettings(true);
 	
 	private final SwingHandSetting swingHand = new SwingHandSetting(
 		SwingHandSetting.genericMiningDescription(this), SwingHand.OFF);
@@ -116,14 +117,25 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		double rangeSq = range.getValueSq();
 		int blockRange = range.getValueCeil();
 		
-		Stream<BlockPos> stream =
-			BlockUtils.getAllInBoxStream(eyesBlock, blockRange)
-				.filter(BlockUtils::canBeClicked)
-				.filter(commonSettings::shouldBreakBlock);
+		Stream<BlockPos> stream;
+		if(commonSettings.isTunnelMode())
+		{
+			Direction direction = MC.player.getDirection();
+			BlockPos start =
+				BlockPos.containing(MC.player.position()).relative(direction);
+			BlockPos end = start.relative(direction, blockRange - 1).above();
+			stream = BlockUtils.getAllInBoxStream(start, end);
+		}else
+		{
+			stream = BlockUtils.getAllInBoxStream(eyesBlock, blockRange);
+			if(commonSettings.isSphereShape())
+				stream = stream
+					.filter(pos -> pos.distToCenterSqr(eyesVec) <= rangeSq);
+		}
 		
-		if(commonSettings.isSphereShape())
-			stream =
-				stream.filter(pos -> pos.distToCenterSqr(eyesVec) <= rangeSq);
+		stream = stream.filter(BlockUtils::canBeClicked)
+			.filter(pos -> !BlockUtils.isUnbreakable(pos))
+			.filter(commonSettings::shouldBreakBlock);
 		
 		ArrayList<BlockPos> blocks = stream
 			.sorted(
