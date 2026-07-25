@@ -127,7 +127,7 @@ public final class NiceWurstModule
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest"));
+				"WebhookAlert", "RemoteEChest", "ShearAura"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
