@@ -426,7 +426,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 					return;
 				else
 					continue;
-			
+				
 			if(strictBuildOrder.isChecked())
 			{
 				selectedEntry = entry;
@@ -434,8 +434,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				break;
 			}
 			
-			double distanceSq = MC.player.distanceToSqr(
-				Vec3.atCenterOf(pos));
+			double distanceSq = MC.player.distanceToSqr(Vec3.atCenterOf(pos));
 			if(distanceSq < selectedDistanceSq)
 			{
 				selectedEntry = entry;

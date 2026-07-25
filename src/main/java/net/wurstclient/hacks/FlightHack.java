@@ -256,6 +256,10 @@ public final class FlightHack extends Hack implements UpdateListener,
 				.getRightClickVerticalAlignmentStepForFlight();
 		if(alignStep != null)
 		{
+			double safeVerticalSpeed = getActualVerticalSpeed();
+			alignStep = Mth.clamp(alignStep, -safeVerticalSpeed,
+				safeVerticalSpeed);
+			
 			Vec3 current = player.getDeltaMovement();
 			player.setDeltaMovement(current.x, alignStep, current.z);
 		}

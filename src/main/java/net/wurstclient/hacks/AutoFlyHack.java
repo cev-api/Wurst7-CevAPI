@@ -802,7 +802,14 @@ public final class AutoFlyHack extends Hack
 		pathFlightController.stop();
 		lastPathFlightTarget = null;
 		lastPathFlightRetargetMs = 0L;
-		selectNextTarget(false);
+		// Chunk routes use a moving forward target instead of the normal
+		// waypoint list. Rebuild that target after the enable reset; otherwise
+		// .autofly path chunk starts with the target state cleared here and the
+		// path controller can remain idle until another target update occurs.
+		if(routeType.getSelected() == RouteType.CHUNKS && chunkAssistActive)
+			setForwardFromCommand(null, null, true);
+		else
+			selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
 		boatFlyWasEnabled = WURST.getHax().boatFlyHack.isEnabled();
 		savedFlightSpeed = -1;
@@ -2940,6 +2947,8 @@ public final class AutoFlyHack extends Hack
 			return;
 		
 		clearChunkCorridorAssist();
+		pathFlightController.stop();
+		lastPathFlightTarget = null;
 		routeType.setSelected(RouteType.CHUNKS);
 		chunkAssistActive = true;
 		chunkCorridorOrigin = MC.player.position();

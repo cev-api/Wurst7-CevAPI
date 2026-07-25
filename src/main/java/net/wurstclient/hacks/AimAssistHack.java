@@ -496,7 +496,7 @@ public final class AimAssistHack extends Hack
 	public Double getRightClickVerticalAlignmentStepForFlight()
 	{
 		return getRightClickVerticalAlignmentStepInternal(
-			WURST.getHax().flightHack.verticalSpeed.getValue());
+			WURST.getHax().flightHack.getActualVerticalSpeed());
 	}
 	
 	private Double getRightClickVerticalAlignmentStepInternal(
