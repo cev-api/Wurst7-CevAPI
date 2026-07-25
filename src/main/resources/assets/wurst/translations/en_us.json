@@ -16,6 +16,7 @@
   "description.wurst.hack.airwalk": "Lets you walk on air by freezing your vertical motion.",
   "description.wurst.hack.anchoraura": "Automatically places (optional), charges, and detonates respawn anchors to kill entities around you.",
   "description.wurst.hack.antiafk": "Walks around randomly to hide you from AFK detectors.",
+  "description.wurst.hack.antibreak": "Replaces low-durability equipped items with the best available replacement from your inventory.",
   "description.wurst.hack.antiblind": "Prevents blindness and darkness effects.\nIncompatible with OptiFine.",
   "description.wurst.hack.anticactus": "Protects you from cactus damage.",
   "hack.wurst.anticheatdetect": "AntiCheatDetect",

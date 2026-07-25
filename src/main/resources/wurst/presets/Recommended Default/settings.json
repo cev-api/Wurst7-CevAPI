@@ -110,6 +110,9 @@
     "Wait time randomization": 0.5,
     "Show wait time": true
   },
+  "AntiBreak": {
+    "Durability threshold": 1.0
+  },
   "AntiBlast": {
     "Horizontal Strength": 1.0,
     "Vertical Strength": 1.0
@@ -3477,7 +3480,9 @@
     ],
     "Skip blocks covered by suspicious dust": false,
     "Swing hand": "Off",
-    "Auto switch tool": false
+    "Auto switch tool": false,
+    "Only activate on left click": false,
+    "Preserve Tools": false
   },
   "StaffMonitor": {
     "Chat alert": true,
