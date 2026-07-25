@@ -122,9 +122,11 @@ public final class AimAssistHack extends Hack
 	private float nextPitch;
 	private Function<Entity, Vec3> overrideAimPoint;
 	private Entity externalTarget;
+	private Entity passTarget;
 	private boolean temporaryAllowBlocking;
 	private Double rangeOverride;
 	private Boolean lockOnOverride;
+	private boolean horizontalRotationSuppressed;
 	
 	public AimAssistHack()
 	{
@@ -175,14 +177,21 @@ public final class AimAssistHack extends Hack
 		target = null;
 		overrideAimPoint = null;
 		externalTarget = null;
+		passTarget = null;
 		temporaryAllowBlocking = false;
 		rangeOverride = null;
 		lockOnOverride = null;
+		horizontalRotationSuppressed = false;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		var spearAssist = WURST.getHax().spearAssistHack;
+		if(spearAssist != null)
+			spearAssist.updatePassStateForAimAssist();
+		
+		Entity previousTarget = target;
 		target = null;
 		rightClickAttackSpeed.updateTimer();
 		
@@ -196,9 +205,16 @@ public final class AimAssistHack extends Hack
 		if(!blockingAllowed && MC.player.isUsingItem())
 			return;
 		
-		Entity forced = externalTarget;
+		boolean passForced = passTarget != null;
+		Entity forced = passForced ? passTarget : externalTarget;
 		if(forced != null && !isValidForcedTarget(forced))
-			externalTarget = forced = null;
+		{
+			if(passForced)
+				passTarget = null;
+			else
+				externalTarget = null;
+			forced = null;
+		}
 		
 		if(forced != null)
 			target = forced;
@@ -222,6 +238,8 @@ public final class AimAssistHack extends Hack
 		
 		// get needed rotation
 		Rotation needed = RotationUtils.getNeededRotations(hitVec);
+		if(horizontalRotationSuppressed)
+			needed = needed.withYaw(MC.player.getYRot());
 		
 		// turn towards center of boundingBox
 		if(isLockOnEnabled())
@@ -291,7 +309,9 @@ public final class AimAssistHack extends Hack
 		float curPitch = MC.player.getXRot();
 		int diffYaw = (int)(nextYaw - curYaw);
 		int diffPitch = (int)(nextPitch - curPitch);
-		
+		if(horizontalRotationSuppressed)
+			diffYaw = 0;
+			
 		// If we are <1 degree off but still missing the hitbox,
 		// slightly exaggerate the difference to fix that.
 		if(diffYaw == 0 && diffPitch == 0
@@ -330,6 +350,26 @@ public final class AimAssistHack extends Hack
 	public void clearExternalTarget()
 	{
 		externalTarget = null;
+	}
+	
+	/**
+	 * Supplies a temporary target for a SpearAssist pass cycle. This is kept
+	 * separate from the general external-target API so that pass cleanup cannot
+	 * disturb another hack's target.
+	 */
+	public void setPassTarget(Entity entity)
+	{
+		passTarget = entity;
+	}
+	
+	public void clearPassTarget()
+	{
+		passTarget = null;
+	}
+	
+	public void setHorizontalRotationSuppressed(boolean suppressed)
+	{
+		horizontalRotationSuppressed = suppressed;
 	}
 	
 	public Entity getCurrentTarget()
