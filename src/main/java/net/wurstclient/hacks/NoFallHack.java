@@ -97,6 +97,13 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(pauseForMace.isChecked() && player.getMainHandItem().is(Items.MACE))
 			return true;
 			
+		// Flight controls the player's vertical motion directly. Keep NoFall
+		// active while descending, even when pausing it during Flight is
+		// enabled, because descending with Flight can still cause fall damage.
+		if(pauseForFlight.isChecked() && WURST.getHax().flightHack.isEnabled()
+			&& !isDescending(player))
+			return true;
+			
 		// ignore small falls that can't cause damage,
 		// unless CreativeFlight is enabled in survival mode
 		boolean creativeFlying = WURST.getHax().creativeFlightHack.isEnabled()
@@ -116,5 +123,19 @@ public final class NoFallHack extends Hack implements UpdateListener
 	private boolean isFallingFastEnoughToCauseDamage(LocalPlayer player)
 	{
 		return player.getDeltaMovement().y < -0.5;
+	}
+	
+	private boolean isDescending(LocalPlayer player)
+	{
+		// Flight resets the player's velocity every tick. AutoFly can therefore
+		// make deltaMovement.y briefly cross zero while its intended direction
+		// has not changed, which makes the pause state flicker. Use AutoFly's
+		// input flag instead; it is the same source that Flight uses to apply
+		// vertical motion.
+		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
+		if(autoFly.isEnabled() && WURST.getHax().flightHack.isEnabled())
+			return autoFly.isAutoKeyShiftDown();
+		
+		return player.getDeltaMovement().y < -1.0E-4;
 	}
 }
