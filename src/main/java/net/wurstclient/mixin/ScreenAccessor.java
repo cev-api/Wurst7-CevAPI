@@ -16,8 +16,8 @@ import net.minecraft.network.chat.Component;
 public interface ScreenAccessor
 {
 	@Accessor("title")
-	Component getTitle();
+	Component getWurstTitle();
 	
 	@Accessor("title")
-	void setTitle(Component title);
+	void setWurstTitle(Component title);
 }

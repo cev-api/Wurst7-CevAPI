@@ -79,6 +79,11 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	implementation "com.google.code.findbugs:jsr305:3.0.2"
+
+	// Minecraft ships Netty without SOCKS support. Bundle the matching modules
+	// so multiplayer connections can use SOCKS5 proxies at runtime.
+	implementation include("io.netty:netty-handler-proxy:4.2.15.Final")
+	implementation include("io.netty:netty-codec-socks:4.2.15.Final")
 	
 }
 

@@ -50,6 +50,11 @@ public enum MicrosoftLoginManager
 	
 	private static final String CLIENT_ID = "00000000402b5328";
 	
+	public static String getDefaultClientId()
+	{
+		return CLIENT_ID;
+	}
+	
 	private static final String SCOPE_ENCODED =
 		"service%3A%3Auser.auth.xboxlive.com%3A%3AMBI_SSL";
 	
@@ -146,6 +151,16 @@ public enum MicrosoftLoginManager
 	public static void loginWithRefreshToken(String refreshToken,
 		String clientId) throws LoginException
 	{
+		loginWithRefreshTokenAndGetUpdatedToken(refreshToken, clientId);
+	}
+	
+	/**
+	 * Logs in with a refresh token and returns the replacement refresh token
+	 * issued by Microsoft, if one was returned.
+	 */
+	public static String loginWithRefreshTokenAndGetUpdatedToken(
+		String refreshToken, String clientId) throws LoginException
+	{
 		boolean hasCustomClient = clientId != null && !clientId.isBlank()
 			&& !clientId.equals(CLIENT_ID);
 		System.out.println("Logging in with refresh token" + (hasCustomClient
@@ -155,14 +170,17 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			MinecraftProfile mcProfile =
-				authenticateRefreshTokenWithoutSession(refreshToken, clientId);
+			RefreshTokenAuthResult result =
+				authenticateRefreshTokenWithResultWithoutSession(refreshToken,
+					clientId);
+			MinecraftProfile mcProfile = result.getProfile();
 			System.out.println("Refresh-token auth resolved profile: "
 				+ mcProfile.getName() + " (" + mcProfile.getUUID() + ")");
 			setSession(mcProfile);
 			
 			System.out.println("Refresh-token login successful after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			return result.getRefreshToken();
 			
 		}catch(LoginException e)
 		{
@@ -203,14 +221,30 @@ public enum MicrosoftLoginManager
 	public static MinecraftProfile authenticateRefreshTokenWithoutSession(
 		String refreshToken, String clientId) throws LoginException
 	{
+		return authenticateRefreshTokenWithResultWithoutSession(refreshToken,
+			clientId).getProfile();
+	}
+	
+	/**
+	 * Authenticates a refresh token without changing the game session and keeps
+	 * the replacement refresh token returned by Microsoft.
+	 */
+	public static RefreshTokenAuthResult authenticateRefreshTokenWithResultWithoutSession(
+		String refreshToken, String clientId) throws LoginException
+	{
 		if(refreshToken == null || refreshToken.isBlank())
 			throw new LoginException("Refresh token cannot be empty.");
 		
-		String msftAccessToken = getMicrosoftAccessTokenFromRefreshToken(
-			refreshToken.trim(), clientId);
+		String trimmedRefreshToken = refreshToken.trim();
+		MsTokenResult msTokens = getMicrosoftAccessTokenFromRefreshToken(
+			trimmedRefreshToken, clientId);
 		try
 		{
-			return getAccountFromMicrosoftAccessToken(msftAccessToken);
+			MinecraftProfile profile =
+				getAccountFromMicrosoftAccessToken(msTokens.accessToken());
+			String updatedRefreshToken = msTokens.refreshToken().isBlank()
+				? trimmedRefreshToken : msTokens.refreshToken();
+			return new RefreshTokenAuthResult(profile, updatedRefreshToken);
 		}catch(LoginException e)
 		{
 			if(e.getMessage() != null
@@ -242,6 +276,29 @@ public enum MicrosoftLoginManager
 				clientId);
 		
 		return authenticateTokenWithoutSession(token);
+	}
+	
+	public static final class RefreshTokenAuthResult
+	{
+		private final MinecraftProfile profile;
+		private final String refreshToken;
+		
+		private RefreshTokenAuthResult(MinecraftProfile profile,
+			String refreshToken)
+		{
+			this.profile = profile;
+			this.refreshToken = refreshToken;
+		}
+		
+		public MinecraftProfile getProfile()
+		{
+			return profile;
+		}
+		
+		public String getRefreshToken()
+		{
+			return refreshToken;
+		}
 	}
 	
 	public static MinecraftProfile getMinecraftProfileByAccessToken(
@@ -787,13 +844,13 @@ public enum MicrosoftLoginManager
 		}
 	}
 	
-	private static String getMicrosoftAccessTokenFromRefreshToken(
+	private static MsTokenResult getMicrosoftAccessTokenFromRefreshToken(
 		String refreshToken) throws LoginException
 	{
 		return getMicrosoftAccessTokenFromRefreshToken(refreshToken, null);
 	}
 	
-	private static String getMicrosoftAccessTokenFromRefreshToken(
+	private static MsTokenResult getMicrosoftAccessTokenFromRefreshToken(
 		String refreshToken, String clientIdOverride) throws LoginException
 	{
 		String effectiveClientId =
@@ -849,7 +906,9 @@ public enum MicrosoftLoginManager
 			}
 			
 			WsonObject json = JsonUtils.parseConnectionToObject(connection);
-			return json.getString("access_token");
+			String accessToken = json.getString("access_token");
+			String updatedRefreshToken = json.getString("refresh_token", "");
+			return new MsTokenResult(accessToken, updatedRefreshToken);
 			
 		}catch(IOException e)
 		{

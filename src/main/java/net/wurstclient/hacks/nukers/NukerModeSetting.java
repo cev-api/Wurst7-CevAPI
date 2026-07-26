@@ -20,7 +20,7 @@ public final class NukerModeSetting
 	public NukerModeSetting(boolean includeTunnelMode)
 	{
 		super("Mode", getDescription(includeTunnelMode),
-			includeTunnelMode ? NukerMode.values() : getStandardModes(),
+			includeTunnelMode ? getSpeedNukerModes() : getStandardModes(),
 			NukerMode.NORMAL);
 	}
 	
@@ -28,6 +28,13 @@ public final class NukerModeSetting
 	{
 		return new NukerMode[]{NukerMode.NORMAL, NukerMode.ID,
 			NukerMode.MULTI_ID, NukerMode.SMASH};
+	}
+	
+	private static NukerMode[] getSpeedNukerModes()
+	{
+		return new NukerMode[]{NukerMode.NORMAL, NukerMode.ID,
+			NukerMode.MULTI_ID, NukerMode.SMASH, NukerMode.TUNNEL,
+			NukerMode.HOLE};
 	}
 	
 	private static String getDescription(boolean includeTunnelMode)
@@ -44,7 +51,10 @@ public final class NukerModeSetting
 		if(includeTunnelMode)
 			description +=
 				"\n\n\u00a7lTunnel\u00a7r mode breaks a 1-block-wide,"
-					+ " 2-block-high tunnel in front of you.";
+					+ " 2-block-high tunnel in front of you.\n\n"
+					+ "\u00a7lHole\u00a7r mode breaks a 1-block-wide vertical"
+					+ " hole above or below you, depending on whether you look"
+					+ " up or down.";
 		
 		return description;
 	}
@@ -55,7 +65,8 @@ public final class NukerModeSetting
 		ID("ID"),
 		MULTI_ID("MultiID"),
 		SMASH("Smash"),
-		TUNNEL("Tunnel");
+		TUNNEL("Tunnel"),
+		HOLE("Hole");
 		
 		private final String name;
 		

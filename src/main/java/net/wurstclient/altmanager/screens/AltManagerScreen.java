@@ -101,6 +101,7 @@ public final class AltManagerScreen extends Screen
 	private final HashSet<Alt> checkingAlts = new HashSet<>();
 	private volatile boolean importInProgress;
 	private volatile boolean importPrismInProgress;
+	private volatile boolean exportInProgress;
 	private volatile String importStatus = "";
 	private volatile int importDone;
 	private volatile int importTotal;
@@ -197,9 +198,9 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Import"), b -> pressImportAlts())
 				.bounds(8, 8, 50, 20).build());
 		
-		addRenderableWidget(exportButton =
-			Button.builder(Component.literal("Export"), b -> pressExportAlts())
-				.bounds(58, 8, 50, 20).build());
+		addRenderableWidget(exportButton = Button
+			.builder(Component.literal("Export"), b -> pressExportFormat())
+			.bounds(58, 8, 50, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Import Prism"), b -> pressImportPrism())
@@ -231,7 +232,7 @@ public final class AltManagerScreen extends Screen
 			|| checkButton == null)
 			return;
 		
-		if(importInProgress || importPrismInProgress)
+		if(importInProgress || importPrismInProgress || exportInProgress)
 		{
 			useButton.active = false;
 			if(randomButton != null)
@@ -596,13 +597,13 @@ public final class AltManagerScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile = MicrosoftLoginManager
-					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
-						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
+				MinecraftProfile profile =
+					tokenAlt.authenticateWithoutSession();
 				
 				minecraft.execute(() -> {
 					editValidationInProgress = false;
 					editValidationStatus = "";
+					altManager.saveTokenAlt(tokenAlt);
 					
 					String resolvedName = profile.getName();
 					if(resolvedName != null && !resolvedName.isBlank())
@@ -966,9 +967,11 @@ public final class AltManagerScreen extends Screen
 				String token = data[1];
 				String refreshToken = data[2];
 				String name = data[3];
+				String clientId = data.length >= 5 ? data[4] : "";
 				
 				if(!token.isEmpty() || !refreshToken.isEmpty())
-					alts.add(new TokenAlt(token, refreshToken, name, false));
+					alts.add(new TokenAlt(token, refreshToken, name, false,
+						clientId));
 				
 				continue;
 			}
@@ -998,7 +1001,8 @@ public final class AltManagerScreen extends Screen
 		if(line.startsWith("M.") && line.length() > 20)
 			return true;
 		
-		return line.startsWith("e") && line.length() > 80;
+		return (line.startsWith("e") || line.startsWith("Ew"))
+			&& line.length() > 80;
 	}
 	
 	private List<Alt> resolveRawTokenLines(List<String> lines,
@@ -1024,11 +1028,14 @@ public final class AltManagerScreen extends Screen
 				setImportProgressCounts("Resolving tokens", done, total);
 				
 				boolean isRefreshToken = tokenLine.startsWith("M.");
+				String resolvedToken = tokenLine;
 				
 				try
 				{
 					if(isRefreshToken)
-						MicrosoftLoginManager.loginWithRefreshToken(tokenLine);
+						resolvedToken = MicrosoftLoginManager
+							.loginWithRefreshTokenAndGetUpdatedToken(tokenLine,
+								null);
 					else
 						MicrosoftLoginManager.loginWithToken(tokenLine);
 					
@@ -1036,14 +1043,14 @@ public final class AltManagerScreen extends Screen
 					if(name == null || name.isEmpty())
 					{
 						unresolved.add(isRefreshToken
-							? new TokenAlt("", tokenLine, "", false)
+							? new TokenAlt("", resolvedToken, "", false)
 							: new TokenAlt(tokenLine, "", "", false));
 						continue;
 					}
 					
 					String key = name.toLowerCase(Locale.ROOT);
 					TokenAlt importedAlt = isRefreshToken
-						? new TokenAlt("", tokenLine, name, false)
+						? new TokenAlt("", resolvedToken, name, false)
 						: new TokenAlt(tokenLine, "", name, false);
 					
 					TokenAlt existing = byName.get(key);
@@ -1345,19 +1352,33 @@ public final class AltManagerScreen extends Screen
 			.anyMatch(alt -> !alt.isCracked() && alt.isUncheckedPremium());
 	}
 	
-	private void pressExportAlts()
+	private void pressExportFormat()
+	{
+		if(exportInProgress)
+			return;
+		
+		minecraft.gui.setScreen(
+			new ExportTokenFormatScreen(this, this::pressExportAlts));
+	}
+	
+	private void pressExportAlts(ExportTokenFormatScreen.Format format)
 	{
 		try
 		{
 			Process process = MultiProcessingUtils.startProcessWithIO(
 				ExportAltsFileChooser.class,
-				WurstClient.INSTANCE.getWurstFolder().toString());
+				WurstClient.INSTANCE.getWurstFolder().toString(),
+				format.getFileChooserArgument());
 			
 			Path path = getFileChooserPath(process);
 			
 			process.waitFor();
 			
-			if(path.getFileName().toString().endsWith(".json"))
+			if(format == ExportTokenFormatScreen.Format.REFRESH_TOKENS)
+				exportRefreshTokens(path);
+			else if(format == ExportTokenFormatScreen.Format.ACCESS_TOKENS)
+				exportAccessTokens(path);
+			else if(path.getFileName().toString().endsWith(".json"))
 				exportAsJSON(path);
 			else
 				exportAsTXT(path);
@@ -1405,6 +1426,98 @@ public final class AltManagerScreen extends Screen
 			lines.add(alt.exportAsTXT());
 		
 		Files.write(path, lines);
+	}
+	
+	private void exportRefreshTokens(Path path) throws IOException
+	{
+		List<String> refreshTokens = new ArrayList<>();
+		
+		for(Alt alt : altManager.getList())
+		{
+			if(!(alt instanceof TokenAlt tokenAlt))
+				continue;
+			
+			String refreshToken = tokenAlt.getRefreshToken();
+			if(!refreshToken.isEmpty())
+				refreshTokens.add(refreshToken);
+		}
+		
+		Files.write(path, refreshTokens, StandardCharsets.UTF_8);
+	}
+	
+	private void exportAccessTokens(Path path)
+	{
+		if(exportInProgress)
+			return;
+		
+		exportInProgress = true;
+		importStatus = "Exporting fresh access tokens...";
+		updateAltButtons();
+		
+		Thread thread = new Thread(() -> {
+			ArrayList<String> tokens = new ArrayList<>();
+			ArrayList<TokenAlt> authenticatedAlts = new ArrayList<>();
+			int failures = 0;
+			
+			for(Alt alt : altManager.getList())
+			{
+				if(!(alt instanceof TokenAlt tokenAlt))
+					continue;
+				
+				try
+				{
+					MinecraftProfile profile =
+						tokenAlt.authenticateWithoutSession();
+					tokens.add(profile.getAccessToken());
+					authenticatedAlts.add(tokenAlt);
+					
+				}catch(LoginException e)
+				{
+					failures++;
+				}
+			}
+			
+			try
+			{
+				if(tokens.isEmpty())
+					throw new IOException(
+						"None of the token accounts could provide an access token.");
+				
+				Files.write(path, tokens, StandardCharsets.UTF_8);
+				int exported = tokens.size();
+				int failed = failures;
+				minecraft.execute(() -> {
+					for(TokenAlt tokenAlt : authenticatedAlts)
+						altManager.saveTokenAlt(tokenAlt);
+					finishAccessTokenExport(exported, failed, null);
+				});
+				
+			}catch(IOException e)
+			{
+				int failed = failures;
+				minecraft.execute(() -> {
+					for(TokenAlt tokenAlt : authenticatedAlts)
+						altManager.saveTokenAlt(tokenAlt);
+					finishAccessTokenExport(0, failed, e);
+				});
+			}
+		}, "Wurst Access Token Export");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void finishAccessTokenExport(int exported, int failures,
+		IOException error)
+	{
+		exportInProgress = false;
+		if(error != null)
+			importStatus = "Access-token export failed: " + error.getMessage();
+		else
+			importStatus = "Exported " + exported + " fresh access token"
+				+ (exported == 1 ? "" : "s")
+				+ (failures == 0 ? "." : " (" + failures + " failed).");
+		
+		updateAltButtons();
 	}
 	
 	private void confirmGenerate(boolean confirmed)
@@ -1492,12 +1605,13 @@ public final class AltManagerScreen extends Screen
 	
 	private void renderImportOverlay(GuiGraphicsExtractor context)
 	{
-		if(!importInProgress && !importPrismInProgress)
+		if(!importInProgress && !importPrismInProgress && !exportInProgress)
 			return;
 		
 		int now = (int)(Util.getMillis() / 450L);
 		String dots = ".".repeat(Math.max(1, (now % 3) + 1));
-		String headline = "Loading accounts" + dots;
+		String headline = exportInProgress ? "Exporting access tokens" + dots
+			: "Loading accounts" + dots;
 		String status = importStatus == null || importStatus.isBlank()
 			? "Please wait..." : importStatus;
 		String counts = "";

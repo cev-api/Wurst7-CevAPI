@@ -60,9 +60,13 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
+import net.wurstclient.mixinterface.IMultiplayerTitleRefresher;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
+import net.wurstclient.proxy.ProxyManager;
+import net.wurstclient.proxy.ProxyManagerScreen;
+import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
@@ -75,7 +79,7 @@ import net.wurstclient.util.ServerImportFileChooser;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
-	implements IMultiplayerMultiSelect
+	implements IMultiplayerMultiSelect, IMultiplayerTitleRefresher
 {
 	private static final int TOP_ROW_BUTTON_WIDTH = 100;
 	private static final int TOP_ROW_BUTTON_SPACING = 4;
@@ -113,6 +117,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private Button lastServerButton;
 	@Unique
 	private Button antiFingerprintButton;
+	@Unique
+	private Button proxyManagerButton;
 	@Unique
 	private Button cornerServerFinderButton;
 	@Unique
@@ -195,8 +201,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return original;
 		
 		Minecraft mc = Minecraft.getInstance();
-		if(mc.getUser() != null)
-			return Component.literal("Logged In As: " + mc.getUser().getName());
+		Component title = wurst$getMultiplayerTitle(mc);
+		if(title != null)
+			return title;
 		
 		return original;
 	}
@@ -205,6 +212,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private void beforeVanillaButtons(CallbackInfo ci)
 	{
 		antiFingerprintButton = null;
+		proxyManagerButton = null;
 		cornerServerFinderButton = null;
 		cornerCleanUpButton = null;
 		cornerAltManagerButton = null;
@@ -226,9 +234,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 		// Refresh the title on every init so the "Logged In As" text
 		// updates when the screen is re-shown (e.g. after Alt Manager login).
 		Minecraft mc = Minecraft.getInstance();
-		if(mc.getUser() != null)
-			title =
-				Component.literal("Logged In As: " + mc.getUser().getName());
+		Component multiplayerTitle = wurst$getMultiplayerTitle(mc);
+		if(multiplayerTitle != null)
+			title = multiplayerTitle;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -243,6 +251,30 @@ public class JoinMultiplayerScreenMixin extends Screen
 				b -> LastServerRememberer.joinLastServer(mpScreen))
 			.width(100).build();
 		addRenderableWidget(lastServerButton);
+	}
+	
+	@Unique
+	private static Component wurst$getMultiplayerTitle(Minecraft minecraft)
+	{
+		if(minecraft.getUser() == null)
+			return null;
+		
+		String title = "Logged In As: " + minecraft.getUser().getName();
+		ProxyManager proxyManager = WurstClient.INSTANCE.getProxyManager();
+		SocksProxy proxy =
+			proxyManager == null ? null : proxyManager.getSelectedProxy();
+		if(proxy != null)
+			title += " (Proxy: " + proxy.getHost() + ")";
+		
+		return Component.literal(title);
+	}
+	
+	@Override
+	public void wurst$refreshAccountTitle()
+	{
+		Component multiplayerTitle = wurst$getMultiplayerTitle(minecraft);
+		if(multiplayerTitle != null)
+			title = multiplayerTitle;
 	}
 	
 	@Inject(method = "repositionElements()V", at = @At("TAIL"))
@@ -319,6 +351,22 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			antiFingerprintButton.visible = false;
 		}
+		
+		if(proxyManagerButton == null)
+		{
+			proxyManagerButton = Button
+				.builder(Component.literal("Proxies"),
+					button -> minecraft.gui.setScreen(new ProxyManagerScreen(
+						(JoinMultiplayerScreen)(Object)this,
+						WurstClient.INSTANCE.getProxyManager())))
+				.bounds(0, 0, 100, 20).build();
+			addRenderableWidget(proxyManagerButton);
+		}
+		
+		proxyManagerButton.setX(NiceWurstModule.showAltManager() ? 110 : 6);
+		proxyManagerButton.setY(6);
+		proxyManagerButton.setWidth(100);
+		proxyManagerButton.visible = true;
 		
 		AntiFingerprintConfig config = ResourcePackProtector.getConfig();
 		boolean showResourcePackButtons =
@@ -432,10 +480,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private void wurst$setCustomMultiplayerUiVisible(boolean visible)
 	{
-		if(lastServerButton != null)
-			lastServerButton.visible = visible;
 		if(antiFingerprintButton != null)
 			antiFingerprintButton.visible = visible;
+		if(proxyManagerButton != null)
+			proxyManagerButton.visible = visible;
 		if(cornerServerFinderButton != null)
 			cornerServerFinderButton.visible = visible;
 		if(cornerCleanUpButton != null)
@@ -672,6 +720,14 @@ public class JoinMultiplayerScreenMixin extends Screen
 	
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
 	{
+		if(proxyManagerButton != null && proxyManagerButton.visible
+			&& proxyManagerButton.isMouseOver(event.x(), event.y())
+			&& proxyManagerButton.mouseClicked(event, doubleClick))
+		{
+			setFocused(proxyManagerButton);
+			return true;
+		}
+		
 		if(event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			for(int i = 0; i < PANEL_COUNT; i++)
 			{
@@ -1723,8 +1779,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		
 		lastServerButton.active = LastServerRememberer.getLastServer() != null;
-		lastServerButton.setX(NiceWurstModule.showAltManager() ? 110 : 6);
+		int proxiesX = NiceWurstModule.showAltManager() ? 110 : 6;
+		lastServerButton.setX(proxiesX + 104);
 		lastServerButton.setY(6);
+		lastServerButton.visible = WurstClient.INSTANCE.isEnabled()
+			&& !WurstClient.INSTANCE.shouldHideWurstUiMixins();
 	}
 	
 	@Unique

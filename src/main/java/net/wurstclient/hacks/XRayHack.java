@@ -155,6 +155,7 @@ public final class XRayHack extends Hack
 	private boolean visibleBoxesUpToDate = false;
 	private java.util.List<AABB> visibleBoxes = new java.util.ArrayList<>();
 	private int lastMatchesVersion;
+	private boolean terrainReloadPending;
 	
 	// Debounce to avoid flashing when coordinator updates rapidly (e.g., on
 	// right-click or fast movement). Measured in milliseconds.
@@ -298,7 +299,7 @@ public final class XRayHack extends Hack
 				rebuildOreCaches();
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.resetLevelRenderData();
+				requestTerrainReload();
 			}else // switched to QUERY
 			{
 				oreNamesCache = null; // avoid fallback to list
@@ -312,7 +313,7 @@ public final class XRayHack extends Hack
 						.filter(s -> !s.isEmpty()).toArray(String[]::new);
 				// reset search and highlights
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.resetLevelRenderData();
+				requestTerrainReload();
 			}
 		}
 		
@@ -326,7 +327,7 @@ public final class XRayHack extends Hack
 				rebuildOreCaches();
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.resetLevelRenderData();
+				requestTerrainReload();
 			}else
 			{
 				// safety: if caches are missing (e.g., after a reload), rebuild
@@ -361,7 +362,7 @@ public final class XRayHack extends Hack
 				oreExactIds = null; // force keyword path
 				// reset so results update instantly
 				resetCoordinatorAndHighlights();
-				MC.levelRenderer.resetLevelRenderData();
+				requestTerrainReload();
 			}
 		}
 		
@@ -369,7 +370,7 @@ public final class XRayHack extends Hack
 		if(currentOpacity != lastOpacityVal)
 		{
 			lastOpacityVal = currentOpacity;
-			MC.levelRenderer.resetLevelRenderData();
+			requestTerrainReload();
 		}
 		// Detect only-exposed toggle changes and reload chunks so mixins
 		// re-evaluate visibility based on the new setting.
@@ -380,8 +381,10 @@ public final class XRayHack extends Hack
 			// Rebuild visible boxes immediately from known positions so the
 			// ESP updates without waiting for a full coordinator pass.
 			rebuildVisibleBoxes();
-			MC.levelRenderer.resetLevelRenderData();
+			requestTerrainReload();
 		}
+		
+		reloadTerrainIfRequested();
 	}
 	
 	@Override
@@ -482,6 +485,21 @@ public final class XRayHack extends Hack
 		visibleBoxesUpToDate = false;
 		visibleBoxes.clear();
 		lastCoordinatorChangeMs = System.currentTimeMillis();
+	}
+	
+	private void requestTerrainReload()
+	{
+		terrainReloadPending = true;
+	}
+	
+	private void reloadTerrainIfRequested()
+	{
+		if(!terrainReloadPending)
+			return;
+		
+		terrainReloadPending = false;
+		if(MC.level != null && MC.levelExtractor != null)
+			MC.levelExtractor.allChanged();
 	}
 	
 	private int getEffectiveRenderAmount()

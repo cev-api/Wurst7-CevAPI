@@ -168,6 +168,9 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 				BlockPos.containing(MC.player.position()).relative(direction);
 			BlockPos end = start.relative(direction, blockRange - 1).above();
 			stream = BlockUtils.getAllInBoxStream(start, end);
+		}else if(commonSettings.isHoleMode())
+		{
+			stream = getHoleStream(blockRange);
 		}else
 		{
 			stream = BlockUtils.getAllInBoxStream(eyesBlock, blockRange);
@@ -211,6 +214,28 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		
 		BlockBreaker.breakBlocksWithPacketSpam(blocks);
 		swingHand.swing(InteractionHand.MAIN_HAND);
+	}
+	
+	private Stream<BlockPos> getHoleStream(int blockRange)
+	{
+		BlockPos playerBlock = BlockPos.containing(MC.player.position());
+		float pitch = MC.player.getXRot();
+		
+		if(pitch > 0)
+		{
+			BlockPos start = playerBlock.below();
+			return BlockUtils.getAllInBoxStream(start,
+				start.below(blockRange - 1));
+		}
+		
+		if(pitch < 0)
+		{
+			BlockPos start = playerBlock.above(2);
+			return BlockUtils.getAllInBoxStream(start,
+				start.above(blockRange - 1));
+		}
+		
+		return Stream.empty();
 	}
 	
 	private boolean preparePreservedTool(ArrayList<BlockPos> blocks)

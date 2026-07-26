@@ -83,6 +83,7 @@ public final class CommonNukerSettings implements LeftClickListener
 			case MULTI_ID -> " [MultiID:" + multiIdList.size() + "]";
 			case SMASH -> " [Smash]";
 			case TUNNEL -> " [Tunnel]";
+			case HOLE -> " [Hole]";
 			default -> "";
 		};
 	}
@@ -101,6 +102,11 @@ public final class CommonNukerSettings implements LeftClickListener
 	public boolean isTunnelMode()
 	{
 		return mode.getSelected() == NukerMode.TUNNEL;
+	}
+	
+	public boolean isHoleMode()
+	{
+		return mode.getSelected() == NukerMode.HOLE;
 	}
 	
 	public boolean shouldBreakBlock(BlockPos pos)
@@ -125,6 +131,9 @@ public final class CommonNukerSettings implements LeftClickListener
 			
 			case SMASH:
 			return BlockUtils.getHardness(pos) >= 1;
+			
+			case HOLE:
+			return true;
 		}
 	}
 	

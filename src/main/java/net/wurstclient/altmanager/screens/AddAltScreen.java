@@ -335,14 +335,17 @@ public final class AddAltScreen extends AltEditorScreen
 			
 			try
 			{
+				String updatedRefreshToken = password;
 				if(!password.isEmpty())
-					MicrosoftLoginManager.loginWithRefreshToken(password);
+					updatedRefreshToken = MicrosoftLoginManager
+						.loginWithRefreshTokenAndGetUpdatedToken(password,
+							null);
 				else
 					MicrosoftLoginManager.loginWithToken(nameOrEmail);
 				
 				verifiedProfileName = minecraft.getUser().getName();
 				verifiedToken = nameOrEmail;
-				verifiedRefreshToken = password;
+				verifiedRefreshToken = updatedRefreshToken;
 				message = "\u00a7a\u00a7lLogin successful as "
 					+ verifiedProfileName + ". Click again to add.";
 				return;

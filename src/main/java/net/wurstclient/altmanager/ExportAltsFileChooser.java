@@ -23,9 +23,15 @@ public final class ExportAltsFileChooser extends JFileChooser
 	public static void main(String[] args)
 	{
 		SwingUtils.setLookAndFeel();
-		
-		int response = JOptionPane.showConfirmDialog(null,
-			"This will create an unencrypted (plain text) copy of your alt list.\n"
+		boolean exportAccessTokens = false;
+		for(String arg : args)
+			if("access-tokens".equals(arg))
+				exportAccessTokens = true;
+			
+		int response = JOptionPane.showConfirmDialog(null, exportAccessTokens
+			? "This will create an unencrypted text file containing temporary Minecraft access tokens.\n"
+				+ "These tokens expire quickly. Store the file somewhere safe and delete it when no longer needed."
+			: "This will create an unencrypted (plain text) copy of your alt list.\n"
 				+ "Storing passwords in plain text is risky because they can easily be stolen by a virus.\n"
 				+ "Store this copy somewhere safe and keep it outside of your Minecraft folder!",
 			"Warning", JOptionPane.OK_CANCEL_OPTION,
@@ -39,13 +45,18 @@ public final class ExportAltsFileChooser extends JFileChooser
 		fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 		fileChooser.setAcceptAllFileFilterUsed(false);
 		
-		FileNameExtensionFilter txtFilter =
-			new FileNameExtensionFilter("TXT file (username:password)", "txt");
+		FileNameExtensionFilter txtFilter = new FileNameExtensionFilter(
+			exportAccessTokens ? "TXT file (access tokens)"
+				: "TXT file (username:password)",
+			"txt");
 		fileChooser.addChoosableFileFilter(txtFilter);
 		
-		FileNameExtensionFilter jsonFilter =
-			new FileNameExtensionFilter("JSON file", "json");
-		fileChooser.addChoosableFileFilter(jsonFilter);
+		FileNameExtensionFilter jsonFilter = null;
+		if(!exportAccessTokens)
+		{
+			jsonFilter = new FileNameExtensionFilter("JSON file", "json");
+			fileChooser.addChoosableFileFilter(jsonFilter);
+		}
 		
 		if(fileChooser.showSaveDialog(null) != JFileChooser.APPROVE_OPTION)
 			return;

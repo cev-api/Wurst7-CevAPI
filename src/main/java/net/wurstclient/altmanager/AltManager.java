@@ -83,6 +83,15 @@ public final class AltManager
 	}
 	
 	/**
+	 * Saves a TokenAlt after its refresh token has been rotated by Microsoft.
+	 */
+	public void saveTokenAlt(TokenAlt tokenAlt)
+	{
+		if(alts.contains(tokenAlt))
+			altsFile.save(this);
+	}
+	
+	/**
 	 * Logs the user in with this Alt. Also updates the counter for checked alts
 	 * and saves the alt list file as necessary.
 	 *

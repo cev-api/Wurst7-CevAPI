@@ -15,7 +15,7 @@ import net.wurstclient.WurstClient;
 public final class TokenAlt extends Alt
 {
 	private final String token;
-	private final String refreshToken;
+	private volatile String refreshToken;
 	private final String clientId;
 	private String name;
 	
@@ -47,20 +47,10 @@ public final class TokenAlt extends Alt
 	public void login() throws LoginException
 	{
 		if(!refreshToken.isEmpty())
-		{
-			if(!clientId.isEmpty())
-			{
-				System.out.println(
-					"*** TOKENALT using client_id: " + clientId + " ***");
-				MicrosoftLoginManager.loginWithRefreshToken(refreshToken,
-					clientId);
-			}else
-			{
-				System.out.println(
-					"*** TOKENALT using DEFAULT client_id (old path) ***");
-				MicrosoftLoginManager.loginWithRefreshToken(refreshToken);
-			}
-		}else
+			refreshToken =
+				MicrosoftLoginManager.loginWithRefreshTokenAndGetUpdatedToken(
+					refreshToken, clientId);
+		else
 			MicrosoftLoginManager.loginWithToken(token);
 		
 		name = getNameFromSession();
@@ -87,8 +77,7 @@ public final class TokenAlt extends Alt
 		jsonAlt.addProperty("refresh_token", refreshToken);
 		jsonAlt.addProperty("name", name);
 		jsonAlt.addProperty("starred", isFavorite());
-		if(!clientId.isEmpty())
-			jsonAlt.addProperty("client_id", clientId);
+		jsonAlt.addProperty("client_id", getEffectiveClientId());
 		
 		String key = "token_"
 			+ Integer.toHexString(Objects.hash(token, refreshToken, name));
@@ -98,8 +87,14 @@ public final class TokenAlt extends Alt
 	@Override
 	public String exportAsTXT()
 	{
-		return "token:" + token + ":" + refreshToken + ":" + name
-			+ (clientId.isEmpty() ? "" : ":" + clientId);
+		return "token:" + token + ":" + refreshToken + ":" + name + ":"
+			+ getEffectiveClientId();
+	}
+	
+	private String getEffectiveClientId()
+	{
+		return clientId.isEmpty() ? MicrosoftLoginManager.getDefaultClientId()
+			: clientId;
 	}
 	
 	@Override
@@ -117,6 +112,24 @@ public final class TokenAlt extends Alt
 	public String getToken()
 	{
 		return token;
+	}
+	
+	/**
+	 * Authenticates this account without updating the game session.
+	 * Refresh-token
+	 * rotation is retained so the next export remains valid.
+	 */
+	public MinecraftProfile authenticateWithoutSession() throws LoginException
+	{
+		if(refreshToken.isEmpty())
+			return MicrosoftLoginManager.authenticateTokenWithoutSession(token);
+		
+		MicrosoftLoginManager.RefreshTokenAuthResult result =
+			MicrosoftLoginManager
+				.authenticateRefreshTokenWithResultWithoutSession(refreshToken,
+					clientId);
+		refreshToken = result.getRefreshToken();
+		return result.getProfile();
 	}
 	
 	public String getRefreshToken()
