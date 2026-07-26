@@ -85,10 +85,12 @@ public final class NiceWurstModule
 	static
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
-			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
+			Set.of("AutoBuild", "AutoSign", "AutoTool", "AutoClicker",
+				"SpeedNuker", "Nuker", "BuildRandom",
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
-				"TemplateTool", "SourceFill", "SuperInstaMine"));
+				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
+				"AutoSpawnProofer", "AreaNuker"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
@@ -106,15 +108,15 @@ public final class NiceWurstModule
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
 				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
 				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
-				"DamageESP", "ProjectileESP"));
+				"DamageESP", "ProjectileESP", "BlockOverlay"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
 				"BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats"));
+				"OppStats", "SimulationSonar"));
 		
-		ALLOWED_HACKS.put(Category.CHAT,
-			Set.of("AutoChat", "Mention", "NoPlayerChat"));
+		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention",
+			"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
@@ -126,13 +128,14 @@ public final class NiceWurstModule
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest"));
+				"WebhookAlert", "RemoteEChest", "ShearAura"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
 				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
-				"SusNoMore", "UseItemSpam"));
+				"SusNoMore", "UseItemSpam", "InventorySorter", "AutoLoot",
+				"AntiBreak"));
 	}
 	
 	private NiceWurstModule()
@@ -246,7 +249,7 @@ public final class NiceWurstModule
 		if(WurstClient.MC.level == null || WurstClient.MC.player == null)
 			return true;
 		
-		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
 		if(camera == null)
 			return true;
 		
