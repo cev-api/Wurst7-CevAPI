@@ -9,6 +9,7 @@ package net.wurstclient.proxy;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -47,23 +48,57 @@ public final class SocksProxy
 	{
 		if(text == null || text.isBlank())
 			throw new IllegalArgumentException(
-				"Enter ip:username:password (port defaults to 1080).");
+				"Enter host:port, socks5://host:port, or a credential format.");
 		
 		String trimmed = text.trim();
-		int passwordSeparator = trimmed.lastIndexOf(':');
-		int usernameSeparator = passwordSeparator > 0
-			? trimmed.lastIndexOf(':', passwordSeparator - 1) : -1;
-		if(usernameSeparator <= 0)
-			throw new IllegalArgumentException(
-				"Use ip:username:password or ip:port:username:password.");
+		ProxyProtocol protocol = ProxyProtocol.SOCKS5;
+		int schemeSeparator = trimmed.indexOf("://");
+		if(schemeSeparator >= 0)
+		{
+			String scheme =
+				trimmed.substring(0, schemeSeparator).toLowerCase(Locale.ROOT);
+			protocol = switch(scheme)
+			{
+				case "socks5" -> ProxyProtocol.SOCKS5;
+				case "http" -> ProxyProtocol.HTTP;
+				default -> throw new IllegalArgumentException(
+					"Unsupported proxy protocol: " + scheme);
+			};
+			trimmed = trimmed.substring(schemeSeparator + 3).trim();
+		}
 		
-		String endpoint = trimmed.substring(0, usernameSeparator).trim();
-		String username =
-			trimmed.substring(usernameSeparator + 1, passwordSeparator);
-		String password = trimmed.substring(passwordSeparator + 1);
+		int passwordSeparator = trimmed.lastIndexOf(':');
+		int usernameSeparator =
+			findUsernameSeparator(trimmed, passwordSeparator);
+		String endpoint = trimmed;
+		String username = "";
+		String password = "";
+		if(usernameSeparator > 0)
+		{
+			endpoint = trimmed.substring(0, usernameSeparator).trim();
+			username =
+				trimmed.substring(usernameSeparator + 1, passwordSeparator);
+			password = trimmed.substring(passwordSeparator + 1);
+		}
+		
 		Endpoint parsedEndpoint = parseEndpoint(endpoint);
 		return new SocksProxy(parsedEndpoint.host(), parsedEndpoint.port(),
-			username, password);
+			username, password, protocol);
+	}
+	
+	private static int findUsernameSeparator(String value,
+		int passwordSeparator)
+	{
+		if(passwordSeparator <= 0)
+			return -1;
+		
+		int separator = value.lastIndexOf(':', passwordSeparator - 1);
+		if(!value.startsWith("["))
+			return separator;
+		
+		int closingBracket = value.indexOf(']');
+		return closingBracket >= 0 && separator > closingBracket ? separator
+			: -1;
 	}
 	
 	private static Endpoint parseEndpoint(String endpoint)

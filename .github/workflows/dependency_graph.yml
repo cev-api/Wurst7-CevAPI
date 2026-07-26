@@ -35,6 +35,10 @@ jobs:
 
     - name: Generate and submit dependency graph
       uses: gradle/actions/dependency-submission@v6
+      # Repositories with GitHub's dependency graph disabled cannot accept
+      # snapshots. Keep this optional workflow from failing the run in that
+      # case; enabling the feature will make submissions work automatically.
+      continue-on-error: true
       with:
         build-scan-publish: true
         build-scan-terms-of-use-url: "https://gradle.com/help/legal-terms-of-use"
