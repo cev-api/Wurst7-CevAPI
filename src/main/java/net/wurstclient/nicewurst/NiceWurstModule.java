@@ -85,7 +85,8 @@ public final class NiceWurstModule
 	static
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
-			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
+			Set.of("AutoBuild", "AutoSign", "AutoTool", "AutoClicker",
+				"SpeedNuker", "Nuker", "BuildRandom",
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
 				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
@@ -133,7 +134,8 @@ public final class NiceWurstModule
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
 				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
-				"SusNoMore", "UseItemSpam", "InventorySorter"));
+				"SusNoMore", "UseItemSpam", "InventorySorter", "AutoLoot",
+				"AntiBreak"));
 	}
 	
 	private NiceWurstModule()
