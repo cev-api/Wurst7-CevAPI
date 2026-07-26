@@ -56,6 +56,7 @@ public final class ProxyManagerScreen extends Screen
 	private Button removeButton;
 	private volatile boolean testing;
 	private volatile String status = "";
+	private volatile boolean statusError;
 	
 	public ProxyManagerScreen(Screen prevScreen, ProxyManager proxyManager)
 	{
@@ -69,7 +70,7 @@ public final class ProxyManagerScreen extends Screen
 	{
 		int x = width / 2 - 150;
 		proxyBox = new EditBox(font, x, 46, 300, 20,
-			Component.literal("ip[:port]:username:password"));
+			Component.literal("host:port or socks5://host:port"));
 		proxyBox.setMaxLength(512);
 		addWidget(proxyBox);
 		
@@ -115,6 +116,8 @@ public final class ProxyManagerScreen extends Screen
 			return;
 		
 		SocksProxy proxy = getSelectedListProxy();
+		int selectedCount =
+			proxyList == null ? 0 : proxyList.getSelectedEntries().size();
 		addButton.active = !proxyBox.getValue().trim().isEmpty() && !testing;
 		importButton.active = !testing;
 		testButton.active = proxy != null && !testing;
@@ -122,7 +125,9 @@ public final class ProxyManagerScreen extends Screen
 			&& !proxy.equals(proxyManager.getSelectedProxy());
 		disableButton.active =
 			proxyManager.getSelectedProxy() != null && !testing;
-		removeButton.active = proxy != null && !testing;
+		removeButton.active = selectedCount > 0 && !testing;
+		removeButton.setMessage(Component
+			.literal(selectedCount > 1 ? "Remove selected" : "Remove"));
 		selectButton.setMessage(Component.literal("Use"));
 	}
 	
@@ -217,12 +222,19 @@ public final class ProxyManagerScreen extends Screen
 	
 	private void removeSelectedProxy()
 	{
-		SocksProxy proxy = getSelectedListProxy();
-		if(proxy == null)
+		if(proxyList == null)
 			return;
 		
-		proxyManager.remove(proxy);
-		status = "Removed " + proxy.getDisplayName() + ".";
+		List<SocksProxy> selected = proxyList.getSelectedEntries().stream()
+			.map(ProxyEntry::getProxy).toList();
+		if(selected.isEmpty())
+			return;
+		
+		for(SocksProxy proxy : selected)
+			proxyManager.remove(proxy);
+		status = selected.size() == 1
+			? "Removed " + selected.get(0).getDisplayName() + "."
+			: "Removed " + selected.size() + " proxies.";
 		refreshList();
 	}
 	
@@ -233,25 +245,28 @@ public final class ProxyManagerScreen extends Screen
 			return;
 		
 		testing = true;
+		statusError = false;
 		status = "Testing " + proxy.getDisplayName() + "...";
 		Thread thread = new Thread(() -> {
 			try
 			{
 				String result = proxyManager.test(proxy);
-				minecraft.execute(() -> finishTest(result));
+				minecraft.execute(() -> finishTest(result, false));
 			}catch(IOException | IllegalArgumentException e)
 			{
-				minecraft.execute(() -> finishTest(
-					"Test failed: " + cleanMessage(e.getMessage())));
+				minecraft.execute(
+					() -> finishTest("INVALID for Minecraft multiplayer: "
+						+ cleanMessage(e.getMessage()), true));
 			}
 		}, "Wurst Proxy Test");
 		thread.setDaemon(true);
 		thread.start();
 	}
 	
-	private void finishTest(String result)
+	private void finishTest(String result, boolean error)
 	{
 		testing = false;
+		statusError = error;
 		status = result;
 	}
 	
@@ -317,13 +332,13 @@ public final class ProxyManagerScreen extends Screen
 				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
 					: proxyManager.getSelectedProxy().getDisplayName()),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
-		context.text(font, "Proxy (ip[:port]:username:password)",
+		context.text(font, "Proxy (host:port or socks5://host:port)",
 			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
 		
 		proxyList.extractRenderState(context, mouseX, mouseY, partialTicks);
 		proxyBox.extractRenderState(context, mouseX, mouseY, partialTicks);
 		context.centeredText(font, status, width / 2, height - 42,
-			CommonColors.LIGHT_GRAY);
+			statusError ? 0xFFFF5555 : CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
 			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);

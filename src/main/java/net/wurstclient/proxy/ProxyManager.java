@@ -32,8 +32,8 @@ import net.wurstclient.altmanager.Encryption;
 public final class ProxyManager
 {
 	private static final int TEST_TIMEOUT_MS = 5000;
-	private static final String HTTP_TEST_HOST = "example.com";
-	private static final int HTTP_TEST_PORT = 443;
+	private static final String GAME_TEST_HOST = "mc.hypixel.net";
+	private static final int GAME_TEST_PORT = 25565;
 	private static final Logger LOGGER = LogUtils.getLogger();
 	
 	private final Path path;
@@ -200,10 +200,13 @@ public final class ProxyManager
 				throw new IOException(
 					"Unsupported SOCKS5 authentication method.");
 			
+			testSocks5Connection(input, output);
+			
 			setProtocol(proxy, ProxyProtocol.SOCKS5);
 			LOGGER.info("[Proxy] SOCKS5 test succeeded for {}.", endpoint);
-			return method == 2 ? "Proxy reachable and authenticated."
-				: "Proxy reachable.";
+			return method == 2
+				? "Valid for Minecraft multiplayer and authenticated."
+				: "Valid for Minecraft multiplayer.";
 		}catch(IOException e)
 		{
 			LOGGER.error("[Proxy] SOCKS5 test failed for {}: {}", endpoint,
@@ -224,9 +227,9 @@ public final class ProxyManager
 			
 			OutputStream output = socket.getOutputStream();
 			StringBuilder request =
-				new StringBuilder("CONNECT ").append(HTTP_TEST_HOST).append(':')
-					.append(HTTP_TEST_PORT).append(" HTTP/1.1\r\nHost: ")
-					.append(HTTP_TEST_HOST).append(':').append(HTTP_TEST_PORT)
+				new StringBuilder("CONNECT ").append(GAME_TEST_HOST).append(':')
+					.append(GAME_TEST_PORT).append(" HTTP/1.1\r\nHost: ")
+					.append(GAME_TEST_HOST).append(':').append(GAME_TEST_PORT)
 					.append("\r\nProxy-Connection: Keep-Alive\r\n");
 			if(proxy.hasCredentials())
 			{
@@ -255,14 +258,51 @@ public final class ProxyManager
 			LOGGER.info("[Proxy] HTTP CONNECT test succeeded for {}.",
 				endpoint);
 			return proxy.hasCredentials()
-				? "HTTP proxy reachable and authenticated."
-				: "HTTP proxy reachable.";
+				? "Valid for Minecraft multiplayer and authenticated."
+				: "Valid for Minecraft multiplayer.";
 		}catch(IOException e)
 		{
 			LOGGER.error("[Proxy] HTTP CONNECT test failed for {}: {}",
 				endpoint, e.toString(), e);
 			throw e;
 		}
+	}
+	
+	private void testSocks5Connection(InputStream input, OutputStream output)
+		throws IOException
+	{
+		byte[] host = GAME_TEST_HOST.getBytes(StandardCharsets.US_ASCII);
+		output.write(new byte[]{5, 1, 0, 3, (byte)host.length});
+		output.write(host);
+		output.write(GAME_TEST_PORT >>> 8);
+		output.write(GAME_TEST_PORT);
+		output.flush();
+		
+		if(readByte(input) != 5)
+			throw new IOException(
+				"The proxy did not return a SOCKS5 response.");
+		int result = readByte(input);
+		readByte(input); // reserved byte
+		int addressType = readByte(input);
+		switch(addressType)
+		{
+			case 1 -> skipBytes(input, 4);
+			case 3 -> skipBytes(input, readByte(input));
+			case 4 -> skipBytes(input, 16);
+			default -> throw new IOException(
+				"The proxy returned an invalid SOCKS5 address type.");
+		}
+		skipBytes(input, 2); // destination port
+		if(result != 0)
+			throw new IOException(
+				"SOCKS5 proxy could not connect to a Minecraft server (code "
+					+ result + ").");
+	}
+	
+	private void skipBytes(InputStream input, int count) throws IOException
+	{
+		for(int i = 0; i < count; i++)
+			readByte(input);
 	}
 	
 	private static String readHttpLine(InputStream input) throws IOException
