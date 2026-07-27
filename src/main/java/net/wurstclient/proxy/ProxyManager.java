@@ -388,13 +388,21 @@ public final class ProxyManager
 				ProxyProtocol protocol = json.has("protocol")
 					? ProxyProtocol.valueOf(json.get("protocol").getAsString())
 					: ProxyProtocol.SOCKS5;
+				String username = json.has("username")
+					? json.get("username").getAsString() : "";
+				String password = json.has("password")
+					? json.get("password").getAsString() : "";
+				boolean protocolExplicit = json.has("protocol_explicit")
+					&& json.get("protocol_explicit").getAsBoolean();
+				// Credential-form entries without an explicit protocol are
+				// SOCKS5. This also migrates entries saved by older builds that
+				// incorrectly treated that form as HTTP.
+				if(!protocolExplicit && !username.isEmpty()
+					&& !password.isEmpty())
+					protocol = ProxyProtocol.SOCKS5;
 				SocksProxy proxy = new SocksProxy(
 					json.get("host").getAsString(), json.get("port").getAsInt(),
-					json.has("username") ? json.get("username").getAsString()
-						: "",
-					json.has("password") ? json.get("password").getAsString()
-						: "",
-					protocol);
+					username, password, protocol, protocolExplicit);
 				if(proxies.contains(proxy))
 					continue;
 				
@@ -428,6 +436,8 @@ public final class ProxyManager
 				json.addProperty("username", proxy.getUsername());
 				json.addProperty("password", proxy.getPassword());
 				json.addProperty("protocol", proxy.getProtocol().name());
+				json.addProperty("protocol_explicit",
+					proxy.isProtocolExplicit());
 				entries.add(json);
 			}
 			root.add("proxies", entries);

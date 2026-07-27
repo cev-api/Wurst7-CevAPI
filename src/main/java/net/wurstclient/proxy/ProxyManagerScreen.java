@@ -332,7 +332,7 @@ public final class ProxyManagerScreen extends Screen
 				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
 					: proxyManager.getSelectedProxy().getDisplayName()),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
-		context.text(font, "Proxy (host:port or socks5://host:port)",
+		context.text(font, "Proxy (http:// or socks5://, optional user:pass)",
 			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
 		
 		proxyList.extractRenderState(context, mouseX, mouseY, partialTicks);

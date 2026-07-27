@@ -8,6 +8,8 @@
 package net.wurstclient.proxy;
 
 import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Objects;
@@ -24,6 +26,7 @@ public final class SocksProxy
 	private final int port;
 	private final String username;
 	private final String password;
+	private final boolean protocolExplicit;
 	private volatile ProxyProtocol protocol;
 	
 	public SocksProxy(String host, int port, String username, String password)
@@ -34,6 +37,12 @@ public final class SocksProxy
 	public SocksProxy(String host, int port, String username, String password,
 		ProxyProtocol protocol)
 	{
+		this(host, port, username, password, protocol, false);
+	}
+	
+	public SocksProxy(String host, int port, String username, String password,
+		ProxyProtocol protocol, boolean protocolExplicit)
+	{
 		this.host = requireNonBlank(host, "Proxy host");
 		if(port < 1 || port > 65535)
 			throw new IllegalArgumentException("Proxy port must be 1-65535.");
@@ -42,6 +51,7 @@ public final class SocksProxy
 		this.username = username == null ? "" : username;
 		this.password = password == null ? "" : password;
 		this.protocol = Objects.requireNonNull(protocol, "Proxy protocol");
+		this.protocolExplicit = protocolExplicit;
 	}
 	
 	public static SocksProxy parse(String text)
@@ -73,17 +83,43 @@ public final class SocksProxy
 		String endpoint = trimmed;
 		String username = "";
 		String password = "";
-		if(usernameSeparator > 0)
+		int atSeparator = trimmed.lastIndexOf('@');
+		if(atSeparator > 0)
+		{
+			String userInfo = trimmed.substring(0, atSeparator);
+			endpoint = trimmed.substring(atSeparator + 1).trim();
+			int separator = userInfo.indexOf(':');
+			if(separator <= 0)
+				throw new IllegalArgumentException(
+					"Proxy credentials must use username:password.");
+			username = decodeProxyPart(userInfo.substring(0, separator));
+			password = decodeProxyPart(userInfo.substring(separator + 1));
+		}else if(usernameSeparator > 0)
 		{
 			endpoint = trimmed.substring(0, usernameSeparator).trim();
 			username =
 				trimmed.substring(usernameSeparator + 1, passwordSeparator);
 			password = trimmed.substring(passwordSeparator + 1);
+			// Credential-form entries are SOCKS5 unless the protocol was
+			// explicitly specified (for example, http://...).
 		}
 		
 		Endpoint parsedEndpoint = parseEndpoint(endpoint);
 		return new SocksProxy(parsedEndpoint.host(), parsedEndpoint.port(),
-			username, password, protocol);
+			username, password, protocol, schemeSeparator >= 0);
+	}
+	
+	private static String decodeProxyPart(String value)
+	{
+		try
+		{
+			return URLDecoder.decode(value,
+				java.nio.charset.StandardCharsets.UTF_8);
+		}catch(IllegalArgumentException e)
+		{
+			throw new IllegalArgumentException(
+				"Invalid encoded proxy credentials.", e);
+		}
 	}
 	
 	private static int findUsernameSeparator(String value,
@@ -182,6 +218,19 @@ public final class SocksProxy
 		// java.net.Socket cannot connect to an unresolved address. Netty also
 		// accepts this resolved form when it opens the SOCKS connection.
 		return new InetSocketAddress(host, port);
+	}
+	
+	/** Converts this entry to the JDK proxy type used by HTTP connections. */
+	public Proxy toJavaProxy()
+	{
+		return new Proxy(
+			protocol == ProxyProtocol.HTTP ? Proxy.Type.HTTP : Proxy.Type.SOCKS,
+			getAddress());
+	}
+	
+	public boolean isProtocolExplicit()
+	{
+		return protocolExplicit;
 	}
 	
 	public String getHost()
