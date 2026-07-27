@@ -26,6 +26,7 @@ public final class PathFlightRuntime
 	private static PathFlightConfig config;
 	private static FlightController controller;
 	private static boolean clientTickRegistered;
+	private static volatile long landingProtectionUntilMs;
 	
 	private PathFlightRuntime()
 	{}
@@ -57,5 +58,24 @@ public final class PathFlightRuntime
 	public static FlightController controller()
 	{
 		return controller;
+	}
+	
+	public static boolean isPathFlightActive()
+	{
+		return controller != null && controller.isActive();
+	}
+	
+	/**
+	 * Returns true briefly after path flight stops so NoFall can protect the
+	 * landing before the regular Flight hack is restored.
+	 */
+	public static boolean isLandingProtectionActive()
+	{
+		return System.currentTimeMillis() < landingProtectionUntilMs;
+	}
+	
+	public static void protectLanding()
+	{
+		landingProtectionUntilMs = System.currentTimeMillis() + 500L;
 	}
 }
