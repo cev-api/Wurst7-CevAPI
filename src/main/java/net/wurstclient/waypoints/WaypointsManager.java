@@ -15,11 +15,14 @@ import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import java.nio.charset.StandardCharsets;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.storage.LevelResource;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -27,6 +30,7 @@ import com.google.gson.JsonObject;
 
 public final class WaypointsManager
 {
+	private static final long DUPLICATE_RADIUS_SQ = 100L * 100L;
 	private static final Gson GSON =
 		new GsonBuilder().setPrettyPrinting().create();
 	
@@ -125,7 +129,6 @@ public final class WaypointsManager
 		Set<Path> touched = new LinkedHashSet<>();
 		for(WaypointDimension dimension : WaypointDimension.values())
 		{
-			Set<BlockPos> occupied = collectPositions(dimension);
 			Path dimFolder = worldFolder.resolve(xaeroDimFolder(dimension));
 			if(!Files.isDirectory(dimFolder))
 				continue;
@@ -156,7 +159,7 @@ public final class WaypointsManager
 				for(XaeroWaypointIO.Entry entry : data.entries())
 				{
 					BlockPos pos = entry.pos();
-					if(!occupied.add(pos))
+					if(hasNearbyWaypoint(dimension, pos))
 					{
 						skipped++;
 						continue;
@@ -209,14 +212,11 @@ public final class WaypointsManager
 			}
 			List<XaeroWaypointIO.Entry> combined =
 				new ArrayList<>(existing.entries());
-			Set<BlockPos> occupied = new HashSet<>();
-			for(XaeroWaypointIO.Entry entry : existing.entries())
-				occupied.add(entry.pos());
 			int addedForDim = 0;
 			for(Waypoint waypoint : subset)
 			{
 				BlockPos pos = waypoint.getPos();
-				if(!occupied.add(pos))
+				if(hasNearbyXaeroWaypoint(combined, pos))
 					continue;
 				combined.add(XaeroWaypointIO.fromWaypoint(waypoint));
 				addedForDim++;
@@ -236,6 +236,277 @@ public final class WaypointsManager
 		}
 		return new XaeroSyncStats(0, 0, skipped, exported,
 			List.copyOf(touched));
+	}
+	
+	public XaeroSyncStats importFromVoxel(String worldId)
+	{
+		Path file = findVoxelFile(worldId);
+		if(file == null)
+			return new XaeroSyncStats(0, 0, 0, 0, List.of());
+		int imported = 0;
+		int skipped = 0;
+		try
+		{
+			for(String raw : Files.readAllLines(file, StandardCharsets.UTF_8))
+			{
+				if(!raw.startsWith("name:") || !raw.contains(",x:"))
+					continue;
+				try
+				{
+					Map<String, String> values = parseVoxelLine(raw);
+					BlockPos pos =
+						new BlockPos(Integer.parseInt(values.get("x")),
+							Integer.parseInt(values.getOrDefault("y", "0")),
+							Integer.parseInt(values.get("z")));
+					WaypointDimension dimension =
+						voxelDimension(values.get("dimensions"));
+					if(hasNearbyWaypoint(dimension, pos))
+					{
+						skipped++;
+						continue;
+					}
+					Waypoint waypoint = new Waypoint(UUID.randomUUID(),
+						System.currentTimeMillis());
+					waypoint.setName(descrubVoxel(
+						values.getOrDefault("name", "VoxelMap Waypoint")));
+					waypoint.setPos(pos);
+					waypoint.setDimension(dimension);
+					waypoint.setVisible(Boolean
+						.parseBoolean(values.getOrDefault("enabled", "true")));
+					waypoint.setBeaconMode(Boolean
+						.parseBoolean(values.getOrDefault("beacon", "false"))
+							? Waypoint.BeaconMode.ESP
+							: Waypoint.BeaconMode.OFF);
+					waypoint.setColor(voxelColor(values));
+					waypoint.setLines(false);
+					waypoint.setIcon(voxelIcon(values.get("suffix")));
+					addOrUpdate(waypoint);
+					imported++;
+				}catch(RuntimeException e)
+				{
+					skipped++;
+				}
+			}
+		}catch(IOException e)
+		{
+			skipped++;
+		}
+		return new XaeroSyncStats(imported, 0, skipped, 0, List.of(file));
+	}
+	
+	public XaeroSyncStats exportToVoxel(String worldId)
+	{
+		Path file = voxelFile(worldId, true);
+		if(file == null)
+			return new XaeroSyncStats(0, 0, 1, 0, List.of());
+		List<String> lines = new ArrayList<>();
+		try
+		{
+			if(Files.isRegularFile(file))
+				lines.addAll(Files.readAllLines(file, StandardCharsets.UTF_8));
+			Set<String> occupied = new HashSet<>();
+			for(String line : lines)
+				if(line.startsWith("name:") && line.contains(",x:"))
+				{
+					Map<String, String> values = parseVoxelLine(line);
+					occupied.add(voxelKey(values));
+				}
+			int exported = 0;
+			for(Waypoint waypoint : waypoints)
+			{
+				if(hasNearbyVoxelWaypoint(lines, waypoint))
+					continue;
+				String key = voxelKey(waypoint);
+				if(occupied.add(key))
+				{
+					lines.add(toVoxelLine(waypoint));
+					exported++;
+				}
+			}
+			if(exported > 0)
+			{
+				Files.createDirectories(file.getParent());
+				Files.write(file, lines, StandardCharsets.UTF_8);
+			}
+			return new XaeroSyncStats(0, 0, 0, exported,
+				exported > 0 ? List.of(file) : List.of());
+		}catch(IOException e)
+		{
+			return new XaeroSyncStats(0, 0, 1, 0, List.of(file));
+		}
+	}
+	
+	private Path findVoxelFile(String worldId)
+	{
+		Path direct = voxelFile(worldId, false);
+		if(direct != null)
+			return direct;
+		return null;
+	}
+	
+	private Path voxelFile(String worldId, boolean create)
+	{
+		Minecraft client = Minecraft.getInstance();
+		Path root = client.gameDirectory.toPath().resolve("voxelmap");
+		String name =
+			worldId == null || worldId.isBlank() ? "default" : worldId;
+		if(client.getCurrentServer() != null
+			&& client.getCurrentServer().ip != null
+			&& !client.getCurrentServer().ip.isBlank())
+		{
+			name = client.getCurrentServer().ip;
+			if(name.endsWith(":25565"))
+				name = name.substring(0, name.length() - 6);
+		}
+		if("singleplayer".equalsIgnoreCase(name)
+			&& client.getSingleplayerServer() != null)
+			name = client.getSingleplayerServer()
+				.getWorldPath(LevelResource.ROOT).getFileName().toString();
+		name = voxelFileName(name);
+		Path file = root.resolve(name + ".points");
+		if(create)
+			return file;
+		return Files.isRegularFile(file) ? file : null;
+	}
+	
+	private static String voxelFileName(String value)
+	{
+		return value.replace("<", "~less~").replace(">", "~greater~")
+			.replace(":", "~colon~").replace("\"", "~quote~")
+			.replace("/", "~slash~").replace("\\", "~backslash~")
+			.replace("|", "~pipe~").replace("?", "~question~")
+			.replace("*", "~star~");
+	}
+	
+	private static Map<String, String> parseVoxelLine(String line)
+	{
+		Map<String, String> values = new java.util.HashMap<>();
+		for(String pair : line.split(","))
+		{
+			int colon = pair.indexOf(':');
+			if(colon > 0)
+				values.put(
+					pair.substring(0, colon).trim().toLowerCase(Locale.ROOT),
+					descrubVoxel(pair.substring(colon + 1).trim()));
+		}
+		return values;
+	}
+	
+	private static String descrubVoxel(String value)
+	{
+		return value == null ? ""
+			: value.replace("~comma~", ",").replace("~colon~", ":");
+	}
+	
+	private static WaypointDimension voxelDimension(String dimensions)
+	{
+		String value =
+			dimensions == null ? "" : dimensions.toLowerCase(Locale.ROOT);
+		if(value.contains("nether") || value.contains("the_nether")
+			|| value.contains("-1"))
+			return WaypointDimension.NETHER;
+		if(value.contains("end") || value.contains("the_end")
+			|| value.contains("%1"))
+			return WaypointDimension.END;
+		return WaypointDimension.OVERWORLD;
+	}
+	
+	private static int voxelColor(Map<String, String> values)
+	{
+		int r = (int)(Float.parseFloat(values.getOrDefault("red", "1")) * 255);
+		int g =
+			(int)(Float.parseFloat(values.getOrDefault("green", "1")) * 255);
+		int b = (int)(Float.parseFloat(values.getOrDefault("blue", "1")) * 255);
+		return 0xFF000000 | (r << 16) | (g << 8) | b;
+	}
+	
+	private static String voxelIcon(String suffix)
+	{
+		return suffix == null || suffix.isBlank() ? "star" : suffix;
+	}
+	
+	private static String voxelKey(Map<String, String> values)
+	{
+		return values.getOrDefault("x", "0") + ":"
+			+ values.getOrDefault("y", "0") + ":"
+			+ values.getOrDefault("z", "0") + ":"
+			+ voxelDimension(values.get("dimensions"));
+	}
+	
+	private static String voxelKey(Waypoint waypoint)
+	{
+		BlockPos p = waypoint.getPos();
+		return p.getX() + ":" + p.getY() + ":" + p.getZ() + ":"
+			+ waypoint.getDimension();
+	}
+	
+	private boolean hasNearbyWaypoint(WaypointDimension dimension, BlockPos pos)
+	{
+		for(Waypoint waypoint : waypoints)
+			if(waypoint.getDimension() == dimension
+				&& waypoint.getPos().distSqr(pos) <= DUPLICATE_RADIUS_SQ)
+				return true;
+		return false;
+	}
+	
+	private static boolean hasNearbyXaeroWaypoint(
+		List<XaeroWaypointIO.Entry> entries, BlockPos pos)
+	{
+		for(XaeroWaypointIO.Entry entry : entries)
+			if(entry.pos().distSqr(pos) <= DUPLICATE_RADIUS_SQ)
+				return true;
+		return false;
+	}
+	
+	private static boolean hasNearbyVoxelWaypoint(List<String> lines,
+		Waypoint waypoint)
+	{
+		BlockPos pos = waypoint.getPos();
+		for(String line : lines)
+		{
+			if(!line.startsWith("name:") || !line.contains(",x:"))
+				continue;
+			try
+			{
+				Map<String, String> values = parseVoxelLine(line);
+				if(voxelDimension(values.get("dimensions")) != waypoint
+					.getDimension())
+					continue;
+				BlockPos other = new BlockPos(Integer.parseInt(values.get("x")),
+					Integer.parseInt(values.getOrDefault("y", "0")),
+					Integer.parseInt(values.get("z")));
+				if(other.distSqr(pos) <= DUPLICATE_RADIUS_SQ)
+					return true;
+			}catch(RuntimeException ignored)
+			{}
+		}
+		return false;
+	}
+	
+	private static String toVoxelLine(Waypoint waypoint)
+	{
+		BlockPos p = waypoint.getPos();
+		int color = waypoint.getColor();
+		String dimensions = switch(waypoint.getDimension())
+		{
+			case OVERWORLD -> "overworld";
+			case NETHER -> "the_nether";
+			case END -> "the_end";
+		};
+		return "name:" + voxelEscape(waypoint.getName()) + ",x:" + p.getX()
+			+ ",z:" + p.getZ() + ",y:" + p.getY() + ",enabled:"
+			+ waypoint.isVisible() + ",beacon:" + waypoint.hasBeacon() + ",red:"
+			+ ((color >> 16 & 255) / 255F) + ",green:"
+			+ ((color >> 8 & 255) / 255F) + ",blue:" + ((color & 255) / 255F)
+			+ ",suffix:" + voxelEscape(waypoint.getIcon())
+			+ ",world:,dimensions:" + dimensions + "#,coordDimension:"
+			+ dimensions;
+	}
+	
+	private static String voxelEscape(String value)
+	{
+		return (value == null ? "" : value).replace(",", "~comma~").replace(":",
+			"~colon~");
 	}
 	
 	private Set<BlockPos> collectPositions(WaypointDimension dimension)

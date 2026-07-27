@@ -461,6 +461,10 @@ public final class FlightController
 	
 	public void stop()
 	{
+		if(this.isActive())
+		{
+			PathFlightRuntime.protectLanding();
+		}
 		this.destination = null;
 		this.planFinalX = null;
 		this.planFinalZ = null;
