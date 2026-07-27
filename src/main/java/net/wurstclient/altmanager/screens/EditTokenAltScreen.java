@@ -50,6 +50,7 @@ public final class EditTokenAltScreen extends Screen
 	private Button skinModelButton;
 	private Button applySkinButton;
 	private Button accountInfoButton;
+	private Button copyCredentialsButton;
 	
 	private volatile boolean busy;
 	private volatile String message = "";
@@ -109,9 +110,14 @@ public final class EditTokenAltScreen extends Screen
 				b -> toggleAccountInfo())
 			.bounds(width / 2 - 100, 200, 200, 20).build());
 		
+		addRenderableWidget(copyCredentialsButton = Button
+			.builder(Component.literal("Copy Credentials"),
+				b -> copyCredentials())
+			.bounds(width / 2 - 100, 224, 200, 20).build());
+		
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
-				.bounds(width / 2 - 100, 224, 200, 20).build());
+				.bounds(width / 2 - 100, 248, 200, 20).build());
 		
 		scheduleSkinRefreshBurst(previewName, 5);
 		startNameChangeAvailabilityProbe();
@@ -135,6 +141,7 @@ public final class EditTokenAltScreen extends Screen
 			.setMessage(Component.literal(getRenameButtonText(renameUnknown)));
 		applySkinButton.active = canChangeSkin;
 		accountInfoButton.active = !busy;
+		copyCredentialsButton.active = !busy;
 		accountInfoButton.setMessage(Component.literal(
 			showAccountInfo ? "Hide Account Info" : "Show Account Info"));
 		skinModelButton.active = !busy;
@@ -148,6 +155,12 @@ public final class EditTokenAltScreen extends Screen
 			skinRefreshBurstsRemaining--;
 			nextSkinRefreshTime = Util.getMillis() + 900L;
 		}
+	}
+	
+	private void copyCredentials()
+	{
+		minecraft.keyboardHandler.setClipboard(tokenAlt.exportAsTXT());
+		message = "Credentials copied to clipboard.";
 	}
 	
 	private void toggleAccountInfo()

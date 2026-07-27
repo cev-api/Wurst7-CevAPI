@@ -11,6 +11,7 @@ import java.util.Objects;
 
 import com.google.gson.JsonObject;
 import net.wurstclient.WurstClient;
+import net.wurstclient.proxy.SocksProxy;
 
 public final class TokenAlt extends Alt
 {
@@ -78,6 +79,7 @@ public final class TokenAlt extends Alt
 		jsonAlt.addProperty("name", name);
 		jsonAlt.addProperty("starred", isFavorite());
 		jsonAlt.addProperty("client_id", getEffectiveClientId());
+		addLastValidated(jsonAlt);
 		
 		String key = "token_"
 			+ Integer.toHexString(Objects.hash(token, refreshToken, name));
@@ -121,15 +123,35 @@ public final class TokenAlt extends Alt
 	 */
 	public MinecraftProfile authenticateWithoutSession() throws LoginException
 	{
-		if(refreshToken.isEmpty())
-			return MicrosoftLoginManager.authenticateTokenWithoutSession(token);
-		
-		MicrosoftLoginManager.RefreshTokenAuthResult result =
-			MicrosoftLoginManager
-				.authenticateRefreshTokenWithResultWithoutSession(refreshToken,
-					clientId);
-		refreshToken = result.getRefreshToken();
-		return result.getProfile();
+		return authenticateWithoutSession(null);
+	}
+	
+	public MinecraftProfile authenticateWithoutSession(SocksProxy proxy)
+		throws LoginException
+	{
+		MicrosoftLoginManager.setAuthenticationProxy(proxy);
+		try
+		{
+			if(refreshToken.isEmpty())
+			{
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenWithoutSession(token);
+				markValidatedNow();
+				return profile;
+			}
+			
+			MicrosoftLoginManager.RefreshTokenAuthResult result =
+				MicrosoftLoginManager
+					.authenticateRefreshTokenWithResultWithoutSession(
+						refreshToken, clientId);
+			refreshToken = result.getRefreshToken();
+			MinecraftProfile profile = result.getProfile();
+			markValidatedNow();
+			return profile;
+		}finally
+		{
+			MicrosoftLoginManager.clearAuthenticationProxy();
+		}
 	}
 	
 	public String getRefreshToken()

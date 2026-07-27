@@ -42,6 +42,7 @@ public final class AltManager
 	
 	public void add(Alt alt)
 	{
+		markAdded(alt);
 		alts.add(alt);
 		sortAlts();
 		altsFile.save(this);
@@ -49,9 +50,22 @@ public final class AltManager
 	
 	public void addAll(Collection<Alt> c)
 	{
+		addAll(c, true);
+	}
+	
+	void addAll(Collection<Alt> c, boolean markAdded)
+	{
+		if(markAdded)
+			c.forEach(this::markAdded);
 		alts.addAll(c);
 		sortAlts();
 		altsFile.save(this);
+	}
+	
+	private void markAdded(Alt alt)
+	{
+		if(alt.getLastValidatedAt() == 0)
+			alt.markValidatedNow();
 	}
 	
 	public void edit(Alt oldAlt, String newNameOrEmail, String newPassword)
@@ -107,6 +121,7 @@ public final class AltManager
 		boolean wasUnchecked = alt.isUncheckedPremium();
 		
 		alt.login();
+		alt.markValidatedNow();
 		
 		if(wasUnchecked)
 			numPremium++;

@@ -55,6 +55,7 @@ public final class CrackedAlt extends Alt
 	{
 		JsonObject jsonAlt = new JsonObject();
 		jsonAlt.addProperty("starred", isFavorite());
+		addLastValidated(jsonAlt);
 		json.add(name, jsonAlt);
 	}
 	

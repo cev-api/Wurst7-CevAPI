@@ -10,6 +10,9 @@ package net.wurstclient.altmanager.screens;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -63,6 +66,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.*;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.util.MultiProcessingUtils;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
@@ -70,6 +74,8 @@ import net.wurstclient.util.json.WsonObject;
 
 public final class AltManagerScreen extends Screen
 {
+	private static final DateTimeFormatter VALIDATED_FORMAT = DateTimeFormatter
+		.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 	private static final HashSet<Alt> failedLogins = new HashSet<>();
 	private static final LinkedHashMap<Alt, String> failedLoginReasons =
 		new LinkedHashMap<>();
@@ -506,14 +512,34 @@ public final class AltManagerScreen extends Screen
 		prioritized.addAll(unchecked);
 		prioritized.addAll(failed);
 		
+		List<Alt> firstPhase = List.copyOf(prioritized);
+		List<Alt> secondPhase = List.copyOf(remaining);
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(!proxies.isEmpty())
+		{
+			minecraft.gui.setScreen(new ConfirmScreen(useProxies -> {
+				minecraft.gui.setScreen(this);
+				startAutoCheck(firstPhase, secondPhase,
+					useProxies ? proxies : Collections.emptyList());
+			}, Component.literal("Use configured proxies?"),
+				Component.literal("Wurst has " + proxies.size() + " proxy entr"
+					+ (proxies.size() == 1 ? "y" : "ies")
+					+ " configured. Use them for account checks?")));
+			return;
+		}
+		
+		startAutoCheck(firstPhase, secondPhase, proxies);
+	}
+	
+	private void startAutoCheck(List<Alt> firstPhase, List<Alt> secondPhase,
+		List<SocksProxy> proxies)
+	{
 		autoCheckInProgress = true;
 		updateAltButtons();
 		
-		List<Alt> firstPhase = List.copyOf(prioritized);
-		List<Alt> secondPhase = List.copyOf(remaining);
-		Thread thread =
-			new Thread(() -> runAutoCheckAndDedupe(firstPhase, secondPhase),
-				"Wurst Alt Auto-Check");
+		Thread thread = new Thread(
+			() -> runAutoCheckAndDedupe(firstPhase, secondPhase, proxies),
+			"Wurst Alt Auto-Check");
 		thread.setDaemon(true);
 		thread.start();
 	}
@@ -590,6 +616,26 @@ public final class AltManagerScreen extends Screen
 		if(editValidationInProgress)
 			return;
 		
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(proxies.isEmpty())
+		{
+			startTokenAltValidation(tokenAlt, null);
+			return;
+		}
+		
+		minecraft.gui.setScreen(new ConfirmScreen(useProxies -> {
+			minecraft.gui.setScreen(this);
+			startTokenAltValidation(tokenAlt,
+				useProxies ? proxies.get(0) : null);
+		}, Component.literal("Use configured proxies?"),
+			Component.literal("Wurst has " + proxies.size() + " proxy entr"
+				+ (proxies.size() == 1 ? "y" : "ies")
+				+ " configured. Use one for this token check?")));
+	}
+	
+	private void startTokenAltValidation(TokenAlt tokenAlt, SocksProxy proxy)
+	{
+		
 		editValidationInProgress = true;
 		editValidationStatus = "Validating token account...";
 		updateAltButtons();
@@ -598,7 +644,7 @@ public final class AltManagerScreen extends Screen
 			try
 			{
 				MinecraftProfile profile =
-					tokenAlt.authenticateWithoutSession();
+					tokenAlt.authenticateWithoutSession(proxy);
 				
 				minecraft.execute(() -> {
 					editValidationInProgress = false;
@@ -636,6 +682,11 @@ public final class AltManagerScreen extends Screen
 		
 		thread.setDaemon(true);
 		thread.start();
+	}
+	
+	private List<SocksProxy> getTokenCheckProxies()
+	{
+		return WurstClient.INSTANCE.getProxyManager().getProxies();
 	}
 	
 	private void pressDelete()
@@ -983,7 +1034,10 @@ public final class AltManagerScreen extends Screen
 				break;
 				
 				case 2:
-				alts.add(new MojangAlt(data[0], data[1]));
+				if(isTokenCredential(data[1]))
+					alts.add(new TokenAlt("", data[1], data[0], false));
+				else
+					alts.add(new MojangAlt(data[0], data[1]));
 				break;
 			}
 		}
@@ -1003,6 +1057,13 @@ public final class AltManagerScreen extends Screen
 		
 		return (line.startsWith("e") || line.startsWith("Ew"))
 			&& line.length() > 80;
+	}
+	
+	private boolean isTokenCredential(String value)
+	{
+		String trimmed = value == null ? "" : value.trim();
+		return trimmed.startsWith("M.") || trimmed.startsWith("eyJ")
+			|| trimmed.startsWith("Ew");
 	}
 	
 	private List<Alt> resolveRawTokenLines(List<String> lines,
@@ -1165,11 +1226,12 @@ public final class AltManagerScreen extends Screen
 	}
 	
 	private void runAutoCheckAndDedupe(List<Alt> prioritized,
-		List<Alt> remaining)
+		List<Alt> remaining, List<SocksProxy> proxies)
 	{
 		IMinecraftClient imc = (IMinecraftClient)minecraft;
 		User previousSession = imc.getWurstSession();
 		boolean changed = false;
+		int proxyIndex = 0;
 		
 		try
 		{
@@ -1181,7 +1243,18 @@ public final class AltManagerScreen extends Screen
 				setChecking(alt, true);
 				try
 				{
-					altManager.login(alt);
+					SocksProxy proxy =
+						nextTokenCheckProxy(alt, proxies, proxyIndex);
+					if(alt instanceof TokenAlt)
+						proxyIndex++;
+					MicrosoftLoginManager.setAuthenticationProxy(proxy);
+					try
+					{
+						altManager.login(alt);
+					}finally
+					{
+						MicrosoftLoginManager.clearAuthenticationProxy();
+					}
 					clearLoginFailure(alt);
 					changed = true;
 					
@@ -1211,7 +1284,19 @@ public final class AltManagerScreen extends Screen
 						setChecking(alt, true);
 						try
 						{
-							altManager.login(alt);
+							SocksProxy proxy =
+								nextTokenCheckProxy(alt, proxies, proxyIndex);
+							if(alt instanceof TokenAlt)
+								proxyIndex++;
+							MicrosoftLoginManager.setAuthenticationProxy(proxy);
+							try
+							{
+								altManager.login(alt);
+							}finally
+							{
+								MicrosoftLoginManager
+									.clearAuthenticationProxy();
+							}
 							clearLoginFailure(alt);
 							changed = true;
 							
@@ -1246,6 +1331,14 @@ public final class AltManagerScreen extends Screen
 				if(minecraft.gui.screen() == this)
 					reloadScreen();
 			});
+	}
+	
+	private SocksProxy nextTokenCheckProxy(Alt alt, List<SocksProxy> proxies,
+		int index)
+	{
+		if(!(alt instanceof TokenAlt) || proxies.isEmpty())
+			return null;
+		return proxies.get(index % proxies.size());
 	}
 	
 	private void setChecking(Alt alt, boolean checking)
@@ -1377,7 +1470,7 @@ public final class AltManagerScreen extends Screen
 			if(format == ExportTokenFormatScreen.Format.REFRESH_TOKENS)
 				exportRefreshTokens(path);
 			else if(format == ExportTokenFormatScreen.Format.ACCESS_TOKENS)
-				exportAccessTokens(path);
+				promptAccessTokenExport(path);
 			else if(path.getFileName().toString().endsWith(".json"))
 				exportAsJSON(path);
 			else
@@ -1445,7 +1538,26 @@ public final class AltManagerScreen extends Screen
 		Files.write(path, refreshTokens, StandardCharsets.UTF_8);
 	}
 	
-	private void exportAccessTokens(Path path)
+	private void promptAccessTokenExport(Path path)
+	{
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(proxies.isEmpty())
+		{
+			exportAccessTokens(path, proxies);
+			return;
+		}
+		
+		minecraft.gui.setScreen(new ConfirmScreen(useProxies -> {
+			minecraft.gui.setScreen(this);
+			exportAccessTokens(path,
+				useProxies ? proxies : Collections.emptyList());
+		}, Component.literal("Use configured proxies?"),
+			Component.literal("Wurst has " + proxies.size() + " proxy entr"
+				+ (proxies.size() == 1 ? "y" : "ies")
+				+ " configured. Use them round-robin for token checks?")));
+	}
+	
+	private void exportAccessTokens(Path path, List<SocksProxy> proxies)
 	{
 		if(exportInProgress)
 			return;
@@ -1459,6 +1571,7 @@ public final class AltManagerScreen extends Screen
 			ArrayList<TokenAlt> authenticatedAlts = new ArrayList<>();
 			int failures = 0;
 			
+			int checked = 0;
 			for(Alt alt : altManager.getList())
 			{
 				if(!(alt instanceof TokenAlt tokenAlt))
@@ -1466,8 +1579,11 @@ public final class AltManagerScreen extends Screen
 				
 				try
 				{
+					SocksProxy proxy = proxies.isEmpty() ? null
+						: proxies.get(checked % proxies.size());
+					checked++;
 					MinecraftProfile profile =
-						tokenAlt.authenticateWithoutSession();
+						tokenAlt.authenticateWithoutSession(proxy);
 					tokens.add(profile.getAccessToken());
 					authenticatedAlts.add(tokenAlt);
 					
@@ -1674,7 +1790,7 @@ public final class AltManagerScreen extends Screen
 			addTooltip(tooltip, "cracked");
 		else
 		{
-			addTooltip(tooltip, "premium");
+			tooltip.add(Component.literal(alt.getCredentialType()));
 			
 			if(failedLogins.contains(alt))
 			{
@@ -1692,6 +1808,12 @@ public final class AltManagerScreen extends Screen
 		
 		if(alt.isFavorite())
 			addTooltip(tooltip, "favorite");
+		
+		if(alt.getLastValidatedAt() > 0)
+			tooltip.add(Component.literal("Last validated: " + VALIDATED_FORMAT
+				.format(Instant.ofEpochMilli(alt.getLastValidatedAt()))));
+		else
+			tooltip.add(Component.literal("Last validated: never"));
 		
 		context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
 	}
@@ -1837,7 +1959,8 @@ public final class AltManagerScreen extends Screen
 		
 		private String getBottomText()
 		{
-			String text = alt.isCracked() ? "\u00a78cracked" : "\u00a72premium";
+			String text = alt.isCracked() ? "\u00a78cracked"
+				: "\u00a72" + alt.getCredentialType();
 			
 			if(alt.isFavorite())
 				text += "\u00a7r, \u00a7efavorite";
