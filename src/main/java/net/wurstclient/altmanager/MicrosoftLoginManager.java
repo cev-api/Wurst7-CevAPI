@@ -14,6 +14,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.Authenticator;
+import java.net.PasswordAuthentication;
+import java.net.Proxy;
+import java.net.Proxy.Type;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
@@ -40,6 +44,7 @@ import com.google.gson.JsonObject;
 import net.minecraft.client.User;
 import net.wurstclient.WurstClient;
 import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
 import net.wurstclient.util.json.WsonObject;
@@ -48,7 +53,57 @@ public enum MicrosoftLoginManager
 {
 	;
 	
+	private static final ThreadLocal<SocksProxy> AUTH_PROXY =
+		new ThreadLocal<>();
+	
+	static
+	{
+		// Java disables Basic credentials for HTTPS proxy tunneling by default
+		// on some runtimes. The configured proxy credentials are supplied
+		// through
+		// the Authenticator below, so allow that challenge to be answered.
+		System.setProperty("jdk.http.auth.tunneling.disabledSchemes", "");
+		System.setProperty("jdk.http.auth.proxying.disabledSchemes", "");
+		
+		// JDK SOCKS connections request credentials through Authenticator
+		// rather
+		// than through URLConnection properties. The thread-local keeps this
+		// handler limited to token checks that explicitly selected a proxy.
+		Authenticator.setDefault(new Authenticator()
+		{
+			@Override
+			protected PasswordAuthentication getPasswordAuthentication()
+			{
+				SocksProxy proxy = AUTH_PROXY.get();
+				if(proxy != null && proxy.hasCredentials()
+					&& (proxy.getProtocol().name().equals("SOCKS5")
+						|| proxy.getProtocol().name().equals("HTTP")))
+					return new PasswordAuthentication(proxy.getUsername(),
+						proxy.getPassword().toCharArray());
+				return null;
+			}
+		});
+	}
+	
+	public static void setAuthenticationProxy(SocksProxy proxy)
+	{
+		if(proxy == null)
+			AUTH_PROXY.remove();
+		else
+			AUTH_PROXY.set(proxy);
+	}
+	
+	public static void clearAuthenticationProxy()
+	{
+		AUTH_PROXY.remove();
+	}
+	
 	private static final String CLIENT_ID = "00000000402b5328";
+	
+	public static String getDefaultClientId()
+	{
+		return CLIENT_ID;
+	}
 	
 	private static final String SCOPE_ENCODED =
 		"service%3A%3Auser.auth.xboxlive.com%3A%3AMBI_SSL";
@@ -146,6 +201,16 @@ public enum MicrosoftLoginManager
 	public static void loginWithRefreshToken(String refreshToken,
 		String clientId) throws LoginException
 	{
+		loginWithRefreshTokenAndGetUpdatedToken(refreshToken, clientId);
+	}
+	
+	/**
+	 * Logs in with a refresh token and returns the replacement refresh token
+	 * issued by Microsoft, if one was returned.
+	 */
+	public static String loginWithRefreshTokenAndGetUpdatedToken(
+		String refreshToken, String clientId) throws LoginException
+	{
 		boolean hasCustomClient = clientId != null && !clientId.isBlank()
 			&& !clientId.equals(CLIENT_ID);
 		System.out.println("Logging in with refresh token" + (hasCustomClient
@@ -155,14 +220,17 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			MinecraftProfile mcProfile =
-				authenticateRefreshTokenWithoutSession(refreshToken, clientId);
+			RefreshTokenAuthResult result =
+				authenticateRefreshTokenWithResultWithoutSession(refreshToken,
+					clientId);
+			MinecraftProfile mcProfile = result.getProfile();
 			System.out.println("Refresh-token auth resolved profile: "
 				+ mcProfile.getName() + " (" + mcProfile.getUUID() + ")");
 			setSession(mcProfile);
 			
 			System.out.println("Refresh-token login successful after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
+			return result.getRefreshToken();
 			
 		}catch(LoginException e)
 		{
@@ -203,14 +271,30 @@ public enum MicrosoftLoginManager
 	public static MinecraftProfile authenticateRefreshTokenWithoutSession(
 		String refreshToken, String clientId) throws LoginException
 	{
+		return authenticateRefreshTokenWithResultWithoutSession(refreshToken,
+			clientId).getProfile();
+	}
+	
+	/**
+	 * Authenticates a refresh token without changing the game session and keeps
+	 * the replacement refresh token returned by Microsoft.
+	 */
+	public static RefreshTokenAuthResult authenticateRefreshTokenWithResultWithoutSession(
+		String refreshToken, String clientId) throws LoginException
+	{
 		if(refreshToken == null || refreshToken.isBlank())
 			throw new LoginException("Refresh token cannot be empty.");
 		
-		String msftAccessToken = getMicrosoftAccessTokenFromRefreshToken(
-			refreshToken.trim(), clientId);
+		String trimmedRefreshToken = refreshToken.trim();
+		MsTokenResult msTokens = getMicrosoftAccessTokenFromRefreshToken(
+			trimmedRefreshToken, clientId);
 		try
 		{
-			return getAccountFromMicrosoftAccessToken(msftAccessToken);
+			MinecraftProfile profile =
+				getAccountFromMicrosoftAccessToken(msTokens.accessToken());
+			String updatedRefreshToken = msTokens.refreshToken().isBlank()
+				? trimmedRefreshToken : msTokens.refreshToken();
+			return new RefreshTokenAuthResult(profile, updatedRefreshToken);
 		}catch(LoginException e)
 		{
 			if(e.getMessage() != null
@@ -242,6 +326,29 @@ public enum MicrosoftLoginManager
 				clientId);
 		
 		return authenticateTokenWithoutSession(token);
+	}
+	
+	public static final class RefreshTokenAuthResult
+	{
+		private final MinecraftProfile profile;
+		private final String refreshToken;
+		
+		private RefreshTokenAuthResult(MinecraftProfile profile,
+			String refreshToken)
+		{
+			this.profile = profile;
+			this.refreshToken = refreshToken;
+		}
+		
+		public MinecraftProfile getProfile()
+		{
+			return profile;
+		}
+		
+		public String getRefreshToken()
+		{
+			return refreshToken;
+		}
 	}
 	
 	public static MinecraftProfile getMinecraftProfileByAccessToken(
@@ -500,7 +607,7 @@ public enum MicrosoftLoginManager
 			URL url = URI.create(LIVE_AUTHORIZE_URL + "?" + params).toURL();
 			
 			HttpURLConnection connection =
-				(HttpURLConnection)url.openConnection();
+				(HttpURLConnection)openConnection(url);
 			connection.setInstanceFollowRedirects(false);
 			connection.setRequestProperty("Cookie", cookieHeader);
 			connection.setRequestProperty("User-Agent", DEFAULT_USER_AGENT);
@@ -547,7 +654,7 @@ public enum MicrosoftLoginManager
 		try
 		{
 			HttpURLConnection connection =
-				(HttpURLConnection)AUTH_TOKEN_URL.openConnection();
+				(HttpURLConnection)openConnection(AUTH_TOKEN_URL);
 			
 			connection.setRequestMethod("POST");
 			connection.setRequestProperty("Content-Type",
@@ -641,7 +748,7 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			URLConnection connection = LOGIN_URL.openConnection();
+			URLConnection connection = openConnection(LOGIN_URL);
 			
 			System.out.println("Getting login cookies...");
 			cookie = "";
@@ -698,7 +805,7 @@ public enum MicrosoftLoginManager
 		{
 			URL url = URI.create(urlPost).toURL();
 			HttpURLConnection connection =
-				(HttpURLConnection)url.openConnection();
+				(HttpURLConnection)openConnection(url);
 			
 			connection.setRequestMethod("POST");
 			connection.setRequestProperty("Content-Type",
@@ -723,8 +830,12 @@ public enum MicrosoftLoginManager
 					"Servers are down (code " + responseCode + ").");
 			
 			if(responseCode != 200)
+			{
+				String body = readErrorBody(connection);
 				throw new LoginException(
-					"Got code " + responseCode + " from urlPost.");
+					"Got code " + responseCode + " from urlPost"
+						+ (body == null || body.isBlank() ? "." : ": " + body));
+			}
 			
 			String decodedUrl = URLDecoder.decode(
 				connection.getURL().toString(), StandardCharsets.UTF_8.name());
@@ -759,7 +870,7 @@ public enum MicrosoftLoginManager
 		try
 		{
 			HttpURLConnection connection =
-				(HttpURLConnection)AUTH_TOKEN_URL.openConnection();
+				(HttpURLConnection)openConnection(AUTH_TOKEN_URL);
 			
 			connection.setRequestMethod("POST");
 			connection.setRequestProperty("Content-Type",
@@ -787,13 +898,13 @@ public enum MicrosoftLoginManager
 		}
 	}
 	
-	private static String getMicrosoftAccessTokenFromRefreshToken(
+	private static MsTokenResult getMicrosoftAccessTokenFromRefreshToken(
 		String refreshToken) throws LoginException
 	{
 		return getMicrosoftAccessTokenFromRefreshToken(refreshToken, null);
 	}
 	
-	private static String getMicrosoftAccessTokenFromRefreshToken(
+	private static MsTokenResult getMicrosoftAccessTokenFromRefreshToken(
 		String refreshToken, String clientIdOverride) throws LoginException
 	{
 		String effectiveClientId =
@@ -824,7 +935,7 @@ public enum MicrosoftLoginManager
 		try
 		{
 			HttpURLConnection connection =
-				(HttpURLConnection)AUTH_TOKEN_URL.openConnection();
+				(HttpURLConnection)openConnection(AUTH_TOKEN_URL);
 			
 			connection.setRequestMethod("POST");
 			connection.setRequestProperty("Content-Type",
@@ -849,7 +960,9 @@ public enum MicrosoftLoginManager
 			}
 			
 			WsonObject json = JsonUtils.parseConnectionToObject(connection);
-			return json.getString("access_token");
+			String accessToken = json.getString("access_token");
+			String updatedRefreshToken = json.getString("refresh_token", "");
+			return new MsTokenResult(accessToken, updatedRefreshToken);
 			
 		}catch(IOException e)
 		{
@@ -927,7 +1040,7 @@ public enum MicrosoftLoginManager
 			try
 			{
 				HttpURLConnection connection =
-					(HttpURLConnection)XBL_TOKEN_URL.openConnection();
+					(HttpURLConnection)openConnection(XBL_TOKEN_URL);
 				
 				connection.setRequestProperty("Content-Type",
 					"application/json");
@@ -1042,7 +1155,7 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			URLConnection connection = XSTS_TOKEN_URL.openConnection();
+			URLConnection connection = openConnection(XSTS_TOKEN_URL);
 			
 			connection.setRequestProperty("Content-Type", "application/json");
 			connection.setRequestProperty("Accept", "application/json");
@@ -1080,7 +1193,7 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			URLConnection connection = MC_TOKEN_URL.openConnection();
+			URLConnection connection = openConnection(MC_TOKEN_URL);
 			
 			connection.setRequestProperty("Content-Type", "application/json");
 			connection.setRequestProperty("Accept", "application/json");
@@ -1112,7 +1225,7 @@ public enum MicrosoftLoginManager
 	{
 		try
 		{
-			URLConnection connection = PROFILE_URL.openConnection();
+			URLConnection connection = openConnection(PROFILE_URL);
 			connection.setRequestProperty("Authorization",
 				"Bearer " + mcAccessToken);
 			
@@ -1158,6 +1271,42 @@ public enum MicrosoftLoginManager
 		}
 		
 		return sb.toString();
+	}
+	
+	private static URLConnection openConnection(URL url) throws IOException
+	{
+		SocksProxy configuredProxy = AUTH_PROXY.get();
+		if(configuredProxy == null)
+			return url.openConnection();
+		
+		System.out.println("[Auth] Using "
+			+ configuredProxy.getProtocol().getDisplayName() + " proxy "
+			+ configuredProxy.getHost() + ":" + configuredProxy.getPort());
+		
+		Proxy proxy = configuredProxy.toJavaProxy();
+		if(proxy.type() == Type.HTTP && configuredProxy.hasCredentials())
+		{
+			// HttpURLConnection uses these properties when it creates the
+			// HTTPS CONNECT tunnel; a request header alone is too late for it.
+			System.setProperty("http.proxyUser", configuredProxy.getUsername());
+			System.setProperty("http.proxyPassword",
+				configuredProxy.getPassword());
+			System.setProperty("https.proxyUser",
+				configuredProxy.getUsername());
+			System.setProperty("https.proxyPassword",
+				configuredProxy.getPassword());
+		}
+		URLConnection connection = url.openConnection(proxy);
+		if(proxy.type() == Type.HTTP && configuredProxy.hasCredentials())
+		{
+			String credentials = configuredProxy.getUsername() + ":"
+				+ configuredProxy.getPassword();
+			String encoded = Base64.getEncoder().encodeToString(
+				credentials.getBytes(StandardCharsets.ISO_8859_1));
+			connection.setRequestProperty("Proxy-Authorization",
+				"Basic " + encoded);
+		}
+		return connection;
 	}
 	
 	private static UUID uuidFromJson(String jsonUUID) throws JsonException

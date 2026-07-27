@@ -11,11 +11,12 @@ import java.util.Objects;
 
 import com.google.gson.JsonObject;
 import net.wurstclient.WurstClient;
+import net.wurstclient.proxy.SocksProxy;
 
 public final class TokenAlt extends Alt
 {
 	private final String token;
-	private final String refreshToken;
+	private volatile String refreshToken;
 	private final String clientId;
 	private String name;
 	
@@ -47,20 +48,10 @@ public final class TokenAlt extends Alt
 	public void login() throws LoginException
 	{
 		if(!refreshToken.isEmpty())
-		{
-			if(!clientId.isEmpty())
-			{
-				System.out.println(
-					"*** TOKENALT using client_id: " + clientId + " ***");
-				MicrosoftLoginManager.loginWithRefreshToken(refreshToken,
-					clientId);
-			}else
-			{
-				System.out.println(
-					"*** TOKENALT using DEFAULT client_id (old path) ***");
-				MicrosoftLoginManager.loginWithRefreshToken(refreshToken);
-			}
-		}else
+			refreshToken =
+				MicrosoftLoginManager.loginWithRefreshTokenAndGetUpdatedToken(
+					refreshToken, clientId);
+		else
 			MicrosoftLoginManager.loginWithToken(token);
 		
 		name = getNameFromSession();
@@ -87,8 +78,8 @@ public final class TokenAlt extends Alt
 		jsonAlt.addProperty("refresh_token", refreshToken);
 		jsonAlt.addProperty("name", name);
 		jsonAlt.addProperty("starred", isFavorite());
-		if(!clientId.isEmpty())
-			jsonAlt.addProperty("client_id", clientId);
+		jsonAlt.addProperty("client_id", getEffectiveClientId());
+		addLastValidated(jsonAlt);
 		
 		String key = "token_"
 			+ Integer.toHexString(Objects.hash(token, refreshToken, name));
@@ -98,8 +89,14 @@ public final class TokenAlt extends Alt
 	@Override
 	public String exportAsTXT()
 	{
-		return "token:" + token + ":" + refreshToken + ":" + name
-			+ (clientId.isEmpty() ? "" : ":" + clientId);
+		return "token:" + token + ":" + refreshToken + ":" + name + ":"
+			+ getEffectiveClientId();
+	}
+	
+	private String getEffectiveClientId()
+	{
+		return clientId.isEmpty() ? MicrosoftLoginManager.getDefaultClientId()
+			: clientId;
 	}
 	
 	@Override
@@ -119,6 +116,44 @@ public final class TokenAlt extends Alt
 		return token;
 	}
 	
+	/**
+	 * Authenticates this account without updating the game session.
+	 * Refresh-token
+	 * rotation is retained so the next export remains valid.
+	 */
+	public MinecraftProfile authenticateWithoutSession() throws LoginException
+	{
+		return authenticateWithoutSession(null);
+	}
+	
+	public MinecraftProfile authenticateWithoutSession(SocksProxy proxy)
+		throws LoginException
+	{
+		MicrosoftLoginManager.setAuthenticationProxy(proxy);
+		try
+		{
+			if(refreshToken.isEmpty())
+			{
+				MinecraftProfile profile = MicrosoftLoginManager
+					.authenticateTokenWithoutSession(token);
+				markValidatedNow();
+				return profile;
+			}
+			
+			MicrosoftLoginManager.RefreshTokenAuthResult result =
+				MicrosoftLoginManager
+					.authenticateRefreshTokenWithResultWithoutSession(
+						refreshToken, clientId);
+			refreshToken = result.getRefreshToken();
+			MinecraftProfile profile = result.getProfile();
+			markValidatedNow();
+			return profile;
+		}finally
+		{
+			MicrosoftLoginManager.clearAuthenticationProxy();
+		}
+	}
+	
 	public String getRefreshToken()
 	{
 		return refreshToken;
@@ -127,12 +162,6 @@ public final class TokenAlt extends Alt
 	public String getClientId()
 	{
 		return clientId;
-	}
-	
-	public MinecraftProfile authenticateWithoutSession() throws LoginException
-	{
-		return MicrosoftLoginManager.authenticateTokenAltWithoutSession(token,
-			refreshToken, clientId);
 	}
 	
 	void setName(String name)

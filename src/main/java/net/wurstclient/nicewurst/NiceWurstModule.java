@@ -86,11 +86,11 @@ public final class NiceWurstModule
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "AutoClicker",
-				"SpeedNuker", "Nuker", "BuildRandom",
-				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
-				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
-				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
-				"AutoSpawnProofer", "AreaNuker"));
+				"SpeedNuker", "Nuker", "BuildRandom", "BedBreakAura",
+				"Excavator", "HandNoClip", "InstantBunker", "MusicAura",
+				"ScaffoldWalk", "SilkOnly", "TargetPlace", "TemplateTool",
+				"SourceFill", "SuperInstaMine", "FastFill", "AutoSpawnProofer",
+				"AreaNuker"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",

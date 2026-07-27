@@ -7,7 +7,6 @@
  */
 package net.wurstclient.proxy;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URLDecoder;
@@ -28,7 +27,6 @@ public final class SocksProxy
 	private final String username;
 	private final String password;
 	private final boolean protocolExplicit;
-	private volatile String resolvedHost;
 	private volatile ProxyProtocol protocol;
 	
 	public SocksProxy(String host, int port, String username, String password)
@@ -45,12 +43,6 @@ public final class SocksProxy
 	public SocksProxy(String host, int port, String username, String password,
 		ProxyProtocol protocol, boolean protocolExplicit)
 	{
-		this(host, port, username, password, protocol, protocolExplicit, null);
-	}
-	
-	public SocksProxy(String host, int port, String username, String password,
-		ProxyProtocol protocol, boolean protocolExplicit, String resolvedHost)
-	{
 		this.host = requireNonBlank(host, "Proxy host");
 		if(port < 1 || port > 65535)
 			throw new IllegalArgumentException("Proxy port must be 1-65535.");
@@ -60,8 +52,6 @@ public final class SocksProxy
 		this.password = password == null ? "" : password;
 		this.protocol = Objects.requireNonNull(protocol, "Proxy protocol");
 		this.protocolExplicit = protocolExplicit;
-		this.resolvedHost = resolvedHost == null || resolvedHost.isBlank()
-			? null : resolvedHost.trim();
 	}
 	
 	public static SocksProxy parse(String text)
@@ -225,28 +215,9 @@ public final class SocksProxy
 	
 	public InetSocketAddress getAddress()
 	{
-		return new InetSocketAddress(resolvedHost == null ? host : resolvedHost,
-			port);
-	}
-	
-	public String getResolvedHost()
-	{
-		return resolvedHost;
-	}
-	
-	public boolean resolveHost()
-	{
-		try
-		{
-			String address = InetAddress.getByName(host).getHostAddress();
-			if(address == null || address.isBlank())
-				return false;
-			resolvedHost = address;
-			return true;
-		}catch(Exception e)
-		{
-			return false;
-		}
+		// java.net.Socket cannot connect to an unresolved address. Netty also
+		// accepts this resolved form when it opens the SOCKS connection.
+		return new InetSocketAddress(host, port);
 	}
 	
 	/** Converts this entry to the JDK proxy type used by HTTP connections. */
@@ -315,11 +286,7 @@ public final class SocksProxy
 	
 	public String getDisplayName()
 	{
-		String endpoint =
-			formatEndpoint(resolvedHost == null ? host : resolvedHost);
-		if(resolvedHost != null && !resolvedHost.equalsIgnoreCase(host))
-			endpoint += " (" + formatEndpoint(host) + ")";
-		return endpoint + (hasCredentials() ? " (" + username + ")"
+		return formatEndpoint() + (hasCredentials() ? " (" + username + ")"
 			: " (no authentication)");
 	}
 	
@@ -331,13 +298,7 @@ public final class SocksProxy
 	
 	private String formatEndpoint()
 	{
-		return formatEndpoint(host);
-	}
-	
-	private String formatEndpoint(String value)
-	{
-		String formattedHost =
-			value.indexOf(':') >= 0 ? "[" + value + "]" : value;
+		String formattedHost = host.indexOf(':') >= 0 ? "[" + host + "]" : host;
 		return formattedHost + ":" + port;
 	}
 	

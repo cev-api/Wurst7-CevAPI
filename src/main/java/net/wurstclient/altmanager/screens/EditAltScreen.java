@@ -8,6 +8,7 @@
 package net.wurstclient.altmanager.screens;
 
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.altmanager.Alt;
 import net.wurstclient.altmanager.AltManager;
@@ -44,6 +45,25 @@ public final class EditAltScreen extends AltEditorScreen
 	protected String getDoneButtonText()
 	{
 		return "Save";
+	}
+	
+	@Override
+	protected void addExtraWidgets()
+	{
+		addRenderableWidget(Button
+			.builder(Component.literal("Copy Credentials"),
+				b -> copyCredentials())
+			.bounds(width / 2 - 100, getCancelButtonY() + 24, 200, 20).build());
+	}
+	
+	private void copyCredentials()
+	{
+		String credentials = getNameOrEmail().trim();
+		String password = getPassword();
+		if(!password.isEmpty())
+			credentials += ":" + password;
+		minecraft.keyboardHandler.setClipboard(credentials);
+		message = "Credentials copied to clipboard.";
 	}
 	
 	@Override
