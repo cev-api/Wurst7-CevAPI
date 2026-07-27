@@ -469,8 +469,6 @@ public final class FlightController
 		if(this.isActive())
 		{
 			PathFlightRuntime.protectLanding();
-			if(this.player() != null)
-				this.player().setDeltaMovement(Vec3.ZERO);
 		}
 		this.destination = null;
 		this.planFinalX = null;

@@ -65,11 +65,6 @@ public final class PathFlightRuntime
 		return controller != null && controller.isActive();
 	}
 	
-	public static boolean isPathFlightDescending()
-	{
-		return isPathFlightActive() && controller.isDescending();
-	}
-	
 	/**
 	 * Returns true briefly after path flight stops so NoFall can protect the
 	 * landing before the regular Flight hack is restored.

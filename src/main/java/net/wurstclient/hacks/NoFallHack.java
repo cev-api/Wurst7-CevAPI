@@ -12,6 +12,7 @@ import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.item.Items;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.autoflypath.PathFlightRuntime;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
@@ -97,11 +98,19 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(pauseForMace.isChecked() && player.getMainHandItem().is(Items.MACE))
 			return true;
 			
+		// Path flight restores the regular Flight hack as it shuts down. Keep
+		// NoFall active for the brief landing transition, otherwise the
+		// restored
+		// Flight hack can make this fall look like a normal paused flight.
+		if(PathFlightRuntime.isLandingProtectionActive())
+			return false;
+			
 		// Flight controls the player's vertical motion directly. Keep NoFall
 		// active while descending, even when pausing it during Flight is
 		// enabled, because descending with Flight can still cause fall damage.
-		if(pauseForFlight.isChecked() && WURST.getHax().flightHack.isEnabled()
-			&& !isDescending(player))
+		boolean flightActive = WURST.getHax().flightHack.isEnabled()
+			|| PathFlightRuntime.isPathFlightActive();
+		if(pauseForFlight.isChecked() && flightActive && !isDescending(player))
 			return true;
 			
 		// ignore small falls that can't cause damage,
@@ -133,7 +142,8 @@ public final class NoFallHack extends Hack implements UpdateListener
 		// input flag instead; it is the same source that Flight uses to apply
 		// vertical motion.
 		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
-		if(autoFly.isEnabled() && WURST.getHax().flightHack.isEnabled())
+		if(autoFly.isEnabled() && (WURST.getHax().flightHack.isEnabled()
+			|| PathFlightRuntime.isPathFlightActive()))
 			return autoFly.isAutoKeyShiftDown();
 		
 		return player.getDeltaMovement().y < -1.0E-4;
