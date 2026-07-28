@@ -85,38 +85,42 @@ public final class NiceWurstModule
 	static
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
-			Set.of("AutoBuild", "AutoSign", "AutoTool", "AutoClicker",
+			Set.of("AirPlace", "AutoBuild", "AutoFarm", "AutoMine",
+				"AutoSign", "AutoTool", "AutoClicker",
 				"SpeedNuker", "Nuker", "BuildRandom", "BedBreakAura",
 				"Excavator", "HandNoClip", "InstantBunker", "MusicAura",
 				"ScaffoldWalk", "SilkOnly", "TargetPlace", "TemplateTool",
 				"SourceFill", "SuperInstaMine", "FastFill", "AutoSpawnProofer",
-				"AreaNuker"));
+				"AreaNuker", "Tillaura", "TreeBot", "Tunneller", "VeinMiner"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
-			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
+			Set.of("BunnyHop", "AntiHunger", "AutoSprint", "AutoWalk", "AutoSwim",
 				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk",
-				"EntityControl", "PearlDrop"));
+				"EntityControl", "PearlDrop", "FastLadder", "Fish"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
-			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "PearlIntercept",
+			Set.of("AutoArmor", "AutoPotion", "AutoRespawn", "AutoSoup",
+				"AutoTotem", "AutoLeave", "PearlIntercept",
 				"ShieldSwing", "WindChargeKey", "AntiProjectile",
 				"AttributeSwap"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
-			Set.of("DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
+			Set.of("BarrierESP", "DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
 				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
-				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
+				"NoFog", "NoOverlay", "NoPumpkin", "NoWeather", "NoShieldOverlay",
+				"Freecam", "SpawnRadius", "Trajectories", "TrialSpawnerESP", "Waypoints",
 				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
 				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
 				"DamageESP", "ProjectileESP", "BlockOverlay"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
-			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
+			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks", "Mapa",
 				"BedrockStash", "LivestreamDetector", "StaffMonitor",
 				"OppStats", "SimulationSonar"));
 		
-		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention",
-			"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
+		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "ChatTranslator",
+			"FancyChat", "Mention", "NoPlayerChat", "ChatSpam", "CommandSpam",
+			"PlayerMute"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
@@ -131,9 +135,9 @@ public final class NiceWurstModule
 				"WebhookAlert", "RemoteEChest", "ShearAura"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
-			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
+			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat", "AutoSwitch",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
-				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
+				"QuickShulker", "Restock", "SignFramePT", "LootSearch", "XCarry",
 				"SusNoMore", "UseItemSpam", "InventorySorter", "AutoLoot",
 				"AntiBreak"));
 	}
