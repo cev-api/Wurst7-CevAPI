@@ -109,15 +109,20 @@ public final class NoFallHack extends Hack implements UpdateListener
 		// Flight hack can make this fall look like a normal paused flight.
 		if(PathFlightRuntime.isLandingProtectionActive())
 			return false;
-			
-		// Flight controls the player's vertical motion directly. Keep NoFall
-		// active while descending, even when pausing it during Flight is
-		// enabled, because descending with Flight can still cause fall damage.
+		
 		boolean flightActive = WURST.getHax().flightHack.isEnabled()
 			|| PathFlightRuntime.isPathFlightActive();
-		if(pauseForFlight.isChecked() && flightActive && !isDescending(player))
-			return true;
-			
+		if(pauseForFlight.isChecked() && flightActive)
+		{
+			// Keep NoFall active while Flight is deliberately descending.
+			// Use the intended direction instead of velocity, which Flight
+			// resets every tick.
+			boolean descending = WURST.getHax().flightHack.isDescending()
+				|| PathFlightRuntime.isPathFlightDescending();
+			if(!descending)
+				return true;
+		}
+		
 		// ignore small falls that can't cause damage,
 		// unless CreativeFlight is enabled in survival mode
 		boolean creativeFlying = WURST.getHax().creativeFlightHack.isEnabled()
@@ -139,18 +144,4 @@ public final class NoFallHack extends Hack implements UpdateListener
 		return player.getDeltaMovement().y < -0.5;
 	}
 	
-	private boolean isDescending(LocalPlayer player)
-	{
-		// Flight resets the player's velocity every tick. AutoFly can therefore
-		// make deltaMovement.y briefly cross zero while its intended direction
-		// has not changed, which makes the pause state flicker. Use AutoFly's
-		// input flag instead; it is the same source that Flight uses to apply
-		// vertical motion.
-		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
-		if(autoFly.isEnabled() && (WURST.getHax().flightHack.isEnabled()
-			|| PathFlightRuntime.isPathFlightActive()))
-			return autoFly.isAutoKeyShiftDown();
-		
-		return player.getDeltaMovement().y < -1.0E-4;
-	}
 }

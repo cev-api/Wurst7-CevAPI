@@ -423,6 +423,19 @@ public final class FlightHack extends Hack implements UpdateListener,
 			: antiKick.isChecked();
 	}
 	
+	boolean isDescending()
+	{
+		if(escapeDropActive)
+			return true;
+		
+		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
+		if(autoFly.isEnabled() && autoFly.isAutoKeyShiftDown())
+			return true;
+		
+		return IKeyMapping.get(MC.options.keyShift).isActuallyDown()
+			&& (!ignoreShiftInGuis.isChecked() || MC.gui.screen() == null);
+	}
+	
 	boolean isSlowSneakingEnabled()
 	{
 		return slowSneakingOverride != null ? slowSneakingOverride

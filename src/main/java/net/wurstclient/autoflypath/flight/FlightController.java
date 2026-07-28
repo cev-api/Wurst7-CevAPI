@@ -234,6 +234,11 @@ public final class FlightController
 		return false;
 	}
 	
+	public boolean isDescending()
+	{
+		return this.lastCommandedVel.y < -1.0E-4;
+	}
+	
 	public BlockPos currentDestination()
 	{
 		return this.destination;

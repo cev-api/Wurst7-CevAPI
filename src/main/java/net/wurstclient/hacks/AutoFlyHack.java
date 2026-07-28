@@ -31,6 +31,10 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.BubbleColumnBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.ai.PathFinder;
 import net.wurstclient.ai.PathProcessor;
@@ -174,7 +178,15 @@ public final class AutoFlyHack extends Hack
 		OLD_CHUNKS("Old chunk"),
 		NEW_CHUNKS("New chunk"),
 		END_PORTAL("End portal"),
-		NETHER_PORTAL("Nether portal");
+		NETHER_PORTAL("Nether portal"),
+		REDSTONE("Redstone"),
+		WORKSTATION("Workstations"),
+		NAMED_ENTITIES("Named entities"),
+		DOUBLE_CHEST("Double Chest/Ender/Shulker"),
+		NON_WAYPOINT_PORTAL("Non-waypoint portal"),
+		VALUABLE_ITEMS("Valuable items"),
+		STASIS_CHAMBER("Stasis chamber"),
+		ENTITY_COUNT("Entity count");
 		
 		private final String name;
 		
@@ -445,6 +457,41 @@ public final class AutoFlyHack extends Hack
 		"Stop keyword 3",
 		"Keyword to match against the third Stop on type (ignored for portals).",
 		"");
+	private final EnumSetting<StopOnType> stopOn4 =
+		new EnumSetting<>("Stop on 4", "Optional fourth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword4 =
+		new TextFieldSetting("Stop keyword 4", "Keyword for Stop on 4.", "");
+	private final EnumSetting<StopOnType> stopOn5 =
+		new EnumSetting<>("Stop on 5", "Optional fifth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword5 =
+		new TextFieldSetting("Stop keyword 5", "Keyword for Stop on 5.", "");
+	private final EnumSetting<StopOnType> stopOn6 =
+		new EnumSetting<>("Stop on 6", "Optional sixth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword6 =
+		new TextFieldSetting("Stop keyword 6", "Keyword for Stop on 6.", "");
+	private final EnumSetting<StopOnType> stopOn7 =
+		new EnumSetting<>("Stop on 7", "Optional seventh stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword7 =
+		new TextFieldSetting("Stop keyword 7", "Keyword for Stop on 7.", "");
+	private final EnumSetting<StopOnType> stopOn8 =
+		new EnumSetting<>("Stop on 8", "Optional eighth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword8 =
+		new TextFieldSetting("Stop keyword 8", "Keyword for Stop on 8.", "");
+	private final EnumSetting<StopOnType> stopOn9 =
+		new EnumSetting<>("Stop on 9", "Optional ninth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword9 =
+		new TextFieldSetting("Stop keyword 9", "Keyword for Stop on 9.", "");
+	private final EnumSetting<StopOnType> stopOn10 =
+		new EnumSetting<>("Stop on 10", "Optional tenth stop reason.",
+			StopOnType.values(), StopOnType.OFF);
+	private final TextFieldSetting stopKeyword10 =
+		new TextFieldSetting("Stop keyword 10", "Keyword for Stop on 10.", "");
 	private final SliderSetting stopChunkThickness = new SliderSetting(
 		"Chunk stop thickness",
 		"For Old/New chunk stop modes, require this many contiguous matching"
@@ -566,13 +613,11 @@ public final class AutoFlyHack extends Hack
 	private boolean enabledSkyBuildEspForStopOn;
 	
 	private boolean closeHorizLatched;
-	private int stopScanCooldown;
-	private ChunkSearcherCoordinator stopBlockCoordinator;
-	private StopOnType stopBlockCoordinatorType;
-	private String stopBlockCoordinatorKeyword;
-	private ChunkSearcherCoordinator stopBlockCoordinator2;
-	private StopOnType stopBlockCoordinatorType2;
-	private String stopBlockCoordinatorKeyword2;
+	private final int[] stopScanCooldowns = new int[10];
+	private final ChunkSearcherCoordinator[] stopBlockCoordinators =
+		new ChunkSearcherCoordinator[10];
+	private final StopOnType[] stopBlockCoordinatorTypes = new StopOnType[10];
+	private final String[] stopBlockCoordinatorKeywords = new String[10];
 	private ChunkSearcherCoordinator chunkTrailPortalCoordinator;
 	private int chunkTrailPortalScanCooldown;
 	private boolean stopHold;
@@ -636,6 +681,20 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopKeyword2);
 		addSetting(stopOn3);
 		addSetting(stopKeyword3);
+		addSetting(stopOn4);
+		addSetting(stopKeyword4);
+		addSetting(stopOn5);
+		addSetting(stopKeyword5);
+		addSetting(stopOn6);
+		addSetting(stopKeyword6);
+		addSetting(stopOn7);
+		addSetting(stopKeyword7);
+		addSetting(stopOn8);
+		addSetting(stopKeyword8);
+		addSetting(stopOn9);
+		addSetting(stopKeyword9);
+		addSetting(stopOn10);
+		addSetting(stopKeyword10);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
 		addSetting(stopSoundEnabled);
@@ -788,13 +847,10 @@ public final class AutoFlyHack extends Hack
 		chunkEdgeRecoveryTicks = 0;
 		missingWorldStateTicks = 0;
 		closeHorizLatched = false;
-		stopScanCooldown = 0;
-		stopBlockCoordinator = null;
-		stopBlockCoordinatorType = null;
-		stopBlockCoordinatorKeyword = null;
-		stopBlockCoordinator2 = null;
-		stopBlockCoordinatorType2 = null;
-		stopBlockCoordinatorKeyword2 = null;
+		java.util.Arrays.fill(stopScanCooldowns, 0);
+		java.util.Arrays.fill(stopBlockCoordinators, null);
+		java.util.Arrays.fill(stopBlockCoordinatorTypes, null);
+		java.util.Arrays.fill(stopBlockCoordinatorKeywords, null);
 		chunkTrailPortalCoordinator = null;
 		chunkTrailPortalScanCooldown = 0;
 		stopHold = false;
@@ -1011,13 +1067,27 @@ public final class AutoFlyHack extends Hack
 				return;
 		}
 		
-		if(checkStopOn(stopOn, stopKeyword, false))
+		if(checkStopOn(stopOn, stopKeyword, 0))
 			return;
 		
-		if(checkStopOn(stopOn2, stopKeyword2, true))
+		if(checkStopOn(stopOn2, stopKeyword2, 1))
 			return;
 		
-		if(checkStopOn(stopOn3, stopKeyword3, false))
+		if(checkStopOn(stopOn3, stopKeyword3, 2))
+			return;
+		if(checkStopOn(stopOn4, stopKeyword4, 3))
+			return;
+		if(checkStopOn(stopOn5, stopKeyword5, 4))
+			return;
+		if(checkStopOn(stopOn6, stopKeyword6, 5))
+			return;
+		if(checkStopOn(stopOn7, stopKeyword7, 6))
+			return;
+		if(checkStopOn(stopOn8, stopKeyword8, 7))
+			return;
+		if(checkStopOn(stopOn9, stopKeyword9, 8))
+			return;
+		if(checkStopOn(stopOn10, stopKeyword10, 9))
 			return;
 		
 		if(checkStopOnPlayers())
@@ -1390,7 +1460,7 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	private boolean checkStopOn(EnumSetting<StopOnType> stopSetting,
-		TextFieldSetting keywordSetting, boolean secondary)
+		TextFieldSetting keywordSetting, int slot)
 	{
 		if(stopIgnoreTicks > 0)
 			return false;
@@ -1496,7 +1566,7 @@ public final class AutoFlyHack extends Hack
 				if(kw.isEmpty())
 					return false;
 				
-				return scanBlocksForKeyword(secondary, kw, null);
+				return scanBlocksForKeyword(slot, kw, null);
 			}
 			
 			case OLD_CHUNKS ->
@@ -1511,13 +1581,74 @@ public final class AutoFlyHack extends Hack
 			
 			case END_PORTAL ->
 			{
-				return scanBlocksForKeyword(secondary, "", Blocks.END_PORTAL);
+				return scanBlocksForKeyword(slot, "", Blocks.END_PORTAL);
 			}
 			
 			case NETHER_PORTAL ->
 			{
-				return scanBlocksForKeyword(secondary, "",
-					Blocks.NETHER_PORTAL);
+				return scanBlocksForKeyword(slot, "", Blocks.NETHER_PORTAL);
+			}
+			
+			case REDSTONE, WORKSTATION, DOUBLE_CHEST, NON_WAYPOINT_PORTAL ->
+			{
+				return scanBlocksForStopType(slot, type);
+			}
+			
+			case NAMED_ENTITIES ->
+			{
+				String keyword = getStopKeyword(keywordSetting);
+				for(var entity : MC.level.entitiesForRendering())
+				{
+					if(entity == MC.player || !entity.isAlive()
+						|| entity.isRemoved() || !entity.hasCustomName())
+						continue;
+					String customName = readCustomName(entity);
+					if(customName.isEmpty() || !keyword.isEmpty()
+						&& !containsIgnoreCase(customName, keyword))
+						continue;
+					stopAutoFly("Stopped: Found named entity " + customName);
+					return true;
+				}
+				return false;
+			}
+			
+			case VALUABLE_ITEMS ->
+			{
+				for(var ent : MC.level.entitiesForRendering())
+				{
+					if(!(ent instanceof ItemEntity item) || !item.isAlive()
+						|| item.isRemoved() || item.getItem().isEmpty())
+						continue;
+					if(WURST.getHax().itemEspHack
+						.isSpecialStack(item.getItem()))
+					{
+						stopAutoFly("Stopped: Found valuable item "
+							+ item.getItem().getHoverName().getString());
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			case STASIS_CHAMBER ->
+			{
+				return checkStasisPearls();
+			}
+			
+			case ENTITY_COUNT ->
+			{
+				var counts = WURST.getHax().entityCountHack
+					.getChunksAtOrAboveThreshold();
+				if(counts.isEmpty())
+					return false;
+				var entry = counts.entrySet().iterator().next();
+				var chunk = entry.getKey();
+				int y =
+					MC.player == null ? 0 : MC.player.blockPosition().getY();
+				stopAutoFly("Stopped: EntityCount threshold found at "
+					+ chunk.getMiddleBlockX() + ", " + y + ", "
+					+ chunk.getMiddleBlockZ());
+				return true;
 			}
 			
 			case OFF ->
@@ -1571,23 +1702,24 @@ public final class AutoFlyHack extends Hack
 			}, area);
 	}
 	
-	private boolean scanBlocksForKeyword(boolean secondary, String keyword,
+	private boolean scanBlocksForKeyword(int slot, String keyword,
 		net.minecraft.world.level.block.Block mustMatch)
 	{
 		// Throttle block scanning/update.
-		if(stopScanCooldown-- > 0)
+		if(stopScanCooldowns[slot]-- > 0)
 			return false;
-		stopScanCooldown = STOP_SCAN_COOLDOWN_TICKS;
+		stopScanCooldowns[slot] = STOP_SCAN_COOLDOWN_TICKS;
 		
-		ensureStopBlockCoordinatorConfigured(secondary, keyword, mustMatch);
-		ChunkSearcherCoordinator coordinator =
-			secondary ? stopBlockCoordinator2 : stopBlockCoordinator;
+		ensureStopBlockCoordinatorConfigured(slot, keyword, mustMatch);
+		ChunkSearcherCoordinator coordinator = stopBlockCoordinators[slot];
 		if(coordinator == null)
 			return false;
 		
 		coordinator.update();
 		
-		Result hit = coordinator.getReadyMatches().findFirst().orElse(null);
+		Result hit = coordinator.getReadyMatches()
+			.filter(result -> isLiveKeywordMatch(result, keyword, mustMatch))
+			.findFirst().orElse(null);
 		if(hit == null)
 			return false;
 		
@@ -1598,9 +1730,11 @@ public final class AutoFlyHack extends Hack
 			return true;
 		}
 		
+		BlockState live = MC.level.getBlockState(hit.pos());
 		String id = safeString(
-			BuiltInRegistries.BLOCK.getKey(hit.state().getBlock()).toString());
-		stopAutoFly("Stopped: Found " + id);
+			BuiltInRegistries.BLOCK.getKey(live.getBlock()).toString());
+		stopAutoFly("Stopped: Found " + id + " at " + hit.pos().getX() + ", "
+			+ hit.pos().getY() + ", " + hit.pos().getZ());
 		return true;
 	}
 	
@@ -1629,6 +1763,40 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		return false;
+	}
+	
+	private boolean scanBlocksForStopType(int slot, StopOnType type)
+	{
+		if(stopScanCooldowns[slot]-- > 0)
+			return false;
+		stopScanCooldowns[slot] = STOP_SCAN_COOLDOWN_TICKS;
+		ensureStopBlockCoordinatorConfigured(slot, "", null);
+		ChunkSearcherCoordinator coordinator = stopBlockCoordinators[slot];
+		if(coordinator == null)
+			return false;
+		coordinator.update();
+		Result hit = coordinator.getReadyMatches()
+			.filter(result -> isLiveStopTypeMatch(result, type)).findFirst()
+			.orElse(null);
+		if(hit == null)
+			return false;
+		stopAutoFly("Stopped: Found "
+			+ stopTypeName(type, MC.level.getBlockState(hit.pos())) + " at "
+			+ hit.pos().getX() + ", " + hit.pos().getY() + ", "
+			+ hit.pos().getZ());
+		return true;
+	}
+	
+	private String stopTypeName(StopOnType type, BlockState state)
+	{
+		return switch(type)
+		{
+			case DOUBLE_CHEST -> "Double Chest/Ender/Shulker";
+			case NON_WAYPOINT_PORTAL -> "non-waypoint portal";
+			case STASIS_CHAMBER -> "stasis chamber";
+			default -> safeString(
+				BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+		};
 	}
 	
 	private boolean checkDisableOnDamage()
@@ -1772,37 +1940,39 @@ public final class AutoFlyHack extends Hack
 		return getHorizontalLookDirection();
 	}
 	
-	private void ensureStopBlockCoordinatorConfigured(boolean secondary,
-		String keyword, net.minecraft.world.level.block.Block mustMatch)
+	private void ensureStopBlockCoordinatorConfigured(int slot, String keyword,
+		net.minecraft.world.level.block.Block mustMatch)
 	{
-		StopOnType type =
-			secondary ? stopOn2.getSelected() : stopOn.getSelected();
+		StopOnType type = switch(slot)
+		{
+			case 0 -> stopOn.getSelected();
+			case 1 -> stopOn2.getSelected();
+			case 2 -> stopOn3.getSelected();
+			case 3 -> stopOn4.getSelected();
+			case 4 -> stopOn5.getSelected();
+			case 5 -> stopOn6.getSelected();
+			case 6 -> stopOn7.getSelected();
+			case 7 -> stopOn8.getSelected();
+			case 8 -> stopOn9.getSelected();
+			case 9 -> stopOn10.getSelected();
+			default -> null;
+		};
 		if(type == null)
 			return;
 		
 		String kw = keyword == null ? "" : keyword.trim();
 		
-		ChunkSearcherCoordinator coordinator =
-			secondary ? stopBlockCoordinator2 : stopBlockCoordinator;
-		StopOnType coordinatorType =
-			secondary ? stopBlockCoordinatorType2 : stopBlockCoordinatorType;
-		String coordinatorKeyword = secondary ? stopBlockCoordinatorKeyword2
-			: stopBlockCoordinatorKeyword;
+		ChunkSearcherCoordinator coordinator = stopBlockCoordinators[slot];
+		StopOnType coordinatorType = stopBlockCoordinatorTypes[slot];
+		String coordinatorKeyword = stopBlockCoordinatorKeywords[slot];
 		boolean needsReset = coordinator == null || coordinatorType != type
 			|| !java.util.Objects.equals(coordinatorKeyword, kw);
 		
 		if(!needsReset)
 			return;
 		
-		if(secondary)
-		{
-			stopBlockCoordinatorType2 = type;
-			stopBlockCoordinatorKeyword2 = kw;
-		}else
-		{
-			stopBlockCoordinatorType = type;
-			stopBlockCoordinatorKeyword = kw;
-		}
+		stopBlockCoordinatorTypes[slot] = type;
+		stopBlockCoordinatorKeywords[slot] = kw;
 		
 		ChunkAreaSetting area = new ChunkAreaSetting(
 			"Stop scan area (internal)", "", STOP_BLOCK_AREA);
@@ -1811,6 +1981,12 @@ public final class AutoFlyHack extends Hack
 		if(mustMatch != null)
 		{
 			coordinator.setTargetBlock(mustMatch);
+		}else if(type == StopOnType.REDSTONE || type == StopOnType.WORKSTATION
+			|| type == StopOnType.DOUBLE_CHEST
+			|| type == StopOnType.NON_WAYPOINT_PORTAL)
+		{
+			coordinator
+				.setQuery((pos, state) -> matchesStopBlock(type, pos, state));
 		}else
 		{
 			coordinator.setQuery((pos, state) -> {
@@ -1823,10 +1999,135 @@ public final class AutoFlyHack extends Hack
 			});
 		}
 		
-		if(secondary)
-			stopBlockCoordinator2 = coordinator;
-		else
-			stopBlockCoordinator = coordinator;
+		stopBlockCoordinators[slot] = coordinator;
+	}
+	
+	private boolean matchesStopBlock(StopOnType type, BlockPos pos,
+		BlockState state)
+	{
+		if(state == null)
+			return false;
+		var block = state.getBlock();
+		if(type == StopOnType.NON_WAYPOINT_PORTAL)
+			return (block == Blocks.NETHER_PORTAL || block == Blocks.END_PORTAL)
+				&& !isNearWaypoint(pos);
+		if(type == StopOnType.DOUBLE_CHEST)
+		{
+			if(block == Blocks.ENDER_CHEST || block instanceof ShulkerBoxBlock)
+				return true;
+			if(!(block instanceof ChestBlock)
+				|| !state.hasProperty(ChestBlock.TYPE))
+				return false;
+			return state.getValue(ChestBlock.TYPE) != ChestType.SINGLE;
+		}
+		String id = BuiltInRegistries.BLOCK.getKey(block).toString();
+		if(type == StopOnType.WORKSTATION)
+			return WORKSTATION_BLOCK_IDS.contains(id);
+		return REDSTONE_BLOCK_IDS.contains(id);
+	}
+	
+	private boolean checkStasisPearls()
+	{
+		if(MC.level == null)
+			return false;
+		for(var entity : MC.level.entitiesForRendering())
+		{
+			if(entity.getType() != net.wurstclient.util.RegistryUtils
+				.entityType("ender_pearl"))
+				continue;
+			BlockPos pearlPos = entity.blockPosition();
+			for(int yOffset = 2; yOffset >= -2; yOffset--)
+				if(getPearlStasisBase(pearlPos.offset(0, yOffset, 0)) != null)
+				{
+					stopAutoFly("Stopped: Found stasis chamber");
+					return true;
+				}
+		}
+		return false;
+	}
+	
+	private boolean isLiveKeywordMatch(Result result, String keyword,
+		net.minecraft.world.level.block.Block mustMatch)
+	{
+		if(MC.level == null || result == null)
+			return false;
+		BlockState live = MC.level.getBlockState(result.pos());
+		if(mustMatch != null)
+			return live.getBlock() == mustMatch;
+		return containsIgnoreCase(
+			BuiltInRegistries.BLOCK.getKey(live.getBlock()).toString(),
+			keyword);
+	}
+	
+	private boolean isLiveStopTypeMatch(Result result, StopOnType type)
+	{
+		return MC.level != null && result != null && matchesStopBlock(type,
+			result.pos(), MC.level.getBlockState(result.pos()));
+	}
+	
+	private BlockPos getPearlStasisBase(BlockPos pos)
+	{
+		if(!(MC.level.getBlockState(pos)
+			.getBlock() instanceof BubbleColumnBlock))
+			return null;
+		for(int dy = 1; dy <= 8; dy++)
+		{
+			BlockPos below = pos.below(dy);
+			BlockState state = MC.level.getBlockState(below);
+			if(state.getBlock() == Blocks.SOUL_SAND
+				|| state.getBlock() == Blocks.SOUL_SOIL)
+				return below;
+			if(!(state.getBlock() instanceof BubbleColumnBlock)
+				&& state.getFluidState().isEmpty())
+				return null;
+		}
+		return null;
+	}
+	
+	private String readCustomName(Object object)
+	{
+		if(!(object instanceof net.minecraft.world.Nameable nameable)
+			|| !nameable.hasCustomName())
+			return "";
+		try
+		{
+			var customName = nameable.getCustomName();
+			if(customName == null)
+				return "";
+			String text = customName.getString();
+			if(text == null)
+				return "";
+			text = text.trim();
+			return text.length() > 80 ? text.substring(0, 77) + "..." : text;
+		}catch(Throwable ignored)
+		{
+			return "";
+		}
+	}
+	
+	private static final java.util.Set<String> REDSTONE_BLOCK_IDS =
+		java.util.Set.of("minecraft:redstone_wire", "minecraft:redstone_torch",
+			"minecraft:repeater", "minecraft:comparator", "minecraft:lever",
+			"minecraft:observer", "minecraft:piston", "minecraft:sticky_piston",
+			"minecraft:dispenser", "minecraft:dropper", "minecraft:target",
+			"minecraft:tripwire", "minecraft:tripwire_hook",
+			"minecraft:daylight_detector", "minecraft:note_block",
+			"minecraft:redstone_block");
+	
+	private static final java.util.Set<String> WORKSTATION_BLOCK_IDS =
+		java.util.Set.of("minecraft:crafting_table", "minecraft:furnace",
+			"minecraft:blast_furnace", "minecraft:smoker",
+			"minecraft:smithing_table", "minecraft:grindstone",
+			"minecraft:stonecutter", "minecraft:loom",
+			"minecraft:cartography_table", "minecraft:fletching_table",
+			"minecraft:lectern", "minecraft:composter",
+			"minecraft:brewing_stand", "minecraft:anvil",
+			"minecraft:chipped_anvil", "minecraft:damaged_anvil");
+	
+	private boolean isNearWaypoint(BlockPos pos)
+	{
+		return WURST.getHax().waypointsHack != null
+			&& WURST.getHax().waypointsHack.hasWaypointNear(pos, 5.0);
 	}
 	
 	private void stopAutoFly(String message)
