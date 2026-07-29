@@ -126,6 +126,21 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 			}
 		}
 		
+		if(hax != null && hax.antiVoidHack.shouldMakeFalseFloor(pos, state))
+		{
+			cir.setReturnValue(Shapes.block());
+			cir.cancel();
+			return;
+		}
+		
+		if(hax != null
+			&& hax.antiVoidHack.shouldMakeLavaFloor(world, pos, state))
+		{
+			cir.setReturnValue(Shapes.block());
+			cir.cancel();
+			return;
+		}
+		
 		if(getFluidState().isEmpty())
 			return;
 		

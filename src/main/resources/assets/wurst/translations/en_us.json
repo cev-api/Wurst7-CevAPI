@@ -28,7 +28,7 @@
   "description.wurst.hack.antiknockback": "Prevents you from taking knockback from players and mobs.",
   "description.wurst.hack.antisocial": "Automatically disconnects the moment PlayerESP spots someone entering your range, perfect for hiding while AFK farming.",
   "description.wurst.hack.antispam": "Blocks chat spam by adding a counter to repeated messages.",
-  "description.wurst.hack.antivoid": "Teleports you back to your last safe position when you are falling into the void.",
+  "description.wurst.hack.antivoid": "Creates a client-side false floor at the configured void level and enables Flight to keep you above it.",
   "description.wurst.hack.antiwaterpush": "Prevents you from getting pushed by water.",
   "description.wurst.hack.antiwobble": "Disables the wobble effect caused by nausea and portals.",
   "description.wurst.hack.arrowdmg": "Massively increases arrow damage, but also consumes a lot of hunger and reduces accuracy.\n\nDoes not work with crossbows and seems to be patched on Paper servers.",

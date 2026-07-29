@@ -173,6 +173,7 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private boolean lastDelayEnabledState;
 	private boolean lastLoggingState;
+	private boolean lastDenyEnabledState;
 	private Path currentLogFile;
 	
 	public PacketToolsOtf()
@@ -198,6 +199,7 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		lastDelayEnabledState = delayEnabled.isChecked();
 		lastLoggingState = loggingEnabled.isChecked();
+		lastDenyEnabledState = denyEnabled.isChecked();
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -295,18 +297,26 @@ public final class PacketToolsOtf extends OtherFeature
 	@Override
 	public void onUpdate()
 	{
-		boolean delayActive =
-			delayEnabled.isChecked() && delayTicks.getValueI() > 0;
-		if(!delayActive && lastDelayEnabledState)
+		boolean loggingState = loggingEnabled.isChecked();
+		boolean denyState = denyEnabled.isChecked();
+		boolean delayState = delayEnabled.isChecked();
+		boolean previousLoggingState = lastLoggingState;
+		boolean previousDelayState = lastDelayEnabledState;
+		announceToggleChange("Logging", loggingState, previousLoggingState);
+		announceToggleChange("Blocking", denyState, lastDenyEnabledState);
+		announceToggleChange("Delaying", delayState, previousDelayState);
+		lastLoggingState = loggingState;
+		lastDenyEnabledState = denyState;
+		lastDelayEnabledState = delayState;
+		
+		boolean delayActive = delayState && delayTicks.getValueI() > 0;
+		if(!delayActive && previousDelayState)
 			flushQueues(true);
 		else if(delayActive)
 			flushQueues(false);
 		
-		lastDelayEnabledState = delayEnabled.isChecked();
-		
-		if(lastLoggingState && !loggingEnabled.isChecked())
+		if(previousLoggingState && !loggingState)
 			currentLogFile = null;
-		lastLoggingState = loggingEnabled.isChecked();
 		
 		// Tick entity lifecycle tracker
 		if(verboseEnabled.isChecked())
@@ -329,6 +339,16 @@ public final class PacketToolsOtf extends OtherFeature
 			currentVerboseHumanFile = null;
 		}
 		lastVerboseState = verboseEnabled.isChecked();
+	}
+	
+	private void announceToggleChange(String name, boolean current,
+		boolean previous)
+	{
+		if(current == previous)
+			return;
+		
+		ChatUtils.message(
+			"[PacketTools] " + name + (current ? " activated." : " disabled."));
 	}
 	
 	private boolean lastVerboseState;

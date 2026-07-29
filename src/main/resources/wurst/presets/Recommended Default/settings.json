@@ -146,16 +146,11 @@
     "Ignore friends": true
   },
   "AntiVoid": {
-    "Use AirWalk": true,
-    "False floor": false,
     "Nether floor Y": -40.0,
     "End floor Y": -60.0,
-    "Detect lava": true,
-    "Respond only at void level": true,
-    "Use Flight": true,
+    "Lava false floor": true,
     "Auto-enable on out_of_world": false,
-    "Auto-enable by height": false,
-    "Lava buffer (blocks)": 2.0
+    "Lava floor clearance (blocks)": 1.0
   },
   "AntiWaterPush": {
     "Prevent slowdown": false
