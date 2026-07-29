@@ -105,10 +105,6 @@ loom {
 	}
 	
 	runs {
-		clientGameTest {
-			jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
-		}
-		
 		clientWithMods {
 			environment = "client"
 			inherit client
@@ -119,7 +115,6 @@ loom {
 			inherit client
 			runDir = "build/run/clientGameTestWithMods"
 			jvmArguments.add("-Dfabric.client.gametest")
-			jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
 			programArguments.add("--username=Wurst-Bot")
 		}
 	}

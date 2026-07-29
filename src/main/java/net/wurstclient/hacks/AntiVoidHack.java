@@ -60,6 +60,11 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	private final SliderSetting lavaFloorClearance = new SliderSetting(
 		"Lava floor clearance (blocks)", 1, 1, 4, 1, ValueDisplay.INTEGER);
 	
+	private final CheckboxSetting autoAdjustLavaFloor = new CheckboxSetting(
+		"Auto-adjust lava floor height",
+		"Reduces the invisible clearance above lava when a ceiling is too low, leaving only the lava block solid so tunnels remain passable.",
+		true);
+	
 	// Nether/End thresholds are fixed; Overworld uses the floor slider.
 	
 	private int lastHurtTimeSeen;
@@ -190,9 +195,10 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		addSetting(overworldFalseFloorY);
 		addSetting(netherFalseFloorY);
 		addSetting(endFalseFloorY);
-		addSetting(lavaFalseFloor);
 		addSetting(autoEnableOnOutOfWorld);
+		addSetting(lavaFalseFloor);
 		addSetting(lavaFloorClearance);
+		addSetting(autoAdjustLavaFloor);
 		// Always-on listener to catch out_of_world damage even when disabled
 		EVENTS.add(UpdateListener.class, alwaysListener);
 	}
@@ -334,11 +340,50 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			return false;
 		
 		int clearance = lavaFloorClearance.getValueI();
+		return hasExposedLavaBelow(world, pos, clearance);
+	}
+	
+	private boolean hasExposedLavaBelow(BlockGetter world, BlockPos pos,
+		int clearance)
+	{
 		for(int i = 1; i <= clearance; i++)
-			if(world.getBlockState(pos.below(i)).getFluidState()
-				.is(FluidTags.LAVA))
-				return true;
+		{
+			BlockPos lavaPos = pos.below(i);
+			BlockState lavaState = world.getBlockState(lavaPos);
 			
+			if(!lavaState.getFluidState().is(FluidTags.LAVA))
+			{
+				// A solid block or another fluid blocks access to everything
+				// below it. Do not let this scan see through terrain.
+				if(!lavaState.isAir())
+					return false;
+				continue;
+			}
+			
+			BlockState aboveLava = world.getBlockState(lavaPos.above());
+			if(!aboveLava.isAir())
+				return false;
+			
+			int effectiveClearance = clearance;
+			if(autoAdjustLavaFloor.isChecked())
+			{
+				int availableAir = 0;
+				BlockPos airPos = lavaPos.above();
+				while(world.getBlockState(airPos).isAir())
+				{
+					availableAir++;
+					airPos = airPos.above();
+				}
+				
+				// Leave two air blocks above the adjusted floor so a normal
+				// player can still pass through a low tunnel.
+				effectiveClearance =
+					Math.min(clearance, Math.max(0, availableAir - 2));
+			}
+			
+			return i <= effectiveClearance;
+		}
+		
 		return false;
 	}
 	
