@@ -111,6 +111,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 			return false;
 		
 		boolean flightActive = WURST.getHax().flightHack.isEnabled()
+			|| WURST.getHax().creativeFlightHack.isEnabled()
 			|| PathFlightRuntime.isPathFlightActive();
 		if(pauseForFlight.isChecked() && flightActive)
 		{
@@ -118,6 +119,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 			// Use the intended direction instead of velocity, which Flight
 			// resets every tick.
 			boolean descending = WURST.getHax().flightHack.isDescending()
+				|| WURST.getHax().creativeFlightHack.isDescending()
 				|| PathFlightRuntime.isPathFlightDescending();
 			if(!descending)
 				return true;
