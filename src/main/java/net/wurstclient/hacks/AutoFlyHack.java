@@ -427,6 +427,14 @@ public final class AutoFlyHack extends Hack
 		"Smooth Flight",
 		"Temporarily disables Flight's anti-kick bobbing and slow sneaking while AutoFly is active to reduce rubberbanding.",
 		true);
+	private final CheckboxSetting solidLava = new CheckboxSetting(
+		"Solid lava wall",
+		"Treat flowing and source lava as an untouchable wall while AutoFly is active. Includes one block of clearance above lava to prevent fire damage.",
+		false);
+	private final CheckboxSetting solidFire = new CheckboxSetting(
+		"Solid fire wall",
+		"Treat fire and soul fire as untouchable blocks while AutoFly is active. Includes one block of clearance above fire to prevent fire damage.",
+		false);
 	private final CheckboxSetting disableFlightOnArrival =
 		new CheckboxSetting("Disable Flight on arrival",
 			"Turns off Flight when AutoFly reaches a waypoint.", false);
@@ -673,6 +681,8 @@ public final class AutoFlyHack extends Hack
 		addSetting(ignoreWaypointList);
 		addSetting(allowManualAdjust);
 		addSetting(smoothFlight);
+		addSetting(solidLava);
+		addSetting(solidFire);
 		addSetting(disableFlightOnArrival);
 		addSetting(disableAutoFlyOnArrival);
 		addSetting(stopOn);
@@ -707,6 +717,20 @@ public final class AutoFlyHack extends Hack
 		addSetting(sideScanHalfWidth);
 		addSetting(singleWallNudgeStrength);
 		updateModeSettingVisibility();
+	}
+	
+	/**
+	 * Used by the block collision mixin to create local hazard walls. These
+	 * settings intentionally only apply while AutoFly is enabled.
+	 */
+	public boolean shouldMakeLavaSolid()
+	{
+		return isEnabled() && solidLava.isChecked();
+	}
+	
+	public boolean shouldMakeFireSolid()
+	{
+		return isEnabled() && solidFire.isChecked();
 	}
 	
 	private void updateModeSettingVisibility()

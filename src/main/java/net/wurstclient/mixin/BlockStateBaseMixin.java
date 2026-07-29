@@ -21,6 +21,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateHolder;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -93,10 +95,40 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 	private void onGetCollisionShape(BlockGetter world, BlockPos pos,
 		CollisionContext context, CallbackInfoReturnable<VoxelShape> cir)
 	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		BlockState state = (BlockState)(Object)this;
+		if(hax != null && hax.autoFlyHack.isEnabled())
+		{
+			boolean lava = hax.autoFlyHack.shouldMakeLavaSolid()
+				&& getFluidState().is(FluidTags.LAVA);
+			boolean fire = hax.autoFlyHack.shouldMakeFireSolid()
+				&& (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE));
+			
+			// Fire can damage an entity whose feet are one block above it.
+			// Make that air block solid too, leaving a full block of clearance.
+			boolean clearance = false;
+			if(!lava && !fire && (hax.autoFlyHack.shouldMakeLavaSolid()
+				|| hax.autoFlyHack.shouldMakeFireSolid()))
+			{
+				BlockState below = world.getBlockState(pos.below());
+				clearance = (hax.autoFlyHack.shouldMakeLavaSolid()
+					&& below.getFluidState().is(FluidTags.LAVA))
+					|| (hax.autoFlyHack.shouldMakeFireSolid()
+						&& (below.is(Blocks.FIRE)
+							|| below.is(Blocks.SOUL_FIRE)));
+			}
+			
+			if(lava || fire || clearance)
+			{
+				cir.setReturnValue(Shapes.block());
+				cir.cancel();
+				return;
+			}
+		}
+		
 		if(getFluidState().isEmpty())
 			return;
 		
-		HackList hax = WurstClient.INSTANCE.getHax();
 		if(hax == null || !hax.jesusHack.shouldBeSolid())
 			return;
 		

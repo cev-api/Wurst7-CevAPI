@@ -405,7 +405,7 @@ public final class EntityCountHack extends Hack
 				
 				int count = chunkCounts.getOrDefault(pos, 0);
 				totalCount += count;
-				if(!shouldRenderLabel(count))
+				if(!shouldRenderLabel(pos, count))
 					continue;
 				
 				ChunkLabel label = new ChunkLabel(pos, count, labelY, false);
@@ -430,7 +430,7 @@ public final class EntityCountHack extends Hack
 				
 				int count = entry.getValue();
 				totalCount += count;
-				if(!shouldRenderLabel(count))
+				if(!shouldRenderLabel(pos, count))
 					continue;
 				
 				ChunkLabel label = new ChunkLabel(pos, count, labelY, true);
@@ -442,13 +442,28 @@ public final class EntityCountHack extends Hack
 			highlightHighestLabels(allLabels);
 	}
 	
-	private boolean shouldRenderLabel(int count)
+	private boolean shouldRenderLabel(ChunkPos pos, int count)
 	{
 		if(hideZero.isChecked() && count == 0)
 			return false;
 		
-		return !onlyAboveThreshold.isChecked()
-			|| count >= threshold.getValueI();
+		if(!onlyAboveThreshold.isChecked())
+			return true;
+		
+		if(count < threshold.getValueI())
+			return false;
+			
+		// Keep visual threshold output consistent with chat/sound alerts and
+		// AutoFly: a threshold must remain breached for the configured number
+		// of ticks before its label or tracer is shown.
+		return isThresholdPersisted(pos);
+	}
+	
+	private boolean isThresholdPersisted(ChunkPos pos)
+	{
+		Long since = thresholdAboveSince.get("all entities@" + pos);
+		return since != null
+			&& tickCounter - since >= thresholdPersistence.getValueI();
 	}
 	
 	private void checkThresholdAlerts()
