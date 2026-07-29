@@ -97,9 +97,13 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
 		BlockState state = (BlockState)(Object)this;
-		if(hax != null && hax.autoFlyHack.isEnabled())
+		if(hax != null
+			&& (hax.autoFlyHack.isEnabled() || hax.flightHack.isEnabled()
+				|| hax.creativeFlightHack.isEnabled()))
 		{
-			boolean lava = hax.autoFlyHack.shouldMakeLavaSolid()
+			boolean lava = (hax.autoFlyHack.shouldMakeLavaSolid()
+				|| hax.flightHack.shouldMakeLavaSolid()
+				|| hax.creativeFlightHack.shouldMakeLavaSolid())
 				&& getFluidState().is(FluidTags.LAVA);
 			boolean fire = hax.autoFlyHack.shouldMakeFireSolid()
 				&& (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE));
@@ -107,15 +111,18 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 			// Fire can damage an entity whose feet are one block above it.
 			// Make that air block solid too, leaving a full block of clearance.
 			boolean clearance = false;
-			if(!lava && !fire && (hax.autoFlyHack.shouldMakeLavaSolid()
-				|| hax.autoFlyHack.shouldMakeFireSolid()))
+			boolean solidLava = hax.autoFlyHack.shouldMakeLavaSolid()
+				|| hax.flightHack.shouldMakeLavaSolid()
+				|| hax.creativeFlightHack.shouldMakeLavaSolid();
+			if(!lava && !fire
+				&& (solidLava || hax.autoFlyHack.shouldMakeFireSolid()))
 			{
 				BlockState below = world.getBlockState(pos.below());
-				clearance = (hax.autoFlyHack.shouldMakeLavaSolid()
-					&& below.getFluidState().is(FluidTags.LAVA))
-					|| (hax.autoFlyHack.shouldMakeFireSolid()
-						&& (below.is(Blocks.FIRE)
-							|| below.is(Blocks.SOUL_FIRE)));
+				clearance =
+					(solidLava && below.getFluidState().is(FluidTags.LAVA))
+						|| (hax.autoFlyHack.shouldMakeFireSolid()
+							&& (below.is(Blocks.FIRE)
+								|| below.is(Blocks.SOUL_FIRE)));
 			}
 			
 			if(lava || fire || clearance)

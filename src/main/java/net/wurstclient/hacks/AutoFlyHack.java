@@ -2870,7 +2870,14 @@ public final class AutoFlyHack extends Hack
 		clearPathingState();
 		arrivedHold = true;
 		if(isPathMode() && !disableFlightOnArrival.isChecked())
+		{
+			// Path mode suspends Wurst's Flight hack. Keep a stable hover after
+			// the planner stops instead of handing control straight to gravity.
+			ensureFlightEnabled();
+			if(MC.player != null)
+				MC.player.setDeltaMovement(Vec3.ZERO);
 			pauseAutoOwnedFlight();
+		}
 		if(!isVoidTarget(currentTarget.pos)
 			&& disableFlightOnArrival.isChecked()
 			&& WURST.getHax().flightHack.isEnabled())

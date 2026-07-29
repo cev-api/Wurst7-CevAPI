@@ -95,6 +95,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		"Enable NoFall with Flight",
 		"description.wurst.setting.flight.enable_nofall_with_flight", false);
 	
+	private final CheckboxSetting solidLava = new CheckboxSetting(
+		"Solid lava columns",
+		"Treat lava source and flowing blocks as solid, including one block of clearance above them, while Flight is enabled.",
+		false);
+	
 	private final CheckboxSetting ignoreVinesWithFlight = new CheckboxSetting(
 		"Ignore vines with Flight",
 		"Temporarily enables NoSlowdown's \"Ignore vines\" while Flight is enabled.",
@@ -141,6 +146,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
+		addSetting(solidLava);
 		addSetting(ignoreVinesWithFlight);
 		addSetting(slowSneaking);
 		addSetting(ignoreShiftInGuis);
@@ -356,6 +362,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 	public boolean shouldIgnoreVinesWithFlight()
 	{
 		return isEnabled() && ignoreVinesWithFlight.isChecked();
+	}
+	
+	public boolean shouldMakeLavaSolid()
+	{
+		return isEnabled() && solidLava.isChecked();
 	}
 	
 	@Override
