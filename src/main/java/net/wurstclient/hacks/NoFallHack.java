@@ -42,6 +42,8 @@ public final class NoFallHack extends Hack implements UpdateListener
 		new SliderSetting("Min elytra fall distance",
 			"description.wurst.setting.nofall.min_elytra_fall_distance", 2, 0,
 			10, 0.1, ValueDisplay.DECIMAL.withSuffix("m").withLabel(0, "off"));
+	private double lastPlayerY;
+	private boolean hasLastPlayerY;
 	
 	public NoFallHack()
 	{
@@ -66,6 +68,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	@Override
 	protected void onEnable()
 	{
+		hasLastPlayerY = false;
 		WURST.getHax().antiHungerHack.setEnabled(false);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -73,21 +76,36 @@ public final class NoFallHack extends Hack implements UpdateListener
 	@Override
 	protected void onDisable()
 	{
+		hasLastPlayerY = false;
 		EVENTS.remove(UpdateListener.class, this);
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(isPaused())
+		LocalPlayer player = MC.player;
+		if(player == null || player.connection == null)
+			return;
+		
+		boolean actuallyDescending =
+			hasLastPlayerY && player.getY() < lastPlayerY - 1.0E-4;
+		lastPlayerY = player.getY();
+		hasLastPlayerY = true;
+		
+		if(isPaused(actuallyDescending))
 			return;
 		
 		// send packet to stop fall damage
-		MC.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(
-			true, MC.player.horizontalCollision));
+		player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true,
+			player.horizontalCollision));
 	}
 	
 	private boolean isPaused()
+	{
+		return isPaused(false);
+	}
+	
+	private boolean isPaused(boolean actuallyDescending)
 	{
 		// do nothing in creative mode, since there is no fall damage anyway
 		LocalPlayer player = MC.player;
@@ -120,7 +138,8 @@ public final class NoFallHack extends Hack implements UpdateListener
 			// resets every tick.
 			boolean descending = WURST.getHax().flightHack.isDescending()
 				|| WURST.getHax().creativeFlightHack.isDescending()
-				|| PathFlightRuntime.isPathFlightDescending();
+				|| PathFlightRuntime.isPathFlightDescending()
+				|| actuallyDescending;
 			if(!descending)
 				return true;
 		}
