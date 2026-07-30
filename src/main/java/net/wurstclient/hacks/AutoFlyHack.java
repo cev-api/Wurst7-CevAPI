@@ -93,6 +93,8 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	private static final int STOP_SCAN_COOLDOWN_TICKS = 10;
+	private static final long ACTUAL_SPEED_WINDOW_MS = 3000L;
+	private static final double ACTUAL_SPEED_MAX_PLAUSIBLE_BPS = 5000.0;
 	private static final double COMMAND_FORWARD_DISTANCE = 100000.0;
 	private static final double COMMAND_FORWARD_LEAD_DISTANCE = 512.0;
 	private static final int CHUNK_TRAIL_LOOKAHEAD = 5;
@@ -182,10 +184,13 @@ public final class AutoFlyHack extends Hack
 		REDSTONE("Redstone"),
 		WORKSTATION("Workstations"),
 		NAMED_ENTITIES("Named entities"),
-		DOUBLE_CHEST("Double Chest/Ender/Shulker"),
+		DOUBLE_CHEST("Double chests"),
+		SHULKER("Shulkers"),
+		ENDER_CHEST("Ender chests"),
 		NON_WAYPOINT_PORTAL("Non-waypoint portal"),
 		VALUABLE_ITEMS("Valuable items"),
-		STASIS_CHAMBER("Stasis chamber"),
+		LIVE_STASIS_CHAMBER("Live stasis chamber"),
+		EMPTY_STASIS_CHAMBER("Empty stasis chamber"),
 		ENTITY_COUNT("Entity count");
 		
 		private final String name;
@@ -594,6 +599,9 @@ public final class AutoFlyHack extends Hack
 	private boolean boatFlyWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
+	private final ArrayDeque<ActualSpeedPoint> actualSpeedPoints =
+		new ArrayDeque<>();
+	private double actualSpeedBps;
 	
 	// Chunk-trail steering settings
 	private final SliderSetting noTrailAbortSeconds =
@@ -898,6 +906,7 @@ public final class AutoFlyHack extends Hack
 		lastYForProgress = Double.NaN;
 		lastVerticalProgressMs = System.currentTimeMillis();
 		verticalAssistActive = false;
+		resetActualSpeed();
 		if(isPathMode())
 		{
 			captureFlightSettings();
@@ -986,6 +995,7 @@ public final class AutoFlyHack extends Hack
 		lastMoveMs = 0L;
 		lastHorizPos = null;
 		lastHorizMoveMs = 0L;
+		resetActualSpeed();
 		clearChunkCorridorAssist();
 		autoKeyUpDown = false;
 		autoKeyDownDown = false;
@@ -1050,6 +1060,7 @@ public final class AutoFlyHack extends Hack
 		ensureBoatFlyEnabledIfRiding();
 		
 		long updateNow = System.currentTimeMillis();
+		updateActualSpeed(MC.player.position(), updateNow);
 		if(lastUpdateMs > 0L && updateNow - lastUpdateMs > 1000L)
 			resetAfterTickGap(updateNow);
 		lastUpdateMs = updateNow;
@@ -1613,7 +1624,7 @@ public final class AutoFlyHack extends Hack
 				return scanBlocksForKeyword(slot, "", Blocks.NETHER_PORTAL);
 			}
 			
-			case REDSTONE, WORKSTATION, DOUBLE_CHEST, NON_WAYPOINT_PORTAL ->
+			case REDSTONE, WORKSTATION, DOUBLE_CHEST, SHULKER, ENDER_CHEST, NON_WAYPOINT_PORTAL ->
 			{
 				return scanBlocksForStopType(slot, type);
 			}
@@ -1654,9 +1665,14 @@ public final class AutoFlyHack extends Hack
 				return false;
 			}
 			
-			case STASIS_CHAMBER ->
+			case LIVE_STASIS_CHAMBER ->
 			{
-				return checkStasisPearls();
+				return checkStasisChambers(true);
+			}
+			
+			case EMPTY_STASIS_CHAMBER ->
+			{
+				return checkStasisChambers(false);
 			}
 			
 			case ENTITY_COUNT ->
@@ -1815,9 +1831,12 @@ public final class AutoFlyHack extends Hack
 	{
 		return switch(type)
 		{
-			case DOUBLE_CHEST -> "Double Chest/Ender/Shulker";
+			case DOUBLE_CHEST -> "double chest";
+			case SHULKER -> "shulker";
+			case ENDER_CHEST -> "ender chest";
 			case NON_WAYPOINT_PORTAL -> "non-waypoint portal";
-			case STASIS_CHAMBER -> "stasis chamber";
+			case LIVE_STASIS_CHAMBER -> "live stasis chamber";
+			case EMPTY_STASIS_CHAMBER -> "empty stasis chamber";
 			default -> safeString(
 				BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
 		};
@@ -2006,7 +2025,8 @@ public final class AutoFlyHack extends Hack
 		{
 			coordinator.setTargetBlock(mustMatch);
 		}else if(type == StopOnType.REDSTONE || type == StopOnType.WORKSTATION
-			|| type == StopOnType.DOUBLE_CHEST
+			|| type == StopOnType.DOUBLE_CHEST || type == StopOnType.SHULKER
+			|| type == StopOnType.ENDER_CHEST
 			|| type == StopOnType.NON_WAYPOINT_PORTAL)
 		{
 			coordinator
@@ -2037,35 +2057,56 @@ public final class AutoFlyHack extends Hack
 				&& !isNearWaypoint(pos);
 		if(type == StopOnType.DOUBLE_CHEST)
 		{
-			if(block == Blocks.ENDER_CHEST || block instanceof ShulkerBoxBlock)
-				return true;
 			if(!(block instanceof ChestBlock)
 				|| !state.hasProperty(ChestBlock.TYPE))
 				return false;
 			return state.getValue(ChestBlock.TYPE) != ChestType.SINGLE;
 		}
+		if(type == StopOnType.SHULKER)
+			return block instanceof ShulkerBoxBlock;
+		if(type == StopOnType.ENDER_CHEST)
+			return block == Blocks.ENDER_CHEST;
 		String id = BuiltInRegistries.BLOCK.getKey(block).toString();
 		if(type == StopOnType.WORKSTATION)
 			return WORKSTATION_BLOCK_IDS.contains(id);
 		return REDSTONE_BLOCK_IDS.contains(id);
 	}
 	
-	private boolean checkStasisPearls()
+	private boolean checkStasisChambers(boolean live)
 	{
-		if(MC.level == null)
+		var stasisDetector = WURST.getHax().stasisDetectorHack;
+		if(MC.level == null || !stasisDetector.isEnabled())
 			return false;
+		
+		for(BlockPos chamber : stasisDetector.getDetectedChambers())
+		{
+			boolean hasPearl = hasStasisPearl(chamber);
+			if(hasPearl != live)
+				continue;
+			
+			stopAutoFly("Stopped: Found " + (live ? "live" : "empty")
+				+ " stasis chamber");
+			return true;
+		}
+		return false;
+	}
+	
+	private boolean hasStasisPearl(BlockPos chamber)
+	{
+		var pearlType =
+			net.wurstclient.util.RegistryUtils.entityType("ender_pearl");
 		for(var entity : MC.level.entitiesForRendering())
 		{
-			if(entity.getType() != net.wurstclient.util.RegistryUtils
-				.entityType("ender_pearl"))
+			if(entity.getType() != pearlType)
 				continue;
 			BlockPos pearlPos = entity.blockPosition();
 			for(int yOffset = 2; yOffset >= -2; yOffset--)
-				if(getPearlStasisBase(pearlPos.offset(0, yOffset, 0)) != null)
-				{
-					stopAutoFly("Stopped: Found stasis chamber");
+			{
+				BlockPos base =
+					getPearlStasisBase(pearlPos.offset(0, yOffset, 0));
+				if(chamber.equals(base))
 					return true;
-				}
+			}
 		}
 		return false;
 	}
@@ -3072,8 +3113,7 @@ public final class AutoFlyHack extends Hack
 	{
 		if(currentTarget == null || MC.player == null)
 		{
-			double speed = MC.player != null
-				? MC.player.getDeltaMovement().length() * 20.0 : 0.0;
+			double speed = getActualSpeedBps();
 			return String.format(Locale.ROOT, "AutoFly | %.1fb/s | %s", speed,
 				getStateLabel());
 		}
@@ -3089,7 +3129,7 @@ public final class AutoFlyHack extends Hack
 			double dz = currentTarget.pos.getZ() + 0.5 - playerPos.z;
 			dist = Math.hypot(dx, dz);
 		}
-		double speed = MC.player.getDeltaMovement().length() * 20.0;
+		double speed = getActualSpeedBps();
 		int total = targets.isEmpty() ? 1 : targets.size();
 		int index = Math.max(1, Math.min(total, currentIndex + 1));
 		if(commandForwardUnlimited)
@@ -3110,7 +3150,7 @@ public final class AutoFlyHack extends Hack
 		if(commandForwardUnlimited)
 			return null;
 		
-		double speed = MC.player.getDeltaMovement().length() * 20.0;
+		double speed = getActualSpeedBps();
 		if(speed < 0.01)
 			return null;
 		
@@ -3141,6 +3181,51 @@ public final class AutoFlyHack extends Hack
 		int hours = (int)(etaSeconds / 3600);
 		int minutes = (int)((etaSeconds % 3600) / 60);
 		return String.format(Locale.ROOT, "ETA %dh %dm", hours, minutes);
+	}
+	
+	private double getActualSpeedBps()
+	{
+		return actualSpeedBps;
+	}
+	
+	private void resetActualSpeed()
+	{
+		actualSpeedPoints.clear();
+		actualSpeedBps = 0.0;
+	}
+	
+	private void updateActualSpeed(Vec3 playerPos, long nowMs)
+	{
+		if(playerPos == null || !Double.isFinite(playerPos.x)
+			|| !Double.isFinite(playerPos.z))
+		{
+			resetActualSpeed();
+			return;
+		}
+		
+		actualSpeedPoints
+			.addLast(new ActualSpeedPoint(playerPos.x, playerPos.z, nowMs));
+		long minTime = nowMs - ACTUAL_SPEED_WINDOW_MS;
+		while(actualSpeedPoints.size() > 2
+			&& actualSpeedPoints.peekFirst().timestampMs < minTime)
+			actualSpeedPoints.removeFirst();
+		
+		ActualSpeedPoint oldest = actualSpeedPoints.peekFirst();
+		ActualSpeedPoint newest = actualSpeedPoints.peekLast();
+		if(oldest == null || newest == null)
+		{
+			actualSpeedBps = 0.0;
+			return;
+		}
+		
+		long deltaMs = newest.timestampMs - oldest.timestampMs;
+		if(deltaMs <= 0L)
+			return;
+		
+		double netDistance =
+			Math.hypot(newest.x - oldest.x, newest.z - oldest.z);
+		double speed = netDistance / (deltaMs / 1000.0);
+		actualSpeedBps = Math.min(speed, ACTUAL_SPEED_MAX_PLAUSIBLE_BPS);
 	}
 	
 	private String getStateLabel()
@@ -4698,6 +4783,20 @@ public final class AutoFlyHack extends Hack
 		{
 			this.pos = pos;
 			this.hasY = hasY;
+		}
+	}
+	
+	private static final class ActualSpeedPoint
+	{
+		private final double x;
+		private final double z;
+		private final long timestampMs;
+		
+		private ActualSpeedPoint(double x, double z, long timestampMs)
+		{
+			this.x = x;
+			this.z = z;
+			this.timestampMs = timestampMs;
 		}
 	}
 	

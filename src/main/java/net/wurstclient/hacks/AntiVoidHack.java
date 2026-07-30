@@ -369,7 +369,12 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 			{
 				int availableAir = 0;
 				BlockPos airPos = lavaPos.above();
-				while(world.getBlockState(airPos).isAir())
+				// Only enough air is relevant to calculate the requested
+				// clearance. Scanning until the first solid block can become an
+				// unbounded loop in an open cavern or above the world ceiling.
+				int maxAirToCheck = clearance + 2;
+				while(availableAir < maxAirToCheck
+					&& world.getBlockState(airPos).isAir())
 				{
 					availableAir++;
 					airPos = airPos.above();
