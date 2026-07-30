@@ -68,6 +68,7 @@ public class DisconnectedScreenMixin extends Screen
 	private int overlayHeight;
 	private int overlayX;
 	private int overlayY;
+	private int baseLayoutY;
 	
 	private Button reconnectButton;
 	private Button reconnectRandomAltButton;
@@ -165,6 +166,7 @@ public class DisconnectedScreenMixin extends Screen
 			}).width(200).build());
 		
 		layout.arrangeElements();
+		baseLayoutY = layout.getY();
 		Stream
 			.of(reconnectButton, reconnectRandomAltButton, autoReconnectButton,
 				copyLocButton)
@@ -340,11 +342,13 @@ public class DisconnectedScreenMixin extends Screen
 		
 		overlayX = (width - overlayWidth) / 2;
 		
-		// place overlay well above the vanilla
-		// "Connection Lost" area by anchoring it near the top.
-		overlayY = 30;
-		if(overlayY + overlayHeight > height - 20)
-			overlayY = Math.max(20, height - overlayHeight - 20);
+		// Keep the OfflineSettings controls above the complete vanilla layout.
+		// The vanilla title/reason and its buttons are all children of layout,
+		// so moving the layout down when necessary keeps both groups visible.
+		overlayY = Math.max(20, baseLayoutY - overlayHeight - 8);
+		int requiredLayoutY = overlayY + overlayHeight + 8;
+		if(requiredLayoutY > baseLayoutY)
+			layout.setY(requiredLayoutY);
 		
 		int currentY = overlayY + padding + textHeight;
 		if(!overlayLines.isEmpty())
@@ -573,6 +577,7 @@ public class DisconnectedScreenMixin extends Screen
 			overlayAutoButton.visible = false;
 		if(overlayCommandButton != null)
 			overlayCommandButton.visible = false;
+		layout.setY(baseLayoutY);
 		overlayReasonText = null;
 		overlayLines = Collections.emptyList();
 	}
