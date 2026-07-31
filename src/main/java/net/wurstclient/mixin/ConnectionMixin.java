@@ -59,11 +59,16 @@ public abstract class ConnectionMixin
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
 		if(packet instanceof ServerboundMovePlayerPacket move
-			&& move.isOnGround() && WurstClient.INSTANCE != null
-			&& WurstClient.INSTANCE.getHax() != null
-			&& WurstClient.INSTANCE.getHax().autoFlyHack
+			&& WurstClient.INSTANCE != null
+			&& WurstClient.INSTANCE.getHax() != null)
+		{
+			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
 				.shouldApplyPathAntiHunger())
-			((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
+				((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
+			
+			packet = WurstClient.INSTANCE.getHax().noFallHack
+				.protectFlightMovementPacket(move);
+		}
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
 		events.add(event);

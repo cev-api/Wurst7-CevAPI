@@ -316,10 +316,15 @@ public final class PacketToolsOtf extends OtherFeature
 			flushQueues(false);
 		
 		if(previousLoggingState && !loggingState)
+		{
 			currentLogFile = null;
+			discardVerboseBuffers();
+			currentVerboseJsonlFile = null;
+			currentVerboseHumanFile = null;
+		}
 		
 		// Tick entity lifecycle tracker
-		if(verboseEnabled.isChecked())
+		if(verboseEnabled.isChecked() && loggingState)
 		{
 			lifecycleTracker.tick();
 			
@@ -331,7 +336,8 @@ public final class PacketToolsOtf extends OtherFeature
 				verboseFlushTickCounter = 0;
 				flushVerboseBuffers();
 			}
-		}else if(!verboseEnabled.isChecked() && lastVerboseState)
+		}else if(!verboseEnabled.isChecked() && lastVerboseState
+			&& loggingState)
 		{
 			// Verbose just turned off — flush remaining and clear refs
 			flushVerboseBuffers();
@@ -691,6 +697,9 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void logVerbose(Packet<?> packet, String direction)
 	{
+		if(!loggingEnabled.isChecked())
+			return;
+		
 		if(packetDumper == null)
 			packetDumper = new PacketDumper(decodeCoverage, packetFilter,
 				lifecycleTracker);
@@ -876,12 +885,15 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private boolean shouldVerboseExternalMonitoring()
 	{
-		return verboseEnabled.isChecked()
+		return loggingEnabled.isChecked() && verboseEnabled.isChecked()
 			&& verboseOutsideGamePackets.isChecked();
 	}
 	
 	private void enqueueVerboseExternalEvent(Map<String, Object> root)
 	{
+		if(!loggingEnabled.isChecked())
+			return;
+		
 		String json = VERBOSE_GSON.toJson(root);
 		synchronized(verboseJsonlBuffer)
 		{
@@ -907,6 +919,12 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void flushVerboseBuffers()
 	{
+		if(!loggingEnabled.isChecked())
+		{
+			discardVerboseBuffers();
+			return;
+		}
+		
 		ArrayList<String> jsonlBatch;
 		ArrayList<String> humanBatch;
 		synchronized(verboseJsonlBuffer)
@@ -949,6 +967,16 @@ public final class PacketToolsOtf extends OtherFeature
 					"PacketTools: failed writing verbose human-readable file.");
 			}
 		}
+	}
+	
+	private void discardVerboseBuffers()
+	{
+		synchronized(verboseJsonlBuffer)
+		{
+			verboseJsonlBuffer.clear();
+			verboseHumanBuffer.clear();
+		}
+		verboseFlushTickCounter = 0;
 	}
 	
 	private String buildHumanReadable(String jsonLine)
