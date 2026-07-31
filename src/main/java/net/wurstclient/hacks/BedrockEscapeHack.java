@@ -8,6 +8,8 @@
 package net.wurstclient.hacks;
 
 import java.awt.Color;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -18,23 +20,35 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.SectionPos;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat;
+import net.minecraft.world.entity.vehicle.boat.Boat;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.core.BlockPos;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -54,6 +68,10 @@ public final class BedrockEscapeHack extends Hack
 	
 	private final CheckboxSetting allowLiquids = new CheckboxSetting(
 		"Allow Liquids", "Allow teleport targets inside liquids.", true);
+	private final CheckboxSetting treatObsidianAsBedrock = new CheckboxSetting(
+		"Treat obsidian as bedrock",
+		"Allow going up and down through obsidian using the same safeguards as bedrock.",
+		false);
 	
 	private final SliderSetting packetSpam = new SliderSetting(
 		"Teleport Packets",
@@ -65,8 +83,8 @@ public final class BedrockEscapeHack extends Hack
 	
 	private final CheckboxSetting renderEscapeShafts = new CheckboxSetting(
 		"Render Escape Shafts",
-		"Highlights bedrock columns that can be escaped by breaking blocks below.\n"
-			+ "Green = no damage, Yellow = low survivable damage.",
+		"Highlights bedrock columns that can be escaped by breaking blocks below"
+			+ " or above.\nGreen = no damage, Yellow = low survivable damage.",
 		true);
 	
 	private final CheckboxSetting shaftFillBoxes = new CheckboxSetting(
@@ -101,7 +119,9 @@ public final class BedrockEscapeHack extends Hack
 			3.0, 0.5, 10.0, 0.5, ValueDisplay.DECIMAL.withSuffix(" hearts"));
 	
 	private final ColorSetting safeShaftColor =
-		new ColorSetting("Safe shaft color", new Color(60, 255, 100));
+		new ColorSetting("Legacy exit color", new Color(255, 80, 80));
+	private final ColorSetting superSafeShaftColor =
+		new ColorSetting("Super safe exit color", new Color(60, 255, 100));
 	private final ColorSetting lowDamageShaftColor =
 		new ColorSetting("Low damage color", new Color(255, 235, 80));
 	
@@ -135,6 +155,9 @@ public final class BedrockEscapeHack extends Hack
 	private static final Color DAMAGE_COLOR_DEATH = new Color(255, 64, 64);
 	private static final int SAFE_TICK_COLOR = 0xFF00FF00;
 	private static final double VERTICAL_LOOK_THRESHOLD = 0.99995;
+	private static final int NETHER_FLOOR_RENDER_Y = -2;
+	private static final int BOAT_PLACE_RETRY_TICKS = 12;
+	private static final int BOAT_ENTER_RETRY_TICKS = 12;
 	
 	private Vec3 teleportTarget;
 	private AABB targetBox;
@@ -166,6 +189,7 @@ public final class BedrockEscapeHack extends Hack
 	private final HashMap<ChunkPos, ArrayList<ShaftCandidate>> shaftsByChunk =
 		new HashMap<>();
 	private final ArrayList<ColoredBox> safeShaftBoxes = new ArrayList<>();
+	private final ArrayList<ColoredBox> superSafeShaftBoxes = new ArrayList<>();
 	private final ArrayList<ColoredBox> lowDamageShaftBoxes = new ArrayList<>();
 	private ChunkPos lastShaftPlayerChunk;
 	private ChunkAreaSetting.ChunkArea lastShaftAreaSelection;
@@ -173,7 +197,11 @@ public final class BedrockEscapeHack extends Hack
 	private boolean playerAboveSideBoundary;
 	private boolean hasSideBoundary;
 	private int foundSafeShafts;
+	private int foundSuperSafeShafts;
 	private int foundLowDamageShafts;
+	private int pendingBoatPlacementTicks;
+	private InteractionHand pendingBoatHand;
+	private int pendingBoatEnterTicks;
 	
 	public BedrockEscapeHack()
 	{
@@ -182,6 +210,7 @@ public final class BedrockEscapeHack extends Hack
 		
 		addSetting(reach);
 		addSetting(allowLiquids);
+		addSetting(treatObsidianAsBedrock);
 		addSetting(packetSpam);
 		addSetting(render);
 		addSetting(renderEscapeShafts);
@@ -193,6 +222,7 @@ public final class BedrockEscapeHack extends Hack
 		addSetting(shaftDepth);
 		addSetting(lowDamageLimit);
 		addSetting(safeShaftColor);
+		addSetting(superSafeShaftColor);
 		addSetting(lowDamageShaftColor);
 		addSetting(boxColor);
 		addSetting(ignoreSafeTickRequirement);
@@ -205,6 +235,7 @@ public final class BedrockEscapeHack extends Hack
 	protected void onEnable()
 	{
 		teleportedThisPress = false;
+		clearPendingBoatPlacement();
 		shiftSurfaceXrayApplied = false;
 		clearShaftScanState();
 		EVENTS.add(UpdateListener.class, this);
@@ -216,6 +247,7 @@ public final class BedrockEscapeHack extends Hack
 	protected void onDisable()
 	{
 		restoreShiftSurfaceXrayOverride();
+		clearPendingBoatPlacement();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
@@ -230,8 +262,11 @@ public final class BedrockEscapeHack extends Hack
 		if(MC.player == null || MC.level == null || MC.getConnection() == null)
 		{
 			restoreShiftSurfaceXrayOverride();
+			clearPendingBoatPlacement();
 			return;
 		}
+		
+		handlePendingBoatPlacement();
 		
 		if(!isActiveBedrockEscapeContext())
 		{
@@ -305,14 +340,14 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y >= downY; y--)
 		{
 			probe.set(playerPos.getX(), y, playerPos.getZ());
-			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(probe)))
 				return true;
 		}
 		
 		for(int y = startY + 1; y <= upY; y++)
 		{
 			probe.set(playerPos.getX(), y, playerPos.getZ());
-			if(MC.level.getBlockState(probe).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(probe)))
 				return true;
 		}
 		
@@ -383,11 +418,11 @@ public final class BedrockEscapeHack extends Hack
 			return false;
 		
 		BlockPos playerPos = MC.player.blockPosition();
-		if(MC.level.getBlockState(playerPos.below()).is(Blocks.BEDROCK))
+		if(isEscapeBlock(MC.level.getBlockState(playerPos.below())))
 			return true;
 		
 		for(int y = 0; y <= 3; y++)
-			if(MC.level.getBlockState(playerPos.above(y)).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(playerPos.above(y))))
 				return true;
 			
 		return false;
@@ -407,8 +442,11 @@ public final class BedrockEscapeHack extends Hack
 		surfaceXrayPreviousOpacity = surfaceXray.getConfiguredSurfaceOpacity();
 		surfaceXrayPreviousBlocks = surfaceXray.getTrackedBlockNamesSnapshot();
 		
-		surfaceXray.setTrackedBlocksTemporarily(
-			Collections.singletonList(BEDROCK_BLOCK_ID));
+		List<String> trackedBlocks = new ArrayList<>();
+		trackedBlocks.add(BEDROCK_BLOCK_ID);
+		if(treatObsidianAsBedrock.isChecked())
+			trackedBlocks.add("minecraft:obsidian");
+		surfaceXray.setTrackedBlocksTemporarily(trackedBlocks);
 		surfaceXray.setSurfaceOpacityTemporarily(SHIFT_SURFACE_XRAY_OPACITY);
 		
 		if(!surfaceXrayWasEnabled)
@@ -451,7 +489,7 @@ public final class BedrockEscapeHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(!isValidTarget || teleportTarget == null
 			|| (!showSafeTick && damageHearts <= 0))
@@ -468,16 +506,16 @@ public final class BedrockEscapeHack extends Hack
 			String text = String.format("≈%.1f♥", damageHearts);
 			int textWidth = font.width(text);
 			int x = centerX - textWidth / 2;
-			context.drawString(font, text, x, y, damageColor, true);
+			context.text(font, text, x, y, damageColor, true);
 			
 			if(showSafeTick)
 			{
-				context.drawString(font, "✔", x + textWidth + 6, y,
-					SAFE_TICK_COLOR, true);
+				context.text(font, "✔", x + textWidth + 6, y, SAFE_TICK_COLOR,
+					true);
 			}
 		}else if(showSafeTick)
 		{
-			context.drawString(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
+			context.text(font, "✔", centerX, y, SAFE_TICK_COLOR, true);
 		}
 		
 	}
@@ -509,14 +547,14 @@ public final class BedrockEscapeHack extends Hack
 			BlockPos candidate = BlockPos.containing(sample);
 			BlockState state = MC.level.getBlockState(candidate);
 			
-			if(state.is(Blocks.BEDROCK))
+			if(isEscapeBlock(state))
 			{
 				inBedrock = true;
 				blocksBelowBedrock.clear();
 				lastBreakable = null;
 			}else if(inBedrock)
 			{
-				if(!state.isAir() && !state.is(Blocks.BEDROCK))
+				if(!state.isAir() && !isEscapeBlock(state))
 				{
 					if(lastBreakable == null
 						|| !lastBreakable.equals(candidate))
@@ -558,8 +596,7 @@ public final class BedrockEscapeHack extends Hack
 		
 		if(dropDistance > 0)
 		{
-			double raw = Math.max(0, dropDistance - 3.0);
-			damageHearts = Math.floor(raw) / 2.0;
+			damageHearts = estimateFallDamageHearts(dropDistance);
 			damageColor = getDamageTextColor(playerHearts, damageHearts);
 		}else
 		{
@@ -609,8 +646,8 @@ public final class BedrockEscapeHack extends Hack
 		BlockPos below = pos.below();
 		BlockPos above = pos.above();
 		// Don't trust unknown chunk data for liquid safety checks.
-		if(!hasLoadedChunk(pos) || !hasLoadedChunk(above)
-			|| !hasLoadedChunk(below))
+		if(!MC.level.hasChunkAt(pos) || !MC.level.hasChunkAt(above)
+			|| !MC.level.hasChunkAt(below))
 		{
 			return false;
 		}
@@ -682,6 +719,10 @@ public final class BedrockEscapeHack extends Hack
 			|| destination == null)
 			return;
 		
+		boolean upwardRoofEscape =
+			destination.y > MC.player.getY() && destination.y > 127;
+		InteractionHand boatHand = upwardRoofEscape ? getHeldBoatHand() : null;
+		
 		int packets = packetSpam.getValueI();
 		for(int i = 0; i < packets; i++)
 		{
@@ -694,6 +735,15 @@ public final class BedrockEscapeHack extends Hack
 		Player player = MC.player;
 		player.setPos(destination.x, destination.y, destination.z);
 		player.setDeltaMovement(Vec3.ZERO);
+		
+		if(boatHand != null)
+		{
+			scheduleBoatPlacementRetry(boatHand);
+			tryPlaceBoatAboveRoof(boatHand);
+		}else
+		{
+			clearPendingBoatPlacement();
+		}
 	}
 	
 	private void sendMove(Vec3 destination)
@@ -704,6 +754,333 @@ public final class BedrockEscapeHack extends Hack
 		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
 			destination.x, destination.y, destination.z, MC.player.getYRot(),
 			MC.player.getXRot(), false, false));
+	}
+	
+	private void handlePendingBoatPlacement()
+	{
+		if(MC.player.isPassenger())
+		{
+			clearPendingBoatPlacement();
+			return;
+		}
+		
+		if(pendingBoatEnterTicks > 0)
+		{
+			if(tryEnterNearbyBoat())
+			{
+				clearPendingBoatPlacement();
+				return;
+			}
+			
+			pendingBoatEnterTicks--;
+		}
+		
+		if(pendingBoatPlacementTicks <= 0 || pendingBoatHand == null)
+			return;
+		
+		if(!isBoat(MC.player.getItemInHand(pendingBoatHand))
+			|| MC.player.getY() <= 127)
+		{
+			pendingBoatHand = null;
+			pendingBoatPlacementTicks = 0;
+			return;
+		}
+		
+		if(!tryEnterNearbyBoat() && tryPlaceBoatAboveRoof(pendingBoatHand))
+			pendingBoatEnterTicks = BOAT_ENTER_RETRY_TICKS;
+		
+		pendingBoatPlacementTicks--;
+		if(pendingBoatPlacementTicks <= 0)
+			pendingBoatHand = null;
+	}
+	
+	private void scheduleBoatPlacementRetry(InteractionHand hand)
+	{
+		pendingBoatHand = hand;
+		pendingBoatPlacementTicks = BOAT_PLACE_RETRY_TICKS;
+	}
+	
+	private void clearPendingBoatPlacement()
+	{
+		pendingBoatHand = null;
+		pendingBoatPlacementTicks = 0;
+		pendingBoatEnterTicks = 0;
+	}
+	
+	private InteractionHand getHeldBoatHand()
+	{
+		if(MC.player == null)
+			return null;
+		
+		if(isBoat(MC.player.getMainHandItem()))
+			return InteractionHand.MAIN_HAND;
+		
+		if(isBoat(MC.player.getOffhandItem()))
+			return InteractionHand.OFF_HAND;
+		
+		return null;
+	}
+	
+	private boolean isBoat(ItemStack stack)
+	{
+		if(stack.isEmpty())
+			return false;
+		
+		String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+		return path.endsWith("_boat") || path.endsWith("_chest_boat")
+			|| path.endsWith("_raft") || path.endsWith("_chest_raft");
+	}
+	
+	private boolean tryPlaceBoatAboveRoof(InteractionHand hand)
+	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null
+			|| hand == null || MC.rightClickDelay > 0
+			|| MC.gameMode.isDestroying() || MC.player.isHandsBusy())
+		{
+			return false;
+		}
+		
+		ItemStack stack = MC.player.getItemInHand(hand);
+		if(!isBoat(stack))
+			return false;
+		
+		BlockPos roofBase = findRoofBoatPlacementBase();
+		if(roofBase == null)
+			return false;
+		
+		Vec3 hitVec = Vec3.atCenterOf(roofBase).add(0, 0.5, 0);
+		BlockHitResult hitResult =
+			new BlockHitResult(hitVec, Direction.UP, roofBase, false);
+		
+		MC.rightClickDelay = 4;
+		WURST.getRotationFaker().faceVectorClient(hitVec);
+		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
+			MC.player.getX(), MC.player.getY(), MC.player.getZ(),
+			MC.player.getYRot(), MC.player.getXRot(), false, false));
+		MC.hitResult = hitResult;
+		MC.startUseItem();
+		
+		InteractionResult result =
+			MC.gameMode.useItemOn(MC.player, hand, hitResult);
+		if(!result.consumesAction()
+			&& MC.gameMode instanceof IMultiPlayerGameMode gameMode)
+		{
+			gameMode.sendPlayerInteractBlockPacket(hand, hitResult);
+			result = InteractionResult.SUCCESS;
+		}
+		
+		if(!result.consumesAction())
+			result = MC.gameMode.useItem(MC.player, hand);
+		
+		if(!result.consumesAction())
+		{
+			MC.player.connection.send(
+				new ServerboundUseItemPacket(hand, getPredictionSequence(),
+					MC.player.getYRot(), MC.player.getXRot()));
+		}
+		
+		MC.player.swing(hand);
+		if(result.consumesAction())
+			pendingBoatEnterTicks = BOAT_ENTER_RETRY_TICKS;
+		
+		return MC.player.isPassenger() || result.consumesAction();
+	}
+	
+	private boolean tryEnterNearbyBoat()
+	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null)
+			return false;
+		
+		Entity boat = null;
+		double bestDistance = Double.POSITIVE_INFINITY;
+		Entity camera = MC.getCameraEntity();
+		if(camera != null)
+		{
+			Vec3 start = camera.getEyePosition(1.0F);
+			Vec3 look = camera.getViewVector(1.0F).normalize();
+			Vec3 end = start.add(look.scale(16.0));
+			boat = getClosestBoatHit(start, end);
+			if(boat != null)
+				bestDistance = distanceToPlayerSq(boat);
+		}
+		
+		if(boat == null)
+		{
+			AABB searchBox = MC.player.getBoundingBox().inflate(8.0, 8.0, 8.0);
+			for(Entity entity : MC.level.getEntities(MC.player, searchBox,
+				this::isEnterableBoat))
+			{
+				double distance = distanceToPlayerSq(entity);
+				if(distance >= bestDistance)
+					continue;
+				
+				bestDistance = distance;
+				boat = entity;
+			}
+		}
+		
+		if(boat == null)
+			return false;
+		
+		Vec3 targetVec = getBoatTopHitVec(boat);
+		EntityHitResult hitResult = new EntityHitResult(boat, targetVec);
+		WURST.getRotationFaker().faceVectorClient(targetVec);
+		MC.player.connection.send(new ServerboundMovePlayerPacket.PosRot(
+			MC.player.getX(), MC.player.getY(), MC.player.getZ(),
+			MC.player.getYRot(), MC.player.getXRot(), false, false));
+		
+		MC.rightClickDelay = 4;
+		
+		for(InteractionHand hand : InteractionHand.values())
+		{
+			InteractionResult result =
+				MC.gameMode.interact(MC.player, boat, hitResult, hand);
+			if(result.consumesAction())
+				MC.player.swing(hand);
+			
+			if(MC.player.isPassenger())
+				return true;
+		}
+		
+		return MC.player.isPassenger();
+	}
+	
+	private Boat getClosestBoatHit(Vec3 start, Vec3 end)
+	{
+		if(MC.level == null)
+			return null;
+		
+		Vec3 dir = end.subtract(start);
+		double maxDist = dir.length();
+		if(maxDist <= 0)
+			return null;
+		
+		Vec3 dirNorm = dir.scale(1.0 / maxDist);
+		AABB searchBox = new AABB(start, end).inflate(1);
+		Boat closest = null;
+		double closestDist = Double.POSITIVE_INFINITY;
+		for(Entity entity : MC.level.getEntities(MC.player, searchBox,
+			this::isEnterableBoat))
+		{
+			AABB box = entity.getBoundingBox();
+			var opt = box.clip(start, end);
+			if(opt.isEmpty())
+				continue;
+			
+			Vec3 hit = opt.get();
+			double dist = hit.subtract(start).dot(dirNorm);
+			if(dist < 0 || dist > maxDist || dist >= closestDist)
+				continue;
+			
+			closestDist = dist;
+			closest = entity instanceof Boat boat ? boat : null;
+		}
+		
+		return closest;
+	}
+	
+	private double distanceToPlayerSq(Entity entity)
+	{
+		return entity.distanceToSqr(MC.player);
+	}
+	
+	private boolean isEnterableBoat(Entity entity)
+	{
+		if(entity == null || entity.isRemoved()
+			|| entity == MC.player.getVehicle())
+			return false;
+		
+		if(entity instanceof Boat boat)
+			return boat.getControllingPassenger() == null;
+		
+		if(entity instanceof AbstractChestBoat chestBoat)
+			return chestBoat.getControllingPassenger() == null;
+		
+		return false;
+	}
+	
+	private Vec3 getBoatTopHitVec(Entity boat)
+	{
+		AABB box = boat.getBoundingBox();
+		return new Vec3((box.minX + box.maxX) * 0.5, box.maxY - 0.05,
+			(box.minZ + box.maxZ) * 0.5);
+	}
+	
+	private BlockPos findRoofBoatPlacementBase()
+	{
+		if(MC.player == null || MC.level == null)
+			return null;
+		
+		Vec3 look = MC.player.getViewVector(1.0F);
+		double horizontalLength = Math.hypot(look.x, look.z);
+		int forwardX = horizontalLength < 1.0E-4 ? 0
+			: (int)Math.round(look.x / horizontalLength);
+		int forwardZ = horizontalLength < 1.0E-4 ? 1
+			: (int)Math.round(look.z / horizontalLength);
+		
+		if(forwardX == 0 && forwardZ == 0)
+			forwardZ = 1;
+		
+		BlockPos base = MC.player.blockPosition().below();
+		int sideX = -forwardZ;
+		int sideZ = forwardX;
+		
+		for(int forward = 2; forward <= 3; forward++)
+			for(int side = 0; side <= 1; side++)
+			{
+				BlockPos center =
+					base.offset(forwardX * forward, 0, forwardZ * forward);
+				BlockPos candidate = side == 0 ? center
+					: center.offset(sideX * side, 0, sideZ * side);
+				if(isValidBoatPlacementBase(candidate))
+					return candidate;
+				
+				if(side > 0)
+				{
+					BlockPos mirrored =
+						center.offset(-sideX * side, 0, -sideZ * side);
+					if(isValidBoatPlacementBase(mirrored))
+						return mirrored;
+				}
+			}
+		
+		return null;
+	}
+	
+	private boolean isValidBoatPlacementBase(BlockPos pos)
+	{
+		BlockState state = MC.level.getBlockState(pos);
+		if(state.isAir() || !state.getFluidState().isEmpty())
+			return false;
+		
+		BlockState above = MC.level.getBlockState(pos.above());
+		BlockState twoAbove = MC.level.getBlockState(pos.above(2));
+		return above.isAir() && twoAbove.isAir();
+	}
+	
+	private int getPredictionSequence()
+	{
+		if(MC.level == null)
+			return 0;
+		
+		try
+		{
+			Field handlerField = MC.level.getClass()
+				.getDeclaredField("blockStatePredictionHandler");
+			handlerField.setAccessible(true);
+			Object handler = handlerField.get(MC.level);
+			if(handler == null)
+				return 0;
+			
+			Method currentSequence =
+				handler.getClass().getMethod("currentSequence");
+			Object value = currentSequence.invoke(handler);
+			return value instanceof Integer i ? i : 0;
+			
+		}catch(ReflectiveOperationException e)
+		{
+			return 0;
+		}
 	}
 	
 	private float getPlayerHearts()
@@ -733,6 +1110,13 @@ public final class BedrockEscapeHack extends Hack
 		
 		return blendColor(DAMAGE_COLOR_WARN, DAMAGE_COLOR_DEATH,
 			(ratio - 0.5f) / 0.5f);
+	}
+	
+	private double estimateFallDamageHearts(double dropDistance)
+	{
+		double raw = Math.max(0, dropDistance - 3.0);
+		// Fall damage rounds up in-game, so floor underestimates shallow drops.
+		return Math.ceil(raw) / 2.0;
 	}
 	
 	private int blendColor(Color from, Color to, float t)
@@ -779,10 +1163,12 @@ public final class BedrockEscapeHack extends Hack
 	{
 		if(!renderEscapeShafts.isChecked())
 			return;
-		if(safeShaftBoxes.isEmpty() && lowDamageShaftBoxes.isEmpty())
+		if(safeShaftBoxes.isEmpty() && superSafeShaftBoxes.isEmpty()
+			&& lowDamageShaftBoxes.isEmpty())
 			return;
 		
 		List<ColoredBox> limitedSafe = limitBoxes(safeShaftBoxes);
+		List<ColoredBox> limitedSuperSafe = limitBoxes(superSafeShaftBoxes);
 		List<ColoredBox> limitedLow = limitBoxes(lowDamageShaftBoxes);
 		
 		if(!limitedSafe.isEmpty())
@@ -790,6 +1176,14 @@ public final class BedrockEscapeHack extends Hack
 			if(shaftFillBoxes.isChecked())
 				RenderUtils.drawSolidBoxes(matrices, limitedSafe, false);
 			RenderUtils.drawOutlinedBoxes(matrices, limitedSafe, false, 2.0);
+		}
+		
+		if(!limitedSuperSafe.isEmpty())
+		{
+			if(shaftFillBoxes.isChecked())
+				RenderUtils.drawSolidBoxes(matrices, limitedSuperSafe, false);
+			RenderUtils.drawOutlinedBoxes(matrices, limitedSuperSafe, false,
+				2.0);
 		}
 		
 		if(!limitedLow.isEmpty())
@@ -833,10 +1227,13 @@ public final class BedrockEscapeHack extends Hack
 			for(int z = chunkPos.getMinBlockZ(); z <= chunkPos
 				.getMaxBlockZ(); z++)
 			{
-				for(int y = maxY - 1; y >= minY + 1; y--)
+				// Include the world-boundary bedrock layers so Nether
+				// floor/roof
+				// escapes can be detected at the extreme min/max Y positions.
+				for(int y = maxY; y >= minY; y--)
 				{
 					cursor.set(x, y, z);
-					if(!MC.level.getBlockState(cursor).is(Blocks.BEDROCK))
+					if(!isEscapeBlock(MC.level.getBlockState(cursor)))
 						continue;
 					tryAddShaftCandidate(candidates, x, y, z, minY, maxY,
 						depthLimit, playerHearts, true);
@@ -859,9 +1256,9 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y >= endY; y--)
 		{
 			pos.set(x, y, z);
-			if(!hasLoadedChunk(pos))
+			if(!MC.level.hasChunkAt(pos))
 				return true;
-			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(pos)))
 				return true;
 		}
 		
@@ -870,7 +1267,7 @@ public final class BedrockEscapeHack extends Hack
 	
 	private boolean isBreakableEscapeBlock(BlockState state)
 	{
-		if(state.is(Blocks.BEDROCK))
+		if(isEscapeBlock(state))
 			return false;
 		return state.getFluidState().isEmpty();
 	}
@@ -878,11 +1275,14 @@ public final class BedrockEscapeHack extends Hack
 	private void rebuildShaftRenderCache()
 	{
 		safeShaftBoxes.clear();
+		superSafeShaftBoxes.clear();
 		lowDamageShaftBoxes.clear();
 		foundSafeShafts = 0;
+		foundSuperSafeShafts = 0;
 		foundLowDamageShafts = 0;
 		
 		ArrayList<ShaftCandidate> safeCandidates = new ArrayList<>();
+		ArrayList<ShaftCandidate> superSafeCandidates = new ArrayList<>();
 		ArrayList<ShaftCandidate> lowCandidates = new ArrayList<>();
 		
 		for(ArrayList<ShaftCandidate> candidates : shaftsByChunk.values())
@@ -893,7 +1293,10 @@ public final class BedrockEscapeHack extends Hack
 				
 				if(candidate.safe())
 				{
-					safeCandidates.add(candidate);
+					if(candidate.fromAbove() || candidate.superSafe())
+						superSafeCandidates.add(candidate);
+					else
+						safeCandidates.add(candidate);
 				}else
 				{
 					lowCandidates.add(candidate);
@@ -911,16 +1314,25 @@ public final class BedrockEscapeHack extends Hack
 		for(ShaftCandidate candidate : safeCandidates)
 		{
 			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
-				candidate.fromAbove());
+				candidate.fromAbove(), candidate.landingY());
 			safeShaftBoxes
 				.add(new ColoredBox(markerBox, safeShaftColor.getColorI(0xC0)));
 			foundSafeShafts++;
 		}
 		
+		for(ShaftCandidate candidate : superSafeCandidates)
+		{
+			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
+				candidate.fromAbove(), candidate.landingY());
+			superSafeShaftBoxes.add(
+				new ColoredBox(markerBox, superSafeShaftColor.getColorI(0xC0)));
+			foundSuperSafeShafts++;
+		}
+		
 		for(ShaftCandidate candidate : lowCandidates)
 		{
 			AABB markerBox = getShaftMarkerBox(candidate.surfacePos(),
-				candidate.fromAbove());
+				candidate.fromAbove(), candidate.landingY());
 			lowDamageShaftBoxes.add(
 				new ColoredBox(markerBox, lowDamageShaftColor.getColorI(0xB8)));
 			foundLowDamageShafts++;
@@ -938,14 +1350,20 @@ public final class BedrockEscapeHack extends Hack
 		return MC.player.distanceToSqr(cx, cy, cz);
 	}
 	
-	private AABB getShaftMarkerBox(BlockPos surfacePos, boolean fromAbove)
+	private AABB getShaftMarkerBox(BlockPos surfacePos, boolean fromAbove,
+		int landingY)
 	{
 		double x1 = surfacePos.getX();
 		double y1 = surfacePos.getY();
 		double z1 = surfacePos.getZ();
 		
 		if(!shaftSurfaceOnly.isChecked())
-			return new AABB(x1, y1, z1, x1 + 1, y1 + 1, z1 + 1);
+		{
+			if(fromAbove)
+				return new AABB(x1, y1, z1, x1 + 1, y1 + 1, z1 + 1);
+			
+			return new AABB(x1, landingY, z1, x1 + 1, landingY + 2, z1 + 1);
+		}
 		
 		if(fromAbove)
 		{
@@ -954,9 +1372,9 @@ public final class BedrockEscapeHack extends Hack
 				y1 + 1.02, z1 + 0.95);
 		}
 		
-		// Thin bottom-face tile marker when escaping upward from below bedrock.
-		return new AABB(x1 + 0.05, y1 - 0.02, z1 + 0.05, x1 + 0.95, y1 + 0.02,
-			z1 + 0.95);
+		// Thin marker for the re-enter hole above the bedrock.
+		return new AABB(x1 + 0.05, landingY - 0.02, z1 + 0.05, x1 + 0.95,
+			landingY + 0.02, z1 + 0.95);
 	}
 	
 	private void clearShaftScanState()
@@ -965,6 +1383,7 @@ public final class BedrockEscapeHack extends Hack
 		queuedShaftChunks.clear();
 		shaftsByChunk.clear();
 		safeShaftBoxes.clear();
+		superSafeShaftBoxes.clear();
 		lowDamageShaftBoxes.clear();
 		lastShaftPlayerChunk = null;
 		lastShaftAreaSelection = null;
@@ -972,6 +1391,7 @@ public final class BedrockEscapeHack extends Hack
 		playerAboveSideBoundary = false;
 		hasSideBoundary = false;
 		foundSafeShafts = 0;
+		foundSuperSafeShafts = 0;
 		foundLowDamageShafts = 0;
 	}
 	
@@ -995,8 +1415,8 @@ public final class BedrockEscapeHack extends Hack
 		
 		BlockPos above = new BlockPos(x, y + 1, z);
 		BlockPos below = new BlockPos(x, y - 1, z);
-		boolean hasAbove = hasLoadedChunk(above);
-		boolean hasBelow = hasLoadedChunk(below);
+		boolean hasAbove = MC.level.hasChunkAt(above);
+		boolean hasBelow = MC.level.hasChunkAt(below);
 		if(!hasAbove)
 			return;
 		if(fromAbove && !hasBelow)
@@ -1007,7 +1427,7 @@ public final class BedrockEscapeHack extends Hack
 		{
 			if(!isAirLike(MC.level.getBlockState(above)))
 				return;
-			if(MC.level.getBlockState(below).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(below)))
 				return;
 			if(hasBedrockWithinDepth(x, z, y - 1, minY, depthLimit))
 				return;
@@ -1019,7 +1439,7 @@ public final class BedrockEscapeHack extends Hack
 			// be outside loaded world space.
 			if(hasBelow && !isAirLike(MC.level.getBlockState(below)))
 				return;
-			if(MC.level.getBlockState(above).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(above)))
 				return;
 			if(hasBedrockWithinDepthUp(x, z, y + 1, maxY, depthLimit))
 				return;
@@ -1032,20 +1452,20 @@ public final class BedrockEscapeHack extends Hack
 		
 		double targetY = landingY + 0.1;
 		double dropDistance = MC.player.getY() - targetY;
-		double damage = 0;
-		if(dropDistance > 0)
-			damage = Math.floor(Math.max(0, dropDistance - 3.0)) / 2.0;
+		double damage =
+			dropDistance > 0 ? estimateFallDamageHearts(dropDistance) : 0;
 		
 		if(playerHearts <= 0 || damage > playerHearts)
 			return;
 		
 		boolean safe = damage <= 0;
+		boolean superSafe = safe && !hasLavaNearExit(x, z, landingY, maxY);
 		boolean low = !safe && damage <= lowDamageLimit.getValue();
 		if(!safe && !low)
 			return;
 		
-		candidates
-			.add(new ShaftCandidate(new BlockPos(x, y, z), safe, fromAbove));
+		candidates.add(new ShaftCandidate(new BlockPos(x, y, z), landingY, safe,
+			superSafe, fromAbove));
 	}
 	
 	private int findBreakableTwoHighLandingYDown(int x, int startY, int z,
@@ -1099,10 +1519,43 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = startY; y <= endY; y++)
 		{
 			pos.set(x, y, z);
-			if(!hasLoadedChunk(pos))
+			if(!MC.level.hasChunkAt(pos))
 				return true;
-			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(pos)))
 				return true;
+		}
+		
+		return false;
+	}
+	
+	private boolean hasLavaNearExit(int x, int z, int landingY, int maxY)
+	{
+		if(MC.level == null)
+			return true;
+		
+		int minY = MC.level.getMinY();
+		int beginY = Math.max(landingY - 1, minY);
+		int endY = maxY;
+		if(beginY > endY)
+			return false;
+		
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for(int y = beginY; y <= endY; y++)
+		{
+			for(int dx = -1; dx <= 1; dx++)
+			{
+				for(int dz = -1; dz <= 1; dz++)
+				{
+					pos.set(x + dx, y, z + dz);
+					if(!MC.level.hasChunkAt(pos))
+						return true;
+					if(MC.level.getBlockState(pos).getFluidState()
+						.is(FluidTags.LAVA))
+					{
+						return true;
+					}
+				}
+			}
 		}
 		
 		return false;
@@ -1125,7 +1578,7 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = py; y <= maxY; y++)
 		{
 			pos.set(px, y, pz);
-			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(pos)))
 			{
 				aboveY = y;
 				break;
@@ -1136,7 +1589,8 @@ public final class BedrockEscapeHack extends Hack
 		for(int y = py; y >= minY; y--)
 		{
 			pos.set(px, y, pz);
-			if(MC.level.getBlockState(pos).is(Blocks.BEDROCK))
+			if(isEscapeBlock(MC.level.getBlockState(pos)))
+			
 			{
 				belowY = y;
 				break;
@@ -1161,13 +1615,24 @@ public final class BedrockEscapeHack extends Hack
 		hasSideBoundary = true;
 	}
 	
+	private boolean isEscapeBlock(BlockState state)
+	{
+		return state != null
+			&& (state.is(Blocks.BEDROCK) || (treatObsidianAsBedrock.isChecked()
+				&& state.is(Blocks.OBSIDIAN)));
+	}
+	
 	private boolean isSideAllowed(boolean fromAbove)
 	{
 		if(MC.level != null && MC.player != null
 			&& MC.level.dimension() == Level.NETHER)
 		{
-			boolean onRoofSide = MC.player.getBlockY() >= 123;
-			return fromAbove == onRoofSide;
+			int py = MC.player.getBlockY();
+			if(py >= 123)
+				return fromAbove;
+			if(py <= NETHER_FLOOR_RENDER_Y)
+				return !fromAbove;
+			return false;
 		}
 		
 		if(!hasSideBoundary || MC.player == null)
@@ -1179,13 +1644,7 @@ public final class BedrockEscapeHack extends Hack
 		return !playerAboveSideBoundary;
 	}
 	
-	private static boolean hasLoadedChunk(BlockPos pos)
-	{
-		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
-			SectionPos.blockToSectionCoord(pos.getZ()));
-	}
-	
-	private record ShaftCandidate(BlockPos surfacePos, boolean safe,
-		boolean fromAbove)
+	private record ShaftCandidate(BlockPos surfacePos, int landingY,
+		boolean safe, boolean superSafe, boolean fromAbove)
 	{}
 }

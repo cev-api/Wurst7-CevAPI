@@ -83,6 +83,10 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Disable all tracers",
 		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
 		false);
+	private final CheckboxSetting nearestTracerOnly =
+		new CheckboxSetting("Nearest tracer per category",
+			"Limits every ESP tracer category to its closest visible target.",
+			false);
 	private final SettingGroup tracerFilters = new SettingGroup(
 		"Tracer filters",
 		WText.literal(
@@ -123,6 +127,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderLimitEnabled);
 		addSetting(globalEspRenderLimit);
 		addSetting(disableAllTracers);
+		addSetting(nearestTracerOnly);
 		addSetting(tracerFilters);
 		registerTracerSource("chestesp", "ChestESP", true);
 		registerTracerSource("playeresp", "PlayerESP", true);
@@ -323,6 +328,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean areAllTracersDisabled()
 	{
 		return disableAllTracers.isChecked();
+	}
+	
+	public boolean isNearestTracerOnlyEnabled()
+	{
+		return nearestTracerOnly.isChecked();
 	}
 	
 	public void toggleAllTracers()

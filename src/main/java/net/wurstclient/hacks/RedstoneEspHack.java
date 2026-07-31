@@ -230,6 +230,9 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		"Global override color for RedstoneESP.", defaultColor);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly =
+		new CheckboxSetting("Nearest tracer only",
+			"Only draw the closest RedstoneESP tracer.", false);
 	private ActiveMode lastActiveMode;
 	private final Set<Long> activeRenderPositions = new HashSet<>();
 	
@@ -245,6 +248,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(area);
 		addSetting(stickyArea);
 		renderGroups.stream().flatMap(RenderGroup::getSettings)
@@ -270,7 +274,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
+		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastActiveMode = activeMode.getSelected();
 		activeRenderPositions.clear();
@@ -307,7 +311,7 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
+		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -428,12 +432,16 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 			if(!flashActive || positions.size() != boxes.size())
 			{
 				List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
+				if(nearestTracerOnly.isChecked())
+					ends = net.wurstclient.util.EspLimitUtils
+						.collectNearest(ends, 1, v -> v.distanceToSqr(
+							net.wurstclient.util.RotationUtils.getEyesPos()));
 				int color = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
 					color = RenderUtils.flashColor(color);
-				RenderUtils.drawTracers(matrixStack, partialTicks, ends, color,
-					false);
+				RenderUtils.drawTracers("RedstoneESP", matrixStack,
+					partialTicks, ends, color, false);
 				continue;
 			}
 			
@@ -447,24 +455,32 @@ public final class RedstoneEspHack extends Hack implements UpdateListener,
 				
 			if(!inactiveEnds.isEmpty())
 			{
+				if(nearestTracerOnly.isChecked())
+					inactiveEnds = net.wurstclient.util.EspLimitUtils
+						.collectNearest(inactiveEnds, 1, v -> v.distanceToSqr(
+							net.wurstclient.util.RotationUtils.getEyesPos()));
 				int inactiveColor = useFixedColor.isChecked()
 					? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 				if(tracerFlash.isChecked())
 					inactiveColor = RenderUtils.flashColor(inactiveColor);
-				RenderUtils.drawTracers(matrixStack, partialTicks, inactiveEnds,
-					inactiveColor, false);
+				RenderUtils.drawTracers("RedstoneESP", matrixStack,
+					partialTicks, inactiveEnds, inactiveColor, false);
 			}
 			
 			if(!activeEnds.isEmpty())
 			{
+				if(nearestTracerOnly.isChecked())
+					activeEnds = net.wurstclient.util.EspLimitUtils
+						.collectNearest(activeEnds, 1, v -> v.distanceToSqr(
+							net.wurstclient.util.RotationUtils.getEyesPos()));
 				if(flashOn)
 				{
 					int activeColor = useFixedColor.isChecked()
 						? fixedColor.getColorI(0x80) : group.getColorI(0x80);
 					if(tracerFlash.isChecked())
 						activeColor = RenderUtils.flashColor(activeColor);
-					RenderUtils.drawTracers(matrixStack, partialTicks,
-						activeEnds, activeColor, false);
+					RenderUtils.drawTracers("RedstoneESP", matrixStack,
+						partialTicks, activeEnds, activeColor, false);
 				}
 			}
 		}

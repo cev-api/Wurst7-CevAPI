@@ -122,6 +122,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly = new CheckboxSetting(
+		"Nearest tracer only", "Only draw the closest ChestESP tracer.", false);
 	private final CheckboxSetting chestEspRenderLimitEnabled =
 		new CheckboxSetting("Enable ChestESP render limit",
 			"Limits how many ChestESP targets are processed per update.",
@@ -251,6 +253,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(lineAlpha);
 		addSetting(tracerAlpha);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(chestEspRenderLimitEnabled);
 		addSetting(chestEspRenderLimit);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
@@ -1081,6 +1084,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			{
 				ends = boxes.stream().map(AABB::getCenter).toList();
 			}
+			if(nearestTracerOnly.isChecked())
+				ends = net.wurstclient.util.EspLimitUtils.collectNearest(ends,
+					1, v -> v.distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()));
 			int color = group.getColorI(tracerAlpha.getValueI());
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);

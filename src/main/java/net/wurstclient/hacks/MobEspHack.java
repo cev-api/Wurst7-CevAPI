@@ -54,6 +54,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Fill shapes", "Render filled versions of the ESP shapes.", true);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly = new CheckboxSetting(
+		"Nearest tracer only", "Only draw the closest MobESP tracer.", false);
 	private final CheckboxSetting lastAttackerTracer =
 		new CheckboxSetting("Last attacker tracer",
 			"Draw a tracer to the mob that last damaged you.", false);
@@ -133,6 +135,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(boxSize);
 		addSetting(fillShapes);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(lastAttackerTracer);
 		addSetting(chargingCreeperTracer);
 		addSetting(useRainbow);
@@ -389,7 +392,12 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		
 		if(ends != null && !ends.isEmpty())
 		{
-			RenderUtils.drawTracers(matrixStack, partialTicks, ends, false);
+			if(nearestTracerOnly.isChecked())
+				ends = new ArrayList<>(net.wurstclient.util.EspLimitUtils
+					.collectNearest(ends, 1, p -> p.point().distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos())));
+			RenderUtils.drawTracers("MobESP", matrixStack, partialTicks, ends,
+				false);
 		}
 		
 		if(glowMode && highlightShulkerProjectiles.isChecked()
