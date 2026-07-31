@@ -259,7 +259,8 @@ public final class HackListHUD implements UpdateListener
 		int stringWidth = (int)(tr.width(s) * scale);
 		int statusWidth =
 			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
-		int totalWidth = stringWidth + statusWidth;
+		int statusGap = statusText != null ? (int)(tr.width(" ") * scale) : 0;
+		int totalWidth = stringWidth + statusGap + statusWidth;
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
 			|| otf.getPosition() == Position.BOTTOM_LEFT);
 		if(isLeft)
@@ -304,8 +305,8 @@ public final class HackListHUD implements UpdateListener
 		}else
 		{
 			if(statusText != null)
-				RenderUtils.drawScaledText(context, tr, s + statusText, shadowX,
-					shadowY, 0x04000000 | alpha, false, scale);
+				RenderUtils.drawScaledText(context, tr, s + " " + statusText,
+					shadowX, shadowY, 0x04000000 | alpha, false, scale);
 			else
 				RenderUtils.drawScaledText(context, tr, s, shadowX, shadowY,
 					0x04000000 | alpha, false, scale);
@@ -315,7 +316,8 @@ public final class HackListHUD implements UpdateListener
 			(lineColor | alpha), false, scale);
 		if(statusText != null)
 			RenderUtils.drawScaledText(context, tr, statusText,
-				mainX + stringWidth, mainY, (0xFF55FF55 | alpha), false, scale);
+				mainX + stringWidth + statusGap, mainY,
+				(hack.getStatusTextColor() | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}
@@ -334,7 +336,8 @@ public final class HackListHUD implements UpdateListener
 		int stringWidth = (int)(tr.width(s) * scale);
 		int statusWidth =
 			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
-		int totalWidth = stringWidth + statusWidth;
+		int statusGap = statusText != null ? (int)(tr.width(" ") * scale) : 0;
+		int totalWidth = stringWidth + statusGap + statusWidth;
 		
 		float posX;
 		boolean isLeft = (otf.getPosition() == Position.TOP_LEFT
@@ -380,7 +383,7 @@ public final class HackListHUD implements UpdateListener
 		}else
 		{
 			if(statusText != null)
-				RenderUtils.drawScaledText(context, tr, s + statusText,
+				RenderUtils.drawScaledText(context, tr, s + " " + statusText,
 					shadowX2, shadowY2, 0x04000000 | alpha, false, scale);
 			else
 				RenderUtils.drawScaledText(context, tr, s, shadowX2, shadowY2,
@@ -391,8 +394,8 @@ public final class HackListHUD implements UpdateListener
 			(lineColor | alpha), false, scale);
 		if(statusText != null)
 			RenderUtils.drawScaledText(context, tr, statusText,
-				mainX2 + stringWidth, mainY2, (0xFF55FF55 | alpha), false,
-				scale);
+				mainX2 + stringWidth + statusGap, mainY2,
+				(e.hack.getStatusTextColor() | alpha), false, scale);
 		
 		posY += lineHeight + spacing;
 	}

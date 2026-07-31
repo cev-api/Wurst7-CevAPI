@@ -77,8 +77,8 @@ public final class OppStatsScreen extends Screen
 		int listHeight = height - top - bottomPad;
 		int leftPanelX = 16;
 		int leftPanelW = Math.min(440, Math.max(220, width / 2 - 36));
-		list = new OppList(Minecraft.getInstance(), width / 2 - 20, listHeight,
-			top, 24, hack, showOnline, searchQuery);
+		list = new OppList(Minecraft.getInstance(), leftPanelW, listHeight, top,
+			24, hack, showOnline, searchQuery);
 		addWidget(list);
 		
 		addRenderableWidget(
@@ -388,6 +388,9 @@ public final class OppStatsScreen extends Screen
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX,
 		double scrollY)
 	{
+		if(list != null && list.mouseScrolled(mouseX, mouseY, scrollX, scrollY))
+			return true;
+		
 		if(mouseX >= infoPanelX && mouseX <= infoPanelX + infoPanelW
 			&& mouseY >= infoPanelY && mouseY <= infoPanelY + infoPanelH
 			&& infoMaxScroll > 0)
@@ -400,6 +403,23 @@ public final class OppStatsScreen extends Screen
 			return true;
 		}
 		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+	}
+	
+	@Override
+	public boolean mouseDragged(MouseButtonEvent event, double dragX,
+		double dragY)
+	{
+		if(list != null && list.mouseDragged(event, dragX, dragY))
+			return true;
+		return super.mouseDragged(event, dragX, dragY);
+	}
+	
+	@Override
+	public boolean mouseReleased(MouseButtonEvent event)
+	{
+		if(list != null)
+			list.mouseReleased(event);
+		return super.mouseReleased(event);
 	}
 	
 	private void drawLine(GuiGraphicsExtractor context, String text, int x,
@@ -631,12 +651,16 @@ public final class OppStatsScreen extends Screen
 	{
 		private final OppStatsHack hack;
 		private boolean showOnline;
+		private boolean draggingScrollbar;
+		private double scrollbarDragStartY;
+		private double scrollbarDragStartScroll;
 		
 		public OppList(Minecraft mc, int width, int height, int top,
 			int itemHeight, OppStatsHack hack, boolean showOnline,
 			String searchQuery)
 		{
 			super(mc, width, height, top, itemHeight);
+			setX(16);
 			this.hack = hack;
 			this.showOnline = showOnline;
 			reload(showOnline, searchQuery);
@@ -706,6 +730,76 @@ public final class OppStatsScreen extends Screen
 		public int getRowWidth()
 		{
 			return width - 20;
+		}
+		
+		@Override
+		public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
+		{
+			if(event.button() == 0 && beginScrollbarDrag(event.x(), event.y()))
+				return true;
+			return super.mouseClicked(event, doubleClick);
+		}
+		
+		@Override
+		public boolean mouseDragged(MouseButtonEvent event, double dragX,
+			double dragY)
+		{
+			if(draggingScrollbar && event.button() == 0)
+			{
+				int viewport = getBottom() - getY();
+				int content = viewport + maxScrollAmount();
+				int thumbHeight = Math.max(32,
+					(int)((long)viewport * viewport / Math.max(1, content)));
+				int trackRange = viewport - thumbHeight;
+				if(trackRange > 0)
+				{
+					double ratio =
+						(event.y() - scrollbarDragStartY) / trackRange;
+					setScrollAmount(
+						scrollbarDragStartScroll + ratio * maxScrollAmount());
+				}
+				return true;
+			}
+			return super.mouseDragged(event, dragX, dragY);
+		}
+		
+		@Override
+		public boolean mouseReleased(MouseButtonEvent event)
+		{
+			if(event.button() == 0 && draggingScrollbar)
+			{
+				draggingScrollbar = false;
+				return true;
+			}
+			return super.mouseReleased(event);
+		}
+		
+		private boolean beginScrollbarDrag(double mouseX, double mouseY)
+		{
+			int maxScroll = maxScrollAmount();
+			if(maxScroll <= 0)
+				return false;
+			int scrollbarX = getX() + getWidth() - 10;
+			if(mouseX < scrollbarX || mouseX > getX() + getWidth())
+				return false;
+			int viewport = getBottom() - getY();
+			int content = viewport + maxScroll;
+			int thumbHeight = Math.max(32,
+				(int)((long)viewport * viewport / Math.max(1, content)));
+			int trackRange = viewport - thumbHeight;
+			if(trackRange <= 0 || mouseY < getY() || mouseY > getBottom())
+				return false;
+			double thumbY = getY() + (scrollAmount() / maxScroll) * trackRange;
+			if(mouseY < thumbY || mouseY > thumbY + thumbHeight)
+			{
+				setScrollAmount((mouseY - getY() - thumbHeight / 2.0)
+					/ trackRange * maxScroll);
+				return true;
+			}
+			draggingScrollbar = true;
+			scrollbarDragStartY = mouseY;
+			scrollbarDragStartScroll = scrollAmount();
+			return true;
 		}
 		
 		private boolean matchesSearch(OppRecord rec, String query)

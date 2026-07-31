@@ -85,6 +85,12 @@ import net.wurstclient.util.chunk.ChunkUtils;
 public class ChestEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener, PacketInputListener
 {
+	@Override
+	public int getHackListColorI(int alpha)
+	{
+		return 0xFF55FF55 | alpha;
+	}
+	
 	private static final double OPENED_MARKER_THICKNESS = 2.0;
 	private static final long BLOCK_UPDATE_GRACE_MS = 750L;
 	private static final long CHUNK_SCAN_EXPIRY_MS = 30000L;

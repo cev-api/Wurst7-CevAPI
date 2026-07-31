@@ -233,8 +233,10 @@ public final class AutoTotemHack extends Hack
 			event.getComponent().getString().toLowerCase(java.util.Locale.ROOT);
 		if(!looksLikeDeathMessage(message))
 			return;
-		
-		for(var entry : enemyTotemNames.entrySet())
+			
+		// clearEnemyPopCount() removes matching names, so iterate over a
+		// snapshot instead of mutating the map while traversing it.
+		for(var entry : new java.util.HashMap<>(enemyTotemNames).entrySet())
 			if(!entry.getValue().isBlank() && message
 				.contains(entry.getValue().toLowerCase(java.util.Locale.ROOT)))
 				clearEnemyPopCount(entry.getKey());
