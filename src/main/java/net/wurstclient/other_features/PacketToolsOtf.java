@@ -27,6 +27,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.Base64;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -49,6 +50,8 @@ import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.network.protocol.game.ServerboundEditBookPacket;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
+import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.wurstclient.Category;
 import net.wurstclient.events.ConnectionPacketOutputListener;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
@@ -120,7 +123,7 @@ public final class PacketToolsOtf extends OtherFeature
 			false);
 	private final CheckboxSetting verboseHumanReadable =
 		new CheckboxSetting("Verbose human-readable",
-			"Also write human-readable logs alongside JSONL.", true);
+			"Also write human-readable logs alongside JSONL.", false);
 	private final SliderSetting verboseFlushInterval =
 		new SliderSetting("Verbose flush ticks",
 			"How often to flush the verbose buffer to disk (in ticks).\n"
@@ -170,6 +173,7 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private boolean lastDelayEnabledState;
 	private boolean lastLoggingState;
+	private boolean lastDenyEnabledState;
 	private Path currentLogFile;
 	
 	public PacketToolsOtf()
@@ -195,6 +199,7 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		lastDelayEnabledState = delayEnabled.isChecked();
 		lastLoggingState = loggingEnabled.isChecked();
+		lastDenyEnabledState = denyEnabled.isChecked();
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -292,21 +297,34 @@ public final class PacketToolsOtf extends OtherFeature
 	@Override
 	public void onUpdate()
 	{
-		boolean delayActive =
-			delayEnabled.isChecked() && delayTicks.getValueI() > 0;
-		if(!delayActive && lastDelayEnabledState)
+		boolean loggingState = loggingEnabled.isChecked();
+		boolean denyState = denyEnabled.isChecked();
+		boolean delayState = delayEnabled.isChecked();
+		boolean previousLoggingState = lastLoggingState;
+		boolean previousDelayState = lastDelayEnabledState;
+		announceToggleChange("Logging", loggingState, previousLoggingState);
+		announceToggleChange("Blocking", denyState, lastDenyEnabledState);
+		announceToggleChange("Delaying", delayState, previousDelayState);
+		lastLoggingState = loggingState;
+		lastDenyEnabledState = denyState;
+		lastDelayEnabledState = delayState;
+		
+		boolean delayActive = delayState && delayTicks.getValueI() > 0;
+		if(!delayActive && previousDelayState)
 			flushQueues(true);
 		else if(delayActive)
 			flushQueues(false);
 		
-		lastDelayEnabledState = delayEnabled.isChecked();
-		
-		if(lastLoggingState && !loggingEnabled.isChecked())
+		if(previousLoggingState && !loggingState)
+		{
 			currentLogFile = null;
-		lastLoggingState = loggingEnabled.isChecked();
+			discardVerboseBuffers();
+			currentVerboseJsonlFile = null;
+			currentVerboseHumanFile = null;
+		}
 		
 		// Tick entity lifecycle tracker
-		if(verboseEnabled.isChecked())
+		if(verboseEnabled.isChecked() && loggingState)
 		{
 			lifecycleTracker.tick();
 			
@@ -318,7 +336,8 @@ public final class PacketToolsOtf extends OtherFeature
 				verboseFlushTickCounter = 0;
 				flushVerboseBuffers();
 			}
-		}else if(!verboseEnabled.isChecked() && lastVerboseState)
+		}else if(!verboseEnabled.isChecked() && lastVerboseState
+			&& loggingState)
 		{
 			// Verbose just turned off — flush remaining and clear refs
 			flushVerboseBuffers();
@@ -328,16 +347,26 @@ public final class PacketToolsOtf extends OtherFeature
 		lastVerboseState = verboseEnabled.isChecked();
 	}
 	
+	private void announceToggleChange(String name, boolean current,
+		boolean previous)
+	{
+		if(current == previous)
+			return;
+		
+		ChatUtils.message(
+			"[PacketTools] " + name + (current ? " activated." : " disabled."));
+	}
+	
 	private boolean lastVerboseState;
 	
 	public void openScreen()
 	{
-		if(MC == null)
+		if(MC == null || MC.gui == null)
 			return;
 		
-		MC.setScreen(
+		MC.gui.setScreen(
 			new net.wurstclient.other_features.packettools.PacketToolsScreen(
-				MC.screen, this));
+				MC.gui.screen(), this));
 	}
 	
 	public synchronized void saveSelectionConfig()
@@ -628,12 +657,12 @@ public final class PacketToolsOtf extends OtherFeature
 			return;
 		}
 		
-		if(MC.gui != null && MC.gui.getChat() != null)
+		if(MC.gui != null && MC.gui.hud.getChat() != null)
 		{
 			MC.execute(() -> {
 				MutableComponent msg = Component.literal("[PacketTools] ")
 					.withColor(0x55FFFF).append(Component.literal(line));
-				MC.gui.getChat().addMessage(msg);
+				MC.gui.hud.getChat().addClientSystemMessage(msg);
 			});
 		}
 	}
@@ -668,6 +697,9 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void logVerbose(Packet<?> packet, String direction)
 	{
+		if(!loggingEnabled.isChecked())
+			return;
+		
 		if(packetDumper == null)
 			packetDumper = new PacketDumper(decodeCoverage, packetFilter,
 				lifecycleTracker);
@@ -682,6 +714,49 @@ public final class PacketToolsOtf extends OtherFeature
 		{
 			for(String line : lines)
 				appendVerboseLineLocked(line, human);
+		}
+	}
+	
+	/**
+	 * Called after vanilla applies a map-data packet, when ClientLevel's map
+	 * cache contains the complete current map state rather than only the
+	 * packet's optional colour patch.
+	 */
+	public void logVerboseMapCache(ClientboundMapItemDataPacket packet,
+		MapItemSavedData mapData)
+	{
+		if(!verboseEnabled.isChecked() || !loggingEnabled.isChecked()
+			|| packet == null || mapData == null)
+			return;
+		
+		String name = net.wurstclient.other_features.packettools.PacketCatalog
+			.formatPacketName(packet);
+		if(!logS2C.contains(name))
+			return;
+		
+		Map<String, Object> root = new LinkedHashMap<>();
+		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		root.put("direction", "S2C-CACHE");
+		root.put("class", packet.getClass().getName());
+		root.put("simpleName", packet.getClass().getSimpleName());
+		root.put("packetId", name);
+		root.put("mapId", packet.mapId().id());
+		root.put("dataComponent", "minecraft:map_id");
+		root.put("centerX", mapData.centerX);
+		root.put("centerZ", mapData.centerZ);
+		root.put("dimension", String.valueOf(mapData.dimension));
+		root.put("scale", mapData.scale);
+		root.put("locked", mapData.locked);
+		Map<String, Object> colors = new LinkedHashMap<>();
+		colors.put("length", mapData.colors.length);
+		colors.put("base64",
+			Base64.getEncoder().encodeToString(mapData.colors));
+		root.put("colors", colors);
+		
+		String json = VERBOSE_GSON.toJson(root);
+		synchronized(verboseJsonlBuffer)
+		{
+			appendVerboseLineLocked(json, verboseHumanReadable.isChecked());
 		}
 	}
 	
@@ -714,10 +789,18 @@ public final class PacketToolsOtf extends OtherFeature
 	{
 		if(!shouldVerboseExternalMonitoring())
 			return;
+		enqueueVerboseEvent(eventType, "EXTERNAL", fields);
+	}
+	
+	private void enqueueVerboseEvent(String eventType, String direction,
+		Map<String, Object> fields)
+	{
+		if(!verboseEnabled.isChecked())
+			return;
 		
 		Map<String, Object> root = new LinkedHashMap<>();
 		root.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
-		root.put("direction", "EXTERNAL");
+		root.put("direction", direction);
 		root.put("class", eventType);
 		root.put("simpleName", eventType);
 		root.put("fields", fields);
@@ -731,7 +814,26 @@ public final class PacketToolsOtf extends OtherFeature
 		fields.put("source", source);
 		fields.put("message", message);
 		fields.put("isCommand", command);
-		logVerboseExternalEvent("ChatAction", fields);
+		enqueueVerboseEvent("ChatAction", "CHAT-C2S", fields);
+	}
+	
+	public void logVerboseChatOutput(String source, String message)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		fields.put("message", message);
+		enqueueVerboseEvent("ChatMessage", "CHAT-S2C", fields);
+	}
+	
+	public void logVerboseChatInput(String source, String message, String kind)
+	{
+		Map<String, Object> fields = new LinkedHashMap<>();
+		fields.put("source", source);
+		fields.put("message", message);
+		fields.put("kind", kind);
+		fields.put("isCommand",
+			"command".equals(kind) || "uiutils_command".equals(kind));
+		enqueueVerboseEvent("ChatInput", "CHAT-C2S", fields);
 	}
 	
 	public void logVerboseJoinFlow(String source, ServerData serverData)
@@ -783,12 +885,15 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private boolean shouldVerboseExternalMonitoring()
 	{
-		return verboseEnabled.isChecked()
+		return loggingEnabled.isChecked() && verboseEnabled.isChecked()
 			&& verboseOutsideGamePackets.isChecked();
 	}
 	
 	private void enqueueVerboseExternalEvent(Map<String, Object> root)
 	{
+		if(!loggingEnabled.isChecked())
+			return;
+		
 		String json = VERBOSE_GSON.toJson(root);
 		synchronized(verboseJsonlBuffer)
 		{
@@ -814,6 +919,12 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void flushVerboseBuffers()
 	{
+		if(!loggingEnabled.isChecked())
+		{
+			discardVerboseBuffers();
+			return;
+		}
+		
 		ArrayList<String> jsonlBatch;
 		ArrayList<String> humanBatch;
 		synchronized(verboseJsonlBuffer)
@@ -856,6 +967,16 @@ public final class PacketToolsOtf extends OtherFeature
 					"PacketTools: failed writing verbose human-readable file.");
 			}
 		}
+	}
+	
+	private void discardVerboseBuffers()
+	{
+		synchronized(verboseJsonlBuffer)
+		{
+			verboseJsonlBuffer.clear();
+			verboseHumanBuffer.clear();
+		}
+		verboseFlushTickCounter = 0;
 	}
 	
 	private String buildHumanReadable(String jsonLine)

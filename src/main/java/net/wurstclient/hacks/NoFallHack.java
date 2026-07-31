@@ -18,6 +18,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.PacketUtils;
 
 @SearchTags({"no fall"})
 public final class NoFallHack extends Hack implements UpdateListener
@@ -38,6 +39,10 @@ public final class NoFallHack extends Hack implements UpdateListener
 		new SliderSetting("Min elytra fall distance",
 			"description.wurst.setting.nofall.min_elytra_fall_distance", 2, 0,
 			10, 0.1, ValueDisplay.DECIMAL.withSuffix("m").withLabel(0, "off"));
+	private double lastPlayerY;
+	private boolean hasLastPlayerY;
+	private double lastSentPositionY;
+	private boolean hasLastSentPositionY;
 	
 	public NoFallHack()
 	{
@@ -74,12 +79,61 @@ public final class NoFallHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-		if(isPaused())
+		LocalPlayer player = MC.player;
+		if(player == null || player.connection == null)
+			return;
+		
+		boolean actuallyDescending =
+			hasLastPlayerY && player.getY() < lastPlayerY - 1.0E-4;
+		lastPlayerY = player.getY();
+		hasLastPlayerY = true;
+		
+		if(isPaused(actuallyDescending) || isFlightPacketProtectionActive())
 			return;
 		
 		// send packet to stop fall damage
 		MC.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(
 			true, MC.player.horizontalCollision));
+	}
+	
+	/**
+	 * Applies Flight's NoFall spoof to the actual movement packet immediately
+	 * before it enters {@code Connection.send()}. This deliberately does not
+	 * create another packet: the server must see the grounded flag together
+	 * with the descending position, before that movement can add fall distance.
+	 */
+	public ServerboundMovePlayerPacket protectFlightMovementPacket(
+		ServerboundMovePlayerPacket packet)
+	{
+		if(!packet.hasPosition())
+			return packet;
+		
+		double y = packet.getY(lastSentPositionY);
+		boolean descending =
+			hasLastSentPositionY && y < lastSentPositionY - 1.0E-4;
+		lastSentPositionY = y;
+		hasLastSentPositionY = true;
+		
+		if(!isEnabled() || !descending || !isFlightPacketProtectionActive()
+			|| !isSafeToSpoofFlightMovement())
+			return packet;
+		
+		return PacketUtils.modifyOnGround(packet, true);
+	}
+	
+	private boolean isFlightPacketProtectionActive()
+	{
+		return WURST.getHax().flightHack.isEnabled()
+			|| PathFlightRuntime.isPathFlightActive();
+	}
+	
+	private boolean isSafeToSpoofFlightMovement()
+	{
+		LocalPlayer player = MC.player;
+		return player != null && player.connection != null
+			&& !player.getAbilities().invulnerable && !player.isFallFlying()
+			&& !player.isInWater() && !player.isInLava()
+			&& !player.onClimbable() && !player.isPassenger();
 	}
 	
 	private boolean isPaused()
