@@ -180,6 +180,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	{
 		if(!isEnabled() || state == null || pos == null)
 			return SurfaceState.NONE;
+		if(MC.level != null
+			&& MC.level.dimension() == net.minecraft.world.level.Level.END
+			&& state.is(net.minecraft.world.level.block.Blocks.BEDROCK))
+			return SurfaceState.NONE;
 		
 		if(!targetBlocks.matchesBlock(state.getBlock()))
 			return SurfaceState.NONE;
@@ -201,7 +205,11 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	public boolean isTarget(BlockState state)
 	{
-		return state != null && targetBlocks.matchesBlock(state.getBlock());
+		return state != null
+			&& !(MC.level != null
+				&& MC.level.dimension() == net.minecraft.world.level.Level.END
+				&& state.is(net.minecraft.world.level.block.Blocks.BEDROCK))
+			&& targetBlocks.matchesBlock(state.getBlock());
 	}
 	
 	public boolean isTarget(Block block)

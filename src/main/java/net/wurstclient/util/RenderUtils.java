@@ -439,6 +439,38 @@ public enum RenderUtils
 		return getCameraRotation().toLookVec().scale(10);
 	}
 	
+	private static boolean shouldLimitNearestTracers()
+	{
+		try
+		{
+			return WurstClient.INSTANCE != null
+				&& WurstClient.INSTANCE.getHax() != null
+				&& WurstClient.INSTANCE.getHax().globalToggleHack != null
+				&& WurstClient.INSTANCE.getHax().globalToggleHack
+					.isNearestTracerOnlyEnabled();
+		}catch(Exception ignored)
+		{
+			return false;
+		}
+	}
+	
+	private static List<Vec3> limitNearestTracerEnds(List<Vec3> ends)
+	{
+		if(!shouldLimitNearestTracers() || ends == null || ends.size() <= 1)
+			return ends;
+		return EspLimitUtils.collectNearest(ends, 1,
+			end -> end.distanceToSqr(RotationUtils.getEyesPos()));
+	}
+	
+	private static List<ColoredPoint> limitNearestColoredTracerEnds(
+		List<ColoredPoint> ends)
+	{
+		if(!shouldLimitNearestTracers() || ends == null || ends.size() <= 1)
+			return ends;
+		return EspLimitUtils.collectNearest(ends, 1,
+			end -> end.point().distanceToSqr(RotationUtils.getEyesPos()));
+	}
+	
 	public static void drawTracer(PoseStack matrices, float partialTicks,
 		Vec3 end, int color, boolean depthTest)
 	{
@@ -485,6 +517,7 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<Vec3> ends, int color, boolean depthTest)
 	{
+		ends = limitNearestTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		
@@ -551,6 +584,7 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest)
 	{
+		ends = limitNearestColoredTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		
@@ -619,6 +653,7 @@ public enum RenderUtils
 	public static void drawTracers(PoseStack matrices, float partialTicks,
 		List<ColoredPoint> ends, boolean depthTest, double lineWidth)
 	{
+		ends = limitNearestColoredTracerEnds(ends);
 		if(shouldSuppressAllTracers())
 			return;
 		

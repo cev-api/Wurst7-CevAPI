@@ -151,6 +151,9 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			SliderSetting.ValueDisplay.INTEGER);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly =
+		new CheckboxSetting("Nearest tracer only",
+			"Only draw the closest PortalESP tracer.", false);
 	private final CheckboxSetting discoverySound = new CheckboxSetting(
 		"Sound on discovery",
 		"Plays a sound when PortalESP discovers a new portal block.", false);
@@ -224,6 +227,7 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 		addSetting(area);
 		addSetting(lineThickness);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(discoverySound);
 		addSetting(discoverySoundType);
 		addSetting(discoverySoundVolume);
@@ -397,6 +401,10 @@ public final class PortalEspHack extends Hack implements UpdateListener,
 			List<Vec3> ends = getTracerTargets(group);
 			if(ends.isEmpty())
 				continue;
+			if(nearestTracerOnly.isChecked())
+				ends = net.wurstclient.util.EspLimitUtils.collectNearest(ends,
+					1, v -> v.distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()));
 			
 			if(shouldSuppressAlertsAndTracers())
 				ends =

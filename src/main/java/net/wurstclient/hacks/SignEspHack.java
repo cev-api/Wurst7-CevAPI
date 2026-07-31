@@ -81,6 +81,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		false);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly = new CheckboxSetting(
+		"Nearest tracer only", "Only draw the closest SignESP tracer.", false);
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof SignBlock;
 	private final ChunkSearcherCoordinator coordinator =
@@ -109,6 +111,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			.forEach(this::addSetting);
 		addSetting(showCountInHackList);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(area);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
@@ -229,6 +232,13 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			if(!group.isEnabled())
 				continue;
 			group.getEntries().forEach(entry -> {
+				if(nearestTracerOnly.isChecked() && group.getEntries().stream()
+					.anyMatch(other -> other.getBox().getCenter().distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()) < entry
+							.getBox().getCenter()
+							.distanceToSqr(net.wurstclient.util.RotationUtils
+								.getEyesPos())))
+					return;
 				int quadsColor = entry.getColorI(0x40);
 				int linesColor = entry.getColorI(0x80);
 				RenderUtils.drawSolidBoxes(matrixStack,
@@ -273,6 +283,10 @@ public final class SignEspHack extends Hack implements UpdateListener,
 				continue;
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
+			if(nearestTracerOnly.isChecked())
+				ends = net.wurstclient.util.EspLimitUtils.collectNearest(ends,
+					1, v -> v.distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()));
 			int color = group.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
