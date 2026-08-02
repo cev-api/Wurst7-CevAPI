@@ -104,6 +104,8 @@ public final class ClientMessageOverlay
 	private int lastWurstY1;
 	private int lastWurstX2;
 	private int lastWurstY2;
+	private int lastGuiWidth;
+	private int lastGuiHeight;
 	private boolean tabHeldForOverlay;
 	private List<LineClickTarget> lastMainClickTargets = List.of();
 	private List<LineClickTarget> lastWurstClickTargets = List.of();
@@ -232,9 +234,11 @@ public final class ClientMessageOverlay
 			return;
 		
 		boolean overMain =
-			hoveredMainPanel && totalLineCount > visibleLineCount;
+			isMouseOverPanelNow(lastMainX1, lastMainY1, lastMainX2, lastMainY2)
+				&& totalLineCount > visibleLineCount;
 		boolean overWurst =
-			hoveredWurstPanel && wurstTotalLineCount > wurstVisibleLineCount;
+			isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
+				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount;
 		if(!overMain && !overWurst)
 			return;
 		
@@ -266,10 +270,10 @@ public final class ClientMessageOverlay
 	
 	public boolean isControllingScrollEvents()
 	{
-		return isEnabled()
-			&& ((hoveredMainPanel && totalLineCount > visibleLineCount)
-				|| (hoveredWurstPanel
-					&& wurstTotalLineCount > wurstVisibleLineCount));
+		return isEnabled() && ((isMouseOverPanelNow(lastMainX1, lastMainY1,
+			lastMainX2, lastMainY2) && totalLineCount > visibleLineCount)
+			|| (isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
+				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount));
 	}
 	
 	public void notifyVanillaChatMessage(Component message)
@@ -279,6 +283,11 @@ public final class ClientMessageOverlay
 	
 	public void render(GuiGraphicsExtractor context)
 	{
+		// Hover state is only valid for the panel rendered during this frame.
+		// Clear it first so an expired/hidden overlay cannot keep consuming the
+		// mouse wheel and prevent vanilla hotbar selection.
+		clearHoverState();
+		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
@@ -2059,6 +2068,9 @@ public final class ClientMessageOverlay
 		float width, float height, int wurstY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel)
 	{
+		lastGuiWidth = context.guiWidth();
+		lastGuiHeight = context.guiHeight();
+		
 		if(height > 0 && y != Integer.MIN_VALUE)
 		{
 			lastMainX1 = x;
@@ -2078,6 +2090,25 @@ public final class ClientMessageOverlay
 		}
 		hoveredWurstPanel = hasWurstPanel && isMouseOverPanel(context,
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
+	}
+	
+	private void clearHoverState()
+	{
+		hoveredMainPanel = false;
+		hoveredWurstPanel = false;
+	}
+	
+	private boolean isMouseOverPanelNow(int x1, int y1, int x2, int y2)
+	{
+		Window window = WurstClient.MC.getWindow();
+		if(window == null || lastGuiWidth <= 0 || lastGuiHeight <= 0)
+			return false;
+		
+		double mouseX = WurstClient.MC.mouseHandler.xpos() * lastGuiWidth
+			/ window.getScreenWidth();
+		double mouseY = WurstClient.MC.mouseHandler.ypos() * lastGuiHeight
+			/ window.getScreenHeight();
+		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
 	}
 	
 	private static boolean isMouseOverPanel(GuiGraphicsExtractor context,
