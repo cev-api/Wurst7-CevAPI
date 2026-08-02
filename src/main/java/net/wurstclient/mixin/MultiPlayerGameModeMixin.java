@@ -41,6 +41,7 @@ import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgres
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
+import net.wurstclient.hacks.DuraSwapHack;
 import net.wurstclient.hacks.MaceDmgHack;
 import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IMultiPlayerGameMode;
@@ -113,6 +114,66 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		CallbackInfoReturnable<Boolean> cir)
 	{
 		EventManager.fire(new BlockBreakingProgressEvent(pos, direction));
+	}
+	
+	@Inject(
+		method = "startDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
+			ordinal = 1))
+	private void wurst$duraSwap_beforeInstaBreakPacket(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		DuraSwapHack duraSwap = WurstClient.INSTANCE.getHax().duraSwapHack;
+		if(duraSwap != null)
+			duraSwap.onBeforeInstaBreakPacket(pos);
+	}
+	
+	@Inject(
+		method = "startDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
+			ordinal = 1,
+			shift = At.Shift.AFTER))
+	private void wurst$duraSwap_afterInstaBreakPacket(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		DuraSwapHack duraSwap = WurstClient.INSTANCE.getHax().duraSwapHack;
+		if(duraSwap != null)
+			duraSwap.onAfterBreakPacket();
+	}
+	
+	@Inject(
+		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
+			ordinal = 1))
+	private void wurst$duraSwap_beforeBreakPacket(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		
+		DuraSwapHack duraSwap = WurstClient.INSTANCE.getHax().duraSwapHack;
+		if(duraSwap != null)
+			duraSwap.onBeforeBreakPacket(pos);
+	}
+	
+	@Inject(
+		method = "continueDestroyBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+		at = @At(value = "INVOKE",
+			target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;startPrediction(Lnet/minecraft/client/multiplayer/ClientLevel;Lnet/minecraft/client/multiplayer/prediction/PredictiveAction;)V",
+			ordinal = 1,
+			shift = At.Shift.AFTER))
+	private void wurst$duraSwap_afterBreakPacket(BlockPos pos,
+		Direction direction, CallbackInfoReturnable<Boolean> cir)
+	{
+		DuraSwapHack duraSwap = WurstClient.INSTANCE.getHax().duraSwapHack;
+		if(duraSwap != null)
+			duraSwap.onAfterBreakPacket();
 	}
 	
 	@Inject(
