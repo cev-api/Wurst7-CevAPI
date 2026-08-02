@@ -37,6 +37,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.GUIRenderListener;
+import net.wurstclient.events.KeyPressListener;
 import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -51,9 +52,10 @@ import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.*;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.json.JsonException;
+import org.lwjgl.glfw.GLFW;
 
 public final class AutoBuildHack extends Hack implements UpdateListener,
-	RightClickListener, RenderListener, GUIRenderListener
+	RightClickListener, KeyPressListener, RenderListener, GUIRenderListener
 {
 	private static final AABB BLOCK_BOX =
 		new AABB(1 / 16.0, 1 / 16.0, 1 / 16.0, 15 / 16.0, 15 / 16.0, 15 / 16.0);
@@ -72,6 +74,11 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	private final CheckboxSetting checkLOS = new CheckboxSetting(
 		"Check line of sight",
 		"Makes sure that you don't reach through walls when placing blocks. Can help with AntiCheat plugins but slows down building.",
+		false);
+	
+	private final CheckboxSetting legacyPlacing = new CheckboxSetting(
+		"Legacy placing",
+		"Uses AutoBuild's older directional placement algorithm instead of the newer shape-aware BlockPlacer algorithm.",
 		false);
 	
 	private final CheckboxSetting useSavedBlocks = new CheckboxSetting(
@@ -137,6 +144,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(templateSetting);
 		addSetting(range);
 		addSetting(checkLOS);
+		addSetting(legacyPlacing);
 		addSetting(useSavedBlocks);
 		addSetting(faceTarget);
 		addSetting(swingHand);
@@ -185,6 +193,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RightClickListener.class, this);
+		EVENTS.add(KeyPressListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
 	}
@@ -194,6 +203,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RightClickListener.class, this);
+		EVENTS.remove(KeyPressListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
 		
@@ -268,23 +278,43 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			return;
 		}
 		
-		if(MC.options.keySprint.isDown())
-			return;
-		
 		if(status != Status.IDLE)
 			return;
 		
+		if(MC.options.keySprint.isDown())
+			return;
+		
+		if(!startBuild())
+			return;
+		
+		event.cancel();
+	}
+	
+	@Override
+	public void onKeyPress(KeyPressListener.KeyPressEvent event)
+	{
+		if(event.getKeyCode() != GLFW.GLFW_KEY_ENTER
+			|| event.getAction() != GLFW.GLFW_PRESS || MC.gui.screen() != null
+			|| status != Status.IDLE)
+			return;
+		
+		startBuild();
+	}
+	
+	private boolean startBuild()
+	{
+		if(MC.player == null || template == null)
+			return false;
+		
 		BlockHitResult blockHitResult = getStartHitResult();
 		if(blockHitResult == null)
-			return;
+			return false;
 		
 		boolean airStart = blockHitResult.getType() == HitResult.Type.MISS;
 		BlockPos hitResultPos = blockHitResult.getBlockPos();
 		boolean clickable = BlockUtils.canBeClicked(hitResultPos);
 		if(!airStart && !clickable)
-			return;
-		
-		event.cancel();
+			return false;
 		
 		BlockPos startPos = airStart ? hitResultPos
 			: hitResultPos.relative(blockHitResult.getDirection());
@@ -296,6 +326,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		// If Flight is enabled, swap to AirWalk while building
 		swapFlightToAirWalkIfEnabled();
+		return true;
 	}
 	
 	@Override
@@ -614,6 +645,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	
 	private BlockPlacingParams getPlacingParams(BlockPos pos)
 	{
+		if(legacyPlacing.isChecked())
+			return getLegacyPlacingParams(pos);
+		
 		BlockPlacingParams params = BlockPlacer.getBlockPlacingParams(pos);
 		if(params != null)
 			return params;
@@ -625,6 +659,38 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		return new BlockPlacingParams(pos, Direction.UP, hitVec, distanceSq,
 			lineOfSight, false);
+	}
+	
+	private BlockPlacingParams getLegacyPlacingParams(BlockPos pos)
+	{
+		Vec3 eyesPos = RotationUtils.getEyesPos();
+		Vec3 posVec = Vec3.atCenterOf(pos);
+		double distanceSqPosVec = eyesPos.distanceToSqr(posVec);
+		double rangeSq = range.getValueSq();
+		
+		for(Direction side : Direction.values())
+		{
+			BlockPos neighbor = pos.relative(side);
+			BlockState neighborState = BlockUtils.getState(neighbor);
+			if(!BlockUtils.canBeClicked(neighbor)
+				|| neighborState.canBeReplaced())
+				continue;
+			
+			Vec3 sideVector = Vec3.atLowerCornerOf(side.getUnitVec3i());
+			Vec3 hitVec = posVec.add(sideVector.scale(0.5));
+			if(eyesPos.distanceToSqr(hitVec) > rangeSq)
+				continue;
+			
+			// Do not place against a face pointing away from the player.
+			if(distanceSqPosVec > eyesPos.distanceToSqr(posVec.add(sideVector)))
+				continue;
+			
+			boolean lineOfSight = BlockUtils.hasLineOfSight(eyesPos, hitVec);
+			return new BlockPlacingParams(neighbor, side.getOpposite(), hitVec,
+				eyesPos.distanceToSqr(hitVec), lineOfSight, false);
+		}
+		
+		return null;
 	}
 	
 	private boolean isStuck()
