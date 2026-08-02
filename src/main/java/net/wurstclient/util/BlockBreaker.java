@@ -23,6 +23,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hacks.DuraSwapHack;
 import net.wurstclient.settings.SwingHandSetting.SwingHand;
 
 public enum BlockBreaker
@@ -170,29 +171,39 @@ public enum BlockBreaker
 	{
 		Vec3 eyesPos = RotationUtils.getEyesPos();
 		ClientPacketListener netHandler = MC.player.connection;
+		DuraSwapHack duraSwap = WURST.getHax().duraSwapHack;
 		
-		for(BlockPos pos : blocks)
+		duraSwap.onBeforePacketBreak(blocks);
+		
+		try
 		{
-			Vec3 posVec = Vec3.atCenterOf(pos);
-			double distanceSqPosVec = eyesPos.distanceToSqr(posVec);
-			
-			for(Direction side : Direction.values())
+			for(BlockPos pos : blocks)
 			{
-				Vec3 hitVec = posVec
-					.add(Vec3.atLowerCornerOf(side.getUnitVec3i()).scale(0.5));
+				Vec3 posVec = Vec3.atCenterOf(pos);
+				double distanceSqPosVec = eyesPos.distanceToSqr(posVec);
 				
-				// check if side is facing towards player
-				if(eyesPos.distanceToSqr(hitVec) >= distanceSqPosVec)
-					continue;
-				
-				// break block
-				netHandler.send(new ServerboundPlayerActionPacket(
-					Action.START_DESTROY_BLOCK, pos, side));
-				netHandler.send(new ServerboundPlayerActionPacket(
-					Action.STOP_DESTROY_BLOCK, pos, side));
-				
-				break;
+				for(Direction side : Direction.values())
+				{
+					Vec3 hitVec = posVec.add(
+						Vec3.atLowerCornerOf(side.getUnitVec3i()).scale(0.5));
+					
+					// check if side is facing towards player
+					if(eyesPos.distanceToSqr(hitVec) >= distanceSqPosVec)
+						continue;
+					
+					// break block
+					netHandler.send(new ServerboundPlayerActionPacket(
+						Action.START_DESTROY_BLOCK, pos, side));
+					netHandler.send(new ServerboundPlayerActionPacket(
+						Action.STOP_DESTROY_BLOCK, pos, side));
+					
+					break;
+				}
 			}
+			
+		}finally
+		{
+			duraSwap.onAfterBreakPacket();
 		}
 	}
 }

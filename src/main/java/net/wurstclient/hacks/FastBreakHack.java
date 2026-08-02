@@ -109,7 +109,17 @@ public final class FastBreakHack extends Hack
 		
 		Action action = ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK;
 		Direction direction = event.getDirection();
-		IMC.getInteractionManager().sendPlayerActionC2SPacket(action, blockPos,
-			direction);
+		DuraSwapHack duraSwap = WURST.getHax().duraSwapHack;
+		duraSwap.onBeforePacketBreak(blockPos);
+		
+		try
+		{
+			IMC.getInteractionManager().sendPlayerActionC2SPacket(action,
+				blockPos, direction);
+			
+		}finally
+		{
+			duraSwap.onAfterBreakPacket();
+		}
 	}
 }
