@@ -174,6 +174,7 @@
   "description.wurst.hack.tunnelholestairesp": "Finds likely player-dug 1x1 holes, straight tunnels, and staircases.\nUses shape checks and a natural-wall filter to reduce worldgen false positives.",
   "description.wurst.hack.durabilityhud": "Shows item and armor durability on your HUD with configurable styles, colors, and scaling.",
   "description.wurst.hack.dolphin": "Makes you bob up in water automatically.\n(just like a dolphin)",
+  "description.wurst.hack.duraswap": "Saves your tool's durability by swapping to a cheap item in the same tick that a block breaks, so the sacrificial item takes the damage.",
   "description.wurst.hack.elytraflight": "Hover and fly in any direction while gliding with an elytra.",
   "description.wurst.hack.enchantmenthandler": "Overlays chest GUIs with a breakdown of enchanted armor and weapons inside, grouped by slot or weapon type with quick take and take-all buttons.",
   "description.wurst.hack.excavator": "Automatically breaks all blocks in the selected area.",

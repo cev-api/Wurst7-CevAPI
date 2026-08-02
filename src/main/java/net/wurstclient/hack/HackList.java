@@ -174,6 +174,7 @@ public final class HackList implements UpdateListener
 	public final HideModMenuHack hideModMenuHack = new HideModMenuHack();
 	public final HideWurstHack hideWurstHack = new HideWurstHack();
 	public final DurabilityHudHack durabilityHudHack = new DurabilityHudHack();
+	public final DuraSwapHack duraSwapHack = new DuraSwapHack();
 	public final GameStatsHack gameStatsHack = new GameStatsHack();
 	public final ClientChatOverlayHack clientChatOverlayHack =
 		new ClientChatOverlayHack();
