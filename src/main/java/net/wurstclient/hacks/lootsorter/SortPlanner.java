@@ -75,12 +75,31 @@ public final class SortPlanner
 	private DestinationRule chooseDestination(ItemStack stack,
 		List<DestinationRule> destinations)
 	{
+		/*
+		 * Everything is a strict fallback, never a catch-all for an item that
+		 * belongs to another configured category. Check the category predicates
+		 * without availability flags first, so a full or unreachable category
+		 * does not silently divert its items into Everything.
+		 */
+		boolean hasSpecificMatch =
+			destinations.stream().filter(DestinationRule::isConfigured)
+				.filter(destination -> !isEverythingFallback(destination))
+				.anyMatch(destination -> destination.getFilters().stream()
+					.anyMatch(filter -> filter.matches(stack)));
 		return destinations.stream()
+			.filter(destination -> !hasSpecificMatch
+				|| !isEverythingFallback(destination))
 			.filter(destination -> destination.matches(stack))
 			.sorted(Comparator.comparingInt(
 				(DestinationRule destination) -> destination.specificity(stack))
 				.reversed().thenComparingInt(DestinationRule::getPriority))
 			.findFirst().orElse(null);
+	}
+	
+	private boolean isEverythingFallback(DestinationRule destination)
+	{
+		return destination.getFilters().size() == 1
+			&& destination.getFilters().get(0) == BuiltInItemFilter.ALL;
 	}
 	
 	private SortRoute createRoute(Group group,

@@ -10,7 +10,6 @@ package net.wurstclient.clickgui.screens;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.hacks.lootsorter.BuiltInItemFilter;
@@ -37,7 +36,6 @@ public final class LootSorterDestinationScreen extends Screen
 	private ItemFilter selected = BuiltInItemFilter.ALL;
 	private ItemFilterModifiers modifiers = new ItemFilterModifiers(null, null,
 		null, null, null, null, null, null, null);
-	private EditBox customListName;
 	private boolean draftCustomList;
 	
 	public LootSorterDestinationScreen(Screen previous, DestinationRule rule,
@@ -62,44 +60,39 @@ public final class LootSorterDestinationScreen extends Screen
 	public void init()
 	{
 		int x = width / 2 - 110;
-		int y = Math.max(24, height / 2 - 118);
-		addRenderableWidget(Button.builder(filterText(),
-			button -> minecraft.gui.setScreen(new LootSorterFilterMenuScreen(
-				this, filter -> selected = filter, this::editCustomItems,
-				this::loadCustomList)))
+		int y = Math.max(24, height / 2 - 92);
+		addRenderableWidget(Button.builder(filterText(), button -> minecraft.gui
+			.setScreen(new LootSorterFilterMenuScreen(this, filter -> {
+				selected = filter;
+				draftCustomList = false;
+			}, this::editCustomItems, this::loadCustomList)))
 			.bounds(x, y, 220, 20).build());
-		addRenderableWidget(Button
-			.builder(Component.literal("Set custom item list"),
-				button -> editCustomItems())
-			.bounds(x, y + 26, 220, 20).build());
 		addRenderableWidget(Button.builder(matchingRulesText(),
 			button -> minecraft.gui.setScreen(new LootSorterFilterRulesScreen(
 				this, modifiers, updated -> modifiers = updated)))
+			.bounds(x, y + 26, 220, 20).build());
+		addRenderableWidget(Button
+			.builder(Component.literal("Set custom item list"),
+				button -> editCustomItems())
 			.bounds(x, y + 52, 220, 20).build());
-		customListName = new EditBox(minecraft.font, x, y + 78, 220, 20,
-			Component.literal("Name for custom item list"));
-		customListName.setMaxLength(64);
-		customListName.setHint(Component.literal("Name for custom item list"));
-		customListName.setValue("Custom item list");
-		addRenderableWidget(customListName);
 		addRenderableWidget(Button
 			.builder(Component.literal("Save custom item list"),
-				button -> saveCurrentCustomList())
-			.bounds(x, y + 104, 220, 20).build());
+				button -> promptCustomListName())
+			.bounds(x, y + 78, 220, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Save destination"),
 				button -> saveDestinationAndReturn())
-			.bounds(x, y + 130, 220, 20).build());
+			.bounds(x, y + 104, 220, 20).build());
 		addRenderableWidget(
 			Button
 				.builder(Component.literal(finalActionLabel),
 					button -> saveAndRun())
-				.bounds(x, y + 156, 220, 20).build());
+				.bounds(x, y + 130, 220, 20).build());
 		addRenderableWidget(
 			Button.builder(Component.literal("Remove destination"), button -> {
 				removeDestination.run();
 				minecraft.gui.setScreen(previous);
-			}).bounds(x, y + 182, 220, 20).build());
+			}).bounds(x, y + 156, 220, 20).build());
 	}
 	
 	@Override
@@ -128,7 +121,8 @@ public final class LootSorterDestinationScreen extends Screen
 	
 	private Component filterText()
 	{
-		return Component.literal("Select filter: " + selected.getDisplayName());
+		return Component
+			.literal("Select filter: " + currentSelected().getDisplayName());
 	}
 	
 	private Component matchingRulesText()
@@ -149,14 +143,19 @@ public final class LootSorterDestinationScreen extends Screen
 	
 	private ItemFilter selectedFilter()
 	{
-		return hasModifiers() ? new ModifiedItemFilter(selected, modifiers)
-			: selected;
+		ItemFilter current = currentSelected();
+		return hasModifiers() ? new ModifiedItemFilter(current, modifiers)
+			: current;
+	}
+	
+	/** Refreshes a temporary custom list after the item editor changes it. */
+	private ItemFilter currentSelected()
+	{
+		return draftCustomList ? customFilter.get() : selected;
 	}
 	
 	private boolean saveDestination()
 	{
-		if(draftCustomList && !saveCurrentCustomList())
-			return false;
 		rule.clearFilters();
 		rule.addFilter(selectedFilter());
 		rule.setConfigured(true);
@@ -177,15 +176,13 @@ public final class LootSorterDestinationScreen extends Screen
 		finalAction.run();
 	}
 	
-	private boolean saveCurrentCustomList()
+	private void promptCustomListName()
 	{
-		ItemFilter saved =
-			saveCustomList.apply(customListName.getValue().trim());
-		if(saved == null)
-			return false;
-		selected = saved;
-		draftCustomList = false;
-		return true;
+		minecraft.gui.setScreen(new LootSorterCustomPresetNameScreen(this,
+			saveCustomList, saved -> {
+				selected = saved;
+				draftCustomList = false;
+			}));
 	}
 	
 	private void loadFilter(ItemFilter filter)
