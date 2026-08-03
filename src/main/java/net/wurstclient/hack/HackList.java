@@ -347,6 +347,8 @@ public final class HackList implements UpdateListener
 	public final net.wurstclient.hacks.LootRunnerHack lootRunnerHack =
 		new net.wurstclient.hacks.LootRunnerHack();
 	public final CoordLoggerHack coordLoggerHack = new CoordLoggerHack();
+	public final TextureRotatorHack textureRotatorHack =
+		new TextureRotatorHack();
 	public final TownyHack townyHack = new TownyHack();
 	
 	private final TreeMap<String, Hack> hax =
