@@ -670,6 +670,8 @@
   "description.wurst.hack.noplayerchat": "Filters player chat with optional join/leave, whisper, death-message, and keyword-rule controls.",
   "hack.wurst.coordlogger": "CoordLogger",
   "description.wurst.hack.coordlogger": "Logs coordinates vanilla world events. World events are grouped so you can filter them in the ClickGUI. Events out of range will give directional advice rather than pinpoint coordinates.",
+  "hack.wurst.texturerotator": "TextureRotator",
+  "description.wurst.hack.texturerotator": "Randomizes or removes block texture rotations and position offsets so they can't be used to determine block coordinates. Offers Random (a fresh secure seed every toggle), Custom seed, and No rotation modes, applied to every chunk like a resource pack swap.",
   "description.wurst.hack.commandscanner": "Sends /a through /z as autocomplete probes, collects suggested root commands, and reports unique non-vanilla commands.",
   "hack.wurst.renderadjust": "RenderAdjust",
   "description.wurst.hack.renderadjust": "Recolor or remove fog and sky passes, and hide common server-side decorative renders like holograms, boss bars, and scoreboards.",
