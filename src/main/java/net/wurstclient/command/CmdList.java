@@ -54,6 +54,8 @@ public final class CmdList
 	public final KeymapCmd keymapCmd = new KeymapCmd();
 	public final LeaveCmd leaveCmd = new LeaveCmd();
 	public final LivestreamCmd livestreamCmd = new LivestreamCmd();
+	public final LootSorterCmd lootSorterCmd = new LootSorterCmd();
+	public final LootSorterCmd lootSortCmd = new LootSorterCmd("lootsort");
 	public final MapaCmd mapaCmd = new MapaCmd();
 	public final ModifyCmd modifyCmd = new ModifyCmd();
 	public final PathCmd pathCmd = new PathCmd();

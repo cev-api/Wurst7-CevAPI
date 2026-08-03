@@ -333,9 +333,17 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	{
 		if(!isEnabled() || !lavaFalseFloor.isChecked())
 			return false;
+			
+		// This is a floor, not a general-purpose lava wall. In particular,
+		// don't turn lava above the player into a ceiling or lava beside the
+		// player into a full collision wall while digging through a tunnel.
+		// Collision shapes are queried for blocks around the player, so use the
+		// player's block Y to limit the fake floor to the layer below them.
+		if(MC.player != null && pos.getY() > MC.player.getBlockY())
+			return false;
 		
 		if(state.getFluidState().is(FluidTags.LAVA))
-			return true;
+			return MC.player == null || pos.getY() < MC.player.getBlockY();
 		if(!state.isAir())
 			return false;
 		

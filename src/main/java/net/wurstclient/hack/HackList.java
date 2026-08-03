@@ -185,6 +185,7 @@ public final class HackList implements UpdateListener
 	public final InvWalkHack invWalkHack = new InvWalkHack();
 	public final InventorySorterHack inventorySorterHack =
 		new InventorySorterHack();
+	public final LootSorterHack lootSorterHack = new LootSorterHack();
 	public final ItemEspHack itemEspHack = new ItemEspHack();
 	public final ItemGeneratorHack itemGeneratorHack = new ItemGeneratorHack();
 	public final net.wurstclient.hacks.itemhandler.ItemHandlerHack itemHandlerHack =

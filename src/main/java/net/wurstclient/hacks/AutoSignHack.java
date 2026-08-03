@@ -50,7 +50,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 {
 	private static final int MAX_LINES = 4;
 	private static final int MAX_CHARS_PER_LINE = 15;
-	private static final int RECENT_EDIT_TICKS = 200;
+	private static final int RECENT_EDIT_TICKS = 20;
 	
 	private String[] signText;
 	private final TextFieldSetting presetText = new TextFieldSetting(
@@ -92,6 +92,11 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	private double pausedTargetDistanceSq = Double.NaN;
 	private final Map<BlockPos, Long> recentlyEditedSigns =
 		new LinkedHashMap<>();
+	private PendingSignUpdate pendingOtherSide;
+	
+	private record PendingSignUpdate(BlockPos pos, boolean frontText,
+		String[] text, long sendAt)
+	{}
 	
 	public AutoSignHack()
 	{
@@ -172,6 +177,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		auraTimer = 0;
 		pausedTarget = null;
 		pausedTargetDistanceSq = Double.NaN;
+		pendingOtherSide = null;
 	}
 	
 	public String[] getSignText()
@@ -384,6 +390,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		flushPendingOtherSide();
 		if(!signAura.isChecked() || MC.player == null || MC.level == null)
 			return;
 		
@@ -589,15 +596,19 @@ public final class AutoSignHack extends Hack implements UpdateListener
 				return true;
 			
 			markRecentlyEdited(pos);
-			if(!frontMatches)
+			// The packet's boolean is the side being written, not the side
+			// that happened to open the editor. The old code swapped these
+			// packets whenever the editor opened on the back.
+			boolean currentSideMatches = frontText ? frontMatches : backMatches;
+			boolean otherSideMatches = frontText ? backMatches : frontMatches;
+			if(!currentSideMatches)
 			{
 				MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
 					frontText, text[0], text[1], text[2], text[3]));
 			}
-			if(!backMatches)
+			if(!otherSideMatches)
 			{
-				MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
-					!frontText, text[0], text[1], text[2], text[3]));
+				queueOtherSide(pos, !frontText, text);
 			}
 			return true;
 		}
@@ -605,9 +616,30 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		markRecentlyEdited(pos);
 		MC.getConnection().send(new ServerboundSignUpdatePacket(pos, frontText,
 			text[0], text[1], text[2], text[3]));
-		MC.getConnection().send(new ServerboundSignUpdatePacket(pos, !frontText,
-			text[0], text[1], text[2], text[3]));
+		queueOtherSide(pos, !frontText, text);
 		return true;
+	}
+	
+	private void queueOtherSide(BlockPos pos, boolean frontText, String[] text)
+	{
+		if(MC.level == null)
+			return;
+		pendingOtherSide = new PendingSignUpdate(pos, frontText, text.clone(),
+			MC.level.getGameTime() + 1);
+	}
+	
+	private void flushPendingOtherSide()
+	{
+		if(pendingOtherSide == null || MC.level == null
+			|| MC.getConnection() == null
+			|| MC.level.getGameTime() < pendingOtherSide.sendAt())
+			return;
+		
+		PendingSignUpdate update = pendingOtherSide;
+		pendingOtherSide = null;
+		String[] text = update.text();
+		MC.getConnection().send(new ServerboundSignUpdatePacket(update.pos(),
+			update.frontText(), text[0], text[1], text[2], text[3]));
 	}
 	
 	private void pruneRecentlyEditedSigns()

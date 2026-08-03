@@ -36,6 +36,8 @@ public final class ChestSearchScreen extends Screen
 	private final Screen prev;
 	private ChestManager chestManager = new ChestManager();
 	private String screenTitle = "Chest Search";
+	private boolean readOnly;
+	private boolean skipRadiusFilter;
 	
 	private EditBox searchField;
 	private java.util.List<ChestEntry> results = new ArrayList<>();
@@ -289,10 +291,23 @@ public final class ChestSearchScreen extends Screen
 		net.wurstclient.chestsearch.ChestManager manager,
 		boolean openedByKeybind)
 	{
+		this(prev, manager, openedByKeybind, null, false, false);
+	}
+	
+	/** Constructs a titled, optional read-only search backed by custom data. */
+	public ChestSearchScreen(Screen prev,
+		net.wurstclient.chestsearch.ChestManager manager,
+		boolean openedByKeybind, String title, boolean readOnly,
+		boolean skipRadiusFilter)
+	{
 		super(Component.literal("Chest Search"));
 		this.prev = prev;
 		this.chestManager = manager == null ? new ChestManager() : manager;
 		this.openedByKeybind = openedByKeybind;
+		this.readOnly = readOnly;
+		this.skipRadiusFilter = skipRadiusFilter;
+		if(title != null && !title.isBlank())
+			this.screenTitle = title;
 		try
 		{
 			if(this.chestManager != null
@@ -573,6 +588,8 @@ public final class ChestSearchScreen extends Screen
 		radiusLimitBlocks = Integer.MAX_VALUE;
 		if(entries == null || entries.isEmpty())
 			return entries;
+		if(skipRadiusFilter)
+			return entries;
 		
 		net.minecraft.client.Minecraft mc = WurstClient.MC;
 		if(mc == null || mc.player == null)
@@ -756,6 +773,8 @@ public final class ChestSearchScreen extends Screen
 						}
 						if(!exists)
 						{
+							if(readOnly)
+								return;
 							try
 							{
 								new ChestManager().removeChest(e.serverIp,
@@ -802,7 +821,7 @@ public final class ChestSearchScreen extends Screen
 			int boxRight = x + getContentWidth();
 			int wpWidth = 56;
 			int espWidth = isLootManager ? 0 : 40;
-			int deleteWidth = 56;
+			int deleteWidth = readOnly ? 0 : 56;
 			// Stack buttons vertically at the right edge (ESP, Waypoint,
 			// Delete)
 			int stackWidth = Math.max(Math.max(wpWidth, espWidth), deleteWidth);
@@ -898,36 +917,44 @@ public final class ChestSearchScreen extends Screen
 			addRenderableWidget(wpBtn);
 			
 			// Delete (X) button to remove the recorded chest entry from disk
-			Button delBtn = Button.builder(Component.literal("Delete"), b -> {
-				try
-				{
-					// Remove by canonical primary coords so entries with
-					// clickedPos != min bounds can still be deleted.
-					new ChestManager().removeChest(e.serverIp, e.dimension, e.x,
-						e.y, e.z);
-				}catch(Throwable ignored)
-				{}
-				this.chestManager = new ChestManager();
-				onSearchChanged(searchField.getValue());
-				minecraft.execute(this::refreshPins);
-			}).bounds(0, btnY, deleteWidth, 16).build();
-			delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
-				btnY + 36);
+			Button delBtn = null;
+			if(!readOnly)
+			{
+				delBtn = Button.builder(Component.literal("Delete"), b -> {
+					try
+					{
+						// Remove by canonical primary coords so entries with
+						// clickedPos != min bounds can still be deleted.
+						new ChestManager().removeChest(e.serverIp, e.dimension,
+							e.x, e.y, e.z);
+					}catch(Throwable ignored)
+					{}
+					this.chestManager = new ChestManager();
+					onSearchChanged(searchField.getValue());
+					minecraft.execute(this::refreshPins);
+				}).bounds(0, btnY, deleteWidth, 16).build();
+				delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
+					btnY + 36);
+			}
 			// hide per-row buttons when their row is outside the visible
 			// scrolling region so they don't overlap header/search UI
 			boolean rowVisible = btnY >= visibleTop && btnY <= visibleBottom;
 			if(!isLootManager && espBtn != null)
 				espBtn.visible = rowVisible;
 			wpBtn.visible = rowVisible;
-			delBtn.visible = rowVisible;
+			if(delBtn != null)
+				delBtn.visible = rowVisible;
 			if(!isLootManager && espBtn != null)
 				espBtn.active = rowVisible;
 			wpBtn.active = rowVisible;
-			delBtn.active = rowVisible;
-			delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
-				.create(Component.literal("Delete entry")));
-			addRenderableWidget(delBtn);
-			rowButtons.add(delBtn);
+			if(delBtn != null)
+			{
+				delBtn.active = rowVisible;
+				delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
+					.create(Component.literal("Delete entry")));
+				addRenderableWidget(delBtn);
+				rowButtons.add(delBtn);
+			}
 			rowButtons.add(wpBtn);
 			
 			y += boxHeight + 6;
