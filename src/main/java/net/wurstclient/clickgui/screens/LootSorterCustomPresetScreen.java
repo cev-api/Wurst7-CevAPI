@@ -7,6 +7,8 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.gui.components.Button;
@@ -14,6 +16,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.hacks.lootsorter.CustomItemFilterPreset;
 import net.wurstclient.hacks.lootsorter.CustomPresetStore;
+import net.wurstclient.util.ChatUtils;
 
 /** Selects a saved custom list without forcing the user through settings. */
 public final class LootSorterCustomPresetScreen extends Screen
@@ -54,7 +57,11 @@ public final class LootSorterCustomPresetScreen extends Screen
 				Button.builder(Component.literal(preset.getName()), button -> {
 					select.accept(preset);
 					minecraft.gui.setScreen(previous);
-				}).bounds(x, 38 + i * 24, 240, 20).build());
+				}).bounds(x, 38 + i * 24, 204, 20).build());
+			addRenderableWidget(Button
+				.builder(Component.literal("X"),
+					button -> delete(preset.getName()))
+				.bounds(x + 210, 38 + i * 24, 30, 20).build());
 		}
 		if(page > 0)
 			addRenderableWidget(
@@ -84,5 +91,24 @@ public final class LootSorterCustomPresetScreen extends Screen
 	{
 		clearWidgets();
 		init();
+	}
+	
+	private void delete(String name)
+	{
+		try
+		{
+			CustomPresetStore store = new CustomPresetStore();
+			List<CustomItemFilterPreset> updated =
+				new ArrayList<>(store.load());
+			updated.removeIf(preset -> preset.getName().equalsIgnoreCase(name));
+			store.save(updated);
+			if(page > 0 && page * Math.max(4,
+				Math.min(12, (height - 92) / 24)) >= updated.size())
+				page--;
+			rebuildPage();
+		}catch(IOException e)
+		{
+			ChatUtils.error("LootSorter: could not delete custom item list.");
+		}
 	}
 }

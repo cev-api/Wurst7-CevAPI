@@ -31,6 +31,7 @@ import net.wurstclient.ai.PathFinder;
 import net.wurstclient.ai.PathProcessor;
 import net.wurstclient.events.KeyPressListener.KeyPressEvent;
 import net.wurstclient.events.RightClickListener.RightClickEvent;
+import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.InteractionSimulator;
 
@@ -299,6 +300,13 @@ public final class LootSorterController
 			stop("safe stop requested");
 			return;
 		}
+		if((state == LootSorterState.NAVIGATING_TO_SOURCE
+			|| state == LootSorterState.NAVIGATING_TO_DESTINATION)
+			&& isManualMovementKey(event.getKeyCode()))
+		{
+			pauseForManualMovement();
+			return;
+		}
 		if(event.getKeyCode() != GLFW.GLFW_KEY_ENTER)
 			return;
 		if(state == LootSorterState.SELECTING_SOURCES)
@@ -324,9 +332,44 @@ public final class LootSorterController
 			}
 			LootSorterState resume = pausedResumeState;
 			pausedResumeState = null;
-			transition(resume);
+			if((resume == LootSorterState.NAVIGATING_TO_SOURCE
+				|| resume == LootSorterState.NAVIGATING_TO_DESTINATION)
+				&& pathGoal != null)
+				startPath(pathGoal, resume);
+			else
+				transition(resume);
 		}else if(state == LootSorterState.PAUSED)
 			startSorting(true);
+	}
+	
+	/**
+	 * Releases the path processor so a movement key always gives control back.
+	 */
+	private void pauseForManualMovement()
+	{
+		PathProcessor.releaseControls();
+		pathFinder = null;
+		processor = null;
+		pausedResumeState = state;
+		transition(LootSorterState.PAUSED);
+		message(
+			"manual movement override: controls released; press Enter to resume.");
+	}
+	
+	private boolean isManualMovementKey(int keyCode)
+	{
+		return keyCode == IKeyMapping.get(mc.options.keyUp).getBoundKey()
+			.getValue()
+			|| keyCode == IKeyMapping.get(mc.options.keyDown).getBoundKey()
+				.getValue()
+			|| keyCode == IKeyMapping.get(mc.options.keyLeft).getBoundKey()
+				.getValue()
+			|| keyCode == IKeyMapping.get(mc.options.keyRight).getBoundKey()
+				.getValue()
+			|| keyCode == IKeyMapping.get(mc.options.keyJump).getBoundKey()
+				.getValue()
+			|| keyCode == IKeyMapping.get(mc.options.keyShift).getBoundKey()
+				.getValue();
 	}
 	
 	/**
@@ -705,10 +748,19 @@ public final class LootSorterController
 	/** A bare Everything filter is the explicit direct-move mode. */
 	private DestinationRule findEverythingDestination()
 	{
-		return destinations.stream().filter(DestinationRule::isConfigured)
-			.filter(rule -> rule.getFilters().size() == 1
-				&& rule.getFilters().get(0) == BuiltInItemFilter.ALL)
-			.findFirst().orElse(null);
+		/*
+		 * A bare Everything destination is a bulk operation only when it is the
+		 * complete layout. In a mixed layout it remains the lowest-priority
+		 * fallback and SortPlanner sends category matches to their specific
+		 * destinations first.
+		 */
+		List<DestinationRule> configured = destinations.stream()
+			.filter(DestinationRule::isConfigured).toList();
+		if(configured.size() != 1)
+			return null;
+		DestinationRule only = configured.getFirst();
+		return only.getFilters().size() == 1
+			&& only.getFilters().get(0) == BuiltInItemFilter.ALL ? only : null;
 	}
 	
 	/**
@@ -1099,7 +1151,7 @@ public final class LootSorterController
 		if(findMovableRouteStack() != null)
 		{
 			activeDestination.setFull(true);
-			warnFullDestination("has no safe slot for the matching item");
+			warnFullDestination("is full");
 		}
 		closingAfterDeposit = true;
 		closeOrPause(LootSorterState.CLOSING_SOURCE);
