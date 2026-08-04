@@ -773,6 +773,12 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		}
 		
 		@Override
+		public void resetToDefault()
+		{
+			presets.clear();
+		}
+		
+		@Override
 		public void fromJson(JsonElement json)
 		{
 			presets.clear();

@@ -137,6 +137,10 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			}
 			
 			@Override
+			public void resetToDefault()
+			{}
+			
+			@Override
 			public void fromJson(com.google.gson.JsonElement json)
 			{
 				// read-only

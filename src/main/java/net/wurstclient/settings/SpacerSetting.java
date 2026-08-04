@@ -58,6 +58,12 @@ public final class SpacerSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		// Spacers do not store state.
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		// no state to load

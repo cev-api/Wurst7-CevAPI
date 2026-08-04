@@ -120,7 +120,8 @@ public final class ItemListSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
-	public void resetToDefaults()
+	@Override
+	public void resetToDefault()
 	{
 		itemNames.clear();
 		itemNames.addAll(Arrays.asList(defaultNames));
@@ -165,7 +166,7 @@ public final class ItemListSetting extends Setting
 		}catch(JsonException e)
 		{
 			e.printStackTrace();
-			resetToDefaults();
+			resetToDefault();
 		}
 	}
 	

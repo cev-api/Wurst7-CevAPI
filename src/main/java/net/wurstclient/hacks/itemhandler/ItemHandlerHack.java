@@ -1910,6 +1910,10 @@ public class ItemHandlerHack extends Hack
 			}
 			
 			@Override
+			public void resetToDefault()
+			{}
+			
+			@Override
 			public void fromJson(JsonElement json)
 			{
 				// no-op
@@ -1954,6 +1958,10 @@ public class ItemHandlerHack extends Hack
 							"Special items", WText.empty()));
 				return new ItemListEditButton(esp.getSpecialListSetting());
 			}
+			
+			@Override
+			public void resetToDefault()
+			{}
 			
 			@Override
 			public void fromJson(JsonElement json)

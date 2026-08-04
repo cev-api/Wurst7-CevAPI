@@ -94,10 +94,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 			}
 			
 			@Override
-			public void resetToDefaults()
+			public void resetToDefault()
 			{
 				boolean changed = size() > 0;
-				super.resetToDefaults();
+				super.resetToDefault();
 				if(changed)
 					onTrackedBlocksChanged();
 			}

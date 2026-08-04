@@ -150,7 +150,7 @@ public final class EditEntityTypeListScreen extends Screen
 			Button.builder(Component.literal("Reset to Defaults"),
 				b -> minecraft.gui.setScreen(new ConfirmScreen(b2 -> {
 					if(b2)
-						typeList.resetToDefaults();
+						typeList.resetToDefault();
 					minecraft.gui.setScreen(EditEntityTypeListScreen.this);
 				}, Component.literal("Reset to Defaults"),
 					Component.literal("Are you sure?"))))

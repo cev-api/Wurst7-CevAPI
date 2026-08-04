@@ -59,7 +59,8 @@ public enum WurstShaderPipelines
 	public static final RenderPipeline QUADS = RenderPipelines
 		.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
 			.withLocation(Identifier.parse("wurst:pipeline/wurst_quads"))
-			.withDepthStencilState(DepthStencilState.DEFAULT).build());
+			.withDepthStencilState(DepthStencilState.DEFAULT).withCull(true)
+			.build());
 	
 	/**
 	 * Similar to the DEBUG_QUADS ShaderPipeline, but with no back-face culling.
@@ -77,7 +78,7 @@ public enum WurstShaderPipelines
 	public static final RenderPipeline ESP_QUADS = RenderPipelines
 		.register(RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
 			.withLocation(Identifier.parse("wurst:pipeline/wurst_esp_quads"))
-			.withDepthStencilState(Optional.empty()).build());
+			.withDepthStencilState(Optional.empty()).withCull(true).build());
 	
 	/**
 	 * Similar to the DEBUG_QUADS ShaderPipeline, but with no depth test.

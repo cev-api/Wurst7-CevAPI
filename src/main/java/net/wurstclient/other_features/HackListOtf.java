@@ -366,6 +366,12 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
+		public void resetToDefault()
+		{
+			// The list is stored separately.
+		}
+		
+		@Override
 		public void fromJson(JsonElement json)
 		{
 			// Stored separately in toomanyhax_hacklist.json.

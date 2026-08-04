@@ -42,6 +42,10 @@ public final class PlayerMuteListSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{}
 	

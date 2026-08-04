@@ -244,6 +244,12 @@ public final class TooManyHaxHack extends Hack
 		}
 		
 		@Override
+		public void resetToDefault()
+		{
+			// UI-only setting.
+		}
+		
+		@Override
 		public void fromJson(JsonElement json)
 		{
 			// UI-only setting, nothing to load

@@ -101,6 +101,12 @@ public final class SettingGroup extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		// Groups do not store state.
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		// groups do not store state
