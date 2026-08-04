@@ -15,6 +15,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -76,6 +77,9 @@ public final class QuickShulkerHack extends Hack
 		new CheckboxSetting("Skip hotbar",
 			"description.wurst.setting.quickshulker.skip_hotbar", false);
 	
+	private final CheckboxSetting fastBreak = new CheckboxSetting("Fast break",
+		"description.wurst.setting.quickshulker.fast_break", true);
+	
 	private final Object workerLock = new Object();
 	private Thread worker;
 	
@@ -90,6 +94,7 @@ public final class QuickShulkerHack extends Hack
 		addSetting(whitelist);
 		addSetting(continueToNextShulker);
 		addSetting(skipHotbar);
+		addSetting(fastBreak);
 	}
 	
 	@Override
@@ -629,6 +634,10 @@ public final class QuickShulkerHack extends Hack
 	
 	private boolean breakPlacedShulker(BlockPos pos) throws InterruptedException
 	{
+		// Try the instant-break approach first if Fast break is enabled.
+		if(fastBreak.isChecked() && breakPlacedShulkerFast(pos))
+			return true;
+		
 		for(int attempt = 0; attempt < 40; attempt++)
 		{
 			if(BlockUtils.getState(pos).isAir())
@@ -652,6 +661,71 @@ public final class QuickShulkerHack extends Hack
 			safeSleep(60);
 		}
 		return BlockUtils.getState(pos).isAir();
+	}
+	
+	private boolean breakPlacedShulkerFast(BlockPos pos)
+		throws InterruptedException
+	{
+		for(int attempt = 0; attempt < 10; attempt++)
+		{
+			if(BlockUtils.getState(pos).isAir())
+				return true;
+			
+			final BlockPos fpos = pos;
+			WurstClient.MC.execute(() -> {
+				try
+				{
+					fastBreakBlock(fpos);
+				}catch(Throwable ignored)
+				{}
+			});
+			
+			safeSleep(40);
+		}
+		return BlockUtils.getState(pos).isAir();
+	}
+	
+	private void fastBreakBlock(BlockPos pos)
+	{
+		if(MC.getConnection() == null || MC.player == null || MC.level == null)
+			return;
+		
+		Direction face = getBreakDirection(pos);
+		
+		// Face the block so the server accepts the break.
+		WurstClient.INSTANCE.getRotationFaker()
+			.faceVectorClient(Vec3.atCenterOf(pos));
+		
+		// Swing the arm for visual feedback.
+		MC.player.swing(InteractionHand.MAIN_HAND);
+		
+		// Instant-break: start then immediately stop destroying the block.
+		// Same technique used by SuperInstaMine / Nuker packet-spam mode.
+		MC.getConnection()
+			.send(new ServerboundPlayerActionPacket(
+				ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, pos,
+				face));
+		MC.getConnection()
+			.send(new ServerboundPlayerActionPacket(
+				ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK, pos,
+				face));
+	}
+	
+	private Direction getBreakDirection(BlockPos pos)
+	{
+		Vec3 delta = Vec3.atCenterOf(pos).subtract(MC.player.getEyePosition());
+		if(delta.lengthSqr() < 1.0E-6)
+			return Direction.UP;
+		
+		double ax = Math.abs(delta.x);
+		double ay = Math.abs(delta.y);
+		double az = Math.abs(delta.z);
+		
+		if(ay >= ax && ay >= az)
+			return delta.y > 0 ? Direction.DOWN : Direction.UP;
+		if(ax >= az)
+			return delta.x > 0 ? Direction.WEST : Direction.EAST;
+		return delta.z > 0 ? Direction.NORTH : Direction.SOUTH;
 	}
 	
 	private boolean placeShulker(BlockPos pos) throws InterruptedException

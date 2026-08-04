@@ -233,18 +233,21 @@ public final class SignEspHack extends Hack implements UpdateListener,
 				continue;
 			group.getEntries().forEach(entry -> {
 				if(nearestTracerOnly.isChecked() && group.getEntries().stream()
-					.anyMatch(other -> other.getBox().getCenter().distanceToSqr(
-						net.wurstclient.util.RotationUtils.getEyesPos()) < entry
-							.getBox().getCenter()
-							.distanceToSqr(net.wurstclient.util.RotationUtils
-								.getEyesPos())))
+					.anyMatch(other -> other.getCenter()
+						.distanceToSqr(net.wurstclient.util.RotationUtils
+							.getEyesPos()) < entry.getCenter().distanceToSqr(
+								net.wurstclient.util.RotationUtils
+									.getEyesPos())))
 					return;
 				int quadsColor = entry.getColorI(0x40);
 				int linesColor = entry.getColorI(0x80);
-				RenderUtils.drawSolidBoxes(matrixStack,
-					java.util.List.of(entry.getBox()), quadsColor, false);
-				RenderUtils.drawOutlinedBoxes(matrixStack,
-					java.util.List.of(entry.getBox()), linesColor, false);
+				// Draw every component of the sign's shape (post + board for
+				// standing signs, thin rectangle for wall signs) so the
+				// highlight matches the sign instead of one big box.
+				RenderUtils.drawSolidBoxes(matrixStack, entry.getBoxes(),
+					quadsColor, false);
+				RenderUtils.drawOutlinedBoxes(matrixStack, entry.getBoxes(),
+					linesColor, false);
 			});
 		}
 		// frames
@@ -253,9 +256,10 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			if(!group.isEnabled())
 				continue;
 			List<AABB> boxes = group.getBoxes();
-			int quadsColor = group.getColorI(0x40);
+			// Outline only (no fill) so the item displayed inside the frame
+			// stays uncolored, but keep depth testing off so the frame
+			// outlines remain visible through walls like the rest of SignESP.
 			int linesColor = group.getColorI(0x80);
-			RenderUtils.drawSolidBoxes(matrixStack, boxes, quadsColor, false);
 			RenderUtils.drawOutlinedBoxes(matrixStack, boxes, linesColor,
 				false);
 		}
@@ -272,8 +276,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 				if(tracerFlash.isChecked())
 					color = RenderUtils.flashColor(color);
 				RenderUtils.drawTracers("SignESP", matrixStack, partialTicks,
-					java.util.List.of(entry.getBox().getCenter()), color,
-					false);
+					java.util.List.of(entry.getCenter()), color, false);
 			});
 		}
 		// frames
@@ -370,11 +373,25 @@ public final class SignEspHack extends Hack implements UpdateListener,
 				return;
 			if(!BlockUtils.canBeClicked(pos))
 				return;
-			AABB box = BlockUtils.getBoundingBox(pos);
-			if(box.getSize() == 0)
+			List<AABB> boxes = getSignShapeBoxes(pos);
+			if(boxes.isEmpty())
 				return;
 			entries.add(
-				new SignEspEntry(pos, box, color.getColorI(0xFF) & 0xFFFFFF));
+				new SignEspEntry(pos, boxes, color.getColorI(0xFF) & 0xFFFFFF));
+		}
+		
+		/**
+		 * Returns the component boxes of the sign's actual shape (e.g. post and
+		 * board of a standing sign) moved to world coordinates, or a full-block
+		 * box as a fallback.
+		 */
+		private List<AABB> getSignShapeBoxes(BlockPos pos)
+		{
+			var shape = BlockUtils.getState(pos)
+				.getShape(net.wurstclient.WurstClient.MC.level, pos);
+			if(shape.isEmpty())
+				return List.of(new AABB(pos));
+			return shape.toAabbs().stream().map(b -> b.move(pos)).toList();
 		}
 		
 		public void clear()
@@ -399,7 +416,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		
 		public List<AABB> getBoxes()
 		{
-			return entries.stream().map(SignEspEntry::getBox).toList();
+			return entries.stream().flatMap(e -> e.getBoxes().stream())
+				.toList();
 		}
 		
 		public List<SignEspEntry> getEntries()
@@ -412,19 +430,38 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	{
 		private static final int RECENT_COLOR = 0x00FF00;
 		private final BlockPos pos;
-		private final AABB box;
+		private final List<AABB> boxes;
 		private final int baseColor;
 		
-		private SignEspEntry(BlockPos pos, AABB box, int baseColor)
+		private SignEspEntry(BlockPos pos, List<AABB> boxes, int baseColor)
 		{
 			this.pos = pos;
-			this.box = box;
+			this.boxes = boxes;
 			this.baseColor = baseColor;
 		}
 		
-		public AABB getBox()
+		public List<AABB> getBoxes()
 		{
-			return box;
+			return boxes;
+		}
+		
+		/** Center of the union of all shape boxes (used for tracers). */
+		public Vec3 getCenter()
+		{
+			AABB first = boxes.get(0);
+			double minX = first.minX, minY = first.minY, minZ = first.minZ;
+			double maxX = first.maxX, maxY = first.maxY, maxZ = first.maxZ;
+			for(AABB b : boxes)
+			{
+				minX = Math.min(minX, b.minX);
+				minY = Math.min(minY, b.minY);
+				minZ = Math.min(minZ, b.minZ);
+				maxX = Math.max(maxX, b.maxX);
+				maxY = Math.max(maxY, b.maxY);
+				maxZ = Math.max(maxZ, b.maxZ);
+			}
+			return new Vec3((minX + maxX) / 2, (minY + maxY) / 2,
+				(minZ + maxZ) / 2);
 		}
 		
 		public int getColorI(int alpha)
