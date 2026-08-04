@@ -72,6 +72,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		hasLastPlayerY = false;
+		hasLastSentPositionY = false;
 		WURST.getHax().antiHungerHack.setEnabled(false);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -80,6 +81,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		hasLastPlayerY = false;
+		hasLastSentPositionY = false;
 		EVENTS.remove(UpdateListener.class, this);
 	}
 	
@@ -95,12 +97,9 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastPlayerY = player.getY();
 		hasLastPlayerY = true;
 		
-		if(isPaused(actuallyDescending) || isFlightPacketProtectionActive())
-			return;
-		
-		// send packet to stop fall damage
-		player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true,
-			player.horizontalCollision));
+		// Fall protection is applied to the next real movement packet below.
+		// Sending a separate StatusOnly(true) packet races that movement packet
+		// on high-latency servers and can make the server end the fall early.
 	}
 	
 	/**
@@ -121,17 +120,20 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastSentPositionY = y;
 		hasLastSentPositionY = true;
 		
-		if(!isEnabled() || !descending || !isFlightPacketProtectionActive()
-			|| !isSafeToSpoofFlightMovement())
+		if(!isEnabled() || !descending || !isSafeToSpoofFlightMovement())
+			return packet;
+		
+		if(isPaused(descending))
 			return packet;
 		
 		return PacketUtils.modifyOnGround(packet, true);
 	}
 	
-	private boolean isFlightPacketProtectionActive()
+	/** Clears the packet baseline when another movement hack changes modes. */
+	public void resetMovementTracking()
 	{
-		return WURST.getHax().flightHack.isEnabled()
-			|| PathFlightRuntime.isPathFlightActive();
+		hasLastSentPositionY = false;
+		hasLastPlayerY = false;
 	}
 	
 	private boolean isSafeToSpoofFlightMovement()

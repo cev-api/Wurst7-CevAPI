@@ -173,6 +173,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onEnable()
 	{
+		WURST.getHax().noFallHack.resetMovementTracking();
 		tickCounter = 0;
 		escapeDropActive = false;
 		triggered = false;
@@ -199,6 +200,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().noFallHack.resetMovementTracking();
 		restoreNoSlowdownVineIgnore();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(IsPlayerInWaterListener.class, this);

@@ -7,8 +7,10 @@
  */
 package net.wurstclient.hacks;
 
-import java.util.Objects;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
@@ -38,11 +40,6 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		new CheckboxSetting("Auto switch tool",
 			"Switches to the best hotbar tool for the bed before breaking it.",
 			true);
-	private final CheckboxSetting keepHandNoClipEnabled = new CheckboxSetting(
-		"Keep HandNoClip enabled",
-		"When enabled, BedBreakAura will re-enable HandNoClip if you disable it.\n"
-			+ "Disable this if you want HandNoClip fully manual.",
-		true);
 	private final CheckboxSetting switchBack = new CheckboxSetting(
 		"Switch back",
 		"Returns to your previous hotbar slot after the bed is broken.", true);
@@ -55,11 +52,9 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	
 	private BlockPos currentTarget;
 	private BlockPos pausedTarget;
+	private Set<BlockPos> occludingBlocks = Collections.emptySet();
 	private double pausedDistanceSq = Double.NaN;
 	private int restoreSlot = -1;
-	private boolean prevReachEnabled;
-	private boolean prevHandNoClipEnabled;
-	private int handNoClipWarningCooldown;
 	
 	public BedBreakAuraHack()
 	{
@@ -67,7 +62,6 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		setCategory(Category.BLOCKS);
 		addSetting(range);
 		addSetting(autoSwitchTool);
-		addSetting(keepHandNoClipEnabled);
 		addSetting(switchBack);
 	}
 	
@@ -82,22 +76,12 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		WURST.getHax().tunnellerHack.setEnabled(false);
 		WURST.getHax().veinMinerHack.setEnabled(false);
 		
-		prevReachEnabled = WURST.getHax().reachHack.isEnabled();
-		if(!prevReachEnabled)
-			WURST.getHax().reachHack.setEnabled(true);
-		WURST.getHax().reachHack.setRangeOverride(range.getValue());
-		
-		prevHandNoClipEnabled = WURST.getHax().handNoClipHack.isEnabled();
-		if(keepHandNoClipEnabled.isChecked() && !prevHandNoClipEnabled)
-			WURST.getHax().handNoClipHack.setEnabled(true);
-		
-		handNoClipWarningCooldown = 0;
-		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		coordinator.reset();
 		currentTarget = null;
 		pausedTarget = null;
+		occludingBlocks = Collections.emptySet();
 		pausedDistanceSq = Double.NaN;
 		restoreSlot = -1;
 	}
@@ -108,13 +92,9 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(PacketInputListener.class, coordinator);
 		stopBreaking();
-		WURST.getHax().reachHack.setRangeOverride(null);
-		if(!prevReachEnabled)
-			WURST.getHax().reachHack.setEnabled(false);
-		if(keepHandNoClipEnabled.isChecked() && !prevHandNoClipEnabled)
-			WURST.getHax().handNoClipHack.setEnabled(false);
 		coordinator.reset();
 		pausedTarget = null;
+		occludingBlocks = Collections.emptySet();
 		pausedDistanceSq = Double.NaN;
 	}
 	
@@ -132,24 +112,6 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 			stopBreaking();
 			return;
 		}
-		
-		if(!WURST.getHax().reachHack.isEnabled())
-			WURST.getHax().reachHack.setEnabled(true);
-		WURST.getHax().reachHack.setRangeOverride(range.getValue());
-		if(keepHandNoClipEnabled.isChecked()
-			&& !WURST.getHax().handNoClipHack.isEnabled())
-		{
-			WURST.getHax().handNoClipHack.setEnabled(true);
-			if(handNoClipWarningCooldown <= 0)
-			{
-				net.wurstclient.util.ChatUtils.warning(
-					"HandNoClip was re-enabled by BedBreakAura. Disable \"Keep HandNoClip enabled\" in BedBreakAura settings if you want to turn HandNoClip off.");
-				handNoClipWarningCooldown = 40;
-			}
-		}
-		
-		if(handNoClipWarningCooldown > 0)
-			handNoClipWarningCooldown--;
 		
 		coordinator.update();
 		BlockBreakingParams target = findTarget();
@@ -172,7 +134,10 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		}
 		
 		if(currentTarget == null || !currentTarget.equals(target.pos()))
+		{
 			currentTarget = target.pos();
+			occludingBlocks = findOccludingBlocks(currentTarget);
+		}
 		
 		ensureBestTool(target.pos());
 		BlockBreaker
@@ -181,6 +146,43 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		
 		pausedTarget = target.pos();
 		pausedDistanceSq = target.distanceSq();
+	}
+	
+	/**
+	 * Used by the interaction and collision hooks without enabling other hacks.
+	 */
+	public double getInteractionRange()
+	{
+		return range.getValue();
+	}
+	
+	public boolean shouldClearBlock(BlockPos pos)
+	{
+		return isEnabled() && occludingBlocks.contains(pos);
+	}
+	
+	private Set<BlockPos> findOccludingBlocks(BlockPos target)
+	{
+		if(target == null || MC.player == null)
+			return Collections.emptySet();
+		
+		Vec3 eyes = RotationUtils.getEyesPos();
+		Vec3 end = Vec3.atCenterOf(target);
+		Vec3 delta = end.subtract(eyes);
+		double length = delta.length();
+		if(length <= 0)
+			return Collections.emptySet();
+		
+		Set<BlockPos> result = new HashSet<>();
+		for(double distance = 0; distance < length; distance += 0.1)
+		{
+			BlockPos pos =
+				BlockPos.containing(eyes.add(delta.scale(distance / length)));
+			if(!pos.equals(target) && !MC.level.isEmptyBlock(pos))
+				result.add(pos);
+		}
+		return result.isEmpty() ? Collections.emptySet()
+			: Collections.unmodifiableSet(result);
 	}
 	
 	private BlockBreakingParams findTarget()
@@ -213,6 +215,7 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	{
 		MC.gameMode.stopDestroyBlock();
 		currentTarget = null;
+		occludingBlocks = Collections.emptySet();
 		
 		if(!switchBack.isChecked() || restoreSlot == -1 || MC.player == null)
 			return;
