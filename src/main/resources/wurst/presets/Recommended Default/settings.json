@@ -1166,7 +1166,7 @@
     "Switch back": true
   },
   "BedESP": {
-    "Style": "Lines and boxes",
+    "Style": "Boxes only",
     "Bed color": "#FF0099",
     "HackList count": true,
     "Area": "65x65 chunks",
@@ -1382,7 +1382,7 @@
     "Swing threshold (per second)": 6.0
   },
   "ChestESP": {
-    "Style": "Lines and boxes",
+    "Style": "Boxes only",
     "Sticky area": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
@@ -2400,7 +2400,7 @@
     "Text color": "#FF5555"
   },
   "Mapa": {
-    "No map": true,
+    "No map": false,
     "Enable ESP icons": true,
     "Minimap icon size": 10.0,
     "World map icon size": 12.0,
@@ -2958,7 +2958,7 @@
     "Disable highlighting for waypoint portals": false
   },
   "PotESP": {
-    "Style": "Lines and boxes",
+    "Style": "Boxes only",
     "Color": "#E74C3C",
     "Tracer flash": true,
     "Chat alerts": true,
@@ -3050,7 +3050,7 @@
     "Range": 10.0
   },
   "RedstoneESP": {
-    "Style": "Lines and boxes",
+    "Style": "Boxes only",
     "HackList count": true,
     "Active mode": "ON",
     "Above ground only": false,
@@ -3969,7 +3969,7 @@
     "Jump delay": 10.0
   },
   "WorkstationESP": {
-    "Style": "Lines and boxes",
+    "Style": "Boxes only",
     "HackList count": true,
     "Above ground only": false,
     "Set ESP Y limit": 62.0,
