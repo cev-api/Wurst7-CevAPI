@@ -453,7 +453,14 @@ public final class MaceDmgHack extends Hack
 	
 	private Packet<?> withFallDebtGuard(Packet<?> packet)
 	{
-		if(!hasFallDebt())
+		// The fake-height sequence must stay airborne until the server has
+		// processed the mace hit. After the hit is confirmed, the server has
+		// reset the mace fall distance and NoFall must be allowed to protect
+		// the next real movement packet. Keeping this guard active during
+		// CONFIRMED_SAFE/RECOVERING used to override NoFall and caused the
+		// attacker to receive fall damage from their own MaceDMG sequence.
+		if(!hasFallDebt() || smashState == SmashState.CONFIRMED_SAFE
+			|| smashState == SmashState.RECOVERING)
 			return packet;
 		if(!(packet instanceof ServerboundMovePlayerPacket move)
 			|| !move.isOnGround())
@@ -508,6 +515,9 @@ public final class MaceDmgHack extends Hack
 	
 	private void confirmCurrentSmash(boolean spawnSparkles)
 	{
+		smashState = SmashState.CONFIRMED_SAFE;
+		WURST.getHax().noFallHack.confirmMaceSmashLanding();
+		
 		if(spawnSparkles && smashSparkles.isChecked() && MC.level != null
 			&& pendingTargetId != -1)
 		{
@@ -518,7 +528,6 @@ public final class MaceDmgHack extends Hack
 				spawnSmashPartyEffects(targetId);
 		}
 		
-		smashState = SmashState.CONFIRMED_SAFE;
 		confirmTicks = 0;
 		recoveryTicks = SAFE_RECOVERY_TICKS;
 	}
