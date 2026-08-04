@@ -127,6 +127,22 @@ public final class NoFallHack extends Hack implements UpdateListener
 			|| PathFlightRuntime.isPathFlightActive();
 	}
 	
+	/**
+	 * Ends the fake fall after MaceDMG has received the server's smash
+	 * confirmation. This packet is sent after the attack has been processed,
+	 * so it cannot be mistaken for the pre-smash spoof.
+	 */
+	public void confirmMaceSmashLanding()
+	{
+		LocalPlayer player = MC.player;
+		if(!isEnabled() || player == null || player.connection == null)
+			return;
+		
+		resetMovementTracking();
+		player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true,
+			player.horizontalCollision));
+	}
+	
 	private boolean isSafeToSpoofFlightMovement()
 	{
 		LocalPlayer player = MC.player;
