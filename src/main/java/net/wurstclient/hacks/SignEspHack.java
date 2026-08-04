@@ -20,6 +20,7 @@ import net.minecraft.world.entity.decoration.GlowItemFrame;
 import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -216,6 +217,15 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onRender(PoseStack matrixStack, float partialTicks)
 	{
+		// Render on top of ChestESP: while ChestESP is active, re-register this
+		// RenderListener last so the SignESP sign/frame highlights draw over
+		// the chest highlight boxes instead of underneath them.
+		if(WURST.getHax().chestEspHack.isEnabled())
+		{
+			EVENTS.remove(RenderListener.class, this);
+			EVENTS.add(RenderListener.class, this);
+		}
+		
 		// Update entity-group boxes each frame for smooth rendering
 		entityGroups.stream().filter(FrameEspEntityGroup::isEnabled)
 			.forEach(g -> g.updateBoxes(partialTicks));
@@ -374,7 +384,61 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			if(box.getSize() == 0)
 				return;
 			entries.add(
-				new SignEspEntry(pos, box, color.getColorI(0xFF) & 0xFFFFFF));
+				new SignEspEntry(pos, boxes, color.getColorI(0xFF) & 0xFFFFFF));
+		}
+		
+		/**
+		 * Returns the component boxes of the sign's actual shape (e.g. post and
+		 * board of a standing sign) moved to world coordinates, or a full-block
+		 * box as a fallback.
+		 */
+		private List<AABB> getSignShapeBoxes(BlockPos pos)
+		{
+			BlockState state = BlockUtils.getState(pos);
+			
+			// Standing signs use a full-block collision shape in this MC
+			// version, so build the shape from the actual sign model instead
+			// (a thin post plus a flat board that rotates with the sign).
+			if(state.getBlock() instanceof StandingSignBlock sign)
+				return standingSignBoxes(pos, state, sign);
+				
+			// Wall signs (and anything else) use their collision shape, which
+			// for wall signs is already a thin board.
+			var shape =
+				state.getShape(net.wurstclient.WurstClient.MC.level, pos);
+			if(shape.isEmpty())
+				return List.of(new AABB(pos));
+			return shape.toAabbs().stream().map(b -> b.move(pos)).toList();
+		}
+		
+		/**
+		 * Builds the boxes for a standing sign from its model geometry: a thin
+		 * post at the bottom and a flat board that rotates around the block's
+		 * vertical center axis with the sign's yaw.
+		 */
+		private List<AABB> standingSignBoxes(BlockPos pos, BlockState state,
+			StandingSignBlock sign)
+		{
+			double x = pos.getX();
+			double y = pos.getY();
+			double z = pos.getZ();
+			
+			// Post: thin, centered, bottom of the block.
+			AABB post = new AABB(x + 7.33333 / 16.0, y, z + 7.33333 / 16.0,
+				x + 8.66667 / 16.0, y + 9.33333 / 16.0, z + 8.66667 / 16.0);
+			
+			// Board: flat, spans the block, rotates around the vertical center
+			// axis with the sign's yaw.
+			double rad = Math.toRadians(sign.getYRotationDegrees(state));
+			double halfX = 0.5 * Math.abs(Math.cos(rad))
+				+ 0.0416667 * Math.abs(Math.sin(rad));
+			double halfZ = 0.5 * Math.abs(Math.sin(rad))
+				+ 0.0416667 * Math.abs(Math.cos(rad));
+			AABB board =
+				new AABB(x + 0.5 - halfX, y + 9.33333 / 16.0, z + 0.5 - halfZ,
+					x + 0.5 + halfX, y + 17.33333 / 16.0, z + 0.5 + halfZ);
+			
+			return List.of(post, board);
 		}
 		
 		public void clear()
