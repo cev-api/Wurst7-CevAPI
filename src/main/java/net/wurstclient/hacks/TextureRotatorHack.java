@@ -18,6 +18,8 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.other_feature.OtfList;
+import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.TextFieldSetting;
 
@@ -81,6 +83,21 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 			}
 		});
 	
+	private final CheckboxSetting hideFromHackList = new CheckboxSetting(
+		"Hide from HackList",
+		"Hides TextureRotator from the HackList HUD while the hack is active.\n"
+			+ "The hack can still be toggled via the ClickGUI, keybinds or "
+			+ "commands, it just won't be shown on the HUD.",
+		false)
+	{
+		@Override
+		public void update()
+		{
+			super.update();
+			syncHiddenState();
+		}
+	};
+	
 	private final SecureRandom secureRandom = new SecureRandom();
 	
 	/** The active global seed that all block rotations are derived from. */
@@ -100,6 +117,7 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		setCategory(Category.INTEL);
 		addSetting(mode);
 		addSetting(customSeed);
+		addSetting(hideFromHackList);
 	}
 	
 	@Override
@@ -190,6 +208,19 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 	public BlockPos getRandomizedOffsetPos(BlockPos pos)
 	{
 		return pos.offset(offsetX, 0, offsetZ);
+	}
+	
+	private void syncHiddenState()
+	{
+		try
+		{
+			OtfList otfs = WURST.getOtfs();
+			if(otfs == null || otfs.hackListOtf == null)
+				return;
+			
+			otfs.hackListOtf.setHidden(this, hideFromHackList.isChecked());
+		}catch(Throwable ignored)
+		{}
 	}
 	
 	private static long parseSeed(String s)
