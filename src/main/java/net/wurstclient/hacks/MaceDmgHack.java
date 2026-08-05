@@ -67,6 +67,7 @@ public final class MaceDmgHack extends Hack
 	private static final int SAFE_RECOVERY_TICKS = 2;
 	private static final int UNSAFE_RECOVERY_TICKS = 6;
 	private static final int TOTEM_BYPASS_GRACE_TICKS = 40;
+	private static final int REJECTED_TARGET_COOLDOWN_TICKS = 20;
 	private static final double FABRIC_MAX_HEIGHT = 22.3;
 	private static final double PAPER_MAX_HEIGHT = 50.0;
 	
@@ -195,6 +196,8 @@ public final class MaceDmgHack extends Hack
 	private boolean autoOptimizeWasChecked;
 	private final Map<UUID, TotemBypassState> totemBypassSteps =
 		new HashMap<>();
+	private final Map<Integer, Integer> rejectedTargetCooldowns =
+		new HashMap<>();
 	private final ArrayDeque<Integer> queuedTargetIds = new ArrayDeque<>();
 	private final RandomSource random = RandomSource.create();
 	private volatile int queuedPrepTargetId = -1;
@@ -262,6 +265,7 @@ public final class MaceDmgHack extends Hack
 		autoOptimizeWasChecked = false;
 		EVENTS.remove(PlayerAttacksEntityListener.class, this);
 		totemBypassSteps.clear();
+		rejectedTargetCooldowns.clear();
 		clearQueuedTargets();
 		restoreQueuedSlot();
 		if(!hasFallDebt())
@@ -297,8 +301,11 @@ public final class MaceDmgHack extends Hack
 	{
 		if(queuedAttackInProgress)
 			return;
+		if(isMaceRetryBlocked(target))
+			return;
 		
-		WURST.getHax().attributeSwapHack.prepareForAttack(target);
+		if(!ensureMaceInMainHand(target))
+			return;
 		if(!beginSmashAttempt(target))
 			return;
 		
@@ -325,6 +332,28 @@ public final class MaceDmgHack extends Hack
 		debtPlayer = MC.player;
 		pendingTargetId = target.getId();
 		smashState = SmashState.SPOOF_SENT;
+		return true;
+	}
+	
+	/**
+	 * Ensure AttributeSwap's selected mace is sent to the server before the
+	 * attack packet. This prevents AutoSword/AttributeSwap slot races in aura
+	 * attacks.
+	 */
+	private boolean ensureMaceInMainHand(Entity target)
+	{
+		if(MC.player == null || MC.player.connection == null)
+			return false;
+		
+		WURST.getHax().attributeSwapHack.prepareForAttack(target);
+		int slot = MC.player.getInventory().getSelectedSlot();
+		if(!MC.player.getInventory().getItem(slot).is(Items.MACE))
+			slot = findMaceSlot();
+		if(slot < 0)
+			return false;
+		
+		MC.player.getInventory().setSelectedSlot(slot);
+		MC.player.connection.send(new ServerboundSetCarriedItemPacket(slot));
 		return true;
 	}
 	
@@ -356,7 +385,7 @@ public final class MaceDmgHack extends Hack
 		ArrayList<Integer> validIds = new ArrayList<>();
 		for(Entity target : targets)
 		{
-			if(canAttemptSmash(target))
+			if(canAttemptSmash(target) && !isMaceRetryBlocked(target))
 				validIds.add(target.getId());
 		}
 		
@@ -425,6 +454,9 @@ public final class MaceDmgHack extends Hack
 	
 	private Packet<?> withFallDebtGuard(Packet<?> packet)
 	{
+		if(packet instanceof ServerboundMovePlayerPacket.StatusOnly)
+			return packet;
+			
 		// The fake-height sequence must stay airborne until the server has
 		// processed the mace hit. After the hit is confirmed, the server has
 		// reset the mace fall distance and NoFall must be allowed to protect
@@ -487,6 +519,10 @@ public final class MaceDmgHack extends Hack
 	
 	private void confirmCurrentSmash(boolean spawnSparkles)
 	{
+		if(!spawnSparkles && pendingTargetId != -1)
+			rejectedTargetCooldowns.put(pendingTargetId,
+				REJECTED_TARGET_COOLDOWN_TICKS);
+		
 		smashState = SmashState.CONFIRMED_SAFE;
 		WURST.getHax().noFallHack.confirmMaceSmashLanding();
 		
@@ -511,11 +547,14 @@ public final class MaceDmgHack extends Hack
 			&& --confirmTicks <= 0)
 		{
 			smashState = SmashState.FAILED_UNSAFE;
-			recoveryTicks = UNSAFE_RECOVERY_TICKS;
+			recoveryTicks = 1;
+			clearFailedSmashFallState();
 		}
 		
 		if(recentTotemPopTicks > 0 && --recentTotemPopTicks <= 0)
 			recentTotemPopEntityId = -1;
+		rejectedTargetCooldowns.entrySet()
+			.removeIf(entry -> entry.setValue(entry.getValue() - 1) <= 0);
 		
 		if(smashState == SmashState.CONFIRMED_SAFE)
 			smashState = SmashState.RECOVERING;
@@ -526,6 +565,21 @@ public final class MaceDmgHack extends Hack
 		
 		processQueuedTargets();
 		pruneTotemBypassSteps();
+	}
+	
+	private void clearFailedSmashFallState()
+	{
+		if(MC.player == null || MC.player.connection == null)
+			return;
+		
+		MC.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(
+			true, MC.player.horizontalCollision));
+	}
+	
+	private boolean isMaceRetryBlocked(Entity target)
+	{
+		return target != null
+			&& rejectedTargetCooldowns.containsKey(target.getId());
 	}
 	
 	private void clearFallDebt()
