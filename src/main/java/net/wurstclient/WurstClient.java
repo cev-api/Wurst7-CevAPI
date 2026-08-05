@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.wurstclient.addons.AddonManager;
+import net.wurstclient.altbot.AccountSwitchController;
+import net.wurstclient.altbot.AltBotManager;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
 import net.wurstclient.clickgui.ClickGui;
@@ -69,6 +71,8 @@ public enum WurstClient
 	private EventManager eventManager;
 	private AltManager altManager;
 	private ProxyManager proxyManager;
+	private AltBotManager altBotManager;
+	private AccountSwitchController altSwitchController;
 	private HackList hax;
 	private CmdList cmds;
 	private OtfList otfs;
@@ -209,6 +213,9 @@ public enum WurstClient
 		altManager = new AltManager(altsFile, encFolder);
 		Path proxiesFile = wurstFolder.resolve("proxies.encrypted_json");
 		proxyManager = new ProxyManager(proxiesFile, encFolder);
+		
+		altBotManager = new AltBotManager();
+		altSwitchController = new AccountSwitchController(altBotManager);
 		
 		NiceWurstModule.apply(this);
 	}
@@ -480,6 +487,16 @@ public enum WurstClient
 	public AltManager getAltManager()
 	{
 		return altManager;
+	}
+	
+	public AltBotManager getAltBotManager()
+	{
+		return altBotManager;
+	}
+	
+	public AccountSwitchController getAltSwitchController()
+	{
+		return altSwitchController;
 	}
 	
 	public ProxyManager getProxyManager()

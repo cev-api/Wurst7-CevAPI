@@ -63,6 +63,9 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
 import net.minecraft.util.Util;
 import net.wurstclient.WurstClient;
+import net.wurstclient.altbot.AltBotManager;
+import net.wurstclient.altbot.AltBotState;
+import net.wurstclient.altbot.BotState;
 import net.wurstclient.altmanager.*;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMinecraftClient;
@@ -99,6 +102,13 @@ public final class AltManagerScreen extends Screen
 	private Button disconnectRandomReconnectToggleButton;
 	private Button checkButton;
 	private Button logoutButton;
+	
+	private Button botConnectButton;
+	private Button botDisconnectButton;
+	private Button botSwitchButton;
+	private Button botSendChatButton;
+	private Button botDetailsButton;
+	private int botButtonRefreshTicks;
 	
 	private List<Alt> pendingDeletion = Collections.emptyList();
 	private Alt pendingLogin;
@@ -225,6 +235,28 @@ public final class AltManagerScreen extends Screen
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
 		
+		// ---- AltBot controls ----
+		addRenderableWidget(botConnectButton = Button
+			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
+			.bounds(width / 2 - 154, height - 100, 154, 20).build());
+		
+		addRenderableWidget(botDisconnectButton = Button
+			.builder(Component.literal("Disconnect Bot"),
+				b -> pressBotDisconnect())
+			.bounds(width / 2, height - 100, 154, 20).build());
+		
+		addRenderableWidget(botSwitchButton = Button
+			.builder(Component.literal("Switch To"), b -> pressBotSwitch())
+			.bounds(width / 2 - 154, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botSendChatButton = Button
+			.builder(Component.literal("Send Chat"), b -> pressBotSendChat())
+			.bounds(width / 2 - 50, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botDetailsButton = Button
+			.builder(Component.literal("Bot Details"), b -> pressBotDetails())
+			.bounds(width / 2 + 54, height - 76, 100, 20).build());
+		
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
 		importButton.active = windowMode;
@@ -254,6 +286,7 @@ public final class AltManagerScreen extends Screen
 				exportButton.active = false;
 			if(disconnectRandomReconnectToggleButton != null)
 				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -273,6 +306,7 @@ public final class AltManagerScreen extends Screen
 				exportButton.active = false;
 			if(disconnectRandomReconnectToggleButton != null)
 				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -303,6 +337,66 @@ public final class AltManagerScreen extends Screen
 		
 		if(disconnectRandomReconnectToggleButton != null)
 			disconnectRandomReconnectToggleButton.active = true;
+		
+		updateBotButtons();
+	}
+	
+	private void setBotButtonsInactive()
+	{
+		if(botConnectButton != null)
+			botConnectButton.active = false;
+		if(botDisconnectButton != null)
+			botDisconnectButton.active = false;
+		if(botSwitchButton != null)
+			botSwitchButton.active = false;
+		if(botSendChatButton != null)
+			botSendChatButton.active = false;
+		if(botDetailsButton != null)
+			botDetailsButton.active = false;
+	}
+	
+	private void updateBotButtons()
+	{
+		if(botConnectButton == null || botDisconnectButton == null
+			|| botSwitchButton == null || botSendChatButton == null
+			|| botDetailsButton == null)
+			return;
+		
+		Alt alt = listGui != null ? listGui.getSelectedAlt() : null;
+		boolean hasToken = alt instanceof TokenAlt;
+		TokenAlt token = hasToken ? (TokenAlt)alt : null;
+		
+		AltBotManager botManager = WurstClient.INSTANCE.getAltBotManager();
+		boolean switchBusy =
+			WurstClient.INSTANCE.getAltSwitchController().isBusy();
+		boolean onServer = net.wurstclient.altbot.AltBotUtils.isOnServer();
+		boolean botStateFailed = hasToken && token != null
+			&& botManager.getState(token).getState() == BotState.FAILED;
+		
+		botConnectButton.active = hasToken && token != null && onServer
+			&& !botManager.isActiveClientAlt(token)
+			&& !botManager.isBotConnected(token) && !switchBusy;
+		
+		botDisconnectButton.active = hasToken && token != null
+			&& (botManager.isBotConnected(token) || botStateFailed);
+		
+		botSwitchButton.active = hasToken && token != null
+			&& !botManager.isActiveClientAlt(token) && !switchBusy;
+		
+		botSendChatButton.active =
+			hasToken && token != null && botManager.isBotReady(token);
+		
+		botDetailsButton.active = hasToken;
+	}
+	
+	@Override
+	public void tick()
+	{
+		if(--botButtonRefreshTicks <= 0)
+		{
+			botButtonRefreshTicks = 10;
+			updateAltButtons();
+		}
 	}
 	
 	private void pressToggleDisconnectRandomReconnect()
@@ -369,6 +463,24 @@ public final class AltManagerScreen extends Screen
 			return;
 		}
 		
+		// If this account is connected as a bot, disconnect it first so we
+		// don't end up with a duplicate session on the server.
+		if(alt instanceof TokenAlt tokenAlt
+			&& WurstClient.INSTANCE.getAltBotManager().isBotConnected(tokenAlt))
+		{
+			minecraft.gui.setScreen(this);
+			net.wurstclient.util.ChatUtils.message("Disconnecting bot \""
+				+ tokenAlt.getDisplayName() + "\" before logging in...");
+			WurstClient.INSTANCE.getAltBotManager().disconnectBot(tokenAlt,
+				() -> doLogin(alt));
+			return;
+		}
+		
+		doLogin(alt);
+	}
+	
+	private void doLogin(Alt alt)
+	{
 		try
 		{
 			altManager.login(alt);
@@ -484,6 +596,52 @@ public final class AltManagerScreen extends Screen
 		updateAltButtons();
 		minecraft.gui
 			.setScreen(new AltLogoutResultScreen(this, restored, currentName));
+	}
+	
+	private void pressBotConnect()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		WurstClient.INSTANCE.getAltBotManager()
+			.connectBotToCurrentServer(tokenAlt);
+	}
+	
+	private void pressBotDisconnect()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		WurstClient.INSTANCE.getAltBotManager().disconnectBot(tokenAlt);
+	}
+	
+	private void pressBotSwitch()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		WurstClient.INSTANCE.getAltSwitchController().startSwitch(tokenAlt);
+	}
+	
+	private void pressBotSendChat()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		minecraft.gui.setScreen(new AltBotSendChatScreen(this, tokenAlt));
+	}
+	
+	private void pressBotDetails()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		minecraft.gui.setScreen(new AltBotDetailsScreen(this, tokenAlt));
 	}
 	
 	private void pressCheckAlts()
@@ -1656,6 +1814,7 @@ public final class AltManagerScreen extends Screen
 		if(confirmed)
 			pendingDeletion.forEach(alt -> {
 				clearLoginFailure(alt);
+				WurstClient.INSTANCE.getAltBotManager().onAltRemoved(alt);
 				altManager.remove(alt);
 			});
 		
@@ -1702,6 +1861,12 @@ public final class AltManagerScreen extends Screen
 			context.centeredText(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);
+		
+		if(WurstClient.INSTANCE.getAltSwitchController().isBusy())
+			context.centeredText(font,
+				"Switch: "
+					+ WurstClient.INSTANCE.getAltSwitchController().getStatus(),
+				width / 2, 66, 0xFFFF55);
 		
 		// red flash for errors
 		if(errorTimer > 0)
@@ -1976,7 +2141,55 @@ public final class AltManagerScreen extends Screen
 			else if(alt.isUncheckedPremium())
 				text += "\u00a7r, \u00a7cunchecked";
 			
+			// AltBot connection status
+			AltBotState botState =
+				WurstClient.INSTANCE.getAltBotManager().getState(alt);
+			if(botState.isActiveClient())
+				text += "\u00a7r, \u00a7aActive Client";
+			else
+			{
+				String botText = getBotStatusText(botState);
+				if(!botText.isEmpty())
+					text += "\u00a7r, " + botText;
+			}
+			
 			return text;
+		}
+		
+		private static String getBotStatusText(AltBotState state)
+		{
+			switch(state.getState())
+			{
+				case AUTHENTICATING:
+				return "\u00a7eAuthenticating";
+				
+				case CONNECTING:
+				return "\u00a7eConnecting";
+				
+				case LOGIN:
+				return "\u00a7eLogin";
+				
+				case CONFIGURING:
+				return "\u00a7eConfiguring";
+				
+				case PLAY:
+				return "\u00a72Connected to " + state.getServer();
+				
+				case DISCONNECTING:
+				return "\u00a7eDisconnecting";
+				
+				case FAILED:
+				{
+					String error = state.getLastError();
+					return "\u00a7cFailed" + (error == null || error.isBlank()
+						? "" : ": " + (error.length() > 40
+							? error.substring(0, 40) + "..." : error));
+				}
+				
+				case DISCONNECTED:
+				default:
+				return "";
+			}
 		}
 	}
 	
@@ -2000,7 +2213,7 @@ public final class AltManagerScreen extends Screen
 		public ListGui(Minecraft minecraft, AltManagerScreen screen,
 			List<Alt> list)
 		{
-			super(minecraft, screen.width, screen.height - 96, 36, 30);
+			super(minecraft, screen.width, screen.height - 140, 36, 30);
 			
 			screen.getDisplayedAlts(list).stream()
 				.map(alt -> new AltManagerScreen.Entry(this, alt))

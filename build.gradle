@@ -46,6 +46,16 @@ base {
 repositories {
 	mavenCentral()
 	
+	// MCProtocolLib (AltBot system) is hosted on the OpenCollab maven.
+	maven {
+		name = "opencollab"
+		url = "https://repo.opencollab.dev/main/"
+	}
+	maven {
+		name = "opencollabSnapshots"
+		url = "https://repo.opencollab.dev/maven-snapshots/"
+	}
+	
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -79,13 +89,59 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	implementation "com.google.code.findbugs:jsr305:3.0.2"
-
-	// Minecraft ships Netty without SOCKS support. Bundle the matching modules
-	// so multiplayer connections can use SOCKS5 proxies at runtime.
-	implementation include("io.netty:netty-handler-proxy:4.2.15.Final")
-	implementation include("io.netty:netty-codec-socks:4.2.15.Final")
 	
 }
+
+// MCProtocolLib provides the lightweight protocol-bot connections used by the
+// AltBot multi-account system, and the SOCKS proxy modules extend Netty for
+// proxy support. They are bundled into the final mod jar manually (below)
+// instead of via Loom's "include": this project lives on an SMB share where
+// Loom's processIncludeJars tmp-file rename frequently fails with
+// AccessDenied. Netty, Gson, slf4j, the JetBrains annotations and the old
+// nukkitx fastutil fork are excluded because Minecraft already provides newer
+// versions of all of them, and MinecraftAuth is not needed because Wurst's own
+// authentication stack supplies all required credentials.
+configurations {
+	altbotLibs {
+		transitive = true
+		canBeResolved = true
+		canBeConsumed = false
+	}
+}
+
+dependencies {
+	// MCProtocolLib + its Adventure/Cloudburst transitives.
+	add("altbotLibs", "org.geysermc.mcprotocollib:protocol:26.2-SNAPSHOT") {
+		exclude group: "io.netty"
+		exclude group: "net.raphimc"
+		exclude group: "com.google.code.gson"
+		exclude group: "org.slf4j"
+		exclude group: "org.jetbrains"
+		// The nukkitx fastutil fork is an old (8.5.3) split fastutil whose
+		// classes live under it.unimi.dsi.fastutil.* and would shadow
+		// Minecraft's newer fastutil at runtime (NoSuchMethodError e.g.
+		// Int2ObjectMap.ofEntries). Minecraft's own fastutil satisfies every
+		// fastutil class MCProtocolLib uses, so we rely on it instead.
+		exclude group: "com.nukkitx.fastutil"
+	}
+	
+	// Plain-text chat rendering for the AltBot system.
+	add("altbotLibs", "net.kyori:adventure-text-serializer-plain:4.25.0")
+	
+	// Minecraft ships Netty without SOCKS support. Bundle the matching modules
+	// so multiplayer connections can use SOCKS5 proxies at runtime.
+	// (transitive=false: Minecraft provides the rest of Netty.)
+	add("altbotLibs", "io.netty:netty-handler-proxy:4.2.15.Final") {
+		transitive = false
+	}
+	add("altbotLibs", "io.netty:netty-codec-socks:4.2.15.Final") {
+		transitive = false
+	}
+}
+
+// Make the bundled libraries available to compilation and dev runs.
+sourceSets.main.compileClasspath += configurations.altbotLibs
+sourceSets.main.runtimeClasspath += configurations.altbotLibs
 
 fabricApi.configureTests {
 	createSourceSet = true
@@ -293,6 +349,15 @@ jar {
 	from("LICENSE.txt") {
 		rename { "LICENSE-${archivesName.get()}.txt" }
 	}
+	
+	// Merge the bundled AltBot / proxy libraries (MCProtocolLib, Adventure,
+	// Cloudburst, Netty SOCKS modules) directly into the mod jar.
+	from {
+		configurations.altbotLibs.collect {
+			it.isDirectory() ? it : zipTree(it)
+		}
+	}
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 	
 	exclude("intentionally_untranslated.json")
 }

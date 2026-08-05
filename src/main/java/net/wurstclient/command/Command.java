@@ -107,6 +107,39 @@ public abstract class Command extends Feature
 		return false;
 	}
 	
+	/**
+	 * @return true if the syntax token at the given argument index expects a
+	 *         saved account name (e.g. <code>&lt;alt&gt;</code>), used by the
+	 *         Alt Manager autocomplete to suggest compatible saved alts.
+	 */
+	public boolean shouldSuggestAltNames(int argIndex)
+	{
+		if(argIndex < 0)
+			return false;
+		
+		for(String line : syntax)
+		{
+			if(line == null)
+				continue;
+			
+			String trimmed = line.trim();
+			if(trimmed.regionMatches(true, 0, "Syntax:", 0, "Syntax:".length()))
+				trimmed = trimmed.substring("Syntax:".length()).trim();
+			if(!trimmed.startsWith("."))
+				continue;
+			
+			String[] tokens = trimmed.split("\\s+");
+			if(tokens.length <= argIndex + 1)
+				continue;
+			
+			String token = tokens[argIndex + 1].toLowerCase(Locale.ROOT);
+			if(token.contains("<alt>") || token.contains("<account>"))
+				return true;
+		}
+		
+		return false;
+	}
+	
 	public final void printHelp()
 	{
 		for(String line : description.split("\n"))

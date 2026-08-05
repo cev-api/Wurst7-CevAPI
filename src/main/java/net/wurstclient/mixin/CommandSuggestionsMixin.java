@@ -48,6 +48,8 @@ public abstract class CommandSuggestionsMixin
 			return;
 		if(wurst$showPlayerNameSuggestions(draftMessage))
 			return;
+		if(wurst$showAltNameSuggestions(draftMessage))
+			return;
 		
 		AutoCompleteHack autoComplete =
 			WurstClient.INSTANCE.getHax().autoCompleteHack;
@@ -195,6 +197,84 @@ public abstract class CommandSuggestionsMixin
 					&& !name.toLowerCase(Locale.ROOT).startsWith(lowerToken))
 					continue;
 				
+				candidates.add(name);
+			}
+		
+		for(String candidate : candidates)
+		{
+			builder.suggest(candidate);
+			if(inlineSuggestion.isEmpty()
+				&& candidate.length() > currentToken.length())
+				inlineSuggestion = candidate.substring(currentToken.length());
+		}
+		
+		if(candidates.isEmpty())
+			return false;
+		
+		input.setSuggestion(inlineSuggestion);
+		pendingSuggestions = builder.buildFuture();
+		showSuggestions(false);
+		return true;
+	}
+	
+	/**
+	 * Suggests compatible saved alts for command arguments marked
+	 * <code>&lt;alt&gt;</code> or <code>&lt;account&gt;</code> in the syntax.
+	 * Only display names are suggested; credentials are never exposed.
+	 */
+	private boolean wurst$showAltNameSuggestions(String draftMessage)
+	{
+		if(draftMessage == null || draftMessage.isEmpty()
+			|| draftMessage.startsWith("/"))
+			return false;
+		
+		String prefix = ".";
+		try
+		{
+			prefix = WurstClient.INSTANCE.getOtfs().commandPrefixOtf
+				.getPrefixSetting().getSelected().toString();
+		}catch(Throwable ignored)
+		{}
+		
+		if(prefix == null || prefix.isEmpty()
+			|| !draftMessage.startsWith(prefix))
+			return false;
+		
+		String raw = draftMessage.substring(prefix.length()).stripLeading();
+		if(raw.isEmpty())
+			return false;
+		
+		String[] tokens = raw.split("\\s+", -1);
+		if(tokens.length < 2)
+			return false;
+		
+		Command cmd = WurstClient.INSTANCE.getCmds().getCmdByName(tokens[0]);
+		if(cmd == null)
+			return false;
+		
+		int currentTokenIndex = tokens.length - 1;
+		int argIndex = currentTokenIndex - 1;
+		if(!cmd.shouldSuggestAltNames(argIndex))
+			return false;
+		
+		String currentToken = tokens[currentTokenIndex];
+		String lowerToken = currentToken.toLowerCase(Locale.ROOT);
+		int tokenStart = draftMessage.length() - currentToken.length();
+		SuggestionsBuilder builder =
+			new SuggestionsBuilder(draftMessage, tokenStart);
+		LinkedHashSet<String> candidates = new LinkedHashSet<>();
+		String inlineSuggestion = "";
+		
+		var botManager = WurstClient.INSTANCE.getAltBotManager();
+		if(botManager != null)
+			for(var alt : botManager.getCompatibleAlts())
+			{
+				String name = alt.getDisplayName();
+				if(name == null || name.isBlank())
+					continue;
+				if(!lowerToken.isEmpty()
+					&& !name.toLowerCase(Locale.ROOT).startsWith(lowerToken))
+					continue;
 				candidates.add(name);
 			}
 		
