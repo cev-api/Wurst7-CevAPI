@@ -7,6 +7,8 @@
  */
 package net.wurstclient.commands;
 
+import java.util.List;
+
 import net.wurstclient.WurstClient;
 import net.wurstclient.altbot.AltBotManager;
 import net.wurstclient.altbot.AltBotState;
@@ -23,7 +25,8 @@ public final class AltBotCmd extends Command
 	{
 		super("altbot", "Manages protocol-bot connections for your saved alts.",
 			".altbot connect <alt>", ".altbot disconnect <alt>", ".altbot list",
-			".altbot say <alt> <message>", ".altbot command <alt> <command>");
+			".altbot say <alt> <message>", ".altbot command <alt> <command>",
+			".altbot offline <name>", ".altbot offlinedisconnect <name>");
 	}
 	
 	@Override
@@ -52,6 +55,14 @@ public final class AltBotCmd extends Command
 			
 			case "command":
 			command(args);
+			break;
+			
+			case "offline":
+			offline(args);
+			break;
+			
+			case "offlinedisconnect":
+			offlineDisconnect(args);
 			break;
 			
 			default:
@@ -149,6 +160,43 @@ public final class AltBotCmd extends Command
 		if(!sent)
 			throw new CmdError(
 				"Failed to send through bot \"" + alt.getDisplayName() + "\".");
+	}
+	
+	private void offline(String[] args) throws CmdException
+	{
+		if(args.length != 2)
+			throw new CmdSyntaxError();
+		
+		String name = args[1];
+		if(!net.wurstclient.hacks.OfflineSettingsHack
+			.isValidOfflineNameFormat(name))
+			throw new CmdError("Invalid offline name: " + name);
+		
+		WurstClient.INSTANCE.getAltBotManager()
+			.connectOfflineBotToCurrentServer(name);
+	}
+	
+	private void offlineDisconnect(String[] args) throws CmdException
+	{
+		if(args.length != 2)
+			throw new CmdSyntaxError();
+		
+		WurstClient.INSTANCE.getAltBotManager().disconnectOfflineBot(args[1]);
+	}
+	
+	@Override
+	public List<String> getArgumentSuggestions(String[] args, int argIndex,
+		String prefix)
+	{
+		if(args.length == 1)
+			return List.of("connect", "disconnect", "list", "say", "command",
+				"offline", "offlinedisconnect");
+		
+		if(args.length >= 2 && "offlinedisconnect".equalsIgnoreCase(args[0]))
+			return WurstClient.INSTANCE.getAltBotManager()
+				.getConnectedOfflineBotNames();
+		
+		return List.of();
 	}
 	
 	private TokenAlt resolveAlt(String name)

@@ -140,6 +140,20 @@ public abstract class Command extends Feature
 		return false;
 	}
 	
+	/**
+	 * @return extra autocomplete candidates for the argument currently being
+	 *         typed. <code>args</code> is everything after the command name
+	 *         (the token being typed is <code>args[args.length - 1]</code>),
+	 *         <code>argIndex</code> is the 0-based index of that token and
+	 *         <code>prefix</code> is what was typed so far for it. The caller
+	 *         applies its own prefix filtering to whatever is returned.
+	 */
+	public java.util.List<String> getArgumentSuggestions(String[] args,
+		int argIndex, String prefix)
+	{
+		return java.util.List.of();
+	}
+	
 	public final void printHelp()
 	{
 		for(String line : description.split("\n"))

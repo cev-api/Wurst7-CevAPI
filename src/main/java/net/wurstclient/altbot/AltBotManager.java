@@ -7,11 +7,16 @@
  */
 package net.wurstclient.altbot;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,6 +46,13 @@ public final class AltBotManager
 		Collections.newSetFromMap(new IdentityHashMap<>());
 	private final IdentityHashMap<TokenAlt, String> failures =
 		new IdentityHashMap<>();
+	
+	// Offline (cracked-name) bots are keyed by their lowercased name because
+	// they are not saved TokenAlts.
+	private final Map<String, AltBotSession> offlineSessions = new HashMap<>();
+	private final Set<String> pendingOffline =
+		Collections.newSetFromMap(new HashMap<>());
+	private final Map<String, String> offlineFailures = new HashMap<>();
 	
 	private final ExecutorService workerExecutor;
 	private volatile boolean shuttingDown;
@@ -130,6 +142,147 @@ public final class AltBotManager
 		connectBot(alt, hostPort[0], Integer.parseInt(hostPort[1]));
 	}
 	
+	/**
+	 * Connects an offline (cracked) bot with the given name to the specified
+	 * server. No Microsoft authentication is performed; works on offline
+	 * servers. Safe to call from the render thread.
+	 */
+	public void connectOfflineBot(String name, String host, int port)
+	{
+		if(name == null || name.isBlank() || host == null || host.isBlank())
+			return;
+		
+		String key = name.toLowerCase(Locale.ROOT);
+		synchronized(lock)
+		{
+			if(shuttingDown)
+				return;
+			AltBotSession existing = offlineSessions.get(key);
+			if(pendingOffline.contains(key)
+				|| existing != null && existing.getState() != BotState.FAILED
+					&& existing.getState() != BotState.DISCONNECTED)
+			{
+				ChatUtils.error(
+					"Bot \"" + name + "\" is already connecting or connected.");
+				return;
+			}
+			pendingOffline.add(key);
+		}
+		workerExecutor.execute(() -> connectOfflineBotAsync(name, host, port));
+	}
+	
+	/** Connects an offline bot to the server the rendered client is on. */
+	public void connectOfflineBotToCurrentServer(String name)
+	{
+		String ip = AltBotUtils.getCurrentServerIp();
+		if(ip == null || ip.isBlank())
+		{
+			ChatUtils.error("You must be on a multiplayer server to connect a"
+				+ " bot to the current server.");
+			return;
+		}
+		String[] hostPort = AltBotUtils.resolveHostPort(ip);
+		connectOfflineBot(name, hostPort[0], Integer.parseInt(hostPort[1]));
+	}
+	
+	/** Disconnects an offline bot with the given name. */
+	public void disconnectOfflineBot(String name)
+	{
+		if(name == null)
+			return;
+		String key = name.toLowerCase(Locale.ROOT);
+		workerExecutor.execute(() -> {
+			AltBotSession session;
+			synchronized(lock)
+			{
+				pendingOffline.remove(key);
+				session = offlineSessions.remove(key);
+				offlineFailures.remove(key);
+			}
+			if(session != null)
+				session.disconnect("Disconnected by user");
+		});
+	}
+	
+	public boolean isOfflineBotConnected(String name)
+	{
+		if(name == null)
+			return false;
+		String key = name.toLowerCase(Locale.ROOT);
+		synchronized(lock)
+		{
+			AltBotSession session = offlineSessions.get(key);
+			return session != null
+				&& session.getState() != BotState.DISCONNECTED
+				&& session.getState() != BotState.FAILED;
+		}
+	}
+	
+	/** @return the names of currently connected offline bots. */
+	public List<String> getConnectedOfflineBotNames()
+	{
+		synchronized(lock)
+		{
+			ArrayList<String> names = new ArrayList<>();
+			for(AltBotSession session : offlineSessions.values())
+				if(session.getState() != BotState.DISCONNECTED
+					&& session.getState() != BotState.FAILED)
+					names.add(session.getUsername());
+			return List.copyOf(names);
+		}
+	}
+	
+	/** @return an immutable snapshot of an offline bot's state. */
+	public AltBotState getOfflineBotState(String name)
+	{
+		if(name == null)
+			name = "";
+		String key = name.toLowerCase(Locale.ROOT);
+		synchronized(lock)
+		{
+			AltBotSession session = offlineSessions.get(key);
+			if(session != null)
+				return snapshot(session);
+			
+			if(pendingOffline.contains(key))
+				return new AltBotState(null, name, null, null, null,
+					BotState.CONNECTING, null, 0L, false, false, 0, 0, 0,
+					false);
+			
+			String error = offlineFailures.get(key);
+			if(error != null)
+				return new AltBotState(null, name, null, null, null,
+					BotState.FAILED, error, 0L, false, false, 0, 0, 0, false);
+		}
+		
+		return new AltBotState(null, name, null, null, null,
+			BotState.DISCONNECTED, null, 0L, false, false, 0, 0, 0, false);
+	}
+	
+	/** @return true if a packet was sent through the offline bot. */
+	public boolean sendOfflineChat(String name, String text)
+	{
+		AltBotSession session = getOfflineSession(name);
+		return session != null && session.sendChat(text);
+	}
+	
+	/** @return true if a command packet was sent through the offline bot. */
+	public boolean sendOfflineCommand(String name, String command)
+	{
+		AltBotSession session = getOfflineSession(name);
+		return session != null && session.sendCommand(command);
+	}
+	
+	private AltBotSession getOfflineSession(String name)
+	{
+		if(name == null)
+			return null;
+		synchronized(lock)
+		{
+			return offlineSessions.get(name.toLowerCase(Locale.ROOT));
+		}
+	}
+	
 	/** Requests a clean disconnect of the bot for the given alt. */
 	public void disconnectBot(TokenAlt alt)
 	{
@@ -175,6 +328,11 @@ public final class AltBotManager
 					session.disconnect("Minecraft closing");
 				sessions.clear();
 				failures.clear();
+				pendingOffline.clear();
+				for(AltBotSession session : offlineSessions.values())
+					session.disconnect("Minecraft closing");
+				offlineSessions.clear();
+				offlineFailures.clear();
 			}
 		});
 	}
@@ -190,6 +348,11 @@ public final class AltBotManager
 			sessions.clear();
 			pendingAuth.clear();
 			failures.clear();
+			for(AltBotSession session : offlineSessions.values())
+				session.disconnect("Minecraft closing");
+			offlineSessions.clear();
+			pendingOffline.clear();
+			offlineFailures.clear();
 		}
 		workerExecutor.shutdown();
 	}
@@ -278,6 +441,9 @@ public final class AltBotManager
 	/** @return true if the given alt is the account of the rendered client. */
 	public boolean isActiveClientAlt(Alt alt)
 	{
+		if(alt == null)
+			return false;
+		
 		Minecraft mc = Minecraft.getInstance();
 		if(mc == null)
 			return false;
@@ -382,16 +548,32 @@ public final class AltBotManager
 	{
 		synchronized(lock)
 		{
-			if(sessions.get(session.getAlt()) == session)
-				sessions.remove(session.getAlt());
-				
-			// Keep the reason visible for unexpected disconnects (kicks,
-			// network drops) so the GUI can show why the bot went offline.
-			if(!expected)
+			TokenAlt alt = session.getAlt();
+			if(alt != null)
 			{
-				String message = reason == null || reason.isBlank()
-					? "Disconnected" : "Disconnected: " + reason;
-				failures.put(session.getAlt(), message);
+				if(sessions.get(alt) == session)
+					sessions.remove(alt);
+					
+				// Keep the reason visible for unexpected disconnects (kicks,
+				// network drops) so the GUI can show why the bot went offline.
+				if(!expected)
+				{
+					String message = reason == null || reason.isBlank()
+						? "Disconnected" : "Disconnected: " + reason;
+					failures.put(alt, message);
+				}
+			}else
+			{
+				String key = session.getUsername().toLowerCase(Locale.ROOT);
+				if(offlineSessions.get(key) == session)
+					offlineSessions.remove(key);
+				
+				if(!expected)
+				{
+					String message = reason == null || reason.isBlank()
+						? "Disconnected" : "Disconnected: " + reason;
+					offlineFailures.put(key, message);
+				}
 			}
 		}
 	}
@@ -439,6 +621,40 @@ public final class AltBotManager
 				+ " as bot: " + friendlyAuthError(e));
 			log(alt.getDisplayName(),
 				"bot connection failed: " + safeMessage(e));
+		}
+	}
+	
+	private void connectOfflineBotAsync(String name, String host, int port)
+	{
+		String key = name.toLowerCase(Locale.ROOT);
+		try
+		{
+			UUID uuid = UUID.nameUUIDFromBytes(
+				("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+			MinecraftProfile profile = new MinecraftProfile(uuid, name, "");
+			AltBotSession session = new AltBotSession(this, null, profile, host,
+				port, null, buildProxyInfo());
+			
+			synchronized(lock)
+			{
+				if(shuttingDown)
+					return;
+				offlineSessions.put(key, session);
+				pendingOffline.remove(key);
+			}
+			
+			session.start();
+			
+		}catch(Throwable e)
+		{
+			synchronized(lock)
+			{
+				pendingOffline.remove(key);
+				offlineFailures.put(key, safeMessage(e));
+			}
+			ChatUtils.error("Failed to connect offline bot \"" + name + "\": "
+				+ safeMessage(e));
+			log(name, "offline bot connection failed: " + safeMessage(e));
 		}
 	}
 	

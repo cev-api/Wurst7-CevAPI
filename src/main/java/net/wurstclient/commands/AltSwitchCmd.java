@@ -7,6 +7,8 @@
  */
 package net.wurstclient.commands;
 
+import java.util.List;
+
 import net.wurstclient.WurstClient;
 import net.wurstclient.altbot.AccountSwitchController;
 import net.wurstclient.altbot.SwitchState;
@@ -25,6 +27,15 @@ public final class AltSwitchCmd extends Command
 			"Switches the rendered Minecraft client to another saved account,"
 				+ " parking the previous account as a protocol bot.",
 			".altswitch <alt>", ".altswitch status", ".altswitch cancel");
+	}
+	
+	@Override
+	public List<String> getArgumentSuggestions(String[] args, int argIndex,
+		String prefix)
+	{
+		// The first argument can be either an alt name (handled separately)
+		// or one of these keywords.
+		return List.of("status", "cancel");
 	}
 	
 	@Override

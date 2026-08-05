@@ -130,9 +130,12 @@ public final class AltBotSession
 		
 		try
 		{
-			GameProfile gameProfile = new GameProfile(uuid, username);
-			MinecraftProtocol protocol =
-				new MinecraftProtocol(gameProfile, profile.getAccessToken());
+			// A blank access token means an offline (cracked) bot: connect
+			// with just a name and no Microsoft session join.
+			String token = profile.getAccessToken();
+			MinecraftProtocol protocol = token == null || token.isBlank()
+				? new MinecraftProtocol(username)
+				: new MinecraftProtocol(new GameProfile(uuid, username), token);
 			
 			packetExecutor = Executors.newSingleThreadExecutor(r -> {
 				Thread t = new Thread(r, "Wurst AltBot packets " + label);
