@@ -349,6 +349,7 @@ public final class HackList implements UpdateListener
 	public final CoordLoggerHack coordLoggerHack = new CoordLoggerHack();
 	public final TextureRotatorHack textureRotatorHack =
 		new TextureRotatorHack();
+	public final CustomTotemHack customTotemHack = new CustomTotemHack();
 	public final TownyHack townyHack = new TownyHack();
 	
 	private final TreeMap<String, Hack> hax =

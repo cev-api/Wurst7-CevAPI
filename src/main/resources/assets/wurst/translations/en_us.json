@@ -145,6 +145,8 @@
   "description.wurst.hack.creativeflight": "Allows you to fly like in Creative Mode.\n\nWARNING: You will take fall damage if you don't use NoFall.",
   "description.wurst.hack.criticals": "Changes all your hits to critical hits.",
   "description.wurst.hack.crystalaura": "Automatically places (optional) and detonates end crystals to kill entities around you.",
+  "hack.wurst.customtotem": "CustomTotem",
+  "description.wurst.hack.customtotem": "Turns every totem of undying into a 3D miniature player built out of the skin of whichever player you choose. By default it uses ??6Neco-Arc's??r skin, but you can type any player name to use their skin instead.",
   "description.wurst.setting.crystalaura.face_target": "How CrystalAura should face the end crystals.",
   "description.wurst.setting.crystalaura.swing_hand": "How CrystalAura should swing your hand when placing and detonating end crystals.",
   "description.wurst.setting.crystalaura.take_items_from": "Where to look for end crystals.",
