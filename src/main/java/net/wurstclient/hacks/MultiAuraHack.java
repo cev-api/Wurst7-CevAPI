@@ -9,6 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -18,6 +19,7 @@ import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
@@ -35,8 +37,10 @@ import net.wurstclient.util.RotationUtils;
 
 @SearchTags({"multi aura", "ForceField", "force field"})
 public final class MultiAuraHack extends Hack
-	implements UpdateListener, RenderListener
+	implements UpdateListener, HandleInputListener, RenderListener
 {
+	private Entity pendingMaceTarget;
+	private final ArrayDeque<Integer> maceTargetQueue = new ArrayDeque<>();
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
 	
@@ -103,6 +107,7 @@ public final class MultiAuraHack extends Hack
 		
 		speed.resetTimer();
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(HandleInputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 	}
 	
@@ -111,7 +116,10 @@ public final class MultiAuraHack extends Hack
 	{
 		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(HandleInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		pendingMaceTarget = null;
+		maceTargetQueue.clear();
 		currentTargets.clear();
 		lastTargets.clear();
 	}
@@ -172,13 +180,31 @@ public final class MultiAuraHack extends Hack
 		
 		if(maceSupportActive)
 		{
-			if(maceDmg.queueTargets(entities))
-			{
-				if(shouldUseAuraSpeedAssist(maceDmg))
-					speed.resetTimer(0);
-				else
-					speed.resetTimer();
-			}
+			// Killaura selects and rotates during Update, then attacks during
+			// HandleInput. MaceDMG's fake fall sequence needs that same phase.
+			maceTargetQueue.removeIf(id -> {
+				Entity entity = MC.level.getEntity(id);
+				return entity == null || !entity.isAlive() || entity.isRemoved()
+					|| !entities.contains(entity);
+			});
+			for(Entity entity : entities)
+				if(!maceTargetQueue.contains(entity.getId())
+					&& (pendingMaceTarget == null
+						|| pendingMaceTarget.getId() != entity.getId()))
+					maceTargetQueue.addLast(entity.getId());
+				
+			if(pendingMaceTarget != null)
+				return;
+			if(maceTargetQueue.isEmpty())
+				return;
+			
+			Entity target = MC.level.getEntity(maceTargetQueue.peekFirst());
+			if(target == null)
+				return;
+			pendingMaceTarget = target;
+			RotationUtils
+				.getNeededRotations(target.getBoundingBox().getCenter())
+				.sendPlayerLookPacket();
 			return;
 		}
 		
@@ -204,6 +230,34 @@ public final class MultiAuraHack extends Hack
 			swingHand.swing(InteractionHand.MAIN_HAND);
 			speed.resetTimer();
 		}
+	}
+	
+	@Override
+	public void onHandleInput()
+	{
+		Entity target = pendingMaceTarget;
+		pendingMaceTarget = null;
+		if(target == null || !target.isAlive() || target.isRemoved())
+			return;
+		
+		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
+		// The update phase already selected this as the mace path. Let the
+		// MaceDMG attack listener perform AttributeSwap/mace selection here;
+		// re-checking aura readiness can incorrectly suppress the attack while
+		// AttributeSwap is between slots.
+		if(maceDmg.hasFallDebt())
+			return;
+		
+		if(!maceTargetQueue.isEmpty()
+			&& maceTargetQueue.peekFirst().intValue() == target.getId())
+			maceTargetQueue.removeFirst();
+		
+		MC.gameMode.attack(MC.player, target);
+		swingHand.swing(InteractionHand.MAIN_HAND);
+		if(shouldUseAuraSpeedAssist(maceDmg))
+			speed.resetTimer(0);
+		else
+			speed.resetTimer();
 	}
 	
 	/**
