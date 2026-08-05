@@ -90,8 +90,8 @@ public final class NiceWurstModule
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
 				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
-				"AutoSpawnProofer", "AreaNuker", "Tillaura", "TreeBot",
-				"Tunneller", "VeinMiner"));
+				"AutoSpawnProofer", "AreaNuker", "DuraSwap", "Tillaura",
+				"TreeBot", "Tunneller", "VeinMiner"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AntiHunger", "AutoSprint", "AutoWalk",
@@ -116,7 +116,7 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
 				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar"));
+				"OppStats", "SimulationSonar", "TextureRotator"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
@@ -138,8 +138,8 @@ public final class NiceWurstModule
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSwitch", "AutoSteal", "ChestSearch", "EnchantmentHandler",
 				"ItemHandler", "QuickShulker", "Restock", "SignFramePT",
-				"LootSearch", "XCarry", "SusNoMore", "UseItemSpam",
-				"InventorySorter", "AutoLoot", "AntiBreak"));
+				"LootSearch", "LootSorter", "XCarry", "SusNoMore",
+				"UseItemSpam", "InventorySorter", "AutoLoot", "AntiBreak"));
 	}
 	
 	private NiceWurstModule()
