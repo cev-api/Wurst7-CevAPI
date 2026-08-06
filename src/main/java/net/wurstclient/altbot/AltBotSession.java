@@ -31,6 +31,7 @@ import org.geysermc.mcprotocollib.network.packet.Packet;
 import org.geysermc.mcprotocollib.protocol.MinecraftConstants;
 import org.geysermc.mcprotocollib.protocol.MinecraftProtocol;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.player.HandPreference;
+import org.geysermc.mcprotocollib.protocol.data.game.ClientCommand;
 import org.geysermc.mcprotocollib.protocol.data.game.entity.player.PositionElement;
 import org.geysermc.mcprotocollib.protocol.data.game.setting.ChatVisibility;
 import org.geysermc.mcprotocollib.protocol.data.game.setting.ParticleStatus;
@@ -40,10 +41,12 @@ import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.Serverbound
 import org.geysermc.mcprotocollib.protocol.packet.common.serverbound.ServerboundPongPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundDisguisedChatPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundLoginPacket;
+import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerCombatKillPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundPlayerChatPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.ClientboundSystemChatPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.clientbound.entity.player.ClientboundPlayerPositionPacket;
 import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.level.ServerboundAcceptTeleportationPacket;
+import org.geysermc.mcprotocollib.protocol.packet.ingame.serverbound.ServerboundClientCommandPacket;
 import org.geysermc.mcprotocollib.protocol.packet.login.clientbound.ClientboundLoginFinishedPacket;
 
 import net.kyori.adventure.text.Component;
@@ -92,6 +95,7 @@ public final class AltBotSession
 	private volatile double y;
 	private volatile double z;
 	private volatile boolean havePos;
+	private volatile int entityId = Integer.MIN_VALUE;
 	
 	private final ArrayDeque<String> messageBuffer = new ArrayDeque<>();
 	private final ArrayDeque<String> chatHistory = new ArrayDeque<>();
@@ -214,6 +218,7 @@ public final class AltBotSession
 		
 		if(packet instanceof ClientboundLoginPacket loginPacket)
 		{
+			entityId = loginPacket.getEntityId();
 			manager.log(label, "reached play state (entity id "
 				+ loginPacket.getEntityId() + ")");
 			state = BotState.PLAY;
@@ -222,6 +227,18 @@ public final class AltBotSession
 			sendClientInformation();
 			chatSession.sendSessionUpdate(session);
 			manager.onBotReady(this);
+			return;
+		}
+		
+		if(packet instanceof ClientboundPlayerCombatKillPacket killPacket)
+		{
+			if(manager.isAutoRespawnEnabled()
+				&& killPacket.getPlayerId() == entityId && session != null)
+			{
+				manager.log(label, "died; sending automatic respawn");
+				session.send(new ServerboundClientCommandPacket(
+					ClientCommand.PERFORM_RESPAWN));
+			}
 			return;
 		}
 		
