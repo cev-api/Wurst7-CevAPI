@@ -1,6 +1,6 @@
 ﻿# Wurst Client v7.54 (MC26.2) - Modified by CevAPI 
 
-![CevAPI Logo](https://i.imgur.com/4x8fvbp.jpeg)
+![CevAPI Logo](https://i.imgur.com/K5U1OHe.jpeg)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
 - Installation guide: [https://www.wurstclient.net/tutorials/how-to-install/](https://go.wimods.net/from/github.com/Wurst-Imperium/Wurst7?to=https%3A%2F%2Fwww.wurstclient.net%2Ftutorials%2Fhow-to-install%2F%3Futm_source%3DGitHub%26utm_medium%3DWurst7%2Brepo)  
@@ -11,7 +11,7 @@
 ## Download
 Pre-compiled versioned and polished releases are available on the [Release Page](https://github.com/cev-api/Wurst7-CevAPI/releases). 
 
-[![](https://i.imgur.com/b44bIdV.png)](https://github.com/cev-api/Wurst7-CevAPI/releases)
+[![](https://i.imgur.com/YVRiTjH.png)](https://github.com/cev-api/Wurst7-CevAPI/releases)
 
 I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
