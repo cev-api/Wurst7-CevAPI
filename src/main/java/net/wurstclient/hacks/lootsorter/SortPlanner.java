@@ -47,7 +47,8 @@ public final class SortPlanner
 				if(destination == null)
 					continue;
 				Group group =
-					new Group(destination, destination.specificity(stack));
+					new Group(destination, destination.specificity(stack),
+						destination.routingKey(stack));
 				groups.computeIfAbsent(group, ignored -> new HashMap<>())
 					.computeIfAbsent(entry.getKey(),
 						ignored -> new SourceGroup())
@@ -146,7 +147,8 @@ public final class SortPlanner
 		return index < 0 ? Integer.MAX_VALUE : index;
 	}
 	
-	private record Group(DestinationRule destination, int specificity)
+	private record Group(DestinationRule destination, int specificity,
+		String routingKey)
 	{}
 	
 	private static final class SourceGroup

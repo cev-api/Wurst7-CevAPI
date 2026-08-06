@@ -56,6 +56,9 @@ public final class LootSorterController
 	private final Set<LogicalContainer> completedSources = new HashSet<>();
 	private final Set<LogicalContainer> unmatchedSources = new HashSet<>();
 	private final Set<LogicalContainer> unreachableSources = new HashSet<>();
+	/** Sources already visited for the current carried inventory load. */
+	private final Set<LogicalContainer> pickedSourcesSinceDeposit =
+		new HashSet<>();
 	private final Set<LogicalContainer> unloadedContainers = new HashSet<>();
 	private final Set<DestinationRule> warnedFullDestinations = new HashSet<>();
 	private final Set<LogicalContainer> warnedUnreachable = new HashSet<>();
@@ -73,6 +76,7 @@ public final class LootSorterController
 	private int sourceIndex;
 	private int scanIndex;
 	private int destinationIndex;
+	private int destinationScanIndex;
 	private PendingAction pending;
 	private int movedItems;
 	private int containerTrips;
@@ -115,6 +119,7 @@ public final class LootSorterController
 	private boolean sourceContentsPublished;
 	private boolean directEverythingMove;
 	private boolean positionCorrectionPending;
+	private boolean scanningDestinations;
 	
 	public LootSorterController(Minecraft mc,
 		Supplier<ItemFilter> selectedFilter,
@@ -161,6 +166,7 @@ public final class LootSorterController
 		completedSources.clear();
 		unmatchedSources.clear();
 		unreachableSources.clear();
+		pickedSourcesSinceDeposit.clear();
 		unloadedContainers.clear();
 		warnedFullDestinations.clear();
 		warnedUnreachable.clear();
@@ -168,12 +174,14 @@ public final class LootSorterController
 		activeDestination = null;
 		sourceIndex =
 			scanIndex = destinationIndex = movedItems = containerTrips = 0;
+		destinationScanIndex = 0;
 		consecutiveFailures = 0;
 		activeRoute = null;
 		slotTransfer = null;
 		lastFinishedSlotTransfer = null;
 		sourceContentsPublished = false;
 		directEverythingMove = false;
+		scanningDestinations = false;
 		positionCorrectionPending = false;
 		returningRemainder = false;
 		summaryReported = false;
@@ -424,8 +432,18 @@ public final class LootSorterController
 		{
 			if(hasCompleteSourceContents())
 			{
-				transition(LootSorterState.PLANNING);
-				message("using saved source contents.");
+				if(hasAutosortDestination())
+				{
+					scanningDestinations = true;
+					destinationScanIndex = 0;
+					transition(LootSorterState.RESCANNING);
+					message(
+						"using saved source contents and scanning autosort destinations.");
+				}else
+				{
+					transition(LootSorterState.PLANNING);
+					message("using saved source contents.");
+				}
 			}else
 			{
 				scanIndex = 0;
@@ -474,6 +492,8 @@ public final class LootSorterController
 		warnedFullDestinations.clear();
 		activeDestination = null;
 		destinationIndex = 0;
+		destinationScanIndex = 0;
+		scanningDestinations = false;
 		directEverythingMove = false;
 		transition(LootSorterState.SELECTING_DESTINATIONS);
 		message("right-click destinations to configure; sneak-right-click one "
@@ -686,10 +706,21 @@ public final class LootSorterController
 	
 	private void scanNextSource()
 	{
+		if(scanningDestinations)
+		{
+			scanNextDestination();
+			return;
+		}
 		if(scanIndex >= sources.size())
 		{
 			publishSourceContents();
-			transition(LootSorterState.PLANNING);
+			if(hasAutosortDestination())
+			{
+				scanningDestinations = true;
+				destinationScanIndex = 0;
+				scanNextDestination();
+			}else
+				transition(LootSorterState.PLANNING);
 			return;
 		}
 		activeSource = sources.get(scanIndex);
@@ -706,6 +737,36 @@ public final class LootSorterController
 			return;
 		}
 		startPath(activeSource.anchor(), LootSorterState.NAVIGATING_TO_SOURCE);
+	}
+	
+	private boolean hasAutosortDestination()
+	{
+		return destinations.stream()
+			.anyMatch(rule -> rule.isConfigured() && rule.isAutosort());
+	}
+	
+	private void scanNextDestination()
+	{
+		while(destinationScanIndex < destinations.size())
+		{
+			DestinationRule destination =
+				destinations.get(destinationScanIndex++);
+			if(!destination.isConfigured() || !destination.isAutosort()
+				|| destination.isUnreachable())
+				continue;
+			activeDestination = destination;
+			if(!mc.level.hasChunkAt(destination.getContainer().anchor()))
+			{
+				destination.setUnreachable(true);
+				continue;
+			}
+			startPath(destination.getContainer().anchor(),
+				LootSorterState.NAVIGATING_TO_DESTINATION);
+			return;
+		}
+		scanningDestinations = false;
+		activeDestination = null;
+		transition(LootSorterState.PLANNING);
 	}
 	
 	private void planNextRoute()
@@ -730,6 +791,8 @@ public final class LootSorterController
 			return;
 		}
 		activeSource = activeRoute.source();
+		pickedSourcesSinceDeposit.clear();
+		pickedSourcesSinceDeposit.add(activeSource);
 		activeDestination = activeRoute.destination();
 		debug("route selected: " + activeRoute.sourceItemCount()
 			+ " matching items from " + activeRoute.sourceItemKeys().size()
@@ -982,6 +1045,9 @@ public final class LootSorterController
 			else if(state == LootSorterState.OPENING_SOURCE
 				&& activeRoute == null && !directEverythingMove)
 				scanOpenedSource();
+			else if(state == LootSorterState.OPENING_DESTINATION
+				&& scanningDestinations && activeRoute == null)
+				scanOpenedDestination();
 			else
 				transition(state == LootSorterState.OPENING_SOURCE
 					? LootSorterState.WITHDRAWING : LootSorterState.DEPOSITING);
@@ -1153,6 +1219,8 @@ public final class LootSorterController
 			activeDestination.setFull(true);
 			warnFullDestination("is full");
 		}
+		// Do not let items deposited during this run lock an initially empty
+		// autosort destination to the first category processed.
 		closingAfterDeposit = true;
 		closeOrPause(LootSorterState.CLOSING_SOURCE);
 		return;
@@ -1190,6 +1258,7 @@ public final class LootSorterController
 			if(nextSource != null)
 			{
 				activeSource = nextSource;
+				pickedSourcesSinceDeposit.add(nextSource);
 				startPath(activeSource.anchor(),
 					LootSorterState.NAVIGATING_TO_SOURCE);
 				return;
@@ -1201,6 +1270,7 @@ public final class LootSorterController
 		}
 		if(getMovableRouteItemCount() <= 0)
 		{
+			pickedSourcesSinceDeposit.clear();
 			activeRoute = null;
 			transition(LootSorterState.PLANNING);
 			return;
@@ -1875,6 +1945,7 @@ public final class LootSorterController
 			return null;
 		return activeRoute.sourceItemKeys().keySet().stream()
 			.filter(source -> !source.equals(activeSource)
+				&& !pickedSourcesSinceDeposit.contains(source)
 				&& !unreachableSources.contains(source))
 			.filter(this::sourceHasRouteItems)
 			.filter(this::hasCapacityForRouteItems)
@@ -2098,6 +2169,11 @@ public final class LootSorterController
 		recordFailure();
 		if(state == LootSorterState.ERROR)
 			return;
+		if(scanningDestinations)
+		{
+			transition(LootSorterState.RESCANNING);
+			return;
+		}
 		if(directEverythingMove)
 		{
 			continueDirectEverythingDeliveryOrReturn();
@@ -2190,16 +2266,23 @@ public final class LootSorterController
 		closeOrPause(LootSorterState.RESCANNING);
 	}
 	
+	private void scanOpenedDestination()
+	{
+		var screen = interactions.getSupportedScreen();
+		if(screen == null)
+			return;
+		List<ItemStack> contents = readContainerContents(screen);
+		activeDestination.setObservedContents(contents);
+		closeOrPause(LootSorterState.RESCANNING);
+	}
+	
 	/**
 	 * Replaces one cached source with the live contents currently on screen.
 	 */
 	private void updateActiveSourceContents(
 		net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen)
 	{
-		List<ItemStack> contents = new ArrayList<>();
-		for(Slot slot : screen.getMenu().slots)
-			if(!interactions.isPlayerSlot(slot) && !slot.getItem().isEmpty())
-				contents.add(slot.getItem().copy());
+		List<ItemStack> contents = readContainerContents(screen);
 		scannedSources.put(activeSource, contents);
 		if(contents.isEmpty())
 			completedSources.add(activeSource);
@@ -2209,6 +2292,16 @@ public final class LootSorterController
 		// between containers. This makes a later "continue without
 		// re-checking" restart resume from the latest observed contents.
 		persistSourceContents();
+	}
+	
+	private List<ItemStack> readContainerContents(
+		net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen)
+	{
+		List<ItemStack> contents = new ArrayList<>();
+		for(Slot slot : screen.getMenu().slots)
+			if(!interactions.isPlayerSlot(slot) && !slot.getItem().isEmpty())
+				contents.add(slot.getItem().copy());
+		return contents;
 	}
 	
 	private void publishSourceContents()

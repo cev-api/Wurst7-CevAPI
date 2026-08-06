@@ -79,8 +79,17 @@ public final class LootSorterFilterMenuScreen extends Screen
 	private void addGroupPage(int x, int rows)
 	{
 		List<FilterGroup> entries = List.of(FilterGroup.values());
+		int groupRows = Math.max(1, rows - 1);
 		int start = page * rows;
-		for(int i = 0; i < rows && start + i < entries.size(); i++)
+		addRenderableWidget(
+			Button
+				.builder(
+					Component
+						.literal(BuiltInItemFilter.AUTOSORT.getDisplayName()),
+					button -> select(BuiltInItemFilter.AUTOSORT))
+				.bounds(x, 38, 240, 20).build());
+		start = page * groupRows;
+		for(int i = 0; i < groupRows && start + i < entries.size(); i++)
 		{
 			FilterGroup entry = entries.get(start + i);
 			addRenderableWidget(Button
@@ -88,9 +97,9 @@ public final class LootSorterFilterMenuScreen extends Screen
 					button -> minecraft.gui
 						.setScreen(new LootSorterFilterMenuScreen(this, editor,
 							selection, editCustomItems, loadCustomList, entry)))
-				.bounds(x, 38 + i * 24, 240, 20).build());
+				.bounds(x, 62 + i * 24, 240, 20).build());
 		}
-		addPageButtons(x, rows, entries.size());
+		addPageButtons(x, groupRows, entries.size());
 	}
 	
 	private void addFilterPage(int x, int rows)
@@ -182,19 +191,40 @@ public final class LootSorterFilterMenuScreen extends Screen
 		NATURAL("Natural blocks", BuiltInItemFilter.NATURAL_BLOCKS,
 			BuiltInItemFilter.DIRT_GRASS_MUD, BuiltInItemFilter.SAND_GRAVEL,
 			BuiltInItemFilter.LOGS_LEAVES, BuiltInItemFilter.FLOWERS_PLANTS,
-			BuiltInItemFilter.NETHER_BLOCKS, BuiltInItemFilter.END_BLOCKS,
 			BuiltInItemFilter.ICE_SNOW),
-		MATERIALS("Ores and materials", BuiltInItemFilter.ORES_AND_MATERIALS),
+		WORKSTATIONS("Workstations", BuiltInItemFilter.WORKSTATIONS),
+		DIMENSIONAL("Nether and End", BuiltInItemFilter.NETHER_BLOCKS,
+			BuiltInItemFilter.NETHER_MATERIALS, BuiltInItemFilter.END_BLOCKS,
+			BuiltInItemFilter.END_MATERIALS),
+		MATERIALS("Ores and materials", BuiltInItemFilter.ORES_AND_MATERIALS,
+			BuiltInItemFilter.ORES, BuiltInItemFilter.INGOTS_AND_GEMS,
+			BuiltInItemFilter.CRAFTING_MATERIALS),
 		REDSTONE("Redstone", BuiltInItemFilter.REDSTONE,
 			BuiltInItemFilter.REDSTONE_COMPONENTS, BuiltInItemFilter.RAILS,
 			BuiltInItemFilter.PISTONS, BuiltInItemFilter.STORAGE_COMPONENTS,
-			BuiltInItemFilter.REDSTONE_BLOCKS_AND_DUST),
-		FARMING("Farming", BuiltInItemFilter.FARMING),
+			BuiltInItemFilter.REDSTONE_BLOCKS_AND_DUST,
+			BuiltInItemFilter.REDSTONE_SIGNAL,
+			BuiltInItemFilter.REDSTONE_DEVICES),
+		FARMING("Farming", BuiltInItemFilter.FARMING, BuiltInItemFilter.SEEDS,
+			BuiltInItemFilter.CROPS, BuiltInItemFilter.FARMING_TOOLS,
+			BuiltInItemFilter.ANIMAL_PRODUCTS),
 		MOB_DROPS("Mob drops", BuiltInItemFilter.MOB_DROPS,
-			BuiltInItemFilter.TOTEMS_OF_UNDYING),
-		TRANSPORTATION("Transportation", BuiltInItemFilter.TRANSPORTATION),
-		UTILITY("Utility items", BuiltInItemFilter.UTILITY_ITEMS),
-		DECORATIVE("Decorative items", BuiltInItemFilter.DECORATIVE_ITEMS);
+			BuiltInItemFilter.TOTEMS_OF_UNDYING,
+			BuiltInItemFilter.MOB_DROPS_COMMON,
+			BuiltInItemFilter.MOB_DROPS_RARE,
+			BuiltInItemFilter.MOB_DROPS_NETHER),
+		TRANSPORTATION("Transportation", BuiltInItemFilter.TRANSPORTATION,
+			BuiltInItemFilter.BOATS_AND_RAFTS, BuiltInItemFilter.MINECARTS,
+			BuiltInItemFilter.HORSE_EQUIPMENT,
+			BuiltInItemFilter.TRANSPORTATION_MISC),
+		UTILITY("Utility items", BuiltInItemFilter.UTILITY_ITEMS,
+			BuiltInItemFilter.BUCKETS, BuiltInItemFilter.CONTAINERS,
+			BuiltInItemFilter.UTILITY_TOOLS,
+			BuiltInItemFilter.HORSE_AND_PLAYER_EQUIPMENT),
+		DECORATIVE("Decorative items", BuiltInItemFilter.DECORATIVE_ITEMS,
+			BuiltInItemFilter.DECORATIVE_BLOCKS, BuiltInItemFilter.LIGHTING,
+			BuiltInItemFilter.FLOWERS_PLANTS,
+			BuiltInItemFilter.CONCRETE_TERRACOTTA);
 		
 		private final String title;
 		private final BuiltInItemFilter[] filters;
