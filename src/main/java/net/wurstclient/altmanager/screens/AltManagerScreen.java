@@ -224,10 +224,10 @@ public final class AltManagerScreen extends Screen
 		addRenderableWidget(botConnectButton = Button
 			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
 			.bounds(width / 2 - 154, height - 100, 100, 20).build());
-
-		addRenderableWidget(autoRespawnButton = Button
-			.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
-			.bounds(width / 2 - 50, height - 100, 100, 20).build());
+		
+		addRenderableWidget(autoRespawnButton =
+			Button.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
+				.bounds(width / 2 - 50, height - 100, 100, 20).build());
 		
 		addRenderableWidget(botDisconnectButton = Button
 			.builder(Component.literal("Disconnect Bot"),
@@ -320,7 +320,6 @@ public final class AltManagerScreen extends Screen
 			exportButton.active = !importInProgress && !importPrismInProgress
 				&& !minecraft.options.fullscreen().get();
 		
-		
 		updateBotButtons();
 	}
 	
@@ -343,9 +342,8 @@ public final class AltManagerScreen extends Screen
 	private void updateBotButtons()
 	{
 		if(botConnectButton == null || botDisconnectButton == null
-			|| autoRespawnButton == null
-			|| botSwitchButton == null || botSendChatButton == null
-			|| botDetailsButton == null)
+			|| autoRespawnButton == null || botSwitchButton == null
+			|| botSendChatButton == null || botDetailsButton == null)
 			return;
 		
 		Alt alt = listGui != null ? listGui.getSelectedAlt() : null;
@@ -394,7 +392,7 @@ public final class AltManagerScreen extends Screen
 		if(autoRespawnButton != null)
 			autoRespawnButton.setMessage(getAutoRespawnLabel());
 	}
-
+	
 	private Component getAutoRespawnLabel()
 	{
 		return Component.literal("Auto Respawn: "
