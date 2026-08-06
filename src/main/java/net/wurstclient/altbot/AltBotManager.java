@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
 
 import net.minecraft.client.Minecraft;
 import net.wurstclient.WurstClient;
@@ -40,26 +39,6 @@ import net.wurstclient.util.ChatUtils;
  */
 public final class AltBotManager
 {
-	public enum BotProxyMode
-	{
-		DIRECT("Direct"),
-		SELECTED("Selected Proxy"),
-		RANDOM("Random Proxy");
-		
-		private final String label;
-		
-		BotProxyMode(String label)
-		{
-			this.label = label;
-		}
-		
-		@Override
-		public String toString()
-		{
-			return label;
-		}
-	}
-	
 	private final Object lock = new Object();
 	private final IdentityHashMap<TokenAlt, AltBotSession> sessions =
 		new IdentityHashMap<>();
@@ -78,7 +57,6 @@ public final class AltBotManager
 	private final ExecutorService workerExecutor;
 	private volatile boolean shuttingDown;
 	private volatile boolean autoRespawn;
-	private volatile BotProxyMode botProxyMode = BotProxyMode.SELECTED;
 	
 	public AltBotManager()
 	{
@@ -102,18 +80,6 @@ public final class AltBotManager
 		autoRespawn = enabled;
 	}
 	
-	public BotProxyMode getBotProxyMode()
-	{
-		return botProxyMode;
-	}
-	
-	public void cycleBotProxyMode()
-	{
-		BotProxyMode[] modes = BotProxyMode.values();
-		int next = (botProxyMode.ordinal() + 1) % modes.length;
-		botProxyMode = modes[next];
-	}
-	
 	// ------------------------------------------------------- public API
 	
 	/**
@@ -125,15 +91,7 @@ public final class AltBotManager
 	{
 		if(!validateConnect(alt, true))
 			return;
-		workerExecutor.execute(() -> connectBotAsync(alt, host, port, null));
-	}
-	
-	private void connectBot(TokenAlt alt, String host, int port,
-		SocksProxy proxy)
-	{
-		if(!validateConnect(alt, true))
-			return;
-		workerExecutor.execute(() -> connectBotAsync(alt, host, port, proxy));
+		workerExecutor.execute(() -> connectBotAsync(alt, host, port));
 	}
 	
 	/**
@@ -145,7 +103,7 @@ public final class AltBotManager
 	{
 		if(!validateConnect(alt, false))
 			return;
-		workerExecutor.execute(() -> connectBotAsync(alt, host, port, null));
+		workerExecutor.execute(() -> connectBotAsync(alt, host, port));
 	}
 	
 	private boolean validateConnect(TokenAlt alt, boolean checkActiveClient)
@@ -193,19 +151,6 @@ public final class AltBotManager
 		}
 		String[] hostPort = AltBotUtils.resolveHostPort(ip);
 		connectBot(alt, hostPort[0], Integer.parseInt(hostPort[1]));
-	}
-	
-	public void connectBotToCurrentServer(TokenAlt alt, SocksProxy proxy)
-	{
-		String ip = AltBotUtils.getCurrentServerIp();
-		if(ip == null || ip.isBlank())
-		{
-			ChatUtils.error("You must be on a multiplayer server to connect a"
-				+ " bot to the current server.");
-			return;
-		}
-		String[] hostPort = AltBotUtils.resolveHostPort(ip);
-		connectBot(alt, hostPort[0], Integer.parseInt(hostPort[1]), proxy);
 	}
 	
 	/**
@@ -646,8 +591,7 @@ public final class AltBotManager
 	
 	// ---------------------------------------------------------- private
 	
-	private void connectBotAsync(TokenAlt alt, String host, int port,
-		SocksProxy proxyOverride)
+	private void connectBotAsync(TokenAlt alt, String host, int port)
 	{
 		try
 		{
@@ -665,8 +609,7 @@ public final class AltBotManager
 			PlayerCertificates certs =
 				PlayerCertificates.fetch(profile.getAccessToken());
 			AltBotSession session = new AltBotSession(this, alt, profile, host,
-				port, certs, proxyOverride == null ? buildProxyInfo()
-					: buildProxyInfo(proxyOverride));
+				port, certs, buildProxyInfo());
 			
 			synchronized(lock)
 			{
@@ -739,42 +682,22 @@ public final class AltBotManager
 	{
 		try
 		{
-			var proxyManager = WurstClient.INSTANCE.getProxyManager();
-			SocksProxy proxy = switch(botProxyMode)
-			{
-				case DIRECT -> null;
-				case SELECTED -> proxyManager.getSelectedProxy();
-				case RANDOM ->
-				{
-					List<SocksProxy> proxies = proxyManager.getProxies();
-					yield proxies.isEmpty() ? null : proxies.get(
-						ThreadLocalRandom.current().nextInt(proxies.size()));
-				}
-			};
-			return buildProxyInfo(proxy);
+			SocksProxy proxy =
+				WurstClient.INSTANCE.getProxyManager().getSelectedProxy();
+			if(proxy == null)
+				return null;
+			
+			org.geysermc.mcprotocollib.network.ProxyInfo.Type type =
+				proxy.getProtocol() == ProxyProtocol.HTTP
+					? org.geysermc.mcprotocollib.network.ProxyInfo.Type.HTTP
+					: org.geysermc.mcprotocollib.network.ProxyInfo.Type.SOCKS5;
+			return new org.geysermc.mcprotocollib.network.ProxyInfo(type,
+				proxy.getAddress(), proxy.getUsername(), proxy.getPassword());
 			
 		}catch(Throwable e)
 		{
 			return null;
 		}
-	}
-	
-	private org.geysermc.mcprotocollib.network.ProxyInfo buildProxyInfo(
-		SocksProxy proxy)
-	{
-		if(proxy == null)
-		{
-			AltBotUtils.log("proxy", "Bot connection using direct connection.");
-			return null;
-		}
-		AltBotUtils.log("proxy",
-			"Bot connection using " + proxy.getDisplayName() + ".");
-		org.geysermc.mcprotocollib.network.ProxyInfo.Type type =
-			proxy.getProtocol() == ProxyProtocol.HTTP
-				? org.geysermc.mcprotocollib.network.ProxyInfo.Type.HTTP
-				: org.geysermc.mcprotocollib.network.ProxyInfo.Type.SOCKS5;
-		return new org.geysermc.mcprotocollib.network.ProxyInfo(type,
-			proxy.getAddress(), proxy.getUsername(), proxy.getPassword());
 	}
 	
 	private static String safeMessage(Throwable e)

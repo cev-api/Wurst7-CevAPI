@@ -24,6 +24,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.MaceItem;
 import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Leashable;
+import net.minecraft.world.entity.vehicle.boat.Boat;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -77,10 +80,18 @@ public final class HandNoClipHack extends Hack
 		"Bedrock Passthrough",
 		WText.literal("When enabled, aiming through bedrock can target"
 			+ " blocks behind it for breaking, interacting, and placement."),
-		false);
+		true);
+	private final CheckboxSetting leadsThroughWalls = new CheckboxSetting(
+		"Leads Through Walls",
+		WText.literal(
+			"Allows attaching and removing leads from animals and boats through walls."
+				+ " Only works with Enable On Target."),
+		true);
 	
 	private BlockPos targetBlock;
 	private boolean targetVillager;
+	private Boat targetBoat;
+	private Entity targetLeashable;
 	private Set<BlockPos> occludingBlocks = Collections.emptySet();
 	
 	public HandNoClipHack()
@@ -91,6 +102,8 @@ public final class HandNoClipHack extends Hack
 		addSetting(blocks);
 		addSetting(enableOnTarget);
 		addSetting(villagerThroughWalls);
+		addSetting(boatsThroughWalls);
+		addSetting(leadsThroughWalls);
 		addSetting(bedrockPassthrough);
 	}
 	
@@ -138,6 +151,8 @@ public final class HandNoClipHack extends Hack
 	{
 		targetBlock = null;
 		targetVillager = false;
+		targetBoat = null;
+		targetLeashable = null;
 		occludingBlocks = Collections.emptySet();
 	}
 	
@@ -150,6 +165,8 @@ public final class HandNoClipHack extends Hack
 		Set<BlockPos> path = new HashSet<>();
 		BlockPos foundBlock = null;
 		boolean foundVillager = false;
+		Boat foundBoat = null;
+		Entity foundLeashable = null;
 		boolean passedBedrock = false;
 		
 		double villagerHitDist = Double.NaN;
@@ -157,6 +174,19 @@ public final class HandNoClipHack extends Hack
 		{
 			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
 			villagerHitDist = getClosestVillagerHitDistance(eyes, end);
+		}
+		
+		EntityRayTarget boatTarget = null;
+		if(boatsThroughWalls.isChecked())
+		{
+			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
+			boatTarget = getClosestBoatHit(eyes, end);
+		}
+		LeashRayTarget leashTarget = null;
+		if(leadsThroughWalls.isChecked())
+		{
+			Vec3 end = eyes.add(look.scale(TARGET_RANGE));
+			leashTarget = getClosestLeashTargetHit(eyes, end);
 		}
 		
 		for(double distance = 0; distance <= TARGET_RANGE; distance +=
@@ -176,6 +206,24 @@ public final class HandNoClipHack extends Hack
 			BlockState state = MC.level.getBlockState(pos);
 			if(state.is(Blocks.BEDROCK))
 				passedBedrock = true;
+			
+			if(!Double.isNaN(villagerHitDist) && distance >= villagerHitDist)
+			{
+				foundVillager = true;
+				break;
+			}
+			
+			if(boatTarget != null && distance >= boatTarget.distance())
+			{
+				foundBoat = boatTarget.boat();
+				break;
+			}
+			
+			if(leashTarget != null && distance >= leashTarget.distance())
+			{
+				foundLeashable = leashTarget.entity();
+				break;
+			}
 			
 			if(isBlockInList(pos))
 			{
@@ -200,7 +248,8 @@ public final class HandNoClipHack extends Hack
 			path.add(pos);
 		}
 		
-		if(foundBlock == null && !foundVillager)
+		if(foundBlock == null && !foundVillager && foundBoat == null
+			&& foundLeashable == null)
 		{
 			clearTarget();
 			return;
@@ -208,12 +257,149 @@ public final class HandNoClipHack extends Hack
 		
 		targetBlock = foundBlock;
 		targetVillager = foundVillager;
+		targetBoat = foundBoat;
+		targetLeashable = foundLeashable;
 		occludingBlocks = path.isEmpty() ? Collections.emptySet()
 			: Collections.unmodifiableSet(path);
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRightClick(RightClickEvent event)
+	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null)
+			return;
+		
+		if(!enableOnTarget.isChecked())
+			return;
+		
+		Entity leashTarget = getHoveredLeashTarget();
+		if(leadsThroughWalls.isChecked() && leashTarget != null
+			&& (!(leashTarget instanceof Boat)
+				|| boatsThroughWalls.isChecked()))
+		{
+			if(MC.rightClickDelay > 0 || !MC.options.keyUse.isDown()
+				|| MC.options.keyShift.isDown())
+				return;
+			Vec3 targetVec = leashTarget.getBoundingBox().getCenter();
+			EntityHitResult hitResult =
+				MC.hitResult instanceof EntityHitResult hit
+					&& hit.getEntity() == leashTarget ? hit
+						: new EntityHitResult(leashTarget, targetVec);
+			WURST.getRotationFaker().faceVectorClient(targetVec);
+			MC.rightClickDelay = 4;
+			event.cancel();
+			for(InteractionHand hand : InteractionHand.values())
+			{
+				InteractionResult result = MC.gameMode.interact(MC.player,
+					leashTarget, hitResult, hand);
+				if(result.consumesAction())
+					MC.player.swing(hand);
+			}
+			return;
+		}
+		
+		if(!boatsThroughWalls.isChecked())
+			return;
+		
+		Boat boat = getHoveredBoat();
+		if(MC.rightClickDelay > 0 || !MC.options.keyUse.isDown() || boat == null
+			|| MC.options.keyShift.isDown())
+			return;
+		
+		Vec3 targetVec = getBoatTopHitVec(boat);
+		EntityHitResult hitResult = MC.hitResult instanceof EntityHitResult hit
+			&& hit.getEntity() == boat ? hit
+				: new EntityHitResult(boat, targetVec);
+		WURST.getRotationFaker().faceVectorClient(targetVec);
+		MC.rightClickDelay = 4;
+		event.cancel();
+		
+		for(InteractionHand hand : InteractionHand.values())
+		{
+			InteractionResult result =
+				MC.gameMode.interact(MC.player, boat, hitResult, hand);
+			if(result.consumesAction())
+			{
+				MC.player.swing(hand);
+				event.cancel();
+			}
+			
+			if(MC.player.isPassenger())
+			{
+				event.cancel();
+				return;
+			}
+		}
+	}
+	
+	private Boat getHoveredBoat()
+	{
+		if(MC.hitResult instanceof EntityHitResult hit
+			&& hit.getEntity() instanceof Boat boat && !boat.isRemoved())
+		{
+			return boat;
+		}
+		
+		Vec3 eyes = RotationUtils.getEyesPos();
+		Vec3 look = RotationUtils.getServerLookVec();
+		EntityRayTarget raycastTarget =
+			getClosestBoatHit(eyes, eyes.add(look.scale(6.0)));
+		if(raycastTarget != null && !raycastTarget.boat().isRemoved())
+			return raycastTarget.boat();
+		
+		if(targetBoat != null && !targetBoat.isRemoved())
+			return targetBoat;
+		
+		return null;
+	}
+	
+	private Entity getHoveredLeashTarget()
+	{
+		if(MC.hitResult instanceof EntityHitResult hit
+			&& isLeashTarget(hit.getEntity()) && !hit.getEntity().isRemoved())
+			return hit.getEntity();
+		if(targetLeashable != null && !targetLeashable.isRemoved())
+			return targetLeashable;
+		Vec3 eyes = RotationUtils.getEyesPos();
+		Vec3 look = RotationUtils.getServerLookVec();
+		LeashRayTarget target =
+			getClosestLeashTargetHit(eyes, eyes.add(look.scale(TARGET_RANGE)));
+		return target == null ? null : target.entity();
+	}
+	
+	private LeashRayTarget getClosestLeashTargetHit(Vec3 start, Vec3 end)
+	{
+		if(MC.level == null)
+			return null;
+		Vec3 direction = end.subtract(start);
+		double maxDist = direction.length();
+		if(maxDist <= 0)
+			return null;
+		Vec3 normalized = direction.scale(1.0 / maxDist);
+		LeashRayTarget closest = null;
+		for(Entity entity : MC.level.getEntities(MC.player,
+			new AABB(start, end).inflate(1), this::isLeashTarget))
+		{
+			var hit = entity.getBoundingBox().clip(start, end);
+			if(hit.isEmpty())
+				continue;
+			double distance = hit.get().subtract(start).dot(normalized);
+			if(distance < 0 || distance > maxDist
+				|| (closest != null && distance >= closest.distance()))
+				continue;
+			closest = new LeashRayTarget(entity, distance);
+		}
+		return closest;
+	}
+	
+	private boolean isLeashTarget(Entity entity)
+	{
+		return entity != MC.player
+			&& (entity instanceof Leashable || entity instanceof Boat);
+	}
+	
+	@Override
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		if(MC.player == null || !shouldDrawWarningCrosshair())
 			return;
@@ -314,4 +500,10 @@ public final class HandNoClipHack extends Hack
 	{
 		return state != null && !state.isAir() && !state.is(Blocks.BEDROCK);
 	}
+	
+	private static record EntityRayTarget(Boat boat, double distance)
+	{}
+	
+	private static record LeashRayTarget(Entity entity, double distance)
+	{}
 }

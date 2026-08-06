@@ -96,7 +96,7 @@ public final class AltManagerScreen extends Screen
 	
 	private Button importButton;
 	private Button exportButton;
-	private Button disconnectRandomReconnectToggleButton;
+	private Button autoRespawnButton;
 	private Button checkButton;
 	private Button logoutButton;
 	
@@ -212,11 +212,6 @@ public final class AltManagerScreen extends Screen
 			.builder(Component.literal("Import Prism"), b -> pressImportPrism())
 			.bounds(112, 8, 80, 20).build());
 		
-		addRenderableWidget(disconnectRandomReconnectToggleButton = Button
-			.builder(getDisconnectRandomReconnectLabel(),
-				b -> pressToggleDisconnectRandomReconnect())
-			.bounds(198, 8, 170, 20).build());
-		
 		addRenderableWidget(checkButton =
 			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
 				.bounds(width - 50 - 8 - 52, 8, 50, 20).build());
@@ -224,6 +219,32 @@ public final class AltManagerScreen extends Screen
 		addRenderableWidget(logoutButton =
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
+		
+		// ---- AltBot controls ----
+		addRenderableWidget(botConnectButton = Button
+			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
+			.bounds(width / 2 - 154, height - 100, 100, 20).build());
+
+		addRenderableWidget(autoRespawnButton = Button
+			.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
+			.bounds(width / 2 - 50, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botDisconnectButton = Button
+			.builder(Component.literal("Disconnect Bot"),
+				b -> pressBotDisconnect())
+			.bounds(width / 2 + 54, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botSwitchButton = Button
+			.builder(Component.literal("Switch To"), b -> pressBotSwitch())
+			.bounds(width / 2 - 154, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botSendChatButton = Button
+			.builder(Component.literal("Send Chat"), b -> pressBotSendChat())
+			.bounds(width / 2 - 50, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botDetailsButton = Button
+			.builder(Component.literal("Bot Details"), b -> pressBotDetails())
+			.bounds(width / 2 + 54, height - 76, 100, 20).build());
 		
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
@@ -252,8 +273,7 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -271,8 +291,7 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -301,25 +320,86 @@ public final class AltManagerScreen extends Screen
 			exportButton.active = !importInProgress && !importPrismInProgress
 				&& !minecraft.options.fullscreen().get();
 		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton.active = true;
-	}
-	
-	private void pressToggleDisconnectRandomReconnect()
-	{
-		boolean enabled = !altManager.isDisconnectRandomAltReconnectEnabled();
-		altManager.setDisconnectRandomAltReconnectEnabled(enabled);
 		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton
-				.setMessage(getDisconnectRandomReconnectLabel());
+		updateBotButtons();
 	}
 	
-	private Component getDisconnectRandomReconnectLabel()
+	private void setBotButtonsInactive()
 	{
-		return Component.literal("Toggle Random Reconnect: "
-			+ (altManager.isDisconnectRandomAltReconnectEnabled() ? "ON"
-				: "OFF"));
+		if(botConnectButton != null)
+			botConnectButton.active = false;
+		if(botDisconnectButton != null)
+			botDisconnectButton.active = false;
+		if(autoRespawnButton != null)
+			autoRespawnButton.active = false;
+		if(botSwitchButton != null)
+			botSwitchButton.active = false;
+		if(botSendChatButton != null)
+			botSendChatButton.active = false;
+		if(botDetailsButton != null)
+			botDetailsButton.active = false;
+	}
+	
+	private void updateBotButtons()
+	{
+		if(botConnectButton == null || botDisconnectButton == null
+			|| autoRespawnButton == null
+			|| botSwitchButton == null || botSendChatButton == null
+			|| botDetailsButton == null)
+			return;
+		
+		Alt alt = listGui != null ? listGui.getSelectedAlt() : null;
+		boolean hasToken = alt instanceof TokenAlt;
+		TokenAlt token = hasToken ? (TokenAlt)alt : null;
+		
+		AltBotManager botManager = WurstClient.INSTANCE.getAltBotManager();
+		boolean switchBusy =
+			WurstClient.INSTANCE.getAltSwitchController().isBusy();
+		boolean onServer = net.wurstclient.altbot.AltBotUtils.isOnServer();
+		boolean botStateFailed = hasToken && token != null
+			&& botManager.getState(token).getState() == BotState.FAILED;
+		
+		botConnectButton.active = hasToken && token != null && onServer
+			&& !botManager.isActiveClientAlt(token)
+			&& !botManager.isBotConnected(token) && !switchBusy;
+		
+		botDisconnectButton.active = hasToken && token != null
+			&& (botManager.isBotConnected(token) || botStateFailed);
+		autoRespawnButton.active = true;
+		autoRespawnButton.setMessage(getAutoRespawnLabel());
+		
+		botSwitchButton.active = hasToken && token != null
+			&& !botManager.isActiveClientAlt(token) && !switchBusy;
+		
+		botSendChatButton.active =
+			hasToken && token != null && botManager.isBotReady(token);
+		
+		botDetailsButton.active = hasToken;
+	}
+	
+	@Override
+	public void tick()
+	{
+		if(--botButtonRefreshTicks <= 0)
+		{
+			botButtonRefreshTicks = 10;
+			updateAltButtons();
+		}
+	}
+	
+	private void pressToggleAutoRespawn()
+	{
+		AltBotManager manager = WurstClient.INSTANCE.getAltBotManager();
+		manager.setAutoRespawnEnabled(!manager.isAutoRespawnEnabled());
+		if(autoRespawnButton != null)
+			autoRespawnButton.setMessage(getAutoRespawnLabel());
+	}
+
+	private Component getAutoRespawnLabel()
+	{
+		return Component.literal("Auto Respawn: "
+			+ (WurstClient.INSTANCE.getAltBotManager().isAutoRespawnEnabled()
+				? "ON" : "OFF"));
 	}
 	
 	@Override
