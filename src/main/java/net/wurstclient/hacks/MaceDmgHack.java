@@ -128,6 +128,19 @@ public final class MaceDmgHack extends Hack
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, PAPER_MAX_HEIGHT, 0.1, ValueDisplay.DECIMAL);
 	
+	private final CheckboxSetting multiAuraHeightCap = new CheckboxSetting(
+		"MultiAura height cap",
+		"Restricts Height to 10 while MultiAura is enabled, then restores the "
+			+ "previous Height value when MultiAura is disabled.",
+		false)
+	{
+		@Override
+		public void update()
+		{
+			updateMultiAuraHeightCap();
+		}
+	};
+	
 	private final CheckboxSetting attackCap = new CheckboxSetting(
 		"6-block attack cap",
 		"Blocks all entity attacks started while MaceDMG is enabled when the target"
@@ -225,6 +238,8 @@ public final class MaceDmgHack extends Hack
 	private volatile int queuedPrepTicks;
 	private volatile int queuedPreviousSlot = -1;
 	private volatile boolean queuedAttackInProgress;
+	private boolean multiAuraHeightCapped;
+	private double heightBeforeMultiAuraCap;
 	
 	public MaceDmgHack()
 	{
@@ -232,6 +247,7 @@ public final class MaceDmgHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(serverType);
 		addSetting(height);
+		addSetting(multiAuraHeightCap);
 		addSetting(attackCap);
 		addSetting(totemBypass);
 		addSetting(autoOptimize);
@@ -281,6 +297,7 @@ public final class MaceDmgHack extends Hack
 	{
 		autoOptimizeWasChecked = false;
 		onServerTypeChanged();
+		updateMultiAuraHeightCap();
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
 		registerSafetyListeners();
 	}
@@ -294,6 +311,7 @@ public final class MaceDmgHack extends Hack
 		rejectedTargetCooldowns.clear();
 		clearQueuedTargets();
 		restoreQueuedSlot();
+		restoreMultiAuraHeight();
 		if(!hasFallDebt() && !unresolvedSpoof)
 			unregisterSafetyListeners();
 	}
@@ -678,6 +696,8 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		updateMultiAuraHeightCap();
+		
 		if(unresolvedSpoof && isSpoofFallStateResolved())
 		{
 			unresolvedSpoof = false;
@@ -1073,6 +1093,8 @@ public final class MaceDmgHack extends Hack
 		height.setUsableMax(maxHeight);
 		if(height.getValue() > maxHeight)
 			height.setValue(maxHeight);
+		if(multiAuraHeightCapped)
+			updateMultiAuraHeightCap();
 		
 		boolean paper = serverType.getSelected() == ServerType.PAPER;
 		totemBypass.setVisibleInGui(paper);
@@ -1094,6 +1116,36 @@ public final class MaceDmgHack extends Hack
 	{
 		return serverType.getSelected() == ServerType.FABRIC ? FABRIC_MAX_HEIGHT
 			: PAPER_MAX_HEIGHT;
+	}
+	
+	private void updateMultiAuraHeightCap()
+	{
+		boolean shouldCap = isEnabled() && multiAuraHeightCap.isChecked()
+			&& WURST.getHax().multiAuraHack.isEnabled();
+		if(shouldCap)
+		{
+			if(!multiAuraHeightCapped)
+			{
+				heightBeforeMultiAuraCap = height.getValue();
+				multiAuraHeightCapped = true;
+			}
+			height.setUsableMax(Math.min(10, getServerTypeMaxHeight()));
+			if(height.getValue() > 10)
+				height.setValue(10);
+			return;
+		}
+		
+		restoreMultiAuraHeight();
+	}
+	
+	private void restoreMultiAuraHeight()
+	{
+		if(!multiAuraHeightCapped)
+			return;
+		
+		multiAuraHeightCapped = false;
+		height.setUsableMax(getServerTypeMaxHeight());
+		height.setValue(heightBeforeMultiAuraCap);
 	}
 	
 	private void sendFakeY(double offset)
