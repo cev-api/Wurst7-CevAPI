@@ -56,6 +56,7 @@ public final class AltBotManager
 	
 	private final ExecutorService workerExecutor;
 	private volatile boolean shuttingDown;
+	private volatile boolean autoRespawn;
 	
 	public AltBotManager()
 	{
@@ -67,6 +68,16 @@ public final class AltBotManager
 		
 		Runtime.getRuntime().addShutdownHook(
 			new Thread(this::shutdown, "Wurst AltBot Shutdown"));
+	}
+	
+	public boolean isAutoRespawnEnabled()
+	{
+		return autoRespawn;
+	}
+	
+	public void setAutoRespawnEnabled(boolean enabled)
+	{
+		autoRespawn = enabled;
 	}
 	
 	// ------------------------------------------------------- public API

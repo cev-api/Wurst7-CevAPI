@@ -99,7 +99,7 @@ public final class AltManagerScreen extends Screen
 	
 	private Button importButton;
 	private Button exportButton;
-	private Button disconnectRandomReconnectToggleButton;
+	private Button autoRespawnButton;
 	private Button checkButton;
 	private Button logoutButton;
 	
@@ -222,11 +222,6 @@ public final class AltManagerScreen extends Screen
 			.builder(Component.literal("Import Prism"), b -> pressImportPrism())
 			.bounds(112, 8, 80, 20).build());
 		
-		addRenderableWidget(disconnectRandomReconnectToggleButton = Button
-			.builder(getDisconnectRandomReconnectLabel(),
-				b -> pressToggleDisconnectRandomReconnect())
-			.bounds(198, 8, 170, 20).build());
-		
 		addRenderableWidget(checkButton =
 			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
 				.bounds(width - 50 - 8 - 52, 8, 50, 20).build());
@@ -238,12 +233,16 @@ public final class AltManagerScreen extends Screen
 		// ---- AltBot controls ----
 		addRenderableWidget(botConnectButton = Button
 			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
-			.bounds(width / 2 - 154, height - 100, 154, 20).build());
+			.bounds(width / 2 - 154, height - 100, 100, 20).build());
+
+		addRenderableWidget(autoRespawnButton = Button
+			.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
+			.bounds(width / 2 - 50, height - 100, 100, 20).build());
 		
 		addRenderableWidget(botDisconnectButton = Button
 			.builder(Component.literal("Disconnect Bot"),
 				b -> pressBotDisconnect())
-			.bounds(width / 2, height - 100, 154, 20).build());
+			.bounds(width / 2 + 54, height - 100, 100, 20).build());
 		
 		addRenderableWidget(botSwitchButton = Button
 			.builder(Component.literal("Switch To"), b -> pressBotSwitch())
@@ -284,8 +283,6 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
 			setBotButtonsInactive();
 			return;
 		}
@@ -304,8 +301,6 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
 			setBotButtonsInactive();
 			return;
 		}
@@ -335,8 +330,6 @@ public final class AltManagerScreen extends Screen
 			exportButton.active = !importInProgress && !importPrismInProgress
 				&& !minecraft.options.fullscreen().get();
 		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton.active = true;
 		
 		updateBotButtons();
 	}
@@ -347,6 +340,8 @@ public final class AltManagerScreen extends Screen
 			botConnectButton.active = false;
 		if(botDisconnectButton != null)
 			botDisconnectButton.active = false;
+		if(autoRespawnButton != null)
+			autoRespawnButton.active = false;
 		if(botSwitchButton != null)
 			botSwitchButton.active = false;
 		if(botSendChatButton != null)
@@ -358,6 +353,7 @@ public final class AltManagerScreen extends Screen
 	private void updateBotButtons()
 	{
 		if(botConnectButton == null || botDisconnectButton == null
+			|| autoRespawnButton == null
 			|| botSwitchButton == null || botSendChatButton == null
 			|| botDetailsButton == null)
 			return;
@@ -379,6 +375,8 @@ public final class AltManagerScreen extends Screen
 		
 		botDisconnectButton.active = hasToken && token != null
 			&& (botManager.isBotConnected(token) || botStateFailed);
+		autoRespawnButton.active = true;
+		autoRespawnButton.setMessage(getAutoRespawnLabel());
 		
 		botSwitchButton.active = hasToken && token != null
 			&& !botManager.isActiveClientAlt(token) && !switchBusy;
@@ -399,21 +397,19 @@ public final class AltManagerScreen extends Screen
 		}
 	}
 	
-	private void pressToggleDisconnectRandomReconnect()
+	private void pressToggleAutoRespawn()
 	{
-		boolean enabled = !altManager.isDisconnectRandomAltReconnectEnabled();
-		altManager.setDisconnectRandomAltReconnectEnabled(enabled);
-		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton
-				.setMessage(getDisconnectRandomReconnectLabel());
+		AltBotManager manager = WurstClient.INSTANCE.getAltBotManager();
+		manager.setAutoRespawnEnabled(!manager.isAutoRespawnEnabled());
+		if(autoRespawnButton != null)
+			autoRespawnButton.setMessage(getAutoRespawnLabel());
 	}
-	
-	private Component getDisconnectRandomReconnectLabel()
+
+	private Component getAutoRespawnLabel()
 	{
-		return Component.literal("Toggle Random Reconnect: "
-			+ (altManager.isDisconnectRandomAltReconnectEnabled() ? "ON"
-				: "OFF"));
+		return Component.literal("Auto Respawn: "
+			+ (WurstClient.INSTANCE.getAltBotManager().isAutoRespawnEnabled()
+				? "ON" : "OFF"));
 	}
 	
 	@Override
