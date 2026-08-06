@@ -21,6 +21,7 @@ public final class DestinationRule
 	private boolean unreachable;
 	private boolean temporarilyUnavailable;
 	private boolean configured;
+	private List<ItemStack> observedContents = List.of();
 	
 	public DestinationRule(LogicalContainer container, int priority)
 	{
@@ -51,14 +52,79 @@ public final class DestinationRule
 	
 	public boolean matches(ItemStack stack)
 	{
+		if(isAutosort())
+			return configured && !full && !unreachable
+				&& !temporarilyUnavailable && autosortMatches(stack);
 		return configured && !full && !unreachable && !temporarilyUnavailable
 			&& filters.stream().anyMatch(f -> f.matches(stack));
 	}
 	
 	public int specificity(ItemStack stack)
 	{
+		if(isAutosort() && autosortMatches(stack))
+			return 60;
 		return filters.stream().filter(f -> f.matches(stack))
 			.mapToInt(ItemFilter::specificity).max().orElse(-1);
+	}
+	
+	public boolean isAutosort()
+	{
+		return filters.stream().anyMatch(f -> f == BuiltInItemFilter.AUTOSORT);
+	}
+	
+	/**
+	 * Updates the live contents used by Autosort; stacks are copied
+	 * defensively.
+	 */
+	public void setObservedContents(List<ItemStack> contents)
+	{
+		observedContents = contents == null ? List.of()
+			: contents.stream()
+				.filter(stack -> stack != null && !stack.isEmpty())
+				.map(ItemStack::copy).toList();
+	}
+	
+	public List<ItemStack> getObservedContents()
+	{
+		return observedContents.stream().map(ItemStack::copy).toList();
+	}
+	
+	/** Returns the broad category used to keep similar items together. */
+	public String autosortCategory(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return "empty";
+		BuiltInItemFilter[] categories = {BuiltInItemFilter.WEAPONS,
+			BuiltInItemFilter.TOOLS, BuiltInItemFilter.ARMOUR,
+			BuiltInItemFilter.REDSTONE, BuiltInItemFilter.TRANSPORTATION,
+			BuiltInItemFilter.UTILITY_ITEMS, BuiltInItemFilter.ENCHANTED_BOOKS,
+			BuiltInItemFilter.POTIONS, BuiltInItemFilter.FOOD,
+			BuiltInItemFilter.MOB_DROPS, BuiltInItemFilter.ORES_AND_MATERIALS,
+			BuiltInItemFilter.FARMING, BuiltInItemFilter.STONE_LIKE,
+			BuiltInItemFilter.WOOD, BuiltInItemFilter.NATURAL_BLOCKS,
+			BuiltInItemFilter.BUILDING_BLOCKS,
+			BuiltInItemFilter.DECORATIVE_ITEMS,
+			BuiltInItemFilter.MISCELLANEOUS};
+		for(BuiltInItemFilter category : categories)
+			if(category.matches(stack))
+				return category.name();
+		return BuiltInItemFilter.MISCELLANEOUS.name();
+	}
+	
+	public boolean autosortMatches(ItemStack stack)
+	{
+		if(!isAutosort() || stack == null || stack.isEmpty())
+			return false;
+		if(observedContents.isEmpty())
+			return true;
+		String category = autosortCategory(stack);
+		return observedContents.stream()
+			.anyMatch(existing -> autosortCategory(existing).equals(category));
+	}
+	
+	public String routingKey(ItemStack stack)
+	{
+		return isAutosort() ? autosortCategory(stack) : "normal";
 	}
 	
 	public int getPriority()

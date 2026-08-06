@@ -28,6 +28,7 @@ import net.minecraft.tags.EnchantmentTags;
 public enum BuiltInItemFilter implements ItemFilter
 {
 	ALL("Everything (move all items)", 10),
+	AUTOSORT("Autosort (match container contents)", 60),
 	WEAPONS("Weapons", 20),
 	TOOLS("Tools", 20),
 	ARMOUR("Armour", 20),
@@ -43,6 +44,29 @@ public enum BuiltInItemFilter implements ItemFilter
 	TRANSPORTATION("Transportation", 30),
 	UTILITY_ITEMS("Utility items", 30),
 	DECORATIVE_ITEMS("Decorative items", 30),
+	BOATS_AND_RAFTS("Boats and rafts", 40),
+	MINECARTS("Minecarts", 40),
+	HORSE_EQUIPMENT("Horse equipment", 40),
+	TRANSPORTATION_MISC("Other transportation", 40),
+	SEEDS("Seeds", 40),
+	CROPS("Crops", 40),
+	FARMING_TOOLS("Farming tools", 40),
+	ANIMAL_PRODUCTS("Animal products", 40),
+	ORES("Ores", 40),
+	INGOTS_AND_GEMS("Ingots and gems", 40),
+	CRAFTING_MATERIALS("Crafting materials", 40),
+	BUCKETS("Buckets", 40),
+	CONTAINERS("Containers", 40),
+	UTILITY_TOOLS("Utility tools", 40),
+	HORSE_AND_PLAYER_EQUIPMENT("Equipment", 40),
+	MOB_DROPS_COMMON("Common mob drops", 40),
+	MOB_DROPS_RARE("Rare mob drops", 40),
+	MOB_DROPS_NETHER("Nether mob drops", 40),
+	REDSTONE_SIGNAL("Redstone signals", 40),
+	REDSTONE_DEVICES("Redstone devices", 40),
+	WORKSTATIONS("Workstations", 40),
+	END_MATERIALS("End materials", 40),
+	NETHER_MATERIALS("Nether materials", 40),
 	MISCELLANEOUS("Miscellaneous", 10),
 	SWORDS("Swords", 40),
 	WEAPON_AXES("Weapon axes", 40),
@@ -113,7 +137,7 @@ public enum BuiltInItemFilter implements ItemFilter
 			return false;
 		return switch(this)
 		{
-			case ALL, MISCELLANEOUS -> true;
+			case ALL, AUTOSORT, MISCELLANEOUS -> true;
 			case WEAPONS -> stack.is(ItemTags.SWORDS)
 				|| stack.is(ItemTags.SPEARS) || path(stack, "trident", "mace")
 				|| stack.getItem() instanceof AxeItem
@@ -132,27 +156,77 @@ public enum BuiltInItemFilter implements ItemFilter
 				.has(DataComponents.STORED_ENCHANTMENTS);
 			case BUILDING_BLOCKS -> stack.getItem() instanceof BlockItem;
 			case NATURAL_BLOCKS -> path(stack, "dirt", "grass", "mud", "sand",
-				"gravel", "log", "leaves", "flower", "plant", "netherrack",
-				"end_stone", "ice", "snow");
-			case ORES_AND_MATERIALS -> path(stack, "ore", "ingot", "raw_",
-				"diamond", "emerald", "lapis", "quartz", "amethyst", "copper",
-				"iron", "gold");
-			case REDSTONE -> path(stack, "redstone", "repeater", "comparator",
-				"piston", "observer", "rail", "hopper", "dispenser", "dropper");
-			case FARMING -> path(stack, "seed", "wheat", "carrot", "potato",
-				"beetroot", "sugar_cane", "kelp", "cactus", "sapling",
-				"bone_meal");
-			case MOB_DROPS -> path(stack, "rotten_flesh", "bone", "string",
-				"gunpowder", "spider_eye", "slime", "leather", "feather",
-				"blaze", "ghast", "ender_pearl", "totem");
+				"gravel", "clay", "mycelium", "podzol", "root", "log", "leaves",
+				"stem", "hyphae", "flower", "plant", "bamboo", "moss",
+				"netherrack", "end_stone", "ice", "snow");
+			case ORES_AND_MATERIALS -> isOreOrMaterial(stack);
+			case REDSTONE -> isRedstone(stack);
+			case FARMING -> path(stack, "seed", "sapling", "wheat", "carrot",
+				"potato", "beetroot", "sugar_cane", "kelp", "cactus", "melon",
+				"pumpkin", "cocoa", "berry", "mushroom", "wart", "bamboo",
+				"hay", "composter", "bone_meal", "honeycomb");
+			case MOB_DROPS -> isMobDrop(stack);
 			case TRANSPORTATION -> path(stack, "boat", "minecart", "saddle",
 				"elytra");
 			case UTILITY_ITEMS -> path(stack, "bucket", "shears",
 				"flint_and_steel", "clock", "compass", "lead", "name_tag",
 				"totem", "shield");
-			case DECORATIVE_ITEMS -> path(stack, "banner", "painting", "pot",
-				"carpet", "coral", "lantern", "candle", "flower", "head",
-				"skull");
+			case DECORATIVE_ITEMS -> path(stack, "banner", "painting",
+				"flower_pot", "decorated_pot", "carpet", "coral", "lantern",
+				"candle", "flower", "head", "skull");
+			case BOATS_AND_RAFTS -> path(stack, "boat", "raft");
+			case MINECARTS -> path(stack, "minecart");
+			case HORSE_EQUIPMENT -> path(stack, "saddle", "horse_armor");
+			case TRANSPORTATION_MISC -> path(stack, "elytra", "lead");
+			case SEEDS -> path(stack, "seed", "sapling", "bamboo",
+				"cocoa_beans", "wart");
+			case CROPS -> path(stack, "wheat", "carrot", "potato", "beetroot",
+				"sugar_cane", "kelp", "cactus", "melon", "pumpkin", "cocoa",
+				"berry", "mushroom", "wart", "bamboo", "honeycomb");
+			case FARMING_TOOLS -> path(stack, "hoe", "shears", "bone_meal");
+			case ANIMAL_PRODUCTS -> path(stack, "leather", "feather", "egg",
+				"milk", "rabbit", "mutton", "beef", "porkchop", "chicken",
+				"wool", "honey", "ink_sac", "glow_ink_sac", "scute",
+				"turtle_helmet");
+			case ORES -> path(stack, "ore", "raw_", "ancient_debris");
+			case INGOTS_AND_GEMS -> path(stack, "ingot", "diamond", "emerald",
+				"lapis", "quartz", "amethyst");
+			case CRAFTING_MATERIALS -> path(stack, "stick", "string", "leather",
+				"flint", "clay", "paper", "slime", "feather", "ink_sac",
+				"honeycomb", "scute", "prismarine_shard", "amethyst_shard");
+			case BUCKETS -> path(stack, "bucket");
+			case CONTAINERS -> exactPath(stack, "chest", "trapped_chest",
+				"ender_chest", "barrel", "shulker_box", "hopper", "bundle");
+			case UTILITY_TOOLS -> path(stack, "flint_and_steel", "fishing_rod",
+				"shears", "compass", "clock", "spyglass");
+			case HORSE_AND_PLAYER_EQUIPMENT -> path(stack, "shield", "elytra",
+				"helmet", "chestplate", "leggings", "boots");
+			case MOB_DROPS_COMMON -> path(stack, "rotten_flesh", "bone",
+				"string", "string", "gunpowder", "spider_eye", "feather",
+				"leather", "wool", "ink_sac", "rabbit", "mutton", "beef",
+				"porkchop", "chicken");
+			case MOB_DROPS_RARE -> path(stack, "ender_pearl", "shulker_shell",
+				"phantom_membrane", "heart_of_the_sea", "totem", "rabbit_foot",
+				"nautilus_shell", "scute", "prismarine_shard",
+				"prismarine_crystals");
+			case MOB_DROPS_NETHER -> path(stack, "blaze", "ghast", "magma",
+				"wither", "nether_star");
+			case REDSTONE_SIGNAL -> path(stack, "redstone", "repeater",
+				"comparator", "target", "lever", "button", "daylight_detector",
+				"tripwire_hook", "redstone_torch");
+			case REDSTONE_DEVICES -> path(stack, "piston", "observer",
+				"dispenser", "dropper", "hopper", "rail", "redstone_lamp",
+				"note_block", "crafter", "sculk_sensor");
+			case WORKSTATIONS -> path(stack, "crafting_table", "furnace",
+				"blast_furnace", "smoker", "stonecutter", "smithing_table",
+				"cartography_table", "fletching_table", "loom", "grindstone",
+				"brewing_stand", "enchanting_table", "anvil", "composter",
+				"crafter", "lectern", "beacon", "cauldron");
+			case END_MATERIALS -> path(stack, "end_stone", "purpur", "chorus",
+				"shulker_shell");
+			case NETHER_MATERIALS -> path(stack, "netherrack", "nether_brick",
+				"quartz", "glowstone", "crimson", "warped", "basalt",
+				"blackstone");
 			case SWORDS -> stack.is(ItemTags.SWORDS);
 			case WEAPON_AXES -> stack.is(ItemTags.AXES);
 			case BOWS_AND_CROSSBOWS -> stack.getItem() instanceof BowItem
@@ -173,7 +247,9 @@ public enum BuiltInItemFilter implements ItemFilter
 			case SHIELDS -> path(stack, "shield");
 			case ELYTRA -> path(stack, "elytra");
 			case STONE_LIKE -> path(stack, "stone", "deepslate", "andesite",
-				"diorite", "granite");
+				"diorite", "granite")
+				&& !exactPath(stack, "redstone", "redstone_block",
+					"redstone_torch", "redstone_wall_torch");
 			case WOOD -> path(stack, "log", "wood", "planks", "stem", "hyphae");
 			case GLASS -> path(stack, "glass");
 			case CONCRETE_TERRACOTTA -> path(stack, "concrete", "terracotta");
@@ -190,17 +266,17 @@ public enum BuiltInItemFilter implements ItemFilter
 				"soul_");
 			case END_BLOCKS -> path(stack, "end_stone", "chorus", "purpur");
 			case ICE_SNOW -> path(stack, "ice", "snow");
-			case REDSTONE_COMPONENTS -> path(stack, "redstone", "repeater",
-				"comparator", "observer");
+			case REDSTONE_COMPONENTS -> isRedstoneComponent(stack);
 			case RAILS -> path(stack, "rail");
 			case PISTONS -> path(stack, "piston");
 			case STORAGE_COMPONENTS -> path(stack, "chest", "barrel", "shulker",
 				"hopper");
-			case REDSTONE_BLOCKS_AND_DUST -> path(stack, "redstone",
-				"redstone_block");
+			case REDSTONE_BLOCKS_AND_DUST -> exactPath(stack, "redstone",
+				"redstone_block", "redstone_torch", "redstone_wall_torch");
 			case DECORATIVE_BLOCKS -> stack.getItem() instanceof BlockItem
-				&& path(stack, "banner", "pot", "carpet", "coral", "lantern",
-					"candle", "flower", "head", "skull", "moss", "azalea");
+				&& path(stack, "banner", "flower_pot", "decorated_pot",
+					"carpet", "coral", "lantern", "candle", "flower", "head",
+					"skull", "moss", "azalea");
 			case WEAPONS_ENCHANTED -> isWeapon(stack) && hasEnchantments(stack);
 			case WEAPONS_UNENCHANTED -> isWeapon(stack)
 				&& !hasEnchantments(stack);
@@ -253,6 +329,41 @@ public enum BuiltInItemFilter implements ItemFilter
 		return !EnchantmentHelper.getEnchantmentsForCrafting(stack).isEmpty();
 	}
 	
+	private static boolean isRedstone(ItemStack stack)
+	{
+		return isRedstoneComponent(stack) || path(stack, "piston", "rail",
+			"hopper", "dispenser", "dropper", "tnt", "trapped_chest");
+	}
+	
+	private static boolean isRedstoneComponent(ItemStack stack)
+	{
+		return exactPath(stack, "redstone", "redstone_block", "redstone_torch",
+			"redstone_wall_torch", "repeater", "comparator", "observer",
+			"lever", "stone_button", "oak_button", "spruce_button",
+			"birch_button", "jungle_button", "acacia_button", "dark_oak_button",
+			"mangrove_button", "cherry_button", "bamboo_button",
+			"crimson_button", "warped_button", "polished_blackstone_button",
+			"target", "daylight_detector", "tripwire_hook", "redstone_lamp",
+			"note_block", "crafter", "sculk_sensor", "calibrated_sculk_sensor");
+	}
+	
+	private static boolean isOreOrMaterial(ItemStack stack)
+	{
+		return path(stack, "ore", "raw_", "ancient_debris", "coal", "charcoal",
+			"diamond", "emerald", "lapis", "quartz", "amethyst", "copper_ingot",
+			"iron_ingot", "gold_ingot", "netherite_ingot", "netherite_scrap");
+	}
+	
+	private static boolean isMobDrop(ItemStack stack)
+	{
+		return path(stack, "rotten_flesh", "bone", "string", "gunpowder",
+			"spider_eye", "slime", "leather", "feather", "wool", "ink_sac",
+			"glow_ink_sac", "blaze", "ghast", "magma", "ender_pearl",
+			"shulker_shell", "phantom_membrane", "heart_of_the_sea", "totem",
+			"rabbit_foot", "nautilus_shell", "scute", "prismarine_shard",
+			"prismarine_crystals", "wither_skeleton_skull", "dragon_breath");
+	}
+	
 	private static boolean isBookAtLeast(ItemStack stack, int level)
 	{
 		return stack.has(DataComponents.STORED_ENCHANTMENTS)
@@ -265,6 +376,15 @@ public enum BuiltInItemFilter implements ItemFilter
 		String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
 		for(String part : parts)
 			if(path.contains(part))
+				return true;
+		return false;
+	}
+	
+	private static boolean exactPath(ItemStack stack, String... names)
+	{
+		String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+		for(String name : names)
+			if(path.equals(name))
 				return true;
 		return false;
 	}

@@ -57,10 +57,12 @@ public final class LootSorterModelTest
 		testSourceChestSearchData();
 		testEnchantedBookLevel();
 		testFilters();
+		testCategoryCoverage();
 		testLedgerDeferral();
 		testSelectionPresetData();
 		testPlannerLargestGroupAndSpecificity();
 		testPlannerBatchesMatchingItems();
+		testAutosortDestination();
 	}
 	
 	private void testComponentEquivalence()
@@ -136,6 +138,36 @@ public final class LootSorterModelTest
 				.matches(named);
 		});
 		check(restored, "exact profile filter must preserve stack components");
+	}
+
+	private void testCategoryCoverage()
+	{
+		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.LEVER))
+			&& BuiltInItemFilter.REDSTONE_COMPONENTS.matches(new ItemStack(Items.LEVER)),
+			"redstone filters must include levers");
+		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.TARGET))
+			&& BuiltInItemFilter.REDSTONE_COMPONENTS.matches(new ItemStack(Items.TARGET))
+			&& BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.COMPARATOR)),
+			"redstone filters must include target blocks and comparators");
+		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.PISTON))
+			&& BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.REDSTONE)),
+			"redstone filters must include pistons and dust");
+		check(BuiltInItemFilter.WORKSTATIONS.matches(new ItemStack(Items.CRAFTING_TABLE))
+			&& BuiltInItemFilter.WORKSTATIONS.matches(new ItemStack(Items.LECTERN)),
+			"workstations must include crafting tables and lecterns");
+		check(BuiltInItemFilter.CROPS.matches(new ItemStack(Items.COCOA_BEANS))
+			&& BuiltInItemFilter.MOB_DROPS.matches(new ItemStack(Items.GUNPOWDER)),
+			"farming and mob-drop filters must include common variants");
+		check(!BuiltInItemFilter.ORES_AND_MATERIALS.matches(
+				new ItemStack(Items.IRON_SWORD)),
+			"ore filters must not match iron equipment by substring");
+		check(!BuiltInItemFilter.CONTAINERS.matches(
+				new ItemStack(Items.IRON_CHESTPLATE))
+				&& !BuiltInItemFilter.DECORATIVE_ITEMS.matches(
+					new ItemStack(Items.POTION))
+				&& !BuiltInItemFilter.STONE_LIKE.matches(
+					new ItemStack(Items.REDSTONE)),
+			"container, decorative and stone filters must avoid substring collisions");
 	}
 	
 	private void testSelectionPresetData()
@@ -278,6 +310,31 @@ public final class LootSorterModelTest
 				&& route.itemKeysFor(secondSource)
 					.contains(ItemStackEquivalenceKey.of(bow)),
 			"planner must batch matching items from several sources for one destination");
+	}
+	
+	private void testAutosortDestination()
+	{
+		DestinationRule destination =
+			destination(new BlockPos(10, 64, 0), 0, BuiltInItemFilter.AUTOSORT);
+		ItemStack storedSword = new ItemStack(Items.DIAMOND_SWORD);
+		destination.setObservedContents(List.of(storedSword));
+		check(
+			destination.matches(new ItemStack(Items.BOW))
+				&& !destination.matches(new ItemStack(Items.DIRT)),
+			"autosort must match the category already present in a destination");
+		
+		destination.setObservedContents(List.of());
+		LogicalContainer source = new LogicalContainer(new BlockPos(2, 64, 0));
+		Map<LogicalContainer, List<ItemStack>> sources = new LinkedHashMap<>();
+		sources.put(source, List.of(new ItemStack(Items.DIRT, 32),
+			new ItemStack(Items.DIAMOND_SWORD)));
+		SortRoute route = new SortPlanner().plan(Vec3.ZERO, sources,
+			List.of(destination), List.of(source));
+		check(
+			route != null && route.groupItemCount() == 32
+				&& route.itemKeys().contains(
+					ItemStackEquivalenceKey.of(new ItemStack(Items.DIRT))),
+			"empty autosort must start with the largest item category");
 	}
 	
 	private DestinationRule destination(BlockPos position, int priority,
