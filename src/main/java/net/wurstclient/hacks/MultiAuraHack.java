@@ -40,6 +40,7 @@ public final class MultiAuraHack extends Hack
 	implements UpdateListener, HandleInputListener, RenderListener
 {
 	private Entity pendingMaceTarget;
+	private final ArrayList<Entity> pendingMaceBurst = new ArrayList<>();
 	private final ArrayDeque<Integer> maceTargetQueue = new ArrayDeque<>();
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
@@ -119,6 +120,7 @@ public final class MultiAuraHack extends Hack
 		EVENTS.remove(HandleInputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		pendingMaceTarget = null;
+		pendingMaceBurst.clear();
 		maceTargetQueue.clear();
 		currentTargets.clear();
 		lastTargets.clear();
@@ -193,17 +195,28 @@ public final class MultiAuraHack extends Hack
 						|| pendingMaceTarget.getId() != entity.getId()))
 					maceTargetQueue.addLast(entity.getId());
 				
-			if(pendingMaceTarget != null)
-				return;
-			if(maceTargetQueue.isEmpty())
+			if(pendingMaceTarget != null || !pendingMaceBurst.isEmpty())
 				return;
 			
-			Entity target = MC.level.getEntity(maceTargetQueue.peekFirst());
-			if(target == null)
+			int burstCount = maceDmg.getAuraBurstTargetCount();
+			ArrayList<Entity> picks = new ArrayList<>();
+			for(Integer id : maceTargetQueue)
+			{
+				if(picks.size() >= burstCount)
+					break;
+				Entity entity = MC.level.getEntity(id);
+				if(entity != null && maceDmg.canSpoofSmashNow(entity))
+					picks.add(entity);
+			}
+			if(picks.isEmpty())
 				return;
-			pendingMaceTarget = target;
+			
+			if(picks.size() == 1)
+				pendingMaceTarget = picks.get(0);
+			else
+				pendingMaceBurst.addAll(picks);
 			RotationUtils
-				.getNeededRotations(target.getBoundingBox().getCenter())
+				.getNeededRotations(picks.get(0).getBoundingBox().getCenter())
 				.sendPlayerLookPacket();
 			return;
 		}
@@ -235,6 +248,29 @@ public final class MultiAuraHack extends Hack
 	@Override
 	public void onHandleInput()
 	{
+		if(!pendingMaceBurst.isEmpty())
+		{
+			ArrayList<Entity> burst = new ArrayList<>(pendingMaceBurst);
+			pendingMaceBurst.clear();
+			
+			MaceDmgHack burstMaceDmg = WURST.getHax().maceDmgHack;
+			if(burstMaceDmg.hasFallDebt())
+				return;
+			
+			List<Entity> attacked = burstMaceDmg.performAuraBurst(burst,
+				burstMaceDmg.getAuraBurstTargetCount());
+			if(attacked.isEmpty())
+				return;
+			
+			for(Entity entity : attacked)
+				maceTargetQueue.removeFirstOccurrence(entity.getId());
+			if(shouldUseAuraSpeedAssist(burstMaceDmg))
+				speed.resetTimer(0);
+			else
+				speed.resetTimer();
+			return;
+		}
+		
 		Entity target = pendingMaceTarget;
 		pendingMaceTarget = null;
 		if(target == null || !target.isAlive() || target.isRemoved())
@@ -248,9 +284,7 @@ public final class MultiAuraHack extends Hack
 		if(maceDmg.hasFallDebt())
 			return;
 		
-		if(!maceTargetQueue.isEmpty()
-			&& maceTargetQueue.peekFirst().intValue() == target.getId())
-			maceTargetQueue.removeFirst();
+		maceTargetQueue.removeFirstOccurrence(target.getId());
 		
 		MC.gameMode.attack(MC.player, target);
 		swingHand.swing(InteractionHand.MAIN_HAND);
