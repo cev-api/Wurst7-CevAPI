@@ -99,6 +99,11 @@ public final class Navigator
 		preferencesFile.load();
 	}
 	
+	public void savePreferences()
+	{
+		preferencesFile.save();
+	}
+	
 	public List<Feature> getList()
 	{
 		return Collections.unmodifiableList(navigatorList);

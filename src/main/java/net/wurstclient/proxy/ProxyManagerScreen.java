@@ -38,7 +38,7 @@ import net.wurstclient.util.MultiProcessingUtils;
 
 public final class ProxyManagerScreen extends Screen
 {
-	private static final int PROXY_LIST_WIDTH = 300;
+	private static final int PROXY_LIST_WIDTH = 700;
 	private static final int ACTIVE_PROXY_BORDER = 0xFF0A2A10;
 	private static final int ACTIVE_PROXY_BACKGROUND = 0xFF1A4A1A;
 	private static final int ACTIVE_PROXY_GREEN = 0xFF55FF55;
@@ -68,8 +68,8 @@ public final class ProxyManagerScreen extends Screen
 	@Override
 	protected void init()
 	{
-		int x = width / 2 - 150;
-		proxyBox = new EditBox(font, x, 46, 300, 20,
+		int x = width / 2 - PROXY_LIST_WIDTH / 2;
+		proxyBox = new EditBox(font, x, 46, PROXY_LIST_WIDTH, 20,
 			Component.literal("host:port or socks5://host:port"));
 		proxyBox.setMaxLength(512);
 		addWidget(proxyBox);

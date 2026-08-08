@@ -83,6 +83,25 @@ public final class SettingsFile
 		save();
 	}
 	
+	/**
+	 * Resets every registered setting before applying a profile. This prevents
+	 * settings that are absent from older profiles from leaking in from the
+	 * previously loaded profile.
+	 */
+	public void resetAllSettings()
+	{
+		try
+		{
+			disableSaving = true;
+			for(Feature feature : featuresWithSettings.values())
+				for(Setting setting : feature.getSettings().values())
+					setting.resetToDefault();
+		}finally
+		{
+			disableSaving = false;
+		}
+	}
+	
 	public void loadProfile(Path profilePath) throws IOException, JsonException
 	{
 		if(!profilePath.getFileName().toString().endsWith(".json"))

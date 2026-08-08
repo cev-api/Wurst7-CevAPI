@@ -277,6 +277,12 @@ public enum WurstClient
 		settingsFile.load();
 	}
 	
+	public void resetSettings()
+	{
+		if(settingsFile != null)
+			settingsFile.resetAllSettings();
+	}
+	
 	public void reloadFromDisk()
 	{
 		GlobalEspManager.getInstance().cleanup();

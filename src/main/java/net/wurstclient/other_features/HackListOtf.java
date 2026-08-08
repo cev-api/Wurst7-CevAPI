@@ -176,6 +176,11 @@ public final class HackListOtf extends OtherFeature
 		syncHiddenHackStates();
 	}
 	
+	public void saveHiddenHacksFile()
+	{
+		hiddenHacksFile.save();
+	}
+	
 	public boolean isHidden(Hack hack)
 	{
 		return hideFromHackListEnabled.isChecked()
@@ -196,7 +201,6 @@ public final class HackListOtf extends OtherFeature
 		
 		hiddenHacksFile.save();
 		syncHackState(hack);
-		refreshGui();
 	}
 	
 	public int getEnabledHiddenHackCount()

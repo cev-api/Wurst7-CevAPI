@@ -45,6 +45,7 @@ import net.wurstclient.navigator.NavigatorListScreen;
 import net.wurstclient.nochatreports.ForcedChatReportsScreen;
 import net.wurstclient.nochatreports.NcrModRequiredScreen;
 import net.wurstclient.options.EnterProfileNameScreen;
+import net.wurstclient.proxy.ProxyManager;
 import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.LastServerRememberer;
 
@@ -72,6 +73,7 @@ public class DisconnectedScreenMixin extends Screen
 	
 	private Button reconnectButton;
 	private Button reconnectRandomAltButton;
+	private Button reconnectRandomProxyButton;
 	private volatile boolean randomAltReconnectInProgress;
 	
 	private void ensureValidParent()
@@ -148,6 +150,20 @@ public class DisconnectedScreenMixin extends Screen
 								b -> pressRandomAltReconnect())
 							.width(200).build());
 		
+		ProxyManager proxyManager = WurstClient.INSTANCE.getProxyManager();
+		if(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.shouldShowRandomProxyReconnect()
+			&& !proxyManager.getProxies().isEmpty())
+			reconnectRandomProxyButton =
+				layout
+					.addChild(
+						Button
+							.builder(
+								Component
+									.literal("Reconnect with Random Proxy"),
+								b -> pressRandomProxyReconnect())
+							.width(200).build());
+		
 		autoReconnectButton =
 			layout.addChild(Button.builder(Component.literal("AutoReconnect"),
 				b -> pressAutoReconnect()).width(200).build());
@@ -161,15 +177,15 @@ public class DisconnectedScreenMixin extends Screen
 		}else
 			posString = "Unknown";
 		Button copyLocButton = layout.addChild(Button
-			.builder(Component.literal("Copy location: " + posString), b -> {
+				.builder(Component.literal("Copy Location: " + posString), b -> {
 				minecraft.keyboardHandler.setClipboard(posString);
 			}).width(200).build());
 		
 		layout.arrangeElements();
 		baseLayoutY = layout.getY();
 		Stream
-			.of(reconnectButton, reconnectRandomAltButton, autoReconnectButton,
-				copyLocButton)
+			.of(reconnectButton, reconnectRandomAltButton,
+				reconnectRandomProxyButton, autoReconnectButton, copyLocButton)
 			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
 		
 		offlineSettingsHack.handleDisconnect(reason);
@@ -213,6 +229,16 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(autoReconnect.isEnabled())
 			autoReconnectTimer = autoReconnect.getWaitTicks();
+	}
+	
+	private void pressRandomProxyReconnect()
+	{
+		if(WurstClient.INSTANCE.getProxyManager().selectRandomProxy() != null)
+		{
+			if(parent instanceof net.wurstclient.mixinterface.IMultiplayerTitleRefresher refresher)
+				refresher.wurst$refreshAccountTitle();
+			LastServerRememberer.reconnect(parent);
+		}
 	}
 	
 	private void pressAutoReconnect()

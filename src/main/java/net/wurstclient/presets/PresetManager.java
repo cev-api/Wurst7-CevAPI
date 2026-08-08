@@ -22,9 +22,10 @@ import net.wurstclient.WurstClient;
 
 public final class PresetManager
 {
-	private static final List<String> PRESET_FILES = List.of(
-		"enabled-hacks.json", "favourites.json", "settings.json",
-		"keybinds.json", "windows.json", "preferences.json", "toomanyhax.json");
+	private static final List<String> PRESET_FILES =
+		List.of("enabled-hacks.json", "favourites.json", "settings.json",
+			"keybinds.json", "windows.json", "preferences.json",
+			"toomanyhax.json", "toomanyhax_hacklist.json");
 	
 	private final WurstClient wurst;
 	private final Path wurstFolder;
@@ -143,11 +144,16 @@ public final class PresetManager
 		wurst.saveSettings();
 		wurst.getHax().saveEnabledHax();
 		wurst.getHax().saveFavoriteHax();
+		wurst.getHax().tooManyHaxHack.saveBlockedHacksFile();
+		wurst.getOtfs().hackListOtf.saveHiddenHacksFile();
 		wurst.getKeybinds().save();
+		wurst.getNavigator().savePreferences();
+		wurst.getGui().persistWindowLayout();
 	}
 	
 	private void reloadCurrentState()
 	{
+		wurst.resetSettings();
 		wurst.reloadSettings();
 		wurst.getHax().tooManyHaxHack.loadBlockedHacksFile();
 		wurst.getOtfs().hackListOtf.loadHiddenHacksFile();
@@ -174,7 +180,10 @@ public final class PresetManager
 		{
 			Path source = presetFolder.resolve(fileName);
 			Path target = wurstFolder.resolve(fileName);
-			copyIfExists(source, target);
+			if(Files.exists(source))
+				copyIfExists(source, target);
+			else
+				Files.deleteIfExists(target);
 		}
 	}
 	

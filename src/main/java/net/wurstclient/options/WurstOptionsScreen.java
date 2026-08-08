@@ -418,6 +418,17 @@ public final class WurstOptionsScreen extends Screen
 							.isDisconnectRandomAltReconnectEnabled()));
 			
 			addButton(column,
+				() -> "Random Proxy Reconnect: "
+					+ onOff(wurst.getOtfs().wurstOptionsOtf
+						.shouldShowRandomProxyReconnect()),
+				"Controls whether Disconnected screen shows \"Reconnect with random proxy\".",
+				b -> {
+					var options = wurst.getOtfs().wurstOptionsOtf;
+					options.setShowRandomProxyReconnect(
+						!options.shouldShowRandomProxyReconnect());
+				});
+			
+			addButton(column,
 				() -> "Show Offline Buttons: "
 					+ onOff(wurst.getHax().offlineSettingsHack
 						.shouldShowDisconnectButtons()),

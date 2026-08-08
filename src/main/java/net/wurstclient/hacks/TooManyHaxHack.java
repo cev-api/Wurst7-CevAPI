@@ -76,6 +76,11 @@ public final class TooManyHaxHack extends Hack
 		file.load();
 	}
 	
+	public void saveBlockedHacksFile()
+	{
+		file.save();
+	}
+	
 	@Override
 	public String getRenderName()
 	{
