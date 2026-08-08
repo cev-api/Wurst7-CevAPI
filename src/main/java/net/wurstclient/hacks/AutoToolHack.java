@@ -20,9 +20,11 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
@@ -49,6 +51,9 @@ public final class AutoToolHack extends Hack
 		"Uses an empty hand or a non-damageable item when no applicable tool is"
 			+ " found.",
 		true);
+	private final CheckboxSetting silkTouch =
+		new CheckboxSetting("Prefer Silk Touch",
+			"Prefer Silk Touch for ender chests and glass.", false);
 	
 	private final SliderSetting repairMode = new SliderSetting("Repair mode",
 		"Prevents tools from being used when their durability reaches the given"
@@ -70,6 +75,7 @@ public final class AutoToolHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(useSwords);
 		addSetting(useHands);
+		addSetting(silkTouch);
 		addSetting(repairMode);
 		addSetting(switchBack);
 	}
@@ -216,8 +222,19 @@ public final class AutoToolHack extends Hack
 		Inventory inventory = player.getInventory();
 		ItemStack heldItem = MC.player.getMainHandItem();
 		
+		boolean preferSilk = silkTouch.isChecked() && needsSilkTouch(state);
+		if(preferSilk)
+		{
+			if(isSilkTouchPickaxe(heldItem)
+				&& !isTooDamaged(heldItem, repairMode))
+				return -1;
+			int silkSlot =
+				findSilkTouchSlot(inventory, allowedSlot, maxSlot, repairMode);
+			if(silkSlot != -1)
+				return silkSlot;
+		}
 		float bestSpeed = allowedSlot.test(inventory.getSelectedSlot())
-			? getMiningSpeed(heldItem, state) : 1;
+			? getSelectionSpeed(heldItem, state, preferSilk) : 1;
 		if(isTooDamaged(heldItem, repairMode))
 			bestSpeed = 1;
 		int bestSlot = -1;
@@ -232,7 +249,7 @@ public final class AutoToolHack extends Hack
 			
 			ItemStack stack = inventory.getItem(slot);
 			
-			float speed = getMiningSpeed(stack, state);
+			float speed = getSelectionSpeed(stack, state, preferSilk);
 			if(speed <= bestSpeed)
 				continue;
 			
@@ -247,6 +264,59 @@ public final class AutoToolHack extends Hack
 		}
 		
 		return bestSlot;
+	}
+	
+	private int findSilkTouchSlot(Inventory inventory, IntPredicate allowedSlot,
+		int maxSlot, int repairMode)
+	{
+		for(int slot = 0; slot < maxSlot; slot++)
+		{
+			if(slot == inventory.getSelectedSlot() || !allowedSlot.test(slot))
+				continue;
+			ItemStack stack = inventory.getItem(slot);
+			if(isSilkTouchPickaxe(stack) && !isTooDamaged(stack, repairMode))
+				return slot;
+		}
+		return -1;
+	}
+	
+	private float getSelectionSpeed(ItemStack stack, BlockState state,
+		boolean preferSilk)
+	{
+		float speed = getMiningSpeed(stack, state);
+		if(preferSilk && !stack.isEmpty() && hasSilkTouch(stack))
+			speed += 100000;
+		return speed;
+	}
+	
+	private boolean needsSilkTouch(BlockState state)
+	{
+		if(state.getBlock() == Blocks.ENDER_CHEST)
+			return true;
+		String path = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+			.getKey(state.getBlock()).getPath();
+		return path.equals("glass") || path.equals("glass_pane")
+			|| path.equals("tinted_glass") || path.endsWith("_stained_glass")
+			|| path.endsWith("_glass_pane");
+	}
+	
+	private boolean hasSilkTouch(ItemStack stack)
+	{
+		if(stack.isEmpty() || MC.level == null)
+			return false;
+		Registry<Enchantment> registry =
+			MC.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+		Optional<Reference<Enchantment>> silk =
+			registry.get(Enchantments.SILK_TOUCH);
+		ItemEnchantments enchantments = stack.getOrDefault(
+			net.minecraft.core.component.DataComponents.ENCHANTMENTS,
+			ItemEnchantments.EMPTY);
+		return silk.map(enchantments::getLevel).orElse(0) > 0;
+	}
+	
+	private boolean isSilkTouchPickaxe(ItemStack stack)
+	{
+		return stack.is(ItemTags.PICKAXES) && hasSilkTouch(stack);
 	}
 	
 	private float getMiningSpeed(ItemStack stack, BlockState state)
