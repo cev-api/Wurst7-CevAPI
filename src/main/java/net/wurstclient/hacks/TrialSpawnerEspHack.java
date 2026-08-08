@@ -81,15 +81,18 @@ public final class TrialSpawnerEspHack extends Hack
 	private final SliderSetting maxDistance =
 		new SliderSetting("Max distance", 160, 0, 256, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting drawTracers =
-		new CheckboxSetting("Show tracer", true);
+		new CheckboxSetting("Show tracer", false);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting fillShapes =
 		new CheckboxSetting("Fill boxes", true);
+	private final SliderSetting fillOpacity = new SliderSetting("Fill opacity",
+		"Opacity of the filled vault and trial spawner boxes.", 0.18, 0, 1,
+		0.01, ValueDisplay.PERCENTAGE);
 	private final CheckboxSetting showOverlay =
 		new CheckboxSetting("Text overlay", true);
 	private final SliderSetting overlayScale = new SliderSetting(
-		"Overlay scale", 1.0, 0.5, 2.0, 0.05, ValueDisplay.DECIMAL);
+		"Overlay scale", 0.5, 0.5, 2.0, 0.05, ValueDisplay.DECIMAL);
 	private final CheckboxSetting showMobType =
 		new CheckboxSetting("Show mob type", true);
 	private final CheckboxSetting showStatus =
@@ -114,10 +117,16 @@ public final class TrialSpawnerEspHack extends Hack
 		new CheckboxSetting("Show trial type", true);
 	private final CheckboxSetting showActivationRadius =
 		new CheckboxSetting("Show activation radius", true);
+	private final CheckboxSetting cubeActivationRadius =
+		new CheckboxSetting("3D cube activation radius",
+			"Render the activation radius as a 3D cube instead of a circle.",
+			false);
 	private final CheckboxSetting showVaultLink =
-		new CheckboxSetting("Show vault link", true);
+		new CheckboxSetting("Show vault link", false);
 	private final CheckboxSetting onlyVaults =
 		new CheckboxSetting("Only vaults", false);
+	private final CheckboxSetting showRegularVaults =
+		new CheckboxSetting("Show regular vaults", true);
 	private final SliderSetting vaultLinkRange = new SliderSetting(
 		"Vault link range", 48, 8, 96, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting alertOminousKey = new CheckboxSetting(
@@ -173,6 +182,7 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(drawTracers);
 		addSetting(tracerFlash);
 		addSetting(fillShapes);
+		addSetting(fillOpacity);
 		addSetting(showOverlay);
 		addSetting(overlayScale);
 		addSetting(showMobType);
@@ -186,8 +196,10 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(showDistance);
 		addSetting(showTrialType);
 		addSetting(showActivationRadius);
+		addSetting(cubeActivationRadius);
 		addSetting(showVaultLink);
 		addSetting(onlyVaults);
+		addSetting(showRegularVaults);
 		addSetting(vaultLinkRange);
 		addSetting(alertOminousKey);
 		addSetting(alertOminousKeySound);
@@ -324,32 +336,34 @@ public final class TrialSpawnerEspHack extends Hack
 						@Override
 						public void run()
 						{
-							try
-							{
-								if(MC == null || MC.level == null)
-									return;
-								BlockState after =
-									MC.level.getBlockState(vposFinal);
-								VaultState afterState =
-									after.hasProperty(VaultBlock.STATE)
-										? after.getValue(VaultBlock.STATE)
-										: null;
-								boolean prevIdle = prevFinal == null
-									|| prevFinal == VaultState.INACTIVE;
-								if(prevIdle && ((afterState == null
-									&& prevFinal == null)
-									|| (afterState == prevFinal)))
+							MC.execute(() -> {
+								try
 								{
-									// unchanged and was idle -> assume already
-									// opened/locked
-									if(openedVaultKeys.add(keyFinal))
-										saveOpenedVaults();
+									if(MC.level == null)
+										return;
+									BlockState after =
+										MC.level.getBlockState(vposFinal);
+									VaultState afterState =
+										after.hasProperty(VaultBlock.STATE)
+											? after.getValue(VaultBlock.STATE)
+											: null;
+									boolean prevIdle = prevFinal == null
+										|| prevFinal == VaultState.INACTIVE;
+									if(prevIdle && ((afterState == null
+										&& prevFinal == null)
+										|| (afterState == prevFinal)))
+									{
+										// unchanged and was idle -> assume
+										// already opened/locked
+										if(openedVaultKeys.add(keyFinal))
+											saveOpenedVaults();
+									}
+								}catch(Throwable ignored)
+								{}finally
+								{
+									approachScheduledKeys.remove(keyFinal);
 								}
-							}catch(Throwable ignored)
-							{}finally
-							{
-								approachScheduledKeys.remove(keyFinal);
-							}
+							});
 						}
 					}, 1500L);
 				}
@@ -467,30 +481,33 @@ public final class TrialSpawnerEspHack extends Hack
 			@Override
 			public void run()
 			{
-				try
-				{
-					if(MC == null || MC.level == null)
-						return;
-					BlockState after = MC.level.getBlockState(posFinal);
-					VaultState afterState = after.hasProperty(VaultBlock.STATE)
-						? after.getValue(VaultBlock.STATE) : null;
-					// Only mark as opened if the vault was idle/inactive when
-					// we checked and the state stayed unchanged. If it was
-					// ACTIVE (mouth opened) or transitioned to ACTIVE/EJECTING,
-					// do not mark.
-					boolean beforeIdle = beforeFinal == null
-						|| beforeFinal == VaultState.INACTIVE;
-					if(beforeIdle
-						&& ((afterState == null && beforeFinal == null)
-							|| (afterState == beforeFinal)))
+				MC.execute(() -> {
+					try
 					{
-						String key = dimFinal + "|" + posFinal.getX() + ","
-							+ posFinal.getY() + "," + posFinal.getZ();
-						if(openedVaultKeys.add(key))
-							saveOpenedVaults();
-					}
-				}catch(Throwable ignored)
-				{}
+						if(MC.level == null)
+							return;
+						BlockState after = MC.level.getBlockState(posFinal);
+						VaultState afterState =
+							after.hasProperty(VaultBlock.STATE)
+								? after.getValue(VaultBlock.STATE) : null;
+						// Only mark as opened if the vault was idle/inactive
+						// when we checked and the state stayed unchanged. If it
+						// was ACTIVE (mouth opened) or transitioned to
+						// ACTIVE/EJECTING, do not mark.
+						boolean beforeIdle = beforeFinal == null
+							|| beforeFinal == VaultState.INACTIVE;
+						if(beforeIdle
+							&& ((afterState == null && beforeFinal == null)
+								|| (afterState == beforeFinal)))
+						{
+							String key = dimFinal + "|" + posFinal.getX() + ","
+								+ posFinal.getY() + "," + posFinal.getZ();
+							if(openedVaultKeys.add(key))
+								saveOpenedVaults();
+						}
+					}catch(Throwable ignored)
+					{}
+				});
 			}
 		};
 		new Timer(true).schedule(task, 1500);
@@ -516,9 +533,11 @@ public final class TrialSpawnerEspHack extends Hack
 			{
 				BlockPos vpos = v.pos();
 				BlockState vstate = MC.level.getBlockState(vpos);
-				int vcolor = vaultBoxColor.getColorI();
 				boolean ominous = vstate.hasProperty(VaultBlock.OMINOUS)
 					&& vstate.getValue(VaultBlock.OMINOUS);
+				if(!showRegularVaults.isChecked() && !ominous)
+					continue;
+				int vcolor = vaultBoxColor.getColorI();
 				if(ominous)
 					vcolor = ominousVaultBoxColor.getColorI();
 				// if we know this ominous vault was opened before, mark it
@@ -540,8 +559,8 @@ public final class TrialSpawnerEspHack extends Hack
 				AABB vbox = new AABB(vpos);
 				outlineBoxes.add(new ColoredBox(vbox, vcolor));
 				if(filledBoxes != null)
-					filledBoxes
-						.add(new ColoredBox(vbox, withAlpha(vcolor, 0.18F)));
+					filledBoxes.add(new ColoredBox(vbox,
+						withAlpha(vcolor, fillOpacity.getValueF())));
 				
 				// show simple status label above the vault
 				String status = describeVaultState(vstate);
@@ -575,8 +594,8 @@ public final class TrialSpawnerEspHack extends Hack
 				AABB box = new AABB(info.pos());
 				outlineBoxes.add(new ColoredBox(box, color));
 				if(filledBoxes != null)
-					filledBoxes
-						.add(new ColoredBox(box, withAlpha(color, 0.18F)));
+					filledBoxes.add(new ColoredBox(box,
+						withAlpha(color, fillOpacity.getValueF())));
 				if(tracerTargets != null)
 				{
 					int tracerColor = color;
@@ -603,8 +622,8 @@ public final class TrialSpawnerEspHack extends Hack
 		if(!outlineBoxes.isEmpty())
 			RenderUtils.drawOutlinedBoxes(matrices, outlineBoxes, false);
 		if(tracerTargets != null && !tracerTargets.isEmpty())
-			RenderUtils.drawTracers(matrices, partialTicks, tracerTargets,
-				false);
+			RenderUtils.drawTracers("TrialSpawnerESP", matrices, partialTicks,
+				tracerTargets, false);
 		
 		// draw overlays after all ESP geometry so labels are not overwritten
 		java.util.HashSet<BlockPos> drawn = new java.util.HashSet<>();
@@ -636,9 +655,18 @@ public final class TrialSpawnerEspHack extends Hack
 		int color = withAlpha(
 			inside ? mixWithWhite(stateColor, 0.35F) : radiusColor.getColorI(),
 			inside ? 0.65F : 0.35F);
-		int segments = Math.max(32, radius * 12);
-		RenderUtils.drawCircle(matrices, center, radius, segments, color,
-			false);
+		if(cubeActivationRadius.isChecked())
+		{
+			AABB box = new AABB(center.x - radius, center.y - radius,
+				center.z - radius, center.x + radius, center.y + radius,
+				center.z + radius);
+			RenderUtils.drawOutlinedBoxes(matrices, List.of(box), color, false);
+		}else
+		{
+			int segments = Math.max(32, radius * 12);
+			RenderUtils.drawCircle(matrices, center, radius, segments, color,
+				false);
+		}
 	}
 	
 	private void drawVaultLink(PoseStack matrices, TrialSpawnerInfo info,
@@ -795,8 +823,20 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
-		matrices.translate(position.x - cam.x, position.y - cam.y,
-			position.z - cam.z);
+		Vec3 dir = position.subtract(cam);
+		double dist = dir.length();
+		double lx = position.x;
+		double ly = position.y;
+		double lz = position.z;
+		if(dist > 1.0)
+		{
+			double anchor = Math.min(dist, 12.0);
+			Vec3 anchored = cam.add(dir.scale(anchor / dist));
+			lx = anchored.x;
+			ly = anchored.y;
+			lz = anchored.z;
+		}
+		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		var camEntity = MC.getCameraEntity();
 		if(camEntity != null)
 		{
@@ -804,7 +844,7 @@ public final class TrialSpawnerEspHack extends Hack
 			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
 		}
 		matrices.mulPose(Axis.YP.rotationDegrees(180));
-		float s = 0.025F * scale;
+		float s = 0.025F * RenderUtils.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);
 		
 		Font tr = MC.font;
@@ -1272,16 +1312,26 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		return switch(decorMob.toLowerCase(Locale.ROOT))
 		{
-			case "baby zombie", "zombie" -> EntityType.ZOMBIE;
-			case "husk" -> EntityType.HUSK;
-			case "spider" -> EntityType.SPIDER;
-			case "cave spider" -> EntityType.CAVE_SPIDER;
-			case "silverfish" -> EntityType.SILVERFISH;
-			case "slime" -> EntityType.SLIME;
-			case "skeleton" -> EntityType.SKELETON;
-			case "bogged" -> EntityType.BOGGED;
-			case "stray" -> EntityType.STRAY;
-			case "breeze" -> EntityType.BREEZE;
+			case "baby zombie", "zombie" -> net.wurstclient.util.RegistryUtils
+				.entityType("zombie");
+			case "husk" -> net.wurstclient.util.RegistryUtils
+				.entityType("husk");
+			case "spider" -> net.wurstclient.util.RegistryUtils
+				.entityType("spider");
+			case "cave spider" -> net.wurstclient.util.RegistryUtils
+				.entityType("cave_spider");
+			case "silverfish" -> net.wurstclient.util.RegistryUtils
+				.entityType("silverfish");
+			case "slime" -> net.wurstclient.util.RegistryUtils
+				.entityType("slime");
+			case "skeleton" -> net.wurstclient.util.RegistryUtils
+				.entityType("skeleton");
+			case "bogged" -> net.wurstclient.util.RegistryUtils
+				.entityType("bogged");
+			case "stray" -> net.wurstclient.util.RegistryUtils
+				.entityType("stray");
+			case "breeze" -> net.wurstclient.util.RegistryUtils
+				.entityType("breeze");
 			default -> null;
 		};
 	}

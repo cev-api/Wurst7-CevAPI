@@ -109,6 +109,11 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		// Yield before, during, and immediately after AutoEat's hand/inventory
+		// interaction. The next update automatically resumes SpeedNuker.
+		if(WURST.getHax().autoEatHack.shouldPauseOtherActions())
+			return;
+		
 		if(commonSettings.isIdModeWithAir())
 			return;
 		

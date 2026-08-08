@@ -139,34 +139,48 @@ public final class LootSorterModelTest
 		});
 		check(restored, "exact profile filter must preserve stack components");
 	}
-
+	
 	private void testCategoryCoverage()
 	{
-		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.LEVER))
-			&& BuiltInItemFilter.REDSTONE_COMPONENTS.matches(new ItemStack(Items.LEVER)),
+		check(
+			BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.LEVER))
+				&& BuiltInItemFilter.REDSTONE_COMPONENTS
+					.matches(new ItemStack(Items.LEVER)),
 			"redstone filters must include levers");
-		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.TARGET))
-			&& BuiltInItemFilter.REDSTONE_COMPONENTS.matches(new ItemStack(Items.TARGET))
-			&& BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.COMPARATOR)),
+		check(
+			BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.TARGET))
+				&& BuiltInItemFilter.REDSTONE_COMPONENTS
+					.matches(new ItemStack(Items.TARGET))
+				&& BuiltInItemFilter.REDSTONE
+					.matches(new ItemStack(Items.COMPARATOR)),
 			"redstone filters must include target blocks and comparators");
-		check(BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.PISTON))
-			&& BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.REDSTONE)),
+		check(
+			BuiltInItemFilter.REDSTONE.matches(new ItemStack(Items.PISTON))
+				&& BuiltInItemFilter.REDSTONE
+					.matches(new ItemStack(Items.REDSTONE)),
 			"redstone filters must include pistons and dust");
-		check(BuiltInItemFilter.WORKSTATIONS.matches(new ItemStack(Items.CRAFTING_TABLE))
-			&& BuiltInItemFilter.WORKSTATIONS.matches(new ItemStack(Items.LECTERN)),
+		check(
+			BuiltInItemFilter.WORKSTATIONS
+				.matches(new ItemStack(Items.CRAFTING_TABLE))
+				&& BuiltInItemFilter.WORKSTATIONS
+					.matches(new ItemStack(Items.LECTERN)),
 			"workstations must include crafting tables and lecterns");
-		check(BuiltInItemFilter.CROPS.matches(new ItemStack(Items.COCOA_BEANS))
-			&& BuiltInItemFilter.MOB_DROPS.matches(new ItemStack(Items.GUNPOWDER)),
+		check(
+			BuiltInItemFilter.CROPS.matches(new ItemStack(Items.COCOA_BEANS))
+				&& BuiltInItemFilter.MOB_DROPS
+					.matches(new ItemStack(Items.GUNPOWDER)),
 			"farming and mob-drop filters must include common variants");
-		check(!BuiltInItemFilter.ORES_AND_MATERIALS.matches(
-				new ItemStack(Items.IRON_SWORD)),
+		check(
+			!BuiltInItemFilter.ORES_AND_MATERIALS
+				.matches(new ItemStack(Items.IRON_SWORD)),
 			"ore filters must not match iron equipment by substring");
-		check(!BuiltInItemFilter.CONTAINERS.matches(
-				new ItemStack(Items.IRON_CHESTPLATE))
-				&& !BuiltInItemFilter.DECORATIVE_ITEMS.matches(
-					new ItemStack(Items.POTION))
-				&& !BuiltInItemFilter.STONE_LIKE.matches(
-					new ItemStack(Items.REDSTONE)),
+		check(
+			!BuiltInItemFilter.CONTAINERS
+				.matches(new ItemStack(Items.IRON_CHESTPLATE))
+				&& !BuiltInItemFilter.DECORATIVE_ITEMS
+					.matches(new ItemStack(Items.POTION))
+				&& !BuiltInItemFilter.STONE_LIKE
+					.matches(new ItemStack(Items.REDSTONE)),
 			"container, decorative and stone filters must avoid substring collisions");
 	}
 	

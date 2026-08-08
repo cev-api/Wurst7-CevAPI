@@ -13,16 +13,18 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -33,6 +35,7 @@ import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -40,6 +43,7 @@ import net.wurstclient.settings.SwingHandSetting;
 import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
 
@@ -51,11 +55,19 @@ public final class AreaNukerHack extends Hack
 {
 	private final SliderSetting range =
 		new SliderSetting("Range", 5, 1, 6, 0.05, ValueDisplay.DECIMAL);
+	private final BlockListSetting ignoredBlocks = new BlockListSetting(
+		"Ignored blocks", "Blocks that AreaNuker will not break.");
 	
 	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
 		"Auto switch tool",
 		"Automatically switch to the best tool in your hotbar for the current"
 			+ " block even if the AutoTool hack is disabled.",
+		false);
+	private final CheckboxSetting preserveTools = new CheckboxSetting(
+		"Preserve Tools",
+		"Stops using damageable hotbar items when they reach 1% durability,"
+			+ " switches to another item above 1% from the entire inventory, and"
+			+ " disables AreaNuker when none remain.",
 		false);
 	
 	private final SwingHandSetting swingHand = new SwingHandSetting(
@@ -69,13 +81,16 @@ public final class AreaNukerHack extends Hack
 	private BlockPos currentBlock;
 	
 	private boolean prevAutoToolEnabled;
+	private final Set<Integer> preservedToolSlots = new HashSet<>();
 	
 	public AreaNukerHack()
 	{
 		super("AreaNuker");
 		setCategory(Category.BLOCKS);
 		addSetting(range);
+		addSetting(ignoredBlocks);
 		addSetting(autoSwitchTool);
+		addSetting(preserveTools);
 		addSetting(swingHand);
 	}
 	
@@ -104,6 +119,10 @@ public final class AreaNukerHack extends Hack
 		WURST.getHax().veinMinerHack.setEnabled(false);
 		
 		prevAutoToolEnabled = WURST.getHax().autoToolHack.isEnabled();
+		preservedToolSlots.clear();
+		if((autoSwitchTool.isChecked() || preserveTools.isChecked())
+			&& !prevAutoToolEnabled)
+			WURST.getHax().autoToolHack.setEnabled(true);
 		
 		step = Step.START_POS;
 		posStart = null;
@@ -111,6 +130,7 @@ public final class AreaNukerHack extends Hack
 		posLookingAt = null;
 		area = null;
 		currentBlock = null;
+		preservedToolSlots.clear();
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
@@ -131,7 +151,7 @@ public final class AreaNukerHack extends Hack
 		posLookingAt = null;
 		area = null;
 		currentBlock = null;
-		
+		preservedToolSlots.clear();
 		if(!prevAutoToolEnabled && WURST.getHax().autoToolHack.isEnabled())
 			WURST.getHax().autoToolHack.setEnabled(false);
 	}
@@ -194,7 +214,7 @@ public final class AreaNukerHack extends Hack
 		{
 			area.scannedBlocks++;
 			BlockPos pos = area.iterator.next();
-			if(BlockUtils.canBeClicked(pos))
+			if(BlockUtils.canBeClicked(pos) && !isIgnored(pos))
 			{
 				area.blocksList.add(pos);
 				area.blocksSet.add(pos);
@@ -212,19 +232,34 @@ public final class AreaNukerHack extends Hack
 	
 	private void nuke()
 	{
-		// wait for AutoEat to finish eating
-		if(WURST.getHax().autoEatHack.isEating())
+		// Yield before, during, and immediately after AutoEat's hand/inventory
+		// interaction. The next update automatically resumes AreaNuker.
+		if(WURST.getHax().autoEatHack.shouldPauseOtherActions())
 			return;
 		
 		ArrayList<BlockPos> blocks = getValidBlocksInRange();
 		currentBlock = blocks.isEmpty() ? null : blocks.get(0);
+		boolean preserveToolsActive =
+			preserveTools.isChecked() && !MC.player.getAbilities().instabuild;
+		if(preserveToolsActive)
+		{
+			updatePreservedToolSlots();
+			if(findAvailableToolSlot() == -1)
+			{
+				setEnabled(false);
+				return;
+			}
+		}
 		
 		if(!blocks.isEmpty())
 		{
+			if(preserveToolsActive && !preparePreservedTool(blocks))
+				return;
+			
 			// equip best tool for the closest block
-			if(WURST.getHax().autoToolHack.isEnabled())
+			if(!preserveToolsActive && WURST.getHax().autoToolHack.isEnabled())
 				WURST.getHax().autoToolHack.equipIfEnabled(blocks.get(0));
-			else if(autoSwitchTool.isChecked())
+			else if(!preserveToolsActive && autoSwitchTool.isChecked())
 				WURST.getHax().autoToolHack.equipBestTool(blocks.get(0), true,
 					true, 0);
 			
@@ -236,8 +271,9 @@ public final class AreaNukerHack extends Hack
 		
 		// recount remaining blocks; finish when the box is clear
 		Predicate<BlockPos> breakable = MC.player.getAbilities().instabuild
-			? BlockUtils::canBeClicked : pos -> BlockUtils.canBeClicked(pos)
-				&& !BlockUtils.isUnbreakable(pos);
+			? pos -> BlockUtils.canBeClicked(pos) && !isIgnored(pos)
+			: pos -> BlockUtils.canBeClicked(pos)
+				&& !BlockUtils.isUnbreakable(pos) && !isIgnored(pos);
 		area.remainingBlocks =
 			(int)area.blocksList.parallelStream().filter(breakable).count();
 		
@@ -255,10 +291,119 @@ public final class AreaNukerHack extends Hack
 		return BlockUtils.getAllInBoxStream(eyesBlock, blockRange)
 			.filter(pos -> pos.distToCenterSqr(eyesVec) <= rangeSq)
 			.filter(area.blocksSet::contains).filter(BlockUtils::canBeClicked)
+			.filter(pos -> !isIgnored(pos))
 			.filter(pos -> !BlockUtils.isUnbreakable(pos))
 			.sorted(
 				Comparator.comparingDouble(pos -> pos.distToCenterSqr(eyesVec)))
 			.collect(Collectors.toCollection(ArrayList::new));
+	}
+	
+	private boolean preparePreservedTool(ArrayList<BlockPos> blocks)
+	{
+		while(true)
+		{
+			updatePreservedToolSlots();
+			if(findAvailableToolSlot() == -1)
+			{
+				setEnabled(false);
+				return false;
+			}
+			
+			int selectedSlot = MC.player.getInventory().getSelectedSlot();
+			ItemStack selectedItem = MC.player.getMainHandItem();
+			if(isAtPreserveThreshold(selectedItem))
+			{
+				preservedToolSlots.add(selectedSlot);
+				boolean switched = WURST.getHax().autoToolHack
+					.equipBestToolFromInventory(blocks.get(0), true, false, 0,
+						this::isAllowedPreserveSlot);
+				ItemStack replacement = MC.player.getMainHandItem();
+				if(!switched || !isAvailableTool(replacement))
+				{
+					ChatUtils.warning(
+						"Preserve Tools: unable to equip a usable tool."
+							+ " AreaNuker disabled.");
+					setEnabled(false);
+					return false;
+				}
+				continue;
+			}
+			
+			WURST.getHax().autoToolHack.equipBestToolFromInventory(
+				blocks.get(0), true, false, 0, this::isAllowedPreserveSlot);
+			selectedItem = MC.player.getMainHandItem();
+			if(!isAvailableTool(selectedItem))
+			{
+				ChatUtils
+					.warning("Preserve Tools: unable to equip a usable tool."
+						+ " AreaNuker disabled.");
+				setEnabled(false);
+				return false;
+			}
+			
+			int maxBlocks = getRemainingUses(selectedItem)
+				- getPreserveThreshold(selectedItem);
+			if(maxBlocks <= 0)
+				continue;
+			if(maxBlocks < blocks.size())
+				blocks.subList(maxBlocks, blocks.size()).clear();
+			return true;
+		}
+	}
+	
+	private void updatePreservedToolSlots()
+	{
+		for(int slot = 0; slot < 9; slot++)
+		{
+			ItemStack stack = MC.player.getInventory().getItem(slot);
+			if(isAtPreserveThreshold(stack))
+				preservedToolSlots.add(slot);
+			else
+				preservedToolSlots.remove(slot);
+		}
+	}
+	
+	private int findAvailableToolSlot()
+	{
+		for(int slot = 0; slot < 36; slot++)
+			if(!preservedToolSlots.contains(slot)
+				&& isAvailableTool(MC.player.getInventory().getItem(slot)))
+				return slot;
+		return -1;
+	}
+	
+	private boolean isAllowedPreserveSlot(int slot)
+	{
+		return !preservedToolSlots.contains(slot)
+			&& !isAtPreserveThreshold(MC.player.getInventory().getItem(slot));
+	}
+	
+	private boolean isAvailableTool(ItemStack stack)
+	{
+		return !stack.isEmpty() && stack.isDamageableItem()
+			&& !isAtPreserveThreshold(stack);
+	}
+	
+	private boolean isAtPreserveThreshold(ItemStack stack)
+	{
+		if(!stack.isDamageableItem())
+			return false;
+		return getRemainingUses(stack) <= getPreserveThreshold(stack);
+	}
+	
+	private int getRemainingUses(ItemStack stack)
+	{
+		return stack.getMaxDamage() - stack.getDamageValue();
+	}
+	
+	private int getPreserveThreshold(ItemStack stack)
+	{
+		return Math.max(1, (stack.getMaxDamage() + 99) / 100);
+	}
+	
+	private boolean isIgnored(BlockPos pos)
+	{
+		return ignoredBlocks.contains(MC.level.getBlockState(pos).getBlock());
 	}
 	
 	@Override
@@ -316,7 +461,7 @@ public final class AreaNukerHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphics context, float partialTicks)
+	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
 	{
 		String message;
 		if(step.selectPos && getStepPos() != null)
@@ -333,8 +478,8 @@ public final class AreaNukerHack extends Hack
 		int msgY2 = msgY1 + 10;
 		
 		context.fill(msgX1, msgY1, msgX2, msgY2, 0x80000000);
-		context.drawString(tr, message, msgX1 + 2, msgY1 + 1,
-			CommonColors.WHITE, false);
+		context.text(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
+			false);
 	}
 	
 	private enum Step
