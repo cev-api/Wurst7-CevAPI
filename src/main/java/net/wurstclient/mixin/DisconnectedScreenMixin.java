@@ -160,7 +160,7 @@ public class DisconnectedScreenMixin extends Screen
 		}else
 			posString = "Unknown";
 		Button copyLocButton = layout.addChild(Button
-			.builder(Component.literal("Copy location: " + posString), b -> {
+			.builder(Component.literal("Copy Location: " + posString), b -> {
 				minecraft.keyboardHandler.setClipboard(posString);
 			}).width(200).build());
 		
@@ -685,6 +685,8 @@ public class DisconnectedScreenMixin extends Screen
 		if(!WurstClient.INSTANCE.isEnabled() || autoReconnectButton == null)
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		if(WurstClient.INSTANCE.getAltSwitchController().isBusy())
 			return;
 		
 		AutoReconnectHack autoReconnect =

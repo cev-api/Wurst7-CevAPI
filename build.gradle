@@ -112,6 +112,43 @@ dependencies {
 	}
 }
 
+dependencies {
+	// MCProtocolLib + its Adventure/Cloudburst transitives.
+	add("altbotLibs", "org.geysermc.mcprotocollib:protocol:26.2-SNAPSHOT") {
+		exclude group: "io.netty"
+		exclude group: "net.raphimc"
+		exclude group: "com.google.code.gson"
+		exclude group: "org.slf4j"
+		exclude group: "org.jetbrains"
+		// The nukkitx fastutil fork is an old (8.5.3) split fastutil whose
+		// classes live under it.unimi.dsi.fastutil.* and would shadow
+		// Minecraft's newer fastutil at runtime (NoSuchMethodError e.g.
+		// Int2ObjectMap.ofEntries). Minecraft's own fastutil satisfies every
+		// fastutil class MCProtocolLib uses, so we rely on it instead.
+		exclude group: "com.nukkitx.fastutil"
+	}
+	
+	// Plain-text chat rendering for the AltBot system.
+	add("altbotLibs", "net.kyori:adventure-text-serializer-plain:4.25.0")
+	
+	// Minecraft ships Netty without SOCKS support. Bundle the matching modules
+	// so multiplayer connections can use SOCKS5 proxies at runtime.
+	// (transitive=false: Minecraft provides the rest of Netty.)
+	add("altbotLibs", "io.netty:netty-handler-proxy:4.2.15.Final") {
+		transitive = false
+	}
+	add("altbotLibs", "io.netty:netty-codec-socks:4.2.15.Final") {
+		transitive = false
+	}
+	add("altbotLibs", "io.netty:netty-codec-haproxy:4.2.15.Final") {
+		transitive = false
+	}
+}
+
+// Make the bundled libraries available to compilation and dev runs.
+sourceSets.main.compileClasspath += configurations.altbotLibs
+sourceSets.main.runtimeClasspath += configurations.altbotLibs
+
 fabricApi.configureTests {
 	createSourceSet = true
 	enableGameTests = false
