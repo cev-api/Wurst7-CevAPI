@@ -16,6 +16,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -45,6 +46,7 @@ public final class ProxyManagerScreen extends Screen
 	
 	private final Screen prevScreen;
 	private final ProxyManager proxyManager;
+	private final Consumer<SocksProxy> proxyChoiceConsumer;
 	
 	private EditBox proxyBox;
 	private ProxyList proxyList;
@@ -60,9 +62,16 @@ public final class ProxyManagerScreen extends Screen
 	
 	public ProxyManagerScreen(Screen prevScreen, ProxyManager proxyManager)
 	{
+		this(prevScreen, proxyManager, null);
+	}
+	
+	public ProxyManagerScreen(Screen prevScreen, ProxyManager proxyManager,
+		Consumer<SocksProxy> proxyChoiceConsumer)
+	{
 		super(Component.literal("Multiplayer Proxies"));
 		this.prevScreen = prevScreen;
 		this.proxyManager = proxyManager;
+		this.proxyChoiceConsumer = proxyChoiceConsumer;
 	}
 	
 	@Override
@@ -73,19 +82,20 @@ public final class ProxyManagerScreen extends Screen
 			Component.literal("host:port or socks5://host:port"));
 		proxyBox.setMaxLength(512);
 		addWidget(proxyBox);
+		int buttonX = width / 2 - 150;
 		
 		addRenderableWidget(addButton =
 			Button.builder(Component.literal("Add"), b -> addProxy())
-				.bounds(x, 70, 72, 20).build());
+				.bounds(buttonX, 70, 72, 20).build());
 		addRenderableWidget(importButton =
 			Button.builder(Component.literal("Import"), b -> importProxies())
-				.bounds(x + 76, 70, 72, 20).build());
+				.bounds(buttonX + 76, 70, 72, 20).build());
 		addRenderableWidget(testButton =
 			Button.builder(Component.literal("Test"), b -> testSelectedProxy())
-				.bounds(x + 152, 70, 72, 20).build());
+				.bounds(buttonX + 152, 70, 72, 20).build());
 		addRenderableWidget(selectButton =
 			Button.builder(Component.literal("Use"), b -> selectProxy())
-				.bounds(x + 228, 70, 72, 20).build());
+				.bounds(buttonX + 228, 70, 72, 20).build());
 		
 		addRenderableWidget(disableButton =
 			Button.builder(Component.literal("Disable"), b -> disableProxy())
@@ -207,6 +217,13 @@ public final class ProxyManagerScreen extends Screen
 		SocksProxy proxy = getSelectedListProxy();
 		if(proxy == null)
 			return;
+		
+		if(proxyChoiceConsumer != null)
+		{
+			proxyChoiceConsumer.accept(proxy);
+			onClose();
+			return;
+		}
 		
 		proxyManager.select(proxy);
 		status = "Using " + proxy.getDisplayName() + " for multiplayer.";
