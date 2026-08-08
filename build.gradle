@@ -137,6 +137,9 @@ dependencies {
 	add("altbotLibs", "io.netty:netty-codec-socks:4.2.15.Final") {
 		transitive = false
 	}
+	add("altbotLibs", "io.netty:netty-codec-haproxy:4.2.15.Final") {
+		transitive = false
+	}
 }
 
 // Make the bundled libraries available to compilation and dev runs.

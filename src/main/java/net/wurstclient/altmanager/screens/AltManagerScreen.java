@@ -70,6 +70,7 @@ import net.wurstclient.altmanager.*;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMinecraftClient;
 import net.wurstclient.proxy.SocksProxy;
+import net.wurstclient.proxy.ProxyManagerScreen;
 import net.wurstclient.util.MultiProcessingUtils;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
@@ -104,6 +105,7 @@ public final class AltManagerScreen extends Screen
 	private Button logoutButton;
 	
 	private Button botConnectButton;
+	private Button botProxyButton;
 	private Button botDisconnectButton;
 	private Button botSwitchButton;
 	private Button botSendChatButton;
@@ -231,30 +233,35 @@ public final class AltManagerScreen extends Screen
 				.bounds(width - 50 - 8, 8, 50, 20).build());
 		
 		// ---- AltBot controls ----
+		int botX = width / 2 - 206;
 		addRenderableWidget(botConnectButton = Button
 			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
-			.bounds(width / 2 - 154, height - 100, 100, 20).build());
+			.bounds(botX, height - 100, 100, 20).build());
 		
 		addRenderableWidget(autoRespawnButton =
 			Button.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
-				.bounds(width / 2 - 50, height - 100, 100, 20).build());
+				.bounds(botX + 104, height - 100, 100, 20).build());
 		
 		addRenderableWidget(botDisconnectButton = Button
 			.builder(Component.literal("Disconnect Bot"),
 				b -> pressBotDisconnect())
-			.bounds(width / 2 + 54, height - 100, 100, 20).build());
+			.bounds(botX + 208, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botProxyButton =
+			Button.builder(getBotProxyLabel(), b -> pressBotProxyMode())
+				.bounds(botX + 312, height - 100, 100, 20).build());
 		
 		addRenderableWidget(botSwitchButton = Button
 			.builder(Component.literal("Switch To"), b -> pressBotSwitch())
-			.bounds(width / 2 - 154, height - 76, 100, 20).build());
+			.bounds(botX + 52, height - 76, 100, 20).build());
 		
 		addRenderableWidget(botSendChatButton = Button
 			.builder(Component.literal("Send Chat"), b -> pressBotSendChat())
-			.bounds(width / 2 - 50, height - 76, 100, 20).build());
+			.bounds(botX + 156, height - 76, 100, 20).build());
 		
 		addRenderableWidget(botDetailsButton = Button
 			.builder(Component.literal("Bot Details"), b -> pressBotDetails())
-			.bounds(width / 2 + 54, height - 76, 100, 20).build());
+			.bounds(botX + 260, height - 76, 100, 20).build());
 		
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
@@ -347,14 +354,19 @@ public final class AltManagerScreen extends Screen
 			botSendChatButton.active = false;
 		if(botDetailsButton != null)
 			botDetailsButton.active = false;
+		if(botProxyButton != null)
+			botProxyButton.active = false;
 	}
 	
 	private void updateBotButtons()
 	{
 		if(botConnectButton == null || botDisconnectButton == null
 			|| autoRespawnButton == null || botSwitchButton == null
-			|| botSendChatButton == null || botDetailsButton == null)
+			|| botSendChatButton == null || botDetailsButton == null
+			|| botProxyButton == null)
 			return;
+		botProxyButton.setMessage(getBotProxyLabel());
+		botProxyButton.active = true;
 		
 		Alt alt = listGui != null ? listGui.getSelectedAlt() : null;
 		boolean hasToken = alt instanceof TokenAlt;
@@ -598,8 +610,27 @@ public final class AltManagerScreen extends Screen
 		if(!(alt instanceof TokenAlt tokenAlt))
 			return;
 		
-		WurstClient.INSTANCE.getAltBotManager()
-			.connectBotToCurrentServer(tokenAlt);
+		AltBotManager botManager = WurstClient.INSTANCE.getAltBotManager();
+		if(botManager.getBotProxyMode() == AltBotManager.BotProxyMode.SELECTED)
+		{
+			minecraft.gui.setScreen(new ProxyManagerScreen(this,
+				WurstClient.INSTANCE.getProxyManager(), proxy -> botManager
+					.connectBotToCurrentServer(tokenAlt, proxy)));
+			return;
+		}
+		botManager.connectBotToCurrentServer(tokenAlt);
+	}
+	
+	private void pressBotProxyMode()
+	{
+		WurstClient.INSTANCE.getAltBotManager().cycleBotProxyMode();
+		updateAltButtons();
+	}
+	
+	private Component getBotProxyLabel()
+	{
+		return Component.literal("Bot Proxy: "
+			+ WurstClient.INSTANCE.getAltBotManager().getBotProxyMode());
 	}
 	
 	private void pressBotDisconnect()

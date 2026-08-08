@@ -210,6 +210,13 @@ public final class AccountSwitchController
 					throw new SwitchAborted(
 						"Timed out disconnecting the target bot \""
 							+ target.getDisplayName() + "\".");
+				// The local protocol session can disappear before the server
+				// has
+				// processed its disconnect. Give the server a short grace
+				// period
+				// before logging the same account in through the rendered
+				// client.
+				Thread.sleep(2_000);
 			}
 			checkCancelled();
 			
