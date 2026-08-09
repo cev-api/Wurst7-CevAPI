@@ -1529,6 +1529,8 @@
     "Force client chat keywords": "",
     "Force normal chat keywords": "[Discord]",
     "Color usernames": true,
+    "Chat heads": true,
+    "Emojis": true,
     "Random own username color": false,
     "Own username color": "#55FFFF",
     "Max lines": 10.0,
