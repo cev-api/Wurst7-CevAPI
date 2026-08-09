@@ -10,8 +10,14 @@ package net.wurstclient.command;
 import java.util.Locale;
 import java.util.Objects;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
+import net.wurstclient.WurstClient;
+import net.wurstclient.settings.EnumSetting;
+import net.wurstclient.settings.Setting;
 import net.wurstclient.util.ChatUtils;
 
 public abstract class Command extends Feature
@@ -151,7 +157,90 @@ public abstract class Command extends Feature
 	public java.util.List<String> getArgumentSuggestions(String[] args,
 		int argIndex, String prefix)
 	{
-		return java.util.List.of();
+		LinkedHashSet<String> suggestions = new LinkedHashSet<>();
+		for(String line : syntax)
+		{
+			String trimmed = line.replaceFirst("(?i)^Syntax:\\s*", "").trim();
+			if(!trimmed.startsWith("."))
+				continue;
+			String[] tokens = trimmed.split("\\s+");
+			if(tokens.length <= argIndex + 1
+				|| !matchesPreviousLiterals(tokens, args, argIndex))
+				continue;
+			addTokenSuggestions(suggestions, tokens[argIndex + 1], args,
+				argIndex);
+		}
+		return List.copyOf(suggestions);
+	}
+	
+	private boolean matchesPreviousLiterals(String[] syntaxTokens,
+		String[] args, int argIndex)
+	{
+		for(int i = 0; i < argIndex && i < args.length; i++)
+		{
+			String expected = syntaxTokens[i + 1];
+			if(expected.startsWith("<") || expected.startsWith("[")
+				|| expected.startsWith("("))
+				continue;
+			if(!expected.equalsIgnoreCase(args[i]))
+				return false;
+		}
+		return true;
+	}
+	
+	private void addTokenSuggestions(LinkedHashSet<String> suggestions,
+		String token, String[] args, int argIndex)
+	{
+		String bare = token.replaceAll("^[\\[(]|[\\])]$", "");
+		if(token.startsWith("("))
+		{
+			for(String option : bare.split("\\|"))
+				suggestions.add(option);
+			return;
+		}
+		if(!token.startsWith("<") && !token.startsWith("["))
+		{
+			suggestions.add(token);
+			return;
+		}
+		String placeholder = bare.toLowerCase(Locale.ROOT);
+		if(placeholder.contains("feature"))
+		{
+			WurstClient.INSTANCE.getNavigator().getList().stream()
+				.filter(feature -> !feature.getSettings().isEmpty())
+				.map(Feature::getName).map(name -> name.replace(" ", "_"))
+				.forEach(suggestions::add);
+			return;
+		}
+		if(!placeholder.contains("setting") && !placeholder.contains("mode"))
+			return;
+		Feature feature = findSuggestedFeature(args, argIndex);
+		if(feature == null)
+			return;
+		if(placeholder.contains("setting"))
+		{
+			feature.getSettings().values().stream().map(Setting::getName)
+				.map(name -> name.replace(" ", "_")).forEach(suggestions::add);
+			return;
+		}
+		if(args.length > 1)
+		{
+			Setting setting = feature.getSettings()
+				.get(args[1].replace("_", " ").toLowerCase(Locale.ROOT));
+			if(setting instanceof EnumSetting<?> enumSetting)
+				for(Enum<?> value : enumSetting.getValues())
+					suggestions.add(value.toString().replace(" ", "_"));
+		}
+	}
+	
+	private Feature findSuggestedFeature(String[] args, int argIndex)
+	{
+		if(argIndex < 1 || args.length == 0)
+			return null;
+		String name = args[0].replace("_", " ");
+		return WurstClient.INSTANCE.getNavigator().getList().stream()
+			.filter(feature -> feature.getName().equalsIgnoreCase(name))
+			.findFirst().orElse(null);
 	}
 	
 	public final void printHelp()
