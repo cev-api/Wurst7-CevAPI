@@ -27,6 +27,7 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -302,6 +303,26 @@ public enum RenderUtils
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
 		var prepared = font.prepareText(text, x, y, color, shadow, packedLight);
+		appendPreparedText(prepared, matrix, displayMode, packedLight);
+	}
+	
+	/**
+	 * Queues styled text while retaining its per-character formatting. This is
+	 * needed for components whose colors or fonts come from a resource pack.
+	 */
+	public static void drawTextInBatch(Font font, FormattedCharSequence text,
+		float x, float y, int color, boolean shadow, Matrix4f matrix,
+		WurstBufferSource vcp, DisplayMode displayMode, int backgroundColor,
+		int packedLight)
+	{
+		if(text == null)
+			return;
+		
+		if(textBuffer == null)
+			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
+		
+		var prepared =
+			font.prepareText(text, x, y, color, shadow, false, backgroundColor);
 		appendPreparedText(prepared, matrix, displayMode, packedLight);
 	}
 	

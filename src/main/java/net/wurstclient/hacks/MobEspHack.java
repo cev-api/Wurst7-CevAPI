@@ -9,7 +9,12 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.awt.Color;
+import org.joml.Matrix4f;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -20,6 +25,7 @@ import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.ShulkerBullet;
 import net.minecraft.world.entity.projectile.hurtingprojectile.WitherSkull;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.AABB;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -38,6 +44,19 @@ import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
+import com.mojang.math.Axis;
+import net.minecraft.client.gui.Font;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
+import net.minecraft.world.inventory.MerchantMenu;
+import net.minecraft.world.phys.Vec3;
 
 @SearchTags({"mob esp", "MobTracers", "mob tracers"})
 public final class MobEspHack extends Hack implements UpdateListener,
@@ -97,12 +116,29 @@ public final class MobEspHack extends Hack implements UpdateListener,
 	private final ArrayList<LivingEntity> mobs = new ArrayList<>();
 	private final ArrayList<ShulkerBullet> shulkerBullets = new ArrayList<>();
 	private final ArrayList<WitherSkull> witherSkulls = new ArrayList<>();
+	private final Map<UUID, MerchantOffers> librarianOffers = new HashMap<>();
 	
 	// New: optionally show detected count in HackList
 	private final CheckboxSetting showCountInHackList = new CheckboxSetting(
 		"HackList count",
 		"Appends the number of detected mobs to this hack's entry in the HackList.",
 		false);
+	
+	// Villager professions label
+	private final CheckboxSetting showVillagerProfessions =
+		new CheckboxSetting("Show villager professions",
+			"Displays the profession of villagers above their heads.", false);
+	private final CheckboxSetting showLibrarianBooks = new CheckboxSetting(
+		"Show librarian books",
+		"Displays the enchanted books sold by librarians below their title.",
+		false);
+	
+	// Range limiter
+	private final CheckboxSetting rangeLimit = new CheckboxSetting(
+		"Range limit", "Only show mobs within the configured range.", false);
+	
+	private final SliderSetting espRange = new SliderSetting("ESP range", 64, 1,
+		150, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" blocks"));
 	
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
@@ -146,6 +182,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		addSetting(highlightShulkerProjectiles);
 		addSetting(highlightWitherProjectiles);
 		addSetting(showCountInHackList);
+		addSetting(showVillagerProfessions);
+		addSetting(showLibrarianBooks);
+		addSetting(rangeLimit);
+		addSetting(espRange);
 	}
 	
 	@Override
@@ -168,6 +208,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		foundCount = 0;
 		shulkerBullets.clear();
 		witherSkulls.clear();
+		librarianOffers.clear();
 		lastAttackerUuid = null;
 		lastAttackerExpiresAt = 0;
 		lastPlayerHurtTimeSeen = 0;
@@ -193,6 +234,7 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		stream = entityFilters.applyTo(stream);
 		
 		mobs.addAll(stream.collect(Collectors.toList()));
+		captureOpenMerchantOffers();
 		
 		if(highlightShulkerProjectiles.isChecked())
 		{
@@ -407,6 +449,241 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		if(glowMode && highlightWitherProjectiles.isChecked()
 			&& !witherSkulls.isEmpty())
 			renderWitherProjectileFallback(matrixStack, partialTicks);
+		
+		// Render villager professions and optional librarian book offers.
+		if(showVillagerProfessions.isChecked()
+			|| showLibrarianBooks.isChecked())
+			renderVillagerProfessions(matrixStack, partialTicks);
+	}
+	
+	private static final double VANILLA_NAMETAG_DIST = 5.0;
+	
+	private void renderVillagerProfessions(PoseStack matrices,
+		float partialTicks)
+	{
+		Vec3 cam = RenderUtils.getCameraPos();
+		var camEntity = MC.getCameraEntity();
+		Villager pointedVillager = null;
+		if(MC.hitResult instanceof EntityHitResult hit
+			&& hit.getEntity() instanceof Villager villager
+			&& isLibrarian(villager))
+			pointedVillager = villager;
+		
+		for(LivingEntity e : mobs)
+		{
+			if(!(e instanceof Villager villager))
+				continue;
+			
+			double dist = MC.player.distanceTo(villager);
+			boolean pointedAtVillager =
+				MC.hitResult instanceof EntityHitResult hit
+					&& hit.getEntity() == villager;
+			ResourceKey<VillagerProfession> professionKey = villager
+				.getVillagerData().profession().unwrapKey().orElse(null);
+			boolean librarian = professionKey == VillagerProfession.LIBRARIAN;
+			if(!showVillagerProfessions.isChecked()
+				&& !(showLibrarianBooks.isChecked() && librarian))
+				continue;
+			
+			List<Component> labels = new ArrayList<>();
+			// Vanilla already renders the profession close-up. Keep the custom
+			// title at range, but always retain the book lines.
+			if(showVillagerProfessions.isChecked() && !pointedAtVillager
+				&& dist >= VANILLA_NAMETAG_DIST)
+			{
+				String profession = getVillagerProfessionName(villager);
+				if(!profession.isEmpty())
+					labels.add(Component.literal(profession));
+			}
+			if(showLibrarianBooks.isChecked() && librarian)
+				labels.addAll(getLibrarianBookNames(villager));
+			if(labels.isEmpty())
+				continue;
+			
+			// position above head
+			AABB box = EntityUtils.getLerpedBox(e, partialTicks);
+			double lx = box.getCenter().x;
+			// At close range, place book lines below vanilla's hover name tag.
+			// At range, keep the full ESP block above the villager.
+			double ly = box.maxY + (pointedAtVillager ? 0.1 : 1.0);
+			double lz = box.getCenter().z;
+			
+			float[] rgb = getColorRgb();
+			int labelColor = RenderUtils.toIntColor(rgb, 0.9F);
+			
+			matrices.pushPose();
+			matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
+			if(camEntity != null)
+			{
+				matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
+				matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
+			}
+			matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+			
+			float scale = 0.025F * (float)Math.max(1.0, dist * 0.1);
+			matrices.scale(scale, -scale, scale);
+			
+			int baseAlpha = (labelColor >>> 24) & 0xFF;
+			int bgAlpha = (int)Math
+				.round(MC.options.getBackgroundOpacity(0.25F) * baseAlpha);
+			int bg = bgAlpha << 24;
+			int strokeColor = 0xFF000000;
+			var matrix = matrices.last().pose();
+			for(int i = 0; i < labels.size(); i++)
+			{
+				FormattedCharSequence label =
+					labels.get(i).getVisualOrderText();
+				float w = MC.font.width(label) / 2F;
+				int lineColor = i == 0 ? labelColor : 0xFFFFFFFF;
+				int y = i * (MC.font.lineHeight + 1);
+				if(i == 0)
+					drawOutlinedLabel(label, -w, y, lineColor, strokeColor,
+						matrix, bg);
+				else
+					drawBookLabel(label, -w, y, lineColor, matrix, bg);
+			}
+			matrices.popPose();
+		}
+	}
+	
+	private static final int[][] OUTLINE_OFFSETS =
+		{{-2, 0}, {2, 0}, {0, -2}, {0, 2}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+	
+	private void drawOutlinedLabel(FormattedCharSequence label, float x, int y,
+		int color, int outlineColor, Matrix4f matrix, int background)
+	{
+		// Formatted resource-pack text overrides the supplied render color.
+		// Recolor only the outline copy; the final pass retains the pack's
+		// per-character colors and fonts.
+		FormattedCharSequence outline = recolorText(label, outlineColor);
+		for(int[] offset : OUTLINE_OFFSETS)
+			RenderUtils.drawTextInBatch(MC.font, outline, x, y, outlineColor,
+				false, new Matrix4f(matrix).translate(offset[0], offset[1], 0),
+				null, Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+		RenderUtils.drawTextInBatch(MC.font, label, x, y, color, false, matrix,
+			null, Font.DisplayMode.SEE_THROUGH, background, 0xF000F0);
+	}
+	
+	private void drawBookLabel(FormattedCharSequence label, float x, int y,
+		int color, Matrix4f matrix, int background)
+	{
+		// Draw a deliberately thick, opaque black outline so it remains visible
+		// at the small world-label scale used by MobESP, while preserving the
+		// resource pack's colors in the foreground.
+		drawOutlinedLabel(label, x, y, color, 0xFF000000, matrix, background);
+	}
+	
+	private static FormattedCharSequence recolorText(FormattedCharSequence text,
+		int color)
+	{
+		int rgb = color & 0xFFFFFF;
+		return sink -> text.accept((index, style, codePoint) -> sink
+			.accept(index, style.withColor(rgb).withoutShadow(), codePoint));
+	}
+	
+	private List<Component> getLibrarianBookNames(Villager villager)
+	{
+		LinkedHashSet<Component> names = new LinkedHashSet<>();
+		MerchantOffers offers = librarianOffers.get(villager.getUUID());
+		if(offers == null)
+			return List.of();
+		
+		for(MerchantOffer offer : offers)
+		{
+			if(offer.getResult().getItem() != Items.ENCHANTED_BOOK)
+				continue;
+			
+			for(var entry : EnchantmentHelper
+				.getEnchantmentsForCrafting(offer.getResult()).entrySet())
+				names.add(net.minecraft.world.item.enchantment.Enchantment
+					.getFullname(entry.getKey(), entry.getIntValue()));
+		}
+		return List.copyOf(names);
+	}
+	
+	private void captureOpenMerchantOffers()
+	{
+		if(!(MC.player.containerMenu instanceof MerchantMenu menu)
+			|| menu.getOffers().isEmpty())
+			return;
+		
+		Villager villager = null;
+		if(MC.hitResult instanceof EntityHitResult hit
+			&& hit.getEntity() instanceof Villager target
+			&& isLibrarian(target))
+			villager = target;
+		
+		if(villager == null)
+			villager = findNearestLibrarian();
+		if(villager != null)
+			librarianOffers.put(villager.getUUID(), menu.getOffers().copy());
+	}
+	
+	private Villager findNearestLibrarian()
+	{
+		Villager nearest = null;
+		double nearestDistance = Double.MAX_VALUE;
+		for(Entity entity : MC.level.entitiesForRendering())
+		{
+			if(!(entity instanceof Villager villager) || !isLibrarian(villager))
+				continue;
+			
+			double distance = MC.player.distanceToSqr(villager);
+			if(distance < nearestDistance)
+			{
+				nearest = villager;
+				nearestDistance = distance;
+			}
+		}
+		return nearest;
+	}
+	
+	private boolean isLibrarian(Villager villager)
+	{
+		return villager.getVillagerData().profession().unwrapKey()
+			.orElse(null) == VillagerProfession.LIBRARIAN;
+	}
+	
+	private String getVillagerProfessionName(Villager villager)
+	{
+		ResourceKey<VillagerProfession> key =
+			villager.getVillagerData().profession().unwrapKey().orElse(null);
+		
+		if(key == null)
+			return "";
+		
+		if(key == VillagerProfession.NONE)
+			return "Unemployed";
+		if(key == VillagerProfession.NITWIT)
+			return "Nitwit";
+		if(key == VillagerProfession.FARMER)
+			return "Farmer";
+		if(key == VillagerProfession.FISHERMAN)
+			return "Fisherman";
+		if(key == VillagerProfession.SHEPHERD)
+			return "Shepherd";
+		if(key == VillagerProfession.FLETCHER)
+			return "Fletcher";
+		if(key == VillagerProfession.LIBRARIAN)
+			return "Librarian";
+		if(key == VillagerProfession.CARTOGRAPHER)
+			return "Cartographer";
+		if(key == VillagerProfession.CLERIC)
+			return "Cleric";
+		if(key == VillagerProfession.ARMORER)
+			return "Armorer";
+		if(key == VillagerProfession.WEAPONSMITH)
+			return "Weaponsmith";
+		if(key == VillagerProfession.TOOLSMITH)
+			return "Toolsmith";
+		if(key == VillagerProfession.BUTCHER)
+			return "Butcher";
+		if(key == VillagerProfession.LEATHERWORKER)
+			return "Leatherworker";
+		if(key == VillagerProfession.MASON)
+			return "Mason";
+		
+		return "";
 	}
 	
 	private void renderShulkerProjectileFallback(PoseStack matrixStack,
