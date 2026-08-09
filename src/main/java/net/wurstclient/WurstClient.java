@@ -338,13 +338,22 @@ public enum WurstClient
 		Hack hack = getHax().getHackByName(name);
 		if(hack != null)
 			return hack;
-		
-		Command cmd = getCmds().getCmdByName(name.substring(1));
+		for(Hack candidate : getHax().getAllHax())
+			if(candidate.getName().equalsIgnoreCase(name))
+				return candidate;
+			
+		Command cmd = getCmds()
+			.getCmdByName(name.startsWith("#") ? name.substring(1) : name);
 		if(cmd != null)
 			return cmd;
 		
 		OtherFeature otf = getOtfs().getOtfByName(name);
-		return otf;
+		if(otf != null)
+			return otf;
+		for(OtherFeature candidate : getOtfs().getAllOtfs())
+			if(candidate.getName().equalsIgnoreCase(name))
+				return candidate;
+		return null;
 	}
 	
 	public KeybindList getKeybinds()

@@ -644,9 +644,9 @@ public final class EditTokenAltScreen extends Screen
 		context.text(font, "Skin URL (http/https)", width / 2 - 100, 114,
 			CommonColors.LIGHT_GRAY);
 		
-		// Keep every status line below the footer buttons. The old positions
-		// overlapped the Account Info and Back buttons at smaller GUI scales.
-		int feedbackY = 250;
+		// The Back button ends at y=268. Start feedback below it so status and
+		// warning text cannot render underneath the footer buttons.
+		int feedbackY = 276;
 		if(!nameChangeStatus.isBlank())
 		{
 			context.centeredText(font, nameChangeStatus, width / 2, feedbackY,

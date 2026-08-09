@@ -228,9 +228,11 @@ public final class HackListOtf extends OtherFeature
 			return;
 		
 		var hackList = hud.getHackList();
-		for(net.wurstclient.Feature feature : hiddenHacks)
-			if(feature instanceof Hack hack)
-				hackList.updateState(hack);
+		// Re-evaluate every hack. Loading a preset can unhide entries that were
+		// present in the previous list, and updating only the newly hidden
+		// entries would leave those stale entries in the HUD.
+		for(Hack hack : WURST.getHax().getAllHax())
+			hackList.updateState(hack);
 	}
 	
 	private void syncHackState(Hack hack)
@@ -442,7 +444,7 @@ public final class HackListOtf extends OtherFeature
 				return;
 			
 			Hack hack = hacks.get(index);
-			setHidden(hack, !isHidden(hack));
+			setHidden(hack, !hiddenHacks.contains(hack));
 		}
 		
 		@Override
@@ -503,7 +505,7 @@ public final class HackListOtf extends OtherFeature
 				int y1 = getY() + row * ROW_HEIGHT;
 				int y2 = y1 + ROW_HEIGHT;
 				Hack hack = index < hacks.size() ? hacks.get(index) : null;
-				boolean hidden = hack != null && isHidden(hack);
+				boolean hidden = hack != null && hiddenHacks.contains(hack);
 				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
 				
 				if(rowHover && hack != null)
