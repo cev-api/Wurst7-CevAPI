@@ -200,8 +200,9 @@ public enum WurstClient
 		eventManager.add(PostMotionListener.class, rotationFaker);
 		
 		updater = new WurstUpdater();
-		// Disabled upstream's update checker. Because well, you're using CEVAPI ain't cha?
-		// eventManager.add(UpdateListener.class, updater); 
+		// Disabled upstream's update checker. Because well, you're using CEVAPI
+		// ain't cha?
+		// eventManager.add(UpdateListener.class, updater);
 		
 		forkUpdateChecker = new ForkUpdateChecker();
 		eventManager.add(UpdateListener.class, forkUpdateChecker);

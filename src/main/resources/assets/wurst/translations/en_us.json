@@ -313,7 +313,7 @@
   "description.wurst.setting.nofall.min_elytra_fall_distance": "Minimum fall distance for NoFall to activate while you are flying with an elytra. Makes NoFall harder to detect and avoids flight interruption issues by ignoring small falls that wouldn't meaningfully damage you anyway.\n\nMinecraft 1.21.4 had a bug that locked your fall distance value to 0, so you might want to set this to 0 (off) when playing on 1.21.4 servers.",
   "description.wurst.hack.nofireoverlay": "Blocks the overlay when you are on fire.\n\n§c§lWARNING:§r This can cause you to burn to death without noticing.",
   "description.wurst.hack.nofog": "Removes distance fog from the world.",
-  "description.wurst.hack.nogozone": "Creates no-go areas that you can leave but cannot re-enter, rendering each zone as a tall marked box and pushing you back to your last safe position.",
+  "description.wurst.hack.nogozone": "Captures your current chunk on activation and lets you leave its server render-distance area, but prevents you from ever re-entering rendering range.",
   "description.wurst.hack.nohurtcam": "Disables the shaking effect when you get hurt.",
   "description.wurst.hack.nolevitation": "Disables the levitation effect when you get hit by a Shulker.\n\nWARNING: You will fall if you activate this while the levitation effect is already active!",
   "description.wurst.hack.nooverlay": "Blocks the overlays of water, lava, and powder snow.",
