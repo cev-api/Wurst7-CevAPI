@@ -1946,6 +1946,46 @@ public final class EnchantmentHandlerHack extends Hack
 		return stripFormattingCodes(translated);
 	}
 	
+	public boolean shouldShowColorsInTooltips()
+	{
+		return colorEnchantments.isChecked();
+	}
+	
+	public static Component colorizeTooltipLine(ItemStack stack, Component line)
+	{
+		if(stack == null || line == null)
+			return line;
+		
+		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
+			.getOrDefault(DataComponents.ENCHANTMENTS,
+				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
+			.entrySet())
+		{
+			Component vanilla =
+				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
+			if(vanilla.getString().equals(line.getString()))
+				return Component.literal(getColoredEnchantmentDisplay(
+					entry.getKey(), entry.getIntValue(), vanilla.getString()));
+		}
+		
+		return line;
+	}
+	
+	private static String getColoredEnchantmentDisplay(
+		Holder<Enchantment> holder, int level, String fallback)
+	{
+		Identifier id = holder.unwrapKey()
+			.map(registryKey -> registryKey.identifier()).orElse(null);
+		String path = id != null ? id.getPath()
+			: sanitizePath(holder.getRegisteredName());
+		String display = ENCHANT_DISPLAY.get(path);
+		if(display == null)
+			return fallback;
+		if(level > 1)
+			display += " §f" + level;
+		return display;
+	}
+	
 	/**
 	 * Returns the level suffix for enchantments. Level 1 is empty, level 2+
 	 * gets "\u00a7f{N}" (white number), matching the resource pack.
