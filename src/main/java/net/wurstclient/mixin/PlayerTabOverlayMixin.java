@@ -80,7 +80,7 @@ public class PlayerTabOverlayMixin
 		cir.setReturnValue(name);
 	}
 	
-	@Inject(method = "extractPingIcon", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "renderPingIcon", at = @At("HEAD"), cancellable = true)
 	private void replacePingIcon(GuiGraphics context, int columnWidth, int rowX,
 		int y, PlayerInfo info, CallbackInfo ci)
 	{
