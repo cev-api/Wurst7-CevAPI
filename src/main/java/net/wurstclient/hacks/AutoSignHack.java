@@ -384,7 +384,6 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
-<<<<<<< HEAD
 		if(!signAura.isChecked() || MC.player == null || MC.level == null
 			|| MC.screen != null)
 			return;

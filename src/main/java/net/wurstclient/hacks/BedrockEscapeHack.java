@@ -18,10 +18,9 @@ import java.util.List;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
-<<<<<<< HEAD
-		import net.minecraft.client.gui.GuiGraphics;
-		import net.minecraft.core.SectionPos;
-		import net.minecraft.tags.FluidTags;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.SectionPos;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.entity.player.Player;
@@ -1265,7 +1264,6 @@ public final class BedrockEscapeHack extends Hack
 		return !playerAboveSideBoundary;
 	}
 	
-<<<<<<< HEAD
 	private static boolean hasLoadedChunk(BlockPos pos)
 	{
 		return MC.level.hasChunk(SectionPos.blockToSectionCoord(pos.getX()),
