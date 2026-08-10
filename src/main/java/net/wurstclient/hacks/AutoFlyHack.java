@@ -1693,7 +1693,6 @@ public final class AutoFlyHack extends Hack
 		int backgroundWidth = Math.max(textWidth, etaWidth);
 		int backgroundBottom =
 			y + (etaWidth > 0 ? 10 : 0) + font.lineHeight + 2;
-<<<<<<< HEAD
 		context.fill(centerX - backgroundWidth / 2 - 2, y - 2,
 			centerX + backgroundWidth / 2 + 2, backgroundBottom, 0x80000000);
 		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
