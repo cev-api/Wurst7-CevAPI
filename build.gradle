@@ -44,6 +44,14 @@ base {
 }
 
 repositories {
+	maven {
+		name = "opencollab"
+		url = "https://repo.opencollab.dev/main/"
+	}
+	maven {
+		name = "opencollabSnapshots"
+		url = "https://repo.opencollab.dev/maven-snapshots/"
+	}
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -78,6 +86,10 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	modImplementation "com.google.code.findbugs:jsr305:3.0.2"
+	implementation "org.geysermc.mcprotocollib:protocol:26.2-SNAPSHOT"
+	implementation "net.kyori:adventure-text-serializer-plain:4.25.0"
+	implementation include("io.netty:netty-handler-proxy:4.2.15.Final")
+	implementation include("io.netty:netty-codec-socks:4.2.15.Final")
 }
 
 fabricApi.configureTests {

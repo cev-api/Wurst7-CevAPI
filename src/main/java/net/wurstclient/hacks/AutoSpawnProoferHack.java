@@ -13,7 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.BlockItem;
@@ -217,7 +217,7 @@ public final class AutoSpawnProoferHack extends Hack
 		if(!BlockUtils.getState(pos).canBeReplaced())
 			return false;
 
-		if(!SpawnPlacements.isSpawnPositionOk(EntityTypes.CREEPER, MC.level,
+		if(!SpawnPlacements.isSpawnPositionOk(EntityType.CREEPER, MC.level,
 			pos))
 			return false;
 

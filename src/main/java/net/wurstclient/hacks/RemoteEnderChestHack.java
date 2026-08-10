@@ -12,36 +12,13 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.AnvilBlock;
-import net.minecraft.world.level.block.BarrelBlock;
-import net.minecraft.world.level.block.BeaconBlock;
-import net.minecraft.world.level.block.BrewingStandBlock;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.CartographyTableBlock;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.CrafterBlock;
-import net.minecraft.world.level.block.DispenserBlock;
-import net.minecraft.world.level.block.EnchantingTableBlock;
-import net.minecraft.world.level.block.GrindstoneBlock;
-import net.minecraft.world.level.block.HopperBlock;
-import net.minecraft.world.level.block.LecternBlock;
-import net.minecraft.world.level.block.LoomBlock;
-import net.minecraft.world.level.block.ShulkerBoxBlock;
-import net.minecraft.world.level.block.SmithingTableBlock;
-import net.minecraft.world.level.block.StonecutterBlock;
-import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
-import net.wurstclient.events.RightClickListener;
-import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.TextFieldSetting;
@@ -49,8 +26,7 @@ import net.wurstclient.util.ChatUtils;
 
 @SearchTags({"remote echest", "remote ender chest", "ender chest",
 	"portable echest", "portable ender chest"})
-public final class RemoteEnderChestHack extends Hack
-	implements UpdateListener, RightClickListener
+public final class RemoteEnderChestHack extends Hack implements UpdateListener
 {
 	private static RemoteEnderChestHack instance;
 	
@@ -61,8 +37,6 @@ public final class RemoteEnderChestHack extends Hack
 	private int savedSyncId = -1;
 	private Level lastWorld;
 	private BlockPos potentialEChestPos;
-	private boolean blockedContainerWarningShown;
-	private boolean autoTotemRefillRequested;
 	
 	private final TextFieldSetting toggleGuiKey =
 		new TextFieldSetting("Toggle GUI key", "key.keyboard.left.alt",
@@ -74,17 +48,6 @@ public final class RemoteEnderChestHack extends Hack
 				+ "ender chest instead of the regular inventory.",
 			false);
 	
-	private final CheckboxSetting autoTotem = new CheckboxSetting("Auto Totem",
-		"When AutoTotem is enabled and your inventory has no totems,"
-			+ " automatically move one from the linked ender chest without"
-			+ " opening its GUI.",
-		false);
-	
-	private final CheckboxSetting disableContainers = new CheckboxSetting(
-		"Disable containers",
-		"For forgetful players who keep breaking the link to their e-chest.",
-		false);
-	
 	public RemoteEnderChestHack()
 	{
 		super("RemoteEChest");
@@ -92,8 +55,6 @@ public final class RemoteEnderChestHack extends Hack
 		setCategory(Category.OTHER);
 		addSetting(toggleGuiKey);
 		addSetting(swapInventoryKey);
-		addSetting(autoTotem);
-		addSetting(disableContainers);
 	}
 	
 	// ---- Mixin API (X button, E/ESC key interception) ----
@@ -159,18 +120,6 @@ public final class RemoteEnderChestHack extends Hack
 		
 		return self.savedScreen != null && self.savedSyncId == syncId
 			&& self.isSavedContainerMenuStillActive();
-	}
-	
-	/**
-	 * Called when the server confirms that this player has popped a totem.
-	 * The active chest menu does not always receive an offhand slot update, so
-	 * this must not rely on the client-side offhand item being empty.
-	 */
-	public static void requestAutoTotemRefill()
-	{
-		RemoteEnderChestHack self = instance;
-		if(self != null && self.isEnabled() && self.autoTotem.isChecked())
-			self.autoTotemRefillRequested = true;
 	}
 	
 	// ---------------------------------------------------------------
@@ -249,7 +198,6 @@ public final class RemoteEnderChestHack extends Hack
 	protected void onEnable()
 	{
 		EVENTS.add(UpdateListener.class, this);
-		EVENTS.add(RightClickListener.class, this);
 		resetStuff();
 		
 		if(MC.player == null || MC.level == null)
@@ -265,58 +213,12 @@ public final class RemoteEnderChestHack extends Hack
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
-		EVENTS.remove(RightClickListener.class, this);
 		resetStuff();
-	}
-	
-	@Override
-	public void onRightClick(RightClickEvent event)
-	{
-		if(!disableContainers.isChecked() || savedScreen == null
-			|| !isSavedContainerMenuStillActive() || MC.level == null
-			|| !(MC.hitResult instanceof BlockHitResult hit)
-			|| !isContainerBlock(hit.getBlockPos()))
-			return;
-		
-		event.cancel();
-		if(MC.options.keyUse.isDown())
-		{
-			if(blockedContainerWarningShown)
-				return;
-			blockedContainerWarningShown = true;
-		}
-		ChatUtils.message(
-			"Containers are disabled while the EChest link is active.");
-	}
-	
-	private boolean isContainerBlock(BlockPos pos)
-	{
-		BlockState state = MC.level.getBlockState(pos);
-		if(MC.level.getBlockEntity(pos) instanceof BaseContainerBlockEntity)
-			return true;
-		
-		var block = state.getBlock();
-		return block instanceof ChestBlock || block instanceof BarrelBlock
-			|| block instanceof ShulkerBoxBlock || block instanceof HopperBlock
-			|| block instanceof DispenserBlock || block instanceof BeaconBlock
-			|| block instanceof BrewingStandBlock || block instanceof AnvilBlock
-			|| block instanceof CartographyTableBlock
-			|| block instanceof CrafterBlock
-			|| block instanceof EnchantingTableBlock
-			|| block instanceof GrindstoneBlock || block instanceof LecternBlock
-			|| block instanceof LoomBlock || block instanceof SmithingTableBlock
-			|| block instanceof StonecutterBlock || block == Blocks.DROPPER
-			|| block == Blocks.FURNACE || block == Blocks.BLAST_FURNACE
-			|| block == Blocks.SMOKER || block == Blocks.ENDER_CHEST
-			|| block == Blocks.CRAFTER;
 	}
 	
 	@Override
 	public void onUpdate()
 	{
-		if(!MC.options.keyUse.isDown())
-			blockedContainerWarningShown = false;
-		
 		if(MC.player == null || MC.level == null)
 		{
 			resetStuff(false);
@@ -390,8 +292,6 @@ public final class RemoteEnderChestHack extends Hack
 			return;
 		}
 		
-		tryAutoTotemTransfer();
-		
 		if(isEnderChestScreen(potentialEChestPos) && savedScreen == null
 			&& !guiWasOpen && !guiHidden)
 		{
@@ -424,62 +324,6 @@ public final class RemoteEnderChestHack extends Hack
 		}
 		
 		lastWorld = MC.level;
-	}
-	
-	private void tryAutoTotemTransfer()
-	{
-		if(!autoTotem.isChecked() || savedScreen == null
-			|| !isSavedContainerMenuStillActive()
-			|| !WURST.getHax().autoTotemHack.isEnabled())
-			return;
-		
-		boolean forceRefill = autoTotemRefillRequested;
-		if(!forceRefill)
-			return;
-			
-		// A generic 9x3 chest has 27 chest slots before the player's slots.
-		// slotClicked sends the normal server-validated click even when the
-		// saved screen is not currently displayed.
-		for(int i = 0; i < Math.min(27,
-			savedScreen.getMenu().slots.size()); i++)
-		{
-			Slot slot = savedScreen.getMenu().getSlot(i);
-			if(!slot.getItem().is(Items.TOTEM_OF_UNDYING))
-				continue;
-				
-			// SWAP button 40 is the player's offhand. When it is empty,
-			// move the chest item directly into it so the active remote menu
-			// never needs to expose the player's inventory slot mapping.
-			if(forceRefill || MC.player.getOffhandItem().isEmpty())
-			{
-				savedScreen.slotClicked(slot, slot.index, 40,
-					ContainerInput.SWAP);
-				autoTotemRefillRequested = false;
-				return;
-			}
-			
-			savedScreen.slotClicked(slot, slot.index, 0,
-				ContainerInput.QUICK_MOVE);
-			return;
-		}
-	}
-	
-	public static int getLinkedEnderChestTotemCount()
-	{
-		RemoteEnderChestHack self = instance;
-		if(self == null || !self.isEnabled() || !self.autoTotem.isChecked()
-			|| self.savedScreen == null
-			|| !self.isSavedContainerMenuStillActive())
-			return 0;
-		
-		int count = 0;
-		for(int i = 0; i < Math.min(27,
-			self.savedScreen.getMenu().slots.size()); i++)
-			if(self.savedScreen.getMenu().getSlot(i).getItem()
-				.is(Items.TOTEM_OF_UNDYING))
-				count +=
-					self.savedScreen.getMenu().getSlot(i).getItem().getCount();
-		return count;
 	}
 	
 	private boolean isEnderChestScreen(BlockPos echest)
@@ -530,8 +374,6 @@ public final class RemoteEnderChestHack extends Hack
 		guiWasOpen = false;
 		lastToggleKeyState = false;
 		potentialEChestPos = null;
-		blockedContainerWarningShown = false;
-		autoTotemRefillRequested = false;
 		savedSyncId = -1;
 		savedScreen = null;
 		

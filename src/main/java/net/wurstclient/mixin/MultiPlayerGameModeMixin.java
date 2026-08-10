@@ -40,7 +40,6 @@ import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgres
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
-import net.wurstclient.hacks.MaceDmgHack;
 import net.wurstclient.hacks.SilkOnlyHack;
 import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 
@@ -173,40 +172,13 @@ public abstract class MultiPlayerGameModeMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V",
-		cancellable = true)
+		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V")
 	private void onAttackEntity(Player player, Entity target, CallbackInfo ci)
 	{
 		if(player != minecraft.player)
 			return;
-			
-		// Never let any aura or other automated attack path hit a player who is
-		// currently in Creative mode. This is centralized here so new attack
-		// hacks receive the same protection automatically.
-		if(target instanceof Player targetPlayer && targetPlayer.isCreative())
-		{
-			ci.cancel();
-			return;
-		}
-		
-		if(WurstClient.INSTANCE.isEnabled())
-		{
-			MaceDmgHack maceDmg = WurstClient.INSTANCE.getHax().maceDmgHack;
-			if(maceDmg != null && maceDmg.shouldBlockAttack(target))
-			{
-				ci.cancel();
-				return;
-			}
-		}
 		
 		EventManager.fire(new PlayerAttacksEntityEvent(target));
-	}
-	
-	@Override
-	public void windowClick(int syncId, int slot, int button,
-		ContainerInput action)
-	{
-		handleContainerInput(syncId, slot, button, action, minecraft.player);
 	}
 	
 	@Override

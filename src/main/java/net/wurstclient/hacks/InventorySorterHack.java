@@ -13,7 +13,7 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
@@ -164,7 +164,7 @@ public final class InventorySorterHack extends Hack
 
 	private void click(AbstractContainerScreen<?> screen, Slot slot)
 	{
-		screen.slotClicked(slot, slot.index, 0, ContainerInput.PICKUP);
+		screen.slotClicked(slot, slot.index, 0, ClickType.PICKUP);
 	}
 
 	private int compare(ItemStack a, ItemStack b)

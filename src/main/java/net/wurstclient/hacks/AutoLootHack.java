@@ -18,7 +18,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
@@ -274,7 +274,7 @@ public final class AutoLootHack extends Hack
 			if(MC.player.getInventory().getFreeSlot() >= 0)
 			{
 				screen.slotClicked(slot, slot.index, 0,
-					ContainerInput.QUICK_MOVE);
+					ClickType.QUICK_MOVE);
 				return true;
 			}
 			
@@ -285,11 +285,11 @@ public final class AutoLootHack extends Hack
 			Slot junkSlot = screen.getMenu().slots.get(junkMenuSlot);
 			if(findEmptyContainerSlot(screen, containerSlots) >= 0)
 				screen.slotClicked(junkSlot, junkSlot.index, 0,
-					ContainerInput.QUICK_MOVE);
+					ClickType.QUICK_MOVE);
 			else
 				screen.slotClicked(junkSlot, junkSlot.index, 1,
-					ContainerInput.THROW);
-			screen.slotClicked(slot, slot.index, 0, ContainerInput.QUICK_MOVE);
+					ClickType.THROW);
+			screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
 			return true;
 		}
 		return false;
@@ -301,11 +301,11 @@ public final class AutoLootHack extends Hack
 		Slot playerSlot = screen.getMenu().slots
 			.get(inventoryMenuSlot(inventorySlot, containerSlots));
 		screen.slotClicked(containerSlot, containerSlot.index, 0,
-			ContainerInput.PICKUP);
+			ClickType.PICKUP);
 		screen.slotClicked(playerSlot, playerSlot.index, 0,
-			ContainerInput.PICKUP);
+			ClickType.PICKUP);
 		screen.slotClicked(containerSlot, containerSlot.index, 0,
-			ContainerInput.PICKUP);
+			ClickType.PICKUP);
 		return true;
 	}
 	

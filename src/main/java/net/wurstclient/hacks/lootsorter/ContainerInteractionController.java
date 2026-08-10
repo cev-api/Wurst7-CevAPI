@@ -10,7 +10,7 @@ package net.wurstclient.hacks.lootsorter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -47,7 +47,7 @@ public final class ContainerInteractionController
 	{
 		AbstractContainerScreen<?> screen = getSupportedScreen();
 		if(screen != null && slot != null)
-			screen.slotClicked(slot, slot.index, 0, ContainerInput.QUICK_MOVE);
+			screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
 	}
 	
 	/**
@@ -66,7 +66,7 @@ public final class ContainerInteractionController
 			|| from.getItem().isEmpty() || !to.mayPlace(from.getItem())
 			|| to.getMaxStackSize(from.getItem()) <= to.getItem().getCount())
 			return false;
-		screen.slotClicked(from, from.index, 0, ContainerInput.QUICK_MOVE);
+		screen.slotClicked(from, from.index, 0, ClickType.QUICK_MOVE);
 		return true;
 	}
 	
@@ -78,7 +78,7 @@ public final class ContainerInteractionController
 		AbstractContainerScreen<?> screen = getSupportedScreen();
 		if(screen == null || slot == null)
 			return false;
-		screen.slotClicked(slot, slot.index, 0, ContainerInput.PICKUP);
+		screen.slotClicked(slot, slot.index, 0, ClickType.PICKUP);
 		return true;
 	}
 	
