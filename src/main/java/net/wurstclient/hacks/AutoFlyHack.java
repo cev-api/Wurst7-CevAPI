@@ -1690,7 +1690,6 @@ public final class AutoFlyHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
-<<<<<<< HEAD
 		int etaWidth = eta == null || eta.isBlank() ? 0 : font.width(eta);
 		int backgroundWidth = Math.max(textWidth, etaWidth);
 		int backgroundBottom =
@@ -1702,7 +1701,6 @@ public final class AutoFlyHack extends Hack
 		if(eta != null && !eta.isBlank())
 		{
 			int etaX = centerX - etaWidth / 2;
-<<<<<<< HEAD
 			context.drawString(font, eta, etaX, y + 10, 0xFFAAAAAA, true);
 		}
 	}
