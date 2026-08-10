@@ -25,16 +25,4 @@ public abstract class MobEntityMixin
 			cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "getJumpPower",
-		at = @At("RETURN"),
-		cancellable = true,
-		require = 0)
-	private void forceJumpStrength(CallbackInfoReturnable<Float> cir)
-	{
-		if(!WurstClient.INSTANCE.getHax().entityControlHack
-			.shouldEnforceJumpStrength())
-			return;
-		
-		cir.setReturnValue(Math.max(cir.getReturnValueF(), 0.7F));
-	}
 }

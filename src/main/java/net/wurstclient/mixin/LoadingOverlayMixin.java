@@ -49,7 +49,7 @@ public abstract class LoadingOverlayMixin
 		wurst$applyConfiguredLogoBackgroundColor();
 	}
 	
-	@Inject(method = "extractRenderState", at = @At("HEAD"), require = 0)
+	@Inject(method = "render", at = @At("HEAD"), require = 0)
 	private void onExtractRenderState(GuiGraphics graphics, int mouseX,
 		int mouseY, float partialTicks, CallbackInfo ci)
 	{
