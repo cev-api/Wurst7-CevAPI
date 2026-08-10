@@ -135,7 +135,6 @@ dependencies {
 		exclude "net/wurstclient/commands/KeymapCmd.java"
 		exclude "net/wurstclient/commands/LootSorterCmd.java"
 		exclude "net/wurstclient/commands/PlayerMuteCmd.java"
-		exclude "net/wurstclient/hacks/AutoClickerHack.java"
 		exclude "net/wurstclient/hacks/LootSorterHack.java"
 		exclude "net/wurstclient/hacks/PlayerMuteHack.java"
 		exclude "net/wurstclient/hacks/lootsorter/ContainerInteractionController.java"
