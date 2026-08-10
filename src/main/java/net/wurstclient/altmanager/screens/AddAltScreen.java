@@ -14,9 +14,8 @@ import net.minecraft.network.chat.Component;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.CrackedAlt;
 import net.wurstclient.altmanager.LoginException;
-import net.wurstclient.altmanager.MicrosoftLoginManager;
 import net.wurstclient.altmanager.MojangAlt;
-import net.wurstclient.altmanager.MicrosoftLoginManager.CookieAuthResult;
+import net.wurstclient.altmanager.MicrosoftLoginManager;
 import net.wurstclient.altmanager.TokenAlt;
 
 public final class AddAltScreen extends AltEditorScreen
@@ -28,24 +27,11 @@ public final class AddAltScreen extends AltEditorScreen
 	private String verifiedProfileName = "";
 	private String verifiedToken = "";
 	private String verifiedRefreshToken = "";
-	private String verifiedCookieRefreshToken = "";
 	
 	public AddAltScreen(Screen prevScreen, AltManager altManager)
 	{
-		this(prevScreen, altManager, AddMode.PASSWORD);
-	}
-	
-	private AddAltScreen(Screen prevScreen, AltManager altManager, AddMode mode)
-	{
 		super(prevScreen, Component.literal("New Alt"));
 		this.altManager = altManager;
-		this.mode = mode;
-	}
-	
-	@Override
-	protected String getDefaultNameOrEmail()
-	{
-		return mode == AddMode.PASSWORD ? super.getDefaultNameOrEmail() : "";
 	}
 	
 	@Override
@@ -60,10 +46,6 @@ public final class AddAltScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return isCurrentTokenStateVerified() ? "Add Token Alt"
 				: "Verify Token Login";
-			
-			case COOKIE:
-			return isCookieStateVerified() ? "Add Token Alt"
-				: "Verify Cookies & Extract Token";
 			
 			default:
 			throw new IllegalStateException();
@@ -92,22 +74,13 @@ public final class AddAltScreen extends AltEditorScreen
 		
 		if(profileNameBox != null)
 		{
-			boolean showProfile = mode == AddMode.TOKEN_REFRESH;
-			profileNameBox.visible = showProfile;
+			profileNameBox.visible = mode == AddMode.TOKEN_REFRESH;
 			profileNameBox.active = false;
 			profileNameBox.setValue(verifiedProfileName);
 			profileNameBox.setY(getProfileBoxY());
 		}
 		
-		if(mode == AddMode.COOKIE)
-			setNameOrEmailMaxLength(131072);
-		else
-			setNameOrEmailMaxLength(4096);
-		
 		if(mode == AddMode.TOKEN_REFRESH && !isCurrentTokenStateVerified())
-			verifiedProfileName = "";
-		
-		if(mode == AddMode.COOKIE && !isCookieStateVerified())
 			verifiedProfileName = "";
 	}
 	
@@ -118,9 +91,6 @@ public final class AddAltScreen extends AltEditorScreen
 			return isCurrentTokenStateVerified() || !nameOrEmail.isEmpty()
 				|| !password.isEmpty();
 		
-		if(mode == AddMode.COOKIE)
-			return isCookieStateVerified() || hasCookieInput();
-		
 		return super.isDoneButtonActive(nameOrEmail, password);
 	}
 	
@@ -129,9 +99,6 @@ public final class AddAltScreen extends AltEditorScreen
 	{
 		if(mode == AddMode.TOKEN_REFRESH)
 			return "Access token (optional)";
-		
-		if(mode == AddMode.COOKIE)
-			return "Paste Netscape cookies here";
 		
 		return super.getNameOrEmailLabelLine1();
 	}
@@ -142,9 +109,6 @@ public final class AddAltScreen extends AltEditorScreen
 		if(mode == AddMode.TOKEN_REFRESH)
 			return "Leave blank if using refresh token";
 		
-		if(mode == AddMode.COOKIE)
-			return "Export from browser in Netscape format";
-		
 		return super.getNameOrEmailLabelLine2();
 	}
 	
@@ -154,22 +118,7 @@ public final class AddAltScreen extends AltEditorScreen
 		if(mode == AddMode.TOKEN_REFRESH)
 			return "Refresh token (optional)";
 		
-		if(mode == AddMode.COOKIE)
-			return "";
-		
 		return super.getPasswordLabel();
-	}
-	
-	@Override
-	protected boolean shouldMaskPassword()
-	{
-		return mode != AddMode.TOKEN_REFRESH && mode != AddMode.COOKIE;
-	}
-	
-	@Override
-	protected boolean shouldShowPasswordInput()
-	{
-		return mode != AddMode.COOKIE;
 	}
 	
 	@Override
@@ -178,46 +127,37 @@ public final class AddAltScreen extends AltEditorScreen
 		if(mode == AddMode.TOKEN_REFRESH)
 			return "token / refresh token";
 		
-		if(mode == AddMode.COOKIE)
-			return "cookies";
-		
 		return super.getAccountTypeLabel();
 	}
 	
 	@Override
 	protected boolean shouldShowRandomNameButton()
 	{
-		return mode != AddMode.TOKEN_REFRESH && mode != AddMode.COOKIE;
+		return mode != AddMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldShowStealSkinButton()
 	{
-		return mode != AddMode.TOKEN_REFRESH && mode != AddMode.COOKIE;
+		return mode != AddMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldShowOpenSkinFolderButton()
 	{
-		return mode != AddMode.TOKEN_REFRESH && mode != AddMode.COOKIE;
+		return mode != AddMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldRenderSkinPreview()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return !verifiedProfileName.isEmpty();
-		
-		if(mode == AddMode.COOKIE)
-			return !verifiedProfileName.isEmpty();
-		
-		return super.shouldRenderSkinPreview();
+		return mode != AddMode.TOKEN_REFRESH || !verifiedProfileName.isEmpty();
 	}
 	
 	@Override
 	protected String getSkinPreviewName()
 	{
-		if(mode == AddMode.TOKEN_REFRESH || mode == AddMode.COOKIE)
+		if(mode == AddMode.TOKEN_REFRESH)
 			return verifiedProfileName;
 		
 		return super.getSkinPreviewName();
@@ -226,95 +166,41 @@ public final class AddAltScreen extends AltEditorScreen
 	@Override
 	protected int getNameOrEmailBoxY()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return 90;
-		
-		if(mode == AddMode.COOKIE)
-			return 88;
-		
-		return super.getNameOrEmailBoxY();
+		return mode == AddMode.TOKEN_REFRESH ? 90 : 60;
 	}
 	
 	@Override
 	protected int getPasswordBoxY()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return 130;
-		
-		if(mode == AddMode.COOKIE)
-			return 340;
-		
-		return super.getPasswordBoxY();
-	}
-	
-	@Override
-	protected int getNameOrEmailBoxWidth()
-	{
-		// Keep the cookie form centered between the two skin previews.
-		return mode == AddMode.COOKIE ? Math.min(420, width - 80) : 200;
-	}
-	
-	@Override
-	protected int getNameOrEmailBoxHeight()
-	{
-		return mode == AddMode.COOKIE ? 200 : 20;
-	}
-	
-	@Override
-	protected boolean useMultiLineNameOrEmailInput()
-	{
-		return mode == AddMode.COOKIE;
-	}
-	
-	@Override
-	protected boolean preserveTabsOnPaste()
-	{
-		return mode == AddMode.COOKIE;
+		return mode == AddMode.TOKEN_REFRESH ? 130 : 100;
 	}
 	
 	@Override
 	protected int getDoneButtonY()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return height / 4 + 108;
-		
-		if(mode == AddMode.COOKIE)
-			return getNameOrEmailBoxY() + getNameOrEmailBoxHeight() + 24;
-		
-		return super.getDoneButtonY();
+		return mode == AddMode.TOKEN_REFRESH ? height / 4 + 108
+			: super.getDoneButtonY();
 	}
 	
 	@Override
 	protected int getRandomNameButtonY()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return height / 4 + 132;
-		
-		if(mode == AddMode.COOKIE)
-			return getDoneButtonY() + 24;
-		
-		return super.getRandomNameButtonY();
+		return mode == AddMode.TOKEN_REFRESH ? height / 4 + 132
+			: super.getRandomNameButtonY();
 	}
 	
 	@Override
 	protected int getCancelButtonY()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return height / 4 + 156;
-		
-		if(mode == AddMode.COOKIE)
-			return getDoneButtonY() + 48;
-		
-		return super.getCancelButtonY();
+		return mode == AddMode.TOKEN_REFRESH ? height / 4 + 156
+			: super.getCancelButtonY();
 	}
 	
 	@Override
 	protected String getTopInfoLabel()
 	{
-		if(mode == AddMode.TOKEN_REFRESH)
-			return "Profile (read-only, after successful login)";
-		
-		return "";
+		return mode == AddMode.TOKEN_REFRESH
+			? "Profile (read-only, after successful login)" : "";
 	}
 	
 	@Override
@@ -355,44 +241,6 @@ public final class AddAltScreen extends AltEditorScreen
 			}
 		}
 		
-		if(mode == AddMode.COOKIE)
-		{
-			if(isCookieStateVerified())
-			{
-				altManager.add(new TokenAlt("", verifiedCookieRefreshToken,
-					verifiedProfileName, false));
-				minecraft.gui.setScreen(prevScreen);
-				return;
-			}
-			
-			String cookieText = getCookieText();
-			if(cookieText.isEmpty())
-			{
-				message =
-					"\u00a7c\u00a7lPlease paste your Netscape cookies first.";
-				doErrorEffect();
-				return;
-			}
-			
-			try
-			{
-				CookieAuthResult result =
-					MicrosoftLoginManager.authenticateCookies(cookieText);
-				
-				verifiedProfileName = result.getProfile().getName();
-				verifiedCookieRefreshToken = result.getRefreshToken();
-				message = "\u00a7a\u00a7lVerified as " + verifiedProfileName
-					+ ". Click again to add.";
-				return;
-				
-			}catch(LoginException e)
-			{
-				message = "\u00a7c\u00a7lCookie auth:\u00a7c " + e.getMessage();
-				doErrorEffect();
-				return;
-			}
-		}
-		
 		if(password.isEmpty())
 			altManager.add(new CrackedAlt(nameOrEmail));
 		else
@@ -403,14 +251,20 @@ public final class AddAltScreen extends AltEditorScreen
 	
 	private void toggleMode()
 	{
-		minecraft.gui
-			.setScreen(new AddAltScreen(prevScreen, altManager, mode.next()));
+		mode = mode.next();
+		message = "";
+		
+		if(mode == AddMode.PASSWORD)
+			setNameOrEmail(minecraft.getUser().getName());
+		else
+			setNameOrEmail("");
+		
+		setPassword("");
+		clearVerificationState();
 	}
 	
 	private int getProfileBoxY()
 	{
-		if(mode == AddMode.COOKIE)
-			return 326;
 		return getNameOrEmailBoxY() - 46;
 	}
 	
@@ -424,9 +278,6 @@ public final class AddAltScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return "Mode: Token / Refresh";
 			
-			case COOKIE:
-			return "Mode: Cookies";
-			
 			default:
 			throw new IllegalStateException();
 		}
@@ -439,35 +290,17 @@ public final class AddAltScreen extends AltEditorScreen
 			&& getPassword().trim().equals(verifiedRefreshToken);
 	}
 	
-	private boolean isCookieStateVerified()
-	{
-		return !verifiedProfileName.isEmpty()
-			&& !verifiedCookieRefreshToken.isEmpty();
-	}
-	
-	private boolean hasCookieInput()
-	{
-		return !getNameOrEmail().trim().isEmpty();
-	}
-	
-	private String getCookieText()
-	{
-		return getNameOrEmail().trim();
-	}
-	
 	private void clearVerificationState()
 	{
 		verifiedProfileName = "";
 		verifiedToken = "";
 		verifiedRefreshToken = "";
-		verifiedCookieRefreshToken = "";
 	}
 	
 	private enum AddMode
 	{
 		PASSWORD,
-		TOKEN_REFRESH,
-		COOKIE;
+		TOKEN_REFRESH;
 		
 		private AddMode next()
 		{

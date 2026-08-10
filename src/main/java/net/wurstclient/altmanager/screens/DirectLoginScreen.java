@@ -27,19 +27,7 @@ public final class DirectLoginScreen extends AltEditorScreen
 	
 	public DirectLoginScreen(Screen prevScreen)
 	{
-		this(prevScreen, LoginMode.PASSWORD);
-	}
-	
-	private DirectLoginScreen(Screen prevScreen, LoginMode mode)
-	{
 		super(prevScreen, Component.literal("Direct Login"));
-		this.mode = mode;
-	}
-	
-	@Override
-	protected String getDefaultNameOrEmail()
-	{
-		return mode == LoginMode.PASSWORD ? super.getDefaultNameOrEmail() : "";
 	}
 	
 	@Override
@@ -53,9 +41,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			
 			case TOKEN_REFRESH:
 			return "Login with Token/Refresh";
-			
-			case COOKIE:
-			return "Login with Cookies";
 			
 			default:
 			throw new IllegalStateException();
@@ -72,9 +57,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			
 			case TOKEN_REFRESH:
 			return !nameOrEmail.isEmpty() || !password.isEmpty();
-			
-			case COOKIE:
-			return !nameOrEmail.isEmpty();
 			
 			default:
 			throw new IllegalStateException();
@@ -103,8 +85,7 @@ public final class DirectLoginScreen extends AltEditorScreen
 		
 		if(profileNameBox != null)
 		{
-			boolean showProfile = mode == LoginMode.TOKEN_REFRESH;
-			profileNameBox.visible = showProfile;
+			profileNameBox.visible = mode == LoginMode.TOKEN_REFRESH;
 			profileNameBox.active = false;
 			profileNameBox.setValue(successfulProfileName);
 			profileNameBox.setY(getProfileBoxY());
@@ -118,11 +99,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 				|| !currentRefresh.equals(lastRefreshInput))
 				successfulProfileName = "";
 		}
-		
-		if(mode == LoginMode.COOKIE)
-			setNameOrEmailMaxLength(131072);
-		else
-			setNameOrEmailMaxLength(4096);
 	}
 	
 	@Override
@@ -135,9 +111,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			
 			case TOKEN_REFRESH:
 			return "Access token (optional)";
-			
-			case COOKIE:
-			return "Paste Netscape cookies here";
 			
 			default:
 			throw new IllegalStateException();
@@ -155,9 +128,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return "Leave blank if using refresh token";
 			
-			case COOKIE:
-			return "Export from browser in Netscape format";
-			
 			default:
 			throw new IllegalStateException();
 		}
@@ -174,24 +144,9 @@ public final class DirectLoginScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return "Refresh token (optional)";
 			
-			case COOKIE:
-			return "";
-			
 			default:
 			throw new IllegalStateException();
 		}
-	}
-	
-	@Override
-	protected boolean shouldMaskPassword()
-	{
-		return mode != LoginMode.TOKEN_REFRESH && mode != LoginMode.COOKIE;
-	}
-	
-	@Override
-	protected boolean shouldShowPasswordInput()
-	{
-		return mode != LoginMode.COOKIE;
 	}
 	
 	@Override
@@ -205,9 +160,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return "token / refresh token";
 			
-			case COOKIE:
-			return "cookies";
-			
 			default:
 			throw new IllegalStateException();
 		}
@@ -216,37 +168,32 @@ public final class DirectLoginScreen extends AltEditorScreen
 	@Override
 	protected boolean shouldShowRandomNameButton()
 	{
-		return mode != LoginMode.TOKEN_REFRESH && mode != LoginMode.COOKIE;
+		return mode != LoginMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldShowStealSkinButton()
 	{
-		return mode != LoginMode.TOKEN_REFRESH && mode != LoginMode.COOKIE;
+		return mode != LoginMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldShowOpenSkinFolderButton()
 	{
-		return mode != LoginMode.TOKEN_REFRESH && mode != LoginMode.COOKIE;
+		return mode != LoginMode.TOKEN_REFRESH;
 	}
 	
 	@Override
 	protected boolean shouldRenderSkinPreview()
 	{
-		if(mode == LoginMode.TOKEN_REFRESH)
-			return !successfulProfileName.isEmpty();
-		
-		if(mode == LoginMode.COOKIE)
-			return !successfulProfileName.isEmpty();
-		
-		return true;
+		return mode != LoginMode.TOKEN_REFRESH
+			|| !successfulProfileName.isEmpty();
 	}
 	
 	@Override
 	protected String getSkinPreviewName()
 	{
-		if(mode == LoginMode.TOKEN_REFRESH || mode == LoginMode.COOKIE)
+		if(mode == LoginMode.TOKEN_REFRESH)
 			return successfulProfileName;
 		
 		return super.getSkinPreviewName();
@@ -255,79 +202,41 @@ public final class DirectLoginScreen extends AltEditorScreen
 	@Override
 	protected int getNameOrEmailBoxY()
 	{
-		if(mode == LoginMode.COOKIE)
-			return 88;
 		return mode == LoginMode.TOKEN_REFRESH ? 90 : 60;
-	}
-	
-	@Override
-	protected int getNameOrEmailBoxWidth()
-	{
-		return mode == LoginMode.COOKIE ? Math.min(720, width - 80) : 200;
-	}
-	
-	@Override
-	protected int getNameOrEmailBoxHeight()
-	{
-		return mode == LoginMode.COOKIE ? 240 : 20;
-	}
-	
-	@Override
-	protected boolean useMultiLineNameOrEmailInput()
-	{
-		return mode == LoginMode.COOKIE;
-	}
-	
-	@Override
-	protected boolean preserveTabsOnPaste()
-	{
-		return mode == LoginMode.COOKIE;
 	}
 	
 	@Override
 	protected int getPasswordBoxY()
 	{
-		if(mode == LoginMode.COOKIE)
-			return 340;
 		return mode == LoginMode.TOKEN_REFRESH ? 130 : 100;
 	}
 	
 	@Override
 	protected int getDoneButtonY()
 	{
-		if(mode == LoginMode.COOKIE)
-			return getNameOrEmailBoxY() + getNameOrEmailBoxHeight() + 24;
-		if(mode == LoginMode.TOKEN_REFRESH)
-			return height / 4 + 108;
-		return super.getDoneButtonY();
+		return mode == LoginMode.TOKEN_REFRESH ? height / 4 + 108
+			: super.getDoneButtonY();
 	}
 	
 	@Override
 	protected int getRandomNameButtonY()
 	{
-		if(mode == LoginMode.COOKIE)
-			return getDoneButtonY() + 24;
-		if(mode == LoginMode.TOKEN_REFRESH)
-			return height / 4 + 132;
-		return super.getRandomNameButtonY();
+		return mode == LoginMode.TOKEN_REFRESH ? height / 4 + 132
+			: super.getRandomNameButtonY();
 	}
 	
 	@Override
 	protected int getCancelButtonY()
 	{
-		if(mode == LoginMode.COOKIE)
-			return getDoneButtonY() + 48;
-		if(mode == LoginMode.TOKEN_REFRESH)
-			return height / 4 + 156;
-		return super.getCancelButtonY();
+		return mode == LoginMode.TOKEN_REFRESH ? height / 4 + 156
+			: super.getCancelButtonY();
 	}
 	
 	@Override
 	protected String getTopInfoLabel()
 	{
-		if(mode == LoginMode.TOKEN_REFRESH)
-			return "Profile (read-only, after successful login)";
-		return "";
+		return mode == LoginMode.TOKEN_REFRESH
+			? "Profile (read-only, after successful login)" : "";
 	}
 	
 	@Override
@@ -360,20 +269,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 					+ successfulProfileName + ".";
 				return;
 				
-				case COOKIE:
-				if(nameOrEmail.isEmpty())
-				{
-					message =
-						"\u00a7c\u00a7lPlease paste your Netscape cookies first.";
-					doErrorEffect();
-					return;
-				}
-				MicrosoftLoginManager.loginWithCookies(nameOrEmail);
-				successfulProfileName = minecraft.getUser().getName();
-				message = "\u00a7a\u00a7lLogin successful as "
-					+ successfulProfileName + ".";
-				return;
-				
 				default:
 				throw new IllegalStateException();
 			}
@@ -391,7 +286,24 @@ public final class DirectLoginScreen extends AltEditorScreen
 	
 	private void toggleMode()
 	{
-		minecraft.gui.setScreen(new DirectLoginScreen(prevScreen, mode.next()));
+		mode = mode.next();
+		message = "";
+		
+		if(mode == LoginMode.PASSWORD)
+		{
+			setNameOrEmail(minecraft.getUser().getName());
+			setPassword("");
+			successfulProfileName = "";
+			lastTokenInput = "";
+			lastRefreshInput = "";
+		}else
+		{
+			setNameOrEmail("");
+			setPassword("");
+			successfulProfileName = "";
+			lastTokenInput = "";
+			lastRefreshInput = "";
+		}
 	}
 	
 	private int getProfileBoxY()
@@ -409,9 +321,6 @@ public final class DirectLoginScreen extends AltEditorScreen
 			case TOKEN_REFRESH:
 			return "Mode: Token / Refresh";
 			
-			case COOKIE:
-			return "Mode: Cookies";
-			
 			default:
 			throw new IllegalStateException();
 		}
@@ -420,8 +329,7 @@ public final class DirectLoginScreen extends AltEditorScreen
 	private enum LoginMode
 	{
 		PASSWORD,
-		TOKEN_REFRESH,
-		COOKIE;
+		TOKEN_REFRESH;
 		
 		private LoginMode next()
 		{

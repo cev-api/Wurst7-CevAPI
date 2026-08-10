@@ -64,7 +64,6 @@ public final class ProtectHack extends Hack
 			FilterBabiesSetting.genericCombat(false),
 			FilterBatsSetting.genericCombat(false),
 			FilterSlimesSetting.genericCombat(false),
-			FilterSulfurCubesSetting.genericCombat(false),
 			FilterPetsSetting.genericCombat(false),
 			FilterVillagersSetting.genericCombat(false),
 			FilterZombieVillagersSetting.genericCombat(false),
@@ -126,7 +125,7 @@ public final class ProtectHack extends Hack
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().killauraHack.disableByConflict(this);
+		WURST.getHax().killauraHack.setEnabled(false);
 		WURST.getHax().multiAuraHack.setEnabled(false);
 		WURST.getHax().triggerBotHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
@@ -157,7 +156,6 @@ public final class ProtectHack extends Hack
 	@Override
 	protected void onDisable()
 	{
-		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		

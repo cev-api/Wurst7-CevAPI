@@ -71,7 +71,6 @@ import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
 import net.wurstclient.util.RenderUtils.ColoredPoint;
 import net.wurstclient.util.ShaderUtils;
-import net.wurstclient.hud.ClientMessageOverlay;
 
 @SearchTags({"player esp", "PlayerTracers", "player tracers"})
 public final class PlayerEspHack extends Hack implements UpdateListener,
@@ -189,10 +188,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			+ "palette and forces it into the shared color registry.\n"
 			+ "PlayerESP takes ownership of these colors (overrides Breadcrumbs).",
 		false);
-	private final CheckboxSetting useServerColors = new CheckboxSetting(
-		"Use server player colors",
-		"Uses the server's tab-list/team color for PlayerESP when available.",
-		false);
 	private final CheckboxSetting losThreatDetection = new CheckboxSetting(
 		"Line-of-sight detection",
 		"Highlights players who currently have direct line of sight on you\n"
@@ -256,7 +251,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		setCategory(Category.RENDER);
 		addSetting(style);
 		addSetting(randomBrightColors);
-		addSetting(useServerColors);
 		addSetting(losThreatDetection);
 		addSetting(losThreatFov);
 		addSetting(losThreatRange);
@@ -967,17 +961,6 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 	{
 		if(WURST.getFriends().contains(e.getName().getString()))
 			return 0x800000FF;
-		
-		if(useServerColors.isChecked() && MC.getConnection() != null)
-		{
-			var info = MC.getConnection().getPlayerInfo(e.getUUID());
-			int serverColor = ClientMessageOverlay.getServerPlayerColor(info);
-			if(serverColor >= 0)
-				return RenderUtils
-					.toIntColor(new float[]{((serverColor >> 16) & 0xFF) / 255F,
-						((serverColor >> 8) & 0xFF) / 255F,
-						(serverColor & 0xFF) / 255F}, 0.85F);
-		}
 		
 		StaticPlayerColorMode colorMode = staticPlayerColorMode.getSelected();
 		
