@@ -491,7 +491,6 @@ public abstract class AltEditorScreen extends Screen
 		// dynamic labels next to inputs
 		int nameBoxY = getNameOrEmailBoxY();
 		int passBoxY = getPasswordBoxY();
-<<<<<<< HEAD
 		context.drawString(font, getNameOrEmailLabelLine1(), getNameOrEmailBoxX(),
 			nameBoxY - 23, CommonColors.LIGHT_GRAY);
 		context.drawString(font, getNameOrEmailLabelLine2(), getNameOrEmailBoxX(),
@@ -513,7 +512,6 @@ public abstract class AltEditorScreen extends Screen
 				messageBaseY + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
-<<<<<<< HEAD
 		if(nameOrEmailBox != null)
 			nameOrEmailBox.render(context, mouseX, mouseY, partialTicks);
 		if(multiLineNameOrEmailBox != null)
