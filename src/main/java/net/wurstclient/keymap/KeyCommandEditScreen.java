@@ -135,13 +135,13 @@ public final class KeyCommandEditScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xDF0C1118, 0xE7161D28);
 		
-		context.drawCenteredString(font, "Editing " + visualKey.label(), width / 2,
-			20, CommonColors.WHITE);
+		context.drawCenteredString(font, "Editing " + visualKey.label(),
+			width / 2, 20, CommonColors.WHITE);
 		
 		context.drawCenteredString(font,
 			"Physical key: " + Keybind.getDisplayKey(visualKey.key().getName()),
