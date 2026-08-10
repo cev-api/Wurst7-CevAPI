@@ -37,7 +37,7 @@ public final class KeyOccupancyScanner
 				continue;
 			
 			InputConstants.Key boundKey =
-				IKeyMapping.get(mapping).getBoundKey();
+				IKeyMapping.get(mapping).wurst$getKey();
 			if(boundKey == null)
 				continue;
 			

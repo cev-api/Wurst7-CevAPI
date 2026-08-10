@@ -140,9 +140,7 @@ dependencies {
 		exclude "net/wurstclient/hacks/lootsorter/ContainerInteractionController.java"
 		exclude "net/wurstclient/hacks/lootsorter/ContainerRenderer.java"
 		exclude "net/wurstclient/hacks/lootsorter/LootSorterController.java"
-		exclude "net/wurstclient/keymap/KeyCommandEditScreen.java"
-		exclude "net/wurstclient/keymap/KeyboardBindsScreen.java"
-		exclude "net/wurstclient/keymap/KeyOccupancyScanner.java"
+
 		exclude "net/wurstclient/mixin/PathFlightEntityMoveMixin.java"
 		exclude "net/wurstclient/mixin/PlayerTabOverlayMixin.java"
 		exclude "net/wurstclient/mixin/ShaderManagerMixin.java"

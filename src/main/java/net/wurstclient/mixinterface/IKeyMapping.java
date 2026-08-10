@@ -7,10 +7,13 @@
  */
 package net.wurstclient.mixinterface;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 
 public interface IKeyMapping extends IKeyBinding
 {
+	InputConstants.Key wurst$getKey();
+	
 	default KeyMapping asVanilla()
 	{
 		return (KeyMapping)(Object)this;

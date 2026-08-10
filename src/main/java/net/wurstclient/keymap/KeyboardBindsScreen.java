@@ -109,8 +109,7 @@ public final class KeyboardBindsScreen extends Screen
 		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 		{
 			String command = bindBridge.getCommandForKey(key.key());
-			minecraft.gui
-				.setScreen(new KeyCommandEditScreen(this, key, command));
+			minecraft.setScreen(new KeyCommandEditScreen(this, key, command));
 			return true;
 		}
 		
@@ -223,8 +222,8 @@ public final class KeyboardBindsScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		Font font = minecraft.font;
 		hoveredKey = getKeyAtMouse(mouseX, mouseY);
@@ -232,8 +231,8 @@ public final class KeyboardBindsScreen extends Screen
 		context.fillGradient(0, 0, width, height, 0xFF0C1016, 0xFF171C28);
 		
 		int titleY = 16;
-		context.drawCenteredString(font, "Keyboard Binds / Keymap", width / 2, titleY,
-			CommonColors.WHITE);
+		context.drawCenteredString(font, "Keyboard Binds / Keymap", width / 2,
+			titleY, CommonColors.WHITE);
 		context.drawCenteredString(font,
 			buildHeaderLine("Click a key to edit its ", "Wurst",
 				" command, right click to clear.", 0xFFFFA94D),
@@ -259,8 +258,8 @@ public final class KeyboardBindsScreen extends Screen
 				buildTooltip(hoveredKey), mouseX, mouseY);
 	}
 	
-	private void drawKeyboard(GuiGraphics context, Font font,
-		int mouseX, int mouseY)
+	private void drawKeyboard(GuiGraphics context, Font font, int mouseX,
+		int mouseY)
 	{
 		context.fill(toScreenX((float)getLayoutMinX() - 12F),
 			toScreenY((float)getLayoutMinY() - 10F),
@@ -427,8 +426,8 @@ public final class KeyboardBindsScreen extends Screen
 			context.drawString(font, "!", x + w - 8, y + 2, 0xFFFFB3B3, false);
 	}
 	
-	private void drawCenteredScaledFitText(GuiGraphics context,
-		Font font, String text, int x1, int y1, int x2, int y2, int color)
+	private void drawCenteredScaledFitText(GuiGraphics context, Font font,
+		String text, int x1, int y1, int x2, int y2, int color)
 	{
 		if(text == null || text.isBlank() || x2 <= x1)
 			return;
@@ -621,8 +620,8 @@ public final class KeyboardBindsScreen extends Screen
 		return Math.min(255, Math.round(base * (1F - alpha) + overlay * alpha));
 	}
 	
-	private static void drawBorder(GuiGraphics context, int x1, int y1,
-		int x2, int y2, int color)
+	private static void drawBorder(GuiGraphics context, int x1, int y1, int x2,
+		int y2, int color)
 	{
 		context.hLine(x1, x2 - 1, y1, color);
 		context.hLine(x1, x2 - 1, y2 - 1, color);
