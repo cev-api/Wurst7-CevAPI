@@ -18,7 +18,7 @@ import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -62,7 +62,7 @@ public final class KeyboardBindsScreen extends Screen
 	{
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 50, height - 28, 100, 20).build());
 		refreshOccupancy();
 	}
@@ -86,7 +86,7 @@ public final class KeyboardBindsScreen extends Screen
 		
 		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.gui.setScreen(prevScreen);
+			minecraft.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -98,7 +98,7 @@ public final class KeyboardBindsScreen extends Screen
 	{
 		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
 		{
-			minecraft.gui.setScreen(prevScreen);
+			minecraft.setScreen(prevScreen);
 			return true;
 		}
 		
@@ -223,7 +223,7 @@ public final class KeyboardBindsScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks)
 	{
 		Font font = minecraft.font;
@@ -232,17 +232,17 @@ public final class KeyboardBindsScreen extends Screen
 		context.fillGradient(0, 0, width, height, 0xFF0C1016, 0xFF171C28);
 		
 		int titleY = 16;
-		context.centeredText(font, "Keyboard Binds / Keymap", width / 2, titleY,
+		context.drawCenteredString(font, "Keyboard Binds / Keymap", width / 2, titleY,
 			CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			buildHeaderLine("Click a key to edit its ", "Wurst",
 				" command, right click to clear.", 0xFFFFA94D),
 			width / 2, titleY + 12, CommonColors.LIGHT_GRAY);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			buildHeaderLine("Minecraft keybinds are shown on the keyboard in ",
 				"yellow", ".", 0xFFFFE18A),
 			width / 2, titleY + 22, CommonColors.LIGHT_GRAY);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			buildHeaderLine("Conflicting keys are shown in ", "red",
 				". Wurst commands typically take priority in conflicts.",
 				0xFFFF5B5B),
@@ -252,14 +252,14 @@ public final class KeyboardBindsScreen extends Screen
 		drawMouseLabel(context, font);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		if(hoveredKey != null)
 			context.setComponentTooltipForNextFrame(font,
 				buildTooltip(hoveredKey), mouseX, mouseY);
 	}
 	
-	private void drawKeyboard(GuiGraphicsExtractor context, Font font,
+	private void drawKeyboard(GuiGraphics context, Font font,
 		int mouseX, int mouseY)
 	{
 		context.fill(toScreenX((float)getLayoutMinX() - 12F),
@@ -313,7 +313,7 @@ public final class KeyboardBindsScreen extends Screen
 		return Math.max(1D, getLayoutMaxY() - getLayoutMinY());
 	}
 	
-	private void drawMouseLabel(GuiGraphicsExtractor context, Font font)
+	private void drawMouseLabel(GuiGraphics context, Font font)
 	{
 		float minX = Float.POSITIVE_INFINITY;
 		float maxX = Float.NEGATIVE_INFINITY;
@@ -356,11 +356,11 @@ public final class KeyboardBindsScreen extends Screen
 			return;
 		
 		int y = toScreenY(maxY + 6F);
-		context.centeredText(font, "Mouse", (x1 + x2) / 2, y,
+		context.drawCenteredString(font, "Mouse", (x1 + x2) / 2, y,
 			CommonColors.LIGHT_GRAY);
 	}
 	
-	private void drawKey(GuiGraphicsExtractor context, Font font, VisualKey key,
+	private void drawKey(GuiGraphics context, Font font, VisualKey key,
 		int mouseX, int mouseY)
 	{
 		int x = toScreenX(key.x());
@@ -424,10 +424,10 @@ public final class KeyboardBindsScreen extends Screen
 				keyBotY, x + w - padX, keyBotY + font.lineHeight, 0xFFFFE18A);
 		
 		if(conflict)
-			context.text(font, "!", x + w - 8, y + 2, 0xFFFFB3B3, false);
+			context.drawString(font, "!", x + w - 8, y + 2, 0xFFFFB3B3, false);
 	}
 	
-	private void drawCenteredScaledFitText(GuiGraphicsExtractor context,
+	private void drawCenteredScaledFitText(GuiGraphics context,
 		Font font, String text, int x1, int y1, int x2, int y2, int color)
 	{
 		if(text == null || text.isBlank() || x2 <= x1)
@@ -468,7 +468,7 @@ public final class KeyboardBindsScreen extends Screen
 		return builder + ellipsis;
 	}
 	
-	private void drawCenteredFitText(GuiGraphicsExtractor context, Font font,
+	private void drawCenteredFitText(GuiGraphics context, Font font,
 		String text, int x1, int y1, int x2, int y2, int color)
 	{
 		drawCenteredScaledFitText(context, font, text, x1, y1, x2, y2, color);
@@ -621,13 +621,13 @@ public final class KeyboardBindsScreen extends Screen
 		return Math.min(255, Math.round(base * (1F - alpha) + overlay * alpha));
 	}
 	
-	private static void drawBorder(GuiGraphicsExtractor context, int x1, int y1,
+	private static void drawBorder(GuiGraphics context, int x1, int y1,
 		int x2, int y2, int color)
 	{
-		context.horizontalLine(x1, x2 - 1, y1, color);
-		context.horizontalLine(x1, x2 - 1, y2 - 1, color);
-		context.verticalLine(x1, y1 + 1, y2 - 1, color);
-		context.verticalLine(x2 - 1, y1 + 1, y2 - 1, color);
+		context.hLine(x1, x2 - 1, y1, color);
+		context.hLine(x1, x2 - 1, y2 - 1, color);
+		context.vLine(x1, y1 + 1, y2 - 1, color);
+		context.vLine(x2 - 1, y1 + 1, y2 - 1, color);
 	}
 	
 	@Override

@@ -36,7 +36,7 @@ public final class SugarCanePlantType extends AutoFarmPlantType
 	{
 		BlockPos floorPos = pos.below();
 		BlockState floor = BlockUtils.getState(floorPos);
-		if(!floor.is(BlockTags.SUPPORTS_SUGAR_CANE))
+		if(!floor.is(BlockTags.DIRT) && !floor.is(BlockTags.SAND))
 			return false;
 		
 		for(Direction side : Direction.Plane.HORIZONTAL)
@@ -44,9 +44,8 @@ public final class SugarCanePlantType extends AutoFarmPlantType
 			BlockState floorNeighbor =
 				BlockUtils.getState(floorPos.relative(side));
 			
-			if(floorNeighbor.getFluidState()
-				.is(FluidTags.SUPPORTS_SUGAR_CANE_ADJACENTLY)
-				|| floorNeighbor.is(BlockTags.SUPPORTS_SUGAR_CANE_ADJACENTLY))
+			if(floorNeighbor.getFluidState().is(FluidTags.WATER)
+				|| floorNeighbor.is(Blocks.FROSTED_ICE))
 				return true;
 		}
 		

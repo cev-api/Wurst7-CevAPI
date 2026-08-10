@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
@@ -316,7 +316,7 @@ public final class AreaNukerHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		String message;
 		if(step.selectPos && getStepPos() != null)
@@ -333,7 +333,7 @@ public final class AreaNukerHack extends Hack
 		int msgY2 = msgY1 + 10;
 		
 		context.fill(msgX1, msgY1, msgX2, msgY2, 0x80000000);
-		context.text(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
+		context.drawString(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
 			false);
 	}
 	

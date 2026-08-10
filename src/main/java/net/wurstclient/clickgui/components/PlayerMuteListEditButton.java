@@ -27,7 +27,7 @@ public final class PlayerMuteListEditButton extends AbstractListEditButton
 	@Override
 	protected void openScreen()
 	{
-		MC.gui.setScreen(new EditPlayerMuteScreen(MC.gui.screen(), setting));
+		MC.setScreen(new EditPlayerMuteScreen(MC.screen, setting));
 	}
 	
 	@Override

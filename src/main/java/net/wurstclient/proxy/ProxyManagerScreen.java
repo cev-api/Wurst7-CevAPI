@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -339,26 +339,26 @@ public final class ProxyManagerScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(font, "Multiplayer Proxies", width / 2, 12,
+		context.drawCenteredString(font, "Multiplayer Proxies", width / 2, 12,
 			CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Selected: "
 				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
 					: proxyManager.getSelectedProxy().getDisplayName()),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
-		context.text(font, "Proxy (http:// or socks5://, optional user:pass)",
+		context.drawString(font, "Proxy (http:// or socks5://, optional user:pass)",
 			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
 		
-		proxyList.extractRenderState(context, mouseX, mouseY, partialTicks);
-		proxyBox.extractRenderState(context, mouseX, mouseY, partialTicks);
-		context.centeredText(font, status, width / 2, height - 42,
+		proxyList.render(context, mouseX, mouseY, partialTicks);
+		proxyBox.render(context, mouseX, mouseY, partialTicks);
+		context.drawCenteredString(font, status, width / 2, height - 42,
 			statusError ? 0xFFFF5555 : CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -379,7 +379,7 @@ public final class ProxyManagerScreen extends Screen
 				}
 		}
 		
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private final class ProxyList extends MultiSelectEntryListWidget<ProxyEntry>
@@ -417,7 +417,7 @@ public final class ProxyManagerScreen extends Screen
 		}
 		
 		@Override
-		protected void extractItem(GuiGraphicsExtractor context, int mouseX,
+		protected void render(GuiGraphics context, int mouseX,
 			int mouseY, float delta, ProxyEntry entry)
 		{
 			// The active proxy draws its own single, opaque highlight. This
@@ -425,12 +425,12 @@ public final class ProxyManagerScreen extends Screen
 			// background rectangle of slightly different bounds.
 			if(entry.isActiveProxy())
 			{
-				entry.extractContent(context, mouseX, mouseY,
+				entry.render(context, mouseX, mouseY,
 					entry == getHovered(), delta);
 				return;
 			}
 			
-			super.extractItem(context, mouseX, mouseY, delta, entry);
+			super.render(context, mouseX, mouseY, delta, entry);
 		}
 	}
 	
@@ -458,7 +458,7 @@ public final class ProxyManagerScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
+		public void render(GuiGraphics context, int mouseX,
 			int mouseY, boolean hovered, float tickDelta)
 		{
 			boolean active = isActiveProxy();
@@ -472,7 +472,7 @@ public final class ProxyManagerScreen extends Screen
 			
 			int textY =
 				getContentY() + (getContentHeight() - font.lineHeight) / 2;
-			context.text(font,
+			context.drawString(font,
 				active
 					? "\u2713 " + proxy.getDisplayName() + " [IN USE: "
 						+ proxy.getProtocol().getDisplayName() + "]"

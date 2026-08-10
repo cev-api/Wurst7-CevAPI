@@ -8,7 +8,6 @@
 package net.wurstclient.settings.filters;
 
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.monster.cubemob.SulfurCube;
 
 public final class FilterSulfurCubesSetting extends EntityFilterCheckbox
 {
@@ -20,7 +19,8 @@ public final class FilterSulfurCubesSetting extends EntityFilterCheckbox
 	@Override
 	public boolean test(Entity e)
 	{
-		return !(e instanceof SulfurCube);
+		// Sulfur cubes are a 26.2-only entity and do not exist in 1.21.11.
+		return true;
 	}
 	
 	public static FilterSulfurCubesSetting genericCombat(boolean checked)

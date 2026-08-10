@@ -67,8 +67,8 @@ public final class InventorySorterHack extends Hack
 			return;
 		
 		// only inside a real container screen, not the creative item palette
-		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen)
-			|| MC.gui.screen() instanceof CreativeModeInventoryScreen)
+		if(!(MC.screen instanceof AbstractContainerScreen<?> screen)
+			|| MC.screen instanceof CreativeModeInventoryScreen)
 			return;
 		
 		Slot hovered = ((HandledScreenAccessor)screen).getHoveredSlot();

@@ -38,7 +38,6 @@ import net.minecraft.world.entity.animal.happyghast.HappyGhast;
 import net.minecraft.world.entity.animal.sheep.Sheep;
 import net.minecraft.world.entity.animal.wolf.Wolf;
 import net.minecraft.world.entity.decoration.LeashFenceKnotEntity;
-import net.minecraft.world.entity.monster.cubemob.SulfurCube;
 import net.minecraft.world.entity.monster.skeleton.Bogged;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -91,9 +90,6 @@ public final class ShearAuraHack extends Hack
 	private final CheckboxSetting copperGolems = new CheckboxSetting(
 		"Copper golems", "Shears flowers from copper golem antennas.", true);
 	
-	private final CheckboxSetting sulfurCubes = new CheckboxSetting(
-		"Sulfur cubes", "Shears swallowed blocks from sulfur cubes.", true);
-	
 	private final CheckboxSetting wolfArmor = new CheckboxSetting("Wolf armor",
 		"Removes wolf armor from wolves that you own.", false);
 	
@@ -137,7 +133,6 @@ public final class ShearAuraHack extends Hack
 		addSetting(snowGolems);
 		addSetting(bogged);
 		addSetting(copperGolems);
-		addSetting(sulfurCubes);
 		addSetting(wolfArmor);
 		addSetting(llamaCarpets);
 		addSetting(happyGhastHarnesses);
@@ -343,9 +338,6 @@ public final class ShearAuraHack extends Hack
 		if(entity instanceof CopperGolem)
 			return Action.COPPER_GOLEM;
 		
-		if(entity instanceof SulfurCube)
-			return Action.SULFUR_CUBE;
-		
 		return null;
 	}
 	
@@ -414,7 +406,6 @@ public final class ShearAuraHack extends Hack
 			case SNOW_GOLEM -> snowGolems.isChecked();
 			case BOGGED -> bogged.isChecked();
 			case COPPER_GOLEM -> copperGolems.isChecked();
-			case SULFUR_CUBE -> sulfurCubes.isChecked();
 			case WOLF_ARMOR -> wolfArmor.isChecked();
 			case LLAMA_CARPET -> llamaCarpets.isChecked();
 			case HAPPY_GHAST_HARNESS -> happyGhastHarnesses.isChecked();
@@ -434,7 +425,6 @@ public final class ShearAuraHack extends Hack
 		SNOW_GOLEM,
 		BOGGED,
 		COPPER_GOLEM,
-		SULFUR_CUBE,
 		WOLF_ARMOR,
 		LLAMA_CARPET,
 		HAPPY_GHAST_HARNESS,

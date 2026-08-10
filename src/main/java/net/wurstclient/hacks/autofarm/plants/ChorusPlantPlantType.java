@@ -15,7 +15,6 @@ import java.util.Map.Entry;
 import com.google.common.collect.Maps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -44,8 +43,7 @@ public final class ChorusPlantPlantType extends AutoFarmPlantType
 	@Override
 	public final boolean hasPlantingSurface(BlockPos pos)
 	{
-		return BlockUtils.getState(pos.below())
-			.is(BlockTags.SUPPORTS_CHORUS_FLOWER);
+		return BlockUtils.getState(pos.below()).is(Blocks.END_STONE);
 	}
 	
 	@Override

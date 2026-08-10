@@ -45,66 +45,90 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
-import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
-import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket;
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.phys.BlockHitResult;
-import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketInputListener;
-import net.wurstclient.events.PacketOutputListener;
-import net.wurstclient.events.ConnectionPacketOutputListener;
-import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
-import net.wurstclient.events.RightClickListener;
+import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.ChatUtils;
-import net.wurstclient.util.text.WText;
 
 @SearchTags({"nbt filter", "nbtfilter", "chunk ban", "chunkban", "nbt bomb",
 	"nbtbomb", "book ban", "bookban", "packet filter", "packetfilter",
 	"anti ban", "antiban", "shulker ban", "shulkerban"})
 @net.wurstclient.hack.DontSaveState
-public final class NbtFilterHack extends Hack implements PacketInputListener,
-	RightClickListener, PacketOutputListener, ConnectionPacketOutputListener
+public final class NbtFilterHack extends Hack
+	implements PacketInputListener, UpdateListener
 {
-	private final SliderSetting maxBlockEntityNbtSizeKb = new SliderSetting(
-		"Block entity limit", "Reject block/entity data larger than this.", 4,
-		1, 1024, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" KB"));
+	private final SliderSetting maxChunkSize = new SliderSetting(
+		"Max chunk size", "Chunk packets larger than this (in MB) are blocked.",
+		1.5, 0.1, 10, 0.1, SliderSetting.ValueDisplay.DECIMAL);
+	
+	private final CheckboxSetting filterBlockEntities =
+		new CheckboxSetting("Filter block entities",
+			"Block entity data packets with NBT > 4 KB are cancelled.", true);
+	
+	private final CheckboxSetting filterBundles = new CheckboxSetting(
+		"Unwrap bundles",
+		"Inspect inside ClientboundBundlePacket and filter dangerous sub-packets.",
+		true);
+	private final SliderSetting maxBlockEntityNbtSizeKb =
+		new SliderSetting("Max block entity NBT size",
+			"Block entity NBT larger than this (in KB) is cancelled.", 4, 1,
+			1024, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" KB"));
 	private final SliderSetting maxItemStackNbtSizeKb = new SliderSetting(
-		"Item stack limit", "Reject individual items larger than this.", 64, 1,
-		8192, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" KB"));
-	private final SliderSetting maxSuspiciousPacketSizeMb = new SliderSetting(
-		"Packet size limit", "Reject suspicious NBT packets larger than this.",
-		2, 0.1, 32, 0.1, SliderSetting.ValueDisplay.DECIMAL);
-	private final SliderSetting inventoryNbtLimitMb = new SliderSetting(
-		"Inventory overload limit",
-		"Do not open containers when your whole inventory exceeds this size.",
-		2, 0.5, 32, 0.5, SliderSetting.ValueDisplay.DECIMAL);
-	private final CheckboxSetting blockOverloadedContainers =
-		new CheckboxSetting("Block overloaded containers",
-			"Cancel container interaction before a large inventory can create an oversized packet.",
+		"Max item stack NBT size",
+		"ItemStack NBT/components larger than this (in KB) are cancelled.", 64,
+		1, 8192, 1, SliderSetting.ValueDisplay.INTEGER.withSuffix(" KB"));
+	private final SliderSetting maxSuspiciousPacketSizeMb =
+		new SliderSetting("Max suspicious packet size",
+			"NBT/item carrier packets larger than this (in MB) are cancelled.",
+			2, 0.1, 32, 0.1, SliderSetting.ValueDisplay.DECIMAL);
+	private final CheckboxSetting filterEntityMetadata = new CheckboxSetting(
+		"Filter entity metadata",
+		"Inspect entity metadata packets for dangerous NBT/item stacks.", true);
+	private final CheckboxSetting filterItemStackCarrierPackets =
+		new CheckboxSetting("Filter item stack carrier packets",
+			"Inspect container, slot, and equipment packets that carry item stacks.",
 			true);
-	private final CheckboxSetting failClosedOnExceptions =
-		new CheckboxSetting("Block packets on errors",
-			"Cancel a packet if safely inspecting it fails.", true);
-	private final SettingGroup limits = new SettingGroup("Limits",
-		WText.literal("Size limits for incoming NBT and item data."), true,
+	private final CheckboxSetting quarantineBadChunks = new CheckboxSetting(
+		"Quarantine bad chunks",
+		"Keep cancelling follow-up packets for chunks that contained dangerous data.",
+		true);
+	private final CheckboxSetting quarantineBadEntities = new CheckboxSetting(
+		"Quarantine bad entities",
+		"Keep cancelling follow-up packets for entities that carried dangerous data.",
+		true);
+	private final CheckboxSetting failClosedOnExceptions = new CheckboxSetting(
+		"Fail closed on NBT/read exceptions",
+		"Cancel packets when NBT/item/chunk inspection throws an exception.",
 		false);
-	private final SettingGroup interaction = new SettingGroup(
-		"Container safety",
-		WText.literal(
-			"Prevent oversized inventory packets before opening containers."),
-		true, false);
-	private final SettingGroup advanced = new SettingGroup("Advanced",
-		WText.literal("Conservative error handling for unusual packets."),
-		false, false);
+	private final CheckboxSetting debugChunkBlockEntityRecords =
+		new CheckboxSetting("Debug chunk BE records",
+			"Prints how many embedded block entity records were found in each chunk packet.",
+			false);
+	private final CheckboxSetting escapeMode =
+		new CheckboxSetting("Escape Mode",
+			"Uses hard quarantine behavior for escaping severe chunkban areas.",
+			false);
+	private final CheckboxSetting sanitizeChunkBlockEntities =
+		new CheckboxSetting("Sanitize Chunk Block Entities",
+			"Removes dangerous embedded block entity records from chunk packets while preserving terrain.",
+			true);
+	private final CheckboxSetting quarantineWholeChunk = new CheckboxSetting(
+		"Quarantine Whole Chunk",
+		"Quarantines entire chunks when dangerous block entity data is found. Mainly for Escape Mode.",
+		false);
+	private final CheckboxSetting stripDangerousBlockEntityRecords =
+		new CheckboxSetting("Strip Dangerous Block Entity Records",
+			"Strips dangerous embedded block entity records from chunk packets instead of cancelling the whole chunk.",
+			true);
+	private final CheckboxSetting allowTerrainForBadChunks =
+		new CheckboxSetting("Allow Terrain For Bad Chunks",
+			"Allows terrain, biome, heightmap, lighting, and normal block updates for chunks with stripped block entities.",
+			true);
 	
 	private int chunksBlocked;
 	private int blockEntitiesBlocked;
@@ -115,7 +139,6 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	private int quarantinedEntities;
 	private int quietBlockedPackets;
 	private long lastStatusMessageMs;
-	private long lastInventoryWarningMs;
 	private final Set<ChunkPos> bannedChunks = new HashSet<>();
 	private final Set<Integer> bannedEntityIds = new HashSet<>();
 	private final Map<Integer, ChunkPos> entityIdToChunk = new HashMap<>();
@@ -123,29 +146,31 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	public NbtFilterHack()
 	{
 		super("NBTFilter");
-		setCategory(Category.OTHER);
-		limits.addChildren(maxBlockEntityNbtSizeKb, maxItemStackNbtSizeKb,
-			maxSuspiciousPacketSizeMb);
-		interaction.addChildren(inventoryNbtLimitMb, blockOverloadedContainers);
-		advanced.addChild(failClosedOnExceptions);
-		addSetting(limits);
-		addSetting(interaction);
-		addSetting(advanced);
+		// No category = unlisted, accessible via search/navigator
+		addSetting(maxChunkSize);
+		addSetting(filterBlockEntities);
+		addSetting(filterBundles);
 		addSetting(maxBlockEntityNbtSizeKb);
 		addSetting(maxItemStackNbtSizeKb);
 		addSetting(maxSuspiciousPacketSizeMb);
-		addSetting(inventoryNbtLimitMb);
-		addSetting(blockOverloadedContainers);
+		addSetting(filterEntityMetadata);
+		addSetting(filterItemStackCarrierPackets);
+		addSetting(quarantineBadChunks);
+		addSetting(quarantineBadEntities);
 		addSetting(failClosedOnExceptions);
+		addSetting(debugChunkBlockEntityRecords);
+		addSetting(escapeMode);
+		addSetting(sanitizeChunkBlockEntities);
+		addSetting(quarantineWholeChunk);
+		addSetting(stripDangerousBlockEntityRecords);
+		addSetting(allowTerrainForBadChunks);
 	}
 	
 	@Override
 	protected void onEnable()
 	{
 		EVENTS.add(PacketInputListener.class, this);
-		EVENTS.add(RightClickListener.class, this);
-		EVENTS.add(PacketOutputListener.class, this);
-		EVENTS.add(ConnectionPacketOutputListener.class, this);
+		EVENTS.add(UpdateListener.class, this);
 		chunksBlocked = 0;
 		blockEntitiesBlocked = 0;
 		bundlesScanned = 0;
@@ -166,9 +191,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	protected void onDisable()
 	{
 		EVENTS.remove(PacketInputListener.class, this);
-		EVENTS.remove(RightClickListener.class, this);
-		EVENTS.remove(PacketOutputListener.class, this);
-		EVENTS.remove(ConnectionPacketOutputListener.class, this);
+		EVENTS.remove(UpdateListener.class, this);
 		if(chunksBlocked > 0 || blockEntitiesBlocked > 0
 			|| entityMetadataBlocked > 0 || itemStacksBlocked > 0)
 		{
@@ -183,139 +206,19 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	}
 	
 	@Override
-	public void onRightClick(RightClickEvent event)
-	{
-		if(!blockOverloadedContainers.isChecked() || MC.player == null
-			|| MC.level == null
-			|| !(MC.hitResult instanceof BlockHitResult hit))
-			return;
-		
-		if(!(MC.level.getBlockEntity(
-			hit.getBlockPos()) instanceof BaseContainerBlockEntity))
-			return;
-		
-		long total = getInventoryNbtSize();
-		if(total <= inventoryNbtLimitBytes())
-			return;
-		
-		event.cancel();
-		warnInventoryOverload(total);
-	}
-	
-	@Override
-	public void onSentPacket(PacketOutputEvent event)
-	{
-		if(!isContainerActionPacket(event.getPacket()))
-			return;
-		if(shouldBlockContainerAction(event.getPacket()))
-			event.cancel();
-	}
-	
-	@Override
-	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
-	{
-		if(!isContainerActionPacket(event.getPacket()))
-			return;
-		if(shouldBlockContainerAction(event.getPacket()))
-			event.cancel();
-	}
-	
-	private boolean isContainerActionPacket(Packet<?> packet)
-	{
-		if(packet instanceof ServerboundContainerClickPacket
-			|| packet instanceof ServerboundContainerButtonClickPacket
-			|| packet instanceof ServerboundUseItemOnPacket)
-			return true;
-			
-		// Keep this compatible with mappings and helper packets that use a
-		// different concrete class name but still belong to a container.
-		return packet != null && packet.getClass().getSimpleName()
-			.toLowerCase(Locale.ROOT).contains("container");
-	}
-	
-	private boolean shouldBlockContainerAction(Packet<?> packet)
-	{
-		if(!blockOverloadedContainers.isChecked())
-			return false;
-		
-		if(isInventoryOverloaded())
-			return true;
-		
-		InspectionResult result = checkItemStackCarrierPacket(packet);
-		if(!result.dangerous())
-			return false;
-		
-		ChatUtils.message("\u00a7c[NBTFilter] Container packet blocked: "
-			+ result.reason() + formatResultDetails(result));
-		return true;
-	}
-	
-	/**
-	 * Last-resort guard used directly by the connection mixin, immediately
-	 * before Minecraft queues an outbound packet for Netty encoding.
-	 */
-	public static boolean shouldCancelOutgoingPacket(Packet<?> packet)
-	{
-		try
-		{
-			NbtFilterHack hack = getActiveInstance();
-			return hack != null && hack.isContainerActionPacket(packet)
-				&& hack.shouldBlockContainerAction(packet);
-		}catch(Throwable ignored)
-		{
-			return false;
-		}
-	}
-	
-	private boolean isInventoryOverloaded()
-	{
-		if(!blockOverloadedContainers.isChecked())
-			return false;
-		
-		long total = getInventoryNbtSize();
-		if(total <= inventoryNbtLimitBytes())
-			return false;
-		
-		warnInventoryOverload(total);
-		return true;
-	}
-	
-	private void warnInventoryOverload(long total)
-	{
-		long now = System.currentTimeMillis();
-		if(now - lastInventoryWarningMs < 1000L)
-			return;
-		lastInventoryWarningMs = now;
-		ChatUtils.message("\u00a7c[NBTFilter] Container action blocked: your "
-			+ "inventory contains " + formatBytes(total)
-			+ " of NBT data (limit " + formatBytes(inventoryNbtLimitBytes())
-			+ ").");
-	}
+	public void onUpdate()
+	{}
 	
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		Packet<?> packet = event.getPacket();
 		
-		// This hack is intended for inventory/container protection. Do not
-		// inspect chunks, block entities, entity metadata, or bundles here:
-		// those packets can contain server-controlled recursive data and are
-		// unrelated to preventing oversized inventory/container packets.
-		if(!(packet instanceof ClientboundContainerSetContentPacket)
-			&& !(packet instanceof ClientboundContainerSetSlotPacket)
-			&& !(packet instanceof ClientboundSetEntityDataPacket))
-			return;
-		
-		InspectionResult result = checkItemStackCarrierPacket(packet);
+		InspectionResult result = inspectPacket(packet);
 		if(!result.dangerous())
 			return;
 		
 		event.cancel();
-		// The server may have opened the screen before sending its contents.
-		// Remove that screen as well so the oversized container data cannot be
-		// interacted with after its contents packet was rejected.
-		if(MC.gui.screen() instanceof AbstractContainerScreen<?>)
-			MC.gui.setScreen(null);
 		recordBlocked(result);
 	}
 	
@@ -336,7 +239,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 				return InspectionResult.safe();
 			}
 			
-			if(packet instanceof ClientboundBundlePacket bundle)
+			if(filterBundles.isChecked()
+				&& packet instanceof ClientboundBundlePacket bundle)
 				return checkBundlePacket(bundle);
 			
 			InspectionResult quarantineHit = checkQuarantinePacket(packet);
@@ -372,18 +276,25 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		if(packet instanceof ClientboundLevelChunkWithLightPacket chunkPkt)
 			return checkChunkPacket(chunkPkt);
 		
-		if(packet instanceof ClientboundBlockEntityDataPacket bePkt)
+		if(filterBlockEntities.isChecked()
+			&& packet instanceof ClientboundBlockEntityDataPacket bePkt)
 			return checkBlockEntityPacket(bePkt);
 		
-		if(packet instanceof ClientboundSetEntityDataPacket metadata)
+		if(filterEntityMetadata.isChecked()
+			&& packet instanceof ClientboundSetEntityDataPacket metadata)
 			return checkEntityMetadataPacket(metadata);
 		
-		if(packet instanceof ClientboundContainerSetContentPacket content)
-			return checkItemStackCarrierPacket(content);
-		if(packet instanceof ClientboundContainerSetSlotPacket slot)
-			return checkItemStackCarrierPacket(slot);
-		if(packet instanceof ClientboundSetEquipmentPacket equipment)
-			return checkEquipmentPacket(equipment);
+		if(filterItemStackCarrierPackets.isChecked())
+		{
+			if(packet instanceof ClientboundContainerSetContentPacket content)
+				return checkItemStackCarrierPacket(content);
+			
+			if(packet instanceof ClientboundContainerSetSlotPacket slot)
+				return checkItemStackCarrierPacket(slot);
+			
+			if(packet instanceof ClientboundSetEquipmentPacket equipment)
+				return checkEquipmentPacket(equipment);
+		}
 		
 		return InspectionResult.safe();
 	}
@@ -402,7 +313,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 				packet.getChunkData().getReadBuffer().readableBytes();
 			double sizeMB = sizeBytes / (1024.0 * 1024.0);
 			
-			if(sizeMB > maxSuspiciousPacketSizeMb.getValue())
+			if(sizeMB > maxChunkSize.getValue()
+				|| sizeMB > maxSuspiciousPacketSizeMb.getValue())
 			{
 				quarantineChunk(chunkPos);
 				return InspectionResult.dangerous(PacketKind.CHUNK,
@@ -443,9 +355,16 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		Object records = getChunkBlockEntityRecords(chunkData);
 		if(!(records instanceof Iterable<?> iterable))
 		{
+			debugChunkBlockEntityRecordCount(fallbackChunk, -1);
+			if(escapeMode.isChecked())
+				return InspectionResult.dangerous(PacketKind.CHUNK,
+					"cannot inspect embedded block entity records", -1,
+					fallbackChunk, null);
+			
 			return InspectionResult.safe();
 		}
 		
+		int recordsFound = 0;
 		int strippedRecords = 0;
 		boolean unsafeRecordFound = false;
 		var iterator = iterable.iterator();
@@ -453,6 +372,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		while(iterator.hasNext())
 		{
 			Object record = iterator.next();
+			recordsFound++;
 			CompoundTag tag = findCompoundTag(record);
 			if(tag == null)
 				continue;
@@ -462,8 +382,11 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			if(result.dangerous())
 			{
 				unsafeRecordFound = true;
-				int removed = true && true ? removeCurrentRecord(iterator,
-					chunkData, records, record, fallbackChunk) : 0;
+				int removed = sanitizeChunkBlockEntities.isChecked()
+					&& stripDangerousBlockEntityRecords.isChecked()
+						? removeCurrentRecord(iterator, chunkData, records,
+							record, fallbackChunk)
+						: 0;
 				if(removed > 0)
 				{
 					strippedRecords += removed;
@@ -472,9 +395,15 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 					continue;
 				}
 				
+				if(escapeMode.isChecked())
+				{
+					quarantineChunk(fallbackChunk);
+					return result.withChunk(fallbackChunk);
+				}
 			}
 		}
 		
+		debugChunkBlockEntityRecordCount(fallbackChunk, recordsFound);
 		if(strippedRecords > 0)
 			debugSanitizedChunk(fallbackChunk, strippedRecords);
 		
@@ -515,6 +444,16 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		}
 		
 		return null;
+	}
+	
+	private void debugChunkBlockEntityRecordCount(ChunkPos chunk, int count)
+	{
+		if(!debugChunkBlockEntityRecords.isChecked() || MC.player == null)
+			return;
+		
+		String countText = count < 0 ? "unavailable" : String.valueOf(count);
+		ChatUtils.message("\u00a77[NBTFilter] chunk [" + chunkX(chunk) + ", "
+			+ chunkZ(chunk) + "] block entity records found: " + countText);
 	}
 	
 	private int removeCurrentRecord(java.util.Iterator<?> iterator,
@@ -678,19 +617,12 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	
 	private InspectionResult checkItemStackCarrierPacket(Object packet)
 	{
-		long total = 0;
 		for(ItemStack stack : findItemStacks(packet))
 		{
 			InspectionResult result = checkItemStackAgainstLimits(stack,
 				PacketKind.ITEM_STACK, null, null);
 			if(result.dangerous())
 				return result;
-			
-			total = saturatingAdd(total, estimateItemStackNbtSize(stack));
-			if(total > inventoryNbtLimitBytes())
-				return InspectionResult.dangerous(PacketKind.ITEM_STACK,
-					"container contents exceed the NBT limit", total, null,
-					null);
 		}
 		
 		return InspectionResult.safe();
@@ -814,7 +746,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			int id = add.getId();
 			ChunkPos chunk = chunkFromCoordinates(add.getX(), add.getZ());
 			entityIdToChunk.put(id, chunk);
-			if(isBannedChunk(chunk))
+			if(isBannedChunk(chunk) && quarantineBadEntities.isChecked())
 				quarantineEntity(id);
 			return;
 		}
@@ -841,7 +773,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			return;
 		
 		entityIdToChunk.put(entityId, newChunk);
-		if(isBannedChunk(newChunk))
+		if(isBannedChunk(newChunk) && quarantineBadEntities.isChecked())
 			quarantineEntity(entityId);
 	}
 	
@@ -927,7 +859,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	
 	private boolean isBannedEntity(int entityId)
 	{
-		return entityId >= 0 && bannedEntityIds.contains(entityId);
+		return quarantineBadEntities.isChecked() && entityId >= 0
+			&& bannedEntityIds.contains(entityId);
 	}
 	
 	private void quarantineChunk(ChunkPos chunk)
@@ -941,12 +874,13 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	
 	private boolean shouldHardQuarantineChunks()
 	{
-		return false;
+		return escapeMode.isChecked() && quarantineBadChunks.isChecked()
+			&& quarantineWholeChunk.isChecked();
 	}
 	
 	private void quarantineEntity(int entityId)
 	{
-		if(entityId < 0)
+		if(!quarantineBadEntities.isChecked() || entityId < 0)
 			return;
 		
 		if(bannedEntityIds.add(entityId))
@@ -958,10 +892,9 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	{
 		try
 		{
-			long estimatedSize = estimateTagSize(tag);
 			if(isDangerousTag(tag))
 				return InspectionResult.dangerous(kind, "dangerous NBT tag",
-					estimatedSize, chunk, entityId);
+					tag.sizeInBytes(), chunk, entityId);
 			
 		}catch(Throwable t)
 		{
@@ -1033,9 +966,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		if(tag == null)
 			return false;
 		
-		long estimatedSize = estimateTagSize(tag);
-		if(estimatedSize > maxBlockEntityBytes()
-			|| estimatedSize > maxSuspiciousPacketBytes())
+		if(tag.sizeInBytes() > maxBlockEntityBytes()
+			|| tag.sizeInBytes() > maxSuspiciousPacketBytes())
 			return true;
 		
 		ArrayDeque<Tag> queue = new ArrayDeque<>();
@@ -1089,7 +1021,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			return 0;
 		
 		if(MC.level == null)
-			return Long.MAX_VALUE;
+			return failClosedOnExceptions.isChecked() ? maxItemStackBytes() + 1
+				: 0;
 		
 		RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(
 			Unpooled.buffer(), MC.level.registryAccess());
@@ -1100,7 +1033,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			
 		}catch(Throwable t)
 		{
-			return Long.MAX_VALUE;
+			return failClosedOnExceptions.isChecked() ? maxItemStackBytes() + 1
+				: 0;
 			
 		}finally
 		{
@@ -1110,105 +1044,41 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	
 	private long estimateObjectNbtOrComponentSize(Object value)
 	{
-		return estimateObjectNbtOrComponentSize(value,
-			Collections.newSetFromMap(new IdentityHashMap<>()), 0);
-	}
-	
-	private long estimateObjectNbtOrComponentSize(Object value,
-		Set<Object> seen, int depth)
-	{
 		if(value == null)
 			return 0;
-		if(depth > 32 || !seen.add(value))
-			return maxSuspiciousPacketBytes() + 1;
+		
 		if(value instanceof ItemStack stack)
 			return estimateItemStackNbtSize(stack);
+		
 		if(value instanceof CompoundTag tag)
 			return tag.sizeInBytes();
+		
 		if(value instanceof Tag tag)
 			return estimateTagSize(tag);
+		
 		if(value instanceof Collection<?> collection)
 		{
 			long total = 0;
 			for(Object entry : collection)
-			{
-				total = saturatingAdd(total,
-					estimateObjectNbtOrComponentSize(entry, seen, depth + 1));
-				if(total > maxSuspiciousPacketBytes())
-					return total;
-			}
+				total += estimateObjectNbtOrComponentSize(entry);
 			return total;
 		}
-		return 0;
-	}
-	
-	private long getInventoryNbtSize()
-	{
-		if(MC.player == null)
-			return 0;
-		var inventory = MC.player.getInventory();
-		long total = 0;
-		for(int i = 0; i < inventory.getContainerSize(); i++)
-		{
-			ItemStack stack = inventory.getItem(i);
-			total = saturatingAdd(total, estimateItemStackNbtSize(stack));
-			if(total > inventoryNbtLimitBytes())
-				return total;
-		}
-		return total;
-	}
-	
-	private long saturatingAdd(long left, long right)
-	{
-		if(right > Long.MAX_VALUE - left)
-			return Long.MAX_VALUE;
-		return left + right;
+		
+		return failClosedOnExceptions.isChecked()
+			? maxSuspiciousPacketBytes() + 1 : 0;
 	}
 	
 	private long estimateTagSize(Tag tag)
 	{
 		if(tag == null)
 			return 0;
-			
-		// Do not call Tag#sizeInBytes here. It recursively visits the whole
-		// structure and can overflow the client stack on deliberately deep NBT.
-		ArrayDeque<Tag> pending = new ArrayDeque<>();
-		Set<Tag> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-		pending.add(tag);
-		long total = 0;
-		int visited = 0;
-		long limit = maxSuspiciousPacketBytes();
 		
-		while(!pending.isEmpty())
-		{
-			Tag current = pending.removeFirst();
-			if(!seen.add(current) || ++visited > 4096)
-				return limit + 1;
-				
-			// This is intentionally conservative. It only needs to distinguish
-			// safe data from data large enough to reject.
-			total = saturatingAdd(total, 16);
-			if(current instanceof CompoundTag compound)
-			{
-				for(String key : getTagKeys(compound))
-				{
-					total = saturatingAdd(total, key.length() * 2L + 4);
-					Tag child = compound.get(key);
-					if(child != null)
-						pending.addLast(child);
-				}
-			}else if(current instanceof Iterable<?> iterable)
-			{
-				for(Object child : iterable)
-					if(child instanceof Tag childTag)
-						pending.addLast(childTag);
-			}
-			
-			if(total > limit)
-				return total;
-		}
+		Object size = invokeNoArg(tag, "sizeInBytes");
+		if(size instanceof Number number)
+			return number.longValue();
 		
-		return total;
+		return failClosedOnExceptions.isChecked()
+			? maxSuspiciousPacketBytes() + 1 : 0;
 	}
 	
 	private boolean isSuspiciousItemKey(String key)
@@ -1457,11 +1327,6 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	private long maxSuspiciousPacketBytes()
 	{
 		return (long)(maxSuspiciousPacketSizeMb.getValue() * 1024D * 1024D);
-	}
-	
-	private long inventoryNbtLimitBytes()
-	{
-		return (long)(inventoryNbtLimitMb.getValue() * 1024D * 1024D);
 	}
 	
 	private String formatBytes(long bytes)

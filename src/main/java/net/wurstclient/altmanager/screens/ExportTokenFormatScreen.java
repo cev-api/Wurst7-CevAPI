@@ -9,7 +9,7 @@ package net.wurstclient.altmanager.screens;
 
 import java.util.function.Consumer;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -49,31 +49,31 @@ public final class ExportTokenFormatScreen extends Screen
 	
 	private void select(Format format)
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 		onSelect.accept(format);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(font, "Export Token Accounts", width / 2,
+		context.drawCenteredString(font, "Export Token Accounts", width / 2,
 			height / 2 - 54, CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Refresh tokens retain the Microsoft client ID that issued them.",
 			width / 2, height / 2 - 34, CommonColors.LIGHT_GRAY);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Access tokens work without a client ID but expire quickly.",
 			width / 2, height / 2 - 22, CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	public enum Format

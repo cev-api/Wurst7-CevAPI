@@ -9,9 +9,6 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.Comparator;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.Set;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Stream;
 import net.minecraft.core.component.DataComponents;
@@ -91,18 +88,11 @@ public final class KillauraHack extends Hack
 				+ "Slower but can help with anti-cheat plugins.",
 			false);
 	
-	private final CheckboxSetting autoEnableOnConflict =
-		new CheckboxSetting("Auto-enable on conflict",
-			"Restores Killaura when another combat hack disables it.", true);
-	
 	private final EntityFilterList entityFilters =
 		EntityFilterList.genericCombat();
 	
 	private Entity target;
 	private Entity renderTarget;
-	private final Set<Hack> activeConflicts =
-		Collections.newSetFromMap(new IdentityHashMap<>());
-	private boolean wasEnabledBeforeConflict;
 	
 	public KillauraHack()
 	{
@@ -118,7 +108,6 @@ public final class KillauraHack extends Hack
 		addSetting(damageIndicator);
 		addSetting(pauseOnContainers);
 		addSetting(checkLOS);
-		addSetting(autoEnableOnConflict);
 		
 		entityFilters.forEach(this::addSetting);
 	}
@@ -154,42 +143,9 @@ public final class KillauraHack extends Hack
 		renderTarget = null;
 	}
 	
-	/** Disables Killaura for a competing hack and optionally restores it. */
-	public void disableByConflict(Hack conflict)
-	{
-		if(conflict == null || !activeConflicts.add(conflict))
-			return;
-		
-		if(activeConflicts.size() == 1)
-		{
-			wasEnabledBeforeConflict = isEnabled();
-			if(wasEnabledBeforeConflict)
-				setEnabled(false);
-		}
-	}
-	
-	public void releaseConflict(Hack conflict)
-	{
-		if(conflict == null || !activeConflicts.remove(conflict)
-			|| !activeConflicts.isEmpty())
-			return;
-		
-		if(autoEnableOnConflict.isChecked() && wasEnabledBeforeConflict
-			&& !isEnabled())
-			setEnabled(true);
-		wasEnabledBeforeConflict = false;
-	}
-	
 	@Override
 	public void onUpdate()
 	{
-		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
-		{
-			target = null;
-			renderTarget = null;
-			return;
-		}
-		
 		MaceDmgHack maceDmg = WURST.getHax().maceDmgHack;
 		if(maceDmg.shouldControlAuraAttacks() && maceDmg.hasFallDebt())
 		{
@@ -236,12 +192,6 @@ public final class KillauraHack extends Hack
 	@Override
 	public void onHandleInput()
 	{
-		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
-		{
-			target = null;
-			return;
-		}
-		
 		if(target == null)
 			return;
 		

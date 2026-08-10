@@ -928,8 +928,8 @@ public final class SimulationSonarHack extends Hack
 			return;
 		long until = now + (long)(pathSuppression.getValue() * 1000);
 		int radius = simulationDistance + 1;
-		for(int x = center.x() - radius; x <= center.x() + radius; x++)
-			for(int z = center.z() - radius; z <= center.z() + radius; z++)
+		for(int x = center.x - radius; x <= center.x + radius; x++)
+			for(int z = center.z - radius; z <= center.z + radius; z++)
 				localCoverage.merge(key(new ChunkPos(x, z)), until, Math::max);
 		lastCoverageRefresh = now;
 	}

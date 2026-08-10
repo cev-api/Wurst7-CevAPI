@@ -179,7 +179,7 @@ public final class AutoLootHack extends Hack
 		}
 		
 		if(containers.isChecked()
-			&& MC.gui.screen() instanceof AbstractContainerScreen<?> screen
+			&& MC.screen instanceof AbstractContainerScreen<?> screen
 			&& !(screen instanceof InventoryScreen)
 			&& containerSlotCount(screen) > 0)
 		{
@@ -189,7 +189,7 @@ public final class AutoLootHack extends Hack
 			return;
 		}
 		
-		if(MC.gui.screen() instanceof AbstractContainerScreen<?>
+		if(MC.screen instanceof AbstractContainerScreen<?>
 			|| !processFloorLoot())
 			return;
 		nextActionAt = now + Math.max(MIN_ACTION_DELAY_MS, delay.getValueI());

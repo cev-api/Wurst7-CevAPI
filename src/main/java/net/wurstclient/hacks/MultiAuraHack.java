@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
@@ -52,10 +51,6 @@ public final class MultiAuraHack extends Hack
 	private final PauseAttackOnContainersSetting pauseOnContainers =
 		new PauseAttackOnContainersSetting(false);
 	
-	private final CheckboxSetting pauseForAutoEat =
-		new CheckboxSetting("Pause for AutoEat",
-			"Stops attacking while AutoEat is actively eating.", true);
-	
 	private final EntityFilterList entityFilters =
 		EntityFilterList.genericCombat();
 	
@@ -68,7 +63,6 @@ public final class MultiAuraHack extends Hack
 			false);
 	
 	private final List<Entity> currentTargets = new ArrayList<>();
-	private final List<Entity> lastTargets = new ArrayList<>();
 	
 	public MultiAuraHack()
 	{
@@ -80,7 +74,6 @@ public final class MultiAuraHack extends Hack
 		addSetting(fov);
 		addSetting(swingHand);
 		addSetting(pauseOnContainers);
-		addSetting(pauseForAutoEat);
 		addSetting(ignoreNpcs);
 		addSetting(showAttackTracers);
 		
@@ -96,7 +89,7 @@ public final class MultiAuraHack extends Hack
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
-		WURST.getHax().killauraHack.disableByConflict(this);
+		WURST.getHax().killauraHack.setEnabled(false);
 		WURST.getHax().protectHack.setEnabled(false);
 		WURST.getHax().tpAuraHack.setEnabled(false);
 		WURST.getHax().triggerBotHack.setEnabled(false);
@@ -109,27 +102,15 @@ public final class MultiAuraHack extends Hack
 	@Override
 	protected void onDisable()
 	{
-		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		currentTargets.clear();
-		lastTargets.clear();
 	}
 	
 	@Override
 	public void onUpdate()
 	{
 		currentTargets.clear();
-		if(WURST.getHax().spearAssistHack.blocksAuraAttacks())
-		{
-			lastTargets.clear();
-			return;
-		}
-		
-		if(pauseForAutoEat.isChecked()
-			&& WURST.getHax().autoEatHack.shouldPauseOtherActions())
-			return;
-		
 		speed.updateTimer();
 		if(!speed.isTimeToAttack())
 			return;
@@ -162,12 +143,7 @@ public final class MultiAuraHack extends Hack
 		ArrayList<Entity> entities =
 			stream.collect(Collectors.toCollection(ArrayList::new));
 		if(entities.isEmpty())
-		{
-			lastTargets.clear();
 			return;
-		}
-		lastTargets.clear();
-		lastTargets.addAll(entities);
 		currentTargets.addAll(entities);
 		
 		if(maceSupportActive)
@@ -204,18 +180,6 @@ public final class MultiAuraHack extends Hack
 			swingHand.swing(InteractionHand.MAIN_HAND);
 			speed.resetTimer();
 		}
-	}
-	
-	/**
-	 * Returns true when MultiAura's last target set consisted only of mobs.
-	 * AutoEat uses this because a wall hit result hides the mob behind it.
-	 */
-	public boolean isFightingMobsOnly()
-	{
-		if(!isEnabled() || lastTargets.isEmpty())
-			return false;
-		
-		return lastTargets.stream().noneMatch(Player.class::isInstance);
 	}
 	
 	@Override

@@ -11,7 +11,7 @@ import java.util.List;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -179,14 +179,14 @@ public final class AltBotSendChatScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(font, "Sending as: \u00a7a" + alt.getDisplayName(),
+		context.drawCenteredString(font, "Sending as: \u00a7a" + alt.getDisplayName(),
 			width / 2, height / 2 - 70, CommonColors.WHITE);
 		
 		if(errorTimer > 0 && !feedback.isEmpty())
-			context.centeredText(font, feedback, width / 2, height / 2 + 42,
+			context.drawCenteredString(font, feedback, width / 2, height / 2 + 42,
 				feedbackError ? CommonColors.RED : CommonColors.GREEN);
 		
 		// recent sent history
@@ -195,7 +195,7 @@ public final class AltBotSendChatScreen extends Screen
 		for(int i = history.size() - shown; i < history.size(); i++)
 		{
 			String line = history.get(i);
-			context.text(font, "\u00a77"
+			context.drawString(font, "\u00a77"
 				+ (line.length() > 60 ? line.substring(0, 60) + "..." : line),
 				width / 2 - 150, y, CommonColors.LIGHT_GRAY);
 			y += 9;
@@ -203,15 +203,15 @@ public final class AltBotSendChatScreen extends Screen
 		
 		// addWidget() does not put the EditBox in the renderables list, so it
 		// must be drawn explicitly (same as EditTokenAltScreen does).
-		messageBox.extractRenderState(context, mouseX, mouseY, partialTicks);
+		messageBox.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 }

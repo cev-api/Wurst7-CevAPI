@@ -9,7 +9,7 @@ package net.wurstclient.util;
 
 import org.joml.Matrix3x2f;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -21,7 +21,7 @@ public enum TitleScreenBackgroundRenderer
 {
 	;
 	
-	public static void addBackground(GuiGraphicsExtractor context, int width,
+	public static void addBackground(GuiGraphics context, int width,
 		int height)
 	{
 		Matrix3x2f pose = new Matrix3x2f();

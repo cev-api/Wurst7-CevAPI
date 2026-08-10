@@ -11,7 +11,7 @@ import java.time.Duration;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -80,7 +80,7 @@ public final class AltBotDetailsScreen extends Screen
 	
 	private void pressSendChat()
 	{
-		minecraft.gui.setScreen(new AltBotSendChatScreen(this, alt));
+		minecraft.setScreen(new AltBotSendChatScreen(this, alt));
 	}
 	
 	private void updateButtons()
@@ -134,10 +134,10 @@ public final class AltBotDetailsScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		context.centeredText(font, "Bot Details", width / 2, 12,
+		context.drawCenteredString(font, "Bot Details", width / 2, 12,
 			CommonColors.WHITE);
 		
 		AltBotState state =
@@ -147,28 +147,28 @@ public final class AltBotDetailsScreen extends Screen
 		int y = 40;
 		int lineHeight = 12;
 		
-		context.text(font, "Account: " + state.getDisplayName(), x, y,
+		context.drawString(font, "Account: " + state.getDisplayName(), x, y,
 			CommonColors.LIGHT_GRAY);
 		y += lineHeight;
 		
-		context.text(font,
+		context.drawString(font,
 			"UUID: " + (state.getUuid() == null ? "unknown" : state.getUuid()),
 			x, y, CommonColors.LIGHT_GRAY);
 		y += lineHeight;
 		
-		context.text(font,
+		context.drawString(font,
 			"Server: " + (state.getServer() == null ? "-" : state.getServer()),
 			x, y, CommonColors.LIGHT_GRAY);
 		y += lineHeight;
 		
-		context.text(font, "State: " + stateText(state), x, y,
+		context.drawString(font, "State: " + stateText(state), x, y,
 			stateColor(state));
 		y += lineHeight;
 		
 		if(state.getLastError() != null && !state.getLastError().isBlank())
 		{
 			String error = state.getLastError();
-			context.text(font,
+			context.drawString(font,
 				"Error: " + (error.length() > 60
 					? error.substring(0, 60) + "..." : error),
 				x, y, CommonColors.RED);
@@ -180,7 +180,7 @@ public final class AltBotDetailsScreen extends Screen
 			long seconds = Duration.ofMillis(
 				System.currentTimeMillis() - state.getConnectionStartMillis())
 				.getSeconds();
-			context.text(font, "Session duration: " + formatDuration(seconds),
+			context.drawString(font, "Session duration: " + formatDuration(seconds),
 				x, y, CommonColors.LIGHT_GRAY);
 			y += lineHeight;
 		}
@@ -193,11 +193,11 @@ public final class AltBotDetailsScreen extends Screen
 						state.getZ()),
 					x, y, CommonColors.LIGHT_GRAY);
 		else
-			context.text(font, "Position: unknown", x, y,
+			context.drawString(font, "Position: unknown", x, y,
 				CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	private static String stateText(AltBotState state)
@@ -237,6 +237,6 @@ public final class AltBotDetailsScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 }

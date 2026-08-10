@@ -8,7 +8,6 @@
 package net.wurstclient;
 
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
@@ -25,7 +24,6 @@ public enum TitleScreenShaderPipelines
 				Identifier.parse("wurst:core/title_shadertoy_background"))
 			.withFragmentShader(
 				Identifier.parse("wurst:core/title_shadertoy_background"))
-			.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1_SAMPLER2)
 			.build());
 	
 	public static final RenderPipeline TITLE_SHADERTOY_BACKGROUND_CUSTOM =
@@ -37,6 +35,5 @@ public enum TitleScreenShaderPipelines
 				Identifier.parse("wurst:core/title_shadertoy_background"))
 			.withFragmentShader(
 				Identifier.parse("wurst:core/title_shadertoy_background"))
-			.withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1_SAMPLER2)
 			.build());
 }

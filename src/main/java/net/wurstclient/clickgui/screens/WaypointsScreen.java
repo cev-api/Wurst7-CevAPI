@@ -10,7 +10,7 @@ package net.wurstclient.clickgui.screens;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -123,14 +123,14 @@ public final class WaypointsScreen extends Screen
 			b -> {
 				filterDim =
 					net.wurstclient.waypoints.WaypointDimension.OVERWORLD;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(fx, fy, filterBtnWidth, 20).build());
 		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.NETHER)
 				? "[Nether]" : "Nether"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.NETHER;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
 			.build());
 		addRenderableWidget(Button.builder(Component.literal(
@@ -138,7 +138,7 @@ public final class WaypointsScreen extends Screen
 				? "[End]" : "End"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.END;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			})
 			.bounds(fx + (filterBtnWidth + spacing) * 2, fy, filterBtnWidth, 20)
 			.build());
@@ -246,7 +246,7 @@ public final class WaypointsScreen extends Screen
 			
 			Button nameBtn = addRenderableWidget(
 				Button.builder(Component.literal(w.getName()), b -> {
-					minecraft.gui.setScreen(
+					minecraft.setScreen(
 						new WaypointEditScreen(this, manager, w, false));
 				}).bounds(x, rowY, 140, 20).build());
 			
@@ -257,7 +257,7 @@ public final class WaypointsScreen extends Screen
 						manager.addOrUpdate(w);
 						saveNow();
 						// Refresh in-place without stacking a new screen
-						minecraft.gui.setScreen(this);
+						minecraft.setScreen(this);
 					})
 				.bounds(x + 145, rowY, 55, 20).build());
 			
@@ -266,7 +266,7 @@ public final class WaypointsScreen extends Screen
 					manager.remove(w);
 					saveNow();
 					// Refresh in-place without stacking a new screen
-					minecraft.gui.setScreen(this);
+					minecraft.setScreen(this);
 				}).bounds(x + 205, rowY, 55, 20).build());
 			
 			Button copyBtn = addRenderableWidget(
@@ -327,11 +327,11 @@ public final class WaypointsScreen extends Screen
 					default -> SortMode.DATE;
 				};
 				saveScrollState();
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(x, this.height - 28, sortWidth, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prev))
+				b -> minecraft.setScreen(prev))
 			.bounds(x + sortWidth + 10, this.height - 28, backWidth, 20)
 			.build());
 	}
@@ -449,7 +449,7 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+	public void render(GuiGraphics context, int mouseX,
 		int mouseY, float delta)
 	{
 		// No blur - just a translucent background
@@ -494,7 +494,7 @@ public final class WaypointsScreen extends Screen
 			_rw.nameBtn.setMessage(Component.literal(""));
 		}
 		
-		super.extractRenderState(context, mouseX, mouseY, delta);
+		super.render(context, mouseX, mouseY, delta);
 		
 		// Restore messages so our custom drawing can read them
 		for(java.util.Map.Entry<RowWidgets, Component> e : _savedLabels
@@ -506,7 +506,7 @@ public final class WaypointsScreen extends Screen
 		}
 		
 		// Title
-		context.centeredText(minecraft.font, "Waypoints", this.width / 2, 12,
+		context.drawCenteredString(minecraft.font, "Waypoints", this.width / 2, 12,
 			0xFFFFFFFF);
 		
 		// Draw beacon button backgrounds (overlay) and collect line outlines
@@ -625,7 +625,7 @@ public final class WaypointsScreen extends Screen
 			if(textWidth <= maxTextWidth || maxTextWidth == 0)
 			{
 				// draw centered
-				context.centeredText(minecraft.font, label, centerX,
+				context.drawCenteredString(minecraft.font, label, centerX,
 					nameTop + 6, 0xFFFFFFFF);
 			}else
 			{
@@ -635,9 +635,9 @@ public final class WaypointsScreen extends Screen
 				int speed = 90; // text scroll, ms pixel
 				int offset = (int)((t / (long)speed) % period);
 				int x1 = centerX - textWidth / 2 - offset;
-				context.text(minecraft.font, label, x1, nameTop + 6,
+				context.drawString(minecraft.font, label, x1, nameTop + 6,
 					0xFFFFFFFF);
-				context.text(minecraft.font, label, x1 + textWidth + gap,
+				context.drawString(minecraft.font, label, x1 + textWidth + gap,
 					nameTop + 6, 0xFFFFFFFF);
 			}
 			context.disableScissor();
