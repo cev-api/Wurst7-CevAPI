@@ -128,7 +128,7 @@ public final class TokenAlt extends Alt
 	{
 		return clientId;
 	}
-
+	
 	public MinecraftProfile authenticateWithoutSession() throws LoginException
 	{
 		return MicrosoftLoginManager.authenticateTokenAltWithoutSession(token,
