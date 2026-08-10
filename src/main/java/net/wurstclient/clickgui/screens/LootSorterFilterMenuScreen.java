@@ -72,7 +72,7 @@ public final class LootSorterFilterMenuScreen extends Screen
 		}
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				button -> minecraft.gui.setScreen(back))
+				button -> minecraft.setScreen(back))
 			.bounds(x, height - 30, 74, 20).build());
 	}
 	
@@ -136,7 +136,7 @@ public final class LootSorterFilterMenuScreen extends Screen
 	private void select(ItemFilter filter)
 	{
 		selection.accept(filter);
-		minecraft.gui.setScreen(editor);
+		minecraft.setScreen(editor);
 	}
 	
 	private void rebuildPage()
@@ -148,7 +148,7 @@ public final class LootSorterFilterMenuScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(back);
+		minecraft.setScreen(back);
 	}
 	
 	private enum FilterGroup

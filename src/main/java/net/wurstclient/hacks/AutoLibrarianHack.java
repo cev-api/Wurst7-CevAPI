@@ -668,7 +668,7 @@ public final class AutoLibrarianHack extends Hack
 			AABB box = new AABB(blockingJobSite);
 			RenderUtils.drawOutlinedBox(matrixStack, box, yellow, false);
 			RenderUtils.drawCrossBox(matrixStack, box, yellow, false);
-			RenderUtils.drawTracer("AutoLibrarian", matrixStack, partialTicks,
+			RenderUtils.drawTracer(matrixStack, partialTicks,
 				Vec3.atCenterOf(blockingJobSite), yellow, false);
 		}
 		

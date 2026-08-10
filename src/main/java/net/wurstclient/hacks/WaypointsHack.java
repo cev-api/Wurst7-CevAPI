@@ -833,7 +833,7 @@ public final class WaypointsHack extends Hack
 			// the tracer when the "lines" option is enabled.
 			if(w.isLines())
 			{
-				RenderUtils.drawTracer("Waypoints", matrices, partialTicks,
+				RenderUtils.drawTracer(matrices, partialTicks,
 					new Vec3(wp.getX() + 0.5, wp.getY() + 0.5, wp.getZ() + 0.5),
 					applyFade(w.getColor(), distSq), false);
 				RenderUtils.drawOutlinedBoxes(matrices,
@@ -1608,7 +1608,7 @@ public final class WaypointsHack extends Hack
 		Font font = MC.font;
 		String text = target.distanceBlocks + " blocks";
 		int centerX = context.guiWidth() / 2;
-		int y = context.guiHeight() / 2 - 19;
+		int y = context.guiHeight() / 2 + 10;
 		int x = centerX - font.width(text) / 2;
 		context.drawString(font, text, x, y, target.color, true);
 	}

@@ -11,12 +11,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ItemListSetting;
 
 @SearchTags({"anti drop", "item lock", "drop lock", "prevent drop"})
-public final class AntiDropHack extends Hack implements HandleInputListener
+public final class AntiDropHack extends Hack
 {
 	private static final String[] DEFAULT_ITEMS = {
 		// swords
@@ -66,36 +65,6 @@ public final class AntiDropHack extends Hack implements HandleInputListener
 		super("AntiDrop");
 		setCategory(Category.ITEMS);
 		addSetting(items);
-	}
-	
-	@Override
-	protected void onEnable()
-	{
-		EVENTS.add(HandleInputListener.class, this);
-	}
-	
-	@Override
-	protected void onDisable()
-	{
-		EVENTS.remove(HandleInputListener.class, this);
-		temporarilyBypass = false;
-	}
-	
-	@Override
-	public void onHandleInput()
-	{
-		if(MC.player == null || MC.options == null)
-			return;
-		
-		ItemStack stack = MC.player.getMainHandItem();
-		if(!shouldBlock(stack))
-			return;
-			
-		// Drain queued drop presses before vanilla handleKeybinds() processes
-		// them. This catches the normal Q-drop path in addition to inventory
-		// throw actions.
-		while(MC.options.keyDrop.consumeClick())
-		{}
 	}
 	
 	public boolean shouldBlock(ItemStack stack)

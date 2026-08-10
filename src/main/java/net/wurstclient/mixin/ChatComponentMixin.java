@@ -42,8 +42,6 @@ public class ChatComponentMixin
 	private void onAddClientSystemMessage(Component messageDontUse,
 		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
-		boolean wurstClientMessage = ClientMessageOverlay.getInstance()
-			.consumeWurstClientMessage(message.get());
 		String plain = message.get().getString().trim();
 		if(WurstClient.INSTANCE.getHax().autoChatHack
 			.isReadDiscordRelayMessagesEnabled()
@@ -58,8 +56,7 @@ public class ChatComponentMixin
 				ci.cancel();
 			else
 				message.set(ClientMessageOverlay.getInstance()
-					.prepareClientSystemMessageForDisplay(
-						event.getComponent()));
+					.prepareMessageForDisplay(event.getComponent()));
 			
 			return;
 		}
@@ -73,23 +70,8 @@ public class ChatComponentMixin
 			return;
 		}
 		
-		if(wurstClientMessage)
-		{
-			message.set(event.getComponent());
-			if(ClientMessageOverlay.getInstance()
-				.captureWurstClientMessage(message.get()))
-			{
-				ci.cancel();
-				return;
-			}
-			
-			ClientMessageOverlay.getInstance()
-				.notifyVanillaChatMessage(message.get());
-			return;
-		}
-		
 		message.set(ClientMessageOverlay.getInstance()
-			.prepareClientSystemMessageForDisplay(event.getComponent()));
+			.prepareMessageForDisplay(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
 			.captureSingleArgMessage(message.get()))
 		{

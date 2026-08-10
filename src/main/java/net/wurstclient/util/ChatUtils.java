@@ -23,7 +23,6 @@ import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
-import net.wurstclient.hud.ClientMessageOverlay;
 
 public enum ChatUtils
 {
@@ -62,9 +61,7 @@ public enum ChatUtils
 			
 			ChatComponent chatHud = MC.gui.getChat();
 			MutableComponent prefix = Component.literal(WURST_PREFIX);
-			MutableComponent message = prefix.append(component);
-			ClientMessageOverlay.getInstance().markWurstClientMessage(message);
-			chatHud.addMessage(message);
+			chatHud.addMessage(prefix.append(component));
 		});
 	}
 	

@@ -52,7 +52,7 @@ public final class LootSorterDestinationChoiceScreen extends Screen
 	{
 		action.run();
 		if(minecraft.gui.screen() == this)
-			minecraft.gui.setScreen(null);
+			minecraft.setScreen(null);
 	}
 	
 	@Override
@@ -60,6 +60,6 @@ public final class LootSorterDestinationChoiceScreen extends Screen
 	{
 		// Closing the prompt must not begin an automated run unexpectedly.
 		setNewDestinations.run();
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 }

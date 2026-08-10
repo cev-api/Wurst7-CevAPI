@@ -152,7 +152,7 @@ public final class AltBotUtils
 	{
 		Minecraft mc = Minecraft.getInstance();
 		Screen previous = prevScreen != null ? prevScreen
-			: mc.gui != null ? mc.gui.screen() : null;
+			: mc.screen;
 		ServerAddress address = ServerAddress.parseString(server.ip);
 		ConnectScreen.startConnecting(previous, mc, address, server, false,
 			null);

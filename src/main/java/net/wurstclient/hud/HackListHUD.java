@@ -254,7 +254,7 @@ public final class HackListHUD implements UpdateListener
 		int yDraw = posY + otf.getYOffset();
 		double scale = getScale() * otf.getFontSize();
 		// scaled string width
-		String statusText = getStatusText(hack);
+		String statusText = hack.getStatusText();
 		int stringWidth = (int)(tr.width(s) * scale);
 		int statusWidth =
 			statusText != null ? (int)(tr.width(statusText) * scale) : 0;
@@ -324,7 +324,7 @@ public final class HackListHUD implements UpdateListener
 	{
 		Font tr = WurstClient.MC.font;
 		String s = e.hack.getRenderName();
-		String statusText = getStatusText(e.hack);
+		String statusText = e.hack.getStatusText();
 		
 		float offset =
 			e.offset * partialTicks + e.prevOffset * (1 - partialTicks);
@@ -446,7 +446,7 @@ public final class HackListHUD implements UpdateListener
 		int maxWidth = 0;
 		for(HackListEntry e : activeHax)
 		{
-			String statusText = getStatusText(e.hack);
+			String statusText = e.hack.getStatusText();
 			int width = (int)(tr.width(e.hack.getRenderName()) * scale);
 			if(statusText != null)
 				width += (int)(tr.width(statusText) * scale);
@@ -462,19 +462,6 @@ public final class HackListHUD implements UpdateListener
 		if(isLeft)
 			return 2 + otf.getXOffset();
 		return context.guiWidth() - contentWidth - 2 + otf.getXOffset();
-	}
-	
-	private String getStatusText(Hack hack)
-	{
-		String statusText = hack.getStatusText();
-		String pauseStatus = WurstClient.INSTANCE.getOtfs().packetFirewallOtf
-			.getVanillaOnlyPauseStatus(hack);
-		
-		if(pauseStatus == null)
-			return statusText;
-		if(statusText == null)
-			return pauseStatus;
-		return statusText + pauseStatus;
 	}
 	
 	private static final class HackListEntry

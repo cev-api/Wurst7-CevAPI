@@ -37,15 +37,10 @@ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
-import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
-import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.ProfileKeyPair;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.wurstclient.WurstClient;
-import net.wurstclient.hacks.AutoSignHack;
 import net.wurstclient.util.ChatUtils;
 
 @Mixin(ClientPacketListener.class)
@@ -55,19 +50,6 @@ public abstract class ClientPacketListenerMixin
 {
 	@Shadow
 	private LastSeenMessagesTracker lastSeenMessages;
-	
-	@Inject(
-		method = "handleMapItemData(Lnet/minecraft/network/protocol/game/ClientboundMapItemDataPacket;)V",
-		at = @At("TAIL"))
-	private void wurst$logAppliedMapData(ClientboundMapItemDataPacket packet,
-		CallbackInfo ci)
-	{
-		if(minecraft.level == null)
-			return;
-		MapItemSavedData mapData = minecraft.level.getMapData(packet.mapId());
-		WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseMapCache(packet,
-			mapData);
-	}
 	
 	private ClientPacketListenerMixin(WurstClient wurst, Minecraft client,
 		Connection connection, CommonListenerCookie connectionState)
@@ -107,31 +89,6 @@ public abstract class ClientPacketListenerMixin
 		SystemToast systemToast = SystemToast.multiline(minecraft,
 			SystemToast.SystemToastId.UNSECURE_SERVER_WARNING, title, message);
 		minecraft.getToastManager().addToast(systemToast);
-	}
-	
-	@Inject(
-		method = "handleOpenSignEditor(Lnet/minecraft/network/protocol/game/ClientboundOpenSignEditorPacket;)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/network/protocol/PacketUtils;ensureRunningOnSameThread(Lnet/minecraft/network/protocol/Packet;Lnet/minecraft/network/PacketListener;Lnet/minecraft/network/PacketProcessor;)V",
-			shift = At.Shift.AFTER),
-		cancellable = true)
-	private void wurst$autoSignWithoutScreen(
-		ClientboundOpenSignEditorPacket packet, CallbackInfo ci)
-	{
-		WurstClient wurst = WurstClient.INSTANCE;
-		if(wurst == null || !wurst.isEnabled())
-			return;
-		
-		AutoSignHack autoSign = wurst.getHax().autoSignHack;
-		if(autoSign == null || !autoSign.isAuraActive())
-			return;
-		
-		BlockPos pos = packet.getPos();
-		if(minecraft.getConnection() == null)
-			return;
-		
-		if(autoSign.writeTextWithoutScreen(pos, packet.isFrontText()))
-			ci.cancel();
 	}
 	
 	@Inject(method = "sendChat(Ljava/lang/String;)V", at = @At("HEAD"))

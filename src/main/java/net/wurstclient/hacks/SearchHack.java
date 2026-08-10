@@ -113,9 +113,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 			ValueDisplay.INTEGER.withSuffix("%"));
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
-	private final SliderSetting tracerThickness = new SliderSetting(
-		"Tracer thickness", "Line thickness for SearchESP tracers.", 2, 0.5, 10,
-		0.1, ValueDisplay.DECIMAL);
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
 			"Off: Re-centers the scan every chunk to match ESP drop-off.\n"
@@ -228,7 +225,6 @@ public final class SearchHack extends Hack implements UpdateListener,
 		addSetting(highlightFill);
 		addSetting(highlightAlpha);
 		addSetting(tracerFlash);
-		addSetting(tracerThickness);
 		addSetting(stickyArea);
 		addSetting(useFixedColor);
 		addSetting(fixedColor);
@@ -546,13 +542,8 @@ public final class SearchHack extends Hack implements UpdateListener,
 			int tracerColor = RenderUtils.toIntColor(rgb, 0.5F);
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			ArrayList<RenderUtils.ColoredPoint> coloredTracerEnds =
-				new ArrayList<>(tracerEnds.size());
-			for(Vec3 end : tracerEnds)
-				coloredTracerEnds
-					.add(new RenderUtils.ColoredPoint(end, tracerColor));
-			RenderUtils.drawTracers("Search", matrixStack, partialTicks,
-				coloredTracerEnds, false, tracerThickness.getValue());
+			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
+				tracerColor, false);
 		}
 		
 		if(drawHighlights)

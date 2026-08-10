@@ -21,12 +21,9 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
-import net.wurstclient.hacks.NbtFilterHack;
 
 @Mixin(Connection.class)
 public abstract class ConnectionMixin
@@ -58,17 +55,6 @@ public abstract class ConnectionMixin
 		at = @At("HEAD"))
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
-		if(packet instanceof ServerboundMovePlayerPacket move
-			&& WurstClient.INSTANCE != null
-			&& WurstClient.INSTANCE.getHax() != null)
-		{
-			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
-				.shouldApplyPathAntiHunger())
-				((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
-			
-			packet = WurstClient.INSTANCE.getHax().noFallHack
-				.protectFlightMovementPacket(move);
-		}
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
 		events.add(event);
@@ -83,12 +69,6 @@ public abstract class ConnectionMixin
 	private void onSend(Packet<?> packet,
 		@Nullable ChannelFutureListener callback, CallbackInfo ci)
 	{
-		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
-		{
-			ci.cancel();
-			return;
-		}
-		
 		ConnectionPacketOutputEvent event = getEvent(packet);
 		if(event == null)
 			return;

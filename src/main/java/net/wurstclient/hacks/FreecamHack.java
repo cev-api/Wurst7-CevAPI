@@ -424,8 +424,8 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		RenderUtils.drawOutlinedBox(matrixStack, box, colorI, false);
 		
 		// Line
-		RenderUtils.drawTracer("Freecam", matrixStack, partialTicks,
-			rawBox.getCenter(), colorI, false);
+		RenderUtils.drawTracer(matrixStack, partialTicks, rawBox.getCenter(),
+			colorI, false);
 	}
 	
 	public boolean shouldHideHand()

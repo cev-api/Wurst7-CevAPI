@@ -21,8 +21,6 @@ import net.minecraft.client.multiplayer.resolver.ServerAddressResolver;
 import net.minecraft.client.multiplayer.resolver.ServerNameResolver;
 import net.minecraft.client.multiplayer.resolver.ServerRedirectHandler;
 import net.wurstclient.WurstClient;
-import net.wurstclient.mixinterface.IServerDataExt;
-import net.wurstclient.util.LastServerRememberer;
 
 @Mixin(ServerNameResolver.class)
 public class ServerNameResolverMixin
@@ -49,8 +47,6 @@ public class ServerNameResolverMixin
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
-		if(!isMojangBlockBypassed(address))
-			return;
 		
 		Optional<ResolvedServerAddress> optionalAddress =
 			resolver.resolve(address);
@@ -61,14 +57,5 @@ public class ServerNameResolverMixin
 			optionalAddress = resolver.resolve(optionalRedirect.get());
 		
 		cir.setReturnValue(optionalAddress);
-	}
-	
-	private boolean isMojangBlockBypassed(ServerAddress address)
-	{
-		var server = LastServerRememberer.getLastServer();
-		if(server == null
-			|| !ServerAddress.parseString(server.ip).equals(address))
-			return false;
-		return ((IServerDataExt)(Object)server).wurst$getBypassMojangBlock();
 	}
 }

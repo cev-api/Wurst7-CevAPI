@@ -25,7 +25,6 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SettingGroup;
-import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"wurst options", "settings"})
@@ -48,34 +47,8 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Use a custom background color behind the Mojang loading logo.",
 			true);
 	
-	private final CheckboxSetting customMultiplayerLayout = new CheckboxSetting(
-		"Custom multiplayer layout",
-		"Use Wurst's custom multiplayer server panels and search bar.", true);
-	
-	private final CheckboxSetting titleScreenShadertoyBackground =
-		new CheckboxSetting("Shadertoy background",
-			"Render the animated Shadertoy-style background on the title screen.",
-			false);
-	
-	private final TextFieldSetting titleScreenShadertoyUrl =
-		new TextFieldSetting("Custom Shadertoy URL",
-			"Paste a single-pass Shadertoy URL to use as the menu background.",
-			"", s -> s == null || s.isBlank() || s.matches(
-				"https?://(www\\.)?shadertoy\\.com/(view|embed)/[A-Za-z0-9]{6}.*"));
-	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
-	private final CheckboxSetting tabListPing = new CheckboxSetting("Live ping",
-		"Shows each player's current ping instead of the signal bars.", false);
-	private final CheckboxSetting tabListHeads =
-		new CheckboxSetting("Player heads",
-			"Shows player heads next to names in the tab list.", false);
-	private final CheckboxSetting tabListPingColors =
-		new CheckboxSetting("Color ping",
-			"Colors ping from bright green through yellow to red.", false);
-	private final SettingGroup tabList = new SettingGroup("Tab list",
-		WText.literal("Tab-list appearance options.")).addChildren(tabListPing,
-			tabListHeads, tabListPingColors);
 	
 	private final SettingGroup discordPresenceGroup =
 		new SettingGroup("Discord Presence",
@@ -89,41 +62,6 @@ public final class WurstOptionsOtf extends OtherFeature
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
-		// Register tab-list settings before settings files are created.
-		addSetting(tabListPing);
-		addSetting(tabListHeads);
-		addSetting(tabListPingColors);
-		addSetting(tabList);
-	}
-	
-	public boolean shouldShowTabListPing()
-	{
-		return tabListPing.isChecked();
-	}
-	
-	public boolean shouldShowTabListHeads()
-	{
-		return tabListHeads.isChecked();
-	}
-	
-	public boolean shouldColorTabListPing()
-	{
-		return tabListPingColors.isChecked();
-	}
-	
-	public CheckboxSetting getTabListPingSetting()
-	{
-		return tabListPing;
-	}
-	
-	public CheckboxSetting getTabListHeadsSetting()
-	{
-		return tabListHeads;
-	}
-	
-	public CheckboxSetting getTabListPingColorsSetting()
-	{
-		return tabListPingColors;
 	}
 	
 	public void linkAdditionalSettings(DisableOtf disableOtf,
@@ -137,16 +75,13 @@ public final class WurstOptionsOtf extends OtherFeature
 		if(linkedExtraSettings)
 			return;
 		
+		addSetting(commandPrefixOtf.getPrefixSetting());
+		addSetting(discordPresenceGroup);
 		addSetting(new ButtonSetting("Changelog",
 			"Open the latest Wurst changelog in your browser.",
 			changelogOtf::doPrimaryAction));
-		addSetting(commandPrefixOtf.getPrefixSetting());
-		addSetting(discordPresenceGroup);
 		addSetting(hackToggleChatFeedback);
 		addSetting(customMojangLogoBackground);
-		addSetting(customMultiplayerLayout);
-		addSetting(titleScreenShadertoyBackground);
-		addSetting(titleScreenShadertoyUrl);
 		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
@@ -157,7 +92,6 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(wurstCapesOtf.getCapesSetting());
 		addSetting(connectionLogOverlayOtf.getConnectionLogSetting());
 		addSetting(connectionLogOverlayOtf.getFontScaleSetting());
-		addSetting(WURST.getHax().navigatorHack.backgroundOverlay);
 		discordPresenceGroup.addChildren(discordRpcOtf.getEnabledSetting(),
 			discordRpcOtf.getStatusMessageSetting(),
 			discordRpcOtf.getShowServerIpSetting(),
@@ -184,31 +118,6 @@ public final class WurstOptionsOtf extends OtherFeature
 	public ColorSetting getMojangLogoBackgroundColorSetting()
 	{
 		return mojangLogoBackgroundColor;
-	}
-	
-	public CheckboxSetting getCustomMultiplayerLayoutSetting()
-	{
-		return customMultiplayerLayout;
-	}
-	
-	public CheckboxSetting getTitleScreenShadertoyBackgroundSetting()
-	{
-		return titleScreenShadertoyBackground;
-	}
-	
-	public TextFieldSetting getTitleScreenShadertoyUrlSetting()
-	{
-		return titleScreenShadertoyUrl;
-	}
-	
-	public boolean isTitleScreenShadertoyBackgroundEnabled()
-	{
-		return titleScreenShadertoyBackground.isChecked();
-	}
-	
-	public boolean isCustomMultiplayerLayoutEnabled()
-	{
-		return customMultiplayerLayout.isChecked();
 	}
 	
 	public String getLocationName()

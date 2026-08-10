@@ -46,6 +46,13 @@ public final class AltManager
 		sortAlts();
 		altsFile.save(this);
 	}
+
+	/** Saves a token account created by an external account workflow. */
+	public void saveTokenAlt(TokenAlt alt)
+	{
+		if(alt != null && !alts.contains(alt))
+			add(alt);
+	}
 	
 	public void addAll(Collection<Alt> c)
 	{

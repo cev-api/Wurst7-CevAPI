@@ -129,11 +129,6 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 		return getName();
 	}
 	
-	public int getDetectionCount()
-	{
-		return foundCount;
-	}
-	
 	@Override
 	protected void onEnable()
 	{
@@ -533,8 +528,8 @@ public final class SkyBuildEspHack extends Hack implements UpdateListener,
 		{
 			int tracerColor = tracerFlash.isChecked()
 				? RenderUtils.flashColor(linesColor) : linesColor;
-			RenderUtils.drawTracers("SkyBuildESP", matrixStack, partialTicks,
-				tracerEnds, tracerColor, false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
+				tracerColor, false);
 		}
 	}
 	

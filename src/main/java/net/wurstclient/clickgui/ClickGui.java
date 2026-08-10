@@ -128,8 +128,6 @@ public final class ClickGui
 		{
 			if(f == WURST.getHax().globalToggleHack)
 				continue;
-			if(f == WURST.getCmds().autoBuildCmd)
-				continue;
 			
 			if(MOVE_TO_CLIENT_SETTINGS.stream()
 				.anyMatch(name -> name.equalsIgnoreCase(f.getName())))

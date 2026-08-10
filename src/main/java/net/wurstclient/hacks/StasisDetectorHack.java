@@ -27,7 +27,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.WurstClient;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.RenderListener;
@@ -259,11 +258,6 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 	
 	private void triggerAlert(BlockPos pos)
 	{
-		WebhookAlertHack webhook = WurstClient.INSTANCE.getHax() == null ? null
-			: WurstClient.INSTANCE.getHax().webhookAlertHack;
-		if(webhook != null)
-			webhook.onStasisDetected(pos);
-		
 		if(chatAlerts.isChecked())
 		{
 			ChatUtils.message("Stasis chamber found at " + pos.getX() + ", "
@@ -300,8 +294,8 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 		
 		// Draw tracers
 		if(style.hasLines() && tracerEnds != null && !tracerEnds.isEmpty())
-			RenderUtils.drawTracers("StasisChamber ESP", matrixStack,
-				partialTicks, tracerEnds, lineColor, false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
+				lineColor, false);
 	}
 	
 	@Override

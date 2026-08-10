@@ -125,12 +125,6 @@ public final class MaceDmgHack extends Hack
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, PAPER_MAX_HEIGHT, 0.1, ValueDisplay.DECIMAL);
 	
-	private final CheckboxSetting attackCap = new CheckboxSetting(
-		"6-block attack cap",
-		"Blocks all entity attacks started while MaceDMG is enabled when the target"
-			+ " is more than 6 blocks horizontally or vertically away.",
-		true);
-	
 	private final CheckboxSetting totemBypass = new CheckboxSetting(
 		"Totem bypass",
 		"Paper only. With MultiAura, sends a rising-damage mace burst against totem users.",
@@ -214,7 +208,6 @@ public final class MaceDmgHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(serverType);
 		addSetting(height);
-		addSetting(attackCap);
 		addSetting(totemBypass);
 		addSetting(autoOptimize);
 		addSetting(heightIncrease);
@@ -234,22 +227,19 @@ public final class MaceDmgHack extends Hack
 		sb.append(" [").append(serverType.getSelected().toString());
 		
 		double base = height.getValue();
-		boolean fabric = serverType.getSelected() == ServerType.FABRIC;
-		
-		if(fabric)
-			return sb.append(" - ").append(String.format("%.1f", base))
-				.append("]").toString();
-		
 		if(!totemBypass.isChecked())
 			return sb.append(" ").append(String.format("%.0f", base))
 				.append("]").toString();
 		
 		double inc = heightIncrease.getValue();
 		int count = attackCount.getValueI();
+		boolean fabric = serverType.getSelected() == ServerType.FABRIC;
 		
 		for(int i = 0; i < count; i++)
 		{
 			double h = base + i * inc;
+			if(fabric)
+				h = Math.min(h, 22.3);
 			sb.append(i == 0 ? " " : "\u2192").append(String.format("%.0f", h));
 		}
 		
@@ -342,24 +332,6 @@ public final class MaceDmgHack extends Hack
 	{
 		return target instanceof LivingEntity living && living.isAlive()
 			&& !living.isRemoved();
-	}
-	
-	public boolean shouldBlockAttack(Entity target)
-	{
-		if(target instanceof Player player && player.isCreative())
-			return true;
-		
-		if(!isEnabled() || !attackCap.isChecked() || MC.player == null
-			|| target == null)
-			return false;
-		
-		AABB box = target.getBoundingBox();
-		double x = Math.clamp(MC.player.getX(), box.minX, box.maxX);
-		double z = Math.clamp(MC.player.getZ(), box.minZ, box.maxZ);
-		double dx = MC.player.getX() - x;
-		double dz = MC.player.getZ() - z;
-		double verticalDistance = Math.abs(MC.player.getY() - target.getY());
-		return dx * dx + dz * dz > 36.0 || verticalDistance > 6.0;
 	}
 	
 	public boolean hasFallDebt()
@@ -695,8 +667,7 @@ public final class MaceDmgHack extends Hack
 	{
 		if(target == null || MC.gameMode == null)
 			return false;
-		if(shouldBlockAttack(target))
-			return false;
+		
 		List<Double> offsets = getBurstOffsets(target);
 		if(offsets.isEmpty() || !beginSmashAttempt(target))
 			return false;
@@ -900,10 +871,6 @@ public final class MaceDmgHack extends Hack
 		autoOptimize.setVisibleInGui(paper);
 		heightIncrease.setVisibleInGui(paper);
 		attackCount.setVisibleInGui(paper);
-		
-		if(!paper)
-			totemBypass.setChecked(false);
-		
 		if(WURST.getGuiIfInitialized() != null)
 			WURST.getGuiIfInitialized().requestRefresh();
 		

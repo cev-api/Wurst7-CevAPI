@@ -146,8 +146,7 @@ public class ItemHandlerHud
 			String subtitle = "";
 			if(hack != null)
 			{
-				subtitle = hack.getItemSubtitle(me.rep);
-				if(subtitle.isBlank() && hack.isShowEnchantmentsInNames())
+				if(hack.isShowEnchantmentsInNames())
 					subtitle = hack.getEnchantmentSummary(me.rep);
 				if(subtitle.isBlank() && hack.isShowRegistryName())
 					subtitle =
@@ -234,8 +233,8 @@ public class ItemHandlerHud
 			// Optional subtitle line: enchantments or registry id.
 			if(hack != null)
 			{
-				String subtitle = hack.getItemSubtitle(me.rep);
-				if(subtitle.isBlank() && hack.isShowEnchantmentsInNames())
+				String subtitle = "";
+				if(hack.isShowEnchantmentsInNames())
 					subtitle = hack.getEnchantmentSummary(me.rep);
 				if(subtitle.isBlank() && hack.isShowRegistryName())
 					subtitle =

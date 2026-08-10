@@ -31,11 +31,10 @@ public final class TwistingVinesPlantType extends AutoFarmPlantType
 	@Override
 	public final boolean hasPlantingSurface(BlockPos pos)
 	{
-		BlockPos floorPos = pos.below();
-		BlockState floorState = BlockUtils.getState(floorPos);
-		return !floorState.is(Blocks.TWISTING_VINES)
-			&& !floorState.is(Blocks.TWISTING_VINES_PLANT) && floorState
-				.isFaceSturdy(WurstClient.MC.level, floorPos, Direction.UP);
+		BlockState floor = BlockUtils.getState(pos.below());
+		return !floor.is(Blocks.TWISTING_VINES)
+			&& !floor.is(Blocks.TWISTING_VINES_PLANT)
+			&& floor.isFaceSturdy(WurstClient.MC.level, pos, Direction.UP);
 	}
 	
 	@Override

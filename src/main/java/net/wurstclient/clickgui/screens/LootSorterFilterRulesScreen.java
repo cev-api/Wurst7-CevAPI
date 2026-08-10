@@ -108,14 +108,14 @@ public final class LootSorterFilterRulesScreen extends Screen
 				.bounds(x, y + 258, 108, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				button -> minecraft.gui.setScreen(previous))
+				button -> minecraft.setScreen(previous))
 			.bounds(x + 112, y + 258, 108, 20).build());
 	}
 	
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	private void saveAndReturn()
@@ -125,7 +125,7 @@ public final class LootSorterFilterRulesScreen extends Screen
 			requiredEnchantment.getValue().isBlank() ? null
 				: requiredEnchantment.getValue().trim(),
 			material, null, curses));
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	private Boolean cycleBoolean(Boolean value)

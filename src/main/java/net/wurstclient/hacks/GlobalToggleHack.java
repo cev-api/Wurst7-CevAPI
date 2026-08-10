@@ -19,10 +19,8 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.render.globalesp.GlobalEspRenderMode;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
-import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.util.text.WText;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.chunk.ChunkSearcher;
 
@@ -79,28 +77,26 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		new CheckboxSetting("Enable global ESP render limit",
 			"When disabled, the global ESP render-limit slider is ignored.",
 			false);
-	private final CheckboxSetting globalEspRangeEnabled = new CheckboxSetting(
-		"Enable global ESP/tracer range",
-		"When enabled, ESP and tracer targets outside the global range are ignored.",
-		false);
-	private final SliderSetting globalEspRange = new SliderSetting(
-		"Global ESP/tracer range",
-		"Maximum distance for ESP and tracer targets when the global range limiter is enabled.",
-		128, 1, 512, 1, ValueDisplay.INTEGER);
 	private final CheckboxSetting disableAllTracers = new CheckboxSetting(
 		"Disable all tracers",
 		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
 		false);
-	private final SettingGroup tracerFilters = new SettingGroup(
-		"Tracer filters",
-		WText.literal(
-			"Pick which tracer sources stay visible when global tracer suppression is enabled."),
-		false, true);
-	
-	private final java.util.LinkedHashMap<String, CheckboxSetting> tracerSourceToggles =
-		new java.util.LinkedHashMap<>();
-	private final java.util.LinkedHashMap<String, String> tracerLabels =
-		new java.util.LinkedHashMap<>();
+	private final CheckboxSetting whitelistChestEspTracers =
+		new CheckboxSetting("Whitelist ChestESP tracers",
+			"When 'Disable all tracers' is on, still allow ChestESP tracers.",
+			true);
+	private final CheckboxSetting whitelistPlayerEspTracers =
+		new CheckboxSetting("Whitelist PlayerESP tracers",
+			"When 'Disable all tracers' is on, still allow PlayerESP tracers.",
+			true);
+	private final CheckboxSetting whitelistPortalEspTracers =
+		new CheckboxSetting("Whitelist PortalESP tracers",
+			"When 'Disable all tracers' is on, still allow PortalESP tracers.",
+			true);
+	private final CheckboxSetting whitelistPlayerSonarTracers =
+		new CheckboxSetting("Whitelist PlayerSonar tracers",
+			"When 'Disable all tracers' is on, still allow PlayerSonar tracers.",
+			true);
 	
 	private Map<CheckboxSetting, Boolean> stickySnapshot = Map.of();
 	
@@ -130,19 +126,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderMode);
 		addSetting(globalEspRenderLimitEnabled);
 		addSetting(globalEspRenderLimit);
-		addSetting(globalEspRangeEnabled);
-		addSetting(globalEspRange);
 		addSetting(disableAllTracers);
-		addSetting(tracerFilters);
-		registerTracerSource("chestesp", "ChestESP", true);
-		registerTracerSource("playeresp", "PlayerESP", true);
-		registerTracerSource("portalesp", "PortalESP", true);
-		registerTracerSource("playersonar", "PlayerSonar", true);
-		registerTracerSource("pearlesp", "PearlESP", true);
-		registerTracerSource("itemhandler", "ItemHandler", true);
-		registerTracerSource("itemesp:normal", "ItemESP normal", true);
-		registerTracerSource("itemesp:special", "ItemESP special", true);
-		registerTracerSource("itemesp:traced", "ItemESP traced", true);
+		addSetting(whitelistChestEspTracers);
+		addSetting(whitelistPlayerEspTracers);
+		addSetting(whitelistPortalEspTracers);
+		addSetting(whitelistPlayerSonarTracers);
 		
 		addPossibleKeybind(".globaltoggle tracers",
 			"Toggle GlobalToggle's tracer suppression");
@@ -330,16 +318,6 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		return globalEspRenderLimitEnabled.isChecked();
 	}
 	
-	public boolean isWithinGlobalEspRange(Vec3 point)
-	{
-		if(!globalEspRangeEnabled.isChecked() || point == null
-			|| MC.player == null)
-			return true;
-		
-		double range = globalEspRange.getValue();
-		return MC.player.distanceToSqr(point) <= range * range;
-	}
-	
 	public boolean areAllTracersDisabled()
 	{
 		return disableAllTracers.isChecked();
@@ -357,65 +335,17 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	
 	public boolean isTracerSourceWhitelisted(String source)
 	{
-		String key = normalizeTracerSource(source);
-		if(key == null)
+		if(source == null)
 			return false;
 		
-		CheckboxSetting toggle = tracerSourceToggles.get(key);
-		return toggle != null && toggle.isChecked();
-	}
-	
-	public void noteTracerSource(String source)
-	{
-		String key = normalizeTracerSource(source);
-		if(key == null || tracerSourceToggles.containsKey(key))
-			return;
-		
-		registerTracerSource(key, deriveTracerLabel(key), false);
-		WURST.saveSettings();
-	}
-	
-	private void registerTracerSource(String key, String label, boolean allowed)
-	{
-		String normalized = normalizeTracerSource(key);
-		if(normalized == null || tracerSourceToggles.containsKey(normalized))
-			return;
-		
-		tracerLabels.put(normalized, label);
-		CheckboxSetting toggle = new CheckboxSetting(label, allowed);
-		tracerSourceToggles.put(normalized, toggle);
-		tracerFilters.addChild(toggle);
-		addSetting(toggle);
-	}
-	
-	private static String normalizeTracerSource(String source)
-	{
-		if(source == null)
-			return null;
-		
-		String trimmed = source.trim();
-		return trimmed.isEmpty() ? null : trimmed.toLowerCase();
-	}
-	
-	private static String deriveTracerLabel(String source)
-	{
-		if(source == null || source.isBlank())
-			return "Unknown tracer";
-		
-		if(source.contains("#"))
-			return source.substring(source.lastIndexOf('#') + 1);
-		
-		if(source.contains(":"))
+		return switch(source.toLowerCase())
 		{
-			String[] parts = source.split(":", 2);
-			return parts[0].substring(0, 1).toUpperCase()
-				+ parts[0].substring(1) + " " + parts[1];
-		}
-		
-		if(source.endsWith("esp"))
-			return source.substring(0, source.length() - 3) + "ESP";
-		
-		return source.substring(0, 1).toUpperCase() + source.substring(1);
+			case "chestesp" -> whitelistChestEspTracers.isChecked();
+			case "playeresp" -> whitelistPlayerEspTracers.isChecked();
+			case "portalesp" -> whitelistPortalEspTracers.isChecked();
+			case "playersonar" -> whitelistPlayerSonarTracers.isChecked();
+			default -> false;
+		};
 	}
 	
 	private enum ChunkScanMode

@@ -10,7 +10,6 @@ package net.wurstclient.gametest.tests;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.world.level.block.Blocks;
-import net.wurstclient.gametest.BlockTestHelper;
 import net.wurstclient.gametest.SingleplayerTest;
 
 public final class AutoMineHackTest extends SingleplayerTest
@@ -28,9 +27,10 @@ public final class AutoMineHackTest extends SingleplayerTest
 		runCommand("gamemode survival");
 		
 		// Break a dirt block in survival mode
-		setBlocksAndWait(blocks -> blocks.set(0, -56, 2, Blocks.DIRT));
+		runCommand("setblock ~ ~1 ~2 minecraft:dirt");
+		waitForBlock(0, 1, 2, Blocks.DIRT);
 		runWurstCommand("t AutoMine on");
-		BlockTestHelper.waitForBlock(context, 0, -56, 2, Blocks.AIR);
+		waitForBlock(0, 1, 2, Blocks.AIR);
 		context.waitTick();
 		world.waitForChunksRender();
 		context.takeScreenshot("automine_survival");

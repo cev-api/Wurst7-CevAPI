@@ -29,11 +29,8 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.vehicle.boat.AbstractChestBoat;
-import net.minecraft.world.entity.vehicle.boat.Boat;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -178,7 +175,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	
 	private final ArrayList<ItemEntity> items = new ArrayList<>();
 	private final ArrayList<ExperienceOrb> xpOrbs = new ArrayList<>();
-	private final ArrayList<Entity> boats = new ArrayList<>();
 	// Above-ground filter
 	private final CheckboxSetting onlyAboveGround =
 		new CheckboxSetting("Above ground only",
@@ -249,7 +245,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(GUIRenderListener.class, this);
 		// reset count
-		boats.clear();
 		foundCount = 0;
 	}
 	
@@ -476,7 +471,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 	{
 		items.clear();
 		xpOrbs.clear();
-		boats.clear();
 		updateIgnoredListCacheIfNeeded();
 		int limit = getEffectiveGlobalEspLimit();
 		if(limit <= 0)
@@ -487,8 +481,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 					items.add(ie);
 				else if(entity instanceof ExperienceOrb xo)
 					xpOrbs.add(xo);
-				else if(isBoatEntity(entity))
-					boats.add(entity);
 			}
 			
 			return;
@@ -504,8 +496,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				items.add(ie);
 			else if(entity instanceof ExperienceOrb xo)
 				xpOrbs.add(xo);
-			else if(isBoatEntity(entity))
-				boats.add(entity);
 		}
 	}
 	
@@ -533,16 +523,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			ItemStack stack =
 				net.wurstclient.util.ItemUtils.createSyntheticXpStack(xo);
 			return !isIgnored(stack);
-		}
-		
-		if(isBoatEntity(entity))
-		{
-			if(onlyAboveGround.isChecked()
-				&& entity.getY() < aboveGroundY.getValue())
-				return false;
-			
-			ItemStack stack = getBoatStack(entity);
-			return stack != null && !stack.isEmpty() && !isIgnored(stack);
 		}
 		
 		return false;
@@ -688,45 +668,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 						normalEnds.add(center);
 					}
 				}
-			}
-		}
-		
-		for(Entity boat : boats)
-		{
-			if(MC.player != null && MC.player.getVehicle() == boat)
-				continue;
-			
-			if(onlyAboveGround.isChecked()
-				&& boat.getY() < aboveGroundY.getValue())
-				continue;
-			
-			ItemStack stack = getBoatStack(boat);
-			if(stack == null || stack.isEmpty() || isIgnored(stack))
-				continue;
-			
-			Vec3 center =
-				EntityUtils.getLerpedBox(boat, partialTicks).getCenter();
-			AABB box = EntityUtils.getLerpedBox(boat, partialTicks)
-				.move(0, extraSize, 0).inflate(extraSize);
-			boolean isSpecial = isSpecial(stack);
-			String id = net.wurstclient.util.ItemUtils.getStackId(stack);
-			net.wurstclient.hacks.itemhandler.ItemHandlerHack ih =
-				net.wurstclient.WurstClient.INSTANCE.getHax().itemHandlerHack;
-			boolean isTraced = ih != null && id != null && ih.isTraced(id);
-			
-			visibleDrops++;
-			if(isTraced)
-			{
-				tracedBoxes.add(box);
-				tracedEnds.add(center);
-			}else if(isSpecial)
-			{
-				specialBoxes.add(box);
-				specialEnds.add(center);
-			}else
-			{
-				normalBoxes.add(box);
-				normalEnds.add(center);
 			}
 		}
 		
@@ -910,11 +851,11 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				specialTracerColor = RenderUtils.flashColor(specialTracerColor);
 			}
 			if(!linesOnlyForSpecial.isChecked() && !normalEnds.isEmpty())
-				RenderUtils.drawTracers("itemesp:normal", matrixStack,
-					partialTicks, normalEnds, normalTracerColor, false);
+				RenderUtils.drawTracers(matrixStack, partialTicks, normalEnds,
+					normalTracerColor, false);
 			if(!specialEnds.isEmpty())
-				RenderUtils.drawTracers("itemesp:special", matrixStack,
-					partialTicks, specialEnds, specialTracerColor, false);
+				RenderUtils.drawTracers(matrixStack, partialTicks, specialEnds,
+					specialTracerColor, false);
 			// draw traced lines last with rainbow color
 			if(!tracedEnds.isEmpty())
 			{
@@ -922,8 +863,8 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 				int tracedLines = RenderUtils.toIntColor(rf, 0x80 / 255f);
 				if(tracerFlash.isChecked())
 					tracedLines = RenderUtils.flashColor(tracedLines);
-				RenderUtils.drawTracers("itemesp:traced", matrixStack,
-					partialTicks, tracedEnds, tracedLines, false);
+				RenderUtils.drawTracers(matrixStack, partialTicks, tracedEnds,
+					tracedLines, false);
 			}
 		}
 	}
@@ -1103,36 +1044,6 @@ public final class ItemEspHack extends Hack implements UpdateListener,
 			return null;
 		double r = 0.18;
 		return new AABB(c.x - r, c.y - r, c.z - r, c.x + r, c.y + r, c.z + r);
-	}
-	
-	private boolean isBoatEntity(Entity entity)
-	{
-		return entity instanceof Boat || entity instanceof AbstractChestBoat;
-	}
-	
-	private ItemStack getBoatStack(Entity boat)
-	{
-		if(boat == null)
-			return ItemStack.EMPTY;
-		
-		Identifier entityId =
-			BuiltInRegistries.ENTITY_TYPE.getKey(boat.getType());
-		if(entityId == null)
-			return new ItemStack(Items.OAK_BOAT);
-		
-		String path = entityId.getPath();
-		String itemPath = switch(path)
-		{
-			case "boat" -> "oak_boat";
-			case "chest_boat" -> "oak_chest_boat";
-			default -> path;
-		};
-		Identifier id = Identifier.tryParse("minecraft:" + itemPath);
-		if(id == null || !BuiltInRegistries.ITEM.containsKey(id))
-			return new ItemStack(Items.OAK_BOAT);
-		
-		Item item = BuiltInRegistries.ITEM.getValue(id);
-		return item == null ? ItemStack.EMPTY : new ItemStack(item);
 	}
 	
 	@Override

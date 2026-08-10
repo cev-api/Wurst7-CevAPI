@@ -29,7 +29,6 @@ public final class TrueSightHack extends Hack
 			FilterPassiveWaterSetting.genericVision(false),
 			FilterBatsSetting.genericVision(false),
 			FilterSlimesSetting.genericVision(false),
-			FilterSulfurCubesSetting.genericVision(false),
 			FilterPetsSetting.genericVision(false),
 			FilterVillagersSetting.genericVision(false),
 			FilterZombieVillagersSetting.genericVision(false),

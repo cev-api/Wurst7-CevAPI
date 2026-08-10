@@ -7,7 +7,6 @@
  */
 package net.wurstclient.mixinterface;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 
 public interface IKeyMapping extends IKeyBinding
@@ -35,14 +34,4 @@ public interface IKeyMapping extends IKeyBinding
 	{
 		return asVanilla().isDown();
 	}
-	
-	default InputConstants.Key getBoundKey()
-	{
-		return wurst_getBoundKey();
-	}
-	
-	/**
-	 * Returns the actual vanilla key bound to this KeyMapping.
-	 */
-	InputConstants.Key wurst_getBoundKey();
 }

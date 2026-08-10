@@ -7,7 +7,6 @@
  */
 package net.wurstclient.hacks;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -24,12 +23,7 @@ import java.util.Locale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.ai.PathFinder;
@@ -52,14 +46,13 @@ import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.RenderUtils;
-import net.wurstclient.mixinterface.IKeyMapping;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
-import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"auto fly", "autofly", "waypoint fly", "auto flight"})
 public final class AutoFlyHack extends Hack
@@ -147,7 +140,6 @@ public final class AutoFlyHack extends Hack
 		BLOCKS("Blocks"),
 		ITEMS("Items"),
 		ROOF_ESP("RoofESP"),
-		SKYBUILD_ESP("SkyBuildESP"),
 		OLD_CHUNKS("Old chunk"),
 		NEW_CHUNKS("New chunk"),
 		END_PORTAL("End portal"),
@@ -164,64 +156,6 @@ public final class AutoFlyHack extends Hack
 		public String toString()
 		{
 			return name;
-		}
-	}
-	
-	private static enum StopSound
-	{
-		NOTE_BLOCK_HARP("Note Block Harp", "minecraft:block.note_block.harp"),
-		NOTE_BLOCK_BASS("Note Block Bass", "minecraft:block.note_block.bass"),
-		NOTE_BLOCK_BASEDRUM("Note Block Basedrum",
-			"minecraft:block.note_block.basedrum"),
-		NOTE_BLOCK_SNARE("Note Block Snare",
-			"minecraft:block.note_block.snare"),
-		NOTE_BLOCK_HAT("Note Block Hat", "minecraft:block.note_block.hat"),
-		NOTE_BLOCK_GUITAR("Note Block Guitar",
-			"minecraft:block.note_block.guitar"),
-		NOTE_BLOCK_FLUTE("Note Block Flute",
-			"minecraft:block.note_block.flute"),
-		NOTE_BLOCK_BELL("Note Block Bell", "minecraft:block.note_block.bell"),
-		NOTE_BLOCK_CHIME("Note Block Chime",
-			"minecraft:block.note_block.chime"),
-		NOTE_BLOCK_XYLOPHONE("Note Block Xylophone",
-			"minecraft:block.note_block.xylophone"),
-		NOTE_BLOCK_IRON_XYLOPHONE("Note Block Iron Xylophone",
-			"minecraft:block.note_block.iron_xylophone"),
-		NOTE_BLOCK_COW_BELL("Note Block Cow Bell",
-			"minecraft:block.note_block.cow_bell"),
-		NOTE_BLOCK_DIDGERIDOO("Note Block Didgeridoo",
-			"minecraft:block.note_block.didgeridoo"),
-		NOTE_BLOCK_BIT("Note Block Bit", "minecraft:block.note_block.bit"),
-		NOTE_BLOCK_BANJO("Note Block Banjo",
-			"minecraft:block.note_block.banjo"),
-		NOTE_BLOCK_PLING("Note Block Pling",
-			"minecraft:block.note_block.pling");
-		
-		private final String displayName;
-		private final String id;
-		
-		private StopSound(String displayName, String id)
-		{
-			this.displayName = displayName;
-			this.id = id;
-		}
-		
-		private SoundEvent resolve()
-		{
-			try
-			{
-				return BuiltInRegistries.SOUND_EVENT
-					.getValue(Identifier.parse(id));
-			}catch(Exception e)
-			{
-				return null;
-			}
-		}
-		
-		@Override
-		public String toString()
-		{
-			return displayName;
 		}
 	}
 	
@@ -307,15 +241,9 @@ public final class AutoFlyHack extends Hack
 		new ButtonSetting("Previous waypoint", this::selectPreviousTarget);
 	private final ButtonSetting nextButton =
 		new ButtonSetting("Next waypoint", this::selectNextTargetFromButton);
-	private final CheckboxSetting adjustFlightHeight = new CheckboxSetting(
-		"Adjust flight height",
-		"When enabled, AutoFly keeps using the configured Flight height.\n"
-			+ "When disabled, AutoFly uses your current Y level instead of forcing a separate cruise altitude.",
-		false);
-	private final SliderSetting flightHeight = new SliderSetting(
-		"Flight height",
-		"Cruise Y level while traveling. Only used when Adjust flight height is enabled.",
-		80, -64, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final SliderSetting flightHeight =
+		new SliderSetting("Flight height", "Cruise Y level while traveling.",
+			80, -64, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
 	private final SliderSetting flightSpeed = new SliderSetting("Flight speed",
 		"Temporary Flight horizontal speed while AutoFly is active.", 6.0, 0.5,
 		10.0, 0.1, ValueDisplay.DECIMAL.withSuffix(" b/s"));
@@ -328,10 +256,6 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting crosshairInfo =
 		new CheckboxSetting("Crosshair info",
 			"Shows AutoFly status near the crosshair while active.", true);
-	private final SliderSetting crosshairBackgroundOpacity =
-		new SliderSetting("Overlay background opacity",
-			"Opacity of the background behind AutoFly's status and ETA text.",
-			0.5, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final CheckboxSetting useAntisocial =
 		new CheckboxSetting("Enable Antisocial",
 			"Enables Antisocial while AutoFly is active.", true);
@@ -391,12 +315,6 @@ public final class AutoFlyHack extends Hack
 		"Disable on stop",
 		"When AutoFly stops due to a Stop on event, fully disable AutoFly (equivalent to .autofly stop) instead of holding position.",
 		false);
-	private final CheckboxSetting stopSoundEnabled = new CheckboxSetting(
-		"Stop sound",
-		"Play a sound whenever AutoFly stops or is manually stopped.", false);
-	private final EnumSetting<StopSound> stopSound =
-		new EnumSetting<>("Stop sound tone", "Sound played when AutoFly stops.",
-			StopSound.values(), StopSound.NOTE_BLOCK_CHIME);
 	private final CheckboxSetting disableOnPlayers = new CheckboxSetting(
 		"Disable on players",
 		"Disable AutoFly entirely if another player entity is detected nearby.",
@@ -465,14 +383,11 @@ public final class AutoFlyHack extends Hack
 	private boolean autoKeyRightDown;
 	private boolean autoKeyJumpDown;
 	private boolean autoKeyShiftDown;
-	private boolean actualShiftDown;
-	private boolean actualControlDown;
 	private long climbAttemptUntilMs;
 	private long lastClimbAttemptMs;
 	private double climbTargetY;
 	
 	private boolean flightWasEnabled;
-	private boolean boatFlyWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
 	
@@ -499,7 +414,6 @@ public final class AutoFlyHack extends Hack
 	private boolean enabledAutoLeaveForAutoFly;
 	private boolean enabledNewerNewChunksForStopOn;
 	private boolean enabledRoofEspForStopOn;
-	private boolean enabledSkyBuildEspForStopOn;
 	
 	private boolean closeHorizLatched;
 	private int stopScanCooldown;
@@ -534,13 +448,11 @@ public final class AutoFlyHack extends Hack
 		addSetting(reloadJsonButton);
 		addSetting(previousButton);
 		addSetting(nextButton);
-		addSetting(adjustFlightHeight);
 		addSetting(flightHeight);
 		addSetting(flightSpeed);
 		addSetting(targetRadius);
 		addSetting(skipReached);
 		addSetting(crosshairInfo);
-		addSetting(crosshairBackgroundOpacity);
 		addSetting(useAntisocial);
 		addSetting(useAutoEat);
 		addSetting(useAutoLeave);
@@ -557,8 +469,6 @@ public final class AutoFlyHack extends Hack
 		addSetting(stopKeyword3);
 		addSetting(stopChunkThickness);
 		addSetting(disableAutoFlyOnStop);
-		addSetting(stopSoundEnabled);
-		addSetting(stopSound);
 		addSetting(disableOnPlayers);
 		addSetting(disableOnDamage);
 		addSetting(suppressChunkTrailRender);
@@ -624,8 +534,6 @@ public final class AutoFlyHack extends Hack
 		autoKeyRightDown = false;
 		autoKeyJumpDown = false;
 		autoKeyShiftDown = false;
-		actualShiftDown = IKeyMapping.get(MC.options.keyShift).isActuallyDown();
-		actualControlDown = isControlDown();
 		climbAttemptUntilMs = 0L;
 		lastClimbAttemptMs = 0L;
 		climbTargetY = 0.0;
@@ -656,7 +564,6 @@ public final class AutoFlyHack extends Hack
 		stopIgnoreTicks = 0;
 		selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
-		boatFlyWasEnabled = WURST.getHax().boatFlyHack.isEnabled();
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
 		flightOverridesApplied = false;
@@ -669,7 +576,6 @@ public final class AutoFlyHack extends Hack
 		enabledAutoLeaveForAutoFly = false;
 		enabledNewerNewChunksForStopOn = false;
 		enabledRoofEspForStopOn = false;
-		enabledSkyBuildEspForStopOn = false;
 		
 		var hax = WURST.getHax();
 		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
@@ -687,7 +593,6 @@ public final class AutoFlyHack extends Hack
 			hax.autoLeaveHack.setEnabled(true);
 			enabledAutoLeaveForAutoFly = true;
 		}
-		ensureBoatFlyEnabledIfRiding();
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(GUIRenderListener.class, this);
@@ -714,16 +619,11 @@ public final class AutoFlyHack extends Hack
 			hax.newerNewChunksHack.setEnabled(false);
 		if(enabledRoofEspForStopOn && hax.roofEspHack.isEnabled())
 			hax.roofEspHack.setEnabled(false);
-		if(enabledSkyBuildEspForStopOn && hax.skyBuildEspHack.isEnabled())
-			hax.skyBuildEspHack.setEnabled(false);
-		if(!boatFlyWasEnabled && hax.boatFlyHack.isEnabled())
-			hax.boatFlyHack.setEnabled(false);
 		enabledAntisocialForAutoFly = false;
 		enabledAutoEatForAutoFly = false;
 		enabledAutoLeaveForAutoFly = false;
 		enabledNewerNewChunksForStopOn = false;
 		enabledRoofEspForStopOn = false;
-		enabledSkyBuildEspForStopOn = false;
 		pausedNoY = false;
 		arrivalPause = false;
 		arrivalPauseUntilMs = 0L;
@@ -768,7 +668,6 @@ public final class AutoFlyHack extends Hack
 		chunkTrailPortalCoordinator = null;
 		chunkTrailPortalScanCooldown = 0;
 		missingWorldStateTicks = 0;
-		ensureBoatFlyEnabledIfRiding();
 		applyChunkTrailRenderSuppression(false);
 	}
 	
@@ -787,24 +686,6 @@ public final class AutoFlyHack extends Hack
 			return;
 		}
 		missingWorldStateTicks = 0;
-		boolean shiftDown =
-			IKeyMapping.get(MC.options.keyShift).isActuallyDown();
-		if(shiftDown && !actualShiftDown)
-		{
-			actualShiftDown = true;
-			stopFromCommand();
-			return;
-		}
-		actualShiftDown = shiftDown;
-		boolean controlDown = isControlDown();
-		if(controlDown && !actualControlDown)
-		{
-			actualControlDown = true;
-			stopFromCommand();
-			return;
-		}
-		actualControlDown = controlDown;
-		ensureBoatFlyEnabledIfRiding();
 		
 		long updateNow = System.currentTimeMillis();
 		if(lastUpdateMs > 0L && updateNow - lastUpdateMs > 1000L)
@@ -819,7 +700,6 @@ public final class AutoFlyHack extends Hack
 			// Allow player to decide what to do next (e.g. cycle waypoint).
 			PathProcessor.releaseControls();
 			clearAutoFlyInput();
-			pauseAutoOwnedFlight();
 			return;
 		}
 		
@@ -891,23 +771,15 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		long now = System.currentTimeMillis();
-		boolean underNetherBedrock = isUnderNetherBedrock(MC.player.position());
 		if(climbAttemptUntilMs > now)
 		{
-			if(underNetherBedrock)
-			{
-				climbAttemptUntilMs = 0L;
-				lastClimbAttemptMs = 0L;
-			}else
-			{
-				ensureFlightEnabled();
-				applyFlightSpeed();
-				PathProcessor.lockControls();
-				clearAutoFlyInput();
-				autoSetKey(MC.options.keyJump, true);
-				lastAutoControlMs = now;
-				return;
-			}
+			ensureFlightEnabled();
+			applyFlightSpeed();
+			PathProcessor.lockControls();
+			clearAutoFlyInput();
+			autoSetKey(MC.options.keyJump, true);
+			lastAutoControlMs = now;
+			return;
 		}
 		
 		ensureFlightEnabled();
@@ -915,9 +787,6 @@ public final class AutoFlyHack extends Hack
 		if(chunkAssistActive)
 		{
 			applyChunkCorridorAssist();
-			// Re-apply after corridor analysis so any newly detected slowdown
-			// takes effect on the same tick instead of one tick later.
-			applyFlightSpeed();
 			// Don't block movement if borders aren't visible; a provisional
 			// forward target will be used when no corridor target is found.
 		}
@@ -983,10 +852,7 @@ public final class AutoFlyHack extends Hack
 		// landing at each point.
 		// Keep a constant cruise altitude and treat targets as reached based on
 		// horizontal distance only.
-		if(!adjustFlightHeight.isChecked())
-		{
-			desiredY = playerPos.y;
-		}else if(cruisingRoute)
+		if(cruisingRoute)
 		{
 			desiredY = cruiseY;
 			if(chunkRoute && chunkAssistActive)
@@ -1073,8 +939,8 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		// Force a final descend near center to ensure landing completes
-		boolean finalLanding = !underNetherBedrock && !cruisingRoute
-			&& distHoriz <= Math.max(radius, 1.0) + 0.5;
+		boolean finalLanding =
+			!cruisingRoute && distHoriz <= Math.max(radius, 1.0) + 0.5;
 		if(finalLanding)
 			autoSetKey(MC.options.keyShift, true);
 		
@@ -1094,13 +960,12 @@ public final class AutoFlyHack extends Hack
 				if(Math.abs(chunkYDiff) < CHUNK_VERTICAL_HARD_CORRECT_BLOCKS)
 					chunkYDiff = Math.signum(chunkYDiff)
 						* CHUNK_VERTICAL_HARD_CORRECT_BLOCKS;
-				updateVerticalControls(chunkYDiff, false, underNetherBedrock);
+				updateVerticalControls(chunkYDiff, false);
 			}
 		}else
 		{
-			applyVerticalAssist(playerPos, yDiff, nearTargetY,
-				underNetherBedrock);
-			updateVerticalControls(yDiff, nearTargetY, underNetherBedrock);
+			applyVerticalAssist(playerPos, yDiff, nearTargetY);
+			updateVerticalControls(yDiff, nearTargetY);
 		}
 		if(anyAutoKeyDown())
 			lastAutoControlMs = now;
@@ -1220,18 +1085,6 @@ public final class AutoFlyHack extends Hack
 					&& WURST.getHax().roofEspHack.getDetectionCount() > 0)
 				{
 					stopAutoFly("Stopped: Found RoofESP");
-					return true;
-				}
-				return false;
-			}
-			
-			case SKYBUILD_ESP ->
-			{
-				ensureSkyBuildEspForStopOn();
-				if(WURST.getHax().skyBuildEspHack.isEnabled()
-					&& WURST.getHax().skyBuildEspHack.getDetectionCount() > 0)
-				{
-					stopAutoFly("Stopped: Found SkyBuildESP target");
 					return true;
 				}
 				return false;
@@ -1406,59 +1259,18 @@ public final class AutoFlyHack extends Hack
 			return false;
 		
 		int requiredThickness = Math.max(1, stopChunkThickness.getValueI());
-		Vec3 heading = getChunkStopHeading();
-		Vec3 right = heading.lengthSqr() > 1.0E-6
-			? new Vec3(-heading.z, 0.0, heading.x) : new Vec3(1.0, 0.0, 0.0);
-		
-		if(!matchesChunkStopArea(playerChunk, oldChunks, requiredThickness,
-			heading, right))
+		if(requiredThickness > 1)
 		{
-			ChunkPos candidate = findMatchingChunkStopAhead(playerChunk,
-				heading, right, oldChunks, requiredThickness);
-			if(candidate == null)
+			int runX = getChunkRunLength(playerChunk, 1, 0, oldChunks,
+				requiredThickness);
+			int runZ = getChunkRunLength(playerChunk, 0, 1, oldChunks,
+				requiredThickness);
+			if(runX < requiredThickness || runZ < requiredThickness)
 				return false;
 		}
 		
 		stopAutoFly("Stopped: Reached " + stopName);
 		return true;
-	}
-	
-	private ChunkPos findMatchingChunkStopAhead(ChunkPos playerChunk,
-		Vec3 heading, Vec3 right, boolean oldChunks, int requiredThickness)
-	{
-		if(playerChunk == null)
-			return null;
-		
-		int forwardLimit = Math.max(4, requiredThickness * 3);
-		int lateralLimit = Math.max(1, requiredThickness);
-		for(int forward = 1; forward <= forwardLimit; forward++)
-			for(int lateral = -lateralLimit; lateral <= lateralLimit; lateral++)
-			{
-				ChunkPos candidate =
-					offsetChunk(playerChunk, heading, right, forward, lateral);
-				if(!isMatchingChunkType(candidate, oldChunks))
-					continue;
-				
-				if(matchesChunkStopArea(candidate, oldChunks, requiredThickness,
-					heading, right))
-					return candidate;
-			}
-		
-		return null;
-	}
-	
-	private boolean matchesChunkStopArea(ChunkPos chunk, boolean oldChunks,
-		int requiredThickness, Vec3 heading, Vec3 right)
-	{
-		if(chunk == null || !isMatchingChunkType(chunk, oldChunks))
-			return false;
-		
-		if(requiredThickness <= 1)
-			return true;
-		
-		int runX = getChunkRunLength(chunk, 1, 0, oldChunks, requiredThickness);
-		int runZ = getChunkRunLength(chunk, 0, 1, oldChunks, requiredThickness);
-		return runX >= requiredThickness && runZ >= requiredThickness;
 	}
 	
 	private boolean isMatchingChunkType(ChunkPos chunk, boolean oldChunks)
@@ -1487,40 +1299,6 @@ public final class AutoFlyHack extends Hack
 		}
 		
 		return run;
-	}
-	
-	private ChunkPos offsetChunk(ChunkPos origin, Vec3 forward, Vec3 right,
-		int forwardSteps, int lateralSteps)
-	{
-		ChunkPos offset = origin;
-		if(forwardSteps != 0)
-			offset = stepChunk(offset, forward, forwardSteps);
-		if(lateralSteps != 0)
-			offset = stepChunk(offset, right, lateralSteps);
-		return offset;
-	}
-	
-	private Vec3 getChunkStopHeading()
-	{
-		if(MC.player == null)
-			return new Vec3(0.0, 0.0, 1.0);
-		
-		if(currentTarget != null)
-		{
-			Vec3 playerPos = MC.player.position();
-			Vec3 targetPos = Vec3.atCenterOf(currentTarget.pos);
-			Vec3 toTarget = new Vec3(targetPos.x - playerPos.x, 0.0,
-				targetPos.z - playerPos.z);
-			if(toTarget.lengthSqr() >= 1.0E-6)
-				return toTarget.normalize();
-		}
-		
-		if(commandForwardDirection != null
-			&& commandForwardDirection.lengthSqr() >= 1.0E-6)
-			return new Vec3(commandForwardDirection.x, 0.0,
-				commandForwardDirection.z).normalize();
-		
-		return getHorizontalLookDirection();
 	}
 	
 	private void ensureStopBlockCoordinatorConfigured(boolean secondary,
@@ -1585,7 +1363,6 @@ public final class AutoFlyHack extends Hack
 		// Stop immediately, even if keys were held from the previous tick.
 		PathProcessor.releaseControls();
 		clearAutoFlyInput();
-		playStopSound();
 		
 		if(disableAutoFlyOnStop.isChecked())
 		{
@@ -1601,16 +1378,6 @@ public final class AutoFlyHack extends Hack
 			.onAutoFlyStopped(message + " (use Next waypoint to continue)");
 		stopHold = true;
 		stopIgnoreTicks = 0;
-		pauseAutoOwnedFlight();
-	}
-	
-	public void stopFromCommand()
-	{
-		if(!isEnabled())
-			return;
-		
-		playStopSound();
-		setEnabled(false);
 	}
 	
 	private void ensureNewerNewChunksForStopOn()
@@ -1635,18 +1402,6 @@ public final class AutoFlyHack extends Hack
 		enabledRoofEspForStopOn = true;
 		ChatUtils
 			.message("RoofESP was enabled due to stop condition in AutoFly.");
-	}
-	
-	private void ensureSkyBuildEspForStopOn()
-	{
-		var skyBuildEsp = WURST.getHax().skyBuildEspHack;
-		if(skyBuildEsp.isEnabled())
-			return;
-		
-		skyBuildEsp.setEnabled(true);
-		enabledSkyBuildEspForStopOn = true;
-		ChatUtils.message(
-			"SkyBuildESP was enabled due to stop condition in AutoFly.");
 	}
 	
 	private String getStopKeyword(TextFieldSetting setting)
@@ -1696,17 +1451,11 @@ public final class AutoFlyHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
-		int etaWidth = eta == null || eta.isBlank() ? 0 : font.width(eta);
-		int backgroundWidth = Math.max(textWidth, etaWidth);
-		int backgroundBottom =
-			y + (etaWidth > 0 ? 10 : 0) + font.lineHeight + 2;
-		context.fill(centerX - backgroundWidth / 2 - 2, y - 2,
-			centerX + backgroundWidth / 2 + 2, backgroundBottom,
-			(int)Math.round(crosshairBackgroundOpacity.getValue() * 255) << 24);
 		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
 		
 		if(eta != null && !eta.isBlank())
 		{
+			int etaWidth = font.width(eta);
 			int etaX = centerX - etaWidth / 2;
 			context.drawString(font, eta, etaX, y + 10, 0xFFAAAAAA, true);
 		}
@@ -2328,13 +2077,11 @@ public final class AutoFlyHack extends Hack
 	
 	private double getCruiseY(AutoFlyTarget target)
 	{
-		double y = adjustFlightHeight.isChecked() ? flightHeight.getValue()
-			: MC.player != null ? MC.player.getY() : flightHeight.getValue();
+		double y = flightHeight.getValue();
 		if(commandForwardUnlimited && target != null && target.hasY
 			&& !Double.isNaN(commandForwardY))
 			y = commandForwardY;
-		if(adjustFlightHeight.isChecked()
-			&& routeType.getSelected() != RouteType.CHUNKS && target != null
+		if(routeType.getSelected() != RouteType.CHUNKS && target != null
 			&& target.hasY && !commandForwardUnlimited)
 			y = Math.max(y, target.pos.getY() + 2);
 		
@@ -2349,16 +2096,6 @@ public final class AutoFlyHack extends Hack
 		if(!flight.isEnabled())
 			flight.setEnabled(true);
 		applyFlightOverrides();
-	}
-	
-	private void ensureBoatFlyEnabledIfRiding()
-	{
-		if(MC.player == null || !MC.player.isPassenger())
-			return;
-		
-		var boatFly = WURST.getHax().boatFlyHack;
-		if(!boatFly.isEnabled())
-			boatFly.setEnabled(true);
 	}
 	
 	private void applyFlightSettings()
@@ -2393,26 +2130,8 @@ public final class AutoFlyHack extends Hack
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
 		if(!flightWasEnabled && flight.isEnabled())
-		{
-			if(MC.player != null)
-				MC.player.setDeltaMovement(Vec3.ZERO);
 			flight.setEnabled(false);
-		}
 		flightWasEnabled = false;
-	}
-	
-	private void pauseAutoOwnedFlight()
-	{
-		if(flightWasEnabled)
-			return;
-		
-		var flight = WURST.getHax().flightHack;
-		if(!flight.isEnabled())
-			return;
-		
-		if(MC.player != null)
-			MC.player.setDeltaMovement(Vec3.ZERO);
-		flight.setEnabled(false);
 	}
 	
 	private void applyFlightOverrides()
@@ -2684,6 +2403,7 @@ public final class AutoFlyHack extends Hack
 	{
 		if(MC.player == null || MC.level == null)
 			return;
+		chunkTrailSpeedScale = 1.0;
 		
 		var chunks = WURST.getHax().newerNewChunksHack;
 		var oldTrail = chunks.getOldChunksLiveView();
@@ -2716,6 +2436,7 @@ public final class AutoFlyHack extends Hack
 		}
 		if(!playerOnUsableGreen && nearbySafe != null)
 		{
+			chunkTrailSpeedScale = 0.35;
 			ChunkPos recoveryTargetChunk = nearbySafe;
 			if(chunkEdgeRecoveryAnchor != null && chunkEdgeRecoveryTicks > 0
 				&& isOldTrailNotNew(oldTrail, newSet, chunkEdgeRecoveryAnchor))
@@ -2783,10 +2504,6 @@ public final class AutoFlyHack extends Hack
 		boolean hasAheadUsableGreen = hasOldTrailAheadFromNearbyOrigins(
 			oldTrail, newSet, playerChunk, earlyAxis, earlyRight,
 			getAheadScanChunks(), getSideScanHalfWidth(), 2);
-		double targetSpeedScale =
-			getChunkTrailSpeedTarget(oldTrail, newSet, playerChunk, earlyAxis,
-				earlyRight, hasNearbyUsableGreen, hasAheadUsableGreen);
-		chunkTrailSpeedScale = smoothChunkTrailSpeedScale(targetSpeedScale);
 		if(!hasNearbyUsableGreen && !hasAheadUsableGreen)
 		{
 			long nowMs = System.currentTimeMillis();
@@ -2855,6 +2572,7 @@ public final class AutoFlyHack extends Hack
 				}
 				if(recoveryTarget != null)
 				{
+					chunkTrailSpeedScale = 0.35;
 					chunkNoTargetTicks++;
 					chunkTrailEndConfirmStrikes = 0;
 					chunkCorridorTargetPos = recoveryTarget;
@@ -2887,6 +2605,8 @@ public final class AutoFlyHack extends Hack
 			Vec3 looseOldTarget = selectLooseOldTrailTarget(oldTrail, newSet,
 				playerPos, pChunk, axis, right, playerForwardProgress);
 			double lead = Math.min(CHUNK_NO_TARGET_FORWARD_LEAD_BLOCKS, 10.0);
+			chunkTrailSpeedScale =
+				chunkNoTargetTicks > CHUNK_NO_TARGET_GRACE_TICKS ? 0.2 : 0.35;
 			Vec3 provisional = looseOldTarget != null ? looseOldTarget
 				: playerPos.add(axis.normalize().scale(lead));
 			
@@ -2898,6 +2618,9 @@ public final class AutoFlyHack extends Hack
 				double centerOffsetChunks = (rightDist - leftDist) * 0.5;
 				lateral +=
 					Math.max(-24.0, Math.min(24.0, centerOffsetChunks * 16.0));
+				int nearestWall = Math.min(leftDist, rightDist);
+				if(nearestWall <= 2)
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 			}else
 			{
 				int guard = Math.max(3, CHUNK_MIN_CORRIDOR_THICKNESS);
@@ -2905,10 +2628,12 @@ public final class AutoFlyHack extends Hack
 				if(leftDist > 0 && leftDist <= guard)
 				{
 					lateral += (guard + 1 - leftDist) * nudge; // push right
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 				}
 				if(rightDist > 0 && rightDist <= guard)
 				{
 					lateral -= (guard + 1 - rightDist) * nudge; // push left
+					chunkTrailSpeedScale = Math.min(chunkTrailSpeedScale, 0.35);
 				}
 			}
 			if(Math.abs(lateral) > 0.01)
@@ -3596,77 +3321,6 @@ public final class AutoFlyHack extends Hack
 		return false;
 	}
 	
-	private double getChunkTrailSpeedTarget(java.util.Set<ChunkPos> oldTrail,
-		java.util.Set<ChunkPos> newChunks, ChunkPos playerChunk, Vec3 forward,
-		Vec3 right, boolean hasNearbyUsableGreen, boolean hasAheadUsableGreen)
-	{
-		if(oldTrail == null || oldTrail.isEmpty() || playerChunk == null)
-			return 1.0;
-		
-		Vec3 flatForward =
-			forward == null ? null : new Vec3(forward.x, 0.0, forward.z);
-		Vec3 flatRight = right == null ? null : new Vec3(right.x, 0.0, right.z);
-		if(flatForward == null || flatForward.lengthSqr() < 1.0E-6
-			|| flatRight == null || flatRight.lengthSqr() < 1.0E-6)
-			return hasNearbyUsableGreen ? 1.0 : 0.55;
-		
-		flatForward = flatForward.normalize();
-		flatRight = flatRight.normalize();
-		
-		int forwardLimit = Math.max(2, getAheadScanChunks());
-		int sideLimit = Math.max(1, getSideScanHalfWidth());
-		int seenRows = 0;
-		double coverageSum = 0.0;
-		for(int f = 1; f <= forwardLimit; f++)
-		{
-			ChunkPos front = stepChunk(playerChunk, flatForward, f);
-			int usableInRow = 0;
-			int samplesInRow = 0;
-			for(int w = -sideLimit; w <= sideLimit; w++)
-			{
-				ChunkPos sample = stepChunk(front, flatRight, w);
-				samplesInRow++;
-				if(isOldTrailNotNew(oldTrail, newChunks, sample))
-					usableInRow++;
-			}
-			
-			if(usableInRow == 0)
-				break;
-			
-			seenRows++;
-			coverageSum += (double)usableInRow / samplesInRow;
-		}
-		
-		double targetScale;
-		if(seenRows == 0)
-			targetScale = hasNearbyUsableGreen ? 0.75 : 0.45;
-		else
-		{
-			double depthRatio = seenRows / (double)forwardLimit;
-			double coverageRatio = coverageSum / seenRows;
-			double confidence = depthRatio * 0.8 + coverageRatio * 0.2;
-			double slowdown = 1.0 - confidence;
-			targetScale = 1.0 - slowdown * slowdown * 0.85;
-		}
-		
-		// Keep the signal biased toward full speed and only shave off speed
-		// when the forward corridor really starts to disappear.
-		if(!hasNearbyUsableGreen)
-			targetScale = Math.min(targetScale, 0.85);
-		if(!hasAheadUsableGreen)
-			targetScale = Math.min(targetScale, 0.92);
-		
-		return MathUtils.clamp(targetScale, 0.3, 1.0);
-	}
-	
-	private double smoothChunkTrailSpeedScale(double targetScale)
-	{
-		targetScale = MathUtils.clamp(targetScale, 0.3, 1.0);
-		chunkTrailSpeedScale = MathUtils
-			.clamp(chunkTrailSpeedScale * 0.7 + targetScale * 0.3, 0.3, 1.0);
-		return chunkTrailSpeedScale;
-	}
-	
 	private static int getAdaptiveAheadScanHalfWidth(int baseHalfWidth,
 		int leftWallDist, int rightWallDist)
 	{
@@ -3693,20 +3347,17 @@ public final class AutoFlyHack extends Hack
 		if(origin == null || direction == null || steps == 0)
 			return origin;
 		
-		double absX = Math.abs(direction.x);
-		double absZ = Math.abs(direction.z);
-		if(absX < 1.0E-6 && absZ < 1.0E-6)
-			return origin;
-			
-		// Use 8-way chunk stepping so diagonal routes scan the same chunk bands
-		// the player is actually crossing instead of collapsing to X or Z only.
-		double diagonalCutoff = Math.tan(Math.PI / 8.0);
-		int dx = 0;
-		int dz = 0;
-		if(absZ > absX * diagonalCutoff)
-			dz = direction.z >= 0 ? 1 : -1;
-		if(absX > absZ * diagonalCutoff)
+		int dx;
+		int dz;
+		if(Math.abs(direction.x) >= Math.abs(direction.z))
+		{
 			dx = direction.x >= 0 ? 1 : -1;
+			dz = 0;
+		}else
+		{
+			dx = 0;
+			dz = direction.z >= 0 ? 1 : -1;
+		}
 		
 		return new ChunkPos(origin.x + dx * steps, origin.z + dz * steps);
 	}
@@ -4119,22 +3770,9 @@ public final class AutoFlyHack extends Hack
 	}
 	
 	private void applyVerticalAssist(Vec3 playerPos, double yDiff,
-		boolean nearTargetHoriz, boolean underNetherBedrock)
+		boolean nearTargetHoriz)
 	{
-		if(!adjustFlightHeight.isChecked())
-		{
-			restoreVerticalIfBoosted();
-			verticalAssistActive = false;
-			return;
-		}
-		
 		if(!nearTargetHoriz || currentTarget == null)
-		{
-			restoreVerticalIfBoosted();
-			verticalAssistActive = false;
-			return;
-		}
-		if(underNetherBedrock)
 		{
 			restoreVerticalIfBoosted();
 			verticalAssistActive = false;
@@ -4206,10 +3844,6 @@ public final class AutoFlyHack extends Hack
 		if(MC.level == null || MC.player == null)
 			return;
 		if(isDirectionalForwardMode())
-			return;
-		if(!adjustFlightHeight.isChecked())
-			return;
-		if(isUnderNetherBedrock(playerPos))
 			return;
 		
 		lastRepathMs = System.currentTimeMillis();
@@ -4327,29 +3961,6 @@ public final class AutoFlyHack extends Hack
 		setEnabled(false);
 	}
 	
-	private void playStopSound()
-	{
-		if(!stopSoundEnabled.isChecked() || MC.level == null
-			|| MC.player == null)
-			return;
-		
-		SoundEvent soundEvent = stopSound.getSelected().resolve();
-		if(soundEvent == null)
-			return;
-		
-		MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
-			MC.player.getZ(), soundEvent, SoundSource.PLAYERS, 1.0F, 1.0F,
-			false);
-	}
-	
-	private boolean isControlDown()
-	{
-		return InputConstants.isKeyDown(MC.getWindow(),
-			GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| InputConstants.isKeyDown(MC.getWindow(),
-				GLFW.GLFW_KEY_RIGHT_CONTROL);
-	}
-	
 	private void beginManualAdjust(Vec3 playerPos)
 	{
 		manualAdjustHold = true;
@@ -4428,25 +4039,8 @@ public final class AutoFlyHack extends Hack
 		}
 	}
 	
-	private void updateVerticalControls(double yDiff, boolean nearTargetY,
-		boolean underNetherBedrock)
+	private void updateVerticalControls(double yDiff, boolean nearTargetY)
 	{
-		if(!adjustFlightHeight.isChecked())
-		{
-			verticalMode = VerticalMode.NONE;
-			autoSetKey(MC.options.keyJump, false);
-			autoSetKey(MC.options.keyShift, false);
-			return;
-		}
-		
-		if(underNetherBedrock)
-		{
-			verticalMode = VerticalMode.NONE;
-			autoSetKey(MC.options.keyJump, false);
-			autoSetKey(MC.options.keyShift, false);
-			return;
-		}
-		
 		if(verticalAssistActive)
 		{
 			autoSetKey(MC.options.keyJump, false);
@@ -4744,17 +4338,6 @@ public final class AutoFlyHack extends Hack
 		return false;
 	}
 	
-	private boolean isUnderNetherBedrock(Vec3 playerPos)
-	{
-		if(MC.level == null || playerPos == null)
-			return false;
-		if(MC.level.dimension() != Level.NETHER)
-			return false;
-		if(playerPos.y >= 0.0)
-			return false;
-		return isBedrockCeilingAbove(playerPos);
-	}
-	
 	private double getGroundYAtXZ(BlockPos xz)
 	{
 		if(MC.level == null || xz == null)
@@ -4770,12 +4353,6 @@ public final class AutoFlyHack extends Hack
 	{
 		if(target == null || playerPos == null)
 			return playerPos != null ? playerPos.y : 0.0;
-		
-		if(!adjustFlightHeight.isChecked())
-			return playerPos.y;
-		
-		if(isUnderNetherBedrock(playerPos))
-			return playerPos.y;
 		
 		if(!target.hasY)
 			return Double.NaN;

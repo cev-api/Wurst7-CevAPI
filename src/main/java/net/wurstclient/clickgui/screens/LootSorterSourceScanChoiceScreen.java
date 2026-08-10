@@ -52,7 +52,7 @@ public final class LootSorterSourceScanChoiceScreen extends Screen
 	{
 		action.run();
 		if(minecraft.gui.screen() == this)
-			minecraft.gui.setScreen(null);
+			minecraft.setScreen(null);
 	}
 	
 	@Override

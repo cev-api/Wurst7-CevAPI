@@ -88,8 +88,7 @@ public final class NiceWurstModule
 			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
-				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
-				"AutoSpawnProofer", "AreaNuker"));
+				"TemplateTool", "SourceFill", "SuperInstaMine"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
@@ -107,15 +106,15 @@ public final class NiceWurstModule
 				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
 				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
 				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
-				"DamageESP", "ProjectileESP", "BlockOverlay"));
+				"DamageESP", "ProjectileESP"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
 				"BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar"));
+				"OppStats"));
 		
-		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention",
-			"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
+		ALLOWED_HACKS.put(Category.CHAT,
+			Set.of("AutoChat", "Mention", "NoPlayerChat"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
@@ -127,13 +126,13 @@ public final class NiceWurstModule
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest", "ShearAura"));
+				"WebhookAlert", "RemoteEChest"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
 				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
 				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
-				"SusNoMore", "UseItemSpam", "InventorySorter"));
+				"SusNoMore", "UseItemSpam"));
 	}
 	
 	private NiceWurstModule()

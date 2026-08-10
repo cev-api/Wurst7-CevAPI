@@ -76,8 +76,8 @@ public final class AntiBreakHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		if(MC.gui.screen() instanceof AbstractContainerScreen
-			&& !(MC.gui.screen() instanceof InventoryScreen))
+		if(MC.screen instanceof AbstractContainerScreen
+			&& !(MC.screen instanceof InventoryScreen))
 			return;
 		
 		for(EquipmentSlot slot : ARMOR_SLOTS)

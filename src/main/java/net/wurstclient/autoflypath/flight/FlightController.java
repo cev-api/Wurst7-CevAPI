@@ -199,7 +199,7 @@ public final class FlightController
 	{
 		if(this.player() != null)
 		{
-			this.player().sendSystemMessage(
+			this.player().displayClientMessage(
 				(Component)Component.literal((String)message));
 		}
 	}

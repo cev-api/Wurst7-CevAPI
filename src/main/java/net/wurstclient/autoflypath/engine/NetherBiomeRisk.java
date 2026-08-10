@@ -69,7 +69,7 @@ public final class NetherBiomeRisk
 	public boolean isRiskyChunk(int chunkX, int chunkZ)
 	{
 		return this.chunkRisk
-			.computeIfAbsent(ChunkPos.pack((int)chunkX, (int)chunkZ), key -> {
+			.computeIfAbsent(ChunkPos.asLong((int)chunkX, (int)chunkZ), key -> {
 				int[][] offs;
 				int bx = (chunkX << 4) + 8;
 				int bz = (chunkZ << 4) + 8;

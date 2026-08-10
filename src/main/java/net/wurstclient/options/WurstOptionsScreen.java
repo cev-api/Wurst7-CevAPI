@@ -43,7 +43,6 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.ColorUtils;
 import net.wurstclient.util.LastServerRememberer;
-import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.WurstColors;
 import net.wurstclient.clickgui.screens.EditColorScreen;
 
@@ -162,18 +161,10 @@ public final class WurstOptionsScreen extends Screen
 		CheckboxSetting capes = wurst.getOtfs().wurstCapesOtf.getCapesSetting();
 		CheckboxSetting forceAllowChats =
 			wurst.getOtfs().forceAllowChatsOtf.getForceAllowChatsSetting();
-		CheckboxSetting tabListPing = options.getTabListPingSetting();
-		CheckboxSetting tabListHeads = options.getTabListHeadsSetting();
-		CheckboxSetting tabListPingColors =
-			options.getTabListPingColorsSetting();
 		CheckboxSetting hackToggleFeedback =
 			options.getHackToggleChatFeedbackSetting();
 		CheckboxSetting customMojangLogoBg =
 			options.getCustomMojangLogoBackgroundSetting();
-		CheckboxSetting customMultiplayerLayout =
-			options.getCustomMultiplayerLayoutSetting();
-		CheckboxSetting titleScreenShadertoyBackground =
-			options.getTitleScreenShadertoyBackgroundSetting();
 		ColorSetting mojangLogoBgColor =
 			options.getMojangLogoBackgroundColorSetting();
 		CheckboxSetting hideEnableButton =
@@ -214,28 +205,6 @@ public final class WurstOptionsScreen extends Screen
 			"Pick the custom background color used behind the Mojang loading logo.",
 			b -> minecraft
 				.setScreen(new EditColorScreen(this, mojangLogoBgColor)));
-		
-		addButton(column,
-			() -> "Multiplayer Layout: "
-				+ onOff(customMultiplayerLayout.isChecked()),
-			"Toggle Wurst's custom server panels and search bar on the multiplayer screen.",
-			b -> customMultiplayerLayout
-				.setChecked(!customMultiplayerLayout.isChecked()));
-		
-		addButton(column,
-			() -> "Shader Background: "
-				+ onOff(titleScreenShadertoyBackground.isChecked()),
-			"Render an animatedbackground behind the title screen.", b -> {
-				boolean wasEnabled = titleScreenShadertoyBackground.isChecked();
-				titleScreenShadertoyBackground.setChecked(!wasEnabled);
-				if(!wasEnabled)
-					TitleBackgroundModeManager.advanceForEnableToggle();
-			});
-		
-		addButton(column, () -> "Import/Load Shader Background",
-			"Import a Shadertoy by URL or pasted source code as the menu background.",
-			b -> minecraft.gui
-				.setScreen(new CustomShadertoyBackgroundScreen(this)));
 		
 		addButton(column,
 			() -> "Hide Enable Button: " + onOff(hideEnableButton.isChecked()),
@@ -287,22 +256,6 @@ public final class WurstOptionsScreen extends Screen
 			() -> "Force Allow Chats: " + onOff(forceAllowChats.isChecked()),
 			forceAllowChats.getDescription(),
 			b -> forceAllowChats.setChecked(!forceAllowChats.isChecked()));
-		
-		addButton(column,
-			() -> "Tab List Live Ping: " + onOff(tabListPing.isChecked()),
-			tabListPing.getDescription(),
-			b -> tabListPing.setChecked(!tabListPing.isChecked()));
-		
-		addButton(column,
-			() -> "Tab List Player Heads: " + onOff(tabListHeads.isChecked()),
-			tabListHeads.getDescription(),
-			b -> tabListHeads.setChecked(!tabListHeads.isChecked()));
-		
-		addButton(column,
-			() -> "Tab List Ping Colors: "
-				+ onOff(tabListPingColors.isChecked()),
-			tabListPingColors.getDescription(),
-			b -> tabListPingColors.setChecked(!tabListPingColors.isChecked()));
 	}
 	
 	private void addPrivacySection()
@@ -496,12 +449,10 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> primaryLabel, "Open the main fork repository.",
 			b -> os.openUri(primaryUrl));
-		addButton(column, () -> "CevAPI GitLab", "gitlab.com/Cev-API/",
-			b -> os.openUri("https://gitlab.com/Cev-API/"));
+		
 		addButton(column, () -> "CevAPI Discord", "discord.gg/wDgqxkAKFQ",
 			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
-		addButton(column, () -> "CevAPI Website", "cevapi.dev",
-			b -> os.openUri("https://cevapi.dev/"));
+		
 		addButton(column, () -> "Wurst Website", "WurstClient.net",
 			b -> os.openUri("https://www.wurstclient.net/options-website/"));
 		

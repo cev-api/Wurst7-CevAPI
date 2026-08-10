@@ -27,7 +27,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
@@ -35,7 +35,6 @@ import net.minecraft.world.item.ItemStack;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.DurabilityHudHack;
-import net.wurstclient.hacks.EnchantmentHandlerHack;
 import net.wurstclient.mixin.GuiAccessor;
 import net.wurstclient.util.RenderUtils;
 
@@ -388,8 +387,7 @@ public final class DurabilityHud
 			|| MC.gameMode.getPlayerMode() == GameType.SPECTATOR)
 			return false;
 		
-		List<Component> lines =
-			getEnchantmentLines(state.stack(), hack.isShowEnchantmentColors());
+		List<Component> lines = getEnchantmentLines(state.stack());
 		
 		int alpha = getHotbarHighlightAlpha(state.timer());
 		if(alpha <= 0)
@@ -428,32 +426,18 @@ public final class DurabilityHud
 		return true;
 	}
 	
-	private static List<Component> getEnchantmentLines(ItemStack stack,
-		boolean colorEnchantments)
+	private static List<Component> getEnchantmentLines(ItemStack stack)
 	{
 		List<Component> lines = new ArrayList<>();
 		LinkedHashSet<String> seen = new LinkedHashSet<>();
-		appendEnchantmentLines(lines, seen, stack
-			.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY)
-			.entrySet(), colorEnchantments);
 		appendEnchantmentLines(lines, seen,
-			stack.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
-				ItemEnchantments.EMPTY).entrySet(),
-			colorEnchantments);
+			EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet());
 		return lines;
 	}
 	
 	private static void appendEnchantmentLines(List<Component> out,
 		Set<String> seen,
 		Iterable<Object2IntMap.Entry<Holder<Enchantment>>> enchantments)
-	{
-		appendEnchantmentLines(out, seen, enchantments, false);
-	}
-	
-	private static void appendEnchantmentLines(List<Component> out,
-		Set<String> seen,
-		Iterable<Object2IntMap.Entry<Holder<Enchantment>>> enchantments,
-		boolean colorEnchantments)
 	{
 		for(Object2IntMap.Entry<Holder<Enchantment>> entry : enchantments)
 		{
@@ -462,9 +446,7 @@ public final class DurabilityHud
 			String key = holder.getRegisteredName() + "#" + level;
 			if(!seen.add(key))
 				continue;
-			out.add(colorEnchantments ? EnchantmentHandlerHack
-				.getColoredEnchantmentName(holder, level)
-				: Enchantment.getFullname(holder, level));
+			out.add(Enchantment.getFullname(holder, level));
 		}
 	}
 	
@@ -483,7 +465,7 @@ public final class DurabilityHud
 		
 		int lines = 1;
 		if(includeEnchantments)
-			lines += getEnchantmentLines(state.stack(), false).size();
+			lines += getEnchantmentLines(state.stack()).size();
 		
 		float textHeight = lines * font.lineHeight;
 		if(lines > 1)

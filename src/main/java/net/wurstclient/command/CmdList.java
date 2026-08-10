@@ -26,7 +26,6 @@ public final class CmdList
 	public final BindsCmd bindsCmd = new BindsCmd();
 	public final BlinkCmd blinkCmd = new BlinkCmd();
 	public final BlockListCmd blockListCmd = new BlockListCmd();
-	public final BulkOpCmd bulkOpCmd = new BulkOpCmd();
 	public final ClearCmd clearCmd = new ClearCmd();
 	public final CopyItemCmd copyitemCmd = new CopyItemCmd();
 	public final DamageCmd damageCmd = new DamageCmd();
@@ -39,7 +38,6 @@ public final class CmdList
 	public final FeaturesCmd featuresCmd = new FeaturesCmd();
 	public final FollowCmd followCmd = new FollowCmd();
 	public final FriendsCmd friendsCmd = new FriendsCmd();
-	public final PlayerMuteCmd playerMuteCmd = new PlayerMuteCmd();
 	public final GetPosCmd getPosCmd = new GetPosCmd();
 	public final GiveCmd giveCmd = new GiveCmd();
 	public final GmCmd gmCmd = new GmCmd();
@@ -50,8 +48,6 @@ public final class CmdList
 	public final IpCmd ipCmd = new IpCmd();
 	public final ItemListCmd itemListCmd = new ItemListCmd();
 	public final JumpCmd jumpCmd = new JumpCmd();
-	public final KeyboardCmd keyboardCmd = new KeyboardCmd();
-	public final KeymapCmd keymapCmd = new KeymapCmd();
 	public final LeaveCmd leaveCmd = new LeaveCmd();
 	public final LivestreamCmd livestreamCmd = new LivestreamCmd();
 	public final MapaCmd mapaCmd = new MapaCmd();

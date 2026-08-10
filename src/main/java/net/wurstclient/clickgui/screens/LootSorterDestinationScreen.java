@@ -68,7 +68,7 @@ public final class LootSorterDestinationScreen extends Screen
 			}, this::editCustomItems, this::loadCustomList)))
 			.bounds(x, y, 220, 20).build());
 		addRenderableWidget(Button.builder(matchingRulesText(),
-			button -> minecraft.gui.setScreen(new LootSorterFilterRulesScreen(
+			button -> minecraft.setScreen(new LootSorterFilterRulesScreen(
 				this, modifiers, updated -> modifiers = updated)))
 			.bounds(x, y + 26, 220, 20).build());
 		addRenderableWidget(Button
@@ -91,7 +91,7 @@ public final class LootSorterDestinationScreen extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Remove destination"), button -> {
 				removeDestination.run();
-				minecraft.gui.setScreen(previous);
+				minecraft.setScreen(previous);
 			}).bounds(x, y + 156, 220, 20).build());
 	}
 	
@@ -100,14 +100,14 @@ public final class LootSorterDestinationScreen extends Screen
 	{
 		if(!rule.isConfigured())
 			removeDestination.run();
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	private void editCustomItems()
 	{
 		selected = customFilter.get();
 		draftCustomList = true;
-		minecraft.gui.setScreen(new EditItemListScreen(this, customItems));
+		minecraft.setScreen(new EditItemListScreen(this, customItems));
 	}
 	
 	private void loadCustomList()
@@ -165,20 +165,20 @@ public final class LootSorterDestinationScreen extends Screen
 	private void saveDestinationAndReturn()
 	{
 		if(saveDestination())
-			minecraft.gui.setScreen(previous);
+			minecraft.setScreen(previous);
 	}
 	
 	private void saveAndRun()
 	{
 		if(!saveDestination())
 			return;
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 		finalAction.run();
 	}
 	
 	private void promptCustomListName()
 	{
-		minecraft.gui.setScreen(new LootSorterCustomPresetNameScreen(this,
+		minecraft.setScreen(new LootSorterCustomPresetNameScreen(this,
 			saveCustomList, saved -> {
 				selected = saved;
 				draftCustomList = false;

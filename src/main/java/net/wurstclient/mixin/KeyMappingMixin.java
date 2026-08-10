@@ -82,10 +82,4 @@ public abstract class KeyMappingMixin implements IKeyMapping
 	
 	@Shadow
 	public abstract void setDown(boolean pressed);
-	
-	@Override
-	public InputConstants.Key wurst_getBoundKey()
-	{
-		return key;
-	}
 }

@@ -93,10 +93,6 @@ public final class DurabilityHudHack extends Hack
 		"Show hotbar enchantments",
 		"Shows the selected item's enchantments under the item name while cycling the hotbar.",
 		false);
-	private final CheckboxSetting showEnchantmentColors =
-		new CheckboxSetting("Enchant colors",
-			"Uses EnchantmentHandler's colors for hotbar enchantment lines.",
-			false);
 	private final CheckboxSetting avoidActionbarText = new CheckboxSetting(
 		"Avoid bottom text",
 		"Moves the HUD up when Minecraft shows bottom-center text (actionbar, selected item name).",
@@ -123,7 +119,6 @@ public final class DurabilityHudHack extends Hack
 		addSetting(bossBarStyle);
 		addSetting(showOffhand);
 		addSetting(showHotbarEnchantments);
-		addSetting(showEnchantmentColors);
 		addSetting(avoidActionbarText);
 		addSetting(fontColor);
 		addSetting(gradientFontColor);
@@ -160,11 +155,6 @@ public final class DurabilityHudHack extends Hack
 	public boolean isShowHotbarEnchantments()
 	{
 		return showHotbarEnchantments.isChecked();
-	}
-	
-	public boolean isShowEnchantmentColors()
-	{
-		return showEnchantmentColors.isChecked();
 	}
 	
 	public boolean avoidActionbarText()

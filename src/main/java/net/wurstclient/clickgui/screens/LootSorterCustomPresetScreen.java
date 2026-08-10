@@ -56,7 +56,7 @@ public final class LootSorterCustomPresetScreen extends Screen
 			addRenderableWidget(
 				Button.builder(Component.literal(preset.getName()), button -> {
 					select.accept(preset);
-					minecraft.gui.setScreen(previous);
+					minecraft.setScreen(previous);
 				}).bounds(x, 38 + i * 24, 204, 20).build());
 			addRenderableWidget(Button
 				.builder(Component.literal("X"),
@@ -77,14 +77,14 @@ public final class LootSorterCustomPresetScreen extends Screen
 				}).bounds(x + 166, height - 30, 74, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				button -> minecraft.gui.setScreen(previous))
+				button -> minecraft.setScreen(previous))
 			.bounds(x, height - 30, 74, 20).build());
 	}
 	
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	private void rebuildPage()

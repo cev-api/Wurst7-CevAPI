@@ -48,24 +48,13 @@ public final class GlobalEspRenderer
 		
 		ensureTargetsForWindow();
 		
-		GlobalEspManager.getInstance().beginReplay();
-		try
-		{
-			runSilhouettePass(matrices, collector);
-			runCompositePass();
-		}finally
-		{
-			GlobalEspManager.getInstance().endReplay();
-		}
+		runSilhouettePass(matrices, collector);
+		runCompositePass();
 	}
 	
 	public void cleanup()
 	{
 		freeTargets();
-		// Belt-and-suspenders: if a replay was somehow left in progress,
-		// force-clear the guard so normal ESP rendering can resume next
-		// frame.
-		GlobalEspManager.getInstance().endReplay();
 	}
 	
 	private void ensureTargetsForWindow()

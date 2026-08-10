@@ -8,28 +8,25 @@
 package net.wurstclient.gametest;
 
 import java.nio.file.Path;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import net.fabricmc.fabric.api.client.gametest.v1.TestInput;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientLevelContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.wurstclient.gametest.BlockTestHelper.BlockBatch;
+import net.minecraft.world.level.block.Block;
 
 public abstract class SingleplayerTest
 {
 	protected final ClientGameTestContext context;
 	protected final TestSingleplayerContext spContext;
 	protected final TestInput input;
-	protected final TestClientLevelContext world;
+	protected final TestClientWorldContext world;
 	protected final TestServerContext server;
 	protected final Logger logger = WurstTest.LOGGER;
 	
@@ -39,7 +36,7 @@ public abstract class SingleplayerTest
 		this.context = context;
 		this.spContext = spContext;
 		this.input = context.getInput();
-		this.world = spContext.getClientLevel();
+		this.world = spContext.getClientWorld();
 		this.server = spContext.getServer();
 	}
 	
@@ -53,7 +50,7 @@ public abstract class SingleplayerTest
 		String testName = getClass().getSimpleName();
 		int retries =
 			waitForScreenshotMatch(testName.toLowerCase() + "_cleanup",
-				"https://i.imgur.com/XF1SILt.png");
+				"https://i.imgur.com/i2Nr9is.png");
 		
 		if(retries > 0)
 			logger.warn(testName + " needed " + retries
@@ -81,29 +78,11 @@ public abstract class SingleplayerTest
 		WurstClientTestHelper.runWurstCommand(context, command);
 	}
 	
-	protected final void waitFor(Predicate<Minecraft> predicate,
-		String errorMsg)
+	protected final void waitForBlock(int relX, int relY, int relZ, Block block)
 	{
-		waitFor(predicate, ClientGameTestContext.DEFAULT_TIMEOUT, errorMsg);
-	}
-	
-	protected final void waitFor(Predicate<Minecraft> predicate, int timeout,
-		String errorMsg)
-	{
-		try
-		{
-			context.waitFor(predicate, timeout);
-			
-		}catch(AssertionError e)
-		{
-			WurstClientTestHelper.ghSummary(errorMsg);
-			throw new AssertionError(errorMsg);
-		}
-	}
-	
-	protected final void setBlocksAndWait(Consumer<BlockBatch> batchBuilder)
-	{
-		BlockTestHelper.setBlocksAndWait(context, spContext, batchBuilder);
+		context.waitFor(mc -> mc.level
+			.getBlockState(mc.player.blockPosition().offset(relX, relY, relZ))
+			.getBlock() == block);
 	}
 	
 	/**
@@ -123,7 +102,7 @@ public abstract class SingleplayerTest
 	
 	protected final void clearChat()
 	{
-		context.runOnClient(mc -> mc.gui.hud.getChat().clearMessages(true));
+		context.runOnClient(mc -> mc.gui.getChat().clearMessages(true));
 	}
 	
 	protected final void clearInventory()
@@ -141,7 +120,7 @@ public abstract class SingleplayerTest
 	
 	protected final void clearToasts()
 	{
-		context.runOnClient(mc -> mc.gui.toastManager().clear());
+		context.runOnClient(mc -> mc.getToastManager().clear());
 	}
 	
 	protected final void assertOneItemInSlot(int slot, Item item)
@@ -149,10 +128,10 @@ public abstract class SingleplayerTest
 		ItemStack stack = context
 			.computeOnClient(mc -> mc.player.getInventory().getItem(slot));
 		if(!stack.is(item) || stack.getCount() != 1)
-			throw new RuntimeException("Expected 1 "
-				+ item.getName(item.getDefaultInstance()).getString()
-				+ " at slot " + slot + ", found " + stack.getCount() + " "
-				+ stack.getItemName().getString() + " instead");
+			throw new RuntimeException(
+				"Expected 1 " + item.getName().getString() + " at slot " + slot
+					+ ", found " + stack.getCount() + " "
+					+ stack.getItem().getName().getString() + " instead");
 	}
 	
 	protected final void assertScreenshotEquals(String fileName,
@@ -193,6 +172,6 @@ public abstract class SingleplayerTest
 		if(!stack.isEmpty())
 			throw new RuntimeException("Expected no item in slot " + slot
 				+ ", found " + stack.getCount() + " "
-				+ stack.getItemName().getString() + " instead");
+				+ stack.getItem().getName().getString() + " instead");
 	}
 }

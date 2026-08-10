@@ -27,7 +27,6 @@ import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
@@ -36,17 +35,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import com.mojang.blaze3d.platform.InputConstants;
-import org.lwjgl.glfw.GLFW;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
-import net.wurstclient.events.HandleInputListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
@@ -55,7 +50,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 @SearchTags({"untouchable", "dodge hvh", "hacker vs hacker", "anti mace",
 	"anti spear", "anti sword", "anti axe", "mace dodge", "spear dodge"})
 public final class UntouchableHack extends Hack
-	implements UpdateListener, PacketInputListener, HandleInputListener
+	implements UpdateListener, PacketInputListener
 {
 	private static final int DIRECTION_SAMPLES = 16;
 	private static final long MACE_PACKET_CUE_MS = 500;
@@ -132,14 +127,6 @@ public final class UntouchableHack extends Hack
 		new EnumSetting<>("Move pause mode",
 			"description.wurst.setting.untouchable.move_pause_mode",
 			MovePauseMode.values(), MovePauseMode.MOVE_TOWARD_PLAYER);
-	private final CheckboxSetting pauseOnShift = new CheckboxSetting(
-		"Pause on shift",
-		"Holding sneak prevents Untouchable from teleporting. While held, the "
-			+ "sneak key is released again so you keep moving at normal speed.",
-		false);
-	private final CheckboxSetting pauseOnLeftControl =
-		new CheckboxSetting("Pause on left Ctrl",
-			"Holding left Ctrl prevents Untouchable from teleporting.", false);
 	private final SliderSetting playerDistance =
 		new SliderSetting("Player distance",
 			"description.wurst.setting.untouchable.player_distance", 7, 3, 16,
@@ -182,21 +169,6 @@ public final class UntouchableHack extends Hack
 	private final CheckboxSetting avoidArrows =
 		new CheckboxSetting("Avoid arrows",
 			"description.wurst.setting.untouchable.avoid_arrows", true);
-	private final CheckboxSetting avoidCrystals = new CheckboxSetting(
-		"Avoid crystals",
-		"Dodges dangerous end crystals near you when they are placed.", true);
-	private final SliderSetting armedRadiusBonus =
-		new SliderSetting("Armed radius bonus",
-			"Extra defensive radius while an enemy is holding a spear or mace.",
-			4, 0, 12, 0.5, ValueDisplay.DECIMAL.withSuffix(" blocks"));
-	private final CheckboxSetting emergencyEscape = new CheckboxSetting(
-		"Emergency escape",
-		"Teleports perpendicular to the current threat after taking at least the configured damage.",
-		true);
-	private final SliderSetting emergencyDamage =
-		new SliderSetting("Emergency damage",
-			"Minimum health damage that triggers an emergency escape.", 10, 1,
-			40, 1, ValueDisplay.INTEGER.withSuffix(" HP"));
 	
 	private final Map<Integer, Vec3> previousPositions = new HashMap<>();
 	private final Map<Integer, MacePacketCue> macePacketCues =
@@ -208,7 +180,6 @@ public final class UntouchableHack extends Hack
 	private int cooldownTicksLeft;
 	private int statusTicksLeft;
 	private ThreatType activeThreat;
-	private float lastHealth = -1;
 	
 	public UntouchableHack()
 	{
@@ -219,19 +190,15 @@ public final class UntouchableHack extends Hack
 		addSetting(dodgeAxes);
 		addSetting(dodgeSpears);
 		addSetting(onlyPrimedSpears);
-		addSetting(avoidCrystals);
 		addSetting(keepDistance);
 		addSetting(autoDistanceOnDamage);
 		addSetting(autoDistanceOnTotemPop);
 		addSetting(keepDistanceMode);
 		addSetting(movePauseMode);
-		addSetting(pauseOnShift);
-		addSetting(pauseOnLeftControl);
 		addSetting(playerDistance);
 		addSetting(detectionRange);
 		addSetting(reachAllowance);
 		addSetting(reactionTicks);
-		addSetting(armedRadiusBonus);
 		addSetting(scanDistance);
 		addSetting(verticalScan);
 		addSetting(teleportPackets);
@@ -240,8 +207,6 @@ public final class UntouchableHack extends Hack
 		addSetting(avoidHostileMobs);
 		addSetting(onlyChargingCreepers);
 		addSetting(avoidArrows);
-		addSetting(emergencyEscape);
-		addSetting(emergencyDamage);
 	}
 	
 	@Override
@@ -255,7 +220,6 @@ public final class UntouchableHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
-		EVENTS.add(HandleInputListener.class, this);
 		reset();
 	}
 	
@@ -264,7 +228,6 @@ public final class UntouchableHack extends Hack
 	{
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(PacketInputListener.class, this);
-		EVENTS.remove(HandleInputListener.class, this);
 		reset();
 	}
 	
@@ -277,20 +240,12 @@ public final class UntouchableHack extends Hack
 		cooldownTicksLeft = 0;
 		statusTicksLeft = 0;
 		activeThreat = null;
-		lastHealth = -1;
 	}
 	
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
 		inspectPacket(event.getPacket());
-	}
-	
-	@Override
-	public void onHandleInput()
-	{
-		if(shouldPauseOnShift())
-			releaseSneakKey();
 	}
 	
 	private void inspectPacket(Packet<?> packet)
@@ -509,7 +464,6 @@ public final class UntouchableHack extends Hack
 		
 		rememberPrimedSpears();
 		rememberChargingCreepers();
-		checkEmergencyDamage();
 		if(cooldownTicksLeft > 0)
 			cooldownTicksLeft--;
 		
@@ -623,60 +577,7 @@ public final class UntouchableHack extends Hack
 					best = threat;
 			}
 		}
-		if(avoidCrystals.isChecked())
-		{
-			for(Entity entity : MC.level.entitiesForRendering())
-			{
-				if(!(entity instanceof EndCrystal crystal)
-					|| !crystal.isAlive())
-					continue;
-				Threat threat = getCrystalThreat(crystal);
-				if(threat != null
-					&& (best == null || threat.urgency > best.urgency))
-					best = threat;
-			}
-		}
 		return best;
-	}
-	
-	private void checkEmergencyDamage()
-	{
-		float health = MC.player.getHealth();
-		if(lastHealth < 0)
-		{
-			lastHealth = health;
-			return;
-		}
-		
-		float damage = lastHealth - health;
-		lastHealth = health;
-		if(!emergencyEscape.isChecked() || damage < emergencyDamage.getValueF()
-			|| MC.player.hurtTime <= 0)
-			return;
-		
-		Threat threat = null;
-		for(Player attacker : MC.level.players())
-		{
-			if(attacker == MC.player || !attacker.isAlive()
-				|| isIgnoredPlayer(attacker))
-				continue;
-			Threat candidate =
-				getMeleeThreat(attacker, WeaponType.SWORD, false);
-			if(candidate == null)
-				candidate = getMeleeThreat(attacker, WeaponType.AXE, false);
-			if(candidate != null
-				&& (threat == null || candidate.urgency > threat.urgency))
-				threat = candidate;
-		}
-		
-		if(threat == null)
-		{
-			Vec3 center = MC.player.getBoundingBox().getCenter();
-			threat = new Threat(ThreatType.EMERGENCY, center,
-				center.add(0, 0, 1), 1000);
-		}
-		activeThreat = ThreatType.EMERGENCY;
-		teleportAway(threat, true);
 	}
 	
 	private Threat getSpacingThreat(Player attacker, Vec3 attackerPosition)
@@ -910,9 +811,7 @@ public final class UntouchableHack extends Hack
 		Vec3 attackerCenter = attacker.getBoundingBox().getCenter();
 		double horizontalDistance =
 			horizontalLength(attackerCenter.subtract(playerCenter));
-		double armedRadius =
-			reachAllowance.getValue() + 2 + armedRadiusBonus.getValue();
-		if(horizontalDistance > armedRadius)
+		if(horizontalDistance > reachAllowance.getValue() + 2)
 			return null;
 		
 		MacePacketCue cue = macePacketCues.get(attacker.getId());
@@ -986,20 +885,6 @@ public final class UntouchableHack extends Hack
 			110 + Math.max(0, 6 - arrowCenter.distanceTo(playerCenter)) * 12
 				- missDistance * 5;
 		return new Threat(ThreatType.ARROW, arrowCenter, end, urgency);
-	}
-	
-	private Threat getCrystalThreat(EndCrystal crystal)
-	{
-		Vec3 playerCenter = MC.player.getBoundingBox().getCenter();
-		Vec3 crystalCenter = crystal.getBoundingBox().getCenter();
-		double distance = crystalCenter.distanceTo(playerCenter);
-		double radius = Math.max(detectionRange.getValue(), 6);
-		if(distance > radius)
-			return null;
-		
-		double urgency = 260 + Math.max(0, radius - distance) * 20;
-		return new Threat(ThreatType.CRYSTAL, crystalCenter, playerCenter,
-			urgency);
 	}
 	
 	private boolean isChargingCreeper(Entity entity)
@@ -1130,14 +1015,7 @@ public final class UntouchableHack extends Hack
 	
 	private void teleportAway(Threat threat)
 	{
-		teleportAway(threat, false);
-	}
-	
-	private void teleportAway(Threat threat, boolean emergency)
-	{
 		if(MC.player == null || MC.player.connection == null)
-			return;
-		if(!emergency && shouldSuppressDodging(threat.pathStart))
 			return;
 		Vec3 destination = chooseDodgeDestination(threat);
 		if(destination == null)
@@ -1254,36 +1132,11 @@ public final class UntouchableHack extends Hack
 	
 	private boolean shouldSuppressDodging(Vec3 targetPosition)
 	{
-		if(shouldPauseOnShift() || shouldPauseOnLeftControl())
-			return true;
 		if(movePauseMode.getSelected() == MovePauseMode.ANY_MOVEMENT_KEY)
 			return MC.options != null && (MC.options.keyUp.isDown()
 				|| MC.options.keyDown.isDown() || MC.options.keyLeft.isDown()
 				|| MC.options.keyRight.isDown());
 		return isWalkingToward(targetPosition);
-	}
-	
-	private boolean shouldPauseOnShift()
-	{
-		if(!pauseOnShift.isChecked() || MC.options == null)
-			return false;
-		
-		return IKeyMapping.get(MC.options.keyShift).isActuallyDown();
-	}
-	
-	private boolean shouldPauseOnLeftControl()
-	{
-		return pauseOnLeftControl.isChecked() && MC.getWindow() != null
-			&& InputConstants.isKeyDown(MC.getWindow(),
-				GLFW.GLFW_KEY_LEFT_CONTROL);
-	}
-	
-	private void releaseSneakKey()
-	{
-		IKeyMapping sneakKey = IKeyMapping.get(MC.options.keyShift);
-		sneakKey.setDown(false);
-		if(MC.player != null)
-			MC.player.setShiftKeyDown(false);
 	}
 	
 	private boolean isIgnoredPlayer(Player player)
@@ -1420,9 +1273,7 @@ public final class UntouchableHack extends Hack
 		SWORD("Sword!"),
 		AXE("Axe!"),
 		ARROW("Arrow"),
-		CRYSTAL("Crystal!"),
 		MOB("Mob"),
-		EMERGENCY("Emergency!"),
 		SPACING("Spacing");
 		
 		private final String label;

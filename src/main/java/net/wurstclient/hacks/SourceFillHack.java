@@ -238,7 +238,7 @@ public final class SourceFillHack extends Hack
 		if(tracerFlash.isChecked())
 			color = RenderUtils.flashColor(color);
 		
-		RenderUtils.drawTracers("SourceFill", matrixStack, partialTicks,
+		RenderUtils.drawTracers(matrixStack, partialTicks,
 			boxes.stream().map(AABB::getCenter).toList(), color, false);
 	}
 	

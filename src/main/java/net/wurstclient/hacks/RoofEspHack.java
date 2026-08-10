@@ -553,8 +553,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		{
 			int tracerColor = tracerFlash.isChecked()
 				? RenderUtils.flashColor(linesColor) : linesColor;
-			RenderUtils.drawTracers("RoofESP", matrixStack, partialTicks,
-				tracerEnds, tracerColor, false);
+			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
+				tracerColor, false);
 		}
 	}
 	

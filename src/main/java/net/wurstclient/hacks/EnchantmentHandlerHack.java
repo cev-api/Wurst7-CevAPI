@@ -33,8 +33,6 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.ResultSlot;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -115,14 +113,6 @@ public final class EnchantmentHandlerHack extends Hack
 		new CheckboxSetting("Show slot numbers", false);
 	private final CheckboxSetting colorEnchantments =
 		new CheckboxSetting("Color enchantments", true);
-	private final CheckboxSetting colorEnchantmentsInChestSearch =
-		new CheckboxSetting("Color enchantments in Chest Search",
-			"Applies EnchantmentHandler's enchantment colors to Chest Search results.",
-			true);
-	private final CheckboxSetting showColorsInTooltips =
-		new CheckboxSetting("Show colors in tool tips",
-			"Applies EnchantmentHandler's enchantment colors to item tooltips.",
-			false);
 	
 	private final SliderSetting iconScale = new SliderSetting("Icon scale",
 		"Scale factor for item icons rendered in the list.", 1.0, 0.5, 1.0, 0.1,
@@ -204,8 +194,6 @@ public final class EnchantmentHandlerHack extends Hack
 		addSetting(useItemIcons);
 		addSetting(showSlotNumbers);
 		addSetting(colorEnchantments);
-		addSetting(colorEnchantmentsInChestSearch);
-		addSetting(showColorsInTooltips);
 		addSetting(iconScale);
 		addSetting(includePlayerInventory);
 		addSetting(includeShulkerContents);
@@ -294,11 +282,6 @@ public final class EnchantmentHandlerHack extends Hack
 		
 		if(MC.player == null || MC.gameMode == null)
 			return;
-		if(isExcludedScreen(screen))
-		{
-			clearRenderState();
-			return;
-		}
 		if(screen instanceof InventoryScreen
 			&& !showOnInventoryScreen.isChecked())
 			return;
@@ -384,10 +367,6 @@ public final class EnchantmentHandlerHack extends Hack
 		double mouseX, double mouseY, int button)
 	{
 		if(!lastRenderActive)
-			return false;
-		if(isExcludedScreen(screen))
-			return false;
-		if(isOverHandledSlot(screen, mouseX, mouseY))
 			return false;
 		
 		// Handle scroll bar click/drag
@@ -478,34 +457,6 @@ public final class EnchantmentHandlerHack extends Hack
 		return isInsidePanel(mouseX, mouseY);
 	}
 	
-	private boolean isOverHandledSlot(AbstractContainerScreen<?> screen,
-		double mouseX, double mouseY)
-	{
-		if(screen == null)
-			return false;
-		
-		HandledScreenAccessor accessor = (HandledScreenAccessor)screen;
-		AbstractContainerMenu handler = screen.getMenu();
-		if(handler == null || handler.slots == null)
-			return false;
-		
-		int left = accessor.getX();
-		int top = accessor.getY();
-		for(Slot slot : handler.slots)
-		{
-			if(slot == null)
-				continue;
-			
-			int slotX = left + slot.x;
-			int slotY = top + slot.y;
-			if(mouseX >= slotX && mouseX < slotX + 16 && mouseY >= slotY
-				&& mouseY < slotY + 16)
-				return true;
-		}
-		
-		return false;
-	}
-	
 	public boolean handleMouseRelease(AbstractContainerScreen<?> screen,
 		double mouseX, double mouseY, int button)
 	{
@@ -529,8 +480,6 @@ public final class EnchantmentHandlerHack extends Hack
 		double mouseX, double mouseY, double amount)
 	{
 		if(!lastRenderActive)
-			return false;
-		if(isExcludedScreen(screen))
 			return false;
 		
 		if(!isInsidePanel(mouseX, mouseY))
@@ -576,23 +525,6 @@ public final class EnchantmentHandlerHack extends Hack
 		return mouseX >= panelX + panelWidth - SCROLL_BAR_WIDTH - 2
 			&& mouseX <= panelX + panelWidth && mouseY >= panelY
 			&& mouseY <= panelY + panelHeight;
-	}
-	
-	private boolean isExcludedScreen(AbstractContainerScreen<?> screen)
-	{
-		return screen != null && screen.getMenu() instanceof CraftingMenu;
-	}
-	
-	private void clearRenderState()
-	{
-		lastRenderActive = false;
-		hitboxes.clear();
-		hoveredSlotId = -1;
-		hoverStartMs = 0L;
-		scrollBarDragging = false;
-		panelDragging = false;
-		if(SlotHighlighter.INSTANCE.isEnchantmentHandlerActive())
-			SlotHighlighter.INSTANCE.clearEnchantmentHandlerActive();
 	}
 	
 	private double getScrollThumbHeight(double trackHeight)
@@ -1172,7 +1104,7 @@ public final class EnchantmentHandlerHack extends Hack
 		for(int i = 0; i < containerSlots; i++)
 		{
 			Slot slot = slots.get(i);
-			if(shouldSkipScannedSlot(slot))
+			if(slot == null || !slot.hasItem())
 				continue;
 			
 			ItemStack stack = slot.getItem();
@@ -1309,7 +1241,7 @@ public final class EnchantmentHandlerHack extends Hack
 		for(int i = containerSlots; i < scanSlots; i++)
 		{
 			Slot slot = slots.get(i);
-			if(shouldSkipScannedSlot(slot))
+			if(slot == null || !slot.hasItem())
 				continue;
 			ItemStack stack = slot.getItem();
 			if(stack.isEmpty())
@@ -1497,14 +1429,6 @@ public final class EnchantmentHandlerHack extends Hack
 					return n;
 				return Integer.compare(a.displaySlot, b.displaySlot);
 			}));
-	}
-	
-	private boolean shouldSkipScannedSlot(Slot slot)
-	{
-		if(slot == null || !slot.hasItem())
-			return true;
-		
-		return slot instanceof ResultSlot;
 	}
 	
 	private GearEntry buildGearEntry(Slot slot, ItemStack stack,
@@ -2020,80 +1944,6 @@ public final class EnchantmentHandlerHack extends Hack
 		if(colorEnchantments.isChecked())
 			return translated;
 		return stripFormattingCodes(translated);
-	}
-	
-	public boolean shouldShowColorsInTooltips()
-	{
-		return showColorsInTooltips.isChecked();
-	}
-	
-	public boolean shouldColorEnchantmentsInChestSearch()
-	{
-		return colorEnchantments.isChecked()
-			&& colorEnchantmentsInChestSearch.isChecked();
-	}
-	
-	public static Component getColoredEnchantmentName(
-		Holder<Enchantment> holder, int level)
-	{
-		if(holder == null)
-			return Component.empty();
-		
-		Identifier id = holder.unwrapKey()
-			.map(registryKey -> registryKey.identifier()).orElse(null);
-		String path = id != null ? id.getPath()
-			: sanitizePath(holder.getRegisteredName());
-		String display = getColoredEnchantmentDisplay(path, level);
-		if(display == null)
-			return Enchantment.getFullname(holder, level);
-		
-		return Component.literal(display);
-	}
-	
-	public static String getColoredEnchantmentDisplay(String path, int level)
-	{
-		if(path == null || path.isEmpty())
-			return null;
-		
-		String display = ENCHANT_DISPLAY.get(path);
-		if(display == null)
-			return null;
-		
-		if(level > 1)
-			display += " \u00a7f" + level;
-		return display;
-	}
-	
-	public static Component colorizeTooltipLine(ItemStack stack, Component line)
-	{
-		if(stack == null || line == null)
-			return line;
-		
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
-			.getOrDefault(DataComponents.ENCHANTMENTS,
-				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
-			.entrySet())
-		{
-			Component vanilla =
-				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
-			if(vanilla.getString().equals(line.getString()))
-				return getColoredEnchantmentName(entry.getKey(),
-					entry.getIntValue());
-		}
-		
-		for(Object2IntMap.Entry<Holder<Enchantment>> entry : stack
-			.getOrDefault(DataComponents.STORED_ENCHANTMENTS,
-				net.minecraft.world.item.enchantment.ItemEnchantments.EMPTY)
-			.entrySet())
-		{
-			Component vanilla =
-				Enchantment.getFullname(entry.getKey(), entry.getIntValue());
-			if(vanilla.getString().equals(line.getString()))
-				return getColoredEnchantmentName(entry.getKey(),
-					entry.getIntValue());
-		}
-		
-		return line;
 	}
 	
 	/**

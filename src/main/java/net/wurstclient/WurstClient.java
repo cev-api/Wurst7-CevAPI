@@ -50,7 +50,6 @@ import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
 import net.wurstclient.util.HackToggleFeedback;
-import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
@@ -163,7 +162,6 @@ public enum WurstClient
 		settingsProfileFolder = wurstFolder.resolve("settings");
 		this.settingsFile = new SettingsFile(settingsFile, hax, cmds, otfs);
 		this.settingsFile.load();
-		TitleBackgroundModeManager.advanceForStartup();
 		hax.tooManyHaxHack.loadBlockedHacksFile();
 		otfs.hackListOtf.loadHiddenHacksFile();
 		

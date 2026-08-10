@@ -22,7 +22,6 @@ import net.wurstclient.events.MouseButtonPressListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hack.HackList;
 import net.wurstclient.util.ChatUtils;
-import net.wurstclient.util.InputSimulation;
 import net.wurstclient.xpgui.XpGuiScreen;
 
 public final class KeybindProcessor
@@ -43,9 +42,6 @@ public final class KeybindProcessor
 	@Override
 	public void onKeyPress(KeyPressEvent event)
 	{
-		if(InputSimulation.isActive())
-			return;
-		
 		if(event.getAction() != GLFW.GLFW_PRESS
 			&& event.getAction() != GLFW.GLFW_REPEAT)
 			return;
@@ -127,9 +123,6 @@ public final class KeybindProcessor
 	@Override
 	public void onMouseButtonPress(MouseButtonPressEvent event)
 	{
-		if(InputSimulation.isActive())
-			return;
-		
 		if(event.getAction() != GLFW.GLFW_PRESS)
 			return;
 		

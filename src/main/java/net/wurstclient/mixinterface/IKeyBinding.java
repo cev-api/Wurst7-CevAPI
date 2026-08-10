@@ -8,7 +8,6 @@
 package net.wurstclient.mixinterface;
 
 import net.minecraft.client.KeyMapping;
-import net.wurstclient.util.InputSimulation;
 
 /**
  * Backwards-compatible keybinding mixinterface.
@@ -59,7 +58,7 @@ public interface IKeyBinding
 	 */
 	default void simulatePress(boolean pressed)
 	{
-		InputSimulation.run(() -> wurst_simulatePress(pressed));
+		wurst_simulatePress(pressed);
 	}
 	
 	/**

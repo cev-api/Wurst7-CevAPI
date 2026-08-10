@@ -30,7 +30,6 @@ import net.wurstclient.util.json.JsonException;
 public final class HackList implements UpdateListener
 {
 	public final AimAssistHack aimAssistHack = new AimAssistHack();
-	public final AutoClickerHack autoClickerHack = new AutoClickerHack();
 	public final AirPlaceHack airPlaceHack = new AirPlaceHack();
 	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();
@@ -57,9 +56,6 @@ public final class HackList implements UpdateListener
 	public final AutoArmorHack autoArmorHack = new AutoArmorHack();
 	public final AutoBuildHack autoBuildHack = new AutoBuildHack();
 	public final AutoChatHack autoChatHack = new AutoChatHack();
-	public final ChatSpamHack chatSpamHack = new ChatSpamHack();
-	public final PlayerMuteHack playerMuteHack = new PlayerMuteHack();
-	public final CommandSpamHack commandSpamHack = new CommandSpamHack();
 	public final CommandScannerHack commandScannerHack =
 		new CommandScannerHack();
 	public final AutoCompleteHack autoCompleteHack = new AutoCompleteHack();
@@ -72,7 +68,6 @@ public final class HackList implements UpdateListener
 	public final SusNoMoreHack susNoMoreHack = new SusNoMoreHack();
 	public final AutoLeaveHack autoLeaveHack = new AutoLeaveHack();
 	public final AutoLibrarianHack autoLibrarianHack = new AutoLibrarianHack();
-	public final AutoLootHack autoLootHack = new AutoLootHack();
 	public final AutoTraderHack autoTraderHack = new AutoTraderHack();
 	public final AutoEatHack autoEatHack = new AutoEatHack();
 	public final AutoFarmHack autoFarmHack = new AutoFarmHack();
@@ -89,8 +84,6 @@ public final class HackList implements UpdateListener
 	public final AutoSoupHack autoSoupHack = new AutoSoupHack();
 	public final AutoSprintHack autoSprintHack = new AutoSprintHack();
 	public final AutoStealHack autoStealHack = new AutoStealHack();
-	public final AutoSpawnProoferHack autoSpawnProoferHack =
-		new AutoSpawnProoferHack();
 	public final AutoSwimHack autoSwimHack = new AutoSwimHack();
 	public final AutoSwitchHack autoSwitchHack = new AutoSwitchHack();
 	public final AutoSwordHack autoSwordHack = new AutoSwordHack();
@@ -149,12 +142,10 @@ public final class HackList implements UpdateListener
 	public final EntityCountHack entityCountHack = new EntityCountHack();
 	public final EntityControlHack entityControlHack = new EntityControlHack();
 	public final ExcavatorHack excavatorHack = new ExcavatorHack();
-	public final AreaNukerHack areaNukerHack = new AreaNukerHack();
 	public final ExtraElytraHack extraElytraHack = new ExtraElytraHack();
 	public final FancyChatHack fancyChatHack = new FancyChatHack();
 	public final FakeLagHack fakeLagHack = new FakeLagHack();
 	public final FastBreakHack fastBreakHack = new FastBreakHack();
-	public final FastFillHack fastFillHack = new FastFillHack();
 	public final FastLadderHack fastLadderHack = new FastLadderHack();
 	public final FastPlaceHack fastPlaceHack = new FastPlaceHack();
 	public final FeedAuraHack feedAuraHack = new FeedAuraHack();
@@ -181,8 +172,6 @@ public final class HackList implements UpdateListener
 	public final InstaBuildHack instaBuildHack = new InstaBuildHack();
 	public final InstantBunkerHack instantBunkerHack = new InstantBunkerHack();
 	public final InvWalkHack invWalkHack = new InvWalkHack();
-	public final InventorySorterHack inventorySorterHack =
-		new InventorySorterHack();
 	public final ItemEspHack itemEspHack = new ItemEspHack();
 	public final ItemGeneratorHack itemGeneratorHack = new ItemGeneratorHack();
 	public final net.wurstclient.hacks.itemhandler.ItemHandlerHack itemHandlerHack =
@@ -228,8 +217,6 @@ public final class HackList implements UpdateListener
 	public final NewChunksHack newChunksHack = new NewChunksHack();
 	public final NewerNewChunksHack newerNewChunksHack =
 		new NewerNewChunksHack();
-	public final SimulationSonarHack simulationSonarHack =
-		new SimulationSonarHack();
 	public final NbtFilterHack nbtFilterHack = new NbtFilterHack();
 	public final NbtSizeCounterHack nbtSizeCounterHack =
 		new NbtSizeCounterHack();
@@ -288,7 +275,6 @@ public final class HackList implements UpdateListener
 	public final SpawnRadiusHack spawnRadiusHack = new SpawnRadiusHack();
 	public final SeedMapperHelperHack seedMapperHelperHack =
 		new SeedMapperHelperHack();
-	public final ShearAuraHack shearAuraHack = new ShearAuraHack();
 	public final SignEspHack signEspHack = new SignEspHack();
 	public final ShieldSwingHack shieldSwingHack = new ShieldSwingHack();
 	public final WorkstationEspHack workstationEspHack =

@@ -274,7 +274,7 @@ public final class LootSorterHack extends Hack
 	
 	private void openLayoutChoice(String message)
 	{
-		MC.gui.setScreen(new LootSorterLayoutChoiceScreen(MC.gui.screen(),
+		MC.setScreen(new LootSorterLayoutChoiceScreen(MC.screen,
 			message, this::openRestoredSourceScanChoice, controller::begin));
 	}
 	
@@ -296,7 +296,7 @@ public final class LootSorterHack extends Hack
 	{
 		if(controller == null)
 			return;
-		MC.gui.setScreen(new LootSorterDestinationChoiceScreen(MC.gui.screen(),
+		MC.setScreen(new LootSorterDestinationChoiceScreen(MC.screen,
 			"Use the saved destinations?",
 			() -> controller.startSorting(recheckSources),
 			controller::beginDestinationReplacement));
@@ -323,7 +323,7 @@ public final class LootSorterHack extends Hack
 	private void openSourceScanChoice(String message, Runnable useSaved,
 		Runnable rescan)
 	{
-		MC.gui.setScreen(new LootSorterSourceScanChoiceScreen(MC.gui.screen(),
+		MC.setScreen(new LootSorterSourceScanChoiceScreen(MC.screen,
 			message, useSaved, rescan));
 	}
 	
@@ -363,7 +363,7 @@ public final class LootSorterHack extends Hack
 	private void openDestinationEditor(DestinationRule rule)
 	{
 		boolean savingPreset = presetCapture == PresetCapture.DESTINATION;
-		MC.gui.setScreen(new LootSorterDestinationScreen(MC.gui.screen(), rule,
+		MC.setScreen(new LootSorterDestinationScreen(MC.screen, rule,
 			customPresetItems, this::createDraftCustomPreset,
 			this::saveCustomPreset, () -> controller.removeDestination(rule),
 			savingPreset ? this::finishPresetCapture
@@ -577,14 +577,14 @@ public final class LootSorterHack extends Hack
 			ChatUtils.error("LootSorter: that source layout is empty.");
 			return false;
 		}
-		ChestSearchScreen screen = new ChestSearchScreen(MC.gui.screen(),
+		ChestSearchScreen screen = new ChestSearchScreen(MC.screen,
 			new LootSorterSourceChestManager(sources, contents, server,
 				dimension, MC.level.registryAccess()),
 			false, title, true, true);
 		// Commands are not guaranteed to be called from the render thread.
 		// Queue the screen change so .lootsort show always opens the actual
 		// ChestSearch UI instead of being lost while a chat command is handled.
-		MC.execute(() -> MC.gui.setScreen(screen));
+		MC.execute(() -> MC.setScreen(screen));
 		int scanned = contents == null ? 0 : contents.size();
 		ChatUtils.message("LootSorter: opened source chest search for "
 			+ sources.size() + " source container"
@@ -980,12 +980,12 @@ public final class LootSorterHack extends Hack
 	{
 		// Do not interpret the keys used to type a chat command or edit a GUI
 		// field as sorter hotkeys (for example, Right Shift for capitals).
-		if(MC.gui.screen() != null)
+		if(MC.screen != null)
 			return;
 		if(presetCapture != PresetCapture.NONE
 			&& event.getAction() == GLFW.GLFW_PRESS
 			&& event.getKeyCode() == GLFW.GLFW_KEY_ENTER
-			&& !(MC.gui.screen() instanceof LootSorterDestinationScreen))
+			&& !(MC.screen instanceof LootSorterDestinationScreen))
 		{
 			finishPresetCapture();
 			return;
@@ -993,7 +993,7 @@ public final class LootSorterHack extends Hack
 		if(controller != null && event.getAction() == GLFW.GLFW_PRESS
 			&& event.getKeyCode() == GLFW.GLFW_KEY_ENTER
 			&& controller.getState() == LootSorterState.SELECTING_DESTINATIONS
-			&& !(MC.gui.screen() instanceof LootSorterDestinationScreen))
+			&& !(MC.screen instanceof LootSorterDestinationScreen))
 		{
 			confirmDestinationSelection();
 			return;

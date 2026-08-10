@@ -51,7 +51,7 @@ public final class LootSorterCustomPresetNameScreen extends Screen
 				.bounds(x, y + 52, 106, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				button -> minecraft.gui.setScreen(previous))
+				button -> minecraft.setScreen(previous))
 			.bounds(x + 114, y + 52, 106, 20).build());
 		setInitialFocus(name);
 	}
@@ -59,7 +59,7 @@ public final class LootSorterCustomPresetNameScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	private void save()
@@ -68,7 +68,7 @@ public final class LootSorterCustomPresetNameScreen extends Screen
 		if(result != null)
 		{
 			accepted.accept(result);
-			minecraft.gui.setScreen(previous);
+			minecraft.setScreen(previous);
 		}
 	}
 }

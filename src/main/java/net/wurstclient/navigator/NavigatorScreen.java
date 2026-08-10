@@ -203,20 +203,9 @@ public abstract class NavigatorScreen extends Screen
 	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
 		float deltaTicks)
 	{
-		// Dark overlay so the world does not show through semi-transparent
-		// areas.
-		// Toggle via Navigator hack settings.
-		if(!isBackgroundOverlayEnabled())
-			return;
-		
+		// Render a dark overlay so the Minecraft world does not show through
+		// the semi-transparent areas of the Navigator GUI.
 		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
-	}
-	
-	private static boolean isBackgroundOverlayEnabled()
-	{
-		net.wurstclient.hacks.NavigatorHack hack =
-			WurstClient.INSTANCE.getHax().navigatorHack;
-		return hack != null && hack.isBackgroundOverlayEnabled();
 	}
 	
 	@Override

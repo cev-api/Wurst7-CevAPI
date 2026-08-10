@@ -7,7 +7,6 @@
  */
 package net.wurstclient.util;
 
-import java.util.Random;
 import java.util.UUID;
 
 import org.jetbrains.annotations.Nullable;
@@ -21,7 +20,6 @@ import net.wurstclient.WurstClient;
 
 public class FakePlayerEntity extends RemotePlayer
 {
-	private static final Random RANDOM = new Random();
 	private final LocalPlayer player = WurstClient.MC.player;
 	private final ClientLevel world = WurstClient.MC.level;
 	private PlayerInfo playerListEntry;
@@ -29,7 +27,6 @@ public class FakePlayerEntity extends RemotePlayer
 	public FakePlayerEntity()
 	{
 		super(WurstClient.MC.level, WurstClient.MC.player.getGameProfile());
-		setId(RANDOM.nextInt(Integer.MIN_VALUE, 0));
 		setUUID(UUID.randomUUID());
 		copyPosition(player);
 		
