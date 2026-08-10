@@ -663,8 +663,8 @@ public final class SimulationSonarHack extends Hack
 		if(!canScoreEvidence(now))
 			return;
 		ChunkPos player = MC.player.chunkPosition();
-		int d = Math.max(Math.abs(pos.x - player.x),
-			Math.abs(pos.z - player.z));
+		int d =
+			Math.max(Math.abs(pos.x - player.x), Math.abs(pos.z - player.z));
 		if(d < simulationDistance + 2 || d > viewDistance
 			|| explained(pos, player))
 			return;
@@ -1097,9 +1097,9 @@ public final class SimulationSonarHack extends Hack
 	private void notify(State s)
 	{
 		ChunkPos p = MC.player.chunkPosition();
-			int dx = s.pos.x - p.x, dz = s.pos.z - p.z;
+		int dx = s.pos.x - p.x, dz = s.pos.z - p.z;
 		String dir = direction(dx, dz);
-			double cx = s.pos.x * 16 + 8, cz = s.pos.z * 16 + 8;
+		double cx = s.pos.x * 16 + 8, cz = s.pos.z * 16 + 8;
 		int blocks = (int)Math.round(
 			Math.sqrt(MC.player.distanceToSqr(cx, MC.player.getY(), cz)));
 		ChatUtils.message("[SimulationSonar] "
@@ -1140,7 +1140,7 @@ public final class SimulationSonarHack extends Hack
 		long now = System.currentTimeMillis();
 		double y = renderHeight.getValue();
 		if(WURST != null && WURST.getHax().newerNewChunksHack.isEnabled())
-			y += WURST.getHax().newerNewChunksHack.getRenderHeight();
+			y += MC.level.getHeight();
 		for(Confidence confidence : Confidence.values())
 		{
 			if(!allowed(confidence))
@@ -1185,8 +1185,7 @@ public final class SimulationSonarHack extends Hack
 		if(MC.player == null)
 			return Integer.MAX_VALUE;
 		ChunkPos player = MC.player.chunkPosition();
-		return Math.max(Math.abs(pos.x - player.x),
-			Math.abs(pos.z - player.z));
+		return Math.max(Math.abs(pos.x - player.x), Math.abs(pos.z - player.z));
 	}
 	
 	private double fadeForDistance(ChunkPos pos)

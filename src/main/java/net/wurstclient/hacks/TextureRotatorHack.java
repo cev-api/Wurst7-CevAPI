@@ -7,8 +7,6 @@
  */
 package net.wurstclient.hacks;
 
-import static net.wurstclient.WurstClient.MC;
-
 import java.security.SecureRandom;
 
 import net.minecraft.core.BlockPos;
@@ -110,8 +108,6 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		
 		// Recompile every chunk section so that all textures change
 		// immediately, not just the ones nearby.
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
 	}
 	
 	@Override
@@ -120,8 +116,6 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		EVENTS.remove(UpdateListener.class, this);
 		
 		// Recompile every chunk section to restore the vanilla textures.
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
 	}
 	
 	@Override
@@ -134,8 +128,6 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		
 		generateSeed();
 		
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
 	}
 	
 	private void generateSeed()

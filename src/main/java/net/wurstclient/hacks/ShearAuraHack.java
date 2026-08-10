@@ -228,8 +228,7 @@ public final class ShearAuraHack extends Hack
 		
 		Entity clicked = target;
 		EntityHitResult hitResult = EntityUtils.createHitResult(clicked);
-		InteractionResult result =
-			gameMode.interact(player, clicked, hitResult, hand);
+		InteractionResult result = gameMode.interact(player, clicked, hand);
 		
 		if(result instanceof InteractionResult.Success success)
 		{
@@ -387,11 +386,11 @@ public final class ShearAuraHack extends Hack
 			return Action.SADDLE;
 		
 		if(slot == EquipmentSlot.BODY
-			&& entity.typeHolder().is(EntityTypeTags.CAN_WEAR_HORSE_ARMOR))
+			&& entity.getType().is(EntityTypeTags.CAN_WEAR_HORSE_ARMOR))
 			return Action.HORSE_ARMOR;
 		
 		if(slot == EquipmentSlot.BODY
-			&& entity.typeHolder().is(EntityTypeTags.CAN_WEAR_NAUTILUS_ARMOR))
+			&& entity.getType().is(EntityTypeTags.CAN_WEAR_NAUTILUS_ARMOR))
 			return Action.NAUTILUS_ARMOR;
 		
 		return Action.UNLISTED_EQUIPMENT;

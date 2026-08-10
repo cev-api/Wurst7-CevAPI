@@ -273,8 +273,7 @@ public final class AutoLootHack extends Hack
 			
 			if(MC.player.getInventory().getFreeSlot() >= 0)
 			{
-				screen.slotClicked(slot, slot.index, 0,
-					ClickType.QUICK_MOVE);
+				screen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
 				return true;
 			}
 			
@@ -302,8 +301,7 @@ public final class AutoLootHack extends Hack
 			.get(inventoryMenuSlot(inventorySlot, containerSlots));
 		screen.slotClicked(containerSlot, containerSlot.index, 0,
 			ClickType.PICKUP);
-		screen.slotClicked(playerSlot, playerSlot.index, 0,
-			ClickType.PICKUP);
+		screen.slotClicked(playerSlot, playerSlot.index, 0, ClickType.PICKUP);
 		screen.slotClicked(containerSlot, containerSlot.index, 0,
 			ClickType.PICKUP);
 		return true;

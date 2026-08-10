@@ -213,7 +213,7 @@ public final class FastFillHack extends Hack
 				? inReach.stream().filter(this::needsBreak)
 					.collect(Collectors.toCollection(ArrayList::new))
 				: new ArrayList<>();
-
+		
 		boolean creative = MC.player.getAbilities().instabuild;
 		if(!creative && !toBreak.isEmpty())
 		{
@@ -390,8 +390,8 @@ public final class FastFillHack extends Hack
 		int msgY2 = msgY1 + 10;
 		
 		context.fill(msgX1, msgY1, msgX2, msgY2, 0x80000000);
-		context.drawString(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
-			false);
+		context.drawString(tr, message, msgX1 + 2, msgY1 + 1,
+			CommonColors.WHITE, false);
 	}
 	
 	private enum Step

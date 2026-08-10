@@ -161,12 +161,12 @@ public final class AreaNukerHack extends Hack
 		if(MC.hitResult instanceof BlockHitResult bhr)
 		{
 			posLookingAt = bhr.getBlockPos();
-
+			
 			if(MC.options.keyShift.isDown())
 				posLookingAt = posLookingAt.relative(bhr.getDirection());
 		}else
 			posLookingAt = null;
-
+		
 		if(posLookingAt != null && MC.options.keyUse.isDown())
 			setStepPos(posLookingAt);
 	}
@@ -333,8 +333,8 @@ public final class AreaNukerHack extends Hack
 		int msgY2 = msgY1 + 10;
 		
 		context.fill(msgX1, msgY1, msgX2, msgY2, 0x80000000);
-		context.drawString(tr, message, msgX1 + 2, msgY1 + 1, CommonColors.WHITE,
-			false);
+		context.drawString(tr, message, msgX1 + 2, msgY1 + 1,
+			CommonColors.WHITE, false);
 	}
 	
 	private enum Step

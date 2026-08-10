@@ -86,8 +86,6 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	modImplementation "com.google.code.findbugs:jsr305:3.0.2"
-	implementation "org.geysermc.mcprotocollib:protocol:26.2-SNAPSHOT"
-	implementation "net.kyori:adventure-text-serializer-plain:4.25.0"
 	implementation include("io.netty:netty-handler-proxy:4.2.15.Final")
 	implementation include("io.netty:netty-codec-socks:4.2.15.Final")
 }
@@ -137,21 +135,9 @@ dependencies {
 		exclude "net/wurstclient/commands/KeymapCmd.java"
 		exclude "net/wurstclient/commands/LootSorterCmd.java"
 		exclude "net/wurstclient/commands/PlayerMuteCmd.java"
-		exclude "net/wurstclient/hacks/AntiBreakHack.java"
-		exclude "net/wurstclient/hacks/AreaNukerHack.java"
 		exclude "net/wurstclient/hacks/AutoClickerHack.java"
-		exclude "net/wurstclient/hacks/AutoLootHack.java"
-		exclude "net/wurstclient/hacks/AutoSpawnProoferHack.java"
-		exclude "net/wurstclient/hacks/ChatSpamHack.java"
-		exclude "net/wurstclient/hacks/CommandSpamHack.java"
-		exclude "net/wurstclient/hacks/DuraSwapHack.java"
-		exclude "net/wurstclient/hacks/FastFillHack.java"
-		exclude "net/wurstclient/hacks/InventorySorterHack.java"
 		exclude "net/wurstclient/hacks/LootSorterHack.java"
 		exclude "net/wurstclient/hacks/PlayerMuteHack.java"
-		exclude "net/wurstclient/hacks/ShearAuraHack.java"
-		exclude "net/wurstclient/hacks/SimulationSonarHack.java"
-		exclude "net/wurstclient/hacks/TextureRotatorHack.java"
 		exclude "net/wurstclient/hacks/lootsorter/BuiltInItemFilter.java"
 		exclude "net/wurstclient/hacks/lootsorter/ContainerInteractionController.java"
 		exclude "net/wurstclient/hacks/lootsorter/ContainerRenderer.java"
@@ -196,12 +182,8 @@ dependencies {
 		exclude "net/wurstclient/mixinterface/IServerDataExt.java"
 		exclude "net/wurstclient/options/CustomShadertoyBackgroundScreen.java"
 		exclude "net/wurstclient/options/ShadertoyPresetScreen.java"
-		exclude "net/wurstclient/proxy/ProxyConnection.java"
 		exclude "net/wurstclient/proxy/ProxyImportFileChooser.java"
-		exclude "net/wurstclient/proxy/ProxyManager.java"
 		exclude "net/wurstclient/proxy/ProxyManagerScreen.java"
-		exclude "net/wurstclient/proxy/ProxyProtocol.java"
-		exclude "net/wurstclient/proxy/SocksProxy.java"
 		exclude "net/wurstclient/settings/PlayerMuteListSetting.java"
 		exclude "net/wurstclient/settings/filters/FilterSulfurCubesSetting.java"
 		exclude "net/wurstclient/util/AutoBuildTextTemplateFactory.java"

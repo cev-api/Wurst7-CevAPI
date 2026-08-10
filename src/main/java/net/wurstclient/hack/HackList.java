@@ -34,6 +34,10 @@ public final class HackList implements UpdateListener
 	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();
 	public final AntiAfkHack antiAfkHack = new AntiAfkHack();
+	public final AntiBreakHack antiBreakHack = new AntiBreakHack();
+	public final AreaNukerHack areaNukerHack = new AreaNukerHack();
+	public final FastFillHack fastFillHack = new FastFillHack();
+	public final ShearAuraHack shearAuraHack = new ShearAuraHack();
 	public final AntiBlindHack antiBlindHack = new AntiBlindHack();
 	public final AntiCactusHack antiCactusHack = new AntiCactusHack();
 	public final AntiCheatDetectHack antiCheatDetectHack =
@@ -45,6 +49,8 @@ public final class HackList implements UpdateListener
 	public final AntiHungerHack antiHungerHack = new AntiHungerHack();
 	public final AntiKnockbackHack antiKnockbackHack = new AntiKnockbackHack();
 	public final AntiSpamHack antiSpamHack = new AntiSpamHack();
+	public final ChatSpamHack chatSpamHack = new ChatSpamHack();
+	public final CommandSpamHack commandSpamHack = new CommandSpamHack();
 	public final AntisocialHack antisocialHack = new AntisocialHack();
 	public final AntiVoidHack antiVoidHack = new AntiVoidHack();
 	public final AntiWaterPushHack antiWaterPushHack = new AntiWaterPushHack();
@@ -62,10 +68,19 @@ public final class HackList implements UpdateListener
 	public final AutoDisenchantHack autoDisenchantHack =
 		new AutoDisenchantHack();
 	public final AutoDropHack autoDropHack = new AutoDropHack();
+	public final AutoLootHack autoLootHack = new AutoLootHack();
+	public final AutoSpawnProoferHack autoSpawnProoferHack =
+		new AutoSpawnProoferHack();
+	public final InventorySorterHack inventorySorterHack =
+		new InventorySorterHack();
 	public final InstantCommandHack instantCommandHack =
 		new InstantCommandHack();
 	public final JoinDropHack joinDropHack = new JoinDropHack();
 	public final SusNoMoreHack susNoMoreHack = new SusNoMoreHack();
+	public final SimulationSonarHack simulationSonarHack =
+		new SimulationSonarHack();
+	public final TextureRotatorHack textureRotatorHack =
+		new TextureRotatorHack();
 	public final AutoLeaveHack autoLeaveHack = new AutoLeaveHack();
 	public final AutoLibrarianHack autoLibrarianHack = new AutoLibrarianHack();
 	public final AutoTraderHack autoTraderHack = new AutoTraderHack();
@@ -89,6 +104,7 @@ public final class HackList implements UpdateListener
 	public final AutoSwordHack autoSwordHack = new AutoSwordHack();
 	public final AutoToolHack autoToolHack = new AutoToolHack();
 	public final AutoTotemHack autoTotemHack = new AutoTotemHack();
+	public final DuraSwapHack duraSwapHack = new DuraSwapHack();
 	public final SoulChaliceHack soulChaliceHack = new SoulChaliceHack();
 	public final SkyBuildEspHack skyBuildEspHack = new SkyBuildEspHack();
 	public final AutoWalkHack autoWalkHack = new AutoWalkHack();

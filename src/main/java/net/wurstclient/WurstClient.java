@@ -41,6 +41,7 @@ import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.presets.PresetManager;
+import net.wurstclient.proxy.ProxyManager;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.ForkUpdateChecker;
@@ -68,6 +69,7 @@ public enum WurstClient
 	private PlausibleAnalytics plausible;
 	private EventManager eventManager;
 	private AltManager altManager;
+	private ProxyManager proxyManager;
 	private HackList hax;
 	private CmdList cmds;
 	private OtfList otfs;
@@ -209,6 +211,8 @@ public enum WurstClient
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
 		altManager = new AltManager(altsFile, encFolder);
+		proxyManager =
+			new ProxyManager(wurstFolder.resolve("proxies.json"), encFolder);
 		
 		NiceWurstModule.apply(this);
 	}
@@ -485,5 +489,10 @@ public enum WurstClient
 	public AltManager getAltManager()
 	{
 		return altManager;
+	}
+	
+	public ProxyManager getProxyManager()
+	{
+		return proxyManager;
 	}
 }
