@@ -27,13 +27,13 @@ public enum TitleScreenShaderPipelines
 			.build());
 	
 	public static final RenderPipeline TITLE_SHADERTOY_BACKGROUND_CUSTOM =
-		RenderPipelines.register(RenderPipeline
-			.builder(RenderPipelines.GUI_SNIPPET)
-			.withLocation(Identifier
-				.parse("wurst:pipeline/title_shadertoy_background_custom"))
-			.withVertexShader(
-				Identifier.parse("wurst:core/title_shadertoy_background"))
-			.withFragmentShader(
-				Identifier.parse("wurst:core/title_shadertoy_background"))
-			.build());
+		RenderPipelines
+			.register(RenderPipeline.builder(RenderPipelines.GUI_SNIPPET)
+				.withLocation(Identifier
+					.parse("wurst:pipeline/title_shadertoy_background_custom"))
+				.withVertexShader(
+					Identifier.parse("wurst:core/title_shadertoy_background"))
+				.withFragmentShader(
+					Identifier.parse("wurst:core/title_shadertoy_background"))
+				.build());
 }

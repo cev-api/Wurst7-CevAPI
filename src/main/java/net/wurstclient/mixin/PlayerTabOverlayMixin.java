@@ -81,8 +81,8 @@ public class PlayerTabOverlayMixin
 	}
 	
 	@Inject(method = "extractPingIcon", at = @At("HEAD"), cancellable = true)
-	private void replacePingIcon(GuiGraphics context, int columnWidth,
-		int rowX, int y, PlayerInfo info, CallbackInfo ci)
+	private void replacePingIcon(GuiGraphics context, int columnWidth, int rowX,
+		int y, PlayerInfo info, CallbackInfo ci)
 	{
 		WurstOptionsOtf options = getOptions();
 		if(options == null || !options.shouldShowTabListPing())

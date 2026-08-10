@@ -250,29 +250,29 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 		
-		context.drawCenteredString(font, "Import Shadertoy Background", width / 2, 16,
-			CommonColors.WHITE);
+		context.drawCenteredString(font, "Import Shadertoy Background",
+			width / 2, 16, CommonColors.WHITE);
 		context.drawCenteredString(font,
 			"Use a URL with an API key, or paste raw single-pass mainImage() code below.",
 			width / 2, 30, CommonColors.LIGHT_GRAY);
 		
-		context.drawString(font, "Shadertoy URL", urlBox.getX(), urlBox.getY() - 12,
-			CommonColors.LIGHT_GRAY);
+		context.drawString(font, "Shadertoy URL", urlBox.getX(),
+			urlBox.getY() - 12, CommonColors.LIGHT_GRAY);
 		context.drawString(font, "Raw Shadertoy Code", codeBox.getX(),
 			codeBox.getY() - 12, CommonColors.LIGHT_GRAY);
 		
 		for(var renderable : renderables)
-			renderable.render(context, mouseX, mouseY,
-				partialTicks);
+			renderable.render(context, mouseX, mouseY, partialTicks);
 		
 		int statusColor = status.startsWith("Failed") ? WurstColors.LIGHT_RED
 			: CommonColors.LIGHT_GRAY;
-		context.drawCenteredString(font, status, width / 2, height - 42, statusColor);
+		context.drawCenteredString(font, status, width / 2, height - 42,
+			statusColor);
 		context.drawCenteredString(font,
 			"URL import uses -Dwurst.shadertoyApiKey=<your key> when set; paste import works without a key.",
 			width / 2, height - 28, CommonColors.LIGHT_GRAY);

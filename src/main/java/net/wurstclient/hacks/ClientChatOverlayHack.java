@@ -52,6 +52,8 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 	private final CheckboxSetting colorUsernames =
 		new CheckboxSetting("Color usernames",
 			"Colors only the sender username in captured player chat.", false);
+	private final CheckboxSetting chatHeads = new CheckboxSetting("Chat heads",
+		"Shows player heads next to captured chat messages.", false);
 	private final CheckboxSetting randomOwnUsernameColor = new CheckboxSetting(
 		"Random own username color",
 		"Uses a generated color for your username instead of the fixed color.",
@@ -99,6 +101,7 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 		addSetting(forceClientKeywords);
 		addSetting(forceNormalKeywords);
 		addSetting(colorUsernames);
+		addSetting(chatHeads);
 		addSetting(randomOwnUsernameColor);
 		addSetting(ownUsernameColor);
 		addSetting(maxLines);
@@ -225,6 +228,11 @@ public final class ClientChatOverlayHack extends Hack implements UpdateListener
 	public boolean shouldColorUsernames()
 	{
 		return colorUsernames.isChecked();
+	}
+	
+	public boolean shouldShowChatHeads()
+	{
+		return chatHeads.isChecked();
 	}
 	
 	public boolean shouldRandomizeOwnUsernameColor()

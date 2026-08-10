@@ -104,8 +104,8 @@ public final class EditPlayerMuteScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		playerList.render(context, mouseX, mouseY, partialTicks);
 		context.drawCenteredString(minecraft.font,
@@ -145,18 +145,19 @@ public final class EditPlayerMuteScreen extends Screen
 		}
 		
 		@Override
-		public void render(GuiGraphics context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
 			boolean muted = playerList.isMuted(this);
-			context.drawString(minecraft.font, muted ? "[x]" : "[ ]", x + 4, y + 4,
-				muted ? CommonColors.GREEN : CommonColors.LIGHT_GRAY, false);
+			context.drawString(minecraft.font, muted ? "[x]" : "[ ]", x + 4,
+				y + 4, muted ? CommonColors.GREEN : CommonColors.LIGHT_GRAY,
+				false);
 			context.drawString(minecraft.font, info.getProfile().name(), x + 28,
 				y + 4, CommonColors.WHITE, false);
-			context.drawString(minecraft.font, muted ? "Muted" : "Not muted", x + 28,
-				y + 16, CommonColors.LIGHT_GRAY, false);
+			context.drawString(minecraft.font, muted ? "Muted" : "Not muted",
+				x + 28, y + 16, CommonColors.LIGHT_GRAY, false);
 		}
 		
 		@Override

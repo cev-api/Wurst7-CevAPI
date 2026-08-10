@@ -61,15 +61,16 @@ public final class LootSorterDestinationScreen extends Screen
 	{
 		int x = width / 2 - 110;
 		int y = Math.max(24, height / 2 - 92);
-		addRenderableWidget(Button.builder(filterText(), button -> minecraft.gui
+		addRenderableWidget(Button.builder(filterText(), button -> minecraft
 			.setScreen(new LootSorterFilterMenuScreen(this, filter -> {
 				selected = filter;
 				draftCustomList = false;
 			}, this::editCustomItems, this::loadCustomList)))
 			.bounds(x, y, 220, 20).build());
-		addRenderableWidget(Button.builder(matchingRulesText(),
-			button -> minecraft.setScreen(new LootSorterFilterRulesScreen(
-				this, modifiers, updated -> modifiers = updated)))
+		addRenderableWidget(Button
+			.builder(matchingRulesText(),
+				button -> minecraft.setScreen(new LootSorterFilterRulesScreen(
+					this, modifiers, updated -> modifiers = updated)))
 			.bounds(x, y + 26, 220, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Set custom item list"),
@@ -112,11 +113,10 @@ public final class LootSorterDestinationScreen extends Screen
 	
 	private void loadCustomList()
 	{
-		minecraft.gui
-			.setScreen(new LootSorterCustomPresetScreen(this, preset -> {
-				selected = preset;
-				draftCustomList = false;
-			}));
+		minecraft.setScreen(new LootSorterCustomPresetScreen(this, preset -> {
+			selected = preset;
+			draftCustomList = false;
+		}));
 	}
 	
 	private Component filterText()

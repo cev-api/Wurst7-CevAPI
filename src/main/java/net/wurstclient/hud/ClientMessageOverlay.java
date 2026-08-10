@@ -757,6 +757,29 @@ public final class ClientMessageOverlay
 		return Math.max(0, ownLength);
 	}
 	
+	public static int getUsernameColorForTabList(String name)
+	{
+		ClientChatOverlayHack hack = getSettingsStatic();
+		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames())
+			return -1;
+		return getUsernameColor(name, hack);
+	}
+	
+	public static boolean containsPlayerSprite(Component component)
+	{
+		if(component == null)
+			return false;
+		return component.getString().contains("[Name head]");
+	}
+	
+	private static ClientChatOverlayHack getSettingsStatic()
+	{
+		if(WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getHax() == null)
+			return null;
+		return WurstClient.INSTANCE.getHax().clientChatOverlayHack;
+	}
+	
 	private static int getUsernameColor(String name, ClientChatOverlayHack hack)
 	{
 		String ownName = WurstClient.MC.getUser() == null ? ""

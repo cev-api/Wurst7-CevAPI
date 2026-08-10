@@ -274,8 +274,8 @@ public final class LootSorterHack extends Hack
 	
 	private void openLayoutChoice(String message)
 	{
-		MC.setScreen(new LootSorterLayoutChoiceScreen(MC.screen,
-			message, this::openRestoredSourceScanChoice, controller::begin));
+		MC.setScreen(new LootSorterLayoutChoiceScreen(MC.screen, message,
+			this::openRestoredSourceScanChoice, controller::begin));
 	}
 	
 	private void openRestoredSourceScanChoice()
@@ -323,8 +323,8 @@ public final class LootSorterHack extends Hack
 	private void openSourceScanChoice(String message, Runnable useSaved,
 		Runnable rescan)
 	{
-		MC.setScreen(new LootSorterSourceScanChoiceScreen(MC.screen,
-			message, useSaved, rescan));
+		MC.setScreen(new LootSorterSourceScanChoiceScreen(MC.screen, message,
+			useSaved, rescan));
 	}
 	
 	@Override
@@ -580,7 +580,7 @@ public final class LootSorterHack extends Hack
 		ChestSearchScreen screen = new ChestSearchScreen(MC.screen,
 			new LootSorterSourceChestManager(sources, contents, server,
 				dimension, MC.level.registryAccess()),
-			false, title, true, true);
+			false);
 		// Commands are not guaranteed to be called from the render thread.
 		// Queue the screen change so .lootsort show always opens the actual
 		// ChestSearch UI instead of being lost while a chat command is handled.

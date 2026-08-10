@@ -339,8 +339,8 @@ public final class ProxyManagerScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.drawCenteredString(font, "Multiplayer Proxies", width / 2, 12,
 			CommonColors.WHITE);
@@ -349,8 +349,9 @@ public final class ProxyManagerScreen extends Screen
 				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
 					: proxyManager.getSelectedProxy().getDisplayName()),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
-		context.drawString(font, "Proxy (http:// or socks5://, optional user:pass)",
-			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
+		context.drawString(font,
+			"Proxy (http:// or socks5://, optional user:pass)", width / 2 - 150,
+			34, CommonColors.LIGHT_GRAY);
 		
 		proxyList.render(context, mouseX, mouseY, partialTicks);
 		proxyBox.render(context, mouseX, mouseY, partialTicks);
@@ -367,9 +368,9 @@ public final class ProxyManagerScreen extends Screen
 		if(prevScreen instanceof IMultiplayerTitleRefresher refresher)
 		{
 			ScreenAccessor accessor = (ScreenAccessor)prevScreen;
-			Component oldTitle = accessor.getWurstTitle();
+			Component oldTitle = accessor.getTitle();
 			refresher.wurst$refreshAccountTitle();
-			Component newTitle = accessor.getWurstTitle();
+			Component newTitle = accessor.getTitle();
 			for(GuiEventListener child : prevScreen.children())
 				if(child instanceof StringWidget titleWidget
 					&& titleWidget.getMessage().equals(oldTitle))
@@ -416,22 +417,6 @@ public final class ProxyManagerScreen extends Screen
 			return entry.selectionKey();
 		}
 		
-		@Override
-		protected void render(GuiGraphics context, int mouseX,
-			int mouseY, float delta, ProxyEntry entry)
-		{
-			// The active proxy draws its own single, opaque highlight. This
-			// avoids combining the vanilla selection outline with a second
-			// background rectangle of slightly different bounds.
-			if(entry.isActiveProxy())
-			{
-				entry.render(context, mouseX, mouseY,
-					entry == getHovered(), delta);
-				return;
-			}
-			
-			super.render(context, mouseX, mouseY, delta, entry);
-		}
 	}
 	
 	private final class ProxyEntry
@@ -458,8 +443,8 @@ public final class ProxyManagerScreen extends Screen
 		}
 		
 		@Override
-		public void render(GuiGraphics context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			boolean active = isActiveProxy();
 			if(active)

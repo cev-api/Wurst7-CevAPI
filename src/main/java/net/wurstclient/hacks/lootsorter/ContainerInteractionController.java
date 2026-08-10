@@ -98,7 +98,7 @@ public final class ContainerInteractionController
 			// screen as well prevents a server that delays its close response
 			// from
 			// trapping the sorter in the close-wait state.
-			mc.gui.setScreen(null);
+			mc.setScreen(null);
 		}
 	}
 	
@@ -110,8 +110,8 @@ public final class ContainerInteractionController
 	
 	private AbstractContainerScreen<?> getContainerScreen()
 	{
-		return mc.gui.screen() instanceof AbstractContainerScreen<?> screen
-			? screen : null;
+		return mc.screen instanceof AbstractContainerScreen<?> screen ? screen
+			: null;
 	}
 	
 	public int getRevision()

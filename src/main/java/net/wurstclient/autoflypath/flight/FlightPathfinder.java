@@ -117,7 +117,7 @@ public final class FlightPathfinder
 	
 	public boolean hasChunk(ChunkPos pos)
 	{
-		return this.grid.hasRealChunk(pos.x(), pos.z());
+		return this.grid.hasRealChunk(pos.x, pos.z);
 	}
 	
 	public boolean hasRealChunk(int chunkX, int chunkZ)
@@ -199,8 +199,8 @@ public final class FlightPathfinder
 					}
 				}
 			}
-			this.grid.putChunk(chunk.getPos().x(), chunk.getPos().z(), bits,
-				hazard, 1);
+			this.grid.putChunk(chunk.getPos().x, chunk.getPos().z, bits, hazard,
+				1);
 		}catch(Exception e)
 		{
 			e.printStackTrace();

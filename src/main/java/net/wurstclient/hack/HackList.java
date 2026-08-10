@@ -31,6 +31,8 @@ public final class HackList implements UpdateListener
 {
 	public final AimAssistHack aimAssistHack = new AimAssistHack();
 	public final AutoClickerHack autoClickerHack = new AutoClickerHack();
+	public final PlayerMuteHack playerMuteHack = new PlayerMuteHack();
+	public final LootSorterHack lootSorterHack = new LootSorterHack();
 	public final AirPlaceHack airPlaceHack = new AirPlaceHack();
 	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();

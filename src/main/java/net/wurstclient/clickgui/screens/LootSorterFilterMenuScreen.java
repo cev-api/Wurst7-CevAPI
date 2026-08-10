@@ -94,7 +94,7 @@ public final class LootSorterFilterMenuScreen extends Screen
 			FilterGroup entry = entries.get(start + i);
 			addRenderableWidget(Button
 				.builder(Component.literal(entry.title + " >"),
-					button -> minecraft.gui
+					button -> minecraft
 						.setScreen(new LootSorterFilterMenuScreen(this, editor,
 							selection, editCustomItems, loadCustomList, entry)))
 				.bounds(x, 62 + i * 24, 240, 20).build());

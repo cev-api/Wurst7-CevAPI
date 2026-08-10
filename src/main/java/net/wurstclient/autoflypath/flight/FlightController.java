@@ -200,7 +200,7 @@ public final class FlightController
 		if(this.player() != null)
 		{
 			this.player().displayClientMessage(
-				(Component)Component.literal((String)message));
+				(Component)Component.literal((String)message), false);
 		}
 	}
 	
@@ -2556,7 +2556,7 @@ public final class FlightController
 			}
 			int rangeStartIncl = this.playerNear;
 			for(rangeEndExcl = this.playerNear; rangeEndExcl < this.path.size()
-				&& context.hasChunk(ChunkPos.containing(
+				&& context.hasChunk(new ChunkPos(
 					(BlockPos)this.path.get(rangeEndExcl))); ++rangeEndExcl)
 			{}
 			if(rangeStartIncl >= rangeEndExcl)

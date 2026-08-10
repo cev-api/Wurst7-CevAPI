@@ -206,6 +206,10 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	private volatile long autoLogoutLastAttempt;
 	private volatile String autoLogoutTarget;
 	private volatile boolean autoLogoutWaitingForLeave;
+	private volatile boolean bulkOpRunning;
+	private String bulkOpPrefix;
+	private int bulkOpIndex;
+	private int bulkOpTotal;
 	
 	private final Map<String, Boolean> crackedServers =
 		new ConcurrentHashMap<>();
@@ -397,12 +401,52 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		tryRunPendingReconnectCommand();
+		tickBulkOp();
 		
 		if(playerListTicks-- > 0)
 			return;
 		
 		playerListTicks = 40;
 		captureOnlinePlayers(Minecraft.getInstance());
+	}
+	
+	public void startBulkOp(String prefix, int count)
+	{
+		if(!isEnabled())
+		{
+			sendLogoutError("OfflineSettings must be enabled.");
+			return;
+		}
+		if(bulkOpRunning)
+		{
+			sendLogoutError("A bulk OP is already running.");
+			return;
+		}
+		bulkOpPrefix = prefix;
+		bulkOpIndex = 1;
+		bulkOpTotal = count;
+		bulkOpRunning = true;
+		sendLogoutMessage(
+			"Starting bulk OP: " + prefix + "1 to " + prefix + count);
+	}
+	
+	private void tickBulkOp()
+	{
+		if(!bulkOpRunning)
+			return;
+		Minecraft client = Minecraft.getInstance();
+		if(client == null || client.getConnection() == null)
+			return;
+		int sent = 0;
+		while(bulkOpIndex <= bulkOpTotal && sent++ < 20)
+			client.getConnection()
+				.sendCommand("op " + bulkOpPrefix + bulkOpIndex++);
+		if(bulkOpIndex > bulkOpTotal)
+		{
+			bulkOpRunning = false;
+			sendLogoutMessage("Bulk OP complete: " + bulkOpPrefix + "1 to "
+				+ bulkOpPrefix + bulkOpTotal);
+		}
 	}
 	
 	private boolean shouldReconnect(Component reason)

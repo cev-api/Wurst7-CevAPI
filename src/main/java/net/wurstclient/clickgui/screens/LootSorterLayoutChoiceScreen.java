@@ -41,13 +41,13 @@ public final class LootSorterLayoutChoiceScreen extends Screen
 		addRenderableWidget(Button
 			.builder(Component.literal("Continue previous layout"), button -> {
 				continueLayout.run();
-				if(minecraft.gui.screen() == this)
+				if(minecraft.screen == this)
 					minecraft.setScreen(previous);
 			}).bounds(x, y + 26, 200, 20).build());
 		addRenderableWidget(
 			Button.builder(Component.literal("Start new selection"), button -> {
 				startNew.run();
-				if(minecraft.gui.screen() == this)
+				if(minecraft.screen == this)
 					minecraft.setScreen(previous);
 			}).bounds(x, y + 52, 200, 20).build());
 	}

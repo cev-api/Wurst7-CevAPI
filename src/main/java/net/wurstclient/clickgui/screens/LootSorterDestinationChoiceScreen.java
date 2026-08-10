@@ -51,7 +51,7 @@ public final class LootSorterDestinationChoiceScreen extends Screen
 	private void run(Runnable action)
 	{
 		action.run();
-		if(minecraft.gui.screen() == this)
+		if(minecraft.screen == this)
 			minecraft.setScreen(null);
 	}
 	

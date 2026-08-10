@@ -300,7 +300,7 @@ public final class LootSorterController
 		// Chat and ClickGUI keystrokes belong to the active screen. In
 		// particular, Enter submits a command and Shift may capitalise its
 		// preset name; neither is a LootSorter control while a screen is open.
-		if(mc.gui.screen() != null)
+		if(mc.screen != null)
 			return;
 		if(event.getKeyCode() == GLFW.GLFW_KEY_RIGHT_CONTROL
 			|| event.getKeyCode() == GLFW.GLFW_KEY_RIGHT_SHIFT)
@@ -366,17 +366,17 @@ public final class LootSorterController
 	
 	private boolean isManualMovementKey(int keyCode)
 	{
-		return keyCode == IKeyMapping.get(mc.options.keyUp).getBoundKey()
+		return keyCode == IKeyMapping.get(mc.options.keyUp).wurst$getKey()
 			.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyDown).getBoundKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyDown).wurst$getKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyLeft).getBoundKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyLeft).wurst$getKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyRight).getBoundKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyRight).wurst$getKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyJump).getBoundKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyJump).wurst$getKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyShift).getBoundKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyShift).wurst$getKey()
 				.getValue();
 	}
 	
@@ -1053,7 +1053,7 @@ public final class LootSorterController
 					? LootSorterState.WITHDRAWING : LootSorterState.DEPOSITING);
 			return;
 		}
-		if(mc.gui.screen() != null)
+		if(mc.screen != null)
 		{
 			if(returningRemainder)
 			{
@@ -1228,7 +1228,7 @@ public final class LootSorterController
 	
 	private void tickClosingSource(long timeoutMs)
 	{
-		if(mc.gui.screen() != null)
+		if(mc.screen != null)
 		{
 			if(System.currentTimeMillis() - stateStarted <= timeoutMs)
 				return;
@@ -1815,7 +1815,7 @@ public final class LootSorterController
 	
 	private void reopenContainerAfterScreenClosed(LootSorterState next)
 	{
-		if(mc.gui.screen() != null)
+		if(mc.screen != null)
 		{
 			pausedResumeState = next;
 			transition(LootSorterState.PAUSED);

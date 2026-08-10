@@ -160,8 +160,8 @@ public final class ShadertoyPresetScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		listGui.render(context, mouseX, mouseY, partialTicks);
 		
@@ -173,7 +173,8 @@ public final class ShadertoyPresetScreen extends Screen
 		
 		int statusColor = status.startsWith("Failed") ? WurstColors.LIGHT_RED
 			: CommonColors.LIGHT_GRAY;
-		context.drawCenteredString(font, status, width / 2, height - 42, statusColor);
+		context.drawCenteredString(font, status, width / 2, height - 42,
+			statusColor);
 		
 		if(loadButton.isHoveredOrFocused() && !loadButton.active && !loading)
 			context.setComponentTooltipForNextFrame(font,
@@ -211,19 +212,21 @@ public final class ShadertoyPresetScreen extends Screen
 		}
 		
 		@Override
-		public void render(GuiGraphics context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
 			Font tr = minecraft.font;
 			
 			String name = ShadertoyBackgroundManager.getPresetDisplayName(path);
-			context.drawString(tr, name, x + 8, y + 1, WurstColors.VERY_LIGHT_GRAY);
+			context.drawString(tr, name, x + 8, y + 1,
+				WurstColors.VERY_LIGHT_GRAY);
 			
 			String relPath =
 				"" + minecraft.gameDirectory.toPath().relativize(path);
-			context.drawString(tr, relPath, x + 8, y + 11, CommonColors.LIGHT_GRAY);
+			context.drawString(tr, relPath, x + 8, y + 11,
+				CommonColors.LIGHT_GRAY);
 		}
 	}
 	

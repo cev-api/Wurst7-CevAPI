@@ -25,6 +25,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SettingGroup;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"wurst options", "settings"})
@@ -47,6 +48,20 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Use a custom background color behind the Mojang loading logo.",
 			true);
 	
+	private final TextFieldSetting titleScreenShadertoyUrl =
+		new TextFieldSetting("Custom Shadertoy URL",
+			"Paste a single-pass Shadertoy URL to use as the menu background.",
+			"", s -> s == null || s.isBlank() || s.matches(
+				"https?://(www\\.)?shadertoy\\.com/(view|embed)/[A-Za-z0-9]{6}.*"));
+	private final CheckboxSetting tabListPing = new CheckboxSetting("Live ping",
+		"Shows each player's current ping instead of the signal bars.", false);
+	private final CheckboxSetting tabListHeads =
+		new CheckboxSetting("Player heads",
+			"Shows player heads next to names in the tab list.", false);
+	private final CheckboxSetting tabListPingColors =
+		new CheckboxSetting("Color ping",
+			"Colors ping from bright green through yellow to red.", false);
+	
 	private final ColorSetting mojangLogoBackgroundColor =
 		new ColorSetting("Mojang logo background color", Color.BLACK);
 	
@@ -62,6 +77,9 @@ public final class WurstOptionsOtf extends OtherFeature
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
+		addSetting(tabListPing);
+		addSetting(tabListHeads);
+		addSetting(tabListPingColors);
 	}
 	
 	public void linkAdditionalSettings(DisableOtf disableOtf,
@@ -82,6 +100,7 @@ public final class WurstOptionsOtf extends OtherFeature
 			changelogOtf::doPrimaryAction));
 		addSetting(hackToggleChatFeedback);
 		addSetting(customMojangLogoBackground);
+		addSetting(titleScreenShadertoyUrl);
 		addSetting(mojangLogoBackgroundColor);
 		addSetting(disableOtf.getHideEnableButtonSetting());
 		addSetting(noTelemetryOtf.getDisableTelemetrySetting());
@@ -113,6 +132,26 @@ public final class WurstOptionsOtf extends OtherFeature
 	public CheckboxSetting getCustomMojangLogoBackgroundSetting()
 	{
 		return customMojangLogoBackground;
+	}
+	
+	public TextFieldSetting getTitleScreenShadertoyUrlSetting()
+	{
+		return titleScreenShadertoyUrl;
+	}
+	
+	public boolean shouldShowTabListPing()
+	{
+		return tabListPing.isChecked();
+	}
+	
+	public boolean shouldShowTabListHeads()
+	{
+		return tabListHeads.isChecked();
+	}
+	
+	public boolean shouldColorTabListPing()
+	{
+		return tabListPingColors.isChecked();
 	}
 	
 	public ColorSetting getMojangLogoBackgroundColorSetting()
