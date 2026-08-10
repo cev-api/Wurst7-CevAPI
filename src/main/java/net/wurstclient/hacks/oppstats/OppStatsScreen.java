@@ -757,7 +757,6 @@ public final class OppStatsScreen extends Screen
 					8, 8, 16, 16, 8, 8, 64, 64, 0xFFFFFFFF);
 				context.blit(RenderPipelines.GUI_TEXTURED, skin, x + 2, y + 2,
 					40, 8, 16, 16, 8, 8, 64, 64, 0xFFFFFFFF);
-<<<<<<< HEAD
 				context.drawString(Minecraft.getInstance().font, record.name,
 					x + 24, y + 2, 0xFFFFFFFF, false);
 				String pingText = record.online
