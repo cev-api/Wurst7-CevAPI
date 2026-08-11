@@ -366,17 +366,17 @@ public final class LootSorterController
 	
 	private boolean isManualMovementKey(int keyCode)
 	{
-		return keyCode == IKeyMapping.get(mc.options.keyUp).wurst$getKey()
+		return keyCode == IKeyMapping.get(mc.options.keyUp).getBoundKey()
 			.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyDown).wurst$getKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyDown).getBoundKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyLeft).wurst$getKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyLeft).getBoundKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyRight).wurst$getKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyRight).getBoundKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyJump).wurst$getKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyJump).getBoundKey()
 				.getValue()
-			|| keyCode == IKeyMapping.get(mc.options.keyShift).wurst$getKey()
+			|| keyCode == IKeyMapping.get(mc.options.keyShift).getBoundKey()
 				.getValue();
 	}
 	

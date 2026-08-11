@@ -10,7 +10,7 @@ package net.wurstclient.options;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -81,8 +81,8 @@ public final class EnterProfileNameScreen extends Screen
 		
 		callback.accept(value);
 		
-		if(minecraft.gui.screen() == this)
-			minecraft.gui.setScreen(prevScreen);
+		if(minecraft.screen == this)
+			minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -95,7 +95,7 @@ public final class EnterProfileNameScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.gui.setScreen(prevScreen);
+			minecraft.setScreen(prevScreen);
 			break;
 		}
 		
@@ -103,16 +103,16 @@ public final class EnterProfileNameScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(minecraft.font, promptMessage.getString(),
+		context.drawCenteredString(minecraft.font, promptMessage.getString(),
 			width / 2, 20, CommonColors.WHITE);
 		
-		valueField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		valueField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

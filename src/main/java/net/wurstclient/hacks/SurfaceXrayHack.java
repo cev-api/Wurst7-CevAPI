@@ -94,10 +94,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 			}
 			
 			@Override
-			public void resetToDefaults()
+			public void resetToDefault()
 			{
 				boolean changed = size() > 0;
-				super.resetToDefaults();
+				super.resetToDefault();
 				if(changed)
 					onTrackedBlocksChanged();
 			}
@@ -180,6 +180,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	{
 		if(!isEnabled() || state == null || pos == null)
 			return SurfaceState.NONE;
+		if(MC.level != null
+			&& MC.level.dimension() == net.minecraft.world.level.Level.END
+			&& state.is(net.minecraft.world.level.block.Blocks.BEDROCK))
+			return SurfaceState.NONE;
 		
 		if(!targetBlocks.matchesBlock(state.getBlock()))
 			return SurfaceState.NONE;
@@ -201,7 +205,11 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	public boolean isTarget(BlockState state)
 	{
-		return state != null && targetBlocks.matchesBlock(state.getBlock());
+		return state != null
+			&& !(MC.level != null
+				&& MC.level.dimension() == net.minecraft.world.level.Level.END
+				&& state.is(net.minecraft.world.level.block.Blocks.BEDROCK))
+			&& targetBlocks.matchesBlock(state.getBlock());
 	}
 	
 	public boolean isTarget(Block block)
@@ -252,7 +260,7 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	public void openBlockListEditor(Screen prevScreen)
 	{
-		MC.gui.setScreen(new EditBlockListScreen(prevScreen, targetBlocks));
+		MC.setScreen(new EditBlockListScreen(prevScreen, targetBlocks));
 	}
 	
 	private SurfaceState classifyPos(BlockPos pos, Block block)
@@ -404,11 +412,11 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 	
 	private void reloadPendingTerrain()
 	{
-		if(MC.level == null || MC.levelExtractor == null)
+		if(MC.level == null || MC.levelRenderer == null)
 			return;
 		
 		pendingTerrainReload = false;
-		MC.levelExtractor.allChanged();
+		MC.levelRenderer.allChanged();
 		lastUsesTranslucentLayer = usesTranslucentLayer();
 	}
 	
@@ -420,10 +428,10 @@ public final class SurfaceXrayHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		if(MC.level == null || MC.levelExtractor == null)
+		if(MC.level == null || MC.levelRenderer == null)
 			return;
 		
-		MC.levelExtractor.allChanged();
+		MC.levelRenderer.allChanged();
 		lastUsesTranslucentLayer = usesTranslucentLayer();
 	}
 	

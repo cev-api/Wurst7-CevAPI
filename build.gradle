@@ -5,12 +5,21 @@ buildscript {
 }
 
 plugins {
-	id "fabric-loom" version "${loom_version}"
+	id "fabric-loom" version "${loom_version}" apply false
 	id "com.diffplug.spotless" version "8.6.0"
 	id "net.wimods.github-compile-summary" version "0.1.1"
 }
 
 def ENV = System.getenv()
+def formattingOnly = gradle.startParameter.taskNames.any {
+	it == "spotlessApply" || it == "spotlessCheck"
+		|| it.startsWith("spotless")
+}
+
+if(!formattingOnly)
+	apply plugin: "fabric-loom"
+else
+	apply plugin: "java"
 
 def niceWurstRaw =
 	(project.findProperty("nicewurst") ?: ENV.NICEWURST ?: "0").toString()
@@ -44,6 +53,9 @@ base {
 }
 
 repositories {
+	mavenCentral()
+
+	// MCProtocolLib (AltBot system) is hosted on the OpenCollab maven.
 	maven {
 		name = "opencollab"
 		url = "https://repo.opencollab.dev/main/"
@@ -52,6 +64,7 @@ repositories {
 		name = "opencollabSnapshots"
 		url = "https://repo.opencollab.dev/maven-snapshots/"
 	}
+
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -86,29 +99,23 @@ dependencies {
 	// In other words, Wurst won't compile without this library,
 	// even though it's Minecraft that actually uses it.
 	modImplementation "com.google.code.findbugs:jsr305:3.0.2"
-	implementation include("io.netty:netty-handler-proxy:4.2.15.Final")
-	implementation include("io.netty:netty-codec-socks:4.2.15.Final")
+	
 }
 
-	// New master files are compiled incrementally while their 1.21.11 ports are completed.
-	sourceSets {
-		main.java {
-		exclude "net/wurstclient/altbot/AccountSwitchController.java"
-		exclude "net/wurstclient/altbot/AltBotManager.java"
-		exclude "net/wurstclient/altbot/AltBotSession.java"
-		exclude "net/wurstclient/altbot/AltBotState.java"
-		exclude "net/wurstclient/altbot/AltBotUtils.java"
-		exclude "net/wurstclient/altbot/BotChatSession.java"
-		exclude "net/wurstclient/altbot/BotState.java"
-		exclude "net/wurstclient/altbot/PlayerCertificates.java"
-		exclude "net/wurstclient/altbot/SwitchState.java"
-		exclude "net/wurstclient/altmanager/screens/AltBotDetailsScreen.java"
-		exclude "net/wurstclient/altmanager/screens/AltBotSendChatScreen.java"
-		exclude "net/wurstclient/altmanager/screens/ExportTokenFormatScreen.java"
-		exclude "net/wurstclient/commands/AltBotCmd.java"
-		exclude "net/wurstclient/commands/AltSwitchCmd.java"
-
-		exclude "net/wurstclient/settings/filters/FilterSulfurCubesSetting.java"
+// MCProtocolLib provides the lightweight protocol-bot connections used by the
+// AltBot multi-account system, and the SOCKS proxy modules extend Netty for
+// proxy support. They are bundled into the final mod jar manually (below)
+// instead of via Loom's "include": this project lives on an SMB share where
+// Loom's processIncludeJars tmp-file rename frequently fails with
+// AccessDenied. Netty, Gson, slf4j, the JetBrains annotations and the old
+// nukkitx fastutil fork are excluded because Minecraft already provides newer
+// versions of all of them, and MinecraftAuth is not needed because Wurst's own
+// authentication stack supplies all required credentials.
+configurations {
+	altbotLibs {
+		transitive = true
+		canBeResolved = true
+		canBeConsumed = false
 	}
 }
 
@@ -159,29 +166,47 @@ fabricApi.configureTests {
 
 loom {
 	accessWidenerPath = file("src/main/resources/wurst.accesswidener")
+	mods {
+		wurst {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.gametest
+		}
+	}
 	
 	runs {
-		clientGameTest {
-			environment = "client"
-			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
-		}
-		
 		clientWithMods {
 			environment = "client"
 			inherit client
 		}
-		
-		clientGameTestWithMods {
-			environment = "client"
-			inherit client
-			runDir = "build/run/clientGameTestWithMods"
-			vmArgs.add("-Dfabric.client.gametest")
-			vmArgs.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
-			vmArgs.add("-Dwurst.test.withMods=true")
-			programArgs.add("--username=Wurst-Bot")
-		}
 	}
 }
+
+	if(!formattingOnly)
+		loom {
+		accessWidenerPath = file("src/main/resources/wurst.accesswidener")
+		
+		runs {
+			clientGameTest {
+				environment = "client"
+				jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
+			}
+			
+			clientWithMods {
+				environment = "client"
+				inherit client
+			}
+			
+			clientGameTestWithMods {
+				environment = "client"
+				inherit client
+				runDir = "build/run/clientGameTestWithMods"
+				jvmArguments.add("-Dfabric.client.gametest")
+				jvmArguments.add("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
+				jvmArguments.add("-Dwurst.test.withMods=true")
+				programArguments.add("--username=Wurst-Bot")
+			}
+		}
+	}
 
 configurations {
 	testMods {
@@ -235,11 +260,12 @@ def prepareClientWithMods = tasks.register("prepareClientWithMods", Sync) {
 	into "run/mods"
 }
 
-tasks.named("runClientWithMods") {
-	onlyIf { hasCompatMods.get() }
-	dependsOn prepareClientWithMods
-	finalizedBy cleanClientWithMods
-}
+if(!formattingOnly)
+	tasks.named("runClientWithMods") {
+		onlyIf { hasCompatMods.get() }
+		dependsOn prepareClientWithMods
+		finalizedBy cleanClientWithMods
+	}
 
 def cleanClientGameTestWithMods = tasks.register("cleanClientGameTestWithMods", Delete) {
 	delete layout.buildDirectory.dir("run/clientGameTestWithMods")
@@ -251,11 +277,13 @@ def prepareClientGameTestWithMods = tasks.register("prepareClientGameTestWithMod
 	into layout.buildDirectory.dir("run/clientGameTestWithMods/mods")
 }
 
-tasks.named("runClientGameTestWithMods") {
-	onlyIf { hasCompatMods.get() }
-	dependsOn prepareClientGameTestWithMods
-}
+	if(!formattingOnly)
+		tasks.named("runClientGameTestWithMods") {
+			onlyIf { hasCompatMods.get() }
+			dependsOn prepareClientGameTestWithMods
+		}
 
+if(!formattingOnly) {
 processResources {
 	def rawVersion = project.version.toString()
 	def modVersion = niceWurstEnabled ? forkReleaseVersion
@@ -334,9 +362,8 @@ tasks.configureEach {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	// Minecraft 1.20.5 (24w14a) upwards uses Java 21.
+	// Minecraft 1.21.11 requires Java 21.
 	it.options.release = 21
-	it.options.compilerArgs += "-Xlint:deprecation"
 }
 
 java {
@@ -358,14 +385,25 @@ jar {
 		rename { "LICENSE-${archivesName.get()}.txt" }
 	}
 	
+	// Merge the bundled AltBot / proxy libraries (MCProtocolLib, Adventure,
+	// Cloudburst, Netty SOCKS modules) directly into the mod jar.
+	from {
+		configurations.altbotLibs.collect {
+			it.isDirectory() ? it : zipTree(it)
+		}
+	}
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	
 	exclude("intentionally_untranslated.json")
 }
 
-tasks.named("remapJar") {
-	archiveVersion = "${project.version}_v${forkReleaseVersion}"
-}
+	tasks.configureEach {
+		if(name == "remapJar")
+			archiveVersion = "${project.version}_v${forkReleaseVersion}"
+	}
+	}
 
-import com.diffplug.spotless.generic.LicenseHeaderStep
+	import com.diffplug.spotless.generic.LicenseHeaderStep
 spotless {
 	lineEndings = "WINDOWS"
 	java {

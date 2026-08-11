@@ -153,7 +153,7 @@ public final class UiUtilsPluginScanner
 		
 		if(foundPlugins.isEmpty())
 		{
-			mc.player.sendSystemMessage(
+			net.wurstclient.util.ChatUtils.component(
 				Component.literal("[UI-Utils] No plugins found or blocked."));
 			return;
 		}
@@ -172,7 +172,8 @@ public final class UiUtilsPluginScanner
 				line.append(", ");
 		}
 		
-		mc.player.sendSystemMessage(Component.literal(line.toString()));
+		net.wurstclient.util.ChatUtils
+			.component(Component.literal(line.toString()));
 		foundPlugins.clear();
 		dedupe.clear();
 	}

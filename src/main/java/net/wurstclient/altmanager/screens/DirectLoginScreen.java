@@ -386,12 +386,12 @@ public final class DirectLoginScreen extends AltEditorScreen
 		}
 		
 		message = "\u00a7a\u00a7lLogin successful.";
-		minecraft.gui.setScreen(new TitleScreen());
+		minecraft.setScreen(new TitleScreen());
 	}
 	
 	private void toggleMode()
 	{
-		minecraft.gui.setScreen(new DirectLoginScreen(prevScreen, mode.next()));
+		minecraft.setScreen(new DirectLoginScreen(prevScreen, mode.next()));
 	}
 	
 	private int getProfileBoxY()

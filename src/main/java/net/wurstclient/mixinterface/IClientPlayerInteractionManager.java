@@ -10,16 +10,12 @@ package net.wurstclient.mixinterface;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
-public interface IMultiPlayerGameMode
+public interface IClientPlayerInteractionManager
 {
-	public void windowClick(int syncId, int slot, int button,
-		ContainerInput action);
-	
 	public void windowClick_PICKUP(int slot);
 	
 	public void windowClick_QUICK_MOVE(int slot);

@@ -15,7 +15,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.input.KeyEvent;
@@ -74,7 +74,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 					
 					WurstClient.INSTANCE.getNavigator()
 						.addPreference(preferenceName);
-					minecraft.gui.setScreen(returnScreen);
+					minecraft.setScreen(returnScreen);
 				}else
 				{
 					choosingKey = true;
@@ -90,12 +90,12 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 			}
 			
 			@Override
-			protected void extractContents(GuiGraphicsExtractor drawContext,
-				int i, int j, float f)
+			protected void renderContents(GuiGraphics drawContext, int i, int j,
+				float f)
 			{
-				extractDefaultSprite(drawContext);
-				extractDefaultLabel(drawContext.textRendererForWidget(this,
-					GuiGraphicsExtractor.HoveredTextEffects.NONE));
+				renderDefaultSprite(drawContext);
+				renderDefaultLabel(drawContext.textRendererForWidget(this,
+					GuiGraphics.HoveredTextEffects.NONE));
 			}
 		};
 		okButton.active = selectedCommand != null;
@@ -104,7 +104,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 		// Cancel button
 		cancelButton = Button
 			.builder(Component.literal("Cancel"),
-				b -> WurstClient.MC.gui.setScreen(returnScreen))
+				b -> WurstClient.MC.setScreen(returnScreen))
 			.bounds(width / 2 + 2, height - 65, 149, 18).build();
 		addRenderableWidget(cancelButton);
 	}
@@ -119,7 +119,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 			
 		}else if(context.key() == GLFW.GLFW_KEY_ESCAPE
 			|| context.key() == GLFW.GLFW_KEY_BACKSPACE)
-			minecraft.gui.setScreen(returnScreen);
+			minecraft.setScreen(returnScreen);
 	}
 	
 	@Override
@@ -143,7 +143,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 		// back button
 		if(button == GLFW.GLFW_MOUSE_BUTTON_4)
 		{
-			minecraft.gui.setScreen(returnScreen);
+			minecraft.setScreen(returnScreen);
 			return;
 		}
 		
@@ -190,22 +190,22 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 	}
 	
 	@Override
-	protected void onRender(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	protected void onRender(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		Font tr = minecraft.font;
 		int txtColor = gui.getTxtColor();
 		
 		// title bar
-		context.centeredText(tr, "New Keybind", middleX, 32, txtColor);
+		context.drawCenteredString(tr, "New Keybind", middleX, 32, txtColor);
 		
 		// background
 		int bgx1 = middleX - 154;
 		int bgx2 = middleX + 154;
 		int bgy1 = 60;
 		int bgy2 = height - 43;
-		boolean noButtons = Screens.getWidgets(this).isEmpty();
+		boolean noButtons = Screens.getButtons(this).isEmpty();
 		int bgy3 = bgy2 - (noButtons ? 0 : 24);
 		
 		context.enableScissor(bgx1, bgy1, bgx2, bgy3);
@@ -245,9 +245,9 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 				
 				// text
 				context.guiRenderState.up();
-				context.text(tr, pkb.getDescription(), x1 + 1, y1 + 1,
+				context.drawString(tr, pkb.getDescription(), x1 + 1, y1 + 1,
 					txtColor);
-				context.text(tr, pkb.getCommand(), x1 + 1,
+				context.drawString(tr, pkb.getCommand(), x1 + 1,
 					y1 + 1 + tr.lineHeight, txtColor);
 			}
 		}
@@ -257,14 +257,14 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 		context.guiRenderState.up();
 		for(String line : text.split("\n"))
 		{
-			context.text(tr, line, bgx1 + 2, textY, txtColor);
+			context.drawString(tr, line, bgx1 + 2, textY, txtColor);
 			textY += tr.lineHeight;
 		}
 		
 		context.disableScissor();
 		
 		// buttons below scissor box
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			// positions
 			int x1 = button.getX();
@@ -287,7 +287,7 @@ public class NavigatorNewKeybindScreen extends NavigatorScreen
 			
 			// text
 			context.guiRenderState.up();
-			context.centeredText(tr, button.getMessage().getString(),
+			context.drawCenteredString(tr, button.getMessage().getString(),
 				(x1 + x2) / 2, y1 + 5, txtColor);
 		}
 	}

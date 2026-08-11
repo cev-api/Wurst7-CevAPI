@@ -7,12 +7,17 @@
  */
 package net.wurstclient.hacks;
 
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -46,7 +51,7 @@ import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 @SearchTags({"staff monitor", "spectator monitor", "spectator detector",
 	"gamemode monitor", "creative monitor", "spec detector",
@@ -137,6 +142,10 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			}
 			
 			@Override
+			public void resetToDefault()
+			{}
+			
+			@Override
 			public void fromJson(com.google.gson.JsonElement json)
 			{
 				// read-only
@@ -193,6 +202,13 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	private boolean hiddenPlayerAlertsActive;
 	private int staffQuitTicks = -1;
 	private String staffQuitReason;
+	
+	/**
+	 * Prevents the Mojang staff list from being re-read (and erroring) on
+	 * every single tick when the bundled resources can't be loaded.
+	 */
+	private long nextMojangStaffRetry;
+	private long lastMojangStaffError;
 	
 	/** Used by safety-aware modules without invoking StaffMonitor's action. */
 	public boolean hasDetectedStaff()
@@ -541,44 +557,137 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	
 	private void loadMojangStaff()
 	{
-		mojangStaffNames.clear();
-		mojangStaffUuids.clear();
 		if(!mojangStaff.isChecked())
 			return;
+			
+		// If loading failed, don't retry it every single tick. That used to
+		// spam the chat with the same error message over and over.
+		long now = System.currentTimeMillis();
+		if(now < nextMojangStaffRetry)
+			return;
+		
+		mojangStaffNames.clear();
+		mojangStaffUuids.clear();
+		
 		loadMojangStaffFile("/wurst/staff/mojang-names.txt", false);
 		loadMojangStaffFile("/wurst/staff/mojang-uuids.txt", true);
+		
+		if(mojangStaffNames.isEmpty() && mojangStaffUuids.isEmpty())
+		{
+			nextMojangStaffRetry = now + 5 * 60_000L;
+			
+			// Report the failure at most once every 10 minutes instead of
+			// every tick.
+			if(now - lastMojangStaffError >= 10 * 60_000L)
+			{
+				lastMojangStaffError = now;
+				ChatUtils.error("StaffMonitor: couldn't load the bundled "
+					+ "Mojang staff list, so \"Mojang Staff\" won't work.");
+			}
+		}
 	}
 	
 	private void loadMojangStaffFile(String resource, boolean uuidFile)
 	{
-		try(InputStream stream =
+		String content = readBundledResource(resource);
+		if(content == null)
+			return;
+		
+		for(String line : content.split("\\R"))
+		{
+			String value = line.strip();
+			if(value.isEmpty() || value.startsWith("#"))
+				continue;
+			if(uuidFile)
+			{
+				try
+				{
+					mojangStaffUuids.add(UUID.fromString(value));
+				}catch(IllegalArgumentException ignored)
+				{
+					// Ignore malformed bundled entries.
+				}
+			}else
+				mojangStaffNames.add(value.toLowerCase(Locale.ROOT));
+		}
+	}
+	
+	/**
+	 * Reads a bundled text resource. Tries the normal classpath lookup first,
+	 * then falls back to reading the mod's own jar directly, because Fabric's
+	 * KnotClassLoader can throw a ZipException for resources that are actually
+	 * perfectly readable (vanilla's classloader would read them fine).
+	 *
+	 * @return the file's contents as UTF-8 text, or null if it couldn't be
+	 *         read.
+	 */
+	private static String readBundledResource(String resource)
+	{
+		// 1. Normal classpath read (works in most cases).
+		try(InputStream in =
 			StaffMonitorHack.class.getResourceAsStream(resource))
 		{
-			if(stream == null)
-				return;
-			String content =
-				new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-			for(String line : content.split("\\R"))
-			{
-				String value = line.strip();
-				if(value.isEmpty() || value.startsWith("#"))
-					continue;
-				if(uuidFile)
-				{
-					try
-					{
-						mojangStaffUuids.add(UUID.fromString(value));
-					}catch(IllegalArgumentException ignored)
-					{
-						// Ignore malformed bundled entries.
-					}
-				}else
-					mojangStaffNames.add(value.toLowerCase(Locale.ROOT));
-			}
-		}catch(IOException e)
+			if(in != null)
+				return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+			
+		}catch(Exception e)
 		{
-			ChatUtils.error(
-				"StaffMonitor Mojang staff list failed: " + e.getMessage());
+			// Fall through to the direct jar read below.
+		}
+		
+		// 2. Read straight from the mod's own jar, bypassing the classloader.
+		return readFromOwnJar(resource);
+	}
+	
+	private static String readFromOwnJar(String resource)
+	{
+		try
+		{
+			URL codeSource = StaffMonitorHack.class.getProtectionDomain()
+				.getCodeSource().getLocation();
+			if(codeSource == null)
+				return null;
+			
+			Path jarPath;
+			if(codeSource.getProtocol().equals("file"))
+			{
+				Path p = Paths.get(codeSource.toURI());
+				
+				// Dev environment (classes/resources dirs): the normal
+				// classpath read already handles this, nothing to do here.
+				if(Files.isDirectory(p))
+					return null;
+				
+				jarPath = p;
+				
+			}else if(codeSource.getProtocol().equals("jar"))
+			{
+				// jar:file:/path/to/mod.jar!/net/... -> /path/to/mod.jar
+				String spec = codeSource.getFile();
+				int bang = spec.indexOf("!/");
+				if(bang < 0)
+					return null;
+				jarPath = Paths.get(URI.create(spec.substring(0, bang)));
+				
+			}else
+				return null;
+			
+			try(JarFile jar = new JarFile(jarPath.toFile()))
+			{
+				ZipEntry entry = jar.getEntry(resource.substring(1));
+				if(entry == null)
+					return null;
+				
+				try(InputStream in = jar.getInputStream(entry))
+				{
+					return new String(in.readAllBytes(),
+						StandardCharsets.UTF_8);
+				}
+			}
+			
+		}catch(Exception e)
+		{
+			return null;
 		}
 	}
 	
@@ -893,8 +1002,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		}
 		
 		@Override
-		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, float partialTicks)
+		public void render(GuiGraphics context, int mouseX, int mouseY,
+			float partialTicks)
 		{
 			int width = getWidth();
 			int x1 = getX();
@@ -911,14 +1020,14 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			context.fill(x1, y1, x2, y1 + getHeight(), bgColor);
 			
 			int txtColor = WURST.getGui().getTxtColor();
-			context.text(MC.font,
+			context.drawString(MC.font,
 				"Saved staff on this server (" + savedStaffNames.size() + "):",
 				x1 + 4, y1 + 2, txtColor, false);
 			
 			int y = y1 + 2 + lineHeight;
 			for(String line : lines)
 			{
-				context.text(MC.font, line, x1 + 4, y, txtColor, false);
+				context.drawString(MC.font, line, x1 + 4, y, txtColor, false);
 				y += lineHeight;
 			}
 		}

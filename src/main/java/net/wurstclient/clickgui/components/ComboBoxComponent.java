@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.ClickGuiIcons;
@@ -79,7 +79,7 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		if(isPopupOpen())
 			return;
 		
-		setting.setSelected(setting.getDefaultSelected());
+		setting.resetToDefault();
 	}
 	
 	private boolean isPopupOpen()
@@ -88,8 +88,8 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		int x1 = getX();
 		int x2 = x1 + getWidth();
@@ -129,8 +129,8 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 		String name = setting.getName();
 		String value = trimToWidth("" + setting.getSelected(), valueWidth - 4);
 		int txtColor = GUI.getTxtColor();
-		context.text(TR, name, x1, y1 + 2, txtColor, false);
-		context.text(TR, value, x4 + 2, y1 + 2, txtColor, false);
+		context.drawString(TR, name, x1, y1 + 2, txtColor, false);
+		context.drawString(TR, value, x4 + 2, y1 + 2, txtColor, false);
 	}
 	
 	private int getVisibleValueWidth()

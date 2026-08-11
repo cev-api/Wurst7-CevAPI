@@ -263,7 +263,7 @@ public final class ResourcePackProtector
 				Minecraft target =
 					mcClient != null ? mcClient : Minecraft.getInstance();
 				if(target != null)
-					target.gui.toastManager().queued.clear();
+					target.getToastManager().queued.clear();
 				sendStatus(connection, context,
 					ServerboundResourcePackPacket.Action.DECLINED);
 				noteHandled(context);
@@ -436,7 +436,7 @@ public final class ResourcePackProtector
 			TOAST_QUEUE.clear();
 		}
 		
-		ToastManager manager = client.gui.toastManager();
+		ToastManager manager = client.getToastManager();
 		for(ToastPayload payload : payloads)
 		{
 			try

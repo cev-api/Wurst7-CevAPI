@@ -17,7 +17,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
@@ -74,7 +74,7 @@ public final class DurabilityHud
 		this.hack = hack;
 	}
 	
-	public void render(GuiGraphicsExtractor context)
+	public void render(GuiGraphics context)
 	{
 		if(MC == null || hack == null || !hack.isEnabled())
 			return;
@@ -193,11 +193,10 @@ public final class DurabilityHud
 		}
 	}
 	
-	private void renderSlot(GuiGraphicsExtractor context, Font font,
-		ItemStack stack, float x, float y, float iconSize, boolean showBar,
-		boolean showPercent, float barHeight, float fontScale, boolean bossBar,
-		int baseTextColor, boolean useGradientText, boolean infoToSide,
-		float infoWidth)
+	private void renderSlot(GuiGraphics context, Font font, ItemStack stack,
+		float x, float y, float iconSize, boolean showBar, boolean showPercent,
+		float barHeight, float fontScale, boolean bossBar, int baseTextColor,
+		boolean useGradientText, boolean infoToSide, float infoWidth)
 	{
 		double fraction = getDurabilityFraction(stack);
 		float fillWidth = (float)(fraction * iconSize);
@@ -274,25 +273,24 @@ public final class DurabilityHud
 		}
 	}
 	
-	private void drawItem(GuiGraphicsExtractor context, ItemStack stack,
-		float x, float y, float size)
+	private void drawItem(GuiGraphics context, ItemStack stack, float x,
+		float y, float size)
 	{
 		context.pose().pushMatrix();
 		context.pose().translate(x, y);
 		float scale = size / 16F;
 		context.pose().scale(scale, scale);
-		context.item(stack, 0, 0);
+		context.renderItem(stack, 0, 0);
 		context.pose().popMatrix();
 	}
 	
-	private void handleDrag(GuiGraphicsExtractor context, float startX,
-		float iconY, float totalWidth, float rowHeight)
+	private void handleDrag(GuiGraphics context, float startX, float iconY,
+		float totalWidth, float rowHeight)
 	{
 		if(MC == null)
 			return;
 		
-		boolean containerOpen =
-			MC.gui.screen() instanceof AbstractContainerScreen<?>;
+		boolean containerOpen = MC.screen instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)
 		{
 			dragging = false;
@@ -335,11 +333,11 @@ public final class DurabilityHud
 			dragging = false;
 	}
 	
-	private static float getBottomTextAvoidOffset(GuiGraphicsExtractor context,
+	private static float getBottomTextAvoidOffset(GuiGraphics context,
 		float hudY, float hudHeight)
 	{
 		if(MC == null || MC.font == null || MC.gui == null
-			|| !(MC.gui.hud instanceof GuiAccessor accessor))
+			|| !(MC.gui instanceof GuiAccessor accessor))
 			return 0F;
 		
 		if(hudY < context.guiHeight() - ACTIONBAR_AVOID_ZONE_HEIGHT)
@@ -372,10 +370,10 @@ public final class DurabilityHud
 	}
 	
 	public static boolean renderSelectedItemNameWithEnchantments(
-		GuiGraphicsExtractor context)
+		GuiGraphics context)
 	{
 		if(MC == null || MC.gui == null
-			|| !(MC.gui.hud instanceof GuiAccessor accessor))
+			|| !(MC.gui instanceof GuiAccessor accessor))
 			return false;
 		
 		DurabilityHudHack hack = WurstClient.INSTANCE != null
@@ -412,7 +410,7 @@ public final class DurabilityHud
 		int alphaColor = ARGB.white(alpha);
 		int nameWidth = font.width(nameComponent);
 		int nameX = (context.guiWidth() - nameWidth) / 2;
-		context.textWithBackdrop(font, nameComponent, nameX, y, nameWidth,
+		context.drawStringWithBackdrop(font, nameComponent, nameX, y, nameWidth,
 			alphaColor);
 		
 		if(lines.isEmpty())
@@ -423,7 +421,7 @@ public final class DurabilityHud
 		{
 			int width = font.width(line);
 			int x = (context.guiWidth() - width) / 2;
-			context.textWithBackdrop(font, line, x, y, width, alphaColor);
+			context.drawStringWithBackdrop(font, line, x, y, width, alphaColor);
 			y += font.lineHeight;
 		}
 		
@@ -476,8 +474,8 @@ public final class DurabilityHud
 		return Math.min(alpha, 255);
 	}
 	
-	private static float getHotbarTextTop(GuiGraphicsExtractor context,
-		Font font, HotbarHighlightState state, boolean includeEnchantments)
+	private static float getHotbarTextTop(GuiGraphics context, Font font,
+		HotbarHighlightState state, boolean includeEnchantments)
 	{
 		float y = context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
 		if(MC.gameMode != null && !MC.gameMode.canHurtPlayer())
@@ -501,7 +499,7 @@ public final class DurabilityHud
 		return Math.max(BASE_MARGIN, y);
 	}
 	
-	private static float getStatusBarsTopY(GuiGraphicsExtractor context)
+	private static float getStatusBarsTopY(GuiGraphics context)
 	{
 		if(MC == null || MC.player == null)
 			return context.guiHeight() - SELECTED_ITEM_Y_OFFSET;
@@ -513,7 +511,7 @@ public final class DurabilityHud
 	private static boolean isOverlayMessageVisible()
 	{
 		if(MC == null || MC.gui == null
-			|| !(MC.gui.hud instanceof GuiAccessor accessor))
+			|| !(MC.gui instanceof GuiAccessor accessor))
 			return false;
 		
 		int time = accessor.getOverlayMessageTime();
@@ -546,7 +544,7 @@ public final class DurabilityHud
 			&& mouseY <= bottom;
 	}
 	
-	private static double getScaledMouseX(GuiGraphicsExtractor context)
+	private static double getScaledMouseX(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -555,7 +553,7 @@ public final class DurabilityHud
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphicsExtractor context)
+	private static double getScaledMouseY(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

@@ -228,7 +228,8 @@ public final class ShearAuraHack extends Hack
 		
 		Entity clicked = target;
 		EntityHitResult hitResult = EntityUtils.createHitResult(clicked);
-		InteractionResult result = gameMode.interact(player, clicked, hand);
+		InteractionResult result =
+			gameMode.interactAt(player, clicked, hitResult, hand);
 		
 		if(result instanceof InteractionResult.Success success)
 		{

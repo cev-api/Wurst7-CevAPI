@@ -54,8 +54,8 @@ public final class ExportTokenFormatScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.drawCenteredString(font, "Export Token Accounts", width / 2,
 			height / 2 - 54, CommonColors.WHITE);

@@ -13,7 +13,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -62,11 +64,12 @@ public final class MaceDmgHack extends Hack
 	private static final double DEFAULT_HEIGHT = 22.0;
 	private static final double MIN_FALL = 1.6;
 	private static final double SCAN_STEP = 0.25;
-	private static final int CONFIRM_TIMEOUT_TICKS = 20;
+	private static final int CONFIRM_TIMEOUT_TICKS = 10;
 	private static final int TOTEM_POP_FALLBACK_TICKS = 2;
 	private static final int SAFE_RECOVERY_TICKS = 2;
 	private static final int UNSAFE_RECOVERY_TICKS = 6;
 	private static final int TOTEM_BYPASS_GRACE_TICKS = 40;
+	private static final int REJECTED_TARGET_COOLDOWN_TICKS = 20;
 	private static final double FABRIC_MAX_HEIGHT = 22.3;
 	private static final double PAPER_MAX_HEIGHT = 50.0;
 	
@@ -125,6 +128,19 @@ public final class MaceDmgHack extends Hack
 		"How high to fake before slamming. Height determines the damage boost.",
 		DEFAULT_HEIGHT, 1.6, PAPER_MAX_HEIGHT, 0.1, ValueDisplay.DECIMAL);
 	
+	private final CheckboxSetting multiAuraHeightCap = new CheckboxSetting(
+		"MultiAura height cap",
+		"Restricts Height to 10 while MultiAura is enabled, then restores the "
+			+ "previous Height value when MultiAura is disabled.",
+		false)
+	{
+		@Override
+		public void update()
+		{
+			updateMultiAuraHeightCap();
+		}
+	};
+	
 	private final CheckboxSetting attackCap = new CheckboxSetting(
 		"6-block attack cap",
 		"Blocks all entity attacks started while MaceDMG is enabled when the target"
@@ -159,6 +175,15 @@ public final class MaceDmgHack extends Hack
 			+ " work under a ceiling. Fully sealed spaces still can't be smashed.",
 		true);
 	
+	private final SliderSetting auraBurstTargets = new SliderSetting(
+		"Aura burst targets",
+		"Gameplay. With MultiAura: how many different targets get their own\n"
+			+ "fake fall + smash within a single tick. Each hit re-sends the fall\n"
+			+ "sequence, so every target takes full smash bonus damage.\n"
+			+ "1 = one smash per cycle (sequential). Higher values are louder to\n"
+			+ "anti-cheat plugins.",
+		3, 1, 5, 1, ValueDisplay.INTEGER);
+	
 	private final CheckboxSetting smashSparkles = new CheckboxSetting(
 		"Smash sparkles",
 		"Cosmetic only. Show a full FunCreepers-style party when a mace smash attack successfully lands.",
@@ -191,6 +216,8 @@ public final class MaceDmgHack extends Hack
 				confetti, sparkles, sparkleColor);
 	
 	private volatile SmashState smashState = SmashState.IDLE;
+	private volatile boolean unresolvedSpoof;
+	private volatile LocalPlayer spoofPlayer;
 	private volatile LocalPlayer debtPlayer;
 	private volatile int pendingTargetId = -1;
 	private volatile int confirmTicks;
@@ -201,12 +228,18 @@ public final class MaceDmgHack extends Hack
 	private boolean autoOptimizeWasChecked;
 	private final Map<UUID, TotemBypassState> totemBypassSteps =
 		new HashMap<>();
+	private final Map<Integer, Integer> rejectedTargetCooldowns =
+		new ConcurrentHashMap<>();
+	private final Set<Integer> pendingBurstIds = ConcurrentHashMap.newKeySet();
+	private volatile int lastSpoofTargetId = -1;
 	private final ArrayDeque<Integer> queuedTargetIds = new ArrayDeque<>();
 	private final RandomSource random = RandomSource.create();
 	private volatile int queuedPrepTargetId = -1;
 	private volatile int queuedPrepTicks;
 	private volatile int queuedPreviousSlot = -1;
 	private volatile boolean queuedAttackInProgress;
+	private boolean multiAuraHeightCapped;
+	private double heightBeforeMultiAuraCap;
 	
 	public MaceDmgHack()
 	{
@@ -214,12 +247,14 @@ public final class MaceDmgHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(serverType);
 		addSetting(height);
+		addSetting(multiAuraHeightCap);
 		addSetting(attackCap);
 		addSetting(totemBypass);
 		addSetting(autoOptimize);
 		addSetting(heightIncrease);
 		addSetting(attackCount);
 		addSetting(caveMode);
+		addSetting(auraBurstTargets);
 		addSetting(cosmeticGroup);
 		onServerTypeChanged();
 	}
@@ -262,6 +297,7 @@ public final class MaceDmgHack extends Hack
 	{
 		autoOptimizeWasChecked = false;
 		onServerTypeChanged();
+		updateMultiAuraHeightCap();
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
 		registerSafetyListeners();
 	}
@@ -272,9 +308,11 @@ public final class MaceDmgHack extends Hack
 		autoOptimizeWasChecked = false;
 		EVENTS.remove(PlayerAttacksEntityListener.class, this);
 		totemBypassSteps.clear();
+		rejectedTargetCooldowns.clear();
 		clearQueuedTargets();
 		restoreQueuedSlot();
-		if(!hasFallDebt())
+		restoreMultiAuraHeight();
+		if(!hasFallDebt() && !unresolvedSpoof)
 			unregisterSafetyListeners();
 	}
 	
@@ -307,14 +345,69 @@ public final class MaceDmgHack extends Hack
 	{
 		if(queuedAttackInProgress)
 			return;
+		if(isMaceRetryBlocked(target))
+			return;
 		
-		WURST.getHax().attributeSwapHack.prepareForAttack(target);
+		if(!ensureMaceInMainHand(target))
+			return;
 		if(!beginSmashAttempt(target))
 			return;
 		
 		sendSmashSequence(findFallOffset(target));
+		lastSpoofTargetId = target.getId();
 		smashState = SmashState.WAITING_FOR_MACE_CONFIRM;
 		confirmTicks = CONFIRM_TIMEOUT_TICKS;
+	}
+	
+	public List<Entity> performAuraBurst(List<Entity> targets, int maxTargets)
+	{
+		ArrayList<Entity> attacked = new ArrayList<>();
+		if(!isEnabled() || MC.player == null || MC.player.connection == null
+			|| MC.gameMode == null || targets == null || hasFallDebt())
+			return attacked;
+		
+		ArrayList<Entity> valid = new ArrayList<>();
+		for(Entity target : targets)
+		{
+			if(valid.size() >= Math.max(1, maxTargets))
+				break;
+			if(canSpoofSmashNow(target) && !shouldBlockAttack(target))
+				valid.add(target);
+		}
+		if(valid.isEmpty() || !ensureMaceInMainHand(valid.get(0)))
+			return attacked;
+		
+		debtPlayer = MC.player;
+		pendingTargetId = -1;
+		pendingBurstIds.clear();
+		queuedAttackInProgress = true;
+		try
+		{
+			for(Entity target : valid)
+			{
+				RotationUtils
+					.getNeededRotations(target.getBoundingBox().getCenter())
+					.sendPlayerLookPacket();
+				sendSmashSequence(findFallOffset(target));
+				lastSpoofTargetId = target.getId();
+				MC.gameMode.attack(MC.player, target);
+				MC.player.swing(InteractionHand.MAIN_HAND);
+				pendingBurstIds.add(target.getId());
+				attacked.add(target);
+			}
+		}finally
+		{
+			queuedAttackInProgress = false;
+		}
+		
+		smashState = SmashState.WAITING_FOR_MACE_CONFIRM;
+		confirmTicks = CONFIRM_TIMEOUT_TICKS;
+		return attacked;
+	}
+	
+	public int getAuraBurstTargetCount()
+	{
+		return auraBurstTargets.getValueI();
 	}
 	
 	private boolean beginSmashAttempt(Entity target)
@@ -338,10 +431,33 @@ public final class MaceDmgHack extends Hack
 		return true;
 	}
 	
+	/**
+	 * Ensure AttributeSwap's selected mace is sent to the server before the
+	 * attack packet. This prevents AutoSword/AttributeSwap slot races in aura
+	 * attacks.
+	 */
+	private boolean ensureMaceInMainHand(Entity target)
+	{
+		if(MC.player == null || MC.player.connection == null)
+			return false;
+		
+		WURST.getHax().attributeSwapHack.prepareForAttack(target);
+		int slot = MC.player.getInventory().getSelectedSlot();
+		if(!MC.player.getInventory().getItem(slot).is(Items.MACE))
+			slot = findMaceSlot();
+		if(slot < 0)
+			return false;
+		
+		MC.player.getInventory().setSelectedSlot(slot);
+		MC.player.connection.send(new ServerboundSetCarriedItemPacket(slot));
+		return true;
+	}
+	
 	private boolean canAttemptSmash(Entity target)
 	{
 		return target instanceof LivingEntity living && living.isAlive()
-			&& !living.isRemoved();
+			&& !living.isRemoved() && living.hurtTime <= 0 && MC.player != null
+			&& MC.player.isWithinAttackRange(living.getBoundingBox(), 2.0);
 	}
 	
 	public boolean shouldBlockAttack(Entity target)
@@ -384,7 +500,7 @@ public final class MaceDmgHack extends Hack
 		ArrayList<Integer> validIds = new ArrayList<>();
 		for(Entity target : targets)
 		{
-			if(canAttemptSmash(target))
+			if(canAttemptSmash(target) && !isMaceRetryBlocked(target))
 				validIds.add(target.getId());
 		}
 		
@@ -431,6 +547,12 @@ public final class MaceDmgHack extends Hack
 		return isAuraSupportReady() && totemBypass.isChecked();
 	}
 	
+	public boolean canSpoofSmashNow(Entity target)
+	{
+		return isAuraSupportReady() && !isMaceRetryBlocked(target)
+			&& canAttemptSmash(target);
+	}
+	
 	public boolean isExecutingAuraBurst()
 	{
 		return queuedAttackInProgress;
@@ -453,7 +575,14 @@ public final class MaceDmgHack extends Hack
 	
 	private Packet<?> withFallDebtGuard(Packet<?> packet)
 	{
-		if(!hasFallDebt())
+		// The server only forgets the fake fall height when a real mace smash
+		// lands (postHurtEnemy resets it). Until that confirmation arrives,
+		// every packet that claims onGround=true would make the server apply
+		// the fake fall height as real fall damage, so all grounded flags stay
+		// masked while a spoof is unresolved - even between smash attempts.
+		if(!unresolvedSpoof
+			&& (!hasFallDebt() || smashState == SmashState.CONFIRMED_SAFE
+				|| smashState == SmashState.RECOVERING))
 			return packet;
 		if(!(packet instanceof ServerboundMovePlayerPacket move)
 			|| !move.isOnGround())
@@ -465,6 +594,20 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
+		// A smash confirmed against the most recent spoof target proves the
+		// server reset its fall distance after our last fake fall, so the
+		// grounded flag no longer needs masking.
+		if(unresolvedSpoof
+			&& event.getPacket() instanceof ClientboundDamageEventPacket md
+			&& MC.player != null && md.sourceCauseId() == MC.player.getId()
+			&& md.entityId() == lastSpoofTargetId
+			&& md.sourceType().is(DamageTypes.MACE_SMASH))
+		{
+			unresolvedSpoof = false;
+			spoofPlayer = null;
+			WURST.getHax().noFallHack.confirmMaceSmashLanding();
+		}
+		
 		if(event.getPacket() instanceof ClientboundEntityEventPacket entityEvent
 			&& entityEvent.getEventId() == 35 && MC.level != null
 			&& entityEvent.getEntity(MC.level) instanceof Player poppedPlayer)
@@ -488,8 +631,7 @@ public final class MaceDmgHack extends Hack
 			return;
 		if(!(event.getPacket() instanceof ClientboundDamageEventPacket damage))
 			return;
-		if(damage.entityId() != pendingTargetId
-			|| damage.sourceCauseId() != debtPlayer.getId())
+		if(damage.sourceCauseId() != debtPlayer.getId())
 			return;
 		
 		boolean confirmedSmash = damage.sourceType().is(DamageTypes.MACE_SMASH);
@@ -499,16 +641,44 @@ public final class MaceDmgHack extends Hack
 			return;
 			
 		// MACE_SMASH proves that postHurtEnemy() reset server fall distance.
-		// PLAYER_ATTACK from the same pending mace attack proves that the
-		// server
-		// evaluated canSmashAttack() as false, so dangerous fake fall distance
-		// was not retained. Either result safely ends this attempt.
-		confirmCurrentSmash(confirmedSmash);
+		// PLAYER_ATTACK means the server rejected the smash; the attempt ends,
+		// but the grounded flag stays masked until a real smash resets the
+		// server's fall distance.
+		if(damage.entityId() == pendingTargetId)
+		{
+			confirmCurrentSmash(confirmedSmash);
+			return;
+		}
+		
+		if(!pendingBurstIds.remove(damage.entityId()))
+			return;
+		
+		if(!confirmedSmash)
+			rejectedTargetCooldowns.put(damage.entityId(),
+				REJECTED_TARGET_COOLDOWN_TICKS);
+		else if(smashSparkles.isChecked() && MC.level != null)
+		{
+			int targetId = damage.entityId();
+			MC.execute(() -> spawnSmashPartyEffects(targetId));
+		}
+		
+		if(pendingBurstIds.isEmpty())
+		{
+			smashState = SmashState.CONFIRMED_SAFE;
+			confirmTicks = 0;
+			recoveryTicks = SAFE_RECOVERY_TICKS;
+		}
 	}
 	
-	private void confirmCurrentSmash(boolean spawnSparkles)
+	private void confirmCurrentSmash(boolean confirmedSmash)
 	{
-		if(spawnSparkles && smashSparkles.isChecked() && MC.level != null
+		if(!confirmedSmash && pendingTargetId != -1)
+			rejectedTargetCooldowns.put(pendingTargetId,
+				REJECTED_TARGET_COOLDOWN_TICKS);
+		
+		smashState = SmashState.CONFIRMED_SAFE;
+		
+		if(confirmedSmash && smashSparkles.isChecked() && MC.level != null
 			&& pendingTargetId != -1)
 		{
 			int targetId = pendingTargetId;
@@ -518,7 +688,6 @@ public final class MaceDmgHack extends Hack
 				spawnSmashPartyEffects(targetId);
 		}
 		
-		smashState = SmashState.CONFIRMED_SAFE;
 		confirmTicks = 0;
 		recoveryTicks = SAFE_RECOVERY_TICKS;
 	}
@@ -526,15 +695,27 @@ public final class MaceDmgHack extends Hack
 	@Override
 	public void onUpdate()
 	{
+		updateMultiAuraHeightCap();
+		
+		if(unresolvedSpoof && isSpoofFallStateResolved())
+		{
+			unresolvedSpoof = false;
+			spoofPlayer = null;
+			if(!isEnabled() && !hasFallDebt())
+				unregisterSafetyListeners();
+		}
+		
 		if(smashState == SmashState.WAITING_FOR_MACE_CONFIRM
 			&& --confirmTicks <= 0)
 		{
 			smashState = SmashState.FAILED_UNSAFE;
-			recoveryTicks = UNSAFE_RECOVERY_TICKS;
+			recoveryTicks = 1;
 		}
 		
 		if(recentTotemPopTicks > 0 && --recentTotemPopTicks <= 0)
 			recentTotemPopEntityId = -1;
+		rejectedTargetCooldowns.replaceAll((id, ticks) -> ticks - 1);
+		rejectedTargetCooldowns.values().removeIf(ticks -> ticks <= 0);
 		
 		if(smashState == SmashState.CONFIRMED_SAFE)
 			smashState = SmashState.RECOVERING;
@@ -547,16 +728,31 @@ public final class MaceDmgHack extends Hack
 		pruneTotemBypassSteps();
 	}
 	
+	private boolean isSpoofFallStateResolved()
+	{
+		LocalPlayer player = MC.player;
+		return player == null || player != spoofPlayer
+			|| player.getAbilities().invulnerable || player.isInWater()
+			|| player.onClimbable() || player.isPassenger();
+	}
+	
+	private boolean isMaceRetryBlocked(Entity target)
+	{
+		return target != null
+			&& rejectedTargetCooldowns.containsKey(target.getId());
+	}
+	
 	private void clearFallDebt()
 	{
 		smashState = SmashState.IDLE;
 		debtPlayer = null;
 		pendingTargetId = -1;
+		pendingBurstIds.clear();
 		confirmTicks = 0;
 		recoveryTicks = 0;
 		restoreQueuedSlot();
 		
-		if(!isEnabled())
+		if(!isEnabled() && !unresolvedSpoof)
 			unregisterSafetyListeners();
 	}
 	
@@ -792,6 +988,8 @@ public final class MaceDmgHack extends Hack
 	
 	private void sendSmashSequence(double offset)
 	{
+		unresolvedSpoof = true;
+		spoofPlayer = MC.player;
 		for(int i = 0; i < 4; i++)
 			sendFakeY(0);
 		sendFakeY(offset);
@@ -894,6 +1092,8 @@ public final class MaceDmgHack extends Hack
 		height.setUsableMax(maxHeight);
 		if(height.getValue() > maxHeight)
 			height.setValue(maxHeight);
+		if(multiAuraHeightCapped)
+			updateMultiAuraHeightCap();
 		
 		boolean paper = serverType.getSelected() == ServerType.PAPER;
 		totemBypass.setVisibleInGui(paper);
@@ -915,6 +1115,36 @@ public final class MaceDmgHack extends Hack
 	{
 		return serverType.getSelected() == ServerType.FABRIC ? FABRIC_MAX_HEIGHT
 			: PAPER_MAX_HEIGHT;
+	}
+	
+	private void updateMultiAuraHeightCap()
+	{
+		boolean shouldCap = isEnabled() && multiAuraHeightCap.isChecked()
+			&& WURST.getHax().multiAuraHack.isEnabled();
+		if(shouldCap)
+		{
+			if(!multiAuraHeightCapped)
+			{
+				heightBeforeMultiAuraCap = height.getValue();
+				multiAuraHeightCapped = true;
+			}
+			height.setUsableMax(Math.min(10, getServerTypeMaxHeight()));
+			if(height.getValue() > 10)
+				height.setValue(10);
+			return;
+		}
+		
+		restoreMultiAuraHeight();
+	}
+	
+	private void restoreMultiAuraHeight()
+	{
+		if(!multiAuraHeightCapped)
+			return;
+		
+		multiAuraHeightCapped = false;
+		height.setUsableMax(getServerTypeMaxHeight());
+		height.setValue(heightBeforeMultiAuraCap);
 	}
 	
 	private void sendFakeY(double offset)

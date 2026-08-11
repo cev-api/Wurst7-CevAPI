@@ -11,7 +11,7 @@ import java.util.ArrayList;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGuiIcons;
 import net.wurstclient.clickgui.ClickGui;
@@ -192,8 +192,8 @@ public final class SettingGroupComponent extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		int x1 = getX();
 		int y1 = getY();
@@ -208,7 +208,7 @@ public final class SettingGroupComponent extends Component
 		context.fill(x1, y1, x2, y2, bgColor);
 		
 		int txtColor = WURST.getGui().getTxtColor();
-		context.text(MC.font, getDisplayName(), x1 + 4, y1 + 2, txtColor,
+		context.drawString(MC.font, getDisplayName(), x1 + 4, y1 + 2, txtColor,
 			false);
 		ClickGuiIcons.drawMinimizeArrow(context, x2 - 11, y1 + 1, x2 - 1,
 			y2 - 1, hoverHeader, !expanded);
@@ -240,7 +240,7 @@ public final class SettingGroupComponent extends Component
 			child.setY(childY);
 			child.setWidth(getWidth() - 4);
 			
-			child.extractRenderState(context, mouseX, mouseY, partialTicks);
+			child.render(context, mouseX, mouseY, partialTicks);
 			childY += child.getHeight() + 2;
 		}
 	}

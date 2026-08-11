@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -46,8 +46,8 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
-	private void renderLoginOverlay(GuiGraphicsExtractor graphics, int mouseX,
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void renderLoginOverlay(GuiGraphics graphics, int mouseX,
 		int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(net.wurstclient.WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -69,10 +69,9 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
-	private void wurst$renderInventoryEnchantmentHandler(
-		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci)
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void wurst$renderInventoryEnchantmentHandler(GuiGraphics graphics,
+		int mouseX, int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled()
 			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -88,10 +87,9 @@ public abstract class ScreenRenderMixin extends AbstractContainerEventHandler
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
-	private void wurst$renderChestSearchPreviewOnScreens(
-		GuiGraphicsExtractor graphics, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci)
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void wurst$renderChestSearchPreviewOnScreens(GuiGraphics graphics,
+		int mouseX, int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled()
 			|| WurstClient.INSTANCE.shouldHideWurstUiMixins())

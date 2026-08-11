@@ -23,21 +23,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
+import net.wurstclient.events.PacketOutputListener;
+import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
+import net.wurstclient.events.PreMotionListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ColorSetting;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 
 @SearchTags({"no go zone", "nogozone", "zone", "no go", "restrict area",
 	"block area"})
 @net.wurstclient.hack.DontSaveState
-public final class NoGoZoneHack extends Hack
-	implements UpdateListener, RenderListener
+public final class NoGoZoneHack extends Hack implements UpdateListener,
+	PreMotionListener, PacketOutputListener, RenderListener
 {
 	private static final Gson GSON =
 		new GsonBuilder().setPrettyPrinting().create();
@@ -62,9 +67,40 @@ public final class NoGoZoneHack extends Hack
 	{
 		loadZonesForCurrentServer();
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(PreMotionListener.class, this);
+		EVENTS.add(PacketOutputListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		if(MC.player != null && !isInsideArmedZone(MC.player.position()))
-			lastSafePos = MC.player.position();
+		lastSafePos = null;
+		if(MC.player != null)
+		{
+			// The effective distance is capped by the server's chunk-cache
+			// radius. A player chunk within this Chebyshev radius would cause
+			// the captured chunk to be rendered.
+			int renderDistance =
+				Math.max(2, MC.options.getEffectiveRenderDistance());
+			int protectedRadius = renderDistance + 1;
+			int zoneId = addZone(MC.player.blockPosition(), protectedRadius);
+			NoGoZone zone = ZONES.getLast();
+			ChunkPos chunk = MC.player.chunkPosition();
+			int blocksUntilSafe =
+				getBlocksUntilSafe(zone, MC.player.position());
+			ChatUtils.message("NoGoZone #" + zoneId + " captured chunk "
+				+ chunk.x + ", " + chunk.z + " with render distance "
+				+ renderDistance + " and a " + protectedRadius
+				+ "-chunk protected radius. About " + blocksUntilSafe
+				+ " blocks to safety; once you leave, you cannot re-enter.");
+		}
+	}
+	
+	private int getBlocksUntilSafe(NoGoZone zone, Vec3 pos)
+	{
+		double minX = zone.minChunk.getMinBlockX();
+		double maxX = zone.maxChunk.getMaxBlockX() + 1;
+		double minZ = zone.minChunk.getMinBlockZ();
+		double maxZ = zone.maxChunk.getMaxBlockZ() + 1;
+		double nearestEdge = Math.min(Math.min(pos.x - minX, maxX - pos.x),
+			Math.min(pos.z - minZ, maxZ - pos.z));
+		return Math.max(0, (int)Math.ceil(nearestEdge));
 	}
 	
 	@Override
@@ -72,6 +108,8 @@ public final class NoGoZoneHack extends Hack
 	{
 		saveZonesForCurrentServer();
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(PreMotionListener.class, this);
+		EVENTS.remove(PacketOutputListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 	}
 	
@@ -114,6 +152,39 @@ public final class NoGoZoneHack extends Hack
 		
 		if(!insideAnyArmedZone)
 			lastSafePos = playerPos;
+	}
+	
+	@Override
+	public void onPreMotion()
+	{
+		if(MC.player == null)
+			return;
+		
+		NoGoZone zone = getArmedZoneContaining(MC.player.position());
+		if(zone != null)
+			keepPlayerOut(zone);
+	}
+	
+	@Override
+	public void onSentPacket(PacketOutputEvent event)
+	{
+		if(MC.player == null || !(event
+			.getPacket() instanceof ServerboundMovePlayerPacket packet))
+			return;
+		
+		double x = packet.getX(MC.player.getX());
+		double y = packet.getY(MC.player.getY());
+		double z = packet.getZ(MC.player.getZ());
+		if(getArmedZoneContaining(new Vec3(x, y, z)) != null)
+			event.cancel();
+	}
+	
+	private NoGoZone getArmedZoneContaining(Vec3 pos)
+	{
+		for(NoGoZone zone : ZONES)
+			if(!PLAYER_INSIDE_ZONE_IDS.contains(zone.id) && zone.contains(pos))
+				return zone;
+		return null;
 	}
 	
 	@Override
@@ -233,15 +304,6 @@ public final class NoGoZoneHack extends Hack
 		MC.player.setDeltaMovement(0, 0, 0);
 		MC.player.xxa = 0;
 		MC.player.zza = 0;
-	}
-	
-	private boolean isInsideArmedZone(Vec3 pos)
-	{
-		for(NoGoZone zone : ZONES)
-			if(zone.contains(pos) && !PLAYER_INSIDE_ZONE_IDS.contains(zone.id))
-				return true;
-			
-		return false;
 	}
 	
 	public static List<NoGoZone> getZones()
@@ -403,25 +465,25 @@ public final class NoGoZoneHack extends Hack
 			this.id = id;
 			this.center = center;
 			this.chunkRadius = chunkRadius;
-			ChunkPos centerChunk = ChunkPos.containing(center);
-			minChunk = new ChunkPos(centerChunk.x() - chunkRadius,
-				centerChunk.z() - chunkRadius);
-			maxChunk = new ChunkPos(centerChunk.x() + chunkRadius,
-				centerChunk.z() + chunkRadius);
+			ChunkPos centerChunk = new ChunkPos(center);
+			minChunk = new ChunkPos(centerChunk.x - chunkRadius,
+				centerChunk.z - chunkRadius);
+			maxChunk = new ChunkPos(centerChunk.x + chunkRadius,
+				centerChunk.z + chunkRadius);
 		}
 		
 		public boolean containsChunk(ChunkPos chunk)
 		{
-			return chunk.x() >= minChunk.x() && chunk.x() <= maxChunk.x()
-				&& chunk.z() >= minChunk.z() && chunk.z() <= maxChunk.z();
+			return chunk.x >= minChunk.x && chunk.x <= maxChunk.x
+				&& chunk.z >= minChunk.z && chunk.z <= maxChunk.z;
 		}
 		
 		public boolean contains(Vec3 pos)
 		{
 			return pos.x >= minChunk.getMinBlockX()
-				&& pos.x <= maxChunk.getMaxBlockX() + 1
+				&& pos.x < maxChunk.getMaxBlockX() + 1
 				&& pos.z >= minChunk.getMinBlockZ()
-				&& pos.z <= maxChunk.getMaxBlockZ() + 1;
+				&& pos.z < maxChunk.getMaxBlockZ() + 1;
 		}
 		
 		public int getBlockRadius()

@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -109,7 +109,7 @@ public final class GameStatsHud
 		this.hack = hack;
 	}
 	
-	public void render(GuiGraphicsExtractor context)
+	public void render(GuiGraphics context)
 	{
 		if(MC == null || hack == null)
 			return;
@@ -242,7 +242,7 @@ public final class GameStatsHud
 		return hack != null && hack.isEnabled() && hack.pinAboveHackList();
 	}
 	
-	public int getHackListReservedHeight(GuiGraphicsExtractor context)
+	public int getHackListReservedHeight(GuiGraphics context)
 	{
 		if(!isPinnedAboveHackList() || MC == null || MC.font == null)
 			return 0;
@@ -524,7 +524,7 @@ public final class GameStatsHud
 		if(MC.level == null)
 			return "--:--";
 		
-		long dayTime = Math.floorMod(MC.level.getOverworldClockTime(), 24000L);
+		long dayTime = Math.floorMod(MC.level.getDayTime(), 24000L);
 		int hour = (int)(dayTime / 1000L);
 		int minute = (int)Math.floor((dayTime % 1000L) * 60D / 1000D);
 		return String.format(Locale.ROOT, "%02d:%02d", hour, minute);
@@ -719,8 +719,8 @@ public final class GameStatsHud
 		return -1;
 	}
 	
-	private void drawStrokeText(GuiGraphicsExtractor context, Font font,
-		String text, int x, int y, int strokeColor, double scale)
+	private void drawStrokeText(GuiGraphics context, Font font, String text,
+		int x, int y, int strokeColor, double scale)
 	{
 		RenderUtils.drawScaledText(context, font, text, x - 1, y, strokeColor,
 			false, scale);
@@ -777,7 +777,7 @@ public final class GameStatsHud
 		return samples[(graphStart + idx) % GRAPH_MAX_SAMPLES];
 	}
 	
-	private void drawFpsTpsGraph(GuiGraphicsExtractor context, float x, float y,
+	private void drawFpsTpsGraph(GuiGraphics context, float x, float y,
 		float width, float height)
 	{
 		float safeWidth = Math.max(30F, width);
@@ -806,15 +806,15 @@ public final class GameStatsHud
 		}
 	}
 	
-	private void drawGuideLine(GuiGraphicsExtractor context, float x, float y,
+	private void drawGuideLine(GuiGraphics context, float x, float y,
 		float width, float height, double normalizedValue, int color)
 	{
 		float lineY = valueToGraphY(normalizedValue, y, height);
 		RenderUtils.drawLine2D(context, x, lineY, x + width - 1F, lineY, color);
 	}
 	
-	private void drawGraphSeries(GuiGraphicsExtractor context, double[] samples,
-		float x, float y, float width, float height, double target, int color)
+	private void drawGraphSeries(GuiGraphics context, double[] samples, float x,
+		float y, float width, float height, double target, int color)
 	{
 		int pointCount = Math.max(2, Math.min((int)width, graphSize));
 		boolean hasPrev = false;
@@ -851,7 +851,7 @@ public final class GameStatsHud
 		return (float)(y + height - 1F - clamped * (height - 1F));
 	}
 	
-	private void renderSeparateGraphWindow(GuiGraphicsExtractor context)
+	private void renderSeparateGraphWindow(GuiGraphics context)
 	{
 		float x = GRAPH_WINDOW_BASE_X + getCurrentGraphOffsetX();
 		float y = GRAPH_WINDOW_BASE_Y + getCurrentGraphOffsetY();
@@ -872,11 +872,11 @@ public final class GameStatsHud
 			height - PADDING * 2F);
 	}
 	
-	private void handleGraphWindowInteraction(GuiGraphicsExtractor context,
-		float x, float y, float width, float height)
+	private void handleGraphWindowInteraction(GuiGraphics context, float x,
+		float y, float width, float height)
 	{
-		boolean canEdit = MC.gui.screen() instanceof ChatScreen
-			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
+		boolean canEdit = MC.screen instanceof ChatScreen
+			|| MC.screen instanceof AbstractContainerScreen<?>;
 		if(!canEdit)
 		{
 			if(graphDragging)
@@ -1015,11 +1015,11 @@ public final class GameStatsHud
 		hack.setGraphWindowSize(graphResizeWidth, graphResizeHeight);
 	}
 	
-	private void handleDrag(GuiGraphicsExtractor context, float x, float y,
-		float width, float height)
+	private void handleDrag(GuiGraphics context, float x, float y, float width,
+		float height)
 	{
-		boolean canEdit = MC.gui.screen() instanceof ChatScreen
-			|| MC.gui.screen() instanceof AbstractContainerScreen<?>;
+		boolean canEdit = MC.screen instanceof ChatScreen
+			|| MC.screen instanceof AbstractContainerScreen<?>;
 		if(!canEdit)
 		{
 			if(dragging)
@@ -1099,7 +1099,7 @@ public final class GameStatsHud
 		hack.setHudOffsets(dragOffsetX, dragOffsetY);
 	}
 	
-	private static double getScaledMouseX(GuiGraphicsExtractor context)
+	private static double getScaledMouseX(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)
@@ -1109,7 +1109,7 @@ public final class GameStatsHud
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphicsExtractor context)
+	private static double getScaledMouseY(GuiGraphics context)
 	{
 		Window window = MC.getWindow();
 		if(window == null)

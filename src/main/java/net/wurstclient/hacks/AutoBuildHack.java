@@ -118,6 +118,13 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		"Disable when finished",
 		"Automatically disables AutoBuild when all blocks are placed.", true);
 	
+	private final CheckboxSetting enableCreativeFlight = new CheckboxSetting(
+		"Enable CreativeFlight",
+		"Enables CreativeFlight and starts flying when AutoBuild begins.\n\n"
+			+ "If CreativeFlight was off before the build, it will be turned"
+			+ " off again when the build ends.",
+		false);
+	
 	private final CheckboxSetting swapFlightWithAirWalk =
 		new CheckboxSetting("Swap flight with AirWalk",
 			"If Flight is enabled, swaps to AirWalk while building and swaps"
@@ -136,6 +143,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	
 	private static final long STUCK_TIMEOUT_MS = 1250L;
 	private boolean swappedFlightForAirWalk;
+	private boolean enabledCreativeFlightForBuild;
 	
 	public AutoBuildHack()
 	{
@@ -153,6 +161,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(previewTemplate);
 		addSetting(confirmTicks);
 		addSetting(disableOnFinish);
+		addSetting(enableCreativeFlight);
 		addSetting(swapFlightWithAirWalk);
 	}
 	
@@ -213,6 +222,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		// Swap back from AirWalk to Flight if we swapped earlier
 		swapBackFlightIfNeeded();
+		stopCreativeFlightIfNeeded();
 		
 		if(template == null)
 			status = Status.NO_TEMPLATE;
@@ -294,7 +304,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	public void onKeyPress(KeyPressListener.KeyPressEvent event)
 	{
 		if(event.getKeyCode() != GLFW.GLFW_KEY_ENTER
-			|| event.getAction() != GLFW.GLFW_PRESS || MC.gui.screen() != null
+			|| event.getAction() != GLFW.GLFW_PRESS || MC.screen != null
 			|| status != Status.IDLE)
 			return;
 		
@@ -324,6 +334,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		status = Status.BUILDING;
 		
+		startCreativeFlightIfEnabled();
+		
 		// If Flight is enabled, swap to AirWalk while building
 		swapFlightToAirWalkIfEnabled();
 		return true;
@@ -342,7 +354,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			break;
 			
 			case IDLE:
-			if(!template.isSelected(templateSetting))
+			if(!template.isGenerated() && !template.isSelected(templateSetting))
 				loadSelectedTemplate();
 			updatePreview();
 			break;
@@ -417,6 +429,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			
 			// Swap back from AirWalk to Flight when building finishes
 			swapBackFlightIfNeeded();
+			stopCreativeFlightIfNeeded();
 			
 			if(disableOnFinish.isChecked())
 				setEnabled(false);
@@ -428,6 +441,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		
 		double rangeSq = range.getValueSq();
 		boolean stuck = isStuck();
+		Map.Entry<BlockPos, Item> selectedEntry = null;
+		BlockPlacingParams selectedParams = null;
+		double selectedDistanceSq = Double.MAX_VALUE;
 		for(Map.Entry<BlockPos, Item> entry : remainingBlocks.entrySet())
 		{
 			BlockPos pos = entry.getKey();
@@ -442,24 +458,42 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 				else
 					continue;
 				
-			if(useSavedBlocks.isChecked() && item != Items.AIR
-				&& !MC.player.getMainHandItem().is(item))
+			if(strictBuildOrder.isChecked())
 			{
-				giveOrSelectItem(item);
-				return;
+				selectedEntry = entry;
+				selectedParams = params;
+				break;
 			}
 			
-			// AutoBuild should only place blocks (no generic item/block
-			// interactions).
-			ItemStack held = MC.player.getMainHandItem();
-			if(held.isEmpty() || !(held.getItem() instanceof BlockItem))
-				return;
-			
-			MC.rightClickDelay = 4;
-			faceTarget.face(params.hitVec());
-			placeWithoutInteraction(params);
+			double distanceSq = MC.player.distanceToSqr(Vec3.atCenterOf(pos));
+			if(distanceSq < selectedDistanceSq)
+			{
+				selectedEntry = entry;
+				selectedParams = params;
+				selectedDistanceSq = distanceSq;
+			}
+		}
+		
+		if(selectedEntry == null || selectedParams == null)
+			return;
+		
+		Item item = selectedEntry.getValue();
+		if(useSavedBlocks.isChecked() && item != Items.AIR
+			&& !MC.player.getMainHandItem().is(item))
+		{
+			giveOrSelectItem(item);
 			return;
 		}
+		
+		// AutoBuild should only place blocks (no generic item/block
+		// interactions).
+		ItemStack held = MC.player.getMainHandItem();
+		if(held.isEmpty() || !(held.getItem() instanceof BlockItem))
+			return;
+		
+		MC.rightClickDelay = 4;
+		faceTarget.face(selectedParams.hitVec());
+		placeWithoutInteraction(selectedParams);
 	}
 	
 	private void placeWithoutInteraction(BlockPlacingParams params)
@@ -580,6 +614,18 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
+	public void selectGeneratedTemplate(AutoBuildTemplate generatedTemplate)
+	{
+		template = generatedTemplate;
+		remainingBlocks.clear();
+		previewBlocks.clear();
+		placedConfirmations.clear();
+		previewStartPos = null;
+		previewDirection = null;
+		lastProgressMs = System.currentTimeMillis();
+		status = Status.IDLE;
+	}
+	
 	private void updatePreview()
 	{
 		if(!previewTemplate.isChecked() || template == null)
@@ -627,8 +673,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			return;
 		
 		List<BlockPos> blocksToDraw = blocks.keySet().stream()
-			.filter(pos -> BlockUtils.getState(pos).canBeReplaced()).limit(1024)
-			.toList();
+			.filter(pos -> BlockUtils.getState(pos).canBeReplaced())
+			.limit(16384).toList();
 		
 		int black = 0x80000000;
 		List<AABB> outlineBoxes =
@@ -744,6 +790,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		if(!swapFlightWithAirWalk.isChecked())
 			return;
 		
+		if(enableCreativeFlight.isChecked())
+			return;
+		
 		if(!WURST.getHax().flightHack.isEnabled())
 			return;
 		
@@ -763,5 +812,29 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 			WURST.getHax().airWalkHack.setEnabled(false);
 		
 		WURST.getHax().flightHack.setEnabled(true);
+	}
+	
+	private void startCreativeFlightIfEnabled()
+	{
+		if(!enableCreativeFlight.isChecked() || MC.player == null)
+			return;
+		
+		CreativeFlightHack creativeFlight = WURST.getHax().creativeFlightHack;
+		enabledCreativeFlightForBuild = !creativeFlight.isEnabled();
+		if(enabledCreativeFlightForBuild)
+			creativeFlight.setEnabled(true);
+		
+		MC.player.getAbilities().mayfly = true;
+		MC.player.getAbilities().flying = true;
+	}
+	
+	private void stopCreativeFlightIfNeeded()
+	{
+		if(!enabledCreativeFlightForBuild)
+			return;
+		
+		enabledCreativeFlightForBuild = false;
+		if(WURST.getHax().creativeFlightHack.isEnabled())
+			WURST.getHax().creativeFlightHack.setEnabled(false);
 	}
 }

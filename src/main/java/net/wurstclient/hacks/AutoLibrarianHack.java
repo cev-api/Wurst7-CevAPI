@@ -29,7 +29,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.ai.memory.MemoryModuleType;
 import net.minecraft.world.entity.npc.villager.Villager;
 import net.minecraft.world.entity.npc.villager.VillagerProfession;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
@@ -228,7 +228,7 @@ public final class AutoLibrarianHack extends Hack
 		lastReasonMessage = "";
 		reasonMessageCooldown = 0;
 		
-		if(!(MC.gui.screen() instanceof MerchantScreen tradeScreen))
+		if(!(MC.screen instanceof MerchantScreen tradeScreen))
 		{
 			openTradeScreen();
 			return;
@@ -285,8 +285,9 @@ public final class AutoLibrarianHack extends Hack
 			MC.getConnection().send(new ServerboundSelectTradePacket(0));
 			
 			// buy whatever the villager is selling
-			MC.gameMode.handleContainerInput(tradeScreen.getMenu().containerId,
-				2, 0, ContainerInput.PICKUP, MC.player);
+			MC.gameMode.handleInventoryMouseClick(
+				tradeScreen.getMenu().containerId, 2, 0, ClickType.PICKUP,
+				MC.player);
 			
 			// close the trade screen
 			closeTradeScreen();
@@ -425,7 +426,7 @@ public final class AutoLibrarianHack extends Hack
 		EntityHitResult hitResult = EntityUtils.createHitResult(villager);
 		InteractionHand hand = InteractionHand.MAIN_HAND;
 		InteractionResult result =
-			gm.interact(player, villager, hitResult, hand);
+			gm.interactAt(player, villager, hitResult, hand);
 		
 		// swing hand
 		if(result instanceof InteractionResult.Success success

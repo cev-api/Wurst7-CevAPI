@@ -8,8 +8,8 @@
 package net.wurstclient.hud;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.WurstClient;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.other_features.WurstLogoOtf;
@@ -20,7 +20,7 @@ public final class WurstLogo
 {
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	
-	public void render(GuiGraphicsExtractor context)
+	public void render(GuiGraphics context)
 	{
 		WurstLogoOtf otf = WURST.getOtfs().wurstLogoOtf;
 		if(!otf.isVisible())
@@ -53,8 +53,9 @@ public final class WurstLogo
 		int textY = 8;
 		int brandX = leftPadding;
 		int versionX = brandX + brandWidth + gap;
-		context.text(tr, brand, brandX, textY, otf.getTextColor(), false);
-		context.text(tr, version, versionX, textY, otf.getTextColor(), false);
+		context.drawString(tr, brand, brandX, textY, otf.getTextColor(), false);
+		context.drawString(tr, version, versionX, textY, otf.getTextColor(),
+			false);
 	}
 	
 	private String getVersionString()

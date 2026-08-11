@@ -110,7 +110,7 @@ public final class PearlDropHack extends Hack
 	{
 		if(MC.player == null || MC.level == null || MC.gameMode == null)
 			return;
-		if(MC.rightClickDelay > 0 || MC.gui.screen() != null)
+		if(MC.rightClickDelay > 0 || MC.screen != null)
 			return;
 		if(getPearlHand() == null)
 			return;

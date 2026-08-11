@@ -16,14 +16,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ScreenEffectRenderer;
-import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.wurstclient.WurstClient;
 
 @Mixin(ScreenEffectRenderer.class)
 public class ScreenEffectRendererMixin
 {
 	@ModifyConstant(
-		method = "lambda$submitFire$0(Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;Lcom/mojang/blaze3d/vertex/PoseStack$Pose;Lcom/mojang/blaze3d/vertex/VertexConsumer;)V",
+		method = "renderFire(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;)V",
 		constant = @Constant(floatValue = -0.3F))
 	private static float getFireOffset(float original)
 	{
@@ -32,11 +32,11 @@ public class ScreenEffectRendererMixin
 	}
 	
 	@Inject(
-		method = "submitWater(Lnet/minecraft/client/Minecraft;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;)V",
+		method = "renderWater(Lnet/minecraft/client/Minecraft;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;)V",
 		at = @At("HEAD"),
 		cancellable = true)
 	private static void onRenderUnderwaterOverlay(Minecraft client,
-		PoseStack matrices, SubmitNodeCollector submitNodeCollector,
+		PoseStack matrices, MultiBufferSource vertexConsumerProvider,
 		CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().noOverlayHack.isEnabled())

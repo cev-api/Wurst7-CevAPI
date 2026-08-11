@@ -45,6 +45,11 @@ public final class AimAssistHack extends Hack
 	private final CheckboxSetting lockOn = new CheckboxSetting("Lock-on",
 		"Instantly snaps to targets instead of smoothing rotation.", false);
 	
+	private final CheckboxSetting matchYLevel = new CheckboxSetting(
+		"Match Y level",
+		"While flying, adjusts your vertical movement toward the AimAssist target.",
+		false);
+	
 	private final SliderSetting fov =
 		new SliderSetting("FOV", "description.wurst.setting.aimassist.fov", 120,
 			30, 360, 10, ValueDisplay.DEGREES);
@@ -97,6 +102,7 @@ public final class AimAssistHack extends Hack
 				.genericCombat(AttackDetectingEntityFilter.Mode.OFF),
 			FilterPassiveSetting.genericCombat(true),
 			FilterPassiveWaterSetting.genericCombat(true),
+			FilterAllaysSetting.genericCombat(true),
 			FilterBabiesSetting.genericCombat(true),
 			FilterBatsSetting.genericCombat(true),
 			FilterSlimesSetting.genericCombat(true),
@@ -136,6 +142,7 @@ public final class AimAssistHack extends Hack
 		addSetting(range);
 		addSetting(rotationSpeed);
 		addSetting(lockOn);
+		addSetting(matchYLevel);
 		addSetting(fov);
 		addSetting(aimAt);
 		addSetting(ignoreMouseInput);
@@ -158,7 +165,7 @@ public final class AimAssistHack extends Hack
 		WURST.getHax().clickAuraHack.setEnabled(false);
 		WURST.getHax().crystalAuraHack.setEnabled(false);
 		WURST.getHax().fightBotHack.setEnabled(false);
-		WURST.getHax().killauraHack.setEnabled(false);
+		WURST.getHax().killauraHack.disableByConflict(this);
 		WURST.getHax().killauraLegitHack.setEnabled(false);
 		WURST.getHax().multiAuraHack.setEnabled(false);
 		WURST.getHax().protectHack.setEnabled(false);
@@ -172,6 +179,7 @@ public final class AimAssistHack extends Hack
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().killauraHack.releaseConflict(this);
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(MouseUpdateListener.class, this);
 		target = null;
@@ -218,6 +226,8 @@ public final class AimAssistHack extends Hack
 		
 		if(forced != null)
 			target = forced;
+		else if(isValidTarget(previousTarget))
+			target = previousTarget;
 		else
 			chooseTarget();
 		
@@ -231,6 +241,7 @@ public final class AimAssistHack extends Hack
 			return;
 		}
 		
+		updateMatchYLevel();
 		updateRightClickVerticalAlignment();
 		updateRightClickAutoAttack();
 		
@@ -285,11 +296,42 @@ public final class AimAssistHack extends Hack
 				.getAngleToLookVec(getAimPoint(e)) <= fov.getValue() / 2.0);
 		
 		stream = entityFilters.applyTo(stream);
-		
 		target = stream
 			.min(Comparator.comparingDouble(
 				e -> RotationUtils.getAngleToLookVec(getAimPoint(e))))
 			.orElse(null);
+	}
+	
+	private void updateMatchYLevel()
+	{
+		if(!matchYLevel.isChecked() || MC.player == null || target == null)
+			return;
+		
+		boolean flying = MC.player.getAbilities().flying
+			|| WURST.getHax().flightHack.isEnabled();
+		if(!flying)
+			return;
+		
+		if(target.onGround() && !MC.options.keyShift.isDown()
+			&& target.getY() < MC.player.getY())
+			return;
+		
+		double maxStep = WURST.getHax().flightHack.isEnabled()
+			? WURST.getHax().flightHack.getActualVerticalSpeed()
+			: MC.player.getAbilities().getFlyingSpeed();
+		if(maxStep <= 0)
+			return;
+		
+		double delta = target.getY() - MC.player.getY();
+		if(MC.player.onGround() && delta < 0 && !MC.options.keyShift.isDown())
+			return;
+		if(Math.abs(delta) < 0.02)
+			return;
+		
+		double step = Math.max(-maxStep, Math.min(maxStep, delta));
+		Vec3 motion = MC.player.getDeltaMovement();
+		double nextY = Math.max(-maxStep, Math.min(maxStep, motion.y + step));
+		MC.player.setDeltaMovement(motion.x, nextY, motion.z);
 	}
 	
 	@Override
@@ -437,6 +479,13 @@ public final class AimAssistHack extends Hack
 		return true;
 	}
 	
+	private boolean isValidTarget(Entity entity)
+	{
+		return isValidForcedTarget(entity) && MC.player != null
+			&& EntityUtils.distanceToHitboxSq(entity) <= getRangeSq()
+			&& entityFilters.testOne(entity);
+	}
+	
 	private void updateRightClickAutoAttack()
 	{
 		if(!rightClickAutoAttack.isChecked() || !isRightClickLockOnActive()
@@ -485,7 +534,7 @@ public final class AimAssistHack extends Hack
 	public Double getRightClickVerticalAlignmentStepForFlight()
 	{
 		return getRightClickVerticalAlignmentStepInternal(
-			WURST.getHax().flightHack.verticalSpeed.getValue());
+			WURST.getHax().flightHack.getActualVerticalSpeed());
 	}
 	
 	private Double getRightClickVerticalAlignmentStepInternal(

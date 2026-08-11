@@ -13,7 +13,7 @@ import java.nio.file.Path;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.EditBox;
@@ -31,13 +31,13 @@ public final class ChooseNameState extends TemplateToolState
 	@Override
 	public void onEnter(TemplateToolHack hack)
 	{
-		MC.gui.setScreen(new ChooseNameScreen(hack));
+		MC.setScreen(new ChooseNameScreen(hack));
 	}
 	
 	@Override
 	public void onExit(TemplateToolHack hack)
 	{
-		MC.gui.setScreen(null);
+		MC.setScreen(null);
 	}
 	
 	@Override
@@ -149,10 +149,10 @@ public final class ChooseNameState extends TemplateToolState
 		}
 		
 		@Override
-		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, float partialTicks)
+		public void render(GuiGraphics context, int mouseX, int mouseY,
+			float partialTicks)
 		{
-			super.extractRenderState(context, mouseX, mouseY, partialTicks);
+			super.render(context, mouseX, mouseY, partialTicks);
 			
 			// middle
 			int middleX = width / 2;
@@ -168,11 +168,11 @@ public final class ChooseNameState extends TemplateToolState
 			context.fill(x1, y1, x2, y2, 0x80000000);
 			
 			// name field
-			nameField.extractRenderState(context, mouseX, mouseY, partialTicks);
+			nameField.render(context, mouseX, mouseY, partialTicks);
 		}
 		
 		@Override
-		public void extractBackground(GuiGraphicsExtractor context, int mouseX,
+		public void renderBackground(GuiGraphics context, int mouseX,
 			int mouseY, float deltaTicks)
 		{
 			// Don't blur

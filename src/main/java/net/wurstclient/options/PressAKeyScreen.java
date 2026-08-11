@@ -8,9 +8,9 @@
 package net.wurstclient.options;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -39,7 +39,7 @@ public class PressAKeyScreen extends Screen
 		if(event.key() != GLFW.GLFW_KEY_ESCAPE)
 			prevScreen.setKey(InputConstants.getKey(event).getName());
 		
-		minecraft.gui.setScreen((Screen)prevScreen);
+		minecraft.setScreen((Screen)prevScreen);
 		return true;
 	}
 	
@@ -48,7 +48,7 @@ public class PressAKeyScreen extends Screen
 	{
 		prevScreen.setKey(
 			InputConstants.Type.MOUSE.getOrCreate(event.button()).getName());
-		minecraft.gui.setScreen((Screen)prevScreen);
+		minecraft.setScreen((Screen)prevScreen);
 		return true;
 	}
 	
@@ -59,13 +59,13 @@ public class PressAKeyScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(font, "Press a key or mouse button", width / 2,
-			height / 4 + 48, CommonColors.WHITE);
+		context.drawCenteredString(font, "Press a key or mouse button",
+			width / 2, height / 4 + 48, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 }

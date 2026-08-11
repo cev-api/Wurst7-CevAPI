@@ -154,6 +154,7 @@ public final class UiUtilsHack extends Hack
 		String result = UiUtilsPluginScanner.startScan();
 		if(MC.player != null && !result.isEmpty())
 			for(String line : result.split("\n"))
-				MC.player.sendSystemMessage(Component.literal(line));
+				net.wurstclient.util.ChatUtils
+					.component(Component.literal(line));
 	}
 }

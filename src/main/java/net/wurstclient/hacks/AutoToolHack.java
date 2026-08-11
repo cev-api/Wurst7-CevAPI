@@ -10,6 +10,7 @@ package net.wurstclient.hacks;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
+import java.util.function.IntPredicate;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder.Reference;
@@ -19,9 +20,11 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.HitResult;
 import net.wurstclient.Category;
@@ -48,6 +51,9 @@ public final class AutoToolHack extends Hack
 		"Uses an empty hand or a non-damageable item when no applicable tool is"
 			+ " found.",
 		true);
+	private final CheckboxSetting silkTouch =
+		new CheckboxSetting("Prefer Silk Touch",
+			"Prefer Silk Touch for ender chests and glass.", false);
 	
 	private final SliderSetting repairMode = new SliderSetting("Repair mode",
 		"Prevents tools from being used when their durability reaches the given"
@@ -69,6 +75,7 @@ public final class AutoToolHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(useSwords);
 		addSetting(useHands);
+		addSetting(silkTouch);
 		addSetting(repairMode);
 		addSetting(switchBack);
 	}
@@ -127,8 +134,23 @@ public final class AutoToolHack extends Hack
 			repairMode.getValueI());
 	}
 	
+	public boolean equipIfEnabledFromInventory(BlockPos pos)
+	{
+		if(!isEnabled())
+			return false;
+		
+		return equipBestToolFromInventory(pos, useSwords.isChecked(),
+			useHands.isChecked(), repairMode.getValueI(), slot -> true);
+	}
+	
 	public void equipBestTool(BlockPos pos, boolean useSwords, boolean useHands,
 		int repairMode)
+	{
+		equipBestTool(pos, useSwords, useHands, repairMode, slot -> true);
+	}
+	
+	public void equipBestTool(BlockPos pos, boolean useSwords, boolean useHands,
+		int repairMode, IntPredicate allowedSlot)
 	{
 		LocalPlayer player = MC.player;
 		if(player.getAbilities().instabuild)
@@ -140,7 +162,7 @@ public final class AutoToolHack extends Hack
 			putAwayDamagedTool(repairMode);
 		
 		BlockState state = BlockUtils.getState(pos);
-		int bestSlot = getBestSlot(state, useSwords, repairMode);
+		int bestSlot = getBestSlot(state, useSwords, repairMode, allowedSlot);
 		if(bestSlot == -1)
 		{
 			if(useHands && heldItemDamageable && isWrongTool(heldItem, state))
@@ -152,25 +174,82 @@ public final class AutoToolHack extends Hack
 		player.getInventory().setSelectedSlot(bestSlot);
 	}
 	
-	private int getBestSlot(BlockState state, boolean useSwords, int repairMode)
+	public boolean equipBestToolFromInventory(BlockPos pos, boolean useSwords,
+		boolean useHands, int repairMode, IntPredicate allowedSlot)
+	{
+		LocalPlayer player = MC.player;
+		if(player.getAbilities().instabuild)
+			return false;
+		
+		BlockState state = BlockUtils.getState(pos);
+		int bestSlot =
+			getBestSlot(state, useSwords, repairMode, allowedSlot, 36);
+		if(bestSlot == -1)
+		{
+			ItemStack heldItem = player.getMainHandItem();
+			if(useHands && isDamageable(heldItem)
+				&& isWrongTool(heldItem, state))
+				selectFallbackSlot();
+			
+			return false;
+		}
+		
+		if(bestSlot < 9)
+		{
+			player.getInventory().setSelectedSlot(bestSlot);
+			return true;
+		}
+		
+		if(!player.inventoryMenu.getCarried().isEmpty())
+			return false;
+		
+		int selectedSlot = player.getInventory().getSelectedSlot();
+		IMC.getInteractionManager().windowClick_SWAP(
+			InventoryUtils.toNetworkSlot(bestSlot), selectedSlot);
+		return true;
+	}
+	
+	private int getBestSlot(BlockState state, boolean useSwords, int repairMode,
+		IntPredicate allowedSlot)
+	{
+		return getBestSlot(state, useSwords, repairMode, allowedSlot, 9);
+	}
+	
+	private int getBestSlot(BlockState state, boolean useSwords, int repairMode,
+		IntPredicate allowedSlot, int maxSlot)
 	{
 		LocalPlayer player = MC.player;
 		Inventory inventory = player.getInventory();
 		ItemStack heldItem = MC.player.getMainHandItem();
 		
-		float bestSpeed = getMiningSpeed(heldItem, state);
+		boolean preferSilk = silkTouch.isChecked() && needsSilkTouch(state);
+		if(preferSilk)
+		{
+			if(isSilkTouchPickaxe(heldItem)
+				&& !isTooDamaged(heldItem, repairMode))
+				return -1;
+			int silkSlot =
+				findSilkTouchSlot(inventory, allowedSlot, maxSlot, repairMode);
+			if(silkSlot != -1)
+				return silkSlot;
+		}
+		float bestSpeed = allowedSlot.test(inventory.getSelectedSlot())
+			? getSelectionSpeed(heldItem, state, preferSilk) : 1;
 		if(isTooDamaged(heldItem, repairMode))
 			bestSpeed = 1;
 		int bestSlot = -1;
 		
-		for(int slot = 0; slot < 9; slot++)
+		for(int slot = 0; slot < maxSlot; slot++)
 		{
 			if(slot == inventory.getSelectedSlot())
 				continue;
 			
+			if(!allowedSlot.test(slot))
+				continue;
+			
 			ItemStack stack = inventory.getItem(slot);
 			
-			float speed = getMiningSpeed(stack, state);
+			float speed = getSelectionSpeed(stack, state, preferSilk);
 			if(speed <= bestSpeed)
 				continue;
 			
@@ -185,6 +264,59 @@ public final class AutoToolHack extends Hack
 		}
 		
 		return bestSlot;
+	}
+	
+	private int findSilkTouchSlot(Inventory inventory, IntPredicate allowedSlot,
+		int maxSlot, int repairMode)
+	{
+		for(int slot = 0; slot < maxSlot; slot++)
+		{
+			if(slot == inventory.getSelectedSlot() || !allowedSlot.test(slot))
+				continue;
+			ItemStack stack = inventory.getItem(slot);
+			if(isSilkTouchPickaxe(stack) && !isTooDamaged(stack, repairMode))
+				return slot;
+		}
+		return -1;
+	}
+	
+	private float getSelectionSpeed(ItemStack stack, BlockState state,
+		boolean preferSilk)
+	{
+		float speed = getMiningSpeed(stack, state);
+		if(preferSilk && !stack.isEmpty() && hasSilkTouch(stack))
+			speed += 100000;
+		return speed;
+	}
+	
+	private boolean needsSilkTouch(BlockState state)
+	{
+		if(state.getBlock() == Blocks.ENDER_CHEST)
+			return true;
+		String path = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+			.getKey(state.getBlock()).getPath();
+		return path.equals("glass") || path.equals("glass_pane")
+			|| path.equals("tinted_glass") || path.endsWith("_stained_glass")
+			|| path.endsWith("_glass_pane");
+	}
+	
+	private boolean hasSilkTouch(ItemStack stack)
+	{
+		if(stack.isEmpty() || MC.level == null)
+			return false;
+		Registry<Enchantment> registry =
+			MC.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+		Optional<Reference<Enchantment>> silk =
+			registry.get(Enchantments.SILK_TOUCH);
+		ItemEnchantments enchantments = stack.getOrDefault(
+			net.minecraft.core.component.DataComponents.ENCHANTMENTS,
+			ItemEnchantments.EMPTY);
+		return silk.map(enchantments::getLevel).orElse(0) > 0;
+	}
+	
+	private boolean isSilkTouchPickaxe(ItemStack stack)
+	{
+		return stack.is(ItemTags.PICKAXES) && hasSilkTouch(stack);
 	}
 	
 	private float getMiningSpeed(ItemStack stack, BlockState state)

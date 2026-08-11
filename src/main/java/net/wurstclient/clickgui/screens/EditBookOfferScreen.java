@@ -10,7 +10,7 @@ package net.wurstclient.clickgui.screens;
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -123,13 +123,13 @@ public final class EditBookOfferScreen extends Screen
 					return;
 				
 				bookOffers.replace(index, offerToSave);
-				minecraft.gui.setScreen(prevScreen);
+				minecraft.setScreen(prevScreen);
 			}).bounds(width / 2 - 102, height / 3 * 2, 100, 20).build());
 		saveButton.active = false;
 		
 		addRenderableWidget(cancelButton = Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 + 2, height / 3 * 2, 100, 20).build());
 		
 		updateSelectedOffer(offerToSave);
@@ -274,8 +274,8 @@ public final class EditBookOfferScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		
@@ -283,7 +283,8 @@ public final class EditBookOfferScreen extends Screen
 		
 		Font tr = minecraft.font;
 		String titleText = "Edit Book Offer";
-		context.centeredText(tr, titleText, width / 2, 12, CommonColors.WHITE);
+		context.drawCenteredString(tr, titleText, width / 2, 12,
+			CommonColors.WHITE);
 		
 		int x = width / 2 - 100;
 		int y = 64;
@@ -299,10 +300,10 @@ public final class EditBookOfferScreen extends Screen
 		boolean isCurse = bookOffer.getEnchantmentEntry()
 			.map(entry -> entry.is(EnchantmentTags.CURSE)).orElse(false);
 		int nameColor = isCurse ? WurstColors.LIGHT_RED : CommonColors.WHITE;
-		context.text(tr, name, x + 28, y, nameColor);
+		context.drawString(tr, name, x + 28, y, nameColor);
 		
-		context.text(tr, bookOffer.id(), x + 28, y + 9, CommonColors.LIGHT_GRAY,
-			false);
+		context.drawString(tr, bookOffer.id(), x + 28, y + 9,
+			CommonColors.LIGHT_GRAY, false);
 		
 		String price;
 		if(bookOffer.price() >= 64)
@@ -314,24 +315,26 @@ public final class EditBookOfferScreen extends Screen
 				x + 28 + tr.width(price), y + 16, false);
 		}
 		
-		context.text(tr, price, x + 28, y + 18, CommonColors.LIGHT_GRAY, false);
+		context.drawString(tr, price, x + 28, y + 18, CommonColors.LIGHT_GRAY,
+			false);
 		
-		levelField.extractRenderState(context, mouseX, mouseY, partialTicks);
-		priceField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		levelField.render(context, mouseX, mouseY, partialTicks);
+		priceField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		matrixStack.translate(width / 2 - 100, 112);
 		
-		context.text(tr, "Level:", 0, 0, WurstColors.VERY_LIGHT_GRAY);
-		context.text(tr, "Max price:", 0, 16, WurstColors.VERY_LIGHT_GRAY);
+		context.drawString(tr, "Level:", 0, 0, WurstColors.VERY_LIGHT_GRAY);
+		context.drawString(tr, "Max price:", 0, 16,
+			WurstColors.VERY_LIGHT_GRAY);
 		
 		if(alreadyAdded && offerToSave != null)
 		{
 			String errorText = offerToSave.getEnchantmentNameWithLevel()
 				+ " is already on your list!";
-			context.text(tr, errorText, 0, 32, WurstColors.LIGHT_RED);
+			context.drawString(tr, errorText, 0, 32, WurstColors.LIGHT_RED);
 		}
 		
 		matrixStack.popMatrix();

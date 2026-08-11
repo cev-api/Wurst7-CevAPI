@@ -8,8 +8,8 @@
 package net.wurstclient.settings.filters;
 
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.monster.cubemob.MagmaCube;
-import net.minecraft.world.entity.monster.cubemob.Slime;
+import net.minecraft.world.entity.monster.MagmaCube;
+import net.minecraft.world.entity.monster.Slime;
 
 public final class FilterSlimesSetting extends EntityFilterCheckbox
 {

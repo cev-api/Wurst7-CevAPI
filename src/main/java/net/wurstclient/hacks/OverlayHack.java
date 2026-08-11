@@ -179,7 +179,7 @@ public final class OverlayHack extends Hack
 		return MC.options.keyAttack.isDown()
 			&& MC.hitResult instanceof BlockHitResult blockHitResult
 			&& blockHitResult.getType() == HitResult.Type.BLOCK
-			&& MC.gui.screen() == null;
+			&& MC.screen == null;
 	}
 	
 	// --- Config builders ---

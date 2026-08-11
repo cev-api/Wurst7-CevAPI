@@ -149,11 +149,11 @@ public final class SusNoMoreHack extends Hack
 		
 		if(stack.isEmpty())
 		{
-			String fallbackId = extractItemIdentifier(itemTag);
+			String fallbackId = renderItemIdentifier(itemTag);
 			if(fallbackId == null || fallbackId.isEmpty())
 				reportEmptyDust(target);
 			else
-				reportUnknownDust(fallbackId, extractItemCount(itemTag));
+				reportUnknownDust(fallbackId, renderItemCount(itemTag));
 		}else
 		{
 			reportDustResult(stack, target);
@@ -311,14 +311,14 @@ public final class SusNoMoreHack extends Hack
 		autoBreakTicks = 0;
 	}
 	
-	private static String extractItemIdentifier(CompoundTag itemTag)
+	private static String renderItemIdentifier(CompoundTag itemTag)
 	{
 		if(itemTag == null)
 			return null;
 		return itemTag.getString("id").orElse(null);
 	}
 	
-	private static int extractItemCount(CompoundTag itemTag)
+	private static int renderItemCount(CompoundTag itemTag)
 	{
 		if(itemTag == null)
 			return 0;

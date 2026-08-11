@@ -85,7 +85,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	
 	private final BiPredicate<BlockPos, BlockState> query =
-		(pos, state) -> isTargetBlock(state.getBlock());
+		(pos, state) -> isEnabledTargetBlock(state.getBlock());
 	private final ChunkSearcherCoordinator coordinator =
 		new ChunkSearcherCoordinator(query, area);
 	private boolean groupsUpToDate;
@@ -117,12 +117,18 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 		return false;
 	}
 	
+	private boolean isEnabledTargetBlock(Block b)
+	{
+		return groups.stream()
+			.anyMatch(g -> g.getBlock() == b && g.isEnabled());
+	}
+	
 	@Override
 	protected void onEnable()
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -155,7 +161,7 @@ public final class LavaWaterEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;

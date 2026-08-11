@@ -7,6 +7,7 @@
  */
 package net.wurstclient.mixin;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -46,7 +47,7 @@ public abstract class CommandSuggestionsMixin
 			input.getValue().substring(0, input.getCursorPosition());
 		if(wurst$showWurstCommandSuggestions(draftMessage))
 			return;
-		if(wurst$showPlayerNameSuggestions(draftMessage))
+		if(wurst$showArgumentSuggestions(draftMessage))
 			return;
 		
 		AutoCompleteHack autoComplete =
@@ -138,7 +139,14 @@ public abstract class CommandSuggestionsMixin
 		return true;
 	}
 	
-	private boolean wurst$showPlayerNameSuggestions(String draftMessage)
+	/**
+	 * Suggests the argument currently being typed for the matched command:
+	 * custom suggestions from the command itself (e.g. subcommand names),
+	 * saved alts for <code>&lt;alt&gt;</code>/<code>&lt;account&gt;</code>
+	 * tokens, and online player names for <code>&lt;player&gt;</code> tokens.
+	 * Only display names are suggested; credentials are never exposed.
+	 */
+	private boolean wurst$showArgumentSuggestions(String draftMessage)
 	{
 		if(draftMessage == null || draftMessage.isEmpty()
 			|| draftMessage.startsWith("/"))
@@ -164,41 +172,58 @@ public abstract class CommandSuggestionsMixin
 		if(tokens.length < 2)
 			return false;
 		
-		String cmdName = tokens[0];
-		Command cmd = WurstClient.INSTANCE.getCmds().getCmdByName(cmdName);
+		Command cmd = WurstClient.INSTANCE.getCmds().getCmdByName(tokens[0]);
 		if(cmd == null)
 			return false;
 		
-		int currentTokenIndex = tokens.length - 1;
-		int argIndex = currentTokenIndex - 1;
-		if(!cmd.shouldSuggestPlayerNames(argIndex))
-			return false;
-		
-		String currentToken = tokens[currentTokenIndex];
+		String[] argTokens = Arrays.copyOfRange(tokens, 1, tokens.length);
+		int argIndex = argTokens.length - 1;
+		String currentToken = argTokens[argIndex];
 		String lowerToken = currentToken.toLowerCase(Locale.ROOT);
 		int tokenStart = draftMessage.length() - currentToken.length();
 		SuggestionsBuilder builder =
 			new SuggestionsBuilder(draftMessage, tokenStart);
 		LinkedHashSet<String> candidates = new LinkedHashSet<>();
-		String inlineSuggestion = "";
 		
-		if(WurstClient.MC.getConnection() != null)
+		// Custom suggestions from the command (e.g. subcommand names).
+		for(String suggestion : cmd.getArgumentSuggestions(argTokens, argIndex,
+			currentToken))
+			if(suggestion != null && !suggestion.isBlank())
+				candidates.add(suggestion);
+			
+		// Saved alts for <alt>/<account> tokens.
+		if(cmd.shouldSuggestAltNames(argIndex))
+		{
+			var botManager = WurstClient.INSTANCE.getAltBotManager();
+			if(botManager != null)
+				for(var alt : botManager.getCompatibleAlts())
+				{
+					String name = alt.getDisplayName();
+					if(name != null && !name.isBlank())
+						candidates.add(name);
+				}
+		}
+		
+		// Online player names for <player> tokens.
+		if(cmd.shouldSuggestPlayerNames(argIndex)
+			&& WurstClient.MC.getConnection() != null)
 			for(PlayerInfo info : WurstClient.MC.getConnection()
 				.getOnlinePlayers())
 			{
 				if(info == null || info.getProfile() == null
 					|| info.getProfile().name() == null)
 					continue;
-				
-				String name = info.getProfile().name();
-				if(!lowerToken.isEmpty()
-					&& !name.toLowerCase(Locale.ROOT).startsWith(lowerToken))
-					continue;
-				
-				candidates.add(name);
+				candidates.add(info.getProfile().name());
 			}
 		
+		LinkedHashSet<String> filtered = new LinkedHashSet<>();
 		for(String candidate : candidates)
+			if(lowerToken.isEmpty()
+				|| candidate.toLowerCase(Locale.ROOT).startsWith(lowerToken))
+				filtered.add(candidate);
+			
+		String inlineSuggestion = "";
+		for(String candidate : filtered)
 		{
 			builder.suggest(candidate);
 			if(inlineSuggestion.isEmpty()
@@ -206,7 +231,7 @@ public abstract class CommandSuggestionsMixin
 				inlineSuggestion = candidate.substring(currentToken.length());
 		}
 		
-		if(candidates.isEmpty())
+		if(filtered.isEmpty())
 			return false;
 		
 		input.setSuggestion(inlineSuggestion);

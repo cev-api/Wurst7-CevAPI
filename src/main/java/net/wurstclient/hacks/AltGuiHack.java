@@ -178,8 +178,8 @@ public final class AltGuiHack extends Hack
 		normalizeLegacyScaleSettings();
 		enforceNoClipLayout();
 		
-		if(!(MC.gui.screen() instanceof AltGuiScreen))
-			MC.gui.setScreen(new AltGuiScreen(MC.gui.screen()));
+		if(!(MC.screen instanceof AltGuiScreen))
+			MC.setScreen(new AltGuiScreen(MC.screen));
 		
 		setEnabled(false);
 	}

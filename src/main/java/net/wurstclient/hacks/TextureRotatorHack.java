@@ -110,8 +110,8 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		
 		// Recompile every chunk section so that all textures change
 		// immediately, not just the ones nearby.
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
+		if(MC.levelRenderer != null)
+			MC.levelRenderer.allChanged();
 	}
 	
 	@Override
@@ -120,8 +120,8 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		EVENTS.remove(UpdateListener.class, this);
 		
 		// Recompile every chunk section to restore the vanilla textures.
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
+		if(MC.levelRenderer != null)
+			MC.levelRenderer.allChanged();
 	}
 	
 	@Override
@@ -134,8 +134,8 @@ public final class TextureRotatorHack extends Hack implements UpdateListener
 		
 		generateSeed();
 		
-		if(MC.levelExtractor != null)
-			MC.levelExtractor.allChanged();
+		if(MC.levelRenderer != null)
+			MC.levelRenderer.allChanged();
 	}
 	
 	private void generateSeed()

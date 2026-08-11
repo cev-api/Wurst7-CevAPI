@@ -12,7 +12,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Items;
@@ -122,7 +122,7 @@ public final class RemoteEnderChestHack extends Hack
 		
 		if(!self.guiHidden)
 		{
-			self.MC.gui.setScreen(null);
+			self.MC.setScreen(null);
 			self.guiHidden = true;
 		}
 	}
@@ -141,11 +141,11 @@ public final class RemoteEnderChestHack extends Hack
 		
 		if(self.guiHidden)
 		{
-			self.MC.gui.setScreen(self.savedScreen);
+			self.MC.setScreen(self.savedScreen);
 			self.guiHidden = false;
 		}else
 		{
-			self.MC.gui.setScreen(null);
+			self.MC.setScreen(null);
 			self.guiHidden = true;
 		}
 	}
@@ -208,7 +208,7 @@ public final class RemoteEnderChestHack extends Hack
 	{
 		if(savedScreen == null || !isSavedContainerMenuStillActive())
 			return;
-		MC.gui.setScreen(savedScreen);
+		MC.setScreen(savedScreen);
 		guiHidden = false;
 	}
 	
@@ -241,7 +241,7 @@ public final class RemoteEnderChestHack extends Hack
 		// Open the player's actual inventory
 		if(self.MC.player != null)
 		{
-			self.MC.gui.setScreen(new InventoryScreen(self.MC.player));
+			self.MC.setScreen(new InventoryScreen(self.MC.player));
 		}
 	}
 	
@@ -327,15 +327,15 @@ public final class RemoteEnderChestHack extends Hack
 		// immediately replace it with the linked ender chest GUI.
 		if(swapInventoryKey.isChecked() && savedScreen != null
 			&& isSavedContainerMenuStillActive() && guiHidden
-			&& MC.gui.screen() instanceof InventoryScreen invScreen
+			&& MC.screen instanceof InventoryScreen invScreen
 			&& invScreen != savedScreen)
 		{
-			MC.gui.setScreen(savedScreen);
+			MC.setScreen(savedScreen);
 			guiHidden = false;
 			return;
 		}
 		
-		if(MC.gui.screen() == null && savedScreen != null
+		if(MC.screen == null && savedScreen != null
 			&& isSavedContainerMenuStillActive())
 		{
 			InputConstants.Key key = getToggleGuiKey();
@@ -358,7 +358,7 @@ public final class RemoteEnderChestHack extends Hack
 		{
 			potentialEChestPos = bhr.getBlockPos();
 			
-			if(MC.gui.screen() == null
+			if(MC.screen == null
 				&& MC.level.getBlockState(bhr.getBlockPos())
 					.getBlock() == Blocks.ENDER_CHEST
 				&& MC.options.keyUse.isDown()
@@ -373,7 +373,7 @@ public final class RemoteEnderChestHack extends Hack
 		// the saved link. Clear it immediately so the toggle key cannot
 		// reopen a stale ghost GUI later.
 		if(savedScreen != null
-			&& MC.gui.screen() instanceof AbstractContainerScreen<?> screen
+			&& MC.screen instanceof AbstractContainerScreen<?> screen
 			&& screen != savedScreen)
 		{
 			breakLink(
@@ -395,11 +395,11 @@ public final class RemoteEnderChestHack extends Hack
 		if(isEnderChestScreen(potentialEChestPos) && savedScreen == null
 			&& !guiWasOpen && !guiHidden)
 		{
-			savedScreen = (AbstractContainerScreen<?>)MC.gui.screen();
+			savedScreen = (AbstractContainerScreen<?>)MC.screen;
 			
 			savedSyncId = savedScreen.getMenu().containerId;
 			
-			MC.gui.setScreen(null);
+			MC.setScreen(null);
 			guiHidden = true;
 			guiWasOpen = true;
 			lastWorld = MC.level;
@@ -408,8 +408,7 @@ public final class RemoteEnderChestHack extends Hack
 					+ " hide the GUI.");
 		}
 		
-		if(savedScreen != null && MC.gui.screen() == null && !guiHidden
-			&& guiWasOpen)
+		if(savedScreen != null && MC.screen == null && !guiHidden && guiWasOpen)
 		{
 			
 			// ESC/X will hide the GUI.
@@ -453,14 +452,12 @@ public final class RemoteEnderChestHack extends Hack
 			// never needs to expose the player's inventory slot mapping.
 			if(forceRefill || MC.player.getOffhandItem().isEmpty())
 			{
-				savedScreen.slotClicked(slot, slot.index, 40,
-					ContainerInput.SWAP);
+				savedScreen.slotClicked(slot, slot.index, 40, ClickType.SWAP);
 				autoTotemRefillRequested = false;
 				return;
 			}
 			
-			savedScreen.slotClicked(slot, slot.index, 0,
-				ContainerInput.QUICK_MOVE);
+			savedScreen.slotClicked(slot, slot.index, 0, ClickType.QUICK_MOVE);
 			return;
 		}
 	}
@@ -485,7 +482,7 @@ public final class RemoteEnderChestHack extends Hack
 	
 	private boolean isEnderChestScreen(BlockPos echest)
 	{
-		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen))
+		if(!(MC.screen instanceof AbstractContainerScreen<?> screen))
 			return false;
 		if(echest == null || MC.level == null)
 			return false;
@@ -525,7 +522,7 @@ public final class RemoteEnderChestHack extends Hack
 	{
 		int syncId = savedSyncId;
 		AbstractContainerScreen<?> oldScreen = savedScreen;
-		boolean oldScreenVisible = MC.gui.screen() == oldScreen;
+		boolean oldScreenVisible = MC.screen == oldScreen;
 		
 		guiHidden = false;
 		guiWasOpen = false;
@@ -537,7 +534,7 @@ public final class RemoteEnderChestHack extends Hack
 		savedScreen = null;
 		
 		if(oldScreenVisible)
-			MC.gui.setScreen(null);
+			MC.setScreen(null);
 		
 		if(sendClosePacket && !oldScreenVisible && syncId != -1
 			&& MC.getConnection() != null)

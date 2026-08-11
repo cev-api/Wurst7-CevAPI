@@ -114,7 +114,7 @@ public final class EntityTypeListSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
-	public void resetToDefaults()
+	public void resetToDefault()
 	{
 		typeNames.clear();
 		typeNames.addAll(Arrays.asList(defaultNames));
@@ -149,7 +149,7 @@ public final class EntityTypeListSetting extends Setting
 		}catch(JsonException e)
 		{
 			e.printStackTrace();
-			resetToDefaults();
+			resetToDefault();
 		}
 	}
 	

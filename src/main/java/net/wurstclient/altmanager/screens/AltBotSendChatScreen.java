@@ -179,14 +179,16 @@ public final class AltBotSendChatScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.drawCenteredString(font, "Sending as: \u00a7a" + alt.getDisplayName(),
-			width / 2, height / 2 - 70, CommonColors.WHITE);
+		context.drawCenteredString(font,
+			"Sending as: \u00a7a" + alt.getDisplayName(), width / 2,
+			height / 2 - 70, CommonColors.WHITE);
 		
 		if(errorTimer > 0 && !feedback.isEmpty())
-			context.drawCenteredString(font, feedback, width / 2, height / 2 + 42,
+			context.drawCenteredString(font, feedback, width / 2,
+				height / 2 + 42,
 				feedbackError ? CommonColors.RED : CommonColors.GREEN);
 		
 		// recent sent history

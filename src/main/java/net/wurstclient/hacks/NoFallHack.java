@@ -30,6 +30,10 @@ public final class NoFallHack extends Hack implements UpdateListener
 		new CheckboxSetting("Pause for mace",
 			"description.wurst.setting.nofall.pause_for_mace", false);
 	
+	private final CheckboxSetting pauseForFlight =
+		new CheckboxSetting("Pause during Flight",
+			"description.wurst.setting.nofall.pause_for_flight", false);
+	
 	private final SliderSetting minFallDistance =
 		new SliderSetting("Min fall distance",
 			"description.wurst.setting.nofall.min_fall_distance", 1, 0, 10, 0.1,
@@ -50,6 +54,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 		setCategory(Category.MOVEMENT);
 		addSetting(allowElytra);
 		addSetting(pauseForMace);
+		addSetting(pauseForFlight);
 		addSetting(minFallDistance);
 		addSetting(minFallDistanceElytra);
 	}
@@ -66,6 +71,8 @@ public final class NoFallHack extends Hack implements UpdateListener
 	@Override
 	protected void onEnable()
 	{
+		hasLastPlayerY = false;
+		hasLastSentPositionY = false;
 		WURST.getHax().antiHungerHack.setEnabled(false);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -73,6 +80,8 @@ public final class NoFallHack extends Hack implements UpdateListener
 	@Override
 	protected void onDisable()
 	{
+		hasLastPlayerY = false;
+		hasLastSentPositionY = false;
 		EVENTS.remove(UpdateListener.class, this);
 	}
 	
@@ -88,12 +97,9 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastPlayerY = player.getY();
 		hasLastPlayerY = true;
 		
-		if(isPaused(actuallyDescending) || isFlightPacketProtectionActive())
-			return;
-		
-		// send packet to stop fall damage
-		MC.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(
-			true, MC.player.horizontalCollision));
+		// Fall protection is applied to the next real movement packet below.
+		// Sending a separate StatusOnly(true) packet races that movement packet
+		// on high-latency servers and can make the server end the fall early.
 	}
 	
 	/**
@@ -114,17 +120,20 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastSentPositionY = y;
 		hasLastSentPositionY = true;
 		
-		if(!isEnabled() || !descending || !isFlightPacketProtectionActive()
-			|| !isSafeToSpoofFlightMovement())
+		if(!isEnabled() || !descending || !isSafeToSpoofFlightMovement())
+			return packet;
+		
+		if(isPaused(descending))
 			return packet;
 		
 		return PacketUtils.modifyOnGround(packet, true);
 	}
 	
-	private boolean isFlightPacketProtectionActive()
+	/** Clears the packet baseline when another movement hack changes modes. */
+	public void resetMovementTracking()
 	{
-		return WURST.getHax().flightHack.isEnabled()
-			|| PathFlightRuntime.isPathFlightActive();
+		hasLastSentPositionY = false;
+		hasLastPlayerY = false;
 	}
 	
 	/**
@@ -154,6 +163,11 @@ public final class NoFallHack extends Hack implements UpdateListener
 	
 	private boolean isPaused()
 	{
+		return isPaused(false);
+	}
+	
+	private boolean isPaused(boolean actuallyDescending)
+	{
 		// do nothing in creative mode, since there is no fall damage anyway
 		LocalPlayer player = MC.player;
 		if(player.getAbilities().invulnerable)
@@ -174,15 +188,23 @@ public final class NoFallHack extends Hack implements UpdateListener
 		// Flight hack can make this fall look like a normal paused flight.
 		if(PathFlightRuntime.isLandingProtectionActive())
 			return false;
-			
-		// Flight controls the player's vertical motion directly. Keep NoFall
-		// active while descending, even when pausing it during Flight is
-		// enabled, because descending with Flight can still cause fall damage.
+		
 		boolean flightActive = WURST.getHax().flightHack.isEnabled()
+			|| WURST.getHax().creativeFlightHack.isEnabled()
 			|| PathFlightRuntime.isPathFlightActive();
-		if(pauseForFlight.isChecked() && flightActive && !isDescending(player))
-			return true;
-			
+		if(pauseForFlight.isChecked() && flightActive)
+		{
+			// Keep NoFall active while Flight is deliberately descending.
+			// Use the intended direction instead of velocity, which Flight
+			// resets every tick.
+			boolean descending = WURST.getHax().flightHack.isDescending()
+				|| WURST.getHax().creativeFlightHack.isDescending()
+				|| PathFlightRuntime.isPathFlightDescending()
+				|| actuallyDescending;
+			if(!descending)
+				return true;
+		}
+		
 		// ignore small falls that can't cause damage,
 		// unless CreativeFlight is enabled in survival mode
 		boolean creativeFlying = WURST.getHax().creativeFlightHack.isEnabled()
@@ -204,18 +226,4 @@ public final class NoFallHack extends Hack implements UpdateListener
 		return player.getDeltaMovement().y < -0.5;
 	}
 	
-	private boolean isDescending(LocalPlayer player)
-	{
-		// Flight resets the player's velocity every tick. AutoFly can therefore
-		// make deltaMovement.y briefly cross zero while its intended direction
-		// has not changed, which makes the pause state flicker. Use AutoFly's
-		// input flag instead; it is the same source that Flight uses to apply
-		// vertical motion.
-		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
-		if(autoFly.isEnabled() && (WURST.getHax().flightHack.isEnabled()
-			|| PathFlightRuntime.isPathFlightActive()))
-			return autoFly.isAutoKeyShiftDown();
-		
-		return player.getDeltaMovement().y < -1.0E-4;
-	}
 }

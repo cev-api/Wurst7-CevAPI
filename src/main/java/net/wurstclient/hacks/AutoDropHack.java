@@ -14,7 +14,7 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.HashedStack;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.wurstclient.Category;
@@ -78,8 +78,8 @@ public final class AutoDropHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		// check screen
-		if(MC.gui.screen() instanceof AbstractContainerScreen
-			&& !(MC.gui.screen() instanceof InventoryScreen))
+		if(MC.screen instanceof AbstractContainerScreen
+			&& !(MC.screen instanceof InventoryScreen))
 			return;
 		
 		for(int slot = 9; slot < 45; slot++)
@@ -115,7 +115,7 @@ public final class AutoDropHack extends Hack implements UpdateListener
 			new ServerboundContainerClickPacket(
 				MC.player.containerMenu.containerId,
 				MC.player.containerMenu.getStateId(), (short)slot, (byte)1,
-				ContainerInput.THROW, new Int2ObjectOpenHashMap<>(),
+				ClickType.THROW, new Int2ObjectOpenHashMap<>(),
 				HashedStack.EMPTY);
 		
 		connection.send(packet);

@@ -72,7 +72,7 @@ public final class ChestSearchHack extends Hack
 	private final CheckboxSetting markOpenedChest = new CheckboxSetting(
 		"Mark opened chest",
 		"Draw ESP/lines through opened chests that appear in your ChestSearch database.",
-		true);
+		false);
 	private final CheckboxSetting recordedChestNotifications =
 		new CheckboxSetting("Chat notifications",
 			"Show a chat notification when ChestSearch records a container.",
@@ -359,9 +359,8 @@ public final class ChestSearchHack extends Hack
 		
 		try
 		{
-			MC.gui.setScreen(
-				new net.wurstclient.clickgui.screens.ChestSearchScreen(
-					MC.gui.screen(), Boolean.TRUE));
+			MC.setScreen(new net.wurstclient.clickgui.screens.ChestSearchScreen(
+				MC.screen, Boolean.TRUE));
 		}catch(Throwable ignored)
 		{}
 		setEnabled(false);

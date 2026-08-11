@@ -7,15 +7,14 @@
  */
 package net.wurstclient.util;
 
-import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
@@ -23,12 +22,13 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.ByteBufferBuilder;
 import com.mojang.blaze3d.vertex.MeshData;
 import com.mojang.blaze3d.vertex.MeshData.DrawState;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat.Mode;
 
 import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -45,17 +45,17 @@ public final class EasyVertexBuffer implements AutoCloseable
 {
 	private final RenderSystem.AutoStorageIndexBuffer shapeIndexBuffer;
 	private final GpuBuffer vertexBuffer;
-	private final PrimitiveTopology drawMode;
+	private final Mode drawMode;
 	private final int indexCount;
 	
 	/**
 	 * Drop-in replacement for {@code VertexBuffer.createAndUpload()}.
 	 */
-	public static EasyVertexBuffer createAndUpload(PrimitiveTopology drawMode,
+	public static EasyVertexBuffer createAndUpload(Mode drawMode,
 		VertexFormat format, Consumer<VertexConsumer> callback)
 	{
 		BufferBuilder bufferBuilder =
-			new BufferBuilder(new ByteBufferBuilder(256), drawMode, format);
+			Tesselator.getInstance().begin(drawMode, format);
 		callback.accept(bufferBuilder);
 		
 		try(MeshData buffer = bufferBuilder.build())
@@ -67,12 +67,11 @@ public final class EasyVertexBuffer implements AutoCloseable
 		}
 	}
 	
-	private EasyVertexBuffer(MeshData buffer, PrimitiveTopology drawMode)
+	private EasyVertexBuffer(MeshData buffer, Mode drawMode)
 	{
 		DrawState drawParams = buffer.drawState();
 		this.drawMode = drawMode;
-		shapeIndexBuffer =
-			RenderSystem.getSequentialBuffer(drawParams.primitiveTopology());
+		shapeIndexBuffer = RenderSystem.getSequentialBuffer(drawParams.mode());
 		indexCount = drawParams.indexCount();
 		
 		vertexBuffer = RenderSystem.getDevice().createBuffer(null,
@@ -80,7 +79,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 			buffer.vertexBuffer());
 	}
 	
-	private EasyVertexBuffer(PrimitiveTopology drawMode)
+	private EasyVertexBuffer(Mode drawMode)
 	{
 		this.drawMode = drawMode;
 		shapeIndexBuffer = null;
@@ -141,7 +140,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 				if(globalEsp.shouldTakeOverRenderCalls())
 					return;
 				
-				if(drawMode == PrimitiveTopology.QUADS)
+				if(drawMode == Mode.QUADS)
 					indexCountToDraw = Math.min(indexCount, grantedSlots * 36);
 				else
 					return;
@@ -156,9 +155,9 @@ public final class EasyVertexBuffer implements AutoCloseable
 		modelViewStack.mul(matrixStack.last().pose());
 		
 		GpuBufferSlice gpuBufferSlice = RenderSystem.getDynamicUniforms()
-			.writeTransform(RenderSystem.getModelViewMatrixCopy(),
+			.writeTransform(RenderSystem.getModelViewMatrix(),
 				new Vector4f(red, green, blue, alpha), new Vector3f(),
-				TextureTransform.DEFAULT_TEXTURING.createMatrix());
+				TextureTransform.DEFAULT_TEXTURING.getMatrix());
 		
 		RenderTarget framebuffer =
 			OutputTarget.ITEM_ENTITY_TARGET.getRenderTarget();
@@ -168,15 +167,15 @@ public final class EasyVertexBuffer implements AutoCloseable
 		try(RenderPass renderPass =
 			RenderSystem.getDevice().createCommandEncoder().createRenderPass(
 				() -> "something from Wurst", framebuffer.getColorTextureView(),
-				Optional.empty(), framebuffer.getDepthTextureView(),
+				OptionalInt.empty(), framebuffer.getDepthTextureView(),
 				OptionalDouble.empty()))
 		{
 			renderPass.setPipeline(pipeline);
 			RenderSystem.bindDefaultUniforms(renderPass);
 			renderPass.setUniform("DynamicTransforms", gpuBufferSlice);
-			renderPass.setVertexBuffer(0, vertexBuffer.slice());
+			renderPass.setVertexBuffer(0, vertexBuffer);
 			renderPass.setIndexBuffer(indexBuffer, shapeIndexBuffer.type());
-			renderPass.drawIndexed(indexCountToDraw, 1, 0, 0, 0);
+			renderPass.drawIndexed(0, 0, indexCountToDraw, 1);
 		}
 		
 		modelViewStack.popMatrix();
@@ -213,7 +212,7 @@ public final class EasyVertexBuffer implements AutoCloseable
 			return 1;
 		
 		// Most ESP buffers here encode cuboids using six quad faces per box.
-		if(drawMode == PrimitiveTopology.QUADS)
+		if(drawMode == Mode.QUADS)
 			return Math.max(1, (indexCount + 35) / 36);
 		
 		return 1;

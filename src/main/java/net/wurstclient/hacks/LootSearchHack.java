@@ -97,7 +97,7 @@ public final class LootSearchHack extends Hack
 				File dir = LootSearchUtil.getSeedmapperLootDir();
 				if(WurstClient.MC != null && WurstClient.MC.player != null)
 				{
-					WurstClient.MC.player.sendSystemMessage(Component
+					net.wurstclient.util.ChatUtils.component(Component
 						.literal("No loot export found for this server."));
 					sendLootSearchDebug(serverIp, dir);
 				}
@@ -112,9 +112,9 @@ public final class LootSearchHack extends Hack
 				return;
 			}
 			
-			WurstClient.MC.gui.setScreen(
+			WurstClient.MC.setScreen(
 				new net.wurstclient.clickgui.screens.ChestSearchScreen(
-					WurstClient.MC.gui.screen(), mgr, Boolean.TRUE));
+					WurstClient.MC.screen, mgr, Boolean.TRUE));
 		}catch(Throwable t)
 		{
 			t.printStackTrace();
@@ -157,7 +157,7 @@ public final class LootSearchHack extends Hack
 		if(normalized == null)
 		{
 			if(WurstClient.MC != null && WurstClient.MC.player != null)
-				WurstClient.MC.player.sendSystemMessage(Component.literal(
+				net.wurstclient.util.ChatUtils.component(Component.literal(
 					"LootSearch: JSON Path does not point to an existing .json file."));
 		}
 		return normalized;
@@ -170,9 +170,9 @@ public final class LootSearchHack extends Hack
 		
 		String ip = serverIp == null ? "<null>" : serverIp;
 		String dirPath = dir == null ? "<null>" : dir.getAbsolutePath();
-		WurstClient.MC.player.sendSystemMessage(
-			Component.literal("LootSearch debug: serverIp=" + ip));
-		WurstClient.MC.player.sendSystemMessage(
+		net.wurstclient.util.ChatUtils
+			.component(Component.literal("LootSearch debug: serverIp=" + ip));
+		net.wurstclient.util.ChatUtils.component(
 			Component.literal("LootSearch debug: lootDir=" + dirPath));
 		
 		if(dir == null || !dir.exists() || !dir.isDirectory())
@@ -182,7 +182,7 @@ public final class LootSearchHack extends Hack
 			dir.listFiles((d, name) -> name.toLowerCase().endsWith(".json"));
 		if(files == null || files.length == 0)
 		{
-			WurstClient.MC.player.sendSystemMessage(Component
+			net.wurstclient.util.ChatUtils.component(Component
 				.literal("LootSearch debug: no .json files in lootDir"));
 			return;
 		}
@@ -197,7 +197,7 @@ public final class LootSearchHack extends Hack
 		if(files.length > 10)
 			names.append(" ... (").append(files.length).append(" total)");
 		
-		WurstClient.MC.player.sendSystemMessage(
-			Component.literal("LootSearch debug: files=" + names));
+		net.wurstclient.util.ChatUtils
+			.component(Component.literal("LootSearch debug: files=" + names));
 	}
 }

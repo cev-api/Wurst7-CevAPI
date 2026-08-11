@@ -108,7 +108,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 		if(MC.player == null || MC.level == null)
 			return;
 		
-		if(MC.gui.screen() != null)
+		if(MC.screen != null)
 			return;
 		
 		while(activationKey.consumeClick())
@@ -192,7 +192,7 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 	
 	public void useFromKeybind()
 	{
-		if(MC.player == null || MC.level == null || MC.gui.screen() != null)
+		if(MC.player == null || MC.level == null || MC.screen != null)
 			return;
 		if(!isEnabled())
 			return;

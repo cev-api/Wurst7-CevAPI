@@ -7,7 +7,7 @@
  */
 package net.wurstclient.options;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -66,7 +66,7 @@ public final class KeybindEditorScreen extends Screen
 	{
 		addRenderableWidget(Button
 			.builder(Component.literal("Change Key"),
-				b -> minecraft.gui.setScreen(new PressAKeyScreen(this)))
+				b -> minecraft.setScreen(new PressAKeyScreen(this)))
 			.bounds(width / 2 - 100, 60, 200, 20).build());
 		
 		addRenderableWidget(
@@ -75,7 +75,7 @@ public final class KeybindEditorScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height / 4 + 96, 200, 20).build());
 		
 		commandField = new EditBox(font, width / 2 - 100, 100, 200, 20,
@@ -95,7 +95,7 @@ public final class KeybindEditorScreen extends Screen
 			WurstClient.INSTANCE.getKeybinds().remove(oldKey);
 		
 		WurstClient.INSTANCE.getKeybinds().add(key, commandField.getValue());
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -106,28 +106,28 @@ public final class KeybindEditorScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			(oldKey != null ? "Edit" : "Add") + " Keybind", width / 2, 20,
 			CommonColors.WHITE);
 		
-		context.text(font, "Key: " + Keybind.getDisplayKey(key),
+		context.drawString(font, "Key: " + Keybind.getDisplayKey(key),
 			width / 2 - 100, 47, WurstColors.VERY_LIGHT_GRAY);
-		context.text(font, "Commands (separated by ';')", width / 2 - 100, 87,
-			WurstColors.VERY_LIGHT_GRAY);
+		context.drawString(font, "Commands (separated by ';')", width / 2 - 100,
+			87, WurstColors.VERY_LIGHT_GRAY);
 		
-		commandField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		commandField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override

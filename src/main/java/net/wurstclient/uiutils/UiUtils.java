@@ -24,7 +24,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
@@ -42,7 +42,7 @@ import net.minecraft.network.protocol.game.ServerboundContainerButtonClickPacket
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import org.jetbrains.annotations.NotNull;
@@ -91,23 +91,23 @@ public final class UiUtils
 				WurstClient.INSTANCE.getHax().uiUtilsHack;
 			Minecraft mc = Minecraft.getInstance();
 			if(hack != null && hack.isLogToChat() && mc.player != null)
-				mc.player
-					.sendSystemMessage(Component.literal("[UI-Utils] " + msg));
+				net.wurstclient.util.ChatUtils
+					.component(Component.literal("[UI-Utils] " + msg));
 		}catch(Throwable t)
 		{
 			// ignore if GUI/hack not available
 		}
 	}
 	
-	public static void renderSyncInfo(Minecraft mc,
-		GuiGraphicsExtractor graphics, AbstractContainerMenu menu)
+	public static void renderSyncInfo(Minecraft mc, GuiGraphics graphics,
+		AbstractContainerMenu menu)
 	{
 		if(menu == null)
 			return;
 		
-		graphics.text(mc.font, "Sync Id: " + menu.containerId, 200, 5,
+		graphics.drawString(mc.font, "Sync Id: " + menu.containerId, 200, 5,
 			0xFFFFFF);
-		graphics.text(mc.font, "Revision: " + menu.getStateId(), 200, 35,
+		graphics.drawString(mc.font, "Revision: " + menu.getStateId(), 200, 35,
 			0xFFFFFF);
 	}
 	
@@ -120,8 +120,9 @@ public final class UiUtils
 	{
 		UiUtilsState.enabled = !UiUtilsState.enabled;
 		if(mc.player != null)
-			mc.player.sendSystemMessage(Component.literal("UI-Utils is now "
-				+ (UiUtilsState.enabled ? "enabled" : "disabled") + "."));
+			net.wurstclient.util.ChatUtils
+				.component(Component.literal("UI-Utils is now "
+					+ (UiUtilsState.enabled ? "enabled" : "disabled") + "."));
 	}
 	
 	public static boolean saveCurrentGuiToSlot(Minecraft mc, String slot)
@@ -130,9 +131,9 @@ public final class UiUtils
 			return false;
 		
 		String key = slot.toLowerCase(Locale.ROOT);
-		UiUtilsState.storedScreen = mc.gui.screen();
+		UiUtilsState.storedScreen = mc.screen;
 		UiUtilsState.storedMenu = mc.player.containerMenu;
-		UiUtilsState.savedScreens.put(key, mc.gui.screen());
+		UiUtilsState.savedScreens.put(key, mc.screen);
 		UiUtilsState.savedMenus.put(key, mc.player.containerMenu);
 		return true;
 	}
@@ -148,7 +149,7 @@ public final class UiUtils
 		if(screen == null || menu == null)
 			return false;
 		
-		mc.gui.setScreen(screen);
+		mc.setScreen(screen);
 		mc.player.containerMenu = menu;
 		UiUtilsState.storedScreen = screen;
 		UiUtilsState.storedMenu = menu;
@@ -239,7 +240,7 @@ public final class UiUtils
 		
 		adder.accept(
 			Button.builder(Component.literal("Close without packet"), b -> {
-				mc.gui.setScreen(null);
+				mc.setScreen(null);
 				chatIfEnabled("Closed GUI without packet");
 			}).bounds(baseX, baseY, fullWidth, 20).build());
 		int y = baseY + 20 + spacing;
@@ -278,9 +279,10 @@ public final class UiUtils
 					for(Packet<?> packet : UiUtilsState.delayedUiPackets)
 						mc.getConnection().send(packet);
 					if(mc.player != null)
-						mc.player.sendSystemMessage(Component.literal(
-							"Sent " + UiUtilsState.delayedUiPackets.size()
-								+ " packets."));
+						net.wurstclient.util.ChatUtils
+							.component(Component.literal(
+								"Sent " + UiUtilsState.delayedUiPackets.size()
+									+ " packets."));
 					UiUtilsState.delayedUiPackets.clear();
 				}
 				chatIfEnabled("Delay packets: " + UiUtilsState.delayUiPackets);
@@ -292,7 +294,7 @@ public final class UiUtils
 				int sent = sendQueuedPackets(mc, 1);
 				UiUtilsState.delayUiPackets = false;
 				UiUtilsState.delayedUiPackets.clear();
-				mc.gui.setScreen(null);
+				mc.setScreen(null);
 				chatIfEnabled(
 					"Left GUI and sent queued packets (" + sent + ")");
 			}).bounds(baseX, y, fullWidth, 20).build());
@@ -320,7 +322,7 @@ public final class UiUtils
 					mc.player != null ? mc.player.containerMenu : null;
 				int syncId = menu != null ? menu.containerId : 0;
 				int revision = menu != null ? menu.getStateId() : 0;
-				if(mc.gui.screen() instanceof AbstractContainerScreen)
+				if(mc.screen instanceof AbstractContainerScreen)
 				{
 					UiUtilsState.fabricateOverlayOpen =
 						!UiUtilsState.fabricateOverlayOpen;
@@ -330,8 +332,8 @@ public final class UiUtils
 				}else
 				{
 					UiUtilsState.skipNextContainerRemoval = true;
-					mc.gui.setScreen(new FabricatePacketScreen(mc.gui.screen(),
-						syncId, revision));
+					mc.setScreen(
+						new FabricatePacketScreen(mc.screen, syncId, revision));
 				}
 			}).bounds(baseX, y, fullWidth, 20).build());
 		y += 20 + spacing;
@@ -340,16 +342,12 @@ public final class UiUtils
 			Button.builder(Component.literal("Copy GUI Title JSON"), b -> {
 				try
 				{
-					if(mc.gui.screen() == null)
+					if(mc.screen == null)
 						throw new IllegalStateException(
 							"Minecraft screen was null.");
-					String json =
-						new Gson()
-							.toJson(
-								ComponentSerialization.CODEC
-									.encodeStart(JsonOps.INSTANCE,
-										mc.gui.screen().getTitle())
-									.getOrThrow());
+					String json = new Gson().toJson(ComponentSerialization.CODEC
+						.encodeStart(JsonOps.INSTANCE, mc.screen.getTitle())
+						.getOrThrow());
 					mc.keyboardHandler.setClipboard(json);
 					chatIfEnabled("Copied GUI title JSON to clipboard");
 				}catch(IllegalStateException e)
@@ -475,8 +473,8 @@ public final class UiUtils
 								UiUtilsCommandSystem.execute(command);
 							if(mc.player != null && !result.isEmpty())
 								for(String line : result.split("\n"))
-									mc.player.sendSystemMessage(
-										Component.literal(line));
+									net.wurstclient.util.ChatUtils
+										.component(Component.literal(line));
 							setValue("");
 							return false;
 						}
@@ -593,7 +591,7 @@ public final class UiUtils
 		private EditBox clickRevisionField;
 		private EditBox clickSlotField;
 		private EditBox clickButtonField;
-		private CycleButton<ContainerInput> clickActionButton;
+		private CycleButton<ClickType> clickActionButton;
 		private CycleButton<Boolean> clickDelayToggle;
 		private EditBox clickTimesField;
 		private Button clickSendButton;
@@ -661,11 +659,10 @@ public final class UiUtils
 			addRenderableWidget(clickButtonField);
 			
 			clickActionButton = CycleButton
-				.<ContainerInput> builder(
-					action -> Component.literal(action.name()),
-					() -> ContainerInput.PICKUP)
-				.withValues(ContainerInput.values()).create(0, 0, FIELD_WIDTH,
-					20, Component.literal("Action"), (button, value) -> {});
+				.<ClickType> builder(action -> Component.literal(action.name()),
+					() -> ClickType.PICKUP)
+				.withValues(ClickType.values()).create(0, 0, FIELD_WIDTH, 20,
+					Component.literal("Action"), (button, value) -> {});
 			addRenderableWidget(clickActionButton);
 			
 			clickDelayToggle =
@@ -713,26 +710,26 @@ public final class UiUtils
 		}
 		
 		@Override
-		public void extractRenderState(GuiGraphicsExtractor graphics,
-			int mouseX, int mouseY, float partialTicks)
+		public void render(GuiGraphics graphics, int mouseX, int mouseY,
+			float partialTicks)
 		{
-			super.extractRenderState(graphics, mouseX, mouseY, partialTicks);
+			super.render(graphics, mouseX, mouseY, partialTicks);
 			drawFieldLabels(graphics);
-			graphics.centeredText(font, title, width / 2, 20, 0xFFFFFFFF);
+			graphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFFFF);
 			if(statusMessage != null)
-				graphics.centeredText(font, statusMessage, width / 2,
+				graphics.drawCenteredString(font, statusMessage, width / 2,
 					height - 25, statusColor);
 		}
 		
 		@Override
-		public void extractBackground(GuiGraphicsExtractor graphics, int mouseX,
+		public void renderBackground(GuiGraphics graphics, int mouseX,
 			int mouseY, float partialTicks)
 		{
-			super.extractBackground(graphics, mouseX, mouseY, partialTicks);
+			super.renderBackground(graphics, mouseX, mouseY, partialTicks);
 			drawPanel(graphics);
 		}
 		
-		private void drawFieldLabels(GuiGraphicsExtractor graphics)
+		private void drawFieldLabels(GuiGraphics graphics)
 		{
 			int labelColor = 0xFFAAAAAA;
 			if(selectedMode == PacketMode.CLICK_SLOT)
@@ -754,13 +751,13 @@ public final class UiUtils
 			}
 		}
 		
-		private void drawFieldLabel(GuiGraphicsExtractor graphics, String text,
-			int x, int y, int color)
+		private void drawFieldLabel(GuiGraphics graphics, String text, int x,
+			int y, int color)
 		{
-			graphics.text(font, text, x, y - LABEL_OFFSET, color);
+			graphics.drawString(font, text, x, y - LABEL_OFFSET, color);
 		}
 		
-		private void drawPanel(GuiGraphicsExtractor graphics)
+		private void drawPanel(GuiGraphics graphics)
 		{
 			int x0 = panelX - PANEL_BORDER;
 			int y0 = panelY - PANEL_BORDER;
@@ -774,7 +771,7 @@ public final class UiUtils
 		@Override
 		public void onClose()
 		{
-			minecraft.gui.setScreen(parent);
+			minecraft.setScreen(parent);
 		}
 		
 		@Override
@@ -921,7 +918,7 @@ public final class UiUtils
 				return;
 			}
 			
-			ContainerInput action = clickActionButton.getValue();
+			ClickType action = clickActionButton.getValue();
 			if(action == null)
 			{
 				showStatus(Component.literal("Invalid arguments!"),
@@ -1090,7 +1087,7 @@ public final class UiUtils
 			statusMessage = message;
 			statusColor = color;
 			queueTask(() -> {
-				if(minecraft.gui.screen() == this)
+				if(minecraft.screen == this)
 				{
 					statusMessage = null;
 					statusColor = 0;
@@ -1125,7 +1122,7 @@ public final class UiUtils
 			
 			// Never restore saved GUIs while chat is open, regardless of what
 			// key UiUtils is currently bound to.
-			if(mc.gui.screen() instanceof ChatScreen)
+			if(mc.screen instanceof ChatScreen)
 			{
 				if(customKey != null)
 				{
@@ -1160,7 +1157,7 @@ public final class UiUtils
 			if(UiUtilsState.storedScreen != null
 				&& UiUtilsState.storedMenu != null && mc.player != null)
 			{
-				mc.gui.setScreen(UiUtilsState.storedScreen);
+				mc.setScreen(UiUtilsState.storedScreen);
 				mc.player.containerMenu = UiUtilsState.storedMenu;
 				try
 				{

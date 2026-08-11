@@ -48,6 +48,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.StringUtil;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.altbot.AltBotUtils;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.CrackedAlt;
 import net.wurstclient.altmanager.LoginManager;
@@ -137,6 +138,14 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 			WText.literal("Generate a temporary, random offline name (≤ 8 "
 				+ "chars) before reconnecting."),
 			false);
+	
+	private final CheckboxSetting useBotForReconnect = new CheckboxSetting(
+		"Use bot for reconnects",
+		WText.literal(
+			"When enabled, reconnect-as-another-player functions connect that "
+				+ "player as a protocol bot instead of changing your rendered "
+				+ "client's identity."),
+		false);
 	
 	private final CheckboxSetting showDisconnectButtons = new CheckboxSetting(
 		"Show disconnect buttons",
@@ -332,6 +341,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		addSetting(crackedDetection);
 		addSetting(autoReconnect);
 		addSetting(randomName);
+		addSetting(useBotForReconnect);
 		addSetting(showDisconnectButtons);
 		addSetting(specifiedName);
 		addSetting(otherPlayerName);
@@ -465,7 +475,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		
 		Screen resolvedPrev = resolvePrevScreen(prevScreen, client);
 		if(resolvedPrev == null)
-			resolvedPrev = client != null ? client.gui.screen() : null;
+			resolvedPrev = client != null ? client.screen : null;
 		final Screen prev = resolvedPrev;
 		
 		if(!autoReconnectInProgress.compareAndSet(false, true))
@@ -559,6 +569,12 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		else
 			nameToUse = determineName(allowRandomFallback);
 		
+		if(nameToUse != null && useBotForReconnect.isChecked())
+		{
+			connectAsPlayerViaBot(nameToUse, server);
+			return;
+		}
+		
 		if(nameToUse != null)
 			applyName(nameToUse);
 		else
@@ -594,6 +610,11 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 	private void reconnectWithProvidedName(Minecraft client, Screen prevScreen,
 		ServerData server, String providedName)
 	{
+		if(useBotForReconnect.isChecked())
+		{
+			connectAsPlayerViaBot(providedName, server);
+			return;
+		}
 		applyName(providedName);
 		startConnection(client, prevScreen, server);
 	}
@@ -603,7 +624,7 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		if(requested != null)
 			return requested;
 		
-		return client != null ? client.gui.screen() : null;
+		return client != null ? client.screen : null;
 	}
 	
 	private void startConnection(Minecraft client, Screen prevScreen,
@@ -613,6 +634,22 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		Screen previous = resolvePrevScreen(prevScreen, client);
 		ConnectScreen.startConnecting(previous, client, address, server, false,
 			null);
+	}
+	
+	/**
+	 * Connects the given player as an offline protocol bot on the server
+	 * instead of changing the rendered client's identity.
+	 */
+	private void connectAsPlayerViaBot(String name, ServerData server)
+	{
+		if(name == null || name.isBlank() || server == null)
+			return;
+		
+		String[] hostPort = AltBotUtils.resolveHostPort(server.ip);
+		int port = Integer.parseInt(hostPort[1]);
+		WURST.getAltBotManager().connectOfflineBot(name, hostPort[0], port);
+		sendLogoutMessage(
+			"Connecting \"" + name + "\" as a bot on " + server.ip);
 	}
 	
 	private String determineName(boolean allowRandomFallback)
@@ -1520,13 +1557,18 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		sendLogoutMessage("Reconnecting as random player: " + chosen + " ("
 			+ (available.size() - 1) + " remaining)");
 		
-		applyName(chosen);
-		
 		ServerData lastServer = LastServerRememberer.getLastServer();
 		Minecraft client = Minecraft.getInstance();
 		if(lastServer == null || client == null)
 			return;
 		
+		if(useBotForReconnect.isChecked())
+		{
+			connectAsPlayerViaBot(chosen, lastServer);
+			return;
+		}
+		
+		applyName(chosen);
 		startConnection(client, null, lastServer);
 	}
 	

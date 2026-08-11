@@ -7,17 +7,17 @@
  */
 package net.wurstclient.mixin;
 
-import java.util.LinkedHashMap;
-
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
@@ -57,17 +57,11 @@ public abstract class ChatScreenMixin extends Screen
 		
 		if(WurstClient.INSTANCE.getOtfs() != null)
 		{
-			LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
-			fields.put("source", "ChatScreen");
-			fields.put("message", message);
-			fields.put("kind",
-				UiUtilsCommandSystem.isUiUtilsCommand(message)
-					? "uiutils_command"
-					: message.startsWith("/") ? "command" : "chat");
-			if(message.startsWith("/"))
-				fields.put("command", message.substring(1));
+			String kind = UiUtilsCommandSystem.isUiUtilsCommand(message)
+				? "uiutils_command"
+				: message.startsWith("/") ? "command" : "chat";
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
-				.logVerboseExternalEvent("ChatAction", fields);
+				.logVerboseChatInput("ChatScreen", message, kind);
 		}
 		
 		if(UiUtilsCommandSystem.isUiUtilsCommand(message))
@@ -80,8 +74,8 @@ public abstract class ChatScreenMixin extends Screen
 			
 			if(minecraft.player != null && !result.isEmpty())
 				for(String line : result.split("\n"))
-					minecraft.player
-						.displayClientMessage(Component.literal(line), false);
+					net.wurstclient.util.ChatUtils
+						.component(Component.literal(line));
 				
 			minecraft.setScreen(null);
 			ci.cancel();
@@ -122,6 +116,44 @@ public abstract class ChatScreenMixin extends Screen
 		float partialTicks, CallbackInfo ci)
 	{
 		updateCommandTextColor();
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "mouseClicked(Lnet/minecraft/client/input/MouseButtonEvent;Z)Z",
+		cancellable = true)
+	private void wurst$handleChestSearchPreviewClick(MouseButtonEvent context,
+		boolean doubleClick, CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
+		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.handleMouseClick(context.x(), context.y(), context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+		}
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "mouseReleased(Lnet/minecraft/client/input/MouseButtonEvent;)Z",
+		cancellable = true)
+	private void wurst$handleChestSearchPreviewRelease(MouseButtonEvent context,
+		CallbackInfoReturnable<Boolean> cir)
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		
+		if(WurstClient.INSTANCE.getHud().getChestSearchMousePreview()
+			.handleMouseRelease(context.button()))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+		}
 	}
 	
 	private void updateCommandTextColor()

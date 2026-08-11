@@ -8,7 +8,7 @@
 package net.wurstclient.xpgui;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 public enum XpGuiTheme
 {
@@ -37,8 +37,8 @@ public enum XpGuiTheme
 	public static final int MENU_HEADER_TOP = 0xFF2D80E4;
 	public static final int MENU_HEADER_BOTTOM = 0xFF0D47B0;
 	
-	public static void drawBevelRect(GuiGraphicsExtractor context, int x1,
-		int y1, int x2, int y2, int fill, int light, int dark)
+	public static void drawBevelRect(GuiGraphics context, int x1, int y1,
+		int x2, int y2, int fill, int light, int dark)
 	{
 		context.fill(x1, y1, x2, y2, fill);
 		context.fill(x1, y1, x2, y1 + 1, light);
@@ -47,16 +47,16 @@ public enum XpGuiTheme
 		context.fill(x2 - 1, y1, x2, y2, dark);
 	}
 	
-	public static void drawWindowFrame(GuiGraphicsExtractor context, int x1,
-		int y1, int x2, int y2)
+	public static void drawWindowFrame(GuiGraphics context, int x1, int y1,
+		int x2, int y2)
 	{
 		context.fill(x1 - 2, y1 - 2, x2 + 2, y2 + 2, 0xB0000000);
 		drawBevelRect(context, x1, y1, x2, y2, WINDOW_BODY, WINDOW_LIGHT,
 			WINDOW_BORDER);
 	}
 	
-	public static void drawTitleBar(GuiGraphicsExtractor context, int x1,
-		int y1, int x2, int y2, boolean focused)
+	public static void drawTitleBar(GuiGraphics context, int x1, int y1, int x2,
+		int y2, boolean focused)
 	{
 		int top = focused ? TITLE_ACTIVE_TOP : TITLE_INACTIVE_TOP;
 		int bottom = focused ? TITLE_ACTIVE_BOTTOM : TITLE_INACTIVE_BOTTOM;
@@ -64,9 +64,8 @@ public enum XpGuiTheme
 		context.fill(x1 + 1, y1 + 1, x2 - 1, y1 + 2, 0x80FFFFFF);
 	}
 	
-	public static void drawXpButton(GuiGraphicsExtractor context, Font font,
-		String text, int x1, int y1, int x2, int y2, boolean hovered,
-		boolean pressed)
+	public static void drawXpButton(GuiGraphics context, Font font, String text,
+		int x1, int y1, int x2, int y2, boolean hovered, boolean pressed)
 	{
 		int fill = pressed ? 0xFFC3D9F3 : hovered ? 0xFFD9E9FB : 0xFFECF4FF;
 		drawBevelRect(context, x1, y1, x2, y2, fill, 0xFFFFFFFF, 0xFF6E8BB4);
@@ -74,6 +73,6 @@ public enum XpGuiTheme
 		int textW = font.width(text);
 		int textX = x1 + (x2 - x1 - textW) / 2;
 		int textY = y1 + (y2 - y1 - 8) / 2;
-		context.text(font, text, textX, textY, 0xFF10315F, false);
+		context.drawString(font, text, textX, textY, 0xFF10315F, false);
 	}
 }

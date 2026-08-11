@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.llamalad7.mixinextras.sugar.Local;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.layouts.LinearLayout;
@@ -63,7 +63,7 @@ public abstract class PauseScreenMixin extends Screen
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
-		List<AbstractWidget> buttons = Screens.getWidgets(this).stream()
+		List<AbstractWidget> buttons = Screens.getButtons(this).stream()
 			.filter(AbstractWidget.class::isInstance)
 			.map(AbstractWidget.class::cast).toList();
 		
@@ -115,7 +115,7 @@ public abstract class PauseScreenMixin extends Screen
 	{
 		// Check if there are any buttons in the way
 		ArrayList<AbstractWidget> buttonsInTheWay = new ArrayList<>();
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(button.getRight() < x || button.getX() > x + width
 				|| button.getBottom() < y || button.getY() > y + height)
@@ -140,7 +140,7 @@ public abstract class PauseScreenMixin extends Screen
 	@Unique
 	private void openWurstOptions(Button button)
 	{
-		minecraft.gui.setScreen(new WurstOptionsScreen(this));
+		minecraft.setScreen(new WurstOptionsScreen(this));
 	}
 	
 	@Inject(method = "createPauseMenu()V",
@@ -153,10 +153,9 @@ public abstract class PauseScreenMixin extends Screen
 			iconButtonRow.visitWidgets(button -> button.visible = false);
 	}
 	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At("TAIL"))
-	private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY,
+	private void onRender(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;

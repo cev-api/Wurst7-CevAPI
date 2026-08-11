@@ -17,7 +17,7 @@ import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -152,10 +152,10 @@ public final class EditBlockListScreen extends Screen
 		
 		addRenderableWidget(
 			Button.builder(Component.literal("Reset to Defaults"),
-				b -> minecraft.gui.setScreen(new ConfirmScreen(b2 -> {
+				b -> minecraft.setScreen(new ConfirmScreen(b2 -> {
 					if(b2)
-						blockList.resetToDefaults();
-					minecraft.gui.setScreen(EditBlockListScreen.this);
+						blockList.resetToDefault();
+					minecraft.setScreen(EditBlockListScreen.this);
 				}, Component.literal("Reset to Defaults"),
 					Component.literal("Are you sure?"))))
 				.bounds(width - 328, 8, 150, 20).build());
@@ -163,12 +163,12 @@ public final class EditBlockListScreen extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Clear List"), b -> {
 				blockList.clear();
-				minecraft.gui.setScreen(EditBlockListScreen.this);
+				minecraft.setScreen(EditBlockListScreen.this);
 			}).bounds(width - 168, 8, 150, 20).build());
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	
@@ -257,24 +257,23 @@ public final class EditBlockListScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		Matrix3x2fStack matrixStack = context.pose();
 		
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(minecraft.font,
+		context.drawCenteredString(minecraft.font,
 			blockList.getName() + " (" + blockList.size() + ")", width / 2, 12,
 			CommonColors.WHITE);
 		
 		matrixStack.pushMatrix();
 		
-		blockNameField.extractRenderState(context, mouseX, mouseY,
-			partialTicks);
+		blockNameField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 			
 		// Draw placeholder + decorative left icon frame using ABSOLUTE
 		// coordinates
@@ -287,8 +286,8 @@ public final class EditBlockListScreen extends Screen
 		int y1 = y0 + blockNameField.getHeight();
 		
 		if(blockNameField.getValue().isEmpty() && !blockNameField.isFocused())
-			context.text(minecraft.font, "block name or ID", x0 + 6, y0 + 6,
-				CommonColors.GRAY);
+			context.drawString(minecraft.font, "block name or ID", x0 + 6,
+				y0 + 6, CommonColors.GRAY);
 		
 		int border = blockNameField.isFocused() ? CommonColors.WHITE
 			: CommonColors.LIGHT_GRAY;
@@ -356,8 +355,8 @@ public final class EditBlockListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -367,11 +366,11 @@ public final class EditBlockListScreen extends Screen
 			Font tr = minecraft.font;
 			
 			RenderUtils.drawItem(context, stack, x + 1, y + 1, true);
-			context.text(tr, getDisplayName(stack), x + 28, y,
+			context.drawString(tr, getDisplayName(stack), x + 28, y,
 				WurstColors.VERY_LIGHT_GRAY, false);
-			context.text(tr, blockName, x + 28, y + 9, CommonColors.LIGHT_GRAY,
-				false);
-			context.text(tr, getIdText(block), x + 28, y + 18,
+			context.drawString(tr, blockName, x + 28, y + 9,
+				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, getIdText(block), x + 28, y + 18,
 				CommonColors.LIGHT_GRAY, false);
 		}
 		

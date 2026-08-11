@@ -54,6 +54,9 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	private final Color defaultColor = new Color(0x7FC97F);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly =
+		new CheckboxSetting("Nearest tracer only",
+			"Only draw the closest WorkstationESP tracer.", false);
 	// Per-block groups with individual color & toggle (default enabled)
 	private final PortalEspBlockGroup craftingTable = new PortalEspBlockGroup(
 		Blocks.CRAFTING_TABLE,
@@ -216,6 +219,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 		addSetting(area);
 		addSetting(stickyArea);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		groups.stream().flatMap(PortalEspBlockGroup::getSettings)
 			.forEach(this::addSetting);
 	}
@@ -238,7 +242,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 	{
 		groupsUpToDate = false;
 		lastAreaSelection = area.getSelected();
-		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
@@ -272,7 +276,7 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -337,6 +341,10 @@ public final class WorkstationEspHack extends Hack implements UpdateListener,
 				continue;
 			List<AABB> boxes = group.getBoxes();
 			List<Vec3> ends = boxes.stream().map(AABB::getCenter).toList();
+			if(nearestTracerOnly.isChecked())
+				ends = net.wurstclient.util.EspLimitUtils.collectNearest(ends,
+					1, v -> v.distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()));
 			int color = useFixedColor.isChecked() ? fixedColor.getColorI(0x80)
 				: group.getColorI(0x80);
 			if(tracerFlash.isChecked())

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.slf4j.Logger;
 
@@ -59,9 +60,21 @@ public final class ProxyManager
 		return selectedProxy;
 	}
 	
+	public synchronized SocksProxy selectRandomProxy()
+	{
+		if(proxies.isEmpty())
+			return null;
+		SocksProxy proxy =
+			proxies.get(ThreadLocalRandom.current().nextInt(proxies.size()));
+		selectedProxy = proxy;
+		save();
+		return proxy;
+	}
+	
 	public synchronized boolean add(SocksProxy proxy)
 	{
 		proxy.validateCredentialsForSocks5();
+		proxy.resolveHost();
 		if(proxies.contains(proxy))
 			return false;
 		
@@ -136,6 +149,8 @@ public final class ProxyManager
 	
 	public String test(SocksProxy proxy) throws IOException
 	{
+		if(proxy.resolveHost())
+			save();
 		String endpoint = proxy.getHost() + ":" + proxy.getPort();
 		try
 		{
@@ -400,9 +415,11 @@ public final class ProxyManager
 				if(!protocolExplicit && !username.isEmpty()
 					&& !password.isEmpty())
 					protocol = ProxyProtocol.SOCKS5;
-				SocksProxy proxy = new SocksProxy(
-					json.get("host").getAsString(), json.get("port").getAsInt(),
-					username, password, protocol, protocolExplicit);
+				SocksProxy proxy =
+					new SocksProxy(json.get("host").getAsString(),
+						json.get("port").getAsInt(), username, password,
+						protocol, protocolExplicit, json.has("resolved_host")
+							? json.get("resolved_host").getAsString() : null);
 				if(proxies.contains(proxy))
 					continue;
 				
@@ -438,6 +455,8 @@ public final class ProxyManager
 				json.addProperty("protocol", proxy.getProtocol().name());
 				json.addProperty("protocol_explicit",
 					proxy.isProtocolExplicit());
+				if(proxy.getResolvedHost() != null)
+					json.addProperty("resolved_host", proxy.getResolvedHost());
 				entries.add(json);
 			}
 			root.add("proxies", entries);

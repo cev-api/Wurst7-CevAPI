@@ -35,6 +35,7 @@ public final class HackList implements UpdateListener
 	public final AirWalkHack airWalkHack = new AirWalkHack();
 	public final AnchorAuraHack anchorAuraHack = new AnchorAuraHack();
 	public final AntiAfkHack antiAfkHack = new AntiAfkHack();
+	public final AntiBreakHack antiBreakHack = new AntiBreakHack();
 	public final AntiBlindHack antiBlindHack = new AntiBlindHack();
 	public final AntiCactusHack antiCactusHack = new AntiCactusHack();
 	public final AntiCheatDetectHack antiCheatDetectHack =
@@ -173,6 +174,7 @@ public final class HackList implements UpdateListener
 	public final HideModMenuHack hideModMenuHack = new HideModMenuHack();
 	public final HideWurstHack hideWurstHack = new HideWurstHack();
 	public final DurabilityHudHack durabilityHudHack = new DurabilityHudHack();
+	public final DuraSwapHack duraSwapHack = new DuraSwapHack();
 	public final GameStatsHack gameStatsHack = new GameStatsHack();
 	public final ClientChatOverlayHack clientChatOverlayHack =
 		new ClientChatOverlayHack();
@@ -183,6 +185,7 @@ public final class HackList implements UpdateListener
 	public final InvWalkHack invWalkHack = new InvWalkHack();
 	public final InventorySorterHack inventorySorterHack =
 		new InventorySorterHack();
+	public final LootSorterHack lootSorterHack = new LootSorterHack();
 	public final ItemEspHack itemEspHack = new ItemEspHack();
 	public final ItemGeneratorHack itemGeneratorHack = new ItemGeneratorHack();
 	public final net.wurstclient.hacks.itemhandler.ItemHandlerHack itemHandlerHack =
@@ -288,6 +291,7 @@ public final class HackList implements UpdateListener
 	public final SpawnRadiusHack spawnRadiusHack = new SpawnRadiusHack();
 	public final SeedMapperHelperHack seedMapperHelperHack =
 		new SeedMapperHelperHack();
+	public final ShearAuraHack shearAuraHack = new ShearAuraHack();
 	public final SignEspHack signEspHack = new SignEspHack();
 	public final ShieldSwingHack shieldSwingHack = new ShieldSwingHack();
 	public final WorkstationEspHack workstationEspHack =
@@ -343,6 +347,9 @@ public final class HackList implements UpdateListener
 	public final net.wurstclient.hacks.LootRunnerHack lootRunnerHack =
 		new net.wurstclient.hacks.LootRunnerHack();
 	public final CoordLoggerHack coordLoggerHack = new CoordLoggerHack();
+	public final TextureRotatorHack textureRotatorHack =
+		new TextureRotatorHack();
+	public final CustomTotemHack customTotemHack = new CustomTotemHack();
 	public final TownyHack townyHack = new TownyHack();
 	
 	private final TreeMap<String, Hack> hax =

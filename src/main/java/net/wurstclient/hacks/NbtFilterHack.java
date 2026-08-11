@@ -314,8 +314,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		// The server may have opened the screen before sending its contents.
 		// Remove that screen as well so the oversized container data cannot be
 		// interacted with after its contents packet was rejected.
-		if(MC.gui.screen() instanceof AbstractContainerScreen<?>)
-			MC.gui.setScreen(null);
+		if(MC.screen instanceof AbstractContainerScreen<?>)
+			MC.setScreen(null);
 		recordBlocked(result);
 	}
 	
@@ -623,7 +623,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	private InspectionResult checkBlockEntityPacket(
 		ClientboundBlockEntityDataPacket packet)
 	{
-		ChunkPos chunkPos = ChunkPos.containing(packet.getPos());
+		ChunkPos chunkPos = new ChunkPos(packet.getPos());
 		if(isBannedChunk(chunkPos))
 			return InspectionResult.dangerous(PacketKind.BLOCK_ENTITY,
 				"block entity in quarantined chunk", -1, chunkPos, null);
@@ -767,10 +767,10 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			return new ChunkPos(p.getX(), p.getZ());
 		
 		if(packet instanceof ClientboundBlockEntityDataPacket p)
-			return ChunkPos.containing(p.getPos());
+			return new ChunkPos(p.getPos());
 		
 		if(packet instanceof ClientboundBlockUpdatePacket p)
-			return ChunkPos.containing(p.getPos());
+			return new ChunkPos(p.getPos());
 		
 		if(packet instanceof ClientboundSectionBlocksUpdatePacket p)
 			return getSectionUpdateChunk(p);
@@ -911,12 +911,12 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	
 	private int chunkX(ChunkPos chunk)
 	{
-		return chunk == null ? 0 : chunk.x();
+		return chunk == null ? 0 : chunk.x;
 	}
 	
 	private int chunkZ(ChunkPos chunk)
 	{
-		return chunk == null ? 0 : chunk.z();
+		return chunk == null ? 0 : chunk.z;
 	}
 	
 	private boolean isBannedChunk(ChunkPos chunk)

@@ -14,15 +14,49 @@ public final class NukerModeSetting
 {
 	public NukerModeSetting()
 	{
-		super("Mode",
+		this(false);
+	}
+	
+	public NukerModeSetting(boolean includeTunnelMode)
+	{
+		super("Mode", getDescription(includeTunnelMode),
+			includeTunnelMode ? getSpeedNukerModes() : getStandardModes(),
+			NukerMode.NORMAL);
+	}
+	
+	private static NukerMode[] getStandardModes()
+	{
+		return new NukerMode[]{NukerMode.NORMAL, NukerMode.ID,
+			NukerMode.MULTI_ID, NukerMode.SMASH};
+	}
+	
+	private static NukerMode[] getSpeedNukerModes()
+	{
+		return new NukerMode[]{NukerMode.NORMAL, NukerMode.ID,
+			NukerMode.MULTI_ID, NukerMode.SMASH, NukerMode.TUNNEL,
+			NukerMode.HOLE};
+	}
+	
+	private static String getDescription(boolean includeTunnelMode)
+	{
+		String description =
 			"\u00a7lNormal\u00a7r mode simply breaks everything around you.\n\n"
 				+ "\u00a7lID\u00a7r mode only breaks the selected block type."
 				+ " Left-click on a block to select it.\n\n"
 				+ "\u00a7lMultiID\u00a7r mode only breaks the block types in"
 				+ " your MultiID List.\n\n"
 				+ "\u00a7lSmash\u00a7r mode only breaks blocks that can be"
-				+ " destroyed instantly (e.g. tall grass).",
-			NukerMode.values(), NukerMode.NORMAL);
+				+ " destroyed instantly (e.g. tall grass).";
+		
+		if(includeTunnelMode)
+			description +=
+				"\n\n\u00a7lTunnel\u00a7r mode breaks a 1-block-wide,"
+					+ " 2-block-high tunnel in front of you.\n\n"
+					+ "\u00a7lHole\u00a7r mode breaks a 1-block-wide vertical"
+					+ " hole above or below you, depending on whether you look"
+					+ " up or down.";
+		
+		return description;
 	}
 	
 	public enum NukerMode
@@ -30,7 +64,9 @@ public final class NukerModeSetting
 		NORMAL("Normal"),
 		ID("ID"),
 		MULTI_ID("MultiID"),
-		SMASH("Smash");
+		SMASH("Smash"),
+		TUNNEL("Tunnel"),
+		HOLE("Hole");
 		
 		private final String name;
 		

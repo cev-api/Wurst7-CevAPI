@@ -328,6 +328,16 @@ public class StasisDetectorHack extends Hack implements UpdateListener,
 		return getName() + " [" + count + "]";
 	}
 	
+	public int getDetectionCount()
+	{
+		return foundCount;
+	}
+	
+	public List<BlockPos> getDetectedChambers()
+	{
+		return List.copyOf(matchedChambers);
+	}
+	
 	private enum AlertSound
 	{
 		NOTE_BLOCK_HARP("Note Block Harp", "minecraft:block.note_block.harp"),

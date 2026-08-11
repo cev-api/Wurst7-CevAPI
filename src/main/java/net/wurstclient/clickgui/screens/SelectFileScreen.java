@@ -15,7 +15,7 @@ import java.util.Objects;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
@@ -74,7 +74,7 @@ public final class SelectFileScreen extends Screen
 	
 	private void openPrevScreen()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private void done()
@@ -98,7 +98,7 @@ public final class SelectFileScreen extends Screen
 				+ "' folder and then re-generate the default files.\n"
 				+ "Are you sure you want to do this?");
 		
-		minecraft.gui
+		minecraft
 			.setScreen(new ConfirmScreen(this::confirmReset, title, message));
 	}
 	
@@ -107,7 +107,7 @@ public final class SelectFileScreen extends Screen
 		if(confirmed)
 			setting.resetFolder();
 		
-		minecraft.gui.setScreen(SelectFileScreen.this);
+		minecraft.setScreen(SelectFileScreen.this);
 	}
 	
 	@Override
@@ -128,16 +128,16 @@ public final class SelectFileScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(minecraft.font, setting.getName(), width / 2, 12,
-			CommonColors.WHITE);
+		context.drawCenteredString(minecraft.font, setting.getName(), width / 2,
+			12, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		if(doneButton.isHoveredOrFocused() && !doneButton.active)
 			context.setComponentTooltipForNextFrame(font,
@@ -176,8 +176,8 @@ public final class SelectFileScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -185,11 +185,13 @@ public final class SelectFileScreen extends Screen
 			Font tr = minecraft.font;
 			
 			String fileName = "" + path.getFileName();
-			context.text(tr, fileName, x + 28, y, WurstColors.VERY_LIGHT_GRAY);
+			context.drawString(tr, fileName, x + 28, y,
+				WurstColors.VERY_LIGHT_GRAY);
 			
 			String relPath =
 				"" + minecraft.gameDirectory.toPath().relativize(path);
-			context.text(tr, relPath, x + 28, y + 9, CommonColors.LIGHT_GRAY);
+			context.drawString(tr, relPath, x + 28, y + 9,
+				CommonColors.LIGHT_GRAY);
 		}
 	}
 	

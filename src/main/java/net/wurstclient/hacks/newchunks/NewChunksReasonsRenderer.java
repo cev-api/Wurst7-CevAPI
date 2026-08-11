@@ -29,14 +29,13 @@ public final class NewChunksReasonsRenderer
 	
 	public void buildBuffer(VertexConsumer buffer, List<BlockPos> reasons)
 	{
-		ChunkPos camChunkPos =
-			ChunkPos.containing(RenderUtils.getCameraBlockPos());
+		ChunkPos camChunkPos = new ChunkPos(RenderUtils.getCameraBlockPos());
 		RegionPos region = RegionPos.of(camChunkPos);
 		int drawDistance = this.drawDistance.getValueI();
 		
 		for(BlockPos pos : reasons)
 		{
-			ChunkPos chunkPos = ChunkPos.containing(pos);
+			ChunkPos chunkPos = new ChunkPos(pos);
 			if(chunkPos.getChessboardDistance(camChunkPos) > drawDistance)
 				continue;
 			

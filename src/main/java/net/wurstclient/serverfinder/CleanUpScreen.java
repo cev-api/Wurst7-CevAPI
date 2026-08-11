@@ -15,7 +15,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
@@ -133,7 +133,7 @@ public class CleanUpScreen extends Screen
 			}
 		
 		saveServerList();
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private boolean shouldRemove(ServerData server)
@@ -215,25 +215,25 @@ public class CleanUpScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(font, "Clean Up", width / 2, 20,
+		context.drawCenteredString(font, "Clean Up", width / 2, 20,
 			CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Please select the servers you want to remove:", width / 2, 36,
 			CommonColors.LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		renderButtonTooltip(context, mouseX, mouseY);
 	}
 	
-	private void renderButtonTooltip(GuiGraphicsExtractor context, int mouseX,
+	private void renderButtonTooltip(GuiGraphics context, int mouseX,
 		int mouseY)
 	{
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(!button.isHoveredOrFocused()
 				|| !(button instanceof CleanUpButton))
@@ -253,7 +253,7 @@ public class CleanUpScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private final class CleanUpButton extends Button
@@ -295,12 +295,12 @@ public class CleanUpScreen extends Screen
 		}
 		
 		@Override
-		protected void extractContents(GuiGraphicsExtractor drawContext, int i,
-			int j, float f)
+		protected void renderContents(GuiGraphics drawContext, int i, int j,
+			float f)
 		{
-			extractDefaultSprite(drawContext);
-			extractDefaultLabel(drawContext.textRendererForWidget(this,
-				GuiGraphicsExtractor.HoveredTextEffects.NONE));
+			renderDefaultSprite(drawContext);
+			renderDefaultLabel(drawContext.textRendererForWidget(this,
+				GuiGraphics.HoveredTextEffects.NONE));
 		}
 	}
 }

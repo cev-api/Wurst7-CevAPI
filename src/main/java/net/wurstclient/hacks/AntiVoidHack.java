@@ -12,9 +12,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.damagesource.DamageSource;
 import java.util.Locale;
@@ -23,7 +23,6 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
@@ -32,16 +31,6 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 public final class AntiVoidHack extends Hack implements UpdateListener
 {
 	private static final long STARTUP_GRACE_TICKS = 40L; // ~2s after join
-	private final CheckboxSetting useAirWalk = new CheckboxSetting(
-		"Use AirWalk",
-		"Prevents falling into the void/lava by air-walking instead of rubberbanding.",
-		false);
-	
-	private final CheckboxSetting falseFloor = new CheckboxSetting(
-		"False floor",
-		"Treat the Overworld, Nether and End as if they had a solid floor below you.",
-		false);
-	
 	private final SliderSetting overworldFalseFloorY = new SliderSetting(
 		"Overworld floor Y",
 		"Block Y for the fake Overworld floor. The walkable surface is one block above this.",
@@ -57,19 +46,10 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		"Block Y for the fake End floor. The walkable surface is one block above this.",
 		-60, -60, 0, 1, ValueDisplay.INTEGER);
 	
-	private final CheckboxSetting detectLava = new CheckboxSetting(
-		"Detect lava",
-		"Also prevents falling into lava when it is directly below you.", true);
-	
-	private final CheckboxSetting gateAtVoidLevel = new CheckboxSetting(
-		"Respond only at void level",
-		"Only trigger when reaching the configured void level (Overworld: -64..-100, End/Nether: -60).\n"
-			+ "For lava, triggers one block above the lava surface.",
-		false);
-	
-	private final CheckboxSetting useFlight = new CheckboxSetting("Use Flight",
-		"When triggered, enable Flight instead of rubberbanding/AirWalk.",
-		false);
+	private final CheckboxSetting lavaFalseFloor = new CheckboxSetting(
+		"Lava false floor",
+		"Turns lava lakes into solid client-side floors and adds clearance above them to prevent fire damage.",
+		true);
 	
 	private final CheckboxSetting autoEnableOnOutOfWorld =
 		new CheckboxSetting("Auto-enable on out_of_world",
@@ -77,24 +57,20 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 				+ " when taking out_of_world damage.",
 			false);
 	
-	private final SliderSetting lavaBufferBlocks = new SliderSetting(
-		"Lava buffer (blocks)", 2, 0, 12, 1, ValueDisplay.INTEGER);
+	private final SliderSetting lavaFloorClearance = new SliderSetting(
+		"Lava floor clearance (blocks)", 1, 1, 4, 1, ValueDisplay.INTEGER);
+	
+	private final CheckboxSetting autoAdjustLavaFloor = new CheckboxSetting(
+		"Auto-adjust lava floor height",
+		"Reduces the invisible clearance above lava when a ceiling is too low, leaving only the lava block solid so tunnels remain passable.",
+		true);
 	
 	// Nether/End thresholds are fixed; Overworld uses the floor slider.
 	
-	private final CheckboxSetting autoEnableByHeight = new CheckboxSetting(
-		"Auto-enable by height",
-		"Automatically enables AntiVoid when your Y is within a safety band below 0.\n"
-			+ "Defaults: Overworld -64, End/Nether -60.",
-		false);
-	
-	private Vec3 lastSafePos;
-	private boolean airWalkActive;
-	private double airWalkY;
-	private boolean rescueActive;
-	private boolean jumpWasDown;
 	private int lastHurtTimeSeen;
 	private boolean flightEnabledByAntiVoid;
+	private boolean rescueAboveFloor;
+	private boolean rescueInProgress;
 	
 	// Always-on update listener (registered in constructor)
 	private final UpdateListener alwaysListener = new UpdateListener()
@@ -129,27 +105,15 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 					setEnabled(true);
 					ChatUtils.message("Void damage! Enabled AntiVoid.");
 				}
-				if(useFlight.isChecked()
-					&& !WURST.getHax().flightHack.isEnabled())
+				if(!WURST.getHax().flightHack.isEnabled())
 				{
 					WURST.getHax().flightHack.setEnabled(true);
 					flightEnabledByAntiVoid = true;
 				}
 				hurtAlerted = false;
+				rescueAboveFloor = false;
+				rescueInProgress = true;
 				launchesActive = true;
-			}
-			
-			// Height-based auto-enable
-			if(autoEnableByHeight.isChecked() && MC.level != null)
-			{
-				double y = p.getY();
-				if(p.getDeltaMovement().y < 0 && p.fallDistance > 2F
-					&& y <= fixedVoidLevel() && !isEnabled())
-				{
-					setEnabled(true);
-					ChatUtils.message("Below void threshold (Y=" + (int)y
-						+ "), enabled AntiVoid.");
-				}
 			}
 			
 			// Launch: every tick AntiVoid is on and player is below
@@ -169,19 +133,40 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 				return;
 			}
 			
-			double safeY = rescueTargetY();
-			boolean stillDamaged =
-				p.hurtTime > 0 || isOutOfWorldDamage(p.getLastDamageSource());
-			if(!stillDamaged && p.getY() >= safeY)
+			double floorY = falseFloorY();
+			if(Double.isNaN(floorY))
 			{
 				launchesActive = false;
+				rescueAboveFloor = false;
+				rescueInProgress = false;
 				lastHurtTimeSeen = p.hurtTime;
+				return;
+			}
+			double aboveFloorY = floorY + 2.0;
+			if(rescueAboveFloor)
+			{
+				// Give the client one clear position above the false floor,
+				// then settle onto its surface with a grounded packet.
+				p.setDeltaMovement(0, 0, 0);
+				p.setOnGround(true);
+				p.setPos(p.getX(), floorY, p.getZ());
+				p.connection.send(new ServerboundMovePlayerPacket.Pos(p.getX(),
+					floorY, p.getZ(), true, p.horizontalCollision));
+				launchesActive = false;
+				rescueAboveFloor = false;
+				lastHurtTimeSeen = p.hurtTime;
+				return;
+			}
+			
+			if(p.getY() >= aboveFloorY)
+			{
+				rescueAboveFloor = true;
 				return;
 			}
 			
 			// Launch upward: move the player client-side AND send
 			// flying position packets the server will accept.
-			double targetY = p.getY() + 0.6;
+			double targetY = Math.min(p.getY() + 0.6, aboveFloorY);
 			p.setPos(p.getX(), targetY, p.getZ());
 			p.setDeltaMovement(p.getDeltaMovement().x, 0.42,
 				p.getDeltaMovement().z);
@@ -207,17 +192,13 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	{
 		super("AntiVoid");
 		setCategory(Category.MOVEMENT);
-		addSetting(useAirWalk);
-		addSetting(falseFloor);
 		addSetting(overworldFalseFloorY);
 		addSetting(netherFalseFloorY);
 		addSetting(endFalseFloorY);
-		addSetting(detectLava);
-		addSetting(gateAtVoidLevel);
-		addSetting(useFlight);
 		addSetting(autoEnableOnOutOfWorld);
-		addSetting(autoEnableByHeight);
-		addSetting(lavaBufferBlocks);
+		addSetting(lavaFalseFloor);
+		addSetting(lavaFloorClearance);
+		addSetting(autoAdjustLavaFloor);
 		// Always-on listener to catch out_of_world damage even when disabled
 		EVENTS.add(UpdateListener.class, alwaysListener);
 	}
@@ -225,12 +206,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	@Override
 	protected void onEnable()
 	{
-		lastSafePos = null;
-		airWalkActive = false;
-		airWalkY = Double.NaN;
-		rescueActive = false;
-		jumpWasDown = false;
 		flightEnabledByAntiVoid = false;
+		rescueAboveFloor = false;
+		rescueInProgress = false;
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -240,12 +218,9 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		if(flightEnabledByAntiVoid && WURST.getHax().flightHack.isEnabled())
 			WURST.getHax().flightHack.setEnabled(false);
 		flightEnabledByAntiVoid = false;
+		rescueAboveFloor = false;
+		rescueInProgress = false;
 		EVENTS.remove(UpdateListener.class, this);
-		lastSafePos = null;
-		airWalkActive = false;
-		airWalkY = Double.NaN;
-		rescueActive = false;
-		jumpWasDown = false;
 	}
 	
 	@Override
@@ -257,21 +232,11 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		
 		if(player.connection == null)
 			return;
-		
-		if(airWalkActive && isBackOnSurface(player))
-		{
-			airWalkActive = false;
-			airWalkY = Double.NaN;
-			rescueActive = false;
-			jumpWasDown = false;
-		}
-		
-		if(!airWalkActive && (player.onGround() || player.isInWater()
-			|| player.isInLava() || player.onClimbable()))
-			rescueActive = false;
-		
-		if(player.onGround() && !player.isInWater() && !player.isInLava())
-			lastSafePos = player.position();
+			
+		// The always-on listener owns movement until it has reached the
+		// clear position above the false floor and settled onto it.
+		if(rescueInProgress)
+			return;
 		
 		if(player.isFallFlying())
 			return;
@@ -279,123 +244,34 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		if(applyFalseFloor(player))
 			return;
 		
-		if(airWalkActive)
-		{
-			applyAirWalk(player);
-			return;
-		}
-		
-		// Detect falling into void/lava
+		// Detect falling into the void
 		if(player.getDeltaMovement().y >= 0 || player.fallDistance <= 2F)
 			return;
 		
-		boolean overVoid = isOverVoid(player);
-		boolean overLava = isOverLava(player);
-		
-		if(!overVoid && !overLava)
+		if(!isOverVoid(player))
 			return;
 		
 		// Alert on rescue
+		ChatUtils.message(
+			"Falling into void (Y=" + (int)player.getY() + "), rescuing...");
+		
+		var hax = WURST.getHax();
+		if(!hax.flightHack.isEnabled())
 		{
-			String cause = overVoid ? "void" : "lava";
-			ChatUtils.message("Falling into " + cause + " (Y="
-				+ (int)player.getY() + "), rescuing...");
+			hax.flightHack.setEnabled(true);
+			flightEnabledByAntiVoid = true;
+			ChatUtils.message("Enabled Flight to escape void.");
 		}
-		
-		if(useFlight.isChecked())
-		{
-			var hax = WURST.getHax();
-			if(!hax.flightHack.isEnabled())
-			{
-				hax.flightHack.setEnabled(true);
-				ChatUtils.message("Enabled Flight to escape "
-					+ (overVoid ? "void" : "lava") + ".");
-			}
-			rescueActive = true;
-			return;
-		}
-		
-		if(useAirWalk.isChecked())
-		{
-			if(!airWalkActive)
-			{
-				ChatUtils.message("Enabled AirWalk to escape "
-					+ (overVoid ? "void" : "lava") + ".");
-				airWalkActive = true;
-				rescueActive = true;
-				airWalkY = player.getY();
-			}
-			applyAirWalk(player);
-			return;
-		}
-		
-		// Fallback: rubberband to last safe position
-		if(lastSafePos == null)
-			return;
-		
-		if(!rescueActive)
-		{
-			ChatUtils
-				.message("No safe Y — rubberbanding to last ground position.");
-			rescueActive = true;
-		}
-		player.setDeltaMovement(0, 0, 0);
-		player.fallDistance = 0;
-		player.setOnGround(true);
-		player.setPos(lastSafePos.x, lastSafePos.y, lastSafePos.z);
-		
-		player.connection.send(
-			new ServerboundMovePlayerPacket.Pos(lastSafePos.x, lastSafePos.y,
-				lastSafePos.z, true, player.horizontalCollision));
-	}
-	
-	private void applyAirWalk(LocalPlayer player)
-	{
-		if(Double.isNaN(airWalkY))
-			airWalkY = player.getY();
-		
-		boolean jumpDown = MC.options.keyJump.isDown();
-		if(jumpDown && !jumpWasDown)
-		{
-			double targetY = airWalkY + 1.0;
-			AABB box =
-				player.getBoundingBox().move(0, targetY - player.getY(), 0);
-			
-			if(MC.level.noCollision(player, box))
-				airWalkY = targetY;
-		}
-		jumpWasDown = jumpDown;
-		
-		Vec3 v = player.getDeltaMovement();
-		player.setDeltaMovement(v.x, 0, v.z);
-		player.setOnGround(true);
-		player.fallDistance = 0;
-		
-		if(Math.abs(player.getY() - airWalkY) > 1e-4)
-			player.setPos(player.getX(), airWalkY, player.getZ());
-	}
-	
-	private boolean isBackOnSurface(LocalPlayer player)
-	{
-		if(player.onGround())
-			return true;
-		AABB checkBox = player.getBoundingBox().move(0, -0.05, 0);
-		return BlockUtils.getBlockCollisions(checkBox).findAny().isPresent();
+		return;
 	}
 	
 	private boolean applyFalseFloor(LocalPlayer player)
 	{
-		if(!falseFloor.isChecked() || MC.level == null)
+		if(MC.level == null)
 			return false;
 		
-		double floorY;
-		if(MC.level.dimension() == Level.OVERWORLD)
-			floorY = overworldFalseFloorY.getValue() + 1.0;
-		else if(MC.level.dimension() == Level.NETHER)
-			floorY = netherFalseFloorY.getValue() + 1.0;
-		else if(MC.level.dimension() == Level.END)
-			floorY = endFalseFloorY.getValue() + 1.0;
-		else
+		double floorY = falseFloorY();
+		if(Double.isNaN(floorY))
 			return false;
 		
 		if(player.isInWater() || player.isInLava() || player.onClimbable())
@@ -414,10 +290,120 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		return true;
 	}
 	
+	private double falseFloorY()
+	{
+		if(MC.level.dimension() == Level.OVERWORLD)
+			return overworldFalseFloorY.getValue() + 1.0;
+		if(MC.level.dimension() == Level.NETHER)
+			return netherFalseFloorY.getValue() + 1.0;
+		if(MC.level.dimension() == Level.END)
+			return endFalseFloorY.getValue() + 1.0;
+		return Double.NaN;
+	}
+	
+	/**
+	 * Used by the collision mixin to make the configured void-floor layer a
+	 * real client-side collision plane.
+	 */
+	public boolean shouldMakeFalseFloor(BlockPos pos, BlockState state)
+	{
+		if(!isEnabled() || !state.isAir() || MC.level == null)
+			return false;
+		
+		int floorBlockY;
+		if(MC.level.dimension() == Level.OVERWORLD)
+			floorBlockY = overworldFalseFloorY.getValueI();
+		else if(MC.level.dimension() == Level.NETHER)
+			floorBlockY = netherFalseFloorY.getValueI();
+		else if(MC.level.dimension() == Level.END)
+			floorBlockY = endFalseFloorY.getValueI();
+		else
+			return false;
+		
+		return pos.getY() == floorBlockY;
+	}
+	
+	/**
+	 * Used by the collision mixin to create a local floor over lava. The lava
+	 * block itself and the configured number of air blocks above it are solid,
+	 * so the player cannot enter the damage range above a lava lake.
+	 */
+	public boolean shouldMakeLavaFloor(BlockGetter world, BlockPos pos,
+		BlockState state)
+	{
+		if(!isEnabled() || !lavaFalseFloor.isChecked())
+			return false;
+			
+		// This is a floor, not a general-purpose lava wall. In particular,
+		// don't turn lava above the player into a ceiling or lava beside the
+		// player into a full collision wall while digging through a tunnel.
+		// Collision shapes are queried for blocks around the player, so use the
+		// player's block Y to limit the fake floor to the layer below them.
+		if(MC.player != null && pos.getY() > MC.player.getBlockY())
+			return false;
+		
+		if(state.getFluidState().is(FluidTags.LAVA))
+			return MC.player == null || pos.getY() < MC.player.getBlockY();
+		if(!state.isAir())
+			return false;
+		
+		int clearance = lavaFloorClearance.getValueI();
+		return hasExposedLavaBelow(world, pos, clearance);
+	}
+	
+	private boolean hasExposedLavaBelow(BlockGetter world, BlockPos pos,
+		int clearance)
+	{
+		for(int i = 1; i <= clearance; i++)
+		{
+			BlockPos lavaPos = pos.below(i);
+			BlockState lavaState = world.getBlockState(lavaPos);
+			
+			if(!lavaState.getFluidState().is(FluidTags.LAVA))
+			{
+				// A solid block or another fluid blocks access to everything
+				// below it. Do not let this scan see through terrain.
+				if(!lavaState.isAir())
+					return false;
+				continue;
+			}
+			
+			BlockState aboveLava = world.getBlockState(lavaPos.above());
+			if(!aboveLava.isAir())
+				return false;
+			
+			int effectiveClearance = clearance;
+			if(autoAdjustLavaFloor.isChecked())
+			{
+				int availableAir = 0;
+				BlockPos airPos = lavaPos.above();
+				// Only enough air is relevant to calculate the requested
+				// clearance. Scanning until the first solid block can become an
+				// unbounded loop in an open cavern or above the world ceiling.
+				int maxAirToCheck = clearance + 2;
+				while(availableAir < maxAirToCheck
+					&& world.getBlockState(airPos).isAir())
+				{
+					availableAir++;
+					airPos = airPos.above();
+				}
+				
+				// Leave two air blocks above the adjusted floor so a normal
+				// player can still pass through a low tunnel.
+				effectiveClearance =
+					Math.min(clearance, Math.max(0, availableAir - 2));
+			}
+			
+			return i <= effectiveClearance;
+		}
+		
+		return false;
+	}
+	
 	private boolean isOverVoid(LocalPlayer player)
 	{
 		double voidY = fixedVoidLevel();
-		if(gateAtVoidLevel.isChecked() && player.getY() > voidY)
+		if(player.getY() > voidY)
 			return false;
 		if(player.getY() <= voidY && !player.isInWater() && !player.isInLava())
 			return true;
@@ -442,40 +428,6 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 		return true;
 	}
 	
-	private boolean isOverLava(LocalPlayer player)
-	{
-		if(!detectLava.isChecked())
-			return false;
-		Integer lavaY = lavaYBelow(player);
-		if(lavaY == null)
-			return false;
-		double buffer = lavaBufferBlocks.getValue();
-		return player.getY() <= lavaY + buffer;
-	}
-	
-	private Integer lavaYBelow(LocalPlayer player)
-	{
-		int x = player.getBlockX();
-		int z = player.getBlockZ();
-		int startY = player.getBlockY();
-		int minY = MC.level.getMinY();
-		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-		for(int y = startY; y >= minY; y--)
-		{
-			pos.set(x, y, z);
-			BlockState state = MC.level.getBlockState(pos);
-			if(!state.getFluidState().isEmpty())
-			{
-				if(state.getFluidState().is(FluidTags.LAVA))
-					return y;
-				return null; // other fluid blocks detection stops search
-			}
-			if(!state.isAir())
-				return null; // solid found before lava
-		}
-		return null;
-	}
-	
 	private double fixedVoidLevel()
 	{
 		if(MC.level == null)
@@ -490,14 +442,6 @@ public final class AntiVoidHack extends Hack implements UpdateListener
 	}
 	
 	// No height band method needed; using fixed thresholds.
-	
-	/**
-	 * Returns a safe Y level above void damage based on fixedVoidLevel().
-	 */
-	private double rescueTargetY()
-	{
-		return fixedVoidLevel() + 10.0;
-	}
 	
 	private boolean isOutOfWorldDamage(DamageSource src)
 	{

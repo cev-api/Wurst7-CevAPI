@@ -179,8 +179,8 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		deactivateLegacyMode();
 		
 		if(reloadChunks.isChecked())
-			if(MC.levelExtractor != null)
-				MC.levelExtractor.allChanged();
+			if(MC.levelRenderer != null)
+				MC.levelRenderer.allChanged();
 	}
 	
 	@Override
@@ -206,7 +206,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 			return;
 		}
 		
-		if(MC.gui.screen() != null)
+		if(MC.screen != null)
 		{
 			ensureLegacyModeState();
 			if(isLegacyModeActive())
@@ -227,7 +227,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		Vec2 moveVector = player.input.getMoveVector();
 		
 		// Convert to world coordinates
-		double yawRad = MC.gameRenderer.mainCamera().yRot() * Mth.DEG_TO_RAD;
+		double yawRad = MC.gameRenderer.getMainCamera().yRot() * Mth.DEG_TO_RAD;
 		double sinYaw = Mth.sin(yawRad);
 		double cosYaw = Mth.cos(yawRad);
 		double offsetX = moveVector.x * cosYaw - moveVector.y * sinYaw;
@@ -276,7 +276,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 			return;
 		
 		Vec2 moveVector = player.input.getMoveVector();
-		double yawRad = MC.gameRenderer.mainCamera().yRot() * Mth.DEG_TO_RAD;
+		double yawRad = MC.gameRenderer.getMainCamera().yRot() * Mth.DEG_TO_RAD;
 		double sinYaw = Mth.sin(yawRad);
 		double cosYaw = Mth.cos(yawRad);
 		double speed = horizontalSpeed.getValue();
@@ -368,7 +368,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	public boolean isControllingScrollEvents()
 	{
 		return isMovingCamera() && scrollToChangeSpeed.isChecked()
-			&& MC.gui.screen() == null
+			&& MC.screen == null
 			&& !WURST.getOtfs().zoomOtf.isControllingScrollEvents();
 	}
 	

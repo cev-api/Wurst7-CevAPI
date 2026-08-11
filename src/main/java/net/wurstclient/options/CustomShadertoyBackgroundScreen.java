@@ -7,7 +7,7 @@
  */
 package net.wurstclient.options;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
@@ -99,7 +99,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(buttonX + (buttonWidth + gap) * 2, secondRowY, buttonWidth,
 				20)
 			.build());
@@ -203,7 +203,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 			return;
 		}
 		
-		minecraft.gui.setScreen(new EnterProfileNameScreen(this, name -> {
+		minecraft.setScreen(new EnterProfileNameScreen(this, name -> {
 			try
 			{
 				status = ShadertoyBackgroundManager.savePreset(name, source);
@@ -220,7 +220,7 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 		if(loading)
 			return;
 		
-		minecraft.gui.setScreen(new ShadertoyPresetScreen(this));
+		minecraft.setScreen(new ShadertoyPresetScreen(this));
 	}
 	
 	public void reloadFromDisk(String newStatus)
@@ -246,37 +246,37 @@ public final class CustomShadertoyBackgroundScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 		
-		context.centeredText(font, "Import Shadertoy Background", width / 2, 16,
-			CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font, "Import Shadertoy Background",
+			width / 2, 16, CommonColors.WHITE);
+		context.drawCenteredString(font,
 			"Use a URL with an API key, or paste raw single-pass mainImage() code below.",
 			width / 2, 30, CommonColors.LIGHT_GRAY);
 		
-		context.text(font, "Shadertoy URL", urlBox.getX(), urlBox.getY() - 12,
-			CommonColors.LIGHT_GRAY);
-		context.text(font, "Raw Shadertoy Code", codeBox.getX(),
+		context.drawString(font, "Shadertoy URL", urlBox.getX(),
+			urlBox.getY() - 12, CommonColors.LIGHT_GRAY);
+		context.drawString(font, "Raw Shadertoy Code", codeBox.getX(),
 			codeBox.getY() - 12, CommonColors.LIGHT_GRAY);
 		
 		for(var renderable : renderables)
-			renderable.extractRenderState(context, mouseX, mouseY,
-				partialTicks);
+			renderable.render(context, mouseX, mouseY, partialTicks);
 		
 		int statusColor = status.startsWith("Failed") ? WurstColors.LIGHT_RED
 			: CommonColors.LIGHT_GRAY;
-		context.centeredText(font, status, width / 2, height - 42, statusColor);
-		context.centeredText(font,
+		context.drawCenteredString(font, status, width / 2, height - 42,
+			statusColor);
+		context.drawCenteredString(font,
 			"URL import uses -Dwurst.shadertoyApiKey=<your key> when set; paste import works without a key.",
 			width / 2, height - 28, CommonColors.LIGHT_GRAY);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Multipass/audio/video/cubemap Shadertoys are still unsupported.",
 			width / 2, height - 16, CommonColors.LIGHT_GRAY);
 	}

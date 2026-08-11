@@ -84,6 +84,9 @@ public final class BedEspHack extends Hack implements UpdateListener,
 	private final net.wurstclient.settings.CheckboxSetting tracerFlash =
 		new net.wurstclient.settings.CheckboxSetting("Tracer flash",
 			"Make tracers pulse with a smooth fade.", false);
+	private final net.wurstclient.settings.CheckboxSetting nearestTracerOnly =
+		new net.wurstclient.settings.CheckboxSetting("Nearest tracer only",
+			"Only draw the closest BedESP tracer.", false);
 	
 	// Above-ground filter
 	private final net.wurstclient.settings.CheckboxSetting onlyAboveGround =
@@ -129,6 +132,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		addSetting(tracerThickness);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
 		addSetting(filterTrialChambers);
@@ -157,7 +161,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 		EVENTS.add(PacketInputListener.class, coordinator);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
-		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
+		lastPlayerChunk = new ChunkPos(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		lastTrialFilterState = filterTrialChambers.isChecked();
 		lastVillageFilterState = filterVillageBeds.isChecked();
@@ -194,7 +198,7 @@ public final class BedEspHack extends Hack implements UpdateListener,
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
-		ChunkPos currentChunk = ChunkPos.containing(MC.player.blockPosition());
+		ChunkPos currentChunk = new ChunkPos(MC.player.blockPosition());
 		if(!stickyArea.isChecked() && !currentChunk.equals(lastPlayerChunk))
 		{
 			lastPlayerChunk = currentChunk;
@@ -263,6 +267,12 @@ public final class BedEspHack extends Hack implements UpdateListener,
 				.map(box -> new RenderUtils.ColoredPoint(box.getCenter(),
 					finalTracerColor))
 				.toList();
+			if(nearestTracerOnly.isChecked() && !ends.isEmpty())
+				ends = java.util.List.of(net.wurstclient.util.EspLimitUtils
+					.collectNearest(ends, 1,
+						p -> p.point().distanceToSqr(
+							net.wurstclient.util.RotationUtils.getEyesPos()))
+					.get(0));
 			
 			RenderUtils.drawTracers("BedESP", matrixStack, partialTicks, ends,
 				false, tracerThickness.getValue());

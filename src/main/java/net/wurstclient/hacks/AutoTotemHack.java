@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.wurstclient.WurstClient;
 import net.wurstclient.Category;
@@ -176,9 +176,9 @@ public final class AutoTotemHack extends Hack
 		boolean remoteChestActive = isRemoteChestActive();
 		// Don't move items while an unrelated container is open. The linked
 		// RemoteEChest menu is safe because its clicks use that menu's ID.
-		if(MC.gui.screen() instanceof AbstractContainerScreen
-			&& !(MC.gui.screen() instanceof InventoryScreen
-				|| MC.gui.screen() instanceof CreativeModeInventoryScreen)
+		if(MC.screen instanceof AbstractContainerScreen
+			&& !(MC.screen instanceof InventoryScreen
+				|| MC.screen instanceof CreativeModeInventoryScreen)
 			&& !remoteChestActive)
 			return;
 		
@@ -233,8 +233,10 @@ public final class AutoTotemHack extends Hack
 			event.getComponent().getString().toLowerCase(java.util.Locale.ROOT);
 		if(!looksLikeDeathMessage(message))
 			return;
-		
-		for(var entry : enemyTotemNames.entrySet())
+			
+		// clearEnemyPopCount() removes matching names, so iterate over a
+		// snapshot instead of mutating the map while traversing it.
+		for(var entry : new java.util.HashMap<>(enemyTotemNames).entrySet())
 			if(!entry.getValue().isBlank() && message
 				.contains(entry.getValue().toLowerCase(java.util.Locale.ROOT)))
 				clearEnemyPopCount(entry.getKey());
@@ -325,7 +327,7 @@ public final class AutoTotemHack extends Hack
 			{
 				((IMultiPlayerGameMode)MC.gameMode).windowClick(
 					MC.player.containerMenu.containerId, remoteMenuSlot, 40,
-					ContainerInput.SWAP);
+					ClickType.SWAP);
 				return;
 			}
 		}
@@ -359,7 +361,7 @@ public final class AutoTotemHack extends Hack
 			if(remoteMenuSlot >= 27 && remoteMenuSlot < 63)
 				((IMultiPlayerGameMode)MC.gameMode).windowClick(
 					MC.player.containerMenu.containerId, remoteMenuSlot, 0,
-					ContainerInput.PICKUP);
+					ClickType.PICKUP);
 			nextTickSlot = -1;
 			return;
 		}

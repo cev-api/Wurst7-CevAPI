@@ -14,7 +14,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
-import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
+import net.minecraft.client.gui.render.state.GuiElementRenderState;
 import net.minecraft.client.renderer.RenderPipelines;
 
 public record CustomQuadRenderState(RenderPipeline pipeline,
@@ -39,24 +39,6 @@ public record CustomQuadRenderState(RenderPipeline pipeline,
 	{
 		this(pose, x1, y1, x2, y2, x3, y3, x4, y4, color, color, color, color,
 			scissorArea);
-	}
-	
-	public CustomQuadRenderState(RenderPipeline pipeline, Matrix3x2f pose,
-		float x1, float y1, float x2, float y2, float x3, float y3, float x4,
-		float y4, int color1, int color2, int color3, int color4,
-		@Nullable ScreenRectangle scissorArea)
-	{
-		this(pipeline, TextureSetup.noTexture(), pose, x1, y1, x2, y2, x3, y3,
-			x4, y4, color1, color2, color3, color4, scissorArea,
-			createBounds(x1, y1, x2, y2, x3, y3, x4, y4, pose, scissorArea));
-	}
-	
-	public CustomQuadRenderState(RenderPipeline pipeline, Matrix3x2f pose,
-		float x1, float y1, float x2, float y2, float x3, float y3, float x4,
-		float y4, int color, @Nullable ScreenRectangle scissorArea)
-	{
-		this(pipeline, pose, x1, y1, x2, y2, x3, y3, x4, y4, color, color,
-			color, color, scissorArea);
 	}
 	
 	@Override

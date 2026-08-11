@@ -16,7 +16,7 @@ import java.nio.file.StandardCopyOption;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
@@ -471,8 +471,8 @@ public abstract class AltEditorScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		if(shouldRenderSkinPreview())
 		{
@@ -486,21 +486,21 @@ public abstract class AltEditorScreen extends Screen
 		
 		String topInfo = getTopInfoLabel();
 		if(!topInfo.isEmpty())
-			context.text(font, topInfo, width / 2 - 100,
+			context.drawString(font, topInfo, width / 2 - 100,
 				getNameOrEmailBoxY() - 58, CommonColors.LIGHT_GRAY);
 		
 		// dynamic labels next to inputs
 		int nameBoxY = getNameOrEmailBoxY();
 		int passBoxY = getPasswordBoxY();
-		context.text(font, getNameOrEmailLabelLine1(), getNameOrEmailBoxX(),
-			nameBoxY - 23, CommonColors.LIGHT_GRAY);
-		context.text(font, getNameOrEmailLabelLine2(), getNameOrEmailBoxX(),
-			nameBoxY - 13, CommonColors.LIGHT_GRAY);
+		context.drawString(font, getNameOrEmailLabelLine1(),
+			getNameOrEmailBoxX(), nameBoxY - 23, CommonColors.LIGHT_GRAY);
+		context.drawString(font, getNameOrEmailLabelLine2(),
+			getNameOrEmailBoxX(), nameBoxY - 13, CommonColors.LIGHT_GRAY);
 		if(shouldShowPasswordInput())
 		{
-			context.text(font, getPasswordLabel(), width / 2 - 100,
+			context.drawString(font, getPasswordLabel(), width / 2 - 100,
 				passBoxY - 13, CommonColors.LIGHT_GRAY);
-			context.text(font, "Account type: " + getAccountTypeLabel(),
+			context.drawString(font, "Account type: " + getAccountTypeLabel(),
 				width / 2 - 100, passBoxY + 27, CommonColors.LIGHT_GRAY);
 		}
 		
@@ -509,19 +509,17 @@ public abstract class AltEditorScreen extends Screen
 		int messageBaseY = shouldShowPasswordInput() ? passBoxY + 42
 			: nameBoxY + getNameOrEmailBoxHeight() + 12;
 		for(int i = 0; i < lines.length; i++)
-			context.centeredText(font, lines[i], width / 2,
+			context.drawCenteredString(font, lines[i], width / 2,
 				messageBaseY + 10 * i, CommonColors.WHITE);
 		
 		// text boxes
 		if(nameOrEmailBox != null)
-			nameOrEmailBox.extractRenderState(context, mouseX, mouseY,
-				partialTicks);
+			nameOrEmailBox.render(context, mouseX, mouseY, partialTicks);
 		if(multiLineNameOrEmailBox != null)
-			multiLineNameOrEmailBox.extractRenderState(context, mouseX, mouseY,
+			multiLineNameOrEmailBox.render(context, mouseX, mouseY,
 				partialTicks);
 		if(shouldShowPasswordInput())
-			passwordBox.extractRenderState(context, mouseX, mouseY,
-				partialTicks);
+			passwordBox.render(context, mouseX, mouseY, partialTicks);
 		
 		// red flash for errors
 		if(errorTimer > 0)
@@ -533,12 +531,12 @@ public abstract class AltEditorScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
 	public final void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 }

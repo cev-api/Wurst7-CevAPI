@@ -16,7 +16,7 @@ import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.components.Renderable;
@@ -61,7 +61,7 @@ public final class ShadertoyPresetScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 + 54, height - 28, 100, 20).build());
 		
 		status = listGui.children().isEmpty() ? "No saved presets yet."
@@ -96,7 +96,7 @@ public final class ShadertoyPresetScreen extends Screen
 				}
 				
 				prevScreen.reloadFromDisk(finalResult);
-				minecraft.gui.setScreen(prevScreen);
+				minecraft.setScreen(prevScreen);
 			});
 		}, "Wurst Shadertoy Preset Loader");
 		worker.setDaemon(true);
@@ -110,21 +110,21 @@ public final class ShadertoyPresetScreen extends Screen
 			return;
 		
 		String name = ShadertoyBackgroundManager.getPresetDisplayName(path);
-		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.setScreen(new ConfirmScreen(confirmed -> {
 			if(!confirmed)
 			{
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 				return;
 			}
 			
 			try
 			{
 				status = ShadertoyBackgroundManager.deletePreset(path);
-				minecraft.gui.setScreen(new ShadertoyPresetScreen(prevScreen));
+				minecraft.setScreen(new ShadertoyPresetScreen(prevScreen));
 			}catch(Exception e)
 			{
 				status = "Failed: " + e.getMessage();
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}
 		}, Component.literal("Delete preset '" + name + "'?"),
 			Component.literal("This cannot be undone.")));
@@ -144,7 +144,7 @@ public final class ShadertoyPresetScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.gui.setScreen(prevScreen);
+			minecraft.setScreen(prevScreen);
 			break;
 		}
 		
@@ -160,20 +160,21 @@ public final class ShadertoyPresetScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(font, "Load Shadertoy Preset", width / 2, 12,
+		context.drawCenteredString(font, "Load Shadertoy Preset", width / 2, 12,
 			CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		int statusColor = status.startsWith("Failed") ? WurstColors.LIGHT_RED
 			: CommonColors.LIGHT_GRAY;
-		context.centeredText(font, status, width / 2, height - 42, statusColor);
+		context.drawCenteredString(font, status, width / 2, height - 42,
+			statusColor);
 		
 		if(loadButton.isHoveredOrFocused() && !loadButton.active && !loading)
 			context.setComponentTooltipForNextFrame(font,
@@ -211,19 +212,21 @@ public final class ShadertoyPresetScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
 			Font tr = minecraft.font;
 			
 			String name = ShadertoyBackgroundManager.getPresetDisplayName(path);
-			context.text(tr, name, x + 8, y + 1, WurstColors.VERY_LIGHT_GRAY);
+			context.drawString(tr, name, x + 8, y + 1,
+				WurstColors.VERY_LIGHT_GRAY);
 			
 			String relPath =
 				"" + minecraft.gameDirectory.toPath().relativize(path);
-			context.text(tr, relPath, x + 8, y + 11, CommonColors.LIGHT_GRAY);
+			context.drawString(tr, relPath, x + 8, y + 11,
+				CommonColors.LIGHT_GRAY);
 		}
 	}
 	

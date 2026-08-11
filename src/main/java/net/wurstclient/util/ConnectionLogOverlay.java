@@ -25,7 +25,7 @@ import org.apache.logging.log4j.core.LogEvent;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.wurstclient.WurstClient;
@@ -57,7 +57,7 @@ public final class ConnectionLogOverlay
 		return INSTANCE;
 	}
 	
-	public void render(GuiGraphicsExtractor graphics)
+	public void render(GuiGraphics graphics)
 	{
 		Minecraft mc = WurstClient.MC;
 		if(mc == null)
@@ -137,12 +137,12 @@ public final class ConnectionLogOverlay
 		return WurstClient.INSTANCE.getOtfs().connectionLogOverlayOtf;
 	}
 	
-	private void drawScaledLine(GuiGraphicsExtractor graphics, Font font,
+	private void drawScaledLine(GuiGraphics graphics, Font font,
 		FormattedCharSequence line, int x, int y, int color, double scale)
 	{
 		if(Math.abs(scale - 1.0) < 1e-6)
 		{
-			graphics.text(font, line, x, y, color, false);
+			graphics.drawString(font, line, x, y, color, false);
 			return;
 		}
 		
@@ -150,7 +150,7 @@ public final class ConnectionLogOverlay
 		graphics.pose().scale((float)scale);
 		int sx = (int)Math.round(x / scale);
 		int sy = (int)Math.round(y / scale);
-		graphics.text(font, line, sx, sy, color, false);
+		graphics.drawString(font, line, sx, sy, color, false);
 		graphics.pose().popMatrix();
 	}
 	

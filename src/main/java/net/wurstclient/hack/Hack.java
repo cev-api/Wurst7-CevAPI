@@ -77,6 +77,11 @@ public abstract class Hack extends Feature
 		return null;
 	}
 	
+	public int getStatusTextColor()
+	{
+		return 0xFF55FF55;
+	}
+	
 	/**
 	 * Optional: A representative ARGB color to display this hack in the
 	 * HackList.

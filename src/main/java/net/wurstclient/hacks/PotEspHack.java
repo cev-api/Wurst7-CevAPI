@@ -53,13 +53,16 @@ import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 public final class PotEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener
 {
-	private static final Set<Item> NATURAL_POT_ITEMS = Set.of(Items.AIR,
-		Items.STRING, Items.EMERALD, Items.EMERALD_BLOCK, Items.RAW_IRON_BLOCK,
-		Items.IRON_INGOT, Items.TRIAL_KEY, Items.DIAMOND, Items.DIAMOND_BLOCK,
-		// The pot item itself can show up in malformed container data and is
-		// not
-		// a meaningful suspicious item.
-		Items.MUSIC_DISC_CREATOR_MUSIC_BOX, Items.DECORATED_POT);
+	private static final Set<Item> NATURAL_POT_ITEMS =
+		Set.of(Items.AIR, Items.STRING, Items.EMERALD, Items.EMERALD_BLOCK,
+			Items.RAW_IRON_BLOCK, Items.IRON_INGOT, Items.TRIAL_KEY,
+			Items.DIAMOND, Items.DIAMOND_BLOCK, Items.ARROW, Items.TIPPED_ARROW,
+			Items.SPECTRAL_ARROW, Items.WEEPING_VINES,
+			// The pot item itself can show up in malformed container data and
+			// is
+			// not
+			// a meaningful suspicious item.
+			Items.MUSIC_DISC_CREATOR_MUSIC_BOX, Items.DECORATED_POT);
 	
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final CheckboxSetting stickyArea =
@@ -296,7 +299,7 @@ public final class PotEspHack extends Hack implements UpdateListener,
 				pot.collectComponents().getOrDefault(DataComponents.CONTAINER,
 					ItemContainerContents.EMPTY);
 			boolean hadAnyContainerItems = false;
-			for(ItemStack stack : contents.nonEmptyStream().toList())
+			for(ItemStack stack : contents.nonEmptyItemsCopy())
 			{
 				hadAnyContainerItems = true;
 				Item item = stack.getItem();
@@ -355,8 +358,8 @@ public final class PotEspHack extends Hack implements UpdateListener,
 			int tracerColor = color.getColorI(0x80);
 			if(tracerFlash.isChecked())
 				tracerColor = RenderUtils.flashColor(tracerColor);
-			RenderUtils.drawTracers(matrixStack, partialTicks, tracerEnds,
-				tracerColor, false);
+			RenderUtils.drawTracers("PotESP", matrixStack, partialTicks,
+				tracerEnds, tracerColor, false);
 		}
 	}
 	

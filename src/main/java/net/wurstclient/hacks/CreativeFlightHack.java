@@ -46,6 +46,11 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		"Automatically enables CreativeFlight as soon as the hack is turned on, instead of waiting for the usual double-jump.",
 		true);
 	
+	private final CheckboxSetting solidLava = new CheckboxSetting(
+		"Solid lava columns",
+		"Treat lava source and flowing blocks as solid, including one block of clearance above them, while CreativeFlight is enabled.",
+		false);
+	
 	private int tickCounter = 0;
 	private boolean suppressedSneakKey;
 	
@@ -57,6 +62,7 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		addSetting(antiKickInterval);
 		addSetting(antiKickDistance);
 		addSetting(startFlyingImmediately);
+		addSetting(solidLava);
 	}
 	
 	@Override
@@ -101,6 +107,19 @@ public final class CreativeFlightHack extends Hack implements UpdateListener
 		
 		if(antiKick.isChecked() && abilities.flying)
 			doAntiKick();
+	}
+	
+	boolean isDescending()
+	{
+		return isEnabled() && MC.player != null
+			&& MC.player.getAbilities().flying
+			&& IKeyMapping.get(MC.options.keyShift).isActuallyDown()
+			&& !IKeyMapping.get(MC.options.keyJump).isActuallyDown();
+	}
+	
+	public boolean shouldMakeLavaSolid()
+	{
+		return isEnabled() && solidLava.isChecked();
 	}
 	
 	private void handleSmoothDescent(Abilities abilities)

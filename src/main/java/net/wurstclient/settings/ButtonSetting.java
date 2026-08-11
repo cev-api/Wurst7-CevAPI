@@ -52,6 +52,12 @@ public final class ButtonSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		// Buttons have no persistent state.
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		// buttons do not persist state

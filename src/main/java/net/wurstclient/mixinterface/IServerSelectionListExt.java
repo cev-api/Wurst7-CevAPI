@@ -10,4 +10,14 @@ package net.wurstclient.mixinterface;
 public interface IServerSelectionListExt
 {
 	public void wurst$setPanelList(boolean panelList);
+	
+	public boolean wurst$isPanelList();
+	
+	public boolean wurst$isDraggingScrollbar();
+	
+	public void wurst$setDraggingScrollbar(boolean draggingScrollbar);
+	
+	public double wurst$getScrollbarDragOffsetY();
+	
+	public void wurst$setScrollbarDragOffsetY(double scrollbarDragOffsetY);
 }

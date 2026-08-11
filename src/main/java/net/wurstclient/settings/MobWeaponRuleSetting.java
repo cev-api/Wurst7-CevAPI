@@ -119,6 +119,13 @@ public final class MobWeaponRuleSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		selectedMob = defaultMob;
+		selectedWeapon = defaultWeapon;
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		if(json == null || !json.isJsonObject())

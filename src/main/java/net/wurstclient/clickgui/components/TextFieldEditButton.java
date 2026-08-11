@@ -11,11 +11,11 @@ import java.util.Objects;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Style;
 import net.wurstclient.clickgui.ClickGui;
@@ -116,8 +116,8 @@ public final class TextFieldEditButton extends Component
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		updateInlineFieldBounds();
 		if(!editing)
@@ -150,14 +150,13 @@ public final class TextFieldEditButton extends Component
 		
 		int txtColor = GUI.getTxtColor();
 		context.guiRenderState.up();
-		context.text(TR, setting.getName(), x1, y1 + 2, txtColor, false);
+		context.drawString(TR, setting.getName(), x1, y1 + 2, txtColor, false);
 		
 		if(editing)
 		{
 			inlineField.setTextColor(txtColor);
 			inlineField.setTextColorUneditable(txtColor);
-			inlineField.extractRenderState(context, mouseX, mouseY,
-				partialTicks);
+			inlineField.render(context, mouseX, mouseY, partialTicks);
 		}else
 		{
 			String value = setting.getValue();
@@ -166,7 +165,7 @@ public final class TextFieldEditButton extends Component
 				Style.EMPTY);
 			if(maxLength < value.length())
 				value = value.substring(0, maxLength) + "...";
-			context.text(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
+			context.drawString(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
 		}
 	}
 	

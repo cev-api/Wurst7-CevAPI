@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
 import net.wurstclient.addons.AddonManager;
+import net.wurstclient.altbot.AccountSwitchController;
+import net.wurstclient.altbot.AltBotManager;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.Encryption;
 import net.wurstclient.clickgui.ClickGui;
@@ -40,6 +42,7 @@ import net.wurstclient.navigator.Navigator;
 import net.wurstclient.other_feature.OtfList;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.presets.PresetManager;
+import net.wurstclient.proxy.ProxyManager;
 import net.wurstclient.settings.SettingsFile;
 import net.wurstclient.update.ProblematicResourcePackDetector;
 import net.wurstclient.update.ForkUpdateChecker;
@@ -62,11 +65,14 @@ public enum WurstClient
 	public static Minecraft MC;
 	public static IMinecraftClient IMC;
 	
-	public static final String VERSION = "7.54";
-	public static final String MC_VERSION = "26.2";
+	public static final String VERSION = "7.54.1";
+	public static final String MC_VERSION = "1.21.11";
 	
 	private EventManager eventManager;
 	private AltManager altManager;
+	private ProxyManager proxyManager;
+	private AltBotManager altBotManager;
+	private AccountSwitchController altSwitchController;
 	private HackList hax;
 	private CmdList cmds;
 	private OtfList otfs;
@@ -194,7 +200,9 @@ public enum WurstClient
 		eventManager.add(PostMotionListener.class, rotationFaker);
 		
 		updater = new WurstUpdater();
-		eventManager.add(UpdateListener.class, updater);
+		// Disabled upstream's update checker. Because well, you're using CEVAPI
+		// ain't cha?
+		// eventManager.add(UpdateListener.class, updater);
 		
 		forkUpdateChecker = new ForkUpdateChecker();
 		eventManager.add(UpdateListener.class, forkUpdateChecker);
@@ -205,6 +213,11 @@ public enum WurstClient
 		Path altsFile = wurstFolder.resolve("alts.encrypted_json");
 		Path encFolder = Encryption.chooseEncryptionFolder();
 		altManager = new AltManager(altsFile, encFolder);
+		Path proxiesFile = wurstFolder.resolve("proxies.encrypted_json");
+		proxyManager = new ProxyManager(proxiesFile, encFolder);
+		
+		altBotManager = new AltBotManager();
+		altSwitchController = new AccountSwitchController(altBotManager);
 		
 		NiceWurstModule.apply(this);
 	}
@@ -264,6 +277,12 @@ public enum WurstClient
 			return;
 		
 		settingsFile.load();
+	}
+	
+	public void resetSettings()
+	{
+		if(settingsFile != null)
+			settingsFile.resetAllSettings();
 	}
 	
 	public void reloadFromDisk()
@@ -339,13 +358,22 @@ public enum WurstClient
 		Hack hack = getHax().getHackByName(name);
 		if(hack != null)
 			return hack;
-		
-		Command cmd = getCmds().getCmdByName(name.substring(1));
+		for(Hack candidate : getHax().getAllHax())
+			if(candidate.getName().equalsIgnoreCase(name))
+				return candidate;
+			
+		Command cmd = getCmds()
+			.getCmdByName(name.startsWith("#") ? name.substring(1) : name);
 		if(cmd != null)
 			return cmd;
 		
 		OtherFeature otf = getOtfs().getOtfByName(name);
-		return otf;
+		if(otf != null)
+			return otf;
+		for(OtherFeature candidate : getOtfs().getAllOtfs())
+			if(candidate.getName().equalsIgnoreCase(name))
+				return candidate;
+		return null;
 	}
 	
 	public KeybindList getKeybinds()
@@ -476,5 +504,20 @@ public enum WurstClient
 	public AltManager getAltManager()
 	{
 		return altManager;
+	}
+	
+	public AltBotManager getAltBotManager()
+	{
+		return altBotManager;
+	}
+	
+	public AccountSwitchController getAltSwitchController()
+	{
+		return altSwitchController;
+	}
+	
+	public ProxyManager getProxyManager()
+	{
+		return proxyManager;
 	}
 }

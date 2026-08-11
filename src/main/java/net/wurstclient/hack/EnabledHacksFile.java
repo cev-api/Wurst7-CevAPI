@@ -134,8 +134,7 @@ public final class EnabledHacksFile
 			{
 				if(mc.player == null)
 					return;
-				if(mc.gui
-					.screen() instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
+				if(mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen)
 					return;
 			}
 		}catch(Throwable ignored)

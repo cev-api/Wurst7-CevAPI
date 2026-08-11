@@ -50,7 +50,7 @@ public final class AntiFingerprintOtf extends OtherFeature
 		if(MC.gui == null)
 			return;
 		
-		Screen parent = MC.gui.screen();
-		MC.gui.setScreen(new AntiFingerprintConfigScreen(parent));
+		Screen parent = MC.screen;
+		MC.setScreen(new AntiFingerprintConfigScreen(parent));
 	}
 }

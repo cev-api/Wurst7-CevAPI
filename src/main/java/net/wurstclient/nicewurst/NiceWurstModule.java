@@ -85,37 +85,42 @@ public final class NiceWurstModule
 	static
 	{
 		ALLOWED_HACKS.put(Category.BLOCKS,
-			Set.of("AutoBuild", "AutoSign", "AutoTool", "BuildRandom",
+			Set.of("AirPlace", "AutoBuild", "AutoFarm", "AutoMine", "AutoSign",
+				"AutoTool", "AutoClicker", "SpeedNuker", "Nuker", "BuildRandom",
 				"BedBreakAura", "Excavator", "HandNoClip", "InstantBunker",
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
 				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
-				"AutoSpawnProofer", "AreaNuker"));
+				"AutoSpawnProofer", "AreaNuker", "DuraSwap", "Tillaura",
+				"TreeBot", "Tunneller", "VeinMiner"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
-			Set.of("BunnyHop", "AutoSprint", "AutoWalk", "AutoSwim",
-				"BedrockEscape", "Dolphin", "SafeWalk", "Sneak", "InvWalk",
-				"EntityControl", "PearlDrop"));
+			Set.of("BunnyHop", "AntiHunger", "AutoSprint", "AutoWalk",
+				"AutoSwim", "BedrockEscape", "Dolphin", "SafeWalk", "Sneak",
+				"InvWalk", "EntityControl", "PearlDrop", "FastLadder", "Fish"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
-			Set.of("AutoRespawn", "AutoTotem", "AutoLeave", "PearlIntercept",
-				"ShieldSwing", "WindChargeKey", "AntiProjectile",
-				"AttributeSwap"));
+			Set.of("AutoArmor", "AutoPotion", "AutoRespawn", "AutoSoup",
+				"AutoTotem", "AutoLeave", "PearlIntercept", "ShieldSwing",
+				"WindChargeKey", "AntiProjectile", "AttributeSwap"));
 		
 		ALLOWED_HACKS.put(Category.RENDER,
-			Set.of("DurabilityHUD", "Fullbright", "HealthTags", "MobHealth",
-				"NameTags", "NoBackground", "NoFireOverlay", "NoVignette",
-				"NoWeather", "NoShieldOverlay", "Freecam", "Waypoints",
-				"ElytraInfo", "RoofESP", "RenderAdjust", "Viewmodel",
-				"MobOwners", "StasisDetector", "PotESP", "SkyBuildESP",
-				"DamageESP", "ProjectileESP", "BlockOverlay"));
+			Set.of("BarrierESP", "DurabilityHUD", "Fullbright", "HealthTags",
+				"MobHealth", "NameTags", "NoBackground", "NoFireOverlay",
+				"NoVignette", "NoFog", "NoOverlay", "NoPumpkin", "NoWeather",
+				"NoShieldOverlay", "Freecam", "SpawnRadius", "Trajectories",
+				"TrialSpawnerESP", "Waypoints", "ElytraInfo", "RoofESP",
+				"RenderAdjust", "Viewmodel", "MobOwners", "StasisDetector",
+				"PotESP", "SkyBuildESP", "DamageESP", "ProjectileESP",
+				"BlockOverlay"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
-			Set.of("Breadcrumbs", "NewChunks", "NewerNewChunks", "Mapa",
-				"BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar"));
+			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
+				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
+				"OppStats", "SimulationSonar", "TextureRotator"));
 		
-		ALLOWED_HACKS.put(Category.CHAT, Set.of("AutoChat", "Mention",
-			"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
+		ALLOWED_HACKS.put(Category.CHAT,
+			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
+				"NoPlayerChat", "ChatSpam", "CommandSpam", "PlayerMute"));
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
@@ -127,13 +132,14 @@ public final class NiceWurstModule
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest"));
+				"WebhookAlert", "RemoteEChest", "ShearAura"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
-				"AutoSteal", "ChestSearch", "EnchantmentHandler", "ItemHandler",
-				"QuickShulker", "SignFramePT", "LootSearch", "XCarry",
-				"SusNoMore", "UseItemSpam", "InventorySorter"));
+				"AutoSwitch", "AutoSteal", "ChestSearch", "EnchantmentHandler",
+				"ItemHandler", "QuickShulker", "Restock", "SignFramePT",
+				"LootSearch", "LootSorter", "XCarry", "SusNoMore",
+				"UseItemSpam", "InventorySorter", "AutoLoot", "AntiBreak"));
 	}
 	
 	private NiceWurstModule()
@@ -247,7 +253,7 @@ public final class NiceWurstModule
 		if(WurstClient.MC.level == null || WurstClient.MC.player == null)
 			return true;
 		
-		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
+		Camera camera = WurstClient.MC.gameRenderer.getMainCamera();
 		if(camera == null)
 			return true;
 		

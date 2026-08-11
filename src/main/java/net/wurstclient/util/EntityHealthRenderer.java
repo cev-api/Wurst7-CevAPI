@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Optional;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -61,14 +61,14 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx)
 	{
 		drawHeartsAtEntity(context, entity, partialTicks, yOffsetPx, false,
 			false, DurabilityDisplayMode.PERCENT_ONLY, true, 1F);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor)
 	{
@@ -76,7 +76,7 @@ public final class EntityHealthRenderer
 			false, DurabilityDisplayMode.PERCENT_ONLY, true, 1F);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,
@@ -86,7 +86,7 @@ public final class EntityHealthRenderer
 			showHeldItems, durabilityDisplayMode, showPotionEffectStatus, 1F);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,
@@ -97,7 +97,7 @@ public final class EntityHealthRenderer
 			scaleMultiplier, false);
 	}
 	
-	public static void drawHeartsAtEntity(GuiGraphicsExtractor context,
+	public static void drawHeartsAtEntity(GuiGraphics context,
 		LivingEntity entity, float partialTicks, float yOffsetPx,
 		boolean showArmor, boolean showHeldItems,
 		DurabilityDisplayMode durabilityDisplayMode,
@@ -119,7 +119,7 @@ public final class EntityHealthRenderer
 		float screenY =
 			(float)((1 - (projected.y + 1) * 0.5) * context.guiHeight());
 		
-		double distance = WurstClient.MC.gameRenderer.mainCamera().position()
+		double distance = WurstClient.MC.gameRenderer.getMainCamera().position()
 			.distanceTo(worldPos);
 		float scale =
 			getScale(distance, scaleMultiplier, scaleWithNameTagDistance);
@@ -143,8 +143,8 @@ public final class EntityHealthRenderer
 		return absorption > 0 ? rowSpacingPx * 2F : rowSpacingPx;
 	}
 	
-	private static void drawHeartRow(GuiGraphicsExtractor context,
-		float centerX, float y, float scale, LivingEntity entity)
+	private static void drawHeartRow(GuiGraphics context, float centerX,
+		float y, float scale, LivingEntity entity)
 	{
 		float currentHealth = Math.max(0, entity.getHealth());
 		float maxHealth = Math.max(1, entity.getMaxHealth());
@@ -198,8 +198,8 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	private static void drawHeartLayer(GuiGraphicsExtractor context,
-		float centerX, float y, float scale, int slots, int filledHalfHearts,
+	private static void drawHeartLayer(GuiGraphics context, float centerX,
+		float y, float scale, int slots, int filledHalfHearts,
 		HeartType heartType, boolean hardcore, boolean blink, int regenIndex,
 		boolean jitter)
 	{
@@ -239,8 +239,8 @@ public final class EntityHealthRenderer
 		context.pose().popMatrix();
 	}
 	
-	private static void drawArmorRow(GuiGraphicsExtractor context,
-		float centerX, float y, float scale, LivingEntity entity)
+	private static void drawArmorRow(GuiGraphics context, float centerX,
+		float y, float scale, LivingEntity entity)
 	{
 		int armorPoints = Mth.clamp(entity.getArmorValue(), 0, 20);
 		if(armorPoints <= 0)
@@ -274,10 +274,9 @@ public final class EntityHealthRenderer
 		context.pose().popMatrix();
 	}
 	
-	private static void drawHeldItems(GuiGraphicsExtractor context,
-		float centerX, float heartsY, float armorY, float scale,
-		LivingEntity entity, boolean hasArmor,
-		DurabilityDisplayMode durabilityDisplayMode,
+	private static void drawHeldItems(GuiGraphics context, float centerX,
+		float heartsY, float armorY, float scale, LivingEntity entity,
+		boolean hasArmor, DurabilityDisplayMode durabilityDisplayMode,
 		boolean showPotionEffectStatus)
 	{
 		float overlayScale = Math.max(scale, 0.65F);
@@ -325,7 +324,7 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	private static void drawHandIconWithDurability(GuiGraphicsExtractor context,
+	private static void drawHandIconWithDurability(GuiGraphics context,
 		ItemStack stack, float x, float y, float iconSize, float scale,
 		DurabilityDisplayMode durabilityDisplayMode)
 	{
@@ -359,14 +358,14 @@ public final class EntityHealthRenderer
 		}
 	}
 	
-	private static void drawScaledItem(GuiGraphicsExtractor context,
-		ItemStack stack, float x, float y, float size)
+	private static void drawScaledItem(GuiGraphics context, ItemStack stack,
+		float x, float y, float size)
 	{
 		context.pose().pushMatrix();
 		context.pose().translate(x, y);
 		float drawScale = size / 16F;
 		context.pose().scale(drawScale, drawScale);
-		context.item(stack, 0, 0);
+		context.renderItem(stack, 0, 0);
 		context.pose().popMatrix();
 	}
 	
@@ -447,8 +446,8 @@ public final class EntityHealthRenderer
 		return 0;
 	}
 	
-	private static void drawPotionBottle(GuiGraphicsExtractor context, float x,
-		float y, float size, float scale, int argbColor)
+	private static void drawPotionBottle(GuiGraphics context, float x, float y,
+		float size, float scale, int argbColor)
 	{
 		ItemStack bottle = new ItemStack(Items.POTION);
 		PotionContents contents = new PotionContents(Optional.empty(),

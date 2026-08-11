@@ -13,7 +13,7 @@ import java.util.StringJoiner;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.GuiMessage;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
@@ -61,11 +61,11 @@ public enum ChatUtils
 			if(!enabled || MC.gui == null)
 				return;
 			
-			ChatComponent chatHud = MC.gui.hud.getChat();
+			ChatComponent chatHud = MC.gui.getChat();
 			MutableComponent prefix = Component.literal(WURST_PREFIX);
 			MutableComponent message = prefix.append(component);
 			ClientMessageOverlay.getInstance().markWurstClientMessage(message);
-			chatHud.addClientSystemMessage(message);
+			chatHud.addMessage(message);
 		});
 	}
 	

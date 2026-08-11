@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.util.ARGB;
 import net.wurstclient.WurstClient;
@@ -49,8 +49,8 @@ public abstract class LoadingOverlayMixin
 		wurst$applyConfiguredLogoBackgroundColor();
 	}
 	
-	@Inject(method = "extractRenderState", at = @At("HEAD"), require = 0)
-	private void onExtractRenderState(GuiGraphicsExtractor graphics, int mouseX,
+	@Inject(method = "render", at = @At("HEAD"), require = 0)
+	private void onExtractRenderState(GuiGraphics graphics, int mouseX,
 		int mouseY, float partialTicks, CallbackInfo ci)
 	{
 		wurst$applyConfiguredLogoBackgroundColor();

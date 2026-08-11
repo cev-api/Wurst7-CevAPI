@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerTabOverlay;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
@@ -80,9 +80,9 @@ public class PlayerTabOverlayMixin
 		cir.setReturnValue(name);
 	}
 	
-	@Inject(method = "extractPingIcon", at = @At("HEAD"), cancellable = true)
-	private void replacePingIcon(GuiGraphicsExtractor context, int columnWidth,
-		int rowX, int y, PlayerInfo info, CallbackInfo ci)
+	@Inject(method = "renderPingIcon", at = @At("HEAD"), cancellable = true)
+	private void replacePingIcon(GuiGraphics context, int columnWidth, int rowX,
+		int y, PlayerInfo info, CallbackInfo ci)
 	{
 		WurstOptionsOtf options = getOptions();
 		if(options == null || !options.shouldShowTabListPing())
@@ -95,7 +95,7 @@ public class PlayerTabOverlayMixin
 		int textX = pingSlotLeft + (PING_TEXT_WIDTH - textWidth) / 2;
 		int textColor = options.shouldColorTabListPing()
 			? getPingColor(info.getLatency()) : 0xFFFFFFFF;
-		context.text(WurstClient.MC.font, text, textX, y, textColor);
+		context.drawString(WurstClient.MC.font, text, textX, y, textColor);
 		ci.cancel();
 	}
 	

@@ -151,8 +151,8 @@ public final class AltBotUtils
 	public static void reconnectClient(ServerData server, Screen prevScreen)
 	{
 		Minecraft mc = Minecraft.getInstance();
-		Screen previous = prevScreen != null ? prevScreen
-			: mc.screen;
+		Screen previous =
+			prevScreen != null ? prevScreen : mc.gui != null ? mc.screen : null;
 		ServerAddress address = ServerAddress.parseString(server.ip);
 		ConnectScreen.startConnecting(previous, mc, address, server, false,
 			null);

@@ -15,7 +15,7 @@ import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
@@ -97,7 +97,7 @@ public final class WurstOptionsScreen extends Screen
 		
 		new WurstOptionsButton(width / 2 - 110, backButtonY, 220, 20,
 			() -> "Back", "Return to the previous screen.",
-			b -> minecraft.gui.setScreen(prevScreen));
+			b -> minecraft.setScreen(prevScreen));
 		applyScrollLayout();
 	}
 	
@@ -206,7 +206,7 @@ public final class WurstOptionsScreen extends Screen
 			() -> "Mojang Bg Color: "
 				+ ColorUtils.toHex(mojangLogoBgColor.getColor()),
 			"Pick the custom background color used behind the Mojang loading logo.",
-			b -> minecraft.gui
+			b -> minecraft
 				.setScreen(new EditColorScreen(this, mojangLogoBgColor)));
 		
 		addButton(column,
@@ -228,7 +228,7 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Import/Load Shader Background",
 			"Import a Shadertoy by URL or pasted source code as the menu background.",
-			b -> minecraft.gui
+			b -> minecraft
 				.setScreen(new CustomShadertoyBackgroundScreen(this)));
 		
 		addButton(column,
@@ -384,7 +384,7 @@ public final class WurstOptionsScreen extends Screen
 		if(NiceWurstModule.showAntiFingerprintControls())
 			addButton(column, () -> "Anti-Fingerprint",
 				"Open Anti-Fingerprint controls for resource-pack handling.",
-				b -> minecraft.gui.setScreen(
+				b -> minecraft.setScreen(
 					new net.cevapi.config.AntiFingerprintConfigScreen(this)));
 	}
 	
@@ -396,16 +396,15 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Presets",
 			"Manage full Wurst presets for hacks, UI, keybinds, and more.",
-			b -> minecraft.gui.setScreen(new PresetManagerScreen(this)));
+			b -> minecraft.setScreen(new PresetManagerScreen(this)));
 		
 		addButton(column, () -> "Keybinds", "Open Keybind Manager.",
-			b -> minecraft.gui.setScreen(new KeybindManagerScreen(this)));
+			b -> minecraft.setScreen(new KeybindManagerScreen(this)));
 		
 		if(!NiceWurstModule.isActive())
 		{
 			addButton(column, () -> "Alt Manager",
-				"Open Alt Manager and account tools.",
-				b -> minecraft.gui.setScreen(
+				"Open Alt Manager and account tools.", b -> minecraft.setScreen(
 					new AltManagerScreen(this, wurst.getAltManager())));
 			
 			addButton(column,
@@ -416,6 +415,17 @@ public final class WurstOptionsScreen extends Screen
 					.setDisconnectRandomAltReconnectEnabled(
 						!wurst.getAltManager()
 							.isDisconnectRandomAltReconnectEnabled()));
+			
+			addButton(column,
+				() -> "Random Proxy Reconnect: "
+					+ onOff(wurst.getOtfs().wurstOptionsOtf
+						.shouldShowRandomProxyReconnect()),
+				"Controls whether Disconnected screen shows \"Reconnect with random proxy\".",
+				b -> {
+					var options = wurst.getOtfs().wurstOptionsOtf;
+					options.setShowRandomProxyReconnect(
+						!options.shouldShowRandomProxyReconnect());
+				});
 			
 			addButton(column,
 				() -> "Show Offline Buttons: "
@@ -450,11 +460,11 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Hack Debugger",
 			"Open Navigator to toggle hacks/settings while out of game.",
-			b -> minecraft.gui.setScreen(new NavigatorMainScreen()));
+			b -> minecraft.setScreen(new NavigatorMainScreen()));
 		
 		addButton(column, () -> "Blocked Hacks Editor",
 			"Open TooManyHax blocklist editor (safe outside game).",
-			b -> minecraft.gui.setScreen(new TooManyHaxEditorScreen(this,
+			b -> minecraft.setScreen(new TooManyHaxEditorScreen(this,
 				wurst.getHax().tooManyHaxHack)));
 		
 		addButton(column, () -> "Panic: Disable All Hacks",
@@ -497,7 +507,8 @@ public final class WurstOptionsScreen extends Screen
 			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
 		addButton(column, () -> "CevAPI Website", "cevapi.dev",
 			b -> os.openUri("https://cevapi.dev/"));
-		addButton(column, () -> "Wurst Addon Template", "gitlab.com/Cev-API/wurst-addon-template",
+		addButton(column, () -> "Wurst Addon Template",
+			"gitlab.com/Cev-API/wurst-addon-template",
 			b -> os.openUri("https://gitlab.com/Cev-API/wurst-addon-template"));
 		addButton(column, () -> "Wurst Website", "WurstClient.net",
 			b -> os.openUri("https://www.wurstclient.net/options-website/"));
@@ -645,14 +656,14 @@ public final class WurstOptionsScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		renderBackground(context, mouseX, mouseY, partialTicks);
+		renderOptionsBackground(context);
 		renderTitles(context);
 		applyScrollLayout();
 		
@@ -664,22 +675,20 @@ public final class WurstOptionsScreen extends Screen
 		context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
 		renderSectionHeaders(context, viewTop, viewBottom);
 		for(WurstOptionsButton button : contentButtons)
-			button.extractRenderState(context, mouseX, mouseY, partialTicks);
+			button.render(context, mouseX, mouseY, partialTicks);
 		context.disableScissor();
 		
 		for(Renderable drawable : renderables)
 			if(!(drawable instanceof WurstOptionsButton wo)
 				|| !contentButtons.contains(wo))
-				drawable.extractRenderState(context, mouseX, mouseY,
-					partialTicks);
+				drawable.render(context, mouseX, mouseY, partialTicks);
 			
 		renderScrollbar(context, viewRight + 4, viewTop, viewBottom);
 		
 		renderButtonTooltip(context, mouseX, mouseY);
 	}
 	
-	private void renderBackground(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	private void renderOptionsBackground(GuiGraphics context)
 	{
 		context.fillGradient(0, 0, width, height, 0xDA10131B, 0xE0121B29);
 		
@@ -697,7 +706,7 @@ public final class WurstOptionsScreen extends Screen
 		}
 	}
 	
-	private void renderTitles(GuiGraphicsExtractor context)
+	private void renderTitles(GuiGraphics context)
 	{
 		Font tr = minecraft.font;
 		int middleX = width / 2;
@@ -705,12 +714,14 @@ public final class WurstOptionsScreen extends Screen
 		
 		String title =
 			NiceWurstModule.isActive() ? "NiceWurst Options" : "Wurst Options";
-		context.centeredText(tr, title, middleX, titleY, CommonColors.WHITE);
-		context.centeredText(tr, "Feature-rich controls and recovery tools",
-			middleX, titleY + 12, CommonColors.LIGHT_GRAY);
+		context.drawCenteredString(tr, title, middleX, titleY,
+			CommonColors.WHITE);
+		context.drawCenteredString(tr,
+			"Feature-rich controls and recovery tools", middleX, titleY + 12,
+			CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderSectionHeaders(GuiGraphicsExtractor context, int viewTop,
+	private void renderSectionHeaders(GuiGraphics context, int viewTop,
 		int viewBottom)
 	{
 		Font tr = minecraft.font;
@@ -719,12 +730,12 @@ public final class WurstOptionsScreen extends Screen
 			int y = header.y() - scrollOffset;
 			if(y + tr.lineHeight < viewTop || y > viewBottom)
 				continue;
-			context.centeredText(tr, header.title(), header.centerX(), y,
+			context.drawCenteredString(tr, header.title(), header.centerX(), y,
 				WurstColors.VERY_LIGHT_GRAY);
 		}
 	}
 	
-	private void renderScrollbar(GuiGraphicsExtractor context, int x, int top,
+	private void renderScrollbar(GuiGraphics context, int x, int top,
 		int bottom)
 	{
 		if(maxScroll <= 0)
@@ -740,10 +751,10 @@ public final class WurstOptionsScreen extends Screen
 		context.fill(x, thumbTop, x + 6, thumbTop + thumbH, 0xAA808080);
 	}
 	
-	private void renderButtonTooltip(GuiGraphicsExtractor context, int mouseX,
+	private void renderButtonTooltip(GuiGraphics context, int mouseX,
 		int mouseY)
 	{
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(!(button instanceof WurstOptionsButton))
 				continue;
@@ -816,12 +827,12 @@ public final class WurstOptionsScreen extends Screen
 		}
 		
 		@Override
-		protected void extractContents(GuiGraphicsExtractor drawContext, int i,
-			int j, float f)
+		protected void renderContents(GuiGraphics drawContext, int i, int j,
+			float f)
 		{
-			extractDefaultSprite(drawContext);
-			extractDefaultLabel(drawContext.textRendererForWidget(this,
-				GuiGraphicsExtractor.HoveredTextEffects.NONE));
+			renderDefaultSprite(drawContext);
+			renderDefaultLabel(drawContext.textRendererForWidget(this,
+				GuiGraphics.HoveredTextEffects.NONE));
 		}
 		
 		private static String buildFallbackTooltip(String label)

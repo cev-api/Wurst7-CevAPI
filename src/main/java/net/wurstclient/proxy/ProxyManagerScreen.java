@@ -349,8 +349,9 @@ public final class ProxyManagerScreen extends Screen
 				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
 					: proxyManager.getSelectedProxy().getDisplayName()),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
-		context.text(font, "Proxy (http:// or socks5://, optional user:pass)",
-			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
+		context.drawString(font,
+			"Proxy (http:// or socks5://, optional user:pass)", width / 2 - 150,
+			34, CommonColors.LIGHT_GRAY);
 		
 		proxyList.render(context, mouseX, mouseY, partialTicks);
 		proxyBox.render(context, mouseX, mouseY, partialTicks);
@@ -367,9 +368,9 @@ public final class ProxyManagerScreen extends Screen
 		if(prevScreen instanceof IMultiplayerTitleRefresher refresher)
 		{
 			ScreenAccessor accessor = (ScreenAccessor)prevScreen;
-			Component oldTitle = accessor.getTitle();
+			Component oldTitle = accessor.getWurstTitle();
 			refresher.wurst$refreshAccountTitle();
-			Component newTitle = accessor.getTitle();
+			Component newTitle = accessor.getWurstTitle();
 			for(GuiEventListener child : prevScreen.children())
 				if(child instanceof StringWidget titleWidget
 					&& titleWidget.getMessage().equals(oldTitle))
@@ -416,6 +417,22 @@ public final class ProxyManagerScreen extends Screen
 			return entry.selectionKey();
 		}
 		
+		@Override
+		protected void renderItem(GuiGraphics context, int mouseX, int mouseY,
+			float delta, ProxyEntry entry)
+		{
+			// The active proxy draws its own single, opaque highlight. This
+			// avoids combining the vanilla selection outline with a second
+			// background rectangle of slightly different bounds.
+			if(entry.isActiveProxy())
+			{
+				entry.renderContent(context, mouseX, mouseY,
+					entry == getHovered(), delta);
+				return;
+			}
+			
+			super.renderItem(context, mouseX, mouseY, delta, entry);
+		}
 	}
 	
 	private final class ProxyEntry

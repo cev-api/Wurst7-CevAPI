@@ -16,7 +16,7 @@ import com.google.gson.GsonBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -586,7 +586,7 @@ public final class LootRunnerHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(!crosshairInfo.isChecked() || MC.player == null)
 			return;
@@ -600,7 +600,7 @@ public final class LootRunnerHack extends Hack
 		int y = context.guiHeight() / 2 + 10;
 		int textWidth = font.width(info);
 		int x = centerX - textWidth / 2;
-		context.text(font, info, x, y, 0xFFFFFFFF, true);
+		context.drawString(font, info, x, y, 0xFFFFFFFF, true);
 	}
 	
 	@Override
@@ -1529,7 +1529,7 @@ public final class LootRunnerHack extends Hack
 		Integer slotIdx = lootQueue.pollFirst();
 		lastLootClickMs = now;
 		
-		var screen = MC.gui.screen();
+		var screen = MC.screen;
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return;
 		
@@ -1539,7 +1539,7 @@ public final class LootRunnerHack extends Hack
 		
 		Slot slot = slots.get(slotIdx);
 		sc.slotClicked(slot, slot.index, 0,
-			net.minecraft.world.inventory.ContainerInput.QUICK_MOVE);
+			net.minecraft.world.inventory.ClickType.QUICK_MOVE);
 	}
 	
 	private void tickCooldown()
@@ -2760,8 +2760,7 @@ public final class LootRunnerHack extends Hack
 	
 	private boolean isChestScreenOpen()
 	{
-		if(!(MC.gui
-			.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen))
+		if(!(MC.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen))
 			return false;
 		return screen.getMenu() instanceof ChestMenu
 			|| screen.getMenu() instanceof ShulkerBoxMenu;
@@ -2865,7 +2864,7 @@ public final class LootRunnerHack extends Hack
 		if(chestBefore.isEmpty())
 			return;
 		
-		var screen = MC.gui.screen();
+		var screen = MC.screen;
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return;
 		
@@ -2884,7 +2883,7 @@ public final class LootRunnerHack extends Hack
 	private List<ItemStack> readChestItems()
 	{
 		List<ItemStack> out = new ArrayList<>();
-		var screen = MC.gui.screen();
+		var screen = MC.screen;
 		if(!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> sc))
 			return out;
 		

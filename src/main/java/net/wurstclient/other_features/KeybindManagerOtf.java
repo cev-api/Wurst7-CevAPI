@@ -35,6 +35,6 @@ public final class KeybindManagerOtf extends OtherFeature
 		if(MC.gui == null)
 			return;
 		
-		MC.gui.setScreen(new KeybindManagerScreen(MC.gui.screen()));
+		MC.setScreen(new KeybindManagerScreen(MC.screen));
 	}
 }

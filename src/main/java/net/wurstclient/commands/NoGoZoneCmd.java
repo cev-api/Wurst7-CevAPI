@@ -26,15 +26,18 @@ public final class NoGoZoneCmd extends Command
 		super("nogozone",
 			"Manages NoGoZones - areas you cannot re-enter after leaving.\n"
 				+ "Use when NoGoZone hack is enabled.",
-			".nogozone add [x z [radius]]", ".nogozone list",
+			".nogozone", ".nogozone add [x z [radius]]", ".nogozone list",
 			".nogozone remove <id>", ".nogozone clear");
 	}
 	
 	@Override
 	public void call(String[] args) throws CmdException
 	{
-		if(args.length < 1)
-			throw new CmdSyntaxError();
+		if(args.length == 0)
+		{
+			WURST.getHax().noGoZoneHack.setEnabled(true);
+			return;
+		}
 		
 		switch(args[0].toLowerCase())
 		{
@@ -71,10 +74,9 @@ public final class NoGoZoneCmd extends Command
 		if(args.length != 1 && args.length != 3 && args.length != 4)
 			throw new CmdError("Usage: .nogozone add [x z [radius]]");
 		
-		// Read the effective render distance (capped by server view distance)
+		// Read the effective render distance (capped by server view distance).
 		int renderDistance = MC.options.getEffectiveRenderDistance();
-		// Add +3 as specified
-		int blockRadius = (renderDistance + 3) * 16;
+		int chunkRadius = Math.max(2, renderDistance) + 1;
 		
 		BlockPos zonePos = args.length == 3
 			? parseXZ(args[1], args[2], MC.player.blockPosition().getY())
@@ -83,15 +85,20 @@ public final class NoGoZoneCmd extends Command
 		{
 			zonePos =
 				parseXZ(args[1], args[2], MC.player.blockPosition().getY());
-			blockRadius = parseRadius(args[3]);
+			chunkRadius = blocksToChunks(parseRadius(args[3]));
 		}
 		
-		int id = NoGoZoneHack.addZone(zonePos, blockRadius);
+		int id = NoGoZoneHack.addZone(zonePos, chunkRadius);
 		WURST.getHax().noGoZoneHack.setEnabled(true);
 		
 		ChatUtils.message("NoGoZone #" + id + " created at " + zonePos.getX()
 			+ " " + zonePos.getY() + " " + zonePos.getZ() + " with radius "
-			+ blockRadius + " blocks.");
+			+ chunkRadius + " chunks.");
+	}
+	
+	private int blocksToChunks(int blockRadius)
+	{
+		return Math.max(1, (blockRadius + 15) / 16);
 	}
 	
 	private BlockPos parseXZ(String xStr, String zStr, int y) throws CmdError

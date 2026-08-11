@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.layouts.LayoutElement;
@@ -82,10 +82,9 @@ public abstract class StatsScreenMixin extends Screen
 		return original.call(layout, vLayout);
 	}
 	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At("TAIL"))
-	private void onRender(GuiGraphicsExtractor context, int mouseX, int mouseY,
+	private void onRender(GuiGraphics context, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
@@ -95,7 +94,7 @@ public abstract class StatsScreenMixin extends Screen
 	@Unique
 	private void openWurstOptions(Button button)
 	{
-		minecraft.gui.setScreen(new WurstOptionsScreen(this));
+		minecraft.setScreen(new WurstOptionsScreen(this));
 	}
 	
 	@Unique

@@ -11,7 +11,7 @@ import java.util.List;
 
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.GuiMessage;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;

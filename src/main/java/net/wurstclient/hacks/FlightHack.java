@@ -95,6 +95,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		"Enable NoFall with Flight",
 		"description.wurst.setting.flight.enable_nofall_with_flight", false);
 	
+	private final CheckboxSetting solidLava = new CheckboxSetting(
+		"Solid lava columns",
+		"Treat lava source and flowing blocks as solid, including one block of clearance above them, while Flight is enabled.",
+		false);
+	
 	private final CheckboxSetting ignoreVinesWithFlight = new CheckboxSetting(
 		"Ignore vines with Flight",
 		"Temporarily enables NoSlowdown's \"Ignore vines\" while Flight is enabled.",
@@ -141,6 +146,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 		addSetting(ignoreNpcs);
 		addSetting(ignoreFriends);
 		addSetting(enableNoFallOnFlight);
+		addSetting(solidLava);
 		addSetting(ignoreVinesWithFlight);
 		addSetting(slowSneaking);
 		addSetting(ignoreShiftInGuis);
@@ -167,6 +173,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onEnable()
 	{
+		WURST.getHax().noFallHack.resetMovementTracking();
 		tickCounter = 0;
 		escapeDropActive = false;
 		triggered = false;
@@ -193,6 +200,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onDisable()
 	{
+		WURST.getHax().noFallHack.resetMovementTracking();
 		restoreNoSlowdownVineIgnore();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(IsPlayerInWaterListener.class, this);
@@ -358,6 +366,11 @@ public final class FlightHack extends Hack implements UpdateListener,
 		return isEnabled() && ignoreVinesWithFlight.isChecked();
 	}
 	
+	public boolean shouldMakeLavaSolid()
+	{
+		return isEnabled() && solidLava.isChecked();
+	}
+	
 	@Override
 	public void onGetAirStrafingSpeed(AirStrafingSpeedEvent event)
 	{
@@ -421,6 +434,19 @@ public final class FlightHack extends Hack implements UpdateListener,
 	{
 		return antiKickOverride != null ? antiKickOverride
 			: antiKick.isChecked();
+	}
+	
+	boolean isDescending()
+	{
+		if(escapeDropActive)
+			return true;
+		
+		AutoFlyHack autoFly = WURST.getHax().autoFlyHack;
+		if(autoFly.isEnabled() && autoFly.isAutoKeyShiftDown())
+			return true;
+		
+		return IKeyMapping.get(MC.options.keyShift).isActuallyDown()
+			&& (!ignoreShiftInGuis.isChecked() || MC.screen == null);
 	}
 	
 	boolean isSlowSneakingEnabled()

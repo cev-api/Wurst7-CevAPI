@@ -9,7 +9,7 @@ package net.wurstclient.other_features;
 
 import java.awt.Color;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Button.OnPress;
 import net.minecraft.client.gui.components.Tooltip;
@@ -46,6 +46,10 @@ public final class WurstOptionsOtf extends OtherFeature
 	private final CheckboxSetting customMultiplayerLayout = new CheckboxSetting(
 		"Custom multiplayer layout",
 		"Use Wurst's custom multiplayer server panels and search bar.", true);
+	private final CheckboxSetting showRandomProxyReconnect =
+		new CheckboxSetting("Show random proxy reconnect",
+			"Show a disconnect-screen button for reconnecting through a random configured proxy.",
+			true);
 	
 	private final CheckboxSetting titleScreenShadertoyBackground =
 		new CheckboxSetting("Shadertoy background",
@@ -84,6 +88,7 @@ public final class WurstOptionsOtf extends OtherFeature
 	{
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
+		addSetting(showRandomProxyReconnect);
 		// Register tab-list settings before settings files are created.
 		addSetting(tabListPing);
 		addSetting(tabListHeads);
@@ -94,6 +99,16 @@ public final class WurstOptionsOtf extends OtherFeature
 	public boolean shouldShowTabListPing()
 	{
 		return tabListPing.isChecked();
+	}
+	
+	public boolean shouldShowRandomProxyReconnect()
+	{
+		return showRandomProxyReconnect.isChecked();
+	}
+	
+	public void setShowRandomProxyReconnect(boolean enabled)
+	{
+		showRandomProxyReconnect.setChecked(enabled);
 	}
 	
 	public boolean shouldShowTabListHeads()
@@ -241,7 +256,7 @@ public final class WurstOptionsOtf extends OtherFeature
 			.createNarration(sup -> narration).tooltip(tooltip);
 	}
 	
-	public void drawWurstLogoOnButton(GuiGraphicsExtractor context,
+	public void drawWurstLogoOnButton(GuiGraphics context,
 		Button wurstOptionsButton)
 	{
 		// Logo disabled — no longer rendered on the options button.

@@ -23,7 +23,7 @@ import net.minecraft.client.gui.components.LogoRenderer;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.resources.language.I18n;
@@ -105,7 +105,7 @@ public abstract class TitleScreenMixin extends Screen
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(!button.getMessage().getString().equals(I18n.get("menu.online")))
 				continue;
@@ -127,7 +127,7 @@ public abstract class TitleScreenMixin extends Screen
 				.builder(
 					Component.literal(
 						NiceWurstModule.getOptionsLabel("Wurst Options")),
-					b -> minecraft.gui.setScreen(new WurstOptionsScreen(this)))
+					b -> minecraft.setScreen(new WurstOptionsScreen(this)))
 				.bounds(width / 2 + 2, realmsButton.getY(), 98, 20).build());
 		}else
 			wurstOptionsButton = null;
@@ -151,8 +151,8 @@ public abstract class TitleScreenMixin extends Screen
 	}
 	
 	@Inject(at = @At("TAIL"),
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V")
-	private void onRender(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V")
+	private void onRender(GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
@@ -165,27 +165,26 @@ public abstract class TitleScreenMixin extends Screen
 		String suffix = WurstClient.INSTANCE.getForkUpdateChecker() == null ? ""
 			: WurstClient.INSTANCE.getForkUpdateChecker().getStatusSuffix();
 		String text = baseText + suffix;
-		graphics.text(font, Component.literal(text).getVisualOrderText(), 4, 4,
-			0xFFFFFFFF, true);
+		graphics.drawString(font, Component.literal(text).getVisualOrderText(),
+			4, 4, 0xFFFFFFFF, true);
 	}
 	
 	/**
 	 * Replaces the vanilla Minecraft logo on the title screen with the client
 	 * supplied CevAPI logo.
 	 */
-	@Redirect(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Redirect(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/gui/components/LogoRenderer;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IF)V"))
-	private void onRenderLogo(LogoRenderer logoRenderer,
-		GuiGraphicsExtractor graphics, int width, float fade)
+			target = "Lnet/minecraft/client/gui/components/LogoRenderer;renderLogo(Lnet/minecraft/client/gui/GuiGraphics;IF)V"))
+	private void onRenderLogo(LogoRenderer logoRenderer, GuiGraphics graphics,
+		int width, float fade)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 		{
 			// If UI mixins are hidden, render the vanilla logo instead of
 			// suppressing the call entirely so the title screen still shows
 			// a logo.
-			logoRenderer.extractRenderState(graphics, width, fade);
+			logoRenderer.renderLogo(graphics, width, fade);
 			return;
 		}
 		
@@ -194,7 +193,7 @@ public abstract class TitleScreenMixin extends Screen
 			return;
 		
 		int minButtonY = Integer.MAX_VALUE;
-		for(AbstractWidget widget : Screens.getWidgets(this))
+		for(AbstractWidget widget : Screens.getButtons(this))
 		{
 			if(widget == null)
 				continue;

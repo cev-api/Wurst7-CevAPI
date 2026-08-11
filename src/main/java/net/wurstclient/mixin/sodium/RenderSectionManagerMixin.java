@@ -23,7 +23,7 @@ import net.wurstclient.events.VisGraphListener.VisGraphEvent;
 @Pseudo
 @Mixin(
 	targets = "net.caffeinemc.mods.sodium.client.render.chunk.occlusion.OcclusionCuller")
-public class OcclusionCullerMixin
+public class RenderSectionManagerMixin
 {
 	/**
 	 * Makes VisGraphEvent work when Sodium is installed. Sodium replaces

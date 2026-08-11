@@ -27,6 +27,6 @@ public final class KeymapCmd extends Command
 		if(args.length != 0)
 			throw new CmdSyntaxError();
 		
-		MC.gui.setScreen(new KeyboardBindsScreen(MC.gui.screen()));
+		MC.setScreen(new KeyboardBindsScreen(MC.screen));
 	}
 }

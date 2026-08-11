@@ -10,6 +10,9 @@ package net.wurstclient.altmanager.screens;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -43,7 +46,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -60,9 +63,14 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
 import net.minecraft.util.Util;
 import net.wurstclient.WurstClient;
+import net.wurstclient.altbot.AltBotManager;
+import net.wurstclient.altbot.AltBotState;
+import net.wurstclient.altbot.BotState;
 import net.wurstclient.altmanager.*;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.mixinterface.IMinecraftClient;
+import net.wurstclient.proxy.SocksProxy;
+import net.wurstclient.proxy.ProxyManagerScreen;
 import net.wurstclient.util.MultiProcessingUtils;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.util.json.JsonUtils;
@@ -70,6 +78,8 @@ import net.wurstclient.util.json.WsonObject;
 
 public final class AltManagerScreen extends Screen
 {
+	private static final DateTimeFormatter VALIDATED_FORMAT = DateTimeFormatter
+		.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.systemDefault());
 	private static final HashSet<Alt> failedLogins = new HashSet<>();
 	private static final LinkedHashMap<Alt, String> failedLoginReasons =
 		new LinkedHashMap<>();
@@ -90,9 +100,17 @@ public final class AltManagerScreen extends Screen
 	
 	private Button importButton;
 	private Button exportButton;
-	private Button disconnectRandomReconnectToggleButton;
+	private Button autoRespawnButton;
 	private Button checkButton;
 	private Button logoutButton;
+	
+	private Button botConnectButton;
+	private Button botProxyButton;
+	private Button botDisconnectButton;
+	private Button botSwitchButton;
+	private Button botSendChatButton;
+	private Button botDetailsButton;
+	private int botButtonRefreshTicks;
 	
 	private List<Alt> pendingDeletion = Collections.emptyList();
 	private Alt pendingLogin;
@@ -101,6 +119,7 @@ public final class AltManagerScreen extends Screen
 	private final HashSet<Alt> checkingAlts = new HashSet<>();
 	private volatile boolean importInProgress;
 	private volatile boolean importPrismInProgress;
+	private volatile boolean exportInProgress;
 	private volatile String importStatus = "";
 	private volatile int importDone;
 	private volatile int importTotal;
@@ -143,7 +162,7 @@ public final class AltManagerScreen extends Screen
 			
 			AlertScreen screen =
 				new AlertScreen(action, title, message, buttonText, false);
-			minecraft.gui.setScreen(screen);
+			minecraft.setScreen(screen);
 			
 		}else if(altManager.getList().isEmpty() && shouldAsk)
 		{
@@ -154,7 +173,7 @@ public final class AltManagerScreen extends Screen
 			BooleanConsumer callback = this::confirmGenerate;
 			
 			ConfirmScreen screen = new ConfirmScreen(callback, title, message);
-			minecraft.gui.setScreen(screen);
+			minecraft.setScreen(screen);
 		}
 		
 		addRenderableWidget(useButton =
@@ -167,14 +186,15 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
-				b -> minecraft.gui.setScreen(new DirectLoginScreen(this)))
+				b -> minecraft.setScreen(new DirectLoginScreen(this)))
 			.bounds(width / 2 - 50, height - 52, 100, 20).build());
 		
-		addRenderableWidget(Button
-			.builder(Component.literal("Add"),
-				b -> minecraft.gui
-					.setScreen(new AddAltScreen(this, altManager)))
-			.bounds(width / 2 + 54, height - 52, 100, 20).build());
+		addRenderableWidget(
+			Button
+				.builder(Component.literal("Add"),
+					b -> minecraft
+						.setScreen(new AddAltScreen(this, altManager)))
+				.bounds(width / 2 + 54, height - 52, 100, 20).build());
 		
 		addRenderableWidget(starButton =
 			Button.builder(Component.literal("Favorite"), b -> pressFavorite())
@@ -190,25 +210,20 @@ public final class AltManagerScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 + 80, height - 28, 75, 20).build());
 		
 		addRenderableWidget(importButton =
 			Button.builder(Component.literal("Import"), b -> pressImportAlts())
 				.bounds(8, 8, 50, 20).build());
 		
-		addRenderableWidget(exportButton =
-			Button.builder(Component.literal("Export"), b -> pressExportAlts())
-				.bounds(58, 8, 50, 20).build());
+		addRenderableWidget(exportButton = Button
+			.builder(Component.literal("Export"), b -> pressExportFormat())
+			.bounds(58, 8, 50, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Import Prism"), b -> pressImportPrism())
 			.bounds(112, 8, 80, 20).build());
-		
-		addRenderableWidget(disconnectRandomReconnectToggleButton = Button
-			.builder(getDisconnectRandomReconnectLabel(),
-				b -> pressToggleDisconnectRandomReconnect())
-			.bounds(198, 8, 170, 20).build());
 		
 		addRenderableWidget(checkButton =
 			Button.builder(Component.literal("Check"), b -> pressCheckAlts())
@@ -217,6 +232,37 @@ public final class AltManagerScreen extends Screen
 		addRenderableWidget(logoutButton =
 			Button.builder(Component.literal("Logout"), b -> pressLogout())
 				.bounds(width - 50 - 8, 8, 50, 20).build());
+		
+		// ---- AltBot controls ----
+		int botX = width / 2 - 206;
+		addRenderableWidget(botConnectButton = Button
+			.builder(Component.literal("Connect Bot"), b -> pressBotConnect())
+			.bounds(botX, height - 100, 100, 20).build());
+		
+		addRenderableWidget(autoRespawnButton =
+			Button.builder(getAutoRespawnLabel(), b -> pressToggleAutoRespawn())
+				.bounds(botX + 104, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botDisconnectButton = Button
+			.builder(Component.literal("Disconnect Bot"),
+				b -> pressBotDisconnect())
+			.bounds(botX + 208, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botProxyButton =
+			Button.builder(getBotProxyLabel(), b -> pressBotProxyMode())
+				.bounds(botX + 312, height - 100, 100, 20).build());
+		
+		addRenderableWidget(botSwitchButton = Button
+			.builder(Component.literal("Switch To"), b -> pressBotSwitch())
+			.bounds(botX + 52, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botSendChatButton = Button
+			.builder(Component.literal("Send Chat"), b -> pressBotSendChat())
+			.bounds(botX + 156, height - 76, 100, 20).build());
+		
+		addRenderableWidget(botDetailsButton = Button
+			.builder(Component.literal("Bot Details"), b -> pressBotDetails())
+			.bounds(botX + 260, height - 76, 100, 20).build());
 		
 		updateAltButtons();
 		boolean windowMode = !minecraft.options.fullscreen().get();
@@ -231,7 +277,7 @@ public final class AltManagerScreen extends Screen
 			|| checkButton == null)
 			return;
 		
-		if(importInProgress || importPrismInProgress)
+		if(importInProgress || importPrismInProgress || exportInProgress)
 		{
 			useButton.active = false;
 			if(randomButton != null)
@@ -245,8 +291,7 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -264,8 +309,7 @@ public final class AltManagerScreen extends Screen
 				importButton.active = false;
 			if(exportButton != null)
 				exportButton.active = false;
-			if(disconnectRandomReconnectToggleButton != null)
-				disconnectRandomReconnectToggleButton.active = false;
+			setBotButtonsInactive();
 			return;
 		}
 		
@@ -294,25 +338,89 @@ public final class AltManagerScreen extends Screen
 			exportButton.active = !importInProgress && !importPrismInProgress
 				&& !minecraft.options.fullscreen().get();
 		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton.active = true;
+		updateBotButtons();
 	}
 	
-	private void pressToggleDisconnectRandomReconnect()
+	private void setBotButtonsInactive()
 	{
-		boolean enabled = !altManager.isDisconnectRandomAltReconnectEnabled();
-		altManager.setDisconnectRandomAltReconnectEnabled(enabled);
+		if(botConnectButton != null)
+			botConnectButton.active = false;
+		if(botDisconnectButton != null)
+			botDisconnectButton.active = false;
+		if(autoRespawnButton != null)
+			autoRespawnButton.active = false;
+		if(botSwitchButton != null)
+			botSwitchButton.active = false;
+		if(botSendChatButton != null)
+			botSendChatButton.active = false;
+		if(botDetailsButton != null)
+			botDetailsButton.active = false;
+		if(botProxyButton != null)
+			botProxyButton.active = false;
+	}
+	
+	private void updateBotButtons()
+	{
+		if(botConnectButton == null || botDisconnectButton == null
+			|| autoRespawnButton == null || botSwitchButton == null
+			|| botSendChatButton == null || botDetailsButton == null
+			|| botProxyButton == null)
+			return;
+		botProxyButton.setMessage(getBotProxyLabel());
+		botProxyButton.active = true;
 		
-		if(disconnectRandomReconnectToggleButton != null)
-			disconnectRandomReconnectToggleButton
-				.setMessage(getDisconnectRandomReconnectLabel());
+		Alt alt = listGui != null ? listGui.getSelectedAlt() : null;
+		boolean hasToken = alt instanceof TokenAlt;
+		TokenAlt token = hasToken ? (TokenAlt)alt : null;
+		
+		AltBotManager botManager = WurstClient.INSTANCE.getAltBotManager();
+		boolean switchBusy =
+			WurstClient.INSTANCE.getAltSwitchController().isBusy();
+		boolean onServer = net.wurstclient.altbot.AltBotUtils.isOnServer();
+		boolean botStateFailed = hasToken && token != null
+			&& botManager.getState(token).getState() == BotState.FAILED;
+		
+		botConnectButton.active = hasToken && token != null && onServer
+			&& !botManager.isActiveClientAlt(token)
+			&& !botManager.isBotConnected(token) && !switchBusy;
+		
+		botDisconnectButton.active = hasToken && token != null
+			&& (botManager.isBotConnected(token) || botStateFailed);
+		autoRespawnButton.active = true;
+		autoRespawnButton.setMessage(getAutoRespawnLabel());
+		
+		botSwitchButton.active = hasToken && token != null
+			&& !botManager.isActiveClientAlt(token) && !switchBusy;
+		
+		botSendChatButton.active =
+			hasToken && token != null && botManager.isBotReady(token);
+		
+		botDetailsButton.active = hasToken;
 	}
 	
-	private Component getDisconnectRandomReconnectLabel()
+	@Override
+	public void tick()
 	{
-		return Component.literal("Toggle Random Reconnect: "
-			+ (altManager.isDisconnectRandomAltReconnectEnabled() ? "ON"
-				: "OFF"));
+		if(--botButtonRefreshTicks <= 0)
+		{
+			botButtonRefreshTicks = 10;
+			updateAltButtons();
+		}
+	}
+	
+	private void pressToggleAutoRespawn()
+	{
+		AltBotManager manager = WurstClient.INSTANCE.getAltBotManager();
+		manager.setAutoRespawnEnabled(!manager.isAutoRespawnEnabled());
+		if(autoRespawnButton != null)
+			autoRespawnButton.setMessage(getAutoRespawnLabel());
+	}
+	
+	private Component getAutoRespawnLabel()
+	{
+		return Component.literal("Auto Respawn: "
+			+ (WurstClient.INSTANCE.getAltBotManager().isAutoRespawnEnabled()
+				? "ON" : "OFF"));
 	}
 	
 	@Override
@@ -348,7 +456,7 @@ public final class AltManagerScreen extends Screen
 			Component.literal("Log in as \"" + alt.getDisplayName() + "\"?");
 		ConfirmScreen screen = new ConfirmScreen(this::confirmLogin, text,
 			message, Component.literal("Login"), Component.literal("Cancel"));
-		minecraft.gui.setScreen(screen);
+		minecraft.setScreen(screen);
 	}
 	
 	private void confirmLogin(boolean confirmed)
@@ -358,23 +466,40 @@ public final class AltManagerScreen extends Screen
 		
 		if(!confirmed || alt == null)
 		{
-			minecraft.gui.setScreen(this);
+			minecraft.setScreen(this);
 			return;
 		}
 		
+		// If this account is connected as a bot, disconnect it first so we
+		// don't end up with a duplicate session on the server.
+		if(alt instanceof TokenAlt tokenAlt
+			&& WurstClient.INSTANCE.getAltBotManager().isBotConnected(tokenAlt))
+		{
+			minecraft.setScreen(this);
+			net.wurstclient.util.ChatUtils.message("Disconnecting bot \""
+				+ tokenAlt.getDisplayName() + "\" before logging in...");
+			WurstClient.INSTANCE.getAltBotManager().disconnectBot(tokenAlt,
+				() -> doLogin(alt));
+			return;
+		}
+		
+		doLogin(alt);
+	}
+	
+	private void doLogin(Alt alt)
+	{
 		try
 		{
 			altManager.login(alt);
 			clearLoginFailure(alt);
-			minecraft.gui.setScreen(new AltLoginSuccessScreen(prevScreen,
+			minecraft.setScreen(new AltLoginSuccessScreen(prevScreen,
 				minecraft.getUser().getName()));
 			
 		}catch(LoginException e)
 		{
 			errorTimer = 8;
 			recordLoginFailure(alt, e);
-			minecraft.gui
-				.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
+			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
 	}
 	
@@ -427,8 +552,8 @@ public final class AltManagerScreen extends Screen
 					minecraft.execute(() -> {
 						randomLoginInProgress = false;
 						updateAltButtons();
-						if(minecraft.gui.screen() == this)
-							minecraft.gui.setScreen(
+						if(minecraft.screen == this)
+							minecraft.setScreen(
 								new AltLoginSuccessScreen(prevScreen, name));
 					});
 					return;
@@ -450,8 +575,8 @@ public final class AltManagerScreen extends Screen
 			minecraft.execute(() -> {
 				randomLoginInProgress = false;
 				updateAltButtons();
-				if(minecraft.gui.screen() == this)
-					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
+				if(minecraft.screen == this)
+					minecraft.setScreen(new AltLoginFailedScreen(this,
 						"Random login failed for all accounts."));
 			});
 			
@@ -475,8 +600,73 @@ public final class AltManagerScreen extends Screen
 		restored = restored && matchesOriginal;
 		
 		updateAltButtons();
-		minecraft.gui
+		minecraft
 			.setScreen(new AltLogoutResultScreen(this, restored, currentName));
+	}
+	
+	private void pressBotConnect()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		AltBotManager botManager = WurstClient.INSTANCE.getAltBotManager();
+		if(botManager.getBotProxyMode() == AltBotManager.BotProxyMode.SELECTED)
+		{
+			minecraft.setScreen(new ProxyManagerScreen(this,
+				WurstClient.INSTANCE.getProxyManager(), proxy -> botManager
+					.connectBotToCurrentServer(tokenAlt, proxy)));
+			return;
+		}
+		botManager.connectBotToCurrentServer(tokenAlt);
+	}
+	
+	private void pressBotProxyMode()
+	{
+		WurstClient.INSTANCE.getAltBotManager().cycleBotProxyMode();
+		updateAltButtons();
+	}
+	
+	private Component getBotProxyLabel()
+	{
+		return Component.literal("Bot Proxy: "
+			+ WurstClient.INSTANCE.getAltBotManager().getBotProxyMode());
+	}
+	
+	private void pressBotDisconnect()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		WurstClient.INSTANCE.getAltBotManager().disconnectBot(tokenAlt);
+	}
+	
+	private void pressBotSwitch()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		WurstClient.INSTANCE.getAltSwitchController().startSwitch(tokenAlt);
+	}
+	
+	private void pressBotSendChat()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		minecraft.setScreen(new AltBotSendChatScreen(this, tokenAlt));
+	}
+	
+	private void pressBotDetails()
+	{
+		Alt alt = listGui.getSelectedAlt();
+		if(!(alt instanceof TokenAlt tokenAlt))
+			return;
+		
+		minecraft.setScreen(new AltBotDetailsScreen(this, tokenAlt));
 	}
 	
 	private void pressCheckAlts()
@@ -505,14 +695,34 @@ public final class AltManagerScreen extends Screen
 		prioritized.addAll(unchecked);
 		prioritized.addAll(failed);
 		
+		List<Alt> firstPhase = List.copyOf(prioritized);
+		List<Alt> secondPhase = List.copyOf(remaining);
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(!proxies.isEmpty())
+		{
+			minecraft.setScreen(new ConfirmScreen(useProxies -> {
+				minecraft.setScreen(this);
+				startAutoCheck(firstPhase, secondPhase,
+					useProxies ? proxies : Collections.emptyList());
+			}, Component.literal("Use configured proxies?"),
+				Component.literal("Wurst has " + proxies.size() + " proxy entr"
+					+ (proxies.size() == 1 ? "y" : "ies")
+					+ " configured. Use them for account checks?")));
+			return;
+		}
+		
+		startAutoCheck(firstPhase, secondPhase, proxies);
+	}
+	
+	private void startAutoCheck(List<Alt> firstPhase, List<Alt> secondPhase,
+		List<SocksProxy> proxies)
+	{
 		autoCheckInProgress = true;
 		updateAltButtons();
 		
-		List<Alt> firstPhase = List.copyOf(prioritized);
-		List<Alt> secondPhase = List.copyOf(remaining);
-		Thread thread =
-			new Thread(() -> runAutoCheckAndDedupe(firstPhase, secondPhase),
-				"Wurst Alt Auto-Check");
+		Thread thread = new Thread(
+			() -> runAutoCheckAndDedupe(firstPhase, secondPhase, proxies),
+			"Wurst Alt Auto-Check");
 		thread.setDaemon(true);
 		thread.start();
 	}
@@ -526,7 +736,7 @@ public final class AltManagerScreen extends Screen
 		CountDownLatch latch = new CountDownLatch(1);
 		
 		minecraft.execute(() -> {
-			if(minecraft.gui.screen() != this)
+			if(minecraft.screen != this)
 			{
 				latch.countDown();
 				return;
@@ -540,11 +750,11 @@ public final class AltManagerScreen extends Screen
 					+ (remainingCount == 1 ? "?" : "s?"));
 			ConfirmScreen screen = new ConfirmScreen(confirmed -> {
 				result.set(confirmed);
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 				latch.countDown();
 			}, title, message, Component.literal("Continue"),
 				Component.literal("Stop"));
-			minecraft.gui.setScreen(screen);
+			minecraft.setScreen(screen);
 		});
 		
 		try
@@ -581,13 +791,33 @@ public final class AltManagerScreen extends Screen
 			return;
 		}
 		
-		minecraft.gui.setScreen(new EditAltScreen(this, altManager, alt));
+		minecraft.setScreen(new EditAltScreen(this, altManager, alt));
 	}
 	
 	private void validateTokenAltBeforeEditing(TokenAlt tokenAlt)
 	{
 		if(editValidationInProgress)
 			return;
+		
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(proxies.isEmpty())
+		{
+			startTokenAltValidation(tokenAlt, null);
+			return;
+		}
+		
+		minecraft.setScreen(new ConfirmScreen(useProxies -> {
+			minecraft.setScreen(this);
+			startTokenAltValidation(tokenAlt,
+				useProxies ? proxies.get(0) : null);
+		}, Component.literal("Use configured proxies?"),
+			Component.literal("Wurst has " + proxies.size() + " proxy entr"
+				+ (proxies.size() == 1 ? "y" : "ies")
+				+ " configured. Use one for this token check?")));
+	}
+	
+	private void startTokenAltValidation(TokenAlt tokenAlt, SocksProxy proxy)
+	{
 		
 		editValidationInProgress = true;
 		editValidationStatus = "Validating token account...";
@@ -596,13 +826,13 @@ public final class AltManagerScreen extends Screen
 		Thread thread = new Thread(() -> {
 			try
 			{
-				MinecraftProfile profile = MicrosoftLoginManager
-					.authenticateTokenAltWithoutSession(tokenAlt.getToken(),
-						tokenAlt.getRefreshToken(), tokenAlt.getClientId());
+				MinecraftProfile profile =
+					tokenAlt.authenticateWithoutSession(proxy);
 				
 				minecraft.execute(() -> {
 					editValidationInProgress = false;
 					editValidationStatus = "";
+					altManager.saveTokenAlt(tokenAlt);
 					
 					String resolvedName = profile.getName();
 					if(resolvedName != null && !resolvedName.isBlank())
@@ -611,8 +841,8 @@ public final class AltManagerScreen extends Screen
 						AltRenderer.refreshSkin(resolvedName);
 					}
 					
-					if(minecraft.gui.screen() == this)
-						minecraft.gui.setScreen(
+					if(minecraft.screen == this)
+						minecraft.setScreen(
 							new EditTokenAltScreen(this, altManager, tokenAlt));
 				});
 				
@@ -627,7 +857,7 @@ public final class AltManagerScreen extends Screen
 					String details =
 						e.getMessage() == null || e.getMessage().isBlank()
 							? "Unknown error" : e.getMessage();
-					minecraft.gui.setScreen(new AltLoginFailedScreen(this,
+					minecraft.setScreen(new AltLoginFailedScreen(this,
 						"Token validation failed: " + details));
 				});
 			}
@@ -635,6 +865,11 @@ public final class AltManagerScreen extends Screen
 		
 		thread.setDaemon(true);
 		thread.start();
+	}
+	
+	private List<SocksProxy> getTokenCheckProxies()
+	{
+		return WurstClient.INSTANCE.getProxyManager().getProxies();
 	}
 	
 	private void pressDelete()
@@ -663,7 +898,7 @@ public final class AltManagerScreen extends Screen
 		
 		ConfirmScreen screen = new ConfirmScreen(this::confirmRemove, text,
 			message, Component.literal("Delete"), Component.literal("Cancel"));
-		minecraft.gui.setScreen(screen);
+		minecraft.setScreen(screen);
 	}
 	
 	private void pressImportAlts()
@@ -743,7 +978,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.gui.screen() == this)
+					if(minecraft.screen == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -806,7 +1041,7 @@ public final class AltManagerScreen extends Screen
 						altManager.addAll(result.toAdd);
 					
 					altManager.dedupeByUsernamePreferRefreshToken();
-					if(minecraft.gui.screen() == this)
+					if(minecraft.screen == this)
 						reloadScreen();
 					
 					importStatus = "Imported " + result.addedCount + " of "
@@ -966,9 +1201,11 @@ public final class AltManagerScreen extends Screen
 				String token = data[1];
 				String refreshToken = data[2];
 				String name = data[3];
+				String clientId = data.length >= 5 ? data[4] : "";
 				
 				if(!token.isEmpty() || !refreshToken.isEmpty())
-					alts.add(new TokenAlt(token, refreshToken, name, false));
+					alts.add(new TokenAlt(token, refreshToken, name, false,
+						clientId));
 				
 				continue;
 			}
@@ -980,7 +1217,10 @@ public final class AltManagerScreen extends Screen
 				break;
 				
 				case 2:
-				alts.add(new MojangAlt(data[0], data[1]));
+				if(isTokenCredential(data[1]))
+					alts.add(new TokenAlt("", data[1], data[0], false));
+				else
+					alts.add(new MojangAlt(data[0], data[1]));
 				break;
 			}
 		}
@@ -998,7 +1238,15 @@ public final class AltManagerScreen extends Screen
 		if(line.startsWith("M.") && line.length() > 20)
 			return true;
 		
-		return line.startsWith("e") && line.length() > 80;
+		return (line.startsWith("e") || line.startsWith("Ew"))
+			&& line.length() > 80;
+	}
+	
+	private boolean isTokenCredential(String value)
+	{
+		String trimmed = value == null ? "" : value.trim();
+		return trimmed.startsWith("M.") || trimmed.startsWith("eyJ")
+			|| trimmed.startsWith("Ew");
 	}
 	
 	private List<Alt> resolveRawTokenLines(List<String> lines,
@@ -1024,11 +1272,14 @@ public final class AltManagerScreen extends Screen
 				setImportProgressCounts("Resolving tokens", done, total);
 				
 				boolean isRefreshToken = tokenLine.startsWith("M.");
+				String resolvedToken = tokenLine;
 				
 				try
 				{
 					if(isRefreshToken)
-						MicrosoftLoginManager.loginWithRefreshToken(tokenLine);
+						resolvedToken = MicrosoftLoginManager
+							.loginWithRefreshTokenAndGetUpdatedToken(tokenLine,
+								null);
 					else
 						MicrosoftLoginManager.loginWithToken(tokenLine);
 					
@@ -1036,14 +1287,14 @@ public final class AltManagerScreen extends Screen
 					if(name == null || name.isEmpty())
 					{
 						unresolved.add(isRefreshToken
-							? new TokenAlt("", tokenLine, "", false)
+							? new TokenAlt("", resolvedToken, "", false)
 							: new TokenAlt(tokenLine, "", "", false));
 						continue;
 					}
 					
 					String key = name.toLowerCase(Locale.ROOT);
 					TokenAlt importedAlt = isRefreshToken
-						? new TokenAlt("", tokenLine, name, false)
+						? new TokenAlt("", resolvedToken, name, false)
 						: new TokenAlt(tokenLine, "", name, false);
 					
 					TokenAlt existing = byName.get(key);
@@ -1158,11 +1409,12 @@ public final class AltManagerScreen extends Screen
 	}
 	
 	private void runAutoCheckAndDedupe(List<Alt> prioritized,
-		List<Alt> remaining)
+		List<Alt> remaining, List<SocksProxy> proxies)
 	{
 		IMinecraftClient imc = (IMinecraftClient)minecraft;
 		User previousSession = imc.getWurstSession();
 		boolean changed = false;
+		int proxyIndex = 0;
 		
 		try
 		{
@@ -1174,7 +1426,18 @@ public final class AltManagerScreen extends Screen
 				setChecking(alt, true);
 				try
 				{
-					altManager.login(alt);
+					SocksProxy proxy =
+						nextTokenCheckProxy(alt, proxies, proxyIndex);
+					if(alt instanceof TokenAlt)
+						proxyIndex++;
+					MicrosoftLoginManager.setAuthenticationProxy(proxy);
+					try
+					{
+						altManager.login(alt);
+					}finally
+					{
+						MicrosoftLoginManager.clearAuthenticationProxy();
+					}
 					clearLoginFailure(alt);
 					changed = true;
 					
@@ -1204,7 +1467,19 @@ public final class AltManagerScreen extends Screen
 						setChecking(alt, true);
 						try
 						{
-							altManager.login(alt);
+							SocksProxy proxy =
+								nextTokenCheckProxy(alt, proxies, proxyIndex);
+							if(alt instanceof TokenAlt)
+								proxyIndex++;
+							MicrosoftLoginManager.setAuthenticationProxy(proxy);
+							try
+							{
+								altManager.login(alt);
+							}finally
+							{
+								MicrosoftLoginManager
+									.clearAuthenticationProxy();
+							}
 							clearLoginFailure(alt);
 							changed = true;
 							
@@ -1229,16 +1504,24 @@ public final class AltManagerScreen extends Screen
 			imc.setWurstSession(previousSession);
 			autoCheckInProgress = false;
 			minecraft.execute(() -> {
-				if(minecraft.gui.screen() == this)
+				if(minecraft.screen == this)
 					updateAltButtons();
 			});
 		}
 		
 		if(changed)
 			minecraft.execute(() -> {
-				if(minecraft.gui.screen() == this)
+				if(minecraft.screen == this)
 					reloadScreen();
 			});
+	}
+	
+	private SocksProxy nextTokenCheckProxy(Alt alt, List<SocksProxy> proxies,
+		int index)
+	{
+		if(!(alt instanceof TokenAlt) || proxies.isEmpty())
+			return null;
+		return proxies.get(index % proxies.size());
 	}
 	
 	private void setChecking(Alt alt, boolean checking)
@@ -1330,13 +1613,13 @@ public final class AltManagerScreen extends Screen
 	
 	private void reloadScreen()
 	{
-		minecraft.gui.setScreen(new AltManagerScreen(prevScreen, altManager));
+		minecraft.setScreen(new AltManagerScreen(prevScreen, altManager));
 	}
 	
 	private boolean isOpenScreen()
 	{
 		return !autoCheckCancelled && minecraft != null
-			&& minecraft.gui.screen() == this;
+			&& minecraft.screen == this;
 	}
 	
 	private boolean hasUncheckedPremiumAlts()
@@ -1345,19 +1628,33 @@ public final class AltManagerScreen extends Screen
 			.anyMatch(alt -> !alt.isCracked() && alt.isUncheckedPremium());
 	}
 	
-	private void pressExportAlts()
+	private void pressExportFormat()
+	{
+		if(exportInProgress)
+			return;
+		
+		minecraft.setScreen(
+			new ExportTokenFormatScreen(this, this::pressExportAlts));
+	}
+	
+	private void pressExportAlts(ExportTokenFormatScreen.Format format)
 	{
 		try
 		{
 			Process process = MultiProcessingUtils.startProcessWithIO(
 				ExportAltsFileChooser.class,
-				WurstClient.INSTANCE.getWurstFolder().toString());
+				WurstClient.INSTANCE.getWurstFolder().toString(),
+				format.getFileChooserArgument());
 			
 			Path path = getFileChooserPath(process);
 			
 			process.waitFor();
 			
-			if(path.getFileName().toString().endsWith(".json"))
+			if(format == ExportTokenFormatScreen.Format.REFRESH_TOKENS)
+				exportRefreshTokens(path);
+			else if(format == ExportTokenFormatScreen.Format.ACCESS_TOKENS)
+				promptAccessTokenExport(path);
+			else if(path.getFileName().toString().endsWith(".json"))
 				exportAsJSON(path);
 			else
 				exportAsTXT(path);
@@ -1407,6 +1704,121 @@ public final class AltManagerScreen extends Screen
 		Files.write(path, lines);
 	}
 	
+	private void exportRefreshTokens(Path path) throws IOException
+	{
+		List<String> refreshTokens = new ArrayList<>();
+		
+		for(Alt alt : altManager.getList())
+		{
+			if(!(alt instanceof TokenAlt tokenAlt))
+				continue;
+			
+			String refreshToken = tokenAlt.getRefreshToken();
+			if(!refreshToken.isEmpty())
+				refreshTokens.add(refreshToken);
+		}
+		
+		Files.write(path, refreshTokens, StandardCharsets.UTF_8);
+	}
+	
+	private void promptAccessTokenExport(Path path)
+	{
+		List<SocksProxy> proxies = getTokenCheckProxies();
+		if(proxies.isEmpty())
+		{
+			exportAccessTokens(path, proxies);
+			return;
+		}
+		
+		minecraft.setScreen(new ConfirmScreen(useProxies -> {
+			minecraft.setScreen(this);
+			exportAccessTokens(path,
+				useProxies ? proxies : Collections.emptyList());
+		}, Component.literal("Use configured proxies?"),
+			Component.literal("Wurst has " + proxies.size() + " proxy entr"
+				+ (proxies.size() == 1 ? "y" : "ies")
+				+ " configured. Use them round-robin for token checks?")));
+	}
+	
+	private void exportAccessTokens(Path path, List<SocksProxy> proxies)
+	{
+		if(exportInProgress)
+			return;
+		
+		exportInProgress = true;
+		importStatus = "Exporting fresh access tokens...";
+		updateAltButtons();
+		
+		Thread thread = new Thread(() -> {
+			ArrayList<String> tokens = new ArrayList<>();
+			ArrayList<TokenAlt> authenticatedAlts = new ArrayList<>();
+			int failures = 0;
+			
+			int checked = 0;
+			for(Alt alt : altManager.getList())
+			{
+				if(!(alt instanceof TokenAlt tokenAlt))
+					continue;
+				
+				try
+				{
+					SocksProxy proxy = proxies.isEmpty() ? null
+						: proxies.get(checked % proxies.size());
+					checked++;
+					MinecraftProfile profile =
+						tokenAlt.authenticateWithoutSession(proxy);
+					tokens.add(profile.getAccessToken());
+					authenticatedAlts.add(tokenAlt);
+					
+				}catch(LoginException e)
+				{
+					failures++;
+				}
+			}
+			
+			try
+			{
+				if(tokens.isEmpty())
+					throw new IOException(
+						"None of the token accounts could provide an access token.");
+				
+				Files.write(path, tokens, StandardCharsets.UTF_8);
+				int exported = tokens.size();
+				int failed = failures;
+				minecraft.execute(() -> {
+					for(TokenAlt tokenAlt : authenticatedAlts)
+						altManager.saveTokenAlt(tokenAlt);
+					finishAccessTokenExport(exported, failed, null);
+				});
+				
+			}catch(IOException e)
+			{
+				int failed = failures;
+				minecraft.execute(() -> {
+					for(TokenAlt tokenAlt : authenticatedAlts)
+						altManager.saveTokenAlt(tokenAlt);
+					finishAccessTokenExport(0, failed, e);
+				});
+			}
+		}, "Wurst Access Token Export");
+		thread.setDaemon(true);
+		thread.start();
+	}
+	
+	private void finishAccessTokenExport(int exported, int failures,
+		IOException error)
+	{
+		exportInProgress = false;
+		if(error != null)
+			importStatus = "Access-token export failed: " + error.getMessage();
+		else
+			importStatus = "Exported " + exported + " fresh access token"
+				+ (exported == 1 ? "" : "s")
+				+ (failures == 0 ? "." : " (" + failures + " failed).");
+		
+		updateAltButtons();
+	}
+	
 	private void confirmGenerate(boolean confirmed)
 	{
 		if(confirmed)
@@ -1419,7 +1831,7 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		shouldAsk = false;
-		minecraft.gui.setScreen(this);
+		minecraft.setScreen(this);
 	}
 	
 	private void confirmRemove(boolean confirmed)
@@ -1427,18 +1839,19 @@ public final class AltManagerScreen extends Screen
 		if(confirmed)
 			pendingDeletion.forEach(alt -> {
 				clearLoginFailure(alt);
+				WurstClient.INSTANCE.getAltBotManager().onAltRemoved(alt);
 				altManager.remove(alt);
 			});
 		
 		pendingDeletion = Collections.emptyList();
-		minecraft.gui.setScreen(this);
+		minecraft.setScreen(this);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
 		// skin preview
 		Alt alt = listGui.getSelectedAlt();
@@ -1452,27 +1865,33 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		// title text
-		context.centeredText(font, "Alt Manager", width / 2, 4,
+		context.drawCenteredString(font, "Alt Manager", width / 2, 4,
 			CommonColors.WHITE);
-		context.centeredText(font, "Alts: " + altManager.getList().size(),
+		context.drawCenteredString(font, "Alts: " + altManager.getList().size(),
 			width / 2, 14, CommonColors.LIGHT_GRAY);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"premium: " + altManager.getNumPremium() + ", cracked: "
 				+ altManager.getNumCracked(),
 			width / 2, 24, CommonColors.LIGHT_GRAY);
 		
 		if(!importStatus.isEmpty())
-			context.centeredText(font, importStatus, width / 2, 42,
+			context.drawCenteredString(font, importStatus, width / 2, 42,
 				importInProgress ? 0xFFFF55 : CommonColors.LIGHT_GRAY);
 		
 		if(editValidationInProgress && !editValidationStatus.isBlank())
-			context.centeredText(font, editValidationStatus, width / 2, 58,
-				0xFFFF55);
+			context.drawCenteredString(font, editValidationStatus, width / 2,
+				58, 0xFFFF55);
 		
 		if(((IMinecraftClient)minecraft).getWurstSession() != null)
-			context.centeredText(font,
+			context.drawCenteredString(font,
 				"Logged in as " + minecraft.getUser().getName(), width / 2, 50,
 				0x55FF55);
+		
+		if(WurstClient.INSTANCE.getAltSwitchController().isBusy())
+			context.drawCenteredString(font,
+				"Switch: "
+					+ WurstClient.INSTANCE.getAltSwitchController().getStatus(),
+				width / 2, 66, 0xFFFF55);
 		
 		// red flash for errors
 		if(errorTimer > 0)
@@ -1484,20 +1903,21 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
 		renderImportOverlay(context);
 		renderAltTooltip(context, mouseX, mouseY);
 	}
 	
-	private void renderImportOverlay(GuiGraphicsExtractor context)
+	private void renderImportOverlay(GuiGraphics context)
 	{
-		if(!importInProgress && !importPrismInProgress)
+		if(!importInProgress && !importPrismInProgress && !exportInProgress)
 			return;
 		
 		int now = (int)(Util.getMillis() / 450L);
 		String dots = ".".repeat(Math.max(1, (now % 3) + 1));
-		String headline = "Loading accounts" + dots;
+		String headline = exportInProgress ? "Exporting access tokens" + dots
+			: "Loading accounts" + dots;
 		String status = importStatus == null || importStatus.isBlank()
 			? "Please wait..." : importStatus;
 		String counts = "";
@@ -1523,18 +1943,18 @@ public final class AltManagerScreen extends Screen
 		context.fill(x1, y1, x1 + 1, y2, 0xFF5FA3FF);
 		context.fill(x2 - 1, y1, x2, y2, 0xFF5FA3FF);
 		
-		context.centeredText(font, headline, width / 2, y1 + 16,
+		context.drawCenteredString(font, headline, width / 2, y1 + 16,
 			CommonColors.WHITE);
-		context.centeredText(font, status, width / 2, y1 + 34, 0xFFFFAA);
+		context.drawCenteredString(font, status, width / 2, y1 + 34, 0xFFFFAA);
 		if(!counts.isBlank())
-			context.centeredText(font, counts, width / 2, y1 + 50, 0xFFA8D0FF);
-		context.centeredText(font,
+			context.drawCenteredString(font, counts, width / 2, y1 + 50,
+				0xFFA8D0FF);
+		context.drawCenteredString(font,
 			"Import/Export/Login controls are temporarily disabled.", width / 2,
 			importHasCounts ? y1 + 68 : y1 + 54, CommonColors.LIGHT_GRAY);
 	}
 	
-	private void renderAltTooltip(GuiGraphicsExtractor context, int mouseX,
-		int mouseY)
+	private void renderAltTooltip(GuiGraphics context, int mouseX, int mouseY)
 	{
 		if(!listGui.isMouseOver(mouseX, mouseY))
 			return;
@@ -1560,7 +1980,7 @@ public final class AltManagerScreen extends Screen
 			addTooltip(tooltip, "cracked");
 		else
 		{
-			addTooltip(tooltip, "premium");
+			tooltip.add(Component.literal(alt.getCredentialType()));
 			
 			if(failedLogins.contains(alt))
 			{
@@ -1578,6 +1998,12 @@ public final class AltManagerScreen extends Screen
 		
 		if(alt.isFavorite())
 			addTooltip(tooltip, "favorite");
+		
+		if(alt.getLastValidatedAt() > 0)
+			tooltip.add(Component.literal("Last validated: " + VALIDATED_FORMAT
+				.format(Instant.ofEpochMilli(alt.getLastValidatedAt()))));
+		else
+			tooltip.add(Component.literal("Last validated: never"));
 		
 		context.setComponentTooltipForNextFrame(font, tooltip, mouseX, mouseY);
 	}
@@ -1603,7 +2029,7 @@ public final class AltManagerScreen extends Screen
 	public void onClose()
 	{
 		autoCheckCancelled = true;
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -1688,8 +2114,8 @@ public final class AltManagerScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -1713,17 +2139,18 @@ public final class AltManagerScreen extends Screen
 			Font tr = minecraft.font;
 			
 			// name / email
-			context.text(tr, "Name: " + alt.getDisplayName(), x + 31, y + 3,
-				CommonColors.LIGHT_GRAY, false);
+			context.drawString(tr, "Name: " + alt.getDisplayName(), x + 31,
+				y + 3, CommonColors.LIGHT_GRAY, false);
 			
 			// status
-			context.text(tr, getBottomText(), x + 31, y + 15,
+			context.drawString(tr, getBottomText(), x + 31, y + 15,
 				CommonColors.LIGHT_GRAY, false);
 		}
 		
 		private String getBottomText()
 		{
-			String text = alt.isCracked() ? "\u00a78cracked" : "\u00a72premium";
+			String text = alt.isCracked() ? "\u00a78cracked"
+				: "\u00a72" + alt.getCredentialType();
 			
 			if(alt.isFavorite())
 				text += "\u00a7r, \u00a7efavorite";
@@ -1739,7 +2166,55 @@ public final class AltManagerScreen extends Screen
 			else if(alt.isUncheckedPremium())
 				text += "\u00a7r, \u00a7cunchecked";
 			
+			// AltBot connection status
+			AltBotState botState =
+				WurstClient.INSTANCE.getAltBotManager().getState(alt);
+			if(botState.isActiveClient())
+				text += "\u00a7r, \u00a7aActive Client";
+			else
+			{
+				String botText = getBotStatusText(botState);
+				if(!botText.isEmpty())
+					text += "\u00a7r, " + botText;
+			}
+			
 			return text;
+		}
+		
+		private static String getBotStatusText(AltBotState state)
+		{
+			switch(state.getState())
+			{
+				case AUTHENTICATING:
+				return "\u00a7eAuthenticating";
+				
+				case CONNECTING:
+				return "\u00a7eConnecting";
+				
+				case LOGIN:
+				return "\u00a7eLogin";
+				
+				case CONFIGURING:
+				return "\u00a7eConfiguring";
+				
+				case PLAY:
+				return "\u00a72Connected to " + state.getServer();
+				
+				case DISCONNECTING:
+				return "\u00a7eDisconnecting";
+				
+				case FAILED:
+				{
+					String error = state.getLastError();
+					return "\u00a7cFailed" + (error == null || error.isBlank()
+						? "" : ": " + (error.length() > 40
+							? error.substring(0, 40) + "..." : error));
+				}
+				
+				case DISCONNECTED:
+				default:
+				return "";
+			}
 		}
 	}
 	
@@ -1763,7 +2238,7 @@ public final class AltManagerScreen extends Screen
 		public ListGui(Minecraft minecraft, AltManagerScreen screen,
 			List<Alt> list)
 		{
-			super(minecraft, screen.width, screen.height - 96, 36, 30);
+			super(minecraft, screen.width, screen.height - 140, 36, 30);
 			
 			screen.getDisplayedAlts(list).stream()
 				.map(alt -> new AltManagerScreen.Entry(this, alt))

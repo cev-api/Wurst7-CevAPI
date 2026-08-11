@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hud;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,6 +18,8 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,28 +27,29 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.Window;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.GuiMessage;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.gui.components.ComponentRenderUtils;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.ConfirmLinkScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.MessageSignature;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.network.chat.contents.PlainTextContents.LiteralContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import net.minecraft.network.chat.contents.ObjectContents;
 import net.minecraft.network.chat.contents.objects.PlayerSprite;
-import net.minecraft.network.chat.contents.objects.ObjectInfo;
 import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import net.minecraft.resources.Identifier;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.ClientChatOverlayHack;
 
@@ -73,6 +80,14 @@ public final class ClientMessageOverlay
 		Pattern.compile("^\\[[^\\]]{1,32}\\]\\s+\\[[^\\]]{1,32}\\]\\s+.+$");
 	private static final Pattern USERNAME_PATTERN =
 		Pattern.compile("[A-Za-z0-9_]{1,16}");
+	private static final Pattern EMOJI_SHORTCODE_PATTERN =
+		Pattern.compile(":([a-z0-9_+\\-]+):");
+	private static final Identifier EMOJI_FONT =
+		Identifier.fromNamespaceAndPath("wurst", "emoji");
+	private static final FontDescription EMOJI_FONT_DESCRIPTION =
+		new FontDescription.Resource(EMOJI_FONT);
+	private static final Map<String, String> EMOJI_SHORTCODES =
+		loadEmojiShortcodes();
 	private static final Pattern DISCORD_PREFIX_PATTERN =
 		Pattern.compile("^\\[Discord\\]\\s+.+$", Pattern.CASE_INSENSITIVE);
 	private static final ClientMessageOverlay INSTANCE =
@@ -104,6 +119,8 @@ public final class ClientMessageOverlay
 	private int lastWurstY1;
 	private int lastWurstX2;
 	private int lastWurstY2;
+	private int lastGuiWidth;
+	private int lastGuiHeight;
 	private boolean tabHeldForOverlay;
 	private List<LineClickTarget> lastMainClickTargets = List.of();
 	private List<LineClickTarget> lastWurstClickTargets = List.of();
@@ -232,9 +249,11 @@ public final class ClientMessageOverlay
 			return;
 		
 		boolean overMain =
-			hoveredMainPanel && totalLineCount > visibleLineCount;
+			isMouseOverPanelNow(lastMainX1, lastMainY1, lastMainX2, lastMainY2)
+				&& totalLineCount > visibleLineCount;
 		boolean overWurst =
-			hoveredWurstPanel && wurstTotalLineCount > wurstVisibleLineCount;
+			isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
+				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount;
 		if(!overMain && !overWurst)
 			return;
 		
@@ -266,10 +285,10 @@ public final class ClientMessageOverlay
 	
 	public boolean isControllingScrollEvents()
 	{
-		return isEnabled()
-			&& ((hoveredMainPanel && totalLineCount > visibleLineCount)
-				|| (hoveredWurstPanel
-					&& wurstTotalLineCount > wurstVisibleLineCount));
+		return isEnabled() && ((isMouseOverPanelNow(lastMainX1, lastMainY1,
+			lastMainX2, lastMainY2) && totalLineCount > visibleLineCount)
+			|| (isMouseOverPanelNow(lastWurstX1, lastWurstY1, lastWurstX2,
+				lastWurstY2) && wurstTotalLineCount > wurstVisibleLineCount));
 	}
 	
 	public void notifyVanillaChatMessage(Component message)
@@ -277,8 +296,13 @@ public final class ClientMessageOverlay
 		// No-op. Kept for ChatHudMixin compatibility.
 	}
 	
-	public void render(GuiGraphicsExtractor context)
+	public void render(GuiGraphics context)
 	{
+		// Hover state is only valid for the panel rendered during this frame.
+		// Clear it first so an expired/hidden overlay cannot keep consuming the
+		// mouse wheel and prevent vanilla hotbar selection.
+		clearHoverState();
+		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
 		
@@ -299,8 +323,8 @@ public final class ClientMessageOverlay
 		if(chatScale <= 0)
 			return;
 		
-		boolean chatOpen = WurstClient.MC.gui.screen() instanceof ChatScreen
-			|| tabHeldForOverlay;
+		boolean chatOpen =
+			WurstClient.MC.screen instanceof ChatScreen || tabHeldForOverlay;
 		int maxLines = hack.getMaxLines();
 		int maxWidth = Mth.floor(
 			ChatComponent.getWidth(WurstClient.MC.options.chatWidth().get())
@@ -391,7 +415,7 @@ public final class ClientMessageOverlay
 		handleLinkClicks(context, chatScale);
 	}
 	
-	private void handleDrag(GuiGraphicsExtractor context, int drawX, int drawY,
+	private void handleDrag(GuiGraphics context, int drawX, int drawY,
 		float width, float height, int wurstDrawY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel, float chatScale)
 	{
@@ -400,7 +424,7 @@ public final class ClientMessageOverlay
 		boolean overWurst = hasWurstPanel && isMouseOverPanel(context,
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 		
-		if(WurstClient.MC.gui.screen() == null)
+		if(WurstClient.MC.screen == null)
 		{
 			if(dragging)
 				commitDraggedOffset();
@@ -532,16 +556,141 @@ public final class ClientMessageOverlay
 	private Component prepareStoredMessage(Component message,
 		boolean wurstOnlyPanel)
 	{
+		Component prepared;
 		if(wurstOnlyPanel)
-			return applyDefaultTextColorIfEnabled(message);
+			prepared = applyDefaultTextColorIfEnabled(message);
+		else
+		{
+			Component normalized = normalizePlayerChatForDisplay(message);
+			prepared = normalized != null ? normalized
+				: shouldColorStoredUsername(message, false)
+					? prepareMessageForDisplay(message)
+					: applyDefaultTextColorIfEnabled(message);
+		}
 		
-		Component normalized = normalizePlayerChatForDisplay(message);
-		if(normalized != null)
-			return normalized;
+		return convertEmojiShortcodesIfEnabled(prepared);
+	}
+	
+	private Component convertEmojiShortcodesIfEnabled(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldConvertEmojis()
+			|| message == null)
+			return message;
 		
-		return shouldColorStoredUsername(message, false)
-			? prepareMessageForDisplay(message)
-			: applyDefaultTextColorIfEnabled(message);
+		return convertEmojiShortcodes(message);
+	}
+	
+	private static MutableComponent convertEmojiShortcodes(Component component)
+	{
+		MutableComponent result;
+		if(component.getContents() instanceof LiteralContents literal)
+			result = convertLiteralEmojiShortcodes(literal.text(),
+				component.getStyle());
+		else if(component
+			.getContents() instanceof TranslatableContents translatable)
+		{
+			Object[] args = translatable.getArgs();
+			Object[] converted = args == null ? new Object[0] : args.clone();
+			for(int i = 0; i < converted.length; i++)
+			{
+				if(converted[i] instanceof Component argument)
+					converted[i] = convertEmojiShortcodes(argument);
+				else if(converted[i] instanceof String text
+					&& EMOJI_SHORTCODE_PATTERN.matcher(text).find())
+					converted[i] = convertLiteralEmojiShortcodes(text,
+						component.getStyle());
+			}
+			result = Component.translatable(translatable.getKey(), converted);
+		}else
+			result = MutableComponent.create(component.getContents());
+		
+		result.setStyle(component.getStyle());
+		for(Component sibling : component.getSiblings())
+			result.append(convertEmojiShortcodes(sibling));
+		return result;
+	}
+	
+	private static MutableComponent convertLiteralEmojiShortcodes(String text,
+		Style style)
+	{
+		MutableComponent result = Component.empty().withStyle(style);
+		Matcher matcher = EMOJI_SHORTCODE_PATTERN.matcher(text);
+		int start = 0;
+		while(matcher.find())
+		{
+			if(matcher.start() > start)
+				appendTextWithEmojiFont(result,
+					text.substring(start, matcher.start()), style);
+			String emoji = EMOJI_SHORTCODES.get(matcher.group());
+			if(emoji == null)
+				appendTextWithEmojiFont(result, matcher.group(), style);
+			else
+				result.append(Component.literal(emoji).withStyle(style)
+					.withStyle(shortcodeStyle -> shortcodeStyle
+						.withFont(EMOJI_FONT_DESCRIPTION)));
+			start = matcher.end();
+		}
+		if(start < text.length())
+			appendTextWithEmojiFont(result, text.substring(start), style);
+		return result;
+	}
+	
+	private static void appendTextWithEmojiFont(MutableComponent result,
+		String text, Style style)
+	{
+		int plainStart = 0;
+		for(int offset = 0; offset < text.length();)
+		{
+			int codePoint = text.codePointAt(offset);
+			int next = offset + Character.charCount(codePoint);
+			if(isEmojiCodePoint(codePoint))
+			{
+				if(offset > plainStart)
+					result.append(
+						Component.literal(text.substring(plainStart, offset))
+							.withStyle(style));
+				result.append(Component.literal(text.substring(offset, next))
+					.withStyle(style).withStyle(shortcodeStyle -> shortcodeStyle
+						.withFont(EMOJI_FONT_DESCRIPTION)));
+				plainStart = next;
+			}
+			offset = next;
+		}
+		if(plainStart < text.length())
+			result.append(
+				Component.literal(text.substring(plainStart)).withStyle(style));
+	}
+	
+	private static boolean isEmojiCodePoint(int codePoint)
+	{
+		return codePoint >= 0x1F000 && codePoint <= 0x1FAFF
+			|| codePoint >= 0x2600 && codePoint <= 0x27BF
+			|| codePoint >= 0x2300 && codePoint <= 0x23FF || codePoint == 0x00A9
+			|| codePoint == 0x00AE || codePoint == 0x203C || codePoint == 0x2049
+			|| codePoint == 0x2122;
+	}
+	
+	private static Map<String, String> loadEmojiShortcodes()
+	{
+		try(InputStream stream = ClientMessageOverlay.class
+			.getResourceAsStream("/assets/wurst/lang/en_us.json"))
+		{
+			if(stream == null)
+				return Map.of();
+			var root = JsonParser
+				.parseReader(
+					new InputStreamReader(stream, StandardCharsets.UTF_8))
+				.getAsJsonObject();
+			Map<String, String> result = new HashMap<>();
+			for(var entry : root.entrySet())
+				if(EMOJI_SHORTCODE_PATTERN.matcher(entry.getKey()).matches())
+					result.put(entry.getKey(), entry.getValue().getAsString());
+			return Map.copyOf(result);
+		}catch(IOException | RuntimeException e)
+		{
+			return Map.of();
+		}
 	}
 	
 	private Component normalizePlayerChatForDisplay(Component message)
@@ -593,9 +742,9 @@ public final class ClientMessageOverlay
 	
 	public static boolean containsPlayerSprite(Component component)
 	{
-		if(component
-			.getContents() instanceof ObjectContents(ObjectInfo objectInfo, java.util.Optional<?> ignored)
-			&& objectInfo instanceof PlayerSprite)
+		if(component == null)
+			return false;
+		if(component.getString().contains("[Name head]"))
 			return true;
 		
 		for(Component sibling : component.getSiblings())
@@ -671,12 +820,16 @@ public final class ClientMessageOverlay
 	public Component prepareMessageForDisplay(Component message)
 	{
 		Component normalized = normalizePlayerChatForDisplay(message);
+		Component prepared;
 		if(normalized != null)
-			return normalized;
-		
-		Component prepared = applyDefaultTextColorIfEnabled(
-			colorizeChatUsernameIfEnabled(message));
-		return addChatHeadIfEnabled(prepared);
+			prepared = normalized;
+		else
+		{
+			prepared = applyDefaultTextColorIfEnabled(
+				colorizeChatUsernameIfEnabled(message));
+			prepared = addChatHeadIfEnabled(prepared);
+		}
+		return convertEmojiShortcodesIfEnabled(prepared);
 	}
 	
 	private Component addChatHeadIfEnabled(Component message)
@@ -705,8 +858,8 @@ public final class ClientMessageOverlay
 	
 	public Component prepareClientSystemMessageForDisplay(Component message)
 	{
-		return applyDefaultTextColorIfEnabled(
-			colorizeChatUsernameIfEnabled(message));
+		return convertEmojiShortcodesIfEnabled(applyDefaultTextColorIfEnabled(
+			colorizeChatUsernameIfEnabled(message)));
 	}
 	
 	public Component applyDefaultTextColorIfEnabled(Component message)
@@ -963,8 +1116,12 @@ public final class ClientMessageOverlay
 		if(displayColor != null)
 			return displayColor;
 		
-		if(info.getTeam() != null && info.getTeam().getColor().isPresent())
-			return info.getTeam().getColor().get().rgb();
+		if(info.getTeam() != null && info.getTeam().getColor() != null)
+		{
+			Integer color = info.getTeam().getColor().getColor();
+			if(color != null)
+				return color;
+		}
 		
 		return -1;
 	}
@@ -1486,7 +1643,7 @@ public final class ClientMessageOverlay
 	private boolean hasVanillaChatMessages()
 	{
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.hud.getChat().trimmedMessages;
+			WurstClient.MC.gui.getChat().trimmedMessages;
 		return vanillaLines != null && !vanillaLines.isEmpty();
 	}
 	
@@ -1495,7 +1652,7 @@ public final class ClientMessageOverlay
 	{
 		List<TimedRenderLine> timed = new ArrayList<>();
 		long nowMs = System.currentTimeMillis();
-		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.getGuiTicks();
 		
 		// Overlay entries (system/Wurst messages)
 		synchronized(overlayMessages)
@@ -1516,7 +1673,7 @@ public final class ClientMessageOverlay
 		
 		// Vanilla chat entries (player chat messages)
 		List<GuiMessage.Line> vanillaLines =
-			WurstClient.MC.gui.hud.getChat().trimmedMessages;
+			WurstClient.MC.gui.getChat().trimmedMessages;
 		if(vanillaLines != null)
 			for(GuiMessage.Line line : vanillaLines)
 			{
@@ -1759,7 +1916,7 @@ public final class ClientMessageOverlay
 	private int getVisibleVanillaLineCount(int chatHeight, boolean chatOpen)
 	{
 		List<GuiMessage.Line> lines =
-			WurstClient.MC.gui.hud.getChat().trimmedMessages;
+			WurstClient.MC.gui.getChat().trimmedMessages;
 		if(lines == null || lines.isEmpty())
 			return 0;
 		
@@ -1769,7 +1926,7 @@ public final class ClientMessageOverlay
 		if(chatOpen)
 			return Math.min(lines.size(), maxVisibleLines);
 		
-		int guiTicks = WurstClient.MC.gui.hud.getGuiTicks();
+		int guiTicks = WurstClient.MC.gui.getGuiTicks();
 		int visibleLines = 0;
 		for(GuiMessage.Line line : lines)
 		{
@@ -1818,7 +1975,7 @@ public final class ClientMessageOverlay
 		return sb.toString();
 	}
 	
-	private static double getScaledMouseX(GuiGraphicsExtractor context)
+	private static double getScaledMouseX(GuiGraphics context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1828,7 +1985,7 @@ public final class ClientMessageOverlay
 			/ window.getScreenWidth();
 	}
 	
-	private static double getScaledMouseY(GuiGraphicsExtractor context)
+	private static double getScaledMouseY(GuiGraphics context)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1856,7 +2013,7 @@ public final class ClientMessageOverlay
 			+ Math.max(0, lines.size() - 1) * LINE_SPACING;
 	}
 	
-	private void drawPanel(GuiGraphicsExtractor context, List<RenderLine> lines,
+	private void drawPanel(GuiGraphics context, List<RenderLine> lines,
 		int drawX, int drawY, float chatScale)
 	{
 		context.pose().pushMatrix();
@@ -1875,8 +2032,8 @@ public final class ClientMessageOverlay
 			int textColor = (alpha << 24) | 0xFFFFFF;
 			context.fill(0, y - 1, width + HORIZONTAL_PADDING * 2,
 				y + WurstClient.MC.font.lineHeight, bgColor);
-			context.text(WurstClient.MC.font, line.text(), HORIZONTAL_PADDING,
-				y, textColor, false);
+			context.drawString(WurstClient.MC.font, line.text(),
+				HORIZONTAL_PADDING, y, textColor, false);
 			y -= WurstClient.MC.font.lineHeight + LINE_SPACING;
 		}
 		
@@ -1926,7 +2083,7 @@ public final class ClientMessageOverlay
 			lastMainClickTargets = targets;
 	}
 	
-	private void handleLinkClicks(GuiGraphicsExtractor context, float chatScale)
+	private void handleLinkClicks(GuiGraphics context, float chatScale)
 	{
 		Window window = WurstClient.MC.getWindow();
 		if(window == null)
@@ -1954,9 +2111,9 @@ public final class ClientMessageOverlay
 	private void handleClickEvent(ClickEvent clickEvent)
 	{
 		if(clickEvent instanceof ClickEvent.OpenUrl openUrl
-			&& WurstClient.MC.gui.screen() != null)
+			&& WurstClient.MC.screen != null)
 		{
-			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.gui.screen(),
+			ConfirmLinkScreen.confirmLinkNow(WurstClient.MC.screen,
 				openUrl.uri(), false);
 			return;
 		}
@@ -1984,18 +2141,15 @@ public final class ClientMessageOverlay
 			WurstClient.MC.getConnection().sendCommand(trimmed);
 	}
 	
-	private boolean hasClickableAt(GuiGraphicsExtractor context,
-		float chatScale)
+	private boolean hasClickableAt(GuiGraphics context, float chatScale)
 	{
 		Style style = getClickableStyleAt(context, chatScale);
 		return style != null && style.getClickEvent() != null;
 	}
 	
-	private Style getClickableStyleAt(GuiGraphicsExtractor context,
-		float chatScale)
+	private Style getClickableStyleAt(GuiGraphics context, float chatScale)
 	{
-		if(!(WurstClient.MC.gui.screen() instanceof ChatScreen)
-			&& !tabHeldForOverlay)
+		if(!(WurstClient.MC.screen instanceof ChatScreen) && !tabHeldForOverlay)
 			return null;
 		
 		double mouseX = getScaledMouseX(context);
@@ -2055,10 +2209,13 @@ public final class ClientMessageOverlay
 		return result[0];
 	}
 	
-	private void updateHoverBounds(GuiGraphicsExtractor context, int x, int y,
+	private void updateHoverBounds(GuiGraphics context, int x, int y,
 		float width, float height, int wurstY, float wurstWidth,
 		float wurstHeight, boolean hasWurstPanel)
 	{
+		lastGuiWidth = context.guiWidth();
+		lastGuiHeight = context.guiHeight();
+		
 		if(height > 0 && y != Integer.MIN_VALUE)
 		{
 			lastMainX1 = x;
@@ -2080,8 +2237,27 @@ public final class ClientMessageOverlay
 			lastWurstX1, lastWurstY1, lastWurstX2, lastWurstY2);
 	}
 	
-	private static boolean isMouseOverPanel(GuiGraphicsExtractor context,
-		int x1, int y1, int x2, int y2)
+	private void clearHoverState()
+	{
+		hoveredMainPanel = false;
+		hoveredWurstPanel = false;
+	}
+	
+	private boolean isMouseOverPanelNow(int x1, int y1, int x2, int y2)
+	{
+		Window window = WurstClient.MC.getWindow();
+		if(window == null || lastGuiWidth <= 0 || lastGuiHeight <= 0)
+			return false;
+		
+		double mouseX = WurstClient.MC.mouseHandler.xpos() * lastGuiWidth
+			/ window.getScreenWidth();
+		double mouseY = WurstClient.MC.mouseHandler.ypos() * lastGuiHeight
+			/ window.getScreenHeight();
+		return mouseX >= x1 && mouseX <= x2 && mouseY >= y1 && mouseY <= y2;
+	}
+	
+	private static boolean isMouseOverPanel(GuiGraphics context, int x1, int y1,
+		int x2, int y2)
 	{
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);

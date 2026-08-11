@@ -28,11 +28,10 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
@@ -41,12 +40,13 @@ import net.wurstclient.events.BlockBreakingProgressListener.BlockBreakingProgres
 import net.wurstclient.events.PlayerAttacksEntityListener.PlayerAttacksEntityEvent;
 import net.wurstclient.events.StopUsingItemListener.StopUsingItemEvent;
 import net.wurstclient.hacks.AntiDropHack;
-import net.wurstclient.hacks.MaceDmgHack;
 import net.wurstclient.hacks.SilkOnlyHack;
+import net.wurstclient.mixinterface.IClientPlayerInteractionManager;
 import net.wurstclient.mixinterface.IMultiPlayerGameMode;
 
 @Mixin(MultiPlayerGameMode.class)
-public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
+public abstract class MultiPlayerGameModeMixin
+	implements IClientPlayerInteractionManager, IMultiPlayerGameMode
 {
 	@Shadow
 	@Final
@@ -124,12 +124,12 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "handleInventoryMouseClick(IIILnet/minecraft/world/inventory/ContainerInput;Lnet/minecraft/world/entity/player/Player;)V",
+		method = "handleInventoryMouseClick(IIILnet/minecraft/world/inventory/ClickType;Lnet/minecraft/world/entity/player/Player;)V",
 		cancellable = true)
 	private void onClickSlotHEAD(int syncId, int slotId, int button,
-		ContainerInput actionType, Player player, CallbackInfo ci)
+		ClickType actionType, Player player, CallbackInfo ci)
 	{
-		if(actionType != ContainerInput.THROW)
+		if(actionType != ClickType.THROW)
 			return;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
@@ -173,67 +173,47 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V",
-		cancellable = true)
+		method = "attack(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;)V")
 	private void onAttackEntity(Player player, Entity target, CallbackInfo ci)
 	{
 		if(player != minecraft.player)
 			return;
-			
-		// Never let any aura or other automated attack path hit a player who is
-		// currently in Creative mode. This is centralized here so new attack
-		// hacks receive the same protection automatically.
-		if(target instanceof Player targetPlayer && targetPlayer.isCreative())
-		{
-			ci.cancel();
-			return;
-		}
-		
-		if(WurstClient.INSTANCE.isEnabled())
-		{
-			MaceDmgHack maceDmg = WurstClient.INSTANCE.getHax().maceDmgHack;
-			if(maceDmg != null && maceDmg.shouldBlockAttack(target))
-			{
-				ci.cancel();
-				return;
-			}
-		}
 		
 		EventManager.fire(new PlayerAttacksEntityEvent(target));
 	}
 	
 	@Override
-	public void windowClick(int syncId, int slot, int button,
-		ContainerInput action)
+	public void windowClick(int syncId, int slot, int button, ClickType action)
 	{
-		handleContainerInput(syncId, slot, button, action, minecraft.player);
+		handleInventoryMouseClick(syncId, slot, button, action,
+			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_PICKUP(int slot)
 	{
-		handleContainerInput(0, slot, 0, ContainerInput.PICKUP,
+		handleInventoryMouseClick(0, slot, 0, ClickType.PICKUP,
 			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_QUICK_MOVE(int slot)
 	{
-		handleContainerInput(0, slot, 0, ContainerInput.QUICK_MOVE,
+		handleInventoryMouseClick(0, slot, 0, ClickType.QUICK_MOVE,
 			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_THROW(int slot)
 	{
-		handleContainerInput(0, slot, 1, ContainerInput.THROW,
+		handleInventoryMouseClick(0, slot, 1, ClickType.THROW,
 			minecraft.player);
 	}
 	
 	@Override
 	public void windowClick_SWAP(int from, int to)
 	{
-		handleContainerInput(0, from, to, ContainerInput.SWAP,
+		handleInventoryMouseClick(0, from, to, ClickType.SWAP,
 			minecraft.player);
 	}
 	
@@ -327,6 +307,6 @@ public abstract class MultiPlayerGameModeMixin implements IMultiPlayerGameMode
 		InteractionHand hand);
 	
 	@Shadow
-	public abstract void handleContainerInput(int syncId, int slotId,
-		int button, ContainerInput actionType, Player player);
+	public abstract void handleInventoryMouseClick(int syncId, int slotId,
+		int button, ClickType actionType, Player player);
 }

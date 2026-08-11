@@ -19,10 +19,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.llamalad7.mixinextras.sugar.Local;
 import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+import net.minecraft.client.GuiMessage;
+import net.minecraft.client.GuiMessageTag;
 import net.minecraft.client.gui.components.ChatComponent;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
-import net.minecraft.client.multiplayer.chat.GuiMessageSource;
-import net.minecraft.client.multiplayer.chat.GuiMessageTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MessageSignature;
 import net.wurstclient.WurstClient;
@@ -38,13 +37,11 @@ public class ChatComponentMixin
 	private List<GuiMessage.Line> trimmedMessages;
 	
 	@Inject(at = @At("HEAD"),
-		method = "addClientSystemMessage(Lnet/minecraft/network/chat/Component;)V",
+		method = "addMessage(Lnet/minecraft/network/chat/Component;)V",
 		cancellable = true)
 	private void onAddClientSystemMessage(Component messageDontUse,
 		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
 	{
-		boolean wurstClientMessage = ClientMessageOverlay.getInstance()
-			.consumeWurstClientMessage(message.get());
 		String plain = message.get().getString().trim();
 		if(WurstClient.INSTANCE.getHax().autoChatHack
 			.isReadDiscordRelayMessagesEnabled()
@@ -59,55 +56,11 @@ public class ChatComponentMixin
 				ci.cancel();
 			else
 				message.set(ClientMessageOverlay.getInstance()
-					.prepareClientSystemMessageForDisplay(
-						event.getComponent()));
+					.prepareMessageForDisplay(event.getComponent()));
 			
 			return;
 		}
 		
-		ChatInputEvent event =
-			new ChatInputEvent(message.get(), trimmedMessages);
-		EventManager.fire(event);
-		if(event.isCancelled())
-		{
-			ci.cancel();
-			return;
-		}
-		
-		if(wurstClientMessage)
-		{
-			message.set(event.getComponent());
-			if(ClientMessageOverlay.getInstance()
-				.captureWurstClientMessage(message.get()))
-			{
-				ci.cancel();
-				return;
-			}
-			
-			ClientMessageOverlay.getInstance()
-				.notifyVanillaChatMessage(message.get());
-			return;
-		}
-		
-		message.set(ClientMessageOverlay.getInstance()
-			.prepareClientSystemMessageForDisplay(event.getComponent()));
-		if(ClientMessageOverlay.getInstance()
-			.captureSingleArgMessage(message.get()))
-		{
-			ci.cancel();
-			return;
-		}
-		
-		ClientMessageOverlay.getInstance()
-			.notifyVanillaChatMessage(message.get());
-	}
-	
-	@Inject(at = @At("HEAD"),
-		method = "addServerSystemMessage(Lnet/minecraft/network/chat/Component;)V",
-		cancellable = true)
-	private void onAddServerSystemMessage(Component messageDontUse,
-		CallbackInfo ci, @Local(argsOnly = true) LocalRef<Component> message)
-	{
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		EventManager.fire(event);
@@ -120,7 +73,7 @@ public class ChatComponentMixin
 		message.set(ClientMessageOverlay.getInstance()
 			.prepareMessageForDisplay(event.getComponent()));
 		if(ClientMessageOverlay.getInstance()
-			.captureIfNonPlayerMessage(message.get(), null))
+			.captureSingleArgMessage(message.get()))
 		{
 			ci.cancel();
 			return;
@@ -131,7 +84,7 @@ public class ChatComponentMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "addPlayerMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/GuiMessageTag;)V",
 		cancellable = true)
 	private void onAddPlayerMessage(Component messageDontUse,
 		@Nullable MessageSignature signature,
@@ -162,18 +115,5 @@ public class ChatComponentMixin
 			.modifyIndicator(message.get(), signature, indicator.get()));
 		ClientMessageOverlay.getInstance()
 			.notifyVanillaChatMessage(message.get());
-	}
-	
-	@Inject(at = @At("HEAD"),
-		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V")
-	private void onAddMessage(Component messageDontUse,
-		@Nullable MessageSignature signature, GuiMessageSource source,
-		@Nullable GuiMessageTag indicator, CallbackInfo ci,
-		@Local(argsOnly = true) LocalRef<Component> message)
-	{
-		Component colored = WurstClient.INSTANCE.getHax().mentionHack
-			.colorizeForDisplayIfNeeded(message.get());
-		message.set(ClientMessageOverlay.getInstance()
-			.prepareMessageForDisplay(colored));
 	}
 }

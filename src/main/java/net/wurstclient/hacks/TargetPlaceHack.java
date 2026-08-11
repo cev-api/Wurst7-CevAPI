@@ -79,7 +79,7 @@ public final class TargetPlaceHack extends Hack
 	@Override
 	public void onUpdate()
 	{
-		if(MC.gui.screen() != null)
+		if(MC.screen != null)
 		{
 			activationKeyDown = false;
 			return;

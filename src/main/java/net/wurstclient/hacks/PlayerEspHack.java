@@ -579,7 +579,7 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 				line2 = line2 + " | " + equipmentLine;
 		}
 		
-		SystemToast.add(MC.gui.toastManager(),
+		SystemToast.add(MC.getToastManager(),
 			SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 			Component.literal(name), Component.literal(line2));
 	}

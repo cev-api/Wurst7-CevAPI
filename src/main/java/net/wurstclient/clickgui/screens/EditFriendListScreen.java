@@ -15,7 +15,7 @@ import java.util.Objects;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -101,36 +101,36 @@ public final class EditFriendListScreen extends Screen
 		updateButtons();
 		
 		addRenderableWidget(Button.builder(Component.literal("Clear List"),
-			b -> minecraft.gui.setScreen(new ConfirmScreen(confirm -> {
+			b -> minecraft.setScreen(new ConfirmScreen(confirm -> {
 				if(confirm)
 				{
 					friendList.clear();
 					refreshList(null, Collections.emptyList(), 0);
 				}
-				minecraft.gui.setScreen(EditFriendListScreen.this);
+				minecraft.setScreen(EditFriendListScreen.this);
 			}, Component.literal("Clear Friends"),
 				Component.literal("Remove every friend?"))))
 			.bounds(width / 2 - 75, 8, 150, 20).build());
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height - 28, 200, 20).build());
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(
+		context.drawCenteredString(
 			minecraft.font, friendList.getName() + " ("
 				+ friendList.getFriendNames().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -207,15 +207,15 @@ public final class EditFriendListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
 			
-			context.text(minecraft.font, friendName, x + 4, y + 4,
+			context.drawString(minecraft.font, friendName, x + 4, y + 4,
 				CommonColors.WHITE, false);
-			context.text(minecraft.font, "Click or shift-click to select",
+			context.drawString(minecraft.font, "Click or shift-click to select",
 				x + 4, y + 16, CommonColors.LIGHT_GRAY, false);
 		}
 		

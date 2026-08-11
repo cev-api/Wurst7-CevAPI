@@ -12,7 +12,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.awt.Color;
 import java.util.stream.Stream;
 import net.minecraft.client.Minecraft;
-import net.wurstclient.util.WurstBufferSource;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.phys.AABB;
@@ -115,7 +115,7 @@ public final class AutoFishDebugDraw
 		
 		int color = ddColor.getColorI(0xC0);
 		
-		WurstBufferSource bs = new WurstBufferSource();
+		MultiBufferSource.BufferSource bs = MC.renderBuffers().bufferSource();
 		VertexConsumer lineBuffer = bs.getBuffer(WurstRenderLayers.ESP_LINES);
 		Vec3 camPos = RenderUtils.getCameraPos();
 		
@@ -142,7 +142,7 @@ public final class AutoFishDebugDraw
 			
 		}
 		
-		bs.uploadAndDraw();
+		bs.endBatch();
 	}
 	
 	private void drawMcmmoRange(PoseStack matrices)

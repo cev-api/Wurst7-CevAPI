@@ -11,7 +11,13 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
@@ -21,6 +27,8 @@ import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -33,7 +41,9 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.text.WText;
 
 public final class EntityCountHack extends Hack
@@ -76,11 +86,67 @@ public final class EntityCountHack extends Hack
 	private final SliderSetting threshold = new SliderSetting("Threshold",
 		WText.literal(
 			"Minimum number of entities required before a label is shown when threshold mode is enabled."),
-		1, 1, 500, 1, ValueDisplay.INTEGER);
+		1, 0, 200, 1, ValueDisplay.INTEGER);
+	private final SliderSetting thresholdPersistence = new SliderSetting(
+		"Threshold persistence",
+		WText.literal(
+			"Ticks a threshold must remain breached before it is detected."),
+		30, 0, 100, 1, ValueDisplay.INTEGER.withSuffix(" ticks"));
+	private final CheckboxSetting villagersFilter =
+		new CheckboxSetting("Filter: Villagers",
+			WText.literal("Alert/detect villagers separately."), false);
+	private final SliderSetting villagersThreshold = new SliderSetting(
+		"Villagers threshold", WText.literal("Minimum villagers per chunk."),
+		10, 0, 200, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting mobsFilter = new CheckboxSetting(
+		"Filter: Mobs", WText.literal("Alert/detect mobs separately."), false);
+	private final SliderSetting mobsThreshold = new SliderSetting(
+		"Mobs threshold", WText.literal("Minimum mobs per chunk."), 30, 0, 200,
+		1, ValueDisplay.INTEGER);
+	private final CheckboxSetting animalsFilter =
+		new CheckboxSetting("Filter: Animals",
+			WText.literal("Alert/detect animals separately."), false);
+	private final SliderSetting animalsThreshold = new SliderSetting(
+		"Animals threshold", WText.literal("Minimum animals per chunk."), 20, 0,
+		200, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting farmableAnimalsFilter =
+		new CheckboxSetting("Filter: Farmable animals",
+			WText.literal("Alert/detect chickens, cows, and sheep separately."),
+			false);
+	private final SliderSetting farmableAnimalsThreshold =
+		new SliderSetting("Farmable animals threshold",
+			WText.literal("Minimum chickens, cows, and sheep per chunk."), 10,
+			0, 200, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting otherFilter =
+		new CheckboxSetting("Filter: Other",
+			WText.literal("Alert/detect a user-specified entity."), false);
+	private final TextFieldSetting otherEntity =
+		new TextFieldSetting("Other entity",
+			"Entity ID or name to count (for example, warden).", "");
+	private final SliderSetting otherThreshold =
+		new SliderSetting("Other threshold",
+			WText.literal("Minimum matching entities per chunk."), 3, 0, 200, 1,
+			ValueDisplay.INTEGER);
 	
 	private final SliderSetting labelScale = new SliderSetting("Label scale",
 		WText.literal("Size multiplier for the chunk labels."), 1, 0.5, 3, 0.05,
 		ValueDisplay.PERCENTAGE);
+	private final SliderSetting labelHeight = new SliderSetting("Label height",
+		WText.literal("Vertical offset for count labels and chunk tracers."), 0,
+		-64, 128, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	private final CheckboxSetting showTracers = new CheckboxSetting(
+		"Show chunk tracers",
+		WText.literal("Draw tracers to chunks whose labels are shown."), false);
+	private final CheckboxSetting chatAlerts =
+		new CheckboxSetting("Chat alerts",
+			WText.literal(
+				"Send a chat alert when a chunk reaches the threshold."),
+			false);
+	private final CheckboxSetting soundAlerts = new CheckboxSetting(
+		"Sound alerts",
+		WText.literal(
+			"Play sounds for threshold chunks. Only works with Only above threshold."),
+		false);
 	
 	private final HashMap<Integer, TrackedEntity> trackedEntities =
 		new HashMap<>();
@@ -88,13 +154,21 @@ public final class EntityCountHack extends Hack
 	private final ArrayList<Packet<?>> pendingPackets = new ArrayList<>();
 	private final ArrayList<ChunkLabel> visibleLabels = new ArrayList<>();
 	private final ArrayList<ChunkLabel> lazyLabels = new ArrayList<>();
+	private static final int ALERT_AREA_RADIUS_CHUNKS = 2;
+	private final HashSet<String> alertedThresholdFilters = new HashSet<>();
+	private final HashMap<String, Long> thresholdAboveSince = new HashMap<>();
+	private final EnumMap<CountFilter, HashMap<ChunkPos, Integer>> filterCounts =
+		new EnumMap<>(CountFilter.class);
 	private int totalCount;
+	private long tickCounter;
 	private Object lastLevel;
 	
 	public EntityCountHack()
 	{
 		super("EntityCount");
 		setCategory(Category.TOOLS);
+		for(CountFilter filter : CountFilter.values())
+			filterCounts.put(filter, new HashMap<>());
 		addSetting(viewMode);
 		addSetting(chunkRadius);
 		addSetting(onlyAboveThreshold);
@@ -102,7 +176,23 @@ public final class EntityCountHack extends Hack
 		addSetting(highlightHighest);
 		addSetting(showLazyChunks);
 		addSetting(threshold);
+		addSetting(thresholdPersistence);
+		addSetting(villagersFilter);
+		addSetting(villagersThreshold);
+		addSetting(mobsFilter);
+		addSetting(mobsThreshold);
+		addSetting(animalsFilter);
+		addSetting(animalsThreshold);
+		addSetting(farmableAnimalsFilter);
+		addSetting(farmableAnimalsThreshold);
+		addSetting(otherFilter);
+		addSetting(otherEntity);
+		addSetting(otherThreshold);
 		addSetting(labelScale);
+		addSetting(labelHeight);
+		addSetting(showTracers);
+		addSetting(chatAlerts);
+		addSetting(soundAlerts);
 	}
 	
 	@Override
@@ -118,8 +208,11 @@ public final class EntityCountHack extends Hack
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(PacketInputListener.class, this);
 		clearTracking();
+		tickCounter = 0;
 		lastLevel = MC.level;
 		refreshCounts();
+		updateThresholdPersistence();
+		checkThresholdAlerts();
 	}
 	
 	@Override
@@ -143,6 +236,9 @@ public final class EntityCountHack extends Hack
 		
 		applyPendingPackets();
 		refreshCounts();
+		tickCounter++;
+		updateThresholdPersistence();
+		checkThresholdAlerts();
 	}
 	
 	@Override
@@ -164,15 +260,31 @@ public final class EntityCountHack extends Hack
 		for(ChunkLabel label : lazyLabels)
 			drawWorldLabel(matrices, Integer.toString(label.count), label.x,
 				label.y, label.z, colorForLabel(label));
+		
+		if(showTracers.isChecked())
+		{
+			ArrayList<Vec3> ends = new ArrayList<>();
+			for(ChunkLabel label : visibleLabels)
+				ends.add(new Vec3(label.x, label.y, label.z));
+			for(ChunkLabel label : lazyLabels)
+				ends.add(new Vec3(label.x, label.y, label.z));
+			if(!ends.isEmpty())
+				RenderUtils.drawTracers("EntityCount", matrices, partialTicks,
+					ends, 0xFFFFFF55, false);
+		}
 	}
 	
 	private void clearTracking()
 	{
 		trackedEntities.clear();
 		chunkCounts.clear();
+		for(HashMap<ChunkPos, Integer> counts : filterCounts.values())
+			counts.clear();
 		pendingPackets.clear();
 		visibleLabels.clear();
 		lazyLabels.clear();
+		alertedThresholdFilters.clear();
+		thresholdAboveSince.clear();
 		totalCount = 0;
 	}
 	
@@ -192,10 +304,20 @@ public final class EntityCountHack extends Hack
 		visibleLabels.clear();
 		lazyLabels.clear();
 		chunkCounts.clear();
+		for(HashMap<ChunkPos, Integer> counts : filterCounts.values())
+			counts.clear();
 		totalCount = 0;
 		
 		if(MC.player == null || MC.level == null)
 			return;
+			
+		// Packet sightings are only provisional. Once the client removes an
+		// entity (or never actually creates it), getEntity() returns null. Drop
+		// those entries before building counts so unloaded/ghost entities
+		// cannot
+		// trigger labels, chat alerts, sounds, or AutoFly stops.
+		trackedEntities.entrySet()
+			.removeIf(entry -> MC.level.getEntity(entry.getKey()) == null);
 		
 		// Keep nearby entities exact by syncing them from the live world.
 		for(Entity entity : MC.level.entitiesForRendering())
@@ -205,6 +327,7 @@ public final class EntityCountHack extends Hack
 			
 			trackedEntities.put(entity.getId(),
 				new TrackedEntity(entity.chunkPosition(), false));
+			countFilteredEntity(entity);
 		}
 		
 		for(TrackedEntity tracked : new ArrayList<>(trackedEntities.values()))
@@ -213,20 +336,63 @@ public final class EntityCountHack extends Hack
 		buildLabels();
 	}
 	
+	private void countFilteredEntity(Entity entity)
+	{
+		ChunkPos chunk = entity.chunkPosition();
+		String entityId =
+			BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
+		incrementFilter(CountFilter.ALL, chunk);
+		if(entityId.equals("minecraft:villager"))
+			incrementFilter(CountFilter.VILLAGERS, chunk);
+		if(entity instanceof Mob)
+			incrementFilter(CountFilter.MOBS, chunk);
+		if(entity instanceof Animal)
+			incrementFilter(CountFilter.ANIMALS, chunk);
+		if(entityId.equals("minecraft:chicken")
+			|| entityId.equals("minecraft:cow")
+			|| entityId.equals("minecraft:sheep"))
+			incrementFilter(CountFilter.FARMABLE, chunk);
+		if(matchesOtherEntity(entity))
+			incrementFilter(CountFilter.OTHER, chunk);
+	}
+	
+	private void incrementFilter(CountFilter filter, ChunkPos chunk)
+	{
+		filterCounts.get(filter).merge(chunk, 1, Integer::sum);
+	}
+	
+	private boolean matchesOtherEntity(Entity entity)
+	{
+		String query = otherEntity.getValue();
+		if(query == null || query.isBlank())
+			return false;
+		String id =
+			BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
+		return containsIgnoreCase(id, query)
+			|| containsIgnoreCase(entity.getName().getString(), query);
+	}
+	
+	private boolean containsIgnoreCase(String value, String query)
+	{
+		return value != null && query != null
+			&& value.toLowerCase(java.util.Locale.ROOT)
+				.contains(query.trim().toLowerCase(java.util.Locale.ROOT));
+	}
+	
 	private void buildLabels()
 	{
 		ChunkPos center = MC.player.chunkPosition();
 		int radius = getRadius();
 		int renderDistance =
 			Math.max(2, MC.options.getEffectiveRenderDistance());
-		double labelY = MC.player.getEyeY();
+		double labelY = MC.player.getEyeY() + labelHeight.getValue();
 		ArrayList<ChunkLabel> allLabels = new ArrayList<>();
 		
 		for(int dx = -radius; dx <= radius; dx++)
 			for(int dz = -radius; dz <= radius; dz++)
 			{
-				int chunkX = center.x() + dx;
-				int chunkZ = center.z() + dz;
+				int chunkX = center.x + dx;
+				int chunkZ = center.z + dz;
 				ChunkPos pos = new ChunkPos(chunkX, chunkZ);
 				if(!isInSelectedView(pos))
 					continue;
@@ -239,7 +405,7 @@ public final class EntityCountHack extends Hack
 				
 				int count = chunkCounts.getOrDefault(pos, 0);
 				totalCount += count;
-				if(!shouldRenderLabel(count))
+				if(!shouldRenderLabel(pos, count))
 					continue;
 				
 				ChunkLabel label = new ChunkLabel(pos, count, labelY, false);
@@ -251,20 +417,20 @@ public final class EntityCountHack extends Hack
 			for(Map.Entry<ChunkPos, Integer> entry : chunkCounts.entrySet())
 			{
 				ChunkPos pos = entry.getKey();
-				int dx = pos.x() - center.x();
-				int dz = pos.z() - center.z();
+				int dx = pos.x - center.x;
+				int dz = pos.z - center.z;
 				if(Math.abs(dx) > radius || Math.abs(dz) > radius)
 					continue;
 				if(!isInSelectedView(pos))
 					continue;
 				if(Math.abs(dx) <= renderDistance
 					&& Math.abs(dz) <= renderDistance
-					&& MC.level.hasChunk(pos.x(), pos.z()))
+					&& MC.level.hasChunk(pos.x, pos.z))
 					continue;
 				
 				int count = entry.getValue();
 				totalCount += count;
-				if(!shouldRenderLabel(count))
+				if(!shouldRenderLabel(pos, count))
 					continue;
 				
 				ChunkLabel label = new ChunkLabel(pos, count, labelY, true);
@@ -276,13 +442,173 @@ public final class EntityCountHack extends Hack
 			highlightHighestLabels(allLabels);
 	}
 	
-	private boolean shouldRenderLabel(int count)
+	private boolean shouldRenderLabel(ChunkPos pos, int count)
 	{
 		if(hideZero.isChecked() && count == 0)
 			return false;
 		
-		return !onlyAboveThreshold.isChecked()
-			|| count >= threshold.getValueI();
+		if(!onlyAboveThreshold.isChecked())
+			return true;
+		
+		if(count < threshold.getValueI())
+			return false;
+			
+		// Keep visual threshold output consistent with chat/sound alerts and
+		// AutoFly: a threshold must remain breached for the configured number
+		// of ticks before its label or tracer is shown.
+		return isThresholdPersisted(pos);
+	}
+	
+	private boolean isThresholdPersisted(ChunkPos pos)
+	{
+		Long since = thresholdAboveSince.get("all entities@" + pos);
+		return since != null
+			&& tickCounter - since >= thresholdPersistence.getValueI();
+	}
+	
+	private void checkThresholdAlerts()
+	{
+		if(MC.player == null)
+			return;
+		
+		ChunkPos playerChunk = MC.player.chunkPosition();
+		List<ThresholdMatch> matches = getThresholdMatches();
+		HashSet<String> nearbyFilters = new HashSet<>();
+		for(ThresholdMatch match : matches)
+			if(isInAlertArea(playerChunk, match.chunk()))
+				nearbyFilters.add(match.filter());
+				
+		// A filter is re-armed only after leaving its current detection area.
+		// This prevents one alert per neighbouring chunk while still allowing
+		// the same alert when the player leaves and later comes back.
+		alertedThresholdFilters.retainAll(nearbyFilters);
+		for(ThresholdMatch match : matches)
+		{
+			if(!isInAlertArea(playerChunk, match.chunk()))
+				continue;
+			String filterKey = match.filter();
+			if(!alertedThresholdFilters.add(filterKey))
+				continue;
+			ChunkPos chunk = match.chunk();
+			int count = match.count();
+			int x = chunk.getMiddleBlockX();
+			int y = MC.player == null ? 0 : MC.player.blockPosition().getY();
+			int z = chunk.getMiddleBlockZ();
+			if(MC.level != null)
+				for(Entity entity : MC.level.entitiesForRendering())
+					if(entity != null && !entity.isRemoved()
+						&& entity.chunkPosition().equals(chunk))
+					{
+						var pos = entity.blockPosition();
+						x = pos.getX();
+						y = pos.getY();
+						z = pos.getZ();
+						break;
+					}
+			if(chatAlerts.isChecked())
+				ChatUtils.message("EntityCount: " + match.filter()
+					+ " threshold " + match.threshold() + " broken (" + count
+					+ " entities detected at " + x + ", " + y + ", " + z
+					+ ").");
+			
+			if(soundAlerts.isChecked() && onlyAboveThreshold.isChecked()
+				&& MC.level != null && MC.player != null)
+			{
+				var sound = BuiltInRegistries.SOUND_EVENT.getValue(
+					Identifier.parse("minecraft:block.note_block.pling"));
+				if(sound != null)
+					MC.level.playLocalSound(MC.player.getX(), MC.player.getY(),
+						MC.player.getZ(), sound, SoundSource.PLAYERS, 1.0F,
+						1.0F, false);
+			}
+		}
+	}
+	
+	private void updateThresholdPersistence()
+	{
+		HashSet<String> current = new HashSet<>();
+		for(ThresholdMatch match : getRawThresholdMatches())
+		{
+			String key = thresholdKey(match);
+			current.add(key);
+			thresholdAboveSince.putIfAbsent(key, tickCounter);
+		}
+		
+		thresholdAboveSince.keySet().retainAll(current);
+	}
+	
+	private String thresholdKey(ThresholdMatch match)
+	{
+		return match.filter() + "@" + match.chunk();
+	}
+	
+	private boolean isInAlertArea(ChunkPos center, ChunkPos candidate)
+	{
+		return Math.abs(candidate.x - center.x) <= ALERT_AREA_RADIUS_CHUNKS
+			&& Math.abs(candidate.z - center.z) <= ALERT_AREA_RADIUS_CHUNKS;
+	}
+	
+	public int getThreshold()
+	{
+		return threshold.getValueI();
+	}
+	
+	public List<ThresholdMatch> getThresholdMatches()
+	{
+		ArrayList<ThresholdMatch> qualified = new ArrayList<>();
+		for(ThresholdMatch match : getRawThresholdMatches())
+		{
+			Long since = thresholdAboveSince.get(thresholdKey(match));
+			if(since != null
+				&& tickCounter - since >= thresholdPersistence.getValueI())
+				qualified.add(match);
+		}
+		return qualified;
+	}
+	
+	private List<ThresholdMatch> getRawThresholdMatches()
+	{
+		if(!isEnabled())
+			return List.of();
+		ArrayList<ThresholdMatch> matches = new ArrayList<>();
+		addThresholdMatches(matches, CountFilter.ALL, threshold.getValueI(),
+			true, "all entities");
+		addThresholdMatches(matches, CountFilter.VILLAGERS,
+			villagersThreshold.getValueI(), villagersFilter.isChecked(),
+			"villagers");
+		addThresholdMatches(matches, CountFilter.MOBS,
+			mobsThreshold.getValueI(), mobsFilter.isChecked(), "mobs");
+		addThresholdMatches(matches, CountFilter.ANIMALS,
+			animalsThreshold.getValueI(), animalsFilter.isChecked(), "animals");
+		addThresholdMatches(matches, CountFilter.FARMABLE,
+			farmableAnimalsThreshold.getValueI(),
+			farmableAnimalsFilter.isChecked(), "farmable animals");
+		addThresholdMatches(matches, CountFilter.OTHER,
+			otherThreshold.getValueI(),
+			otherFilter.isChecked() && !otherEntity.getValue().isBlank(),
+			otherEntity.getValue().trim());
+		return List.copyOf(matches);
+	}
+	
+	private void addThresholdMatches(List<ThresholdMatch> output,
+		CountFilter filter, int minimum, boolean enabled, String name)
+	{
+		if(!enabled)
+			return;
+		Map<ChunkPos, Integer> counts =
+			filter == CountFilter.ALL ? chunkCounts : filterCounts.get(filter);
+		for(Map.Entry<ChunkPos, Integer> entry : counts.entrySet())
+			if(entry.getValue() >= minimum)
+				output.add(new ThresholdMatch(entry.getKey(), entry.getValue(),
+					name, minimum));
+	}
+	
+	public Map<ChunkPos, Integer> getChunksAtOrAboveThreshold()
+	{
+		HashMap<ChunkPos, Integer> result = new HashMap<>();
+		for(ThresholdMatch match : getThresholdMatches())
+			result.merge(match.chunk(), match.count(), Math::max);
+		return Map.copyOf(result);
 	}
 	
 	private void highlightHighestLabels(ArrayList<ChunkLabel> allLabels)
@@ -526,6 +852,20 @@ public final class EntityCountHack extends Hack
 		if(count >= threshold.getValueI())
 			return lazy ? 0xFF5599FF : 0xFFFFFF55;
 		return lazy ? 0xFF3366FF : 0xFFFFFFFF;
+	}
+	
+	public record ThresholdMatch(ChunkPos chunk, int count, String filter,
+		int threshold)
+	{}
+	
+	private enum CountFilter
+	{
+		ALL,
+		VILLAGERS,
+		MOBS,
+		ANIMALS,
+		FARMABLE,
+		OTHER
 	}
 	
 	private enum ViewMode

@@ -14,15 +14,17 @@ import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.hacks.AutoFlyHack.NavigationMode;
 
 public final class AutoFlyCmd extends Command
 {
 	public AutoFlyCmd()
 	{
 		super("autofly",
-			"Fly to a waypoint, straight ahead, or follow NewerNewChunks trails.",
-			".autofly", ".autofly chunk",
-			".autofly <x> <y> <z> [height] [speed]",
+			"Fly directly or use FlyTo's terrain-aware path planner.",
+			".autofly", ".autofly chunk", ".autofly path",
+			".autofly path chunk", ".autofly path <x> <y> <z>",
+			".autofly path <x> <z>", ".autofly <x> <y> <z> [height] [speed]",
 			".autofly <x> <z> [height] [speed]");
 	}
 	
@@ -32,10 +34,26 @@ public final class AutoFlyCmd extends Command
 		if(MC.player == null)
 			throw new CmdError("Join a world before using .autofly.");
 		String[] normalized = normalizeArgs(args);
+		NavigationMode requestedMode = NavigationMode.DIRECT;
+		boolean modeExplicit = false;
+		if(normalized.length > 0 && (normalized[0].equalsIgnoreCase("path")
+			|| normalized[0].equalsIgnoreCase("flyto")))
+		{
+			requestedMode = NavigationMode.PATH;
+			modeExplicit = true;
+			normalized = removeFirst(normalized);
+		}else if(normalized.length > 0
+			&& normalized[0].equalsIgnoreCase("direct"))
+		{
+			modeExplicit = true;
+			normalized = removeFirst(normalized);
+		}
 		if(normalized.length == 0)
 		{
-			ChatUtils.message(
-				"AutoFly command target: forward from your current facing direction");
+			WURST.getHax().autoFlyHack
+				.setNavigationModeFromCommand(requestedMode);
+			ChatUtils.message("AutoFly " + requestedMode.toString()
+				+ " target: forward from your current facing direction");
 			WURST.getHax().autoFlyHack.setWaypointRouteFromCommand();
 			WURST.getHax().autoFlyHack.setForwardFromCommand(null, null);
 			return;
@@ -46,12 +64,17 @@ public final class AutoFlyCmd extends Command
 			if(cmd.equalsIgnoreCase("chunk") || cmd.equalsIgnoreCase("chunks"))
 			{
 				ensureChunkTrailAvailable();
+				WURST.getHax().autoFlyHack
+					.setNavigationModeFromCommand(requestedMode);
 				WURST.getHax().autoFlyHack.setChunkTrailFromCommand();
 				return;
 			}
 			
 			if(cmd.equalsIgnoreCase("next"))
 			{
+				if(modeExplicit)
+					WURST.getHax().autoFlyHack
+						.setNavigationModeFromCommand(requestedMode);
 				ensureAutoFlyEnabled();
 				WURST.getHax().autoFlyHack.cycleNextWaypoint();
 				return;
@@ -59,6 +82,9 @@ public final class AutoFlyCmd extends Command
 			
 			if(cmd.equalsIgnoreCase("previous") || cmd.equalsIgnoreCase("prev"))
 			{
+				if(modeExplicit)
+					WURST.getHax().autoFlyHack
+						.setNavigationModeFromCommand(requestedMode);
 				ensureAutoFlyEnabled();
 				WURST.getHax().autoFlyHack.cyclePreviousWaypoint();
 				return;
@@ -67,8 +93,7 @@ public final class AutoFlyCmd extends Command
 			if(cmd.equalsIgnoreCase("stop") || cmd.equalsIgnoreCase("off")
 				|| cmd.equalsIgnoreCase("disable"))
 			{
-				if(WURST.getHax().autoFlyHack.isEnabled())
-					WURST.getHax().autoFlyHack.setEnabled(false);
+				WURST.getHax().autoFlyHack.stopFromCommand();
 				return;
 			}
 		}
@@ -93,8 +118,10 @@ public final class AutoFlyCmd extends Command
 			speed = parseDouble(normalized[idxHeight + 1], "speed");
 		
 		ChatUtils.message(String.format(java.util.Locale.ROOT,
-			"AutoFly command target: %d, %d, %d%s", pos.getX(), pos.getY(),
-			pos.getZ(), hasY ? " (with Y)" : " (no Y)"));
+			"AutoFly %s target: %d, %d, %d%s", requestedMode.toString(),
+			pos.getX(), pos.getY(), pos.getZ(),
+			hasY ? " (with Y)" : " (no Y)"));
+		WURST.getHax().autoFlyHack.setNavigationModeFromCommand(requestedMode);
 		WURST.getHax().autoFlyHack.setWaypointRouteFromCommand();
 		WURST.getHax().autoFlyHack.setTargetFromCommand(pos, hasY, height,
 			speed);
@@ -152,6 +179,11 @@ public final class AutoFlyCmd extends Command
 			}
 		}
 		return out.toArray(new String[0]);
+	}
+	
+	private String[] removeFirst(String[] args)
+	{
+		return java.util.Arrays.copyOfRange(args, 1, args.length);
 	}
 	
 	private void ensureAutoFlyEnabled() throws CmdError

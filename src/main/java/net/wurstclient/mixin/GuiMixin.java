@@ -13,8 +13,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.cevapi.security.ResourcePackProtector;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Hud;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.wurstclient.WurstClient;
@@ -22,15 +22,15 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.GUIRenderListener.GUIRenderEvent;
 import net.wurstclient.hack.HackList;
 
-@Mixin(Hud.class)
-public class HudMixin
+@Mixin(Gui.class)
+public class GuiMixin
 {
 	// runs after extractScoreboardSidebar()
 	// and before tabList.setVisible()
 	@Inject(
-		method = "extractTabList(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderTabList(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"))
-	private void onRenderPlayerList(GuiGraphicsExtractor context,
+	private void onRenderPlayerList(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		if(WurstClient.MC.debugEntries.isOverlayVisible())
@@ -41,11 +41,11 @@ public class HudMixin
 	}
 	
 	@Inject(
-		method = "extractTextureOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/resources/Identifier;F)V",
+		method = "renderTextureOverlay(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/resources/Identifier;F)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onRenderOverlay(GuiGraphicsExtractor context,
-		Identifier texture, float opacity, CallbackInfo ci)
+	private void onRenderOverlay(GuiGraphics context, Identifier texture,
+		float opacity, CallbackInfo ci)
 	{
 		if(texture == null)
 			return;
@@ -62,9 +62,9 @@ public class HudMixin
 			ci.cancel();
 	}
 	
-	@Inject(method = "extractVignette", at = @At("HEAD"), cancellable = true)
-	private void onRenderVignetteOverlay(GuiGraphicsExtractor context,
-		Entity entity, CallbackInfo ci)
+	@Inject(method = "renderVignette", at = @At("HEAD"), cancellable = true)
+	private void onRenderVignetteOverlay(GuiGraphics context, Entity entity,
+		CallbackInfo ci)
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
 		if(hax == null || !hax.noVignetteHack.isEnabled())
@@ -74,10 +74,10 @@ public class HudMixin
 	}
 	
 	@Inject(
-		method = "extractScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onExtractScoreboardSidebar(GuiGraphicsExtractor context,
+	private void onExtractScoreboardSidebar(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().renderAdjustHack
@@ -86,10 +86,10 @@ public class HudMixin
 	}
 	
 	@Inject(
-		method = "extractBossOverlay(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
+		method = "renderBossOverlay(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("HEAD"),
 		cancellable = true)
-	private void onExtractBossOverlay(GuiGraphicsExtractor context,
+	private void onExtractBossOverlay(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.getHax().renderAdjustHack.shouldHideBossBars())

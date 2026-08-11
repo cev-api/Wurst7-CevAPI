@@ -9,7 +9,7 @@ package net.wurstclient.altmanager.screens;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -41,30 +41,30 @@ public final class AltLogoutResultScreen extends Screen
 	{
 		addRenderableWidget(Button
 			.builder(Component.literal("Continue"),
-				b -> minecraft.gui.setScreen(nextScreen))
+				b -> minecraft.setScreen(nextScreen))
 			.bounds(width / 2 - 100, height / 2 + 48, 200, 20).build());
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		if(restored)
 		{
-			context.centeredText(font, "Logged out of alt session", width / 2,
-				height / 2 - 34, GREEN);
-			context.centeredText(font, "Current account: " + accountName,
+			context.drawCenteredString(font, "Logged out of alt session",
+				width / 2, height / 2 - 34, GREEN);
+			context.drawCenteredString(font, "Current account: " + accountName,
 				width / 2, height / 2 - 20, GREEN);
 		}else
 		{
-			context.centeredText(font, "Logout verification failed", width / 2,
-				height / 2 - 34, RED);
-			context.centeredText(font, "Current account: " + accountName,
+			context.drawCenteredString(font, "Logout verification failed",
+				width / 2, height / 2 - 34, RED);
+			context.drawCenteredString(font, "Current account: " + accountName,
 				width / 2, height / 2 - 20, RED);
 		}
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -95,7 +95,7 @@ public final class AltLogoutResultScreen extends Screen
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(nextScreen);
+		minecraft.setScreen(nextScreen);
 	}
 	
 	@Override

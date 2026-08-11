@@ -67,10 +67,9 @@ public abstract class MinecraftMixin
 	private User wurstSession;
 	private ProfileKeyPairManager wurstProfileKeys;
 	
-	private MinecraftMixin(WurstClient wurst, String name,
-		boolean propagatesCrashes)
+	private MinecraftMixin(WurstClient wurst, String name)
 	{
-		super(name, propagatesCrashes);
+		super(name);
 	}
 	
 	@Inject(method = "<init>",
@@ -85,7 +84,7 @@ public abstract class MinecraftMixin
 	
 	/**
 	 * Runs just before {@link Minecraft#handleKeybinds()}, bypassing
-	 * the <code>gui.overlay() == null && gui.screen() == null</code> check in
+	 * the <code>gui.overlay() == null && screen == null</code> check in
 	 * {@link Minecraft#tick()}.
 	 */
 	@Inject(method = "tick()V",
@@ -129,7 +128,7 @@ public abstract class MinecraftMixin
 			ci.cancel();
 	}
 	
-	@Inject(method = "pickBlockOrEntity()V", at = @At("HEAD"))
+	@Inject(method = "pickBlock()V", at = @At("HEAD"))
 	private void onDoItemPick(CallbackInfo ci)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())

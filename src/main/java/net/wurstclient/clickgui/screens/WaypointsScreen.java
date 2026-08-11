@@ -10,7 +10,7 @@ package net.wurstclient.clickgui.screens;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -123,14 +123,14 @@ public final class WaypointsScreen extends Screen
 			b -> {
 				filterDim =
 					net.wurstclient.waypoints.WaypointDimension.OVERWORLD;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(fx, fy, filterBtnWidth, 20).build());
 		addRenderableWidget(Button.builder(Component.literal(
 			(filterDim == net.wurstclient.waypoints.WaypointDimension.NETHER)
 				? "[Nether]" : "Nether"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.NETHER;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(fx + filterBtnWidth + spacing, fy, filterBtnWidth, 20)
 			.build());
 		addRenderableWidget(Button.builder(Component.literal(
@@ -138,7 +138,7 @@ public final class WaypointsScreen extends Screen
 				? "[End]" : "End"),
 			b -> {
 				filterDim = net.wurstclient.waypoints.WaypointDimension.END;
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			})
 			.bounds(fx + (filterBtnWidth + spacing) * 2, fy, filterBtnWidth, 20)
 			.build());
@@ -158,21 +158,21 @@ public final class WaypointsScreen extends Screen
 				w.setDimension(currentDim());
 				w.setMaxVisible(5000);
 				w.setLines(false); // default new waypoints without lines
-				minecraft.gui
+				minecraft
 					.setScreen(new WaypointEditScreen(this, manager, w, true));
 			}).bounds(x, createY, 300, 20).build());
 		
-		// Xaero integration buttons sit right below the create button
+		// VoxelMap/Xaero integration buttons sit right below the create button
 		int toolsY = createY + 24;
 		int toolGap = 10;
 		int toolWidth = (300 - toolGap) / 2;
 		addRenderableWidget(
-			Button.builder(Component.literal("Import Xaero"), b -> {
-				importFromXaero();
+			Button.builder(Component.literal("Import Voxel/Xaero"), b -> {
+				importFromVoxelAndXaero();
 			}).bounds(x, toolsY, toolWidth, 20).build());
 		addRenderableWidget(
-			Button.builder(Component.literal("Export Xaero"), b -> {
-				exportToXaero();
+			Button.builder(Component.literal("Export Voxel/Xaero"), b -> {
+				exportToVoxelAndXaero();
 			}).bounds(x + toolWidth + toolGap, toolsY, toolWidth, 20).build());
 		
 		// Advance y to start the list below the Xaero buttons (keep previous
@@ -246,7 +246,7 @@ public final class WaypointsScreen extends Screen
 			
 			Button nameBtn = addRenderableWidget(
 				Button.builder(Component.literal(w.getName()), b -> {
-					minecraft.gui.setScreen(
+					minecraft.setScreen(
 						new WaypointEditScreen(this, manager, w, false));
 				}).bounds(x, rowY, 140, 20).build());
 			
@@ -257,7 +257,7 @@ public final class WaypointsScreen extends Screen
 						manager.addOrUpdate(w);
 						saveNow();
 						// Refresh in-place without stacking a new screen
-						minecraft.gui.setScreen(this);
+						minecraft.setScreen(this);
 					})
 				.bounds(x + 145, rowY, 55, 20).build());
 			
@@ -266,7 +266,7 @@ public final class WaypointsScreen extends Screen
 					manager.remove(w);
 					saveNow();
 					// Refresh in-place without stacking a new screen
-					minecraft.gui.setScreen(this);
+					minecraft.setScreen(this);
 				}).bounds(x + 205, rowY, 55, 20).build());
 			
 			Button copyBtn = addRenderableWidget(
@@ -327,11 +327,10 @@ public final class WaypointsScreen extends Screen
 					default -> SortMode.DATE;
 				};
 				saveScrollState();
-				minecraft.gui.setScreen(this);
+				minecraft.setScreen(this);
 			}).bounds(x, this.height - 28, sortWidth, 20).build());
 		addRenderableWidget(Button
-			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prev))
+			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
 			.bounds(x + sortWidth + 10, this.height - 28, backWidth, 20)
 			.build());
 	}
@@ -449,8 +448,7 @@ public final class WaypointsScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		// No blur - just a translucent background
 		context.fill(0, 0, this.width, this.height, 0x88000000);
@@ -494,7 +492,7 @@ public final class WaypointsScreen extends Screen
 			_rw.nameBtn.setMessage(Component.literal(""));
 		}
 		
-		super.extractRenderState(context, mouseX, mouseY, delta);
+		super.render(context, mouseX, mouseY, delta);
 		
 		// Restore messages so our custom drawing can read them
 		for(java.util.Map.Entry<RowWidgets, Component> e : _savedLabels
@@ -506,8 +504,8 @@ public final class WaypointsScreen extends Screen
 		}
 		
 		// Title
-		context.centeredText(minecraft.font, "Waypoints", this.width / 2, 12,
-			0xFFFFFFFF);
+		context.drawCenteredString(minecraft.font, "Waypoints", this.width / 2,
+			12, 0xFFFFFFFF);
 		
 		// Draw beacon button backgrounds (overlay) and collect line outlines
 		java.util.List<RowWidgets> lineOutlineRows =
@@ -625,7 +623,7 @@ public final class WaypointsScreen extends Screen
 			if(textWidth <= maxTextWidth || maxTextWidth == 0)
 			{
 				// draw centered
-				context.centeredText(minecraft.font, label, centerX,
+				context.drawCenteredString(minecraft.font, label, centerX,
 					nameTop + 6, 0xFFFFFFFF);
 			}else
 			{
@@ -635,9 +633,9 @@ public final class WaypointsScreen extends Screen
 				int speed = 90; // text scroll, ms pixel
 				int offset = (int)((t / (long)speed) % period);
 				int x1 = centerX - textWidth / 2 - offset;
-				context.text(minecraft.font, label, x1, nameTop + 6,
+				context.drawString(minecraft.font, label, x1, nameTop + 6,
 					0xFFFFFFFF);
-				context.text(minecraft.font, label, x1 + textWidth + gap,
+				context.drawString(minecraft.font, label, x1 + textWidth + gap,
 					nameTop + 6, 0xFFFFFFFF);
 			}
 			context.disableScissor();
@@ -743,11 +741,14 @@ public final class WaypointsScreen extends Screen
 		return "singleplayer";
 	}
 	
-	private void importFromXaero()
+	private void importFromVoxelAndXaero()
 	{
 		String worldId = resolveWorldId();
-		WaypointsManager.XaeroSyncStats stats =
+		WaypointsManager.XaeroSyncStats voxel =
+			manager.importFromVoxel(worldId);
+		WaypointsManager.XaeroSyncStats xaero =
 			manager.importFromXaero(worldId);
+		WaypointsManager.XaeroSyncStats stats = combine(voxel, xaero);
 		if(stats.imported() > 0 || stats.updated() > 0)
 		{
 			manager.save(worldId);
@@ -756,11 +757,27 @@ public final class WaypointsScreen extends Screen
 		sendXaeroMessage(importSummary(stats));
 	}
 	
-	private void exportToXaero()
+	private void exportToVoxelAndXaero()
 	{
 		String worldId = resolveWorldId();
-		WaypointsManager.XaeroSyncStats stats = manager.exportToXaero(worldId);
+		WaypointsManager.XaeroSyncStats voxel = manager.exportToVoxel(worldId);
+		WaypointsManager.XaeroSyncStats xaero = manager.exportToXaero(worldId);
+		WaypointsManager.XaeroSyncStats stats = combine(voxel, xaero);
 		sendXaeroMessage(exportSummary(stats));
+	}
+	
+	private WaypointsManager.XaeroSyncStats combine(
+		WaypointsManager.XaeroSyncStats first,
+		WaypointsManager.XaeroSyncStats second)
+	{
+		java.util.ArrayList<java.nio.file.Path> files =
+			new java.util.ArrayList<>(first.filesTouched());
+		files.addAll(second.filesTouched());
+		return new WaypointsManager.XaeroSyncStats(
+			first.imported() + second.imported(),
+			first.updated() + second.updated(),
+			first.skipped() + second.skipped(),
+			first.exported() + second.exported(), files);
 	}
 	
 	private void refreshAfterDataChange()
@@ -774,17 +791,17 @@ public final class WaypointsScreen extends Screen
 			return;
 		Component text = Component.literal(message);
 		if(minecraft.player != null)
-			minecraft.player.sendSystemMessage(text);
+			net.wurstclient.util.ChatUtils.component(text);
 		else if(minecraft.gui != null)
-			minecraft.gui.hud.getChat().addClientSystemMessage(text);
+			minecraft.gui.getChat().addMessage(text);
 	}
 	
 	private String importSummary(WaypointsManager.XaeroSyncStats stats)
 	{
 		if(stats.filesTouched().isEmpty() && stats.imported() == 0
 			&& stats.updated() == 0 && stats.skipped() == 0)
-			return "No Xaero waypoint files found for this world.";
-		StringBuilder sb = new StringBuilder("Imported from Xaero: ");
+			return "No VoxelMap/Xaero waypoint files found for this world.";
+		StringBuilder sb = new StringBuilder("Imported from VoxelMap/Xaero: ");
 		sb.append(stats.imported()).append(" added");
 		sb.append(", ").append(stats.updated()).append(" updated");
 		if(stats.skipped() > 0)
@@ -794,7 +811,7 @@ public final class WaypointsScreen extends Screen
 	
 	private String exportSummary(WaypointsManager.XaeroSyncStats stats)
 	{
-		StringBuilder sb = new StringBuilder("Exported to Xaero: ");
+		StringBuilder sb = new StringBuilder("Exported to VoxelMap/Xaero: ");
 		if(stats.exported() > 0)
 			sb.append(stats.exported()).append(" waypoints");
 		else

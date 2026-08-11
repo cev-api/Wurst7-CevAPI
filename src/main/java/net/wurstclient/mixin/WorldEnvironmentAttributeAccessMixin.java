@@ -20,7 +20,7 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.NoWeatherHack;
 
 @Mixin(EnvironmentAttributeSystem.class)
-public abstract class EnvironmentAttributeSystemMixin
+public abstract class WorldEnvironmentAttributeAccessMixin
 	implements EnvironmentAttributeReader
 {
 	@ModifyReturnValue(method = {

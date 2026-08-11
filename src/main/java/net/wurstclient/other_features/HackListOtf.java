@@ -18,7 +18,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
@@ -176,6 +176,11 @@ public final class HackListOtf extends OtherFeature
 		syncHiddenHackStates();
 	}
 	
+	public void saveHiddenHacksFile()
+	{
+		hiddenHacksFile.save();
+	}
+	
 	public boolean isHidden(Hack hack)
 	{
 		return hideFromHackListEnabled.isChecked()
@@ -196,7 +201,6 @@ public final class HackListOtf extends OtherFeature
 		
 		hiddenHacksFile.save();
 		syncHackState(hack);
-		refreshGui();
 	}
 	
 	public int getEnabledHiddenHackCount()
@@ -228,9 +232,11 @@ public final class HackListOtf extends OtherFeature
 			return;
 		
 		var hackList = hud.getHackList();
-		for(net.wurstclient.Feature feature : hiddenHacks)
-			if(feature instanceof Hack hack)
-				hackList.updateState(hack);
+		// Re-evaluate every hack. Loading a preset can unhide entries that were
+		// present in the previous list, and updating only the newly hidden
+		// entries would leave those stale entries in the HUD.
+		for(Hack hack : WURST.getHax().getAllHax())
+			hackList.updateState(hack);
 	}
 	
 	private void syncHackState(Hack hack)
@@ -366,6 +372,12 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
+		public void resetToDefault()
+		{
+			// The list is stored separately.
+		}
+		
+		@Override
 		public void fromJson(JsonElement json)
 		{
 			// Stored separately in toomanyhax_hacklist.json.
@@ -442,7 +454,7 @@ public final class HackListOtf extends OtherFeature
 				return;
 			
 			Hack hack = hacks.get(index);
-			setHidden(hack, !isHidden(hack));
+			setHidden(hack, !hiddenHacks.contains(hack));
 		}
 		
 		@Override
@@ -473,8 +485,8 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
-		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, float partialTicks)
+		public void render(GuiGraphics context, int mouseX, int mouseY,
+			float partialTicks)
 		{
 			List<Hack> hacks = getSortedHacks();
 			refreshSize(hacks);
@@ -485,7 +497,7 @@ public final class HackListOtf extends OtherFeature
 			
 			if(hacks.isEmpty())
 			{
-				context.text(MC.font, "No hacks available.", getX() + 2,
+				context.drawString(MC.font, "No hacks available.", getX() + 2,
 					getY() + 2, WURST.getGui().getTxtColor(), false);
 				return;
 			}
@@ -503,7 +515,7 @@ public final class HackListOtf extends OtherFeature
 				int y1 = getY() + row * ROW_HEIGHT;
 				int y2 = y1 + ROW_HEIGHT;
 				Hack hack = index < hacks.size() ? hacks.get(index) : null;
-				boolean hidden = hack != null && isHidden(hack);
+				boolean hidden = hack != null && hiddenHacks.contains(hack);
 				boolean rowHover = hovering && mouseY >= y1 && mouseY < y2;
 				
 				if(rowHover && hack != null)
@@ -532,8 +544,8 @@ public final class HackListOtf extends OtherFeature
 				{
 					int textColor =
 						hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
-					context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
-						textColor, false);
+					context.drawString(MC.font, hack.getName(), boxX2 + 2,
+						y1 + 2, textColor, false);
 				}
 			}
 			

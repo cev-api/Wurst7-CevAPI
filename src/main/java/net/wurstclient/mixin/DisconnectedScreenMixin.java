@@ -45,6 +45,7 @@ import net.wurstclient.navigator.NavigatorListScreen;
 import net.wurstclient.nochatreports.ForcedChatReportsScreen;
 import net.wurstclient.nochatreports.NcrModRequiredScreen;
 import net.wurstclient.options.EnterProfileNameScreen;
+import net.wurstclient.proxy.ProxyManager;
 import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.LastServerRememberer;
 
@@ -68,9 +69,11 @@ public class DisconnectedScreenMixin extends Screen
 	private int overlayHeight;
 	private int overlayX;
 	private int overlayY;
+	private int baseLayoutY;
 	
 	private Button reconnectButton;
 	private Button reconnectRandomAltButton;
+	private Button reconnectRandomProxyButton;
 	private volatile boolean randomAltReconnectInProgress;
 	
 	private void ensureValidParent()
@@ -110,13 +113,13 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(ForcedChatReportsScreen.isCausedByNoChatReports(reason))
 		{
-			minecraft.gui.setScreen(new ForcedChatReportsScreen(parent));
+			minecraft.setScreen(new ForcedChatReportsScreen(parent));
 			return;
 		}
 		
 		if(NcrModRequiredScreen.isCausedByLackOfNCR(reason))
 		{
-			minecraft.gui.setScreen(new NcrModRequiredScreen(parent));
+			minecraft.setScreen(new NcrModRequiredScreen(parent));
 			return;
 		}
 		
@@ -147,6 +150,20 @@ public class DisconnectedScreenMixin extends Screen
 								b -> pressRandomAltReconnect())
 							.width(200).build());
 		
+		ProxyManager proxyManager = WurstClient.INSTANCE.getProxyManager();
+		if(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+			.shouldShowRandomProxyReconnect()
+			&& !proxyManager.getProxies().isEmpty())
+			reconnectRandomProxyButton =
+				layout
+					.addChild(
+						Button
+							.builder(
+								Component
+									.literal("Reconnect with Random Proxy"),
+								b -> pressRandomProxyReconnect())
+							.width(200).build());
+		
 		autoReconnectButton =
 			layout.addChild(Button.builder(Component.literal("AutoReconnect"),
 				b -> pressAutoReconnect()).width(200).build());
@@ -160,14 +177,15 @@ public class DisconnectedScreenMixin extends Screen
 		}else
 			posString = "Unknown";
 		Button copyLocButton = layout.addChild(Button
-			.builder(Component.literal("Copy location: " + posString), b -> {
+			.builder(Component.literal("Copy Location: " + posString), b -> {
 				minecraft.keyboardHandler.setClipboard(posString);
 			}).width(200).build());
 		
 		layout.arrangeElements();
+		baseLayoutY = layout.getY();
 		Stream
-			.of(reconnectButton, reconnectRandomAltButton, autoReconnectButton,
-				copyLocButton)
+			.of(reconnectButton, reconnectRandomAltButton,
+				reconnectRandomProxyButton, autoReconnectButton, copyLocButton)
 			.filter(Objects::nonNull).forEach(this::addRenderableWidget);
 		
 		offlineSettingsHack.handleDisconnect(reason);
@@ -211,6 +229,16 @@ public class DisconnectedScreenMixin extends Screen
 		
 		if(autoReconnect.isEnabled())
 			autoReconnectTimer = autoReconnect.getWaitTicks();
+	}
+	
+	private void pressRandomProxyReconnect()
+	{
+		if(WurstClient.INSTANCE.getProxyManager().selectRandomProxy() != null)
+		{
+			if(parent instanceof net.wurstclient.mixinterface.IMultiplayerTitleRefresher refresher)
+				refresher.wurst$refreshAccountTitle();
+			LastServerRememberer.reconnect(parent);
+		}
 	}
 	
 	private void pressAutoReconnect()
@@ -340,11 +368,13 @@ public class DisconnectedScreenMixin extends Screen
 		
 		overlayX = (width - overlayWidth) / 2;
 		
-		// place overlay well above the vanilla
-		// "Connection Lost" area by anchoring it near the top.
-		overlayY = 30;
-		if(overlayY + overlayHeight > height - 20)
-			overlayY = Math.max(20, height - overlayHeight - 20);
+		// Keep the OfflineSettings controls above the complete vanilla layout.
+		// The vanilla title/reason and its buttons are all children of layout,
+		// so moving the layout down when necessary keeps both groups visible.
+		overlayY = Math.max(20, baseLayoutY - overlayHeight - 8);
+		int requiredLayoutY = overlayY + overlayHeight + 8;
+		if(requiredLayoutY > baseLayoutY)
+			layout.setY(requiredLayoutY);
 		
 		int currentY = overlayY + padding + textHeight;
 		if(!overlayLines.isEmpty())
@@ -573,6 +603,7 @@ public class DisconnectedScreenMixin extends Screen
 			overlayAutoButton.visible = false;
 		if(overlayCommandButton != null)
 			overlayCommandButton.visible = false;
+		layout.setY(baseLayoutY);
 		overlayReasonText = null;
 		overlayLines = Collections.emptyList();
 	}
@@ -592,26 +623,25 @@ public class DisconnectedScreenMixin extends Screen
 			return;
 		
 		Screen returnScreen = (Screen)(Object)this;
-		minecraft.gui
-			.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
-				if(input == null)
-					return;
-				
-				String trimmed = input.trim();
-				if(trimmed.isEmpty()
-					|| !OfflineSettingsHack.isValidOfflineNameFormat(trimmed))
-					return;
-				
-				hideLoginOverlay();
-				hack.reconnectWithCustomName(trimmed, parent);
-			}, Component.literal("Enter offline name"), value -> {
-				if(value == null)
-					return false;
-				
-				String trimmed = value.trim();
-				return !trimmed.isEmpty()
-					&& OfflineSettingsHack.isValidOfflineNameFormat(trimmed);
-			}));
+		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+			if(input == null)
+				return;
+			
+			String trimmed = input.trim();
+			if(trimmed.isEmpty()
+				|| !OfflineSettingsHack.isValidOfflineNameFormat(trimmed))
+				return;
+			
+			hideLoginOverlay();
+			hack.reconnectWithCustomName(trimmed, parent);
+		}, Component.literal("Enter offline name"), value -> {
+			if(value == null)
+				return false;
+			
+			String trimmed = value.trim();
+			return !trimmed.isEmpty()
+				&& OfflineSettingsHack.isValidOfflineNameFormat(trimmed);
+		}));
 	}
 	
 	private void showPlayerPicker(OfflineSettingsHack hack)
@@ -648,7 +678,7 @@ public class DisconnectedScreenMixin extends Screen
 		};
 		
 		hideLoginOverlay();
-		minecraft.gui.setScreen(new NavigatorListScreen(
+		minecraft.setScreen(new NavigatorListScreen(
 			Component.literal("Select player"), names, selected -> {
 				if(selected != null && !selected.trim().isEmpty())
 					hack.reconnectWithCustomName(selected.trim(), parent);
@@ -669,20 +699,19 @@ public class DisconnectedScreenMixin extends Screen
 			return;
 		
 		Screen returnScreen = (Screen)(Object)this;
-		minecraft.gui
-			.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
-				if(input == null)
-					return;
-				
-				String trimmed = input.trim();
-				if(trimmed.isEmpty())
-					return;
-				
-				hideLoginOverlay();
-				hack.queueReconnectCommand(trimmed);
-				hack.reconnectWithSelectedName(parent);
-			}, Component.literal("Enter reconnect command"),
-				value -> value != null && !value.trim().isEmpty()));
+		minecraft.setScreen(new EnterProfileNameScreen(returnScreen, input -> {
+			if(input == null)
+				return;
+			
+			String trimmed = input.trim();
+			if(trimmed.isEmpty())
+				return;
+			
+			hideLoginOverlay();
+			hack.queueReconnectCommand(trimmed);
+			hack.reconnectWithSelectedName(parent);
+		}, Component.literal("Enter reconnect command"),
+			value -> value != null && !value.trim().isEmpty()));
 	}
 	
 	@Override
@@ -691,6 +720,8 @@ public class DisconnectedScreenMixin extends Screen
 		if(!WurstClient.INSTANCE.isEnabled() || autoReconnectButton == null)
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
+		if(WurstClient.INSTANCE.getAltSwitchController().isBusy())
 			return;
 		
 		AutoReconnectHack autoReconnect =

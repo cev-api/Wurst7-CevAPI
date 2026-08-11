@@ -329,20 +329,23 @@ public final class AddAltScreen extends AltEditorScreen
 			{
 				altManager.add(new TokenAlt(verifiedToken, verifiedRefreshToken,
 					verifiedProfileName, false));
-				minecraft.gui.setScreen(prevScreen);
+				minecraft.setScreen(prevScreen);
 				return;
 			}
 			
 			try
 			{
+				String updatedRefreshToken = password;
 				if(!password.isEmpty())
-					MicrosoftLoginManager.loginWithRefreshToken(password);
+					updatedRefreshToken = MicrosoftLoginManager
+						.loginWithRefreshTokenAndGetUpdatedToken(password,
+							null);
 				else
 					MicrosoftLoginManager.loginWithToken(nameOrEmail);
 				
 				verifiedProfileName = minecraft.getUser().getName();
 				verifiedToken = nameOrEmail;
-				verifiedRefreshToken = password;
+				verifiedRefreshToken = updatedRefreshToken;
 				message = "\u00a7a\u00a7lLogin successful as "
 					+ verifiedProfileName + ". Click again to add.";
 				return;
@@ -361,7 +364,7 @@ public final class AddAltScreen extends AltEditorScreen
 			{
 				altManager.add(new TokenAlt("", verifiedCookieRefreshToken,
 					verifiedProfileName, false));
-				minecraft.gui.setScreen(prevScreen);
+				minecraft.setScreen(prevScreen);
 				return;
 			}
 			
@@ -398,12 +401,12 @@ public final class AddAltScreen extends AltEditorScreen
 		else
 			altManager.add(new MojangAlt(nameOrEmail, password));
 		
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	private void toggleMode()
 	{
-		minecraft.gui
+		minecraft
 			.setScreen(new AddAltScreen(prevScreen, altManager, mode.next()));
 	}
 	

@@ -85,6 +85,12 @@ import net.wurstclient.util.chunk.ChunkUtils;
 public class ChestEspHack extends Hack implements UpdateListener,
 	CameraTransformViewBobbingListener, RenderListener, PacketInputListener
 {
+	@Override
+	public int getHackListColorI(int alpha)
+	{
+		return 0xFF55FF55 | alpha;
+	}
+	
 	private static final double OPENED_MARKER_THICKNESS = 2.0;
 	private static final long BLOCK_UPDATE_GRACE_MS = 750L;
 	private static final long CHUNK_SCAN_EXPIRY_MS = 30000L;
@@ -122,6 +128,8 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			0, 255, 1, SliderSetting.ValueDisplay.INTEGER);
 	private final CheckboxSetting tracerFlash = new CheckboxSetting(
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
+	private final CheckboxSetting nearestTracerOnly = new CheckboxSetting(
+		"Nearest tracer only", "Only draw the closest ChestESP tracer.", false);
 	private final CheckboxSetting chestEspRenderLimitEnabled =
 		new CheckboxSetting("Enable ChestESP render limit",
 			"Limits how many ChestESP targets are processed per update.",
@@ -256,6 +264,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		addSetting(lineAlpha);
 		addSetting(tracerAlpha);
 		addSetting(tracerFlash);
+		addSetting(nearestTracerOnly);
 		addSetting(chestEspRenderLimitEnabled);
 		addSetting(chestEspRenderLimit);
 		groups.allGroups.stream().flatMap(ChestEspGroup::getSettings)
@@ -1170,6 +1179,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 			{
 				ends = boxes.stream().map(AABB::getCenter).toList();
 			}
+			if(nearestTracerOnly.isChecked())
+				ends = net.wurstclient.util.EspLimitUtils.collectNearest(ends,
+					1, v -> v.distanceToSqr(
+						net.wurstclient.util.RotationUtils.getEyesPos()));
 			int color = group.getColorI(tracerAlpha.getValueI());
 			if(tracerFlash.isChecked())
 				color = RenderUtils.flashColor(color);
@@ -1303,10 +1316,10 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private void scanChunk(ChunkPos chunkPos)
 	{
-		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x, chunkPos.z))
 			return;
 		
-		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x, chunkPos.z);
 		if(chunk == null)
 			return;
 		
@@ -1354,13 +1367,13 @@ public class ChestEspHack extends Hack implements UpdateListener,
 		
 		if(withoutBlockEntity > 0)
 			flagAntiEsp("missing-be",
-				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
+				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
 					+ withoutBlockEntity
 					+ " container blocks without block entities");
 		
 		if(containerBlocks >= 8 && withBlockEntity == 0)
 			flagAntiEsp("chunk-te-mismatch",
-				"Chunk " + chunkPos.x() + ", " + chunkPos.z() + " has "
+				"Chunk " + chunkPos.x + ", " + chunkPos.z + " has "
 					+ containerBlocks
 					+ " container blocks but 0 block entities");
 	}
@@ -1500,7 +1513,7 @@ public class ChestEspHack extends Hack implements UpdateListener,
 	
 	private static long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
+		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
 	}
 	
 	private static String formatPos(BlockPos pos)

@@ -18,7 +18,7 @@ import net.wurstclient.hacks.autolibrarian.BookOffer;
 import net.wurstclient.settings.BookOffersSetting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.ConfirmScreen;
@@ -64,7 +64,7 @@ public final class EditBookOffersScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Add"),
-				b -> minecraft.gui
+				b -> minecraft
 					.setScreen(new AddBookOfferScreen(this, bookOffers)))
 			.bounds(width / 2 - 154, height - 56, 100, 20).build());
 		
@@ -74,8 +74,8 @@ public final class EditBookOffersScreen extends Screen
 				if(selected == null)
 					return;
 				
-				minecraft.gui.setScreen(new EditBookOfferScreen(this,
-					bookOffers, bookOffers.indexOf(selected)));
+				minecraft.setScreen(new EditBookOfferScreen(this, bookOffers,
+					bookOffers.indexOf(selected)));
 			}).bounds(width / 2 - 50, height - 56, 100, 20).build());
 		editButton.active = false;
 		
@@ -103,17 +103,17 @@ public final class EditBookOffersScreen extends Screen
 		
 		addRenderableWidget(
 			Button.builder(Component.literal("Reset to Defaults"),
-				b -> minecraft.gui.setScreen(new ConfirmScreen(b2 -> {
+				b -> minecraft.setScreen(new ConfirmScreen(b2 -> {
 					if(b2)
-						bookOffers.resetToDefaults();
-					minecraft.gui.setScreen(EditBookOffersScreen.this);
+						bookOffers.resetToDefault();
+					minecraft.setScreen(EditBookOffersScreen.this);
 				}, Component.literal("Reset to Defaults"),
 					Component.literal("Are you sure?"))))
 				.bounds(width - 106, 6, 100, 20).build());
 		
 		addRenderableWidget(doneButton = Button
 			.builder(Component.literal("Done"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height - 32, 200, 20).build());
 	}
 	
@@ -161,17 +161,17 @@ public final class EditBookOffersScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		listGui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		listGui.render(context, mouseX, mouseY, partialTicks);
 		
-		context.centeredText(minecraft.font,
+		context.drawCenteredString(minecraft.font,
 			bookOffers.getName() + " (" + bookOffers.getOffers().size() + ")",
 			width / 2, 12, CommonColors.WHITE);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -232,8 +232,8 @@ public final class EditBookOffersScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX();
 			int y = getContentY();
@@ -251,14 +251,14 @@ public final class EditBookOffersScreen extends Screen
 			int nameColor =
 				enchantment != null && enchantment.is(EnchantmentTags.CURSE)
 					? WurstColors.LIGHT_RED : WurstColors.VERY_LIGHT_GRAY;
-			context.text(tr, name, x + 28, y, nameColor, false);
+			context.drawString(tr, name, x + 28, y, nameColor, false);
 			
-			context.text(tr, bookOffer.id(), x + 28, y + 9,
+			context.drawString(tr, bookOffer.id(), x + 28, y + 9,
 				CommonColors.LIGHT_GRAY, false);
 			
 			String price = getPriceText();
-			context.text(tr, price, x + 28, y + 18, CommonColors.LIGHT_GRAY,
-				false);
+			context.drawString(tr, price, x + 28, y + 18,
+				CommonColors.LIGHT_GRAY, false);
 			
 			if(bookOffer.price() < 64)
 				RenderUtils.drawItem(context, new ItemStack(Items.EMERALD),

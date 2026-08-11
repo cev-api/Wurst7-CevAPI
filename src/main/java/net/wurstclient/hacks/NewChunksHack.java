@@ -232,7 +232,7 @@ public final class NewChunksHack extends Hack
 		if(fluidState.isEmpty() || fluidState.isSource())
 			return;
 		
-		ChunkPos chunkPos = ChunkPos.containing(pos);
+		ChunkPos chunkPos = new ChunkPos(pos);
 		if(newChunks.contains(chunkPos) || oldChunks.contains(chunkPos))
 			return;
 		

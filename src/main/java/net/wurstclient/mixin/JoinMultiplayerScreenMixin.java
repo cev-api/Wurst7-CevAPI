@@ -60,9 +60,13 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.CommonComponents;
 import net.wurstclient.mixinterface.IMultiplayerMultiSelect;
+import net.wurstclient.mixinterface.IMultiplayerTitleRefresher;
 import net.wurstclient.mixinterface.IServerSelectionListExt;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.altmanager.screens.AltManagerScreen;
+import net.wurstclient.proxy.ProxyManager;
+import net.wurstclient.proxy.ProxyManagerScreen;
+import net.wurstclient.proxy.SocksProxy;
 import net.wurstclient.serverfinder.CleanUpScreen;
 import net.wurstclient.serverfinder.ServerFinderScreen;
 import net.wurstclient.util.LastServerRememberer;
@@ -75,7 +79,7 @@ import net.wurstclient.util.ServerImportFileChooser;
 
 @Mixin(JoinMultiplayerScreen.class)
 public class JoinMultiplayerScreenMixin extends Screen
-	implements IMultiplayerMultiSelect
+	implements IMultiplayerMultiSelect, IMultiplayerTitleRefresher
 {
 	private static final int TOP_ROW_BUTTON_WIDTH = 100;
 	private static final int TOP_ROW_BUTTON_SPACING = 4;
@@ -113,6 +117,8 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private Button lastServerButton;
 	@Unique
 	private Button antiFingerprintButton;
+	@Unique
+	private Button proxyManagerButton;
 	@Unique
 	private Button cornerServerFinderButton;
 	@Unique
@@ -195,8 +201,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return original;
 		
 		Minecraft mc = Minecraft.getInstance();
-		if(mc.getUser() != null)
-			return Component.literal("Logged In As: " + mc.getUser().getName());
+		Component title = wurst$getMultiplayerTitle(mc);
+		if(title != null)
+			return title;
 		
 		return original;
 	}
@@ -205,6 +212,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private void beforeVanillaButtons(CallbackInfo ci)
 	{
 		antiFingerprintButton = null;
+		proxyManagerButton = null;
 		cornerServerFinderButton = null;
 		cornerCleanUpButton = null;
 		cornerAltManagerButton = null;
@@ -226,9 +234,9 @@ public class JoinMultiplayerScreenMixin extends Screen
 		// Refresh the title on every init so the "Logged In As" text
 		// updates when the screen is re-shown (e.g. after Alt Manager login).
 		Minecraft mc = Minecraft.getInstance();
-		if(mc.getUser() != null)
-			title =
-				Component.literal("Logged In As: " + mc.getUser().getName());
+		Component multiplayerTitle = wurst$getMultiplayerTitle(mc);
+		if(multiplayerTitle != null)
+			title = multiplayerTitle;
 		
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
@@ -243,6 +251,30 @@ public class JoinMultiplayerScreenMixin extends Screen
 				b -> LastServerRememberer.joinLastServer(mpScreen))
 			.width(100).build();
 		addRenderableWidget(lastServerButton);
+	}
+	
+	@Unique
+	private static Component wurst$getMultiplayerTitle(Minecraft minecraft)
+	{
+		if(minecraft.getUser() == null)
+			return null;
+		
+		String title = "Logged In As: " + minecraft.getUser().getName();
+		ProxyManager proxyManager = WurstClient.INSTANCE.getProxyManager();
+		SocksProxy proxy =
+			proxyManager == null ? null : proxyManager.getSelectedProxy();
+		if(proxy != null)
+			title += " (Proxy: " + proxy.getHost() + ")";
+		
+		return Component.literal(title);
+	}
+	
+	@Override
+	public void wurst$refreshAccountTitle()
+	{
+		Component multiplayerTitle = wurst$getMultiplayerTitle(minecraft);
+		if(multiplayerTitle != null)
+			title = multiplayerTitle;
 	}
 	
 	@Inject(method = "repositionElements()V", at = @At("TAIL"))
@@ -278,7 +310,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerAltManagerButton = Button
 					.builder(Component.literal("Alt Manager"),
-						b -> minecraft.gui.setScreen(new AltManagerScreen(
+						b -> minecraft.setScreen(new AltManagerScreen(
 							(JoinMultiplayerScreen)(Object)this,
 							WurstClient.INSTANCE.getAltManager())))
 					.bounds(0, 0, 100, 20).build();
@@ -302,11 +334,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			if(antiFingerprintButton == null)
 			{
-				antiFingerprintButton = Button
-					.builder(Component.literal("Anti-Fingerprint"),
-						b -> minecraft.gui
-							.setScreen(new AntiFingerprintConfigScreen(
-								(JoinMultiplayerScreen)(Object)this)))
+				antiFingerprintButton = Button.builder(
+					Component.literal("Anti-Fingerprint"),
+					b -> minecraft.setScreen(new AntiFingerprintConfigScreen(
+						(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(antiFingerprintButton);
 			}
@@ -319,6 +350,22 @@ public class JoinMultiplayerScreenMixin extends Screen
 		{
 			antiFingerprintButton.visible = false;
 		}
+		
+		if(proxyManagerButton == null)
+		{
+			proxyManagerButton = Button
+				.builder(Component.literal("Proxies"),
+					button -> minecraft.setScreen(new ProxyManagerScreen(
+						(JoinMultiplayerScreen)(Object)this,
+						WurstClient.INSTANCE.getProxyManager())))
+				.bounds(0, 0, 100, 20).build();
+			addRenderableWidget(proxyManagerButton);
+		}
+		
+		proxyManagerButton.setX(NiceWurstModule.showAltManager() ? 110 : 6);
+		proxyManagerButton.setY(6);
+		proxyManagerButton.setWidth(100);
+		proxyManagerButton.visible = true;
 		
 		AntiFingerprintConfig config = ResourcePackProtector.getConfig();
 		boolean showResourcePackButtons =
@@ -374,7 +421,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerServerFinderButton = Button
 					.builder(Component.literal("Server Finder"),
-						b -> minecraft.gui.setScreen(new ServerFinderScreen(
+						b -> minecraft.setScreen(new ServerFinderScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 100, 20).build();
 				addRenderableWidget(cornerServerFinderButton);
@@ -397,7 +444,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			{
 				cornerCleanUpButton = Button
 					.builder(Component.literal("Clean Up"),
-						b -> minecraft.gui.setScreen(new CleanUpScreen(
+						b -> minecraft.setScreen(new CleanUpScreen(
 							(JoinMultiplayerScreen)(Object)this)))
 					.bounds(0, 0, 74, 20).build();
 				addRenderableWidget(cornerCleanUpButton);
@@ -432,10 +479,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private void wurst$setCustomMultiplayerUiVisible(boolean visible)
 	{
-		if(lastServerButton != null)
-			lastServerButton.visible = visible;
 		if(antiFingerprintButton != null)
 			antiFingerprintButton.visible = visible;
+		if(proxyManagerButton != null)
+			proxyManagerButton.visible = visible;
 		if(cornerServerFinderButton != null)
 			cornerServerFinderButton.visible = visible;
 		if(cornerCleanUpButton != null)
@@ -497,12 +544,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 		wurst$syncMultiSelectButtons();
 	}
 	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At("TAIL"))
 	private void afterExtractRenderState(
-		net.minecraft.client.gui.GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks, CallbackInfo ci)
+		net.minecraft.client.gui.GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks, CallbackInfo ci)
 	{
 		if(wurst$panelConfig == null)
 			return;
@@ -517,13 +563,13 @@ public class JoinMultiplayerScreenMixin extends Screen
 			if(!visible)
 				continue;
 			
-			context.verticalLine(x, top, bottom, 0x66000000);
-			context.verticalLine(x + panelWidth, top, bottom, 0x66000000);
+			context.vLine(x, top, bottom, 0x66000000);
+			context.vLine(x + panelWidth, top, bottom, 0x66000000);
 		}
 		
 		if(wurst$statusMessage != null
 			&& System.currentTimeMillis() < wurst$statusMessageUntil)
-			context.centeredText(font, wurst$statusMessage, width / 2,
+			context.drawCenteredString(font, wurst$statusMessage, width / 2,
 				height - 76, 0xFFFFFFFF);
 	}
 	
@@ -541,7 +587,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		cir.setReturnValue(true);
 	}
 	
-	@Inject(method = "lambda$init$4", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "method_19914",
+		at = @At("HEAD"),
+		cancellable = true,
+		remap = false)
 	private void onDeleteButton(Button button, CallbackInfo ci)
 	{
 		if(wurst$multiSelectedServers.size() <= 1)
@@ -672,6 +721,14 @@ public class JoinMultiplayerScreenMixin extends Screen
 	
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
 	{
+		if(proxyManagerButton != null && proxyManagerButton.visible
+			&& proxyManagerButton.isMouseOver(event.x(), event.y())
+			&& proxyManagerButton.mouseClicked(event, doubleClick))
+		{
+			setFocused(proxyManagerButton);
+			return true;
+		}
+		
 		if(event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			for(int i = 0; i < PANEL_COUNT; i++)
 			{
@@ -1723,8 +1780,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return;
 		
 		lastServerButton.active = LastServerRememberer.getLastServer() != null;
-		lastServerButton.setX(NiceWurstModule.showAltManager() ? 110 : 6);
+		int proxiesX = NiceWurstModule.showAltManager() ? 110 : 6;
+		lastServerButton.setX(proxiesX + 104);
 		lastServerButton.setY(6);
+		lastServerButton.visible = WurstClient.INSTANCE.isEnabled()
+			&& !WurstClient.INSTANCE.shouldHideWurstUiMixins();
 	}
 	
 	@Unique
@@ -1794,10 +1854,10 @@ public class JoinMultiplayerScreenMixin extends Screen
 		Component message = Component.literal(
 			"Are you sure you want to delete " + count + " selected servers?");
 		Component delete = Component.translatable("selectServer.deleteButton");
-		minecraft.gui.setScreen(new ConfirmScreen(confirmed -> {
+		minecraft.setScreen(new ConfirmScreen(confirmed -> {
 			if(confirmed)
 				wurst$bulkDeleteSelected();
-			minecraft.gui.setScreen((JoinMultiplayerScreen)(Object)this);
+			minecraft.setScreen((JoinMultiplayerScreen)(Object)this);
 		}, title, message, delete, CommonComponents.GUI_CANCEL));
 	}
 	
@@ -1817,7 +1877,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Unique
 	private AbstractWidget findWidget(String label)
 	{
-		for(AbstractWidget button : Screens.getWidgets(this))
+		for(AbstractWidget button : Screens.getButtons(this))
 		{
 			if(button.getMessage().getString().equals(label))
 				return button;

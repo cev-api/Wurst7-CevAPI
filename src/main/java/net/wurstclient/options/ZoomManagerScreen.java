@@ -7,7 +7,7 @@
  */
 package net.wurstclient.options;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -40,14 +40,14 @@ public class ZoomManagerScreen extends Screen implements PressAKeyCallback
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prevScreen))
+				b -> minecraft.setScreen(prevScreen))
 			.bounds(width / 2 - 100, height / 4 + 144 - 16, 200, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(
 				Component.literal("Zoom Key: ")
 					.append(zoom.getTranslatedKeybindName()),
-				b -> minecraft.gui.setScreen(new PressAKeyScreen(this)))
+				b -> minecraft.setScreen(new PressAKeyScreen(this)))
 			.bounds(width / 2 - 79, height / 4 + 24 - 16, 158, 20).build());
 		
 		addRenderableWidget(Button
@@ -59,8 +59,7 @@ public class ZoomManagerScreen extends Screen implements PressAKeyCallback
 			.bounds(width / 2 - 25, height / 4 + 72 - 16, 50, 20).build());
 		
 		addRenderableWidget(Button
-			.builder(Component.literal("Default"),
-				b -> level.setValue(level.getDefaultValue()))
+			.builder(Component.literal("Default"), b -> level.resetToDefault())
 			.bounds(width / 2 + 29, height / 4 + 72 - 16, 50, 20).build());
 		
 		addRenderableWidget(scrollButton =
@@ -90,23 +89,23 @@ public class ZoomManagerScreen extends Screen implements PressAKeyCallback
 	@Override
 	public void onClose()
 	{
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		ZoomOtf zoom = WurstClient.INSTANCE.getOtfs().zoomOtf;
 		SliderSetting level = zoom.getLevelSetting();
 		
-		context.centeredText(font, "Zoom Manager", width / 2, 40,
+		context.drawCenteredString(font, "Zoom Manager", width / 2, 40,
 			CommonColors.WHITE);
-		context.text(font, "Zoom Level: " + level.getValueString(),
+		context.drawString(font, "Zoom Level: " + level.getValueString(),
 			width / 2 - 75, height / 4 + 44, WurstColors.VERY_LIGHT_GRAY);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

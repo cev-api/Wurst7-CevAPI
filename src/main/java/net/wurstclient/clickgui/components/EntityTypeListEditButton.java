@@ -26,9 +26,9 @@ public final class EntityTypeListEditButton extends AbstractListEditButton
 	@Override
 	protected void openScreen()
 	{
-		MC.gui.setScreen(
+		MC.setScreen(
 			new net.wurstclient.clickgui.screens.EditEntityTypeListScreen(
-				MC.gui.screen(), setting));
+				MC.screen, setting));
 	}
 	
 	@Override

@@ -13,7 +13,7 @@ import java.util.List;
 import com.google.gson.JsonObject;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.chat.GuiMessage;
+import net.minecraft.client.GuiMessage;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.json.JsonException;
@@ -60,8 +60,7 @@ public abstract class MessageCompleter
 		String prompt = "=== Minecraft chat log ===\n";
 		
 		// add chat history
-		List<GuiMessage.Line> chatHistory =
-			MC.gui.hud.getChat().trimmedMessages;
+		List<GuiMessage.Line> chatHistory = MC.gui.getChat().trimmedMessages;
 		int messages = 0;
 		for(int i = chatHistory.size() - 1; i >= 0; i--)
 		{

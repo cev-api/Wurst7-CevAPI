@@ -16,7 +16,8 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import net.minecraft.client.Minecraft;
-import net.wurstclient.util.WurstBufferSource;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.wurstclient.WurstClient;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.BaseFireBlock;
@@ -558,7 +559,8 @@ public class PathFinder
 	public void renderPath(PoseStack matrixStack, boolean debugMode,
 		boolean depthTest)
 	{
-		WurstBufferSource bs = new WurstBufferSource();
+		MultiBufferSource.BufferSource bs =
+			WurstClient.MC.renderBuffers().bufferSource();
 		VertexConsumer buffer =
 			bs.getBuffer(WurstRenderLayers.getLines(depthTest));
 		
@@ -606,7 +608,7 @@ public class PathFinder
 		
 		matrixStack.popPose();
 		
-		bs.uploadAndDraw();
+		bs.endBatch();
 	}
 	
 	public boolean isPathStillValid(int index)

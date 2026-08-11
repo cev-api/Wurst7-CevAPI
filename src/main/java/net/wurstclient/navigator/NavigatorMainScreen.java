@@ -12,7 +12,7 @@ import java.util.ArrayList;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -132,7 +132,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// back button
 		if(button == GLFW.GLFW_MOUSE_BUTTON_4)
 		{
-			WurstClient.MC.gui.setScreen((Screen)null);
+			WurstClient.MC.setScreen((Screen)null);
 			return;
 		}
 		
@@ -214,7 +214,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 			if(clickTimer < 4)
 				clickTimer++;
 			else
-				WurstClient.MC.gui.setScreen(
+				WurstClient.MC.setScreen(
 					new NavigatorFeatureScreen(expandingFeature, this));
 		else if(!expanding && clickTimer > -1)
 			clickTimer--;
@@ -229,8 +229,8 @@ public final class NavigatorMainScreen extends NavigatorScreen
 	}
 	
 	@Override
-	protected void onRender(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	protected void onRender(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		int txtColor = gui.getTxtColor();
@@ -241,9 +241,9 @@ public final class NavigatorMainScreen extends NavigatorScreen
 		// search bar
 		if(!clickTimerRunning)
 		{
-			context.text(WurstClient.MC.font, "Search: ", middleX - 150, 32,
-				txtColor);
-			searchBar.extractRenderState(context, mouseX, mouseY, partialTicks);
+			context.drawString(WurstClient.MC.font, "Search: ", middleX - 150,
+				32, txtColor);
+			searchBar.render(context, mouseX, mouseY, partialTicks);
 		}
 		
 		// feature list
@@ -286,8 +286,8 @@ public final class NavigatorMainScreen extends NavigatorScreen
 				if(lw > tw)
 					tw = lw;
 			}
-			int sw = minecraft.gui.screen().width;
-			int sh = minecraft.gui.screen().height;
+			int sw = minecraft.screen.width;
+			int sh = minecraft.screen.height;
 			
 			int xt1 = mouseX + tw + 11 <= sw ? mouseX + 8 : mouseX - tw - 8;
 			int xt2 = xt1 + tw + 3;
@@ -306,13 +306,13 @@ public final class NavigatorMainScreen extends NavigatorScreen
 			// text
 			context.guiRenderState.up();
 			for(int i = 0; i < lines.length; i++)
-				context.text(tr, lines[i], xt1 + 2, yt1 + 2 + i * tr.lineHeight,
-					txtColor, false);
+				context.drawString(tr, lines[i], xt1 + 2,
+					yt1 + 2 + i * tr.lineHeight, txtColor, false);
 		}
 	}
 	
-	private void renderFeature(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks, int i, int x, int y)
+	private void renderFeature(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks, int i, int x, int y)
 	{
 		ClickGui gui = WurstClient.INSTANCE.getGui();
 		boolean clickTimerRunning = clickTimer != -1;
@@ -400,7 +400,7 @@ public final class NavigatorMainScreen extends NavigatorScreen
 			int bx = area.x + 4;
 			int by = area.y + 4;
 			int txtColor = gui.getTxtColor();
-			context.text(tr, buttonText, bx, by, txtColor, false);
+			context.drawString(tr, buttonText, bx, by, txtColor, false);
 		}
 	}
 	

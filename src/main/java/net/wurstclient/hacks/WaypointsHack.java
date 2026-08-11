@@ -21,7 +21,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.awt.Color;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
@@ -504,9 +504,10 @@ public final class WaypointsHack extends Hack
 							sendingOwnChat = true;
 							try
 							{
-								MC.player.sendSystemMessage(Component
-									.literal(name + " died at " + at.getX()
-										+ ", " + at.getY() + ", " + at.getZ()));
+								net.wurstclient.util.ChatUtils
+									.component(Component.literal(
+										name + " died at " + at.getX() + ", "
+											+ at.getY() + ", " + at.getZ()));
 							}finally
 							{
 								sendingOwnChat = false;
@@ -1002,8 +1003,9 @@ public final class WaypointsHack extends Hack
 			sendingOwnChat = true;
 			try
 			{
-				MC.player.sendSystemMessage(Component.literal("Died at "
-					+ at.getX() + ", " + at.getY() + ", " + at.getZ()));
+				net.wurstclient.util.ChatUtils
+					.component(Component.literal("Died at " + at.getX() + ", "
+						+ at.getY() + ", " + at.getZ()));
 			}finally
 			{
 				sendingOwnChat = false;
@@ -1321,16 +1323,16 @@ public final class WaypointsHack extends Hack
 	}
 	
 	// Draw text with a simple outline (stroke) for legibility
-	private void drawOutlinedString(GuiGraphicsExtractor context, Font font,
-		String s, int x, int y, int color, int stroke)
+	private void drawOutlinedString(GuiGraphics context, Font font, String s,
+		int x, int y, int color, int stroke)
 	{
 		// 4-way outline
-		context.text(font, s, x - 1, y, stroke);
-		context.text(font, s, x + 1, y, stroke);
-		context.text(font, s, x, y - 1, stroke);
-		context.text(font, s, x, y + 1, stroke);
+		context.drawString(font, s, x - 1, y, stroke);
+		context.drawString(font, s, x + 1, y, stroke);
+		context.drawString(font, s, x, y - 1, stroke);
+		context.drawString(font, s, x, y + 1, stroke);
 		// main
-		context.text(font, s, x, y, color);
+		context.drawString(font, s, x, y, color);
 	}
 	
 	private Waypoint.BeaconMode waypointBeaconMode(Waypoint waypoint)
@@ -1404,12 +1406,12 @@ public final class WaypointsHack extends Hack
 		if(MC.gui == null)
 			return;
 		
-		MC.gui.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
-			MC.gui.screen(), manager));
+		MC.setScreen(new net.wurstclient.clickgui.screens.WaypointsScreen(
+			MC.screen, manager));
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(MC.player == null || MC.level == null)
 			return;
@@ -1454,7 +1456,7 @@ public final class WaypointsHack extends Hack
 			int cw = tr.width(coords);
 			int cx = centerX - cw / 2;
 			int cy = Math.max(2, barY - 13); // was 12, now 13
-			context.text(tr, coords, cx, cy, 0xFFFFFFFF);
+			context.drawString(tr, coords, cx, cy, 0xFFFFFFFF);
 		}
 		
 		var list = new ArrayList<>(manager.all());
@@ -1554,7 +1556,7 @@ public final class WaypointsHack extends Hack
 					color, strokeColor);
 			}else
 			{
-				context.text(tr, icon, ix - iconW / 2, iconY, color);
+				context.drawString(tr, icon, ix - iconW / 2, iconY, color);
 			}
 		}
 		
@@ -1598,13 +1600,13 @@ public final class WaypointsHack extends Hack
 					textColor, strokeColor);
 			}else
 			{
-				context.text(tr, title, titleX, titleY, textColor);
-				context.text(tr, distText, distX, distY, textColor);
+				context.drawString(tr, title, titleX, titleY, textColor);
+				context.drawString(tr, distText, distX, distY, textColor);
 			}
 		}
 	}
 	
-	private void renderLineDistanceUnderCrosshair(GuiGraphicsExtractor context)
+	private void renderLineDistanceUnderCrosshair(GuiGraphics context)
 	{
 		WaypointDistanceTarget target = getCrosshairLineDistanceTarget();
 		if(target == null)
@@ -1615,7 +1617,7 @@ public final class WaypointsHack extends Hack
 		int centerX = context.guiWidth() / 2;
 		int y = context.guiHeight() / 2 - 19;
 		int x = centerX - font.width(text) / 2;
-		context.text(font, text, x, y, target.color, true);
+		context.drawString(font, text, x, y, target.color, true);
 	}
 	
 	private WaypointDistanceTarget getCrosshairLineDistanceTarget()
@@ -1644,8 +1646,7 @@ public final class WaypointsHack extends Hack
 		return best;
 	}
 	
-	private int adjustCompassYForOverlays(GuiGraphicsExtractor context,
-		int baseY)
+	private int adjustCompassYForOverlays(GuiGraphics context, int baseY)
 	{
 		int adjusted = baseY;
 		int bossBarBottom = getBossBarBottom(context);
@@ -1657,11 +1658,11 @@ public final class WaypointsHack extends Hack
 		return adjusted;
 	}
 	
-	private int getBossBarBottom(GuiGraphicsExtractor context)
+	private int getBossBarBottom(GuiGraphics context)
 	{
 		if(MC.gui == null)
 			return 0;
-		BossHealthOverlay bossBarHud = MC.gui.hud.getBossOverlay();
+		BossHealthOverlay bossBarHud = MC.gui.getBossOverlay();
 		if(bossBarHud == null)
 			return 0;
 		

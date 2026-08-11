@@ -77,10 +77,10 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		"Nearest tracer only", "Only draw the closest MobESP tracer.", false);
 	private final CheckboxSetting lastAttackerTracer =
 		new CheckboxSetting("Last attacker tracer",
-			"Draw a tracer to the mob that last damaged you.", false);
+			"Draw a tracer to the mob that last damaged you.", true);
 	private final CheckboxSetting chargingCreeperTracer = new CheckboxSetting(
 		"Charging creeper tracer",
-		"Draw a flashing tracer to creepers that are about to explode.", false);
+		"Draw a flashing tracer to creepers that are about to explode.", true);
 	
 	// New color options to match MobSearch
 	private final CheckboxSetting useRainbow =
@@ -230,6 +230,11 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		// optionally filter out mobs below the configured Y level
 		if(onlyAboveGround.isChecked())
 			stream = stream.filter(e -> e.getY() >= aboveGroundY.getValue());
+		
+		// optionally limit range
+		if(rangeLimit.isChecked())
+			stream = stream
+				.filter(e -> MC.player.distanceTo(e) <= espRange.getValue());
 		
 		stream = entityFilters.applyTo(stream);
 		
@@ -892,8 +897,16 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			return null;
 		if(style.getShape() != MobEspStyleSetting.Shape.GLOW)
 			return null;
-		if(!mobs.contains(entity))
+		try
+		{
+			if(!mobs.contains(entity))
+				return null;
+		}catch(IllegalStateException e)
+		{
+			// Entity doesn't have an ID yet (e.g. spawner display entity).
+			// mobs.contains() calls Entity.equals() which calls getId().
 			return null;
+		}
 		return RenderUtils.toIntColor(getColorRgb(), 1F);
 	}
 	

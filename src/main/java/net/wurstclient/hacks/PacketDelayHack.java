@@ -10,7 +10,7 @@ package net.wurstclient.hacks;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.Packet;
 import net.wurstclient.Category;
@@ -125,7 +125,7 @@ public final class PacketDelayHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(!showStatusText.isChecked())
 			return;
@@ -148,7 +148,7 @@ public final class PacketDelayHack extends Hack implements UpdateListener,
 		Font font = MC.font;
 		int x = context.guiWidth() / 2 - font.width(text) / 2;
 		int y = context.guiHeight() / 2 + 12;
-		context.text(font, text, x, y, 0xFFFFFFFF, true);
+		context.drawString(font, text, x, y, 0xFFFFFFFF, true);
 	}
 	
 	private String getModeText()

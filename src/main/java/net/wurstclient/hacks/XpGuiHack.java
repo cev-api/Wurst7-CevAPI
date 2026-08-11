@@ -33,8 +33,8 @@ public final class XpGuiHack extends Hack
 			return;
 		}
 		
-		if(!(MC.gui.screen() instanceof XpGuiScreen))
-			MC.gui.setScreen(new XpGuiScreen());
+		if(!(MC.screen instanceof XpGuiScreen))
+			MC.setScreen(new XpGuiScreen());
 		
 		setEnabled(false);
 	}

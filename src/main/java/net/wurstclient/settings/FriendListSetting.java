@@ -150,6 +150,12 @@ public final class FriendListSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		// Friends are persisted separately in friends.json.
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		// Friends are persisted separately in friends.json.

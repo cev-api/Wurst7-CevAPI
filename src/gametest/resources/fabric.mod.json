@@ -7,6 +7,7 @@
   "environment": "client",
   "entrypoints": {
     "fabric-client-gametest": [
+      "net.wurstclient.gametest.LootSorterGameTest",
       "net.wurstclient.gametest.WurstTest"
     ]
   },

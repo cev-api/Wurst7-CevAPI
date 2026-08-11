@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -36,6 +36,8 @@ public final class ChestSearchScreen extends Screen
 	private final Screen prev;
 	private ChestManager chestManager = new ChestManager();
 	private String screenTitle = "Chest Search";
+	private boolean readOnly;
+	private boolean skipRadiusFilter;
 	
 	private EditBox searchField;
 	private java.util.List<ChestEntry> results = new ArrayList<>();
@@ -246,8 +248,7 @@ public final class ChestSearchScreen extends Screen
 			try
 			{
 				WurstClient.MC.execute(() -> {
-					if(WurstClient.MC.gui
-						.screen() instanceof ChestSearchScreen screen)
+					if(WurstClient.MC.screen instanceof ChestSearchScreen screen)
 						screen.refreshPins();
 				});
 			}catch(Throwable ignored)
@@ -289,10 +290,23 @@ public final class ChestSearchScreen extends Screen
 		net.wurstclient.chestsearch.ChestManager manager,
 		boolean openedByKeybind)
 	{
+		this(prev, manager, openedByKeybind, null, false, false);
+	}
+	
+	/** Constructs a titled, optional read-only search backed by custom data. */
+	public ChestSearchScreen(Screen prev,
+		net.wurstclient.chestsearch.ChestManager manager,
+		boolean openedByKeybind, String title, boolean readOnly,
+		boolean skipRadiusFilter)
+	{
 		super(Component.literal("Chest Search"));
 		this.prev = prev;
 		this.chestManager = manager == null ? new ChestManager() : manager;
 		this.openedByKeybind = openedByKeybind;
+		this.readOnly = readOnly;
+		this.skipRadiusFilter = skipRadiusFilter;
+		if(title != null && !title.isBlank())
+			this.screenTitle = title;
 		try
 		{
 			if(this.chestManager != null
@@ -342,8 +356,7 @@ public final class ChestSearchScreen extends Screen
 		// removed Scan Open button per user request
 		
 		addRenderableWidget(Button
-			.builder(Component.literal("Back"),
-				b -> minecraft.gui.setScreen(prev))
+			.builder(Component.literal("Back"), b -> minecraft.setScreen(prev))
 			.bounds(mid - 150, this.height - 28, 300, 20).build());
 		
 		scrollOffset = 0;
@@ -573,6 +586,8 @@ public final class ChestSearchScreen extends Screen
 		radiusLimitBlocks = Integer.MAX_VALUE;
 		if(entries == null || entries.isEmpty())
 			return entries;
+		if(skipRadiusFilter)
+			return entries;
 		
 		net.minecraft.client.Minecraft mc = WurstClient.MC;
 		if(mc == null || mc.player == null)
@@ -756,6 +771,8 @@ public final class ChestSearchScreen extends Screen
 						}
 						if(!exists)
 						{
+							if(readOnly)
+								return;
 							try
 							{
 								new ChestManager().removeChest(e.serverIp,
@@ -802,7 +819,7 @@ public final class ChestSearchScreen extends Screen
 			int boxRight = x + getContentWidth();
 			int wpWidth = 56;
 			int espWidth = isLootManager ? 0 : 40;
-			int deleteWidth = 56;
+			int deleteWidth = readOnly ? 0 : 56;
 			// Stack buttons vertically at the right edge (ESP, Waypoint,
 			// Delete)
 			int stackWidth = Math.max(Math.max(wpWidth, espWidth), deleteWidth);
@@ -898,36 +915,44 @@ public final class ChestSearchScreen extends Screen
 			addRenderableWidget(wpBtn);
 			
 			// Delete (X) button to remove the recorded chest entry from disk
-			Button delBtn = Button.builder(Component.literal("Delete"), b -> {
-				try
-				{
-					// Remove by canonical primary coords so entries with
-					// clickedPos != min bounds can still be deleted.
-					new ChestManager().removeChest(e.serverIp, e.dimension, e.x,
-						e.y, e.z);
-				}catch(Throwable ignored)
-				{}
-				this.chestManager = new ChestManager();
-				onSearchChanged(searchField.getValue());
-				minecraft.execute(this::refreshPins);
-			}).bounds(0, btnY, deleteWidth, 16).build();
-			delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
-				btnY + 36);
+			Button delBtn = null;
+			if(!readOnly)
+			{
+				delBtn = Button.builder(Component.literal("Delete"), b -> {
+					try
+					{
+						// Remove by canonical primary coords so entries with
+						// clickedPos != min bounds can still be deleted.
+						new ChestManager().removeChest(e.serverIp, e.dimension,
+							e.x, e.y, e.z);
+					}catch(Throwable ignored)
+					{}
+					this.chestManager = new ChestManager();
+					onSearchChanged(searchField.getValue());
+					minecraft.execute(this::refreshPins);
+				}).bounds(0, btnY, deleteWidth, 16).build();
+				delBtn.setPosition(stackX + (stackWidth - deleteWidth) / 2,
+					btnY + 36);
+			}
 			// hide per-row buttons when their row is outside the visible
 			// scrolling region so they don't overlap header/search UI
 			boolean rowVisible = btnY >= visibleTop && btnY <= visibleBottom;
 			if(!isLootManager && espBtn != null)
 				espBtn.visible = rowVisible;
 			wpBtn.visible = rowVisible;
-			delBtn.visible = rowVisible;
+			if(delBtn != null)
+				delBtn.visible = rowVisible;
 			if(!isLootManager && espBtn != null)
 				espBtn.active = rowVisible;
 			wpBtn.active = rowVisible;
-			delBtn.active = rowVisible;
-			delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
-				.create(Component.literal("Delete entry")));
-			addRenderableWidget(delBtn);
-			rowButtons.add(delBtn);
+			if(delBtn != null)
+			{
+				delBtn.active = rowVisible;
+				delBtn.setTooltip(net.minecraft.client.gui.components.Tooltip
+					.create(Component.literal("Delete entry")));
+				addRenderableWidget(delBtn);
+				rowButtons.add(delBtn);
+			}
 			rowButtons.add(wpBtn);
 			
 			y += boxHeight + 6;
@@ -1121,13 +1146,12 @@ public final class ChestSearchScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		itemRowHitboxes.clear();
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		context.centeredText(this.font, Component.literal(this.screenTitle),
-			this.width / 2, 4, 0xFFFFFFFF);
+		context.drawCenteredString(this.font,
+			Component.literal(this.screenTitle), this.width / 2, 4, 0xFFFFFFFF);
 		int mid = this.width / 2;
 		int sfX = mid - 150;
 		int sfY = 18;
@@ -1336,7 +1360,7 @@ public final class ChestSearchScreen extends Screen
 					try
 					{
 						if(!stack.isEmpty())
-							context.item(stack, x + 2, lineY - 2);
+							context.renderItem(stack, x + 2, lineY - 2);
 					}catch(Throwable ignored)
 					{}
 					String name =
@@ -1515,14 +1539,14 @@ public final class ChestSearchScreen extends Screen
 			// ignore scissor underflow if scissor wasn't enabled
 		}
 		// now draw children (buttons etc.) on top
-		super.extractRenderState(context, mouseX, mouseY, delta);
+		super.render(context, mouseX, mouseY, delta);
 		int summaryHalf = summaryWidth / 2;
 		int summaryCenter = this.width / 2;
 		int summaryLeft = Math.max(0, summaryCenter - summaryHalf);
 		int summaryRight = Math.min(this.width, summaryCenter + summaryHalf);
 		context.fill(summaryLeft, summaryY - 2, summaryRight, summaryY + 18,
 			0xFF222222);
-		context.centeredText(this.font, Component.literal(summary),
+		context.drawCenteredString(this.font, Component.literal(summary),
 			this.width / 2, summaryY + 2, 0xFFCCCCCC);
 		
 		if(shown == 0)
@@ -1533,7 +1557,7 @@ public final class ChestSearchScreen extends Screen
 						+ totalChestsLogged + " chests with " + totalItemsLogged
 						+ " items." + " Matching items: 0."
 					: "No chests recorded yet.";
-			context.centeredText(this.font, Component.literal(msg),
+			context.drawCenteredString(this.font, Component.literal(msg),
 				this.width / 2, this.height / 2, 0xFFAAAAAA);
 		}
 	}

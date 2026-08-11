@@ -10,7 +10,7 @@ package net.wurstclient.mapa.screen;
 import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -67,10 +67,10 @@ public final class WorldMapScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		extractTransparentBackground(context);
+		renderTransparentBackground(context);
 		
 		int frame = 12;
 		int drawW = width - frame * 2;
@@ -112,9 +112,9 @@ public final class WorldMapScreen extends Screen
 		String info = String.format(java.util.Locale.ROOT,
 			"Zoom %.2f blocks/pixel | Cached columns %d | Drag to pan | Scroll to zoom | Space to recenter",
 			blocksPerPixel, cachedColumns);
-		context.text(font, info, mapX, Math.max(4, mapY - 10), 0xFFFFFFFF,
+		context.drawString(font, info, mapX, Math.max(4, mapY - 10), 0xFFFFFFFF,
 			true);
-		super.extractRenderState(context, mouseX, mouseY, partialTicks);
+		super.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

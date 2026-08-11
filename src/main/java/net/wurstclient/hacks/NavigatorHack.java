@@ -39,8 +39,8 @@ public final class NavigatorHack extends Hack
 			return;
 		}
 		
-		if(!(MC.gui.screen() instanceof NavigatorMainScreen))
-			MC.gui.setScreen(new NavigatorMainScreen());
+		if(!(MC.screen instanceof NavigatorMainScreen))
+			MC.setScreen(new NavigatorMainScreen());
 		
 		setEnabled(false);
 	}

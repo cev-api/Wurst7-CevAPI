@@ -39,7 +39,7 @@ public final class ChunkSearcherCoordinator extends AbstractChunkCoordinator
 		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
 		{
 			BlockPos pos = blockUpdate.getPos();
-			enqueueBlockUpdate(ChunkPos.containing(pos), pos,
+			enqueueBlockUpdate(new ChunkPos(pos), pos,
 				blockUpdate.getBlockState());
 			return;
 		}

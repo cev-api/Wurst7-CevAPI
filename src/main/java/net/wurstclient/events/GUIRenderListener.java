@@ -8,23 +8,23 @@
 package net.wurstclient.events;
 
 import java.util.ArrayList;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.wurstclient.event.Event;
 import net.wurstclient.event.Listener;
 import net.wurstclient.util.HackPerformanceTracker;
 
 public interface GUIRenderListener extends Listener
 {
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks);
+	public void onRenderGUI(GuiGraphics context, float partialTicks);
 	
 	public static class GUIRenderEvent extends Event<GUIRenderListener>
 	{
 		private final float partialTicks;
-		private final GuiGraphicsExtractor context;
+		private final GuiGraphics context;
 		
-		public GUIRenderEvent(GuiGraphicsExtractor context, float partialTicks)
+		public GUIRenderEvent(GuiGraphics context, float partialTicks)
 		{
 			this.context = context;
 			this.partialTicks = partialTicks;

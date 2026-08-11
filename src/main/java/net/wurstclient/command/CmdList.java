@@ -18,6 +18,8 @@ import net.wurstclient.commands.*;
 public final class CmdList
 {
 	public final AddAltCmd addAltCmd = new AddAltCmd();
+	public final AltBotCmd altBotCmd = new AltBotCmd();
+	public final AltSwitchCmd altSwitchCmd = new AltSwitchCmd();
 	public final AnnoyCmd annoyCmd = new AnnoyCmd();
 	public final AuthorCmd authorCmd = new AuthorCmd();
 	public final AutoFlyCmd autoFlyCmd = new AutoFlyCmd();
@@ -54,6 +56,8 @@ public final class CmdList
 	public final KeymapCmd keymapCmd = new KeymapCmd();
 	public final LeaveCmd leaveCmd = new LeaveCmd();
 	public final LivestreamCmd livestreamCmd = new LivestreamCmd();
+	public final LootSorterCmd lootSorterCmd = new LootSorterCmd();
+	public final LootSorterCmd lootSortCmd = new LootSorterCmd("lootsort");
 	public final MapaCmd mapaCmd = new MapaCmd();
 	public final ModifyCmd modifyCmd = new ModifyCmd();
 	public final PathCmd pathCmd = new PathCmd();

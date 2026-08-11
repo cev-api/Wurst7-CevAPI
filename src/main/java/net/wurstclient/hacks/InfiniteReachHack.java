@@ -585,8 +585,8 @@ public final class InfiniteReachHack extends Hack
 		if(attackPressed)
 			MC.gameMode.attack(MC.player, target);
 		else
-			MC.gameMode.interact(MC.player, target, new EntityHitResult(target),
-				InteractionHand.MAIN_HAND);
+			MC.gameMode.interactAt(MC.player, target,
+				new EntityHitResult(target), InteractionHand.MAIN_HAND);
 		
 		if(swingArm.isChecked())
 			swingMainHand();

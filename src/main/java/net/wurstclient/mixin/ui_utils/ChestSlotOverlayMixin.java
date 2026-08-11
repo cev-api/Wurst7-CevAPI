@@ -7,7 +7,7 @@
  */
 package net.wurstclient.mixin.ui_utils;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -51,11 +51,10 @@ public abstract class ChestSlotOverlayMixin extends Screen
 		super(Component.literal(""));
 	}
 	
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
 		at = @At("TAIL"))
-	private void wurst$renderSlotOverlay(GuiGraphicsExtractor graphics,
-		int mouseX, int mouseY, float delta, CallbackInfo ci)
+	private void wurst$renderSlotOverlay(GuiGraphics graphics, int mouseX,
+		int mouseY, float delta, CallbackInfo ci)
 	{
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
@@ -176,7 +175,7 @@ public abstract class ChestSlotOverlayMixin extends Screen
 			int textX = leftPos + slot.x + offsetX;
 			int textY = topPos + slot.y + offsetY;
 			String label = String.valueOf(index);
-			graphics.text(font, label, textX, textY, color, true);
+			graphics.drawString(font, label, textX, textY, color, true);
 		}
 	}
 	

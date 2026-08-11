@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -217,7 +217,7 @@ public final class NbtSizeCounterHack extends Hack implements
 		if(!(MC.level.getEntity(update.id()) instanceof ItemEntity))
 			return;
 		
-		ItemStack stack = extractItemStackFromEntityDataPacket(update);
+		ItemStack stack = renderItemStackFromEntityDataPacket(update);
 		if(stack == null)
 			return;
 		
@@ -268,7 +268,7 @@ public final class NbtSizeCounterHack extends Hack implements
 	}
 	
 	public void renderOnHandledScreen(AbstractContainerScreen<?> screen,
-		GuiGraphicsExtractor context)
+		GuiGraphics context)
 	{
 		if(!showScreenOverlay.isChecked())
 			return;
@@ -323,7 +323,7 @@ public final class NbtSizeCounterHack extends Hack implements
 			y + lines.size() * (font.lineHeight + 1) + 2, 0x90000000);
 		
 		for(int i = 0; i < lines.size(); i++)
-			context.text(font, Component.literal(lines.get(i)), x,
+			context.drawString(font, Component.literal(lines.get(i)), x,
 				y + i * (font.lineHeight + 1), 0xFFE6E6E6, true);
 	}
 	
@@ -736,7 +736,7 @@ public final class NbtSizeCounterHack extends Hack implements
 		}
 		
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		Camera camera = MC.gameRenderer.mainCamera();
+		Camera camera = MC.gameRenderer.getMainCamera();
 		if(camera != null)
 		{
 			matrices.mulPose(
@@ -767,10 +767,10 @@ public final class NbtSizeCounterHack extends Hack implements
 	
 	private long chunkKey(ChunkPos pos)
 	{
-		return ((long)pos.x() << 32) ^ (pos.z() & 0xFFFFFFFFL);
+		return ((long)pos.x << 32) ^ (pos.z & 0xFFFFFFFFL);
 	}
 	
-	private ItemStack extractItemStackFromEntityDataPacket(
+	private ItemStack renderItemStackFromEntityDataPacket(
 		ClientboundSetEntityDataPacket packet)
 	{
 		List<?> dataList = getPacketDataList(packet);

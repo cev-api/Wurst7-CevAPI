@@ -93,7 +93,7 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 			ordinal = 0))
 	private void onTick(CallbackInfo ci)
 	{
-		try(TempRealInput _ = new TempRealInput())
+		try(TempRealInput ignoredInput = new TempRealInput())
 		{
 			EventManager.fire(UpdateEvent.INSTANCE);
 		}
@@ -357,6 +357,8 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	public double blockInteractionRange()
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
+		if(hax != null && hax.bedBreakAuraHack.isEnabled())
+			return hax.bedBreakAuraHack.getInteractionRange();
 		if(hax == null || !hax.reachHack.isEnabled())
 			return super.blockInteractionRange();
 		
@@ -367,6 +369,8 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	public double entityInteractionRange()
 	{
 		HackList hax = WurstClient.INSTANCE.getHax();
+		if(hax != null && hax.bedBreakAuraHack.isEnabled())
+			return hax.bedBreakAuraHack.getInteractionRange();
 		if(hax == null || !hax.reachHack.isEnabled())
 			return super.entityInteractionRange();
 		

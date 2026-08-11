@@ -12,6 +12,7 @@ import com.google.gson.JsonObject;
 public abstract class Alt
 {
 	private boolean favorite;
+	private long lastValidatedAt;
 	
 	public Alt(boolean favorite)
 	{
@@ -76,9 +77,40 @@ public abstract class Alt
 		return !isCracked() && getName().isEmpty();
 	}
 	
+	public final String getCredentialType()
+	{
+		if(this instanceof TokenAlt tokenAlt)
+			return tokenAlt.getRefreshToken().isEmpty() ? "Access Token"
+				: "Refresh Token";
+		if(this instanceof MojangAlt)
+			return "Microsoft Login";
+		return "Cracked";
+	}
+	
 	public final boolean isFavorite()
 	{
 		return favorite;
+	}
+	
+	public final long getLastValidatedAt()
+	{
+		return lastValidatedAt;
+	}
+	
+	public final void setLastValidatedAt(long timestamp)
+	{
+		lastValidatedAt = Math.max(0, timestamp);
+	}
+	
+	public final void markValidatedNow()
+	{
+		lastValidatedAt = System.currentTimeMillis();
+	}
+	
+	protected final void addLastValidated(JsonObject json)
+	{
+		if(lastValidatedAt > 0)
+			json.addProperty("last_validated", lastValidatedAt);
 	}
 	
 	/**

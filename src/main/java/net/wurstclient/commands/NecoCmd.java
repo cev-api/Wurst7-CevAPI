@@ -30,7 +30,7 @@ import org.w3c.dom.Node;
 
 import com.mojang.blaze3d.platform.NativeImage;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.Identifier;
@@ -126,7 +126,7 @@ public final class NecoCmd extends Command
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
+	public void onRenderGUI(GuiGraphics context, float partialTicks)
 	{
 		if(!enabled || gifLoadFailed || gifFrames.isEmpty())
 			return;

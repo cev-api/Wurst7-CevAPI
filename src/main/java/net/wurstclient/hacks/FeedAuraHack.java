@@ -151,7 +151,8 @@ public final class FeedAuraHack extends Hack
 		
 		EntityHitResult hitResult = EntityUtils.createHitResult(target);
 		InteractionHand hand = InteractionHand.MAIN_HAND;
-		InteractionResult result = gm.interact(player, target, hitResult, hand);
+		InteractionResult result =
+			gm.interactAt(player, target, hitResult, hand);
 		
 		if(result instanceof InteractionResult.Success success
 			&& success.swingSource() == InteractionResult.SwingSource.CLIENT)

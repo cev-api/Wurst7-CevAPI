@@ -7,7 +7,7 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -258,7 +258,7 @@ public final class WaypointEditScreen extends Screen
 					// Preserve selected dimension index so it isn't lost when
 					// the child color screen re-initializes this screen.
 					draftDimIndex = dimIndex;
-					minecraft.gui
+					minecraft
 						.setScreen(new EditColorScreen(this, colorSetting));
 				}).bounds(x, y, cw - 24, 20).build();
 			addRenderableWidget(colorButton);
@@ -305,7 +305,7 @@ public final class WaypointEditScreen extends Screen
 				.bounds(fieldsBaseX, height - 52, halfW, 20).build());
 		addRenderableWidget(Button
 			.builder(Component.literal("Cancel"),
-				b -> minecraft.gui.setScreen(prev))
+				b -> minecraft.setScreen(prev))
 			.bounds(fieldsBaseX + halfW + halfGap, height - 52, halfW, 20)
 			.build());
 	}
@@ -372,7 +372,7 @@ public final class WaypointEditScreen extends Screen
 		manager.remove(waypoint);
 		if(listScreen != null)
 			listScreen.saveNow();
-		minecraft.gui.setScreen(prev);
+		minecraft.setScreen(prev);
 	}
 	
 	private void saveAndBack()
@@ -412,7 +412,7 @@ public final class WaypointEditScreen extends Screen
 		if(addOppositeOnSave)
 			createOppositeWaypoint();
 		
-		minecraft.gui.setScreen(prev);
+		minecraft.setScreen(prev);
 	}
 	
 	private String toHex6(int argb)
@@ -462,11 +462,10 @@ public final class WaypointEditScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float delta)
+	public void render(GuiGraphics context, int mouseX, int mouseY, float delta)
 	{
 		context.fill(0, 0, this.width, this.height, 0x88000000);
-		super.extractRenderState(context, mouseX, mouseY, delta);
+		super.render(context, mouseX, mouseY, delta);
 		
 		// Update color button label in case it changed in child screen
 		if(colorButton != null && colorSetting != null)
@@ -475,15 +474,15 @@ public final class WaypointEditScreen extends Screen
 		
 		// Labels
 		int x = fieldsBaseX;
-		context.text(minecraft.font, "Name", x, yName - 18,
+		context.drawString(minecraft.font, "Name", x, yName - 18,
 			CommonColors.LIGHT_GRAY, false);
 		if(xField != null)
 		{
-			context.text(minecraft.font, "X", xXYZ1, yXYZ - 18,
+			context.drawString(minecraft.font, "X", xXYZ1, yXYZ - 18,
 				CommonColors.LIGHT_GRAY, false);
-			context.text(minecraft.font, "Y", xXYZ2,
+			context.drawString(minecraft.font, "Y", xXYZ2,
 				(narrow ? yYField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
-			context.text(minecraft.font, "Z", xXYZ3,
+			context.drawString(minecraft.font, "Z", xXYZ3,
 				(narrow ? yZField : yXYZ) - 18, CommonColors.LIGHT_GRAY, false);
 		}
 		// removed explicit "Color" text label to avoid redundancy and crowding
@@ -501,7 +500,7 @@ public final class WaypointEditScreen extends Screen
 		// Opposite preview text – render below the toggles row with spacing
 		String opp = oppositePreview();
 		if(!opp.isEmpty())
-			context.text(minecraft.font, opp, fieldsBaseX,
+			context.drawString(minecraft.font, opp, fieldsBaseX,
 				/* below the opposite/visible row with extra gap */
 				yToggles + 28 + 12, 0xFFCCCCCC, false);
 	}

@@ -159,7 +159,7 @@ public final class TriggerBotHack extends Hack
 		}
 		
 		// don't attack when a container/inventory screen is open
-		if(MC.gui.screen() instanceof AbstractContainerScreen)
+		if(MC.screen instanceof AbstractContainerScreen)
 		{
 			releaseWeaponRules();
 			return;

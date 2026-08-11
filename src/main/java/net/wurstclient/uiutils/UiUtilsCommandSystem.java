@@ -82,7 +82,7 @@ public final class UiUtilsCommandSystem
 	
 	private static String close()
 	{
-		Minecraft.getInstance().gui.setScreen(null);
+		Minecraft.getInstance().setScreen(null);
 		return PREFIX + "Closed current screen.";
 	}
 	

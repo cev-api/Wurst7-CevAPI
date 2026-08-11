@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 
 @Mixin(Gui.class)
 public class ItemHandlerHudLateMixin
@@ -23,8 +23,8 @@ public class ItemHandlerHudLateMixin
 	// and potential side-effects. The HUD is rendered via IngameHUD.
 	
 	@Inject(at = @At("TAIL"),
-		method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V")
-	private void wurst$renderItemHandlerHud(GuiGraphicsExtractor context,
+		method = "render(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V")
+	private void wurst$renderItemHandlerHud(GuiGraphics context,
 		DeltaTracker tickCounter, CallbackInfo ci)
 	{
 		// Disabled: IngameHUD already handles rendering the ItemHandlerHud

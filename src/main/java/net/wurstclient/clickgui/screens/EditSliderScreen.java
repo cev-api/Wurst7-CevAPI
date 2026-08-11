@@ -9,7 +9,7 @@ package net.wurstclient.clickgui.screens;
 
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -67,7 +67,7 @@ public final class EditSliderScreen extends Screen
 		if(MathUtils.isDouble(value))
 			slider.setValue(Double.parseDouble(value));
 		
-		minecraft.gui.setScreen(prevScreen);
+		minecraft.setScreen(prevScreen);
 	}
 	
 	@Override
@@ -80,7 +80,7 @@ public final class EditSliderScreen extends Screen
 			break;
 			
 			case GLFW.GLFW_KEY_ESCAPE:
-			minecraft.gui.setScreen(prevScreen);
+			minecraft.setScreen(prevScreen);
 			break;
 		}
 		
@@ -88,16 +88,16 @@ public final class EditSliderScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(minecraft.font, slider.getName(), width / 2, 20,
-			CommonColors.WHITE);
+		context.drawCenteredString(minecraft.font, slider.getName(), width / 2,
+			20, CommonColors.WHITE);
 		
-		valueField.extractRenderState(context, mouseX, mouseY, partialTicks);
+		valueField.render(context, mouseX, mouseY, partialTicks);
 		
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override

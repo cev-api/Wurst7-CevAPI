@@ -88,7 +88,7 @@ public final class ClickGuiHack extends Hack
 			return;
 		}
 		
-		MC.gui.setScreen(new ClickGuiScreen(WURST.getGui()));
+		MC.setScreen(new ClickGuiScreen(WURST.getGui()));
 		setEnabled(false);
 	}
 	

@@ -7,7 +7,7 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.CharacterEvent;
@@ -74,18 +74,18 @@ public final class ClickGuiScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 		
-		gui.extractRenderState(context, mouseX, mouseY, partialTicks);
+		gui.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
-	public void extractBackground(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float deltaTicks)
+	public void renderBackground(GuiGraphics context, int mouseX, int mouseY,
+		float deltaTicks)
 	{
 		// Don't blur
 	}

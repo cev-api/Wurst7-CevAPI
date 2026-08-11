@@ -25,7 +25,6 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
@@ -61,6 +60,7 @@ public final class AutoClickerHack extends Hack
 	
 	private enum ClickType
 	{
+		HOLD("Hold", 0),
 		SINGLE("Single", 1),
 		DOUBLE("Double", 2),
 		TRIPLE("Triple", 3),
@@ -133,6 +133,10 @@ public final class AutoClickerHack extends Hack
 		new EnumSetting<>("Mouse button", Button.values(), Button.LEFT);
 	private final EnumSetting<ClickType> clickType =
 		new EnumSetting<>("Click type", ClickType.values(), ClickType.SINGLE);
+	private final CheckboxSetting verboseLogging = new CheckboxSetting(
+		"Verbose logging",
+		"Shows AutoClicker activation, running, pause/resume, and stop details.",
+		false);
 	private final EnumSetting<RepeatMode> repeatMode = new EnumSetting<>(
 		"Click repeat", RepeatMode.values(), RepeatMode.UNTIL_STOPPED);
 	private final SliderSetting repeatTimes = new SliderSetting("Repeat times",
@@ -177,12 +181,14 @@ public final class AutoClickerHack extends Hack
 	private long nextClick, stopAt;
 	private int completedClicks, clickInBurst;
 	private boolean selecting;
+	private boolean verboseRunningLogged;
 	private boolean pausedByFlag;
 	private String lastPauseReason;
 	private BlockTarget hoveredTarget;
 	private BlockTarget singleTarget;
 	private BlockTarget fixedTarget;
 	private boolean useWasDown, enterWasDown;
+	private KeyMapping heldButton;
 	private double lastX, lastY, lastZ;
 	private float lastHealth;
 	
@@ -214,6 +220,7 @@ public final class AutoClickerHack extends Hack
 		addSetting(cursorZ);
 		addSetting(selectLocation);
 		addSetting(clearLocations);
+		addSetting(verboseLogging);
 	}
 	
 	@Override
@@ -230,9 +237,12 @@ public final class AutoClickerHack extends Hack
 		lastZ = MC.player.getZ();
 		lastHealth = MC.player.getHealth();
 		completedClicks = clickInBurst = 0;
+		verboseRunningLogged = false;
 		pausedByFlag = false;
 		lastPauseReason = null;
 		nextClick = System.currentTimeMillis();
+		verboseLog("" + clickType.getSelected() + " click active ("
+			+ button.getSelected() + ", " + repeatMode.getSelected() + ").");
 		stopAt = nextClick + timeHours.getValueI() * 3600000L
 			+ timeMinutes.getValueI() * 60000L
 			+ timeSeconds.getValueI() * 1000L;
@@ -273,8 +283,11 @@ public final class AutoClickerHack extends Hack
 		// A simulated click is delivered to the active screen as a real mouse
 		// event. Never let it operate the ClickGUI, where it could toggle this
 		// feature (or change another setting) under its own cursor.
-		if(MC.gui.screen() instanceof ClickGuiScreen)
+		if(MC.screen != null)
+		{
+			releaseKeys();
 			return;
+		}
 		boolean moved = MC.player.distanceToSqr(lastX, lastY, lastZ) > 0.0001;
 		boolean damaged =
 			MC.player.getHealth() < lastHealth || MC.player.hurtTime > 0;
@@ -289,6 +302,7 @@ public final class AutoClickerHack extends Hack
 				ChatUtils.message("AutoClicker paused: " + flagReason);
 			pausedByFlag = true;
 			lastPauseReason = flagReason;
+			verboseLog("Paused: " + flagReason + ".");
 			releaseKeys();
 			return;
 		}
@@ -301,8 +315,11 @@ public final class AutoClickerHack extends Hack
 			}
 			pausedByFlag = false;
 			lastPauseReason = null;
+			verboseLog("Resumed: flag is no longer active.");
 			ChatUtils.message("AutoClicker resumed: flag is no longer active.");
 		}
+		if(clickType.getSelected() != ClickType.HOLD && heldButton != null)
+			releaseKeys();
 		if(repeatMode.getSelected() == RepeatMode.TIMES
 			&& completedClicks >= repeatTimes.getValueI())
 		{
@@ -315,12 +332,23 @@ public final class AutoClickerHack extends Hack
 			stopAndDisable("time limit reached.");
 			return;
 		}
+		if(clickType.getSelected() == ClickType.HOLD)
+		{
+			holdButton();
+			return;
+		}
 		if(System.currentTimeMillis() < nextClick)
 			return;
 		if(clickInBurst < clickType.getSelected().count)
 		{
 			try
 			{
+				if(!verboseRunningLogged)
+				{
+					verboseRunningLogged = true;
+					verboseLog(
+						"Running " + clickType.getSelected() + " click.");
+				}
 				click();
 			}catch(RuntimeException e)
 			{
@@ -354,10 +382,52 @@ public final class AutoClickerHack extends Hack
 		return null;
 	}
 	
+	@Override
+	public String getStatusText()
+	{
+		if(!isEnabled())
+			return null;
+		if(MC.screen != null || pausedByFlag)
+			return "[Paused]";
+		if(clickType.getSelected() == ClickType.HOLD)
+			return "[Holding]";
+		
+		int clicks = completedClicks * clickType.getSelected().count
+			+ Math.min(clickInBurst, clickType.getSelected().count);
+		String status = "[" + clicks;
+		if(repeatMode.getSelected() == RepeatMode.TIMES)
+			status +=
+				"/" + (repeatTimes.getValueI() * clickType.getSelected().count);
+		else if(repeatMode.getSelected() == RepeatMode.FOR_TIME)
+			status += " | " + formatCountdown(
+				Math.max(0, stopAt - System.currentTimeMillis()));
+		long untilNext = Math.max(0, nextClick - System.currentTimeMillis());
+		return status + " | " + ((untilNext + 999) / 1000) + "s]";
+	}
+	
+	@Override
+	public int getStatusTextColor()
+	{
+		return 0xFFFFFF55;
+	}
+	
+	private String formatCountdown(long millis)
+	{
+		long seconds = (millis + 999) / 1000;
+		return (seconds / 60) + ":" + String.format("%02d", seconds % 60);
+	}
+	
 	private void stopAndDisable(String reason)
 	{
+		verboseLog("Stopped: " + reason);
 		ChatUtils.message("AutoClicker stopped: " + reason);
 		setEnabled(false);
+	}
+	
+	private void verboseLog(String message)
+	{
+		if(verboseLogging.isChecked())
+			ChatUtils.message("AutoClicker: " + message);
 	}
 	
 	private long intervalMillis()
@@ -378,6 +448,18 @@ public final class AutoClickerHack extends Hack
 			? MC.options.keyAttack : MC.options.keyUse;
 		IKeyMapping.get(key).simulatePress(true);
 		IKeyMapping.get(key).simulatePress(false);
+	}
+	
+	private void holdButton()
+	{
+		KeyMapping key = button.getSelected() == Button.LEFT
+			? MC.options.keyAttack : MC.options.keyUse;
+		if(heldButton == key)
+			return;
+		if(heldButton != null)
+			IKeyMapping.get(heldButton).simulatePress(false);
+		IKeyMapping.get(key).simulatePress(true);
+		heldButton = key;
 	}
 	
 	private BlockTarget getBlockTarget()
@@ -416,6 +498,7 @@ public final class AutoClickerHack extends Hack
 	{
 		IKeyMapping.get(MC.options.keyAttack).simulatePress(false);
 		IKeyMapping.get(MC.options.keyUse).simulatePress(false);
+		heldButton = null;
 	}
 	
 	private void beginSelection()
@@ -432,7 +515,7 @@ public final class AutoClickerHack extends Hack
 		useWasDown = enterWasDown = false;
 		if(cursorMode.getSelected() == CursorMode.MULTIPLE)
 			locations.clear();
-		MC.gui.setScreen(null);
+		MC.setScreen(null);
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		ChatUtils

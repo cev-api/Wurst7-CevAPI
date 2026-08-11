@@ -41,6 +41,12 @@ public final class WaypointsSetting extends Setting
 	}
 	
 	@Override
+	public void resetToDefault()
+	{
+		// Waypoints are persisted by WaypointsManager.
+	}
+	
+	@Override
 	public void fromJson(JsonElement json)
 	{
 		// no-op

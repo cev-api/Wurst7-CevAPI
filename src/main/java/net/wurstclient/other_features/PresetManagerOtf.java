@@ -34,6 +34,6 @@ public final class PresetManagerOtf extends OtherFeature
 		if(MC.gui == null)
 			return;
 		
-		MC.gui.setScreen(new PresetManagerScreen(MC.gui.screen()));
+		MC.setScreen(new PresetManagerScreen(MC.screen));
 	}
 }

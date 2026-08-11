@@ -43,8 +43,7 @@ public abstract class NecoModeLivingEntityRendererMixin
 	@Unique
 	private static PlayerModel necoPlayerModel;
 	
-	@WrapOperation(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+	@WrapOperation(method = "submit",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"))
 	private void wurst$replaceSubmittedModel(SubmitNodeCollector collector,
@@ -69,8 +68,7 @@ public abstract class NecoModeLivingEntityRendererMixin
 			sprite, outlineColor, crumbling);
 	}
 	
-	@WrapOperation(
-		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+	@WrapOperation(method = "submit",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/entity/LivingEntityRenderer;shouldRenderLayers(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;)Z"))
 	private boolean wurst$skipMobLayers(LivingEntityRenderer instance,

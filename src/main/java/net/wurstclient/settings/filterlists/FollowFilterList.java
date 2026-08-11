@@ -53,7 +53,6 @@ public final class FollowFilterList extends EntityFilterList
 			"description.wurst.setting.follow.filter_bats", true));
 		
 		builder.add(new FilterSlimesSetting("Won't follow slimes.", true));
-		
 		builder.add(new FilterPetsSetting(
 			"description.wurst.setting.follow.filter_pets", true));
 		

@@ -9,7 +9,7 @@ package net.wurstclient.util;
 
 import org.joml.Matrix3x2f;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -21,8 +21,7 @@ public enum TitleScreenBackgroundRenderer
 {
 	;
 	
-	public static void addBackground(GuiGraphicsExtractor context, int width,
-		int height)
+	public static void addBackground(GuiGraphics context, int width, int height)
 	{
 		Matrix3x2f pose = new Matrix3x2f();
 		ScreenRectangle bounds = new ScreenRectangle(0, 0, width, height);
@@ -33,7 +32,7 @@ public enum TitleScreenBackgroundRenderer
 		boolean customShader = ShadertoyBackgroundManager.hasCustomShader();
 		int packedColor = customShader ? packCustomShaderColor(time)
 			: packBuiltinShaderColor(time, mode);
-		context.guiRenderState.addGuiElement(new CustomQuadRenderState(
+		context.guiRenderState.submitGuiElement(new CustomQuadRenderState(
 			customShader
 				? TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND_CUSTOM
 				: TitleScreenShaderPipelines.TITLE_SHADERTOY_BACKGROUND,

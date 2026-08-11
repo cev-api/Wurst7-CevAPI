@@ -134,8 +134,8 @@ public final class AltBotDetailsScreen extends Screen
 	}
 	
 	@Override
-	public void render(GuiGraphics context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		context.drawCenteredString(font, "Bot Details", width / 2, 12,
 			CommonColors.WHITE);
@@ -180,14 +180,15 @@ public final class AltBotDetailsScreen extends Screen
 			long seconds = Duration.ofMillis(
 				System.currentTimeMillis() - state.getConnectionStartMillis())
 				.getSeconds();
-			context.drawString(font, "Session duration: " + formatDuration(seconds),
-				x, y, CommonColors.LIGHT_GRAY);
+			context.drawString(font,
+				"Session duration: " + formatDuration(seconds), x, y,
+				CommonColors.LIGHT_GRAY);
 			y += lineHeight;
 		}
 		
 		if(state.hasPosition())
 			context
-				.text(font,
+				.drawString(font,
 					"Position: " + String.format(java.util.Locale.ROOT,
 						"%.1f, %.1f, %.1f", state.getX(), state.getY(),
 						state.getZ()),
