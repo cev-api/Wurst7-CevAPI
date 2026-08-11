@@ -131,6 +131,9 @@ public final class ClickGui
 				continue;
 			if(f == WURST.getCmds().autoBuildCmd)
 				continue;
+			if(f == WURST.getCmds().lootSorterCmd
+				|| f == WURST.getCmds().lootSortCmd)
+				continue;
 			
 			if(MOVE_TO_CLIENT_SETTINGS.stream()
 				.anyMatch(name -> name.equalsIgnoreCase(f.getName())))
