@@ -8,6 +8,7 @@
 package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -15,13 +16,37 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.wurstclient.WurstClient;
+import net.wurstclient.other_features.WurstOptionsOtf;
+import net.wurstclient.util.TitleScreenBackgroundRenderer;
 
 @Mixin(Screen.class)
 public abstract class ScreenMixin extends AbstractContainerEventHandler
 	implements Renderable
 {
+	@Shadow
+	protected int width;
+	@Shadow
+	protected int height;
+	
+	@Inject(method = "renderPanorama(Lnet/minecraft/client/gui/GuiGraphics;F)V",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void wurst$renderTitleShaderBackground(GuiGraphics context,
+		float deltaTicks, CallbackInfo ci)
+	{
+		WurstOptionsOtf options =
+			WurstClient.INSTANCE.getOtfs().wurstOptionsOtf;
+		if(!((Object)this instanceof TitleScreen)
+			|| !options.isTitleScreenShadertoyBackgroundEnabled())
+			return;
+		
+		TitleScreenBackgroundRenderer.addBackground(context, width, height);
+		ci.cancel();
+	}
+	
 	@Inject(
 		method = "renderTransparentBackground(Lnet/minecraft/client/gui/GuiGraphics;)V",
 		at = @At("HEAD"),
