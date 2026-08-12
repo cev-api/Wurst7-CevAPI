@@ -92,6 +92,21 @@ public enum EntityUtils
 		IS_ATTACKABLE_MELEE.and(e -> !(e instanceof Interaction));
 	
 	/**
+	 * Every living entity that is alive, excluding fake players.
+	 *
+	 * <p>
+	 * Historically this was {@code getValidAnimals()}; it now covers all living
+	 * entities so that 26.3-only mobs (such as sulfur cubes) can be handled.
+	 */
+	public static Stream<LivingEntity> getValidLivingEntities()
+	{
+		return getAliveEntities(LivingEntity.class).filter(IS_VALID_LIVING_ENTITY);
+	}
+	
+	public static final Predicate<LivingEntity> IS_VALID_LIVING_ENTITY =
+		le -> le != null && !le.isRemoved() && le.getHealth() > 0;
+	
+	/**
 	 * Interpolates (or "lerps") between the entity's position in the previous
 	 * tick and its position in the current tick to get the exact position where
 	 * the entity will be rendered in the next frame.

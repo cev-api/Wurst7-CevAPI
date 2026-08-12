@@ -34,6 +34,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.filters.FilterBabiesSetting;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.SulfurCubeCompat;
 
 @SearchTags({"feed aura", "BreedAura", "breed aura", "AutoBreeder",
 	"auto breeder"})
@@ -126,6 +127,10 @@ public final class FeedAuraHack extends Hack
 	{
 		if(entity instanceof Animal animal)
 			return animal.isFood(stack) && animal.canFallInLove();
+		
+		// 26.3-only mob; see SulfurCubeCompat.
+		if(SulfurCubeCompat.canFeed(entity, stack))
+			return true;
 		
 		return false;
 	}
