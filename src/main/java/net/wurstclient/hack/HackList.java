@@ -49,6 +49,7 @@ public final class HackList implements UpdateListener
 	public final AntiSpamHack antiSpamHack = new AntiSpamHack();
 	public final AntisocialHack antisocialHack = new AntisocialHack();
 	public final AntiVoidHack antiVoidHack = new AntiVoidHack();
+	public final AntiGeyserHack antiGeyserHack = new AntiGeyserHack();
 	public final AntiWaterPushHack antiWaterPushHack = new AntiWaterPushHack();
 	public final AntiWobbleHack antiWobbleHack = new AntiWobbleHack();
 	public final AntiProjectileHack antiProjectileHack =

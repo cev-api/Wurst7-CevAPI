@@ -596,6 +596,7 @@ public final class AutoFlyHack extends Hack
 	private double climbTargetY;
 	
 	private boolean flightWasEnabled;
+	private boolean enabledNoFallByAutoFly;
 	private boolean boatFlyWasEnabled;
 	private double savedFlightSpeed = -1;
 	private double savedFlightVSpeed = -1;
@@ -899,6 +900,7 @@ public final class AutoFlyHack extends Hack
 		else
 			selectNextTarget(false);
 		flightWasEnabled = WURST.getHax().flightHack.isEnabled();
+		enabledNoFallByAutoFly = false;
 		boatFlyWasEnabled = WURST.getHax().boatFlyHack.isEnabled();
 		savedFlightSpeed = -1;
 		savedFlightVSpeed = -1;
@@ -921,6 +923,14 @@ public final class AutoFlyHack extends Hack
 		enabledSkyBuildEspForStopOn = false;
 		
 		var hax = WURST.getHax();
+		// AutoFly deliberately spends most of its time airborne. Make sure its
+		// real movement packets receive the same fall protection as Flight,
+		// even when Flight's optional NoFall setting is disabled.
+		if(!hax.noFallHack.isEnabled())
+		{
+			hax.noFallHack.setEnabled(true);
+			enabledNoFallByAutoFly = true;
+		}
 		if(useAntisocial.isChecked() && !hax.antisocialHack.isEnabled())
 		{
 			hax.antisocialHack.setEnabled(true);
@@ -955,6 +965,9 @@ public final class AutoFlyHack extends Hack
 		clearAutoFlyInput();
 		restoreFlightSettings();
 		var hax = WURST.getHax();
+		if(enabledNoFallByAutoFly && hax.noFallHack.isEnabled())
+			hax.noFallHack.setEnabled(false);
+		enabledNoFallByAutoFly = false;
 		if(enabledAntisocialForAutoFly && hax.antisocialHack.isEnabled())
 			hax.antisocialHack.setEnabled(false);
 		if(enabledAutoEatForAutoFly && hax.autoEatHack.isEnabled())

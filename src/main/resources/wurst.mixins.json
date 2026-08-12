@@ -152,6 +152,7 @@
     "xray.ItemBlockRenderTypesMixin",
     "xray.LiquidBlockRendererMixin",
     "xray.ModelBlockRendererMixin",
+    "xray.TextDisplayRendererMixin",
     "xray.sodium.AbstractBlockRenderContextMixin",
     "xray.sodium.BlockRendererMixin",
     "xray.sodium.DefaultFluidRendererMixin",

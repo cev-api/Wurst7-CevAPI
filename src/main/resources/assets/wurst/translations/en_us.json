@@ -19,6 +19,8 @@
   "description.wurst.hack.antibreak": "Replaces low-durability equipped items with the best available replacement from your inventory.",
   "description.wurst.hack.antiblind": "Prevents blindness and darkness effects.\nIncompatible with OptiFine.",
   "description.wurst.hack.anticactus": "Protects you from cactus damage.",
+  "hack.wurst.antigeyser": "AntiGeyser",
+  "description.wurst.hack.antigeyser": "Prevents Potent Sulfur geysers from pushing you upward. Can optionally hide their particles.",
   "hack.wurst.anticheatdetect": "AntiCheatDetect",
   "description.wurst.hack.anticheatdetect": "Detects the AntiCheat of the server and notifies you.",
   "description.wurst.hack.antidrop": "Prevents you from dropping the selected items by accident. Defaults to all weapons, tools, and shulker boxes.",

@@ -95,6 +95,14 @@ public final class LootSorterHack extends Hack
 	
 	private final CheckboxSetting renderSelections =
 		new CheckboxSetting("Render selections", true);
+	private final CheckboxSetting autosortBasedOnFrames = new CheckboxSetting(
+		"Autosort based on frames",
+		"Automatically use an item frame attached to each destination as its item-family rule.",
+		false);
+	private final CheckboxSetting bulkSelection = new CheckboxSetting(
+		"Bulk area selection",
+		"At the beginning of source or destination selection, choose two points and press Enter to include every loaded container between them.",
+		false);
 	private final CheckboxSetting renderLabels = new CheckboxSetting(
 		"Render labels",
 		"Show destination filter labels within the configured range.", false);
@@ -196,6 +204,8 @@ public final class LootSorterHack extends Hack
 		super("LootSorter");
 		setCategory(Category.ITEMS);
 		addSetting(renderSelections);
+		addSetting(autosortBasedOnFrames);
+		addSetting(bulkSelection);
 		addSetting(renderLabels);
 		addSetting(labelRange);
 		addSetting(destinationFilter);
@@ -237,6 +247,8 @@ public final class LootSorterHack extends Hack
 		updateUnfocusedOperation();
 		controller = new LootSorterController(MC, this::getSelectedFilter,
 			this::openDestinationEditor, this::persistSourcePresetContents);
+		controller.setFrameAutosortByDefault(autosortBasedOnFrames.isChecked());
+		controller.setBulkSelectionEnabled(bulkSelection.isChecked());
 		if(presetCapture == PresetCapture.SOURCE)
 			controller.begin();
 		else if(presetCapture == PresetCapture.DESTINATION)
@@ -358,6 +370,32 @@ public final class LootSorterHack extends Hack
 		if(!useCustomPreset.isChecked())
 			return destinationFilter.getSelected();
 		return getCustomPreset();
+	}
+	
+	public boolean setAutosortBasedOnFrames(boolean enabled)
+	{
+		autosortBasedOnFrames.setChecked(enabled);
+		if(controller != null)
+			controller.setFrameAutosortByDefault(enabled);
+		return autosortBasedOnFrames.isChecked() == enabled;
+	}
+	
+	public boolean setBulkSelection(boolean enabled)
+	{
+		bulkSelection.setChecked(enabled);
+		if(controller != null)
+			controller.setBulkSelectionEnabled(enabled);
+		return bulkSelection.isChecked() == enabled;
+	}
+	
+	public boolean isAutosortBasedOnFrames()
+	{
+		return autosortBasedOnFrames.isChecked();
+	}
+	
+	public boolean isBulkSelectionEnabled()
+	{
+		return bulkSelection.isChecked();
 	}
 	
 	private void openDestinationEditor(DestinationRule rule)

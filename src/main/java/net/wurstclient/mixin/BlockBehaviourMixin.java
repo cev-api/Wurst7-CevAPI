@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.WurstClient;
@@ -46,6 +47,8 @@ public abstract class BlockBehaviourMixin
 		
 		TextureRotatorHack textureRotator = hax.textureRotatorHack;
 		if(!textureRotator.isEnabled())
+			return;
+		if(state.is(Blocks.POTENT_SULFUR))
 			return;
 		
 		if(textureRotator.isNoRotationMode())

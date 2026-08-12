@@ -29,6 +29,7 @@ public enum BuiltInItemFilter implements ItemFilter
 {
 	ALL("Everything (move all items)", 10),
 	AUTOSORT("Autosort (match container contents)", 60),
+	AUTOSORT_FRAMES("Autosort based on item-frame family", 65),
 	WEAPONS("Weapons", 20),
 	TOOLS("Tools", 20),
 	ARMOUR("Armour", 20),
@@ -137,7 +138,7 @@ public enum BuiltInItemFilter implements ItemFilter
 			return false;
 		return switch(this)
 		{
-			case ALL, AUTOSORT, MISCELLANEOUS -> true;
+			case ALL, AUTOSORT, AUTOSORT_FRAMES, MISCELLANEOUS -> true;
 			case WEAPONS -> stack.is(ItemTags.SWORDS)
 				|| stack.is(ItemTags.SPEARS) || path(stack, "trident", "mace")
 				|| stack.getItem() instanceof AxeItem
