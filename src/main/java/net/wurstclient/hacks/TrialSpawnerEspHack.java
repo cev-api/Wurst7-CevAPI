@@ -137,6 +137,10 @@ public final class TrialSpawnerEspHack extends Hack
 		"Ominous key sound",
 		"Plays a sound when an ominous trial key item is detected near a trial spawner.",
 		false);
+	private final ColorSetting ominousKeySpawnerColor = new ColorSetting(
+		"Ominous key spawner color",
+		"Color used to highlight a spawner for five minutes after it dispenses an ominous trial key.",
+		new Color(0xFFFF00FF));
 	private final SliderSetting ominousKeySoundVolume =
 		new SliderSetting("Ominous key sound volume", 100, 0, 200, 1,
 			ValueDisplay.INTEGER.withSuffix("%"));
@@ -160,6 +164,9 @@ public final class TrialSpawnerEspHack extends Hack
 	private final ArrayList<VaultInfo> vaults = new ArrayList<>();
 	private final HashSet<String> openedVaultKeys = new HashSet<>();
 	private final HashSet<UUID> alertedOminousKeys = new HashSet<>();
+	private final Map<BlockPos, Long> ominousKeySpawnerHighlights =
+		new HashMap<>();
+	private static final long OMINOUS_KEY_HIGHLIGHT_TICKS = 5 * 60 * 20L;
 	private boolean openedVaultsLoaded = false;
 	private final java.util.Set<String> approachScheduledKeys =
 		new java.util.HashSet<>();
@@ -204,6 +211,7 @@ public final class TrialSpawnerEspHack extends Hack
 		addSetting(alertOminousKey);
 		addSetting(alertOminousKeySound);
 		addSetting(ominousKeySoundVolume);
+		addSetting(ominousKeySpawnerColor);
 		addSetting(vaultBoxColor);
 		addSetting(ominousVaultBoxColor);
 		addSetting(showCountInHackList);
@@ -238,6 +246,7 @@ public final class TrialSpawnerEspHack extends Hack
 		openedVaultsLoaded = false;
 		openedVaultKeys.clear();
 		alertedOminousKeys.clear();
+		ominousKeySpawnerHighlights.clear();
 	}
 	
 	@Override
@@ -391,8 +400,9 @@ public final class TrialSpawnerEspHack extends Hack
 		
 		foundCount = onlyVaults.isChecked() ? vaults.size() : spawners.size();
 		
-		if(alertOminousKey.isChecked())
-			alertIfOminousKeyNearby();
+		// The highlight is useful even when chat/audio alerts are disabled. The
+		// alert setting only controls the optional notification side effects.
+		trackOminousKeyDispensers();
 		
 		// detect transitions and predict cooldown end when configured
 		if(MC.level != null && estimateCooldownOnTransition.isChecked())
@@ -591,6 +601,8 @@ public final class TrialSpawnerEspHack extends Hack
 					? TrialSpawnerState.INACTIVE : logic.getState();
 				TrialStatus status = TrialStatus.fromState(state);
 				int color = getColorForStatus(status);
+				if(isOminousKeySpawnerHighlighted(info.pos()))
+					color = ominousKeySpawnerColor.getColorI();
 				AABB box = new AABB(info.pos());
 				outlineBoxes.add(new ColoredBox(box, color));
 				if(filledBoxes != null)
@@ -1192,9 +1204,9 @@ public final class TrialSpawnerEspHack extends Hack
 		return "Unknown";
 	}
 	
-	private void alertIfOminousKeyNearby()
+	private void trackOminousKeyDispensers()
 	{
-		if(MC.level == null || MC.player == null || spawners.isEmpty())
+		if(MC.level == null || MC.player == null)
 			return;
 		
 		double scanRange =
@@ -1221,21 +1233,30 @@ public final class TrialSpawnerEspHack extends Hack
 			if(!isOminousTrialKeyId(id))
 				continue;
 			
-			if(!isNearAnySpawner(item.position()))
+			TrialSpawnerInfo nearest = findNearestSpawner(item.position());
+			if(nearest == null)
 				continue;
 			
 			UUID uuid = item.getUUID();
 			seen.add(uuid);
+			ominousKeySpawnerHighlights.put(nearest.pos(),
+				MC.level.getGameTime() + OMINOUS_KEY_HIGHLIGHT_TICKS);
 			if(alertedOminousKeys.add(uuid))
 			{
-				ChatUtils.message("Ominous Trial Key dispensed at "
-					+ formatBlockPos(item.blockPosition()));
-				if(alertOminousKeySound.isChecked())
-					playOminousKeyAlertSound();
+				if(alertOminousKey.isChecked())
+				{
+					ChatUtils.message("Ominous Trial Key dispensed at "
+						+ formatBlockPos(nearest.pos()));
+					if(alertOminousKeySound.isChecked())
+						playOminousKeyAlertSound();
+				}
 			}
 		}
 		
 		alertedOminousKeys.retainAll(seen);
+		long now = MC.level.getGameTime();
+		ominousKeySpawnerHighlights.entrySet()
+			.removeIf(entry -> entry.getValue() <= now);
 	}
 	
 	private void playOminousKeyAlertSound()
@@ -1256,19 +1277,40 @@ public final class TrialSpawnerEspHack extends Hack
 			MC.player.getZ(), sound, SoundSource.PLAYERS, volume, 1.0F, false);
 	}
 	
-	private boolean isNearAnySpawner(Vec3 pos)
+	private TrialSpawnerInfo findNearestSpawner(Vec3 pos)
 	{
 		double rangeSq = 12 * 12;
+		TrialSpawnerInfo nearest = null;
+		double nearestDistanceSq = Double.MAX_VALUE;
 		for(TrialSpawnerInfo info : spawners)
 		{
 			BlockPos spawnerPos = info.pos();
 			double dx = spawnerPos.getX() + 0.5 - pos.x;
 			double dy = spawnerPos.getY() + 0.5 - pos.y;
 			double dz = spawnerPos.getZ() + 0.5 - pos.z;
-			if(dx * dx + dy * dy + dz * dz <= rangeSq)
-				return true;
+			double distanceSq = dx * dx + dy * dy + dz * dz;
+			if(distanceSq <= rangeSq && distanceSq < nearestDistanceSq)
+			{
+				nearest = info;
+				nearestDistanceSq = distanceSq;
+			}
 		}
-		return false;
+		return nearest;
+	}
+	
+	private boolean isOminousKeySpawnerHighlighted(BlockPos pos)
+	{
+		if(MC.level == null)
+			return false;
+		Long until = ominousKeySpawnerHighlights.get(pos);
+		if(until == null)
+			return false;
+		if(until <= MC.level.getGameTime())
+		{
+			ominousKeySpawnerHighlights.remove(pos);
+			return false;
+		}
+		return true;
 	}
 	
 	private boolean isOminousTrialKeyId(String id)

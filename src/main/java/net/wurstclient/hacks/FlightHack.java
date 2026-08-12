@@ -201,6 +201,7 @@ public final class FlightHack extends Hack implements UpdateListener,
 	protected void onDisable()
 	{
 		WURST.getHax().noFallHack.resetMovementTracking();
+		WURST.getHax().noFallHack.beginFlightLandingProtection();
 		restoreNoSlowdownVineIgnore();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(IsPlayerInWaterListener.class, this);

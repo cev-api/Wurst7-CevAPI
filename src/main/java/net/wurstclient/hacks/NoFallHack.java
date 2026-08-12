@@ -47,6 +47,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	private boolean hasLastPlayerY;
 	private double lastSentPositionY;
 	private boolean hasLastSentPositionY;
+	private long flightLandingProtectionUntil;
 	
 	public NoFallHack()
 	{
@@ -73,6 +74,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	{
 		hasLastPlayerY = false;
 		hasLastSentPositionY = false;
+		flightLandingProtectionUntil = 0;
 		WURST.getHax().antiHungerHack.setEnabled(false);
 		EVENTS.add(UpdateListener.class, this);
 	}
@@ -82,6 +84,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 	{
 		hasLastPlayerY = false;
 		hasLastSentPositionY = false;
+		flightLandingProtectionUntil = 0;
 		EVENTS.remove(UpdateListener.class, this);
 	}
 	
@@ -120,10 +123,13 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastSentPositionY = y;
 		hasLastSentPositionY = true;
 		
-		if(!isEnabled() || !descending || !isSafeToSpoofFlightMovement())
+		boolean flightLandingProtection =
+			System.currentTimeMillis() < flightLandingProtectionUntil;
+		if((!isEnabled() && !flightLandingProtection) || !descending
+			|| !isSafeToSpoofFlightMovement())
 			return packet;
 		
-		if(isPaused(descending))
+		if(!flightLandingProtection && isPaused(descending))
 			return packet;
 		
 		return PacketUtils.modifyOnGround(packet, true);
@@ -134,6 +140,18 @@ public final class NoFallHack extends Hack implements UpdateListener
 	{
 		hasLastSentPositionY = false;
 		hasLastPlayerY = false;
+	}
+	
+	/** Protects the short transition when Flight is disabled while airborne. */
+	public void beginFlightLandingProtection()
+	{
+		LocalPlayer player = MC.player;
+		if(player == null || player.onGround())
+			return;
+		
+		flightLandingProtectionUntil = System.currentTimeMillis() + 5000;
+		lastSentPositionY = player.getY();
+		hasLastSentPositionY = true;
 	}
 	
 	/**
@@ -172,6 +190,15 @@ public final class NoFallHack extends Hack implements UpdateListener
 		LocalPlayer player = MC.player;
 		if(player.getAbilities().invulnerable)
 			return true;
+			
+		// AutoFly can reset the client-side fallDistance while its actual
+		// movement packets are still descending. In that case the normal
+		// minimum-distance and pause-during-Flight rules would skip the spoof,
+		// leaving the server to apply fall damage. Keep protection active for
+		// every descending AutoFly position packet, but remain paused while it
+		// is cruising level.
+		boolean autoFlyDescending =
+			WURST.getHax().autoFlyHack.isEnabled() && actuallyDescending;
 		
 		// pause when flying with elytra, unless allowed
 		boolean fallFlying = player.isFallFlying();
@@ -192,7 +219,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 		boolean flightActive = WURST.getHax().flightHack.isEnabled()
 			|| WURST.getHax().creativeFlightHack.isEnabled()
 			|| PathFlightRuntime.isPathFlightActive();
-		if(pauseForFlight.isChecked() && flightActive)
+		if(pauseForFlight.isChecked() && flightActive && !autoFlyDescending)
 		{
 			// Keep NoFall active while Flight is deliberately descending.
 			// Use the intended direction instead of velocity, which Flight
@@ -209,8 +236,10 @@ public final class NoFallHack extends Hack implements UpdateListener
 		// unless CreativeFlight is enabled in survival mode
 		boolean creativeFlying = WURST.getHax().creativeFlightHack.isEnabled()
 			&& player.getAbilities().flying;
-		if(!creativeFlying && player.fallDistance <= (fallFlying
-			? minFallDistanceElytra.getValue() : minFallDistance.getValue()))
+		if(!autoFlyDescending && !creativeFlying
+			&& player.fallDistance <= (fallFlying
+				? minFallDistanceElytra.getValue()
+				: minFallDistance.getValue()))
 			return true;
 		
 		// attempt to fix elytra weirdness, if allowed

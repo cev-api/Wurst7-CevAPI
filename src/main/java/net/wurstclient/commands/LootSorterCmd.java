@@ -34,7 +34,9 @@ public class LootSorterCmd extends Command
 			"." + commandName + " set destination <preset>",
 			"." + commandName + " delete <source|destination> <preset>",
 			"." + commandName + " list [source|destination]",
-			"." + commandName + " show [source preset]");
+			"." + commandName + " show [source preset]",
+			"." + commandName + " frames [on|off|toggle]",
+			"." + commandName + " bulk [on|off|toggle]");
 		setCategory(Category.ITEMS);
 	}
 	
@@ -52,6 +54,8 @@ public class LootSorterCmd extends Command
 			case "delete", "remove" -> delete(hack, args);
 			case "list" -> list(hack, args);
 			case "show" -> show(hack, args);
+			case "frames", "frame", "autosortframes" -> setFrames(hack, args);
+			case "bulk", "area" -> setBulk(hack, args);
 			default -> throw new CmdSyntaxError();
 		}
 	}
@@ -121,6 +125,40 @@ public class LootSorterCmd extends Command
 	private void show(LootSorterHack hack, String[] args)
 	{
 		hack.showSourceChestSearch(args.length == 1 ? null : joinName(args, 1));
+	}
+	
+	private void setFrames(LootSorterHack hack, String[] args)
+		throws CmdSyntaxError
+	{
+		hack.setAutosortBasedOnFrames(
+			parseToggle(args, 1, hack.isAutosortBasedOnFrames()));
+		ChatUtils.message("LootSorter: autosort based on frames "
+			+ (hack.isAutosortBasedOnFrames() ? "enabled" : "disabled") + ".");
+	}
+	
+	private void setBulk(LootSorterHack hack, String[] args)
+		throws CmdSyntaxError
+	{
+		hack.setBulkSelection(
+			parseToggle(args, 1, hack.isBulkSelectionEnabled()));
+		ChatUtils.message("LootSorter: bulk area selection "
+			+ (hack.isBulkSelectionEnabled() ? "enabled" : "disabled") + ".");
+	}
+	
+	private boolean parseToggle(String[] args, int index, boolean current)
+		throws CmdSyntaxError
+	{
+		if(args.length == index)
+			return !current;
+		if(args.length != index + 1)
+			throw new CmdSyntaxError("Expected on, off, or toggle.");
+		return switch(args[index].toLowerCase())
+		{
+			case "on", "enable", "enabled" -> true;
+			case "off", "disable", "disabled" -> false;
+			case "toggle" -> !current;
+			default -> throw new CmdSyntaxError("Expected on, off, or toggle.");
+		};
 	}
 	
 	private boolean isType(String value, String type)

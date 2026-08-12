@@ -63,6 +63,7 @@ public final class LootSorterModelTest
 		testPlannerLargestGroupAndSpecificity();
 		testPlannerBatchesMatchingItems();
 		testAutosortDestination();
+		testFrameFamilyAutosort();
 	}
 	
 	private void testComponentEquivalence()
@@ -349,6 +350,22 @@ public final class LootSorterModelTest
 				&& route.itemKeys().contains(
 					ItemStackEquivalenceKey.of(new ItemStack(Items.DIRT))),
 			"empty autosort must start with the largest item category");
+	}
+	
+	private void testFrameFamilyAutosort()
+	{
+		DestinationRule destination = destination(new BlockPos(10, 64, 0), 0,
+			BuiltInItemFilter.AUTOSORT_FRAMES);
+		destination.setFrameItem(new ItemStack(Items.SPRUCE_LOG));
+		check(
+			destination.matches(new ItemStack(Items.SPRUCE_PLANKS))
+				&& destination.matches(new ItemStack(Items.SPRUCE_STAIRS))
+				&& !destination.matches(new ItemStack(Items.OAK_PLANKS)),
+			"frame autosort must match the attached material family");
+		check(
+			ItemFilterCodec.decode(
+				"builtin:AUTOSORT_FRAMES") == BuiltInItemFilter.AUTOSORT_FRAMES,
+			"frame autosort filter must survive profile encoding");
 	}
 	
 	private DestinationRule destination(BlockPos position, int priority,

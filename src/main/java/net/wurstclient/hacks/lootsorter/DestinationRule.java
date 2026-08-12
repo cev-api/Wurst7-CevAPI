@@ -22,6 +22,8 @@ public final class DestinationRule
 	private boolean temporarilyUnavailable;
 	private boolean configured;
 	private List<ItemStack> observedContents = List.of();
+	private ItemStack frameItem = ItemStack.EMPTY;
+	private ItemStack autosortFamilyItem = ItemStack.EMPTY;
 	
 	public DestinationRule(LogicalContainer container, int priority)
 	{
@@ -48,6 +50,7 @@ public final class DestinationRule
 	public void clearFilters()
 	{
 		filters.clear();
+		autosortFamilyItem = ItemStack.EMPTY;
 	}
 	
 	public boolean matches(ItemStack stack)
@@ -69,7 +72,31 @@ public final class DestinationRule
 	
 	public boolean isAutosort()
 	{
-		return filters.stream().anyMatch(f -> f == BuiltInItemFilter.AUTOSORT);
+		return filters.stream().anyMatch(f -> f == BuiltInItemFilter.AUTOSORT
+			|| f == BuiltInItemFilter.AUTOSORT_FRAMES);
+	}
+	
+	public boolean isFrameAutosort()
+	{
+		return filters.stream()
+			.anyMatch(f -> f == BuiltInItemFilter.AUTOSORT_FRAMES);
+	}
+	
+	public void setFrameItem(ItemStack item)
+	{
+		frameItem =
+			item == null || item.isEmpty() ? ItemStack.EMPTY : item.copy();
+	}
+	
+	public ItemStack getFrameItem()
+	{
+		return frameItem.copy();
+	}
+	
+	public void setAutosortFamilyItem(ItemStack item)
+	{
+		autosortFamilyItem =
+			item == null || item.isEmpty() ? ItemStack.EMPTY : item.copy();
 	}
 	
 	/**
@@ -115,6 +142,10 @@ public final class DestinationRule
 	{
 		if(!isAutosort() || stack == null || stack.isEmpty())
 			return false;
+		if(isFrameAutosort())
+			return !frameItem.isEmpty() && ItemFamily.matches(frameItem, stack);
+		if(!autosortFamilyItem.isEmpty())
+			return ItemFamily.matches(autosortFamilyItem, stack);
 		if(observedContents.isEmpty())
 			return true;
 		String category = autosortCategory(stack);
@@ -124,6 +155,8 @@ public final class DestinationRule
 	
 	public String routingKey(ItemStack stack)
 	{
+		if(!autosortFamilyItem.isEmpty())
+			return ItemFamily.of(stack);
 		return isAutosort() ? autosortCategory(stack) : "normal";
 	}
 	

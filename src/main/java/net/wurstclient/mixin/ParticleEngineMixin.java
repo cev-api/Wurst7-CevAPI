@@ -19,6 +19,7 @@ import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SpellParticleOption;
+import net.wurstclient.WurstClient;
 import net.wurstclient.util.EffectParticleTracker;
 
 @Mixin(ParticleEngine.class)
@@ -26,16 +27,34 @@ public class ParticleEngineMixin
 {
 	@Inject(
 		method = "createParticle(Lnet/minecraft/core/particles/ParticleOptions;DDDDDD)Lnet/minecraft/client/particle/Particle;",
-		at = @At("RETURN"))
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onCreateParticle(ParticleOptions options, double x, double y,
 		double z, double xSpeed, double ySpeed, double zSpeed,
 		CallbackInfoReturnable<Particle> cir)
 	{
+		if(WurstClient.INSTANCE.getHax() != null
+			&& WurstClient.INSTANCE.getHax().antiGeyserHack.isHidingGeysers()
+			&& isGeyserParticle(options))
+		{
+			cir.setReturnValue(null);
+			return;
+		}
+		
 		int color = getEffectParticleColor(options);
 		if(color == 0)
 			return;
 		
 		EffectParticleTracker.recordParticle(x, y, z, color);
+	}
+	
+	@Unique
+	private boolean isGeyserParticle(ParticleOptions options)
+	{
+		return options.getType() == ParticleTypes.GEYSER
+			|| options.getType() == ParticleTypes.GEYSER_BASE
+			|| options.getType() == ParticleTypes.GEYSER_POOF
+			|| options.getType() == ParticleTypes.GEYSER_PLUME;
 	}
 	
 	@Unique

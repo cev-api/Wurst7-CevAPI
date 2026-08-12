@@ -14,6 +14,8 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.WurstClient;
@@ -38,6 +40,8 @@ public abstract class BlockStateBaseOffsetMixin
 		TextureRotatorHack textureRotator = getTextureRotator();
 		if(textureRotator == null || !textureRotator.isEnabled())
 			return;
+		if(((BlockState)(Object)this).is(Blocks.POTENT_SULFUR))
+			return;
 		
 		if(textureRotator.isNoRotationMode())
 			cir.setReturnValue(Vec3.ZERO);
@@ -52,7 +56,8 @@ public abstract class BlockStateBaseOffsetMixin
 	{
 		TextureRotatorHack textureRotator = getTextureRotator();
 		if(textureRotator == null || !textureRotator.isEnabled()
-			|| textureRotator.isNoRotationMode())
+			|| textureRotator.isNoRotationMode()
+			|| ((BlockState)(Object)this).is(Blocks.POTENT_SULFUR))
 			return pos;
 		
 		return textureRotator.getRandomizedOffsetPos(pos);

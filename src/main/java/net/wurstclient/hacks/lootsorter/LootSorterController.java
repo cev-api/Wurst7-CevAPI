@@ -23,10 +23,12 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 import net.wurstclient.ai.PathFinder;
 import net.wurstclient.ai.PathProcessor;
 import net.wurstclient.events.KeyPressListener.KeyPressEvent;
@@ -34,6 +36,8 @@ import net.wurstclient.events.RightClickListener.RightClickEvent;
 import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.InteractionSimulator;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.chunk.ChunkUtils;
 
 /**
  * Owns the run lifecycle. The hack class only adapts Wurst settings/events;
@@ -120,6 +124,10 @@ public final class LootSorterController
 	private boolean directEverythingMove;
 	private boolean positionCorrectionPending;
 	private boolean scanningDestinations;
+	private boolean bulkSelectionEnabled;
+	private boolean frameAutosortByDefault;
+	private BlockPos bulkSelectionStart;
+	private BlockPos bulkSelectionEnd;
 	
 	public LootSorterController(Minecraft mc,
 		Supplier<ItemFilter> selectedFilter,
@@ -133,12 +141,32 @@ public final class LootSorterController
 		this.sourceContentsSaver = sourceContentsSaver;
 	}
 	
+	public void setBulkSelectionEnabled(boolean enabled)
+	{
+		bulkSelectionEnabled = enabled;
+		if(!enabled)
+		{
+			bulkSelectionStart = null;
+			bulkSelectionEnd = null;
+		}
+	}
+	
+	public void setFrameAutosortByDefault(boolean enabled)
+	{
+		frameAutosortByDefault = enabled;
+		if(enabled && (state == LootSorterState.SELECTING_SOURCES
+			|| state == LootSorterState.SELECTING_DESTINATIONS))
+			applyFrameAutosortMode();
+	}
+	
 	public void begin()
 	{
 		if(!prepareNewSelection())
 			return;
 		transition(LootSorterState.SELECTING_SOURCES);
-		message("right-click source containers; press Enter to confirm.");
+		message(bulkSelectionEnabled
+			? "right-click point A, right-click point B, then press Enter to select all source containers."
+			: "right-click source containers; press Enter to confirm.");
 	}
 	
 	/**
@@ -150,7 +178,9 @@ public final class LootSorterController
 		if(!prepareNewSelection())
 			return;
 		transition(LootSorterState.SELECTING_DESTINATIONS);
-		message("right-click destinations to configure; press Enter to save.");
+		message(bulkSelectionEnabled
+			? "right-click point A, right-click point B, then press Enter to select all destination containers."
+			: "right-click destinations to configure; press Enter to save.");
 	}
 	
 	private boolean prepareNewSelection()
@@ -182,6 +212,8 @@ public final class LootSorterController
 		sourceContentsPublished = false;
 		directEverythingMove = false;
 		scanningDestinations = false;
+		bulkSelectionStart = null;
+		bulkSelectionEnd = null;
 		positionCorrectionPending = false;
 		returningRemainder = false;
 		summaryReported = false;
@@ -192,6 +224,128 @@ public final class LootSorterController
 		runDimension = mc.level.dimension().identifier().toString();
 		lastPlayerPosition = mc.player.position();
 		return true;
+	}
+	
+	private boolean materializeBulkSelection()
+	{
+		if(!bulkSelectionEnabled)
+			return true;
+		if(bulkSelectionStart == null || bulkSelectionEnd == null)
+		{
+			error("select both bulk points before pressing Enter.");
+			return false;
+		}
+		List<LogicalContainer> found = findContainersInBulkArea();
+		if(found.isEmpty())
+		{
+			error("no loaded containers were found in the selected area.");
+			return false;
+		}
+		if(state == LootSorterState.SELECTING_SOURCES)
+		{
+			for(LogicalContainer container : found)
+				if(!sources.contains(container))
+					sources.add(container);
+			message("selected " + found.size() + " source container"
+				+ (found.size() == 1 ? "" : "s") + " from the bulk area.");
+		}else
+		{
+			for(LogicalContainer container : found)
+			{
+				if(destinations.stream()
+					.anyMatch(rule -> rule.getContainer().equals(container)))
+					continue;
+				DestinationRule rule =
+					new DestinationRule(container, destinations.size());
+				configureNewDestination(rule);
+				// Bulk destinations do not go through the interactive editor.
+				rule.setConfigured(true);
+				destinations.add(rule);
+			}
+			message("selected " + found.size() + " destination container"
+				+ (found.size() == 1 ? "" : "s") + " from the bulk area.");
+		}
+		bulkSelectionStart = null;
+		bulkSelectionEnd = null;
+		return true;
+	}
+	
+	private List<LogicalContainer> findContainersInBulkArea()
+	{
+		int minX = Math.min(bulkSelectionStart.getX(), bulkSelectionEnd.getX());
+		int minY = Math.min(bulkSelectionStart.getY(), bulkSelectionEnd.getY());
+		int minZ = Math.min(bulkSelectionStart.getZ(), bulkSelectionEnd.getZ());
+		int maxX = Math.max(bulkSelectionStart.getX(), bulkSelectionEnd.getX());
+		int maxY = Math.max(bulkSelectionStart.getY(), bulkSelectionEnd.getY());
+		int maxZ = Math.max(bulkSelectionStart.getZ(), bulkSelectionEnd.getZ());
+		return ChunkUtils.getLoadedBlockEntities().filter(blockEntity -> {
+			BlockPos pos = blockEntity.getBlockPos();
+			return pos.getX() >= minX && pos.getX() <= maxX
+				&& pos.getY() >= minY && pos.getY() <= maxY
+				&& pos.getZ() >= minZ && pos.getZ() <= maxZ;
+		}).map(blockEntity -> LogicalContainer.fromTarget(mc.level,
+			blockEntity.getBlockPos())).filter(container -> container != null)
+			.distinct()
+			.sorted(java.util.Comparator
+				.comparingInt(
+					(LogicalContainer container) -> container.anchor().getX())
+				.thenComparingInt(container -> container.anchor().getY())
+				.thenComparingInt(container -> container.anchor().getZ()))
+			.toList();
+	}
+	
+	private void configureNewDestination(DestinationRule rule)
+	{
+		if(frameAutosortByDefault)
+		{
+			ItemStack frameItem = findFrameItem(rule.getContainer());
+			if(!frameItem.isEmpty())
+			{
+				rule.addFilter(BuiltInItemFilter.AUTOSORT_FRAMES);
+				rule.setFrameItem(frameItem);
+			}else
+				rule.addFilter(BuiltInItemFilter.AUTOSORT);
+			rule.setConfigured(true);
+		}else
+			rule.addFilter(selectedFilter.get());
+	}
+	
+	private ItemStack findFrameItem(LogicalContainer container)
+	{
+		if(mc.level == null || container == null)
+			return ItemStack.EMPTY;
+		AABB searchBox = new AABB(container.anchor()).inflate(2.0);
+		for(ItemFrame frame : mc.level.getEntitiesOfClass(ItemFrame.class,
+			searchBox))
+		{
+			if(frame.isRemoved() || frame.getItem().isEmpty())
+				continue;
+			LogicalContainer attached =
+				LogicalContainer.fromTarget(mc.level, frame.getPos());
+			if(container.equals(attached))
+				return frame.getItem().copy();
+		}
+		return ItemStack.EMPTY;
+	}
+	
+	private void applyFrameAutosortMode()
+	{
+		if(!frameAutosortByDefault || mc.level == null)
+			return;
+		for(DestinationRule rule : destinations)
+		{
+			if(!rule.isConfigured())
+				continue;
+			ItemStack frameItem = findFrameItem(rule.getContainer());
+			rule.clearFilters();
+			rule.setFrameItem(frameItem);
+			if(frameItem.isEmpty())
+				rule.addFilter(BuiltInItemFilter.AUTOSORT);
+			else
+			{
+				rule.addFilter(BuiltInItemFilter.AUTOSORT_FRAMES);
+			}
+		}
 	}
 	
 	public void stop(String reason)
@@ -237,6 +391,27 @@ public final class LootSorterController
 			return;
 		if(!(mc.hitResult instanceof BlockHitResult hit))
 			return;
+		if(bulkSelectionEnabled)
+		{
+			event.cancel();
+			if(selectionUseHeld)
+				return;
+			selectionUseHeld = true;
+			BlockPos clicked = hit.getBlockPos().immutable();
+			if(bulkSelectionStart == null)
+			{
+				bulkSelectionStart = clicked;
+				bulkSelectionEnd = null;
+				message("bulk point A selected at " + clicked.toShortString()
+					+ "; select point B and press Enter.");
+			}else
+			{
+				bulkSelectionEnd = clicked;
+				message("bulk point B selected at " + clicked.toShortString()
+					+ "; press Enter to confirm the area.");
+			}
+			return;
+		}
 		LogicalContainer container =
 			LogicalContainer.fromTarget(mc.level, hit.getBlockPos());
 		if(container == null)
@@ -247,12 +422,6 @@ public final class LootSorterController
 		selectionUseHeld = true;
 		if(state == LootSorterState.SELECTING_SOURCES)
 		{
-			if(destinations.stream()
-				.anyMatch(rule -> rule.getContainer().equals(container)))
-			{
-				error("a container cannot be both source and destination.");
-				return;
-			}
 			if(sources.remove(container))
 				message("removed source " + container.anchor().toShortString());
 			else
@@ -281,15 +450,12 @@ public final class LootSorterController
 			destinationEditor.accept(existing);
 			return;
 		}
-		if(sources.contains(container))
-		{
-			error("a container cannot be both source and destination.");
-			return;
-		}
 		DestinationRule rule =
 			new DestinationRule(container, destinations.size());
-		rule.addFilter(selectedFilter.get());
+		configureNewDestination(rule);
 		destinations.add(rule);
+		if(frameAutosortByDefault)
+			return;
 		destinationEditor.accept(rule);
 	}
 	
@@ -319,6 +485,8 @@ public final class LootSorterController
 			return;
 		if(state == LootSorterState.SELECTING_SOURCES)
 		{
+			if(!materializeBulkSelection())
+				return;
 			if(sources.isEmpty())
 				error("select at least one source.");
 			else
@@ -329,8 +497,11 @@ public final class LootSorterController
 						+ "one to remove it; press Enter to start.");
 			}
 		}else if(state == LootSorterState.SELECTING_DESTINATIONS)
+		{
+			if(!materializeBulkSelection())
+				return;
 			startSorting(true);
-		else if(state == LootSorterState.PAUSED && pausedResumeState != null)
+		}else if(state == LootSorterState.PAUSED && pausedResumeState != null)
 		{
 			if(interactions.getSupportedScreen() != null)
 			{
@@ -397,6 +568,9 @@ public final class LootSorterController
 		if((state != LootSorterState.SELECTING_DESTINATIONS
 			&& state != LootSorterState.PAUSED) || mc.player == null)
 			return false;
+		applyFrameAutosortMode();
+		applySelfContainerAutosort();
+		refreshFrameItems();
 		if(destinations.stream().noneMatch(DestinationRule::isConfigured))
 		{
 			error("select at least one destination.");
@@ -741,8 +915,50 @@ public final class LootSorterController
 	
 	private boolean hasAutosortDestination()
 	{
-		return destinations.stream()
-			.anyMatch(rule -> rule.isConfigured() && rule.isAutosort());
+		return destinations.stream().anyMatch(rule -> rule.isConfigured()
+			&& rule.isAutosort() && !rule.isFrameAutosort());
+	}
+	
+	private void refreshFrameItems()
+	{
+		for(DestinationRule rule : destinations)
+			if(rule.isFrameAutosort())
+				rule.setFrameItem(findFrameItem(rule.getContainer()));
+	}
+	
+	private void applySelfContainerAutosort()
+	{
+		for(DestinationRule rule : destinations)
+		{
+			if(!rule.isConfigured() || !sources.contains(rule.getContainer()))
+				continue;
+			if(rule.isFrameAutosort() && !rule.getFrameItem().isEmpty())
+				continue;
+			rule.clearFilters();
+			rule.addFilter(BuiltInItemFilter.AUTOSORT);
+			applyMostPrevalentFamily(rule,
+				scannedSources.get(rule.getContainer()));
+		}
+	}
+	
+	private void applyMostPrevalentFamily(DestinationRule rule,
+		List<ItemStack> contents)
+	{
+		if(contents == null || contents.isEmpty())
+			return;
+		Map<String, Integer> familyCounts = new HashMap<>();
+		Map<String, ItemStack> exemplars = new HashMap<>();
+		for(ItemStack stack : contents)
+		{
+			if(stack == null || stack.isEmpty())
+				continue;
+			String family = ItemFamily.of(stack);
+			familyCounts.merge(family, stack.getCount(), Integer::sum);
+			exemplars.putIfAbsent(family, stack.copy());
+		}
+		familyCounts.entrySet().stream().max(Map.Entry.comparingByValue())
+			.map(Map.Entry::getKey).map(exemplars::get)
+			.ifPresent(rule::setAutosortFamilyItem);
 	}
 	
 	private void scanNextDestination()
@@ -752,7 +968,7 @@ public final class LootSorterController
 			DestinationRule destination =
 				destinations.get(destinationScanIndex++);
 			if(!destination.isConfigured() || !destination.isAutosort()
-				|| destination.isUnreachable())
+				|| destination.isFrameAutosort() || destination.isUnreachable())
 				continue;
 			activeDestination = destination;
 			if(!mc.level.hasChunkAt(destination.getContainer().anchor()))
@@ -2273,6 +2489,9 @@ public final class LootSorterController
 			return;
 		List<ItemStack> contents = readContainerContents(screen);
 		activeDestination.setObservedContents(contents);
+		if(sources.contains(activeDestination.getContainer())
+			&& !activeDestination.isFrameAutosort())
+			applyMostPrevalentFamily(activeDestination, contents);
 		closeOrPause(LootSorterState.RESCANNING);
 	}
 	
@@ -2446,6 +2665,7 @@ public final class LootSorterController
 	{
 		if(mc.level == null)
 			return;
+		renderBulkSelectionPreview(matrices);
 		LogicalContainer target =
 			state == LootSorterState.NAVIGATING_TO_DESTINATION
 				|| state == LootSorterState.OPENING_DESTINATION
@@ -2463,6 +2683,29 @@ public final class LootSorterController
 		renderer.render(matrices, sources, destinations, target,
 			completedSources, unmatchedSources, unreachableSources,
 			unloadedContainers, mc, renderLabels, labelRange);
+	}
+	
+	private void renderBulkSelectionPreview(PoseStack matrices)
+	{
+		if(!bulkSelectionEnabled
+			|| (state != LootSorterState.SELECTING_SOURCES
+				&& state != LootSorterState.SELECTING_DESTINATIONS)
+			|| bulkSelectionStart == null)
+			return;
+		BlockPos end = bulkSelectionEnd;
+		if(end == null && mc.hitResult instanceof BlockHitResult hit)
+			end = hit.getBlockPos();
+		if(end == null)
+			return;
+		AABB area = AABB.encapsulatingFullBlocks(bulkSelectionStart, end)
+			.deflate(1 / 16.0);
+		RenderUtils.drawOutlinedBox(matrices, area, 0xFF00FFFF, false);
+		RenderUtils.drawSolidBox(matrices,
+			new AABB(bulkSelectionStart).deflate(1 / 16.0), 0x5000FFFF, false);
+		if(bulkSelectionEnd != null)
+			RenderUtils.drawSolidBox(matrices,
+				new AABB(bulkSelectionEnd).deflate(1 / 16.0), 0x5000FF00,
+				false);
 	}
 	
 	public LootSorterState getState()
@@ -2631,9 +2874,8 @@ public final class LootSorterController
 			LogicalContainer container = LogicalContainer.fromTarget(mc.level,
 				new BlockPos(savedRule.position().x(), savedRule.position().y(),
 					savedRule.position().z()));
-			if(container == null || sources.contains(container)
-				|| destinations.stream()
-					.anyMatch(rule -> rule.getContainer().equals(container)))
+			if(container == null || destinations.stream()
+				.anyMatch(rule -> rule.getContainer().equals(container)))
 				continue;
 			DestinationRule rule =
 				new DestinationRule(container, savedRule.priority());
@@ -2643,6 +2885,8 @@ public final class LootSorterController
 						mc.level.registryAccess()));
 			if(rule.getFilters().isEmpty())
 				rule.addFilter(BuiltInItemFilter.ALL);
+			if(rule.isFrameAutosort())
+				rule.setFrameItem(findFrameItem(container));
 			rule.setConfigured(true);
 			destinations.add(rule);
 		}

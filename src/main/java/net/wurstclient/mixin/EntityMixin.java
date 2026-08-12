@@ -67,12 +67,35 @@ public abstract class EntityMixin
 			ci.cancel();
 	}
 	
+	@Inject(method = "teleportRelative(DDD)V",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onRelativeTeleport(double x, double y, double z,
+		CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE.getHax().antiGeyserHack
+			.shouldCancelRelativeTeleport((Entity)(Object)this, x, y, z))
+			ci.cancel();
+	}
+	
 	@Inject(at = @At("HEAD"),
 		method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V")
 	private void onSetDeltaMovement(Vec3 velocity, CallbackInfo ci)
 	{
 		MovementMutationTracker.markLocalPlayerVelocityMutation(
 			(Entity)(Object)this, "Entity#setDeltaMovement(Vec3)");
+	}
+	
+	@Inject(at = @At("HEAD"),
+		method = "addDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
+		cancellable = true)
+	private void onAddDeltaMovement(Vec3 velocity, CallbackInfo ci)
+	{
+		Entity self = (Entity)(Object)this;
+		if(WurstClient.INSTANCE.getHax().antiGeyserHack
+			.shouldCancelRelativeTeleport(self, velocity.x, velocity.y,
+				velocity.z))
+			ci.cancel();
 	}
 	
 	@Inject(at = @At("HEAD"), method = "setDeltaMovement(DDD)V")
