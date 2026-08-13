@@ -44,6 +44,7 @@ public final class LazyThetaStar
 	private final FlightGrid grid;
 	private final ChunkEnsurer ensurer;
 	private final double[][] noGoZones;
+	private final boolean preferOpenSpace;
 	private final LongOpenHashSet ensured = new LongOpenHashSet();
 	private long forcedPassable = Long.MIN_VALUE;
 	private final Long2IntOpenHashMap posToId = new Long2IntOpenHashMap();
@@ -63,15 +64,22 @@ public final class LazyThetaStar
 	
 	public LazyThetaStar(FlightGrid grid, ChunkEnsurer ensurer)
 	{
-		this(grid, ensurer, new double[0][]);
+		this(grid, ensurer, new double[0][], false);
 	}
 	
 	public LazyThetaStar(FlightGrid grid, ChunkEnsurer ensurer,
 		double[][] noGoZones)
 	{
+		this(grid, ensurer, noGoZones, false);
+	}
+	
+	public LazyThetaStar(FlightGrid grid, ChunkEnsurer ensurer,
+		double[][] noGoZones, boolean preferOpenSpace)
+	{
 		this.grid = grid;
 		this.ensurer = ensurer;
 		this.noGoZones = noGoZones;
+		this.preferOpenSpace = preferOpenSpace;
 		this.posToId.defaultReturnValue(-1);
 	}
 	
@@ -335,7 +343,10 @@ public final class LazyThetaStar
 	
 	private double penalty(int x, int y, int z)
 	{
-		double p = CLEARANCE_PENALTY[this.lateralClearance(x, y, z)];
+		int clearance = this.lateralClearance(x, y, z);
+		double p = CLEARANCE_PENALTY[clearance];
+		if(this.preferOpenSpace && clearance < 5)
+			p += (5 - clearance) * 2.5;
 		FlightGrid.GridChunk chunk = this.memoChunk(x, z);
 		if(p > 0.0 && (chunk == null || chunk.source != 1))
 			p *= PREDICTED_CLEARANCE_SCALE;

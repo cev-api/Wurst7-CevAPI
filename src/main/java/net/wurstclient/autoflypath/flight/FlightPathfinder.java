@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -44,6 +45,7 @@ public final class FlightPathfinder
 	private final FlightGrid grid;
 	private final long seed;
 	private final boolean predictTerrain;
+	private final boolean preferOpenSpace;
 	private final NetherTerrainGenerator generator;
 	private final ExecutorService executor;
 	private final ExecutorService packExecutor;
@@ -59,11 +61,12 @@ public final class FlightPathfinder
 	}
 	
 	public FlightPathfinder(long seed, int worldMinY, int worldHeight,
-		boolean predictTerrain)
+		boolean predictTerrain, boolean preferOpenSpace)
 	{
 		this.grid = new FlightGrid(worldMinY, worldHeight);
 		this.seed = seed;
 		this.predictTerrain = predictTerrain;
+		this.preferOpenSpace = preferOpenSpace;
 		this.generator =
 			predictTerrain ? new NetherTerrainGenerator(seed) : null;
 		this.executor = Executors.newSingleThreadExecutor(r -> {
@@ -145,7 +148,8 @@ public final class FlightPathfinder
 	public void queueBlockUpdate(BlockPos pos, BlockState state)
 	{
 		BlockPos p = pos.immutable();
-		boolean solid = state != AIR_BLOCK_STATE && !state.isAir();
+		boolean solid = state != AIR_BLOCK_STATE && !state.isAir()
+			&& !state.is(BlockTags.LEAVES);
 		boolean hazard = FlightPathfinder.isBurnHazard(state);
 		this.packExecutor.execute(() -> this.grid.setBlock(p.getX(), p.getY(),
 			p.getZ(), solid, hazard));
@@ -186,7 +190,7 @@ public final class FlightPathfinder
 						for(int x = 0; x < 16; ++x)
 						{
 							BlockState state = (BlockState)states.get(x, ly, z);
-							if(state.isAir())
+							if(state.isAir() || state.is(BlockTags.LEAVES))
 								continue;
 							int bit = yIdx << 8 | z << 4 | x;
 							int n = bit >> 6;
@@ -238,11 +242,11 @@ public final class FlightPathfinder
 			this.lastSearchStart = destKey;
 			double weight = this.escalation >= 2 ? 1.0 : 1.15;
 			LazyThetaStar.Result result = new LazyThetaStar(this.grid, ensurer,
-				this.noGoZones.toArray(double[][]::new)).search(src.getX(),
-					src.getY(), src.getZ(), dst.getX(), dst.getY(), dst.getZ(),
-					400000 << this.escalation,
-					System.nanoTime() + (450000000L << this.escalation),
-					weight);
+				this.noGoZones.toArray(double[][]::new), this.preferOpenSpace)
+					.search(src.getX(), src.getY(), src.getZ(), dst.getX(),
+						dst.getY(), dst.getZ(), 400000 << this.escalation,
+						System.nanoTime() + (450000000L << this.escalation),
+						weight);
 			if(result.path.isEmpty())
 			{
 				throw new PathCalculationException("Path calculation failed");

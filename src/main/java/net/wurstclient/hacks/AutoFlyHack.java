@@ -406,6 +406,9 @@ public final class AutoFlyHack extends Hack
 		"Render FlyTo's calculated route in the world.", true);
 	private final CheckboxSetting pathDebug = new CheckboxSetting("Path debug",
 		"Show detailed FlyTo recovery and prediction diagnostics.", false);
+	private final CheckboxSetting pathPreferOpenSpace = new CheckboxSetting(
+		"Prefer open spaces",
+		"Prefer wider, more open corridors over the shortest route.", false);
 	private final SliderSetting pathCruiseHeight =
 		new SliderSetting("Path cruise height",
 			"Cruise Y for X/Z targets. Zero uses FlyTo's dimension default.", 0,
@@ -694,6 +697,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(pathFaceTravel);
 		addSetting(pathRender);
 		addSetting(pathDebug);
+		addSetting(pathPreferOpenSpace);
 		addSetting(pathCruiseHeight);
 		addSetting(skipReached);
 		addSetting(crosshairInfo);
@@ -776,6 +780,7 @@ public final class AutoFlyHack extends Hack
 		pathFaceTravel.setVisibleInGui(path);
 		pathRender.setVisibleInGui(path);
 		pathDebug.setVisibleInGui(path);
+		pathPreferOpenSpace.setVisibleInGui(path);
 		pathCruiseHeight.setVisibleInGui(path);
 	}
 	
@@ -1542,6 +1547,8 @@ public final class AutoFlyHack extends Hack
 		pathFlightConfig.flightFaceTravel = pathFaceTravel.isChecked();
 		pathFlightConfig.flightRenderPath = pathRender.isChecked();
 		pathFlightConfig.flightDebug = pathDebug.isChecked();
+		pathFlightConfig.flightPreferOpenSpace =
+			pathPreferOpenSpace.isChecked();
 		pathFlightConfig.flightCruiseHeight = pathCruiseHeight.getValueI();
 		try
 		{
