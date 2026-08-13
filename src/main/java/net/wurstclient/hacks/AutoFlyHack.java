@@ -23,18 +23,24 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.BubbleColumnBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.ai.PathFinder;
 import net.wurstclient.ai.PathProcessor;
@@ -57,6 +63,7 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.MathUtils;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.mixinterface.IKeyMapping;
@@ -440,12 +447,19 @@ public final class AutoFlyHack extends Hack
 		"Solid fire wall",
 		"Treat fire and soul fire as untouchable blocks while AutoFly is active. Includes one block of clearance above fire to prevent fire damage.",
 		false);
+	private final CheckboxSetting extinguishNearbyFire = new CheckboxSetting(
+		"Extinguish nearby fire",
+		"In the Nether, extinguishes visible fire and soul fire within reach. Never changes AutoFly's route or moves toward a fire.",
+		false);
 	private final CheckboxSetting disableFlightOnArrival =
 		new CheckboxSetting("Disable Flight on arrival",
 			"Turns off Flight when AutoFly reaches a waypoint.", false);
 	private final CheckboxSetting disableAutoFlyOnArrival =
 		new CheckboxSetting("Disable AutoFly on arrival",
 			"Turns off AutoFly when it reaches a waypoint.", false);
+	private final CheckboxSetting disconnectOnArrival = new CheckboxSetting(
+		"Disconnect on arrival",
+		"Disconnects from the server when AutoFly reaches a waypoint.", false);
 	
 	private final EnumSetting<StopOnType> stopOn = new EnumSetting<>("Stop on",
 		"Stop AutoFly if it detects something while flying.",
@@ -692,8 +706,10 @@ public final class AutoFlyHack extends Hack
 		addSetting(smoothFlight);
 		addSetting(solidLava);
 		addSetting(solidFire);
+		addSetting(extinguishNearbyFire);
 		addSetting(disableFlightOnArrival);
 		addSetting(disableAutoFlyOnArrival);
+		addSetting(disconnectOnArrival);
 		addSetting(stopOn);
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
@@ -801,8 +817,10 @@ public final class AutoFlyHack extends Hack
 	
 	public boolean shouldApplyPathAntiHunger()
 	{
-		return isEnabled() && isPathMode() && pathAntiHunger.isChecked()
-			&& pathFlightController.isActive();
+		// The controller can briefly stop while it re-targets or rebuilds a
+		// route. AutoFly is still flying during that window, so do not let a
+		// transient controller state turn grounded packets back on.
+		return isEnabled() && isPathMode() && pathAntiHunger.isChecked();
 	}
 	
 	@Override
@@ -1037,6 +1055,67 @@ public final class AutoFlyHack extends Hack
 		applyChunkTrailRenderSuppression(false);
 	}
 	
+	/** Extinguishes one nearby visible Nether fire without altering flight. */
+	private void extinguishNearbyNetherFire()
+	{
+		if(!extinguishNearbyFire.isChecked()
+			|| MC.level.dimension() != Level.NETHER || MC.gameMode == null
+			|| MC.player.isHandsBusy() || MC.player.isUsingItem())
+			return;
+		
+		final double radius = 6.0;
+		final double radiusSqr = radius * radius;
+		Vec3 eyes = MC.player.getEyePosition(1F);
+		BlockPos origin = BlockPos.containing(eyes);
+		BlockPos closest = null;
+		double closestDistanceSqr = radiusSqr;
+		int scanRadius = (int)Math.ceil(radius);
+		
+		for(BlockPos pos : BlockPos.betweenClosed(
+			origin.offset(-scanRadius, -scanRadius, -scanRadius),
+			origin.offset(scanRadius, scanRadius, scanRadius)))
+		{
+			BlockState state = MC.level.getBlockState(pos);
+			if(!state.is(Blocks.FIRE) && !state.is(Blocks.SOUL_FIRE))
+				continue;
+			
+			double distanceSqr = eyes.distanceToSqr(Vec3.atCenterOf(pos));
+			if(distanceSqr > closestDistanceSqr || !hasLineOfSight(pos, eyes))
+				continue;
+			
+			closest = pos.immutable();
+			closestDistanceSqr = distanceSqr;
+		}
+		
+		if(closest == null)
+			return;
+		
+		Direction side = fireInteractionSide(closest, eyes);
+		if(!MC.gameMode.isDestroying())
+			MC.gameMode.startDestroyBlock(closest, side);
+		if(MC.gameMode.continueDestroyBlock(closest, side))
+			MC.player.swing(InteractionHand.MAIN_HAND);
+	}
+	
+	private boolean hasLineOfSight(BlockPos pos, Vec3 eyes)
+	{
+		BlockHitResult sight =
+			MC.level.clip(new ClipContext(eyes, Vec3.atCenterOf(pos),
+				ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, MC.player));
+		return sight.getType() != HitResult.Type.BLOCK
+			|| sight.getBlockPos().equals(pos);
+	}
+	
+	private Direction fireInteractionSide(BlockPos pos, Vec3 eyes)
+	{
+		Vec3 center = Vec3.atCenterOf(pos);
+		double x = eyes.x - center.x;
+		double z = eyes.z - center.z;
+		if(Math.abs(x) >= Math.abs(z))
+			return x >= 0 ? Direction.EAST : Direction.WEST;
+		return z >= 0 ? Direction.SOUTH : Direction.NORTH;
+	}
+	
 	@Override
 	public void onUpdate()
 	{
@@ -1071,6 +1150,7 @@ public final class AutoFlyHack extends Hack
 		}
 		actualControlDown = controlDown;
 		ensureBoatFlyEnabledIfRiding();
+		extinguishNearbyNetherFire();
 		
 		long updateNow = System.currentTimeMillis();
 		updateActualSpeed(MC.player.position(), updateNow);
@@ -2940,6 +3020,19 @@ public final class AutoFlyHack extends Hack
 		if(disableAutoFlyOnArrival.isChecked())
 		{
 			disableAutoFlyWithReason("AutoFly disabled: arrival reached.");
+			return;
+		}
+		
+		if(disconnectOnArrival.isChecked())
+		{
+			Component reason = DisconnectContext.createAutoQuitReason("AutoFly",
+				currentTarget.pos, "Arrival reached.");
+			DisconnectContext.markExpectedDisconnect(reason.getString());
+			if(WURST.getHax().autoReconnectHack.isEnabled())
+				WURST.getHax().autoReconnectHack.setEnabled(false);
+			setEnabled(false);
+			if(MC.level != null)
+				MC.level.disconnect(reason);
 			return;
 		}
 		
