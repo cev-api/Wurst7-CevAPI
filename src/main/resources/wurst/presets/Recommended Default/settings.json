@@ -388,6 +388,7 @@
     "Smooth Flight": false,
     "Disable Flight on arrival": true,
     "Disable AutoFly on arrival": false,
+    "Disconnect on arrival": false,
     "Stop on": "Nether portal",
     "Stop keyword": "hopper",
     "Stop on 2": "Old chunk",

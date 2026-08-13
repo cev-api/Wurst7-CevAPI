@@ -75,7 +75,11 @@ public final class NoFallHack extends Hack implements UpdateListener
 		hasLastPlayerY = false;
 		hasLastSentPositionY = false;
 		flightLandingProtectionUntil = 0;
-		WURST.getHax().antiHungerHack.setEnabled(false);
+		// AutoFly owns both flight and its hunger-saving behavior. It may turn
+		// NoFall on for descent protection, but that must not silently disable
+		// the player's AntiHunger hack for the entire route.
+		if(!WURST.getHax().autoFlyHack.isEnabled())
+			WURST.getHax().antiHungerHack.setEnabled(false);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	

@@ -43,6 +43,13 @@ public final class AntiHungerHack extends Hack implements PacketOutputListener
 	{
 		if(!(event.getPacket() instanceof ServerboundMovePlayerPacket packet))
 			return;
+			
+		// NoFall runs before output listeners. During AutoFly, a descending
+		// packet may deliberately be grounded to stop server fall damage; do
+		// not overwrite that final protection with AntiHunger's airborne flag.
+		if(packet.isOnGround() && WURST.getHax().autoFlyHack.isEnabled()
+			&& WURST.getHax().noFallHack.isEnabled())
+			return;
 		
 		if(!MC.player.onGround() || MC.player.fallDistance > 0.5)
 			return;
