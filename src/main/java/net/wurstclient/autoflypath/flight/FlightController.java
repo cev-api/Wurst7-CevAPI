@@ -113,8 +113,8 @@ public final class FlightController
 	private static final int ABORT_TICKS = 2400;
 	private static final int DETOUR_ESCALATE_TICKS = 200;
 	private static final double DETOUR_INITIAL = 48.0;
-	private static final double DETOUR_MAX = 192.0;
-	private static final double DETOUR_AHEAD = 192.0;
+	private static final double DETOUR_MAX = 512.0;
+	private static final double DETOUR_AHEAD = 256.0;
 	private static final double DETOUR_CLEAR_PROGRESS = 48.0;
 	private static final int RECOVER_CLIMB_TICKS = 80;
 	private static final int THREAD_PATIENCE = 100;
@@ -122,8 +122,11 @@ public final class FlightController
 	private static final int MAX_SEGMENT = 128;
 	private static final int DESCEND_RADIUS = 48;
 	private static final int HOVER_AFTER_TICKS = 120;
+	private static final int DEEP_RECOVERY_TRIGGER_TICKS = 600;
+	private static final int DEEP_RECOVERY_MAX_ATTEMPTS = 4;
 	private double globalBestDist = Double.MAX_VALUE;
 	private int ticksSinceGlobalBest;
+	private int deepRecoveryAttempts;
 	private double serverFallEstimate;
 	private double lastYForFall = Double.NaN;
 	private Vec3 lastCommandedVel = Vec3.ZERO;
@@ -514,6 +517,7 @@ public final class FlightController
 		this.recoveryHover = false;
 		this.globalBestDist = Double.MAX_VALUE;
 		this.ticksSinceGlobalBest = 0;
+		this.deepRecoveryAttempts = 0;
 		this.detourMag = 0.0;
 		this.lastEscapeDir = null;
 		this.pathManager.clear();
@@ -534,7 +538,7 @@ public final class FlightController
 		double dx = destC.x - playerPos.x;
 		double dz = destC.z - playerPos.z;
 		double h = Math.sqrt(dx * dx + dz * dz);
-		if(h < 192.0)
+		if(h < DETOUR_AHEAD)
 		{
 			return;
 		}
@@ -547,9 +551,9 @@ public final class FlightController
 			this.detourSide = rClear >= (lClear =
 				this.sweptCollisionDistance(right.scale(-8.0), 8.0)) ? 1 : -1;
 			this.detourMag = 48.0;
-		}else if(this.detourMag < 192.0)
+		}else if(this.detourMag < DETOUR_MAX)
 		{
-			this.detourMag = Math.min(192.0, this.detourMag * 2.0);
+			this.detourMag = Math.min(DETOUR_MAX, this.detourMag * 2.0);
 		}else
 		{
 			this.detourSide = -this.detourSide;
@@ -579,7 +583,7 @@ public final class FlightController
 		double h = Math.sqrt(dx * dx + (dz =
 			(double)this.destination.getZ() + 0.5 - ((double)from.getZ() + 0.5))
 			* dz);
-		if(h < 192.0)
+		if(h < DETOUR_AHEAD)
 		{
 			return this.destination;
 		}
@@ -587,10 +591,10 @@ public final class FlightController
 		double uz = dz / h;
 		double px = -uz * (double)this.detourSide;
 		double pz = ux * (double)this.detourSide;
-		int gx = (int)Math.floor(
-			(double)from.getX() + 0.5 + ux * 192.0 + px * this.detourMag);
-		int gz = (int)Math.floor(
-			(double)from.getZ() + 0.5 + uz * 192.0 + pz * this.detourMag);
+		int gx = (int)Math.floor((double)from.getX() + 0.5 + ux * DETOUR_AHEAD
+			+ px * this.detourMag);
+		int gz = (int)Math.floor((double)from.getZ() + 0.5 + uz * DETOUR_AHEAD
+			+ pz * this.detourMag);
 		int gy = Math.max(40, Math.min(100, from.getY()));
 		return new BetterBlockPos(gx, gy, gz);
 	}
@@ -669,7 +673,8 @@ public final class FlightController
 			}
 		}
 		this.context = new FlightPathfinder(seed, this.level().getMinY(),
-			this.level().getHeight(), predict);
+			this.level().getHeight(), predict,
+			this.config.flightPreferOpenSpace);
 		ResourceKey dim = this.level().dimension();
 		if(!dim.equals(this.noGoDimension))
 		{
@@ -696,7 +701,7 @@ public final class FlightController
 			if(!(dx * dx + (dy = y - zone[1]) * dy
 				+ (dz = z - zone[2]) * dz < zone[3]))
 				continue;
-			double grown = Math.min(20.0, Math.sqrt(zone[3]) * 1.5);
+			double grown = Math.min(96.0, Math.sqrt(zone[3]) * 1.5);
 			zone[3] = grown * grown;
 			if(this.context != null)
 			{
@@ -918,23 +923,35 @@ public final class FlightController
 		if(progressDist < this.globalBestDist - 1.0)
 		{
 			this.globalBestDist = progressDist;
+			this.deepRecoveryAttempts = 0;
 			this.ticksSinceGlobalBest = 0;
 			if(this.detourMag > 0.0
 				&& progressDist < this.detourStartBest - 48.0)
 			{
-				this.detourMag = 0.0;
 				if(this.config.flightDebug)
 				{
 					this.log(
 						"[AutoFly] detour cleared - resuming direct route");
 				}
 			}
-		}else if(++this.ticksSinceGlobalBest > 2400)
+		}else if(++this.ticksSinceGlobalBest > DEEP_RECOVERY_TRIGGER_TICKS)
 		{
-			this.addNoGoZone(playerPos.x, playerPos.y, playerPos.z, 16.0);
-			this.beginAbort(playerPos,
-				"destination appears unreachable from here");
-			return;
+			this.addNoGoZone(playerPos.x, playerPos.y, playerPos.z, 48.0);
+			if(++this.deepRecoveryAttempts <= DEEP_RECOVERY_MAX_ATTEMPTS)
+			{
+				this.ticksSinceGlobalBest = 0;
+				this.escalateDetour(playerPos);
+				if(!this.pathManager.isRecalculating())
+					this.pathManager.pathToDestination(this.feet());
+				if(this.config.flightDebug)
+					this.log(
+						"[AutoFly] deep recovery: backing out and trying a wider route");
+			}else
+			{
+				this.beginAbort(playerPos,
+					"destination appears unreachable after deep recovery");
+				return;
+			}
 		}
 		if(this.ticksSinceGlobalBest > 0
 			&& this.ticksSinceGlobalBest % 200 == 0)

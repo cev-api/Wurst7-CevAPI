@@ -26,5 +26,6 @@ public final class PathFlightConfig
 	public boolean flightFaceTravel;
 	public boolean flightRenderPath = true;
 	public boolean flightDebug;
+	public boolean flightPreferOpenSpace;
 	public int flightCruiseHeight;
 }
