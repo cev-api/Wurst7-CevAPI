@@ -27,6 +27,7 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hacks.NbtFilterHack;
+import net.wurstclient.other_features.PacketFirewallOtf;
 
 @Mixin(Connection.class)
 public abstract class ConnectionMixin
@@ -54,9 +55,13 @@ public abstract class ConnectionMixin
 		@Nullable ChannelFutureListener listener, boolean flush,
 		Operation<Void> original)
 	{
+		Packet<?> originalPacket = packet;
+		PacketFirewallOtf firewall =
+			WurstClient.INSTANCE.getOtfs().packetFirewallOtf;
+		boolean vanillaOnly = firewall.isVanillaOnlyPacketsMode();
 		if(packet instanceof ServerboundMovePlayerPacket move
 			&& WurstClient.INSTANCE != null
-			&& WurstClient.INSTANCE.getHax() != null)
+			&& WurstClient.INSTANCE.getHax() != null && !vanillaOnly)
 		{
 			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
 				.shouldApplyPathAntiHunger())
@@ -73,7 +78,11 @@ public abstract class ConnectionMixin
 			new ConnectionPacketOutputEvent(packet);
 		EventManager.fire(event);
 		
-		if(!event.isCancelled())
-			original.call(event.getPacket(), listener, flush);
+		Packet<?> finalPacket = firewall.enforceVanillaOnly(originalPacket,
+			event.getPacket(), event.isCancelled());
+		if(finalPacket == null || event.isCancelled())
+			return;
+		
+		original.call(finalPacket, listener, flush);
 	}
 }

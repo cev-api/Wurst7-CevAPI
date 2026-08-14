@@ -33,6 +33,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
+import net.wurstclient.events.ConnectionPacketOutputListener;
+import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.PacketOutputListener;
@@ -50,7 +52,8 @@ import net.wurstclient.util.text.WText;
 @SearchTags({"packet firewall", "movement packet validator", "movement packets",
 	"anti kick"})
 public final class PacketFirewallOtf extends OtherFeature
-	implements PacketOutputListener, PacketInputListener, UpdateListener
+	implements PacketOutputListener, ConnectionPacketOutputListener,
+	PacketInputListener, UpdateListener
 {
 	private static final Logger LOGGER = LogUtils.getLogger();
 	private static final long SETBACK_COOLDOWN_MS = 500;
@@ -153,6 +156,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(ConnectionPacketOutputListener.class, this);
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
@@ -183,6 +187,29 @@ public final class PacketFirewallOtf extends OtherFeature
 	}
 	
 	@Override
+	public void onSentConnectionPacket(ConnectionPacketOutputEvent event)
+	{
+		if(!isFirewallEnabled() || !isVanillaOnlyPacketsEnabled())
+			return;
+		
+		Packet<?> packet = event.getPacket();
+		SenderResolution sender = resolveSenderHackFromStack();
+		if(sender == null || sender.hack() == null
+			|| temporaryWhitelist.contains(sender.hack().getName())
+			|| !temporaryWhitelist.contains(sender.hack().getName()))
+			return;
+		
+		suppressHackTemporarily(sender.hack(),
+			"vanilla-only packets mode blocked direct outgoing packet");
+		event.cancel();
+		if(debugLoggingSetting.isChecked())
+			LOGGER.info(
+				"[PacketFirewall] vanilla-only: blocked direct {} from {} ({})",
+				packet.getClass().getSimpleName(), sender.hack().getName(),
+				sender.stackFrame());
+	}
+	
+	@Override
 	public void onSentPacket(PacketOutputEvent event)
 	{
 		if(!isFirewallEnabled())
@@ -198,9 +225,9 @@ public final class PacketFirewallOtf extends OtherFeature
 				&& !temporaryWhitelist.contains(sender.hack().getName())
 				&& isCustomPacketSurface(packet))
 			{
-				vanillaOnlyPausedHacks.add(sender.hack());
-				suppressedReasons.putIfAbsent(sender.hack(),
+				suppressHackTemporarily(sender.hack(),
 					"vanilla-only packets mode blocked custom outgoing packet");
+				
 				event.cancel();
 				if(debugLoggingSetting.isChecked())
 					LOGGER.info(
@@ -285,7 +312,10 @@ public final class PacketFirewallOtf extends OtherFeature
 		wasVanillaOnlyPacketsEnabled = vanillaOnly;
 		
 		if(vanillaOnly)
+		{
+			suppressVanillaOnlyMovementHacks();
 			return;
+		}
 		
 		if(pendingMovement == null)
 			return;
@@ -300,9 +330,62 @@ public final class PacketFirewallOtf extends OtherFeature
 		return firewallEnabled && WURST.isEnabled();
 	}
 	
+	public boolean isVanillaOnlyPacketsMode()
+	{
+		return isFirewallEnabled() && isVanillaOnlyPacketsEnabled();
+	}
+	
 	private boolean isVanillaOnlyPacketsEnabled()
 	{
 		return vanillaOnlyPacketsSetting.isChecked();
+	}
+	
+	public Packet<?> enforceVanillaOnly(Packet<?> original, Packet<?> packet,
+		boolean cancelled)
+	{
+		if(!isFirewallEnabled() || !isVanillaOnlyPacketsEnabled())
+			return cancelled ? null : packet;
+		
+		SenderResolution sender = resolveSenderHackFromStack();
+		boolean hackOrigin = sender != null && sender.hack() != null
+			&& !temporaryWhitelist.contains(sender.hack().getName());
+		if(hackOrigin)
+			
+			return null;
+		
+		if(cancelled)
+			
+			return original instanceof ServerboundMovePlayerPacket
+				&& !hackOrigin ? original : null;
+		
+		if(original instanceof ServerboundMovePlayerPacket
+			&& packet instanceof ServerboundMovePlayerPacket move
+			&& !sameMovementPacket((ServerboundMovePlayerPacket)original, move))
+			return original;
+		
+		if(original instanceof ServerboundMovePlayerPacket
+			&& !(packet instanceof ServerboundMovePlayerPacket))
+			return original;
+		
+		return packet;
+	}
+	
+	private boolean sameMovementPacket(ServerboundMovePlayerPacket a,
+		ServerboundMovePlayerPacket b)
+	{
+		boolean aPos = a instanceof Pos || a instanceof PosRot;
+		boolean bPos = b instanceof Pos || b instanceof PosRot;
+		boolean aRot = a instanceof Rot || a instanceof PosRot;
+		boolean bRot = b instanceof Rot || b instanceof PosRot;
+		if(aPos != bPos || aRot != bRot || a.isOnGround() != b.isOnGround()
+			|| a.horizontalCollision() != b.horizontalCollision())
+			return false;
+		if(aPos && (Double.compare(a.getX(0), b.getX(0)) != 0
+			|| Double.compare(a.getY(0), b.getY(0)) != 0
+			|| Double.compare(a.getZ(0), b.getZ(0)) != 0))
+			return false;
+		return !aRot || Float.compare(a.getYRot(0), b.getYRot(0)) == 0
+			&& Float.compare(a.getXRot(0), b.getXRot(0)) == 0;
 	}
 	
 	private void restoreSuppressedHacks()
@@ -393,8 +476,7 @@ public final class PacketFirewallOtf extends OtherFeature
 				|| temporaryWhitelist.contains(hack.getName()))
 				continue;
 			
-			vanillaOnlyPausedHacks.add(hack);
-			suppressedReasons.putIfAbsent(hack,
+			suppressHackTemporarily(hack,
 				"vanilla-only packets mode blocked tainted movement");
 			tainted = true;
 		}
@@ -546,6 +628,14 @@ public final class PacketFirewallOtf extends OtherFeature
 		recentGrimEvidence.entrySet().removeIf(
 			entry -> now - entry.getValue().timestampMs() > SETBACK_LOOKBACK_MS
 				|| !entry.getKey().isEnabled());
+	}
+	
+	private void suppressVanillaOnlyMovementHacks()
+	{
+		for(Hack hack : WURST.getHax().getAllHax())
+			if(hack.isEnabled() && hack.getCategory() == Category.MOVEMENT)
+				suppressHackTemporarily(hack,
+					"vanilla-only packets mode paused movement hack");
 	}
 	
 	private boolean suppressHackTemporarily(Hack hack, String reason)

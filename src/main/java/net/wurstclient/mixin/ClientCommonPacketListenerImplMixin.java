@@ -15,6 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
 import net.cevapi.security.ResourcePackProtector;
@@ -25,6 +26,7 @@ import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ClientCommonPacketListener;
 import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
+import net.wurstclient.other_features.PacketFirewallOtf;
 
 @Mixin(ClientCommonPacketListenerImpl.class)
 public abstract class ClientCommonPacketListenerImplMixin
@@ -45,8 +47,12 @@ public abstract class ClientCommonPacketListenerImplMixin
 		PacketOutputEvent event = new PacketOutputEvent(packet);
 		EventManager.fire(event);
 		
-		if(!event.isCancelled())
-			original.call(connection, event.getPacket());
+		PacketFirewallOtf firewall =
+			WurstClient.INSTANCE.getOtfs().packetFirewallOtf;
+		Packet<?> finalPacket = firewall.enforceVanillaOnly(packet,
+			event.getPacket(), event.isCancelled());
+		if(finalPacket != null)
+			original.call(connection, finalPacket);
 	}
 	
 	@Inject(at = @At("HEAD"),
