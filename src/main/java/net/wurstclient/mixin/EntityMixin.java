@@ -79,9 +79,16 @@ public abstract class EntityMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V")
+		method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V",
+		cancellable = true)
 	private void onSetDeltaMovement(Vec3 velocity, CallbackInfo ci)
 	{
+		if(MovementMutationTracker.shouldBlockLocalPlayerMovementMutation(
+			(Entity)(Object)this, "Entity#setDeltaMovement(Vec3)"))
+		{
+			ci.cancel();
+			return;
+		}
 		MovementMutationTracker.markLocalPlayerVelocityMutation(
 			(Entity)(Object)this, "Entity#setDeltaMovement(Vec3)");
 	}
@@ -98,12 +105,28 @@ public abstract class EntityMixin
 			ci.cancel();
 	}
 	
-	@Inject(at = @At("HEAD"), method = "setDeltaMovement(DDD)V")
+	@Inject(at = @At("HEAD"),
+		method = "setDeltaMovement(DDD)V",
+		cancellable = true)
 	private void onSetDeltaMovement(double x, double y, double z,
 		CallbackInfo ci)
 	{
+		if(MovementMutationTracker.shouldBlockLocalPlayerMovementMutation(
+			(Entity)(Object)this, "Entity#setDeltaMovement(DDD)"))
+		{
+			ci.cancel();
+			return;
+		}
 		MovementMutationTracker.markLocalPlayerVelocityMutation(
 			(Entity)(Object)this, "Entity#setDeltaMovement(DDD)");
+	}
+	
+	@Inject(method = "setPos(DDD)V", at = @At("HEAD"), cancellable = true)
+	private void onSetPos(double x, double y, double z, CallbackInfo ci)
+	{
+		if(MovementMutationTracker.shouldBlockLocalPlayerMovementMutation(
+			(Entity)(Object)this, "Entity#setPos(DDD)"))
+			ci.cancel();
 	}
 	
 	/**

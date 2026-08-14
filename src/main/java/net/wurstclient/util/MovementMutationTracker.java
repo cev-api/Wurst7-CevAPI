@@ -27,6 +27,28 @@ public enum MovementMutationTracker
 		new ConcurrentHashMap<>();
 	private static volatile int cachedHackCount = -1;
 	
+	public static boolean shouldBlockLocalPlayerMovementMutation(Entity entity,
+		String source)
+	{
+		if(entity == null)
+			return false;
+		
+		Minecraft mc = Minecraft.getInstance();
+		if(mc == null || mc.player == null || entity != mc.player)
+			return false;
+		
+		WurstClient wurst = WurstClient.INSTANCE;
+		if(wurst == null || wurst.getHax() == null || wurst.getOtfs() == null)
+			return false;
+		
+		if(!wurst.getOtfs().packetFirewallOtf.isVanillaOnlyPacketsMode())
+			return false;
+		
+		rebuildLookupIfNeeded(wurst);
+		SenderResolution sender = resolveSenderHackFromStack(wurst);
+		return sender != null;
+	}
+	
 	public static void markLocalPlayerVelocityMutation(Entity entity,
 		String source)
 	{
