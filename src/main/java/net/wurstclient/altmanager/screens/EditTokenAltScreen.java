@@ -35,6 +35,10 @@ import net.wurstclient.altmanager.MinecraftProfile;
 import net.wurstclient.altmanager.MinecraftServicesApi;
 import net.wurstclient.altmanager.TokenAlt;
 
+import net.wurstclient.WurstClient;
+import net.wurstclient.proxy.ProxyManagerScreen;
+import net.wurstclient.proxy.SocksProxy;
+
 public final class EditTokenAltScreen extends Screen
 {
 	private static final Pattern NAME_PATTERN =
@@ -51,6 +55,7 @@ public final class EditTokenAltScreen extends Screen
 	private Button applySkinButton;
 	private Button accountInfoButton;
 	private Button copyCredentialsButton;
+	private Button proxyButton;
 	
 	private volatile boolean busy;
 	private volatile String message = "";
@@ -110,10 +115,14 @@ public final class EditTokenAltScreen extends Screen
 				b -> toggleAccountInfo())
 			.bounds(width / 2 - 100, 200, 200, 20).build());
 		
+		addRenderableWidget(proxyButton =
+			Button.builder(getProxyButtonText(), b -> openProxyManager())
+				.bounds(width / 2 - 100, 224, 98, 20).build());
+		
 		addRenderableWidget(copyCredentialsButton = Button
 			.builder(Component.literal("Copy Credentials"),
 				b -> copyCredentials())
-			.bounds(width / 2 - 100, 224, 200, 20).build());
+			.bounds(width / 2 + 2, 224, 98, 20).build());
 		
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
@@ -142,6 +151,8 @@ public final class EditTokenAltScreen extends Screen
 		applySkinButton.active = canChangeSkin;
 		accountInfoButton.active = !busy;
 		copyCredentialsButton.active = !busy;
+		proxyButton.active = !busy;
+		proxyButton.setMessage(getProxyButtonText());
 		accountInfoButton.setMessage(Component.literal(
 			showAccountInfo ? "Hide Account Info" : "Show Account Info"));
 		skinModelButton.active = !busy;
@@ -155,6 +166,24 @@ public final class EditTokenAltScreen extends Screen
 			skinRefreshBurstsRemaining--;
 			nextSkinRefreshTime = Util.getMillis() + 900L;
 		}
+	}
+	
+	private Component getProxyButtonText()
+	{
+		SocksProxy proxy = altManager.getProxyAssociation(tokenAlt);
+		String name = proxy == null
+			? (altManager.hasProxyAssociation(tokenAlt) ? "Missing" : "None")
+			: proxy.getDisplayName();
+		return Component.literal("Proxy: " + name);
+	}
+	
+	private void openProxyManager()
+	{
+		minecraft.gui.setScreen(new ProxyManagerScreen(this,
+			WurstClient.INSTANCE.getProxyManager(), proxy -> {
+				altManager.setProxyAssociation(tokenAlt, proxy);
+				proxyButton.setMessage(getProxyButtonText());
+			}));
 	}
 	
 	private void copyCredentials()

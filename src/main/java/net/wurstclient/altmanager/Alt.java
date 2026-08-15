@@ -13,6 +13,7 @@ public abstract class Alt
 {
 	private boolean favorite;
 	private long lastValidatedAt;
+	private String proxyStorageId = "";
 	
 	public Alt(boolean favorite)
 	{
@@ -97,6 +98,16 @@ public abstract class Alt
 		return lastValidatedAt;
 	}
 	
+	public final String getProxyStorageId()
+	{
+		return proxyStorageId;
+	}
+	
+	public final void setProxyStorageId(String storageId)
+	{
+		proxyStorageId = storageId == null ? "" : storageId;
+	}
+	
 	public final void setLastValidatedAt(long timestamp)
 	{
 		lastValidatedAt = Math.max(0, timestamp);
@@ -105,6 +116,12 @@ public abstract class Alt
 	public final void markValidatedNow()
 	{
 		lastValidatedAt = System.currentTimeMillis();
+	}
+	
+	protected final void addProxyAssociation(JsonObject json)
+	{
+		if(!proxyStorageId.isBlank())
+			json.addProperty("proxy", proxyStorageId);
 	}
 	
 	protected final void addLastValidated(JsonObject json)

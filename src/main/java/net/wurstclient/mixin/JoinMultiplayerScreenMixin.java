@@ -262,7 +262,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		String title = "Logged In As: " + minecraft.getUser().getName();
 		ProxyManager proxyManager = WurstClient.INSTANCE.getProxyManager();
 		SocksProxy proxy =
-			proxyManager == null ? null : proxyManager.getSelectedProxy();
+			proxyManager == null ? null : proxyManager.getEffectiveProxy();
 		if(proxy != null)
 			title += " (Proxy: " + proxy.getHost() + ")";
 		

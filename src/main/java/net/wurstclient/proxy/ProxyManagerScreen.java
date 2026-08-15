@@ -131,10 +131,11 @@ public final class ProxyManagerScreen extends Screen
 		addButton.active = !proxyBox.getValue().trim().isEmpty() && !testing;
 		importButton.active = !testing;
 		testButton.active = proxy != null && !testing;
-		selectButton.active = proxy != null && !testing
-			&& !proxy.equals(proxyManager.getSelectedProxy());
-		disableButton.active =
-			proxyManager.getSelectedProxy() != null && !testing;
+		selectButton.active =
+			proxy != null && !testing && (proxyChoiceConsumer != null
+				|| !proxy.equals(proxyManager.getSelectedProxy()));
+		disableButton.active = !testing && (proxyChoiceConsumer != null
+			|| proxyManager.getSelectedProxy() != null);
 		removeButton.active = selectedCount > 0 && !testing;
 		removeButton.setMessage(Component
 			.literal(selectedCount > 1 ? "Remove selected" : "Remove"));
@@ -232,6 +233,12 @@ public final class ProxyManagerScreen extends Screen
 	
 	private void disableProxy()
 	{
+		if(proxyChoiceConsumer != null)
+		{
+			proxyChoiceConsumer.accept(null);
+			onClose();
+			return;
+		}
 		proxyManager.clearSelection();
 		status = "Multiplayer proxy disabled.";
 		refreshList();

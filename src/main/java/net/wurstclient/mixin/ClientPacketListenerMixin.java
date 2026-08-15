@@ -88,6 +88,8 @@ public abstract class ClientPacketListenerMixin
 		WurstClient wurst = WurstClient.INSTANCE;
 		if(!wurst.isEnabled())
 			return;
+		if(wurst.getBanMemoryManager() != null)
+			wurst.getBanMemoryManager().rememberSuccessfulConnection();
 		
 		wurst.getHax().instantCommandHack.onServerJoin();
 		wurst.getHax().joinDropHack.onServerJoin();

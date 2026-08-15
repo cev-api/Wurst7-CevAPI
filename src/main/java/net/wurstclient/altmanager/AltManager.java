@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+import net.wurstclient.WurstClient;
+import net.wurstclient.proxy.SocksProxy;
+
 public final class AltManager
 {
 	private final AltsFile altsFile;
@@ -70,13 +73,18 @@ public final class AltManager
 	
 	public void edit(Alt oldAlt, String newNameOrEmail, String newPassword)
 	{
+		String proxyStorageId = oldAlt.getProxyStorageId();
 		remove(oldAlt);
 		
+		Alt replacement;
 		if(newPassword.isEmpty())
-			add(new CrackedAlt(newNameOrEmail, oldAlt.isFavorite()));
+			replacement = new CrackedAlt(newNameOrEmail, oldAlt.isFavorite());
 		else
-			add(new MojangAlt(newNameOrEmail, newPassword, "",
-				oldAlt.isFavorite()));
+			replacement = new MojangAlt(newNameOrEmail, newPassword, "",
+				oldAlt.isFavorite());
+		
+		replacement.setProxyStorageId(proxyStorageId);
+		add(replacement);
 	}
 	
 	public void updateTokenAltName(TokenAlt tokenAlt, String newName)
@@ -94,6 +102,29 @@ public final class AltManager
 			altsFile.save(this);
 			return;
 		}
+	}
+	
+	public SocksProxy getProxyAssociation(Alt alt)
+	{
+		if(alt == null)
+			return null;
+		
+		return WurstClient.INSTANCE.getProxyManager()
+			.findByStorageId(alt.getProxyStorageId());
+	}
+	
+	public boolean hasProxyAssociation(Alt alt)
+	{
+		return alt != null && !alt.getProxyStorageId().isBlank();
+	}
+	
+	public void setProxyAssociation(Alt alt, SocksProxy proxy)
+	{
+		if(alt == null || !alts.contains(alt))
+			return;
+		
+		alt.setProxyStorageId(proxy == null ? "" : proxy.getStorageId());
+		altsFile.save(this);
 	}
 	
 	/**
@@ -119,15 +150,30 @@ public final class AltManager
 	public void login(Alt alt) throws LoginException
 	{
 		boolean wasUnchecked = alt.isUncheckedPremium();
+		SocksProxy associatedProxy = getProxyAssociation(alt);
+		SocksProxy previousAuthProxy =
+			MicrosoftLoginManager.getAuthenticationProxy();
 		
-		alt.login();
-		alt.markValidatedNow();
+		if(associatedProxy != null)
+			MicrosoftLoginManager.setAuthenticationProxy(associatedProxy);
 		
-		if(wasUnchecked)
-			numPremium++;
-		
-		if(!alt.isCracked())
-			altsFile.save(this);
+		try
+		{
+			alt.login();
+			alt.markValidatedNow();
+			
+			if(wasUnchecked)
+				numPremium++;
+			
+			WurstClient.INSTANCE.getProxyManager()
+				.setAccountProxy(associatedProxy);
+			
+			if(!alt.isCracked())
+				altsFile.save(this);
+		}finally
+		{
+			MicrosoftLoginManager.setAuthenticationProxy(previousAuthProxy);
+		}
 	}
 	
 	public Alt loginRandomUntilSuccess() throws LoginException

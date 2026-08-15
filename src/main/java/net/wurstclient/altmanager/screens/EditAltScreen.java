@@ -14,10 +14,15 @@ import net.wurstclient.altmanager.Alt;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.MojangAlt;
 
+import net.wurstclient.WurstClient;
+import net.wurstclient.proxy.ProxyManagerScreen;
+import net.wurstclient.proxy.SocksProxy;
+
 public final class EditAltScreen extends AltEditorScreen
 {
 	private final AltManager altManager;
 	private Alt editedAlt;
+	private Button proxyButton;
 	
 	public EditAltScreen(Screen prevScreen, AltManager altManager,
 		Alt editedAlt)
@@ -50,10 +55,32 @@ public final class EditAltScreen extends AltEditorScreen
 	@Override
 	protected void addExtraWidgets()
 	{
+		addRenderableWidget(proxyButton = Button
+			.builder(getProxyButtonText(), b -> openProxyManager())
+			.bounds(width / 2 - 100, getCancelButtonY() + 24, 98, 20).build());
+		
 		addRenderableWidget(Button
 			.builder(Component.literal("Copy Credentials"),
 				b -> copyCredentials())
-			.bounds(width / 2 - 100, getCancelButtonY() + 24, 200, 20).build());
+			.bounds(width / 2 + 2, getCancelButtonY() + 24, 98, 20).build());
+	}
+	
+	private Component getProxyButtonText()
+	{
+		SocksProxy proxy = altManager.getProxyAssociation(editedAlt);
+		String name = proxy == null
+			? (altManager.hasProxyAssociation(editedAlt) ? "Missing" : "None")
+			: proxy.getDisplayName();
+		return Component.literal("Proxy: " + name);
+	}
+	
+	private void openProxyManager()
+	{
+		minecraft.gui.setScreen(new ProxyManagerScreen(this,
+			WurstClient.INSTANCE.getProxyManager(), proxy -> {
+				altManager.setProxyAssociation(editedAlt, proxy);
+				proxyButton.setMessage(getProxyButtonText());
+			}));
 	}
 	
 	private void copyCredentials()

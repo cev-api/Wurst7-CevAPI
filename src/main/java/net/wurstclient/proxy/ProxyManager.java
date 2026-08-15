@@ -41,6 +41,7 @@ public final class ProxyManager
 	private final Path encryptionFolder;
 	private final ArrayList<SocksProxy> proxies = new ArrayList<>();
 	private volatile SocksProxy selectedProxy;
+	private volatile SocksProxy accountProxy;
 	private Encryption encryption;
 	
 	public ProxyManager(Path path, Path encryptionFolder)
@@ -53,6 +54,54 @@ public final class ProxyManager
 	public synchronized List<SocksProxy> getProxies()
 	{
 		return Collections.unmodifiableList(new ArrayList<>(proxies));
+	}
+	
+	public SocksProxy getEffectiveProxy()
+	{
+		SocksProxy linked = accountProxy;
+		return linked != null ? linked : selectedProxy;
+	}
+	
+	public synchronized SocksProxy findByStorageId(String storageId)
+	{
+		if(storageId == null || storageId.isBlank())
+			return null;
+		
+		for(SocksProxy proxy : proxies)
+			if(storageId.equals(proxy.getStorageId())
+				|| matchesLegacyStorageId(storageId, proxy))
+				return proxy;
+			
+		return null;
+	}
+	
+	private boolean matchesLegacyStorageId(String storageId, SocksProxy proxy)
+	{
+		String[] parts = storageId.split("\\u0000", -1);
+		if(parts.length == 2 && proxy.getUsername().isEmpty()
+			&& proxy.getPassword().isEmpty())
+			return parts[0].equals(proxy.getHost())
+				&& parts[1].equals(Integer.toString(proxy.getPort()));
+		if(parts.length != 4)
+			return false;
+		return parts[0].equals(proxy.getHost())
+			&& parts[1].equals(Integer.toString(proxy.getPort()))
+			&& parts[2].equals(proxy.getUsername())
+			&& parts[3].equals(proxy.getPassword());
+	}
+	
+	public synchronized void setAccountProxy(SocksProxy proxy)
+	{
+		if(proxy != null && !proxies.contains(proxy))
+			throw new IllegalArgumentException(
+				"Proxy is no longer in the list.");
+		
+		accountProxy = proxy;
+	}
+	
+	public void clearAccountProxy()
+	{
+		accountProxy = null;
 	}
 	
 	public SocksProxy getSelectedProxy()
@@ -143,6 +192,8 @@ public final class ProxyManager
 		
 		if(proxy.equals(selectedProxy))
 			selectedProxy = null;
+		if(proxy.equals(accountProxy))
+			accountProxy = null;
 		
 		save();
 	}

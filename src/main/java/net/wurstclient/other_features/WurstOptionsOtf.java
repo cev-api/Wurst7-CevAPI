@@ -51,6 +51,11 @@ public final class WurstOptionsOtf extends OtherFeature
 			"Show a disconnect-screen button for reconnecting through a random configured proxy.",
 			true);
 	
+	private final CheckboxSetting rememberBansAndProxies = new CheckboxSetting(
+		"Remember Bans/Proxies",
+		"Warn before connecting with an account or direct/proxy identity associated with a recorded server ban.",
+		false);
+	
 	private final CheckboxSetting titleScreenShadertoyBackground =
 		new CheckboxSetting("Shadertoy background",
 			"Render the animated Shadertoy-style background on the title screen.",
@@ -89,6 +94,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		super("WurstOptions", "description.wurst.other_feature.wurstoptions");
 		addSetting(location);
 		addSetting(showRandomProxyReconnect);
+		addSetting(rememberBansAndProxies);
 		// Register tab-list settings before settings files are created.
 		addSetting(tabListPing);
 		addSetting(tabListHeads);
@@ -109,6 +115,16 @@ public final class WurstOptionsOtf extends OtherFeature
 	public void setShowRandomProxyReconnect(boolean enabled)
 	{
 		showRandomProxyReconnect.setChecked(enabled);
+	}
+	
+	public boolean shouldRememberBansAndProxies()
+	{
+		return rememberBansAndProxies.isChecked();
+	}
+	
+	public CheckboxSetting getRememberBansAndProxiesSetting()
+	{
+		return rememberBansAndProxies;
 	}
 	
 	public boolean shouldShowTabListHeads()

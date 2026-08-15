@@ -304,6 +304,8 @@ public final class WurstOptionsScreen extends Screen
 		WurstClient wurst = WurstClient.INSTANCE;
 		CheckboxSetting disableTelemetry =
 			wurst.getOtfs().noTelemetryOtf.getDisableTelemetrySetting();
+		CheckboxSetting rememberBansAndProxies =
+			wurst.getOtfs().wurstOptionsOtf.getRememberBansAndProxiesSetting();
 		CheckboxSetting disableSignatures =
 			wurst.getOtfs().noChatReportsOtf.getDisableSignaturesSetting();
 		CheckboxSetting unsafeChatToast =
@@ -346,6 +348,12 @@ public final class WurstOptionsScreen extends Screen
 			discord.getShowUsernameSetting().getDescription(),
 			b -> discord.getShowUsernameSetting()
 				.setChecked(!discord.getShowUsernameSetting().isChecked()));
+		
+		addButton(column,
+			() -> "Remember Bans/Proxies: "
+				+ onOff(rememberBansAndProxies.isChecked()),
+			rememberBansAndProxies.getDescription(), b -> rememberBansAndProxies
+				.setChecked(!rememberBansAndProxies.isChecked()));
 		
 		addButton(column,
 			() -> "Disable Telemetry: " + onOff(disableTelemetry.isChecked()),

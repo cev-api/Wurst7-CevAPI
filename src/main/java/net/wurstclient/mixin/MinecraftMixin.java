@@ -290,6 +290,8 @@ public abstract class MinecraftMixin
 	{
 		User original = wurstOriginalSession;
 		setWurstUser(null);
+		if(WurstClient.INSTANCE.getProxyManager() != null)
+			WurstClient.INSTANCE.getProxyManager().clearAccountProxy();
 		if(original != null && WurstClient.INSTANCE.getOtfs() != null)
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf
 				.logVerboseSessionChange("restoreOriginalSession", original);
