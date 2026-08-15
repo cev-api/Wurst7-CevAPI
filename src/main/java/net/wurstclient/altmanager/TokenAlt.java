@@ -80,6 +80,7 @@ public final class TokenAlt extends Alt
 		jsonAlt.addProperty("starred", isFavorite());
 		jsonAlt.addProperty("client_id", getEffectiveClientId());
 		addLastValidated(jsonAlt);
+		addProxyAssociation(jsonAlt);
 		
 		String key = "token_"
 			+ Integer.toHexString(Objects.hash(token, refreshToken, name));

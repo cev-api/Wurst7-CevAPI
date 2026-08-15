@@ -30,6 +30,12 @@ public abstract class OfflineSettingsNetworkMixin
 			.onDisconnected(details.reason());
 		WurstClient.INSTANCE.getHax().webhookAlertHack
 			.onDisconnected(details.reason());
+		if(WurstClient.INSTANCE.getOtfs() != null
+			&& WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+				.shouldRememberBansAndProxies()
+			&& WurstClient.INSTANCE.getBanMemoryManager() != null)
+			WurstClient.INSTANCE.getBanMemoryManager()
+				.rememberDisconnect(details.reason());
 		OfflineSettingsHack hack =
 			WurstClient.INSTANCE.getHax().offlineSettingsHack;
 		

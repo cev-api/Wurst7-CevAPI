@@ -85,6 +85,7 @@ public final class MojangAlt extends Alt
 		jsonAlt.addProperty("name", name);
 		jsonAlt.addProperty("starred", isFavorite());
 		addLastValidated(jsonAlt);
+		addProxyAssociation(jsonAlt);
 		json.add(email, jsonAlt);
 	}
 	

@@ -32,7 +32,7 @@ public enum ProxyConnection
 	public static void addSelectedProxyHandler(ChannelPipeline pipeline)
 	{
 		SocksProxy proxy =
-			WurstClient.INSTANCE.getProxyManager().getSelectedProxy();
+			WurstClient.INSTANCE.getProxyManager().getEffectiveProxy();
 		if(proxy == null)
 			return;
 		

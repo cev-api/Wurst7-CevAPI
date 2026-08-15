@@ -165,11 +165,15 @@ public final class AltsFile
 				TokenAlt alt =
 					new TokenAlt(token, refreshToken, name, starred, clientId);
 				alt.setLastValidatedAt(lastValidated);
+				alt.setProxyStorageId(
+					JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
 				return alt;
 			}
 			
 			CrackedAlt alt = new CrackedAlt(nameOrEmail, starred);
 			alt.setLastValidatedAt(lastValidated);
+			alt.setProxyStorageId(
+				JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
 			return alt;
 		}
 		
@@ -178,6 +182,8 @@ public final class AltsFile
 		{
 			TokenAlt alt = new TokenAlt("", password, nameOrEmail, starred);
 			alt.setLastValidatedAt(lastValidated);
+			alt.setProxyStorageId(
+				JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
 			return alt;
 		}
 		
@@ -185,12 +191,15 @@ public final class AltsFile
 		{
 			CrackedAlt alt = new CrackedAlt(nameOrEmail, starred);
 			alt.setLastValidatedAt(lastValidated);
+			alt.setProxyStorageId(
+				JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
 			return alt;
 		}
 		
 		String name = JsonUtils.getAsString(jsonAlt.get("name"), "");
 		MojangAlt alt = new MojangAlt(nameOrEmail, password, name, starred);
 		alt.setLastValidatedAt(lastValidated);
+		alt.setProxyStorageId(JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
 		return alt;
 	}
 	

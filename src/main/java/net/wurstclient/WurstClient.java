@@ -51,6 +51,7 @@ import net.wurstclient.render.globalesp.GlobalEspManager;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.SetbackDetector;
 import net.wurstclient.util.ServerObserver;
+import net.wurstclient.util.BanMemoryManager;
 import net.wurstclient.util.HackToggleFeedback;
 import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.timer.TimerManager;
@@ -89,6 +90,7 @@ public enum WurstClient
 	private PresetManager presetManager;
 	private PlayerRangeAlertManager playerRangeAlertManager;
 	private ServerObserver serverObserver;
+	private BanMemoryManager banMemoryManager;
 	private SetbackDetector setbackDetector;
 	private TimerManager timerManager;
 	
@@ -106,6 +108,8 @@ public enum WurstClient
 		MC = Minecraft.getInstance();
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
+		banMemoryManager =
+			new BanMemoryManager(wurstFolder.resolve("ban-records"));
 		// Default the vanilla splash text (yellow logo splash) to OFF once
 		try
 		{
@@ -519,5 +523,10 @@ public enum WurstClient
 	public ProxyManager getProxyManager()
 	{
 		return proxyManager;
+	}
+	
+	public BanMemoryManager getBanMemoryManager()
+	{
+		return banMemoryManager;
 	}
 }

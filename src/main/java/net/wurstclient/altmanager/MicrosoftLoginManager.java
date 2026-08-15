@@ -93,6 +93,11 @@ public enum MicrosoftLoginManager
 			AUTH_PROXY.set(proxy);
 	}
 	
+	public static SocksProxy getAuthenticationProxy()
+	{
+		return AUTH_PROXY.get();
+	}
+	
 	public static void clearAuthenticationProxy()
 	{
 		AUTH_PROXY.remove();

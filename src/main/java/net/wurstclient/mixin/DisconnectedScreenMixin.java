@@ -105,10 +105,16 @@ public class DisconnectedScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
 			return;
-		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
-			return;
 		
 		Component reason = details.reason();
+		if(WurstClient.INSTANCE.getOtfs() != null
+			&& WurstClient.INSTANCE.getOtfs().wurstOptionsOtf
+				.shouldRememberBansAndProxies()
+			&& WurstClient.INSTANCE.getBanMemoryManager() != null)
+			WurstClient.INSTANCE.getBanMemoryManager()
+				.rememberDisconnect(reason);
+		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
+			return;
 		System.out.println("Disconnected: " + reason);
 		
 		if(ForcedChatReportsScreen.isCausedByNoChatReports(reason))
