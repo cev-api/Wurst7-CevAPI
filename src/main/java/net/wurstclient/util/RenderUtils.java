@@ -27,6 +27,7 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -305,7 +306,10 @@ public enum RenderUtils
 		if(textBuffer == null)
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
-		var prepared = font.prepareText(text, x, y, color, shadow, packedLight);
+		var prepared = font.prepareText(
+			Component.literal(text).getVisualOrderText(), x, y, color, shadow,
+			false, WurstClient.INSTANCE.getHax().globalToggleHack
+				.isEspTextBackgroundEnabled() ? backgroundColor : 0);
 		appendPreparedText(prepared, matrix, displayMode, packedLight);
 	}
 	
@@ -324,8 +328,9 @@ public enum RenderUtils
 		if(textBuffer == null)
 			textBuffer = new StagedVertexBuffer(() -> "wurstText", 0x4000);
 		
-		var prepared =
-			font.prepareText(text, x, y, color, shadow, false, backgroundColor);
+		var prepared = font.prepareText(text, x, y, color, shadow, false,
+			WurstClient.INSTANCE.getHax().globalToggleHack
+				.isEspTextBackgroundEnabled() ? backgroundColor : 0);
 		appendPreparedText(prepared, matrix, displayMode, packedLight);
 	}
 	
@@ -351,7 +356,10 @@ public enum RenderUtils
 		appendPreparedText(outline, new Matrix4f(matrix).translate(0, 1, 0),
 			displayMode, packedLight);
 		
-		var main = font.prepareText(text, x, y, color, false, backgroundColor);
+		var main = font.prepareText(
+			Component.literal(text).getVisualOrderText(), x, y, color, false,
+			false, WurstClient.INSTANCE.getHax().globalToggleHack
+				.isEspTextBackgroundEnabled() ? backgroundColor : 0);
 		appendPreparedText(main, matrix, displayMode, packedLight);
 	}
 	
@@ -378,6 +386,26 @@ public enum RenderUtils
 					textLastType = type;
 				}
 				glyph.render(matrix, svb.getVertexBuilder(textLastDraw),
+					packedLight, false);
+			}
+			
+			@Override
+			public void acceptEffect(TextRenderable effect)
+			{
+				RenderType type = effect.renderType(displayMode);
+				if(textLastDraw == null || type != textLastType
+					|| !type.canConsolidateConsecutiveGeometry())
+				{
+					textLastDraw = svb.appendDraw(type.format(),
+						type.primitiveTopology(),
+						type.sortOnUpload()
+							? RenderSystem.getProjectionType().vertexSorting()
+							: null);
+					textDraws.add(textLastDraw);
+					textDrawTypes.add(type);
+					textLastType = type;
+				}
+				effect.render(matrix, svb.getVertexBuilder(textLastDraw),
 					packedLight, false);
 			}
 		});

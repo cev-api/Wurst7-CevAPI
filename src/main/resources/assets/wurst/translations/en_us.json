@@ -697,5 +697,6 @@
   "description.wurst.hack.playermute": "Mutes selected players by UUID or name, including chat relays for players who are not online.",
   "description.wurst.hack.superinstamine": "Mines blocks extremely quickly when the required conditions are met.",
   "description.wurst.hack.webhookalert": "Sends configured alerts to a webhook when selected events occur.",
-  "description.wurst.hack.blockoverlay": "Renders the Nuker animation whenever you mine a block."
+  "description.wurst.hack.blockoverlay": "Renders the Nuker animation whenever you mine a block.",
+  "description.wurst.setting.globaltoggle.esp_text_background": "Shows a semi-transparent black background behind world-space ESP text labels."
 }

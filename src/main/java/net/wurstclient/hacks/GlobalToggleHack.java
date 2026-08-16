@@ -87,6 +87,10 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		"Global ESP/tracer range",
 		"Maximum distance for ESP and tracer targets when the global range limiter is enabled.",
 		128, 1, 512, 1, ValueDisplay.INTEGER);
+	private final CheckboxSetting espTextBackground = new CheckboxSetting(
+		"ESP text background",
+		"Shows a semi-transparent black background behind world-space ESP text labels.",
+		true);
 	private final CheckboxSetting disableAllTracers = new CheckboxSetting(
 		"Disable all tracers",
 		"Globally hides tracer lines from all hacks without changing each hack's own settings.",
@@ -136,6 +140,7 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		addSetting(globalEspRenderLimit);
 		addSetting(globalEspRangeEnabled);
 		addSetting(globalEspRange);
+		addSetting(espTextBackground);
 		addSetting(disableAllTracers);
 		addSetting(nearestTracerOnly);
 		addSetting(tracerFilters);
@@ -333,6 +338,11 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	public boolean isGlobalEspRenderLimitEnabled()
 	{
 		return globalEspRenderLimitEnabled.isChecked();
+	}
+	
+	public boolean isEspTextBackgroundEnabled()
+	{
+		return espTextBackground.isChecked();
 	}
 	
 	public boolean isWithinGlobalEspRange(Vec3 point)
