@@ -252,8 +252,10 @@ public enum RenderUtils
 		if(textBuffer == null)
 			textBuffer = getVCP();
 		
+		int background = WurstClient.INSTANCE.getHax().globalToggleHack
+			.isEspTextBackgroundEnabled() ? backgroundColor : 0;
 		font.drawInBatch(text, x, y, color, shadow, matrix, textBuffer,
-			displayMode, backgroundColor, packedLight);
+			displayMode, background, packedLight);
 	}
 	
 	public static void drawTextInBatch(Font font, FormattedCharSequence text,
@@ -267,8 +269,10 @@ public enum RenderUtils
 		if(textBuffer == null)
 			textBuffer = getVCP();
 		
+		int background = WurstClient.INSTANCE.getHax().globalToggleHack
+			.isEspTextBackgroundEnabled() ? backgroundColor : 0;
 		font.drawInBatch(text, x, y, color, shadow, matrix, textBuffer,
-			displayMode, backgroundColor, packedLight);
+			displayMode, background, packedLight);
 	}
 	
 	public static void drawOutlinedTextInBatch(Font font, String text, float x,
