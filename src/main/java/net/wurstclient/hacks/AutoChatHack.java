@@ -1756,7 +1756,8 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 			+ " refuse briefly and naturally in character.\n"
 			+ "- Output exactly one plain chat line.\n"
 			+ "- No markdown, no quotes, no command prefixes.\n"
-			+ "- Use ASCII characters only.\n" + "- Do not use emojis.\n"
+			+ "- Use Unicode characters as needed for the persona's language.\n"
+			+ "- Do not use emojis.\n"
 			+ "- Do not use em dashes or en dashes.\n"
 			+ "- Avoid slogans, catchphrases, repeated sign-offs, and repeated"
 			+ " closing lines.\n"
@@ -1772,7 +1773,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private String finalizeSystemPrompt(String basePrompt)
 	{
-		String normalized = normalizePromptText(basePrompt);
+		String normalized = normalizePromptText(basePrompt)
+			.replaceAll("(?i)plain\\s+ASCII\\s+chat\\s+line", "plain chat line")
+			.replaceAll("(?i)use\\s+ASCII\\s+characters\\s+only",
+				"use Unicode characters as needed for the persona's language");
 		String withPersona = ensurePersonaAttached(normalized);
 		return withPersona + "\n\n" + HARD_LENGTH_CONSTRAINT;
 	}
@@ -2596,8 +2600,9 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 	
 	private static String normalizeForSimilarity(String text)
 	{
-		String normalized = normalizeForSingleLineChat(text)
-			.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9 ]", " ").trim();
+		String normalized =
+			normalizeForSingleLineChat(text).toLowerCase(Locale.ROOT)
+				.replaceAll("[^\\p{L}\\p{N} ]", " ").trim();
 		while(normalized.contains("  "))
 			normalized = normalized.replace("  ", " ");
 		
@@ -2679,13 +2684,10 @@ public final class AutoChatHack extends Hack implements ChatInputListener
 		for(int i = 0; i < normalized.length(); i++)
 		{
 			char c = normalized.charAt(i);
-			if(c < 32 || c == 127)
+			if(Character.isISOControl(c))
 				continue;
 			
-			if(c > 126)
-				sb.append(' ');
-			else
-				sb.append(c);
+			sb.append(c);
 		}
 		
 		return sb.toString();

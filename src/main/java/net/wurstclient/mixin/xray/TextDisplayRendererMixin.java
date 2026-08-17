@@ -12,11 +12,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.renderer.entity.DisplayRenderer;
-import net.wurstclient.WurstClient;
 
 /**
- * Keeps server holograms in the see-through text pass while SurfaceXray is
- * active.
+ * Leaves server holograms in their original text render layer so SurfaceXray
+ * cannot change their render ordering.
  */
 @Mixin(DisplayRenderer.TextDisplayRenderer.class)
 public abstract class TextDisplayRendererMixin
@@ -27,9 +26,8 @@ public abstract class TextDisplayRendererMixin
 			target = "Lnet/minecraft/client/renderer/OrderedSubmitNodeCollector;submitText(Lcom/mojang/blaze3d/vertex/PoseStack;FFLnet/minecraft/util/FormattedCharSequence;ZLnet/minecraft/client/gui/Font$DisplayMode;IIII)V"),
 		index = 5,
 		require = 0)
-	private DisplayMode wurst$keepHologramTextOpaque(DisplayMode original)
+	private DisplayMode wurst$preserveHologramTextLayer(DisplayMode original)
 	{
-		return WurstClient.INSTANCE.getHax().surfaceXrayHack.isEnabled()
-			? DisplayMode.SEE_THROUGH : original;
+		return original;
 	}
 }
