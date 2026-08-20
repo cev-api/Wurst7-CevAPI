@@ -371,6 +371,7 @@
   "description.wurst.hack.roofesp": "Scans the Nether roof (Y=128 and above) for player-placed blocks, structures, and dropped items, then highlights them with ESP/tracers.",
   "description.wurst.hack.safetp": "Activates Blink for five seconds and sends your teleport command move and attack while the teleport countdown is running",
   "description.wurst.hack.safewalk": "Prevents you from falling off edges.",
+  "description.wurst.hack.stairmaker": "Builds a continuous diagonal staircase in front of you while you walk forward. Hold Shift to build downward stairs. Supports fast placement, AirPlace, flying, and automatic climbing.",
   "description.wurst.hack.scaffoldwalk": "Automatically places blocks below your feet.",
   "description.wurst.hack.search": "Helps you to find specific blocks by highlighting them in rainbow or fixed color. Use the Query input to search for partial keywords or create your own list of blocks to highlight.",
   "description.wurst.setting.sourcefill.outline_opacity": "Opacity of the highlighted source block outline.",
