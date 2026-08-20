@@ -287,6 +287,7 @@ public final class HackList implements UpdateListener
 	public final SafeTpHack safeTpHack = new SafeTpHack();
 	public final SafeWalkHack safeWalkHack = new SafeWalkHack();
 	public final ScaffoldWalkHack scaffoldWalkHack = new ScaffoldWalkHack();
+	public final StairMakerHack stairMakerHack = new StairMakerHack();
 	public final SearchHack searchHack = new SearchHack();
 	public final SpawnerEspHack spawnerEspHack = new SpawnerEspHack();
 	public final SourceFillHack sourceFillHack = new SourceFillHack();
