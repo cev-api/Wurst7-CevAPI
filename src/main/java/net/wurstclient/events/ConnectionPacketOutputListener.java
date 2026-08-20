@@ -8,6 +8,7 @@
 package net.wurstclient.events;
 
 import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.protocol.Packet;
 import net.wurstclient.event.CancellableEvent;
 import net.wurstclient.event.Listener;
@@ -32,6 +33,7 @@ public interface ConnectionPacketOutputListener extends Listener
 		extends CancellableEvent<ConnectionPacketOutputListener>
 	{
 		private Packet<?> packet;
+		private final List<String> debugTrace = new ArrayList<>();
 		
 		public ConnectionPacketOutputEvent(Packet<?> packet)
 		{
@@ -48,12 +50,25 @@ public interface ConnectionPacketOutputListener extends Listener
 			this.packet = packet;
 		}
 		
+		public void addDebugSource(String source)
+		{
+			if(source != null && !source.isBlank())
+				debugTrace.add(source);
+		}
+		
+		public List<String> getDebugTrace()
+		{
+			return List.copyOf(debugTrace);
+		}
+		
 		@Override
 		public void fire(ArrayList<ConnectionPacketOutputListener> listeners)
 		{
 			for(ConnectionPacketOutputListener listener : listeners)
 			{
 				HackActivityTracker.markActive(listener);
+				if(listener instanceof net.wurstclient.hack.Hack hack)
+					debugTrace.add(hack.getName());
 				listener.onSentConnectionPacket(this);
 				
 				if(isCancelled())
