@@ -1157,6 +1157,13 @@ public final class PacketFirewallOtf extends OtherFeature
 		return "stack=" + shortStackTrace();
 	}
 	
+	public String resolveSenderHackNameForDebug()
+	{
+		SenderResolution sender = resolveSenderHackFromStack();
+		return sender != null && sender.hack() != null ? sender.hack().getName()
+			: null;
+	}
+	
 	private SenderResolution resolveSenderHackFromStack()
 	{
 		rebuildHackClassLookup();

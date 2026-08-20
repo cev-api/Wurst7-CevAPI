@@ -20,6 +20,7 @@ public final class DisconnectContext
 		DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 	private static final long LOCAL_QUIT_WINDOW_MS = 15000L;
 	private static volatile long lastExpectedDisconnectMs;
+	private static volatile boolean expectedDisconnectConsumed;
 	private static volatile String pendingDisconnectDetails;
 	
 	private DisconnectContext()
@@ -73,17 +74,36 @@ public final class DisconnectContext
 	public static void markExpectedDisconnect(String details)
 	{
 		lastExpectedDisconnectMs = System.currentTimeMillis();
+		expectedDisconnectConsumed = false;
 		pendingDisconnectDetails = details;
+	}
+	
+	public static boolean hasRecentExpectedDisconnect()
+	{
+		return System.currentTimeMillis()
+			- lastExpectedDisconnectMs <= LOCAL_QUIT_WINDOW_MS;
 	}
 	
 	public static boolean consumeRecentExpectedDisconnect()
 	{
 		long now = System.currentTimeMillis();
-		if(now - lastExpectedDisconnectMs > LOCAL_QUIT_WINDOW_MS)
+		if(now - lastExpectedDisconnectMs > LOCAL_QUIT_WINDOW_MS
+			|| expectedDisconnectConsumed)
 			return false;
 		
-		lastExpectedDisconnectMs = 0L;
+		expectedDisconnectConsumed = true;
 		return true;
+	}
+	
+	public static boolean isKickOrBan(Component reason)
+	{
+		if(reason == null)
+			return false;
+		
+		String text = reason.getString().toLowerCase(java.util.Locale.ROOT);
+		return text.contains("kick") || text.contains("ban")
+			|| text.contains("not whitelisted")
+			|| text.contains("not on the whitelist");
 	}
 	
 	public static String consumePendingDisconnectDetails()

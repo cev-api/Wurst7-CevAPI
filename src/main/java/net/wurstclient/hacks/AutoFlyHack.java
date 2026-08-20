@@ -463,6 +463,10 @@ public final class AutoFlyHack extends Hack
 	private final CheckboxSetting disconnectOnArrival = new CheckboxSetting(
 		"Disconnect on arrival",
 		"Disconnects from the server when AutoFly reaches a waypoint.", false);
+	private final CheckboxSetting reconnectUnexpectedDisconnect =
+		new CheckboxSetting("Reconnect unexpected disconnects",
+			"Automatically reconnect and resume AutoFly after a server/network disconnect. Does not reconnect kicks, bans, or intentional quits from AutoLeave, Antisocial, or other settings.",
+			false);
 	
 	private final EnumSetting<StopOnType> stopOn = new EnumSetting<>("Stop on",
 		"Stop AutoFly if it detects something while flying.",
@@ -576,6 +580,7 @@ public final class AutoFlyHack extends Hack
 	private Vec3 commandForwardDirection;
 	private double commandForwardY;
 	private boolean useExistingTargetsOnEnable;
+	private boolean pendingUnexpectedDisconnectResume;
 	private boolean arrivalPause;
 	private long arrivalPauseUntilMs;
 	private boolean arrivedMessageSent;
@@ -714,6 +719,7 @@ public final class AutoFlyHack extends Hack
 		addSetting(disableFlightOnArrival);
 		addSetting(disableAutoFlyOnArrival);
 		addSetting(disconnectOnArrival);
+		addSetting(reconnectUnexpectedDisconnect);
 		addSetting(stopOn);
 		addSetting(stopKeyword);
 		addSetting(stopOn2);
@@ -818,6 +824,19 @@ public final class AutoFlyHack extends Hack
 	{
 		if(isEnabled() && isPathMode())
 			pathFlightController.onBlockUpdate(pos, state);
+	}
+	
+	public boolean shouldAutoReconnectOnUnexpectedDisconnect()
+	{
+		return isEnabled() && reconnectUnexpectedDisconnect.isChecked();
+	}
+	
+	public void prepareUnexpectedDisconnectResume()
+	{
+		if(!shouldAutoReconnectOnUnexpectedDisconnect())
+			return;
+		pendingUnexpectedDisconnectResume = true;
+		missingWorldStateTicks = 0;
 	}
 	
 	public boolean shouldApplyPathAntiHunger()
@@ -1125,8 +1144,21 @@ public final class AutoFlyHack extends Hack
 	public void onUpdate()
 	{
 		updateModeSettingVisibility();
+		if(pendingUnexpectedDisconnectResume && MC.player != null
+			&& MC.level != null)
+		{
+			pendingUnexpectedDisconnectResume = false;
+			restartWithExistingTargets();
+			if(isPathMode())
+				suspendWurstFlightForPath();
+			else
+				applyFlightSettings();
+			ensureFlightEnabled();
+		}
 		if(MC.player == null || MC.level == null)
 		{
+			if(pendingUnexpectedDisconnectResume)
+				return;
 			missingWorldStateTicks++;
 			if(missingWorldStateTicks >= WORLD_STATE_MISSING_TICK_GRACE)
 			{

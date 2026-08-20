@@ -256,12 +256,12 @@ public final class PacketToolsOtf extends OtherFeature
 		
 		if(verboseEnabled.isChecked() && shouldAlwaysVerbose(packet))
 		{
-			logVerbose(packet, "C2S");
+			logVerbose(packet, "C2S", event.getDebugTrace());
 			return;
 		}
 		
 		if(shouldVerboseOutsideGame())
-			logVerbose(packet, "OUTSIDE-C2S");
+			logVerbose(packet, "OUTSIDE-C2S", event.getDebugTrace());
 		else if(loggingEnabled.isChecked() && logC2S.contains(name))
 			logPacket(name, "C2S", packet);
 		
@@ -291,7 +291,7 @@ public final class PacketToolsOtf extends OtherFeature
 			.formatPacketName(packet);
 		discoveredC2S.add(name);
 		recordUnknown(packet.getClass().getSimpleName(), PacketDirection.C2S);
-		logVerbose(packet, "OUTSIDE-C2S");
+		logVerbose(packet, "OUTSIDE-C2S", event.getDebugTrace());
 	}
 	
 	@Override
@@ -697,6 +697,12 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private void logVerbose(Packet<?> packet, String direction)
 	{
+		logVerbose(packet, direction, List.of());
+	}
+	
+	private void logVerbose(Packet<?> packet, String direction,
+		List<String> debugTrace)
+	{
 		if(!loggingEnabled.isChecked())
 			return;
 		
@@ -713,7 +719,24 @@ public final class PacketToolsOtf extends OtherFeature
 		synchronized(verboseJsonlBuffer)
 		{
 			for(String line : lines)
+			{
+				if(!debugTrace.isEmpty())
+				{
+					try
+					{
+						JsonObject json =
+							JsonParser.parseString(line).getAsJsonObject();
+						json.add("wurstDebug",
+							VERBOSE_GSON.toJsonTree(debugTrace));
+						line = VERBOSE_GSON.toJson(json);
+					}catch(RuntimeException ignored)
+					{
+						// Keep packet logging resilient for non-JSON dumper
+						// lines.
+					}
+				}
 				appendVerboseLineLocked(line, human);
+			}
 		}
 	}
 	

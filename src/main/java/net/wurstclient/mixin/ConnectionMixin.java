@@ -76,6 +76,14 @@ public abstract class ConnectionMixin
 		}
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
+		String senderHack = firewall.resolveSenderHackNameForDebug();
+		if(senderHack != null)
+			event.addDebugSource("direct sender: " + senderHack);
+		if(originalPacket instanceof ServerboundMovePlayerPacket originalMove
+			&& packet instanceof ServerboundMovePlayerPacket finalMove
+			&& originalMove.isOnGround() != finalMove.isOnGround())
+			event.addDebugSource("NoFall/AutoFly movement mutation: onGround "
+				+ originalMove.isOnGround() + " -> " + finalMove.isOnGround());
 		events.add(event);
 		EventManager.fire(event);
 		

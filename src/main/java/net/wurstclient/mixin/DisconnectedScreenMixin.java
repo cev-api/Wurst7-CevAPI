@@ -38,6 +38,7 @@ import net.wurstclient.altmanager.LoginException;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.wurstclient.clickgui.screens.ClickGuiScreen;
 import net.wurstclient.hacks.AutoReconnectHack;
+import net.wurstclient.hacks.AutoFlyHack;
 import net.wurstclient.hacks.CommandSpamHack;
 import net.wurstclient.hacks.OfflineSettingsHack;
 import net.wurstclient.mixinterface.LoginOverlayAccessor;
@@ -54,6 +55,7 @@ public class DisconnectedScreenMixin extends Screen
 	implements LoginOverlayAccessor
 {
 	private int autoReconnectTimer;
+	private boolean autoFlyReconnect;
 	private Button autoReconnectButton;
 	private boolean showLoginOverlay;
 	private Button overlayAutoButton;
@@ -232,8 +234,19 @@ public class DisconnectedScreenMixin extends Screen
 		
 		AutoReconnectHack autoReconnect =
 			WurstClient.INSTANCE.getHax().autoReconnectHack;
+		AutoFlyHack autoFly = WurstClient.INSTANCE.getHax().autoFlyHack;
+		boolean expectedDisconnect =
+			DisconnectContext.hasRecentExpectedDisconnect()
+				|| DisconnectContext.isKickOrBan(reason);
 		
-		if(autoReconnect.isEnabled())
+		if(!expectedDisconnect
+			&& autoFly.shouldAutoReconnectOnUnexpectedDisconnect())
+		{
+			autoFly.prepareUnexpectedDisconnectResume();
+			autoFlyReconnect = true;
+			autoReconnectTimer =
+				autoReconnect.isEnabled() ? autoReconnect.getWaitTicks() : 100;
+		}else if(autoReconnect.isEnabled())
 			autoReconnectTimer = autoReconnect.getWaitTicks();
 	}
 	
@@ -727,6 +740,17 @@ public class DisconnectedScreenMixin extends Screen
 	{
 		if(!WurstClient.INSTANCE.isEnabled() || autoReconnectButton == null)
 			return;
+		if(autoFlyReconnect)
+		{
+			if(autoReconnectTimer > 0)
+			{
+				autoReconnectTimer--;
+				return;
+			}
+			autoFlyReconnect = false;
+			LastServerRememberer.reconnect(parent);
+			return;
+		}
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		if(WurstClient.INSTANCE.getAltSwitchController().isBusy())
