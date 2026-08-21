@@ -24,11 +24,15 @@ public final class AddAltScreen extends AltEditorScreen
 	private final AltManager altManager;
 	private AddMode mode = AddMode.PASSWORD;
 	private Button modeButton;
+	private Button addAltButton;
 	private EditBox profileNameBox;
 	private String verifiedProfileName = "";
 	private String verifiedToken = "";
 	private String verifiedRefreshToken = "";
 	private String verifiedCookieRefreshToken = "";
+	private String verifiedAccessTokenInput = "";
+	private String verifiedRefreshTokenInput = "";
+	private String verifiedCookieInput = "";
 	
 	public AddAltScreen(Screen prevScreen, AltManager altManager)
 	{
@@ -58,12 +62,10 @@ public final class AddAltScreen extends AltEditorScreen
 				: "Add Premium Alt";
 			
 			case TOKEN_REFRESH:
-			return isCurrentTokenStateVerified() ? "Add Token Alt"
-				: "Verify Token Login";
+			return "Verify Token Login";
 			
 			case COOKIE:
-			return isCookieStateVerified() ? "Add Token Alt"
-				: "Verify Cookies & Extract Token";
+			return "Verify Cookies & Extract Token";
 			
 			default:
 			throw new IllegalStateException();
@@ -82,6 +84,11 @@ public final class AddAltScreen extends AltEditorScreen
 		profileNameBox.setEditable(false);
 		profileNameBox.setMaxLength(64);
 		profileNameBox.setValue("");
+		addAltButton = addRenderableWidget(Button
+			.builder(Component.literal("Add Token Alt"), b -> addVerifiedAlt())
+			.bounds(width / 2 - 100, getAddAltButtonY(), 200, 20).build());
+		addAltButton.visible = false;
+		addAltButton.active = false;
 	}
 	
 	@Override
@@ -89,6 +96,14 @@ public final class AddAltScreen extends AltEditorScreen
 	{
 		if(modeButton != null)
 			modeButton.setMessage(Component.literal(getModeButtonText()));
+		if(addAltButton != null)
+		{
+			boolean verified =
+				isCurrentTokenStateVerified() || isCookieStateVerified();
+			addAltButton.visible = verified;
+			addAltButton.active = verified;
+			addAltButton.setY(getAddAltButtonY());
+		}
 		
 		if(profileNameBox != null)
 		{
@@ -325,14 +340,6 @@ public final class AddAltScreen extends AltEditorScreen
 		
 		if(mode == AddMode.TOKEN_REFRESH)
 		{
-			if(isCurrentTokenStateVerified())
-			{
-				altManager.add(new TokenAlt(verifiedToken, verifiedRefreshToken,
-					verifiedProfileName, false));
-				minecraft.gui.setScreen(prevScreen);
-				return;
-			}
-			
 			try
 			{
 				String updatedRefreshToken = password;
@@ -346,8 +353,10 @@ public final class AddAltScreen extends AltEditorScreen
 				verifiedProfileName = minecraft.getUser().getName();
 				verifiedToken = nameOrEmail;
 				verifiedRefreshToken = updatedRefreshToken;
+				verifiedAccessTokenInput = nameOrEmail;
+				verifiedRefreshTokenInput = password;
 				message = "\u00a7a\u00a7lLogin successful as "
-					+ verifiedProfileName + ". Click again to add.";
+					+ verifiedProfileName + ". Click Add Token Alt to save it.";
 				return;
 				
 			}catch(LoginException e)
@@ -360,14 +369,6 @@ public final class AddAltScreen extends AltEditorScreen
 		
 		if(mode == AddMode.COOKIE)
 		{
-			if(isCookieStateVerified())
-			{
-				altManager.add(new TokenAlt("", verifiedCookieRefreshToken,
-					verifiedProfileName, false));
-				minecraft.gui.setScreen(prevScreen);
-				return;
-			}
-			
 			String cookieText = getCookieText();
 			if(cookieText.isEmpty())
 			{
@@ -384,8 +385,9 @@ public final class AddAltScreen extends AltEditorScreen
 				
 				verifiedProfileName = result.getProfile().getName();
 				verifiedCookieRefreshToken = result.getRefreshToken();
+				verifiedCookieInput = cookieText;
 				message = "\u00a7a\u00a7lVerified as " + verifiedProfileName
-					+ ". Click again to add.";
+					+ ". Click Add Token Alt to save it.";
 				return;
 				
 			}catch(LoginException e)
@@ -438,14 +440,15 @@ public final class AddAltScreen extends AltEditorScreen
 	private boolean isCurrentTokenStateVerified()
 	{
 		return !verifiedProfileName.isEmpty()
-			&& getNameOrEmail().trim().equals(verifiedToken)
-			&& getPassword().trim().equals(verifiedRefreshToken);
+			&& getNameOrEmail().trim().equals(verifiedAccessTokenInput)
+			&& getPassword().trim().equals(verifiedRefreshTokenInput);
 	}
 	
 	private boolean isCookieStateVerified()
 	{
 		return !verifiedProfileName.isEmpty()
-			&& !verifiedCookieRefreshToken.isEmpty();
+			&& !verifiedCookieRefreshToken.isEmpty()
+			&& getCookieText().equals(verifiedCookieInput);
 	}
 	
 	private boolean hasCookieInput()
@@ -456,6 +459,25 @@ public final class AddAltScreen extends AltEditorScreen
 	private String getCookieText()
 	{
 		return getNameOrEmail().trim();
+	}
+	
+	private void addVerifiedAlt()
+	{
+		if(mode == AddMode.TOKEN_REFRESH && isCurrentTokenStateVerified())
+			altManager.add(new TokenAlt(verifiedToken, verifiedRefreshToken,
+				verifiedProfileName, false));
+		else if(mode == AddMode.COOKIE && isCookieStateVerified())
+			altManager.add(new TokenAlt("", verifiedCookieRefreshToken,
+				verifiedProfileName, false));
+		else
+			return;
+		
+		minecraft.gui.setScreen(prevScreen);
+	}
+	
+	private int getAddAltButtonY()
+	{
+		return getDoneButtonY() + 24;
 	}
 	
 	private void clearVerificationState()
