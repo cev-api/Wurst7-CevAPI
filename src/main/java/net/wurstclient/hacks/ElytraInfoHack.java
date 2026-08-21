@@ -89,7 +89,7 @@ public final class ElytraInfoHack extends Hack implements UpdateListener
 	{
 		super("ElytraInfo");
 		setCategory(Category.RENDER);
-		addPossibleKeybind(".elytrainfo swap",
+		addPossibleKeybind(".elytrainfoswap",
 			"Swap Elytra and best chestplate (if not cursed with Binding)");
 		addSetting(showYaw);
 		addSetting(showPitch);
