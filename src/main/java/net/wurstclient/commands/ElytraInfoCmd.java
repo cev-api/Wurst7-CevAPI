@@ -15,14 +15,15 @@ public final class ElytraInfoCmd extends Command
 {
 	public ElytraInfoCmd()
 	{
-		super("elytrainfo", "ElytraInfo utility commands.", ".elytrainfo swap");
+		super("elytrainfoswap", "Swaps Elytra and chestplate.",
+			".elytrainfoswap");
 	}
 	
 	@Override
 	public void call(String[] args) throws CmdError
 	{
-		if(args.length == 0 || !args[0].equalsIgnoreCase("swap"))
-			throw new CmdError("Usage: .elytrainfo swap");
+		if(args.length != 0)
+			throw new CmdError("Usage: .elytrainfoswap");
 		
 		WurstClient.INSTANCE.getHax().elytraInfoHack.swapChestItemFromKeybind();
 	}
