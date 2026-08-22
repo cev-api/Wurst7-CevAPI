@@ -25,6 +25,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.achievement.StatsScreen;
 import net.minecraft.network.chat.Component;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.options.WurstOptionsScreen;
 
@@ -65,7 +66,8 @@ public abstract class StatsScreenMixin extends Screen
 		doneButton.setWidth(100);
 		hLayout.addChild(doneButton);
 		
-		if(!wurst.shouldHideWurstUiMixins()
+		if(BuildConfig.includesOtherFeature("wurstOptionsOtf")
+			&& !wurst.shouldHideWurstUiMixins()
 			&& wurst.getOtfs().wurstOptionsOtf.isVisibleInStatistics())
 		{
 			layout.setFooterHeight(58);

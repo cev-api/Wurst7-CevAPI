@@ -1,0 +1,47 @@
+{
+  "enabled": true,
+  "suffix": "Modified",
+  "hacks": [
+    "enchantmentHandlerHack",
+    "itemEspHack",
+    "itemHandlerHack",
+    "waypointsHack"
+  ],
+  "commands": [
+    "enchantCmd",
+    "itemHandlerCmd",
+    "waypointCmd",
+    "waypointsCmd"
+  ],
+  "other_features": [
+    "keybindManagerOtf"
+  ],
+  "wurst_options": [
+    "Background overlay",
+    "Changelog",
+    "Color ping",
+    "Command Prefix",
+    "Connection log overlay",
+    "Custom Capes",
+    "Custom Mojang logo background",
+    "Custom Shadertoy URL",
+    "Custom multiplayer layout",
+    "Disable signatures",
+    "Disable telemetry",
+    "Discord Presence",
+    "Force Allow Chats",
+    "Force English",
+    "Hack toggle chat feedback",
+    "Hide enable button",
+    "Live ping",
+    "Location",
+    "Mojang logo background color",
+    "Overlay Font Size",
+    "Player heads",
+    "Remember Bans/Proxies",
+    "Shadertoy background",
+    "Show random proxy reconnect",
+    "Spoof Vanilla",
+    "Tab list"
+  ]
+}
