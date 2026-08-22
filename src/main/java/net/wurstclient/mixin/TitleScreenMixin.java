@@ -56,6 +56,8 @@ public abstract class TitleScreenMixin extends Screen
 		"cevapi_title_13.png", "cevapi_title_14.png", "cevapi_title_15.png",
 		"cevapi_title_16.png", "cevapi_title_17.png", "cevapi_title_18.png",
 		"cevapi_title_19.png", "cevapi_title_20.png"};
+	private static final String[] CUSTOM_TITLE_TEXTURES =
+		new String[]{"custom_menu_logo.png"};
 	private static final String[] NICEWURST_TITLE_TEXTURES =
 		new String[]{"nicewurst_title.png"};
 	
@@ -74,8 +76,9 @@ public abstract class TitleScreenMixin extends Screen
 	@Inject(method = "init()V", at = @At("HEAD"))
 	private void onInit(CallbackInfo ci)
 	{
-		String currentBase =
-			NiceWurstModule.isActive() ? "nicewurst_title" : "cevapi_title";
+		String currentBase = NiceWurstModule.isActive() ? "nicewurst_title"
+			: BuildConfig.CUSTOM_MENU_LOGO ? "custom_menu_logo"
+				: "cevapi_title";
 		boolean screenInstanceChanged =
 			LAST_TITLE_SCREEN_INSTANCE != (Screen)(Object)this;
 		boolean baseChanged = !currentBase.equals(CURRENT_TITLE_BASE);
@@ -101,6 +104,8 @@ public abstract class TitleScreenMixin extends Screen
 		CallbackInfoReturnable<Integer> cir)
 	{
 		if(!WurstClient.INSTANCE.isEnabled())
+			return;
+		if(!BuildConfig.includesOtherFeature("wurstOptionsOtf"))
 			return;
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
@@ -159,7 +164,8 @@ public abstract class TitleScreenMixin extends Screen
 			return;
 		
 		Font font = minecraft.font;
-		String brand = NiceWurstModule.isActive() ? "NiceWurst" : "Wurst";
+		String brand =
+			NiceWurstModule.isActive() ? "NiceWurst" : BuildConfig.BRAND_NAME;
 		String baseText = brand + " " + BuildConfig.MOD_VERSION + " v"
 			+ BuildConfig.FORK_RELEASE_VERSION;
 		String suffix = WurstClient.INSTANCE.getForkUpdateChecker() == null ? ""
@@ -239,6 +245,11 @@ public abstract class TitleScreenMixin extends Screen
 			textureManager.registerForNextReload(
 				Identifier.fromNamespaceAndPath("wurst", texture));
 		}
+		for(String texture : CUSTOM_TITLE_TEXTURES)
+		{
+			textureManager.registerForNextReload(
+				Identifier.fromNamespaceAndPath("wurst", texture));
+		}
 		for(String texture : CEVAPI_TITLE_TEXTURES)
 		{
 			textureManager.registerForNextReload(
@@ -274,7 +285,8 @@ public abstract class TitleScreenMixin extends Screen
 			return;
 		// Build a list of candidate title textures (randomized)
 		String[] textures = NiceWurstModule.isActive()
-			? NICEWURST_TITLE_TEXTURES : CEVAPI_TITLE_TEXTURES;
+			? NICEWURST_TITLE_TEXTURES : BuildConfig.CUSTOM_MENU_LOGO
+				? CUSTOM_TITLE_TEXTURES : CEVAPI_TITLE_TEXTURES;
 		java.util.List<Identifier> candidates = new java.util.ArrayList<>();
 		for(String texture : textures)
 			candidates.add(Identifier.fromNamespaceAndPath("wurst", texture));

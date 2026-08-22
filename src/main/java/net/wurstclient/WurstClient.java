@@ -58,6 +58,7 @@ import net.wurstclient.util.timer.TimerManager;
 import net.wurstclient.util.json.JsonException;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.config.BuildConfig;
+import net.wurstclient.config.CustomBuildDefaults;
 
 public enum WurstClient
 {
@@ -103,11 +104,12 @@ public enum WurstClient
 	
 	public void initialize()
 	{
-		System.out.println("Starting Wurst CevAPI Client...");
+		System.out.println("Starting " + BuildConfig.BRAND_NAME + "...");
 		
 		MC = Minecraft.getInstance();
 		IMC = (IMinecraftClient)MC;
 		wurstFolder = createWurstFolder();
+		CustomBuildDefaults.install(wurstFolder);
 		banMemoryManager =
 			new BanMemoryManager(wurstFolder.resolve("ban-records"));
 		// Default the vanilla splash text (yellow logo splash) to OFF once
@@ -229,7 +231,7 @@ public enum WurstClient
 	private Path createWurstFolder()
 	{
 		Path dotMinecraftFolder = MC.gameDirectory.toPath().normalize();
-		String folderName = BuildConfig.NICE_WURST ? "nicewurst" : "wurst";
+		String folderName = BuildConfig.CONFIG_FOLDER;
 		Path wurstFolder = dotMinecraftFolder.resolve(folderName);
 		
 		try

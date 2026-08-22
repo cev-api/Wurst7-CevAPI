@@ -38,6 +38,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.clickgui.components.FeatureButton;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.TooManyHaxHack;
@@ -187,33 +188,45 @@ public final class ClickGui
 		if(favWindow != null)
 			sortFavoritesWindow(favWindow);
 		
-		windows.addAll(windowMap.values());
+		windowMap.values().stream().filter(window -> window.countChildren() > 0)
+			.forEach(windows::add);
 		
 		Window uiSettings = new Window("Client Settings");
-		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstLogoOtf));
-		uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
-		uiSettings.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
-		uiSettings.add(new FeatureButton(WURST.getOtfs().presetManagerOtf));
-		uiSettings.add(new FeatureButton(WURST.getOtfs().wurstOptionsOtf));
-		uiSettings.add(new FeatureButton(WURST.getHax().globalToggleHack));
-		ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
-		uiSettings.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
-		Stream<Setting> settings =
-			clickGuiHack.getSettings().values().stream().filter(
-				setting -> setting != clickGuiHack.getIsolateWindowsSetting());
-		settings.map(Setting::getComponent).forEach(c -> uiSettings.add(c));
-		// Removed secondary Chest Search button from UI Settings so Chest
-		// Search
-		// only appears in the ITEMS category via its hack.
-		windows.add(uiSettings);
-		
+		if(BuildConfig.includesOtherFeature("wurstLogoOtf"))
+			uiSettings.add(new FeatureButton(WURST.getOtfs().wurstLogoOtf));
+		if(BuildConfig.includesOtherFeature("hackListOtf"))
+			uiSettings.add(new FeatureButton(WURST.getOtfs().hackListOtf));
+		if(BuildConfig.includesOtherFeature("keybindManagerOtf"))
+			uiSettings
+				.add(new FeatureButton(WURST.getOtfs().keybindManagerOtf));
+		if(BuildConfig.includesOtherFeature("presetManagerOtf"))
+			uiSettings.add(new FeatureButton(WURST.getOtfs().presetManagerOtf));
+		if(BuildConfig.includesOtherFeature("wurstOptionsOtf"))
+			uiSettings.add(new FeatureButton(WURST.getOtfs().wurstOptionsOtf));
+		if(BuildConfig.includesHack("globalToggleHack"))
+			uiSettings.add(new FeatureButton(WURST.getHax().globalToggleHack));
+		if(BuildConfig.includesHack("clickGuiHack"))
+		{
+			ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
+			uiSettings
+				.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
+			Stream<Setting> settings = clickGuiHack.getSettings().values()
+				.stream().filter(setting -> setting != clickGuiHack
+					.getIsolateWindowsSetting());
+			settings.map(Setting::getComponent)
+				.forEach(component -> uiSettings.add(component));
+		}
+		if(uiSettings.countChildren() > 0)
+			windows.add(uiSettings);
+			
 		// Removed dedicated Chest Tools window so Chest Search isn't shown in
 		// its own category/window.
 		
 		for(Window window : windows)
 			window.setMinimized(true);
 		
-		windows.add(WurstClient.INSTANCE.getHax().radarHack.getWindow());
+		if(BuildConfig.includesHack("radarHack"))
+			windows.add(WurstClient.INSTANCE.getHax().radarHack.getWindow());
 		
 		int x = 5;
 		int y = 5;

@@ -1,13 +1,46 @@
 package net.wurstclient.config;
 
+import java.util.Set;
+
 public final class BuildConfig
 {
 	private BuildConfig() {}
 	
 	public static final boolean NICE_WURST = ${NICE_WURST};
+	public static final boolean CUSTOM_BUILD = ${CUSTOM_BUILD};
+	public static final boolean CUSTOM_MENU_LOGO = ${CUSTOM_MENU_LOGO};
+	public static final boolean CUSTOM_WURST_OPTIONS_CONFIGURED =
+		${CUSTOM_WURST_OPTIONS_CONFIGURED};
+	public static final String BRAND_NAME = "${BRAND_NAME}";
+	public static final String CONFIG_FOLDER = "${CONFIG_FOLDER}";
 	public static final String MOD_VERSION = "${MOD_VERSION}";
 	public static final String FORK_RELEASE_VERSION = "${FORK_RELEASE_VERSION}";
 	public static final String BUILD_DATE = "${BUILD_DATE}";
 	public static final String GH_REPO_ID = "${GH_REPO_ID}";
 	public static final String GH_REPO_URL = "${GH_REPO_URL}";
+
+	private static final Set<String> HACKS = Set.of(${HACKS});
+	private static final Set<String> COMMANDS = Set.of(${COMMANDS});
+	private static final Set<String> OTHER_FEATURES = Set.of(${OTHER_FEATURES});
+	private static final Set<String> WURST_OPTIONS = Set.of(${WURST_OPTIONS});
+
+	public static boolean includesHack(String fieldName)
+	{
+		return !CUSTOM_BUILD || HACKS.contains(fieldName);
+	}
+
+	public static boolean includesCommand(String fieldName)
+	{
+		return !CUSTOM_BUILD || COMMANDS.contains(fieldName);
+	}
+
+	public static boolean includesOtherFeature(String fieldName)
+	{
+		return !CUSTOM_BUILD || OTHER_FEATURES.contains(fieldName);
+	}
+	public static boolean includesWurstOption(String settingName)
+	{
+		return !CUSTOM_BUILD || !CUSTOM_WURST_OPTIONS_CONFIGURED
+			|| WURST_OPTIONS.contains(settingName);
+	}
 }

@@ -29,6 +29,7 @@ import net.minecraft.network.chat.Component;
 import net.wurstclient.Category;
 import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
 import net.wurstclient.clickgui.screens.EditBlockScreen;
 import net.wurstclient.clickgui.screens.EditBookOffersScreen;
@@ -209,6 +210,14 @@ public final class AltGuiScreen extends Screen
 				if(cfg().isKeepHackSettingsOpenEnabled())
 					expandedFeatures.addAll(LAST_EXPANDED_FEATURES);
 			}
+		}
+		
+		if(!enabledCategorySelected && !styleCategorySelected)
+		{
+			List<String> categories = getDisplayCategories();
+			if(!containsIgnoreCase(categories, selectedCategory)
+				&& !categories.isEmpty())
+				selectedCategory = categories.get(0);
 		}
 	}
 	
@@ -2269,16 +2278,26 @@ public final class AltGuiScreen extends Screen
 	private List<Feature> getClientSettingsFeatures()
 	{
 		ArrayList<Feature> features = new ArrayList<>();
-		features.add(WurstClient.INSTANCE.getOtfs().wurstLogoOtf);
-		features.add(WurstClient.INSTANCE.getOtfs().hackListOtf);
-		features.add(WurstClient.INSTANCE.getOtfs().keybindManagerOtf);
-		features.add(WurstClient.INSTANCE.getOtfs().presetManagerOtf);
-		features.add(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf);
-		features.add(WurstClient.INSTANCE.getHax().globalToggleHack);
-		features.add(WurstClient.INSTANCE.getHax().navigatorHack);
-		features.add(WurstClient.INSTANCE.getHax().clickGuiHack);
-		features.add(WurstClient.INSTANCE.getHax().altGuiHack);
-		features.add(WurstClient.INSTANCE.getHax().xpGuiHack);
+		if(BuildConfig.includesOtherFeature("wurstLogoOtf"))
+			features.add(WurstClient.INSTANCE.getOtfs().wurstLogoOtf);
+		if(BuildConfig.includesOtherFeature("hackListOtf"))
+			features.add(WurstClient.INSTANCE.getOtfs().hackListOtf);
+		if(BuildConfig.includesOtherFeature("keybindManagerOtf"))
+			features.add(WurstClient.INSTANCE.getOtfs().keybindManagerOtf);
+		if(BuildConfig.includesOtherFeature("presetManagerOtf"))
+			features.add(WurstClient.INSTANCE.getOtfs().presetManagerOtf);
+		if(BuildConfig.includesOtherFeature("wurstOptionsOtf"))
+			features.add(WurstClient.INSTANCE.getOtfs().wurstOptionsOtf);
+		if(BuildConfig.includesHack("globalToggleHack"))
+			features.add(WurstClient.INSTANCE.getHax().globalToggleHack);
+		if(BuildConfig.includesHack("navigatorHack"))
+			features.add(WurstClient.INSTANCE.getHax().navigatorHack);
+		if(BuildConfig.includesHack("clickGuiHack"))
+			features.add(WurstClient.INSTANCE.getHax().clickGuiHack);
+		if(BuildConfig.includesHack("altGuiHack"))
+			features.add(WurstClient.INSTANCE.getHax().altGuiHack);
+		if(BuildConfig.includesHack("xpGuiHack"))
+			features.add(WurstClient.INSTANCE.getHax().xpGuiHack);
 		return features;
 	}
 	
@@ -2296,20 +2315,46 @@ public final class AltGuiScreen extends Screen
 	
 	private List<String> getDisplayCategories()
 	{
-		ArrayList<String> categories = new ArrayList<>();
-		for(Category category : Category.values())
-			categories.add(category.getName());
-		
+		ArrayList<String> present = new ArrayList<>();
 		for(Hack hack : WurstClient.INSTANCE.getHax().getAllHax())
 		{
-			String categoryName = hack.getCategoryName();
-			if(categoryName == null || categoryName.isBlank())
+			if(hack instanceof ClickGuiHack || hack instanceof NavigatorHack
+				|| hack instanceof AltGuiHack || hack instanceof XpGuiHack
+				|| hack == WurstClient.INSTANCE.getHax().globalToggleHack
+				|| isHiddenByTooManyHax(hack))
 				continue;
-			
-			if(!containsIgnoreCase(categories, categoryName))
-				categories.add(categoryName);
+			if(hack.isFavorite()
+				&& !containsIgnoreCase(present, Category.FAVORITES.getName()))
+				present.add(Category.FAVORITES.getName());
+			String categoryName = hack.getCategoryName();
+			if(categoryName != null && !categoryName.isBlank()
+				&& !containsIgnoreCase(present, categoryName))
+				present.add(categoryName);
 		}
 		
+		List<Feature> clientSettings = getClientSettingsFeatures();
+		for(OtherFeature feature : WurstClient.INSTANCE.getOtfs().getAllOtfs())
+		{
+			if(HIDDEN_OTHER_FEATURES.contains(feature.getName())
+				|| MOVE_TO_CLIENT_SETTINGS.stream()
+					.anyMatch(name -> name.equalsIgnoreCase(feature.getName()))
+				|| clientSettings.contains(feature)
+				|| isHiddenByTooManyHax(feature))
+				continue;
+			String categoryName = feature.getCategoryName();
+			if(categoryName == null || categoryName.isBlank())
+				categoryName = Category.OTHER.getName();
+			if(!containsIgnoreCase(present, categoryName))
+				present.add(categoryName);
+		}
+		
+		ArrayList<String> categories = new ArrayList<>();
+		for(Category category : Category.values())
+			if(containsIgnoreCase(present, category.getName()))
+				categories.add(category.getName());
+		for(String categoryName : present)
+			if(!containsIgnoreCase(categories, categoryName))
+				categories.add(categoryName);
 		return categories;
 	}
 	

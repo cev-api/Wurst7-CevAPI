@@ -13,6 +13,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.mixinterface.IMinecraftClient;
@@ -82,6 +83,10 @@ public abstract class Feature
 	
 	protected final void addSetting(Setting setting)
 	{
+		if("WurstOptions".equals(getName())
+			&& !BuildConfig.includesWurstOption(setting.getName()))
+			return;
+		
 		String key = setting.getName().toLowerCase();
 		
 		if(settings.containsKey(key))

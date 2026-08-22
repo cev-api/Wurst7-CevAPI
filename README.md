@@ -1,5 +1,4 @@
-﻿# Wurst Client v7.54.1 (MC26.2) - Modified by CevAPI 
-
+# Wurst Client v7.54.1 (MC26.2) - Modified by CevAPI
 ![CevAPI Logo](https://i.imgur.com/K5U1OHe.jpeg)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
@@ -44,6 +43,16 @@ The benefit of this is that it is the exact code here on this repo, no need to d
 - Will only support MC26.2
 - No NiceWurst
 
+## Custom Builds
+
+Too many hacks? Well you can now make your own custom build of Wurst7-CevAPI!
+
+Run `scripts/custom_build_gui.bat` (or `python scripts/custom_build_gui.py`) to select included hacks, commands, features, and Wurst Options settings, and import custom icons, shaders, or defaults.
+
+Custom builds use `Wurst7-CevAPI-<suffix>` branding, while the Fabric ID and `.minecraft/wurst` config folder remain fixed. Disable the profile toggle for a normal build; enabled profiles are saved to `custom-build/profile.json`.
+
+ClickGUI and AltGUI hide empty categories. Shared infrastructure remains compiled because of Wurst’s mixin dependencies.
+
 ## Wurst7-CevAPI In-Game Screenshot
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
 ![AltGUI](https://i.imgur.com/gzAVbru.png)
@@ -55,6 +64,8 @@ The README has been shortened due to the large number of features in this client
 All features, hacks, and detailed explanations are documented in the wiki:
 
 ➡️ https://github.com/cev-api/Wurst7-CevAPI/wiki
+
+Note: Wiki is seldom maintained, it is likely out of date. Read release notes in situ. 
 
 ### Sections
 

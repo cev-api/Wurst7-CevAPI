@@ -39,3 +39,4 @@ desktop.ini
 *.rar
 *.log
 *.jsonl
+!scripts/custom_build_gui.py
