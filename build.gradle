@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 buildscript {
 	dependencies {
 		classpath "org.kohsuke:github-api:1.330"
@@ -12,6 +14,43 @@ plugins {
 
 def ENV = System.getenv()
 
+def customBuildDir = file("custom-build")
+def customBuildProfileFile = new File(customBuildDir, "profile.json")
+def customBuildProfile = [:]
+if(customBuildProfileFile.isFile()) {
+	try {
+		customBuildProfile = new JsonSlurper().parse(customBuildProfileFile)
+	} catch(Exception e) {
+		throw new GradleException("Invalid custom-build/profile.json", e)
+	}
+}
+def customBuildEnabled = customBuildProfile.enabled == true
+def customSuffix = customBuildProfile.suffix instanceof String
+	? customBuildProfile.suffix.trim() : "Modified"
+if(customBuildEnabled && !(customSuffix ==~ /[A-Za-z0-9][A-Za-z0-9._-]{0,31}/))
+	throw new GradleException("Custom build suffix must use 1-32 letters, digits, dots, underscores or hyphens")
+def customProductName = "Wurst7-CevAPI" +
+	(customBuildEnabled ? "-${customSuffix}" : "")
+def profileString = { String key, String fallback ->
+	def value = customBuildProfile[key]
+	return customBuildEnabled && value instanceof String && !value.isBlank()
+		? value : fallback
+}
+def profileList = { String key ->
+	def value = customBuildProfile[key]
+	return customBuildEnabled && value instanceof Collection
+		? value.findAll { it instanceof String }.collect { it.toString() }
+		: []
+}
+def escapeJava = { String value ->
+	value.replace("\\", "\\\\").replace("\"", "\\\"")
+}
+def javaSetItems = { String key ->
+	profileList(key).collect { "\"${escapeJava(it)}\"" }.join(", ")
+}
+def customMenuLogo = customBuildEnabled &&
+	new File(customBuildDir, "assets/menu_logo.png").isFile()
+
 def niceWurstRaw =
 	(project.findProperty("nicewurst") ?: ENV.NICEWURST ?: "0").toString()
 def niceWurstEnabled = !["0", "false", "off", "no", ""]
@@ -20,11 +59,11 @@ def niceWurstEnabled = !["0", "false", "off", "no", ""]
 def forkReleaseVersion =
 	(project.findProperty("fork_release_version") ?: "0.0").toString()
 def effectiveVersion = project.mod_version
-def effectiveArchiveName =
-	niceWurstEnabled ? "NiceWurst" : project.archives_base_name
+def effectiveArchiveName = niceWurstEnabled ? "NiceWurst"
+	: customBuildEnabled ? customProductName : project.archives_base_name
 def modId = niceWurstEnabled ? "nicewurst" : "wurst"
 def modName = niceWurstEnabled ? "NiceWurst 7"
-	: "Wurst Client - Modified by CevAPI"
+	: customBuildEnabled ? customProductName : "Wurst Client - Modified by CevAPI"
 def modDescription = niceWurstEnabled
 	? "NiceWurst is a curated, cheat-free build of the Wurst7-CevAPI, a fork of the original Wurst client."
 	: "A fork of the original Wurst client, with many new features and improvements. This fork is maintained by CevAPI."
@@ -37,7 +76,7 @@ def issuesUrl =
 version = effectiveVersion
 group = project.maven_group
 
-def mainModId = niceWurstEnabled ? "nicewurst" : "wurst"
+def mainModId = modId
 
 base {
 	archivesName = effectiveArchiveName
@@ -278,7 +317,30 @@ processResources {
 			modrinthProjectId: modrinthProjectId
 		])
 	}
-}
+	if(customBuildEnabled) {
+		doLast {
+			def output = destinationDir
+			def icon = new File(customBuildDir, "assets/icon.png")
+			def menuLogo = new File(customBuildDir, "assets/menu_logo.png")
+			def shader = new File(customBuildDir,
+				"assets/title_background.shadertoy.glsl")
+			if(icon.isFile()) copy { from icon; into new File(output, "assets/wurst") }
+			if(menuLogo.isFile()) copy {
+				from menuLogo
+				into new File(output, "assets/wurst")
+				rename { "custom_menu_logo.png" }
+			}
+			if(shader.isFile()) copy {
+				from shader
+				into new File(output, "assets/wurst/shaders/shadertoy")
+			}
+			def defaults = new File(customBuildDir, "defaults")
+			if(defaults.isDirectory()) copy {
+				from defaults
+				into new File(output, "wurst/custom-defaults")
+			}
+		}
+	}}
 
 def buildConfigOutput =
 	layout.buildDirectory.dir("generated/sources/buildConfig/java")
@@ -292,6 +354,7 @@ tasks.register("generateBuildConfig") {
 	def buildDate = java.time.Instant.now().toString()
 	
 	inputs.file(template)
+	if(customBuildProfileFile.isFile()) inputs.file(customBuildProfileFile)
 	inputs.property("niceWurstEnabled", niceWurstEnabled)
 	inputs.property("forkReleaseVersion", forkReleaseVersion)
 	inputs.property("ghRepoId", ghRepoId)
@@ -307,11 +370,20 @@ tasks.register("generateBuildConfig") {
 		
 		def content = template.getText("UTF-8")
 			.replace('${NICE_WURST}', String.valueOf(niceWurstEnabled))
+			.replace('${CUSTOM_BUILD}', String.valueOf(customBuildEnabled))
+			.replace('${CUSTOM_MENU_LOGO}', String.valueOf(customMenuLogo))
+			.replace('${CUSTOM_WURST_OPTIONS_CONFIGURED}', String.valueOf(customBuildProfile.containsKey('wurst_options')))
+			.replace('${BRAND_NAME}', escapeJava(niceWurstEnabled ? 'NiceWurst' : customProductName))
+			.replace('${CONFIG_FOLDER}', niceWurstEnabled ? 'nicewurst' : 'wurst')
 			.replace('${MOD_VERSION}', modVersionValue)
 			.replace('${FORK_RELEASE_VERSION}', forkReleaseVersion)
 			.replace('${BUILD_DATE}', buildDate)
 			.replace('${GH_REPO_ID}', ghRepoId)
 			.replace('${GH_REPO_URL}', ghRepoUrl)
+			.replace('${HACKS}', javaSetItems('hacks'))
+			.replace('${COMMANDS}', javaSetItems('commands'))
+			.replace('${OTHER_FEATURES}', javaSetItems('other_features'))
+			.replace('${WURST_OPTIONS}', javaSetItems('wurst_options'))
 		
 		def targetFile = new File(targetDir, "BuildConfig.java")
 		targetFile.setText(content, "UTF-8")

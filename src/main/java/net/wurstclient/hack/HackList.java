@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hacks.*;
@@ -379,6 +380,8 @@ public final class HackList implements UpdateListener
 			{
 				if(!field.getName().endsWith("Hack"))
 					continue;
+				if(!BuildConfig.includesHack(field.getName()))
+					continue;
 				
 				Hack hack = (Hack)field.get(this);
 				addHackInternal(hack);
@@ -386,7 +389,8 @@ public final class HackList implements UpdateListener
 			
 			// Explicit guard to ensure new hacks remain visible in GUI lists
 			// even if reflection ordering/name filtering changes.
-			if(getHackByName(tunnelHoleStairEspHack.getName()) == null)
+			if(BuildConfig.includesHack("tunnelHoleStairEspHack")
+				&& getHackByName(tunnelHoleStairEspHack.getName()) == null)
 				addHackInternal(tunnelHoleStairEspHack);
 			
 		}catch(Exception e)

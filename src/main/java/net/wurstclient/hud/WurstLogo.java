@@ -22,12 +22,15 @@ public final class WurstLogo
 	
 	public void render(GuiGraphicsExtractor context)
 	{
+		if(!BuildConfig.includesOtherFeature("wurstLogoOtf"))
+			return;
 		WurstLogoOtf otf = WURST.getOtfs().wurstLogoOtf;
 		if(!otf.isVisible())
 			return;
 		
 		String version = getVersionString();
-		String brand = NiceWurstModule.getBrandLabel("Wurst 7 CevAPI");
+		String brand =
+			NiceWurstModule.isActive() ? "NiceWurst" : BuildConfig.BRAND_NAME;
 		Font tr = WurstClient.MC.font;
 		
 		// Measure and layout

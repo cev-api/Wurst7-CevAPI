@@ -29,6 +29,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.wurstclient.WurstClient;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.options.WurstOptionsScreen;
 import net.wurstclient.nicewurst.NiceWurstModule;
 
@@ -47,6 +48,8 @@ public abstract class PauseScreenMixin extends Screen
 	private void addWurstOptionsButton(CallbackInfo ci)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
+		if(!BuildConfig.includesOtherFeature("wurstOptionsOtf"))
+			return;
 		if(!wurst.isEnabled())
 			return;
 		if(wurst.shouldHideWurstUiMixins())
@@ -160,6 +163,8 @@ public abstract class PauseScreenMixin extends Screen
 		float partialTicks, CallbackInfo ci)
 	{
 		WurstClient wurst = WurstClient.INSTANCE;
+		if(!BuildConfig.includesOtherFeature("wurstOptionsOtf"))
+			return;
 		if(!wurst.isEnabled())
 			return;
 		

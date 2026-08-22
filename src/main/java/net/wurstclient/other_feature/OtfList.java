@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.other_features.*;
 
 public final class OtfList
@@ -65,6 +66,8 @@ public final class OtfList
 			for(Field field : OtfList.class.getDeclaredFields())
 			{
 				if(!field.getName().endsWith("Otf"))
+					continue;
+				if(!BuildConfig.includesOtherFeature(field.getName()))
 					continue;
 				
 				OtherFeature otf = (OtherFeature)field.get(this);

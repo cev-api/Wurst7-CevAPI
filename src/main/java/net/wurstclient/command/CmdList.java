@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 import net.minecraft.CrashReport;
 import net.minecraft.ReportedException;
+import net.wurstclient.config.BuildConfig;
 import net.wurstclient.commands.*;
 
 public final class CmdList
@@ -112,6 +113,8 @@ public final class CmdList
 			for(Field field : CmdList.class.getDeclaredFields())
 			{
 				if(!field.getName().endsWith("Cmd"))
+					continue;
+				if(!BuildConfig.includesCommand(field.getName()))
 					continue;
 				
 				Command cmd = (Command)field.get(this);
