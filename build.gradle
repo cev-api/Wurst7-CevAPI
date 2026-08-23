@@ -14,17 +14,19 @@ plugins {
 
 def ENV = System.getenv()
 
+def customBuildRequested = (findProperty("custom_build") ?: ENV.WURST_CUSTOM_BUILD ?: "false")
+	.toString().toBoolean()
 def customBuildDir = file("custom-build")
 def customBuildProfileFile = new File(customBuildDir, "profile.json")
 def customBuildProfile = [:]
-if(customBuildProfileFile.isFile()) {
+if(customBuildRequested && customBuildProfileFile.isFile()) {
 	try {
 		customBuildProfile = new JsonSlurper().parse(customBuildProfileFile)
 	} catch(Exception e) {
 		throw new GradleException("Invalid custom-build/profile.json", e)
 	}
 }
-def customBuildEnabled = customBuildProfile.enabled == true
+def customBuildEnabled = customBuildRequested && customBuildProfile.enabled == true
 def customSuffix = customBuildProfile.suffix instanceof String
 	? customBuildProfile.suffix.trim() : "Modified"
 if(customBuildEnabled && !(customSuffix ==~ /[A-Za-z0-9][A-Za-z0-9._-]{0,31}/))
