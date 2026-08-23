@@ -811,36 +811,51 @@ public final class SearchHack extends Hack implements UpdateListener,
 		currentBuildGeneration = buildGeneration;
 		HashSet<BlockPos> itemPositions = new HashSet<>(matchingItemPositions);
 		getMatchingBlocksTask = forkJoinPool.submit(() -> {
-			PriorityQueue<BlockPos> heap = new PriorityQueue<>((limitCount + 1),
-				(a, b) -> Integer.compare(b.distManhattan(eyesPos),
-					a.distManhattan(eyesPos)));
-			java.util.Iterator<ChunkSearcher.Result> it =
-				coordinator.getReadyMatches().iterator();
-			while(it.hasNext())
+			while(true)
 			{
-				ChunkSearcher.Result r = it.next();
-				BlockPos pos = r.pos();
-				if(heap.size() < limitCount)
-					heap.offer(pos);
-				else if(pos.distManhattan(eyesPos) < heap.peek()
-					.distManhattan(eyesPos))
+				try
 				{
-					heap.poll();
-					heap.offer(pos);
+					PriorityQueue<BlockPos> heap =
+						new PriorityQueue<>((limitCount + 1),
+							(a, b) -> Integer.compare(b.distManhattan(eyesPos),
+								a.distManhattan(eyesPos)));
+					java.util.Iterator<ChunkSearcher.Result> it =
+						coordinator.getReadyMatches().iterator();
+					while(it.hasNext())
+					{
+						ChunkSearcher.Result r = it.next();
+						BlockPos pos = r.pos();
+						if(heap.size() < limitCount)
+							heap.offer(pos);
+						else if(pos.distManhattan(eyesPos) < heap.peek()
+							.distManhattan(eyesPos))
+						{
+							heap.poll();
+							heap.offer(pos);
+						}
+					}
+					for(BlockPos pos : itemPositions)
+					{
+						if(heap.size() < limitCount)
+							heap.offer(pos);
+						else if(pos.distManhattan(eyesPos) < heap.peek()
+							.distManhattan(eyesPos))
+						{
+							heap.poll();
+							heap.offer(pos);
+						}
+					}
+					return new HashSet<>(heap);
+				}catch(java.util.ConcurrentModificationException e)
+				{
+					// Chunk updates can race this traversal. Retry with the
+					// latest
+					// match set; cancellation stops retries when Search is
+					// refreshed.
+					if(Thread.currentThread().isInterrupted())
+						throw e;
 				}
 			}
-			for(BlockPos pos : itemPositions)
-			{
-				if(heap.size() < limitCount)
-					heap.offer(pos);
-				else if(pos.distManhattan(eyesPos) < heap.peek()
-					.distManhattan(eyesPos))
-				{
-					heap.poll();
-					heap.offer(pos);
-				}
-			}
-			return new HashSet<>(heap);
 		});
 	}
 	
