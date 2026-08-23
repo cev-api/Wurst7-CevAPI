@@ -265,7 +265,7 @@ class App(tk.Tk):
 
         def worker() -> None:
             command = [str(ROOT / "gradlew.bat"), "-p", str(ROOT),
-                       "build", "--no-daemon"]
+                       "-Pcustom_build=true", "build", "--no-daemon"]
             result = subprocess.run(command, cwd=tempfile.gettempdir(),
                                     text=True, capture_output=True)
             log = PROFILE_DIR / "last-build.log"
