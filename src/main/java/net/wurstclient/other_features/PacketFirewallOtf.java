@@ -354,9 +354,12 @@ public final class PacketFirewallOtf extends OtherFeature
 			return null;
 		
 		if(cancelled)
-			
-			return original instanceof ServerboundMovePlayerPacket
-				&& !hackOrigin ? original : null;
+			// A vanilla screen/action packet may be cancelled by another
+			// listener, but PacketFirewall must not turn that into a dropped
+			// respawn, menu, or container action.
+			// Only suppress cancellations attributable to a non-whitelisted
+			// hack.
+			return hackOrigin ? null : original;
 		
 		if(original instanceof ServerboundMovePlayerPacket
 			&& packet instanceof ServerboundMovePlayerPacket move
