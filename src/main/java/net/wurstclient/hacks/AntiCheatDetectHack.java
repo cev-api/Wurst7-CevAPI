@@ -12,6 +12,8 @@ import java.util.HashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
@@ -159,8 +161,15 @@ public final class AntiCheatDetectHack extends Hack
 		
 		lastAnnounced = antiCheat;
 		lastAnnouncedMs = now;
-		MC.execute(() -> ChatUtils.message(WURST
-			.translate("message.wurst.anticheatdetect.detected", antiCheat)));
+		MC.execute(() -> {
+			String detected = WURST
+				.translate("message.wurst.anticheatdetect.detected", antiCheat);
+			ChatUtils.message(detected);
+			SystemToast.add(MC.gui.toastManager(),
+				SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+				Component.literal("[AntiCheatDetect]"),
+				Component.literal("Detected Anti-Cheat: " + antiCheat));
+		});
 	}
 	
 	public boolean isSetbackDetectionEnabled()

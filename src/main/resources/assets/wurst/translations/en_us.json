@@ -646,7 +646,7 @@
   "key.wurst.uiutils.restore_screen": "Restore UI screen",
   "toast.wurst.nochatreports.unsafe_server.message": "Messages sent on this server may be reported to Big Brother Mojang and might get your account banned globally",
   "toast.wurst.nochatreports.unsafe_server.title": "Chat messages can be reported",
-  "message.wurst.anticheatdetect.detected": "Detected anti-cheat: %s",
+  "message.wurst.anticheatdetect.detected": "Detected Anti-Cheat: %s",
   "message.wurst.anticheatdetect.not_ready": "Not enough data yet.",
   "hack.wurst.mapa": "Mapa",
   "description.wurst.hack.mapa": "Provides an integrated minimap and world map with optional ESP markers.",
