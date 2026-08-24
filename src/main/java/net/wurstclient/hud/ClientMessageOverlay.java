@@ -563,6 +563,10 @@ public final class ClientMessageOverlay
 			prepared = applyDefaultTextColorIfEnabled(message);
 		else
 		{
+			Component directPlayerChat =
+				buildUsernameColoredPlayerChat(message);
+			if(directPlayerChat != null)
+				return convertEmojiShortcodesIfEnabled(directPlayerChat);
 			Component normalized = normalizePlayerChatForDisplay(message);
 			prepared = normalized != null ? normalized
 				: shouldColorStoredUsername(message, false)
@@ -571,6 +575,53 @@ public final class ClientMessageOverlay
 		}
 		
 		return convertEmojiShortcodesIfEnabled(prepared);
+	}
+	
+	private Component buildUsernameColoredPlayerChat(Component message)
+	{
+		ClientChatOverlayHack hack = getSettings();
+		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames()
+			|| message == null)
+			return null;
+		String plain = stripLegacyFormatting(message.getString()).trim();
+		SenderSpan sender = extractSenderSpan(plain);
+		if(sender == null || !isPlayerChatSender(sender))
+			return null;
+		int defaultRgb = hack.getDefaultTextColorI();
+		int usernameRgb = getUsernameColor(sender.name(), hack);
+		MutableComponent result = Component.empty();
+		int clanRgb = getServerTeamColor(sender.name());
+		if(clanRgb < 0)
+		{
+			Integer explicitColor = findExplicitComponentColor(message);
+			clanRgb = explicitColor == null ? defaultRgb : explicitColor;
+		}
+		final int clanColor = clanRgb;
+		int clanStart = plain.indexOf('[');
+		int clanEnd = clanStart < 0 ? -1 : plain.indexOf(']', clanStart);
+		if(clanStart < 0 || clanEnd < clanStart || clanEnd >= sender.start())
+		{
+			clanStart = -1;
+			clanEnd = -1;
+		}
+		if(clanStart >= 0)
+		{
+			result.append(Component.literal(plain.substring(0, clanStart))
+				.withStyle(style -> style.withColor(defaultRgb)));
+			result.append(
+				Component.literal(plain.substring(clanStart, clanEnd + 1))
+					.withStyle(style -> style.withColor(clanColor)));
+			result.append(
+				Component.literal(plain.substring(clanEnd + 1, sender.start()))
+					.withStyle(style -> style.withColor(defaultRgb)));
+		}else
+			result.append(Component.literal(plain.substring(0, sender.start()))
+				.withStyle(style -> style.withColor(defaultRgb)));
+		result.append(Component.literal(sender.name())
+			.withStyle(style -> style.withColor(usernameRgb)));
+		result.append(Component.literal(plain.substring(sender.end()))
+			.withStyle(style -> style.withColor(defaultRgb)));
+		return result;
 	}
 	
 	private Component convertEmojiShortcodesIfEnabled(Component message)
@@ -794,20 +845,18 @@ public final class ClientMessageOverlay
 		if(!sender.trustedChatDelimiter() && !isOnlinePlayerName(sender.name()))
 			return message.copy();
 		
-		int rgb = getUsernameColor(sender.name(), hack);
-		Component translatableColored =
-			colorizeTranslatableSender(message, sender.name(), rgb);
-		if(translatableColored != null)
-			return translatableColored;
+		int usernameRgb = getUsernameColor(sender.name(), hack);
+		int defaultRgb = hack.getDefaultTextColorI();
+		int messageLength = plain.length();
 		
-		boolean[] changed = {false};
-		Component tokenColored =
-			colorizeSenderToken(message, sender.name(), rgb, changed);
-		if(changed[0])
-			return tokenColored;
-		
-		return colorizeComponentRange(message, sender.start(), sender.end(),
-			rgb, new int[]{0});
+		// Normalize every part of the chat line first. Server/team formatting
+		// is often stored on the parent component and otherwise leaks into
+		// the prefix and message. Reapply the username color only to the
+		// actual username span.
+		Component defaultColored = colorizeComponentRange(message, 0,
+			messageLength, defaultRgb, new int[]{0});
+		return colorizeComponentRange(defaultColored, sender.start(),
+			sender.end(), usernameRgb, new int[]{0});
 	}
 	
 	public static int getUsernameColorForTabList(String name)
@@ -821,6 +870,9 @@ public final class ClientMessageOverlay
 	
 	public Component prepareMessageForDisplay(Component message)
 	{
+		Component directPlayerChat = buildUsernameColoredPlayerChat(message);
+		if(directPlayerChat != null)
+			return convertEmojiShortcodesIfEnabled(directPlayerChat);
 		Component normalized = normalizePlayerChatForDisplay(message);
 		Component prepared;
 		if(normalized != null)
@@ -878,8 +930,14 @@ public final class ClientMessageOverlay
 		if(sender == null || !isPlayerChatSender(sender))
 			return message.copy();
 		
-		return applyDefaultColorToUncoloredStylesInRange(message, rgb,
-			sender.start(), plain.length(), new int[]{0});
+		Component result = colorizeComponentRange(message, 0, plain.length(),
+			rgb, new int[]{0});
+		if(hack.shouldColorUsernames())
+			
+			result =
+				colorizeComponentRange(result, sender.start(), sender.end(),
+					getUsernameColor(sender.name(), hack), new int[]{0});
+		return result;
 	}
 	
 	private static Component colorizeTranslatableSender(Component message,
@@ -1107,6 +1165,15 @@ public final class ClientMessageOverlay
 		return rgb;
 	}
 	
+	private static int getServerTeamColor(String name)
+	{
+		var info = INSTANCE.findOnlinePlayer(name);
+		if(info != null && info.getTeam() != null
+			&& info.getTeam().getColor().isPresent())
+			return info.getTeam().getColor().get().rgb();
+		return -1;
+	}
+	
 	public static int getServerPlayerColor(
 		net.minecraft.client.multiplayer.PlayerInfo info)
 	{
@@ -1197,8 +1264,23 @@ public final class ClientMessageOverlay
 		{
 			int end = trimmed.indexOf('>');
 			if(end > 1)
-				return new SenderSpan(trimOffset + 1, trimOffset + end,
-					trimmed.substring(1, end), true);
+			{
+				String senderText = trimmed.substring(1, end);
+				Matcher matcher = USERNAME_PATTERN.matcher(senderText);
+				if(matcher.find())
+				{
+					int start = matcher.start();
+					int matchEnd = matcher.end();
+					while(matcher.find())
+					{
+						start = matcher.start();
+						matchEnd = matcher.end();
+					}
+					return new SenderSpan(trimOffset + 1 + start,
+						trimOffset + 1 + matchEnd,
+						senderText.substring(start, matchEnd), true);
+				}
+			}
 		}
 		
 		ChatDelimiter delimiter = findChatDelimiter(trimmed);
