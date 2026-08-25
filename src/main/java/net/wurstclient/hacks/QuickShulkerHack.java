@@ -10,6 +10,8 @@ package net.wurstclient.hacks;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.List;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -47,6 +49,7 @@ import net.wurstclient.util.BlockPlacer;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.InventoryUtils;
+import net.wurstclient.util.InteractionSimulator;
 
 @SearchTags({"quick shulker", "quickshulker", "auto shulker"})
 public final class QuickShulkerHack extends Hack
@@ -80,8 +83,16 @@ public final class QuickShulkerHack extends Hack
 	private final CheckboxSetting fastBreak = new CheckboxSetting("Fast break",
 		"description.wurst.setting.quickshulker.fast_break", true);
 	
+	private final CheckboxSetting airplace = new CheckboxSetting("Airplace",
+		"description.wurst.setting.quickshulker.airplace", false);
+	
+	private final CheckboxSetting shulkerInventory =
+		new CheckboxSetting("Shulker Inventory",
+			"description.wurst.setting.quickshulker.shulker_inventory", false);
+	
 	private final Object workerLock = new Object();
 	private Thread worker;
+	private PreviewPlan previewPlan;
 	
 	public QuickShulkerHack()
 	{
@@ -95,12 +106,54 @@ public final class QuickShulkerHack extends Hack
 		addSetting(continueToNextShulker);
 		addSetting(skipHotbar);
 		addSetting(fastBreak);
+		addSetting(shulkerInventory);
+		addSetting(airplace);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		cancelWorker();
+	}
+	
+	public boolean isShulkerInventoryEnabled()
+	{
+		return isEnabled() && shulkerInventory.isChecked();
+	}
+	
+	public boolean openShulkerInventory(Slot slot)
+	{
+		if(!isShulkerInventoryEnabled() || MC.player == null || slot == null
+			|| slot.container != MC.player.getInventory())
+			return false;
+		
+		ItemStack shulker = slot.getItem();
+		if(!isShulkerItem(shulker))
+			return false;
+		
+		Inventory inv = MC.player.getInventory();
+		Screen previous = MC.gui.screen();
+		MC.gui.setScreen(ShulkerInventoryScreen.open(this, previous, inv,
+			slot.getContainerSlot(), shulker.copy()));
+		return true;
+	}
+	
+	public void queueShulkerInventoryEdit(int shulkerSlot,
+		List<ItemStack> desiredShulker, List<ItemStack> desiredPlayer,
+		List<ItemStack> droppedItems)
+	{
+		if(!isShulkerInventoryEnabled() || MC.player == null)
+			return;
+		synchronized(workerLock)
+		{
+			if(isBusy())
+				return;
+			previewPlan = new PreviewPlan(shulkerSlot,
+				desiredShulker.stream().map(ItemStack::copy).toList(),
+				desiredPlayer.stream().map(ItemStack::copy).toList(),
+				droppedItems.stream().map(ItemStack::copy).toList());
+		}
+		startWorker();
 	}
 	
 	public boolean isBusy()
@@ -185,8 +238,183 @@ public final class QuickShulkerHack extends Hack
 		}
 	}
 	
+	private void runPreviewTask(PreviewPlan plan) throws InterruptedException
+	{
+		LocalPlayer player = MC.player;
+		if(player == null || MC.level == null)
+			return;
+		Inventory inv = player.getInventory();
+		if(plan.shulkerSlot() < 0
+			|| plan.shulkerSlot() >= inv.getContainerSize()
+			|| !isShulkerItem(inv.getItem(plan.shulkerSlot())))
+		{
+			ChatUtils.error("The preview shulker is no longer available.");
+			return;
+		}
+		
+		List<ItemStack> originalShulker =
+			getShulkerContents(inv.getItem(plan.shulkerSlot()));
+		
+		BlockPos placePos = findPlacementPos(player);
+		if(placePos == null)
+		{
+			ChatUtils.error("No position available for the preview shulker.");
+			return;
+		}
+		
+		int originalSlot = inv.getSelectedSlot();
+		ItemSwap shulkerSwap =
+			bringSlotToHand(inv, plan.shulkerSlot(), originalSlot);
+		if(!shulkerSwap.success())
+			return;
+		if(!placeShulker(placePos))
+		{
+			restoreSwap(inv, shulkerSwap);
+			
+			return;
+		}
+		
+		WurstClient.INSTANCE.getRotationFaker()
+			.faceVectorClient(Vec3.atCenterOf(placePos));
+		safeSleep(80);
+		if(!openShulker(placePos))
+		{
+			restoreSwap(inv, shulkerSwap);
+			return;
+		}
+		
+		AbstractContainerMenu handler = waitForShulkerHandler(player, 3000);
+		if(handler == null)
+		{
+			closeCurrentScreen(player);
+			restoreSwap(inv, shulkerSwap);
+			return;
+		}
+		
+		for(int i = 0; i < Math.min(27, handler.slots.size()); i++)
+		{
+			if(Thread.interrupted())
+				throw new InterruptedException();
+			ItemStack original = originalShulker.get(i);
+			ItemStack desired = plan.desiredShulker().get(i);
+			if(ItemStack.isSameItemSameComponents(original, desired)
+				&& original.getCount() == desired.getCount())
+				continue;
+			if(original.isEmpty())
+				continue;
+			MC.gameMode.handleContainerInput(handler.containerId, i, 0,
+				ContainerInput.QUICK_MOVE, player);
+			safeSleep(45);
+		}
+		
+		for(int target = 0; target < plan.desiredShulker().size()
+			&& target < 27; target++)
+		{
+			ItemStack wanted = plan.desiredShulker().get(target);
+			ItemStack original = originalShulker.get(target);
+			if(ItemStack.isSameItemSameComponents(original, wanted)
+				&& original.getCount() == wanted.getCount())
+				continue;
+			if(wanted.isEmpty())
+				continue;
+			int source = findMatchingInventoryStack(inv, wanted);
+			if(source < 0)
+				continue;
+			int handlerSource = toHandlerSlot(handler, inv, source);
+			if(handlerSource < 0)
+				continue;
+			ItemStack sourceStack = inv.getItem(source);
+			if(sourceStack.getCount() < wanted.getCount())
+				continue;
+			
+			MC.gameMode.handleContainerInput(handler.containerId, handlerSource,
+				0, ContainerInput.PICKUP, player);
+			safeSleep(35);
+			if(sourceStack.getCount() == wanted.getCount())
+			{
+				MC.gameMode.handleContainerInput(handler.containerId, target, 0,
+					ContainerInput.PICKUP, player);
+				safeSleep(50);
+				continue;
+			}
+			
+			for(int count = 0; count < wanted.getCount(); count++)
+			{
+				MC.gameMode.handleContainerInput(handler.containerId, target, 1,
+					ContainerInput.PICKUP, player);
+				safeSleep(25);
+			}
+			MC.gameMode.handleContainerInput(handler.containerId, handlerSource,
+				0, ContainerInput.PICKUP, player);
+			safeSleep(50);
+		}
+		
+		closeCurrentScreen(player);
+		safeSleep(80);
+		breakPlacedShulker(placePos);
+		safeSleep(160);
+		restoreSwap(inv, shulkerSwap);
+		dropCapturedItems(inv, plan.droppedItems());
+		ChatUtils.message("Shulker Inventory applied.");
+	}
+	
+	private void dropCapturedItems(Inventory inv, List<ItemStack> dropped)
+		throws InterruptedException
+	{
+		for(ItemStack wanted : dropped)
+		{
+			int remaining = wanted.getCount();
+			while(remaining > 0)
+			{
+				if(Thread.interrupted())
+					throw new InterruptedException();
+				int slot = findMatchingInventoryStack(inv, wanted);
+				if(slot < 0)
+					break;
+				ItemStack current = inv.getItem(slot);
+				if(current.getCount() <= remaining)
+				{
+					IMC.getInteractionManager()
+						.windowClick_THROW(InventoryUtils.toNetworkSlot(slot));
+					remaining -= current.getCount();
+				}else
+				{
+					int networkSlot = InventoryUtils.toNetworkSlot(slot);
+					MC.gameMode.handleContainerInput(
+						inv.player.inventoryMenu.containerId, networkSlot, 0,
+						ContainerInput.THROW, inv.player);
+					remaining--;
+				}
+				safeSleep(60);
+			}
+		}
+	}
+	
+	private int findMatchingInventoryStack(Inventory inv, ItemStack wanted)
+	{
+		for(int i = 0; i < 36; i++)
+		{
+			ItemStack current = inv.getItem(i);
+			if(!current.isEmpty()
+				&& ItemStack.isSameItemSameComponents(current, wanted))
+				return i;
+		}
+		return -1;
+	}
+	
 	private void runTask() throws InterruptedException
 	{
+		PreviewPlan plan;
+		synchronized(workerLock)
+		{
+			plan = previewPlan;
+			previewPlan = null;
+		}
+		if(plan != null)
+		{
+			runPreviewTask(plan);
+			return;
+		}
 		LocalPlayer player = MC.player;
 		if(player == null || MC.level == null)
 		{
@@ -234,6 +462,9 @@ public final class QuickShulkerHack extends Hack
 			closeCurrentScreen(player);
 			safeSleep(50);
 		}
+		List<ItemStack> originalShulker =
+			getShulkerContents(inv.getItem(plan.shulkerSlot()));
+		
 		BlockPos placePos = findPlacementPos(player);
 		if(placePos == null)
 		{
@@ -737,15 +968,27 @@ public final class QuickShulkerHack extends Hack
 			WurstClient.MC.execute(() -> {
 				try
 				{
-					placed[0] = BlockPlacer.placeOneBlock(fpos);
+					BlockPlacer.BlockPlacingParams params =
+						BlockPlacer.getBlockPlacingParams(fpos);
+					if(params != null && !params.requiresSneaking())
+					{
+						placed[0] = BlockPlacer.placeOneBlock(fpos);
+						return;
+					}
+					if(!airplace.isChecked())
+						return;
+					Vec3 hitVec = Vec3.atCenterOf(fpos);
+					WurstClient.INSTANCE.getRotationFaker()
+						.faceVectorPacket(hitVec);
+					InteractionSimulator.rightClickBlock(
+						new BlockHitResult(hitVec, Direction.UP, fpos, false),
+						InteractionHand.MAIN_HAND);
+					placed[0] = true;
 				}catch(Throwable ignored)
-				{
-					placed[0] = false;
-				}
+				{}
 			});
-			
 			safeSleep(80);
-			if(placed[0])
+			if(placed[0] || BlockUtils.getBlock(pos) instanceof ShulkerBoxBlock)
 				return true;
 		}
 		return BlockUtils.getBlock(pos) instanceof ShulkerBoxBlock;
@@ -833,7 +1076,8 @@ public final class QuickShulkerHack extends Hack
 		BlockPos[] candidates = new BlockPos[]{base.relative(facing),
 			base.relative(facing.getClockWise()),
 			base.relative(facing.getCounterClockWise()),
-			base.relative(facing.getOpposite()), base.above(), base.below()};
+			base.relative(facing.getOpposite()), base.above(2), base.above(),
+			base.below()};
 		
 		AABB playerBox = player.getBoundingBox();
 		for(BlockPos pos : candidates)
@@ -843,7 +1087,7 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			BlockState below = BlockUtils.getState(pos.below());
-			if(below.isAir())
+			if(below.isAir() && !airplace.isChecked())
 				continue;
 			
 			AABB blockBox = new AABB(pos);
@@ -854,6 +1098,16 @@ public final class QuickShulkerHack extends Hack
 		}
 		
 		return null;
+	}
+	
+	private List<ItemStack> getShulkerContents(ItemStack shulker)
+	{
+		ItemContainerContents component = shulker.getOrDefault(
+			DataComponents.CONTAINER, ItemContainerContents.EMPTY);
+		net.minecraft.core.NonNullList<ItemStack> contents =
+			net.minecraft.core.NonNullList.withSize(27, ItemStack.EMPTY);
+		component.copyInto(contents);
+		return contents.stream().map(ItemStack::copy).toList();
 	}
 	
 	private int findShulkerSlot(Inventory inv)
@@ -904,7 +1158,7 @@ public final class QuickShulkerHack extends Hack
 		return 0;
 	}
 	
-	private boolean isShulkerItem(ItemStack stack)
+	public boolean isShulkerItem(ItemStack stack)
 	{
 		Item item = stack.getItem();
 		if(!(item instanceof BlockItem blockItem))
@@ -976,6 +1230,10 @@ public final class QuickShulkerHack extends Hack
 			return label;
 		}
 	}
+	
+	private record PreviewPlan(int shulkerSlot, List<ItemStack> desiredShulker,
+		List<ItemStack> desiredPlayer, List<ItemStack> droppedItems)
+	{}
 	
 	private static final class ItemSwap
 	{

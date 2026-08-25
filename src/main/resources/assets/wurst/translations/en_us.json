@@ -582,6 +582,8 @@
   "description.wurst.setting.quickshulker.blacklist": "Items listed here are never placed into the temporary shulker box. Applies whether QuickShulker takes items from your inventory or from an opened container (chest, shulker, etc.).",
   "description.wurst.setting.quickshulker.continue_to_next_shulker": "If enabled, QuickShulker will continue placing and filling additional shulker boxes to transfer remaining items taken from the opened container.",
   "description.wurst.setting.quickshulker.fast_break": "Breaks the placed shulker box much faster using the vanilla instant-break technique. Falls back to normal breaking if it doesn't work.",
+  "description.wurst.setting.quickshulker.airplace": "Allows QuickShulker to place the temporary shulker in mid-air when no supported position is available.",
+  "description.wurst.setting.quickshulker.shulker_inventory": "Middle-click a shulker in your inventory to open a client-side shulker preview and apply its edits automatically when closed.",
   "description.wurst.setting.quickshulker.mode": "Choose whether QuickShulker targets stackable or non-stackable items.",
   "description.wurst.setting.quickshulker.skip_hotbar": "If enabled, QuickShulker will never move items from your hotbar into the temporary shulker box.",
   "description.wurst.setting.quickshulker.whitelist": "If this list is not empty, only the listed items will be moved into the shulker. Applies to items taken from your inventory or from an opened container.",
