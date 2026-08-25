@@ -19,7 +19,8 @@ public enum Category
 	CHAT("Chat"),
 	FUN("Fun"),
 	ITEMS("Items"),
-	OTHER("Other");
+	OTHER("Other"),
+	CREATIVE_OP("Creative/Op");
 	
 	private final String name;
 	

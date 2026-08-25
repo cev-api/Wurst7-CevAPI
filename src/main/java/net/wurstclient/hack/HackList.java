@@ -25,11 +25,37 @@ import net.wurstclient.config.BuildConfig;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hacks.*;
+import net.wurstclient.hacks.ophack.*;
 import net.wurstclient.hacks.spawnradius.SpawnRadiusHack;
 import net.wurstclient.util.json.JsonException;
 
 public final class HackList implements UpdateListener
 {
+	public final AirstrikePlusHack airstrikePlusHack = new AirstrikePlusHack();
+	public final ArmorStandImagesHack armorStandImagesHack =
+		new ArmorStandImagesHack();
+	public final AutoCommandHack autoCommandHack = new AutoCommandHack();
+	public final AutoDisplaysHack autoDisplaysHack = new AutoDisplaysHack();
+	public final AutoNamesHack autoNamesHack = new AutoNamesHack();
+	public final AutoScoreboardHack autoScoreboardHack =
+		new AutoScoreboardHack();
+	public final AutoTextsHack autoTextsHack = new AutoTextsHack();
+	public final AutoTitlesHack autoTitlesHack = new AutoTitlesHack();
+	public final BoomPlusHack boomPlusHack = new BoomPlusHack();
+	public final ExplosionAuraHack explosionAuraHack = new ExplosionAuraHack();
+	public final ForceOPBookHack forceOPBookHack = new ForceOPBookHack();
+	public final ForceOPSignHack forceOPSignHack = new ForceOPSignHack();
+	public final ForceTPHack forceTPHack = new ForceTPHack();
+	public final HandOfGodHack handOfGodHack = new HandOfGodHack();
+	public final MultiverseAnnihilatorHack multiverseAnnihilatorHack =
+		new MultiverseAnnihilatorHack();
+	public final NbtEditorHack nbtEditorHack = new NbtEditorHack();
+	public final OPplayerTPmoduleHack opplayerTPmoduleHack =
+		new OPplayerTPmoduleHack();
+	public final OPServerKillModuleHack opServerKillModuleHack =
+		new OPServerKillModuleHack();
+	public final UUIDBanHack uuidBanHack = new UUIDBanHack();
+	public final VoiderPlusHack voiderPlusHack = new VoiderPlusHack();
 	public final AimAssistHack aimAssistHack = new AimAssistHack();
 	public final AutoClickerHack autoClickerHack = new AutoClickerHack();
 	public final AirPlaceHack airPlaceHack = new AirPlaceHack();
