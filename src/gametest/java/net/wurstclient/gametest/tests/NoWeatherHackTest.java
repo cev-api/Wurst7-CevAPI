@@ -32,7 +32,7 @@ public final class NoWeatherHackTest extends SingleplayerTest
 		context.runOnClient(mc -> mc.level.setRainLevel(1.0F));
 		context.waitTicks(10);
 		assertScreenshotEquals("noweather_raining_setup",
-			"https://i.imgur.com/JQVtBh7.png");
+			"https://i.imgur.com/BzKxlc7.png");
 		
 		// Enable NoWeather
 		runWurstCommand("t NoWeather on");
