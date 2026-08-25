@@ -9,6 +9,7 @@ package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -20,6 +21,8 @@ import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.MouseHandler;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.entity.player.Inventory;
 import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
@@ -28,8 +31,9 @@ import net.wurstclient.events.MouseScrollListener.MouseScrollEvent;
 import net.wurstclient.events.MouseUpdateListener.MouseUpdateEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
 import net.wurstclient.hacks.FreecamHack;
+import net.wurstclient.hacks.QuickShulkerHack;
 
-@Mixin(MouseHandler.class)
+@Mixin(value = MouseHandler.class, priority = 3000)
 public abstract class MouseHandlerMixin
 {
 	@Shadow
@@ -39,12 +43,57 @@ public abstract class MouseHandlerMixin
 	
 	@Inject(
 		method = "onButton(JLnet/minecraft/client/input/MouseButtonInfo;I)V",
-		at = @At("HEAD"))
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onOnButton(long windowHandle, MouseButtonInfo mouseButtonInfo,
 		int action, CallbackInfo ci)
 	{
+		if(action == org.lwjgl.glfw.GLFW.GLFW_PRESS
+			&& mouseButtonInfo
+				.button() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+			&& wurst$openShulkerAtMouse())
+		{
+			ci.cancel();
+			return;
+		}
+		
 		EventManager
 			.fire(new MouseButtonPressEvent(mouseButtonInfo.button(), action));
+	}
+	
+	@Unique
+	private boolean wurst$openShulkerAtMouse()
+	{
+		if(!WurstClient.INSTANCE.isEnabled())
+			return false;
+		
+		QuickShulkerHack quickShulker =
+			WurstClient.INSTANCE.getHax().quickShulkerHack;
+		if(quickShulker == null || !quickShulker.isShulkerInventoryEnabled()
+			|| !(WurstClient.MC.gui
+				.screen() instanceof AbstractContainerScreen<?> screen))
+			return false;
+		
+		double mouseX = WurstClient.MC.mouseHandler.xpos()
+			* WurstClient.MC.getWindow().getGuiScaledWidth()
+			/ WurstClient.MC.getWindow().getScreenWidth();
+		double mouseY = WurstClient.MC.mouseHandler.ypos()
+			* WurstClient.MC.getWindow().getGuiScaledHeight()
+			/ WurstClient.MC.getWindow().getScreenHeight();
+		HandledScreenAccessor accessor = (HandledScreenAccessor)screen;
+		Slot hovered = accessor.getHoveredSlot();
+		if(hovered != null && quickShulker.openShulkerInventory(hovered))
+			return true;
+		double x = mouseX - accessor.getX();
+		double y = mouseY - accessor.getY();
+		for(Slot slot : screen.getMenu().slots)
+		{
+			if(!slot.isActive() || x < slot.x || x >= slot.x + 16 || y < slot.y
+				|| y >= slot.y + 16)
+				continue;
+			return quickShulker.openShulkerInventory(slot);
+		}
+		return false;
 	}
 	
 	@Inject(method = "onScroll(JDD)V", at = @At("RETURN"))

@@ -53,4 +53,5 @@ public abstract class InventoryScreenMixin
 		button.active = !quickShulker.isBusy();
 		addRenderableWidget(button);
 	}
+	
 }

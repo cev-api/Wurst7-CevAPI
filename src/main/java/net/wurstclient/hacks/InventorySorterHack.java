@@ -20,6 +20,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.MouseButtonPressListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.WurstClient;
 import net.wurstclient.mixin.HandledScreenAccessor;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
@@ -73,6 +74,12 @@ public final class InventorySorterHack extends Hack
 		
 		Slot hovered = ((HandledScreenAccessor)screen).getHoveredSlot();
 		if(hovered == null)
+			return;
+		
+		QuickShulkerHack quickShulker =
+			WurstClient.INSTANCE.getHax().quickShulkerHack;
+		if(quickShulker != null && quickShulker.isShulkerInventoryEnabled()
+			&& quickShulker.isShulkerItem(hovered.getItem()))
 			return;
 		
 		sort(screen, sectionSlots(screen, hovered));

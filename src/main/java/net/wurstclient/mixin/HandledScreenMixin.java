@@ -22,8 +22,9 @@ import net.minecraft.world.item.ItemStack;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AntiDropHack;
 import net.wurstclient.hacks.EnchantmentHandlerHack;
+import net.wurstclient.hacks.QuickShulkerHack;
 
-@Mixin(AbstractContainerScreen.class)
+@Mixin(value = AbstractContainerScreen.class, priority = 2000)
 public abstract class HandledScreenMixin
 {
 	@Shadow
@@ -67,6 +68,20 @@ public abstract class HandledScreenMixin
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
+		if(context.button() == 2)
+		{
+			QuickShulkerHack quickShulker =
+				WurstClient.INSTANCE.getHax().quickShulkerHack;
+			Slot hovered = wurst$getSlotAt(context.x(), context.y());
+			if(quickShulker != null && hovered != null
+				&& quickShulker.openShulkerInventory(hovered))
+			{
+				cir.setReturnValue(true);
+				cir.cancel();
+				return;
+			}
+		}
+		
 		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
 		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled()
 			&& nbtSizeCounter.handleMouseClick(context))
@@ -101,6 +116,21 @@ public abstract class HandledScreenMixin
 			cir.setReturnValue(true);
 			cir.cancel();
 		}
+	}
+	
+	private Slot wurst$getSlotAt(double mouseX, double mouseY)
+	{
+		HandledScreenAccessor screen = (HandledScreenAccessor)(Object)this;
+		double x = mouseX - screen.getX();
+		double y = mouseY - screen.getY();
+		for(Slot slot : getMenu().slots)
+		{
+			if(!slot.isActive() || x < slot.x || x >= slot.x + 16 || y < slot.y
+				|| y >= slot.y + 16)
+				continue;
+			return slot;
+		}
+		return null;
 	}
 	
 	@Inject(at = @At("HEAD"), method = "mouseScrolled", cancellable = true)
