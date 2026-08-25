@@ -15,8 +15,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
-import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.world.level.block.state.BlockState;
 import net.wurstclient.Category;
 import net.wurstclient.events.PacketInputListener;
@@ -120,18 +118,6 @@ public final class AntiCheatDetectHack extends Hack
 			return;
 		
 		Packet<?> packet = event.getPacket();
-		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
-		{
-			recordGlobalBlockChange(blockUpdate.getPos(),
-				blockUpdate.getBlockState());
-			return;
-		}
-		
-		if(packet instanceof ClientboundSectionBlocksUpdatePacket deltaUpdate)
-		{
-			deltaUpdate.runUpdates(this::recordGlobalBlockChange);
-			return;
-		}
 		
 		if(packet instanceof ClientboundBlockEntityDataPacket bePacket)
 			recordGlobalBlockEntityPacket(bePacket);
@@ -283,6 +269,9 @@ public final class AntiCheatDetectHack extends Hack
 	private void recordGlobalBlockEntityPacket(
 		ClientboundBlockEntityDataPacket packet)
 	{
+		if(packet.getType() != net.wurstclient.util.RegistryUtils
+			.blockEntityType("chest"))
+			return;
 		BlockPos pos = packet.getPos();
 		if(pos == null)
 			return;
@@ -298,15 +287,8 @@ public final class AntiCheatDetectHack extends Hack
 			if(globalBePacketTimes.size() >= GLOBAL_BE_BURST_THRESHOLD)
 				flagGlobalAntiEspLocked("be-burst",
 					"Received " + globalBePacketTimes.size()
-						+ " block-entity packets in 2s.");
+						+ " chest block-entity packets in 2s.");
 			
-			Long lastUpdate = globalRecentBlockUpdates.get(pos.asLong());
-			if(lastUpdate == null
-				|| now - lastUpdate > GLOBAL_BLOCK_UPDATE_GRACE_MS)
-				flagGlobalAntiEspLocked("late-be",
-					"Block entity at " + pos.getX() + ", " + pos.getY() + ", "
-						+ pos.getZ()
-						+ " arrived without a recent block update.");
 		}
 	}
 	
