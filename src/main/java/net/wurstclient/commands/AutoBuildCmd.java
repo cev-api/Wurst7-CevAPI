@@ -32,7 +32,11 @@ public final class AutoBuildCmd extends Command
 	public void call(String[] args) throws CmdException
 	{
 		if(args.length == 0)
-			throw new CmdSyntaxError();
+		{
+			WURST.getHax().autoBuildHack.setEnabled(false);
+			ChatUtils.message("AutoBuild disabled.");
+			return;
+		}
 		
 		AutoBuildHack autoBuildHack = WURST.getHax().autoBuildHack;
 		TextRequest textRequest = parseTextRequest(args);

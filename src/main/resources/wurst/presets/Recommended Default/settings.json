@@ -3035,7 +3035,9 @@
     "Blacklist": "default",
     "Whitelist": "default",
     "Continue to next shulker": true,
-    "Skip hotbar": true
+    "Skip hotbar": true,
+    "Shulker Inventory": false,
+    "Airplace": false
   },
   "Radar": {
     "Radius": 100.0,
