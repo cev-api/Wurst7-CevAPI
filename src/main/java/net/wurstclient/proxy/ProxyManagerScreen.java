@@ -20,6 +20,7 @@ import java.util.function.Consumer;
 
 import org.lwjgl.glfw.GLFW;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -86,26 +87,26 @@ public final class ProxyManagerScreen extends Screen
 		
 		addRenderableWidget(addButton =
 			Button.builder(Component.literal("Add"), b -> addProxy())
-				.bounds(buttonX, 70, 72, 20).build());
+				.bounds(buttonX, 70, 96, 20).build());
 		addRenderableWidget(importButton =
 			Button.builder(Component.literal("Import"), b -> importProxies())
-				.bounds(buttonX + 76, 70, 72, 20).build());
+				.bounds(buttonX + 100, 70, 96, 20).build());
 		addRenderableWidget(testButton =
 			Button.builder(Component.literal("Test"), b -> testSelectedProxy())
-				.bounds(buttonX + 152, 70, 72, 20).build());
+				.bounds(buttonX + 200, 70, 96, 20).build());
 		addRenderableWidget(selectButton =
-			Button.builder(Component.literal("Use"), b -> selectProxy())
-				.bounds(buttonX + 228, 70, 72, 20).build());
-		
-		addRenderableWidget(disableButton =
-			Button.builder(Component.literal("Disable"), b -> disableProxy())
-				.bounds(width / 2 - 152, 94, 98, 20).build());
+			Button.builder(Component.literal("Use proxy"), b -> selectProxy())
+				.bounds(width / 2 - 340, 94, 164, 20).build());
+		addRenderableWidget(disableButton = Button
+			.builder(Component.literal("Disable proxy"), b -> disableProxy())
+			.bounds(width / 2 - 172, 94, 164, 20).build());
 		addRenderableWidget(removeButton = Button
-			.builder(Component.literal("Remove"), b -> removeSelectedProxy())
-			.bounds(width / 2 - 50, 94, 98, 20).build());
+			.builder(Component.literal("Remove selected"),
+				b -> removeSelectedProxy())
+			.bounds(width / 2 - 4, 94, 164, 20).build());
 		addRenderableWidget(
 			Button.builder(Component.literal("Back"), b -> onClose())
-				.bounds(width / 2 + 52, 94, 100, 20).build());
+				.bounds(width / 2 + 164, 94, 164, 20).build());
 		
 		proxyList = new ProxyList();
 		proxyList.setSelectionListener(this::updateButtons);
@@ -128,18 +129,25 @@ public final class ProxyManagerScreen extends Screen
 		SocksProxy proxy = getSelectedListProxy();
 		int selectedCount =
 			proxyList == null ? 0 : proxyList.getSelectedEntries().size();
+		boolean usingProxy = proxyManager.getSelectedProxy() != null
+			|| (proxyChoiceConsumer != null && proxy != null);
 		addButton.active = !proxyBox.getValue().trim().isEmpty() && !testing;
 		importButton.active = !testing;
 		testButton.active = proxy != null && !testing;
 		selectButton.active =
 			proxy != null && !testing && (proxyChoiceConsumer != null
 				|| !proxy.equals(proxyManager.getSelectedProxy()));
-		disableButton.active = !testing && (proxyChoiceConsumer != null
-			|| proxyManager.getSelectedProxy() != null);
+		disableButton.active = !testing && usingProxy;
 		removeButton.active = selectedCount > 0 && !testing;
 		removeButton.setMessage(Component
 			.literal(selectedCount > 1 ? "Remove selected" : "Remove"));
-		selectButton.setMessage(Component.literal("Use"));
+		selectButton.setMessage(
+			proxy != null && proxy.equals(proxyManager.getSelectedProxy())
+				? Component.literal("✓ In use").withStyle(ChatFormatting.GREEN)
+				: Component.literal("Use proxy")
+					.withStyle(ChatFormatting.GREEN));
+		disableButton.setMessage(
+			Component.literal("✕ Disable proxy").withStyle(ChatFormatting.RED));
 	}
 	
 	private void addProxy()
@@ -351,11 +359,12 @@ public final class ProxyManagerScreen extends Screen
 	{
 		context.centeredText(font, "Multiplayer Proxies", width / 2, 12,
 			CommonColors.WHITE);
-		context.centeredText(font,
-			"Selected: "
-				+ (proxyManager.getSelectedProxy() == null ? "direct connection"
-					: proxyManager.getSelectedProxy().getDisplayName()),
-			width / 2, 24, CommonColors.LIGHT_GRAY);
+		SocksProxy activeProxy = proxyManager.getSelectedProxy();
+		String selectedText =
+			activeProxy == null ? "Selected: DIRECT CONNECTION"
+				: "Selected: ✓ IN USE — " + activeProxy.getDisplayName();
+		context.centeredText(font, selectedText, width / 2, 24,
+			activeProxy == null ? CommonColors.LIGHT_GRAY : ACTIVE_PROXY_GREEN);
 		context.text(font, "Proxy (http:// or socks5://, optional user:pass)",
 			width / 2 - 150, 34, CommonColors.LIGHT_GRAY);
 		
