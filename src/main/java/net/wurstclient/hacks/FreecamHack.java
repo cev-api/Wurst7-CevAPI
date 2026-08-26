@@ -37,11 +37,11 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.freecam.FreecamInitialPosSetting;
 import net.wurstclient.hacks.freecam.FreecamInputSetting;
 import net.wurstclient.hacks.freecam.FreecamInputSetting.ApplyInputTo;
+import net.wurstclient.hacks.freecam.FreecamInteractionSetting;
+import net.wurstclient.hacks.freecam.FreecamInteractionSetting.InteractFrom;
 import net.wurstclient.mixinterface.IKeyMapping;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ColorSetting;
-import net.wurstclient.settings.InteractFromSetting;
-import net.wurstclient.settings.InteractFromSetting.InteractFrom;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.EntityUtils;
@@ -58,8 +58,8 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	
 	private final FreecamInputSetting applyInputTo = new FreecamInputSetting();
 	
-	private final InteractFromSetting interactFrom =
-		new InteractFromSetting(this, InteractFrom.CAMERA);
+	private final FreecamInteractionSetting interactFrom =
+		new FreecamInteractionSetting();
 	
 	private final SliderSetting horizontalSpeed =
 		new SliderSetting("Horizontal speed",
@@ -166,7 +166,8 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		EVENTS.add(IsNormalCubeListener.class, this);
 		
 		lastHealth = Float.MIN_VALUE;
-		camPos = initialPos.getSelected().getPos(cameraEntity);
+		camPos = RotationUtils.getEyesPos()
+			.add(initialPos.getSelected().getOffset());
 		prevCamPos = camPos;
 		camYaw = cameraEntity.getViewYRot(1);
 		camPitch = cameraEntity.getViewXRot(1);

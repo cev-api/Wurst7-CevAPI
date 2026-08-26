@@ -340,6 +340,11 @@ public final class PacketFirewallOtf extends OtherFeature
 		return vanillaOnlyPacketsSetting.isChecked();
 	}
 	
+	private boolean isProtectedVanillaPacket(Packet<?> packet)
+	{
+		return packet instanceof ServerboundClientCommandPacket;
+	}
+	
 	public Packet<?> enforceVanillaOnly(Packet<?> original, Packet<?> packet,
 		boolean cancelled)
 	{
@@ -354,12 +359,10 @@ public final class PacketFirewallOtf extends OtherFeature
 			return null;
 		
 		if(cancelled)
-			// A vanilla screen/action packet may be cancelled by another
-			// listener, but PacketFirewall must not turn that into a dropped
-			// respawn, menu, or container action.
-			// Only suppress cancellations attributable to a non-whitelisted
-			// hack.
-			return hackOrigin ? null : original;
+			// Preserve cancellations from packet-affecting features such as
+			// Freecam. The respawn command is the one vanilla action that must
+			// remain sendable even if another listener cancelled it.
+			return isProtectedVanillaPacket(original) ? original : null;
 		
 		if(original instanceof ServerboundMovePlayerPacket
 			&& packet instanceof ServerboundMovePlayerPacket move
