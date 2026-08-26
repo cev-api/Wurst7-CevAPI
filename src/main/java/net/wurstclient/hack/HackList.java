@@ -49,7 +49,7 @@ public final class HackList implements UpdateListener
 	public final HandOfGodHack handOfGodHack = new HandOfGodHack();
 	public final MultiverseAnnihilatorHack multiverseAnnihilatorHack =
 		new MultiverseAnnihilatorHack();
-	public final NbtEditorHack nbtEditorHack = new NbtEditorHack();
+	public final NBTEditorHack nbtEditorHack = new NBTEditorHack();
 	public final OPplayerTPmoduleHack opplayerTPmoduleHack =
 		new OPplayerTPmoduleHack();
 	public final OPServerKillModuleHack opServerKillModuleHack =

@@ -35,6 +35,7 @@ public final class SelectFileScreen extends Screen
 	
 	private ListGui listGui;
 	private Button doneButton;
+	private Button deleteButton;
 	
 	public SelectFileScreen(Screen prevScreen, FileSetting blockList)
 	{
@@ -58,6 +59,9 @@ public final class SelectFileScreen extends Screen
 				b -> askToConfirmReset())
 			.bounds(width - 108, 8, 100, 20).build());
 		
+		deleteButton = addRenderableWidget(
+			Button.builder(Component.literal("Delete"), b -> deleteSelected())
+				.bounds(116, 8, 100, 20).build());
 		doneButton = addRenderableWidget(
 			Button.builder(Component.literal("Done"), b -> done())
 				.bounds(width / 2 - 102, height - 48, 100, 20).build());
@@ -65,6 +69,15 @@ public final class SelectFileScreen extends Screen
 		addRenderableWidget(
 			Button.builder(Component.literal("Cancel"), b -> openPrevScreen())
 				.bounds(width / 2 + 2, height - 48, 100, 20).build());
+	}
+	
+	private void deleteSelected()
+	{
+		Path path = listGui.getSelectedPath();
+		if(path == null)
+			return;
+		setting.deleteFile("" + path.getFileName());
+		minecraft.gui.setScreen(new SelectFileScreen(prevScreen, setting));
 	}
 	
 	private void openFolder()
@@ -125,6 +138,7 @@ public final class SelectFileScreen extends Screen
 	public void tick()
 	{
 		doneButton.active = listGui.getSelected() != null;
+		deleteButton.active = doneButton.active;
 	}
 	
 	@Override

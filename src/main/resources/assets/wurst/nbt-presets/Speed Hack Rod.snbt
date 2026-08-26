@@ -1,0 +1,18 @@
+{
+    id:"minecraft:blaze_rod",
+    count:1,
+    components:{
+        "minecraft:attribute_modifiers":[
+            {
+                type:"minecraft:movement_speed",
+                slot:"mainhand",
+                id:"minecraft:neco_speed",
+                amount:3.4,
+                operation:"add_value",
+                display:{
+                    type:"hidden"
+                }
+            }
+        ]
+    }
+}
