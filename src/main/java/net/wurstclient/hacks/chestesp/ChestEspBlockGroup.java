@@ -26,7 +26,7 @@ public abstract class ChestEspBlockGroup extends ChestEspGroup
 	private final java.util.ArrayList<AABB> buriedBoxes =
 		new java.util.ArrayList<>();
 	
-	protected abstract boolean matches(BlockEntity be);
+	public abstract boolean matches(BlockEntity be);
 	
 	public final void addIfMatches(BlockEntity be)
 	{

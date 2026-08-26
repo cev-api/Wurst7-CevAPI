@@ -18,6 +18,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
@@ -340,6 +341,11 @@ public final class PacketFirewallOtf extends OtherFeature
 		return vanillaOnlyPacketsSetting.isChecked();
 	}
 	
+	private boolean isProtectedVanillaPacket(Packet<?> packet)
+	{
+		return packet instanceof ServerboundClientCommandPacket;
+	}
+
 	public Packet<?> enforceVanillaOnly(Packet<?> original, Packet<?> packet,
 		boolean cancelled)
 	{

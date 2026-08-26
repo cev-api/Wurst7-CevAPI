@@ -174,6 +174,22 @@ public final class RemoteViewHack extends Hack
 		entity.setInvisible(true);
 	}
 	
+	/** Compatibility hooks for the upstream camera/interaction mixins. */
+	public boolean isViewingEntity()
+	{
+		return isEnabled() && entity != null;
+	}
+	
+	public boolean isClickingFromPlayer()
+	{
+		return false;
+	}
+	
+	public boolean shouldHideHand()
+	{
+		return false;
+	}
+	
 	@Override
 	public void onSentPacket(PacketOutputEvent event)
 	{

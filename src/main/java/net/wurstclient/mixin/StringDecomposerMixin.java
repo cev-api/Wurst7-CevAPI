@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import net.minecraft.util.StringDecomposer;
 import net.wurstclient.WurstClient;
+import net.wurstclient.hack.HackList;
 
 @Mixin(StringDecomposer.class)
 public abstract class StringDecomposerMixin
@@ -24,6 +25,7 @@ public abstract class StringDecomposerMixin
 		index = 0)
 	private static String adjustText(String text)
 	{
-		return WurstClient.INSTANCE.getHax().nameProtectHack.protect(text);
+		HackList hax = WurstClient.INSTANCE.getHax();
+		return hax == null ? text : hax.nameProtectHack.protect(text);
 	}
 }
