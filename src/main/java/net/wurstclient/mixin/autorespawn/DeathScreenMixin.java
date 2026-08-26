@@ -8,6 +8,8 @@
 package net.wurstclient.mixin.autorespawn;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -21,9 +23,15 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.DeathListener.DeathEvent;
 import net.wurstclient.hacks.AutoRespawnHack;
 
+import java.util.List;
+
 @Mixin(DeathScreen.class)
 public abstract class DeathScreenMixin extends Screen
 {
+	@Shadow
+	@Final
+	private List<Button> exitButtons;
+	
 	private DeathScreenMixin(WurstClient wurst, Component title)
 	{
 		super(title);
@@ -32,6 +40,11 @@ public abstract class DeathScreenMixin extends Screen
 	@Inject(method = "tick()V", at = @At("TAIL"))
 	private void onTick(CallbackInfo ci)
 	{
+		// Keep the vanilla death controls usable with PacketFirewall enabled.
+		if(WurstClient.INSTANCE.getOtfs().packetFirewallOtf
+			.isVanillaOnlyPacketsMode())
+			exitButtons.forEach(button -> button.active = true);
+		
 		if(WurstClient.INSTANCE.getHax().autoRespawnHack.isEnabled())
 			respawn();
 	}

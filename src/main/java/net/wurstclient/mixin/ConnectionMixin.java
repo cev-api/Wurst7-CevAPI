@@ -88,9 +88,10 @@ public abstract class ConnectionMixin
 		
 		Packet<?> finalPacket = firewall.enforceVanillaOnly(originalPacket,
 			event.getPacket(), event.isCancelled());
-		if(finalPacket == null || event.isCancelled())
+		if(finalPacket == null)
 			return;
 		
+		event.clearCancellation();
 		original.call(finalPacket, listener, flush);
 	}
 }
