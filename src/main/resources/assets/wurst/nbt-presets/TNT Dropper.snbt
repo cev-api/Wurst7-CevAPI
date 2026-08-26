@@ -1,0 +1,17 @@
+{
+    "id": "minecraft:creeper_spawn_egg",
+    "count": 64,
+    "components": {
+        "minecraft:item_model": "minecraft:tnt",
+        "minecraft:entity_data": {
+            "NoGravity": 0,
+            "fuse": 80,
+            "explosion_power": 256,
+            "id": "minecraft:tnt"
+        },
+        "minecraft:custom_name": {
+            "text": "TNT",
+            "italic": false
+        }
+    }
+}

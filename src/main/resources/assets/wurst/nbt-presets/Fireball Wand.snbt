@@ -1,0 +1,15 @@
+{
+    "id":"minecraft:creeper_spawn_egg",
+    "count":64,
+    "components":{
+        "minecraft:custom_name":{
+            "text":"Fireball Wand",
+            "italic":false
+        },
+        "minecraft:item_model":"minecraft:blaze_rod",
+        "minecraft:entity_data":{
+            "id":"minecraft:fireball",
+            "ExplosionPower":127
+        }
+    }
+}
