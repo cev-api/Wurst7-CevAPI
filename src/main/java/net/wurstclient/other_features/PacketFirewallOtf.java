@@ -16,9 +16,9 @@ import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
-import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot;
@@ -341,16 +341,16 @@ public final class PacketFirewallOtf extends OtherFeature
 		return vanillaOnlyPacketsSetting.isChecked();
 	}
 	
-	private boolean isProtectedVanillaPacket(Packet<?> packet)
-	{
-		return packet instanceof ServerboundClientCommandPacket;
-	}
-	
 	public Packet<?> enforceVanillaOnly(Packet<?> original, Packet<?> packet,
 		boolean cancelled)
 	{
 		if(!isFirewallEnabled() || !isVanillaOnlyPacketsEnabled())
 			return cancelled ? null : packet;
+		
+		// The vanilla death screen must be able to perform its respawn action.
+		if(original instanceof ServerboundClientCommandPacket command && command
+			.getAction() == ServerboundClientCommandPacket.Action.PERFORM_RESPAWN)
+			return original;
 		
 		SenderResolution sender = resolveSenderHackFromStack();
 		boolean hackOrigin = sender != null && sender.hack() != null
@@ -360,10 +360,11 @@ public final class PacketFirewallOtf extends OtherFeature
 			return null;
 		
 		if(cancelled)
-			// Preserve cancellations from packet-affecting features such as
-			// Freecam. The respawn command is the one vanilla action that must
-			// remain sendable even if another listener cancelled it.
-			return isProtectedVanillaPacket(original) ? original : null;
+			// Vanilla screens and actions can be cancelled by another listener.
+			// Preserve those packets unless the cancellation came from a
+			// non-whitelisted hack; otherwise vanilla death-screen actions such
+			// as respawn and leaving to the title screen become unusable.
+			return hackOrigin ? null : original;
 		
 		if(original instanceof ServerboundMovePlayerPacket
 			&& packet instanceof ServerboundMovePlayerPacket move

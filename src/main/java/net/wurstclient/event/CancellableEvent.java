@@ -20,4 +20,9 @@ public abstract class CancellableEvent<T extends Listener> extends Event<T>
 	{
 		return cancelled;
 	}
+	
+	public void clearCancellation()
+	{
+		cancelled = false;
+	}
 }
