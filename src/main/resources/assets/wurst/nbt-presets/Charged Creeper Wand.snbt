@@ -1,0 +1,18 @@
+{
+    "id": "minecraft:creeper_spawn_egg",
+    "count": 64,
+    "components": {
+        "minecraft:item_model": "minecraft:breeze_rod",
+        "minecraft:entity_data": {
+            "Fuse": 1,
+            "powered": 1,
+            "ignited": 1,
+            "id": "minecraft:creeper",
+            "ExplosionRadius": 20
+        },
+        "minecraft:custom_name": {
+            "text": "Breeze Rod",
+            "italic": false
+        }
+    }
+}

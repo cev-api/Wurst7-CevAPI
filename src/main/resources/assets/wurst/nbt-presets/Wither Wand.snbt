@@ -1,0 +1,32 @@
+{
+    "id": "minecraft:wither_spawn_egg",
+    "count": 64,
+    "components": {
+        "minecraft:item_model": "minecraft:breeze_rod",
+        "minecraft:entity_data": {
+            "Invul": 1,
+            "Health": 1000000,
+            "Invulnerable": 1,
+            "PersistenceRequired": 1,
+            "attributes": [
+                {
+                    "id": "minecraft:max_health",
+                    "base": 1000000
+                },
+                {
+                    "id": "minecraft:armor",
+                    "base": 30
+                },
+                {
+                    "id": "minecraft:armor_toughness",
+                    "base": 20
+                },
+                {
+                    "id": "minecraft:knockback_resistance",
+                    "base": 1
+                }
+            ],
+            "id": "minecraft:wither"
+        }
+    }
+}

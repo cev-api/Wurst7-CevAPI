@@ -79,6 +79,27 @@ public final class FileSetting extends Setting
 		WurstClient.INSTANCE.saveSettings();
 	}
 	
+	public void deleteFile(String fileName)
+	{
+		Path target = folder.resolve(fileName);
+		if(fileName == null || fileName.isBlank() || fileName.contains("..")
+			|| !target.normalize().startsWith(folder.normalize()))
+			throw new IllegalArgumentException("Invalid file name");
+		try
+		{
+			Files.deleteIfExists(target);
+			ArrayList<Path> remaining = listFiles();
+			if(remaining.isEmpty())
+				remaining = createDefaultFiles();
+			if(fileName.equals(selectedFile))
+				selectedFile = "" + remaining.get(0).getFileName();
+			WurstClient.INSTANCE.saveSettings();
+		}catch(IOException e)
+		{
+			throw new RuntimeException(e);
+		}
+	}
+	
 	@Override
 	public void resetToDefault()
 	{
