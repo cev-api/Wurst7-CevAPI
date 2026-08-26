@@ -92,7 +92,10 @@ public abstract class ConnectionMixin
 		if(finalPacket == null)
 			event.cancel();
 		else
+		{
 			event.setPacket(finalPacket);
+			event.clearCancellation();
+		}
 		return finalPacket != null ? finalPacket : originalPacket;
 	}
 	
