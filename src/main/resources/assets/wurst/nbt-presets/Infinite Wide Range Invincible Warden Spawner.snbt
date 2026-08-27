@@ -1,0 +1,67 @@
+{
+    components: {
+        "minecraft:block_entity_data": {
+            Delay: 0s,
+            MaxNearbyEntities: 16s,
+            MaxSpawnDelay: 1s,
+            MinSpawnDelay: 1s,
+            RequiredPlayerRange: 128s,
+			SpawnRange: 64s,
+            SpawnCount: 1s,
+            SpawnData: {
+                entity: {
+                    Brain: {
+                        memories: {
+                            "minecraft:dig_cooldown": {
+                                ttl: 2147483647L,
+                                value: {
+                                }
+                            }
+                        }
+                    },
+                    CustomName: {
+                        bold: 1b,
+                        color: "dark_aqua",
+                        italic: 0b,
+                        text: "https://cevapi.dev/"
+                    },
+                    CustomNameVisible: 1b,
+                    Health: 2048.0f,
+                    Invulnerable: 1b,
+                    PersistenceRequired: 1b,
+                    attributes: [
+                        {
+                            base: 2048.0d,
+                            id: "minecraft:max_health"
+                        },
+                        {
+                            base: 1.0d,
+                            id: "minecraft:movement_speed"
+                        },
+                        {
+                            base: 200.0d,
+                            id: "minecraft:attack_damage"
+                        },
+                        {
+                            base: 10.0d,
+                            id: "minecraft:attack_knockback"
+                        },
+                        {
+                            base: 1.0d,
+                            id: "minecraft:knockback_resistance"
+                        },
+                        {
+                            base: 256.0d,
+                            id: "minecraft:follow_range"
+                        }
+                    ],
+                    id: "minecraft:warden"
+                }
+            },
+            SpawnRange: 4s,
+            id: "minecraft:mob_spawner"
+        }
+    },
+    count: 1,
+    id: "minecraft:spawner"
+}

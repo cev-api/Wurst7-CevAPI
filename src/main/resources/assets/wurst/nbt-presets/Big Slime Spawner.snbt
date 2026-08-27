@@ -1,0 +1,46 @@
+{
+    components: {
+        "minecraft:block_entity_data": {
+            Delay: 0s,
+            MaxNearbyEntities: 32767s,
+            MaxSpawnDelay: 10s,
+            MinSpawnDelay: 10s,
+            RequiredPlayerRange: 32767s,
+            SpawnCount: 2s,
+            SpawnData: {
+                custom_spawn_rules: {
+                    block_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    },
+                    sky_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    }
+                },
+                entity: {
+                    CustomName: {
+                        bold: 1b,
+                        color: "green",
+                        italic: 0b,
+                        text: "BIG FUCKER"
+                    },
+                    CustomNameVisible: 1b,
+                    PersistenceRequired: 1b,
+                    Size: 20,
+                    id: "minecraft:slime"
+                }
+            },
+            SpawnRange: 128s,
+            id: "minecraft:mob_spawner"
+        },
+        "minecraft:custom_name": {
+            bold: 1b,
+            color: "green",
+            italic: 0b,
+            text: "Giant Slime Rain"
+        }
+    },
+    count: 1,
+    id: "minecraft:spawner"
+}

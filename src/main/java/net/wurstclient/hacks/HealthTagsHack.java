@@ -25,6 +25,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.EntityHealthRenderer;
+import net.wurstclient.util.PlayerNameUtils;
 
 @SearchTags({"health tags"})
 public final class HealthTagsHack extends Hack implements GUIRenderListener
@@ -136,7 +137,9 @@ public final class HealthTagsHack extends Hack implements GUIRenderListener
 		if(entity instanceof ArmorStand && entity.isInvisible())
 			return true;
 		
-		return ignoreNpcs.isChecked() && isLikelyNpcPlayer(entity);
+		return (entity instanceof Player player
+			&& PlayerNameUtils.isManuallyIgnored(player.getName().getString()))
+			|| (ignoreNpcs.isChecked() && isLikelyNpcPlayer(entity));
 	}
 	
 	private boolean isLikelyNpcPlayer(LivingEntity entity)

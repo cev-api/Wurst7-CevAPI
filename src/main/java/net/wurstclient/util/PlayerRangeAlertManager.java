@@ -91,6 +91,11 @@ public final class PlayerRangeAlertManager implements UpdateListener
 			boolean npc = isProbablyNpc(id);
 			Vec3 pos = new Vec3(player.getX(), player.getY(), player.getZ());
 			String name = player.getName().getString();
+			if(PlayerNameUtils.isManuallyIgnored(name))
+			{
+				knownPlayers.remove(id);
+				continue;
+			}
 			
 			if(info == null)
 			{
