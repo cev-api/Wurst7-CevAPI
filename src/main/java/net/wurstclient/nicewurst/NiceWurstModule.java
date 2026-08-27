@@ -52,7 +52,7 @@ public final class NiceWurstModule
 	private static final String OPTIONS_LABEL = "NiceWurst Options";
 	
 	private static final EnumSet<Category> CATEGORY_ALLOW_ALL =
-		EnumSet.of(Category.FUN);
+		EnumSet.of(Category.FUN, Category.CREATIVE_OP);
 	
 	private static final EnumMap<Category, Set<String>> ALLOWED_HACKS =
 		new EnumMap<>(Category.class);
@@ -91,12 +91,13 @@ public final class NiceWurstModule
 				"MusicAura", "ScaffoldWalk", "SilkOnly", "TargetPlace",
 				"TemplateTool", "SourceFill", "SuperInstaMine", "FastFill",
 				"AutoSpawnProofer", "AreaNuker", "DuraSwap", "Tillaura",
-				"TreeBot", "Tunneller", "VeinMiner"));
+				"TreeBot", "Tunneller", "VeinMiner", "StairMaker"));
 		
 		ALLOWED_HACKS.put(Category.MOVEMENT,
 			Set.of("BunnyHop", "AntiHunger", "AutoSprint", "AutoWalk",
 				"AutoSwim", "BedrockEscape", "Dolphin", "SafeWalk", "Sneak",
-				"InvWalk", "EntityControl", "PearlDrop", "FastLadder", "Fish"));
+				"InvWalk", "EntityControl", "PearlDrop", "FastLadder", "Fish",
+				"AntiGeyser", "ElytraPitch", "ElytraBounce"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
 			Set.of("AutoArmor", "AutoPotion", "AutoRespawn", "AutoSoup",
@@ -111,7 +112,7 @@ public final class NiceWurstModule
 				"TrialSpawnerESP", "Waypoints", "ElytraInfo", "RoofESP",
 				"RenderAdjust", "Viewmodel", "MobOwners", "StasisDetector",
 				"PotESP", "SkyBuildESP", "DamageESP", "ProjectileESP",
-				"BlockOverlay"));
+				"BlockOverlay", "SpawnerESP", "SoundMute"));
 		
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",

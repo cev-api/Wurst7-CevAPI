@@ -1,0 +1,45 @@
+{
+    components: {
+        "minecraft:block_entity_data": {
+            Delay: 0s,
+            MaxNearbyEntities: 32767s,
+            MaxSpawnDelay: 1s,
+            MinSpawnDelay: 1s,
+            RequiredPlayerRange: 32767s,
+            SpawnCount: 4s,
+            SpawnData: {
+                custom_spawn_rules: {
+                    block_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    },
+                    sky_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    }
+                },
+                entity: {
+                    CustomName: {
+                        bold: 1b,
+                        color: "dark_red",
+                        italic: 0b,
+                        text: "https://cevapi.dev/"
+                    },
+                    CustomNameVisible: 1b,
+                    fuse: 80s,
+                    id: "minecraft:tnt"
+                }
+            },
+            SpawnRange: 64s,
+            id: "minecraft:mob_spawner"
+        },
+        "minecraft:custom_name": {
+            bold: 1b,
+            color: "dark_red",
+            italic: 0b,
+            text: "Super TNT Spawner"
+        }
+    },
+    count: 1,
+    id: "minecraft:spawner"
+}

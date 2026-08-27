@@ -21,6 +21,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.text.WText;
 import net.wurstclient.util.ChatUtils;
@@ -30,6 +31,15 @@ import net.wurstclient.util.chunk.ChunkSearcher;
 public final class GlobalToggleHack extends Hack implements UpdateListener
 {
 	private static final int HARD_GLOBAL_ESP_RENDER_LIMIT = 100_000;
+
+	private final CheckboxSetting manualPlayerIgnoreEnabled =
+		new CheckboxSetting("Enable manual player/bot ignore list",
+			"Ignore these names globally in hacks that support NPC ignoring.",
+			true);
+	private final TextFieldSetting manualPlayerIgnoreNames =
+		new TextFieldSetting("Player/Bot Ignore List (Manual)",
+			"Player names to ignore globally, separated by commas or spaces.",
+			"MineProbe, Minesweeper");
 	
 	private final CheckboxSetting stickyAreaOverride = new CheckboxSetting(
 		"Sticky area override",
@@ -128,6 +138,8 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		setCategory(Category.OTHER);
 		
 		addSetting(stickyAreaOverride);
+		addSetting(manualPlayerIgnoreEnabled);
+		addSetting(manualPlayerIgnoreNames);
 		addSetting(yLimitOverride);
 		addSetting(yLimitValue);
 		addSetting(searchThreadPriority);
@@ -163,7 +175,25 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 		EVENTS.add(UpdateListener.class, this);
 	}
 	
+	public boolean shouldIgnoreManualPlayer(String name)
+	{
+		if(!manualPlayerIgnoreEnabled.isChecked())
+			return false;
+		return net.wurstclient.util.PlayerNameUtils.matchesAny(manualPlayerIgnoreNames.getValue(), name);
+	}
+
+	public CheckboxSetting getManualPlayerIgnoreEnabledSetting()
+	{
+		return manualPlayerIgnoreEnabled;
+	}
+
+	public TextFieldSetting getManualPlayerIgnoreNamesSetting()
+	{
+		return manualPlayerIgnoreNames;
+	}
+
 	@Override
+
 	protected void onEnable()
 	{
 		setEnabled(false);

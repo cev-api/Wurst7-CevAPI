@@ -4,11 +4,18 @@
     "components": {
         "minecraft:item_model": "minecraft:breeze_rod",
         "minecraft:entity_data": {
-            "Fuse": 1,
-            "powered": 1,
-            "ignited": 1,
-            "id": "minecraft:creeper",
-            "ExplosionRadius": 20
+			id: "minecraft:creeper",
+			powered: 1b,
+			ExplosionRadius: 127b,
+			Fuse: 0s,
+			PersistenceRequired: 1b,
+			Invulnerable: 1b,
+			CustomNameVisible: 1b,
+			CustomName: {
+				text: "https://cevapi.dev/",
+				color: "aqua",
+				bold: true
+			}
         },
         "minecraft:custom_name": {
             "text": "Breeze Rod",

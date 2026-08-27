@@ -38,6 +38,9 @@ public final class NpcUtils
 	
 	public static boolean isLikelyNpc(UUID uuid, String rawName)
 	{
+		if(PlayerNameUtils.isManuallyIgnored(rawName))
+			return true;
+		
 		if(uuid == null)
 			return true;
 		
