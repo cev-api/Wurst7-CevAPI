@@ -26,6 +26,8 @@ public final class AltsFile
 	private static final String SETTINGS_KEY = "__wurst_altmanager_settings";
 	private static final String DISCONNECT_RANDOM_ALT_RECONNECT_KEY =
 		"disconnect_random_alt_reconnect";
+	private static final String AUTO_LOGIN_LAST_ALT_KEY = "auto_login_last_alt";
+	private static final String LAST_LOGGED_IN_ALT_KEY = "last_logged_in_alt";
 	
 	private final Path path;
 	private final Path encFolder;
@@ -95,17 +97,49 @@ public final class AltsFile
 	{
 		ArrayList<Alt> alts = parseJson(wson);
 		boolean disconnectRandomAltReconnect = readDisconnectSetting(wson);
+		boolean autoLoginLastAlt = readAutoLoginSetting(wson);
+		String lastLoggedInAlt = readLastLoggedInAlt(wson);
 		
 		try
 		{
 			disableSaving = true;
 			altManager.setDisconnectRandomAltReconnectEnabledSilently(
 				disconnectRandomAltReconnect);
+			altManager.setAutoLoginLastAltEnabledSilently(autoLoginLastAlt);
+			altManager.setLastLoggedInAltNameSilently(lastLoggedInAlt);
 			altManager.addAll(alts, false);
 			
 		}finally
 		{
 			disableSaving = false;
+		}
+	}
+	
+	private boolean readAutoLoginSetting(WsonObject wson)
+	{
+		if(!wson.has(SETTINGS_KEY))
+			return false;
+		try
+		{
+			return wson.getObject(SETTINGS_KEY)
+				.getBoolean(AUTO_LOGIN_LAST_ALT_KEY, false);
+		}catch(JsonException e)
+		{
+			return false;
+		}
+	}
+	
+	private String readLastLoggedInAlt(WsonObject wson)
+	{
+		if(!wson.has(SETTINGS_KEY))
+			return "";
+		try
+		{
+			return wson.getObject(SETTINGS_KEY)
+				.getString(LAST_LOGGED_IN_ALT_KEY, "");
+		}catch(JsonException e)
+		{
+			return "";
 		}
 	}
 	
@@ -247,6 +281,10 @@ public final class AltsFile
 		JsonObject settings = new JsonObject();
 		settings.addProperty(DISCONNECT_RANDOM_ALT_RECONNECT_KEY,
 			alts.isDisconnectRandomAltReconnectEnabled());
+		settings.addProperty(AUTO_LOGIN_LAST_ALT_KEY,
+			alts.isAutoLoginLastAltEnabled());
+		settings.addProperty(LAST_LOGGED_IN_ALT_KEY,
+			alts.getLastLoggedInAltName());
 		json.add(SETTINGS_KEY, settings);
 		
 		for(Alt alt : alts.getList())

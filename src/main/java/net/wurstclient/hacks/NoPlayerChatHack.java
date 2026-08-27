@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
+import net.wurstclient.WurstClient;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.ChatInputListener;
@@ -53,6 +54,9 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 	
 	private final CheckboxSetting allowJoinLeave =
 		new CheckboxSetting("Allow join/leave", true);
+	private final CheckboxSetting allowFriendsChat =
+		new CheckboxSetting("Friends chat",
+			"Allow messages from players in your Friends list.", true);
 	private final CheckboxSetting allowWhispers =
 		new CheckboxSetting("Allow whispers", true);
 	private final CheckboxSetting allowDeathMessages =
@@ -72,6 +76,7 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 		super("NoPlayerChat");
 		setCategory(Category.CHAT);
 		addSetting(allowJoinLeave);
+		addSetting(allowFriendsChat);
 		addSetting(allowWhispers);
 		addSetting(allowDeathMessages);
 		addSetting(filterOnly);
@@ -90,6 +95,21 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 		EVENTS.remove(ChatInputListener.class, this);
 	}
 	
+	public static boolean shouldCancelEarly(Component component)
+	{
+		if(component == null || WurstClient.INSTANCE == null
+			|| WurstClient.INSTANCE.getHax() == null)
+			return false;
+		
+		NoPlayerChatHack hack = WurstClient.INSTANCE.getHax().noPlayerChatHack;
+		if(hack == null || !hack.isEnabled())
+			return false;
+		
+		ChatInputEvent event = new ChatInputEvent(component, List.of());
+		hack.onReceivedMessage(event);
+		return event.isCancelled();
+	}
+	
 	@Override
 	public void onReceivedMessage(ChatInputEvent event)
 	{
@@ -100,6 +120,10 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 		
 		// Keep Wurst/system client messages visible.
 		if(plain.regionMatches(true, 0, "[Wurst]", 0, 7))
+			return;
+		
+		if(isOwnMessage(plain)
+			|| (allowFriendsChat.isChecked() && isFriendMessage(plain)))
 			return;
 		
 		if(matchesKeywordFilter(plain))
@@ -249,6 +273,63 @@ public final class NoPlayerChatHack extends Hack implements ChatInputListener
 		return DECORATED_ANGLE_CHAT.matcher(plain).matches()
 			|| COLON_CHAT.matcher(plain).matches()
 			|| ARROW_CHAT.matcher(plain).matches();
+	}
+	
+	private static boolean isOwnMessage(String plain)
+	{
+		String sender = getMessageSender(plain);
+		return sender != null && WurstClient.MC != null
+			&& WurstClient.MC.player != null && WurstClient.MC.player.getName()
+				.getString().equalsIgnoreCase(sender);
+	}
+	
+	private static String getMessageSender(String plain)
+	{
+		var match = DECORATED_ANGLE_CHAT.matcher(plain);
+		if(match.matches())
+			return match.group(1);
+		
+		match = COLON_CHAT.matcher(plain);
+		if(match.matches())
+			return match.group(1).trim();
+		
+		match = ARROW_CHAT.matcher(plain);
+		if(match.matches())
+			return match.group(1).trim();
+		
+		match = WHISPER_TO_YOU_CHAT.matcher(plain);
+		return match.matches() ? match.group(1) : null;
+	}
+	
+	private static boolean isFriendMessage(String plain)
+	{
+		String sender = null;
+		
+		var match = DECORATED_ANGLE_CHAT.matcher(plain);
+		if(match.matches())
+			sender = match.group(1);
+		else
+		{
+			match = COLON_CHAT.matcher(plain);
+			if(match.matches())
+				sender = match.group(1).trim();
+			else
+			{
+				match = ARROW_CHAT.matcher(plain);
+				if(match.matches())
+					sender = match.group(1).trim();
+			}
+		}
+		
+		if(sender == null)
+		{
+			match = WHISPER_TO_YOU_CHAT.matcher(plain);
+			if(match.matches())
+				sender = match.group(1);
+		}
+		
+		return sender != null && WurstClient.INSTANCE.getFriends() != null
+			&& WurstClient.INSTANCE.getFriends().contains(sender);
 	}
 	
 	private static boolean isWhisperMessage(String plain)

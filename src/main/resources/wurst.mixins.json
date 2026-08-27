@@ -97,6 +97,7 @@
     "ServerNameResolverMixin",
     "ServerDataMixin",
     "ShaderManagerMixin",
+    "SoundEngineMixin",
     "ShulkerBoxScreenMixin",
     "SkinManagerMixin",
     "StatsScreenMixin",

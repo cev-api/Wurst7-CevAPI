@@ -225,6 +225,8 @@ public enum WurstClient
 		altBotManager = new AltBotManager();
 		altSwitchController = new AccountSwitchController(altBotManager);
 		
+		altManager.startAutoLoginLastAlt();
+		
 		NiceWurstModule.apply(this);
 	}
 	

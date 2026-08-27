@@ -94,6 +94,7 @@ public final class AltManagerScreen extends Screen
 	
 	private Button useButton;
 	private Button randomButton;
+	private Button autoLoginButton;
 	private Button starButton;
 	private Button editButton;
 	private Button deleteButton;
@@ -183,6 +184,11 @@ public final class AltManagerScreen extends Screen
 		addRenderableWidget(randomButton = Button
 			.builder(Component.literal("Login Random"), b -> pressLoginRandom())
 			.bounds(width - 50 - 8 - 52 - 52 - 100 - 6, 8, 100, 20).build());
+		
+		int randomX = width - 50 - 8 - 52 - 52 - 100 - 6;
+		addRenderableWidget(autoLoginButton =
+			Button.builder(getAutoLoginLabel(), b -> pressToggleAutoLogin())
+				.bounds(randomX - 104, 8, 100, 20).build());
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Direct Login"),
@@ -407,6 +413,20 @@ public final class AltManagerScreen extends Screen
 		}
 	}
 	
+	private void pressToggleAutoLogin()
+	{
+		altManager.setAutoLoginLastAltEnabled(
+			!altManager.isAutoLoginLastAltEnabled());
+		if(autoLoginButton != null)
+			autoLoginButton.setMessage(getAutoLoginLabel());
+	}
+	
+	private Component getAutoLoginLabel()
+	{
+		return Component.literal("Alt Login: "
+			+ (altManager.isAutoLoginLastAltEnabled() ? "ON" : "OFF"));
+	}
+	
 	private void pressToggleAutoRespawn()
 	{
 		AltBotManager manager = WurstClient.INSTANCE.getAltBotManager();
@@ -589,6 +609,7 @@ public final class AltManagerScreen extends Screen
 	
 	private void pressLogout()
 	{
+		altManager.clearLastLoggedInAlt();
 		IMinecraftClient imc = (IMinecraftClient)minecraft;
 		User original = imc.getOriginalSession();
 		boolean restored = imc.restoreOriginalSession();
