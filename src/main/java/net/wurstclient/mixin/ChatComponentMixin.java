@@ -28,6 +28,8 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
+import net.wurstclient.hacks.PlayerMuteHack;
+import net.wurstclient.hacks.NoPlayerChatHack;
 
 @Mixin(ChatComponent.class)
 public class ChatComponentMixin
@@ -92,6 +94,16 @@ public class ChatComponentMixin
 		@Local(argsOnly = true) LocalRef<Component> message,
 		@Local(argsOnly = true) LocalRef<GuiMessageTag> indicator)
 	{
+		if(NoPlayerChatHack.shouldCancelEarly(message.get()))
+		{
+			ci.cancel();
+			return;
+		}
+		
+		Component colored = WurstClient.INSTANCE.getHax().mentionHack
+			.colorizeForDisplayIfNeeded(message.get());
+		message.set(colored);
+		
 		ChatInputEvent event =
 			new ChatInputEvent(message.get(), trimmedMessages);
 		

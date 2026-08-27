@@ -127,6 +127,7 @@
     "ServerNameResolverMixin",
     "ServerSelectionListMixin",
     "ShaderManagerMixin",
+    "SoundEngineMixin",
     "SkinManagerMixin",
     "snowshoe.PowderSnowBlockMixin",
     "sodium.RenderSectionManagerMixin",

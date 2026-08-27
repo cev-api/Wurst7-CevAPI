@@ -27,6 +27,9 @@ public final class AltManager
 	private int numPremium;
 	private int numCracked;
 	private boolean disconnectRandomAltReconnectEnabled = true;
+	private boolean autoLoginLastAltEnabled;
+	private String lastLoggedInAltName = "";
+	private boolean autoLoginStarted;
 	
 	public AltManager(Path altsFile, Path encFolder)
 	{
@@ -161,15 +164,14 @@ public final class AltManager
 		{
 			alt.login();
 			alt.markValidatedNow();
-			
+			lastLoggedInAltName = alt.getName();
 			if(wasUnchecked)
 				numPremium++;
 			
 			WurstClient.INSTANCE.getProxyManager()
 				.setAccountProxy(associatedProxy);
 			
-			if(!alt.isCracked())
-				altsFile.save(this);
+			altsFile.save(this);
 		}finally
 		{
 			MicrosoftLoginManager.setAuthenticationProxy(previousAuthProxy);
@@ -346,6 +348,74 @@ public final class AltManager
 	void setDisconnectRandomAltReconnectEnabledSilently(boolean enabled)
 	{
 		disconnectRandomAltReconnectEnabled = enabled;
+	}
+	
+	public boolean isAutoLoginLastAltEnabled()
+	{
+		return autoLoginLastAltEnabled;
+	}
+	
+	public void setAutoLoginLastAltEnabled(boolean enabled)
+	{
+		if(autoLoginLastAltEnabled == enabled)
+			return;
+		autoLoginLastAltEnabled = enabled;
+		altsFile.save(this);
+	}
+	
+	public Alt getLastLoggedInAlt()
+	{
+		if(lastLoggedInAltName.isEmpty())
+			return null;
+		return alts.stream()
+			.filter(alt -> alt.getName().equalsIgnoreCase(lastLoggedInAltName))
+			.findFirst().orElse(null);
+	}
+	
+	public String getLastLoggedInAltName()
+	{
+		return lastLoggedInAltName;
+	}
+	
+	public void clearLastLoggedInAlt()
+	{
+		if(lastLoggedInAltName.isEmpty())
+			return;
+		lastLoggedInAltName = "";
+		altsFile.save(this);
+	}
+	
+	void setAutoLoginLastAltEnabledSilently(boolean enabled)
+	{
+		autoLoginLastAltEnabled = enabled;
+	}
+	
+	void setLastLoggedInAltNameSilently(String name)
+	{
+		lastLoggedInAltName = name == null ? "" : name;
+	}
+	
+	public void startAutoLoginLastAlt()
+	{
+		if(!autoLoginLastAltEnabled || autoLoginStarted)
+			return;
+		Alt alt = getLastLoggedInAlt();
+		if(alt == null)
+			return;
+		autoLoginStarted = true;
+		Thread thread = new Thread(() -> {
+			try
+			{
+				if(WurstClient.IMC.getWurstSession() == null)
+					login(alt);
+			}catch(LoginException | RuntimeException e)
+			{
+				System.out.println("Auto-login failed for "
+					+ alt.getDisplayName() + ": " + e.getMessage());
+			}
+		}, "Wurst Alt Auto Login");
+		thread.setDaemon(true);
+		thread.start();
 	}
 	
 	public int getNumPremium()
