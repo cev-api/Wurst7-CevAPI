@@ -76,6 +76,11 @@ public final class MentionHack extends Hack
 			+ " trigger a mention sound (e.g. neco, conneco).",
 		"");
 	
+	private final CheckboxSetting partialNames = new CheckboxSetting(
+		"Partial names",
+		"Allow the first four characters and name parts to trigger mentions.",
+		true);
+	
 	private final EnumSetting<NoteBlockSound> sound = new EnumSetting<>("Sound",
 		"Which note-block sound should play when you're mentioned.",
 		NoteBlockSound.values(), NoteBlockSound.CHIME);
@@ -106,6 +111,7 @@ public final class MentionHack extends Hack
 		super("Mention");
 		setCategory(Category.CHAT);
 		addSetting(nicknameAliases);
+		addSetting(partialNames);
 		addSetting(sound);
 		addSetting(volume);
 		addSetting(toastPopup);
@@ -432,21 +438,24 @@ public final class MentionHack extends Hack
 		String ownLower = ownName.toLowerCase(Locale.ROOT);
 		variants.add(ownLower);
 		
-		if(ownLower.length() >= 4)
-			variants.add(ownLower.substring(0, 4));
-		
-		for(String part : ownName.split("[_\\-]"))
+		if(partialNames.isChecked())
 		{
-			String p = part.toLowerCase(Locale.ROOT).trim();
-			if(p.length() >= 3)
-				variants.add(p);
-		}
-		
-		for(String part : ownName.split("(?<=[a-z])(?=[A-Z])"))
-		{
-			String p = part.toLowerCase(Locale.ROOT).trim();
-			if(p.length() >= 3)
-				variants.add(p);
+			if(ownLower.length() >= 4)
+				variants.add(ownLower.substring(0, 4));
+			
+			for(String part : ownName.split("[_\\-]"))
+			{
+				String p = part.toLowerCase(Locale.ROOT).trim();
+				if(p.length() >= 3)
+					variants.add(p);
+			}
+			
+			for(String part : ownName.split("(?<=[a-z])(?=[A-Z])"))
+			{
+				String p = part.toLowerCase(Locale.ROOT).trim();
+				if(p.length() >= 3)
+					variants.add(p);
+			}
 		}
 		
 		for(String alias : nicknameAliases.getValue().split("[,\\s]+"))

@@ -30,6 +30,7 @@ import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
 import net.wurstclient.hacks.PlayerMuteHack;
+import net.wurstclient.hacks.NoPlayerChatHack;
 
 @Mixin(ChatComponent.class)
 public class ChatComponentMixin
@@ -189,12 +190,19 @@ public class ChatComponentMixin
 	}
 	
 	@Inject(at = @At("HEAD"),
-		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V")
+		method = "addMessage(Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/chat/MessageSignature;Lnet/minecraft/client/multiplayer/chat/GuiMessageSource;Lnet/minecraft/client/multiplayer/chat/GuiMessageTag;)V",
+		cancellable = true)
 	private void onAddMessage(Component messageDontUse,
 		@Nullable MessageSignature signature, GuiMessageSource source,
 		@Nullable GuiMessageTag indicator, CallbackInfo ci,
 		@Local(argsOnly = true) LocalRef<Component> message)
 	{
+		if(NoPlayerChatHack.shouldCancelEarly(message.get()))
+		{
+			ci.cancel();
+			return;
+		}
+		
 		Component colored = WurstClient.INSTANCE.getHax().mentionHack
 			.colorizeForDisplayIfNeeded(message.get());
 		message.set(ClientMessageOverlay.getInstance()

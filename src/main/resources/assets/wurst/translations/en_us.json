@@ -722,6 +722,8 @@
   "description.wurst.hack.autotexts": "Creates text displays from a configurable command.",
   "hack.wurst.autotitles": "AutoTitles",
   "description.wurst.hack.autotitles": "Sends a configurable title command.",
+  "hack.wurst.soundmute": "SoundMute",
+  "description.wurst.hack.soundmute": "Mutes individual Minecraft sounds by their exact sound IDs.",
   "hack.wurst.boomplus": "Boom+",
   "description.wurst.hack.boomplus": "Triggers the configured explosion command.",
   "hack.wurst.explosionaura": "ExplosionAura",
