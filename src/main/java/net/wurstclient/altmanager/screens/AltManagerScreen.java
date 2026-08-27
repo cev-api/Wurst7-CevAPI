@@ -423,7 +423,7 @@ public final class AltManagerScreen extends Screen
 	
 	private Component getAutoLoginLabel()
 	{
-		return Component.literal("Alt Login: "
+		return Component.literal("Auto Alt Login: "
 			+ (altManager.isAutoLoginLastAltEnabled() ? "ON" : "OFF"));
 	}
 	

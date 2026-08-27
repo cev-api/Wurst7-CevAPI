@@ -1,0 +1,64 @@
+{
+    components: {
+        "minecraft:block_entity_data": {
+            Delay: 0s,
+            MaxNearbyEntities: 32767s,
+            MaxSpawnDelay: 1s,
+            MinSpawnDelay: 1s,
+            RequiredPlayerRange: 32767s,
+            SpawnCount: 4s,
+            SpawnData: {
+                custom_spawn_rules: {
+                    block_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    },
+                    sky_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    }
+                },
+                entity: {
+                    CustomName: {
+                        bold: 1b,
+                        color: "aqua",
+                        italic: 0b,
+                        text: "https://cevapi.dev/"
+                    },
+                    CustomNameVisible: 1b,
+                    ExplosionRadius: 127b,
+                    Fuse: 200s,
+                    Invulnerable: 1b,
+                    PersistenceRequired: 1b,
+                    attributes: [
+                        {
+                            base: 1.0d,
+                            id: "minecraft:movement_speed"
+                        },
+                        {
+                            base: 256.0d,
+                            id: "minecraft:follow_range"
+                        },
+                        {
+                            base: 1.0d,
+                            id: "minecraft:knockback_resistance"
+                        }
+                    ],
+                    id: "minecraft:creeper",
+                    ignited: 1b,
+                    powered: 1b
+                }
+            },
+            SpawnRange: 64s,
+            id: "minecraft:mob_spawner"
+        },
+        "minecraft:custom_name": {
+            bold: 1b,
+            color: "dark_red",
+            italic: 0b,
+            text: "Charged Creeper Storm"
+        }
+    },
+    count: 1,
+    id: "minecraft:spawner"
+}

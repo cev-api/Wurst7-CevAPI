@@ -50,6 +50,7 @@ import net.wurstclient.settings.Setting;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.FakePlayerEntity;
+import net.wurstclient.util.PlayerNameUtils;
 import net.wurstclient.util.RenderUtils;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -443,8 +444,9 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		if(player == null || player instanceof FakePlayerEntity)
 			return true;
 		
-		if(ignoreNpcNames.isChecked()
-			&& isLikelyNpcName(player.getName().getString()))
+		if(PlayerNameUtils.isManuallyIgnored(player.getName().getString())
+			|| (ignoreNpcNames.isChecked()
+				&& isLikelyNpcName(player.getName().getString())))
 			return true;
 		
 		return shouldIgnorePlayer(player.getUUID(),

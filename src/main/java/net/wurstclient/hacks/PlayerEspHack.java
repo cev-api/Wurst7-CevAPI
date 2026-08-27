@@ -66,6 +66,7 @@ import net.wurstclient.util.DisconnectContext;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.NpcUtils;
+import net.wurstclient.util.PlayerNameUtils;
 import net.wurstclient.util.PlayerRangeAlertManager;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RenderUtils.ColoredBox;
@@ -351,6 +352,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			? playerSnapshot.stream() : MC.level.players().parallelStream())
 				.filter(e -> !e.isRemoved() && e.getHealth() > 0)
 				.filter(e -> e != MC.player)
+				.filter(e -> !PlayerNameUtils
+					.isManuallyIgnored(e.getName().getString()))
 				.filter(e -> !(e instanceof FakePlayerEntity))
 				.filter(e -> Math.abs(e.getY() - MC.player.getY()) <= 1e6);
 		
@@ -1454,6 +1457,9 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 			return false;
 		
 		if(Math.abs(player.getY() - MC.player.getY()) > 1e6)
+			return false;
+		
+		if(PlayerNameUtils.isManuallyIgnored(player.getName().getString()))
 			return false;
 		
 		if(ignoreNpcs.isChecked() && isLikelyNpcPlayer(player))

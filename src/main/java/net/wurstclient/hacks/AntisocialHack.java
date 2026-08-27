@@ -105,6 +105,10 @@ public final class AntisocialHack extends Hack
 	public void onPlayerEnter(Player player,
 		PlayerRangeAlertManager.PlayerInfo info)
 	{
+		if(net.wurstclient.util.PlayerNameUtils
+			.isManuallyIgnored(info == null ? null : info.getName()))
+			return;
+		
 		if(triggered)
 			return;
 		

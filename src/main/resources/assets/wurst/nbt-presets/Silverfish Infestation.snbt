@@ -1,0 +1,64 @@
+{
+    components: {
+        "minecraft:block_entity_data": {
+            Delay: 0s,
+            MaxNearbyEntities: 32767s,
+            MaxSpawnDelay: 1s,
+            MinSpawnDelay: 1s,
+            RequiredPlayerRange: 32767s,
+            SpawnCount: 8s,
+            SpawnData: {
+                custom_spawn_rules: {
+                    block_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    },
+                    sky_light_limit: {
+                        max_inclusive: 15,
+                        min_inclusive: 0
+                    }
+                },
+                entity: {
+                    CustomName: {
+                        color: "gray",
+                        italic: 0b,
+                        text: "https://cevapi.dev/"
+                    },
+                    CustomNameVisible: 1b,
+                    PersistenceRequired: 1b,
+                    active_effects: [
+                        {
+                            ambient: 0b,
+                            amplifier: 0,
+                            duration: -1,
+                            id: "minecraft:infested",
+                            show_icon: 1b,
+                            show_particles: 1b
+                        }
+                    ],
+                    attributes: [
+                        {
+                            base: 0.45d,
+                            id: "minecraft:movement_speed"
+                        },
+                        {
+                            base: 64.0d,
+                            id: "minecraft:follow_range"
+                        }
+                    ],
+                    id: "minecraft:silverfish"
+                }
+            },
+            SpawnRange: 128s,
+            id: "minecraft:mob_spawner"
+        },
+        "minecraft:custom_name": {
+            bold: 1b,
+            color: "dark_gray",
+            italic: 0b,
+            text: "Silverfish Plague"
+        }
+    },
+    count: 1,
+    id: "minecraft:spawner"
+}

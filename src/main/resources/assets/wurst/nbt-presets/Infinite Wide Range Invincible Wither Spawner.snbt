@@ -1,0 +1,33 @@
+{
+    count: 1,
+    id: "minecraft:spawner",
+    components: {
+        "minecraft:block_entity_data": {
+            id: "minecraft:mob_spawner",
+            Delay: 0s,
+            MinSpawnDelay: 1s,
+            MaxSpawnDelay: 1s,
+            SpawnCount: 512s,
+            MaxNearbyEntities: 512s,
+            RequiredPlayerRange: 512s,
+            SpawnRange: 64s,
+            SpawnData: {
+                entity: {
+                    id: "minecraft:wither",
+                    ExplosionPower: 127b,
+                    PersistenceRequired: 1b,
+
+                    Invulnerable: 1b,
+
+                    CustomNameVisible: 1b,
+                    CustomName: {
+                        text: "https://cevapi.dev/",
+                        color: "white",
+                        bold: true,
+                        italic: false
+                    }
+                }
+            }
+        }
+    }
+}
