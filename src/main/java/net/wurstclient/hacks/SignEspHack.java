@@ -8,12 +8,15 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiPredicate;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Font.DisplayMode;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.decoration.GlowItemFrame;
@@ -21,6 +24,8 @@ import net.minecraft.world.entity.decoration.ItemFrame;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.SignBlock;
 import net.minecraft.world.level.block.StandingSignBlock;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -30,6 +35,7 @@ import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ChunkAreaSetting;
 import net.wurstclient.settings.ColorSetting;
@@ -84,6 +90,12 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		"Tracer flash", "Make tracers pulse with a smooth fade.", false);
 	private final CheckboxSetting nearestTracerOnly = new CheckboxSetting(
 		"Nearest tracer only", "Only draw the closest SignESP tracer.", false);
+	private final CheckboxSetting textOverlay =
+		new CheckboxSetting("Text overlay",
+			"Reads the sign text and displays it as a world label.", false);
+	private final SliderSetting overlayScale =
+		new SliderSetting("Overlay scale", 0.5, 0.5, 2.0, 0.05,
+			SliderSetting.ValueDisplay.DECIMAL);
 	private final BiPredicate<BlockPos, BlockState> query =
 		(pos, state) -> state.getBlock() instanceof SignBlock;
 	private final ChunkSearcherCoordinator coordinator =
@@ -113,6 +125,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		addSetting(showCountInHackList);
 		addSetting(tracerFlash);
 		addSetting(nearestTracerOnly);
+		addSetting(textOverlay);
+		addSetting(overlayScale);
 		addSetting(area);
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
@@ -258,6 +272,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 					quadsColor, false);
 				RenderUtils.drawOutlinedBoxes(matrixStack, entry.getBoxes(),
 					linesColor, false);
+				if(textOverlay.isChecked())
+					drawTextOverlay(matrixStack, entry);
 			});
 		}
 		// frames
@@ -306,6 +322,80 @@ public final class SignEspHack extends Hack implements UpdateListener,
 			RenderUtils.drawTracers("SignESP", matrixStack, partialTicks, ends,
 				color, false);
 		}
+	}
+	
+	private boolean hasText(SignText signText)
+	{
+		for(int i = 0; i < 4; i++)
+		{
+			var component = signText.getMessage(i, false);
+			if(component != null && !component.getString().isBlank())
+				return true;
+		}
+		return false;
+	}
+	
+	private void drawTextOverlay(PoseStack matrices, SignEspEntry entry)
+	{
+		if(MC.level == null || MC.player == null || MC.font == null)
+			return;
+		SignBlockEntity sign =
+			MC.level.getBlockEntity(entry.pos) instanceof SignBlockEntity s ? s
+				: null;
+		if(sign == null)
+			return;
+		SignText frontText = sign.getFrontText();
+		SignText backText = sign.getBackText();
+		boolean frontHasText = hasText(frontText);
+		boolean backHasText = hasText(backText);
+		SignText signText = frontHasText && backHasText
+			? sign.getText(sign.isFacingFrontText(MC.player))
+			: frontHasText ? frontText : backText;
+		if(!frontHasText && !backHasText)
+			return;
+		List<String> lines = new ArrayList<>();
+		for(int i = 0; i < 4; i++)
+		{
+			var component = signText.getMessage(i, false);
+			lines.add(component == null ? "" : component.getString());
+		}
+		if(lines.stream().allMatch(String::isBlank))
+			return;
+		Vec3 cam = RenderUtils.getCameraPos();
+		Vec3 pos = entry.getCenter().add(0, 0.2, 0);
+		Vec3 dir = pos.subtract(cam);
+		double dist = dir.length();
+		if(dist < 5)
+			return;
+		if(dist > 12)
+			pos = cam.add(dir.scale(12 / dist));
+		matrices.pushPose();
+		matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
+		var camera = MC.getCameraEntity();
+		if(camera != null)
+		{
+			matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
+			matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+		}
+		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		float distanceScale = (float)Math.min(1.0, (dist - 5.0) / 7.0);
+		float scale = 0.025F * overlayScale.getValueF() * distanceScale;
+		matrices.scale(scale, -scale, scale);
+		Font font = MC.font;
+		int lineHeight = font.lineHeight + 2;
+		int background =
+			(int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		DisplayMode layer =
+			NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
+		for(int i = 0; i < lines.size(); i++)
+		{
+			String line = lines.get(i);
+			int x = -font.width(line) / 2;
+			RenderUtils.drawTextInBatch(font, line, x, i * lineHeight,
+				0xFFFFFFFF, false, matrices.last().pose(), null, layer,
+				background, 0xF000F0);
+		}
+		matrices.popPose();
 	}
 	
 	private void updateGroupBoxes()
