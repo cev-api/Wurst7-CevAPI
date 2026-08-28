@@ -31,7 +31,7 @@ import net.wurstclient.util.chunk.ChunkSearcher;
 public final class GlobalToggleHack extends Hack implements UpdateListener
 {
 	private static final int HARD_GLOBAL_ESP_RENDER_LIMIT = 100_000;
-
+	
 	private final CheckboxSetting manualPlayerIgnoreEnabled =
 		new CheckboxSetting("Enable manual player/bot ignore list",
 			"Ignore these names globally in hacks that support NPC ignoring.",
@@ -179,21 +179,22 @@ public final class GlobalToggleHack extends Hack implements UpdateListener
 	{
 		if(!manualPlayerIgnoreEnabled.isChecked())
 			return false;
-		return net.wurstclient.util.PlayerNameUtils.matchesAny(manualPlayerIgnoreNames.getValue(), name);
+		return net.wurstclient.util.PlayerNameUtils
+			.matchesAny(manualPlayerIgnoreNames.getValue(), name);
 	}
-
+	
 	public CheckboxSetting getManualPlayerIgnoreEnabledSetting()
 	{
 		return manualPlayerIgnoreEnabled;
 	}
-
+	
 	public TextFieldSetting getManualPlayerIgnoreNamesSetting()
 	{
 		return manualPlayerIgnoreNames;
 	}
-
+	
 	@Override
-
+	
 	protected void onEnable()
 	{
 		setEnabled(false);

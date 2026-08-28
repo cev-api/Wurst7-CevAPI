@@ -45,6 +45,7 @@ import net.wurstclient.util.LastServerRememberer;
 import net.wurstclient.util.TitleBackgroundModeManager;
 import net.wurstclient.util.WurstColors;
 import net.wurstclient.clickgui.screens.EditColorScreen;
+
 public final class WurstOptionsScreen extends Screen
 {
 	private static final int BUTTON_HEIGHT = 18;
