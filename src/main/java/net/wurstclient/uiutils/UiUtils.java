@@ -49,6 +49,7 @@ import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.joml.Matrix3x2fStack;
 import net.minecraft.util.Mth;
 
 public final class UiUtils
@@ -76,7 +77,10 @@ public final class UiUtils
 			GLFW.GLFW_KEY_V, KeyMapping.Category.MISC));
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class,
 			new RestoreScreenHandler());
+		UiUtilsSettings.load();
+		UiUtilsVulnerablePlugins.init();
 		UiUtilsPluginScanner.init();
+		UiUtilsLegacyPluginScanner.init();
 		
 		initialized = true;
 	}
@@ -1108,6 +1112,11 @@ public final class UiUtils
 		public void onUpdate()
 		{
 			refreshQueueCounterButtons();
+			Minecraft scannerMc = Minecraft.getInstance();
+			UiUtilsServerFingerprintCollector.onClientTick(scannerMc);
+			UiUtilsPluginScanner.onTick();
+			UiUtilsLegacyPluginScanner.onTick();
+			UiUtilsCommandScanner.onTick();
 			
 			if(!UiUtilsState.isUiEnabled())
 				return;
@@ -1174,5 +1183,28 @@ public final class UiUtils
 				{}
 			}
 		}
+	}
+	
+	public static UiUtilsColoredButton styledButton(String text,
+		UiUtilsColoredButton.PressAction onPress, int x, int y, int width,
+		int height)
+	{
+		return UiUtilsColoredButton.of(x, y, width, height, text, onPress);
+	}
+	
+	public static void renderScaledCenteredText(GuiGraphicsExtractor graphics,
+		Font font, Component text, int centerX, int topY, int maxWidth,
+		int maxHeight, int color, float minScale)
+	{
+		float widthScale = maxWidth / (float)Math.max(1, font.width(text));
+		float heightScale = maxHeight / (float)Math.max(1, font.lineHeight);
+		float scale =
+			Math.max(minScale, Math.min(1F, Math.min(widthScale, heightScale)));
+		Matrix3x2fStack pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(centerX, topY);
+		pose.scale(scale, scale);
+		graphics.centeredText(font, text, 0, 0, color);
+		pose.popMatrix();
 	}
 }

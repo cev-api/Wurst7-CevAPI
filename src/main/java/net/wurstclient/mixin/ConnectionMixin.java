@@ -28,6 +28,7 @@ import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOut
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hacks.NbtFilterHack;
 import net.wurstclient.other_features.PacketFirewallOtf;
+import net.wurstclient.uiutils.UiUtilsServerFingerprintCollector;
 
 @Mixin(Connection.class)
 public abstract class ConnectionMixin
@@ -35,6 +36,16 @@ public abstract class ConnectionMixin
 {
 	private ConcurrentLinkedQueue<ConnectionPacketOutputEvent> events =
 		new ConcurrentLinkedQueue<>();
+	
+	@Inject(
+		method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
+		at = @At("HEAD"))
+	private void serverIntel$captureFingerprint(ChannelHandlerContext context,
+		Packet<?> packet, CallbackInfo ci)
+	{
+		UiUtilsServerFingerprintCollector
+			.onIncomingPacket((Connection)(Object)this, packet);
+	}
 	
 	@Inject(
 		method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
