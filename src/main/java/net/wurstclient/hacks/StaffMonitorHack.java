@@ -31,6 +31,13 @@ import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.configuration.ClientboundSelectKnownPacks;
+import net.minecraft.server.packs.repository.KnownPack;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -57,7 +64,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 @SearchTags({"staff monitor", "spectator monitor", "spectator detector",
 	"gamemode monitor", "creative monitor", "spec detector",
 	"hidden player detector", "vanish detector", "staff detector"})
-public final class StaffMonitorHack extends Hack implements UpdateListener
+public final class StaffMonitorHack extends Hack
+	implements UpdateListener, net.wurstclient.events.PacketInputListener
 {
 	private enum AlertSound
 	{
@@ -96,6 +104,16 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			return id;
 		}
 	}
+	
+	private final CheckboxSetting toastAlert = new CheckboxSetting(
+		"Toast alerts", "Shows StaffMonitor toast notifications.", true);
+	private final CheckboxSetting ignoreFriends = new CheckboxSetting(
+		"Ignore friends", "Do not monitor players on your friends list.", true);
+	
+	private final CheckboxSetting vanishDetection = new CheckboxSetting(
+		"Vanish detection",
+		"Detects staff removed from tab while the server count stays unchanged and records vanish command/pack evidence.",
+		true);
 	
 	private final CheckboxSetting chatAlert =
 		new CheckboxSetting("Chat alert", true);
@@ -193,6 +211,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	
 	private final Map<UUID, GameType> gamemodeStates = new HashMap<>();
 	private final Map<UUID, String> hiddenPlayers = new HashMap<>();
+	private final Map<UUID, String> visibleStaffPlayers = new HashMap<>();
 	private final Set<String> staffNames = new HashSet<>();
 	private final Set<String> mojangStaffNames = new HashSet<>();
 	private final Set<UUID> mojangStaffUuids = new HashSet<>();
@@ -201,6 +220,15 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	private String lastServerKey = "unknown";
 	private String savedStaffServerKey = "unknown";
 	private boolean hiddenPlayerAlertsActive;
+	private int lastObservedServerOnlineCount = -1;
+	private boolean serverHasVanish;
+	private final Map<UUID, Long> vanishCandidates =
+		Collections.synchronizedMap(new HashMap<>());
+	private final Map<UUID, Long> pendingVanishCycles =
+		Collections.synchronizedMap(new HashMap<>());
+	private final Map<UUID, Long> recentEntitySpawns =
+		Collections.synchronizedMap(new HashMap<>());
+	private final Map<UUID, String> playerNames = new HashMap<>();
 	private int staffQuitTicks = -1;
 	private String staffQuitReason;
 	
@@ -222,6 +250,9 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		super("StaffMonitor");
 		setCategory(Category.INTEL);
 		addSetting(chatAlert);
+		addSetting(toastAlert);
+		addSetting(vanishDetection);
+		addSetting(ignoreFriends);
 		addSetting(soundAlert);
 		addSetting(sound);
 		addSetting(volume);
@@ -241,6 +272,9 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		gamemodeStates.clear();
+		vanishCandidates.clear();
+		pendingVanishCycles.clear();
+		recentEntitySpawns.clear();
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		savedStaffNames.clear();
@@ -255,13 +289,18 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		if(hiddenPlayerAlertsActive)
 			snapshotHiddenPlayers();
 		EVENTS.add(UpdateListener.class, this);
+		EVENTS.add(net.wurstclient.events.PacketInputListener.class, this);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
+		EVENTS.remove(net.wurstclient.events.PacketInputListener.class, this);
 		gamemodeStates.clear();
+		vanishCandidates.clear();
+		pendingVanishCycles.clear();
+		recentEntitySpawns.clear();
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		staffNames.clear();
@@ -289,6 +328,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		if(mojangStaff.isChecked() && mojangStaffNames.isEmpty()
 			&& mojangStaffUuids.isEmpty())
 			loadMojangStaff();
+		
+		processPendingVanishCycles();
 		
 		String serverKeyNow = resolveServerKey();
 		if(!serverKeyNow.equals(lastServerKey))
@@ -321,6 +362,7 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 				continue;
 			
 			GameType currentMode = info.getGameMode();
+			playerNames.put(id, info.getProfile().name());
 			nextStates.put(id, currentMode);
 			
 			// Hidden staff alert
@@ -356,6 +398,90 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 		gamemodeStates.clear();
 		gamemodeStates.putAll(nextStates);
 		tickStaffQuit();
+	}
+	
+	@Override
+	public void onReceivedPacket(
+		net.wurstclient.events.PacketInputListener.PacketInputEvent event)
+	{
+		if(!vanishDetection.isChecked())
+			return;
+		Packet<?> packet = event.getPacket();
+		if(packet instanceof ClientboundSelectKnownPacks packs)
+		{
+			for(KnownPack pack : packs.knownPacks())
+				if((pack.namespace() + ":" + pack.id() + ":" + pack.version())
+					.toLowerCase(Locale.ROOT).contains("vanish"))
+					serverHasVanish = true;
+			return;
+		}
+		if(packet instanceof ClientboundAddEntityPacket add)
+		{
+			UUID id = add.getUUID();
+			if(id != null)
+			{
+				recentEntitySpawns.put(id, System.currentTimeMillis());
+				pendingVanishCycles.remove(id);
+			}
+			return;
+		}
+		if(packet instanceof ClientboundPlayerInfoRemovePacket removed)
+		{
+			long now = System.currentTimeMillis();
+			for(UUID id : removed.profileIds())
+			{
+				String name = playerNames.get(id);
+				if(name == null)
+					continue;
+				Long previous = vanishCandidates.put(id, now);
+				if(previous != null && now - previous < 2000)
+					continue;
+			}
+			return;
+		}
+		if(packet instanceof ClientboundPlayerInfoUpdatePacket update
+			&& update.actions()
+				.contains(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER))
+		{
+			long now = System.currentTimeMillis();
+			for(ClientboundPlayerInfoUpdatePacket.Entry entry : update
+				.entries())
+			{
+				Long removedAt = vanishCandidates.remove(entry.profileId());
+				if(removedAt == null || entry.profile() == null)
+					continue;
+				Long spawnedAt = recentEntitySpawns.get(entry.profileId());
+				if(spawnedAt != null && now - spawnedAt < 3000)
+					continue;
+				pendingVanishCycles.put(entry.profileId(), removedAt);
+			}
+		}
+	}
+	
+	private void processPendingVanishCycles()
+	{
+		long now = System.currentTimeMillis();
+		for(Map.Entry<UUID, Long> entry : new HashMap<>(pendingVanishCycles)
+			.entrySet())
+		{
+			if(now - entry.getValue() < 1500)
+				continue;
+			if(!pendingVanishCycles.remove(entry.getKey(), entry.getValue()))
+				continue;
+			String name = playerNames.get(entry.getKey());
+			if(name == null)
+				continue;
+			long seconds = Math.max(0, (now - entry.getValue()) / 1000);
+			String message =
+				name + " Vanish cycle detected (" + seconds + "s hidden"
+					+ (serverHasVanish ? ", Vanish installed" : "") + ")";
+			if(chatAlert.isChecked())
+				ChatUtils
+					.component(Component.literal("[StaffMonitor] " + message));
+			if(toastAlert.isChecked())
+				showToast(Component.literal("Vanish cycle detected"),
+					Component.literal(message));
+		}
 	}
 	
 	private void updateHiddenPlayers()
@@ -471,9 +597,22 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			|| lower.endsWith("_bot");
 	}
 	
+	private void showToast(Component title, Component message)
+	{
+		Runnable show = () -> SystemToast.add(MC.gui.toastManager(),
+			SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, message);
+		if(MC.isSameThread())
+			show.run();
+		else
+			MC.execute(show);
+	}
+	
 	private void alert(PlayerInfo info, GameType mode, boolean entered)
 	{
 		String name = info.getProfile().name();
+		if(toastAlert.isChecked())
+			showToast(Component.literal("StaffMonitor"), Component
+				.literal(info.getProfile().name() + " " + mode.getName()));
 		String modeLabel = mode.getName(); // "survival", "creative",
 											// "spectator", "adventure"
 		if(chatAlert.isChecked())
@@ -955,7 +1094,8 @@ public final class StaffMonitorHack extends Hack implements UpdateListener
 			&& name.equalsIgnoreCase(MC.getUser().getName()))
 			return true;
 		
-		return WURST.getFriends() != null && WURST.getFriends().contains(name);
+		return ignoreFriends.isChecked() && WURST.getFriends() != null
+			&& WURST.getFriends().contains(name);
 	}
 	
 	private String resolveServerKey()
