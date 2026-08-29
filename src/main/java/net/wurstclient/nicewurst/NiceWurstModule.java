@@ -117,7 +117,8 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
 				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar", "TextureRotator"));
+				"OppStats", "SimulationSonar", "TextureRotator",
+				"ServerIntel"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
@@ -125,8 +126,8 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
-				"HideModMenu", "GameStats", "ServerIntel", "UI-Utils",
-				"HideWurst", "EntityCount"));
+				"HideModMenu", "GameStats", "UI-Utils", "HideWurst",
+				"EntityCount"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",
