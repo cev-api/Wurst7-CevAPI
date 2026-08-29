@@ -37,6 +37,11 @@ import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
+import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
+import net.wurstclient.uiutils.UiUtilsCommandScanner;
+import net.wurstclient.uiutils.UiUtilsLegacyPluginScanner;
+import net.wurstclient.uiutils.UiUtilsPluginScanner;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -54,6 +59,26 @@ public abstract class ClientPacketListenerMixin
 	extends ClientCommonPacketListenerImpl
 	implements TickablePacketListener, ClientGamePacketListener
 {
+	@Inject(
+		method = "handleCommandSuggestions(Lnet/minecraft/network/protocol/game/ClientboundCommandSuggestionsPacket;)V",
+		at = @At("TAIL"))
+	private void serverIntel$onSuggestions(
+		ClientboundCommandSuggestionsPacket packet, CallbackInfo ci)
+	{
+		UiUtilsPluginScanner.onSuggestionsPacket(packet);
+		UiUtilsLegacyPluginScanner.onSuggestionsPacket(packet);
+		UiUtilsCommandScanner.onSuggestionsPacket(packet);
+	}
+	
+	@Inject(
+		method = "handleSystemChat(Lnet/minecraft/network/protocol/game/ClientboundSystemChatPacket;)V",
+		at = @At("TAIL"))
+	private void serverIntel$onSystemChat(ClientboundSystemChatPacket packet,
+		CallbackInfo ci)
+	{
+		UiUtilsCommandScanner.onSystemChat(packet.content());
+	}
+	
 	@Shadow
 	private LastSeenMessagesTracker lastSeenMessages;
 	

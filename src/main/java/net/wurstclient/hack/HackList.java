@@ -90,8 +90,7 @@ public final class HackList implements UpdateListener
 	public final PlayerMuteHack playerMuteHack = new PlayerMuteHack();
 	public final SoundMuteHack soundMuteHack = new SoundMuteHack();
 	public final CommandSpamHack commandSpamHack = new CommandSpamHack();
-	public final CommandScannerHack commandScannerHack =
-		new CommandScannerHack();
+	public final ServerIntelHack serverIntelHack = new ServerIntelHack();
 	public final AutoCompleteHack autoCompleteHack = new AutoCompleteHack();
 	public final AutoDisenchantHack autoDisenchantHack =
 		new AutoDisenchantHack();
@@ -322,8 +321,6 @@ public final class HackList implements UpdateListener
 	public final SpawnerEspHack spawnerEspHack = new SpawnerEspHack();
 	public final SourceFillHack sourceFillHack = new SourceFillHack();
 	public final SpawnRadiusHack spawnRadiusHack = new SpawnRadiusHack();
-	public final SeedMapperHelperHack seedMapperHelperHack =
-		new SeedMapperHelperHack();
 	public final ShearAuraHack shearAuraHack = new ShearAuraHack();
 	public final SignEspHack signEspHack = new SignEspHack();
 	public final ShieldSwingHack shieldSwingHack = new ShieldSwingHack();
