@@ -81,7 +81,7 @@ public final class NBTEditorHack extends Hack
 			return;
 		}
 		editorText = readHeldItem();
-		MC.gui.setScreen(new NBTEditorScreen(MC.gui.screen(), this));
+		MC.setScreen(new NBTEditorScreen(MC.screen, this));
 	}
 	
 	private void saveHeldPreset()

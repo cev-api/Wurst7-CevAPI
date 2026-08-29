@@ -1,0 +1,634 @@
+[
+  {
+    "name": "ABCAuctions",
+    "version": "1.21.11"
+  },
+  {
+    "name": "ABCVaults",
+    "version": "1.0.0"
+  },
+  {
+    "name": "AccessShulker",
+    "version": "1.0.0"
+  },
+  {
+    "name": "Advanced Shulkerboxes",
+    "version": "2.0.5"
+  },
+  {
+    "name": "AdvancedSurvival",
+    "version": "1.0"
+  },
+  {
+    "name": "ajParkour",
+    "version": "2.12.11"
+  },
+  {
+    "name": "Amai's Backpack",
+    "version": "1.0"
+  },
+  {
+    "name": "Armor Stand Tools",
+    "version": "4.4.6"
+  },
+  {
+    "name": "AtomShulkers",
+    "version": "1.20.1"
+  },
+  {
+    "name": "AuraSkills",
+    "version": "2.3.12"
+  },
+  {
+    "name": "AuthMe",
+    "version": "2.0"
+  },
+  {
+    "name": "AxPlayerWarps",
+    "version": "1.14.1"
+  },
+  {
+    "name": "AxShulkers",
+    "version": "1.19.0"
+  },
+  {
+    "name": "AxShulkers",
+    "version": "1.22.3"
+  },
+  {
+    "name": "AxShulkers",
+    "version": "1.23.1"
+  },
+  {
+    "name": "AxVaults",
+    "version": "2.11.0"
+  },
+  {
+    "name": "AzAuctionHouse",
+    "version": "1.7"
+  },
+  {
+    "name": "Backpacks & More",
+    "version": "26-OptionalPlugin-test"
+  },
+  {
+    "name": "BaloPlus",
+    "version": "1.0"
+  },
+  {
+    "name": "banco",
+    "version": "1.4.1"
+  },
+  {
+    "name": "Better Shulkers",
+    "version": "1.2.5"
+  },
+  {
+    "name": "Better Teams",
+    "version": "5.1.3"
+  },
+  {
+    "name": "Better Teams",
+    "version": "5.1.4"
+  },
+  {
+    "name": "Better Teams",
+    "version": "5.1.6"
+  },
+  {
+    "name": "BetterVanilla",
+    "version": "1.12.0"
+  },
+  {
+    "name": "Big Doors",
+    "version": "0.1.8.67"
+  },
+  {
+    "name": "Bigger Chest",
+    "version": "1.0"
+  },
+  {
+    "name": "Bigger Enderchest",
+    "version": "1.2"
+  },
+  {
+    "name": "Bigger Inventory",
+    "version": "1.0.2"
+  },
+  {
+    "name": "Bookshelf",
+    "version": "2026.1.1"
+  },
+  {
+    "name": "BowedsBounty",
+    "version": "1.0.1"
+  },
+  {
+    "name": "BsruEnderChest",
+    "version": "1.1"
+  },
+  {
+    "name": "BundleBack",
+    "version": "1.21.11"
+  },
+  {
+    "name": "Clans",
+    "version": "1.6.1"
+  },
+  {
+    "name": "CrownEconomy",
+    "version": "2.0.0"
+  },
+  {
+    "name": "CryBackpacks",
+    "version": "1.0"
+  },
+  {
+    "name": "CustomEC",
+    "version": "1.0.4"
+  },
+  {
+    "name": "CustomRecipes",
+    "version": "2.0.6.0"
+  },
+  {
+    "name": "DeathChestPro",
+    "version": "1.0.0"
+  },
+  {
+    "name": "DeluxeMenus",
+    "version": "1.14.1"
+  },
+  {
+    "name": "Donut Orders",
+    "version": "1.0.1"
+  },
+  {
+    "name": "DonutAuction - Shulker",
+    "version": "1.1"
+  },
+  {
+    "name": "DonutEC",
+    "version": "1.0"
+  },
+  {
+    "name": "DonutEnderChest",
+    "version": "1.6"
+  },
+  {
+    "name": "DonutOrder",
+    "version": "1.1.4"
+  },
+  {
+    "name": "DonutOrder",
+    "version": "Feb132026"
+  },
+  {
+    "name": "DonutOrders",
+    "version": "1.8"
+  },
+  {
+    "name": "DonutOrders",
+    "version": "1.9"
+  },
+  {
+    "name": "DonutTeams",
+    "version": "1.0"
+  },
+  {
+    "name": "DonutTools",
+    "version": "1.1-SNAPSHOT"
+  },
+  {
+    "name": "DOUBLE ENDERCHEST",
+    "version": "1.2"
+  },
+  {
+    "name": "easy shulker",
+    "version": "1.1"
+  },
+  {
+    "name": "Easy Shulkers",
+    "version": "0.0"
+  },
+  {
+    "name": "EChest Plus",
+    "version": "1.0.0"
+  },
+  {
+    "name": "EconomyShopGUI",
+    "version": "2.7.3"
+  },
+  {
+    "name": "EnderChest",
+    "version": "1.2"
+  },
+  {
+    "name": "EnderChest",
+    "version": "1.6"
+  },
+  {
+    "name": "EnderChest",
+    "version": "1.8.3"
+  },
+  {
+    "name": "EnderChest",
+    "version": "1.9"
+  },
+  {
+    "name": "EnderChestCE",
+    "version": "0.0.1"
+  },
+  {
+    "name": "EnderChestPlus",
+    "version": "1.0.0"
+  },
+  {
+    "name": "EnderChestVault",
+    "version": "1.0.0"
+  },
+  {
+    "name": "EnderEX",
+    "version": "3.0.2"
+  },
+  {
+    "name": "EnderVault",
+    "version": "0.2.0-beta"
+  },
+  {
+    "name": "EssentialsC",
+    "version": "4.1.4"
+  },
+  {
+    "name": "EssentialsX",
+    "version": "2.21.2"
+  },
+  {
+    "name": "EssentialsX",
+    "version": "2.22.0"
+  },
+  {
+    "name": "EzAuction",
+    "version": "2.1.0"
+  },
+  {
+    "name": "Fadah",
+    "version": "3.2.1"
+  },
+  {
+    "name": "FastShulker",
+    "version": "1.0.4"
+  },
+  {
+    "name": "Graveyard's",
+    "version": "1.0"
+  },
+  {
+    "name": "Hand Shulker",
+    "version": "0.1.a2.1"
+  },
+  {
+    "name": "HavenBags",
+    "version": "1.39.3.2683"
+  },
+  {
+    "name": "Kix's Simple Backpacks",
+    "version": "1.0.9"
+  },
+  {
+    "name": "Large Ender Chest",
+    "version": "1.1.7"
+  },
+  {
+    "name": "LeafInventory",
+    "version": "3.0.1"
+  },
+  {
+    "name": "LifeSteal",
+    "version": "3"
+  },
+  {
+    "name": "LifeSteal SMP Plugin",
+    "version": "3.1.0"
+  },
+  {
+    "name": "LifeWars",
+    "version": "0.1.7"
+  },
+  {
+    "name": "LilBackPacks",
+    "version": "2.2.0"
+  },
+  {
+    "name": "LiteEco",
+    "version": "1.7.5"
+  },
+  {
+    "name": "Little Helper",
+    "version": "1.0"
+  },
+  {
+    "name": "LsEnderChest",
+    "version": "1.1.0"
+  },
+  {
+    "name": "MaceLimiter",
+    "version": "1.5.0"
+  },
+  {
+    "name": "mcMMO",
+    "version": "2.2.053"
+  },
+  {
+    "name": "Movecraft",
+    "version": "8.0.0_beta-3"
+  },
+  {
+    "name": "MY Backpack",
+    "version": "2.0"
+  },
+  {
+    "name": "NoobShulkerBoxes",
+    "version": "1.0.2"
+  },
+  {
+    "name": "NXVAULT",
+    "version": "1.1"
+  },
+  {
+    "name": "OGAuction",
+    "version": "1.0.0"
+  },
+  {
+    "name": "OpenShulk",
+    "version": "1.2.0"
+  },
+  {
+    "name": "OpenShulker",
+    "version": "1.3.0"
+  },
+  {
+    "name": "PeacefulAuction",
+    "version": "1.2"
+  },
+  {
+    "name": "Pet Horse",
+    "version": "2.0.5"
+  },
+  {
+    "name": "PlayerMarketGUI",
+    "version": "1.0.0"
+  },
+  {
+    "name": "PlayerMarketGUI",
+    "version": "1.6.0"
+  },
+  {
+    "name": "PlayerShop",
+    "version": "2.1.6"
+  },
+  {
+    "name": "PlayerVaults",
+    "version": "1.1.1"
+  },
+  {
+    "name": "PlayerVaults",
+    "version": "1.8.4"
+  },
+  {
+    "name": "PlayerVaultsX",
+    "version": "1.0.1"
+  },
+  {
+    "name": "PlayerVaultZ",
+    "version": "1.1.0"
+  },
+  {
+    "name": "Pocket Shulker",
+    "version": "1.0.2"
+  },
+  {
+    "name": "PowerfulBackpacks",
+    "version": "1.2.0"
+  },
+  {
+    "name": "PrisonVaults",
+    "version": "1.1.4"
+  },
+  {
+    "name": "Private Vault",
+    "version": "0.0.7"
+  },
+  {
+    "name": "PrivateVaults",
+    "version": "1.2.1"
+  },
+  {
+    "name": "PrivateVaults",
+    "version": "1.2.2"
+  },
+  {
+    "name": "pVaults",
+    "version": "1.0.3"
+  },
+  {
+    "name": "QuantumEconomy",
+    "version": "1.0.0"
+  },
+  {
+    "name": "QuantumOrders",
+    "version": "1.0.0"
+  },
+  {
+    "name": "QuickShop-Hikari",
+    "version": "6.2.0.8"
+  },
+  {
+    "name": "Ranked SMP",
+    "version": "2.1"
+  },
+  {
+    "name": "RoseStacker",
+    "version": "1.5.38"
+  },
+  {
+    "name": "RoseStacker",
+    "version": "1.5.40"
+  },
+  {
+    "name": "rShulkers",
+    "version": "1.0"
+  },
+  {
+    "name": "Secure Shulkers",
+    "version": "1.0"
+  },
+  {
+    "name": "Shulker Plus",
+    "version": "1.4"
+  },
+  {
+    "name": "Shulker Plus",
+    "version": "1.8"
+  },
+  {
+    "name": "Shulker Plus",
+    "version": "1.9"
+  },
+  {
+    "name": "Shulker Plus",
+    "version": "2.0"
+  },
+  {
+    "name": "Shulker Plus",
+    "version": "2.1"
+  },
+  {
+    "name": "ShulkerPackX",
+    "version": "1.8.1.157"
+  },
+  {
+    "name": "Shulkers from Inv",
+    "version": "1.0-SNAPSHOT"
+  },
+  {
+    "name": "SilkSpawners",
+    "version": "2.3.2"
+  },
+  {
+    "name": "Skript Enderchest",
+    "version": "1.0"
+  },
+  {
+    "name": "Storage Plugin",
+    "version": "1.3"
+  },
+  {
+    "name": "Strength SMP S1",
+    "version": "1.1"
+  },
+  {
+    "name": "SunShulkers",
+    "version": "1.0.6"
+  },
+  {
+    "name": "SunShulkers",
+    "version": "1.0.7"
+  },
+  {
+    "name": "Super Shop",
+    "version": "v3.0.0"
+  },
+  {
+    "name": "Teams",
+    "version": "4.0.2"
+  },
+  {
+    "name": "TH_Backpacks",
+    "version": "1.0.5"
+  },
+  {
+    "name": "The New Economy",
+    "version": "0.1.4.0"
+  },
+  {
+    "name": "TopMinions",
+    "version": "2.6.1"
+  },
+  {
+    "name": "TradeSpire",
+    "version": "1.3-2"
+  },
+  {
+    "name": "Ultimate playervaults",
+    "version": "1.4.3"
+  },
+  {
+    "name": "Ultimate Teams",
+    "version": "4.8.4"
+  },
+  {
+    "name": "Ultimate Teams",
+    "version": "5.0"
+  },
+  {
+    "name": "UltimateDonutSMP",
+    "version": "1.3"
+  },
+  {
+    "name": "UltimateDonutSMP",
+    "version": "1.4.1"
+  },
+  {
+    "name": "UltimateDonutSMP",
+    "version": "ALL"
+  },
+  {
+    "name": "UltimateShulker",
+    "version": "1.0.0"
+  },
+  {
+    "name": "UltraCoinFlip",
+    "version": "3.18.3"
+  },
+  {
+    "name": "UpgradeMyDog",
+    "version": "1.2"
+  },
+  {
+    "name": "Vault",
+    "version": "1.7.0"
+  },
+  {
+    "name": "Vaults",
+    "version": "1.3"
+  },
+  {
+    "name": "Vaults",
+    "version": "1.5"
+  },
+  {
+    "name": "Vaults Skript",
+    "version": "1.1"
+  },
+  {
+    "name": "VaultsPlus",
+    "version": "1.1"
+  },
+  {
+    "name": "Virtual Chests",
+    "version": "1.1.0"
+  },
+  {
+    "name": "Virtual Storage",
+    "version": "1.0"
+  },
+  {
+    "name": "VirtualSpawner",
+    "version": "7.2.0-rc-2"
+  },
+  {
+    "name": "VirtualStorages",
+    "version": "1.4.0.0"
+  },
+  {
+    "name": "Vouchers",
+    "version": "4.5.0"
+  },
+  {
+    "name": "VShulker",
+    "version": "1.6"
+  },
+  {
+    "name": "Xiaoklunar Shulker",
+    "version": "1.0.10"
+  },
+  {
+    "name": "XShulkerClick",
+    "version": "2026-01-31"
+  },
+  {
+    "name": "zAuctionHouse",
+    "version": "4.0.0.4"
+  }
+]

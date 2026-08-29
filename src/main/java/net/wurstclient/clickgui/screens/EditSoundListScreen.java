@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
@@ -68,7 +68,7 @@ public final class EditSoundListScreen extends Screen
 				.bounds(width / 2 - 30, height - 28, 65, 20).build());
 		addRenderableWidget(Button.builder(Component.literal("Done"), b -> {
 			apply();
-			minecraft.gui.setScreen(previous);
+			minecraft.setScreen(previous);
 		}).bounds(width / 2 + 40, height - 28, 65, 20).build());
 		addRenderableWidget(Button.builder(Component.literal("Clear"), b -> {
 			pending.clear();
@@ -122,15 +122,15 @@ public final class EditSoundListScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		list.extractRenderState(context, mouseX, mouseY, partialTicks);
-		context.centeredText(minecraft.font,
+		list.render(context, mouseX, mouseY, partialTicks);
+		context.drawCenteredString(minecraft.font,
 			"Muted sounds (" + pending.size() + ")", width / 2, 12,
 			CommonColors.WHITE);
 		for(Renderable drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -138,7 +138,7 @@ public final class EditSoundListScreen extends Screen
 	{
 		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
-			minecraft.gui.setScreen(previous);
+			minecraft.setScreen(previous);
 			return true;
 		}
 		if(context.key() == GLFW.GLFW_KEY_ENTER && toggle != null)
@@ -178,14 +178,15 @@ public final class EditSoundListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX(), y = getContentY();
 			boolean muted = pending.contains(id);
-			context.text(minecraft.font, muted ? "[x]" : "[ ]", x + 4, y + 5,
-				muted ? CommonColors.GREEN : CommonColors.LIGHT_GRAY, false);
-			context.text(minecraft.font, id.toString(), x + 28, y + 5,
+			context.drawString(minecraft.font, muted ? "[x]" : "[ ]", x + 4,
+				y + 5, muted ? CommonColors.GREEN : CommonColors.LIGHT_GRAY,
+				false);
+			context.drawString(minecraft.font, id.toString(), x + 28, y + 5,
 				CommonColors.WHITE, false);
 		}
 		

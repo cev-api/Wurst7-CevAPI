@@ -13,7 +13,7 @@ import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -63,10 +63,12 @@ public final class ForceOPSignHack extends Hack
 			.set(DataComponents.BLOCK_ENTITY_DATA, createEntityData()).build());
 		int slot = 36 + MC.player.getInventory().getSelectedSlot();
 		MC.gameMode.handleCreativeModeItemAdd(stack, slot);
-		MC.gameMode.handleContainerInput(MC.player.containerMenu.containerId,
-			slot, 0, ContainerInput.PICKUP, MC.player);
-		MC.gameMode.handleContainerInput(MC.player.containerMenu.containerId,
-			slot, 0, ContainerInput.PICKUP, MC.player);
+		MC.gameMode.handleInventoryMouseClick(
+			MC.player.containerMenu.containerId, slot, 0, ClickType.PICKUP,
+			MC.player);
+		MC.gameMode.handleInventoryMouseClick(
+			MC.player.containerMenu.containerId, slot, 0, ClickType.PICKUP,
+			MC.player);
 		setEnabled(false);
 	}
 	

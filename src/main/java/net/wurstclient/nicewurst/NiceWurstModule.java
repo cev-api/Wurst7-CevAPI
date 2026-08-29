@@ -125,8 +125,8 @@ public final class NiceWurstModule
 		
 		ALLOWED_HACKS.put(Category.TOOLS,
 			Set.of("AntiCheatDetect", "CheatDetector", "PacketRate",
-				"SeedMapperHelper", "HideModMenu", "GameStats",
-				"CommandScanner", "UI-Utils", "HideWurst", "EntityCount"));
+				"HideModMenu", "GameStats", "ServerIntel", "UI-Utils",
+				"HideWurst", "EntityCount"));
 		
 		ALLOWED_HACKS.put(Category.OTHER,
 			Set.of("AntiAFK", "Antisocial", "AutoFish", "AutoLibrarian",

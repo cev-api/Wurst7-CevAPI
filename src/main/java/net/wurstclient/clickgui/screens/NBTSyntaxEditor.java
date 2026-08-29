@@ -11,7 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractTextAreaWidget;
 import net.minecraft.client.gui.components.MultilineTextField;
 import net.minecraft.client.input.CharacterEvent;
@@ -34,8 +34,7 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	
 	public NBTSyntaxEditor(Font font, int x, int y, int width, int height)
 	{
-		super(x, y, width, height, Component.literal("NBT"), defaultSettings(9),
-			true, true);
+		super(x, y, width, height, Component.literal("NBT"), true, true);
 		this.font = font;
 		textField = new MultilineTextField(font, Math.max(1, width - 18));
 		textField.setCharacterLimit(Integer.MAX_VALUE);
@@ -109,8 +108,14 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	}
 	
 	@Override
-	protected void extractContents(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	protected double scrollRate()
+	{
+		return 9;
+	}
+	
+	@Override
+	protected void renderContents(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
 		int left = getInnerLeft();
 		int top = getInnerTop() - (int)scrollAmount();
@@ -127,7 +132,7 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 				if(y + 9 >= getY() && y <= getBottom())
 					renderLine(context, text, left, y);
 				if(isFoldable(text))
-					context.text(font,
+					context.drawString(font,
 						collapsedLines.contains(line) ? "+" : "-", getX() + 3,
 						y, 0xFF8A9BA8);
 			}
@@ -143,7 +148,7 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 		context.disableScissor();
 	}
 	
-	private void renderCursor(GuiGraphicsExtractor context, int left, int top,
+	private void renderCursor(GuiGraphics context, int left, int top,
 		int visualLines)
 	{
 		int line = textField.getLineAtCursor();
@@ -170,8 +175,7 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 			left + font.width(prefix) + 1, y + 9, 0xFFE8E8E8);
 	}
 	
-	private void renderLine(GuiGraphicsExtractor context, String line, int x,
-		int y)
+	private void renderLine(GuiGraphics context, String line, int x, int y)
 	{
 		int cursor = 0;
 		while(cursor < line.length())
@@ -192,13 +196,13 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 				String token = line.substring(cursor, end);
 				int color = end < line.length() && line.charAt(end) == ':'
 					? 0xFF7DD3FC : 0xFFA7F3D0;
-				context.text(font, token, x, y, color);
+				context.drawString(font, token, x, y, color);
 				x += font.width(token);
 				cursor = end;
 			}else if("{}[],:".indexOf(c) >= 0)
 			{
 				String token = String.valueOf(c);
-				context.text(font, token, x, y, 0xFFFF8A26);
+				context.drawString(font, token, x, y, 0xFFFF8A26);
 				x += font.width(token);
 				cursor++;
 			}else if(Character.isDigit(c) || c == '-')
@@ -209,12 +213,12 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 					&& "{}[],:".indexOf(line.charAt(end)) < 0)
 					end++;
 				String token = line.substring(cursor, end);
-				context.text(font, token, x, y, 0xFFF2C26B);
+				context.drawString(font, token, x, y, 0xFFF2C26B);
 				x += font.width(token);
 				cursor = end;
 			}else
 			{
-				context.text(font, String.valueOf(c), x, y, 0xFFD7DEE8);
+				context.drawString(font, String.valueOf(c), x, y, 0xFFD7DEE8);
 				x += font.width(String.valueOf(c));
 				cursor++;
 			}

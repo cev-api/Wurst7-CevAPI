@@ -599,7 +599,7 @@ public final class StaffMonitorHack extends Hack
 	
 	private void showToast(Component title, Component message)
 	{
-		Runnable show = () -> SystemToast.add(MC.gui.toastManager(),
+		Runnable show = () -> SystemToast.add(MC.getToastManager(),
 			SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, message);
 		if(MC.isSameThread())
 			show.run();

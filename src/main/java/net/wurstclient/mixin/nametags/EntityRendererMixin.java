@@ -36,7 +36,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	 * Disables the nametag distance limit if configured in NameTags.
 	 */
 	@WrapOperation(
-		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+		method = "render(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;distanceToSqr(Lnet/minecraft/world/entity/Entity;)D"))
 	private double fakeSquaredDistanceToCamera(
@@ -57,7 +57,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	 * might rely on it.
 	 */
 	@Inject(
-		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+		method = "render(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
 		at = @At("TAIL"))
 	private void restoreSquaredDistanceToCamera(T entity, S state,
 		float tickDelta, CallbackInfo ci,
@@ -73,7 +73,7 @@ public abstract class EntityRendererMixin<T extends Entity, S extends EntityRend
 	 * HealthTags is disabled.
 	 */
 	@Inject(
-		method = "extractRenderState(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
+		method = "render(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/client/renderer/entity/state/EntityRenderState;F)V",
 		at = @At("TAIL"))
 	private void addHealthToDisplayName(T entity, S state, float tickProgress,
 		CallbackInfo ci)

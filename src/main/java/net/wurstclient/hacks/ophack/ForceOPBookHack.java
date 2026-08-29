@@ -17,7 +17,7 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.network.Filterable;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.WrittenBookContent;
@@ -81,10 +81,12 @@ public final class ForceOPBookHack extends Hack
 		
 		int slot = 36 + MC.player.getInventory().getSelectedSlot();
 		MC.gameMode.handleCreativeModeItemAdd(stack, slot);
-		MC.gameMode.handleContainerInput(MC.player.containerMenu.containerId,
-			slot, 0, ContainerInput.PICKUP, MC.player);
-		MC.gameMode.handleContainerInput(MC.player.containerMenu.containerId,
-			slot, 0, ContainerInput.PICKUP, MC.player);
+		MC.gameMode.handleInventoryMouseClick(
+			MC.player.containerMenu.containerId, slot, 0, ClickType.PICKUP,
+			MC.player);
+		MC.gameMode.handleInventoryMouseClick(
+			MC.player.containerMenu.containerId, slot, 0, ClickType.PICKUP,
+			MC.player);
 		setEnabled(false);
 	}
 }

@@ -28,7 +28,6 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.event.EventManager;
 import net.wurstclient.events.ChatInputListener.ChatInputEvent;
 import net.wurstclient.hud.ClientMessageOverlay;
-import net.wurstclient.hacks.PlayerMuteHack;
 import net.wurstclient.hacks.NoPlayerChatHack;
 
 @Mixin(ChatComponent.class)

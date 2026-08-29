@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.MultiLineEditBox;
@@ -99,7 +99,7 @@ public final class NBTEditorScreen extends Screen
 		addRenderableWidget(button("Save preset", presetStart + 225, presetY,
 			b -> savePreset()));
 		addRenderableWidget(button("Manage presets", presetStart + 348, presetY,
-			b -> minecraft.gui.setScreen(new NBTPresetListScreen(this, hack))));
+			b -> minecraft.setScreen(new NBTPresetListScreen(this, hack))));
 		requestValidation();
 	}
 	
@@ -225,7 +225,7 @@ public final class NBTEditorScreen extends Screen
 	private void close()
 	{
 		hack.setEnabled(false);
-		minecraft.gui.setScreen(previous);
+		minecraft.setScreen(previous);
 	}
 	
 	@Override
@@ -245,15 +245,15 @@ public final class NBTEditorScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		context.centeredText(font, "NBT Editor", width / 2, 14,
+		context.drawCenteredString(font, "NBT Editor", width / 2, 14,
 			CommonColors.WHITE);
-		context.centeredText(font,
+		context.drawCenteredString(font,
 			"Large SNBT editor. Ctrl+V pastes, mouse wheel scrolls, Ctrl+Enter applies.",
 			width / 2, 26, 0xAAAAAA);
-		super.extractRenderState(context, mouseX, mouseY, partialTicks);
+		super.render(context, mouseX, mouseY, partialTicks);
 		int statusWidth = Math.min(1050, Math.max(420, width - 260));
 		int statusLeft = (width - statusWidth) / 2;
 		context.fill(statusLeft, validationY - 3, statusLeft + statusWidth,
@@ -262,11 +262,11 @@ public final class NBTEditorScreen extends Screen
 			validationY - 2, 0xFF4B5563);
 		int color =
 			validationStatus.startsWith("Ready") ? 0xFF86EFAC : 0xFFFF8A8A;
-		context.centeredText(font, validationStatus, width / 2, validationY,
-			color);
+		context.drawCenteredString(font, validationStatus, width / 2,
+			validationY, color);
 		if(!operationStatus.isEmpty())
-			context.centeredText(font, shortStatus(operationStatus), width / 2,
-				validationY + 11, 0xFFE2E8F0);
+			context.drawCenteredString(font, shortStatus(operationStatus),
+				width / 2, validationY + 11, 0xFFE2E8F0);
 	}
 	
 	@Override

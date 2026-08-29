@@ -77,7 +77,7 @@ public final class SelectFileScreen extends Screen
 		if(path == null)
 			return;
 		setting.deleteFile("" + path.getFileName());
-		minecraft.gui.setScreen(new SelectFileScreen(prevScreen, setting));
+		minecraft.setScreen(new SelectFileScreen(prevScreen, setting));
 	}
 	
 	private void openFolder()

@@ -82,8 +82,6 @@ public final class CmdList
 	public final PresetCmd presetCmd = new PresetCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
 	public final NoGoZoneCmd noGoZoneCmd = new NoGoZoneCmd();
-	public final SeedMapperHelperCmd seedMapperHelperCmd =
-		new SeedMapperHelperCmd();
 	public final TCmd tCmd = new TCmd();
 	public final TargetPlaceCmd targetPlaceCmd = new TargetPlaceCmd();
 	public final net.wurstclient.commands.ItemHandlerCmd itemHandlerCmd =

@@ -26,7 +26,7 @@ public final class SoundListEditButton extends AbstractListEditButton
 	@Override
 	protected void openScreen()
 	{
-		MC.gui.setScreen(new EditSoundListScreen(MC.gui.screen(), setting));
+		MC.setScreen(new EditSoundListScreen(MC.screen, setting));
 	}
 	
 	@Override

@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.gui.screens.Screen;
@@ -85,13 +85,13 @@ public final class NBTPresetListScreen extends Screen
 		if(name == null)
 			return;
 		hack.deletePreset(name);
-		minecraft.gui.setScreen(
+		minecraft.setScreen(
 			new NBTPresetListScreen(returnScreen, hack, loadCallback));
 	}
 	
 	private void done()
 	{
-		minecraft.gui.setScreen(returnScreen);
+		minecraft.setScreen(returnScreen);
 	}
 	
 	@Override
@@ -117,14 +117,14 @@ public final class NBTPresetListScreen extends Screen
 	}
 	
 	@Override
-	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
-		int mouseY, float partialTicks)
+	public void render(GuiGraphics context, int mouseX, int mouseY,
+		float partialTicks)
 	{
-		list.extractRenderState(context, mouseX, mouseY, partialTicks);
-		context.centeredText(font, "NBT Presets", width / 2, 12,
+		list.render(context, mouseX, mouseY, partialTicks);
+		context.drawCenteredString(font, "NBT Presets", width / 2, 12,
 			CommonColors.WHITE);
 		for(var drawable : renderables)
-			drawable.extractRenderState(context, mouseX, mouseY, partialTicks);
+			drawable.render(context, mouseX, mouseY, partialTicks);
 	}
 	
 	@Override
@@ -155,14 +155,14 @@ public final class NBTPresetListScreen extends Screen
 		}
 		
 		@Override
-		public void extractContent(GuiGraphicsExtractor context, int mouseX,
-			int mouseY, boolean hovered, float tickDelta)
+		public void renderContent(GuiGraphics context, int mouseX, int mouseY,
+			boolean hovered, float tickDelta)
 		{
 			int x = getContentX(), y = getContentY();
 			Font f = minecraft.font;
-			context.text(f, name + ".snbt", x + 12, y,
+			context.drawString(f, name + ".snbt", x + 12, y,
 				WurstColors.VERY_LIGHT_GRAY);
-			context.text(f, "wurst/nbt-presets/" + name + ".snbt", x + 12,
+			context.drawString(f, "wurst/nbt-presets/" + name + ".snbt", x + 12,
 				y + 9, CommonColors.LIGHT_GRAY);
 		}
 	}
