@@ -7,7 +7,6 @@
  */
 package net.wurstclient.commands;
 
-import net.wurstclient.Category;
 import net.wurstclient.command.CmdException;
 import net.wurstclient.command.CmdSyntaxError;
 import net.wurstclient.command.Command;
@@ -20,7 +19,6 @@ public final class PlayerMuteCmd extends Command
 	{
 		super("mute", "Mutes or unmutes a player's chat messages.",
 			".mute <player>", ".mute unmute <player>", ".mute list");
-		setCategory(Category.CHAT);
 	}
 	
 	@Override

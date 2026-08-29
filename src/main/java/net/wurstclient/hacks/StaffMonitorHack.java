@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -112,7 +113,19 @@ public final class StaffMonitorHack extends Hack
 	
 	private final CheckboxSetting vanishDetection = new CheckboxSetting(
 		"Vanish detection",
-		"Detects staff removed from tab while the server count stays unchanged and records vanish command/pack evidence.",
+		"Detects probable vanish cycles after filtering tab-list rotations and player initialization.",
+		true);
+	private final CheckboxSetting vanishKnownStaffOnly = new CheckboxSetting(
+		"Vanish: known ops only",
+		"Only tracks players in StaffMonitor's saved, configured, or bundled staff lists.",
+		true);
+	private final SliderSetting vanishPlayerLimit = new SliderSetting(
+		"Vanish player limit",
+		"Disables vanish-cycle detection when the server advertises or shows this many players. Set to 0 or Infinite (after 1000) to disable the limit.",
+		20, 0, 1001, 1, ValueDisplay.INTEGER.withLabel(1001, "Infinite"));
+	private final CheckboxSetting suppressTabRotations = new CheckboxSetting(
+		"Suppress tab rotations",
+		"Ignores balanced add/remove player-info batches, which servers commonly use to rotate a synthetic tab list.",
 		true);
 	
 	private final CheckboxSetting chatAlert =
@@ -228,6 +241,8 @@ public final class StaffMonitorHack extends Hack
 		Collections.synchronizedMap(new HashMap<>());
 	private final Map<UUID, Long> recentEntitySpawns =
 		Collections.synchronizedMap(new HashMap<>());
+	private final List<PlayerInfoEvent> pendingPlayerInfoEvents =
+		Collections.synchronizedList(new ArrayList<>());
 	private final Map<UUID, String> playerNames = new HashMap<>();
 	private int staffQuitTicks = -1;
 	private String staffQuitReason;
@@ -252,6 +267,9 @@ public final class StaffMonitorHack extends Hack
 		addSetting(chatAlert);
 		addSetting(toastAlert);
 		addSetting(vanishDetection);
+		addSetting(vanishKnownStaffOnly);
+		addSetting(vanishPlayerLimit);
+		addSetting(suppressTabRotations);
 		addSetting(ignoreFriends);
 		addSetting(soundAlert);
 		addSetting(sound);
@@ -275,6 +293,8 @@ public final class StaffMonitorHack extends Hack
 		vanishCandidates.clear();
 		pendingVanishCycles.clear();
 		recentEntitySpawns.clear();
+		pendingPlayerInfoEvents.clear();
+		serverHasVanish = false;
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		savedStaffNames.clear();
@@ -301,6 +321,8 @@ public final class StaffMonitorHack extends Hack
 		vanishCandidates.clear();
 		pendingVanishCycles.clear();
 		recentEntitySpawns.clear();
+		pendingPlayerInfoEvents.clear();
+		serverHasVanish = false;
 		hiddenPlayers.clear();
 		alertedStaff.clear();
 		staffNames.clear();
@@ -329,6 +351,7 @@ public final class StaffMonitorHack extends Hack
 			&& mojangStaffUuids.isEmpty())
 			loadMojangStaff();
 		
+		processPlayerInfoEvents();
 		processPendingVanishCycles();
 		
 		String serverKeyNow = resolveServerKey();
@@ -337,6 +360,10 @@ public final class StaffMonitorHack extends Hack
 			gamemodeStates.clear();
 			hiddenPlayers.clear();
 			alertedStaff.clear();
+			vanishCandidates.clear();
+			pendingVanishCycles.clear();
+			pendingPlayerInfoEvents.clear();
+			serverHasVanish = false;
 			lastServerKey = serverKeyNow;
 			savedStaffServerKey = resolveStorageServerKey();
 			hiddenPlayerAlertsActive = hiddenPlayerAlerts.isChecked();
@@ -415,46 +442,146 @@ public final class StaffMonitorHack extends Hack
 					serverHasVanish = true;
 			return;
 		}
+		long now = System.currentTimeMillis();
 		if(packet instanceof ClientboundAddEntityPacket add)
 		{
 			UUID id = add.getUUID();
 			if(id != null)
 			{
-				recentEntitySpawns.put(id, System.currentTimeMillis());
+				recentEntitySpawns.put(id, now);
 				pendingVanishCycles.remove(id);
 			}
 			return;
 		}
 		if(packet instanceof ClientboundPlayerInfoRemovePacket removed)
 		{
-			long now = System.currentTimeMillis();
 			for(UUID id : removed.profileIds())
-			{
-				String name = playerNames.get(id);
-				if(name == null)
-					continue;
-				Long previous = vanishCandidates.put(id, now);
-				if(previous != null && now - previous < 2000)
-					continue;
-			}
+				pendingPlayerInfoEvents.add(
+					new PlayerInfoEvent(id, playerNames.get(id), false, now));
 			return;
 		}
 		if(packet instanceof ClientboundPlayerInfoUpdatePacket update
 			&& update.actions()
 				.contains(ClientboundPlayerInfoUpdatePacket.Action.ADD_PLAYER))
-		{
-			long now = System.currentTimeMillis();
 			for(ClientboundPlayerInfoUpdatePacket.Entry entry : update
 				.entries())
 			{
-				Long removedAt = vanishCandidates.remove(entry.profileId());
-				if(removedAt == null || entry.profile() == null)
+				if(entry.profile() == null)
 					continue;
-				Long spawnedAt = recentEntitySpawns.get(entry.profileId());
-				if(spawnedAt != null && now - spawnedAt < 3000)
-					continue;
-				pendingVanishCycles.put(entry.profileId(), removedAt);
+				String name = entry.profile().name();
+				playerNames.put(entry.profileId(), name);
+				pendingPlayerInfoEvents.add(
+					new PlayerInfoEvent(entry.profileId(), name, true, now));
 			}
+	}
+	
+	private void processPlayerInfoEvents()
+	{
+		long now = System.currentTimeMillis();
+		List<PlayerInfoEvent> ready = new ArrayList<>();
+		synchronized(pendingPlayerInfoEvents)
+		{
+			for(int i = pendingPlayerInfoEvents.size() - 1; i >= 0; i--)
+			{
+				PlayerInfoEvent event = pendingPlayerInfoEvents.get(i);
+				if(now - event.timestamp < 125)
+					continue;
+				ready.add(0, event);
+				pendingPlayerInfoEvents.remove(i);
+			}
+		}
+		for(int start = 0; start < ready.size();)
+		{
+			long batchStart = ready.get(start).timestamp;
+			int end = start + 1;
+			while(end < ready.size()
+				&& ready.get(end).timestamp - batchStart <= 125)
+				end++;
+			processPlayerInfoBatch(ready.subList(start, end), now);
+			start = end;
+		}
+	}
+	
+	private void processPlayerInfoBatch(List<PlayerInfoEvent> batch, long now)
+	{
+		Set<UUID> added = new HashSet<>();
+		Set<UUID> removed = new HashSet<>();
+		for(PlayerInfoEvent event : batch)
+			if(event.added)
+				added.add(event.id);
+			else
+				removed.add(event.id);
+			
+		boolean initialization = !Collections.disjoint(added, removed);
+		for(UUID id : added)
+		{
+			Long spawnedAt = recentEntitySpawns.get(id);
+			if(spawnedAt != null && now - spawnedAt < 1500)
+				initialization = true;
+		}
+		boolean rotation = suppressTabRotations.isChecked() && !added.isEmpty()
+			&& !removed.isEmpty()
+			&& Math.abs(added.size() - removed.size()) <= 1;
+		if(initialization || rotation)
+		{
+			for(UUID id : added)
+				vanishCandidates.remove(id);
+			for(UUID id : removed)
+				vanishCandidates.remove(id);
+			return;
+		}
+		
+		for(PlayerInfoEvent event : batch)
+		{
+			if(!shouldTrackVanish(event.id, event.name))
+				continue;
+			if(!event.added)
+			{
+				vanishCandidates.put(event.id, event.timestamp);
+				continue;
+			}
+			Long removedAt = vanishCandidates.remove(event.id);
+			if(removedAt == null)
+				continue;
+			Long spawnedAt = recentEntitySpawns.get(event.id);
+			if(spawnedAt == null || now - spawnedAt >= 1500)
+				pendingVanishCycles.put(event.id, removedAt);
+		}
+	}
+	
+	private boolean shouldTrackVanish(UUID id, String name)
+	{
+		int limit = vanishPlayerLimit.getValueI();
+		if(limit > 0 && limit <= 1000 && getObservedPlayerCount() >= limit)
+			return false;
+		return !vanishKnownStaffOnly.isChecked() || isStaff(id, name);
+	}
+	
+	private int getObservedPlayerCount()
+	{
+		if(MC.getConnection() == null)
+			return 0;
+		int count = MC.getConnection().getOnlinePlayers().size();
+		ServerData server = MC.getCurrentServer();
+		if(server != null && server.players != null)
+			count = Math.max(count, server.players.online());
+		return count;
+	}
+	
+	private static final class PlayerInfoEvent
+	{
+		private final UUID id;
+		private final String name;
+		private final boolean added;
+		private final long timestamp;
+		
+		private PlayerInfoEvent(UUID id, String name, boolean added,
+			long timestamp)
+		{
+			this.id = id;
+			this.name = name;
+			this.added = added;
+			this.timestamp = timestamp;
 		}
 	}
 	
