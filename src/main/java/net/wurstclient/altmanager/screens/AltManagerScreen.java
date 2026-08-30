@@ -518,8 +518,25 @@ public final class AltManagerScreen extends Screen
 		{
 			errorTimer = 8;
 			recordLoginFailure(alt, e);
+			if(canRefreshAccessToken(alt, e))
+			{
+				minecraft.setScreen(new RefreshAccessTokenScreen(this,
+					altManager, (TokenAlt)alt, this::doLogin));
+				return;
+			}
+			
 			minecraft.setScreen(new AltLoginFailedScreen(this, e.getMessage()));
 		}
+	}
+	
+	private boolean canRefreshAccessToken(Alt alt, LoginException exception)
+	{
+		if(!(alt instanceof TokenAlt tokenAlt)
+			|| !tokenAlt.getRefreshToken().isEmpty() || exception == null)
+			return false;
+		
+		String message = exception.getMessage();
+		return message != null && message.contains("401");
 	}
 	
 	private void pressLoginRandom()
@@ -1832,14 +1849,19 @@ public final class AltManagerScreen extends Screen
 		IOException error)
 	{
 		exportInProgress = false;
+		String result;
 		if(error != null)
-			importStatus = "Access-token export failed: " + error.getMessage();
+			result = "Access-token export failed: " + error.getMessage();
 		else
-			importStatus = "Exported " + exported + " fresh access token"
+			result = "Exported " + exported + " fresh access token"
 				+ (exported == 1 ? "" : "s")
 				+ (failures == 0 ? "." : " (" + failures + " failed).");
 		
+		importStatus = "";
 		updateAltButtons();
+		minecraft.setScreen(new AlertScreen(() -> minecraft.setScreen(this),
+			Component.literal("Access-token export"), Component.literal(result),
+			Component.translatable("gui.done"), false));
 	}
 	
 	private void confirmGenerate(boolean confirmed)
