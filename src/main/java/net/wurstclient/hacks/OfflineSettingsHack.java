@@ -681,14 +681,16 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 					boolean sent = command.startsWith("/")
 						? WURST.getAltBotManager().sendOfflineCommand(name,
 							command.substring(1))
-						: WURST.getAltBotManager().sendOfflineChat(name, command);
+						: WURST.getAltBotManager().sendOfflineChat(name,
+							command);
 					Minecraft.getInstance().execute(() -> {
 						if(sent)
 							sendLogoutMessage("Bot \"" + name
 								+ "\" ran reconnect command: " + command);
 						else
-							sendLogoutError("Could not send reconnect command through bot \""
-								+ name + "\".");
+							sendLogoutError(
+								"Could not send reconnect command through bot \""
+									+ name + "\".");
 					});
 					return;
 				}
@@ -706,9 +708,8 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 				}
 			}
 			
-			Minecraft.getInstance().execute(() -> sendLogoutError(
-				"Bot \"" + name + "\" did not connect in time to run: "
-					+ command));
+			Minecraft.getInstance().execute(() -> sendLogoutError("Bot \""
+				+ name + "\" did not connect in time to run: " + command));
 		}, "Wurst Offline Bot Reconnect Command");
 		thread.setDaemon(true);
 		thread.start();

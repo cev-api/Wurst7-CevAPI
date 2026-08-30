@@ -107,7 +107,8 @@ public final class AltManager
 		altsFile.save(this);
 		return true;
 	}
-		public void updateTokenAltName(TokenAlt tokenAlt, String newName)
+	
+	public void updateTokenAltName(TokenAlt tokenAlt, String newName)
 	{
 		if(tokenAlt == null)
 			return;

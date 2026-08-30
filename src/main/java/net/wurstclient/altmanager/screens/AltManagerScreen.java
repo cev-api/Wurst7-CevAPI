@@ -1857,7 +1857,8 @@ public final class AltManagerScreen extends Screen
 		
 		importStatus = "";
 		updateAltButtons();
-		minecraft.gui.setScreen(new AlertScreen(() -> minecraft.gui.setScreen(this),
+		minecraft.gui.setScreen(new AlertScreen(
+			() -> minecraft.gui.setScreen(this),
 			Component.literal("Access-token export"), Component.literal(result),
 			Component.translatable("gui.done"), false));
 	}
