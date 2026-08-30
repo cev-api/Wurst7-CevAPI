@@ -90,7 +90,24 @@ public final class AltManager
 		add(replacement);
 	}
 	
-	public void updateTokenAltName(TokenAlt tokenAlt, String newName)
+	/**
+	 * Replaces an access-token-only account while preserving its list position.
+	 */
+	public boolean replaceTokenAlt(TokenAlt oldAlt, TokenAlt replacement)
+	{
+		if(oldAlt == null || replacement == null)
+			return false;
+		
+		int index = alts.indexOf(oldAlt);
+		if(index < 0)
+			return false;
+		
+		alts.set(index, replacement);
+		sortAlts();
+		altsFile.save(this);
+		return true;
+	}
+		public void updateTokenAltName(TokenAlt tokenAlt, String newName)
 	{
 		if(tokenAlt == null)
 			return;

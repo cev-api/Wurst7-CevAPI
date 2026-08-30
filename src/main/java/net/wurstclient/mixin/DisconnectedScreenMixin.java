@@ -387,13 +387,14 @@ public class DisconnectedScreenMixin extends Screen
 		
 		overlayX = (width - overlayWidth) / 2;
 		
-		// Keep the OfflineSettings controls above the complete vanilla layout.
-		// The vanilla title/reason and its buttons are all children of layout,
-		// so moving the layout down when necessary keeps both groups visible.
-		overlayY = Math.max(20, baseLayoutY - overlayHeight - 8);
-		int requiredLayoutY = overlayY + overlayHeight + 8;
-		if(requiredLayoutY > baseLayoutY)
-			layout.setY(requiredLayoutY);
+		// Treat the OfflineSettings controls and Minecraft's disconnect layout
+		// as one stack. Centering only the vanilla layout lets long rejection
+		// messages force its bottom buttons off-screen after these controls are
+		// added above it.
+		int layoutGap = 8;
+		int combinedHeight = overlayHeight + layoutGap + layout.getHeight();
+		overlayY = Math.max(20, (height - combinedHeight) / 2);
+		layout.setY(overlayY + overlayHeight + layoutGap);
 		
 		int currentY = overlayY + padding + textHeight;
 		if(!overlayLines.isEmpty())
