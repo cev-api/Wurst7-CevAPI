@@ -49,6 +49,7 @@ import net.minecraft.util.StringUtil;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.altbot.AltBotUtils;
+import net.wurstclient.altbot.BotState;
 import net.wurstclient.altmanager.AltManager;
 import net.wurstclient.altmanager.CrackedAlt;
 import net.wurstclient.altmanager.LoginManager;
@@ -645,11 +646,72 @@ public final class OfflineSettingsHack extends Hack implements UpdateListener
 		if(name == null || name.isBlank() || server == null)
 			return;
 		
+		String command = takePendingReconnectCommandForBot();
 		String[] hostPort = AltBotUtils.resolveHostPort(server.ip);
 		int port = Integer.parseInt(hostPort[1]);
 		WURST.getAltBotManager().connectOfflineBot(name, hostPort[0], port);
 		sendLogoutMessage(
 			"Connecting \"" + name + "\" as a bot on " + server.ip);
+		
+		if(command != null)
+			runCommandThroughBotWhenReady(name, command);
+	}
+	
+	private String takePendingReconnectCommandForBot()
+	{
+		String command = pendingReconnectCommand;
+		if(command == null || command.isEmpty())
+			return null;
+		
+		pendingReconnectCommand = null;
+		reconnectCommandDelayTicks = 0;
+		unregisterReconnectCommandRunner();
+		return command;
+	}
+	
+	private void runCommandThroughBotWhenReady(String name, String command)
+	{
+		Thread thread = new Thread(() -> {
+			long deadline = System.currentTimeMillis() + 15_000;
+			while(System.currentTimeMillis() < deadline)
+			{
+				var state = WURST.getAltBotManager().getOfflineBotState(name);
+				if(state.getState() == BotState.PLAY)
+				{
+					boolean sent = command.startsWith("/")
+						? WURST.getAltBotManager().sendOfflineCommand(name,
+							command.substring(1))
+						: WURST.getAltBotManager().sendOfflineChat(name, command);
+					Minecraft.getInstance().execute(() -> {
+						if(sent)
+							sendLogoutMessage("Bot \"" + name
+								+ "\" ran reconnect command: " + command);
+						else
+							sendLogoutError("Could not send reconnect command through bot \""
+								+ name + "\".");
+					});
+					return;
+				}
+				
+				if(state.getState() == BotState.FAILED)
+					break;
+				
+				try
+				{
+					Thread.sleep(50);
+				}catch(InterruptedException e)
+				{
+					Thread.currentThread().interrupt();
+					return;
+				}
+			}
+			
+			Minecraft.getInstance().execute(() -> sendLogoutError(
+				"Bot \"" + name + "\" did not connect in time to run: "
+					+ command));
+		}, "Wurst Offline Bot Reconnect Command");
+		thread.setDaemon(true);
+		thread.start();
 	}
 	
 	private String determineName(boolean allowRandomFallback)
