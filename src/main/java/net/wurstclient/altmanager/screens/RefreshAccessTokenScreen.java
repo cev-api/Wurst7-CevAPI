@@ -54,9 +54,9 @@ public final class RefreshAccessTokenScreen extends Screen
 		addRenderableWidget(Button
 			.builder(Component.literal("Replace & Login"), b -> replaceToken())
 			.bounds(width / 2 - 150, height / 2 + 20, 148, 20).build());
-		addRenderableWidget(Button
-			.builder(Component.literal("Cancel"), b -> onClose())
-			.bounds(width / 2 + 2, height / 2 + 20, 148, 20).build());
+		addRenderableWidget(
+			Button.builder(Component.literal("Cancel"), b -> onClose())
+				.bounds(width / 2 + 2, height / 2 + 20, 148, 20).build());
 	}
 	
 	private void replaceToken()

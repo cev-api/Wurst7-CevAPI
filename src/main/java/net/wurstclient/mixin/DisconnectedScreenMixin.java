@@ -343,7 +343,11 @@ public class DisconnectedScreenMixin extends Screen
 		overlayWidth = Math.min(overlayWidth, width - 40);
 		
 		int padding = 10;
-		int textHeight = overlayLines.size() * (font.lineHeight + 2);
+		// Minecraft's layout already renders the full rejection reason below
+		// these controls. Reserving it here creates a second, invisible copy
+		// that separates the button groups and can push the return button off
+		// the bottom of the screen.
+		int textHeight = 0;
 		int buttonSpacing = 6;
 		int buttonHeightSum = 0;
 		int buttonCount = 0;
@@ -379,7 +383,7 @@ public class DisconnectedScreenMixin extends Screen
 		}
 		
 		int totalButtonSpacing = Math.max(0, buttonCount - 1) * buttonSpacing;
-		int textButtonGap = overlayLines.isEmpty() ? 0 : 8;
+		int textButtonGap = 0;
 		overlayHeight = padding + textHeight + textButtonGap + buttonHeightSum
 			+ totalButtonSpacing + padding;
 		if(overlayHeight < padding * 2 + 20)
