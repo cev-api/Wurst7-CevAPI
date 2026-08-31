@@ -406,7 +406,12 @@ public final class TooManyHaxHack extends Hack
 				if(!hack.isSafeToBlock())
 					textColor = (textColor & 0x00FFFFFF) | 0x55000000;
 				
-				context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+				int textY =
+					getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow
+						? Math
+							.round(y1 + (ROW_HEIGHT - MC.font.lineHeight) / 2F)
+						: y1 + 2;
+				context.text(MC.font, hack.getName(), boxX2 + 2, textY,
 					textColor, false);
 			}
 		}

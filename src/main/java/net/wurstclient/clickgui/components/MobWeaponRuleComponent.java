@@ -75,15 +75,18 @@ public final class MobWeaponRuleComponent extends Component
 	
 	private void toggleMobPopup(Box mobBox)
 	{
-		if(mobPopup != null && !mobPopup.isClosing())
+		if(mobPopup != null && GUI.hasPopup(mobPopup))
 		{
 			mobPopup.close();
 			mobPopup = null;
 			return;
 		}
+		mobPopup = null;
 		
 		int labelWidth =
 			getMaxWidth(setting.getMobOptions(), MobOption::displayName);
+		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+			labelWidth = Math.max(0, mobBox.x2 - mobBox.x1 - 15);
 		int popupWidth = labelWidth + 15;
 		int anchorX = (int)(mobBox.x2 - getX() - popupWidth);
 		int anchorY = (int)(mobBox.y2 - getY());
@@ -96,15 +99,18 @@ public final class MobWeaponRuleComponent extends Component
 	
 	private void toggleWeaponPopup(Box weaponBox)
 	{
-		if(weaponPopup != null && !weaponPopup.isClosing())
+		if(weaponPopup != null && GUI.hasPopup(weaponPopup))
 		{
 			weaponPopup.close();
 			weaponPopup = null;
 			return;
 		}
+		weaponPopup = null;
 		
 		List<WeaponCategory> values = List.of(WeaponCategory.values());
 		int labelWidth = getMaxWidth(values, WeaponCategory::toString);
+		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+			labelWidth = Math.max(0, weaponBox.x2 - weaponBox.x1 - 15);
 		int popupWidth = labelWidth + 15;
 		int anchorX = (int)(weaponBox.x2 - getX() - popupWidth);
 		int anchorY = (int)(weaponBox.y2 - getY());
@@ -126,7 +132,12 @@ public final class MobWeaponRuleComponent extends Component
 		
 		int txtColor = GUI.getTxtColor();
 		
-		context.text(TR, setting.getName(), x1, y1, txtColor, false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int nameY = modern
+			? Math.round(y1 + (TR.lineHeight + 2 - TR.lineHeight) / 2F) : y1;
+		context.text(TR, setting.getName(), x1 + (modern ? 8 : 0), nameY,
+			txtColor, false);
 		
 		Box mobBox = getMobBox();
 		Box weaponBox = getWeaponBox();
@@ -180,7 +191,12 @@ public final class MobWeaponRuleComponent extends Component
 		
 		// value
 		int color = dimmed ? 0xFFAAAAAA : GUI.getTxtColor();
-		context.text(TR, value, box.x1 + 2, box.y1 + 2, color, false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int valueY =
+			modern ? Math.round(box.y1 + (BOX_HEIGHT - TR.lineHeight) / 2F)
+				: box.y1 + 2;
+		context.text(TR, value, box.x1 + 2, valueY, color, false);
 	}
 	
 	private Box getMobBox()
@@ -233,6 +249,7 @@ public final class MobWeaponRuleComponent extends Component
 	{
 		private static final int MAX_VISIBLE_ROWS = 8;
 		
+		private final boolean modern;
 		private final List<T> options;
 		private final Supplier<T> selectedSupplier;
 		private final Consumer<T> onSelect;
@@ -248,6 +265,8 @@ public final class MobWeaponRuleComponent extends Component
 			int anchorY)
 		{
 			super(owner);
+			modern = owner
+				.getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
 			this.options = options;
 			this.selectedSupplier = selectedSupplier;
 			this.onSelect = onSelect;
@@ -333,13 +352,19 @@ public final class MobWeaponRuleComponent extends Component
 				boolean hovering = mouseY >= currentY && mouseY < nextY
 					&& mouseX >= x1 && mouseX < x2;
 				
-				context.fill(x1, currentY, x2, nextY,
-					RenderUtils.toIntColor(GUI.getBgColor(),
-						GUI.getOpacity() * (hovering ? 1.5F : 1F)));
+				int rowColor = modern
+					? RenderUtils.toIntColor(GUI.getDropdownButtonColor(),
+						GUI.getOpacity() * (hovering ? 1.2F : 1F))
+					: RenderUtils.toIntColor(GUI.getBgColor(),
+						GUI.getOpacity() * (hovering ? 1.5F : 1F));
+				context.fill(x1, currentY, x2, nextY, rowColor);
 				
 				context.guiRenderState.up();
-				context.text(TR, labelGetter.apply(option), x1 + 2,
-					currentY + 2, GUI.getTxtColor(), false);
+				int textY = modern
+					? Math.round(currentY + (BOX_HEIGHT - TR.lineHeight) / 2F)
+					: currentY + 2;
+				context.text(TR, labelGetter.apply(option), x1 + 2, textY,
+					GUI.getTxtColor(), false);
 				
 				drawn++;
 			}

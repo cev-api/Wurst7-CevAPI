@@ -48,7 +48,11 @@ public final class ButtonComponent extends Component
 		int color = RenderUtils.toIntColor(WURST.getGui().getBgColor(),
 			WURST.getGui().getOpacity() * (hover ? 1.2F : 1.0F));
 		context.fill(x1, y1, x2, y2, color);
-		context.centeredText(MC.font, text, (x1 + x2) / 2, y1 + 2,
+		int textY = y1 + 2;
+		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+			textY = y1 + Math.max(0,
+				Math.round((getHeight() - MC.font.lineHeight) / 2F));
+		context.centeredText(MC.font, text, (x1 + x2) / 2, textY,
 			WURST.getGui().getTxtColor());
 	}
 	

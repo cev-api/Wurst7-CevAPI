@@ -38,7 +38,8 @@ public final class ColorComponent extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		if(mouseY < getY() + TEXT_HEIGHT)
+		if(!(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+			&& mouseY < getY() + TEXT_HEIGHT)
 			return;
 		
 		switch(mouseButton)
@@ -61,6 +62,29 @@ public final class ColorComponent extends Component
 		int x2 = x1 + getWidth();
 		int y1 = getY();
 		int y2 = y1 + getHeight();
+		
+		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+		{
+			boolean hovering = isHovering(mouseX, mouseY);
+			if(hovering)
+				GUI.setTooltip(getColorTooltip());
+			int rowBg =
+				RenderUtils.toIntColor(GUI.getBgColor(), GUI.getOpacity());
+			context.fill(x1, y1, x2, y2, rowBg);
+			int swatchX2 = x2 - 8;
+			int swatchX1 = swatchX2 - 40;
+			int swatchHeight = Math.min(7, Math.max(4, getHeight() - 10));
+			int swatchY1 = y1 + (getHeight() - swatchHeight) / 2;
+			int swatchY2 = swatchY1 + swatchHeight;
+			context.fill(swatchX1, swatchY1, swatchX2, swatchY2,
+				setting.getColorI(hovering ? 1F : GUI.getOpacity()));
+			RenderUtils.drawBorder2D(context, swatchX1, swatchY1, swatchX2,
+				swatchY2, RenderUtils.toIntColor(GUI.getAcColor(), 0.75F));
+			context.text(TR, setting.getName(), x1 + 8,
+				Math.round(y1 + (getHeight() - TR.lineHeight) / 2F),
+				GUI.getTxtColor(), false);
+			return;
+		}
 		int y3 = y1 + TEXT_HEIGHT;
 		
 		boolean hovering = isHovering(mouseX, mouseY);

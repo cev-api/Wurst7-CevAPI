@@ -84,7 +84,11 @@ public final class CheckboxComponent extends Component
 		
 		// text
 		String name = setting.getName();
-		context.text(TR, name, x3 + 2, y1 + 2, GUI.getTxtColor(), false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
+			: y1 + 2;
+		context.text(TR, name, x3 + 2, textY, GUI.getTxtColor(), false);
 	}
 	
 	private int getFillColor(boolean hovering)

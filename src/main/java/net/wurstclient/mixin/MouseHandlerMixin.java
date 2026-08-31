@@ -104,6 +104,21 @@ public abstract class MouseHandlerMixin
 		EventManager.fire(new MouseScrollEvent(vertical));
 	}
 	
+	@Inject(method = "onMove(JDD)V", at = @At("HEAD"))
+	private void wurst$updateClickGuiDrag(long window, double mouseX,
+		double mouseY, CallbackInfo ci)
+	{
+		if(!WurstClient.INSTANCE.isEnabled()
+			|| WurstClient.INSTANCE.shouldHideWurstUiMixins()
+			|| WurstClient.MC.gui
+				.screen() instanceof net.wurstclient.clickgui.screens.ClickGuiScreen)
+			return;
+			
+		// ClickGuiScreen forwards its scaled mouseMoved event directly. This
+		// path is only needed for pinned Modern windows over other screens.
+		WurstClient.INSTANCE.getGui().handleMouseMove(mouseX, mouseY);
+	}
+	
 	@WrapOperation(method = "turnPlayer(D)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))

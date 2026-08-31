@@ -412,7 +412,10 @@ public final class HackListOtf extends OtherFeature
 		private static final int ROW_HEIGHT = 11;
 		private static final int BOX_SIZE = 11;
 		private static final int MAX_VISIBLE_ROWS = 10;
+		private static final int SCROLLBAR_PADDING = 2;
 		private int scrollOffset;
+		private boolean draggingScrollbar;
+		private int scrollbarDragOffsetY;
 		
 		private void refreshSize()
 		{
@@ -421,7 +424,8 @@ public final class HackListOtf extends OtherFeature
 		
 		private void refreshSize(List<Hack> hacks)
 		{
-			int visibleRows = Math.max(1,
+			boolean modern = isModernLayout();
+			int visibleRows = modern ? Math.max(hacks.size(), 1) : Math.max(1,
 				Math.min(MAX_VISIBLE_ROWS, Math.max(hacks.size(), 1)));
 			int desiredHeight = ROW_HEIGHT * visibleRows;
 			
@@ -445,6 +449,16 @@ public final class HackListOtf extends OtherFeature
 			if(hacks.isEmpty())
 				return;
 			
+			int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
+			int maxOffset = Math.max(0, hacks.size() - visibleRows);
+			if(maxOffset > 0 && mx >= getX() + getWidth() - 6
+				&& my >= getY() + SCROLLBAR_PADDING
+				&& my < getY() + getHeight() - SCROLLBAR_PADDING)
+			{
+				startScrollbarDrag(my, hacks.size(), visibleRows);
+				return;
+			}
+			
 			int relativeY = my - getY();
 			if(relativeY < 0)
 				return;
@@ -461,9 +475,13 @@ public final class HackListOtf extends OtherFeature
 		public boolean handleMouseScroll(double mouseX, double mouseY,
 			double delta)
 		{
+			if(isModernLayout())
+				return false;
+			
 			int mx = (int)Math.floor(mouseX);
 			int my = (int)Math.floor(mouseY);
-			if(!isHovering(mx, my))
+			if(mx < getX() || mx >= getX() + getWidth() || my < getY()
+				|| my >= getY() + getHeight())
 				return false;
 			
 			List<Hack> hacks = getSortedHacks();
@@ -485,6 +503,84 @@ public final class HackListOtf extends OtherFeature
 		}
 		
 		@Override
+		public boolean handleMouseDrag(double mouseX, double mouseY)
+		{
+			if(!draggingScrollbar)
+				return false;
+			if(!WURST.getGui().isLeftMouseButtonPressed())
+			{
+				draggingScrollbar = false;
+				return false;
+			}
+			
+			List<Hack> hacks = getSortedHacks();
+			int visibleRows = Math.max(1, getHeight() / ROW_HEIGHT);
+			int maxOffset = Math.max(0, hacks.size() - visibleRows);
+			if(maxOffset > 0)
+				dragScrollbarTo((int)Math.floor(mouseY), hacks.size(),
+					visibleRows);
+			return true;
+		}
+		
+		@Override
+		public void handleMouseRelease(int mouseButton)
+		{
+			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			{
+				draggingScrollbar = false;
+				scrollbarDragOffsetY = 0;
+			}
+		}
+		
+		private boolean isModernLayout()
+		{
+			return WURST.getHax().clickGuiHack.isModernStyle()
+				|| getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		}
+		
+		private void startScrollbarDrag(int mouseY, int itemCount,
+			int visibleRows)
+		{
+			int maxOffset = Math.max(0, itemCount - visibleRows);
+			if(maxOffset <= 0)
+				return;
+			
+			double trackHeight =
+				Math.max(1, getHeight() - SCROLLBAR_PADDING * 2);
+			double thumbHeight = Math.min(trackHeight,
+				Math.max(8, trackHeight * (visibleRows / (double)itemCount)));
+			double travel = Math.max(0, trackHeight - thumbHeight);
+			double thumbY = getY() + SCROLLBAR_PADDING
+				+ travel * (scrollOffset / (double)maxOffset);
+			if(mouseY >= thumbY && mouseY < thumbY + thumbHeight)
+				scrollbarDragOffsetY = (int)Math.floor(mouseY - thumbY);
+			else
+				scrollbarDragOffsetY = (int)Math.round(thumbHeight / 2.0);
+			draggingScrollbar = true;
+			dragScrollbarTo(mouseY, itemCount, visibleRows);
+		}
+		
+		private void dragScrollbarTo(int mouseY, int itemCount, int visibleRows)
+		{
+			int maxOffset = Math.max(0, itemCount - visibleRows);
+			double trackHeight =
+				Math.max(1, getHeight() - SCROLLBAR_PADDING * 2);
+			double thumbHeight = Math.min(trackHeight,
+				Math.max(8, trackHeight * (visibleRows / (double)itemCount)));
+			double travel = Math.max(0, trackHeight - thumbHeight);
+			if(maxOffset <= 0 || travel <= 0)
+			{
+				scrollOffset = 0;
+				return;
+			}
+			double trackTop = getY() + SCROLLBAR_PADDING;
+			double thumbY = mouseY - scrollbarDragOffsetY;
+			thumbY = Math.max(trackTop, Math.min(trackTop + travel, thumbY));
+			scrollOffset =
+				(int)Math.round((thumbY - trackTop) / travel * maxOffset);
+		}
+		
+		@Override
 		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
 			int mouseY, float partialTicks)
 		{
@@ -494,6 +590,13 @@ public final class HackListOtf extends OtherFeature
 			int maxOffset = Math.max(0, hacks.size() - visibleRows);
 			if(scrollOffset > maxOffset)
 				scrollOffset = maxOffset;
+			if(draggingScrollbar)
+			{
+				if(!WURST.getGui().isLeftMouseButtonPressed())
+					draggingScrollbar = false;
+				else if(maxOffset > 0)
+					dragScrollbarTo(mouseY, hacks.size(), visibleRows);
+			}
 			
 			if(hacks.isEmpty())
 			{
@@ -544,23 +647,28 @@ public final class HackListOtf extends OtherFeature
 				{
 					int textColor =
 						hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor();
-					context.text(MC.font, hack.getName(), boxX2 + 2, y1 + 2,
+					int textY = isModernLayout()
+						? Math
+							.round(y1 + (ROW_HEIGHT - MC.font.lineHeight) / 2F)
+						: y1 + 2;
+					context.text(MC.font, hack.getName(), boxX2 + 2, textY,
 						textColor, false);
 				}
 			}
 			
 			if(maxOffset > 0)
 			{
-				int trackX1 = x2 - 3;
+				int trackX1 = x2 - 5;
 				int trackX2 = x2 - 1;
-				int trackY1 = yTop;
-				int trackY2 = yBottom;
+				int trackY1 = yTop + SCROLLBAR_PADDING;
+				int trackY2 = yBottom - SCROLLBAR_PADDING;
 				context.fill(trackX1, trackY1, trackX2, trackY2,
 					RenderUtils.toIntColor(gui.getBgColor(), gui.getOpacity()));
 				
-				double thumbHeight = Math.max(8,
-					getHeight() * (visibleRows / (double)hacks.size()));
-				double travel = Math.max(0, getHeight() - thumbHeight);
+				double trackHeight = Math.max(1, trackY2 - trackY1);
+				double thumbHeight = Math.min(trackHeight, Math.max(8,
+					trackHeight * (visibleRows / (double)hacks.size())));
+				double travel = Math.max(0, trackHeight - thumbHeight);
 				double thumbY =
 					trackY1 + travel * (scrollOffset / (double)maxOffset);
 				context.fill(trackX1, (int)Math.round(thumbY), trackX2,

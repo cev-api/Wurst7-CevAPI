@@ -182,6 +182,13 @@ public abstract class HandledScreenMixin
 		if(WurstClient.INSTANCE.shouldHideWurstUiMixins())
 			return;
 		
+		if(WurstClient.INSTANCE.getGui().handlePinnedMouseDrag(context))
+		{
+			cir.setReturnValue(true);
+			cir.cancel();
+			return;
+		}
+		
 		var nbtSizeCounter = WurstClient.INSTANCE.getHax().nbtSizeCounterHack;
 		if(nbtSizeCounter != null && nbtSizeCounter.isEnabled()
 			&& nbtSizeCounter.handleMouseDrag(context))

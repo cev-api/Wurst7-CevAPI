@@ -35,6 +35,21 @@ public abstract class Component
 		return false;
 	}
 	
+	/**
+	 * Handles movement while the left mouse button is held. Components that
+	 * capture a drag, such as an embedded scrollbar, override this method.
+	 */
+	public boolean handleMouseDrag(double mouseX, double mouseY)
+	{
+		return false;
+	}
+	
+	/**
+	 * Gives components a matching release hook for mouse drags they capture.
+	 */
+	public void handleMouseRelease(int mouseButton)
+	{}
+	
 	public abstract void extractRenderState(GuiGraphicsExtractor context,
 		int mouseX, int mouseY, float partialTicks);
 	
@@ -124,7 +139,13 @@ public abstract class Component
 		boolean scrollEnabled = parent.isScrollingEnabled();
 		int scroll = scrollEnabled ? parent.getScrollOffset() : 0;
 		
+		int headerHeight =
+			parent instanceof net.wurstclient.clickgui.modern.ModernWindow
+				? (WURST.getGuiIfInitialized() == null ? 24
+					: WURST.getGuiIfInitialized().getModernHeaderHeight())
+				: 13;
 		return mouseX >= x1 && mouseY >= y1 && mouseX < x2 && mouseY < y2
-			&& mouseY >= -scroll && mouseY < parent.getHeight() - 13 - scroll;
+			&& mouseY >= -scroll
+			&& mouseY < parent.getHeight() - headerHeight - scroll;
 	}
 }
