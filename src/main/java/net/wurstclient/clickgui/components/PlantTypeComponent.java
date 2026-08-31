@@ -124,11 +124,16 @@ public final class PlantTypeComponent extends Component
 		
 		// text
 		String name = setting.getName();
-		context.drawString(TR, name, x3 + 2, y1 + 3, GUI.getTxtColor(), false);
-		context.drawString(TR, HARVEST, x4 + 2, y3 + 2, GUI.getTxtColor(),
-			false);
-		context.drawString(TR, REPLANT, x6 + 2, y3 + 2, GUI.getTxtColor(),
-			false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int nameY =
+			modern ? Math.round(y1 + (y3 - y1 - TR.lineHeight) / 2F) : y1 + 3;
+		int optionY = Math.round(y3 + (y2 - y3 - TR.lineHeight) / 2F);
+		context.drawString(TR, name, x3 + 2, nameY, GUI.getTxtColor(), false);
+		context.drawString(TR, HARVEST, x4 + 2, modern ? optionY : y3 + 2,
+			GUI.getTxtColor(), false);
+		context.drawString(TR, REPLANT, x6 + 2, modern ? optionY : y3 + 2,
+			GUI.getTxtColor(), false);
 	}
 	
 	private int getFillColor(boolean hovering)
