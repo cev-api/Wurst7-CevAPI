@@ -37,7 +37,7 @@ public abstract class AbstractListEditButton extends Component
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
 		
-		if(mouseX < getX() + getWidth() - buttonWidth - 4)
+		if(mouseX < getX() + getWidth() - getButtonAreaWidth())
 			return;
 		
 		openScreen();
@@ -49,7 +49,7 @@ public abstract class AbstractListEditButton extends Component
 	{
 		int x1 = getX();
 		int x2 = x1 + getWidth();
-		int x3 = x2 - buttonWidth - 4;
+		int x3 = x2 - getButtonAreaWidth();
 		int y1 = getY();
 		int y2 = y1 + getHeight();
 		
@@ -61,22 +61,48 @@ public abstract class AbstractListEditButton extends Component
 			GUI.setTooltip(getSetting().getWrappedDescription(200));
 		
 		// background
-		context.fill(x1, y1, x3, y2, getFillColor(false));
+		context.fill(x1, y1, x3, y2, getRowFillColor());
 		
 		// button
-		context.fill(x3, y1, x2, y2, getFillColor(hBox));
+		context.fill(x3, y1, x2, y2, getButtonFillColor(hBox));
 		int outlineColor = RenderUtils.toIntColor(GUI.getAcColor(), 0.5F);
 		RenderUtils.drawBorder2D(context, x3, y1, x2, y2, outlineColor);
 		
 		// text
 		int txtColor = GUI.getTxtColor();
 		context.guiRenderState.up();
-		context.text(TR, getText(), x1, y1 + 2, txtColor, false);
-		context.text(TR, buttonText, x3 + 2, y1 + 2, txtColor, false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
+			: y1 + 2;
+		context.text(TR, getText(), x1 + (modern ? 8 : 0), textY, txtColor,
+			false);
+		int buttonTextX = x3 + (x2 - x3 - buttonWidth) / 2;
+		context.text(TR, buttonText, buttonTextX, textY, txtColor, false);
 	}
 	
-	private int getFillColor(boolean hovering)
+	private int getButtonAreaWidth()
 	{
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		return modern ? Math.max(44, buttonWidth + 12) : buttonWidth + 4;
+	}
+	
+	private int getRowFillColor()
+	{
+		return RenderUtils.toIntColor(GUI.getBgColor(), GUI.getOpacity());
+	}
+	
+	private int getButtonFillColor(boolean hovering)
+	{
+		if(getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow)
+		{
+			float shade = hovering ? 0.84F : 0.68F;
+			float[] base = GUI.getBgColor();
+			float[] button =
+				{base[0] * shade, base[1] * shade, base[2] * shade};
+			return RenderUtils.toIntColor(button, GUI.getOpacity());
+		}
 		float opacity = GUI.getOpacity() * (hovering ? 1.5F : 1);
 		return RenderUtils.toIntColor(GUI.getBgColor(), opacity);
 	}

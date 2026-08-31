@@ -77,8 +77,14 @@ public final class FileComponent extends Component
 		String labelText = setting.getName() + ":";
 		String buttonText = setting.getSelectedFileName();
 		context.guiRenderState.up();
-		context.text(TR, labelText, x1, y1 + 2, txtColor, false);
-		context.text(TR, buttonText, x3 + 2, y1 + 2, txtColor, false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
+			: y1 + 2;
+		context.text(TR, labelText, x1 + (modern ? 8 : 0), textY, txtColor,
+			false);
+		context.text(TR, buttonText, x3 + (modern ? 6 : 2), textY, txtColor,
+			false);
 	}
 	
 	private int getFillColor(boolean hovering)

@@ -21,6 +21,7 @@ import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.clickgui.Window;
+import net.wurstclient.clickgui.modern.ModernWindow;
 
 public final class SettingGroupComponent extends Component
 {
@@ -94,7 +95,8 @@ public final class SettingGroupComponent extends Component
 			return true;
 		}
 		
-		Window popupWin = new Window(windowTitle);
+		Window popupWin = parent instanceof ModernWindow
+			? new ModernWindow(windowTitle) : new Window(windowTitle);
 		for(Setting s : group.getChildren())
 		{
 			Component c = s.getComponent();
@@ -110,8 +112,12 @@ public final class SettingGroupComponent extends Component
 		popupWin.setClosable(true);
 		popupWin.setPinned(parent.isPinned());
 		popupWin.setX(parent.getX() + getX() + getWidth() + 5);
-		popupWin.setY(parent.getY() + 13 + parent.getScrollOffset() + getY());
+		int headerHeight = parent instanceof ModernWindow
+			? WURST.getGui().getModernHeaderHeight() : HEADER_HEIGHT;
+		popupWin.setY(
+			parent.getY() + headerHeight + parent.getScrollOffset() + getY());
 		gui.addWindow(popupWin);
+		gui.bringWindowToFront(popupWin);
 		return true;
 	}
 	
@@ -208,8 +214,13 @@ public final class SettingGroupComponent extends Component
 		context.fill(x1, y1, x2, y2, bgColor);
 		
 		int txtColor = WURST.getGui().getTxtColor();
-		context.text(MC.font, getDisplayName(), x1 + 4, y1 + 2, txtColor,
-			false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int textY =
+			modern ? Math.round(y1 + (HEADER_HEIGHT - MC.font.lineHeight) / 2F)
+				: y1 + 2;
+		context.text(MC.font, getDisplayName(), x1 + (modern ? 8 : 4), textY,
+			txtColor, false);
 		ClickGuiIcons.drawMinimizeArrow(context, x2 - 11, y1 + 1, x2 - 1,
 			y2 - 1, hoverHeader, !expanded);
 		

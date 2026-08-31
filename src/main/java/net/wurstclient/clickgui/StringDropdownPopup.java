@@ -23,6 +23,7 @@ public final class StringDropdownPopup extends Popup
 	
 	private final StringDropdownSetting setting;
 	private final int popupWidth;
+	private final boolean modern;
 	private final int totalRows;
 	private final int visibleRows;
 	private int scrollOffset;
@@ -33,6 +34,8 @@ public final class StringDropdownPopup extends Popup
 		super(owner);
 		this.setting = setting;
 		this.popupWidth = popupWidth;
+		modern = owner
+			.getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
 		
 		totalRows = Math.max(0, setting.getValues().size() - 1);
 		visibleRows = Math.min(MAX_VISIBLE_ROWS, totalRows);
@@ -118,10 +121,16 @@ public final class StringDropdownPopup extends Popup
 			int yi2 = yi1 + ROW_HEIGHT;
 			
 			boolean hValue = hovering && mouseY >= yi1 && mouseY < yi2;
-			context.fill(x1, yi1, x2, yi2, RenderUtils.toIntColor(
-				GUI.getBgColor(), GUI.getOpacity() * (hValue ? 1.5F : 1)));
+			int rowColor = modern
+				? RenderUtils.toIntColor(GUI.getDropdownButtonColor(),
+					GUI.getOpacity() * (hValue ? 1.2F : 1))
+				: RenderUtils.toIntColor(GUI.getBgColor(),
+					GUI.getOpacity() * (hValue ? 1.5F : 1));
+			context.fill(x1, yi1, x2, yi2, rowColor);
 			
-			int textY = yi1 + (ROW_HEIGHT - TR.lineHeight) / 2;
+			int textY =
+				modern ? Math.round(yi1 + (ROW_HEIGHT - TR.lineHeight) / 2F)
+					: yi1 + (ROW_HEIGHT - TR.lineHeight) / 2;
 			context.guiRenderState.up();
 			context.text(TR, value, x1 + 2, textY, GUI.getTxtColor(), false);
 			

@@ -46,6 +46,10 @@ public class Window
 	private int scrollOffset;
 	private boolean scrollingEnabled;
 	
+	private boolean resizable;
+	private boolean resizing;
+	private int resizeOffsetX;
+	
 	private boolean draggingScrollbar;
 	private int scrollbarDragOffsetY;
 	
@@ -169,15 +173,16 @@ public class Window
 		if(closable)
 			titleBarWidth += 11;
 		
-		int childrenHeight = 13;
+		int headerHeight = getHeaderHeight();
+		int childrenHeight = headerHeight;
 		for(Component c : children)
 			childrenHeight += c.getHeight() + 2;
 		childrenHeight += 2;
 		
-		if(maxInnerHeight > 0 && childrenHeight > maxInnerHeight + 13)
+		if(maxInnerHeight > 0 && childrenHeight > maxInnerHeight + headerHeight)
 		{
 			setWidth(Math.max(maxChildWidth + 3, titleBarWidth));
-			setHeight(maxInnerHeight + 13);
+			setHeight(maxInnerHeight + headerHeight);
 			
 		}else
 		{
@@ -193,7 +198,10 @@ public class Window
 		if(valid)
 			return;
 		
-		int offsetY = 2;
+		int headerHeight = getHeaderHeight();
+		int offsetY =
+			this instanceof net.wurstclient.clickgui.modern.ModernWindow ? 4
+				: 2;
 		int cWidth = width - 4;
 		for(Component c : children)
 		{
@@ -206,21 +214,33 @@ public class Window
 		innerHeight = offsetY;
 		
 		if(maxInnerHeight == 0 || innerHeight < maxInnerHeight)
-			setHeight(innerHeight + 13);
+			setHeight(innerHeight + headerHeight);
 		else
-			setHeight(maxInnerHeight + 13);
+			setHeight(maxInnerHeight + headerHeight);
 		
-		scrollingEnabled = innerHeight + 13 > height;
+		scrollingEnabled = innerHeight + headerHeight > height;
 		if(scrollingEnabled)
-			cWidth -= 3;
+			cWidth -= 8;
 		
 		scrollOffset = Math.min(scrollOffset, 0);
-		scrollOffset = Math.max(scrollOffset, -innerHeight + height - 13);
+		scrollOffset =
+			Math.max(scrollOffset, -innerHeight + height - getHeaderHeight());
 		
 		for(Component c : children)
 			c.setWidth(cWidth);
 		
 		valid = true;
+	}
+	
+	private int getHeaderHeight()
+	{
+		if(this instanceof net.wurstclient.clickgui.modern.ModernWindow)
+		{
+			net.wurstclient.clickgui.ClickGui gui =
+				WurstClient.INSTANCE.getGuiIfInitialized();
+			return gui == null ? 24 : gui.getModernHeaderHeight();
+		}
+		return 13;
 	}
 	
 	public final void invalidate()
@@ -352,6 +372,12 @@ public class Window
 		closing = true;
 	}
 	
+	/** Reuses a previously closed Modern window without losing layout state. */
+	public final void reopen()
+	{
+		closing = false;
+	}
+	
 	public final boolean isInvisible()
 	{
 		return invisible;
@@ -401,7 +427,7 @@ public class Window
 	
 	public final void setMaxHeight(int maxHeight)
 	{
-		setMaxInnerHeight(maxHeight - 13);
+		setMaxInnerHeight(maxHeight - getHeaderHeight());
 	}
 	
 	public final int getScrollOffset()
@@ -419,27 +445,123 @@ public class Window
 		return scrollingEnabled;
 	}
 	
+	public final boolean isResizable()
+	{
+		return resizable;
+	}
+	
+	public final void setResizable(boolean resizable)
+	{
+		this.resizable = resizable;
+	}
+	
+	public final boolean isResizing()
+	{
+		return resizing;
+	}
+	
+	public final void startResizing(int mouseX)
+	{
+		if(!resizable)
+			return;
+		resizing = true;
+		resizeOffsetX = width - mouseX;
+	}
+	
+	public final void resizeTo(int mouseX)
+	{
+		if(!resizing)
+			return;
+		setWidth(Math.max(100, mouseX + resizeOffsetX));
+	}
+	
+	public final void stopResizing()
+	{
+		resizing = false;
+		resizeOffsetX = 0;
+	}
+	
+	public final int getScrollbarTrackTop()
+	{
+		return 2;
+	}
+	
+	public final int getScrollbarTrackBottom()
+	{
+		return Math.max(2, height - getHeaderHeight() - 2);
+	}
+	
+	public final int getScrollbarThumbHeight()
+	{
+		int outerHeight = Math.max(1, height - getHeaderHeight());
+		int trackHeight =
+			Math.max(1, getScrollbarTrackBottom() - getScrollbarTrackTop());
+		int minimum =
+			this instanceof net.wurstclient.clickgui.modern.ModernWindow ? 16
+				: 8;
+		int proportional = (int)Math.round(
+			trackHeight * outerHeight / (double)Math.max(1, innerHeight));
+		return Mth.clamp(Math.max(minimum, proportional), 1, trackHeight);
+	}
+	
+	public final int getScrollbarThumbY()
+	{
+		int outerHeight = Math.max(1, height - getHeaderHeight());
+		int maxScroll = Math.max(0, innerHeight - outerHeight);
+		int travel = Math.max(0, getScrollbarTrackBottom()
+			- getScrollbarTrackTop() - getScrollbarThumbHeight());
+		if(maxScroll == 0 || travel == 0)
+			return getScrollbarTrackTop();
+		return getScrollbarTrackTop()
+			+ (int)Math.round(travel * (-scrollOffset / (double)maxScroll));
+	}
+	
 	public final boolean isDraggingScrollbar()
 	{
 		return draggingScrollbar;
 	}
 	
+	public final void centerScrollbarOn(int mouseY)
+	{
+		int outerHeight = Math.max(1, height - getHeaderHeight());
+		int maxScroll = Math.max(0, innerHeight - outerHeight);
+		int travel = Math.max(0, getScrollbarTrackBottom()
+			- getScrollbarTrackTop() - getScrollbarThumbHeight());
+		if(maxScroll == 0 || travel == 0)
+		{
+			scrollOffset = 0;
+			return;
+		}
+		int localMouseY = mouseY - getY() - getHeaderHeight();
+		int thumbY = Mth.clamp(localMouseY - getScrollbarThumbHeight() / 2,
+			getScrollbarTrackTop(), getScrollbarTrackTop() + travel);
+		scrollOffset = -(int)Math.round(
+			(thumbY - getScrollbarTrackTop()) / (double)travel * maxScroll);
+	}
+	
 	public final void startDraggingScrollbar(int mouseY)
 	{
 		draggingScrollbar = true;
-		double outerHeight = height - 13;
-		double scrollbarY =
-			outerHeight * (-scrollOffset / (double)innerHeight) + 1;
-		scrollbarDragOffsetY = (int)(scrollbarY - mouseY);
+		int localMouseY = mouseY - getY() - getHeaderHeight();
+		scrollbarDragOffsetY = getScrollbarThumbY() - localMouseY;
 	}
 	
 	public final void dragScrollbarTo(int mouseY)
 	{
-		int scrollbarY = mouseY + scrollbarDragOffsetY;
-		double outerHeight = height - 13;
-		scrollOffset = (int)((scrollbarY - 1) / outerHeight * innerHeight * -1);
-		scrollOffset = Math.min(scrollOffset, 0);
-		scrollOffset = Math.max(scrollOffset, -innerHeight + height - 13);
+		int outerHeight = Math.max(1, height - getHeaderHeight());
+		int maxScroll = Math.max(0, innerHeight - outerHeight);
+		int travel = Math.max(0, getScrollbarTrackBottom()
+			- getScrollbarTrackTop() - getScrollbarThumbHeight());
+		if(maxScroll == 0 || travel == 0)
+		{
+			scrollOffset = 0;
+			return;
+		}
+		int localMouseY = mouseY - getY() - getHeaderHeight();
+		int thumbY = Mth.clamp(localMouseY + scrollbarDragOffsetY,
+			getScrollbarTrackTop(), getScrollbarTrackTop() + travel);
+		scrollOffset = -(int)Math.round(
+			(thumbY - getScrollbarTrackTop()) / (double)travel * maxScroll);
 	}
 	
 	public final void stopDraggingScrollbar()

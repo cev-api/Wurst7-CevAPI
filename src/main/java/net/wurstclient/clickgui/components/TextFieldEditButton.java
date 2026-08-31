@@ -124,13 +124,18 @@ public final class TextFieldEditButton extends Component
 			inlineField.setValue(setting.getValue());
 		
 		float[] bgColor = GUI.getBgColor();
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		float[] fieldColor =
+			modern ? GUI.getDropdownButtonColor() : new float[]{
+				bgColor[0] * 0.52F, bgColor[1] * 0.52F, bgColor[2] * 0.52F};
 		float opacity = GUI.getOpacity();
 		
 		int x1 = getX();
 		int x2 = x1 + getWidth();
 		int y1 = getY();
 		int y2 = y1 + getHeight();
-		int boxY1 = y1 + TEXT_HEIGHT;
+		int boxY1 = y1 + TEXT_HEIGHT + 2;
 		
 		boolean hovering = isHovering(mouseX, mouseY);
 		boolean hText = hovering && mouseY < boxY1;
@@ -143,14 +148,17 @@ public final class TextFieldEditButton extends Component
 		
 		context.fill(x1, y1, x2, boxY1,
 			RenderUtils.toIntColor(bgColor, opacity));
-		context.fill(x1, boxY1, x2, y2,
-			RenderUtils.toIntColor(bgColor, opacity * (hBox ? 1.5F : 1)));
-		RenderUtils.drawBorder2D(context, x1, boxY1, x2, y2,
-			RenderUtils.toIntColor(GUI.getAcColor(), 0.5F));
+		context.fill(x1, boxY1, x2, y2, RenderUtils.toIntColor(fieldColor,
+			Math.min(1F, opacity + (hBox ? 0.28F : 0.16F))));
+		RenderUtils.drawBorder2D(context, x1, boxY1, x2, y2, RenderUtils
+			.toIntColor(GUI.getAcColor(), Math.min(1F, opacity * 0.8F)));
 		
 		int txtColor = GUI.getTxtColor();
 		context.guiRenderState.up();
-		context.text(TR, setting.getName(), x1, y1 + 2, txtColor, false);
+		int labelY = modern ? Math.round(y1 + (boxY1 - y1 - TR.lineHeight) / 2F)
+			: y1 + 2;
+		context.text(TR, setting.getName(), x1 + (modern ? 10 : 0), labelY,
+			txtColor, false);
 		
 		if(editing)
 		{
@@ -166,7 +174,11 @@ public final class TextFieldEditButton extends Component
 				Style.EMPTY);
 			if(maxLength < value.length())
 				value = value.substring(0, maxLength) + "...";
-			context.text(TR, value, x1 + 2, boxY1 + 2, txtColor, false);
+			int valueY =
+				modern ? Math.round(boxY1 + (y2 - boxY1 - TR.lineHeight) / 2F)
+					: boxY1 + 2;
+			context.text(TR, value, x1 + (modern ? 10 : 2), valueY, txtColor,
+				false);
 		}
 	}
 	
@@ -179,14 +191,17 @@ public final class TextFieldEditButton extends Component
 	@Override
 	public int getDefaultHeight()
 	{
-		return TEXT_HEIGHT * 2;
+		return TEXT_HEIGHT * 2 + 4;
 	}
 	
 	private void updateInlineFieldBounds()
 	{
-		int x = getX() + 2;
-		int y = getY() + TEXT_HEIGHT + 2;
-		int width = Math.max(0, getWidth() - 4);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int padding = modern ? 10 : 2;
+		int x = getX() + padding;
+		int y = getY() + TEXT_HEIGHT + 4;
+		int width = Math.max(0, getWidth() - padding * 2);
 		inlineField.setX(x);
 		inlineField.setY(y);
 		inlineField.setWidth(width);

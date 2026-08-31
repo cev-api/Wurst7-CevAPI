@@ -23,9 +23,13 @@ public enum ClickGuiIcons
 			RenderUtils.toIntColor(gui.getDropdownButtonColor(), 1F);
 		int collapsedHoverColor = scaleColor(collapsedColor, 1.15F);
 		
-		float xa1 = x1 + 1;
-		float xa2 = (x1 + x2) / 2;
-		float xa3 = x2 - 1;
+		float centerX = (x1 + x2) / 2;
+		float centerY = (y1 + y2) / 2;
+		float halfWidth = Math.min(4F, Math.max(2F, (x2 - x1 - 5F) / 2));
+		float halfHeight = Math.min(3F, Math.max(2F, (y2 - y1 - 7F) / 2));
+		float xa1 = centerX - halfWidth;
+		float xa2 = centerX;
+		float xa3 = centerX + halfWidth;
 		float ya1;
 		float ya2;
 		
@@ -34,15 +38,15 @@ public enum ClickGuiIcons
 		float[][] arrowVertices;
 		if(minimized)
 		{
-			ya1 = y1 + 3;
-			ya2 = y2 - 2.5F;
+			ya1 = centerY - halfHeight;
+			ya2 = centerY + halfHeight;
 			arrowColor = hovering ? collapsedHoverColor : collapsedColor;
 			arrowVertices = new float[][]{{xa1, ya1}, {xa2, ya2}, {xa3, ya1}};
 			
 		}else
 		{
-			ya1 = y2 - 3;
-			ya2 = y1 + 2.5F;
+			ya1 = centerY + halfHeight;
+			ya2 = centerY - halfHeight;
 			arrowColor = hovering ? collapsedHoverColor : collapsedColor;
 			arrowVertices = new float[][]{{xa1, ya1}, {xa3, ya1}, {xa2, ya2}};
 		}
@@ -74,7 +78,8 @@ public enum ClickGuiIcons
 	public static void drawPin(GuiGraphicsExtractor context, float x1, float y1,
 		float x2, float y2, boolean hovering, boolean pinned)
 	{
-		int needleColor = hovering ? 0xFFFFFFFF : 0xFFD9D9D9;
+		int needleColor = pinned ? (hovering ? 0xFFFF5555 : 0xFFFF0000)
+			: (hovering ? 0xFFFFFFFF : 0xFFD9D9D9);
 		int outlineColor = 0x80101010;
 		
 		if(pinned)

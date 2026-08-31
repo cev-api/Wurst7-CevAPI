@@ -40,6 +40,10 @@ import net.wurstclient.Feature;
 import net.wurstclient.WurstClient;
 import net.wurstclient.config.BuildConfig;
 import net.wurstclient.clickgui.components.FeatureButton;
+import net.wurstclient.clickgui.modern.ModernFeatureButton;
+import net.wurstclient.clickgui.modern.ModernSettingComponent;
+import net.wurstclient.clickgui.modern.ModernSettingsWindow;
+import net.wurstclient.clickgui.modern.ModernWindow;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.settings.Setting;
@@ -49,6 +53,9 @@ import net.wurstclient.util.json.JsonUtils;
 
 public final class ClickGui
 {
+	private static final int MODERN_TITLE_CONTROL_SIZE = 13;
+	private static final int MODERN_TITLE_CONTROL_SLOT = 14;
+	private static final int MODERN_TITLE_CONTROL_RIGHT_PADDING = 8;
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	private static final Minecraft MC = WurstClient.MC;
 	private static final Set<String> MOVE_TO_CLIENT_SETTINGS =
@@ -59,14 +66,32 @@ public final class ClickGui
 	private final ArrayList<Window> windows = new ArrayList<>();
 	private final ArrayList<Popup> popups = new ArrayList<>();
 	private final Path windowsFile;
+	// Phase 1 Modern ClickGUI: never write Modern layout into Classic
+	// windows.json.
+	private final Path modernWindowsFile;
+	private final Map<String, Window> modernCategoryWindows =
+		new LinkedHashMap<>();
+	private boolean modernStyle;
+	// Phase 5: transient global search; never persisted as layout or hack
+	// state.
+	private String modernSearchQuery = "";
+	private final Map<String, String> modernSelectedSections = new HashMap<>();
+	private final ArrayList<Feature> modernFeatures = new ArrayList<>();
+	private Window modernSearchWindow;
+	private int modernScreenWidth = -1;
+	private int modernScreenHeight = -1;
 	
 	private float[] bgColor = new float[3];
+	private float[] topBarColor = new float[3];
+	private float[] hackHeaderColor = new float[3];
 	private float[] acColor = new float[3];
 	private float[] enabledHackColor = new float[3];
 	private float[] dropdownButtonColor = new float[3];
 	private float[] pinButtonColor = new float[3];
 	private int txtColor;
 	private float opacity;
+	private float topBarOpacity;
+	private float hackHeaderOpacity;
 	private float ttOpacity;
 	private int maxHeight;
 	private int maxSettingsHeight;
@@ -78,11 +103,13 @@ public final class ClickGui
 	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
 	private boolean refreshPending;
+	private int modernRowHeight = -1;
 	private final Map<String, Integer> rememberedScroll = new HashMap<>();
 	
 	public ClickGui(Path windowsFile)
 	{
 		this.windowsFile = windowsFile;
+		modernWindowsFile = windowsFile.resolveSibling("modern-windows.json");
 	}
 	
 	/**
@@ -107,6 +134,12 @@ public final class ClickGui
 	
 	public void init()
 	{
+		modernStyle = WURST.getHax().clickGuiHack.isModernStyle();
+		if(modernStyle)
+		{
+			initModern();
+			return;
+		}
 		LinkedHashMap<String, WindowState> reopenSettingsWindows =
 			captureOpenSettingsWindows();
 		
@@ -433,6 +466,411 @@ public final class ClickGui
 	 * Saves the current window layout (positions, minimized state, scroll
 	 * offsets, pinned state) so it can be restored next time ClickGUI opens.
 	 */
+	private void initModern()
+	{
+		modernRowHeight = WURST.getHax().clickGuiHack.getRowHeight();
+		LinkedHashMap<String, WindowState> reopenSettings =
+			captureOpenModernSettingsWindows();
+		Map<String, String> reopenSections =
+			new HashMap<>(modernSelectedSections);
+		windows.clear();
+		popups.clear();
+		modernCategoryWindows.clear();
+		modernSelectedSections.clear();
+		modernFeatures.clear();
+		modernSearchWindow = null;
+		updateColors();
+		
+		for(Category category : Category.values())
+		{
+			Window window = new ModernWindow(category.getName());
+			window.setClosable(true);
+			modernCategoryWindows.put(category.getName(), window);
+			windows.add(window);
+		}
+		
+		Window clientSettings = new ModernWindow("Client Settings");
+		clientSettings.setClosable(true);
+		if(BuildConfig.includesOtherFeature("wurstLogoOtf"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getOtfs().wurstLogoOtf));
+		if(BuildConfig.includesOtherFeature("hackListOtf"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getOtfs().hackListOtf));
+		if(BuildConfig.includesOtherFeature("keybindManagerOtf"))
+			clientSettings.add(
+				new ModernFeatureButton(WURST.getOtfs().keybindManagerOtf));
+		if(BuildConfig.includesOtherFeature("presetManagerOtf"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getOtfs().presetManagerOtf));
+		if(BuildConfig.includesOtherFeature("wurstOptionsOtf"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getOtfs().wurstOptionsOtf));
+		if(BuildConfig.includesHack("globalToggleHack"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getHax().globalToggleHack));
+		if(BuildConfig.includesHack("clickGuiHack"))
+			clientSettings
+				.add(new ModernFeatureButton(WURST.getHax().clickGuiHack));
+		
+		ArrayList<Feature> features = new ArrayList<>();
+		features.addAll(WURST.getHax().getAllHax());
+		features.addAll(WURST.getCmds().getAllCmds());
+		features.addAll(WURST.getOtfs().getAllOtfs());
+		modernFeatures.addAll(features);
+		for(Feature feature : features)
+			if(MOVE_TO_CLIENT_SETTINGS.stream()
+				.anyMatch(name -> name.equalsIgnoreCase(feature.getName())))
+				for(Setting setting : feature.getSettings().values())
+					addModernSetting(clientSettings, setting);
+		modernCategoryWindows.put(clientSettings.getTitle(), clientSettings);
+		windows.add(clientSettings);
+		
+		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
+		for(Feature feature : features)
+		{
+			if(feature == WURST.getHax().clickGuiHack
+				|| !isFeatureVisibleInClickGui(feature, tooManyHax))
+				continue;
+			Window window =
+				modernCategoryWindows.get(feature.getCategoryName());
+			if(window != null)
+				window.add(new ModernFeatureButton(feature));
+		}
+		
+		Window favorites =
+			modernCategoryWindows.get(Category.FAVORITES.getName());
+		for(Feature feature : features)
+			if(feature instanceof net.wurstclient.hack.Hack hack
+				&& hack.isFavorite()
+				&& !tooManyHax.shouldHideEverywhere(feature))
+				favorites.add(new ModernFeatureButton(feature));
+			
+		modernSearchWindow = new ModernWindow("Search Results");
+		modernSearchWindow.setClosable(true);
+		modernSearchWindow.setInvisible(true);
+		modernSearchWindow.setMaxHeight(
+			Math.max(120, MC.getWindow().getGuiScaledHeight() - 70));
+		windows.add(modernSearchWindow);
+		for(Window window : modernCategoryWindows.values())
+			window.pack();
+		if(!loadModernWindowLayout())
+		{
+			layoutModernOverview();
+			saveWindows();
+		}
+		reopenModernSettingsWindows(reopenSettings, features, reopenSections);
+	}
+	
+	private LinkedHashMap<String, WindowState> captureOpenModernSettingsWindows()
+	{
+		LinkedHashMap<String, WindowState> states = new LinkedHashMap<>();
+		for(Window window : windows)
+			if(window instanceof net.wurstclient.clickgui.modern.ModernSettingsWindow
+				&& !window.isClosing())
+			{
+				states.put(window.getTitle(), new WindowState(window));
+				modernSelectedSections.put(window.getTitle(),
+					((net.wurstclient.clickgui.modern.ModernSettingsWindow)window)
+						.getSelectedSection());
+			}
+		return states;
+	}
+	
+	private void reopenModernSettingsWindows(
+		LinkedHashMap<String, WindowState> states, ArrayList<Feature> features,
+		Map<String, String> sections)
+	{
+		for(WindowState state : states.values())
+		{
+			if(findWindowByTitle(state.title) != null
+				|| !state.title.endsWith(" Settings"))
+				continue;
+			String displayName = state.title.substring(0,
+				state.title.length() - " Settings".length());
+			for(Feature feature : features)
+				if(feature.getDisplayName().equals(displayName))
+				{
+					Window parent = modernCategoryWindows.getOrDefault(
+						feature.getCategoryName(),
+						modernCategoryWindows.get("Client Settings"));
+					if(parent == null)
+						break;
+					Window window =
+						new net.wurstclient.clickgui.modern.ModernSettingsWindow(
+							feature, parent, 0);
+					String selectedSection = sections.get(state.title);
+					if(selectedSection != null)
+						((net.wurstclient.clickgui.modern.ModernSettingsWindow)window)
+							.selectSection(selectedSection);
+					state.apply(window);
+					addWindow(window);
+					break;
+				}
+		}
+	}
+	
+	private void addModernSetting(Window window, Setting setting)
+	{
+		if(setting == null || !setting.isVisibleInGui())
+			return;
+		Component component = ModernSettingComponent.supports(setting)
+			? new ModernSettingComponent(setting) : setting.getComponent();
+		if(component != null)
+		{
+			component.setHeight(getModernComponentHeight(component));
+			window.add(component);
+		}
+	}
+	
+	public int getModernComponentHeight(Component component)
+	{
+		int rowHeight = getModernRowHeight();
+		if(component instanceof ModernSettingComponent settingComponent
+			&& settingComponent.isSlider())
+			return Math.min(25, rowHeight + 4);
+		boolean compact = component instanceof ModernSettingComponent
+			|| component instanceof net.wurstclient.clickgui.components.ColorComponent
+			|| component instanceof net.wurstclient.clickgui.components.ComboBoxComponent<?>
+			|| component instanceof net.wurstclient.clickgui.components.StringDropdownComponent;
+		return compact ? rowHeight
+			: Math.max(rowHeight,
+				Math.max(component.getHeight(), component.getDefaultHeight()));
+	}
+	
+	private boolean isFeatureVisibleInClickGui(Feature feature,
+		TooManyHaxHack tooManyHax)
+	{
+		if(feature == WURST.getHax().globalToggleHack
+			|| feature == WURST.getCmds().autoBuildCmd
+			|| feature == WURST.getCmds().lootSorterCmd
+			|| feature == WURST.getCmds().lootSortCmd)
+			return false;
+		
+		if(MOVE_TO_CLIENT_SETTINGS.stream()
+			.anyMatch(name -> name.equalsIgnoreCase(feature.getName())))
+			return false;
+		
+		if(feature instanceof net.wurstclient.hack.Hack
+			&& tooManyHax.shouldHideEverywhere(feature))
+			return false;
+		
+		String categoryName = feature.getCategoryName();
+		return categoryName != null && !categoryName.isBlank();
+	}
+	
+	private boolean loadModernWindowLayout()
+	{
+		try(BufferedReader reader = Files.newBufferedReader(modernWindowsFile))
+		{
+			JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+			if(!json.has("layoutVersion"))
+				return false;
+			JsonElement sectionsElement = json.get("selectedSections");
+			if(sectionsElement != null && sectionsElement.isJsonObject())
+				for(Map.Entry<String, JsonElement> entry : sectionsElement
+					.getAsJsonObject().entrySet())
+					if(entry.getValue().isJsonPrimitive())
+						modernSelectedSections.put(entry.getKey(),
+							entry.getValue().getAsString());
+			for(Window window : modernCategoryWindows.values())
+			{
+				JsonElement element = json.get(window.getTitle());
+				if(element == null || !element.isJsonObject())
+					continue;
+				
+				JsonObject state = element.getAsJsonObject();
+				JsonElement x = state.get("x");
+				JsonElement y = state.get("y");
+				JsonElement minimized = state.get("minimized");
+				JsonElement pinned = state.get("pinned");
+				JsonElement width = state.get("width");
+				if(x != null && x.isJsonPrimitive()
+					&& x.getAsJsonPrimitive().isNumber())
+					window.setX(x.getAsInt());
+				if(y != null && y.isJsonPrimitive()
+					&& y.getAsJsonPrimitive().isNumber())
+					window.setY(y.getAsInt());
+				window.setMinimized(false);
+				if(minimized != null && minimized.isJsonPrimitive()
+					&& minimized.getAsJsonPrimitive().isBoolean()
+					&& minimized.getAsBoolean())
+					windows.remove(window);
+				if(pinned != null && pinned.isJsonPrimitive()
+					&& pinned.getAsJsonPrimitive().isBoolean())
+					window.setPinned(pinned.getAsBoolean());
+			}
+			return true;
+		}catch(NoSuchFileException e)
+		{
+			return false;
+		}catch(Exception e)
+		{
+			System.out
+				.println("Failed to load " + modernWindowsFile.getFileName());
+			e.printStackTrace();
+			return false;
+		}
+	}
+	
+	private void layoutModernOverview()
+	{
+		int x = 5;
+		int y = 34;
+		int rowHeight = 0;
+		int scaledWidth = MC.getWindow().getGuiScaledWidth();
+		
+		for(Window window : modernCategoryWindows.values())
+		{
+			window.pack();
+			if(x + window.getWidth() + 5 > scaledWidth && x > 5)
+			{
+				x = 5;
+				y += rowHeight + 5;
+				rowHeight = 0;
+			}
+			window.setX(x);
+			window.setY(y);
+			x += window.getWidth() + 5;
+			rowHeight = Math.max(rowHeight, window.getHeight());
+		}
+	}
+	
+	private Path getActiveWindowsFile()
+	{
+		return modernStyle ? modernWindowsFile : windowsFile;
+	}
+	
+	private int getModernNavigationStartX()
+	{
+		int width = MC.font.width("Client Settings") + 10;
+		for(Category category : Category.values())
+			width += MC.font.width(category.getName()) + 12;
+		return Math.max(4, (MC.getWindow().getGuiScaledWidth() - width) / 2);
+	}
+	
+	private boolean handleModernNavigationClick(int mouseX, int mouseY,
+		int mouseButton)
+	{
+		if(!modernStyle || mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+			|| mouseY < 4 || mouseY >= 25)
+			return false;
+		
+		int x = getModernNavigationStartX();
+		for(Category category : Category.values())
+		{
+			int width = MC.font.width(category.getName()) + 10;
+			if(mouseX >= x && mouseX < x + width)
+			{
+				Window window = modernCategoryWindows.get(category.getName());
+				if(window != null)
+				{
+					// A visible category tab toggles its canvas window closed.
+					// Reopening
+					// the same tab restores the same object and persisted
+					// position.
+					if(windows.contains(window) && !window.isMinimized())
+					{
+						window.close();
+						windows.remove(window);
+					}else
+					{
+						window.reopen();
+						if(!windows.contains(window))
+							windows.add(window);
+						bringWindowToFront(window);
+					}
+					saveWindows();
+				}
+				return true;
+			}
+			x += width + 2;
+		}
+		int clientWidth = MC.font.width("Client Settings") + 10;
+		if(mouseX >= x && mouseX < x + clientWidth)
+		{
+			Window window = modernCategoryWindows.get("Client Settings");
+			if(window != null)
+			{
+				if(windows.contains(window) && !window.isMinimized())
+				{
+					window.close();
+					windows.remove(window);
+				}else
+				{
+					window.reopen();
+					if(!windows.contains(window))
+						windows.add(window);
+					bringWindowToFront(window);
+				}
+				saveWindows();
+			}
+			return true;
+		}
+		
+		return false;
+	}
+	
+	private void renderModernNavigation(GuiGraphicsExtractor context,
+		int mouseX, int mouseY)
+	{
+		int screenWidth = MC.getWindow().getGuiScaledWidth();
+		context.fill(0, 0, screenWidth, 30,
+			RenderUtils.toIntColor(topBarColor, opacity * topBarOpacity));
+		RenderUtils.drawLine2D(context, 0, 29, screenWidth, 29,
+			RenderUtils.toIntColor(acColor, opacity));
+		int x = getModernNavigationStartX();
+		for(Category category : Category.values())
+		{
+			Window window = modernCategoryWindows.get(category.getName());
+			boolean minimized = window != null && window.isMinimized();
+			boolean open =
+				window != null && windows.contains(window) && !minimized;
+			boolean focused = open && !windows.isEmpty()
+				&& windows.get(windows.size() - 1) == window;
+			x = renderModernNavigationButton(context, category.getName(), x,
+				mouseX, mouseY, open, minimized, focused) + 2;
+		}
+		Window clientSettings = modernCategoryWindows.get("Client Settings");
+		boolean clientMinimized =
+			clientSettings != null && clientSettings.isMinimized();
+		boolean clientOpen = clientSettings != null
+			&& windows.contains(clientSettings) && !clientMinimized;
+		boolean clientFocused = clientOpen && !windows.isEmpty()
+			&& windows.get(windows.size() - 1) == clientSettings;
+		renderModernNavigationButton(context, "Client Settings", x, mouseX,
+			mouseY, clientOpen, clientMinimized, clientFocused);
+	}
+	
+	private int renderModernNavigationButton(GuiGraphicsExtractor context,
+		String label, int x, int mouseX, int mouseY, boolean open,
+		boolean minimized, boolean focused)
+	{
+		int width = MC.font.width(label) + 10;
+		boolean hovering =
+			mouseX >= x && mouseX < x + width && mouseY >= 4 && mouseY < 25;
+		if(focused)
+			context.fill(x, 4, x + width, 25,
+				RenderUtils.toIntColor(acColor, Math.min(1F, opacity + 0.18F)));
+		else if(open)
+			context.fill(x, 4, x + width, 25,
+				RenderUtils.toIntColor(acColor, opacity * 0.62F));
+		else
+			context
+				.fill(x, 4, x + width, 25,
+					RenderUtils.toIntColor(new float[]{bgColor[0] * 0.62F,
+						bgColor[1] * 0.62F, bgColor[2] * 0.62F},
+						opacity * 0.9F));
+		if(hovering && !focused)
+			RenderUtils.drawBorder2D(context, x, 4, x + width, 25,
+				RenderUtils.toIntColor(acColor, opacity * 0.45F));
+		if(open || focused)
+			context.fill(x + 1, 25, x + width - 1, 27, RenderUtils
+				.toIntColor(enabledHackColor, Math.min(1F, opacity * 0.85F)));
+		context.text(MC.font, label, x + 5, 10, txtColor, false);
+		return x + width;
+	}
+	
 	public void persistWindowLayout()
 	{
 		rememberScrollOffsets();
@@ -512,6 +950,13 @@ public final class ClickGui
 			rememberedScroll.put(window.getTitle(), window.getScrollOffset());
 	}
 	
+	private int getConfiguredWindowMaxHeight(Window window)
+	{
+		boolean settingsWindow = window instanceof SettingsWindow
+			|| window instanceof net.wurstclient.clickgui.modern.ModernSettingsWindow;
+		return settingsWindow ? maxSettingsHeight : maxHeight;
+	}
+	
 	private void applySavedScroll(Window window, JsonElement scrollElement)
 	{
 		int scroll = rememberedScroll.getOrDefault(window.getTitle(),
@@ -526,12 +971,11 @@ public final class ClickGui
 		// Ensure validation uses the same height constraints as rendering,
 		// otherwise the clamp below would force scroll=0 when max height
 		// limits are applied only later during render.
-		window.setMaxHeight(
-			window instanceof SettingsWindow ? maxSettingsHeight : maxHeight);
+		window.setMaxHeight(getConfiguredWindowMaxHeight(window));
 		window.validate();
 		scroll = Math.min(scroll, 0);
-		scroll = Math.max(scroll,
-			-window.getInnerHeight() + window.getHeight() - 13);
+		scroll = Math.max(scroll, -window.getInnerHeight() + window.getHeight()
+			- getHeaderHeight(window));
 		window.setScrollOffset(scroll);
 		rememberedScroll.put(window.getTitle(), scroll);
 	}
@@ -566,7 +1010,9 @@ public final class ClickGui
 			int scroll = scrollOffset;
 			scroll = Math.min(scroll, 0);
 			scroll = Math.max(scroll,
-				-window.getInnerHeight() + window.getHeight() - 13);
+				-window.getInnerHeight() + window.getHeight()
+					- (window instanceof ModernWindow
+						? WURST.getHax().clickGuiHack.getHeaderHeight() : 13));
 			window.setScrollOffset(scroll);
 		}
 	}
@@ -574,45 +1020,70 @@ public final class ClickGui
 	private void saveWindows()
 	{
 		JsonObject json = new JsonObject();
+		if(modernStyle)
+		{
+			json.addProperty("layoutVersion", 1);
+			JsonObject selectedSections = new JsonObject();
+			for(Map.Entry<String, String> entry : modernSelectedSections
+				.entrySet())
+				selectedSections.addProperty(entry.getKey(), entry.getValue());
+			json.add("selectedSections", selectedSections);
+		}
 		
-		for(Window window : windows)
+		ArrayList<Window> windowsToSave = new ArrayList<>(windows);
+		// Closed category windows are deliberately removed from the render
+		// list.
+		// Keep them in the Modern layout file so reopening after a GUI reload
+		// restores the exact position, width and scroll state.
+		if(modernStyle)
+			for(Window window : modernCategoryWindows.values())
+				if(!windowsToSave.contains(window))
+					windowsToSave.add(window);
+				
+		for(Window window : windowsToSave)
 		{
 			// Persist pinned/position/minimized state for non-closable windows
 			// as before. Also persist closable windows only when they're pinned
 			// so user-constructed settings/popups that they pinned survive UI
 			// reloads. This fixes lost pin state for per-feature settings
 			// windows.
-			if(window.isClosable() && !window.isPinned())
+			if(window.isClosable() && !window.isPinned()
+				&& !(modernStyle && window instanceof ModernWindow))
 				continue;
 			
 			JsonObject jsonWindow = new JsonObject();
 			jsonWindow.addProperty("x", window.getActualX());
 			jsonWindow.addProperty("y", window.getActualY());
-			jsonWindow.addProperty("minimized", window.isMinimized());
+			jsonWindow.addProperty("minimized",
+				modernStyle && window instanceof ModernWindow
+					&& !windows.contains(window) || window.isMinimized());
 			jsonWindow.addProperty("pinned", window.isPinned());
+			if(modernStyle && window instanceof ModernWindow)
+				jsonWindow.addProperty("width", window.getWidth());
 			int savedScroll = rememberedScroll.getOrDefault(window.getTitle(),
 				window.getScrollOffset());
 			jsonWindow.addProperty("scrollOffset", savedScroll);
 			json.add(window.getTitle(), jsonWindow);
 		}
 		
+		Path stateFile = getActiveWindowsFile();
 		try
 		{
-			Path parent = windowsFile.getParent();
+			Path parent = stateFile.getParent();
 			if(parent != null)
 				Files.createDirectories(parent);
-			try(BufferedWriter writer = Files.newBufferedWriter(windowsFile))
+			try(BufferedWriter writer = Files.newBufferedWriter(stateFile))
 			{
 				JsonUtils.PRETTY_GSON.toJson(json, writer);
 			}
 		}catch(IOException e)
 		{
-			System.out.println("Failed to save " + windowsFile.getFileName());
+			System.out.println("Failed to save " + stateFile.getFileName());
 			e.printStackTrace();
 		}
 	}
 	
-	public void handleMouseClick(MouseButtonEvent context)
+	public boolean handleMouseClick(MouseButtonEvent context)
 	{
 		int mouseX = (int)context.x();
 		int mouseY = (int)context.y();
@@ -620,18 +1091,29 @@ public final class ClickGui
 		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
+		if(handleModernNavigationClick(mouseX, mouseY, mouseButton))
+		{
+			closeActivePopups();
+			return true;
+		}
+		
 		boolean popupClicked =
 			handlePopupMouseClick(mouseX, mouseY, mouseButton);
+		boolean handled = popupClicked;
 		
 		if(!popupClicked)
 		{
 			boolean closedPopups = closeActivePopups();
-			if(!closedPopups)
-				handleWindowMouseClick(mouseX, mouseY, mouseButton, context);
+			if(!closedPopups || modernStyle)
+				handled = handleWindowMouseClick(mouseX, mouseY, mouseButton,
+					context);
+			else
+				handled = closedPopups;
 		}
 		
 		closeInvalidPopups();
 		windows.removeIf(Window::isClosing);
+		return handled;
 	}
 	
 	public boolean handlePinnedMouseClick(MouseButtonEvent context)
@@ -642,13 +1124,19 @@ public final class ClickGui
 		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
+		if(handleModernNavigationClick(mouseX, mouseY, mouseButton))
+		{
+			closeActivePopups();
+			return true;
+		}
+		
 		boolean popupClicked =
 			handlePinnedPopupMouseClick(mouseX, mouseY, mouseButton);
 		boolean windowClicked = false;
 		if(!popupClicked)
 		{
 			boolean closedPopups = closePinnedPopups();
-			if(!closedPopups)
+			if(!closedPopups || modernStyle)
 				windowClicked = handlePinnedWindowMouseClick(mouseX, mouseY,
 					mouseButton, context);
 		}
@@ -698,7 +1186,116 @@ public final class ClickGui
 		int mouseButton)
 	{
 		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		{
 			leftMouseButtonPressed = false;
+			boolean save = false;
+			for(Window window : windows)
+			{
+				for(int i = 0; i < window.countChildren(); i++)
+					window.getChild(i).handleMouseRelease(mouseButton);
+				
+				if(window.isDragging())
+				{
+					window.stopDragging();
+					save = true;
+				}
+				if(window.isDraggingScrollbar())
+				{
+					window.stopDraggingScrollbar();
+					save = true;
+				}
+				if(window.isResizing())
+				{
+					window.stopResizing();
+					save = true;
+				}
+			}
+			if(save)
+				saveWindows();
+		}
+	}
+
+	/**
+	 * Updates an active window drag from the screen's mouse-drag event. The
+	 * render loop still updates these states as a fallback for pinned overlays,
+	 * but handling the event here makes dragging independent of render timing.
+	 */
+	public boolean handleMouseDrag(MouseButtonEvent context)
+	{
+		return updateActiveWindowDrag((int)context.x(), (int)context.y(),
+			false);
+	}
+
+	public boolean handlePinnedMouseDrag(MouseButtonEvent context)
+	{
+		return updateActiveWindowDrag((int)context.x(), (int)context.y(), true);
+	}
+
+	/**
+	 * Fallback for screens that do not forward mouseDragged events. MouseHandler
+	 * supplies raw display coordinates, so convert them to GUI-scaled
+	 * coordinates before updating the active drag.
+	 */
+	public boolean handleMouseMove(double rawMouseX, double rawMouseY)
+	{
+		int screenWidth = MC.getWindow().getScreenWidth();
+		int screenHeight = MC.getWindow().getScreenHeight();
+		if(screenWidth <= 0 || screenHeight <= 0)
+			return false;
+		
+		int mouseX = (int)(rawMouseX * MC.getWindow().getGuiScaledWidth()
+			/ screenWidth);
+		int mouseY = (int)(rawMouseY * MC.getWindow().getGuiScaledHeight()
+			/ screenHeight);
+		boolean pinnedOnly = !(MC.gui.screen() instanceof net.wurstclient
+			.clickgui.screens.ClickGuiScreen);
+		return updateActiveWindowDrag(mouseX, mouseY, pinnedOnly);
+	}
+
+	private boolean updateActiveWindowDrag(int mouseX, int mouseY,
+		boolean pinnedOnly)
+	{
+		boolean handled = false;
+		for(Window window : windows)
+		{
+			if(window.isInvisible() || pinnedOnly && !window.isPinned())
+				continue;
+			
+			if(window.isDragging())
+			{
+				window.dragTo(mouseX, mouseY);
+				handled = true;
+			}
+			if(window.isDraggingScrollbar())
+			{
+				window.dragScrollbarTo(mouseY);
+				rememberedScroll.put(window.getTitle(),
+					window.getScrollOffset());
+				handled = true;
+			}
+			if(window.isResizing())
+			{
+				window.resizeTo(mouseX);
+				handled = true;
+			}
+
+			if(!window.isMinimized() && !window.isDragging()
+				&& !window.isDraggingScrollbar() && !window.isResizing())
+			{
+				window.validate();
+				int cMouseX = mouseX - window.getX();
+				int cMouseY = mouseY - window.getY()
+					- getHeaderHeight(window);
+				if(window.isScrollingEnabled())
+					cMouseY -= window.getScrollOffset();
+				if(handleComponentMouseDrag(window, cMouseX, cMouseY))
+					handled = true;
+			}
+		}
+		
+		if(handled)
+			leftMouseButtonPressed = true;
+		return handled;
 	}
 	
 	public boolean handlePinnedMouseRelease(double mouseX, double mouseY,
@@ -729,7 +1326,8 @@ public final class ClickGui
 			if(window.isMinimized() || window.isInvisible())
 				continue;
 			
-			if(mouseX < window.getX() || mouseY < window.getY() + 13)
+			if(mouseX < window.getX()
+				|| mouseY < window.getY() + getHeaderHeight(window))
 				continue;
 			if(mouseX >= window.getX() + window.getWidth()
 				|| mouseY >= window.getY() + window.getHeight())
@@ -750,8 +1348,8 @@ public final class ClickGui
 			
 			int scroll = window.getScrollOffset() + dWheel;
 			scroll = Math.min(scroll, 0);
-			scroll = Math.max(scroll,
-				-window.getInnerHeight() + window.getHeight() - 13);
+			scroll = Math.max(scroll, -window.getInnerHeight()
+				+ window.getHeight() - getHeaderHeight(window));
 			window.setScrollOffset(scroll);
 			rememberedScroll.put(window.getTitle(), scroll);
 			closeInvalidPopups();
@@ -777,7 +1375,8 @@ public final class ClickGui
 			if(window.isMinimized())
 				continue;
 			
-			if(mouseX < window.getX() || mouseY < window.getY() + 13)
+			if(mouseX < window.getX()
+				|| mouseY < window.getY() + getHeaderHeight(window))
 				continue;
 			if(mouseX >= window.getX() + window.getWidth()
 				|| mouseY >= window.getY() + window.getHeight())
@@ -798,8 +1397,8 @@ public final class ClickGui
 			
 			int scroll = window.getScrollOffset() + dWheel;
 			scroll = Math.min(scroll, 0);
-			scroll = Math.max(scroll,
-				-window.getInnerHeight() + window.getHeight() - 13);
+			scroll = Math.max(scroll, -window.getInnerHeight()
+				+ window.getHeight() - getHeaderHeight(window));
 			window.setScrollOffset(scroll);
 			rememberedScroll.put(window.getTitle(), scroll);
 			closeInvalidPopups();
@@ -833,6 +1432,24 @@ public final class ClickGui
 	
 	public boolean handleKeyPressed(KeyEvent context)
 	{
+		if(modernStyle && keyboardInput == null)
+		{
+			if(context.key() == GLFW.GLFW_KEY_ESCAPE
+				&& !modernSearchQuery.isEmpty())
+			{
+				modernSearchQuery = "";
+				updateModernSearchResults();
+				return true;
+			}
+			if(context.key() == GLFW.GLFW_KEY_BACKSPACE
+				&& !modernSearchQuery.isEmpty())
+			{
+				modernSearchQuery = modernSearchQuery.substring(0,
+					modernSearchQuery.offsetByCodePoints(0, modernSearchQuery
+						.codePointCount(0, modernSearchQuery.length()) - 1));
+				return true;
+			}
+		}
 		if(keyboardInput != null && keyboardInput.onKeyPressed(context))
 			return true;
 		
@@ -847,6 +1464,13 @@ public final class ClickGui
 	
 	public boolean handleCharTyped(CharacterEvent event)
 	{
+		if(modernStyle && keyboardInput == null
+			&& !Character.isISOControl(event.codepoint()))
+		{
+			modernSearchQuery +=
+				new String(Character.toChars(event.codepoint()));
+			return true;
+		}
 		return keyboardInput != null && keyboardInput.onCharTyped(event);
 	}
 	
@@ -957,8 +1581,8 @@ public final class ClickGui
 				continue;
 			
 			int x0 = parent.getX() + owner.getX();
-			int y0 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y0 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			int x1 = x0 + popup.getX();
 			int y1 = y0 + popup.getY();
@@ -997,8 +1621,8 @@ public final class ClickGui
 				continue;
 			
 			int x0 = parent.getX() + owner.getX();
-			int y0 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y0 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			int x1 = x0 + popup.getX();
 			int y1 = y0 + popup.getY();
@@ -1038,8 +1662,8 @@ public final class ClickGui
 				continue;
 			
 			int x0 = parent.getX() + owner.getX();
-			int y0 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y0 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			int x1 = x0 + popup.getX();
 			int y1 = y0 + popup.getY();
@@ -1078,8 +1702,8 @@ public final class ClickGui
 				continue;
 			
 			int x0 = parent.getX() + owner.getX();
-			int y0 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y0 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			int x1 = x0 + popup.getX();
 			int y1 = y0 + popup.getY();
@@ -1124,7 +1748,7 @@ public final class ClickGui
 			return false;
 		
 		int x1 = parent.getX();
-		int y1 = parent.getY() + 13;
+		int y1 = parent.getY() + getHeaderHeight(parent);
 		int x2 = x1 + parent.getWidth();
 		int y2 = parent.getY() + parent.getHeight();
 		return isComponentVisibleWithinBounds(owner, x1, y1, x2, y2);
@@ -1135,18 +1759,25 @@ public final class ClickGui
 	{
 		Window parent = c.getParent();
 		int cx1 = parent.getX() + c.getX();
-		int cy1 = parent.getY() + 13 + parent.getScrollOffset() + c.getY();
+		int cy1 = parent.getY() + getHeaderHeight(parent)
+			+ parent.getScrollOffset() + c.getY();
 		int cx2 = cx1 + c.getWidth();
 		int cy2 = cy1 + c.getHeight();
 		return cx2 > x1 && cx1 < x2 && cy2 > y1 && cy1 < y2;
 	}
 	
-	private void handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
+	private int getHeaderHeight(Window window)
+	{
+		return window instanceof ModernWindow ? getModernHeaderHeight() : 13;
+	}
+	
+	private boolean handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
 			Window window = windows.get(i);
+			int windowCountBefore = windows.size();
 			if(window.isInvisible())
 				continue;
 			
@@ -1154,14 +1785,18 @@ public final class ClickGui
 			int y1 = window.getY();
 			int x2 = x1 + window.getWidth();
 			int y2 = y1 + window.getHeight();
-			int y3 = y1 + 13;
+			int y3 = y1 + getHeaderHeight(window);
 			
 			if(mouseX < x1 || mouseY < y1)
 				continue;
 			if(mouseX >= x2 || mouseY >= y2)
 				continue;
 			
-			if(mouseY < y3)
+			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+				&& window.isResizable() && !window.isMinimized()
+				&& mouseX >= x2 - 7 && mouseY >= y2 - 7)
+				window.startResizing(mouseX);
+			else if(mouseY < y3)
 				handleTitleBarMouseClick(window, mouseX, mouseY, mouseButton);
 			else if(!window.isMinimized())
 			{
@@ -1170,9 +1805,9 @@ public final class ClickGui
 				int cMouseX = mouseX - x1;
 				int cMouseY = mouseY - y3;
 				
-				if(window.isScrollingEnabled() && mouseX >= x2 - 3)
-					handleScrollbarMouseClick(window, cMouseX, cMouseY,
-						mouseButton);
+				if(window.isScrollingEnabled()
+					&& isOverScrollbar(window, mouseX, mouseY))
+					handleScrollbarMouseClick(window, mouseX, mouseY, mouseButton);
 				else
 				{
 					if(window.isScrollingEnabled())
@@ -1189,11 +1824,14 @@ public final class ClickGui
 			// windows list was modified concurrently
 			if(!windows.contains(window))
 				break;
+			if(windows.size() != windowCountBefore)
+				break;
 			
 			windows.remove(window);
 			windows.add(window);
-			break;
+			return true;
 		}
+		return false;
 	}
 	
 	private boolean handlePinnedWindowMouseClick(int mouseX, int mouseY,
@@ -1202,6 +1840,7 @@ public final class ClickGui
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
 			Window window = windows.get(i);
+			int windowCountBefore = windows.size();
 			if(window.isInvisible() || !window.isPinned())
 				continue;
 			
@@ -1209,14 +1848,18 @@ public final class ClickGui
 			int y1 = window.getY();
 			int x2 = x1 + window.getWidth();
 			int y2 = y1 + window.getHeight();
-			int y3 = y1 + 13;
+			int y3 = y1 + getHeaderHeight(window);
 			
 			if(mouseX < x1 || mouseY < y1)
 				continue;
 			if(mouseX >= x2 || mouseY >= y2)
 				continue;
 			
-			if(mouseY < y3)
+			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+				&& window.isResizable() && !window.isMinimized()
+				&& mouseX >= x2 - 7 && mouseY >= y2 - 7)
+				window.startResizing(mouseX);
+			else if(mouseY < y3)
 				handleTitleBarMouseClick(window, mouseX, mouseY, mouseButton);
 			else if(!window.isMinimized())
 			{
@@ -1225,9 +1868,9 @@ public final class ClickGui
 				int cMouseX = mouseX - x1;
 				int cMouseY = mouseY - y3;
 				
-				if(window.isScrollingEnabled() && mouseX >= x2 - 3)
-					handleScrollbarMouseClick(window, cMouseX, cMouseY,
-						mouseButton);
+				if(window.isScrollingEnabled()
+					&& isOverScrollbar(window, mouseX, mouseY))
+					handleScrollbarMouseClick(window, mouseX, mouseY, mouseButton);
 				else
 				{
 					if(window.isScrollingEnabled())
@@ -1241,6 +1884,8 @@ public final class ClickGui
 				continue;
 			
 			if(!windows.contains(window))
+				break;
+			if(windows.size() != windowCountBefore)
 				break;
 			
 			windows.remove(window);
@@ -1256,71 +1901,88 @@ public final class ClickGui
 	{
 		if(mouseButton != 0)
 			return;
-		
-		if(mouseY < window.getY() + 2 || mouseY >= window.getY() + 11)
+		boolean modernWindow = window instanceof ModernWindow;
+		int controlSize = modernWindow ? MODERN_TITLE_CONTROL_SIZE : 9;
+		int controlSlot = modernWindow ? MODERN_TITLE_CONTROL_SLOT : 11;
+		int controlY =
+			window.getY()
+				+ (modernWindow
+					? Math
+						.max(1,
+							Math.round(
+								(getModernHeaderHeight() - controlSize) / 2F))
+					: 2);
+		if(mouseY < controlY || mouseY >= controlY + controlSize)
 		{
 			window.startDragging(mouseX, mouseY);
 			return;
 		}
 		
-		int x3 = window.getX() + window.getWidth();
-		
+		int x3 = window.getX() + window.getWidth()
+			- (modernWindow ? MODERN_TITLE_CONTROL_RIGHT_PADDING : 0);
 		if(window.isClosable())
 		{
-			x3 -= 11;
-			if(mouseX >= x3 && mouseX < x3 + 9)
+			x3 -= controlSlot;
+			if(mouseX >= x3 && mouseX < x3 + controlSize)
 			{
 				window.close();
+				if(modernStyle && modernCategoryWindows.containsValue(window))
+				{
+					windows.remove(window);
+					saveWindows();
+				}
 				return;
 			}
 		}
-		
 		if(window.isPinnable())
 		{
-			x3 -= 11;
-			if(mouseX >= x3 && mouseX < x3 + 9)
+			x3 -= controlSlot;
+			if(mouseX >= x3 && mouseX < x3 + controlSize)
 			{
 				window.setPinned(!window.isPinned());
 				saveWindows();
 				return;
 			}
 		}
-		
 		if(window.isMinimizable())
 		{
-			x3 -= 11;
-			if(mouseX >= x3 && mouseX < x3 + 9)
+			x3 -= controlSlot;
+			if(mouseX >= x3 && mouseX < x3 + controlSize)
 			{
 				window.setMinimized(!window.isMinimized());
 				saveWindows();
 				return;
 			}
 		}
-		
 		window.startDragging(mouseX, mouseY);
 	}
 	
+	private boolean isOverScrollbar(Window window, int mouseX, int mouseY)
+	{
+		int x1 = window.getX() + window.getWidth() - 8;
+		int x2 = window.getX() + window.getWidth();
+		int y1 = window.getY() + getHeaderHeight(window)
+			+ window.getScrollbarTrackTop();
+		int y2 = window.getY() + getHeaderHeight(window)
+			+ window.getScrollbarTrackBottom();
+		return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
+	}
+
 	private void handleScrollbarMouseClick(Window window, int mouseX,
 		int mouseY, int mouseButton)
 	{
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
 		
-		if(mouseX >= window.getWidth() - 1)
+		if(!isOverScrollbar(window, mouseX, mouseY))
 			return;
-		
-		double outerHeight = window.getHeight() - 13;
-		double innerHeight = window.getInnerHeight();
-		double maxScrollbarHeight = outerHeight - 2;
-		int scrollbarY =
-			(int)(outerHeight * (-window.getScrollOffset() / innerHeight) + 1);
-		int scrollbarHeight =
-			(int)(maxScrollbarHeight * outerHeight / innerHeight);
-		
-		if(mouseY < scrollbarY || mouseY >= scrollbarY + scrollbarHeight)
-			return;
-		
-		window.startDraggingScrollbar(window.getY() + 13 + mouseY);
+		int localMouseY = mouseY - window.getY() - getHeaderHeight(window);
+		int scrollbarY = window.getScrollbarThumbY();
+		int scrollbarHeight = window.getScrollbarThumbHeight();
+		if(localMouseY < scrollbarY
+			|| localMouseY >= scrollbarY + scrollbarHeight)
+			window.centerScrollbarOn(mouseY);
+		window.startDraggingScrollbar(mouseY);
 	}
 	
 	private void handleComponentMouseClick(Window window, double mouseX,
@@ -1343,6 +2005,18 @@ public final class ClickGui
 			break;
 		}
 	}
+
+	private boolean handleComponentMouseDrag(Window window, double mouseX,
+		double mouseY)
+	{
+		for(int i = window.countChildren() - 1; i >= 0; i--)
+		{
+			Component c = window.getChild(i);
+			if(c.handleMouseDrag(mouseX, mouseY))
+				return true;
+		}
+		return false;
+	}
 	
 	private boolean handleWindowComponentMouseScroll(Window window,
 		double mouseX, double mouseY, double delta)
@@ -1350,9 +2024,11 @@ public final class ClickGui
 		window.validate();
 		
 		int cMouseX = (int)(mouseX - window.getX());
-		int cMouseY = (int)(mouseY - window.getY() - 13);
+		int cMouseY = (int)(mouseY - window.getY() - getHeaderHeight(window));
 		if(window.isScrollingEnabled())
+		{
 			cMouseY -= window.getScrollOffset();
+		}
 		
 		return handleNavigatorComponentMouseScroll(cMouseX, cMouseY, delta,
 			window);
@@ -1361,18 +2037,30 @@ public final class ClickGui
 	public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		if(refreshPending)
+		// Apply Classic/Modern selection immediately instead of waiting for the
+		// screen to close and reopen.
+		if(refreshPending
+			|| modernStyle != WURST.getHax().clickGuiHack.isModernStyle()
+			|| modernStyle && modernRowHeight != WURST.getHax().clickGuiHack
+				.getRowHeight())
 		{
 			refreshPending = false;
 			init();
 		}
 		
 		updateColors();
+		adaptModernLayoutToScreen();
 		
 		Matrix3x2fStack matrixStack = context.pose();
 		matrixStack.pushMatrix();
 		
 		tooltip = "";
+		if(modernStyle)
+		{
+			renderModernNavigation(context, mouseX, mouseY);
+			renderModernSearchOverlay(context);
+		}
+		
 		ArrayList<Window> visibleWindows = new ArrayList<>();
 		for(Window window : windows)
 		{
@@ -1381,17 +2069,28 @@ public final class ClickGui
 			
 			// dragging
 			if(window.isDragging())
-				if(leftMouseButtonPressed)
+				if(isLeftMouseButtonPressed())
 					window.dragTo(mouseX, mouseY);
 				else
 				{
 					window.stopDragging();
 					saveWindows();
 				}
+				
+			// Modern windows support horizontal resize from the lower-right
+			// grip.
+			if(window.isResizing())
+				if(isLeftMouseButtonPressed())
+					window.resizeTo(mouseX);
+				else
+				{
+					window.stopResizing();
+					saveWindows();
+				}
 			
 			// scrollbar dragging
 			if(window.isDraggingScrollbar())
-				if(leftMouseButtonPressed)
+				if(isLeftMouseButtonPressed())
 					window.dragScrollbarTo(mouseY);
 				else
 					window.stopDraggingScrollbar();
@@ -1429,8 +2128,8 @@ public final class ClickGui
 				continue;
 			
 			int x1 = parent.getX() + owner.getX();
-			int y1 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y1 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			matrixStack.pushMatrix();
 			matrixStack.translate(x1, y1);
@@ -1456,8 +2155,8 @@ public final class ClickGui
 				continue;
 			
 			int x1 = parent.getX() + owner.getX();
-			int y1 =
-				parent.getY() + 13 + parent.getScrollOffset() + owner.getY();
+			int y1 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
 			
 			matrixStack.pushMatrix();
 			matrixStack.translate(x1, y1);
@@ -1499,8 +2198,10 @@ public final class ClickGui
 		context.guiRenderState.up();
 		
 		// background
+		float[] tooltipBg =
+			{bgColor[0] * 0.42F, bgColor[1] * 0.42F, bgColor[2] * 0.42F};
 		context.fill(xt1, yt1, xt2, yt2,
-			RenderUtils.toIntColor(bgColor, ttOpacity));
+			RenderUtils.toIntColor(tooltipBg, ttOpacity));
 		
 		// outline
 		RenderUtils.drawBorder2D(context, xt1, yt1, xt2, yt2,
@@ -1516,7 +2217,12 @@ public final class ClickGui
 	public void renderPinnedWindows(GuiGraphicsExtractor context,
 		float partialTicks)
 	{
-		if(refreshPending)
+		// Apply Classic/Modern selection immediately instead of waiting for the
+		// screen to close and reopen.
+		if(refreshPending
+			|| modernStyle != WURST.getHax().clickGuiHack.isModernStyle()
+			|| modernStyle && modernRowHeight != WURST.getHax().clickGuiHack
+				.getRowHeight())
 		{
 			refreshPending = false;
 			init();
@@ -1542,7 +2248,7 @@ public final class ClickGui
 		for(Window window : pinnedWindows)
 		{
 			if(window.isDragging())
-				if(leftMouseButtonPressed)
+				if(isLeftMouseButtonPressed())
 					window.dragTo(mouseX, mouseY);
 				else
 				{
@@ -1551,7 +2257,7 @@ public final class ClickGui
 				}
 			
 			if(window.isDraggingScrollbar())
-				if(leftMouseButtonPressed)
+				if(isLeftMouseButtonPressed())
 					window.dragScrollbarTo(mouseY);
 				else
 					window.stopDraggingScrollbar();
@@ -1579,6 +2285,10 @@ public final class ClickGui
 		ttOpacity = clickGui.getTooltipOpacity();
 		bgColor = clickGui.getBackgroundColor();
 		txtColor = clickGui.getTextColor();
+		topBarColor = clickGui.getTopBarColor();
+		topBarOpacity = clickGui.getTopBarOpacity();
+		hackHeaderColor = clickGui.getHackHeaderColor();
+		hackHeaderOpacity = clickGui.getHackHeaderOpacity();
 		enabledHackColor = clickGui.getEnabledHackColor();
 		dropdownButtonColor = clickGui.getDropdownButtonColor();
 		pinButtonColor = clickGui.getPinButtonColor();
@@ -1592,15 +2302,170 @@ public final class ClickGui
 			acColor = clickGui.getAccentColor();
 	}
 	
-	private void renderWindow(GuiGraphicsExtractor context, Window window,
+	private void renderModernWindow(GuiGraphicsExtractor context, Window window,
 		int mouseX, int mouseY, float partialTicks)
 	{
 		int x1 = window.getX();
 		int y1 = window.getY();
 		int x2 = x1 + window.getWidth();
-		int y2 = y1 + window.getHeight();
-		int y3 = y1 + 13;
+		int headerBottom = y1 + getModernHeaderHeight();
+		boolean minimized = window.isMinimized();
+		if(!minimized)
+		{
+			int availableHeight = MC.getWindow().getGuiScaledHeight() - 54;
+			int configuredHeight = getConfiguredWindowMaxHeight(window);
+			int cappedHeight = configuredHeight <= 0 ? availableHeight
+				: Math.min(configuredHeight, availableHeight);
+			window.setMaxHeight(Math.max(80, cappedHeight));
+			window.validate();
+		}
+		int y2 = minimized ? headerBottom : y1 + window.getHeight();
+		boolean focused =
+			!windows.isEmpty() && windows.get(windows.size() - 1) == window;
+		int border =
+			RenderUtils.toIntColor(acColor, focused ? opacity : opacity * 0.6F);
+		int modernBackground = RenderUtils.toIntColor(bgColor, opacity);
+		int modernHeader = RenderUtils.toIntColor(hackHeaderColor,
+			opacity * hackHeaderOpacity);
+		context.fill(x1, y1, x2, y2, modernBackground);
+		context.fill(x1, y1, x2, headerBottom, modernHeader);
+		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, border);
+		RenderUtils.drawLine2D(context, x1 + 1, headerBottom, x2 - 1,
+			headerBottom, RenderUtils.toIntColor(acColor, opacity * 0.6F));
+		int titleY = y1 + Math.max(0,
+			Math.round((getModernHeaderHeight() - MC.font.lineHeight) / 2F));
+		context.text(MC.font, window.getTitle(), x1 + 8, titleY, txtColor,
+			false);
+		int controlX =
+			x2 - MODERN_TITLE_CONTROL_RIGHT_PADDING - MODERN_TITLE_CONTROL_SIZE;
+		int controlY = y1 + Math.max(1, Math
+			.round((getModernHeaderHeight() - MODERN_TITLE_CONTROL_SIZE) / 2F));
+		if(window.isClosable())
+		{
+			context.fill(controlX, controlY,
+				controlX + MODERN_TITLE_CONTROL_SIZE,
+				controlY + MODERN_TITLE_CONTROL_SIZE,
+				RenderUtils.toIntColor(dropdownButtonColor, opacity));
+			drawModernClose(context, controlX, controlY, txtColor);
+			controlX -= MODERN_TITLE_CONTROL_SLOT;
+		}
+		if(window.isPinnable())
+		{
+			context.fill(controlX, controlY,
+				controlX + MODERN_TITLE_CONTROL_SIZE,
+				controlY + MODERN_TITLE_CONTROL_SIZE,
+				RenderUtils.toIntColor(dropdownButtonColor, opacity));
+			drawModernPin(context, controlX, controlY, window.isPinned(),
+				mouseX >= controlX
+					&& mouseX < controlX + MODERN_TITLE_CONTROL_SIZE
+					&& mouseY >= controlY
+					&& mouseY < controlY + MODERN_TITLE_CONTROL_SIZE);
+			controlX -= MODERN_TITLE_CONTROL_SLOT;
+		}
+		if(window.isMinimizable())
+		{
+			context.fill(controlX, controlY,
+				controlX + MODERN_TITLE_CONTROL_SIZE,
+				controlY + MODERN_TITLE_CONTROL_SIZE,
+				RenderUtils.toIntColor(dropdownButtonColor, opacity));
+			drawModernMinimize(context, controlX, controlY, txtColor,
+				minimized);
+		}
+		if(minimized)
+			return;
+		int bodyBottom = y2 - 2;
+		context.enableScissor(x1 + 2, headerBottom + 1, x2 - 2, bodyBottom);
+		Matrix3x2fStack matrixStack = context.pose();
+		matrixStack.pushMatrix();
+		matrixStack.translate(x1, headerBottom + window.getScrollOffset());
+		int childMouseX = mouseX - x1;
+		int childMouseY = mouseY - headerBottom - window.getScrollOffset();
+		int settingsBorder =
+			RenderUtils.toIntColor(getModernHackRowBorderColor(),
+				opacity * getModernHackRowBorderOpacity());
+		for(int i = 0; i < window.countChildren(); i++)
+		{
+			Component child = window.getChild(i);
+			child.extractRenderState(context, childMouseX, childMouseY,
+				partialTicks);
+			RenderUtils.drawBorder2D(context, child.getX(), child.getY(),
+				child.getX() + child.getWidth(),
+				child.getY() + child.getHeight(), settingsBorder);
+		}
+		matrixStack.popMatrix();
+		context.disableScissor();
+		if(window.isScrollingEnabled())
+		{
+			int trackTop = headerBottom + window.getScrollbarTrackTop();
+			int trackBottom = headerBottom + window.getScrollbarTrackBottom();
+			int thumbHeight = window.getScrollbarThumbHeight();
+			int thumbY = headerBottom + window.getScrollbarThumbY();
+			context.fill(x2 - 7, trackTop, x2 - 3, trackBottom,
+				RenderUtils.toIntColor(dropdownButtonColor, opacity));
+			context.fill(x2 - 7, thumbY, x2 - 3, thumbY + thumbHeight,
+				RenderUtils.toIntColor(acColor, opacity));
+		}
+	}
+	
+	private void drawModernPin(GuiGraphicsExtractor context, int x, int y,
+		boolean pinned, boolean hovering)
+	{
+		int color = pinned ? (hovering ? 0xFFFF5555 : 0xFFFF2222)
+			: (hovering ? 0xFFFFFFFF : 0xFFD9D9D9);
+		int outline = 0xB0101010;
 		
+		// A compact push-pin silhouette; the red fill is the pinned state.
+		RenderUtils.fill2D(context, x + 3, y + 1, x + 10, y + 4, color);
+		RenderUtils.fill2D(context, x + 5, y + 4, x + 8, y + 9, color);
+		RenderUtils.fillTriangle2D(context,
+			new float[][]{{x + 3, y + 9}, {x + 10, y + 9}, {x + 6.5F, y + 12}},
+			color);
+		RenderUtils.drawBorder2D(context, x + 3, y + 1, x + 10, y + 4, outline);
+		RenderUtils.drawBorder2D(context, x + 5, y + 4, x + 8, y + 9, outline);
+	}
+	
+	private void drawModernClose(GuiGraphicsExtractor context, int x, int y,
+		int color)
+	{
+		drawCenteredTitleGlyph(context, "×", x, y, color);
+	}
+	
+	private void drawModernMinimize(GuiGraphicsExtractor context, int x, int y,
+		int color, boolean minimized)
+	{
+		drawCenteredTitleGlyph(context, minimized ? "+" : "-", x, y, color);
+	}
+	
+	private void drawCenteredTitleGlyph(GuiGraphicsExtractor context,
+		String glyph, int x, int y, int color)
+	{
+		int glyphX = Math
+			.round(x + (MODERN_TITLE_CONTROL_SIZE - MC.font.width(glyph)) / 2F);
+		int glyphY = Math
+			.round(y + (MODERN_TITLE_CONTROL_SIZE - MC.font.lineHeight) / 2F);
+		context.text(MC.font, glyph, glyphX, glyphY, color, false);
+	}
+	
+	private void renderWindow(GuiGraphicsExtractor context, Window window,
+		int mouseX, int mouseY, float partialTicks)
+	{
+		if(window instanceof ModernWindow)
+		{
+			renderModernWindow(context, window, mouseX, mouseY, partialTicks);
+			return;
+		}
+		int x1 = window.getX();
+		int y1 = window.getY();
+		int x2 = x1 + window.getWidth();
+		int y2 = y1 + window.getHeight();
+		int y3 = y1 + getHeaderHeight(window);
+		
+		boolean modernWindow = window instanceof ModernWindow;
+		if(modernWindow)
+		{
+			renderModernWindow(context, window, mouseX, mouseY, partialTicks);
+			return;
+		}
 		int windowBgColor = RenderUtils.toIntColor(bgColor, opacity);
 		int outlineColor = RenderUtils.toIntColor(acColor, 0.5F);
 		
@@ -1625,18 +2490,10 @@ public final class ClickGui
 				int xs2 = xs1 + 2;
 				int xs3 = x2;
 				
-				double outerHeight = y2 - y3;
-				double innerHeight = window.getInnerHeight();
-				double maxScrollbarHeight = outerHeight - 2;
-				double scrollbarY =
-					outerHeight * (-window.getScrollOffset() / innerHeight) + 1;
-				double scrollbarHeight =
-					maxScrollbarHeight * outerHeight / innerHeight;
-				
 				int ys1 = y3;
 				int ys2 = y2;
-				int ys3 = ys1 + (int)scrollbarY;
-				int ys4 = ys3 + (int)scrollbarHeight;
+				int ys3 = ys1 + window.getScrollbarThumbY();
+				int ys4 = ys3 + window.getScrollbarThumbHeight();
 				
 				// window background
 				context.fill(xs2, ys1, xs3, ys2, windowBgColor);
@@ -1709,6 +2566,13 @@ public final class ClickGui
 		
 		// window outline
 		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);
+		if(window.isResizable() && !window.isMinimized())
+		{
+			RenderUtils.drawLine2D(context, x2 - 6, y2 - 2, x2 - 2, y2 - 6,
+				RenderUtils.toIntColor(acColor, opacity));
+			RenderUtils.drawLine2D(context, x2 - 4, y2 - 2, x2 - 2, y2 - 4,
+				RenderUtils.toIntColor(acColor, opacity));
+		}
 		
 		// title bar separator line
 		if(!window.isMinimized())
@@ -1716,41 +2580,59 @@ public final class ClickGui
 		
 		// title bar buttons
 		int x3 = x2;
-		int y4 = y1 + 2;
-		int y5 = y3 - 2;
+		int y4 = y1 + (modernWindow ? 4 : 2);
+		int y5 = y4 + (modernWindow ? 15 : 9);
 		boolean hoveringY = mouseY >= y4 && mouseY < y5;
 		if(window.isClosable())
 		{
-			x3 -= 11;
-			int x4 = x3 + 9;
+			x3 -= modernWindow ? 16 : 11;
+			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
-			renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-			ClickGuiIcons.drawCross(context, x3, y4, x4, y5, hovering);
+			if(modernWindow)
+				renderModernTitleButton(context, x3, y4, x4, y5, hovering,
+					hovering ? "✖" : "✕");
+			else
+			{
+				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawCross(context, x3, y4, x4, y5, hovering);
+			}
 		}
 		
 		if(window.isPinnable())
 		{
-			x3 -= 11;
-			int x4 = x3 + 9;
+			x3 -= modernWindow ? 16 : 11;
+			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
-			renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-			ClickGuiIcons.drawPin(context, x3, y4, x4, y5, hovering,
-				window.isPinned());
+			if(modernWindow)
+				renderModernTitleButton(context, x3, y4, x4, y5, hovering,
+					window.isPinned() ? "◆" : "◇");
+			else
+			{
+				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawPin(context, x3, y4, x4, y5, hovering,
+					window.isPinned());
+			}
 		}
 		
 		if(window.isMinimizable())
 		{
-			x3 -= 11;
-			int x4 = x3 + 9;
+			x3 -= modernWindow ? 16 : 11;
+			int x4 = x3 + (modernWindow ? 15 : 9);
 			boolean hovering = hoveringY && mouseX >= x3 && mouseX < x4;
-			renderTitleBarButton(context, x3, y4, x4, y5, hovering);
-			ClickGuiIcons.drawMinimizeArrow(context, x3, y4, x4, y5, hovering,
-				window.isMinimized());
+			if(modernWindow)
+				renderModernTitleButton(context, x3, y4, x4, y5, hovering, "−");
+			else
+			{
+				renderTitleBarButton(context, x3, y4, x4, y5, hovering);
+				ClickGuiIcons.drawMinimizeArrow(context, x3, y4, x4, y5,
+					hovering, window.isMinimized());
+			}
 		}
 		
 		// title bar background
 		// above & below buttons
-		int titleBgColor = RenderUtils.toIntColor(acColor, opacity);
+		int titleBgColor = modernWindow ? 0xED27242D
+			: RenderUtils.toIntColor(acColor, opacity);
 		context.fill(x3, y1, x2, y4, titleBgColor);
 		context.fill(x3, y5, x2, y3, titleBgColor);
 		
@@ -1765,6 +2647,16 @@ public final class ClickGui
 			x3 - x1).getString();
 		context.guiRenderState.up();
 		context.text(tr, title, x1 + 2, y1 + 3, txtColor, false);
+	}
+	
+	private void renderModernTitleButton(GuiGraphicsExtractor context, int x1,
+		int y1, int x2, int y2, boolean hovering, String icon)
+	{
+		context.fill(x1, y1, x2, y2,
+			hovering ? RenderUtils.toIntColor(acColor, opacity * 0.7F)
+				: RenderUtils.toIntColor(bgColor, opacity));
+		context.text(MC.font, icon, x1 + (x2 - x1 - MC.font.width(icon)) / 2,
+			y1 + (y2 - y1 - MC.font.lineHeight) / 2, txtColor, false);
 	}
 	
 	private void renderTitleBarButton(GuiGraphicsExtractor context, int x1,
@@ -1784,6 +2676,94 @@ public final class ClickGui
 		// button outline
 		int outlineColor = RenderUtils.toIntColor(acColor, 0.5F);
 		RenderUtils.drawBorder2D(context, x1, y1, x2, y2, outlineColor);
+	}
+	
+	private void adaptModernLayoutToScreen()
+	{
+		if(!modernStyle)
+			return;
+		int width = MC.getWindow().getGuiScaledWidth();
+		int height = MC.getWindow().getGuiScaledHeight();
+		if(width == modernScreenWidth && height == modernScreenHeight)
+			return;
+		modernScreenWidth = width;
+		modernScreenHeight = height;
+		for(Window window : windows)
+		{
+			int maxX = Math.max(0, width - Math.min(width, window.getWidth()));
+			int maxY = Math.max(34, height - 13);
+			window.setX(Math.max(0, Math.min(maxX, window.getActualX())));
+			window.setY(Math.max(34, Math.min(maxY, window.getActualY())));
+			window.setMaxHeight(Math.max(80, height - 45));
+		}
+	}
+	
+	private void updateModernSearchResults()
+	{
+		if(modernSearchWindow == null)
+			return;
+		
+		boolean searching = !modernSearchQuery.isBlank();
+		for(Window window : modernCategoryWindows.values())
+			window.setInvisible(searching);
+		modernSearchWindow.setInvisible(!searching);
+		if(!searching)
+			return;
+		
+		modernSearchWindow.clearChildren();
+		for(Feature feature : modernFeatures)
+			if(isFeatureVisibleInClickGui(feature,
+				WURST.getHax().tooManyHaxHack)
+				&& ModernFeatureButton.matches(feature, modernSearchQuery))
+				modernSearchWindow.add(new ModernFeatureButton(feature));
+		modernSearchWindow.pack();
+		int screenWidth = MC.getWindow().getGuiScaledWidth();
+		int screenHeight = MC.getWindow().getGuiScaledHeight();
+		modernSearchWindow.setX(
+			Math.max(4, (screenWidth - modernSearchWindow.getWidth()) / 2));
+		modernSearchWindow.setY(
+			Math.max(34, (screenHeight - modernSearchWindow.getHeight()) / 2));
+		modernSearchWindow.setMinimized(false);
+		bringWindowToFront(modernSearchWindow);
+	}
+	
+	public String getModernSearchQuery()
+	{
+		return modernSearchQuery;
+	}
+	
+	private void renderModernSearchOverlay(GuiGraphicsExtractor context)
+	{
+		if(modernSearchQuery.isEmpty())
+			return;
+		
+		String label = "Search hacks: " + modernSearchQuery;
+		int width = MC.font.width(label) + 14;
+		int screenWidth = MC.getWindow().getGuiScaledWidth();
+		int screenHeight = MC.getWindow().getGuiScaledHeight();
+		int x = (screenWidth - width) / 2;
+		int y = screenHeight - 22;
+		context.fill(x, y, x + width, y + 16,
+			RenderUtils.toIntColor(bgColor, opacity));
+		RenderUtils.drawBorder2D(context, x, y, x + width, y + 16,
+			RenderUtils.toIntColor(acColor, opacity));
+		int textY = Math.round(y + (16 - MC.font.lineHeight) / 2F);
+		context.text(MC.font, label, x + 7, textY, txtColor, false);
+	}
+	
+	public float[] getModernHackRowBorderColor()
+	{
+		return WURST.getHax().clickGuiHack.getHackRowBorderColor();
+	}
+	
+	public float getModernHackRowBorderOpacity()
+	{
+		return WURST.getHax().clickGuiHack.getHackRowBorderOpacity();
+	}
+	
+	public boolean isModernEnabledRowHighlight()
+	{
+		return WURST.getHax().clickGuiHack.isHighlightEnabledRows();
 	}
 	
 	public float[] getBgColor()
@@ -1885,6 +2865,16 @@ public final class ClickGui
 		return result;
 	}
 	
+	public int getModernHeaderHeight()
+	{
+		return WURST.getHax().clickGuiHack.getHeaderHeight();
+	}
+	
+	public int getModernRowHeight()
+	{
+		return WURST.getHax().clickGuiHack.getRowHeight();
+	}
+	
 	public float getOpacity()
 	{
 		return opacity;
@@ -1976,11 +2966,21 @@ public final class ClickGui
 		popups.add(popup);
 	}
 	
+	public boolean hasPopup(Popup popup)
+	{
+		return popups.contains(popup);
+	}
+	
 	/**
 	 * Add a feature to the Favorites window if not already present.
 	 */
 	public void addFavoriteFeature(Feature feature)
 	{
+		if(modernStyle)
+		{
+			requestRefresh();
+			return;
+		}
 		String favTitle = net.wurstclient.Category.FAVORITES.getName();
 		for(Window window : windows)
 		{
@@ -2009,6 +3009,11 @@ public final class ClickGui
 	
 	public void removeFavoriteFeature(Feature feature)
 	{
+		if(modernStyle)
+		{
+			requestRefresh();
+			return;
+		}
 		String favTitle = net.wurstclient.Category.FAVORITES.getName();
 		for(Window window : windows)
 		{
@@ -2034,7 +3039,7 @@ public final class ClickGui
 	
 	public boolean isLeftMouseButtonPressed()
 	{
-		return leftMouseButtonPressed;
+		return leftMouseButtonPressed || MC.mouseHandler.isLeftPressed();
 	}
 	
 	/**

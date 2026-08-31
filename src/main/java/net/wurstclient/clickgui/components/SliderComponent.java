@@ -165,8 +165,12 @@ public final class SliderComponent extends Component
 		String value = setting.getValueString();
 		int valueWidth = TR.width(value);
 		int txtColor = GUI.getTxtColor();
-		context.text(TR, name, x1, y1 + 2, txtColor, false);
-		context.text(TR, value, x2 - valueWidth, y1 + 2, txtColor, false);
+		boolean modern =
+			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
+		int textY = modern ? Math.round(y1 + (getHeight() - TR.lineHeight) / 2F)
+			: y1 + 2;
+		context.text(TR, name, x1, textY, txtColor, false);
+		context.text(TR, value, x2 - valueWidth, textY, txtColor, false);
 	}
 	
 	private String getTextTooltip()

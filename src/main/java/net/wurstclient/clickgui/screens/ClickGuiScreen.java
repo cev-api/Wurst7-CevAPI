@@ -35,8 +35,14 @@ public final class ClickGuiScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		gui.handleMouseClick(context);
-		return super.mouseClicked(context, doubleClick);
+		return gui.handleMouseClick(context);
+	}
+
+	@Override
+	public void mouseMoved(double mouseX, double mouseY)
+	{
+		gui.handleMouseMove(mouseX, mouseY);
+		super.mouseMoved(mouseX, mouseY);
 	}
 	
 	@Override
@@ -44,6 +50,16 @@ public final class ClickGuiScreen extends Screen
 	{
 		gui.handleMouseRelease(context.x(), context.y(), context.button());
 		return super.mouseReleased(context);
+	}
+	
+	@Override
+	public boolean mouseDragged(MouseButtonEvent context, double deltaX,
+		double deltaY)
+	{
+		if(gui.handleMouseDrag(context))
+			return true;
+		
+		return super.mouseDragged(context, deltaX, deltaY);
 	}
 	
 	@Override
