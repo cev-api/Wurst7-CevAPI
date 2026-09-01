@@ -56,7 +56,7 @@ ClickGUI and AltGUI hide empty categories. Shared infrastructure remains compile
 ## Wurst7-CevAPI In-Game Screenshot
 ![ModernClickGUI](https://i.imgur.com/t0IIXpo.png)
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
-![AltGUI](https://i.imgur.com/gzAVbru.png)
+![AltGUI](https://i.imgur.com/bPEhtxN.png)
 ![XPGUI](https://i.imgur.com/d5iDhwj.png)
 ![Keybinds](https://i.imgur.com/JK1IsOV.png)
 
