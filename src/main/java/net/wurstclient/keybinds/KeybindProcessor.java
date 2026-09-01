@@ -87,6 +87,9 @@ public final class KeybindProcessor
 			if(gui != null && gui.isKeyboardInputCaptured())
 				return;
 			
+			if(WurstClient.INSTANCE.getHax().clickGuiHack.isModernStyle())
+				return;
+			
 			String ch =
 				mapPrintableChar(event.getKeyCode(), event.getModifiers());
 			if(ch != null)

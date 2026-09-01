@@ -92,6 +92,11 @@ public final class ModernFeatureButton extends Component
 			hack.setFavorite(!hack.isFavorite());
 	}
 	
+	public Feature getFeature()
+	{
+		return feature;
+	}
+	
 	void openSettingsWindow()
 	{
 		String title = feature.getDisplayName() + " Settings";

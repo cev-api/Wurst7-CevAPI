@@ -74,9 +74,12 @@ public final class ClickGui
 	// Phase 5: transient global search; never persisted as layout or hack
 	// state.
 	private String modernSearchQuery = "";
+	private boolean modernSearchActive;
+	private final LinkedHashMap<String, CategorySnapshot> modernSearchSnapshot =
+		new LinkedHashMap<>();
+	private int modernSearchBarY;
 	private final Map<String, String> modernSelectedSections = new HashMap<>();
 	private final ArrayList<Feature> modernFeatures = new ArrayList<>();
-	private Window modernSearchWindow;
 	private int modernScreenWidth = -1;
 	private int modernScreenHeight = -1;
 	
@@ -483,6 +486,9 @@ public final class ClickGui
 	 */
 	private void initModern()
 	{
+		modernSearchQuery = "";
+		modernSearchActive = false;
+		modernSearchSnapshot.clear();
 		modernRowHeight = WURST.getHax().clickGuiHack.getRowHeight();
 		LinkedHashMap<String, WindowState> reopenSettings =
 			captureOpenModernSettingsWindows();
@@ -493,7 +499,6 @@ public final class ClickGui
 		modernCategoryWindows.clear();
 		modernSelectedSections.clear();
 		modernFeatures.clear();
-		modernSearchWindow = null;
 		updateColors();
 		
 		for(Category category : Category.values())
@@ -561,12 +566,6 @@ public final class ClickGui
 				&& !tooManyHax.shouldHideEverywhere(feature))
 				favorites.add(new ModernFeatureButton(feature));
 			
-		modernSearchWindow = new ModernWindow("Search Results");
-		modernSearchWindow.setClosable(true);
-		modernSearchWindow.setInvisible(true);
-		modernSearchWindow.setMaxHeight(
-			Math.max(120, MC.getWindow().getGuiScaledHeight() - 70));
-		windows.add(modernSearchWindow);
 		for(Window window : modernCategoryWindows.values())
 			window.pack();
 		if(!loadModernWindowLayout())
@@ -1036,6 +1035,9 @@ public final class ClickGui
 	
 	private void saveWindows()
 	{
+		if(modernSearchActive)
+			return;
+		
 		JsonObject json = new JsonObject();
 		if(modernStyle)
 		{
@@ -1471,6 +1473,7 @@ public final class ClickGui
 				modernSearchQuery = modernSearchQuery.substring(0,
 					modernSearchQuery.offsetByCodePoints(0, modernSearchQuery
 						.codePointCount(0, modernSearchQuery.length()) - 1));
+				updateModernSearchResults();
 				return true;
 			}
 		}
@@ -1493,6 +1496,7 @@ public final class ClickGui
 		{
 			modernSearchQuery +=
 				new String(Character.toChars(event.codepoint()));
+			updateModernSearchResults();
 			return true;
 		}
 		return keyboardInput != null && keyboardInput.onCharTyped(event);
@@ -2724,33 +2728,171 @@ public final class ClickGui
 		}
 	}
 	
+	private static final class CategorySnapshot
+	{
+		private final int x;
+		private final int y;
+		private final int width;
+		private final boolean minimized;
+		private final boolean open;
+		private final ArrayList<Component> children = new ArrayList<>();
+		
+		private CategorySnapshot(Window window, boolean open)
+		{
+			x = window.getActualX();
+			y = window.getActualY();
+			width = window.getWidth();
+			minimized = window.isMinimized();
+			this.open = open;
+			for(int i = 0; i < window.countChildren(); i++)
+				children.add(window.getChild(i));
+		}
+	}
+	
 	private void updateModernSearchResults()
 	{
-		if(modernSearchWindow == null)
+		if(!modernStyle)
 			return;
 		
-		boolean searching = !modernSearchQuery.isBlank();
+		if(modernSearchQuery.isBlank())
+		{
+			exitModernSearch();
+			return;
+		}
+		
+		if(!modernSearchActive)
+			enterModernSearch();
+		
+		ArrayList<Window> matching = new ArrayList<>();
 		for(Window window : modernCategoryWindows.values())
-			window.setInvisible(searching);
-		modernSearchWindow.setInvisible(!searching);
-		if(!searching)
+		{
+			CategorySnapshot snapshot =
+				modernSearchSnapshot.get(window.getTitle());
+			if(snapshot == null)
+				continue;
+			
+			window.clearChildren();
+			for(Component child : snapshot.children)
+				if(child instanceof ModernFeatureButton button
+					&& ModernFeatureButton.matches(button.getFeature(),
+						modernSearchQuery))
+					window.add(child);
+				
+			boolean hasMatches = window.countChildren() > 0;
+			window.setInvisible(!hasMatches);
+			if(!hasMatches)
+				continue;
+			
+			window.setMinimized(false);
+			if(!windows.contains(window))
+				windows.add(window);
+			window.pack();
+			matching.add(window);
+		}
+		
+		layoutModernSearchResults(matching);
+	}
+	
+	private void enterModernSearch()
+	{
+		modernSearchSnapshot.clear();
+		for(Window window : modernCategoryWindows.values())
+			modernSearchSnapshot.put(window.getTitle(),
+				new CategorySnapshot(window, windows.contains(window)));
+		modernSearchActive = true;
+	}
+	
+	private void exitModernSearch()
+	{
+		if(!modernSearchActive)
 			return;
 		
-		modernSearchWindow.clearChildren();
-		for(Feature feature : modernFeatures)
-			if(isFeatureVisibleInClickGui(feature,
-				WURST.getHax().tooManyHaxHack)
-				&& ModernFeatureButton.matches(feature, modernSearchQuery))
-				modernSearchWindow.add(new ModernFeatureButton(feature));
-		modernSearchWindow.pack();
+		modernSearchActive = false;
+		for(Window window : modernCategoryWindows.values())
+		{
+			CategorySnapshot snapshot =
+				modernSearchSnapshot.get(window.getTitle());
+			if(snapshot == null)
+				continue;
+			
+			window.clearChildren();
+			for(Component child : snapshot.children)
+				window.add(child);
+			window.pack();
+			window.setWidth(snapshot.width);
+			window.setX(snapshot.x);
+			window.setY(snapshot.y);
+			window.setMinimized(snapshot.minimized);
+			window.setInvisible(false);
+			if(snapshot.open)
+			{
+				window.reopen();
+				if(!windows.contains(window))
+					windows.add(window);
+			}else
+				windows.remove(window);
+		}
+		modernSearchSnapshot.clear();
+	}
+	
+	private void layoutModernSearchResults(ArrayList<Window> matching)
+	{
+		int gap = 5;
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
 		int screenHeight = MC.getWindow().getGuiScaledHeight();
-		modernSearchWindow.setX(
-			Math.max(4, (screenWidth - modernSearchWindow.getWidth()) / 2));
-		modernSearchWindow.setY(
-			Math.max(34, (screenHeight - modernSearchWindow.getHeight()) / 2));
-		modernSearchWindow.setMinimized(false);
-		bringWindowToFront(modernSearchWindow);
+		modernSearchBarY = 34;
+		if(matching.isEmpty())
+			return;
+		
+		ArrayList<ArrayList<Window>> rows = new ArrayList<>();
+		ArrayList<Window> row = new ArrayList<>();
+		int rowWidth = 0;
+		for(Window window : matching)
+		{
+			int width = window.getWidth() + gap;
+			if(!row.isEmpty() && rowWidth + width > screenWidth - gap)
+			{
+				rows.add(row);
+				row = new ArrayList<>();
+				rowWidth = 0;
+			}
+			row.add(window);
+			rowWidth += width;
+		}
+		if(!row.isEmpty())
+			rows.add(row);
+		
+		int blockHeight = -gap;
+		for(ArrayList<Window> currentRow : rows)
+		{
+			int tallest = 0;
+			for(Window window : currentRow)
+				tallest = Math.max(tallest, window.getHeight());
+			blockHeight += tallest + gap;
+		}
+		
+		int top = Math.max(46, (screenHeight - blockHeight) / 2);
+		modernSearchBarY = top - 22;
+		int y = top;
+		for(ArrayList<Window> currentRow : rows)
+		{
+			int totalWidth = -gap;
+			int tallest = 0;
+			for(Window window : currentRow)
+			{
+				totalWidth += window.getWidth() + gap;
+				tallest = Math.max(tallest, window.getHeight());
+			}
+			int x = Math.max(gap, (screenWidth - totalWidth) / 2);
+			for(Window window : currentRow)
+			{
+				window.setX(x);
+				window.setY(y);
+				bringWindowToFront(window);
+				x += window.getWidth() + gap;
+			}
+			y += tallest + gap;
+		}
 	}
 	
 	public String getModernSearchQuery()
@@ -2763,12 +2905,16 @@ public final class ClickGui
 		if(modernSearchQuery.isEmpty())
 			return;
 		
-		String label = "Search hacks: " + modernSearchQuery;
+		int matches = 0;
+		for(Window window : modernCategoryWindows.values())
+			if(!window.isInvisible())
+				matches += window.countChildren();
+			
+		String label = "Search: " + modernSearchQuery + "_  (" + matches + ")";
 		int width = MC.font.width(label) + 14;
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
-		int screenHeight = MC.getWindow().getGuiScaledHeight();
 		int x = (screenWidth - width) / 2;
-		int y = screenHeight - 22;
+		int y = modernSearchBarY;
 		context.fill(x, y, x + width, y + 16,
 			RenderUtils.toIntColor(bgColor, opacity));
 		RenderUtils.drawBorder2D(context, x, y, x + width, y + 16,
