@@ -92,6 +92,11 @@ public final class ModernFeatureButton extends Component
 			hack.setFavorite(!hack.isFavorite());
 	}
 	
+	public Feature getFeature()
+	{
+		return feature;
+	}
+	
 	void openSettingsWindow()
 	{
 		String title = feature.getDisplayName() + " Settings";
@@ -110,12 +115,15 @@ public final class ModernFeatureButton extends Component
 	public static boolean matches(Feature feature, String query)
 	{
 		String needle = query.toLowerCase(java.util.Locale.ROOT);
-		return feature.getDisplayName().toLowerCase(java.util.Locale.ROOT)
-			.contains(needle)
-			|| feature.getCategoryName().toLowerCase(java.util.Locale.ROOT)
-				.contains(needle)
-			|| feature.getDescription().toLowerCase(java.util.Locale.ROOT)
-				.contains(needle);
+		return containsIgnoreCase(feature.getDisplayName(), needle)
+			|| containsIgnoreCase(feature.getCategoryName(), needle)
+			|| containsIgnoreCase(feature.getDescription(), needle);
+	}
+	
+	private static boolean containsIgnoreCase(String haystack, String needle)
+	{
+		return haystack != null
+			&& haystack.toLowerCase(java.util.Locale.ROOT).contains(needle);
 	}
 	
 	@Override
