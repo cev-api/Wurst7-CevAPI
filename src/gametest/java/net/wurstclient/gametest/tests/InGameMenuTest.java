@@ -27,12 +27,15 @@ public final class PauseScreenTest extends SingleplayerTest
 	{
 		logger.info("Opening game menu");
 		input.pressKey(GLFW.GLFW_KEY_ESCAPE);
+		input.setCursorPos(427, 240);
+		context.waitTick();// for the tooltip to appear
 		assertScreenshotEquals("game_menu", "https://i.imgur.com/ruPsaNz.png");
 		
 		logger.info("Opening Wurst Options screen");
 		for(int i = 0; i < 7; i++)
 			input.pressKey(GLFW.GLFW_KEY_TAB);
 		input.pressKey(GLFW.GLFW_KEY_ENTER);
+		input.setCursorPos(427, 240);
 		assertScreenshotEquals("wurst_options_screen",
 			"https://i.imgur.com/ZCt7eiE.png");
 		// TODO: Test manager screens
