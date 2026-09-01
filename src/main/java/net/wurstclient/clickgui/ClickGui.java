@@ -42,7 +42,6 @@ import net.wurstclient.config.BuildConfig;
 import net.wurstclient.clickgui.components.FeatureButton;
 import net.wurstclient.clickgui.modern.ModernFeatureButton;
 import net.wurstclient.clickgui.modern.ModernSettingComponent;
-import net.wurstclient.clickgui.modern.ModernSettingsWindow;
 import net.wurstclient.clickgui.modern.ModernWindow;
 import net.wurstclient.hacks.ClickGuiHack;
 import net.wurstclient.hacks.TooManyHaxHack;
@@ -103,6 +102,7 @@ public final class ClickGui
 	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
 	private boolean refreshPending;
+	private boolean initializing;
 	private int modernRowHeight = -1;
 	private final Map<String, Integer> rememberedScroll = new HashMap<>();
 	
@@ -133,6 +133,21 @@ public final class ClickGui
 	}
 	
 	public void init()
+	{
+		if(initializing)
+			return;
+		
+		initializing = true;
+		try
+		{
+			initImpl();
+		}finally
+		{
+			initializing = false;
+		}
+	}
+	
+	private void initImpl()
 	{
 		modernStyle = WURST.getHax().clickGuiHack.isModernStyle();
 		if(modernStyle)
@@ -633,9 +648,8 @@ public final class ClickGui
 			|| component instanceof net.wurstclient.clickgui.components.ColorComponent
 			|| component instanceof net.wurstclient.clickgui.components.ComboBoxComponent<?>
 			|| component instanceof net.wurstclient.clickgui.components.StringDropdownComponent;
-		return compact ? rowHeight
-			: Math.max(rowHeight,
-				Math.max(component.getHeight(), component.getDefaultHeight()));
+		return compact ? rowHeight : Math.max(rowHeight,
+			Math.max(component.getHeight(), component.getDefaultHeight()));
 	}
 	
 	private boolean isFeatureVisibleInClickGui(Feature feature,
@@ -879,6 +893,9 @@ public final class ClickGui
 	
 	public void requestRefresh()
 	{
+		if(initializing)
+			return;
+		
 		refreshPending = true;
 	}
 	
@@ -1214,7 +1231,7 @@ public final class ClickGui
 				saveWindows();
 		}
 	}
-
+	
 	/**
 	 * Updates an active window drag from the screen's mouse-drag event. The
 	 * render loop still updates these states as a fallback for pinned overlays,
@@ -1225,17 +1242,25 @@ public final class ClickGui
 		return updateActiveWindowDrag((int)context.x(), (int)context.y(),
 			false);
 	}
-
+	
 	public boolean handlePinnedMouseDrag(MouseButtonEvent context)
 	{
 		return updateActiveWindowDrag((int)context.x(), (int)context.y(), true);
 	}
-
+	
 	/**
-	 * Fallback for screens that do not forward mouseDragged events. MouseHandler
+	 * Fallback for screens that do not forward mouseDragged events.
+	 * MouseHandler
 	 * supplies raw display coordinates, so convert them to GUI-scaled
 	 * coordinates before updating the active drag.
 	 */
+	public boolean handleScaledMouseMove(double mouseX, double mouseY)
+	{
+		boolean pinnedOnly = !(MC.gui
+			.screen() instanceof net.wurstclient.clickgui.screens.ClickGuiScreen);
+		return updateActiveWindowDrag((int)mouseX, (int)mouseY, pinnedOnly);
+	}
+	
 	public boolean handleMouseMove(double rawMouseX, double rawMouseY)
 	{
 		int screenWidth = MC.getWindow().getScreenWidth();
@@ -1243,15 +1268,15 @@ public final class ClickGui
 		if(screenWidth <= 0 || screenHeight <= 0)
 			return false;
 		
-		int mouseX = (int)(rawMouseX * MC.getWindow().getGuiScaledWidth()
-			/ screenWidth);
+		int mouseX =
+			(int)(rawMouseX * MC.getWindow().getGuiScaledWidth() / screenWidth);
 		int mouseY = (int)(rawMouseY * MC.getWindow().getGuiScaledHeight()
 			/ screenHeight);
-		boolean pinnedOnly = !(MC.gui.screen() instanceof net.wurstclient
-			.clickgui.screens.ClickGuiScreen);
+		boolean pinnedOnly = !(MC.gui
+			.screen() instanceof net.wurstclient.clickgui.screens.ClickGuiScreen);
 		return updateActiveWindowDrag(mouseX, mouseY, pinnedOnly);
 	}
-
+	
 	private boolean updateActiveWindowDrag(int mouseX, int mouseY,
 		boolean pinnedOnly)
 	{
@@ -1278,14 +1303,13 @@ public final class ClickGui
 				window.resizeTo(mouseX);
 				handled = true;
 			}
-
+			
 			if(!window.isMinimized() && !window.isDragging()
 				&& !window.isDraggingScrollbar() && !window.isResizing())
 			{
 				window.validate();
 				int cMouseX = mouseX - window.getX();
-				int cMouseY = mouseY - window.getY()
-					- getHeaderHeight(window);
+				int cMouseY = mouseY - window.getY() - getHeaderHeight(window);
 				if(window.isScrollingEnabled())
 					cMouseY -= window.getScrollOffset();
 				if(handleComponentMouseDrag(window, cMouseX, cMouseY))
@@ -1771,8 +1795,8 @@ public final class ClickGui
 		return window instanceof ModernWindow ? getModernHeaderHeight() : 13;
 	}
 	
-	private boolean handleWindowMouseClick(int mouseX, int mouseY, int mouseButton,
-		MouseButtonEvent context)
+	private boolean handleWindowMouseClick(int mouseX, int mouseY,
+		int mouseButton, MouseButtonEvent context)
 	{
 		for(int i = windows.size() - 1; i >= 0; i--)
 		{
@@ -1807,7 +1831,8 @@ public final class ClickGui
 				
 				if(window.isScrollingEnabled()
 					&& isOverScrollbar(window, mouseX, mouseY))
-					handleScrollbarMouseClick(window, mouseX, mouseY, mouseButton);
+					handleScrollbarMouseClick(window, mouseX, mouseY,
+						mouseButton);
 				else
 				{
 					if(window.isScrollingEnabled())
@@ -1870,7 +1895,8 @@ public final class ClickGui
 				
 				if(window.isScrollingEnabled()
 					&& isOverScrollbar(window, mouseX, mouseY))
-					handleScrollbarMouseClick(window, mouseX, mouseY, mouseButton);
+					handleScrollbarMouseClick(window, mouseX, mouseY,
+						mouseButton);
 				else
 				{
 					if(window.isScrollingEnabled())
@@ -1967,7 +1993,7 @@ public final class ClickGui
 			+ window.getScrollbarTrackBottom();
 		return mouseX >= x1 && mouseX < x2 && mouseY >= y1 && mouseY < y2;
 	}
-
+	
 	private void handleScrollbarMouseClick(Window window, int mouseX,
 		int mouseY, int mouseButton)
 	{
@@ -2005,7 +2031,7 @@ public final class ClickGui
 			break;
 		}
 	}
-
+	
 	private boolean handleComponentMouseDrag(Window window, double mouseX,
 		double mouseY)
 	{
