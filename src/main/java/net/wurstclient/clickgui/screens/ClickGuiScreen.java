@@ -37,11 +37,11 @@ public final class ClickGuiScreen extends Screen
 	{
 		return gui.handleMouseClick(context);
 	}
-
+	
 	@Override
 	public void mouseMoved(double mouseX, double mouseY)
 	{
-		gui.handleMouseMove(mouseX, mouseY);
+		gui.handleScaledMouseMove(mouseX, mouseY);
 		super.mouseMoved(mouseX, mouseY);
 	}
 	
