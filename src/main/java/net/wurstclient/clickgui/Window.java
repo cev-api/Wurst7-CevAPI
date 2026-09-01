@@ -220,7 +220,12 @@ public class Window
 		
 		scrollingEnabled = innerHeight + headerHeight > height;
 		if(scrollingEnabled)
-			cWidth -= 8;
+			// Modern reserves a wider scrollbar lane. Classic has always used
+			// the narrow three-pixel lane; using the Modern value here leaves
+			// empty blocks beside every row in long Classic windows.
+			cWidth -=
+				this instanceof net.wurstclient.clickgui.modern.ModernWindow ? 8
+					: 3;
 		
 		scrollOffset = Math.min(scrollOffset, 0);
 		scrollOffset =

@@ -152,12 +152,13 @@ public final class FeatureButton extends Component
 		
 		if(hFeature)
 			GUI.setTooltip(feature.getWrappedDescription(200));
-		
+			
 		// buttons
-		context.fill(x1, y1, x3, y2,
-			getButtonColor(feature.isEnabled(), hFeature));
-		if(hasSettings)
-			context.fill(x3, y1, x2, y2, getButtonColor(false, hSettings));
+		// Draw one continuous row. The settings hitbox remains separate, but
+		// its old contrasting rectangle looked like a square hole beside most
+		// hacks because nearly every hack has settings.
+		context.fill(x1, y1, x2, y2,
+			getButtonColor(feature.isEnabled(), hovering));
 		
 		context.guiRenderState.up();
 		
