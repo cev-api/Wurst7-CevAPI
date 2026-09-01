@@ -47,7 +47,7 @@ public final class ClickGuiHack extends Hack
 	
 	private final EnumSetting<Style> style = new EnumSetting<>("Style",
 		"Selects the ClickGUI presentation without changing hack settings.",
-		Style.values(), Style.CLASSIC);
+		Style.values(), Style.MODERN);
 	private final ColorSetting bgColor =
 		new ColorSetting("Background", "Background color", new Color(0x404040));
 	
@@ -71,11 +71,11 @@ public final class ClickGuiHack extends Hack
 	
 	private final ColorSetting enabledHackColor =
 		new ColorSetting("Enabled hacks", "Background color of enabled hacks",
-			new Color(0x00D900));
+			new Color(0x0BABE3));
 	
 	private final ColorSetting dropdownButtonColor =
 		new ColorSetting("Dropdown button", "Color of dropdown/minimize arrows",
-			new Color(0x00D900));
+			new Color(0x00A6D9));
 	
 	private final CheckboxSetting highlightEnabledRows =
 		new CheckboxSetting("Highlight enabled rows",
@@ -83,20 +83,20 @@ public final class ClickGuiHack extends Hack
 			false);
 	private final ColorSetting hackRowBorderColor =
 		new ColorSetting("Hack row border",
-			"Border color between Modern hack rows", new Color(0x000000));
+			"Border color between Modern hack rows", new Color(0xA0A0A0));
 	
 	private final SliderSetting hackRowBorderOpacity =
 		new SliderSetting("Hack row border opacity",
 			"Opacity of borders between Modern hack rows", 0.35, 0, 1, 0.01,
 			ValueDisplay.PERCENTAGE);
 	private final ColorSetting pinButtonColor = new ColorSetting("Pin button",
-		"Color of the pin button when unpinned", new Color(0x00D900));
+		"Color of the pin button when unpinned", new Color(0x00ABFF));
 	
-	private final SliderSetting opacity = new SliderSetting("Opacity", 0.5,
+	private final SliderSetting opacity = new SliderSetting("Opacity", 1.0,
 		0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final SliderSetting ttOpacity = new SliderSetting("Tooltip opacity",
-		0.75, 0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
+		1.0, 0.15, 1, 0.01, ValueDisplay.PERCENTAGE);
 	
 	private final SliderSetting headerHeight =
 		new SliderSetting("Header thickness", "Height of Modern window headers",
@@ -104,19 +104,19 @@ public final class ClickGuiHack extends Hack
 	private final SliderSetting rowHeight = new SliderSetting(
 		"Global row height",
 		"Thickness of Modern buttons, hacks, dropdowns, colors, and settings.",
-		19, 18, 25, 1, ValueDisplay.INTEGER);
+		20, 15, 25, 1, ValueDisplay.INTEGER);
 	
 	private final CheckboxSetting isolateWindows =
 		new CheckboxSetting("Isolate windows",
-			"Hide overlapping windows behind the front-most window.", false);
+			"Hide overlapping windows behind the front-most window.", true);
 	
 	private final SliderSetting maxHeight = new SliderSetting("Max height",
-		"Maximum window height\n" + "0 = no limit", 200, 0, 1000, 50,
+		"Maximum window height\n" + "0 = no limit", 350, 0, 1000, 50,
 		ValueDisplay.INTEGER);
 	
 	private final SliderSetting maxSettingsHeight =
 		new SliderSetting("Max settings height",
-			"Maximum height for settings windows\n" + "0 = no limit", 200, 0,
+			"Maximum height for settings windows\n" + "0 = no limit", 350, 0,
 			1000, 50, ValueDisplay.INTEGER);
 	
 	public ClickGuiHack()

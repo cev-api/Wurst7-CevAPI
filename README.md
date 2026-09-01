@@ -54,7 +54,7 @@ Custom builds use `Wurst7-CevAPI-<suffix>` branding, while the Fabric ID and `.m
 ClickGUI and AltGUI hide empty categories. Shared infrastructure remains compiled because of Wurst’s mixin dependencies.
 
 ## Wurst7-CevAPI In-Game Screenshot
-![ModernClickGUI](https://i.imgur.com/t0IIXpo.png)
+![ModernClickGUI](https://i.imgur.com/a4oNVlf.png)
 ![Wurst7Cevapi](https://i.imgur.com/4JgZBb8.png)
 ![AltGUI](https://i.imgur.com/bPEhtxN.png)
 ![XPGUI](https://i.imgur.com/d5iDhwj.png)

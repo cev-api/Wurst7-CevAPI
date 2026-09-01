@@ -38,10 +38,10 @@ public final class ModernFeatureButton extends Component
 	{
 		this.feature = feature;
 		hasSettings = !feature.getSettings().isEmpty();
-		toggleable = feature instanceof net.wurstclient.hack.Hack
-			|| feature instanceof NecoCmd
-				&& !(feature instanceof net.wurstclient.hacks.ClickGuiHack)
-				&& !(feature instanceof net.wurstclient.hacks.GlobalToggleHack);
+		toggleable = (feature instanceof net.wurstclient.hack.Hack
+			|| feature instanceof NecoCmd)
+			&& !(feature instanceof net.wurstclient.hacks.ClickGuiHack)
+			&& !(feature instanceof net.wurstclient.hacks.GlobalToggleHack);
 		setWidth(getDefaultWidth());
 		setHeight(GUI.getModernRowHeight());
 	}
@@ -77,6 +77,7 @@ public final class ModernFeatureButton extends Component
 	
 	void toggleFeature()
 	{
+		boolean wasEnabled = feature.isEnabled();
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
 		if(tooManyHax.shouldBlockStarting(feature))
 		{
@@ -84,6 +85,7 @@ public final class ModernFeatureButton extends Component
 			return;
 		}
 		feature.doPrimaryAction();
+		GUI.rememberModernRecentlyDisabled(feature, wasEnabled);
 	}
 	
 	void toggleFavorite()

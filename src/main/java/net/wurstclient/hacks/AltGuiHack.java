@@ -50,29 +50,29 @@ public final class AltGuiHack extends Hack
 		new ColorSetting("Disabled", new Color(0x5F6C82));
 	
 	private final SliderSetting uiOpacity = new SliderSetting("UI opacity",
-		0.82, 0.25, 1, 0.01, ValueDisplay.PERCENTAGE);
+		0.84, 0.25, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting backgroundOpacity = new SliderSetting(
-		"Background opacity", 0.70, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
+		"Background opacity", 0.0, 0, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting tooltipOpacity = new SliderSetting(
-		"Tooltip opacity", 0.86, 0.1, 1, 0.01, ValueDisplay.PERCENTAGE);
+		"Tooltip opacity", 1.0, 0.1, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting settingsWidth = new SliderSetting(
-		"Settings width", 0.7, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
+		"Settings width", 0.44, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
 	private final SliderSetting settingsHeight = new SliderSetting(
 		"Settings height", 0.7, 0.05, 1.0, 0.01, ValueDisplay.DECIMAL);
 	private final SliderSetting widthPercent = new SliderSetting("Window width",
-		0.96, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
+		0.5, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting heightPercent = new SliderSetting(
-		"Window height", 0.92, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
+		"Window height", 0.83, 0.5, 1, 0.01, ValueDisplay.PERCENTAGE);
 	private final SliderSetting categoryHeight = new SliderSetting(
-		"Category height", 16, 8, 32, 1, ValueDisplay.INTEGER);
+		"Category height", 13, 8, 32, 1, ValueDisplay.INTEGER);
 	private final SliderSetting categoryWidth = new SliderSetting(
-		"Category width", 110, 40, 240, 1, ValueDisplay.INTEGER);
+		"Category width", 91, 40, 240, 1, ValueDisplay.INTEGER);
 	private final SliderSetting rowHeight =
-		new SliderSetting("Row height", 18, 8, 30, 1, ValueDisplay.INTEGER);
+		new SliderSetting("Row height", 13, 8, 30, 1, ValueDisplay.INTEGER);
 	private final SliderSetting fontScale = new SliderSetting("Font scale", 1.0,
 		0.3, 1.8, 0.05, ValueDisplay.DECIMAL);
 	private final EnumSetting<FontSmoothing> fontSmoothing = new EnumSetting<>(
-		"Font smoothing", FontSmoothing.values(), FontSmoothing.X2);
+		"Font smoothing", FontSmoothing.values(), FontSmoothing.OFF);
 	private final StringDropdownSetting fontFamily =
 		new StringDropdownSetting("Font family",
 			WText.literal("TTF/OTF file from the Wurst fonts folder."));
@@ -106,19 +106,19 @@ public final class AltGuiHack extends Hack
 		true);
 	private final CheckboxSetting searchOnlyWhileTyping =
 		new CheckboxSetting("Show search while typing",
-			"Hide the search bar until you start typing a query.", false);
-	private final CheckboxSetting searchSettings =
-		new CheckboxSetting("Search settings/toggles",
-			"Include setting names and values in AltGUI search results.", true);
+			"Hide the search bar until you start typing a query.", true);
+	private final CheckboxSetting searchSettings = new CheckboxSetting(
+		"Search settings/toggles",
+		"Include setting names and values in AltGUI search results.", false);
 	private final CheckboxSetting keepHackSettingsOpen = new CheckboxSetting(
 		"Keep hack settings open",
 		"Keep expanded hack settings open when AltGUI is closed and reopened.",
-		false);
+		true);
 	private final EnumSetting<OpenBehavior> openBehavior = new EnumSetting<>(
-		"On open", OpenBehavior.values(), OpenBehavior.FAVORITES);
+		"On open", OpenBehavior.values(), OpenBehavior.LAST_POSITION);
 	private final EnumSetting<CategoryLayout> categoryLayout =
 		new EnumSetting<>("Category layout", CategoryLayout.values(),
-			CategoryLayout.SIDEBAR);
+			CategoryLayout.TOP_TABS);
 	
 	private float cachedMinScale = Float.NaN;
 	private int cachedMinSmoothing = -1;

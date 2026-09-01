@@ -69,6 +69,7 @@ public final class ClickGui
 	private final Path modernWindowsFile;
 	private final Map<String, Window> modernCategoryWindows =
 		new LinkedHashMap<>();
+	private final ArrayList<String> modernRecentlyDisabled = new ArrayList<>();
 	private boolean modernStyle;
 	// Phase 5: transient global search; never persisted as layout or hack
 	// state.
@@ -512,6 +513,11 @@ public final class ClickGui
 		modernFeatures.clear();
 		updateColors();
 		
+		Window enabled = new ModernWindow("Enabled");
+		enabled.setClosable(true);
+		modernCategoryWindows.put("Enabled", enabled);
+		windows.add(enabled);
+		
 		for(Category category : Category.values())
 		{
 			Window window = new ModernWindow(category.getName());
@@ -558,6 +564,8 @@ public final class ClickGui
 		windows.add(clientSettings);
 		
 		TooManyHaxHack tooManyHax = WURST.getHax().tooManyHaxHack;
+		enabled.clearChildren();
+		addModernEnabledFeatures(enabled, features, tooManyHax);
 		for(Feature feature : features)
 		{
 			if(feature == WURST.getHax().clickGuiHack
@@ -767,7 +775,8 @@ public final class ClickGui
 	
 	private int getModernNavigationStartX()
 	{
-		int width = MC.font.width("Client Settings") + 10;
+		int width = MC.font.width("Enabled") + 12
+			+ MC.font.width("Client Settings") + 10;
 		for(Category category : Category.values())
 			width += MC.font.width(category.getName()) + 12;
 		return Math.max(4, (MC.getWindow().getGuiScaledWidth() - width) / 2);
@@ -781,6 +790,13 @@ public final class ClickGui
 			return false;
 		
 		int x = getModernNavigationStartX();
+		int enabledWidth = MC.font.width("Enabled") + 10;
+		if(mouseX >= x && mouseX < x + enabledWidth)
+		{
+			toggleModernNavigationWindow("Enabled");
+			return true;
+		}
+		x += enabledWidth + 2;
 		for(Category category : Category.values())
 		{
 			int width = MC.font.width(category.getName()) + 10;
@@ -844,6 +860,14 @@ public final class ClickGui
 		RenderUtils.drawLine2D(context, 0, 29, screenWidth, 29,
 			RenderUtils.toIntColor(acColor, topBarOpacity));
 		int x = getModernNavigationStartX();
+		Window enabled = modernCategoryWindows.get("Enabled");
+		boolean enabledMinimized = enabled != null && enabled.isMinimized();
+		boolean enabledOpen =
+			enabled != null && windows.contains(enabled) && !enabledMinimized;
+		boolean enabledFocused = enabledOpen && !windows.isEmpty()
+			&& windows.get(windows.size() - 1) == enabled;
+		x = renderModernNavigationButton(context, "Enabled", x, mouseX, mouseY,
+			enabledOpen, enabledMinimized, enabledFocused) + 2;
 		for(Category category : Category.values())
 		{
 			Window window = modernCategoryWindows.get(category.getName());
@@ -864,6 +888,59 @@ public final class ClickGui
 			&& windows.get(windows.size() - 1) == clientSettings;
 		renderModernNavigationButton(context, "Client Settings", x, mouseX,
 			mouseY, clientOpen, clientMinimized, clientFocused);
+	}
+	
+	private void toggleModernNavigationWindow(String title)
+	{
+		Window window = modernCategoryWindows.get(title);
+		if(window == null)
+			return;
+		if(windows.contains(window) && !window.isMinimized())
+		{
+			window.close();
+			windows.remove(window);
+		}else
+		{
+			window.reopen();
+			if(!windows.contains(window))
+				windows.add(window);
+			bringWindowToFront(window);
+		}
+		saveWindows();
+	}
+	
+	private void addModernEnabledFeatures(Window enabled,
+		List<Feature> features, TooManyHaxHack tooManyHax)
+	{
+		for(Feature feature : features)
+			if(feature instanceof net.wurstclient.hack.Hack hack
+				&& hack.isEnabled()
+				&& isFeatureVisibleInClickGui(feature, tooManyHax))
+				enabled.add(new ModernFeatureButton(feature));
+		for(String name : modernRecentlyDisabled)
+			for(Feature feature : features)
+				if(feature.getName().equals(name)
+					&& feature instanceof net.wurstclient.hack.Hack
+					&& !feature.isEnabled())
+					enabled.add(new ModernFeatureButton(feature));
+	}
+	
+	public void rememberModernRecentlyDisabled(Feature feature,
+		boolean wasEnabled)
+	{
+		if(!(feature instanceof net.wurstclient.hack.Hack)
+			|| wasEnabled == feature.isEnabled())
+			return;
+		String name = feature.getName();
+		if(feature.isEnabled())
+			modernRecentlyDisabled.remove(name);
+		else
+		{
+			modernRecentlyDisabled.remove(name);
+			modernRecentlyDisabled.add(0, name);
+			if(modernRecentlyDisabled.size() > 64)
+				modernRecentlyDisabled.remove(64);
+		}
 	}
 	
 	private int renderModernNavigationButton(GuiGraphicsExtractor context,
@@ -2453,18 +2530,22 @@ public final class ClickGui
 	private void drawModernPin(GuiGraphicsExtractor context, int x, int y,
 		boolean pinned, boolean hovering)
 	{
-		int color = pinned ? (hovering ? 0xFFFF5555 : 0xFFFF2222)
-			: (hovering ? 0xFFFFFFFF : 0xFFD9D9D9);
-		int outline = 0xB0101010;
+		int color = 0xFFFFFFFF;
 		
-		// A compact push-pin silhouette; the red fill is the pinned state.
-		RenderUtils.fill2D(context, x + 3, y + 1, x + 10, y + 4, color);
-		RenderUtils.fill2D(context, x + 5, y + 4, x + 8, y + 9, color);
-		RenderUtils.fillTriangle2D(context,
-			new float[][]{{x + 3, y + 9}, {x + 10, y + 9}, {x + 6.5F, y + 12}},
-			color);
-		RenderUtils.drawBorder2D(context, x + 3, y + 1, x + 10, y + 4, outline);
-		RenderUtils.drawBorder2D(context, x + 5, y + 4, x + 8, y + 9, outline);
+		// Compact, solid arrow: down while unpinned, up while pinned.
+		if(pinned)
+		{
+			context.fill(x + 6, y + 3, x + 7, y + 4, color);
+			context.fill(x + 5, y + 4, x + 8, y + 5, color);
+			context.fill(x + 4, y + 5, x + 9, y + 6, color);
+			context.fill(x + 3, y + 6, x + 10, y + 7, color);
+		}else
+		{
+			context.fill(x + 3, y + 3, x + 10, y + 4, color);
+			context.fill(x + 4, y + 4, x + 9, y + 5, color);
+			context.fill(x + 5, y + 5, x + 8, y + 6, color);
+			context.fill(x + 6, y + 6, x + 7, y + 7, color);
+		}
 	}
 	
 	private void drawModernClose(GuiGraphicsExtractor context, int x, int y,
