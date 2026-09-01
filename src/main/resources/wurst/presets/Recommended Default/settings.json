@@ -75,7 +75,7 @@
     "Search settings/toggles": false,
     "Keep hack settings open": true,
     "On open": "Last position",
-    "Category layout": "Sidebar"
+    "Category layout": "Top tabs"
   },
   "AnchorAura": {
     "Range": 6.0,

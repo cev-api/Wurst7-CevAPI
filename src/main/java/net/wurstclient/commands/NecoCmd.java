@@ -122,7 +122,13 @@ public final class NecoCmd extends Command
 	@Override
 	public String getPrimaryAction()
 	{
-		return "Summon Neco-Arc!";
+		return enabled ? "Disable" : "Summon Neco-Arc!";
+	}
+	
+	@Override
+	public boolean isEnabled()
+	{
+		return enabled;
 	}
 	
 	@Override

@@ -121,6 +121,8 @@ public final class AltGuiScreen extends Screen
 	
 	private int moduleScroll;
 	private int maxModuleScroll;
+	private int settingsScroll;
+	private int maxSettingsScroll;
 	private int categoryScroll;
 	private int maxCategoryScroll;
 	
@@ -509,7 +511,11 @@ public final class AltGuiScreen extends Screen
 		}
 		if(mouseX >= settingsX && mouseX <= settingsX + settingsW
 			&& mouseY >= moduleY && mouseY <= moduleY + moduleH)
+		{
+			settingsScroll -= (int)(verticalAmount * cfg().getRowHeight());
+			clampScroll();
 			return true;
+		}
 		
 		if(isInsideCategoryArea(mouseX, mouseY))
 		{
@@ -924,6 +930,7 @@ public final class AltGuiScreen extends Screen
 		{
 			Feature feature = entry.feature();
 			boolean expanded = expandedFeatures.contains(feature.getName());
+			boolean settingsOpen = feature == selectedFeature;
 			List<SettingRow> settingRows = null;
 			boolean hasExpandableRows = false;
 			if(expanded || cfg().isHackExpandIconsEnabled())
@@ -963,9 +970,10 @@ public final class AltGuiScreen extends Screen
 				}
 				int nameX = moduleX + 14;
 				int rowTextY = centeredTextY(font, rowTop, rowBottom);
-				if(cfg().isHackExpandIconsEnabled() && hasExpandableRows)
+				if((settingsOpen || cfg().isHackExpandIconsEnabled())
+					&& hasExpandableRows)
 				{
-					String icon = expanded ? "▼" : "▶";
+					String icon = settingsOpen ? "▼" : "▶";
 					drawStringScaled(context, font, icon, nameX, rowTextY,
 						cfg().getMutedTextColor(), false);
 					nameX += Math.max(11, scaledFontWidth(font, icon) + 4);
@@ -1026,17 +1034,19 @@ public final class AltGuiScreen extends Screen
 		if(maxModuleScroll > 0)
 			renderScrollbar(context);
 	}
-
-	private void renderSelectedFeatureSettings(GuiGraphicsExtractor context,
-		int mouseX, int mouseY)
+	
+	private void renderSelectedFeatureSettings(GuiGraphics context, int mouseX,
+		int mouseY)
 	{
 		List<DisplayEntry> entries = getDisplayedEntries();
 		if(selectedFeature == null || entries.stream()
 			.noneMatch(entry -> entry.feature() == selectedFeature))
-			selectedFeature = entries.isEmpty() ? null : entries.get(0).feature();
+			selectedFeature =
+				entries.isEmpty() ? null : entries.get(0).feature();
 		
 		int x1 = settingsX + 8;
 		int x2 = settingsX + settingsW - 8;
+		maxSettingsScroll = 0;
 		context.fill(x1, moduleY, x2, moduleY + moduleH,
 			withAlpha(cfg().getPanelColor(), 0.72F));
 		if(selectedFeature == null)
@@ -1045,16 +1055,19 @@ public final class AltGuiScreen extends Screen
 		Font font = minecraft.font;
 		context.fill(x1, moduleY, x2, moduleY + 30,
 			withAlpha(cfg().getPanelLightColor(), 0.9F));
-		drawStringScaled(context, font, selectedFeature.getDisplayName(), x1 + 8,
-			moduleY + 6, cfg().getTextColor(), true);
+		drawStringScaled(context, font, selectedFeature.getDisplayName(),
+			x1 + 8, moduleY + 6, cfg().getTextColor(), true);
 		String description = trimToWidth(font, selectedFeature.getDescription(),
 			Math.max(1, x2 - x1 - 16));
 		if(!description.isBlank())
 			drawStringScaled(context, font, description, x1 + 8, moduleY + 17,
-			cfg().getMutedTextColor(), false);
+				cfg().getMutedTextColor(), false);
 		
 		List<SettingRow> rows = getSettingRows(selectedFeature);
-		int y = moduleY + 34;
+		int contentHeight = rows.stream().mapToInt(SettingRow::height).sum();
+		maxSettingsScroll = Math.max(0, contentHeight - (moduleH - 34));
+		clampScroll();
+		int y = moduleY + 34 - settingsScroll;
 		context.enableScissor(x1, moduleY + 30, x2, moduleY + moduleH);
 		for(SettingRow row : rows)
 		{
@@ -1064,6 +1077,22 @@ public final class AltGuiScreen extends Screen
 			y = y2;
 		}
 		context.disableScissor();
+		if(maxSettingsScroll > 0)
+			renderSettingsScrollbar(context);
+	}
+	
+	private void renderSettingsScrollbar(GuiGraphics context)
+	{
+		int x1 = settingsX + settingsW - 11;
+		int x2 = x1 + 3;
+		context.fill(x1, moduleY + 30, x2, moduleY + moduleH,
+			withAlpha(cfg().getPanelLightColor(), 0.65F));
+		int trackH = moduleH - 30;
+		int knobH = Math.max(20,
+			(int)(trackH * (trackH / (double)(trackH + maxSettingsScroll))));
+		int knobY = moduleY + 30 + (int)((trackH - knobH)
+			* (settingsScroll / (double)maxSettingsScroll));
+		context.fill(x1, knobY, x2, knobY + knobH, cfg().getAccentColor());
 	}
 	
 	private void renderScrollbar(GuiGraphics context)
@@ -1086,7 +1115,8 @@ public final class AltGuiScreen extends Screen
 	{
 		if(row.isKeybindRow())
 		{
-			int rowX1 = settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
+			int rowX1 =
+				settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
 			int rowX2 = settingsX + settingsW - 12;
 			boolean hovered = isInside(mouseX, mouseY, rowX1, y1, rowX2, y2);
 			
@@ -1713,6 +1743,7 @@ public final class AltGuiScreen extends Screen
 				moduleX + moduleW - 8, rowBottom))
 			{
 				selectedFeature = feature;
+				settingsScroll = 0;
 				if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
 					toggleExpandedFeature(feature);
 				else if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
@@ -1752,7 +1783,7 @@ public final class AltGuiScreen extends Screen
 		
 		return false;
 	}
-
+	
 	private boolean handleSelectedFeatureSettingsClick(double mouseX,
 		double mouseY, int button)
 	{
@@ -1764,7 +1795,7 @@ public final class AltGuiScreen extends Screen
 		int x2 = settingsX + settingsW - 8;
 		if(mouseY < moduleY + 34)
 			return true;
-		int y = moduleY + 34;
+		int y = moduleY + 34 - settingsScroll;
 		for(SettingRow row : getSettingRows(selectedFeature))
 		{
 			int y2 = y + row.height();
@@ -1827,7 +1858,8 @@ public final class AltGuiScreen extends Screen
 				return true;
 			}
 			
-			int rowX1 = settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
+			int rowX1 =
+				settingsX + 16 + row.depth() * scaleRightSettingWidth(10);
 			int rowX2 = settingsX + settingsW - 12;
 			int fixedValueColW = getSettingsValueColumnWidth(rowX1, rowX2);
 			int valueX2 = rowX2 - scaleRightSettingWidth(6);
@@ -2144,7 +2176,7 @@ public final class AltGuiScreen extends Screen
 			
 			features.add(hack);
 		}
-
+		
 		NecoCmd necoCmd = WurstClient.INSTANCE.getCmds().NecoCmd;
 		if(!globalSearch && !styleCategorySelected && !enabledCategorySelected
 			&& matchesCategory(necoCmd, selectedCategory))
@@ -2776,6 +2808,10 @@ public final class AltGuiScreen extends Screen
 			categoryScroll = 0;
 		if(categoryScroll > maxCategoryScroll)
 			categoryScroll = maxCategoryScroll;
+		if(settingsScroll < 0)
+			settingsScroll = 0;
+		if(settingsScroll > maxSettingsScroll)
+			settingsScroll = maxSettingsScroll;
 	}
 	
 	private boolean isInsideCategoryArea(double mouseX, double mouseY)
