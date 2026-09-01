@@ -78,6 +78,7 @@ public final class ClickGui
 	private final LinkedHashMap<String, CategorySnapshot> modernSearchSnapshot =
 		new LinkedHashMap<>();
 	private int modernSearchBarY;
+	private int modernSearchWindowCap;
 	private final Map<String, String> modernSelectedSections = new HashMap<>();
 	private final ArrayList<Feature> modernFeatures = new ArrayList<>();
 	private int modernScreenWidth = -1;
@@ -488,6 +489,7 @@ public final class ClickGui
 	{
 		modernSearchQuery = "";
 		modernSearchActive = false;
+		modernSearchWindowCap = 0;
 		modernSearchSnapshot.clear();
 		modernRowHeight = WURST.getHax().clickGuiHack.getRowHeight();
 		LinkedHashMap<String, WindowState> reopenSettings =
@@ -2346,6 +2348,9 @@ public final class ClickGui
 			int configuredHeight = getConfiguredWindowMaxHeight(window);
 			int cappedHeight = configuredHeight <= 0 ? availableHeight
 				: Math.min(configuredHeight, availableHeight);
+			if(modernSearchActive && modernSearchWindowCap > 0
+				&& modernCategoryWindows.containsValue(window))
+				cappedHeight = Math.min(cappedHeight, modernSearchWindowCap);
 			window.setMaxHeight(Math.max(80, cappedHeight));
 			window.validate();
 		}
@@ -2786,7 +2791,6 @@ public final class ClickGui
 			window.setMinimized(false);
 			if(!windows.contains(window))
 				windows.add(window);
-			window.pack();
 			matching.add(window);
 		}
 		
@@ -2808,6 +2812,7 @@ public final class ClickGui
 			return;
 		
 		modernSearchActive = false;
+		modernSearchWindowCap = 0;
 		for(Window window : modernCategoryWindows.values())
 		{
 			CategorySnapshot snapshot =
@@ -2840,9 +2845,15 @@ public final class ClickGui
 		int gap = 5;
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
 		int screenHeight = MC.getWindow().getGuiScaledHeight();
+		int topLimit = 54;
 		modernSearchBarY = 34;
+		modernSearchWindowCap = 0;
 		if(matching.isEmpty())
 			return;
+		
+		int naturalCap = Math.max(80, screenHeight - topLimit - gap);
+		for(Window window : matching)
+			packModernSearchWindow(window, naturalCap);
 		
 		ArrayList<ArrayList<Window>> rows = new ArrayList<>();
 		ArrayList<Window> row = new ArrayList<>();
@@ -2862,16 +2873,17 @@ public final class ClickGui
 		if(!row.isEmpty())
 			rows.add(row);
 		
-		int blockHeight = -gap;
-		for(ArrayList<Window> currentRow : rows)
+		int available = screenHeight - topLimit - gap;
+		if(measureModernSearchBlock(rows, gap) > available)
 		{
-			int tallest = 0;
-			for(Window window : currentRow)
-				tallest = Math.max(tallest, window.getHeight());
-			blockHeight += tallest + gap;
+			int perRow = (available - (rows.size() - 1) * gap) / rows.size();
+			modernSearchWindowCap = Math.max(60, perRow);
+			for(Window window : matching)
+				packModernSearchWindow(window, modernSearchWindowCap);
 		}
 		
-		int top = Math.max(46, (screenHeight - blockHeight) / 2);
+		int blockHeight = measureModernSearchBlock(rows, gap);
+		int top = Math.max(topLimit, (screenHeight - blockHeight) / 2);
 		modernSearchBarY = top - 22;
 		int y = top;
 		for(ArrayList<Window> currentRow : rows)
@@ -2893,6 +2905,27 @@ public final class ClickGui
 			}
 			y += tallest + gap;
 		}
+	}
+	
+	private void packModernSearchWindow(Window window, int maxHeight)
+	{
+		window.setMaxHeight(maxHeight);
+		window.pack();
+		window.validate();
+	}
+	
+	private int measureModernSearchBlock(ArrayList<ArrayList<Window>> rows,
+		int gap)
+	{
+		int blockHeight = -gap;
+		for(ArrayList<Window> row : rows)
+		{
+			int tallest = 0;
+			for(Window window : row)
+				tallest = Math.max(tallest, window.getHeight());
+			blockHeight += tallest + gap;
+		}
+		return blockHeight;
 	}
 	
 	public String getModernSearchQuery()
