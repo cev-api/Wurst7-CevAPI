@@ -102,6 +102,7 @@ public final class ClickGui
 	private boolean pinnedClickActive;
 	private KeyboardInput keyboardInput;
 	private boolean refreshPending;
+	private boolean initializing;
 	private int modernRowHeight = -1;
 	private final Map<String, Integer> rememberedScroll = new HashMap<>();
 	
@@ -132,6 +133,21 @@ public final class ClickGui
 	}
 	
 	public void init()
+	{
+		if(initializing)
+			return;
+		
+		initializing = true;
+		try
+		{
+			initImpl();
+		}finally
+		{
+			initializing = false;
+		}
+	}
+	
+	private void initImpl()
 	{
 		modernStyle = WURST.getHax().clickGuiHack.isModernStyle();
 		if(modernStyle)
@@ -877,6 +893,9 @@ public final class ClickGui
 	
 	public void requestRefresh()
 	{
+		if(initializing)
+			return;
+		
 		refreshPending = true;
 	}
 	
@@ -1235,6 +1254,13 @@ public final class ClickGui
 	 * supplies raw display coordinates, so convert them to GUI-scaled
 	 * coordinates before updating the active drag.
 	 */
+	public boolean handleScaledMouseMove(double mouseX, double mouseY)
+	{
+		boolean pinnedOnly =
+			!(MC.screen instanceof net.wurstclient.clickgui.screens.ClickGuiScreen);
+		return updateActiveWindowDrag((int)mouseX, (int)mouseY, pinnedOnly);
+	}
+	
 	public boolean handleMouseMove(double rawMouseX, double rawMouseY)
 	{
 		int screenWidth = MC.getWindow().getScreenWidth();
