@@ -25,6 +25,23 @@ public enum ClickGuiIcons
 		
 		float centerX = (x1 + x2) / 2;
 		float centerY = (y1 + y2) / 2;
+		// Classic controls are only 9x9. Keep their original full-size arrow;
+		// the centered/scaled geometry is intended for Modern controls.
+		if(x2 - x1 <= 10)
+		{
+			float xa1 = x1 + 1;
+			float xa2 = centerX;
+			float xa3 = x2 - 1;
+			float ya1 = minimized ? y1 + 3 : y2 - 3;
+			float ya2 = minimized ? y2 - 2.5F : y1 + 2.5F;
+			int arrowColor = hovering ? collapsedHoverColor : collapsedColor;
+			float[][] arrowVertices =
+				minimized ? new float[][]{{xa1, ya1}, {xa2, ya2}, {xa3, ya1}}
+					: new float[][]{{xa1, ya1}, {xa3, ya1}, {xa2, ya2}};
+			RenderUtils.fillTriangle2D(context, arrowVertices, arrowColor);
+			RenderUtils.drawLineStrip2D(context, arrowVertices, 0x80101010);
+			return;
+		}
 		float halfWidth = Math.min(4F, Math.max(2F, (x2 - x1 - 5F) / 2));
 		float halfHeight = Math.min(3F, Math.max(2F, (y2 - y1 - 7F) / 2));
 		float xa1 = centerX - halfWidth;
