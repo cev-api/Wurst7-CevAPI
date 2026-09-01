@@ -15,6 +15,7 @@ import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
+import net.wurstclient.commands.NecoCmd;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import org.lwjgl.glfw.GLFW;
@@ -38,8 +39,9 @@ public final class ModernFeatureButton extends Component
 		this.feature = feature;
 		hasSettings = !feature.getSettings().isEmpty();
 		toggleable = feature instanceof net.wurstclient.hack.Hack
-			&& !(feature instanceof net.wurstclient.hacks.ClickGuiHack)
-			&& !(feature instanceof net.wurstclient.hacks.GlobalToggleHack);
+			|| feature instanceof NecoCmd
+				&& !(feature instanceof net.wurstclient.hacks.ClickGuiHack)
+				&& !(feature instanceof net.wurstclient.hacks.GlobalToggleHack);
 		setWidth(getDefaultWidth());
 		setHeight(GUI.getModernRowHeight());
 	}
@@ -62,9 +64,7 @@ public final class ModernFeatureButton extends Component
 		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
 			return;
 		
-		boolean rowHighlightMode = GUI.isModernEnabledRowHighlight();
-		int switchX = getX() + getWidth() - SWITCH_WIDTH - 7;
-		if(toggleable && (rowHighlightMode || mouseX >= switchX))
+		if(toggleable)
 		{
 			toggleFeature();
 			return;
