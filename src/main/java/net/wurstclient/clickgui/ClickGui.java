@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import org.joml.Matrix3x2fStack;
 import org.lwjgl.glfw.GLFW;
@@ -260,13 +259,23 @@ public final class ClickGui
 		if(BuildConfig.includesHack("clickGuiHack"))
 		{
 			ClickGuiHack clickGuiHack = WURST.getHax().clickGuiHack;
-			uiSettings
-				.add(clickGuiHack.getIsolateWindowsSetting().getComponent());
-			Stream<Setting> settings = clickGuiHack.getSettings().values()
-				.stream().filter(setting -> setting != clickGuiHack
-					.getIsolateWindowsSetting());
-			settings.map(Setting::getComponent)
-				.forEach(component -> uiSettings.add(component));
+			// Keep ClickGUI settings behind a dedicated settings entry in
+			// Classic, matching Modern and avoiding an oversized inline
+			// settings
+			// list in Client Settings.
+			uiSettings.add(new FeatureButton(clickGuiHack));
+		}
+		// These features are intentionally hidden from their normal categories,
+		// but their settings still belong in the Classic Client Settings
+		// window.
+		for(Feature feature : features)
+		{
+			if(!MOVE_TO_CLIENT_SETTINGS.stream()
+				.anyMatch(name -> name.equalsIgnoreCase(feature.getName())))
+				continue;
+			feature.getSettings().values().stream().peek(Setting::update)
+				.filter(Setting::isVisibleInGui).map(Setting::getComponent)
+				.filter(Objects::nonNull).forEach(uiSettings::add);
 		}
 		if(uiSettings.countChildren() > 0)
 			windows.add(uiSettings);
@@ -831,9 +840,9 @@ public final class ClickGui
 	{
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
 		context.fill(0, 0, screenWidth, 30,
-			RenderUtils.toIntColor(topBarColor, opacity * topBarOpacity));
+			RenderUtils.toIntColor(topBarColor, topBarOpacity));
 		RenderUtils.drawLine2D(context, 0, 29, screenWidth, 29,
-			RenderUtils.toIntColor(acColor, opacity));
+			RenderUtils.toIntColor(acColor, topBarOpacity));
 		int x = getModernNavigationStartX();
 		for(Category category : Category.values())
 		{
@@ -865,23 +874,22 @@ public final class ClickGui
 		boolean hovering =
 			mouseX >= x && mouseX < x + width && mouseY >= 4 && mouseY < 25;
 		if(focused)
-			context.fill(x, 4, x + width, 25,
-				RenderUtils.toIntColor(acColor, Math.min(1F, opacity + 0.18F)));
+			context.fill(x, 4, x + width, 25, RenderUtils.toIntColor(acColor,
+				Math.min(1F, topBarOpacity + 0.18F)));
 		else if(open)
 			context.fill(x, 4, x + width, 25,
-				RenderUtils.toIntColor(acColor, opacity * 0.62F));
+				RenderUtils.toIntColor(acColor, topBarOpacity * 0.62F));
 		else
-			context
-				.fill(x, 4, x + width, 25,
-					RenderUtils.toIntColor(new float[]{bgColor[0] * 0.62F,
-						bgColor[1] * 0.62F, bgColor[2] * 0.62F},
-						opacity * 0.9F));
+			context.fill(x, 4, x + width, 25,
+				RenderUtils.toIntColor(new float[]{bgColor[0] * 0.62F,
+					bgColor[1] * 0.62F, bgColor[2] * 0.62F},
+					topBarOpacity * 0.9F));
 		if(hovering && !focused)
 			RenderUtils.drawBorder2D(context, x, 4, x + width, 25,
-				RenderUtils.toIntColor(acColor, opacity * 0.45F));
+				RenderUtils.toIntColor(acColor, topBarOpacity * 0.45F));
 		if(open || focused)
-			context.fill(x + 1, 25, x + width - 1, 27, RenderUtils
-				.toIntColor(enabledHackColor, Math.min(1F, opacity * 0.85F)));
+			context.fill(x + 1, 25, x + width - 1, 27, RenderUtils.toIntColor(
+				enabledHackColor, Math.min(1F, topBarOpacity * 0.85F)));
 		context.text(MC.font, label, x + 5, 10, txtColor, false);
 		return x + width;
 	}
