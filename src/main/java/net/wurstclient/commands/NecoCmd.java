@@ -89,6 +89,12 @@ public final class NecoCmd extends Command
 	}
 	
 	@Override
+	public String getDisplayName()
+	{
+		return "Neco";
+	}
+	
+	@Override
 	public void call(String[] args) throws CmdException
 	{
 		if(args.length != 0)
