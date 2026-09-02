@@ -10,21 +10,15 @@ package net.wurstclient.uiutils;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
-import com.mojang.brigadier.tree.ArgumentCommandNode;
-import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.LiteralCommandNode;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.multiplayer.ClientSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
@@ -58,6 +52,8 @@ public final class UiUtilsCommandScanner
 			"waypoint", "weather", "whitelist", "worldborder", "xp"));
 	
 	private static final Set<String> scannedCommands =
+		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+	private static final Set<String> hiddenCommands =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 	private static final Set<String> triggerValues =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -94,6 +90,7 @@ public final class UiUtilsCommandScanner
 		
 		active = true;
 		scannedCommands.clear();
+		hiddenCommands.clear();
 		commandsToExecute.clear();
 		awaitingResponse = false;
 		waitTicks = 0;
@@ -107,10 +104,11 @@ public final class UiUtilsCommandScanner
 		recentEvents.clear();
 		lastFoundCommands = List.of();
 		boundServerKey = currentServerKey(mc);
-		collectClientCommandTree(mc.player.connection);
-		
 		if(activeMode == ScanMode.CLIENT_SIDE_ENUMERATION)
 		{
+			// The client-side enumeration fallback was removed because the
+			// merged
+			// dispatcher also contains commands registered by client-side mods.
 			runClientSideEnumerationScan();
 			return "[UI-Utils] Command scanner started (CLIENT_SIDE_ENUMERATION).";
 		}
@@ -355,7 +353,10 @@ public final class UiUtilsCommandScanner
 			String command = extractRootCommand(suggestion.getText());
 			if(command != null && !command.equalsIgnoreCase("trigger")
 				&& !isVanillaOrDefaultCommand(command))
+			{
 				scannedCommands.add(command);
+				classifyDiscoveredCommand(command);
+			}
 		}
 	}
 	
@@ -378,57 +379,9 @@ public final class UiUtilsCommandScanner
 	
 	private static void runClientSideEnumerationScan()
 	{
-		// The dispatcher was already synchronized by the server; stay passive.
+		// Client-side enumeration was a fallback for packet probing, but the
+		// merged dispatcher cannot distinguish local commands from server ones.
 		finishScan();
-	}
-	
-	private static void collectClientCommandTree(
-		ClientPacketListener connection)
-	{
-		if(connection == null)
-			return;
-		CommandDispatcher<ClientSuggestionProvider> dispatcher =
-			connection.getCommands();
-		if(dispatcher == null || dispatcher.getRoot() == null)
-		{
-			print("No command tree available yet.");
-			return;
-		}
-		Set<CommandNode<ClientSuggestionProvider>> visited =
-			Collections.newSetFromMap(new IdentityHashMap<>());
-		collectLiteralChildren(dispatcher.getRoot(), "", visited, 0);
-	}
-	
-	private static void collectLiteralChildren(
-		CommandNode<ClientSuggestionProvider> node, String prefix,
-		Set<CommandNode<ClientSuggestionProvider>> visited, int depth)
-	{
-		if(node == null || depth > 8 || !visited.add(node))
-			return;
-		for(CommandNode<ClientSuggestionProvider> child : node.getChildren())
-		{
-			String next = prefix;
-			if(child instanceof LiteralCommandNode<ClientSuggestionProvider>)
-			{
-				String name = child.getName();
-				if(name == null || name.isBlank())
-					continue;
-				if(prefix.isEmpty() && !isScannableRootLiteral(name))
-					continue;
-				next = prefix.isEmpty() ? name : prefix + " " + name;
-				if(!next.startsWith("<"))
-					scannedCommands.add(next);
-			}else if(child instanceof ArgumentCommandNode<ClientSuggestionProvider, ?>)
-				next = prefix.isEmpty() ? "<" + child.getName() + ">"
-					: prefix + " <" + child.getName() + ">";
-			collectLiteralChildren(child, next, visited, depth + 1);
-		}
-	}
-	
-	private static boolean isScannableRootLiteral(String name)
-	{
-		return !name.equalsIgnoreCase("trigger")
-			&& !isVanillaOrDefaultCommand(name);
 	}
 	
 	private static void finishScan()
@@ -540,39 +493,38 @@ public final class UiUtilsCommandScanner
 		}
 	}
 	
-	public static boolean isClientVisibleCommand(String raw)
+	private static void classifyDiscoveredCommand(String command)
 	{
-		if(raw == null || raw.isBlank())
-			return false;
-		String command = raw.trim();
-		if(command.startsWith("/"))
-			command = command.substring(1);
-		if(command.startsWith("trigger (") && command.endsWith(")"))
-			command = "trigger";
-		if(command.contains("<") || command.isBlank())
-			return false;
 		Minecraft mc = Minecraft.getInstance();
 		if(mc.player == null || mc.player.connection == null)
-			return false;
+		{
+			hiddenCommands.add(command);
+			return;
+		}
 		CommandDispatcher<ClientSuggestionProvider> dispatcher =
 			mc.player.connection.getCommands();
 		if(dispatcher == null || dispatcher.getRoot() == null)
-			return false;
-		String[] parts = command.split("\\s+");
-		return hasClientVisibleLiteralPath(dispatcher.getRoot(), parts, 0);
+		{
+			hiddenCommands.add(command);
+			return;
+		}
+		var commandNode = dispatcher.getRoot().getChild(command);
+		if(commandNode == null || !commandNode
+			.canUse(mc.player.connection.getSuggestionsProvider()))
+			hiddenCommands.add(command);
 	}
 	
-	private static boolean hasClientVisibleLiteralPath(
-		CommandNode<ClientSuggestionProvider> node, String[] parts, int index)
+	public static boolean isClientVisibleCommand(String raw)
 	{
-		if(index >= parts.length)
+		String command = extractRootCommand(raw);
+		if(command == null)
+			return false;
+		if(hiddenCommands.contains(command))
+			return false;
+		if(scannedCommands.contains(command))
 			return true;
-		for(CommandNode<ClientSuggestionProvider> child : node.getChildren())
-			if(child instanceof LiteralCommandNode<ClientSuggestionProvider>
-				&& child.getName().equalsIgnoreCase(parts[index])
-				&& hasClientVisibleLiteralPath(child, parts, index + 1))
-				return true;
-		return false;
+		classifyDiscoveredCommand(command);
+		return !hiddenCommands.contains(command);
 	}
 	
 	public static boolean isVanillaOrDefaultCommand(String raw)
@@ -625,6 +577,7 @@ public final class UiUtilsCommandScanner
 		letterIndex = 0;
 		requestId = 1;
 		scannedCommands.clear();
+		hiddenCommands.clear();
 		commandsToExecute.clear();
 		lastFoundCommands = List.of();
 		recentEvents.clear();
@@ -694,6 +647,7 @@ public final class UiUtilsCommandScanner
 		awaitingRequestId = -1;
 		phase = Phase.IDLE;
 		scannedCommands.clear();
+		hiddenCommands.clear();
 		commandsToExecute.clear();
 		lastFoundCommands = List.of();
 		recentEvents.clear();
