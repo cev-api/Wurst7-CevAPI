@@ -1,4 +1,4 @@
-# Wurst Client v7.55 (MC26.2) - Modified by CevAPI
+# Wurst Client v7.55.1 (MC26.2) - Modified by CevAPI
 ![CevAPI Logo](https://i.imgur.com/K5U1OHe.jpeg)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
