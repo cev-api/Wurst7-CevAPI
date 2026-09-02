@@ -118,6 +118,13 @@ public final class NoFallHack extends Hack implements UpdateListener
 	public ServerboundMovePlayerPacket protectFlightMovementPacket(
 		ServerboundMovePlayerPacket packet)
 	{
+		// This setting is an absolute pause. Do this before inspecting the
+		// packet or updating movement tracking so Flight cannot leave any
+		// NoFall
+		// side effects behind while the pause is active.
+		if(shouldPauseMovementPacketMutation())
+			return packet;
+		
 		if(!packet.hasPosition())
 			return packet;
 		
@@ -144,6 +151,15 @@ public final class NoFallHack extends Hack implements UpdateListener
 	{
 		hasLastSentPositionY = false;
 		hasLastPlayerY = false;
+	}
+	
+	/**
+	 * Returns whether NoFall and related movement mutations must be skipped
+	 * while Flight is active.
+	 */
+	public boolean shouldPauseMovementPacketMutation()
+	{
+		return pauseForFlight.isChecked() && isFlightActive();
 	}
 	
 	/** Protects the short transition when Flight is disabled while airborne. */
@@ -220,10 +236,7 @@ public final class NoFallHack extends Hack implements UpdateListener
 		if(PathFlightRuntime.isLandingProtectionActive())
 			return false;
 		
-		boolean flightActive = WURST.getHax().flightHack.isEnabled()
-			|| WURST.getHax().creativeFlightHack.isEnabled()
-			|| PathFlightRuntime.isPathFlightActive();
-		if(pauseForFlight.isChecked() && flightActive && !autoFlyDescending)
+		if(shouldPauseMovementPacketMutation() && !autoFlyDescending)
 		{
 			// Keep NoFall active while Flight is deliberately descending.
 			// Use the intended direction instead of velocity, which Flight
@@ -252,6 +265,13 @@ public final class NoFallHack extends Hack implements UpdateListener
 			return true;
 		
 		return false;
+	}
+	
+	private boolean isFlightActive()
+	{
+		return WURST.getHax().flightHack.isEnabled()
+			|| WURST.getHax().creativeFlightHack.isEnabled()
+			|| PathFlightRuntime.isPathFlightActive();
 	}
 	
 	private boolean isFallingFastEnoughToCauseDamage(LocalPlayer player)

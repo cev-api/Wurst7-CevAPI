@@ -74,27 +74,46 @@ public abstract class ConnectionMixin
 		PacketFirewallOtf firewall =
 			WurstClient.INSTANCE.getOtfs().packetFirewallOtf;
 		boolean vanillaOnly = firewall.isVanillaOnlyPacketsMode();
+		boolean autoFlyMutated = false;
+		boolean noFallMutated = false;
+		boolean originalOnGround = false;
+		ServerboundMovePlayerPacket beforeNoFall = null;
 		if(packet instanceof ServerboundMovePlayerPacket move
 			&& WurstClient.INSTANCE != null
 			&& WurstClient.INSTANCE.getHax() != null && !vanillaOnly)
 		{
-			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
-				.shouldApplyPathAntiHunger())
-				((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
+			originalOnGround = move.isOnGround();
+			boolean pauseNoFallOnFlight =
+				WurstClient.INSTANCE.getHax().noFallHack
+					.shouldPauseMovementPacketMutation();
 			
+			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
+				.shouldApplyPathAntiHunger() && !pauseNoFallOnFlight)
+			{
+				((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
+				autoFlyMutated = true;
+			}
+			
+			beforeNoFall = move;
 			packet = WurstClient.INSTANCE.getHax().noFallHack
-				.protectFlightMovementPacket(move);
+				.protectFlightMovementPacket(
+					(ServerboundMovePlayerPacket)packet);
+			noFallMutated = beforeNoFall
+				.isOnGround() != ((ServerboundMovePlayerPacket)packet)
+					.isOnGround();
 		}
 		ConnectionPacketOutputEvent event =
 			new ConnectionPacketOutputEvent(packet);
+		if(autoFlyMutated)
+			event.addDebugSource("AutoFly movement mutation: onGround "
+				+ originalOnGround + " -> false");
+		if(noFallMutated && beforeNoFall != null)
+			event.addDebugSource("NoFall movement mutation: onGround "
+				+ beforeNoFall.isOnGround() + " -> "
+				+ ((ServerboundMovePlayerPacket)packet).isOnGround());
 		String senderHack = firewall.resolveSenderHackNameForDebug();
 		if(senderHack != null)
 			event.addDebugSource("direct sender: " + senderHack);
-		if(originalPacket instanceof ServerboundMovePlayerPacket originalMove
-			&& packet instanceof ServerboundMovePlayerPacket finalMove
-			&& originalMove.isOnGround() != finalMove.isOnGround())
-			event.addDebugSource("NoFall/AutoFly movement mutation: onGround "
-				+ originalMove.isOnGround() + " -> " + finalMove.isOnGround());
 		events.add(event);
 		EventManager.fire(event);
 		
