@@ -51,9 +51,9 @@ import net.wurstclient.util.json.JsonUtils;
 
 public final class ClickGui
 {
-	private static final int MODERN_TITLE_CONTROL_SIZE = 13;
-	private static final int MODERN_TITLE_CONTROL_SLOT = 14;
-	private static final int MODERN_TITLE_CONTROL_RIGHT_PADDING = 8;
+	private static final int MODERN_TITLE_CONTROL_SIZE = 11;
+	private static final int MODERN_TITLE_CONTROL_SLOT = 12;
+	private static final int MODERN_TITLE_CONTROL_RIGHT_PADDING = 4;
 	private static final WurstClient WURST = WurstClient.INSTANCE;
 	private static final Minecraft MC = WurstClient.MC;
 	private static final Set<String> MOVE_TO_CLIENT_SETTINGS =
@@ -497,6 +497,8 @@ public final class ClickGui
 	 */
 	private void initModern()
 	{
+		String previousSearchQuery =
+			modernSearchActive ? modernSearchQuery : "";
 		modernSearchQuery = "";
 		modernSearchActive = false;
 		modernSearchWindowCap = 0;
@@ -593,6 +595,11 @@ public final class ClickGui
 			saveWindows();
 		}
 		reopenModernSettingsWindows(reopenSettings, features, reopenSections);
+		if(!previousSearchQuery.isBlank())
+		{
+			modernSearchQuery = previousSearchQuery;
+			updateModernSearchResults();
+		}
 	}
 	
 	private LinkedHashMap<String, WindowState> captureOpenModernSettingsWindows()
@@ -2520,10 +2527,12 @@ public final class ClickGui
 			int trackBottom = headerBottom + window.getScrollbarTrackBottom();
 			int thumbHeight = window.getScrollbarThumbHeight();
 			int thumbY = headerBottom + window.getScrollbarThumbY();
+			// Keep the track visually continuous with the window. The accent
+			// color belongs only to the draggable scrollbar thumb.
 			context.fill(x2 - 7, trackTop, x2 - 3, trackBottom,
-				RenderUtils.toIntColor(dropdownButtonColor, opacity));
+				modernBackground);
 			context.fill(x2 - 7, thumbY, x2 - 3, thumbY + thumbHeight,
-				RenderUtils.toIntColor(acColor, opacity));
+				modernHeader);
 		}
 	}
 	

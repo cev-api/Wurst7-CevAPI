@@ -16,6 +16,7 @@ import net.wurstclient.clickgui.Component;
 import net.wurstclient.clickgui.Window;
 import net.wurstclient.hacks.TooManyHaxHack;
 import net.wurstclient.commands.NecoCmd;
+import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
 import org.lwjgl.glfw.GLFW;
@@ -39,11 +40,22 @@ public final class ModernFeatureButton extends Component
 		this.feature = feature;
 		hasSettings = !feature.getSettings().isEmpty();
 		toggleable = (feature instanceof net.wurstclient.hack.Hack
-			|| feature instanceof NecoCmd)
+			|| feature instanceof NecoCmd || isStateToggleFeature(feature))
 			&& !(feature instanceof net.wurstclient.hacks.ClickGuiHack)
 			&& !(feature instanceof net.wurstclient.hacks.GlobalToggleHack);
 		setWidth(getDefaultWidth());
 		setHeight(GUI.getModernRowHeight());
+	}
+	
+	private static boolean isStateToggleFeature(Feature feature)
+	{
+		if(!(feature instanceof OtherFeature))
+			return false;
+		
+		String action = feature.getPrimaryAction();
+		return "Enable".equals(action) || "Disable".equals(action)
+			|| action.startsWith("Enable ") || action.startsWith("Disable ")
+			|| action.startsWith("Re-enable ");
 	}
 	
 	@Override
