@@ -173,7 +173,8 @@ public abstract class Hack extends Feature
 		else
 			onDisable();
 		
-		if(stateSaved)
+		if(stateSaved
+			&& !WURST.getOtfs().packetFirewallOtf.isTemporarilySuppressed(this))
 			WURST.getHax().saveEnabledHax();
 		
 		HackToggleFeedback.INSTANCE.queue(this, enabled);
