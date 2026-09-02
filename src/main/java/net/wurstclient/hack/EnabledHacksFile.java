@@ -167,8 +167,11 @@ public final class EnabledHacksFile
 	
 	private JsonArray createJson(HackList hax)
 	{
-		Stream<Hack> enabledHax = hax.getAllHax().stream()
-			.filter(Hack::isEnabled).filter(Hack::isStateSaved);
+		Stream<Hack> enabledHax = hax.getAllHax().stream().filter(hack -> hack
+			.isEnabled()
+			|| net.wurstclient.WurstClient.INSTANCE.getOtfs().packetFirewallOtf
+				.isTemporarilySuppressed(hack))
+			.filter(Hack::isStateSaved);
 		
 		JsonArray json = new JsonArray();
 		enabledHax.map(Hack::getName).forEach(name -> json.add(name));

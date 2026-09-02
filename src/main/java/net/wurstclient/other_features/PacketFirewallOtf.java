@@ -36,9 +36,13 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.ConnectionPacketOutputListener;
 import net.wurstclient.events.ConnectionPacketOutputListener.ConnectionPacketOutputEvent;
+import net.wurstclient.events.BlockBreakingProgressListener;
+import net.wurstclient.events.KnockbackListener;
 import net.wurstclient.events.PacketInputListener;
 import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.events.PacketOutputListener;
+import net.wurstclient.events.PlayerAttacksEntityListener;
+import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.other_feature.OtherFeature;
@@ -196,8 +200,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		Packet<?> packet = event.getPacket();
 		SenderResolution sender = resolveSenderHackFromStack();
 		if(sender == null || sender.hack() == null
-			|| temporaryWhitelist.contains(sender.hack().getName())
-			|| !temporaryWhitelist.contains(sender.hack().getName()))
+			|| temporaryWhitelist.contains(sender.hack().getName()))
 			return;
 		
 		suppressHackTemporarily(sender.hack(),
@@ -425,7 +428,12 @@ public final class PacketFirewallOtf extends OtherFeature
 			return;
 		
 		for(Hack hack : new LinkedHashSet<>(vanillaOnlyPausedHacks))
+		{
+			temporarilyDisabledHacks.remove(hack);
 			suppressedReasons.remove(hack);
+			if(!hack.isEnabled())
+				hack.setEnabled(true);
+		}
 		
 		vanillaOnlyPausedHacks.clear();
 		MovementMutationTracker.clear();
@@ -445,6 +453,12 @@ public final class PacketFirewallOtf extends OtherFeature
 			return null;
 		
 		return " [paused]";
+	}
+	
+	/** Returns whether this hack was disabled temporarily by the firewall. */
+	public boolean isTemporarilySuppressed(Hack hack)
+	{
+		return hack != null && temporarilyDisabledHacks.contains(hack);
 	}
 	
 	private boolean isCustomPacketSurface(Packet<?> packet)
@@ -641,9 +655,53 @@ public final class PacketFirewallOtf extends OtherFeature
 	private void suppressVanillaOnlyMovementHacks()
 	{
 		for(Hack hack : WURST.getHax().getAllHax())
-			if(hack.isEnabled() && hack.getCategory() == Category.MOVEMENT)
-				suppressHackTemporarily(hack,
-					"vanilla-only packets mode paused movement hack");
+			if(hack.isEnabled() && isPacketAffectingHack(hack))
+			{
+				vanillaOnlyPausedHacks.add(hack);
+				if(!suppressHackTemporarily(hack,
+					"vanilla-only packets mode paused packet-affecting hack"))
+					vanillaOnlyPausedHacks.remove(hack);
+			}
+	}
+	
+	/**
+	 * Vanilla-only mode must pause hacks that can change server-facing
+	 * behavior, not just movement hacks. Some of these change outgoing packets
+	 * directly, while others change the client action that produces them.
+	 */
+	private boolean isPacketAffectingHack(Hack hack)
+	{
+		// These helpers react to client actions but do not spoof or delay
+		// packets. Suppressing them breaks normal client-side conveniences such
+		// as automatic tool selection and custom totem rendering.
+		String name = hack.getName();
+		if(name.equals("AutoTool") || name.equals("AutoArmor")
+			|| name.equals("AutoSword") || name.equals("AutoTotem")
+			|| name.equals("AutoSwitch") || name.equals("CustomTotem"))
+			return false;
+			
+		// Render hacks only display client-side information. They must remain
+		// usable in vanilla-only mode, even when they implement input or packet
+		// listeners for their overlays.
+		if(hack.getCategory() == Category.RENDER)
+			return false;
+			
+		// ESP/HUD/statistics hacks observe client state; they do not make the
+		// client cheat in its server-facing actions. Their listener interfaces
+		// are often used only for receiving packets or rendering overlays.
+		if(name.endsWith("ESP") || name.endsWith("HUD")
+			|| name.equals("GameStats") || name.equals("OppStats"))
+			return false;
+		
+		if(hack.getCategory() == Category.MOVEMENT)
+			return true;
+		
+		return hack instanceof PacketOutputListener
+			|| hack instanceof ConnectionPacketOutputListener
+			|| hack instanceof KnockbackListener
+			|| hack instanceof PlayerAttacksEntityListener
+			|| hack instanceof BlockBreakingProgressListener
+			|| hack instanceof RightClickListener;
 	}
 	
 	private boolean suppressHackTemporarily(Hack hack, String reason)

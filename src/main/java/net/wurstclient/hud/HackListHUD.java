@@ -111,7 +111,7 @@ public final class HackListHUD implements UpdateListener
 	
 	private void drawCounter(GuiGraphicsExtractor context)
 	{
-		long size = activeHax.stream().filter(e -> e.hack.isEnabled()).count();
+		long size = activeHax.stream().filter(e -> isDisplayed(e.hack)).count();
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
 		drawString(context, s,
 			/* lineHeight */(int)Math.round(9 * getScale() * otf.getFontSize()),
@@ -142,7 +142,7 @@ public final class HackListHUD implements UpdateListener
 		int offset = otf.isAnimations() ? 4 : 0;
 		HackListEntry entry = new HackListEntry(hack, offset);
 		
-		if(hack.isEnabled())
+		if(isDisplayed(hack))
 		{
 			if(activeHax.contains(entry))
 				return;
@@ -152,6 +152,13 @@ public final class HackListHUD implements UpdateListener
 			
 		}else if(!otf.isAnimations())
 			activeHax.remove(entry);
+	}
+	
+	private boolean isDisplayed(Hack hack)
+	{
+		return hack.isEnabled()
+			|| WurstClient.INSTANCE.getOtfs().packetFirewallOtf
+				.isVanillaOnlyPaused(hack);
 	}
 	
 	private void sort()
@@ -175,7 +182,7 @@ public final class HackListHUD implements UpdateListener
 		for(Iterator<HackListEntry> itr = activeHax.iterator(); itr.hasNext();)
 		{
 			HackListEntry e = itr.next();
-			boolean enabled = e.hack.isEnabled();
+			boolean enabled = isDisplayed(e.hack);
 			if(WurstClient.INSTANCE.getHax().tooManyHaxHack
 				.shouldHideFromHackList(e.hack) || otf.isHidden(e.hack))
 				enabled = false;
@@ -442,7 +449,7 @@ public final class HackListHUD implements UpdateListener
 		if(otf.getMode() == Mode.COUNT)
 		{
 			long size =
-				activeHax.stream().filter(e -> e.hack.isEnabled()).count();
+				activeHax.stream().filter(e -> isDisplayed(e.hack)).count();
 			String s = size + " hack" + (size != 1 ? "s" : "") + " active";
 			return (int)(tr.width(s) * scale);
 		}
