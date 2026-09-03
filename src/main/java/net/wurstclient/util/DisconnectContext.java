@@ -62,11 +62,6 @@ public final class DisconnectContext
 		
 		StringBuilder sb = new StringBuilder();
 		sb.append(describePlayerDistance(selfPos, otherPos));
-		if(selfPos != null)
-		{
-			sb.append("\nDistance: ")
-				.append(formatBlockDistance(selfPos.distanceTo(otherPos)));
-		}
 		sb.append("\nPosition: ").append(formatVec(otherPos));
 		return sb.toString();
 	}
@@ -151,8 +146,4 @@ public final class DisconnectContext
 		return blocks + " Blocks Horizontally";
 	}
 	
-	private static String formatBlockDistance(double distance)
-	{
-		return String.format(java.util.Locale.ROOT, "%.1f blocks", distance);
-	}
 }

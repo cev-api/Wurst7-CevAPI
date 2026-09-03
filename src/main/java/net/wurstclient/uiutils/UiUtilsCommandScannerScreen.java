@@ -373,10 +373,19 @@ public final class UiUtilsCommandScannerScreen extends Screen
 		lines.add(new Line("Command Scanner", 0xFF8CC8FF));
 		lines.add(new Line("Status: " + UiUtilsCommandScanner.getStatusLine(),
 			0xFFEAEAEA));
+		lines.add(
+			new Line("Essentials commands/aliases are intentionally skipped.",
+				0xFF909090));
 		List<String> commands =
 			UiUtilsCommandScanner.getFoundCommandsSnapshot();
-		lines.add(new Line("Found commands: " + commands.size(), 0xFFB8B8B8));
-		if(commands.size() > 50)
+		String commandCount = UiUtilsCommandScanner.hasTruncatedResults()
+			? commands.size() + "+" : String.valueOf(commands.size());
+		lines.add(new Line("Found commands: " + commandCount, 0xFFB8B8B8));
+		if(UiUtilsCommandScanner.hasTruncatedResults())
+			lines.add(new Line(
+				"Some responses hit the server limit; counts are lower bounds.",
+				0xFFFFC857));
+		if(commands.size() > 50 || UiUtilsCommandScanner.hasTruncatedResults())
 		{
 			Map<Character, List<String>> byLetter = new LinkedHashMap<>();
 			for(char c = 'a'; c <= 'z'; c++)
@@ -396,9 +405,12 @@ public final class UiUtilsCommandScannerScreen extends Screen
 					continue;
 				String key = "letter:" + entry.getKey();
 				boolean expanded = expandedCommandLetters.contains(key);
+				String groupCount = String.valueOf(entry.getValue().size());
+				if(UiUtilsCommandScanner.isLetterGroupTruncated(entry.getKey()))
+					groupCount += "+";
 				lines.add(new Line((expanded ? "v " : "> ") + "["
-					+ Character.toUpperCase(entry.getKey()) + "] ("
-					+ entry.getValue().size() + ")", 0xFFFFFFFF, key));
+					+ Character.toUpperCase(entry.getKey()) + "] (" + groupCount
+					+ ")", 0xFFFFFFFF, key));
 				if(expanded)
 					for(String cmd : entry.getValue())
 						addSelectableCommandLine(lines, "    ", cmd);
