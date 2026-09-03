@@ -7,11 +7,11 @@
  */
 package net.wurstclient.gametest.tests.filters;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.wurstclient.gametest.tests.EntityFilterTest;
@@ -32,90 +32,52 @@ public final class FilterBabiesTest extends EntityFilterTest
 		logger.info("Testing baby mob filter");
 		Supplier<EntityFilter> filter = () -> new FilterBabiesSetting("", true);
 		
-		// Filtered out
-		assertFilteredOut("Baby Armadillo", filter,
-			() -> spawnBaby(EntityType.ARMADILLO));
-		assertFilteredOut("Baby Axolotl", filter,
-			() -> spawnBaby(EntityType.AXOLOTL));
-		assertFilteredOut("Baby Bee", filter, () -> spawnBaby(EntityType.BEE));
-		assertFilteredOut("Baby Camel", filter,
-			() -> spawnBaby(EntityType.CAMEL));
-		assertFilteredOut("Kitten (Baby Cat)", filter,
-			() -> spawnBaby(EntityType.CAT));
-		assertFilteredOut("Chick (Baby Chicken)", filter,
-			() -> spawnBaby(EntityType.CHICKEN));
-		assertFilteredOut("Baby Cow", filter, () -> spawnBaby(EntityType.COW));
-		assertFilteredOut("Baby Dolphin", filter,
-			() -> spawnBaby(EntityType.DOLPHIN));
-		assertFilteredOut("Baby Donkey", filter,
-			() -> spawnBaby(EntityType.DONKEY));
-		assertFilteredOut("Baby Fox", filter, () -> spawnBaby(EntityType.FOX));
-		assertFilteredOut("Tadpole (Baby Frog)", filter,
+		// Passive mobs (filter out if baby)
+		for(EntityType<? extends Mob> type : List.of(EntityType.ARMADILLO,
+			EntityType.AXOLOTL, EntityType.BEE, EntityType.CAMEL,
+			EntityType.CAT, EntityType.CHICKEN, EntityType.COW,
+			EntityType.DOLPHIN, EntityType.DONKEY, EntityType.FOX,
+			EntityType.HAPPY_GHAST, EntityType.GLOW_SQUID, EntityType.GOAT,
+			EntityType.HORSE, EntityType.LLAMA, EntityType.MOOSHROOM,
+			EntityType.MULE, EntityType.NAUTILUS, EntityType.OCELOT,
+			EntityType.PANDA, EntityType.PIG, EntityType.POLAR_BEAR,
+			EntityType.RABBIT, EntityType.SHEEP, EntityType.SKELETON_HORSE,
+			EntityType.SNIFFER, EntityType.SQUID, EntityType.STRIDER,
+			EntityType.TRADER_LLAMA, EntityType.TURTLE, EntityType.WOLF,
+			EntityType.VILLAGER, EntityType.ZOMBIE_HORSE))
+		{
+			assertFilteredOut(type.toShortString() + " (baby)", filter,
+				() -> spawnBaby(type));
+			assertAllowed(type.toShortString() + " (adult)", filter,
+				() -> spawnEntity(type));
+		}
+		
+		// Special case: Tadpoles (baby frogs) are a separate entity type
+		assertFilteredOut(EntityType.TADPOLE.toShortString(), filter,
 			() -> spawnEntity(EntityType.TADPOLE));
-		assertFilteredOut("Ghastling (Baby Happy Ghast)", filter,
-			() -> spawnBaby(EntityType.HAPPY_GHAST));
-		assertFilteredOut("Baby Glow Squid", filter,
-			() -> spawnBaby(EntityType.GLOW_SQUID));
-		assertFilteredOut("Baby Goat", filter,
-			() -> spawnBaby(EntityType.GOAT));
-		assertFilteredOut("Foal (Baby Horse)", filter,
-			() -> spawnBaby(EntityType.HORSE));
-		assertFilteredOut("Baby Llama", filter,
-			() -> spawnBaby(EntityType.LLAMA));
-		assertFilteredOut("Baby Mooshroom", filter,
-			() -> spawnBaby(EntityType.MOOSHROOM));
-		assertFilteredOut("Baby Mule", filter,
-			() -> spawnBaby(EntityType.MULE));
-		assertFilteredOut("Baby Nautilus", filter,
-			() -> spawnBaby(EntityType.NAUTILUS));
-		assertFilteredOut("Baby Ocelot", filter,
-			() -> spawnBaby(EntityType.OCELOT));
-		assertFilteredOut("Baby Panda", filter,
-			() -> spawnBaby(EntityType.PANDA));
-		assertFilteredOut("Baby Pig", filter, () -> spawnBaby(EntityType.PIG));
-		assertFilteredOut("Baby Polar Bear", filter,
-			() -> spawnBaby(EntityType.POLAR_BEAR));
-		assertFilteredOut("Baby Rabbit", filter,
-			() -> spawnBaby(EntityType.RABBIT));
-		assertFilteredOut("Baby Sheep", filter,
-			() -> spawnBaby(EntityType.SHEEP));
-		assertFilteredOut("Baby Skeleton Horse", filter,
-			() -> spawnBaby(EntityType.SKELETON_HORSE));
-		assertFilteredOut("Snifflet (Baby Sniffer)", filter,
-			() -> spawnBaby(EntityType.SNIFFER));
-		assertFilteredOut("Baby Squid", filter,
-			() -> spawnBaby(EntityType.SQUID));
-		assertFilteredOut("Baby Strider", filter,
-			() -> spawnBaby(EntityType.STRIDER));
-		assertFilteredOut("Baby Trader Llama", filter,
-			() -> spawnBaby(EntityType.TRADER_LLAMA));
-		assertFilteredOut("Baby Turtle", filter,
-			() -> spawnBaby(EntityType.TURTLE));
-		assertFilteredOut("Puppy (Baby Wolf)", filter,
-			() -> spawnBaby(EntityType.WOLF));
-		assertFilteredOut("Baby Villager", filter,
-			() -> spawnBaby(EntityType.VILLAGER));
-		assertFilteredOut("Baby Zombie Horse", filter,
-			() -> spawnBaby(EntityType.ZOMBIE_HORSE));
+		assertAllowed(EntityType.FROG.toShortString(), filter,
+			() -> spawnEntity(EntityType.FROG));
 		
-		// Allowed because hostile
-		assertAllowed("Gurgle (Baby Drowned)", filter,
-			() -> spawnBaby(EntityType.DROWNED));
-		assertAllowed("Baby Hoglin", filter,
-			() -> spawnBaby(EntityType.HOGLIN));
-		assertAllowed("Baby Husk", filter, () -> spawnBaby(EntityType.HUSK));
-		assertAllowed("Baby Zoglin", filter,
-			() -> spawnBaby(EntityType.ZOGLIN));
-		assertAllowed("Baby Zombie", filter,
-			() -> spawnBaby(EntityType.ZOMBIE));
-		assertAllowed("Baby Zombie Villager", filter,
-			() -> spawnBaby(EntityType.ZOMBIE_VILLAGER));
+		// Hostile mobs (always allow)
+		for(EntityType<? extends Mob> type : List.of(EntityType.DROWNED,
+			EntityType.HOGLIN, EntityType.HUSK, EntityType.ZOGLIN,
+			EntityType.ZOMBIE, EntityType.ZOMBIE_VILLAGER))
+		{
+			assertAllowed(type.toShortString() + " (baby)", filter,
+				() -> spawnBaby(type));
+			assertAllowed(type.toShortString() + " (adult)", filter,
+				() -> spawnEntity(type));
+		}
 		
-		// Allowed because neutral
-		assertAllowed("Baby Piglin", filter,
-			() -> spawnBaby(EntityType.PIGLIN));
-		assertAllowed("Baby Zombified Piglin", filter,
-			() -> spawnBaby(EntityType.ZOMBIFIED_PIGLIN));
+		// Neutral mobs (always allow)
+		for(EntityType<? extends Mob> type : List.of(EntityType.PIGLIN,
+			EntityType.ZOMBIFIED_PIGLIN))
+		{
+			assertAllowed(type.toShortString() + " (baby)", filter,
+				() -> spawnBaby(type));
+			assertAllowed(type.toShortString() + " (adult)", filter,
+				() -> spawnEntity(type));
+		}
 	}
 	
 	private <T extends Mob> T spawnBaby(EntityType<T> type)
