@@ -38,6 +38,7 @@ public final class CmdList
 	public final EnabledHaxCmd enabledHaxCmd = new EnabledHaxCmd();
 	public final EnchantCmd enchantCmd = new EnchantCmd();
 	public final ElytraInfoCmd elytraInfoCmd = new ElytraInfoCmd();
+	public final VillagerRollCmd villagerollCmd = new VillagerRollCmd();
 	public final ExcavateCmd excavateCmd = new ExcavateCmd();
 	public final FeaturesCmd featuresCmd = new FeaturesCmd();
 	public final FollowCmd followCmd = new FollowCmd();
