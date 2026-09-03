@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -21,7 +22,14 @@ import java.util.function.BooleanSupplier;
 
 import org.lwjgl.glfw.GLFW;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
+
+import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.gui.screens.inventory.MerchantScreen;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.sounds.SoundEvents;
@@ -37,8 +45,8 @@ import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraft.world.phys.EntityHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
-import net.wurstclient.events.GUIRenderListener;
 import net.wurstclient.events.MouseButtonPressListener;
+import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.villageroll.VillagerRollNormalizedRoll;
@@ -51,33 +59,48 @@ import net.wurstclient.hacks.villageroll.VillagerRollTradeKind;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.settings.TextFieldSetting;
 import net.wurstclient.util.ChatUtils;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.RollStateStore;
+import net.wurstclient.nicewurst.NiceWurstModule;
+import net.minecraft.world.phys.Vec3;
 
 @SearchTags({"villager roll", "villageroll", "librarian roll", "librarian seed",
 	"villager seed"})
 public final class VillagerRollHack extends Hack
-	implements UpdateListener, MouseButtonPressListener, GUIRenderListener
+	implements UpdateListener, MouseButtonPressListener, RenderListener
 {
 	private static final int MAX_OBSERVATIONS = 64;
 	private static final int MAX_SCREEN_STATES = 256;
 	private static final int MAX_NEXT_BOOK_LINES = 200;
-	
-	private final CheckboxSetting showHud = new CheckboxSetting("Show HUD",
-		"Shows the current librarian roll and target in the in-game HUD.",
-		true);
-	private final CheckboxSetting chatWarnings = new CheckboxSetting(
-		"Chat warnings",
-		"Warns in chat when the selected target is close or has been found.",
-		true);
+	private final CheckboxSetting chatWarnings =
+		new CheckboxSetting("Chat warnings",
+			"description.wurst.setting.villagerroll.chat_warnings", true);
 	private final CheckboxSetting middleClickInfo =
 		new CheckboxSetting("Middle-click info",
-			"Shows the prediction for a librarian when middle-clicked.", false);
-	private final SliderSetting warningDistance = new SliderSetting(
-		"Warning distance", "Rolls before target warnings are emitted.", 5, 1,
-		20, 1, ValueDisplay.INTEGER);
-	private final SliderSetting searchHorizon = new SliderSetting(
-		"Search horizon", "Maximum number of future rolls to search.", 1000,
-		100, 1_000_000, 100, ValueDisplay.INTEGER);
+			"description.wurst.setting.villagerroll.middle_click_info", false);
+	private final CheckboxSetting predictionEsp =
+		new CheckboxSetting("Prediction ESP",
+			"description.wurst.setting.villagerroll.prediction_esp", false);
+	private final TextFieldSetting worldSeed = new TextFieldSetting(
+		"World seed", "description.wurst.setting.villagerroll.world_seed", "",
+		value -> value.isBlank()
+			|| VillagerRollPredictor.tryParseSeed(value.trim()) != null);
+	private final SliderSetting maxDistance = new SliderSetting("Max distance",
+		"description.wurst.setting.villagerroll.max_distance", 160, 0, 256, 1,
+		ValueDisplay.INTEGER);
+	private final SliderSetting overlayScale = new SliderSetting(
+		"Overlay scale", "description.wurst.setting.villagerroll.overlay_scale",
+		0.5, 0.5, 2.0, 0.05, ValueDisplay.DECIMAL);
+	private final SliderSetting warningDistance =
+		new SliderSetting("Warning distance",
+			"description.wurst.setting.villagerroll.warning_distance", 5, 1, 20,
+			1, ValueDisplay.INTEGER);
+	private final SliderSetting searchHorizon =
+		new SliderSetting("Search horizon",
+			"description.wurst.setting.villagerroll.search_horizon", 1000, 100,
+			1_000_000, 100, ValueDisplay.INTEGER);
 	
 	private final ExecutorService executor =
 		Executors.newSingleThreadExecutor(r -> {
@@ -97,7 +120,10 @@ public final class VillagerRollHack extends Hack
 	private Object lastLevel;
 	private Long lastEffectiveSeed;
 	private Long manualSeed;
+	private String lastWorldSeedSettingValue = "";
 	private Long sequenceSeed;
+	private String persistenceServerKey;
+	private boolean persistenceLoaded;
 	private Long currentRoll;
 	private long stateGeneration;
 	private VillagerRollSynchronizer.Result lastSyncResult;
@@ -118,9 +144,12 @@ public final class VillagerRollHack extends Hack
 	{
 		super("VillagerRoll");
 		setCategory(Category.OTHER);
-		addSetting(showHud);
 		addSetting(chatWarnings);
 		addSetting(middleClickInfo);
+		addSetting(predictionEsp);
+		addSetting(worldSeed);
+		addSetting(maxDistance);
+		addSetting(overlayScale);
 		addSetting(warningDistance);
 		addSetting(searchHorizon);
 	}
@@ -130,21 +159,27 @@ public final class VillagerRollHack extends Hack
 	{
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(MouseButtonPressListener.class, this);
-		EVENTS.add(GUIRenderListener.class, this);
+		EVENTS.add(RenderListener.class, this);
 		message("Enabled. Type .villageroll help for setup instructions.");
 	}
 	
 	@Override
 	protected void onDisable()
 	{
+		savePersistentState();
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(MouseButtonPressListener.class, this);
-		EVENTS.remove(GUIRenderListener.class, this);
+		EVENTS.remove(RenderListener.class, this);
 		cancelSynchronization();
 		cancelTargetSearch();
 		clearSequenceState();
+		targetEnchantmentId = null;
+		targetLevel = null;
+		manualSeed = null;
 		lastLevel = null;
 		lastEffectiveSeed = null;
+		persistenceServerKey = null;
+		persistenceLoaded = false;
 	}
 	
 	@Override
@@ -152,20 +187,25 @@ public final class VillagerRollHack extends Hack
 	{
 		if(MC.level == null || MC.player == null)
 		{
-			if(lastLevel != null)
+			if(lastLevel != null || persistenceLoaded)
 			{
+				savePersistentState();
 				clearSequenceState();
+				targetEnchantmentId = null;
+				targetLevel = null;
+				manualSeed = null;
 				lastLevel = null;
 				lastEffectiveSeed = null;
+				persistenceServerKey = null;
+				persistenceLoaded = false;
 			}
 			return;
 		}
-		
+		preparePersistentState();
+		applyWorldSeedSettingChange();
 		Long effectiveSeed = getEffectiveSeed();
 		if(lastLevel != MC.level)
 		{
-			if(lastLevel != null)
-				clearSequenceState();
 			lastLevel = MC.level;
 			lastEffectiveSeed = effectiveSeed;
 		}
@@ -177,6 +217,91 @@ public final class VillagerRollHack extends Hack
 		}
 		
 		observeOpenMerchant();
+	}
+	
+	@Override
+	public void onRender(PoseStack matrices, float partialTicks)
+	{
+		if(!predictionEsp.isChecked() || MC.level == null || MC.player == null
+			|| MC.font == null || currentRoll == null || sequenceSeed == null)
+			return;
+		
+		VillagerRollRoll current =
+			VillagerRollPredictor.predictRoll(sequenceSeed, currentRoll);
+		VillagerRollRoll next =
+			VillagerRollPredictor.predictRoll(sequenceSeed, currentRoll + 1);
+		for(var entity : MC.level.entitiesForRendering())
+		{
+			if(!(entity instanceof Villager villager)
+				|| !isNoviceLibrarian(villager))
+				continue;
+			Vec3 position =
+				villager.position().add(0, villager.getBbHeight() + 0.65, 0);
+			double maxRenderDistance = maxDistance.getValue();
+			if(maxRenderDistance > 0
+				&& MC.player.distanceToSqr(position.x, position.y,
+					position.z) > maxRenderDistance * maxRenderDistance
+				|| !NiceWurstModule.shouldRenderTarget(position))
+				continue;
+			
+			List<String> lines = List.of("Librarian prediction",
+				"Current 1: " + formatTrade(current.first()),
+				"Current 2: " + formatTrade(current.second()),
+				"Next 1: " + formatTrade(next.first()),
+				"Next 2: " + formatTrade(next.second()));
+			drawWorldLabel(matrices, position, lines, overlayScale.getValueF());
+		}
+	}
+	
+	private void drawWorldLabel(PoseStack matrices, Vec3 position,
+		List<String> lines, float labelScale)
+	{
+		if(lines.isEmpty() || MC.font == null)
+			return;
+		
+		matrices.pushPose();
+		Vec3 cam = RenderUtils.getCameraPos();
+		Vec3 direction = position.subtract(cam);
+		double distance = direction.length();
+		double x = position.x;
+		double y = position.y;
+		double z = position.z;
+		if(distance > 1)
+		{
+			Vec3 anchored =
+				cam.add(direction.scale(Math.min(distance, 12) / distance));
+			x = anchored.x;
+			y = anchored.y;
+			z = anchored.z;
+		}
+		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
+		var camera = MC.getCameraEntity();
+		if(camera != null)
+		{
+			matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
+			matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
+		}
+		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		float scale =
+			0.025F * RenderUtils.getCappedWorldLabelScale(labelScale, distance);
+		matrices.scale(scale, -scale, scale);
+		
+		int maxWidth = 0;
+		for(String line : lines)
+			maxWidth = Math.max(maxWidth, MC.font.width(line));
+		int background =
+			(int)(MC.options.getBackgroundOpacity(0.25F) * 255) << 24;
+		int lineHeight = MC.font.lineHeight + 2;
+		DisplayMode layer =
+			NiceWurstModule.enforceTextLayer(DisplayMode.SEE_THROUGH);
+		for(int i = 0; i < lines.size(); i++)
+		{
+			int color = i == 0 ? 0xFF55FFFF : 0xFFFFFFFF;
+			RenderUtils.drawTextInBatch(MC.font, lines.get(i), -maxWidth / 2F,
+				i * lineHeight, color, false, matrices.last().pose(), null,
+				layer, background, 0xF000F0);
+		}
+		matrices.popPose();
 	}
 	
 	@Override
@@ -216,33 +341,19 @@ public final class VillagerRollHack extends Hack
 	}
 	
 	@Override
-	public void onRenderGUI(GuiGraphicsExtractor context, float partialTicks)
-	{
-		if(!showHud.isChecked() || currentRoll == null || sequenceSeed == null)
-			return;
-		
-		String line1 = "VillagerRoll";
-		String line2 = targetEnchantmentId == null ? "Roll " + currentRoll
-			: formatTarget();
-		String line3 = targetHit == null ? sequenceStatus.displayName
-			: (targetHit.rollsAhead() == 0 ? "TARGET HIT"
-				: "+" + targetHit.rollsAhead() + " rolls");
-		int width = Math.max(MC.font.width(line1),
-			Math.max(MC.font.width(line2), MC.font.width(line3)));
-		int x = context.guiWidth() - width - 8;
-		int y = 8;
-		context.fill(x - 3, y - 2, x + width + 3, y + 30, 0x90000000);
-		context.text(MC.font, line1, x, y, 0xFFFFFFFF, false);
-		context.text(MC.font, line2, x, y + 10, 0xFFFFFFFF, false);
-		context.text(MC.font, line3, x, y + 20, 0xFF55FF55, false);
-	}
-	
-	@Override
 	public String getRenderName()
 	{
 		if(targetHit != null && currentRoll != null)
 			return getName() + " [+" + targetHit.rollsAhead() + "]";
 		return getName();
+	}
+	
+	public void printSeed()
+	{
+		Long seed = getEffectiveSeed();
+		String source = manualSeed != null ? " (manual)"
+			: seed == null ? "" : " (auto-detected)";
+		message("World seed: " + (seed == null ? "unknown" : seed) + source);
 	}
 	
 	public void printStatus()
@@ -274,6 +385,8 @@ public final class VillagerRollHack extends Hack
 		message(
 			"Set the seed, then open newly generated novice librarian trade screens.");
 		message(
+			"Use .villageroll seed to check it. The World seed setting can set, change, or clear the seed for this server; leave it blank for automatic singleplayer detection.");
+		message(
 			"To reroll: wait for unemployed, replace the lectern, wait for librarian, then open trades.");
 		message(
 			"Collect 2-3 different new menus; breaking/placing a lectern alone does not count.");
@@ -282,15 +395,24 @@ public final class VillagerRollHack extends Hack
 		message(
 			"Trade Rebalance must be disabled for these predictions to match vanilla.");
 		message(
+			"Sequence state is saved automatically per server and seed in Wurst's config folder.");
+		message(
 			"For a truly fresh sequence, use .villageroll fresh before the first trade is generated.");
 		message(
 			"After synchronization, search with .villageroll mending or set .villageroll target mending.");
+		message(
+			"Target searches and warns about a future enchantment trade; it does not change offers or consume a roll.");
+		message(
+			"Enable Prediction ESP to show the current and next predicted trades above nearby novice librarians.");
+		message(
+			"The sequence counter is shared, so the ESP prediction is global rather than permanently tied to one villager.");
 		printNextStep();
 	}
 	
 	public void resetFromCommand()
 	{
 		clearSequenceState();
+		savePersistentState();
 		message("Sequence state reset.");
 		printNextStep();
 	}
@@ -313,6 +435,7 @@ public final class VillagerRollHack extends Hack
 		message(
 			"Next: open the first novice librarian trade screen. If it differs, the hack will resynchronize.");
 		queueTargetSearch();
+		savePersistentState();
 	}
 	
 	public void setManualSeed(String input)
@@ -324,18 +447,32 @@ public final class VillagerRollHack extends Hack
 				"Invalid numeric seed. Use a signed 64-bit value or a text seed.");
 			return;
 		}
+		Long oldSeed = manualSeed;
 		manualSeed = parsed;
+		if(oldSeed != null && !oldSeed.equals(parsed))
+			RollStateStore.clear("villagerRoll", getPersistenceServerKey(),
+				oldSeed);
+		worldSeed.setValue(input.trim());
+		lastWorldSeedSettingValue = worldSeed.getValue();
 		clearSequenceState();
 		lastEffectiveSeed = parsed;
+		savePersistentState();
 		message("Manual seed set to " + parsed + ".");
 		printNextStep();
 	}
 	
 	public void clearManualSeed()
 	{
+		Long oldSeed = manualSeed;
+		String oldServerKey = getPersistenceServerKey();
 		manualSeed = null;
+		worldSeed.setValue("");
+		lastWorldSeedSettingValue = "";
 		clearSequenceState();
+		if(oldSeed != null)
+			RollStateStore.clear("villagerRoll", oldServerKey, oldSeed);
 		lastEffectiveSeed = getEffectiveSeed();
+		savePersistentState();
 		message("Manual seed cleared.");
 		printNextStep();
 	}
@@ -371,7 +508,9 @@ public final class VillagerRollHack extends Hack
 		targetEnchantmentId = enchantment.id();
 		targetLevel = requestedLevel;
 		resetTargetWarnings();
-		message("Target set to " + formatTarget() + ".");
+		savePersistentState();
+		message("Target set to " + formatTarget()
+			+ " (search only; does not change the sequence).");
 		queueTargetSearch();
 	}
 	
@@ -381,6 +520,7 @@ public final class VillagerRollHack extends Hack
 		targetLevel = null;
 		cancelTargetSearch();
 		resetTargetWarnings();
+		savePersistentState();
 		message("Target cleared.");
 	}
 	
@@ -586,6 +726,7 @@ public final class VillagerRollHack extends Hack
 			{
 				appendObservation(normalized);
 				sequenceStatus = SequenceStatus.SYNCHRONIZED;
+				savePersistentState();
 				message("Fresh sequence confirmed at roll 0.");
 				printNextStep();
 				queueTargetSearch();
@@ -594,6 +735,7 @@ public final class VillagerRollHack extends Hack
 			message("Fresh assumption did not match. Resynchronizing...");
 			sequenceStatus = SequenceStatus.UNKNOWN;
 			appendObservation(normalized);
+			savePersistentState();
 			startSynchronization(
 				VillagerRollSynchronizer.INITIAL_SEARCH_HORIZON);
 			printNextStep();
@@ -612,6 +754,7 @@ public final class VillagerRollHack extends Hack
 				appendObservation(normalized);
 				currentRoll = expectedRoll;
 				sequenceStatus = SequenceStatus.SYNCHRONIZED;
+				savePersistentState();
 				message("Synchronized at roll " + currentRoll + ".");
 				queueTargetSearch();
 				return;
@@ -623,6 +766,7 @@ public final class VillagerRollHack extends Hack
 			sequenceSeed = getEffectiveSeed();
 			keepOnlyLatestObservation(normalized);
 			gapRecoveryAttempted = false;
+			savePersistentState();
 			startSynchronization(
 				VillagerRollSynchronizer.INITIAL_SEARCH_HORIZON);
 			printNextStep();
@@ -633,6 +777,7 @@ public final class VillagerRollHack extends Hack
 			sequenceStatus == SequenceStatus.SYNCHRONIZING;
 		appendObservation(normalized);
 		startSynchronization(VillagerRollSynchronizer.INITIAL_SEARCH_HORIZON);
+		savePersistentState();
 		if(!wasSynchronizing)
 		{
 			message("Observation recorded. Synchronizing in the background.");
@@ -646,6 +791,7 @@ public final class VillagerRollHack extends Hack
 		if(observations.size() > MAX_OBSERVATIONS)
 			observations.remove(0);
 		stateGeneration++;
+		savePersistentState();
 	}
 	
 	private void keepOnlyLatestObservation(
@@ -676,6 +822,7 @@ public final class VillagerRollHack extends Hack
 		sequenceStatus = SequenceStatus.SYNCHRONIZING;
 		lastSyncHorizon = horizon;
 		lastSyncResult = null;
+		savePersistentState();
 		long generation = synchronizationGeneration.incrementAndGet();
 		long capturedStateGeneration = stateGeneration;
 		List<VillagerRollNormalizedRoll> snapshot = List.copyOf(observations);
@@ -701,6 +848,7 @@ public final class VillagerRollHack extends Hack
 			|| !Long.valueOf(seed).equals(getEffectiveSeed()))
 			return;
 		lastSyncResult = result;
+		savePersistentState();
 		if(result.status() == VillagerRollSynchronizer.Status.CANCELLED)
 			return;
 		if(result.status() == VillagerRollSynchronizer.Status.NO_MATCH)
@@ -721,6 +869,7 @@ public final class VillagerRollHack extends Hack
 					keepOnlyLatestObservation(latest);
 					sequenceStatus = SequenceStatus.UNKNOWN;
 					currentRoll = null;
+					savePersistentState();
 					message(
 						"No match found. Another player may have advanced the global counter; restarting from the newest menu.");
 					message(
@@ -729,6 +878,7 @@ public final class VillagerRollHack extends Hack
 					return;
 				}
 				sequenceStatus = SequenceStatus.UNKNOWN;
+				savePersistentState();
 				message("No matching sequence position found in " + horizon
 					+ " rolls.");
 				printNextStep();
@@ -739,6 +889,7 @@ public final class VillagerRollHack extends Hack
 		{
 			sequenceStatus = SequenceStatus.AMBIGUOUS;
 			currentRoll = null;
+			savePersistentState();
 			message("Sequence position is ambiguous. Candidates: "
 				+ (result.moreCandidates() ? "50+"
 					: result.candidateRolls().size()));
@@ -752,6 +903,7 @@ public final class VillagerRollHack extends Hack
 		currentRoll = firstMatchedRoll + snapshot.size() - 1L;
 		sequenceStatus = SequenceStatus.VERIFYING;
 		gapRecoveryAttempted = false;
+		savePersistentState();
 		message(
 			"Possible sequence position found at roll " + currentRoll + ".");
 		message("Verifying next librarian...");
@@ -925,6 +1077,280 @@ public final class VillagerRollHack extends Hack
 			case 5 -> "V";
 			default -> Integer.toString(level);
 		};
+	}
+	
+	private void preparePersistentState()
+	{
+		String serverKey = getPersistenceServerKey();
+		if(lastLevel != null && lastLevel != MC.level)
+		{
+			savePersistentState(persistenceServerKey, lastEffectiveSeed);
+			resetForContextChange();
+			persistenceServerKey = null;
+			persistenceLoaded = false;
+		}
+		if(persistenceLoaded && Objects.equals(persistenceServerKey, serverKey))
+			return;
+		if(persistenceLoaded)
+			savePersistentState(persistenceServerKey, lastEffectiveSeed);
+		resetForContextChange();
+		persistenceServerKey = serverKey;
+		persistenceLoaded = true;
+		loadPersistentState(serverKey);
+	}
+	
+	private void loadPersistentState(String serverKey)
+	{
+		if(serverKey == null)
+		{
+			lastEffectiveSeed = getEffectiveSeed();
+			syncWorldSeedSetting();
+			return;
+		}
+		Long knownSeed = getEffectiveSeed();
+		JsonObject data =
+			RollStateStore.load("villagerRoll", serverKey, knownSeed);
+		if(data == null)
+		{
+			lastEffectiveSeed = knownSeed;
+			syncWorldSeedSetting();
+			return;
+		}
+		manualSeed = readLong(data, "manualSeed");
+		if(manualSeed == null && MC.getSingleplayerServer() == null)
+			manualSeed = readLong(data, "seed");
+		sequenceSeed = readLong(data, "sequenceSeed");
+		currentRoll = readLong(data, "currentRoll");
+		lastSyncHorizon = readInt(data, "lastSyncHorizon", 0);
+		gapRecoveryAttempted = readBoolean(data, "gapRecoveryAttempted", false);
+		targetEnchantmentId = readString(data, "targetEnchantmentId");
+		targetLevel = readInteger(data, "targetLevel");
+		sequenceStatus = readEnum(data, "status", SequenceStatus.class,
+			SequenceStatus.UNKNOWN);
+		readObservations(data);
+		stateGeneration++;
+		lastEffectiveSeed = getEffectiveSeed();
+		syncWorldSeedSetting();
+		if(sequenceStatus == SequenceStatus.SYNCHRONIZING
+			&& !observations.isEmpty() && getEffectiveSeed() != null)
+			startSynchronization(
+				lastSyncHorizon >= VillagerRollSynchronizer.INITIAL_SEARCH_HORIZON
+					? lastSyncHorizon
+					: VillagerRollSynchronizer.INITIAL_SEARCH_HORIZON);
+		if(sequenceSeed != null || !observations.isEmpty()
+			|| manualSeed != null)
+			message("Restored saved state for " + serverKey + "."
+				+ (currentRoll == null ? "" : " Current roll: " + currentRoll)
+				+ (observations.isEmpty() ? ""
+					: " Observations: " + observations.size()));
+	}
+	
+	private void readObservations(JsonObject data)
+	{
+		JsonElement value = data.get("observations");
+		if(value == null || !value.isJsonArray())
+			return;
+		for(JsonElement element : value.getAsJsonArray())
+		{
+			if(!element.isJsonObject())
+				continue;
+			try
+			{
+				JsonObject object = element.getAsJsonObject();
+				observations.add(new VillagerRollNormalizedRoll(
+					readNormalizedTrade(object.getAsJsonObject("first")),
+					readNormalizedTrade(object.getAsJsonObject("second"))));
+			}catch(RuntimeException ignored)
+			{}
+		}
+		while(observations.size() > MAX_OBSERVATIONS)
+			observations.remove(0);
+	}
+	
+	private VillagerRollTrade.Normalized readNormalizedTrade(JsonObject data)
+	{
+		VillagerRollTradeKind kind =
+			VillagerRollTradeKind.valueOf(readString(data, "kind"));
+		return new VillagerRollTrade.Normalized(kind,
+			readString(data, "enchantmentId"), readInt(data, "level", 0));
+	}
+	
+	private void savePersistentState()
+	{
+		savePersistentState(null, null);
+	}
+	
+	private void savePersistentState(String serverKeyOverride,
+		Long seedOverride)
+	{
+		String serverKey = serverKeyOverride == null ? getPersistenceServerKey()
+			: serverKeyOverride;
+		if(serverKey == null)
+			serverKey = persistenceServerKey;
+		Long seed = seedOverride == null ? getEffectiveSeed() : seedOverride;
+		if(seed == null)
+			seed = sequenceSeed;
+		if(seed == null)
+			seed = manualSeed;
+		if(serverKey == null || seed == null)
+			return;
+		JsonObject data = new JsonObject();
+		if(manualSeed != null)
+			data.addProperty("manualSeed", manualSeed);
+		data.addProperty("seed", seed);
+		if(sequenceSeed != null)
+			data.addProperty("sequenceSeed", sequenceSeed);
+		if(currentRoll != null)
+			data.addProperty("currentRoll", currentRoll);
+		data.addProperty("status", sequenceStatus.name());
+		data.addProperty("lastSyncHorizon", lastSyncHorizon);
+		data.addProperty("gapRecoveryAttempted", gapRecoveryAttempted);
+		if(targetEnchantmentId != null)
+			data.addProperty("targetEnchantmentId", targetEnchantmentId);
+		if(targetLevel != null)
+			data.addProperty("targetLevel", targetLevel);
+		JsonArray savedObservations = new JsonArray();
+		for(VillagerRollNormalizedRoll observation : observations)
+		{
+			JsonObject object = new JsonObject();
+			object.add("first", writeNormalizedTrade(observation.first()));
+			object.add("second", writeNormalizedTrade(observation.second()));
+			savedObservations.add(object);
+		}
+		data.add("observations", savedObservations);
+		RollStateStore.save("villagerRoll", serverKey, seed, data);
+	}
+	
+	private JsonObject writeNormalizedTrade(VillagerRollTrade.Normalized trade)
+	{
+		JsonObject result = new JsonObject();
+		result.addProperty("kind", trade.kind().name());
+		if(trade.enchantmentId() == null)
+			result.add("enchantmentId", JsonNull.INSTANCE);
+		else
+			result.addProperty("enchantmentId", trade.enchantmentId());
+		result.addProperty("level", trade.level());
+		return result;
+	}
+	
+	private void resetForContextChange()
+	{
+		clearSequenceState();
+		targetEnchantmentId = null;
+		targetLevel = null;
+		manualSeed = null;
+	}
+	
+	private String getPersistenceServerKey()
+	{
+		return RollStateStore.getCurrentServerKey();
+	}
+	
+	private static String readString(JsonObject object, String name)
+	{
+		JsonElement value = object == null ? null : object.get(name);
+		return value == null || value.isJsonNull() ? null : value.getAsString();
+	}
+	
+	private static Long readLong(JsonObject object, String name)
+	{
+		try
+		{
+			JsonElement value = object.get(name);
+			return value == null || value.isJsonNull() ? null
+				: value.getAsLong();
+		}catch(RuntimeException e)
+		{
+			return null;
+		}
+	}
+	
+	private static Integer readInteger(JsonObject object, String name)
+	{
+		Long value = readLong(object, name);
+		return value == null ? null : value.intValue();
+	}
+	
+	private static int readInt(JsonObject object, String name, int fallback)
+	{
+		Long value = readLong(object, name);
+		return value == null ? fallback : value.intValue();
+	}
+	
+	private static boolean readBoolean(JsonObject object, String name,
+		boolean fallback)
+	{
+		try
+		{
+			JsonElement value = object.get(name);
+			return value == null || value.isJsonNull() ? fallback
+				: value.getAsBoolean();
+		}catch(RuntimeException e)
+		{
+			return fallback;
+		}
+	}
+	
+	private static <T extends Enum<T>> T readEnum(JsonObject object,
+		String name, Class<T> type, T fallback)
+	{
+		String value = readString(object, name);
+		if(value == null)
+			return fallback;
+		try
+		{
+			return Enum.valueOf(type, value);
+		}catch(IllegalArgumentException e)
+		{
+			return fallback;
+		}
+	}
+	
+	private void applyWorldSeedSettingChange()
+	{
+		String value = worldSeed.getValue().trim();
+		if(value.equals(lastWorldSeedSettingValue))
+			return;
+		if(value.isEmpty())
+		{
+			worldSeed.setValue("");
+			lastWorldSeedSettingValue = "";
+			if(manualSeed == null)
+				return;
+			Long oldSeed = manualSeed;
+			manualSeed = null;
+			RollStateStore.clear("villagerRoll", getPersistenceServerKey(),
+				oldSeed);
+			clearSequenceState();
+			lastEffectiveSeed = getEffectiveSeed();
+			savePersistentState();
+			message("World seed cleared for this server.");
+			return;
+		}
+		Long parsed = VillagerRollPredictor.tryParseSeed(value);
+		if(parsed == null)
+		{
+			syncWorldSeedSetting();
+			return;
+		}
+		Long oldSeed = manualSeed;
+		worldSeed.setValue(value);
+		lastWorldSeedSettingValue = worldSeed.getValue();
+		manualSeed = parsed;
+		if(oldSeed != null && !oldSeed.equals(parsed))
+			RollStateStore.clear("villagerRoll", getPersistenceServerKey(),
+				oldSeed);
+		clearSequenceState();
+		lastEffectiveSeed = parsed;
+		savePersistentState();
+		message("World seed set to " + parsed + ".");
+	}
+	
+	private void syncWorldSeedSetting()
+	{
+		String value = manualSeed == null ? "" : Long.toString(manualSeed);
+		worldSeed.setValue(value);
+		lastWorldSeedSettingValue = value;
 	}
 	
 	private Long getEffectiveSeed()
