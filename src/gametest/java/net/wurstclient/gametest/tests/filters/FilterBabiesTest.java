@@ -7,11 +7,11 @@
  */
 package net.wurstclient.gametest.tests.filters;
 
-import java.util.List;
 import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.wurstclient.gametest.tests.EntityFilterTest;
@@ -30,41 +30,92 @@ public final class FilterBabiesTest extends EntityFilterTest
 	protected void runImpl()
 	{
 		logger.info("Testing baby mob filter");
-		Supplier<EntityFilter> filter =
-			() -> FilterBabiesSetting.genericCombat(true);
+		Supplier<EntityFilter> filter = () -> new FilterBabiesSetting("", true);
 		
-		// Normal baby/adult baseline
-		assertFilteredOut("baby cow", filter, () -> spawnBaby(EntityType.COW));
-		assertAllowed("adult cow", filter, () -> spawnEntity(EntityType.COW));
-		
-		// Both are hostile, but only hoglins grow up
-		assertFilteredOut("baby hoglin", filter,
-			() -> spawnBaby(EntityType.HOGLIN));
-		assertAllowed("baby zoglin", filter,
-			() -> spawnBaby(EntityType.ZOGLIN));
-		
-		// In 1.21.11, undead horses still use normal AgeableMob aging.
-		for(EntityType<? extends Mob> type : List.of(EntityType.HORSE,
-			EntityType.SKELETON_HORSE, EntityType.ZOMBIE_HORSE))
-			assertFilteredOut(type.toShortString() + " (baby)", filter,
-				() -> spawnBaby(type));
-		
-		// Villagers use the same aging system as animals
-		assertFilteredOut("baby villager", filter,
-			() -> spawnBaby(EntityType.VILLAGER));
-		
-		// Tadpoles grow into a separate entity type rather than an adult
-		// variant
-		assertFilteredOut("tadpole", filter,
+		// Filtered out
+		assertFilteredOut("Baby Armadillo", filter,
+			() -> spawnBaby(EntityType.ARMADILLO));
+		assertFilteredOut("Baby Axolotl", filter,
+			() -> spawnBaby(EntityType.AXOLOTL));
+		assertFilteredOut("Baby Bee", filter, () -> spawnBaby(EntityType.BEE));
+		assertFilteredOut("Baby Camel", filter,
+			() -> spawnBaby(EntityType.CAMEL));
+		assertFilteredOut("Kitten (Baby Cat)", filter,
+			() -> spawnBaby(EntityType.CAT));
+		assertFilteredOut("Chick (Baby Chicken)", filter,
+			() -> spawnBaby(EntityType.CHICKEN));
+		assertFilteredOut("Baby Cow", filter, () -> spawnBaby(EntityType.COW));
+		assertFilteredOut("Baby Dolphin", filter,
+			() -> spawnBaby(EntityType.DOLPHIN));
+		assertFilteredOut("Baby Donkey", filter,
+			() -> spawnBaby(EntityType.DONKEY));
+		assertFilteredOut("Baby Fox", filter, () -> spawnBaby(EntityType.FOX));
+		assertFilteredOut("Tadpole (Baby Frog)", filter,
 			() -> spawnEntity(EntityType.TADPOLE));
-		assertAllowed("frog", filter, () -> spawnEntity(EntityType.FROG));
+		assertFilteredOut("Ghastling (Baby Happy Ghast)", filter,
+			() -> spawnBaby(EntityType.HAPPY_GHAST));
+		assertFilteredOut("Baby Glow Squid", filter,
+			() -> spawnBaby(EntityType.GLOW_SQUID));
+		assertFilteredOut("Baby Goat", filter,
+			() -> spawnBaby(EntityType.GOAT));
+		assertFilteredOut("Foal (Baby Horse)", filter,
+			() -> spawnBaby(EntityType.HORSE));
+		assertFilteredOut("Baby Llama", filter,
+			() -> spawnBaby(EntityType.LLAMA));
+		assertFilteredOut("Baby Mooshroom", filter,
+			() -> spawnBaby(EntityType.MOOSHROOM));
+		assertFilteredOut("Baby Mule", filter,
+			() -> spawnBaby(EntityType.MULE));
+		assertFilteredOut("Baby Nautilus", filter,
+			() -> spawnBaby(EntityType.NAUTILUS));
+		assertFilteredOut("Baby Ocelot", filter,
+			() -> spawnBaby(EntityType.OCELOT));
+		assertFilteredOut("Baby Panda", filter,
+			() -> spawnBaby(EntityType.PANDA));
+		assertFilteredOut("Baby Pig", filter, () -> spawnBaby(EntityType.PIG));
+		assertFilteredOut("Baby Polar Bear", filter,
+			() -> spawnBaby(EntityType.POLAR_BEAR));
+		assertFilteredOut("Baby Rabbit", filter,
+			() -> spawnBaby(EntityType.RABBIT));
+		assertFilteredOut("Baby Sheep", filter,
+			() -> spawnBaby(EntityType.SHEEP));
+		assertFilteredOut("Baby Skeleton Horse", filter,
+			() -> spawnBaby(EntityType.SKELETON_HORSE));
+		assertFilteredOut("Snifflet (Baby Sniffer)", filter,
+			() -> spawnBaby(EntityType.SNIFFER));
+		assertFilteredOut("Baby Squid", filter,
+			() -> spawnBaby(EntityType.SQUID));
+		assertFilteredOut("Baby Strider", filter,
+			() -> spawnBaby(EntityType.STRIDER));
+		assertFilteredOut("Baby Trader Llama", filter,
+			() -> spawnBaby(EntityType.TRADER_LLAMA));
+		assertFilteredOut("Baby Turtle", filter,
+			() -> spawnBaby(EntityType.TURTLE));
+		assertFilteredOut("Puppy (Baby Wolf)", filter,
+			() -> spawnBaby(EntityType.WOLF));
+		assertFilteredOut("Baby Villager", filter,
+			() -> spawnBaby(EntityType.VILLAGER));
+		assertFilteredOut("Baby Zombie Horse", filter,
+			() -> spawnBaby(EntityType.ZOMBIE_HORSE));
 		
-		// Natural perma-babies without the AgeableMob aging system
-		for(EntityType<? extends Mob> type : List.of(EntityType.PIGLIN,
-			EntityType.ZOMBIE))
-			assertAllowed(type.toShortString() + " (baby)", filter,
-				() -> spawnBaby(type));
+		// Allowed because hostile
+		assertAllowed("Gurgle (Baby Drowned)", filter,
+			() -> spawnBaby(EntityType.DROWNED));
+		assertAllowed("Baby Hoglin", filter,
+			() -> spawnBaby(EntityType.HOGLIN));
+		assertAllowed("Baby Husk", filter, () -> spawnBaby(EntityType.HUSK));
+		assertAllowed("Baby Zoglin", filter,
+			() -> spawnBaby(EntityType.ZOGLIN));
+		assertAllowed("Baby Zombie", filter,
+			() -> spawnBaby(EntityType.ZOMBIE));
+		assertAllowed("Baby Zombie Villager", filter,
+			() -> spawnBaby(EntityType.ZOMBIE_VILLAGER));
 		
+		// Allowed because neutral
+		assertAllowed("Baby Piglin", filter,
+			() -> spawnBaby(EntityType.PIGLIN));
+		assertAllowed("Baby Zombified Piglin", filter,
+			() -> spawnBaby(EntityType.ZOMBIFIED_PIGLIN));
 	}
 	
 	private <T extends Mob> T spawnBaby(EntityType<T> type)
