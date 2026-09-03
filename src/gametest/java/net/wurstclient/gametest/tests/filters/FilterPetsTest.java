@@ -7,6 +7,7 @@
  */
 package net.wurstclient.gametest.tests.filters;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -38,53 +39,28 @@ public final class FilterPetsTest extends EntityFilterTest
 		logger.info("Testing pet filter");
 		Supplier<EntityFilter> filter = () -> new FilterPetsSetting("", true);
 		
-		// Normal pets - filter out if tamed
-		assertFilteredOut("Cat (tamed)", filter,
-			() -> spawnTamedAnimal(EntityType.CAT));
-		assertAllowed("Cat (untamed)", filter,
-			() -> spawnEntity(EntityType.CAT));
-		assertFilteredOut("Nautilus (tamed)", filter,
-			() -> spawnTamedAnimal(EntityType.NAUTILUS));
-		assertAllowed("Nautilus (untamed)", filter,
-			() -> spawnEntity(EntityType.NAUTILUS));
-		assertFilteredOut("Parrot (tamed)", filter,
-			() -> spawnTamedAnimal(EntityType.PARROT));
-		assertAllowed("Parrot (untamed)", filter,
-			() -> spawnEntity(EntityType.PARROT));
-		assertFilteredOut("Wolf (tamed)", filter,
-			() -> spawnTamedAnimal(EntityType.WOLF));
-		assertAllowed("Wolf (untamed)", filter,
-			() -> spawnEntity(EntityType.WOLF));
-		assertFilteredOut("Zombie Nautilus (tamed)", filter,
-			() -> spawnTamedAnimal(EntityType.ZOMBIE_NAUTILUS));
-		assertAllowed("Zombie Nautilus (untamed)", filter,
-			() -> spawnEntity(EntityType.ZOMBIE_NAUTILUS));
+		// Normal pets: filter out if tamed
+		for(EntityType<? extends TamableAnimal> type : List.of(EntityType.CAT,
+			EntityType.NAUTILUS, EntityType.PARROT, EntityType.WOLF,
+			EntityType.ZOMBIE_NAUTILUS))
+		{
+			assertFilteredOut(type.toShortString() + " (tamed)", filter,
+				() -> spawnTamedAnimal(type));
+			assertAllowed(type.toShortString() + " (wild)", filter,
+				() -> spawnEntity(type));
+		}
 		
-		// Normal horse-likes - filter out if tamed
-		assertFilteredOut("Donkey (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.DONKEY));
-		assertAllowed("Donkey (untamed)", filter,
-			() -> spawnEntity(EntityType.DONKEY));
-		assertFilteredOut("Horse (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.HORSE));
-		assertAllowed("Horse (untamed)", filter,
-			() -> spawnEntity(EntityType.HORSE));
-		assertFilteredOut("Llama (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.LLAMA));
-		assertAllowed("Llama (untamed)", filter,
-			() -> spawnEntity(EntityType.LLAMA));
-		assertFilteredOut("Mule (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.MULE));
-		assertAllowed("Mule (untamed)", filter,
-			() -> spawnEntity(EntityType.MULE));
-		assertFilteredOut("Trader Llama (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.TRADER_LLAMA));
-		assertAllowed("Trader Llama (untamed)", filter,
-			() -> spawnEntity(EntityType.TRADER_LLAMA));
-		assertFilteredOut("Zombie Horse (tamed)", filter,
-			() -> spawnTamedEquine(EntityType.ZOMBIE_HORSE));
-		assertAllowed("Zombie Horse (untamed)", filter,
-			() -> spawnEntity(EntityType.ZOMBIE_HORSE));
+		// Normal horse-likes: filter out if tamed
+		for(EntityType<? extends AbstractHorse> type : List.of(
+			EntityType.DONKEY, EntityType.HORSE, EntityType.LLAMA,
+			EntityType.MULE, EntityType.TRADER_LLAMA,
+			EntityType.ZOMBIE_HORSE))
+		{
+			assertFilteredOut(type.toShortString() + " (tamed)", filter,
+				() -> spawnTamedEquine(type));
+			assertAllowed(type.toShortString() + " (wild)", filter,
+				() -> spawnEntity(type));
+		}
 		
 		// Special case: Skeleton Horses self-tame upon trap activation.
 		// Relying on the tamed flag seems fine in this case.
@@ -98,49 +74,47 @@ public final class FilterPetsTest extends EntityFilterTest
 		// Special case: Camels (both types) override isTamed() so that they are
 		// always tamed. They support normal tamed flag too but ignore it.
 		// They should only be considered pets if they have a saddle.
-		assertFilteredOut("Camel (saddled)", filter,
-			() -> spawnSaddledMob(EntityType.CAMEL));
-		assertFilteredOut("Camel Husk (saddled)", filter,
-			() -> spawnSaddledMob(EntityType.CAMEL_HUSK));
-		assertAllowed("Camel (natural)", filter,
-			() -> spawnEntity(EntityType.CAMEL));
-		assertAllowed("Camel Husk (natural)", filter,
-			() -> spawnEntity(EntityType.CAMEL_HUSK));
-		assertAllowed("Camel (with unused tamed flag)", filter,
-			() -> spawnTamedEquine(EntityType.CAMEL));
-		assertAllowed("Camel Husk (with unused tamed flag)", filter,
-			() -> spawnTamedEquine(EntityType.CAMEL_HUSK));
+		for(EntityType<? extends AbstractHorse> type : List
+			.of(EntityType.CAMEL, EntityType.CAMEL_HUSK))
+		{
+			assertFilteredOut(type.toShortString() + " (saddled)", filter,
+				() -> spawnSaddledMob(type));
+			assertAllowed(type.toShortString() + " (wild)", filter,
+				() -> spawnEntity(type));
+			assertAllowed(type.toShortString() + " (with unused tamed flag)",
+				filter, () -> spawnTamedEquine(type));
+		}
 		
-		// Special case: Striders don't support the tamed flag but otherwise
-		// work in a similar way to Camels. Pet if saddled.
-		assertFilteredOut("Strider (saddled)", filter,
-			() -> spawnSaddledMob(EntityType.STRIDER));
-		assertAllowed("Strider (natural)", filter,
-			() -> spawnEntity(EntityType.STRIDER));
-		
-		// Special case: Pigs behave the same way as Striders so we should treat
-		// them the same way. Pet if saddled.
-		assertFilteredOut("Pig (saddled)", filter,
-			() -> spawnSaddledMob(EntityType.PIG));
-		assertAllowed("Pig (natural)", filter,
-			() -> spawnEntity(EntityType.PIG));
+		// Special case: Pigs and Striders don't support the tamed flag but
+		// otherwise work in a similar way to Camels. Pet if saddled.
+		for(EntityType<? extends Mob> type : List.of(EntityType.PIG,
+			EntityType.STRIDER))
+		{
+			assertFilteredOut(type.toShortString() + " (saddled)", filter,
+				() -> spawnSaddledMob(type));
+			assertAllowed(type.toShortString() + " (wild)", filter,
+				() -> spawnEntity(type));
+		}
 		
 		// Special case: Pet Ghasts (Happy Ghasts) are an entirely separate mob.
-		assertFilteredOut("Happy Ghast", filter,
+		assertFilteredOut(EntityType.HAPPY_GHAST.toShortString(), filter,
 			() -> spawnEntity(EntityType.HAPPY_GHAST));
-		assertAllowed("Ghast", filter, () -> spawnEntity(EntityType.GHAST));
+		assertAllowed(EntityType.GHAST.toShortString(), filter,
+			() -> spawnEntity(EntityType.GHAST));
 		
 		// Special case: Ocelots use a "trust" system that isn't tied to any
 		// particular player. Pet if trusting.
-		assertFilteredOut("Ocelot (trusting)", filter,
-			() -> spawnTrustingOcelot());
-		assertAllowed("Ocelot (wild)", filter,
+		assertFilteredOut(EntityType.OCELOT.toShortString() + " (trusting)",
+			filter, () -> spawnTrustingOcelot());
+		assertAllowed(EntityType.OCELOT.toShortString() + " (wild)", filter,
 			() -> spawnEntity(EntityType.OCELOT));
 		
 		// Special case: Foxes use an entirely different "trust" system with up
 		// to two trusted players. Pet if either trusted player is set.
-		assertFilteredOut("Fox (trusting)", filter, () -> spawnTrustingFox());
-		assertAllowed("Fox (wild)", filter, () -> spawnEntity(EntityType.FOX));
+		assertFilteredOut(EntityType.FOX.toShortString() + " (trusting)",
+			filter, () -> spawnTrustingFox());
+		assertAllowed(EntityType.FOX.toShortString() + " (wild)", filter,
+			() -> spawnEntity(EntityType.FOX));
 		
 		// Clean up taming particles
 		context.waitTick();
