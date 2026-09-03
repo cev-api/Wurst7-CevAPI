@@ -7,11 +7,13 @@
  */
 package net.wurstclient.gametest.tests.filters;
 
+import java.util.List;
 import java.util.function.Supplier;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.wurstclient.gametest.tests.EntityFilterTest;
 import net.wurstclient.settings.filterlists.EntityFilterList.EntityFilter;
 import net.wurstclient.settings.filters.FilterPassiveWaterSetting;
@@ -32,42 +34,30 @@ public final class FilterPassiveWaterTest extends EntityFilterTest
 			() -> new FilterPassiveWaterSetting("", true);
 		
 		// Filtered out
-		assertFilteredOut("Axolotl", filter,
-			() -> spawnEntity(EntityType.AXOLOTL));
-		assertFilteredOut("Cod", filter, () -> spawnEntity(EntityType.COD));
-		assertFilteredOut("Dolphin", filter,
-			() -> spawnEntity(EntityType.DOLPHIN));
-		assertFilteredOut("Glow Squid", filter,
-			() -> spawnEntity(EntityType.GLOW_SQUID));
-		assertFilteredOut("Salmon", filter,
-			() -> spawnEntity(EntityType.SALMON));
-		assertFilteredOut("Squid", filter,
-			() -> spawnEntity(EntityType.SQUID));
-		assertFilteredOut("Tadpole", filter,
-			() -> spawnEntity(EntityType.TADPOLE));
-		assertFilteredOut("Tropical Fish", filter,
-			() -> spawnEntity(EntityType.TROPICAL_FISH));
+		for(EntityType<? extends Mob> type : List.of(EntityType.AXOLOTL,
+			EntityType.COD, EntityType.DOLPHIN, EntityType.GLOW_SQUID,
+			EntityType.SALMON, EntityType.SQUID, EntityType.TADPOLE,
+			EntityType.TROPICAL_FISH))
+			assertFilteredOut(type.toShortString(), filter,
+				() -> spawnEntity(type));
 		
 		// Allowed because hostile
-		assertAllowed("Drowned (hostile mob)", filter,
-			() -> spawnEntity(EntityType.DROWNED));
-		assertAllowed("Elder Guardian (hostile mob)", filter,
-			() -> spawnEntity(EntityType.ELDER_GUARDIAN));
-		assertAllowed("Guardian (hostile mob)", filter,
-			() -> spawnEntity(EntityType.GUARDIAN));
-		assertAllowed("Pufferfish (hostile mob)", filter,
-			() -> spawnEntity(EntityType.PUFFERFISH));
+		for(EntityType<? extends Mob> type : List.of(EntityType.DROWNED,
+			EntityType.ELDER_GUARDIAN, EntityType.GUARDIAN,
+			EntityType.PUFFERFISH))
+			assertAllowed(type.toShortString() + " (hostile mob)", filter,
+				() -> spawnEntity(type));
 		
 		// Allowed because neutral
-		assertAllowed("Nautilus (neutral mob)", filter,
-			() -> spawnEntity(EntityType.NAUTILUS));
-		assertAllowed("Zombie Nautilus (neutral mob)", filter,
-			() -> spawnEntity(EntityType.ZOMBIE_NAUTILUS));
+		for(EntityType<? extends Mob> type : List.of(EntityType.NAUTILUS,
+			EntityType.ZOMBIE_NAUTILUS))
+			assertAllowed(type.toShortString() + " (neutral mob)", filter,
+				() -> spawnEntity(type));
 		
 		// Allowed because land-based
-		assertAllowed("Silverfish (land-based hostile mob)", filter,
-			() -> spawnEntity(EntityType.SILVERFISH));
-		assertAllowed("Turtle (land-based mob)", filter,
-			() -> spawnEntity(EntityType.TURTLE));
+		for(EntityType<? extends Mob> type : List.of(EntityType.SILVERFISH,
+			EntityType.TURTLE))
+			assertAllowed(type.toShortString() + " (land-based mob)", filter,
+				() -> spawnEntity(type));
 	}
 }
