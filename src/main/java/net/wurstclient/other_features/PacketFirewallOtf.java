@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundChatCommandPacket;
+import net.minecraft.network.protocol.game.ServerboundChatPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
@@ -357,9 +359,9 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		SenderResolution sender = resolveSenderHackFromStack();
 		boolean hackOrigin = sender != null && sender.hack() != null
-			&& !temporaryWhitelist.contains(sender.hack().getName());
+			&& !temporaryWhitelist.contains(sender.hack().getName())
+			&& !isAllowedChatPacket(sender.hack(), original, packet);
 		if(hackOrigin)
-			
 			return null;
 		
 		if(cancelled)
@@ -379,6 +381,24 @@ public final class PacketFirewallOtf extends OtherFeature
 			return original;
 		
 		return packet;
+	}
+	
+	/**
+	 * Chat automation is already server-facing behavior that vanilla supports.
+	 * Keep it working in vanilla-only mode while still blocking gameplay
+	 * packets
+	 * sent by hacks in the chat category.
+	 */
+	private boolean isAllowedChatPacket(Hack hack, Packet<?> original,
+		Packet<?> packet)
+	{
+		if(hack == null || hack.getCategory() != Category.CHAT)
+			return false;
+		
+		return original instanceof ServerboundChatPacket
+			|| original instanceof ServerboundChatCommandPacket
+			|| packet instanceof ServerboundChatPacket
+			|| packet instanceof ServerboundChatCommandPacket;
 	}
 	
 	private boolean sameMovementPacket(ServerboundMovePlayerPacket a,

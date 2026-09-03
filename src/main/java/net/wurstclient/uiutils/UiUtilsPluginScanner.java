@@ -213,9 +213,12 @@ public final class UiUtilsPluginScanner
 			String pluginCandidate = text.trim();
 			String pluginKey = normalizePluginKey(pluginCandidate);
 			if(!isLikelyPluginNameCandidate(pluginCandidate, probe.kind)
-				|| UiUtilsCommandScanner.isVanillaOrDefaultCommand(
-					pluginCandidate)
+				|| UiUtilsCommandScanner
+					.isVanillaOrDefaultCommand(pluginCandidate)
 				|| isDefaultFabricPlugin(pluginCandidate)
+				|| ((probe.kind == PluginProbeKind.PLUGIN_LIST
+					|| probe.kind == PluginProbeKind.VERSION)
+					&& getOnlinePlayerNames().contains(pluginKey))
 				|| ROOT_COMMAND_PLUGIN_ALIASES.containsKey(pluginKey))
 				continue;
 			
