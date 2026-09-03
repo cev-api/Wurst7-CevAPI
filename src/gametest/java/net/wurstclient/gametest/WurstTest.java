@@ -84,6 +84,7 @@ public class WurstTest implements FabricClientGameTest
 		
 		// Disable chunk fade
 		context.runOnClient(mc -> mc.options.chunkSectionFadeInTime().set(0.0));
+		new VaultRollModelTest(context).run();
 		
 		runCommand(server, "time set noon");
 		runCommand(server, "tp 0 -57 0");
