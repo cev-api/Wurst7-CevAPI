@@ -623,7 +623,7 @@ public final class VillagerRollHack extends Hack
 	
 	private void observeOpenMerchant()
 	{
-		if(!(MC.gui.screen() instanceof MerchantScreen)
+		if(!(MC.screen instanceof MerchantScreen)
 			|| !(MC.player.containerMenu instanceof MerchantMenu menu)
 			|| menu.getOffers().size() < 2 || menu.getTraderLevel() > 1)
 			return;

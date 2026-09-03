@@ -53,8 +53,7 @@ public final class FilterPetsTest extends EntityFilterTest
 		// Normal horse-likes: filter out if tamed
 		for(EntityType<? extends AbstractHorse> type : List.of(
 			EntityType.DONKEY, EntityType.HORSE, EntityType.LLAMA,
-			EntityType.MULE, EntityType.TRADER_LLAMA,
-			EntityType.ZOMBIE_HORSE))
+			EntityType.MULE, EntityType.TRADER_LLAMA, EntityType.ZOMBIE_HORSE))
 		{
 			assertFilteredOut(type.toShortString() + " (tamed)", filter,
 				() -> spawnTamedEquine(type));
@@ -74,8 +73,8 @@ public final class FilterPetsTest extends EntityFilterTest
 		// Special case: Camels (both types) override isTamed() so that they are
 		// always tamed. They support normal tamed flag too but ignore it.
 		// They should only be considered pets if they have a saddle.
-		for(EntityType<? extends AbstractHorse> type : List
-			.of(EntityType.CAMEL, EntityType.CAMEL_HUSK))
+		for(EntityType<? extends AbstractHorse> type : List.of(EntityType.CAMEL,
+			EntityType.CAMEL_HUSK))
 		{
 			assertFilteredOut(type.toShortString() + " (saddled)", filter,
 				() -> spawnSaddledMob(type));
