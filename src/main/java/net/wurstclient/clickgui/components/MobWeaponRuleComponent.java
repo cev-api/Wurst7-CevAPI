@@ -353,7 +353,7 @@ public final class MobWeaponRuleComponent extends Component
 					&& mouseX >= x1 && mouseX < x2;
 				
 				int rowColor = modern
-					? RenderUtils.toIntColor(GUI.getDropdownButtonColor(),
+					? RenderUtils.toIntColor(GUI.getDropdownBackgroundColor(),
 						GUI.getOpacity() * (hovering ? 1.2F : 1F))
 					: RenderUtils.toIntColor(GUI.getBgColor(),
 						GUI.getOpacity() * (hovering ? 1.5F : 1F));
