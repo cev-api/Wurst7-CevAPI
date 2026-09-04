@@ -29,6 +29,7 @@ public final class TextFieldSetting extends Setting
 	private String value = "";
 	private final String defaultValue;
 	private final Predicate<String> validator;
+	private int maxLength = Integer.MAX_VALUE;
 	
 	public TextFieldSetting(String name, WText description, String defaultValue,
 		Predicate<String> validator)
@@ -111,6 +112,19 @@ public final class TextFieldSetting extends Setting
 			return false;
 		
 		return validator.test(value);
+	}
+	
+	public int getMaxLength()
+	{
+		return maxLength;
+	}
+	
+	public void setMaxLength(int maxLength)
+	{
+		if(maxLength < 0)
+			throw new IllegalArgumentException(
+				"maxLength must not be negative");
+		this.maxLength = maxLength;
 	}
 	
 	public void resetToDefault()

@@ -53,10 +53,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	private static final int RECENT_EDIT_TICKS = 20;
 	
 	private String[] signText;
-	private final TextFieldSetting presetText = new TextFieldSetting(
-		"Preset sign text",
-		"Type the text to write on signs. It will be wrapped to 4 lines with up to 15 characters each.",
-		"", AutoSignHack::canFitOnSign);
+	private final TextFieldSetting[] presetLines =
+		new TextFieldSetting[MAX_LINES];
 	private final CheckboxSetting signAura = new CheckboxSetting("Sign Aura",
 		"Automatically edit any nearby sign with the preset text.", false);
 	private final SliderSetting auraRange = new SliderSetting("Aura Range",
@@ -102,13 +100,26 @@ public final class AutoSignHack extends Hack implements UpdateListener
 	{
 		super("AutoSign");
 		setCategory(Category.BLOCKS);
+		for(int i = 0; i < MAX_LINES; i++)
+		{
+			TextFieldSetting line = new TextFieldSetting("Sign line " + (i + 1),
+				"Text for line " + (i + 1)
+					+ " of the sign. Maximum 15 characters.",
+				"", s -> s == null || s.length() <= MAX_CHARS_PER_LINE);
+			line.setMaxLength(MAX_CHARS_PER_LINE);
+			presetLines[i] = line;
+		}
 		// Initialize buttons now that presetsSetting exists
 		savePresetButton = new ButtonSetting("Save preset", () -> {
 			String name = presetName.getValue() == null ? ""
 				: presetName.getValue().trim();
-			String text = presetText.getValue();
+			String text = getPresetText();
 			if(name.isEmpty())
-				name = suggestPresetName();
+			{
+				String selected = presetSelect.getSelected();
+				name = selected == null || selected.isEmpty()
+					? suggestPresetName() : selected;
+			}
 			if(text == null)
 				text = "";
 			String[] wrapped = wrapToSign(text);
@@ -117,6 +128,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			presetsSetting.put(name, text);
 			updatePresetDropdown();
 			presetSelect.setSelected(name);
+			presetName.setValue(name);
 			applyTextNow();
 		});
 		loadPresetButton = new ButtonSetting("Load preset", () -> {
@@ -126,8 +138,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			String text = presetsSetting.get(sel);
 			if(text == null)
 				return;
-			if(presetText.isValidValue(text))
-				presetText.setValue(text);
+			setPresetText(text);
 			applyTextNow();
 		});
 		deletePresetButton = new ButtonSetting("Delete preset", () -> {
@@ -141,7 +152,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		applyNowButton =
 			new ButtonSetting("Apply text now", this::applyTextNow);
 		
-		addSetting(presetText);
+		for(TextFieldSetting line : presetLines)
+			addSetting(line);
 		addSetting(presetName);
 		addSetting(presetSelect);
 		addSetting(savePresetButton);
@@ -197,33 +209,63 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			}
 		}
 		
-		// Next, prefer the persisted preset text from the GUI text box.
-		// This lets text changes apply immediately without toggling the hack.
-		String preset = presetText.getValue();
-		if(preset == null || preset.isEmpty())
+		// Next, prefer the four line inputs from the GUI. Each input is already
+		// limited to the same 15 characters that a sign line supports.
+		String[] presetLines = getPresetLines();
+		if(presetLines == null)
 		{
 			// If no preset text is configured, use the first manually edited
 			// sign as a temporary template while the hack stays enabled.
 			return signText;
 		}
 		
-		String[] wrapped = wrapToSign(preset);
-		return wrapped == null ? null : wrapped;
+		return presetLines;
+	}
+	
+	private String getPresetText()
+	{
+		StringJoiner joiner = new StringJoiner("\n");
+		boolean hasText = false;
+		for(TextFieldSetting line : presetLines)
+		{
+			String value = line.getValue();
+			hasText |= !value.isEmpty();
+			joiner.add(value);
+		}
+		return hasText ? joiner.toString() : "";
+	}
+	
+	private String[] getPresetLines()
+	{
+		String[] lines = new String[MAX_LINES];
+		boolean hasText = false;
+		for(int i = 0; i < MAX_LINES; i++)
+		{
+			lines[i] = presetLines[i].getValue();
+			hasText |= !lines[i].isEmpty();
+		}
+		return hasText ? lines : null;
+	}
+	
+	private void setPresetText(String text)
+	{
+		String[] lines = splitPresetLines(text);
+		if(lines == null)
+			return;
+		for(int i = 0; i < MAX_LINES; i++)
+			presetLines[i].setValue(lines[i]);
+	}
+	
+	private static String[] splitPresetLines(String text)
+	{
+		String[] lines = wrapToSign(text);
+		return lines == null ? null : lines;
 	}
 	
 	public void setSignText(String[] signText)
 	{
 		if(isEnabled() && this.signText == null)
 			this.signText = signText;
-	}
-	
-	// Validates whether the full text can be wrapped into a sign
-	private static boolean canFitOnSign(String text)
-	{
-		if(text == null)
-			return true; // allow empty
-		String[] wrapped = wrapToSign(text);
-		return wrapped != null;
 	}
 	
 	// Wraps the given text into up to 4 lines, each max 15 chars. Respects
@@ -252,7 +294,12 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			{
 				// commit current line
 				if(lineIndex >= MAX_LINES)
-					return null;
+				{
+					if(current.length() > 0)
+						return null;
+					i++;
+					continue;
+				}
 				lines[lineIndex++] = current.toString();
 				current.setLength(0);
 				i++;
@@ -347,9 +394,10 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		}
 		
 		// commit last line
-		if(lineIndex >= MAX_LINES)
+		if(lineIndex < MAX_LINES)
+			lines[lineIndex++] = current.toString();
+		else if(current.length() > 0)
 			return null;
-		lines[lineIndex++] = current.toString();
 		
 		// Ensure array has exactly 4 entries
 		for(int j = lineIndex; j < MAX_LINES; j++)

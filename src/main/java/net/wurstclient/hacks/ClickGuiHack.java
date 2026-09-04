@@ -76,6 +76,9 @@ public final class ClickGuiHack extends Hack
 	private final ColorSetting dropdownButtonColor =
 		new ColorSetting("Dropdown button", "Color of dropdown/minimize arrows",
 			new Color(0x00A6D9));
+	private final ColorSetting dropdownBackgroundColor =
+		new ColorSetting("Dropdown background",
+			"Color of dropdown option lists", new Color(0x303030));
 	
 	private final CheckboxSetting highlightEnabledRows =
 		new CheckboxSetting("Highlight enabled rows",
@@ -132,6 +135,7 @@ public final class ClickGuiHack extends Hack
 		addSetting(hackHeaderOpacity);
 		addSetting(enabledHackColor);
 		addSetting(dropdownButtonColor);
+		addSetting(dropdownBackgroundColor);
 		addSetting(highlightEnabledRows);
 		
 		addSetting(hackRowBorderColor);
@@ -207,6 +211,11 @@ public final class ClickGuiHack extends Hack
 	public float[] getDropdownButtonColor()
 	{
 		return dropdownButtonColor.getColorF();
+	}
+	
+	public float[] getDropdownBackgroundColor()
+	{
+		return dropdownBackgroundColor.getColorF();
 	}
 	
 	public boolean isHighlightEnabledRows()

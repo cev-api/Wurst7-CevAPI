@@ -60,6 +60,10 @@ public final class StringDropdownComponent extends Component
 			handleLeftClick(popupWidth);
 			break;
 			
+			case GLFW.GLFW_MOUSE_BUTTON_MIDDLE:
+			handleMiddleClick();
+			break;
+			
 			case GLFW.GLFW_MOUSE_BUTTON_RIGHT:
 			handleRightClick();
 			break;
@@ -78,6 +82,13 @@ public final class StringDropdownComponent extends Component
 		
 		popup = new StringDropdownPopup(this, setting, popupWidth);
 		GUI.addPopup(popup);
+	}
+	
+	private void handleMiddleClick()
+	{
+		if(isPopupOpen())
+			popup.close();
+		setting.setSelected(setting.getValues().get(0));
 	}
 	
 	private void handleRightClick()

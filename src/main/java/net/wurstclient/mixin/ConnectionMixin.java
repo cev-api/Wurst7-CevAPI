@@ -83,12 +83,8 @@ public abstract class ConnectionMixin
 			&& WurstClient.INSTANCE.getHax() != null && !vanillaOnly)
 		{
 			originalOnGround = move.isOnGround();
-			boolean pauseNoFallOnFlight =
-				WurstClient.INSTANCE.getHax().noFallHack
-					.shouldPauseMovementPacketMutation();
-			
 			if(move.isOnGround() && WurstClient.INSTANCE.getHax().autoFlyHack
-				.shouldApplyPathAntiHunger() && !pauseNoFallOnFlight)
+				.shouldApplyPathAntiHunger())
 			{
 				((ServerboundMovePlayerPacketAccessor)move).setOnGround(false);
 				autoFlyMutated = true;

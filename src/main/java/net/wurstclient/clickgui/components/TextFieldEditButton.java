@@ -43,7 +43,7 @@ public final class TextFieldEditButton extends Component
 		inlineField = new EditBox(TR, 0, 0, 0, TEXT_HEIGHT,
 			net.minecraft.network.chat.Component.literal(""));
 		inlineField.setBordered(false);
-		inlineField.setMaxLength(Integer.MAX_VALUE);
+		inlineField.setMaxLength(setting.getMaxLength());
 		inlineField.setValue(setting.getValue());
 		inlineField.setEditable(false);
 		setWidth(getDefaultWidth());
@@ -126,9 +126,8 @@ public final class TextFieldEditButton extends Component
 		float[] bgColor = GUI.getBgColor();
 		boolean modern =
 			getParent() instanceof net.wurstclient.clickgui.modern.ModernWindow;
-		float[] fieldColor =
-			modern ? GUI.getDropdownButtonColor() : new float[]{
-				bgColor[0] * 0.52F, bgColor[1] * 0.52F, bgColor[2] * 0.52F};
+		float[] fieldColor = new float[]{bgColor[0] * 0.75F, bgColor[1] * 0.75F,
+			bgColor[2] * 0.75F};
 		float opacity = GUI.getOpacity();
 		
 		int x1 = getX();

@@ -118,13 +118,6 @@ public final class NoFallHack extends Hack implements UpdateListener
 	public ServerboundMovePlayerPacket protectFlightMovementPacket(
 		ServerboundMovePlayerPacket packet)
 	{
-		// This setting is an absolute pause. Do this before inspecting the
-		// packet or updating movement tracking so Flight cannot leave any
-		// NoFall
-		// side effects behind while the pause is active.
-		if(shouldPauseMovementPacketMutation())
-			return packet;
-		
 		if(!packet.hasPosition())
 			return packet;
 		
