@@ -60,6 +60,10 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 			handleLeftClick();
 			break;
 			
+			case GLFW.GLFW_MOUSE_BUTTON_MIDDLE:
+			handleMiddleClick();
+			break;
+			
 			case GLFW.GLFW_MOUSE_BUTTON_RIGHT:
 			handleRightClick();
 			break;
@@ -82,6 +86,13 @@ public final class ComboBoxComponent<T extends Enum<T>> extends Component
 				Math.max(0, getX() + getWidth() - getDropdownStart() - 15);
 		popup = new ComboBoxPopup<>(this, setting, popupContentWidth);
 		GUI.addPopup(popup);
+	}
+	
+	private void handleMiddleClick()
+	{
+		if(isPopupOpen())
+			popup.close();
+		setting.setSelected(setting.getValues()[0]);
 	}
 	
 	private void handleRightClick()

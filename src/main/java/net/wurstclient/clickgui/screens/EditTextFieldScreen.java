@@ -44,7 +44,7 @@ public final class EditTextFieldScreen extends Screen
 		Font tr = minecraft.font;
 		
 		valueField = new EditBox(tr, x1, y1, 200, 20, Component.literal(""));
-		valueField.setMaxLength(Integer.MAX_VALUE);
+		valueField.setMaxLength(setting.getMaxLength());
 		valueField.setValue(setting.getValue());
 		valueField.setCursorPosition(0);
 		

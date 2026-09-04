@@ -37,7 +37,6 @@ import net.wurstclient.clickgui.screens.EditColorScreen;
 import net.wurstclient.clickgui.screens.EditEntityTypeListScreen;
 import net.wurstclient.clickgui.screens.EditFriendListScreen;
 import net.wurstclient.clickgui.screens.EditItemListScreen;
-import net.wurstclient.clickgui.screens.EditTextFieldScreen;
 import net.wurstclient.clickgui.screens.SelectFileScreen;
 import net.wurstclient.clickgui.screens.WaypointsScreen;
 import net.wurstclient.hack.Hack;
@@ -101,6 +100,9 @@ public final class AltGuiScreen extends Screen
 	private final Screen prevScreen;
 	
 	private EditBox searchBox;
+	private EditBox inlineTextField;
+	private TextFieldSetting editingTextField;
+	private String originalTextFieldValue;
 	private String searchText = "";
 	private String selectedCategory = Category.FAVORITES.getName();
 	private Feature selectedFeature;
@@ -163,6 +165,12 @@ public final class AltGuiScreen extends Screen
 		searchBox.setTextColor(cfg().getTextColor());
 		searchBox.setValue(searchText);
 		addRenderableWidget(searchBox);
+		inlineTextField =
+			new EditBox(font, 0, 0, 1, 12, Component.literal("Text input"));
+		inlineTextField.setBordered(false);
+		inlineTextField.setVisible(true);
+		addWidget(inlineTextField);
+		setFocused(null);
 		if(cfg().isSearchOnlyWhileTypingEnabled())
 		{
 			setFocused(null);
@@ -430,6 +438,21 @@ public final class AltGuiScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
+		if(editingTextField != null)
+		{
+			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			{
+				finishInlineTextField(false);
+				return true;
+			}
+			if(context.key() == GLFW.GLFW_KEY_ENTER)
+			{
+				finishInlineTextField(true);
+				return true;
+			}
+			return super.keyPressed(context);
+		}
+		
 		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
@@ -442,6 +465,9 @@ public final class AltGuiScreen extends Screen
 	@Override
 	public boolean charTyped(CharacterEvent event)
 	{
+		if(editingTextField != null)
+			return super.charTyped(event);
+		
 		if(searchBox != null && cfg().isSearchOnlyWhileTypingEnabled()
 			&& !searchBox.isFocused())
 		{
@@ -1211,7 +1237,11 @@ public final class AltGuiScreen extends Screen
 		
 		int valuePad = scaleRightSettingWidth(6);
 		int fixedValueColW = getSettingsValueColumnWidth(rowX1, rowX2);
-		int valueBoxW = valueText.isEmpty() ? 0 : fixedValueColW;
+		boolean editingText =
+			row.setting() instanceof TextFieldSetting textField
+				&& textField == editingTextField;
+		int valueBoxW =
+			valueText.isEmpty() && !editingText ? 0 : fixedValueColW;
 		int valueX2 = rowX2 - scaleRightSettingWidth(6);
 		int valueX1 = valueX2 - valueBoxW;
 		int nameMaxW =
@@ -1224,7 +1254,7 @@ public final class AltGuiScreen extends Screen
 			tagX2 + scaleRightSettingWidth(6), settingTextY,
 			cfg().getTextColor(), false);
 		
-		if(!valueText.isEmpty())
+		if(!valueText.isEmpty() || editingText)
 		{
 			int valuePadY = getPillPadding(font, y2 - y1);
 			int valueY1 = y1 + valuePadY;
@@ -1235,6 +1265,17 @@ public final class AltGuiScreen extends Screen
 				valueY2 = y2 - 1;
 			}
 			int valueTextColor = cfg().getTextColor();
+			if(editingText)
+			{
+				inlineTextField.setX(valueX1 + valuePad);
+				inlineTextField.setY(valueY1);
+				inlineTextField
+					.setWidth(Math.max(1, valueX2 - valueX1 - valuePad * 2));
+				inlineTextField.setHeight(Math.max(1, valueY2 - valueY1));
+				inlineTextField.setTextColor(valueTextColor);
+				inlineTextField.extractRenderState(context, mouseX, mouseY, 0);
+				return;
+			}
 			if(row.setting() instanceof ColorSetting color
 				&& cfg().isFillColorValuesEnabled())
 			{
@@ -1811,6 +1852,11 @@ public final class AltGuiScreen extends Screen
 	private boolean handleSettingClick(SettingRow row, double mouseX,
 		double mouseY, int button, int y1, int y2)
 	{
+		if(editingTextField != null
+			&& !(row.setting() instanceof TextFieldSetting textField
+				&& textField == editingTextField))
+			finishInlineTextField(true);
+		
 		Feature owner = row.owner();
 		if(row.isKeybindRow())
 		{
@@ -1877,6 +1923,13 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof EnumSetting<?> enumSetting)
 		{
+			if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+			{
+				Enum<?>[] values = enumSetting.getValues();
+				if(values.length > 0)
+					enumSetting.setSelected(values[0].toString());
+				return true;
+			}
 			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
 				enumSetting.selectPrev();
 			else
@@ -1891,6 +1944,11 @@ public final class AltGuiScreen extends Screen
 			List<String> values = dropdown.getValues();
 			if(values.isEmpty())
 				return true;
+			if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+			{
+				dropdown.setSelected(values.get(0));
+				return true;
+			}
 			int i = values.indexOf(dropdown.getSelected());
 			if(i < 0)
 				i = 0;
@@ -1976,7 +2034,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof TextFieldSetting textField)
 		{
-			minecraft.gui.setScreen(new EditTextFieldScreen(this, textField));
+			beginInlineTextField(textField);
 			return true;
 		}
 		
@@ -2031,6 +2089,46 @@ public final class AltGuiScreen extends Screen
 		}
 		
 		return true;
+	}
+	
+	private void beginInlineTextField(TextFieldSetting setting)
+	{
+		if(editingTextField == setting)
+		{
+			setFocused(inlineTextField);
+			inlineTextField.setFocused(true);
+			return;
+		}
+		
+		finishInlineTextField(true);
+		editingTextField = setting;
+		originalTextFieldValue = setting.getValue();
+		inlineTextField.setMaxLength(setting.getMaxLength());
+		inlineTextField.setValue(originalTextFieldValue);
+		inlineTextField.setEditable(true);
+		inlineTextField.setVisible(true);
+		inlineTextField.setFocused(true);
+		inlineTextField.setCursorPosition(inlineTextField.getValue().length());
+		inlineTextField.setHighlightPos(inlineTextField.getValue().length());
+		setFocused(inlineTextField);
+	}
+	
+	private void finishInlineTextField(boolean apply)
+	{
+		if(editingTextField == null)
+			return;
+		
+		if(apply)
+			editingTextField.setValue(inlineTextField.getValue());
+		else
+			inlineTextField.setValue(originalTextFieldValue);
+		
+		inlineTextField.setEditable(false);
+		inlineTextField.setFocused(false);
+		inlineTextField.setVisible(false);
+		editingTextField = null;
+		originalTextFieldValue = null;
+		setFocused(null);
 	}
 	
 	private void cycleMobRuleWeapon(MobWeaponRuleSetting setting, int delta)

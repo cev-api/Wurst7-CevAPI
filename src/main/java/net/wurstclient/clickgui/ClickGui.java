@@ -30,6 +30,7 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -75,6 +76,9 @@ public final class ClickGui
 	// state.
 	private String modernSearchQuery = "";
 	private boolean modernSearchActive;
+	private boolean modernSearchFocused;
+	private boolean modernSearchNeedsPositionRefresh;
+	private EditBox modernSearchBox;
 	private final LinkedHashMap<String, CategorySnapshot> modernSearchSnapshot =
 		new LinkedHashMap<>();
 	private int modernSearchBarY;
@@ -90,6 +94,7 @@ public final class ClickGui
 	private float[] acColor = new float[3];
 	private float[] enabledHackColor = new float[3];
 	private float[] dropdownButtonColor = new float[3];
+	private float[] dropdownBackgroundColor = new float[3];
 	private float[] pinButtonColor = new float[3];
 	private int txtColor;
 	private float opacity;
@@ -501,7 +506,10 @@ public final class ClickGui
 			modernSearchActive ? modernSearchQuery : "";
 		modernSearchQuery = "";
 		modernSearchActive = false;
+		modernSearchFocused = false;
+		modernSearchNeedsPositionRefresh = false;
 		modernSearchWindowCap = 0;
+		modernSearchBarY = 34;
 		modernSearchSnapshot.clear();
 		modernRowHeight = WURST.getHax().clickGuiHack.getRowHeight();
 		LinkedHashMap<String, WindowState> reopenSettings =
@@ -600,6 +608,14 @@ public final class ClickGui
 			modernSearchQuery = previousSearchQuery;
 			updateModernSearchResults();
 		}
+		
+		modernSearchBox = new EditBox(MC.font, 0, 0, 1, 16,
+			net.minecraft.network.chat.Component.literal("Search"));
+		modernSearchBox.setBordered(false);
+		modernSearchBox.setMaxLength(128);
+		modernSearchBox.setTextColor(txtColor);
+		modernSearchBox.setValue(modernSearchQuery);
+		modernSearchBox.setFocused(false);
 	}
 	
 	private LinkedHashMap<String, WindowState> captureOpenModernSettingsWindows()
@@ -1209,6 +1225,8 @@ public final class ClickGui
 			closeActivePopups();
 			return true;
 		}
+		if(handleModernSearchClick(context))
+			return true;
 		
 		boolean popupClicked =
 			handlePopupMouseClick(mouseX, mouseY, mouseButton);
@@ -1335,6 +1353,10 @@ public final class ClickGui
 	 */
 	public boolean handleMouseDrag(MouseButtonEvent context)
 	{
+		if(modernStyle && modernSearchFocused && modernSearchBox != null
+			&& context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			return modernSearchBox.mouseDragged(context, 0, 0);
+		
 		return updateActiveWindowDrag((int)context.x(), (int)context.y(),
 			false);
 	}
@@ -1552,12 +1574,38 @@ public final class ClickGui
 	
 	public boolean handleKeyPressed(KeyEvent context)
 	{
+		if(modernStyle && modernSearchFocused && modernSearchBox != null)
+		{
+			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			{
+				modernSearchBox.setValue("");
+				modernSearchBox.setFocused(false);
+				modernSearchFocused = false;
+				syncModernSearchQuery();
+				return true;
+			}
+			if(context.key() == GLFW.GLFW_KEY_A && context.hasControlDown())
+			{
+				modernSearchBox.setCursorPosition(0);
+				modernSearchBox
+					.setHighlightPos(modernSearchBox.getValue().length());
+				return true;
+			}
+			if(modernSearchBox.keyPressed(context))
+			{
+				syncModernSearchQuery();
+				return true;
+			}
+		}
+		
 		if(modernStyle && keyboardInput == null)
 		{
 			if(context.key() == GLFW.GLFW_KEY_ESCAPE
 				&& !modernSearchQuery.isEmpty())
 			{
 				modernSearchQuery = "";
+				if(modernSearchBox != null)
+					modernSearchBox.setValue("");
 				updateModernSearchResults();
 				return true;
 			}
@@ -1585,11 +1633,22 @@ public final class ClickGui
 	
 	public boolean handleCharTyped(CharacterEvent event)
 	{
-		if(modernStyle && keyboardInput == null
+		if(modernStyle && modernSearchFocused && modernSearchBox != null
+			&& modernSearchBox.charTyped(event))
+		{
+			syncModernSearchQuery();
+			return true;
+		}
+		
+		if(modernStyle && modernSearchBox != null && keyboardInput == null
 			&& !Character.isISOControl(event.codepoint()))
 		{
+			modernSearchFocused = true;
+			modernSearchBox.setFocused(true);
 			modernSearchQuery +=
 				new String(Character.toChars(event.codepoint()));
+			if(modernSearchBox != null)
+				modernSearchBox.setValue(modernSearchQuery);
 			updateModernSearchResults();
 			return true;
 		}
@@ -2182,10 +2241,17 @@ public final class ClickGui
 		if(modernStyle)
 		{
 			renderModernNavigation(context, mouseX, mouseY);
-			renderModernSearchOverlay(context);
+			renderModernSearchOverlay(context, mouseX, mouseY);
 		}
 		
 		ArrayList<Window> visibleWindows = new ArrayList<>();
+		int windowMouseX = mouseX;
+		int windowMouseY = mouseY;
+		if(isMouseOverPopup(mouseX, mouseY))
+		{
+			windowMouseX = Integer.MIN_VALUE;
+			windowMouseY = Integer.MIN_VALUE;
+		}
 		for(Window window : windows)
 		{
 			if(window.isInvisible())
@@ -2223,13 +2289,14 @@ public final class ClickGui
 		}
 		
 		if(isolateWindows && !visibleWindows.isEmpty())
-			renderWindowsWithIsolation(context, visibleWindows, mouseX, mouseY,
-				partialTicks);
+			renderWindowsWithIsolation(context, visibleWindows, windowMouseX,
+				windowMouseY, partialTicks);
 		else
 			for(Window window : visibleWindows)
 			{
 				context.guiRenderState.up();
-				renderWindow(context, window, mouseX, mouseY, partialTicks);
+				renderWindow(context, window, windowMouseX, windowMouseY,
+					partialTicks);
 			}
 		
 		renderPopups(context, mouseX, mouseY);
@@ -2265,6 +2332,27 @@ public final class ClickGui
 			
 			matrixStack.popMatrix();
 		}
+	}
+	
+	private boolean isMouseOverPopup(int mouseX, int mouseY)
+	{
+		for(Popup popup : popups)
+		{
+			Component owner = popup.getOwner();
+			Window parent = owner.getParent();
+			if(parent == null || popup.isClosing())
+				continue;
+			
+			int x0 = parent.getX() + owner.getX();
+			int y0 = parent.getY() + getHeaderHeight(parent)
+				+ parent.getScrollOffset() + owner.getY();
+			int x1 = x0 + popup.getX();
+			int y1 = y0 + popup.getY();
+			if(mouseX >= x1 && mouseX < x1 + popup.getWidth() && mouseY >= y1
+				&& mouseY < y1 + popup.getHeight())
+				return true;
+		}
+		return false;
 	}
 	
 	private void renderPinnedPopups(GuiGraphicsExtractor context, int mouseX,
@@ -2415,6 +2503,7 @@ public final class ClickGui
 		hackHeaderOpacity = clickGui.getHackHeaderOpacity();
 		enabledHackColor = clickGui.getEnabledHackColor();
 		dropdownButtonColor = clickGui.getDropdownButtonColor();
+		dropdownBackgroundColor = clickGui.getDropdownBackgroundColor();
 		pinButtonColor = clickGui.getPinButtonColor();
 		isolateWindows = clickGui.isWindowIsolationEnabled();
 		maxHeight = clickGui.getMaxHeight();
@@ -2856,6 +2945,9 @@ public final class ClickGui
 	{
 		if(!modernStyle)
 			return;
+		if(modernSearchBox != null
+			&& !modernSearchBox.getValue().equals(modernSearchQuery))
+			modernSearchBox.setValue(modernSearchQuery);
 		
 		if(modernSearchQuery.isBlank())
 		{
@@ -2864,7 +2956,10 @@ public final class ClickGui
 		}
 		
 		if(!modernSearchActive)
+		{
 			enterModernSearch();
+			modernSearchNeedsPositionRefresh = true;
+		}
 		
 		ArrayList<Window> matching = new ArrayList<>();
 		for(Window window : modernCategoryWindows.values())
@@ -2910,6 +3005,9 @@ public final class ClickGui
 			return;
 		
 		modernSearchActive = false;
+		modernSearchFocused = false;
+		if(modernSearchBox != null)
+			modernSearchBox.setFocused(false);
 		modernSearchWindowCap = 0;
 		for(Window window : modernCategoryWindows.values())
 		{
@@ -3031,9 +3129,11 @@ public final class ClickGui
 		return modernSearchQuery;
 	}
 	
-	private void renderModernSearchOverlay(GuiGraphicsExtractor context)
+	private void renderModernSearchOverlay(GuiGraphicsExtractor context,
+		int mouseX, int mouseY)
 	{
-		if(modernSearchQuery.isEmpty())
+		if(modernSearchBox == null || (!modernSearchActive
+			&& !modernSearchFocused && modernSearchQuery.isEmpty()))
 			return;
 		
 		int matches = 0;
@@ -3041,8 +3141,10 @@ public final class ClickGui
 			if(!window.isInvisible())
 				matches += window.countChildren();
 			
-		String label = "Search: " + modernSearchQuery + "_  (" + matches + ")";
-		int width = MC.font.width(label) + 14;
+		String prefix = "Search: ";
+		String count = "  (" + matches + ")";
+		int width = MC.font.width(prefix) + MC.font.width(modernSearchQuery)
+			+ MC.font.width(count) + 20;
 		int screenWidth = MC.getWindow().getGuiScaledWidth();
 		int x = (screenWidth - width) / 2;
 		int y = modernSearchBarY;
@@ -3051,7 +3153,69 @@ public final class ClickGui
 		RenderUtils.drawBorder2D(context, x, y, x + width, y + 16,
 			RenderUtils.toIntColor(acColor, opacity));
 		int textY = Math.round(y + (16 - MC.font.lineHeight) / 2F);
-		context.text(MC.font, label, x + 7, textY, txtColor, false);
+		context.text(MC.font, prefix, x + 7, textY, txtColor, false);
+		int fieldX = x + 7 + MC.font.width(prefix);
+		int countX = x + width - 7 - MC.font.width(count);
+		modernSearchBox.setX(fieldX);
+		modernSearchBox.setWidth(Math.max(1, countX - fieldX + 6));
+		// EditBox is borderless, so its text baseline is exactly its Y
+		// coordinate. Set the width first, then Y, so its display position is
+		// recalculated with the final width on the first search too.
+		modernSearchBox.setY(textY);
+		modernSearchBox.setHeight(14);
+		modernSearchBox.setTextColor(txtColor);
+		if(modernSearchNeedsPositionRefresh)
+		{
+			modernSearchBox.moveCursorToEnd(false);
+			modernSearchNeedsPositionRefresh = false;
+		}
+		modernSearchBox.extractRenderState(context, mouseX, mouseY, 0);
+		context.text(MC.font, count, countX, textY, txtColor, false);
+	}
+	
+	private boolean handleModernSearchClick(MouseButtonEvent context)
+	{
+		if(!modernStyle || modernSearchBox == null
+			|| modernSearchQuery.isEmpty()
+			|| !isModernSearchBarHovered(context.x(), context.y()))
+			return false;
+		
+		if(keyboardInput != null)
+			clearKeyboardInput();
+		modernSearchFocused = true;
+		modernSearchBox.setFocused(true);
+		modernSearchBox.onClick(context, false);
+		return true;
+	}
+	
+	private boolean isModernSearchBarHovered(double mouseX, double mouseY)
+	{
+		String prefix = "Search: ";
+		String count = "  (" + getModernSearchMatchCount() + ")";
+		int width = MC.font.width(prefix) + MC.font.width(modernSearchQuery)
+			+ MC.font.width(count) + 20;
+		int x = (MC.getWindow().getGuiScaledWidth() - width) / 2;
+		int y = modernSearchBarY;
+		return mouseX >= x && mouseX < x + width && mouseY >= y
+			&& mouseY < y + 16;
+	}
+	
+	private int getModernSearchMatchCount()
+	{
+		int matches = 0;
+		for(Window window : modernCategoryWindows.values())
+			if(!window.isInvisible())
+				matches += window.countChildren();
+		return matches;
+	}
+	
+	private void syncModernSearchQuery()
+	{
+		String value = modernSearchBox.getValue();
+		if(value.equals(modernSearchQuery))
+			return;
+		modernSearchQuery = value;
+		updateModernSearchResults();
 	}
 	
 	public float[] getModernHackRowBorderColor()
@@ -3092,6 +3256,11 @@ public final class ClickGui
 	public float[] getDropdownButtonColor()
 	{
 		return dropdownButtonColor;
+	}
+	
+	public float[] getDropdownBackgroundColor()
+	{
+		return dropdownBackgroundColor;
 	}
 	
 	public float[] getPinButtonColor()

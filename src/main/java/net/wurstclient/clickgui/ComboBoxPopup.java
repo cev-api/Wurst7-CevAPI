@@ -49,7 +49,9 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 	@Override
 	public void handleMouseClick(int mouseX, int mouseY, int mouseButton)
 	{
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT || visibleRows <= 0)
+		if((mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+			&& mouseButton != GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+			|| visibleRows <= 0)
 			return;
 		
 		int localX = mouseX - getX();
@@ -57,12 +59,17 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 		if(localX < 0 || localX >= getWidth() || localY < 0
 			|| localY >= getHeight())
 			return;
+		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		{
+			setting.setSelected(setting.getValues()[0]);
+			close();
+			return;
+		}
 		
 		int row = localY / ROW_HEIGHT;
 		T value = getValueAt(row + scrollOffset);
 		if(value == null)
 			return;
-		
 		setting.setSelected(value);
 		close();
 	}
@@ -121,7 +128,7 @@ public final class ComboBoxPopup<T extends Enum<T>> extends Popup
 			
 			boolean hValue = hovering && mouseY >= yi1 && mouseY < yi2;
 			int rowColor = modern
-				? RenderUtils.toIntColor(GUI.getDropdownButtonColor(),
+				? RenderUtils.toIntColor(GUI.getDropdownBackgroundColor(),
 					GUI.getOpacity() * (hValue ? 1.2F : 1))
 				: RenderUtils.toIntColor(GUI.getBgColor(),
 					GUI.getOpacity() * (hValue ? 1.5F : 1));
