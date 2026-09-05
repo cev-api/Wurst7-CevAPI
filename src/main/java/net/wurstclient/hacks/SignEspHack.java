@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Font.DisplayMode;
@@ -27,6 +30,8 @@ import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -34,6 +39,8 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
+import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.MouseButtonPressListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.nicewurst.NiceWurstModule;
 import net.wurstclient.settings.CheckboxSetting;
@@ -43,6 +50,7 @@ import net.wurstclient.settings.EspStyleSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.util.BlockUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.EntityUtils;
 import net.wurstclient.util.EspLimitUtils;
 import net.wurstclient.util.RenderUtils;
@@ -51,9 +59,20 @@ import net.wurstclient.util.chunk.ChunkSearcher.Result;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 
 @SearchTags({"sign esp", "SignESP"})
-public final class SignEspHack extends Hack implements UpdateListener,
-	CameraTransformViewBobbingListener, RenderListener
+public final class SignEspHack extends Hack
+	implements UpdateListener, CameraTransformViewBobbingListener,
+	RenderListener, PacketInputListener, MouseButtonPressListener
 {
+	private final SignHistory history = new SignHistory();
+	private final CheckboxSetting signHistory = new CheckboxSetting(
+		"Sign History",
+		"Remember sign text changes and removals for each server and dimension.",
+		false);
+	private final ConcurrentLinkedQueue<BlockPos> historyQueue =
+		new ConcurrentLinkedQueue<>();
+	private final Set<BlockPos> queuedHistoryPositions =
+		ConcurrentHashMap.newKeySet();
+	private int historyMatchesVersion = -1;
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
 		new net.wurstclient.settings.CheckboxSetting("Sticky area",
@@ -131,6 +150,7 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		addSetting(stickyArea);
 		addSetting(onlyAboveGround);
 		addSetting(aboveGroundY);
+		addSetting(signHistory);
 	}
 	
 	public List<AABB> getMapaSignBoxes()
@@ -167,6 +187,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
+		EVENTS.add(PacketInputListener.class, this);
+		EVENTS.add(MouseButtonPressListener.class, this);
 		EVENTS.add(net.wurstclient.events.PacketInputListener.class,
 			coordinator);
 	}
@@ -177,6 +199,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
+		EVENTS.remove(PacketInputListener.class, this);
+		EVENTS.remove(MouseButtonPressListener.class, this);
 		EVENTS.remove(net.wurstclient.events.PacketInputListener.class,
 			coordinator);
 		coordinator.reset();
@@ -189,6 +213,8 @@ public final class SignEspHack extends Hack implements UpdateListener,
 	@Override
 	public void onUpdate()
 	{
+		if(signHistory.isChecked())
+			updateSignHistory();
 		ChunkAreaSetting.ChunkArea currentArea = area.getSelected();
 		if(currentArea != lastAreaSelection)
 		{
@@ -218,6 +244,123 @@ public final class SignEspHack extends Hack implements UpdateListener,
 		if(!groupsUpToDate && (partialScan ? coordinator.hasReadyMatches()
 			: coordinator.isDone()))
 			updateGroupBoxes();
+	}
+	
+	private void updateSignHistory()
+	{
+		int version = coordinator.getMatchesVersion();
+		if(version != historyMatchesVersion)
+		{
+			historyMatchesVersion = version;
+			coordinator.getReadyMatches().map(Result::pos)
+				.forEach(this::queueHistoryPosition);
+		}
+		// Never scan or serialize the whole history on one client tick.
+		for(int i = 0; i < 64; i++)
+		{
+			BlockPos pos = historyQueue.poll();
+			if(pos == null)
+				break;
+			queuedHistoryPositions.remove(pos);
+			if(MC.level.getBlockEntity(pos) instanceof SignBlockEntity sign)
+				history.record(getHistoryServer(),
+					MC.level.dimension().identifier().toString(), pos, sign);
+			else if(MC.level.hasChunkAt(pos) && !(MC.level.getBlockState(pos)
+				.getBlock() instanceof SignBlock))
+				history.recordRemoved(getHistoryServer(),
+					MC.level.dimension().identifier().toString(), pos);
+		}
+	}
+	
+	private void queueHistoryPosition(BlockPos pos)
+	{
+		BlockPos immutable = pos.immutable();
+		if(queuedHistoryPositions.add(immutable))
+			historyQueue.add(immutable);
+	}
+	
+	private String getHistoryServer()
+	{
+		if(MC.getCurrentServer() != null && MC.getCurrentServer().ip != null
+			&& !MC.getCurrentServer().ip.isBlank())
+			return MC.getCurrentServer().ip.trim()
+				.toLowerCase(java.util.Locale.ROOT);
+		return "singleplayer";
+	}
+	
+	public void printHistoryAtTarget(boolean full)
+	{
+		if(!signHistory.isChecked())
+		{
+			ChatUtils.message("Enable Sign History in SignESP first.");
+			return;
+		}
+		if(!(MC.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit)
+			|| !(MC.level.getBlockState(hit.getBlockPos())
+				.getBlock() instanceof SignBlock))
+		{
+			ChatUtils.message("You are not looking at a sign.");
+			return;
+		}
+		BlockPos pos = hit.getBlockPos();
+		SignHistory.SignRecord record = history.getRecord(getHistoryServer(),
+			MC.level.dimension().identifier().toString(), pos, false);
+		if(record == null || record.entries.isEmpty())
+		{
+			ChatUtils.message("No history recorded for this sign.");
+			return;
+		}
+		List<SignHistory.Entry> entries = record.entries;
+		if(!full
+			&& MC.level.getBlockEntity(pos) instanceof SignBlockEntity sign)
+		{
+			SignHistory.Entry current = SignHistory.Entry.present(sign, false);
+			SignHistory.Entry previous = null;
+			for(int i = entries.size() - 1; i >= 0; i--)
+			{
+				SignHistory.Entry entry = entries.get(i);
+				if(!"removed".equals(entry.state) && !entry.sameText(current))
+				{
+					previous = entry;
+					break;
+				}
+			}
+			if(previous == null)
+			{
+				ChatUtils.message(
+					"No previous sign state differs from current text.");
+				return;
+			}
+			entries = List.of(previous);
+		}
+		for(SignHistory.Entry entry : entries)
+			ChatUtils.message(entry.date + " - "
+				+ ("removed".equals(entry.state) ? "removed"
+					: "front=\"" + String.join(" / ", entry.front)
+						+ "\", back=\"" + String.join(" / ", entry.back)
+						+ "\""));
+	}
+	
+	@Override
+	public void onMouseButtonPress(
+		MouseButtonPressListener.MouseButtonPressEvent event)
+	{
+		if(signHistory.isChecked()
+			&& event.getButton() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+			&& event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS)
+			printHistoryAtTarget(false);
+	}
+	
+	@Override
+	public void onReceivedPacket(PacketInputEvent event)
+	{
+		if(!signHistory.isChecked())
+			return;
+		if(event.getPacket() instanceof ClientboundBlockUpdatePacket update)
+			queueHistoryPosition(update.getPos());
+		else if(event
+			.getPacket() instanceof ClientboundSectionBlocksUpdatePacket update)
+			update.runUpdates((pos, state) -> queueHistoryPosition(pos));
 	}
 	
 	@Override

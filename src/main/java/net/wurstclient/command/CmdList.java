@@ -72,6 +72,7 @@ public final class CmdList
 	public final RvCmd rvCmd = new RvCmd();
 	public final SvCmd svCmd = new SvCmd();
 	public final SearchCmd searchCmd = new SearchCmd();
+	public final SignHistoryCmd signHistoryCmd = new SignHistoryCmd();
 	public final MobSearchCmd mobSearchCmd = new MobSearchCmd();
 	public final SayCmd sayCmd = new SayCmd();
 	public final SetBlockCmd setBlockCmd = new SetBlockCmd();

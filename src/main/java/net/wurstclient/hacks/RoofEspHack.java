@@ -13,7 +13,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -205,7 +207,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		}
 		
 		foundCount = Math.min(targets.size(), 999);
-		sendAlertIfNeeded(targets.size());
+		sendAlertIfNeeded(targets);
 	}
 	
 	private void updateBlockCache()
@@ -299,7 +301,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 							if(!dedupe.add(key))
 								continue;
 							AABB box = new AABB(pos);
-							targets.add(new Target(box, box.getCenter()));
+							targets.add(new Target(box, box.getCenter(),
+								block.getName().getString()));
 						}
 					}
 				}
@@ -423,7 +426,8 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 				continue;
 			AABB box = EntityUtils.getLerpedBox(item,
 				MC.getDeltaTracker().getGameTimeDeltaPartialTick(false));
-			targets.add(new Target(box, box.getCenter()));
+			targets.add(new Target(box, box.getCenter(),
+				stack.getHoverName().getString()));
 		}
 	}
 	
@@ -486,8 +490,9 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 			: MC.player.distanceToSqr(target.end());
 	}
 	
-	private void sendAlertIfNeeded(int currentCount)
+	private void sendAlertIfNeeded(List<Target> targets)
 	{
+		int currentCount = targets.size();
 		boolean chatEnabled = chatAlerts.isChecked();
 		boolean soundEnabled = soundAlerts.isChecked();
 		if(!chatEnabled && !soundEnabled)
@@ -514,14 +519,29 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		lastAlertCount = currentCount;
 		
 		if(chatEnabled)
-			ChatUtils.component(Component.literal("[RoofESP] ")
-				.withStyle(ChatFormatting.DARK_RED)
-				.append(Component.literal("Detected ")
-					.withStyle(ChatFormatting.GRAY))
-				.append(Component.literal(Integer.toString(currentCount))
-					.withStyle(ChatFormatting.RED))
-				.append(Component.literal(" roof targets at/above Y=128.")
-					.withStyle(ChatFormatting.GRAY)));
+		{
+			Set<String> names = new LinkedHashSet<>();
+			for(Target target : targets)
+			{
+				names.add(target.name());
+				if(names.size() == 4)
+					break;
+			}
+			ChatUtils
+				.component(Component.literal("[RoofESP] ")
+					.withStyle(ChatFormatting.DARK_RED)
+					.append(Component.literal("Detected ")
+						.withStyle(ChatFormatting.GRAY))
+					.append(
+						Component
+							.literal(Integer.toString(currentCount)).withStyle(
+								ChatFormatting.RED))
+					.append(Component
+						.literal(" roof targets at/above Y=128: "
+							+ String.join(", ", names)
+							+ (names.size() == 4 ? ", ..." : "."))
+						.withStyle(ChatFormatting.GRAY)));
+		}
 		
 		if(soundEnabled && MC.player != null)
 			MC.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.7F, 1.35F);
@@ -559,7 +579,7 @@ public final class RoofEspHack extends Hack implements UpdateListener,
 		}
 	}
 	
-	private record Target(AABB box, Vec3 end)
+	private record Target(AABB box, Vec3 end, String name)
 	{
 		// compact immutable render target
 	}

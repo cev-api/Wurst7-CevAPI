@@ -1354,13 +1354,6 @@ public final class SpearAssistHack extends Hack
 		if(target == null)
 			return null;
 		
-		if(target.onGround() && !MC.options.keyShift.isDown())
-		{
-			double feetDelta = target.getY() - MC.player.getY();
-			if(feetDelta < 0)
-				return null;
-		}
-		
 		double maxStep = maxStepOverride != null ? maxStepOverride
 			: MC.player.getAbilities().getFlyingSpeed();
 		if(maxStep <= 0)

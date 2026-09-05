@@ -126,6 +126,22 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 							&& (below.is(Blocks.FIRE)
 								|| below.is(Blocks.SOUL_FIRE)));
 			}
+			// Solid lava must not become an invisible ceiling around the
+			// player.
+			// When the player is below or inside a lava block, let the player
+			// pass
+			// through it so they can escape upward. Lava remains solid when the
+			// player is standing above it.
+			boolean lavaCollision = lava || (clearance && world
+				.getBlockState(pos.below()).getFluidState().is(FluidTags.LAVA));
+			if(lavaCollision && WurstClient.INSTANCE.MC.player != null
+				&& WurstClient.INSTANCE.MC.player.getBoundingBox().maxY <= pos
+					.getY() + 1.0E-3)
+			{
+				cir.setReturnValue(Shapes.empty());
+				cir.cancel();
+				return;
+			}
 			
 			if(lava || fire || clearance)
 			{

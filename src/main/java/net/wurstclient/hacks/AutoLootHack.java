@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -23,6 +24,7 @@ import net.minecraft.world.inventory.ShulkerBoxMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -37,6 +39,7 @@ import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.InventoryUtils;
 import net.wurstclient.util.ItemUtils;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.mixinterface.IKeyBinding;
 
 @SearchTags({"auto loot", "loot upgrade", "lootupgrade", "loot upgrader"})
@@ -80,6 +83,17 @@ public final class AutoLootHack extends Hack
 		"Move to loot",
 		"Automatically walk toward valuable dropped items that are within range.",
 		true);
+	private final CheckboxSetting onlyAfterInventoryChange =
+		new CheckboxSetting("Only after inventory change",
+			"Only scan after detecting a pickup, drop, or other inventory change.",
+			false);
+	private final CheckboxSetting inventoryTransfers = new CheckboxSetting(
+		"Inventory transfers",
+		"Allow AutoLoot to equip armor and move items between inventories/containers.",
+		true);
+	private final CheckboxSetting equipElytra = new CheckboxSetting(
+		"Equip Elytra",
+		"Allow AutoLoot to automatically equip Elytra as chest armor.", false);
 	private final SliderSetting range = new SliderSetting("Range",
 		"Maximum distance to collect valuable dropped items.", 6, 1, 32, 1,
 		ValueDisplay.INTEGER);
@@ -89,6 +103,10 @@ public final class AutoLootHack extends Hack
 	
 	private Entity pendingKill;
 	private ItemEntity movingTo;
+	private ItemEntity pickupAttempted;
+	private ItemStack pendingPickupStack;
+	private int pendingPickupCount;
+	private List<ItemStack> inventorySnapshot;
 	private Mode lastMode;
 	private long activeUntil;
 	private long nextActionAt;
@@ -101,6 +119,9 @@ public final class AutoLootHack extends Hack
 		addSetting(containers);
 		addSetting(protectNamed);
 		addSetting(moveToLoot);
+		addSetting(onlyAfterInventoryChange);
+		addSetting(inventoryTransfers);
+		addSetting(equipElytra);
 		addSetting(range);
 		addSetting(delay);
 	}
@@ -112,9 +133,12 @@ public final class AutoLootHack extends Hack
 		EVENTS.add(PlayerAttacksEntityListener.class, this);
 		pendingKill = null;
 		movingTo = null;
+		pickupAttempted = null;
+		pendingPickupStack = null;
 		activeUntil = mode.getSelected() == Mode.ALWAYS ? Long.MAX_VALUE : 0;
 		lastMode = mode.getSelected();
 		nextActionAt = 0;
+		inventorySnapshot = snapshotInventory();
 	}
 	
 	@Override
@@ -124,6 +148,9 @@ public final class AutoLootHack extends Hack
 		EVENTS.remove(PlayerAttacksEntityListener.class, this);
 		pendingKill = null;
 		stopMoving();
+		pickupAttempted = null;
+		pendingPickupStack = null;
+		inventorySnapshot = null;
 		activeUntil = 0;
 	}
 	
@@ -139,6 +166,10 @@ public final class AutoLootHack extends Hack
 	public void onUpdate()
 	{
 		if(MC.player == null || MC.level == null)
+			return;
+		checkPickupConfirmation();
+		boolean inventoryChanged = inventoryChanged();
+		if(onlyAfterInventoryChange.isChecked() && !inventoryChanged)
 			return;
 		if(mode.getSelected() != lastMode)
 		{
@@ -171,14 +202,14 @@ public final class AutoLootHack extends Hack
 		long now = System.currentTimeMillis();
 		if(now < nextActionAt)
 			return;
-		if(equipBetterArmor())
+		if(inventoryTransfers.isChecked() && equipBetterArmor())
 		{
 			nextActionAt =
 				now + Math.max(MIN_ACTION_DELAY_MS, delay.getValueI());
 			return;
 		}
 		
-		if(containers.isChecked()
+		if(inventoryTransfers.isChecked() && containers.isChecked()
 			&& MC.gui.screen() instanceof AbstractContainerScreen<?> screen
 			&& !(screen instanceof InventoryScreen)
 			&& containerSlotCount(screen) > 0)
@@ -200,7 +231,7 @@ public final class AutoLootHack extends Hack
 		double r = range.getValue();
 		List<ItemEntity> items = MC.level.getEntitiesOfClass(ItemEntity.class,
 			MC.player.getBoundingBox().inflate(r),
-			e -> e.isAlive() && isSpecial(e.getItem()));
+			e -> e.isAlive() && isLootable(e.getItem()));
 		return items.stream()
 			.sorted(Comparator.comparingDouble(e -> e.distanceToSqr(MC.player)))
 			.map(this::tryFloorItem).filter(Boolean::booleanValue).findFirst()
@@ -210,7 +241,21 @@ public final class AutoLootHack extends Hack
 	private boolean tryFloorItem(ItemEntity entity)
 	{
 		ItemStack candidate = entity.getItem();
-		int comparable = findBestComparableSlot(candidate);
+		EquipmentSlot armorSlot = getAutoArmorSlot(candidate);
+		if(armorSlot != null)
+		{
+			// Armor must be judged against the equipped slot, never against an
+			// arbitrary inventory stack. This also guarantees that empty armor
+			// slots accept valid armor even when the inventory contains junk.
+			ItemStack equipped = MC.player.getItemBySlot(armorSlot);
+			if(!isBetter(candidate, equipped) || isProtected(equipped))
+				return false;
+		}
+		// Do not replace or discard an inventory armor stack just to collect
+		// floor armor. If space is needed, the normal junk-only path below must
+		// make that decision.
+		int comparable =
+			armorSlot == null ? findBestComparableSlot(candidate) : -1;
 		if(comparable >= 0)
 		{
 			ItemStack current = MC.player.getInventory().getItem(comparable);
@@ -218,12 +263,20 @@ public final class AutoLootHack extends Hack
 				return false;
 			if(isProtected(current))
 				return false;
+			ChatUtils.message("AutoLoot: found a better "
+				+ candidate.getHoverName().getString() + " (replacing "
+				+ current.getHoverName().getString() + ").");
 			throwInventorySlot(comparable);
 		}else if(MC.player.getInventory().getFreeSlot() < 0)
 		{
 			int junk = findJunkSlot();
 			if(junk < 0)
 				return false;
+			ChatUtils.message("AutoLoot: dropped "
+				+ MC.player.getInventory().getItem(junk).getHoverName()
+					.getString()
+				+ " to make room for " + candidate.getHoverName().getString()
+				+ ".");
 			throwInventorySlot(junk);
 		}
 		
@@ -235,7 +288,71 @@ public final class AutoLootHack extends Hack
 			driveToward(entity);
 			return true;
 		}
+		if(pickupAttempted != entity)
+		{
+			pickupAttempted = entity;
+			pendingPickupStack = candidate.copy();
+			pendingPickupCount = countMatchingItems(candidate);
+			ChatUtils.message("AutoLoot: picking up "
+				+ candidate.getHoverName().getString() + ".");
+		}
 		return true;
+	}
+	
+	private List<ItemStack> snapshotInventory()
+	{
+		List<ItemStack> snapshot = new ArrayList<>();
+		for(int i = 0; i < 41; i++)
+			snapshot.add(MC.player.getInventory().getItem(i).copy());
+		return snapshot;
+	}
+	
+	private boolean inventoryChanged()
+	{
+		List<ItemStack> current = snapshotInventory();
+		if(inventorySnapshot == null)
+		{
+			inventorySnapshot = current;
+			return false;
+		}
+		boolean changed = false;
+		for(int i = 0; i < current.size(); i++)
+		{
+			ItemStack oldStack = inventorySnapshot.get(i);
+			ItemStack newStack = current.get(i);
+			if(oldStack.getCount() != newStack.getCount()
+				|| !ItemStack.isSameItemSameComponents(oldStack, newStack))
+			{
+				changed = true;
+				break;
+			}
+		}
+		inventorySnapshot = current;
+		return changed;
+	}
+	
+	private void checkPickupConfirmation()
+	{
+		if(pickupAttempted == null || pickupAttempted.isAlive())
+			return;
+		if(pendingPickupStack != null
+			&& countMatchingItems(pendingPickupStack) > pendingPickupCount)
+			ChatUtils.message("AutoLoot: collected "
+				+ pendingPickupStack.getHoverName().getString() + ".");
+		pickupAttempted = null;
+		pendingPickupStack = null;
+	}
+	
+	private int countMatchingItems(ItemStack wanted)
+	{
+		int count = 0;
+		for(int i = 0; i < 36; i++)
+		{
+			ItemStack stack = MC.player.getInventory().getItem(i);
+			if(ItemStack.isSameItemSameComponents(stack, wanted))
+				count += stack.getCount();
+		}
+		return count;
 	}
 	
 	private void driveToward(ItemEntity entity)
@@ -257,7 +374,7 @@ public final class AutoLootHack extends Hack
 		{
 			Slot slot = screen.getMenu().slots.get(i);
 			ItemStack candidate = slot.getItem();
-			if(candidate.isEmpty() || !isSpecial(candidate))
+			if(candidate.isEmpty() || !isLootable(candidate))
 				continue;
 			
 			int inventorySlot = findBestComparableInventorySlot(candidate);
@@ -267,12 +384,19 @@ public final class AutoLootHack extends Hack
 					MC.player.getInventory().getItem(inventorySlot);
 				if(!isBetter(candidate, current) || isProtected(current))
 					continue;
+				ChatUtils.message(
+					"AutoLoot: replacing " + current.getHoverName().getString()
+						+ " with " + candidate.getHoverName().getString()
+						+ " from the container.");
 				return swapWithContainer(screen, slot, inventorySlot,
 					containerSlots);
 			}
 			
 			if(MC.player.getInventory().getFreeSlot() >= 0)
 			{
+				ChatUtils.message("AutoLoot: picked up "
+					+ candidate.getHoverName().getString()
+					+ " from the container.");
 				screen.slotClicked(slot, slot.index, 0,
 					ContainerInput.QUICK_MOVE);
 				return true;
@@ -281,6 +405,11 @@ public final class AutoLootHack extends Hack
 			int junk = findJunkSlot();
 			if(junk < 0)
 				continue;
+			ChatUtils.message("AutoLoot: dropped "
+				+ MC.player.getInventory().getItem(junk).getHoverName()
+					.getString()
+				+ " to make room for " + candidate.getHoverName().getString()
+				+ ".");
 			int junkMenuSlot = inventoryMenuSlot(junk, containerSlots);
 			Slot junkSlot = screen.getMenu().slots.get(junkMenuSlot);
 			if(findEmptyContainerSlot(screen, containerSlots) >= 0)
@@ -325,10 +454,9 @@ public final class AutoLootHack extends Hack
 		for(int i = 0; i < 36; i++)
 		{
 			ItemStack candidate = MC.player.getInventory().getItem(i);
-			if(candidate.isEmpty() || !isSpecial(candidate))
+			if(candidate.isEmpty() || !isLootable(candidate))
 				continue;
-			EquipmentSlot armorSlot =
-				ItemUtils.getArmorSlot(candidate.getItem());
+			EquipmentSlot armorSlot = getAutoArmorSlot(candidate);
 			if(armorSlot == null)
 				continue;
 			ItemStack current = MC.player.getItemBySlot(armorSlot);
@@ -342,6 +470,10 @@ public final class AutoLootHack extends Hack
 				IMC.getInteractionManager()
 					.windowClick_QUICK_MOVE(8 - armorSlot.getIndex());
 			}
+			ChatUtils.message(
+				"AutoLoot: equipped " + candidate.getHoverName().getString()
+					+ (current.isEmpty() ? "." : " and replaced "
+						+ current.getHoverName().getString() + "."));
 			IMC.getInteractionManager()
 				.windowClick_QUICK_MOVE(InventoryUtils.toNetworkSlot(i));
 			return true;
@@ -364,8 +496,8 @@ public final class AutoLootHack extends Hack
 	{
 		if(a == null || a.isEmpty() || b == null || b.isEmpty())
 			return false;
-		EquipmentSlot aArmor = ItemUtils.getArmorSlot(a.getItem());
-		EquipmentSlot bArmor = ItemUtils.getArmorSlot(b.getItem());
+		EquipmentSlot aArmor = getAutoArmorSlot(a);
+		EquipmentSlot bArmor = getAutoArmorSlot(b);
 		if(aArmor != null || bArmor != null)
 			return aArmor != null && aArmor == bArmor;
 		return family(a.getItem()).equals(family(b.getItem()));
@@ -392,6 +524,10 @@ public final class AutoLootHack extends Hack
 	{
 		if(stack == null || stack.isEmpty())
 			return Integer.MIN_VALUE;
+		// Player heads occupy the helmet slot but are cosmetic, not protective
+		// armor. Always rank real helmets above them.
+		if(stack.is(Items.PLAYER_HEAD))
+			return -1000;
 		String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 		int material =
 			id.contains("netherite") ? 1000
@@ -415,9 +551,36 @@ public final class AutoLootHack extends Hack
 		return WURST.getHax().itemEspHack.isSpecialStack(stack);
 	}
 	
+	private boolean isLootable(ItemStack stack)
+	{
+		return isSpecial(stack) || getAutoArmorSlot(stack) != null;
+	}
+	
+	private EquipmentSlot getAutoArmorSlot(ItemStack stack)
+	{
+		if(stack == null || stack.isEmpty())
+			return null;
+		if(stack.is(Items.PLAYER_HEAD))
+			return EquipmentSlot.HEAD;
+		if(stack.is(Items.ELYTRA) && !equipElytra.isChecked())
+			return null;
+		EquipmentSlot slot = ItemUtils.getArmorSlot(stack.getItem());
+		if(slot != EquipmentSlot.HEAD && slot != EquipmentSlot.CHEST
+			&& slot != EquipmentSlot.LEGS && slot != EquipmentSlot.FEET)
+			return null;
+		// EQUIPPABLE is also used by non-armor items such as carpets. Require
+		// actual armor attributes, while keeping Elytra as a valid chest item.
+		if(!stack.is(Items.ELYTRA)
+			&& ItemUtils.getArmorPoints(stack.getItem()) <= 0
+			&& ItemUtils.getToughness(stack.getItem()) <= 0)
+			return null;
+		return slot;
+	}
+	
 	private boolean isProtected(ItemStack stack)
 	{
 		return protectNamed.isChecked() && stack != null
+			&& !stack.is(Items.PLAYER_HEAD)
 			&& stack.has(DataComponents.CUSTOM_NAME);
 	}
 	
@@ -429,7 +592,7 @@ public final class AutoLootHack extends Hack
 		{
 			ItemStack stack = MC.player.getInventory().getItem(i);
 			if(stack.isEmpty() || isProtected(stack) || isSpecial(stack)
-				|| !isJunk(stack))
+				|| getAutoArmorSlot(stack) != null || !isJunk(stack))
 				continue;
 			int score = lootScore(stack);
 			if(score < bestScore)
@@ -443,18 +606,20 @@ public final class AutoLootHack extends Hack
 	
 	private boolean isJunk(ItemStack stack)
 	{
-		String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-		return id.contains("dirt") || id.contains("cobblestone")
-			|| id.contains("netherrack") || id.contains("gravel")
-			|| id.contains("sand") || id.contains("stone")
-			|| id.contains("andesite") || id.contains("diorite")
-			|| id.contains("granite") || id.contains("dirt")
-			|| id.contains("rotten_flesh") || id.contains("seeds")
-			|| id.contains("stick") || id.contains("flint");
+		return WURST.getHax().autoDropHack.isConfiguredJunk(stack);
 	}
 	
 	private void throwInventorySlot(int inventorySlot)
 	{
+		ItemStack stack = MC.player.getInventory().getItem(inventorySlot);
+		// Never allow AutoLoot's discard path to throw armor. This is a final
+		// safety check in case inventory/server state changes between scans.
+		if(getAutoArmorSlot(stack) != null)
+		{
+			ChatUtils.message("AutoLoot: refused to discard "
+				+ stack.getHoverName().getString() + ".");
+			return;
+		}
 		IMC.getInteractionManager()
 			.windowClick_THROW(InventoryUtils.toNetworkSlot(inventorySlot));
 	}

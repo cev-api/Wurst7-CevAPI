@@ -28,6 +28,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.Base64;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -114,6 +116,11 @@ public final class PacketToolsOtf extends OtherFeature
 			+ "instead of a simple one-line toString().\n"
 			+ "Honors the same per-packet Log selections in the UI.",
 		false);
+	private final CheckboxSetting monitorUdp =
+		new CheckboxSetting("Monitor UDP",
+			"Monitor UDP traffic observed through optional client protocol\n"
+				+ "integrations and write it to a separate UDP JSONL log.",
+			false);
 	private final CheckboxSetting verboseOutsideGamePackets =
 		new CheckboxSetting("Monitor outside game",
 			"Also dump packets while the client is still connecting or\n"
@@ -143,12 +150,17 @@ public final class PacketToolsOtf extends OtherFeature
 	
 	private Path currentVerboseJsonlFile;
 	private Path currentVerboseHumanFile;
+	private Path currentUdpJsonlFile;
 	
 	// Batched write buffers – flushed in onUpdate() to avoid per-packet disk
 	// I/O
 	private final ArrayList<String> verboseJsonlBuffer = new ArrayList<>(512);
 	private final ArrayList<String> verboseHumanBuffer = new ArrayList<>(512);
 	private int verboseFlushTickCounter;
+	private final ArrayList<String> udpJsonlBuffer = new ArrayList<>(512);
+	private static final int MAX_UDP_BUFFERED_RECORDS = 4096;
+	private boolean lastUdpMonitoringState;
+	private boolean udpBufferOverflowReported;
 	
 	private final Set<String> logS2C = new LinkedHashSet<>();
 	private final Set<String> logC2S = new LinkedHashSet<>();
@@ -189,6 +201,7 @@ public final class PacketToolsOtf extends OtherFeature
 		addSetting(delayTicks);
 		addSetting(openUiButton);
 		addSetting(verboseEnabled);
+		addSetting(monitorUdp);
 		addSetting(verboseOutsideGamePackets);
 		addSetting(verboseHumanReadable);
 		addSetting(verboseFlushInterval);
@@ -200,6 +213,7 @@ public final class PacketToolsOtf extends OtherFeature
 		lastDelayEnabledState = delayEnabled.isChecked();
 		lastLoggingState = loggingEnabled.isChecked();
 		lastDenyEnabledState = denyEnabled.isChecked();
+		lastUdpMonitoringState = monitorUdp.isChecked();
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -302,12 +316,15 @@ public final class PacketToolsOtf extends OtherFeature
 		boolean delayState = delayEnabled.isChecked();
 		boolean previousLoggingState = lastLoggingState;
 		boolean previousDelayState = lastDelayEnabledState;
+		boolean previousUdpMonitoringState = lastUdpMonitoringState;
+		boolean udpMonitoringState = monitorUdp.isChecked();
 		announceToggleChange("Logging", loggingState, previousLoggingState);
 		announceToggleChange("Blocking", denyState, lastDenyEnabledState);
 		announceToggleChange("Delaying", delayState, previousDelayState);
 		lastLoggingState = loggingState;
 		lastDenyEnabledState = denyState;
 		lastDelayEnabledState = delayState;
+		lastUdpMonitoringState = udpMonitoringState;
 		
 		boolean delayActive = delayState && delayTicks.getValueI() > 0;
 		if(!delayActive && previousDelayState)
@@ -322,6 +339,14 @@ public final class PacketToolsOtf extends OtherFeature
 			currentVerboseJsonlFile = null;
 			currentVerboseHumanFile = null;
 		}
+		if(previousUdpMonitoringState && !udpMonitoringState)
+		{
+			flushUdpBuffer();
+			currentUdpJsonlFile = null;
+			udpBufferOverflowReported = false;
+		}
+		if(udpMonitoringState)
+			flushUdpBuffer();
 		
 		// Tick entity lifecycle tracker
 		if(verboseEnabled.isChecked() && loggingState)
@@ -691,6 +716,179 @@ public final class PacketToolsOtf extends OtherFeature
 			"packets_" + LocalDateTime.now().format(FILE_TIME_FORMAT) + ".log";
 		currentLogFile = LOG_DIR.resolve(name);
 		return currentLogFile;
+	}
+	
+	// === UDP monitoring ===
+	
+	/**
+	 * Receives a passive UDP observation from an optional protocol integration.
+	 * This method is safe to call from a protocol's networking thread.
+	 */
+	public void logUdpDatagram(String direction, SocketAddress localAddress,
+		SocketAddress remoteAddress, int length, String socketClass,
+		String protocol, Boolean decoded, String payloadSha256)
+	{
+		if(!monitorUdp.isChecked())
+			return;
+		
+		Map<String, Object> record = new LinkedHashMap<>();
+		record.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		record.put("direction", direction);
+		record.put("transport", "UDP");
+		putSocketAddress(record, "local", localAddress);
+		putSocketAddress(record, "remote", remoteAddress);
+		record.put("length", length);
+		record.put("socketClass", socketClass);
+		record.put("thread", Thread.currentThread().getName());
+		record.put("protocol", protocol);
+		record.put("decoded", decoded);
+		if(payloadSha256 != null)
+			record.put("payloadSha256", payloadSha256);
+		enqueueUdpRecord(record);
+	}
+	
+	/**
+	 * Called only after Simple Voice Chat has decoded a UDP NetworkMessage. The
+	 * packet is inspected through its public 26.2 accessors; audio bytes are
+	 * deliberately never copied into the log.
+	 */
+	public void logSimpleVoiceChatPacket(Object packet,
+		SocketAddress localAddress, SocketAddress remoteAddress)
+	{
+		if(!monitorUdp.isChecked() || packet == null)
+			return;
+		
+		Map<String, Object> record = new LinkedHashMap<>();
+		record.put("timestamp", LocalDateTime.now().format(ISO_FORMAT));
+		record.put("direction", "S2C");
+		record.put("transport", "UDP");
+		record.put("protocol", "simple_voice_chat");
+		record.put("decoded", true);
+		record.put("class", packet.getClass().getName());
+		record.put("packetClass", packet.getClass().getSimpleName());
+		putSocketAddress(record, "local", localAddress);
+		putSocketAddress(record, "remote", remoteAddress);
+		record.put("thread", Thread.currentThread().getName());
+		
+		putAccessor(record, "senderUuid", packet, "getSender");
+		putAccessor(record, "channelUuid", packet, "getChannelId");
+		putAccessor(record, "sequenceNumber", packet, "getSequenceNumber");
+		putAccessor(record, "category", packet, "getCategory");
+		Object data = invokeAccessor(packet, "getData");
+		if(data instanceof byte[] bytes)
+			record.put("payloadLength", bytes.length);
+		
+		String simpleName = packet.getClass().getSimpleName();
+		if("PlayerSoundPacket".equals(simpleName))
+		{
+			putAccessor(record, "whispering", packet, "isWhispering");
+			putAccessor(record, "voiceDistance", packet, "getDistance");
+		}else if("LocationSoundPacket".equals(simpleName))
+		{
+			putAccessor(record, "voiceDistance", packet, "getDistance");
+			putLocation(record, invokeAccessor(packet, "getLocation"));
+		}
+		enqueueUdpRecord(record);
+	}
+	
+	private void enqueueUdpRecord(Map<String, Object> record)
+	{
+		String json = VERBOSE_GSON.toJson(record);
+		synchronized(udpJsonlBuffer)
+		{
+			if(udpJsonlBuffer.size() >= MAX_UDP_BUFFERED_RECORDS)
+			{
+				if(!udpBufferOverflowReported)
+				{
+					udpBufferOverflowReported = true;
+					LOGGER.warn(
+						"PacketTools UDP log buffer is full; dropping UDP records.");
+				}
+				return;
+			}
+			udpJsonlBuffer.add(json);
+		}
+	}
+	
+	private void flushUdpBuffer()
+	{
+		ArrayList<String> batch;
+		synchronized(udpJsonlBuffer)
+		{
+			if(udpJsonlBuffer.isEmpty())
+				return;
+			batch = new ArrayList<>(udpJsonlBuffer);
+			udpJsonlBuffer.clear();
+		}
+		try
+		{
+			Path file = getCurrentUdpJsonlFile();
+			Files.writeString(file, String.join("\n", batch) + "\n",
+				StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+		}catch(IOException e)
+		{
+			LOGGER.warn("PacketTools: failed writing UDP JSONL file.", e);
+		}
+	}
+	
+	private Path getCurrentUdpJsonlFile() throws IOException
+	{
+		if(currentUdpJsonlFile != null)
+			return currentUdpJsonlFile;
+		Files.createDirectories(LOG_DIR);
+		String name =
+			"udp_" + LocalDateTime.now().format(FILE_TIME_FORMAT) + ".jsonl";
+		currentUdpJsonlFile = LOG_DIR.resolve(name);
+		return currentUdpJsonlFile;
+	}
+	
+	private static void putSocketAddress(Map<String, Object> record,
+		String prefix, SocketAddress address)
+	{
+		if(address instanceof InetSocketAddress inet)
+		{
+			record.put(prefix + "Address", inet.getHostString());
+			record.put(prefix + "Port", inet.getPort());
+		}else if(address != null)
+			record.put(prefix + "Address", String.valueOf(address));
+	}
+	
+	private static void putAccessor(Map<String, Object> record, String key,
+		Object source, String accessor)
+	{
+		Object value = invokeAccessor(source, accessor);
+		if(value != null)
+			record
+				.put(key,
+					value instanceof Number || value instanceof Boolean
+						|| value instanceof String ? value
+							: String.valueOf(value));
+	}
+	
+	private static Object invokeAccessor(Object source, String accessor)
+	{
+		try
+		{
+			return source.getClass().getMethod(accessor).invoke(source);
+		}catch(ReflectiveOperationException ignored)
+		{
+			return null;
+		}
+	}
+	
+	private static void putLocation(Map<String, Object> record, Object location)
+	{
+		if(location == null)
+			return;
+		try
+		{
+			record.put("x", location.getClass().getField("x").get(location));
+			record.put("y", location.getClass().getField("y").get(location));
+			record.put("z", location.getClass().getField("z").get(location));
+		}catch(ReflectiveOperationException ignored)
+		{
+			// Coordinates are optional and must never be inferred.
+		}
 	}
 	
 	// === Verbose logging ===
