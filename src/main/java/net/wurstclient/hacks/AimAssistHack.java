@@ -313,10 +313,6 @@ public final class AimAssistHack extends Hack
 		if(!flying)
 			return;
 		
-		if(target.onGround() && !MC.options.keyShift.isDown()
-			&& target.getY() < MC.player.getY())
-			return;
-		
 		double maxStep = WURST.getHax().flightHack.isEnabled()
 			? WURST.getHax().flightHack.getActualVerticalSpeed()
 			: MC.player.getAbilities().getFlyingSpeed();
