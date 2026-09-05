@@ -105,6 +105,15 @@ public final class AutoDropHack extends Hack implements UpdateListener
 		}
 	}
 	
+	/**
+	 * Shares AutoDrop's configured item list with other inventory-management
+	 * hacks, without requiring AutoDrop itself to be enabled.
+	 */
+	boolean isConfiguredJunk(ItemStack stack)
+	{
+		return stack != null && items.contains(stack.getItem());
+	}
+	
 	private void sendThrowPacket(int slot, int inventorySlot)
 	{
 		ClientPacketListener connection = MC.getConnection();

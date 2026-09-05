@@ -96,6 +96,11 @@ base {
 repositories {
 	mavenCentral()
 
+	maven {
+		name = "henkelmax.public"
+		url = "https://maven.maxhenkel.de/repository/public"
+	}
+
 	// MCProtocolLib (AltBot system) is hosted on the OpenCollab maven.
 	maven {
 		name = "opencollab"
@@ -141,6 +146,11 @@ if(!formattingOnly)
 		// In other words, Wurst won't compile without this library,
 		// even though it's Minecraft that actually uses it.
 		modImplementation "com.google.code.findbugs:jsr305:3.0.2"
+		
+		// Optional at runtime. This is only the public SVC API, used to
+		// install a passive client socket wrapper when Simple Voice Chat
+		// is present.
+		compileOnly "de.maxhenkel.voicechat:voicechat-api:2.6.20"
 		
 	}
 
@@ -487,7 +497,7 @@ spotless {
 	}
 	json {
 		target("src/**/*.json", "src/**/*.mcmeta")
-		gson().indentWithSpaces(2).version("2.14.0")
+		gson().indentWithSpaces(2).version("2.11.0")
 	}
 }
 

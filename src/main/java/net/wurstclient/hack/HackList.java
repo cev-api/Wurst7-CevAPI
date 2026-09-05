@@ -101,8 +101,6 @@ public final class HackList implements UpdateListener
 	public final SusNoMoreHack susNoMoreHack = new SusNoMoreHack();
 	public final AutoLeaveHack autoLeaveHack = new AutoLeaveHack();
 	public final AutoLibrarianHack autoLibrarianHack = new AutoLibrarianHack();
-	public final VillagerRollHack villagerRollHack = new VillagerRollHack();
-	public final VaultRollHack vaultRollHack = new VaultRollHack();
 	public final AutoLootHack autoLootHack = new AutoLootHack();
 	public final AutoTraderHack autoTraderHack = new AutoTraderHack();
 	public final AutoEatHack autoEatHack = new AutoEatHack();
@@ -237,6 +235,9 @@ public final class HackList implements UpdateListener
 	public final MentionHack mentionHack = new MentionHack();
 	public final MiningEvidenceHack miningEvidenceHack =
 		new MiningEvidenceHack();
+	public final MicDetectHack micDetectHack = new MicDetectHack();
+	public final VaultRollHack vaultRollHack = new VaultRollHack();
+	public final VillagerRollHack villagerRollHack = new VillagerRollHack();
 	public final SpearAssistHack spearAssistHack = new SpearAssistHack();
 	public final MassTpaHack massTpaHack = new MassTpaHack();
 	public final BedrockEscapeHack bedrockEscapeHack = new BedrockEscapeHack();

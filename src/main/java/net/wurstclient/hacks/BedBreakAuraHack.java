@@ -9,16 +9,26 @@ package net.wurstclient.hacks;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.BlockHitResult;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.PacketInputListener;
+import net.wurstclient.events.PacketOutputListener;
+import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.ChunkAreaSetting;
@@ -29,9 +39,11 @@ import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockBreaker.BlockBreakingParams;
 import net.wurstclient.util.RotationUtils;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 
 @SearchTags({"bed break aura", "bedbreakaura", "bed breaker", "bed aura"})
-public final class BedBreakAuraHack extends Hack implements UpdateListener
+public final class BedBreakAuraHack extends Hack
+	implements UpdateListener, RightClickListener, PacketOutputListener
 {
 	private final SliderSetting range = new SliderSetting("Range",
 		"Maximum distance to search for beds, in blocks.", 6, 1, 6, 0.05,
@@ -43,6 +55,10 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	private final CheckboxSetting switchBack = new CheckboxSetting(
 		"Switch back",
 		"Returns to your previous hotbar slot after the bed is broken.", true);
+	private final CheckboxSetting protectRespawnBed = new CheckboxSetting(
+		"Protect own respawn bed",
+		"Remembers the bed used as your respawn point per server and never breaks it unless it is no longer there.",
+		true);
 	
 	private final ChunkAreaSetting searchArea = new ChunkAreaSetting(
 		"Internal search area", "", ChunkAreaSetting.ChunkArea.A65);
@@ -55,6 +71,8 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	private Set<BlockPos> occludingBlocks = Collections.emptySet();
 	private double pausedDistanceSq = Double.NaN;
 	private int restoreSlot = -1;
+	private final RespawnBedStore respawnBeds = new RespawnBedStore();
+	private final Map<BlockPos, Integer> pendingPlacedBeds = new HashMap<>();
 	
 	public BedBreakAuraHack()
 	{
@@ -63,6 +81,13 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		addSetting(range);
 		addSetting(autoSwitchTool);
 		addSetting(switchBack);
+		addSetting(protectRespawnBed);
+		// Respawn beds must be remembered even when BedBreakAura is disabled.
+		// Otherwise enabling the aura after sleeping in a bed would miss the
+		// right-click that established the respawn point.
+		EVENTS.add(RightClickListener.class, this);
+		EVENTS.add(PacketOutputListener.class, this);
+		EVENTS.add(UpdateListener.class, this);
 	}
 	
 	@Override
@@ -76,7 +101,6 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		WURST.getHax().tunnellerHack.setEnabled(false);
 		WURST.getHax().veinMinerHack.setEnabled(false);
 		
-		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(PacketInputListener.class, coordinator);
 		coordinator.reset();
 		currentTarget = null;
@@ -89,7 +113,6 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	@Override
 	protected void onDisable()
 	{
-		EVENTS.remove(UpdateListener.class, this);
 		EVENTS.remove(PacketInputListener.class, coordinator);
 		stopBreaking();
 		coordinator.reset();
@@ -101,6 +124,12 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		if(!isEnabled())
+		{
+			updateRespawnBedMemory();
+			confirmPlacedBeds();
+			return;
+		}
 		if(MC.player == null || MC.level == null || MC.gameMode == null)
 		{
 			setEnabled(false);
@@ -114,6 +143,8 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 		}
 		
 		coordinator.update();
+		updateRespawnBedMemory();
+		confirmPlacedBeds();
 		BlockBreakingParams target = findTarget();
 		if(target == null)
 		{
@@ -194,8 +225,123 @@ public final class BedBreakAuraHack extends Hack implements UpdateListener
 			.map(result -> BlockBreaker.getBlockBreakingParams(eyes,
 				result.pos()))
 			.filter(Objects::nonNull)
+			.filter(params -> !isProtectedRespawnBed(params.pos()))
 			.filter(params -> params.distanceSq() <= rangeSq)
 			.sorted(BlockBreaker.comparingParams()).findFirst().orElse(null);
+	}
+	
+	private void updateRespawnBedMemory()
+	{
+		if(!protectRespawnBed.isChecked() || MC.player == null
+			|| MC.level == null)
+			return;
+		String server = getServerKey();
+		RespawnBedStore.Bed remembered = respawnBeds.get(server);
+		if(remembered != null && remembered.dimension.equals(currentDimension())
+			&& MC.level.hasChunkAt(
+				new BlockPos(remembered.x, remembered.y, remembered.z))
+			&& !(MC.level
+				.getBlockState(
+					new BlockPos(remembered.x, remembered.y, remembered.z))
+				.getBlock() instanceof BedBlock))
+			respawnBeds.remove(server);
+		
+	}
+	
+	@Override
+	public void onRightClick(RightClickListener.RightClickEvent event)
+	{
+		if(!protectRespawnBed.isChecked() || MC.level == null
+			|| !(MC.hitResult instanceof BlockHitResult hit))
+			return;
+		if(MC.level.dimension() == Level.NETHER)
+			return;
+		BlockPos pos = hit.getBlockPos();
+		var state = MC.level.getBlockState(pos);
+		if(!(state.getBlock() instanceof BedBlock))
+			return;
+		if(state.getValue(BedBlock.PART) == BedPart.HEAD)
+			pos = pos.relative(state.getValue(BedBlock.FACING).getOpposite());
+		respawnBeds.put(getServerKey(), currentDimension(), pos.getX(),
+			pos.getY(), pos.getZ());
+	}
+	
+	@Override
+	public void onSentPacket(PacketOutputListener.PacketOutputEvent event)
+	{
+		if(!protectRespawnBed.isChecked() || MC.player == null
+			|| MC.level == null || MC.level.dimension() == Level.NETHER
+			|| !(event
+				.getPacket() instanceof ServerboundUseItemOnPacket packet))
+			return;
+		ItemStack held = MC.player.getItemInHand(packet.getHand());
+		if(!(held.getItem() instanceof BlockItem blockItem)
+			|| !(blockItem.getBlock() instanceof BedBlock))
+			return;
+		BlockHitResult hit = packet.getHitResult();
+		pendingPlacedBeds.put(hit.getBlockPos().relative(hit.getDirection()),
+			20);
+	}
+	
+	private void confirmPlacedBeds()
+	{
+		if(!protectRespawnBed.isChecked() || MC.level == null)
+			return;
+		var iterator = pendingPlacedBeds.entrySet().iterator();
+		while(iterator.hasNext())
+		{
+			var pending = iterator.next();
+			BlockPos pos = pending.getKey();
+			if(MC.level.getBlockState(pos).getBlock() instanceof BedBlock)
+			{
+				var state = MC.level.getBlockState(pos);
+				if(state.getValue(BedBlock.PART) == BedPart.HEAD)
+					pos = pos.relative(
+						state.getValue(BedBlock.FACING).getOpposite());
+				respawnBeds.put(getServerKey(), currentDimension(), pos.getX(),
+					pos.getY(), pos.getZ());
+				iterator.remove();
+				continue;
+			}
+			int ticksLeft = pending.getValue() - 1;
+			if(ticksLeft <= 0)
+				iterator.remove();
+			else
+				pending.setValue(ticksLeft);
+		}
+	}
+	
+	private boolean isProtectedRespawnBed(BlockPos pos)
+	{
+		if(!protectRespawnBed.isChecked())
+			return false;
+		RespawnBedStore.Bed bed = respawnBeds.get(getServerKey());
+		if(bed == null || !bed.dimension.equals(currentDimension()))
+			return false;
+		BlockPos saved = new BlockPos(bed.x, bed.y, bed.z);
+		if(pos.equals(saved))
+			return true;
+		if(!(MC.level.getBlockState(saved).getBlock() instanceof BedBlock))
+			return false;
+		var state = MC.level.getBlockState(saved);
+		Direction facing = state.getValue(BedBlock.FACING);
+		BlockPos other = state.getValue(BedBlock.PART) == BedPart.FOOT
+			? saved.relative(facing) : saved.relative(facing.getOpposite());
+		return pos.equals(other);
+	}
+	
+	private String getServerKey()
+	{
+		if(MC.getCurrentServer() != null && MC.getCurrentServer().ip != null
+			&& !MC.getCurrentServer().ip.isBlank())
+			return MC.getCurrentServer().ip.trim()
+				.toLowerCase(java.util.Locale.ROOT);
+		return "singleplayer";
+	}
+	
+	private String currentDimension()
+	{
+		return MC.level.dimension().identifier().toString();
 	}
 	
 	private void ensureBestTool(BlockPos pos)

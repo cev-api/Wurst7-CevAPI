@@ -22,6 +22,9 @@
   "entrypoints": {
     "main": [
       "net.wurstclient.WurstInitializer"
+    ],
+    "voicechat": [
+      "net.wurstclient.other_features.packettools.svc.SimpleVoiceChatUdpPlugin"
     ]
   },
   "mixins": [

@@ -17,8 +17,10 @@ import com.mojang.serialization.MapCodec;
 
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateHolder;
@@ -98,10 +100,78 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 	private void onGetCollisionShape(BlockGetter world, BlockPos pos,
 		CollisionContext context, CallbackInfoReturnable<VoxelShape> cir)
 	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		BlockState state = (BlockState)(Object)this;
+		if(hax != null
+			&& (hax.autoFlyHack.isEnabled() || hax.flightHack.isEnabled()
+				|| hax.creativeFlightHack.isEnabled()))
+		{
+			boolean lava = (hax.autoFlyHack.shouldMakeLavaSolid()
+				|| hax.flightHack.shouldMakeLavaSolid()
+				|| hax.creativeFlightHack.shouldMakeLavaSolid())
+				&& getFluidState().is(FluidTags.LAVA);
+			boolean fire = hax.autoFlyHack.shouldMakeFireSolid()
+				&& (state.is(Blocks.FIRE) || state.is(Blocks.SOUL_FIRE));
+			
+			// Fire can damage an entity whose feet are one block above it.
+			// Make that air block solid too, leaving a full block of clearance.
+			boolean clearance = false;
+			boolean solidLava = hax.autoFlyHack.shouldMakeLavaSolid()
+				|| hax.flightHack.shouldMakeLavaSolid()
+				|| hax.creativeFlightHack.shouldMakeLavaSolid();
+			if(!lava && !fire
+				&& (solidLava || hax.autoFlyHack.shouldMakeFireSolid()))
+			{
+				BlockState below = world.getBlockState(pos.below());
+				clearance =
+					(solidLava && below.getFluidState().is(FluidTags.LAVA))
+						|| (hax.autoFlyHack.shouldMakeFireSolid()
+							&& (below.is(Blocks.FIRE)
+								|| below.is(Blocks.SOUL_FIRE)));
+			}
+			// Solid lava must not become an invisible ceiling around the
+			// player.
+			// When the player is below or inside a lava block, let the player
+			// pass
+			// through it so they can escape upward. Lava remains solid when the
+			// player is standing above it.
+			boolean lavaCollision = lava || (clearance && world
+				.getBlockState(pos.below()).getFluidState().is(FluidTags.LAVA));
+			if(lavaCollision && WurstClient.INSTANCE.MC.player != null
+				&& WurstClient.INSTANCE.MC.player.getBoundingBox().maxY <= pos
+					.getY() + 1.0E-3)
+			{
+				cir.setReturnValue(Shapes.empty());
+				cir.cancel();
+				return;
+			}
+			
+			if(lava || fire || clearance)
+			{
+				cir.setReturnValue(Shapes.block());
+				cir.cancel();
+				return;
+			}
+		}
+		
+		if(hax != null && hax.antiVoidHack.shouldMakeFalseFloor(pos, state))
+		{
+			cir.setReturnValue(Shapes.block());
+			cir.cancel();
+			return;
+		}
+		
+		if(hax != null
+			&& hax.antiVoidHack.shouldMakeLavaFloor(world, pos, state))
+		{
+			cir.setReturnValue(Shapes.block());
+			cir.cancel();
+			return;
+		}
+		
 		if(getFluidState().isEmpty())
 			return;
 		
-		HackList hax = WurstClient.INSTANCE.getHax();
 		if(hax == null || !hax.jesusHack.shouldBeSolid())
 			return;
 		
