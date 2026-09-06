@@ -72,6 +72,8 @@ public final class SignEspHack extends Hack
 		new ConcurrentLinkedQueue<>();
 	private final Set<BlockPos> queuedHistoryPositions =
 		ConcurrentHashMap.newKeySet();
+	private final Set<BlockPos> historyScanPositions =
+		ConcurrentHashMap.newKeySet();
 	private int historyMatchesVersion = -1;
 	private final EspStyleSetting style = new EspStyleSetting();
 	private final net.wurstclient.settings.CheckboxSetting stickyArea =
@@ -181,6 +183,8 @@ public final class SignEspHack extends Hack
 	protected void onEnable()
 	{
 		groupsUpToDate = false;
+		historyMatchesVersion = -1;
+		historyScanPositions.clear();
 		lastAreaSelection = area.getSelected();
 		lastPlayerChunk = ChunkPos.containing(MC.player.blockPosition());
 		lastMatchesVersion = coordinator.getMatchesVersion();
@@ -207,6 +211,8 @@ public final class SignEspHack extends Hack
 		lastMatchesVersion = coordinator.getMatchesVersion();
 		groups.forEach(SignEspGroup::clear);
 		entityGroups.forEach(FrameEspEntityGroup::clear);
+		historyScanPositions.clear();
+		historyMatchesVersion = -1;
 		foundCount = 0;
 	}
 	
@@ -220,6 +226,8 @@ public final class SignEspHack extends Hack
 		{
 			lastAreaSelection = currentArea;
 			coordinator.reset();
+			historyScanPositions.clear();
+			historyMatchesVersion = -1;
 			groupsUpToDate = false;
 		}
 		// Recenter per chunk when sticky is off
@@ -228,6 +236,8 @@ public final class SignEspHack extends Hack
 		{
 			lastPlayerChunk = currentChunk;
 			coordinator.reset();
+			historyScanPositions.clear();
+			historyMatchesVersion = -1;
 			groupsUpToDate = false;
 		}
 		boolean searchersChanged = coordinator.update();
@@ -252,8 +262,11 @@ public final class SignEspHack extends Hack
 		if(version != historyMatchesVersion)
 		{
 			historyMatchesVersion = version;
-			coordinator.getReadyMatches().map(Result::pos)
-				.forEach(this::queueHistoryPosition);
+			coordinator.getReadyMatches().map(Result::pos).forEach(pos -> {
+				BlockPos immutable = pos.immutable();
+				if(historyScanPositions.add(immutable))
+					queueHistoryPosition(immutable);
+			});
 		}
 		// Never scan or serialize the whole history on one client tick.
 		for(int i = 0; i < 64; i++)
