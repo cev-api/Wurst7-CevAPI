@@ -31,7 +31,9 @@ public final class FilterBabiesSetting extends EntityFilterCheckbox
 	{
 		if(e instanceof Tadpole)
 			return true;
-		
+			
+		// 1.21.11 has no canAgeUp()/isAgeLocked(); isBaby() already covers
+		// both naturally growing and player age-locked mobs.
 		return e instanceof AgeableMob mob && mob.isBaby();
 	}
 	
