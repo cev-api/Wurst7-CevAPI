@@ -621,6 +621,17 @@ public final class ClientMessageOverlay
 			.withStyle(style -> style.withColor(usernameRgb)));
 		result.append(Component.literal(plain.substring(sender.end()))
 			.withStyle(style -> style.withColor(defaultRgb)));
+		if(hack.shouldShowChatHeads())
+		{
+			net.minecraft.client.multiplayer.PlayerInfo info =
+				findOnlinePlayer(sender.name());
+			if(info != null)
+				return Component.empty()
+					.append(Component.object(new PlayerSprite(
+						ResolvableProfile.createResolved(info.getProfile()),
+						info.showHat())))
+					.append(result);
+		}
 		return result;
 	}
 	
