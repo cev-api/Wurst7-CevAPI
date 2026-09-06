@@ -775,6 +775,8 @@
   "description.wurst.setting.villagerroll.world_seed": "Seed used for predictions; leave blank to detect singleplayer seeds automatically.",
   "description.wurst.setting.clutchfall.use_reach": "Uses Reach's configured distance for clutch placement checks. Enable Reach separately for the client-side range change.",
   "description.wurst.setting.clutchfall.auto_aim": "Automatically faces the placement surface while clutching.",
+  "description.wurst.setting.clutchfall.disable_while_flying": "Disables ClutchFall while creative flight, Flight, AutoFly, or elytra flight is active.",
+  "description.wurst.setting.clutchfall.disable_with_nofall": "Disables ClutchFall while NoFall is enabled.",
   "description.wurst.setting.clutchfall.water_bucket": "Allows water buckets to be used for clutches.",
   "description.wurst.setting.clutchfall.powder_snow_bucket": "Allows powder snow buckets to be used for clutches.",
   "description.wurst.setting.clutchfall.slime_block": "Allows slime blocks to be used for clutches.",
