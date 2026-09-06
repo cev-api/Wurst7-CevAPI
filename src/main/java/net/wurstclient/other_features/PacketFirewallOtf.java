@@ -86,6 +86,11 @@ public final class PacketFirewallOtf extends OtherFeature
 				+ "Direct packets sent from hacks are blocked and "
 				+ "PacketFirewall stops rewriting movement packets."),
 			false);
+	private final CheckboxSetting allowClutchFallSetting = new CheckboxSetting(
+		"Allow ClutchFall",
+		WText.literal(
+			"Keeps ClutchFall enabled and allows its normal placement packets in Vanilla-only mode."),
+		true);
 	private final StringDropdownSetting disabledHacksSetting =
 		new StringDropdownSetting("Temporarily disabled",
 			WText.literal("Hacks currently suppressed by PacketFirewall."));
@@ -154,6 +159,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		addSetting(dedupMovementSetting);
 		addSetting(debugLoggingSetting);
 		addSetting(vanillaOnlyPacketsSetting);
+		addSetting(allowClutchFallSetting);
 		addSetting(disabledHacksSetting);
 		addSetting(reEnableSelectedSetting);
 		addSetting(reEnableAllSetting);
@@ -202,6 +208,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		Packet<?> packet = event.getPacket();
 		SenderResolution sender = resolveSenderHackFromStack();
 		if(sender == null || sender.hack() == null
+			|| isVanillaModeAllowedHack(sender.hack())
 			|| temporaryWhitelist.contains(sender.hack().getName()))
 			return;
 		
@@ -228,6 +235,7 @@ public final class PacketFirewallOtf extends OtherFeature
 			Packet<?> packet = event.getPacket();
 			SenderResolution sender = resolveSenderHackFromStack();
 			if(sender != null && sender.hack() != null
+				&& !isVanillaModeAllowedHack(sender.hack())
 				&& !temporaryWhitelist.contains(sender.hack().getName())
 				&& isCustomPacketSurface(packet))
 			{
@@ -359,6 +367,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		SenderResolution sender = resolveSenderHackFromStack();
 		boolean hackOrigin = sender != null && sender.hack() != null
+			&& !isVanillaModeAllowedHack(sender.hack())
 			&& !temporaryWhitelist.contains(sender.hack().getName())
 			&& !isAllowedChatPacket(sender.hack(), original, packet);
 		if(hackOrigin)
@@ -677,6 +686,14 @@ public final class PacketFirewallOtf extends OtherFeature
 		for(Hack hack : WURST.getHax().getAllHax())
 			if(hack.isEnabled() && isPacketAffectingHack(hack))
 			{
+				// ClutchFall remains enabled in vanilla-only mode. Its normal
+				// right-click packet is explicitly allowed by the firewall.
+				if(isVanillaModeAllowedHack(hack))
+					continue;
+				// Untouchable must be disabled in vanilla-only mode, even if it
+				// was manually whitelisted before the mode was enabled.
+				if(hack.getName().equals("Untouchable"))
+					temporaryWhitelist.remove(hack.getName());
 				vanillaOnlyPausedHacks.add(hack);
 				if(!suppressHackTemporarily(hack,
 					"vanilla-only packets mode paused packet-affecting hack"))
@@ -695,6 +712,8 @@ public final class PacketFirewallOtf extends OtherFeature
 		// packets. Suppressing them breaks normal client-side conveniences such
 		// as automatic tool selection and custom totem rendering.
 		String name = hack.getName();
+		if(isVanillaModeAllowedHack(hack))
+			return false;
 		if(name.equals("AutoTool") || name.equals("AutoArmor")
 			|| name.equals("AutoSword") || name.equals("AutoTotem")
 			|| name.equals("AutoSwitch") || name.equals("CustomTotem"))
@@ -722,6 +741,12 @@ public final class PacketFirewallOtf extends OtherFeature
 			|| hack instanceof PlayerAttacksEntityListener
 			|| hack instanceof BlockBreakingProgressListener
 			|| hack instanceof RightClickListener;
+	}
+	
+	private boolean isVanillaModeAllowedHack(Hack hack)
+	{
+		return hack != null && hack.getName().equals("ClutchFall")
+			&& allowClutchFallSetting.isChecked();
 	}
 	
 	private boolean suppressHackTemporarily(Hack hack, String reason)
