@@ -46,6 +46,12 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 		"description.wurst.setting.clutchfall.use_reach", false);
 	private final CheckboxSetting autoAim = new CheckboxSetting("Auto aim",
 		"description.wurst.setting.clutchfall.auto_aim", true);
+	private final CheckboxSetting disableWhileFlying =
+		new CheckboxSetting("Disable while flying",
+			"description.wurst.setting.clutchfall.disable_while_flying", true);
+	private final CheckboxSetting disableWithNoFall =
+		new CheckboxSetting("Disable with NoFall",
+			"description.wurst.setting.clutchfall.disable_with_nofall", true);
 	private final SliderSetting minimumFallDistance =
 		new SliderSetting("Minimum fall distance",
 			"description.wurst.setting.clutchfall.minimum_fall_distance", 2.5,
@@ -110,6 +116,8 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 		setCategory(Category.MOVEMENT);
 		addSetting(useReach);
 		addSetting(autoAim);
+		addSetting(disableWhileFlying);
+		addSetting(disableWithNoFall);
 		addSetting(minimumFallDistance);
 		addSetting(placementDelay);
 		addSetting(hotbarOnly);
@@ -147,6 +155,19 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 	{
 		if(MC.player == null || MC.level == null)
 			return;
+		if(disableWhileFlying.isChecked() && isFlying())
+		{
+			attemptedThisFall = false;
+			dangerousFallTicks = 0;
+			return;
+		}
+		if(disableWithNoFall.isChecked()
+			&& WURST.getHax().noFallHack.isEnabled())
+		{
+			attemptedThisFall = false;
+			dangerousFallTicks = 0;
+			return;
+		}
 		
 		if(MC.player.onGround() || MC.player.getDeltaMovement().y >= -0.02
 			|| MC.player.isFallFlying() || MC.player.isPassenger())
@@ -247,6 +268,14 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 				MC.player.setXRot(oldPitch);
 			}
 		}
+	}
+	
+	private boolean isFlying()
+	{
+		return MC.player.getAbilities().flying || MC.player.isFallFlying()
+			|| WURST.getHax().flightHack.isEnabled()
+			|| WURST.getHax().creativeFlightHack.isEnabled()
+			|| WURST.getHax().autoFlyHack.isEnabled();
 	}
 	
 	private static BlockHitResult getWaterPlacement(BlockPos support)
