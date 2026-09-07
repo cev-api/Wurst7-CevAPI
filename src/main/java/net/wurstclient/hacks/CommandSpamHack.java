@@ -36,12 +36,17 @@ public final class CommandSpamHack extends Hack implements UpdateListener
 	private static final int COMMAND_LIMIT = 256;
 	
 	private final TextFieldSetting command = new TextFieldSetting("Command",
-		"Command to send repeatedly when file mode is disabled.", "",
-		s -> s != null && s.length() <= COMMAND_LIMIT);
+		"Command(s) to send when file mode is disabled. Separate multiple "
+			+ "commands with commas, e.g. \"cake enable, cake disable\", to "
+			+ "cycle through them. Each command in the cycle is sent the "
+			+ "selected Amount of times.",
+		"", s -> s != null);
 	
-	private final SliderSetting amount =
-		new SliderSetting("Amount", "How many times to send the command.", 10,
-			1, 10000, 1, ValueDisplay.INTEGER);
+	private final SliderSetting amount = new SliderSetting("Amount",
+		"How many times to send each command. With several comma-separated "
+			+ "commands, the hack cycles through them until every command "
+			+ "has been sent this many times.",
+		10, 1, 10000, 1, ValueDisplay.INTEGER);
 	
 	private final SliderSetting pause =
 		new SliderSetting("Pause", "Seconds to wait between commands.", 1, 0.05,
@@ -133,15 +138,14 @@ public final class CommandSpamHack extends Hack implements UpdateListener
 			}
 		}else
 		{
-			String configuredCommand = normalizeCommand(command.getValue());
-			if(configuredCommand.isEmpty())
+			parseCommands(command.getValue(), pendingCommands);
+			if(pendingCommands.isEmpty())
 			{
-				ChatUtils.error("CommandSpam: enter a command first.");
+				ChatUtils
+					.error("CommandSpam: enter at least one command first.");
 				setEnabled(false);
 				return;
 			}
-			
-			pendingCommands.add(configuredCommand);
 		}
 		
 		EVENTS.add(UpdateListener.class, this);
@@ -177,7 +181,7 @@ public final class CommandSpamHack extends Hack implements UpdateListener
 		}
 		
 		String currentCommand = fileMode ? pendingCommands.get(currentIndex)
-			: pendingCommands.get(0);
+			: pendingCommands.get(currentIndex % pendingCommands.size());
 		if(currentCommand == null || currentCommand.isBlank())
 		{
 			currentIndex++;
@@ -201,7 +205,7 @@ public final class CommandSpamHack extends Hack implements UpdateListener
 		if(fileMode)
 			return pendingCommands.size();
 		
-		return amount.getValueI();
+		return amount.getValueI() * pendingCommands.size();
 	}
 	
 	private int getPauseTicks()
@@ -214,6 +218,19 @@ public final class CommandSpamHack extends Hack implements UpdateListener
 				.nextDouble(-jitterSeconds, jitterSeconds);
 		
 		return Math.max(1, (int)Math.round(pauseSeconds * 20));
+	}
+	
+	private static void parseCommands(String input, List<String> destination)
+	{
+		if(input == null)
+			return;
+		
+		for(String part : input.split(","))
+		{
+			String normalized = normalizeCommand(part);
+			if(!normalized.isEmpty())
+				destination.add(normalized);
+		}
 	}
 	
 	private boolean loadCommandsFromFile()
