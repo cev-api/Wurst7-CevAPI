@@ -583,6 +583,13 @@ public final class ClientMessageOverlay
 		if(hack == null || !hack.isEnabled() || !hack.shouldColorUsernames()
 			|| message == null)
 			return null;
+		// Rebuilding from getString() turns an existing head sprite into its
+		// literal "[Name head]" fallback text. Messages that already contain a
+		// sprite must keep their component tree intact, so fall through to
+		// normalizePlayerChatForDisplay()/addChatHeadIfEnabled() which guard
+		// against adding a second head.
+		if(containsPlayerSprite(message))
+			return null;
 		String plain = stripLegacyFormatting(message.getString()).trim();
 		SenderSpan sender = extractSenderSpan(plain);
 		if(sender == null || !isPlayerChatSender(sender))
