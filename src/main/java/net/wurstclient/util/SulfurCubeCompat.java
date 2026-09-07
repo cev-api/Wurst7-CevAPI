@@ -63,6 +63,18 @@ public enum SulfurCubeCompat
 	}
 	
 	/**
+	 * Returns true if the given entity is a sulfur cube that currently holds a
+	 * body block (i.e. has been filled).
+	 *
+	 * <p>
+	 * Only meaningful on 26.3+ servers; returns false everywhere else.
+	 */
+	public static boolean isFilledSulfurCube(Entity entity)
+	{
+		return isSulfurCube(entity) && invokeBoolean(entity, "hasBodyItem");
+	}
+	
+	/**
 	 * Returns a filter that only accepts entities whose class (or one of its
 	 * superclasses) matches the given binary name.
 	 */

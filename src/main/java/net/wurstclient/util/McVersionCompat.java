@@ -63,6 +63,15 @@ public enum McVersionCompat
 	}
 	
 	/**
+	 * Returns true if the given entity is a filled sulfur cube (26.3+ only).
+	 */
+	public static boolean isFilledSulfurCube(
+		net.minecraft.world.entity.Entity entity)
+	{
+		return SulfurCubeCompat.isFilledSulfurCube(entity);
+	}
+	
+	/**
 	 * Checks whether the given particle options belong to one of the geyser
 	 * particle types.
 	 */

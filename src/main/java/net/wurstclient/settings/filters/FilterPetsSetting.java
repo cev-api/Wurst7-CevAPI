@@ -7,6 +7,7 @@
  */
 package net.wurstclient.settings.filters;
 
+import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.TamableAnimal;
@@ -23,6 +24,7 @@ import net.minecraft.world.entity.animal.golem.SnowGolem;
 import net.minecraft.world.entity.animal.happyghast.HappyGhast;
 import net.minecraft.world.entity.animal.pig.Pig;
 import net.minecraft.world.entity.monster.Strider;
+import net.wurstclient.util.McVersionCompat;
 import net.wurstclient.util.text.WText;
 
 public final class FilterPetsSetting extends EntityFilterCheckbox
@@ -32,10 +34,28 @@ public final class FilterPetsSetting extends EntityFilterCheckbox
 		super("Filter pets", description, checked);
 	}
 	
+	/**
+	 * 1.21.11 has no isAgeLocked(); Wurst's age-lock feature pins the age to
+	 * {@link Short#MIN_VALUE}, which is the same marker vanilla uses.
+	 */
+	private static boolean isAgeLocked(AgeableMob mob)
+	{
+		return mob.getAge() == Short.MIN_VALUE;
+	}
+	
 	@Override
 	protected boolean filtersOut(Entity e)
 	{
-		// Tadpoles always report fromBucket() == true, even when wild
+		// Filled sulfur cubes are balls, not pets, even if bucket-released.
+		// 26.3-only mob; see McVersionCompat.
+		if(McVersionCompat.isFilledSulfurCube(e))
+			return false;
+		
+		if(e instanceof AgeableMob mob && mob.isBaby() && isAgeLocked(mob))
+			return true;
+			
+		// Tadpoles always report fromBucket() == true, even when wild, and
+		// 1.21.11 cannot distinguish age-locked ones.
 		if(e instanceof Tadpole)
 			return false;
 		
