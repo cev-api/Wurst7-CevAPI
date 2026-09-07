@@ -151,18 +151,20 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 	}
 	
 	@Override
+	public String getStatusText()
+	{
+		if(MC.player == null || !isPaused())
+			return null;
+		
+		return "[Paused]";
+	}
+	
+	@Override
 	public void onUpdate()
 	{
 		if(MC.player == null || MC.level == null)
 			return;
-		if(disableWhileFlying.isChecked() && isFlying())
-		{
-			attemptedThisFall = false;
-			dangerousFallTicks = 0;
-			return;
-		}
-		if(disableWithNoFall.isChecked()
-			&& WURST.getHax().noFallHack.isEnabled())
+		if(isPaused())
 		{
 			attemptedThisFall = false;
 			dangerousFallTicks = 0;
@@ -268,6 +270,13 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 				MC.player.setXRot(oldPitch);
 			}
 		}
+	}
+	
+	private boolean isPaused()
+	{
+		return disableWhileFlying.isChecked() && isFlying()
+			|| disableWithNoFall.isChecked()
+				&& WURST.getHax().noFallHack.isEnabled();
 	}
 	
 	private boolean isFlying()
