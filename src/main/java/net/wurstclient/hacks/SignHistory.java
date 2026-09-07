@@ -30,6 +30,9 @@ final class SignHistory
 	private static final TypeToken<Map<String, Map<String, Map<String, SignRecord>>>> TYPE =
 		new TypeToken<>()
 		{};
+	// Only the newest N changes per sign are kept, so a single sign that is
+	// edited very often cannot grow the file without bound.
+	private static final int MAX_ENTRIES_PER_RECORD = 50;
 	private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 	private final Map<String, Map<String, Map<String, SignRecord>>> data =
 		new LinkedHashMap<>();
@@ -55,6 +58,7 @@ final class SignHistory
 		if(record.entries.isEmpty() || !last.sameText(entry))
 		{
 			record.entries.add(entry);
+			trimEntries(record);
 			markDirty();
 		}
 	}
@@ -63,13 +67,17 @@ final class SignHistory
 		BlockPos pos)
 	{
 		ensureLoaded();
-		SignRecord record = getRecord(server, dimension, pos, true);
-		if(record.entries.isEmpty() || !"removed"
+		// Never create a record just to mark it removed. Positions that were
+		// never a tracked sign are not part of the history.
+		SignRecord record = getRecord(server, dimension, pos, false);
+		if(record == null)
+			return;
+		if(!record.entries.isEmpty() && "removed"
 			.equals(record.entries.get(record.entries.size() - 1).state))
-		{
-			record.entries.add(Entry.removed());
-			markDirty();
-		}
+			return;
+		record.entries.add(Entry.removed());
+		trimEntries(record);
+		markDirty();
 	}
 	
 	synchronized SignRecord getRecord(String server, String dimension,
@@ -86,13 +94,24 @@ final class SignHistory
 			dimensions.put(dimension, positions = new LinkedHashMap<>());
 		if(positions == null)
 			return null;
-		String key = pos.getX() + "," + pos.getY() + "," + pos.getZ();
+		String key = key(pos);
 		SignRecord record = positions.get(key);
 		if(record == null && create)
 			positions.put(key, record = new SignRecord(dimension));
 		if(record != null)
 			record.key = key;
 		return record;
+	}
+	
+	synchronized boolean hasRecord(String server, String dimension,
+		BlockPos pos)
+	{
+		ensureLoaded();
+		Map<String, Map<String, SignRecord>> dimensions = data.get(server);
+		if(dimensions == null)
+			return false;
+		Map<String, SignRecord> positions = dimensions.get(dimension);
+		return positions != null && positions.containsKey(key(pos));
 	}
 	
 	private synchronized void markDirty()
@@ -109,14 +128,17 @@ final class SignHistory
 		try
 		{
 			Thread.sleep(1000);
-			String json;
+			Map<String, Map<String, Map<String, SignRecord>>> snapshot;
 			synchronized(this)
 			{
 				if(!dirty)
 					return;
-				json = gson.toJson(data, TYPE.getType());
 				dirty = false;
+				snapshot = copy(data);
 			}
+			// Serialize and write without holding the history lock, so that
+			// saving a large file never blocks the client thread.
+			String json = gson.toJson(snapshot, TYPE.getType());
 			File file = file();
 			File parent = file.getParentFile();
 			if(parent != null)
@@ -153,12 +175,103 @@ final class SignHistory
 					Map<String, Map<String, Map<String, SignRecord>>> read =
 						gson.fromJson(in, TYPE.getType());
 					if(read != null)
+					{
+						boolean pruned = pruneJunk(read);
 						data.putAll(read);
+						// Rewrite the file once if junk was removed, so an
+						// oversized file heals without being re-parsed forever.
+						if(pruned)
+							markDirty();
+					}
 				}
 		}catch(Exception e)
 		{
 			System.err.println("Could not load sign history: " + e);
 		}
+	}
+	
+	private static String key(BlockPos pos)
+	{
+		return pos.getX() + "," + pos.getY() + "," + pos.getZ();
+	}
+	
+	private void trimEntries(SignRecord record)
+	{
+		int excess = record.entries.size() - MAX_ENTRIES_PER_RECORD;
+		if(excess > 0)
+			record.entries.subList(0, excess).clear();
+	}
+	
+	/**
+	 * Removes records that only contain "removed" entries (created by an older
+	 * bug that treated every block update as a possible removed sign), trims
+	 * records to the newest MAX_ENTRIES_PER_RECORD entries and returns whether
+	 * anything was removed.
+	 */
+	private static boolean pruneJunk(
+		Map<String, Map<String, Map<String, SignRecord>>> all)
+	{
+		boolean[] changed = {false};
+		all.values().removeIf(dimensions -> {
+			dimensions.values().removeIf(positions -> {
+				positions.entrySet().removeIf(entry -> {
+					SignRecord record = entry.getValue();
+					if(record == null || record.entries == null)
+					{
+						changed[0] = true;
+						return true;
+					}
+					if(record.entries.size() > MAX_ENTRIES_PER_RECORD)
+					{
+						changed[0] = true;
+						record.entries = new ArrayList<>(record.entries.subList(
+							record.entries.size() - MAX_ENTRIES_PER_RECORD,
+							record.entries.size()));
+					}
+					for(Entry e : record.entries)
+						if(!"removed".equals(e.state))
+							return false;
+					changed[0] = true;
+					return true;
+				});
+				return positions.isEmpty();
+			});
+			return dimensions.isEmpty();
+		});
+		return changed[0];
+	}
+	
+	/**
+	 * Returns a deep copy of the history, taken under the lock, so the JSON
+	 * can be generated outside the lock without concurrent modification.
+	 */
+	private static Map<String, Map<String, Map<String, SignRecord>>> copy(
+		Map<String, Map<String, Map<String, SignRecord>>> source)
+	{
+		Map<String, Map<String, Map<String, SignRecord>>> result =
+			new LinkedHashMap<>();
+		for(var serverEntry : source.entrySet())
+		{
+			Map<String, Map<String, SignRecord>> dimensions =
+				new LinkedHashMap<>();
+			for(var dimensionEntry : serverEntry.getValue().entrySet())
+			{
+				Map<String, SignRecord> positions = new LinkedHashMap<>();
+				for(var positionEntry : dimensionEntry.getValue().entrySet())
+					positions.put(positionEntry.getKey(),
+						copy(positionEntry.getValue()));
+				dimensions.put(dimensionEntry.getKey(), positions);
+			}
+			result.put(serverEntry.getKey(), dimensions);
+		}
+		return result;
+	}
+	
+	private static SignRecord copy(SignRecord record)
+	{
+		SignRecord result = new SignRecord(record.dimension);
+		result.entries = new ArrayList<>(record.entries);
+		return result;
 	}
 	
 	private static File file()

@@ -268,6 +268,8 @@ public final class SignEspHack extends Hack
 					queueHistoryPosition(immutable);
 			});
 		}
+		String server = getHistoryServer();
+		String dimension = MC.level.dimension().identifier().toString();
 		// Never scan or serialize the whole history on one client tick.
 		for(int i = 0; i < 64; i++)
 		{
@@ -276,12 +278,17 @@ public final class SignEspHack extends Hack
 				break;
 			queuedHistoryPositions.remove(pos);
 			if(MC.level.getBlockEntity(pos) instanceof SignBlockEntity sign)
-				history.record(getHistoryServer(),
-					MC.level.dimension().identifier().toString(), pos, sign);
-			else if(MC.level.hasChunkAt(pos) && !(MC.level.getBlockState(pos)
-				.getBlock() instanceof SignBlock))
-				history.recordRemoved(getHistoryServer(),
-					MC.level.dimension().identifier().toString(), pos);
+				history.record(server, dimension, pos, sign);
+			// Only record removals for positions that are already known signs.
+			// Block updates arrive for every changed block (grass, redstone,
+			// water, etc.); treating each one as a possible removed sign used
+			// to grow the history file without bound, which made the
+			// background save increasingly slow and stalled the game.
+			else if(MC.level.hasChunkAt(pos)
+				&& !(MC.level.getBlockState(pos)
+					.getBlock() instanceof SignBlock)
+				&& history.hasRecord(server, dimension, pos))
+				history.recordRemoved(server, dimension, pos);
 		}
 	}
 	
