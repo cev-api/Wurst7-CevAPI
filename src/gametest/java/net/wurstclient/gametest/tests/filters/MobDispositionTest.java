@@ -7,7 +7,7 @@
  */
 package net.wurstclient.gametest.tests.filters;
 
-import static net.minecraft.world.entity.EntityType.*;
+import static net.minecraft.world.entity.EntityTypes.*;
 import static net.wurstclient.util.MobDisposition.*;
 
 import java.util.HashSet;
@@ -44,8 +44,9 @@ public final class MobDispositionTest extends SingleplayerTest
 			CAT, CHICKEN, COD, COPPER_GOLEM, COW, DOLPHIN, DONKEY, FOX, FROG,
 			HAPPY_GHAST, GLOW_SQUID, HORSE, LLAMA, MOOSHROOM, MULE, OCELOT,
 			PANDA, PARROT, PIG, RABBIT, SALMON, SHEEP, SKELETON_HORSE, SLIME,
-			SNIFFER, SNOW_GOLEM, SQUID, STRIDER, TADPOLE, TRADER_LLAMA,
-			TROPICAL_FISH, TURTLE, VILLAGER, WANDERING_TRADER, ZOMBIE_HORSE);
+			SNIFFER, SNOW_GOLEM, SQUID, STRIDER, SULFUR_CUBE, TADPOLE,
+			TRADER_LLAMA, TROPICAL_FISH, TURTLE, VILLAGER, WANDERING_TRADER,
+			ZOMBIE_HORSE);
 		checkTypes(NEUTRAL, BEE, ENDERMAN, GOAT, IRON_GOLEM, NAUTILUS, PIGLIN,
 			POLAR_BEAR, PUFFERFISH, WOLF, ZOMBIFIED_PIGLIN, ZOMBIE_NAUTILUS);
 		checkTypes(HOSTILE, BLAZE, BOGGED, BREEZE, CAVE_SPIDER, CREAKING,

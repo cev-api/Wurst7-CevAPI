@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.NeutralMob;
 import net.minecraft.world.entity.animal.panda.Panda;
@@ -43,9 +44,9 @@ public final class FilterCalmTest extends EntityFilterTest
 			FilterEndermenSetting.genericCombat(Mode.IF_CALM)))
 		{
 			assertFilteredOut("calm enderman", () -> filter,
-				() -> spawnEntity(EntityType.ENDERMAN));
+				() -> spawnEntity(EntityTypes.ENDERMAN));
 			assertAllowed("angry enderman", () -> filter, () -> {
-				var enderman = spawnEntity(EntityType.ENDERMAN);
+				var enderman = spawnEntity(EntityTypes.ENDERMAN);
 				enderman.setTarget(enderman.level().players().getFirst());
 				return enderman;
 			});
@@ -53,12 +54,12 @@ public final class FilterCalmTest extends EntityFilterTest
 		
 		// Panda.isAggressive() describes its personality, not its attack flag.
 		assertFilteredOut("calm aggressive-gene panda", neutral, () -> {
-			var panda = spawnEntity(EntityType.PANDA);
+			var panda = spawnEntity(EntityTypes.PANDA);
 			panda.setMainGene(Panda.Gene.AGGRESSIVE);
 			return panda;
 		});
 		assertAllowed("attacking aggressive-gene panda", neutral, () -> {
-			var panda = spawnEntity(EntityType.PANDA);
+			var panda = spawnEntity(EntityTypes.PANDA);
 			panda.setMainGene(Panda.Gene.AGGRESSIVE);
 			panda.setAggressive(true);
 			return panda;
@@ -66,8 +67,8 @@ public final class FilterCalmTest extends EntityFilterTest
 		
 		// Unlike most NeutralMobs, wolves and bees synchronize their anger.
 		EntityFilter neutralFilter = neutral.get();
-		for(EntityType<? extends Mob> type : List.of(EntityType.WOLF,
-			EntityType.BEE))
+		for(EntityType<? extends Mob> type : List.of(EntityTypes.WOLF,
+			EntityTypes.BEE))
 		{
 			Mob mob = spawnEntity(type);
 			mob.setNoAi(true);
@@ -87,7 +88,7 @@ public final class FilterCalmTest extends EntityFilterTest
 		}
 		
 		// Let vanilla add/remove the speed modifier, rather than injecting it.
-		var piglin = spawnEntity(EntityType.ZOMBIFIED_PIGLIN);
+		var piglin = spawnEntity(EntityTypes.ZOMBIFIED_PIGLIN);
 		context.waitFor(mc -> mc.level.getEntity(piglin.getId()) != null);
 		Entity clientPiglin =
 			context.computeOnClient(mc -> mc.level.getEntity(piglin.getId()));
