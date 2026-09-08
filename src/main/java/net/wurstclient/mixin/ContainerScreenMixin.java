@@ -1364,12 +1364,8 @@ public abstract class ContainerScreenMixin
 								net.wurstclient.WurstClient.MC.execute(() -> {
 									try
 									{
-										if(net.wurstclient.WurstClient.MC.player != null
-											&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
-											net.wurstclient.WurstClient.MC.player
-												.sendSystemMessage(
-													net.minecraft.network.chat.Component
-														.literal(recordedMsg));
+										if(net.wurstclient.WurstClient.MC.player != null)
+											ChatUtils.message(recordedMsg);
 									}catch(Throwable ignored)
 									{}
 								});

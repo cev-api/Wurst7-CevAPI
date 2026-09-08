@@ -21,6 +21,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.other_features.HackListOtf;
 import net.wurstclient.other_features.HackListOtf.Mode;
 import net.wurstclient.other_features.HackListOtf.Position;
+import net.wurstclient.other_features.PacketToolsOtf;
 import net.wurstclient.util.RenderUtils;
 
 public final class HackListHUD implements UpdateListener
@@ -57,7 +58,8 @@ public final class HackListHUD implements UpdateListener
 		// Factor both global UI scale and hacklist font size multiplier
 		int lineHeight = (int)Math.round(9 * getScale() * otf.getFontSize());
 		int spacing = otf.getEntrySpacing();
-		int count = activeHax.size();
+		int count =
+			activeHax.size() + (getPacketToolsHackListName() == null ? 0 : 1);
 		int height = count == 0 ? 0
 			: count * lineHeight + Math.max(0, count - 1) * spacing;
 		
@@ -112,6 +114,8 @@ public final class HackListHUD implements UpdateListener
 	private void drawCounter(GuiGraphicsExtractor context)
 	{
 		long size = activeHax.stream().filter(e -> isDisplayed(e.hack)).count();
+		if(getPacketToolsHackListName() != null)
+			size++;
 		String s = size + " hack" + (size != 1 ? "s" : "") + " active";
 		drawString(context, s,
 			/* lineHeight */(int)Math.round(9 * getScale() * otf.getFontSize()),
@@ -128,6 +132,10 @@ public final class HackListHUD implements UpdateListener
 			for(HackListEntry e : activeHax)
 				drawString(context, e.hack, e.hack.getRenderName(), lineHeight,
 					spacing);
+			
+		String packetToolsName = getPacketToolsHackListName();
+		if(packetToolsName != null)
+			drawString(context, packetToolsName, lineHeight, spacing);
 	}
 	
 	public void updateState(Hack hack)
@@ -450,6 +458,8 @@ public final class HackListHUD implements UpdateListener
 		{
 			long size =
 				activeHax.stream().filter(e -> isDisplayed(e.hack)).count();
+			if(getPacketToolsHackListName() != null)
+				size++;
 			String s = size + " hack" + (size != 1 ? "s" : "") + " active";
 			return (int)(tr.width(s) * scale);
 		}
@@ -463,7 +473,19 @@ public final class HackListHUD implements UpdateListener
 				width += (int)(tr.width(statusText) * scale);
 			maxWidth = Math.max(maxWidth, width);
 		}
+		String packetToolsName = getPacketToolsHackListName();
+		if(packetToolsName != null)
+			maxWidth =
+				Math.max(maxWidth, (int)(tr.width(packetToolsName) * scale));
 		return maxWidth;
+	}
+	
+	private String getPacketToolsHackListName()
+	{
+		PacketToolsOtf packetTools =
+			WurstClient.INSTANCE.getOtfs().packetToolsOtf;
+		return packetTools.hasHackListStatus() ? packetTools.getHackListName()
+			: null;
 	}
 	
 	private int getContentX(GuiGraphicsExtractor context, int contentWidth)

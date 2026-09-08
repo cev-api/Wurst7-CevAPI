@@ -36,6 +36,12 @@ public enum VaultRollMode
 		return displayName;
 	}
 	
+	@Override
+	public String toString()
+	{
+		return displayName;
+	}
+	
 	public String sequenceId()
 	{
 		return sequenceId;

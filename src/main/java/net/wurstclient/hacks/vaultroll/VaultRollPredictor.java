@@ -161,6 +161,10 @@ public final class VaultRollPredictor
 			item("flow_armor_trim_smithing_template", 3),
 			item("flow_banner_pattern", 2), item("music_disc_creator", 1),
 			item("heavy_core", 1));
+	private static final Set<String> NORMAL_LOOT_ITEM_IDS =
+		possibleLootItemIds(NORMAL_RARE, NORMAL_COMMON, NORMAL_UNIQUE);
+	private static final Set<String> OMINOUS_LOOT_ITEM_IDS =
+		possibleLootItemIds(OMINOUS_RARE, OMINOUS_COMMON, OMINOUS_UNIQUE);
 	
 	private VaultRollPredictor()
 	{}
@@ -176,6 +180,36 @@ public final class VaultRollPredictor
 		addItemIds(result, OMINOUS_UNIQUE);
 		result.add("enchanted_book");
 		return List.copyOf(result);
+	}
+	
+	/**
+	 * Returns whether an item ID can be emitted by the selected vanilla Vault
+	 * loot table. This is used by automatic capture to reject unrelated item
+	 * entities near a Vault.
+	 */
+	public static boolean isPossibleLootItem(VaultRollMode mode, String itemId)
+	{
+		if(mode == null || itemId == null)
+			return false;
+		String normalized = normalizeItemId(itemId);
+		return (mode == VaultRollMode.OMINOUS ? OMINOUS_LOOT_ITEM_IDS
+			: NORMAL_LOOT_ITEM_IDS).contains(normalized);
+	}
+	
+	private static Set<String> possibleLootItemIds(List<LootEntry>... pools)
+	{
+		Set<String> result = new LinkedHashSet<>();
+		for(List<LootEntry> pool : pools)
+			for(LootEntry entry : pool)
+			{
+				// The Vault tables enchant their book entries, so the emitted
+				// item is an enchanted book rather than a plain book.
+				if(entry.itemId().equals("minecraft:book"))
+					result.add("minecraft:enchanted_book");
+				else
+					result.add(entry.itemId());
+			}
+		return Collections.unmodifiableSet(result);
 	}
 	
 	private static void addItemIds(Set<String> result, List<LootEntry> entries)
