@@ -126,6 +126,7 @@ public final class LootSorterController
 	private boolean scanningDestinations;
 	private boolean bulkSelectionEnabled;
 	private boolean frameAutosortByDefault;
+	private boolean finalSourceVerificationDone;
 	private BlockPos bulkSelectionStart;
 	private BlockPos bulkSelectionEnd;
 	
@@ -165,7 +166,7 @@ public final class LootSorterController
 			return;
 		transition(LootSorterState.SELECTING_SOURCES);
 		message(bulkSelectionEnabled
-			? "right-click point A, right-click point B, then press Enter to select all source containers."
+			? "Bulk selection: right-click point A. Then right-click point B, then press Enter to select all source containers."
 			: "right-click source containers; press Enter to confirm.");
 	}
 	
@@ -179,7 +180,7 @@ public final class LootSorterController
 			return;
 		transition(LootSorterState.SELECTING_DESTINATIONS);
 		message(bulkSelectionEnabled
-			? "right-click point A, right-click point B, then press Enter to select all destination containers."
+			? "Bulk selection: right-click point A. Then right-click point B, then press Enter to select all destination containers."
 			: "right-click destinations to configure; press Enter to save.");
 	}
 	
@@ -212,6 +213,7 @@ public final class LootSorterController
 		sourceContentsPublished = false;
 		directEverythingMove = false;
 		scanningDestinations = false;
+		finalSourceVerificationDone = false;
 		bulkSelectionStart = null;
 		bulkSelectionEnd = null;
 		positionCorrectionPending = false;
@@ -491,10 +493,16 @@ public final class LootSorterController
 				error("select at least one source.");
 			else
 			{
+				// The source point-B click may still be held when Enter is
+				// pressed. Allow the first destination click to start a new
+				// pair.
+				selectionUseHeld = false;
+				bulkSelectionStart = null;
+				bulkSelectionEnd = null;
 				transition(LootSorterState.SELECTING_DESTINATIONS);
-				message(
-					"right-click destinations to configure; sneak-right-click "
-						+ "one to remove it; press Enter to start.");
+				message(bulkSelectionEnabled
+					? "Bulk selection: right-click point A, then point B, then press Enter to select destination containers."
+					: "right-click destinations to configure; sneak-right-click one to remove it; press Enter to start.");
 			}
 		}else if(state == LootSorterState.SELECTING_DESTINATIONS)
 		{
@@ -670,8 +678,12 @@ public final class LootSorterController
 		scanningDestinations = false;
 		directEverythingMove = false;
 		transition(LootSorterState.SELECTING_DESTINATIONS);
-		message("right-click destinations to configure; sneak-right-click one "
-			+ "to remove it; press Enter to start.");
+		selectionUseHeld = false;
+		bulkSelectionStart = null;
+		bulkSelectionEnd = null;
+		message(bulkSelectionEnabled
+			? "Bulk selection: right-click point A, then point B, then press Enter to select destination containers."
+			: "right-click destinations to configure; sneak-right-click one to remove it; press Enter to start.");
 		return true;
 	}
 	
@@ -685,8 +697,12 @@ public final class LootSorterController
 		if(state != LootSorterState.SELECTING_SOURCES || sources.isEmpty())
 			return false;
 		transition(LootSorterState.SELECTING_DESTINATIONS);
-		message("right-click destinations to configure; sneak-right-click one "
-			+ "to remove it; press Enter to start.");
+		selectionUseHeld = false;
+		bulkSelectionStart = null;
+		bulkSelectionEnd = null;
+		message(bulkSelectionEnabled
+			? "Bulk selection: right-click point A, then point B, then press Enter to select destination containers."
+			: "right-click destinations to configure; sneak-right-click one to remove it; press Enter to start.");
 		return true;
 	}
 	
@@ -944,6 +960,7 @@ public final class LootSorterController
 	private void applyMostPrevalentFamily(DestinationRule rule,
 		List<ItemStack> contents)
 	{
+		rule.clearAutosortFamilyItem();
 		if(contents == null || contents.isEmpty())
 			return;
 		Map<String, Integer> familyCounts = new HashMap<>();
@@ -991,6 +1008,19 @@ public final class LootSorterController
 			destinations, sources);
 		if(activeRoute == null)
 		{
+			if(!finalSourceVerificationDone && !directEverythingMove)
+			{
+				// Cached source contents can lag behind the server after the
+				// last
+				// transfer. Verify every source once before reporting
+				// completion.
+				finalSourceVerificationDone = true;
+				scannedSources.clear();
+				sourceContentsPublished = false;
+				scanIndex = 0;
+				transition(LootSorterState.RESCANNING);
+				return;
+			}
 			updateSourceVisualStates();
 			if(hasStrandedMatchingItems())
 			{
@@ -2489,8 +2519,7 @@ public final class LootSorterController
 			return;
 		List<ItemStack> contents = readContainerContents(screen);
 		activeDestination.setObservedContents(contents);
-		if(sources.contains(activeDestination.getContainer())
-			&& !activeDestination.isFrameAutosort())
+		if(!activeDestination.isFrameAutosort())
 			applyMostPrevalentFamily(activeDestination, contents);
 		closeOrPause(LootSorterState.RESCANNING);
 	}

@@ -63,6 +63,7 @@ import net.wurstclient.hacks.vaultroll.VaultRollPredictor;
 import net.wurstclient.hacks.vaultroll.VaultRollStack;
 import net.wurstclient.hacks.vaultroll.VaultRollSynchronizer;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.settings.TextFieldSetting;
@@ -80,6 +81,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	MouseButtonPressListener, PacketInputListener, RenderListener
 {
 	private static final int MAX_OBSERVATIONS = 16;
+	private static final int MAX_RECOVERY_OBSERVATIONS = 5;
 	private static final int MAX_AUTO_ITEM_AGE = 400;
 	private static final int MAX_KNOWN_ITEM_TICKS = 800;
 	private static final int AUTO_CAPTURE_GRACE_TICKS = 60;
@@ -91,6 +93,9 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	private final CheckboxSetting autoObserve =
 		new CheckboxSetting("Auto observe",
 			"description.wurst.setting.vaultroll.auto_observe", true);
+	private final EnumSetting<VaultRollMode> modeSetting =
+		new EnumSetting<>("Mode", "description.wurst.setting.vaultroll.mode",
+			VaultRollMode.values(), VaultRollMode.OMINOUS);
 	private final CheckboxSetting middleClickInfo =
 		new CheckboxSetting("Middle-click info",
 			"description.wurst.setting.vaultroll.middle_click_info", false);
@@ -150,7 +155,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	private String lastWorldSeedSettingValue = "";
 	private String persistenceServerKey;
 	private boolean persistenceLoaded;
-	private VaultRollMode selectedMode = VaultRollMode.NORMAL;
+	private VaultRollMode selectedMode = VaultRollMode.OMINOUS;
 	
 	public VaultRollHack()
 	{
@@ -165,6 +170,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		}
 		addSetting(chatWarnings);
 		addSetting(autoObserve);
+		addSetting(modeSetting);
 		addSetting(middleClickInfo);
 		addSetting(predictionEsp);
 		addSetting(worldSeed);
@@ -222,6 +228,11 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		}
 		preparePersistentState();
 		applyWorldSeedSettingChange();
+		if(modeSetting.getSelected() != selectedMode)
+		{
+			selectedMode = modeSetting.getSelected();
+			savePersistentState();
+		}
 		Long effectiveSeed = getEffectiveSeed();
 		if(lastLevel != MC.level)
 		{
@@ -362,7 +373,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			message("Mode must be normal or ominous.");
 			return;
 		}
-		selectedMode = mode;
+		setSelectedMode(mode);
 		savePersistentState();
 		message("Selected " + mode.displayName() + " sequence.");
 		printNextStep(mode);
@@ -395,7 +406,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	{
 		message(
 			"VaultRoll predicts the vanilla 26.2 trial-chamber Vault loot sequence.");
-		message("Set the world seed, then select normal or ominous mode.");
+		message(
+			"Set the world seed, then select normal or ominous mode in the setting or with .vaultroll mode <normal|ominous>.");
 		message(
 			"Use .vaultroll seed to check it. The World seed setting can set, change, or clear the seed for this server; leave it blank for automatic singleplayer detection.");
 		message(
@@ -740,6 +752,17 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		appendObservation(state, observation);
 	}
 	
+	private void keepLatestObservations(ModeState state, int count)
+	{
+		int first = Math.max(0, state.observations.size() - count);
+		List<VaultRollObservation> latest = List.copyOf(
+			state.observations.subList(first, state.observations.size()));
+		state.observations.clear();
+		state.observations.addAll(latest);
+		state.stateGeneration++;
+		savePersistentState();
+	}
+	
 	private void startSynchronization(VaultRollMode mode, int horizon)
 	{
 		Long seed = getEffectiveSeed();
@@ -804,17 +827,16 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 					VaultRollSynchronizer.EXTENDED_SEARCH_HORIZON);
 				return;
 			}
-			if(!state.gapRecoveryAttempted && state.observations.size() > 1)
+			if(state.observations.size() > 1)
 			{
 				state.gapRecoveryAttempted = true;
-				VaultRollObservation latest =
-					state.observations.get(state.observations.size() - 1);
-				keepOnlyLatest(state, latest);
+				keepLatestObservations(state, MAX_RECOVERY_OBSERVATIONS);
 				state.status = SequenceStatus.UNKNOWN;
-				message(
-					"No consecutive match found. Another player may have advanced the "
-						+ mode.id()
-						+ " counter; retrying from the newest opening.");
+				message("No consecutive match found. Retrying from the newest "
+					+ Math.min(MAX_RECOVERY_OBSERVATIONS,
+						state.observations.size())
+					+ " " + mode.id()
+					+ " openings; older observations may be stale or contaminated.");
 				startSynchronization(mode, horizon);
 				return;
 			}
@@ -1138,12 +1160,13 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 				{
 					if(opening == null)
 					{
-						// A late block-state packet is deliberately accepted
-						// only
-						// as a best-effort capture; missing items simply fail
-						// matching.
-						opening = new AutoOpening(key,
-							isOminous(block.blockState), Set.of());
+						// A late block-state packet can skip UNLOCKING. Keep
+						// already-known nearby entities out of the capture
+						// while
+						// still allowing newly spawned eject items through.
+						opening =
+							new AutoOpening(key, isOminous(block.blockState),
+								snapshotPreExistingItemIds(block.pos()));
 						autoOpenings.put(key, opening);
 					}
 					opening.sawEjecting = true;
@@ -1227,7 +1250,9 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		if(item == null)
 			return;
 		AutoOpening opening = findActiveOpening(item);
-		if(opening == null)
+		if(opening == null || opening.baselineItemIds.contains(item.uuid())
+			|| item.firstSeen() < opening.startedAt || !VaultRollPredictor
+				.isPossibleLootItem(opening.mode, item.itemId()))
 			return;
 		int count = Math.max(item.count(), amount);
 		CapturedItem captured = opening.items.get(item.uuid());
@@ -1270,6 +1295,20 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		Set<UUID> result = new HashSet<>();
 		for(ItemEntity item : itemsNear(pos))
 			result.add(item.getUUID());
+		return result;
+	}
+	
+	private Set<UUID> snapshotPreExistingItemIds(
+		net.minecraft.core.BlockPos pos)
+	{
+		Set<UUID> result = new HashSet<>();
+		long now = MC.level.getGameTime();
+		for(ItemEntity item : itemsNear(pos))
+		{
+			KnownItem known = knownItems.get(item.getId());
+			if((known != null && known.firstSeen() < now) || item.getAge() > 2)
+				result.add(item.getUUID());
+		}
 		return result;
 	}
 	
@@ -1325,8 +1364,12 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			VaultRollStack details = describeItemStack(stack);
 			if(details == null)
 				continue;
+			if(!VaultRollPredictor.isPossibleLootItem(opening.mode,
+				details.itemId()))
+				continue;
 			KnownItem known = knownItems.get(item.getId());
-			if(known != null && findActiveOpening(known) != opening)
+			if(known != null && (known.firstSeen() < opening.startedAt
+				|| findActiveOpening(known) != opening))
 				continue;
 			captureItem(opening, item.getId(), item.getUUID(), details.itemId(),
 				details.count(), details.enchantments(), details.note());
@@ -1347,6 +1390,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			if(now - item.lastSeen() > MAX_KNOWN_ITEM_TICKS
 				|| item.firstSeen() < opening.startedAt
 				|| opening.baselineItemIds.contains(item.uuid())
+				|| !VaultRollPredictor.isPossibleLootItem(opening.mode,
+					item.itemId())
 				|| !isNearOpening(item, opening)
 				|| findActiveOpening(item) != opening)
 				continue;
@@ -1605,7 +1650,9 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		VaultRollMode loadedMode =
 			VaultRollMode.parse(readString(data, "selectedMode"));
 		if(loadedMode != null)
-			selectedMode = loadedMode;
+			setSelectedMode(loadedMode);
+		else
+			modeSetting.setSelected(selectedMode);
 		for(VaultRollMode mode : VaultRollMode.values())
 		{
 			JsonElement value = data.get(mode.id());
@@ -1816,7 +1863,13 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		clearAllState();
 		clearTargets();
 		manualSeed = null;
-		selectedMode = VaultRollMode.NORMAL;
+		setSelectedMode(VaultRollMode.OMINOUS);
+	}
+	
+	private void setSelectedMode(VaultRollMode mode)
+	{
+		selectedMode = Objects.requireNonNull(mode);
+		modeSetting.setSelected(mode);
 	}
 	
 	private void clearTargets()

@@ -757,6 +757,7 @@
   "description.wurst.hack.voiderplus": "Runs a configurable voiding command at the target location.",
   "description.wurst.setting.vaultroll.auto_observe": "Captures complete item ejections from nearby Vaults.",
   "description.wurst.setting.vaultroll.chat_warnings": "Warns when the selected target is near.",
+  "description.wurst.setting.vaultroll.mode": "Selects the normal or ominous Vault sequence.",
   "description.wurst.setting.vaultroll.max_distance": "Maximum distance at which Vault predictions are rendered.",
   "description.wurst.setting.vaultroll.middle_click_info": "Shows the prediction for a Vault under the cursor.",
   "description.wurst.setting.vaultroll.overlay_scale": "Scale of Vault prediction labels.",

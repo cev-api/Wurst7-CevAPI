@@ -222,6 +222,32 @@ public final class PacketToolsOtf extends OtherFeature
 	}
 	
 	@Override
+	public String getDisplayName()
+	{
+		return getHackListName();
+	}
+	
+	public String getHackListName()
+	{
+		ArrayList<String> modes = new ArrayList<>(3);
+		if(loggingEnabled.isChecked())
+			modes.add("Logging");
+		if(denyEnabled.isChecked())
+			modes.add("Deny");
+		if(delayEnabled.isChecked())
+			modes.add("Delay");
+		if(modes.isEmpty())
+			return getName();
+		return getName() + " [" + String.join(", ", modes) + "]";
+	}
+	
+	public boolean hasHackListStatus()
+	{
+		return loggingEnabled.isChecked() || denyEnabled.isChecked()
+			|| delayEnabled.isChecked();
+	}
+	
+	@Override
 	public Category getCategory()
 	{
 		return Category.TOOLS;
