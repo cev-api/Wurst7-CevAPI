@@ -215,6 +215,7 @@ public final class ChestSearchMousePreview
 		String dimension =
 			WurstClient.MC.level.dimension().identifier().toString();
 		List<ChestEntry> entries = chestManager.all();
+		ChestEntry newest = null;
 		for(ChestEntry entry : entries)
 		{
 			if(entry == null || entry.dimension == null
@@ -225,9 +226,24 @@ public final class ChestSearchMousePreview
 			if(pos.getX() >= min.getX() && pos.getX() <= max.getX()
 				&& pos.getY() >= min.getY() && pos.getY() <= max.getY()
 				&& pos.getZ() >= min.getZ() && pos.getZ() <= max.getZ())
-				return entry;
+			{
+				// Older database versions can contain overlapping records for
+				// the
+				// same chest. Prefer the newest snapshot so the HUD cannot
+				// display
+				// stale contents from an older record.
+				if(newest == null || compareLastSeen(entry, newest) > 0)
+					newest = entry;
+			}
 		}
-		return null;
+		return newest;
+	}
+	
+	private static int compareLastSeen(ChestEntry first, ChestEntry second)
+	{
+		String firstSeen = first.lastSeen == null ? "" : first.lastSeen;
+		String secondSeen = second.lastSeen == null ? "" : second.lastSeen;
+		return firstSeen.compareTo(secondSeen);
 	}
 	
 	private int getSlotCount(ChestEntry entry)

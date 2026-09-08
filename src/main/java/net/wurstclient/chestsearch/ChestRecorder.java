@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ChestRecorder
 {
@@ -40,6 +42,9 @@ public class ChestRecorder
 	// buffer of the latest snapshot per handler
 	private final Map<Integer, List<ItemStack>> buffers = new HashMap<>();
 	private final Map<Integer, TimerTask> pendingSnapshots = new HashMap<>();
+	private final Map<Integer, Long> sessionGenerations =
+		new ConcurrentHashMap<>();
+	private final AtomicLong nextSessionGeneration = new AtomicLong();
 	
 	// (notifications are handled by the UI layer)
 	
@@ -99,6 +104,20 @@ public class ChestRecorder
 			return;
 		
 		final int syncId = handler.containerId;
+		// Container IDs can be reused when the same chest is opened again.
+		// Invalidate delayed snapshots from the previous opening so they cannot
+		// write stale contents back into the database.
+		final long sessionGeneration = nextSessionGeneration.incrementAndGet();
+		TimerTask oldSnapshot = pendingSnapshots.remove(syncId);
+		if(oldSnapshot != null)
+		{
+			try
+			{
+				oldSnapshot.cancel();
+			}catch(Throwable ignored)
+			{}
+		}
+		sessionGenerations.put(syncId, sessionGeneration);
 		final List<ItemStack> buf = new ArrayList<>(handler.slots.size());
 		for(int i = 0; i < handler.slots.size(); i++)
 			buf.add(ItemStack.EMPTY);
@@ -140,6 +159,8 @@ public class ChestRecorder
 				@Override
 				public void run()
 				{
+					if(!isCurrentSession(syncId, sessionGeneration))
+						return;
 					try
 					{
 						List<ItemStack> snapshot = new ArrayList<>(buf.size());
@@ -217,6 +238,8 @@ public class ChestRecorder
 				{
 					if(buffers.containsKey(syncId))
 					{
+						if(!isCurrentSession(syncId, sessionGeneration))
+							return;
 						TimerTask pending = pendingSnapshots.remove(syncId);
 						if(pending != null)
 						{
@@ -232,6 +255,7 @@ public class ChestRecorder
 						}catch(Throwable ignored)
 						{}
 						buffers.remove(syncId);
+						sessionGenerations.remove(syncId);
 					}
 				}catch(Throwable t)
 				{
@@ -239,6 +263,12 @@ public class ChestRecorder
 				}
 			}
 		}, 30_000);
+	}
+	
+	private boolean isCurrentSession(int syncId, long sessionGeneration)
+	{
+		return Long.valueOf(sessionGeneration)
+			.equals(sessionGenerations.get(syncId));
 	}
 	
 	public void onChestOpened(String serverIp, String dimension, int x, int y,

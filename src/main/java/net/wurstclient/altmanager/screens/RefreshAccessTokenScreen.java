@@ -45,7 +45,7 @@ public final class RefreshAccessTokenScreen extends Screen
 	@Override
 	protected void init()
 	{
-		tokenBox = new EditBox(font, width / 2 - 150, height / 2 - 8, 300, 20,
+		tokenBox = new EditBox(font, width / 2 - 150, height / 2 - 2, 300, 20,
 			Component.literal("New Minecraft access token"));
 		tokenBox.setMaxLength(8192);
 		addWidget(tokenBox);
@@ -53,10 +53,10 @@ public final class RefreshAccessTokenScreen extends Screen
 		
 		addRenderableWidget(Button
 			.builder(Component.literal("Replace & Login"), b -> replaceToken())
-			.bounds(width / 2 - 150, height / 2 + 20, 148, 20).build());
+			.bounds(width / 2 - 150, height / 2 + 28, 148, 20).build());
 		addRenderableWidget(
 			Button.builder(Component.literal("Cancel"), b -> onClose())
-				.bounds(width / 2 + 2, height / 2 + 20, 148, 20).build());
+				.bounds(width / 2 + 2, height / 2 + 28, 148, 20).build());
 	}
 	
 	private void replaceToken()
@@ -85,17 +85,17 @@ public final class RefreshAccessTokenScreen extends Screen
 		float partialTicks)
 	{
 		context.drawCenteredString(font, "Refresh Access Token", width / 2,
-			height / 2 - 54, CommonColors.WHITE);
+			height / 2 - 72, CommonColors.WHITE);
 		context.drawCenteredString(font,
 			"The stored access token was rejected (HTTP 401).", width / 2,
-			height / 2 - 38, 0xFFFF5555);
+			height / 2 - 56, 0xFFFF5555);
 		context.drawCenteredString(font,
 			"Paste a replacement token to keep this account and its settings.",
-			width / 2, height / 2 - 24, CommonColors.LIGHT_GRAY);
+			width / 2, height / 2 - 40, CommonColors.LIGHT_GRAY);
 		context.drawString(font, "New Minecraft access token", width / 2 - 150,
-			height / 2 - 20, CommonColors.LIGHT_GRAY);
+			height / 2 - 18, CommonColors.LIGHT_GRAY);
 		if(!error.isBlank())
-			context.drawCenteredString(font, error, width / 2, height / 2 + 48,
+			context.drawCenteredString(font, error, width / 2, height / 2 + 56,
 				0xFFFF5555);
 		
 		tokenBox.render(context, mouseX, mouseY, partialTicks);

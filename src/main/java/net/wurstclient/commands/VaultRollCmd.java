@@ -28,6 +28,7 @@ public final class VaultRollCmd extends Command
 		super("vaultroll", "Predicts deterministic trial Vault loot.",
 			".vaultroll",
 			".vaultroll (status|help|reset|resetall|fresh|resync|mode)",
+			".vaultroll mode <normal|ominous>",
 			".vaultroll seed [<seed>|clear]",
 			".vaultroll observe [normal|ominous] <item=count,...>",
 			".vaultroll target <item> [count|clear]",
@@ -44,7 +45,6 @@ public final class VaultRollCmd extends Command
 				List.of("status", "help", "setup", "reset", "resetall", "fresh",
 					"resync", "refresh", "mode", "seed", "observe", "target",
 					"search", "next", "normal", "ominous"));
-			suggestions.addAll(VaultRollPredictor.itemIds());
 			return suggestions;
 		}
 		if(args.length == 0)

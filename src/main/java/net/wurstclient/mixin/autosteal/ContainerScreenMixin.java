@@ -5,7 +5,7 @@
  * License, version 3. If a copy of the GPL was not distributed with this
  * file, You can obtain one at: https://www.gnu.org/licenses/gpl-3.0.txt
  */
-package net.wurstclient.mixin.autosteal;
+package net.wurstclient.mixin;
 
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -1363,12 +1363,8 @@ public abstract class ContainerScreenMixin
 								net.wurstclient.WurstClient.MC.execute(() -> {
 									try
 									{
-										if(net.wurstclient.WurstClient.MC.player != null
-											&& net.wurstclient.WurstClient.MC.player.containerMenu == net.wurstclient.WurstClient.MC.player.inventoryMenu)
-											net.wurstclient.util.ChatUtils
-												.component(
-													net.minecraft.network.chat.Component
-														.literal(recordedMsg));
+										if(net.wurstclient.WurstClient.MC.player != null)
+											ChatUtils.message(recordedMsg);
 									}catch(Throwable ignored)
 									{}
 								});

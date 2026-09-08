@@ -384,8 +384,35 @@ public final class LootSorterHack extends Hack
 	{
 		bulkSelection.setChecked(enabled);
 		if(controller != null)
+		{
 			controller.setBulkSelectionEnabled(enabled);
+			if(enabled
+				&& (controller.getState() == LootSorterState.SELECTING_SOURCES
+					|| controller
+						.getState() == LootSorterState.SELECTING_DESTINATIONS))
+				ChatUtils.message(
+					"LootSorter: bulk selection ready — right-click point A, then point B, then press Enter.");
+		}
 		return bulkSelection.isChecked() == enabled;
+	}
+	
+	/** Reuses the most recently completed source/destination layout. */
+	public void repeatLastRun(String part)
+	{
+		if(retainedLayout == null)
+		{
+			ChatUtils.error("LootSorter: no previous layout to repeat.");
+			return;
+		}
+		if(!"both".equals(part))
+			ChatUtils.message("LootSorter: repeating " + part
+				+ " selection together with the saved layout.");
+		loadedProfile = retainedLayout;
+		if(!isEnabled())
+			setEnabled(true);
+		else if(controller != null
+			&& controller.getState() == LootSorterState.SELECTING_DESTINATIONS)
+			controller.startSorting(true);
 	}
 	
 	public boolean isAutosortBasedOnFrames()

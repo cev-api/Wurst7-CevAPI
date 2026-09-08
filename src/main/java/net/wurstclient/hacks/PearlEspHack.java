@@ -702,6 +702,17 @@ public class PearlEspHack extends Hack
 	private String getPearlOwnerLabel(Entity pearl, Entity owner)
 	{
 		UUID pearlUuid = pearl.getUUID();
+		Integer spawnOwnerId = pearlSpawnOwnerIds.get(pearlUuid);
+		if(spawnOwnerId != null && spawnOwnerId == 0)
+		{
+			// ClientboundAddEntityPacket uses data/ownerEntityId 0 for a pearl
+			// with no owner. Do not let an old UUID mapping or local inference
+			// turn that into a false owner.
+			pearlOwnerUuids.remove(pearlUuid);
+			pearlOwnerLabels.remove(pearlUuid);
+			return "Owner: No Owner";
+		}
+		
 		UUID ownerUuid = getKnownOwnerUuid(owner);
 		if(ownerUuid != null)
 		{
@@ -1532,6 +1543,14 @@ public class PearlEspHack extends Hack
 		long now = System.currentTimeMillis();
 		
 		pearlSpawnOwnerIds.put(pearlUuid, ownerId);
+		if(ownerId == 0)
+		{
+			// A zero owner entity id is the protocol's explicit no-owner value.
+			// Clear any stale persisted/inferred mapping before the pearl is
+			// rendered or considered for own-pearl suppression.
+			pearlOwnerUuids.remove(pearlUuid);
+			pearlOwnerLabels.remove(pearlUuid);
+		}
 		
 		// Update pearl identity
 		PearlIdentity existing = pearlIdentities.get(pearlUuid);
@@ -1546,6 +1565,9 @@ public class PearlEspHack extends Hack
 				new PearlIdentity(pearlUuid, pearlEntityId, null, ownerId,
 					OwnerConfidence.UNKNOWN, now, now));
 		}
+		
+		if(ownerId == 0)
+			return;
 		
 		// Try to resolve owner now
 		UUID ownerUuid = resolveOwnerUuid(ownerId);

@@ -111,6 +111,11 @@ public final class DestinationRule
 				.map(ItemStack::copy).toList();
 	}
 	
+	public void clearAutosortFamilyItem()
+	{
+		autosortFamilyItem = ItemStack.EMPTY;
+	}
+	
 	public List<ItemStack> getObservedContents()
 	{
 		return observedContents.stream().map(ItemStack::copy).toList();
