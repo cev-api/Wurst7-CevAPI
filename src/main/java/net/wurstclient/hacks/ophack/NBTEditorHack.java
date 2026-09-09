@@ -65,23 +65,26 @@ public final class NBTEditorHack extends Hack
 	@Override
 	protected void onEnable()
 	{
-		if(MC.getConnection() == null || MC.player == null)
-		{
-			setEnabled(false);
-			return;
-		}
 		openEditor();
 	}
 	
-	private void openEditor()
+	/** Opens the editor without treating it as a persistent toggle state. */
+	public void openEditor()
 	{
-		if(MC.getConnection() == null || MC.player == null)
-		{
-			setEnabled(false);
-			return;
-		}
-		editorText = readHeldItem();
-		MC.gui.setScreen(new NBTEditorScreen(MC.gui.screen(), this));
+		// Commands are received from the chat callback. Queue this work on the
+		// client executor so closing that callback cannot replace the editor
+		// screen with the chat screen again.
+		MC.execute(() -> {
+			if(MC.getConnection() == null || MC.player == null)
+			{
+				lastEditorMessage = "No player is available.";
+				if(isEnabled())
+					setEnabled(false);
+				return;
+			}
+			editorText = readHeldItem();
+			MC.gui.setScreen(new NBTEditorScreen(MC.gui.screen(), this));
+		});
 	}
 	
 	private void saveHeldPreset()

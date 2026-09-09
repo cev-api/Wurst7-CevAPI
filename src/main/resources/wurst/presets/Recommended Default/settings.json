@@ -4055,8 +4055,10 @@
     "Wrap yaw": false,
     "Dedup movement": false,
     "Debug logging": true,
-    "Temporarily disabled": "",
-    "Temporary whitelist": ""
+    "Allowed hacks": {
+      "additional": [],
+      "disabledDefaults": []
+    }
   },
   "PerformanceOverlay": {
     "Enabled": false,

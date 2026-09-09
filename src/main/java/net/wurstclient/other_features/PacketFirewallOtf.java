@@ -8,10 +8,16 @@
 package net.wurstclient.other_features;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -32,6 +38,8 @@ import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -48,9 +56,14 @@ import net.wurstclient.events.RightClickListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.other_feature.OtherFeature;
-import net.wurstclient.settings.ButtonSetting;
 import net.wurstclient.settings.CheckboxSetting;
-import net.wurstclient.settings.StringDropdownSetting;
+import net.wurstclient.settings.Setting;
+import net.wurstclient.keybinds.PossibleKeybind;
+import net.wurstclient.clickgui.Component;
+import net.wurstclient.clickgui.ClickGui;
+import net.wurstclient.clickgui.ClickGuiIcons;
+import net.wurstclient.util.RenderUtils;
+import net.wurstclient.WurstClient;
 import net.wurstclient.util.PacketUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.MovementMutationTracker;
@@ -86,35 +99,8 @@ public final class PacketFirewallOtf extends OtherFeature
 				+ "Direct packets sent from hacks are blocked and "
 				+ "PacketFirewall stops rewriting movement packets."),
 			false);
-	private final CheckboxSetting allowClutchFallSetting = new CheckboxSetting(
-		"Allow ClutchFall",
-		WText.literal(
-			"Keeps ClutchFall enabled and allows its normal placement packets in Vanilla-only mode."),
-		true);
-	private final StringDropdownSetting disabledHacksSetting =
-		new StringDropdownSetting("Temporarily disabled",
-			WText.literal("Hacks currently suppressed by PacketFirewall."));
-	private final ButtonSetting reEnableSelectedSetting = new ButtonSetting(
-		"Re-enable selected",
-		WText.literal(
-			"Re-enables the selected hack and temporarily whitelists it while PacketFirewall stays enabled."),
-		this::reEnableSelectedHack);
-	private final ButtonSetting reEnableAllSetting = new ButtonSetting(
-		"Re-enable all",
-		WText.literal(
-			"Re-enables all currently suppressed hacks and temporarily whitelists them."),
-		this::reEnableAllHacks);
-	private final StringDropdownSetting whitelistSetting =
-		new StringDropdownSetting("Temporary whitelist", WText.literal(
-			"Whitelisted hacks are not auto-disabled again until PacketFirewall is turned off."));
-	private final ButtonSetting removeWhitelistSelectedSetting =
-		new ButtonSetting("Remove selected whitelist",
-			WText.literal(
-				"Removes the selected hack from the temporary whitelist."),
-			this::removeSelectedWhitelistEntry);
-	private final ButtonSetting clearWhitelistSetting = new ButtonSetting(
-		"Clear whitelist", WText.literal("Clears the temporary whitelist."),
-		this::clearTemporaryWhitelist);
+	private final HackSelectionSetting allowedHacksSetting =
+		new HackSelectionSetting();
 	
 	private Vec3 lastGoodPos;
 	private float lastGoodYaw;
@@ -136,7 +122,9 @@ public final class PacketFirewallOtf extends OtherFeature
 		new LinkedHashSet<>();
 	private final LinkedHashSet<Hack> vanillaOnlyPausedHacks =
 		new LinkedHashSet<>();
-	private final LinkedHashSet<String> temporaryWhitelist =
+	private final LinkedHashSet<String> additionalAllowedHacks =
+		new LinkedHashSet<>();
+	private final LinkedHashSet<String> disabledDefaultHacks =
 		new LinkedHashSet<>();
 	private final LinkedHashMap<Hack, String> suppressedReasons =
 		new LinkedHashMap<>();
@@ -159,13 +147,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		addSetting(dedupMovementSetting);
 		addSetting(debugLoggingSetting);
 		addSetting(vanillaOnlyPacketsSetting);
-		addSetting(allowClutchFallSetting);
-		addSetting(disabledHacksSetting);
-		addSetting(reEnableSelectedSetting);
-		addSetting(reEnableAllSetting);
-		addSetting(whitelistSetting);
-		addSetting(removeWhitelistSelectedSetting);
-		addSetting(clearWhitelistSetting);
+		addSetting(allowedHacksSetting);
 		
 		EVENTS.add(PacketInputListener.class, this);
 		EVENTS.add(PacketOutputListener.class, this);
@@ -208,8 +190,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		Packet<?> packet = event.getPacket();
 		SenderResolution sender = resolveSenderHackFromStack();
 		if(sender == null || sender.hack() == null
-			|| isVanillaModeAllowedHack(sender.hack())
-			|| temporaryWhitelist.contains(sender.hack().getName()))
+			|| isAllowedHack(sender.hack()))
 			return;
 		
 		suppressHackTemporarily(sender.hack(),
@@ -235,8 +216,7 @@ public final class PacketFirewallOtf extends OtherFeature
 			Packet<?> packet = event.getPacket();
 			SenderResolution sender = resolveSenderHackFromStack();
 			if(sender != null && sender.hack() != null
-				&& !isVanillaModeAllowedHack(sender.hack())
-				&& !temporaryWhitelist.contains(sender.hack().getName())
+				&& !isAllowedHack(sender.hack())
 				&& isCustomPacketSurface(packet))
 			{
 				suppressHackTemporarily(sender.hack(),
@@ -312,8 +292,6 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(!isFirewallEnabled())
 			restoreSuppressedHacks();
 		
-		refreshManualControlLists();
-		
 		if(!isFirewallEnabled())
 			return;
 		
@@ -367,8 +345,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		SenderResolution sender = resolveSenderHackFromStack();
 		boolean hackOrigin = sender != null && sender.hack() != null
-			&& !isVanillaModeAllowedHack(sender.hack())
-			&& !temporaryWhitelist.contains(sender.hack().getName())
+			&& !isAllowedHack(sender.hack())
 			&& !isAllowedChatPacket(sender.hack(), original, packet);
 		if(hackOrigin)
 			return null;
@@ -376,7 +353,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(cancelled)
 			// Vanilla screens and actions can be cancelled by another listener.
 			// Preserve those packets unless the cancellation came from a
-			// non-whitelisted hack; otherwise vanilla death-screen actions such
+			// non-allowed hack; otherwise vanilla death-screen actions such
 			// as respawn and leaving to the title screen become unusable.
 			return hackOrigin ? null : original;
 		
@@ -431,8 +408,8 @@ public final class PacketFirewallOtf extends OtherFeature
 	private void restoreSuppressedHacks()
 	{
 		if(!suppressingRiskyHacks && temporarilyDisabledHacks.isEmpty()
-			&& suppressedReasons.isEmpty() && temporaryWhitelist.isEmpty()
-			&& recentGrimEvidence.isEmpty() && vanillaOnlyPausedHacks.isEmpty()
+			&& suppressedReasons.isEmpty() && recentGrimEvidence.isEmpty()
+			&& vanillaOnlyPausedHacks.isEmpty()
 			&& !wasVanillaOnlyPacketsEnabled)
 			return;
 		
@@ -443,7 +420,6 @@ public final class PacketFirewallOtf extends OtherFeature
 		temporarilyDisabledHacks.clear();
 		vanillaOnlyPausedHacks.clear();
 		suppressedReasons.clear();
-		temporaryWhitelist.clear();
 		recentGrimEvidence.clear();
 		MovementMutationTracker.clear();
 		suppressingRiskyHacks = false;
@@ -523,8 +499,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		for(var entry : mutations.entrySet())
 		{
 			Hack hack = entry.getKey();
-			if(hack == null || !hack.isEnabled()
-				|| temporaryWhitelist.contains(hack.getName()))
+			if(hack == null || !hack.isEnabled() || isAllowedHack(hack))
 				continue;
 			
 			suppressHackTemporarily(hack,
@@ -686,14 +661,8 @@ public final class PacketFirewallOtf extends OtherFeature
 		for(Hack hack : WURST.getHax().getAllHax())
 			if(hack.isEnabled() && isPacketAffectingHack(hack))
 			{
-				// ClutchFall remains enabled in vanilla-only mode. Its normal
-				// right-click packet is explicitly allowed by the firewall.
-				if(isVanillaModeAllowedHack(hack))
+				if(isAllowedHack(hack))
 					continue;
-				// Untouchable must be disabled in vanilla-only mode, even if it
-				// was manually whitelisted before the mode was enabled.
-				if(hack.getName().equals("Untouchable"))
-					temporaryWhitelist.remove(hack.getName());
 				vanillaOnlyPausedHacks.add(hack);
 				if(!suppressHackTemporarily(hack,
 					"vanilla-only packets mode paused packet-affecting hack"))
@@ -708,28 +677,13 @@ public final class PacketFirewallOtf extends OtherFeature
 	 */
 	private boolean isPacketAffectingHack(Hack hack)
 	{
+		if(hack == null)
+			return false;
+			
 		// These helpers react to client actions but do not spoof or delay
 		// packets. Suppressing them breaks normal client-side conveniences such
 		// as automatic tool selection and custom totem rendering.
-		String name = hack.getName();
-		if(isVanillaModeAllowedHack(hack))
-			return false;
-		if(name.equals("AutoTool") || name.equals("AutoArmor")
-			|| name.equals("AutoSword") || name.equals("AutoTotem")
-			|| name.equals("AutoSwitch") || name.equals("CustomTotem"))
-			return false;
-			
-		// Render hacks only display client-side information. They must remain
-		// usable in vanilla-only mode, even when they implement input or packet
-		// listeners for their overlays.
-		if(hack.getCategory() == Category.RENDER)
-			return false;
-			
-		// ESP/HUD/statistics hacks observe client state; they do not make the
-		// client cheat in its server-facing actions. Their listener interfaces
-		// are often used only for receiving packets or rendering overlays.
-		if(name.endsWith("ESP") || name.endsWith("HUD")
-			|| name.equals("GameStats") || name.equals("OppStats"))
+		if(isBuiltInAllowedHack(hack))
 			return false;
 		
 		if(hack.getCategory() == Category.MOVEMENT)
@@ -743,10 +697,63 @@ public final class PacketFirewallOtf extends OtherFeature
 			|| hack instanceof RightClickListener;
 	}
 	
-	private boolean isVanillaModeAllowedHack(Hack hack)
+	private boolean isBuiltInAllowedHack(Hack hack)
 	{
-		return hack != null && hack.getName().equals("ClutchFall")
-			&& allowClutchFallSetting.isChecked();
+		String name = hack.getName();
+		if(name.equals("AutoBuild") || name.equals("ElytraPitch")
+			|| name.equals("AutoTool") || name.equals("AutoArmor")
+			|| name.equals("AutoSword") || name.equals("AutoTotem")
+			|| name.equals("AutoSwitch") || name.equals("CustomTotem"))
+			return true;
+			
+		// Render hacks only display client-side information. ESP/HUD/statistics
+		// hacks can listen to packets, but do not change server-facing actions.
+		return hack.getCategory() == Category.RENDER || name.endsWith("ESP")
+			|| name.endsWith("HUD") || name.equals("GameStats")
+			|| name.equals("OppStats");
+	}
+	
+	/**
+	 * Returns whether PacketFirewall normally allows this hack without a user
+	 * override. This is exposed to the selector so its initial ticks reflect
+	 * the firewall's actual policy.
+	 */
+	public boolean isAllowedByDefault(Hack hack)
+	{
+		return hack != null
+			&& (isBuiltInAllowedHack(hack) || !isPacketAffectingHack(hack));
+	}
+	
+	public boolean isAllowedHack(Hack hack)
+	{
+		return hack != null && (additionalAllowedHacks.contains(hack.getName())
+			|| isAllowedByDefault(hack)
+				&& !disabledDefaultHacks.contains(hack.getName()));
+	}
+	
+	/** Toggles an allowed-hack entry and persists the user override. */
+	public void toggleAllowedHack(Hack hack)
+	{
+		if(hack == null)
+			return;
+		
+		String name = hack.getName();
+		if(isAllowedByDefault(hack))
+		{
+			if(!disabledDefaultHacks.add(name))
+				disabledDefaultHacks.remove(name);
+		}else if(!additionalAllowedHacks.add(name))
+			additionalAllowedHacks.remove(name);
+		
+		if(isAllowedHack(hack) && temporarilyDisabledHacks.remove(hack))
+		{
+			suppressedReasons.remove(hack);
+			vanillaOnlyPausedHacks.remove(hack);
+			if(!hack.isEnabled())
+				hack.setEnabled(true);
+		}
+		
+		WurstClient.INSTANCE.saveSettings();
 	}
 	
 	private boolean suppressHackTemporarily(Hack hack, String reason)
@@ -754,10 +761,10 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(hack == null || !hack.isEnabled())
 			return false;
 		
-		if(temporaryWhitelist.contains(hack.getName()))
+		if(isAllowedHack(hack))
 		{
 			if(debugLoggingSetting.isChecked())
-				LOGGER.info("[PacketFirewall] whitelist skipped {} ({})",
+				LOGGER.info("[PacketFirewall] allowed hack skipped {} ({})",
 					hack.getName(), reason);
 			return false;
 		}
@@ -770,66 +777,172 @@ public final class PacketFirewallOtf extends OtherFeature
 		return true;
 	}
 	
-	private void refreshManualControlLists()
+	private final class HackSelectionSetting extends Setting
 	{
-		List<String> disabledNames =
-			temporarilyDisabledHacks.stream().map(Hack::getName).toList();
-		disabledHacksSetting.setOptions(disabledNames);
-		whitelistSetting.setOptions(temporaryWhitelist);
+		private HackSelectionSetting()
+		{
+			super("Allowed hacks", WText.literal(
+				"Hacks that PacketFirewall will allow. Built-in allowances are "
+					+ "ticked by default; your changes are saved."));
+		}
+		
+		@Override
+		public Component getComponent()
+		{
+			HackSelectionComponent component = new HackSelectionComponent();
+			component.refreshSize();
+			return component;
+		}
+		
+		@Override
+		public void resetToDefault()
+		{
+			additionalAllowedHacks.clear();
+			disabledDefaultHacks.clear();
+			WurstClient.INSTANCE.saveSettings();
+		}
+		
+		@Override
+		public void fromJson(JsonElement json)
+		{
+			additionalAllowedHacks.clear();
+			disabledDefaultHacks.clear();
+			
+			// Accept the original flat array as a migration path.
+			if(json.isJsonArray())
+			{
+				readHackNames(json, additionalAllowedHacks);
+				return;
+			}
+			
+			if(!json.isJsonObject())
+				return;
+			JsonObject object = json.getAsJsonObject();
+			readHackNames(object.get("additional"), additionalAllowedHacks);
+			readHackNames(object.get("disabledDefaults"), disabledDefaultHacks);
+		}
+		
+		@Override
+		public JsonElement toJson()
+		{
+			JsonObject json = new JsonObject();
+			json.add("additional", toJsonArray(additionalAllowedHacks));
+			json.add("disabledDefaults", toJsonArray(disabledDefaultHacks));
+			return json;
+		}
+		
+		@Override
+		public JsonObject exportWikiData()
+		{
+			JsonObject json = new JsonObject();
+			json.addProperty("name", getName());
+			json.addProperty("description", getDescription());
+			json.addProperty("type", "Custom");
+			return json;
+		}
+		
+		@Override
+		public java.util.Set<PossibleKeybind> getPossibleKeybinds(
+			String featureName)
+		{
+			return Collections.emptySet();
+		}
 	}
 	
-	private void reEnableSelectedHack()
+	private void readHackNames(JsonElement json, LinkedHashSet<String> names)
 	{
-		String selected = disabledHacksSetting.getSelected();
-		if(selected == null || selected.isBlank())
+		if(json == null || !json.isJsonArray())
 			return;
-		
-		reEnableAndWhitelist(selected);
+		for(JsonElement element : json.getAsJsonArray())
+			if(element.isJsonPrimitive()
+				&& element.getAsJsonPrimitive().isString())
+				names.add(element.getAsString());
 	}
 	
-	private void reEnableAllHacks()
+	private JsonArray toJsonArray(LinkedHashSet<String> names)
 	{
-		for(Hack hack : new LinkedHashSet<>(temporarilyDisabledHacks))
-			reEnableAndWhitelist(hack.getName());
+		JsonArray json = new JsonArray();
+		names.forEach(json::add);
+		return json;
 	}
 	
-	private void reEnableAndWhitelist(String hackName)
+	private final class HackSelectionComponent extends Component
 	{
-		Hack hack = WURST.getHax().getHackByName(hackName);
-		if(hack == null)
-			return;
+		private static final int ROW_HEIGHT = 11;
+		private static final int BOX_SIZE = 11;
 		
-		String reason = suppressedReasons.getOrDefault(hack, "manual override");
-		temporarilyDisabledHacks.remove(hack);
-		vanillaOnlyPausedHacks.remove(hack);
-		suppressedReasons.remove(hack);
-		temporaryWhitelist.add(hack.getName());
+		private List<Hack> getSortedHacks()
+		{
+			return WURST.getHax().getAllHax().stream()
+				.sorted(Comparator.comparing(h -> h.getName().toLowerCase()))
+				.toList();
+		}
 		
-		if(!hack.isEnabled())
-			hack.setEnabled(true);
+		private void refreshSize()
+		{
+			setHeight(
+				Math.max(ROW_HEIGHT * getSortedHacks().size(), ROW_HEIGHT));
+		}
 		
-		ChatUtils.message("[PacketFirewall] Re-enabled " + hack.getName()
-			+ " and added to temporary whitelist (" + reason + ").");
-	}
-	
-	private void removeSelectedWhitelistEntry()
-	{
-		String selected = whitelistSetting.getSelected();
-		if(selected == null || selected.isBlank())
-			return;
+		@Override
+		public void handleMouseClick(double mouseX, double mouseY,
+			int mouseButton, MouseButtonEvent context)
+		{
+			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+				|| !isHovering((int)mouseX, (int)mouseY))
+				return;
+			List<Hack> hacks = getSortedHacks();
+			int index = ((int)mouseY - getY()) / ROW_HEIGHT;
+			if(index < 0 || index >= hacks.size())
+				return;
+			Hack hack = hacks.get(index);
+			toggleAllowedHack(hack);
+		}
 		
-		if(temporaryWhitelist.remove(selected))
-			ChatUtils.message("[PacketFirewall] Removed " + selected
-				+ " from temporary whitelist.");
-	}
-	
-	private void clearTemporaryWhitelist()
-	{
-		if(temporaryWhitelist.isEmpty())
-			return;
+		@Override
+		public void extractRenderState(GuiGraphicsExtractor context, int mouseX,
+			int mouseY, float partialTicks)
+		{
+			List<Hack> hacks = getSortedHacks();
+			refreshSize();
+			ClickGui gui = WURST.getGui();
+			for(int i = 0; i < hacks.size(); i++)
+			{
+				Hack hack = hacks.get(i);
+				int y = getY() + i * ROW_HEIGHT;
+				boolean selected = isAllowedHack(hack);
+				boolean hover = isHovering(mouseX, mouseY) && mouseY >= y
+					&& mouseY < y + ROW_HEIGHT;
+				float[] bg = gui.getBgColor();
+				context.fill(getX(), y, getX() + getWidth(), y + ROW_HEIGHT,
+					RenderUtils.toIntColor(bg,
+						gui.getOpacity() * (hover ? 1.2F : 1F)));
+				int boxX = getX() + BOX_SIZE;
+				RenderUtils.drawBorder2D(context, getX(), y, boxX,
+					y + ROW_HEIGHT,
+					RenderUtils.toIntColor(gui.getAcColor(), 0.5F));
+				if(selected)
+					ClickGuiIcons.drawCheck(context, getX(), y, boxX,
+						y + ROW_HEIGHT, hover, false);
+				context.text(MC.font, hack.getName(), boxX + 2, y + 2,
+					hack.isEnabled() ? 0xFF55FF55 : gui.getTxtColor(), false);
+			}
+		}
 		
-		temporaryWhitelist.clear();
-		ChatUtils.message("[PacketFirewall] Cleared temporary whitelist.");
+		@Override
+		public int getDefaultWidth()
+		{
+			return Math.max(130,
+				getSortedHacks().stream()
+					.mapToInt(h -> MC.font.width(h.getName())).max().orElse(0)
+					+ BOX_SIZE + 4);
+		}
+		
+		@Override
+		public int getDefaultHeight()
+		{
+			return 110;
+		}
 	}
 	
 	private void handleMovePlayer(PacketOutputEvent event,
