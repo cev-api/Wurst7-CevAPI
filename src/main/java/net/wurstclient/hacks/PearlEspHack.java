@@ -710,7 +710,7 @@ public class PearlEspHack extends Hack
 			// turn that into a false owner.
 			pearlOwnerUuids.remove(pearlUuid);
 			pearlOwnerLabels.remove(pearlUuid);
-			return "Owner: No Owner";
+			return "No Owner";
 		}
 		
 		UUID ownerUuid = getKnownOwnerUuid(owner);

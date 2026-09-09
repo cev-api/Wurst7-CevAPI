@@ -1,0 +1,61 @@
+{
+    "id": "minecraft:enchanted_golden_apple",
+    "count": 99,
+    "components": {
+        "minecraft:max_stack_size": 99,
+        "minecraft:enchantments": {
+            "minecraft:vanishing_curse": 1
+        },
+        "minecraft:custom_name": {
+            "text": "Wurst7-CevAPI Health Hack Apple",
+            "italic": false
+        },
+        "minecraft:consumable": {
+            "consume_seconds": 0.8,
+            "animation": "eat",
+            "sound": "minecraft:entity.generic.eat",
+            "on_consume_effects": [
+                {
+                    "type": "minecraft:apply_effects",
+                    "effects": [
+                        {
+                            "id": "minecraft:regeneration",
+                            "amplifier": 4,
+                            "duration": -1,
+                            "show_particles": false,
+                            "show_icon": true
+                        },
+                        {
+                            "id": "minecraft:health_boost",
+                            "amplifier": 9,
+                            "duration": -1,
+                            "show_particles": false,
+                            "show_icon": true
+                        },
+                        {
+                            "id": "minecraft:absorption",
+                            "amplifier": 9,
+                            "duration": -1,
+                            "show_particles": false,
+                            "show_icon": true
+                        },
+                        {
+                            "id": "minecraft:resistance",
+                            "amplifier": 3,
+                            "duration": -1,
+                            "show_particles": false,
+                            "show_icon": true
+                        },
+                        {
+                            "id": "minecraft:fire_resistance",
+                            "amplifier": 0,
+                            "duration": -1,
+                            "show_particles": false,
+                            "show_icon": true
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

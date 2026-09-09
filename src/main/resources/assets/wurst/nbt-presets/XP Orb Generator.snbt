@@ -1,0 +1,20 @@
+{
+    "id": "minecraft:creeper_spawn_egg",
+    "count": 99,
+    "components": {
+        "minecraft:max_stack_size": 99,
+        "minecraft:item_model": "minecraft:experience_bottle",
+        "minecraft:entity_data": {
+            "id": "minecraft:experience_orb",
+            "Value": 32767,
+            "Count": 1
+        },
+        "minecraft:enchantments": {
+            "minecraft:vanishing_curse": 1
+        },
+        "minecraft:custom_name": {
+            "text": "Wurst7-CevAPI Mega XP Orb",
+            "italic": false
+        }
+    }
+}

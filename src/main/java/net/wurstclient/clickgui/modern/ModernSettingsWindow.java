@@ -97,8 +97,7 @@ public final class ModernSettingsWindow extends ModernWindow
 				{
 					int height = WurstClient.INSTANCE.getGui()
 						.getModernComponentHeight(component);
-					component
-						.setHeight(Math.max(height, component.getHeight()));
+					component.setHeight(height);
 					add(component);
 				}
 			}

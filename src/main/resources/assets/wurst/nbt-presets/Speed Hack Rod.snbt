@@ -1,17 +1,95 @@
 {
-    id:"minecraft:blaze_rod",
+    id:"minecraft:breeze_rod",
     count:1,
     components:{
+        "minecraft:custom_name":{
+            text:"Speed Hax",
+            italic:false
+        },
+        "minecraft:enchantments":{
+            "minecraft:vanishing_curse":1
+        },
         "minecraft:attribute_modifiers":[
+           
+            {
+                type:"minecraft:knockback_resistance",
+                slot:"mainhand",
+                id:"minecraft:neco_tank_knockback",
+                amount:-1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:explosion_knockback_resistance",
+                slot:"mainhand",
+                id:"minecraft:neco_tank_explosion_knockback",
+                amount:-1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
             {
                 type:"minecraft:movement_speed",
                 slot:"mainhand",
                 id:"minecraft:neco_speed",
                 amount:3.4,
                 operation:"add_value",
-                display:{
-                    type:"hidden"
-                }
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:step_height",
+                slot:"mainhand",
+                id:"minecraft:neco_step_height",
+                amount:2.4,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:safe_fall_distance",
+                slot:"mainhand",
+                id:"minecraft:neco_safe_fall",
+                amount:-1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:fall_damage_multiplier",
+                slot:"mainhand",
+                id:"minecraft:neco_fall_damage",
+                amount:-1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:movement_efficiency",
+                slot:"mainhand",
+                id:"minecraft:neco_movement_efficiency",
+                amount:1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:water_movement_efficiency",
+                slot:"mainhand",
+                id:"minecraft:neco_water_movement",
+                amount:1.0,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:sneaking_speed",
+                slot:"mainhand",
+                id:"minecraft:neco_sneaking_speed",
+                amount:0.7,
+                operation:"add_value",
+                display:{type:"hidden"}
+            },
+            {
+                type:"minecraft:jump_strength",
+                slot:"mainhand",
+                id:"minecraft:neco_jump_strength",
+                amount:0.58,
+                operation:"add_value",
+                display:{type:"hidden"}
             }
         ]
     }

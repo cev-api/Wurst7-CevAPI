@@ -84,6 +84,7 @@ public final class CmdList
 	public final SettingsCmd settingsCmd = new SettingsCmd();
 	public final PresetCmd presetCmd = new PresetCmd();
 	public final NecoCmd NecoCmd = new NecoCmd();
+	public final NBTEditorCmd nbtEditorCmd = new NBTEditorCmd();
 	public final NoGoZoneCmd noGoZoneCmd = new NoGoZoneCmd();
 	public final TCmd tCmd = new TCmd();
 	public final TargetPlaceCmd targetPlaceCmd = new TargetPlaceCmd();
