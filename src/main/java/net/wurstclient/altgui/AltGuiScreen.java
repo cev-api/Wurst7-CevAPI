@@ -50,6 +50,7 @@ import net.wurstclient.commands.NecoCmd;
 import net.wurstclient.keybinds.Keybind;
 import net.wurstclient.keybinds.PossibleKeybind;
 import net.wurstclient.other_feature.OtherFeature;
+import net.wurstclient.other_features.PacketFirewallOtf;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.settings.BlockSetting;
 import net.wurstclient.settings.BookOffersSetting;
@@ -1974,6 +1975,14 @@ public final class AltGuiScreen extends Screen
 		if(setting instanceof ButtonSetting buttonSetting)
 		{
 			buttonSetting.runAction();
+			return true;
+		}
+		
+		if(owner instanceof PacketFirewallOtf packetFirewall
+			&& "Allowed hacks".equals(setting.getName()))
+		{
+			minecraft.gui.setScreen(
+				new PacketFirewallAllowedHacksScreen(this, packetFirewall));
 			return true;
 		}
 		

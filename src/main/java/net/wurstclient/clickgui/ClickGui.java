@@ -684,13 +684,18 @@ public final class ClickGui
 		int rowHeight = getModernRowHeight();
 		if(component instanceof ModernSettingComponent settingComponent
 			&& settingComponent.isSlider())
-			return Math.min(25, rowHeight + 4);
+			return rowHeight + 4;
 		boolean compact = component instanceof ModernSettingComponent
 			|| component instanceof net.wurstclient.clickgui.components.ColorComponent
 			|| component instanceof net.wurstclient.clickgui.components.ComboBoxComponent<?>
 			|| component instanceof net.wurstclient.clickgui.components.StringDropdownComponent;
-		return compact ? rowHeight : Math.max(rowHeight,
-			Math.max(component.getHeight(), component.getDefaultHeight()));
+		// The stored component height may be stale from a previous layout
+		// (cached components, older row heights, classic defaults). Only the
+		// declared default matters: single-row modern rows must track the
+		// Global row height in both directions, while rows whose content needs
+		// extra room (text fields, list editors, etc.) keep that room.
+		return compact ? rowHeight
+			: Math.max(rowHeight, component.getDefaultHeight());
 	}
 	
 	private boolean isFeatureVisibleInClickGui(Feature feature,

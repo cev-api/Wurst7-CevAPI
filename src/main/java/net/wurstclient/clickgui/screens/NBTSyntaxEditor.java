@@ -7,51 +7,63 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractTextAreaWidget;
 import net.minecraft.client.gui.components.MultilineTextField;
+import net.minecraft.client.gui.components.Whence;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 
-/**
- * Editable SNBT field with syntax colors, indentation guides, and fold gutters.
- */
+/** Editable SNBT field with syntax colors, line numbers, and folding. */
 public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 {
+	private static final int LINE_HEIGHT = 9;
+	private static final int LINE_NUMBER_WIDTH = 44;
+	private static final int CODE_LEFT_PADDING = 4;
 	private final Font font;
-	private final MultilineTextField textField;
+	private final EditorTextField textField;
 	private final Set<Integer> collapsedLines = new HashSet<>();
+	private final List<DisplayRow> visibleRows = new ArrayList<>();
 	private String value = "";
 	private String[] lines = {""};
-	private boolean dragging;
 	
 	public NBTSyntaxEditor(Font font, int x, int y, int width, int height)
 	{
-		super(x, y, width, height, Component.literal("NBT"), defaultSettings(9),
-			true, true);
+		super(x, y, width, height, Component.literal("NBT"),
+			defaultSettings(LINE_HEIGHT), true, true);
 		this.font = font;
-		textField = new MultilineTextField(font, Math.max(1, width - 18));
+		textField = new EditorTextField(font,
+			Math.max(1, width - LINE_NUMBER_WIDTH - totalInnerPadding()));
 		textField.setCharacterLimit(Integer.MAX_VALUE);
 		textField.setValueListener(text -> {
 			value = text;
 			lines = text.split("\\n", -1);
+			// Edits can move every fold boundary. Rebuild from the same wrapped
+			// lines used by the text field for keyboard navigation and
+			// selection.
+			collapsedLines.clear();
+			rebuildVisibleRows();
+			refreshScrollAmount();
 		});
+		textField.setCursorListener(this::scrollToCursor);
+		setValue("");
 	}
 	
 	public void setValue(String value)
 	{
-		this.value = value == null ? "" : value;
-		lines = this.value.split("\\n", -1);
-		textField.setValue(this.value);
+		textField.setSelecting(false);
+		textField.setValue(value == null ? "" : value);
+		textField.seekCursor(Whence.ABSOLUTE, 0);
 		setScrollAmount(0);
-		refreshScrollAmount();
 	}
 	
 	public String getValue()
@@ -60,114 +72,136 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	}
 	
 	@Override
-	protected int contentHeight()
-	{
-		return Math.max(getHeight() - 8, visibleLineCount() * 9 + 8);
-	}
-	
-	@Override
 	protected int getInnerHeight()
 	{
-		return contentHeight();
+		return visibleRows.size() * LINE_HEIGHT;
 	}
 	
-	private int visibleLineCount()
+	private void rebuildVisibleRows()
 	{
+		visibleRows.clear();
+		boolean[] hidden = new boolean[lines.length];
+		int[] starts = new int[lines.length];
 		int depth = 0;
-		int visible = 0;
 		for(int line = 0; line < lines.length; line++)
 		{
-			if(depth == 0)
-				visible++;
-			String text = lineText(line);
-			int balance = count(text, '{') + count(text, '[') - count(text, '}')
-				- count(text, ']');
+			hidden[line] = depth > 0;
+			if(line > 0)
+				starts[line] = starts[line - 1] + lines[line - 1].length() + 1;
 			if(depth > 0 || collapsedLines.contains(line))
-				depth += balance;
-			if(depth < 0)
-				depth = 0;
+				depth = Math.max(0, depth + bracketBalance(lines[line]));
 		}
-		return visible;
-	}
-	
-	private String lineText(int line)
-	{
-		return line >= 0 && line < lines.length ? lines[line] : "";
-	}
-	
-	private int lineStart(int line)
-	{
-		int position = 0;
-		for(int i = 0; i < line; i++)
+		
+		int sourceLine = 0;
+		for(int fieldLine = 0; fieldLine < textField
+			.getLineCount(); fieldLine++)
 		{
-			int newline = value.indexOf('\n', position);
-			if(newline < 0)
-				return value.length();
-			position = newline + 1;
+			int begin = textField.lineStart(fieldLine);
+			while(sourceLine + 1 < starts.length
+				&& begin >= starts[sourceLine + 1])
+				sourceLine++;
+			if(!hidden[sourceLine])
+				visibleRows.add(new DisplayRow(fieldLine, sourceLine, begin,
+					textField.lineEnd(fieldLine), begin == starts[sourceLine]));
 		}
-		return position;
 	}
 	
 	@Override
 	protected void extractContents(GuiGraphicsExtractor context, int mouseX,
 		int mouseY, float partialTicks)
 	{
-		int left = getInnerLeft();
-		int top = getInnerTop() - (int)scrollAmount();
-		context.enableScissor(getX(), getY(), getRight(), getBottom());
-		int depth = 0;
-		int visualLine = 0;
-		for(int line = 0; line < lines.length; line++)
+		int left = getCodeLeft();
+		// The parent clips the viewport BEFORE translating by scrollAmount().
+		// A second scissor here would move with the content, progressively cut
+		// off the bottom of the viewport, and eventually hide all of the text.
+		int top = getInnerTop();
+		int fixedTop = getY() + (int)scrollAmount();
+		int fixedBottom = getBottom() + (int)Math.ceil(scrollAmount());
+		context.fill(getX(), fixedTop, left - CODE_LEFT_PADDING, fixedBottom,
+			0xCC10151C);
+		context.fill(left - CODE_LEFT_PADDING, fixedTop,
+			left - CODE_LEFT_PADDING + 1, fixedBottom, 0xFF384552);
+		
+		int cursorRow = findCursorRow();
+		int selectionStart = textField.selectionStart();
+		int selectionEnd = textField.selectionEnd();
+		int firstRow =
+			Math.max(0, (int)((scrollAmount() - innerPadding()) / LINE_HEIGHT));
+		for(int i = firstRow; i < visibleRows.size(); i++)
 		{
-			String text = lineText(line);
-			boolean hidden = depth > 0;
-			if(!hidden)
+			DisplayRow row = visibleRows.get(i);
+			int y = top + i * LINE_HEIGHT;
+			if(y - scrollAmount() >= getBottom())
+				break;
+			if(!withinContentAreaTopBottom(y, y + LINE_HEIGHT))
+				continue;
+			if(row.first())
 			{
-				int y = top + visualLine++ * 9;
-				if(y + 9 >= getY() && y <= getBottom())
-					renderLine(context, text, left, y);
-				if(isFoldable(text))
+				String number = Integer.toString(row.sourceLine() + 1);
+				context.text(font, number,
+					left - CODE_LEFT_PADDING - 3 - font.width(number), y,
+					0xFF82909D);
+				if(isFoldable(lines[row.sourceLine()]))
 					context.text(font,
-						collapsedLines.contains(line) ? "+" : "-", getX() + 3,
-						y, 0xFF8A9BA8);
+						collapsedLines.contains(row.sourceLine()) ? "+" : "-",
+						getX() + 3, y, 0xFF8A9BA8);
 			}
-			int balance = count(text, '{') + count(text, '[') - count(text, '}')
-				- count(text, ']');
-			if(depth > 0 || collapsedLines.contains(line))
-				depth += balance;
-			if(depth < 0)
-				depth = 0;
+			renderLine(context, value.substring(row.begin(), row.end()), left,
+				y);
+			if(isFocused() && i == cursorRow)
+			{
+				int cursorX = left + font
+					.width(value.substring(row.begin(), textField.cursor()));
+				context.fill(cursorX, y, cursorX + 1, y + LINE_HEIGHT,
+					0xFFE8E8E8);
+			}
+			if(selectionStart < selectionEnd && selectionStart <= row.end()
+				&& selectionEnd > row.begin())
+			{
+				int startX = left + font.width(value.substring(row.begin(),
+					Math.max(selectionStart, row.begin())));
+				int endX = selectionEnd > row.end()
+					? getRight() - innerPadding() : left + font
+						.width(value.substring(row.begin(), selectionEnd));
+				context.textHighlight(startX, y, endX, y + LINE_HEIGHT, true);
+			}
 		}
-		if(isFocused())
-			renderCursor(context, left, top, visualLine);
-		context.disableScissor();
 	}
 	
-	private void renderCursor(GuiGraphicsExtractor context, int left, int top,
-		int visualLines)
+	private int getCodeLeft()
 	{
-		int line = textField.getLineAtCursor();
-		int visual = 0;
-		int depth = 0;
-		for(int i = 0; i < line; i++)
+		return getInnerLeft() + LINE_NUMBER_WIDTH;
+	}
+	
+	private int findCursorRow()
+	{
+		int fieldLine = textField.getLineAtCursor();
+		for(int i = 0; i < visibleRows.size(); i++)
+			if(visibleRows.get(i).fieldLine() == fieldLine)
+				return i;
+		return -1;
+	}
+	
+	private void scrollToCursor()
+	{
+		int row = findCursorRow();
+		if(row < 0 && !collapsedLines.isEmpty())
 		{
-			String text = lineText(i);
-			if(depth == 0)
-				visual++;
-			int balance = count(text, '{') + count(text, '[') - count(text, '}')
-				- count(text, ']');
-			if(depth > 0 || collapsedLines.contains(i))
-				depth += balance;
-			if(depth < 0)
-				depth = 0;
+			// Keyboard navigation into a folded region must reveal the caret.
+			collapsedLines.clear();
+			rebuildVisibleRows();
+			row = findCursorRow();
 		}
-		int start = lineStart(line);
-		int offset = Math.max(0, textField.cursor() - start);
-		String prefix = value.substring(start, Math.min(start + offset,
-			Math.min(value.length(), start + lineText(line).length())));
-		int y = top + visual * 9;
-		context.fill(left + font.width(prefix), y,
-			left + font.width(prefix) + 1, y + 9, 0xFFE8E8E8);
+		if(row < 0)
+			return;
+		double top = row * LINE_HEIGHT;
+		int viewportHeight = getHeight() - totalInnerPadding();
+		if(top < scrollAmount())
+			setScrollAmount(top);
+		else if(top + LINE_HEIGHT > scrollAmount() + viewportHeight)
+			setScrollAmount(top + LINE_HEIGHT - viewportHeight);
+		else
+			refreshScrollAmount();
 	}
 	
 	private void renderLine(GuiGraphicsExtractor context, String line, int x,
@@ -224,15 +258,33 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	private boolean isFoldable(String text)
 	{
 		String trimmed = text.trim();
-		return trimmed.endsWith("{") || trimmed.endsWith("[");
+		return (trimmed.endsWith("{") || trimmed.endsWith("["))
+			&& bracketBalance(text) > 0;
 	}
 	
-	private int count(String text, char wanted)
+	private int bracketBalance(String text)
 	{
 		int result = 0;
+		char quote = 0;
+		boolean escaped = false;
 		for(int i = 0; i < text.length(); i++)
-			if(text.charAt(i) == wanted)
+		{
+			char c = text.charAt(i);
+			if(quote != 0)
+			{
+				if(escaped)
+					escaped = false;
+				else if(c == '\\')
+					escaped = true;
+				else if(c == quote)
+					quote = 0;
+			}else if(c == '"' || c == '\'')
+				quote = c;
+			else if(c == '{' || c == '[')
 				result++;
+			else if(c == '}' || c == ']')
+				result--;
+		}
 		return result;
 	}
 	
@@ -245,7 +297,7 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(!isActive())
+		if(!isActive() || !isFocused())
 			return false;
 		return textField.keyPressed(event);
 	}
@@ -253,46 +305,92 @@ public final class NBTSyntaxEditor extends AbstractTextAreaWidget
 	@Override
 	public boolean charTyped(CharacterEvent event)
 	{
-		if(!isActive() || !event.isAllowedChatCharacter())
+		if(!isActive() || !isFocused() || !event.isAllowedChatCharacter())
 			return false;
 		textField.insertText(event.codepointAsString());
 		return true;
 	}
 	
 	@Override
-	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
+	public void onClick(MouseButtonEvent event, boolean doubleClick)
 	{
-		if(!isMouseOver(event.x(), event.y()))
-			return false;
-		setFocused(true);
-		dragging = true;
-		if(event.x() < getInnerLeft())
+		// Let the parent start scrollbar dragging and handle mouse release.
+		if(isOverScrollbar(event.x(), event.y()))
+			return;
+		DisplayRow row = rowAtScreenY(event.y());
+		if(row == null)
+			return;
+		if(event.x() < getInnerLeft() + 7 && row.first()
+			&& isFoldable(lines[row.sourceLine()]))
 		{
-			int line = (int)((event.y() - getInnerTop() + scrollAmount()) / 9);
-			if(line >= 0 && line < lines.length && isFoldable(lineText(line)))
-			{
-				if(!collapsedLines.add(line))
-					collapsedLines.remove(line);
-				refreshScrollAmount();
-				return true;
-			}
+			if(!collapsedLines.add(row.sourceLine()))
+				collapsedLines.remove(row.sourceLine());
+			rebuildVisibleRows();
+			refreshScrollAmount();
+			return;
 		}
-		textField.seekCursorToPoint(event.x() - getInnerLeft(),
-			event.y() - getInnerTop() + scrollAmount());
-		return true;
+		textField.setSelecting(event.hasShiftDown());
+		seekCursorScreen(event.x(), event.y());
+		if(doubleClick)
+			textField.selectWordAtCursor();
 	}
 	
 	@Override
-	public void onRelease(MouseButtonEvent event)
+	protected void onDrag(MouseButtonEvent event, double dx, double dy)
 	{
-		dragging = false;
+		textField.setSelecting(true);
+		seekCursorScreen(event.x(), event.y());
+		textField.setSelecting(event.hasShiftDown());
 	}
 	
-	@Override
-	protected void onDrag(MouseButtonEvent event, double x, double y)
+	private DisplayRow rowAtScreenY(double y)
 	{
-		if(dragging)
-			textField.seekCursorToPoint(x - getInnerLeft(),
-				y - getInnerTop() + scrollAmount());
+		if(visibleRows.isEmpty())
+			return null;
+		int index =
+			(int)Math.floor((y - getInnerTop() + scrollAmount()) / LINE_HEIGHT);
+		return visibleRows.get(Math.clamp(index, 0, visibleRows.size() - 1));
+	}
+	
+	private void seekCursorScreen(double x, double y)
+	{
+		DisplayRow row = rowAtScreenY(y);
+		if(row != null)
+			textField.seekCursorToPoint(Math.max(0, x - getCodeLeft()),
+				row.fieldLine() * LINE_HEIGHT);
+	}
+	
+	private record DisplayRow(int fieldLine, int sourceLine, int begin, int end,
+		boolean first)
+	{}
+	
+	// StringView is protected. Expose just the offsets needed to render and
+	// hit-test the text field's own wrapped line layout.
+	private static final class EditorTextField extends MultilineTextField
+	{
+		private EditorTextField(Font font, int width)
+		{
+			super(font, width);
+		}
+		
+		private int lineStart(int line)
+		{
+			return getLineView(line).beginIndex();
+		}
+		
+		private int lineEnd(int line)
+		{
+			return getLineView(line).endIndex();
+		}
+		
+		private int selectionStart()
+		{
+			return getSelected().beginIndex();
+		}
+		
+		private int selectionEnd()
+		{
+			return getSelected().endIndex();
+		}
 	}
 }

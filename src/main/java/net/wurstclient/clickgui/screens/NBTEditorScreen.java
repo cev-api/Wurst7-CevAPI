@@ -15,7 +15,6 @@ import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.MultiLineEditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
@@ -31,7 +30,7 @@ public final class NBTEditorScreen extends Screen
 	private static final Pattern RESOURCE_ID =
 		Pattern.compile("minecraft:[a-z0-9_./-]+");
 	private final NBTEditorHack hack;
-	private MultiLineEditBox editor;
+	private NBTSyntaxEditor editor;
 	private EditBox presetName;
 	private Button applyButton;
 	private int validationY;
@@ -59,12 +58,7 @@ public final class NBTEditorScreen extends Screen
 		// Keep the status strip immediately above the controls. This makes the
 		// raw editor consume every usable pixel instead of leaving a dead gap.
 		int editorHeight = Math.max(130, buttonY - y - 34);
-		editor = MultiLineEditBox.builder().setX(x).setY(y)
-			.setPlaceholder(Component.literal("Paste item SNBT here"))
-			.build(font, editorWidth, editorHeight, Component.literal("NBT"));
-		// MultiLineEditBox supports clipboard edits and scroll/selection. This
-		// must remain unlimited so full container items are not truncated.
-		editor.setCharacterLimit(Integer.MAX_VALUE);
+		editor = new NBTSyntaxEditor(font, x, y, editorWidth, editorHeight);
 		editor.setValue(hack.getEditorText());
 		addRenderableWidget(editor);
 		setFocused(editor);
