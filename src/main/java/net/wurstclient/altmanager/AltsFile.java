@@ -214,7 +214,8 @@ public final class AltsFile
 		String password = JsonUtils.getAsString(jsonAlt.get("password"), "");
 		if(isTokenCredential(password))
 		{
-			TokenAlt alt = new TokenAlt("", password, nameOrEmail, starred);
+			TokenAlt alt = new TokenAlt("", getTokenCredential(password),
+				nameOrEmail, starred);
 			alt.setLastValidatedAt(lastValidated);
 			alt.setProxyStorageId(
 				JsonUtils.getAsString(jsonAlt.get("proxy"), ""));
@@ -237,9 +238,18 @@ public final class AltsFile
 		return alt;
 	}
 	
-	private static boolean isTokenCredential(String value)
+	private static String getTokenCredential(String value)
 	{
 		String trimmed = value == null ? "" : value.trim();
+		int separator = trimmed.indexOf(':');
+		if(separator >= 0)
+			return trimmed.substring(separator + 1).trim();
+		return trimmed;
+	}
+	
+	private static boolean isTokenCredential(String value)
+	{
+		String trimmed = getTokenCredential(value);
 		return trimmed.startsWith("M.") || trimmed.startsWith("eyJ")
 			|| trimmed.startsWith("Ew");
 	}

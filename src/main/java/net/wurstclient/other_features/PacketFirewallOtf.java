@@ -306,6 +306,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(vanillaOnly)
 		{
 			suppressVanillaOnlyMovementHacks();
+			enforceVanillaOnlyFlightState();
 			return;
 		}
 		
@@ -315,6 +316,17 @@ public final class PacketFirewallOtf extends OtherFeature
 		long tick = getClientTick();
 		if(pendingMovement.packet.tick <= tick)
 			sendPendingMovement("dedup-tick");
+	}
+	
+	private void enforceVanillaOnlyFlightState()
+	{
+		if(MC.player == null || !vanillaOnlyPausedHacks
+			.contains(WURST.getHax().creativeFlightHack))
+			return;
+		
+		MC.player.getAbilities().flying = false;
+		if(!MC.player.getAbilities().instabuild)
+			MC.player.getAbilities().mayfly = false;
 	}
 	
 	private boolean isFirewallEnabled()

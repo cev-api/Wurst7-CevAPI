@@ -52,6 +52,7 @@ public final class IngameHUD implements GUIRenderListener
 		tabGui.render(context, partialTicks);
 		durabilityHud.render(context);
 		elytraInfoHud.render(context);
+		elytraInfoHud.renderElytraPitchStatus(context);
 		gameStatsHud.render(context);
 		clientMessageOverlay.render(context);
 		
