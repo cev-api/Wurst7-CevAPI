@@ -342,19 +342,21 @@ public final class AddAltScreen extends AltEditorScreen
 		{
 			try
 			{
-				String updatedRefreshToken = password;
-				if(!password.isEmpty())
+				String accessToken = getTokenCredential(nameOrEmail);
+				String refreshToken = getTokenCredential(password);
+				String updatedRefreshToken = refreshToken;
+				if(!refreshToken.isEmpty())
 					updatedRefreshToken = MicrosoftLoginManager
-						.loginWithRefreshTokenAndGetUpdatedToken(password,
+						.loginWithRefreshTokenAndGetUpdatedToken(refreshToken,
 							null);
 				else
-					MicrosoftLoginManager.loginWithToken(nameOrEmail);
+					MicrosoftLoginManager.loginWithToken(accessToken);
 				
 				verifiedProfileName = minecraft.getUser().getName();
-				verifiedToken = nameOrEmail;
+				verifiedToken = accessToken;
 				verifiedRefreshToken = updatedRefreshToken;
-				verifiedAccessTokenInput = nameOrEmail;
-				verifiedRefreshTokenInput = password;
+				verifiedAccessTokenInput = accessToken;
+				verifiedRefreshTokenInput = refreshToken;
 				message = "\u00a7a\u00a7lLogin successful as "
 					+ verifiedProfileName + ". Click Add Token Alt to save it.";
 				return;
@@ -404,6 +406,14 @@ public final class AddAltScreen extends AltEditorScreen
 			altManager.add(new MojangAlt(nameOrEmail, password));
 		
 		minecraft.gui.setScreen(prevScreen);
+	}
+	
+	private String getTokenCredential(String value)
+	{
+		String trimmed = value == null ? "" : value.trim();
+		int separator = trimmed.indexOf(':');
+		return separator >= 0 ? trimmed.substring(separator + 1).trim()
+			: trimmed;
 	}
 	
 	private void toggleMode()

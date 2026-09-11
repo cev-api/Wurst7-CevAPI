@@ -348,10 +348,12 @@ public final class DirectLoginScreen extends AltEditorScreen
 				break;
 				
 				case TOKEN_REFRESH:
-				if(!password.isEmpty())
-					MicrosoftLoginManager.loginWithRefreshToken(password);
+				String token = getTokenCredential(
+					password.isEmpty() ? nameOrEmail : password);
+				if(!password.isEmpty() || isRefreshToken(token))
+					MicrosoftLoginManager.loginWithRefreshToken(token);
 				else
-					MicrosoftLoginManager.loginWithToken(nameOrEmail);
+					MicrosoftLoginManager.loginWithToken(token);
 				
 				successfulProfileName = minecraft.getUser().getName();
 				lastTokenInput = nameOrEmail;
@@ -387,6 +389,20 @@ public final class DirectLoginScreen extends AltEditorScreen
 		
 		message = "\u00a7a\u00a7lLogin successful.";
 		minecraft.gui.setScreen(new TitleScreen());
+	}
+	
+	private String getTokenCredential(String value)
+	{
+		String trimmed = value == null ? "" : value.trim();
+		int separator = trimmed.indexOf(':');
+		if(separator >= 0)
+			return trimmed.substring(separator + 1).trim();
+		return trimmed;
+	}
+	
+	private boolean isRefreshToken(String token)
+	{
+		return token.regionMatches(true, 0, "M.", 0, 2);
 	}
 	
 	private void toggleMode()

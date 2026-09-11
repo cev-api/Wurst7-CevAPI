@@ -23,6 +23,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.ElytraInfoHack;
+import net.wurstclient.hacks.ElytraPitchHack;
 import net.wurstclient.util.RenderUtils;
 
 public final class ElytraInfoHud
@@ -33,6 +34,7 @@ public final class ElytraInfoHud
 	private static final int PADDING_Y = 3;
 	
 	private final ElytraInfoHack hack;
+	private final ElytraPitchHack pitchHack;
 	
 	private boolean dragging;
 	private double dragStartMouseX;
@@ -45,6 +47,7 @@ public final class ElytraInfoHud
 	public ElytraInfoHud(ElytraInfoHack hack)
 	{
 		this.hack = hack;
+		pitchHack = WurstClient.INSTANCE.getHax().elytraPitchHack;
 	}
 	
 	public void render(GuiGraphicsExtractor context)
@@ -101,6 +104,57 @@ public final class ElytraInfoHud
 				fontScale);
 			drawX += (int)Math.round(font.width(segment.text()) * fontScale);
 		}
+	}
+	
+	public void renderElytraPitchStatus(GuiGraphicsExtractor context)
+	{
+		if(MC == null || MC.player == null || pitchHack == null
+			|| !pitchHack.isEnabled())
+			return;
+		
+		ItemStack chest = MC.player.getItemBySlot(EquipmentSlot.CHEST);
+		if(chest.isEmpty() || chest.getItem() != Items.ELYTRA
+			|| !pitchHack.isWearingElytra()
+			|| !pitchHack.isGroundStatusVisible())
+			return;
+		
+		String text = pitchHack.getFlightStatusText();
+		if(text == null)
+			return;
+		
+		Font font = MC.font;
+		if(font == null)
+			return;
+		
+		double fontScale = hack.getFontScale();
+		int textWidth = (int)Math.round(font.width(text) * fontScale);
+		int textHeight = (int)Math.round(font.lineHeight * fontScale);
+		int width = textWidth + PADDING_X * 2;
+		int height = textHeight + PADDING_Y * 2;
+		
+		float centerX = context.guiWidth() / 2F;
+		float centerY = context.guiHeight() / 2F;
+		float x = centerX - width / 2F + getCurrentOffsetX();
+		float y = centerY + BASE_Y_OFFSET + getCurrentOffsetY();
+		
+		if(hack.isEnabled())
+		{
+			ItemStack infoChest = MC.player.getItemBySlot(EquipmentSlot.CHEST);
+			if(!infoChest.isEmpty() && infoChest.getItem() == Items.ELYTRA)
+				y += textHeight + PADDING_Y * 2 + 2;
+		}
+		
+		if(hack.hasBackground())
+		{
+			int bgColor = withAlpha(hack.getBackgroundColorI(),
+				hack.getBackgroundOpacity());
+			RenderUtils.fill2D(context, x, y, x + width, y + height, bgColor);
+		}
+		
+		RenderUtils.drawScaledText(context, font, text,
+			Math.round(x) + PADDING_X, Math.round(y) + PADDING_Y,
+			withAlpha(pitchHack.getStatusTextColor(), hack.getTextOpacity()),
+			false, fontScale);
 	}
 	
 	private List<Segment> buildSegments(ItemStack chest)

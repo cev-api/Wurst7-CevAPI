@@ -177,6 +177,14 @@ public enum MicrosoftLoginManager
 		setSession(mcProfile);
 	}
 	
+	private static String stripUsernamePrefix(String value)
+	{
+		String trimmed = value == null ? "" : value.trim();
+		int separator = trimmed.indexOf(':');
+		return separator >= 0 ? trimmed.substring(separator + 1).trim()
+			: trimmed;
+	}
+	
 	public static void loginWithToken(String token) throws LoginException
 	{
 		System.out.println("Logging in with token...");
@@ -184,7 +192,8 @@ public enum MicrosoftLoginManager
 		
 		try
 		{
-			MinecraftProfile mcProfile = authenticateTokenWithoutSession(token);
+			MinecraftProfile mcProfile =
+				authenticateTokenWithoutSession(stripUsernamePrefix(token));
 			setSession(mcProfile);
 			System.out.println("Token login successful after "
 				+ (System.nanoTime() - startTime) / 1e6D + " ms");
@@ -206,7 +215,8 @@ public enum MicrosoftLoginManager
 	public static void loginWithRefreshToken(String refreshToken,
 		String clientId) throws LoginException
 	{
-		loginWithRefreshTokenAndGetUpdatedToken(refreshToken, clientId);
+		loginWithRefreshTokenAndGetUpdatedToken(
+			stripUsernamePrefix(refreshToken), clientId);
 	}
 	
 	/**
@@ -330,7 +340,7 @@ public enum MicrosoftLoginManager
 			return authenticateRefreshTokenWithoutSession(trimmedRefresh,
 				clientId);
 		
-		return authenticateTokenWithoutSession(token);
+		return authenticateTokenWithoutSession(stripUsernamePrefix(token));
 	}
 	
 	public static final class RefreshTokenAuthResult
