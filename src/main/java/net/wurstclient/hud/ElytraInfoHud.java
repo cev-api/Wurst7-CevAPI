@@ -106,7 +106,7 @@ public final class ElytraInfoHud
 		}
 	}
 	
-	public void renderElytraPitchStatus(GuiGraphicsExtractor context)
+	public void renderElytraPitchStatus(GuiGraphics context)
 	{
 		if(MC == null || MC.player == null || pitchHack == null
 			|| !pitchHack.isEnabled())

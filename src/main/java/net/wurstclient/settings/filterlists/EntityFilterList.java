@@ -53,11 +53,6 @@ public class EntityFilterList
 		return true;
 	}
 	
-	public static EntityFilterList genericCombat()
-	{
-		return genericMeleeCombat();
-	}
-	
 	public static EntityFilterList genericMeleeCombat()
 	{
 		return new EntityFilterList(FilterPlayersSetting.genericCombat(false),

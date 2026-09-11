@@ -51,7 +51,7 @@ public final class OutreachHack extends Hack implements UpdateListener
 			"Pretends to attack from the opposite side of your target.", false);
 	
 	private final EntityFilterList entityFilters =
-		EntityFilterList.genericCombat();
+		EntityFilterList.genericMeleeCombat();
 	
 	private Entity target;
 	
