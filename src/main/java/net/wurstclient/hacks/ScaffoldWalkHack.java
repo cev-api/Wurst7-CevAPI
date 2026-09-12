@@ -18,11 +18,15 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
+import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.util.InteractionSimulator;
+import net.wurstclient.util.Rotation;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RotationUtils;
 
@@ -30,10 +34,16 @@ import net.wurstclient.util.RotationUtils;
 	"auto bridge", "tower"})
 public final class ScaffoldWalkHack extends Hack implements UpdateListener
 {
+	private final CheckboxSetting vanillaPlacement = new CheckboxSetting(
+		"Vanilla placement",
+		"Places before movement and aims through the regular movement packet, without moving the camera.",
+		true);
+	
 	public ScaffoldWalkHack()
 	{
 		super("ScaffoldWalk");
 		setCategory(Category.BLOCKS);
+		addSetting(vanillaPlacement);
 	}
 	
 	@Override
@@ -51,8 +61,19 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 	@Override
 	public void onUpdate()
 	{
+		if(MC.player == null || MC.level == null || MC.gameMode == null
+			|| MC.gui.screen() != null || MC.player.isPassenger()
+			|| MC.player.isSpectator() || MC.player.isUsingItem())
+			return;
+		if(vanillaPlacement.isChecked() && MC.gameMode.isDestroying())
+			return;
+		
 		BlockPos belowPlayer =
 			BlockPos.containing(MC.player.position()).below();
+		
+		// Match vanilla's four-tick use-item cooldown in the safer mode.
+		if(vanillaPlacement.isChecked() && MC.rightClickDelay > 0)
+			return;
 		
 		// check if block is already placed
 		if(!BlockUtils.getState(belowPlayer).canBeReplaced())
@@ -94,10 +115,13 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 		int oldSlot = MC.player.getInventory().getSelectedSlot();
 		MC.player.getInventory().setSelectedSlot(newSlot);
 		
-		scaffoldTo(belowPlayer);
-		
-		// reset slot
-		MC.player.getInventory().setSelectedSlot(oldSlot);
+		try
+		{
+			scaffoldTo(belowPlayer);
+		}finally
+		{
+			MC.player.getInventory().setSelectedSlot(oldSlot);
+		}
 	}
 	
 	private void scaffoldTo(BlockPos belowPlayer)
@@ -132,6 +156,9 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 	
 	private boolean placeBlock(BlockPos pos)
 	{
+		if(!BlockUtils.getState(pos).canBeReplaced())
+			return false;
+		
 		Vec3 eyesPos = RotationUtils.getEyesPos();
 		
 		for(Direction side : Direction.values())
@@ -156,11 +183,26 @@ public final class ScaffoldWalkHack extends Hack implements UpdateListener
 				continue;
 			
 			// place block
-			RotationUtils.getNeededRotations(hitVec).sendPlayerLookPacket();
-			IMC.getInteractionManager().rightClickBlock(neighbor, side2,
-				hitVec);
-			MC.player.swing(InteractionHand.MAIN_HAND);
-			MC.rightClickDelay = 4;
+			Rotation rotation = RotationUtils.getNeededRotations(hitVec);
+			
+			if(vanillaPlacement.isChecked())
+			{
+				// Place before physics and sendPosition, so the block exists
+				// before this tick's movement. Report the aim through the
+				// regular movement packet without changing the camera.
+				WURST.getRotationFaker().faceVectorPacket(hitVec);
+				MC.rightClickDelay = 4;
+				InteractionSimulator.rightClickBlock(
+					new BlockHitResult(hitVec, side2, neighbor, false),
+					InteractionHand.MAIN_HAND);
+			}else
+			{
+				rotation.sendPlayerLookPacket();
+				IMC.getInteractionManager().rightClickBlock(neighbor, side2,
+					hitVec);
+				MC.player.swing(InteractionHand.MAIN_HAND);
+				MC.rightClickDelay = 4;
+			}
 			
 			return true;
 		}
