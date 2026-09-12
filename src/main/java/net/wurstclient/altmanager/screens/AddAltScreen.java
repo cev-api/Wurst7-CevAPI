@@ -87,7 +87,7 @@ public final class AddAltScreen extends AltEditorScreen
 		addAltButton = addRenderableWidget(Button
 			.builder(Component.literal("Add Token Alt"), b -> addVerifiedAlt())
 			.bounds(width / 2 - 100, getAddAltButtonY(), 200, 20).build());
-		addAltButton.visible = false;
+		addAltButton.visible = mode != AddMode.PASSWORD;
 		addAltButton.active = false;
 	}
 	
@@ -100,8 +100,13 @@ public final class AddAltScreen extends AltEditorScreen
 		{
 			boolean verified =
 				isCurrentTokenStateVerified() || isCookieStateVerified();
-			addAltButton.visible = verified;
-			addAltButton.active = verified;
+			addAltButton.visible = mode != AddMode.PASSWORD;
+			addAltButton.active =
+				(mode == AddMode.TOKEN_REFRESH && !verifiedProfileName.isEmpty()
+					&& (!verifiedToken.isEmpty()
+						|| !verifiedRefreshToken.isEmpty()))
+					|| (mode == AddMode.COOKIE && !verifiedProfileName.isEmpty()
+						&& !verifiedCookieRefreshToken.isEmpty());
 			addAltButton.setY(getAddAltButtonY());
 		}
 		
@@ -118,12 +123,6 @@ public final class AddAltScreen extends AltEditorScreen
 			setNameOrEmailMaxLength(131072);
 		else
 			setNameOrEmailMaxLength(4096);
-		
-		if(mode == AddMode.TOKEN_REFRESH && !isCurrentTokenStateVerified())
-			verifiedProfileName = "";
-		
-		if(mode == AddMode.COOKIE && !isCookieStateVerified())
-			verifiedProfileName = "";
 	}
 	
 	@Override
@@ -473,10 +472,12 @@ public final class AddAltScreen extends AltEditorScreen
 	
 	private void addVerifiedAlt()
 	{
-		if(mode == AddMode.TOKEN_REFRESH && isCurrentTokenStateVerified())
+		if(mode == AddMode.TOKEN_REFRESH && !verifiedProfileName.isEmpty()
+			&& (!verifiedToken.isEmpty() || !verifiedRefreshToken.isEmpty()))
 			altManager.add(new TokenAlt(verifiedToken, verifiedRefreshToken,
 				verifiedProfileName, false));
-		else if(mode == AddMode.COOKIE && isCookieStateVerified())
+		else if(mode == AddMode.COOKIE && !verifiedProfileName.isEmpty()
+			&& !verifiedCookieRefreshToken.isEmpty())
 			altManager.add(new TokenAlt("", verifiedCookieRefreshToken,
 				verifiedProfileName, false));
 		else
