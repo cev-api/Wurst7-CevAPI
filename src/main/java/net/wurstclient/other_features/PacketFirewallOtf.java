@@ -683,9 +683,9 @@ public final class PacketFirewallOtf extends OtherFeature
 	}
 	
 	/**
-	 * Vanilla-only mode must pause hacks that can change server-facing
-	 * behavior, not just movement hacks. Some of these change outgoing packets
-	 * directly, while others change the client action that produces them.
+	 * Vanilla-only mode pauses direct packet hooks and explicit extended-reach
+	 * features. Ordinary movement helpers, including ElytraPitch, remain
+	 * available unless the user disables them.
 	 */
 	private boolean isPacketAffectingHack(Hack hack)
 	{
@@ -698,7 +698,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(isBuiltInAllowedHack(hack))
 			return false;
 		
-		if(hack.getCategory() == Category.MOVEMENT)
+		if(isExtendedReachHack(hack))
 			return true;
 		
 		return hack instanceof PacketOutputListener
@@ -707,6 +707,13 @@ public final class PacketFirewallOtf extends OtherFeature
 			|| hack instanceof PlayerAttacksEntityListener
 			|| hack instanceof BlockBreakingProgressListener
 			|| hack instanceof RightClickListener;
+	}
+	
+	private boolean isExtendedReachHack(Hack hack)
+	{
+		String name = hack.getName();
+		return name.equals("Reach") || name.equals("InfiniteReach")
+			|| name.equals("Outreach");
 	}
 	
 	private boolean isBuiltInAllowedHack(Hack hack)
