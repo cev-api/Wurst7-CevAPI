@@ -356,6 +356,8 @@
   "description.wurst.hack.infinitereach": "Teleports you a moment to hit entities or blocks far away and sends you back home before the server notices.",
   "description.wurst.hack.redstoneesp": "Highlights nearby redstone blocks",
   "description.wurst.hack.remoteview": "Allows you to see the world as someone else.\nUse the .rv command to make it target a specific entity.",
+  "description.wurst.hack.mobview": "Lets you see the world through the eyes of a selected mob.",
+  "description.wurst.setting.mobview.mob": "The mob whose unique view you want to use.",
   "description.wurst.setting.remoteview.filter_players": "Won't view other players.",
   "description.wurst.setting.remoteview.filter_sleeping": "Won't view sleeping players.",
   "description.wurst.setting.remoteview.filter_flying": "Won't view players that are at least the given distance above ground.",

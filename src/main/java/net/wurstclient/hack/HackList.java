@@ -314,6 +314,7 @@ public final class HackList implements UpdateListener
 	public final InfiniteReachHack infiniteReachHack = new InfiniteReachHack();
 	public final ReachHack reachHack = new ReachHack();
 	public final RemoteViewHack remoteViewHack = new RemoteViewHack();
+	public final MobViewHack mobViewHack = new MobViewHack();
 	public final RemoteEnderChestHack remoteEnderChestHack =
 		new RemoteEnderChestHack();
 	public final RestockHack restockHack = new RestockHack();
