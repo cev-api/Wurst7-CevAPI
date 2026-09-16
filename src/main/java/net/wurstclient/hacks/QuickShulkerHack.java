@@ -40,7 +40,6 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.mixinterface.IMinecraft;
 import net.wurstclient.settings.EnumSetting;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ItemListSetting;
@@ -302,8 +301,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			if(original.isEmpty())
 				continue;
-			MC.gameMode.handleInventoryMouseClick(handler.containerId, i, 0,
-				ClickType.QUICK_MOVE, player);
+			clickContainer(handler.containerId, i, 0, ClickType.QUICK_MOVE,
+				player);
 			safeSleep(45);
 		}
 		
@@ -327,25 +326,25 @@ public final class QuickShulkerHack extends Hack
 			if(sourceStack.getCount() < wanted.getCount())
 				continue;
 			
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSource, 0, ClickType.PICKUP, player);
+			clickContainer(handler.containerId, handlerSource, 0,
+				ClickType.PICKUP, player);
 			safeSleep(35);
 			if(sourceStack.getCount() == wanted.getCount())
 			{
-				MC.gameMode.handleInventoryMouseClick(handler.containerId,
-					target, 0, ClickType.PICKUP, player);
+				clickContainer(handler.containerId, target, 0, ClickType.PICKUP,
+					player);
 				safeSleep(50);
 				continue;
 			}
 			
 			for(int count = 0; count < wanted.getCount(); count++)
 			{
-				MC.gameMode.handleInventoryMouseClick(handler.containerId,
-					target, 1, ClickType.PICKUP, player);
+				clickContainer(handler.containerId, target, 1, ClickType.PICKUP,
+					player);
 				safeSleep(25);
 			}
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSource, 0, ClickType.PICKUP, player);
+			clickContainer(handler.containerId, handlerSource, 0,
+				ClickType.PICKUP, player);
 			safeSleep(50);
 		}
 		
@@ -374,15 +373,16 @@ public final class QuickShulkerHack extends Hack
 				ItemStack current = inv.getItem(slot);
 				if(current.getCount() <= remaining)
 				{
-					IMC.getGameMode()
-						.windowClick_THROW(InventoryUtils.toNetworkSlot(slot));
-					remaining -= current.getCount();
+					int count = current.getCount();
+					clickContainer(MC.player.inventoryMenu.containerId,
+						InventoryUtils.toNetworkSlot(slot), 1, ClickType.THROW,
+						MC.player);
+					remaining -= count;
 				}else
 				{
 					int networkSlot = InventoryUtils.toNetworkSlot(slot);
-					MC.gameMode.handleInventoryMouseClick(
-						inv.player.inventoryMenu.containerId, networkSlot, 0,
-						ClickType.THROW, inv.player);
+					clickContainer(inv.player.inventoryMenu.containerId,
+						networkSlot, 0, ClickType.THROW, MC.player);
 					remaining--;
 				}
 				safeSleep(60);
@@ -463,7 +463,7 @@ public final class QuickShulkerHack extends Hack
 			safeSleep(50);
 		}
 		List<ItemStack> originalShulker =
-			getShulkerContents(inv.getItem(plan.shulkerSlot()));
+			getShulkerContents(inv.getItem(shulkerSlot));
 		
 		BlockPos placePos = findPlacementPos(player);
 		if(placePos == null)
@@ -533,7 +533,7 @@ public final class QuickShulkerHack extends Hack
 			if(pickaxeSlot >= 0 && pickaxeSlot < 36)
 				protectedSlots.add(pickaxeSlot);
 			
-			if(remainingSlots != null && !remainingSlots.isEmpty())
+			if(remainingSlots != null)
 			{
 				transferItemsFromSlots(player, handler, blacklistSet,
 					whitelistSet, mode, protectedSlots, remainingSlots);
@@ -547,7 +547,7 @@ public final class QuickShulkerHack extends Hack
 			
 			// Check if there are any remaining items that came from the chest.
 			boolean anyLeft = false;
-			if(remainingSlots != null && !remainingSlots.isEmpty())
+			if(remainingSlots != null)
 			{
 				for(int s : remainingSlots)
 				{
@@ -635,8 +635,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSlot, 0, ClickType.QUICK_MOVE, player);
+			clickContainer(handler.containerId, handlerSlot, 0,
+				ClickType.QUICK_MOVE, player);
 			safeSleep(70);
 			
 			ItemStack after = inv.getItem(slot);
@@ -699,8 +699,8 @@ public final class QuickShulkerHack extends Hack
 				continue;
 			
 			int before = stack.getCount();
-			MC.gameMode.handleInventoryMouseClick(handler.containerId,
-				handlerSlot, 0, ClickType.QUICK_MOVE, player);
+			clickContainer(handler.containerId, handlerSlot, 0,
+				ClickType.QUICK_MOVE, player);
 			safeSleep(70);
 			
 			ItemStack after = inv.getItem(slot);
@@ -783,10 +783,25 @@ public final class QuickShulkerHack extends Hack
 			if(useWl && !whitelistSet.isEmpty() && !whitelistSet.contains(id))
 				continue;
 			
-			MC.gameMode.handleInventoryMouseClick(handler.containerId, i, 0,
-				ClickType.QUICK_MOVE, player);
+			clickContainer(handler.containerId, i, 0, ClickType.QUICK_MOVE,
+				player);
 			safeSleep(70);
 		}
+	}
+	
+	private void clickContainer(int containerId, int slot, int button,
+		ClickType input, LocalPlayer player)
+	{
+		Thread caller = Thread.currentThread();
+		MC.submit(() -> {
+			if(caller.isInterrupted() || MC.player != player
+				|| MC.gameMode == null
+				|| player.containerMenu.containerId != containerId)
+				throw new IllegalStateException(
+					"QuickShulker container changed.");
+			MC.gameMode.handleInventoryMouseClick(containerId, slot, button,
+				input, player);
+		}).join();
 	}
 	
 	private boolean hasContainerSpace(AbstractContainerMenu handler,
@@ -1047,9 +1062,9 @@ public final class QuickShulkerHack extends Hack
 			return ItemSwap.keepSelection(targetHotbarSlot);
 		}
 		
-		IMinecraft imc = WurstClient.IMC;
-		imc.getGameMode().windowClick_SWAP(
-			InventoryUtils.toNetworkSlot(sourceSlot), targetHotbarSlot);
+		clickContainer(MC.player.inventoryMenu.containerId,
+			InventoryUtils.toNetworkSlot(sourceSlot), targetHotbarSlot,
+			ClickType.SWAP, MC.player);
 		inv.setSelectedSlot(targetHotbarSlot);
 		return new ItemSwap(targetHotbarSlot, sourceSlot, true);
 	}
@@ -1061,9 +1076,9 @@ public final class QuickShulkerHack extends Hack
 		
 		if(swap.storageSlot >= 0)
 		{
-			WurstClient.IMC.getGameMode().windowClick_SWAP(
+			clickContainer(MC.player.inventoryMenu.containerId,
 				InventoryUtils.toNetworkSlot(swap.storageSlot),
-				swap.restoreSlot);
+				swap.restoreSlot, ClickType.SWAP, MC.player);
 		}
 		
 		inv.setSelectedSlot(swap.restoreSlot);

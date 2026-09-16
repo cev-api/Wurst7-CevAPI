@@ -700,6 +700,12 @@ public final class PacketFirewallOtf extends OtherFeature
 		
 		if(isExtendedReachHack(hack))
 			return true;
+			
+		// Flight changes the client movement vector directly, so it must be
+		// paused in vanilla-only mode even though it does not send packets
+		// itself.
+		if(hack == WURST.getHax().flightHack)
+			return true;
 		
 		return hack instanceof PacketOutputListener
 			|| hack instanceof ConnectionPacketOutputListener
@@ -722,7 +728,8 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(name.equals("AutoBuild") || name.equals("ElytraPitch")
 			|| name.equals("AutoTool") || name.equals("AutoArmor")
 			|| name.equals("AutoSword") || name.equals("AutoTotem")
-			|| name.equals("AutoSwitch") || name.equals("CustomTotem"))
+			|| name.equals("AutoSwitch") || name.equals("CustomTotem")
+			|| name.equals("XCarry"))
 			return true;
 			
 		// Render hacks only display client-side information. ESP/HUD/statistics

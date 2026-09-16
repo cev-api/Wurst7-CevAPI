@@ -103,24 +103,18 @@ public abstract class ShulkerBoxScreenMixin
 			int stealX = storeX - buttonSpacing - buttonWidth;
 			
 			addRenderableWidget(Button
-				.builder(Component.literal("Steal"),
-					b -> autoSteal.steal(this, 3))
+				.builder(Component.literal("Steal"), b -> autoSteal.steal(this))
 				.bounds(stealX, autoButtonY, buttonWidth, autoButtonHeight)
 				.build());
 			addRenderableWidget(Button
-				.builder(Component.literal("Store"),
-					b -> autoSteal.store(this, 3))
+				.builder(Component.literal("Store"), b -> autoSteal.store(this))
 				.bounds(storeX, autoButtonY, buttonWidth, autoButtonHeight)
 				.build());
 			addRenderableWidget(Button
-				.builder(Component.literal("Dump"),
-					b -> autoSteal.dump(this, 3))
+				.builder(Component.literal("Dump"), b -> autoSteal.dump(this))
 				.bounds(dumpX, autoButtonY, buttonWidth, autoButtonHeight)
 				.build());
 		}
-		
-		if(autoSteal.isEnabled())
-			autoSteal.steal(this, 3);
 		
 		if(quickShulker != null && quickShulker.isEnabled()
 			&& quickShulker.hasUsableShulker())

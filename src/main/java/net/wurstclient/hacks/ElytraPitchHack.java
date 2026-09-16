@@ -19,12 +19,13 @@ import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.SliderSetting;
+import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"elytra pitch", "pitch40", "elytra fly", "efly"})
 public final class ElytraPitchHack extends Hack implements UpdateListener
 {
-	private static final double MIN_GROUND_CLEARANCE = 60.0;
 	private static final double GROUND_WARNING_CLEARANCE = 10.0;
 	private static final double GROUND_FLASH_CLEARANCE = 10.0;
 	
@@ -39,6 +40,15 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 	
 	private final CheckboxSetting thirdPerson = new CheckboxSetting(
 		"Third person", "Switches to third-person view while gliding.", false);
+	
+	private final SliderSetting minimumStartHeight =
+		new SliderSetting("Minimum start height",
+			"The minimum clearance above the ground before ElytraPitch starts.",
+			60, 0, 320, 1, ValueDisplay.INTEGER.withSuffix(" blocks"));
+	
+	private final CheckboxSetting showStartHeightDistance =
+		new CheckboxSetting("Show start-height distance",
+			"Shows how many blocks remain before ElytraPitch can start.", true);
 	
 	private boolean started;
 	private boolean constantPitch;
@@ -55,6 +65,8 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 		addSetting(yawLock);
 		addSetting(groundSafety);
 		addSetting(thirdPerson);
+		addSetting(minimumStartHeight);
+		addSetting(showStartHeightDistance);
 	}
 	
 	@Override
@@ -195,7 +207,7 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 		if(MC.level == null || player.onGround())
 			return false;
 		
-		return getGroundClearance(player) >= MIN_GROUND_CLEARANCE;
+		return getGroundClearance(player) >= getMinimumStartHeight();
 	}
 	
 	public boolean isWearingElytra()
@@ -207,6 +219,17 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 	{
 		return player.getItemBySlot(EquipmentSlot.CHEST)
 			.getItem() == Items.ELYTRA;
+	}
+	
+	public int getBlocksUntilStartHeight()
+	{
+		return (int)Math
+			.ceil(Math.max(0, getMinimumStartHeight() - getGroundClearance()));
+	}
+	
+	private double getMinimumStartHeight()
+	{
+		return minimumStartHeight.getValue();
 	}
 	
 	public boolean isValidElytraHeight()
@@ -222,7 +245,12 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 			return null;
 		
 		if(!isValidElytraHeight())
-			return "Waiting For Valid Elytra Height";
+		{
+			String waiting = "Waiting for start height";
+			if(showStartHeightDistance.isChecked())
+				waiting += " - " + getBlocksUntilStartHeight() + " blocks";
+			return waiting;
+		}
 		
 		String direction = lookingUp ? "Ascending" : "Descending";
 		return direction + " - " + formatGroundClearance(getGroundClearance());
