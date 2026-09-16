@@ -188,28 +188,21 @@ public abstract class ContainerScreenMixin
 				.bounds(autoX, autoButtonY, buttonWidth, buttonHeight).build();
 			addRenderableWidget(autoToggleButton);
 			addRenderableWidget(Button
-				.builder(Component.literal("Steal"),
-					b -> autoSteal.steal(this, containerRows))
+				.builder(Component.literal("Steal"), b -> autoSteal.steal(this))
 				.bounds(stealX, autoButtonY, buttonWidth, buttonHeight)
 				.build());
 			addRenderableWidget(Button
-				.builder(Component.literal("Store"),
-					b -> autoSteal.store(this, containerRows))
+				.builder(Component.literal("Store"), b -> autoSteal.store(this))
 				.bounds(storeX, autoButtonY, buttonWidth, buttonHeight)
 				.build());
 			addRenderableWidget(Button
-				.builder(Component.literal("Dump"),
-					b -> autoSteal.dump(this, containerRows))
+				.builder(Component.literal("Dump"), b -> autoSteal.dump(this))
 				.bounds(dumpX, autoButtonY, buttonWidth, buttonHeight).build());
 			updateAutoButtonLabel();
 		}else
 		{
 			autoToggleButton = null;
 		}
-		if(autoSteal.isEnabled() && AutoStealHack
-			.isSupportedScreen((AbstractContainerScreen<?>)this))
-			autoSteal.steal(this, containerRows);
-		
 		QuickShulkerHack quickShulker =
 			WurstClient.INSTANCE.getHax().quickShulkerHack;
 		if(quickShulker != null && quickShulker.isEnabled()

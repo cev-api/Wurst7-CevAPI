@@ -427,7 +427,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		if(!window.isScrollingEnabled())
 			return false;
 		
-		int scrollAmount = (int)verticalAmount * 4;
+		int scrollAmount = (int)Math.round(verticalAmount * 20);
 		if(scrollAmount == 0)
 			return false;
 		
@@ -792,10 +792,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 		int scrollbarHeight =
 			(int)(maxScrollbarHeight * outerHeight / innerHeight);
 		
-		if(relativeMouseY < scrollbarY
-			|| relativeMouseY >= scrollbarY + scrollbarHeight)
-			return false;
-		
+		window.centerScrollbarOn((int)mouseY);
 		window.startDraggingScrollbar((int)mouseY);
 		return true;
 	}

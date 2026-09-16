@@ -88,6 +88,7 @@ public final class ElytraInfoHud
 		x = centerX - width / 2F + getCurrentOffsetX();
 		y = centerY + BASE_Y_OFFSET + getCurrentOffsetY();
 		
+		renderClosedElytraWarning(context, font, fontScale, centerX, y);
 		if(hack.hasBackground())
 		{
 			int bgColor = withAlpha(hack.getBackgroundColorI(),
@@ -104,6 +105,33 @@ public final class ElytraInfoHud
 				fontScale);
 			drawX += (int)Math.round(font.width(segment.text()) * fontScale);
 		}
+	}
+	
+	private void renderClosedElytraWarning(GuiGraphicsExtractor context,
+		Font font, double fontScale, float centerX, float infoY)
+	{
+		if(MC.player.isFallFlying() || MC.player.onGround()
+			|| MC.player.isInWater())
+			return;
+		
+		String text = "ELYTRA CLOSED";
+		int textWidth = (int)Math.round(font.width(text) * fontScale);
+		int textHeight = (int)Math.round(font.lineHeight * fontScale);
+		int width = textWidth + PADDING_X * 2;
+		int height = textHeight + PADDING_Y * 2;
+		float x = centerX - width / 2F + getCurrentOffsetX();
+		float y = infoY - height - 2;
+		
+		if(hack.hasBackground())
+		{
+			int bgColor = withAlpha(hack.getBackgroundColorI(),
+				hack.getBackgroundOpacity());
+			RenderUtils.fill2D(context, x, y, x + width, y + height, bgColor);
+		}
+		
+		RenderUtils.drawScaledText(context, font, text,
+			Math.round(x) + PADDING_X, Math.round(y) + PADDING_Y,
+			withAlpha(0xFFFF3333, hack.getTextOpacity()), false, fontScale);
 	}
 	
 	public void renderElytraPitchStatus(GuiGraphicsExtractor context)

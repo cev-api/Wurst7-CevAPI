@@ -7,18 +7,19 @@
  */
 package net.wurstclient.hacks;
 
-import java.util.List;
-import java.util.stream.IntStream;
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
-import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.wurstclient.Category;
+import net.wurstclient.WurstClient;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
@@ -26,6 +27,7 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.ItemListSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"auto steal", "ChestStealer", "chest stealer",
@@ -57,8 +59,14 @@ public final class AutoStealHack extends Hack implements UpdateListener
 		new ItemListSetting("Item list", WText.literal(
 			"Items that AutoSteal is allowed to move when \"List only\" is on."));
 	
-	private Thread thread;
-	private AbstractContainerScreen<?> lastContainerScreen;
+	private final ArrayDeque<Integer> pendingSlots = new ArrayDeque<>();
+	private AbstractContainerScreen<?> transferScreen;
+	private AbstractContainerScreen<?> manualScreen;
+	private boolean listening;
+	private boolean manualTransfer;
+	private boolean movedItems;
+	private ContainerInput transferInput;
+	private long nextClickMs;
 	private long lastAutoStealAttemptMs;
 	private static final long AUTO_STEAL_COOLDOWN_MS = 500L;
 	
@@ -78,335 +86,178 @@ public final class AutoStealHack extends Hack implements UpdateListener
 	protected void onEnable()
 	{
 		super.onEnable();
-		EVENTS.add(UpdateListener.class, this);
-		maybeStealCurrentChest();
+		manualScreen = null;
+		lastAutoStealAttemptMs = 0L;
+		setListening(true);
 	}
 	
 	@Override
 	protected void onDisable()
 	{
 		super.onDisable();
-		stopThread();
-		EVENTS.remove(UpdateListener.class, this);
-		lastContainerScreen = null;
-		lastAutoStealAttemptMs = 0L;
+		cancelTransfer();
+		manualScreen = null;
+		setListening(false);
 	}
 	
-	public void steal(AbstractContainerScreen<?> screen, int rows)
+	public void steal(AbstractContainerScreen<?> screen)
 	{
-		startClickingSlots(screen, 0, rows * 9, true);
+		startTransfer(screen, true, false, true);
 	}
 	
-	public void store(AbstractContainerScreen<?> screen, int rows)
+	public void store(AbstractContainerScreen<?> screen)
 	{
-		startClickingSlots(screen, rows * 9, rows * 9 + 36, false);
+		startTransfer(screen, false, false, true);
 	}
 	
-	public void dump(AbstractContainerScreen<?> screen, int rows)
+	public void dump(AbstractContainerScreen<?> screen)
 	{
-		startDroppingSlots(screen, 0, rows * 9);
+		startTransfer(screen, true, true, true);
 	}
 	
-	private void startClickingSlots(AbstractContainerScreen<?> screen, int from,
-		int to, boolean steal)
+	private void startTransfer(AbstractContainerScreen<?> screen, boolean steal,
+		boolean dump, boolean manual)
 	{
-		if(isCreativeScreen(screen))
-			return;
-		if(!isSupportedScreen(screen))
-			return;
-		stopThread();
-		
-		thread = Thread.ofPlatform().name("AutoSteal")
-			.uncaughtExceptionHandler((t, e) -> e.printStackTrace()).daemon()
-			.start(() -> shiftClickSlots(screen, from, to, steal));
-	}
-	
-	private void startDroppingSlots(AbstractContainerScreen<?> screen, int from,
-		int to)
-	{
-		if(isCreativeScreen(screen))
-			return;
-		if(!isSupportedScreen(screen))
-			return;
-		stopThread();
-		
-		thread = Thread.ofPlatform().name("AutoSteal")
-			.uncaughtExceptionHandler((t, e) -> e.printStackTrace()).daemon()
-			.start(() -> dropSlots(screen, from, to));
-	}
-	
-	private void stopThread()
-	{
-		if(thread != null)
+		cancelTransfer();
+		if(!isSupportedScreen(screen) || MC.player == null
+			|| MC.gameMode == null
+			|| MC.player.containerMenu != screen.getMenu())
 		{
-			thread.interrupt();
-			thread = null;
+			if(manual)
+				ChatUtils
+					.warning("AutoSteal: this container is no longer open.");
+			return;
+		}
+		if(WurstClient.INSTANCE.getHax().quickShulkerHack.isBusy())
+		{
+			if(manual)
+				ChatUtils
+					.warning("AutoSteal: wait for QuickShulker to finish.");
+			return;
+		}
+		if(!screen.getMenu().getCarried().isEmpty())
+		{
+			if(manual)
+				ChatUtils.warning(
+					"AutoSteal: put down the item on your cursor first.");
+			return;
+		}
+		
+		if(manual)
+			manualScreen = screen;
+		int containerSlots = getContainerSlots(screen);
+		int end = screen.getMenu().slots.size();
+		int from = steal ? 0 : containerSlots;
+		int to = steal ? containerSlots : end;
+		Set<Item> matchingTypes = new HashSet<>();
+		if(!dump && stealStoreSame.isChecked())
+			for(int i = steal ? containerSlots : 0; i < (steal ? end
+				: containerSlots); i++)
+			{
+				Slot slot = screen.getMenu().slots.get(i);
+				if(slot.hasItem())
+					matchingTypes.add(slot.getItem().getItem());
+			}
+		
+		boolean hasSourceItems = false;
+		for(int i = from; i < to; i++)
+		{
+			Slot slot = screen.getMenu().slots.get(i);
+			if(!slot.hasItem())
+				continue;
+			hasSourceItems = true;
+			Item item = slot.getItem().getItem();
+			if(!dump && (listOnly.isChecked() && !itemList.contains(item)
+				|| stealStoreSame.isChecked() && !matchingTypes.contains(item)))
+				continue;
+			if(steal && !dump && reverseSteal.isChecked())
+				pendingSlots.addFirst(i);
+			else
+				pendingSlots.addLast(i);
+		}
+		if(pendingSlots.isEmpty())
+		{
+			if(manual)
+				ChatUtils.warning(hasSourceItems
+					? "AutoSteal: no items match your List only / Steal/Store same filters."
+					: "AutoSteal: there are no items to move.");
+			return;
+		}
+		
+		transferScreen = screen;
+		manualTransfer = manual;
+		movedItems = false;
+		transferInput = dump ? ContainerInput.THROW : ContainerInput.QUICK_MOVE;
+		nextClickMs = 0L;
+		// Buttons work independently of the automatic-stealing toggle.
+		setListening(true);
+		processTransfer();
+	}
+	
+	private void processTransfer()
+	{
+		if(transferScreen == null)
+			return;
+		if(MC.player == null || MC.gameMode == null
+			|| MC.gui.screen() != transferScreen
+			|| MC.player.containerMenu != transferScreen.getMenu()
+			|| !transferScreen.getMenu().getCarried().isEmpty()
+			|| WurstClient.INSTANCE.getHax().quickShulkerHack.isBusy())
+		{
+			cancelTransfer();
+			return;
+		}
+		while(!pendingSlots.isEmpty()
+			&& System.currentTimeMillis() >= nextClickMs)
+		{
+			int index = pendingSlots.removeFirst();
+			Slot slot = transferScreen.getMenu().slots.get(index);
+			if(!slot.hasItem())
+				continue;
+			int before = slot.getItem().getCount();
+			if(transferInput == ContainerInput.THROW)
+				// Keep the screen's AntiDrop protection for Dump.
+				transferScreen.slotClicked(slot, index, 1, transferInput);
+			else
+				MC.gameMode.handleContainerInput(
+					transferScreen.getMenu().containerId, index, 0,
+					transferInput, MC.player);
+			movedItems |= slot.getItem().getCount() < before;
+			nextClickMs = System.currentTimeMillis() + delay.getValueI();
+		}
+		if(pendingSlots.isEmpty())
+		{
+			if(manualTransfer && !movedItems)
+				ChatUtils.warning(
+					"AutoSteal: no items moved. The destination may be full or reject these items.");
+			cancelTransfer();
 		}
 	}
 	
-	private boolean isThreadAlive()
+	private void cancelTransfer()
 	{
-		return thread != null && thread.isAlive();
+		pendingSlots.clear();
+		transferScreen = null;
+		if(!isEnabled())
+			setListening(false);
 	}
 	
-	private void shiftClickSlots(AbstractContainerScreen<?> screen, int from,
-		int to, boolean steal)
+	private void setListening(boolean value)
 	{
-		List<Slot> slots = collectSlots(screen, from, to);
-		
-		if(reverseSteal.isChecked() && steal)
-			slots = slots.reversed();
-		
-		java.util.Set<Item> inventoryTypes = null;
-		java.util.Set<Item> chestTypes = null;
-		if(stealStoreSame.isChecked())
-		{
-			if(steal)
-			{
-				// Try to read player inventory item types directly from the UI
-				// The chest UI has `rows * 9` chest slots first; the player
-				// inventory follows and is commonly 36 slots (27 main + 9
-				// hotbar).
-				int rows = to / 9; // when stealing `to` equals rows*9
-				int invStart = rows * 9;
-				int invEnd =
-					Math.min(invStart + 36, screen.getMenu().slots.size());
-				java.util.Set<Item> typesFromUI = new java.util.HashSet<>();
-				for(int i = invStart; i < invEnd; i++)
-				{
-					Slot s = screen.getMenu().slots.get(i);
-					if(!s.getItem().isEmpty())
-						typesFromUI.add(s.getItem().getItem());
-				}
-				if(!typesFromUI.isEmpty())
-					inventoryTypes = typesFromUI;
-				else
-				{
-					// Fallback to previous UI-reflection attempt, then to
-					// player
-					// inventory via reflection if necessary
-					inventoryTypes = getInventoryItemTypesUI(screen);
-					if(inventoryTypes == null)
-						inventoryTypes = getInventoryItemTypes();
-				}
-			}else
-			{
-				chestTypes = new java.util.HashSet<>();
-				for(int i = 0; i < from; i++)
-				{
-					Slot s = screen.getMenu().slots.get(i);
-					if(!s.getItem().isEmpty())
-						chestTypes.add(s.getItem().getItem());
-				}
-			}
-		}
-		
-		for(Slot slot : slots)
-			try
-			{
-				if(slot.getItem().isEmpty())
-					continue;
-				
-				net.minecraft.world.item.Item slotItem =
-					slot.getItem().getItem();
-				if(listOnly.isChecked() && !itemList.contains(slotItem))
-					continue;
-				
-				// Exact-type filtering (Steal/Store same)
-				if(stealStoreSame.isChecked())
-				{
-					net.minecraft.world.item.Item item =
-						slot.getItem().getItem();
-					if(steal)
-					{
-						if(inventoryTypes != null
-							&& !inventoryTypes.contains(item))
-							continue;
-					}else
-					{
-						if(chestTypes != null && !chestTypes.contains(item))
-							continue;
-					}
-				}
-				
-				Thread.sleep(delay.getValueI());
-				
-				if(MC.gui.screen() == null)
-					break;
-				
-				screen.slotClicked(slot, slot.index, 0,
-					ContainerInput.QUICK_MOVE);
-				
-			}catch(InterruptedException e)
-			{
-				Thread.currentThread().interrupt();
-				break;
-			}
-	}
-	
-	private void dropSlots(AbstractContainerScreen<?> screen, int from, int to)
-	{
-		List<Slot> slots = collectSlots(screen, from, to);
-		
-		for(Slot slot : slots)
-			try
-			{
-				if(slot.getItem().isEmpty())
-					continue;
-				
-				Thread.sleep(delay.getValueI());
-				
-				if(MC.gui.screen() == null)
-					break;
-				
-				screen.slotClicked(slot, slot.index, 1, ContainerInput.THROW);
-				
-			}catch(InterruptedException e)
-			{
-				Thread.currentThread().interrupt();
-				break;
-			}
-	}
-	
-	private void maybeStealCurrentChest()
-	{
-		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen))
+		if(listening == value)
 			return;
-		
-		if(isCreativeScreen(screen))
-			return;
-		if(!isSupportedScreen(screen))
-			return;
-		
-		int rows = getChestRows(screen);
-		if(rows <= 0)
-			return;
-		
-		steal(screen, rows);
+		listening = value;
+		if(value)
+			EVENTS.add(UpdateListener.class, this);
+		else
+			EVENTS.remove(UpdateListener.class, this);
 	}
 	
-	private static int getChestRows(AbstractContainerScreen<?> screen)
+	private static int getContainerSlots(AbstractContainerScreen<?> screen)
 	{
-		int totalSlots = screen.getMenu().slots.size();
-		int chestSlots = Math.max(0, totalSlots - 36);
-		return chestSlots / 9;
-	}
-	
-	private static boolean isCreativeScreen(AbstractContainerScreen<?> screen)
-	{
-		return screen instanceof CreativeModeInventoryScreen;
-	}
-	
-	private List<Slot> collectSlots(AbstractContainerScreen<?> screen, int from,
-		int to)
-	{
-		int totalSlots = screen.getMenu().slots.size();
-		int safeFrom = Math.max(0, Math.min(from, totalSlots));
-		int safeTo = Math.max(safeFrom, Math.min(to, totalSlots));
-		return IntStream.range(safeFrom, safeTo)
-			.mapToObj(i -> screen.getMenu().slots.get(i)).toList();
-	}
-	
-	private java.util.Set<Item> getInventoryItemTypes()
-	{
-		java.util.Set<Item> types = new java.util.HashSet<>();
-		try
-		{
-			Object invObj = MC.player.getClass().getMethod("getInventory")
-				.invoke(MC.player);
-			// First attempt: read the primary 'main' list from the inventory
-			Object main =
-				invObj.getClass().getDeclaredField("main").get(invObj);
-			if(main instanceof java.util.List)
-			{
-				for(Object o : (java.util.List<?>)main)
-				{
-					if(o instanceof net.minecraft.world.item.ItemStack)
-					{
-						net.minecraft.world.item.ItemStack stack =
-							(net.minecraft.world.item.ItemStack)o;
-						if(stack != null && !stack.isEmpty())
-							types.add(stack.getItem());
-					}
-				}
-			}
-			// If we couldn't collect any items, try alternative inventory
-			// structures via reflection
-			if(types.isEmpty())
-			{
-				for(java.lang.reflect.Field f : invObj.getClass()
-					.getDeclaredFields())
-				{
-					if(java.util.List.class.isAssignableFrom(f.getType()))
-					{
-						f.setAccessible(true);
-						Object listObj = f.get(invObj);
-						if(listObj instanceof java.util.List)
-						{
-							for(Object obj : (java.util.List<?>)listObj)
-							{
-								if(obj instanceof net.minecraft.world.item.ItemStack)
-								{
-									net.minecraft.world.item.ItemStack st =
-										(net.minecraft.world.item.ItemStack)obj;
-									if(st != null && !st.isEmpty())
-										types.add(st.getItem());
-								}
-							}
-						}
-					}
-				}
-			}
-		}catch(Exception ignored)
-		{
-			// Ignore and return whatever we could collect
-		}
-		return types.isEmpty() ? null : types;
-	}
-	
-	private java.util.Set<Item> getInventoryItemTypesUI(
-		AbstractContainerScreen<?> screen)
-	{
-		java.util.Set<Item> types = new java.util.HashSet<>();
-		try
-		{
-			// Access the chest inventory directly from the screen handler
-			Object chestInventory = screen.getMenu().getClass()
-				.getMethod("getInventory").invoke(screen.getMenu());
-			
-			// Try to read the 'stacks' field directly, which should contain
-			// the items visible in the player's chest GUI
-			Object stacksObj = chestInventory.getClass()
-				.getDeclaredField("stacks").get(chestInventory);
-			if(stacksObj instanceof java.util.List)
-			{
-				for(Object o : (java.util.List<?>)stacksObj)
-				{
-					if(o instanceof net.minecraft.world.item.ItemStack)
-					{
-						net.minecraft.world.item.ItemStack stack =
-							(net.minecraft.world.item.ItemStack)o;
-						if(stack != null && !stack.isEmpty())
-							types.add(stack.getItem());
-					}
-				}
-			}
-			// Fallback: scan the typical 36-item UI region if the stacks field
-			// is inaccessible or empty
-			if(types.isEmpty())
-			{
-				for(int i = 27; i < 63; i++)
-				{
-					Slot s = screen.getMenu().slots.get(i);
-					if(!s.getItem().isEmpty())
-						types.add(s.getItem().getItem());
-				}
-			}
-		}catch(Exception ignored)
-		{
-			// Ignore and fallback to the regular inventory scan
-		}
-		return types.isEmpty() ? null : types;
+		if(screen.getMenu() instanceof ChestMenu chest)
+			return chest.getRowCount() * 9;
+		return screen.getMenu() instanceof ShulkerBoxMenu ? 27 : 0;
 	}
 	
 	public boolean areButtonsVisible()
@@ -416,55 +267,39 @@ public final class AutoStealHack extends Hack implements UpdateListener
 	
 	public static boolean isSupportedScreen(AbstractContainerScreen<?> screen)
 	{
-		return screen.getMenu() instanceof ChestMenu
-			|| screen.getMenu() instanceof ShulkerBoxMenu;
+		return !(screen instanceof CreativeModeInventoryScreen)
+			&& (screen.getMenu() instanceof ChestMenu
+				|| screen.getMenu() instanceof ShulkerBoxMenu);
 	}
 	
 	@Override
 	public void onUpdate()
 	{
+		if(transferScreen != null)
+		{
+			processTransfer();
+			return;
+		}
 		if(!isEnabled())
-			return;
-		
-		AbstractContainerScreen<?> screen =
-			MC.gui.screen() instanceof AbstractContainerScreen<?> s ? s : null;
-		if(screen == null || screen instanceof InventoryScreen
-			|| isCreativeScreen(screen))
 		{
-			lastContainerScreen = null;
-			stopThread();
+			setListening(false);
 			return;
 		}
-		
-		if(!isSupportedScreen(screen))
+		if(!(MC.gui.screen() instanceof AbstractContainerScreen<?> screen)
+			|| !isSupportedScreen(screen))
 		{
-			lastContainerScreen = null;
-			stopThread();
-			return;
-		}
-		
-		if(screen != lastContainerScreen)
-		{
-			lastContainerScreen = screen;
+			manualScreen = null;
 			lastAutoStealAttemptMs = 0L;
-		}
-		
-		if(isThreadAlive())
 			return;
-		
+		}
+		if(manualScreen == screen
+			|| WurstClient.INSTANCE.getHax().quickShulkerHack.isBusy())
+			return;
+		manualScreen = null;
 		if(System.currentTimeMillis()
 			- lastAutoStealAttemptMs < AUTO_STEAL_COOLDOWN_MS)
-		{
 			return;
-		}
-		
-		int rows = getChestRows(screen);
-		if(rows <= 0)
-			return;
-		
 		lastAutoStealAttemptMs = System.currentTimeMillis();
-		steal(screen, rows);
+		startTransfer(screen, true, false, false);
 	}
-	
-	// See GenericContainerScreenMixin and ShulkerBoxScreenMixin
 }

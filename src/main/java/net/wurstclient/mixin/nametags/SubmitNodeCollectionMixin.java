@@ -103,7 +103,7 @@ public class SubmitNodeCollectionMixin
 	private void swapNormalNameTagSubmit(SimpleFeatureRenderPhase phase,
 		SubmitNode submit, Operation<Void> original)
 	{
-		if(!WurstClient.INSTANCE.getHax().nameTagsHack.isSeeThrough())
+		if(!shouldUseSeeThroughNameTags())
 		{
 			original.call(phase, submit);
 			return;
@@ -122,7 +122,7 @@ public class SubmitNodeCollectionMixin
 		TranslucentFeatureRenderPhase phase, TranslucentSubmit submit,
 		Operation<Void> original)
 	{
-		if(!WurstClient.INSTANCE.getHax().nameTagsHack.isSeeThrough())
+		if(!shouldUseSeeThroughNameTags())
 		{
 			original.call(phase, submit);
 			return;
@@ -130,6 +130,12 @@ public class SubmitNodeCollectionMixin
 		
 		nameTags.submit(copyWithDisplayMode(
 			(NameTagFeatureRenderer.Submit)submit, Font.DisplayMode.NORMAL));
+	}
+	
+	private boolean shouldUseSeeThroughNameTags()
+	{
+		return WurstClient.INSTANCE.getHax().nameTagsHack.isSeeThrough()
+			|| WurstClient.INSTANCE.getHax().surfaceXrayHack.isEnabled();
 	}
 	
 	private NameTagFeatureRenderer.Submit copyWithDisplayMode(
