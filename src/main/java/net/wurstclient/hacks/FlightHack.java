@@ -200,6 +200,9 @@ public final class FlightHack extends Hack implements UpdateListener,
 	@Override
 	protected void onDisable()
 	{
+		if(MC.player != null)
+			MC.player.setDeltaMovement(Vec3.ZERO);
+		
 		WURST.getHax().noFallHack.resetMovementTracking();
 		WURST.getHax().noFallHack.beginFlightLandingProtection();
 		restoreNoSlowdownVineIgnore();
