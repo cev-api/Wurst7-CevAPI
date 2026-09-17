@@ -30,10 +30,10 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.nukers.CommonNukerSettings;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.mixinterface.IKeyMapping;
+import net.wurstclient.settings.AttackSwingSetting;
+import net.wurstclient.settings.AttackSwingSetting.AttackSwing;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.SwingHandSetting;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockBreaker.BlockBreakingParams;
 import net.wurstclient.util.BlockUtils;
@@ -50,9 +50,9 @@ public final class NukerLegitHack extends Hack
 	private final CommonNukerSettings commonSettings =
 		new CommonNukerSettings();
 	
-	private final SwingHandSetting swingHand =
-		SwingHandSetting.withoutOffOption(
-			SwingHandSetting.genericMiningDescription(this), SwingHand.CLIENT);
+	private final AttackSwingSetting attackSwing = AttackSwingSetting
+		.withoutOffOption(AttackSwingSetting.genericMiningDescription(this),
+			AttackSwing.CLIENT);
 	
 	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
 		"Auto switch tool",
@@ -74,6 +74,7 @@ public final class NukerLegitHack extends Hack
 		commonSettings.getSettings().forEach(this::addSetting);
 		addSetting(swingHand);
 		addSetting(autoSwitchTool);
+		addSetting(attackSwing);
 	}
 	
 	@Override
@@ -221,8 +222,7 @@ public final class NukerLegitHack extends Hack
 		
 		if(im.continueDestroyBlock(pos, side))
 		{
-			MC.level.addBreakingBlockEffect(pos, side);
-			swingHand.swing(InteractionHand.MAIN_HAND);
+			attackSwing.swing();
 			MC.options.keyAttack.setDown(true);
 		}
 		

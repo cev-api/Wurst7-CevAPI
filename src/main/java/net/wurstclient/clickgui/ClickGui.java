@@ -7,6 +7,8 @@
  */
 package net.wurstclient.clickgui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -1222,7 +1224,7 @@ public final class ClickGui
 		int mouseX = (int)context.x();
 		int mouseY = (int)context.y();
 		int mouseButton = context.button();
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
 		if(handleModernNavigationClick(mouseX, mouseY, mouseButton))
@@ -1321,7 +1323,7 @@ public final class ClickGui
 	public void handleMouseRelease(double mouseX, double mouseY,
 		int mouseButton)
 	{
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			leftMouseButtonPressed = false;
 			boolean save = false;
@@ -1695,7 +1697,7 @@ public final class ClickGui
 	public void handleNavigatorMouseClick(double cMouseX, double cMouseY,
 		int mouseButton, Window window, MouseButtonEvent context)
 	{
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
 		handleComponentMouseClick(window, cMouseX, cMouseY, mouseButton,
@@ -2087,7 +2089,7 @@ public final class ClickGui
 	private void handleTitleBarMouseClick(Window window, int mouseX, int mouseY,
 		int mouseButton)
 	{
-		if(mouseButton != 0)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		boolean modernWindow = window instanceof ModernWindow;
 		int controlSize = modernWindow ? MODERN_TITLE_CONTROL_SIZE : 9;
@@ -2159,7 +2161,7 @@ public final class ClickGui
 	private void handleScrollbarMouseClick(Window window, int mouseX,
 		int mouseY, int mouseButton)
 	{
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
 		if(!isOverScrollbar(window, mouseX, mouseY))

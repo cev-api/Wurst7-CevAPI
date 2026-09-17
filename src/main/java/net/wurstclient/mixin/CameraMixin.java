@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 
 import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
 import net.minecraft.world.level.material.FogType;
 import net.wurstclient.WurstClient;
@@ -62,34 +63,16 @@ public abstract class CameraMixin
 	 * Disables smart culling when requested through {@link VisGraphEvent}.
 	 */
 	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/renderer/state/level/CameraRenderState;F)V",
+		method = "extractRenderState(Lnet/minecraft/client/renderer/state/level/CameraRenderState;Lnet/minecraft/client/DeltaTracker;)V",
 		at = @At("RETURN"))
 	private void onExtractVisGraphState(CameraRenderState cameraState,
-		float partialTicks, CallbackInfo ci)
+		DeltaTracker deltaTracker, CallbackInfo ci)
 	{
 		VisGraphEvent event = new VisGraphEvent();
 		EventManager.fire(event);
 		
 		if(event.isCancelled())
 			cameraState.smartCull = false;
-	}
-	
-	/**
-	 * Prevents blindness and darkness effects from changing the sky when
-	 * AntiBlind is enabled.
-	 *
-	 * <p>
-	 * In 26.1-snapshot-7, those effects don't appear to visibly change the sky
-	 * even without this mixin. Might be a bug in that snapshot.
-	 */
-	@Inject(
-		method = "extractRenderState(Lnet/minecraft/client/renderer/state/level/CameraRenderState;F)V",
-		at = @At("RETURN"))
-	private void onExtractRenderState(CameraRenderState cameraState,
-		float partialTicks, CallbackInfo ci)
-	{
-		if(WurstClient.INSTANCE.getHax().antiBlindHack.isEnabled())
-			cameraState.entityRenderState.doesMobEffectBlockSky = false;
 	}
 	
 	/**

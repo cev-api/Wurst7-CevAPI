@@ -20,10 +20,10 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.FaceTargetSetting;
 import net.wurstclient.settings.FaceTargetSetting.FaceTarget;
+import net.wurstclient.settings.InteractSwingSetting;
+import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.SwingHandSetting;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.BlockPlacer;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.BlockUtils;
@@ -62,8 +62,8 @@ public final class BuildRandomHack extends Hack
 	private final FaceTargetSetting faceTarget =
 		FaceTargetSetting.withoutPacketSpam(this, FaceTarget.SERVER);
 	
-	private final SwingHandSetting swingHand =
-		new SwingHandSetting(this, SwingHand.SERVER);
+	private final InteractSwingSetting interactSwing =
+		new InteractSwingSetting(this, InteractSwing.SERVER);
 	
 	private final CheckboxSetting fastPlace =
 		new CheckboxSetting("Always FastPlace",
@@ -96,7 +96,7 @@ public final class BuildRandomHack extends Hack
 		addSetting(checkItem);
 		addSetting(checkLOS);
 		addSetting(faceTarget);
-		addSetting(swingHand);
+		addSetting(interactSwing);
 		addSetting(fastPlace);
 		addSetting(placeWhileBreaking);
 		addSetting(placeWhileRiding);
@@ -171,7 +171,7 @@ public final class BuildRandomHack extends Hack
 		lastPos = pos;
 		
 		InteractionSimulator.rightClickBlock(params.toHitResult(),
-			swingHand.getSelected());
+			interactSwing.getSelected());
 		return true;
 	}
 	

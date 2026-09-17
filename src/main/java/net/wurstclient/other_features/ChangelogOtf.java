@@ -7,7 +7,10 @@
  */
 package net.wurstclient.other_features;
 
-import net.minecraft.util.Util;
+import java.net.URI;
+
+import com.mojang.blaze3d.Blaze3D;
+
 import net.wurstclient.DontBlock;
 import net.wurstclient.SearchTags;
 import net.wurstclient.other_feature.OtherFeature;

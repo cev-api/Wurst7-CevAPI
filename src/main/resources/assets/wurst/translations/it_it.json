@@ -28,6 +28,8 @@
   "description.wurst.hack.autodrop": "Droppa(toglie dall'inventario) automaticamente gli oggetti indesiderati.",
   "description.wurst.hack.autoeat": "Mangia quando necessario automaticamente.",
   "description.wurst.hack.autofarm": "Raccoglie e ripianta i raccolti automaticamente.",
+  "description.wurst.setting.autofarm.attack_swing": "Come AutoFarm deve muovere la tua mano quando raccoglie scavando.",
+  "description.wurst.setting.autofarm.interact_swing": "Come AutoFarm deve muovere la tua mano quando semina e raccoglie interagendo.",
   "description.wurst.hack.autofish": "Pesca automaticamente utilizzando la canna da pesca migliore. Se trova una migliore canna da pesca pescando, cambia automaticamente quella in uso con quella trovata.",
   "description.wurst.hack.autoleave": "Abbandona automaticamente il server quando la tua salute è troppo bassa.",
   "description.wurst.hack.automine": "Distrugge ogni blocco che guardi automaticamente.",

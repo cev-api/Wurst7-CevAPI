@@ -45,10 +45,10 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.FaceTargetSetting;
 import net.wurstclient.settings.FaceTargetSetting.FaceTarget;
 import net.wurstclient.settings.FileSetting;
+import net.wurstclient.settings.InteractSwingSetting;
+import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.SwingHandSetting;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.*;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.json.JsonException;
@@ -91,8 +91,8 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	private final FaceTargetSetting faceTarget =
 		FaceTargetSetting.withoutPacketSpam(this, FaceTarget.SERVER);
 	
-	private final SwingHandSetting swingHand =
-		new SwingHandSetting(this, SwingHand.SERVER);
+	private final InteractSwingSetting interactSwing =
+		new InteractSwingSetting(this, InteractSwing.SERVER);
 	
 	private final CheckboxSetting fastPlace =
 		new CheckboxSetting("Always FastPlace",
@@ -155,7 +155,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		addSetting(legacyPlacing);
 		addSetting(useSavedBlocks);
 		addSetting(faceTarget);
-		addSetting(swingHand);
+		addSetting(interactSwing);
 		addSetting(fastPlace);
 		addSetting(strictBuildOrder);
 		addSetting(previewTemplate);

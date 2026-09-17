@@ -7,6 +7,8 @@
  */
 package net.wurstclient.navigator;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.awt.Rectangle;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -85,7 +87,8 @@ public abstract class NavigatorScreen extends Screen
 		double double_4)
 	{
 		// scrollbar
-		if(scrolling && !scrollbarLocked && context.button() == 0)
+		if(scrolling && !scrollbarLocked
+			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(maxScroll == 0)
 				scroll = 0;

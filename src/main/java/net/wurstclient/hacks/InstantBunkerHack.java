@@ -21,7 +21,7 @@ import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
+import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RotationUtils;
@@ -112,7 +112,7 @@ public final class InstantBunkerHack extends Hack implements UpdateListener
 				if(BlockUtils.getState(pos).canBeReplaced()
 					&& !MC.player.getBoundingBox().intersects(new AABB(pos)))
 					placeBlockSimple(pos);
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			InteractSwing.CLIENT.swing(InteractionHand.MAIN_HAND);
 			
 			if(MC.player.onGround())
 				setEnabled(false);
@@ -184,9 +184,6 @@ public final class InstantBunkerHack extends Hack implements UpdateListener
 		// place block
 		IMC.getInteractionManager().rightClickBlock(pos.relative(side),
 			side.getOpposite(), hitVec);
-		
-		// swing arm
-		SwingHand.SERVER.swing(InteractionHand.MAIN_HAND);
 		
 		// reset timer
 		MC.rightClickDelay = 4;

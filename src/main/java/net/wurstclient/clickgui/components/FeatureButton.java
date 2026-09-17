@@ -7,6 +7,8 @@
  */
 package net.wurstclient.clickgui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.Objects;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -50,7 +52,7 @@ public final class FeatureButton extends Component
 		MouseButtonEvent context)
 	{
 		// middle click toggles favorites
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_MIDDLE)
 		{
 			if(feature instanceof net.wurstclient.hack.Hack)
 			{
@@ -61,7 +63,7 @@ public final class FeatureButton extends Component
 			return;
 		}
 		
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
 		if(isMenuOnlyFeature() && hasSettings)
