@@ -1225,13 +1225,8 @@ public final class PlayerEspHack extends Hack implements UpdateListener,
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 		
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);

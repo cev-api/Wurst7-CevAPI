@@ -399,7 +399,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	protected void onMouseDrag(double mouseX, double mouseY, int button,
 		double double_3, double double_4)
 	{
-		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT
+		if(button == InputConstants.MOUSE_BUTTON_LEFT
 			&& window.isDraggingScrollbar())
 			window.dragScrollbarTo((int)mouseY);
 	}
@@ -774,7 +774,7 @@ public final class NavigatorFeatureScreen extends NavigatorScreen
 	private boolean handleWindowScrollbarClick(double mouseX, double mouseY,
 		int mouseButton)
 	{
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT
 			|| !window.isScrollingEnabled())
 			return false;
 		if(!isInsideVisibleWindow(mouseX, mouseY))

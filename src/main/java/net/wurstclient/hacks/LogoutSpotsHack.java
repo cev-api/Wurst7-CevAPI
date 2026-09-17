@@ -325,16 +325,10 @@ public final class LogoutSpotsHack extends Hack
 			lz = anchored.z;
 		}
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		// Face the camera (billboard)
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(
-				com.mojang.math.Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(
-				com.mojang.math.Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
-		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
+		// Face the render camera (billboard), including freecam.
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices,
+			com.mojang.math.Axis.YP.rotationDegrees(180.0F));
 		float s = 0.025F * net.wurstclient.util.RenderUtils
 			.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);

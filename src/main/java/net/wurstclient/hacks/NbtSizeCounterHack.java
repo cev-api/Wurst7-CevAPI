@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -736,15 +735,9 @@ public final class NbtSizeCounterHack extends Hack implements
 		}
 		
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		Camera camera = MC.gameRenderer.mainCamera();
-		if(camera != null)
-		{
-			matrices.mulPose(
-				com.mojang.math.Axis.YP.rotationDegrees(-camera.yRot()));
-			matrices.mulPose(
-				com.mojang.math.Axis.XP.rotationDegrees(camera.xRot()));
-		}
-		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices,
+			com.mojang.math.Axis.YP.rotationDegrees(180.0F));
 		
 		float scale = 0.025F;
 		scale *= RenderUtils.getCappedWorldLabelScale(0.65F, dist);

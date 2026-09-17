@@ -7,9 +7,9 @@
  */
 package net.wurstclient.autoflypath.engine;
 
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.levelgen.DensityFunction;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
+import net.minecraft.world.level.levelgen.densityfunction.DensitySampler;
+import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.synth.BlendedNoise;
 
 public final class NetherTerrainGenerator
@@ -19,13 +19,12 @@ public final class NetherTerrainGenerator
 	private static final int SEA_LEVEL = 32;
 	private static final int FEATURE_MARGIN = 8;
 	private final BlendedNoise noise;
+	private final DensitySampler sampler;
 	
 	public NetherTerrainGenerator(long seed)
 	{
-		this.noise = BlendedNoise
-			.createUnseeded((double)0.25, (double)0.375, (double)80.0,
-				(double)60.0, (double)8.0)
-			.withNewRandom((RandomSource)new LegacyRandomSource(seed));
+		this.noise = new BlendedNoise(0.25, 0.375, 80.0, 60.0, 8.0);
+		this.sampler = noise.compileSampler(new LegacyRandomSource(seed));
 	}
 	
 	private static double slide(double v, int y)
@@ -71,9 +70,9 @@ public final class NetherTerrainGenerator
 				for(int zi = 0; zi <= 4; ++zi)
 				{
 					int wy = 0 + yi * 8;
-					double raw = this.noise.compute(
-						(DensityFunction.FunctionContext)new DensityFunction.SinglePointContext(
-							bx + xi * 4, wy, bz + zi * 4));
+					double raw =
+						sampler.sampleValue(SamplerContext.EMPTY_UNCACHED,
+							bx + xi * 4, wy, bz + zi * 4);
 					corners[xi][yi][zi] = NetherTerrainGenerator.slide(raw, wy);
 				}
 			}

@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -105,8 +105,8 @@ public final class AltGuiKeybindScreen extends Screen
 			}
 		}
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE
-			|| context.key() == GLFW.GLFW_KEY_BACKSPACE)
+		if(context.key() == InputConstants.KEY_ESCAPE
+			|| context.key() == InputConstants.KEY_BACKSPACE)
 		{
 			if(mode != Mode.VIEW)
 			{
@@ -129,13 +129,13 @@ public final class AltGuiKeybindScreen extends Screen
 		double mouseY = context.y();
 		int button = context.button();
 		
-		if(button == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(button == InputConstants.MOUSE_BUTTON_4)
 		{
 			minecraft.gui.setScreen(returnScreen);
 			return true;
 		}
 		
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return super.mouseClicked(context, doubleClick);
 		
 		int backX1 = panelX + 10;

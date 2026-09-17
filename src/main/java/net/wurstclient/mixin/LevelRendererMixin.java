@@ -15,12 +15,10 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.framegraph.FrameGraphBuilder;
 import com.mojang.blaze3d.resource.GraphicsResourceAllocator;
 import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.state.level.CameraRenderState;
@@ -41,13 +39,13 @@ public class LevelRendererMixin
 	private LevelRenderState levelRenderState;
 	
 	@Inject(
-		method = "render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lorg/joml/Matrix4fc;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lorg/joml/Vector4f;Z)V",
+		method = "render(Lcom/mojang/blaze3d/resource/GraphicsResourceAllocator;ZLnet/minecraft/client/renderer/state/level/CameraRenderState;Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;Lorg/joml/Vector4f;ZZ)V",
 		at = @At("HEAD"))
 	private void onRenderStart(GraphicsResourceAllocator allocator,
-		DeltaTracker tickCounter, boolean renderBlockOutline,
-		CameraRenderState cameraState, Matrix4fc positionMatrix,
+		boolean renderBlockOutline, CameraRenderState cameraState,
 		GpuBufferSlice gpuBufferSlice, Vector4f vector4f,
-		boolean shouldRenderSky, CallbackInfo ci)
+		boolean shouldRenderSky, boolean consistentDepthRequired,
+		CallbackInfo ci)
 	{
 		RenderUtils.beginEspFrame();
 		GlobalEspManager.getInstance().beginFrame();

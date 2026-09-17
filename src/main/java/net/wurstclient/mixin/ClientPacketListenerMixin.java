@@ -36,7 +36,6 @@ import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundLevelChunkPacketData;
-import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.network.protocol.game.ClientboundLoginPacket;
 import net.minecraft.network.protocol.game.ClientboundCommandSuggestionsPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
@@ -45,6 +44,7 @@ import net.wurstclient.uiutils.UiUtilsLegacyPluginScanner;
 import net.wurstclient.uiutils.UiUtilsPluginScanner;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.core.BlockPos;
@@ -155,11 +155,12 @@ public abstract class ClientPacketListenerMixin
 		if(autoSign == null || !autoSign.isAuraActive())
 			return;
 		
-		BlockPos pos = packet.getPos();
+		BlockPos pos = packet.pos();
 		if(minecraft.getConnection() == null)
 			return;
 		
-		if(autoSign.writeTextWithoutScreen(pos, packet.isFrontText()))
+		if(autoSign.writeTextWithoutScreen(pos,
+			packet.slot() == SignTextSlot.FRONT))
 			ci.cancel();
 	}
 	

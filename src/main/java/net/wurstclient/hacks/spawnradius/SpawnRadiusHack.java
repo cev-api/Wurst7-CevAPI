@@ -7,7 +7,6 @@
  */
 package net.wurstclient.hacks.spawnradius;
 
-import com.mojang.blaze3d.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -15,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.lang.reflect.Method;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.BaseSpawner;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;

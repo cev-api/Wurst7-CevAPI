@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.wurstclient.WurstClient;
 
 final class SignHistory
@@ -307,8 +308,8 @@ final class SignHistory
 			Entry e = new Entry();
 			e.date = Instant.now().toString();
 			e.state = changed ? "changed" : "present";
-			e.front = text(sign.getFrontText());
-			e.back = text(sign.getBackText());
+			e.front = text(sign.getText(SignTextSlot.FRONT));
+			e.back = text(sign.getText(SignTextSlot.BACK));
 			return e;
 		}
 		
@@ -324,7 +325,7 @@ final class SignHistory
 		{
 			List<String> lines = new ArrayList<>();
 			for(int i = 0; i < 4; i++)
-				lines.add(text.getMessage(i, false).getString());
+				lines.add(text.getMessages(false).get(i).getString());
 			return lines;
 		}
 		

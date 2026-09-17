@@ -391,7 +391,8 @@ public final class MaceDmgHack extends Hack
 				sendSmashSequence(findFallOffset(target));
 				lastSpoofTargetId = target.getId();
 				MC.gameMode.attack(MC.player, target);
-				MC.player.swing(InteractionHand.MAIN_HAND);
+				MC.player.swing(InteractionHand.MAIN_HAND,
+					MC.player.getMainHandItem().getInteractAnimation(), false);
 				pendingBurstIds.add(target.getId());
 				attacked.add(target);
 			}
@@ -902,7 +903,8 @@ public final class MaceDmgHack extends Hack
 		{
 			sendSmashSequence(offset);
 			MC.gameMode.attack(MC.player, target);
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 		}
 		
 		smashState = SmashState.WAITING_FOR_MACE_CONFIRM;

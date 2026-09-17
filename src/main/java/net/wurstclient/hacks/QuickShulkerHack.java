@@ -943,7 +943,8 @@ public final class QuickShulkerHack extends Hack
 			.faceVectorClient(Vec3.atCenterOf(pos));
 		
 		// Swing the arm for visual feedback.
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		
 		// Instant-break: start then immediately stop destroying the block.
 		// Same technique used by SuperInstaMine / Nuker packet-spam mode.

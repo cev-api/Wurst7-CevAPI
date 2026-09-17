@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 import net.minecraft.resources.Identifier;
 import net.wurstclient.Category;
@@ -18,6 +20,8 @@ public final class MobViewHack extends Hack implements UpdateListener
 {
 	private final EnumSetting<Mob> mob =
 		new EnumSetting<>("Mob", Mob.values(), Mob.SPIDER);
+	@Nullable
+	private Identifier appliedPostEffect;
 	
 	public MobViewHack()
 	{
@@ -37,7 +41,7 @@ public final class MobViewHack extends Hack implements UpdateListener
 	protected void onDisable()
 	{
 		EVENTS.remove(UpdateListener.class, this);
-		MC.gameRenderer.checkEntityPostEffect(MC.getCameraEntity());
+		removePostEffect();
 	}
 	
 	@Override
@@ -48,11 +52,22 @@ public final class MobViewHack extends Hack implements UpdateListener
 	
 	private void updatePostEffect()
 	{
-		Identifier postEffect = mob.getSelected().postEffect;
-		if(postEffect == null)
-			MC.gameRenderer.clearPostEffect();
-		else
-			MC.gameRenderer.setPostEffect(postEffect);
+		if(MC.player == null)
+			return;
+		List<Identifier> activePostEffects = MC.player.getActivePostEffects();
+		if(appliedPostEffect != null)
+			activePostEffects.remove(appliedPostEffect);
+		appliedPostEffect = mob.getSelected().postEffect;
+		if(appliedPostEffect != null
+			&& !activePostEffects.contains(appliedPostEffect))
+			activePostEffects.add(appliedPostEffect);
+	}
+	
+	private void removePostEffect()
+	{
+		if(MC.player != null && appliedPostEffect != null)
+			MC.player.getActivePostEffects().remove(appliedPostEffect);
+		appliedPostEffect = null;
 	}
 	
 	private enum Mob

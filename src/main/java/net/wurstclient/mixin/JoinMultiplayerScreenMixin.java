@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,7 +28,6 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -107,7 +108,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	@Shadow
 	private Button editButton;
 	@Shadow
-	private Button selectButton;
+	private Button joinButton;
 	@Shadow
 	private Button deleteButton;
 	
@@ -581,7 +582,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private void onBulkDeleteKey(KeyEvent event,
 		CallbackInfoReturnable<Boolean> cir)
 	{
-		if(event.key() != GLFW.GLFW_KEY_DELETE
+		if(event.key() != InputConstants.KEY_DELETE
 			|| wurst$multiSelectedServers.size() <= 1)
 			return;
 		
@@ -604,7 +605,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 		ServerSelectionList.OnlineServerEntry entry, MouseButtonEvent event,
 		boolean doubleClick)
 	{
-		if(event.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return false;
 		
 		if(!event.hasControlDown() && !event.hasShiftDown())
@@ -707,7 +708,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return true;
 		}
 		
-		if(event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 			for(int i = 0; i < PANEL_COUNT; i++)
 			{
 				ServerSelectionList list = wurst$panelLists[i];
@@ -728,7 +729,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 			return true;
 		}
 		
-		if(event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 			for(int i = 0; i < PANEL_COUNT; i++)
 			{
 				ServerSelectionList list = wurst$panelLists[i];
@@ -745,7 +746,7 @@ public class JoinMultiplayerScreenMixin extends Screen
 	public boolean mouseReleased(MouseButtonEvent event)
 	{
 		boolean handled = false;
-		if(event.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 			for(int i = 0; i < PANEL_COUNT; i++)
 			{
 				ServerSelectionList list = wurst$panelLists[i];
@@ -1864,11 +1865,11 @@ public class JoinMultiplayerScreenMixin extends Screen
 	private void wurst$syncMultiSelectButtons()
 	{
 		int count = wurst$multiSelectedServers.size();
-		if(count <= 1 || editButton == null || selectButton == null
+		if(count <= 1 || editButton == null || joinButton == null
 			|| deleteButton == null)
 			return;
 		
-		selectButton.active = false;
+		joinButton.active = false;
 		editButton.active = false;
 		deleteButton.active = true;
 	}

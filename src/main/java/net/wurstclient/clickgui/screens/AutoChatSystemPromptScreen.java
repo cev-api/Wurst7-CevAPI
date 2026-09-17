@@ -7,7 +7,8 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.MultiLineEditBox;
@@ -84,13 +85,13 @@ public final class AutoChatSystemPromptScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(event.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
-		if(event.key() == GLFW.GLFW_KEY_ENTER && event.hasControlDown())
+		if(event.key() == InputConstants.KEY_RETURN && event.hasControlDown())
 		{
 			done();
 			return true;

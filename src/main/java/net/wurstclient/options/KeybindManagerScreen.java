@@ -9,7 +9,6 @@ package net.wurstclient.options;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
-import org.lwjgl.glfw.GLFW;
 import java.util.Objects;
 
 import net.minecraft.client.Minecraft;

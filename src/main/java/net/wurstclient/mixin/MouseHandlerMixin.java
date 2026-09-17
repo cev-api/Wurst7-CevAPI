@@ -7,6 +7,8 @@
  */
 package net.wurstclient.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -48,9 +50,8 @@ public abstract class MouseHandlerMixin
 	private void onOnButton(long windowHandle, MouseButtonInfo mouseButtonInfo,
 		int action, CallbackInfo ci)
 	{
-		if(action == org.lwjgl.glfw.GLFW.GLFW_PRESS
-			&& mouseButtonInfo
-				.button() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+		if(action == InputConstants.PRESS
+			&& mouseButtonInfo.button() == InputConstants.MOUSE_BUTTON_MIDDLE
 			&& wurst$openShulkerAtMouse())
 		{
 			ci.cancel();

@@ -49,7 +49,6 @@ import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.hacks.QuickShulkerHack;
 import net.wurstclient.hacks.RemoteEnderChestHack;
 import net.wurstclient.util.ChatUtils;
-import org.lwjgl.glfw.GLFW;
 
 @Mixin(ContainerScreen.class)
 public abstract class ContainerScreenMixin
@@ -114,7 +113,7 @@ public abstract class ContainerScreenMixin
 			RemoteEnderChestHack remote =
 				WurstClient.INSTANCE.getHax().remoteEnderChestHack;
 			int key = event.key();
-			if(key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_E)
+			if(key == InputConstants.KEY_ESCAPE || key == InputConstants.KEY_E)
 			{
 				// If swap inventory key is active, pressing X/ESC closes
 				// the screen and disables the hack completely
@@ -128,7 +127,7 @@ public abstract class ContainerScreenMixin
 				return true;
 			}
 			String keyName = InputConstants.getKey(
-				new KeyEvent(event.key(), event.scancode(), event.modifiers()))
+				new KeyEvent(event.key(), event.keycode(), event.modifiers()))
 				.getName();
 			if(remote != null
 				&& keyName.equalsIgnoreCase(remote.getToggleGuiKeyName()))

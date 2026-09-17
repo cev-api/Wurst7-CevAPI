@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hud;
 
+import net.wurstclient.util.SdlUtils;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
@@ -14,7 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -902,8 +906,8 @@ public final class GameStatsHud
 		
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		boolean overWindow = mouseX >= x && mouseX <= x + width && mouseY >= y
 			&& mouseY <= y + height;
 		boolean overResizeHandle = mouseX >= x + width - GRAPH_RESIZE_MARGIN
@@ -1039,8 +1043,8 @@ public final class GameStatsHud
 		
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		boolean overHud = mouseX >= x && mouseX <= x + width && mouseY >= y
 			&& mouseY <= y + height;
 		

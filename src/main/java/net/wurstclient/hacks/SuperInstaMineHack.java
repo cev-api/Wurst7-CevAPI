@@ -14,7 +14,7 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
@@ -419,9 +419,9 @@ public final class SuperInstaMineHack extends Hack implements UpdateListener,
 		
 		if(swingHand.isChecked())
 		{
-			MC.getConnection()
-				.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.getConnection().send(ServerboundPunchPacket.INSTANCE);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 		}
 		
 		if(rotate.isChecked())

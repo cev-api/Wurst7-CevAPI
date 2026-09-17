@@ -7,12 +7,13 @@
  */
 package net.wurstclient.clickgui.modern;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.wurstclient.WurstClient;
 import net.wurstclient.clickgui.ClickGui;
 import net.wurstclient.clickgui.Popup;
 import net.wurstclient.util.RenderUtils;
-import org.lwjgl.glfw.GLFW;
 
 /** Small Phase 6 context menu containing only safe, existing actions. */
 public final class ModernFeatureContextPopup extends Popup
@@ -35,7 +36,7 @@ public final class ModernFeatureContextPopup extends Popup
 	@Override
 	public void handleMouseClick(int mouseX, int mouseY, int mouseButton)
 	{
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		int row = (mouseY - getY()) / 13;
 		if(row == 0)

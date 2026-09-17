@@ -74,7 +74,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.wurstclient.util.chunk.ChunkSearcherCoordinator;
 import net.wurstclient.util.chunk.ChunkSearcher.Result;
-import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"auto fly", "autofly", "waypoint fly", "auto flight"})
 public final class AutoFlyHack extends Hack
@@ -1118,7 +1117,8 @@ public final class AutoFlyHack extends Hack
 		if(!MC.gameMode.isDestroying())
 			MC.gameMode.startDestroyBlock(closest, side);
 		if(MC.gameMode.continueDestroyBlock(closest, side))
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 	}
 	
 	private boolean hasLineOfSight(BlockPos pos, Vec3 eyes)
@@ -5235,10 +5235,8 @@ public final class AutoFlyHack extends Hack
 	
 	private boolean isControlDown()
 	{
-		return InputConstants.isKeyDown(MC.getWindow(),
-			GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| InputConstants.isKeyDown(MC.getWindow(),
-				GLFW.GLFW_KEY_RIGHT_CONTROL);
+		return InputConstants.isKeyDown(InputConstants.KEY_LCONTROL)
+			|| InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
 	}
 	
 	private void beginManualAdjust(Vec3 playerPos)

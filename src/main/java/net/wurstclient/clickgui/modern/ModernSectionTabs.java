@@ -7,9 +7,11 @@
  */
 package net.wurstclient.clickgui.modern;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
-import org.lwjgl.glfw.GLFW;
+
 import net.wurstclient.clickgui.Component;
 import net.wurstclient.util.RenderUtils;
 
@@ -28,7 +30,7 @@ public final class ModernSectionTabs extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int button,
 		MouseButtonEvent context)
 	{
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		int x = getX();
 		for(String label : labels())

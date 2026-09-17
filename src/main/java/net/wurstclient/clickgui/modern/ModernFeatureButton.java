@@ -7,6 +7,8 @@
  */
 package net.wurstclient.clickgui.modern;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -19,7 +21,6 @@ import net.wurstclient.commands.NecoCmd;
 import net.wurstclient.other_feature.OtherFeature;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
-import org.lwjgl.glfw.GLFW;
 
 /** A Modern feature row with mutually exclusive highlight and switch states. */
 public final class ModernFeatureButton extends Component
@@ -62,18 +63,18 @@ public final class ModernFeatureButton extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_MIDDLE)
 		{
 			toggleFavorite();
 			return;
 		}
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_RIGHT)
 		{
 			if(hasSettings)
 				openSettingsWindow();
 			return;
 		}
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
 		if(toggleable)

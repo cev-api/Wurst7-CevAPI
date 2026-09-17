@@ -436,7 +436,8 @@ public final class AutoMaceHack extends Hack implements UpdateListener
 		
 		currentTarget = target;
 		MC.gameMode.attack(MC.player, target);
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		MC.player.resetAttackStrengthTicker();
 		attackedThisFall = true;
 		double vertical = MC.player.getY() - target.getBoundingBox().maxY;

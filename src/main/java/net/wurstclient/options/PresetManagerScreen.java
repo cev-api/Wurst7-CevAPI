@@ -7,13 +7,14 @@
  */
 package net.wurstclient.options;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -25,7 +26,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
-import net.minecraft.util.Util;
+import com.mojang.blaze3d.Blaze3D;
 import net.wurstclient.WurstClient;
 import net.wurstclient.util.WurstColors;
 
@@ -77,8 +78,8 @@ public final class PresetManagerScreen extends Screen
 	
 	private void openFolder()
 	{
-		Util.getPlatform().openFile(WurstClient.INSTANCE.getPresetManager()
-			.getPresetsFolder().toFile());
+		Blaze3D.openPath(
+			WurstClient.INSTANCE.getPresetManager().getPresetsFolder());
 	}
 	
 	private void newPreset(String name)
@@ -153,16 +154,16 @@ public final class PresetManagerScreen extends Screen
 	{
 		switch(context.key())
 		{
-			case GLFW.GLFW_KEY_ENTER:
+			case InputConstants.KEY_RETURN:
 			loadSelected();
 			break;
 			
-			case GLFW.GLFW_KEY_DELETE:
+			case InputConstants.KEY_DELETE:
 			if(deleteButton.active)
 				deleteSelected();
 			break;
 			
-			case GLFW.GLFW_KEY_ESCAPE:
+			case InputConstants.KEY_ESCAPE:
 			backButton.onPress(context);
 			break;
 			

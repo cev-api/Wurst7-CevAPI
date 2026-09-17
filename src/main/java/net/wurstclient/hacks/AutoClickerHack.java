@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.lwjgl.glfw.GLFW;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.core.BlockPos;
@@ -485,13 +485,15 @@ public final class AutoClickerHack extends Hack
 		if(button.getSelected() == Button.LEFT)
 		{
 			MC.gameMode.startDestroyBlock(target.pos, target.side);
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 			return;
 		}
 		BlockHitResult hit =
 			new BlockHitResult(target.hitPos, target.side, target.pos, false);
 		MC.gameMode.useItemOn(MC.player, InteractionHand.MAIN_HAND, hit);
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 	}
 	
 	private void releaseKeys()
@@ -572,8 +574,7 @@ public final class AutoClickerHack extends Hack
 			}
 		}
 		useWasDown = useDown;
-		boolean enterDown =
-			InputConstants.isKeyDown(MC.getWindow(), GLFW.GLFW_KEY_ENTER);
+		boolean enterDown = InputConstants.isKeyDown(InputConstants.KEY_RETURN);
 		if(enterDown && !enterWasDown
 			&& (cursorMode.getSelected() == CursorMode.MULTIPLE
 				? !locations.isEmpty() : singleTarget != null))

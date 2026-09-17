@@ -8,15 +8,19 @@
 package net.wurstclient.util;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.PoseStack.Pose;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalDouble;
 
 import org.joml.Matrix3x2f;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
+import org.joml.Quaternionfc;
 import org.joml.Vector3f;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
@@ -26,6 +30,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.renderer.StagedVertexBuffer;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -43,6 +48,12 @@ import net.wurstclient.render.globalesp.GlobalEspManager;
 public enum RenderUtils
 {
 	;
+	
+	/** Applies a quaternion rotation to 26.3's matrix-only PoseStack API. */
+	public static void mulPose(PoseStack matrices, Quaternionfc rotation)
+	{
+		matrices.mulPose(new Matrix4f().rotate(rotation));
+	}
 	
 	private static final float DEFAULT_LINE_WIDTH = 2F;
 	private static final double MIN_LINE_WIDTH = 0.5;
@@ -200,6 +211,20 @@ public enum RenderUtils
 		return new Rotation(camera.yRot(), camera.xRot());
 	}
 	
+	/**
+	 * Applies the billboard rotation used by Wurst's world-space text. The
+	 * render camera is authoritative here because freecam moves the camera
+	 * without changing the player's entity rotation.
+	 */
+	public static void applyWorldTextOrientation(PoseStack matrices)
+	{
+		Rotation rotation = getCameraRotation();
+		matrices.mulPose(
+			new Matrix4f().rotateY((float)Math.toRadians(-rotation.yaw())));
+		matrices.mulPose(
+			new Matrix4f().rotateX((float)Math.toRadians(rotation.pitch())));
+	}
+	
 	public static BlockPos getCameraBlockPos()
 	{
 		Camera camera = WurstClient.MC.gameRenderer.mainCamera();
@@ -277,12 +302,23 @@ public enum RenderUtils
 			if(!textDraws.isEmpty())
 			{
 				svb.upload();
-				for(int i = 0; i < textDraws.size(); i++)
+				RenderTarget framebuffer =
+					WurstClient.MC.gameRenderer.mainRenderTarget();
+				try(RenderPass renderPass = RenderSystem.getDevice()
+					.createCommandEncoder().createRenderPass(() -> "wurst_text",
+						framebuffer.getColorTextureView(), Optional.empty(),
+						framebuffer.getDepthTextureView(),
+						OptionalDouble.empty()))
 				{
-					StagedVertexBuffer.ExecuteInfo info =
-						svb.getExecuteInfo(textDraws.get(i));
-					if(info != null)
-						textDrawTypes.get(i).prepare().drawFromBuffer(info);
+					RenderSystem.bindDefaultUniforms(renderPass);
+					for(int i = 0; i < textDraws.size(); i++)
+					{
+						StagedVertexBuffer.ExecuteInfo info =
+							svb.getExecuteInfo(textDraws.get(i));
+						if(info != null)
+							textDrawTypes.get(i).prepare().drawFromBuffer(info,
+								renderPass);
+					}
 				}
 			}
 		}finally

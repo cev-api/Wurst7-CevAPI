@@ -75,13 +75,8 @@ public final class ContainerRenderer
 		Vec3 camera = RenderUtils.getCameraPos();
 		matrices.translate(pos.x - camera.x, pos.y + 0.8 - camera.y,
 			pos.z - camera.z);
-		var cameraEntity = mc.getCameraEntity();
-		if(cameraEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-cameraEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(cameraEntity.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180));
 		matrices.scale(0.022F, -0.022F, 0.022F);
 		float halfWidth = mc.font.width(label) / 2F;
 		RenderUtils.drawOutlinedTextInBatch(mc.font, label, -halfWidth, 0,

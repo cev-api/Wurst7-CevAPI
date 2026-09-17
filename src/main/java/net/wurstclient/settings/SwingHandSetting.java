@@ -7,6 +7,8 @@
  */
 package net.wurstclient.settings;
 
+import java.util.function.Consumer;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.world.InteractionHand;
@@ -14,8 +16,13 @@ import net.wurstclient.WurstClient;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.util.text.WText;
 
-public final class AttackSwingSetting
-	extends EnumSetting<AttackSwingSetting.AttackSwing>
+/**
+ * Compatibility setting for fork-only hacks that need to swing a specific
+ * hand. Vanilla 26.3 replaced ServerboundPunchPacket with the hand-independent
+ * ServerboundPunchPacket, so the server-side option uses that packet here.
+ */
+public final class SwingHandSetting
+	extends EnumSetting<SwingHandSetting.SwingHand>
 {
 	private static final Minecraft MC = WurstClient.MC;
 	private static final WText FULL_DESCRIPTION_SUFFIX =
@@ -23,33 +30,33 @@ public final class AttackSwingSetting
 	private static final WText REDUCED_DESCRIPTION_SUFFIX =
 		buildDescriptionSuffix(false);
 	
-	private AttackSwingSetting(WText description, AttackSwing[] values,
-		AttackSwing selected)
+	private SwingHandSetting(WText description, SwingHand[] values,
+		SwingHand selected)
 	{
-		super("Attack swing", description, values, selected);
+		super("Swing hand", description, values, selected);
 	}
 	
-	public AttackSwingSetting(WText description, AttackSwing selected)
+	public SwingHandSetting(WText description, SwingHand selected)
 	{
-		this(description.append(FULL_DESCRIPTION_SUFFIX), AttackSwing.values(),
+		this(description.append(FULL_DESCRIPTION_SUFFIX), SwingHand.values(),
 			selected);
 	}
 	
-	public AttackSwingSetting(Hack hack, AttackSwing selected)
+	public SwingHandSetting(Hack hack, SwingHand selected)
 	{
 		this(hackDescription(hack), selected);
 	}
 	
-	public static AttackSwingSetting withoutOffOption(WText description,
-		AttackSwing selected)
+	public static SwingHandSetting withoutOffOption(WText description,
+		SwingHand selected)
 	{
-		AttackSwing[] values = {AttackSwing.CLIENT, AttackSwing.SERVER};
-		return new AttackSwingSetting(
+		SwingHand[] values = {SwingHand.SERVER, SwingHand.CLIENT};
+		return new SwingHandSetting(
 			description.append(REDUCED_DESCRIPTION_SUFFIX), values, selected);
 	}
 	
-	public static AttackSwingSetting withoutOffOption(Hack hack,
-		AttackSwing selected)
+	public static SwingHandSetting withoutOffOption(Hack hack,
+		SwingHand selected)
 	{
 		return withoutOffOption(hackDescription(hack), selected);
 	}
@@ -57,62 +64,59 @@ public final class AttackSwingSetting
 	public static WText genericMiningDescription(Hack hack)
 	{
 		return WText.translated(
-			"description.wurst.setting.generic.attack_swing_mining",
+			"description.wurst.setting.generic.swing_hand_mining",
 			hack.getName());
 	}
 	
 	public static WText genericCombatDescription(Hack hack)
 	{
 		return WText.translated(
-			"description.wurst.setting.generic.attack_swing_combat",
+			"description.wurst.setting.generic.swing_hand_combat",
 			hack.getName());
 	}
 	
 	private static WText hackDescription(Hack hack)
 	{
 		return WText.translated("description.wurst.setting."
-			+ hack.getName().toLowerCase() + ".attack_swing");
+			+ hack.getName().toLowerCase() + ".swing_hand");
 	}
 	
-	public void swing()
+	public void swing(InteractionHand hand)
 	{
-		getSelected().swing();
+		getSelected().swing(hand);
 	}
 	
 	private static WText buildDescriptionSuffix(boolean includeOff)
 	{
 		WText text = WText.literal("\n\n");
-		AttackSwing[] values = includeOff ? AttackSwing.values()
-			: new AttackSwing[]{AttackSwing.CLIENT, AttackSwing.SERVER};
+		SwingHand[] values = includeOff ? SwingHand.values()
+			: new SwingHand[]{SwingHand.SERVER, SwingHand.CLIENT};
 		
-		for(AttackSwing value : values)
+		for(SwingHand value : values)
 			text.append("\u00a7l" + value.name + "\u00a7r - ")
 				.append(value.description).append("\n\n");
 		
 		return text;
 	}
 	
-	public enum AttackSwing
+	public enum SwingHand
 	{
-		OFF("Off", () -> {}),
-		
-		CLIENT("Client-side", () -> {
-			MC.player.swing(InteractionHand.MAIN_HAND,
-				MC.player.getMainHandItem().getAttackAnimation(), false);
-			MC.player.connection.send(ServerboundPunchPacket.INSTANCE);
-		}),
+		OFF("Off", hand -> {}),
 		
 		SERVER("Server-side",
-			() -> MC.player.connection.send(ServerboundPunchPacket.INSTANCE));
+			hand -> MC.player.connection.send(ServerboundPunchPacket.INSTANCE)),
+		
+		CLIENT("Client-side", hand -> MC.player.swing(hand,
+			MC.player.getItemInHand(hand).getInteractAnimation(), false));
 		
 		private static final String TRANSLATION_KEY_PREFIX =
 			"description.wurst.setting.generic.swing_hand.";
 		
 		private final String name;
 		private final WText description;
-		private final Runnable swing;
+		private final Consumer<InteractionHand> swing;
 		
-		private AttackSwing(String name, Runnable swing)
+		private SwingHand(String name, Consumer<InteractionHand> swing)
 		{
 			this.name = name;
 			description =
@@ -120,9 +124,9 @@ public final class AttackSwingSetting
 			this.swing = swing;
 		}
 		
-		public void swing()
+		public void swing(InteractionHand hand)
 		{
-			swing.run();
+			swing.accept(hand);
 		}
 		
 		@Override

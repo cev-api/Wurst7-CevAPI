@@ -7,9 +7,9 @@
  */
 package net.wurstclient.clickgui.components;
 
-import java.util.ArrayList;
+import com.mojang.blaze3d.platform.InputConstants;
 
-import org.lwjgl.glfw.GLFW;
+import java.util.ArrayList;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -125,7 +125,7 @@ public final class SettingGroupComponent extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int mouseButton,
 		MouseButtonEvent context)
 	{
-		if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(expanded)
 				for(Component child : childComponents)

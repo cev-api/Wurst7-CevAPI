@@ -10,8 +10,9 @@ package net.wurstclient.hacks;
 import java.awt.Color;
 
 import org.joml.Vector4f;
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
 
-import net.minecraft.util.ARGB;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
@@ -138,18 +139,15 @@ public final class RenderAdjustHack extends Hack
 		return isEnabled() && adjustSky.isChecked() && !disableSky.isChecked();
 	}
 	
-	public int applySkyColor(int color)
+	public Vector3fc applySkyColor(Vector3fc color)
 	{
 		float opacity = skyOpacity.getValueF();
 		float inverse = 1 - opacity;
 		
-		int red =
-			Math.round(ARGB.red(color) * inverse + skyColor.getRed() * opacity);
-		int green = Math
-			.round(ARGB.green(color) * inverse + skyColor.getGreen() * opacity);
-		int blue = Math
-			.round(ARGB.blue(color) * inverse + skyColor.getBlue() * opacity);
-		return ARGB.color(255, red, green, blue);
+		return new Vector3f(
+			color.x() * inverse + skyColor.getRed() / 255F * opacity,
+			color.y() * inverse + skyColor.getGreen() / 255F * opacity,
+			color.z() * inverse + skyColor.getBlue() / 255F * opacity);
 	}
 	
 	public boolean shouldHideScoreboard()

@@ -157,13 +157,8 @@ public final class SpawnerEspHack extends Hack implements UpdateListener,
 			pos = cam.add(dir.scale(12 / dist));
 		matrices.pushPose();
 		matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-		var camera = MC.getCameraEntity();
-		if(camera != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180));
 		float scale = 0.025F * RenderUtils
 			.getCappedWorldLabelScale(overlayScale.getValueF(), dist);
 		matrices.scale(scale, -scale, scale);

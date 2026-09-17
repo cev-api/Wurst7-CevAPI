@@ -10,14 +10,11 @@ package net.wurstclient.hacks.lootsorter;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.ItemTags;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.item.CrossbowItem;
-import net.minecraft.world.item.HoeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.tags.EnchantmentTags;
 
@@ -141,15 +138,11 @@ public enum BuiltInItemFilter implements ItemFilter
 			case ALL, AUTOSORT, AUTOSORT_FRAMES, MISCELLANEOUS -> true;
 			case WEAPONS -> stack.is(ItemTags.SWORDS)
 				|| stack.is(ItemTags.SPEARS) || path(stack, "trident", "mace")
-				|| stack.getItem() instanceof AxeItem
 				|| stack.getItem() instanceof BowItem
 				|| stack.getItem() instanceof CrossbowItem;
 			case TOOLS -> stack.is(ItemTags.PICKAXES) || stack.is(ItemTags.AXES)
 				|| stack.is(ItemTags.SHOVELS) || stack.is(ItemTags.HOES)
-				|| path(stack, "fishing_rod", "shears")
-				|| stack.getItem() instanceof AxeItem
-				|| stack.getItem() instanceof ShovelItem
-				|| stack.getItem() instanceof HoeItem;
+				|| path(stack, "fishing_rod", "shears");
 			case ARMOUR -> stack.has(DataComponents.EQUIPPABLE);
 			case FOOD -> stack.has(DataComponents.FOOD);
 			case POTIONS -> stack.has(DataComponents.POTION_CONTENTS);
@@ -310,7 +303,6 @@ public enum BuiltInItemFilter implements ItemFilter
 	{
 		return stack.is(ItemTags.SWORDS) || stack.is(ItemTags.SPEARS)
 			|| path(stack, "trident", "mace")
-			|| stack.getItem() instanceof AxeItem
 			|| stack.getItem() instanceof BowItem
 			|| stack.getItem() instanceof CrossbowItem;
 	}
@@ -319,10 +311,7 @@ public enum BuiltInItemFilter implements ItemFilter
 	{
 		return stack.is(ItemTags.PICKAXES) || stack.is(ItemTags.AXES)
 			|| stack.is(ItemTags.SHOVELS) || stack.is(ItemTags.HOES)
-			|| path(stack, "fishing_rod", "shears")
-			|| stack.getItem() instanceof AxeItem
-			|| stack.getItem() instanceof ShovelItem
-			|| stack.getItem() instanceof HoeItem;
+			|| path(stack, "fishing_rod", "shears");
 	}
 	
 	private static boolean hasEnchantments(ItemStack stack)

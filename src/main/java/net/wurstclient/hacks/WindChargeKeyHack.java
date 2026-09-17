@@ -9,7 +9,7 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.world.InteractionHand;
@@ -29,8 +29,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 {
 	private static final KeyMapping activationKey =
 		KeyBindingHelper.registerKeyBinding(new KeyMapping(
-			"key.wurst.windchargekey", InputConstants.Type.KEYSYM,
-			GLFW.GLFW_KEY_SPACE, KeyMapping.Category.MISC));
+			"key.wurst.windchargekey", InputConstants.Type.KEYBOARD,
+			InputConstants.KEY_SPACE, KeyMapping.Category.MISC));
 	
 	private final SliderSetting switchDelayMs = new SliderSetting(
 		"Switch delay", 50, 0, 500, 5, ValueDisplay.INTEGER.withSuffix("ms"));
@@ -341,7 +341,8 @@ public final class WindChargeKeyHack extends Hack implements UpdateListener
 			MC.gameMode.useItem(MC.player, InteractionHand.MAIN_HAND);
 		
 		if(result.consumesAction())
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 		
 		return result.consumesAction();
 	}

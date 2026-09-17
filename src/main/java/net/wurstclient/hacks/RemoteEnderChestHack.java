@@ -341,8 +341,7 @@ public final class RemoteEnderChestHack extends Hack
 			InputConstants.Key key = getToggleGuiKey();
 			if(key != null)
 			{
-				boolean keyDown =
-					InputConstants.isKeyDown(MC.getWindow(), key.getValue());
+				boolean keyDown = InputConstants.isKeyDown(key.getValue());
 				boolean keyJustPressed = keyDown && !lastToggleKeyState;
 				lastToggleKeyState = keyDown;
 				if(keyJustPressed)

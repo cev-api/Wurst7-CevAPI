@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -52,7 +54,6 @@ import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.*;
 import net.wurstclient.util.BlockPlacer.BlockPlacingParams;
 import net.wurstclient.util.json.JsonException;
-import org.lwjgl.glfw.GLFW;
 
 public final class AutoBuildHack extends Hack implements UpdateListener,
 	RightClickListener, KeyPressListener, RenderListener, GUIRenderListener
@@ -303,9 +304,9 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 	@Override
 	public void onKeyPress(KeyPressListener.KeyPressEvent event)
 	{
-		if(event.getKeyCode() != GLFW.GLFW_KEY_ENTER
-			|| event.getAction() != GLFW.GLFW_PRESS || MC.gui.screen() != null
-			|| status != Status.IDLE)
+		if(event.getKeyCode() != InputConstants.KEY_RETURN
+			|| event.getAction() != InputConstants.PRESS
+			|| MC.gui.screen() != null || status != Status.IDLE)
 			return;
 		
 		startBuild();
@@ -509,7 +510,7 @@ public final class AutoBuildHack extends Hack implements UpdateListener,
 		try
 		{
 			InteractionSimulator.rightClickBlock(params.toHitResult(),
-				InteractionHand.MAIN_HAND, swingHand.getSelected());
+				InteractionHand.MAIN_HAND, interactSwing.getSelected());
 		}finally
 		{
 			if(MC.player != null)

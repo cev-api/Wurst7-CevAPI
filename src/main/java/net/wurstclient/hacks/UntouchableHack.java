@@ -37,7 +37,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import com.mojang.blaze3d.platform.InputConstants;
-import org.lwjgl.glfw.GLFW;
+
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.WurstClient;
@@ -293,6 +293,13 @@ public final class UntouchableHack extends Hack
 			releaseSneakKey();
 	}
 	
+	private boolean isSwingAnimation(int action)
+	{
+		// 26.3 keeps the protocol's legacy action IDs but no longer exposes
+		// named constants for the two swing actions.
+		return action == 0 || action == 3;
+	}
+	
 	private void inspectPacket(Packet<?> packet)
 	{
 		if(packet instanceof ClientboundBundlePacket bundle)
@@ -302,10 +309,8 @@ public final class UntouchableHack extends Hack
 			return;
 		}
 		
-		if(packet instanceof ClientboundAnimatePacket animation && (animation
-			.getAction() == ClientboundAnimatePacket.SWING_MAIN_HAND
-			|| animation
-				.getAction() == ClientboundAnimatePacket.SWING_OFF_HAND))
+		if(packet instanceof ClientboundAnimatePacket animation
+			&& isSwingAnimation(animation.getAction()))
 		{
 			int entityId = animation.getId();
 			MC.execute(() -> handleSwingPacket(entityId));
@@ -334,7 +339,7 @@ public final class UntouchableHack extends Hack
 		}else if(packet instanceof ClientboundEntityPositionSyncPacket sync)
 		{
 			id = sync.id();
-			position = sync.values().position();
+			position = sync.position().endPosition();
 		}else if(packet instanceof ClientboundMoveEntityPacket move
 			&& move.hasPosition() && MC.level != null)
 		{
@@ -342,8 +347,8 @@ public final class UntouchableHack extends Hack
 			if(movedEntity == null)
 				return;
 			id = movedEntity.getId();
-			position = movedEntity.getPositionCodec().decode(move.getXa(),
-				move.getYa(), move.getZa());
+			position = move.getPositionDelta()
+				.decode(movedEntity.getPositionCodec()).endPosition();
 		}else
 			return;
 		
@@ -1274,8 +1279,7 @@ public final class UntouchableHack extends Hack
 	private boolean shouldPauseOnLeftControl()
 	{
 		return pauseOnLeftControl.isChecked() && MC.getWindow() != null
-			&& InputConstants.isKeyDown(MC.getWindow(),
-				GLFW.GLFW_KEY_LEFT_CONTROL);
+			&& InputConstants.isKeyDown(InputConstants.KEY_LCONTROL);
 	}
 	
 	private void releaseSneakKey()

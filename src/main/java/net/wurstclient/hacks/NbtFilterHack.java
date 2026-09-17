@@ -328,7 +328,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 		{
 			if(packet instanceof ClientboundRemoveEntitiesPacket remove)
 			{
-				for(int id : remove.getEntityIds())
+				for(int id : remove.entityIds())
 				{
 					bannedEntityIds.remove(id);
 					entityIdToChunk.remove(id);
@@ -391,15 +391,14 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	private InspectionResult checkChunkPacket(
 		ClientboundLevelChunkWithLightPacket packet)
 	{
-		ChunkPos chunkPos = new ChunkPos(packet.getX(), packet.getZ());
+		ChunkPos chunkPos = new ChunkPos(packet.x(), packet.z());
 		if(isBannedChunk(chunkPos))
 			return InspectionResult.dangerous(PacketKind.CHUNK,
 				"quarantined chunk", -1, chunkPos, null);
 		
 		try
 		{
-			int sizeBytes =
-				packet.getChunkData().getReadBuffer().readableBytes();
+			int sizeBytes = packet.chunkData().getReadBuffer().readableBytes();
 			double sizeMB = sizeBytes / (1024.0 * 1024.0);
 			
 			if(sizeMB > maxSuspiciousPacketSizeMb.getValue())
@@ -411,8 +410,8 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 					sizeBytes, chunkPos, null);
 			}
 			
-			InspectionResult beResult = sanitizeChunkBlockEntityRecords(
-				packet.getChunkData(), chunkPos);
+			InspectionResult beResult =
+				sanitizeChunkBlockEntityRecords(packet.chunkData(), chunkPos);
 			if(beResult.dangerous())
 				return beResult;
 			
@@ -764,7 +763,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 	private ChunkPos getAffectedChunk(Packet<?> packet)
 	{
 		if(packet instanceof ClientboundLevelChunkWithLightPacket p)
-			return new ChunkPos(p.getX(), p.getZ());
+			return new ChunkPos(p.x(), p.z());
 		
 		if(packet instanceof ClientboundBlockEntityDataPacket p)
 			return ChunkPos.containing(p.getPos());
@@ -831,8 +830,7 @@ public final class NbtFilterHack extends Hack implements PacketInputListener,
 			newChunk = chunkFromVecLike(pos);
 		}else if(packet instanceof ClientboundEntityPositionSyncPacket sync)
 		{
-			Object values = sync.values();
-			Object pos = invokeNoArg(values, "position");
+			Object pos = sync.position().endPosition();
 			newChunk = chunkFromVecLike(pos);
 		}else if(packet instanceof ClientboundMoveEntityPacket)
 			newChunk = entityIdToChunk.get(entityId);

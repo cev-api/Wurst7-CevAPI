@@ -7,6 +7,8 @@
  */
 package net.wurstclient.commands;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -24,7 +26,6 @@ import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageInputStream;
 
-import org.lwjgl.glfw.GLFW;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
@@ -174,16 +175,16 @@ public final class NecoCmd extends Command
 	@Override
 	public void onMouseButtonPress(MouseButtonPressEvent event)
 	{
-		if(event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.getButton() != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		
-		if(event.getAction() == GLFW.GLFW_RELEASE)
+		if(event.getAction() == InputConstants.RELEASE)
 		{
 			dragging = false;
 			return;
 		}
 		
-		if(event.getAction() != GLFW.GLFW_PRESS || !enabled)
+		if(event.getAction() != InputConstants.PRESS || !enabled)
 			return;
 		
 		int mouseX = getScaledMouseX();

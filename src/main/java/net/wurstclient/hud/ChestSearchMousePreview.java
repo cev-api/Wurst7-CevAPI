@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hud;
 
+import net.wurstclient.util.SdlUtils;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.Comparator;
 import java.util.List;
 import net.minecraft.client.gui.Font;
@@ -27,7 +31,6 @@ import net.wurstclient.chestsearch.ChestSearchItemStacks;
 import net.wurstclient.hacks.ChestSearchHack;
 import net.wurstclient.hacks.ChestSearchHack.PreviewAnchor;
 import net.wurstclient.util.RenderUtils;
-import org.lwjgl.glfw.GLFW;
 
 public final class ChestSearchMousePreview
 {
@@ -60,7 +63,7 @@ public final class ChestSearchMousePreview
 	
 	public boolean handleMouseClick(double mouseX, double mouseY, int button)
 	{
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !visible)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT || !visible)
 			return false;
 		
 		ChestSearchHack hack = WurstClient.INSTANCE.getHax().chestSearchHack;
@@ -85,7 +88,7 @@ public final class ChestSearchMousePreview
 	
 	public boolean handleMouseRelease(int button)
 	{
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !dragging)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT || !dragging)
 			return false;
 		
 		ChestSearchHack hack = WurstClient.INSTANCE.getHax().chestSearchHack;
@@ -335,8 +338,8 @@ public final class ChestSearchMousePreview
 			return;
 		}
 		
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		boolean canDrag = WurstClient.MC.gui.screen() instanceof ChatScreen
 			|| (WurstClient.MC.gui
 				.screen() instanceof AbstractContainerScreen<?>

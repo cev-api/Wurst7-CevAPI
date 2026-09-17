@@ -879,7 +879,8 @@ public final class BedrockEscapeHack extends Hack
 					MC.player.getYRot(), MC.player.getXRot()));
 		}
 		
-		MC.player.swing(hand);
+		MC.player.swing(hand,
+			MC.player.getItemInHand(hand).getInteractAnimation(), false);
 		if(result.consumesAction())
 			pendingBoatEnterTicks = BOAT_ENTER_RETRY_TICKS;
 		
@@ -936,7 +937,9 @@ public final class BedrockEscapeHack extends Hack
 			InteractionResult result =
 				MC.gameMode.interact(MC.player, boat, hitResult, hand);
 			if(result.consumesAction())
-				MC.player.swing(hand);
+				MC.player.swing(hand,
+					MC.player.getItemInHand(hand).getInteractAnimation(),
+					false);
 			
 			if(MC.player.isPassenger())
 				return true;

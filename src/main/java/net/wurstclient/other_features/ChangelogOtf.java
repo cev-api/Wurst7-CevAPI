@@ -34,7 +34,7 @@ public final class ChangelogOtf extends OtherFeature
 	@Override
 	public void doPrimaryAction()
 	{
-		Util.getPlatform()
-			.openUri("https://github.com/cev-api/Wurst7-CevAPI/releases");
+		Blaze3D.openUri(
+			URI.create("https://github.com/cev-api/Wurst7-CevAPI/releases"));
 	}
 }

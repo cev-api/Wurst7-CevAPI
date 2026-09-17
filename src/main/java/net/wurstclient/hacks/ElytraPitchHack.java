@@ -21,7 +21,6 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import org.lwjgl.glfw.GLFW;
 
 @SearchTags({"elytra pitch", "pitch40", "elytra fly", "efly"})
 public final class ElytraPitchHack extends Hack implements UpdateListener
@@ -152,10 +151,8 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 		if(MC.getWindow() == null)
 			return false;
 		
-		return InputConstants.isKeyDown(MC.getWindow(),
-			GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| InputConstants.isKeyDown(MC.getWindow(),
-				GLFW.GLFW_KEY_RIGHT_CONTROL);
+		return InputConstants.isKeyDown(InputConstants.KEY_LCONTROL)
+			|| InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
 	}
 	
 	private boolean isAboutToHitGround(LocalPlayer player)

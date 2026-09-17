@@ -539,11 +539,11 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			stats.swingTicks.clear();
 			stats.swingIntervals.clear();
 			stats.lastSwingTick = 0L;
-			stats.lastSwingProgress = player.getAttackAnim(1.0F);
+			stats.lastSwingProgress = player.getSwingAnimation(1.0F);
 			return;
 		}
 		
-		float swingProgress = player.getAttackAnim(1.0F);
+		float swingProgress = player.getSwingAnimation(1.0F);
 		
 		if(stats.lastSwingProgress > 0.6F && swingProgress < 0.2F)
 		{
@@ -838,7 +838,7 @@ public final class CheatDetectorHack extends Hack implements UpdateListener
 			swingTicks.clear();
 			swingIntervals.clear();
 			lastSwingTick = 0L;
-			lastSwingProgress = player.getAttackAnim(1.0F);
+			lastSwingProgress = player.getSwingAnimation(1.0F);
 			speedViolationCount = 0;
 		}
 	}

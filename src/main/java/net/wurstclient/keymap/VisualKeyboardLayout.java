@@ -7,11 +7,11 @@
  */
 package net.wurstclient.keymap;
 
+import org.lwjgl.sdl.SDLScancode;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -56,24 +56,24 @@ public final class VisualKeyboardLayout
 		float gap = 6F;
 		float wideGap = 43F;
 		
-		for(int i = GLFW.GLFW_KEY_F13; i <= GLFW.GLFW_KEY_F16; i++)
+		for(int i = InputConstants.KEY_F13; i <= InputConstants.KEY_F16; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F13 + 13), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F13 + 13), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 		x += wideGap - gap;
-		for(int i = GLFW.GLFW_KEY_F17; i <= GLFW.GLFW_KEY_F20; i++)
+		for(int i = InputConstants.KEY_F17; i <= InputConstants.KEY_F20; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F13 + 13), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F13 + 13), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 		x += wideGap - gap;
-		for(int i = GLFW.GLFW_KEY_F21; i <= GLFW.GLFW_KEY_F24; i++)
+		for(int i = InputConstants.KEY_F21; i <= InputConstants.KEY_F24; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F13 + 13), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F13 + 13), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 	}
@@ -86,28 +86,28 @@ public final class VisualKeyboardLayout
 		float wideGapB = 43F;
 		float wideGapC = 43F;
 		
-		addKey(keys, "Esc", GLFW.GLFW_KEY_ESCAPE, x, y, 58F, keyH,
+		addKey(keys, "Esc", InputConstants.KEY_ESCAPE, x, y, 58F, keyH,
 			VisualKeyCategory.FUNCTION);
 		x += 58F + wideGapA;
 		
-		for(int i = GLFW.GLFW_KEY_F1; i <= GLFW.GLFW_KEY_F4; i++)
+		for(int i = InputConstants.KEY_F1; i <= InputConstants.KEY_F4; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F1 + 1), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F1 + 1), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 		x += wideGapB - gap;
-		for(int i = GLFW.GLFW_KEY_F5; i <= GLFW.GLFW_KEY_F8; i++)
+		for(int i = InputConstants.KEY_F5; i <= InputConstants.KEY_F8; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F1 + 1), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F1 + 1), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 		x += wideGapC - gap;
-		for(int i = GLFW.GLFW_KEY_F9; i <= GLFW.GLFW_KEY_F12; i++)
+		for(int i = InputConstants.KEY_F9; i <= InputConstants.KEY_F12; i++)
 		{
-			addKey(keys, "F" + (i - GLFW.GLFW_KEY_F1 + 1), i, x, y, 48F, keyH,
-				VisualKeyCategory.FUNCTION);
+			addKey(keys, "F" + (i - InputConstants.KEY_F1 + 1), i, x, y, 48F,
+				keyH, VisualKeyCategory.FUNCTION);
 			x += 48F + gap;
 		}
 	}
@@ -117,13 +117,13 @@ public final class VisualKeyboardLayout
 		float keyH = 42F;
 		float gap = 6F;
 		
-		addKey(keys, "PrtSc", GLFW.GLFW_KEY_PRINT_SCREEN, x, y, 70F, keyH,
+		addKey(keys, "PrtSc", InputConstants.KEY_PRINTSCREEN, x, y, 70F, keyH,
 			VisualKeyCategory.FUNCTION);
 		x += 70F + gap;
-		addKey(keys, "ScrLk", GLFW.GLFW_KEY_SCROLL_LOCK, x, y, 70F, keyH,
+		addKey(keys, "ScrLk", InputConstants.KEY_SCROLLLOCK, x, y, 70F, keyH,
 			VisualKeyCategory.FUNCTION);
 		x += 70F + gap;
-		addKey(keys, "Pause", GLFW.GLFW_KEY_PAUSE, x, y, 70F, keyH,
+		addKey(keys, "Pause", InputConstants.KEY_PAUSE, x, y, 70F, keyH,
 			VisualKeyCategory.FUNCTION);
 	}
 	
@@ -132,58 +132,59 @@ public final class VisualKeyboardLayout
 		float keyH = 42F;
 		float gap = 6F;
 		
-		addKey(keys, "`", GLFW.GLFW_KEY_GRAVE_ACCENT, x, y, 42F, keyH,
+		addKey(keys, "`", InputConstants.KEY_GRAVE, x, y, 42F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 42F + gap;
 		
-		addKey(keys, "1", GLFW.GLFW_KEY_1, x, y, 50F, keyH,
+		addKey(keys, "1", InputConstants.KEY_1, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "2", GLFW.GLFW_KEY_2, x, y, 50F, keyH,
+		addKey(keys, "2", InputConstants.KEY_2, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "3", GLFW.GLFW_KEY_3, x, y, 50F, keyH,
+		addKey(keys, "3", InputConstants.KEY_3, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "4", GLFW.GLFW_KEY_4, x, y, 50F, keyH,
+		addKey(keys, "4", InputConstants.KEY_4, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "5", GLFW.GLFW_KEY_5, x, y, 50F, keyH,
+		addKey(keys, "5", InputConstants.KEY_5, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "6", GLFW.GLFW_KEY_6, x, y, 50F, keyH,
+		addKey(keys, "6", InputConstants.KEY_6, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "7", GLFW.GLFW_KEY_7, x, y, 50F, keyH,
+		addKey(keys, "7", InputConstants.KEY_7, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "8", GLFW.GLFW_KEY_8, x, y, 50F, keyH,
+		addKey(keys, "8", InputConstants.KEY_8, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "9", GLFW.GLFW_KEY_9, x, y, 50F, keyH,
+		addKey(keys, "9", InputConstants.KEY_9, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "0", GLFW.GLFW_KEY_0, x, y, 50F, keyH,
+		addKey(keys, "0", InputConstants.KEY_0, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
 		
-		addKey(keys, "-", GLFW.GLFW_KEY_MINUS, x, y, 50F, keyH,
+		addKey(keys, "-", InputConstants.KEY_MINUS, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "=", GLFW.GLFW_KEY_EQUAL, x, y, 50F, keyH,
+		addKey(keys, "=", InputConstants.KEY_EQUALS, x, y, 50F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 50F + gap;
-		addKey(keys, "Backspace", GLFW.GLFW_KEY_BACKSPACE, x, y, 96F, keyH,
+		addKey(keys, "Backspace", InputConstants.KEY_BACKSPACE, x, y, 96F, keyH,
 			VisualKeyCategory.MAIN);
 		
 		y += 48F;
 		x = 24F;
-		addKey(keys, "Tab", GLFW.GLFW_KEY_TAB, x, y, 68F, keyH,
+		addKey(keys, "Tab", InputConstants.KEY_TAB, x, y, 68F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 68F + gap;
-		int[] qRow = {GLFW.GLFW_KEY_Q, GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_E,
-			GLFW.GLFW_KEY_R, GLFW.GLFW_KEY_T, GLFW.GLFW_KEY_Y, GLFW.GLFW_KEY_U,
-			GLFW.GLFW_KEY_I, GLFW.GLFW_KEY_O, GLFW.GLFW_KEY_P};
+		int[] qRow = {InputConstants.KEY_Q, InputConstants.KEY_W,
+			InputConstants.KEY_E, InputConstants.KEY_R, InputConstants.KEY_T,
+			InputConstants.KEY_Y, InputConstants.KEY_U, InputConstants.KEY_I,
+			InputConstants.KEY_O, InputConstants.KEY_P};
 		String[] qLabels = {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"};
 		for(int key : qRow)
 		{
@@ -192,23 +193,24 @@ public final class VisualKeyboardLayout
 			qLabels = shiftLeft(qLabels);
 			x += 48F + gap;
 		}
-		addKey(keys, "[", GLFW.GLFW_KEY_LEFT_BRACKET, x, y, 48F, keyH,
+		addKey(keys, "[", InputConstants.KEY_LBRACKET, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "]", GLFW.GLFW_KEY_RIGHT_BRACKET, x, y, 48F, keyH,
+		addKey(keys, "]", InputConstants.KEY_RBRACKET, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "\\", GLFW.GLFW_KEY_BACKSLASH, x, y, 94F, keyH,
+		addKey(keys, "\\", InputConstants.KEY_BACKSLASH, x, y, 94F, keyH,
 			VisualKeyCategory.MAIN);
 		
 		y += 48F;
 		x = 24F;
-		addKey(keys, "Caps", GLFW.GLFW_KEY_CAPS_LOCK, x, y, 82F, keyH,
+		addKey(keys, "Caps", InputConstants.KEY_CAPSLOCK, x, y, 82F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 82F + gap;
-		int[] aRow = {GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_D,
-			GLFW.GLFW_KEY_F, GLFW.GLFW_KEY_G, GLFW.GLFW_KEY_H, GLFW.GLFW_KEY_J,
-			GLFW.GLFW_KEY_K, GLFW.GLFW_KEY_L};
+		int[] aRow = {InputConstants.KEY_A, InputConstants.KEY_S,
+			InputConstants.KEY_D, InputConstants.KEY_F, InputConstants.KEY_G,
+			InputConstants.KEY_H, InputConstants.KEY_J, InputConstants.KEY_K,
+			InputConstants.KEY_L};
 		String[] aLabels = {"A", "S", "D", "F", "G", "H", "J", "K", "L"};
 		for(int key : aRow)
 		{
@@ -217,22 +219,23 @@ public final class VisualKeyboardLayout
 			aLabels = shiftLeft(aLabels);
 			x += 48F + gap;
 		}
-		addKey(keys, ";", GLFW.GLFW_KEY_SEMICOLON, x, y, 48F, keyH,
+		addKey(keys, ";", InputConstants.KEY_SEMICOLON, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "'", GLFW.GLFW_KEY_APOSTROPHE, x, y, 48F, keyH,
+		addKey(keys, "'", InputConstants.KEY_APOSTROPHE, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "Enter", GLFW.GLFW_KEY_ENTER, x, y, 134F, keyH,
+		addKey(keys, "Enter", InputConstants.KEY_RETURN, x, y, 134F, keyH,
 			VisualKeyCategory.MAIN);
 		
 		y += 48F;
 		x = 24F;
-		addKey(keys, "Left Shift", GLFW.GLFW_KEY_LEFT_SHIFT, x, y, 110F, keyH,
+		addKey(keys, "Left Shift", InputConstants.KEY_LSHIFT, x, y, 110F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 110F + gap;
-		int[] zRow = {GLFW.GLFW_KEY_Z, GLFW.GLFW_KEY_X, GLFW.GLFW_KEY_C,
-			GLFW.GLFW_KEY_V, GLFW.GLFW_KEY_B, GLFW.GLFW_KEY_N, GLFW.GLFW_KEY_M};
+		int[] zRow = {InputConstants.KEY_Z, InputConstants.KEY_X,
+			InputConstants.KEY_C, InputConstants.KEY_V, InputConstants.KEY_B,
+			InputConstants.KEY_N, InputConstants.KEY_M};
 		String[] zLabels = {"Z", "X", "C", "V", "B", "N", "M"};
 		for(int key : zRow)
 		{
@@ -241,42 +244,42 @@ public final class VisualKeyboardLayout
 			zLabels = shiftLeft(zLabels);
 			x += 48F + gap;
 		}
-		addKey(keys, ",", GLFW.GLFW_KEY_COMMA, x, y, 48F, keyH,
+		addKey(keys, ",", InputConstants.KEY_COMMA, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, ".", GLFW.GLFW_KEY_PERIOD, x, y, 48F, keyH,
+		addKey(keys, ".", InputConstants.KEY_PERIOD, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "/", GLFW.GLFW_KEY_SLASH, x, y, 48F, keyH,
+		addKey(keys, "/", InputConstants.KEY_SLASH, x, y, 48F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 48F + gap;
-		addKey(keys, "Right Shift", GLFW.GLFW_KEY_RIGHT_SHIFT, x, y, 160F, keyH,
+		addKey(keys, "Right Shift", InputConstants.KEY_RSHIFT, x, y, 160F, keyH,
 			VisualKeyCategory.MAIN);
 		
 		y += 48F;
 		x = 24F;
-		addKey(keys, "Left Ctrl", GLFW.GLFW_KEY_LEFT_CONTROL, x, y, 64F, keyH,
+		addKey(keys, "Left Ctrl", InputConstants.KEY_LCONTROL, x, y, 64F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Left Win", GLFW.GLFW_KEY_LEFT_SUPER, x, y, 64F, keyH,
+		addKey(keys, "Left Win", InputConstants.KEY_LGUI, x, y, 64F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Left Alt", GLFW.GLFW_KEY_LEFT_ALT, x, y, 64F, keyH,
+		addKey(keys, "Left Alt", InputConstants.KEY_LALT, x, y, 64F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Space", GLFW.GLFW_KEY_SPACE, x, y, 332F, keyH,
+		addKey(keys, "Space", InputConstants.KEY_SPACE, x, y, 332F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 332F + gap;
-		addKey(keys, "Right Alt", GLFW.GLFW_KEY_RIGHT_ALT, x, y, 64F, keyH,
+		addKey(keys, "Right Alt", InputConstants.KEY_RALT, x, y, 64F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Right Win", GLFW.GLFW_KEY_RIGHT_SUPER, x, y, 64F, keyH,
+		addKey(keys, "Right Win", InputConstants.KEY_RGUI, x, y, 64F, keyH,
 			VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Menu", GLFW.GLFW_KEY_MENU, x, y, 64F, keyH,
-			VisualKeyCategory.MAIN);
+		addKey(keys, "Menu", SDLScancode.SDL_SCANCODE_APPLICATION, x, y, 64F,
+			keyH, VisualKeyCategory.MAIN);
 		x += 64F + gap;
-		addKey(keys, "Right Ctrl", GLFW.GLFW_KEY_RIGHT_CONTROL, x, y, 58F, keyH,
+		addKey(keys, "Right Ctrl", InputConstants.KEY_RCONTROL, x, y, 58F, keyH,
 			VisualKeyCategory.MAIN);
 	}
 	
@@ -286,24 +289,24 @@ public final class VisualKeyboardLayout
 		float keyH = 42F;
 		float gap = 6F;
 		
-		addKey(keys, "Ins", GLFW.GLFW_KEY_INSERT, x, y, 70F, keyH,
+		addKey(keys, "Ins", InputConstants.KEY_INSERT, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 		x += 70F + gap;
-		addKey(keys, "Home", GLFW.GLFW_KEY_HOME, x, y, 70F, keyH,
+		addKey(keys, "Home", InputConstants.KEY_HOME, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 		x += 70F + gap;
-		addKey(keys, "PgUp", GLFW.GLFW_KEY_PAGE_UP, x, y, 70F, keyH,
+		addKey(keys, "PgUp", InputConstants.KEY_PAGEUP, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 		
 		y += 48F;
 		x -= (70F + gap) * 2F;
-		addKey(keys, "Del", GLFW.GLFW_KEY_DELETE, x, y, 70F, keyH,
+		addKey(keys, "Del", InputConstants.KEY_DELETE, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 		x += 70F + gap;
-		addKey(keys, "End", GLFW.GLFW_KEY_END, x, y, 70F, keyH,
+		addKey(keys, "End", InputConstants.KEY_END, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 		x += 70F + gap;
-		addKey(keys, "PgDn", GLFW.GLFW_KEY_PAGE_DOWN, x, y, 70F, keyH,
+		addKey(keys, "PgDn", InputConstants.KEY_PAGEDOWN, x, y, 70F, keyH,
 			VisualKeyCategory.NAVIGATION);
 	}
 	
@@ -313,13 +316,13 @@ public final class VisualKeyboardLayout
 		float keyW = 48F;
 		float gap = 6F;
 		
-		addKey(keys, "Up", GLFW.GLFW_KEY_UP, x + keyW + gap, y, keyW, keyH,
+		addKey(keys, "Up", InputConstants.KEY_UP, x + keyW + gap, y, keyW, keyH,
 			VisualKeyCategory.ARROW);
-		addKey(keys, "Left", GLFW.GLFW_KEY_LEFT, x, y + keyH + gap, keyW, keyH,
-			VisualKeyCategory.ARROW);
-		addKey(keys, "Down", GLFW.GLFW_KEY_DOWN, x + keyW + gap, y + keyH + gap,
-			keyW, keyH, VisualKeyCategory.ARROW);
-		addKey(keys, "Right", GLFW.GLFW_KEY_RIGHT, x + (keyW + gap) * 2F,
+		addKey(keys, "Left", InputConstants.KEY_LEFT, x, y + keyH + gap, keyW,
+			keyH, VisualKeyCategory.ARROW);
+		addKey(keys, "Down", InputConstants.KEY_DOWN, x + keyW + gap,
+			y + keyH + gap, keyW, keyH, VisualKeyCategory.ARROW);
+		addKey(keys, "Right", InputConstants.KEY_RIGHT, x + (keyW + gap) * 2F,
 			y + keyH + gap, keyW, keyH, VisualKeyCategory.ARROW);
 	}
 	
@@ -329,48 +332,50 @@ public final class VisualKeyboardLayout
 		float keyW = 48F;
 		float gap = 6F;
 		
-		addKey(keys, "Num", GLFW.GLFW_KEY_NUM_LOCK, x, y, keyW, keyH,
+		addKey(keys, "Num", InputConstants.KEY_NUMLOCK, x, y, keyW, keyH,
 			VisualKeyCategory.NUMPAD);
-		addKey(keys, "/", GLFW.GLFW_KEY_KP_DIVIDE, x + keyW + gap, y, keyW,
-			keyH, VisualKeyCategory.NUMPAD);
-		addKey(keys, "*", GLFW.GLFW_KEY_KP_MULTIPLY, x + (keyW + gap) * 2F, y,
+		addKey(keys, "/", SDLScancode.SDL_SCANCODE_KP_DIVIDE, x + keyW + gap, y,
 			keyW, keyH, VisualKeyCategory.NUMPAD);
-		addKey(keys, "-", GLFW.GLFW_KEY_KP_SUBTRACT, x + (keyW + gap) * 3F, y,
-			keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "*", SDLScancode.SDL_SCANCODE_KP_MULTIPLY,
+			x + (keyW + gap) * 2F, y, keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "-", SDLScancode.SDL_SCANCODE_KP_MINUS,
+			x + (keyW + gap) * 3F, y, keyW, keyH, VisualKeyCategory.NUMPAD);
 		
 		float rowY = y + keyH + gap;
-		addKey(keys, "7", GLFW.GLFW_KEY_KP_7, x, rowY, keyW, keyH,
+		addKey(keys, "7", InputConstants.KEY_NUMPAD7, x, rowY, keyW, keyH,
 			VisualKeyCategory.NUMPAD);
-		addKey(keys, "8", GLFW.GLFW_KEY_KP_8, x + keyW + gap, rowY, keyW, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, "9", GLFW.GLFW_KEY_KP_9, x + (keyW + gap) * 2F, rowY, keyW,
-			keyH, VisualKeyCategory.NUMPAD);
-		addKey(keys, "+", GLFW.GLFW_KEY_KP_ADD, x + (keyW + gap) * 3F, rowY,
-			keyW, keyH * 2F + gap, VisualKeyCategory.NUMPAD);
-		
-		rowY += keyH + gap;
-		addKey(keys, "4", GLFW.GLFW_KEY_KP_4, x, rowY, keyW, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, "5", GLFW.GLFW_KEY_KP_5, x + keyW + gap, rowY, keyW, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, "6", GLFW.GLFW_KEY_KP_6, x + (keyW + gap) * 2F, rowY, keyW,
-			keyH, VisualKeyCategory.NUMPAD);
-		
-		rowY += keyH + gap;
-		addKey(keys, "1", GLFW.GLFW_KEY_KP_1, x, rowY, keyW, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, "2", GLFW.GLFW_KEY_KP_2, x + keyW + gap, rowY, keyW, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, "3", GLFW.GLFW_KEY_KP_3, x + (keyW + gap) * 2F, rowY, keyW,
-			keyH, VisualKeyCategory.NUMPAD);
-		addKey(keys, "Enter", GLFW.GLFW_KEY_KP_ENTER, x + (keyW + gap) * 3F,
-			rowY, keyW, keyH * 2F + gap, VisualKeyCategory.NUMPAD);
-		
-		rowY += keyH + gap;
-		addKey(keys, "0", GLFW.GLFW_KEY_KP_0, x, rowY, keyW * 2F + gap, keyH,
-			VisualKeyCategory.NUMPAD);
-		addKey(keys, ".", GLFW.GLFW_KEY_KP_DECIMAL, x + (keyW + gap) * 2F, rowY,
+		addKey(keys, "8", InputConstants.KEY_NUMPAD8, x + keyW + gap, rowY,
 			keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "9", InputConstants.KEY_NUMPAD9, x + (keyW + gap) * 2F,
+			rowY, keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "+", SDLScancode.SDL_SCANCODE_KP_PLUS,
+			x + (keyW + gap) * 3F, rowY, keyW, keyH * 2F + gap,
+			VisualKeyCategory.NUMPAD);
+		
+		rowY += keyH + gap;
+		addKey(keys, "4", InputConstants.KEY_NUMPAD4, x, rowY, keyW, keyH,
+			VisualKeyCategory.NUMPAD);
+		addKey(keys, "5", InputConstants.KEY_NUMPAD5, x + keyW + gap, rowY,
+			keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "6", InputConstants.KEY_NUMPAD6, x + (keyW + gap) * 2F,
+			rowY, keyW, keyH, VisualKeyCategory.NUMPAD);
+		
+		rowY += keyH + gap;
+		addKey(keys, "1", InputConstants.KEY_NUMPAD1, x, rowY, keyW, keyH,
+			VisualKeyCategory.NUMPAD);
+		addKey(keys, "2", InputConstants.KEY_NUMPAD2, x + keyW + gap, rowY,
+			keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "3", InputConstants.KEY_NUMPAD3, x + (keyW + gap) * 2F,
+			rowY, keyW, keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, "Enter", InputConstants.KEY_NUMPADENTER,
+			x + (keyW + gap) * 3F, rowY, keyW, keyH * 2F + gap,
+			VisualKeyCategory.NUMPAD);
+		
+		rowY += keyH + gap;
+		addKey(keys, "0", InputConstants.KEY_NUMPAD0, x, rowY, keyW * 2F + gap,
+			keyH, VisualKeyCategory.NUMPAD);
+		addKey(keys, ".", InputConstants.KEY_NUMPADCOMMA, x + (keyW + gap) * 2F,
+			rowY, keyW, keyH, VisualKeyCategory.NUMPAD);
 	}
 	
 	public static void addMouseButtons(List<VisualKey> keys, float x, float y)
@@ -379,22 +384,23 @@ public final class VisualKeyboardLayout
 		float keyW = 50F;
 		float gap = 6F;
 		
-		addMouseKey(keys, "M1", GLFW.GLFW_MOUSE_BUTTON_1, x, y, keyW, keyH);
-		addMouseKey(keys, "M2", GLFW.GLFW_MOUSE_BUTTON_2, x + keyW + gap, y,
-			keyW, keyH);
-		addMouseKey(keys, "M3", GLFW.GLFW_MOUSE_BUTTON_3, x + (keyW + gap) * 2F,
-			y, keyW, keyH);
-		addMouseKey(keys, "M4", GLFW.GLFW_MOUSE_BUTTON_4, x + (keyW + gap) * 3F,
-			y, keyW, keyH);
-		addMouseKey(keys, "M5", GLFW.GLFW_MOUSE_BUTTON_5, x + (keyW + gap) * 4F,
-			y, keyW, keyH);
+		addMouseKey(keys, "M1", InputConstants.MOUSE_BUTTON_LEFT, x, y, keyW,
+			keyH);
+		addMouseKey(keys, "M2", InputConstants.MOUSE_BUTTON_RIGHT,
+			x + keyW + gap, y, keyW, keyH);
+		addMouseKey(keys, "M3", InputConstants.MOUSE_BUTTON_MIDDLE,
+			x + (keyW + gap) * 2F, y, keyW, keyH);
+		addMouseKey(keys, "M4", InputConstants.MOUSE_BUTTON_4,
+			x + (keyW + gap) * 3F, y, keyW, keyH);
+		addMouseKey(keys, "M5", InputConstants.MOUSE_BUTTON_5,
+			x + (keyW + gap) * 4F, y, keyW, keyH);
 	}
 	
 	private static void addKey(List<VisualKey> keys, String label, int glfwKey,
 		float x, float y, float width, float height, VisualKeyCategory category)
 	{
 		keys.add(new VisualKey(label,
-			InputConstants.Type.KEYSYM.getOrCreate(glfwKey), x, y, width,
+			InputConstants.Type.KEYBOARD.getOrCreate(glfwKey), x, y, width,
 			height, category));
 	}
 	

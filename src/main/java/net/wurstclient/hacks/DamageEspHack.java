@@ -374,14 +374,9 @@ public final class DamageEspHack extends Hack
 		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
 		
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
+		RenderUtils.applyWorldTextOrientation(matrices);
 		
-		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 		matrices.scale(scale, -scale, scale);
 		
 		Font font = MC.font;

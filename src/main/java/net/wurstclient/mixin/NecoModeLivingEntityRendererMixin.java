@@ -159,7 +159,6 @@ public abstract class NecoModeLivingEntityRendererMixin
 		to.leftArmPose = ArmPose.EMPTY;
 		to.rightArmPose = ArmPose.EMPTY;
 		to.mainArm = HumanoidArm.RIGHT;
-		to.attackArm = HumanoidArm.RIGHT;
 		to.showHat = true;
 		to.showJacket = true;
 		to.showLeftPants = true;

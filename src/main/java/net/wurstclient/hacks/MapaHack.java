@@ -7,13 +7,15 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.awt.Color;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -802,14 +804,14 @@ public final class MapaHack extends Hack
 	@Override
 	public void onMouseButtonPress(MouseButtonPressEvent event)
 	{
-		if(event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.getButton() != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
-		if(event.getAction() == GLFW.GLFW_RELEASE)
+		if(event.getAction() == InputConstants.RELEASE)
 		{
 			dragging = false;
 			return;
 		}
-		if(event.getAction() != GLFW.GLFW_PRESS
+		if(event.getAction() != InputConstants.PRESS
 			|| !isEditorScreen(MC.gui.screen()))
 			return;
 		

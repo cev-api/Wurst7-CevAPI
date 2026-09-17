@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -22,8 +24,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
-
-import org.lwjgl.glfw.GLFW;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -322,8 +322,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		MouseButtonPressListener.MouseButtonPressEvent event)
 	{
 		if(!middleClickInfo.isChecked()
-			|| event.getButton() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE
-			|| event.getAction() != GLFW.GLFW_PRESS
+			|| event.getButton() != InputConstants.MOUSE_BUTTON_MIDDLE
+			|| event.getAction() != InputConstants.PRESS
 			|| !(MC.hitResult instanceof BlockHitResult hit))
 			return;
 		BlockState blockState =
@@ -1025,13 +1025,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			z = anchored.z;
 		}
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		var camera = MC.getCameraEntity();
-		if(camera != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180));
 		float scale =
 			0.025F * RenderUtils.getCappedWorldLabelScale(labelScale, distance);
 		matrices.scale(scale, -scale, scale);

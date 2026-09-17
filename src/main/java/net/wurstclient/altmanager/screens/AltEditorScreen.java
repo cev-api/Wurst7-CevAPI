@@ -420,7 +420,7 @@ public abstract class AltEditorScreen extends Screen
 		// SharedConstants.isAllowedChatCharacter(), so we bypass that by
 		// reading the system clipboard directly and using setValue().
 		if(preserveTabsOnPaste() && context.hasControlDown()
-			&& context.key() == GLFW.GLFW_KEY_V)
+			&& context.key() == InputConstants.KEY_V)
 		{
 			String rawClipboard = minecraft.keyboardHandler.getClipboard();
 			

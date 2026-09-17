@@ -15,6 +15,7 @@ import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.phys.BlockHitResult;
 import net.wurstclient.WurstClient;
 import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
+import net.wurstclient.settings.SwingHandSetting.SwingHand;
 
 /**
  * A utility class to turn right-clicking a block into a simple one-liner,
@@ -88,6 +89,21 @@ public enum InteractionSimulator
 		InteractionHand hand)
 	{
 		rightClickBlock(hitResult, hand, InteractSwing.CLIENT);
+	}
+	
+	/**
+	 * Compatibility overload for fork-only callers that still expose the old
+	 * SwingHand setting name.
+	 */
+	public static void rightClickBlock(BlockHitResult hitResult,
+		InteractionHand hand, SwingHand swing)
+	{
+		rightClickBlock(hitResult, hand, switch(swing)
+		{
+			case CLIENT -> InteractSwing.CLIENT;
+			case SERVER -> InteractSwing.SERVER;
+			case OFF -> InteractSwing.SERVER;
+		});
 	}
 	
 	/**

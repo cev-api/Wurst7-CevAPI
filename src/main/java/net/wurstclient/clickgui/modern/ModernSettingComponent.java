@@ -7,6 +7,8 @@
  */
 package net.wurstclient.clickgui.modern;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.clickgui.ClickGui;
@@ -15,7 +17,6 @@ import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.Setting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.util.RenderUtils;
-import org.lwjgl.glfw.GLFW;
 
 /** Modern controls backed directly by Wurst's real Setting instances. */
 public final class ModernSettingComponent extends Component
@@ -48,12 +49,12 @@ public final class ModernSettingComponent extends Component
 	public void handleMouseClick(double mouseX, double mouseY, int button,
 		MouseButtonEvent context)
 	{
-		if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+		if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 		{
 			setting.resetToDefault();
 			return;
 		}
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return;
 		if(setting instanceof CheckboxSetting checkbox)
 			checkbox.setChecked(!checkbox.isChecked());

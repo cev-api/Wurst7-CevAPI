@@ -7,8 +7,9 @@
  */
 package net.wurstclient.mapa.screen;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.platform.NativeImage;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -39,6 +40,7 @@ public final class WorldMapScreen extends Screen
 	private double lastBlocksPerPixel = Double.NaN;
 	private String lastCacheKey = "";
 	private int lastKeyCount = -1;
+	private long lastCacheRevision = Long.MIN_VALUE;
 	
 	public WorldMapScreen(MapaHack hack, MapRenderService mapRenderService)
 	{
@@ -84,16 +86,21 @@ public final class WorldMapScreen extends Screen
 			0xFF6F6F6F);
 		
 		var cfg = hack.createConfig();
+		MapRenderService.WorldMapSnapshot snapshot = null;
 		if(cfg.enabled)
 		{
-			MapRenderService.WorldMapSnapshot snapshot =
+			snapshot =
 				mapRenderService.snapshotWorldMap(Minecraft.getInstance());
+			MapRenderService.CachedWindowSnapshot cachedWindow =
+				mapRenderService.snapshotCachedWindow();
 			ensureTexture(drawW, drawH);
 			if(shouldRebuild(snapshot, drawW, drawH))
 				rebuildTexture(snapshot, drawW, drawH);
 			if(worldMapTexture != null)
 				context.blit(RenderPipelines.GUI_TEXTURED, WORLD_MAP_TEX_ID,
 					mapX, mapY, 0, 0, drawW, drawH, drawW, drawH, 0xFFFFFFFF);
+			drawCachedWindow(context, snapshot, cachedWindow, mapX, mapY, drawW,
+				drawH);
 		}
 		
 		hack.renderFullscreenMapEsp(context, mapX, mapY, drawW, drawH, centerX,
@@ -107,8 +114,7 @@ public final class WorldMapScreen extends Screen
 			context.fill(cx - 6, cy - 1, cx + 6, cy + 1, 0xFFFFFFFF);
 		}
 		
-		int cachedColumns = cfg.enabled ? mapRenderService
-			.snapshotWorldMap(Minecraft.getInstance()).keys().length : 0;
+		int cachedColumns = cfg.enabled ? snapshot.keys().length : 0;
 		String info = String.format(java.util.Locale.ROOT,
 			"Zoom %.2f blocks/pixel | Cached columns %d | Drag to pan | Scroll to zoom | Space to recenter",
 			blocksPerPixel, cachedColumns);
@@ -133,7 +139,7 @@ public final class WorldMapScreen extends Screen
 	public boolean mouseDragged(MouseButtonEvent event, double dragX,
 		double dragY)
 	{
-		if(event.button() != 0)
+		if(event.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return false;
 		
 		centerX -= dragX * blocksPerPixel;
@@ -163,7 +169,7 @@ public final class WorldMapScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_SPACE)
+		if(event.key() == InputConstants.KEY_SPACE)
 		{
 			MapRenderService.WorldMapSnapshot snapshot =
 				mapRenderService.snapshotWorldMap(Minecraft.getInstance());
@@ -203,7 +209,8 @@ public final class WorldMapScreen extends Screen
 			|| Math.abs(centerZ - lastCenterZ) > 0.001
 			|| Math.abs(blocksPerPixel - lastBlocksPerPixel) > 0.0001
 			|| !snapshot.cacheKey().equals(lastCacheKey)
-			|| snapshot.keys().length != lastKeyCount || textureWidth != width
+			|| snapshot.keys().length != lastKeyCount
+			|| snapshot.revision() != lastCacheRevision || textureWidth != width
 			|| textureHeight != height);
 	}
 	
@@ -259,5 +266,47 @@ public final class WorldMapScreen extends Screen
 		lastBlocksPerPixel = blocksPerPixel;
 		lastCacheKey = snapshot.cacheKey();
 		lastKeyCount = snapshot.keys().length;
+		lastCacheRevision = snapshot.revision();
 	}
+	
+	private void drawCachedWindow(GuiGraphicsExtractor context,
+		MapRenderService.WorldMapSnapshot snapshot,
+		MapRenderService.CachedWindowSnapshot cachedWindow, int mapX, int mapY,
+		int width, int height)
+	{
+		int samples = cachedWindow.samples();
+		if(samples <= 0 || cachedWindow.worldPerSample() <= 0.0)
+			return;
+		int visibleSamples =
+			Mth.clamp(cachedWindow.visibleSamples(), 1, samples);
+		
+		double mapMinX = centerX - width * blocksPerPixel * 0.5;
+		double mapMinZ = centerZ - height * blocksPerPixel * 0.5;
+		double liveMinX = snapshot.playerX()
+			- visibleSamples * cachedWindow.worldPerSample() * 0.5;
+		double liveMinZ = snapshot.playerZ()
+			- visibleSamples * cachedWindow.worldPerSample() * 0.5;
+		int liveX =
+			mapX + (int)Math.floor((liveMinX - mapMinX) / blocksPerPixel);
+		int liveY =
+			mapY + (int)Math.floor((liveMinZ - mapMinZ) / blocksPerPixel);
+		int liveSize = Math.max(1, (int)Math.ceil(
+			visibleSamples * cachedWindow.worldPerSample() / blocksPerPixel));
+		float u = (float)((samples - visibleSamples) * 0.5
+			+ (snapshot.playerX() - cachedWindow.centerX())
+				/ cachedWindow.worldPerSample());
+		float v = (float)((samples - visibleSamples) * 0.5
+			+ (snapshot.playerZ() - cachedWindow.centerZ())
+				/ cachedWindow.worldPerSample());
+		float maxUv = Math.max(0, samples - visibleSamples);
+		u = Mth.clamp(u, 0, maxUv);
+		v = Mth.clamp(v, 0, maxUv);
+		context.enableScissor(mapX, mapY, mapX + width, mapY + height);
+		context.blit(RenderPipelines.GUI_TEXTURED,
+			MapRenderService.MINIMAP_TEX_ID, liveX, liveY, u, v, liveSize,
+			liveSize, visibleSamples, visibleSamples, samples, samples,
+			0xFFFFFFFF);
+		context.disableScissor();
+	}
+	
 }

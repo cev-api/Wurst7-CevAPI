@@ -1782,7 +1782,6 @@
     "Vertical speed": 0.5,
     "Tie vertical to horizontal": true,
     "Speed step": 0.5,
-    "Legacy mode": true,
     "Scroll to change speed": true,
     "Show speed in HackList": true,
     "Initial position": "Inside",

@@ -299,7 +299,9 @@ public final class HandNoClipHack extends Hack
 				InteractionResult result = MC.gameMode.interact(MC.player,
 					leashTarget, hitResult, hand);
 				if(result.consumesAction())
-					MC.player.swing(hand);
+					MC.player.swing(hand,
+						MC.player.getItemInHand(hand).getInteractAnimation(),
+						false);
 			}
 			return;
 		}
@@ -326,7 +328,9 @@ public final class HandNoClipHack extends Hack
 				MC.gameMode.interact(MC.player, boat, hitResult, hand);
 			if(result.consumesAction())
 			{
-				MC.player.swing(hand);
+				MC.player.swing(hand,
+					MC.player.getItemInHand(hand).getInteractAnimation(),
+					false);
 				event.cancel();
 			}
 			

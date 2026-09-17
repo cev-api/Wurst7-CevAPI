@@ -173,9 +173,7 @@ public final class WardenEspHack extends Hack
 				long boomChargeTicks = warden.getBrain().getTimeUntilExpiry(
 					MemoryModuleType.SONIC_BOOM_SOUND_DELAY);
 				boolean sonicCharge = boomChargeTicks > 0;
-				boolean attackAnim =
-					warden.getAttackAnim(partialTicks) > 0.2F || warden.swinging
-						|| warden.attackAnimationState.isStarted();
+				boolean attackAnim = warden.attackAnimationState.isStarted();
 				boolean imminent = sonicCharge || attackAnim
 					|| warden.sonicBoomAnimationState.isStarted();
 				long nowTick = warden.tickCount;
@@ -400,13 +398,8 @@ public final class WardenEspHack extends Hack
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 		// Smaller when close, smoothly ramps up with distance for readability.
 		double dx = x - cam.x;
 		double dy = y - cam.y;

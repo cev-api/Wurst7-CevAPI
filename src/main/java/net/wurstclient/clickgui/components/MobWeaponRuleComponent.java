@@ -7,13 +7,14 @@
  */
 package net.wurstclient.clickgui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -54,7 +55,7 @@ public final class MobWeaponRuleComponent extends Component
 		Box mobBox = getMobBox();
 		Box weaponBox = getWeaponBox();
 		
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(mobBox.contains(mouseX, mouseY))
 				toggleMobPopup(mobBox);
@@ -64,7 +65,7 @@ public final class MobWeaponRuleComponent extends Component
 			return;
 		}
 		
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_RIGHT)
 		{
 			if(mobBox.contains(mouseX, mouseY))
 				setting.resetMob();
@@ -285,7 +286,8 @@ public final class MobWeaponRuleComponent extends Component
 		@Override
 		public void handleMouseClick(int mouseX, int mouseY, int mouseButton)
 		{
-			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT || visibleRows <= 0)
+			if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT
+				|| visibleRows <= 0)
 				return;
 			
 			int localX = mouseX - getX();

@@ -23,7 +23,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.DuraSwapHack;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
+import net.wurstclient.settings.AttackSwingSetting.AttackSwing;
 
 public enum BlockBreaker
 {

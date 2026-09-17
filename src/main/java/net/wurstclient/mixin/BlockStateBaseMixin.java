@@ -54,20 +54,6 @@ public abstract class BlockStateBaseMixin extends StateHolder<Block, BlockState>
 		cir.setReturnValue(cir.getReturnValue() && !event.isCancelled());
 	}
 	
-	// Prevent the "inside block" screen overlay while legacy Freecam is active
-	@Inject(at = @At("HEAD"),
-		method = "isViewBlocking(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;)Z",
-		cancellable = true)
-	private void onIsViewBlocking(BlockGetter world, BlockPos pos,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		if(WurstClient.INSTANCE.getHax() != null
-			&& WurstClient.INSTANCE.getHax().freecamHack.isLegacyModeActive())
-		{
-			cir.setReturnValue(false);
-		}
-	}
-	
 	@Inject(at = @At("HEAD"),
 		method = "getShape(Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/phys/shapes/CollisionContext;)Lnet/minecraft/world/phys/shapes/VoxelShape;",
 		cancellable = true)

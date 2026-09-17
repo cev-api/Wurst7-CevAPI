@@ -7,9 +7,10 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -63,7 +64,7 @@ public final class InventorySorterHack extends Hack
 	@Override
 	public void onMouseButtonPress(MouseButtonPressEvent event)
 	{
-		if(event.getAction() != GLFW.GLFW_PRESS
+		if(event.getAction() != InputConstants.PRESS
 			|| event.getButton() != button.getSelected().glfwButton)
 			return;
 		
@@ -191,9 +192,9 @@ public final class InventorySorterHack extends Hack
 	
 	private enum SortButton
 	{
-		LEFT("Left", GLFW.GLFW_MOUSE_BUTTON_LEFT),
-		MIDDLE("Middle", GLFW.GLFW_MOUSE_BUTTON_MIDDLE),
-		RIGHT("Right", GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+		LEFT("Left", InputConstants.MOUSE_BUTTON_LEFT),
+		MIDDLE("Middle", InputConstants.MOUSE_BUTTON_MIDDLE),
+		RIGHT("Right", InputConstants.MOUSE_BUTTON_RIGHT);
 		
 		private final String name;
 		private final int glfwButton;

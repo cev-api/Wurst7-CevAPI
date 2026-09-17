@@ -15,7 +15,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
@@ -76,7 +75,6 @@ public final class NukerHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
-		addSetting(swingHand);
 		addSetting(autoSwitchTool);
 		addSetting(preserveTools);
 		addSetting(attackSwing);
@@ -326,7 +324,7 @@ public final class NukerHack extends Hack
 		WURST.getRotationFaker()
 			.faceVectorPacket(target.getBoundingBox().getCenter());
 		MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		return true;
 	}
 	

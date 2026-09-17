@@ -10,6 +10,9 @@ package net.wurstclient.clickgui.screens;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
+import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
 
 import net.minecraft.client.Minecraft;
@@ -31,6 +34,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.wurstclient.hacks.autolibrarian.BookOffer;
+import net.wurstclient.settings.BookOffersSetting;
 import net.wurstclient.clickgui.widgets.MultiSelectEntryListWidget;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.WurstColors;

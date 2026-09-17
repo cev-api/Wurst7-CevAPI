@@ -7,12 +7,14 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -136,12 +138,12 @@ public final class EditSoundListScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(previous);
 			return true;
 		}
-		if(context.key() == GLFW.GLFW_KEY_ENTER && toggle != null)
+		if(context.key() == InputConstants.KEY_RETURN && toggle != null)
 		{
 			toggle.onPress(context);
 			return true;
