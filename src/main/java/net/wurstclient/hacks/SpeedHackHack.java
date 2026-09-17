@@ -115,7 +115,7 @@ public final class SpeedHackHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		// ### Improving Wursts Original Method ###
-		if(MC.player == null)
+		if(MC.player == null || WURST.getHax().elytraWalkHack.isGroundSkating())
 			return;
 		
 		// return if sneaking or not walking

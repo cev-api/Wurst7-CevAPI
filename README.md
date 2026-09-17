@@ -60,58 +60,58 @@ ClickGUI and AltGUI hide empty categories. Shared infrastructure remains compile
 ![XPGUI](https://i.imgur.com/d5iDhwj.png)
 ![Keybinds](https://i.imgur.com/JK1IsOV.png)
 
-## Hacks List
+## Hacks List (312 Hacks)
 
 | Blocks | Movement | Combat | Render | Intel | Tools | Chat | Fun | Items | Other | Creative/Op |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| AirPlace | AirWalk | AimAssist | AntiBlind | BaseFinder | AntiCheatDetect | AntiSpam | CustomTotem | AntiBreak | AntiAFK | Airstrike+ |
-| AntiCactus | AntiEntityPush | AnchorAura | AntiWobble | Breadcrumbs | BeaconExploit | AutoChat | Derp | AntiDrop | Antisocial | ArmorStandImages |
-| AreaNuker | AntiGeyser | AntiBlast | BarrierESP | CaveFinder | BundleDupe | AutoComplete | FunCreepers | AutoDisenchant | AutoFish | AutoCommand |
-| AutoBuild | AntiHunger | AntiKnockback | BedESP | CoordLogger | CheatDetector | ChatSpam | HeadRoll | AutoDrop | AutoLibrarian | AutoDisplays |
-| AutoClicker | AntiVoid | AntiProjectile | BlockOverlay | LivestreamDetector | CrashChest | ChatTranslator | LSD | AutoEat | AutoReconnect | AutoNames |
-| AutoFarm | AntiWaterPush | ArrowDMG | CameraDistance | LogoutSpots | EntityCount | ClientChatOverlay | MileyCyrus | AutoLoot | AutoTrader | AutoScoreboard |
-| AutoMine | AutoFly | AttributeSwap | CameraNoClip | Mapa | ForceOP | CommandSpam | NecoMode | AutoSteal | BedrockStash | AutoTexts |
-| AutoSign | AutoSprint | AutoArmor | ChestESP | MicDetect | GameStats | FancyChat | RainbowUI | AutoSwitch | DamageDetect | AutoTitles |
-| AutoSpawnProofer | AutoSwim | AutoLeave | DamageESP | MiningEvidence | HideModMenu | InfiniChat | SkinDerp | BookBot | FeedAura | Boom+ |
-| AutoTool | AutoWalk | AutoMace | DurabilityHUD | NewChunks | HideWurst | MassTPA | Tired | ChestSearch | GlobalToggle | ExplosionAura |
-| BedBreakAura | BedrockEscape | AutoPotion | ElytraInfo | NewerNewChunks | KickForensics | Mention |  | EnchantmentHandler | LootRunner | ForceOPBook |
-| BonemealAura | Blink | AutoRespawn | Freecam | OppStats | NbtSizeCounter | NoPlayerChat |  | InventorySorter | NBTFilter | ForceOPSign |
-| BuildRandom | BoatFly | AutoSoup | Fullbright | PlayerSonar | OfflineSettings | PlayerMute |  | ItemGenerator | Panic | ForceTP |
-| DuraSwap | BunnyHop | AutoSword | HealthTags | ServerIntel | PacketDelay |  |  | ItemHandler | PortalGUI | HandOfGod |
-| Excavator | ClutchFall | AutoTotem | ItemESP | SimulationSonar | PacketRate |  |  | KillPotion | PotionSaver | MultiverseAnnihilator |
-| FastBreak | CreativeFlight | Backtrack | LavaWaterESP | StaffMonitor | Timer |  |  | LootSearch | Reach | NBTEditor |
-| FastFill | Dolphin | BowAimbot | MobESP | TextureRotator | UI-Utils |  |  | LootSorter | RemoteEChest | OPplayerTPmodule |
-| FastPlace | ElytraBounce | ClickAura | MobHealth | TunnelHoleStairESP |  |  |  | QuickShulker | SafeTP | OPServerKillModule |
-| HandNoClip | ElytraFlight | Criticals | MobOwners |  |  |  |  | Restock | ShearAura | UUIDBan |
-| InstaBuild | ElytraPitch | CrystalAura | MobSearch |  |  |  |  | SignFramePT | Throw | Voider+ |
-| InstantBunker | EntityControl | FakeLag | MobSpawnESP |  |  |  |  | SusNoMore | TooManyHax |  |
-| Kaboom | ExtraElytra | FightBot | NameProtect |  |  |  |  | TrollPotion | VaultRoll |  |
-| Liquids | FastLadder | InfiniteReach | NameTags |  |  |  |  | UseItemSpam | VillagerRoll |  |
-| MusicAura | Fish | Killaura | NoBackground |  |  |  |  | XCarry | WebhookAlert |  |
-| Nuker | Flight | KillauraLegit | NoFireOverlay |  |  |  |  |  |  |  |
-| NukerLegit | Follow | MaceDMG | NoFog |  |  |  |  |  |  |  |
-| ScaffoldWalk | Glide | MultiAura | NoHurtcam |  |  |  |  |  |  |  |
-| SilkOnly | HighJump | Outreach | NoOverlay |  |  |  |  |  |  |  |
-| SourceFill | InvWalk | PearlIntercept | NoPumpkin |  |  |  |  |  |  |  |
-| SpeedNuker | Jesus | Protect | NoShieldOverlay |  |  |  |  |  |  |  |
-| StairMaker | Jetpack | ShieldSwing | NoVignette |  |  |  |  |  |  |  |
-| SuperInstaMine | NoClip | SpearAssist | NoWeather |  |  |  |  |  |  |  |
-| TargetPlace | NoFall | TP-Aura | OpenWaterESP |  |  |  |  |  |  |  |
-| TemplateTool | NoLevitation | TriggerBot | PearlESP |  |  |  |  |  |  |  |
-| Tillaura | NoSlowdown | Untouchable | PlayerESP |  |  |  |  |  |  |  |
-| TreeBot | NoWeb | WindChargeKey | PortalESP |  |  |  |  |  |  |  |
-| Tunneller | Parkour |  | PotESP |  |  |  |  |  |  |  |
-| VeinMiner | PearlDrop |  | ProjectileESP |  |  |  |  |  |  |  |
-|  | SafeWalk |  | ProphuntESP |  |  |  |  |  |  |  |
-|  | Sneak |  | Radar |  |  |  |  |  |  |  |
-|  | SnowShoe |  | RedstoneESP |  |  |  |  |  |  |  |
-|  | SpeedHack |  | RemoteView |  |  |  |  |  |  |  |
-|  | Spider |  | RenderAdjust |  |  |  |  |  |  |  |
-|  | Step |  | RoofESP |  |  |  |  |  |  |  |
-|  | Teleport |  | Search |  |  |  |  |  |  |  |
-|  |  |  | SignESP |  |  |  |  |  |  |  |
-|  |  |  | SkyBuildESP |  |  |  |  |  |  |  |
-|  |  |  | SoundMute |  |  |  |  |  |  |  |
+| AirPlace | AirWalk | AimAssist | AntiBlind | BaseFinder | AntiCheatDetect | AntiSpam | CustomTotem | AntiBreak | AirMiner | Airstrike+ |
+| AntiCactus | AntiEntityPush | AnchorAura | AntiWobble | Breadcrumbs | BeaconExploit | AutoChat | Derp | AntiDrop | AntiAFK | ArmorStandImages |
+| AreaNuker | AntiGeyser | AntiBlast | BarrierESP | CaveFinder | BundleDupe | AutoComplete | Flicker | AutoDisenchant | Antisocial | AutoCommand |
+| AutoBuild | AntiHunger | AntiKnockback | BedESP | CoordLogger | CheatDetector | ChatSpam | FunCreepers | AutoDrop | AutoFish | AutoDisplays |
+| AutoClicker | AntiVoid | AntiProjectile | BlockOverlay | LivestreamDetector | CrashChest | ChatTranslator | HeadRoll | AutoEat | AutoLibrarian | AutoNames |
+| AutoFarm | AntiWaterPush | ArrowDMG | CameraDistance | LogoutSpots | EntityCount | ClientChatOverlay | LSD | AutoLoot | AutoReconnect | AutoScoreboard |
+| AutoMine | AutoFly | AttributeSwap | CameraNoClip | Mapa | ForceOP | CommandSpam | MileyCyrus | AutoSteal | AutoTrader | AutoTexts |
+| AutoSign | AutoSprint | AutoArmor | ChestESP | MicDetect | GameStats | FancyChat | MobView | AutoSwitch | BedrockStash | AutoTitles |
+| AutoSpawnProofer | AutoSwim | AutoLeave | DamageESP | MiningEvidence | HideModMenu | InfiniChat | NecoMode | BookBot | DamageDetect | Boom+ |
+| AutoTool | AutoWalk | AutoMace | DurabilityHUD | NewChunks | HideWurst | MassTPA | RainbowUI | ChestSearch | FeedAura | ExplosionAura |
+| BedBreakAura | BedrockEscape | AutoPotion | ElytraInfo | NewerNewChunks | KickForensics | Mention | SkinDerp | EnchantmentHandler | GlobalToggle | ForceOPBook |
+| BonemealAura | Blink | AutoRespawn | Freecam | OppStats | NbtSizeCounter | NoPlayerChat | Tired | InventorySorter | LootRunner | ForceOPSign |
+| BuildRandom | BoatFly | AutoSoup | Fullbright | PlayerSonar | OfflineSettings | PlayerMute |  | ItemGenerator | NBTFilter | ForceTP |
+| DuraSwap | BoatPhase | AutoSword | HealthTags | ServerIntel | PacketDelay |  |  | ItemHandler | Panic | HandOfGod |
+| Excavator | BunnyHop | AutoTotem | ItemESP | SimulationSonar | PacketRate |  |  | KillPotion | PortalGUI | MultiverseAnnihilator |
+| FastBreak | ClutchFall | Backtrack | LavaWaterESP | StaffMonitor | Timer |  |  | LootSearch | PotionSaver | NBTEditor |
+| FastFill | CreativeFlight | BowAimbot | MobESP | TextureRotator | UI-Utils |  |  | LootSorter | Reach | OPplayerTPmodule |
+| FastPlace | Dolphin | ClickAura | MobHealth | TunnelHoleStairESP |  |  |  | QuickShulker | RemoteEChest | OPServerKillModule |
+| HandNoClip | ElytraBounce | Criticals | MobOwners |  |  |  |  | Restock | SafeTP | UUIDBan |
+| InstaBuild | ElytraDive | CrystalAura | MobSearch |  |  |  |  | SignFramePT | ShearAura | Voider+ |
+| InstantBunker | ElytraFlight | FakeLag | MobSpawnESP |  |  |  |  | SusNoMore | Throw |  |
+| Kaboom | ElytraPitch | FightBot | NameProtect |  |  |  |  | TrollPotion | TooManyHax |  |
+| Liquids | ElytraWalk | InfiniteReach | NameTags |  |  |  |  | UseItemSpam | VaultRoll |  |
+| MusicAura | EntityControl | Killaura | NoBackground |  |  |  |  | XCarry | VillagerRoll |  |
+| Nuker | ExtraElytra | KillauraLegit | NoFireOverlay |  |  |  |  |  | WebhookAlert |  |
+| NukerLegit | FastLadder | MaceDMG | NoFog |  |  |  |  |  |  |  |
+| ScaffoldWalk | Fish | MultiAura | NoHurtcam |  |  |  |  |  |  |  |
+| SilkOnly | Flight | Outreach | NoOverlay |  |  |  |  |  |  |  |
+| SourceFill | Follow | PearlIntercept | NoPumpkin |  |  |  |  |  |  |  |
+| SpeedNuker | Glide | Protect | NoShieldOverlay |  |  |  |  |  |  |  |
+| StairMaker | HighJump | ShieldSwing | NoVignette |  |  |  |  |  |  |  |
+| SuperInstaMine | InvWalk | SpearAssist | NoWeather |  |  |  |  |  |  |  |
+| TargetPlace | Jesus | TP-Aura | OpenWaterESP |  |  |  |  |  |  |  |
+| TemplateTool | Jetpack | TriggerBot | PearlESP |  |  |  |  |  |  |  |
+| Tillaura | NoClip | Untouchable | PlayerESP |  |  |  |  |  |  |  |
+| TreeBot | NoFall | WindChargeKey | PortalESP |  |  |  |  |  |  |  |
+| Tunneller | NoLevitation |  | PotESP |  |  |  |  |  |  |  |
+| VeinMiner | NoSlowdown |  | ProjectileESP |  |  |  |  |  |  |  |
+|  | NoWeb |  | ProphuntESP |  |  |  |  |  |  |  |
+|  | Parkour |  | Radar |  |  |  |  |  |  |  |
+|  | PearlDrop |  | RedstoneESP |  |  |  |  |  |  |  |
+|  | SafeWalk |  | RemoteView |  |  |  |  |  |  |  |
+|  | Sneak |  | RenderAdjust |  |  |  |  |  |  |  |
+|  | SnowShoe |  | RoofESP |  |  |  |  |  |  |  |
+|  | SpeedHack |  | Search |  |  |  |  |  |  |  |
+|  | Spider |  | SignESP |  |  |  |  |  |  |  |
+|  | Step |  | SkyBuildESP |  |  |  |  |  |  |  |
+|  | Teleport |  | SoundMute |  |  |  |  |  |  |  |
 |  |  |  | SpawnerESP |  |  |  |  |  |  |  |
 |  |  |  | SpawnRadius |  |  |  |  |  |  |  |
 |  |  |  | StasisDetector |  |  |  |  |  |  |  |
@@ -125,7 +125,6 @@ ClickGUI and AltGUI hide empty categories. Shared infrastructure remains compile
 |  |  |  | Waypoints |  |  |  |  |  |  |  |
 |  |  |  | WorkstationESP |  |  |  |  |  |  |  |
 |  |  |  | X-Ray |  |  |  |  |  |  |  |
-
 ## Full Feature List / Documentation
 
 The README has been shortened due to the large number of features in this client.  

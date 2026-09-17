@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [
+    "AbstractBoatMixin",
     "AbstractSignEditScreenMixin",
     "AbstractHorseMixin",
     "AbuseReportSenderMixin",
@@ -67,6 +68,7 @@
     "LevelMixin",
     "LevelRendererMixin",
     "LivingEntityMixin",
+    "PlayerMixin",
     "LocalPlayerMixin",
     "MerchantScreenMixin",
     "MinecraftMixin",

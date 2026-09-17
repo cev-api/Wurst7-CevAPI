@@ -386,6 +386,11 @@ public final class HackList implements UpdateListener
 		new TextureRotatorHack();
 	public final CustomTotemHack customTotemHack = new CustomTotemHack();
 	public final TownyHack townyHack = new TownyHack();
+	public final AirMinerHack airMinerHack = new AirMinerHack();
+	public final ElytraWalkHack elytraWalkHack = new ElytraWalkHack();
+	public final ElytraDiveHack elytraDiveHack = new ElytraDiveHack();
+	public final BoatPhaseHack boatPhaseHack = new BoatPhaseHack();
+	public final FlickerHack flickerHack = new FlickerHack();
 	
 	private final TreeMap<String, Hack> hax =
 		new TreeMap<>(String::compareToIgnoreCase);
