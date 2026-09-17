@@ -12,6 +12,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -55,6 +56,9 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	@Shadow
 	@Final
 	protected Minecraft minecraft;
+	
+	@Shadow
+	private int positionReminder;
 	
 	private LocalPlayerMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
@@ -149,6 +153,12 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		return original.call(instance);
 	}
 	
+	@Override
+	public void elytraWalk$setPositionReminder(int value)
+	{
+		positionReminder = value;
+	}
+	
 	@Inject(method = "sendPosition()V", at = @At("HEAD"))
 	private void onSendMovementPacketsHEAD(CallbackInfo ci)
 	{
@@ -159,6 +169,19 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	private void onSendMovementPacketsTAIL(CallbackInfo ci)
 	{
 		EventManager.fire(PostMotionEvent.INSTANCE);
+	}
+	
+	@ModifyVariable(
+		method = "move(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V",
+		at = @At("HEAD"),
+		argsOnly = true,
+		ordinal = 0)
+	private Vec3 elytraWalk$groundSkating(Vec3 movement, MoverType type,
+		Vec3 originalMovement)
+	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		return hax == null ? movement
+			: hax.elytraWalkHack.getGroundMovement(type, movement);
 	}
 	
 	@Inject(

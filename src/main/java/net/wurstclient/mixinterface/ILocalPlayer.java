@@ -10,4 +10,9 @@ package net.wurstclient.mixinterface;
 public interface ILocalPlayer
 {
 	public boolean isTouchingWaterBypass();
+	
+	/**
+	 * Forces LocalPlayer.sendPosition() to emit a movement packet this tick.
+	 */
+	public void elytraWalk$setPositionReminder(int value);
 }

@@ -127,6 +127,11 @@ public final class NoFallHack extends Hack implements UpdateListener
 		lastSentPositionY = y;
 		hasLastSentPositionY = true;
 		
+		// ElytraWalk owns the airborne flag while skating, including when its
+		// local pose is hidden. Keep our position baseline updated above.
+		if(WURST.getHax().elytraWalkHack.isGroundSkating())
+			return packet;
+		
 		boolean flightLandingProtection =
 			System.currentTimeMillis() < flightLandingProtectionUntil;
 		if((!isEnabled() && !flightLandingProtection) || !descending
