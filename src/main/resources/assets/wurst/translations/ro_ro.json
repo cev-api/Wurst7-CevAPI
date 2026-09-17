@@ -26,6 +26,8 @@
   "description.wurst.hack.autodrop": "Arunca automat itemele nedorite.",
   "description.wurst.hack.autoeat": "Mananca automat atunci cand este nevoie.",
   "description.wurst.hack.autofarm": "Recolteaza si planteaza automat.",
+  "description.wurst.setting.autofarm.attack_swing": "Cum ar trebui AutoFarm să-ți fluture mâna când recoltează prin spargerea blocurilor.",
+  "description.wurst.setting.autofarm.interact_swing": "Cum ar trebui AutoFarm să-ți fluture mâna când plantează și recoltează prin interacțiune.",
   "description.wurst.hack.autofish": "Pescuieste automat folosindu-se de cea mai buna undita a ta. Daca pescuind gaseste o undita mai buna, o va folosi pe aceea.",
   "description.wurst.hack.autoleave": "Paraseste automat serverul atunci cand ajungi la viata scazuta.",
   "description.wurst.hack.automine": "Strica automat block-ul la care te uiti.",

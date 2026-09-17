@@ -16,7 +16,9 @@ import java.util.Iterator;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
@@ -268,7 +270,7 @@ public final class ExcavatorHack extends Hack
 	{
 		// continue with next step
 		if(step.pos != null
-			&& InputConstants.isKeyDown(MC.getWindow(), GLFW.GLFW_KEY_ENTER))
+			&& InputConstants.isKeyDown(InputConstants.KEY_RETURN))
 		{
 			step = Step.values()[step.ordinal() + 1];
 			

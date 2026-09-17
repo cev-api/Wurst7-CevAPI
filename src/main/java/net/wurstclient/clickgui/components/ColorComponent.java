@@ -7,7 +7,8 @@
  */
 package net.wurstclient.clickgui.components;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -44,11 +45,11 @@ public final class ColorComponent extends Component
 		
 		switch(mouseButton)
 		{
-			case GLFW.GLFW_MOUSE_BUTTON_LEFT:
+			case InputConstants.MOUSE_BUTTON_LEFT:
 			MC.gui.setScreen(new EditColorScreen(MC.gui.screen(), setting));
 			break;
 			
-			case GLFW.GLFW_MOUSE_BUTTON_RIGHT:
+			case InputConstants.MOUSE_BUTTON_RIGHT:
 			setting.resetToDefault();
 			break;
 		}

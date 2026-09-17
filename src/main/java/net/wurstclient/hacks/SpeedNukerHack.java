@@ -14,10 +14,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -27,10 +23,10 @@ import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.hacks.nukers.CommonNukerSettings;
 import net.wurstclient.settings.CheckboxSetting;
+import net.wurstclient.settings.AttackSwingSetting;
+import net.wurstclient.settings.AttackSwingSetting.AttackSwing;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.SwingHandSetting;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.util.BlockBreaker;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.ChatUtils;
@@ -46,8 +42,8 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 	private final CommonNukerSettings commonSettings =
 		new CommonNukerSettings(true);
 	
-	private final SwingHandSetting swingHand = new SwingHandSetting(
-		SwingHandSetting.genericMiningDescription(this), SwingHand.OFF);
+	private final AttackSwingSetting attackSwing = new AttackSwingSetting(
+		AttackSwingSetting.genericMiningDescription(this), AttackSwing.OFF);
 	
 	private final CheckboxSetting autoSwitchTool = new CheckboxSetting(
 		"Auto switch tool",
@@ -82,6 +78,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		addSetting(autoSwitchTool);
 		addSetting(onlyOnLeftClick);
 		addSetting(preserveTools);
+		addSetting(attackSwing);
 	}
 	
 	@Override
@@ -218,7 +215,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		}
 		
 		BlockBreaker.breakBlocksWithPacketSpam(blocks);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 	}
 	
 	private Stream<BlockPos> getHoleStream(int blockRange)

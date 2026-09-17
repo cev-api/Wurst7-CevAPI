@@ -30,7 +30,7 @@ public abstract class GameRendererMixin implements AutoCloseable
 	/**
 	 * Prevents view bobbing when hacks disable it.
 	 */
-	@WrapOperation(method = "renderLevel(Lnet/minecraft/client/DeltaTracker;)V",
+	@WrapOperation(method = "renderLevel()V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/GameRenderer;bobView(Lnet/minecraft/client/renderer/state/level/CameraRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;)V",
 			ordinal = 0))
@@ -45,15 +45,13 @@ public abstract class GameRendererMixin implements AutoCloseable
 			original.call(instance, cameraState, matrices);
 	}
 	
-	@WrapOperation(method = "renderLevel(Lnet/minecraft/client/DeltaTracker;)V",
-		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/util/Mth;lerp(FFF)F",
-			ordinal = 0))
-	private float onRenderWorldNauseaLerp(float delta, float start, float end,
-		Operation<Float> original)
+	@WrapOperation(method = "renderLevel()V",
+		at = @At(value = "INVOKE", target = "Ljava/lang/Math;max(FF)F"))
+	private float onCalculateSpinningEffectIntensity(float portalIntensity,
+		float nauseaIntensity, Operation<Float> original)
 	{
 		if(!WurstClient.INSTANCE.getHax().antiWobbleHack.isEnabled())
-			return original.call(delta, start, end);
+			return original.call(portalIntensity, nauseaIntensity);
 		
 		return 0;
 	}

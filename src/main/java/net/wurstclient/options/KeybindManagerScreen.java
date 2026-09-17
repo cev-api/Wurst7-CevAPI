@@ -7,9 +7,11 @@
  */
 package net.wurstclient.options;
 
-import java.util.Objects;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import org.lwjgl.glfw.GLFW;
+import java.util.Objects;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -129,18 +131,18 @@ public final class KeybindManagerScreen extends Screen
 	{
 		switch(context.key())
 		{
-			case GLFW.GLFW_KEY_ENTER:
+			case InputConstants.KEY_RETURN:
 			if(editButton.active)
 				editButton.onPress(context);
 			else
 				addButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_DELETE:
+			case InputConstants.KEY_DELETE:
 			removeButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_ESCAPE:
+			case InputConstants.KEY_ESCAPE:
 			backButton.onPress(context);
 			break;
 			

@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -26,12 +25,12 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.DontSaveState;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.AttackSpeedSliderSetting;
+import net.wurstclient.settings.AttackSwingSetting;
+import net.wurstclient.settings.AttackSwingSetting.AttackSwing;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.settings.PauseAttackOnContainersSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
-import net.wurstclient.settings.SwingHandSetting;
-import net.wurstclient.settings.SwingHandSetting.SwingHand;
 import net.wurstclient.settings.filterlists.EntityFilterList;
 import net.wurstclient.util.EntityUtils;
 
@@ -46,8 +45,8 @@ public final class FightBotHack extends Hack
 	private final AttackSpeedSliderSetting speed =
 		new AttackSpeedSliderSetting();
 	
-	private final SwingHandSetting swingHand = new SwingHandSetting(
-		SwingHandSetting.genericCombatDescription(this), SwingHand.CLIENT);
+	private final AttackSwingSetting attackSwing = new AttackSwingSetting(
+		AttackSwingSetting.genericCombatDescription(this), AttackSwing.CLIENT);
 	
 	private final SliderSetting distance = new SliderSetting("Distance",
 		"How closely to follow the target.\n"
@@ -74,7 +73,7 @@ public final class FightBotHack extends Hack
 		setCategory(Category.COMBAT);
 		addSetting(range);
 		addSetting(speed);
-		addSetting(swingHand);
+		addSetting(attackSwing);
 		addSetting(distance);
 		addSetting(useAi);
 		addSetting(pauseOnContainers);
@@ -212,7 +211,7 @@ public final class FightBotHack extends Hack
 		
 		// attack entity
 		MC.gameMode.attack(MC.player, entity);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		speed.resetTimer();
 	}
 	

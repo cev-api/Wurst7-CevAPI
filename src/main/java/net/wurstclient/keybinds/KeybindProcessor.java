@@ -7,8 +7,10 @@
  */
 package net.wurstclient.keybinds;
 
-import org.lwjgl.glfw.GLFW;
 import java.util.Locale;
+
+import org.lwjgl.glfw.GLFW;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -44,6 +46,7 @@ public final class KeybindProcessor
 	public void onKeyPress(KeyPressEvent event)
 	{
 		if(InputSimulation.isActive())
+		if(event.getAction() != InputConstants.PRESS)
 			return;
 		
 		if(event.getAction() != GLFW.GLFW_PRESS
@@ -54,8 +57,7 @@ public final class KeybindProcessor
 		
 		boolean isRepeat = event.getAction() == GLFW.GLFW_REPEAT;
 		
-		if(InputConstants.isKeyDown(WurstClient.MC.getWindow(),
-			GLFW.GLFW_KEY_F3))
+		if(InputConstants.isKeyDown(InputConstants.KEY_F3))
 			return;
 		
 		String keyName = getKeyName(event);
@@ -135,7 +137,7 @@ public final class KeybindProcessor
 		if(InputSimulation.isActive())
 			return;
 		
-		if(event.getAction() != GLFW.GLFW_PRESS)
+		if(event.getAction() != InputConstants.PRESS)
 			return;
 		
 		if(!isKeybindProcessingAllowed())
@@ -152,8 +154,7 @@ public final class KeybindProcessor
 	
 	private boolean isKeybindProcessingAllowed()
 	{
-		if(InputConstants.isKeyDown(WurstClient.MC.getWindow(),
-			GLFW.GLFW_KEY_F3))
+		if(InputConstants.isKeyDown(InputConstants.KEY_F3))
 			return false;
 		if(WurstClient.MC.gui == null)
 			return false;

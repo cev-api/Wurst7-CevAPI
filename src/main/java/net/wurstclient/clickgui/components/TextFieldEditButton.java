@@ -7,9 +7,10 @@
  */
 package net.wurstclient.clickgui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.Objects;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -62,7 +63,7 @@ public final class TextFieldEditButton extends Component
 		
 		switch(mouseButton)
 		{
-			case GLFW.GLFW_MOUSE_BUTTON_LEFT:
+			case InputConstants.MOUSE_BUTTON_LEFT:
 			if(overBox)
 			{
 				if(!editing)
@@ -72,7 +73,7 @@ public final class TextFieldEditButton extends Component
 				finishEditing(true);
 			break;
 			
-			case GLFW.GLFW_MOUSE_BUTTON_RIGHT:
+			case InputConstants.MOUSE_BUTTON_RIGHT:
 			if(editing)
 				finishEditing(false);
 			setting.resetToDefault();

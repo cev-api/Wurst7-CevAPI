@@ -16,7 +16,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -52,7 +51,7 @@ public enum BlockBreaker
 			return false;
 		
 		// swing arm
-		SwingHand.SERVER.swing(InteractionHand.MAIN_HAND);
+		AttackSwing.SERVER.swing();
 		return true;
 	}
 	

@@ -7,14 +7,15 @@
  */
 package net.wurstclient.altmanager.screens;
 
+import com.mojang.blaze3d.Blaze3D;
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -28,7 +29,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.util.Util;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altmanager.AltRenderer;
 import net.wurstclient.altmanager.NameGenerator;
@@ -136,7 +136,7 @@ public abstract class AltEditorScreen extends Screen
 	private void openSkinFolder()
 	{
 		createSkinFolder();
-		Util.getPlatform().openFile(skinFolder.toFile());
+		Blaze3D.openPath(skinFolder);
 	}
 	
 	private void createSkinFolder()
@@ -411,7 +411,7 @@ public abstract class AltEditorScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ENTER)
+		if(context.key() == InputConstants.KEY_RETURN)
 			doneButton.onPress(context);
 			
 		// Intercept Ctrl+V paste when the name/email box is focused
@@ -461,7 +461,7 @@ public abstract class AltEditorScreen extends Screen
 			|| (shouldShowPasswordInput() && passwordBox.isFocused()))
 			message = "";
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(context.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;

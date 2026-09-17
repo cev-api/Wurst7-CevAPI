@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.minecraft.UserApiService;
-import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
+import com.mojang.authlib.services.MinecraftServicesDiscoveryService;
 import com.mojang.blaze3d.platform.WindowEventHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.User;
@@ -60,9 +60,9 @@ public abstract class MinecraftMixin
 	public LocalPlayer player;
 	
 	@Unique
-	private YggdrasilAuthenticationService wurstAuthenticationService;
-	@Unique
 	private User wurstOriginalSession;
+	@Unique
+	private MinecraftServicesDiscoveryService wurstDiscoveryService;
 	
 	private User wurstSession;
 	private ProfileKeyPairManager wurstProfileKeys;
@@ -75,12 +75,12 @@ public abstract class MinecraftMixin
 	
 	@Inject(method = "<init>",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/server/Services;create(Lcom/mojang/authlib/yggdrasil/YggdrasilAuthenticationService;Ljava/io/File;)Lnet/minecraft/server/Services;",
+			target = "Lnet/minecraft/server/Services;create(Lcom/mojang/authlib/services/MinecraftServicesDiscoveryService;Ljava/io/File;)Lnet/minecraft/server/Services;",
 			shift = At.Shift.AFTER))
-	private void captureAuthenticationService(GameConfig args, CallbackInfo ci,
-		@Local YggdrasilAuthenticationService yggdrasilAuthenticationService)
+	private void captureDiscoveryService(GameConfig args, CallbackInfo ci,
+		@Local MinecraftServicesDiscoveryService discoveryService)
 	{
-		wurstAuthenticationService = yggdrasilAuthenticationService;
+		wurstDiscoveryService = discoveryService;
 	}
 	
 	/**
@@ -276,7 +276,7 @@ public abstract class MinecraftMixin
 		boolean isOffline = accessToken == null || accessToken.isBlank()
 			|| accessToken.equals("0") || accessToken.equals("null");
 		UserApiService userApiService = isOffline ? UserApiService.OFFLINE
-			: wurstAuthenticationService.createUserApiService(accessToken);
+			: wurstDiscoveryService.createUserApiService(accessToken);
 		wurstProfileKeys = ProfileKeyPairManager.create(userApiService, session,
 			gameDirectory.toPath());
 	}

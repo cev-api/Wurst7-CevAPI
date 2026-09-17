@@ -27,6 +27,7 @@ import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.CheckboxSetting;
 import net.wurstclient.util.InteractionSimulator;
 import net.wurstclient.util.Rotation;
+import net.wurstclient.settings.InteractSwingSetting.InteractSwing;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RotationUtils;
 

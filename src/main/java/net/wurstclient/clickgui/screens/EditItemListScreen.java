@@ -7,15 +7,13 @@
  */
 package net.wurstclient.clickgui.screens;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -186,17 +184,17 @@ public final class EditItemListScreen extends Screen
 	{
 		switch(context.key())
 		{
-			case GLFW.GLFW_KEY_ENTER:
+			case InputConstants.KEY_RETURN:
 			if(addButton.active)
 				addButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_DELETE:
+			case InputConstants.KEY_DELETE:
 			if(!itemNameField.isFocused())
 				removeButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_ESCAPE:
+			case InputConstants.KEY_ESCAPE:
 			doneButton.onPress(context);
 			break;
 			

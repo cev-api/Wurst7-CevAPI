@@ -28,6 +28,8 @@
   "description.wurst.hack.autodrop": "Automaticky vyhazuje nechtěné předměty.",
   "description.wurst.hack.autoeat": "Automaticky jí jídlo, když je potřeba.",
   "description.wurst.hack.autofarm": "Automaticky sklízí a přesazuje plodiny.",
+  "description.wurst.setting.autofarm.attack_swing": "Jak má AutoFarm mávat vaší rukou při sklízení pomocí těžení.",
+  "description.wurst.setting.autofarm.interact_swing": "Jak má AutoFarm mávat vaší rukou při sázení a sklízení pomocí interakce.",
   "description.wurst.hack.autofish": "Automaticky chytá ryby pomocí vašeho nejlepšího rybářského prutu. Pokud najde lepší prut při rybaření, automaticky na něj přepne.",
   "description.wurst.hack.autoleave": "Automaticky opustí server, když jsou vaše životy nízké.",
   "description.wurst.hack.automine": "Automaticky vytěží jakýkoli blok, na který se podíváte.",

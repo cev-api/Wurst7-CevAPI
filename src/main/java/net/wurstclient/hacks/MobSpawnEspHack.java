@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hacks;
 
+import java.awt.Color;
+import java.util.Map.Entry;
+
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;

@@ -28,6 +28,8 @@
   "description.wurst.hack.autodrop": "自動丟棄你不想要的物品（有預設）。",
   "description.wurst.hack.autoeat": "當必要的時候將會自動進食。",
   "description.wurst.hack.autofarm": "自動收穫與種植農作物。",
+  "description.wurst.setting.autofarm.attack_swing": "設定 AutoFarm 在透過破壞方塊收穫時如何揮動你的手。",
+  "description.wurst.setting.autofarm.interact_swing": "設定 AutoFarm 在透過互動種植和收穫時如何揮動你的手。",
   "description.wurst.hack.autofish": "自動使用最好的魚竿釣魚，如果在此期間獲得了更好的魚竿，就會自動切換到它。",
   "description.wurst.hack.autoleave": "如果你的血量低於設定值，將會自動退出伺服器。",
   "description.wurst.hack.automine": "自動挖掘你眼前所指的方塊。",

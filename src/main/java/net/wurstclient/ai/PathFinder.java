@@ -16,25 +16,10 @@ import java.util.List;
 import java.util.Map.Entry;
 
 import net.minecraft.client.Minecraft;
-import net.wurstclient.util.WurstBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.BaseFireBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.CactusBlock;
-import net.minecraft.world.level.block.FenceBlock;
-import net.minecraft.world.level.block.FenceGateBlock;
-import net.minecraft.world.level.block.LadderBlock;
-import net.minecraft.world.level.block.LiquidBlock;
-import net.minecraft.world.level.block.PressurePlateBlock;
-import net.minecraft.world.level.block.SignBlock;
-import net.minecraft.world.level.block.SlimeBlock;
-import net.minecraft.world.level.block.SoulSandBlock;
-import net.minecraft.world.level.block.TripWireBlock;
-import net.minecraft.world.level.block.VineBlock;
-import net.minecraft.world.level.block.WallBlock;
-import net.minecraft.world.level.block.WebBlock;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.LavaFluid;
@@ -46,6 +31,7 @@ import net.wurstclient.WurstRenderLayers;
 import net.wurstclient.util.BlockUtils;
 import net.wurstclient.util.RegionPos;
 import net.wurstclient.util.RenderUtils;
+import net.wurstclient.util.WurstBufferSource;
 
 public class PathFinder
 {
@@ -284,14 +270,14 @@ public class PathFinder
 		return false;
 	}
 	
-	@SuppressWarnings("deprecation")
 	protected boolean canBeSolid(BlockPos pos)
 	{
 		BlockState state = BlockUtils.getState(pos);
 		Block block = state.getBlock();
 		
-		return state.blocksMotion() && !(block instanceof SignBlock)
-			|| block instanceof LadderBlock || abilities.jesus()
+		return state.is(BlockTags.BLOCKS_MOTION)
+			&& !(block instanceof SignBlock) || block instanceof LadderBlock
+			|| abilities.jesus()
 				&& (block == Blocks.WATER || block == Blocks.LAVA);
 	}
 	
@@ -307,7 +293,7 @@ public class PathFinder
 		// check if solid
 		BlockState state = BlockUtils.getState(pos);
 		Block block = state.getBlock();
-		if(state.blocksMotion() && !(block instanceof SignBlock))
+		if(state.is(BlockTags.BLOCKS_MOTION) && !(block instanceof SignBlock))
 			return false;
 		
 		// check if trapped

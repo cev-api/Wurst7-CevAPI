@@ -8,10 +8,13 @@
 package net.wurstclient.options;
 
 import java.util.ArrayList;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
+
+import com.mojang.blaze3d.Blaze3D;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.Font;
@@ -23,8 +26,6 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
-import net.minecraft.util.Util;
-import net.minecraft.util.Util.OS;
 import net.wurstclient.WurstClient;
 import net.wurstclient.altgui.TooManyHaxEditorScreen;
 import net.wurstclient.altmanager.LoginException;
