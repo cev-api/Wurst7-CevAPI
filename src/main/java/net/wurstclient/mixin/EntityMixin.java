@@ -129,37 +129,6 @@ public abstract class EntityMixin
 			ci.cancel();
 	}
 	
-	/**
-	 * Makes invisible entities render as ghosts if TrueSight is enabled.
-	 */
-	@Inject(
-		method = "isInvisibleTo(Lnet/minecraft/world/entity/player/Player;)Z",
-		at = @At("HEAD"),
-		cancellable = true)
-	private void onIsInvisibleToFreecam(Player player,
-		CallbackInfoReturnable<Boolean> cir)
-	{
-		Entity self = (Entity)(Object)this;
-		if(!(self instanceof Player localPlayer)
-			|| !localPlayer.isLocalPlayer())
-			return;
-		
-		if(WurstClient.INSTANCE.getHax().freecamHack.isLegacyModeActive())
-			cir.setReturnValue(true);
-	}
-	
-	@Inject(method = "isInvisible()Z", at = @At("HEAD"), cancellable = true)
-	private void onIsInvisibleFreecam(CallbackInfoReturnable<Boolean> cir)
-	{
-		Entity self = (Entity)(Object)this;
-		if(!(self instanceof Player localPlayer)
-			|| !localPlayer.isLocalPlayer())
-			return;
-		
-		if(WurstClient.INSTANCE.getHax().freecamHack.isLegacyModeActive())
-			cir.setReturnValue(true);
-	}
-	
 	@Inject(
 		method = "isInvisibleTo(Lnet/minecraft/world/entity/player/Player;)Z",
 		at = @At("RETURN"),

@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hud;
 
+import net.wurstclient.util.SdlUtils;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -25,7 +29,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
 
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.Window;
@@ -445,8 +448,8 @@ public final class ClientMessageOverlay
 		
 		double mouseX = getScaledMouseX(context);
 		double mouseY = getScaledMouseY(context);
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		
 		float x1 = drawX;
 		float y1 = drawY - height;
@@ -2187,8 +2190,8 @@ public final class ClientMessageOverlay
 		if(window == null)
 			return;
 		
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		if(!leftDown)
 		{
 			lastLeftMouseDown = false;
@@ -2380,8 +2383,8 @@ public final class ClientMessageOverlay
 		if(window == null)
 			return;
 		
-		boolean tabDown = GLFW.glfwGetKey(window.handle(),
-			GLFW.GLFW_KEY_TAB) == GLFW.GLFW_PRESS;
+		boolean tabDown = SdlUtils
+			.getKeyState(InputConstants.KEY_TAB) == InputConstants.PRESS;
 		
 		tabHeldForOverlay = tabDown;
 	}

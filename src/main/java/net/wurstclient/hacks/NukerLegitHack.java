@@ -14,7 +14,6 @@ import java.util.stream.Stream;
 import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -72,7 +71,6 @@ public final class NukerLegitHack extends Hack
 		setCategory(Category.BLOCKS);
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
-		addSetting(swingHand);
 		addSetting(autoSwitchTool);
 		addSetting(attackSwing);
 	}
@@ -248,7 +246,7 @@ public final class NukerLegitHack extends Hack
 		WURST.getRotationFaker()
 			.faceVectorClient(target.getBoundingBox().getCenter());
 		MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		return true;
 	}
 	

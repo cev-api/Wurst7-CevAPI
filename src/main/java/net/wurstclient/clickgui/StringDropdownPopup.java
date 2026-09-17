@@ -7,7 +7,7 @@
  */
 package net.wurstclient.clickgui;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -50,8 +50,8 @@ public final class StringDropdownPopup extends Popup
 	@Override
 	public void handleMouseClick(int mouseX, int mouseY, int mouseButton)
 	{
-		if((mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
-			&& mouseButton != GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if((mouseButton != InputConstants.MOUSE_BUTTON_LEFT
+			&& mouseButton != InputConstants.MOUSE_BUTTON_MIDDLE)
 			|| visibleRows <= 0)
 			return;
 		
@@ -60,7 +60,7 @@ public final class StringDropdownPopup extends Popup
 		if(localX < 0 || localX >= getWidth() || localY < 0
 			|| localY >= getHeight())
 			return;
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_MIDDLE)
 		{
 			setting.setSelected(setting.getValues().get(0));
 			close();

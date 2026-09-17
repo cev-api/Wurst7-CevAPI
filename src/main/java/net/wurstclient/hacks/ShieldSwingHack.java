@@ -145,7 +145,8 @@ public final class ShieldSwingHack extends Hack implements HandleInputListener
 		
 		WURST.getHax().autoSwordHack.setSlot(target);
 		MC.gameMode.attack(player, target);
-		player.swing(InteractionHand.MAIN_HAND);
+		player.swing(InteractionHand.MAIN_HAND,
+			player.getMainHandItem().getInteractAnimation(), false);
 	}
 	
 	public boolean shouldUseNoShieldOverlay()

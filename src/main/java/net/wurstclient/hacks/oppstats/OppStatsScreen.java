@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks.oppstats;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.ArrayList;
@@ -35,7 +37,6 @@ import net.wurstclient.hacks.OppStatsHack;
 import net.wurstclient.hacks.OppStatsHack.OppRecord;
 import net.wurstclient.util.ChatUtils;
 import net.wurstclient.util.RenderUtils;
-import org.lwjgl.glfw.GLFW;
 
 public final class OppStatsScreen extends Screen
 {
@@ -187,9 +188,9 @@ public final class OppStatsScreen extends Screen
 	{
 		if(searchBox == null || !searchBox.isFocused())
 		{
-			if(context.key() == GLFW.GLFW_KEY_UP)
+			if(context.key() == InputConstants.KEY_UP)
 				return list != null && list.moveSelection(-1);
-			if(context.key() == GLFW.GLFW_KEY_DOWN)
+			if(context.key() == InputConstants.KEY_DOWN)
 				return list != null && list.moveSelection(1);
 		}
 		

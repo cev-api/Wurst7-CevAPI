@@ -7,7 +7,6 @@
  */
 package net.wurstclient.serverfinder;
 
-import com.mojang.blaze3d.Blaze3D;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import java.net.InetAddress;
@@ -22,8 +21,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.lwjgl.glfw.GLFW;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -939,7 +936,8 @@ public class ServerFinderScreen extends Screen
 			return true;
 		}
 		
-		if(isCompactLayout() && context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(isCompactLayout()
+			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			int mouseX = (int)context.x();
 			int mouseY = (int)context.y();

@@ -41,38 +41,40 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 			|| hax.remoteViewHack.shouldHideHand())
 			ci.cancel();
 	}
-
+	
 	@Inject(
 		method = "submitArmWithItem(Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/level/FirstPersonHandsAndItemsRenderState;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
-		at = @At("HEAD"), cancellable = true)
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onSubmitArmWithItem(PlayerRenderState player,
 		FirstPersonHandsAndItemsRenderState handsAndItems, float tickProgress,
-		float pitch, InteractionHand hand, float swingProgress,
-		ItemStack item, float equipProgress, PoseStack matrices,
-		SubmitNodeCollector collector, int light, CallbackInfo ci)
+		float pitch, InteractionHand hand, float swingProgress, ItemStack item,
+		float equipProgress, PoseStack matrices, SubmitNodeCollector collector,
+		int light, CallbackInfo ci)
 	{
 		ViewmodelHack viewmodel = WurstClient.INSTANCE.getHax().viewmodelHack;
 		if(viewmodel.shouldHide(getArm(player, hand)))
 			ci.cancel();
 	}
-
+	
 	@Inject(
 		method = "submitArmWithItem(Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/level/FirstPersonHandsAndItemsRenderState;FFLnet/minecraft/world/InteractionHand;FLnet/minecraft/world/item/ItemStack;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;I)V",
 		at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V"))
 	private void onSubmitItem(PlayerRenderState player,
 		FirstPersonHandsAndItemsRenderState handsAndItems, float tickProgress,
-		float pitch, InteractionHand hand, float swingProgress,
-		ItemStack item, float equipProgress, PoseStack matrices,
-		SubmitNodeCollector collector, int light, CallbackInfo ci)
+		float pitch, InteractionHand hand, float swingProgress, ItemStack item,
+		float equipProgress, PoseStack matrices, SubmitNodeCollector collector,
+		int light, CallbackInfo ci)
 	{
 		WurstClient.INSTANCE.getHax().viewmodelHack
 			.applyTransform(getArm(player, hand), matrices);
 	}
-
+	
 	@Inject(
 		method = "renderMapHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/world/entity/HumanoidArm;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;)V",
-		at = @At("HEAD"), cancellable = true)
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onRenderMapHand(PoseStack matrices,
 		SubmitNodeCollector collector, int light, HumanoidArm arm,
 		PlayerRenderState player, CallbackInfo ci)
@@ -80,7 +82,7 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 		if(WurstClient.INSTANCE.getHax().viewmodelHack.shouldHide(arm))
 			ci.cancel();
 	}
-
+	
 	@Inject(
 		method = "renderMapHand(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;ILnet/minecraft/world/entity/HumanoidArm;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;)V",
 		at = @At(value = "INVOKE",
@@ -90,10 +92,23 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 		SubmitNodeCollector collector, int light, HumanoidArm arm,
 		PlayerRenderState player, CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().viewmodelHack
-			.applyTransform(arm, matrices);
+		WurstClient.INSTANCE.getHax().viewmodelHack.applyTransform(arm,
+			matrices);
 	}
-
+	
+	@Inject(
+		method = "renderPlayerArm(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IFFLnet/minecraft/world/entity/HumanoidArm;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;)V",
+		at = @At("HEAD"),
+		cancellable = true)
+	private void onRenderPlayerArmHead(PoseStack matrices,
+		SubmitNodeCollector collector, int light, float equippedProgress,
+		float swingProgress, HumanoidArm arm, PlayerRenderState player,
+		CallbackInfo ci)
+	{
+		if(WurstClient.INSTANCE.getHax().viewmodelHack.shouldHide(arm))
+			ci.cancel();
+	}
+	
 	@Inject(
 		method = "renderPlayerArm(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IFFLnet/minecraft/world/entity/HumanoidArm;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;)V",
 		at = @At(value = "INVOKE",
@@ -103,13 +118,14 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 		float swingProgress, HumanoidArm arm, PlayerRenderState player,
 		CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().viewmodelHack
-			.applyTransform(arm, matrices);
+		WurstClient.INSTANCE.getHax().viewmodelHack.applyTransform(arm,
+			matrices);
 	}
-
+	
 	@Inject(
 		method = "renderOneHandedMap(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IFLnet/minecraft/world/entity/HumanoidArm;FLnet/minecraft/world/item/ItemStack;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/level/FirstPersonHandsAndItemsRenderState;)V",
-		at = @At("HEAD"), cancellable = true)
+		at = @At("HEAD"),
+		cancellable = true)
 	private void onRenderOneHandedMap(PoseStack matrices,
 		SubmitNodeCollector collector, int light, float equippedProgress,
 		HumanoidArm arm, float swingProgress, ItemStack stack,
@@ -119,7 +135,7 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 		if(WurstClient.INSTANCE.getHax().viewmodelHack.shouldHide(arm))
 			ci.cancel();
 	}
-
+	
 	@Inject(
 		method = "renderOneHandedMap(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;IFLnet/minecraft/world/entity/HumanoidArm;FLnet/minecraft/world/item/ItemStack;Lnet/minecraft/client/renderer/state/level/PlayerRenderState;Lnet/minecraft/client/renderer/state/level/FirstPersonHandsAndItemsRenderState;)V",
 		at = @At(value = "INVOKE",
@@ -130,10 +146,10 @@ public abstract class FirstPersonHandsAndItemsRendererMixin
 		PlayerRenderState player,
 		FirstPersonHandsAndItemsRenderState handsAndItems, CallbackInfo ci)
 	{
-		WurstClient.INSTANCE.getHax().viewmodelHack
-			.applyTransform(arm, matrices);
+		WurstClient.INSTANCE.getHax().viewmodelHack.applyTransform(arm,
+			matrices);
 	}
-
+	
 	private HumanoidArm getArm(PlayerRenderState player, InteractionHand hand)
 	{
 		HumanoidArm mainArm = player.avatarRenderState.mainArm;

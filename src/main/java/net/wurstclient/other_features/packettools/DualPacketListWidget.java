@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features.packettools;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -213,7 +215,7 @@ public final class DualPacketListWidget
 		int rightX = x + listWidth + GAP / 2;
 		int panelListWidth = listWidth - PADDING;
 		
-		if(event.button() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(handleScrollbarClick(mouseX, mouseY, leftX, listY,
 				panelListWidth, listHeight, true))

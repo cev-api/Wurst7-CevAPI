@@ -17,7 +17,6 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
-import org.lwjgl.glfw.GLFW;
 
 public class PressAKeyScreen extends Screen
 {

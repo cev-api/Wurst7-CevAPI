@@ -13,7 +13,6 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
@@ -240,7 +239,7 @@ public final class MultiAuraHack extends Hack
 		
 		if(attacked)
 		{
-			swingHand.swing(InteractionHand.MAIN_HAND);
+			attackSwing.swing();
 			speed.resetTimer();
 		}
 	}
@@ -287,7 +286,7 @@ public final class MultiAuraHack extends Hack
 		maceTargetQueue.removeFirstOccurrence(target.getId());
 		
 		MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		if(shouldUseAuraSpeedAssist(maceDmg))
 			speed.resetTimer(0);
 		else

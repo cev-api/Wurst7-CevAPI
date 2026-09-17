@@ -849,13 +849,8 @@ public final class TrialSpawnerEspHack extends Hack
 			lz = anchored.z;
 		}
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180));
 		float s = 0.025F * RenderUtils.getCappedWorldLabelScale(scale, dist);
 		matrices.scale(s, -s, s);
 		

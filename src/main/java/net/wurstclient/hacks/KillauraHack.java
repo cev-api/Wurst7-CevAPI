@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.core.component.DataComponents;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -258,10 +259,11 @@ public final class KillauraHack extends Hack
 			heldItem.get(DataComponents.PIERCING_WEAPON);
 		if(piercingWeapon != null
 			&& !WURST.getHax().attributeSwapHack.isEnabled())
-			MC.gameMode.piercingAttack(piercingWeapon);
+			MC.gameMode.piercingAttack(heldItem.getAttackAnimation(),
+				piercingWeapon);
 		else
 			MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		
 		target = null;
 		if(shouldUseAuraSpeedAssist(maceDmg))

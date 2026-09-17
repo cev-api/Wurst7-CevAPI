@@ -7,6 +7,10 @@
  */
 package net.wurstclient.clickgui.widgets;
 
+import net.wurstclient.util.SdlUtils;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.platform.Window;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,7 +27,6 @@ import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * A reusable list widget that keeps selection and scroll state when entries are
@@ -263,24 +266,24 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 	
 	protected boolean isShiftDown()
 	{
-		return isKeyDown(GLFW.GLFW_KEY_LEFT_SHIFT)
-			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_SHIFT);
+		return isKeyDown(InputConstants.KEY_LSHIFT)
+			|| isKeyDown(InputConstants.KEY_RSHIFT);
 	}
 	
 	protected boolean isControlDown()
 	{
-		boolean control = isKeyDown(GLFW.GLFW_KEY_LEFT_CONTROL)
-			|| isKeyDown(GLFW.GLFW_KEY_RIGHT_CONTROL);
+		boolean control = isKeyDown(InputConstants.KEY_LCONTROL)
+			|| isKeyDown(InputConstants.KEY_RCONTROL);
 		if(Util.getPlatform() == Util.OS.OSX)
-			control |= isKeyDown(GLFW.GLFW_KEY_LEFT_SUPER)
-				|| isKeyDown(GLFW.GLFW_KEY_RIGHT_SUPER);
+			control |= isKeyDown(InputConstants.KEY_LGUI)
+				|| isKeyDown(InputConstants.KEY_RGUI);
 		return control;
 	}
 	
 	private boolean isKeyDown(int keyCode)
 	{
 		Window window = Minecraft.getInstance().getWindow();
-		return GLFW.glfwGetKey(window.handle(), keyCode) == GLFW.GLFW_PRESS;
+		return SdlUtils.getKeyState(keyCode) == InputConstants.PRESS;
 	}
 	
 	public SelectionState captureState()
@@ -400,13 +403,14 @@ public abstract class MultiSelectEntryListWidget<E extends MultiSelectEntryListW
 		public boolean mouseClicked(MouseButtonEvent context,
 			boolean doubleClick)
 		{
-			if(context.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(context.button() != InputConstants.MOUSE_BUTTON_LEFT)
 				return false;
 			
-			boolean shiftDown = (context.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0
-				|| context.hasShiftDown() || parent.isShiftDown();
+			boolean shiftDown =
+				(context.modifiers() & InputConstants.MOD_SHIFT) != 0
+					|| context.hasShiftDown() || parent.isShiftDown();
 			boolean ctrlDown =
-				(context.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0
+				(context.modifiers() & InputConstants.MOD_CONTROL) != 0
 					|| context.hasControlDown() || parent.isControlDown();
 			
 			parent.onEntryClicked(self(), shiftDown, ctrlDown);

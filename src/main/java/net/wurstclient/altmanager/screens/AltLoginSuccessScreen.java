@@ -7,7 +7,7 @@
  */
 package net.wurstclient.altmanager.screens;
 
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -58,8 +58,8 @@ public final class AltLoginSuccessScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ENTER
-			|| context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_RETURN
+			|| context.key() == InputConstants.KEY_ESCAPE)
 		{
 			onClose();
 			return true;
@@ -71,7 +71,7 @@ public final class AltLoginSuccessScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(context.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;

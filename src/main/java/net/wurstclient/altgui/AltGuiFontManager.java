@@ -22,8 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 
+import com.mojang.blaze3d.Blaze3D;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.util.Util;
 import net.wurstclient.WurstClient;
 
 public final class AltGuiFontManager
@@ -157,7 +157,7 @@ public final class AltGuiFontManager
 		try
 		{
 			Files.createDirectories(fontsFolder);
-			Util.getPlatform().openFile(fontsFolder.toFile());
+			Blaze3D.openPath(fontsFolder);
 		}catch(IOException ignored)
 		{}
 	}

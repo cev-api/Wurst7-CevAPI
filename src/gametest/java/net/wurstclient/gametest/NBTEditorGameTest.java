@@ -7,12 +7,12 @@
  */
 package net.wurstclient.gametest;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -74,9 +74,9 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 		assertFullViewport(mc, editor, false);
 		
 		// Ctrl+A selects all text while the viewport stays where it was.
-		key(screen, GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_A, InputConstants.MOD_CONTROL);
 		assertFullViewport(mc, editor, true);
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals(text),
 			"Ctrl+A/C must copy the entire large document");
 		
@@ -92,13 +92,13 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 			"Dragging the scrollbar must reach the document bottom");
 		assertFullViewport(mc, editor, true);
 		
-		key(screen, GLFW.GLFW_KEY_HOME, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_HOME, InputConstants.MOD_CONTROL);
 		check(editor.scrollAmount() == 0, "Ctrl+Home must reveal the caret");
-		key(screen, GLFW.GLFW_KEY_END, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_END, InputConstants.MOD_CONTROL);
 		check(editor.scrollAmount() == editor.maxScrollAmount(),
 			"Ctrl+End must reveal the last line");
-		key(screen, GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
-		key(screen, GLFW.GLFW_KEY_BACKSPACE, 0);
+		key(screen, InputConstants.KEY_A, InputConstants.MOD_CONTROL);
+		key(screen, InputConstants.KEY_BACKSPACE, 0);
 		check(editor.getValue().isEmpty() && editor.scrollAmount() == 0,
 			"Deleting a selected large document must reset the scroll range");
 	}
@@ -114,35 +114,35 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 		MouseButtonEvent drag = mouse(x + mc.font.width("gamma"), y + 10, 0);
 		screen.mouseDragged(drag, 3, 2);
 		screen.mouseReleased(drag);
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals("alpha beta\ngamma"),
 			"Dragging must select using mouse positions, not movement deltas");
 		check(highlightCount(render(mc, editor)) == 2,
 			"Dragging across two lines must draw both highlights");
 		
-		key(screen, GLFW.GLFW_KEY_X, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_X, InputConstants.MOD_CONTROL);
 		check(editor.getValue().equals(" delta\nlast"),
 			"Cut must delete precisely the highlighted text");
-		key(screen, GLFW.GLFW_KEY_V, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_V, InputConstants.MOD_CONTROL);
 		check(editor.getValue().equals("alpha beta\ngamma delta\nlast"),
 			"Paste must restore the cut selection");
 		
-		key(screen, GLFW.GLFW_KEY_HOME, GLFW.GLFW_MOD_CONTROL);
-		key(screen, GLFW.GLFW_KEY_RIGHT, GLFW.GLFW_MOD_SHIFT);
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_HOME, InputConstants.MOD_CONTROL);
+		key(screen, InputConstants.KEY_RIGHT, InputConstants.MOD_SHIFT);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals("a"),
 			"Shift+Arrow must extend selection");
 		screen.mouseClicked(
-			mouse(x + mc.font.width("alpha"), y + 1, GLFW.GLFW_MOD_SHIFT),
+			mouse(x + mc.font.width("alpha"), y + 1, InputConstants.MOD_SHIFT),
 			false);
 		screen.mouseReleased(mouse(x, y, 0));
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals("alpha"),
 			"Shift+Click must extend selection from the original anchor");
 		
 		screen.mouseClicked(mouse(x + 1, y + 1, 0), true);
 		screen.mouseReleased(mouse(x, y, 0));
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals("alpha"),
 			"Double-click must select the word");
 	}
@@ -155,7 +155,7 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 		check(editor.maxScrollAmount() > 0,
 			"Wrapped text must contribute to the scrollbar range");
 		editor.setScrollAmount(editor.maxScrollAmount() / 2.0);
-		key(screen, GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_A, InputConstants.MOD_CONTROL);
 		assertFullViewport(mc, editor, true);
 		
 		// Seek to a wrapped display row and replace one character.
@@ -166,7 +166,7 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 			.plainSubstrByWidth(wrapped, editor.getWidth() - 52).length();
 		screen.mouseClicked(mouse(x, y + 10, 0), false);
 		screen.mouseReleased(mouse(x, y + 10, 0));
-		key(screen, GLFW.GLFW_KEY_DELETE, 0);
+		key(screen, InputConstants.KEY_DELETE, 0);
 		check(
 			editor.getValue()
 				.equals(wrapped.substring(0, rowLength)
@@ -179,13 +179,13 @@ public final class NBTEditorGameTest implements FabricClientGameTest
 		screen.mouseReleased(mouse(editor.getX() + 4, y + 1, 0));
 		screen.mouseClicked(mouse(x, y + 10, 0), false);
 		screen.mouseReleased(mouse(x, y + 10, 0));
-		key(screen, GLFW.GLFW_KEY_END, GLFW.GLFW_MOD_SHIFT);
-		key(screen, GLFW.GLFW_KEY_C, GLFW.GLFW_MOD_CONTROL);
+		key(screen, InputConstants.KEY_END, InputConstants.MOD_SHIFT);
+		key(screen, InputConstants.KEY_C, InputConstants.MOD_CONTROL);
 		check(mc.keyboardHandler.getClipboard().equals("target"),
 			"Clicking below a fold must select the visible source line; "
 				+ "brackets inside strings must not swallow later lines");
-		key(screen, GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
-		key(screen, GLFW.GLFW_KEY_BACKSPACE, 0);
+		key(screen, InputConstants.KEY_A, InputConstants.MOD_CONTROL);
+		key(screen, InputConstants.KEY_BACKSPACE, 0);
 		check(editor.getValue().isEmpty() && editor.maxScrollAmount() == 0,
 			"Select-all must include folded text and clear stale folds");
 	}

@@ -322,7 +322,7 @@ public final class EditColorScreen extends Screen
 		double mouseX = context.x();
 		double mouseY = context.y();
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(mouseX >= svX && mouseX <= svX + svW && mouseY >= svY
 				&& mouseY <= svY + svH)

@@ -1,4 +1,4 @@
-# Wurst Client v7.55.1 (MC26.2) - Modified by CevAPI
+# Wurst Client v7.55.1 (MC26.3) - Modified by CevAPI
 ![CevAPI Logo](https://i.imgur.com/kH8A4eR.png)
 
 - Original Repo: https://github.com/Wurst-Imperium/Wurst7  
@@ -12,7 +12,7 @@ Pre-compiled versioned and polished releases are available on the [Release Page]
 
 [![](https://i.imgur.com/YVRiTjH.png)](https://github.com/cev-api/Wurst7-CevAPI/releases)
 
-I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2) but I only update and maintain the latest; [26.2.x](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
+I have versions for [1.21.1](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.1), [1.21.8](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.8), [1.21.10](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.10), [1.21.11](https://github.com/cev-api/Wurst7-CevAPI/tree/1.21.11), [26.1.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.1.2), [26.2](https://github.com/cev-api/Wurst7-CevAPI/tree/26.2) but I only update and maintain the latest; [26.3](https://github.com/cev-api/Wurst7-CevAPI/tree/master)
 
 Not happy with the supported versions? Download [ViaFabricPlus](https://modrinth.com/mod/viafabricplus) and use latest release on an older server.
 
@@ -40,7 +40,7 @@ The benefit of this is that it is the exact code here on this repo, no need to d
 - May have unlabelled or hidden features
 - Features added may be removed/changed
 - Will likely not say its a new version
-- Will only support MC26.2
+- Will only support MC26.3
 - No NiceWurst
 
 ## Custom Builds

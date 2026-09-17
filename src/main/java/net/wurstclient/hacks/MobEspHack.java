@@ -468,7 +468,6 @@ public final class MobEspHack extends Hack implements UpdateListener,
 		float partialTicks)
 	{
 		Vec3 cam = RenderUtils.getCameraPos();
-		var camEntity = MC.getCameraEntity();
 		Villager pointedVillager = null;
 		if(MC.hitResult instanceof EntityHitResult hit
 			&& hit.getEntity() instanceof Villager villager
@@ -519,12 +518,8 @@ public final class MobEspHack extends Hack implements UpdateListener,
 			
 			matrices.pushPose();
 			matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
-			if(camEntity != null)
-			{
-				matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-				matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-			}
-			matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+			RenderUtils.applyWorldTextOrientation(matrices);
+			RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 			
 			float scale = 0.025F * (float)Math.max(1.0, dist * 0.1);
 			matrices.scale(scale, -scale, scale);

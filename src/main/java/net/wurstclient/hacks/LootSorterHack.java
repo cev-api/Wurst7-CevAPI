@@ -7,12 +7,14 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.List;
-import org.lwjgl.glfw.GLFW;
+
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.LootSorterDestinationScreen;
@@ -1048,15 +1050,15 @@ public final class LootSorterHack extends Hack
 		if(MC.gui.screen() != null)
 			return;
 		if(presetCapture != PresetCapture.NONE
-			&& event.getAction() == GLFW.GLFW_PRESS
-			&& event.getKeyCode() == GLFW.GLFW_KEY_ENTER
+			&& event.getAction() == InputConstants.PRESS
+			&& event.getKeyCode() == InputConstants.KEY_RETURN
 			&& !(MC.gui.screen() instanceof LootSorterDestinationScreen))
 		{
 			finishPresetCapture();
 			return;
 		}
-		if(controller != null && event.getAction() == GLFW.GLFW_PRESS
-			&& event.getKeyCode() == GLFW.GLFW_KEY_ENTER
+		if(controller != null && event.getAction() == InputConstants.PRESS
+			&& event.getKeyCode() == InputConstants.KEY_RETURN
 			&& controller.getState() == LootSorterState.SELECTING_DESTINATIONS
 			&& !(MC.gui.screen() instanceof LootSorterDestinationScreen))
 		{

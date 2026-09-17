@@ -3,6 +3,9 @@
   "package": "net.wurstclient.mixin",
   "plugin": "net.wurstclient.WurstMixinPlugin",
   "compatibilityLevel": "JAVA_25",
+  "mixinextras": {
+    "minVersion": "0.5.5"
+  },
   "mixins": [],
   "client": [
     "AbstractBoatMixin",
@@ -106,7 +109,6 @@
     "TextRendererMixin",
     "TrialSpawnerDataAccessor",
     "TitleScreenMixin",
-    "ViewmodelItemInHandRendererMixin",
     "ui_utils.ChestSlotOverlayMixin",
     "ui_utils.ConnectionAccessor",
     "ui_utils.UiUtilsAbstractContainerScreenMixin",

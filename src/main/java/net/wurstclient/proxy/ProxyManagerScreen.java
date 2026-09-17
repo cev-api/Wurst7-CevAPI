@@ -7,6 +7,8 @@
  */
 package net.wurstclient.proxy;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -17,8 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.function.Consumer;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -331,7 +331,7 @@ public final class ProxyManagerScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ENTER && proxyBox.isFocused())
+		if(context.key() == InputConstants.KEY_RETURN && proxyBox.isFocused())
 		{
 			addProxy();
 			return true;
@@ -344,7 +344,7 @@ public final class ProxyManagerScreen extends Screen
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
 		proxyBox.mouseClicked(context, doubleClick);
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(context.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;

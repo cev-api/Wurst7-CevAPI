@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +23,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.WurstClient;
@@ -307,7 +308,7 @@ public final class TooManyHaxHack extends Hack
 		public void handleMouseClick(double mouseX, double mouseY,
 			int mouseButton, MouseButtonEvent context)
 		{
-			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 				return;
 			
 			int mx = (int)Math.floor(mouseX);

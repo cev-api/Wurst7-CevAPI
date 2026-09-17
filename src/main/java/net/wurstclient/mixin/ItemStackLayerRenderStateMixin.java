@@ -24,6 +24,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
 import net.minecraft.client.resources.model.geometry.BakedQuad;
 import net.minecraft.client.resources.model.geometry.BakedQuad.MaterialInfo;
+import net.minecraft.client.resources.model.geometry.ItemQuads;
 import net.minecraft.client.renderer.item.ItemStackRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
@@ -38,7 +39,7 @@ public class ItemStackLayerRenderStateMixin
 	private ItemStackRenderState.FoilType foilType;
 	
 	@Shadow
-	private List<BakedQuad> quads;
+	private ItemQuads quads;
 	
 	@Shadow
 	public native IntList tintLayers();
@@ -48,7 +49,7 @@ public class ItemStackLayerRenderStateMixin
 	ItemStackRenderState this$0;
 	
 	@Unique
-	private java.util.ArrayList<BakedQuad> wurst$originalQuads;
+	private ItemQuads wurst$originalQuads;
 	@Unique
 	private IntArrayList wurst$originalTintLayers;
 	@Unique
@@ -88,8 +89,7 @@ public class ItemStackLayerRenderStateMixin
 		if(!wurst$statePatched)
 			return;
 		
-		for(int i = 0; i < quads.size() && i < wurst$originalQuads.size(); i++)
-			quads.set(i, wurst$originalQuads.get(i));
+		quads = wurst$originalQuads;
 		
 		IntList tints = tintLayers();
 		tints.clear();
@@ -102,7 +102,7 @@ public class ItemStackLayerRenderStateMixin
 	
 	private void applyTint(int tint, boolean forceTranslucent)
 	{
-		wurst$originalQuads = new java.util.ArrayList<>(quads);
+		wurst$originalQuads = quads;
 		wurst$originalTintLayers = new IntArrayList(tintLayers());
 		wurst$statePatched = true;
 		
@@ -112,9 +112,9 @@ public class ItemStackLayerRenderStateMixin
 		else
 			tints.set(0, tint);
 		
-		for(int i = 0; i < quads.size(); i++)
+		List<BakedQuad> transformedQuads = new java.util.ArrayList<>();
+		for(BakedQuad quad : quads.all())
 		{
-			BakedQuad quad = quads.get(i);
 			MaterialInfo info = quad.materialInfo();
 			ChunkSectionLayer layer =
 				forceTranslucent ? ChunkSectionLayer.TRANSLUCENT : info.layer();
@@ -122,12 +122,15 @@ public class ItemStackLayerRenderStateMixin
 				? RenderTypes.itemTranslucent(info.sprite().atlasLocation())
 				: info.itemRenderType();
 			
-			quads.set(i,
-				new BakedQuad(quad.position0(), quad.position1(),
-					quad.position2(), quad.position3(), quad.packedUV0(),
-					quad.packedUV1(), quad.packedUV2(), quad.packedUV3(),
-					quad.direction(), new MaterialInfo(info.sprite(), layer,
-						renderType, 0, info.shade(), info.lightEmission())));
+			transformedQuads.add(new BakedQuad(quad.position0(),
+				quad.position1(), quad.position2(), quad.position3(),
+				quad.packedUV0(), quad.packedUV1(), quad.packedUV2(),
+				quad.packedUV3(), quad.direction(),
+				new MaterialInfo(info.sprite(), layer, renderType,
+					info.itemGlintRenderType(),
+					info.itemGlintSpecialRenderType(), info.tintIndex(),
+					info.shadeDirectionOverride(), info.lightEmission())));
 		}
+		quads = ItemQuads.split(transformedQuads);
 	}
 }

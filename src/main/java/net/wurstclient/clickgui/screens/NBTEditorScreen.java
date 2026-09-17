@@ -7,10 +7,10 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -225,12 +225,12 @@ public final class NBTEditorScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(event.key() == InputConstants.KEY_ESCAPE)
 		{
 			close();
 			return true;
 		}
-		if(event.key() == GLFW.GLFW_KEY_ENTER && event.hasControlDown())
+		if(event.key() == InputConstants.KEY_RETURN && event.hasControlDown())
 		{
 			apply();
 			return true;

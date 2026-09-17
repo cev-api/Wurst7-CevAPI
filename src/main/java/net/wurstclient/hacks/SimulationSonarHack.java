@@ -332,7 +332,7 @@ public final class SimulationSonarHack extends Hack
 			return;
 		if(p instanceof ClientboundLevelChunkWithLightPacket x)
 		{
-			loaded(new ChunkPos(x.getX(), x.getZ()));
+			loaded(new ChunkPos(x.x(), x.z()));
 			return;
 		}
 		if(p instanceof ClientboundForgetLevelChunkPacket x)
@@ -353,7 +353,7 @@ public final class SimulationSonarHack extends Hack
 		}
 		if(p instanceof ClientboundRemoveEntitiesPacket x)
 		{
-			x.getEntityIds().forEach(entities::remove);
+			x.entityIds().forEach(entities::remove);
 			return;
 		}
 		if(p instanceof ClientboundMoveEntityPacket x)
@@ -451,12 +451,14 @@ public final class SimulationSonarHack extends Hack
 		}
 		if(e == null)
 			return;
-		boolean moved = p.hasPosition()
-			&& (p.getXa() != 0 || p.getYa() != 0 || p.getZa() != 0);
+		if(!p.hasPosition() || live == null)
+			return;
+		Vec3 position =
+			p.getPositionDelta().decode(live.getPositionCodec()).endPosition();
+		boolean moved = e.position.distanceToSqr(position) > .0001;
 		if(moved)
 		{
-			e.position = e.position.add(p.getXa() / 4096.0, p.getYa() / 4096.0,
-				p.getZa() / 4096.0);
+			e.position = position;
 			e.lastSeen = System.currentTimeMillis();
 			Evidence kind = entityEvidence(e.type);
 			add(chunkAt(BlockPos.containing(e.position)), e,
@@ -468,9 +470,11 @@ public final class SimulationSonarHack extends Hack
 	
 	private void sync(ClientboundEntityPositionSyncPacket p)
 	{
-		Vec3 position = p.values().position();
-		Vec3 movement = p.values().deltaMovement();
+		Vec3 position = p.position().endPosition();
 		Entity live = MC.level == null ? null : MC.level.getEntity(p.id());
+		EntityState existing = entities.get(p.id());
+		Vec3 previous = existing == null ? position : existing.position;
+		Vec3 movement = position.subtract(previous);
 		EntityState e = entities.computeIfAbsent(p.id(),
 			id -> live == null ? new EntityState(id, "unknown", null, position)
 				: new EntityState(id, live.getType().toString(), live.getUUID(),

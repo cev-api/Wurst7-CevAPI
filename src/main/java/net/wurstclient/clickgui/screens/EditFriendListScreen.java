@@ -7,13 +7,14 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -145,17 +146,17 @@ public final class EditFriendListScreen extends Screen
 	{
 		switch(context.key())
 		{
-			case GLFW.GLFW_KEY_ENTER:
+			case InputConstants.KEY_RETURN:
 			if(addButton.active)
 				addButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_DELETE:
+			case InputConstants.KEY_DELETE:
 			if(!friendNameField.isFocused())
 				removeButton.onPress(context);
 			break;
 			
-			case GLFW.GLFW_KEY_ESCAPE:
+			case InputConstants.KEY_ESCAPE:
 			doneButton.onPress(context);
 			break;
 			

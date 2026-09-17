@@ -20,10 +20,10 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -258,7 +258,7 @@ public final class SusNoMoreHack extends Hack
 		for(int i = 0; i < 9; i++)
 		{
 			ItemStack stack = inventory.getItem(i);
-			if(!stack.isEmpty() && stack.getItem() instanceof ShovelItem)
+			if(!stack.isEmpty() && stack.is(ItemTags.SHOVELS))
 				return i;
 		}
 		
@@ -287,7 +287,8 @@ public final class SusNoMoreHack extends Hack
 		}
 		
 		MC.gameMode.continueDestroyBlock(pos, side);
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		autoBreakTicks++;
 		
 		if(autoBreakTicks > MAX_BREAK_TICKS)

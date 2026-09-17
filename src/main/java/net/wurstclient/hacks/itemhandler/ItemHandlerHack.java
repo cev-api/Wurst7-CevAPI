@@ -53,6 +53,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ShelfBlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.entity.SkullBlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -893,7 +894,7 @@ public class ItemHandlerHack extends Hack
 		
 		try
 		{
-			SignText signText = sign.getFrontText();
+			SignText signText = sign.getText(SignTextSlot.FRONT);
 			if(signText == null)
 				return "";
 			
@@ -901,7 +902,7 @@ public class ItemHandlerHack extends Hack
 			for(int i = 0; i < 4; i++)
 			{
 				net.minecraft.network.chat.Component c =
-					signText.getMessage(i, false);
+					signText.getMessages(false).get(i);
 				if(c == null)
 					continue;
 				String s = c.getString();

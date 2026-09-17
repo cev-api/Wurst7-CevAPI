@@ -663,7 +663,7 @@ public final class EntityCountHack extends Hack
 		
 		if(packet instanceof ClientboundRemoveEntitiesPacket remove)
 		{
-			for(int id : remove.getEntityIds())
+			for(int id : remove.entityIds())
 				trackedEntities.remove(id);
 			return;
 		}
@@ -818,14 +818,9 @@ public final class EntityCountHack extends Hack
 		}
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
-		Entity camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
+		RenderUtils.applyWorldTextOrientation(matrices);
 		
-		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 		float scale = 0.025F * RenderUtils
 			.getCappedWorldLabelScale(labelScale.getValueF(), dist);
 		

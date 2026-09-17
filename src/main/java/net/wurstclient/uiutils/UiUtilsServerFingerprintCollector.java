@@ -163,7 +163,8 @@ public final class UiUtilsServerFingerprintCollector
 		}
 		if(packet instanceof ClientboundUpdateAdvancementsPacket advancementsPacket)
 		{
-			captureAdvancements(advancementsPacket.getAdded());
+			captureAdvancements(advancementsPacket.added().stream()
+				.map(added -> added.advancement()).toList());
 			return;
 		}
 		if(packet instanceof ClientboundCustomChatCompletionsPacket completions)

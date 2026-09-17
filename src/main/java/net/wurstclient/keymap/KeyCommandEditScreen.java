@@ -7,11 +7,11 @@
  */
 package net.wurstclient.keymap;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -115,15 +115,15 @@ public final class KeyCommandEditScreen extends Screen
 	{
 		switch(context.key())
 		{
-			case GLFW.GLFW_KEY_ENTER:
+			case InputConstants.KEY_RETURN:
 			save();
 			return true;
 			
-			case GLFW.GLFW_KEY_TAB:
+			case InputConstants.KEY_TAB:
 			acceptSuggestion();
 			return true;
 			
-			case GLFW.GLFW_KEY_ESCAPE:
+			case InputConstants.KEY_ESCAPE:
 			minecraft.gui.setScreen(prevScreen);
 			return true;
 			

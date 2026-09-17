@@ -7,9 +7,11 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.List;
 import java.util.function.Consumer;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -103,12 +105,12 @@ public final class NBTPresetListScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(event.key() == InputConstants.KEY_ESCAPE)
 		{
 			done();
 			return true;
 		}
-		if(event.key() == GLFW.GLFW_KEY_ENTER)
+		if(event.key() == InputConstants.KEY_RETURN)
 		{
 			load();
 			return true;

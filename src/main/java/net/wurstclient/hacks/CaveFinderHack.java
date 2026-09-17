@@ -9,7 +9,6 @@ package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.PrimitiveTopology;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Comparator;

@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,7 +19,7 @@ import java.util.stream.Collectors;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.wurstclient.DontBlock;
@@ -437,7 +439,7 @@ public final class HackListOtf extends OtherFeature
 		public void handleMouseClick(double mouseX, double mouseY,
 			int mouseButton, MouseButtonEvent context)
 		{
-			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT)
 				return;
 			
 			int mx = (int)Math.floor(mouseX);
@@ -525,7 +527,7 @@ public final class HackListOtf extends OtherFeature
 		@Override
 		public void handleMouseRelease(int mouseButton)
 		{
-			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				draggingScrollbar = false;
 				scrollbarDragOffsetY = 0;

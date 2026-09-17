@@ -17,11 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.mojang.authlib.minecraft.UserApiService.UserFlag;
 import com.mojang.authlib.minecraft.UserApiService.UserProperties;
-import com.mojang.authlib.yggdrasil.YggdrasilUserApiService;
+import com.mojang.authlib.services.MinecraftServicesUserApiService;
 
 import net.wurstclient.WurstClient;
 
-@Mixin(value = YggdrasilUserApiService.class, remap = false)
+@Mixin(value = MinecraftServicesUserApiService.class, remap = false)
 public class YggdrasilUserApiServiceMixin
 {
 	@Inject(method = "fetchProperties",
@@ -33,7 +33,7 @@ public class YggdrasilUserApiServiceMixin
 	{
 		if(WurstClient.INSTANCE.getOtfs() != null)
 			WurstClient.INSTANCE.getOtfs().packetToolsOtf.logVerboseApiCall(
-				"YggdrasilUserApiService.fetchProperties",
+				"MinecraftServicesUserApiService.fetchProperties",
 				"forceAllowChats="
 					+ WurstClient.INSTANCE.getOtfs().forceAllowChatsOtf
 						.isForceAllowChatsEnabled());

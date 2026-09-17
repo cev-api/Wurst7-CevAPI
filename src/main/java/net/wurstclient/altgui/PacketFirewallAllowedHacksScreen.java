@@ -7,11 +7,11 @@
  */
 package net.wurstclient.altgui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -42,7 +42,7 @@ public final class PacketFirewallAllowedHacksScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
@@ -63,7 +63,7 @@ public final class PacketFirewallAllowedHacksScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		if(context.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(context.button() != InputConstants.MOUSE_BUTTON_LEFT)
 			return super.mouseClicked(context, doubleClick);
 		
 		double mouseX = context.x();

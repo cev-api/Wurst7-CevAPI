@@ -112,7 +112,8 @@ public final class AntiProjectileHack extends Hack
 		
 		MC.gameMode.attack(MC.player, pendingTarget);
 		if(swing.isChecked())
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 		
 		cooldownLeft = cooldown.getValueI();
 		pendingTarget = null;

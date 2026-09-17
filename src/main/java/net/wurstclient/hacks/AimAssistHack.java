@@ -498,7 +498,8 @@ public final class AimAssistHack extends Hack
 		
 		WURST.getHax().autoSwordHack.setSlot(attackTarget);
 		MC.gameMode.attack(MC.player, attackTarget);
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		rightClickAttackSpeed.resetTimer();
 	}
 	

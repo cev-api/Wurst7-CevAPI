@@ -7,11 +7,11 @@
  */
 package net.wurstclient.clickgui.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -309,19 +309,19 @@ public final class AutoChatPromptScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(event.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
 		}
 		
-		if(event.key() == GLFW.GLFW_KEY_S && event.hasControlDown())
+		if(event.key() == InputConstants.KEY_S && event.hasControlDown())
 		{
 			savePrompt();
 			return true;
 		}
 		
-		if(event.key() == GLFW.GLFW_KEY_ENTER && event.hasControlDown())
+		if(event.key() == InputConstants.KEY_RETURN && event.hasControlDown())
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;

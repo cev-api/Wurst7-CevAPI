@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks.lootsorter;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,7 +18,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.function.Consumer;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -463,15 +465,15 @@ public final class LootSorterController
 	
 	public void onKeyPress(KeyPressEvent event)
 	{
-		if(event.getAction() != GLFW.GLFW_PRESS)
+		if(event.getAction() != InputConstants.PRESS)
 			return;
 		// Chat and ClickGUI keystrokes belong to the active screen. In
 		// particular, Enter submits a command and Shift may capitalise its
 		// preset name; neither is a LootSorter control while a screen is open.
 		if(mc.gui.screen() != null)
 			return;
-		if(event.getKeyCode() == GLFW.GLFW_KEY_RIGHT_CONTROL
-			|| event.getKeyCode() == GLFW.GLFW_KEY_RIGHT_SHIFT)
+		if(event.getKeyCode() == InputConstants.KEY_RCONTROL
+			|| event.getKeyCode() == InputConstants.KEY_RSHIFT)
 		{
 			stop("safe stop requested");
 			return;
@@ -483,7 +485,7 @@ public final class LootSorterController
 			pauseForManualMovement();
 			return;
 		}
-		if(event.getKeyCode() != GLFW.GLFW_KEY_ENTER)
+		if(event.getKeyCode() != InputConstants.KEY_RETURN)
 			return;
 		if(state == LootSorterState.SELECTING_SOURCES)
 		{

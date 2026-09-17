@@ -7,12 +7,15 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+import net.minecraft.core.PositionAndRotation;
 import net.minecraft.world.entity.Entity;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.AABB;
@@ -366,14 +369,15 @@ public final class BoatPhaseHack extends Hack implements UpdateListener,
 			return;
 		if(packet == splitPacket)
 		{
-			lastWire = packet.position();
+			lastWire = packet.movingTo().position();
 			return;
 		}
-		Vec3 pos = packet.position();
+		PositionAndRotation movingTo = packet.movingTo();
+		Vec3 pos = movingTo.position();
 		if(lastVehiclePacketTick == motion.tick()
 			&& lastVehiclePacketPosition != null
 			&& lastVehiclePacketPosition.distanceToSqr(pos) < 1e-8 && Math
-				.abs(packet.yRot() - MC.player.getVehicle().getYRot()) < .001)
+				.abs(movingTo.yRot() - MC.player.getVehicle().getYRot()) < .001)
 		{
 			event.cancel();
 			return;
@@ -394,8 +398,10 @@ public final class BoatPhaseHack extends Hack implements UpdateListener,
 					for(int i = 1; i <= count; i++)
 					{
 						Vec3 end = lastWire.add(delta.scale((double)i / count));
-						splitPacket = new ServerboundMoveVehiclePacket(end,
-							packet.yRot(), packet.xRot(), packet.onGround());
+						splitPacket = new ServerboundMoveVehiclePacket(
+							PositionAndRotation.of(end, movingTo.yRot(),
+								movingTo.xRot()),
+							packet.onGround());
 						MC.player.connection.send(splitPacket);
 					}
 				}finally
@@ -446,18 +452,18 @@ public final class BoatPhaseHack extends Hack implements UpdateListener,
 	@Override
 	public void onKeyPress(KeyPressListener.KeyPressEvent event)
 	{
-		if(event.getAction() != GLFW.GLFW_PRESS || MC.gui.screen() != null)
+		if(event.getAction() != InputConstants.PRESS || MC.gui.screen() != null)
 			return;
 		switch(event.getKeyCode())
 		{
-			case GLFW.GLFW_KEY_C ->
+			case InputConstants.KEY_C ->
 			{
 				cruise = !cruise;
 				if(cruise && MC.player != null)
 					cruiseYaw = MC.player.getYRot();
 			}
-			case GLFW.GLFW_KEY_V -> surfaceRequested = true;
-			case GLFW.GLFW_KEY_R -> returnHeightRequested = true;
+			case InputConstants.KEY_V -> surfaceRequested = true;
+			case InputConstants.KEY_R -> returnHeightRequested = true;
 			default ->
 				{
 				}

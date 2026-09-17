@@ -7,6 +7,8 @@
  */
 package net.wurstclient.navigator;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -21,7 +23,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.CommonColors;
 import net.minecraft.util.Mth;
 import net.wurstclient.options.EnterProfileNameScreen;
-import org.lwjgl.glfw.GLFW;
 
 public final class NavigatorListScreen extends Screen
 {
@@ -73,7 +74,7 @@ public final class NavigatorListScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent event)
 	{
-		if(event.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(event.key() == InputConstants.KEY_ESCAPE)
 		{
 			cancelSelection();
 			return true;
@@ -100,7 +101,7 @@ public final class NavigatorListScreen extends Screen
 		double mouseY = context.y();
 		int button = context.button();
 		
-		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			if(mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop
 				&& mouseY <= listBottom)

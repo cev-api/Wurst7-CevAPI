@@ -17,7 +17,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
@@ -170,7 +169,7 @@ public final class AreaNukerHack extends Hack
 	private void handlePositionSelection()
 	{
 		if(getStepPos() != null
-			&& InputConstants.isKeyDown(MC.getWindow(), GLFW.GLFW_KEY_ENTER))
+			&& InputConstants.isKeyDown(InputConstants.KEY_RETURN))
 		{
 			step = Step.values()[step.ordinal() + 1];
 			if(!step.selectPos)

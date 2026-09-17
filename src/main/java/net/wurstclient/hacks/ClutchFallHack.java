@@ -13,7 +13,7 @@ import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.tags.FluidTags;
-import net.minecraft.world.item.BedItem;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -107,8 +107,8 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 			stack -> stack.is(Items.HAY_BLOCK), useHayBlocks),
 		new Candidate(PreferredItem.HONEY_BLOCK,
 			stack -> stack.is(Items.HONEY_BLOCK), useHoneyBlocks),
-		new Candidate(PreferredItem.BED,
-			stack -> stack.getItem() instanceof BedItem, useBeds));
+		new Candidate(PreferredItem.BED, stack -> stack.is(ItemTags.BEDS),
+			useBeds));
 	
 	public ClutchFallHack()
 	{
@@ -258,7 +258,8 @@ public final class ClutchFallHack extends Hack implements UpdateListener
 				result =
 					MC.gameMode.useItem(MC.player, InteractionHand.MAIN_HAND);
 			if(result.consumesAction())
-				MC.player.swing(InteractionHand.MAIN_HAND);
+				MC.player.swing(InteractionHand.MAIN_HAND,
+					MC.player.getMainHandItem().getInteractAnimation(), false);
 			// Do not spam use packets every tick if the server returns PASS.
 			// The next fall gets a fresh attempt.
 			attemptedThisFall = true;

@@ -7,11 +7,11 @@
  */
 package net.wurstclient.render.globalesp;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.pipeline.RenderTarget;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.commands.RenderPass;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -22,7 +22,6 @@ import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import net.wurstclient.util.WurstBufferSource;
-import net.minecraft.client.renderer.rendertype.OutputTarget;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.TextureTransform;
 import net.minecraft.util.Mth;
@@ -189,7 +188,7 @@ public final class GlobalEspRenderer
 			return;
 		
 		RenderTarget framebuffer =
-			OutputTarget.ITEM_ENTITY_TARGET.getRenderTarget();
+			WurstClient.MC.gameRenderer.mainRenderTarget();
 		try(RenderPass renderPass =
 			RenderSystem.getDevice().createCommandEncoder().createRenderPass(
 				() -> "wurst_global_esp_meshes",
@@ -199,7 +198,8 @@ public final class GlobalEspRenderer
 			RenderSystem.bindDefaultUniforms(renderPass);
 			for(MeshDrawCall drawCall : preparedMeshDraws)
 			{
-				renderPass.setPipeline(drawCall.pipeline);
+				renderPass.setPipeline(
+					RenderSystem.getCompiledPipeline(drawCall.pipeline));
 				renderPass.setUniform("DynamicTransforms", drawCall.transform);
 				renderPass.setVertexBuffer(0, drawCall.vertexBuffer.slice());
 				renderPass.setIndexBuffer(drawCall.indexBuffer,

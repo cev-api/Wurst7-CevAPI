@@ -19,11 +19,7 @@ import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.events.CameraTransformViewBobbingListener;
-import net.wurstclient.events.IsNormalCubeListener;
-import net.wurstclient.events.IsNormalCubeListener.IsNormalCubeEvent;
 import net.wurstclient.events.MouseScrollListener;
-import net.wurstclient.events.PacketOutputListener;
-import net.wurstclient.events.PacketOutputListener.PacketOutputEvent;
 import net.wurstclient.events.RenderListener;
 import net.wurstclient.events.UpdateListener;
 import net.wurstclient.events.VisGraphListener;
@@ -40,16 +36,14 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
 import net.wurstclient.util.EntityUtils;
-import net.wurstclient.util.FakePlayerEntity;
 import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.RotationUtils;
-import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 
 @DontSaveState
 @SearchTags({"free camera", "spectator"})
-public final class FreecamHack extends Hack implements UpdateListener,
-	VisGraphListener, CameraTransformViewBobbingListener, RenderListener,
-	MouseScrollListener, PacketOutputListener, IsNormalCubeListener
+public final class FreecamHack extends Hack
+	implements UpdateListener, VisGraphListener,
+	CameraTransformViewBobbingListener, RenderListener, MouseScrollListener
 {
 	private static final double DEFAULT_SPEED_STEP = 0.5;
 	
@@ -75,9 +69,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	private final SliderSetting speedStep = new SliderSetting("Speed step",
 		"description.wurst.setting.freecam.speed_step", DEFAULT_SPEED_STEP,
 		0.05, 5.0, 0.05, ValueDisplay.DECIMAL);
-	
-	private final CheckboxSetting legacyMode = new CheckboxSetting(
-		"Legacy mode", "description.wurst.setting.freecam.legacy_mode", true);
 	
 	private final CheckboxSetting scrollToChangeSpeed =
 		new CheckboxSetting("Scroll to change speed",
@@ -113,8 +104,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	private float camPitch;
 	private float lastHealth;
 	
-	private FakePlayerEntity fakePlayer;
-	
 	public FreecamHack()
 	{
 		super("Freecam");
@@ -125,7 +114,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		addSetting(verticalSpeed);
 		addSetting(tieVerticalToHorizontal);
 		addSetting(speedStep);
-		addSetting(legacyMode);
 		addSetting(scrollToChangeSpeed);
 		addSetting(renderSpeed);
 		addSetting(initialPos);
@@ -154,8 +142,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		EVENTS.add(CameraTransformViewBobbingListener.class, this);
 		EVENTS.add(RenderListener.class, this);
 		EVENTS.add(MouseScrollListener.class, this);
-		EVENTS.add(PacketOutputListener.class, this);
-		EVENTS.add(IsNormalCubeListener.class, this);
 		
 		lastHealth = Float.MIN_VALUE;
 		camPos = RotationUtils.getEyesPos()
@@ -173,10 +159,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		EVENTS.remove(CameraTransformViewBobbingListener.class, this);
 		EVENTS.remove(RenderListener.class, this);
 		EVENTS.remove(MouseScrollListener.class, this);
-		EVENTS.remove(PacketOutputListener.class, this);
-		EVENTS.remove(IsNormalCubeListener.class, this);
-		
-		deactivateLegacyMode();
 		
 		if(reloadChunks.isChecked())
 			if(MC.levelExtractor != null)
@@ -200,7 +182,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		boolean cameraMode = isMovingCamera();
 		if(!cameraMode)
 		{
-			ensureLegacyModeState();
 			handlePlayerMode(player);
 			prevCamPos = camPos;
 			return;
@@ -208,20 +189,9 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		
 		if(MC.gui.screen() != null)
 		{
-			ensureLegacyModeState();
-			if(isLegacyModeActive())
-			{
-				player.snapTo(camPos.x, camPos.y, camPos.z, camYaw, camPitch);
-				player.setDeltaMovement(Vec3.ZERO);
-				player.getAbilities().flying = false;
-				player.setOnGround(false);
-			}
-			
 			prevCamPos = camPos;
 			return;
 		}
-		
-		ensureLegacyModeState();
 		
 		// Get movement vector (x=left, y=forward)
 		Vec2 moveVector = player.input.getMoveVector();
@@ -246,18 +216,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 			.scale(horizontalSpeed.getValueF()).add(0, offsetY, 0);
 		prevCamPos = camPos;
 		camPos = camPos.add(offsetVec);
-		
-		if(isLegacyModeActive())
-		{
-			// Move the player client-side so reach/raycast interactions use the
-			// camera position, but cancel movement packets so the server
-			// doesn't
-			// see any movement.
-			player.snapTo(camPos.x, camPos.y, camPos.z, camYaw, camPitch);
-			player.setDeltaMovement(Vec3.ZERO);
-			player.getAbilities().flying = false;
-			player.setOnGround(false);
-		}
 	}
 	
 	private double getActualVerticalSpeed()
@@ -320,51 +278,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		return speedStep.getValue();
 	}
 	
-	@Override
-	public void onSentPacket(PacketOutputEvent event)
-	{
-		if(!isLegacyModeActive())
-			return;
-		
-		if(event.getPacket() instanceof ServerboundMovePlayerPacket)
-			event.cancel();
-	}
-	
-	public boolean isLegacyModeActive()
-	{
-		return legacyMode.isChecked() && isMovingCamera() && fakePlayer != null;
-	}
-	
-	private void ensureLegacyModeState()
-	{
-		boolean wantLegacy = legacyMode.isChecked() && isMovingCamera();
-		if(wantLegacy && fakePlayer == null)
-		{
-			fakePlayer = new FakePlayerEntity();
-			// Keep the decoy purely functional without rendering it.
-			fakePlayer.setInvisible(true);
-			fakePlayer.setCustomNameVisible(false);
-		}else if(!wantLegacy && fakePlayer != null)
-			deactivateLegacyMode();
-		if(MC.player != null)
-			MC.player.noPhysics = wantLegacy;
-	}
-	
-	private void deactivateLegacyMode()
-	{
-		if(fakePlayer == null)
-			return;
-		
-		fakePlayer.resetPlayerPosition();
-		fakePlayer.despawn();
-		fakePlayer = null;
-		if(MC.player != null)
-		{
-			if(MC.player != null)
-				MC.player.noPhysics = false;
-		}
-	}
-	
 	public boolean isControllingScrollEvents()
 	{
 		return isMovingCamera() && scrollToChangeSpeed.isChecked()
@@ -389,19 +302,6 @@ public final class FreecamHack extends Hack implements UpdateListener,
 	}
 	
 	@Override
-	public void onIsNormalCube(IsNormalCubeEvent event)
-	{
-		// Legacy mode moves the player client-side to the camera position for
-		// reach/raycasting. If the camera is inside blocks while noclipping,
-		// Minecraft may treat the view as "inside a full block" and obstruct
-		// it.
-		// Cancelling this makes blocks stop counting as full cubes while legacy
-		// Freecam is active, matching the old Freecam/NoClip behavior.
-		if(legacyMode.isChecked() && isMovingCamera())
-			event.cancel();
-	}
-	
-	@Override
 	public void onCameraTransformViewBobbing(
 		CameraTransformViewBobbingEvent event)
 	{
@@ -418,9 +318,7 @@ public final class FreecamHack extends Hack implements UpdateListener,
 		
 		// Box
 		double extraSize = 0.05;
-		AABB rawBox = isLegacyModeActive()
-			? EntityUtils.getLerpedBox(fakePlayer, partialTicks)
-			: EntityUtils.getLerpedBox(MC.player, partialTicks);
+		AABB rawBox = EntityUtils.getLerpedBox(MC.player, partialTicks);
 		AABB box = rawBox.move(0, extraSize, 0).inflate(extraSize);
 		RenderUtils.drawOutlinedBox(matrixStack, box, colorI, false);
 		

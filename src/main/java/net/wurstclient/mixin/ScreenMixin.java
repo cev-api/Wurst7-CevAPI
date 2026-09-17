@@ -7,13 +7,15 @@
  */
 package net.wurstclient.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.events.AbstractContainerEventHandler;
@@ -63,14 +65,14 @@ public abstract class ScreenMixin extends AbstractContainerEventHandler
 		if(ShadertoyBackgroundManager.hasCustomShader())
 			return;
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			TitleBackgroundModeManager.advanceForEnableToggle();
 			cir.setReturnValue(true);
 			return;
 		}
 		
-		if(context.key() == GLFW.GLFW_KEY_X)
+		if(context.key() == InputConstants.KEY_X)
 		{
 			WurstClient.INSTANCE.getHax().xRayHack.setEnabled(
 				!WurstClient.INSTANCE.getHax().xRayHack.isEnabled());

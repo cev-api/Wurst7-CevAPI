@@ -7,9 +7,9 @@
  */
 package net.wurstclient.altmanager.screens;
 
-import java.util.function.Consumer;
+import com.mojang.blaze3d.platform.InputConstants;
 
-import org.lwjgl.glfw.GLFW;
+import java.util.function.Consumer;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -106,7 +106,7 @@ public final class RefreshAccessTokenScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ENTER)
+		if(context.key() == InputConstants.KEY_RETURN)
 		{
 			replaceToken();
 			return true;

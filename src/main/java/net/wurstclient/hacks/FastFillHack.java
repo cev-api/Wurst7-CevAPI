@@ -14,7 +14,6 @@ import java.util.stream.Collectors;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.blaze3d.vertex.PoseStack;
 
-import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.BlockPos;
@@ -159,7 +158,7 @@ public final class FastFillHack extends Hack
 		BlockPos current = step == Step.START_POS ? posStart : posEnd;
 		
 		if(current != null
-			&& InputConstants.isKeyDown(MC.getWindow(), GLFW.GLFW_KEY_ENTER))
+			&& InputConstants.isKeyDown(InputConstants.KEY_RETURN))
 		{
 			if(step == Step.START_POS)
 				step = Step.END_POS;

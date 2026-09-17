@@ -495,12 +495,11 @@ public final class WurstOptionsScreen extends Screen
 		
 		addButton(column, () -> "Open Wurst Folder",
 			"Open the Wurst configuration folder in your file explorer.",
-			b -> Util.getPlatform().openFile(wurst.getWurstFolder().toFile()));
+			b -> Blaze3D.openPath(wurst.getWurstFolder()));
 	}
 	
 	private void addLinksSection()
 	{
-		OS os = Util.getPlatform();
 		int column = beginSection("Links", 3);
 		
 		String primaryLabel =
@@ -510,31 +509,36 @@ public final class WurstOptionsScreen extends Screen
 				: "https://github.com/cev-api/Wurst7-CevAPI";
 		
 		addButton(column, () -> primaryLabel, "Open the main fork repository.",
-			b -> os.openUri(primaryUrl));
+			b -> openUri(primaryUrl));
 		addButton(column, () -> "CevAPI GitLab", "gitlab.com/Cev-API/",
-			b -> os.openUri("https://gitlab.com/Cev-API/"));
+			b -> openUri("https://gitlab.com/Cev-API/"));
 		addButton(column, () -> "CevAPI Discord", "discord.gg/wDgqxkAKFQ",
-			b -> os.openUri("https://discord.gg/wDgqxkAKFQ"));
+			b -> openUri("https://discord.gg/wDgqxkAKFQ"));
 		addButton(column, () -> "CevAPI Website", "cevapi.dev",
-			b -> os.openUri("https://cevapi.dev/"));
+			b -> openUri("https://cevapi.dev/"));
 		addButton(column, () -> "Wurst Addon Template",
 			"gitlab.com/Cev-API/wurst-addon-template",
-			b -> os.openUri("https://gitlab.com/Cev-API/wurst-addon-template"));
+			b -> openUri("https://gitlab.com/Cev-API/wurst-addon-template"));
 		addButton(column, () -> "Wurst Website", "WurstClient.net",
-			b -> os.openUri("https://www.wurstclient.net/options-website/"));
+			b -> openUri("https://www.wurstclient.net/options-website/"));
 		
 		addButton(column, () -> "Wurst Wiki", "Wurst.Wiki",
-			b -> os.openUri("https://www.wurstclient.net/options-wiki/"));
+			b -> openUri("https://www.wurstclient.net/options-wiki/"));
 		
 		addButton(column, () -> "WurstForum", "WurstForum.net",
-			b -> os.openUri("https://www.wurstclient.net/options-forum/"));
+			b -> openUri("https://www.wurstclient.net/options-forum/"));
 		
 		addButton(column, () -> "Twitter", "@Wurst_Imperium",
-			b -> os.openUri("https://www.wurstclient.net/options-twitter/"));
+			b -> openUri("https://www.wurstclient.net/options-twitter/"));
 		
 		addButton(column, () -> "Changelog",
 			"Open latest release notes/changelog.",
 			b -> WurstClient.INSTANCE.getOtfs().changelogOtf.doPrimaryAction());
+	}
+	
+	private static void openUri(String uri)
+	{
+		Blaze3D.openUri(URI.create(uri));
 	}
 	
 	private void addButton(int column, Supplier<String> messageSupplier,

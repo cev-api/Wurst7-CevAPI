@@ -14,6 +14,7 @@ import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.world.level.block.SignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -482,7 +483,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			return;
 		}
 		
-		boolean frontText = signEntity.isFacingFrontText(MC.player);
+		boolean frontText =
+			signEntity.getSlotPlayerIsFacing(MC.player) == SignTextSlot.FRONT;
 		String[] oldText = readSign(signEntity, frontText);
 		if(isRecentlyEdited(target))
 		{
@@ -588,8 +590,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		if(sign == null || desired == null)
 			return false;
 		
-		return linesMatch(readSign(sign.getFrontText()), desired)
-			&& linesMatch(readSign(sign.getBackText()), desired);
+		return linesMatch(readSign(sign.getText(SignTextSlot.FRONT)), desired)
+			&& linesMatch(readSign(sign.getText(SignTextSlot.BACK)), desired);
 	}
 	
 	public boolean isAuraActive()
@@ -637,9 +639,9 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		if(sign != null)
 		{
 			boolean frontMatches =
-				linesMatch(readSign(sign.getFrontText()), text);
+				linesMatch(readSign(sign.getText(SignTextSlot.FRONT)), text);
 			boolean backMatches =
-				linesMatch(readSign(sign.getBackText()), text);
+				linesMatch(readSign(sign.getText(SignTextSlot.BACK)), text);
 			if(frontMatches && backMatches)
 				return true;
 			
@@ -651,8 +653,9 @@ public final class AutoSignHack extends Hack implements UpdateListener
 			boolean otherSideMatches = frontText ? backMatches : frontMatches;
 			if(!currentSideMatches)
 			{
-				MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
-					frontText, text[0], text[1], text[2], text[3]));
+				MC.getConnection()
+					.send(new ServerboundSignUpdatePacket(pos, List.of(text),
+						frontText ? SignTextSlot.FRONT : SignTextSlot.BACK));
 			}
 			if(!otherSideMatches)
 			{
@@ -662,8 +665,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		}
 		
 		markRecentlyEdited(pos);
-		MC.getConnection().send(new ServerboundSignUpdatePacket(pos, frontText,
-			text[0], text[1], text[2], text[3]));
+		MC.getConnection().send(new ServerboundSignUpdatePacket(pos,
+			List.of(text), frontText ? SignTextSlot.FRONT : SignTextSlot.BACK));
 		queueOtherSide(pos, !frontText, text);
 		return true;
 	}
@@ -686,8 +689,9 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		PendingSignUpdate update = pendingOtherSide;
 		pendingOtherSide = null;
 		String[] text = update.text();
-		MC.getConnection().send(new ServerboundSignUpdatePacket(update.pos(),
-			update.frontText(), text[0], text[1], text[2], text[3]));
+		MC.getConnection()
+			.send(new ServerboundSignUpdatePacket(update.pos(), List.of(text),
+				update.frontText() ? SignTextSlot.FRONT : SignTextSlot.BACK));
 	}
 	
 	private void pruneRecentlyEditedSigns()
@@ -717,7 +721,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		if(sign == null)
 			return readSign((SignText)null);
 		
-		return readSign(sign.getFrontText());
+		return readSign(sign.getText(SignTextSlot.FRONT));
 	}
 	
 	private String[] readSign(SignBlockEntity sign, boolean frontText)
@@ -725,7 +729,8 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		if(sign == null)
 			return readSign((SignText)null);
 		
-		return readSign(sign.getText(frontText));
+		return readSign(
+			sign.getText(frontText ? SignTextSlot.FRONT : SignTextSlot.BACK));
 	}
 	
 	private String[] readSign(SignText signText)
@@ -734,7 +739,7 @@ public final class AutoSignHack extends Hack implements UpdateListener
 		for(int i = 0; i < MAX_LINES; i++)
 		{
 			net.minecraft.network.chat.Component component =
-				signText == null ? null : signText.getMessage(i, false);
+				signText == null ? null : signText.getMessages(false).get(i);
 			lines[i] = component == null ? "" : component.getString();
 		}
 		

@@ -358,14 +358,9 @@ public final class ProjectileEspHack extends Hack implements UpdateListener,
 		}
 		matrices.translate(lx - cam.x, ly - cam.y, lz - cam.z);
 		
-		Entity camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
+		RenderUtils.applyWorldTextOrientation(matrices);
 		
-		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180.0F));
 		float scale = 0.025F
 			* RenderUtils.getCappedWorldLabelScale(nameScale.getValueF(), dist);
 		matrices.scale(scale, -scale, scale);

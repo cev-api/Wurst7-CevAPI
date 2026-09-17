@@ -130,8 +130,8 @@ public class SubmitNodeCollectionMixin
 			|| WurstClient.INSTANCE.getHax().surfaceXrayHack.isEnabled();
 	}
 	
-	private NameTagFeatureRenderer.Submit copyWithDisplayMode(
-		NameTagFeatureRenderer.Submit nameTag, Font.DisplayMode displayMode)
+	private TextFeatureRenderer.Submit copyWithDisplayMode(
+		TextFeatureRenderer.Submit nameTag, Font.DisplayMode displayMode)
 	{
 		return new TextFeatureRenderer.Submit(nameTag.pose(), displayMode,
 			nameTag.lightCoords(), nameTag.content());

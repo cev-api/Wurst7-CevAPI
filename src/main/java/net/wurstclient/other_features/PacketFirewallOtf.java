@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -17,7 +19,7 @@ import java.util.List;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import org.lwjgl.glfw.GLFW;
+
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -36,10 +38,11 @@ import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.PositionAndRotation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
@@ -486,7 +489,7 @@ public final class PacketFirewallOtf extends OtherFeature
 			|| packet instanceof ServerboundPlayerCommandPacket
 			|| isCustomPlayerActionPacket(packet)
 			|| packet instanceof ServerboundUseItemOnPacket
-			|| packet instanceof ServerboundSwingPacket
+			|| packet instanceof ServerboundPunchPacket
 			|| packet instanceof ServerboundSetCarriedItemPacket;
 	}
 	
@@ -542,7 +545,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(packet instanceof ServerboundUseItemOnPacket)
 			return GrimPacketSurface.PLAYER_BLOCK_PLACEMENT;
 		
-		if(packet instanceof ServerboundSwingPacket)
+		if(packet instanceof ServerboundPunchPacket)
 			return GrimPacketSurface.ANIMATION;
 		
 		if(packet instanceof ServerboundSetCarriedItemPacket)
@@ -914,7 +917,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		public void handleMouseClick(double mouseX, double mouseY,
 			int mouseButton, MouseButtonEvent context)
 		{
-			if(mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+			if(mouseButton != InputConstants.MOUSE_BUTTON_LEFT
 				|| !isHovering((int)mouseX, (int)mouseY))
 				return;
 			List<Hack> hacks = getSortedHacks();
@@ -1203,9 +1206,10 @@ public final class PacketFirewallOtf extends OtherFeature
 	
 	private VehicleSnapshot snapshot(ServerboundMoveVehiclePacket packet)
 	{
-		Vec3 position = packet.position();
+		PositionAndRotation movingTo = packet.movingTo();
+		Vec3 position = movingTo.position();
 		return new VehicleSnapshot(position.x, position.y, position.z,
-			packet.yRot(), packet.xRot(), packet.onGround());
+			movingTo.yRot(), movingTo.xRot(), packet.onGround());
 	}
 	
 	private VehicleSnapshot sanitizeSnapshot(VehicleSnapshot original)
@@ -1271,9 +1275,9 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(!sanitized.hasChanges())
 			return packet;
 		
-		return new ServerboundMoveVehiclePacket(
+		return new ServerboundMoveVehiclePacket(PositionAndRotation.of(
 			new Vec3(sanitized.x, sanitized.y, sanitized.z), sanitized.yaw,
-			sanitized.pitch, sanitized.onGround);
+			sanitized.pitch), sanitized.onGround);
 	}
 	
 	private void updateLastGoodFromMovePlayer(

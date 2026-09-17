@@ -7,6 +7,8 @@
  */
 package net.wurstclient.other_features.packettools;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import org.joml.Matrix3x2fStack;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -238,8 +240,7 @@ public final class PacketToolsScreen extends Screen
 		boolean selectorHandled = s2cSelector.mouseClicked(event, doubleClick)
 			|| c2sSelector.mouseClicked(event, doubleClick);
 		
-		boolean leftClick =
-			event.button() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT;
+		boolean leftClick = event.button() == InputConstants.MOUSE_BUTTON_LEFT;
 		holdingDelayMinus = leftClick && delayMinusButton != null
 			&& delayMinusButton.isHoveredOrFocused();
 		holdingDelayPlus = leftClick && delayPlusButton != null

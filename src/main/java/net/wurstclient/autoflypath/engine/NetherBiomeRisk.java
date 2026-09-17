@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.QuartPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;
@@ -22,6 +23,8 @@ import net.minecraft.world.level.biome.Climate;
 import net.minecraft.world.level.biome.MultiNoiseBiomeSourceParameterList;
 import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
 import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
+import net.minecraft.world.level.levelgen.synth.NormalNoise;
 
 public final class NetherBiomeRisk
 {
@@ -46,17 +49,21 @@ public final class NetherBiomeRisk
 		HolderLookup.Provider lookup = vanillaLookup;
 		if(lookup == null)
 		{
-			vanillaLookup = lookup = VanillaRegistries.createLookup();
+			vanillaLookup = lookup = VanillaRegistries.createWorldLookup();
 		}
 		Map presets = MultiNoiseBiomeSourceParameterList.knownPresets();
 		Climate.ParameterList parameters = (Climate.ParameterList)presets
 			.get(MultiNoiseBiomeSourceParameterList.Preset.NETHER);
+		HolderGetter<NormalNoise> noiseLookup =
+			lookup.lookupOrThrow(Registries.NOISE);
+		NoiseGeneratorSettings noiseSettings =
+			lookup.lookupOrThrow(Registries.NOISE_SETTINGS)
+				.getOrThrow(NoiseGeneratorSettings.NETHER).value();
 		RandomState randomState =
-			RandomState.create((HolderGetter.Provider)lookup,
-				(ResourceKey)NoiseGeneratorSettings.NETHER, (long)seed);
+			RandomState.create(noiseLookup, seed, noiseSettings);
 		return new NetherBiomeRisk(
 			(Climate.ParameterList<ResourceKey<Biome>>)parameters,
-			randomState.sampler());
+			randomState.createClimateSampler(SamplerContext.EMPTY_UNCACHED));
 	}
 	
 	public ResourceKey<Biome> biomeAt(int blockX, int blockZ)

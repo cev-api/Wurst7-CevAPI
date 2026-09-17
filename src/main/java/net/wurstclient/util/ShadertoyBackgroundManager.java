@@ -9,6 +9,7 @@ package net.wurstclient.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -92,9 +93,29 @@ public final class ShadertoyBackgroundManager
 		if(!SHADER_RESOURCE.equals(id) || !hasCustomShader())
 			return Optional.empty();
 		
-		IoSupplier<InputStream> stream =
-			() -> Files.newInputStream(getGeneratedShaderPath());
+		IoSupplier<InputStream> stream = () -> {
+			String source = Files.readString(getGeneratedShaderPath(),
+				StandardCharsets.UTF_8);
+			return new ByteArrayInputStream(upgradeGeneratedShader(source)
+				.getBytes(StandardCharsets.UTF_8));
+		};
 		return Optional.of(new Resource(null, stream));
+	}
+	
+	private static String upgradeGeneratedShader(String source)
+	{
+		if(!source
+			.contains("#extension GL_ARB_separate_shader_objects : require"))
+			source = source.replace("#version 330", "#version 330\n"
+				+ "#extension GL_ARB_separate_shader_objects : require");
+		
+		return source
+			.replace("in vec2 texCoord;",
+				"layout(location = 0) in vec2 texCoord;")
+			.replace("in vec4 vertexColor;",
+				"layout(location = 1) in vec4 vertexColor;")
+			.replace("out vec4 fragColor;",
+				"layout(location = 0) out vec4 fragColor;");
 	}
 	
 	private static boolean isSafeGeneratedShader(String source)
@@ -532,10 +553,11 @@ public final class ShadertoyBackgroundManager
 		
 		return """
 			#version 330
+			#extension GL_ARB_separate_shader_objects : require
 			
-			in vec2 texCoord;
-			in vec4 vertexColor;
-			out vec4 fragColor;
+			layout(location = 0) in vec2 texCoord;
+			layout(location = 1) in vec4 vertexColor;
+			layout(location = 0) out vec4 fragColor;
 			
 			uniform sampler2D Sampler0;
 			uniform sampler2D Sampler1;

@@ -14,6 +14,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -74,7 +77,6 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		setCategory(Category.BLOCKS);
 		addSetting(range);
 		commonSettings.getSettings().forEach(this::addSetting);
-		addSetting(swingHand);
 		addSetting(autoSwitchTool);
 		addSetting(onlyOnLeftClick);
 		addSetting(preserveTools);
@@ -396,7 +398,7 @@ public final class SpeedNukerHack extends Hack implements UpdateListener
 		WURST.getRotationFaker()
 			.faceVectorPacket(target.getBoundingBox().getCenter());
 		MC.gameMode.attack(MC.player, target);
-		swingHand.swing(InteractionHand.MAIN_HAND);
+		attackSwing.swing();
 		return true;
 	}
 }

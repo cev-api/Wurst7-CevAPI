@@ -2785,8 +2785,9 @@ public final class LootRunnerHack extends Hack
 		
 		if(MC.gameMode.continueDestroyBlock(pos, side))
 		{
-			MC.level.addBreakingBlockEffect(pos, side);
-			MC.player.swing(InteractionHand.MAIN_HAND);
+			MC.level.addBreakingBlockEffects(pos, side, true);
+			MC.player.swing(InteractionHand.MAIN_HAND,
+				MC.player.getMainHandItem().getInteractAnimation(), false);
 			MC.options.keyAttack.setDown(true);
 		}
 	}

@@ -9,8 +9,6 @@ package net.wurstclient.keybinds;
 
 import java.util.Locale;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -46,16 +44,15 @@ public final class KeybindProcessor
 	public void onKeyPress(KeyPressEvent event)
 	{
 		if(InputSimulation.isActive())
-		if(event.getAction() != InputConstants.PRESS)
 			return;
 		
-		if(event.getAction() != GLFW.GLFW_PRESS
-			&& event.getAction() != GLFW.GLFW_REPEAT)
+		if(event.getAction() != InputConstants.PRESS
+			&& event.getAction() != InputConstants.REPEAT)
 			return;
 		if(WurstClient.MC.gui == null)
 			return;
 		
-		boolean isRepeat = event.getAction() == GLFW.GLFW_REPEAT;
+		boolean isRepeat = event.getAction() == InputConstants.REPEAT;
 		
 		if(InputConstants.isKeyDown(InputConstants.KEY_F3))
 			return;
@@ -96,11 +93,12 @@ public final class KeybindProcessor
 				mapPrintableChar(event.getKeyCode(), event.getModifiers());
 			if(ch != null)
 			{
-				// open navigator without prepopulating the search to avoid
-				// the first character being entered twice (widget will receive
-				// it)
+				// The key press that opens Navigator is processed before the
+				// new
+				// screen can receive the character callback. Pass the character
+				// explicitly so the opening key is not lost.
 				WurstClient.MC.gui.setScreen(
-					new net.wurstclient.navigator.NavigatorMainScreen());
+					new net.wurstclient.navigator.NavigatorMainScreen(ch));
 				return;
 			}
 		}
@@ -114,18 +112,18 @@ public final class KeybindProcessor
 	private String mapPrintableChar(int keyCode, int modifiers)
 	{
 		// letters a-z
-		if(keyCode >= GLFW.GLFW_KEY_A && keyCode <= GLFW.GLFW_KEY_Z)
+		if(keyCode >= InputConstants.KEY_A && keyCode <= InputConstants.KEY_Z)
 		{
-			char c = (char)('a' + (keyCode - GLFW.GLFW_KEY_A));
+			char c = (char)('a' + (keyCode - InputConstants.KEY_A));
 			return String.valueOf(c);
 		}
 		// numbers 0-9 (top row)
-		if(keyCode >= GLFW.GLFW_KEY_0 && keyCode <= GLFW.GLFW_KEY_9)
+		if(keyCode >= InputConstants.KEY_0 && keyCode <= InputConstants.KEY_9)
 		{
-			char c = (char)('0' + (keyCode - GLFW.GLFW_KEY_0));
+			char c = (char)('0' + (keyCode - InputConstants.KEY_0));
 			return String.valueOf(c);
 		}
-		if(keyCode == GLFW.GLFW_KEY_SPACE)
+		if(keyCode == InputConstants.KEY_SPACE)
 			return " ";
 		// add basic punctuation if desired
 		return null;

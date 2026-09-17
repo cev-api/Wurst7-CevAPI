@@ -46,7 +46,7 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.wurstclient.WurstClient;
 import net.wurstclient.events.UpdateListener;
 import org.jetbrains.annotations.NotNull;
-import org.lwjgl.glfw.GLFW;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.joml.Matrix3x2fStack;
@@ -73,8 +73,8 @@ public final class UiUtils
 			return;
 		
 		restoreScreenKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
-			"key.wurst.uiutils.restore_screen", InputConstants.Type.KEYSYM,
-			GLFW.GLFW_KEY_V, KeyMapping.Category.MISC));
+			"key.wurst.uiutils.restore_screen", InputConstants.Type.KEYBOARD,
+			InputConstants.KEY_V, KeyMapping.Category.MISC));
 		WurstClient.INSTANCE.getEventManager().add(UpdateListener.class,
 			new RestoreScreenHandler());
 		UiUtilsSettings.load();
@@ -451,8 +451,8 @@ public final class UiUtils
 				@Override
 				public boolean keyPressed(KeyEvent keyEvent)
 				{
-					if(keyEvent.key() == GLFW.GLFW_KEY_ENTER
-						|| keyEvent.key() == GLFW.GLFW_KEY_KP_ENTER)
+					if(keyEvent.key() == InputConstants.KEY_RETURN
+						|| keyEvent.key() == InputConstants.KEY_NUMPADENTER)
 					{
 						String text = getValue();
 						if(WurstClient.INSTANCE.getOtfs() != null
@@ -1138,8 +1138,8 @@ public final class UiUtils
 			{
 				if(customKey != null)
 				{
-					customKeyDown = InputConstants.isKeyDown(mc.getWindow(),
-						customKey.getValue());
+					customKeyDown =
+						InputConstants.isKeyDown(customKey.getValue());
 				}else
 				{
 					customKeyDown = false;
@@ -1151,8 +1151,7 @@ public final class UiUtils
 			
 			if(customKey != null)
 			{
-				boolean down = InputConstants.isKeyDown(mc.getWindow(),
-					customKey.getValue());
+				boolean down = InputConstants.isKeyDown(customKey.getValue());
 				if(down && !customKeyDown)
 					restoreScreen(mc);
 				customKeyDown = down;

@@ -18,7 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -682,9 +682,9 @@ public final class InfiniteReachHack extends Hack
 		if(MC.player == null || MC.player.connection == null)
 			return;
 		
-		MC.player.connection
-			.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.connection.send(ServerboundPunchPacket.INSTANCE);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 	}
 	
 	private boolean isHoldingMace()

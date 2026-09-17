@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.gui.Font;
@@ -82,9 +80,9 @@ public final class KeyboardBindsScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		flashKey(InputConstants.Type.KEYSYM.getOrCreate(context.key()));
+		flashKey(InputConstants.Type.KEYBOARD.getOrCreate(context.key()));
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
@@ -96,7 +94,7 @@ public final class KeyboardBindsScreen extends Screen
 	@Override
 	public boolean mouseClicked(MouseButtonEvent context, boolean doubleClick)
 	{
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(context.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
@@ -106,7 +104,7 @@ public final class KeyboardBindsScreen extends Screen
 		if(key == null)
 			return super.mouseClicked(context, doubleClick);
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			String command = bindBridge.getCommandForKey(key.key());
 			minecraft.gui
@@ -114,14 +112,14 @@ public final class KeyboardBindsScreen extends Screen
 			return true;
 		}
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+		if(context.button() == InputConstants.MOUSE_BUTTON_RIGHT)
 		{
 			if(bindBridge.getCommandForKey(key.key()) != null)
 				bindBridge.clearCommandForKey(key.key());
 			return true;
 		}
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+		if(context.button() == InputConstants.MOUSE_BUTTON_MIDDLE)
 		{
 			minecraft.keyboardHandler.setClipboard(key.key().getName());
 			ChatUtils.message("Copied key: " + key.key().getName());

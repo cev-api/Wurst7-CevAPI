@@ -7,6 +7,10 @@
  */
 package net.wurstclient.hacks.itemhandler;
 
+import net.wurstclient.util.SdlUtils;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -14,8 +18,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 import net.minecraft.world.item.ItemStack;
-
-import org.lwjgl.glfw.GLFW;
 
 import com.mojang.blaze3d.platform.Window;
 
@@ -274,8 +276,8 @@ public class ItemHandlerHud
 			return;
 		}
 		
-		boolean leftDown = GLFW.glfwGetMouseButton(window.handle(),
-			GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+		boolean leftDown = SdlUtils.getMouseButtonState(
+			InputConstants.MOUSE_BUTTON_LEFT) == InputConstants.PRESS;
 		boolean containerOpen =
 			MC.gui.screen() instanceof AbstractContainerScreen<?>;
 		if(!containerOpen)

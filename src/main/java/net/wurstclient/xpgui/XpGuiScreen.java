@@ -7,6 +7,8 @@
  */
 package net.wurstclient.xpgui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -33,7 +35,6 @@ import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.stream.ImageInputStream;
 
-import org.lwjgl.glfw.GLFW;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
@@ -254,8 +255,8 @@ public final class XpGuiScreen extends Screen
 	{
 		if(textSettingEditSession != null)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE
-				|| context.key() == GLFW.GLFW_KEY_ENTER)
+			if(context.key() == InputConstants.KEY_ESCAPE
+				|| context.key() == InputConstants.KEY_RETURN)
 			{
 				textSettingEditSession = null;
 				return true;
@@ -263,19 +264,19 @@ public final class XpGuiScreen extends Screen
 			
 			if(context.hasControlDown())
 			{
-				if(context.key() == GLFW.GLFW_KEY_A)
+				if(context.key() == InputConstants.KEY_A)
 				{
 					textSettingEditSession.selectAll = true;
 					return true;
 				}
-				if(context.key() == GLFW.GLFW_KEY_C)
+				if(context.key() == InputConstants.KEY_C)
 				{
 					if(textSettingEditSession.selectAll)
 						minecraft.keyboardHandler.setClipboard(
 							textSettingEditSession.setting.getValue());
 					return true;
 				}
-				if(context.key() == GLFW.GLFW_KEY_V)
+				if(context.key() == InputConstants.KEY_V)
 				{
 					String clip = minecraft.keyboardHandler.getClipboard();
 					if(textSettingEditSession.selectAll)
@@ -288,7 +289,7 @@ public final class XpGuiScreen extends Screen
 				}
 			}
 			
-			if(context.key() == GLFW.GLFW_KEY_BACKSPACE)
+			if(context.key() == InputConstants.KEY_BACKSPACE)
 			{
 				String value = textSettingEditSession.setting.getValue();
 				if(textSettingEditSession.selectAll)
@@ -304,7 +305,7 @@ public final class XpGuiScreen extends Screen
 		
 		if(xpguiSettingsOpen)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			if(context.key() == InputConstants.KEY_ESCAPE)
 			{
 				xpguiSettingsOpen = false;
 				settingsUrlFocused = false;
@@ -315,7 +316,7 @@ public final class XpGuiScreen extends Screen
 			if((settingsUrlFocused || settingsStartIconFocused)
 				&& context.hasControlDown())
 			{
-				if(context.key() == GLFW.GLFW_KEY_A)
+				if(context.key() == InputConstants.KEY_A)
 				{
 					if(settingsUrlFocused)
 						settingsUrlSelectAll = true;
@@ -324,7 +325,7 @@ public final class XpGuiScreen extends Screen
 					return true;
 				}
 				
-				if(context.key() == GLFW.GLFW_KEY_C)
+				if(context.key() == InputConstants.KEY_C)
 				{
 					if(settingsUrlFocused && settingsUrlSelectAll)
 						minecraft.keyboardHandler.setClipboard(desktopImageUrl);
@@ -334,7 +335,7 @@ public final class XpGuiScreen extends Screen
 					return true;
 				}
 				
-				if(context.key() == GLFW.GLFW_KEY_V)
+				if(context.key() == InputConstants.KEY_V)
 				{
 					String clip = minecraft.keyboardHandler.getClipboard();
 					if(settingsUrlFocused)
@@ -359,7 +360,8 @@ public final class XpGuiScreen extends Screen
 				}
 			}
 			
-			if(settingsUrlFocused && context.key() == GLFW.GLFW_KEY_BACKSPACE
+			if(settingsUrlFocused
+				&& context.key() == InputConstants.KEY_BACKSPACE
 				&& (settingsUrlSelectAll || !desktopImageUrl.isEmpty()))
 			{
 				if(settingsUrlSelectAll)
@@ -374,7 +376,7 @@ public final class XpGuiScreen extends Screen
 			}
 			
 			if(settingsStartIconFocused
-				&& context.key() == GLFW.GLFW_KEY_BACKSPACE
+				&& context.key() == InputConstants.KEY_BACKSPACE
 				&& (settingsStartIconSelectAll
 					|| !startIconBlockName.isEmpty()))
 			{
@@ -389,14 +391,15 @@ public final class XpGuiScreen extends Screen
 				return true;
 			}
 			
-			if(settingsUrlFocused && context.key() == GLFW.GLFW_KEY_ENTER)
+			if(settingsUrlFocused && context.key() == InputConstants.KEY_RETURN)
 			{
 				downloadDesktopImage(desktopImageUrl);
 				saveXpguiSettings();
 				return true;
 			}
 			
-			if(settingsStartIconFocused && context.key() == GLFW.GLFW_KEY_ENTER)
+			if(settingsStartIconFocused
+				&& context.key() == InputConstants.KEY_RETURN)
 			{
 				applyStartIconBlockName();
 				saveXpguiSettings();
@@ -406,7 +409,7 @@ public final class XpGuiScreen extends Screen
 		
 		if(searchDialogOpen && !searchDialogMinimized)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			if(context.key() == InputConstants.KEY_ESCAPE)
 			{
 				searchDialogOpen = false;
 				searchDialogMinimized = false;
@@ -417,20 +420,20 @@ public final class XpGuiScreen extends Screen
 			
 			if(searchFieldFocused && context.hasControlDown())
 			{
-				if(context.key() == GLFW.GLFW_KEY_A)
+				if(context.key() == InputConstants.KEY_A)
 				{
 					searchSelectAll = true;
 					return true;
 				}
 				
-				if(context.key() == GLFW.GLFW_KEY_C)
+				if(context.key() == InputConstants.KEY_C)
 				{
 					if(searchSelectAll)
 						minecraft.keyboardHandler.setClipboard(searchQuery);
 					return true;
 				}
 				
-				if(context.key() == GLFW.GLFW_KEY_V)
+				if(context.key() == InputConstants.KEY_V)
 				{
 					String clip = minecraft.keyboardHandler.getClipboard();
 					if(searchSelectAll)
@@ -443,7 +446,8 @@ public final class XpGuiScreen extends Screen
 				}
 			}
 			
-			if(searchFieldFocused && context.key() == GLFW.GLFW_KEY_BACKSPACE
+			if(searchFieldFocused
+				&& context.key() == InputConstants.KEY_BACKSPACE
 				&& (searchSelectAll || !searchQuery.isEmpty()))
 			{
 				if(searchSelectAll)
@@ -457,11 +461,11 @@ public final class XpGuiScreen extends Screen
 				return true;
 			}
 			
-			if(searchFieldFocused && context.key() == GLFW.GLFW_KEY_ENTER)
+			if(searchFieldFocused && context.key() == InputConstants.KEY_RETURN)
 				return true;
 		}
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			if(startMenuOpen)
 			{
@@ -1596,7 +1600,7 @@ public final class XpGuiScreen extends Screen
 		int startW = getStartButtonWidth();
 		if(isInsideRect(mouseX, mouseY, startX, startY, startW, startH))
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				startMenuOpen = !startMenuOpen;
 				allProgramsOpen = false;
@@ -1611,7 +1615,7 @@ public final class XpGuiScreen extends Screen
 			if(isInsideRect(mouseX, mouseY, btn.x(), btn.y(), btn.width(),
 				btn.height()))
 			{
-				if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+				if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				{
 					windowManager.toggleFromTaskbar(btn.window());
 					searchDialogFocused = false;
@@ -1639,7 +1643,7 @@ public final class XpGuiScreen extends Screen
 					int bh = taskbarHeight() - 8;
 					if(isInsideRect(mouseX, mouseY, bx, by, buttonW - 4, bh))
 					{
-						if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+						if(button == InputConstants.MOUSE_BUTTON_LEFT)
 						{
 							if(!searchDialogMinimized && searchDialogFocused)
 							{
@@ -1664,7 +1668,7 @@ public final class XpGuiScreen extends Screen
 		int cogY = y1 + (taskbarHeight() - 16) / 2;
 		if(isInsideRect(mouseX, mouseY, cogX - 2, cogY - 2, 20, 20))
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				xpguiSettingsOpen = !xpguiSettingsOpen;
 				settingsUrlFocused = false;
@@ -1681,7 +1685,7 @@ public final class XpGuiScreen extends Screen
 	private boolean handleStartMenuClick(double mouseX, double mouseY,
 		int button)
 	{
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return false;
 		
 		StartMenuRects rects = getStartMenuRects();
@@ -1857,7 +1861,7 @@ public final class XpGuiScreen extends Screen
 	private boolean handleWindowChromeClick(XpModuleWindow window,
 		double mouseX, double mouseY, int button)
 	{
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return false;
 		
 		int titleX = window.getX() + 1;
@@ -1899,7 +1903,7 @@ public final class XpGuiScreen extends Screen
 		int maxScroll = Math.max(0, totalHeight - rects.settingsHeight);
 		int viewW = rects.contentWidth - (maxScroll > 0 ? 10 : 0);
 		
-		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT && maxScroll > 0)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT && maxScroll > 0)
 		{
 			if(isInsideRect(mouseX, mouseY, rects.contentX + viewW,
 				rects.settingsY, 10, rects.settingsHeight))
@@ -1914,7 +1918,7 @@ public final class XpGuiScreen extends Screen
 		if(isInsideRect(mouseX, mouseY, rects.contentX, rects.contentY,
 			rects.contentWidth, 24))
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				window.getHack().setEnabled(!window.getHack().isEnabled());
 			return true;
 		}
@@ -1949,29 +1953,29 @@ public final class XpGuiScreen extends Screen
 		Setting setting = node.setting();
 		if(setting instanceof SettingGroup)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				window.toggleGroup(node.groupKey());
 			return true;
 		}
 		
 		if(setting instanceof CheckboxSetting checkbox)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				checkbox.setChecked(checkbox.isCheckedByDefault());
-			else if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			else if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				checkbox.setChecked(!checkbox.isChecked());
 			return true;
 		}
 		
 		if(setting instanceof SliderSetting slider)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				slider.setValue(slider.getDefaultValue());
 				return true;
 			}
 			
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				int controlX = rects.contentX + rects.contentWidth / 2;
 				int controlW = rects.contentWidth / 2 - 8;
@@ -1985,9 +1989,9 @@ public final class XpGuiScreen extends Screen
 		
 		if(setting instanceof EnumSetting<?> enumSetting)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				enumSetting.selectPrev();
-			else if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			else if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				enumSetting.selectNext();
 			return true;
 		}
@@ -2001,9 +2005,9 @@ public final class XpGuiScreen extends Screen
 			int index = options.indexOf(dropdown.getSelected());
 			if(index < 0)
 				index = 0;
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				index = (index - 1 + options.size()) % options.size();
-			else if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			else if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				index = (index + 1) % options.size();
 			dropdown.setSelected(options.get(index));
 			return true;
@@ -2011,14 +2015,14 @@ public final class XpGuiScreen extends Screen
 		
 		if(setting instanceof ButtonSetting btn)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				btn.runAction();
 			return true;
 		}
 		
 		if(setting instanceof TextFieldSetting text)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 			{
 				if(textSettingEditSession != null
 					&& textSettingEditSession.setting == text)
@@ -2027,7 +2031,7 @@ public final class XpGuiScreen extends Screen
 					textSettingEditSession = new TextSettingEditSession(text);
 				return true;
 			}
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				text.setValue(text.getDefaultValue());
 				return true;
@@ -2036,7 +2040,7 @@ public final class XpGuiScreen extends Screen
 		
 		if(setting instanceof ToggleAllPlantTypesSetting toggleAll)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				toggleAll.resetHarvestingEnabled();
 			else if(mouseX < rects.contentX + rects.contentWidth * 0.75)
 				toggleAll.toggleHarvestingEnabled();
@@ -2047,7 +2051,7 @@ public final class XpGuiScreen extends Screen
 		
 		if(setting instanceof PlantTypeSetting plantType)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				plantType.resetHarvestingEnabled();
 				plantType.resetReplantingEnabled();
@@ -2060,7 +2064,7 @@ public final class XpGuiScreen extends Screen
 		
 		if(setting instanceof MobWeaponRuleSetting mobRule)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				mobRule.resetMob();
 				mobRule.resetWeapon();
@@ -2082,7 +2086,7 @@ public final class XpGuiScreen extends Screen
 			return true;
 		}
 		
-		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT)
 			openSettingEditor(setting);
 		
 		return true;
@@ -2171,7 +2175,7 @@ public final class XpGuiScreen extends Screen
 		if(!isInsideRect(mouseX, mouseY, rects.x, rects.y, rects.w, rects.h))
 			return false;
 		searchDialogFocused = true;
-		if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button == InputConstants.MOUSE_BUTTON_LEFT)
 		{
 			int closeX = rects.x + rects.w - 24;
 			int closeY = rects.y + 6;
@@ -2267,7 +2271,7 @@ public final class XpGuiScreen extends Screen
 		int button)
 	{
 		SettingsDialogRects rects = getSettingsDialogRects();
-		if(button != GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(button != InputConstants.MOUSE_BUTTON_LEFT)
 			return isInsideSettingsDialog(mouseX, mouseY);
 		
 		int closeX = rects.x + rects.w - 22;

@@ -10,6 +10,9 @@ package net.wurstclient.clickgui.screens;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
+import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Objects;
 
 import org.joml.Matrix3x2fStack;

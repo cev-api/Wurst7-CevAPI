@@ -173,7 +173,8 @@ public final class BedBreakAuraHack extends Hack
 		ensureBestTool(target.pos());
 		BlockBreaker
 			.breakBlocksWithPacketSpam(Collections.singleton(target.pos()));
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		
 		pausedTarget = target.pos();
 		pausedDistanceSq = target.distanceSq();
@@ -274,11 +275,11 @@ public final class BedBreakAuraHack extends Hack
 			|| !(event
 				.getPacket() instanceof ServerboundUseItemOnPacket packet))
 			return;
-		ItemStack held = MC.player.getItemInHand(packet.getHand());
+		ItemStack held = MC.player.getItemInHand(packet.hand());
 		if(!(held.getItem() instanceof BlockItem blockItem)
 			|| !(blockItem.getBlock() instanceof BedBlock))
 			return;
-		BlockHitResult hit = packet.getHitResult();
+		BlockHitResult hit = packet.hitResult();
 		pendingPlacedBeds.put(hit.getBlockPos().relative(hit.getDirection()),
 			20);
 	}

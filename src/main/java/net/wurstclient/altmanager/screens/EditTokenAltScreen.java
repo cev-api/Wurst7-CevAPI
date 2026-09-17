@@ -7,6 +7,8 @@
  */
 package net.wurstclient.altmanager.screens;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -15,8 +17,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 import java.util.regex.Pattern;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -618,7 +618,7 @@ public final class EditTokenAltScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
-		if(context.key() == GLFW.GLFW_KEY_ENTER && !busy)
+		if(context.key() == InputConstants.KEY_RETURN && !busy)
 		{
 			if(skinUrlBox.isFocused())
 				startSkinChange();
@@ -640,7 +640,7 @@ public final class EditTokenAltScreen extends Screen
 		if(nameBox.isFocused() || skinUrlBox.isFocused())
 			message = "";
 		
-		if(context.button() == GLFW.GLFW_MOUSE_BUTTON_4)
+		if(context.button() == InputConstants.MOUSE_BUTTON_4)
 		{
 			onClose();
 			return true;

@@ -29,7 +29,7 @@ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket.Action;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -478,7 +478,7 @@ public final class BundleDupeHack extends Hack implements PacketOutputListener
 		
 		int count = lagPackets.getValueI();
 		for(int i = 0; i < count; i++)
-			c.send(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+			c.send(ServerboundPunchPacket.INSTANCE);
 		
 		ChatUtils.message("Sent " + count
 			+ " swing arm spam packets. (Harmless Netty flood!)");

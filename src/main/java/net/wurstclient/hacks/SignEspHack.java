@@ -7,6 +7,8 @@
  */
 package net.wurstclient.hacks;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import java.awt.Color;
@@ -29,6 +31,7 @@ import net.minecraft.world.level.block.SignBlock;
 import net.minecraft.world.level.block.StandingSignBlock;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
 import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
@@ -366,8 +369,8 @@ public final class SignEspHack extends Hack
 		MouseButtonPressListener.MouseButtonPressEvent event)
 	{
 		if(signHistory.isChecked()
-			&& event.getButton() == org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_MIDDLE
-			&& event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS)
+			&& event.getButton() == InputConstants.MOUSE_BUTTON_MIDDLE
+			&& event.getAction() == InputConstants.PRESS)
 			printHistoryAtTarget(false);
 	}
 	
@@ -491,7 +494,7 @@ public final class SignEspHack extends Hack
 	{
 		for(int i = 0; i < 4; i++)
 		{
-			var component = signText.getMessage(i, false);
+			var component = signText.getMessages(false).get(i);
 			if(component != null && !component.getString().isBlank())
 				return true;
 		}
@@ -507,19 +510,19 @@ public final class SignEspHack extends Hack
 				: null;
 		if(sign == null)
 			return;
-		SignText frontText = sign.getFrontText();
-		SignText backText = sign.getBackText();
+		SignText frontText = sign.getText(SignTextSlot.FRONT);
+		SignText backText = sign.getText(SignTextSlot.BACK);
 		boolean frontHasText = hasText(frontText);
 		boolean backHasText = hasText(backText);
 		SignText signText = frontHasText && backHasText
-			? sign.getText(sign.isFacingFrontText(MC.player))
+			? sign.getText(sign.getSlotPlayerIsFacing(MC.player))
 			: frontHasText ? frontText : backText;
 		if(!frontHasText && !backHasText)
 			return;
 		List<String> lines = new ArrayList<>();
 		for(int i = 0; i < 4; i++)
 		{
-			var component = signText.getMessage(i, false);
+			var component = signText.getMessages(false).get(i);
 			lines.add(component == null ? "" : component.getString());
 		}
 		if(lines.stream().allMatch(String::isBlank))
@@ -534,13 +537,8 @@ public final class SignEspHack extends Hack
 			pos = cam.add(dir.scale(12 / dist));
 		matrices.pushPose();
 		matrices.translate(pos.x - cam.x, pos.y - cam.y, pos.z - cam.z);
-		var camera = MC.getCameraEntity();
-		if(camera != null)
-		{
-			matrices.mulPose(Axis.YP.rotationDegrees(-camera.getYRot()));
-			matrices.mulPose(Axis.XP.rotationDegrees(camera.getXRot()));
-		}
-		matrices.mulPose(Axis.YP.rotationDegrees(180));
+		RenderUtils.applyWorldTextOrientation(matrices);
+		RenderUtils.mulPose(matrices, Axis.YP.rotationDegrees(180));
 		float distanceScale = (float)Math.min(1.0, (dist - 5.0) / 7.0);
 		float scale = 0.025F * overlayScale.getValueF() * distanceScale;
 		matrices.scale(scale, -scale, scale);

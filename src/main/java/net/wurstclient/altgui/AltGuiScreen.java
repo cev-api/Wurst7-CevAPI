@@ -7,6 +7,8 @@
  */
 package net.wurstclient.altgui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -15,8 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.TreeMap;
-
-import org.lwjgl.glfw.GLFW;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -441,12 +441,12 @@ public final class AltGuiScreen extends Screen
 	{
 		if(editingTextField != null)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			if(context.key() == InputConstants.KEY_ESCAPE)
 			{
 				finishInlineTextField(false);
 				return true;
 			}
-			if(context.key() == GLFW.GLFW_KEY_ENTER)
+			if(context.key() == InputConstants.KEY_RETURN)
 			{
 				finishInlineTextField(true);
 				return true;
@@ -454,7 +454,7 @@ public final class AltGuiScreen extends Screen
 			return super.keyPressed(context);
 		}
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+		if(context.key() == InputConstants.KEY_ESCAPE)
 		{
 			minecraft.gui.setScreen(prevScreen);
 			return true;
@@ -1588,7 +1588,7 @@ public final class AltGuiScreen extends Screen
 		int trackX2 = uiMenuX + uiMenuW - 12;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				slider.setValue(slider.getValue() - slider.getIncrement());
 			}else
@@ -1654,7 +1654,7 @@ public final class AltGuiScreen extends Screen
 		int x2 = uiMenuX + uiMenuW - 8;
 		if(isInside(mouseX, mouseY, x1, y, x2, y + rowH))
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				setting.selectPrev();
 			else
 				setting.selectNext();
@@ -1788,12 +1788,12 @@ public final class AltGuiScreen extends Screen
 			{
 				selectedFeature = feature;
 				settingsScroll = 0;
-				if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+				if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 					toggleExpandedFeature(feature);
-				else if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE
+				else if(button == InputConstants.MOUSE_BUTTON_MIDDLE
 					&& feature instanceof Hack hack)
 					hack.setFavorite(!hack.isFavorite());
-				else if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+				else if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				{
 					TooManyHaxHack tooManyHax =
 						WurstClient.INSTANCE.getHax().tooManyHaxHack;
@@ -1861,7 +1861,7 @@ public final class AltGuiScreen extends Screen
 		Feature owner = row.owner();
 		if(row.isKeybindRow())
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			if(button == InputConstants.MOUSE_BUTTON_LEFT)
 				minecraft.gui.setScreen(new AltGuiKeybindScreen(this, owner));
 			return true;
 		}
@@ -1896,7 +1896,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof SliderSetting slider)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				slider.setValue(slider.getDefaultValue());
 				if(owner instanceof ClientChatOverlayHack chatHack
@@ -1924,14 +1924,14 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof EnumSetting<?> enumSetting)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+			if(button == InputConstants.MOUSE_BUTTON_MIDDLE)
 			{
 				Enum<?>[] values = enumSetting.getValues();
 				if(values.length > 0)
 					enumSetting.setSelected(values[0].toString());
 				return true;
 			}
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				enumSetting.selectPrev();
 			else
 				enumSetting.selectNext();
@@ -1945,7 +1945,7 @@ public final class AltGuiScreen extends Screen
 			List<String> values = dropdown.getValues();
 			if(values.isEmpty())
 				return true;
-			if(button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE)
+			if(button == InputConstants.MOUSE_BUTTON_MIDDLE)
 			{
 				dropdown.setSelected(values.get(0));
 				return true;
@@ -1953,7 +1953,7 @@ public final class AltGuiScreen extends Screen
 			int i = values.indexOf(dropdown.getSelected());
 			if(i < 0)
 				i = 0;
-			int delta = button == GLFW.GLFW_MOUSE_BUTTON_RIGHT ? -1 : 1;
+			int delta = button == InputConstants.MOUSE_BUTTON_RIGHT ? -1 : 1;
 			for(int attempts = 0; attempts < values.size(); attempts++)
 			{
 				i += delta;
@@ -2002,7 +2002,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof PlantTypeSetting plantType)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				plantType.toggleReplantingEnabled();
 			else
 				plantType.toggleHarvestingEnabled();
@@ -2011,7 +2011,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof ToggleAllPlantTypesSetting allPlantTypes)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				allPlantTypes.toggleReplantingEnabled();
 			else
 				allPlantTypes.toggleHarvestingEnabled();
@@ -2020,7 +2020,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof MobWeaponRuleSetting mobRule)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 				cycleMobRuleMob(mobRule, -1);
 			else
 				cycleMobRuleWeapon(mobRule, 1);
@@ -2029,7 +2029,7 @@ public final class AltGuiScreen extends Screen
 		
 		if(setting instanceof ColorSetting color)
 		{
-			if(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+			if(button == InputConstants.MOUSE_BUTTON_RIGHT)
 			{
 				color.setColor(color.getDefaultColor());
 				if(isStyleColor(color))

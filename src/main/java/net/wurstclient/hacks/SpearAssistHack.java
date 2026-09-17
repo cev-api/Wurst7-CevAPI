@@ -643,7 +643,8 @@ public final class SpearAssistHack extends Hack
 			return false;
 		
 		MC.gameMode.attack(MC.player, entityHit.getEntity());
-		MC.player.swing(InteractionHand.MAIN_HAND);
+		MC.player.swing(InteractionHand.MAIN_HAND,
+			MC.player.getMainHandItem().getInteractAnimation(), false);
 		return true;
 	}
 	

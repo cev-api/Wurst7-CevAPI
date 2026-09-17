@@ -8,6 +8,7 @@
 package net.wurstclient.hacks;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import org.joml.Matrix4f;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -1209,16 +1210,9 @@ public final class WaypointsHack extends Hack
 		matrices.pushPose();
 		Vec3 cam = RenderUtils.getCameraPos();
 		matrices.translate(x - cam.x, y - cam.y, z - cam.z);
-		// Face the camera (billboard)
-		var camEntity = MC.getCameraEntity();
-		if(camEntity != null)
-		{
-			matrices.mulPose(
-				com.mojang.math.Axis.YP.rotationDegrees(-camEntity.getYRot()));
-			matrices.mulPose(
-				com.mojang.math.Axis.XP.rotationDegrees(camEntity.getXRot()));
-		}
-		matrices.mulPose(com.mojang.math.Axis.YP.rotationDegrees(180.0F));
+		// Face the render camera (billboard), including freecam.
+		RenderUtils.applyWorldTextOrientation(matrices);
+		matrices.mulPose(new Matrix4f().rotateY((float)Math.PI));
 		float s = 0.025F * scale;
 		matrices.scale(s, -s, s);
 		// After scaling, translate by pixel offset to separate lines

@@ -10,8 +10,9 @@ package net.wurstclient.mapa.map;
 import net.wurstclient.mapa.config.XMapConfig;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.Long2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -70,7 +71,7 @@ public final class MapRenderService
 		new BlockPos.MutableBlockPos();
 	private final BlockPos.MutableBlockPos tintProbe =
 		new BlockPos.MutableBlockPos();
-	private static final Identifier MINIMAP_TEX_ID =
+	public static final Identifier MINIMAP_TEX_ID =
 		Identifier.fromNamespaceAndPath("mapa", "dynamic/minimap");
 	private static final int COLUMN_CACHE_LIMIT = 120_000;
 	private static final int CACHE_MAGIC = 0x4D415041; // MAPA
@@ -112,6 +113,8 @@ public final class MapRenderService
 	private double cachedWorldPerSample;
 	private long lastBuildTick = Long.MIN_VALUE;
 	private long lastUnknownRefreshTick = Long.MIN_VALUE;
+	private long cacheRevision;
+	private long cachedWindowRevision;
 	private long lastWorkTick = Long.MIN_VALUE;
 	private long lastMotionSampleTick = Long.MIN_VALUE;
 	private int unknownRefreshCursor = 0;
@@ -163,6 +166,10 @@ public final class MapRenderService
 	private long lastDiskSaveTick = Long.MIN_VALUE;
 	private long lastChunkPollTick = Long.MIN_VALUE;
 	private boolean dirtyDiskCache = false;
+	private CacheSnapshot worldMapCacheSnapshot;
+	private long worldMapCacheRevision = Long.MIN_VALUE;
+	private long worldMapSnapshotGeneration;
+	private long lastWorldMapCacheRefreshNanos;
 	private int cachedLightingSignature = Integer.MIN_VALUE;
 	private int cachedColumnSamplingSignature = Integer.MIN_VALUE;
 	private int cachedUndergroundBand = Integer.MIN_VALUE;
@@ -212,12 +219,36 @@ public final class MapRenderService
 	public WorldMapSnapshot snapshotWorldMap(Minecraft mc)
 	{
 		if(mc.level == null || mc.player == null)
-			return new WorldMapSnapshot(0.0, 0.0, "", new long[0], new int[0]);
+			return new WorldMapSnapshot(0.0, 0.0, "", new long[0], new int[0],
+				0L);
 		
 		ensureCacheContext(mc, mc.level);
-		CacheSnapshot snapshot = snapshotCache(activeCachePath);
+		long now = System.nanoTime();
+		if(worldMapCacheSnapshot == null
+			|| worldMapCacheRevision != cacheRevision
+				&& now - lastWorldMapCacheRefreshNanos >= 2_000_000_000L)
+		{
+			worldMapCacheSnapshot = snapshotWorldMapCache();
+			worldMapCacheRevision = cacheRevision;
+			lastWorldMapCacheRefreshNanos = now;
+			worldMapSnapshotGeneration++;
+		}
+		CacheSnapshot snapshot = worldMapCacheSnapshot;
 		return new WorldMapSnapshot(mc.player.getX(), mc.player.getZ(),
-			activeCacheKey, snapshot.keys(), snapshot.colors());
+			activeCacheKey, snapshot.keys(), snapshot.colors(),
+			worldMapSnapshotGeneration);
+	}
+	
+	public CachedWindowSnapshot snapshotCachedWindow()
+	{
+		if(minimapTexture == null || cachedPixels == null
+			|| cachedBackingSamples <= 0 || cachedWorldPerSample <= 0.0
+			|| cachedUndergroundMode)
+			return new CachedWindowSnapshot(0.0, 0.0, 0.0, 0, 0, 0L);
+		
+		return new CachedWindowSnapshot(cachedCenterX, cachedCenterZ,
+			cachedWorldPerSample, cachedBackingSamples, cachedSamples,
+			cachedWindowRevision);
 	}
 	
 	public static int unpackColumnX(long key)
@@ -253,7 +284,9 @@ public final class MapRenderService
 		int size = cfg.minimapSize;
 		int x0 = cfg.minimapPosX;
 		int y0 = cfg.minimapPosY;
-		int visibleSamples = Mth.clamp(cfg.minimapSamples, 32, 512);
+		int requestedSamples = Mth.clamp(cfg.minimapSamples, 32, 512);
+		int displaySamples = Mth.clamp(size + 64, 128, 512);
+		int visibleSamples = Math.min(requestedSamples, displaySamples);
 		applyConfig(cfg);
 		int columnSamplingSignature = currentColumnSamplingSignature();
 		boolean samplingModeChanged =
@@ -261,7 +294,7 @@ public final class MapRenderService
 				&& columnSamplingSignature != cachedColumnSamplingSignature;
 		if(samplingModeChanged)
 		{
-			clearColumnCache();
+			invalidateRenderedWindow();
 		}
 		cachedColumnSamplingSignature = columnSamplingSignature;
 		double zoomBlocks = zoomToBlocksPerPixel(cfg.minimapZoom);
@@ -317,18 +350,18 @@ public final class MapRenderService
 					&& undergroundBand != cachedUndergroundBand;
 			if(lightingChanged)
 			{
-				clearColumnCache();
+				invalidateRenderedWindow();
 			}
 			if(undergroundBandChanged)
 			{
-				clearColumnCache();
+				invalidateRenderedWindow();
 			}
 			pollVisibleChunks(mc.level, centerX, centerZ, backingSamples,
 				zoomBlocks * size / effectiveSamples, tick);
 			int partialChunkLimit = Mth.clamp(
 				(int)Math
-					.ceil((4.0f - movementPenalty) * chunkRefreshAggression),
-				6, 16);
+					.ceil((2.0f - movementPenalty) * chunkRefreshAggression),
+				3, 8);
 			int unknownChunkQueueLimit = Math.max(partialChunkLimit * 2,
 				partialChunkLimit * (movementPenalty >= 0.35f ? 4 : 8));
 			if(hasUnknownColumns())
@@ -372,7 +405,8 @@ public final class MapRenderService
 				refreshDirtyChunks(mc, mc.level, playerY, useUnderground,
 					partialChunkLimit);
 			}
-			if(hasUnknownColumns() && tick != lastUnknownRefreshTick)
+			if(hasUnknownColumns() && tick != lastUnknownRefreshTick
+				&& (tick & 1L) == 0L)
 			{
 				refreshUnknownColumns(mc, mc.level, centerX, centerZ, playerY,
 					useUnderground, tick,
@@ -415,7 +449,7 @@ public final class MapRenderService
 			cachedColumnSamplingSignature != Integer.MIN_VALUE
 				&& columnSamplingSignature != cachedColumnSamplingSignature;
 		if(samplingModeChanged)
-			clearColumnCache();
+			invalidateRenderedWindow();
 		cachedColumnSamplingSignature = columnSamplingSignature;
 		
 		double centerY = mc.player.getY();
@@ -438,7 +472,7 @@ public final class MapRenderService
 			useUnderground && cachedUndergroundBand != Integer.MIN_VALUE
 				&& undergroundBand != cachedUndergroundBand;
 		if(lightingChanged || undergroundBandChanged)
-			clearColumnCache();
+			invalidateRenderedWindow();
 		
 		pollVisibleChunks(mc.level, centerX, centerZ, backingSamples,
 			blocksPerPixel * drawSize / visibleSamples, tick);
@@ -749,6 +783,7 @@ public final class MapRenderService
 		cachedFlags = flags;
 		cachedUnknown = unknown;
 		cachedPixels = shaded;
+		cachedWindowRevision++;
 		uploadTexture(mc, shaded, backingSamples, backingSamples,
 			undergroundMode);
 	}
@@ -800,8 +835,8 @@ public final class MapRenderService
 						(int)((prioritySamples * 18.0f) * chunkRefreshAggression
 							* priorityScale),
 						1024, Math.max(priorityArea, 4096))
-				: Mth.clamp((int)((prioritySamples * 6.0f)
-					* chunkRefreshAggression * priorityScale), 128, 1536);
+				: Mth.clamp((int)((prioritySamples * 3.0f)
+					* chunkRefreshAggression * priorityScale), 96, 768);
 		int backgroundBudget =
 			undergroundMode
 				? Mth
@@ -811,9 +846,9 @@ public final class MapRenderService
 						256, 1536)
 				: Mth
 					.clamp(
-						(int)(cachedBackingSamples * 1.5f
+						(int)(cachedBackingSamples * 0.75f
 							* chunkRefreshAggression * backgroundScale),
-						0, 256);
+						0, 128);
 		Long2LongOpenHashMap frameSampleCache = new Long2LongOpenHashMap(
 			Math.max(32, priorityBudget + backgroundBudget));
 		frameSampleCache.defaultReturnValue(Long.MIN_VALUE);
@@ -973,6 +1008,7 @@ public final class MapRenderService
 		}
 		uploadTexture(mc, cachedPixels, cachedBackingSamples,
 			cachedBackingSamples, false);
+		cachedWindowRevision++;
 	}
 	
 	private void refreshDirtyChunks(Minecraft mc, ClientLevel level,
@@ -2584,6 +2620,17 @@ public final class MapRenderService
 		cachedLightingSignature = Integer.MIN_VALUE;
 		cachedColumnSamplingSignature = Integer.MIN_VALUE;
 		lastChunkPollTick = Long.MIN_VALUE;
+		cachedPixels = null;
+		cachedBaseColors = null;
+		cachedHeights = null;
+		cachedFlags = null;
+		cachedUnknown = null;
+		cachedSamples = 0;
+		cachedBackingSamples = 0;
+		cachedWorldPerSample = 0.0;
+		cachedWindowRevision++;
+		worldMapCacheSnapshot = null;
+		worldMapCacheRevision = Long.MIN_VALUE;
 		activeCacheKey = key;
 		cachedUndergroundBand = Integer.MIN_VALUE;
 		activeCachePath = FabricLoader.getInstance().getConfigDir()
@@ -2619,12 +2666,17 @@ public final class MapRenderService
 		return "unknown_server";
 	}
 	
-	private void clearColumnCache()
+	private void invalidateRenderedWindow()
 	{
-		cachedColumnColor.clear();
-		cachedColumnY.clear();
-		cachedColumnFlags.clear();
-		dirtyDiskCache = true;
+		cachedPixels = null;
+		cachedBaseColors = null;
+		cachedHeights = null;
+		cachedFlags = null;
+		cachedUnknown = null;
+		cachedSamples = 0;
+		cachedBackingSamples = 0;
+		cachedWorldPerSample = 0.0;
+		cachedWindowRevision++;
 	}
 	
 	private static String sanitize(String in)
@@ -2665,8 +2717,9 @@ public final class MapRenderService
 				return;
 			}
 			int count = in.readInt();
-			int limit = Math.min(count, COLUMN_CACHE_LIMIT);
-			for(int i = 0; i < limit; i++)
+			if(count < 0)
+				return;
+			for(int i = 0; i < count; i++)
 			{
 				long key = in.readLong();
 				int color = in.readInt();
@@ -2675,15 +2728,11 @@ public final class MapRenderService
 				cachedColumnColor.putAndMoveToLast(key, color);
 				cachedColumnY.putAndMoveToLast(key, y);
 				cachedColumnFlags.putAndMoveToLast(key, flags);
-			}
-			for(int i = limit; i < count; i++)
-			{
-				in.readLong();
-				in.readInt();
-				in.readInt();
-				if(version >= CACHE_VERSION)
+				if(cachedColumnColor.size() > COLUMN_CACHE_LIMIT)
 				{
-					in.readInt();
+					cachedColumnColor.removeFirstInt();
+					cachedColumnY.removeFirstInt();
+					cachedColumnFlags.removeFirstInt();
 				}
 			}
 		}catch(IOException ignored)
@@ -2696,7 +2745,7 @@ public final class MapRenderService
 		{
 			return;
 		}
-		if(tick - lastDiskSaveTick < 120)
+		if(tick - lastDiskSaveTick < 600)
 		{
 			return;
 		}
@@ -2749,11 +2798,103 @@ public final class MapRenderService
 		return new CacheSnapshot(path, keys, colors, ys, flags);
 	}
 	
+	private CacheSnapshot snapshotWorldMapCache()
+	{
+		CacheSnapshot disk = readCacheSnapshot(activeCachePath);
+		CacheSnapshot active = snapshotCache(activeCachePath);
+		return mergeCacheSnapshots(disk, active);
+	}
+	
+	private static CacheSnapshot readCacheSnapshot(Path path)
+	{
+		if(path == null || Files.notExists(path))
+			return new CacheSnapshot(path, new long[0], new int[0], new int[0],
+				new int[0]);
+		
+		LongArrayList keys = new LongArrayList();
+		IntArrayList colors = new IntArrayList();
+		IntArrayList ys = new IntArrayList();
+		IntArrayList flags = new IntArrayList();
+		try(DataInputStream in = new DataInputStream(
+			new BufferedInputStream(Files.newInputStream(path))))
+		{
+			int magic = in.readInt();
+			int version = in.readInt();
+			if(magic != CACHE_MAGIC
+				|| (version != 23 && version != CACHE_VERSION))
+				return new CacheSnapshot(path, new long[0], new int[0],
+					new int[0], new int[0]);
+			int count = in.readInt();
+			if(count < 0)
+				return new CacheSnapshot(path, new long[0], new int[0],
+					new int[0], new int[0]);
+			for(int i = 0; i < count; i++)
+			{
+				keys.add(in.readLong());
+				colors.add(in.readInt());
+				ys.add(in.readInt());
+				flags.add(version >= CACHE_VERSION ? in.readInt() : 0);
+			}
+		}catch(IOException ignored)
+		{
+			return new CacheSnapshot(path, new long[0], new int[0], new int[0],
+				new int[0]);
+		}
+		return new CacheSnapshot(path, keys.toLongArray(), colors.toIntArray(),
+			ys.toIntArray(), flags.toIntArray());
+	}
+	
+	private static CacheSnapshot mergeCacheSnapshots(CacheSnapshot disk,
+		CacheSnapshot active)
+	{
+		Long2IntLinkedOpenHashMap colors = new Long2IntLinkedOpenHashMap();
+		Long2IntLinkedOpenHashMap ys = new Long2IntLinkedOpenHashMap();
+		Long2IntLinkedOpenHashMap flags = new Long2IntLinkedOpenHashMap();
+		for(int i = 0; i < disk.keys().length; i++)
+		{
+			long key = disk.keys()[i];
+			colors.putAndMoveToLast(key, disk.colors()[i]);
+			ys.putAndMoveToLast(key, disk.ys()[i]);
+			flags.putAndMoveToLast(key, disk.flags()[i]);
+		}
+		for(int i = 0; i < active.keys().length; i++)
+		{
+			long key = active.keys()[i];
+			colors.putAndMoveToLast(key, active.colors()[i]);
+			ys.putAndMoveToLast(key, active.ys()[i]);
+			flags.putAndMoveToLast(key, active.flags()[i]);
+		}
+		return snapshotFromMaps(disk.path(), colors, ys, flags);
+	}
+	
+	private static CacheSnapshot snapshotFromMaps(Path path,
+		Long2IntLinkedOpenHashMap colors, Long2IntLinkedOpenHashMap ys,
+		Long2IntLinkedOpenHashMap flags)
+	{
+		int size = colors.size();
+		long[] keys = new long[size];
+		int[] colorArray = new int[size];
+		int[] yArray = new int[size];
+		int[] flagArray = new int[size];
+		int i = 0;
+		for(Long2IntMap.Entry entry : colors.long2IntEntrySet())
+		{
+			long key = entry.getLongKey();
+			keys[i] = key;
+			colorArray[i] = entry.getIntValue();
+			yArray[i] = ys.get(key);
+			flagArray[i] = flags.get(key);
+			i++;
+		}
+		return new CacheSnapshot(path, keys, colorArray, yArray, flagArray);
+	}
+	
 	private static void writeCache(CacheSnapshot snapshot)
 	{
 		Path path = snapshot.path();
 		try
 		{
+			snapshot = mergeCacheSnapshots(readCacheSnapshot(path), snapshot);
 			Files.createDirectories(path.getParent());
 			Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
 			try(DataOutputStream out = new DataOutputStream(
@@ -2837,7 +2978,7 @@ public final class MapRenderService
 	private void pollVisibleChunks(ClientLevel level, double centerX,
 		double centerZ, int backingSamples, double worldPerSample, long tick)
 	{
-		if(tick == lastChunkPollTick)
+		if(lastChunkPollTick != Long.MIN_VALUE && tick - lastChunkPollTick < 4)
 		{
 			return;
 		}
@@ -3037,6 +3178,7 @@ public final class MapRenderService
 		if(changed)
 		{
 			dirtyDiskCache = true;
+			cacheRevision++;
 		}
 		if(cachedColumnColor.size() > COLUMN_CACHE_LIMIT)
 		{
@@ -3866,6 +4008,10 @@ public final class MapRenderService
 	{}
 	
 	public static record WorldMapSnapshot(double playerX, double playerZ,
-		String cacheKey, long[] keys, int[] colors)
+		String cacheKey, long[] keys, int[] colors, long revision)
+	{}
+	
+	public static record CachedWindowSnapshot(double centerX, double centerZ,
+		double worldPerSample, int samples, int visibleSamples, long revision)
 	{}
 }

@@ -241,8 +241,9 @@ public final class ShearAuraHack extends Hack
 			retryAfter.put(clicked.getId(),
 				MC.level.getGameTime() + RETRY_DELAY);
 			
-			if(success.swingSource() == InteractionResult.SwingSource.CLIENT)
-				player.swing(hand);
+			if(success.swingSource() == InteractionResult.SwingSource.PREDICTED)
+				player.swing(hand,
+					player.getItemInHand(hand).getInteractAnimation(), false);
 		}
 		
 		target = null;

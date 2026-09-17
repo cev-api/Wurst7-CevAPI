@@ -116,7 +116,7 @@ public final class EntityLifecycleTracker
 	{
 		try
 		{
-			for(int id : packet.getEntityIds())
+			for(int id : packet.entityIds())
 			{
 				EntitySnapshot snap = byId.get(id);
 				if(snap != null)

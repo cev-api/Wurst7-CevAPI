@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.joml.Matrix3x2fStack;
-import org.lwjgl.glfw.GLFW;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -81,6 +80,12 @@ public final class ClickGui
 	private boolean modernSearchFocused;
 	private boolean modernSearchNeedsPositionRefresh;
 	private EditBox modernSearchBox;
+	// Some 26.3 input paths deliver the physical key event without a
+	// CharacterEvent while a custom Screen is active. Keep the search usable
+	// in that case and discard the matching character callback when both are
+	// delivered.
+	private int modernSearchSuppressedCodepoint = -1;
+	private long modernSearchSuppressedUntil;
 	private final LinkedHashMap<String, CategorySnapshot> modernSearchSnapshot =
 		new LinkedHashMap<>();
 	private int modernSearchBarY;
@@ -815,7 +820,7 @@ public final class ClickGui
 	private boolean handleModernNavigationClick(int mouseX, int mouseY,
 		int mouseButton)
 	{
-		if(!modernStyle || mouseButton != GLFW.GLFW_MOUSE_BUTTON_LEFT
+		if(!modernStyle || mouseButton != InputConstants.MOUSE_BUTTON_LEFT
 			|| mouseY < 4 || mouseY >= 25)
 			return false;
 		
@@ -1259,7 +1264,7 @@ public final class ClickGui
 		int mouseX = (int)context.x();
 		int mouseY = (int)context.y();
 		int mouseButton = context.button();
-		if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+		if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT)
 			leftMouseButtonPressed = true;
 		
 		if(handleModernNavigationClick(mouseX, mouseY, mouseButton))
@@ -1361,7 +1366,7 @@ public final class ClickGui
 	public boolean handleMouseDrag(MouseButtonEvent context)
 	{
 		if(modernStyle && modernSearchFocused && modernSearchBox != null
-			&& context.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT)
+			&& context.button() == InputConstants.MOUSE_BUTTON_LEFT)
 			return modernSearchBox.mouseDragged(context, 0, 0);
 		
 		return updateActiveWindowDrag((int)context.x(), (int)context.y(),
@@ -1581,9 +1586,10 @@ public final class ClickGui
 	
 	public boolean handleKeyPressed(KeyEvent context)
 	{
-		if(modernStyle && modernSearchFocused && modernSearchBox != null)
+		boolean modernSearchInput = isModernSearchInputActive();
+		if(modernSearchInput && modernSearchFocused && modernSearchBox != null)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE)
+			if(context.key() == InputConstants.KEY_ESCAPE)
 			{
 				modernSearchBox.setValue("");
 				modernSearchBox.setFocused(false);
@@ -1591,7 +1597,8 @@ public final class ClickGui
 				syncModernSearchQuery();
 				return true;
 			}
-			if(context.key() == GLFW.GLFW_KEY_A && context.hasControlDown())
+			if(context.key() == InputConstants.KEY_A
+				&& context.hasControlDown())
 			{
 				modernSearchBox.setCursorPosition(0);
 				modernSearchBox
@@ -1605,9 +1612,9 @@ public final class ClickGui
 			}
 		}
 		
-		if(modernStyle && keyboardInput == null)
+		if(modernSearchInput && keyboardInput == null)
 		{
-			if(context.key() == GLFW.GLFW_KEY_ESCAPE
+			if(context.key() == InputConstants.KEY_ESCAPE
 				&& !modernSearchQuery.isEmpty())
 			{
 				modernSearchQuery = "";
@@ -1616,7 +1623,7 @@ public final class ClickGui
 				updateModernSearchResults();
 				return true;
 			}
-			if(context.key() == GLFW.GLFW_KEY_BACKSPACE
+			if(context.key() == InputConstants.KEY_BACKSPACE
 				&& !modernSearchQuery.isEmpty())
 			{
 				modernSearchQuery = modernSearchQuery.substring(0,
@@ -1625,11 +1632,20 @@ public final class ClickGui
 				updateModernSearchResults();
 				return true;
 			}
+			
+			int codepoint = getModernSearchCodepoint(context);
+			if(codepoint >= 0)
+			{
+				appendModernSearchCodepoint(codepoint);
+				modernSearchSuppressedCodepoint = codepoint;
+				modernSearchSuppressedUntil = System.nanoTime() + 250_000_000L;
+				return true;
+			}
 		}
 		if(keyboardInput != null && keyboardInput.onKeyPressed(context))
 			return true;
 		
-		if(context.key() == GLFW.GLFW_KEY_ESCAPE && keyboardInput != null)
+		if(context.key() == InputConstants.KEY_ESCAPE && keyboardInput != null)
 		{
 			clearKeyboardInput();
 			return true;
@@ -1640,26 +1656,76 @@ public final class ClickGui
 	
 	public boolean handleCharTyped(CharacterEvent event)
 	{
-		if(modernStyle && modernSearchFocused && modernSearchBox != null
+		boolean modernSearchInput = isModernSearchInputActive();
+		if(modernSearchInput && modernSearchSuppressedCodepoint >= 0)
+		{
+			if(System.nanoTime() <= modernSearchSuppressedUntil
+				&& (event.codepoint() == modernSearchSuppressedCodepoint
+					|| event.codepoint() == Character
+						.toUpperCase(modernSearchSuppressedCodepoint)))
+			{
+				modernSearchSuppressedCodepoint = -1;
+				return true;
+			}
+			if(System.nanoTime() > modernSearchSuppressedUntil)
+				modernSearchSuppressedCodepoint = -1;
+		}
+		
+		if(modernSearchInput && modernSearchFocused && modernSearchBox != null
 			&& modernSearchBox.charTyped(event))
 		{
 			syncModernSearchQuery();
 			return true;
 		}
 		
-		if(modernStyle && modernSearchBox != null && keyboardInput == null
+		if(modernSearchInput && modernSearchBox != null && keyboardInput == null
 			&& !Character.isISOControl(event.codepoint()))
 		{
-			modernSearchFocused = true;
-			modernSearchBox.setFocused(true);
-			modernSearchQuery +=
-				new String(Character.toChars(event.codepoint()));
-			if(modernSearchBox != null)
-				modernSearchBox.setValue(modernSearchQuery);
-			updateModernSearchResults();
+			appendModernSearchCodepoint(event.codepoint());
 			return true;
 		}
 		return keyboardInput != null && keyboardInput.onCharTyped(event);
+	}
+	
+	private boolean isModernSearchInputActive()
+	{
+		return modernStyle && MC.gui != null && MC.gui
+			.screen() instanceof net.wurstclient.clickgui.screens.ClickGuiScreen;
+	}
+	
+	private int getModernSearchCodepoint(KeyEvent context)
+	{
+		if(context.hasControlDown())
+			return -1;
+		
+		int key = context.key();
+		if(key >= InputConstants.KEY_A && key <= InputConstants.KEY_Z)
+		{
+			int codepoint = 'a' + key - InputConstants.KEY_A;
+			return context.hasShiftDown() ? Character.toUpperCase(codepoint)
+				: codepoint;
+		}
+		if(!context.hasShiftDown() && key >= InputConstants.KEY_0
+			&& key <= InputConstants.KEY_9)
+			return '0' + key - InputConstants.KEY_0;
+		if(key == InputConstants.KEY_SPACE)
+			return ' ';
+		return -1;
+	}
+	
+	private void appendModernSearchCodepoint(int codepoint)
+	{
+		if(modernSearchQuery.codePointCount(0,
+			modernSearchQuery.length()) >= 128)
+			return;
+		
+		modernSearchFocused = true;
+		if(modernSearchBox != null)
+			modernSearchBox.setFocused(true);
+		modernSearchQuery += new String(Character.toChars(codepoint));
+		if(modernSearchBox != null)
+			modernSearchBox.setValue(modernSearchQuery);
+		updateModernSearchResults();
 	}
 	
 	public void requestKeyboardInput(KeyboardInput handler)
@@ -1980,7 +2046,7 @@ public final class ClickGui
 			if(mouseX >= x2 || mouseY >= y2)
 				continue;
 			
-			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+			if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT
 				&& window.isResizable() && !window.isMinimized()
 				&& mouseX >= x2 - 7 && mouseY >= y2 - 7)
 				window.startResizing(mouseX);
@@ -2044,7 +2110,7 @@ public final class ClickGui
 			if(mouseX >= x2 || mouseY >= y2)
 				continue;
 			
-			if(mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+			if(mouseButton == InputConstants.MOUSE_BUTTON_LEFT
 				&& window.isResizable() && !window.isMinimized()
 				&& mouseX >= x2 - 7 && mouseY >= y2 - 7)
 				window.startResizing(mouseX);

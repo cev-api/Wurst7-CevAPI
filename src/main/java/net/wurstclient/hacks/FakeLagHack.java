@@ -12,7 +12,7 @@ import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
+import net.minecraft.network.protocol.game.ServerboundPunchPacket;
 import net.minecraft.world.entity.player.Player;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
@@ -123,7 +123,7 @@ public final class FakeLagHack extends Hack
 		Packet<?> packet = event.getPacket();
 		if(flushOnAttack.isChecked()
 			&& (packet instanceof ServerboundInteractPacket
-				|| packet instanceof ServerboundSwingPacket))
+				|| packet instanceof ServerboundPunchPacket))
 		{
 			recoilUntil = System.currentTimeMillis() + recoilTime.getValueI();
 			flush();

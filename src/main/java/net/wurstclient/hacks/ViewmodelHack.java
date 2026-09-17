@@ -22,6 +22,7 @@ import net.wurstclient.settings.ColorSetting;
 import net.wurstclient.settings.SettingGroup;
 import net.wurstclient.settings.SliderSetting;
 import net.wurstclient.settings.SliderSetting.ValueDisplay;
+import net.wurstclient.util.RenderUtils;
 import net.wurstclient.util.text.WText;
 
 @SearchTags({"view model", "item position", "hand position", "hand render",
@@ -54,9 +55,12 @@ public final class ViewmodelHack extends Hack
 		
 		matrices.translate(settings.x.getValueF(), settings.y.getValueF(),
 			settings.z.getValueF());
-		matrices.mulPose(Axis.XP.rotationDegrees(settings.pitch.getValueF()));
-		matrices.mulPose(Axis.YP.rotationDegrees(settings.yaw.getValueF()));
-		matrices.mulPose(Axis.ZP.rotationDegrees(settings.roll.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.XP.rotationDegrees(settings.pitch.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.YP.rotationDegrees(settings.yaw.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.ZP.rotationDegrees(settings.roll.getValueF()));
 	}
 	
 	public void applyTransform(HumanoidArm arm, PoseStack matrices)
@@ -70,9 +74,12 @@ public final class ViewmodelHack extends Hack
 		
 		matrices.translate(settings.x.getValueF(), settings.y.getValueF(),
 			settings.z.getValueF());
-		matrices.mulPose(Axis.XP.rotationDegrees(settings.pitch.getValueF()));
-		matrices.mulPose(Axis.YP.rotationDegrees(settings.yaw.getValueF()));
-		matrices.mulPose(Axis.ZP.rotationDegrees(settings.roll.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.XP.rotationDegrees(settings.pitch.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.YP.rotationDegrees(settings.yaw.getValueF()));
+		RenderUtils.mulPose(matrices,
+			Axis.ZP.rotationDegrees(settings.roll.getValueF()));
 	}
 	
 	public boolean shouldHide(AbstractClientPlayer player, InteractionHand hand)

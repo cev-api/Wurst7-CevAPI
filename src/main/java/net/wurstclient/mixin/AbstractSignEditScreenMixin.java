@@ -18,7 +18,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractSignEditScreen;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import java.util.List;
 import net.wurstclient.WurstClient;
 import net.wurstclient.hacks.AutoSignHack;
 
@@ -35,7 +37,7 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 	
 	@Shadow
 	@Final
-	private boolean isFrontText;
+	private SignTextSlot slot;
 	
 	private boolean wurst$mirrorBothSides;
 	
@@ -77,10 +79,10 @@ public abstract class AbstractSignEditScreenMixin extends Screen
 		if(mc.getConnection() == null || sign == null)
 			return;
 		
-		boolean otherSide = !isFrontText;
-		mc.getConnection()
-			.send(new ServerboundSignUpdatePacket(sign.getBlockPos(), otherSide,
-				messages[0], messages[1], messages[2], messages[3]));
+		SignTextSlot otherSide =
+			slot == SignTextSlot.FRONT ? SignTextSlot.BACK : SignTextSlot.FRONT;
+		mc.getConnection().send(new ServerboundSignUpdatePacket(
+			sign.getBlockPos(), List.of(messages), otherSide));
 	}
 	
 	@Shadow
