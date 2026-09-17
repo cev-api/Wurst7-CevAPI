@@ -91,7 +91,8 @@ public final class ElytraPitchHack extends Hack implements UpdateListener
 	public void onUpdate()
 	{
 		LocalPlayer player = MC.player;
-		if(player == null || !isWearingElytra(player) || !player.isFallFlying()
+		if(player == null || WURST.getHax().elytraWalkHack.isGroundSkating()
+			|| !isWearingElytra(player) || !player.isFallFlying()
 			|| player.isInLiquid())
 		{
 			resetFlightState();

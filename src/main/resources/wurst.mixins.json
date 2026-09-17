@@ -8,6 +8,7 @@
   },
   "mixins": [],
   "client": [
+    "AbstractBoatMixin",
     "AbstractHorseMixin",
     "AbstractScrollAreaMixin",
     "AbstractWidgetMixin",
@@ -70,6 +71,7 @@
     "LevelRendererMixin",
     "LivingEntityMixin",
     "LoadingOverlayMixin",
+    "PlayerMixin",
     "LocalPlayerMixin",
     "ManageServerScreenMixin",
     "MerchantScreenMixin",

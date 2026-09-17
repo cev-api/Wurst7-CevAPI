@@ -7,15 +7,19 @@
  */
 package net.wurstclient.mixin;
 
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import com.mojang.authlib.GameProfile;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.player.LocalPlayer;
@@ -33,6 +37,7 @@ import net.wurstclient.events.FlyingSpeedListener.FlyingSpeedEvent;
 import net.wurstclient.events.IsPlayerInLavaListener.IsPlayerInLavaEvent;
 import net.wurstclient.events.IsPlayerInWaterListener.IsPlayerInWaterEvent;
 import net.wurstclient.events.MobEffectListener.MobEffectEvent;
+import net.wurstclient.events.PlayerMoveListener.PlayerMoveEvent;
 import net.wurstclient.events.PostMotionListener.PostMotionEvent;
 import net.wurstclient.events.PreMotionListener.PreMotionEvent;
 import net.wurstclient.events.UpdateListener.UpdateEvent;
@@ -43,6 +48,13 @@ import net.wurstclient.mixinterface.ILocalPlayer;
 public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	implements ILocalPlayer
 {
+	@Shadow
+	@Final
+	protected Minecraft minecraft;
+	
+	@Shadow
+	private int positionReminder;
+	
 	private LocalPlayerMixin(WurstClient wurst, ClientLevel world,
 		GameProfile profile)
 	{
@@ -85,6 +97,12 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 		}
 	}
 	
+	@Override
+	public void elytraWalk$setPositionReminder(int value)
+	{
+		positionReminder = value;
+	}
+	
 	@Inject(method = "sendPosition()V", at = @At("HEAD"))
 	private void onSendPositionHEAD(CallbackInfo ci)
 	{
@@ -95,6 +113,27 @@ public abstract class LocalPlayerMixin extends AbstractClientPlayer
 	private void onSendPositionTAIL(CallbackInfo ci)
 	{
 		EventManager.fire(PostMotionEvent.INSTANCE);
+	}
+	
+	@ModifyVariable(
+		method = "move(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V",
+		at = @At("HEAD"),
+		argsOnly = true,
+		ordinal = 0)
+	private Vec3 elytraWalk$groundSkating(Vec3 movement, MoverType type,
+		Vec3 originalMovement)
+	{
+		HackList hax = WurstClient.INSTANCE.getHax();
+		return hax == null ? movement
+			: hax.elytraWalkHack.getGroundMovement(type, movement);
+	}
+	
+	@Inject(
+		method = "move(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V",
+		at = @At("HEAD"))
+	private void onMove(MoverType type, Vec3 offset, CallbackInfo ci)
+	{
+		EventManager.fire(PlayerMoveEvent.INSTANCE);
 	}
 	
 	@Inject(method = "isAutoJumpEnabled()Z",
