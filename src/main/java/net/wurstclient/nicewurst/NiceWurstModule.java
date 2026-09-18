@@ -97,7 +97,8 @@ public final class NiceWurstModule
 			Set.of("BunnyHop", "AntiHunger", "AutoSprint", "AutoWalk",
 				"AutoSwim", "BedrockEscape", "Dolphin", "SafeWalk", "Sneak",
 				"InvWalk", "EntityControl", "PearlDrop", "FastLadder", "Fish",
-				"AntiGeyser", "ElytraPitch", "ElytraBounce"));
+				"AntiGeyser", "ElytraPitch", "ElytraBounce", "ClutchFall",
+				"ElytraDive", "ElytraWalk"));
 		
 		ALLOWED_HACKS.put(Category.COMBAT,
 			Set.of("AutoArmor", "AutoPotion", "AutoRespawn", "AutoSoup",
@@ -117,8 +118,8 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
 				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar", "TextureRotator",
-				"ServerIntel"));
+				"OppStats", "SimulationSonar", "TextureRotator", "ServerIntel",
+				"MicDetect"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
@@ -134,7 +135,8 @@ public final class NiceWurstModule
 				"AutoReconnect", "AutoTrader", "ClickGUI", "FeedAura",
 				"Navigator", "Panic", "PortalGUI", "SafeTP", "TooManyHax",
 				"DamageDetect", "ClientChatOverlay", "GlobalToggle",
-				"WebhookAlert", "RemoteEChest", "ShearAura"));
+				"WebhookAlert", "RemoteEChest", "ShearAura", "AirMiner",
+				"VaultRoll", "VillagerRoll"));
 		
 		ALLOWED_HACKS.put(Category.ITEMS,
 			Set.of("AntiDrop", "AutoDisenchant", "AutoDrop", "AutoEat",
