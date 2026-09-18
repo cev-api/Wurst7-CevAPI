@@ -1,0 +1,1 @@
+9d79832ba|26.3|skipped: full 26.3 API migration (GLFW->InputConstants, GuiGraphicsExtractor, contextual input events). Not applicable to 1.21.11.
