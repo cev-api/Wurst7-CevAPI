@@ -579,17 +579,25 @@ public final class InfiniteReachHack extends Hack
 		
 		sendMove(finalPos);
 		
-		if(!homeTeleport.isChecked())
-			MC.player.setPos(finalPos.x, finalPos.y, finalPos.z);
-		
-		if(attackPressed)
-			MC.gameMode.attack(MC.player, target);
-		else
-			MC.gameMode.interact(MC.player, target, new EntityHitResult(target),
-				InteractionHand.MAIN_HAND);
-		
-		if(swingArm.isChecked())
-			swingMainHand();
+		// Keep vanilla entity actions in sync with the spoofed
+		// server-side position.
+		Vec3 localHome = MC.player.position();
+		MC.player.setPos(finalPos.x, finalPos.y, finalPos.z);
+		try
+		{
+			if(attackPressed)
+				MC.gameMode.attack(MC.player, target);
+			else
+				MC.gameMode.interact(MC.player, target,
+					new EntityHitResult(target), InteractionHand.MAIN_HAND);
+			
+			if(swingArm.isChecked())
+				swingMainHand();
+		}finally
+		{
+			if(homeTeleport.isChecked())
+				MC.player.setPos(localHome.x, localHome.y, localHome.z);
+		}
 		
 		if(homeTeleport.isChecked())
 			returnHomeAfterEntity();
