@@ -20,6 +20,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import net.minecraft.network.Connection;
+import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.wurstclient.WurstClient;
@@ -29,6 +30,7 @@ import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hacks.NbtFilterHack;
 import net.wurstclient.other_features.PacketFirewallOtf;
 import net.wurstclient.uiutils.UiUtilsServerFingerprintCollector;
+import net.wurstclient.util.MovementPacketCompat;
 
 @Mixin(Connection.class)
 public abstract class ConnectionMixin
@@ -66,6 +68,9 @@ public abstract class ConnectionMixin
 		@Nullable ChannelFutureListener listener, boolean flush,
 		Operation<Void> original)
 	{
+		if(MovementPacketCompat.isSendingSyntheticTickEnd())
+			return;
+		
 		Packet<?> originalPacket = packet;
 		PacketFirewallOtf firewall =
 			WurstClient.INSTANCE.getOtfs().packetFirewallOtf;
@@ -118,6 +123,24 @@ public abstract class ConnectionMixin
 			return;
 		
 		event.clearCancellation();
+		MovementPacketCompat.beforePacketSend((Connection)(Object)this,
+			finalPacket);
 		original.call(finalPacket, listener, flush);
+	}
+	
+	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
+		at = @At("HEAD"))
+	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
+	{
+		MovementPacketCompat.reset((Connection)(Object)this);
+	}
+	
+	@Inject(
+		method = "disconnect(Lnet/minecraft/network/DisconnectionDetails;)V",
+		at = @At("HEAD"))
+	private void wurst$resetMovementPacketCompat(DisconnectionDetails details,
+		CallbackInfo ci)
+	{
+		MovementPacketCompat.reset((Connection)(Object)this);
 	}
 }

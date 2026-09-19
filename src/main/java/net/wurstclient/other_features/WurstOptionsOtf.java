@@ -55,6 +55,10 @@ public final class WurstOptionsOtf extends OtherFeature
 		"Remember Bans/Proxies",
 		"Warn before connecting with an account or direct/proxy identity associated with a recorded server ban.",
 		false);
+	private final CheckboxSetting restorePacketSchedulingOnOlderServers =
+		new CheckboxSetting("Restore Packet Scheduling on <26.3 Servers",
+			"Restores pre-26.3 movement packet behavior on older servers detected through ViaFabricPlus. Disable to retain 26.3 scheduling everywhere.",
+			true);
 	
 	private final CheckboxSetting titleScreenShadertoyBackground =
 		new CheckboxSetting("Shadertoy background",
@@ -95,6 +99,7 @@ public final class WurstOptionsOtf extends OtherFeature
 		addSetting(location);
 		addSetting(showRandomProxyReconnect);
 		addSetting(rememberBansAndProxies);
+		addSetting(restorePacketSchedulingOnOlderServers);
 		// Register tab-list settings before settings files are created.
 		addSetting(tabListPing);
 		addSetting(tabListHeads);
@@ -120,6 +125,11 @@ public final class WurstOptionsOtf extends OtherFeature
 	public boolean shouldRememberBansAndProxies()
 	{
 		return rememberBansAndProxies.isChecked();
+	}
+	
+	public boolean shouldRestorePacketSchedulingOnOlderServers()
+	{
+		return restorePacketSchedulingOnOlderServers.isChecked();
 	}
 	
 	public CheckboxSetting getRememberBansAndProxiesSetting()

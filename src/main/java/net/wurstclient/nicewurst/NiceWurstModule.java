@@ -118,8 +118,8 @@ public final class NiceWurstModule
 		ALLOWED_HACKS.put(Category.INTEL,
 			Set.of("Breadcrumbs", "LogoutSpots", "NewChunks", "NewerNewChunks",
 				"Mapa", "BedrockStash", "LivestreamDetector", "StaffMonitor",
-				"OppStats", "SimulationSonar", "TextureRotator",
-				"ServerIntel", "MicDetect"));
+				"OppStats", "SimulationSonar", "TextureRotator", "ServerIntel",
+				"MicDetect"));
 		
 		ALLOWED_HACKS.put(Category.CHAT,
 			Set.of("AutoChat", "ChatTranslator", "FancyChat", "Mention",
