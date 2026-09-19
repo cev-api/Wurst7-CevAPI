@@ -29,6 +29,7 @@ import net.wurstclient.events.PacketInputListener.PacketInputEvent;
 import net.wurstclient.hacks.NbtFilterHack;
 import net.wurstclient.other_features.PacketFirewallOtf;
 import net.wurstclient.uiutils.UiUtilsServerFingerprintCollector;
+import net.wurstclient.util.MovementPacketCompat;
 
 @Mixin(Connection.class)
 public abstract class ConnectionMixin
@@ -70,6 +71,9 @@ public abstract class ConnectionMixin
 		at = @At("HEAD"))
 	public Packet<?> modifyPacket(Packet<?> packet)
 	{
+		if(MovementPacketCompat.isSendingSyntheticTickEnd())
+			return packet;
+		
 		Packet<?> originalPacket = packet;
 		PacketFirewallOtf firewall =
 			WurstClient.INSTANCE.getOtfs().packetFirewallOtf;
@@ -132,6 +136,9 @@ public abstract class ConnectionMixin
 	private void onSend(Packet<?> packet,
 		@Nullable ChannelFutureListener callback, CallbackInfo ci)
 	{
+		if(MovementPacketCompat.isSendingSyntheticTickEnd())
+			return;
+		
 		if(NbtFilterHack.shouldCancelOutgoingPacket(packet))
 		{
 			ci.cancel();
@@ -139,13 +146,35 @@ public abstract class ConnectionMixin
 		}
 		
 		ConnectionPacketOutputEvent event = getEvent(packet);
-		if(event == null)
-			return;
+		if(event != null)
+		{
+			if(event.isCancelled())
+			{
+				events.remove(event);
+				ci.cancel();
+				return;
+			}
+			
+			events.remove(event);
+		}
 		
-		if(event.isCancelled())
-			ci.cancel();
-		
-		events.remove(event);
+		MovementPacketCompat.beforePacketSend((Connection)(Object)this, packet);
+	}
+	
+	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
+		at = @At("HEAD"))
+	private void wurst$resetMovementPacketCompat(CallbackInfo ci)
+	{
+		MovementPacketCompat.reset((Connection)(Object)this);
+	}
+	
+	@Inject(
+		method = "disconnect(Lnet/minecraft/network/DisconnectionDetails;)V",
+		at = @At("HEAD"))
+	private void wurst$resetMovementPacketCompat(
+		net.minecraft.network.DisconnectionDetails details, CallbackInfo ci)
+	{
+		MovementPacketCompat.reset((Connection)(Object)this);
 	}
 	
 	private ConnectionPacketOutputEvent getEvent(Packet<?> packet)
