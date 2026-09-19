@@ -34,17 +34,25 @@ import com.mojang.math.Axis;
 
 import net.minecraft.client.gui.Font.DisplayMode;
 import net.minecraft.client.server.IntegratedServer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundForgetLevelChunkPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
+import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.OminousBottleAmplifier;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.VaultBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.vault.VaultBlockEntity;
 import net.minecraft.world.level.block.entity.vault.VaultState;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
@@ -144,8 +152,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 		new EnumMap<>(VaultRollMode.class);
 	private final EnumMap<VaultRollMode, AtomicLong> heavyCoreGenerations =
 		new EnumMap<>(VaultRollMode.class);
-	private final Map<VaultKey, VaultState> previousVaultStates =
-		new HashMap<>();
+	private final Map<VaultKey, VaultState> knownVaultStates = new HashMap<>();
 	private final Map<VaultKey, AutoOpening> autoOpenings = new HashMap<>();
 	private final Map<Integer, KnownItem> knownItems = new LinkedHashMap<>();
 	
@@ -155,6 +162,7 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	private String lastWorldSeedSettingValue = "";
 	private String persistenceServerKey;
 	private boolean persistenceLoaded;
+	private boolean vaultIndexInitialized;
 	private VaultRollMode selectedMode = VaultRollMode.OMINOUS;
 	
 	public VaultRollHack()
@@ -245,10 +253,18 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			clearAllState();
 			lastEffectiveSeed = effectiveSeed;
 		}
-		if(autoObserve.isChecked())
+		if((autoObserve.isChecked() || predictionEsp.isChecked())
+			&& !vaultIndexInitialized)
 		{
-			rememberVisibleItems();
-			observeVaultEjections();
+			indexLoadedVaults();
+			vaultIndexInitialized = true;
+		}
+		if(autoObserve.isChecked())
+			advanceAutoOpenings();
+		else if(!autoOpenings.isEmpty())
+		{
+			autoOpenings.clear();
+			knownItems.clear();
 		}
 		if(predictionEsp.isChecked())
 			queueHeavyCoreSearches();
@@ -261,60 +277,94 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			|| MC.font == null)
 			return;
 		
-		ChunkUtils.getLoadedBlockEntities()
-			.filter(be -> be instanceof VaultBlockEntity)
-			.map(be -> (VaultBlockEntity)be).forEach(blockEntity -> {
-				BlockPosAndState vault = getVaultState(blockEntity);
-				if(vault == null)
-					return;
-				Vec3 center = Vec3.atCenterOf(vault.pos());
-				double maxRenderDistance = maxDistance.getValue();
-				if(maxRenderDistance > 0
-					&& MC.player.distanceToSqr(center.x, center.y,
-						center.z) > maxRenderDistance * maxRenderDistance
-					|| !NiceWurstModule.shouldRenderTarget(center))
-					return;
-				
-				VaultRollMode mode = isOminous(vault.blockState)
-					? VaultRollMode.OMINOUS : VaultRollMode.NORMAL;
-				ModeState state = states.get(mode);
-				if(state.sequenceSeed == null || state.nextOpening == null)
-					return;
-				
-				VaultRollOpening opening = VaultRollPredictor.predictOpening(
-					state.sequenceSeed, mode, state.nextOpening);
-				List<String> lines = new ArrayList<>();
-				int color =
-					mode == VaultRollMode.OMINOUS ? 0xFFFF6688 : 0xFF55FFAA;
-				lines.add(mode.displayName() + " Vault");
-				lines.add("Next #" + (state.nextOpening + 1));
-				for(VaultRollStack stack : opening.stacks())
-					lines.add(formatPredictedStack(stack));
-				if(!state.heavyCoreSearchComplete)
-					lines.add("Heavy Core: searching...");
-				else if(state.heavyCoreHit == null)
-					lines.add("Heavy Core: not in next "
-						+ state.heavyCoreSearchHorizon + " openings");
-				else if(state.heavyCoreHit.offset() == 0)
-					lines.add("Heavy Core: NEXT opening");
-				else
-					lines.add(
-						"Heavy Core: +" + state.heavyCoreHit.offset() + " (#"
-							+ (state.heavyCoreHit.absoluteOpening() + 1) + ")");
-				drawWorldLabel(matrices, center.add(0, 0.35, 0), lines, color,
-					overlayScale.getValueF());
-			});
+		for(VaultKey key : List.copyOf(knownVaultStates.keySet()))
+		{
+			BlockPosAndState vault = getVaultState(key.pos());
+			if(vault == null)
+			{
+				knownVaultStates.remove(key);
+				autoOpenings.remove(key);
+				continue;
+			}
+			Vec3 center = Vec3.atCenterOf(vault.pos());
+			double maxRenderDistance = maxDistance.getValue();
+			if(maxRenderDistance > 0
+				&& MC.player.distanceToSqr(center.x, center.y,
+					center.z) > maxRenderDistance * maxRenderDistance
+				|| !NiceWurstModule.shouldRenderTarget(center))
+				continue;
+			
+			VaultRollMode mode = isOminous(vault.blockState)
+				? VaultRollMode.OMINOUS : VaultRollMode.NORMAL;
+			ModeState state = states.get(mode);
+			if(state.sequenceSeed == null || state.nextOpening == null)
+				continue;
+			
+			VaultRollOpening opening = VaultRollPredictor
+				.predictOpening(state.sequenceSeed, mode, state.nextOpening);
+			List<String> lines = new ArrayList<>();
+			int color = mode == VaultRollMode.OMINOUS ? 0xFFFF6688 : 0xFF55FFAA;
+			lines.add(mode.displayName() + " Vault");
+			lines.add("Next #" + (state.nextOpening + 1));
+			for(VaultRollStack stack : opening.stacks())
+				lines.add(formatPredictedStack(stack));
+			if(!state.heavyCoreSearchComplete)
+				lines.add("Heavy Core: searching...");
+			else if(state.heavyCoreHit == null)
+				lines.add("Heavy Core: not in next "
+					+ state.heavyCoreSearchHorizon + " openings");
+			else if(state.heavyCoreHit.offset() == 0)
+				lines.add("Heavy Core: NEXT opening");
+			else
+				lines.add("Heavy Core: +" + state.heavyCoreHit.offset() + " (#"
+					+ (state.heavyCoreHit.absoluteOpening() + 1) + ")");
+			drawWorldLabel(matrices, center.add(0, 0.35, 0), lines, color,
+				overlayScale.getValueF());
+		}
 	}
 	
 	@Override
 	public void onReceivedPacket(PacketInputEvent event)
 	{
-		if(!autoObserve.isChecked() || !(event
-			.getPacket() instanceof ClientboundTakeItemEntityPacket packet))
+		var packet = event.getPacket();
+		if(autoObserve.isChecked()
+			&& packet instanceof ClientboundTakeItemEntityPacket takeItem)
+		{
+			int entityId = takeItem.getItemId();
+			int amount = takeItem.getAmount();
+			MC.execute(() -> rememberPickedUpItem(entityId, amount));
 			return;
-		int entityId = packet.getItemId();
-		int amount = packet.getAmount();
-		MC.execute(() -> rememberPickedUpItem(entityId, amount));
+		}
+		if(!autoObserve.isChecked() && !predictionEsp.isChecked())
+			return;
+		if(packet instanceof ClientboundBlockUpdatePacket blockUpdate)
+		{
+			BlockPos pos = blockUpdate.getPos().immutable();
+			BlockState state = blockUpdate.getBlockState();
+			MC.execute(() -> handleVaultBlockUpdate(pos, state));
+			return;
+		}
+		if(packet instanceof ClientboundSectionBlocksUpdatePacket sectionUpdate)
+		{
+			List<VaultBlockUpdate> updates = new ArrayList<>();
+			sectionUpdate.runUpdates((pos, state) -> updates
+				.add(new VaultBlockUpdate(pos.immutable(), state)));
+			MC.execute(() -> updates
+				.forEach(update -> handleVaultBlockUpdate(update.pos(),
+					update.state())));
+			return;
+		}
+		if(packet instanceof ClientboundLevelChunkWithLightPacket chunkPacket)
+		{
+			ChunkPos chunkPos = new ChunkPos(chunkPacket.x(), chunkPacket.z());
+			MC.execute(() -> MC.execute(() -> indexVaultsInChunk(chunkPos)));
+			return;
+		}
+		if(packet instanceof ClientboundForgetLevelChunkPacket chunkPacket)
+		{
+			ChunkPos chunkPos = chunkPacket.pos();
+			MC.execute(() -> forgetVaultsInChunk(chunkPos));
+		}
 	}
 	
 	@Override
@@ -1123,109 +1173,195 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			message(text + " in " + offset + " opening(s).");
 	}
 	
-	private void observeVaultEjections()
+	private void indexLoadedVaults()
+	{
+		if(MC.level == null)
+			return;
+		ChunkUtils.getLoadedBlockEntities()
+			.filter(VaultBlockEntity.class::isInstance)
+			.map(VaultBlockEntity.class::cast).map(this::getVaultState)
+			.filter(Objects::nonNull).forEach(this::rememberVault);
+	}
+	
+	private void indexVaultsInChunk(ChunkPos chunkPos)
+	{
+		if(MC.level == null || !MC.level.hasChunk(chunkPos.x(), chunkPos.z()))
+			return;
+		LevelChunk chunk = MC.level.getChunk(chunkPos.x(), chunkPos.z());
+		if(chunk == null)
+			return;
+		Set<VaultKey> found = new HashSet<>();
+		for(BlockEntity blockEntity : chunk.getBlockEntities().values())
+		{
+			if(!(blockEntity instanceof VaultBlockEntity vaultBlockEntity))
+				continue;
+			BlockPosAndState vault = getVaultState(vaultBlockEntity);
+			if(vault == null)
+				continue;
+			VaultKey key = new VaultKey(vault.pos());
+			found.add(key);
+			rememberVault(vault);
+		}
+		knownVaultStates.keySet()
+			.removeIf(key -> isInChunk(key, chunkPos) && !found.contains(key));
+		autoOpenings.keySet()
+			.removeIf(key -> isInChunk(key, chunkPos) && !found.contains(key));
+	}
+	
+	private void forgetVaultsInChunk(ChunkPos chunkPos)
+	{
+		knownVaultStates.keySet().removeIf(key -> isInChunk(key, chunkPos));
+		autoOpenings.keySet().removeIf(key -> isInChunk(key, chunkPos));
+	}
+	
+	private boolean isInChunk(VaultKey key, ChunkPos chunkPos)
+	{
+		return (key.pos().getX() >> 4) == chunkPos.x()
+			&& (key.pos().getZ() >> 4) == chunkPos.z();
+	}
+	
+	private void handleVaultBlockUpdate(BlockPos pos, BlockState blockState)
+	{
+		if(MC.level == null)
+			return;
+		if(!isVault(blockState))
+		{
+			VaultKey key = new VaultKey(pos.immutable());
+			knownVaultStates.remove(key);
+			autoOpenings.remove(key);
+			return;
+		}
+		rememberVault(new BlockPosAndState(pos.immutable(), blockState,
+			blockState.getValue(VaultBlock.STATE)));
+	}
+	
+	private void rememberVault(BlockPosAndState vault)
+	{
+		VaultKey key = new VaultKey(vault.pos());
+		VaultState previous = knownVaultStates.put(key, vault.state());
+		if(!autoObserve.isChecked() || !isNearby(vault.pos()))
+			return;
+		AutoOpening opening = autoOpenings.get(key);
+		if(vault.state() == VaultState.UNLOCKING
+			&& (previous != VaultState.UNLOCKING || opening == null))
+		{
+			opening = new AutoOpening(key, isOminous(vault.blockState),
+				snapshotItemIds(vault.pos()));
+			autoOpenings.put(key, opening);
+		}
+		if(vault.state() == VaultState.EJECTING)
+		{
+			if(opening == null)
+			{
+				// A late block-state packet can skip UNLOCKING. Keep
+				// already-known nearby entities out of the capture while
+				// still allowing newly spawned eject items through.
+				opening = new AutoOpening(key, isOminous(vault.blockState),
+					snapshotPreExistingItemIds(vault.pos()));
+				autoOpenings.put(key, opening);
+			}
+			opening.sawEjecting = true;
+			opening.ejectingEndedAt = -1;
+		}
+	}
+	
+	private boolean isNearby(BlockPos pos)
+	{
+		return MC.player != null && MC.player.distanceToSqr(pos.getX() + 0.5,
+			pos.getY() + 0.5, pos.getZ() + 0.5) <= 64 * 64;
+	}
+	
+	private void advanceAutoOpenings()
 	{
 		if(MC.level == null || MC.player == null)
 			return;
+		// This is an index of Vault positions updated by block/chunk packets,
+		// not a scan of all loaded block entities.
+		for(Map.Entry<VaultKey, VaultState> entry : knownVaultStates.entrySet())
+		{
+			if(entry.getValue() != VaultState.EJECTING
+				|| autoOpenings.containsKey(entry.getKey())
+				|| !isNearby(entry.getKey().pos()))
+				continue;
+			AutoOpening opening = new AutoOpening(entry.getKey(),
+				isOminous(MC.level.getBlockState(entry.getKey().pos())),
+				snapshotPreExistingItemIds(entry.getKey().pos()));
+			opening.sawEjecting = true;
+			autoOpenings.put(entry.getKey(), opening);
+		}
+		if(autoOpenings.isEmpty())
+		{
+			knownItems.clear();
+			return;
+		}
 		long now = MC.level.getGameTime();
-		Set<VaultKey> loaded = new HashSet<>();
-		ChunkUtils.getLoadedBlockEntities()
-			.filter(be -> be instanceof VaultBlockEntity)
-			.map(be -> (VaultBlockEntity)be).forEach(be -> {
-				BlockPosAndState block = getVaultState(be);
-				if(block == null)
-					return;
-				VaultKey key = new VaultKey(block.pos());
-				loaded.add(key);
-				VaultState previous =
-					previousVaultStates.put(key, block.state());
-				if(MC.player.distanceToSqr(block.pos().getX() + 0.5,
-					block.pos().getY() + 0.5,
-					block.pos().getZ() + 0.5) > 64 * 64)
-					return;
-				AutoOpening opening = autoOpenings.get(key);
-				if(block.state() == VaultState.UNLOCKING
-					&& previous != VaultState.UNLOCKING)
+		for(AutoOpening opening : List.copyOf(autoOpenings.values()))
+		{
+			if(!isNearby(opening.key.pos()))
+				continue;
+			BlockState blockState = MC.level.getBlockState(opening.key.pos());
+			if(!isVault(blockState))
+			{
+				autoOpenings.remove(opening.key);
+				knownVaultStates.remove(opening.key);
+				continue;
+			}
+			VaultState state = blockState.getValue(VaultBlock.STATE);
+			knownVaultStates.put(opening.key, state);
+			if(state == VaultState.EJECTING)
+			{
+				opening.sawEjecting = true;
+				opening.ejectingEndedAt = -1;
+				captureItems(opening, now);
+			}else if(opening.sawEjecting)
+			{
+				if(opening.ejectingEndedAt < 0)
+					opening.ejectingEndedAt = now;
+				captureItems(opening, now);
+				if(now - opening.ejectingEndedAt >= AUTO_CAPTURE_GRACE_TICKS)
 				{
-					opening = new AutoOpening(key, isOminous(block.blockState),
-						snapshotItemIds(block.pos()));
-					autoOpenings.put(key, opening);
+					autoOpenings.remove(opening.key);
+					finishAutoOpening(opening);
 				}
-				if(block.state() == VaultState.EJECTING)
-				{
-					if(opening == null)
-					{
-						// A late block-state packet can skip UNLOCKING. Keep
-						// already-known nearby entities out of the capture
-						// while
-						// still allowing newly spawned eject items through.
-						opening =
-							new AutoOpening(key, isOminous(block.blockState),
-								snapshotPreExistingItemIds(block.pos()));
-						autoOpenings.put(key, opening);
-					}
-					opening.sawEjecting = true;
-					opening.ejectingEndedAt = -1;
-					captureItems(opening);
-				}else if(opening != null && opening.sawEjecting)
-				{
-					if(opening.ejectingEndedAt < 0)
-						opening.ejectingEndedAt = now;
-					captureItems(opening);
-					if(now
-						- opening.ejectingEndedAt >= AUTO_CAPTURE_GRACE_TICKS)
-					{
-						autoOpenings.remove(key);
-						finishAutoOpening(opening);
-					}
-				}
-			});
-		previousVaultStates.keySet().removeIf(key -> !loaded.contains(key));
-		autoOpenings.keySet().removeIf(key -> !loaded.contains(key));
+			}else
+				autoOpenings.remove(opening.key);
+		}
 	}
 	
 	private BlockPosAndState getVaultState(VaultBlockEntity blockEntity)
 	{
 		var pos = blockEntity.getBlockPos().immutable();
+		return getVaultState(pos);
+	}
+	
+	private BlockPosAndState getVaultState(BlockPos pos)
+	{
 		BlockState state = MC.level.getBlockState(pos);
 		return isVault(state)
 			? new BlockPosAndState(pos, state, state.getValue(VaultBlock.STATE))
 			: null;
 	}
 	
-	private void rememberVisibleItems()
+	private void rememberItem(ItemEntity item, VaultRollStack details, long now)
 	{
-		long now = MC.level.getGameTime();
-		for(var entity : MC.level.entitiesForRendering())
-		{
-			if(!(entity instanceof ItemEntity item) || !item.isAlive()
-				|| item.isRemoved())
-				continue;
-			ItemStack stack = item.getItem();
-			if(stack == null || stack.isEmpty())
-				continue;
-			VaultRollStack details = describeItemStack(stack);
-			if(details == null)
-				continue;
-			KnownItem previous = knownItems.get(item.getId());
-			boolean sameEntity =
-				previous != null && previous.uuid().equals(item.getUUID());
-			int count = !sameEntity ? stack.getCount()
-				: Math.max(previous.count(), stack.getCount());
-			net.minecraft.world.phys.Vec3 firstPosition =
-				!sameEntity ? item.position() : previous.firstPosition();
-			long firstSeen = !sameEntity ? now : previous.firstSeen();
-			knownItems.put(item.getId(),
-				new KnownItem(item.getId(), item.getUUID(), details.itemId(),
-					count, details.enchantments(), details.note(),
-					firstPosition, item.position(), firstSeen, now));
-		}
-		knownItems.entrySet().removeIf(
-			entry -> now - entry.getValue().lastSeen() > MAX_KNOWN_ITEM_TICKS);
+		KnownItem previous = knownItems.get(item.getId());
+		boolean sameEntity =
+			previous != null && previous.uuid().equals(item.getUUID());
+		int count = !sameEntity ? item.getItem().getCount()
+			: Math.max(previous.count(), item.getItem().getCount());
+		net.minecraft.world.phys.Vec3 firstPosition =
+			!sameEntity ? item.position() : previous.firstPosition();
+		long firstSeen = !sameEntity ? now : previous.firstSeen();
+		knownItems.put(item.getId(),
+			new KnownItem(item.getId(), item.getUUID(), details.itemId(), count,
+				details.enchantments(), details.note(), firstPosition,
+				item.position(), firstSeen, now));
 	}
 	
 	private void rememberPickedUpItem(int entityId, int amount)
 	{
+		if(autoOpenings.isEmpty())
+			return;
 		KnownItem item = knownItems.get(entityId);
 		if(item == null && MC.level != null
 			&& MC.level.getEntity(entityId) instanceof ItemEntity entity)
@@ -1345,19 +1481,22 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			stack.getCount(), enchantments, note);
 	}
 	
-	private void captureItems(AutoOpening opening)
+	private void captureItems(AutoOpening opening, long now)
 	{
 		Map<String, Integer> currentTotals = new HashMap<>();
 		for(ItemEntity item : itemsNear(opening.key.pos()))
 		{
-			if(item.getAge() > MAX_AUTO_ITEM_AGE
-				|| opening.baselineItemIds.contains(item.getUUID()))
+			if(!item.isAlive() || item.isRemoved())
 				continue;
 			ItemStack stack = item.getItem();
 			if(stack == null || stack.isEmpty())
 				continue;
 			VaultRollStack details = describeItemStack(stack);
 			if(details == null)
+				continue;
+			rememberItem(item, details, now);
+			if(item.getAge() > MAX_AUTO_ITEM_AGE
+				|| opening.baselineItemIds.contains(item.getUUID()))
 				continue;
 			if(!VaultRollPredictor.isPossibleLootItem(opening.mode,
 				details.itemId()))
@@ -1375,6 +1514,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 			opening.maximumTotals.merge(entry.getKey(), entry.getValue(),
 				Math::max);
 		captureKnownItems(opening);
+		knownItems.entrySet().removeIf(
+			entry -> now - entry.getValue().lastSeen() > MAX_KNOWN_ITEM_TICKS);
 	}
 	
 	private void captureKnownItems(AutoOpening opening)
@@ -1560,7 +1701,8 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	{
 		for(VaultRollMode mode : VaultRollMode.values())
 			clearMode(mode);
-		previousVaultStates.clear();
+		knownVaultStates.clear();
+		vaultIndexInitialized = false;
 		autoOpenings.clear();
 		knownItems.clear();
 	}
@@ -2054,6 +2196,9 @@ public final class VaultRollHack extends Hack implements UpdateListener,
 	
 	private record BlockPosAndState(net.minecraft.core.BlockPos pos,
 		BlockState blockState, VaultState state)
+	{}
+	
+	private record VaultBlockUpdate(BlockPos pos, BlockState state)
 	{}
 	
 	private final class AutoOpening
