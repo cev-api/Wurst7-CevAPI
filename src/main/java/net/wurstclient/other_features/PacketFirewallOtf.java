@@ -686,9 +686,10 @@ public final class PacketFirewallOtf extends OtherFeature
 	}
 	
 	/**
-	 * Vanilla-only mode pauses direct packet hooks and explicit extended-reach
-	 * features. Ordinary movement helpers, including ElytraPitch, remain
-	 * available unless the user disables them.
+	 * Vanilla-only mode pauses movement hacks because they can change the
+	 * client state that produces movement packets, even when they do not send
+	 * packets directly. Other direct packet and interaction hooks are also
+	 * paused below. Built-in client-side helpers remain available.
 	 */
 	private boolean isPacketAffectingHack(Hack hack)
 	{
@@ -701,7 +702,7 @@ public final class PacketFirewallOtf extends OtherFeature
 		if(isBuiltInAllowedHack(hack))
 			return false;
 		
-		if(isExtendedReachHack(hack))
+		if(hack.getCategory() == Category.MOVEMENT || isExtendedReachHack(hack))
 			return true;
 			
 		// Flight changes the client movement vector directly, so it must be

@@ -21,13 +21,12 @@ import net.minecraft.client.model.Model;
 import net.minecraft.client.model.player.PlayerModel;
 import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.SubmitNodeCollector;
-import net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.UvMapping;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.entity.MobCategory;
@@ -46,18 +45,17 @@ public abstract class NecoModeLivingEntityRendererMixin
 	@WrapOperation(
 		method = "submit(Lnet/minecraft/client/renderer/entity/state/LivingEntityRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
 		at = @At(value = "INVOKE",
-			target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/TextureAtlasSprite;ILnet/minecraft/client/renderer/feature/ModelFeatureRenderer$CrumblingOverlay;)V"))
+			target = "Lnet/minecraft/client/renderer/SubmitNodeCollector;submitModel(Lnet/minecraft/client/model/Model;Ljava/lang/Object;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;IIILnet/minecraft/client/renderer/texture/UvMapping;I)V"))
 	private void wurst$replaceSubmittedModel(SubmitNodeCollector collector,
 		Model model, Object renderState, PoseStack poseStack,
 		RenderType renderType, int lightCoords, int overlay, int tint,
-		TextureAtlasSprite sprite, int outlineColor, CrumblingOverlay crumbling,
-		Operation<Void> original)
+		UvMapping sprite, int outlineColor, Operation<Void> original)
 	{
 		if(!(renderState instanceof LivingEntityRenderState state)
 			|| !shouldApplyToState(state))
 		{
 			original.call(collector, model, renderState, poseStack, renderType,
-				lightCoords, overlay, tint, sprite, outlineColor, crumbling);
+				lightCoords, overlay, tint, sprite, outlineColor);
 			return;
 		}
 		
@@ -66,7 +64,7 @@ public abstract class NecoModeLivingEntityRendererMixin
 		PlayerModel necoModel = getNecoPlayerModel();
 		original.call(collector, necoModel, avatarState, poseStack,
 			necoModel.renderType(WURST_NECO_SKIN), lightCoords, overlay, tint,
-			sprite, outlineColor, crumbling);
+			sprite, outlineColor);
 	}
 	
 	@WrapOperation(
