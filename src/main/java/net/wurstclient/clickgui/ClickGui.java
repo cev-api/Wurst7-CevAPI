@@ -2644,11 +2644,15 @@ public final class ClickGui
 				controlX + MODERN_TITLE_CONTROL_SIZE,
 				controlY + MODERN_TITLE_CONTROL_SIZE,
 				RenderUtils.toIntColor(dropdownButtonColor, opacity));
-			drawModernPin(context, controlX, controlY, window.isPinned(),
-				mouseX >= controlX
-					&& mouseX < controlX + MODERN_TITLE_CONTROL_SIZE
-					&& mouseY >= controlY
-					&& mouseY < controlY + MODERN_TITLE_CONTROL_SIZE);
+			boolean pinHovered = mouseX >= controlX
+				&& mouseX < controlX + MODERN_TITLE_CONTROL_SIZE
+				&& mouseY >= controlY
+				&& mouseY < controlY + MODERN_TITLE_CONTROL_SIZE;
+			// Inset the pin by one pixel so it doesn't touch the button edges.
+			ClickGuiIcons.drawPin(context, controlX + 1, controlY + 1,
+				controlX + MODERN_TITLE_CONTROL_SIZE - 1,
+				controlY + MODERN_TITLE_CONTROL_SIZE - 1, pinHovered,
+				window.isPinned());
 			controlX -= MODERN_TITLE_CONTROL_SLOT;
 		}
 		if(window.isMinimizable())
@@ -2695,27 +2699,6 @@ public final class ClickGui
 				modernBackground);
 			context.fill(x2 - 7, thumbY, x2 - 3, thumbY + thumbHeight,
 				modernHeader);
-		}
-	}
-	
-	private void drawModernPin(GuiGraphicsExtractor context, int x, int y,
-		boolean pinned, boolean hovering)
-	{
-		int color = 0xFFFFFFFF;
-		
-		// Compact, solid arrow: down while unpinned, up while pinned.
-		if(pinned)
-		{
-			context.fill(x + 6, y + 3, x + 7, y + 4, color);
-			context.fill(x + 5, y + 4, x + 8, y + 5, color);
-			context.fill(x + 4, y + 5, x + 9, y + 6, color);
-			context.fill(x + 3, y + 6, x + 10, y + 7, color);
-		}else
-		{
-			context.fill(x + 3, y + 3, x + 10, y + 4, color);
-			context.fill(x + 4, y + 4, x + 9, y + 5, color);
-			context.fill(x + 5, y + 5, x + 8, y + 6, color);
-			context.fill(x + 6, y + 6, x + 7, y + 7, color);
 		}
 	}
 	
