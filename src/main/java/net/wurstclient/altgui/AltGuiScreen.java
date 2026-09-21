@@ -105,6 +105,11 @@ public final class AltGuiScreen extends Screen
 	private TextFieldSetting editingTextField;
 	private String originalTextFieldValue;
 	private String searchText = "";
+	// Some 26.3 input paths deliver the physical key event without a
+	// CharacterEvent while no text field is focused. Keep the search usable in
+	// that case and discard the matching character callback when both are
+	// delivered.
+	private int searchSuppressedCodepoint = -1;
 	private String selectedCategory = Category.FAVORITES.getName();
 	private Feature selectedFeature;
 	private boolean enabledCategorySelected;
@@ -439,6 +444,8 @@ public final class AltGuiScreen extends Screen
 	@Override
 	public boolean keyPressed(KeyEvent context)
 	{
+		searchSuppressedCodepoint = -1;
+		
 		if(editingTextField != null)
 		{
 			if(context.key() == InputConstants.KEY_ESCAPE)
@@ -460,6 +467,9 @@ public final class AltGuiScreen extends Screen
 			return true;
 		}
 		
+		if(handleSearchKeyPressed(context))
+			return true;
+		
 		return super.keyPressed(context);
 	}
 	
@@ -468,6 +478,9 @@ public final class AltGuiScreen extends Screen
 	{
 		if(editingTextField != null)
 			return super.charTyped(event);
+		
+		if(isSuppressedSearchChar(event))
+			return true;
 		
 		if(searchBox != null && cfg().isSearchOnlyWhileTypingEnabled()
 			&& !searchBox.isFocused())
@@ -481,6 +494,62 @@ public final class AltGuiScreen extends Screen
 			return true;
 		
 		return super.charTyped(event);
+	}
+	
+	private boolean handleSearchKeyPressed(KeyEvent context)
+	{
+		if(searchBox == null || searchBox.isFocused()
+			|| !cfg().isSearchOnlyWhileTypingEnabled())
+			return false;
+		
+		int codepoint = getSearchCodepoint(context);
+		if(codepoint < 0)
+			return false;
+		
+		setFocused(searchBox);
+		searchBox.setFocused(true);
+		searchBox.setVisible(true);
+		
+		if(!searchBox.charTyped(new CharacterEvent(codepoint)))
+			return false;
+		
+		searchText = searchBox.getValue();
+		moduleScroll = 0;
+		searchSuppressedCodepoint = codepoint;
+		return true;
+	}
+	
+	private int getSearchCodepoint(KeyEvent context)
+	{
+		if(context.hasControlDown() || context.hasAltDown())
+			return -1;
+		
+		int key = context.key();
+		if(key >= InputConstants.KEY_A && key <= InputConstants.KEY_Z)
+		{
+			int codepoint = 'a' + key - InputConstants.KEY_A;
+			return context.hasShiftDown() ? Character.toUpperCase(codepoint)
+				: codepoint;
+		}
+		if(!context.hasShiftDown() && key >= InputConstants.KEY_0
+			&& key <= InputConstants.KEY_9)
+			return '0' + key - InputConstants.KEY_0;
+		if(key == InputConstants.KEY_SPACE)
+			return ' ';
+		return -1;
+	}
+	
+	private boolean isSuppressedSearchChar(CharacterEvent event)
+	{
+		if(searchSuppressedCodepoint < 0)
+			return false;
+		
+		if(event.codepoint() != searchSuppressedCodepoint && event
+			.codepoint() != Character.toUpperCase(searchSuppressedCodepoint))
+			return false;
+		
+		searchSuppressedCodepoint = -1;
+		return true;
 	}
 	
 	@Override
