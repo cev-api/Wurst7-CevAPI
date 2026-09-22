@@ -20,7 +20,8 @@ import net.wurstclient.WurstClient;
 
 /**
  * Restores synchronous position-packet bursts on 26.3 servers by separating
- * their position packets with synthetic client tick boundaries.
+ * their position packets with synthetic client tick boundaries. The tick
+ * boundaries are only inserted when the server on the other end needs them.
  */
 public final class MovementPacketCompat
 {
@@ -29,6 +30,8 @@ public final class MovementPacketCompat
 		ThreadLocal.withInitial(() -> false);
 	private static final Map<Connection, ConnectionState> states =
 		new WeakHashMap<>();
+	private static volatile Class<?> viaFabricPlusClass;
+	private static volatile boolean viaFabricPlusLookedUp;
 	
 	private MovementPacketCompat()
 	{}
@@ -42,12 +45,18 @@ public final class MovementPacketCompat
 		Packet<?> packet)
 	{
 		ConnectionState state = getState(connection);
+		
+		// Every tick boundary closes the position slot, whether Minecraft sent
+		// it or this class did.
 		if(packet instanceof ServerboundClientTickEndPacket)
 		{
 			state.positionSentThisTick = false;
 			return;
 		}
 		
+		// Only positional movement packets occupy the slot. Rotation-only
+		// movement and all other packets leave it untouched, so it doesn't
+		// matter what else is sent in between them.
 		if(!(packet instanceof ServerboundMovePlayerPacket move)
 			|| !move.hasPosition())
 			return;
@@ -61,19 +70,27 @@ public final class MovementPacketCompat
 		}
 		
 		if(state.positionSentThisTick)
-		{
-			state.positionSentThisTick = false;
-			sendingSyntheticTickEnd.set(true);
-			try
-			{
-				connection.send(ServerboundClientTickEndPacket.INSTANCE);
-			}finally
-			{
-				sendingSyntheticTickEnd.remove();
-			}
-		}
+			sendSyntheticTickEnd(connection);
 		
 		state.positionSentThisTick = true;
+	}
+	
+	/**
+	 * Sends a tick boundary that Minecraft didn't send itself. The nested call
+	 * closes the current tick and then starts a new one, and it can't recurse
+	 * any further because the packet it sends is turned away at the top of
+	 * {@link #beforePacketSend}.
+	 */
+	private static synchronized void sendSyntheticTickEnd(Connection connection)
+	{
+		sendingSyntheticTickEnd.set(true);
+		try
+		{
+			connection.send(ServerboundClientTickEndPacket.INSTANCE);
+		}finally
+		{
+			sendingSyntheticTickEnd.remove();
+		}
 	}
 	
 	public static synchronized void reset(Connection connection)
@@ -121,16 +138,14 @@ public final class MovementPacketCompat
 		Class<?> viaFabricPlus;
 		try
 		{
-			viaFabricPlus =
-				Class.forName("com.viaversion.viafabricplus.ViaFabricPlus",
-					false, MovementPacketCompat.class.getClassLoader());
-		}catch(ClassNotFoundException e)
-		{
-			return ProtocolTarget.nativeTarget();
+			viaFabricPlus = findViaFabricPlus();
 		}catch(LinkageError | SecurityException e)
 		{
 			return ProtocolTarget.unknown();
 		}
+		
+		if(viaFabricPlus == null)
+			return ProtocolTarget.nativeTarget();
 		
 		// ViaFabricPlus 5.x public API.
 		try
@@ -195,6 +210,29 @@ public final class MovementPacketCompat
 		{}
 		
 		return ProtocolTarget.unknown();
+	}
+	
+	/**
+	 * Resolves ViaFabricPlus once instead of once per outgoing packet. Returns
+	 * null if it isn't installed.
+	 */
+	private static Class<?> findViaFabricPlus()
+	{
+		if(!viaFabricPlusLookedUp)
+		{
+			try
+			{
+				viaFabricPlusClass =
+					Class.forName("com.viaversion.viafabricplus.ViaFabricPlus",
+						false, MovementPacketCompat.class.getClassLoader());
+			}catch(ClassNotFoundException e)
+			{
+				viaFabricPlusClass = null;
+			}
+			viaFabricPlusLookedUp = true;
+		}
+		
+		return viaFabricPlusClass;
 	}
 	
 	private static int currentProtocol()
