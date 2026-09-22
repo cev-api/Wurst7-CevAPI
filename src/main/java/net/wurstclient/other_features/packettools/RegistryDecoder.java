@@ -7,6 +7,7 @@
  */
 package net.wurstclient.other_features.packettools;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,7 @@ import java.util.Optional;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.sounds.SoundEvent;
@@ -35,7 +36,7 @@ import net.minecraft.core.particles.ParticleType;
  * Resolves registry IDs to human-readable names for entity types, items,
  * blocks, particles, sounds, attributes, game events, enchantments, fluids,
  * mob effects, and equipment slots. Also provides detailed Map-based decoders
- * for ItemStack, BlockState, and DataValue.
+ * for ItemStack and BlockState.
  */
 public enum RegistryDecoder
 {
@@ -208,8 +209,13 @@ public enum RegistryDecoder
 		return "ItemStack{" + sb + "}";
 	}
 	
-	/** Detailed ItemStack → Map for JSONL output. Never uses toString(). */
-	public static Map<String, Object> decodeItemStackDetailed(ItemStack stack)
+	/**
+	 * Detailed ItemStack → Map for JSONL output. Never uses toString(). The
+	 * names and lore are components, so they keep their styles and are handed
+	 * back to the caller's recursive decoder for anything they nest.
+	 */
+	public static Map<String, Object> decodeItemStackDetailed(ItemStack stack,
+		int depth, ComponentSerializer.Fallback fallback)
 	{
 		Map<String, Object> m = new LinkedHashMap<>();
 		if(stack.isEmpty())
@@ -222,8 +228,17 @@ public enum RegistryDecoder
 		m.put("count", stack.getCount());
 		m.put("displayName", stack.getHoverName().getString());
 		
+		Map<String, Object> styledName = ComponentSerializer
+			.serializeIfStyled(stack.getHoverName(), depth, fallback);
+		if(styledName != null)
+			m.put("displayNameStyled", styledName);
+		
 		if(stack.has(DataComponents.CUSTOM_NAME))
+		{
 			m.put("customName", stack.getHoverName().getString());
+			if(styledName != null)
+				m.put("customNameStyled", styledName);
+		}
 		
 		boolean damageable = stack.isDamageableItem();
 		m.put("damageable", damageable);
@@ -272,10 +287,20 @@ public enum RegistryDecoder
 			var lore = stack.get(DataComponents.LORE);
 			if(lore != null)
 			{
-				List<String> lines = new java.util.ArrayList<>();
-				for(var line : lore.lines())
+				List<Object> lines = new ArrayList<>();
+				List<Object> styledLines = new ArrayList<>();
+				boolean anyStyled = false;
+				for(Component line : lore.lines())
+				{
 					lines.add(line.getString());
+					Map<String, Object> styled = ComponentSerializer
+						.serializeIfStyled(line, depth, fallback);
+					styledLines.add(styled != null ? styled : line.getString());
+					anyStyled |= styled != null;
+				}
 				m.put("lore", lines);
+				if(anyStyled)
+					m.put("loreStyled", styledLines);
 			}
 		}
 		
@@ -343,25 +368,13 @@ public enum RegistryDecoder
 			}
 		}
 		
-		return m;
-	}
-	
-	/** Decode a DataValue, unwrapping value() to avoid toString(). */
-	public static Map<String, Object> decodeDataValue(
-		SynchedEntityData.DataValue<?> dv)
-	{
-		Map<String, Object> m = new LinkedHashMap<>();
-		m.put("id", dv.id());
-		try
-		{
-			m.put("serializer", dv.serializer().getClass().getSimpleName());
-		}catch(Exception ignored)
-		{}
-		Object val = dv.value();
-		if(val instanceof ItemStack stack)
-			m.put("value", decodeItemStackDetailed(stack));
-		else
-			m.put("value", String.valueOf(val));
+		// The raw component patch is the wire truth of the stack, so anything
+		// that is not covered by the fields above still gets logged. Container
+		// components are left out by the patch decoder because they nest items.
+		if(fallback != null && !stack.getComponentsPatch().isEmpty())
+			m.put("componentsPatch",
+				fallback.decode(stack.getComponentsPatch(), depth));
+		
 		return m;
 	}
 	

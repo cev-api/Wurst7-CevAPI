@@ -20,19 +20,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParser;
+import com.mojang.datafixers.util.Either;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundShowDialogPacket;
 import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
@@ -43,8 +49,12 @@ import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
 import net.minecraft.network.protocol.game.ClientboundUpdateAttributesPacket;
+import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.dialog.Dialog;
+import net.minecraft.util.CompilableString;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
@@ -213,6 +223,11 @@ public final class PacketDumper
 			hasSpecial = true;
 			augmentUpdateAttributes(p, f);
 		}
+		if(packet instanceof ClientboundShowDialogPacket p)
+		{
+			hasSpecial = true;
+			augmentShowDialog(p, f);
+		}
 		
 		if(hasSpecial)
 			coverage.record(packet, DecodeLevel.FULLY_DECODED);
@@ -328,7 +343,7 @@ public final class PacketDumper
 				continue;
 			String key = a.name();
 			if(!out.containsKey(key))
-				out.put(key, safeToString(value));
+				out.put(key, decode(value));
 		}
 	}
 	
@@ -433,12 +448,11 @@ public final class PacketDumper
 				if(first instanceof EquipmentSlot slot)
 					eq.put("slot", slot.name().toLowerCase());
 				else
-					eq.put("first", safeToString(first));
+					eq.put("first", decode(first));
 				if(second instanceof ItemStack stack)
-					eq.put("item",
-						RegistryDecoder.decodeItemStackDetailed(stack));
+					eq.put("item", decode(stack));
 				else
-					eq.put("item", safeToString(second));
+					eq.put("item", decode(second));
 				items.add(eq);
 			}
 		}catch(Exception ignored)
@@ -459,18 +473,12 @@ public final class PacketDumper
 				{
 					Map<String, Object> e = new LinkedHashMap<>();
 					e.put("id", dv.id());
-					try
-					{
-						e.put("serializer",
-							dv.serializer().getClass().getSimpleName());
-					}catch(Exception ignored)
-					{}
+					putSerializer(e, dv);
 					Object val = dv.value();
 					if(val instanceof ItemStack stack)
-						e.put("value",
-							RegistryDecoder.decodeItemStackDetailed(stack));
+						e.put("value", decode(stack));
 					else
-						e.put("value", safeToString(val));
+						e.put("value", decode(val));
 					e.put("valueClass",
 						val != null ? val.getClass().getSimpleName() : "null");
 					items.add(e);
@@ -486,8 +494,7 @@ public final class PacketDumper
 	{
 		try
 		{
-			f.put("_decodedItem",
-				RegistryDecoder.decodeItemStackDetailed(p.getItem()));
+			f.put("_decodedItem", decode(p.getItem()));
 		}catch(Exception ignored)
 		{}
 	}
@@ -510,7 +517,8 @@ public final class PacketDumper
 						stacks.size() - 128));
 					break;
 				}
-				items.add(RegistryDecoder.decodeItemStackDetailed(stack));
+				items.add(decodeItemStack(stack, 0,
+					new IdentityHashMap<Object, Boolean>()));
 			}
 		}catch(Exception ignored)
 		{}
@@ -527,12 +535,9 @@ public final class PacketDumper
 			for(var offer : p.getOffers())
 			{
 				Map<String, Object> o = new LinkedHashMap<>();
-				o.put("baseCostA", RegistryDecoder
-					.decodeItemStackDetailed(offer.getBaseCostA()));
-				o.put("costB",
-					RegistryDecoder.decodeItemStackDetailed(offer.getCostB()));
-				o.put("result",
-					RegistryDecoder.decodeItemStackDetailed(offer.getResult()));
+				o.put("baseCostA", decode(offer.getBaseCostA()));
+				o.put("costB", decode(offer.getCostB()));
+				o.put("result", decode(offer.getResult()));
 				o.put("uses", offer.getUses());
 				o.put("maxUses", offer.getMaxUses());
 				o.put("xp", offer.getXp());
@@ -626,6 +631,31 @@ public final class PacketDumper
 			f.put("_decodedAttributes", attrs);
 	}
 	
+	/**
+	 * Expands the shown dialog in full, so that a MultiActionDialog reports its
+	 * buttons, bodies and inputs instead of just the holder's class name.
+	 */
+	private void augmentShowDialog(ClientboundShowDialogPacket p,
+		Map<String, Object> f)
+	{
+		try
+		{
+			Holder<Dialog> holder = p.dialog();
+			if(holder == null)
+				return;
+			
+			Dialog dialog = holder.value();
+			if(dialog == null)
+				return;
+			
+			f.put("_decodedDialogType", dialog.getClass().getSimpleName());
+			f.put("_decodedDialog",
+				decodeValue(dialog, 0, new IdentityHashMap<Object, Boolean>()));
+			
+		}catch(RuntimeException ignored)
+		{}
+	}
+	
 	// ---- Recursive value decoder ----
 	
 	private static final int MAX_DEPTH = 12;
@@ -634,6 +664,13 @@ public final class PacketDumper
 	private static final int MAX_ARRAY_ITEMS = 64;
 	private static final int MAX_STRING_LENGTH = 4096;
 	private static final int MAX_BYTE_ARRAY_INLINE = 256;
+	
+	/**
+	 * {@code DataComponentPatch} exposes no public iteration, so its internal
+	 * map is read directly to report component ids instead of raw keys.
+	 */
+	private static final Field COMPONENT_PATCH_MAP =
+		findField(DataComponentPatch.class, "map");
 	
 	private static Object decodeValue(Object value, int depth,
 		IdentityHashMap<Object, Boolean> visited)
@@ -664,6 +701,10 @@ public final class PacketDumper
 		try
 		{
 			result = decodeValueInternal(value, depth, visited);
+		}catch(Exception | StackOverflowError e)
+		{
+			// Deep decoding must never break packet handling.
+			result = "_error:" + e.getClass().getSimpleName();
 		}finally
 		{
 			if(!immutable)
@@ -697,42 +738,47 @@ public final class PacketDumper
 		if(value instanceof Identifier id)
 			return id.toString();
 		if(value instanceof Component c)
-			return c.getString();
+			return ComponentSerializer.serialize(c, nextDepth,
+				(v, d) -> decodeValue(v, d, visited));
 		
 		if(value instanceof Optional<?> opt)
 			return opt.map(v -> decodeValue(v, nextDepth, visited))
 				.orElse(null);
 		
 		// Registry types
-		if(value instanceof net.minecraft.core.Holder<?> holder)
+		if(value instanceof Holder<?> holder)
+			return decodeHolder(holder, nextDepth, visited);
+		
+		if(value instanceof HolderSet<?> set)
+			return decodeHolderSet(set, nextDepth, visited);
+		
+		if(value instanceof ResourceKey<?> rk)
+			return decodeResourceKeyStr(rk);
+			
+		// Registry-backed objects (items, blocks, entity types, ...) are much
+		// more useful as their registry id than as a field dump.
+		Identifier registryName = RegistryDecoder.getRegistryNameStatic(value);
+		if(registryName != null)
+			return registryName.toString();
+			
+		// CompilableString keeps the source form a server sent, which is the
+		// part worth logging for selectors, score holders and nbt paths.
+		if(value instanceof CompilableString<?> compilable)
 		{
 			Map<String, Object> m = new LinkedHashMap<>();
-			m.put("_type", "Holder");
-			Optional<?> ko = holder.unwrapKey();
-			if(ko.isPresent() && ko
-				.get() instanceof net.minecraft.resources.ResourceKey<?> rk)
-			{
-				m.put("key", decodeResourceKeyStr(rk));
-				return m;
-			}
-			Object val = holder.value();
-			if(val != null)
-			{
-				Identifier loc = RegistryDecoder.getRegistryNameStatic(val);
-				if(loc != null)
-					m.put("value", loc.toString());
-				else
-					m.put("value", val.getClass().getSimpleName());
-			}
+			m.put("_type", "CompilableString");
+			m.put("source", compilable.source());
 			return m;
 		}
 		
-		if(value instanceof net.minecraft.resources.ResourceKey<?> rk)
-			return decodeResourceKeyStr(rk);
-		
 		// DataValue
 		if(value instanceof SynchedEntityData.DataValue<?> dv)
-			return RegistryDecoder.decodeDataValue(dv);
+			return decodeDataValue(dv, nextDepth, visited);
+			
+		// Either still has to pick a side, otherwise both would be logged as
+		// optionals.
+		if(value instanceof Either<?, ?> either)
+			return decodeEither(either, nextDepth, visited);
 		
 		// Pair
 		String cn = value.getClass().getName();
@@ -751,8 +797,7 @@ public final class PacketDumper
 					m.put("slot", slot.name().toLowerCase());
 				m.put("first", decodeValue(first, nextDepth, visited));
 				if(second instanceof ItemStack stack)
-					m.put("item",
-						RegistryDecoder.decodeItemStackDetailed(stack));
+					m.put("item", decodeItemStack(stack, nextDepth, visited));
 				m.put("second", decodeValue(second, nextDepth, visited));
 			}catch(Exception e)
 			{
@@ -772,7 +817,7 @@ public final class PacketDumper
 		
 		// ItemStack
 		if(value instanceof ItemStack stack)
-			return RegistryDecoder.decodeItemStackDetailed(stack);
+			return decodeItemStack(stack, nextDepth, visited);
 			
 		// MapItemSavedData contains the world center and the complete 128x128
 		// color buffer. Do not use the normal collection/array limits here.
@@ -812,13 +857,6 @@ public final class PacketDumper
 			{}
 			return m;
 		}
-		
-		// Strongly-encapsulated JDK types should not be reflectively opened.
-		// Fall back to their string form so packet dumps stay usable on Java
-		// 25.
-		if(cn.startsWith("java.") || cn.startsWith("javax.")
-			|| cn.startsWith("jdk."))
-			return value.toString();
 		
 		// Property
 		if(cn.equals("com.mojang.authlib.properties.Property"))
@@ -865,6 +903,10 @@ public final class PacketDumper
 			}
 			return m;
 		}
+		
+		// DataComponentPatch
+		if(value instanceof DataComponentPatch patch)
+			return decodeComponentPatch(patch, nextDepth, visited);
 		
 		// Collections
 		if(value instanceof Collection<?> col)
@@ -957,6 +999,14 @@ public final class PacketDumper
 			return list;
 		}
 		
+		// Strongly-encapsulated JDK types should not be reflectively opened.
+		// Fall back to their string form so packet dumps stay usable on Java
+		// 25. Collections, maps and arrays are decoded above this point, so
+		// only opaque JDK objects end up here.
+		if(cn.startsWith("java.") || cn.startsWith("javax.")
+			|| cn.startsWith("jdk."))
+			return value.toString();
+		
 		// Try RegistryDecoder string fallback
 		String decoded = RegistryDecoder.decode(value);
 		if(decoded != null)
@@ -985,8 +1035,257 @@ public final class PacketDumper
 		}
 	}
 	
-	private static String decodeResourceKeyStr(
-		net.minecraft.resources.ResourceKey<?> key)
+	/**
+	 * Decodes a Holder. Values that resolve to a registry name (items, blocks,
+	 * entity types, ...) stay short so packet dumps remain readable, while
+	 * values that only exist inline - dialogs, for example - are decoded in
+	 * full instead of being reduced to a class name.
+	 */
+	private static Map<String, Object> decodeHolder(Holder<?> holder, int depth,
+		IdentityHashMap<Object, Boolean> visited)
+	{
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_type", "Holder");
+		
+		Optional<?> keyOpt = holder.unwrapKey();
+		if(keyOpt.isPresent() && keyOpt.get() instanceof ResourceKey<?> key)
+			m.put("key", decodeResourceKeyStr(key));
+		
+		Object val;
+		try
+		{
+			val = holder.value();
+		}catch(RuntimeException e)
+		{
+			// An unbound registry reference must not abort the dump.
+			return m;
+		}
+		if(val == null)
+			return m;
+		
+		Identifier loc = RegistryDecoder.getRegistryNameStatic(val);
+		if(loc != null)
+		{
+			m.put("value", loc.toString());
+			return m;
+		}
+		
+		m.put("valueClass", val.getClass().getSimpleName());
+		m.put("value", decodeValue(val, depth, visited));
+		return m;
+	}
+	
+	private static Map<String, Object> decodeHolderSet(HolderSet<?> set,
+		int depth, IdentityHashMap<Object, Boolean> visited)
+	{
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_type", "HolderSet");
+		
+		try
+		{
+			set.unwrapKey()
+				.ifPresent(tag -> m.put("tag", tag.location().toString()));
+		}catch(RuntimeException ignored)
+		{}
+		
+		List<Object> elements = new ArrayList<>();
+		try
+		{
+			int count = 0;
+			for(Holder<?> holder : set)
+			{
+				if(count++ >= MAX_COLLECTION_ITEMS)
+				{
+					m.put("_truncated", true);
+					break;
+				}
+				elements.add(decodeValue(holder, depth, visited));
+			}
+		}catch(RuntimeException ignored)
+		{}
+		m.put("elements", elements);
+		return m;
+	}
+	
+	private static Map<String, Object> decodeComponentPatch(
+		DataComponentPatch patch, int depth,
+		IdentityHashMap<Object, Boolean> visited)
+	{
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_type", "DataComponentPatch");
+		if(COMPONENT_PATCH_MAP == null)
+			return m;
+		
+		try
+		{
+			Object raw = COMPONENT_PATCH_MAP.get(patch);
+			if(!(raw instanceof Map<?, ?> map))
+				return m;
+			
+			int count = 0;
+			for(Map.Entry<?, ?> e : map.entrySet())
+			{
+				if(count++ >= MAX_MAP_ENTRIES)
+				{
+					m.put("_truncated", true);
+					break;
+				}
+				
+				String id = componentId(e.getKey());
+				if(OPAQUE_COMPONENTS.contains(id))
+					m.put(id, describeOpaque(e.getValue()));
+				else
+					m.put(id,
+						decodeComponentValue(e.getValue(), depth, visited));
+			}
+			
+		}catch(ReflectiveOperationException | RuntimeException ignored)
+		{}
+		return m;
+	}
+	
+	/**
+	 * Item containers nest further item stacks, so expanding them would turn a
+	 * single container packet into an unbounded tree. The component is reported
+	 * without its contents instead.
+	 */
+	private static final Set<String> OPAQUE_COMPONENTS =
+		Set.of("minecraft:container", "minecraft:bundle_contents",
+			"minecraft:charged_projectiles");
+	
+	private static Object describeOpaque(Object rawValue)
+	{
+		if(isRemovedMarker(rawValue))
+			return "_removed";
+		
+		Object value =
+			rawValue instanceof Optional<?> opt ? opt.orElse(null) : rawValue;
+		if(value == null)
+			return "_opaque";
+		
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_opaque", "nested items are not expanded");
+		m.put("class", value.getClass().getSimpleName());
+		return m;
+	}
+	
+	private static String componentId(Object type)
+	{
+		if(type instanceof DataComponentType<?> componentType)
+		{
+			Identifier loc =
+				BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(componentType);
+			if(loc != null)
+				return loc.toString();
+		}
+		return String.valueOf(type);
+	}
+	
+	/**
+	 * A patch entry is either an empty optional or the package-private
+	 * {@code Removed} marker when the component was stripped.
+	 */
+	private static boolean isRemovedMarker(Object value)
+	{
+		if(value instanceof Optional<?> opt)
+			return opt.isEmpty();
+		return value != null && value.getClass().getName()
+			.equals("net.minecraft.core.component.Removed");
+	}
+	
+	/** A patch entry that is empty means the component was removed. */
+	private static Object decodeComponentValue(Object value, int depth,
+		IdentityHashMap<Object, Boolean> visited)
+	{
+		if(isRemovedMarker(value))
+			return "_removed";
+		return decodeValue(value, depth, visited);
+	}
+	
+	/**
+	 * Entity data carries components, item stacks and nbt, so the value goes
+	 * through the recursive decoder rather than through toString().
+	 */
+	private static Map<String, Object> decodeDataValue(
+		SynchedEntityData.DataValue<?> dv, int depth,
+		IdentityHashMap<Object, Boolean> visited)
+	{
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_type", "DataValue");
+		m.put("id", dv.id());
+		putSerializer(m, dv);
+		
+		Object value = dv.value();
+		m.put("valueClass",
+			value != null ? value.getClass().getSimpleName() : "null");
+		m.put("value", decodeValue(value, depth, visited));
+		return m;
+	}
+	
+	/**
+	 * Serializers are usually lambdas, so the registry id is the only stable
+	 * way to name one.
+	 */
+	private static void putSerializer(Map<String, Object> m,
+		SynchedEntityData.DataValue<?> dv)
+	{
+		try
+		{
+			m.put("serializerId",
+				EntityDataSerializers.getSerializedId(dv.serializer()));
+		}catch(RuntimeException ignored)
+		{}
+		
+		try
+		{
+			String name = dv.serializer().getClass().getSimpleName();
+			if(!name.isEmpty() && !name.contains("$$Lambda"))
+				m.put("serializer", name);
+		}catch(RuntimeException ignored)
+		{}
+	}
+	
+	private static Map<String, Object> decodeEither(Either<?, ?> either,
+		int depth, IdentityHashMap<Object, Boolean> visited)
+	{
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("_type", "Either");
+		
+		Optional<?> left = either.left();
+		if(left.isPresent())
+			m.put("left", decodeValue(left.get(), depth, visited));
+		else
+			m.put("right",
+				decodeValue(either.right().orElse(null), depth, visited));
+		return m;
+	}
+	
+	/**
+	 * Decodes an item stack with its names, lore, component patch and every
+	 * other detail, all of which can hold recursively styled text.
+	 */
+	private static Map<String, Object> decodeItemStack(ItemStack stack,
+		int depth, IdentityHashMap<Object, Boolean> visited)
+	{
+		return RegistryDecoder.decodeItemStackDetailed(stack, depth,
+			(v, d) -> decodeValue(v, d, visited));
+	}
+	
+	private static Field findField(Class<?> clazz, String name)
+	{
+		try
+		{
+			Field field = clazz.getDeclaredField(name);
+			field.setAccessible(true);
+			return field;
+			
+		}catch(ReflectiveOperationException e)
+		{
+			return null;
+		}
+	}
+	
+	private static String decodeResourceKeyStr(ResourceKey<?> key)
 	{
 		Identifier loc = key.identifier();
 		Identifier registry = key.registry();
@@ -1083,6 +1382,8 @@ public final class PacketDumper
 					continue;
 				if(field.isSynthetic())
 					continue;
+				if(isSerializerNoise(field.getName()))
+					continue;
 				field.setAccessible(true);
 				try
 				{
@@ -1111,6 +1412,8 @@ public final class PacketDumper
 				if(name.equals("toString") || name.equals("hashCode")
 					|| name.equals("equals"))
 					continue;
+				if(isSerializerNoise(name) || out.containsKey(name))
+					continue;
 				try
 				{
 					out.put(name,
@@ -1121,6 +1424,13 @@ public final class PacketDumper
 		}
 		
 		return fc > 0 ? out : null;
+	}
+	
+	/** Codec accessors only expose singletons and add no packet detail. */
+	private static boolean isSerializerNoise(String name)
+	{
+		return name.endsWith("codec") || name.endsWith("Codec")
+			|| name.equals("compressors");
 	}
 	
 	private static Map<String, Object> decodeMapItemSavedData(
@@ -1154,7 +1464,11 @@ public final class PacketDumper
 	
 	// ---- Entry point ----
 	
-	private static Object safeToString(Object value)
+	/**
+	 * Decodes a single value outside of a recursive walk, for the augmenters
+	 * that build their own maps.
+	 */
+	private static Object decode(Object value)
 	{
 		return decodeValue(value, 0, new IdentityHashMap<Object, Boolean>());
 	}

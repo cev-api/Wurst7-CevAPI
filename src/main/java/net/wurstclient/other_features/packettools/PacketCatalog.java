@@ -16,11 +16,25 @@ import java.util.TreeSet;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.PacketType;
+import net.minecraft.network.protocol.common.CommonPacketTypes;
+import net.minecraft.network.protocol.configuration.ConfigurationPacketTypes;
+import net.minecraft.network.protocol.cookie.CookiePacketTypes;
 import net.minecraft.network.protocol.game.GamePacketTypes;
+import net.minecraft.network.protocol.handshake.HandshakePacketTypes;
+import net.minecraft.network.protocol.login.LoginPacketTypes;
 
 public enum PacketCatalog
 {
 	;
+	
+	/**
+	 * Every registry that holds packets of a client session, so that common
+	 * packets like the shown dialog are selectable too.
+	 */
+	private static final Class<?>[] TYPE_REGISTRIES =
+		{GamePacketTypes.class, CommonPacketTypes.class,
+			ConfigurationPacketTypes.class, CookiePacketTypes.class,
+			LoginPacketTypes.class, HandshakePacketTypes.class};
 	
 	private static final Set<String> S2C =
 		new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -75,9 +89,15 @@ public enum PacketCatalog
 	
 	private static void scanPacketTypes()
 	{
+		for(Class<?> registry : TYPE_REGISTRIES)
+			scanPacketTypeRegistry(registry);
+	}
+	
+	private static void scanPacketTypeRegistry(Class<?> registry)
+	{
 		try
 		{
-			for(Field field : GamePacketTypes.class.getDeclaredFields())
+			for(Field field : registry.getDeclaredFields())
 			{
 				if(!Modifier.isStatic(field.getModifiers()))
 					continue;
