@@ -38,6 +38,23 @@ public abstract class ConnectionMixin
 	private ConcurrentLinkedQueue<ConnectionPacketOutputEvent> events =
 		new ConcurrentLinkedQueue<>();
 	
+	/**
+	 * Since MC 26.3, servers reject multiple position packets in a single
+	 * client tick. This is the lowest point where the packets that are really
+	 * about to be written can be seen, meaning this runs after the packet
+	 * output event has had its chance to modify or cancel them. The fix for
+	 * that is implemented by {@link MovementPacketCompat}.
+	 */
+	@Inject(
+		method = "doSendPacket(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V",
+		at = @At("HEAD"))
+	private void onDoSendPacket(Packet<?> packet,
+		@Nullable ChannelFutureListener listener, boolean flush,
+		CallbackInfo ci)
+	{
+		MovementPacketCompat.beforePacketSend((Connection)(Object)this, packet);
+	}
+	
 	@Inject(
 		method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
 		at = @At("HEAD"))
@@ -157,8 +174,6 @@ public abstract class ConnectionMixin
 			
 			events.remove(event);
 		}
-		
-		MovementPacketCompat.beforePacketSend((Connection)(Object)this, packet);
 	}
 	
 	@Inject(method = "disconnect(Lnet/minecraft/network/chat/Component;)V",
