@@ -1,1 +1,2 @@
 9d79832ba|26.3|skipped: full 26.3 API migration (GLFW->InputConstants, GuiGraphicsExtractor, contextual input events). Not applicable to 1.21.11.
+b2ca3f582|Fix outdated mixin names|skipped: purely cosmetic renames of mixin callback method names to match 26.x target names; no functional change and would churn our 1.21.11 mixins.
